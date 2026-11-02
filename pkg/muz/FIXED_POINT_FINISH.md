@@ -40,6 +40,9 @@ Each completed item needs source paths, implementation/test evidence and a commi
       - [x] Preserve the source NNF distinction between caller cancellation and resource-limit exhaustion in the fixedpoint preprocessing path.
       - [ ] Verify independent cleanup-error transport/continuation after owner transfer.
     - [ ] Close Spacer expression-query property/statistics propagation and complete model/proof validation for both engines.
+      - [ ] Transfer pre-query Spacer covers to the expression-query context, route later property access to the active clone and verify stale-frame rejection.
+      - [ ] Complete dense allocation/cancellation scans through success, with preserved owners, retry and zero-budget disposal.
+      - [ ] Forward live Spacer expression-query statistics and preserve cumulative counters across clone disposal/reset.
 - [ ] Verify parameter defaults, aliases, updates and engine selection against `fixedpoint_params.hpp` and engine registration.
 - [ ] Close SMT-LIB/Datalog command parsing, error reporting, query state and exported result/proof/model contracts.
   - [x] Preserve source pop rejection after pre-query PDR/QPDR/Spacer context instantiation; verify an uninstantiated scope can still pop.
@@ -350,3 +353,6 @@ Source comparison arity/type preconditions are enforced by AST construction/acce
 
 - 2026-11-02 — Spacer expression-query allocation scanning exposed virtual-solver teardown that can refuse allocation while asserting its disabled guard. Preserve the guard/assertion roots on refusal and mark that view as closing; its owning manager/factory resumes only closes that were explicitly requested, while still rejecting ordinary live views. Reject new checks on a closing view and make Manager.Close repeatable after successful disposal. The direct regression fills real shared views until guard disabling needs storage, refuses that allocation, verifies the live guard and rejected new work, then closes through the registry. Broader expression-query work is in progress; its allocation scan has reached a separate rule-normalization leak and is not yet green.
   Validation: `go -C pkg test ./muz/spacer -run '^TestSpacerManagerResumesRefusedVirtualSolverClose$' -count=1` passed. Commit title: `Resume Spacer virtual solver cleanup after allocation refusal`.
+
+- 2026-11-02 — Spacer's expression-query allocation scan exposed an interrupted SMT assertion preprocessor being reused with unfinished rewrite frames. Assertion submission has no resume contract; failed rewriting now flushes that traversal and restores the borrowed asserted substitution before retry/teardown. The scan reproduced a teardown AST precondition failure at allocation allowance 1359 before this correction, then advanced beyond it. The separate Spacer result-owner corrections also allow the complete dense expression-query allocation scan to pass in the pending integration batch.
+  Validation: `go -C pkg test ./smtcore -run 'TestSMTAssert' -short -count=1` passed, and the dense Spacer expression-query allocation scan passed through its first success. Commit title: `Reset interrupted SMT assertion preprocessing before reuse`.

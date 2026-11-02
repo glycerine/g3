@@ -206,7 +206,10 @@ func (k *SMTKernel) preprocessAssertion(formula, proof ast.ASTHandle) (result, r
 		err = k.preprocessor.Rewrite(formula, resultRef)
 	}
 	if err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
+		// A failed rewrite can leave resumable frames. Assertion submission
+		// does not expose Resume, so discard that traversal before retry or
+		// teardown while restoring the borrowed assertion substitution.
+		return ast.ASTHandle{}, ast.ASTHandle{}, errors.Join(err, k.flushAssertedCache())
 	}
 	result, err = k.manager.RefGet(resultRef)
 	if err != nil {
