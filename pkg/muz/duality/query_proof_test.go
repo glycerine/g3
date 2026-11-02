@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/proofs"
 	"github.com/glycerine/g3/pkg/cmd_context"
+	graph "github.com/glycerine/g3/pkg/duality"
 	"github.com/glycerine/g3/pkg/muz/duality"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -253,4 +254,106 @@ func TestDualityProofQuantifiedNonlinearAndRepeatedPremises(t *testing.T) {
 	validateDualityProof(t, m, config, proof)
 	validateDualityProof(t, m, config, witnessProof)
 	validateDualityProof(t, m, config, intProof)
+}
+
+func TestDualityBackgroundProofExplicitConjunctPremises(t *testing.T) {
+	owner, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer owner.Close()
+	m, err := owner.Manager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := owner.SolverTranslationConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend, err := duality.NewBackend(m, config, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer backend.Close()
+	var refs []ast.ASTRef
+	defer func() {
+		for i := range refs {
+			if err := m.DelRef(&refs[i]); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}()
+	pin := func(h ast.ASTHandle, err error) ast.ASTHandle {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := m.NewRef(h)
+		if err != nil {
+			t.Fatal(err)
+		}
+		refs = append(refs, r)
+		return h
+	}
+	seven := pin(m.ArithmeticNumeralRat(big.NewRat(7, 1), true))
+	integer := pin(m.GetSort(seven))
+	boolean := pin(m.MkBoolSort())
+	kn, err := m.Symbols.Intern("background-proof-k")
+	if err != nil {
+		t.Fatal(err)
+	}
+	k := pin(m.MkConst(kn, integer))
+
+	equality := pin(m.MkEq(k, seven))
+	gn, err := m.Symbols.Intern("background-proof-Goal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gd := pin(m.MkFuncDecl(gn, nil, boolean, ast.ASTFuncDeclInfo{}))
+	goal := pin(m.MkApp(gd, nil))
+	rule := pin(m.MkImplies(equality, goal))
+	truth := pin(m.MkTrue())
+	background := pin(m.MkAnd(truth, equality))
+	prepared, err := duality.PrepareQuery(m, []ast.ASTHandle{rule}, []uint32{math.MaxUint32}, goal, []ast.ASTHandle{gd}, math.MaxUint32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer prepared.Close()
+	if err := prepared.AddBackground(background); err != nil {
+		t.Fatal(err)
+	}
+	status, err := backend.Query(prepared)
+	if err != nil || status != lbool.True {
+		t.Fatal(status, err)
+	}
+	proof, err := backend.GetProof()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := m.DelRef(&proof); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	validateDualityProof(t, m, config, proof)
+	unrelated, err := duality.PrepareQuery(m, []ast.ASTHandle{rule}, []uint32{math.MaxUint32}, goal, []ast.ASTHandle{gd}, math.MaxUint32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unrelated.Close()
+	if err := unrelated.AddBackground(truth); err != nil {
+		t.Fatal(err)
+	}
+	status, err = backend.Query(unrelated)
+	if err != nil || status != lbool.True {
+		t.Fatal(status, err)
+	}
+	if rejected, err := backend.GetProof(); rejected != (ast.ASTRef{}) || !errors.Is(err, graph.ErrProofWitness) {
+		t.Fatal("unjustified theory dependency accepted", rejected, err)
+	}
+	validateDualityProof(t, m, config, proof)
+	if err := backend.Close(); err != nil {
+		t.Fatal(err)
+	}
+	validateDualityProof(t, m, config, proof)
 }

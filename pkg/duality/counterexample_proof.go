@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/solver"
 )
 
@@ -13,7 +14,7 @@ import (
 // Original clauses and evaluated substitutions are copied into the proof, so
 // the returned reference survives counterexample and backend destruction.
 // The borrowed factory reconstructs witnesses removed by preprocessing.
-func (c *Counterexample) Proof(factory solver.Factory) (out ast.ASTRef, result error) {
+func (c *Counterexample) Proof(factory solver.Factory, background ...*Expr) (out ast.ASTRef, result error) {
 	if err := c.open(); err != nil {
 		return out, err
 	}
@@ -37,7 +38,7 @@ func (c *Counterexample) Proof(factory solver.Factory) (out ast.ASTRef, result e
 			result = errors.Join(result, m.DelRef(&out))
 		}
 	}()
-	return c.tree.extractCounterexampleProof(c.root, make(map[*Node]bool), factory)
+	return c.tree.extractCounterexampleProof(c.root, make(map[*Node]bool), factory, background...)
 }
 
 func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, factory solver.Factory, background ...*Expr) (out ast.ASTRef, result error) {
@@ -192,6 +193,76 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 			substitutions[0][i], err = m.RefGet(value)
 			if err != nil {
 				return out, err
+			}
+		}
+	}
+
+	if len(background) > 0 {
+		instantiated := clause
+		if len(substitutions[0]) > 0 {
+			sub, err := rewriter.NewVarSubstitution(m, false)
+			if err != nil {
+				return out, err
+			}
+			defer func() { result = errors.Join(result, sub.Close()) }()
+			ref, err := m.NewRef(ast.ASTHandle{})
+			if err != nil {
+				return out, err
+			}
+			refs = append(refs, ref)
+			if err := sub.Substitute(clause, substitutions[0], ref); err != nil {
+				return out, err
+			}
+			instantiated, err = m.RefGet(ref)
+			if err != nil {
+				return out, err
+			}
+		}
+		backgroundProofs, err := g.backgroundLiteralProofs(background, &refs)
+		if err != nil {
+			return out, err
+		}
+		family, err := m.GetFamilyID(instantiated)
+		if err != nil {
+			return out, err
+		}
+		op, err := m.GetDeclKind(instantiated)
+		if err != nil {
+			return out, err
+		}
+		if family == m.BasicFamilyID() && op == ast.ASTOpImplies {
+			body, err := m.GetArg(instantiated, 0)
+			if err != nil {
+				return out, err
+			}
+			atoms := []ast.ASTHandle{body}
+			family, err = m.GetFamilyID(body)
+			if err != nil {
+				return out, err
+			}
+			op, err = m.GetDeclKind(body)
+			if err != nil {
+				return out, err
+			}
+			if family == m.BasicFamilyID() && op == ast.ASTOpAnd {
+				n, err := m.GetNumArgs(body)
+				if err != nil {
+					return out, err
+				}
+				atoms = make([]ast.ASTHandle, n)
+				for i := range atoms {
+					atoms[i], err = m.GetArg(body, uint32(i))
+					if err != nil {
+						return out, err
+					}
+				}
+			}
+			for i, atom := range atoms {
+				if proof, ok := backgroundProofs[atom]; ok {
+					premises = append(premises, proof)
+					substitutions = append(substitutions, nil)
+					resolved = append(resolved, ast.ASTProofPosition{First: uint32(i + 1), Second: 0})
+				}
 			}
 		}
 	}

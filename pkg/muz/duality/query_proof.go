@@ -1,7 +1,9 @@
 package duality
 
 import (
+	"errors"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/proofs"
 	graph "github.com/glycerine/g3/pkg/duality"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -22,10 +24,19 @@ func (e *QueryEngine) GetProof() (ast.ASTRef, error) {
 		}
 		return m.NewRef(ast.ASTHandle{})
 	}
-	if len(e.active.background) > 0 || len(e.config.Theory) > 0 {
-		return ast.ASTRef{}, graph.ErrProofWitness
+	background := append([]*graph.Expr(nil), e.config.Theory...)
+	background = append(background, e.active.background...)
+	proof, err := e.active.engine.GetCounterexample().Proof(e.config.Factory, background...)
+	if err != nil {
+		return ast.ASTRef{}, err
 	}
-	return e.active.engine.GetCounterexample().Proof(e.config.Factory)
+	if len(background) > 0 {
+		if err := e.validateBackgroundProof(proof); err != nil {
+			m, _ := e.context.Manager()
+			return ast.ASTRef{}, errors.Join(err, m.DelRef(&proof))
+		}
+	}
+	return proof, nil
 }
 
 func (b *Backend) GetProof() (ast.ASTRef, error) {
@@ -33,4 +44,58 @@ func (b *Backend) GetProof() (ast.ASTRef, error) {
 		return ast.ASTRef{}, err
 	}
 	return b.queries.GetProof()
+}
+
+// Validate every logical proof-checker obligation without supplying background
+// assertions to the checker solver: those dependencies must appear as explicit
+// proof premises, not as hidden context.
+func (e *QueryEngine) validateBackgroundProof(proof ast.ASTRef) (result error) {
+	m, err := e.context.Manager()
+	if err != nil {
+		return err
+	}
+	h, err := m.RefGet(proof)
+	if err != nil {
+		return err
+	}
+	checker, err := proofs.NewChecker(m)
+	if err != nil {
+		return err
+	}
+	valid, side, err := checker.Check(h)
+	defer func() { result = errors.Join(result, checker.ReleaseSideConditions(side)) }()
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return graph.ErrProofWitness
+	}
+	native, err := e.config.Factory.New(m, nil, false, false, false, "")
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, native.Close()) }()
+	for _, condition := range side {
+		if err := native.Push(); err != nil {
+			return err
+		}
+		negated, err := m.MkNot(condition)
+		if err != nil {
+			return err
+		}
+		if err := native.Assert(negated); err != nil {
+			return err
+		}
+		status, err := native.CheckSat(nil)
+		if err != nil {
+			return err
+		}
+		if err := native.Pop(1); err != nil {
+			return err
+		}
+		if status != lbool.False {
+			return graph.ErrProofWitness
+		}
+	}
+	return nil
 }
