@@ -89430,6 +89430,12 @@
       "ownership_audited": true,
       "methods": [
         {
+          "name": "PDR preprocessing model-ledger and proof-only cleanup preserves owners and predicate mappings across native AST execution-guard refusal and supports retry",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/horn_preprocess_pending_test.go"],
+          "tests": ["TestHornPreprocessClosePreservesPendingRuleAndProofOwners"]
+        },
+        {
           "name": "PDR/Spacer engine selection, fixedpoint PDR Farkas/generalizer/UTVPI/search/flexible-trace/cache/context-limit parameter forwarding, parameter-update context invalidation, finalized rule-set and command-background handoff, original-rule subsumption and configuration-revision-guarded context reuse and lbool solve dispatch (pdr_dl_interface.cpp:84-173)",
           "status": "ported",
           "go_target": "pkg/muz/fp/pdr_engine.go",

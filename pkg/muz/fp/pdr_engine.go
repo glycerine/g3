@@ -102,9 +102,14 @@ func (e *PropositionalEngine) pdrPredicate(declaration ast.ASTHandle) ast.ASTHan
 }
 
 func (e *PropositionalEngine) clearPDRPreprocessing() error {
-	result := closeHornModelConversions(e.pdrConversions)
+	if err := closeHornModelConversions(e.pdrConversions); err != nil {
+		return err
+	}
+	e.pdrConversions = nil
 	if e.pdrProof != (ast.ASTRef{}) {
-		result = errors.Join(result, e.manager.DelRef(&e.pdrProof))
+		if err := e.manager.DelRef(&e.pdrProof); err != nil {
+			return err
+		}
 	}
 	e.pdrSliceProof = false
 	e.pdrDerived = nil
@@ -117,7 +122,7 @@ func (e *PropositionalEngine) clearPDRPreprocessing() error {
 	e.pdrMagic = nil
 	e.pdrKarr = nil
 	e.pdrConversions = nil
-	return result
+	return nil
 }
 
 func (e *PropositionalEngine) installPDRPreprocessing(result *hornPreprocessResult) {

@@ -23,10 +23,20 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 	budget := arena.NewBudget(1 << 28)
 	var result, conversionResult *hornPreprocessResult
 	var coneSteps []transforms.ConeModelStep
+	var backend, proofBackend *PropositionalEngine
 	active, callbacks, intact := false, 0, true
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
 		if active {
 			callbacks++
+			for _, target := range []*PropositionalEngine{backend, proofBackend} {
+				pdrProof := target.pdrProof
+				conversions := len(target.pdrConversions)
+				for i := 0; i < 2; i++ {
+					cause := target.clearPDRPreprocessing()
+					intact = intact && errors.Is(cause, ast.ErrASTPending) && target.pdrProof == pdrProof && len(target.pdrConversions) == conversions && len(target.pdrPredicates) == 1
+				}
+			}
+
 			coneErr := transforms.CloseConeModelSteps(coneSteps)
 			intact = intact && errors.Is(coneErr, ast.ErrASTPending)
 			for _, step := range coneSteps {
@@ -99,7 +109,7 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 	must(err)
 	ga, err := m.MkApp(goal, nil)
 	must(err)
-	var original ast.ASTHandle
+	var original, originalProof ast.ASTHandle
 	for i, spec := range []struct {
 		head ast.ASTHandle
 		tail []ast.ASTHandle
@@ -113,6 +123,7 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 			if !found {
 				t.Fatal("missing original proof")
 			}
+			originalProof = proof
 			original, e = m.GetProofFact(proof)
 			must(e)
 		}
@@ -172,6 +183,31 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 	}
 	result = &hornPreprocessResult{rules: set, sliceProof: plugin.TakeProofConverter(), slicedPredicates: map[ast.ASTHandle]ast.ASTHandle{p: derived}, modelConversions: []hornModelConversion{{kind: hornConvertSlice}}}
 	must(transformer.Close())
+	ledgerPlugin := transforms.NewRuleInlinerPlugin(m, rules, []ast.ASTHandle{goal}, 1)
+	ledgerSet, e := ledgerPlugin.Transform(set)
+	must(e)
+	if ledgerSet == nil {
+		t.Fatal("missing backend model conversion")
+	}
+	ledgerRules, e := ledgerPlugin.TakeModelRules()
+	must(e)
+	if len(ledgerRules) == 0 {
+		t.Fatal("missing backend model roots")
+	}
+	defer func() { must(transforms.CloseInlineModelRules(ledgerRules)) }()
+	must(ledgerSet.Close())
+	must(ledgerPlugin.Close())
+	backend = &PropositionalEngine{manager: m}
+	backend.installPDRPreprocessing(&hornPreprocessResult{slicedPredicates: map[ast.ASTHandle]ast.ASTHandle{p: derived}, modelConversions: []hornModelConversion{{kind: hornConvertInline, inline: ledgerRules}}})
+	backend.pdrProof, err = m.NewRef(originalProof)
+	must(err)
+	defer func() { must(backend.clearPDRPreprocessing()) }()
+	proofBackend = &PropositionalEngine{manager: m}
+	proofBackend.installPDRPreprocessing(&hornPreprocessResult{slicedPredicates: map[ast.ASTHandle]ast.ASTHandle{p: derived}})
+	proofBackend.pdrProof, err = m.NewRef(originalProof)
+	must(err)
+	defer func() { must(proofBackend.clearPDRPreprocessing()) }()
+
 	if result.sliceProof == nil {
 		t.Fatal("missing slice converter")
 	}
@@ -188,6 +224,28 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 	must(m.CleanupArithmeticNumeralInvocation(&invocation))
 	if body == nil || callbacks == 0 || !intact {
 		t.Fatal("pending preprocessing close discarded owners", body, callbacks, intact)
+	}
+	preserved, e := m.RefGet(backend.pdrProof)
+	must(e)
+	factBefore, e := m.GetProofFact(preserved)
+	must(e)
+	if factBefore != original || backend.pdrPredicate(p) != derived {
+		t.Fatal("refused PDR cleanup changed proof or predicate mapping")
+	}
+	preservedProof, e := m.RefGet(proofBackend.pdrProof)
+	must(e)
+	if preservedProof != originalProof || proofBackend.pdrPredicate(p) != derived {
+		t.Fatal("refused proof-only cleanup changed proof or predicate mapping")
+	}
+	must(proofBackend.clearPDRPreprocessing())
+	must(proofBackend.clearPDRPreprocessing())
+	if proofBackend.pdrProof != (ast.ASTRef{}) || proofBackend.pdrPredicates != nil {
+		t.Fatal("proof-only cleanup retry did not retire owners")
+	}
+	must(backend.clearPDRPreprocessing())
+	must(backend.clearPDRPreprocessing())
+	if backend.pdrProof != (ast.ASTRef{}) || backend.pdrConversions != nil || backend.pdrPredicates != nil {
+		t.Fatal("PDR cleanup retry did not retire owners")
 	}
 	if got := result.takeModelConversions(); got != nil || len(result.modelConversions) != 1 {
 		t.Fatal("closing owner published model conversions")
