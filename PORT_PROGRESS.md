@@ -53525,3 +53525,5 @@ Pseudo-Boolean rewriter scope assertions: Pop now gates the source pending-lemma
 The scope assertion regression also checks the exact C++ diagnostic sites when built with g3debug; its ordinary-build branch passed locally, and the tagged branch was left for the user's background run.
 
 Pseudo-Boolean totalizer overflow: checked the sum of unsigned coefficients before accumulation so sums beyond uint32 use the existing bit-vector encoding instead of wrapping and incorrectly folding the constraint to true. A public Rewrite regression reproduces the former failure on 4294967295*a+b<=1 and verifies the exact result not(a). Focused native PB2BV tests pass; no tagged suite was run.
+
+Weighted sorting overflow: preflight the coefficient sum before mixed-radix network construction and use the existing BV encoding if uint32 cannot represent the sum. The public Rewrite regression first accepted an invalid assignment for 4294967295*a+2*b<=1; all four Boolean assignments now match the independent expected result. The complete focused PB2BV tests pass without additional build tags.

@@ -3,6 +3,7 @@ package rewriter
 // Source: src/ast/rewriter/pb2bv_rewriter.cpp mk_ge/mk_le/mk_eq.
 
 import (
+	"math"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -13,14 +14,19 @@ func (r *PB2BVRewriter) sortingProfile(mode pb2BVComparison, args []ast.ASTHandl
 	if !ok {
 		return ast.ASTHandle{}, false, nil
 	}
+	var sum uint32
+	for _, weight := range weights {
+		if weight > math.MaxUint32-sum {
+			return ast.ASTHandle{}, false, nil
+		}
+		sum += weight
+	}
 	switch mode {
 	case pb2BVGE:
 		return r.sortingGE(args, weights, k)
 	case pb2BVLE:
-		var sum uint32
 		negated := make([]ast.ASTHandle, len(args))
 		for i, h := range args {
-			sum += weights[i]
 			var e error
 			negated[i], e = r.negate(h)
 			if e != nil {
