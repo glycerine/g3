@@ -558,9 +558,8 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 			return lbool.Undef, fmt.Errorf("muz/fp: negation is not stratified")
 		}
 	}
-	if err = e.normalizeSimpleJoins(); err != nil {
-		return lbool.Undef, err
-	}
+	// Spacer uses apply_default_transformation, not rel_context's filter/
+	// simple-join pipeline; its predicate transformers handle full Horn tails.
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}

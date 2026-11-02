@@ -89350,7 +89350,7 @@
       "path": "src/muz/pdr/pdr_dl_interface.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/fp/pdr_engine.go",
         "pkg/muz/fp/query_expression.go",
@@ -89438,9 +89438,16 @@
           "text": "SASSERT(pred);"
         }
       ],
-      "methods_audited": true,
+      "methods_audited": false,
       "ownership_audited": true,
       "methods": [
+        {
+          "name": "PDR source query preprocessing uses apply_default_transformation; the Go query path still invokes relational normalizeSimpleJoins and needs an independent original-rule-set/export regression before closure",
+          "status": "partial",
+          "go_target": "pkg/muz/fp/pdr_engine.go",
+          "tests": [],
+          "reason": "Adjacent call-site audit after the Spacer pipeline regression found the same extra relational normalization call; PDR behavior and its certificate/model ownership must be tested independently before changing it."
+        },
         {
           "name": "PDR preprocessing model-ledger and proof-only cleanup preserves owners and predicate mappings across native AST execution-guard refusal and supports retry",
           "status": "ported",
@@ -98767,6 +98774,12 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {
+          "name": "Spacer query uses apply_default_transformation without rel_context filter/simple-join preprocessing; public ordinary/sliced/inlined shared-witness exports preserve source body/name/arity contracts, original rule-set stability and returned owners across repeated query/disposal (spacer_dl_interface.cpp:110; dl_transforms.cpp:42 onward; rel_context.cpp:297-301)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/spacer_preprocessed_witness_test.go"],
+          "tests": ["TestSpacerPreprocessedSharedWitnessExports", "TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSpacerExpressionQueryTraceNamesFollowInlining"]
+        },
         {"name": "expression-query cover owner transfer and active-clone property forwarding, preparation/solve failure ownership, resource interruption and retry", "status": "ported", "go_targets": ["pkg/muz/fp/query_expression.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/spacer/context.go", "pkg/muz/spacer/predicate_rules.go", "pkg/muz/spacer/predicate_reachability.go", "pkg/muz/spacer/normalize.go"], "tests": ["TestSpacerExpressionQueryUsesPrequeryCoverOwner", "TestSpacerExpressionCancellationPreservesOwnersAndRetry", "TestSpacerExpressionPrequeryOwnerFailureAndRetry"]},
         {"name": "relation query creates a synthetic rule in the temporary preprocessing set, attaches its asserted proof when tracing, and routes answer, model and ground trace through its derived query predicate", "status": "ported", "go_targets": ["pkg/muz/fp/spacer_relation_query.go", "pkg/muz/fp/spacer_relation_query_test.go", "pkg/muz/fp/spacer_rule_lifecycle_test.go", "pkg/parsers/smt2/spacer_slice_trace_test.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/pdr_engine.go"], "tests": ["TestSpacerRelationQueryProofFollowsTraceSetting", "TestSpacerRelationQueryReversesMixedSortHead", "TestSMT2SpacerSlicesWithProofTrace", "TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules"]},
         {
