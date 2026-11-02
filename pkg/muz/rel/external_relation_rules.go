@@ -21,6 +21,13 @@ type externalFactRule struct {
 	filters     []externalTailFilter
 	interpreted []ast.ASTHandle
 	columns     map[uint32]uint32
+	negative    []externalNegativeTail
+	stratum     uint32
+}
+
+type externalNegativeTail struct {
+	predicate                      ast.ASTHandle
+	targetColumns, negativeColumns []uint32
 }
 
 type externalTailFilter struct {
@@ -73,7 +80,7 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 		return result, err
 	}
 	tails, err := rule.TailSize()
-	if err != nil || positive < 0 || uninterpreted != positive || tails < uninterpreted {
+	if err != nil || positive < 0 || uninterpreted < positive || tails < uninterpreted {
 		return result, errors.Join(err, ErrCompilerUnsupported)
 	}
 	headCount, err := manager.GetNumArgs(head)
@@ -171,6 +178,41 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 		}
 		result.columns[index] = column
 	}
+	for tailIndex := positive; tailIndex < uninterpreted; tailIndex++ {
+		if positive == 0 {
+			return result, ErrCompilerUnsupported
+		}
+		negative, negated, cause := rule.Tail(tailIndex)
+		if cause != nil || !negated {
+			return result, errors.Join(cause, ErrCompilerUnsupported)
+		}
+		predicate, cause := manager.GetDecl(negative)
+		if cause != nil {
+			return result, cause
+		}
+		entry := externalNegativeTail{predicate: predicate}
+		count, cause := manager.GetNumArgs(negative)
+		if cause != nil {
+			return result, cause
+		}
+		for column := uint32(0); column < count; column++ {
+			argument, argErr := manager.GetArg(negative, column)
+			if argErr != nil {
+				return result, argErr
+			}
+			kind, argErr := manager.GetKind(argument)
+			if argErr != nil || kind != ast.ASTVar {
+				return result, errors.Join(argErr, ErrCompilerUnsupported)
+			}
+			target, found := positions[argument]
+			if !found {
+				return result, ErrCompilerUnsupported
+			}
+			entry.targetColumns = append(entry.targetColumns, target)
+			entry.negativeColumns = append(entry.negativeColumns, column)
+		}
+		result.negative = append(result.negative, entry)
+	}
 	for tailIndex := uninterpreted; tailIndex < tails; tailIndex++ {
 		condition, negated, cause := rule.Tail(tailIndex)
 		if cause != nil || negated {
@@ -219,6 +261,7 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 		return err
 	}
 	compiled := make([]externalFactRule, 0, count)
+	hasNegative := false
 	for index := 0; index < count; index++ {
 		rule, cause := set.Rule(index)
 		if cause != nil {
@@ -229,7 +272,33 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 		if cause != nil {
 			return cause
 		}
+		hasNegative = hasNegative || len(entry.negative) != 0
 		compiled = append(compiled, entry)
+	}
+	var maximumStratum uint32
+	if hasNegative {
+		finalized, cause := set.IsFinalized()
+		if cause != nil {
+			return cause
+		}
+		if !finalized {
+			valid, finalizeErr := set.Finalize()
+			if finalizeErr != nil {
+				return finalizeErr
+			}
+			if !valid {
+				return ErrCompilerUnsupported
+			}
+		}
+		for index := range compiled {
+			compiled[index].stratum, err = set.PredicateStratum(compiled[index].head)
+			if err != nil {
+				return err
+			}
+			if compiled[index].stratum > maximumStratum {
+				maximumStratum = compiled[index].stratum
+			}
+		}
 	}
 	boolean, err := plugin.ast.MkBoolSort()
 	if err != nil {
@@ -238,9 +307,12 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 	validated := make(map[ast.ASTHandle]bool)
 	predicateOrder := make([]ast.ASTHandle, 0)
 	for _, entry := range compiled {
-		predicates := make([]ast.ASTHandle, 0, 1+len(entry.tails))
+		predicates := make([]ast.ASTHandle, 0, 1+len(entry.tails)+len(entry.negative))
 		predicates = append(predicates, entry.head)
 		predicates = append(predicates, entry.tails...)
+		for _, negative := range entry.negative {
+			predicates = append(predicates, negative.predicate)
+		}
 		for _, predicate := range predicates {
 			if predicate.IsNull() || validated[predicate] {
 				continue
@@ -341,90 +413,104 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 			return cause
 		}
 	}
-	for {
-		changed := false
-		if err = checkpoint(); err != nil {
-			return err
-		}
-		for _, entry := range compiled {
-			if len(entry.tails) == 0 && len(entry.interpreted) == 0 {
-				continue
+	for stratum := uint32(0); stratum <= maximumStratum; stratum++ {
+		for {
+			changed := false
+			if err = checkpoint(); err != nil {
+				return err
 			}
-			var value *ExternalRelation
-			var cause error
-			if len(entry.tails) == 0 {
-				value, cause = seedOwner.total.Clone()
-			} else {
-				source, sourceErr := plugin.PredicateRelation(entry.tails[0])
-				if sourceErr != nil {
-					return sourceErr
+			for _, entry := range compiled {
+				if entry.stratum != stratum {
+					continue
 				}
-				value, cause = prepareExternalRuleTail(source, entry.filters[0])
-			}
-			if cause != nil {
-				return cause
-			}
-			for tailIndex := 1; tailIndex < len(entry.tails); tailIndex++ {
-				second, secondErr := plugin.PredicateRelation(entry.tails[tailIndex])
-				if secondErr != nil {
-					return errors.Join(secondErr, value.Close())
+				if len(entry.tails) == 0 && len(entry.interpreted) == 0 {
+					continue
 				}
-				secondValue, secondErr := prepareExternalRuleTail(second, entry.filters[tailIndex])
-				if secondErr != nil {
-					return errors.Join(secondErr, value.Close())
-				}
-				joined, joinErr := JoinExternalRelations(value, secondValue, entry.joinLeft[tailIndex-1], entry.joinRight[tailIndex-1])
-				joinErr = errors.Join(joinErr, value.Close(), secondValue.Close())
-				if joinErr != nil {
-					if joined != nil {
-						joinErr = errors.Join(joinErr, joined.Close())
-					}
-					return joinErr
-				}
-				value = joined
-			}
-			if len(entry.interpreted) != 0 {
-				if cause = filterExternalRuleInterpreted(value, entry.interpreted, entry.columns); cause != nil {
-					return errors.Join(cause, value.Close())
-				}
-			}
-			assembled, assembleErr := assembleExternalRuleHead(value, entry.headColumns, constantRelations)
-			assembleErr = errors.Join(assembleErr, value.Close())
-			if assembleErr != nil {
-				if assembled != nil {
-					assembleErr = errors.Join(assembleErr, assembled.Close())
-				}
-				return assembleErr
-			}
-			value = assembled
-			target, cause := plugin.PredicateRelation(entry.head)
-			var delta *ExternalRelation
-			if cause == nil {
-				sorts, sortErr := target.Sorts()
-				if sortErr != nil {
-					cause = sortErr
+				var value *ExternalRelation
+				var cause error
+				if len(entry.tails) == 0 {
+					value, cause = seedOwner.total.Clone()
 				} else {
-					delta, cause = plugin.NewEmpty(sorts)
+					source, sourceErr := plugin.PredicateRelation(entry.tails[0])
+					if sourceErr != nil {
+						return sourceErr
+					}
+					value, cause = prepareExternalRuleTail(source, entry.filters[0])
+				}
+				if cause != nil {
+					return cause
+				}
+				for tailIndex := 1; tailIndex < len(entry.tails); tailIndex++ {
+					second, secondErr := plugin.PredicateRelation(entry.tails[tailIndex])
+					if secondErr != nil {
+						return errors.Join(secondErr, value.Close())
+					}
+					secondValue, secondErr := prepareExternalRuleTail(second, entry.filters[tailIndex])
+					if secondErr != nil {
+						return errors.Join(secondErr, value.Close())
+					}
+					joined, joinErr := JoinExternalRelations(value, secondValue, entry.joinLeft[tailIndex-1], entry.joinRight[tailIndex-1])
+					joinErr = errors.Join(joinErr, value.Close(), secondValue.Close())
+					if joinErr != nil {
+						if joined != nil {
+							joinErr = errors.Join(joinErr, joined.Close())
+						}
+						return joinErr
+					}
+					value = joined
+				}
+				for _, negative := range entry.negative {
+					relation, negativeErr := plugin.PredicateRelation(negative.predicate)
+					if negativeErr == nil {
+						negativeErr = value.FilterNegation(relation, negative.targetColumns, negative.negativeColumns)
+					}
+					if negativeErr != nil {
+						return errors.Join(negativeErr, value.Close())
+					}
+				}
+				if len(entry.interpreted) != 0 {
+					if cause = filterExternalRuleInterpreted(value, entry.interpreted, entry.columns); cause != nil {
+						return errors.Join(cause, value.Close())
+					}
+				}
+				assembled, assembleErr := assembleExternalRuleHead(value, entry.headColumns, constantRelations)
+				assembleErr = errors.Join(assembleErr, value.Close())
+				if assembleErr != nil {
+					if assembled != nil {
+						assembleErr = errors.Join(assembleErr, assembled.Close())
+					}
+					return assembleErr
+				}
+				value = assembled
+				target, cause := plugin.PredicateRelation(entry.head)
+				var delta *ExternalRelation
+				if cause == nil {
+					sorts, sortErr := target.Sorts()
+					if sortErr != nil {
+						cause = sortErr
+					} else {
+						delta, cause = plugin.NewEmpty(sorts)
+					}
+				}
+				if cause == nil {
+					cause = target.Union(value, delta, false)
+				}
+				if cause == nil {
+					empty, emptyErr := delta.Empty()
+					cause = emptyErr
+					changed = changed || !empty
+				}
+				if delta != nil {
+					cause = errors.Join(cause, delta.Close())
+				}
+				cause = errors.Join(cause, value.Close())
+				if cause != nil {
+					return cause
 				}
 			}
-			if cause == nil {
-				cause = target.Union(value, delta, false)
+			if !changed {
+				break
 			}
-			if cause == nil {
-				empty, emptyErr := delta.Empty()
-				cause = emptyErr
-				changed = changed || !empty
-			}
-			if delta != nil {
-				cause = errors.Join(cause, delta.Close())
-			}
-			cause = errors.Join(cause, value.Close())
-			if cause != nil {
-				return cause
-			}
-		}
-		if !changed {
-			break
 		}
 	}
 	return nil
