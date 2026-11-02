@@ -101256,15 +101256,15 @@
           ]
         },
         {
-          "name": "qe_project repeats qe_lite and theory rewriting for array auxiliaries, including Boolean equality elimination before model substitution and scoped no-proof array projection/rewrite and non-native arithmetic projection with restoration on errors plus final debug model-truth sanity and source spacer_mbp stage/model/variable TRACE checkpoints (spacer_util.cpp:507-646); broader exceptional ownership coverage stays partial",
+          "name": "qe_project repeats qe_lite and theory rewriting for array auxiliaries, including Boolean equality elimination before model substitution and scoped no-proof array projection/rewrite and non-native arithmetic projection with restoration on errors plus final debug model-truth sanity and source spacer_mbp stage/model/variable TRACE checkpoints (spacer_util.cpp:507-646); result destruction preserves residual formula/variable owners across native AST execution-guard refusal; broader exceptional ownership coverage stays partial",
           "status": "partial",
           "go_targets": [
             "pkg/qe/legacy_projection.go",
             "pkg/qe/legacy_projection_round.go",
-            "pkg/qe/legacy_projection_test.go", "pkg/qe/legacy_projection_substitute_failure_test.go"
+            "pkg/qe/legacy_projection_pending_test.go", "pkg/qe/legacy_projection_test.go", "pkg/qe/legacy_projection_substitute_failure_test.go"
           ],
           "tests": [
-            "TestLegacyProjectionEliminatesBooleanArrayAuxiliarySymbolically",
+            "TestLegacyProjectionResultClosePreservesPendingOwners", "TestLegacyProjectionEliminatesBooleanArrayAuxiliarySymbolically",
             "TestLegacyProjectionCombinesBooleanArrayAndArithmetic", "TestLegacyModelSubstitutionConstructionFailureOwnershipAndRetry", "TestLegacyModelSubstitutionCompletesOnlyProjectedBoolean"
           ]
         },

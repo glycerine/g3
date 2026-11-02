@@ -138,6 +138,9 @@ Each completed item needs source paths, implementation/test evidence and a commi
 
 - [ ] Close exported model, answer, counterexample and trace behavior through `spacer_dl_interface`.
 - [ ] Verify exceptional cleanup and parameter restoration in projection and preprocessing.
+  - [x] Preserve LegacyProjectionResult residual formula/variable owners across actual AST execution-guard refusal; verify repeated refusal, post-guard access, cleanup retry and zero-budget final disposal.
+  - [ ] Audit independent projection destruction failures after manager admission and construction-error ownership transfer; the isolated result-owner regression does not close whole projection ownership.
+    - [ ] Check cleanup continuation through LegacyProjection.Close and legacyArrayProjection.Close after an earlier child has already closed; audit legacyArrayEqualities and other temporary result slices for the same unconsumed-reference loss.
 - [ ] Close all Spacer source obligations before declaring the engine complete.
 
 ## 5. Duality — engine and external source dependency closure
@@ -528,3 +531,6 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 
 - 2026-11-02 — Returned to Spacer utility algorithm closure after checking that the reviewed public engine result accessors delegate to the common open/snapshot guards. Added a nested two-constructor datatype containing integer, Boolean and three-bit fields. Its expansion must process appended inner constructor fields, displace arithmetic bounds in source order, and revisit positive appended bit equalities (adding the source raw one-bit extraction). Both equality orientations require the exact ten-literal source shape and SMT-unsatisfiable negation of equivalence with the original formula. A dense cold campaign refuses allocation allowances 0 and 1 and succeeds at 2; every retry reruns shape/semantic verification, preserves caller references and proof mode, and finishes at zero budget. No production algorithm change was needed. Whole utility/source method status remains partial pending the remaining diagnostic/exception audit.
   Validation: focused native nested expansion tests, complete native Spacer tests and portcheck passed. Commit title: `Verify nested mixed-field Spacer literal expansion`.
+
+- 2026-11-02 — Spacer QE/MBP cleanup audit reproduced `LegacyProjectionResult.Close` discarding its remaining-variable reference slice despite AST-manager refusal. Result cleanup now preflights manager admission and removes individual owners only after successful release. The regression constructs a valid residual formula/variable owner independently of theory elimination, uses a real numerical runtime transport callback to attempt cleanup twice during AST execution, and verifies exact roots remain available afterward; retry releases every service at zero final budget. This tests the result owner directly, not a new end-to-end projection scenario. Broader construction-error and post-admission cleanup audits remain open.
+  Validation: focused native LegacyProjection tests, complete native QE and Spacer packages, and portcheck passed. Commit title: `Preserve projection result owners across refused cleanup`.
