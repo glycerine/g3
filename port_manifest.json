@@ -6518,6 +6518,8 @@
         "pkg/api/api_fixedpoint_object_mutation.go",
         "pkg/api/api_fixedpoint_object_query.go",
         "pkg/api/api_fixedpoint_object_results.go",
+        "pkg/api/api_fixedpoint_expression_model.go",
+        "pkg/api/api_fixedpoint_expression_model_test.go",
         "pkg/api/api_fixedpoint_object_snapshots.go",
         "pkg/api/api_fixedpoint_object_display.go",
         "pkg/api/api_fixedpoint_object_display_test.go",
@@ -6542,6 +6544,7 @@
         "pkg/cmd_context/parser_manager_ownership.go",
         "pkg/api/api_fixedpoint_expression_answer_test.go",
         "pkg/cmd_context/fixedpoint_expression_answer.go",
+        "pkg/cmd_context/fixedpoint_expression_model.go",
         "pkg/muz/fp/engine_result_routing_test.go",
         "pkg/muz/fp/relation_query_answer.go",
         "pkg/muz/fp/relation_query_answer_test.go",
@@ -6575,6 +6578,7 @@
         "TestAPIFixedpointObjectLoadQueriesSurviveParserReset",
         "TestAPIFixedpointExpressionAnswerBackends",
         "TestAPIFixedpointExpressionAnswerUnreachableBackends",
+        "TestAPIFixedpointLastModelExpression",
         "TestAPIFixedpointSpacerExpressionGroundAnswerAndTrace",
         "TestExpressionQueryLastResultAndSpacerTraceInvalidation",
         "TestDatalogRelationsAnswerConjoinsRequestedRelations",
@@ -6626,6 +6630,13 @@
             "TestAPIFixedpointRulesScopesAndQueries",
             "TestAPIFixedpointOwningAnswerAndStatistics"
           ]
+        },
+        {
+          "name": "owning expression-query inductive model forwarding through the active PDR/Spacer query clone",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/query_expression_model.go", "pkg/cmd_context/fixedpoint_expression_model.go", "pkg/api/api_fixedpoint_expression_model.go"],
+          "tests": ["TestExpressionModelOriginalClausesAndLifecycle", "TestAPIFixedpointLastModelExpression"],
+          "reason": "Preserves declaration-based model access while exposing the source get_model result for compound queries; returned models survive query-owner disposal and stale/status guards remain active."
         },
         {
           "name": "typed fixedpoint callback registration and callback-backed external relation lifecycle",
@@ -84990,6 +85001,8 @@
         "pkg/cmd_context/fixedpoint_datalog_profile.go",
         "pkg/parsers/smt2/commands.go",
         "pkg/muz/fp/query_expression.go",
+        "pkg/muz/fp/query_expression_model.go",
+        "pkg/muz/fp/expression_model_test.go",
         "pkg/muz/fp/query_expression_failure_test.go",
         "pkg/muz/fp/query_expression_answer_test.go",
         "pkg/api/api_fixedpoint_expression_answer_test.go",
@@ -89529,6 +89542,7 @@
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_interior.smt2",
         "TestSMTContextFixedpointPDRLifecycle",
         "TestPDREngineExpandsSlicedModelsAndCovers",
+        "TestExpressionModelOriginalClausesAndLifecycle",
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_trace.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_compound_tail.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_compound_head.smt2"
@@ -89674,6 +89688,13 @@
             "pkg/cmd/g3/main_test.go",
             "pkg/api/api_fixedpoint_test.go"
           ]
+        },
+        {
+          "name": "expression-query get_model forwarding through the active PDR clone (pdr_dl_interface.cpp:219-220)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/query_expression_model.go", "pkg/muz/fp/expression_model_test.go", "pkg/api/api_fixedpoint_expression_model.go"],
+          "tests": ["TestExpressionModelOriginalClausesAndLifecycle", "TestAPIFixedpointLastModelExpression"],
+          "reason": "Fresh SMT checks validate every original clause and original-query refutation without completion; repeated-query staleness, SAT rejection and caller ownership after disposal are covered."
         },
         {
           "name": "statistics collection and reset forwarding (pdr_dl_interface.cpp:195-202)",
@@ -97087,6 +97108,8 @@
       "go_targets": [
         "pkg/muz/fp/query_magic_sets.go",
         "pkg/muz/fp/query_expression.go",
+        "pkg/muz/fp/query_expression_model.go",
+        "pkg/muz/fp/expression_model_test.go",
         "pkg/muz/fp/query_clone.go",
         "pkg/muz/fp/propositional_engine.go",
         "pkg/muz/fp/query_magic_sets_test.go",
@@ -98956,6 +98979,7 @@
         "TestSpacerExpressionStatisticsSurviveCloneDisposal",
         "TestSpacerExpressionQueryUsesPrequeryCoverOwner",
         "TestSpacerExpressionQueryReachableSummary",
+        "TestExpressionModelOriginalClausesAndLifecycle",
         "TestSpacerExpressionCancellationPreservesOwnersAndRetry",
         "TestSpacerExpressionPrequeryOwnerFailureAndRetry"
       ],
@@ -98972,6 +98996,7 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {"name": "expression-query get_model forwarding through the active Spacer clone (spacer_dl_interface.cpp:346-348)", "status": "ported", "go_targets": ["pkg/muz/fp/query_expression_model.go", "pkg/muz/fp/expression_model_test.go", "pkg/api/api_fixedpoint_expression_model.go"], "tests": ["TestExpressionModelOriginalClausesAndLifecycle", "TestAPIFixedpointLastModelExpression"], "reason": "Original numeric clauses and query refutation are independently SMT-checked without completion; repeated-query staleness, status guards and caller ownership after disposal are covered. Legacy unfold/coalesce model reconstruction remains open."},
         {"name": "get_reachable forwards through the active direct or expression-query Spacer context (spacer_dl_interface.cpp:294-300)", "status": "ported", "go_targets": ["pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/spacer_expression_reachable_test.go"], "tests": ["TestSpacerExpressionQueryReachableSummary"], "reason": "Repeated summaries are independently SMT-checked in original predicate vocabulary; stale mutation is rejected and returned AST ownership survives engine disposal."},
         {
           "name": "Spacer query uses apply_default_transformation without rel_context filter/simple-join preprocessing; public ordinary/sliced/inlined shared-witness exports preserve source body/name/arity contracts, original rule-set stability and returned owners across repeated query/disposal (spacer_dl_interface.cpp:110; dl_transforms.cpp:42 onward; rel_context.cpp:297-301)",
