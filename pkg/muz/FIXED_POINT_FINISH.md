@@ -25,7 +25,8 @@ Each completed item needs source paths, implementation/test evidence and a commi
   - [x] Preserve source pop rejection after pre-query Spacer context instantiation; verify an uninstantiated scope can still pop.
   - [ ] Audit PDR pre-query level/cover access, which currently returns an invalid-engine-state error instead of providing the Spacer-style pre-query accessor.
     - [x] Extract the existing complete PDR parameterized constructor so query and pre-query paths can share identical configuration.
-    - [ ] Permit source-compatible pre-initialization level/cover lookup in the PDR context.
+    - [x] Permit source-compatible pre-initialization level/cover lookup in the PDR context (direct context regression; public accessor remains open).
+    - [ ] Enable the public PDR pre-query accessor with the shared parameter configuration.
     - [ ] Reuse the pre-query context and preserve its covers when initial rules are installed; test context identity and raw frames.
 - [ ] Test cancellation, resource refusal and partial construction/destruction at actual allocation boundaries; preserve errors through cleanup.
 
@@ -259,3 +260,6 @@ This closes the declarations and ownership mapping of `src/muz/spacer/spacer_dl_
 
 - 2026-11-02 — Source PDR interface construction (`pdr_dl_interface.cpp:35-46`) confirms pre-query context existence. Extracted `newConfiguredPDRContext` from query execution, preserving every existing parameter/default/setter and constructor-error cleanup path. Complete native muz/fp tests pass. This is a prerequisite refactor, not a claim that the pre-query gap is fixed; context access and cover inheritance are separate unchecked items above. Previous context-pop guard commit: `38733018b`.
   Validation: `go -C pkg test ./muz/fp -short` passed. Commit title: `Share complete PDR context configuration for lifecycle work`.
+
+- 2026-11-02 — Direct PDR context property operations now accept calls before rule installation, matching `pdr_context.cpp:1565-1593`. Unknown predicates report zero levels and a true cover; adding a false cover at level two creates three frames and returns that cover. Initialized the transformer map before publishing a pre-query transformer, preventing a panic and orphaned SMT context. The regression checks values and full fixture cleanup. Public accessor construction and first-query inheritance remain open; no engine completion status changed.
+  Validation: `go -C pkg test ./muz/pdr -run '^TestPDRContextPropertiesBeforeRuleInitialization$' -count=1 -v` passed. Commit title: `Support PDR context covers before rule initialization`.

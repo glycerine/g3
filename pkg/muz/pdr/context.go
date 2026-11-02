@@ -588,9 +588,18 @@ func (c *Context) Transformer(declaration ast.ASTHandle) (*PredicateTransformer,
 	return transformer, found, nil
 }
 
+// Property operations are valid before initial rule installation in the source.
+func (c *Context) propertyTransformer(declaration ast.ASTHandle) (*PredicateTransformer, bool, error) {
+	if err := c.open(); err != nil {
+		return nil, false, err
+	}
+	transformer, found := c.transformers[declaration]
+	return transformer, found, nil
+}
+
 // NumLevels reports the number of finite frames retained for a predicate.
 func (c *Context) NumLevels(declaration ast.ASTHandle) (uint32, error) {
-	transformer, found, err := c.Transformer(declaration)
+	transformer, found, err := c.propertyTransformer(declaration)
 	if err != nil || !found {
 		return 0, err
 	}
@@ -600,7 +609,7 @@ func (c *Context) NumLevels(declaration ast.ASTHandle) (uint32, error) {
 // CoverDelta returns one predicate cover frame as an owning AST reference.
 // Level -1 selects the invariant frame.
 func (c *Context) CoverDelta(level int, declaration ast.ASTHandle) (ast.ASTRef, error) {
-	transformer, found, err := c.Transformer(declaration)
+	transformer, found, err := c.propertyTransformer(declaration)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -616,7 +625,7 @@ func (c *Context) CoverDelta(level int, declaration ast.ASTHandle) (ast.ASTRef, 
 
 // AddCover adds a bound-variable property to one predicate frame.
 func (c *Context) AddCover(level int, declaration, property ast.ASTHandle) error {
-	transformer, found, err := c.Transformer(declaration)
+	transformer, found, err := c.propertyTransformer(declaration)
 	if err != nil {
 		return err
 	}
@@ -624,6 +633,9 @@ func (c *Context) AddCover(level int, declaration, property ast.ASTHandle) error
 		transformer, err = NewPredicateTransformer(c.owner, declaration, c.cacheMode)
 		if err != nil {
 			return err
+		}
+		if c.transformers == nil {
+			c.transformers = make(map[ast.ASTHandle]*PredicateTransformer)
 		}
 		c.transformers[declaration] = transformer
 		c.order = append(c.order, declaration)
