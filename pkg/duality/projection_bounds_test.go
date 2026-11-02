@@ -1,0 +1,117 @@
+package duality
+
+import (
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/interp"
+	"github.com/glycerine/g3/pkg/util/lbool"
+	"testing"
+)
+
+func TestProjectionRedundantIntegerBoundsAndOwnership(t *testing.T) {
+	ctx, m, native, globals := dualityNativeSolverServicesFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	simplifier, err := interp.NewManagerWithParams(m, ctx.config.params, globals)
+	must(err)
+	defer simplifier.Close()
+	graph, err := NewRPFP(ctx)
+	must(err)
+	defer graph.Close()
+	wrap := func(h ast.ASTHandle, err error) *Expr {
+		t.Helper()
+		must(err)
+		term, err := NewExpr(ctx, h)
+		must(err)
+		closeExpr(t, term)
+		return term
+	}
+	raw := func(term *Expr) ast.ASTHandle { t.Helper(); h, err := term.Raw(); must(err); return h }
+	family, err := m.ArithmeticFamilyID()
+	must(err)
+	num := func(text string) *Expr { return wrap(m.ArithmeticIntegerNumeralText(text)) }
+	zero, one, two := num("0"), num("1"), num("2")
+	sort, err := m.GetSort(raw(zero))
+	must(err)
+	name, err := m.Symbols.Intern("bound-x")
+	must(err)
+	x := wrap(m.MkConst(name, sort))
+	app := func(op int32, a, b *Expr) *Expr {
+		return wrap(m.MkFamilyApp(family, op, nil, []ast.ASTHandle{raw(a), raw(b)}))
+	}
+	lower0, lower2 := app(2, zero, x), app(3, x, two)
+	upper0, upper2 := app(2, x, zero), app(2, x, two)
+	negatedLower := wrap(m.MkNot(raw(app(2, x, one))))
+	for _, tc := range []struct {
+		name  string
+		input []*Expr
+		want  *Expr
+	}{
+		{"stronger later", []*Expr{lower0, lower2}, lower2},
+		{"stronger earlier", []*Expr{lower2, lower0}, lower2},
+		{"upper bound", []*Expr{upper0, upper2}, upper0},
+		{"duplicate", []*Expr{lower2, lower2}, lower2},
+		{"negated integer bound", []*Expr{lower0, negatedLower}, lower2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			output, err := graph.ElimRedundantBounds(tc.input, simplifier)
+			must(err)
+			defer func() {
+				for _, term := range output {
+					must(term.Close())
+				}
+			}()
+			if len(output) != len(tc.input) {
+				t.Fatal("literal positions changed")
+			}
+			args := make([]ast.ASTHandle, len(output))
+			for i, term := range output {
+				args[i] = raw(term)
+			}
+			conjunction := wrap(m.MkAndArgs(args))
+			difference := wrap(m.MkNot(raw(wrap(m.MkIff(raw(conjunction), raw(tc.want))))))
+			must(native.Push())
+			must(native.Assert(raw(difference)))
+			status, err := native.CheckSat(nil)
+			must(err)
+			must(native.Pop(1))
+			if status != lbool.False {
+				t.Fatal("normalized bounds differ", status)
+			}
+		})
+	}
+	baseline := m.Stats().LiveReferences
+	completed := false
+	for fault := int64(0); fault < 1024; fault++ {
+		m.Budget().FailAfter(fault)
+		output, failure := graph.ElimRedundantBounds([]*Expr{lower0, lower2}, simplifier)
+		m.Budget().FailAfter(-1)
+		if failure == nil {
+			for _, term := range output {
+				must(term.Close())
+			}
+			completed = true
+		} else {
+			if output != nil {
+				t.Fatal("partial bounds", fault, failure)
+			}
+			retry, err := graph.ElimRedundantBounds([]*Expr{lower0, lower2}, simplifier)
+			must(err)
+			for _, term := range retry {
+				must(term.Close())
+			}
+		}
+		if got := m.Stats().LiveReferences; got != baseline {
+			t.Fatal("bound reference restoration", fault, got, baseline)
+		}
+		if completed {
+			break
+		}
+	}
+	if !completed {
+		t.Fatal("bound allocation sweep never succeeded")
+	}
+}
