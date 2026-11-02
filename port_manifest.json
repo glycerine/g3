@@ -93141,6 +93141,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/rel/finite_explanation_output.go",
+        "pkg/muz/rel/finite_explanation_output_test.go",
         "pkg/muz/rel/finite_explanation_join_conversion.go",
         "pkg/muz/rel/finite_explanation_join_conversion_test.go",
         "pkg/muz/rel/finite_interval_product.go",
@@ -93173,6 +93175,7 @@
         "pkg/muz/rel/sparse_table_display.go"
       ],
       "tests": [
+        "TestFiniteExplanationProjectionConvertsAndUnionsIntoTables", "TestFiniteExplanationOutputNullaryAndDomainGuards",
         "TestFiniteExplanationForeignJoinsAgainstTupleOracle", "TestFiniteExplanationForeignJoinEmptyAndColumnGuards",
         "TestFiniteExplanationProductFactsAndOwnership", "TestFiniteExplanationProductUnionAndDelta", "TestFiniteExplanationProductProjectCollisions", "TestFiniteExplanationProductJoinRows", "TestFiniteExplanationProductRenameFinite", "TestFiniteExplanationProductFiniteFilters", "TestFiniteExplanationProductNegationFilter",
         "TestFiniteExplanationProductZeroFiniteColumns",
@@ -93555,6 +93558,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "registered explanation-product output conversion and converting union into table/delta", "status": "ported", "go_targets": ["pkg/muz/rel/finite_explanation_output.go", "pkg/muz/rel/finite_explanation_output_test.go"], "tests": ["TestFiniteExplanationProjectionConvertsAndUnionsIntoTables", "TestFiniteExplanationOutputNullaryAndDomainGuards"], "reason": "Requires zero remaining explanation columns; collects empty/unreferenced inner owners, removes functional index and delegates typed table union with preserved delta. General compiler product dispatch remains separate."},
         {"name": "converting_join_fn table/explanation operands for the registered explanation specialization", "status": "ported", "go_targets": ["pkg/muz/rel/finite_explanation_join_conversion.go", "pkg/muz/rel/finite_explanation_join_conversion_test.go", "pkg/muz/rel/explanation_transform_facts.go"], "tests": ["TestFiniteExplanationForeignJoinsAgainstTupleOracle", "TestFiniteExplanationForeignJoinEmptyAndColumnGuards", "TestExplanationTransformerTransfersFiniteFacts"], "reason": "Concrete explanation specialization registered by dl_mk_explanations.cpp617; live transform_facts855 path now converts and joins finite facts with singleton explanations. Other concrete specializations and general engine storage/dispatch remain partial."},
         {
           "name": "concrete finite-table/interval construction, fact insertion, lookup and clone",
