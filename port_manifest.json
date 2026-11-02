@@ -103188,8 +103188,8 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/transforms/filter_rules.go", "pkg/muz/transforms/filter_rules_test.go"],
-      "tests": ["TestFilterRulesCachesNormalizedRepeatedArgumentFilters", "TestFilterRulesLocalRepeatedAndValueArguments", "TestFilterRulesRemoveDuplicateRewrittenTails", "TestFilterRulesIgnoreDistinctAndNegatedPredicateArguments"],
+      "go_targets": ["pkg/muz/transforms/filter_rules.go", "pkg/muz/transforms/filter_rules_test.go", "pkg/muz/transforms/filter_rules_close_pending_test.go"],
+      "tests": ["TestFilterRulesCachesNormalizedRepeatedArgumentFilters", "TestFilterRulesLocalRepeatedAndValueArguments", "TestFilterRulesRemoveDuplicateRewrittenTails", "TestFilterRulesIgnoreDistinctAndNegatedPredicateArguments", "TestFilterRulesCacheCleanupRefusal"],
       "assertions": [
         {
           "line": 65,
@@ -103215,7 +103215,7 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [{"name":"whole filter-rules transform, normalized filter caching, repeated/value argument rewriting and duplicate-tail removal","status":"ported","go_target":"pkg/muz/transforms/filter_rules.go","tests":["TestFilterRulesCachesNormalizedRepeatedArgumentFilters","TestFilterRulesLocalRepeatedAndValueArguments","TestFilterRulesRemoveDuplicateRewrittenTails","TestFilterRulesIgnoreDistinctAndNegatedPredicateArguments"]}],
-      "ownership": ["The transform owns generated declarations/rules through the existing rule-set owner and keeps call-local cache keys concrete and deterministic."],
+      "ownership": ["The transform owns generated declarations/rules through the existing rule-set owner and keeps call-local cache keys concrete and deterministic. Cache reset and Close remove pins only after successful native release, preserve unconsumed owners on refusal, and support retry without publishing closing state."],
       "deviations": []
     },
     {

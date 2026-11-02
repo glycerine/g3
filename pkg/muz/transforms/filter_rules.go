@@ -24,6 +24,7 @@ type FilterRulesPlugin struct {
 	priority uint32
 	cache    []filterRuleCacheEntry
 	closed   bool
+	closing  bool
 }
 
 func NewFilterRulesPlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32) *FilterRulesPlugin {
@@ -39,6 +40,9 @@ func (p *FilterRulesPlugin) Cancel()                     {}
 
 // FreshPredicates returns borrowed filter declarations in creation order.
 func (p *FilterRulesPlugin) FreshPredicates() []ast.ASTHandle {
+	if p == nil || p.closed || p.closing {
+		return nil
+	}
 	result := make([]ast.ASTHandle, len(p.cache))
 	for i := range p.cache {
 		result[i] = p.cache[i].declaration
@@ -46,12 +50,20 @@ func (p *FilterRulesPlugin) FreshPredicates() []ast.ASTHandle {
 	return result
 }
 
-func (p *FilterRulesPlugin) resetCache() (result error) {
-	for index := len(p.cache) - 1; index >= 0; index-- {
-		result = errors.Join(result, p.manager.DelRef(&p.cache[index].pin))
+func (p *FilterRulesPlugin) resetCache() error {
+	for len(p.cache) != 0 {
+		last := len(p.cache) - 1
+		err := p.manager.DelRef(&p.cache[last].pin)
+		if p.cache[last].pin == (ast.ASTRef{}) {
+			p.cache[last] = filterRuleCacheEntry{}
+			p.cache = p.cache[:last]
+		}
+		if err != nil {
+			return err
+		}
 	}
 	p.cache = nil
-	return result
+	return nil
 }
 
 func (p *FilterRulesPlugin) isCandidate(application ast.ASTHandle) (bool, error) {
@@ -368,7 +380,7 @@ func (p *FilterRulesPlugin) rewrite(rule *base.Rule, result *base.RuleSet) (chan
 }
 
 func (p *FilterRulesPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
-	if p == nil || p.closed || p.manager == nil || p.rules == nil {
+	if p == nil || p.closed || p.closing || p.manager == nil || p.rules == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	if err := p.resetCache(); err != nil {
@@ -415,7 +427,10 @@ func (p *FilterRulesPlugin) Close() error {
 	if p == nil || p.closed {
 		return nil
 	}
-	result := p.resetCache()
+	p.closing = true
+	if err := p.resetCache(); err != nil {
+		return err
+	}
 	p.closed = true
-	return result
+	return nil
 }
