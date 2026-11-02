@@ -42,6 +42,7 @@ func TestPolynomialScalarExactDivCompiledAssertionBIGRefusalPrefixes(t *testing.
 	if !polynomialSourceDebug {
 		return
 	}
+	polynomialThrowAssertionFixture(t)
 	saw := false
 	for prefix := int64(0); prefix < 100; prefix++ {
 		full := polynomialExactDivDirectPageOneFixture(t)

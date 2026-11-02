@@ -173,6 +173,7 @@ func TestPolynomialNewtonRealAddGrowthRefusalPrefixes(t *testing.T) {
 }
 
 func TestPolynomialNewtonRefVectorSourceConsumedPrefix(t *testing.T) {
+	polynomialThrowAssertionFixture(t)
 	m := polynomialCellFixture(t)
 	a, e := m.MkVariable(0, 1)
 	serviceMust(t, e)
@@ -197,7 +198,7 @@ func TestPolynomialNewtonRefVectorSourceConsumedPrefix(t *testing.T) {
 		serviceMust(t, v.Close())
 		return
 	}
-	if e != ErrPolynomialAssertion {
+	if !errors.Is(e, ErrPolynomialAssertion) {
 		t.Fatal(e)
 	}
 	if v.state.drain != 1 {
