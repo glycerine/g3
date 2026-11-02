@@ -184,8 +184,18 @@ func (c *SliceProofConverter) derivedVariables(proof ast.ASTHandle, original *ba
 			return nil, false, nil
 		}
 	}
-	if !before.UsesAllVars(before.MaxFoundVarIndexPlusOne()) {
-		expanded := make([]uint32, before.MaxFoundVarIndexPlusOne())
+	bankSize := before.MaxFoundVarIndexPlusOne()
+	if quantified {
+		count, e := m.GetNumDeclarations(fact)
+		if e != nil {
+			return nil, false, e
+		}
+		if count > bankSize {
+			bankSize = count
+		}
+	}
+	if !before.UsesAllVars(bankSize) {
+		expanded := make([]uint32, bankSize)
 		next := 0
 		for i := range expanded {
 			expanded[i] = ^uint32(0)
