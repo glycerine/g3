@@ -142,4 +142,38 @@ func TestDualityFullBoundShortcutPreservesExistingCounterexample(t *testing.T) {
 	if !working.closed || cex.Tree() != prior || prior.closed || depth != 0 {
 		t.Fatal("bound failure leaked graph/scope or replaced prior result")
 	}
+
+	// Completion has no full-bound shortcut and must reject aliased ownership
+	// before consuming an existing result or the borrowed unwinding graph.
+	for _, aliased := range []*RPFP{prior, graph} {
+		aliasedBase, err := NewDerivationTree(graph, aliased)
+		must(err)
+		aliasedSearch, err := NewBacktrackingDerivation(aliasedBase)
+		must(err)
+		aliasedQuery := &DerivationSearch{Search: aliasedSearch}
+		if err := outer.BuildFullCex(node, aliasedQuery, cex, false); !errors.Is(err, ErrWrapperOwner) {
+			t.Fatal("aliased completion accepted", err)
+		}
+		if aliased.closed || cex.Tree() != prior {
+			t.Fatal("validation consumed borrowed graph")
+		}
+	}
+	completion, err := NewRPFPWithVocabulary(source.vocabulary)
+	must(err)
+	defer completion.Close()
+	must(completion.BindSolver(aux))
+	must(completion.BindModelEvaluator(derivationEvaluatorFixture(t, ctx, globals)))
+	completionBase, err := NewDerivationTree(graph, completion)
+	must(err)
+	completionSearch, err := NewBacktrackingDerivation(completionBase)
+	must(err)
+	completionQuery := &DerivationSearch{Search: completionSearch, Checker: checker, Auxiliary: inference, Simplifier: manager}
+	if err := outer.BuildFullCex(node, completionQuery, cex, true); !errors.Is(err, ErrWrapperOwner) {
+		t.Fatal("unresolved completion failure missing", err)
+	}
+	depth, err = aux.ScopeLevel()
+	must(err)
+	if !completion.closed || cex.Tree() != prior || prior.closed || depth != 0 {
+		t.Fatal("completion failure leaked graph/scope or replaced prior result")
+	}
 }

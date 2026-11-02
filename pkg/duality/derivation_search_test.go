@@ -8,7 +8,7 @@ import (
 )
 
 func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
-	for _, mode := range []string{"sat", "unsat", "restart", "constrained", "underapprox", "bound-sat", "bound-unsat", "bound-underapprox"} {
+	for _, mode := range []string{"sat", "unsat", "restart", "constrained", "underapprox", "bound-sat", "bound-unsat", "bound-underapprox", "full-cex", "full-cex-underapprox", "full-cex-refuted"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx, m, main, globals := dualityNativeSolverServicesFixture(t)
 			must := func(err error) {
@@ -57,7 +57,7 @@ func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
 				original = append(original, node)
 			}
 			must(original[0].Bound.SetEmpty())
-			wantSAT := mode == "sat" || mode == "constrained" || mode == "underapprox" || mode == "bound-sat" || mode == "bound-underapprox"
+			wantSAT := mode == "full-cex" || mode == "full-cex-underapprox" || mode == "sat" || mode == "constrained" || mode == "underapprox" || mode == "bound-sat" || mode == "bound-underapprox"
 			rootFormula := terms[1]
 			if !wantSAT {
 				negative, err := p.Not()
@@ -112,6 +112,13 @@ func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
 				must(err)
 				edge.Map = sourceEdges[i]
 			}
+			// Even when every lower approximation is already full, constrained
+			// completion must expand every active node into a complete tree.
+			if mode == "full-cex-underapprox" {
+				for _, node := range mapped {
+					must(node.Underapprox.SetFull())
+				}
+			}
 			working, err := NewRPFPWithVocabulary(source.vocabulary)
 			must(err)
 			defer func() { must(working.Close()) }()
@@ -139,24 +146,45 @@ func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
 			baseline, err := main.NumAssertions()
 			must(err)
 			controller := &DerivationSearch{Search: search, Checker: checker, Auxiliary: aux, Simplifier: manager, EnableRestarts: mode == "restart"}
-			under := mode == "underapprox" || mode == "bound-underapprox"
+			under := mode == "underapprox" || mode == "bound-underapprox" || mode == "full-cex-underapprox"
+			fullCex := mode == "full-cex" || mode == "full-cex-underapprox" || mode == "full-cex-refuted"
 			var sat bool
-			if mode == "bound-sat" || mode == "bound-unsat" || mode == "bound-underapprox" {
+			if fullCex || mode == "bound-sat" || mode == "bound-unsat" || mode == "bound-underapprox" {
 				covering, err := NewCovering(unwinding, aux)
 				must(err)
 				outer, err := NewUnwinding(source, unwinding, covering)
 				must(err)
 				cex := NewCounterexample()
 				defer cex.Close()
-				satisfied, err := outer.SatisfyUpperBound(mapped[0], controller, cex, under)
-				must(err)
-				sat = !satisfied
-				if sat {
-					if cex.Tree() != working || cex.Root() != base.Top || working.closed {
-						t.Fatal("SAT graph was not transferred to counterexample")
+				if fullCex {
+					prior, err := NewRPFPWithVocabulary(source.vocabulary)
+					must(err)
+					priorRoot, err := prior.CreateNode(terms[0])
+					must(err)
+					must(cex.Set(prior, priorRoot))
+					err = outer.BuildFullCex(mapped[0], controller, cex, under)
+					sat = wantSAT
+					if wantSAT {
+						must(err)
+						if !prior.closed || cex.Tree() != working || cex.Root() != base.Top || working.closed {
+							t.Fatal("full counterexample replacement lost ownership")
+						}
+					} else {
+						if !errors.Is(err, ErrFullCounterexample) || !working.closed || prior.closed || cex.Tree() != prior || cex.Root() != priorRoot {
+							t.Fatal("refuted completion lost old counterexample or new graph", err)
+						}
 					}
-				} else if cex.Tree() != nil || !working.closed {
-					t.Fatal("UNSAT graph ownership was not released")
+				} else {
+					satisfied, err := outer.SatisfyUpperBound(mapped[0], controller, cex, under)
+					must(err)
+					sat = !satisfied
+					if sat {
+						if cex.Tree() != working || cex.Root() != base.Top || working.closed {
+							t.Fatal("SAT graph was not transferred to counterexample")
+						}
+					} else if cex.Tree() != nil || !working.closed {
+						t.Fatal("UNSAT graph ownership was not released")
+					}
 				}
 			} else {
 				sat, err = controller.Derive(mapped[0], under, mode == "constrained")
@@ -180,7 +208,7 @@ func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
 			if remaining != baseline || len(working.scopes) != expectedScopes {
 				t.Fatal("Derive disturbed enclosing assertion/graph scope", remaining, baseline)
 			}
-			if !base.FalseApprox || base.Underapprox != under || base.Constrained != (mode == "constrained") {
+			if !base.FalseApprox || base.Underapprox != under || base.Constrained != (mode == "constrained" || fullCex) {
 				t.Fatal("source derive mode flags not initialized")
 			}
 
