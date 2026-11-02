@@ -55,7 +55,9 @@ func (e *Engine) verboseRule(index int, head ast.ASTHandle) (result error) {
 	if err != nil {
 		return err
 	}
-	defer func() { result = errors.Join(result, formats.DelRef(&ref)) }()
+	owner := &clpRefOwner{manager: formats}
+	owner.take(ref)
+	defer func() { result = errors.Join(result, owner.dispose()) }()
 	if context != nil && globals != nil {
 		empty := context.EmptyValue()
 		err = e.manager.PrintFormat(out, format, context, &empty, globals)

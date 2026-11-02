@@ -14,8 +14,10 @@ func (e *Engine) Query(query ast.ASTHandle) (status lbool.LBool, resultErr error
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&g)) }()
-	h, err := e.manager.RefGet(g)
+	owner := &clpRefOwner{manager: e.manager}
+	owner.take(g)
+	defer func() { resultErr = errors.Join(resultErr, owner.dispose()) }()
+	h, err := e.manager.RefGet(owner.refs[0])
 	if err != nil {
 		return lbool.Undef, err
 	}

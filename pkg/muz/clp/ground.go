@@ -13,9 +13,11 @@ import (
 // groundEnvironment owns the rule-local fresh constants shared by the head
 // and every tail. Each attempted rule receives a new environment.
 type groundEnvironment struct {
-	manager *ast.ASTManager
-	values  []ast.ASTHandle
-	refs    []ast.ASTRef
+	manager      *ast.ASTManager
+	values       []ast.ASTHandle
+	refs         []ast.ASTRef
+	temporaries  []ast.ASTRef
+	substitution *rewriter.VarSubstitution
 }
 
 type groundCleanupFailure struct {
@@ -65,6 +67,20 @@ func (g *groundEnvironment) disposeResult(result *ast.ASTRef, discard bool) erro
 }
 
 func (g *groundEnvironment) close() error {
+	if g.substitution != nil {
+		if err := g.substitution.Close(); err != nil {
+			return err
+		}
+		g.substitution = nil
+	}
+	for i := len(g.temporaries) - 1; i >= 0; i-- {
+		if g.temporaries[i] != (ast.ASTRef{}) {
+			if err := g.manager.DelRef(&g.temporaries[i]); err != nil {
+				return err
+			}
+		}
+	}
+	g.temporaries = nil
 	for i := len(g.refs) - 1; i >= 0; i-- {
 		if g.refs[i] != (ast.ASTRef{}) {
 			if err := g.manager.DelRef(&g.refs[i]); err != nil {
@@ -75,6 +91,26 @@ func (g *groundEnvironment) close() error {
 	}
 	g.values, g.refs = nil, nil
 	return nil
+}
+
+func (g *groundEnvironment) finishSubstitution(sub *rewriter.VarSubstitution, out *ast.ASTRef, operationErr error) (resultErr error) {
+	resultErr = operationErr
+	cleanupErr := sub.Close()
+	if cleanupErr != nil {
+		g.substitution = sub
+	}
+	resultErr = errors.Join(resultErr, cleanupErr)
+	if resultErr == nil || out == nil || *out == (ast.ASTRef{}) {
+		return resultErr
+	}
+	if cleanupErr == nil {
+		resultErr = errors.Join(resultErr, g.manager.DelRef(out))
+	}
+	if *out != (ast.ASTRef{}) {
+		g.temporaries = append(g.temporaries, *out)
+		*out = ast.ASTRef{}
+	}
+	return resultErr
 }
 
 func (g *groundEnvironment) ground(h ast.ASTHandle) (out ast.ASTRef, resultErr error) {
@@ -121,11 +157,7 @@ func (g *groundEnvironment) ground(h ast.ASTHandle) (out ast.ASTRef, resultErr e
 	sub, err := rewriter.NewVarSubstitution(g.manager, false)
 	defer func() {
 		if sub != nil {
-			resultErr = errors.Join(resultErr, sub.Close())
-		}
-		if resultErr != nil && out != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, g.manager.DelRef(&out))
-			out = ast.ASTRef{}
+			resultErr = g.finishSubstitution(sub, &out, resultErr)
 		}
 	}()
 	if err != nil {

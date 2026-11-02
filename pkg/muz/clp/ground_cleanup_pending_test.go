@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/symbol"
@@ -27,8 +28,10 @@ func TestCLPGroundCleanupPreservesFreshConstantsOnNativeRefusal(t *testing.T) {
 	var result ast.ASTRef
 	var refuse func() error
 	active := false
+	callbacks := 0
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
-		if active && failure == nil {
+		if active && callbacks == 0 {
+			callbacks++
 			failure = refuse()
 		}
 		return f
@@ -105,6 +108,7 @@ func TestCLPGroundCleanupPreservesFreshConstantsOnNativeRefusal(t *testing.T) {
 	originalGrounded := grounded
 	originalFresh := append([]ast.ASTRef(nil), attemptEnvironment.refs...)
 	failure = nil
+	callbacks = 0
 	refuse = owner.dispose
 	must(runtime.SetMaxCount(uint64(runtime.State().GlobalCount) + 1))
 	invocation = ast.ASTArithmeticNumeralInvocation{}
@@ -135,4 +139,48 @@ func TestCLPGroundCleanupPreservesFreshConstantsOnNativeRefusal(t *testing.T) {
 	if owner.refs != nil || attemptEnvironment.refs != nil || attemptEnvironment.values != nil || cleanup.CleanupCause() != nil {
 		t.Fatal("rule-attempt cleanup retry did not retire all owners")
 	}
+
+	ruleManager, err := base.NewRuleManager(manager)
+	must(err)
+	defer func() { must(ruleManager.Close()) }()
+	name, err := symbols.Intern("clp-candidate-owner")
+	must(err)
+	declaration, err := manager.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
+	must(err)
+	must(ruleManager.RegisterPredicate(declaration))
+	application, err := manager.MkApp(declaration, nil)
+	must(err)
+	rule, err := ruleManager.NewRule(application, nil, nil, "candidate")
+	must(err)
+	set, err := base.NewRuleSet(ruleManager)
+	must(err)
+	defer func() { must(set.Close()) }()
+	must(set.Add(rule))
+	must(rule.Close())
+	valid, err := set.Finalize()
+	must(err)
+	if !valid {
+		t.Fatal("candidate fixture is not stratified")
+	}
+	candidates, err := sortedRules(set, declaration)
+	must(err)
+	failure = nil
+	callbacks = 0
+	refuse = func() error { return closeRules(candidates) }
+	must(runtime.SetMaxCount(uint64(runtime.State().GlobalCount) + 1))
+	invocation = ast.ASTArithmeticNumeralInvocation{}
+	active = true
+	_, body = manager.ArithmeticNumeralWithInvocation(&value, false, &invocation)
+	active = false
+	must(runtime.SetMaxCount(0))
+	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
+	if body == nil || callbacks != 1 || failure != nil {
+		t.Fatal("shared candidate release reached native cleanup", body, callbacks, failure)
+	}
+	originalRule, err := set.Rule(0)
+	must(err)
+	if head, err := originalRule.Head(); err != nil || head != application {
+		t.Fatal("candidate release changed the program rule", head, err)
+	}
+	must(originalRule.Close())
 }

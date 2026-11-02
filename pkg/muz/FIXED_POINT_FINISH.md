@@ -328,6 +328,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/clp/clp_context.cpp` (partial), `src/muz/clp/clp_context.h` (partial)
   - [x] Stateless source-true answers and retryable grounding cleanup preserving fresh constants plus unpublished substitution results across native refusal.
   - [x] Rule attempts unify grounded heads/tails and shared fresh constants under one retryable cleanup owner.
+  - [x] Preserve refused local substitution/output/query/format references until cleanup retry; candidate-rule clones release shared ownership without destroying original rules.
+  - [ ] Close fixedpoint CLP preprocessing, local parameters and SMT backend teardown after admitted cleanup refusal; shared expression-wrapper references remain separate.
 
 ### dataflow
 
@@ -993,3 +995,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Fixed scaling output metadata when a cached scaled declaration is reused, preserving source per-invocation output promotion. Made RuleUnifier child cleanup sequential and retryable, and extended unfolding coverage through later QE Lite cleanup refusal. Focused scaling/unifier/unfold tests passed in 0.026s. Source: `dl_mk_scale.cpp`, `dl_mk_rule_inliner.cpp`, `dl_mk_unfold.cpp`. Commit: `Preserve transform metadata and cleanup owners`.
 
 - 2026-11-02 — Integrated typed relational operations: interval-to-bound union, AST interval membership, select/project, mixed sieve union, checked widening, lazy source disposal, output-table presentation, indexed sparse dispatch and external head permutation. The complete native relational package passed in 3.042s. This closes concrete source operation slices, not the separately documented representation/manager integration gaps. Commit: `Integrate typed relational dispatch and source operations`.
+
+- 2026-11-02 — Closed the audited CLP local cleanup gaps: grounding preserves refused substitutions/output roots, and query/verbose-format temporaries return retryable owners. Native refusal tests verify exact remaining references and zero final budget; candidate clones leave the original rule intact. Complete native CLP passed in 0.106s. Enclosing fixedpoint teardown remains open. Commit: `Preserve CLP local cleanup owners`.
