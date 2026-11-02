@@ -20,6 +20,7 @@ type InterpTailSimplifierPlugin struct {
 	rewriter *astrewriter.TheoryRewriter
 	priority uint32
 	closed   bool
+	closing  bool
 }
 
 func NewInterpTailSimplifierPlugin(manager *ast.ASTManager, rules *base.RuleManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (*InterpTailSimplifierPlugin, error) {
@@ -418,6 +419,9 @@ func (p *InterpTailSimplifierPlugin) propagate(rule *base.Rule) (_ *base.Rule, c
 }
 
 func (p *InterpTailSimplifierPlugin) transformRule(source *base.Rule) (_ *base.Rule, dropped, changed bool, resultErr error) {
+	if p == nil || p.closed || p.closing {
+		return nil, false, false, base.ErrRuleTransformerOwner
+	}
 	head, err := source.Head()
 	if err != nil {
 		return nil, false, false, err
@@ -488,7 +492,7 @@ func (p *InterpTailSimplifierPlugin) transformRule(source *base.Rule) (_ *base.R
 }
 
 func (p *InterpTailSimplifierPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
-	if p == nil || p.closed || p.manager == nil || p.rules == nil || p.rewriter == nil {
+	if p == nil || p.closed || p.closing || p.manager == nil || p.rules == nil || p.rewriter == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	result, err := base.NewRuleSet(p.rules)
@@ -544,11 +548,13 @@ func (p *InterpTailSimplifierPlugin) Close() error {
 	if p.closed {
 		return nil
 	}
-	p.closed = true
+	p.closing = true
 	if p.rewriter != nil {
-		err := p.rewriter.Close()
+		if err := p.rewriter.Close(); err != nil {
+			return err
+		}
 		p.rewriter = nil
-		return err
 	}
+	p.closed = true
 	return nil
 }

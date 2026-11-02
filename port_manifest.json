@@ -103095,6 +103095,7 @@
       "go_targets": ["pkg/muz/bmc/quantified_linear_bind_test.go",
         "pkg/muz/transforms/interp_tail_simplifier.go",
         "pkg/muz/transforms/interp_tail_simplifier_test.go",
+        "pkg/muz/transforms/interp_tail_close_pending_test.go",
         "pkg/muz/transforms/interp_tail_arithmetic_family_test.go",
         "pkg/muz/fp/spacer_symbolic_witness_test.go",
         "pkg/muz/transforms/boolean_normalizer.go",
@@ -103106,6 +103107,7 @@
         "TestInterpTailSimplifierPreservesArithmeticBounds",
         "TestSpacerSymbolicNonlinearWitnessOriginalClauses",
         "TestInterpTailSimplifierPreservesRewriteProof",
+        "TestInterpTailClosePreservesRewriterWhileManagerExecutes",
         "TestSMTLibRunnerScripts/fixedpoint_spacer_nonlinear_inlining.smt2",
         "TestInterpTailSimplifierDropsFalseRule",
         "TestInterpTailSimplifierPropagatesIffPolarity",
@@ -103210,10 +103212,17 @@
         {
           "name": "paired arithmetic inequality recognition guarded by the literal source condition if (false)",
           "status": "dead_deleted"
+        },
+        {
+          "name": "interpreted-tail theory-rewriter cleanup continuation after native AST execution refusal",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/interp_tail_simplifier.go",
+          "tests": ["TestInterpTailClosePreservesRewriterWhileManagerExecutes"]
         }
       ],
       "ownership": [
         "The plugin owns its theory rewriter; each rewritten AST result is held by an ASTRef until replacement Rule construction has retained every expression.",
+        "Cleanup retires the theory rewriter only after successful child disposal and rejects transformation while cleanup is pending.",
         "Incremental substitutions and unifiers own their temporary range and cache references and are closed on every return path.",
         "Transform owns replacement rules until RuleSet.Add retains them and returns a replacement RuleSet only when at least one rule changed or was removed."
       ],
@@ -103228,11 +103237,13 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/interp_tail_simplifier.go",
+        "pkg/muz/transforms/interp_tail_close_pending_test.go",
         "pkg/muz/transforms/boolean_normalizer.go"
       ],
       "tests": [
         "TestInterpTailSimplifierPropagatesEqualityAndRemovesTruth",
         "TestInterpTailSimplifierDropsFalseRule",
+        "TestInterpTailClosePreservesRewriterWhileManagerExecutes",
         "TestInterpTailSimplifierPropagatesIffPolarity",
         "TestInterpTailSimplifierRecognizesPairedClauseEquivalence"
       ],
