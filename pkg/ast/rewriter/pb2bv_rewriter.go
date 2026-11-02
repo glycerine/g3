@@ -390,6 +390,9 @@ func (r *PB2BVRewriter) weightedPB(kind int32, decl ast.ASTHandle, arguments ast
 			return ast.ASTHandle{}, err
 		}
 	}
+	if err := pb2BVSourceAssert(168, "!k.is_neg()", func() bool { return bound.Sign() >= 0 }); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	mode := pb2BVLE
 	if kind == ast.ASTPBOpEQ {
 		mode = pb2BVEQ
@@ -405,6 +408,9 @@ func (r *PB2BVRewriter) weightedPB(kind int32, decl ast.ASTHandle, arguments ast
 			}
 		}
 		bound = dual
+		if err := pb2BVSourceAssert(175, "!k.is_neg()", func() bool { return bound.Sign() >= 0 }); err != nil {
+			return ast.ASTHandle{}, err
+		}
 	}
 	return r.weighted(mode, args, coefficients, bound)
 }
