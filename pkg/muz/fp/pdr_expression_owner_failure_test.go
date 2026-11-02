@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
-	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/memory"
 )
@@ -15,58 +14,12 @@ func TestPDRExpressionPrequeryOwnerFailureAndRetry(t *testing.T) {
 	failures, preparationFailures, solveFailures, success := 0, 0, 0, false
 	for stop := int64(0); stop <= 32768 && !success; stop++ {
 		t.Run(fmt.Sprint(stop), func(t *testing.T) {
-			var budget *arena.Budget
-			t.Cleanup(func() {
-				if budget != nil && budget.Used() != 0 {
-					t.Fatal("expression owner fixture leaked bytes", budget.Used())
-				}
-			})
-			f := newPDRLifecycleFixture(t)
+			f := newCoveredPDRExpressionFixture(t)
 			e, m := f.engine, f.manager
-			budget = m.Budget()
+			budget := m.Budget()
 			defer budget.FailAfter(-1)
-			must := func(err error) {
-				t.Helper()
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
-			parameters, err := e.params.NewValue()
-			must(err)
-			defer func() { must(e.params.Del(&parameters)) }()
-			for _, name := range []string{"xform.slice", "xform.inline_eager", "xform.inline_linear"} {
-				must(e.params.SetBoolName(&parameters, &name, false))
-			}
-			must(e.SetQueryParameters(&parameters))
-			arithmetic, err := m.RegisterArithmeticPlugin()
-			must(err)
-			integer, err := m.MkFamilySort(arithmetic, 1, nil)
-			must(err)
-			boolean, err := m.MkBoolSort()
-			must(err)
-			name, err := m.Symbols.Intern("failed-expression-integer")
-			must(err)
-			declaration, err := m.MkFuncDecl(name, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
-			must(err)
-			must(e.RegisterPredicate(declaration))
-			zero, err := m.ArithmeticIntegerNumeralText("0")
-			must(err)
-			fact, err := m.MkApp(declaration, []ast.ASTHandle{zero})
-			must(err)
-			must(e.AddRule(fact, "failed-expression-zero"))
-			variable, err := m.MkVar(0, integer)
-			must(err)
-			property, err := m.MkEq(variable, zero)
-			must(err)
-			propertyRef, err := m.NewRef(property)
-			must(err)
-			defer func() { must(m.DelRef(&propertyRef)) }()
-			query, err := m.MkApp(declaration, []ast.ASTHandle{variable})
-			must(err)
-			queryRef, err := m.NewRef(query)
-			must(err)
-			defer func() { must(m.DelRef(&queryRef)) }()
-			must(e.AddCover(2, declaration, property))
+			must := func(err error) { t.Helper(); fragmentMust(t, err) }
+			declaration, property, query, fact := f.declaration, f.property, f.query, f.fact
 			owner := e.pdr
 			budget.FailAfter(stop)
 			status, err := e.QueryExpression(query)

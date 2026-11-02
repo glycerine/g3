@@ -36,8 +36,9 @@ Each completed item needs source paths, implementation/test evidence and a commi
     - [ ] Audit exceptional cleanup after transferring pre-query owners.
       - [x] Scan every allocation stop through first expression-query success; preserve pre-query ownership before installation and inspectable frames after failed solves, reject failed results/stale frames, retry and close each fixture with zero budget usage.
       - [x] Close a nonnil partially constructed theory rewriter when predicate-rule initialization fails.
-      - [ ] Verify cancellation and independent cleanup-error transport/continuation after owner transfer.
-        - [x] Preserve the source NNF distinction between caller cancellation and resource-limit exhaustion in the fixedpoint preprocessing path.
+      - [x] Verify caller cancellation and every resource-step allowance through first successful PDR expression query, including pre/post-installation owner preservation, result validity, proof mode, retry and zero-budget disposal.
+      - [x] Preserve the source NNF distinction between caller cancellation and resource-limit exhaustion in the fixedpoint preprocessing path.
+      - [ ] Verify independent cleanup-error transport/continuation after owner transfer.
     - [ ] Close Spacer expression-query property/statistics propagation and complete model/proof validation for both engines.
 - [ ] Verify parameter defaults, aliases, updates and engine selection against `fixedpoint_params.hpp` and engine registration.
 - [ ] Close SMT-LIB/Datalog command parsing, error reporting, query state and exported result/proof/model contracts.
@@ -343,3 +344,6 @@ Source comparison arity/type preconditions are enforced by AST construction/acce
 
 - 2026-11-02 — The PDR cancellation scan reached NNF preprocessing at resource step 134 and exposed a diagnostic mismatch: Go always returned "canceled", while `src/ast/normal_forms/nnf.cpp:381-386` uses the resource service's cancellation message. NNF now reports the actual reason. Its existing memory/cancellation guard regression also verifies resource-limit exhaustion with a real Push/Inc scope; the original cancellation expectation remains unchanged. This closes that dependency mismatch, not the broader NNF audit.
   Validation: complete native normal-forms package, focused SMT cancellation/resource tests and fixedpoint/command-context/parser packages passed. Commit title: `Distinguish NNF cancellation from resource exhaustion`.
+
+- 2026-11-02 — Added `TestPDRExpressionCancellationPreservesOwnersAndRetry`. It exercises an explicit caller cancellation and every resource-step allowance through the first successful query, requiring interrupted work both before and after rule installation. It preserves caller cancellation counts and proof mode, verifies original cover/owner identity, distinguishes error from unknown result contracts, rejects unavailable answers and successfully retries without the limit. The shared covered-expression fixture keeps every prior allocation-campaign assertion and checks zero budget usage after full owner closure in both campaigns. The scan exposed and now passes the NNF diagnostic correction in `38570a6ed`. Independent cleanup-error continuation and Spacer/model/proof obligations remain open.
+  Validation: native cancellation and dense allocation campaigns, complete fixedpoint/command-context/parser packages, focused API fixedpoint checks, normal-forms tests and focused SMT resource/cancellation checks passed. Commit title: `Verify PDR expression-query cancellation recovery`.
