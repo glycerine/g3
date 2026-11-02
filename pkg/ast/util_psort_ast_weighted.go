@@ -24,7 +24,8 @@ func (s *PsortASTNetwork) weightedGE(k, n uint32, weights []uint32, p psortASTPo
 		bits++
 	}
 	power := uint32(1) << (bits - 1)
-	a := (k + power - 1) / power
+	a := uint32((uint64(k) + uint64(power) - 1) / uint64(power))
+	rounded := uint64(a) * uint64(power)
 
 	f, e := s.beginFrame(5)
 	if e != nil {
@@ -39,8 +40,8 @@ func (s *PsortASTNetwork) weightedGE(k, n uint32, weights []uint32, p psortASTPo
 	if e = s.appendPointer(xs, n, p); e != nil {
 		return result, e
 	}
-	if a*power > k {
-		ws = append(ws, a*power-k)
+	if rounded > uint64(k) {
+		ws = append(ws, uint32(rounded-uint64(k)))
 		truth, x := s.context.True()
 		if x != nil {
 			return result, x
