@@ -3,9 +3,10 @@ package fp
 // Source: src/muz/spacer/spacer_dl_interface.cpp check_reset/updt_params.
 
 import (
-	"github.com/glycerine/g3/pkg/muz/spacer"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/spacer"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -19,15 +20,21 @@ func TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules(t *testing.T) {
 		}
 	}
 	must(e.SelectEngine("spacer"))
+	// Exercise live predicate transformers: default inlining can eliminate u,
+	// and source init_rules does not manufacture transformers for that registry entry.
+	for _, key := range []string{"fixedpoint.xform.inline_eager", "fixedpoint.xform.inline_linear"} {
+		must(e.globals.SourceSetName(key, "false"))
+	}
 	u := f.applications["u"]
 	recursive, err := m.MkImplies(u, u)
 	must(err)
 	must(e.AddRule(recursive, "spacer-lifecycle-recursive"))
+	addSpacerLifecycleIntegerRules(t, e, u)
 	query := f.declarations["u"]
 	status, err := e.QueryPredicate(query)
 	must(err)
 	if status != lbool.False {
-		t.Fatal("recursive-only predicate must be unreachable", status)
+		t.Fatal("negative integer must be unreachable", status)
 	}
 	inductive, err := e.Model(query)
 	must(err)
@@ -45,8 +52,9 @@ func TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules(t *testing.T) {
 	if !found {
 		t.Fatal("missing first-query transformer")
 	}
-	// Install the already-established unreachable invariant explicitly so the
-	// test detects accidental loss on covered rules and reuse on a fresh fact.
+	// Install the already-established unreachable invariant explicitly. A fresh
+	// synthetic query may reset and reprove it; a newly reachable fact must
+	// invalidate it. Direct context update tests separately verify frame copying.
 	falsehood, err := m.MkFalse()
 	must(err)
 	_, err = previous.AddLemma(falsehood, spacer.InfinityLevel)
@@ -62,7 +70,7 @@ func TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules(t *testing.T) {
 		status, err = e.QueryPredicate(query)
 		must(err)
 		if status != lbool.False {
-			t.Fatal("covered rules changed the recursive-only result", strengthen, status)
+			t.Fatal("covered rules changed the unreachable result", strengthen, status)
 		}
 		if e.spacer != original {
 			t.Fatal("source check_reset must preserve the context for covered rules", strengthen)
@@ -80,7 +88,7 @@ func TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules(t *testing.T) {
 		invariant, err := m.RefGet(invariantRef)
 		must(err)
 		if !m.IsFalse(invariant) {
-			t.Fatal("covered rule update lost its known invariant")
+			t.Fatal("unreachable query did not reestablish its invariant")
 		}
 		must(m.DelRef(&invariantRef))
 		previous = current
@@ -158,4 +166,47 @@ func TestSpacerRuleSnapshotOwnsOriginalRulesBeforePreprocessing(t *testing.T) {
 			}
 		}
 	}
+}
+
+func addSpacerLifecycleIntegerRules(t *testing.T, e *PropositionalEngine, u ast.ASTHandle) {
+	t.Helper()
+	m := e.manager
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Keep u in the live rule graph: cone elimination can discard a bare
+	// u -> u cycle before Spacer sees it. This induction requires real frames.
+	var roots []ast.ASTRef
+	t.Cleanup(func() {
+		for i := len(roots) - 1; i >= 0; i-- {
+			must(m.DelRef(&roots[i]))
+		}
+	})
+	own := func(h ast.ASTHandle, err error) ast.ASTHandle {
+		must(err)
+		r, err := m.NewRef(h)
+		must(err)
+		roots = append(roots, r)
+		return h
+	}
+	zero := own(m.ArithmeticIntegerNumeralText("0"))
+	one := own(m.ArithmeticIntegerNumeralText("1"))
+	integer, err := m.GetSort(zero)
+	must(err)
+	boolean := own(m.MkBoolSort())
+	predicateName, err := m.Symbols.Intern("spacer-lifecycle-integer")
+	must(err)
+	pred := own(m.MkFuncDecl(predicateName, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{}))
+	must(e.RegisterPredicate(pred))
+	x := own(m.MkVar(0, integer))
+	atX := own(m.MkApp(pred, []ast.ASTHandle{x}))
+	atZero := own(m.MkApp(pred, []ast.ASTHandle{zero}))
+	atNext := own(m.MkApp(pred, []ast.ASTHandle{own(m.MkArithmeticAdd(x, one))}))
+	must(e.AddRule(atZero, "lifecycle-base"))
+	must(e.AddRule(own(m.MkImplies(atX, atNext)), "lifecycle-step"))
+	negative := own(m.MkArithmeticLT(x, zero))
+	must(e.AddRule(own(m.MkImplies(own(m.MkAnd(atX, negative)), u)), "lifecycle-negative"))
 }

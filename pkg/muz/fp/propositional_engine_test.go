@@ -392,8 +392,11 @@ func TestSpacerEngineRunsReachableAndInductiveHornQueries(t *testing.T) {
 	}
 	levels, err := engine.NumLevels(declarations["Q"])
 	fpMust(t, err)
-	if levels == 0 {
-		t.Fatal("Spacer query exposed no frames")
+	// Default inlining removes Q itself; source get_num_levels returns zero
+	// for absent transformers. Live predicate frames are checked separately
+	// by the recursive integer lifecycle and pre-query cover regressions.
+	if levels != 0 {
+		t.Fatal("inlined predicate acquired phantom frames", levels)
 	}
 	answer, err := engine.Answer(declarations["Q"])
 	fpMust(t, err)

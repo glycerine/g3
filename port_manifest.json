@@ -98961,8 +98961,11 @@
           "name": "reverse-ledger model, cover, and reachable reconstruction across slicing, cone filtering, subsumption, and inlining; sliced answer and ground-answer variable expansion",
           "status": "ported",
           "go_target": "pkg/muz/fp/spacer_slice_results.go",
+          "go_targets": ["pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/spacer_original_model_test.go"],
+          "notes": "Only live transformed head/tail predicates receive transformers; fresh synthetic query heads reset prior frames before new slicing. Repeated plain/sliced/inlined/composed exported models independently satisfy original numeric clauses and refute the query.",
           "tests": [
             "TestSpacerEngineExpandsSlicedReachableColumns",
+            "TestSpacerInductiveModelSatisfiesOriginalNumericClauses",
             "TestSpacerEngineReconstructsInlinedReachablePredicate",
             "TestSpacerEngineExpandsSlicedModelPredicates"
           ]
@@ -99909,7 +99912,7 @@
         }
       ],
       "ownership": ["Manager owns the state SymMux, background reference, three SMTContextManager pools, and manager-created PropSolver virtual backends."],
-      "deviations": ["SMT backend configuration is explicit in Go. PropSolver.Close retires manager-created virtual views before the pools close.", "The retained Go fixedpoint rule pipeline has no preprocessing model converter; inductive models therefore need no post-conversion apply step."]
+      "deviations": ["SMT backend configuration is explicit in Go. PropSolver.Close retires manager-created virtual views before the pools close.", "The fixedpoint frontend replays its ordered Horn model-conversion ledger after exporting the backend inductive model."]
     },
     {
       "path": "src/muz/spacer/spacer_manager.h",
@@ -99985,7 +99988,7 @@
         }
       ],
       "ownership": ["The Go manager explicitly owns its multiplexer, pools, and background formula reference."],
-      "deviations": ["Header guards and RAII fields become Go package compilation and explicit Close ownership.", "The retained Go fixedpoint rule pipeline has no preprocessing model converter; inductive models therefore need no post-conversion apply step."]
+      "deviations": ["Header guards and RAII fields become Go package compilation and explicit Close ownership.", "The fixedpoint frontend replays its ordered Horn model-conversion ledger after exporting the backend inductive model."]
     },
     {
       "path": "src/muz/spacer/spacer_matrix.cpp",

@@ -581,9 +581,15 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 		}
 		defer func() { resultErr = errors.Join(resultErr, queryRule.Close()) }()
 	}
+	// Source check_reset sees the synthetic query rule as well as the stored
+	// program. A fresh query head cannot be subsumed by the prior query rule;
+	// inheriting frames here can mix old predicates with freshly sliced ones.
 	resetRules, err := e.shouldResetSpacerRules()
 	if err != nil {
 		return lbool.Undef, err
+	}
+	if queryRule != nil && e.spacerRules != nil && e.spacerQuery != queryDeclaration {
+		resetRules = true
 	}
 	snapshot, err := snapshotHornRules(e.set)
 	if err != nil {
@@ -653,7 +659,10 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	if err = context.SetBackground(background); err != nil {
 		return lbool.Undef, errors.Join(err, closeContext())
 	}
-	if err = context.UpdateRulesPredicates(prepared, e.predicateOrder); err != nil {
+	// Source init_rules creates transformers only for predicates in the
+	// transformed program. Registry-only predicates may have been eliminated;
+	// giving them unconstrained interpretations would corrupt model conversion.
+	if err = context.UpdateRules(prepared); err != nil {
 		return lbool.Undef, errors.Join(fmt.Errorf("muz/fp: initialize preprocessed Spacer rules: %w", err), closeContext())
 	}
 	if err = context.SetQuery(queryDeclaration); err != nil {

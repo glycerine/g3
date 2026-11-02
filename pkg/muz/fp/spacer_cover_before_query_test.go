@@ -19,10 +19,14 @@ func TestSpacerCoverBeforeFirstQuerySurvivesRuleInstallation(t *testing.T) {
 		}
 	}
 	must(e.SelectEngine("spacer"))
+	for _, key := range []string{"fixedpoint.xform.inline_eager", "fixedpoint.xform.inline_linear"} {
+		must(e.globals.SourceSetName(key, "false"))
+	}
 	u := f.applications["u"]
 	recursive, err := m.MkImplies(u, u)
 	must(err)
 	must(e.AddRule(recursive, "covered-recursive-predicate"))
+	addSpacerLifecycleIntegerRules(t, e, u)
 	parameters, err := e.params.NewValue()
 	must(err)
 	defer func() { must(e.params.Del(&parameters)) }()
