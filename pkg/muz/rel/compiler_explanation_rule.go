@@ -307,6 +307,9 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 		}
 		plan.negatives = append(plan.negatives, filter)
 	}
+	if err := planExplanationConditionColumns(relations, rule, head, len(headSorts), headExplanations, len(tailSorts), &plan, tailVariables); err != nil {
+		return plan, err
+	}
 	plan.finiteWidth = len(tailSorts)
 	plan.explanationWidth = explanationOffset
 	var headColumns []int
@@ -456,8 +459,9 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 // finite output bridge using source-ordered binary joins. Tail constants and
 // repeated finite columns use filtering and duplicate-column lowering. Finite head
 // constants and unbound variables use singleton/full columns. Finite negative
-// tails preserve only positive proof dependencies; negative rule-sort tails and
-// condition-only unbound variables are rejected before a program is published.
+// tails preserve only positive proof dependencies. Interpreted finite witnesses
+// use full domains; unbound proof variables and negative rule-sort tails are
+// rejected before a program is published.
 func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule, guard *rewriter.TheoryRewriter) (result *InstructionBlock, resultErr error) {
 	registers := explanationRuleRegisters{inputTail: -1, outputDelta: VoidRegister}
 	return compileExplanationRuleWithRegisters(relations, rule, guard, &registers)
