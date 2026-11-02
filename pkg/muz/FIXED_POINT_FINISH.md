@@ -27,6 +27,12 @@ Each completed item needs source paths, implementation/test evidence and a commi
 ## 3. PDR — first engine closure
 
 - [ ] Audit remaining `pdr_util.cpp` methods against live consumers; implement needed normalization/diagnostic paths and document genuinely unused helpers.
+  - [x] Verify focused evidence for model-satisfied disequality reduction and source swap-removal/reprocessing order.
+  - [x] Verify difference/UTVPI classification, backend selection and rejection of out-of-fragment proof lemmas.
+  - [x] Verify exact arithmetic normalization, owning publication, cancellation retry and disposal under a refused allocation budget.
+  - [ ] Close interrupted-decrement ownership coverage in `arith_normalize.go`, including any unconsumed roots and explicit cleanup continuation.
+  - [ ] Confirm the full caller graph for `ceil_log2` and cube formatting; exclude only genuinely unused helpers or dormant self-tests.
+  - [ ] Reconcile method-level audit evidence and mark the unit complete only after the remaining checks are satisfied.
 - [ ] Confirm method and ownership evidence for all PDR units, including arithmetic fragment selection and proof-derived lemmas.
 - [ ] Verify recursive/nonlinear SAT and UNSAT, assumptions/background, repeated queries, witnesses, proofs and original-rule traces at the public boundary.
 - [ ] Close all PDR source obligations before declaring the engine complete.
@@ -166,3 +172,6 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Corrected the muz Duality interface inventory descriptions: registration, query execution and proof/certificate export are implemented; full source and ownership closure remains partial. Focused public integration verification is recorded with the commit.
   Validation: `go -C pkg test ./parsers/smt2 -run '^TestSMT2Duality(MutualRecursionIntegerUnderapproximation|SafetyCertificate|ReachableCertificate)$' -count=1` and `go -C pkg test ./portcheck -short` both passed. Commit title: `Create fixedpoint completion checklist and reconcile Duality status`.
+
+- 2026-11-02 — PDR utility checklist decomposed into verified algorithm evidence and explicit remaining ownership/consumer obligations. The prior checklist/inventory commit is `763135367`. Current evidence covers disequality ordering, fragment classification/backend gates, exact normalization, cancellation/retry and no-allocation temporary disposal; interrupted decrement closure remains unchecked. Source targets: `src/muz/pdr/pdr_util.cpp`, `pkg/muz/pdr/pdr_util.go`, `fragment.go`, `arith_normalize.go` and their focused tests.
+  Validation: `go -C pkg test ./muz/pdr -run 'Test(PDRDisequality|PDRDifference|PDRFragment|PDRContextSelects|PropSolverRejects|NormalizeArithmetic|ArithmeticNormalization|PDRArithmeticNormalization)' -short -count=1` passed. Commit title: `Record verified PDR utility evidence and remaining obligations`.
