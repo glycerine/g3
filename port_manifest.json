@@ -140662,6 +140662,14 @@
           ]
         },
         {
+          "name": "final_check delayed quantifier consumption reaches the next search iteration even when the instantiated lemma simplifies away",
+          "status": "ported",
+          "go_target": "pkg/smtcore/smt_search.go",
+          "go_targets": ["pkg/smtcore/smt_search_quantifier_progress_test.go", "pkg/muz/fp/bmc_numeric_proof_test.go"],
+          "tests": ["TestSMTSearchProgressCountsConsumedLazyQuantifierInstances", "TestBMCNumericProofIndependentValidation"],
+          "reason": "Counts the finite lazy-queue transition without treating a drained queue as progress; preserves unknown detection for genuinely stalled theories and stabilizes recursive QBMC proof search."
+        },
+        {
           "name": "arithmetic context-sharing query for root theory-variable counts, ite roots, active MAM sharing, foreign-family parents and underspecified arithmetic parents",
           "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_shared.go",

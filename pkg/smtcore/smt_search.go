@@ -14,6 +14,7 @@ import (
 
 type smtSearchProgress struct {
 	theory                                uint64
+	quantifierLazyInstances               uint32
 	variables, clauses, assigned          int
 	equalities, disequalities             int
 	queuedEqualities, processedEqualities int
@@ -77,12 +78,20 @@ func (s *SMTInternalizerState) reinternalizeLemmaAtoms(atoms []smtRetainedLemmaA
 }
 
 func (s *SMTInternalizerState) searchProgress() smtSearchProgress {
-	return smtSearchProgress{
+	result := smtSearchProgress{
 		theory:    s.theoryProgress,
 		variables: len(s.boolExpr), clauses: len(s.clauses), assigned: len(s.assignedLiterals),
 		equalities: len(s.theoryEqualities), disequalities: len(s.theoryDisequalities),
 		queuedEqualities: len(s.pending), processedEqualities: s.pendingHead,
 	}
+	// A delayed quantifier instance may simplify to true or duplicate an
+	// existing lemma. Consuming it still advances source final checking: the
+	// next round must observe the now-drained lazy queue before declaring that
+	// no theory made progress.
+	if q := s.quantifierManager; q != nil && q.registry != nil && q.registry.schedule != nil {
+		result.quantifierLazyInstances = q.registry.schedule.Stats().LazyInstances
+	}
+	return result
 }
 
 func smtDecisionLiteral(variable int32, phase lbool.LBool) SMTLiteral {
