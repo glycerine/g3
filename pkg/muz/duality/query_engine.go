@@ -5,6 +5,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 
 	graph "github.com/glycerine/g3/pkg/duality"
+	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -23,8 +24,9 @@ type QueryEngine struct {
 	closed  bool
 }
 type queryRun struct {
-	graph  *graph.RPFP
-	engine *graph.Engine
+	graph      *graph.RPFP
+	engine     *graph.Engine
+	background []*graph.Expr
 }
 
 func (r *queryRun) close() error {
@@ -39,6 +41,13 @@ func (r *queryRun) close() error {
 			return err
 		}
 		r.graph = nil
+	}
+	for len(r.background) > 0 {
+		i := len(r.background) - 1
+		if err := r.background[i].Close(); err != nil {
+			return err
+		}
+		r.background = r.background[:i]
 	}
 	return nil
 }
@@ -114,7 +123,38 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 			e.status = lbool.Undef
 		}
 	}()
-	next.engine, err = graph.NewEngine(nextGraph, e.config)
+	config := e.config
+	config.Theory = append([]*graph.Expr(nil), config.Theory...)
+	for _, ref := range prepared.background {
+		h, err := manager.RefGet(ref)
+		if err != nil {
+			return lbool.Undef, err
+		}
+		axiom, err := graph.NewExpr(e.context, h)
+		if err != nil {
+			return lbool.Undef, err
+		}
+		next.background = append(next.background, axiom)
+		config.Theory = append(config.Theory, axiom)
+	}
+	if len(config.Theory) > 0 {
+		for _, native := range []solver.Solver{config.Native, config.Auxiliary} {
+			if err := native.Push(); err != nil {
+				return lbool.Undef, err
+			}
+			defer func() { result = errors.Join(result, native.Pop(1)) }()
+			for _, axiom := range config.Theory {
+				h, err := axiom.Raw()
+				if err != nil {
+					return lbool.Undef, err
+				}
+				if err := native.Assert(h); err != nil {
+					return lbool.Undef, err
+				}
+			}
+		}
+	}
+	next.engine, err = graph.NewEngine(nextGraph, config)
 	if err != nil {
 		return lbool.Undef, err
 	}

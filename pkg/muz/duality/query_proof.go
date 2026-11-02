@@ -22,6 +22,9 @@ func (e *QueryEngine) GetProof() (ast.ASTRef, error) {
 		}
 		return m.NewRef(ast.ASTHandle{})
 	}
+	if len(e.active.background) > 0 || len(e.config.Theory) > 0 {
+		return ast.ASTRef{}, graph.ErrProofWitness
+	}
 	return e.active.engine.GetCounterexample().Proof(e.config.Factory)
 }
 

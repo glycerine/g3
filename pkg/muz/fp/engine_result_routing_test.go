@@ -303,6 +303,7 @@ func TestRetainedEngineKindSelectionAndDiagnostics(t *testing.T) {
 		{"qbmc", fp.EngineQBMC},
 		{"tab", fp.EngineTab},
 		{"clp", fp.EngineCLP},
+		{"duality", fp.EngineDuality},
 		{"ddnf", fp.EngineDDNF},
 	} {
 		fpMust(t, engine.SelectEngine(test.name))
@@ -310,11 +311,6 @@ func TestRetainedEngineKindSelectionAndDiagnostics(t *testing.T) {
 		fpMust(t, err)
 		if kind != test.kind || kind.String() != test.name || !kind.Retained() {
 			t.Fatal("selected engine", kind, kind.String(), kind.Retained())
-		}
-	}
-	for _, name := range []string{"duality"} {
-		if err := engine.SelectEngine(name); err == nil || errors.Is(err, fp.ErrPropositionalEngine) {
-			t.Fatal("known unported engine diagnostic", name, err)
 		}
 	}
 	if err := engine.SelectEngine("not-an-engine"); err == nil {

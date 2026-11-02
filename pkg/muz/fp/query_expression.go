@@ -40,6 +40,12 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
+	if e.backend == "duality" {
+		e.queried = true
+		result, err := e.queryDuality(query)
+		e.recordQueryStatus(result, err)
+		return result, err
+	}
 	hoisted, err := e.hoistQueryExistentials(query)
 	if err != nil {
 		return lbool.Undef, fmt.Errorf("muz/fp: hoist query existentials: %w", err)

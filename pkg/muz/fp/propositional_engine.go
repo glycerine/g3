@@ -17,6 +17,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/ddnf"
+	muzduality "github.com/glycerine/g3/pkg/muz/duality"
 	muzpdr "github.com/glycerine/g3/pkg/muz/pdr"
 	"github.com/glycerine/g3/pkg/muz/rel"
 	muzspacer "github.com/glycerine/g3/pkg/muz/spacer"
@@ -80,6 +81,9 @@ type PropositionalEngine struct {
 	params              *uparams.ParamsContext
 	globals             *uparams.GlobalParamsService
 	backend             string
+	duality             *muzduality.Backend
+	dualityCooperation  *cooperate.Cooperation
+	dualityMBQI         bool
 	pdr                 *muzpdr.Context
 	pdrRules            *base.RuleSet
 	pdrRuleRevision     uint64
@@ -367,8 +371,8 @@ func (e *PropositionalEngine) BackgroundAssertions() (result []ast.ASTRef, resul
 	return result, nil
 }
 
-// ParametersUpdated invalidates a retained backend context so the next query
-// reconstructs it from current fixedpoint parameters.
+// ParametersUpdated invalidates the published result. Duality reads its query
+// options on each query and preserves its learning context across updates.
 func (e *PropositionalEngine) ParametersUpdated() error {
 	if err := e.open(); err != nil {
 		return err
@@ -639,8 +643,8 @@ func (e *PropositionalEngine) Push() error {
 	return nil
 }
 
-// Pop restores the most recent rule snapshot. The native Datalog engine only
-// permits this before a query creates its execution engine.
+// Pop restores the most recent rule snapshot. Duality also supports popping
+// after queries; other engines require popping before their first query.
 func (e *PropositionalEngine) Pop() error {
 	if err := e.open(); err != nil {
 		return err
@@ -648,7 +652,7 @@ func (e *PropositionalEngine) Pop() error {
 	if len(e.scopes) == 0 {
 		return fmt.Errorf("muz/fp: there are no backtracking points to pop to")
 	}
-	if e.queried {
+	if e.queried && e.backend != "duality" {
 		return fmt.Errorf("muz/fp: pop operation is only supported before a query")
 	}
 	if len(e.assertionScopes) != len(e.scopes) || len(e.autoRuleScopes) != len(e.scopes) || len(e.rawRuleScopes) != len(e.scopes) {
@@ -1692,6 +1696,10 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 		return lbool.Undef, ErrPropositionalHorn
 	}
 	e.queried = true
+	if e.backend == "duality" {
+		e.compiled = false
+		return e.queryRelationExpression(declaration)
+	}
 	if e.backend == "pdr" || e.backend == "qpdr" {
 		e.compiled = false
 		return e.queryPDR(declaration)
@@ -1916,6 +1924,10 @@ func (e *PropositionalEngine) inductiveModelAnswer(inductive *model.Model) (answ
 // Answer returns an owning formula describing the current finite relation.
 // Each free variable corresponds to the predicate column with the same index.
 func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTRef, result error) {
+	// dl_interface::get_answer is an explicit unsupported source operation.
+	if e.backend == "duality" {
+		return answer, ErrPropositionalEngine
+	}
 	if err := e.open(); err != nil {
 		return answer, err
 	}
@@ -2086,6 +2098,12 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 // fixedpoint.generate_proof_trace. The caller releases it through
 // ASTManager.DelRef.
 func (e *PropositionalEngine) Proof(declaration ast.ASTHandle) (ast.ASTRef, error) {
+	if e.backend == "duality" {
+		if err := e.requireResultSnapshot(EngineDuality); err != nil {
+			return ast.ASTRef{}, err
+		}
+		return e.duality.GetProof()
+	}
 	if err := e.requirePDRSnapshot(); err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -2197,6 +2215,12 @@ func (e *PropositionalEngine) Model(declaration ast.ASTHandle) (*model.Model, er
 	if e.backend == "datalog" {
 		return e.datalogModel(declaration)
 	}
+	if kind == EngineDuality && e.duality != nil {
+		if e.lastResult != lbool.False {
+			return nil, ErrPropositionalEngine
+		}
+		return e.duality.GetModel()
+	}
 	if (e.backend == "pdr" || e.backend == "qpdr") && e.pdr != nil {
 		result, err := e.pdr.Model(e.pdrPredicate(declaration))
 		if err != nil {
@@ -2269,6 +2293,9 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.external = nil
 	}
 	result = errors.Join(result, e.clearQueryResources())
+	if err := e.closeDuality(); err != nil {
+		return errors.Join(result, err)
+	}
 	e.retiredRawRules = append(e.retiredRawRules, e.rawRules...)
 	e.rawRules = nil
 	for _, scope := range e.rawRuleScopes {

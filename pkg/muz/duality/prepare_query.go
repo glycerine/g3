@@ -11,9 +11,10 @@ import (
 
 // PreparedQuery owns the clauses passed to Duality's RPFP construction.
 type PreparedQuery struct {
-	manager *ast.ASTManager
-	clauses []ast.ASTRef
-	bounds  []uint32
+	manager    *ast.ASTManager
+	background []ast.ASTRef
+	clauses    []ast.ASTRef
+	bounds     []uint32
 }
 
 // PrepareQuery adds the closed query and missing predicate heads to rule
@@ -87,6 +88,13 @@ func (q *PreparedQuery) Bounds() ([]uint32, error) {
 func (q *PreparedQuery) Close() error {
 	if q == nil || q.manager == nil {
 		return nil
+	}
+	for len(q.background) > 0 {
+		i := len(q.background) - 1
+		if err := q.manager.DelRef(&q.background[i]); err != nil {
+			return err
+		}
+		q.background = q.background[:i]
 	}
 	for len(q.clauses) > 0 {
 		i := len(q.clauses) - 1

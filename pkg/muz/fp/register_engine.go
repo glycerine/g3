@@ -6,6 +6,9 @@ import "fmt"
 
 func (e *PropositionalEngine) selectBackend(kind EngineKind) error {
 	if e.backend != kind.String() {
+		if err := e.closeDuality(); err != nil {
+			return err
+		}
 		if err := e.clearQueryResources(); err != nil {
 			return err
 		}
@@ -61,7 +64,7 @@ func (e *PropositionalEngine) SelectEngine(name string) error {
 	switch kind {
 	case EngineDatalog:
 		return e.selectBackend(kind)
-	case EnginePDR, EngineQPDR, EngineSpacer, EngineBMC, EngineQBMC, EngineTab, EngineCLP:
+	case EnginePDR, EngineQPDR, EngineSpacer, EngineBMC, EngineQBMC, EngineTab, EngineCLP, EngineDuality:
 		if e.params == nil || e.globals == nil {
 			return fmt.Errorf("muz/fp: fixedpoint engine %s requires parameter services", name)
 		}

@@ -36,6 +36,10 @@ func (e *PropositionalEngine) requireResultSnapshot(kind EngineKind) error {
 		return ErrPropositionalEngine
 	}
 	switch kind {
+	case EngineDuality:
+		if e.duality == nil {
+			return ErrPropositionalEngine
+		}
 	case EnginePDR, EngineQPDR:
 		if e.pdr == nil || e.pdrRevision != e.revision {
 			return ErrPropositionalEngine
