@@ -8,7 +8,7 @@ import (
 )
 
 func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
-	for _, mode := range []string{"sat", "unsat", "restart"} {
+	for _, mode := range []string{"sat", "unsat", "restart", "constrained", "underapprox"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx, m, main, globals := dualityNativeSolverServicesFixture(t)
 			must := func(err error) {
@@ -57,8 +57,9 @@ func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
 				original = append(original, node)
 			}
 			must(original[0].Bound.SetEmpty())
+			wantSAT := mode == "sat" || mode == "constrained" || mode == "underapprox"
 			rootFormula := terms[1]
-			if mode != "sat" {
+			if !wantSAT {
 				negative, err := p.Not()
 				must(err)
 				closeExpr(t, negative)
@@ -121,18 +122,27 @@ func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
 			base.FalseApprox = false
 			search, err := NewBacktrackingDerivation(base)
 			must(err)
-			top, err := base.CreateApproximatedInstance(mapped[0])
-			must(err)
-			base.Top = top
+
 			checker, err := NewLocalEdgeChecker(source, factory, nil)
 			must(err)
 			defer checker.Close()
-			must(working.Push())
-			must(working.AssertNode(top))
-			controller := &DerivationSearch{Search: search, Checker: checker, Auxiliary: aux, Simplifier: manager, EnableRestarts: mode == "restart"}
-			sat, err := controller.Build()
+			// Preserve an unrelated native caller scope around Derive.
+			must(main.Push())
+			caller, err := ctx.BoolConst("derive-caller")
 			must(err)
-			if sat != (mode == "sat") {
+			closeExpr(t, caller)
+			callerRaw, err := caller.Raw()
+			must(err)
+			must(main.Assert(callerRaw))
+			_, err = main.CheckSat(nil)
+			must(err)
+			baseline, err := main.NumAssertions()
+			must(err)
+			controller := &DerivationSearch{Search: search, Checker: checker, Auxiliary: aux, Simplifier: manager, EnableRestarts: mode == "restart"}
+			sat, err := controller.Derive(mapped[0], mode == "underapprox", mode == "constrained")
+			top := base.Top
+			must(err)
+			if sat != wantSAT {
 				t.Fatal("search result mismatch", sat, mode)
 			}
 			depth, err := main.ScopeLevel()
@@ -140,6 +150,15 @@ func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
 			if depth != 1 || len(search.stack) != 1 {
 				t.Fatal("search did not restore base solver/expansion levels", depth, len(search.stack))
 			}
+			remaining, err := main.NumAssertions()
+			must(err)
+			if remaining != baseline || len(working.scopes) != 1 {
+				t.Fatal("Derive disturbed enclosing assertion/graph scope", remaining, baseline)
+			}
+			if !base.FalseApprox || base.Underapprox != (mode == "underapprox") || base.Constrained != (mode == "constrained") {
+				t.Fatal("source derive mode flags not initialized")
+			}
+
 			if sat {
 				if len(working.edges) != 3 || len(working.nodes) != 3 || working.dualModel == nil {
 					t.Fatal("SAT counterexample graph/model missing")
@@ -161,7 +180,7 @@ func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
 					t.Fatal("search mutated source rule annotations")
 				}
 			}
-			must(working.Pop(1))
+			must(main.Pop(1))
 		})
 	}
 }
