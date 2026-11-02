@@ -4,6 +4,7 @@ package rewriter
 
 import (
 	"errors"
+	"math"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -42,6 +43,10 @@ func (r *PB2BVRewriter) sortingNetwork(values []ast.ASTHandle) (output []ast.AST
 }
 
 func (r *PB2BVRewriter) sortingGE(args []ast.ASTHandle, coefficients []uint32, bound uint32) (result ast.ASTHandle, matched bool, err error) {
+	// The final mixed-radix base is bound+1 and must fit in uint32.
+	if bound == math.MaxUint32 {
+		return result, false, nil
+	}
 	basis, ok := pb2BVCreateSortingBasis(coefficients)
 	if !ok {
 		return result, false, nil

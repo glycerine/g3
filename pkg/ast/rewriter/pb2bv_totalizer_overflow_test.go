@@ -46,3 +46,21 @@ func TestPB2BVSortingCoefficientSumOverflow(t *testing.T) {
 		}
 	}
 }
+
+func TestPB2BVSortingMaximumUnsignedBound(t *testing.T) {
+	m, r := pb2BVFixture(t)
+	pb2BVSetProfile(t, r, "pb.solver", "sorting")
+	a := goalTestAtom(t, m, "sorting-max-bound-a")
+	b := goalTestAtom(t, m, "sorting-max-bound-b")
+	values := pbTestRationals(t, m, "4294967294", "1", "4294967295")
+	h, err := m.MkPseudoBooleanEQ(values[:2], []ast.ASTHandle{a, b}, &values[2])
+	astTestMust(t, err)
+	astTestPin(t, m, h)
+	out := astTestPin(t, m, ast.ASTHandle{})
+	astTestMust(t, r.Rewrite(h, out, ast.ASTRef{}))
+	got, err := m.RefGet(out)
+	astTestMust(t, err)
+	if got == h || m.IsFalse(got) {
+		t.Fatal("maximum-bound equality was not compiled", got)
+	}
+}
