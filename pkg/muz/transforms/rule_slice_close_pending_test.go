@@ -23,6 +23,8 @@ func TestSliceProofClosePreservesRootsWhileManagerExecutes(t *testing.T) {
 	var converter *SliceProofConverter
 	var cone *ConePlugin
 	var inliner *RuleInlinerPlugin
+	var owner *base.RuleTransformer
+	var completed *RuleCoalescePlugin
 	active, callbacks, intact := false, 0, true
 	var closeErr error
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
@@ -41,6 +43,8 @@ func TestSliceProofClosePreservesRootsWhileManagerExecutes(t *testing.T) {
 					intact = intact && entry.Head != (ast.ASTRef{}) && entry.Body != (ast.ASTRef{})
 				}
 			}
+			resetErr, ownerErr := owner.Reset(), owner.Close()
+			intact = intact && errors.Is(resetErr, ast.ErrASTPending) && errors.Is(ownerErr, ast.ErrASTPending) && completed.closed
 			count := len(converter.formulas)
 			if len(converter.originals) == 0 {
 				intact = false
@@ -130,6 +134,13 @@ func TestSliceProofClosePreservesRootsWhileManagerExecutes(t *testing.T) {
 	}
 	must(inlined.Close())
 	defer func() { must(inliner.Close()) }()
+	owner = base.NewRuleTransformer()
+	must(owner.Register(cone))
+	must(owner.Register(inliner))
+	completed = NewRuleCoalescePlugin(m, rules, 1)
+	must(owner.Register(completed))
+	defer func() { must(owner.Close()) }()
+
 	converter = newSliceProofConverter(m, rules, map[ast.ASTHandle]ast.ASTHandle{predicate: slicedPredicate}, map[ast.ASTHandle][]bool{predicate: {true}})
 	must(converter.insert(original, sliced, nil))
 	proof, found, err := sliced.Proof()
@@ -166,6 +177,23 @@ func TestSliceProofClosePreservesRootsWhileManagerExecutes(t *testing.T) {
 	if result, cause := inliner.NormalizeResolvedRule(original); !errors.Is(cause, ast.ErrASTHandle) || result != nil {
 		t.Fatal("closing inliner accepted normalization", cause)
 	}
+	rejected := NewRuleCoalescePlugin(m, rules, 1)
+	if err := owner.Register(rejected); !errors.Is(err, base.ErrRuleTransformerOwner) {
+		t.Fatal("resetting transformer accepted registration", err)
+	}
+	must(rejected.Close())
+	if modified, err := owner.Apply(set); !errors.Is(err, base.ErrRuleTransformerOwner) || modified {
+		t.Fatal("resetting transformer accepted application", modified, err)
+	}
+	must(owner.Reset())
+	must(owner.Reset())
+	if !cone.closed || !inliner.closed || len(cone.steps) != 0 || len(inliner.modelRules) != 0 {
+		t.Fatal("transformer retry lost plugin cleanup")
+	}
+	reusable := NewRuleCoalescePlugin(m, rules, 1)
+	must(owner.Register(reusable))
+	must(owner.Close())
+	must(owner.Close())
 	must(cone.Close())
 	must(cone.Close())
 	must(inliner.Close())

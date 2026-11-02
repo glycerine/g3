@@ -85920,6 +85920,12 @@
       "ownership_audited": true,
       "methods": [
         {
+          "name": "rule_transformer Reset/Close preserve remaining plugin owners on child refusal, retire successful closes once and block ordinary operations until cleanup resumes",
+          "status": "ported",
+          "go_targets": ["pkg/muz/base/rule_transformer.go", "pkg/muz/transforms/rule_slice_close_pending_test.go"],
+          "tests": ["TestSliceProofClosePreservesRootsWhileManagerExecutes"]
+        },
+        {
           "name": "Owned plugin reset/cancel/register lifecycle, descending priority ordering, no-op and changed-stage composition, destratification rejection, finalized intermediate ownership, and final rule replacement (dl_rule_transformer.cpp:29-128)",
           "status": "ported",
           "go_target": "pkg/muz/base/rule_transformer.go",

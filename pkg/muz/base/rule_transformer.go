@@ -57,15 +57,16 @@ type RuleTransformPlugin interface {
 
 // RuleTransformer owns every registered plugin until Reset or Close.
 type RuleTransformer struct {
-	plugins []RuleTransformPlugin
-	dirty   bool
-	closed  bool
+	plugins        []RuleTransformPlugin
+	dirty          bool
+	closed         bool
+	cleanupPending bool
 }
 
 func NewRuleTransformer() *RuleTransformer { return &RuleTransformer{} }
 
 func (t *RuleTransformer) open() error {
-	if t == nil || t.closed {
+	if t == nil || t.closed || t.cleanupPending {
 		return ErrRuleTransformerOwner
 	}
 	return nil
@@ -213,7 +214,7 @@ func (t *RuleTransformer) Apply(rules *RuleSet) (modified bool, resultErr error)
 }
 
 func (t *RuleTransformer) Cancel() {
-	if t == nil || t.closed {
+	if t == nil || t.closed || t.cleanupPending {
 		return
 	}
 	for _, plugin := range t.plugins {
@@ -221,16 +222,25 @@ func (t *RuleTransformer) Cancel() {
 	}
 }
 
-func (t *RuleTransformer) Reset() (result error) {
-	if err := t.open(); err != nil {
-		return err
+// Reset retires only successfully closed plugins. Ordinary use is blocked
+// after a refusal until Reset or Close finishes the remaining cleanup.
+func (t *RuleTransformer) Reset() error {
+	if t == nil || t.closed {
+		return ErrRuleTransformerOwner
 	}
-	for i := len(t.plugins) - 1; i >= 0; i-- {
-		result = errors.Join(result, t.plugins[i].Close())
+	t.cleanupPending = true
+	for len(t.plugins) > 0 {
+		last := len(t.plugins) - 1
+		if err := t.plugins[last].Close(); err != nil {
+			return err
+		}
+		t.plugins[last] = nil
+		t.plugins = t.plugins[:last]
 	}
 	t.plugins = nil
 	t.dirty = false
-	return result
+	t.cleanupPending = false
+	return nil
 }
 
 func (t *RuleTransformer) Close() error {
@@ -240,7 +250,9 @@ func (t *RuleTransformer) Close() error {
 	if t.closed {
 		return nil
 	}
-	result := t.Reset()
+	if err := t.Reset(); err != nil {
+		return err
+	}
 	t.closed = true
-	return result
+	return nil
 }
