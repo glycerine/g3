@@ -23,6 +23,7 @@ func TestSATLiveCutSimplifierExtractsAIGFromOwnedSolverState(t *testing.T) {
 	if e = s.Lifecycle.pushClause(false, r); e != nil {
 		t.Fatal(e)
 	}
+	satOK(t, s.Lifecycle.attachClause(r))
 	x, e := newSATCutSimplifierLive(s)
 	if e != nil {
 		t.Fatal(e)

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 
 	umemory "github.com/glycerine/g3/pkg/util/memory"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
@@ -236,6 +237,19 @@ func TestPolynomialModDReachedDegreeAndMapReadProfiles(t *testing.T) {
 	_, e = m.monomialSurvivesModD(term, d)
 	monomialReadMissing(t, e)
 	if polynomialSourceDebug {
+		budget := arena.NewBudget(1 << 20)
+		region, e := arena.NewBytesRegion(arena.BytesRegionConfig{DirectOnly: true, Descriptors: arena.Config{Budget: budget}})
+		serviceMust(t, e)
+		debug, e := diagnostic.NewDebugContext(region, budget)
+		serviceMust(t, e)
+		previous, e := diagnostic.BindProcessDebugContext(debug)
+		serviceMust(t, e)
+		defer func() {
+			_, e := diagnostic.BindProcessDebugContext(previous)
+			serviceMust(t, e)
+			serviceMust(t, debug.Close())
+			serviceMust(t, region.Close())
+		}()
 		q, r := polynomialPseudoOutputs(t, m)
 		e = m.ExactPseudoDivideModD(Polynomial{}, Polynomial{}, 0, nil, q, r)
 		if !errors.Is(e, ErrPolynomialAssertion) {

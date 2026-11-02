@@ -36,6 +36,10 @@ func TestCNFBackbonesSourceConsequences(t *testing.T) {
 // chunking algorithm, whose output consists of backbone literals.
 func sourceCNFChunking(t *testing.T, solver *Solver, vars []BoolVar, assumptions []Literal, chunkSize int) (lbool.LBool, []Literal) {
 	t.Helper()
+	// The source driver's caller protects query variables from elimination.
+	for _, v := range vars {
+		satOK(t, solver.sourceSetExternal(v))
+	}
 	status, err := solver.Check(assumptions)
 	satOK(t, err)
 	if status != lbool.True {

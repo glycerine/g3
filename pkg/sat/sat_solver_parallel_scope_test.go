@@ -16,6 +16,8 @@ func TestSATSolverParallelExchangeRespectsScopeAndBindVariableFrontier(t *testin
 	if n, err := exchange.Len(); err != nil || n != 0 {
 		t.Fatal(n, err)
 	}
+	_, err = s.Lifecycle.propagate(true)
+	satOK(t, err)
 	satOK(t, s.Lifecycle.push())
 	satOK(t, s.propagation.assign(MakeLiteral(0, false), satJustification{}))
 	satOK(t, s.conflict.exchangeParallel())

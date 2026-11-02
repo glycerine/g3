@@ -4,6 +4,10 @@ import "testing"
 
 func TestSATCutSimplifierLiveExtractsSolverLUT(t *testing.T) {
 	s, _, _ := satSolverCheckFixture(t)
+	for i := 0; i < 3; i++ {
+		_, err := s.MkVar(false, true)
+		satOK(t, err)
+	}
 	clauses := satLUTDefinitionClauses(2, func(x uint32) bool { return x&3 == 3 })
 	for _, c := range clauses {
 		r, e := s.Clauses.MkClause(c.Literals, false)
@@ -13,6 +17,7 @@ func TestSATCutSimplifierLiveExtractsSolverLUT(t *testing.T) {
 		if e = s.Lifecycle.pushClause(false, r); e != nil {
 			t.Fatal(e)
 		}
+		satOK(t, s.Lifecycle.attachClause(r))
 	}
 	x, e := newSATCutSimplifierLive(s)
 	if e != nil {

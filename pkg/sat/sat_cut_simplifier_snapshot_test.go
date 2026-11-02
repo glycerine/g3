@@ -4,6 +4,10 @@ import "testing"
 
 func TestSATCutSimplifierSnapshotDoesNotMutateSolverClauses(t *testing.T) {
 	s, _, _ := satSolverCheckFixture(t)
+	for i := 0; i < 3; i++ {
+		_, err := s.MkVar(false, true)
+		satOK(t, err)
+	}
 	r, e := s.Clauses.MkClause([]Literal{0, 2, 4}, false)
 	if e != nil {
 		t.Fatal(e)
@@ -11,6 +15,7 @@ func TestSATCutSimplifierSnapshotDoesNotMutateSolverClauses(t *testing.T) {
 	if e = s.Lifecycle.pushClause(false, r); e != nil {
 		t.Fatal(e)
 	}
+	satOK(t, s.Lifecycle.attachClause(r))
 	x, e := newSATCutSimplifierLive(s)
 	if e != nil {
 		t.Fatal(e)

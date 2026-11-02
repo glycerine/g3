@@ -505,9 +505,10 @@ func (c *GoalCompiler) model(include map[ast.ASTHandle]bool, filtered bool) (res
 	if err != nil {
 		return nil, false, err
 	}
+	createdModel := result
 	defer func() {
 		if err != nil || !supported {
-			err = errors.Join(err, result.Close())
+			err = errors.Join(err, createdModel.Close())
 			result = nil
 		}
 	}()
