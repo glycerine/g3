@@ -89362,6 +89362,7 @@
         "pkg/muz/fp/pdr_engine.go",
         "pkg/muz/fp/pdr_query_verbose.go",
         "pkg/muz/fp/pdr_query_verbose_test.go",
+        "pkg/muz/fp/pdr_empty_model_failure_test.go",
         "pkg/muz/fp/pdr_source_pipeline_test.go",
         "pkg/muz/fp/query_expression.go",
         "pkg/muz/fp/query_clone_predicates.go",
@@ -89458,10 +89459,17 @@
           "tests": ["TestPDRQueryDisplaysTransformedRulesAtSourceVerbosity"]
         },
         {
-          "name": "check_reset/query source TRACE checkpoints and empty transformed-program verbose model",
+          "name": "empty transformed-program level-1 model construction, preprocessing conversion replay, streaming and temporary-owner disposal (pdr_dl_interface.cpp:174)",
+          "status": "partial",
+          "go_targets": ["pkg/muz/fp/pdr_query_verbose.go", "pkg/muz/fp/pdr_query_verbose_test.go", "pkg/muz/fp/pdr_empty_model_failure_test.go"],
+          "tests": ["TestPDRQueryDisplaysEmptyProgramModelAtSourceVerbosity", "TestPDREmptyProgramModelDiagnosticFailureOwnershipAndRetry"],
+          "reason": "The source call is implemented for new/reused empty programs; native tests verify thresholds, converted original predicates, query omission, stable references and every allocation boundary through first success. The installed Z3 4.7.1 executable emits no converted definitions for the simple empty-program CLI fixture, so the end-to-end model-converter discrepancy remains an explicit unresolved fidelity audit."
+        },
+        {
+          "name": "check_reset/query source TRACE checkpoints",
           "status": "partial",
           "go_target": "pkg/muz/fp/pdr_engine.go",
-          "reason": "Fresh-rule reset TRACE, pre-transform background/query/rules TRACE, post-transform rule/SMT2 TRACE and the level-1 empty-rule-set model diagnostic remain unimplemented or unverified. The interface stays partial; the level-2 rule listing alone does not close diagnostics."
+          "reason": "Fresh-rule reset TRACE, pre-transform background/query/rules TRACE and post-transform rule/SMT2 TRACE remain unimplemented or unverified. The interface stays partial; implemented verbose branches alone do not close diagnostics."
         },
         {
           "name": "PDR and QPDR query preprocessing excludes relational filter/simple-join normalization and preserves original rules across repeated SAT/UNSAT queries",
