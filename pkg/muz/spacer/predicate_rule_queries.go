@@ -154,12 +154,10 @@ func (p *PredicateTransformer) SelectRule(md *model.ModelCore) (_ RuleSelection,
 			} else {
 				latest, err := predecessor.manager.RefGet(predecessor.reachCaseVariables[len(predecessor.reachCaseVariables)-1])
 				if err != nil {
-					_ = selection.Close()
 					return RuleSelection{}, err
 				}
 				originRef, err := p.owner.FormulaNewToOld(latest, uint32(index), false)
 				if err != nil {
-					_ = selection.Close()
 					return RuleSelection{}, err
 				}
 				origin, err := p.manager.RefGet(originRef)
@@ -173,7 +171,6 @@ func (p *PredicateTransformer) SelectRule(md *model.ModelCore) (_ RuleSelection,
 				}
 				err = errors.Join(err, p.manager.DelRef(&originRef))
 				if err != nil {
-					_ = selection.Close()
 					return RuleSelection{}, err
 				}
 				selection.IsConcrete = selection.IsConcrete && used

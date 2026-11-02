@@ -9,8 +9,8 @@ import (
 )
 
 func TestSpacerRuleSelectionUsesDirectModelInterpretations(t *testing.T) {
-	for _, tagState := range []string{"true", "false", "missing"} {
-		for _, reachState := range []string{"missing", "true", "false"} {
+	for _, tagState := range []string{"true", "false", "missing", "symbolic"} {
+		for _, reachState := range []string{"missing", "true", "false", "symbolic"} {
 			t.Run(fmt.Sprintf("tag=%s/reach=%s", tagState, reachState), func(t *testing.T) {
 				reached := reachState == "false"
 				f := newContextAnswerFixture(t, true)
@@ -27,6 +27,13 @@ func TestSpacerRuleSelectionUsesDirectModelInterpretations(t *testing.T) {
 				md, err := model.NewModel(m)
 				depthMust(t, err)
 				defer func() { depthMust(t, md.Close()) }()
+				sort, err := m.MkBoolSort()
+				depthMust(t, err)
+				symbolic, err := m.MkFreshConst("symbolic-selection-value", sort)
+				depthMust(t, err)
+				symbolicPin, err := m.NewRef(symbolic)
+				depthMust(t, err)
+				defer func() { depthMust(t, m.DelRef(&symbolicPin)) }()
 				tag, err := p.RuleTag(f.rule)
 				depthMust(t, err)
 				tagDecl, err := m.GetDecl(tag)
@@ -35,6 +42,9 @@ func TestSpacerRuleSelectionUsesDirectModelInterpretations(t *testing.T) {
 					value := truth
 					if tagState == "false" {
 						value = falsity
+					}
+					if tagState == "symbolic" {
+						value = symbolic
 					}
 					depthMust(t, md.Core().RegisterConstant(tagDecl, value))
 				}
@@ -54,6 +64,9 @@ func TestSpacerRuleSelectionUsesDirectModelInterpretations(t *testing.T) {
 					value := truth
 					if reached {
 						value = falsity
+					}
+					if reachState == "symbolic" {
+						value = symbolic
 					}
 					depthMust(t, md.Core().RegisterConstant(originDecl, value))
 				}

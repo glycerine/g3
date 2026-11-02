@@ -44,6 +44,9 @@ Each completed item needs source paths, implementation/test evidence and a commi
 ## 4. Spacer — second engine closure
 
 - [ ] Close `spacer_context` reach-fact selection, predecessor tags, obligation search and ownership/exception audits.
+  - [x] Verify direct tag/predecessor reads for true, false, missing and symbolic interpretations without model completion or reference leaks.
+  - [x] Consolidate SelectRule error cleanup under its deferred owner so cleanup errors are joined instead of discarded.
+  - [ ] Finish multi-rule preference/iteration-order and exceptional-destruction coverage.
   - [x] Verify unknown-case skipping, first-false ordering, initial-fact filtering and non-completing evaluation with the existing selection regression.
   - [x] Verify all-true/all-unknown no-selection results for current and origin-state cases without model completion or temporary-reference leaks.
   - [x] Verify the direct constant-model selection path remains usable with a zero-step evaluator budget and releases its returned owner.
@@ -219,3 +222,6 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Added `TestSpacerReachSelectionSkipsNonliteralModelInterpretation`: a symbolic Boolean interpretation at the first case must not be mistaken for false; selection reaches the later false case with reference accounting intact. The focused native test passes with max_steps=0. This fixture returns an unevaluated model interpretation rather than triggering rewriting, so it supplies no evaluator-exception evidence; that audit remains open. Previous ownership correction: `8ab4916ae`.
   Validation: `go -C pkg test ./muz/spacer -run '^TestSpacerReachSelectionSkipsNonliteralModelInterpretation$' -count=1` passed. Commit title: `Test Spacer selection skips symbolic model interpretations`.
+
+- 2026-11-02 — Compared `spacer_context.cpp:201-254` with `PredicateTransformer.SelectRule`. Expanded direct-model selection coverage from nine to sixteen tag/predecessor combinations, including symbolic interpretations. Removed three eager cleanup calls that discarded cleanup errors before the deferred owner ran; the existing deferred cleanup now supplies one error-joining path. Focused selection tests and complete native Spacer tests pass. Specific cleanup-error injection and multi-rule ordering remain open. Previous reach-selection ownership commit: `8ab4916ae`.
+  Validation: `go -C pkg test ./muz/spacer -run '^TestSpacerRuleSelectionUsesDirectModelInterpretations$' -count=1` and `go -C pkg test ./muz/spacer -short` passed. Commit title: `Preserve Spacer rule selection cleanup errors`.
