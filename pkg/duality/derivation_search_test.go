@@ -341,8 +341,12 @@ func TestDualitySlowSearchRestartPolicyAndFailureThresholds(t *testing.T) {
 	}
 	// Consecutive UNSAT rounds do not count as failures after backtracking.
 	controller.wasSAT = false
+	report.Reset()
 	for i := 0; i < 20; i++ {
 		must(controller.learningProgress(0))
+	}
+	if strings.Count(report.String(), "backtracked without learning") != 20 {
+		t.Fatal("missing zero-update round diagnostics", report.String())
 	}
 	if controller.updateFailures != 0 {
 		t.Fatal("non-SAT learning failures counted")
@@ -354,8 +358,12 @@ func TestDualitySlowSearchRestartPolicyAndFailureThresholds(t *testing.T) {
 	if controller.updateFailures != 10 {
 		t.Fatal("learning-failure boundary changed")
 	}
+	report.Reset()
 	if !errors.Is(controller.learningProgress(0), ErrDerivationRestart) {
 		t.Fatal("eleventh failure did not restart")
+	}
+	if strings.Contains(report.String(), "backtracked without learning") || !strings.Contains(report.String(), "incompleteness: cleared annotation") {
+		t.Fatal("restart diagnostic order", report.String())
 	}
 	full, err := parent.Annotation.IsFull()
 	must(err)

@@ -83,9 +83,6 @@ func (s *DerivationSearch) learningProgress(updates int) error {
 		return nil
 	}
 	if s.wasSAT {
-		if err := s.Search.original.streamReporter.Message("backtracked without learning"); err != nil {
-			return err
-		}
 		s.updateFailures++
 		if s.updateFailures > 10 {
 			if err := s.resetMappedFacts(false); err != nil {
@@ -94,7 +91,7 @@ func (s *DerivationSearch) learningProgress(updates int) error {
 			return ErrDerivationRestart
 		}
 	}
-	return nil
+	return s.Search.original.streamReporter.Message("backtracked without learning")
 }
 func (s *DerivationSearch) restart() error {
 	d := s.Search
