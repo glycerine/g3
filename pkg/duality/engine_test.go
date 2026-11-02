@@ -60,7 +60,10 @@ func TestDualityEngineNativeLifecycleRepeatedSolveAndHistoryTransfer(t *testing.
 			defer leaf.Close()
 			_, err = source.CreateEdge(child, leaf, nil)
 			must(err)
-			config := EngineConfig{Native: native, Auxiliary: aux, Factory: factory, Evaluator: derivationEvaluatorFixture(t, ctx, globals), Simplifier: manager}
+			previousProfile := NewProfiler(nil)
+			ctx.activeProfiler = previousProfile
+			profile := NewProfiler(nil)
+			config := EngineConfig{Profiler: profile, Native: native, Auxiliary: aux, Factory: factory, Evaluator: derivationEvaluatorFixture(t, ctx, globals), Simplifier: manager}
 			engine, err := NewEngine(source, config)
 			must(err)
 			defer engine.Close()
@@ -85,6 +88,9 @@ func TestDualityEngineNativeLifecycleRepeatedSolveAndHistoryTransfer(t *testing.
 			var previousGraph, previousCex *RPFP
 			for round := 0; round < 2; round++ {
 				solved, err := engine.Solve()
+				if ctx.activeProfiler != previousProfile || profile.current != profile.top {
+					t.Fatal("solve timer scope not restored")
+				}
 				must(err)
 				if solved == unsafe || engine.graph == nil || engine.graph.closed || engine.local != nil || engine.global != nil || engine.heuristic != nil || engine.cases.Graph != nil {
 					t.Fatal("engine result/per-run ownership", round, solved)
@@ -174,7 +180,10 @@ func TestDualityEngineNativeFailureCleanupAndRecovery(t *testing.T) {
 	must(err)
 	must(root.Bound.SetEmpty())
 	root.RecursionBound = 3
-	engine, err := NewEngine(source, EngineConfig{Native: native, Auxiliary: aux, Factory: factory, Evaluator: derivationEvaluatorFixture(t, ctx, globals), Simplifier: manager})
+	previousProfile := NewProfiler(nil)
+	ctx.activeProfiler = previousProfile
+	profile := NewProfiler(nil)
+	engine, err := NewEngine(source, EngineConfig{Profiler: profile, Native: native, Auxiliary: aux, Factory: factory, Evaluator: derivationEvaluatorFixture(t, ctx, globals), Simplifier: manager})
 	must(err)
 	defer engine.Close()
 	if !engine.SetOption("stratified_inlining", "1") {
@@ -182,6 +191,9 @@ func TestDualityEngineNativeFailureCleanupAndRecovery(t *testing.T) {
 	}
 	if _, err = engine.Solve(); !errors.Is(err, ErrLevelizedUnwinding) {
 		t.Fatal("open-source failure missing", err)
+	}
+	if ctx.activeProfiler != previousProfile || profile.current != profile.top {
+		t.Fatal("failed solve timer scope not restored")
 	}
 	old := engine.UnwindingGraph()
 	if old == nil || old.closed || engine.local != nil || engine.global != nil || engine.heuristic != nil || engine.running {

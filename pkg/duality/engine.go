@@ -192,6 +192,9 @@ func (e *Engine) Solve() (satisfied bool, result error) {
 	if err := e.source.checkpoint(); err != nil {
 		return false, err
 	}
+	previousProfile := e.source.context.activeProfiler
+	e.source.context.activeProfiler = e.config.Profiler
+	defer func() { e.source.context.activeProfiler = previousProfile }()
 	e.running = true
 	defer func() { result = errors.Join(result, e.closeRunServices(), e.closeProposers()); e.running = false }()
 	if err := e.closeRunServices(); err != nil {

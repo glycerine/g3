@@ -27,11 +27,12 @@ type ContextFamilies struct {
 // The caller must keep the manager and the configuration's ParamsContext alive
 // until Close returns.
 type Context struct {
-	self     *Context
-	manager  *ast.ASTManager
-	config   *Config
-	families ContextFamilies
-	closed   bool
+	activeProfiler *Profiler
+	self           *Context
+	manager        *ast.ASTManager
+	config         *Config
+	families       ContextFamilies
+	closed         bool
 }
 
 // NewContext follows the source member/body order. In particular, the

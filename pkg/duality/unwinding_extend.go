@@ -1,5 +1,7 @@
 package duality
 
+import "errors"
+
 // ExtensionSearch borrows the concrete inference services and fresh working
 // graphs for an extension. Bounds is also the service template for recursive
 // underapproximation expansion. Completion is used only for a SAT result when
@@ -32,6 +34,11 @@ func (u *Unwinding) Extend(candidate ExpansionCandidate, services *ExtensionSear
 			return nil, false, ErrWrapperOwner
 		}
 	}
+	timer, err := startProfile(u.graph.context, "Extend")
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	node, result = u.CreateNodeInstance(candidate.Edge.Parent, 0)
 	if result != nil {
 		return node, false, result

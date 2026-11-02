@@ -108,12 +108,16 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 					}
 				}
 			}
+			var profileOutput bytes.Buffer
+			must(backend.SetProfileOutput(&profileOutput))
 			var reportOutput bytes.Buffer
 			must(backend.SetReportOutput(&reportOutput))
 			for round, query := range []ast.ASTHandle{queryOne, fact, queryOne} {
 				reportOutput.Reset()
+				profileOutput.Reset()
 				options := duality.DefaultQueryOptions()
 				options.Report = true
+				options.Profile = true
 				options.ConjectureFile = filepath.Join(t.TempDir(), "conjectures.smt2")
 				if round == 1 {
 					options.StratifiedInlining = true
@@ -133,6 +137,12 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 				}
 				if round == 0 && (!strings.Contains(reportOutput.String(), "]node ") || !strings.Contains(reportOutput.String(), "]update ") || !strings.Contains(reportOutput.String(), "]check ") || !strings.Contains(reportOutput.String(), "]expand ")) {
 					t.Fatal("missing live search events", reportOutput.String())
+				}
+				if round == 0 && (!strings.Contains(profileOutput.String(), "CandidateFeasible") || !strings.Contains(profileOutput.String(), "ProduceCandidatesForExtension") || !strings.Contains(profileOutput.String(), "Extend")) {
+					t.Fatal("missing feasibility timer", profileOutput.String())
+				}
+				if round == 1 && !strings.Contains(profileOutput.String(), "StratifiedInlining") {
+					t.Fatal("missing stratified timer", profileOutput.String())
 				}
 				report, err := os.ReadFile(options.ConjectureFile)
 				must(err)

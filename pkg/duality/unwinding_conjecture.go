@@ -23,6 +23,11 @@ func (u *Unwinding) ProveConjecture(node *Node, conjecture *Transformer, search 
 	if err := u.graph.streamReporter.Conjecture(node, conjecture); err != nil {
 		return false, err
 	}
+	timer, err := startProfile(u.graph.context, "ProveConjecture")
+	if err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	saved, err := node.Bound.Clone()
 	if err != nil {
 		return false, err

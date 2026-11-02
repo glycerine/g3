@@ -104,10 +104,15 @@ func (u *Unwinding) inductionInstanceSelected(checker *RPFP, child, instance *No
 // induction failures that use it. Temporary checker graphs/scopes own their
 // assertions and models; queued candidates borrow only unwinding nodes.
 // Source: duality_solver.cpp:698-726, active NEW_EXPAND.
-func (u *Unwinding) ExpandNode(node *Node, native solver.Solver, evaluator model.ModelEvaluatorConfig, simplifier *interp.Manager) error {
+func (u *Unwinding) ExpandNode(node *Node, native solver.Solver, evaluator model.ModelEvaluatorConfig, simplifier *interp.Manager) (result error) {
 	if u == nil || node == nil || node.closed || node.Owner != u.graph || node.Map == nil || native == nil || u.edgesByChild == nil {
 		return ErrWrapperOwner
 	}
+	timer, err := startProfile(u.graph.context, "GenCandIndFailUsing")
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	if err := u.ActivateInstance(node); err != nil {
 		return err
 	}

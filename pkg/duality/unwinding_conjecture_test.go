@@ -31,6 +31,8 @@ func TestDualityProveConjectureNativeBoundsOwnershipAndDecisionThreshold(t *test
 	for _, mode := range []string{"proved", "disproved", "output", "threshold500", "threshold501", "unresolved"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx, m, native, globals := dualityNativeSolverServicesFixture(t)
+			profile := NewProfiler(nil)
+			ctx.activeProfiler = profile
 			must := func(err error) {
 				t.Helper()
 				if err != nil {
@@ -169,6 +171,9 @@ func TestDualityProveConjectureNativeBoundsOwnershipAndDecisionThreshold(t *test
 			baseline, err := native.NumAssertions()
 			must(err)
 			proved, err := u.ProveConjecture(node, conjecture, search, cex, output, threshold)
+			if profile.current != profile.top || profile.top.children["ProveConjecture"] == nil {
+				t.Fatal("conjecture timer scope", mode)
+			}
 			currentBound, readErr := m.RefGet(node.Bound.formula)
 			must(readErr)
 			switch mode {

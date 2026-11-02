@@ -127,11 +127,16 @@ func (s *UnwindingSearch) ProduceSomeCandidates() error {
 // those are exhausted, global induction candidates are postponed and released
 // one at a time, preserving active DEPTH_FIRST_EXPAND behavior.
 // Source: duality_solver.cpp:1537-1559.
-func (s *UnwindingSearch) ProduceCandidatesForExtension() error {
+func (s *UnwindingSearch) ProduceCandidatesForExtension() (result error) {
 	if s == nil || s.Unwinding == nil {
 		return ErrWrapperOwner
 	}
 	u := s.Unwinding
+	timer, err := startProfile(u.graph.context, "ProduceCandidatesForExtension")
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	if len(u.candidates) == 0 {
 		if err := s.ProduceSomeCandidates(); err != nil {
 			return err

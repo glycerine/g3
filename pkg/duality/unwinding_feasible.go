@@ -58,6 +58,11 @@ func (u *Unwinding) CandidateFeasible(candidate ExpansionCandidate, target solve
 	if candidate.Edge == nil || candidate.Edge.Owner != u.source || candidate.Edge.closed {
 		return false, ErrWrapperOwner
 	}
+	timer, err := startProfile(u.graph.context, "CandidateFeasible")
+	if err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	checker, err := NewRPFPWithVocabulary(u.graph.vocabulary)
 	if err != nil {
 		return false, err
