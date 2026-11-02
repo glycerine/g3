@@ -98614,6 +98614,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/fp/spacer_expression_construction_failure_test.go",
         "pkg/muz/fp/spacer_expression_generalizer_statistics_test.go",
         "pkg/muz/fp/spacer_relation_query.go",
         "pkg/muz/fp/spacer_relation_query_test.go",
@@ -98636,6 +98637,7 @@
         "pkg/muz/fp/pdr_expression_fixture_test.go"
       ],
       "tests": [
+        "TestSpacerExpressionConstructionFailureWithoutPrequeryOwner",
         "TestSpacerGeneralizerStatisticsSurviveFailedExpressionPreparation",
         "TestSpacerRelationQueryReversesMixedSortHead",
         "TestSMT2SpacerSlicesWithProofTrace",

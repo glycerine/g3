@@ -19,6 +19,11 @@ func newCoveredPDRExpressionFixture(t *testing.T) *coveredPDRExpressionFixture {
 
 func newCoveredExpressionFixture(t *testing.T, backend string) *coveredPDRExpressionFixture {
 	t.Helper()
+	return newExpressionFixture(t, backend, true)
+}
+
+func newExpressionFixture(t *testing.T, backend string, cover bool) *coveredPDRExpressionFixture {
+	t.Helper()
 	var budget *arena.Budget
 	t.Cleanup(func() {
 		if budget != nil && budget.Used() != 0 {
@@ -65,6 +70,8 @@ func newCoveredExpressionFixture(t *testing.T, backend string) *coveredPDRExpres
 	queryRef, err := m.NewRef(query)
 	must(err)
 	t.Cleanup(func() { must(m.DelRef(&queryRef)) })
-	must(e.AddCover(2, declaration, property))
+	if cover {
+		must(e.AddCover(2, declaration, property))
+	}
 	return &coveredPDRExpressionFixture{f, declaration, property, query, fact}
 }
