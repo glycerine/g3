@@ -30,6 +30,7 @@ Each completed item needs source paths, implementation/test evidence and a commi
   - [x] Verify focused evidence for model-satisfied disequality reduction and source swap-removal/reprocessing order.
   - [x] Verify difference/UTVPI classification, backend selection and rejection of out-of-fragment proof lemmas.
   - [x] Verify exact arithmetic normalization, owning publication, cancellation retry and disposal under a refused allocation budget.
+  - [x] Verify actual large-rational root disposal while the numerical-owner execution guard is active, including repeated cleanup.
   - [ ] Close interrupted-decrement ownership coverage in `arith_normalize.go`, including any unconsumed roots and explicit cleanup continuation.
   - [x] Confirm the full caller graph for `ceil_log2` and cube formatting; exclude only genuinely unused helpers or dormant self-tests.
   - [ ] Reconcile method-level audit evidence and mark the unit complete only after the remaining checks are satisfied.
@@ -181,3 +182,5 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Reviewed the ten remaining muz CMake component specifications and matched their build registration to existing Go package discovery/imports. `go -C pkg list ./muz/...` succeeds; the full native suite already provides build evidence. Reclassified only build entries as platform replacements; all partial production implementation statuses remain unchanged. The source README still needs its separate documentation classification. Interrupted-decrement runtime coverage remains open.
   Validation: `go -C pkg list ./muz/...` and `go -C pkg test ./portcheck -short` passed. Commit title: `Classify remaining muz build specifications as Go replacements`.
+
+- 2026-11-02 — Added `TestArithmeticNormalizationCleanupUnderNumericalGuard` in `pkg/muz/pdr/arith_normalize_guard_test.go`. A real large-rational AST root is consumed under the numerical owner's supported execution guard; the handle is invalid afterward and repeated cleanup succeeds. The focused native test passes. This experiment does not induce an interrupted decrement, so that separate item remains open. No artificial private-handle corruption or test-only ownership adapter was introduced.
