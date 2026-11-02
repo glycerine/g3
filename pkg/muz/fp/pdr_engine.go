@@ -17,6 +17,14 @@ import (
 func (e *PropositionalEngine) snapshotPDRStatistics() (pdr.StatisticsSnapshot, error) {
 	var result pdr.StatisticsSnapshot
 	result.Merge(e.pdrStatistics)
+	for _, pending := range e.queryCleanup {
+		if pending.clone.backend == "pdr" || pending.clone.backend == "qpdr" {
+			if err := pending.captureStatistics(); err != nil {
+				return result, err
+			}
+			result.Merge(pending.pdr)
+		}
+	}
 	if e.pdr != nil {
 		current, err := e.pdr.SnapshotStatistics()
 		if err != nil {
@@ -36,6 +44,14 @@ func (e *PropositionalEngine) snapshotPDRStatistics() (pdr.StatisticsSnapshot, e
 
 func (e *PropositionalEngine) collectPDRStatistics(destination *statistics.Statistics, previous pdr.StatisticsSnapshot) error {
 	previous.Merge(e.pdrStatistics)
+	for _, pending := range e.queryCleanup {
+		if pending.clone.backend == "pdr" || pending.clone.backend == "qpdr" {
+			if err := pending.captureStatistics(); err != nil {
+				return err
+			}
+			previous.Merge(pending.pdr)
+		}
+	}
 	if e.queryClone != nil && (e.queryClone.backend == "pdr" || e.queryClone.backend == "qpdr") {
 		if e.pdr != nil {
 			current, err := e.pdr.SnapshotStatistics()

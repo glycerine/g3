@@ -143,16 +143,7 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 				e.queryCloneRevision = e.revision
 				return
 			}
-			if clone.backend == "spacer" {
-				archived, statsErr := clone.snapshotSpacerStatistics()
-				closeErr := clone.Close()
-				resultErr = errors.Join(resultErr, statsErr, closeErr)
-				if statsErr == nil && closeErr == nil {
-					e.spacerStatistics.Merge(archived)
-				}
-			} else {
-				resultErr = errors.Join(resultErr, clone.Close())
-			}
+			resultErr = errors.Join(resultErr, e.discardQueryClone(clone))
 		}
 	}()
 	declaration, head, err := clone.makeQueryHead(query)
@@ -216,6 +207,9 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 // clearQueryResources releases the backend state used to answer the previous
 // expression query. It is also called when the engine itself is closed.
 func (e *PropositionalEngine) clearQueryResources() error {
+	if err := e.clearQueryCleanup(); err != nil {
+		return err
+	}
 	e.queryRelations = nil
 	e.queryRelationsSet = false
 	if e.queryClone == nil {

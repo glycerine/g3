@@ -8,6 +8,14 @@ import (
 func (e *PropositionalEngine) snapshotSpacerStatistics() (spacer.StatisticsSnapshot, error) {
 	var result spacer.StatisticsSnapshot
 	result.Merge(e.spacerStatistics)
+	for _, pending := range e.queryCleanup {
+		if pending.clone.backend == "spacer" {
+			if err := pending.captureStatistics(); err != nil {
+				return result, err
+			}
+			result.Merge(pending.spacer)
+		}
+	}
 	if e.spacer != nil {
 		current, err := e.spacer.SnapshotStatistics()
 		if err != nil {
@@ -27,6 +35,14 @@ func (e *PropositionalEngine) snapshotSpacerStatistics() (spacer.StatisticsSnaps
 
 func (e *PropositionalEngine) collectSpacerStatistics(destination *statistics.Statistics, previous spacer.StatisticsSnapshot) error {
 	previous.Merge(e.spacerStatistics)
+	for _, pending := range e.queryCleanup {
+		if pending.clone.backend == "spacer" {
+			if err := pending.captureStatistics(); err != nil {
+				return err
+			}
+			previous.Merge(pending.spacer)
+		}
+	}
 	if e.queryClone != nil && e.queryClone.backend == "spacer" {
 		if e.spacer != nil {
 			current, err := e.spacer.SnapshotStatistics()

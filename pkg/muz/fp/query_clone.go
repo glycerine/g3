@@ -13,6 +13,9 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	if err := e.open(); err != nil {
 		return nil, err
 	}
+	if err := e.clearQueryCleanup(); err != nil {
+		return nil, err
+	}
 	var clone *PropositionalEngine
 	var err error
 	if e.params != nil && e.globals != nil {
@@ -27,7 +30,7 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	clone.autoRules = append([]autoRuleEntry(nil), e.autoRules...)
 	if e.queryParamsReady {
 		if err = clone.SetQueryParameters(&e.queryParams); err != nil {
-			return nil, errors.Join(err, clone.Close())
+			return nil, errors.Join(err, e.discardQueryClone(clone))
 		}
 	}
 	clone.ddnf.output = e.ddnf.output
@@ -37,13 +40,13 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	}
 	clone.forceProofTrace = e.forceProofTrace
 	if err = e.copyQueryPredicates(clone); err != nil {
-		return nil, errors.Join(err, clone.Close())
+		return nil, errors.Join(err, e.discardQueryClone(clone))
 	}
 	if err = e.copyQueryRules(clone); err != nil {
-		return nil, errors.Join(err, clone.Close())
+		return nil, errors.Join(err, e.discardQueryClone(clone))
 	}
 	if err = e.copyQueryBackground(clone); err != nil {
-		return nil, errors.Join(err, clone.Close())
+		return nil, errors.Join(err, e.discardQueryClone(clone))
 	}
 	return clone, nil
 }

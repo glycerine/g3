@@ -14,7 +14,7 @@ func (e *PropositionalEngine) prepareDualityTransformedQuery(query ast.ASTHandle
 		return nil, err
 	}
 	defer func() {
-		result = errors.Join(result, clone.Close())
+		result = errors.Join(result, e.discardQueryClone(clone))
 		if result != nil && out != nil {
 			result = errors.Join(result, out.Close())
 			out = nil

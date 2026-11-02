@@ -126,6 +126,7 @@ type PropositionalEngine struct {
 	queried             bool
 	queryReady          bool
 	queryClone          *PropositionalEngine
+	queryCleanup        []*queryCloneCleanup
 	queryCloneRevision  uint64
 	queryClonePredicate ast.ASTHandle
 	queryRelations      []ast.ASTHandle
@@ -1607,6 +1608,9 @@ func (e *PropositionalEngine) CollectStatistics(destination *statistics.Statisti
 
 func (e *PropositionalEngine) ResetStatistics() error {
 	if err := e.open(); err != nil {
+		return err
+	}
+	if err := e.clearQueryCleanup(); err != nil {
 		return err
 	}
 	if e.backend == "pdr" || e.backend == "qpdr" {
