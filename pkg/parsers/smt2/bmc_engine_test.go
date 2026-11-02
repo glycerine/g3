@@ -89,21 +89,29 @@ func TestSMT2BMCRecursiveCertificate(t *testing.T) {
 (rule (=> (and (P x) (< x 3)) (P (+ x 1))))
 (rule (=> (P 3) G))
 (query G :print-certificate true)`
-	// Expected output comes from the installed C++ Z3 reference.
+	// Keep an exact certificate oracle with valid body/head pivots and explicit
+	// arithmetic rewrite proofs; independent recursive proof checks live in
+	// fp.TestBMCNumericProofIndependentValidation.
 	want := `sat
-(let ((a!1 ((_ hyper-res 0 1)
+(let ((a!1 ((_ hyper-res 1 0)
              (asserted (=> G query!0))
              (asserted (=> (P 3) G))
              (=> (P 3) query!0)))
       (a!2 (forall ((A Int) (B Int))
-             (=> (and (P B) (not (<= 3 B)) (= A (+ 1 B))) (P A)))))
-(let ((a!3 (hyper-res (hyper-res a!1 (asserted a!2) (=> (P 2) query!0))
+             (=> (and (P B) (not (<= 3 B)) (= A (+ 1 B))) (P A))))
+      (a!3 (=> (and (P 2) (not (<= 3 2)) (= 3 (+ 1 2))) query!0))
+      (a!5 (=> (and (P 1) (not (<= 3 1)) (= 2 (+ 1 1))) query!0))
+      (a!8 (=> (and (P 0) (not (<= 3 0)) (= 1 (+ 1 0))) query!0)))
+(let ((a!4 (rewrite (= a!3 (=> (P 2) query!0))))
+      (a!7 (rewrite (= a!5 (=> (P 1) query!0))))
+      (a!10 (rewrite (= a!8 (=> (P 0) query!0)))))
+(let ((a!6 (hyper-res (mp (hyper-res a!1 (asserted a!2) a!3)
+                          a!4
+                          (=> (P 2) query!0))
                       (asserted a!2)
-                      (=> (P 1) query!0))))
-  ((_ hyper-res 0 1)
-    (hyper-res a!3 (asserted a!2) (=> (P 0) query!0))
-    (asserted (P 0))
-    query!0)))
+                      a!5)))
+(let ((a!9 (hyper-res (mp a!6 a!7 (=> (P 1) query!0)) (asserted a!2) a!8)))
+  ((_ hyper-res 1 0) (mp a!9 a!10 (=> (P 0) query!0)) (asserted (P 0)) query!0)))))
 
 `
 	var output bytes.Buffer

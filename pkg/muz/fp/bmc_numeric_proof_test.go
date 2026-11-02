@@ -14,7 +14,7 @@ import (
 )
 
 func TestBMCNumericProofIndependentValidation(t *testing.T) {
-	for _, name := range []string{"bmc/nonlinear", "qbmc/nonlinear", "bmc/linear", "qbmc/linear"} {
+	for _, name := range []string{"bmc/nonlinear", "qbmc/nonlinear", "bmc/linear", "qbmc/linear", "bmc/recursive", "qbmc/recursive"} {
 		t.Run(name, func(t *testing.T) {
 			m, g := newPDRLifecycleServices(t)
 			for _, key := range []string{"inline_eager", "inline_linear", "slice", "subsumption_checker", "coalesce_rules"} {
@@ -58,7 +58,11 @@ func TestBMCNumericProofIndependentValidation(t *testing.T) {
 			goal := decl("numeric-goal", nil)
 			left := decl("numeric-left", []ast.ASTHandle{integer})
 			right := decl("numeric-right", []ast.ASTHandle{integer})
-			leaf := decl("numeric-leaf", []ast.ASTHandle{integer, integer})
+			leafDomain := []ast.ASTHandle{integer, integer}
+			if strings.HasSuffix(name, "/recursive") {
+				leafDomain = leafDomain[:1]
+			}
+			leaf := decl("numeric-leaf", leafDomain)
 			app := func(d ast.ASTHandle, args ...ast.ASTHandle) ast.ASTHandle { return own(m.MkApp(d, args)) }
 			and := func(args ...ast.ASTHandle) ast.ASTHandle { return own(m.MkAndArray(args)) }
 			var originals []ast.ASTHandle
@@ -76,14 +80,21 @@ func TestBMCNumericProofIndependentValidation(t *testing.T) {
 				originals = append(originals, formula)
 				fragmentMust(t, e.AddRule(formula, name))
 			}
-			// Numeric bounds and shared rule variables exercise actual model bindings.
-			add(and(own(m.MkArithmeticGE(x, two)), own(m.MkArithmeticLE(x, five))), app(leaf, x, y), 2, "numeric-leaf-range")
-			add(and(app(leaf, x, y), own(m.MkArithmeticLE(x, three))), app(left, x), 2, "numeric-left-step")
-			if strings.HasSuffix(name, "/linear") {
-				add(and(app(left, x), own(m.MkEq(x, three))), app(goal), 1, "numeric-goal-step")
+			if strings.HasSuffix(name, "/recursive") {
+				zero := own(m.ArithmeticIntegerNumeralText("0"))
+				add(own(m.MkTrue()), app(leaf, zero), 0, "recursive-base")
+				add(and(app(leaf, x), own(m.MkArithmeticLT(x, three))), app(leaf, own(m.MkArithmeticAdd(x, one))), 1, "recursive-successor")
+				add(app(leaf, three), app(goal), 0, "recursive-goal")
 			} else {
-				add(and(app(leaf, x, y), own(m.MkArithmeticGE(x, four))), app(right, x), 2, "numeric-right-step")
-				add(and(app(left, x), app(right, y), own(m.MkEq(y, own(m.MkArithmeticAdd(x, one))))), app(goal), 2, "numeric-goal-step")
+				// Numeric bounds and shared rule variables exercise actual model bindings.
+				add(and(own(m.MkArithmeticGE(x, two)), own(m.MkArithmeticLE(x, five))), app(leaf, x, y), 2, "numeric-leaf-range")
+				add(and(app(leaf, x, y), own(m.MkArithmeticLE(x, three))), app(left, x), 2, "numeric-left-step")
+				if strings.HasSuffix(name, "/linear") {
+					add(and(app(left, x), own(m.MkEq(x, three))), app(goal), 1, "numeric-goal-step")
+				} else {
+					add(and(app(leaf, x, y), own(m.MkArithmeticGE(x, four))), app(right, x), 2, "numeric-right-step")
+					add(and(app(left, x), app(right, y), own(m.MkEq(y, own(m.MkArithmeticAdd(x, one))))), app(goal), 2, "numeric-goal-step")
+				}
 			}
 			solver, err := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: g.Context, Globals: g})
 			fragmentMust(t, err)
