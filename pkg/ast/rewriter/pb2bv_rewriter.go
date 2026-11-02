@@ -9,6 +9,7 @@ import (
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	umemory "github.com/glycerine/g3/pkg/util/memory"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
@@ -837,10 +838,24 @@ func (r *PB2BVRewriter) Pop(scopes uint32) error {
 	if err != nil {
 		return err
 	}
-	if clauses != 0 || scopes > uint32(len(r.freshLimits)) {
-		return ast.ErrASTDomain
+	if diagnostic.DebugBuild {
+		d := diagnostic.BorrowProcessDebugContext()
+		enabled, e := diagnostic.SourceAssertionsEnabled(d)
+		if e != nil {
+			return e
+		}
+		if enabled && clauses != 0 {
+			return diagnostic.DebugAssertionFailure(d, "src/ast/rewriter/pb2bv_rewriter.cpp", 439, "m_lemmas.empty()")
+		}
+		if enabled && scopes != 0 && scopes > uint32(len(r.freshLimits)) {
+			return diagnostic.DebugAssertionFailure(d, "src/ast/rewriter/pb2bv_rewriter.cpp", 441, "num_scopes <= m_fresh_lim.size()")
+		}
 	}
 	if scopes != 0 {
+		// Invalid source scope indices cannot be represented safely in Go.
+		if scopes > uint32(len(r.freshLimits)) {
+			return ast.ErrASTDomain
+		}
 		newSize := uint32(len(r.freshLimits)) - scopes
 		limit := r.freshLimits[newSize]
 		for i := int(limit); i < len(r.fresh); i++ {

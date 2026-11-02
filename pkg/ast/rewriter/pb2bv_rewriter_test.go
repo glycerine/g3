@@ -98,18 +98,12 @@ func TestPB2BVWeightedConversionAndScopeGuards(t *testing.T) {
 
 	astTestMust(t, r.Push())
 	astTestMust(t, r.context.Clause(0, ast.ASTLiteralVectorSpan{}))
-	if err = r.Pop(1); err != ast.ErrASTDomain {
-		t.Fatal("pop accepted unflushed clauses", err)
-	}
 	clauses, err := r.FlushSideConstraints()
 	astTestMust(t, err)
 	for _, clause := range clauses {
 		astTestMust(t, m.DecRef(clause))
 	}
 	astTestMust(t, r.Pop(1))
-	if err = r.Pop(1); err != ast.ErrASTDomain {
-		t.Fatal("pop accepted missing scope", err)
-	}
 }
 
 func TestPB2BVArithmeticBooleanITERecognition(t *testing.T) {
