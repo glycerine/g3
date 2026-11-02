@@ -1,6 +1,7 @@
 package transforms_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -18,11 +19,15 @@ func TestRuleSliceDerivedSubstitutionOfConstraintOnlyVariable(t *testing.T) {
 		if mixedSparse {
 			name = "sparse-mixed"
 		}
-		t.Run(name, func(t *testing.T) { testRuleSliceConstraintVariables(t, mixedSparse) })
+		for _, reverse := range []bool{false, true} {
+			for _, swapped := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/reverse=%t/swapped=%t", name, reverse, swapped), func(t *testing.T) { testRuleSliceConstraintVariables(t, mixedSparse, reverse, swapped) })
+			}
+		}
 	}
 }
 
-func testRuleSliceConstraintVariables(t *testing.T, mixedSparse bool) {
+func testRuleSliceConstraintVariables(t *testing.T, mixedSparse, reverse, swapped bool) {
 	f := newConeFixture(t)
 	m := f.manager
 	zero, err := m.ArithmeticIntegerNumeralText("0")
@@ -34,9 +39,17 @@ func testRuleSliceConstraintVariables(t *testing.T, mixedSparse bool) {
 	y, err := m.MkVar(1, integer)
 	coneMust(t, err)
 	guardZero := zero
+	if swapped {
+		guardZero, err = m.ArithmeticIntegerNumeralText("2")
+		coneMust(t, err)
+	}
 	guardSort := integer
 	if mixedSparse {
-		guardZero, err = m.ArithmeticRealNumeralText("0")
+		value := "0"
+		if swapped {
+			value = "2"
+		}
+		guardZero, err = m.ArithmeticRealNumeralText(value)
 		coneMust(t, err)
 		guardSort, err = m.GetSort(guardZero)
 		coneMust(t, err)
@@ -128,6 +141,21 @@ func testRuleSliceConstraintVariables(t *testing.T, mixedSparse bool) {
 		sorts = []ast.ASTHandle{guardSort, boolean, integer, boolean}
 		substitution = []ast.ASTHandle{truth, zero, truth, guardZero}
 	}
+	selectedIndex, err := m.GetVarIndex(selected)
+	coneMust(t, err)
+	constraintIndex, err := m.GetVarIndex(constraintVariable)
+	coneMust(t, err)
+	if swapped {
+		selectedIndex, constraintIndex = constraintIndex, selectedIndex
+		selected, err = m.MkVar(selectedIndex, integer)
+		coneMust(t, err)
+		constraintVariable, err = m.MkVar(constraintIndex, guardSort)
+		coneMust(t, err)
+		sorts[len(sorts)-1-int(selectedIndex)] = integer
+		sorts[len(sorts)-1-int(constraintIndex)] = guardSort
+		substitution[selectedIndex] = zero
+		substitution[constraintIndex] = guardZero
+	}
 	qx, err := m.MkApp(sq, []ast.ASTHandle{selected})
 	coneMust(t, err)
 	yz, err := m.MkEq(constraintVariable, guardZero)
@@ -144,7 +172,14 @@ func testRuleSliceConstraintVariables(t *testing.T, mixedSparse bool) {
 	coneMust(t, err)
 	scope, err := ast.NewScopedProof(m)
 	coneMust(t, err)
-	inner, err := m.MkProofHyperResolve(parents, formula, []ast.ASTProofPosition{{First: 1}}, [][]ast.ASTHandle{{selected}, {selected, constraintVariable}})
+	position := ast.ASTProofPosition{First: 1}
+	premiseSubstitution := [][]ast.ASTHandle{{selected}, {selected, constraintVariable}}
+	if reverse {
+		parents[0], parents[1] = parents[1], parents[0]
+		premiseSubstitution[0], premiseSubstitution[1] = premiseSubstitution[1], premiseSubstitution[0]
+		position = ast.ASTProofPosition{Second: 1}
+	}
+	inner, err := m.MkProofHyperResolve(parents, formula, []ast.ASTProofPosition{position}, premiseSubstitution)
 	coneMust(t, err)
 	innerRef, err := m.NewRef(inner)
 	coneMust(t, err)
@@ -152,13 +187,8 @@ func testRuleSliceConstraintVariables(t *testing.T, mixedSparse bool) {
 	// Pass through another derived unary step before grounding. The sparse
 	// bank contains unused Boolean binders between its integer and real slots.
 	identity := append([]ast.ASTHandle(nil), substitution...)
-	if mixedSparse {
-		identity[1] = selected
-		identity[3] = constraintVariable
-	} else {
-		identity[0] = selected
-		identity[1] = constraintVariable
-	}
+	identity[selectedIndex] = selected
+	identity[constraintIndex] = constraintVariable
 	middle, err := m.MkProofHyperResolve([]ast.ASTHandle{inner}, formula, nil, [][]ast.ASTHandle{identity})
 	coneMust(t, err)
 	middleRef, err := m.NewRef(middle)
