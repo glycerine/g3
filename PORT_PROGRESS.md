@@ -53523,3 +53523,5 @@ Pseudo-Boolean rewriter segmented profile: the explicit unsupported-profile erro
 
 Pseudo-Boolean rewriter scope assertions: Pop now gates the source pending-lemma and scope-count assertions on the actual debug assertion owner. Go also guards Pop(0) and Pop(1) against unflushed side constraints in normal builds, and rejects invalid positive scopes safely. A native-build regression checks that rejected calls preserve the scope and pending constraints, and that a pop succeeds after flushing.
 The scope assertion regression also checks the exact C++ diagnostic sites when built with g3debug; its ordinary-build branch passed locally, and the tagged branch was left for the user's background run.
+
+Pseudo-Boolean totalizer overflow: checked the sum of unsigned coefficients before accumulation so sums beyond uint32 use the existing bit-vector encoding instead of wrapping and incorrectly folding the constraint to true. A public Rewrite regression reproduces the former failure on 4294967295*a+b<=1 and verifies the exact result not(a). Focused native PB2BV tests pass; no tagged suite was run.

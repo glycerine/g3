@@ -4,6 +4,7 @@ package rewriter
 // bounded_addition and tot_adder.
 
 import (
+	"math"
 	"math/big"
 	"sort"
 
@@ -22,6 +23,9 @@ func (r *PB2BVRewriter) totalizer(mode pb2BVComparison, args []ast.ASTHandle, co
 	}
 	var sum uint32
 	for _, weight := range weights {
+		if weight > math.MaxUint32-sum {
+			return ast.ASTHandle{}, false, nil
+		}
 		sum += weight
 	}
 	if mode == pb2BVLE {
