@@ -26,6 +26,68 @@ func (r *boundDatalogRuntime) checkpoint() error {
 	return nil
 }
 
+func appendBoundFullColumn(relation *rel.BoundRelation, sorts []ast.ASTHandle, sortHandle ast.ASTHandle) (*rel.BoundRelation, []ast.ASTHandle, uint32, error) {
+	if relation == nil || sortHandle.IsNull() {
+		return nil, nil, 0, ast.ErrASTDomain
+	}
+	column := uint32(len(sorts))
+	joined, err := rel.JoinBoundRelations(relation, rel.NewBoundRelation(1, false), nil, nil)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	return joined, append(sorts, sortHandle), column, nil
+}
+
+// duplicateBoundColumn follows compiler::make_duplicate_column: project the
+// selected source column, then join it back using an equality join.
+func duplicateBoundColumn(relation *rel.BoundRelation, sorts []ast.ASTHandle, column uint32) (*rel.BoundRelation, []ast.ASTHandle, uint32, error) {
+	if relation == nil || uint64(column) >= uint64(len(sorts)) {
+		return nil, nil, 0, ast.ErrASTDomain
+	}
+	remove := make([]uint32, 0, len(sorts)-1)
+	for i := range sorts {
+		if uint32(i) != column {
+			remove = append(remove, uint32(i))
+		}
+	}
+	single, err := relation.Project(remove)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	duplicate := uint32(len(sorts))
+	joined, err := rel.JoinBoundRelations(relation, single, []uint32{column}, []uint32{0})
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	return joined, append(sorts, sorts[column]), duplicate, nil
+}
+
+func ensureBoundConditionVariables(manager *ast.ASTManager, condition ast.ASTHandle, variables map[uint32]uint32, relation *rel.BoundRelation, sorts []ast.ASTHandle) (*rel.BoundRelation, []ast.ASTHandle, error) {
+	used, err := ast.NewASTUsedVars(manager)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err = used.Collect(condition); err != nil {
+		return nil, nil, err
+	}
+	for variable := uint32(0); variable < used.MaxFoundVarIndexPlusOne(); variable++ {
+		sortHandle := used.Contains(variable)
+		if sortHandle.IsNull() {
+			continue
+		}
+		if _, found := variables[variable]; found {
+			continue
+		}
+		var column uint32
+		relation, sorts, column, err = appendBoundFullColumn(relation, sorts, sortHandle)
+		if err != nil {
+			return nil, nil, err
+		}
+		variables[variable] = column
+	}
+	return relation, sorts, nil
+}
+
 func remapBoundCondition(manager *ast.ASTManager, condition ast.ASTHandle, variables map[uint32]uint32, sorts []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	used, err := ast.NewASTUsedVars(manager)
 	if err != nil {
@@ -211,6 +273,10 @@ func (r *boundDatalogRuntime) evaluatePositiveBoundRule(rule *base.Rule, relatio
 		if cause != nil || negated {
 			return false, errors.Join(cause, ErrBoundDatalogFragment)
 		}
+		working, workingSorts, cause = ensureBoundConditionVariables(r.manager, condition, variables, working, workingSorts)
+		if cause != nil {
+			return false, cause
+		}
 		mapped, cause := remapBoundCondition(r.manager, condition, variables, workingSorts)
 		if cause != nil {
 			return false, cause
@@ -240,21 +306,54 @@ func (r *boundDatalogRuntime) evaluatePositiveBoundRule(rule *base.Rule, relatio
 		return false, err
 	}
 	desired := make([]uint32, headCount)
-	seen := make(map[uint32]bool, headCount)
+	usedColumns := make(map[uint32]bool, headCount)
+	headSorts := r.entries[headDeclaration].sorts
+	if int(headCount) != len(headSorts) {
+		return false, ErrBoundDatalogFragment
+	}
 	for i := uint32(0); i < headCount; i++ {
 		argument, cause := r.manager.GetArg(head, i)
 		if cause != nil {
 			return false, cause
 		}
-		if kind, cause := r.manager.GetKind(argument); cause != nil || kind != ast.ASTVar {
-			return false, errors.Join(cause, ErrBoundDatalogFragment)
+		kind, cause := r.manager.GetKind(argument)
+		if cause != nil {
+			return false, cause
 		}
-		variable, cause := r.manager.GetVarIndex(argument)
-		column, found := variables[variable]
-		if cause != nil || !found || seen[column] {
-			return false, errors.Join(cause, ErrBoundDatalogFragment)
+		var column uint32
+		if kind == ast.ASTVar {
+			variable, cause := r.manager.GetVarIndex(argument)
+			if cause != nil {
+				return false, cause
+			}
+			var found bool
+			column, found = variables[variable]
+			if !found {
+				working, workingSorts, column, cause = appendBoundFullColumn(working, workingSorts, headSorts[i])
+				if cause != nil {
+					return false, cause
+				}
+				variables[variable] = column
+			}
+		} else {
+			valueSort, sortErr := r.manager.GetSort(argument)
+			_, _, numeral, numeralErr := r.manager.ArithmeticNumeralText(argument)
+			cause = errors.Join(sortErr, numeralErr)
+			if cause != nil || !numeral || valueSort != headSorts[i] {
+				return false, errors.Join(cause, fmt.Errorf("%w: non-numeral or ill-sorted head constant", ErrBoundDatalogFragment))
+			}
+			working, workingSorts, column, cause = appendBoundFullColumn(working, workingSorts, headSorts[i])
+			if cause != nil {
+				return false, cause
+			}
 		}
-		seen[column], desired[i] = true, column
+		if usedColumns[column] {
+			working, workingSorts, column, cause = duplicateBoundColumn(working, workingSorts, column)
+			if cause != nil {
+				return false, cause
+			}
+		}
+		usedColumns[column], desired[i] = true, column
 	}
 	selected := append([]uint32(nil), desired...)
 	sort.Slice(selected, func(i, j int) bool { return selected[i] < selected[j] })
