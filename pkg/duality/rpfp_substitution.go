@@ -52,6 +52,11 @@ func (t *Transformer) substituteParams(source *Transformer) (out ast.ASTRef, res
 
 // substituteExpression follows source SubstRec without shifting bound variables.
 func substituteExpression(context *Context, root ast.ASTHandle, memo map[ast.ASTHandle]ast.ASTHandle) (out ast.ASTRef, resultErr error) {
+	return substituteExpressionWithDeclarations(context, root, memo, nil)
+}
+
+// Concrete function-declaration map overload used by the history proposer.
+func substituteExpressionWithDeclarations(context *Context, root ast.ASTHandle, memo map[ast.ASTHandle]ast.ASTHandle, declarations map[ast.ASTHandle]ast.ASTHandle) (out ast.ASTRef, resultErr error) {
 	m := context.manager
 	var pins []ast.ASTRef
 	defer func() {
@@ -92,6 +97,9 @@ func substituteExpression(context *Context, root ast.ASTHandle, memo map[ast.AST
 				if cause != nil {
 					return ast.ASTHandle{}, cause
 				}
+			}
+			if replacement, found := declarations[decl]; found {
+				decl = replacement
 			}
 			result, e = m.MkApp(decl, args)
 			if e != nil {
