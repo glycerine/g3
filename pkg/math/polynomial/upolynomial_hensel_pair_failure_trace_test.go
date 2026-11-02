@@ -1,3 +1,5 @@
+//go:build g3debug && g3trace
+
 package polynomial
 
 import (
@@ -16,6 +18,7 @@ func TestUPolynomialHenselPairFailureTraceOriginalInputs(t *testing.T) {
 			name = "correct"
 		}
 		t.Run(name, func(t *testing.T) {
+			polynomialThrowAssertionFixture(t)
 			_, s := preparationPhysicalFixture(t)
 			m := s.manager
 			s.config.FactorizationDebugTag = true
@@ -33,14 +36,14 @@ func TestUPolynomialHenselPairFailureTraceOriginalInputs(t *testing.T) {
 			t.Cleanup(func() { serviceMust(t, m.modular.BindTrace(nil)) })
 			one, three := unumeral.NewInt(1), unumeral.NewInt(3)
 			body := s.HenselLiftPair(&one, &three, &three, mustUPolyView(t, m, u), mustUPolyView(t, m, a), mustUPolyView(t, m, v), mustUPolyView(t, m, b), mustUPolyView(t, m, c), al, bl)
-			if !correct && polynomialSourceDebug {
+			if !correct {
 				if !errors.Is(body, ErrUPolynomialAssertion) {
 					t.Fatal("actual reached final conditional assertion", body)
 				}
 			} else {
 				serviceMust(t, body)
 			}
-			if correct || !polynomialSourceDebug || !tags.ShouldTrace("polynomial::factorization::bughunt") {
+			if correct {
 				if strings.Contains(w.text.String(), ":536 ") {
 					t.Fatal("unreached pair failure diagnostic")
 				}
@@ -55,6 +58,7 @@ func TestUPolynomialHenselPairFailureTraceOriginalInputs(t *testing.T) {
 	}
 }
 func TestUPolynomialHenselPairFailureTraceExactBIGChild(t *testing.T) {
+	polynomialThrowAssertionFixture(t)
 	q, s := preparationPhysicalFixtureWithSlots(t, 256)
 	m, z := s.manager, q.Integers()
 	s.config.FactorizationDebugTag = true
@@ -86,16 +90,6 @@ func TestUPolynomialHenselPairFailureTraceExactBIGChild(t *testing.T) {
 	serviceMust(t, m.modular.BindTrace(tags))
 	t.Cleanup(func() { serviceMust(t, m.modular.BindTrace(nil)) })
 	body := s.HenselLiftPair(&one, &three, &three, mustUPolyView(t, m, u), mustUPolyView(t, m, a), mustUPolyView(t, m, v), mustUPolyView(t, m, b), mustUPolyView(t, m, c), al, bl)
-	if !polynomialSourceDebug {
-		serviceMust(t, body)
-		return
-	}
-	if !tags.ShouldTrace("polynomial::factorization::bughunt") {
-		if !errors.Is(body, ErrUPolynomialAssertion) {
-			t.Fatal("erased final conditional assertion", body)
-		}
-		return
-	}
 	h := s.henselPairs
 	if !errors.Is(body, arena.ErrSlotLimit) || !w.armed || h == nil || h.constructed != 7 || h.sourceRemaining != 7 || h.check.constructed != 3 || h.check.sourceRemaining != 3 || h.check.brCore == nil || h.check.bCore != nil || !m.displayReceiptPending(&h.trace) {
 		t.Fatal("checker child/frontier", body, w.armed)
@@ -133,6 +127,7 @@ func (w *pairCheckRefusedTrace) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 func TestUPolynomialHenselPairFailureTraceStreamFailureStillComputes(t *testing.T) {
+	polynomialThrowAssertionFixture(t)
 	_, s := preparationPhysicalFixture(t)
 	m := s.manager
 	s.config.FactorizationDebugTag = true
@@ -146,19 +141,11 @@ func TestUPolynomialHenselPairFailureTraceStreamFailureStillComputes(t *testing.
 	t.Cleanup(func() { serviceMust(t, m.modular.BindTrace(nil)) })
 	one, three := unumeral.NewInt(1), unumeral.NewInt(3)
 	body := s.HenselLiftPair(&one, &three, &three, mustUPolyView(t, m, u), mustUPolyView(t, m, a), mustUPolyView(t, m, v), mustUPolyView(t, m, b), mustUPolyView(t, m, c), al, bl)
-	if !polynomialSourceDebug {
-		serviceMust(t, body)
-		return
-	}
 	if !errors.Is(body, ErrUPolynomialAssertion) || errors.Is(body, marker) {
 		t.Fatal("ostream failure changed conditional assertion", body)
 	}
-	if tags.ShouldTrace("polynomial::factorization::bughunt") {
-		if !w.failed || w.laterWrites != 0 || m.displayNonce-w.before != 3 {
-			t.Fatal("badbit skipped actual displays or retried output", w.failed, w.laterWrites, m.displayNonce-w.before)
-		}
-	} else if w.failed {
-		t.Fatal("erased failure diagnostic")
+	if !w.failed || w.laterWrites != 0 || m.displayNonce-w.before != 3 {
+		t.Fatal("badbit skipped actual displays or retried output", w.failed, w.laterWrites, m.displayNonce-w.before)
 	}
 	h := s.henselPairs
 	if h.check.sourceRemaining != 0 || h.sourceRemaining != 0 || m.displayReceiptPending(&h.trace) {

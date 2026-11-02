@@ -73513,6 +73513,7 @@
         "pkg/math/polynomial/upolynomial_hensel_quadratic_failure_trace_test.go",
         "pkg/math/polynomial/upolynomial_hensel_product_failure_trace_test.go",
         "pkg/math/polynomial/upolynomial_hensel_pair_failure_trace_test.go",
+        "pkg/math/polynomial/upolynomial_hensel_pair_validation_test.go",
         "pkg/math/polynomial/upolynomial_berlekamp_display.go",
         "pkg/math/polynomial/upolynomial_berlekamp_display_test.go",
         "pkg/math/polynomial/upolynomial_berlekamp_assertions.go",
@@ -74113,12 +74114,14 @@
           "go_targets": [
             "pkg/math/polynomial/upolynomial_factor_hensel_debug.go",
             "pkg/math/polynomial/upolynomial_hensel_check_invocation.go",
-            "pkg/math/polynomial/upolynomial_hensel_pair_failure_trace_test.go"
+            "pkg/math/polynomial/upolynomial_hensel_pair_failure_trace_test.go",
+            "pkg/math/polynomial/upolynomial_hensel_pair_validation_test.go"
           ],
           "tests": [
             "TestUPolynomialHenselPairFailureTraceOriginalInputs",
             "TestUPolynomialHenselPairFailureTraceExactBIGChild",
             "TestUPolynomialHenselPairFailureTraceStreamFailureStillComputes",
+            "TestUPolynomialHenselPairConditionalValidation",
             "TestUPolynomialFactorDegreeTraceDisabledSkipsUnreachedOperands"
           ],
           "notes": "Formats the source original A,B,C (not lifted outputs), actual b*r and literal Sage lines only on nonzero reduced C-A_lifted*B_lifted. Uses the actual pair-owned display receipt and whole-record root/related/checker manager borrow. Checker source destruction stops at that exact child before test1, its br manager and br numeral; enclosing pair source destruction also preserves its older objects. Tests run the public pair algorithm with actual invalid Bezout inputs to reach the final conditional failure naturally, without invented parent construction or numerical scratch changes. Exact text and silent correct-input behavior pass. A real BIG descriptor-after-physical display refusal retains seven pair and three checker objects, with the second checker manager unconstructed, and exact cleanup/physical audit pass. Stream refusal still computes all three original-input displays without retrying host writes or changing the conditional assertion. Disabled diagnostics skip absent pair/views. Other diagnostics, verbose output and broader source-unit audits remain open; no whole-unit completion credit."
