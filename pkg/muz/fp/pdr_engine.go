@@ -723,6 +723,13 @@ func (e *PropositionalEngine) newConfiguredPDRContext(parameters *fixedpointPara
 	if err = context.SetFrameSimplification(simplifyPre, simplifyPost); err != nil {
 		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
+	validateResult, err := parameters.Bool("pdr.validate_result", false)
+	if err != nil {
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
+	}
+	if err = context.SetResultValidation(validateResult); err != nil {
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
+	}
 	useFarkas, err := parameters.Bool("pdr.farkas", true)
 	if err != nil {
 		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)

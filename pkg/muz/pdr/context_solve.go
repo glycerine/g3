@@ -184,7 +184,13 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, restoreProofMode()) }()
+	defer func() {
+		if restoreErr := restoreProofMode(); restoreErr != nil {
+			c.lastResult = lbool.Undef
+			result = lbool.Undef
+			resultErr = errors.Join(resultErr, restoreErr)
+		}
+	}()
 	if !c.initialized || c.search == nil {
 		return lbool.Undef, ast.ErrASTDomain
 	}
@@ -194,7 +200,12 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 	c.expanded, c.inductive = 0, 0
 	query := c.transformers[queryDeclaration]
 	if query == nil {
-		c.lastResult = lbool.False
+		if err = c.simplifyFormulas(); err != nil {
+			return lbool.Undef, err
+		}
+		if err = c.finishValidatedResult(lbool.False); err != nil {
+			return lbool.Undef, err
+		}
 		return c.lastResult, nil
 	}
 	c.query = query
@@ -208,7 +219,9 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 			return lbool.Undef, err
 		}
 		if reachable {
-			c.lastResult = lbool.True
+			if err = c.finishValidatedResult(lbool.True); err != nil {
+				return lbool.Undef, err
+			}
 			return c.lastResult, nil
 		}
 		if level != 0 {
@@ -220,13 +233,15 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 				if x = c.simplifyFormulas(); x != nil {
 					return lbool.Undef, x
 				}
-				c.lastResult = lbool.False
 				for _, declaration := range c.order {
 					if c.transformers[declaration] != c.query && c.inductive > 0 {
 						if x = c.transformers[declaration].PropagateToInfinity(c.inductive); x != nil {
 							return lbool.Undef, x
 						}
 					}
+				}
+				if x = c.finishValidatedResult(lbool.False); x != nil {
+					return lbool.Undef, x
 				}
 				return c.lastResult, nil
 			}

@@ -55,10 +55,24 @@ type Context struct {
 	flexibleTrace      bool
 	fullTraceAnswer    bool
 	generateProofTrace bool
+	validateResult     bool
 	simplifyPre        bool
 	simplifyPost       bool
 	initialized        bool
 	closed             bool
+}
+
+// SetResultValidation selects source post-solve trace, proof, and inductive-
+// model validation. It must be fixed before rule installation.
+func (c *Context) SetResultValidation(enabled bool) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	if c.initialized {
+		return ast.ErrASTDomain
+	}
+	c.validateResult = enabled
+	return nil
 }
 
 // SetFrameSimplification selects the source unit-subsumption hooks around
