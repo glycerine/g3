@@ -99,3 +99,67 @@ func TestSpacerReachFactSelectionDisablesCompletionAndPreservesOrder(t *testing.
 		}
 	}
 }
+
+func TestSpacerReachFactSelectionWithoutFalseCase(t *testing.T) {
+	for _, origin := range []bool{false, true} {
+		for _, known := range []bool{false, true} {
+			t.Run(fmt.Sprintf("origin=%t/known=%t", origin, known), func(t *testing.T) {
+				f := newContextAnswerFixture(t, false)
+				p, m := f.context.transformers[f.query], f.context.manager
+				md, err := model.NewModel(m)
+				depthMust(t, err)
+				defer func() { depthMust(t, md.Close()) }()
+				truth, err := m.MkTrue()
+				depthMust(t, err)
+				var cases []ast.ASTHandle
+				for _, ref := range p.reachCaseVariables {
+					h, err := m.RefGet(ref)
+					depthMust(t, err)
+					if origin {
+						shifted, err := p.owner.FormulaNewToOld(h, 2, false)
+						depthMust(t, err)
+						defer func() { depthMust(t, m.DelRef(&shifted)) }()
+						h, err = m.RefGet(shifted)
+						depthMust(t, err)
+					}
+					cases = append(cases, h)
+					if known {
+						decl, err := m.GetDecl(h)
+						depthMust(t, err)
+						depthMust(t, md.Core().RegisterConstant(decl, truth))
+					}
+				}
+				if len(cases) == 0 {
+					t.Fatal("fixture has no reach cases")
+				}
+				before := m.Stats().LiveReferences
+				var selected *ReachFact
+				var found bool
+				if origin {
+					selected, found, err = p.UsedOriginReachFact(md.Core(), 2)
+				} else {
+					selected, found, err = p.UsedReachFact(md.Core(), true)
+				}
+				depthMust(t, err)
+				if found || selected != nil {
+					if selected != nil {
+						depthMust(t, selected.Close())
+					}
+					t.Fatal("selected a reach fact without a false case")
+				}
+				if m.Stats().LiveReferences != before {
+					t.Fatal("no-selection path leaked references")
+				}
+				for _, h := range cases {
+					decl, err := m.GetDecl(h)
+					depthMust(t, err)
+					interpreted, err := md.Core().HasConstantInterpretation(decl)
+					depthMust(t, err)
+					if interpreted != known {
+						t.Fatal("selection changed model completion", known, interpreted)
+					}
+				}
+			})
+		}
+	}
+}

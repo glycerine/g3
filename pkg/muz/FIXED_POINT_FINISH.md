@@ -44,6 +44,9 @@ Each completed item needs source paths, implementation/test evidence and a commi
 ## 4. Spacer — second engine closure
 
 - [ ] Close `spacer_context` reach-fact selection, predecessor tags, obligation search and ownership/exception audits.
+  - [x] Verify unknown-case skipping, first-false ordering, initial-fact filtering and non-completing evaluation with the existing selection regression.
+  - [x] Verify all-true/all-unknown no-selection results for current and origin-state cases without model completion or temporary-reference leaks.
+  - [ ] Audit source VERIFY/UNREACHABLE/SASSERT transport and evaluator-exception cleanup before closing reach-fact selection.
 - [ ] Close `spacer_util` model evaluation, QE/MBP, array auxiliaries, appended datatype literals and source diagnostics.
 - [ ] Finish slice-proof conversion for every live proof shape. Sparse/trailing/vacuous/mixed-sort binders and reverse binary resolution now have evidence, but general multi-premise mixed orientations remain unproven.
 - [ ] Verify coalesce/unfold/slice composition preserves original asserted leaves, substitutions, resolution positions and checker-valid proofs.
@@ -201,3 +204,6 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - 2026-11-02 — Audited source context push/pop and preserved the non-Duality post-query guard. Aligned Go's diagnostic with the source text. `TestSMT2FixedpointPopAfterQuerySourceContract` first exposed the diagnostic mismatch; it now verifies PDR/Spacer rejection leaves scoped facts available, while Duality pop removes the scoped fact. The repeated nonlinear query/mutation regression also passes. This closes the specific post-query scope contract item, not every scope lifecycle obligation. Previous rule-mutation commit: `b4a141839`.
   Validation: focused `TestSMT2Fixedpoint(PopAfterQuerySourceContract|RepeatedNonlinearQueries)` tests pass; commit title: `Match fixedpoint post-query pop source contract`.
   The existing `TestPropositionalEngineScopeGuards` diagnostic assertion was updated to the source wording while preserving the required rejection. Complete native `go -C pkg test ./muz/fp -short` passes.
+
+- 2026-11-02 — Added `TestSpacerReachFactSelectionWithoutFalseCase` for current/origin cases with all-true or all-unknown model interpretations. Each case requires no selected fact, no model completion and unchanged live-reference count; the existing selection-order regression also passes. Source assertion/exception transport remains explicitly open. Previous scope-contract commit: `5e2c2e350`.
+  Validation: `go -C pkg test ./muz/spacer -run '^TestSpacerReachFactSelection' -count=1` passed. Commit title: `Test Spacer reach selection without a false case`.
