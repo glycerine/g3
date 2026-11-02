@@ -15,7 +15,7 @@ Each completed item needs source paths, implementation/test evidence and a commi
 - [ ] Reconcile stale manifest descriptions with current code, especially Duality; preserve partial status until independently justified.
 - [ ] Inspect every source conditional, function and live consumer for each partial unit; turn each remaining obligation into an explicit implementation or audit item.
 - [ ] Verify previously marked ported units against their actual consumers and proof/ownership requirements; status labels alone are insufficient.
-- [ ] Classify remaining CMake/README entries through their actual Go build/documentation replacements.
+- [x] Classify remaining CMake/README entries through their actual Go build/documentation replacements.
 
 ## 2. Shared fixedpoint infrastructure
 
@@ -52,7 +52,8 @@ Each completed item needs source paths, implementation/test evidence and a commi
 
 - [ ] Reconcile the stale inventory for `src/duality/` and `src/muz/duality/` with current implementation and tests.
   - [x] Correct the stale muz Duality interface descriptions; keep both units partial.
-  - [ ] Reconcile the external `src/duality/` descriptions and method-level audit records.
+  - [x] Reconcile the external `src/duality/` overview descriptions against current code and native tests.
+  - [ ] Complete the method-level and ownership audit records; overview corrections do not close the units.
 - [ ] Audit RPFP graph/vocabulary ownership, nodes/edges, clone/delete, assertions, dual formulas and incremental solver scopes.
 - [ ] Audit lazy-annotation expansion, heuristic ordering, covering, backtracking, restarts and constrained counterexample completion.
 - [ ] Audit interpolation learning, generalization, proof cores, underapproximation, Gaussian elimination and integer/array projection.
@@ -86,7 +87,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 ### README
 
-- [ ] `src/muz/README` (unported)
+- [x] `src/muz/README` (source component guide; reference only)
 
 ### base
 
@@ -184,3 +185,6 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   Validation: `go -C pkg list ./muz/...` and `go -C pkg test ./portcheck -short` passed. Commit title: `Classify remaining muz build specifications as Go replacements`.
 
 - 2026-11-02 — Added `TestArithmeticNormalizationCleanupUnderNumericalGuard` in `pkg/muz/pdr/arith_normalize_guard_test.go`. A real large-rational AST root is consumed under the numerical owner's supported execution guard; the handle is invalid afterward and repeated cleanup succeeds. The focused native test passes. This experiment does not induce an interrupted decrement, so that separate item remains open. No artificial private-handle corruption or test-only ownership adapter was introduced.
+
+- 2026-11-02 — Reconciled the external Duality graph/header/solver overview descriptions against current graph, interpolation and search code; source units remain partial. Classified the source muz README as a reference component guide, closing the build/documentation classification item. Previous numerical-guard regression commit: `17855c060`. No engine completion status was promoted.
+  Validation: `go -C pkg test ./duality ./muz/duality -short` and `go -C pkg test ./portcheck -short` passed. Commit title: `Reconcile Duality source overviews and muz documentation inventory`.
