@@ -97998,10 +97998,13 @@
           "status": "partial",
           "go_targets": [
             "pkg/muz/spacer/predicate_rule_queries.go",
-            "pkg/muz/spacer/predicate_rule_selection_model_test.go"
+            "pkg/muz/spacer/predicate_rule_selection_model_test.go",
+            "pkg/muz/spacer/predicate_rule_selection_failure_test.go"
           ],
           "tests": [
-            "TestSpacerRuleSelectionUsesDirectModelInterpretations"
+            "TestSpacerRuleSelectionUsesDirectModelInterpretations",
+            "TestSpacerThreeRuleSelectionPreferenceAndReuse",
+            "TestSpacerRuleSelectionAllocationFailureAndRetry"
           ]
         },
         {
@@ -98461,10 +98464,13 @@
           "status": "partial",
           "go_targets": [
             "pkg/muz/spacer/predicate_rule_queries.go",
-            "pkg/muz/spacer/predicate_rule_selection_model_test.go"
+            "pkg/muz/spacer/predicate_rule_selection_model_test.go",
+            "pkg/muz/spacer/predicate_rule_selection_failure_test.go"
           ],
           "tests": [
-            "TestSpacerRuleSelectionUsesDirectModelInterpretations"
+            "TestSpacerRuleSelectionUsesDirectModelInterpretations",
+            "TestSpacerThreeRuleSelectionPreferenceAndReuse",
+            "TestSpacerRuleSelectionAllocationFailureAndRetry"
           ]
         },
         {
