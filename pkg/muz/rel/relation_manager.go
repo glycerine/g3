@@ -17,6 +17,7 @@ type RelationManager struct {
 	relations     map[ast.ASTHandle]*HashTable
 	finite        map[ast.ASTHandle]FiniteTable
 	explanations  map[ast.ASTHandle]*FiniteExplanationProduct
+	relationLevel map[ast.ASTHandle]*RelationExplanationProduct
 	saturated     map[ast.ASTHandle]bool
 	defaultFinite string
 	lazyFinite    *LazySparseFiniteFactory // borrowed; context closes it after this manager
@@ -31,11 +32,11 @@ func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
 	if err := manager.RegisterDeclarationPlugins(); err != nil {
 		return nil, err
 	}
-	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), finite: make(map[ast.ASTHandle]FiniteTable), explanations: make(map[ast.ASTHandle]*FiniteExplanationProduct), saturated: make(map[ast.ASTHandle]bool), defaultFinite: "hashtable"}, nil
+	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), finite: make(map[ast.ASTHandle]FiniteTable), explanations: make(map[ast.ASTHandle]*FiniteExplanationProduct), relationLevel: make(map[ast.ASTHandle]*RelationExplanationProduct), saturated: make(map[ast.ASTHandle]bool), defaultFinite: "hashtable"}, nil
 }
 
 func (m *RelationManager) open() error {
-	if m == nil || m.closed || m.manager == nil || m.relations == nil || m.finite == nil || m.explanations == nil || m.saturated == nil {
+	if m == nil || m.closed || m.manager == nil || m.relations == nil || m.finite == nil || m.explanations == nil || m.relationLevel == nil || m.saturated == nil {
 		return ErrTable
 	}
 	return nil
@@ -76,7 +77,7 @@ func (m *RelationManager) TryGetRelation(predicate ast.ASTHandle) (*HashTable, b
 	if err := m.open(); err != nil {
 		return nil, false, err
 	}
-	if m.finite[predicate] != nil {
+	if m.finite[predicate] != nil || m.explanations[predicate] != nil || m.relationLevel[predicate] != nil {
 		return nil, false, ErrTable
 	}
 	table, found := m.relations[predicate]
@@ -94,7 +95,7 @@ func (m *RelationManager) GetRelation(predicate ast.ASTHandle) (*HashTable, erro
 	if err := m.open(); err != nil {
 		return nil, err
 	}
-	if m.finite[predicate] != nil {
+	if m.finite[predicate] != nil || m.explanations[predicate] != nil || m.relationLevel[predicate] != nil {
 		return nil, ErrTable
 	}
 	if table := m.relations[predicate]; table != nil {
@@ -137,6 +138,18 @@ func (m *RelationManager) ResetRelations() (result error) {
 			delete(m.saturated, predicate)
 		}
 	}
+	for predicate, product := range m.relationLevel {
+		if err := product.Close(); err != nil {
+			result = errors.Join(result, err)
+			continue
+		}
+		consumed, err := m.manager.DecRefConsumed(predicate)
+		result = errors.Join(result, err)
+		if consumed {
+			delete(m.relationLevel, predicate)
+			delete(m.saturated, predicate)
+		}
+	}
 	for predicate, table := range m.finite {
 		if err := table.Close(); err != nil {
 			result = errors.Join(result, err)
@@ -172,7 +185,7 @@ func (m *RelationManager) Close() (result error) {
 		return nil
 	}
 	result = m.ResetRelations()
-	if len(m.relations) != 0 || len(m.finite) != 0 || len(m.explanations) != 0 {
+	if len(m.relations) != 0 || len(m.finite) != 0 || len(m.explanations) != 0 || len(m.relationLevel) != 0 {
 		return errors.Join(result, ErrTable)
 	}
 	m.closed = true
@@ -180,6 +193,7 @@ func (m *RelationManager) Close() (result error) {
 	m.relations = nil
 	m.finite = nil
 	m.explanations = nil
+	m.relationLevel = nil
 	m.saturated = nil
 	m.lazyFinite = nil
 	m.checkedFinite = nil

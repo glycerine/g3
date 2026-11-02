@@ -29,6 +29,20 @@ func (m *RelationManager) RestrictPredicates(keep map[ast.ASTHandle]bool) (resul
 			delete(m.explanations, predicate)
 		}
 	}
+	for predicate, product := range m.relationLevel {
+		if keep[predicate] {
+			continue
+		}
+		if err := product.Close(); err != nil {
+			result = errors.Join(result, err)
+			continue
+		}
+		consumed, err := m.manager.DecRefConsumed(predicate)
+		result = errors.Join(result, err)
+		if consumed {
+			delete(m.relationLevel, predicate)
+		}
+	}
 	for predicate, table := range m.finite {
 		if keep[predicate] {
 			continue

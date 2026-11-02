@@ -11,6 +11,9 @@ func (m *RelationManager) TryGetFiniteRelation(predicate ast.ASTHandle) (FiniteT
 	if err := m.open(); err != nil {
 		return nil, false, err
 	}
+	if m.explanations[predicate] != nil || m.relationLevel[predicate] != nil {
+		return nil, false, ErrTableRelation
+	}
 	var table FiniteTable = m.finite[predicate]
 	if table == nil {
 		if hash := m.relations[predicate]; hash != nil {
@@ -92,6 +95,9 @@ func (m *RelationManager) StoreFiniteRelation(predicate ast.ASTHandle, table Fin
 	}
 	if table == nil {
 		return ErrTable
+	}
+	if m.explanations[predicate] != nil || m.relationLevel[predicate] != nil {
+		return ErrTableRelation
 	}
 	_, expected, err := m.PredicateSignature(predicate)
 	if err != nil {

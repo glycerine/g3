@@ -110,7 +110,7 @@ func (m *RelationManager) StoreExplanationRelation(predicate ast.ASTHandle, p *F
 			return ErrTableRelation
 		}
 	}
-	if m.relations[predicate] != nil {
+	if m.relations[predicate] != nil || m.finite[predicate] != nil || m.relationLevel[predicate] != nil {
 		return ErrTableRelation
 	}
 	prior, found := m.explanations[predicate]
