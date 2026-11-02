@@ -1834,10 +1834,14 @@ func TestRuleSliceProofSubstitutesDerivedPremise(t *testing.T) {
 			t.Fatal("invalid derived proof side condition", status)
 		}
 	}
-	for _, unusedValue := range []int64{0, 17} {
+	for _, unusedValue := range []int64{0, 17, -1} {
 		for _, gapIndex := range []uint32{1, 2} {
 			unused, err := m.ArithmeticNumeralRat(big.NewRat(unusedValue, 1), true)
 			coneMust(t, err)
+			if unusedValue < 0 {
+				unused, err = m.MkVar(0, integer)
+				coneMust(t, err)
+			}
 			unusedPin, err := m.NewRef(unused)
 			coneMust(t, err)
 			defer func() { coneMust(t, m.DelRef(&unusedPin)) }()
