@@ -5,6 +5,7 @@ package pdr
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
@@ -508,6 +509,10 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 		}
 	}
 	transformers := make(map[ast.ASTHandle]*PredicateTransformer, len(order))
+	// A pre-query cover may have allocated solvers in the old proof mode.
+	// Build rule transformers from a fresh pool; the manager continues to own
+	// the old solvers until Close, while their frame properties are inherited.
+	c.owner.contexts.solverStart = len(c.owner.contexts.solvers)
 	nonBoolean, err := c.expressionsUseNonBooleanSort(forms)
 	if err != nil {
 		return err
@@ -567,8 +572,16 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 	}
 	for _, declaration := range order {
 		if err = transformers[declaration].InitializeRules(transformers, buckets[declaration]); err != nil {
-			return err
+			return fmt.Errorf("muz/pdr: initialize predicate rules: %w", err)
 		}
+		if prior := c.transformers[declaration]; prior != nil {
+			if err = transformers[declaration].InheritProperties(prior); err != nil {
+				return fmt.Errorf("muz/pdr: inherit pre-query properties: %w", err)
+			}
+		}
+	}
+	if err = closeTransformers(c.order, c.transformers); err != nil {
+		return err
 	}
 	c.transformers = transformers
 	c.order = order

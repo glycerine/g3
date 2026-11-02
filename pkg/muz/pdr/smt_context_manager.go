@@ -18,16 +18,17 @@ import (
 var ErrSMTContextOwner = errors.New("muz/pdr: invalid or closed SMT context owner")
 
 type SMTContextManager struct {
-	manager    *ast.ASTManager
-	params     *uparams.ParamsRef
-	config     smtcore.SMTSolverConfig
-	maximum    uint32
-	created    uint32
-	solvers    []*smtcore.SMTSolver
-	predicates []ast.ASTRef
-	auxiliary  map[ast.ASTHandle]bool
-	active     uint32
-	arithmetic struct {
+	manager     *ast.ASTManager
+	params      *uparams.ParamsRef
+	config      smtcore.SMTSolverConfig
+	maximum     uint32
+	created     uint32
+	solvers     []*smtcore.SMTSolver
+	solverStart int // First solver in the current proof/arithmetic configuration pool.
+	predicates  []ast.ASTRef
+	auxiliary   map[ast.ASTHandle]bool
+	active      uint32
+	arithmetic  struct {
 		enabled, selectMode, eq2ineq bool
 		mode                         uint32
 		effective                    uint32
@@ -83,7 +84,7 @@ func (m *SMTContextManager) configureArithmetic(selectMode bool, mode uint32, eq
 	if err := m.open(); err != nil {
 		return err
 	}
-	if len(m.solvers) != 0 || mode > smtcore.SMTArithmeticOptInf {
+	if len(m.solvers) != m.solverStart || mode > smtcore.SMTArithmeticOptInf {
 		return ast.ErrASTDomain
 	}
 	m.arithmetic.enabled = true
@@ -115,14 +116,14 @@ func (m *SMTContextManager) Fresh() (_ *SMTContext, resultErr error) {
 			return nil, err
 		}
 	} else {
-		if uint32(len(m.solvers)) < m.maximum {
+		if uint32(len(m.solvers)-m.solverStart) < m.maximum {
 			var err error
 			solver, err = m.newSolver()
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			solver = m.solvers[(m.created-1)%m.maximum]
+			solver = m.solvers[m.solverStart+int((m.created-1)%m.maximum)]
 		}
 		boolean, err := m.manager.MkBoolSort()
 		if err != nil {

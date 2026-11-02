@@ -28,6 +28,8 @@ Each completed item needs source paths, implementation/test evidence and a commi
     - [x] Permit source-compatible pre-initialization level/cover lookup in the PDR context (direct context regression; public accessor remains open).
     - [ ] Enable the public PDR pre-query accessor with the shared parameter configuration.
     - [ ] Reuse the pre-query context and preserve its covers when initial rules are installed; test context identity and raw frames.
+      - [x] Inherit direct-context pre-query properties during Initialize, close old transformers and use freshly configured solver pools for arithmetic/proof mode.
+      - [ ] Exercise the public first-query path and context identity.
 - [ ] Test cancellation, resource refusal and partial construction/destruction at actual allocation boundaries; preserve errors through cleanup.
 
 ## 3. PDR — first engine closure
@@ -263,3 +265,6 @@ This closes the declarations and ownership mapping of `src/muz/spacer/spacer_dl_
 
 - 2026-11-02 — Direct PDR context property operations now accept calls before rule installation, matching `pdr_context.cpp:1565-1593`. Unknown predicates report zero levels and a true cover; adding a false cover at level two creates three frames and returns that cover. Initialized the transformer map before publishing a pre-query transformer, preventing a panic and orphaned SMT context. The regression checks values and full fixture cleanup. Public accessor construction and first-query inheritance remain open; no engine completion status changed.
   Validation: `go -C pkg test ./muz/pdr -run '^TestPDRContextPropertiesBeforeRuleInitialization$' -count=1 -v` passed. Commit title: `Support PDR context covers before rule initialization`.
+
+- 2026-11-02 — Initial PDR rule installation now copies frame properties from pre-query transformers and closes those transformers, matching source `context::update_rules`. A fresh solver pool avoids reusing solvers constructed before arithmetic/proof-mode selection; older solvers remain owned by the manager and are disposed at context close. The arithmetic constraint-cache regression checks the raw level-two false cover, three frames, replacement/closure, a distinct solver, difference-logic selection and continued rejection of arithmetic reconfiguration after rule solvers exist. Public context reuse remains a separate unchecked item.
+  Validation: `go -C pkg test ./muz/pdr -run '^TestPDRInitializeInheritsPrequeryArithmeticCover$' -count=1 -v` passed. Commit title: `Preserve PDR pre-query covers during initial rule installation`.
