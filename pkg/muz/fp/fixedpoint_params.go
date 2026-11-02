@@ -88,7 +88,7 @@ func (e *PropositionalEngine) SetQueryParameters(params *uparams.ParamsRef) (res
 	if err := e.closePDRForReplacement(); err != nil {
 		return err
 	}
-	if err := e.closeSpacerForReplacement(); err != nil {
+	if err := e.resetSpacerForParameterUpdate(); err != nil {
 		return err
 	}
 	if e.queryParamsReady {

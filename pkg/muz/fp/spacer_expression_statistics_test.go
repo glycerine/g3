@@ -154,12 +154,12 @@ func TestSpacerExpressionStatisticsSurviveCloneDisposal(t *testing.T) {
 		t.Fatal("statistics reset changed live property count", got, properties)
 	}
 	prior := e.queryClone
-	must(e.SetQueryParameters(nil))
+	must(e.clearQueryResources())
 	if e.queryClone != nil {
-		t.Fatal("parameter update left its query clone active")
+		t.Fatal("query disposal left its clone active")
 	}
 	if _, err := prior.LastResult(); err == nil {
-		t.Fatal("parameter update left the old clone open")
+		t.Fatal("query disposal left the old clone open")
 	}
 	if got := checks(e); got != total {
 		t.Fatal("clone disposal lost or duplicated cumulative checks", got, total)
@@ -167,8 +167,25 @@ func TestSpacerExpressionStatisticsSurviveCloneDisposal(t *testing.T) {
 	if value(e, "SPACER num properties") != 0 {
 		t.Fatal("disposed query left live property statistics")
 	}
-	must(e.SetQueryParameters(nil))
+	must(e.clearQueryResources())
 	if got := checks(e); got != total {
 		t.Fatal("repeated cleanup duplicated archived statistics", got, total)
+	}
+	must(e.SetQueryParameters(nil))
+	if got := checks(e); got != 0 {
+		t.Fatal("parameter reconstruction preserved old kernel counters", got)
+	}
+	must(e.SetQueryParameters(nil))
+	if got := checks(e); got != 0 {
+		t.Fatal("repeated parameter update resurrected old counters", got)
+	}
+	status, err := e.QueryExpression(query)
+	must(err)
+	if status != lbool.True || checks(e) == 0 {
+		t.Fatal("updated fixture did not create fresh checks", status)
+	}
+	must(e.ParametersUpdated())
+	if got := checks(e); got != 0 {
+		t.Fatal("module parameter reconstruction preserved old kernel counters", got)
 	}
 }
