@@ -97303,13 +97303,30 @@
             "TestDatalogUnboundCompressorLiveParametersAndScopedRules",
             "TestDatalogUnboundCompressorDifferentColumnsAndNegation"
           ]
+        },
+        {
+          "name": "rel_context scoped_query restoration around filter, simple-join, unbound and similarity transformations (rel_context.cpp:58-91,232-241)",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/datalog_query_scope.go",
+          "go_targets": [
+            "pkg/muz/fp/datalog_query_scope.go",
+            "pkg/muz/fp/datalog_query_scope_test.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/fp/datalog_similarity_test.go"
+          ],
+          "tests": [
+            "TestDatalogQueriesRestoreFilterAndJoinScopes",
+            "TestDatalogSimilarityLiveQuery",
+            "TestDatalogSimilarityQueryParameterControls",
+            "TestDatalogSimilarityKeepsQueriedOutputUnmerged"
+          ]
         }
       ],
       "ownership": [
         "The query scope owns its transformed RuleSet and every generated concrete relation; disposal restores the original program and restricts the relation manager to the pre-query predicate set, while refused native cleanup remains retryable through the construction-failure contract."
       ],
       "deviations": [
-        "This slice ports unbound compression and doc/default parameter interaction only; broader scoped filter/simple-join restoration, relation-backend diversity, and the remaining transform pipeline stay open."
+        "Query scoping now covers filter, simple-join, unbound and similarity transformations; relation-backend diversity and the remaining transform pipeline stay open."
       ]
     },
     {

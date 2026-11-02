@@ -1887,6 +1887,16 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 			return lbool.FromBool(nonempty), nil
 		}
 	}
+	queryScope, err := e.beginDatalogQueryScope(declarations)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	originalRules := e.set
+	e.set = queryScope.set
+	defer func() {
+		e.set = originalRules
+		resultErr = errors.Join(resultErr, queryScope.dispose())
+	}()
 	finalized, err := e.set.IsFinalized()
 	if err != nil {
 		return lbool.Undef, err

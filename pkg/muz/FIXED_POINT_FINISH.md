@@ -352,7 +352,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/dl_vector_relation.h` (partial)
 - [ ] `src/muz/rel/rel_context.cpp` (partial), `src/muz/rel/rel_context.h` (partial)
   - [x] Query-scoped unbound compression, live module/local parameter precedence, `datalog.default_relation=doc` disabling, original-rule restoration, and generated finite-relation cleanup.
-  - [ ] Broader scoped filter/simple-join restoration, backend selection diversity, and the remaining transformation/query orchestration pipeline.
+  - [x] Source `scoped_query` restoration around filter, simple-join, unbound and similarity transformations, including failure paths.
+  - [ ] Backend selection diversity and the remaining transformation/query orchestration pipeline.
 - [ ] `src/muz/rel/udoc_relation.cpp` (partial), `src/muz/rel/udoc_relation.h` (partial)
 
 ### spacer
@@ -858,3 +859,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Simple-join cleanup now preserves every unconsumed generated-predicate pin when native AST release refuses, blocks transformation and fresh-predicate publication while closing, and completes idempotent retry. The regression performs a real three-tail split, verifies exact owner identities across two refused closes and reaches zero fixture budget; focused simple-join tests passed in 0.013s and the complete native transforms package passed in 9.193s. Later partial pin destruction and construction-error cleanup remain open.
 
 - 2026-11-02 — Corrected BMC linear proof publication ordering so a late scoped-proof or normalizer cleanup failure cannot return a live proof together with an error. A real three-rule recursive campaign crosses every reachable trace/proof allocation failure through success, checks exact live-byte equality after each attempt and verifies independent successful owners. Focused tests passed in 0.057s and the complete native BMC package passed in 0.686s. Nonlinear/QBMC late-cleanup audits and broader source/ownership closure remain open.
+
+- 2026-11-02 — Completed the live `rel_context::scoped_query` boundary around Datalog filter, simple-join, unbound and similarity transformations. Repeated public queries and a post-transform failure now restore the original rule set, output marks, predicates and relation tables; existing similarity compression internals remain tested inside an explicit live scope. Baselines persisted both filter and three-tail join rewrites (one rule became two); focused Datalog scope/join/certificate/profile tests now pass in 0.141s. Backend selection diversity and the rest of the transform pipeline remain open.

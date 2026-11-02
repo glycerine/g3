@@ -29,6 +29,33 @@ func similarityTestGoal(t *testing.T, engine *PropositionalEngine, m *ast.ASTMan
 	return goal
 }
 
+// Inspect transformation internals while their source query scope is alive;
+// public QueryPredicate must retire these rules and generated tables on return.
+func similarityTestInspectScope(t *testing.T, engine *PropositionalEngine, output ast.ASTHandle) func() {
+	t.Helper()
+	scope, err := engine.beginDatalogQueryScope([]ast.ASTHandle{output})
+	fragmentMust(t, err)
+	original := engine.set
+	engine.set = scope.set
+	valid, err := engine.set.Finalize()
+	fragmentMust(t, err)
+	if !valid {
+		t.Fatal("similarity fixture not stratified")
+	}
+	fragmentMust(t, engine.applyDatalogSimilarity([]ast.ASTHandle{output}))
+	finished := false
+	finish := func() {
+		if finished {
+			return
+		}
+		engine.set = original
+		fragmentMust(t, scope.Close())
+		finished = true
+	}
+	t.Cleanup(finish)
+	return finish
+}
+
 func TestDatalogSimilarityLiveQuery(t *testing.T) {
 	engine, m := newFragmentTestEngine(t, "datalog")
 	name, e := m.Symbols.Intern("similarity-domain")
@@ -56,6 +83,10 @@ func TestDatalogSimilarityLiveQuery(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal("query", status)
 	}
+	if len(engine.auxiliary) != 0 {
+		t.Fatal("query leaked similarity predicates")
+	}
+	finishScope := similarityTestInspectScope(t, engine, goal)
 	n, e := engine.set.Len()
 	fragmentMust(t, e)
 	if n != 2 {
@@ -95,13 +126,19 @@ func TestDatalogSimilarityLiveQuery(t *testing.T) {
 			t.Fatal("output fact", i, found)
 		}
 	}
+	finishScope()
 	status, e = engine.QueryPredicate(goal)
 	fragmentMust(t, e)
 	if status != lbool.True {
 		t.Fatal("repeat query", status)
 	}
-	if len(engine.auxiliary) != 1 {
-		t.Fatal("duplicate auxiliary predicate")
+	if len(engine.auxiliary) != 0 {
+		t.Fatal("repeat query leaked auxiliary predicate")
+	}
+	n, e = engine.set.Len()
+	fragmentMust(t, e)
+	if n != 13 {
+		t.Fatal("query did not restore original rules", n)
 	}
 }
 
@@ -161,6 +198,11 @@ func TestDatalogSimilarityQueryParameterControls(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal(status)
 			}
+			if len(engine.auxiliary) != 0 {
+				t.Fatal("query leaked generated relation")
+			}
+			finishScope := similarityTestInspectScope(t, engine, goal)
+			defer finishScope()
 			merged := len(engine.auxiliary) != 0
 			if merged != tc.wantMerge {
 				t.Fatalf("merged=%v want %v", merged, tc.wantMerge)
@@ -194,6 +236,8 @@ func TestDatalogSimilarityKeepsQueriedOutputUnmerged(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal(status)
 	}
+	finishScope := similarityTestInspectScope(t, engine, pred)
+	defer finishScope()
 	if len(engine.auxiliary) != 0 {
 		t.Fatal("queried output was compressed")
 	}
