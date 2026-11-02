@@ -12,6 +12,7 @@ type pdrModelExportOwner struct {
 	manager         *ast.ASTManager
 	model           *model.Model
 	interpretations []*model.FunctionInterpretation
+	abstractors     []*ast.ExprAbstractor
 	references      []ast.ASTRef
 }
 
@@ -72,6 +73,29 @@ func (o *pdrModelExportOwner) close() error {
 		if err := o.releaseLastReference(); err != nil {
 			return err
 		}
+	}
+	for len(o.abstractors) != 0 {
+		index := len(o.abstractors) - 1
+		if err := o.abstractors[index].Close(); err != nil {
+			return err
+		}
+		o.abstractors = o.abstractors[:index]
+	}
+	return nil
+}
+
+func (o *pdrModelExportOwner) releaseTemporaries() error {
+	for len(o.references) != 0 {
+		if err := o.releaseLastReference(); err != nil {
+			return err
+		}
+	}
+	for len(o.abstractors) != 0 {
+		index := len(o.abstractors) - 1
+		if err := o.abstractors[index].Close(); err != nil {
+			return err
+		}
+		o.abstractors = o.abstractors[:index]
 	}
 	return nil
 }

@@ -202,6 +202,9 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 	if !c.initialized || c.search == nil {
 		return lbool.Undef, ast.ErrASTDomain
 	}
+	if err = c.traceSolveStart(); err != nil {
+		return lbool.Undef, err
+	}
 	c.query = nil
 	c.queryDecl = queryDeclaration
 	c.lastResult = lbool.Undef
@@ -209,6 +212,14 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 	query := c.transformers[queryDeclaration]
 	if query == nil {
 		if err = c.simplifyFormulas(); err != nil {
+			return lbool.Undef, err
+		}
+		c.lastResult = lbool.False
+		if err = c.traceUnreachableCertificate(); err == nil {
+			err = c.verboseUnreachableCertificate()
+		}
+		if err != nil {
+			c.lastResult = lbool.Undef
 			return lbool.Undef, err
 		}
 		if err = c.finishValidatedResult(lbool.False); err != nil {
@@ -227,7 +238,14 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 			return lbool.Undef, err
 		}
 		if reachable {
+			if err = c.verboseReachableSearch(); err != nil {
+				return lbool.Undef, err
+			}
 			if err = c.finishValidatedResult(lbool.True); err != nil {
+				return lbool.Undef, err
+			}
+			if err = c.verboseReachableCertificate(); err != nil {
+				c.lastResult = lbool.Undef
 				return lbool.Undef, err
 			}
 			return c.lastResult, nil
@@ -239,6 +257,14 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 			}
 			if fixed {
 				if x = c.simplifyFormulas(); x != nil {
+					return lbool.Undef, x
+				}
+				c.lastResult = lbool.False
+				if x = c.traceUnreachableCertificate(); x == nil {
+					x = c.verboseUnreachableCertificate()
+				}
+				if x != nil {
+					c.lastResult = lbool.Undef
 					return lbool.Undef, x
 				}
 				for _, declaration := range c.order {

@@ -55,11 +55,25 @@ type Context struct {
 	flexibleTrace      bool
 	fullTraceAnswer    bool
 	generateProofTrace bool
+	printBoogieCert    bool
 	validateResult     bool
 	simplifyPre        bool
 	simplifyPost       bool
 	initialized        bool
 	closed             bool
+}
+
+// SetPrintBoogieCertificate selects the source reachable-result verbose
+// certificate operand. It must be fixed before rule installation.
+func (c *Context) SetPrintBoogieCertificate(enabled bool) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	if c.initialized {
+		return ast.ErrASTDomain
+	}
+	c.printBoogieCert = enabled
+	return nil
 }
 
 // SetResultValidation selects source post-solve trace, proof, and inductive-
