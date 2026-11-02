@@ -168,12 +168,84 @@ func TestFourierMotzkinCombinesBounds(t *testing.T) {
 	combined := wrap(m.MkAndArgs(args))
 	iff := wrap(m.MkIff(raw(combined), raw(expected)))
 	neg := wrap(m.MkNot(raw(iff)))
+	must(native.Push())
 	must(native.Assert(raw(neg)))
 	status, err := native.CheckSat(nil)
 	must(err)
 	if status != lbool.False {
 		t.Fatal("Fourier projection differs", status)
 	}
+	must(native.Pop(1))
+	two := wrap(m.ArithmeticIntegerNumeralText("2"))
+	minusOne := wrap(m.ArithmeticIntegerNumeralText("-1"))
+	mul := func(a, b *Expr) *Expr { return wrap(m.MkFamilyApp(family, 9, nil, []ast.ASTHandle{raw(a), raw(b)})) }
+	cmp := func(op int32, a, b *Expr) *Expr {
+		return wrap(m.MkFamilyApp(family, op, nil, []ast.ASTHandle{raw(a), raw(b)}))
+	}
+	twiceX, twiceY := mul(two, x), mul(two, y)
+	negX, negY := mul(minusOne, x), mul(minusOne, y)
+	for _, tc := range []struct {
+		name         string
+		lower, upper *Expr
+	}{
+		{"positive coefficients", cmp(3, twiceX, zero), cmp(2, twiceX, twiceY)},
+		{"negative coefficients", cmp(2, negX, zero), cmp(3, negX, negY)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			projected, err := graph.FourierMotzkinCheap([]*Expr{y}, []*Expr{tc.lower, tc.upper}, simplifier)
+			must(err)
+			defer func() {
+				for _, term := range projected {
+					must(term.Close())
+				}
+			}()
+			args := make([]ast.ASTHandle, len(projected))
+			for i, term := range projected {
+				args[i] = raw(term)
+			}
+			actual := wrap(m.MkAndArgs(args))
+			iff := wrap(m.MkIff(raw(actual), raw(expected)))
+			neg := wrap(m.MkNot(raw(iff)))
+			must(native.Push())
+			must(native.Assert(raw(neg)))
+			status, err := native.CheckSat(nil)
+			must(err)
+			must(native.Pop(1))
+			if status != lbool.False {
+				t.Fatal("coefficient projection differs", status)
+			}
+		})
+	}
+	// Integer normalization must detect this impossible unit interval.
+	one := wrap(m.ArithmeticIntegerNumeralText("1"))
+	impossibleLower, impossibleUpper := cmp(3, twiceX, one), cmp(2, twiceX, one)
+	must(native.Push())
+	must(native.Assert(raw(impossibleLower)))
+	must(native.Assert(raw(impossibleUpper)))
+	status, err = native.CheckSat(nil)
+	must(err)
+	must(native.Pop(1))
+	if status != lbool.False {
+		t.Fatal("integer witness unexpectedly exists", status)
+	}
+	approximate, err := graph.FourierMotzkinCheap(nil, []*Expr{impossibleLower, impossibleUpper}, simplifier)
+	must(err)
+	defer func() {
+		for _, term := range approximate {
+			must(term.Close())
+		}
+	}()
+	must(native.Push())
+	for _, term := range approximate {
+		must(native.Assert(raw(term)))
+	}
+	status, err = native.CheckSat(nil)
+	must(err)
+	must(native.Pop(1))
+	if status != lbool.False {
+		t.Fatal("impossible integer interval was lost", status)
+	}
+
 }
 
 func TestProjectFormulaCombinesEqualityAndInequalityProjection(t *testing.T) {
