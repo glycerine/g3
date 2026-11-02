@@ -323,9 +323,18 @@ func TestDualitySlowSearchRestartPolicyAndFailureThresholds(t *testing.T) {
 	if !errors.Is(controller.learningFailure(interp.NewError("test interpolation exception")), ErrDerivationRestart) {
 		t.Fatal("interpolation exception did not request restart")
 	}
+	if !strings.Contains(report.String(), "interpolation failure:test interpolation exception") {
+		t.Fatal("missing interpolation failure diagnostic", report.String())
+	}
 	if !errors.Is(controller.learningFailure(ErrCoreNotUnsat), ErrDerivationRestart) {
 		t.Fatal("source core verification exception did not request restart")
 	}
+	mapped.streamReporter = &StreamReporter{Format: ConjectureReporter{Output: dualityRefusingWriter{}}}
+	reportingFailure := controller.learningFailure(ErrCoreNotUnsat)
+	if !errors.Is(reportingFailure, errDualityWriter) || !errors.Is(reportingFailure, ErrCoreNotUnsat) || errors.Is(reportingFailure, ErrDerivationRestart) {
+		t.Fatal("diagnostic failure lost its causes or requested restart", reportingFailure)
+	}
+	mapped.streamReporter = &StreamReporter{Format: ConjectureReporter{Output: &report}}
 	sentinel := errors.New("unrelated resource failure")
 	if controller.learningFailure(sentinel) != sentinel {
 		t.Fatal("unrelated failure was converted to restart")

@@ -61,8 +61,14 @@ func (s *DerivationSearch) learningFailure(err error) error {
 		}
 		return errors.Join(ErrDerivationRestart, err)
 	}
+	if errors.Is(err, ErrCaseInterpolationBad) {
+		return errors.Join(ErrDerivationRestart, err)
+	}
 	var interpolation interp.Error
-	if errors.Is(err, ErrCaseInterpolationBad) || errors.Is(err, ErrCoreNotUnsat) || errors.As(err, &interpolation) {
+	if errors.Is(err, ErrCoreNotUnsat) || errors.As(err, &interpolation) {
+		if report := s.Search.original.streamReporter.Message("interpolation failure:" + err.Error()); report != nil {
+			return errors.Join(err, report)
+		}
 		return errors.Join(ErrDerivationRestart, err)
 	}
 	return err
