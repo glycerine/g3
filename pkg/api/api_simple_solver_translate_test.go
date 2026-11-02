@@ -1121,7 +1121,8 @@ func TestAPITacticSolverTranslateDegreeShiftAfterSourceClose(t *testing.T) {
 	status, err := translated.Check()
 	astTestMust(t, err)
 	if status != lbool.True {
-		t.Fatal("translated solver", status)
+		reason, reasonErr := translated.ReasonUnknown()
+		t.Fatal("translated solver", status, reason, reasonErr)
 	}
 	model, err := translated.Model()
 	astTestMust(t, err)

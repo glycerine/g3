@@ -9,6 +9,14 @@ func (c *SMTContext) FloatingPointNaN(sort ast.ASTHandle) (ast.ASTHandle, error)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	// Match is_fp_sort before entering the asserting fpa_util accessor.
+	_, _, matched, err := m.FloatingPointSortShape(sort)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !matched {
+		return ast.ASTHandle{}, ast.ErrASTDomain
+	}
 	return m.MkFPANaNOfSort(sort)
 }
 
@@ -17,6 +25,14 @@ func (c *SMTContext) FloatingPointInfinity(sort ast.ASTHandle, negative bool) (a
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	// Match is_fp_sort before entering the asserting fpa_util accessor.
+	_, _, matched, err := m.FloatingPointSortShape(sort)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !matched {
+		return ast.ASTHandle{}, ast.ErrASTDomain
+	}
 	return m.MkFPAInfinityOfSort(sort, negative)
 }
 
@@ -24,6 +40,14 @@ func (c *SMTContext) FloatingPointZero(sort ast.ASTHandle, negative bool) (ast.A
 	m, _, err := c.floatingPointManager()
 	if err != nil {
 		return ast.ASTHandle{}, err
+	}
+	// Match is_fp_sort before entering the asserting fpa_util accessor.
+	_, _, matched, err := m.FloatingPointSortShape(sort)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !matched {
+		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
 	return m.MkFPAZeroOfSort(sort, negative)
 }

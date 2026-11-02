@@ -111,7 +111,7 @@ func (t *DegreeShiftTactic) checkpoint() error {
 		return tactic.NewTacticException(t.manager.ResourceLimit().CancelMessage())
 	}
 	if t.services.Cooperation != nil {
-		return t.services.Cooperation.Checkpoint("degree_shift")
+		return t.services.Cooperation.Cooperate("degree_shift")
 	}
 	return nil
 }

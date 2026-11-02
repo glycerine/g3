@@ -68,9 +68,9 @@ func TestProofHypothesisSetMemoryWrappers(t *testing.T) {
 		t.Fatal("refused set owner allocation changed proof state or budget", refusal)
 	}
 	got := output.String()
-	if !diagnostic.DebugBuild {
+	if !diagnostic.DebugBuild || !tags.ShouldTrace("memory") {
 		if got != "" {
-			t.Fatal("ordinary build emitted debug memory records", got)
+			t.Fatal("build without memory tracing emitted debug memory records", got)
 		}
 		return
 	}
@@ -124,9 +124,9 @@ func TestProofLemmaEmptyHypothesisSetImmediateDeallocation(t *testing.T) {
 	tags.Enable("memory")
 	proofMust(t, ReduceHypotheses(m, ref))
 	got := output.String()
-	if !diagnostic.DebugBuild {
+	if !diagnostic.DebugBuild || !tags.ShouldTrace("memory") {
 		if got != "" {
-			t.Fatal("ordinary build emitted debug memory records", got)
+			t.Fatal("build without memory tracing emitted debug memory records", got)
 		}
 		return
 	}
