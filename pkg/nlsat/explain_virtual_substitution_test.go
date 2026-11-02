@@ -61,6 +61,7 @@ func TestSignedProjectionLinearEqualityUsesVirtualSubstitution(t *testing.T) {
 
 func TestSignedSolveLinearEqualityRejectsNonlinearSelection(t *testing.T) {
 	e, _, n, _ := projectionCoefficientFixture(t, true)
+	atomDebugFixture(t)
 	evaluatorSetFraction(t, e, 0, 0, 1)
 	p := evaluatorPolynomial(t, e, evaluatorTerm{1, 0, 2}, evaluatorTerm{-1, 0, 0})
 	ps := projectionOutput(t, e)

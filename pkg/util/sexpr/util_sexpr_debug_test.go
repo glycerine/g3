@@ -11,12 +11,27 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func sxFractionalBVSourceProfile(t *testing.T, m *SexprManager, h SexprHandle) {
+	budget := arena.NewBudget(1 << 20)
+	region, err := arena.NewBytesRegion(arena.BytesRegionConfig{DirectOnly: true, Descriptors: arena.Config{Budget: budget}})
+	sxMust(t, err)
+	debug, err := diagnostic.NewDebugContext(region, budget)
+	sxMust(t, err)
+	previous, err := diagnostic.BindProcessDebugContext(debug)
+	sxMust(t, err)
+	defer func() {
+		_, err := diagnostic.BindProcessDebugContext(previous)
+		sxMust(t, err)
+		sxMust(t, debug.Close())
+		sxMust(t, region.Close())
+	}()
+
 	// Source Rem asserts integrality before computing the first digit.
-	sxRender(t, m, h, "#x", unumeral.ErrRationalNotInteger)
+	sxRender(t, m, h, "#x", diagnostic.ErrDebugAssertion)
 }
 
 func TestSexprDebugBVInvariantAndShortCircuit(t *testing.T) {

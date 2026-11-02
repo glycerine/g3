@@ -2,6 +2,8 @@ package sat
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"math"
 	"testing"
 )
@@ -98,6 +100,20 @@ func TestSATWatchedSourceTagsWidthDefectAndErase(t *testing.T) {
 }
 func TestSATPackedSourceGetterSetterDomains(t *testing.T) {
 	a := satStore(t, nil)
+	budget := arena.NewBudget(1 << 20)
+	region, err := arena.NewBytesRegion(arena.BytesRegionConfig{DirectOnly: true, Descriptors: arena.Config{Budget: budget}})
+	satOK(t, err)
+	debug, err := diagnostic.NewDebugContext(region, budget)
+	satOK(t, err)
+	previous, err := diagnostic.BindProcessDebugContext(debug)
+	satOK(t, err)
+	t.Cleanup(func() {
+		_, err := diagnostic.BindProcessDebugContext(previous)
+		satOK(t, err)
+		satOK(t, debug.Close())
+		satOK(t, region.Close())
+	})
+
 	r := satMk(t, a, satLs(0, 2), false)
 	off, _ := a.Offset(r)
 	w, e := newSATClauseWatch(4, off)

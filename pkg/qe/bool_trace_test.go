@@ -14,6 +14,8 @@ func TestBoolPluginProjectionSourceDontCareTrace(t *testing.T) {
 	for _, interpretation := range []string{"missing", "symbolic", "true", "false"} {
 		t.Run(interpretation, func(t *testing.T) {
 			f := newBoolPluginFixture(t)
+			_, pluginErr := f.r.manager.RegisterBitVectorPlugin()
+			fmMust(t, pluginErr)
 			m := f.r.manager
 			md, err := model.NewModel(m)
 			fmMust(t, err)

@@ -10,6 +10,9 @@ import (
 
 func TestSLSTacticGuardsQFBVAndCleansCoreBetweenApplications(t *testing.T) {
 	_, manager, _, _, context, globals, local, _ := slsTrackerFixture(t)
+	if err := manager.RegisterDeclarationPlugins(); err != nil {
+		t.Fatal(err)
+	}
 	strategy, err := NewSLSTactic(manager, context, globals, local)
 	if err != nil {
 		t.Fatal(err)

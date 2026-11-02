@@ -10,6 +10,8 @@ func TestBoolPluginProjectUsesModelAndDefaultsDontCareFalse(t *testing.T) {
 	for _, interpreted := range []bool{true, false} {
 		t.Run(map[bool]string{true: "true", false: "dont-care"}[interpreted], func(t *testing.T) {
 			f := newBoolPluginFixture(t)
+			_, pluginErr := f.r.manager.RegisterBitVectorPlugin()
+			fmMust(t, pluginErr)
 			md, err := model.NewModel(f.r.manager)
 			fmMust(t, err)
 			defer func() { fmMust(t, md.Close()) }()

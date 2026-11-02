@@ -58,6 +58,16 @@ func (k *SMTKernel) AssertionInconsistencyProof() (ast.ASTHandle, error) {
 	if err := k.open(); err != nil {
 		return ast.ASTHandle{}, err
 	}
+	if !k.assertedFormulasInconsistent() {
+		return ast.ASTHandle{}, nil
+	}
+	proofs, err := k.manager.ProofsEnabled()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !proofs {
+		return ast.ASTHandle{}, nil
+	}
 	for _, assertion := range k.assertions {
 		if k.manager.IsFalse(assertion.Formula) {
 			return assertion.Proof, nil

@@ -10,6 +10,9 @@ import (
 
 func TestWMaxAssignmentUsesIncompleteModel(t *testing.T) {
 	m, fixture := pbSLSFixture(t)
+	if err := m.RegisterDeclarationPlugins(); err != nil {
+		t.Fatal(err)
+	}
 	p := maxResTestBool(t, m, "wmax-model-p")
 	q := maxResTestBool(t, m, "wmax-model-q")
 	notQ, err := m.MkNot(q)
