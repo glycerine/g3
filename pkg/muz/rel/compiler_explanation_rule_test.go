@@ -171,16 +171,16 @@ func TestCompileExplanationRuleRejectsUnsupportedShapesBeforePublication(t *test
 	pX, err := f.ast.MkApp(p, []ast.ASTHandle{x})
 	astTestMust(t, err)
 	astTestPin(t, f.ast, pX)
-	repeated, err := f.ast.MkApp(q, []ast.ASTHandle{x, x})
+	constant, err := f.ast.MkApp(q, []ast.ASTHandle{f.truth, x})
 	astTestMust(t, err)
-	astTestPin(t, f.ast, repeated)
+	astTestPin(t, f.ast, constant)
 	transformer, err := NewExplanationTransformer(f.ast, rm)
 	astTestMust(t, err)
 	defer func() { astTestMust(t, transformer.Close()) }()
 	for _, spec := range []struct {
 		head  ast.ASTHandle
 		tails []ast.ASTHandle
-	}{{pX, nil}, {repeated, []ast.ASTHandle{pX}}, {pX, []ast.ASTHandle{pX, pX}}} {
+	}{{pX, nil}, {constant, []ast.ASTHandle{pX}}, {pX, []ast.ASTHandle{pX, pX}}} {
 		rule, e := rm.NewRule(spec.head, spec.tails, nil, "unsupported")
 		astTestMust(t, e)
 		generated, e := transformer.ExplanationRule(rule)

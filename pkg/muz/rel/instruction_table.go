@@ -139,7 +139,7 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 	if err := context.open(); err != nil {
 		return false, err
 	}
-	if (i.kind == "project" || i.kind == "union" || i.kind == "widen" || i.kind == "join" || i.kind == "rename") &&
+	if (i.kind == "project" || i.kind == "union" || i.kind == "widen" || i.kind == "join" || i.kind == "rename" || i.kind == "filter_equal" || i.kind == "filter_identical") &&
 		(hasExplanationInstructionRegister(context, i.first) || hasExplanationInstructionRegister(context, i.second) || hasExplanationInstructionRegister(context, i.result)) {
 		return i.performExplanation(context)
 	}

@@ -92976,8 +92976,8 @@
           "name": "Concrete unary explanation-rule and finite output-bridge lowering through typed registers (dl_compiler.cpp compile_rule; dl_mk_explanations.cpp get_e_rule)",
           "status": "ported",
           "go_targets": ["pkg/muz/rel/compiler_explanation_rule.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_explanation_registers.go", "pkg/muz/rel/instruction_explanation_table.go"],
-          "tests": ["TestCompileTransformedExplanationRuleBuildsHeadAndOutputBridge", "TestCompileExplanationRuleRejectsUnsupportedShapesBeforePublication"],
-          "reason": "Covers transformed single-positive-tail explained rules and finite output bridges with undefined head slots, assignment, projection/permutation and union/store. Whole-set scheduling/recursion and richer rule shapes remain open."
+          "tests": ["TestCompileTransformedExplanationRuleBuildsHeadAndOutputBridge", "TestCompileExplanationConstantsAndRepeatedColumnsAgainstTupleOracle", "TestCompileExplanationRuleRejectsUnsupportedShapesBeforePublication"],
+          "reason": "Covers transformed single-positive-tail explained rules and finite output bridges with undefined head slots, constant/equality filters, repeated-column duplication, assignment, projection/permutation and union/store. Ground rules, head constants/unbound variables, multi-tail/negated rules and whole-set scheduling/recursion remain open."
         }
       ],
       "ownership": [

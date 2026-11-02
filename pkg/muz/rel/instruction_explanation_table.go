@@ -55,6 +55,41 @@ func (i *tableInstruction) performExplanation(context *ExecutionContext) (bool, 
 		return false, err
 	}
 	switch i.kind {
+	case "filter_equal":
+		context.stats.FilterEqual++
+		if source == nil {
+			return true, nil
+		}
+		if i.column < 0 || i.column >= len(source.finiteSorts) {
+			return false, ErrInstruction
+		}
+		if err := source.table.FilterEqual(i.value, i.column); err != nil {
+			return false, err
+		}
+		count, err := source.Len()
+		if err != nil {
+			return false, err
+		}
+		if count == 0 {
+			return true, context.MakeEmpty(i.first)
+		}
+		return true, nil
+	case "filter_identical":
+		context.stats.FilterIdentical++
+		if source == nil {
+			return true, nil
+		}
+		if err := source.FilterFiniteIdentical(i.left); err != nil {
+			return false, err
+		}
+		count, err := source.Len()
+		if err != nil {
+			return false, err
+		}
+		if count == 0 {
+			return true, context.MakeEmpty(i.first)
+		}
+		return true, nil
 	case "join":
 		context.stats.Join++
 		right, err := explanationInstructionRegister(context, i.second)

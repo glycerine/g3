@@ -13,14 +13,24 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
+type explanationTailConstant struct {
+	column int
+	value  Element
+}
+
 type explanationRuleLayout struct {
-	head, tail  ast.ASTHandle
-	columns     map[uint32]int
-	sorts       map[uint32]ast.ASTHandle
-	conditions  []ast.ASTHandle
-	removed     []int
-	permutation []int
-	appendHead  bool
+	head, tail       ast.ASTHandle
+	columns          map[uint32]int
+	sorts            map[uint32]ast.ASTHandle
+	conditions       []ast.ASTHandle
+	removed          []int
+	permutation      []int
+	appendHead       bool
+	tailConstants    []explanationTailConstant
+	identical        [][]int
+	duplicates       []int
+	finiteWidth      int
+	explanationWidth int
 }
 
 func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan explanationRuleLayout, resultErr error) {
@@ -110,17 +120,53 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 		sort, err := m.GetSort(value)
 		return index, sort, err
 	}
+	tailVariables := make(map[uint32][]int)
 	for column := 0; column < len(tailSorts)+1; column++ {
+		argument, err := m.GetArg(tail, uint32(column))
+		if err != nil {
+			return plan, err
+		}
+		kind, err := m.GetKind(argument)
+		if err != nil {
+			return plan, err
+		}
+		if kind != ast.ASTVar {
+			if column >= len(tailSorts) {
+				return plan, ErrCompilerUnsupported
+			}
+			value, err := relations.EncodeValue(tailSorts[column], argument)
+			if err != nil {
+				return plan, err
+			}
+			plan.tailConstants = append(plan.tailConstants, explanationTailConstant{column: column, value: value})
+			continue
+		}
 		index, sort, err := variable(tail, column)
 		if err != nil {
 			return plan, err
 		}
-		if _, exists := plan.columns[index]; exists {
-			return plan, ErrCompilerUnsupported
+		if previous, exists := plan.columns[index]; exists {
+			if column >= len(tailSorts) || previous >= len(tailSorts) || plan.sorts[index] != sort {
+				return plan, ErrCompilerUnsupported
+			}
+		} else {
+			plan.columns[index], plan.sorts[index] = column, sort
 		}
-		plan.columns[index], plan.sorts[index] = column, sort
+		tailVariables[index] = append(tailVariables[index], column)
 	}
+	for _, columns := range tailVariables {
+		if len(columns) > 1 {
+			plan.identical = append(plan.identical, columns)
+		}
+	}
+	sort.Slice(plan.identical, func(i, j int) bool { return plan.identical[i][0] < plan.identical[j][0] })
+	plan.finiteWidth = len(tailSorts)
+	plan.explanationWidth = 1
 	var headColumns []int
+	available := make(map[uint32][]int, len(tailVariables))
+	for variable, columns := range tailVariables {
+		available[variable] = append([]int(nil), columns...)
+	}
 	keep := make(map[int]bool)
 	for column, sort := range headSorts {
 		index, actual, err := variable(head, column)
@@ -128,8 +174,15 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 			return plan, err
 		}
 		from, bound := plan.columns[index]
-		if !bound || from >= len(tailSorts) || actual != sort || plan.sorts[index] != sort || keep[from] {
+		if !bound || from >= len(tailSorts) || actual != sort || plan.sorts[index] != sort {
 			return plan, ErrCompilerUnsupported
+		}
+		if columns := available[index]; len(columns) != 0 {
+			from = columns[0]
+			available[index] = columns[1:]
+		} else {
+			plan.duplicates = append(plan.duplicates, from)
+			from = len(tailSorts) + len(plan.duplicates) - 1
 		}
 		headColumns = append(headColumns, from)
 		keep[from] = true
@@ -144,9 +197,12 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 			return plan, ErrCompilerUnsupported
 		}
 		plan.columns[index], plan.sorts[index] = width, sort
-		keep[width] = true
-		width++
 		plan.appendHead = true
+		plan.explanationWidth++
+	}
+	width = len(tailSorts) + len(plan.duplicates) + plan.explanationWidth
+	if plan.appendHead {
+		keep[width-1] = true
 	}
 	for column := 0; column < width; column++ {
 		if !keep[column] {
@@ -200,9 +256,9 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 }
 
 // CompileExplanationRuleWithGuard lowers one single-positive-tail explained
-// rule or its finite output bridge. Ground/multiple-tail rules, unbound or
-// repeated head columns and constant columns remain outside this compiler
-// slice; unsupported inputs are rejected before any program is published.
+// rule or its finite output bridge. Tail constants and repeated finite columns
+// use filtering and duplicate-column lowering. Ground/multiple-tail rules,
+// unbound head columns and head constants remain outside this compiler slice; unsupported inputs are rejected before any program is published.
 func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule, guard *rewriter.TheoryRewriter) (result *InstructionBlock, resultErr error) {
 	plan, err := planExplanationRule(relations, rule)
 	if err != nil {
@@ -237,6 +293,16 @@ func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule
 	if err = emit(load); err != nil {
 		return result, err
 	}
+	for _, constant := range plan.tailConstants {
+		if err = emit(NewFilterEqualInstruction(current, constant.value, constant.column)); err != nil {
+			return result, err
+		}
+	}
+	for _, columns := range plan.identical {
+		if err = emit(NewFilterIdenticalInstruction(current, columns)); err != nil {
+			return result, err
+		}
+	}
 	if plan.appendHead {
 		total := fresh()
 		instruction, err := NewExplanationTotalInstruction(relations, 1, total)
@@ -266,6 +332,33 @@ func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule
 		if err = emit(filter); err != nil {
 			return result, err
 		}
+	}
+	finiteWidth := plan.finiteWidth
+	for _, column := range plan.duplicates {
+		// Source make_duplicate_column projects a unary column and joins it
+		// back on equality, preserving the explanation suffix just once.
+		var removed []int
+		for index := 0; index < finiteWidth+plan.explanationWidth; index++ {
+			if index != column {
+				removed = append(removed, index)
+			}
+		}
+		single := fresh()
+		if err = emit(NewProjectionInstruction(current, removed, single)); err != nil {
+			return result, err
+		}
+		joined := fresh()
+		if err = emit(NewJoinInstruction(current, single, []int{column}, []int{0}, joined)); err != nil {
+			return result, err
+		}
+		if err = emit(NewDeallocateInstruction(current)); err != nil {
+			return result, err
+		}
+		if err = emit(NewDeallocateInstruction(single)); err != nil {
+			return result, err
+		}
+		current = joined
+		finiteWidth++
 	}
 	projected := fresh()
 	if err = emit(NewProjectionInstruction(current, plan.removed, projected)); err != nil {
