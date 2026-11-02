@@ -152,6 +152,8 @@ func BottomUp(rules *base.RuleSet) (*Reachability, error) {
 
 // TopDown computes the cone reachable from output predicates through every
 // uninterpreted tail, including negative tails as in the source domain.
+// Finalized nested dependencies also participate so quantified preprocessing
+// cannot hide a live predicate inside an interpreted tail.
 func TopDown(rules *base.RuleSet) (*Reachability, error) {
 	snapshot, byHead, _, err := snapshot(rules)
 	if err != nil {
@@ -180,6 +182,19 @@ func TopDown(rules *base.RuleSet) (*Reachability, error) {
 						result.facts[tail] = true
 						propagate(&next, tail)
 					}
+				}
+			}
+			// Keep top-level source visitation order, then include finalized
+			// dependencies nested under interpreted/quantified expressions.
+			dependencies, err := rules.Dependencies(declaration)
+			if err != nil {
+				return nil, err
+			}
+			for _, dependency := range dependencies {
+				result.markKnown(dependency)
+				if !result.facts[dependency] {
+					result.facts[dependency] = true
+					propagate(&next, dependency)
 				}
 			}
 		}

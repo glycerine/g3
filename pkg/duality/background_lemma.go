@@ -2,6 +2,8 @@ package duality
 
 import (
 	"errors"
+	"fmt"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -49,17 +51,18 @@ func (g *RPFP) proveBackgroundLiteral(factory solver.Factory, background []*Expr
 		return out, err
 	}
 	if status == lbool.True {
-		return out, nil
+		return out, fmt.Errorf("quantified premise is not entailed: %w", ErrProofWitness)
 	}
 	if status != lbool.False {
-		return out, ErrProofWitness
+		reason, _ := call.native.ReasonUnknown()
+		return out, fmt.Errorf("quantified premise entailment is unknown (%s): %w", reason, ErrProofWitness)
 	}
 	proof, err := call.native.Proof()
 	if err != nil {
 		return out, err
 	}
 	if proof.IsNull() {
-		return out, ErrProofWitness
+		return out, fmt.Errorf("quantified premise entailment has no proof: %w", ErrProofWitness)
 	}
 	proof, err = call.pin(proof, nil)
 	if err != nil {

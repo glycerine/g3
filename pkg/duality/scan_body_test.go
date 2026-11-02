@@ -116,6 +116,23 @@ func TestDualityScanBodyRepeatedPredicatesAndQuantifierPatterns(t *testing.T) {
 	if raw(untouched.Term) != raw(root) || len(untouched.Parameters) != 0 || len(g.vocabulary.constants) != 0 {
 		t.Fatal("background formula changed")
 	}
+	// The production-only abstraction is deliberately limited to a positive
+	// top-level forall=true premise. The same wrapper below Not must remain an
+	// ordinary RPFP relation occurrence.
+	wrapper := wrap(m.MkEq(raw(q), raw(yes)))
+	positive, err := g.scanBodyTheoryQuantifiers(wrapper, map[ast.ASTHandle]*Node{pd: node})
+	must(err)
+	defer positive.Close()
+	if !positive.QuantifiedTheory || len(positive.Parameters) != 0 || len(positive.Children) != 0 {
+		t.Fatal("positive quantified wrapper was not kept as a theory obligation")
+	}
+	negated := wrap(m.MkNot(raw(wrapper)))
+	negative, err := g.scanBodyTheoryQuantifiers(negated, map[ast.ASTHandle]*Node{pd: node})
+	must(err)
+	defer negative.Close()
+	if negative.QuantifiedTheory || len(negative.Parameters) != 1 || len(negative.Children) != 1 {
+		t.Fatal("nonpositive quantified wrapper was generalized")
+	}
 	must(g.Close())
 	if _, err := scanned.Term.Raw(); err != nil {
 		t.Fatal("output lost ownership", err)

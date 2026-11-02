@@ -4,6 +4,7 @@ package duality
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -184,9 +185,32 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 	}
 	refs = append(refs, conclusionRef)
 	if len(substitutions[0]) > 0 {
-		values, err := g.recoverProofWitness(factory, quantified, clause, positions, resolved, premises, conclusion, background...)
+		witnessBackground := background
+		if edge.Map.quantifiedTheory {
+			sourceGraph := edge.Map.Owner
+			currentIndex, found := sourceGraph.clauseIndices[edge.Map]
+			if !found {
+				return out, ErrWrapperOwner
+			}
+			witnessBackground = append([]*Expr(nil), background...)
+			for i, source := range sourceGraph.sourceClauses {
+				if i == currentIndex {
+					continue
+				}
+				h, err := m.RefGet(source)
+				if err != nil {
+					return out, err
+				}
+				axiom, err := hold(NewExpr(g.context, h))
+				if err != nil {
+					return out, err
+				}
+				witnessBackground = append(witnessBackground, axiom)
+			}
+		}
+		values, err := g.recoverProofWitness(factory, quantified, clause, positions, resolved, premises, conclusion, witnessBackground...)
 		if err != nil {
-			return out, err
+			return out, fmt.Errorf("proof witness source edge %d exceptional=%v: %w", edge.Map.Number, edge.Map.quantifiedTheory, err)
 		}
 		refs = append(refs, values...)
 		for i, value := range values {
@@ -197,7 +221,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 		}
 	}
 
-	if len(background) > 0 {
+	{
 		instantiated := clause
 		if len(substitutions[0]) > 0 {
 			sub, err := rewriter.NewVarSubstitution(m, false)
@@ -221,6 +245,45 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 		backgroundProofs, err := g.backgroundLiteralProofs(background, &refs)
 		if err != nil {
 			return out, err
+		}
+		var programAxioms []*Expr
+		programPremises := func(target ast.ASTHandle) ([]*Expr, error) {
+			sourceGraph := edge.Map.Owner
+			currentIndex, found := sourceGraph.clauseIndices[edge.Map]
+			if !found {
+				return nil, ErrWrapperOwner
+			}
+			programAxioms = nil
+			targetDeclarations, err := sourceGraph.proofPredicateDeclarations(target)
+			if err != nil {
+				return nil, err
+			}
+			for i, source := range sourceGraph.sourceClauses {
+				if i == currentIndex {
+					continue
+				}
+				h, err := m.RefGet(source)
+				if err != nil {
+					return nil, err
+				}
+				head, body, err := sourceGraph.proofClauseHeadBody(h)
+				if err != nil {
+					return nil, err
+				}
+				headDecl, err := m.GetDecl(head)
+				if err != nil {
+					return nil, err
+				}
+				if !targetDeclarations[headDecl] && !m.IsTrue(body) {
+					continue
+				}
+				axiom, err := hold(NewExpr(g.context, h))
+				if err != nil {
+					return nil, err
+				}
+				programAxioms = append(programAxioms, axiom)
+			}
+			return append(append([]*Expr(nil), background...), programAxioms...), nil
 		}
 		family, err := m.GetFamilyID(instantiated)
 		if err != nil {
@@ -266,7 +329,32 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 			for i, atom := range atoms {
 				if !predicatePositions[uint32(i+1)] {
 					if _, found := backgroundProofs[atom]; !found {
-						lemma, err := g.proveBackgroundLiteral(factory, background, atom)
+						axioms := background
+						quantified, err := g.proofContainsQuantifier(atom)
+						if err != nil {
+							return out, err
+						}
+						var lemma ast.ASTRef
+						if quantified && edge.Map.quantifiedTheory {
+							sourceGraph := edge.Map.Owner
+							currentIndex, found := sourceGraph.clauseIndices[edge.Map]
+							if !found {
+								return out, ErrWrapperOwner
+							}
+							lemma, err = g.proveQuantifiedHornLiteral(sourceGraph, currentIndex, atom, &refs)
+							if err != nil {
+								return out, err
+							}
+						}
+						if quantified && lemma == (ast.ASTRef{}) {
+							axioms, err = programPremises(atom)
+							if err != nil {
+								return out, err
+							}
+						}
+						if lemma == (ast.ASTRef{}) && len(axioms) > 0 {
+							lemma, err = g.proveBackgroundLiteral(factory, axioms, atom)
+						}
 						if err != nil {
 							return out, err
 						}
@@ -293,6 +381,137 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 		return out, err
 	}
 	return m.NewRef(proof)
+}
+
+func (g *RPFP) proofContainsQuantifier(root ast.ASTHandle) (bool, error) {
+	m := g.context.manager
+	todo := []ast.ASTHandle{root}
+	seen := make(map[ast.ASTHandle]bool)
+	for len(todo) > 0 {
+		i := len(todo) - 1
+		h := todo[i]
+		todo = todo[:i]
+		if seen[h] {
+			continue
+		}
+		seen[h] = true
+		kind, err := m.GetKind(h)
+		if err != nil {
+			return false, err
+		}
+		if kind == ast.ASTQuantifier {
+			return true, nil
+		}
+		if kind != ast.ASTApp {
+			continue
+		}
+		n, err := m.GetNumArgs(h)
+		if err != nil {
+			return false, err
+		}
+		for j := uint32(0); j < n; j++ {
+			child, err := m.GetArg(h, j)
+			if err != nil {
+				return false, err
+			}
+			todo = append(todo, child)
+		}
+	}
+	return false, nil
+}
+
+func (g *RPFP) proofClauseHeadBody(formula ast.ASTHandle) (head, body ast.ASTHandle, err error) {
+	m := g.context.manager
+	if kind, getErr := m.GetKind(formula); getErr != nil {
+		return head, body, getErr
+	} else if kind == ast.ASTQuantifier {
+		formula, err = m.GetQuantifierBody(formula)
+		if err != nil {
+			return head, body, err
+		}
+	}
+	family, err := m.GetFamilyID(formula)
+	if err != nil {
+		return head, body, err
+	}
+	op, err := m.GetDeclKind(formula)
+	if err != nil {
+		return head, body, err
+	}
+	if family == m.BasicFamilyID() && op == ast.ASTOpImplies {
+		body, err = m.GetArg(formula, 0)
+		if err == nil {
+			head, err = m.GetArg(formula, 1)
+		}
+		return head, body, err
+	}
+	body, err = m.MkTrue()
+	return formula, body, err
+}
+
+func (g *RPFP) proofPredicateDeclarations(root ast.ASTHandle) (map[ast.ASTHandle]bool, error) {
+	m := g.context.manager
+	heads := make(map[ast.ASTHandle]bool)
+	for _, source := range g.sourceClauses {
+		h, err := m.RefGet(source)
+		if err != nil {
+			return nil, err
+		}
+		head, _, err := g.proofClauseHeadBody(h)
+		if err != nil {
+			return nil, err
+		}
+		decl, err := m.GetDecl(head)
+		if err == nil {
+			heads[decl] = true
+		}
+	}
+	result := make(map[ast.ASTHandle]bool)
+	todo := []ast.ASTHandle{root}
+	seen := make(map[ast.ASTHandle]bool)
+	for len(todo) > 0 {
+		i := len(todo) - 1
+		h := todo[i]
+		todo = todo[:i]
+		if seen[h] {
+			continue
+		}
+		seen[h] = true
+		kind, err := m.GetKind(h)
+		if err != nil {
+			return nil, err
+		}
+		if kind == ast.ASTQuantifier {
+			body, err := m.GetQuantifierBody(h)
+			if err != nil {
+				return nil, err
+			}
+			todo = append(todo, body)
+			continue
+		}
+		if kind != ast.ASTApp {
+			continue
+		}
+		decl, err := m.GetDecl(h)
+		if err != nil {
+			return nil, err
+		}
+		if heads[decl] {
+			result[decl] = true
+		}
+		n, err := m.GetNumArgs(h)
+		if err != nil {
+			return nil, err
+		}
+		for j := uint32(0); j < n; j++ {
+			child, err := m.GetArg(h, j)
+			if err != nil {
+				return nil, err
+			}
+			todo = append(todo, child)
+		}
+	}
+	return result, nil
 }
 
 // Retain literal positions from the original antecedent, including theory

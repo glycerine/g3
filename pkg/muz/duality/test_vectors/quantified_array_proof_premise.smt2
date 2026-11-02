@@ -12,4 +12,4 @@
 (rule Seed)
 (rule (=> Seed (P ((as const (Array Int Int)) 7))))
 (rule (=> (P ((as const (Array Int Int)) 7)) Goal))
-(query Goal)
+(query Goal :print-answer false)

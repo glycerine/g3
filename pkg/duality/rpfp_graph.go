@@ -52,18 +52,19 @@ type Node struct {
 }
 
 type Edge struct {
-	labeled     ast.ASTRef
-	dual        ast.ASTRef
-	constraints []ast.ASTRef
-	relMap      map[ast.ASTHandle]int
-	varMap      map[ast.ASTHandle]ast.ASTRef
-	F           *Transformer
-	Parent      *Node
-	Children    []*Node
-	Owner       *RPFP
-	Number      int
-	Map         *Edge
-	closed      bool
+	labeled          ast.ASTRef
+	dual             ast.ASTRef
+	constraints      []ast.ASTRef
+	relMap           map[ast.ASTHandle]int
+	varMap           map[ast.ASTHandle]ast.ASTRef
+	F                *Transformer
+	Parent           *Node
+	Children         []*Node
+	Owner            *RPFP
+	Number           int
+	Map              *Edge
+	quantifiedTheory bool
+	closed           bool
 }
 
 func NewRPFP(context *Context) (*RPFP, error) {

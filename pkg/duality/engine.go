@@ -276,7 +276,14 @@ func (e *Engine) Solve() (satisfied bool, result error) {
 		}
 		defer func() { result = errors.Join(result, e.config.Profiler.TimerStop("SolveMain")) }()
 	}
-	return search.SolveMain()
+	safe, err := search.SolveMain()
+	if err != nil || safe || !e.counterexampleHasQuantifiedTheory() {
+		return safe, err
+	}
+	if err := e.validateQuantifiedCounterexample(); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 // LearnFrom swaps counterexamples and caches translated history facts from the

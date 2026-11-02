@@ -36,7 +36,7 @@ func TestDualityQuantifiedArrayProofReconstructsBridgePremise(t *testing.T) {
 (rule Seed)
 (rule (=> Seed (P ((as const (Array Int Int)) 7))))
 (rule (=> (P ((as const (Array Int Int)) 7)) Goal))
-(query Goal)
+(query Goal :print-answer false)
 `
 	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
 		t.Fatal(err)
@@ -84,6 +84,13 @@ func TestDualityQuantifiedArrayProofReconstructsBridgePremise(t *testing.T) {
 	}()
 	if !valid {
 		t.Fatal("quantified-array proof is structurally invalid")
+	}
+	closed, err := proofs.IsClosed(m, h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !closed {
+		t.Fatal("quantified-array proof has an escaping hypothesis")
 	}
 	config, err := context.SolverTranslationConfig()
 	if err != nil {
