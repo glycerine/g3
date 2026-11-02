@@ -102,6 +102,7 @@ type BitBlastPlugin struct {
 	expansion  bitBlastExpansion
 	priority   uint32
 	closed     bool
+	closing    bool
 }
 
 func bitBlastAssertedProof(manager *ast.ASTManager, formula ast.ASTHandle) (proof ast.ASTHandle, resultErr error) {
@@ -149,7 +150,7 @@ func (p *BitBlastPlugin) FreshPredicates() map[ast.ASTHandle]ast.ASTHandle {
 }
 
 func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
-	if p == nil || p.closed || p.manager == nil || p.rules == nil || p.blaster == nil {
+	if p == nil || p.closed || p.closing || p.manager == nil || p.rules == nil || p.blaster == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	result, err := base.NewRuleSet(p.rules)
@@ -277,8 +278,21 @@ func (p *BitBlastPlugin) Close() error {
 	if p == nil || p.closed {
 		return nil
 	}
-	p.closed = true
+	p.closing = true
+	if p.simplifier != nil {
+		if err := p.simplifier.Close(); err != nil {
+			return err
+		}
+		p.simplifier = nil
+	}
+	if p.blaster != nil {
+		if err := p.blaster.Close(); err != nil {
+			return err
+		}
+		p.blaster = nil
+	}
 	p.expansion.source, p.expansion.target = nil, nil
 	p.expansion.oldToNew = nil
-	return errors.Join(p.simplifier.Close(), p.blaster.Close())
+	p.closed = true
+	return nil
 }

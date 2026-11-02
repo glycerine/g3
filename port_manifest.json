@@ -102664,6 +102664,7 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/bit_blast.go",
+        "pkg/muz/transforms/bit_blast_close_pending_test.go",
         "pkg/muz/fp/spacer_bit_blast_results.go",
         "pkg/muz/fp/spacer_engine.go",
         "pkg/cmd/g3/test_vectors/fp_spacer_bit_blast.smt2",
@@ -102674,6 +102675,7 @@
         "TestBitBlastStopsBeforeRulesWhenManagerIsCanceled",
         "TestBitBlastFallsBackToOriginalWhenPreSimplifierDropsRule",
         "TestBitBlastRebuildsRulesWithoutBitVectorTerms",
+        "TestBitBlastClosePreservesPendingChildren",
         "TestSpacerBitBlastReconstructsBitVectorPredicateModel",
         "TestSMTLibRunnerScripts/fp_spacer_bit_blast.smt2",
         "TestSMTLibRunnerCPPReference/fp_spacer_bit_blast.smt2"
@@ -102718,10 +102720,17 @@
             "TestSMTLibRunnerScripts/fp_spacer_bit_blast.smt2",
             "TestSMTLibRunnerCPPReference/fp_spacer_bit_blast.smt2"
           ]
+        },
+        {
+          "name": "simplifier/bit-blaster cleanup continuation with predicate-expansion mapping ownership",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/bit_blast.go",
+          "tests": ["TestBitBlastClosePreservesPendingChildren"],
+          "reason": "Covers initial refusal and staged later-child continuation, mapping preservation, operation rejection and zero-budget retry; originating mid-destructor and construction-error paths remain open."
         }
       ],
       "ownership": [
-        "The plugin borrows AST, rule, parameter, and global services; it owns the simplifier, blaster, and traversal for its lifetime. Transform returns a newly owned RuleSet, and PDR result conversion owns the reconstructed model functions."
+        "The plugin borrows AST, rule, parameter, and global services; it owns the simplifier, blaster, traversal and expansion mappings until successful cleanup. Transform returns a newly owned RuleSet, and PDR result conversion owns the reconstructed model functions."
       ],
       "deviations": [
         "Reverse predicate-model reconstruction is owned by the Go fixedpoint result path rather than installed as a context model-converter object."
@@ -102734,6 +102743,7 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/bit_blast.go",
+        "pkg/muz/transforms/bit_blast_close_pending_test.go",
         "pkg/muz/fp/spacer_bit_blast_results_test.go",
         "pkg/cmd/g3/main_test.go"
       ],
@@ -102742,6 +102752,7 @@
         "TestBitBlastStopsBeforeRulesWhenManagerIsCanceled",
         "TestBitBlastFallsBackToOriginalWhenPreSimplifierDropsRule",
         "TestBitBlastRebuildsRulesWithoutBitVectorTerms",
+        "TestBitBlastClosePreservesPendingChildren",
         "TestSpacerBitBlastReconstructsBitVectorPredicateModel",
         "TestSMTLibRunnerScripts/fp_spacer_bit_blast.smt2",
         "TestSMTLibRunnerCPPReference/fp_spacer_bit_blast.smt2"
@@ -102774,6 +102785,7 @@
             "TestBitBlastStopsBeforeRulesWhenManagerIsCanceled",
             "TestBitBlastFallsBackToOriginalWhenPreSimplifierDropsRule",
             "TestBitBlastRebuildsRulesWithoutBitVectorTerms",
+            "TestBitBlastClosePreservesPendingChildren",
             "TestSpacerBitBlastReconstructsBitVectorPredicateModel",
             "TestSMTLibRunnerScripts/fp_spacer_bit_blast.smt2",
             "TestSMTLibRunnerCPPReference/fp_spacer_bit_blast.smt2"
