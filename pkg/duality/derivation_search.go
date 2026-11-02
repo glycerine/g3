@@ -70,6 +70,9 @@ func (s *DerivationSearch) learningProgress(updates int) error {
 		return nil
 	}
 	if s.wasSAT {
+		if err := s.Search.original.streamReporter.Message("backtracked without learning"); err != nil {
+			return err
+		}
 		s.updateFailures++
 		if s.updateFailures > 10 {
 			if err := s.resetMappedFacts(false); err != nil {
@@ -90,7 +93,7 @@ func (s *DerivationSearch) restart() error {
 		}
 	}
 	s.restartInterval++
-	return nil
+	return d.original.streamReporter.Message("restarted")
 }
 
 // Build runs the source slow-search loop on resolved unwinding edges. True

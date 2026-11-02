@@ -1,9 +1,11 @@
 package duality
 
 import (
+	"bytes"
 	"errors"
 	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"strings"
 	"testing"
 )
 
@@ -78,6 +80,8 @@ func TestDualityExpandNodeNativeInductionCandidatesAndUsingCondition(t *testing.
 			graph, err := NewRPFPWithVocabulary(source.vocabulary)
 			must(err)
 			defer graph.Close()
+			var report bytes.Buffer
+			graph.streamReporter = &StreamReporter{Format: ConjectureReporter{Output: &report, Params: ctx.config.params, Globals: globals}, depth: -1}
 			covering, err := NewCovering(graph, native)
 			must(err)
 			u, err := NewUnwinding(source, graph, covering)
@@ -127,6 +131,9 @@ func TestDualityExpandNodeNativeInductionCandidatesAndUsingCondition(t *testing.
 			must(u.ExpandNode(instances[1], native, derivationEvaluatorFixture(t, ctx, globals), manager))
 			if len(u.PendingNodes()) != 0 || len(covering.instances[child]) != 2 {
 				t.Fatal("expansion did not activate instance")
+			}
+			if mode != "using-unsat" && mode != "full-parent" && !strings.Contains(report.String(), "]induction failure: ") {
+				t.Fatal("missing live induction event", report.String())
 			}
 			if mode == "using-unsat" || mode == "full-parent" {
 				if _, ok := u.NextCandidate(); ok {

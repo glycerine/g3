@@ -1,7 +1,9 @@
 package duality
 
 import (
+	"bytes"
 	"github.com/glycerine/g3/pkg/interp"
+	"strings"
 	"testing"
 )
 
@@ -39,6 +41,8 @@ func TestCandidateFeasibilityUsesCurrentSolutionAndRestoresNestedSolver(t *testi
 	graph, err := NewRPFPWithVocabulary(source.vocabulary)
 	must(err)
 	defer graph.Close()
+	var report bytes.Buffer
+	graph.streamReporter = &StreamReporter{Format: ConjectureReporter{Output: &report, Params: ctx.config.params, Globals: globals}, depth: -1}
 	covering, err := NewCovering(graph, s)
 	must(err)
 	u, err := NewUnwinding(source, graph, covering)
@@ -68,6 +72,9 @@ func TestCandidateFeasibilityUsesCurrentSolutionAndRestoresNestedSolver(t *testi
 	}
 	check(trueEdge, nil, true)
 	check(falseEdge, nil, false)
+	if !strings.Contains(report.String(), "]reject ") {
+		t.Fatal("missing live rejection event", report.String())
+	}
 	must(u.ActivateInstance(instance))
 	check(trueEdge, nil, false) // Current solution already covers true.
 	must(covering.SetInstanceActive(instance, false))

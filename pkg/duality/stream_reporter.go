@@ -255,3 +255,70 @@ func (r *StreamReporter) Depth(depth int) {
 		r.depth = depth
 	}
 }
+
+func (r *StreamReporter) InductionFailure(edge *Edge, children []*Node) error {
+	if r == nil {
+		return nil
+	}
+	if edge == nil || edge.closed {
+		return ErrWrapperOwner
+	}
+	name, err := r.nodeName(edge.Parent)
+	if err != nil {
+		return err
+	}
+	if err := r.prefix(); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(r.Format.Output, "induction failure: %s, children =", name); err != nil {
+		return err
+	}
+	for _, child := range children {
+		if child == nil || child.closed {
+			return ErrWrapperOwner
+		}
+		if _, err := fmt.Fprintf(r.Format.Output, " %d", child.Number); err != nil {
+			return err
+		}
+	}
+	_, err = io.WriteString(r.Format.Output, "\n")
+	return err
+}
+func (r *StreamReporter) Reject(edge *Edge, children []*Node) error {
+	if r == nil {
+		return nil
+	}
+	if edge == nil || edge.closed {
+		return ErrWrapperOwner
+	}
+	name, err := r.nodeName(edge.Parent)
+	if err != nil {
+		return err
+	}
+	if err := r.prefix(); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(r.Format.Output, "reject %d %s: ", edge.Parent.Number, name); err != nil {
+		return err
+	}
+	for _, child := range children {
+		if child == nil || child.closed {
+			return ErrWrapperOwner
+		}
+		if _, err := fmt.Fprintf(r.Format.Output, " %d", child.Number); err != nil {
+			return err
+		}
+	}
+	_, err = io.WriteString(r.Format.Output, "\n")
+	return err
+}
+func (r *StreamReporter) Message(message string) error {
+	if r == nil {
+		return nil
+	}
+	if err := r.prefix(); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(r.Format.Output, "msg %s\n", message)
+	return err
+}

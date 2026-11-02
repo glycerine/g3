@@ -104,5 +104,8 @@ func (u *Unwinding) CandidateFeasible(candidate ExpansionCandidate, target solve
 		return false, err
 	}
 	status, err := checker.Check(root, nil, nil)
+	if err == nil && status == lbool.False {
+		err = u.graph.streamReporter.Reject(candidate.Edge, candidate.Children)
+	}
 	return status != lbool.False, err
 }

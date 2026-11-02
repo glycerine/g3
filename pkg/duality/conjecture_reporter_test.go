@@ -132,4 +132,19 @@ func TestConjectureReporterParametersFormulaAndWriterFailure(t *testing.T) {
 		t.Fatalf("expansion events %q want %q", output.String(), wantEvents)
 	}
 
+	output.Reset()
+	if err := stream.InductionFailure(node.Outgoing, []*Node{clone, node}); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Reject(edge, []*Node{node}); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Message("restarted"); err != nil {
+		t.Fatal(err)
+	}
+	wantEvents = "[8]induction failure: report-P, children = 2 1\n[9]reject 2 report-P:  1\n[10]msg restarted\n"
+	if output.String() != wantEvents {
+		t.Fatalf("candidate events %q want %q", output.String(), wantEvents)
+	}
+
 }

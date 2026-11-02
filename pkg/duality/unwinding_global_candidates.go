@@ -87,6 +87,9 @@ func (u *Unwinding) GenCandidatesFromInductionFailure(checker *LocalEdgeChecker,
 	}
 	clear(u.updatedNodes)
 	if !fullScan && len(u.candidates) == 0 {
+		if err := u.graph.streamReporter.Message("No candidates from updates. Trying full scan."); err != nil {
+			return err
+		}
 		return u.GenCandidatesFromInductionFailure(checker, evaluator, simplifier, true)
 	}
 	return nil
@@ -129,6 +132,9 @@ func (u *Unwinding) globalCandidateForEdge(source *Edge, checker *LocalEdgeCheck
 	}
 	candidate, err := u.ExtractCandidateFromCex(source, checker.graph, root)
 	if err != nil {
+		return err
+	}
+	if err := u.graph.streamReporter.InductionFailure(source, candidate.Children); err != nil {
 		return err
 	}
 	u.candidates = append(u.candidates, candidate)

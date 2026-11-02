@@ -166,6 +166,9 @@ func (u *Unwinding) expandInductionEdge(node *Node, edge *Edge, native solver.So
 	if err != nil {
 		return err
 	}
+	if err := u.graph.streamReporter.InductionFailure(edge, candidate.Children); err != nil {
+		return err
+	}
 	u.candidates = append(u.candidates, candidate)
 	return nil
 }
