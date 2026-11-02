@@ -98715,7 +98715,7 @@
       "path": "src/muz/spacer/spacer_dl_interface.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/fp/propositional_engine.go",
         "pkg/api/api_fixedpoint.go"

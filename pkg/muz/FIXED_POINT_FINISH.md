@@ -169,7 +169,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 ### spacer
 
 - [ ] `src/muz/spacer/spacer_context.cpp` (partial), `src/muz/spacer/spacer_context.h` (partial)
-- [ ] `src/muz/spacer/spacer_dl_interface.cpp` (partial), `src/muz/spacer/spacer_dl_interface.h` (partial)
+- [ ] `src/muz/spacer/spacer_dl_interface.cpp` (partial)
+- [x] `src/muz/spacer/spacer_dl_interface.h` (interface declaration and owner mapping audited; implementation remains partial)
 - [ ] `src/muz/spacer/spacer_util.cpp` (partial), `src/muz/spacer/spacer_util.h` (partial)
 
 ### tab
@@ -233,3 +234,17 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Extended `TestSpacerRuleSelectionPrefersConcreteLaterRule` with the complementary earlier-concrete case. A false predecessor case now requires selecting the earlier recursive rule with exactly one reused predecessor; the unknown predecessor case still requires the later fact with cleared bookkeeping. Both focused native cases pass. This verifies preference for the current candidate sequence, not equivalence between Go rule order and C++ obj_map iteration; that source-order audit remains open. Previous preference test commit: `3fc4b392a`.
   Validation: `go -C pkg test ./muz/spacer -run '^TestSpacerRuleSelectionPrefersConcreteLaterRule$' -count=1` passed. Commit title: `Test Spacer first concrete rule short circuit`.
+
+### Spacer interface header audit — 2026-11-02
+
+- [x] Constructor/destructor and private `check_reset`: `spacer_engine.go` and `spacer_rule_lifecycle.go` own the context and original/preprocessed rule snapshots; cover-before-query and rule-snapshot lifetime tests cover the boundary.
+- [x] `query` / `query_from_lvl`: shared query dispatch and Spacer from-level routing.
+- [x] `get_answer`, `get_ground_sat_answer`, `get_rules_along_trace`: `propositional_engine.go`, `pdr_engine.go`, `context_answer.go` and `context_trace.go`; exported objects use explicit owning return contracts.
+- [x] `get_num_levels`, `get_cover_delta`, `add_cover`, `add_invariant`, `get_reachable`: typed engine/context forwarding, including pre-query covers.
+- [x] `collect_statistics`, `reset_statistics`, `updt_params`: shared engine statistics and parameter revision/context replacement routing.
+- [x] `get_model`, `get_proof`, `display_certificate`: model ownership/routing plus source-empty overall proof and certificate presentation hooks. These hooks are source behavior, not an implemented certificate generator.
+
+This closes the declarations and ownership mapping of `src/muz/spacer/spacer_dl_interface.h` only. It does not close `spacer_dl_interface.cpp`, source conditional coverage, slice-proof completeness or every exceptional destructor path.
+
+- 2026-11-02 — Spacer interface header audit completed as mapped above; header status advanced to ported, implementation status unchanged. Previous concrete-rule preference commit: `cb906d591`. Commit title: `Close Spacer fixedpoint interface header audit`.
+  Validation: complete native `go -C pkg test ./muz/fp ./muz/spacer -short` and `go -C pkg test ./portcheck -short` passed. From-level entry points are `QueryExpressionFromLevel` and `QueryPredicateFromLevel`, forwarded to `Context.Solve(fromLevel, ...)`.
