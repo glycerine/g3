@@ -139,5 +139,11 @@ func (e *PropositionalEngine) SelectConfiguredEngine() (result error) {
 			return err
 		}
 	}
+	// configure_engine recognizes explicit names and otherwise leaves its
+	// engine type unset, entering automatic classification. This includes
+	// unknown parameter symbols as well as the default "auto-config".
+	if _, err := parseEngineKind(name); err != nil {
+		name = "auto-config"
+	}
 	return e.SelectEngine(name)
 }

@@ -84950,6 +84950,7 @@
         "pkg/muz/fp/context_formula_rules.go",
         "pkg/muz/fp/context_formula_rules_test.go",
         "pkg/muz/fp/auto_engine_phase_test.go",
+        "pkg/muz/fp/configured_engine_fallback_test.go",
         "pkg/muz/fp/datalog_facts.go",
         "pkg/muz/fp/datalog_facts_test.go",
         "pkg/muz/fp/stored_fact_formulas.go",
@@ -85037,7 +85038,8 @@
         "TestDatalogFactSelectionUsesParametersAndCachesSourceChoice",
         "TestDatalogDirectFiniteFactValidationAndCloneOwnership",
         "TestAPIFixedpointParametersSelectFactStorageBeforeQuery",
-        "TestSMTContextFixedpointSMT2Replay"
+        "TestSMTContextFixedpointSMT2Replay",
+        "TestConfiguredUnknownEngineFallsBackToSourceAutoSelection"
       ],
       "assertions": [
         {
@@ -85106,6 +85108,7 @@
       "methods": [
         {"name": "source public get_rules_as_formulas enumeration preserves pending inputs and appends negated output queries", "status": "ported", "go_targets": ["pkg/muz/fp/context_formula_rules.go", "pkg/muz/fp/context_formula_rules_test.go", "pkg/api/api_fixedpoint_rule_formulas_test.go"], "tests": ["TestPublicRuleFormulasAppendNegatedOutputsAfterPendingInputs", "TestAPIFixedpointRulesPreservePendingInputsAndFlushExpansion"], "reason": "Shares display phase selection/open normalization; preserves internal Rules/NamedRules normalized contracts and returns independently owned source formulas."},
         {"name": "automatic engine selection scans normalized rules before pending formulas (dl_context.cpp:840-859)", "status": "ported", "go_targets": ["pkg/muz/fp/auto_engine.go", "pkg/muz/fp/auto_engine_phase_test.go", "pkg/muz/fp/engine_result_routing_test.go"], "tests": ["TestFixedpointAutoConfigNormalizedPrefixPrecedesPendingInputs", "TestFixedpointAutoConfigTracksUpdatePromotionAndPop", "TestFixedpointAutoConfigRestoresRuleClassification"], "reason": "Actual phase order replaces cached ingestion classifications; covers genuine normalized QPDR, existential-to-PDR normalization, named updates, display promotion and scope restoration."},
+        {"name": "unrecognized configured engine symbols fall through to automatic classification (dl_context.cpp:801-859)", "status": "ported", "go_targets": ["pkg/muz/fp/fixedpoint_params.go", "pkg/muz/fp/configured_engine_fallback_test.go"], "tests": ["TestConfiguredUnknownEngineFallsBackToSourceAutoSelection"], "reason": "Preserves query-local/module precedence, source engine caching, Datalog/PDR/QPDR classification and the strict explicit Go selector guard."},
         {"name": "configured engine caching plus direct Datalog and raw non-Datalog fact ingestion (dl_context.cpp:627-665,801-859)", "status": "ported", "go_targets": ["pkg/muz/fp/datalog_facts.go", "pkg/muz/fp/datalog_facts_test.go", "pkg/muz/fp/stored_fact_formulas.go", "pkg/muz/fp/fixedpoint_params.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_clone_predicates.go", "pkg/muz/fp/query_expression.go", "pkg/cmd_context/fixedpoint_replay.go", "pkg/api/api_fixedpoint_fact_selection_test.go"], "tests": ["TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries", "TestDatalogFactSelectionUsesParametersAndCachesSourceChoice", "TestDatalogDirectFiniteFactValidationAndCloneOwnership", "TestAPIFixedpointParametersSelectFactStorageBeforeQuery", "TestSMTContextFixedpointSMT2Replay"], "reason": "Datalog owns encoded relation tuples and publishes successful expression-query tables; other engines preserve ground raw rules. Public source enumeration omits relation tuples while the explicit Go replay exporter serializes them. Covers instantiation/pop, invalid values, duplicates, result invalidation, parameter precedence and independent clone ownership."},
         {
           "name": "get_rules_as_formulas finalized-rule partition: output clauses become ordered queries, quantified implications use an existential body, quantified facts retain their original universal formula (dl_context.cpp:1072-1105)",
@@ -86334,6 +86337,8 @@
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
         "pkg/muz/base/gparams_catalog_collectors.go",
+        "pkg/muz/fp/fixedpoint_params.go",
+        "pkg/muz/fp/configured_engine_fallback_test.go",
         "pkg/util/params/util_gparams_catalog_dispatch.go"
       ],
       "tests": [
@@ -86341,7 +86346,8 @@
         "TestGlobalParamsCatalogConcreteHookGuardsAndIndependentReuse",
         "TestGlobalParamsCatalogConstructorFailureAndDomains",
         "TestGlobalParamsCatalogDescriptionBorrowReadAndClosedPublicationPrefix",
-        "TestGlobalParamsCatalogDispatcherFaultRoots"
+        "TestGlobalParamsCatalogDispatcherFaultRoots",
+        "TestConfiguredUnknownEngineFallsBackToSourceAutoSelection"
       ],
       "conditionals": [
         {
@@ -86356,6 +86362,12 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "engine symbol default/lookup consumed by source configure_engine automatic fallback",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/fixedpoint_params.go", "pkg/muz/fp/configured_engine_fallback_test.go"],
+          "tests": ["TestConfiguredUnknownEngineFallsBackToSourceAutoSelection"]
+        },
         {
           "name": "complete preserved static descriptor collection and selected full test-catalog registration order; broader runtime algorithms/getters remain open",
           "status": "ported",
@@ -86384,12 +86396,14 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/base/gparams_catalog_collectors.go",
+        "pkg/muz/fp/configured_engine_fallback_test.go",
         "pkg/util/params/gparams_collector_source_fixtures_test.go",
         "pkg/util/params/util_gparams_catalog_test.go",
         "pkg/util/params/util_gparams_catalog_fixture_test.go"
       ],
       "tests": [
-        "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"
+        "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher",
+        "TestConfiguredUnknownEngineFallsBackToSourceAutoSelection"
       ],
       "methods_audited": true,
       "ownership_audited": true,
