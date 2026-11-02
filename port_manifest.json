@@ -98006,12 +98006,12 @@
         {
           "name": "context::get_ground_sat_answer uses one incremental counterexample solver with per-node push/pop scopes and queue-ordered branching reconstruction (spacer_context.cpp:2490-2533)",
           "status": "ported",
-          "go_targets": [
+          "go_targets": ["pkg/muz/spacer/context_shared_witness_test.go",
             "pkg/muz/spacer/context_answer.go",
             "pkg/muz/spacer/context_ground_answer_test.go",
             "pkg/parsers/smt2/fixedpoint_commands_test.go"
           ],
-          "tests": [
+          "tests": ["TestSpacerSharedUnevenGroundWitnessAndRuleTrace",
             "TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments",
             "TestSMT2FixedpointSpacerRecursiveTraceAnswerMatchesCPP"
           ]
@@ -98269,12 +98269,12 @@
           "name": "successful reach-fact rule trace queue-order export (spacer_context.cpp:2330-2384)",
           "status": "ported",
           "go_target": "pkg/muz/spacer/context_trace.go",
-          "tests": [
+          "tests": ["TestSpacerSharedUnevenGroundWitnessAndRuleTrace",
             "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms",
             "TestSpacerEngineRunsReachableAndInductiveHornQueries",
             "TestSMTContextFixedpointSpacerInductiveExports"
           ],
-          "go_targets": [
+          "go_targets": ["pkg/muz/spacer/context_shared_witness_test.go",
             "pkg/muz/fp/propositional_engine_test.go",
             "pkg/api/api_fixedpoint_test.go"
           ]
@@ -98495,12 +98495,12 @@
         {
           "name": "context::get_ground_sat_answer uses one incremental counterexample solver with per-node push/pop scopes and queue-ordered branching reconstruction (spacer_context.cpp:2490-2533)",
           "status": "ported",
-          "go_targets": [
+          "go_targets": ["pkg/muz/spacer/context_shared_witness_test.go",
             "pkg/muz/spacer/context_answer.go",
             "pkg/muz/spacer/context_ground_answer_test.go",
             "pkg/parsers/smt2/fixedpoint_commands_test.go"
           ],
-          "tests": [
+          "tests": ["TestSpacerSharedUnevenGroundWitnessAndRuleTrace",
             "TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments",
             "TestSMT2FixedpointSpacerRecursiveTraceAnswerMatchesCPP"
           ]
