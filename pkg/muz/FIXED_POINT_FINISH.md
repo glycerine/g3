@@ -89,7 +89,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 ### base
 
-- [ ] `src/muz/base/CMakeLists.txt` (unported)
+- [x] `src/muz/base/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/base/dl_context.cpp` (partial), `src/muz/base/dl_context.h` (partial)
 - [ ] `src/muz/base/dl_engine_base.h` (partial)
 - [ ] `src/muz/base/dl_rule.cpp` (partial), `src/muz/base/dl_rule.h` (partial)
@@ -97,30 +97,30 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 ### bmc
 
-- [ ] `src/muz/bmc/CMakeLists.txt` (unported)
+- [x] `src/muz/bmc/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/bmc/dl_bmc_engine.cpp` (partial), `src/muz/bmc/dl_bmc_engine.h` (partial)
 
 ### clp
 
-- [ ] `src/muz/clp/CMakeLists.txt` (unported)
+- [x] `src/muz/clp/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/clp/clp_context.cpp` (partial), `src/muz/clp/clp_context.h` (partial)
 
 ### dataflow
 
-- [ ] `src/muz/dataflow/CMakeLists.txt` (unported)
+- [x] `src/muz/dataflow/CMakeLists.txt` (Go package/import replacement verified)
 
 ### ddnf
 
-- [ ] `src/muz/ddnf/CMakeLists.txt` (unported)
+- [x] `src/muz/ddnf/CMakeLists.txt` (Go package/import replacement verified)
 
 ### duality
 
-- [ ] `src/muz/duality/CMakeLists.txt` (unported)
+- [x] `src/muz/duality/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/duality/duality_dl_interface.cpp` (partial), `src/muz/duality/duality_dl_interface.h` (partial)
 
 ### fp
 
-- [ ] `src/muz/fp/CMakeLists.txt` (unported)
+- [x] `src/muz/fp/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/fp/datalog_parser.cpp` (partial), `src/muz/fp/datalog_parser.h` (partial)
 - [ ] `src/muz/fp/dl_cmds.cpp` (partial), `src/muz/fp/dl_cmds.h` (partial)
 - [ ] `src/muz/fp/dl_register_engine.cpp` (partial), `src/muz/fp/dl_register_engine.h` (partial)
@@ -131,7 +131,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 ### rel
 
-- [ ] `src/muz/rel/CMakeLists.txt` (unported)
+- [x] `src/muz/rel/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/rel/check_relation.cpp` (partial), `src/muz/rel/check_relation.h` (partial)
 - [ ] `src/muz/rel/dl_base.cpp` (partial), `src/muz/rel/dl_base.h` (partial)
 - [ ] `src/muz/rel/dl_bound_relation.cpp` (partial), `src/muz/rel/dl_bound_relation.h` (partial)
@@ -158,12 +158,12 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 ### tab
 
-- [ ] `src/muz/tab/CMakeLists.txt` (unported)
+- [x] `src/muz/tab/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/tab/tab_context.cpp` (partial), `src/muz/tab/tab_context.h` (partial)
 
 ### transforms
 
-- [ ] `src/muz/transforms/CMakeLists.txt` (unported)
+- [x] `src/muz/transforms/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
@@ -178,3 +178,6 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — PDR helper caller audit: whole-source searches find `ceil_log2` only at `pdr_util.h:44` and `pdr_util.cpp:50`. Outside its overload implementations, `pp_cube` has four calls, all inside `farkas_learner::test` (`pdr_farkas_learner.cpp:952-1003`); that static self-test has a declaration and definition but no source caller. These helpers are excluded under the live-consumer rule, not added as unused Go APIs. No runtime code changed, so no additional runtime tests were needed. Previous utility evidence commit: `98ddabdf6`.
 - 2026-11-02 — Cleanup review: `arithmeticNormalization.close` uses the actual `DecRefConsumed` result to retire roots; `ast_core_delete.go` decrements the reference before native worklist destruction, while `ast_core_accessors.go` reports pre-consumption manager/handle failures. The existing refused-budget test proves normal native disposal, but does not prove every diagnostic-reentrancy or tagged destructor interruption. Keep the interrupted-decrement checklist item open; do not infer coverage from allocation refusal alone.
+
+- 2026-11-02 — Reviewed the ten remaining muz CMake component specifications and matched their build registration to existing Go package discovery/imports. `go -C pkg list ./muz/...` succeeds; the full native suite already provides build evidence. Reclassified only build entries as platform replacements; all partial production implementation statuses remain unchanged. The source README still needs its separate documentation classification. Interrupted-decrement runtime coverage remains open.
+  Validation: `go -C pkg list ./muz/...` and `go -C pkg test ./portcheck -short` passed. Commit title: `Classify remaining muz build specifications as Go replacements`.
