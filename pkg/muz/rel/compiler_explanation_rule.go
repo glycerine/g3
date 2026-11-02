@@ -59,27 +59,33 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	if err != nil {
 		return plan, err
 	}
-	if positive != 1 || uninterpreted != 1 {
+	if positive > 1 || positive != uninterpreted {
 		return plan, ErrCompilerUnsupported
 	}
 	m := relations.manager
-	tail, negative, err := rule.Tail(0)
-	if err != nil {
-		return plan, err
-	}
-	if negative {
-		return plan, ErrCompilerUnsupported
-	}
-	plan.tail, err = m.GetDecl(tail)
-	if err != nil {
-		return plan, err
-	}
-	tailSorts, tailExplanations, err := relations.explanationPredicateSignature(plan.tail)
-	if err != nil {
-		return plan, errors.Join(ErrCompilerUnsupported, err)
-	}
-	if tailExplanations != 1 {
-		return plan, ErrCompilerUnsupported
+	var tail ast.ASTHandle
+	var tailSorts []ast.ASTHandle
+	tailExplanations := 0
+	if positive != 0 {
+		var negative bool
+		tail, negative, err = rule.Tail(0)
+		if err != nil {
+			return plan, err
+		}
+		if negative {
+			return plan, ErrCompilerUnsupported
+		}
+		plan.tail, err = m.GetDecl(tail)
+		if err != nil {
+			return plan, err
+		}
+		tailSorts, tailExplanations, err = relations.explanationPredicateSignature(plan.tail)
+		if err != nil {
+			return plan, errors.Join(ErrCompilerUnsupported, err)
+		}
+		if tailExplanations != 1 {
+			return plan, ErrCompilerUnsupported
+		}
 	}
 	head, err := rule.Head()
 	if err != nil {
@@ -128,7 +134,7 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 		return index, sort, err
 	}
 	tailVariables := make(map[uint32][]int)
-	for column := 0; column < len(tailSorts)+1; column++ {
+	for column := 0; column < len(tailSorts)+tailExplanations; column++ {
 		argument, err := m.GetArg(tail, uint32(column))
 		if err != nil {
 			return plan, err
@@ -168,7 +174,7 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	}
 	sort.Slice(plan.identical, func(i, j int) bool { return plan.identical[i][0] < plan.identical[j][0] })
 	plan.finiteWidth = len(tailSorts)
-	plan.explanationWidth = 1
+	plan.explanationWidth = tailExplanations
 	var headColumns []int
 	available := make(map[uint32][]int, len(tailVariables))
 	for variable, columns := range tailVariables {
@@ -238,7 +244,7 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 		}
 		keep[column] = true
 	}
-	width := plan.finiteWidth + 1
+	width := plan.finiteWidth + plan.explanationWidth
 	if headExplanations == 1 {
 		index, sort, err := variable(head, len(headSorts))
 		if err != nil {
@@ -273,7 +279,7 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	if err != nil {
 		return plan, err
 	}
-	for index := 1; index < tails; index++ {
+	for index := uninterpreted; index < tails; index++ {
 		condition, negated, err := rule.Tail(index)
 		if err != nil {
 			return plan, err
@@ -306,10 +312,10 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	return plan, nil
 }
 
-// CompileExplanationRuleWithGuard lowers one single-positive-tail explained
-// rule or its finite output bridge. Tail constants and repeated finite columns
+// CompileExplanationRuleWithGuard lowers a ground or single-positive-tail
+// explained rule or its finite output bridge. Tail constants and repeated finite columns
 // use filtering and duplicate-column lowering. Finite head constants and
-// unbound variables use singleton/full columns. Ground/multiple-tail rules and
+// unbound variables use singleton/full columns. Multiple-tail rules and
 // condition-only unbound variables are rejected before a program is published.
 func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule, guard *rewriter.TheoryRewriter) (result *InstructionBlock, resultErr error) {
 	plan, err := planExplanationRule(relations, rule)
@@ -338,7 +344,14 @@ func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule
 	next := uint32(0)
 	fresh := func() uint32 { register := next; next++; return register }
 	current := fresh()
-	load, err := NewLoadInstruction(relations, plan.tail, current)
+	var load Instruction
+	if plan.tail.IsNull() {
+		// Source make_full_relation supplies the join identity when no
+		// positive body predicate has established a current relation.
+		load, err = NewExplanationTotalInstruction(relations, 0, current)
+	} else {
+		load, err = NewLoadInstruction(relations, plan.tail, current)
+	}
 	if err != nil {
 		return result, err
 	}

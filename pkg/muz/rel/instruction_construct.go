@@ -46,9 +46,10 @@ func NewTotalInstruction(signature Signature, target uint32) Instruction {
 }
 
 // NewExplanationTotalInstruction is mk_total for a rule-sort-only signature:
-// its full explanation relation has one row of undefined slots.
+// its full explanation relation has one row of undefined slots. A zero-column
+// signature is the full nullary relation used to seed ground-rule assembly.
 func NewExplanationTotalInstruction(relations *RelationManager, columns int, target uint32) (Instruction, error) {
-	if relations == nil || relations.open() != nil || columns <= 0 {
+	if relations == nil || relations.open() != nil || columns < 0 {
 		return nil, ErrInstruction
 	}
 	return &constructInstruction{accounting: base.NewAccountedObject(), kind: "mk_explanation_total", relations: relations, explanations: columns, target: target}, nil
