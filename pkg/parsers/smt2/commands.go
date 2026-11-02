@@ -213,6 +213,9 @@ func (p *commandParser) clearCommand() (result error) {
 }
 
 func (p *commandParser) fixedpointQuery(declaration ast.ASTHandle) (status lbool.LBool, printAnswer, printStatistics, printCertificate bool, resultErr error) {
+	if err := p.validateFixedpointQueryDeclaration(declaration); err != nil {
+		return lbool.Undef, false, false, false, err
+	}
 	globals, err := p.context.GlobalParameters()
 	if err != nil {
 		return lbool.Undef, false, false, false, err

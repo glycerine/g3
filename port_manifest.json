@@ -88173,6 +88173,7 @@
           "status": "partial",
           "go_target": "pkg/parsers/smt2/commands.go",
           "tests": [
+            "TestSMT2FixedpointQueryRequiresRegisteredRelation",
             "TestSMT2FixedpointEmptyProgramQueryMatchesCPP",
             "TestSMT2FixedpointPropositionalQueriesMatchCPP",
             "TestSMT2FixedpointRuleNameAndBoundMatchCPP",
@@ -88192,6 +88193,7 @@
             "TestSMTLibRunnerCPPReference/fixedpoint_pdr_background.smt2"
           ],
           "go_targets": [
+            "pkg/parsers/smt2/fixedpoint_query_validate.go",
             "pkg/cmd/g3/main_test.go"
           ]
         },

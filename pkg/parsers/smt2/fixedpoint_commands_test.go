@@ -322,6 +322,22 @@ func TestSMT2FixedpointQueryRefusesUnknownOutputParameters(t *testing.T) {
 	}
 }
 
+func TestSMT2FixedpointQueryRequiresRegisteredRelation(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	err = smt2.ParseCommands(context, strings.NewReader("(declare-fun P () Bool)\n(query P :engine datalog)\n"), &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "registered as a relation") {
+		t.Fatal("ordinary Boolean function accepted as a fixedpoint query", err)
+	}
+}
+
 func TestSMT2FixedpointQueryLocalParametersMatchCPP(t *testing.T) {
 	script := `(set-option :fixedpoint.engine duality)
 (declare-rel P ())

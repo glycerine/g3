@@ -331,6 +331,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/fp/datalog_parser.cpp` (partial), `src/muz/fp/datalog_parser.h` (partial)
   - [x] Constant-left equality/ordering infix bodies, source greater-than reversal, finite/numeric constants, quoted integer construction and constant-only rejection.
 - [ ] `src/muz/fp/dl_cmds.cpp` (partial), `src/muz/fp/dl_cmds.h` (partial)
+  - [x] `dl_query_cmd::set_next_arg` rejects non-uninterpreted and unregistered ordinary Boolean functions before parameters/backend execution.
 - [ ] `src/muz/fp/dl_register_engine.cpp` (partial), `src/muz/fp/dl_register_engine.h` (partial)
 
 ### pdr
@@ -912,3 +913,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Closed three test-only allocation/recovery frontiers without speculative production changes. Nonlinear BMC two-branch trace/proof campaigns cross every reachable allocation refusal with exact live-byte stability and zero final budget; quantified late-publication ordering was independently confirmed already correct. DDNF now compares exact uninterrupted and retry DAGs across 80 dense insertion thresholds. Spacer evaluator exception tracing tolerates writer refusal as caught unknown with unchanged references and fresh-evaluator recovery. Complete native BMC/DDNF and focused Spacer tests passed in 0.556s/0.043s and 20 consecutive trace runs. Remaining source gaps are unchanged.
 
 - 2026-11-02 — Unified CLP rule-attempt ownership: grounded heads, every grounded tail and shared rule-local fresh constants now retire through one retryable cleanup root instead of independent lossy defers. A real native refusal preserves exact grounded/fresh references and usability, then Cleanup retires all owners. Focused search/order/allocation tests passed in 0.071s and the complete native CLP package passed in 0.142s. Broader search/source audit remains open.
+
+- 2026-11-02 — Ported `dl_query_cmd::set_next_arg` validation to the SMT2 fixedpoint command boundary. Query targets must be null-family uninterpreted declarations already registered as relations; ordinary Boolean functions now fail before local parameters or backend selection instead of surfacing a later Horn-fragment error. Focused query cases passed in 0.011s and all native SMT2 fixedpoint command tests passed in 2.956s. Broader command source/ownership auditing remains open.
