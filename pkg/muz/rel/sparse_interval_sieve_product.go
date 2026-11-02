@@ -1,0 +1,188 @@
+package rel
+
+// Source: src/muz/rel/rel_context.cpp multi-name predicate representation,
+// dl_product_relation.cpp product components, and dl_sieve_relation.cpp.
+
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
+
+var ErrSparseIntervalProduct = errors.New("muz/rel: invalid sparse/interval product")
+
+// SparseIntervalSieveProduct is the concrete product selected by the ordered
+// representation pair tr_sparse + interval_relation. Its components are
+// independent abstractions over the same mixed signature, matching source
+// product_relation rather than the more precise finite_product_relation.
+type SparseIntervalSieveProduct struct {
+	manager       *RelationManager
+	sorts         []ast.ASTHandle
+	finiteColumns []int
+	finiteSorts   []ast.ASTHandle
+	finite        *SparseTable
+	interval      *IntervalSieve
+	closed        bool
+}
+
+func sparseIntervalKinds(kinds []string) bool {
+	if len(kinds) != 2 {
+		return false
+	}
+	seenSparse, seenInterval := false, false
+	for _, kind := range kinds {
+		switch kind {
+		case "tr_sparse":
+			if seenSparse {
+				return false
+			}
+			seenSparse = true
+		case "interval_relation":
+			if seenInterval {
+				return false
+			}
+			seenInterval = true
+		default:
+			return false
+		}
+	}
+	return seenSparse && seenInterval
+}
+
+// NewSparseIntervalSieveProduct is the caller-ready representation-selection
+// boundary. full chooses the source mk_full rather than mk_empty components.
+func NewSparseIntervalSieveProduct(manager *RelationManager, sorts []ast.ASTHandle, kinds []string, full bool) (_ *SparseIntervalSieveProduct, resultErr error) {
+	if manager == nil || manager.open() != nil || !sparseIntervalKinds(kinds) {
+		return nil, ErrSparseIntervalProduct
+	}
+	p := &SparseIntervalSieveProduct{manager: manager, sorts: append([]ast.ASTHandle(nil), sorts...)}
+	var domains []uint64
+	for column, sort := range sorts {
+		if CanHandleIntervalSorts(manager.manager, []ast.ASTHandle{sort}) {
+			continue
+		}
+		domain, err := manager.sortDomain(sort)
+		if err != nil {
+			return nil, errors.Join(ErrSparseIntervalProduct, err)
+		}
+		p.finiteColumns = append(p.finiteColumns, column)
+		p.finiteSorts = append(p.finiteSorts, sort)
+		domains = append(domains, domain)
+	}
+	if len(p.finiteColumns) == 0 || len(p.finiteColumns) == len(sorts) {
+		return nil, ErrSparseIntervalProduct
+	}
+	signature, err := NewSignature(domains)
+	if err != nil {
+		return nil, err
+	}
+	p.finite, err = NewSparseTable(signature, 0)
+	if err != nil {
+		return nil, err
+	}
+	published := false
+	defer func() {
+		if resultErr != nil && !published {
+			resultErr = errors.Join(resultErr, p.finite.Close())
+		}
+	}()
+	if full {
+		if err = fillTotalTable(p.finite, signature); err != nil {
+			return nil, err
+		}
+		p.interval, err = NewIntervalSieveFull(manager.manager, sorts)
+	} else {
+		p.interval, err = NewIntervalSieveEmpty(manager.manager, sorts)
+	}
+	if err != nil {
+		return nil, err
+	}
+	published = true
+	return p, nil
+}
+
+func (p *SparseIntervalSieveProduct) open() error {
+	if p == nil || p.closed || p.manager == nil || p.manager.open() != nil || p.finite == nil || p.finite.open() != nil || p.interval == nil || p.interval.open() != nil {
+		return ErrSparseIntervalProduct
+	}
+	return nil
+}
+
+func (p *SparseIntervalSieveProduct) Close() error {
+	if p == nil || p.closed {
+		return nil
+	}
+	p.closed = true
+	err := p.finite.Close()
+	p.manager, p.sorts, p.finiteColumns, p.finiteSorts, p.finite, p.interval = nil, nil, nil, nil, nil, nil
+	return err
+}
+
+func (p *SparseIntervalSieveProduct) Empty() (bool, error) {
+	if err := p.open(); err != nil {
+		return true, err
+	}
+	length, err := p.finite.Len()
+	return length == 0 || p.interval.Empty(), err
+}
+
+func (p *SparseIntervalSieveProduct) finiteFact(values []ast.ASTHandle) (Fact, error) {
+	if err := p.open(); err != nil || len(values) != len(p.sorts) {
+		if err != nil {
+			return nil, err
+		}
+		return nil, ErrSparseIntervalProduct
+	}
+	fact := make(Fact, len(p.finiteColumns))
+	for local, outer := range p.finiteColumns {
+		valueSort, err := p.manager.manager.GetSort(values[outer])
+		if err != nil || valueSort != p.sorts[outer] {
+			return nil, errors.Join(ErrSparseIntervalProduct, err)
+		}
+		fact[local], err = p.manager.EncodeValue(p.sorts[outer], values[outer])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return fact, nil
+}
+
+// AddFact adds the projection to each independent source product component.
+func (p *SparseIntervalSieveProduct) AddFact(values []ast.ASTHandle) error {
+	fact, err := p.finiteFact(values)
+	if err != nil {
+		return err
+	}
+	// Validate and update the interval component before publishing a finite row.
+	if err = p.interval.AddFact(values); err != nil {
+		return err
+	}
+	_, err = p.finite.Add(fact)
+	return err
+}
+
+func (p *SparseIntervalSieveProduct) ContainsFact(values []ast.ASTHandle) (bool, error) {
+	fact, err := p.finiteFact(values)
+	if err != nil {
+		return false, err
+	}
+	finite, err := p.finite.Contains(fact)
+	if err != nil || !finite {
+		return false, err
+	}
+	return p.interval.ContainsFact(values)
+}
+
+func (p *SparseIntervalSieveProduct) FiniteColumns() []int {
+	if p.open() != nil {
+		return nil
+	}
+	return append([]int(nil), p.finiteColumns...)
+}
+
+func (p *SparseIntervalSieveProduct) IntervalComponent() *IntervalSieve {
+	if p.open() != nil {
+		return nil
+	}
+	return p.interval
+}
