@@ -23,6 +23,30 @@ func (p *FiniteExplanationProduct) compatible(other *FiniteExplanationProduct) e
 	return nil
 }
 
+// Source explanation_relation_plugin::union_fn requires every participating
+// explanation row to be defined, including rows that an overlap would leave
+// unchanged. Check all reachable rows before any finite keys are published.
+func (p *FiniteExplanationProduct) requireDefinedExplanationRows() error {
+	rows, err := p.table.Facts()
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		index := uint64(row[len(row)-1])
+		if index >= uint64(len(p.inner)) || p.inner[index] == nil {
+			return ErrTableRelation
+		}
+		defined, err := p.inner[index].NoUndefined()
+		if err != nil {
+			return err
+		}
+		if !defined {
+			return ast.ErrASTDomain
+		}
+	}
+	return nil
+}
+
 // Union adds source tuples that are absent from the target, preserving the
 // target's first explanation for overlapping tuples. Delta, when supplied,
 // accumulates newly added tuples and preserves its existing explanations.
@@ -36,6 +60,13 @@ func (p *FiniteExplanationProduct) Union(source, delta *FiniteExplanationProduct
 		}
 		if delta == p || delta == source {
 			return ast.ErrASTDomain
+		}
+	}
+	for _, product := range []*FiniteExplanationProduct{p, source, delta} {
+		if product != nil {
+			if err := product.requireDefinedExplanationRows(); err != nil {
+				return err
+			}
 		}
 	}
 	facts, err := source.table.Facts()

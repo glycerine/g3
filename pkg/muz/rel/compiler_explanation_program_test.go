@@ -1,7 +1,6 @@
 package rel
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -121,64 +120,123 @@ func TestCompileExplanationProgramOrdersDependenciesAndFirstProofs(t *testing.T)
 	}
 }
 
-func TestCompileExplanationProgramRejectsCyclesBeforePublication(t *testing.T) {
-	for _, mutual := range []bool{false, true} {
-		f := newTableRelationFixture(t)
-		rm, err := base.NewRuleManager(f.ast)
-		astTestMust(t, err)
-		set, err := base.NewRuleSet(rm)
-		astTestMust(t, err)
-		declare := func(name string) ast.ASTHandle {
-			symbol, e := f.ast.Symbols.Intern(name)
-			astTestMust(t, e)
-			declaration, e := f.ast.MkFuncDecl(symbol, nil, f.boolean, ast.ASTFuncDeclInfo{})
-			astTestMust(t, e)
-			astTestMust(t, rm.RegisterPredicate(declaration))
-			return declaration
-		}
-		p, q := declare("cycle-P"), declare("cycle-Q")
-		pApp, err := f.ast.MkApp(p, nil)
-		astTestMust(t, err)
-		astTestPin(t, f.ast, pApp)
-		qApp, err := f.ast.MkApp(q, nil)
-		astTestMust(t, err)
-		astTestPin(t, f.ast, qApp)
-		body := pApp
-		if mutual {
-			body = qApp
-		}
-		rule, err := rm.NewRule(pApp, []ast.ASTHandle{body}, nil, "recursive-P")
-		astTestMust(t, err)
-		astTestMust(t, set.Add(rule))
-		astTestMust(t, rule.Close())
-		if mutual {
-			rule, err = rm.NewRule(qApp, []ast.ASTHandle{pApp}, nil, "recursive-Q")
+func TestCompileExplanationProgramTerminatesRecursiveCycles(t *testing.T) {
+	for _, spec := range []struct {
+		name           string
+		mutual, seeded bool
+	}{{"self-empty", false, false}, {"self-seeded", false, true}, {"mutual-empty", true, false}, {"mutual-preloaded", true, true}} {
+		t.Run(spec.name, func(t *testing.T) {
+			f := newTableRelationFixture(t)
+			rm, err := base.NewRuleManager(f.ast)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, rm.Close()) }()
+			set, err := base.NewRuleSet(rm)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, set.Close()) }()
+			own := func(h ast.ASTHandle, e error) ast.ASTHandle { astTestMust(t, e); astTestPin(t, f.ast, h); return h }
+			declare := func(name string) ast.ASTHandle {
+				symbol, e := f.ast.Symbols.Intern(name)
+				astTestMust(t, e)
+				declaration, e := f.ast.MkFuncDecl(symbol, nil, f.boolean, ast.ASTFuncDeclInfo{})
+				astTestMust(t, e)
+				astTestMust(t, rm.RegisterPredicate(declaration))
+				return declaration
+			}
+			p, q := declare("cycle-P"), declare("cycle-Q")
+			pApp, qApp := own(f.ast.MkApp(p, nil)), own(f.ast.MkApp(q, nil))
+			body := pApp
+			if spec.mutual {
+				body = qApp
+			}
+			rule, err := rm.NewRule(pApp, []ast.ASTHandle{body}, nil, "recursive-P")
 			astTestMust(t, err)
 			astTestMust(t, set.Add(rule))
 			astTestMust(t, rule.Close())
-		}
-		transformer, err := NewExplanationTransformer(f.ast, rm)
-		astTestMust(t, err)
-		transformed, err := transformer.TransformRulesOnly(set)
-		astTestMust(t, err)
-		execution, termination, err := CompileExplanationRulesWithGuard(f.relations, transformed, tableRelationTheoryRewriter(t, f.ast))
-		if execution != nil || termination != nil || !errors.Is(err, ErrCompilerUnsupported) {
-			t.Fatal("recursive explanation program was published", mutual, execution, termination, err)
-		}
-		for _, predicate := range []ast.ASTHandle{p, q} {
-			declaration, e := transformer.ExplanationDeclaration(predicate)
-			astTestMust(t, e)
-			_, found, e := f.relations.TryGetExplanationRelation(declaration)
-			astTestMust(t, e)
-			marked, e := f.relations.IsSaturated(declaration)
-			astTestMust(t, e)
-			if found || marked {
-				t.Fatal("rejected compilation published relation data or marks")
+			if spec.mutual {
+				rule, err = rm.NewRule(qApp, []ast.ASTHandle{pApp}, nil, "recursive-Q")
+				astTestMust(t, err)
+				astTestMust(t, set.Add(rule))
+				astTestMust(t, rule.Close())
 			}
-		}
-		astTestMust(t, transformed.Close())
-		astTestMust(t, transformer.Close())
-		astTestMust(t, set.Close())
-		astTestMust(t, rm.Close())
+			astTestMust(t, set.SetOutputPredicate(p))
+			seed := p
+			if spec.mutual {
+				seed = q
+			}
+			if spec.seeded {
+				table, e := f.relations.GetRelation(seed)
+				astTestMust(t, e)
+				_, e = table.Add(Fact{})
+				astTestMust(t, e)
+			}
+			transformer, err := NewExplanationTransformer(f.ast, rm)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, transformer.Close()) }()
+			transformed, err := transformer.TransformRulesOnly(set)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, transformed.Close()) }()
+			astTestMust(t, transformer.TransferFiniteFacts(set, transformed, f.relations, []ast.ASTHandle{p, q}))
+			explainedP, err := transformer.ExplanationDeclaration(p)
+			astTestMust(t, err)
+			explainedQ, err := transformer.ExplanationDeclaration(q)
+			astTestMust(t, err)
+			execution, termination, err := CompileExplanationRulesWithGuard(f.relations, transformed, tableRelationTheoryRewriter(t, f.ast))
+			astTestMust(t, err)
+			defer func() { astTestMust(t, execution.Close()); astTestMust(t, termination.Close()) }()
+			astTestMust(t, transformer.Close())
+			astTestMust(t, transformed.Close())
+			astTestMust(t, set.Close())
+			context, err := NewExecutionContextWithRelations(f.relations, nil)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, context.Close()) }()
+			proof := func(name string, arguments ...ast.ASTHandle) ast.ASTHandle {
+				symbol, e := f.ast.Symbols.Intern(name)
+				astTestMust(t, e)
+				return own(f.ast.MkDatalogRule(symbol, arguments))
+			}
+			fact := proof("fact")
+			wantP := fact
+			if spec.mutual {
+				wantP = proof("recursive-P", fact)
+			}
+			for repeat := 0; repeat < 2; repeat++ {
+				// A regression that grows proof terms forever must fail boundedly.
+				astTestMust(t, context.SetTimeLimit(1000))
+				complete, e := execution.Perform(context)
+				astTestMust(t, e)
+				if !complete {
+					t.Fatal("recursive proof novelty did not reach a finite fixpoint")
+				}
+				complete, e = termination.Perform(context)
+				astTestMust(t, e)
+				if !complete {
+					t.Fatal("recursive termination incomplete")
+				}
+				output, e := f.relations.GetRelation(p)
+				astTestMust(t, e)
+				found, e := output.Contains(Fact{})
+				astTestMust(t, e)
+				if found != spec.seeded {
+					t.Fatal("unseeded cycle invented a fact or preloaded seed was lost", found, spec.seeded)
+				}
+				product, e := f.relations.GetExplanationRelation(explainedP)
+				astTestMust(t, e)
+				got, found, e := product.Explanation(nil)
+				astTestMust(t, e)
+				if found != spec.seeded || (found && got != wantP) {
+					t.Fatal("recursive overlap replaced the first proof", got, found, wantP)
+				}
+				if spec.mutual && spec.seeded {
+					product, e = f.relations.GetExplanationRelation(explainedQ)
+					astTestMust(t, e)
+					got, found, e = product.Explanation(nil)
+					astTestMust(t, e)
+					if !found || got != fact {
+						t.Fatal("cycle rewrote preloaded Q's fact proof", got, found, fact)
+					}
+				}
+				astTestMust(t, context.Reset())
+			}
+		})
 	}
 }

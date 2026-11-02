@@ -1,8 +1,8 @@
 package rel
 
 // Source: dl_compiler.cpp order_rules/compile_strats, specialized to positive
-// acyclic rules over the registered finite/explanation product. Recursive
-// dependency components still require source delta/fixpoint lowering.
+// rules over the registered finite/explanation product, including source
+// semi-naive delta/fixpoint lowering for recursive dependency components.
 
 import (
 	"errors"
@@ -12,10 +12,10 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
-// CompileExplanationRulesWithGuard compiles an acyclic transformed explanation
+// CompileExplanationRulesWithGuard compiles a positive transformed explanation
 // rule set, including its finite output bridges, into dependency-ordered
 // execution and saturation-marking termination blocks. Both blocks transfer to
-// the caller. Unsupported rules or cycles publish neither block.
+// the caller. Unsupported rules publish neither block.
 func CompileExplanationRulesWithGuard(relations *RelationManager, set *base.RuleSet, guard *rewriter.TheoryRewriter) (execution, termination *InstructionBlock, resultErr error) {
 	if err := relations.open(); err != nil {
 		return nil, nil, err
@@ -28,6 +28,7 @@ func CompileExplanationRulesWithGuard(relations *RelationManager, set *base.Rule
 		return nil, nil, err
 	}
 	var rules []*base.Rule
+	var plans []explanationRuleLayout
 	defer func() {
 		for _, rule := range rules {
 			resultErr = errors.Join(resultErr, rule.Close())
@@ -55,6 +56,7 @@ func CompileExplanationRulesWithGuard(relations *RelationManager, set *base.Rule
 		if err != nil {
 			return nil, nil, err
 		}
+		plans = append(plans, plan)
 		if len(plan.conditions) != 0 && guard == nil {
 			return nil, nil, ErrCompilerUnsupported
 		}
@@ -69,54 +71,160 @@ func CompileExplanationRulesWithGuard(relations *RelationManager, set *base.Rule
 			dependencies[plan.head] = append(dependencies[plan.head], join.predicate)
 		}
 	}
-	states := make(map[ast.ASTHandle]uint8)
-	ordered := make([]ast.ASTHandle, 0, len(heads))
-	var visit func(ast.ASTHandle) error
-	visit = func(head ast.ASTHandle) error {
-		if states[head] == 1 {
-			return ErrCompilerUnsupported
-		}
-		if states[head] == 2 {
-			return nil
-		}
-		states[head] = 1
-		for _, tail := range dependencies[head] {
-			if _, defined := byHead[tail]; defined {
-				if err := visit(tail); err != nil {
-					return err
-				}
-			}
-		}
-		states[head] = 2
-		ordered = append(ordered, head)
-		return nil
+	finalized, err := set.IsFinalized()
+	if err != nil {
+		return nil, nil, err
 	}
-	for _, head := range heads {
-		if err := visit(head); err != nil {
+	if !finalized {
+		valid, err := set.Finalize()
+		if err != nil {
 			return nil, nil, err
+		}
+		if !valid {
+			return nil, nil, ErrCompilerUnsupported
+		}
+	}
+	groups := make(map[uint32][]ast.ASTHandle)
+	var maximum uint32
+	for _, head := range heads {
+		stratum, err := set.PredicateStratum(head)
+		if err != nil {
+			return nil, nil, err
+		}
+		groups[stratum] = append(groups[stratum], head)
+		if stratum > maximum {
+			maximum = stratum
 		}
 	}
 	execution, termination = NewInstructionBlock(), NewInstructionBlock()
-	for _, head := range ordered {
-		for _, index := range byHead[head] {
-			block, err := CompileExplanationRuleWithGuard(relations, rules[index], guard)
+	registers := explanationRuleRegisters{inputTail: -1, outputDelta: VoidRegister}
+	appendRule := func(destination *InstructionBlock, index int) error {
+		block, err := compileExplanationRuleWithRegisters(relations, rules[index], guard, &registers)
+		if err != nil {
+			return err
+		}
+		destination.instructions = append(destination.instructions, block.instructions...)
+		block.instructions = nil
+		return block.Close()
+	}
+	for stratum := uint32(0); stratum <= maximum; stratum++ {
+		group := groups[stratum]
+		if len(group) == 0 {
+			continue
+		}
+		inside := make(map[ast.ASTHandle]bool, len(group))
+		keys := make([]finitePredicateOrderKey, 0, len(group))
+		keyHeads := make(map[finitePredicateOrderKey]ast.ASTHandle, len(group))
+		keyDependencies := make(map[finitePredicateOrderKey][]finitePredicateOrderKey)
+		recursive := len(group) > 1
+		for _, head := range group {
+			inside[head] = true
+			key := finitePredicateKey(head)
+			keys = append(keys, key)
+			keyHeads[key] = head
+			seenDependencies := make(map[finitePredicateOrderKey]bool)
+			for _, tail := range dependencies[head] {
+				tailKey := finitePredicateKey(tail)
+				if !seenDependencies[tailKey] {
+					keyDependencies[key] = append(keyDependencies[key], tailKey)
+					seenDependencies[tailKey] = true
+				}
+				recursive = recursive || tail == head
+			}
+		}
+		if !recursive {
+			for _, index := range byHead[group[0]] {
+				if err := appendRule(execution, index); err != nil {
+					return execution, termination, err
+				}
+			}
+		} else {
+			ordered, _ := sourceDependencyOrder(keys, keyDependencies)
+			if len(ordered) != len(group) {
+				return execution, termination, ErrCompilerUnsupported
+			}
+			group = group[:0]
+			for _, key := range ordered {
+				group = append(group, keyHeads[key])
+			}
+			oldDeltas, newDeltas := make(map[ast.ASTHandle]uint32), make(map[ast.ASTHandle]uint32)
+			for _, head := range group {
+				oldDeltas[head] = registers.next
+				registers.next++
+				newDeltas[head] = registers.next
+				registers.next++
+			}
+			// compile_preds_init runs outside-only seed rules, then clones
+			// every full head, including facts present before compilation.
+			for _, head := range group {
+				for _, index := range byHead[head] {
+					plan := plans[index]
+					dependsInside := inside[plan.tail]
+					for _, join := range plan.joins {
+						dependsInside = dependsInside || inside[join.predicate]
+					}
+					if !dependsInside {
+						if err := appendRule(execution, index); err != nil {
+							return execution, termination, err
+						}
+					}
+				}
+				load, err := NewLoadInstruction(relations, head, oldDeltas[head])
+				if err != nil {
+					return execution, termination, err
+				}
+				if err := execution.Append(load); err != nil {
+					return execution, termination, errors.Join(err, load.Close())
+				}
+			}
+			body := NewInstructionBlock()
+			// Transfer the body immediately so all later failures have one
+			// owning cleanup path through the enclosing execution block.
+			controls := make([]uint32, 0, len(group))
+			for _, head := range group {
+				controls = append(controls, oldDeltas[head])
+			}
+			loop := NewWhileLoopInstruction(controls, body)
+			if err := execution.Append(loop); err != nil {
+				return execution, termination, errors.Join(err, loop.Close())
+			}
+			for _, head := range group {
+				if err := body.Append(NewDeallocateInstruction(newDeltas[head])); err != nil {
+					return execution, termination, err
+				}
+				for _, index := range byHead[head] {
+					plan := plans[index]
+					tails := []ast.ASTHandle{plan.tail}
+					for _, join := range plan.joins {
+						tails = append(tails, join.predicate)
+					}
+					for position, tail := range tails {
+						if !inside[tail] {
+							continue
+						}
+						registers.inputTail, registers.inputDelta = position, oldDeltas[tail]
+						registers.outputDelta = newDeltas[head]
+						if err := appendRule(body, index); err != nil {
+							return execution, termination, err
+						}
+					}
+				}
+			}
+			registers.inputTail, registers.outputDelta = -1, VoidRegister
+			for _, head := range group {
+				if err := body.Append(NewMoveInstruction(newDeltas[head], oldDeltas[head])); err != nil {
+					return execution, termination, err
+				}
+			}
+		}
+		for _, head := range group {
+			mark, err := NewMarkSaturatedInstruction(relations, head)
 			if err != nil {
 				return execution, termination, err
 			}
-			// Each rule stores its head and empties its temporaries, so the next
-			// rule can reuse its local register numbers in the same context.
-			execution.instructions = append(execution.instructions, block.instructions...)
-			block.instructions = nil
-			if err := block.Close(); err != nil {
-				return execution, termination, err
+			if err := termination.Append(mark); err != nil {
+				return execution, termination, errors.Join(err, mark.Close())
 			}
-		}
-		mark, err := NewMarkSaturatedInstruction(relations, head)
-		if err != nil {
-			return execution, termination, err
-		}
-		if err := termination.Append(mark); err != nil {
-			return execution, termination, errors.Join(err, mark.Close())
 		}
 	}
 	return execution, termination, nil

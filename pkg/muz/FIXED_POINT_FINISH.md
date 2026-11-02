@@ -2,7 +2,7 @@
 
 This tracks completion of the whole `src/muz/` port in `pkg/muz/`, including live dependencies outside that directory. A working engine or green test is not a whole-source completion claim. Source algorithms, proofs, models, incremental behavior, diagnostics and explicit ownership must all be accounted for.
 
-Last updated: 2026-11-02. Work is active. No engine is declared fully audited by this document.
+Last updated: 2026-11-02. Work is active. The live CLP context source units have completed independent method and ownership audits; the wider fixedpoint infrastructure and other engine audits remain open.
 
 ## How to follow progress
 
@@ -261,6 +261,7 @@ Acceleration tactics are durable for every batch:
   - [x] Reconstruct symbolic numeric linear/nonlinear BMC/QBMC proofs with sparse variable slots, correct resolution pivots, compression-mapped substitutions and proof-preserving normalization; independently verify conclusion, side conditions and original-premise provenance.
   - [x] Keep BMC/QBMC preprocessing on source default transforms plus optional slicing; exclude Spacer-only unfold/coalesce options and verify bounded results and original-rule certificates are invariant under those options.
 - [ ] Finish CLP and TAB contexts and their public engine contracts.
+  - [x] Close the live CLP context/header method and ownership audits, including fixedpoint backend construction and disposal; shared generic query wrappers remain separate.
 - [ ] Finish relational engine/context and all partial table/relation plugins listed below, including joins, projections, complements, conversions and lifecycle paths.
   - [x] Implement registered explanation-product conversion after all explanation columns are projected away, then typed converting union into table/delta (dl_finite_product_relation.cpp:211–229,1088–1114), including nullary rows and source-independent output ownership. General compiler product dispatch remains separate.
   - [x] Implement concrete finite table/explanation converting joins in both orders and route fact transfer through the registered explanation specialization, including nullary facts.
@@ -272,9 +273,10 @@ Acceleration tactics are durable for every batch:
   - [x] Compile ground explanation rules from a full nullary identity, including constant and shared/unbound finite heads, true/false guards, zero-child derivations and finite output bridges.
   - [x] Compile two-positive-tail explanation rules with shared-key/Cartesian joins, exact child-explanation order, repeated columns, self-joins and empty/nullary inputs.
   - [x] Extend compilation to arbitrary positive-tail counts with ordered binary joins, flat original explanation arguments and sparse mismatched-key oracles; negative and condition-only unbound bodies still reject explicitly.
-  - [x] Compile acyclic whole sets in dependency order, preserving per-head first-proof precedence, finite output bridges, termination marks and prepublication cycle rejection.
+  - [x] Compile whole sets in dependency order, preserving per-head first-proof precedence, finite output bridges and termination marks.
   - [ ] Connect whole-program explanation scheduling and engine activation; negation and condition-only unbound variables remain separate.
-    - Next recursive step: allocate old/new deltas for every SCC head, seed old deltas with full current relations, specialize once per recursive tail, and stop on finite-tuple novelty. Preserve first proofs and require fully defined explanation slots before publishing head/delta rows; loop controls must recognize explanation registers.
+    - [x] Allocate old/new deltas for every SCC head, seed old deltas with full current relations, specialize once per recursive tail, and stop on finite-tuple novelty. Preserve first proofs, preflight defined explanation slots and recognize explanation registers in loop controls.
+    - [x] Build owning formulas from finite/explanation products and transfer actual SparseTable facts without replacing the source representation.
   - [ ] Complete remaining concrete plugin factories and engine representation/storage/register dispatch; this fact-transfer path does not close all relational integration.
 - [ ] Audit explanations, similarity compression, relation-manager dispatch, external relations and checking wrappers against actual consumers.
 - [ ] Audit remaining transforms, dataflow and DDNF consumers, including interactions with engine-specific preprocessing.
@@ -286,10 +288,10 @@ Acceleration tactics are durable for every batch:
 Whole-source reviews found these concrete remaining obligations; direct operation tests alone do not close their runtime integration:
 
 - Relational selection: `tr_sparse` now selects actual SparseTable storage and executes through the existing compiler, including mixed Hash/Sparse joins, recursive deltas and nullary results. Actual `tr_lazy_sparse` activation remains next; interval/bound/product arithmetic storage also needs concrete manager and instruction cases.
-- Checking wrappers: `datalog.default_table_checked/default_table_checker` now activate concrete checking with parameter precedence/null coverage and representation-preserving publication. Same-plugin configurations are accepted; Hash/Hash uses formula verification and pairs involving Sparse use Hash/Sparse cross-checking. Source-exact arbitrary checker pairing, checked empty/full construction and compiled operations remain open; `doc` checking does not yet use UDoc.
+- Checking wrappers: `datalog.default_table_checked/default_table_checker` now execute the exact selected/configured Hash or Sparse pair with independent owners, parameter precedence/null coverage and representation-preserving publication. Checked empty/full construction and compiled operations remain open; `doc` checking does not yet use UDoc.
 - PDR interface: source Boogie selection, `unknown` certificate text, owning `true` unknown answers and answer-export cleanup refusal have focused evidence; model/cover export cleanup remains open.
-- Spacer context: bounded status propagates through direct/expression queries and SMT2, and early-false results now simplify frames and perform configured validation. `print_statistics` at solve completion remains open.
-- CLP: live algorithms, local grounding/query cleanup and enclosing preprocessing/parameter/backend teardown now have focused retry-owner evidence. Generic query wrapper references remain shared obligations.
+- Spacer context: bounded status propagates through direct/expression queries and SMT2, early-false results simplify frames and perform configured validation, and completed solves honor `print_statistics`. Whole-source ownership closure remains open.
+- CLP: independent audits close the live context/header algorithms and ownership, including enclosing preprocessing/parameter/backend teardown. Generic query wrapper references remain shared obligations.
 - BMC: live linear, quantified-linear and nonlinear algorithms are mapped; classify uncalled `nonlinear_dt` as reference-only, implement live diagnostics, and complete native cleanup refusal paths. Existing derivation-level binding and cancellation differences need explicit audit records.
 - Spacer utilities/QE: live algorithms and legacy constructor rollback now have focused evidence. Coordinator cleanup after child result transfer remains open; `normalize(..., factor_eqs=true)` has live proof-obligation ordering and independent equivalence coverage. Uncalled helpers do not justify unused adapters.
 - Duality and slice conversion: preserve partial status pending full method/owner records. The quantified-array proof reproducer is `pkg/muz/duality/test_vectors/quantified_array_proof_premise.smt2`, with its independent failing oracle saved as `quantified_array_proof_oracle.go.txt` for the next repair. Top-down cone reachability drops a fresh predicate nested under a quantifier; experimentally preserving that definition exposes missing RPFP support for the embedded predicate premise. Fix both stages coherently, then require every proof-checker condition to be valid and every asserted leaf to have valid provenance. No speculative proof fallback was committed. Unreachable partial-function producers do not justify new adapters.
@@ -333,11 +335,11 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 ### clp
 
 - [x] `src/muz/clp/CMakeLists.txt` (Go package/import replacement verified)
-- [ ] `src/muz/clp/clp_context.cpp` (partial), `src/muz/clp/clp_context.h` (partial)
+- [x] `src/muz/clp/clp_context.cpp`, `src/muz/clp/clp_context.h` (live source methods and ownership independently audited)
   - [x] Stateless source-true answers and retryable grounding cleanup preserving fresh constants plus unpublished substitution results across native refusal.
   - [x] Rule attempts unify grounded heads/tails and shared fresh constants under one retryable cleanup owner.
   - [x] Preserve refused local substitution/output/query/format references until cleanup retry; candidate-rule clones release shared ownership without destroying original rules.
-  - [ ] Close fixedpoint CLP preprocessing, local parameters and SMT backend teardown after admitted cleanup refusal; shared expression-wrapper references remain separate.
+  - [x] Close fixedpoint CLP preprocessing, local parameters and SMT backend teardown after admitted cleanup refusal; shared expression-wrapper references remain separate.
 
 ### dataflow
 
@@ -1043,3 +1045,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Added retryable cleanup owners for Spacer normalization and sliced-formula conversion, TAB top-level query/expression attempts, and PDR empty-program model presentation. Refused cleanup preserves temporaries and unpublished results; normalization also keeps immutable originating errors and all old/new factor-equality roots. Focused native normalization (0.019s), public slice/model (0.688s), complete TAB (0.057s), public TAB (0.025s) and PDR presentation (0.127s) checks passed. Independent TAB audit keeps whole-unit completion open for backend/proof-local cleanup and source-persistent selection state. Commit: `Preserve normalization and query presentation owners across cleanup refusal`.
 
 - 2026-11-02 — Activated the source default SparseTable choice for non-nullary Datalog predicates, with Hash nullary fallback, explicit predicate precedence, first-use configuration lifetime and cloned-query preservation. Compiler temporaries and similarity auxiliaries use the selected finite backend. Checked tables now instantiate the exact selected/configured pair, including Hash/Hash and Sparse/Sparse, with independent ownership and delta comparisons. Complete native fixedpoint passed in 57.092s; final default/similarity focus passed in 0.075s and four-pair relational checks in 0.004s. The full global suite was not restarted. Commit: `Honor Datalog table defaults and exact checking pairs`.
+
+- 2026-11-02 — Compiled recursive explanation SCCs with seeded old/new deltas, every-recursive-tail specialization, finite-tuple termination and transactional defined-slot validation. Added owning product formulas and sparse fact transfer; direct engine activation remains a separate integration lane. Root focused explanation checks passed in 0.075s. Independent CLP method/ownership audits close its two source units, documenting fresh-solver reset and balanced-scope deviations while excluding dead get_proof; CLP/public focus passed in 0.128s/0.017s. Portcheck passed with 1310 ported, 254 partial, 365 unported and 29 dead/deleted units. Commit: `Compile recursive explanations and close the live CLP audit`.

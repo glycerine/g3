@@ -20,7 +20,16 @@ func FiniteExplanationProductFromTable(source *TableRelation) (result *FiniteExp
 // The rule context stores concrete HashTables directly, so fact translation
 // reaches the same source conversion without inventing an owning table wrapper.
 func finiteExplanationProductFromHashTable(manager *RelationManager, sorts []ast.ASTHandle, table *HashTable) (result *FiniteExplanationProduct, resultErr error) {
-	if table == nil || table.open() != nil {
+	if table == nil {
+		return nil, ErrTableRelation
+	}
+	return finiteExplanationProductFromFiniteTable(manager, sorts, table)
+}
+
+// finiteExplanationProductFromFiniteTable copies from the concrete finite
+// representation selected for a predicate without replacing or aliasing it.
+func finiteExplanationProductFromFiniteTable(manager *RelationManager, sorts []ast.ASTHandle, table FiniteTable) (result *FiniteExplanationProduct, resultErr error) {
+	if table == nil {
 		return nil, ErrTableRelation
 	}
 	expected, err := tableRelationSignature(manager, sorts)

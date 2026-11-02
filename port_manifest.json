@@ -87134,7 +87134,7 @@
       "path": "src/muz/clp/clp_context.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/clp/engine_types.go",
         "pkg/muz/clp/ground.go",
@@ -87144,6 +87144,8 @@
         "pkg/muz/clp/verbose.go",
         "pkg/muz/clp/query.go",
         "pkg/muz/clp/lifecycle.go",
+        "pkg/muz/clp/reference_owner.go",
+        "pkg/muz/clp/search_owner.go",
         "pkg/muz/clp/engine_test_helpers_test.go",
         "pkg/muz/clp/engine_query_test.go",
         "pkg/muz/clp/engine_depth_test.go",
@@ -87153,10 +87155,11 @@
         "pkg/muz/clp/answer_source_test.go",
         "pkg/muz/clp/ground_cleanup_pending_test.go",
         "pkg/muz/clp/local_cleanup_pending_test.go",
-        "pkg/muz/clp/reference_owner.go",
         "pkg/muz/clp/engine_verbose_test.go",
         "pkg/muz/clp/engine_order_test.go",
         "pkg/muz/fp/clp_engine.go",
+        "pkg/muz/fp/clp_cleanup.go",
+        "pkg/muz/fp/clp_cleanup_pending_test.go",
         "pkg/muz/fp/bmc_engine.go",
         "pkg/muz/fp/spacer_engine.go",
         "pkg/muz/fp/propositional_engine.go",
@@ -87185,9 +87188,10 @@
         "TestCLPStableRuleOrderAndBacktracking",
         "TestSMT2CLPBacktracksAcrossConstrainedSiblingGoals"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
+        {"name": "constructor and query lifecycle configure mbqi false and a 1000 ms timeout, create the synthetic query rule, apply default transformations, select the transformed output head, and use a fresh solver for each query", "status": "ported", "go_targets": ["pkg/muz/fp/clp_engine.go", "pkg/muz/fp/clp_cleanup.go", "pkg/muz/fp/clp_engine_test.go", "pkg/muz/fp/clp_cleanup_pending_test.go", "pkg/muz/clp/engine_types.go", "pkg/muz/clp/query.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPQueryWrapperDoesNotMutateProgram", "TestSMT2CLPQueryDepthIncludesSyntheticRule", "TestSMT2CLPEngineConstrainedRules", "TestCLPBackendAttemptPreservesRefusedCleanup"]},
         {"name": "stable ordering of rules by positive-tail size and backtracking across sibling goals", "status": "ported", "go_targets": ["pkg/muz/clp/rules.go", "pkg/muz/clp/search.go", "pkg/muz/clp/engine_order_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPSortsFactsBeforeRecursiveRules", "TestCLPStableRuleOrderAndBacktracking", "TestSMT2CLPBacktracksAcrossConstrainedSiblingGoals"]},
         {"name": "search verbosity levels and rule-head diagnostics", "status": "ported", "go_targets": ["pkg/muz/clp/verbose.go", "pkg/muz/clp/engine_verbose_test.go"], "tests": ["TestCLPSearchVerboseLevels", "TestCLPVerboseRuleUsesPrettyPrinterParameters"]},
         {"name": "CLP search leaves its statistics counters unchanged and reset clears them", "status": "ported", "go_targets": ["pkg/muz/clp/search.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_query_test.go", "pkg/muz/clp/engine_depth_test.go"], "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPDepthFrontierUnknown", "TestCLPStatisticsRemainZeroAfterRejectedRule"]},
@@ -87205,18 +87209,19 @@
             "TestCLPSolverUnknownRaisesSourceErrorAndRestoresScope",
             "TestCLPDepthFrontierUnknown"
           ]
-        }
+        },
+        {"name": "public engine wrappers close the live engine, reset and report the source's zero statistics, construct true answers, and display true certificates", "status": "ported", "go_targets": ["pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_lifecycle_test.go", "pkg/muz/clp/engine_query_test.go", "pkg/muz/clp/answer_source_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/clp_cleanup.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPLifecycleAndStatistics", "TestCLPStatisticsRemainZeroAfterRejectedRule", "TestCLPAnswerIsStatelessSourceTruth", "TestCLPEngineResultSnapshotAndAnswer", "TestSMT2CLPCertificateForReachableAndUnreachable"]}
       ],
-      "ownership": ["Rule-local grounding owns fresh constants and any unpublished substitution result until cleanup succeeds; query and verbose construction locals use the same retryable reference owner, so native refusal preserves every exact remaining owner. CLP answers are stateless source true handles and add no engine-owned AST reference."],
+      "ownership": ["Rule-local grounding owns fresh constants, substitutions, grounded head and tail roots, and unpublished results until cleanup succeeds; query, rule-attempt, candidate-rule, and verbose-format owners preserve every exact remaining reference across native cleanup refusal. Each fixedpoint query owns a fresh solver, parameter value, transformed rule set, and CLP engine through one retryable backend-attempt owner. CLP answers are stateless source true handles and add no engine-owned AST reference."],
       "deviations": [
-        "Bounded search and fixedpoint integration are implemented; a full source and ownership audit remains incomplete. Go restores solver scopes on errors and successful branches, while the source can exit through an exception or successful branch without a local pop."
+        "The source solver reset is implemented by constructing a fresh solver backend for every live fixedpoint query. Go restores solver scopes on errors and successful branches, while the source can exit through an exception or successful branch without a local pop. The private get_proof method has no source caller and is intentionally not ported. Generic fixedpoint expression-wrapper audits belong to their separate source units and are not claimed here."
       ]
     },
     {
       "path": "src/muz/clp/clp_context.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/clp/engine_types.go", "pkg/muz/clp/query.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_grounding_integration_test.go", "pkg/muz/fp/clp_engine.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"],
       "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPLifecycleAndStatistics", "TestCLPRuleVariablesShareGroundingAcrossHeadAndBody", "TestSMT2CLPEngineConstrainedRules", "TestSMT2CLPQueryDepthIncludesSyntheticRule", "TestCLPQueryWrapperDoesNotMutateProgram", "TestCLPEngineResultSnapshotAndAnswer"],
       "conditionals": [
@@ -87229,11 +87234,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "bounded CLP engine construction, query and lifecycle", "status": "partial", "go_target": "pkg/muz/clp/engine_types.go", "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPLifecycleAndStatistics", "TestCLPRuleVariablesShareGroundingAcrossHeadAndBody"]}],
-      "ownership": [],
-      "deviations": ["Complete source and ownership audits remain pending."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "clp engine construction, destruction, bounded query, statistics reset and collection, certificate display, and answer interface", "status": "ported", "go_targets": ["pkg/muz/clp/engine_types.go", "pkg/muz/clp/query.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_query_test.go", "pkg/muz/clp/engine_lifecycle_test.go", "pkg/muz/clp/engine_grounding_integration_test.go", "pkg/muz/fp/clp_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPLifecycleAndStatistics", "TestCLPRuleVariablesShareGroundingAcrossHeadAndBody", "TestCLPEngineResultSnapshotAndAnswer", "TestSMT2CLPEngineConstrainedRules", "TestSMT2CLPCertificateForReachableAndUnreachable"]}],
+      "ownership": ["The public engine owns its live solver and transformed rules for one query attempt; the fixedpoint backend-attempt owner closes the engine, solver, parameter value, and preprocessing result in retryable order. Returned answers are caller-owned references while certificate output borrows no persistent AST owner."],
+      "deviations": ["Go constructs a fresh solver per query instead of resetting a persistent member solver and balances every solver scope, including source early-success and exception paths. The private implementation-only get_proof declaration is absent from this public header and has no live source consumer."]
     },
     {
       "path": "src/muz/dataflow/CMakeLists.txt",
@@ -93057,11 +93062,11 @@
           "reason": "Ground and arbitrary explained positive tails are covered, including constants, repeated variables, self-joins, empty and nullary relations. Negation, condition-only free variables, recursive whole-set scheduling and option activation remain open."
         },
         {
-          "name": "acyclic whole-set explanation helper orders rules by predicate dependencies and preserves first-proof publication",
+          "name": "whole-set explanation helper orders nonrecursive dependencies and schedules seeded, unseeded, mutual, self-recursive and nonlinear SCCs with semi-naive per-tail deltas while preserving first-proof publication",
           "status": "ported",
-          "go_targets": ["pkg/muz/rel/compiler_explanation_program.go", "pkg/muz/rel/compiler_explanation_program_test.go", "pkg/muz/rel/instruction_saturation.go"],
-          "tests": ["TestCompileExplanationProgramOrdersDependenciesAndFirstProofs", "TestCompileExplanationProgramRejectsCyclesBeforePublication"],
-          "reason": "Acyclic dependency scheduling and failure-atomic cycle rejection are staged; actual fixedpoint engine option activation and recursive SCC delta scheduling remain open."
+          "go_targets": ["pkg/muz/rel/compiler_explanation_program.go", "pkg/muz/rel/compiler_explanation_program_test.go", "pkg/muz/rel/compiler_explanation_recursive_test.go", "pkg/muz/rel/instruction_saturation.go"],
+          "tests": ["TestCompileExplanationProgramOrdersDependenciesAndFirstProofs", "TestCompileExplanationProgramTerminatesRecursiveCycles", "TestCompileExplanationProgramSpecializesEveryRecursiveTail"],
+          "reason": "Concrete whole-program dependency and recursive SCC scheduling is staged and finite for empty and preseeded cycles, including nonlinear rules whose every recursive tail must receive the new delta. Actual fixedpoint engine option activation remains open."
         },
         {
           "name": "compiled finite-backend preflight accepts concrete HashTable/SparseTable programs before any bytecode mutation and rejects unsupported finite plugins for interpreted fallback",

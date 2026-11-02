@@ -367,6 +367,20 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 // constants and unbound variables use singleton/full columns. Negated tails
 // and condition-only unbound variables are rejected before a program is published.
 func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule, guard *rewriter.TheoryRewriter) (result *InstructionBlock, resultErr error) {
+	registers := explanationRuleRegisters{inputTail: -1, outputDelta: VoidRegister}
+	return compileExplanationRuleWithRegisters(relations, rule, guard, &registers)
+}
+
+// A recursive run substitutes one old-delta tail and accumulates novel head
+// tuples in outputDelta. next keeps those shared registers outside local use.
+type explanationRuleRegisters struct {
+	next        uint32
+	inputTail   int
+	inputDelta  uint32
+	outputDelta uint32
+}
+
+func compileExplanationRuleWithRegisters(relations *RelationManager, rule *base.Rule, guard *rewriter.TheoryRewriter, registers *explanationRuleRegisters) (result *InstructionBlock, resultErr error) {
 	plan, err := planExplanationRule(relations, rule)
 	if err != nil {
 		return nil, err
@@ -390,8 +404,13 @@ func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule
 		}
 		return nil
 	}
-	next := uint32(0)
-	fresh := func() uint32 { register := next; next++; return register }
+	fresh := func() uint32 { register := registers.next; registers.next++; return register }
+	loadTail := func(position int, predicate ast.ASTHandle, target uint32) (Instruction, error) {
+		if registers.inputTail == position {
+			return NewCloneInstruction(registers.inputDelta, target), nil
+		}
+		return NewLoadInstruction(relations, predicate, target)
+	}
 	current := fresh()
 	var load Instruction
 	if plan.tail.IsNull() {
@@ -399,7 +418,7 @@ func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule
 		// positive body predicate has established a current relation.
 		load, err = NewExplanationTotalInstruction(relations, 0, current)
 	} else {
-		load, err = NewLoadInstruction(relations, plan.tail, current)
+		load, err = loadTail(0, plan.tail, current)
 	}
 	if err != nil {
 		return result, err
@@ -407,9 +426,9 @@ func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule
 	if err = emit(load); err != nil {
 		return result, err
 	}
-	for _, join := range plan.joins {
+	for position, join := range plan.joins {
 		right := fresh()
-		load, err = NewLoadInstruction(relations, join.predicate, right)
+		load, err = loadTail(position+1, join.predicate, right)
 		if err != nil {
 			return result, err
 		}
@@ -556,7 +575,7 @@ func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule
 	if err = emit(load); err != nil {
 		return result, err
 	}
-	if err = emit(NewUnionInstruction(current, target, VoidRegister)); err != nil {
+	if err = emit(NewUnionInstruction(current, target, registers.outputDelta)); err != nil {
 		return result, err
 	}
 	if err = emit(NewDeallocateInstruction(current)); err != nil {

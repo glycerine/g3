@@ -77,7 +77,14 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 		if err != nil {
 			return err
 		}
-		table, exists, err := relations.TryGetRelation(original)
+		var table *HashTable
+		var finite FiniteTable
+		var exists bool
+		if relationLevel {
+			table, exists, err = relations.TryGetRelation(original)
+		} else {
+			finite, exists, err = relations.TryGetFiniteRelation(original)
+		}
 		if err != nil {
 			return err
 		}
@@ -126,7 +133,7 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 		if exists {
 			// transform_facts uses the finite-product converting join of the
 			// original table with the singleton fact explanation.
-			converted, err := finiteExplanationProductFromHashTable(relations, sorts, table)
+			converted, err := finiteExplanationProductFromFiniteTable(relations, sorts, finite)
 			if err != nil {
 				return err
 			}
