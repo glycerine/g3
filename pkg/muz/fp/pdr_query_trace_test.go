@@ -59,9 +59,14 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("initial status", status)
 			}
-			if output.Len() != 0 {
-				t.Fatal("first query emitted a reset trace", output.String())
+			queryTrace := ""
+			if mode == "enabled" {
+				queryTrace = "-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:144 ---------\nrules:\n; rule count: 1\n; predicate count: 1\n; output: fresh-trace-P\nold-fact:\nfresh-trace-P().\n(declare-rel fresh-trace-P ())\n(query fresh-trace-P)\n------------------------------------------------\n"
 			}
+			if output.String() != queryTrace {
+				t.Fatalf("initial query trace got %q; want %q", output.String(), queryTrace)
+			}
+			output.Reset()
 			qa, err := m.MkApp(q, nil)
 			fragmentMust(t, err)
 			fragmentMust(t, e.AddRule(qa, "first-fresh"))
@@ -80,6 +85,7 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 			if mode == "enabled" {
 				expected = "-------- [pdr] check_reset src/muz/pdr/pdr_dl_interface.cpp:68 ---------\nFresh rule first-fresh:\nfresh-trace-Q().\n------------------------------------------------\n"
 			}
+			expected += queryTrace
 			if got := output.String(); got != expected {
 				t.Fatalf("fresh-rule trace got %q; want %q", got, expected)
 			}
@@ -90,7 +96,7 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("repeat status", status)
 			}
-			if output.Len() != 0 || m.Stats().LiveReferences != before {
+			if output.String() != queryTrace || m.Stats().LiveReferences != before {
 				t.Fatal("repeat emitted trace or changed ownership", output.String())
 			}
 		})

@@ -85093,7 +85093,7 @@
           "name": "context display_smt2 pending raw-formula handoff and production consumers",
           "status": "partial",
           "go_target": "pkg/muz/base/context_smt2.go",
-          "reason": "The finalized dump formatter and all three print switches are implemented; pending raw-formula normalization, PDR TRACE wiring, source ostream-failure operand continuation at that caller and API routing remain open. Existing RuleSet.WriteSMT2 remains a separate explicit all-rule plain-HORN export."
+          "reason": "The finalized dump formatter and all three print switches are implemented and used by the PDR TRACE caller, including source ostream-failure operand continuation. Pending raw-formula normalization and API routing remain open. Existing RuleSet.WriteSMT2 remains a separate explicit all-rule plain-HORN export."
         },
         {
           "name": "admitted Go fixedpoint engine disposal invalidates query snapshots and blocks ordinary operations after a solver guard-disabling refusal while allowing Close retry",
@@ -89389,6 +89389,7 @@
         "pkg/muz/fp/pdr_engine.go",
         "pkg/muz/fp/pdr_query_trace.go",
         "pkg/muz/fp/pdr_query_trace_test.go",
+        "pkg/muz/fp/pdr_transformed_trace_test.go",
         "pkg/muz/fp/horn_rule_lifecycle_test.go",
         "pkg/muz/fp/pdr_query_verbose.go",
         "pkg/muz/fp/pdr_query_verbose_test.go",
@@ -89483,6 +89484,13 @@
       "ownership_audited": true,
       "methods": [
         {
+          "name": "query transformed-rule TRACE and source context SMT2 dump with parameter profiles and nonthrowing ostream operand continuation (pdr_dl_interface.cpp:144-148)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/pdr_query_trace.go", "pkg/muz/fp/pdr_query_trace_test.go", "pkg/muz/fp/pdr_transformed_trace_test.go", "pkg/muz/base/context_smt2.go"],
+          "tests": ["TestPDRFreshRuleTraceOrderGateAndStreamFailure", "TestPDRTransformedTraceUsesContextPrintProfiles", "TestPDRTransformedTraceStreamFailureKeepsLaterOperandErrors"],
+          "reason": "Initial/reused PDR queries emit the source listing then context dump, borrowing ordered raw background assertions or a nontrivial aggregate. Both print formats, low-level expressions, declared-variable control and post-stream-failure exceptions are covered. Disabled tags skip operands; failed formatting invalidates public results and supports retry. Other interface query checkpoints remain under audit."
+        },
+        {
           "name": "check_reset first uncovered-rule TRACE preserves source scan order and continues after ostream refusal on the same-query rule-update path (pdr_dl_interface.cpp:68)",
           "status": "ported",
           "go_targets": ["pkg/muz/fp/horn_rule_lifecycle.go", "pkg/muz/fp/pdr_rule_lifecycle.go", "pkg/muz/fp/pdr_query_trace.go", "pkg/muz/fp/horn_rule_lifecycle_test.go", "pkg/muz/fp/pdr_query_trace_test.go"],
@@ -89506,7 +89514,7 @@
           "name": "check_reset/query source TRACE checkpoints",
           "status": "partial",
           "go_target": "pkg/muz/fp/pdr_engine.go",
-          "reason": "The same-query fresh-rule reset TRACE is implemented; pre-transform background/query/rules TRACE, post-transform rule/SMT2 TRACE and different-root/configuration rebuild diagnostic paths remain unimplemented or unverified. The interface stays partial; implemented verbose branches alone do not close diagnostics."
+          "reason": "Fresh-rule reset and post-transform rule/SMT2 TRACE are implemented; pre-transform background/query/original-rules TRACE and different-root/configuration rebuild diagnostic paths remain unimplemented or unverified. The interface stays partial; implemented verbose branches alone do not close diagnostics."
         },
         {
           "name": "PDR and QPDR query preprocessing excludes relational filter/simple-join normalization and preserves original rules across repeated SAT/UNSAT queries",
