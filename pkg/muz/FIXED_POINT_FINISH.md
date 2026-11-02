@@ -307,6 +307,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [x] `src/muz/clp/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/clp/clp_context.cpp` (partial), `src/muz/clp/clp_context.h` (partial)
   - [x] Stateless source-true answers and retryable grounding cleanup preserving fresh constants plus unpublished substitution results across native refusal.
+  - [x] Rule attempts unify grounded heads/tails and shared fresh constants under one retryable cleanup owner.
 
 ### dataflow
 
@@ -909,3 +910,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Duality query cleanup now enters an explicit pending state before child disposal. A refused native child close preserves the concrete run while all query/model/counterexample operations reject; cleanup retry completes idempotently and reaches zero final budget. A real safe query reproduces the refusal and verifies the result boundary. Focused tests passed in 0.008s and the complete native Duality package passed in 1.048s. Wider backend lifecycle and interface closure remain open.
 
 - 2026-11-02 — Closed three test-only allocation/recovery frontiers without speculative production changes. Nonlinear BMC two-branch trace/proof campaigns cross every reachable allocation refusal with exact live-byte stability and zero final budget; quantified late-publication ordering was independently confirmed already correct. DDNF now compares exact uninterrupted and retry DAGs across 80 dense insertion thresholds. Spacer evaluator exception tracing tolerates writer refusal as caught unknown with unchanged references and fresh-evaluator recovery. Complete native BMC/DDNF and focused Spacer tests passed in 0.556s/0.043s and 20 consecutive trace runs. Remaining source gaps are unchanged.
+
+- 2026-11-02 — Unified CLP rule-attempt ownership: grounded heads, every grounded tail and shared rule-local fresh constants now retire through one retryable cleanup root instead of independent lossy defers. A real native refusal preserves exact grounded/fresh references and usability, then Cleanup retires all owners. Focused search/order/allocation tests passed in 0.071s and the complete native CLP package passed in 0.142s. Broader search/source audit remains open.

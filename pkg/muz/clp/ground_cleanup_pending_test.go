@@ -25,10 +25,11 @@ func TestCLPGroundCleanupPreservesFreshConstantsOnNativeRefusal(t *testing.T) {
 	var environment *groundEnvironment
 	var failure error
 	var result ast.ASTRef
+	var refuse func() error
 	active := false
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
 		if active && failure == nil {
-			failure = environment.disposeResult(&result, false)
+			failure = refuse()
 		}
 		return f
 	}})
@@ -61,6 +62,7 @@ func TestCLPGroundCleanupPreservesFreshConstantsOnNativeRefusal(t *testing.T) {
 	must(err)
 	originalResult := result
 	environment = &groundEnvironment{manager: manager, values: []ast.ASTHandle{fresh}, refs: []ast.ASTRef{ref}}
+	refuse = func() error { return environment.disposeResult(&result, false) }
 
 	value, err := numbers.NewValue()
 	must(err)
@@ -91,5 +93,46 @@ func TestCLPGroundCleanupPreservesFreshConstantsOnNativeRefusal(t *testing.T) {
 	must(cleanup.Cleanup())
 	if environment.refs != nil || environment.values != nil {
 		t.Fatal("cleanup retry did not retire grounding owners")
+	}
+
+	variable, err := manager.MkVar(0, boolean)
+	must(err)
+	attemptEnvironment := &groundEnvironment{manager: manager}
+	grounded, err := attemptEnvironment.ground(variable)
+	must(err)
+	owner := &ruleAttemptOwner{manager: manager, environment: attemptEnvironment}
+	owner.take(grounded)
+	originalGrounded := grounded
+	originalFresh := append([]ast.ASTRef(nil), attemptEnvironment.refs...)
+	failure = nil
+	refuse = owner.dispose
+	must(runtime.SetMaxCount(uint64(runtime.State().GlobalCount) + 1))
+	invocation = ast.ASTArithmeticNumeralInvocation{}
+	active = true
+	_, body = manager.ArithmeticNumeralWithInvocation(&value, false, &invocation)
+	active = false
+	must(runtime.SetMaxCount(0))
+	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
+	if body == nil || !errors.Is(failure, ast.ErrASTPending) {
+		t.Fatal("did not reach rule-attempt cleanup refusal", body, failure)
+	}
+	if len(owner.refs) != 1 || owner.refs[0] != originalGrounded || len(attemptEnvironment.refs) != len(originalFresh) {
+		t.Fatal("refused rule-attempt cleanup lost an owner")
+	}
+	for i := range originalFresh {
+		if attemptEnvironment.refs[i] != originalFresh[i] {
+			t.Fatal("refused rule-attempt cleanup changed fresh owner", i)
+		}
+	}
+	if _, err := manager.RefGet(owner.refs[0]); err != nil {
+		t.Fatal("refused rule-attempt cleanup invalidated grounded result", err)
+	}
+	cleanup = nil
+	if !errors.As(failure, &cleanup) || cleanup.RuntimeOwner() != runtime {
+		t.Fatal("rule-attempt cleanup refusal is not retryable", failure)
+	}
+	must(cleanup.Cleanup())
+	if owner.refs != nil || attemptEnvironment.refs != nil || attemptEnvironment.values != nil || cleanup.CleanupCause() != nil {
+		t.Fatal("rule-attempt cleanup retry did not retire all owners")
 	}
 }

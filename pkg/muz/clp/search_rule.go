@@ -9,7 +9,8 @@ import (
 
 func (e *Engine) tryRule(rule *base.Rule, goals []ast.ASTHandle, depth uint32, index int) (result lbool.LBool, resultErr error) {
 	environment := &groundEnvironment{manager: e.manager}
-	defer func() { resultErr = errors.Join(resultErr, environment.dispose()) }()
+	owner := &ruleAttemptOwner{manager: e.manager, environment: environment}
+	defer func() { resultErr = errors.Join(resultErr, owner.dispose()) }()
 	head, err := rule.Head()
 	if err != nil {
 		return lbool.Undef, err
@@ -21,7 +22,7 @@ func (e *Engine) tryRule(rule *base.Rule, goals []ast.ASTHandle, depth uint32, i
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&ground)) }()
+	owner.take(ground)
 	gh, err := e.manager.RefGet(ground)
 	if err != nil {
 		return lbool.Undef, err
@@ -56,12 +57,6 @@ func (e *Engine) tryRule(rule *base.Rule, goals []ast.ASTHandle, depth uint32, i
 		return lbool.Undef, err
 	}
 	next := append([]ast.ASTHandle(nil), goals...)
-	owned := []ast.ASTRef{}
-	defer func() {
-		for i := range owned {
-			resultErr = errors.Join(resultErr, e.manager.DelRef(&owned[i]))
-		}
-	}()
 	for i := u; i < total; i++ {
 		tail, _, x := rule.Tail(i)
 		if x != nil {
@@ -71,8 +66,8 @@ func (e *Engine) tryRule(rule *base.Rule, goals []ast.ASTHandle, depth uint32, i
 		if x != nil {
 			return lbool.Undef, x
 		}
-		owned = append(owned, g)
-		h, x := e.manager.RefGet(owned[len(owned)-1])
+		owner.take(g)
+		h, x := e.manager.RefGet(owner.refs[len(owner.refs)-1])
 		if x != nil {
 			return lbool.Undef, x
 		}
@@ -102,8 +97,8 @@ func (e *Engine) tryRule(rule *base.Rule, goals []ast.ASTHandle, depth uint32, i
 		if x != nil {
 			return lbool.Undef, x
 		}
-		owned = append(owned, g)
-		h, x := e.manager.RefGet(owned[len(owned)-1])
+		owner.take(g)
+		h, x := e.manager.RefGet(owner.refs[len(owner.refs)-1])
 		if x != nil {
 			return lbool.Undef, x
 		}
