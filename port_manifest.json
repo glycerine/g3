@@ -88343,6 +88343,7 @@
         "pkg/cmd_context/tactic_descriptions.go",
         "pkg/api/api_tactic_horn_alias_test.go",
         "pkg/muz/fp/horn_tactic.go",
+        "pkg/muz/fp/horn_tactic_predicate_boundary_test.go",
         "pkg/muz/fp/horn_tactic_simplify.go",
         "pkg/muz/fp/horn_tactic_simplify_test.go",
         "pkg/muz/fp/horn_simplify_pipeline_test.go",
@@ -88353,6 +88354,7 @@
       ],
       "tests": [
         "TestAPIHornSimplifyNamedFactory",
+        "TestHornTacticPredicateRegistrationBoundaries",
         "TestAPIUFBVRewriterSourceFactoryAlias",
         "TestHornTacticSelectsPDRForInfiniteDomainGoal",
         "TestHornTacticReturnsPDRModelForInfiniteDomainGoal",
@@ -88384,6 +88386,12 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {
+          "name": "check_predicate Boolean connective traversal and opaque theory/predicate-argument boundaries",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/horn_tactic.go", "pkg/muz/fp/horn_tactic_predicate_boundary_test.go"],
+          "tests": ["TestHornTacticPredicateRegistrationBoundaries"]
+        },
         {
           "name": "Retained Horn verification path: register Boolean predicates, normalize disjunctive clauses, preserve universally quantified implications, combine zero or more query clauses through a fresh predicate, select finite Datalog or infinite PDR, and convert reachability to a decided tactic goal",
           "status": "ported",

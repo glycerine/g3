@@ -101,11 +101,14 @@ func (t *HornTactic) predicate(expression ast.ASTHandle) (ast.ASTHandle, bool, e
 func (t *HornTactic) registerPredicates(engine *PropositionalEngine, root ast.ASTHandle, seen map[ast.ASTHandle]bool) error {
 	if declaration, yes, err := t.predicate(root); err != nil {
 		return err
-	} else if yes && !seen[declaration] {
-		if err = engine.RegisterPredicate(declaration); err != nil {
-			return err
+	} else if yes {
+		if !seen[declaration] {
+			if err = engine.RegisterPredicate(declaration); err != nil {
+				return err
+			}
+			seen[declaration] = true
 		}
-		seen[declaration] = true
+		return nil
 	}
 	kind, err := t.manager.GetKind(root)
 	if err != nil {
@@ -121,11 +124,28 @@ func (t *HornTactic) registerPredicates(engine *PropositionalEngine, root ast.AS
 	if kind != ast.ASTApp {
 		return nil
 	}
+	family, err := t.manager.GetFamilyID(root)
+	if err != nil || family != t.manager.BasicFamilyID() {
+		return err
+	}
+	operation, err := t.manager.GetDeclKind(root)
+	if err != nil {
+		return err
+	}
+	first := uint32(0)
+	switch operation {
+	case ast.ASTOpNot, ast.ASTOpAnd, ast.ASTOpOr, ast.ASTOpImplies:
+	case ast.ASTOpIte:
+		first = 1 // The condition is a theory constraint, not a relation.
+	default:
+		return nil
+	}
 	count, err := t.manager.GetNumArgs(root)
 	if err != nil {
 		return err
 	}
-	for index := uint32(0); index < count; index++ {
+	for index := count; index > first; {
+		index-- // Source check_predicate processes its explicit stack last-first.
 		child, x := t.manager.GetArg(root, index)
 		if x != nil {
 			return x
