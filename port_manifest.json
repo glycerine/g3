@@ -99995,8 +99995,8 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/spacer/manager.go", "pkg/muz/spacer/inductive_property.go", "pkg/muz/spacer/context.go"],
-      "tests": ["TestSpacerManagerBuildsStateAndPropSolverServices", "TestSymMuxClassifiesCollectsAndFiltersStateLiterals", "TestSpacerInductivePropertyBuildsNullaryAndAbstractedModels", "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms"],
+      "go_targets": ["pkg/muz/spacer/manager.go", "pkg/muz/spacer/inductive_property.go", "pkg/muz/fp/expression_model_failure_test.go", "pkg/muz/spacer/context.go"],
+      "tests": ["TestSpacerManagerBuildsStateAndPropSolverServices", "TestSymMuxClassifiesCollectsAndFiltersStateLiterals", "TestSpacerInductivePropertyBuildsNullaryAndAbstractedModels", "TestExpressionModelAllocationFailurePublicationAndRetry", "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms"],
       "assertions": [
         {
           "line": 193,
@@ -100029,7 +100029,9 @@
           "name": "inductive_property model conversion and expression/SMT2 export",
           "status": "ported",
           "go_target": "pkg/muz/spacer/inductive_property.go",
-          "tests": ["TestSpacerInductivePropertyBuildsNullaryAndAbstractedModels", "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms"]
+          "go_targets": ["pkg/muz/fp/expression_model_failure_test.go"],
+          "tests": ["TestSpacerInductivePropertyBuildsNullaryAndAbstractedModels", "TestExpressionModelAllocationFailurePublicationAndRetry", "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms"],
+          "reason": "Dense allocation failure through first success preserves nil publication, closes the constructed model owner, replays cone conversions on retry and rejects stale queries before allocation."
         },
         {
           "name": "inductive_property rule-validation diagnostic display",

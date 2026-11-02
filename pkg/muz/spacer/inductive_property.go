@@ -119,9 +119,12 @@ func (p *InductiveProperty) Model() (result *model.Model, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
+	// Explicit nil error returns overwrite result before deferred cleanup runs.
+	// Keep the constructed owner independently until publication succeeds.
+	ownedModel := result
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+			resultErr = errors.Join(resultErr, ownedModel.Close())
 			result = nil
 		}
 	}()
