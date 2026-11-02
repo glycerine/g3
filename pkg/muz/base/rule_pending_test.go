@@ -20,11 +20,19 @@ func TestRuleClosePreservesOwnersDuringASTInvocation(t *testing.T) {
 	}
 	budget := arena.NewBudget(1 << 28)
 	var rule, shared *Rule
+	var set, replacement *RuleSet
 	active, callbacks, intact := false, 0, true
 	var closeErr error
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
 		if active {
 			callbacks++
+			if set != nil {
+				count, outputs, mappings, finalized := len(set.rules), len(set.outputs), len(set.mappingReferences), set.finalized
+				for _, closeSet := range []func() error{set.Reset, set.Close, func() error { return set.ReplaceRules(replacement) }} {
+					err := closeSet()
+					intact = intact && errors.Is(err, ast.ErrASTPending) && !set.closed && len(set.rules) == count && len(set.outputs) == outputs && len(set.mappingReferences) == mappings && set.finalized == finalized
+				}
+			}
 			if shared != nil {
 				must(shared.Close())
 				shared = nil
@@ -60,6 +68,12 @@ func TestRuleClosePreservesOwnersDuringASTInvocation(t *testing.T) {
 		if rule != nil {
 			must(rule.Close())
 		}
+		if set != nil {
+			must(set.Close())
+		}
+		if replacement != nil {
+			must(replacement.Close())
+		}
 		must(rules.Close())
 		must(m.Close())
 		must(numbers.Close())
@@ -85,6 +99,22 @@ func TestRuleClosePreservesOwnersDuringASTInvocation(t *testing.T) {
 	must(rules.MkRuleAssertedProof(rule))
 	shared, err = rule.Retain()
 	must(err)
+	set, err = NewRuleSet(rules)
+	must(err)
+	replacement, err = NewRuleSet(rules)
+	must(err)
+	setRule, err := rules.NewRule(head, nil, nil, "set-owner")
+	must(err)
+	must(set.Add(setRule))
+	must(setRule.Close())
+	must(set.SetOutputPredicate(declaration))
+	must(set.InheritPredicate(set, declaration, declaration))
+	valid, err := set.Finalize()
+	must(err)
+	if !valid {
+		t.Fatal("invalid pending rule set")
+	}
+
 	value, err := numbers.NewValue()
 	must(err)
 	defer func() { must(numbers.Del(&value)) }()
@@ -116,6 +146,21 @@ func TestRuleClosePreservesOwnersDuringASTInvocation(t *testing.T) {
 	if tail != auxiliary {
 		t.Fatal("pending close changed tail")
 	}
+	count, err := set.Len()
+	must(err)
+	if count != 1 {
+		t.Fatal("pending cleanup changed program")
+	}
+	must(set.Reset())
+	count, err = set.Len()
+	must(err)
+	if count != 0 {
+		t.Fatal("reset retry did not empty program")
+	}
+	must(set.Add(rule))
+	must(set.SetOutputPredicate(declaration))
+	must(set.Close())
+	must(set.Close())
 	must(rule.Close())
 	must(rule.Close())
 	// Exercise a real post-admission refusal through active cost recording on
@@ -144,4 +189,53 @@ func TestRuleClosePreservesOwnersDuringASTInvocation(t *testing.T) {
 	must(recorder.Finish())
 	must(child.Close())
 	must(child.Close())
+	// Reset must also preserve progress when a later release is refused after
+	// another rule has already been destroyed.
+	head, err = m.MkApp(declaration, nil)
+	must(err)
+	partial, err := NewRuleSet(rules)
+	must(err)
+	defer func() { must(partial.Close()) }()
+	for i := 0; i < 2; i++ {
+		owned, e := rules.NewRule(head, nil, nil, "partial-reset")
+		must(e)
+		must(partial.Add(owned))
+		must(owned.Close())
+	}
+	must(partial.SetOutputPredicate(declaration))
+	must(partial.InheritPredicate(partial, declaration, declaration))
+	valid, err = partial.Finalize()
+	must(err)
+	if !valid {
+		t.Fatal("invalid partial reset fixture")
+	}
+	blocked := partial.rules[0]
+	recorder2 := NewCostRecorder()
+	defer func() { must(recorder2.Close()) }()
+	must(recorder2.Start(blocked.state.accounting))
+	refusal = partial.Reset()
+	if !errors.Is(refusal, ErrCosts) || partial.closed || !partial.cleanupPending || len(partial.rules) != 1 || partial.rules[0] != blocked || len(partial.outputs) != 1 || len(partial.mappingReferences) != 2 {
+		t.Fatal("partial reset discarded remaining owners", refusal)
+	}
+	if _, e := partial.Len(); !errors.Is(e, ErrRuleSetOwner) {
+		t.Fatal("partially reset program remained observable", e)
+	}
+	for _, copyPartial := range []func() error{func() error { return replacement.AddRules(partial) }, func() error { return replacement.InheritPredicates(partial) }, func() error { return replacement.ReplaceRules(partial) }, func() error { return partial.ReplaceRules(partial) }} {
+		if e := copyPartial(); !errors.Is(e, ErrRuleSetOwner) {
+			t.Fatal("partially reset source was accepted", e)
+		}
+	}
+	if n, e := replacement.Len(); e != nil || n != 0 || len(replacement.outputs) != 0 {
+		t.Fatal("refused partial source changed destination", n, e)
+	}
+	must(recorder2.Finish())
+	must(partial.ReplaceRules(replacement))
+	count, err = partial.Len()
+	must(err)
+	if count != 0 || partial.cleanupPending {
+		t.Fatal("replacement did not finish cleanup")
+	}
+	must(partial.Close())
+	must(partial.Close())
+
 }

@@ -85703,6 +85703,12 @@
       "ownership_audited": true,
       "methods": [
         {
+          "name": "rule_set reset/close/replace preserve unconsumed owners across pending AST entry and accounting refusal; partially reset sets reject ordinary access and copying until cleanup resumes",
+          "status": "ported",
+          "go_targets": ["pkg/muz/base/rule_set.go", "pkg/muz/base/rule_pending_test.go"],
+          "tests": ["TestRuleClosePreservesOwnersDuringASTInvocation"]
+        },
+        {
           "name": "rule_set::display default and profiled output header, output predicate, grouped rule emission, threshold filtering, and attached proof rendering (dl_rule_set.cpp:512-533)",
           "status": "ported",
           "go_target": "pkg/muz/base/rule_set_display.go",

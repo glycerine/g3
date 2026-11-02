@@ -35,6 +35,7 @@ type RuleSet struct {
 	mappingReferences   []ast.ASTRef
 	finalized           bool
 	closed              bool
+	cleanupPending      bool
 }
 
 func NewRuleSet(manager *RuleManager) (*RuleSet, error) {
@@ -52,11 +53,21 @@ func NewRuleSet(manager *RuleManager) (*RuleSet, error) {
 	}, nil
 }
 
-func (s *RuleSet) open() error {
+func (s *RuleSet) openForCleanup() error {
 	if s == nil || s.closed || s.manager == nil {
 		return ErrRuleSetOwner
 	}
 	return s.manager.open()
+}
+
+func (s *RuleSet) open() error {
+	if err := s.openForCleanup(); err != nil {
+		return err
+	}
+	if s.cleanupPending {
+		return ErrRuleSetOwner
+	}
+	return nil
 }
 
 // RuleManager returns the borrowed manager used to construct rules in this set.
@@ -160,8 +171,11 @@ func (s *RuleSet) AddRules(other *RuleSet) error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	if other == nil || other.closed || other.manager != s.manager {
+	if other == nil || other.manager != s.manager {
 		return ErrRuleSetOwner
+	}
+	if err := other.open(); err != nil {
+		return err
 	}
 	if other == s {
 		return nil
@@ -296,8 +310,11 @@ func (s *RuleSet) InheritPredicate(other *RuleSet, original, predicate ast.ASTHa
 	if err := s.open(); err != nil {
 		return err
 	}
-	if other == nil || other.closed || other.manager != s.manager {
+	if other == nil || other.manager != s.manager {
 		return ErrRuleSetOwner
+	}
+	if err := other.open(); err != nil {
+		return err
 	}
 	isOutput, err := other.IsOutputPredicate(original)
 	if err != nil {
@@ -328,8 +345,11 @@ func (s *RuleSet) InheritPredicates(other *RuleSet) error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	if other == nil || other.closed || other.manager != s.manager {
+	if other == nil || other.manager != s.manager {
 		return ErrRuleSetOwner
+	}
+	if err := other.open(); err != nil {
+		return err
 	}
 	for _, declaration := range other.outputOrder {
 		if err := s.SetOutputPredicate(declaration); err != nil {
@@ -655,17 +675,43 @@ func (s *RuleSet) SplitFounded() (founded, nonFounded []ast.ASTHandle, err error
 	return founded, nonFounded, nil
 }
 
-func (s *RuleSet) resetContents() (result error) {
-	for i := len(s.rules) - 1; i >= 0; i-- {
-		result = errors.Join(result, s.rules[i].Close())
+func (s *RuleSet) resetContents() error {
+	if err := s.openForCleanup(); err != nil {
+		return err
+	}
+	if _, err := s.manager.manager.ProofMode(); err != nil {
+		return err
+	}
+	s.cleanupPending = true
+	for len(s.rules) > 0 {
+		last := len(s.rules) - 1
+		if err := s.rules[last].Close(); err != nil {
+			return err
+		}
+		s.rules[last] = nil
+		s.rules = s.rules[:last]
 	}
 	for declaration, reference := range s.outputs {
 		ref := reference
-		result = errors.Join(result, s.manager.manager.DelRef(&ref))
-		delete(s.outputs, declaration)
+		err := s.manager.manager.DelRef(&ref)
+		if ref == (ast.ASTRef{}) {
+			delete(s.outputs, declaration)
+		} else {
+			s.outputs[declaration] = ref
+		}
+		if err != nil {
+			return err
+		}
 	}
-	for i := len(s.mappingReferences) - 1; i >= 0; i-- {
-		result = errors.Join(result, s.manager.manager.DelRef(&s.mappingReferences[i]))
+	for len(s.mappingReferences) > 0 {
+		last := len(s.mappingReferences) - 1
+		err := s.manager.manager.DelRef(&s.mappingReferences[last])
+		if s.mappingReferences[last] == (ast.ASTRef{}) {
+			s.mappingReferences = s.mappingReferences[:last]
+		}
+		if err != nil {
+			return err
+		}
 	}
 	s.rules = nil
 	s.byHead = make(map[ast.ASTHandle][]*Rule)
@@ -678,12 +724,15 @@ func (s *RuleSet) resetContents() (result error) {
 	s.predicateToOriginal = make(map[ast.ASTHandle]ast.ASTHandle)
 	s.mappingReferences = nil
 	s.finalized = false
-	return result
+	s.cleanupPending = false
+	return nil
 }
 
-// Reset releases all retained program state while keeping the set reusable.
+// Reset releases all program state while keeping the set reusable. If a
+// release fails after cleanup starts, only Reset, ReplaceRules and Close may
+// resume the set until the remaining owners have been released.
 func (s *RuleSet) Reset() error {
-	if err := s.open(); err != nil {
+	if err := s.openForCleanup(); err != nil {
 		return err
 	}
 	return s.resetContents()
@@ -692,14 +741,20 @@ func (s *RuleSet) Reset() error {
 // ReplaceRules resets this set and retains all rules and predicate mappings
 // from other.
 func (s *RuleSet) ReplaceRules(other *RuleSet) error {
-	if err := s.open(); err != nil {
+	if err := s.openForCleanup(); err != nil {
 		return err
 	}
 	if other == s {
+		if s.cleanupPending {
+			return ErrRuleSetOwner
+		}
 		return nil
 	}
-	if other == nil || other.closed || other.manager != s.manager {
+	if other == nil || other.manager != s.manager {
 		return ErrRuleSetOwner
+	}
+	if err := other.open(); err != nil {
+		return err
 	}
 	if err := s.resetContents(); err != nil {
 		return err
@@ -707,14 +762,16 @@ func (s *RuleSet) ReplaceRules(other *RuleSet) error {
 	return s.AddRules(other)
 }
 
-func (s *RuleSet) Close() (result error) {
+func (s *RuleSet) Close() error {
 	if s == nil || s.manager == nil {
 		return ErrRuleSetOwner
 	}
 	if s.closed {
 		return nil
 	}
-	result = s.resetContents()
+	if err := s.resetContents(); err != nil {
+		return err
+	}
 	s.closed = true
-	return result
+	return nil
 }
