@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 // groundEnvironment owns the rule-local fresh constants shared by the head
@@ -17,14 +18,63 @@ type groundEnvironment struct {
 	refs    []ast.ASTRef
 }
 
-func (g *groundEnvironment) close() (result error) {
+type groundCleanupFailure struct {
+	cause       error
+	cleanupErr  error
+	environment *groundEnvironment
+}
+
+func (f *groundCleanupFailure) Error() string { return f.cause.Error() }
+func (f *groundCleanupFailure) Unwrap() error { return f.cause }
+func (f *groundCleanupFailure) Cleanup() error {
+	f.cleanupErr = f.environment.close()
+	return f.cleanupErr
+}
+func (f *groundCleanupFailure) RuntimeOwner() *memory.Runtime {
+	return f.environment.manager.NumeralService().RuntimeOwner()
+}
+func (f *groundCleanupFailure) OriginalCause() error { return f.cause }
+func (f *groundCleanupFailure) CleanupCause() error  { return f.cleanupErr }
+
+func (g *groundEnvironment) dispose() error {
+	if err := g.close(); err != nil {
+		return &groundCleanupFailure{cause: err, cleanupErr: err, environment: g}
+	}
+	return nil
+}
+
+// disposeResult also owns result when its construction failed, or when the
+// environment itself could not be retired. This prevents a successful
+// substitution result from becoming unreachable behind a cleanup error.
+func (g *groundEnvironment) disposeResult(result *ast.ASTRef, discard bool) error {
+	err := g.close()
+	if result != nil && *result != (ast.ASTRef{}) && (discard || err != nil) {
+		if err == nil {
+			err = g.manager.DelRef(result)
+		}
+		if *result != (ast.ASTRef{}) {
+			g.refs = append(g.refs, *result)
+			g.values = append(g.values, ast.ASTHandle{})
+			*result = ast.ASTRef{}
+		}
+	}
+	if err != nil {
+		return &groundCleanupFailure{cause: err, cleanupErr: err, environment: g}
+	}
+	return nil
+}
+
+func (g *groundEnvironment) close() error {
 	for i := len(g.refs) - 1; i >= 0; i-- {
 		if g.refs[i] != (ast.ASTRef{}) {
-			result = errors.Join(result, g.manager.DelRef(&g.refs[i]))
+			if err := g.manager.DelRef(&g.refs[i]); err != nil {
+				return err
+			}
+			g.values[i] = ast.ASTHandle{}
 		}
 	}
 	g.values, g.refs = nil, nil
-	return result
+	return nil
 }
 
 func (g *groundEnvironment) ground(h ast.ASTHandle) (out ast.ASTRef, resultErr error) {
@@ -94,11 +144,7 @@ func (g *groundEnvironment) ground(h ast.ASTHandle) (out ast.ASTRef, resultErr e
 func (e *Engine) ground(h ast.ASTHandle) (out ast.ASTRef, resultErr error) {
 	environment := &groundEnvironment{manager: e.manager}
 	defer func() {
-		resultErr = errors.Join(resultErr, environment.close())
-		if resultErr != nil && out != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, e.manager.DelRef(&out))
-			out = ast.ASTRef{}
-		}
+		resultErr = errors.Join(resultErr, environment.disposeResult(&out, resultErr != nil))
 	}()
 	return environment.ground(h)
 }

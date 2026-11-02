@@ -9,7 +9,7 @@ import (
 
 func (e *Engine) tryRule(rule *base.Rule, goals []ast.ASTHandle, depth uint32, index int) (result lbool.LBool, resultErr error) {
 	environment := &groundEnvironment{manager: e.manager}
-	defer func() { resultErr = errors.Join(resultErr, environment.close()) }()
+	defer func() { resultErr = errors.Join(resultErr, environment.dispose()) }()
 	head, err := rule.Head()
 	if err != nil {
 		return lbool.Undef, err

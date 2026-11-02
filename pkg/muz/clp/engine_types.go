@@ -31,7 +31,6 @@ type Engine struct {
 	solver  Solver
 	depth   uint32
 	stats   Statistics
-	answer  ast.ASTRef
 	closed  bool
 }
 

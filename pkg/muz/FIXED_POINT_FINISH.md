@@ -304,6 +304,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - [x] `src/muz/clp/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/clp/clp_context.cpp` (partial), `src/muz/clp/clp_context.h` (partial)
+  - [x] Stateless source-true answers and retryable grounding cleanup preserving fresh constants plus unpublished substitution results across native refusal.
 
 ### dataflow
 
@@ -895,3 +896,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Ported legacy Datalog parser constant-left infix bodies and adjacent integer-string constant construction. Finite string/numeric equality, integer less-than, source greater-than reversal, quoted integer parsing and constant-only rejection preserve operand orientation and require at least one previously typed variable. New focused cases passed in 0.018s and all native Datalog parser/lexer tests passed in 0.059s. Broader parser source and ownership audits remain open.
 
 - 2026-11-02 — Made PDR replacement ownership retry-safe across source destructor, parameter-update and reset paths. Snapshot/statistics failure or native context Close refusal leaves the old engine/revision/statistics reachable; archived counters merge only after successful close. Superseded transformed/source RuleSets close before new snapshots publish, while caller defers keep unpublished replacements safe. Real native-refusal regressions verify owner identity, retry, idempotence and zero final budget; focused lifecycle matrices passed in 0.035s/0.012s. Broader PDR interface auditing remains open.
+
+- 2026-11-02 — Matched CLP's stateless `get_answer` by constructing true on demand and removing its non-source persistent answer root. Grounding cleanup now retires fresh constants incrementally, preserves exact remaining constants plus a successfully constructed unpublished substitution across native AST refusal, and exposes a complete retryable construction-failure contract. Focused lifecycle/allocation tests passed in 0.083s and the complete native CLP package passed in 0.126s. Temporary search ownership beyond the exercised grounding path and full unit audit remain open.

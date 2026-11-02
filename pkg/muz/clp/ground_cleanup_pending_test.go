@@ -1,0 +1,95 @@
+package clp
+
+// Source: src/muz/clp/clp_context.cpp imp::m_ground/reset_ground ownership.
+// Rule-local fresh constants stay owned until expr_ref_vector cleanup succeeds.
+
+import (
+	"errors"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/memory"
+	"github.com/glycerine/g3/pkg/util/numeral"
+	"github.com/glycerine/g3/pkg/util/symbol"
+)
+
+func TestCLPGroundCleanupPreservesFreshConstantsOnNativeRefusal(t *testing.T) {
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	budget := arena.NewBudget(1 << 28)
+	var environment *groundEnvironment
+	var failure error
+	var result ast.ASTRef
+	active := false
+	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
+		if active && failure == nil {
+			failure = environment.disposeResult(&result, false)
+		}
+		return f
+	}})
+	must(err)
+	numbers, err := numeral.NewRationalService(numeral.RationalServiceConfig{Integers: numeral.IntegerConfig{Memory: runtime, Profile: memory.SmallAllocatorProfile{PointerBits: 64, Debug: true}, Cells: arena.Config{Budget: budget}, Words: arena.VectorConfig{Descriptors: arena.Config{Budget: budget}}}})
+	must(err)
+	symbols, err := symbol.NewManager(symbol.Config{Budget: budget})
+	must(err)
+	manager, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: symbols, Numerals: numbers, Budget: budget})
+	must(err)
+	defer func() {
+		must(manager.Close())
+		must(numbers.Close())
+		must(symbols.Close())
+		must(runtime.Close())
+		if budget.Used() != 0 {
+			t.Fatal("fixture leaked bytes", budget.Used())
+		}
+	}()
+	_, err = manager.RegisterArithmeticPlugin()
+	must(err)
+	boolean, err := manager.MkBoolSort()
+	must(err)
+	fresh, err := manager.MkFreshConst("clp-ground-owner", boolean)
+	must(err)
+	ref, err := manager.NewRef(fresh)
+	must(err)
+	original := ref
+	result, err = manager.CopyRef(ref)
+	must(err)
+	originalResult := result
+	environment = &groundEnvironment{manager: manager, values: []ast.ASTHandle{fresh}, refs: []ast.ASTRef{ref}}
+
+	value, err := numbers.NewValue()
+	must(err)
+	defer func() { must(numbers.Del(&value)) }()
+	must(numbers.SetString(&value, "18446744073709551617/18446744073709551619"))
+	must(runtime.SetMaxCount(uint64(runtime.State().GlobalCount) + 1))
+	var invocation ast.ASTArithmeticNumeralInvocation
+	active = true
+	_, body := manager.ArithmeticNumeralWithInvocation(&value, false, &invocation)
+	active = false
+	must(runtime.SetMaxCount(0))
+	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
+	if body == nil || !errors.Is(failure, ast.ErrASTPending) {
+		t.Fatal("did not reach native cleanup refusal", body, failure)
+	}
+	if result != (ast.ASTRef{}) || len(environment.refs) != 2 || environment.refs[0] != original || environment.refs[1] != originalResult || environment.values[0] != fresh {
+		t.Fatal("refused cleanup lost its fresh-constant owner")
+	}
+	for i := range environment.refs {
+		if _, err := manager.RefGet(environment.refs[i]); err != nil {
+			t.Fatal("refused cleanup invalidated its owner", i, err)
+		}
+	}
+	var cleanup memory.ConstructionFailure
+	if !errors.As(failure, &cleanup) {
+		t.Fatal("cleanup refusal is not retryable", failure)
+	}
+	must(cleanup.Cleanup())
+	if environment.refs != nil || environment.values != nil {
+		t.Fatal("cleanup retry did not retire grounding owners")
+	}
+}

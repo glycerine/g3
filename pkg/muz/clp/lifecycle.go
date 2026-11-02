@@ -1,9 +1,6 @@
 package clp
 
-import (
-	"errors"
-	"github.com/glycerine/g3/pkg/ast"
-)
+import "github.com/glycerine/g3/pkg/ast"
 
 // Statistics returns the source counters, which its search leaves unchanged.
 func (e *Engine) Statistics() (Statistics, error) {
@@ -23,11 +20,7 @@ func (e *Engine) Answer() (ast.ASTHandle, error) {
 	if err := e.open(); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	h, err := e.manager.RefGet(e.answer)
-	if err != nil || h.IsNull() {
-		return e.manager.MkTrue()
-	}
-	return h, nil
+	return e.manager.MkTrue()
 }
 func (e *Engine) Close() error {
 	if e == nil {
@@ -35,13 +28,6 @@ func (e *Engine) Close() error {
 	}
 	if e.closed {
 		return nil
-	}
-	var err error
-	if e.answer != (ast.ASTRef{}) {
-		err = e.manager.DelRef(&e.answer)
-		if err != nil {
-			return errors.Join(err, ErrCLP)
-		}
 	}
 	e.closed = true
 	e.manager = nil

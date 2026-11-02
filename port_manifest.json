@@ -87138,6 +87138,8 @@
         "pkg/muz/clp/engine_failure_test.go",
         "pkg/muz/clp/engine_lifecycle_test.go",
         "pkg/muz/clp/engine_grounding_integration_test.go",
+        "pkg/muz/clp/answer_source_test.go",
+        "pkg/muz/clp/ground_cleanup_pending_test.go",
         "pkg/muz/clp/engine_verbose_test.go",
         "pkg/muz/clp/engine_order_test.go",
         "pkg/muz/fp/clp_engine.go",
@@ -87149,6 +87151,8 @@
       ],
       "tests": [
         "TestCLPBoundedRecursiveQuery",
+        "TestCLPAnswerIsStatelessSourceTruth",
+        "TestCLPGroundCleanupPreservesFreshConstantsOnNativeRefusal",
         "TestCLPStatisticsRemainZeroAfterRejectedRule",
         "TestCLPGroundingClosesPartialSubstitutionOnAllocationFailure",
         "TestCLPQueryAllocationFrontiers",
@@ -87172,9 +87176,10 @@
         {"name": "stable ordering of rules by positive-tail size and backtracking across sibling goals", "status": "ported", "go_targets": ["pkg/muz/clp/rules.go", "pkg/muz/clp/search.go", "pkg/muz/clp/engine_order_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPSortsFactsBeforeRecursiveRules", "TestCLPStableRuleOrderAndBacktracking", "TestSMT2CLPBacktracksAcrossConstrainedSiblingGoals"]},
         {"name": "search verbosity levels and rule-head diagnostics", "status": "ported", "go_targets": ["pkg/muz/clp/verbose.go", "pkg/muz/clp/engine_verbose_test.go"], "tests": ["TestCLPSearchVerboseLevels", "TestCLPVerboseRuleUsesPrettyPrinterParameters"]},
         {"name": "CLP search leaves its statistics counters unchanged and reset clears them", "status": "ported", "go_targets": ["pkg/muz/clp/search.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_query_test.go", "pkg/muz/clp/engine_depth_test.go"], "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPDepthFrontierUnknown", "TestCLPStatisticsRemainZeroAfterRejectedRule"]},
-        {"name": "grounding closes partial variable substitutions and balances query allocations on failure", "status": "ported", "go_targets": ["pkg/muz/clp/ground.go", "pkg/muz/clp/engine_failure_test.go"], "tests": ["TestCLPGroundingClosesPartialSubstitutionOnAllocationFailure", "TestCLPQueryAllocationFrontiers"]},
+        {"name": "grounding closes partial variable substitutions, preserves fresh constants/results across refused native cleanup through retryable construction failure, and balances query allocations", "status": "ported", "go_targets": ["pkg/muz/clp/ground.go", "pkg/muz/clp/engine_failure_test.go", "pkg/muz/clp/ground_cleanup_pending_test.go"], "tests": ["TestCLPGroundingClosesPartialSubstitutionOnAllocationFailure", "TestCLPGroundCleanupPreservesFreshConstantsOnNativeRefusal", "TestCLPQueryAllocationFrontiers"]},
         {"name": "query constructs a synthetic rule, runs default transformations, and starts bounded search from the transformed output rule head", "status": "ported", "go_targets": ["pkg/muz/fp/clp_engine.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPQueryWrapperDoesNotMutateProgram", "TestSMT2CLPQueryDepthIncludesSyntheticRule", "TestSMT2CLPEngineConstrainedRules"]},
         {"name": "display_certificate prints the true answer for both reachable and unreachable queries", "status": "ported", "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPEngineResultSnapshotAndAnswer", "TestSMT2CLPCertificateForReachableAndUnreachable"]},
+        {"name": "get_answer constructs source true on demand without persistent engine ownership", "status": "ported", "go_targets": ["pkg/muz/clp/lifecycle.go", "pkg/muz/clp/answer_source_test.go"], "tests": ["TestCLPAnswerIsStatelessSourceTruth"]},
         {
           "name": "search: distinguish solver unknown exception from depth-limit unknown and restore scopes",
           "status": "ported",
@@ -87185,7 +87190,7 @@
           ]
         }
       ],
-      "ownership": [],
+      "ownership": ["Rule-local grounding owns fresh constants and any unpublished substitution result until cleanup succeeds; native refusal returns a retryable construction failure preserving exact remaining owners. CLP answers are stateless source true handles and add no engine-owned AST reference."],
       "deviations": [
         "Bounded search and fixedpoint integration are implemented; a full source and ownership audit remains incomplete. Go restores solver scopes on errors and successful branches, while the source can exit through an exception or successful branch without a local pop."
       ]
