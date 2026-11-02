@@ -233,6 +233,8 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	v := declaration("external-rule-v", []ast.ASTHandle{f.boolean, f.boolean, f.boolean})
 	w := declaration("external-rule-w", []ast.ASTHandle{f.boolean})
 	h := declaration("external-rule-head-assembly", []ast.ASTHandle{f.boolean, f.boolean, f.boolean, f.boolean})
+	interpreted := declaration("external-rule-interpreted", []ast.ASTHandle{f.boolean})
+	rejected := declaration("external-rule-interpreted-rejected", []ast.ASTHandle{f.boolean})
 	x, err := f.ast.MkVar(0, f.boolean)
 	astTestMust(t, err)
 	y, err := f.ast.MkVar(1, f.boolean)
@@ -254,6 +256,12 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	// passes must still propagate the fact through the chain.
 	add(app(r, x), []ast.ASTHandle{app(q, x)}, "r-from-q")
 	add(app(joined, z, x), []ast.ASTHandle{app(p, x, y), app(tail, y, z)}, "u-joins-p-t")
+	zFalse, err := f.ast.MkEq(z, f.falsehood)
+	astTestMust(t, err)
+	zTrue, err := f.ast.MkEq(z, f.truth)
+	astTestMust(t, err)
+	add(app(interpreted, x), []ast.ASTHandle{app(p, x, y), app(tail, y, z), zFalse}, "interpreted-accepts-joined-z")
+	add(app(rejected, x), []ast.ASTHandle{app(p, x, y), app(tail, y, z), zTrue}, "interpreted-rejects-joined-z")
 	add(app(s, y, x), []ast.ASTHandle{app(p, x, y)}, "s-swaps-p")
 	add(app(h, y, y, f.truth, x), []ast.ASTHandle{app(p, x, y)}, "h-repeats-and-extends-p")
 	add(app(q, x), []ast.ASTHandle{app(p, x, y)}, "q-from-p")
@@ -263,7 +271,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	add(app(tail, f.falsehood, f.falsehood), nil, "t-fact")
 	add(app(p, f.truth, f.falsehood), nil, "p-fact")
 	astTestMust(t, ExecuteExternalFactRules(plugin, set))
-	wantConstructionOrder := []ast.ASTHandle{r, q, joined, p, tail, s, h, w, v}
+	wantConstructionOrder := []ast.ASTHandle{r, q, joined, p, tail, interpreted, rejected, s, h, w, v}
 	if len(constructed) < len(wantConstructionOrder) {
 		t.Fatal("missing predicate relation construction callbacks", constructed)
 	}
@@ -282,7 +290,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	for _, tc := range []struct {
 		declaration ast.ASTHandle
 		want        []ast.ASTHandle
-	}{{p, []ast.ASTHandle{f.truth, f.falsehood}}, {q, []ast.ASTHandle{f.truth}}, {r, []ast.ASTHandle{f.truth}}, {s, []ast.ASTHandle{f.falsehood, f.truth}}, {tail, []ast.ASTHandle{f.falsehood, f.falsehood}}, {joined, []ast.ASTHandle{f.falsehood, f.truth}}, {w, []ast.ASTHandle{f.truth}}, {h, []ast.ASTHandle{f.falsehood, f.falsehood, f.truth, f.truth}}} {
+	}{{p, []ast.ASTHandle{f.truth, f.falsehood}}, {q, []ast.ASTHandle{f.truth}}, {r, []ast.ASTHandle{f.truth}}, {s, []ast.ASTHandle{f.falsehood, f.truth}}, {tail, []ast.ASTHandle{f.falsehood, f.falsehood}}, {joined, []ast.ASTHandle{f.falsehood, f.truth}}, {interpreted, []ast.ASTHandle{f.truth}}, {w, []ast.ASTHandle{f.truth}}, {h, []ast.ASTHandle{f.falsehood, f.falsehood, f.truth, f.truth}}} {
 		relation, err := plugin.PredicateRelation(tc.declaration)
 		astTestMust(t, err)
 		handle, err := relation.Relation()
@@ -295,6 +303,13 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 				t.Fatal("external rule result", rows[handle], tc.want)
 			}
 		}
+	}
+	rejectedRelation, err := plugin.PredicateRelation(rejected)
+	astTestMust(t, err)
+	rejectedHandle, err := rejectedRelation.Relation()
+	astTestMust(t, err)
+	if len(rows[rejectedHandle]) != 0 {
+		t.Fatal("interpreted external filter accepted false condition", rows[rejectedHandle])
 	}
 	if renames == 0 || joins == 0 || filters == 0 {
 		t.Fatal("richer external operations", renames, joins, filters)
@@ -371,6 +386,55 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	failEmptyAt = 0
 	if stores != beforeConstantFailureStores {
 		t.Fatal("constant singleton failure published a ground prefix", beforeConstantFailureStores, stores)
+	}
+	interpretedFailure, err := base.NewRuleSet(rules)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, interpretedFailure.Close()) }()
+	for _, item := range []struct {
+		head ast.ASTHandle
+		tail []ast.ASTHandle
+		name string
+	}{
+		{app(p, f.falsehood, f.truth), nil, "interpreted-preflight-ground"},
+		{app(r, x), []ast.ASTHandle{app(p, x, y), zTrue}, "interpreted-preflight-unbound"},
+	} {
+		rule, cause := rules.NewRule(item.head, item.tail, nil, item.name)
+		astTestMust(t, cause)
+		astTestMust(t, interpretedFailure.Add(rule))
+		astTestMust(t, rule.Close())
+	}
+	beforeInterpretedFailureStores := stores
+	if err = ExecuteExternalFactRules(plugin, interpretedFailure); !errors.Is(err, ErrCompilerUnsupported) {
+		t.Fatal("unbound interpreted variable preflight", err)
+	}
+	if stores != beforeInterpretedFailureStores {
+		t.Fatal("interpreted validation failure published a ground prefix", beforeInterpretedFailureStores, stores)
+	}
+	nonBooleanFailure, err := base.NewRuleSet(rules)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, nonBooleanFailure.Close()) }()
+	zeroBit, err := f.ast.BitVectorNumeralUint64(0, 1)
+	astTestMust(t, err)
+	astTestPin(t, f.ast, zeroBit)
+	for _, item := range []struct {
+		head ast.ASTHandle
+		tail []ast.ASTHandle
+		name string
+	}{
+		{app(p, f.falsehood, f.truth), nil, "interpreted-sort-preflight-ground"},
+		{app(r, x), []ast.ASTHandle{app(p, x, y), zeroBit}, "interpreted-sort-preflight-non-boolean"},
+	} {
+		rule, cause := rules.NewRule(item.head, item.tail, nil, item.name)
+		astTestMust(t, cause)
+		astTestMust(t, nonBooleanFailure.Add(rule))
+		astTestMust(t, rule.Close())
+	}
+	beforeNonBooleanStores := stores
+	if err = ExecuteExternalFactRules(plugin, nonBooleanFailure); !errors.Is(err, ErrCompilerUnsupported) {
+		t.Fatal("non-Boolean interpreted condition preflight", err)
+	}
+	if stores != beforeNonBooleanStores {
+		t.Fatal("non-Boolean interpreted condition published a ground prefix", beforeNonBooleanStores, stores)
 	}
 	repeated, err := base.NewRuleSet(rules)
 	astTestMust(t, err)

@@ -19,6 +19,8 @@ type externalFactRule struct {
 	joinRight   [][]uint32
 	headColumns []externalHeadColumn
 	filters     []externalTailFilter
+	interpreted []ast.ASTHandle
+	columns     map[uint32]uint32
 }
 
 type externalTailFilter struct {
@@ -71,7 +73,7 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 		return result, err
 	}
 	tails, err := rule.TailSize()
-	if err != nil || positive < 0 || uninterpreted != positive || tails != positive {
+	if err != nil || positive < 0 || uninterpreted != positive || tails < uninterpreted {
 		return result, errors.Join(err, ErrCompilerUnsupported)
 	}
 	headCount, err := manager.GetNumArgs(head)
@@ -86,6 +88,9 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 		}
 	}
 	if positive == 0 {
+		if tails != 0 {
+			return result, ErrCompilerUnsupported
+		}
 		for _, value := range headArgs {
 			valid, cause := manager.IsValue(value)
 			if cause != nil || !valid {
@@ -159,6 +164,26 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 			}
 		}
 	}
+	result.columns = make(map[uint32]uint32, len(positions))
+	for variable, column := range positions {
+		index, cause := manager.GetVarIndex(variable)
+		if cause != nil {
+			return result, cause
+		}
+		result.columns[index] = column
+	}
+	for tailIndex := uninterpreted; tailIndex < tails; tailIndex++ {
+		condition, negated, cause := rule.Tail(tailIndex)
+		if cause != nil || negated {
+			return result, errors.Join(cause, ErrCompilerUnsupported)
+		}
+		result.interpreted = append(result.interpreted, condition)
+	}
+	if len(result.interpreted) != 0 {
+		if err = validateExternalInterpretedColumns(manager, result.interpreted, result.columns); err != nil {
+			return result, err
+		}
+	}
 	result.headColumns = make([]externalHeadColumn, 0, len(headArgs))
 	for _, argument := range headArgs {
 		kind, cause := manager.GetKind(argument)
@@ -183,9 +208,9 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 }
 
 // ExecuteExternalFactRules runs the concrete source-reached external relation
-// slice: ground facts and ordered positive-tail equality joins with constant
-// and repeated-variable filters, followed by source head assembly. It
-// validates the whole set before mutation.
+// slice: ground facts and ordered positive-tail equality joins with constant,
+// repeated-variable, and bound interpreted filters, followed by source head
+// assembly. It validates the whole set before mutation.
 func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet) (resultErr error) {
 	if plugin == nil || plugin.closed || plugin.ast == nil || set == nil {
 		return ErrCompilerUnsupported
@@ -333,6 +358,11 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 					return joinErr
 				}
 				value = joined
+			}
+			if len(entry.interpreted) != 0 {
+				if cause = filterExternalRuleInterpreted(value, entry.interpreted, entry.columns); cause != nil {
+					return errors.Join(cause, value.Close())
+				}
 			}
 			assembled, assembleErr := assembleExternalRuleHead(value, entry.headColumns, constantRelations)
 			assembleErr = errors.Join(assembleErr, value.Close())
