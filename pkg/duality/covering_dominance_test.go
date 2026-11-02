@@ -1,6 +1,10 @@
 package duality
 
-import "testing"
+import (
+	"bytes"
+	"strings"
+	"testing"
+)
 
 func TestCoveringDominanceUsesMappedEdgesAndRecordedChildren(t *testing.T) {
 	ctx, _, aux := dualityNativeSolverFixture(t)
@@ -27,6 +31,8 @@ func TestCoveringDominanceUsesMappedEdgesAndRecordedChildren(t *testing.T) {
 	graph, err := NewRPFPWithVocabulary(source.vocabulary)
 	must(err)
 	defer graph.Close()
+	var report bytes.Buffer
+	graph.streamReporter = &StreamReporter{Format: ConjectureReporter{Output: &report}}
 	makeNode := func(original *Node) *Node { node, err := graph.CloneNode(original); must(err); return node }
 	oldChild, newChild := makeNode(childSource), makeNode(childSource)
 	oldLeaf, err := graph.CreateLowerBoundEdge(oldChild)
@@ -73,6 +79,9 @@ func TestCoveringDominanceUsesMappedEdgesAndRecordedChildren(t *testing.T) {
 		t.Fatal("recorded child dominance ignored")
 	}
 	must(covering.Add(newParent))
+	if !strings.Contains(report.String(), "]dominates dominance-R: 2 > 1\n") || !strings.Contains(report.String(), "]dominates dominance-R: 4 > 3\n") {
+		t.Fatal("dominance report", report.String())
+	}
 	if !covering.dominance[newParent][oldParent] {
 		t.Fatal("parent dominance not recorded")
 	}

@@ -36,7 +36,7 @@ func TestCoveringSimilarityUsesActiveReverseOrderAndSemanticEmptiness(t *testing
 	if similar != nil {
 		t.Fatal("similarity enabled before updates")
 	}
-	covering.Update(nodes[0])
+	must(covering.Update(nodes[0]))
 	similar, err = covering.GetSimilarNode(nodes[2])
 	must(err)
 	if similar != nodes[1] {

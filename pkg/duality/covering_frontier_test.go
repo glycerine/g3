@@ -68,7 +68,7 @@ func TestCoveringDescendantClosureAndCandidateFiltering(t *testing.T) {
 	if !contains {
 		t.Fatal("domination changed covering membership")
 	}
-	covering.Update(earlier)
+	must(covering.Update(earlier))
 	contains, err = covering.Contains(root)
 	must(err)
 	if !contains {

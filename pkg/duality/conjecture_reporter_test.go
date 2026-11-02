@@ -147,4 +147,22 @@ func TestConjectureReporterParametersFormulaAndWriterFailure(t *testing.T) {
 		t.Fatalf("candidate events %q want %q", output.String(), wantEvents)
 	}
 
+	output.Reset()
+	if err := stream.AddCover(clone, []*Node{node, clone}); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.RemoveCover(clone, node); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Forcing(clone, node); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Dominates(node, clone); err != nil {
+		t.Fatal(err)
+	}
+	wantEvents = "[11]cover report-P: 2 by 1 2 \n[12]uncover report-P: 2 by 1\n[13]forcing report-P: 2 by 1\n[14]dominates report-P: 1 > 2\n"
+	if output.String() != wantEvents {
+		t.Fatalf("cover events %q want %q", output.String(), wantEvents)
+	}
+
 }

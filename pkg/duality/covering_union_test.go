@@ -1,6 +1,10 @@
 package duality
 
-import "testing"
+import (
+	"bytes"
+	"strings"
+	"testing"
+)
 
 func TestCollectiveCoverRequiresUnionAndInvalidatesOnUpdate(t *testing.T) {
 	ctx, _, aux := dualityNativeSolverFixture(t)
@@ -35,6 +39,8 @@ func TestCollectiveCoverRequiresUnionAndInvalidatesOnUpdate(t *testing.T) {
 	working, err := NewRPFPWithVocabulary(original.vocabulary)
 	must(err)
 	defer working.Close()
+	var report bytes.Buffer
+	working.streamReporter = &StreamReporter{Format: ConjectureReporter{Output: &report}}
 	var nodes []*Node
 	for n := 0; n < 3; n++ {
 		node, err := working.CloneNode(source)
@@ -75,7 +81,10 @@ func TestCollectiveCoverRequiresUnionAndInvalidatesOnUpdate(t *testing.T) {
 	if !valid {
 		t.Fatal("existing cover not recognized")
 	}
-	covering.Update(nodes[0])
+	must(covering.Update(nodes[0]))
+	if !strings.Contains(report.String(), "]cover union-cover-R: 3 by 1 2 \n") || !strings.Contains(report.String(), "]uncover union-cover-R: 3 by 1\n") {
+		t.Fatal("collective report", report.String())
+	}
 	if covering.coveredBy[nodes[2]] != nil {
 		t.Fatal("collective cover survived update")
 	}

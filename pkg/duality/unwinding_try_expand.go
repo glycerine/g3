@@ -43,6 +43,9 @@ func (c *Covering) Conjecture(node *Node, u *Unwinding, services *ExpansionSearc
 			return false, err
 		}
 		if eligible {
+			if err := u.graph.streamReporter.Forcing(node, other); err != nil {
+				return false, err
+			}
 			if err = bound.UnionWith(other.Annotation); err != nil {
 				return false, err
 			}

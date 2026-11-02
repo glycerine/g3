@@ -59,6 +59,9 @@ func (c *Covering) Add(node *Node) error {
 			}
 			c.dominance[node][other] = true
 			c.dominated[other] = true
+			if err := c.graph.streamReporter.Dominates(node, other); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

@@ -77,7 +77,7 @@ func TestDualityCoverFailureBuildsLeafRedirectsAndExpandsNative(t *testing.T) {
 	_, err = u.CreateEdgeInstance(parentEdge, parent, []*Node{other})
 	must(err)
 	// A useful old fact exists, so the source similar-node search is enabled.
-	covering.Update(node)
+	must(covering.Update(node))
 	u.backEdges[node] = map[*Node]int{relation: 4}
 	cexGraph, err := NewRPFP(ctx)
 	must(err)

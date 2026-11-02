@@ -18,6 +18,7 @@ func (c *Covering) CoverByAll(covered *Node) (_ bool, result error) {
 	if err = union.SetEmpty(); err != nil {
 		return false, err
 	}
+	var others []*Node
 	count := 0
 	for _, candidate := range c.instances[covered.Map] {
 		if !c.CoverOrder(candidate, covered) {
@@ -31,6 +32,7 @@ func (c *Covering) CoverByAll(covered *Node) (_ bool, result error) {
 			continue
 		}
 		count++
+		others = append(others, candidate)
 		if err = union.UnionWith(candidate.Annotation); err != nil {
 			return false, err
 		}
@@ -43,7 +45,12 @@ func (c *Covering) CoverByAll(covered *Node) (_ bool, result error) {
 		return false, err
 	}
 	c.coveredBy[covered] = covered
-	c.RemoveAscendantCoverings(covered)
+	if err := c.graph.streamReporter.AddCover(covered, others); err != nil {
+		return false, err
+	}
+	if err := c.RemoveAscendantCoverings(covered); err != nil {
+		return false, err
+	}
 	return true, nil
 }
 func (c *Covering) Close(node *Node) (bool, error) {

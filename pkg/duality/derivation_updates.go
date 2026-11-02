@@ -51,7 +51,9 @@ func (d *BacktrackingDerivation) RecordAnnotationUpdate(node *Node, aux solver.S
 		return false, err
 	}
 	if d.sourceCovering != nil {
-		d.sourceCovering.Update(original)
+		if err := d.sourceCovering.Update(original); err != nil {
+			return false, err
+		}
 	}
 	if err = original.Annotation.IntersectWith(node.Annotation); err != nil {
 		return false, err

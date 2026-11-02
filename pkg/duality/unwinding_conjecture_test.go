@@ -107,7 +107,7 @@ func TestDualityProveConjectureNativeBoundsOwnershipAndDecisionThreshold(t *test
 				_, err = u.CreateEdgeInstance(edge, node, []*Node{leaf})
 				must(err)
 			}
-			covering.Update(node)
+			must(covering.Update(node))
 			saved, err := m.RefGet(node.Bound.formula)
 			must(err)
 			working, err := NewRPFPWithVocabulary(source.vocabulary)

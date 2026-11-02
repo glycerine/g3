@@ -26,7 +26,9 @@ func (u *Unwinding) update(node *Node, fact *Transformer, aux solver.Solver, eag
 	if err := u.graph.conjectureReporter.Update(node, fact); err != nil {
 		return false, err
 	}
-	u.covering.Update(node)
+	if err := u.covering.Update(node); err != nil {
+		return false, err
+	}
 	if u.updatedNodes == nil {
 		u.updatedNodes = make(map[*Node]bool)
 	}

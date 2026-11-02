@@ -5,7 +5,7 @@ import "github.com/glycerine/g3/pkg/solver"
 
 // Covering tracks the concrete single-node covering relation. The outer
 // search registers new instances and underapproximation-node associations.
-// Reporter callbacks and outer search lifecycle wiring remain unfinished.
+// Stream events borrow the owning search reporter through the graph.
 type Covering struct {
 	dominance   map[*Node]map[*Node]bool
 	simpleLoops map[*Node]bool
@@ -117,29 +117,41 @@ func (c *Covering) IsCovered(node *Node) (bool, error) {
 	}
 	return visit(node)
 }
-func (c *Covering) RemoveCoveringsBy(node *Node) {
+func (c *Covering) RemoveCoveringsBy(node *Node) error {
+	if c == nil || node == nil || node.closed || node.Owner != c.graph {
+		return ErrWrapperOwner
+	}
 	for _, other := range c.allOfNode[node.Map] {
 		if c.coveredBy[other] != nil && c.CoverOrder(node, other) {
 			delete(c.coveredBy, other)
-		}
-	}
-}
-func (c *Covering) RemoveAscendantCoverings(node *Node) {
-	seen := make(map[*Node]bool)
-	var visit func(*Node)
-	visit = func(n *Node) {
-		if seen[n] {
-			return
-		}
-		seen[n] = true
-		c.RemoveCoveringsBy(n)
-		for _, edge := range n.Incoming {
-			if edge.Parent != nil {
-				visit(edge.Parent)
+			if err := c.graph.streamReporter.RemoveCover(other, node); err != nil {
+				return err
 			}
 		}
 	}
-	visit(node)
+	return nil
+}
+func (c *Covering) RemoveAscendantCoverings(node *Node) error {
+	seen := make(map[*Node]bool)
+	var visit func(*Node) error
+	visit = func(n *Node) error {
+		if seen[n] {
+			return nil
+		}
+		seen[n] = true
+		if err := c.RemoveCoveringsBy(n); err != nil {
+			return err
+		}
+		for _, edge := range n.Incoming {
+			if edge.Parent != nil {
+				if err := visit(edge.Parent); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	return visit(node)
 }
 func (c *Covering) CheckCover(covered, covering *Node) (bool, error) {
 	if c == nil || covered == nil || covering == nil || covered.Owner != c.graph || covering.Owner != c.graph || covered.closed || covering.closed {
@@ -162,10 +174,21 @@ func (c *Covering) CoverByNode(covered, covering *Node) (bool, error) {
 	}
 	c.coveredBy[covered] = covering
 	c.covers[covering] = append(c.covers[covering], covered)
-	c.RemoveAscendantCoverings(covered)
+	if err := c.graph.streamReporter.AddCover(covered, []*Node{covering}); err != nil {
+		return false, err
+	}
+	if err := c.RemoveAscendantCoverings(covered); err != nil {
+		return false, err
+	}
 	return true, nil
 }
-func (c *Covering) Update(node *Node) { c.RemoveCoveringsBy(node); c.someUpdates = true }
+func (c *Covering) Update(node *Node) error {
+	if err := c.RemoveCoveringsBy(node); err != nil {
+		return err
+	}
+	c.someUpdates = true
+	return nil
+}
 
 // SetInstanceActive updates the source insts_of_node candidate list while
 // preserving all_of_node history for annotation-update invalidation.

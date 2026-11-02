@@ -322,3 +322,80 @@ func (r *StreamReporter) Message(message string) error {
 	_, err := fmt.Fprintf(r.Format.Output, "msg %s\n", message)
 	return err
 }
+
+func (r *StreamReporter) AddCover(covered *Node, covering []*Node) error {
+	if r == nil {
+		return nil
+	}
+	name, err := r.nodeName(covered)
+	if err != nil {
+		return err
+	}
+	if err := r.prefix(); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(r.Format.Output, "cover %s: %d by ", name, covered.Number); err != nil {
+		return err
+	}
+	for _, node := range covering {
+		if node == nil || node.closed {
+			return ErrWrapperOwner
+		}
+		if _, err := fmt.Fprintf(r.Format.Output, "%d ", node.Number); err != nil {
+			return err
+		}
+	}
+	_, err = io.WriteString(r.Format.Output, "\n")
+	return err
+}
+func (r *StreamReporter) RemoveCover(covered, covering *Node) error {
+	if r == nil {
+		return nil
+	}
+	name, err := r.nodeName(covered)
+	if err != nil {
+		return err
+	}
+	if covering == nil || covering.closed {
+		return ErrWrapperOwner
+	}
+	if err := r.prefix(); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(r.Format.Output, "uncover %s: %d by %d\n", name, covered.Number, covering.Number)
+	return err
+}
+func (r *StreamReporter) Forcing(covered, covering *Node) error {
+	if r == nil {
+		return nil
+	}
+	name, err := r.nodeName(covered)
+	if err != nil {
+		return err
+	}
+	if covering == nil || covering.closed {
+		return ErrWrapperOwner
+	}
+	if err := r.prefix(); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(r.Format.Output, "forcing %s: %d by %d\n", name, covered.Number, covering.Number)
+	return err
+}
+func (r *StreamReporter) Dominates(node, other *Node) error {
+	if r == nil {
+		return nil
+	}
+	name, err := r.nodeName(node)
+	if err != nil {
+		return err
+	}
+	if other == nil || other.closed {
+		return ErrWrapperOwner
+	}
+	if err := r.prefix(); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(r.Format.Output, "dominates %s: %d > %d\n", name, node.Number, other.Number)
+	return err
+}

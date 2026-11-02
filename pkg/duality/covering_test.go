@@ -1,6 +1,10 @@
 package duality
 
-import "testing"
+import (
+	"bytes"
+	"errors"
+	"testing"
+)
 
 func TestCoveringNativeContainmentAndUpdateInvalidation(t *testing.T) {
 	ctx, _, aux := dualityNativeSolverFixture(t)
@@ -55,7 +59,7 @@ func TestCoveringNativeContainmentAndUpdateInvalidation(t *testing.T) {
 	if added {
 		t.Fatal("transitively covered candidate accepted")
 	}
-	covering.Update(nodes[1])
+	must(covering.Update(nodes[1]))
 	if !covering.someUpdates {
 		t.Fatal("update flag not set")
 	}
@@ -90,7 +94,7 @@ func TestCoveringNativeContainmentAndUpdateInvalidation(t *testing.T) {
 	must(working.DeleteEdge(nodes[3].Outgoing))
 	_, err = working.CreateEdge(nodes[3], nodes[3].Annotation, []*Node{nodes[0]})
 	must(err)
-	covering.RemoveAscendantCoverings(nodes[3])
+	must(covering.RemoveAscendantCoverings(nodes[3]))
 	covered, err = covering.IsCovered(nodes[2])
 	must(err)
 	if covered {
@@ -100,5 +104,75 @@ func TestCoveringNativeContainmentAndUpdateInvalidation(t *testing.T) {
 	must(err)
 	if covered {
 		t.Fatal("uncovered cycle reported covered")
+	}
+}
+
+func TestCoveringReporterWriterFailureAndRetry(t *testing.T) {
+	ctx, _, aux := dualityNativeSolverFixture(t)
+	term, err := ctx.BoolConst("report-cover")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer term.Close()
+	source, err := NewRPFP(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer source.Close()
+	original, err := source.CreateNode(term)
+	if err != nil {
+		t.Fatal(err)
+	}
+	graph, err := NewRPFPWithVocabulary(source.vocabulary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer graph.Close()
+	earlier, err := graph.CloneNode(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	later, err := graph.CloneNode(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := graph.CreateLowerBoundEdge(earlier); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := graph.CreateLowerBoundEdge(later); err != nil {
+		t.Fatal(err)
+	}
+	covering, err := NewCovering(graph, aux)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reporter := &StreamReporter{Format: ConjectureReporter{Output: dualityRefusingWriter{}}}
+	graph.streamReporter = reporter
+	if covered, err := covering.CoverByNode(later, earlier); covered || !errors.Is(err, errDualityWriter) {
+		t.Fatal("cover writer refusal", covered, err)
+	}
+	var output bytes.Buffer
+	reporter.Format.Output = &output
+	if err := covering.Update(earlier); err != nil {
+		t.Fatal(err)
+	}
+	covered, err := covering.CoverByNode(later, earlier)
+	if err != nil || !covered {
+		t.Fatal("cover retry", covered, err)
+	}
+	if output.String() != "[1]uncover report-cover: 2 by 1\n[2]cover report-cover: 2 by 1 \n" {
+		t.Fatal("covering report", output.String())
+	}
+	reporter.Format.Output = dualityRefusingWriter{}
+	if err := covering.Update(earlier); !errors.Is(err, errDualityWriter) {
+		t.Fatal("uncover writer refusal", err)
+	}
+	graph.streamReporter = nil
+	if err := covering.Update(earlier); err != nil {
+		t.Fatal(err)
+	}
+	covered, err = covering.IsCovered(later)
+	if err != nil || covered {
+		t.Fatal("partial uncover left stale relation", covered, err)
 	}
 }
