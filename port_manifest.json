@@ -101189,6 +101189,12 @@
           ]
         },
         {
+          "name": "implicant_picker arithmetic literal selection preserves model-true strict-bound orientation, true equalities and first repeated-value operand order for false distinct (spacer_util.cpp:740-772; qe_mbp.cpp:58-76); ten exact integer/real cases include normalized and large rational values with independent implication/model-compatibility checks",
+          "status": "ported",
+          "go_targets": ["pkg/muz/spacer/implicant_literals.go", "pkg/muz/spacer/implicant_arithmetic_policy_test.go"],
+          "tests": ["TestSpacerImplicantArithmeticOrientationAndSoundness"]
+        },
+        {
           "name": "implicant_picker Boolean connective policies preserve first matching child, LIFO all-child traversal, constant/compound equality guards, implication consequent preference and XOR polarity (spacer_util.cpp:809-868); seventeen exact-output cases independently discharge cube implication and model compatibility",
           "status": "ported",
           "go_targets": ["pkg/muz/spacer/implicant_literals.go", "pkg/muz/spacer/implicant_boolean_policy_test.go"],
@@ -101435,6 +101441,12 @@
           "tests": [
             "TestSpacerNativeProjectionUsesSharedStages"
           ]
+        },
+        {
+          "name": "implicant_picker arithmetic literal selection preserves model-true strict-bound orientation, true equalities and first repeated-value operand order for false distinct (spacer_util.cpp:740-772; qe_mbp.cpp:58-76); ten exact integer/real cases include normalized and large rational values with independent implication/model-compatibility checks",
+          "status": "ported",
+          "go_targets": ["pkg/muz/spacer/implicant_literals.go", "pkg/muz/spacer/implicant_arithmetic_policy_test.go"],
+          "tests": ["TestSpacerImplicantArithmeticOrientationAndSoundness"]
         },
         {
           "name": "implicant_picker Boolean connective policies preserve first matching child, LIFO all-child traversal, constant/compound equality guards, implication consequent preference and XOR polarity (spacer_util.cpp:809-868); seventeen exact-output cases independently discharge cube implication and model compatibility",
