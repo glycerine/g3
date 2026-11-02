@@ -434,6 +434,9 @@ func (e *PropositionalEngine) preprocessHornRulesWithQueryRule(query ast.ASTHand
 			slicedPredicates, slicedColumns = plugin.PredicateSlices()
 			if generateProofTrace {
 				sliceProof = plugin.TakeProofConverter()
+				if sliceProof != nil {
+					err = errors.Join(err, sliceProof.SetNormalizationServices(e.params, e.globals))
+				}
 			}
 		}
 		err = errors.Join(err, slicer.Close())

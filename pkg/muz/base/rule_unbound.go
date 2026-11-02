@@ -165,6 +165,9 @@ func (m *RuleManager) ReduceUnboundVariables(rule *Rule, lite *qe.Lite) (_ *Rule
 	if err != nil {
 		return nil, false, fmt.Errorf("muz/base: rebuild reduced rule: %w", err)
 	}
+	if err = m.MkRuleRewriteProof(rule, rebuilt); err != nil {
+		return nil, false, errors.Join(err, rebuilt.Close())
+	}
 	return rebuilt, true, nil
 }
 
@@ -322,6 +325,9 @@ func (m *RuleManager) FixUnboundVariables(rule *Rule, lite *qe.Lite, enabled boo
 	rebuilt, err := m.rebuildRule(current, kept)
 	if err != nil {
 		return nil, false, fmt.Errorf("muz/base: rebuild fixed rule: %w", err)
+	}
+	if err = m.MkRuleRewriteProof(current, rebuilt); err != nil {
+		return nil, false, errors.Join(err, rebuilt.Close())
 	}
 	if err = rebuilt.SetAccountingParentRule(current); err != nil {
 		return nil, false, errors.Join(err, rebuilt.Close())

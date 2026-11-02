@@ -82,7 +82,7 @@ func TestRuleCoalesceMergesSharedBodyConstraints(t *testing.T) {
 	}
 }
 
-func TestRuleCoalesceAttachesSourceHyperResolutionProof(t *testing.T) {
+func TestRuleCoalesceDerivesMergedProofFromBothClauses(t *testing.T) {
 	f := newConeFixture(t)
 	if err := f.manager.ToggleProofMode(ast.ASTProofEnabled); err != nil {
 		t.Fatal(err)
@@ -110,7 +110,7 @@ func TestRuleCoalesceAttachesSourceHyperResolutionProof(t *testing.T) {
 	coneMust(t, err)
 	qVariable, err := f.manager.MkApp(q, []ast.ASTHandle{variable})
 	coneMust(t, err)
-	var sourceProof ast.ASTHandle
+	var sourceProof, targetProof ast.ASTHandle
 	for index, value := range []ast.ASTHandle{zero, one} {
 		condition, makeErr := f.manager.MkEq(variable, value)
 		coneMust(t, makeErr)
@@ -125,6 +125,8 @@ func TestRuleCoalesceAttachesSourceHyperResolutionProof(t *testing.T) {
 		coneMust(t, rule.SetProof(proof))
 		if index == 1 {
 			sourceProof = proof
+		} else {
+			targetProof = proof
 		}
 		coneMust(t, f.manager.DelRef(&formula))
 		coneMust(t, f.set.Add(rule))
@@ -153,7 +155,7 @@ func TestRuleCoalesceAttachesSourceHyperResolutionProof(t *testing.T) {
 	proof, found, err := merged.Proof()
 	coneMust(t, err)
 	if !found {
-		t.Fatal("coalesced rule did not retain its source hyper-resolution proof")
+		t.Fatal("coalesced rule lost its proof")
 	}
 	isProof, err := f.manager.IsProof(proof)
 	coneMust(t, err)
@@ -162,16 +164,20 @@ func TestRuleCoalesceAttachesSourceHyperResolutionProof(t *testing.T) {
 	}
 	kind, err := f.manager.GetDeclKind(proof)
 	coneMust(t, err)
-	if kind != ast.ASTPrHyperResolve {
-		t.Fatalf("coalesced proof kind %d, want hyper-resolution", kind)
+	if kind != ast.ASTPrModusPonens {
+		t.Fatalf("coalesced proof kind %d, want modus ponens", kind)
 	}
-	if count, getErr := f.manager.GetNumArgs(proof); getErr != nil || count != 2 {
-		t.Fatalf("hyper-resolution proof arguments %d, %v", count, getErr)
+	if count, e := f.manager.GetProofNumParents(proof); e != nil || count != 2 {
+		t.Fatal("merge proof parent count", count, e)
 	}
-	premise, err := f.manager.GetArg(proof, 0)
-	coneMust(t, err)
-	if premise != sourceProof {
-		t.Fatal("coalesced proof did not use the source rule selected by native merge_rules")
+	target, e := f.manager.GetProofParent(proof, 0)
+	coneMust(t, e)
+	implication, e := f.manager.GetProofParent(proof, 1)
+	coneMust(t, e)
+	source, e := f.manager.GetProofParent(implication, 0)
+	coneMust(t, e)
+	if source != sourceProof || target != targetProof {
+		t.Fatal("merge proof must use both original clauses")
 	}
 	formula, err := merged.ToFormula()
 	coneMust(t, err)
@@ -182,7 +188,7 @@ func TestRuleCoalesceAttachesSourceHyperResolutionProof(t *testing.T) {
 	equal, err := f.manager.AreEqual(proofFact, formulaHandle)
 	coneMust(t, err)
 	if !equal {
-		t.Fatal("coalesced hyper-resolution proof proves the wrong rule formula")
+		t.Fatal("coalesced proof proves the wrong rule formula")
 	}
 	coneMust(t, f.manager.DelRef(&formula))
 }

@@ -102390,12 +102390,14 @@
       "go_targets": [
         "pkg/muz/transforms/rule_coalesce.go",
         "pkg/muz/transforms/rule_coalesce_test.go",
+        "pkg/muz/transforms/rule_coalesce_proof.go",
+        "pkg/muz/transforms/rule_slice_composition_test.go",
         "pkg/muz/fp/spacer_engine.go",
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestRuleCoalesceMergesSharedBodyConstraints",
-        "TestRuleCoalesceAttachesSourceHyperResolutionProof",
+        "TestRuleCoalesceDerivesMergedProofFromBothClauses",
         "TestSMTLibRunnerScripts/fixedpoint_spacer_coalesce_unfold.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_spacer_coalesce_unfold.smt2"
       ],
@@ -102475,18 +102477,18 @@
           ]
         },
         {
-          "name": "hyper-resolution proof trace attachment for merged rules",
+          "name": "two-clause merged-rule derivation with modus ponens and an SMT-checkable rewrite obligation",
           "status": "ported",
           "go_target": "pkg/muz/transforms/rule_coalesce.go",
           "tests": [
-            "TestRuleCoalesceAttachesSourceHyperResolutionProof"
+            "TestRuleCoalesceDerivesMergedProofFromBothClauses"
           ]
         }
       ],
       "ownership": [
         "Grouped source rules, intermediate merged rules, substitution results, and the replacement RuleSet use explicit owning Go references with failure cleanup."
       ],
-      "deviations": []
+      "deviations": ["The live source uses a unary hyper-resolution placeholder for coalescing that discards one source clause. A composition regression disproved its checker side condition. Go uses both source proofs and ordinary modus ponens with a rewrite obligation for the valid merge implication; composition tests discharge that obligation with SMT and require original asserted leaves."]
     },
     {
       "path": "src/muz/transforms/dl_mk_coalesce.h",
@@ -102498,7 +102500,7 @@
       ],
       "tests": [
         "TestRuleCoalesceMergesSharedBodyConstraints",
-        "TestRuleCoalesceAttachesSourceHyperResolutionProof"
+        "TestRuleCoalesceDerivesMergedProofFromBothClauses"
       ],
       "conditionals": [
         {
@@ -103598,6 +103600,13 @@
       "ownership_audited": true,
       "methods": [
         {
+          "name": "hyper-resolution proof substitutions follow resolved-rule variable compaction",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/rule_inliner.go",
+          "go_targets": ["pkg/muz/transforms/rule_slice_composition_test.go"],
+          "tests": ["TestRuleUnfoldCompactsProofSubstitutions", "TestRuleCoalesceUnfoldProofComposition"]
+        },
+        {
           "name": "retained acyclic and multi-SCC-break planning, protected-output exclusion, disjoint variable-bank unification, resolution, duplicate-tail removal, and eliminated-predicate rewriting",
           "status": "ported",
           "go_target": "pkg/muz/transforms/rule_inliner.go",
@@ -103926,6 +103935,8 @@
         "TestRuleSliceGeneratesProofsForRewrittenRules", "TestRuleSliceProofConverterColdFailureAndRetry",
         "TestRuleSliceCompoundHeadAllocationFailureAndRetry",
         "TestSliceProofClosePreservesRootsWhileManagerExecutes",
+        "TestRuleSliceCoalesceUnfoldProofComposition",
+        "TestRuleSliceCompositionAllocationFailureAndRetry",
         "TestRuleSliceConvertsNestedHyperResolution",
         "TestRuleSliceConvertsNonlinearResolutionPositions",
         "TestRuleSliceProofTracksVariableRenumbering",
@@ -104041,11 +104052,14 @@
           "go_target": "pkg/muz/transforms/rule_slice_proof.go",
           "go_targets": ["pkg/muz/transforms/rule_slice_failure_test.go",
             "pkg/muz/transforms/rule_slice_compound_failure_test.go",
-            "pkg/muz/transforms/rule_slice_close_pending_test.go"],
+            "pkg/muz/transforms/rule_slice_close_pending_test.go",
+            "pkg/muz/transforms/rule_slice_composition_test.go"],
           "tests": [
             "TestRuleSliceGeneratesProofsForRewrittenRules", "TestRuleSliceProofConverterColdFailureAndRetry",
             "TestRuleSliceCompoundHeadAllocationFailureAndRetry",
             "TestSliceProofClosePreservesRootsWhileManagerExecutes",
+        "TestRuleSliceCoalesceUnfoldProofComposition",
+        "TestRuleSliceCompositionAllocationFailureAndRetry",
             "TestRuleSliceConvertsNestedHyperResolution",
             "TestRuleSliceConvertsNonlinearResolutionPositions",
             "TestRuleSliceProofTracksVariableRenumbering",

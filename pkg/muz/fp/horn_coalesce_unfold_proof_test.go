@@ -104,10 +104,10 @@ func TestSpacerCoalesceAndUnfoldComposeRuleProofs(t *testing.T) {
 		t.Fatal("composed proof concludes a different rule")
 	}
 	var queryWrapper ast.ASTHandle
-	checkProof := func(proof ast.ASTHandle) int {
+	checkProof := func(proof ast.ASTHandle) (int, int, int) {
 		seen := make(map[ast.ASTHandle]bool)
 		stack := []ast.ASTHandle{proof}
-		resolutions := 0
+		resolutions, modusPonens, originalLeaves := 0, 0, 0
 		for len(stack) != 0 {
 			node := stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
@@ -122,6 +122,12 @@ func TestSpacerCoalesceAndUnfoldComposeRuleProofs(t *testing.T) {
 			}
 			kind, err := m.GetDeclKind(node)
 			fragmentMust(t, err)
+			if kind == ast.ASTPrModusPonens {
+				modusPonens++
+			}
+			if kind == ast.ASTPrAsserted && originalProofs[node] {
+				originalLeaves++
+			}
 			if kind == ast.ASTPrHyperResolve {
 				resolutions++
 			}
@@ -147,10 +153,11 @@ func TestSpacerCoalesceAndUnfoldComposeRuleProofs(t *testing.T) {
 				stack = append(stack, child)
 			}
 		}
-		return resolutions
+		return resolutions, modusPonens, originalLeaves
 	}
-	if resolutions := checkProof(proof); resolutions < 2 {
-		t.Fatalf("proof has %d hyper-resolution nodes, want coalesce and unfold", resolutions)
+	resolutions, modusPonens, originalLeaves := checkProof(proof)
+	if resolutions < 1 || modusPonens < 3 || originalLeaves != len(originalProofs) {
+		t.Fatalf("proof ancestry: hyper-resolution=%d modus-ponens=%d original-clauses=%d, want unfold plus both coalesce clauses", resolutions, modusPonens, originalLeaves)
 	}
 	status, err := e.QueryPredicate(goal)
 	fragmentMust(t, err)
@@ -169,7 +176,7 @@ func TestSpacerCoalesceAndUnfoldComposeRuleProofs(t *testing.T) {
 	if len(trace) < 2 {
 		t.Fatal("missing query-wrapper and goal trace", len(trace))
 	}
-	traceResolutions := 0
+	traceResolutions, traceModusPonens := 0, 0
 	for i, rule := range trace {
 		proof, found, err := rule.Proof()
 		fragmentMust(t, err)
@@ -186,9 +193,11 @@ func TestSpacerCoalesceAndUnfoldComposeRuleProofs(t *testing.T) {
 			t.Fatal("trace proof conclusion differs from its rule", i)
 		}
 		fragmentMust(t, m.DelRef(&formula))
-		traceResolutions += checkProof(proof)
+		r, mp, _ := checkProof(proof)
+		traceResolutions += r
+		traceModusPonens += mp
 	}
-	if traceResolutions < 2 {
-		t.Fatal("query trace lost coalesce/unfold proof ancestry", traceResolutions)
+	if traceResolutions < 1 || traceModusPonens < 3 {
+		t.Fatal("query trace lost coalesce/unfold proof ancestry", traceResolutions, traceModusPonens)
 	}
 }

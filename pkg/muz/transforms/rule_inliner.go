@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/ast/substitution"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/qe"
@@ -248,10 +249,11 @@ func (p *RuleInlinerPlugin) resolve(target *base.Rule, tailIndex int, source *ba
 	if !unified {
 		return nil, nil
 	}
-	resolved, err := unifier.ResolveRaw(p.rules, target, tailIndex, source)
+	resolved, renaming, err := unifier.ResolveRawWithRenaming(p.rules, target, tailIndex, source)
 	if err != nil {
 		return nil, err
 	}
+	defer func() { resultErr = errors.Join(resultErr, releaseTransformRefs(p.manager, renaming)) }()
 	variables, subst := unifier.variables, unifier.subst
 	if targetProof, hasProof, proofErr := target.Proof(); proofErr != nil {
 		return nil, errors.Join(proofErr, resolved.Close())
@@ -271,6 +273,44 @@ func (p *RuleInlinerPlugin) resolve(target *base.Rule, tailIndex int, source *ba
 		defer func() {
 			resultErr = errors.Join(resultErr, releaseTransformRefs(p.manager, secondRefs), releaseTransformRefs(p.manager, firstRefs))
 		}()
+		// NewRule compacts the resolvent's variable bank. Apply that same
+		// compression to both proof substitutions before publishing its fact.
+		if len(renaming) != 0 {
+			mapping := make([]ast.ASTHandle, len(renaming))
+			for i, ref := range renaming {
+				if ref != (ast.ASTRef{}) {
+					mapping[i], subErr = p.manager.RefGet(ref)
+					if subErr != nil {
+						return nil, errors.Join(subErr, resolved.Close())
+					}
+				}
+			}
+			rename, e := rewriter.NewVarSubstitution(p.manager, false)
+			if rename != nil {
+				defer func() { resultErr = errors.Join(resultErr, rename.Close()) }()
+			}
+			if e != nil {
+				return nil, errors.Join(e, resolved.Close())
+			}
+			var rewritten []ast.ASTRef
+			defer func() { resultErr = errors.Join(resultErr, releaseTransformRefs(p.manager, rewritten)) }()
+			for _, bank := range [][]ast.ASTHandle{firstSubst, secondSubst} {
+				for j, term := range bank {
+					ref, e := p.manager.NewRef(ast.ASTHandle{})
+					if e != nil {
+						return nil, errors.Join(e, resolved.Close())
+					}
+					rewritten = append(rewritten, ref)
+					if e = rename.Substitute(term, mapping, ref); e != nil {
+						return nil, errors.Join(e, resolved.Close())
+					}
+					bank[j], e = p.manager.RefGet(ref)
+					if e != nil {
+						return nil, errors.Join(e, resolved.Close())
+					}
+				}
+			}
+		}
 		formula, subErr := resolved.ToFormula()
 		if subErr != nil {
 			return nil, errors.Join(subErr, resolved.Close())

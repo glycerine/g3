@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 // ErrSliceProofUnsupported indicates a proof shape the converter cannot yet
@@ -16,15 +17,18 @@ var ErrSliceProofUnsupported = errors.New("slice proof conversion unsupported")
 
 // SliceProofConverter owns the rule and formula mappings created by slicing.
 // ConvertAsserted handles assertion leaves; Convert also handles supported
-// hyper-resolution nodes, including quantified conclusions.
+// hyper-resolution nodes, coalesce derivations and configured normalization
+// wrappers, including quantified conclusions.
 type SliceProofConverter struct {
-	manager    *ast.ASTManager
-	rules      *base.RuleManager
-	originals  []*base.Rule
-	formulas   []ast.ASTRef
-	byFormula  map[ast.ASTHandle]sliceOriginalRule
-	predicates map[ast.ASTHandle]slicePredicateOrigin
-	closed     bool
+	manager              *ast.ASTManager
+	rules                *base.RuleManager
+	originals            []*base.Rule
+	formulas             []ast.ASTRef
+	byFormula            map[ast.ASTHandle]sliceOriginalRule
+	predicates           map[ast.ASTHandle]slicePredicateOrigin
+	closed               bool
+	normalizationParams  *uparams.ParamsContext
+	normalizationGlobals *uparams.GlobalParamsService
 }
 
 type slicePredicateOrigin struct {
@@ -154,6 +158,19 @@ func (c *SliceProofConverter) Close() error {
 	c.rules = nil
 	c.byFormula = nil
 	c.predicates = nil
+	c.normalizationParams = nil
+	c.normalizationGlobals = nil
 	c.closed = true
+	return nil
+}
+
+// SetNormalizationServices enables replay of live rule-normalization wrappers
+// after reconstructing their parent rules in the original predicate vocabulary.
+func (c *SliceProofConverter) SetNormalizationServices(context *uparams.ParamsContext, globals *uparams.GlobalParamsService) error {
+	if c == nil || c.manager == nil || context == nil || globals == nil || globals.Context != context || context.SymbolsField != c.manager.Symbols {
+		return ast.ErrASTHandle
+	}
+	c.normalizationParams = context
+	c.normalizationGlobals = globals
 	return nil
 }

@@ -325,30 +325,21 @@ func (p *RuleCoalescePlugin) merge(target, source *base.Rule) (_ *base.Rule, res
 		return nil, fmt.Errorf("muz/transforms: construct coalesced rule: %w", err)
 	}
 	if p.generateProofTrace {
-		proof, found, proofErr := source.Proof()
-		if proofErr != nil {
-			return nil, errors.Join(proofErr, merged.Close())
+		proof, e := makeCoalesceProof(p.manager, source, target, merged)
+		if e != nil {
+			return nil, errors.Join(e, merged.Close())
 		}
-		if !found {
-			return nil, errors.Join(fmt.Errorf("muz/transforms: coalesced source rule has no proof"), merged.Close())
+		node, getErr := p.manager.RefGet(proof)
+		e = getErr
+		if e == nil {
+			e = merged.SetProof(node)
 		}
-		formula, formulaErr := merged.ToFormula()
-		if formulaErr != nil {
-			return nil, errors.Join(formulaErr, merged.Close())
-		}
-		conclusion, formulaErr := p.manager.RefGet(formula)
-		if formulaErr != nil {
-			return nil, errors.Join(formulaErr, p.manager.DelRef(&formula), merged.Close())
-		}
-		hyperResolve, proofErr := p.manager.MkProofHyperResolve([]ast.ASTHandle{proof}, conclusion, nil, [][]ast.ASTHandle{nil})
-		proofErr = errors.Join(proofErr, p.manager.DelRef(&formula))
-		if proofErr != nil {
-			return nil, errors.Join(proofErr, merged.Close())
-		}
-		if proofErr = merged.SetProof(hyperResolve); proofErr != nil {
-			return nil, errors.Join(proofErr, merged.Close())
+		e = errors.Join(e, p.manager.DelRef(&proof))
+		if e != nil {
+			return nil, errors.Join(e, merged.Close())
 		}
 	}
+
 	return merged, nil
 }
 

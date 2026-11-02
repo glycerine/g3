@@ -24,6 +24,8 @@ type slicedProofResult struct {
 // require an unambiguous predicate-based variable correspondence. Source
 // nonlinear nodes use forward body-to-head pivots; reverse source nodes are
 // binary. Other pivot layouts return ErrSliceProofUnsupported.
+// Coalesce derivations and configured rule-normalization rewrite wrappers
+// are reconstructed from their translated parents.
 // Unrecognized nodes and hyper-resolution without mapped premise rules pass
 // through unchanged, matching translate_proof's source fallback.
 func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, resultErr error) {
@@ -63,10 +65,14 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 				memo[node] = value
 			} else {
 				if value.rule != nil {
-					nodeErr = errors.Join(nodeErr, value.rule.Close())
+					if ce := value.rule.Close(); ce != nil {
+						nodeErr = errors.Join(nodeErr, fmt.Errorf("failed node rule cleanup: %w", ce))
+					}
 				}
 				if value.proof != (ast.ASTRef{}) {
-					nodeErr = errors.Join(nodeErr, m.DelRef(&value.proof))
+					if ce := m.DelRef(&value.proof); ce != nil {
+						nodeErr = errors.Join(nodeErr, fmt.Errorf("failed node proof cleanup: %w", ce))
+					}
 				}
 			}
 		}()
@@ -94,8 +100,126 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 			if cause != nil || !valid {
 				return value, errors.Join(ast.ErrASTDomain, cause)
 			}
+			if source, target, matched, cause := matchCoalesceProof(m, node); cause != nil {
+				return value, fmt.Errorf("slice wrapper conversion: %w", cause)
+			} else if matched {
+				a, cause := translate(source)
+				if cause != nil {
+					return value, fmt.Errorf("slice wrapper conversion: %w", cause)
+				}
+				b, cause := translate(target)
+				if cause != nil {
+					return value, fmt.Errorf("slice wrapper conversion: %w", cause)
+				}
+				if a.rule != nil && b.rule != nil {
+					for _, v := range []slicedProofResult{a, b} {
+						p, e := m.RefGet(v.proof)
+						if e != nil {
+							return value, e
+						}
+						if e = v.rule.SetProof(p); e != nil {
+							return value, e
+						}
+					}
+					plugin := NewRuleCoalescePluginWithProofTrace(m, c.rules, 50, true)
+					compatible, e := plugin.sameBody(a.rule, b.rule)
+					if e != nil || !compatible {
+						return value, errors.Join(ErrSliceProofUnsupported, e, plugin.Close())
+					}
+					value.rule, cause = plugin.merge(b.rule, a.rule)
+					if cause != nil {
+						cause = fmt.Errorf("merging originals: %w", cause)
+					}
+					cause = errors.Join(cause, plugin.Close())
+					if cause != nil {
+						return value, fmt.Errorf("slice wrapper conversion: %w", cause)
+					}
+					p, found, cause := value.rule.Proof()
+					if cause != nil {
+						return value, fmt.Errorf("slice wrapper conversion: %w", cause)
+					}
+					if !found {
+						return value, ast.ErrASTDomain
+					}
+					value.proof, cause = m.NewRef(p)
+					if cause != nil {
+						cause = fmt.Errorf("wrapper proof reference: %w", cause)
+					}
+					return value, cause
+				}
+			}
+			if c.normalizationParams != nil {
+				isMP, cause := m.IsProofKind(node, ast.ASTPrModusPonens)
+				if cause != nil {
+					return value, fmt.Errorf("slice wrapper conversion: %w", cause)
+				}
+				if isMP {
+					parent, cause := m.GetProofParent(node, 0)
+					if cause != nil {
+						return value, fmt.Errorf("slice wrapper conversion: %w", cause)
+					}
+					rewrite, cause := m.GetProofParent(node, 1)
+					if cause != nil {
+						return value, fmt.Errorf("slice wrapper conversion: %w", cause)
+					}
+					var before, after ast.ASTHandle
+					matched, cause := m.MatchProofRewrite(rewrite, &before, &after)
+					if cause != nil {
+						return value, fmt.Errorf("slice wrapper conversion: %w", cause)
+					}
+					oldFact, cause := m.GetProofFact(parent)
+					if cause != nil {
+						return value, fmt.Errorf("slice wrapper conversion: %w", cause)
+					}
+					newFact, cause := m.GetProofFact(node)
+					if cause != nil {
+						return value, fmt.Errorf("slice wrapper conversion: %w", cause)
+					}
+					if matched && before == oldFact && after == newFact {
+						original, cause := translate(parent)
+						if cause != nil {
+							return value, fmt.Errorf("slice wrapper conversion: %w", cause)
+						}
+						if original.rule != nil {
+							p, e := m.RefGet(original.proof)
+							if e != nil {
+								return value, e
+							}
+							if e = original.rule.SetProof(p); e != nil {
+								return value, e
+							}
+							normalizer := NewRuleInlinerPluginWithServices(m, c.rules, nil, false, false, c.normalizationParams, c.normalizationGlobals, 100)
+							value.rule, cause = normalizer.NormalizeResolvedRule(original.rule)
+							if cause != nil {
+								cause = fmt.Errorf("normalizing original: %w", cause)
+							}
+							cause = errors.Join(cause, normalizer.Close())
+							if cause != nil {
+								return value, fmt.Errorf("slice wrapper conversion: %w", cause)
+							}
+							if value.rule == nil {
+								return value, fmt.Errorf("%w: normalized original rule is inconsistent", ErrSliceProofUnsupported)
+							}
+							p, found, cause := value.rule.Proof()
+							if cause != nil {
+								return value, fmt.Errorf("slice wrapper conversion: %w", cause)
+							}
+							if !found {
+								return value, ast.ErrASTDomain
+							}
+							value.proof, cause = m.NewRef(p)
+							if cause != nil {
+								cause = fmt.Errorf("wrapper proof reference: %w", cause)
+							}
+							return value, cause
+						}
+					}
+				}
+			}
 			// Source translate_proof preserves unhandled terms without
 			// descending into their parents, including unmapped assertions.
+			// Live coalesce and configured normalization wrappers above are rebuilt
+			// explicitly; unrelated proof terms keep this fallback.
 			value.proof, e = m.NewRef(node)
 			return value, e
 		}
@@ -158,6 +282,9 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 			if !found {
 				variables, found, cause = c.derivedVariables(premises[index], original.rule)
 				if cause != nil {
+					cause = fmt.Errorf("derived variables: %w", cause)
+				}
+				if cause != nil {
 					return slicedProofResult{}, cause
 				}
 			}
@@ -165,6 +292,9 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 				return slicedProofResult{}, fmt.Errorf("%w: cannot map derived premise variables", ErrSliceProofUnsupported)
 			}
 			rule, ref, cause := c.instantiateAsserted(original.rule, original.proof, variables, substitution)
+			if cause != nil {
+				cause = fmt.Errorf("instantiate premise %d: %w", index, cause)
+			}
 			if cause != nil {
 				return slicedProofResult{}, cause
 			}
@@ -244,6 +374,9 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 			}
 			var tailMap []int
 			next, nextProof, cause := c.resolveProof(value.rule, value.proof, other.rule, other.proof, index, &tailMap)
+			if cause != nil {
+				cause = fmt.Errorf("resolve premise %d: %w", i, cause)
+			}
 			if cause != nil {
 				return value, cause
 			}
