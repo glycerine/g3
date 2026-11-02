@@ -102296,6 +102296,7 @@
         "pkg/muz/transforms/array_blast.go",
         "pkg/muz/transforms/array_blast_test.go",
         "pkg/muz/transforms/array_blast_coverage_test.go",
+        "pkg/muz/transforms/array_blast_close_pending_test.go",
         "pkg/muz/fp/spacer_engine.go",
         "pkg/cmd/g3/test_vectors/fp_spacer_array_blast.smt2",
         "pkg/cmd/g3/main_test.go"
@@ -102307,6 +102308,7 @@
         "TestArrayBlastRefusesNonVariableHeadAfterStoreSubstitution",
         "TestArrayBlastAckermannizesEverySelectIndex",
         "TestArrayBlastTransfersRuleRewriteProof",
+        "TestArrayBlastClosePreservesPendingChildren",
         "TestSMTLibRunnerScripts/fp_spacer_array_blast.smt2",
         "TestSMTLibRunnerCPPReference/fp_spacer_array_blast.smt2"
       ],
@@ -102329,10 +102331,17 @@
           "go_targets": [
             "pkg/cmd/g3/main_test.go"
           ]
+        },
+        {
+          "name": "two-child simplifier/rewriter cleanup continuation after native AST execution refusal",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/array_blast.go",
+          "tests": ["TestArrayBlastClosePreservesPendingChildren"],
+          "reason": "Covers initial refusal and a staged later-child continuation, exact owner preservation, operation rejection and zero-budget retry; originating mid-destructor and construction-error paths remain open."
         }
       ],
       "ownership": [
-        "The plugin borrows AST manager, rule manager, parameter context, and global parameters; it owns its theory rewriter and interpreted-tail simplifier until Close. Transform returns a newly owned RuleSet, whose rules retain their expressions and proofs."
+        "The plugin borrows AST manager, rule manager, parameter context, and global parameters; it owns its theory rewriter and interpreted-tail simplifier until each child successfully closes. Transform returns a newly owned RuleSet, whose rules retain their expressions and proofs."
       ],
       "deviations": [
         "Ackermann implication emission follows Go select discovery order; source obj_map iteration depends on C++ object hashing and has no cross-language stable order."
@@ -102345,7 +102354,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/array_blast.go",
-        "pkg/muz/transforms/array_blast_coverage_test.go"
+        "pkg/muz/transforms/array_blast_coverage_test.go",
+        "pkg/muz/transforms/array_blast_close_pending_test.go"
       ],
       "tests": [
         "TestArrayBlastEliminatesStoreDefinitionAndSelectPairs",
@@ -102353,7 +102363,8 @@
         "TestArrayBlastStopsBeforeRulesWhenManagerIsCanceled",
         "TestArrayBlastRefusesNonVariableHeadAfterStoreSubstitution",
         "TestArrayBlastAckermannizesEverySelectIndex",
-        "TestArrayBlastTransfersRuleRewriteProof"
+        "TestArrayBlastTransfersRuleRewriteProof",
+        "TestArrayBlastClosePreservesPendingChildren"
       ],
       "conditionals": [
         {
@@ -102378,7 +102389,8 @@
             "TestArrayBlastStopsBeforeRulesWhenManagerIsCanceled",
             "TestArrayBlastRefusesNonVariableHeadAfterStoreSubstitution",
             "TestArrayBlastAckermannizesEverySelectIndex",
-            "TestArrayBlastTransfersRuleRewriteProof"
+            "TestArrayBlastTransfersRuleRewriteProof",
+            "TestArrayBlastClosePreservesPendingChildren"
           ]
         }
       ],

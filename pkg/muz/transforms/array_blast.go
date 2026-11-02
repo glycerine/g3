@@ -22,6 +22,7 @@ type ArrayBlastPlugin struct {
 	simplifier *InterpTailSimplifierPlugin
 	priority   uint32
 	closed     bool
+	closing    bool
 }
 
 func NewArrayBlastPlugin(manager *ast.ASTManager, rules *base.RuleManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (_ *ArrayBlastPlugin, resultErr error) {
@@ -461,6 +462,9 @@ func (p *ArrayBlastPlugin) ackermannize(rule *base.Rule, expressions []ast.ASTHa
 }
 
 func (p *ArrayBlastPlugin) transformRule(rule *base.Rule) (_ *base.Rule, changed bool, resultErr error) {
+	if p == nil || p.closed || p.closing {
+		return nil, false, base.ErrRuleTransformerOwner
+	}
 	uninterpreted, err := rule.UninterpretedTailSize()
 	if err != nil {
 		return nil, false, err
@@ -694,7 +698,7 @@ func (p *ArrayBlastPlugin) transformRule(rule *base.Rule) (_ *base.Rule, changed
 }
 
 func (p *ArrayBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
-	if p == nil || p.closed || p.manager == nil || p.rules == nil {
+	if p == nil || p.closed || p.closing || p.manager == nil || p.rules == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	result, err := base.NewRuleSet(p.rules)
@@ -760,6 +764,19 @@ func (p *ArrayBlastPlugin) Close() error {
 	if p.closed {
 		return nil
 	}
+	p.closing = true
+	if p.simplifier != nil {
+		if err := p.simplifier.Close(); err != nil {
+			return err
+		}
+		p.simplifier = nil
+	}
+	if p.rewriter != nil {
+		if err := p.rewriter.Close(); err != nil {
+			return err
+		}
+		p.rewriter = nil
+	}
 	p.closed = true
-	return errors.Join(p.simplifier.Close(), p.rewriter.Close())
+	return nil
 }
