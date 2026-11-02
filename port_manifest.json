@@ -89756,6 +89756,13 @@
           ]
         },
         {
+          "name": "PDR context and transformed/source rule-snapshot replacement ownership across native cleanup refusal (destructor/updt_params/check_reset)",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/pdr_engine.go",
+          "go_targets": ["pkg/muz/fp/pdr_rule_lifecycle.go", "pkg/muz/fp/pdr_replacement_pending_test.go", "pkg/muz/fp/pdr_snapshot_replacement_pending_test.go"],
+          "tests": ["TestPDRReplacementPreservesContextWhenNativeCleanupRefuses", "TestPDRSnapshotReplacementPublishesOnlyAfterNativeCleanup"]
+        },
+        {
           "name": "remaining proof traces",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",

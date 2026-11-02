@@ -5,6 +5,7 @@ package fp
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 )
 
 func (e *PropositionalEngine) advanceRuleRevision() {
@@ -32,4 +33,23 @@ func (e *PropositionalEngine) canReusePDRSourceRules(query ast.ASTHandle) (bool,
 		return false, err
 	}
 	return true, nil
+}
+
+// replacePDRRuleSnapshots publishes the new query snapshots only after every
+// superseded owner has completed native cleanup. A refused close leaves the
+// old concrete owner reachable through the engine for retry.
+func (e *PropositionalEngine) replacePDRRuleSnapshots(rules, source *base.RuleSet) error {
+	if e.pdrRules != nil && e.pdrRules != rules {
+		if err := e.pdrRules.Close(); err != nil {
+			return err
+		}
+	}
+	if e.pdrSourceRules != nil && e.pdrSourceRules != source {
+		if err := e.pdrSourceRules.Close(); err != nil {
+			return err
+		}
+	}
+	e.pdrRules = rules
+	e.pdrSourceRules = source
+	return nil
 }

@@ -331,6 +331,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 ### pdr
 
 - [ ] `src/muz/pdr/pdr_dl_interface.cpp` (partial: query-pipeline regression repaired and tested; broader interface method audit remains open)
+  - [x] Context/statistics and transformed/source rule-snapshot replacement publish only after superseded owners finish cleanup, with retry after native refusal.
 
 - [x] `src/muz/pdr/pdr_util.cpp` (live methods and ownership audited; source consumer map below)
 
@@ -892,3 +893,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Added concrete external-relation predicate dispatch: the plugin derives exact registered predicate signatures, constructs/caches manager-owned callback relations, pins declarations, supports explicit drop and retires relations before callback trails with retry-safe decrement semantics. Fixedpoint exposes only registered-predicate lookup; it does not claim automatic rule/query operator dispatch. Focused relational tests passed in 0.016s and the fixedpoint bridge passed in 0.007s. Automatic execution dispatch and generic manager selection remain open.
 
 - 2026-11-02 — Ported legacy Datalog parser constant-left infix bodies and adjacent integer-string constant construction. Finite string/numeric equality, integer less-than, source greater-than reversal, quoted integer parsing and constant-only rejection preserve operand orientation and require at least one previously typed variable. New focused cases passed in 0.018s and all native Datalog parser/lexer tests passed in 0.059s. Broader parser source and ownership audits remain open.
+
+- 2026-11-02 — Made PDR replacement ownership retry-safe across source destructor, parameter-update and reset paths. Snapshot/statistics failure or native context Close refusal leaves the old engine/revision/statistics reachable; archived counters merge only after successful close. Superseded transformed/source RuleSets close before new snapshots publish, while caller defers keep unpublished replacements safe. Real native-refusal regressions verify owner identity, retry, idempotence and zero final budget; focused lifecycle matrices passed in 0.035s/0.012s. Broader PDR interface auditing remains open.

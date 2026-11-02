@@ -69,29 +69,36 @@ func (e *PropositionalEngine) collectPDRStatistics(destination *statistics.Stati
 }
 
 func (e *PropositionalEngine) closePDRForReplacement() error {
-	var result error
 	if e.pdr != nil {
 		archived, err := e.pdr.SnapshotStatistics()
-		result = err
-		if err == nil {
-			e.pdrStatistics.Merge(archived)
+		if err != nil {
+			return err
 		}
-		result = errors.Join(result, e.pdr.Close())
+		if err = e.pdr.Close(); err != nil {
+			return err
+		}
+		e.pdrStatistics.Merge(archived)
 		e.pdr = nil
 	}
 	if e.pdrRules != nil {
-		result = errors.Join(result, e.pdrRules.Close())
+		if err := e.pdrRules.Close(); err != nil {
+			return err
+		}
 		e.pdrRules = nil
 	}
 	if e.pdrSourceRules != nil {
-		result = errors.Join(result, e.pdrSourceRules.Close())
+		if err := e.pdrSourceRules.Close(); err != nil {
+			return err
+		}
 		e.pdrSourceRules = nil
+	}
+	if err := e.clearPDRPreprocessing(); err != nil {
+		return err
 	}
 	e.pdrRevision = 0
 	e.pdrRuleRevision = 0
 	e.pdrQuery = ast.ASTHandle{}
-	result = errors.Join(result, e.clearPDRPreprocessing())
-	return result
+	return nil
 }
 
 func (e *PropositionalEngine) pdrPredicate(declaration ast.ASTHandle) ast.ASTHandle {
@@ -289,8 +296,6 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	oldSnapshot := e.pdrRules
-	oldSourceSnapshot := e.pdrSourceRules
 	reset := !reuse && e.pdr != nil && e.pdrRules != nil && e.pdrRuleRevision == e.revision
 	if reuse {
 		if err = context.Close(); err != nil {
@@ -338,27 +343,23 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 			return lbool.Undef, errors.Join(err, closeContext())
 		}
 	}
+	if reuse || reset {
+		if err = e.replacePDRRuleSnapshots(snapshot, sourceSnapshot); err != nil {
+			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
+		}
+	} else {
+		e.pdrRules = snapshot
+		e.pdrSourceRules = sourceSnapshot
+	}
 	e.installPDRPreprocessing(preprocessed)
 	e.pdrSliceProof = preprocessed.sliceProof != nil
 	e.pdrDerived = derivedPredicates
 	e.pdr = context
-	e.pdrRules = snapshot
-	e.pdrSourceRules = sourceSnapshot
 	e.pdrRevision = e.revision
 	e.pdrRuleRevision = e.revision
 	e.pdrQuery = declaration
 	keepSnapshot = true
 	installed = true
-	if (reuse || reset) && oldSnapshot != nil {
-		if err = oldSnapshot.Close(); err != nil {
-			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
-		}
-	}
-	if (reuse || reset) && oldSourceSnapshot != nil {
-		if err = oldSourceSnapshot.Close(); err != nil {
-			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
-		}
-	}
 	status, err := context.Solve(queryDeclaration)
 	if err == nil && status == lbool.False {
 		err = e.writePDREmptyProgramModel(declaration)
