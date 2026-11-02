@@ -207,6 +207,26 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 			if cause != nil {
 				return value, cause
 			}
+			if position.First == 0 && position.Second > 0 && originalPositive == 0 && len(premises) == 2 {
+				positive, cause := other.rule.PositiveTailSize()
+				if cause != nil {
+					return value, cause
+				}
+				if position.Second > uint32(positive) {
+					return value, fmt.Errorf("%w: reverse resolution position", ErrSliceProofUnsupported)
+				}
+				var reverseMap []int
+				next, nextProof, cause := c.resolveProof(other.rule, other.proof, value.rule, value.proof, int(position.Second-1), &reverseMap)
+				if cause != nil {
+					return value, cause
+				}
+				cause = errors.Join(value.rule.Close(), m.DelRef(&value.proof))
+				value.rule, value.proof = next, nextProof
+				if cause != nil {
+					return value, cause
+				}
+				continue
+			}
 			if position.First == 0 || position.Second != 0 {
 				return value, fmt.Errorf("%w: resolution positions", ErrSliceProofUnsupported)
 			}
