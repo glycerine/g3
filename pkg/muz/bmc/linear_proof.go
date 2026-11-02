@@ -22,6 +22,15 @@ func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level u
 		return result, ast.ErrASTHandle
 	}
 	m := c.manager
+	// Run publication cleanup after every child destructor. A refused scoped
+	// proof or normalizer close must not return an owning proof together with
+	// an error.
+	defer func() {
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, m.DelRef(&result))
+			result = ast.ASTRef{}
+		}
+	}()
 	rm, err := rules.RuleManager()
 	if err != nil {
 		return result, err
@@ -40,10 +49,6 @@ func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level u
 	defer func() {
 		if previous != nil {
 			resultErr = errors.Join(resultErr, previous.Close())
-		}
-		if resultErr != nil && result != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, m.DelRef(&result))
-			result = ast.ASTRef{}
 		}
 	}()
 	predicate := query

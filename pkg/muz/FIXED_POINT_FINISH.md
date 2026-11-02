@@ -296,6 +296,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - [x] `src/muz/bmc/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/bmc/dl_bmc_engine.cpp` (partial), `src/muz/bmc/dl_bmc_engine.h` (partial)
+  - [x] Linear trace/proof allocation-frontier ownership and late scoped-proof/normalizer cleanup publication ordering.
+  - [ ] Nonlinear/QBMC late-cleanup audits and broader source/ownership closure.
 
 ### clp
 
@@ -854,3 +856,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Ported Duality `dl_interface::display_certificate` safe-result behavior. Safe queries now print the source fixedpoint annotation model without entering counterexample-expression rendering, while reachable queries keep their derivation/V2 certificate path and undefined/no-result calls reject. A real safe unary query verifies model content, exact branch separation, stable live-reference accounting after mid-writer refusal and successful retry. The focused regression passed in 0.017s and the complete native Duality package passed in 1.128s. Wider exceptional backend lifecycle auditing remains open.
 
 - 2026-11-02 — Simple-join cleanup now preserves every unconsumed generated-predicate pin when native AST release refuses, blocks transformation and fresh-predicate publication while closing, and completes idempotent retry. The regression performs a real three-tail split, verifies exact owner identities across two refused closes and reaches zero fixture budget; focused simple-join tests passed in 0.013s and the complete native transforms package passed in 9.193s. Later partial pin destruction and construction-error cleanup remain open.
+
+- 2026-11-02 — Corrected BMC linear proof publication ordering so a late scoped-proof or normalizer cleanup failure cannot return a live proof together with an error. A real three-rule recursive campaign crosses every reachable trace/proof allocation failure through success, checks exact live-byte equality after each attempt and verifies independent successful owners. Focused tests passed in 0.057s and the complete native BMC package passed in 0.686s. Nonlinear/QBMC late-cleanup audits and broader source/ownership closure remain open.
