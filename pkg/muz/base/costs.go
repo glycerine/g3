@@ -169,14 +169,15 @@ func (o *AccountedObject) Close() error {
 	if o.beingRecorded {
 		return ErrCosts
 	}
-	o.closed = true
-	if o.parentRule == nil {
-		return nil
+	if o.parentRule != nil {
+		if err := o.parentRule.Close(); err != nil {
+			return err
+		}
 	}
-	parent := o.parentRule
 	o.parentRule = nil
 	o.parent = nil
-	return parent.Close()
+	o.closed = true
+	return nil
 }
 
 // CostRecorder charges each completed recording interval as one instruction.

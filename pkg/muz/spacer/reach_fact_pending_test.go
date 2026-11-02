@@ -21,11 +21,16 @@ func TestReachFactClosePreservesOwnersDuringASTInvocation(t *testing.T) {
 	}
 	budget := arena.NewBudget(1 << 28)
 	var fact, shared *ReachFact
+	var selection RuleSelection
 	active, callbacks, intact := false, 0, true
 	var closeErr error
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
 		if active {
 			callbacks++
+			selected := selection.Rule
+			selectionErr := selection.Close()
+			intact = intact && errors.Is(selectionErr, ast.ErrASTPending) && selection.Rule == selected && selected != nil && len(selection.ReachPredUsed) == 1 && selection.NumReuseReach == 1 && selection.IsConcrete
+
 			if shared != nil {
 				must(shared.Close())
 				shared = nil
@@ -61,6 +66,7 @@ func TestReachFactClosePreservesOwnersDuringASTInvocation(t *testing.T) {
 		if fact != nil {
 			must(fact.Close())
 		}
+		must(selection.Close())
 		must(rules.Close())
 		must(m.Close())
 		must(numbers.Close())
@@ -92,6 +98,10 @@ func TestReachFactClosePreservesOwnersDuringASTInvocation(t *testing.T) {
 	must(rule.Close())
 	shared, err = fact.Retain()
 	must(err)
+	selected, err := rules.NewRule(head, nil, nil, "pending-selection")
+	must(err)
+	selection = RuleSelection{Rule: selected, IsConcrete: true, ReachPredUsed: []bool{true}, NumReuseReach: 1}
+
 	value, err := numbers.NewValue()
 	must(err)
 	defer func() { must(numbers.Del(&value)) }()
@@ -124,4 +134,6 @@ func TestReachFactClosePreservesOwnersDuringASTInvocation(t *testing.T) {
 	must(justifications[0].Close())
 	must(fact.Close())
 	must(fact.Close())
+	must(selection.Close())
+	must(selection.Close())
 }

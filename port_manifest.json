@@ -85266,6 +85266,17 @@
       "ownership_audited": true,
       "methods": [
         {
+          "name": "accounted_object parent-rule close preserves its owner across an active cost-recorder refusal",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/base/costs.go",
+            "pkg/muz/base/rule_pending_test.go"
+          ],
+          "tests": [
+            "TestRuleClosePreservesOwnersDuringASTInvocation"
+          ]
+        },
+        {
           "name": "costs construction, emptiness, reset, strict subtraction, accumulation, threshold comparison, and profile output (dl_costs.cpp:36-66)",
           "status": "ported",
           "go_target": "pkg/muz/base/costs.go",
@@ -85413,6 +85424,17 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "rule final-owner cleanup preserves roots across native AST execution-guard and accounting refusal; independent post-release failures remain under audit",
+          "status": "partial",
+          "go_targets": [
+            "pkg/muz/base/rule.go",
+            "pkg/muz/base/rule_pending_test.go"
+          ],
+          "tests": [
+            "TestRuleClosePreservesOwnersDuringASTInvocation"
+          ]
+        },
         {"name": "rule_manager::mk_query hoists existential quantifiers before constructing its query head (dl_rule.cpp:276-282)", "status": "ported", "go_targets": ["pkg/muz/fp/query_expression.go", "pkg/muz/fp/query_variables.go", "pkg/muz/fp/query_variables_test.go", "pkg/muz/fp/query_expression_free_var_test.go"], "tests": ["TestQueryExpressionHoistsExistentialVariablesIntoHead", "TestFixedpointQueryExpressionExistential", "TestFixedpointQueryExpressionNestedExistential", "TestFixedpointQueryExpressionExistentialWithSparseFreeVariable"]},
         {"name": "rule_manager::mk_query compacts unused free-variable indices (dl_rule.cpp:280-300)", "status": "ported", "go_targets": ["pkg/muz/fp/query_variables.go", "pkg/muz/fp/query_variables_test.go", "pkg/muz/fp/query_expression_free_var_test.go"], "tests": ["TestCompactQueryVariablesPreservesSortsAndBoundVariables", "TestFixedpointQueryExpressionCompactsVariableGaps"]},
         {"name": "rule_manager owns and reuses its hnf member; mk_rule_core resets it, sets the name and registers its owned fresh-predicate vector on proof and no-proof routes (dl_rule.cpp:51-58,169-178; dl_rule.h:116)", "status": "ported", "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_proof.go", "pkg/muz/base/hnf_lifecycle.go"], "tests": ["TestRuleManagerAddsProofsForHNFDefinitionIntroduction", "TestHornNormalizerOwnsFreshPredicatesAfterResultCloses", "TestHornNormalizerResetNameAndOwningSnapshots"]},

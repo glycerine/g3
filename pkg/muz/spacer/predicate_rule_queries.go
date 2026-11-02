@@ -22,10 +22,12 @@ func (s *RuleSelection) Close() error {
 	if s == nil || s.Rule == nil {
 		return nil
 	}
-	err := s.Rule.Close()
+	if err := s.Rule.Close(); err != nil {
+		return err
+	}
 	s.Rule = nil
 	s.ReachPredUsed = nil
-	return err
+	return nil
 }
 
 func (p *PredicateTransformer) normalizedRule(rule *base.Rule) (*spacerNormalizedRule, error) {

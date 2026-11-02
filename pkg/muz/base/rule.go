@@ -589,37 +589,61 @@ func (r *Rule) ToFormula() (result ast.ASTRef, resultErr error) {
 	return state.manager.NewRef(formula)
 }
 
-func (r *Rule) Close() (result error) {
+// Close releases a shared owner immediately, but final destruction preserves
+// ownership when the manager or accounting owner refuses cleanup.
+func (r *Rule) Close() error {
 	if r == nil || r.state == nil {
 		return ErrRuleOwner
 	}
 	if r.closed {
 		return nil
 	}
-	r.closed = true
 	state := r.state
 	if state.released || state.references == 0 {
 		return ErrRuleOwner
 	}
-	state.references--
-	if state.references != 0 {
+	if state.references > 1 {
+		state.references--
+		r.closed = true
 		return nil
 	}
+	if _, err := state.manager.ProofMode(); err != nil {
+		return err
+	}
 	if state.accounting != nil {
-		result = errors.Join(result, state.accounting.Close())
+		if err := state.accounting.Close(); err != nil {
+			return err
+		}
 		state.accounting = nil
 	}
 	if state.hasProof {
-		result = errors.Join(result, state.manager.DelRef(&state.proofReference))
-		state.hasProof = false
+		err := state.manager.DelRef(&state.proofReference)
+		if state.proofReference == (ast.ASTRef{}) {
+			state.hasProof = false
+		}
+		if err != nil {
+			return err
+		}
 	}
-	for i := len(state.tail) - 1; i >= 0; i-- {
-		result = errors.Join(result, state.manager.DelRef(&state.tail[i].reference))
+	for len(state.tail) > 0 {
+		last := len(state.tail) - 1
+		err := state.manager.DelRef(&state.tail[last].reference)
+		if state.tail[last].reference == (ast.ASTRef{}) {
+			state.tail = state.tail[:last]
+		}
+		if err != nil {
+			return err
+		}
 	}
-	result = errors.Join(result, state.manager.DelRef(&state.headReference))
-	state.tail = nil
+	if state.headReference != (ast.ASTRef{}) {
+		if err := state.manager.DelRef(&state.headReference); err != nil {
+			return err
+		}
+	}
+	state.references = 0
 	state.released = true
-	return result
+	r.closed = true
+	return nil
 }
 
 func (m *RuleManager) Close() (result error) {
