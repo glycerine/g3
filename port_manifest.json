@@ -98253,11 +98253,11 @@
           ]
         },
         {
-          "name": "non-SAT get_rules_along_trace returns an empty trace and emits a level-1 source diagnostic (spacer_context.cpp:2332-2337); current Go context still reports ErrContextOwner, independently of valid public query-snapshot guards",
-          "status": "partial",
+          "name": "non-SAT get_rules_along_trace returns an empty trace and emits a level-1 source diagnostic, with closed-owner rejection and public query-snapshot guards preserved (spacer_context.cpp:2332-2337)",
+          "status": "ported",
           "go_target": "pkg/muz/spacer/context_trace.go",
-          "tests": [],
-          "reason": "Source branch comparison identifies an unclosed result-policy gap; add direct unsolved/UNDEF/UNSAT regression coverage and preserve closed-owner and public snapshot checks when fixing it."
+          "tests": ["TestSpacerTraceStatusPolicyAndOwnership", "TestSpacerUnconfiguredContextHasEmptyTrace", "TestPDRAndSpacerPreQueryResultGuards", "TestPDRAndSpacerResultSnapshotsInvalidateAfterParameterRevision", "TestExpressionQueryLastResultAndSpacerTraceInvalidation"],
+          "reason": "Native status/verbosity and unconfigured-context regressions verify the source empty result without removing any closed-owner or public snapshot checks."
         },
         {
           "name": "successful reach-fact rule trace queue-order export (spacer_context.cpp:2330-2384)",

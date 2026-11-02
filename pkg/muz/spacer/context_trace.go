@@ -7,16 +7,34 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 // RulesAlongTrace returns owning rule references in the source queue order for
-// the latest successful query. The caller closes every returned rule.
+// the latest successful query. Non-SAT results return no rules.
+// The caller closes every returned rule.
 func (c *Context) RulesAlongTrace() (result []*base.Rule, resultErr error) {
 	if err := c.open(); err != nil {
 		return nil, err
 	}
-	if !c.solved || c.lastResult != lbool.True || c.query == nil {
+	if c.lastResult != lbool.True {
+		enabled, err := diagnostic.ProcessVerboseEnabled(1)
+		if err != nil {
+			return nil, err
+		}
+		if enabled {
+			stream, err := diagnostic.BorrowProcessVerboseStream()
+			if err != nil {
+				return nil, err
+			}
+			if err = stream.AppendCString("Trace unavailable when result is false\n"); err != nil {
+				return nil, err
+			}
+		}
+		return nil, nil
+	}
+	if !c.solved || c.query == nil {
 		return nil, ErrContextOwner
 	}
 	roots, err := c.query.ReachFacts()
