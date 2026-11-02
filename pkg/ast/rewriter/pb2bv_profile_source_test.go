@@ -102,3 +102,17 @@ func TestPB2BVSourceKeepCardinalityMinimumArity(t *testing.T) {
 		t.Fatal("minimum arity cardinality retention omitted")
 	}
 }
+
+// The C++ rewriter does not reject unrecognized pb.solver values.
+func TestPB2BVSegmentedProfileFallsBackToBitVectors(t *testing.T) {
+	m, r := pb2BVFixture(t)
+	pb2BVSetProfile(t, r, "pb.solver", "segmented")
+	h := pb2BVWeightedFixture(t, m)
+	out := astTestPin(t, m, ast.ASTHandle{})
+	astTestMust(t, r.Rewrite(h, out, ast.ASTRef{}))
+	got, err := m.RefGet(out)
+	astTestMust(t, err)
+	if got == h {
+		t.Fatal("weighted constraint was not translated")
+	}
+}
