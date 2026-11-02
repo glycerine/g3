@@ -83843,6 +83843,12 @@
             "TestSMTLibRunnerCPPReference",
             "TestSMTLibRunnerProofScript"
           ]
+        },
+        {
+          "name": "value-returning evaluator failure preserves the successfully constructed result reference when subsequent native cleanup refuses, with retryable cleanup ownership",
+          "status": "ported",
+          "go_targets": ["pkg/model/model_evaluator.go", "pkg/model/model_evaluator_value_cleanup_pending_test.go"],
+          "tests": ["TestModelEvaluatorValueFailurePreservesResultOnNativeCleanupRefusal"]
         }
       ],
       "ownership": [
@@ -87067,8 +87073,8 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "numeric linear/qlinear resolution proof substitutions, compacted variable mapping and proof-preserving normalization", "status": "ported", "go_targets": ["pkg/muz/bmc/linear_proof.go", "pkg/muz/transforms/rule_inliner.go", "pkg/muz/fp/bmc_numeric_proof_test.go"], "tests": ["TestBMCNumericProofIndependentValidation"], "reason": "Six public BMC/QBMC linear/nonlinear/recursive cases independently check the query conclusion, structural proof, every logical side condition and asserted leaf provenance. Broader source/ownership audit remains partial."}, {"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "ported", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}, {"name": "linear BMC constructs a model-selected proof when proof tracing is enabled", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go"], "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate"]}, {"name": "nonlinear BMC prepares rule proofs for subsequent answers and certificates without a global proof option", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_requested_proof_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/api/api_fixedpoint_expression_answer_test.go"], "tests": ["TestBMCRequestedNonlinearProofWithoutGlobalTracing", "TestSMT2BMCNonlinearCertificateWithoutProofOption", "TestAPIFixedpointNonlinearBMCAnswersWithoutProofOption"]}, {"name": "BMC query preprocessing applies default transformations and optional slicing without Spacer unfold/coalesce stages", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go"], "tests": ["TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates"]}, {"name": "nonlinear query/binding construction and quantified-tail execution preserve allocation-frontier ownership", "status": "ported", "go_targets": ["pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_quantified_test.go", "pkg/muz/bmc/nonlinear_query_failure_test.go"], "tests": ["TestBMCNonlinearCompilationExecutesQuantifiedPredicateTail", "TestBMCNonlinearQueryAndAppliedVariablesAllocationFrontiers"]}, {"name": "quantified linear search restores solver scopes and construction owners at every allocation boundary", "status": "ported", "go_targets": ["pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_search_failure_test.go"], "tests": ["TestBMCQuantifiedLinearSearchAllocationScopeCleanup"]}],
-      "ownership": [],
+      "methods": [{"name": "numeric linear/qlinear resolution proof substitutions, compacted variable mapping and proof-preserving normalization", "status": "ported", "go_targets": ["pkg/muz/bmc/linear_proof.go", "pkg/muz/transforms/rule_inliner.go", "pkg/muz/fp/bmc_numeric_proof_test.go"], "tests": ["TestBMCNumericProofIndependentValidation"], "reason": "Six public BMC/QBMC linear/nonlinear/recursive cases independently check the query conclusion, structural proof, every logical side condition and asserted leaf provenance. Broader source/ownership audit remains partial."}, {"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "ported", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}, {"name": "linear BMC constructs a model-selected proof when proof tracing is enabled", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go"], "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate"]}, {"name": "nonlinear BMC prepares rule proofs for subsequent answers and certificates without a global proof option", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_requested_proof_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/api/api_fixedpoint_expression_answer_test.go"], "tests": ["TestBMCRequestedNonlinearProofWithoutGlobalTracing", "TestSMT2BMCNonlinearCertificateWithoutProofOption", "TestAPIFixedpointNonlinearBMCAnswersWithoutProofOption"]}, {"name": "BMC query preprocessing applies default transformations and optional slicing without Spacer unfold/coalesce stages", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go"], "tests": ["TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates"]}, {"name": "nonlinear query/binding construction and quantified-tail execution preserve allocation-frontier ownership", "status": "ported", "go_targets": ["pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_quantified_test.go", "pkg/muz/bmc/nonlinear_query_failure_test.go"], "tests": ["TestBMCNonlinearCompilationExecutesQuantifiedPredicateTail", "TestBMCNonlinearQueryAndAppliedVariablesAllocationFrontiers"]}, {"name": "quantified linear search restores solver scopes and construction owners at every allocation boundary", "status": "ported", "go_targets": ["pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_search_failure_test.go"], "tests": ["TestBMCQuantifiedLinearSearchAllocationScopeCleanup"]}, {"name": "quantified-linear indexed-symbol and output cleanup preserves every result across refused native release", "status": "ported", "go_targets": ["pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_cleanup_pending_test.go"], "tests": ["TestQuantifiedLinearCleanupPreservesRefsWhileManagerExecutes"]}],
+      "ownership": ["Quantified-linear compilation owns indexed-symbol and output references through a retryable cleanup owner; refused native release preserves the concrete owner and every successfully published result until cleanup completes."],
       "deviations": ["Nonlinear and quantified compilation, search, model-selected traces and hyper-resolution proofs are integrated. General proof conversion for all transformations, trace/verbosity parity, remaining linear-helper cleanup refusal paths, and classification of nonlinear_dt reference-only code remain pending. The quantified proof evaluates bindings at the selected derivation level, leaves unevaluated symbolic bindings as rule variables, and uses body/head resolution positions, correcting source mistakes. For raw untransformed rules the trace binds head variables from model-evaluated head arguments rather than unconstrained Skolem functions."]
     },
     {
@@ -87187,6 +87193,7 @@
         {"name": "CLP search leaves its statistics counters unchanged and reset clears them", "status": "ported", "go_targets": ["pkg/muz/clp/search.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_query_test.go", "pkg/muz/clp/engine_depth_test.go"], "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPDepthFrontierUnknown", "TestCLPStatisticsRemainZeroAfterRejectedRule"]},
         {"name": "grounding and rule attempts close partial substitutions, grounded head/tail roots and fresh constants as one retryable construction-failure owner, and balance query allocations", "status": "ported", "go_targets": ["pkg/muz/clp/ground.go", "pkg/muz/clp/search_owner.go", "pkg/muz/clp/search_rule.go", "pkg/muz/clp/engine_failure_test.go", "pkg/muz/clp/ground_cleanup_pending_test.go"], "tests": ["TestCLPGroundingClosesPartialSubstitutionOnAllocationFailure", "TestCLPGroundCleanupPreservesFreshConstantsOnNativeRefusal", "TestCLPQueryAllocationFrontiers"]},
         {"name": "query, verbose-printing and grounding locals preserve substitution, output and fresh-constant references as retryable owners across native cleanup refusal", "status": "ported", "go_targets": ["pkg/muz/clp/reference_owner.go", "pkg/muz/clp/query.go", "pkg/muz/clp/verbose.go", "pkg/muz/clp/ground.go", "pkg/muz/clp/local_cleanup_pending_test.go"], "tests": ["TestCLPLocalCleanupOwnersSurviveNativeRefusal", "TestCLPGroundCleanupPreservesFreshConstantsOnNativeRefusal"]},
+        {"name": "fixedpoint CLP backend attempt preserves preprocessing, parameter, solver and engine owners when cleanup refuses and resumes without double release", "status": "ported", "go_targets": ["pkg/muz/fp/clp_cleanup.go", "pkg/muz/fp/clp_engine.go", "pkg/muz/fp/clp_cleanup_pending_test.go"], "tests": ["TestCLPBackendAttemptPreservesRefusedCleanup"]},
         {"name": "query constructs a synthetic rule, runs default transformations, and starts bounded search from the transformed output rule head", "status": "ported", "go_targets": ["pkg/muz/fp/clp_engine.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPQueryWrapperDoesNotMutateProgram", "TestSMT2CLPQueryDepthIncludesSyntheticRule", "TestSMT2CLPEngineConstrainedRules"]},
         {"name": "display_certificate prints the true answer for both reachable and unreachable queries", "status": "ported", "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPEngineResultSnapshotAndAnswer", "TestSMT2CLPCertificateForReachableAndUnreachable"]},
         {"name": "get_answer constructs source true on demand without persistent engine ownership", "status": "ported", "go_targets": ["pkg/muz/clp/lifecycle.go", "pkg/muz/clp/answer_source_test.go"], "tests": ["TestCLPAnswerIsStatelessSourceTruth"]},
@@ -87776,7 +87783,8 @@
         "Fixedpoint engine registration, RPFP query execution, annotation/model snapshots, proof extraction and certificate reporting are implemented and integration-tested. Full source/interface/exceptional ownership closure remains partial. Query preparation, RPFP construction, solver execution, annotation model snapshots and the safe/reachable certificate split are ported; wider exceptional backend lifecycle auditing remains unfinished.",
         "The original edge-to-clause association is recorded before dead-node pruning instead of indexing the shortened edge vector afterward; this avoids attributing a surviving edge to an earlier deleted clause during proof extraction.",
         "Proof export uses the original clause head, including false instead of synthetic @Fail; binder substitutions follow de Bruijn indexing, predicate literal positions include intervening theory atoms, and repeated occurrences of a shared relation application receive repeated resolution premises. These corrections are checked by independent logical side-condition validation.",
-        "Proof export reconstructs quantified witnesses with the native solver factory when QE-lite has projected original variables out of the counterexample model; taking default model values as in the source can produce an invalid original-clause instance."
+        "Proof export reconstructs quantified witnesses with the native solver factory when QE-lite has projected original variables out of the counterexample model; taking default model values as in the source can produce an invalid original-clause instance.",
+        "Quantified-array proof reconstruction remains unresolved: the saved reproducer currently exposes an invalid reconstructed proof, so no method or test completion is claimed for that path."
       ]
     },
     {
@@ -89230,6 +89238,12 @@
           "tests": [
             "TestFixedpointPDRBranchingTraceSourceOrder"
           ]
+        },
+        {
+          "name": "context answer export preserves the completed result when temporary constraint cleanup refuses and releases it exactly once on retry",
+          "status": "ported",
+          "go_targets": ["pkg/muz/pdr/answer.go", "pkg/muz/pdr/answer_cleanup.go", "pkg/muz/pdr/answer_cleanup_pending_test.go"],
+          "tests": ["TestPDRAnswerExportPreservesResultWhenConstraintCleanupRefuses"]
         }
       ],
       "ownership": [
@@ -91830,13 +91844,20 @@
           "go_target": "pkg/muz/rel/checked_widen.go",
           "go_targets": ["pkg/muz/rel/checked_widen_test.go"],
           "tests": ["TestCheckedWidenUsesUnionVerificationAndDelta"]
+        },
+        {
+          "name": "live finite-table boundary clones and checks encoded Hash/Sparse rows while preserving the selected concrete representation",
+          "status": "partial",
+          "go_targets": ["pkg/muz/rel/formula_checked_table_finite.go", "pkg/muz/rel/formula_checked_table_finite_test.go", "pkg/muz/fp/datalog_check_relation.go", "pkg/muz/fp/datalog_check_relation_test.go"],
+          "tests": ["TestFormulaCheckedTableFiniteBoundaryChecksEncodedRows", "TestFormulaCheckedTableCloneFiniteNormalizesErrorNil", "TestDatalogCheckedPublicationPreservesFiniteRepresentation", "TestDatalogDefaultTableCheckedParametersRunConcretePair", "TestDatalogDefaultTableCheckedParameterPrecedenceAndNull"],
+          "reason": "Hash/Hash uses SMT formula verification and Sparse-involving pairs use concrete cross-checking; compiled factory dispatch, UDoc and mk_empty/mk_full integration remain open."
         }
       ],
       "ownership": [
         "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
       ],
       "deviations": [
-        "The Go checker is specialized to TableRelation; runtime plugin/factory registration, compiled relation-manager dispatch, mk_empty/mk_full integration, and production checked-parameter consumption remain open."
+        "The live checked query boundary consumes local/module checked-table parameters and preserves Hash/Sparse representations. Runtime generic plugin/factory registration, compiled relation-manager dispatch, actual UDoc, and mk_empty/mk_full integration remain open."
       ]
     },
     {
@@ -93029,11 +93050,25 @@
           ]
         },
         {
-          "name": "ground and two-positive-tail explanation compilation preserves tuple semantics, source child order and finite-prefix/explanation-suffix layout (dl_compiler.cpp:449-517; dl_mk_explanations.cpp zero-child rule)",
+          "name": "ground and arbitrary positive-tail explanation compilation preserves tuple semantics, flat source child order and finite-prefix/explanation-suffix layout through concrete binary left-fold joins (dl_compiler.cpp:449-517; dl_mk_explanations.cpp)",
           "status": "ported",
           "go_targets": ["pkg/muz/rel/compiler_explanation_rule.go", "pkg/muz/rel/compiler_explanation_ground_test.go", "pkg/muz/rel/compiler_explanation_join_test.go"],
-          "tests": ["TestCompileGroundExplanationRulesAgainstTupleOracle", "TestCompileTwoTailExplanationRulesAgainstTupleOracle"],
-          "reason": "Ground and exactly two explained positive tails are covered, including constants, repeated variables, self-joins, empty and nullary relations. More than two positive tails, negation, condition-only free variables, whole-set scheduling and option activation remain open."
+          "tests": ["TestCompileGroundExplanationRulesAgainstTupleOracle", "TestCompilePositiveTailExplanationRulesAgainstTupleOracle"],
+          "reason": "Ground and arbitrary explained positive tails are covered, including constants, repeated variables, self-joins, empty and nullary relations. Negation, condition-only free variables, recursive whole-set scheduling and option activation remain open."
+        },
+        {
+          "name": "acyclic whole-set explanation helper orders rules by predicate dependencies and preserves first-proof publication",
+          "status": "ported",
+          "go_targets": ["pkg/muz/rel/compiler_explanation_program.go", "pkg/muz/rel/compiler_explanation_program_test.go", "pkg/muz/rel/instruction_saturation.go"],
+          "tests": ["TestCompileExplanationProgramOrdersDependenciesAndFirstProofs", "TestCompileExplanationProgramRejectsCyclesBeforePublication"],
+          "reason": "Acyclic dependency scheduling and failure-atomic cycle rejection are staged; actual fixedpoint engine option activation and recursive SCC delta scheduling remain open."
+        },
+        {
+          "name": "compiled finite-backend preflight accepts concrete HashTable/SparseTable programs before any bytecode mutation and rejects unsupported finite plugins for interpreted fallback",
+          "status": "ported",
+          "go_targets": ["pkg/muz/rel/compiler_finite_backend.go", "pkg/muz/rel/compiler.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/sparse_compiled_integration_test.go"],
+          "tests": ["TestDatalogCompiledMixedSparseHashAndNullary", "TestDatalogCompiledSparseRecursiveFixpoint"],
+          "reason": "Live mixed sparse/hash/nullary and recursive sparse programs use compiled bytecode. Lazy and checked tables deliberately fail preflight and fall back before mutation."
         },
         {
           "name": "Recursive finite least-fixpoint bytecode using per-predicate current/next control deltas, semi-naive one-tail-at-a-time delta substitution, loop termination on empty deltas, and temporary ownership transfer (dl_compiler.cpp:902-1188)",
@@ -93203,7 +93238,7 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
-        {"name": "external relation execution for ground facts and single-positive-tail projection/rename cycles through STORE/CLONE/PROJECT/RENAME/UNION", "status": "partial", "go_target": "pkg/muz/rel/external_relation_rules.go", "go_targets": ["pkg/muz/fp/datalog_external_rules.go"], "tests": ["TestExecuteExternalFactRulesGroundProjectionAndChain", "TestFixedpointExternalGroundAndIdentityRuleExecution"], "reason": "The fixedpoint consumer validates the whole external rule set before mutation and runs monotone ground/projection chains, including reordered distinct head variables. Repeated or constant head columns, joins, negation, interpreted tails and delta/widen scheduling remain open."},
+        {"name": "external relation execution for ground facts and up-to-two-positive-tail projection/rename/join chains through deterministic precreation, STORE/CLONE/PROJECT/RENAME/JOIN/UNION and delta-to-empty saturation", "status": "partial", "go_target": "pkg/muz/rel/external_relation_rules.go", "go_targets": ["pkg/muz/fp/datalog_external_rules.go"], "tests": ["TestExecuteExternalFactRulesGroundProjectionAndChain", "TestFixedpointExternalGroundAndIdentityRuleExecution"], "reason": "The consumer validates before mutation, precreates predicate relations in first-seen head/tail order, supports nullary Cartesian joins and recursive convergence beyond a fixed rule-count pass. Repeated or constant tail/head columns, more than two positive tails, negation and interpreted tails remain open."},
         {"name": "external_relation::display and display_tuples print the relation expression followed by a newline", "status": "ported", "go_target": "pkg/muz/rel/external_relation_display.go", "go_targets": ["pkg/ast/ast_printer.go", "pkg/muz/rel/external_relation_display_test.go"], "tests": ["TestExternalRelationDisplayMatchesTupleDisplayAndPropagatesWriterErrors"]},
         {
           "name": "external callback relation initialization, store, emptiness, cloning and complement",
@@ -94366,6 +94401,12 @@
           "tests": ["TestFiniteRelationConstructionInstructions", "TestUnarySingletonInstructionRejectsOutOfDomainValue"]
         },
         {
+          "name": "existing ExecutionContext and bytecode instructions dispatch through concrete FiniteTable registers for mixed SparseTable/HashTable/nullary operations and sparse loop controls",
+          "status": "ported",
+          "go_targets": ["pkg/muz/rel/instruction.go", "pkg/muz/rel/instruction_io.go", "pkg/muz/rel/instruction_table.go", "pkg/muz/rel/instruction_interpreted.go", "pkg/muz/rel/instruction_loop.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_finite_table.go", "pkg/muz/rel/instruction_sparse_runtime_test.go", "pkg/muz/rel/instruction_loop_test.go"],
+          "tests": ["TestExecutionBytecodeMixedSparseHashAndNullaryProjection", "TestWhileInstructionAcceptsSparseFixpointControl"]
+        },
+        {
           "name": "instruction_block ordered ownership, execution with termination checks, cost processing, annotations, statistics, display and reset (dl_instruction.cpp:1127-1190)",
           "status": "ported",
           "go_target": "pkg/muz/rel/instruction.go",
@@ -94376,7 +94417,7 @@
         "ExecutionContext owns concrete table or explanation-product registers. Load clones the stored relation; store transfers its register owner into RelationManager and empties the register, restoring it if publication fails. Relation I/O instructions retain their predicate declarations. InstructionBlock owns and closes instructions in source order; each instruction owns its AccountedObject. WhileInstruction owns and closes its nested body."
       ],
       "deviations": [
-        "ExecutionContext uses parallel concrete HashTable and registered explanation-product registers with explicit ownership transfer; it does not introduce a universal relation adapter. Timer and big-relation reporting cover both concrete register kinds. General operation-function cache dispatch remains outside this bounded integration slice."
+        "ExecutionContext uses concrete FiniteTable and registered explanation-product registers with explicit ownership transfer. Mixed Hash/Sparse bytecode uses typed row-wise fallback, while unsupported lazy/checked compiled paths are rejected by preflight and use interpreted execution."
       ]
     },
     {
@@ -94611,6 +94652,13 @@
           "go_target": "pkg/muz/rel/interval_relation_fact_ast.go",
           "go_targets": ["pkg/muz/rel/interval_relation_fact_ast_test.go"],
           "tests": ["TestIntervalRelationASTFactMembership"]
+        },
+        {
+          "name": "interval_relation::add_fact(const relation_fact&) decodes AST numerals and widens the concrete interval columns",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/interval_relation_fact_ast.go",
+          "go_targets": ["pkg/muz/rel/interval_relation_fact_ast_test.go"],
+          "tests": ["TestIntervalRelationASTFactInsertion"]
         }
       ],
       "ownership": [
@@ -94847,10 +94895,17 @@
           "go_target": "pkg/muz/rel/lazy_table_transfer.go",
           "go_targets": ["pkg/muz/rel/lazy_table_mutator_transfer_test.go"],
           "tests": ["TestLazyTableMutatingForceReleasesInterpretedSourceOwners"]
+        },
+        {
+          "name": "concrete lazy_sparse join/project nodes preserve deferred fusion, sparse functional metadata, nullary projection fallback and retryable engine cleanup",
+          "status": "partial",
+          "go_targets": ["pkg/muz/rel/lazy_sparse.go", "pkg/muz/rel/lazy_sparse_operations.go", "pkg/muz/rel/lazy_sparse_finite.go", "pkg/muz/rel/lazy_sparse_test.go", "pkg/muz/rel/lazy_sparse_nullary_test.go", "pkg/muz/rel/lazy_sparse_close_retry_test.go"],
+          "tests": ["TestLazySparseJoinProjectUsesConcreteSparseFusion", "TestLazySparseCapabilityAndFunctionalMetadata", "TestLazySparseProjectAllUsesNullSignatureFallback", "TestLazySparseJoinProjectAllKeepsJoinDeferred", "TestLazySparseNullaryProjectionAndProductRemainComposable", "TestLazySparseProjectionAfterNullaryProductUsesConcreteFallback", "TestLazySparseEngineCloseStopsAndRetriesPreservedNode"],
+          "reason": "Concrete lazy-sparse finite access, clone/reset, Join/Project fusion, nullary chaining and cleanup retry are implemented and ownership-tested. Sparse-backed rename, equal/identical/interpreted/negation filters, union and their deferred paths remain open, as do main fixedpoint tr_lazy_sparse selection and real AST-bearing cleanup refusal."
         }
       ],
       "ownership": ["Mutating force nodes own the transferred concrete table; if child cleanup refuses, the node preserves that table for retry instead of publishing or losing it."],
-      "deviations": ["The concrete lazy operations are covered, but no production tr_lazy_sparse instantiation consumes the full source plugin/factory surface yet."]
+      "deviations": ["Concrete LazySparse finite access, clone/reset, Join/Project fusion and nullary chaining consume the sparse backend. Sparse-backed rename, equal/identical/interpreted/negation filters, union and corresponding deferred paths remain open. Main fixedpoint tr_lazy_sparse selection still does not install it; generic plugin/factory activation remains open, and cleanup refusal is synthetic because no AST-bearing lazy filter is active yet."]
     },
     {
       "path": "src/muz/rel/dl_lazy_table.h",
@@ -95477,6 +95532,12 @@
             "pkg/muz/fp/propositional_engine_test.go",
             "pkg/parsers/smt2/fixedpoint_commands_test.go"
           ]
+        },
+        {
+          "name": "join-planner pair costs consume the concrete finite relation interface so HashTable and SparseTable row estimates select the same source plan",
+          "status": "ported",
+          "go_targets": ["pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/transforms/simple_joins_test.go", "pkg/muz/transforms/sparse_relation_fixture_test.go"],
+          "tests": ["TestSimpleJoinsSelectsLowestEstimatedPair"]
         }
       ],
       "ownership": [
@@ -96142,6 +96203,13 @@
           "tests": ["TestRelationManagerFiniteSignatureAndFactRoundTrip", "TestRelationManagerRejectsInfiniteAndWrongSortValues"]
         },
         {
+          "name": "Concrete finite relation storage preserves selected HashTable or SparseTable owners across get/try-get/store/restrict and representation replacement",
+          "status": "ported",
+          "go_targets": ["pkg/muz/rel/finite_table.go", "pkg/muz/rel/relation_manager_finite.go", "pkg/muz/rel/relation_manager_restrict.go", "pkg/muz/fp/finite_representation.go", "pkg/muz/fp/finite_sparse_representation_test.go"],
+          "tests": ["TestDatalogSparseRepresentationUsesConcreteStorage", "TestDatalogSparseRepresentationRoundTripAndEmptySignatureGuard"],
+          "reason": "Actual sparse storage is live in interpreted Datalog, query publication and typed compiled bytecode; unsupported lazy/checked compiled paths preflight to interpreted fallback."
+        },
+        {
           "name": "Concrete retained finite-table relational operation surface used by compiled instructions (dl_relation_manager.h:215-567)",
           "status": "partial",
           "go_target": "pkg/muz/rel/table.go",
@@ -96254,10 +96322,11 @@
       "ownership_audited": false,
       "methods": [
         {"name": "sieve relation owns and closes its adopted inner relation", "status": "ported", "go_targets": ["pkg/muz/rel/sieve_relation.go", "pkg/muz/rel/sieve_relation_test.go"], "tests": ["TestSieveRelationClosesAdoptedTable", "TestSieveRelationAdoptionValidatesInnerShape", "TestSieveRelationCloneResetAndLifecycle"]},
-        {"name": "sieve_relation_plugin::union_fn handles mixed sieve and TableRelation operands in both directions and publishes exact deltas", "status": "ported", "go_target": "pkg/muz/rel/sieve_relation_table_union.go", "go_targets": ["pkg/muz/rel/sieve_relation_table_union_test.go"], "tests": ["TestSieveUnionFromTableRelationWithDelta", "TestSieveUnionIntoTableRelationWithDelta"]}
+        {"name": "sieve_relation_plugin::union_fn handles mixed sieve and TableRelation operands in both directions and publishes exact deltas", "status": "ported", "go_target": "pkg/muz/rel/sieve_relation_table_union.go", "go_targets": ["pkg/muz/rel/sieve_relation_table_union_test.go"], "tests": ["TestSieveUnionFromTableRelationWithDelta", "TestSieveUnionIntoTableRelationWithDelta"]},
+        {"name": "negation_filter_fn/mk_filter_by_negation_fn typed TableRelation instantiations mutate either mixed target direction with outer-to-inner mappings", "status": "ported", "go_target": "pkg/muz/rel/sieve_relation_table_negation.go", "go_targets": ["pkg/muz/rel/sieve_relation_table_negation_test.go"], "tests": ["TestSieveTargetTableNegationUsesOuterMappingsAndFullIdentity", "TestTableTargetSieveNegationSelectedAndFullEndpoints", "TestSieveTableNegationZeroArityAndBounds"]}
       ],
       "ownership": ["Successful adoption transfers the inner table to the sieve; rejected adoption leaves ownership with its caller, and clones own independent tables."],
-      "deviations": ["Negation filtering uses the supplied outer column IDs to construct inner equalities. The C++ factory indexes both inner-column maps by equality-pair position at lines 638-639, which can leave a matching row when the pair references a later column; the Go regression captures the semantic correction.", "Mixed sieve/TableRelation negation and unused generic plugin registration/factory surfaces remain open."]
+      "deviations": ["Negation filtering uses the supplied outer column IDs to construct inner equalities. The C++ factory indexes both inner-column maps by equality-pair position at lines 638-639, which can leave a matching row when the pair references a later column; the Go regression captures the semantic correction.", "Unused generic plugin registration/factory surfaces remain open because no production Go consumer references them."]
     },
     {
       "path": "src/muz/rel/dl_sieve_relation.h",
@@ -97481,6 +97550,20 @@
             "TestDatalogSimilarityQueryParameterControls",
             "TestDatalogSimilarityKeepsQueriedOutputUnmerged"
           ]
+        },
+        {
+          "name": "staged interval-relation fact evaluator executes exact zero-tail all-arithmetic rule sets with cloned seeds and failure-atomic unsupported-fragment rejection",
+          "status": "partial",
+          "go_targets": ["pkg/muz/fp/datalog_interval_facts.go", "pkg/muz/fp/datalog_interval_facts_test.go", "pkg/muz/rel/interval_relation_fact_ast.go"],
+          "tests": ["TestIntervalDatalogEvaluatorFactRulesAndOwnership", "TestIntervalDatalogEvaluatorRejectsUnsupportedRulesAndSeeds"],
+          "reason": "The evaluator is not installed in the main fixedpoint engine and deliberately rejects non-fact or mixed-signature programs."
+        },
+        {
+          "name": "live compiled Datalog hook preflights typed finite backends, synchronizes Hash/Sparse/nullary relation owners and executes recursive sparse bytecode to closure",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/sparse_compiled_integration_test.go", "pkg/muz/rel/compiler_finite_backend.go", "pkg/muz/rel/instruction_finite_table.go"],
+          "tests": ["TestDatalogCompiledMixedSparseHashAndNullary", "TestDatalogCompiledSparseRecursiveFixpoint"],
+          "reason": "Lazy and checked relations are intentionally excluded from compiled dispatch by failure-atomic preflight and continue through interpreted evaluation."
         }
       ],
       "ownership": [
@@ -98787,11 +98870,11 @@
           "tests": ["TestSpacerInitializedTransformerSourceDisplayTrace"]
         },
         {
-          "name": "ground satisfying-answer construction preserves symbolic witness owners across application failure and composes slice plus eager-inline traces",
+          "name": "ground satisfying-answer construction preserves symbolic witness owners across application failure and composes slice, eager-inline and unfold traces",
           "status": "partial",
-          "go_targets": ["pkg/muz/spacer/context_answer.go", "pkg/muz/fp/spacer_symbolic_ground_failure_test.go", "pkg/muz/fp/spacer_symbolic_witness_test.go"],
-          "tests": ["TestSpacerSymbolicGroundApplicationFailureOwnership", "TestSpacerSymbolicNonlinearWitnessOriginalClauses"],
-          "reason": "Ground witness allocation failure, repeated queries and slice/eager-inline composition are covered; unfold/coalesce compositions remain open."
+          "go_targets": ["pkg/muz/spacer/context_answer.go", "pkg/muz/fp/spacer_symbolic_ground_failure_test.go", "pkg/muz/fp/spacer_symbolic_witness_test.go", "pkg/muz/fp/spacer_unfold_symbolic_witness_test.go"],
+          "tests": ["TestSpacerSymbolicGroundApplicationFailureOwnership", "TestSpacerSymbolicNonlinearWitnessOriginalClauses", "TestSpacerUnfoldedSymbolicSharedWitnessOriginalClauses"],
+          "reason": "Ground witness allocation failure, repeated queries and slice/eager-inline/unfold composition are covered; coalesce composition remains open."
         },
         {
           "name": "source diagnostic writer failures do not change literal expansion, expression-trace publication or retry ownership",
@@ -98804,6 +98887,18 @@
           "status": "ported",
           "go_targets": ["pkg/muz/spacer/context_status.go", "pkg/muz/spacer/context_bounded_status_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/spacer_expression_bounded_status_test.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
           "tests": ["TestContextBoundedStatusTracksLevelExhaustion", "TestSpacerExpressionQueryReportsCloneBoundedStatus", "TestSMT2FixedpointSpacerPrintsBoundedStatus"]
+        },
+        {
+          "name": "context::solve wrapper completes every early solve_core false result by simplifying frames, publishing result metadata and conditionally validating original rules",
+          "status": "ported",
+          "go_targets": ["pkg/muz/spacer/context.go", "pkg/muz/spacer/context_solve_result.go", "pkg/muz/spacer/context_early_unreachable_test.go"],
+          "tests": ["TestContextEarlyUnreachableSimplifiesModelFrames", "TestContextEarlyUnreachablePreservesValidationGuard"]
+        },
+        {
+          "name": "proof-obligation equality-class normalization preserves source representative order",
+          "status": "ported",
+          "go_targets": ["pkg/muz/spacer/proof_obligation.go", "pkg/muz/spacer/proof_obligation_eqclass_normalize_test.go"],
+          "tests": ["TestProofObligationEqualityClassNormalizationSourceOrder"]
         }
       ],
       "ownership": [
@@ -100929,6 +101024,7 @@
         {"name": "projectSelects construction defer keeps its allocated result reachable across nil error returns; standalone and composed whole-array 8/64-class allocation frontiers check service-disposal live references, exact classes, model truth and array elimination; whole-array/store owners own late-error defers remain open", "status": "partial", "go_targets": ["pkg/qe/legacy_array_ackermann.go", "pkg/qe/legacy_array_construction_failure_test.go"], "tests": ["TestLegacyArraySelectAndFormulaConstructionFailures"]},
         {"name": "factor_selects construction defers keep the allocated result reachable across explicit nil error returns; dense 8/64-select allocation frontiers check input-only live-reference accounting after service disposal, exact output counts, model-true definitions and fresh-evaluator retry; integrated store projection has a separate dense frontier, while other named-result error defers remain open", "status": "partial", "go_targets": ["pkg/qe/legacy_array_partial_selects.go", "pkg/qe/legacy_array_construction_failure_test.go"], "tests": ["TestLegacyPartialSelectConstructionFailuresAndRetry", "TestLegacyArrayStoreConstructionFailuresAndRetry"]},
         {"name": "parent projection cleanup skips previously retired children and resumes actual pending-call root cleanup after repeated AST execution-guard refusal; all public projection entry points reject immediately once Close begins and failed mapped-result construction keeps its concrete owner reachable", "status": "partial", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_skolem_projection.go", "pkg/qe/legacy_array_equalities.go", "pkg/qe/legacy_projection_parent_pending_test.go", "pkg/qe/legacy_skolem_projection_failure_test.go"], "tests": ["TestLegacyProjectionParentCleanupContinuation", "TestLegacySkolemProjectionConstructionFailureOwnership"]},
+        {"name": "legacy array, arithmetic and parent projection constructor rollback preserves each concrete partially built owner across refused native cleanup", "status": "ported", "go_targets": ["pkg/qe/legacy_array_equalities.go", "pkg/qe/legacy_arithmetic_linear.go", "pkg/qe/legacy_projection.go", "pkg/qe/legacy_array_constructor_refusal_test.go"], "tests": ["TestLegacyArrayConstructorRollbackPreservesRefusedOwner", "TestLegacyArithmeticConstructorRollbackPreservesRefusedOwner", "TestLegacyProjectionConstructorRollbackPreservesRefusedOwner"]},
         {"name": "arithmetic formula/modulo/real replacement and partial-equality/expansion/factored-select destruction preserves nested owners and unconsumed roots; real/integer classified literals transfer to scoped cleanup before later fallible model/AST work", "status": "partial", "go_targets": ["pkg/qe/legacy_arithmetic_formula.go", "pkg/qe/legacy_arithmetic_factor_mod.go", "pkg/qe/legacy_arithmetic_real.go", "pkg/qe/legacy_arithmetic_integer_project.go", "pkg/qe/legacy_arithmetic_construction_failure_test.go", "pkg/qe/legacy_array_partial_equality.go", "pkg/qe/legacy_array_partial_selects.go", "pkg/qe/legacy_projection_pending_test.go"], "tests": ["TestLegacyArithmeticProjectionOwnersPreservePendingReferences", "TestLegacyRealProjectionConstructionFailureOwnership", "TestLegacyIntegerProjectionConstructionFailureOwnership", "TestLegacyPartialEqualityOwnersPreservePendingReferences"]},
         {"name": "array temporary result destruction preserves equality, formula and auxiliary variable roots across repeated native AST-manager entry refusal; post-admission and construction-error cleanup audit remains open", "status": "partial", "go_targets": ["pkg/qe/legacy_array_equalities.go", "pkg/qe/legacy_array_formula.go", "pkg/qe/legacy_array_ackermann.go", "pkg/qe/legacy_projection_pending_test.go"], "tests": ["TestLegacyArrayProjectionOwnersPreservePendingReferences"]},
         {"name": "arith_project_util::factor_mod_terms pending-application stack, completed sharing, nested substitution/model publication, fresh variable/definition order and owning cached replacements (spacer_qe_project.cpp:910-991)", "status": "ported", "go_targets": ["pkg/qe/legacy_arithmetic_factor_mod.go", "pkg/qe/legacy_arithmetic_factor_mod_test.go"], "tests": ["TestLegacyArithmeticProjectionFactorsSharedModTerms", "TestLegacyModFactoringFollowsSourceSiblingOrder", "TestLegacyModFactoringRebuildsNestedSharedTerms"]},
@@ -103324,6 +103420,13 @@
             "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
             "TestPDREngineExpandsSlicedModelsAndCovers"
           ]
+        },
+        {
+          "name": "bottom-up converter enumerates only dataflow fact entries actually constructed during source-ordered propagation plus explicitly scanned unreachable tails",
+          "status": "ported",
+          "go_targets": ["pkg/muz/dataflow/reachability.go", "pkg/muz/dataflow/reachability_test.go", "pkg/muz/transforms/coi.go", "pkg/muz/transforms/coi_test.go"],
+          "tests": ["TestReachabilityRunsFromIngestedHornProgram", "TestConePluginCapturesOrderedModelDefinitions"],
+          "reason": "An unfounded X-to-S rule with no X seed records X as an unreachable tail but never evaluates the rule and therefore never constructs an S fact entry; the converter publishes X=false without fabricating S=false."
         }
       ],
       "ownership": [
@@ -103917,6 +104020,12 @@
             "TestMagicSetsPreservesNegatedAndInterpretedTails",
             "TestMagicSetsTransfersExistingIntentionalRelation"
           ]
+        },
+        {
+          "name": "existing intentional-relation transfer uses the concrete finite relation interface for HashTable and SparseTable owners",
+          "status": "ported",
+          "go_targets": ["pkg/muz/transforms/magic_sets.go", "pkg/muz/transforms/magic_sets_test.go", "pkg/muz/transforms/sparse_relation_fixture_test.go"],
+          "tests": ["TestMagicSetsTransfersExistingIntentionalRelation"]
         }
       ],
       "ownership": [
@@ -104836,7 +104945,11 @@
           "go_target": "pkg/muz/fp/spacer_slice_results.go",
           "tests": [
             "TestSpacerEngineExpandsSlicedModelPredicates",
-            "TestPDREngineExpandsSlicedModelsAndCovers"
+            "TestPDREngineExpandsSlicedModelsAndCovers",
+            "TestSliceMixedSortModelSatisfiesOriginalClauses"
+          ],
+          "go_targets": [
+            "pkg/muz/fp/slice_mixed_model_test.go"
           ]
         },
         {
