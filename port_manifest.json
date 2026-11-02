@@ -87896,6 +87896,8 @@
       "go_targets": [
         "pkg/muz/fp/datalog_parser_decls.go",
         "pkg/muz/fp/datalog_parser_rules.go",
+        "pkg/muz/fp/datalog_parser_include.go",
+        "pkg/muz/fp/datalog_parser_file_test.go",
         "pkg/muz/fp/datalog_parser_cpp_test.go",
         "pkg/cmd_context/datalog_token.go",
         "pkg/cmd_context/datalog_lexer.go",
@@ -87922,6 +87924,8 @@
         "TestDatalogParserTypedDeclarationAsRuleHead",
         "TestDatalogParserInfixConstantLeftOperands",
         "TestDatalogParserInfixRequiresVariableOperand",
+        "TestDatalogParserMissingOptionalDomainMapContinues",
+        "TestDatalogParserDomainMapAcceptsSourceSizedLines",
         "TestDatalogLexerSourceTokensAndLocations",
         "TestDatalogParserFactsPositiveAndNegativeRules",
         "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories",
@@ -88047,6 +88051,12 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "dparser parse_mapfile optional-file and source-sized line handling (datalog_parser.cpp:1029-1055)",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/datalog_parser_include.go",
+          "tests": ["TestDatalogParserMissingOptionalDomainMapContinues", "TestDatalogParserDomainMapAcceptsSourceSizedLines"]
+        },
         {
           "name": "dparser parse_body/parse_infix constant-left built-ins and mk_const integer-string behavior (datalog_parser.cpp:743-835,1104-1115)",
           "status": "ported",

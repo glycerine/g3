@@ -72,10 +72,16 @@ func (p *datalogParser) parseInclude(domains bool) error {
 func (p *datalogParser) loadMap(sort ast.ASTHandle, name string) (resultErr error) {
 	file, err := os.Open(p.includePath(name))
 	if err != nil {
-		return err
+		// Source parse_mapfile treats an unavailable optional map as a warning
+		// and continues. The Go parser has no diagnostic stream, so preserve
+		// the acceptance behavior without writing process-global stderr.
+		return nil
 	}
 	defer func() { resultErr = errors.Join(resultErr, file.Close()) }()
 	scanner := bufio.NewScanner(file)
+	// Source line_reader grows its buffer to the complete map entry. Avoid
+	// Scanner's unrelated 64 KiB token ceiling while retaining line semantics.
+	scanner.Buffer(make([]byte, 1024), int(^uint(0)>>1))
 	for scanner.Scan() {
 		symbol, err := p.symbol(scanner.Text())
 		if err != nil {

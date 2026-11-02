@@ -932,3 +932,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Preserved partially initialized Spacer model evaluators when native cleanup is refused. Construction failures now implement the retryable memory ownership contract with the exact runtime and original/cleanup causes; focused constructor and evaluator consumers passed in 0.650s. Wider Spacer utility cleanup auditing remains open.
 
 - 2026-11-02 — Ported TAB compound-expression queries and statistics lifecycle. Arbitrary Boolean queries now use a scoped synthetic rule with dense free-variable compaction while preserving the caller's program and proof publication; reset/collection emits the three source statistic keys. Focused and complete native TAB tests passed in 0.061s. Broader tabulation scheduling remains partial.
+
+- 2026-11-02 — Ported the remaining source behavior for optional Datalog domain maps: a missing map warns-and-continues semantically, and map lines are no longer constrained by Go Scanner's 64 KiB default. Parser regressions including an 84 KiB symbol passed in 0.068s. Broader legacy parser auditing remains partial.
