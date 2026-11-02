@@ -107,8 +107,12 @@ func TestExplanationTransformerTransfersFiniteFacts(t *testing.T) {
 		t.Fatal("original table mutated", count)
 	}
 	astTestMust(t, transformer.Close())
+	if _, found, err = product.Explanation([]ast.ASTHandle{f.truth}); err != nil || !found {
+		t.Fatal("transformer disposed manager-owned fact product", found, err)
+	}
+	astTestMust(t, f.relations.ResetRelations())
 	if _, _, err = product.Explanation([]ast.ASTHandle{f.truth}); err == nil {
-		t.Fatal("transformer left fact product live")
+		t.Fatal("manager reset left fact product live")
 	}
 }
 

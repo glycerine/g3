@@ -20,6 +20,7 @@ type FiniteExplanationProduct struct {
 	explanationColumns int
 	table              *SparseTable
 	inner              []*ExplanationRelation
+	closing            bool
 }
 
 func NewFiniteExplanationProduct(manager *RelationManager, finiteSorts []ast.ASTHandle) (*FiniteExplanationProduct, error) {
@@ -54,7 +55,7 @@ func newFiniteExplanationProduct(manager *RelationManager, finiteSorts []ast.AST
 }
 
 func (p *FiniteExplanationProduct) open() error {
-	if p == nil || p.manager == nil || p.manager.open() != nil || p.table == nil || p.table.open() != nil {
+	if p == nil || p.closing || p.manager == nil || p.manager.open() != nil || p.table == nil || p.table.open() != nil {
 		return ErrTableRelation
 	}
 	return nil
@@ -183,6 +184,7 @@ func (p *FiniteExplanationProduct) Close() (result error) {
 	if p == nil || p.table == nil {
 		return nil
 	}
+	p.closing = true
 	for i := len(p.inner) - 1; i >= 0; i-- {
 		if p.inner[i] != nil {
 			if err := p.inner[i].Close(); err != nil {

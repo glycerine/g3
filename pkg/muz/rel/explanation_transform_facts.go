@@ -11,8 +11,8 @@ import (
 
 // TransferFiniteFacts adds the source fact explanation to each existing
 // finite tuple and inherits predicates with facts or rules into target. The
-// transformer owns the resulting products until Close. Product registration
-// remains a separate port step.
+// relation manager owns the published products under explained declarations.
+// The transformer exposes borrowed views until it closes.
 func (t *ExplanationTransformer) TransferFiniteFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle) error {
 	return t.transferFacts(source, target, relations, predicates, false)
 }
@@ -29,6 +29,9 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 	}
 	if source == nil || target == nil || relations == nil || relations.open() != nil || relations.manager != t.manager {
 		return ast.ErrASTHandle
+	}
+	if !relationLevel && t.factManager != nil && t.factManager != relations {
+		return ast.ErrASTDomain
 	}
 	for _, set := range []*base.RuleSet{source, target} {
 		manager, err := set.RuleManager()
@@ -141,6 +144,10 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 				return err
 			}
 		}
+		if err = relations.StoreExplanationRelation(explained, product); err != nil {
+			return errors.Join(err, product.Close())
+		}
+		t.factManager = relations
 		t.factProducts[original] = product
 	}
 	return nil
@@ -156,12 +163,18 @@ func (t *ExplanationTransformer) RelationProduct(original ast.ASTHandle) (*Relat
 	return product, found, nil
 }
 
-// FactProduct returns the transformer-owned finite/explanation product for an
-// original predicate, if TransferFiniteFacts created one.
+// FactProduct returns a manager-owned, borrowed finite/explanation product for
+// an original predicate, if TransferFiniteFacts published one.
 func (t *ExplanationTransformer) FactProduct(original ast.ASTHandle) (*FiniteExplanationProduct, bool, error) {
 	if err := t.open(); err != nil {
 		return nil, false, err
 	}
-	product, found := t.factProducts[original]
-	return product, found, nil
+	if _, found := t.factProducts[original]; !found {
+		return nil, false, nil
+	}
+	explained, err := t.ExplanationDeclaration(original)
+	if err != nil {
+		return nil, false, err
+	}
+	return t.factManager.TryGetExplanationRelation(explained)
 }

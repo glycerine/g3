@@ -13,10 +13,11 @@ import (
 // RelationManager borrows an AST manager, owns stored finite predicate tables,
 // and converts between finite-domain relation values and table elements.
 type RelationManager struct {
-	manager   *ast.ASTManager
-	relations map[ast.ASTHandle]*HashTable
-	saturated map[ast.ASTHandle]bool
-	closed    bool
+	manager      *ast.ASTManager
+	relations    map[ast.ASTHandle]*HashTable
+	explanations map[ast.ASTHandle]*FiniteExplanationProduct
+	saturated    map[ast.ASTHandle]bool
+	closed       bool
 }
 
 func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
@@ -26,11 +27,11 @@ func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
 	if err := manager.RegisterDeclarationPlugins(); err != nil {
 		return nil, err
 	}
-	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), saturated: make(map[ast.ASTHandle]bool)}, nil
+	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), explanations: make(map[ast.ASTHandle]*FiniteExplanationProduct), saturated: make(map[ast.ASTHandle]bool)}, nil
 }
 
 func (m *RelationManager) open() error {
-	if m == nil || m.closed || m.manager == nil || m.relations == nil || m.saturated == nil {
+	if m == nil || m.closed || m.manager == nil || m.relations == nil || m.explanations == nil || m.saturated == nil {
 		return ErrTable
 	}
 	return nil
@@ -40,8 +41,10 @@ func (m *RelationManager) MarkSaturated(predicate ast.ASTHandle) error {
 	if err := m.open(); err != nil {
 		return err
 	}
-	if _, _, err := m.PredicateSignature(predicate); err != nil {
-		return err
+	if m.explanations[predicate] == nil {
+		if _, _, err := m.PredicateSignature(predicate); err != nil {
+			return err
+		}
 	}
 	m.saturated[predicate] = true
 	return nil
@@ -70,6 +73,11 @@ func (m *RelationManager) TryGetRelation(predicate ast.ASTHandle) (*HashTable, b
 		return nil, false, err
 	}
 	table, found := m.relations[predicate]
+	if table != nil {
+		if err := table.open(); err != nil {
+			return nil, false, err
+		}
+	}
 	return table, found, nil
 }
 
@@ -80,6 +88,9 @@ func (m *RelationManager) GetRelation(predicate ast.ASTHandle) (*HashTable, erro
 		return nil, err
 	}
 	if table := m.relations[predicate]; table != nil {
+		if err := table.open(); err != nil {
+			return nil, err
+		}
 		return table, nil
 	}
 	_, signature, err := m.PredicateSignature(predicate)
@@ -113,10 +124,15 @@ func (m *RelationManager) StoreRelation(predicate ast.ASTHandle, table *HashTabl
 	if !expected.equal(actual) {
 		return fmt.Errorf("%w: stored relation signature differs from predicate", ErrTable)
 	}
-	if _, found := m.relations[predicate]; !found {
-		if err = m.manager.IncRef(predicate); err != nil {
+	if prior, found := m.relations[predicate]; found {
+		if prior == table {
+			return nil
+		}
+		if err = prior.Close(); err != nil {
 			return err
 		}
+	} else if err = m.manager.IncRef(predicate); err != nil {
+		return err
 	}
 	m.relations[predicate] = table
 	return nil
@@ -127,7 +143,23 @@ func (m *RelationManager) ResetRelations() (result error) {
 	if err := m.open(); err != nil {
 		return err
 	}
-	for predicate := range m.relations {
+	for predicate, product := range m.explanations {
+		if err := product.Close(); err != nil {
+			result = errors.Join(result, err)
+			continue
+		}
+		consumed, err := m.manager.DecRefConsumed(predicate)
+		result = errors.Join(result, err)
+		if consumed {
+			delete(m.explanations, predicate)
+			delete(m.saturated, predicate)
+		}
+	}
+	for predicate, table := range m.relations {
+		if err := table.Close(); err != nil {
+			result = errors.Join(result, err)
+			continue
+		}
 		consumed, err := m.manager.DecRefConsumed(predicate)
 		result = errors.Join(result, err)
 		if consumed {
@@ -146,12 +178,13 @@ func (m *RelationManager) Close() (result error) {
 		return nil
 	}
 	result = m.ResetRelations()
-	if len(m.relations) != 0 {
+	if len(m.relations) != 0 || len(m.explanations) != 0 {
 		return errors.Join(result, ErrTable)
 	}
 	m.closed = true
 	m.manager = nil
 	m.relations = nil
+	m.explanations = nil
 	m.saturated = nil
 	return result
 }

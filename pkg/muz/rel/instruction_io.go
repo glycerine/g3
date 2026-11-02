@@ -19,6 +19,7 @@ type relationIOInstruction struct {
 	predicate     ast.ASTHandle
 	register      uint32
 	store         bool
+	explanation   bool
 	predicateHeld bool
 	closing       bool
 	closed        bool
@@ -28,7 +29,15 @@ func newRelationIOInstruction(relations *RelationManager, predicate ast.ASTHandl
 	if err := relations.open(); err != nil {
 		return nil, err
 	}
-	if _, _, err := relations.PredicateSignature(predicate); err != nil {
+	explanation, err := relations.predicateUsesExplanationColumns(predicate)
+	if err != nil {
+		return nil, err
+	}
+	if explanation {
+		if _, _, err = relations.explanationPredicateSignature(predicate); err != nil {
+			return nil, err
+		}
+	} else if _, _, err = relations.PredicateSignature(predicate); err != nil {
 		return nil, err
 	}
 	if err := relations.manager.IncRef(predicate); err != nil {
@@ -41,6 +50,7 @@ func newRelationIOInstruction(relations *RelationManager, predicate ast.ASTHandl
 		predicate:     predicate,
 		register:      register,
 		store:         store,
+		explanation:   explanation,
 		predicateHeld: true,
 	}, nil
 }
@@ -80,6 +90,9 @@ func (i *relationIOInstruction) Perform(context *ExecutionContext) (bool, error)
 	relations, err := i.contextRelations(context)
 	if err != nil {
 		return false, err
+	}
+	if i.explanation {
+		return i.performExplanation(context, relations)
 	}
 	if !i.store {
 		table, x := relations.GetRelation(i.predicate)

@@ -204,6 +204,9 @@ func TestRelationManagerOwnsStoredPredicateRelations(t *testing.T) {
 	if err = relations.StoreRelation(predicate, replacement); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := table.Len(); err == nil {
+		t.Fatal("replaced manager table remained live")
+	}
 	stored, found, err = relations.TryGetRelation(predicate)
 	if err != nil || !found || stored != replacement {
 		t.Fatal("replacement relation identity", stored, found, err)
@@ -220,5 +223,8 @@ func TestRelationManagerOwnsStoredPredicateRelations(t *testing.T) {
 	}
 	if stored, found, err = relations.TryGetRelation(predicate); err != nil || found || stored != nil {
 		t.Fatal("reset relation remained stored", stored, found, err)
+	}
+	if _, err := replacement.Len(); err == nil {
+		t.Fatal("reset manager table remained live")
 	}
 }

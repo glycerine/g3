@@ -36,15 +36,16 @@ type ExecutionStats struct {
 
 // ExecutionContext owns every non-nil table placed in a register.
 type ExecutionContext struct {
-	registers   []*HashTable
-	annotations map[uint32]string
-	relations   *RelationManager
-	terminate   func() bool
-	memory      *memory.Runtime
-	timeLimit   time.Duration
-	started     time.Time
-	stats       ExecutionStats
-	closed      bool
+	registers            []*HashTable
+	explanationRegisters []*FiniteExplanationProduct
+	annotations          map[uint32]string
+	relations            *RelationManager
+	terminate            func() bool
+	memory               *memory.Runtime
+	timeLimit            time.Duration
+	started              time.Time
+	stats                ExecutionStats
+	closed               bool
 }
 
 func NewExecutionContext(terminate func() bool) *ExecutionContext {
@@ -75,6 +76,9 @@ func (c *ExecutionContext) Register(index uint32) (*HashTable, error) {
 	if err := c.open(); err != nil {
 		return nil, err
 	}
+	if uint64(index) < uint64(len(c.explanationRegisters)) && c.explanationRegisters[index] != nil {
+		return nil, ErrInstruction
+	}
 	if uint64(index) >= uint64(len(c.registers)) {
 		return nil, nil
 	}
@@ -104,6 +108,12 @@ func (c *ExecutionContext) SetRegister(index uint32, value *HashTable) error {
 	}
 	if uint64(index) >= uint64(len(c.registers)) {
 		c.registers = append(c.registers, make([]*HashTable, int(uint64(index)-uint64(len(c.registers))+1))...)
+	}
+	if uint64(index) < uint64(len(c.explanationRegisters)) && c.explanationRegisters[index] != nil {
+		if err := c.explanationRegisters[index].Close(); err != nil {
+			return err
+		}
+		c.explanationRegisters[index] = nil
 	}
 	if previous := c.registers[index]; previous != nil && previous != value {
 		if err := previous.Close(); err != nil {
@@ -201,6 +211,12 @@ func (c *ExecutionContext) ReportBigRelations(threshold uint32, out io.Writer) e
 				return err
 			}
 			bytes = value
+		} else if i < len(c.explanationRegisters) && c.explanationRegisters[i] != nil {
+			value, err := c.explanationRegisters[i].table.SizeEstimateBytes()
+			if err != nil {
+				return err
+			}
+			bytes = value
 		}
 		total += uint64(bytes)
 		sizes[i] = estimate{register: uint32(i), bytes: bytes}
@@ -216,6 +232,12 @@ func (c *ExecutionContext) ReportBigRelations(threshold uint32, out io.Writer) e
 		var rows uint32
 		if table := c.registers[size.register]; table != nil {
 			value, err := table.SizeEstimateRows()
+			if err != nil {
+				return err
+			}
+			rows = value
+		} else if int(size.register) < len(c.explanationRegisters) && c.explanationRegisters[size.register] != nil {
+			value, err := c.explanationRegisters[size.register].table.SizeEstimateRows()
 			if err != nil {
 				return err
 			}
@@ -264,6 +286,7 @@ func (c *ExecutionContext) Reset() error {
 		return err
 	}
 	c.registers = c.registers[:0]
+	c.explanationRegisters = c.explanationRegisters[:0]
 	clear(c.annotations)
 	c.stats = ExecutionStats{}
 	_ = c.ResetTimeLimit()
@@ -278,7 +301,11 @@ func (c *ExecutionContext) Close() error {
 		return nil
 	}
 	err := c.closeRegisters()
+	if err != nil {
+		return err
+	}
 	c.registers = nil
+	c.explanationRegisters = nil
 	clear(c.annotations)
 	c.annotations = nil
 	c.memory = nil
@@ -288,6 +315,15 @@ func (c *ExecutionContext) Close() error {
 
 func (c *ExecutionContext) closeRegisters() error {
 	var result error
+	for i, product := range c.explanationRegisters {
+		if product != nil {
+			if err := product.Close(); err != nil {
+				result = errors.Join(result, err)
+			} else {
+				c.explanationRegisters[i] = nil
+			}
+		}
+	}
 	for i, table := range c.registers {
 		if table != nil {
 			result = errors.Join(result, table.Close())

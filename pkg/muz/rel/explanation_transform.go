@@ -21,6 +21,7 @@ type ExplanationTransformer struct {
 	ruleSort         ast.ASTRef
 	declarations     map[ast.ASTHandle]ast.ASTRef
 	factProducts     map[ast.ASTHandle]*FiniteExplanationProduct
+	factManager      *RelationManager
 	relationProducts map[ast.ASTHandle]*RelationExplanationProduct
 	closed           bool
 }
@@ -274,13 +275,9 @@ func (t *ExplanationTransformer) Close() (result error) {
 			delete(t.relationProducts, key)
 		}
 	}
-	for key, product := range t.factProducts {
-		if err := product.Close(); err != nil {
-			result = errors.Join(result, err)
-		} else {
-			delete(t.factProducts, key)
-		}
-	}
+	// Fact-level products are owned by the relation manager, as source e_rel.
+	clear(t.factProducts)
+	t.factManager = nil
 	for key, ref := range t.declarations {
 		if err := t.manager.DelRef(&ref); err != nil {
 			result = errors.Join(result, err)
