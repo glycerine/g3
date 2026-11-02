@@ -95606,6 +95606,8 @@
       "go_targets": [
         "pkg/muz/rel/relation_manager.go",
         "pkg/muz/rel/relation_manager_explanation.go",
+        "pkg/muz/rel/relation_manager_restrict.go",
+        "pkg/muz/rel/relation_manager_restrict_test.go",
         "pkg/muz/rel/instruction_explanation_io_test.go",
         "pkg/muz/rel/table.go",
         "pkg/muz/rel/table_join_project.go",
@@ -95618,6 +95620,7 @@
       "tests": [
         "TestRelationManagerFiniteSignatureAndFactRoundTrip",
         "TestRelationManagerOwnsStoredPredicateRelations",
+        "TestRelationManagerRestrictPredicatesPreservesOnlyScopedOwners",
         "TestExplanationRelationInstructionsLoadCloneStoreAndReset",
         "TestRelationManagerRejectsInfiniteAndWrongSortValues",
         "TestHashTableFiniteFiltersValidateAndMutate",
@@ -95791,6 +95794,13 @@
           "go_targets": [
             "pkg/muz/fp/propositional_engine_test.go"
           ]
+        },
+        {
+          "name": "restrict_predicates removes query-local relation owners and intersects saturation state (dl_relation_manager.cpp:126-143)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/rel/relation_manager_restrict.go", "pkg/muz/rel/relation_manager_restrict_test.go"],
+          "tests": ["TestRelationManagerRestrictPredicatesPreservesOnlyScopedOwners"],
+          "reason": "Concrete finite and registered explanation owners plus predicate references retire outside the keep set; refused cleanup owners remain attached for retry."
         },
         {
           "name": "Finite predicate-domain to table signature conversion and Bool/bit-vector/Datalog finite numeral fact conversion in both directions (dl_relation_manager.cpp:373-451)",
