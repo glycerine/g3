@@ -7,17 +7,58 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
+
+// spacerModelEvaluatorConstructionFailure keeps a partially initialized
+// evaluator reachable when its cleanup is refused. This is the concrete Go
+// owner corresponding to model_evaluator_util's m_mev pointer during reset.
+type spacerModelEvaluatorConstructionFailure struct {
+	evaluator  *model.ModelEvaluator
+	runtime    *memory.Runtime
+	cause      error
+	cleanupErr error
+}
+
+func (f *spacerModelEvaluatorConstructionFailure) Error() string {
+	return errors.Join(f.cause, f.cleanupErr).Error()
+}
+func (f *spacerModelEvaluatorConstructionFailure) Unwrap() error {
+	return errors.Join(f.cause, f.cleanupErr)
+}
+func (f *spacerModelEvaluatorConstructionFailure) Cleanup() error {
+	if f.evaluator == nil {
+		f.cleanupErr = nil
+		return nil
+	}
+	f.cleanupErr = f.evaluator.Close()
+	if f.cleanupErr == nil {
+		f.evaluator = nil
+	}
+	return f.cleanupErr
+}
+func (f *spacerModelEvaluatorConstructionFailure) RuntimeOwner() *memory.Runtime { return f.runtime }
+func (f *spacerModelEvaluatorConstructionFailure) OriginalCause() error          { return f.cause }
+func (f *spacerModelEvaluatorConstructionFailure) CleanupCause() error           { return f.cleanupErr }
+
+func closeFailedSpacerModelEvaluator(evaluator *model.ModelEvaluator, config model.ModelEvaluatorConfig, cause error) (*model.ModelEvaluator, error) {
+	if evaluator == nil {
+		return nil, cause
+	}
+	if cleanup := evaluator.Close(); cleanup != nil {
+		return nil, &spacerModelEvaluatorConstructionFailure{
+			evaluator: evaluator, runtime: config.Memory, cause: cause, cleanupErr: cleanup,
+		}
+	}
+	return nil, cause
+}
 
 // newSpacerModelEvaluator consumes partial construction owners before returning
 // an error, so callers only own an evaluator after successful construction.
 func newSpacerModelEvaluator(md *model.ModelCore, config model.ModelEvaluatorConfig) (*model.ModelEvaluator, error) {
 	evaluator, err := model.NewModelEvaluator(md, config)
 	if err != nil {
-		if evaluator != nil {
-			err = errors.Join(err, evaluator.Close())
-		}
-		return nil, err
+		return closeFailedSpacerModelEvaluator(evaluator, config, err)
 	}
 	return evaluator, nil
 }
