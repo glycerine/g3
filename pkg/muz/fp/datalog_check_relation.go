@@ -19,6 +19,7 @@ type datalogCheckedPredicate struct {
 	original    *rel.HashTable
 	shadow      *rel.HashTable
 	checked     *rel.FormulaCheckedTable
+	sparse      *rel.CheckedRelation
 	publish     *rel.HashTable
 }
 
@@ -59,17 +60,24 @@ func (e *PropositionalEngine) datalogCheckRelationName() (name string, enabled b
 	if name == "" || name == "null" {
 		return name, false, nil
 	}
-	// The retained finite Datalog store is the concrete hashtable backend.
-	// doc uses the same finite execution here while preserving source's
-	// compressor interaction; other backend wrappers remain separate ports.
-	if name != "hashtable" && name != "doc" {
+	// Source table_relation_plugin::create_plugin_name registers these
+	// relation names. Keep the existing bare Go convenience names too.
+	switch name {
+	case "tr_hashtable":
+		name = "hashtable"
+	case "tr_sparse":
+		name = "sparse"
+	}
+	// doc uses finite execution here while preserving source's compressor
+	// interaction. Sparse is checked by the concrete paired sparse table.
+	if name != "hashtable" && name != "sparse" && name != "doc" {
 		return "", false, fmt.Errorf("muz/fp: relation plugin %s is not available for datalog.check_relation", name)
 	}
 	return name, true, nil
 }
 
 func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelationScope, resultErr error) {
-	_, enabled, err := e.datalogCheckRelationName()
+	name, enabled, err := e.datalogCheckRelationName()
 	if err != nil || !enabled {
 		return nil, err
 	}
@@ -83,6 +91,29 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 	for _, declaration := range e.predicateOrder {
 		state := e.predicates[declaration]
 		if state == nil || state.table == nil {
+			continue
+		}
+		if name == "sparse" {
+			signature, err := state.table.Signature()
+			if err != nil {
+				return nil, err
+			}
+			// sparse_table_plugin cannot handle the empty signature; source
+			// relation selection falls back instead of wrapping that predicate.
+			if signature.Len() == 0 {
+				continue
+			}
+			checked, err := rel.NewCheckedRelationFromTable(state.table)
+			if err != nil {
+				return nil, err
+			}
+			shadow, err := checked.Primary()
+			if err != nil {
+				return nil, errors.Join(err, checked.Close())
+			}
+			entry := datalogCheckedPredicate{declaration: declaration, state: state, original: state.table, shadow: shadow, sparse: checked}
+			scope.entries = append(scope.entries, entry)
+			state.table, state.sparse = shadow, checked
 			continue
 		}
 		shadow, err := state.table.Clone()
@@ -108,8 +139,8 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 func (s *datalogCheckRelationScope) restoreStates() {
 	for i := range s.entries {
 		entry := &s.entries[i]
-		if entry.state != nil && entry.state.checked == entry.checked {
-			entry.state.table, entry.state.checked = entry.original, nil
+		if entry.state != nil && (entry.state.checked == entry.checked && entry.checked != nil || entry.state.sparse == entry.sparse && entry.sparse != nil) {
+			entry.state.table, entry.state.checked, entry.state.sparse = entry.original, nil, nil
 		}
 	}
 }
@@ -166,6 +197,14 @@ func (s *datalogCheckRelationScope) dispose() (result error) {
 				continue
 			}
 			entry.checked = nil
+		}
+		if entry.sparse != nil {
+			if err := entry.sparse.Close(); err != nil {
+				result = errors.Join(result, err)
+				continue
+			}
+			entry.sparse = nil
+			entry.shadow = nil
 		}
 		if entry.shadow != nil {
 			result = errors.Join(result, entry.shadow.Close())

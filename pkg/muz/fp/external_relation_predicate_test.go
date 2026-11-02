@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/muz/fp"
 	"github.com/glycerine/g3/pkg/muz/rel"
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func TestFixedpointExternalPredicateRelationDispatch(t *testing.T) {
@@ -53,5 +54,91 @@ func TestFixedpointExternalPredicateRelationDispatch(t *testing.T) {
 	if _, err = first.Relation(); err == nil {
 		t.Fatal("fixedpoint close left manager-owned external relation open")
 	}
+	fpMust(t, context.Close())
+}
+
+func TestFixedpointExternalPredicateFactsAndQueries(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	fpMust(t, err)
+	manager, err := context.Manager()
+	fpMust(t, err)
+	engine, err := fp.NewPropositionalEngine(manager)
+	fpMust(t, err)
+	nonempty := make(map[ast.ASTHandle]bool)
+	fpMust(t, engine.SetExternalRelationCallbacks(rel.ExternalRelationCallbacks{
+		ReduceAssign: func(declaration ast.ASTHandle, arguments, outputs []ast.ASTHandle) error {
+			kind, err := manager.GetDeclKind(declaration)
+			if err != nil {
+				return err
+			}
+			switch kind {
+			case ast.DatalogOpEmpty:
+				nonempty[outputs[0]] = false
+			case ast.DatalogOpStore:
+				nonempty[outputs[0]] = true
+			default:
+				t.Fatalf("unexpected assignment operation %d", kind)
+			}
+			return nil
+		},
+		Reduce: func(declaration ast.ASTHandle, arguments []ast.ASTHandle) (ast.ASTHandle, error) {
+			kind, err := manager.GetDeclKind(declaration)
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			if kind != ast.DatalogOpIsEmpty || len(arguments) != 1 {
+				t.Fatalf("unexpected reduction operation %d", kind)
+			}
+			if nonempty[arguments[0]] {
+				return manager.MkFalse()
+			}
+			return manager.MkTrue()
+		},
+	}))
+	boolean, err := manager.MkBoolSort()
+	fpMust(t, err)
+	makePredicate := func(name string) ast.ASTHandle {
+		symbol, err := manager.Symbols.Intern(name)
+		fpMust(t, err)
+		declaration, err := manager.MkFuncDecl(symbol, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
+		fpMust(t, err)
+		fpMust(t, engine.RegisterPredicate(declaration))
+		fpMust(t, engine.SetPredicateRepresentation(declaration, []string{"external_relation"}))
+		return declaration
+	}
+	p := makePredicate("external-fact-p")
+	q := makePredicate("external-fact-q")
+	status, err := engine.QueryPredicate(q)
+	fpMust(t, err)
+	if status != lbool.False {
+		t.Fatal("empty external predicate query", status)
+	}
+	truth, err := manager.MkTrue()
+	fpMust(t, err)
+	fpMust(t, engine.AddFact(p, []ast.ASTHandle{truth}))
+	status, err = engine.QueryPredicate(p)
+	fpMust(t, err)
+	if status != lbool.True {
+		t.Fatal("stored external predicate query", status)
+	}
+	fpMust(t, engine.AddTableFact(q, []uint32{1}))
+	status, err = engine.QueryPredicates([]ast.ASTHandle{q, p})
+	fpMust(t, err)
+	if status != lbool.True {
+		t.Fatal("mixed external predicate query", status)
+	}
+	answer, err := engine.Answer(p)
+	fpMust(t, err)
+	relation, err := engine.ExternalPredicateRelation(p)
+	fpMust(t, err)
+	want, err := relation.Relation()
+	fpMust(t, err)
+	got, err := manager.RefGet(answer)
+	fpMust(t, err)
+	if got != want {
+		t.Fatal("external query answer is not its relation expression", got, want)
+	}
+	fpMust(t, manager.DelRef(&answer))
+	fpMust(t, engine.Close())
 	fpMust(t, context.Close())
 }

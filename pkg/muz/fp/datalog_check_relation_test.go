@@ -97,3 +97,55 @@ func TestDatalogCheckRelationLocalPrecedenceAndDocCompression(t *testing.T) {
 		t.Fatal("doc checked query", status)
 	}
 }
+
+func TestDatalogCheckRelationSparseBackend(t *testing.T) {
+	f := newDirectFactFixture(t)
+	e, m := f.engine, f.manager
+	must := func(err error) { t.Helper(); fragmentMust(t, err) }
+	must(e.SelectEngine("datalog"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.check_relation", "sparse"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.unbound_compressor", "false"))
+	b, err := m.MkBoolSort()
+	must(err)
+	makePredicate := func(text string) ast.ASTHandle {
+		name, err := m.Symbols.Intern(text)
+		must(err)
+		declaration, err := m.MkFuncDecl(name, []ast.ASTHandle{b}, b, ast.ASTFuncDeclInfo{})
+		must(err)
+		must(e.RegisterPredicate(declaration))
+		return declaration
+	}
+	p, q := makePredicate("checked-sparse-p"), makePredicate("checked-sparse-q")
+	yes, err := m.MkTrue()
+	must(err)
+	must(e.AddFact(p, []ast.ASTHandle{yes}))
+	x, err := m.MkVar(0, b)
+	must(err)
+	px, err := m.MkApp(p, []ast.ASTHandle{x})
+	must(err)
+	qx, err := m.MkApp(q, []ast.ASTHandle{x})
+	must(err)
+	rule, err := m.MkImplies(px, qx)
+	must(err)
+	must(e.AddRule(rule, "checked-sparse-step"))
+
+	status, err := e.QueryPredicate(q)
+	must(err)
+	if status != lbool.True || e.compiled {
+		t.Fatal("sparse checked result/compiler", status, e.compiled)
+	}
+	state := e.predicates[q]
+	if state.checked != nil || state.sparse != nil {
+		t.Fatal("sparse checked owner escaped query scope")
+	}
+	facts, err := state.table.Facts()
+	must(err)
+	if len(facts) != 1 || len(facts[0]) != 1 || facts[0][0] != 1 {
+		t.Fatal("sparse checked facts", facts)
+	}
+	status, err = e.QueryPredicate(q)
+	must(err)
+	if status != lbool.True {
+		t.Fatal("repeated sparse checked query", status)
+	}
+}

@@ -35,9 +35,11 @@ var (
 )
 
 type predicateState struct {
-	sorts   []ast.ASTHandle
-	table   *rel.HashTable
-	checked *rel.FormulaCheckedTable
+	sorts    []ast.ASTHandle
+	table    *rel.HashTable
+	external *rel.ExternalRelation
+	checked  *rel.FormulaCheckedTable
+	sparse   *rel.CheckedRelation
 }
 
 type ddnfEngineState struct {
@@ -296,6 +298,21 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 	if e.queried {
 		return fmt.Errorf("muz/fp: predicate representation must be selected before querying")
 	}
+	if len(kinds) == 1 && kinds[0] == "external_relation" {
+		external, err := e.ExternalPredicateRelation(declaration)
+		if err != nil {
+			return err
+		}
+		state.external = external
+		state.table = nil
+		e.revision++
+		return nil
+	}
+	for _, kind := range kinds {
+		if kind == "external_relation" {
+			return fmt.Errorf("muz/fp: external_relation cannot be combined with finite table representations")
+		}
+	}
 	if state.table == nil {
 		return ErrPropositionalHorn
 	}
@@ -492,6 +509,15 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 	if e.backend == "datalog" {
 		e.engineInstantiated = true
 		state := e.predicates[declaration]
+		if state.external != nil {
+			if err := state.external.AddFact(values); err != nil {
+				return err
+			}
+			e.invalidateQueryForMutation()
+			e.advanceRuleRevision()
+			e.compiled = false
+			return nil
+		}
 		fact, err := e.relations.EncodeFact(state.sorts, values)
 		if err != nil {
 			return err
@@ -524,6 +550,25 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 	}
 	if e.backend == "datalog" {
 		e.engineInstantiated = true
+		if state.external != nil {
+			references, err := e.relations.DecodeFact(state.sorts, fact)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				for i := len(references) - 1; i >= 0; i-- {
+					resultErr = errors.Join(resultErr, e.manager.DelRef(&references[i]))
+				}
+			}()
+			handles := make([]ast.ASTHandle, len(references))
+			for i := range references {
+				handles[i], err = e.manager.RefGet(references[i])
+				if err != nil {
+					return err
+				}
+			}
+			return e.AddFact(declaration, handles)
+		}
 		return e.addDatalogFact(state, fact)
 	}
 	references, err := e.relations.DecodeFact(state.sorts, fact)
@@ -1367,6 +1412,8 @@ func (e *PropositionalEngine) evaluateRule(rule *base.Rule) (changed bool, resul
 		facts, x := state.table.Facts()
 		if state.checked != nil {
 			facts, x = state.checked.Facts()
+		} else if state.sparse != nil {
+			facts, x = state.sparse.Facts()
 		}
 		if x != nil {
 			return false, x
@@ -1408,6 +1455,8 @@ func (e *PropositionalEngine) evaluateRule(rule *base.Rule) (changed bool, resul
 		facts, x := state.table.Facts()
 		if state.checked != nil {
 			facts, x = state.checked.Facts()
+		} else if state.sparse != nil {
+			facts, x = state.sparse.Facts()
 		}
 		if x != nil {
 			return false, x
@@ -1483,6 +1532,8 @@ func (e *PropositionalEngine) evaluateRule(rule *base.Rule) (changed bool, resul
 		var added bool
 		if state.checked != nil {
 			added, x = state.checked.AddTableFact(fact)
+		} else if state.sparse != nil {
+			added, x = state.sparse.Add(fact)
 		} else {
 			added, x = state.table.Add(fact)
 		}
@@ -1879,6 +1930,40 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if err != nil {
 		return lbool.Undef, err
 	}
+	hasExternal := false
+	for _, declaration := range declarations {
+		hasExternal = hasExternal || e.predicates[declaration].external != nil
+	}
+	if hasExternal {
+		if count != 0 {
+			return lbool.Undef, ErrPropositionalHorn
+		}
+		e.compiled = false
+		e.datalogStats.Reset()
+		for _, declaration := range declarations {
+			state := e.predicates[declaration]
+			if state.external != nil {
+				empty, cause := state.external.Empty()
+				if cause != nil {
+					return lbool.Undef, cause
+				}
+				if !empty {
+					return lbool.True, nil
+				}
+				continue
+			}
+			if state.table != nil {
+				rows, cause := state.table.Len()
+				if cause != nil {
+					return lbool.Undef, cause
+				}
+				if rows != 0 {
+					return lbool.True, nil
+				}
+			}
+		}
+		return lbool.False, nil
+	}
 	if count == 0 && len(declarations) > 0 {
 		hasInfinite, nonempty := false, false
 		for _, declaration := range declarations {
@@ -2156,6 +2241,9 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 		return answer, ErrPropositionalEngine
 	}
 	if state.table == nil {
+		if state.external != nil {
+			return state.external.ToFormula()
+		}
 		count, cause := e.set.Len()
 		if cause != nil {
 			return answer, cause

@@ -20,6 +20,45 @@ func NewCheckedRelation(signature Signature) (*CheckedRelation, error) {
 	r := &CheckedRelation{signature: signature, primary: NewHashTable(signature), checker: s}
 	return r, nil
 }
+
+// NewCheckedRelationFromTable copies a concrete finite relation into the
+// paired hashtable/sparse checker used by datalog.check_relation=sparse.
+func NewCheckedRelationFromTable(source *HashTable) (_ *CheckedRelation, resultErr error) {
+	if source == nil || source.open() != nil {
+		return nil, ErrTable
+	}
+	signature, err := source.Signature()
+	if err != nil {
+		return nil, err
+	}
+	result, err := NewCheckedRelation(signature)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+		}
+	}()
+	facts, err := source.Facts()
+	if err != nil {
+		return nil, err
+	}
+	for _, fact := range facts {
+		if _, err = result.Add(fact); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// Primary returns the borrowed hashtable side used by the finite compiler.
+func (r *CheckedRelation) Primary() (*HashTable, error) {
+	if err := r.verify("primary"); err != nil {
+		return nil, err
+	}
+	return r.primary, nil
+}
 func (r *CheckedRelation) open() error {
 	if r == nil || r.closed || r.primary == nil || r.checker == nil {
 		return ErrTable

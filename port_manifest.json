@@ -91676,8 +91676,11 @@
       "go_targets": [
         "pkg/muz/fp/datalog_check_relation.go",
         "pkg/muz/fp/datalog_check_relation_test.go",
+        "pkg/muz/fp/datalog_relation_names_test.go",
         "pkg/muz/fp/propositional_engine.go",
         "pkg/muz/rel/formula_checked_table.go",
+        "pkg/muz/rel/checked_relation.go",
+        "pkg/muz/rel/checked_relation_seed_test.go",
         "pkg/muz/rel/formula_checked_table_test.go",
         "pkg/muz/rel/table_relation.go",
         "pkg/muz/rel/formula_checked_table_filter.go",
@@ -91689,6 +91692,9 @@
       "tests": [
         "TestDatalogCheckRelationParameterRunsCheckedSaturation",
         "TestDatalogCheckRelationLocalPrecedenceAndDocCompression",
+        "TestDatalogCheckRelationSparseBackend",
+        "TestDatalogCheckRelationSourceTableNames",
+        "TestCheckedRelationFromTableCopiesSparseAndPrimaryOwners",
         "TestFormulaCheckedTableFactsAndReset",
         "TestFormulaCheckedTableFilters",
         "TestFormulaCheckedTableUnionAndDelta",

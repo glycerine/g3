@@ -346,6 +346,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [x] `src/muz/rel/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/rel/check_relation.cpp` (partial), `src/muz/rel/check_relation.h` (partial)
   - [x] Live `datalog.check_relation` selection for concrete hashtable/doc execution, local precedence, checked derived facts, persistent publication and scoped cleanup.
+  - [x] Concrete sparse checker pairing, native `tr_hashtable`/`tr_sparse` names, independent primary/checker copies and zero-arity sparse fallback.
 - [ ] `src/muz/rel/dl_base.cpp` (partial), `src/muz/rel/dl_base.h` (partial)
 - [ ] `src/muz/rel/dl_bound_relation.cpp` (partial), `src/muz/rel/dl_bound_relation.h` (partial)
   - [x] Concrete Int/Real/nullary plugin capability, empty/full construction, and typed join dispatch.
@@ -353,7 +354,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/dl_check_table.cpp` (partial), `src/muz/rel/dl_check_table.h` (partial)
 - [ ] `src/muz/rel/dl_external_relation.cpp` (partial), `src/muz/rel/dl_external_relation.h` (partial)
   - [x] Concrete predicate-signature construction, plugin-owned caching/drop/close and registered fixedpoint predicate lookup.
-  - [ ] Automatic rule/query execution dispatch into external operators and generic manager selection.
+  - [x] Rule-free fixedpoint execution dispatches external EMPTY/STORE/IS_EMPTY for AST/table facts, queries and exact relation answers.
+  - [ ] Rule-bearing external execution and generic manager selection.
 - [ ] `src/muz/rel/dl_finite_product_relation.cpp` (partial), `src/muz/rel/dl_finite_product_relation.h` (partial)
   - [x] Finite/interval product display, size estimates, forced garbage collection and non-table tuple-display fallback.
   - [x] Finite/explanation product display, garbage collection and outer-table row/byte estimates.
@@ -922,3 +924,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Ported `dl_query_cmd::set_next_arg` validation to the SMT2 fixedpoint command boundary. Query targets must be null-family uninterpreted declarations already registered as relations; ordinary Boolean functions now fail before local parameters or backend selection instead of surfacing a later Horn-fragment error. Focused query cases passed in 0.011s and all native SMT2 fixedpoint command tests passed in 2.956s. Broader command source/ownership auditing remains open.
 
 - 2026-11-02 — Extended concrete relational consumers: bound plugin project/rename dispatch, interval capability use by the finite/interval constructor, finite/explanation display and estimates, sieve estimates, and retry-safe lazy interpreted forcing. Corrected the interval intersection port after source audit showed vector relations do not enable `can_swap`; the live fallback is join/project/reset/union. Focused tests cover exact renumbering/cycles, ignored-domain storage, inner garbage collection, transferred-owner retry and failure atomicity. The complete native relational package passed in 2.941s after the bound oracle correction. Generic unused adapters remain omitted.
+
+- 2026-11-02 — Extended checked/external relation execution. `datalog.check_relation` now accepts canonical source names `tr_hashtable`/`tr_sparse`; sparse pairs the finite HashTable primary with an independent SparseTable checker, skips unsupported zero-arity signatures and publishes verified clones. Externally represented predicates route EMPTY/STORE/IS_EMPTY callbacks for AST/table facts and rule-free queries, with exact relation-expression answers; rule-bearing programs still reject explicitly. Focused fixedpoint/relational matrices passed in 0.059s/0.074s and external dispatch tests in 0.039s/0.020s; complete native relational passed in 3.139s. Wider backend/rule execution remains open.
