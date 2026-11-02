@@ -18,6 +18,12 @@ type explanationTailConstant struct {
 	value  Element
 }
 
+type explanationFiniteColumn struct {
+	sort      ast.ASTHandle
+	value     Element
+	singleton bool
+}
+
 type explanationRuleLayout struct {
 	head, tail       ast.ASTHandle
 	columns          map[uint32]int
@@ -27,6 +33,7 @@ type explanationRuleLayout struct {
 	permutation      []int
 	appendHead       bool
 	tailConstants    []explanationTailConstant
+	appendFinite     []explanationFiniteColumn
 	identical        [][]int
 	duplicates       []int
 	finiteWidth      int
@@ -168,13 +175,39 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 		available[variable] = append([]int(nil), columns...)
 	}
 	keep := make(map[int]bool)
-	for column, sort := range headSorts {
+	for column, headSort := range headSorts {
+		argument, err := m.GetArg(head, uint32(column))
+		if err != nil {
+			return plan, err
+		}
+		kind, err := m.GetKind(argument)
+		if err != nil {
+			return plan, err
+		}
+		if kind != ast.ASTVar {
+			value, err := relations.EncodeValue(headSort, argument)
+			if err != nil {
+				return plan, err
+			}
+			from := len(tailSorts) + len(plan.appendFinite)
+			plan.appendFinite = append(plan.appendFinite, explanationFiniteColumn{sort: headSort, value: value, singleton: true})
+			headColumns = append(headColumns, from)
+			continue
+		}
 		index, actual, err := variable(head, column)
 		if err != nil {
 			return plan, err
 		}
+		if actual != headSort {
+			return plan, ErrCompilerUnsupported
+		}
 		from, bound := plan.columns[index]
-		if !bound || from >= len(tailSorts) || actual != sort || plan.sorts[index] != sort {
+		if !bound {
+			from = len(tailSorts) + len(plan.appendFinite)
+			plan.appendFinite = append(plan.appendFinite, explanationFiniteColumn{sort: headSort})
+			plan.columns[index], plan.sorts[index] = from, headSort
+			available[index] = []int{from}
+		} else if plan.sorts[index] != headSort {
 			return plan, ErrCompilerUnsupported
 		}
 		if columns := available[index]; len(columns) != 0 {
@@ -182,12 +215,30 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 			available[index] = columns[1:]
 		} else {
 			plan.duplicates = append(plan.duplicates, from)
-			from = len(tailSorts) + len(plan.duplicates) - 1
+			// More finite columns may follow this repeated head argument.
+			// Resolve duplicate positions after all full/singleton columns.
+			from = -len(plan.duplicates)
 		}
 		headColumns = append(headColumns, from)
-		keep[from] = true
 	}
-	width := len(tailSorts) + 1
+	plan.finiteWidth += len(plan.appendFinite)
+	for index, variableSort := range plan.sorts {
+		ruleSort, err := m.IsDatalogRuleSort(variableSort)
+		if err != nil {
+			return plan, err
+		}
+		if ruleSort {
+			plan.columns[index] += len(plan.appendFinite)
+		}
+	}
+	for index, column := range headColumns {
+		if column < 0 {
+			column = plan.finiteWidth - column - 1
+			headColumns[index] = column
+		}
+		keep[column] = true
+	}
+	width := plan.finiteWidth + 1
 	if headExplanations == 1 {
 		index, sort, err := variable(head, len(headSorts))
 		if err != nil {
@@ -200,7 +251,7 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 		plan.appendHead = true
 		plan.explanationWidth++
 	}
-	width = len(tailSorts) + len(plan.duplicates) + plan.explanationWidth
+	width = plan.finiteWidth + len(plan.duplicates) + plan.explanationWidth
 	if plan.appendHead {
 		keep[width-1] = true
 	}
@@ -257,8 +308,9 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 
 // CompileExplanationRuleWithGuard lowers one single-positive-tail explained
 // rule or its finite output bridge. Tail constants and repeated finite columns
-// use filtering and duplicate-column lowering. Ground/multiple-tail rules,
-// unbound head columns and head constants remain outside this compiler slice; unsupported inputs are rejected before any program is published.
+// use filtering and duplicate-column lowering. Finite head constants and
+// unbound variables use singleton/full columns. Ground/multiple-tail rules and
+// condition-only unbound variables are rejected before a program is published.
 func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule, guard *rewriter.TheoryRewriter) (result *InstructionBlock, resultErr error) {
 	plan, err := planExplanationRule(relations, rule)
 	if err != nil {
@@ -302,6 +354,32 @@ func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule
 		if err = emit(NewFilterIdenticalInstruction(current, columns)); err != nil {
 			return result, err
 		}
+	}
+	for _, column := range plan.appendFinite {
+		unary := fresh()
+		var instruction Instruction
+		if column.singleton {
+			instruction, err = NewExplanationFiniteSingletonInstruction(relations, column.sort, column.value, unary)
+		} else {
+			instruction, err = NewExplanationFiniteTotalInstruction(relations, column.sort, unary)
+		}
+		if err != nil {
+			return result, err
+		}
+		if err = emit(instruction); err != nil {
+			return result, err
+		}
+		joined := fresh()
+		if err = emit(NewJoinInstruction(current, unary, nil, nil, joined)); err != nil {
+			return result, err
+		}
+		if err = emit(NewDeallocateInstruction(current)); err != nil {
+			return result, err
+		}
+		if err = emit(NewDeallocateInstruction(unary)); err != nil {
+			return result, err
+		}
+		current = joined
 	}
 	if plan.appendHead {
 		total := fresh()

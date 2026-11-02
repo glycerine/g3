@@ -164,23 +164,25 @@ func TestCompileExplanationRuleRejectsUnsupportedShapesBeforePublication(t *test
 		return d
 	}
 	p := declare("unsupported-explanation-P", []ast.ASTHandle{f.boolean})
-	q := declare("unsupported-explanation-Q", []ast.ASTHandle{f.boolean, f.boolean})
 	x, err := f.ast.MkVar(0, f.boolean)
 	astTestMust(t, err)
 	astTestPin(t, f.ast, x)
 	pX, err := f.ast.MkApp(p, []ast.ASTHandle{x})
 	astTestMust(t, err)
 	astTestPin(t, f.ast, pX)
-	constant, err := f.ast.MkApp(q, []ast.ASTHandle{f.truth, x})
+	y, err := f.ast.MkVar(1, f.boolean)
 	astTestMust(t, err)
-	astTestPin(t, f.ast, constant)
+	astTestPin(t, f.ast, y)
+	unboundCondition, err := f.ast.MkEq(y, f.truth)
+	astTestMust(t, err)
+	astTestPin(t, f.ast, unboundCondition)
 	transformer, err := NewExplanationTransformer(f.ast, rm)
 	astTestMust(t, err)
 	defer func() { astTestMust(t, transformer.Close()) }()
 	for _, spec := range []struct {
 		head  ast.ASTHandle
 		tails []ast.ASTHandle
-	}{{pX, nil}, {constant, []ast.ASTHandle{pX}}, {pX, []ast.ASTHandle{pX, pX}}} {
+	}{{pX, nil}, {pX, []ast.ASTHandle{pX, unboundCondition}}, {pX, []ast.ASTHandle{pX, pX}}} {
 		rule, e := rm.NewRule(spec.head, spec.tails, nil, "unsupported")
 		astTestMust(t, e)
 		generated, e := transformer.ExplanationRule(rule)

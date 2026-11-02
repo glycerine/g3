@@ -10,7 +10,7 @@ import (
 )
 
 func TestCompileExplanationConstantsAndRepeatedColumnsAgainstTupleOracle(t *testing.T) {
-	for _, mode := range []string{"repeated-tail-head", "permuted-repeat", "absent-constant"} {
+	for _, mode := range []string{"repeated-tail-head", "permuted-repeat", "absent-constant", "head-constant", "unbound-repeat-before-constant", "unbound-guard", "independent-unbound"} {
 		t.Run(mode, func(t *testing.T) {
 			f := newTableRelationFixture(t)
 			rm, err := base.NewRuleManager(f.ast)
@@ -29,7 +29,7 @@ func TestCompileExplanationConstantsAndRepeatedColumnsAgainstTupleOracle(t *test
 			}
 			p, q := declare("column-input"), declare("column-output")
 			own := func(h ast.ASTHandle, e error) ast.ASTHandle { astTestMust(t, e); astTestPin(t, f.ast, h); return h }
-			x, y := own(f.ast.MkVar(0, f.boolean)), own(f.ast.MkVar(1, f.boolean))
+			x, y, z := own(f.ast.MkVar(0, f.boolean)), own(f.ast.MkVar(1, f.boolean)), own(f.ast.MkVar(2, f.boolean))
 			constant := f.truth
 			if mode == "absent-constant" {
 				constant = f.falsehood
@@ -40,6 +40,18 @@ func TestCompileExplanationConstantsAndRepeatedColumnsAgainstTupleOracle(t *test
 				tailArgs = []ast.ASTHandle{constant, y, x}
 				headArgs = []ast.ASTHandle{x, y, x}
 				guards = []ast.ASTHandle{own(f.ast.MkEq(y, f.truth))}
+			}
+			switch mode {
+			case "head-constant":
+				tailArgs = []ast.ASTHandle{x, y, z}
+				headArgs = []ast.ASTHandle{f.truth, x, f.falsehood}
+			case "unbound-repeat-before-constant":
+				headArgs = []ast.ASTHandle{y, y, f.falsehood}
+			case "unbound-guard":
+				headArgs = []ast.ASTHandle{y, f.falsehood, y}
+				guards = []ast.ASTHandle{own(f.ast.MkEq(y, f.truth))}
+			case "independent-unbound":
+				headArgs = []ast.ASTHandle{y, z, y}
 			}
 			tail, head := own(f.ast.MkApp(p, tailArgs)), own(f.ast.MkApp(q, headArgs))
 			rule, err := rm.NewRule(head, append([]ast.ASTHandle{tail}, guards...), nil, "column-step")
@@ -117,6 +129,16 @@ func TestCompileExplanationConstantsAndRepeatedColumnsAgainstTupleOracle(t *test
 							if mode == "absent-constant" {
 								want = false
 							}
+							switch mode {
+							case "head-constant":
+								want = a == 1 && c == 0
+							case "unbound-repeat-before-constant":
+								want = a == b && c == 0
+							case "unbound-guard":
+								want = a == 1 && b == 0 && c == 1
+							case "independent-unbound":
+								want = a == c
+							}
 							if found != want {
 								t.Fatal("compiled tuple differs from original rule", mode, a, b, c, found, want)
 							}
@@ -131,7 +153,14 @@ func TestCompileExplanationConstantsAndRepeatedColumnsAgainstTupleOracle(t *test
 					if mode == "permuted-repeat" {
 						middle = f.truth
 					}
-					got, found, e := product.Explanation([]ast.ASTHandle{value, middle, value})
+					values := []ast.ASTHandle{value, middle, value}
+					switch mode {
+					case "head-constant":
+						values = []ast.ASTHandle{f.truth, f.falsehood, f.falsehood}
+					case "unbound-guard":
+						values = []ast.ASTHandle{f.truth, f.falsehood, f.truth}
+					}
+					got, found, e := product.Explanation(values)
 					astTestMust(t, e)
 					factName, e := f.ast.Symbols.Intern("fact")
 					astTestMust(t, e)

@@ -93030,7 +93030,7 @@
           "status": "ported",
           "go_targets": ["pkg/muz/rel/compiler_explanation_rule.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_explanation_registers.go", "pkg/muz/rel/instruction_explanation_table.go"],
           "tests": ["TestCompileTransformedExplanationRuleBuildsHeadAndOutputBridge", "TestCompileExplanationConstantsAndRepeatedColumnsAgainstTupleOracle", "TestCompileExplanationRuleRejectsUnsupportedShapesBeforePublication"],
-          "reason": "Covers transformed single-positive-tail explained rules and finite output bridges with undefined head slots, constant/equality filters, repeated-column duplication, assignment, projection/permutation and union/store. Ground rules, head constants/unbound variables, multi-tail/negated rules and whole-set scheduling/recursion remain open."
+          "reason": "Covers transformed single-positive-tail explained rules and finite output bridges with undefined head slots, constant/equality filters, finite head constants, full finite unbound variables, repeated-column duplication, assignment, projection/permutation and union/store. Ground rules, multi-tail/negated rules, condition-only unbound variables and whole-set scheduling/recursion remain open."
         }
       ],
       "ownership": [

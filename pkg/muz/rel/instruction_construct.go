@@ -14,14 +14,17 @@ import (
 )
 
 type constructInstruction struct {
-	accounting   *base.AccountedObject
-	kind         string
-	signature    Signature
-	value        Element
-	target       uint32
-	closed       bool
-	relations    *RelationManager
-	explanations int
+	accounting    *base.AccountedObject
+	kind          string
+	signature     Signature
+	value         Element
+	target        uint32
+	closed        bool
+	relations     *RelationManager
+	explanations  int
+	finiteSort    ast.ASTRef
+	finiteManager *ast.ASTManager
+	closing       bool
 }
 
 func NewUnarySingletonInstruction(domain uint64, value Element, target uint32) (Instruction, error) {
@@ -51,6 +54,44 @@ func NewExplanationTotalInstruction(relations *RelationManager, columns int, tar
 	return &constructInstruction{accounting: base.NewAccountedObject(), kind: "mk_explanation_total", relations: relations, explanations: columns, target: target}, nil
 }
 
+// NewExplanationFiniteTotalInstruction builds the finite unary full relation
+// used when a compiler appends an unbound head variable to an explained body.
+func NewExplanationFiniteTotalInstruction(relations *RelationManager, sort ast.ASTHandle, target uint32) (Instruction, error) {
+	return newExplanationFiniteColumnInstruction(relations, sort, 0, target, false)
+}
+
+// NewExplanationFiniteSingletonInstruction builds the finite unary singleton
+// used to append a constant head column to an explained body.
+func NewExplanationFiniteSingletonInstruction(relations *RelationManager, sort ast.ASTHandle, value Element, target uint32) (Instruction, error) {
+	return newExplanationFiniteColumnInstruction(relations, sort, value, target, true)
+}
+
+func newExplanationFiniteColumnInstruction(relations *RelationManager, sort ast.ASTHandle, value Element, target uint32, singleton bool) (Instruction, error) {
+	if relations == nil || relations.open() != nil {
+		return nil, ErrInstruction
+	}
+	domain, err := relations.sortDomain(sort)
+	if err != nil {
+		return nil, err
+	}
+	if singleton && uint64(value) >= domain {
+		return nil, ErrInstruction
+	}
+	signature, err := NewSignature([]uint64{domain})
+	if err != nil {
+		return nil, err
+	}
+	root, err := relations.manager.NewRef(sort)
+	if err != nil {
+		return nil, err
+	}
+	kind := "mk_explanation_finite_total"
+	if singleton {
+		kind = "mk_explanation_finite_singleton"
+	}
+	return &constructInstruction{accounting: base.NewAccountedObject(), kind: kind, relations: relations, finiteManager: relations.manager, finiteSort: root, signature: signature, value: value, target: target}, nil
+}
+
 func NewAssertSignatureInstruction(signature Signature, target uint32) Instruction {
 	return &constructInstruction{
 		accounting: base.NewAccountedObject(), kind: "assert_signature",
@@ -59,7 +100,7 @@ func NewAssertSignatureInstruction(signature Signature, target uint32) Instructi
 }
 
 func (i *constructInstruction) open() error {
-	if i == nil || i.closed || i.accounting == nil {
+	if i == nil || i.closed || i.closing || i.accounting == nil {
 		return ErrInstruction
 	}
 	return nil
@@ -105,6 +146,40 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 			return false, err
 		}
 		return true, context.SetRegister(i.target, table)
+	case "mk_explanation_finite_total", "mk_explanation_finite_singleton":
+		if err := context.open(); err != nil {
+			return false, err
+		}
+		if context.relations != nil && context.relations != i.relations {
+			return false, ErrInstruction
+		}
+		sort, err := i.finiteManager.RefGet(i.finiteSort)
+		if err != nil {
+			return false, err
+		}
+		table := NewHashTable(i.signature)
+		if i.kind == "mk_explanation_finite_total" {
+			context.stats.Total++
+			err = fillTotalTable(table, i.signature)
+		} else {
+			context.stats.UnarySingleton++
+			_, err = table.Add(Fact{i.value})
+		}
+		if err != nil {
+			return false, errors.Join(err, table.Close())
+		}
+		product, err := finiteExplanationProductFromHashTable(i.relations, []ast.ASTHandle{sort}, table)
+		err = errors.Join(err, table.Close())
+		if err != nil {
+			if product != nil {
+				err = errors.Join(err, product.Close())
+			}
+			return false, err
+		}
+		if err = context.SetExplanationRegister(i.target, product); err != nil {
+			return false, errors.Join(err, product.Close())
+		}
+		return true, nil
 	case "mk_explanation_total":
 		if err := context.open(); err != nil {
 			return false, err
@@ -166,6 +241,12 @@ func (i *constructInstruction) DisplayHead(out io.Writer) error {
 	case "mk_total":
 		_, err := fmt.Fprintf(out, "mk_total into %d signature:%v", i.target, i.signature.domains)
 		return err
+	case "mk_explanation_finite_total":
+		_, err := fmt.Fprintf(out, "mk_total into %d finite-signature:%v", i.target, i.signature.domains)
+		return err
+	case "mk_explanation_finite_singleton":
+		_, err := fmt.Fprintf(out, "mk_unary_singleton into %d domain:%d val:%d", i.target, i.signature.domains[0], i.value)
+		return err
 	case "mk_explanation_total":
 		_, err := fmt.Fprintf(out, "mk_total into %d explanation-columns:%d", i.target, i.explanations)
 		return err
@@ -206,6 +287,15 @@ func (i *constructInstruction) Close() error {
 	if i.closed {
 		return nil
 	}
+	i.closing = true
+	if i.finiteSort != (ast.ASTRef{}) {
+		if err := i.finiteManager.DelRef(&i.finiteSort); err != nil {
+			return err
+		}
+	}
+	if err := i.accounting.Close(); err != nil {
+		return err
+	}
 	i.closed = true
-	return i.accounting.Close()
+	return nil
 }
