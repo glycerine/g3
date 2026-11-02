@@ -1,3 +1,5 @@
+Duality parameterized lower fact: added a model-backed unary Boolean fact regression and independently checked that localization/projection renames the resulting lower annotation back to the original predicate parameter. Plain core/bridge/fixedpoint and portcheck suites pass. Broader parameterized arithmetic/recursive coverage remains open.
+
 Duality projection coefficient tests: native equivalence checks now cover positive and negative scaled bounds, and verify integer normalization preserves an impossible interval before elimination. Plain core/bridge/fixedpoint and portcheck suites pass. Further general arithmetic and end-to-end completion coverage remains open.
 
 Duality projection guards: native solver equivalence tests now verify explicitly kept variables and variables occurring inside uninterpreted applications survive cheap Fourier–Motzkin projection. The latter case covers signed-index invalidation after arithmetic normalization. Plain core/bridge/fixedpoint and portcheck suites pass; broader coefficient and integer-projection coverage remains open.
