@@ -1,0 +1,319 @@
+package rel
+
+// Source: dl_compiler.cpp compile_rule's total-column, interpreted-filter,
+// head projection/renaming and union/store lowering, specialized to the
+// explanation rules produced by dl_mk_explanations.cpp get_e_rule.
+
+import (
+	"errors"
+	"sort"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/muz/base"
+)
+
+type explanationRuleLayout struct {
+	head, tail  ast.ASTHandle
+	columns     map[uint32]int
+	sorts       map[uint32]ast.ASTHandle
+	conditions  []ast.ASTHandle
+	removed     []int
+	permutation []int
+	appendHead  bool
+}
+
+func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan explanationRuleLayout, resultErr error) {
+	if err := relations.open(); err != nil {
+		return plan, err
+	}
+	owner, err := rule.ASTManager()
+	if err != nil {
+		return plan, err
+	}
+	if owner != relations.manager {
+		return plan, ErrCompilerUnsupported
+	}
+	positive, err := rule.PositiveTailSize()
+	if err != nil {
+		return plan, err
+	}
+	uninterpreted, err := rule.UninterpretedTailSize()
+	if err != nil {
+		return plan, err
+	}
+	if positive != 1 || uninterpreted != 1 {
+		return plan, ErrCompilerUnsupported
+	}
+	m := relations.manager
+	tail, negative, err := rule.Tail(0)
+	if err != nil {
+		return plan, err
+	}
+	if negative {
+		return plan, ErrCompilerUnsupported
+	}
+	plan.tail, err = m.GetDecl(tail)
+	if err != nil {
+		return plan, err
+	}
+	tailSorts, tailExplanations, err := relations.explanationPredicateSignature(plan.tail)
+	if err != nil {
+		return plan, errors.Join(ErrCompilerUnsupported, err)
+	}
+	if tailExplanations != 1 {
+		return plan, ErrCompilerUnsupported
+	}
+	head, err := rule.Head()
+	if err != nil {
+		return plan, err
+	}
+	plan.head, err = m.GetDecl(head)
+	if err != nil {
+		return plan, err
+	}
+	explained, err := relations.predicateUsesExplanationColumns(plan.head)
+	if err != nil {
+		return plan, err
+	}
+	var headSorts []ast.ASTHandle
+	headExplanations := 0
+	if explained {
+		headSorts, headExplanations, err = relations.explanationPredicateSignature(plan.head)
+	} else {
+		headSorts, _, err = relations.PredicateSignature(plan.head)
+	}
+	if err != nil {
+		return plan, errors.Join(ErrCompilerUnsupported, err)
+	}
+	if headExplanations > 1 {
+		return plan, ErrCompilerUnsupported
+	}
+	plan.columns = make(map[uint32]int)
+	plan.sorts = make(map[uint32]ast.ASTHandle)
+	variable := func(application ast.ASTHandle, column int) (uint32, ast.ASTHandle, error) {
+		value, err := m.GetArg(application, uint32(column))
+		if err != nil {
+			return 0, ast.ASTHandle{}, err
+		}
+		kind, err := m.GetKind(value)
+		if err != nil {
+			return 0, ast.ASTHandle{}, err
+		}
+		if kind != ast.ASTVar {
+			return 0, ast.ASTHandle{}, ErrCompilerUnsupported
+		}
+		index, err := m.GetVarIndex(value)
+		if err != nil {
+			return 0, ast.ASTHandle{}, err
+		}
+		sort, err := m.GetSort(value)
+		return index, sort, err
+	}
+	for column := 0; column < len(tailSorts)+1; column++ {
+		index, sort, err := variable(tail, column)
+		if err != nil {
+			return plan, err
+		}
+		if _, exists := plan.columns[index]; exists {
+			return plan, ErrCompilerUnsupported
+		}
+		plan.columns[index], plan.sorts[index] = column, sort
+	}
+	var headColumns []int
+	keep := make(map[int]bool)
+	for column, sort := range headSorts {
+		index, actual, err := variable(head, column)
+		if err != nil {
+			return plan, err
+		}
+		from, bound := plan.columns[index]
+		if !bound || from >= len(tailSorts) || actual != sort || plan.sorts[index] != sort || keep[from] {
+			return plan, ErrCompilerUnsupported
+		}
+		headColumns = append(headColumns, from)
+		keep[from] = true
+	}
+	width := len(tailSorts) + 1
+	if headExplanations == 1 {
+		index, sort, err := variable(head, len(headSorts))
+		if err != nil {
+			return plan, err
+		}
+		if _, exists := plan.columns[index]; exists {
+			return plan, ErrCompilerUnsupported
+		}
+		plan.columns[index], plan.sorts[index] = width, sort
+		keep[width] = true
+		width++
+		plan.appendHead = true
+	}
+	for column := 0; column < width; column++ {
+		if !keep[column] {
+			plan.removed = append(plan.removed, column)
+		}
+	}
+	sorted := append([]int(nil), headColumns...)
+	sort.Ints(sorted)
+	positions := make(map[int]int, len(sorted))
+	for index, column := range sorted {
+		positions[column] = index
+	}
+	for _, column := range headColumns {
+		plan.permutation = append(plan.permutation, positions[column])
+	}
+	tails, err := rule.TailSize()
+	if err != nil {
+		return plan, err
+	}
+	for index := 1; index < tails; index++ {
+		condition, negated, err := rule.Tail(index)
+		if err != nil {
+			return plan, err
+		}
+		if negated {
+			return plan, ErrCompilerUnsupported
+		}
+		used, err := ast.NewASTUsedVars(m)
+		if err != nil {
+			return plan, err
+		}
+		if err = used.Collect(condition); err != nil {
+			return plan, err
+		}
+		var known uint32
+		for index, sort := range plan.sorts {
+			found := used.Contains(index)
+			if !found.IsNull() {
+				if found != sort {
+					return plan, ErrCompilerUnsupported
+				}
+				known++
+			}
+		}
+		if known != used.NumVars() {
+			return plan, ErrCompilerUnsupported
+		}
+		plan.conditions = append(plan.conditions, condition)
+	}
+	return plan, nil
+}
+
+// CompileExplanationRuleWithGuard lowers one single-positive-tail explained
+// rule or its finite output bridge. Ground/multiple-tail rules, unbound or
+// repeated head columns and constant columns remain outside this compiler
+// slice; unsupported inputs are rejected before any program is published.
+func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule, guard *rewriter.TheoryRewriter) (result *InstructionBlock, resultErr error) {
+	plan, err := planExplanationRule(relations, rule)
+	if err != nil {
+		return nil, err
+	}
+	if len(plan.conditions) != 0 && guard == nil {
+		return nil, ErrCompilerUnsupported
+	}
+	result = NewInstructionBlock()
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+			result = nil
+		}
+	}()
+	emit := func(instruction Instruction) error {
+		if err := instruction.Accounting().SetAccountingParentRule(rule); err != nil {
+			return errors.Join(err, instruction.Close())
+		}
+		if err := result.Append(instruction); err != nil {
+			return errors.Join(err, instruction.Close())
+		}
+		return nil
+	}
+	next := uint32(0)
+	fresh := func() uint32 { register := next; next++; return register }
+	current := fresh()
+	load, err := NewLoadInstruction(relations, plan.tail, current)
+	if err != nil {
+		return result, err
+	}
+	if err = emit(load); err != nil {
+		return result, err
+	}
+	if plan.appendHead {
+		total := fresh()
+		instruction, err := NewExplanationTotalInstruction(relations, 1, total)
+		if err != nil {
+			return result, err
+		}
+		if err = emit(instruction); err != nil {
+			return result, err
+		}
+		joined := fresh()
+		if err = emit(NewJoinInstruction(current, total, nil, nil, joined)); err != nil {
+			return result, err
+		}
+		if err = emit(NewDeallocateInstruction(current)); err != nil {
+			return result, err
+		}
+		if err = emit(NewDeallocateInstruction(total)); err != nil {
+			return result, err
+		}
+		current = joined
+	}
+	if len(plan.conditions) != 0 {
+		filter, err := NewFilterInterpretedInstruction(relations.manager, relations, guard, current, plan.conditions, plan.columns, plan.sorts)
+		if err != nil {
+			return result, err
+		}
+		if err = emit(filter); err != nil {
+			return result, err
+		}
+	}
+	projected := fresh()
+	if err = emit(NewProjectionInstruction(current, plan.removed, projected)); err != nil {
+		return result, err
+	}
+	if err = emit(NewDeallocateInstruction(current)); err != nil {
+		return result, err
+	}
+	current = projected
+	visited := make([]bool, len(plan.permutation))
+	for start := range visited {
+		if visited[start] || plan.permutation[start] == start {
+			continue
+		}
+		var cycle []int
+		for index := start; !visited[index]; index = plan.permutation[index] {
+			visited[index] = true
+			cycle = append(cycle, index)
+		}
+		renamed := fresh()
+		if err = emit(NewRenameInstruction(current, cycle, renamed)); err != nil {
+			return result, err
+		}
+		if err = emit(NewDeallocateInstruction(current)); err != nil {
+			return result, err
+		}
+		current = renamed
+	}
+	target := fresh()
+	load, err = NewLoadInstruction(relations, plan.head, target)
+	if err != nil {
+		return result, err
+	}
+	if err = emit(load); err != nil {
+		return result, err
+	}
+	if err = emit(NewUnionInstruction(current, target, VoidRegister)); err != nil {
+		return result, err
+	}
+	if err = emit(NewDeallocateInstruction(current)); err != nil {
+		return result, err
+	}
+	store, err := NewStoreInstruction(relations, plan.head, target)
+	if err != nil {
+		return result, err
+	}
+	if err = emit(store); err != nil {
+		return result, err
+	}
+	return result, nil
+}

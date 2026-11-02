@@ -8,17 +8,20 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
 type constructInstruction struct {
-	accounting *base.AccountedObject
-	kind       string
-	signature  Signature
-	value      Element
-	target     uint32
-	closed     bool
+	accounting   *base.AccountedObject
+	kind         string
+	signature    Signature
+	value        Element
+	target       uint32
+	closed       bool
+	relations    *RelationManager
+	explanations int
 }
 
 func NewUnarySingletonInstruction(domain uint64, value Element, target uint32) (Instruction, error) {
@@ -37,6 +40,15 @@ func NewTotalInstruction(signature Signature, target uint32) Instruction {
 		accounting: base.NewAccountedObject(), kind: "mk_total",
 		signature: Signature{domains: signature.Domains()}, target: target,
 	}
+}
+
+// NewExplanationTotalInstruction is mk_total for a rule-sort-only signature:
+// its full explanation relation has one row of undefined slots.
+func NewExplanationTotalInstruction(relations *RelationManager, columns int, target uint32) (Instruction, error) {
+	if relations == nil || relations.open() != nil || columns <= 0 {
+		return nil, ErrInstruction
+	}
+	return &constructInstruction{accounting: base.NewAccountedObject(), kind: "mk_explanation_total", relations: relations, explanations: columns, target: target}, nil
 }
 
 func NewAssertSignatureInstruction(signature Signature, target uint32) Instruction {
@@ -93,6 +105,25 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 			return false, err
 		}
 		return true, context.SetRegister(i.target, table)
+	case "mk_explanation_total":
+		if err := context.open(); err != nil {
+			return false, err
+		}
+		if context.relations != nil && context.relations != i.relations {
+			return false, ErrInstruction
+		}
+		context.stats.Total++
+		product, err := newFiniteExplanationProduct(i.relations, nil, i.explanations)
+		if err != nil {
+			return false, err
+		}
+		if err = product.addEncodedRow(Fact{0}, make([]ast.ASTHandle, i.explanations)); err != nil {
+			return false, errors.Join(err, product.Close())
+		}
+		if err = context.SetExplanationRegister(i.target, product); err != nil {
+			return false, errors.Join(err, product.Close())
+		}
+		return true, nil
 	case "assert_signature":
 		table, err := context.Register(i.target)
 		if err != nil || table == nil {
@@ -134,6 +165,9 @@ func (i *constructInstruction) DisplayHead(out io.Writer) error {
 		return err
 	case "mk_total":
 		_, err := fmt.Fprintf(out, "mk_total into %d signature:%v", i.target, i.signature.domains)
+		return err
+	case "mk_explanation_total":
+		_, err := fmt.Fprintf(out, "mk_total into %d explanation-columns:%d", i.target, i.explanations)
 		return err
 	case "assert_signature":
 		_, err := fmt.Fprintf(out, "assert_signature of %d signature:%v", i.target, i.signature.domains)

@@ -1,5 +1,7 @@
 package rel
 
+import "errors"
+
 // Typed explanation registers retain the source execution-context ownership
 // contract without introducing a universal relation value adapter.
 
@@ -67,4 +69,37 @@ func (c *ExecutionContext) ReleaseExplanationRegister(index uint32) (*FiniteExpl
 	}
 	c.explanationRegisters[index] = nil
 	return value, nil
+}
+
+func (i *registerInstruction) performExplanationRegister(context *ExecutionContext) (bool, error) {
+	if i.kind == "dealloc" {
+		return true, context.MakeEmpty(i.source)
+	}
+	source, err := context.ExplanationRegister(i.source)
+	if err != nil {
+		return false, err
+	}
+	switch i.kind {
+	case "dealloc":
+		return true, context.MakeEmpty(i.source)
+	case "clone":
+		copy, err := source.Clone()
+		if err != nil {
+			return false, err
+		}
+		if err = context.SetExplanationRegister(i.target, copy); err != nil {
+			return false, errors.Join(err, copy.Close())
+		}
+		return true, nil
+	case "move":
+		value, err := context.ReleaseExplanationRegister(i.source)
+		if err != nil {
+			return false, err
+		}
+		if err = context.SetExplanationRegister(i.target, value); err != nil {
+			return false, errors.Join(err, context.SetExplanationRegister(i.source, value))
+		}
+		return true, nil
+	}
+	return false, ErrInstruction
 }

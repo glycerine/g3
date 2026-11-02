@@ -376,6 +376,12 @@ func (i *registerInstruction) Perform(context *ExecutionContext) (bool, error) {
 	if err := i.open(); err != nil {
 		return false, err
 	}
+	if err := context.open(); err != nil {
+		return false, err
+	}
+	if hasExplanationInstructionRegister(context, i.source) {
+		return i.performExplanationRegister(context)
+	}
 	source, err := context.Register(i.source)
 	if err != nil {
 		return false, err

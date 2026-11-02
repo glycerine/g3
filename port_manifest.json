@@ -92605,6 +92605,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/rel/compiler.go",
+        "pkg/muz/rel/compiler_explanation_rule.go",
+        "pkg/muz/rel/compiler_explanation_rule_test.go",
         "pkg/muz/fp/propositional_engine.go",
         "pkg/parsers/smt2/fixedpoint_commands_test.go",
         "pkg/cmd/g3/main_test.go"
@@ -92616,6 +92618,8 @@
         "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution",
         "TestFiniteCompilerSaturatesRecursiveRules",
         "TestFiniteCompilerStratumTrace",
+        "TestCompileTransformedExplanationRuleBuildsHeadAndOutputBridge",
+        "TestCompileExplanationRuleRejectsUnsupportedShapesBeforePublication",
         "TestPropositionalEngineExecutesStratifiedNegation",
         "TestPropositionalEngineMatchesCPPFixedpointQueries",
         "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP",
@@ -92951,6 +92955,13 @@
             "pkg/muz/fp/propositional_engine_test.go",
             "pkg/parsers/smt2/fixedpoint_commands_test.go"
           ]
+        },
+        {
+          "name": "Concrete unary explanation-rule and finite output-bridge lowering through typed registers (dl_compiler.cpp compile_rule; dl_mk_explanations.cpp get_e_rule)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/rel/compiler_explanation_rule.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_explanation_registers.go", "pkg/muz/rel/instruction_explanation_table.go"],
+          "tests": ["TestCompileTransformedExplanationRuleBuildsHeadAndOutputBridge", "TestCompileExplanationRuleRejectsUnsupportedShapesBeforePublication"],
+          "reason": "Covers transformed single-positive-tail explained rules and finite output bridges with undefined head slots, assignment, projection/permutation and union/store. Whole-set scheduling/recursion and richer rule shapes remain open."
         }
       ],
       "ownership": [

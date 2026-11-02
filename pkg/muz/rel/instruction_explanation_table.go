@@ -55,6 +55,47 @@ func (i *tableInstruction) performExplanation(context *ExecutionContext) (bool, 
 		return false, err
 	}
 	switch i.kind {
+	case "join":
+		context.stats.Join++
+		right, err := explanationInstructionRegister(context, i.second)
+		if err != nil {
+			return false, err
+		}
+		if source == nil || right == nil {
+			return true, context.MakeEmpty(i.result)
+		}
+		joined, err := source.Join(right, i.left, i.right)
+		if err != nil {
+			return false, err
+		}
+		return setExplanationInstructionResult(context, i.result, joined)
+	case "rename":
+		if source == nil {
+			return true, context.MakeEmpty(i.result)
+		}
+		context.stats.ProjectRename++
+		var renamed *FiniteExplanationProduct
+		var err error
+		finite := true
+		for _, column := range i.left {
+			finite = finite && column < len(source.finiteSorts)
+		}
+		if finite {
+			renamed, err = source.RenameFinite(i.left)
+		} else {
+			cycle := make([]int, len(i.left))
+			for index, column := range i.left {
+				if column < len(source.finiteSorts) {
+					return false, ErrInstruction
+				}
+				cycle[index] = column - len(source.finiteSorts)
+			}
+			renamed, err = source.RenameExplanation(cycle)
+		}
+		if err != nil {
+			return false, err
+		}
+		return setExplanationInstructionResult(context, i.result, renamed)
 	case "project":
 		if source == nil {
 			return true, context.MakeEmpty(i.result)
@@ -178,6 +219,20 @@ func (i *tableInstruction) unionProjectedExplanationIntoTable(context *Execution
 		if count == 0 {
 			return true, context.MakeEmpty(i.result)
 		}
+	}
+	return true, nil
+}
+
+func setExplanationInstructionResult(context *ExecutionContext, register uint32, product *FiniteExplanationProduct) (bool, error) {
+	count, err := product.Len()
+	if err != nil {
+		return false, errors.Join(err, product.Close())
+	}
+	if count == 0 {
+		return true, errors.Join(product.Close(), context.MakeEmpty(register))
+	}
+	if err = context.SetExplanationRegister(register, product); err != nil {
+		return false, errors.Join(err, product.Close())
 	}
 	return true, nil
 }
