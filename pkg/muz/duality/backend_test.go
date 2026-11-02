@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/cmd_context"
 	graph "github.com/glycerine/g3/pkg/duality"
 	_ "github.com/glycerine/g3/pkg/engine"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/duality"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -39,6 +40,9 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 			backend, err := duality.NewBackend(m, config, mbqi)
 			must(err)
 			defer backend.Close()
+			if md, err := backend.GetModel(); md != nil || !errors.Is(err, graph.ErrWrapperOwner) {
+				t.Fatal("model requested before a completed query", md, err)
+			}
 			copied := *backend
 			if err := copied.Close(); !errors.Is(err, graph.ErrWrapperOwner) {
 				t.Fatal("copied backend accepted", err)
@@ -69,6 +73,34 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 			fact := pin(m.MkApp(predicate, []ast.ASTHandle{zero}))
 			queryOne := pin(m.MkApp(predicate, []ast.ASTHandle{one}))
 			var previous *graph.Counterexample
+			var snapshot *model.Model
+			defer func() {
+				if snapshot != nil {
+					must(snapshot.Close())
+				}
+			}()
+			checkModel := func(md *model.Model) {
+				t.Helper()
+				ev, err := model.NewModelEvaluator(md.Core(), config.ModelEvaluator)
+				must(err)
+				defer func() { must(ev.Close()) }()
+				for _, tc := range []struct {
+					term ast.ASTHandle
+					want bool
+				}{{fact, true}, {queryOne, false}} {
+					value, err := ev.EvaluateValue(tc.term)
+					must(err)
+					h, err := m.RefGet(value)
+					must(err)
+					expected, err := m.MkBoolVal(tc.want)
+					must(err)
+					matches := h == expected
+					must(m.DelRef(&value))
+					if !matches {
+						t.Fatal("annotation model violates fact or excluded query", tc.want)
+					}
+				}
+			}
 			for round, query := range []ast.ASTHandle{queryOne, fact, queryOne} {
 				options := duality.DefaultQueryOptions()
 				if round == 1 {
@@ -87,6 +119,17 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 				if status != expected {
 					t.Fatalf("integer query %d: %v want %v", round, status, expected)
 				}
+				if round == 0 {
+					snapshot, err = backend.GetModel()
+					must(err)
+				}
+				if round == 2 {
+					latest, err := backend.GetModel()
+					must(err)
+					checkModel(latest)
+					must(latest.Close())
+				}
+				checkModel(snapshot)
 				if previous != nil && previous.Root() != nil {
 					t.Fatal("old backend counterexample still owned")
 				}
@@ -105,6 +148,10 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 			}
 			must(backend.Close())
 			must(backend.Close())
+			checkModel(snapshot)
+			if md, err := backend.GetModel(); md != nil || !errors.Is(err, graph.ErrWrapperOwner) {
+				t.Fatal("closed backend accepted model request", md, err)
+			}
 			if _, err := backend.Query(nil); !errors.Is(err, graph.ErrWrapperOwner) {
 				t.Fatal("closed backend accepted query", err)
 			}
