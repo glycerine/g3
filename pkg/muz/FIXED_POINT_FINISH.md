@@ -36,14 +36,14 @@ Each completed item needs source paths, implementation/test evidence and a commi
 
 ## 3. PDR — first engine closure
 
-- [ ] Audit remaining `pdr_util.cpp` methods against live consumers; implement needed normalization/diagnostic paths and document genuinely unused helpers.
+- [x] Audit remaining `pdr_util.cpp` methods against live consumers; implement needed normalization/diagnostic paths and document genuinely unused helpers.
   - [x] Verify focused evidence for model-satisfied disequality reduction and source swap-removal/reprocessing order.
   - [x] Verify difference/UTVPI classification, backend selection and rejection of out-of-fragment proof lemmas.
   - [x] Verify exact arithmetic normalization, owning publication, cancellation retry and disposal under a refused allocation budget.
   - [x] Verify actual large-rational root disposal while the numerical-owner execution guard is active, including repeated cleanup.
-  - [ ] Close interrupted-decrement ownership coverage in `arith_normalize.go`, including any unconsumed roots and explicit cleanup continuation.
+  - [x] Verify actual pending-manager decrement rejection preserves every unconsumed normalization root for explicit cleanup continuation, including repeated cleanup.
   - [x] Confirm the full caller graph for `ceil_log2` and cube formatting; exclude only genuinely unused helpers or dormant self-tests.
-  - [ ] Reconcile method-level audit evidence and mark the unit complete only after the remaining checks are satisfied.
+  - [x] Reconcile method-level audit evidence and the live-consumer map below; mark this utility unit ported independently of broader PDR closure.
 - [ ] Confirm method and ownership evidence for all PDR units, including arithmetic fragment selection and proof-derived lemmas.
 - [ ] Verify recursive/nonlinear SAT and UNSAT, assumptions/background, repeated queries, witnesses, proofs and original-rule traces at the public boundary.
   - [x] Verify repeated nonlinear unreachable/reachable/unreachable queries in one SMT-LIB context for PDR, Spacer and Duality (`TestSMT2FixedpointRepeatedNonlinearQueries`).
@@ -153,7 +153,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 ### pdr
 
-- [ ] `src/muz/pdr/pdr_util.cpp` (partial)
+- [x] `src/muz/pdr/pdr_util.cpp` (live methods and ownership audited; source consumer map below)
 
 ### rel
 
@@ -276,3 +276,17 @@ This closes the declarations and ownership mapping of `src/muz/spacer/spacer_dl_
 
 - 2026-11-02 — Added `TestPDRInitialRuleAllocationFailureAndRetry` for initial rule installation with an existing level-two arithmetic cover and constraint cache. Ten sampled failure budgets before the first success at 256 verify the original transformer/cover remains published, staged contexts are released, caller proof mode is restored and retry succeeds with the cover intact. Every fixture closes with zero budget usage. This covers observed allocation boundaries, not every exceptional-destruction path. Previous public lifecycle commit: `ba75fa2a5`; direct inheritance commit: `3e7e37847`. Native fixedpoint/parser/command checks also completed successfully during integration.
   Validation: `go -C pkg test ./muz/pdr -run '^TestPDRInitialRuleAllocationFailureAndRetry$' -count=1 -v` passed; `go -C pkg test ./muz/fp ./parsers/smt2 ./cmd/g3 -short` passed. Commit title: `Test PDR initial rule allocation failure recovery`.
+
+### PDR utility source closure — 2026-11-02
+
+| Source methods | Live source consumers | Go implementation and evidence |
+| --- | --- | --- |
+| `ceil_log2` (line 50) and all `pp_cube` overloads (55–87) | No caller for `ceil_log2`; cube calls only in the uncalled `farkas_learner::test` | Excluded under the live-consumer rule; source-wide caller searches recorded earlier. |
+| `reduce_disequalities` (90–160) | `pdr_context.cpp:2244`, threshold 3 after projection | `pdr_util.go` / `model_projection.go`; model-value substitution, defining equalities, original-prefix swap removal, threshold and verbosity tests, cold allocation failure/retry. |
+| `test_diff_logic`: numeric/offset/negative-one recognition, inequality/equality/term checks, family checks and visitor (163–338); `is_difference_logic` / `is_utvpi_logic` (340–358) | Context arithmetic classification and `pdr_prop_solver.cpp` proof-derived lemma fragment checks | `fragment.go`; source traversal/first-rejection diagnostics, ITE/offset/signed coefficient/unsupported-family cases, backend-selection and Farkas-fragment regressions. |
+| `arith_normalizer` comparison dispatch, strict-relation rewriting, least-coefficient selection and polynomial division; configuration/star wrapper and `normalize_arithmetic` (361–506) | `src/test/arith_rewriter.cpp:56,63`, after theory rewriting | `arith_normalize.go`; exact rational oracle and source-driver examples, shared application/quantifier-body rewriting, annotation preservation, scoped proof restoration, owning publication, cancellation/cold allocation retry, refused-budget disposal and real pending-manager cleanup continuation. |
+
+Source comparison arity/type preconditions are enforced by AST construction/access and concrete operation checks; the normalization divisor is used only when strictly positive and neither zero nor one. The live normalization driver supplies theory-rewritten polynomials, as in C++; no unused STL/template implementation was added. Utility completion does not establish closure of context/search, proofs, models or every previously marked PDR unit.
+
+- 2026-11-02 — Added `TestArithmeticNormalizationCleanupKeepsUnconsumedRootsForRetry`. A real arithmetic numeral-copy failure invokes the runtime transport while the AST manager is executing; attempting normalizer cleanup returns `ErrASTPending` and leaves all actual roots in order and alive. After the callback, explicit cleanup and repeated cleanup finish, restore the original node/reference counts, preserve the caller's formula and close the entire fixture with zero budget usage. This tests refused, unconsumed decrements rather than claiming an injected allocation budget interrupts native deletion. Reconciled the method/consumer table above and promoted only `pdr_util.cpp` from partial to ported.
+  Validation: focused native utility checks (`Test(PDRDisequality|PDRDifference|PDRFragment|PDRContextSelects|PropSolverRejects|NormalizeArithmetic|ArithmeticNormalization|PDRArithmeticNormalization)`), API `TestArithmeticRewriterSourceExamples`, and port inventory checks passed. Commit title: `Close PDR utility source and ownership audit`.

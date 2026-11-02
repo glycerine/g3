@@ -90909,16 +90909,18 @@
       "path": "src/muz/pdr/pdr_util.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/pdr/pdr_util.go",
         "pkg/muz/pdr/fragment.go",
+        "pkg/muz/pdr/arith_normalize.go",
+        "pkg/muz/pdr/arith_normalize_pending_test.go",
         "pkg/muz/pdr/fragment_test.go",
         "pkg/muz/pdr/model_projection.go",
         "pkg/cmd/g3/test_vectors/fixedpoint_pdr_repeated_disequalities.smt2",
         "pkg/cmd/g3/main_test.go"
       ],
-      "tests": ["TestSMTLibRunnerScripts", "TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRFragmentRejectionUsesSourceTraversalAndVerbosity", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"],
+      "tests": ["TestSMTLibRunnerScripts", "TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRFragmentRejectionUsesSourceTraversalAndVerbosity", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment", "TestPDRDisequalityReductionColdFailureOwnershipAndRetry", "TestArithmeticRewriterSourceExamples", "TestArithmeticNormalizationCleanupUnderNumericalGuard", "TestArithmeticNormalizationCleanupKeepsUnconsumedRootsForRetry"],
       "assertions": [
         {
           "line": 133,
@@ -90997,16 +90999,17 @@
           "name": "real comparison coefficient normalization, shared application and quantifier-body traversal, owning reference publication, scoped no-proof mode and cancellation retry exercised by the arithmetic-rewriter source driver",
           "status": "ported",
           "go_target": "pkg/muz/pdr/arith_normalize.go",
-          "tests": ["TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient", "TestPDRArithmeticNormalizationMatchesExactRationalOracle", "TestNormalizeArithmeticRefCancellationPreservesInputAndRetry", "TestArithmeticNormalizationDiscardsTemporariesUnderRefusedBudget", "TestArithmeticRewriterSourceExamples"]
+          "tests": ["TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient", "TestPDRArithmeticNormalizationMatchesExactRationalOracle", "TestNormalizeArithmeticRefCancellationPreservesInputAndRetry", "TestArithmeticNormalizationDiscardsTemporariesUnderRefusedBudget", "TestArithmeticRewriterSourceExamples", "TestArithmeticNormalizationCleanupUnderNumericalGuard", "TestArithmeticNormalizationCleanupKeepsUnconsumedRootsForRetry"]
         },
         {
-          "name": "remaining diagnostic cube formatting and arithmetic normalization helpers",
+          "name": "unused ceil_log2 and diagnostic cube-formatting overloads",
           "status": "reference_only",
-          "reason": "ceil_log2 has no source caller and pp_cube is used only by the dormant farkas_learner::test self-test; normalization now traverses application children and quantifier bodies, preserves annotations and restores scoped proof mode, while invocation-owned intermediate AST roots now survive sibling traversal and are released after publication or failure, with cold-allocation retry coverage; interrupted-decrement coverage remains under audit"
+          "reason": "ceil_log2 has only its declaration and definition; every pp_cube caller is inside farkas_learner::test, which itself has no source caller. These unused helpers are excluded under the live-consumer rule; all normalization methods are mapped to arith_normalize.go above."
         }
       ],
       "ownership": [
-        "The reducer owns model-evaluated values, defining equalities and rewritten conjunct references until the returned conjunction reference is acquired."
+        "The reducer owns model-evaluated values, defining equalities and rewritten conjunct references until the returned conjunction reference is acquired.",
+        "Arithmetic normalization owns generated roots until publication or failure cleanup, retires only consumed decrements and preserves unconsumed roots for explicit Cleanup retry. A numerical failure callback exercises actual AST-manager pending rejection, followed by complete idempotent cleanup and zero-budget fixture disposal."
       ],
       "deviations": [
         "The default pdr.utvpi path uses the source classifier before child solver construction and reuses it to reject proof-derived lemmas outside the selected fragment. NormalizeArithmeticRef publishes into the caller's owning reference before releasing invocation-owned temporary nodes; the unused borrowed-handle entry point is removed; diagnostic cube formatting and ceil_log2 remain outside live consumers."
