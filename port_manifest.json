@@ -101183,6 +101183,12 @@
           ]
         },
         {
+          "name": "implicant_picker Boolean connective policies preserve first matching child, LIFO all-child traversal, constant/compound equality guards, implication consequent preference and XOR polarity (spacer_util.cpp:809-868); seventeen exact-output cases independently discharge cube implication and model compatibility",
+          "status": "ported",
+          "go_targets": ["pkg/muz/spacer/implicant_literals.go", "pkg/muz/spacer/implicant_boolean_policy_test.go"],
+          "tests": ["TestSpacerImplicantBooleanPoliciesAndSemanticImplication"]
+        },
+        {
           "name": "implicant_picker ITE processing preserves source short-circuit Boolean probe order across agreeing branches and condition-selected branches (spacer_util.cpp:839-853)",
           "status": "ported",
           "go_targets": [
@@ -101417,6 +101423,12 @@
           "tests": [
             "TestSpacerNativeProjectionUsesSharedStages"
           ]
+        },
+        {
+          "name": "implicant_picker Boolean connective policies preserve first matching child, LIFO all-child traversal, constant/compound equality guards, implication consequent preference and XOR polarity (spacer_util.cpp:809-868); seventeen exact-output cases independently discharge cube implication and model compatibility",
+          "status": "ported",
+          "go_targets": ["pkg/muz/spacer/implicant_literals.go", "pkg/muz/spacer/implicant_boolean_policy_test.go"],
+          "tests": ["TestSpacerImplicantBooleanPoliciesAndSemanticImplication"]
         },
         {
           "name": "implicant_picker ITE processing preserves source short-circuit Boolean probe order across agreeing branches and condition-selected branches (spacer_util.cpp:839-853)",
