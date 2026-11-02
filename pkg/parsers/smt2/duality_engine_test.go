@@ -261,3 +261,41 @@ func TestSMT2DualityMutualRecursionIntegerUnderapproximation(t *testing.T) {
 		}
 	}
 }
+
+func TestSMT2DualityMutualRecursionUnreachableParity(t *testing.T) {
+	for _, under := range []string{"true", "false"} {
+		t.Run("underapprox="+under, func(t *testing.T) {
+			context, err := cmd_context.NewStandaloneContext()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if err := context.Close(); err != nil {
+					t.Fatal(err)
+				}
+			}()
+			context.PrintSuccess = false
+			var output bytes.Buffer
+			script := `(set-option :fixedpoint.engine duality)
+(set-option :fixedpoint.duality.use_underapprox true)
+(declare-rel EvenStep (Int))
+(declare-rel OddStep (Int))
+(declare-rel Goal ())
+(declare-var x Int)
+(declare-var y Int)
+(rule (EvenStep 0))
+(rule (=> (and (EvenStep x) (< x 4) (= y (+ x 1))) (OddStep y)))
+(rule (=> (and (OddStep x) (< x 4) (= y (+ x 1))) (EvenStep y)))
+(rule (=> (EvenStep 3) Goal))
+(query Goal :print-answer false)
+`
+			script = strings.Replace(script, ":fixedpoint.duality.use_underapprox true", ":fixedpoint.duality.use_underapprox "+under, 1)
+			if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+				t.Fatal(err)
+			}
+			if output.String() != "unsat\n" {
+				t.Fatal("unreachable parity query", output.String())
+			}
+		})
+	}
+}
