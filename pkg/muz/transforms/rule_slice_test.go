@@ -1835,102 +1835,114 @@ func TestRuleSliceProofSubstitutesDerivedPremise(t *testing.T) {
 		}
 	}
 	for _, unusedValue := range []int64{0, 17, -1} {
-		for _, gapIndex := range []uint32{1, 2} {
+		for _, gapIndex := range []uint32{0, 1, 2} {
 			for _, compound := range []bool{false, true} {
 				for _, trailing := range []uint32{0, 1} {
-					selected := zero
-					if compound {
-						selected, err = m.MkArithmeticAdd(zero, zero)
-						coneMust(t, err)
-					}
-					selectedPin, err := m.NewRef(selected)
-					coneMust(t, err)
-					defer func() { coneMust(t, m.DelRef(&selectedPin)) }()
-					unused, err := m.ArithmeticNumeralRat(big.NewRat(unusedValue, 1), true)
-					coneMust(t, err)
-					if unusedValue < 0 {
-						unused, err = m.MkVar(0, integer)
-						coneMust(t, err)
-					}
-					unusedPin, err := m.NewRef(unused)
-					coneMust(t, err)
-					defer func() { coneMust(t, m.DelRef(&unusedPin)) }()
-					otherName, err := m.Symbols.Intern("slice-derived-unused")
-					coneMust(t, err)
-					gapVar, err := m.MkVar(gapIndex, integer)
-					coneMust(t, err)
-					sorts := make([]ast.ASTHandle, gapIndex+1+trailing)
-					names := make([]symbol.Symbol, gapIndex+1+trailing)
-					bindings := make([]ast.ASTHandle, gapIndex+1+trailing)
-					for i := range sorts {
-						sorts[i] = integer
-						names[i] = otherName
-						bindings[i] = unused
-					}
-					names[gapIndex] = name
-					bindings[gapIndex] = selected
-					gapFormula, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: app(derivedQ, gapVar)})
-					coneMust(t, err)
-					scope, err = ast.NewScopedProof(m)
-					coneMust(t, err)
-					gapInner, err := m.MkProofHyperResolve(ps[:], gapFormula, []ast.ASTProofPosition{{First: 1}}, [][]ast.ASTHandle{{gapVar}, {gapVar}})
-					coneMust(t, err)
-					gapPin, err := m.NewRef(gapInner)
-					coneMust(t, err)
-					defer func() { coneMust(t, m.DelRef(&gapPin)) }()
-					gapOuter, err := m.MkProofHyperResolve([]ast.ASTHandle{gapInner}, app(derivedQ, selected), nil, [][]ast.ASTHandle{bindings})
-					coneMust(t, err)
-					gapOuterPin, err := m.NewRef(gapOuter)
-					coneMust(t, err)
-					defer func() { coneMust(t, m.DelRef(&gapOuterPin)) }()
-					coneMust(t, scope.Close())
-					gapResult, gapErr := converter.Convert(gapOuter)
-					coneMust(t, gapErr)
-					defer func() { coneMust(t, m.DelRef(&gapResult)) }()
-					gapHandle, e := m.RefGet(gapResult)
-					coneMust(t, e)
-					gapFact, e := m.GetProofFact(gapHandle)
-					coneMust(t, e)
-					if gapFact != fact {
-						if !compound {
-							t.Fatal("ground sparse substitution changed canonical fact", gapFact, fact)
+					for _, mixedSorts := range []bool{false, true} {
+						selected := zero
+						if compound {
+							selected, err = m.MkArithmeticAdd(zero, zero)
+							coneMust(t, err)
 						}
-						eq, e := m.MkIff(gapFact, fact)
-						coneMust(t, e)
-						neg, e := m.MkNot(eq)
-						coneMust(t, e)
-						coneMust(t, solver.Push())
-						coneMust(t, solver.AssertFormula(neg))
-						status, e := solver.CheckSat(nil)
-						coneMust(t, e)
-						coneMust(t, solver.Pop(1))
-						if status != lbool.False {
-							t.Fatal("sparse substitution changed reconstructed fact", gapFact, fact)
+						selectedPin, err := m.NewRef(selected)
+						coneMust(t, err)
+						defer func() { coneMust(t, m.DelRef(&selectedPin)) }()
+						unused, err := m.ArithmeticNumeralRat(big.NewRat(unusedValue, 1), true)
+						coneMust(t, err)
+						if unusedValue < 0 {
+							unused, err = m.MkVar(0, integer)
+							coneMust(t, err)
 						}
-					}
-					gapValid, gapSide, e := checker.Check(gapHandle)
-					coneMust(t, e)
-					defer func() {
+						unusedPin, err := m.NewRef(unused)
+						coneMust(t, err)
+						defer func() { coneMust(t, m.DelRef(&unusedPin)) }()
+						otherName, err := m.Symbols.Intern("slice-derived-unused")
+						coneMust(t, err)
+						gapVar, err := m.MkVar(gapIndex, integer)
+						coneMust(t, err)
+						sorts := make([]ast.ASTHandle, gapIndex+1+trailing)
+						names := make([]symbol.Symbol, gapIndex+1+trailing)
+						bindings := make([]ast.ASTHandle, gapIndex+1+trailing)
+						for i := range sorts {
+							sorts[i] = integer
+							names[i] = otherName
+							bindings[i] = unused
+						}
+						if mixedSorts {
+							unusedBool, e := m.MkTrue()
+							coneMust(t, e)
+							for i := range sorts {
+								if uint32(i) != gapIndex {
+									sorts[i] = boolean
+									bindings[i] = unusedBool
+								}
+							}
+						}
+						names[gapIndex] = name
+						bindings[gapIndex] = selected
+						gapFormula, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: app(derivedQ, gapVar)})
+						coneMust(t, err)
+						scope, err = ast.NewScopedProof(m)
+						coneMust(t, err)
+						gapInner, err := m.MkProofHyperResolve(ps[:], gapFormula, []ast.ASTProofPosition{{First: 1}}, [][]ast.ASTHandle{{gapVar}, {gapVar}})
+						coneMust(t, err)
+						gapPin, err := m.NewRef(gapInner)
+						coneMust(t, err)
+						defer func() { coneMust(t, m.DelRef(&gapPin)) }()
+						gapOuter, err := m.MkProofHyperResolve([]ast.ASTHandle{gapInner}, app(derivedQ, selected), nil, [][]ast.ASTHandle{bindings})
+						coneMust(t, err)
+						gapOuterPin, err := m.NewRef(gapOuter)
+						coneMust(t, err)
+						defer func() { coneMust(t, m.DelRef(&gapOuterPin)) }()
+						coneMust(t, scope.Close())
+						gapResult, gapErr := converter.Convert(gapOuter)
+						coneMust(t, gapErr)
+						defer func() { coneMust(t, m.DelRef(&gapResult)) }()
+						gapHandle, e := m.RefGet(gapResult)
+						coneMust(t, e)
+						gapFact, e := m.GetProofFact(gapHandle)
+						coneMust(t, e)
+						if gapFact != fact {
+							if !compound {
+								t.Fatal("ground sparse substitution changed canonical fact", gapFact, fact)
+							}
+							eq, e := m.MkIff(gapFact, fact)
+							coneMust(t, e)
+							neg, e := m.MkNot(eq)
+							coneMust(t, e)
+							coneMust(t, solver.Push())
+							coneMust(t, solver.AssertFormula(neg))
+							status, e := solver.CheckSat(nil)
+							coneMust(t, e)
+							coneMust(t, solver.Pop(1))
+							if status != lbool.False {
+								t.Fatal("sparse substitution changed reconstructed fact", gapFact, fact)
+							}
+						}
+						gapValid, gapSide, e := checker.Check(gapHandle)
+						coneMust(t, e)
+						defer func() {
+							for _, condition := range gapSide {
+								coneMust(t, m.DecRef(condition))
+							}
+						}()
+						if !gapValid {
+							t.Fatal("invalid sparse variable proof")
+						}
 						for _, condition := range gapSide {
-							coneMust(t, m.DecRef(condition))
+							coneMust(t, solver.Push())
+							negated, e := m.MkNot(condition)
+							coneMust(t, e)
+							coneMust(t, solver.AssertFormula(negated))
+							status, e := solver.CheckSat(nil)
+							coneMust(t, e)
+							coneMust(t, solver.Pop(1))
+							if status != lbool.False {
+								t.Fatal("invalid sparse proof side condition", status)
+							}
 						}
-					}()
-					if !gapValid {
-						t.Fatal("invalid sparse variable proof")
-					}
-					for _, condition := range gapSide {
-						coneMust(t, solver.Push())
-						negated, e := m.MkNot(condition)
-						coneMust(t, e)
-						coneMust(t, solver.AssertFormula(negated))
-						status, e := solver.CheckSat(nil)
-						coneMust(t, e)
-						coneMust(t, solver.Pop(1))
-						if status != lbool.False {
-							t.Fatal("invalid sparse proof side condition", status)
-						}
-					}
 
+					}
 				}
 			}
 		}
