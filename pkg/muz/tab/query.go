@@ -32,12 +32,8 @@ func QueryPredicateWithStatistics(rules *base.RuleSet, query ast.ASTHandle, rw *
 		return lbool.Undef, answer, ast.ErrASTHandle
 	}
 	m := rw.Manager()
-	defer func() {
-		if err != nil && answer != (ast.ASTRef{}) {
-			err = errors.Join(err, m.DelRef(&answer))
-			answer = ast.ASTRef{}
-		}
-	}()
+	attempt := &tabQueryAttempt{manager: m}
+	defer func() { answer, err = attempt.finish(answer, err) }()
 	ruleManager, err := rules.RuleManager()
 	if err != nil {
 		return lbool.Undef, answer, err
@@ -46,7 +42,7 @@ func QueryPredicateWithStatistics(rules *base.RuleSet, query ast.ASTHandle, rw *
 	if err != nil {
 		return lbool.Undef, answer, err
 	}
-	defer func() { err = errors.Join(err, properties.Close()) }()
+	attempt.properties = properties
 	if err = properties.Collect(rules); err != nil {
 		return lbool.Undef, answer, err
 	}
@@ -60,7 +56,7 @@ func QueryPredicateWithStatistics(rules *base.RuleSet, query ast.ASTHandle, rw *
 	if err != nil {
 		return lbool.Undef, answer, err
 	}
-	defer func() { err = errors.Join(err, index.Close()) }()
+	attempt.index = index
 	falsehood, err := m.MkFalse()
 	if err != nil {
 		return lbool.Undef, answer, err
@@ -84,7 +80,7 @@ func QueryPredicateWithStatistics(rules *base.RuleSet, query ast.ASTHandle, rw *
 	if err != nil {
 		return lbool.Undef, answer, errors.Join(err, goal.Close())
 	}
-	defer func() { err = errors.Join(err, search.Close()) }()
+	attempt.search = search
 	defer func() {
 		if stats != nil {
 			stats.Unfold += search.unfold

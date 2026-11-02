@@ -8,8 +8,66 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/memory"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
+
+type normalizeCleanupFailure struct {
+	manager     *ast.ASTManager
+	context     *uparams.ParamsContext
+	local       uparams.ParamsRef
+	localLive   bool
+	rewriter    *astrewriter.TheoryRewriter
+	equivalence *ast.ExprEquivClass
+	values      []ast.ASTRef
+	output      ast.ASTRef
+	cause       error
+	cleanupErr  error
+}
+
+func (f *normalizeCleanupFailure) Error() string { return errors.Join(f.cause, f.cleanupErr).Error() }
+func (f *normalizeCleanupFailure) Unwrap() error { return errors.Join(f.cause, f.cleanupErr) }
+func (f *normalizeCleanupFailure) RuntimeOwner() *memory.Runtime {
+	return f.manager.NumeralService().RuntimeOwner()
+}
+func (f *normalizeCleanupFailure) OriginalCause() error { return f.cause }
+func (f *normalizeCleanupFailure) CleanupCause() error  { return f.cleanupErr }
+
+func (f *normalizeCleanupFailure) close(includeOutput bool) (result error) {
+	if f.equivalence != nil {
+		if err := f.equivalence.Close(); err != nil {
+			return err
+		}
+		f.equivalence = nil
+	}
+	if err := releaseNormalizeRefs(f.manager, f.values); err != nil {
+		return err
+	}
+	f.values = nil
+	if includeOutput && f.output != (ast.ASTRef{}) {
+		if err := f.manager.DelRef(&f.output); err != nil {
+			return err
+		}
+	}
+	if f.rewriter != nil {
+		if err := f.rewriter.Close(); err != nil {
+			return err
+		}
+		f.rewriter = nil
+	}
+	if f.localLive {
+		if err := f.context.Del(&f.local); err != nil {
+			return err
+		}
+		f.localLive = false
+	}
+	return result
+}
+
+func (f *normalizeCleanupFailure) Cleanup() error {
+	f.cleanupErr = f.close(true)
+	return f.cleanupErr
+}
 
 // Source ast_lt_proc compares get_id(), unlike the structural ast_lt order.
 // Read IDs once while the concrete ASTRef owners keep every node live.
@@ -138,7 +196,14 @@ func normalizeAdhoc(manager *ast.ASTManager, root ast.ASTRef) (resultErr error) 
 	todo := []frame{{node: handle}}
 	cache := make(map[ast.ASTHandle]ast.ASTHandle)
 	owned := make([]ast.ASTRef, 0)
-	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(manager, owned)) }()
+	defer func() {
+		cleanup := &normalizeCleanupFailure{manager: manager, values: owned, cause: resultErr}
+		if err := cleanup.close(true); err != nil {
+			cleanup.cause = errors.Join(resultErr, err)
+			cleanup.cleanupErr = err
+			resultErr = cleanup
+		}
+	}()
 	for len(todo) != 0 {
 		current := todo[len(todo)-1]
 		todo = todo[:len(todo)-1]
@@ -248,7 +313,7 @@ func normalizeAdhoc(manager *ast.ASTManager, root ast.ASTRef) (resultErr error) 
 // normalizeFormula returns an owning reference. It follows the retained
 // Spacer normalization pipeline; factorEqualities is only enabled by callers
 // that use the corresponding source overload.
-func normalizeFormula(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, formula ast.ASTHandle, useSimplifyBounds, factorEqualities bool) (_ ast.ASTRef, resultErr error) {
+func normalizeFormula(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, formula ast.ASTHandle, useSimplifyBounds, factorEqualities bool) (result ast.ASTRef, resultErr error) {
 	if manager == nil || context == nil || globals == nil {
 		return ast.ASTRef{}, ErrManagerOwner
 	}
@@ -256,7 +321,24 @@ func normalizeFormula(manager *ast.ASTManager, context *uparams.ParamsContext, g
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, context.Del(&local)) }()
+	cleanup := &normalizeCleanupFailure{manager: manager, context: context, local: local, localLive: true}
+	defer func() {
+		if resultErr == nil && result != (ast.ASTRef{}) {
+			cleanup.output = result
+			if err := cleanup.close(false); err != nil {
+				cleanup.cause, cleanup.cleanupErr = err, err
+				result, resultErr = ast.ASTRef{}, cleanup
+				return
+			}
+			cleanup.output = ast.ASTRef{}
+			return
+		}
+		result = ast.ASTRef{}
+		if err := cleanup.close(true); err != nil {
+			cleanup.cause, cleanup.cleanupErr = errors.Join(resultErr, err), err
+			resultErr = cleanup
+		}
+	}()
 	for _, name := range []string{"sort_sums", "gcd_rounding", "arith_lhs", "som", "flat"} {
 		key := name
 		if err = context.SetBoolName(&local, &key, true); err != nil {
@@ -264,23 +346,15 @@ func normalizeFormula(manager *ast.ASTManager, context *uparams.ParamsContext, g
 		}
 	}
 	rw, err := astrewriter.NewTheoryRewriter(manager, context, globals, &local)
+	cleanup.rewriter = rw
 	if err != nil {
-		if rw != nil {
-			err = errors.Join(err, rw.Close())
-		}
 		return ast.ASTRef{}, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, rw.Close()) }()
 	out, err := manager.NewRef(formula)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	committed := false
-	defer func() {
-		if !committed {
-			resultErr = errors.Join(resultErr, manager.DelRef(&out))
-		}
-	}()
+	cleanup.output = out
 	if err = rw.Rewrite(formula, out); err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -293,26 +367,23 @@ func normalizeFormula(manager *ast.ASTManager, context *uparams.ParamsContext, g
 	}
 	conjunction, err := normalizeIsAnd(manager, rewritten)
 	if err != nil || !conjunction {
-		committed = err == nil
 		return out, err
 	}
 	handles, err := manager.FlattenAnd([]ast.ASTHandle{rewritten})
 	if err != nil || len(handles) <= 1 {
-		if err == nil {
-			committed = true
-		}
 		return out, err
 	}
 	values, err := refsFromHandles(manager, handles)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(manager, values)) }()
+	cleanup.values = values
 	if err = normalizeLess(manager, values); err != nil {
 		return ast.ASTRef{}, err
 	}
 	if useSimplifyBounds {
 		values, err = simplifyBounds(manager, context, globals, values)
+		cleanup.values = values
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
@@ -330,7 +401,7 @@ func normalizeFormula(manager *ast.ASTManager, context *uparams.ParamsContext, g
 		if newErr != nil {
 			return ast.ASTRef{}, newErr
 		}
-		defer func() { resultErr = errors.Join(resultErr, equivalence.Close()) }()
+		cleanup.equivalence = equivalence
 		handles, err = manager.FactorEqualities(handles, equivalence)
 		if err != nil {
 			return ast.ASTRef{}, err
@@ -341,16 +412,20 @@ func normalizeFormula(manager *ast.ASTManager, context *uparams.ParamsContext, g
 		}
 		remaining, refErr := refsFromHandles(manager, handles)
 		if refErr != nil {
-			_ = releaseNormalizeRefs(manager, factored)
+			cleanup.values = append(append([]ast.ASTRef(nil), values...), factored...)
 			return ast.ASTRef{}, refErr
 		}
-		if err = releaseNormalizeRefs(manager, values); err != nil {
-			_ = releaseNormalizeRefs(manager, remaining)
-			_ = releaseNormalizeRefs(manager, factored)
-			values = nil
+		oldCount := len(values)
+		allOwned := make([]ast.ASTRef, 0, oldCount+len(remaining)+len(factored))
+		allOwned = append(allOwned, values...)
+		allOwned = append(allOwned, remaining...)
+		allOwned = append(allOwned, factored...)
+		cleanup.values = allOwned
+		if err = releaseNormalizeRefs(manager, allOwned[:oldCount]); err != nil {
 			return ast.ASTRef{}, err
 		}
-		values = append(remaining, factored...)
+		values = allOwned[oldCount:]
+		cleanup.values = values
 	}
 	handles = handles[:0]
 	for i := range values {
@@ -367,6 +442,5 @@ func normalizeFormula(manager *ast.ASTManager, context *uparams.ParamsContext, g
 	if err = manager.SetRef(out, normalized); err != nil {
 		return ast.ASTRef{}, err
 	}
-	committed = true
 	return out, nil
 }

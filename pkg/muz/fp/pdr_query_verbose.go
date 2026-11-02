@@ -4,8 +4,6 @@ package fp
 // empty-program model diagnostics.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -61,7 +59,8 @@ func (e *PropositionalEngine) writePDREmptyProgramModel(declaration ast.ASTHandl
 	if err != nil {
 		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, md.Close()) }()
+	owner := &pdrModelPresentation{manager: e.manager, model: md}
+	defer func() { resultErr = owner.finish(resultErr) }()
 	stream, err := diagnostic.BorrowProcessVerboseStream()
 	if err != nil {
 		return err

@@ -36,48 +36,42 @@ func slicedPredicateHasRemovedColumns(slices map[ast.ASTHandle][]bool, declarati
 	return false
 }
 
-func expandSlicedFormula(manager *ast.ASTManager, slices map[ast.ASTHandle][]bool, declaration ast.ASTHandle, source ast.ASTRef) (_ ast.ASTRef, resultErr error) {
+func expandSlicedFormula(manager *ast.ASTManager, slices map[ast.ASTHandle][]bool, declaration ast.ASTHandle, source ast.ASTRef) (result ast.ASTRef, resultErr error) {
 	removed, found := slices[declaration]
 	if !found {
 		return source, nil
 	}
+	attempt := &slicedFormulaAttempt{manager: manager, source: source}
+	defer func() { result, resultErr = attempt.finish(resultErr) }()
 	formula, err := manager.RefGet(source)
 	if err != nil {
-		return ast.ASTRef{}, errors.Join(err, manager.DelRef(&source))
+		return ast.ASTRef{}, err
 	}
 	bindings := make([]ast.ASTHandle, 0, len(removed))
 	for index, sliced := range removed {
 		if sliced {
 			continue
 		}
-		sort, getErr := manager.GetDomain(declaration, uint32(index))
-		if getErr != nil {
-			return ast.ASTRef{}, errors.Join(getErr, manager.DelRef(&source))
+		sort, err := manager.GetDomain(declaration, uint32(index))
+		if err != nil {
+			return ast.ASTRef{}, err
 		}
-		variable, getErr := manager.MkVar(uint32(index), sort)
-		if getErr != nil {
-			return ast.ASTRef{}, errors.Join(getErr, manager.DelRef(&source))
+		variable, err := manager.MkVar(uint32(index), sort)
+		if err != nil {
+			return ast.ASTRef{}, err
 		}
 		bindings = append(bindings, variable)
 	}
-	substitute, err := astrewriter.NewVarSubstitution(manager, false)
-	if substitute != nil {
-		defer func() { resultErr = errors.Join(resultErr, substitute.Close()) }()
-	}
+	attempt.substitute, err = astrewriter.NewVarSubstitution(manager, false)
 	if err != nil {
-		return ast.ASTRef{}, errors.Join(err, manager.DelRef(&source))
+		return ast.ASTRef{}, err
 	}
-	result, err := manager.NewRef(ast.ASTHandle{})
+	attempt.result, err = manager.NewRef(ast.ASTHandle{})
 	if err != nil {
-		return ast.ASTRef{}, errors.Join(err, manager.DelRef(&source))
+		return ast.ASTRef{}, err
 	}
-	if err = substitute.Substitute(formula, bindings, result); err != nil {
-		return ast.ASTRef{}, errors.Join(err, manager.DelRef(&result), manager.DelRef(&source))
-	}
-	if err = manager.DelRef(&source); err != nil {
-		return ast.ASTRef{}, errors.Join(err, manager.DelRef(&result))
-	}
-	return result, nil
+	err = attempt.substitute.Substitute(formula, bindings, attempt.result)
+	return ast.ASTRef{}, err
 }
 
 func rejectSlicedPredicateProperty(slices map[ast.ASTHandle][]bool, declaration ast.ASTHandle) error {

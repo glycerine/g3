@@ -24,6 +24,8 @@ func QueryExpression(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theo
 		return lbool.Undef, answer, ast.ErrASTHandle
 	}
 	m := rw.Manager()
+	attempt := &tabExpressionAttempt{manager: m}
+	defer func() { answer, resultErr = attempt.finish(answer, resultErr) }()
 	boolean, err := m.MkBoolSort()
 	if err != nil {
 		return lbool.Undef, answer, err
@@ -43,13 +45,7 @@ func QueryExpression(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theo
 	if err != nil {
 		return lbool.Undef, answer, err
 	}
-	defer func() {
-		resultErr = errors.Join(resultErr, m.DelRef(&compacted))
-		if resultErr != nil && answer != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, m.DelRef(&answer))
-			answer = ast.ASTRef{}
-		}
-	}()
+	attempt.compacted = compacted
 	query, err = m.RefGet(compacted)
 	if err != nil {
 		return lbool.Undef, answer, err
@@ -105,13 +101,7 @@ func QueryExpression(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theo
 	if err != nil {
 		return lbool.Undef, answer, err
 	}
-	defer func() {
-		resultErr = errors.Join(resultErr, scoped.Close())
-		if resultErr != nil && answer != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, m.DelRef(&answer))
-			answer = ast.ASTRef{}
-		}
-	}()
+	attempt.scoped = scoped
 	if err = scoped.AddRules(rules); err != nil {
 		return lbool.Undef, answer, err
 	}
