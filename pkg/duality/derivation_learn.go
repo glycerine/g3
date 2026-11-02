@@ -6,8 +6,32 @@ import (
 	"github.com/glycerine/g3/pkg/solver"
 )
 
+// Cleanup may join another cause to a recoverable reduction failure.
+// Only a chain containing exclusively the reduction failure can be ignored.
+func onlyGreedyReduceFailure(err error) bool {
+	if err == ErrGreedyReduceFailed {
+		return true
+	}
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		causes := joined.Unwrap()
+		if len(causes) == 0 {
+			return false
+		}
+		for _, cause := range causes {
+			if !onlyGreedyReduceFailure(cause) {
+				return false
+			}
+		}
+		return true
+	}
+	if wrapped := errors.Unwrap(err); wrapped != nil {
+		return onlyGreedyReduceFailure(wrapped)
+	}
+	return false
+}
+
 func (d *BacktrackingDerivation) refinementFailure(err error) error {
-	if !errors.Is(err, ErrGreedyReduceFailed) {
+	if !onlyGreedyReduceFailure(err) {
 		return err
 	}
 	if report := d.original.streamReporter.Message("interpolant verification failed"); report != nil {
