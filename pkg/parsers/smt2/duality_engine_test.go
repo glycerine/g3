@@ -190,3 +190,35 @@ func TestSMT2DualityBackgroundCertificateWitness(t *testing.T) {
 		t.Fatal("background witness certificate", text)
 	}
 }
+
+func TestSMT2DualityRecursiveIntegerUnderapproximation(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	context.PrintSuccess = false
+	var output bytes.Buffer
+	script := `(set-option :fixedpoint.engine duality)
+(set-option :fixedpoint.duality.use_underapprox true)
+(declare-rel Reach (Int))
+(declare-rel Goal ())
+(declare-var x Int)
+(declare-var y Int)
+(rule (Reach 0))
+(rule (=> (and (Reach x) (= y (+ x 1))) (Reach y)))
+(rule (=> (Reach 3) Goal))
+(query Goal :print-answer false :print-certificate true)
+`
+	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	text := output.String()
+	if !strings.HasPrefix(text, "sat\n(derivation\n") || !strings.Contains(text, "(Reach 1)") || !strings.Contains(text, "(Reach 2)") || !strings.Contains(text, "(Reach 3)") {
+		t.Fatal("incomplete recursive certificate", text)
+	}
+}

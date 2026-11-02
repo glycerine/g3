@@ -1,3 +1,5 @@
+Duality recursive underapproximation integration: added an SMT-LIB test with underapproximation enabled and integer reachability through three recursive transitions. It checks the exported derivation contains each intermediate Reach value, exercising fast counterexample completion through the public frontend. Plain core/bridge/fixedpoint, SMT-LIB Duality and portcheck suites pass. More direct arithmetic lower-fact projection coverage remains open.
+
 Duality integer lower fact: native model-backed unary integer fact coverage checks the reconstructed annotation is logically equivalent to x = 3 after localization and projection. Plain core/bridge/fixedpoint and portcheck suites pass. Recursive integer projection with an intermediate variable remains open for additional coverage.
 
 Duality parameterized lower fact: added a model-backed unary Boolean fact regression and independently checked that localization/projection renames the resulting lower annotation back to the original predicate parameter. Plain core/bridge/fixedpoint and portcheck suites pass. Broader parameterized arithmetic/recursive coverage remains open.
