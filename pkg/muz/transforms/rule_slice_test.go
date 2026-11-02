@@ -1855,7 +1855,7 @@ func TestRuleSliceProofSubstitutesDerivedPremise(t *testing.T) {
 	if gapResult != (ast.ASTRef{}) {
 		coneMust(t, m.DelRef(&gapResult))
 	}
-	if gapErr == nil {
-		t.Fatal("accepted derived variable indices that require separate remapping")
+	if !errors.Is(gapErr, transforms.ErrSliceProofUnsupported) {
+		t.Fatal("sparse derived variables did not report unsupported proof remapping", gapErr)
 	}
 }
