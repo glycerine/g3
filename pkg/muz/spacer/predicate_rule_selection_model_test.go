@@ -122,3 +122,50 @@ func TestSpacerRuleSelectionUsesDirectModelInterpretations(t *testing.T) {
 		}
 	}
 }
+
+func TestSpacerRuleSelectionPrefersConcreteLaterRule(t *testing.T) {
+	f := newContextAnswerFixture(t, true)
+	m := f.context.manager
+	head, err := m.MkApp(f.query, nil)
+	depthMust(t, err)
+	concrete, err := f.manager.NewRule(head, nil, nil, "concrete-fallback")
+	depthMust(t, err)
+	defer func() { depthMust(t, concrete.Close()) }()
+	depthMust(t, f.rules.Add(concrete))
+	depthMust(t, f.context.UpdateRules(f.rules))
+	p := f.context.transformers[f.query]
+	if len(p.rules) != 2 {
+		t.Fatal("expected two candidate rules")
+	}
+	first, err := p.rules[0].rule.Same(f.rule)
+	depthMust(t, err)
+	if !first {
+		t.Fatal("fixture did not put the nonconcrete rule first")
+	}
+	md, err := model.NewModel(m)
+	depthMust(t, err)
+	defer func() { depthMust(t, md.Close()) }()
+	truth, err := m.MkTrue()
+	depthMust(t, err)
+	for _, rule := range p.rules {
+		decl, err := m.GetDecl(rule.tag)
+		depthMust(t, err)
+		depthMust(t, md.Core().RegisterConstant(decl, truth))
+	}
+	before := m.Stats().LiveReferences
+	selection, err := p.SelectRule(md.Core())
+	depthMust(t, err)
+	if selection.Rule == nil {
+		t.Fatal("no selected rule")
+	}
+	same, err := selection.Rule.Same(concrete)
+	depthMust(t, err)
+	if !same || !selection.IsConcrete || selection.NumReuseReach != 0 || len(selection.ReachPredUsed) != 0 {
+		depthMust(t, selection.Close())
+		t.Fatal("later concrete rule did not replace nonconcrete selection")
+	}
+	depthMust(t, selection.Close())
+	if m.Stats().LiveReferences != before {
+		t.Fatal("replacing the selected rule leaked references")
+	}
+}
