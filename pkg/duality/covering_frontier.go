@@ -1,10 +1,17 @@
 package duality
 
+import "errors"
+
 // Source: duality_solver.cpp:2801-2839.
-func (c *Covering) CloseDescendants(node *Node) (bool, error) {
+func (c *Covering) CloseDescendants(node *Node) (_ bool, result error) {
 	if c == nil {
 		return false, ErrWrapperOwner
 	}
+	timer, err := startProfile(c.graph.context, "CloseDescendants")
+	if err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	seen := make(map[*Node]bool)
 	var visit func(*Node) (bool, error)
 	visit = func(n *Node) (bool, error) {

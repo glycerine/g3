@@ -60,10 +60,15 @@ func (u *Unwinding) checkerForEdgeClone(source *Edge, checker *LocalEdgeChecker,
 // were found. Dedicated solvers/caches are owned by the supplied checker;
 // candidates borrow only unwinding nodes after every temporary scope closes.
 // Source: duality_solver.cpp:1444-1490.
-func (u *Unwinding) GenCandidatesFromInductionFailure(checker *LocalEdgeChecker, evaluator model.ModelEvaluatorConfig, simplifier *interp.Manager, fullScan bool) error {
+func (u *Unwinding) GenCandidatesFromInductionFailure(checker *LocalEdgeChecker, evaluator model.ModelEvaluatorConfig, simplifier *interp.Manager, fullScan bool) (result error) {
 	if u == nil || checker == nil || checker.closed || checker.graph.context != u.graph.context {
 		return ErrWrapperOwner
 	}
+	timer, err := startProfile(u.graph.context, "GenCandIndFail")
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	if err := checker.graph.BindModelEvaluator(evaluator); err != nil {
 		return err
 	}
@@ -86,6 +91,9 @@ func (u *Unwinding) GenCandidatesFromInductionFailure(checker *LocalEdgeChecker,
 		}
 	}
 	clear(u.updatedNodes)
+	if err := timer.Close(); err != nil {
+		return err
+	}
 	if !fullScan && len(u.candidates) == 0 {
 		if err := u.graph.streamReporter.Message("No candidates from updates. Trying full scan."); err != nil {
 			return err

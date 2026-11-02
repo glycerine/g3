@@ -5,12 +5,25 @@ import "errors"
 // ExpandSomeNodes uses the slow search's expansion override so every selected
 // materialized node records its backtracking level and child-instance mappings.
 // Source: duality_solver.cpp:2121-2142,2502-2512.
-func (d *BacktrackingDerivation) ExpandSomeNodes(highPriority bool, limit int) (bool, error) {
+func (d *BacktrackingDerivation) ExpandSomeNodes(highPriority bool, limit int) (_ bool, result error) {
 	if d == nil || d.DerivationTree == nil {
 		return false, ErrWrapperOwner
 	}
+	timer, err := startProfile(d.tree.context, "ExpandSomeNodes")
+	if err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
+	choicesTimer, err := startProfile(d.tree.context, "ExpansionChoices")
+	if err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, choicesTimer.Close()) }()
 	var choices []*Node
 	if err := d.ExpansionChoices(&choices, highPriority, limit != int(^uint32(0)>>1)); err != nil {
+		return false, err
+	}
+	if err := choicesTimer.Close(); err != nil {
 		return false, err
 	}
 	selected := make(map[*Node]bool)

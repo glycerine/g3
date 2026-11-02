@@ -17,6 +17,11 @@ func (s *DerivationSearch) Derive(root *Node, underapprox, constrained bool) (sa
 	if err := d.tree.solverReady(); err != nil {
 		return false, err
 	}
+	timer, err := startProfile(d.tree.context, "Derive")
+	if err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	// The source case loop operates on this derivation's RPFP. Share its
 	// failure schedule while borrowing the current graph only for this query.
 	if s.Cases != nil {
@@ -33,6 +38,11 @@ func (s *DerivationSearch) Derive(root *Node, underapprox, constrained bool) (sa
 		return false, err
 	}
 	defer func() {
+		popTimer, err := startProfile(d.tree.context, "Pop")
+		if err != nil {
+			result = errors.Join(result, err)
+		}
+		defer func() { result = errors.Join(result, popTimer.Close()) }()
 		// An error may leave an incomplete expansion with no outgoing edge;
 		// unwind native graph scopes directly rather than deleting that partial
 		// graph through PopLevel. The caller still owns and closes the graph.
@@ -57,11 +67,19 @@ func (s *DerivationSearch) Derive(root *Node, underapprox, constrained bool) (sa
 	if err = d.tree.AssertNode(top); err != nil {
 		return false, err
 	}
+	buildTimer, err := startProfile(d.tree.context, "Build")
+	if err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, buildTimer.Close()) }()
 	sat, err = s.Build()
 	if err != nil {
 		return sat, err
 	}
 	if err = d.Heuristic.Done(); err != nil {
+		return false, err
+	}
+	if err := buildTimer.Close(); err != nil {
 		return false, err
 	}
 	return sat, nil

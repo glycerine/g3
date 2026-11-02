@@ -69,10 +69,15 @@ func (d *BacktrackingDerivation) NodeTooComplicated(node *Node, manager *interp.
 // SimplifyNode destroys the old native proof while replaying the current
 // graph scope, then dispatches case interpolation. Source Bad errors propagate.
 // Source: duality_solver.cpp:2455-2467.
-func (d *BacktrackingDerivation) SimplifyNode(node *Node, runner *CaseInterpolator, config *interp.RunConfig) error {
+func (d *BacktrackingDerivation) SimplifyNode(node *Node, runner *CaseInterpolator, config *interp.RunConfig) (result error) {
 	if d == nil || d.DerivationTree == nil || runner == nil || runner.Graph != d.tree || node == nil || node.Owner != d.tree || node.closed || d.Top == nil {
 		return ErrWrapperOwner
 	}
+	timer, err := startProfile(d.tree.context, "SimplifyNode")
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	if err := d.tree.PopPush(); err != nil {
 		return err
 	}
