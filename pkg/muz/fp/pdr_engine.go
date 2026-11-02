@@ -135,15 +135,21 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	if err != nil {
 		return lbool.Undef, err
 	}
+	closeContext := func() error {
+		if context == e.pdr {
+			return e.closePDRForReplacement()
+		}
+		return context.Close()
+	}
 	preprocessed, err := e.preprocessHornRulesWithSliceProof(declaration, true, true, allowSliceProof)
 	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
+		return lbool.Undef, errors.Join(err, closeContext())
 	}
 	defer func() { resultErr = errors.Join(resultErr, preprocessed.Close()) }()
 	prepared := preprocessed.rules
 	snapshot, err := snapshotHornRules(prepared)
 	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
+		return lbool.Undef, errors.Join(err, closeContext())
 	}
 	keepSnapshot := false
 	defer func() {
@@ -192,21 +198,27 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
 		}
 	} else {
-		if err = e.closePDRForReplacement(); err != nil {
-			return lbool.Undef, errors.Join(err, context.Close())
+		if e.pdr != nil && e.pdrRules == nil {
+			// Source check_reset preserves covers supplied before any old rules.
+			if err = context.Close(); err != nil {
+				return lbool.Undef, err
+			}
+			context = e.pdr
+		} else if err = e.closePDRForReplacement(); err != nil {
+			return lbool.Undef, errors.Join(err, closeContext())
 		}
 		if err = context.SetAuxiliaryPredicates(auxiliary); err != nil {
-			return lbool.Undef, errors.Join(err, context.Close())
+			return lbool.Undef, errors.Join(err, closeContext())
 		}
 		background, backgroundErr := e.manager.RefGet(e.background)
 		if backgroundErr != nil {
-			return lbool.Undef, errors.Join(backgroundErr, context.Close())
+			return lbool.Undef, errors.Join(backgroundErr, closeContext())
 		}
 		if err = context.SetBackground(background); err != nil {
-			return lbool.Undef, errors.Join(err, context.Close())
+			return lbool.Undef, errors.Join(err, closeContext())
 		}
 		if err = context.Initialize(prepared); err != nil {
-			return lbool.Undef, errors.Join(err, context.Close())
+			return lbool.Undef, errors.Join(err, closeContext())
 		}
 	}
 	e.installPDRPreprocessing(preprocessed)
@@ -265,14 +277,38 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	return status, nil
 }
 
-func (e *PropositionalEngine) pdrContext() (*pdr.Context, error) {
+func (e *PropositionalEngine) pdrContext() (_ *pdr.Context, resultErr error) {
 	if err := e.open(); err != nil {
 		return nil, err
 	}
-	if (e.backend != "pdr" && e.backend != "qpdr") || e.pdr == nil || e.pdrRevision != e.revision {
+	if e.backend != "pdr" && e.backend != "qpdr" {
 		return nil, ErrPropositionalEngine
 	}
-	return e.pdr, nil
+	if e.pdr != nil {
+		if e.pdrRules != nil && e.pdrRevision != e.revision {
+			return nil, ErrPropositionalEngine
+		}
+		return e.pdr, nil
+	}
+	parameters, err := e.fixedpointParamView()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
+	context, err := e.newConfiguredPDRContext(parameters)
+	if err != nil {
+		return nil, err
+	}
+	background, err := e.manager.RefGet(e.background)
+	if err == nil {
+		err = context.SetBackground(background)
+	}
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	e.pdr = context
+	e.pdrRevision = e.revision
+	return context, nil
 }
 
 // NumLevels returns the finite frame count for a PDR or Spacer relation.
@@ -322,6 +358,9 @@ func (e *PropositionalEngine) CoverDelta(level int, declaration ast.ASTHandle) (
 		return ast.ASTRef{}, err
 	}
 	derived := e.pdrPredicate(declaration)
+	if e.pdrRules == nil {
+		return context.CoverDelta(level, derived)
+	}
 	_, found, err := context.Transformer(derived)
 	if err != nil {
 		return ast.ASTRef{}, err
@@ -360,6 +399,18 @@ func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTH
 	context, err := e.pdrContext()
 	if err != nil {
 		return err
+	}
+	parameters, err := e.fixedpointParamView()
+	if err != nil {
+		return err
+	}
+	slicing, err := parameters.Bool("xform.slice", true)
+	err = errors.Join(err, parameters.Close())
+	if err != nil {
+		return err
+	}
+	if slicing {
+		return fmt.Errorf("Covers are incompatible with slicing. Disable slicing before using covers")
 	}
 	if slicedPredicateHasRemovedColumns(e.pdrSlices, declaration) {
 		return fmt.Errorf("muz/fp: covers and invariants are incompatible with sliced predicate columns")

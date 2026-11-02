@@ -22,14 +22,15 @@ Each completed item needs source paths, implementation/test evidence and a commi
 - [ ] Close context/rule ownership, scope rollback, query transformation and engine lifecycle audits (`base/dl_context`, `dl_rule`, `dl_engine_base`).
 - [ ] Verify parameter defaults, aliases, updates and engine selection against `fixedpoint_params.hpp` and engine registration.
 - [ ] Close SMT-LIB/Datalog command parsing, error reporting, query state and exported result/proof/model contracts.
-  - [x] Preserve source pop rejection after pre-query Spacer context instantiation; verify an uninstantiated scope can still pop.
-  - [ ] Audit PDR pre-query level/cover access, which currently returns an invalid-engine-state error instead of providing the Spacer-style pre-query accessor.
+  - [x] Preserve source pop rejection after pre-query PDR/QPDR/Spacer context instantiation; verify an uninstantiated scope can still pop.
+  - [x] Support PDR pre-query level/cover access, initial context reuse, cover inheritance and the source slicing restriction.
     - [x] Extract the existing complete PDR parameterized constructor so query and pre-query paths can share identical configuration.
-    - [x] Permit source-compatible pre-initialization level/cover lookup in the PDR context (direct context regression; public accessor remains open).
-    - [ ] Enable the public PDR pre-query accessor with the shared parameter configuration.
-    - [ ] Reuse the pre-query context and preserve its covers when initial rules are installed; test context identity and raw frames.
+    - [x] Permit source-compatible pre-initialization level/cover lookup in the PDR context.
+    - [x] Enable the public PDR pre-query accessor with the shared parameter configuration.
+    - [x] Reuse the pre-query context and preserve its covers when initial rules are installed; test context identity and raw frames.
       - [x] Inherit direct-context pre-query properties during Initialize, close old transformers and use freshly configured solver pools for arithmetic/proof mode.
-      - [ ] Exercise the public first-query path and context identity.
+      - [x] Exercise the public first-query path and context identity.
+    - [x] Reject covers while xform.slice is enabled, before publishing any predicate frames.
 - [ ] Test cancellation, resource refusal and partial construction/destruction at actual allocation boundaries; preserve errors through cleanup.
 
 ## 3. PDR — first engine closure
@@ -268,3 +269,6 @@ This closes the declarations and ownership mapping of `src/muz/spacer/spacer_dl_
 
 - 2026-11-02 — Initial PDR rule installation now copies frame properties from pre-query transformers and closes those transformers, matching source `context::update_rules`. A fresh solver pool avoids reusing solvers constructed before arithmetic/proof-mode selection; older solvers remain owned by the manager and are disposed at context close. The arithmetic constraint-cache regression checks the raw level-two false cover, three frames, replacement/closure, a distinct solver, difference-logic selection and continued rejection of arithmetic reconfiguration after rule solvers exist. Public context reuse remains a separate unchecked item.
   Validation: `go -C pkg test ./muz/pdr -run '^TestPDRInitializeInheritsPrequeryArithmeticCover$' -count=1 -v` passed. Commit title: `Preserve PDR pre-query covers during initial rule installation`.
+
+- 2026-11-02 — PDR/QPDR public level and cover access now constructs the fully configured context before a query. The first rule installation reuses it, preserving pre-query covers; initialization errors dispose the installed engine through its owner. The public regression supplies x=0 at level two for a relation containing zero, checks context identity, all three levels, public and raw covers after the reachable first query, and removal of the old cover after adding one. Extended pre-query pop rejection coverage to PDR/QPDR. Restored the source add_cover slicing restriction and verified rejected covers create no frames. Broader PDR lifecycle/ownership acceptance items remain open.
+  Validation: the focused PDR/QPDR cover and scope regressions and `go -C pkg test ./muz/fp -short` passed. Commit title: `Integrate PDR pre-query covers with first-query lifecycle`.

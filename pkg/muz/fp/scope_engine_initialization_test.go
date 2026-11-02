@@ -6,7 +6,7 @@ import (
 )
 
 func TestFixedpointPopRejectsInstantiatedPrequeryEngine(t *testing.T) {
-	for _, backend := range []string{"spacer"} {
+	for _, backend := range []string{"pdr", "qpdr", "spacer"} {
 		t.Run(backend, func(t *testing.T) {
 			must := func(err error) {
 				t.Helper()
