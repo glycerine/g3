@@ -11,6 +11,7 @@ import (
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/transforms"
+	"github.com/glycerine/g3/pkg/util/cooperate"
 )
 
 func (e *PropositionalEngine) spacerPredicate(declaration ast.ASTHandle) ast.ASTHandle {
@@ -244,9 +245,47 @@ func (e *PropositionalEngine) expandSpacerModel(source *model.Model) (_ *model.M
 }
 
 func (e *PropositionalEngine) applyHornConeModelStep(destination *model.ModelCore, step transforms.ConeModelStep) (resultErr error) {
+	if len(step) == 0 {
+		return nil
+	}
+	cooperation, err := cooperate.NewCooperation(e.manager.Budget())
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, cooperation.Close()) }()
+	evaluator, err := model.NewModelEvaluator(destination, model.ModelEvaluatorConfig{
+		Context: e.params, Globals: e.globals,
+		Memory: e.manager.NumeralService().RuntimeOwner(), Cooperation: cooperation,
+	})
+	if evaluator != nil {
+		defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
+	}
+	if err != nil {
+		return err
+	}
+	if err = evaluator.SetModelCompletion(true); err != nil {
+		return err
+	}
+	if err = evaluator.SetExpandArrayEqualities(false); err != nil {
+		return err
+	}
+	value, err := e.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&value)) }()
 	for j := len(step) - 1; j >= 0; j-- {
 		definition := step[j]
 		formula, err := e.manager.RefGet(definition.Formula)
+		if err != nil {
+			return err
+		}
+		// extension_model_converter::operator() evaluates definitions before
+		// registering them, including ground Boolean simplification.
+		if err = evaluator.Evaluate(formula, value); err != nil {
+			return err
+		}
+		formula, err = e.manager.RefGet(value)
 		if err != nil {
 			return err
 		}

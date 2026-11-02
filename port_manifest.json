@@ -102837,10 +102837,12 @@
             "pkg/muz/transforms/coi_plugin.go",
             "pkg/muz/fp/horn_preprocess.go",
             "pkg/muz/fp/spacer_slice_results.go",
+            "pkg/muz/fp/horn_cone_model_evaluation_test.go",
             "pkg/muz/fp/propositional_engine.go"
           ],
           "tests": [
             "TestConePluginCapturesOrderedModelDefinitions",
+            "TestHornConeModelEvaluatesDefinitionsBeforeRegistration",
             "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
             "TestPDREngineExpandsSlicedModelsAndCovers"
           ]

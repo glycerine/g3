@@ -82,7 +82,10 @@ func TestSMTContextFixedpointPDRLifecycle(t *testing.T) {
 	astTestMust(t, context.AssertFixedpoint(truth))
 	rules, err = context.FixedpointRules()
 	astTestMust(t, err)
-	if len(rules) != 2 {
+	// UpdateRule before the first flush adds a normalized clause; it does not
+	// replace the still-pending raw step. Source enumeration therefore has
+	// the fact plus both copies of the step.
+	if len(rules) != 3 {
 		t.Fatal("fixedpoint rule enumeration", len(rules))
 	}
 	for index := range rules {
@@ -179,7 +182,9 @@ func TestSMTContextFixedpointPDRLifecycle(t *testing.T) {
 		handle, x := manager.RefGet(value)
 		astTestMust(t, x)
 		if !manager.IsTrue(handle) {
-			t.Fatal("fixedpoint model does not satisfy reachable relation", application, handle)
+			appText, _ := context.ASTString(application, APIASTPrintSMT2)
+			valueText, _ := context.ASTString(handle, APIASTPrintSMT2)
+			t.Fatal("fixedpoint model does not satisfy reachable relation", appText, valueText)
 		}
 		astTestMust(t, manager.DelRef(&value))
 	}
