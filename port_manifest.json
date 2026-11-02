@@ -103529,6 +103529,7 @@
         "The replacement RuleSet owns sliced rules and original/derived declaration mappings; temporary source rules and rewritten rules are closed after transfer."
       ],
       "deviations": [
+        "Derived-premise proof conversion now preserves sparse and trailing-unused quantified binder positions across rule-variable compaction. Unused substitution slots are explicitly absent; surviving compound terms are reconstructed in the original rule bank. TestRuleSliceProofSubstitutesDerivedPremise checks dense/sparse/entirely-unused and mixed-sort banks, exact numeral facts, compound-term equivalence, proof validity and SMT discharge of checker side conditions. Whole slice-proof shape and exceptional-ownership closure remains unproven; this unit remains partial.",
         "Semantic slicing, direct predicate remapping, and free-variable expansion for exported formulas and model interpretations are retained. The Go model converter expands the complete compact interpretation expression rather than storing source non-ground wildcard function entries. QBMC and PDR use the partial proof converter and retry unsliced for unsupported proof shapes or changed conclusions. Spacer also slices with proof tracing enabled; its source overall proof hook is empty."
       ]
     },
