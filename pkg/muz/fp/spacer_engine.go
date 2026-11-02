@@ -22,6 +22,12 @@ func (e *PropositionalEngine) preprocessHornRulesWithSliceProof(query ast.ASTHan
 }
 
 func (e *PropositionalEngine) preprocessHornRulesWithQueryRule(query ast.ASTHandle, queryRule *base.Rule, allowSubsumptionResultTransforms, allowInlineResultTransforms, allowSliceProof, engineTransforms bool) (_ *hornPreprocessResult, resultErr error) {
+	return e.preprocessHornRulesWithStages(query, queryRule, allowSubsumptionResultTransforms, allowInlineResultTransforms, allowSliceProof, engineTransforms, engineTransforms)
+}
+
+// BMC shares default transformations and slicing with Spacer, but its source
+// query path does not run Spacer's optional coalescing and unfolding stage.
+func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle, queryRule *base.Rule, allowSubsumptionResultTransforms, allowInlineResultTransforms, allowSliceProof, sliceStage, unfoldStage bool) (_ *hornPreprocessResult, resultErr error) {
 	var slicedPredicates map[ast.ASTHandle]ast.ASTHandle
 	var slicedColumns map[ast.ASTHandle][]bool
 	var sliceProof *transforms.SliceProofConverter
@@ -422,7 +428,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithQueryRule(query ast.ASTHand
 		return nil, fmt.Errorf("muz/fp: Spacer rule preprocessing: %w", err)
 	}
 	// Proof-producing backends opt in only when they apply the converter.
-	if engineTransforms && sliceRules && (!generateProofTrace || allowSliceProof) {
+	if sliceStage && sliceRules && (!generateProofTrace || allowSliceProof) {
 		slicer := base.NewRuleTransformer()
 		plugin := transforms.NewRuleSlicePlugin(e.manager, e.rules, 1)
 		plugin.SetGenerateProofTrace(generateProofTrace)
@@ -444,7 +450,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithQueryRule(query ast.ASTHand
 			return nil, fmt.Errorf("muz/fp: Spacer rule slicing: %w", err)
 		}
 	}
-	if engineTransforms && unfoldRounds > 0 && coalesceRules {
+	if unfoldStage && unfoldRounds > 0 && coalesceRules {
 		coalescer := base.NewRuleTransformer()
 		plugin := transforms.NewRuleCoalescePluginWithProofTrace(e.manager, e.rules, 50, generateProofTrace)
 		if err = coalescer.Register(plugin); err != nil {
@@ -456,7 +462,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithQueryRule(query ast.ASTHand
 			return nil, fmt.Errorf("muz/fp: Spacer rule coalescing: %w", err)
 		}
 	}
-	for round := uint32(0); engineTransforms && round < unfoldRounds; round++ {
+	for round := uint32(0); unfoldStage && round < unfoldRounds; round++ {
 		unfolder := base.NewRuleTransformer()
 		plugin := transforms.NewRuleUnfoldPlugin(e.manager, e.rules, e.params, e.globals, 100)
 		if err = unfolder.Register(plugin); err != nil {
