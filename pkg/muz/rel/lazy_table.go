@@ -313,34 +313,26 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 		e.stats.Renames++
 		result, err = source.RenameCycle(node.columns1)
 	case LazyTableFilterIdentical:
-		source, sourceErr := e.evaluate(node.left)
+		source, sourceErr := e.transferLazySource(node, &node.left)
 		if sourceErr != nil {
 			return nil, sourceErr
 		}
-		// The C++ force path releases the source node's cached table and
-		// transfers that table into this mutating filter node.
-		node.left.evaluated = nil
-		node.evaluated = source
 		e.stats.IdenticalFilters++
 		err = source.FilterIdentical(node.columns1)
 		result = source
 	case LazyTableFilterEqual:
-		source, sourceErr := e.evaluate(node.left)
+		source, sourceErr := e.transferLazySource(node, &node.left)
 		if sourceErr != nil {
 			return nil, sourceErr
 		}
-		node.left.evaluated = nil
-		node.evaluated = source
 		e.stats.EqualFilters++
 		err = source.FilterEqual(node.value, node.column)
 		result = source
 	case LazyTableFilterByNegation:
-		target, targetErr := e.evaluate(node.left)
+		target, targetErr := e.transferLazySource(node, &node.left)
 		if targetErr != nil {
 			return nil, targetErr
 		}
-		node.left.evaluated = nil
-		node.evaluated = target
 		if node.right != nil && node.right.kind == LazyTableJoin {
 			join := node.right
 			left, leftErr := e.evaluate(join.left)
@@ -363,34 +355,13 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 		}
 		result = target
 	case LazyTableFilterInterpreted:
-		source := node.evaluated
-		if source == nil {
-			var sourceErr error
-			source, sourceErr = e.evaluate(node.left)
-			if sourceErr != nil {
-				return nil, sourceErr
-			}
-			// Source force moves its evaluated table out of m_src before applying
-			// the mutator; sibling references to that lazy node no longer own it.
-			node.left.evaluated = nil
-			node.evaluated = source
+		source, sourceErr := e.transferLazySource(node, &node.left)
+		if sourceErr != nil {
+			return nil, sourceErr
 		}
 		// A Go AST operation can refuse after the source table has transferred.
 		// Keep the concrete owner but do not publish it as a completed force;
 		// a retry must execute the transactional interpreted filter again.
-		node.retryForce = true
-		// Source lazy_table_filter_interpreted::force releases m_src after
-		// transferring its concrete table. This also retires condition owners in
-		// a nested interpreted source instead of extending them to outer close.
-		if node.left != nil {
-			consumed, releaseErr := releaseLazyTableNode(node.left)
-			if consumed {
-				node.left = nil
-			}
-			if releaseErr != nil {
-				return nil, releaseErr
-			}
-		}
 		conditions, conditionErr := node.interpreted.handles()
 		if conditionErr != nil {
 			return nil, conditionErr

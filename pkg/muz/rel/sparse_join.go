@@ -44,58 +44,44 @@ func (a *SparseTable) Join(b *SparseTable, left, right []int) (*SparseTable, err
 	if e := validateColumns(a.signature, b.signature, left, right); e != nil {
 		return nil, e
 	}
-	if a.functional != 0 || b.functional != 0 {
-		if !sparseJoinInvolvesFunctional(a, b, left, right) {
-			return a.JoinFunctional(b, left, right)
-		}
-		// The sparse plugin declines functional-column indexes. The source
-		// relation manager then uses its generic nested-loop table join.
-		sig, functional, err := sparseJoinFunctionalSignature(a, b)
+	involvesFunctional := sparseJoinInvolvesFunctional(a, b, left, right)
+	// Source sparse_table_plugin::mk_join_fn delegates every supported join to
+	// its indexed join-project implementation. Preserve Go's explicit
+	// zero-column sparse-table extension through the generic path below.
+	if !involvesFunctional && a.signature.Len()+b.signature.Len() != 0 {
+		plan, err := NewSparseIndexedJoinPlan(a, b, left, right, nil)
 		if err != nil {
 			return nil, err
 		}
-		out, err := NewSparseTable(sig, functional)
-		if err != nil {
-			return nil, err
-		}
-		af, _ := a.Facts()
-		bf, _ := b.Facts()
-		for _, x := range af {
-			for _, y := range bf {
-				match := true
-				for i := range left {
-					if x[left[i]] != y[right[i]] {
-						match = false
-						break
-					}
-				}
-				if match {
-					_, err = out.Add(sparseFunctionalJoinFact(x, y, a.signature.Len()-a.functional, b.signature.Len()-b.functional))
-					if err != nil {
-						_ = out.Close()
-						return nil, err
-					}
-				}
-			}
-		}
-		return out, nil
+		result, _, err := plan.Execute(a, b)
+		return result, err
 	}
-	domains := append(a.signature.Domains(), b.signature.Domains()...)
-	sig, e := NewSignature(domains)
-	if e != nil {
-		return nil, e
+	// The sparse plugin declines indexes on functional join columns. The
+	// relation manager then uses its generic nested-loop join.
+	sig, functional, err := sparseJoinFunctionalSignature(a, b)
+	if err != nil {
+		return nil, err
 	}
-	out, e := NewSparseTable(sig, 0)
-	if e != nil {
-		return nil, e
+	out, err := NewSparseTable(sig, functional)
+	if err != nil {
+		return nil, err
 	}
-	af, _ := a.Facts()
-	bf, _ := b.Facts()
-	if e = sparseJoinTraversal(af, bf, left, right, func(x, y Fact) error {
-		_, addErr := out.Add(append(append(Fact(nil), x...), y...))
+	af, err := a.Facts()
+	if err != nil {
+		_ = out.Close()
+		return nil, err
+	}
+	bf, err := b.Facts()
+	if err != nil {
+		_ = out.Close()
+		return nil, err
+	}
+	if err = sparseJoinTraversal(af, bf, left, right, func(x, y Fact) error {
+		_, addErr := out.Add(sparseFunctionalJoinFact(x, y, a.signature.Len()-a.functional, b.signature.Len()-b.functional))
 		return addErr
-	}); e != nil {
-		return nil, e
+	}); err != nil {
+		_ = out.Close()
+		return nil, err
 	}
 	return out, nil
 }

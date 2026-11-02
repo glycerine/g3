@@ -1,6 +1,7 @@
 package rel
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -236,5 +237,46 @@ func TestBoundRelationPluginUnionAndWidenDispatch(t *testing.T) {
 	var nilPlugin *BoundRelationPlugin
 	if _, err = nilPlugin.Union(target, source, nil, false); err == nil {
 		t.Fatal("nil plugin union accepted")
+	}
+}
+
+func TestBoundRelationPluginIntervalUnionDispatch(t *testing.T) {
+	manager := astTestManager(t)
+	plugin, err := NewBoundRelationPlugin(manager)
+	astTestMust(t, err)
+	n := func(value int64) *big.Rat { return big.NewRat(value, 1) }
+	source := NewIntervalEmpty(3)
+	astTestMust(t, source.AddFact([]*big.Rat{n(1), n(2), n(2)}))
+	makeTarget := func() *BoundRelation {
+		t.Helper()
+		target := NewBoundRelation(3, false)
+		astTestMust(t, target.AddLess(1, 2))
+		astTestMust(t, target.AddLessEqual(1, 2))
+		astTestMust(t, target.AddLess(0, 1))
+		return target
+	}
+	for _, widen := range []bool{false, true} {
+		target := makeTarget()
+		delta := NewBoundRelation(3, false)
+		astTestMust(t, delta.AddLess(2, 0))
+		astTestMust(t, plugin.UnionInterval(target, source, delta, widen))
+		strict, weak, err := target.Bounds(1)
+		astTestMust(t, err)
+		if len(strict) != 0 || len(weak) != 1 || weak[0] != 2 {
+			t.Fatal("interval dispatch endpoint pruning", widen, strict, weak)
+		}
+		// mk_union_i accepts delta/widen but does not consult either one.
+		strict, weak, err = delta.Bounds(2)
+		astTestMust(t, err)
+		if len(strict) != 1 || strict[0] != 0 || len(weak) != 0 {
+			t.Fatal("interval dispatch changed ignored delta", widen, strict, weak)
+		}
+	}
+	if err = plugin.UnionInterval(makeTarget(), NewIntervalFull(2), nil, false); err == nil {
+		t.Fatal("mismatched interval arity accepted")
+	}
+	var nilPlugin *BoundRelationPlugin
+	if err = nilPlugin.UnionInterval(makeTarget(), source, nil, false); err == nil {
+		t.Fatal("nil plugin interval union accepted")
 	}
 }

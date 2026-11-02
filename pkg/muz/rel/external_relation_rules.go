@@ -14,6 +14,7 @@ type externalFactRule struct {
 	head, tail ast.ASTHandle
 	values     []ast.ASTHandle
 	removed    []uint32
+	cycles     [][]uint32
 }
 
 func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externalFactRule, error) {
@@ -87,19 +88,50 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 		positions[argument] = index
 	}
 	used := make([]bool, tailCount)
-	previous := uint32(0)
+	headSeen := make(map[ast.ASTHandle]bool, len(headArgs))
+	headPositions := make([]uint32, len(headArgs))
 	for index, argument := range headArgs {
 		position, found := positions[argument]
-		if !found || index != 0 && position <= previous {
+		if !found || headSeen[argument] {
 			return result, ErrCompilerUnsupported
 		}
+		headSeen[argument] = true
 		used[position] = true
-		previous = position
+		headPositions[index] = position
 	}
+	compact := make(map[uint32]uint32, len(headArgs))
+	next := uint32(0)
 	for index := range used {
 		if !used[index] {
 			result.removed = append(result.removed, uint32(index))
+			continue
 		}
+		compact[uint32(index)] = next
+		next++
+	}
+	// external_relation::rename uses a cycle c where new[c[i]] receives
+	// old[c[i+1]]. Decompose the desired destination-to-source permutation.
+	permutation := make([]uint32, len(headPositions))
+	for destination, original := range headPositions {
+		permutation[destination] = compact[original]
+	}
+	visited := make([]bool, len(permutation))
+	for start := range permutation {
+		if visited[start] || permutation[start] == uint32(start) {
+			visited[start] = true
+			continue
+		}
+		cycle := make([]uint32, 0, len(permutation))
+		current := uint32(start)
+		for !visited[current] {
+			visited[current] = true
+			cycle = append(cycle, current)
+			current = permutation[current]
+		}
+		if current != uint32(start) {
+			return result, ErrCompilerUnsupported
+		}
+		result.cycles = append(result.cycles, cycle)
 	}
 	return result, nil
 }
@@ -179,9 +211,23 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 				projected, projectErr := value.Project(entry.removed)
 				projectErr = errors.Join(projectErr, value.Close())
 				if projectErr != nil {
+					if projected != nil {
+						projectErr = errors.Join(projectErr, projected.Close())
+					}
 					return projectErr
 				}
 				value = projected
+			}
+			for _, cycle := range entry.cycles {
+				renamed, renameErr := value.Rename(cycle)
+				renameErr = errors.Join(renameErr, value.Close())
+				if renameErr != nil {
+					if renamed != nil {
+						renameErr = errors.Join(renameErr, renamed.Close())
+					}
+					return renameErr
+				}
+				value = renamed
 			}
 			target, cause := plugin.PredicateRelation(entry.head)
 			if cause == nil {

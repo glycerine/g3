@@ -273,6 +273,23 @@ Acceleration tactics are durable for every batch:
 
 ## 7. Acceptance gates
 
+### Revalidated closure blockers (2026-11-02)
+
+Whole-source reviews found these concrete remaining obligations; direct operation tests alone do not close their runtime integration:
+
+- Relational selection: `tr_sparse` and `tr_lazy_sparse` currently leave normal predicate storage as HashTable. Wire actual sparse/lazy-sparse storage and compiled execution; the sparse checking wrapper is not ordinary representation dispatch. Interval/bound/product arithmetic storage also needs concrete manager and instruction cases.
+- Checking wrappers: consume `datalog.default_table_checked/default_table_checker`, and route checked empty/full construction and compiled operations through typed owners. Formula checking currently selects interpreted saturation, and `doc` checking does not yet use UDoc.
+- PDR interface: implement source Boogie certificate selection, `unknown` certificate text and owning `true` unknown answers; keep export cleanup refusal audit open.
+- Spacer context: distinguish exhausted `spacer.max_level` as bounded, simplify frames on early false results, and consume `print_statistics` at solve completion.
+- CLP: live algorithms are mapped; local grounding/query cleanup and the enclosing fixedpoint preprocessing/parameter/backend teardown require separate retry ownership. Generic query wrapper references remain shared obligations.
+- BMC: live linear, quantified-linear and nonlinear algorithms are mapped; classify uncalled `nonlinear_dt` as reference-only, implement live diagnostics, and complete native cleanup refusal paths. Existing derivation-level binding and cancellation differences need explicit audit records.
+- Spacer utilities/QE: live algorithms are mapped; constructor rollback and coordinator cleanup after child result transfer still need retryable owners. Verify `normalize(..., factor_eqs=true)` through a live proof-obligation consumer. Uncalled helpers do not justify unused adapters.
+- Duality and slice conversion: preserve partial status pending full method/owner records. Investigate model/proof gaps against actual producers; do not infer unimplemented partial-function conversion from an unreachable producer.
+
+These findings prioritize functional integration over adding isolated helper APIs. Each remains open until its source behavior and relevant end-to-end evidence are recorded.
+
+### Final verification
+
 - [ ] Every live source unit is implemented or has an explicitly justified Go/platform replacement; no unproven partial production unit remains.
 - [ ] Every implemented algorithm has meaningful focused tests; add independent semantic oracles where source tests are insufficient.
 - [ ] Public fixedpoint/API/SMT-LIB integration tests cover SAT, UNSAT, unknown and exception/resource distinctions for each applicable engine.
@@ -355,6 +372,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/dl_bound_relation.cpp` (partial), `src/muz/rel/dl_bound_relation.h` (partial)
   - [x] Concrete Int/Real/nullary plugin capability, empty/full construction, and typed join dispatch.
   - [x] Concrete project and rename dispatch with source renumbering/cycle semantics and independent results.
+  - [x] Interval-source union/widen dispatch preserves source pruning and ignored-delta behavior.
 - [ ] `src/muz/rel/dl_check_table.cpp` (partial), `src/muz/rel/dl_check_table.h` (partial)
 - [ ] `src/muz/rel/dl_external_relation.cpp` (partial), `src/muz/rel/dl_external_relation.h` (partial)
   - [x] Concrete predicate-signature construction, plugin-owned caching/drop/close and registered fixedpoint predicate lookup.
@@ -367,9 +385,11 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/dl_interval_relation.cpp` (partial), `src/muz/rel/dl_interval_relation.h` (partial)
   - [x] Plugin signature capability, n-ary identical-column filtering and formula construction allocation ownership.
   - [x] Retained finite/interval product consumer now uses the concrete interval capability predicate.
+  - [x] AST-valued fact membership reaches finite/interval product lookup; select-equal/project uses the concrete clone/filter/project fallback.
 - [ ] `src/muz/rel/dl_lazy_table.cpp` (partial), `src/muz/rel/dl_lazy_table.h` (partial)
   - [x] Negated-join direct forcing plus cached join/equality-filter projection fusion after observation.
   - [x] Interpreted-force failure preserves its transferred table without publishing an incomplete cache and retries transactionally.
+  - [x] Equality, identical and negation mutators release transferred source nodes before applying the operation, with retryable child cleanup.
 - [ ] `src/muz/rel/dl_mk_explanations.cpp` (partial), `src/muz/rel/dl_mk_explanations.h` (partial)
 - [ ] `src/muz/rel/dl_mk_similarity_compressor.cpp` (partial), `src/muz/rel/dl_mk_similarity_compressor.h` (partial)
 - [ ] `src/muz/rel/dl_product_relation.cpp` (partial), `src/muz/rel/dl_product_relation.h` (partial)
@@ -377,8 +397,10 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/dl_sieve_relation.cpp` (partial), `src/muz/rel/dl_sieve_relation.h` (partial)
   - [x] Formula reconstruction and concrete interpreted filtering with source ignored-column approximation.
   - [x] Row/byte estimates forward exact inner storage without materializing ignored full domains.
+  - [x] Mixed sieve/table joins and unions preserve layout guards, independent owners and cumulative deltas.
 - [ ] `src/muz/rel/dl_sparse_table.cpp` (partial), `src/muz/rel/dl_sparse_table.h` (partial)
   - [x] Concrete empty query and zero-key functional complement consumption.
+  - [x] Direct supported join/negation operations dispatch through indexed plans; functional-key and zero-column fallbacks remain explicit.
 - [ ] `src/muz/rel/dl_vector_relation.h` (partial)
   - [x] Interval intersection uses the actually reached join/project/reset/union fallback with atomic validation; source vector relations do not enable `can_swap`.
 - [ ] `src/muz/rel/rel_context.cpp` (partial), `src/muz/rel/rel_context.h` (partial)
@@ -969,3 +991,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Ported Datalog lexer column-one comment and negative-numeral behavior, and finite-domain comparisons through `DatalogOpLT` with greater-than reversal. Existing arithmetic-domain parsing remains available. Lexer/parser tests passed in 0.084s; source targets are `dlexer::read_comment/next_token` and `dparser::parse_infix`. Commit: `Port Datalog comment and finite ordering semantics`.
 
 - 2026-11-02 — Fixed scaling output metadata when a cached scaled declaration is reused, preserving source per-invocation output promotion. Made RuleUnifier child cleanup sequential and retryable, and extended unfolding coverage through later QE Lite cleanup refusal. Focused scaling/unifier/unfold tests passed in 0.026s. Source: `dl_mk_scale.cpp`, `dl_mk_rule_inliner.cpp`, `dl_mk_unfold.cpp`. Commit: `Preserve transform metadata and cleanup owners`.
+
+- 2026-11-02 — Integrated typed relational operations: interval-to-bound union, AST interval membership, select/project, mixed sieve union, checked widening, lazy source disposal, output-table presentation, indexed sparse dispatch and external head permutation. The complete native relational package passed in 3.042s. This closes concrete source operation slices, not the separately documented representation/manager integration gaps. Commit: `Integrate typed relational dispatch and source operations`.

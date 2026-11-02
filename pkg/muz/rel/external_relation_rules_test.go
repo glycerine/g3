@@ -33,7 +33,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 		}
 		rows[target] = append(rows[target], append([]ast.ASTHandle(nil), values...))
 	}
-	stores := 0
+	stores, renames := 0, 0
 	plugin, err := NewExternalRelationPlugin(f.relations, ExternalRelationCallbacks{
 		ReduceAssign: func(declaration ast.ASTHandle, arguments, outputs []ast.ASTHandle) error {
 			kind, err := f.ast.GetDeclKind(declaration)
@@ -62,7 +62,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			if kind != ast.DatalogOpProject {
+			if kind != ast.DatalogOpProject && kind != ast.DatalogOpRename {
 				t.Fatalf("unexpected reduction operation %d", kind)
 			}
 			sort, err := f.ast.GetRange(declaration)
@@ -74,7 +74,12 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 				return ast.ASTHandle{}, err
 			}
 			for _, values := range rows[arguments[0]] {
-				appendUnique(result, values[:1])
+				if kind == ast.DatalogOpProject {
+					appendUnique(result, values[:1])
+				} else {
+					renames++
+					appendUnique(result, []ast.ASTHandle{values[1], values[0]})
+				}
 			}
 			return result, nil
 		},
@@ -98,6 +103,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	p := declaration("external-rule-p", []ast.ASTHandle{f.boolean, f.boolean})
 	q := declaration("external-rule-q", []ast.ASTHandle{f.boolean})
 	r := declaration("external-rule-r", []ast.ASTHandle{f.boolean})
+	s := declaration("external-rule-s", []ast.ASTHandle{f.boolean, f.boolean})
 	x, err := f.ast.MkVar(0, f.boolean)
 	astTestMust(t, err)
 	y, err := f.ast.MkVar(1, f.boolean)
@@ -116,6 +122,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	// Deliberately put dependents before their producers; bounded monotone
 	// passes must still propagate the fact through the chain.
 	add(app(r, x), []ast.ASTHandle{app(q, x)}, "r-from-q")
+	add(app(s, y, x), []ast.ASTHandle{app(p, x, y)}, "s-swaps-p")
 	add(app(q, x), []ast.ASTHandle{app(p, x, y)}, "q-from-p")
 	add(app(p, f.truth, f.falsehood), nil, "p-fact")
 	astTestMust(t, ExecuteExternalFactRules(plugin, set))
@@ -125,7 +132,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	for _, tc := range []struct {
 		declaration ast.ASTHandle
 		want        []ast.ASTHandle
-	}{{p, []ast.ASTHandle{f.truth, f.falsehood}}, {q, []ast.ASTHandle{f.truth}}, {r, []ast.ASTHandle{f.truth}}} {
+	}{{p, []ast.ASTHandle{f.truth, f.falsehood}}, {q, []ast.ASTHandle{f.truth}}, {r, []ast.ASTHandle{f.truth}}, {s, []ast.ASTHandle{f.falsehood, f.truth}}} {
 		relation, err := plugin.PredicateRelation(tc.declaration)
 		astTestMust(t, err)
 		handle, err := relation.Relation()
@@ -138,6 +145,9 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 				t.Fatal("external rule result", rows[handle], tc.want)
 			}
 		}
+	}
+	if renames == 0 {
+		t.Fatal("reordered head did not execute external rename")
 	}
 
 	unsupported, err := base.NewRuleSet(rules)
@@ -152,5 +162,15 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	}
 	if stores != 1 {
 		t.Fatal("validation failure partially executed rules", stores)
+	}
+	repeated, err := base.NewRuleSet(rules)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, repeated.Close()) }()
+	rule, err = rules.NewRule(app(s, x, x), []ast.ASTHandle{app(p, x, y)}, nil, "repeated-head")
+	astTestMust(t, err)
+	astTestMust(t, repeated.Add(rule))
+	astTestMust(t, rule.Close())
+	if err = ExecuteExternalFactRules(plugin, repeated); !errors.Is(err, ErrCompilerUnsupported) {
+		t.Fatal("repeated external head variable", err)
 	}
 }

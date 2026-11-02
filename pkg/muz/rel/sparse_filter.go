@@ -67,6 +67,10 @@ func (t *SparseTable) FilterNegation(negative *SparseTable, tCols, nCols []int) 
 		_, err = t.RemoveFacts(remove)
 		return err
 	}
-	_, err := t.FilterNegationFunctional(negative, tCols, nCols)
+	plan, err := NewSparseIndexedNegationPlan(t, negative, tCols, nCols)
+	if err != nil {
+		return err
+	}
+	_, err = plan.Execute(t, negative)
 	return err
 }

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -272,8 +271,9 @@ func (p *FiniteIntervalProduct) ContainsFact(values []ast.ASTHandle) (bool, erro
 	if index >= uint64(len(p.intervals)) || p.intervals[index] == nil {
 		return false, ErrTableRelation
 	}
-	inner := p.intervals[index].values
+	inner := p.intervals[index]
 	m := p.manager.manager
+	innerValues := make([]ast.ASTHandle, len(p.intervalColumns))
 	for local, global := range p.intervalColumns {
 		sort, err := m.GetSort(values[global])
 		if err != nil {
@@ -282,25 +282,9 @@ func (p *FiniteIntervalProduct) ContainsFact(values []ast.ASTHandle) (bool, erro
 		if sort != p.sorts[global] {
 			return false, ast.ErrASTDomain
 		}
-		root := inner.find(uint32(local))
-		if values[global] != values[p.intervalColumns[root]] {
-			return false, nil
-		}
-		text, _, matched, err := m.ArithmeticNumeralText(values[global])
-		if err != nil {
-			return false, err
-		}
-		if matched {
-			value, ok := new(big.Rat).SetString(text)
-			if !ok {
-				return false, ast.ErrASTDomain
-			}
-			if !inner.columns[root].Contains(value) {
-				return false, nil
-			}
-		}
+		innerValues[local] = values[global]
 	}
-	return true, nil
+	return inner.ContainsFactExpressions(m, innerValues)
 }
 
 // FilterEqual restricts a finite column in the table or an arithmetic column

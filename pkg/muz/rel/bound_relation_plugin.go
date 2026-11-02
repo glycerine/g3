@@ -125,3 +125,14 @@ func (p *BoundRelationPlugin) Union(target, source, delta *BoundRelation, widen 
 	}
 	return target.Union(source)
 }
+
+// UnionInterval is the concrete interval-source branch selected by
+// bound_relation_plugin::mk_union_fn/mk_widen_fn. Source mk_union_i uses the
+// same bound pruning for union and widening and deliberately does not publish
+// its optional delta.
+func (p *BoundRelationPlugin) UnionInterval(target *BoundRelation, source *IntervalRelation, _ *BoundRelation, _ bool) error {
+	if p == nil || p.manager == nil {
+		return ast.ErrASTDomain
+	}
+	return target.UnionInterval(source)
+}
