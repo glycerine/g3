@@ -124,6 +124,12 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 	if err := i.open(); err != nil {
 		return false, err
 	}
+	if err := context.open(); err != nil {
+		return false, err
+	}
+	if hasExplanationInstructionRegister(context, i.register) {
+		return i.performExplanationFilter(context)
+	}
 	table, err := context.Register(i.register)
 	if err != nil || table == nil {
 		return true, err
