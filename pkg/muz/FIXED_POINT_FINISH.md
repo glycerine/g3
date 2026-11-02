@@ -47,6 +47,7 @@ Each completed item needs source paths, implementation/test evidence and a commi
   - [x] Verify direct tag/predecessor reads for true, false, missing and symbolic interpretations without model completion or reference leaks.
   - [x] Consolidate SelectRule error cleanup under its deferred owner so cleanup errors are joined instead of discarded.
   - [x] Verify a later concrete rule replaces an earlier true-tagged nonconcrete rule, resetting predecessor flags/reuse counts.
+  - [x] Verify an earlier concrete rule wins over a later concrete fact and preserves its predecessor-use flag and reuse count.
   - [ ] Finish multi-rule preference/iteration-order and exceptional-destruction coverage.
   - [x] Verify unknown-case skipping, first-false ordering, initial-fact filtering and non-completing evaluation with the existing selection regression.
   - [x] Verify all-true/all-unknown no-selection results for current and origin-state cases without model completion or temporary-reference leaks.
@@ -229,3 +230,6 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Added `TestSpacerRuleSelectionPrefersConcreteLaterRule` using a recursive rule followed by a fact through the actual context rule-update path. Both tags are true; the recursive predecessor remains unknown, so selection must replace it with the concrete fact and clear its predecessor bookkeeping. The regression checks the fixture ordering, selected rule, flags/reuse count and temporary reference baseline. The focused native test passes. Other multi-rule ordering and exceptional cleanup paths remain open. Previous selection cleanup commit: `928809d86`.
   Validation: `go -C pkg test ./muz/spacer -run '^TestSpacerRuleSelectionPrefersConcreteLaterRule$' -count=1` passed. Commit title: `Test Spacer preference for a later concrete rule`.
+
+- 2026-11-02 — Extended `TestSpacerRuleSelectionPrefersConcreteLaterRule` with the complementary earlier-concrete case. A false predecessor case now requires selecting the earlier recursive rule with exactly one reused predecessor; the unknown predecessor case still requires the later fact with cleared bookkeeping. Both focused native cases pass. This verifies preference for the current candidate sequence, not equivalence between Go rule order and C++ obj_map iteration; that source-order audit remains open. Previous preference test commit: `3fc4b392a`.
+  Validation: `go -C pkg test ./muz/spacer -run '^TestSpacerRuleSelectionPrefersConcreteLaterRule$' -count=1` passed. Commit title: `Test Spacer first concrete rule short circuit`.

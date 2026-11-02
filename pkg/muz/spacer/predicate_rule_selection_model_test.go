@@ -124,48 +124,77 @@ func TestSpacerRuleSelectionUsesDirectModelInterpretations(t *testing.T) {
 }
 
 func TestSpacerRuleSelectionPrefersConcreteLaterRule(t *testing.T) {
-	f := newContextAnswerFixture(t, true)
-	m := f.context.manager
-	head, err := m.MkApp(f.query, nil)
-	depthMust(t, err)
-	concrete, err := f.manager.NewRule(head, nil, nil, "concrete-fallback")
-	depthMust(t, err)
-	defer func() { depthMust(t, concrete.Close()) }()
-	depthMust(t, f.rules.Add(concrete))
-	depthMust(t, f.context.UpdateRules(f.rules))
-	p := f.context.transformers[f.query]
-	if len(p.rules) != 2 {
-		t.Fatal("expected two candidate rules")
-	}
-	first, err := p.rules[0].rule.Same(f.rule)
-	depthMust(t, err)
-	if !first {
-		t.Fatal("fixture did not put the nonconcrete rule first")
-	}
-	md, err := model.NewModel(m)
-	depthMust(t, err)
-	defer func() { depthMust(t, md.Close()) }()
-	truth, err := m.MkTrue()
-	depthMust(t, err)
-	for _, rule := range p.rules {
-		decl, err := m.GetDecl(rule.tag)
-		depthMust(t, err)
-		depthMust(t, md.Core().RegisterConstant(decl, truth))
-	}
-	before := m.Stats().LiveReferences
-	selection, err := p.SelectRule(md.Core())
-	depthMust(t, err)
-	if selection.Rule == nil {
-		t.Fatal("no selected rule")
-	}
-	same, err := selection.Rule.Same(concrete)
-	depthMust(t, err)
-	if !same || !selection.IsConcrete || selection.NumReuseReach != 0 || len(selection.ReachPredUsed) != 0 {
-		depthMust(t, selection.Close())
-		t.Fatal("later concrete rule did not replace nonconcrete selection")
-	}
-	depthMust(t, selection.Close())
-	if m.Stats().LiveReferences != before {
-		t.Fatal("replacing the selected rule leaked references")
+	for _, earlierConcrete := range []bool{false, true} {
+		t.Run(fmt.Sprint("earlier-concrete=", earlierConcrete), func(t *testing.T) {
+			f := newContextAnswerFixture(t, true)
+			m := f.context.manager
+			head, err := m.MkApp(f.query, nil)
+			depthMust(t, err)
+			concrete, err := f.manager.NewRule(head, nil, nil, "concrete-fallback")
+			depthMust(t, err)
+			defer func() { depthMust(t, concrete.Close()) }()
+			depthMust(t, f.rules.Add(concrete))
+			depthMust(t, f.context.UpdateRules(f.rules))
+			p := f.context.transformers[f.query]
+			if len(p.rules) != 2 {
+				t.Fatal("expected two candidate rules")
+			}
+			first, err := p.rules[0].rule.Same(f.rule)
+			depthMust(t, err)
+			if !first {
+				t.Fatal("fixture did not put the nonconcrete rule first")
+			}
+			md, err := model.NewModel(m)
+			depthMust(t, err)
+			defer func() { depthMust(t, md.Close()) }()
+			truth, err := m.MkTrue()
+			depthMust(t, err)
+			for _, rule := range p.rules {
+				decl, err := m.GetDecl(rule.tag)
+				depthMust(t, err)
+				depthMust(t, md.Core().RegisterConstant(decl, truth))
+			}
+			if earlierConcrete {
+				latest, found, err := p.LastReachCaseVariable()
+				depthMust(t, err)
+				if !found {
+					t.Fatal("missing predecessor reach case")
+				}
+				origin, err := p.owner.FormulaNewToOld(latest, 0, false)
+				depthMust(t, err)
+				defer func() { depthMust(t, m.DelRef(&origin)) }()
+				h, err := m.RefGet(origin)
+				depthMust(t, err)
+				decl, err := m.GetDecl(h)
+				depthMust(t, err)
+				falsity, err := m.MkFalse()
+				depthMust(t, err)
+				depthMust(t, md.Core().RegisterConstant(decl, falsity))
+			}
+			before := m.Stats().LiveReferences
+			selection, err := p.SelectRule(md.Core())
+			depthMust(t, err)
+			if selection.Rule == nil {
+				t.Fatal("no selected rule")
+			}
+			expected := concrete
+			if earlierConcrete {
+				expected = f.rule
+			}
+			same, err := selection.Rule.Same(expected)
+			depthMust(t, err)
+			reuse, predecessors := uint32(0), 0
+			if earlierConcrete {
+				reuse, predecessors = 1, 1
+			}
+			if !same || !selection.IsConcrete || selection.NumReuseReach != reuse || len(selection.ReachPredUsed) != predecessors || earlierConcrete && !selection.ReachPredUsed[0] {
+				depthMust(t, selection.Close())
+				t.Fatal("wrong concrete rule preference or predecessor reuse")
+			}
+			depthMust(t, selection.Close())
+			if m.Stats().LiveReferences != before {
+				t.Fatal("replacing the selected rule leaked references")
+			}
+		})
 	}
 }
