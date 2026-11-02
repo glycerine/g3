@@ -15,7 +15,16 @@ func (e *LazySparseEngine) transferLazySparseSource(node *lazySparseNode, child 
 		if err != nil {
 			return nil, err
 		}
-		(*child).evaluated = nil
+		if (*child).references > 1 {
+			// Transformer nodes may share a loaded predicate root. Preserve that
+			// source owner and give the mutator an independent packed table.
+			result, err = result.Clone()
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			(*child).evaluated = nil
+		}
 		node.evaluated = result
 	}
 	node.retryForce = true

@@ -46,7 +46,7 @@ func (e *PropositionalEngine) publishDatalogQueryRelations(clone *PropositionalE
 		if state == nil || state.table == nil {
 			continue
 		}
-		table, err := state.table.CloneFinite()
+		table, err := e.cloneFiniteForContext(state.table)
 		if err != nil {
 			return err
 		}

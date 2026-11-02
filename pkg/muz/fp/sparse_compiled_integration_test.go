@@ -9,6 +9,12 @@ import (
 )
 
 func TestDatalogCompiledMixedSparseHashAndNullary(t *testing.T) {
+	testDatalogCompiledMixedFiniteAndNullary(t, "tr_sparse")
+}
+func TestDatalogCompiledMixedLazySparseAndNullary(t *testing.T) {
+	testDatalogCompiledMixedFiniteAndNullary(t, "tr_lazy_sparse")
+}
+func testDatalogCompiledMixedFiniteAndNullary(t *testing.T, representation string) {
 	f := newDirectFactFixture(t)
 	e, m := f.engine, f.manager
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
@@ -22,7 +28,7 @@ func TestDatalogCompiledMixedSparseHashAndNullary(t *testing.T) {
 		must(err)
 		must(e.RegisterPredicate(d))
 		if sparse {
-			must(e.SetPredicateRepresentation(d, []string{"tr_sparse"}))
+			must(e.SetPredicateRepresentation(d, []string{representation}))
 		}
 		return d
 	}
@@ -64,8 +70,8 @@ func TestDatalogCompiledMixedSparseHashAndNullary(t *testing.T) {
 		if status != tc.want || !e.compiled {
 			t.Fatal("mixed sparse query did not execute compiled semantics", status, tc.want, e.compiled)
 		}
-		selected, ok := e.predicates[q].table.(*rel.SparseTable)
-		if !ok {
+		selected := e.predicates[q].table
+		if !matchesCompiledRepresentation(selected, representation) {
 			t.Fatal("compiled store replaced sparse representation")
 		}
 		rows, err := selected.Facts()
@@ -80,6 +86,12 @@ func TestDatalogCompiledMixedSparseHashAndNullary(t *testing.T) {
 }
 
 func TestDatalogCompiledSparseRecursiveFixpoint(t *testing.T) {
+	testDatalogCompiledFiniteRecursiveFixpoint(t, "tr_sparse")
+}
+func TestDatalogCompiledLazySparseRecursiveFixpoint(t *testing.T) {
+	testDatalogCompiledFiniteRecursiveFixpoint(t, "tr_lazy_sparse")
+}
+func testDatalogCompiledFiniteRecursiveFixpoint(t *testing.T, representation string) {
 	f := newDirectFactFixture(t)
 	e, m := f.engine, f.manager
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
@@ -96,7 +108,7 @@ func TestDatalogCompiledSparseRecursiveFixpoint(t *testing.T) {
 		d, err := m.MkFuncDecl(symbol, sorts, boolean, ast.ASTFuncDeclInfo{})
 		must(err)
 		must(e.RegisterPredicate(d))
-		must(e.SetPredicateRepresentation(d, []string{"tr_sparse"}))
+		must(e.SetPredicateRepresentation(d, []string{representation}))
 		return d
 	}
 	edge := declare("compiled-sparse-edge", []ast.ASTHandle{domain, domain})
@@ -131,8 +143,8 @@ func TestDatalogCompiledSparseRecursiveFixpoint(t *testing.T) {
 		if status != lbool.True || !e.compiled {
 			t.Fatal("recursive sparse query did not run compiled fixpoint", status, e.compiled)
 		}
-		table, ok := e.predicates[reach].table.(*rel.SparseTable)
-		if !ok {
+		table := e.predicates[reach].table
+		if !matchesCompiledRepresentation(table, representation) {
 			t.Fatal("recursive store changed representation")
 		}
 		rows, err := table.Facts()
@@ -148,4 +160,13 @@ func TestDatalogCompiledSparseRecursiveFixpoint(t *testing.T) {
 			}
 		}
 	}
+}
+
+func matchesCompiledRepresentation(table rel.FiniteTable, representation string) bool {
+	if representation == "tr_lazy_sparse" {
+		_, ok := table.(*rel.LazySparseTable)
+		return ok
+	}
+	_, ok := table.(*rel.SparseTable)
+	return ok
 }

@@ -15,6 +15,19 @@ func (e *PropositionalEngine) selectFiniteRepresentation(declaration ast.ASTHand
 	if state == nil || state.table == nil {
 		return ErrPropositionalHorn
 	}
+	if kind == "tr_lazy_sparse" {
+		if e.lazyFinite != nil && e.lazyFinite.Owns(state.table) {
+			return nil
+		}
+		if e.lazyFinite == nil {
+			e.lazyFinite = rel.NewLazySparseFiniteFactory()
+		}
+		replacement, err := e.lazyFinite.Migrate(state.table)
+		if err != nil {
+			return err
+		}
+		return e.installDatalogTable(declaration, replacement)
+	}
 	switch kind {
 	case "tr_sparse":
 		if _, ok := state.table.(*rel.SparseTable); ok {

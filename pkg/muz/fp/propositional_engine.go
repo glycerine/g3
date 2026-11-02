@@ -172,6 +172,8 @@ type PropositionalEngine struct {
 	closing             bool
 	ddnf                ddnfEngineState
 
+	lazyFinite *rel.LazySparseFiniteFactory
+
 	datalogExplanationQuery   bool
 	datalogExplanationAnswer  ast.ASTRef
 	datalogExplanationCleanup []*datalogExplanationOwners
@@ -360,7 +362,7 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 			return fmt.Errorf("muz/fp: relation plugin %s does not exist", kind)
 		}
 	}
-	if len(kinds) == 1 && (kinds[0] == "tr_sparse" || kinds[0] == "tr_hashtable") {
+	if len(kinds) == 1 && (kinds[0] == "tr_sparse" || kinds[0] == "tr_hashtable" || kinds[0] == "tr_lazy_sparse") {
 		if err := e.selectFiniteRepresentation(declaration, kinds[0]); err != nil {
 			return err
 		}
@@ -2718,8 +2720,16 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.binder = nil
 	}
 	if e.relations != nil {
-		result = errors.Join(result, e.relations.Close())
+		if err := e.relations.Close(); err != nil {
+			return errors.Join(result, err)
+		}
 		e.relations = nil
+	}
+	if e.lazyFinite != nil {
+		if err := e.lazyFinite.Close(); err != nil {
+			return errors.Join(result, err)
+		}
+		e.lazyFinite = nil
 	}
 	result = errors.Join(result, e.manager.DelRef(&e.background))
 	e.predicates = nil

@@ -90,3 +90,31 @@ func TestCompilerPreflightAcceptsOwnedLazySparseFiniteTable(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestLazySparseUnarySelectProjectProducesInternalNullary(t *testing.T) {
+	engine := NewLazySparseEngine()
+	defer engine.Close()
+	source, err := engine.New(lazySignature(t, 2), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = source.Add(Fact{1})
+	value, err := finiteTableSelectProject(source, 1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected, ok := value.(*LazySparseTable)
+	if !ok {
+		t.Fatalf("select-project result %T", value)
+	}
+	facts, err := selected.Facts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	instructionWantFacts(t, facts, Fact{})
+	sourceFacts, err := source.Facts()
+	if err != nil {
+		t.Fatal("select-project consumed shared source", err)
+	}
+	instructionWantFacts(t, sourceFacts, Fact{1})
+}

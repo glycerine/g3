@@ -9,7 +9,7 @@ func (e *PropositionalEngine) copyQueryPredicates(clone *PropositionalEngine) er
 		}
 		clone.predicates[declaration].explicitFiniteRepresentation = e.predicates[declaration].explicitFiniteRepresentation
 		if e.backend == "datalog" && e.predicates[declaration].table != nil {
-			table, err := e.predicates[declaration].table.CloneFinite()
+			table, err := clone.cloneFiniteForContext(e.predicates[declaration].table)
 			if err != nil {
 				return err
 			}
