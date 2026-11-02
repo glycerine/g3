@@ -881,56 +881,71 @@ func TestRuleSliceConvertsNonlinearResolutionPositions(t *testing.T) {
 		coneMust(t, rules[0].Close())
 	}
 	for _, order := range [][2]int{{0, 1}, {1, 0}} {
-		t.Run(fmt.Sprint(order), func(t *testing.T) {
-			scope, e := ast.NewScopedProof(m)
-			coneMust(t, e)
-			original, e := m.MkProofHyperResolve(
-				[]ast.ASTHandle{goalProof, factProofs[order[0]], factProofs[order[1]]}, goalApp,
-				[]ast.ASTProofPosition{{First: uint32(order[0] + 1), Second: 0}, {First: uint32(order[1] + 1), Second: 0}},
-				[][]ast.ASTHandle{nil, nil, nil})
-			coneMust(t, e)
-			pin, e := m.NewRef(original)
-			coneMust(t, e)
-			defer func() { coneMust(t, m.DelRef(&pin)) }()
-			coneMust(t, scope.Close())
-			converted, e := converter.Convert(original)
-			coneMust(t, e)
-			defer func() { coneMust(t, m.DelRef(&converted)) }()
-			proof, e := m.RefGet(converted)
-			coneMust(t, e)
-			fact, e := m.GetProofFact(proof)
-			coneMust(t, e)
-			if fact != goalApp {
-				t.Fatal("wrong converted conclusion")
-			}
-			checker, e := proofs.NewChecker(m)
-			coneMust(t, e)
-			valid, side, e := checker.Check(proof)
-			coneMust(t, e)
-			defer func() {
-				for _, c := range side {
-					coneMust(t, m.DecRef(c))
-				}
-			}()
-			if !valid {
-				t.Fatal("converted proof is structurally invalid")
-			}
-			solver, e := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: f.globals.Context, Globals: f.globals})
-			coneMust(t, e)
-			defer func() { coneMust(t, solver.Close()) }()
-			for _, condition := range side {
-				coneMust(t, solver.Push())
-				negated, e := m.MkNot(condition)
+		for _, reverse := range []bool{false, true} {
+			t.Run(fmt.Sprint(order, "/reverse=", reverse), func(t *testing.T) {
+				scope, e := ast.NewScopedProof(m)
 				coneMust(t, e)
-				coneMust(t, solver.AssertFormula(negated))
-				status, e := solver.CheckSat(nil)
+				original, e := m.MkProofHyperResolve(
+					[]ast.ASTHandle{goalProof, factProofs[order[0]], factProofs[order[1]]}, goalApp,
+					[]ast.ASTProofPosition{{First: uint32(order[0] + 1), Second: 0}, {First: uint32(order[1] + 1), Second: 0}},
+					[][]ast.ASTHandle{nil, nil, nil})
 				coneMust(t, e)
-				coneMust(t, solver.Pop(1))
-				if status != lbool.False {
-					t.Fatal("invalid proof side condition", status)
+				if reverse {
+					remaining, _, e := goals[0].Tail(order[1])
+					coneMust(t, e)
+					middleFact, e := m.MkImplies(remaining, goalApp)
+					coneMust(t, e)
+					middle, e := m.MkProofHyperResolve([]ast.ASTHandle{factProofs[order[0]], goalProof}, middleFact, []ast.ASTProofPosition{{Second: uint32(order[0] + 1)}}, [][]ast.ASTHandle{nil, nil})
+					coneMust(t, e)
+					middlePin, e := m.NewRef(middle)
+					coneMust(t, e)
+					defer func() { coneMust(t, m.DelRef(&middlePin)) }()
+					original, e = m.MkProofHyperResolve([]ast.ASTHandle{middle, factProofs[order[1]]}, goalApp, []ast.ASTProofPosition{{First: 1}}, [][]ast.ASTHandle{nil, nil})
+					coneMust(t, e)
 				}
-			}
-		})
+				pin, e := m.NewRef(original)
+				coneMust(t, e)
+				defer func() { coneMust(t, m.DelRef(&pin)) }()
+				coneMust(t, scope.Close())
+				converted, e := converter.Convert(original)
+				coneMust(t, e)
+				defer func() { coneMust(t, m.DelRef(&converted)) }()
+				proof, e := m.RefGet(converted)
+				coneMust(t, e)
+				fact, e := m.GetProofFact(proof)
+				coneMust(t, e)
+				if fact != goalApp {
+					t.Fatal("wrong converted conclusion")
+				}
+				checker, e := proofs.NewChecker(m)
+				coneMust(t, e)
+				valid, side, e := checker.Check(proof)
+				coneMust(t, e)
+				defer func() {
+					for _, c := range side {
+						coneMust(t, m.DecRef(c))
+					}
+				}()
+				if !valid {
+					t.Fatal("converted proof is structurally invalid")
+				}
+				solver, e := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: f.globals.Context, Globals: f.globals})
+				coneMust(t, e)
+				defer func() { coneMust(t, solver.Close()) }()
+				for _, condition := range side {
+					coneMust(t, solver.Push())
+					negated, e := m.MkNot(condition)
+					coneMust(t, e)
+					coneMust(t, solver.AssertFormula(negated))
+					status, e := solver.CheckSat(nil)
+					coneMust(t, e)
+					coneMust(t, solver.Pop(1))
+					if status != lbool.False {
+						t.Fatal("invalid proof side condition", status)
+					}
+				}
+			})
+		}
 	}
 	t.Run("invalid positions", func(t *testing.T) {
 		scope, e := ast.NewScopedProof(m)
