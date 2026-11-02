@@ -950,3 +950,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Aligned Duality counterexample lifetime with query replacement: every query attempt now clears the previously borrowed counterexample before setup, including nil and allocation-failing attempts, while preserving the old annotation graph for learning. Failure/retry and the complete native Duality package passed in 1.236s. Broader search integration remains open.
 
 - 2026-11-02 — Made PDR predicate-transformer cleanup explicitly retryable. Operations now reject while native AST cleanup is pending, owned roots survive refusal, cleanup retry completes, and repeated completed close is idempotent; focused transformer tests passed in 0.026s. Deeper PDR child cleanup frontiers remain open.
+
+- 2026-11-02 — Preserved unconsumed Spacer `simplify_bounds_new` inputs when an early construction error is followed by refused AST cleanup. The returned construction failure exposes exact runtime/original/cleanup causes and retries remaining references; focused old/new bounds tests passed in 0.006s. Wider utility construction auditing remains open.

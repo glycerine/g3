@@ -9,8 +9,44 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 	tacticarith "github.com/glycerine/g3/pkg/tactic/arith"
 	tacticcore "github.com/glycerine/g3/pkg/tactic/core"
+	"github.com/glycerine/g3/pkg/util/memory"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
+
+type simplifyBoundsCleanupFailure struct {
+	manager    *ast.ASTManager
+	values     []ast.ASTRef
+	cause      error
+	cleanupErr error
+}
+
+func (f *simplifyBoundsCleanupFailure) Error() string {
+	return errors.Join(f.cause, f.cleanupErr).Error()
+}
+func (f *simplifyBoundsCleanupFailure) Unwrap() error {
+	return errors.Join(f.cause, f.cleanupErr)
+}
+func (f *simplifyBoundsCleanupFailure) Cleanup() error {
+	f.cleanupErr = closeSimplifyBoundRefs(f.manager, f.values)
+	return f.cleanupErr
+}
+func (f *simplifyBoundsCleanupFailure) RuntimeOwner() *memory.Runtime {
+	return f.manager.NumeralService().RuntimeOwner()
+}
+func (f *simplifyBoundsCleanupFailure) OriginalCause() error { return f.cause }
+func (f *simplifyBoundsCleanupFailure) CleanupCause() error  { return f.cleanupErr }
+
+func closeSimplifyBoundRefs(manager *ast.ASTManager, values []ast.ASTRef) (result error) {
+	for i := len(values) - 1; i >= 0; i-- {
+		if values[i] == (ast.ASTRef{}) {
+			continue
+		}
+		if err := manager.DelRef(&values[i]); err != nil {
+			return errors.Join(result, err)
+		}
+	}
+	return result
+}
 
 // simplifyBounds consumes values and returns caller-owned references from the
 // exact source propagate-values/propagate-inequalities pipeline.
@@ -20,9 +56,9 @@ func simplifyBounds(manager *ast.ASTManager, context *uparams.ParamsContext, glo
 		if committed {
 			return
 		}
-		for i := range values {
-			if values[i] != (ast.ASTRef{}) {
-				resultErr = errors.Join(resultErr, manager.DelRef(&values[i]))
+		if cleanup := closeSimplifyBoundRefs(manager, values); cleanup != nil {
+			resultErr = &simplifyBoundsCleanupFailure{
+				manager: manager, values: values, cause: resultErr, cleanupErr: cleanup,
 			}
 		}
 	}()
