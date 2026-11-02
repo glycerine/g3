@@ -30,13 +30,7 @@ func (c *Context) DisplayCertificate(out io.Writer, queryDeclaration ast.ASTHand
 		_, err := io.WriteString(out, "unknown")
 		return err
 	case lbool.False:
-		certificate, err := c.finiteFrameModel(c.inductive, queryDeclaration)
-		if err != nil {
-			return err
-		}
-		defer func() { result = errors.Join(result, certificate.Close()) }()
-		config := c.owner.contexts.config
-		return certificate.Core().WriteSMT2(out, config.Params, config.Globals, 0)
+		return c.displayUnreachableCertificate(out, queryDeclaration, true)
 	case lbool.True:
 		if boogie {
 			proofsEnabled, err := c.manager.ProofsEnabled()
@@ -92,4 +86,23 @@ func (c *Context) DisplayCertificate(out io.Writer, queryDeclaration ast.ASTHand
 	default:
 		return ast.ErrASTDomain
 	}
+}
+
+func (c *Context) displayUnreachableCertificate(out io.Writer, queryDeclaration ast.ASTHandle, converted bool) (result error) {
+	certificate, err := c.finiteFrameModel(c.inductive, queryDeclaration)
+	if err != nil {
+		return err
+	}
+	if converted && c.certificateModel != nil {
+		certificate, err = c.certificateModel.ConvertCertificateModel(certificate)
+		if err != nil {
+			return err
+		}
+		if certificate == nil {
+			return ast.ErrASTHandle
+		}
+	}
+	defer func() { result = errors.Join(result, certificate.Close()) }()
+	config := c.owner.contexts.config
+	return certificate.Core().WriteSMT2(out, config.Params, config.Globals, 0)
 }

@@ -29,7 +29,8 @@ func TestHornModelConversionKeepsSourceOnNativeCleanupRefusal(t *testing.T) {
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
 		if active && !called {
 			called = true
-			result, cause := (&PropositionalEngine{manager: m}).expandHornModel(source, conversions)
+			engine := &PropositionalEngine{manager: m, pdrConversions: conversions}
+			result, cause := (pdrCertificateModelConverter{engine: engine}).ConvertCertificateModel(source)
 			if result != nil || !errors.Is(cause, ast.ErrASTPending) || !errors.As(cause, &pending) {
 				t.Fatalf("conversion dropped source model: %v", cause)
 			}
@@ -135,7 +136,8 @@ func TestHornModelConversionKeepsSourceOnNativeCleanupRefusal(t *testing.T) {
 	if got := m.Stats().LiveReferences; got != baseline {
 		t.Fatal("conversion cleanup leaked references", baseline, got)
 	}
-	reconstructed, err := (&PropositionalEngine{manager: m}).expandHornModel(makeModel(), conversions)
+	engine := &PropositionalEngine{manager: m, pdrConversions: conversions}
+	reconstructed, err := (pdrCertificateModelConverter{engine: engine}).ConvertCertificateModel(makeModel())
 	must(err)
 	interpretation, err := reconstructed.Core().FunctionInterpretation(original)
 	must(err)

@@ -91,5 +91,5 @@ func (c *Context) verboseUnreachableCertificate() error {
 	if err != nil || !enabled {
 		return err
 	}
-	return c.DisplayCertificate(pdrDiagnosticWriter{out: out}, c.queryDecl, false)
+	return c.displayUnreachableCertificate(pdrDiagnosticWriter{out: out}, c.queryDecl, false)
 }

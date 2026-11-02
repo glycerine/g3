@@ -56,11 +56,32 @@ type Context struct {
 	fullTraceAnswer    bool
 	generateProofTrace bool
 	printBoogieCert    bool
+	certificateModel   CertificateModelConverter
 	validateResult     bool
 	simplifyPre        bool
 	simplifyPost       bool
 	initialized        bool
 	closed             bool
+}
+
+// CertificateModelConverter consumes a normalized finite-frame model and
+// returns the source-signature model used by context::display_certificate.
+// On failure it owns cleanup of the transferred input model.
+type CertificateModelConverter interface {
+	ConvertCertificateModel(source *model.Model) (*model.Model, error)
+}
+
+// SetCertificateModelConverter installs the live fixedpoint preprocessing
+// converter before rule installation. Context borrows the converter owner.
+func (c *Context) SetCertificateModelConverter(converter CertificateModelConverter) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	if c.initialized {
+		return ast.ErrASTDomain
+	}
+	c.certificateModel = converter
+	return nil
 }
 
 // SetPrintBoogieCertificate selects the source reachable-result verbose
@@ -904,6 +925,7 @@ func (c *Context) Close() (result error) {
 		c.lite = nil
 		c.cooperation = nil
 		c.query = nil
+		c.certificateModel = nil
 		c.closed = true
 	}
 	return result

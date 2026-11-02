@@ -712,6 +712,9 @@ func (e *PropositionalEngine) newConfiguredPDRContext(parameters *fixedpointPara
 	if err != nil {
 		return nil, err
 	}
+	if err = context.SetCertificateModelConverter(pdrCertificateModelConverter{engine: e}); err != nil {
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
+	}
 	simplifyPre, err := parameters.Bool("pdr.simplify_formulas_pre", false)
 	if err != nil {
 		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
