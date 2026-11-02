@@ -22,6 +22,8 @@ Each completed item needs source paths, implementation/test evidence and a commi
 - [ ] Close context/rule ownership, scope rollback, query transformation and engine lifecycle audits (`base/dl_context`, `dl_rule`, `dl_engine_base`).
 - [ ] Verify parameter defaults, aliases, updates and engine selection against `fixedpoint_params.hpp` and engine registration.
 - [ ] Close SMT-LIB/Datalog command parsing, error reporting, query state and exported result/proof/model contracts.
+  - [x] Preserve source pop rejection after pre-query Spacer context instantiation; verify an uninstantiated scope can still pop.
+  - [ ] Audit PDR pre-query level/cover access, which currently returns an invalid-engine-state error instead of providing the Spacer-style pre-query accessor.
 - [ ] Test cancellation, resource refusal and partial construction/destruction at actual allocation boundaries; preserve errors through cleanup.
 
 ## 3. PDR — first engine closure
@@ -248,3 +250,6 @@ This closes the declarations and ownership mapping of `src/muz/spacer/spacer_dl_
 
 - 2026-11-02 — Spacer interface header audit completed as mapped above; header status advanced to ported, implementation status unchanged. Previous concrete-rule preference commit: `cb906d591`. Commit title: `Close Spacer fixedpoint interface header audit`.
   Validation: complete native `go -C pkg test ./muz/fp ./muz/spacer -short` and `go -C pkg test ./portcheck -short` passed. From-level entry points are `QueryExpressionFromLevel` and `QueryPredicateFromLevel`, forwarded to `Context.Solve(fromLevel, ...)`.
+
+- 2026-11-02 — Source `dl_context.cpp:187-195` guards pop on engine existence, not just completed queries. Fixed Go Pop to account for instantiated PDR/Spacer contexts. `TestFixedpointPopRejectsInstantiatedPrequeryEngine` reproduces the Spacer pre-query bypass, verifies pop before instantiation, then requires rejection with the scope preserved after a level operation. Complete native muz/fp tests pass. The attempted PDR pre-query accessor instead reports invalid state; that distinct source-boundary gap is recorded above and remains open. Previous header audit commit: `d03bc3f29`.
+  Validation: `go -C pkg test ./muz/fp -short` passed. Commit title: `Guard fixedpoint pop after prequery context creation`.
