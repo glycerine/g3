@@ -1,0 +1,71 @@
+package duality
+
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+	graph "github.com/glycerine/g3/pkg/duality"
+	"github.com/glycerine/g3/pkg/solver"
+	uparams "github.com/glycerine/g3/pkg/util/params"
+)
+
+// NewNativeSolver creates the owning proof-producing backend used by the
+// fixedpoint interface. The factory, context and parameter service are borrowed.
+// Arithmetic equality normalization is enabled before assertions so the native
+// certificates match the supported Craig interpolation rules.
+// Source: duality_wrapper.cpp solver constructor; dl_interface::query proof scope.
+func NewNativeSolver(context *graph.Context, params *uparams.ParamsContext, factory solver.Factory, mbqi bool) (out solver.Solver, result error) {
+	if params == nil || factory == nil {
+		return nil, graph.ErrWrapperOwner
+	}
+	m, err := context.Manager()
+	if err != nil {
+		return nil, err
+	}
+	scope, err := ast.NewScopedProof(m)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		result = errors.Join(result, scope.Close())
+		if result != nil && out != nil {
+			result = errors.Join(result, out.Close())
+			out = nil
+		}
+	}()
+	p := params.EmptyValue()
+	defer func() { result = errors.Join(result, params.Del(&p)) }()
+	for _, setting := range []struct {
+		name  string
+		value bool
+	}{
+		{"proof", true}, {"model", true}, {"unsat_core", true}, {"mbqi", mbqi}, {"eq2ineq", true},
+	} {
+		if err := params.SetBoolName(&p, &setting.name, setting.value); err != nil {
+			return nil, err
+		}
+	}
+	if mbqi {
+		name := "array.extensional"
+		if err := params.SetBoolName(&p, &name, true); err != nil {
+			return nil, err
+		}
+	}
+	name := "mbqi.id"
+	id := "itp"
+	if err := params.SetStringName(&p, &name, &id); err != nil {
+		return nil, err
+	}
+	name = "mbqi.max_iterations"
+	if err := params.SetUIntName(&p, &name, 1); err != nil {
+		return nil, err
+	}
+	out, err = factory.New(m, &p, true, true, true, "")
+	if err != nil {
+		return out, err
+	}
+	if err := out.UpdateParams(&p); err != nil {
+		return out, err
+	}
+	return out, nil
+}

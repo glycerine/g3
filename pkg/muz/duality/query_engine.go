@@ -2,6 +2,7 @@ package duality
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/ast"
 
 	graph "github.com/glycerine/g3/pkg/duality"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -84,6 +85,21 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
+	manager, err := e.context.Manager()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	proofScope, err := ast.NewScopedProof(manager)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() {
+		result = errors.Join(result, proofScope.Close())
+		if result != nil {
+			status = lbool.Undef
+			e.status = lbool.Undef
+		}
+	}()
 	e.status = lbool.Undef
 	nextGraph, err := prepared.BuildGraph(e.context, e.config.Simplifier, e.config.Quantifiers)
 	if err != nil {
