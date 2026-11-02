@@ -42,6 +42,9 @@ func (s *UnwindingSearch) SolveMain() (bool, error) {
 		return false, ErrWrapperOwner
 	}
 	u := s.Unwinding
+	if err := u.source.checkpoint(); err != nil {
+		return false, err
+	}
 	if u.StratifiedInlining {
 		ok, err := s.DoStratifiedInlining()
 		if err != nil || !ok {
@@ -52,6 +55,9 @@ func (s *UnwindingSearch) SolveMain() (bool, error) {
 		return false, err
 	}
 	for {
+		if err := u.source.checkpoint(); err != nil {
+			return false, err
+		}
 		if err := s.ProduceCandidatesForExtension(); err != nil {
 			return false, err
 		}

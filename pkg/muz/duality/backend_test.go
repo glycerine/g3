@@ -239,3 +239,58 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 		})
 	}
 }
+
+func TestDualityBackendCancellationAndRetry(t *testing.T) {
+	owner, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer owner.Close()
+	m, err := owner.Manager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := owner.SolverTranslationConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend, err := duality.NewBackend(m, config, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer backend.Close()
+	query, err := m.MkFalse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepared, err := duality.PrepareQuery(m, nil, nil, query, nil, math.MaxUint32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer prepared.Close()
+	initial, err := m.ProofMode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, err := backend.Query(prepared)
+	if err != nil || status != lbool.False {
+		t.Fatal(status, err)
+	}
+	m.ResourceLimit().Cancel()
+	status, err = backend.Query(prepared)
+	m.ResourceLimit().ResetCancel()
+	if status != lbool.Undef || err == nil {
+		t.Fatal("canceled Duality query", status, err)
+	}
+	if md, err := backend.GetModel(); md != nil || !errors.Is(err, graph.ErrWrapperOwner) {
+		t.Fatal("canceled model publication", md, err)
+	}
+	mode, err := m.ProofMode()
+	if err != nil || mode != initial {
+		t.Fatal("cancellation leaked proof mode", mode, err)
+	}
+	status, err = backend.Query(prepared)
+	if err != nil || status != lbool.False {
+		t.Fatal("retry after cancellation", status, err)
+	}
+}

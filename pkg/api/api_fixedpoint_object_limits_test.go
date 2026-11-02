@@ -60,22 +60,31 @@ func TestAPIFixedpointQueryLimitsFollowLatestUpdateAndParent(t *testing.T) {
 }
 
 func TestAPIFixedpointQueryResourceLimitAndRetry(t *testing.T) {
-	f := newAPIFixedpointFixture(t)
-	astTestMust(t, f.fp.AddFact(f.p, nil))
-	astTestMust(t, f.c.SetUIntOption("rlimit", 1))
-	limit := f.m.ResourceLimit()
-	beforeDepth, beforeLimit := len(limit.Limits), limit.Limit
-	status, _ := f.fp.Query(f.p)
-	if status != lbool.Undef {
-		t.Fatal("fixedpoint query exceeded resource limit", status)
-	}
-	if len(limit.Limits) != beforeDepth || limit.Limit != beforeLimit {
-		t.Fatal("fixedpoint query did not restore resource limit")
-	}
-	astTestMust(t, f.c.SetUIntOption("rlimit", 0))
-	status, err := f.fp.Query(f.p)
-	astTestMust(t, err)
-	if status != lbool.True {
-		t.Fatal("fixedpoint retry after resource limit", status)
+	for _, engine := range []string{"pdr", "duality"} {
+		t.Run(engine, func(t *testing.T) {
+			f := newAPIFixedpointFixture(t)
+			params, err := f.c.NewParameterSet()
+			astTestMust(t, err)
+			astTestMust(t, params.SetSymbol("engine", engine))
+			astTestMust(t, f.fp.SetParameters(params))
+			astTestMust(t, params.Close())
+			astTestMust(t, f.fp.AddFact(f.p, nil))
+			astTestMust(t, f.c.SetUIntOption("rlimit", 1))
+			limit := f.m.ResourceLimit()
+			beforeDepth, beforeLimit := len(limit.Limits), limit.Limit
+			status, _ := f.fp.Query(f.p)
+			if status != lbool.Undef {
+				t.Fatal("fixedpoint query exceeded resource limit", status)
+			}
+			if len(limit.Limits) != beforeDepth || limit.Limit != beforeLimit {
+				t.Fatal("fixedpoint query did not restore resource limit")
+			}
+			astTestMust(t, f.c.SetUIntOption("rlimit", 0))
+			status, err = f.fp.Query(f.p)
+			astTestMust(t, err)
+			if status != lbool.True {
+				t.Fatal("fixedpoint retry after resource limit", status)
+			}
+		})
 	}
 }

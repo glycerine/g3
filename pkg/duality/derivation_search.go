@@ -128,6 +128,9 @@ func (s *DerivationSearch) buildMain() (bool, error) {
 	s.totalUpdates = 0
 	s.updateFailures = 0
 	for {
+		if err := d.tree.checkpoint(); err != nil {
+			return false, err
+		}
 		level, err := d.tree.solver.ScopeLevel()
 		if err != nil {
 			return false, err

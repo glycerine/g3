@@ -174,6 +174,9 @@ func (e *Engine) Solve() (satisfied bool, result error) {
 	if err := e.open(); err != nil {
 		return false, err
 	}
+	if err := e.source.checkpoint(); err != nil {
+		return false, err
+	}
 	e.running = true
 	defer func() { result = errors.Join(result, e.closeRunServices(), e.closeProposers()); e.running = false }()
 	if err := e.closeRunServices(); err != nil {

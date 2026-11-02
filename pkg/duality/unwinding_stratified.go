@@ -53,6 +53,9 @@ func (s *UnwindingSearch) DoStratifiedInlining() (satisfied bool, result error) 
 	}
 	levels := [2]map[*Node]*Node{make(map[*Node]*Node), make(map[*Node]*Node)}
 	for _, edge := range u.sortedEdges {
+		if err := u.source.checkpoint(); err != nil {
+			return false, err
+		}
 		if edge == nil || edge.closed {
 			return false, ErrLevelizedUnwinding
 		}
