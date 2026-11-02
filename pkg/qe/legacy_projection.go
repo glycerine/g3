@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 type LegacyProjection struct {
@@ -24,6 +25,48 @@ type LegacyProjectionResult struct {
 	manager   *ast.ASTManager
 	formula   ast.ASTRef
 	variables []ast.ASTRef
+}
+
+type legacyProjectionConstructionFailure struct {
+	owner          *LegacyProjection
+	nested         memory.ConstructionFailure
+	runtime        *memory.Runtime
+	cause, cleanup error
+}
+
+var _ memory.ConstructionFailure = (*legacyProjectionConstructionFailure)(nil)
+
+func (f *legacyProjectionConstructionFailure) Error() string                 { return f.Unwrap().Error() }
+func (f *legacyProjectionConstructionFailure) Unwrap() error                 { return errors.Join(f.cause, f.cleanup) }
+func (f *legacyProjectionConstructionFailure) OriginalCause() error          { return f.cause }
+func (f *legacyProjectionConstructionFailure) CleanupCause() error           { return f.cleanup }
+func (f *legacyProjectionConstructionFailure) RuntimeOwner() *memory.Runtime { return f.runtime }
+func (f *legacyProjectionConstructionFailure) Cleanup() error {
+	if f.nested != nil {
+		if err := f.nested.Cleanup(); err != nil {
+			f.cleanup = err
+			return err
+		}
+		f.nested = nil
+	}
+	if f.owner == nil {
+		f.cleanup = nil
+		return nil
+	}
+	f.cleanup = f.owner.Close()
+	if f.cleanup == nil {
+		f.owner = nil
+	}
+	return f.cleanup
+}
+
+func closeFailedLegacyProjection(owner *LegacyProjection, cause error) error {
+	if cleanup := owner.Close(); cleanup != nil {
+		var nested memory.ConstructionFailure
+		_ = errors.As(cause, &nested)
+		return &legacyProjectionConstructionFailure{owner: owner, nested: nested, runtime: owner.manager.NumeralService().RuntimeOwner(), cause: cause, cleanup: cleanup}
+	}
+	return cause
 }
 
 // newLegacyModelEvaluator releases a partially constructed evaluator before
@@ -44,7 +87,7 @@ func NewLegacyProjection(manager *ast.ASTManager, config Config) (_ *LegacyProje
 	}
 	array, err := newLegacyArrayProjection(manager, config)
 	if err != nil {
-		return nil, errors.Join(err, arithmetic.Close())
+		return nil, closeFailedLegacyProjection(&LegacyProjection{manager: manager, arithmetic: arithmetic}, err)
 	}
 	return &LegacyProjection{manager: manager, config: config, arithmetic: arithmetic, array: array}, nil
 }

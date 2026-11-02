@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 type legacyArrayProjection struct {
@@ -21,6 +22,42 @@ type legacyArrayEqualities struct {
 	stores     map[ast.ASTHandle]bool
 }
 
+// legacyArrayProjectionConstructionFailure keeps the actual partially built
+// legacy service reachable when constructor rollback is refused.
+type legacyArrayProjectionConstructionFailure struct {
+	owner          *legacyArrayProjection
+	runtime        *memory.Runtime
+	cause, cleanup error
+}
+
+var _ memory.ConstructionFailure = (*legacyArrayProjectionConstructionFailure)(nil)
+
+func (f *legacyArrayProjectionConstructionFailure) Error() string { return f.Unwrap().Error() }
+func (f *legacyArrayProjectionConstructionFailure) Unwrap() error {
+	return errors.Join(f.cause, f.cleanup)
+}
+func (f *legacyArrayProjectionConstructionFailure) OriginalCause() error          { return f.cause }
+func (f *legacyArrayProjectionConstructionFailure) CleanupCause() error           { return f.cleanup }
+func (f *legacyArrayProjectionConstructionFailure) RuntimeOwner() *memory.Runtime { return f.runtime }
+func (f *legacyArrayProjectionConstructionFailure) Cleanup() error {
+	if f.owner == nil {
+		f.cleanup = nil
+		return nil
+	}
+	f.cleanup = f.owner.Close()
+	if f.cleanup == nil {
+		f.owner = nil
+	}
+	return f.cleanup
+}
+
+func closeFailedLegacyArrayProjection(owner *legacyArrayProjection, cause error) error {
+	if cleanup := owner.Close(); cleanup != nil {
+		return &legacyArrayProjectionConstructionFailure{owner: owner, runtime: owner.syntax.manager.NumeralService().RuntimeOwner(), cause: cause, cleanup: cleanup}
+	}
+	return cause
+}
+
 func newLegacyArrayProjection(manager *ast.ASTManager, config Config) (*legacyArrayProjection, error) {
 	if _, err := manager.RegisterArrayPlugin(); err != nil {
 		return nil, err
@@ -31,10 +68,7 @@ func newLegacyArrayProjection(manager *ast.ASTManager, config Config) (*legacyAr
 	}
 	theory, err := rewriter.NewTheoryRewriter(manager, config.Context, config.Globals, nil)
 	if err != nil {
-		if theory != nil {
-			err = errors.Join(err, theory.Close())
-		}
-		return nil, errors.Join(err, syntax.Close())
+		return nil, closeFailedLegacyArrayProjection(&legacyArrayProjection{syntax: syntax, theory: theory}, err)
 	}
 	return &legacyArrayProjection{syntax: syntax, theory: theory}, nil
 }

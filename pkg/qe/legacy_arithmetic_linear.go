@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 type legacyArithmeticProjection struct {
@@ -26,6 +27,42 @@ type legacyLinearLiteral struct {
 	disequality bool
 }
 
+type legacyArithmeticProjectionConstructionFailure struct {
+	owner          *legacyArithmeticProjection
+	runtime        *memory.Runtime
+	cause, cleanup error
+}
+
+var _ memory.ConstructionFailure = (*legacyArithmeticProjectionConstructionFailure)(nil)
+
+func (f *legacyArithmeticProjectionConstructionFailure) Error() string { return f.Unwrap().Error() }
+func (f *legacyArithmeticProjectionConstructionFailure) Unwrap() error {
+	return errors.Join(f.cause, f.cleanup)
+}
+func (f *legacyArithmeticProjectionConstructionFailure) OriginalCause() error { return f.cause }
+func (f *legacyArithmeticProjectionConstructionFailure) CleanupCause() error  { return f.cleanup }
+func (f *legacyArithmeticProjectionConstructionFailure) RuntimeOwner() *memory.Runtime {
+	return f.runtime
+}
+func (f *legacyArithmeticProjectionConstructionFailure) Cleanup() error {
+	if f.owner == nil {
+		f.cleanup = nil
+		return nil
+	}
+	f.cleanup = f.owner.Close()
+	if f.cleanup == nil {
+		f.owner = nil
+	}
+	return f.cleanup
+}
+
+func closeFailedLegacyArithmeticProjection(owner *legacyArithmeticProjection, cause error) error {
+	if cleanup := owner.Close(); cleanup != nil {
+		return &legacyArithmeticProjectionConstructionFailure{owner: owner, runtime: owner.syntax.manager.NumeralService().RuntimeOwner(), cause: cause, cleanup: cleanup}
+	}
+	return cause
+}
+
 func newLegacyArithmeticProjection(manager *ast.ASTManager, config Config) (*legacyArithmeticProjection, error) {
 	syntax, err := NewArithmeticProjection(manager, config)
 	if err != nil {
@@ -33,10 +70,7 @@ func newLegacyArithmeticProjection(manager *ast.ASTManager, config Config) (*leg
 	}
 	theory, err := rewriter.NewTheoryRewriter(manager, config.Context, config.Globals, nil)
 	if err != nil {
-		if theory != nil {
-			err = errors.Join(err, theory.Close())
-		}
-		return nil, errors.Join(err, syntax.Close())
+		return nil, closeFailedLegacyArithmeticProjection(&legacyArithmeticProjection{syntax: syntax, theory: theory}, err)
 	}
 	return &legacyArithmeticProjection{syntax: syntax, theory: theory}, nil
 }

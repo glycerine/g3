@@ -41,7 +41,8 @@ func (e *PropositionalEngine) queryCLPPredicate(declaration ast.ASTHandle) (resu
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, preprocessed.Close()) }()
+	attempt := &clpBackendAttempt{manager: e.manager, preprocessed: preprocessed}
+	defer func() { resultErr = errors.Join(resultErr, attempt.dispose()) }()
 	queryDeclaration, err := preprocessed.rules.DerivedPredicate(declaration)
 	if err != nil {
 		return lbool.Undef, err
@@ -62,28 +63,29 @@ func (e *PropositionalEngine) queryCLPPredicate(declaration ast.ASTHandle) (resu
 	if err != nil {
 		return lbool.Undef, err
 	}
-	local, err := e.params.NewValue()
+	attempt.local, err = e.params.NewValue()
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, e.params.Del(&local)) }()
+	attempt.params = e.params
+	attempt.localReady = true
 	mbqi := "mbqi"
-	if err = e.params.SetBoolName(&local, &mbqi, false); err != nil {
+	if err = e.params.SetBoolName(&attempt.local, &mbqi, false); err != nil {
 		return lbool.Undef, err
 	}
 	timeout := "timeout"
-	if err = e.params.SetUIntName(&local, &timeout, 1000); err != nil {
+	if err = e.params.SetUIntName(&attempt.local, &timeout, 1000); err != nil {
 		return lbool.Undef, err
 	}
-	backend, err := smtcore.NewSMTSolver(e.manager, &local, "", smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
+	backend, err := smtcore.NewSMTSolver(e.manager, &attempt.local, "", smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, backend.Close()) }()
+	attempt.backend = backend
 	engine, err := clp.NewEngine(e.manager, preprocessed.rules, backend, 20)
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, engine.Close()) }()
+	attempt.engine = engine
 	return engine.Query(query)
 }

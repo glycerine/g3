@@ -493,15 +493,8 @@ func (c *Context) Answer(queryDeclaration ast.ASTHandle) (result ast.ASTRef, res
 	if err != nil {
 		return result, fmt.Errorf("pdr: unify trace: %w", err)
 	}
-	defer func() {
-		if x := closeASTRefs(c.manager, constraints); x != nil {
-			resultErr = errors.Join(resultErr, fmt.Errorf("pdr: close answer constraints: %w", x))
-		}
-		if resultErr != nil && result != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, c.manager.DelRef(&result))
-			result = ast.ASTRef{}
-		}
-	}()
+	owner := &pdrAnswerExportOwner{manager: c.manager, temporaries: constraints}
+	defer owner.finish(&result, &resultErr)
 	handles := make([]ast.ASTHandle, len(constraints))
 	for i := range constraints {
 		handles[i], err = c.manager.RefGet(constraints[i])

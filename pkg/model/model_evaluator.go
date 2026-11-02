@@ -20,6 +20,42 @@ import (
 
 var ErrModelEvaluatorTheory = errors.New("g3: model evaluator has no reducer for the theory")
 
+// modelEvaluationConstructionFailure keeps EvaluateValue's local result owner
+// reachable when native AST cleanup is refused after evaluation has failed.
+type modelEvaluationConstructionFailure struct {
+	manager    *ast.ASTManager
+	runtime    *umemory.Runtime
+	result     ast.ASTRef
+	cause      error
+	cleanupErr error
+}
+
+func (f *modelEvaluationConstructionFailure) Error() string {
+	return errors.Join(f.cause, f.cleanupErr).Error()
+}
+func (f *modelEvaluationConstructionFailure) Unwrap() error {
+	return errors.Join(f.cause, f.cleanupErr)
+}
+func (f *modelEvaluationConstructionFailure) Cleanup() error {
+	if f.result == (ast.ASTRef{}) {
+		f.cleanupErr = nil
+		return nil
+	}
+	f.cleanupErr = f.manager.DelRef(&f.result)
+	return f.cleanupErr
+}
+func (f *modelEvaluationConstructionFailure) RuntimeOwner() *umemory.Runtime { return f.runtime }
+func (f *modelEvaluationConstructionFailure) OriginalCause() error           { return f.cause }
+func (f *modelEvaluationConstructionFailure) CleanupCause() error            { return f.cleanupErr }
+
+func finishModelEvaluationFailure(manager *ast.ASTManager, runtime *umemory.Runtime, result ast.ASTRef, cause error) error {
+	cleanup := manager.DelRef(&result)
+	if cleanup == nil {
+		return cause
+	}
+	return &modelEvaluationConstructionFailure{manager: manager, runtime: runtime, result: result, cause: cause, cleanupErr: cleanup}
+}
+
 // ModelEvaluatorConfig supplies the source's borrowed process services. Memory
 // is the original raw allocation accounting owner; typed runtime-wide allocator
 // wiring remains a separate port obligation.
@@ -246,7 +282,7 @@ func (ev *ModelEvaluator) EvaluateValue(t ast.ASTHandle) (ast.ASTRef, error) {
 		return ast.ASTRef{}, e
 	}
 	if e = ev.Evaluate(t, result); e != nil {
-		return ast.ASTRef{}, errors.Join(e, ev.model.manager.DelRef(&result))
+		return ast.ASTRef{}, finishModelEvaluationFailure(ev.model.manager, ev.services.Memory, result, e)
 	}
 	return result, nil
 }
