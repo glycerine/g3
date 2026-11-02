@@ -266,7 +266,8 @@ Acceleration tactics are durable for every batch:
   - [x] Restrict relation-manager storage to scoped predicates, retiring finite/explanation relations and declaration owners while intersecting saturation marks and preserving refused cleanup owners for retry.
   - [x] Compile actual transformer-produced unary explanation rules and finite output bridges into typed bytecode, including undefined head slots, join/assignment, projection/permutation, union/store and register cleanup.
   - [x] Compile ground explanation rules from a full nullary identity, including constant and shared/unbound finite heads, true/false guards, zero-child derivations and finite output bridges.
-  - [ ] Compile two-positive-tail explanation rules, then connect whole-program scheduling and engine activation; negation and condition-only unbound variables remain separate.
+  - [x] Compile two-positive-tail explanation rules with shared-key/Cartesian joins, exact child-explanation order, repeated columns, self-joins and empty/nullary inputs.
+  - [ ] Connect whole-program explanation scheduling and engine activation; negation and condition-only unbound variables remain separate.
   - [ ] Complete remaining concrete plugin factories and engine representation/storage/register dispatch; this fact-transfer path does not close all relational integration.
 - [ ] Audit explanations, similarity compression, relation-manager dispatch, external relations and checking wrappers against actual consumers.
 - [ ] Audit remaining transforms, dataflow and DDNF consumers, including interactions with engine-specific preprocessing.
@@ -997,3 +998,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Integrated typed relational operations: interval-to-bound union, AST interval membership, select/project, mixed sieve union, checked widening, lazy source disposal, output-table presentation, indexed sparse dispatch and external head permutation. The complete native relational package passed in 3.042s. This closes concrete source operation slices, not the separately documented representation/manager integration gaps. Commit: `Integrate typed relational dispatch and source operations`.
 
 - 2026-11-02 — Closed the audited CLP local cleanup gaps: grounding preserves refused substitutions/output roots, and query/verbose-format temporaries return retryable owners. Native refusal tests verify exact remaining references and zero final budget; candidate clones leave the original rule intact. Complete native CLP passed in 0.106s. Enclosing fixedpoint teardown remains open. Commit: `Preserve CLP local cleanup owners`.
+
+- 2026-11-02 — Compiled two-positive-tail explanation rules through existing typed joins, preserving finite-variable maps and left/right derivation order. Seven semantic modes in `compiler_explanation_join_test.go` cover shared/Cartesian joins, constants, repeats, self-joins and empty/nullary inputs after transformer disposal. Worker focused/full relational tests passed in 0.056s/3.143s. Commit: `Compile two-tail explanation joins`; engine activation and broader bodies remain open.

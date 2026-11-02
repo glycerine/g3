@@ -25,19 +25,21 @@ type explanationFiniteColumn struct {
 }
 
 type explanationRuleLayout struct {
-	head, tail       ast.ASTHandle
-	columns          map[uint32]int
-	sorts            map[uint32]ast.ASTHandle
-	conditions       []ast.ASTHandle
-	removed          []int
-	permutation      []int
-	appendHead       bool
-	tailConstants    []explanationTailConstant
-	appendFinite     []explanationFiniteColumn
-	identical        [][]int
-	duplicates       []int
-	finiteWidth      int
-	explanationWidth int
+	head, tail, tail2 ast.ASTHandle
+	joinLeft          []int
+	joinRight         []int
+	columns           map[uint32]int
+	sorts             map[uint32]ast.ASTHandle
+	conditions        []ast.ASTHandle
+	removed           []int
+	permutation       []int
+	appendHead        bool
+	tailConstants     []explanationTailConstant
+	appendFinite      []explanationFiniteColumn
+	identical         [][]int
+	duplicates        []int
+	finiteWidth       int
+	explanationWidth  int
 }
 
 func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan explanationRuleLayout, resultErr error) {
@@ -59,33 +61,40 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	if err != nil {
 		return plan, err
 	}
-	if positive > 1 || positive != uninterpreted {
+	if positive > 2 || positive != uninterpreted {
 		return plan, ErrCompilerUnsupported
 	}
 	m := relations.manager
-	var tail ast.ASTHandle
+	var tails []ast.ASTHandle
+	var tailSignatures [][]ast.ASTHandle
 	var tailSorts []ast.ASTHandle
-	tailExplanations := 0
-	if positive != 0 {
-		var negative bool
-		tail, negative, err = rule.Tail(0)
+	for index := 0; index < positive; index++ {
+		tail, negative, err := rule.Tail(index)
 		if err != nil {
 			return plan, err
 		}
 		if negative {
 			return plan, ErrCompilerUnsupported
 		}
-		plan.tail, err = m.GetDecl(tail)
+		predicate, err := m.GetDecl(tail)
 		if err != nil {
 			return plan, err
 		}
-		tailSorts, tailExplanations, err = relations.explanationPredicateSignature(plan.tail)
+		sorts, explanations, err := relations.explanationPredicateSignature(predicate)
 		if err != nil {
 			return plan, errors.Join(ErrCompilerUnsupported, err)
 		}
-		if tailExplanations != 1 {
+		if explanations != 1 {
 			return plan, ErrCompilerUnsupported
 		}
+		if index == 0 {
+			plan.tail = predicate
+		} else {
+			plan.tail2 = predicate
+		}
+		tails = append(tails, tail)
+		tailSignatures = append(tailSignatures, sorts)
+		tailSorts = append(tailSorts, sorts...)
 	}
 	head, err := rule.Head()
 	if err != nil {
@@ -134,47 +143,71 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 		return index, sort, err
 	}
 	tailVariables := make(map[uint32][]int)
-	for column := 0; column < len(tailSorts)+tailExplanations; column++ {
-		argument, err := m.GetArg(tail, uint32(column))
-		if err != nil {
-			return plan, err
-		}
-		kind, err := m.GetKind(argument)
-		if err != nil {
-			return plan, err
-		}
-		if kind != ast.ASTVar {
-			if column >= len(tailSorts) {
-				return plan, ErrCompilerUnsupported
+	finiteOffset := 0
+	for tailIndex, tail := range tails {
+		finite := len(tailSignatures[tailIndex])
+		for local := 0; local <= finite; local++ {
+			column := finiteOffset + local
+			if local == finite {
+				// Concrete products group all finite columns before both
+				// explanation rows, preserving the original tail order.
+				column = len(tailSorts) + tailIndex
 			}
-			value, err := relations.EncodeValue(tailSorts[column], argument)
+			argument, err := m.GetArg(tail, uint32(local))
 			if err != nil {
 				return plan, err
 			}
-			plan.tailConstants = append(plan.tailConstants, explanationTailConstant{column: column, value: value})
-			continue
-		}
-		index, sort, err := variable(tail, column)
-		if err != nil {
-			return plan, err
-		}
-		if previous, exists := plan.columns[index]; exists {
-			if column >= len(tailSorts) || previous >= len(tailSorts) || plan.sorts[index] != sort {
-				return plan, ErrCompilerUnsupported
+			kind, err := m.GetKind(argument)
+			if err != nil {
+				return plan, err
 			}
-		} else {
-			plan.columns[index], plan.sorts[index] = column, sort
+			if kind != ast.ASTVar {
+				if local == finite {
+					return plan, ErrCompilerUnsupported
+				}
+				value, err := relations.EncodeValue(tailSorts[column], argument)
+				if err != nil {
+					return plan, err
+				}
+				plan.tailConstants = append(plan.tailConstants, explanationTailConstant{column: column, value: value})
+				continue
+			}
+			index, sort, err := variable(tail, local)
+			if err != nil {
+				return plan, err
+			}
+			if previous, exists := plan.columns[index]; exists {
+				if column >= len(tailSorts) || previous >= len(tailSorts) || plan.sorts[index] != sort {
+					return plan, ErrCompilerUnsupported
+				}
+			} else {
+				plan.columns[index], plan.sorts[index] = column, sort
+			}
+			if tailIndex == 1 && local < finite {
+				// Source variable_intersection adds every matching pair.
+				for _, left := range tailVariables[index] {
+					if left < finiteOffset {
+						plan.joinLeft = append(plan.joinLeft, left)
+						plan.joinRight = append(plan.joinRight, local)
+					}
+				}
+			}
+			tailVariables[index] = append(tailVariables[index], column)
 		}
-		tailVariables[index] = append(tailVariables[index], column)
+		finiteOffset += finite
 	}
 	for _, columns := range tailVariables {
 		if len(columns) > 1 {
+			if positive == 2 && columns[0] < len(tailSignatures[0]) && columns[len(columns)-1] >= len(tailSignatures[0]) {
+				// Cross-tail identity is already enforced by all join pairs.
+				continue
+			}
 			plan.identical = append(plan.identical, columns)
 		}
 	}
 	sort.Slice(plan.identical, func(i, j int) bool { return plan.identical[i][0] < plan.identical[j][0] })
 	plan.finiteWidth = len(tailSorts)
-	plan.explanationWidth = tailExplanations
+	plan.explanationWidth = positive
 	var headColumns []int
 	available := make(map[uint32][]int, len(tailVariables))
 	for variable, columns := range tailVariables {
@@ -275,11 +308,11 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	for _, column := range headColumns {
 		plan.permutation = append(plan.permutation, positions[column])
 	}
-	tails, err := rule.TailSize()
+	tailCount, err := rule.TailSize()
 	if err != nil {
 		return plan, err
 	}
-	for index := uninterpreted; index < tails; index++ {
+	for index := uninterpreted; index < tailCount; index++ {
 		condition, negated, err := rule.Tail(index)
 		if err != nil {
 			return plan, err
@@ -312,11 +345,12 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	return plan, nil
 }
 
-// CompileExplanationRuleWithGuard lowers a ground or single-positive-tail
-// explained rule or its finite output bridge. Tail constants and repeated finite columns
-// use filtering and duplicate-column lowering. Finite head constants and
-// unbound variables use singleton/full columns. Multiple-tail rules and
-// condition-only unbound variables are rejected before a program is published.
+// CompileExplanationRuleWithGuard lowers a ground, one-tail or two-tail
+// explained rule or its finite output bridge. Tail constants and repeated
+// finite columns use filtering and duplicate-column lowering. Finite head
+// constants and unbound variables use singleton/full columns. Rules with more
+// than two positive tails and condition-only unbound variables are rejected
+// before a program is published.
 func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule, guard *rewriter.TheoryRewriter) (result *InstructionBlock, resultErr error) {
 	plan, err := planExplanationRule(relations, rule)
 	if err != nil {
@@ -357,6 +391,27 @@ func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule
 	}
 	if err = emit(load); err != nil {
 		return result, err
+	}
+	if !plan.tail2.IsNull() {
+		right := fresh()
+		load, err = NewLoadInstruction(relations, plan.tail2, right)
+		if err != nil {
+			return result, err
+		}
+		if err = emit(load); err != nil {
+			return result, err
+		}
+		joined := fresh()
+		if err = emit(NewJoinInstruction(current, right, plan.joinLeft, plan.joinRight, joined)); err != nil {
+			return result, err
+		}
+		if err = emit(NewDeallocateInstruction(current)); err != nil {
+			return result, err
+		}
+		if err = emit(NewDeallocateInstruction(right)); err != nil {
+			return result, err
+		}
+		current = joined
 	}
 	for _, constant := range plan.tailConstants {
 		if err = emit(NewFilterEqualInstruction(current, constant.value, constant.column)); err != nil {
