@@ -30,7 +30,7 @@ Run relevant cross-package checks at integration and the full native suite rough
 
 - [ ] Complete source context SMT-LIB dump fidelity, including pending-rule phases.
   - [x] Implement finalized-rule get_rules_as_formulas partitioning, preserving source order/names and quantified output-clause behavior, with ownership and dense allocation-failure coverage.
-  - [ ] Handle the context's pending raw rule formulas and free-variable normalization before the finalized partition.
+  - [x] Normalize pending open formulas before partitioning; promote clauses in source swap-removal order and update the raw archive/bounds consumed by Duality.
   - [x] Implement context display_smt2 flags: fixedpoint extensions (default true), low-level printing, declared variables, background rejection in plain HORN, output-query emission and source name freshness.
   - [x] Correct the shared model2expr FreshName::next occupied-name sequence: source advances an additional letter on a rejected candidate, while the current Go helper advances only once.
   - [x] Route PDR's transformed trace through the source context dump, including print switches, background assertions and ostream-failure operand continuation.
@@ -38,7 +38,7 @@ Run relevant cross-package checks at integration and the full native suite rough
   - [ ] Reconcile eager Go ingestion with source pending-closed versus flushed display phase: preserve original binder/annotation metadata before flushing, normalized clause identity/order after flushing, updates and scoped restoration.
     - [x] Preserve closed-input binder/weight metadata before flush, normalized expansions afterward, mixed pending additions, scope snapshots and update range shifts; ordinary Duality queries preserve raw inputs.
     - [x] Match normalized-only named updates before/after flush, preserve raw Duality inputs, replacement slot order and pending suffix order.
-    - [ ] Match destructive open-formula display swap/removal order.
+    - [x] Match destructive open-formula display swap/removal order, repeated display and post-normalization writer refusal; construction staging remains transactional in Go.
   - [ ] Reconcile the legacy SMTContext replay convenience surface with the source to_string contract; keep replay functionality available.
 
 - [ ] Close context/rule ownership, scope rollback, query transformation and engine lifecycle audits (`base/dl_context`, `dl_rule`, `dl_engine_base`).
@@ -730,3 +730,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Started the next parallel batch from clean checkpoint `1fe2acbef`: shared context open-formula normalization/order, background-dependent Spacer model validation with satisfiable assumptions, and remaining live slice-proof reconstruction shapes. Each lane owns its implementation/tests; integration continues to own the checklist, inventory and commits. Prior batch counts as progress with committed behavior changes and terminal green affected-package results. No new completion claim is made for these in-progress lanes.
 
 - 2026-11-02 — Extended slice-derived substitution evidence to eight combinations of dense/sparse mixed-sort banks, reversed binary resolution and swapped result-variable positions. Swapped cases use distinct ground values zero/two to detect conflation. Exact original conclusions, both asserted leaves and independently SMT-discharged input/output proof conditions pass (0.054s). No additional production change was required; the wider slice audit stays partial. A separate background-constant model experiment was rejected by both Go and the C++ reference; its unsupported guard was preserved and that lane moved to transformation composition. Commit: `Verify sliced proof banks across reversed resolution and sort permutations`.
+
+- 2026-11-02 — Implemented pending open-formula promotion before context display. Normalized origin ranges move into the finalized prefix in source swap-removal order; raw formulas/names are removed, including the source behavior that pops bounds without swapping them. Tests check exact display/archive order, bounds, repeated display, scoped restoration, writer refusal after committed normalization, and PDR SAT versus ordinary Duality UNSAT for the removed raw rule. Focused native fp/API checks passed (0.025s/0.064s). Go stages construction transactionally and preserves its existing scope snapshot restoration; partial source construction/trail failure behavior is not claimed identical. Commit: `Normalize pending open rules in source display order`.

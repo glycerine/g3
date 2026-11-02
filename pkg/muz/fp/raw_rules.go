@@ -18,7 +18,7 @@ type rawRuleFormula struct {
 	first, end int
 }
 
-// RawRules returns owning, universally bound input formulas in insertion order,
+// RawRules returns owning, universally bound input formulas in source archive order,
 // with their original names and recursion bounds. They precede normalization
 // into the rule set used by other fixedpoint backends.
 func (e *PropositionalEngine) RawRules() (forms []ast.ASTRef, names []string, bounds []uint32, resultErr error) {

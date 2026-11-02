@@ -70,6 +70,9 @@ func (e *PropositionalEngine) WriteContextSMT2(out io.Writer, queries []ast.ASTH
 	if err != nil {
 		return err
 	}
+	if err = e.normalizePendingOpenRules(); err != nil {
+		return err
+	}
 	count, err := e.set.Len()
 	if err != nil {
 		return err
@@ -82,15 +85,6 @@ func (e *PropositionalEngine) WriteContextSMT2(out io.Writer, queries []ast.ASTH
 		h, err := e.manager.RefGet(raw.formula)
 		if err != nil {
 			return err
-		}
-		free, err := e.manager.HasFreeVars(h)
-		if err != nil {
-			return err
-		}
-		// Source normalizes open formulas even during display. Closed inputs
-		// stay in the pending list, preserving binders and annotations.
-		if free {
-			continue
 		}
 		if raw.first < 0 || raw.end > count || raw.first > raw.end {
 			return ErrPropositionalEngine
