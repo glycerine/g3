@@ -85329,7 +85329,7 @@
           "status": "partial",
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "go_targets": ["pkg/muz/fp/propositional_engine_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
-          "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsInfinitePredicateSorts", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointRuleScopesMatchCPP"]
+          "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsUnsupportedInfinitePredicateSorts", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointRuleScopesMatchCPP"]
 
         },
         {
@@ -85454,7 +85454,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go", "pkg/muz/fp/propositional_engine_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
-      "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails", "TestSMT2FixedpointPropositionalQueriesMatchCPP"],
+      "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsUnsupportedInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails", "TestSMT2FixedpointPropositionalQueriesMatchCPP"],
       "conditionals": [
         {
           "line": 19,
@@ -85474,7 +85474,7 @@
           "status": "partial",
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "go_targets": ["pkg/muz/fp/propositional_engine_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
-          "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsInfinitePredicateSorts", "TestSMT2FixedpointPropositionalQueriesMatchCPP"]
+          "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsUnsupportedInfinitePredicateSorts", "TestSMT2FixedpointPropositionalQueriesMatchCPP"]
         }
       ],
       "ownership": [
@@ -86780,7 +86780,7 @@
         "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP",
         "TestPDRAndSpacerRejectNegativePredicates",
         "TestPDRAndSpacerRejectPartialDatatypeAccessors",
-        "TestDatalogRejectsInfinitePredicateSorts",
+        "TestDatalogRejectsUnsupportedInfinitePredicateSorts",
         "TestDatalogRejectsQuantifiedInterpretedTails",
         "TestRulePropertiesGeneratesMissingRuleProofs",
         "TestRulePropertiesProofAllocationFrontiers",
@@ -86829,7 +86829,7 @@
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "tests": [
-            "TestDatalogRejectsInfinitePredicateSorts"
+            "TestDatalogRejectsUnsupportedInfinitePredicateSorts"
           ]
         },
         {
@@ -86879,7 +86879,7 @@
         "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP",
         "TestPDRAndSpacerRejectNegativePredicates",
         "TestPDRAndSpacerRejectPartialDatatypeAccessors",
-        "TestDatalogRejectsInfinitePredicateSorts",
+        "TestDatalogRejectsUnsupportedInfinitePredicateSorts",
         "TestDatalogRejectsQuantifiedInterpretedTails"
       ],
       "conditionals": [
@@ -86903,7 +86903,7 @@
             "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP",
             "TestPDRAndSpacerRejectNegativePredicates",
             "TestPDRAndSpacerRejectPartialDatatypeAccessors",
-            "TestDatalogRejectsInfinitePredicateSorts",
+            "TestDatalogRejectsUnsupportedInfinitePredicateSorts",
             "TestDatalogRejectsQuantifiedInterpretedTails"
           ],
           "go_targets": [
@@ -89244,10 +89244,11 @@
           ]
         },
         {
-          "name": "pred_transformer, model_node, model_search and context stream renderers reached only by TRACE/IF_VERBOSE; live certificate display is ported separately",
-          "status": "reference_only",
-          "go_target": null,
-          "tests": []
+          "name": "pred_transformer, model_node, model_search and context stream renderers reached by TRACE/IF_VERBOSE, with solve-time lazy diagnostics and source ostream-failure policy (pdr_context.cpp:89-105,871-1128,1888-1918,2357-2364)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/pdr/predicate_display.go", "pkg/muz/pdr/search_display.go", "pkg/muz/pdr/context_display.go", "pkg/muz/pdr/context_solve_diagnostics.go", "pkg/muz/pdr/context_solve.go"],
+          "tests": ["TestPredicateTransformerWriteDisplay", "TestModelSearchAndContextWriteDisplayTreeAndGoals", "TestContextSolveVerboseSearchOperandIsLazy", "TestContextSolveIgnoresVerboseStreamRefusal"],
+          "reason": "Display methods borrow transformer/search state. Disabled IF_VERBOSE operands stay unevaluated, while source-style diagnostic writers swallow stream refusal without changing the solve result."
         },
         {
           "name": "model_search::get_trace appends child nodes and paired predicates in ascending rule-tail order before LIFO traversal",
@@ -89274,11 +89275,11 @@
           "reason": "SAT validation uses fresh source-style kernels for the trace formula and proof side conditions. UNSAT validation constructs the finite/invariant interpretation and checks every normalized rule without weakening by background assertions or adding a separate query-falsity obligation. The configured fixedpoint path exercises both outcomes, and a failed validation sets the direct context result to unknown."
         },
         {
-          "name": "source-live context/predicate/model-search display, print_boogie_certificate and IF_VERBOSE/TRACE/CASSERT invariant diagnostics (pdr_context.cpp:97-1128,1895-1918,2098,2139,2357-2416)",
-          "status": "partial",
-          "go_targets": ["pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/pdr_certificate.go", "pkg/muz/fp/pdr_certificate_source_test.go"],
-          "tests": [],
-          "reason": "Live answer and configured certificate APIs are implemented elsewhere, but full source diagnostic formatting, Boogie certificate presentation, checked invariant assertions and failure-atomic diagnostic ownership remain unaudited."
+          "name": "context::display_certificate source result presentations, finite-frame model export and optional print_boogie_certificate solve diagnostics (pdr_context.cpp:1895-1918,2392-2416; pdr_manager.cpp inductive_property::to_model)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/pdr/context_certificate.go", "pkg/muz/pdr/context_finite_model.go", "pkg/muz/pdr/model_export_cleanup.go", "pkg/muz/pdr/context_solve_diagnostics.go", "pkg/muz/pdr/context_solve.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/pdr_certificate.go"],
+          "tests": ["TestContextDisplayCertificateSourceResultPresentations", "TestContextSolveVerboseSearchOperandIsLazy", "TestContextSolveIgnoresVerboseStreamRefusal", "TestPDRBoogieCertificateParameterSelectsSourcePresentation", "TestPDRUnknownAnswerAndCertificateMatchSource"],
+          "reason": "Unknown, reachable-answer, unreachable finite-frame model and optional Boogie proof presentations are selected from the latest query result. Finite-frame export owns its model, temporary interpretations, abstractor and AST references through a retryable cleanup receipt; certificate answer/proof references and Boogie normalization are scoped to the call. Applying fixedpoint-owned Horn model converters to TRACE certificate output remains open, as do the separate AddCover, model-projection, proposition-solver and unit-subsumption cleanup audits."
         }
       ],
       "ownership": [
@@ -89292,7 +89293,7 @@
         "InitializeSystem remains available for independently testing the frame engine; InitializeRules provides the retained native rule-to-transition path. Typed results replace mutable model/core output pointers.",
         "CheckBounded is an explicit staging API requested to expose an end-to-end Horn path early. It composes the native tagged transitions soundly to a finite depth.",
         "Solve now drives the unbounded native frame/model-search loop, selects literal or model-cone minimization through pdr.use_model_generalizer, applies the native QE-lite constant-elimination overload, reduces repeated disequalities in literal mode, and partitions projected literals among predecessor states.",
-        "Successful relation-declaration queries reconstruct the native model-search trace after two-bank rule/head unification. With fixedpoint slicing and both inliners disabled, the query predicate and every reached predicate follow source-tail order; exact C++ vectors cover linear and nonlinear traces. Default transformed acyclic/nonlinear answers use the native true presentation, while recursive traces expose reached recursive states. Unsuccessful queries expose direct-predicate universally quantified frame definitions and filter simple-join auxiliary predicates. Reverse-ledger model/cover converters remap transformed predicates, and reachable proof answers use per-node reduced-rule hyper-resolution. Source-live diagnostic/certificate/CASSERT surfaces and several cleanup-refusal ownership paths remain open."
+        "Successful relation-declaration queries reconstruct the native model-search trace after two-bank rule/head unification. With fixedpoint slicing and both inliners disabled, the query predicate and every reached predicate follow source-tail order; exact C++ vectors cover linear and nonlinear traces. Default transformed acyclic/nonlinear answers use the native true presentation, while recursive traces expose reached recursive states. Unsuccessful queries expose direct-predicate universally quantified frame definitions and filter simple-join auxiliary predicates. Reverse-ledger model/cover converters remap transformed predicates, and reachable proof answers use per-node reduced-rule hyper-resolution. Solve diagnostics, context/search display, invariant checks and result certificates are source-backed; TRACE certificate application of fixedpoint-owned Horn model converters and the listed lower-level cleanup-refusal paths remain open."
       ]
     },
     {
@@ -89569,11 +89570,11 @@
           "tests": ["TestValidateSATFormulaAcceptsWitnessAndRejectsCorruption", "TestValidateProofHandleChecksSemanticSideConditions", "TestValidateInductiveModelRuleViolationsAndFiniteFrame", "TestValidationFailureInvalidatesDirectContextResult", "TestValidatedMissingQueryUsesUNSATFinalization", "TestPDRValidateResultParameterChecksSATAndUNSATQueries"]
         },
         {
-          "name": "source-live pred_transformer/context/model_search stream display, invariant checking and certificate presentation declarations",
-          "status": "partial",
-          "go_target": null,
-          "tests": [],
-          "reason": "TRACE and IF_VERBOSE consumers plus CASSERT invariant checks and print_boogie_certificate reach these declarations; fixedpoint answer/certificate APIs cover only part of the source surface."
+          "name": "context/model_search stream display, checked invariant and source result/Boogie certificate presentation declarations",
+          "status": "ported",
+          "go_targets": ["pkg/muz/pdr/predicate_display.go", "pkg/muz/pdr/search_display.go", "pkg/muz/pdr/context_display.go", "pkg/muz/pdr/context_invariant.go", "pkg/muz/pdr/context_certificate.go", "pkg/muz/pdr/context_finite_model.go", "pkg/muz/pdr/context_solve_diagnostics.go", "pkg/muz/pdr/context_solve.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/pdr_certificate.go"],
+          "tests": ["TestPredicateTransformerWriteDisplay", "TestModelSearchAndContextWriteDisplayTreeAndGoals", "TestContextCheckInvariantAcceptsValidAndRejectsInvalidFrame", "TestContextDisplayCertificateSourceResultPresentations", "TestContextSolveVerboseSearchOperandIsLazy", "TestContextSolveIgnoresVerboseStreamRefusal"],
+          "reason": "The concrete declarations are consumed by solve-time TRACE/IF_VERBOSE routing. Finite-frame model export has a retryable cleanup owner. Fixedpoint-owned Horn model converters are not yet applied to TRACE certificate output, and this method-level closure does not cover the header unit's independently listed cleanup-refusal gaps."
         }
       ],
       "ownership": [
@@ -92577,11 +92578,11 @@
           ]
         }
         ,{
-          "name": "staged bound-relation Datalog runtime owns declarations/seeds, evaluates facts and arbitrary positive Horn joins with repeated variables, numerals and head permutation, publishes failure-atomically and returns source-imprecise query status",
+          "name": "live bound-relation Datalog runtime owns declarations/seeds, evaluates facts and arbitrary positive Horn joins with interpreted/condition-only finite variables, repeated variables, numerals and complete head assembly, publishes failure-atomically and returns source-imprecise query status",
           "status": "partial",
-          "go_targets": ["pkg/muz/fp/bound_datalog_runtime.go", "pkg/muz/fp/bound_datalog_positive.go", "pkg/muz/fp/bound_datalog_runtime_test.go"],
-          "tests": ["TestBoundDatalogRuntimeFactsStatusAndOwnership", "TestBoundDatalogRuntimeCancellationClearsPublishedResult", "TestBoundDatalogRuntimeDirectFactEmptyAndPositiveRule", "TestBoundDatalogPositiveOrdersJoinsRepeatedNumeralsAndPermutation"],
-          "reason": "The typed runtime is source-backed and ownership-tested but is not selected by the public fixedpoint engine. Negation, interpreted guards, mixed signatures, recursive widening and generic compiler/plugin dispatch remain open."
+          "go_targets": ["pkg/muz/fp/bound_datalog_runtime.go", "pkg/muz/fp/bound_datalog_positive.go", "pkg/muz/fp/datalog_bound_dispatch.go", "pkg/muz/fp/datalog_arithmetic_table_fact.go", "pkg/muz/fp/arithmetic_table_fact_cleanup.go", "pkg/muz/fp/arithmetic_rule_replacement.go", "pkg/muz/fp/bound_datalog_runtime_test.go", "pkg/muz/fp/bound_datalog_head_assembly_test.go", "pkg/muz/fp/bound_datalog_lifecycle_test.go", "pkg/muz/fp/datalog_bound_dispatch_test.go", "pkg/muz/fp/arithmetic_table_fact_cleanup_test.go", "pkg/muz/fp/arithmetic_rule_replacement_test.go"],
+          "tests": ["TestBoundDatalogRuntimeFactsStatusAndOwnership", "TestBoundDatalogRuntimeCancellationClearsPublishedResult", "TestBoundDatalogRuntimeDirectFactEmptyAndPositiveRule", "TestBoundDatalogPositiveOrdersJoinsRepeatedNumeralsAndPermutation", "TestBoundDatalogConditionAndHeadOnlyColumnAssembly", "TestBoundDatalogLifecycleSynchronizesAndClonesSeeds", "TestBoundDatalogSyncStagingFailureKeepsRuntimeRetryable", "TestBoundDatalogActivationSelectionAndCompleteListValidation", "TestBoundDatalogConstructionCleanupReceiptRetriesNativeRefusal", "TestDatalogBoundDefaultAndExplicitLifecycle", "TestDatalogBoundFinitePrecedenceAndMixedGuard", "TestArithmeticTableFactInsertionAndCleanupRefusalKeepsRoots", "TestDatalogArithmeticNamedUpdateRebindsProgramAndKeepsSeeds"],
+          "reason": "The typed runtime covers source head constants, duplicates, permutations and unbound finite-domain columns, synchronizes cloned seeds failure-atomically and retains retry receipts for construction-guard refusal. Public Datalog selection now honors explicit bound_relation and the default pentagon precedence for all-arithmetic programs, synchronizes named rule replacement, and roots arithmetic table-fact numerals through refused cleanup. Negated predicate tails, mixed finite/arithmetic signatures, recursive widening and generic compiler/plugin dispatch remain open; no universal internal-cleanup claim is made."
         }
         ,{
           "name": "bound_relation_plugin capability and operation-factory dispatch through relation_manager",
@@ -93118,6 +93119,13 @@
           "reason": "Finite condition witnesses preserve sparse variable indices, mixed-sort head permutation and exact proof placement. Unbound infinite-domain and Rule-sort condition variables reject before publication rather than inventing an enumeration."
         },
         {
+          "name": "typed relation-level explanation registers lower transformed rules through whole-relation clone/filter/join/project/assignment/union instructions and aggregate proof history across finite tuples",
+          "status": "ported",
+          "go_targets": ["pkg/muz/rel/compiler_relation_explanation_rule.go", "pkg/muz/rel/compiler_relation_explanation_test.go", "pkg/muz/rel/instruction_relation_explanation.go", "pkg/muz/rel/instruction_relation_explanation_registers.go", "pkg/muz/rel/instruction.go"],
+          "tests": ["TestCompileRelationExplanationRulesAggregateWholeProofHistory"],
+          "reason": "This is the concrete product/sieve instantiation used by relation-level explanations. Public declaration-query option activation and generic abstract relation/product compiler dispatch remain open."
+        },
+        {
           "name": "whole-set explanation helper orders nonrecursive dependencies and schedules seeded, unseeded, mutual, self-recursive and nonlinear SCCs with semi-naive per-tail deltas while preserving first-proof publication",
           "status": "ported",
           "go_targets": ["pkg/muz/rel/compiler_explanation_program.go", "pkg/muz/rel/compiler_explanation_program_test.go", "pkg/muz/rel/compiler_explanation_recursive_test.go", "pkg/muz/rel/compiler_explanation_mixed_test.go", "pkg/muz/rel/compiler_explanation_rule.go", "pkg/muz/rel/instruction_explanation_finite_load.go", "pkg/muz/rel/instruction_saturation.go"],
@@ -93313,7 +93321,7 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
-        {"name": "external relation execution for ground facts and arbitrary positive-tail projection/rename/left-fold join chains with interpreted guards through deterministic precreation, STORE/CLONE/PROJECT/RENAME/JOIN/FILTER/UNION and delta-to-empty saturation", "status": "partial", "go_target": "pkg/muz/rel/external_relation_rules.go", "go_targets": ["pkg/muz/rel/external_relation_interpreted.go", "pkg/muz/rel/external_relation_interpreted_test.go", "pkg/muz/rel/external_relation_interpreted_cleanup_test.go", "pkg/muz/fp/datalog_external_rules.go"], "tests": ["TestExecuteExternalFactRulesGroundProjectionAndChain", "TestFilterExternalRuleInterpretedBindsJoinedColumns", "TestExternalInterpretedFilterCleanupRefusalKeepsRetryOwner", "TestFixedpointExternalGroundAndIdentityRuleExecution"], "reason": "The consumer validates before mutation, precreates predicate relations in first-seen head/tail order, applies constant and repeated-variable tail filters, supports nullary Cartesian joins, constant/repeated head assembly, arbitrary positive-tail left folds, joined-column interpreted substitutions and recursive convergence. Interpreted substitution/AST owners remain retryable across native cleanup refusal. Negated predicate tails remain open."},
+        {"name": "external relation execution for ground facts and arbitrary positive-tail projection/rename/left-fold join chains with ground or joined interpreted guards through deterministic precreation, STORE/CLONE/PROJECT/RENAME/JOIN/FILTER/UNION and delta-to-empty saturation", "status": "partial", "go_target": "pkg/muz/rel/external_relation_rules.go", "go_targets": ["pkg/muz/rel/external_relation_construction.go", "pkg/muz/rel/external_relation_rule_seed.go", "pkg/muz/rel/external_relation_interpreted.go", "pkg/muz/rel/external_relation_interpreted_test.go", "pkg/muz/rel/external_relation_interpreted_ground_test.go", "pkg/muz/rel/external_relation_interpreted_cleanup_test.go", "pkg/muz/rel/external_relation_construction_pending_test.go", "pkg/muz/fp/datalog_external_rules.go"], "tests": ["TestExecuteExternalFactRulesGroundProjectionAndChain", "TestExecuteExternalGroundInterpretedRules", "TestFilterExternalRuleInterpretedBindsJoinedColumns", "TestExternalInterpretedFilterCleanupRefusalKeepsRetryOwner", "TestExternalRelationConstructionCleanupPreservesNestedTempsAndResult", "TestExternalRelationConstructorCallsitesSuppressFailedOutputs", "TestFixedpointExternalGroundAndIdentityRuleExecution"], "reason": "The consumer validates before mutation, precreates predicate relations in first-seen head/tail order, applies constant and repeated-variable tail filters, supports nullary Cartesian joins, constant/repeated head assembly, arbitrary positive-tail left folds, ground and joined-column interpreted substitutions and recursive convergence. Constructor seeds, nested temporaries and interpreted substitution/AST owners remain retryable across native construction-guard refusal; no universal internal cleanup claim is made. Negated predicate tails remain open."},
         {"name": "external_relation::display and display_tuples print the relation expression followed by a newline", "status": "ported", "go_target": "pkg/muz/rel/external_relation_display.go", "go_targets": ["pkg/ast/ast_printer.go", "pkg/muz/rel/external_relation_display_test.go"], "tests": ["TestExternalRelationDisplayMatchesTupleDisplayAndPropagatesWriterErrors"]},
         {
           "name": "external callback relation initialization, store, emptiness, cloning and complement",
@@ -95140,7 +95148,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "fact-level explanation transfer publishes the registered finite/explanation product into relation-manager ownership", "status": "ported", "go_targets": ["pkg/muz/rel/explanation_transform_facts.go", "pkg/muz/rel/relation_manager_explanation.go", "pkg/muz/rel/instruction_explanation_io.go"], "tests": ["TestExplanationTransformerTransfersFiniteFacts", "TestExplanationRelationInstructionsLoadCloneStoreAndReset"], "reason": "The transformer exposes borrowed products; manager reset owns final retirement."}, {"name": "relation-level explanation product clone, distinct-row union/delta, join/project, finite interpreted guards, proof assignment and typed manager storage", "status": "ported", "go_targets": ["pkg/muz/rel/relation_explanation_product.go", "pkg/muz/rel/relation_explanation_product_interpreted.go", "pkg/muz/rel/relation_explanation_product_join.go", "pkg/muz/rel/relation_explanation_product_project.go", "pkg/muz/rel/relation_explanation_product_operations_test.go", "pkg/muz/rel/relation_explanation_product_union_test.go", "pkg/muz/rel/relation_manager_relation_explanation.go"], "tests": ["TestRelationExplanationProductCloneAndDistinctRowUnionDelta", "TestRelationExplanationProductEmptyCloneAndUnion", "TestRelationExplanationProductEmptyFiniteSourceStillAggregatesProof", "TestRelationExplanationProductJoinProjectOwnsIndependentMultiProof", "TestRelationExplanationProductInterpretedFiniteGuardAndProofAssignment", "TestRelationExplanationProductMixedInterpretedConditionIsSieveIdentity", "TestRelationManagerRelationExplanationStoreExchangeOwnership"]}, {"name": "explanation assignment over sparse rule variables through interpreted bytecode (dl_mk_explanations.cpp:481-508)", "status": "ported", "go_targets": ["pkg/muz/rel/instruction_explanation_interpreted.go", "pkg/muz/rel/instruction_explanation_interpreted_test.go"], "tests": ["TestExplanationAssignmentBytecodeMapsSparseVariablesAndPublishesHead"], "reason": "Grounds exact rule ASTs after logical-column remapping and preserves input/result ownership; compiler construction of undefined head slots remains open."}, {"name": "live expression-query explanation transformation and compiled execution publish named proofs for ground, open, recursive, Sparse, magic-set, finite-negative and finite condition-witness programs", "status": "partial", "go_targets": ["pkg/muz/fp/datalog_explanations.go", "pkg/muz/fp/datalog_explanations_cleanup.go", "pkg/muz/fp/datalog_explanations_test.go", "pkg/muz/fp/datalog_explanations_negative_test.go", "pkg/muz/rel/compiler_explanation_mixed_test.go", "pkg/muz/rel/compiler_explanation_negative.go", "pkg/muz/rel/compiler_explanation_negative_test.go", "pkg/muz/rel/compiler_explanation_conditions.go", "pkg/muz/rel/compiler_explanation_conditions_test.go", "pkg/muz/rel/instruction_explanation_finite_load.go", "pkg/muz/rel/instruction_explanation_negation.go"], "tests": ["TestDatalogExpressionExplanationsCarryNamedProofAndSurviveScope", "TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds", "TestDatalogExpressionExplanationOpenQueryKeepsFiniteAndProofColumns", "TestDatalogExpressionExplanationNegativeEDBAndMagic", "TestCompileExplanationProgramJoinsFiniteRecursiveMagicPredicate", "TestCompileExplanationFiniteNegationAgainstTupleOracle", "TestCompileExplanationDerivedNegativeRequiresFiniteBridge", "TestCompileExplanationConditionWitnessesAgainstTupleOracle", "TestCompileExplanationRejectsUnsupportedConditionDomainsBeforePublication", "TestCompileExplanationConditionSparseIndicesAndMixedHeadPermutation"], "reason": "The actual fixedpoint expression-query path is active and owns its transformed rules, relation products and exported answer through query-scope cleanup. Finite EDB negation and bridged derived negatives compile as tuple anti-joins; missing derived-negative finite bridges reject before magic pruning. Condition-only finite variables materialize exact domain witnesses; unsupported infinite-domain witnesses reject. Relation-level storage and operations are typed, while declaration-query activation and checked explanation backends remain open."}],
+      "methods": [{"name": "fact-level explanation transfer publishes the registered finite/explanation product into relation-manager ownership", "status": "ported", "go_targets": ["pkg/muz/rel/explanation_transform_facts.go", "pkg/muz/rel/relation_manager_explanation.go", "pkg/muz/rel/instruction_explanation_io.go"], "tests": ["TestExplanationTransformerTransfersFiniteFacts", "TestExplanationRelationInstructionsLoadCloneStoreAndReset"], "reason": "The transformer exposes borrowed products; manager reset owns final retirement."}, {"name": "relation-level explanation product clone, distinct-row union/delta, join/project, finite interpreted guards, proof assignment and typed manager storage", "status": "ported", "go_targets": ["pkg/muz/rel/relation_explanation_product.go", "pkg/muz/rel/relation_explanation_product_interpreted.go", "pkg/muz/rel/relation_explanation_product_join.go", "pkg/muz/rel/relation_explanation_product_project.go", "pkg/muz/rel/relation_explanation_product_operations_test.go", "pkg/muz/rel/relation_explanation_product_union_test.go", "pkg/muz/rel/relation_manager_relation_explanation.go"], "tests": ["TestRelationExplanationProductCloneAndDistinctRowUnionDelta", "TestRelationExplanationProductEmptyCloneAndUnion", "TestRelationExplanationProductEmptyFiniteSourceStillAggregatesProof", "TestRelationExplanationProductJoinProjectOwnsIndependentMultiProof", "TestRelationExplanationProductInterpretedFiniteGuardAndProofAssignment", "TestRelationExplanationProductMixedInterpretedConditionIsSieveIdentity", "TestRelationManagerRelationExplanationStoreExchangeOwnership"]}, {"name": "relation-level finite/proof column projection preserves the selected head proof, zero-proof join identity and failure-atomic source ownership", "status": "ported", "go_targets": ["pkg/muz/rel/relation_explanation_product_project.go", "pkg/muz/rel/relation_explanation_product_project_columns_test.go"], "tests": ["TestRelationExplanationProductProjectColumnsKeepsHeadProof", "TestRelationExplanationProductProjectColumnsZeroProofJoinIdentity", "TestRelationExplanationProductProjectColumnsFailureLeavesSource"]}, {"name": "explanation assignment over sparse rule variables through interpreted bytecode (dl_mk_explanations.cpp:481-508)", "status": "ported", "go_targets": ["pkg/muz/rel/instruction_explanation_interpreted.go", "pkg/muz/rel/instruction_explanation_interpreted_test.go"], "tests": ["TestExplanationAssignmentBytecodeMapsSparseVariablesAndPublishesHead"], "reason": "Grounds exact rule ASTs after logical-column remapping and preserves input/result ownership; compiler construction of undefined head slots remains open."}, {"name": "live expression-query explanation transformation and compiled execution publish named proofs for ground, open, recursive, Sparse, magic-set, finite-negative and finite condition-witness programs", "status": "partial", "go_targets": ["pkg/muz/fp/datalog_explanations.go", "pkg/muz/fp/datalog_explanations_cleanup.go", "pkg/muz/fp/datalog_explanations_test.go", "pkg/muz/fp/datalog_explanations_negative_test.go", "pkg/muz/rel/compiler_explanation_mixed_test.go", "pkg/muz/rel/compiler_explanation_negative.go", "pkg/muz/rel/compiler_explanation_negative_test.go", "pkg/muz/rel/compiler_explanation_conditions.go", "pkg/muz/rel/compiler_explanation_conditions_test.go", "pkg/muz/rel/instruction_explanation_finite_load.go", "pkg/muz/rel/instruction_explanation_negation.go"], "tests": ["TestDatalogExpressionExplanationsCarryNamedProofAndSurviveScope", "TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds", "TestDatalogExpressionExplanationOpenQueryKeepsFiniteAndProofColumns", "TestDatalogExpressionExplanationNegativeEDBAndMagic", "TestCompileExplanationProgramJoinsFiniteRecursiveMagicPredicate", "TestCompileExplanationFiniteNegationAgainstTupleOracle", "TestCompileExplanationDerivedNegativeRequiresFiniteBridge", "TestCompileExplanationConditionWitnessesAgainstTupleOracle", "TestCompileExplanationRejectsUnsupportedConditionDomainsBeforePublication", "TestCompileExplanationConditionSparseIndicesAndMixedHeadPermutation"], "reason": "The actual fixedpoint expression-query path is active and owns its transformed rules, relation products and exported answer through query-scope cleanup. Finite EDB negation and bridged derived negatives compile as tuple anti-joins; missing derived-negative finite bridges reject before magic pruning. Condition-only finite variables materialize exact domain witnesses; unsupported infinite-domain witnesses reject. Relation-level storage and operations are typed, while declaration-query activation and checked explanation backends remain open."}],
       "ownership": ["Fact-level and relation-level products transfer to RelationManager under explained declarations; transformer disposal drops borrowed views without retiring manager-owned relations. Relation-level products own copied finite tables and explanation relations, and join/project/union results own independent components."],
       "deviations": ["The concrete explanation relation/product operations, rule transformation, fact transfer, manager publication, typed load/store, finite-negative anti-join and finite condition-witness paths are active for expression queries. Relation-level query APIs, checked explanation backends and remaining product-operation dispatch stay partial."]
     },
@@ -95858,15 +95866,21 @@
           ]
         },
         {
-          "name": "concrete sparse-table and interval-sieve product selected by ordered sparse+interval representations, with independent components and component-directed equality joins",
+          "name": "concrete sparse-table and interval-sieve product selected by ordered sparse+interval representations, with independent components, formula export, lifecycle, filters, projection/rename, union/widening and component-directed joins",
           "status": "partial",
-          "go_targets": ["pkg/muz/rel/sparse_interval_sieve_product.go", "pkg/muz/rel/sparse_interval_sieve_product_join.go", "pkg/muz/rel/sparse_interval_sieve_product_test.go"],
-          "tests": ["TestSparseIntervalSieveProductSelectionAndIndependentComponents", "TestSparseIntervalSieveProductJoinDispatchesComponentEqualities"],
-          "reason": "The concrete live representation pair splits finite columns into SparseTable and arithmetic columns into IntervalSieve, owns independent components, and sends each equality to the components that represent both columns. Generic product specs, other component combinations, unaligned union and main compiler abstract dispatch remain open."
+          "go_targets": ["pkg/muz/rel/sparse_interval_sieve_product.go", "pkg/muz/rel/sparse_interval_sieve_product_join.go", "pkg/muz/rel/sparse_interval_sieve_product_formula.go", "pkg/muz/rel/sparse_interval_sieve_product_lifecycle.go", "pkg/muz/rel/sparse_interval_sieve_product_operations.go", "pkg/muz/rel/sparse_interval_sieve_product_transform.go", "pkg/muz/rel/sparse_interval_sieve_product_test.go", "pkg/muz/rel/sparse_interval_sieve_product_formula_indices_test.go", "pkg/muz/rel/sparse_interval_sieve_product_lifecycle_test.go", "pkg/muz/rel/sparse_interval_sieve_product_operations_test.go", "pkg/muz/rel/sparse_interval_sieve_product_transform_test.go"],
+          "tests": ["TestSparseIntervalSieveProductSelectionAndIndependentComponents", "TestSparseIntervalSieveProductJoinDispatchesComponentEqualities", "TestSparseIntervalSieveProductFormulaUsesExactOuterColumnIndices", "TestSparseIntervalSieveProductFormulaCloneToAndReset", "TestSparseIntervalSieveProductCloneToRejectsForeignASTManager", "TestSparseIntervalSieveProductFiltersDispatchByComponent", "TestSparseIntervalSieveProductUnionAndWidenReportChanges", "TestSparseIntervalSieveProductProjectionSupportsPureAndNullaryResults", "TestSparseIntervalSieveProductRenameCrossesComponentPositions"],
+          "reason": "The concrete live representation pair splits finite columns into SparseTable and arithmetic columns into IntervalSieve, owns independent components, preserves exact outer formula indices and dispatches each operation only to representing components. Generic product specs, other component combinations, relation-level compiler activation and main generic compiler abstract dispatch remain open."
+        },
+        {
+          "name": "finite/whole-explanation product constructors implement full/undefined and zero-proof identities, sparse-row copying, finite rename with independent proof ownership, emptiness and failure-atomic construction",
+          "status": "ported",
+          "go_targets": ["pkg/muz/rel/relation_explanation_product_construction.go", "pkg/muz/rel/relation_explanation_product_construction_test.go"],
+          "tests": ["TestNewRelationExplanationTotalUndefinedAndZeroProofIdentity", "TestRelationExplanationFromSparseCopiesRowsAndZeroProofIdentity", "TestRelationExplanationRenameFiniteOwnsProofClone", "TestRelationExplanationEmptyUsesEitherComponent"]
         }
       ],
       "ownership": [
-        "The concrete product owns its interval and bound relations and transfers returned formula references to the caller."
+        "Concrete products own their component relations and transfer returned formula references to the caller. Sparse/interval clones own independent components; reset and rejected cross-manager clone leave the source valid."
       ],
       "deviations": [
         "The sparse+interval representation pair is concrete and ownership-tested. General product specifications, other component combinations, cross-component side intersections where both directions are available, unaligned union, generic relation-manager registration and main compiler abstract dispatch remain open."
@@ -97657,6 +97671,20 @@
           "go_targets": ["pkg/muz/fp/datalog_interval_facts.go", "pkg/muz/fp/datalog_interval_facts_test.go", "pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_positive_test.go", "pkg/muz/fp/datalog_interval_store.go", "pkg/muz/fp/datalog_interval_store_test.go", "pkg/muz/fp/datalog_interval_query.go", "pkg/muz/fp/datalog_interval_activation.go", "pkg/muz/fp/datalog_interval_activation_test.go", "pkg/muz/fp/datalog_interval_dispatch.go", "pkg/muz/fp/datalog_interval_dispatch_test.go", "pkg/muz/fp/predicate_metadata.go", "pkg/muz/rel/interval_relation_fact_ast.go"],
           "tests": ["TestIntervalDatalogEvaluatorFactRulesAndOwnership", "TestIntervalDatalogEvaluatorRejectsUnsupportedRulesAndSeeds", "TestIntervalDatalogPositiveUnaryRepeatedBoundsAndFixpoint", "TestIntervalDatalogPositiveUnaryConstantAndHeadPermutation", "TestIntervalDatalogPositiveSharedTailJoin", "TestIntervalDatalogWideningOnlyAppliesToRecursivePredicates", "TestIntervalDatalogStoreSnapshotsQueriesAndOwnership", "TestIntervalDatalogStoreRejectsNonArithmeticSignature", "TestIntervalDatalogEvaluatorRejectsNonBooleanRange", "TestIntervalDatalogActivationLifecycleAndZeroArityQuery", "TestIntervalDatalogActivationDeclinesMixedSignaturesAndRejectsUnsupportedRules", "TestDatalogConfiguredIntervalFactsLatePredicatesAndExpressionOwners", "TestDatalogConfiguredIntervalNullaryAndUnsupportedFragment", "TestDatalogConfiguredIntervalEmptyProgramQuery"],
           "reason": "Explicit interval_relation/default_relation metadata now selects this runtime for live predicate and expression queries, with late predicate registration and clone ownership. External SCC seeds and fact rules initialize through ordinary union before recursive internal rules can widen, preserving precise seed bounds. A nonempty interval relation is only an over-approximate witness, so Query returns Undef rather than sat; all requested empty relations return false. Negation, unsafe heads, expression arguments inside rules and mixed finite/arithmetic signatures reject or decline without partial publication. Generic dl_compiler abstract relation/product dispatch remains separately open."
+        },
+        {
+          "name": "rel_context public bound-relation selection, arithmetic table-fact insertion and named-program replacement lifecycle",
+          "status": "partial",
+          "go_targets": ["pkg/muz/fp/datalog_bound_dispatch.go", "pkg/muz/fp/datalog_arithmetic_table_fact.go", "pkg/muz/fp/arithmetic_table_fact_cleanup.go", "pkg/muz/fp/arithmetic_rule_replacement.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/register_engine.go", "pkg/muz/fp/query_expression.go"],
+          "tests": ["TestDatalogBoundDefaultAndExplicitLifecycle", "TestDatalogBoundFinitePrecedenceAndMixedGuard", "TestArithmeticTableFactInsertionAndCleanupRefusalKeepsRoots", "TestDatalogArithmeticNamedUpdateRebindsProgramAndKeepsSeeds"],
+          "reason": "Explicit bound_relation and default pentagon dispatch reach the typed runtime for predicate/list/expression queries while concrete finite tables retain source precedence. Arithmetic table facts construct sort-correct Datalog numerals and keep failed root destruction retryable; named rule replacement discards stale results but preserves independently owned seeds. Mixed finite/arithmetic programs are rejected rather than approximated, and generic hybrid/product compiler dispatch remains open."
+        },
+        {
+          "name": "staged sparse+interval product evaluator owns mixed seeds and evaluates positive Horn SCCs with component-directed guards, joins, head assembly and recursive widening",
+          "status": "partial",
+          "go_targets": ["pkg/muz/fp/datalog_sparse_interval_activation.go", "pkg/muz/fp/datalog_sparse_interval_evaluator.go", "pkg/muz/fp/datalog_sparse_interval_positive.go", "pkg/muz/fp/datalog_sparse_interval_store.go", "pkg/muz/fp/datalog_sparse_interval_positive_test.go", "pkg/muz/fp/datalog_sparse_interval_store_test.go"],
+          "tests": ["TestSparseIntervalDatalogStoreMixedSeedsResetAndOwnership", "TestSparseIntervalDatalogStoreRejectsSingleComponentSignatures", "TestSparseIntervalDatalogDependencyFirstRecursiveFixpoint", "TestSparseIntervalDatalogActivationCloneOwnsIndependentSeeds", "TestSparseIntervalDatalogMixedGuardsUseSingleProductFilter"],
+          "reason": "The typed evaluator follows dependency-first SCC scheduling, owns independent clone seeds and deliberately preserves the product's component overapproximation. Public fixedpoint representation dispatch is not committed yet, and generic dl_compiler abstract/product dispatch remains open."
         },
         {
           "name": "rel_context selects datalog.default_table for implicit predicate and compiler-temporary relations while explicit per-predicate representations take precedence; datalog.default_table_checked runs the selected concrete primary/checker pair",
