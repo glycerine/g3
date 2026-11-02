@@ -1,9 +1,11 @@
 package duality
 
 import (
+	"bytes"
 	"errors"
 	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"strings"
 	"testing"
 )
 
@@ -289,7 +291,12 @@ func TestDualitySlowSearchRestartPolicyAndFailureThresholds(t *testing.T) {
 	controller := &DerivationSearch{Search: search, restartInterval: 3}
 	must(parent.Annotation.SetEmpty())
 	must(child.Annotation.SetEmpty())
+	var report bytes.Buffer
+	mapped.streamReporter = &StreamReporter{Format: ConjectureReporter{Output: &report}}
 	failure := controller.learningFailure(ErrCaseInterpolationReallyBad)
+	if !strings.Contains(report.String(), "incompleteness: cleared annotation and child annotations") {
+		t.Fatal("missing incompleteness reset diagnostic", report.String())
+	}
 	if !errors.Is(failure, ErrDerivationRestart) || !errors.Is(failure, ErrCaseInterpolationReallyBad) {
 		t.Fatal("ReallyBad did not request restart")
 	}

@@ -44,6 +44,13 @@ func (s *DerivationSearch) resetMappedFacts(children bool) error {
 				}
 			}
 		}
+		message := "incompleteness: cleared annotation"
+		if children {
+			message = "incompleteness: cleared annotation and child annotations"
+		}
+		if err := d.original.streamReporter.Message(message); err != nil {
+			return err
+		}
 	}
 	return nil
 }
