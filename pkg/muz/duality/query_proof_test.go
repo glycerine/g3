@@ -171,6 +171,15 @@ func TestDualityProofQuantifiedNonlinearAndRepeatedPremises(t *testing.T) {
 	}
 	derivation.Reset()
 	must(backend.WriteDerivation(&derivation, owner.WriteExpression))
+	var certificate bytes.Buffer
+	must(backend.WriteCertificate(&certificate, owner.WriteExpression))
+	if !strings.Contains(certificate.String(), "(model \n\"") {
+		t.Fatal("missing counterexample model", certificate.String())
+	}
+	if err := backend.WriteCertificate(io.Discard, func(io.Writer, ast.ASTHandle) error { return io.ErrClosedPipe }); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatal("certificate writer error", err)
+	}
+
 	if !strings.Contains(derivation.String(), "(= proof-x true)") {
 		t.Fatal("projected predecessor witness", derivation.String())
 	}

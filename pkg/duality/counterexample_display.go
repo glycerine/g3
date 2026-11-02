@@ -14,6 +14,10 @@ import (
 // Quantified substitutions use reconstructed original-rule witnesses so values
 // eliminated by preprocessing are not printed as arbitrary model defaults.
 func (c *Counterexample) WriteDerivation(out io.Writer, writeExpr func(io.Writer, ast.ASTHandle) error, factory solver.Factory) (result error) {
+	return c.writeDerivation(out, writeExpr, factory, nil)
+}
+
+func (c *Counterexample) writeDerivation(out io.Writer, writeExpr func(io.Writer, ast.ASTHandle) error, factory solver.Factory, locals map[ast.ASTHandle]bool) (result error) {
 	if err := c.open(); err != nil {
 		return err
 	}
@@ -164,6 +168,26 @@ func (c *Counterexample) WriteDerivation(out io.Writer, writeExpr func(io.Writer
 						_, err := io.WriteString(out, ")\n")
 						return err
 					}()
+					if err == nil && locals != nil {
+						localTerm, e := NewExpr(g.context, constant)
+						if e == nil {
+							localized, e := g.Localize(edge, localTerm)
+							if e == nil {
+								var raw ast.ASTHandle
+								raw, e = localized.Raw()
+								if e == nil {
+									var decl ast.ASTHandle
+									decl, e = m.GetDecl(raw)
+									if e == nil {
+										locals[decl] = true
+									}
+								}
+								e = errors.Join(e, localized.Close())
+							}
+							e = errors.Join(e, localTerm.Close())
+						}
+						err = e
+					}
 					err = errors.Join(err, m.DelRef(&ref))
 					if err != nil {
 						return err

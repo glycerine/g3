@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/fp"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -128,8 +129,10 @@ func TestDualityFixedpointSafetyCertificate(t *testing.T) {
 		t.Fatal(status)
 	}
 	output.Reset()
-	if found, err := e.WriteCertificate(&output, pd, nil); found || !errors.Is(err, fp.ErrPropositionalEngine) || output.Len() != 0 {
-		t.Fatal("unimplemented derivation certificate", found, err, output.String())
+	found, err = e.WriteCertificate(&output, pd, func(w io.Writer, h ast.ASTHandle) error { _, err := io.WriteString(w, "fact"); return err })
+	fpMust(t, err)
+	if !found || !strings.HasPrefix(output.String(), "(derivation\n") || !strings.Contains(output.String(), "(model \n\"") {
+		t.Fatal("reachable certificate", found, output.String())
 	}
 }
 

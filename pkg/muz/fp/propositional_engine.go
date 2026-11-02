@@ -2127,6 +2127,9 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 		if err := e.requireResultSnapshot(EngineDuality); err != nil {
 			return false, err
 		}
+		if e.lastResult == lbool.True {
+			return true, e.duality.WriteCertificate(out, writeExpression)
+		}
 		if e.lastResult != lbool.False {
 			return false, ErrPropositionalEngine
 		}
