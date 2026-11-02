@@ -240,16 +240,38 @@ func TestContextBoundedQueryTraversesTaggedHornChain(t *testing.T) {
 	stats := statistics.New()
 	pdrMust(t, context.CollectStatistics(stats))
 	foundNodes, foundDepth := false, false
+	var nodeCount, depthCount uint32
 	for index := 0; index < stats.Size(); index++ {
 		switch stats.Key(index) {
 		case "PDR num unfoldings":
 			foundNodes = stats.IsUint(index) && stats.UintValue(index) >= 2
+			nodeCount = stats.UintValue(index)
 		case "PDR max depth":
 			foundDepth = stats.IsUint(index) && stats.UintValue(index) >= 2
+			depthCount = stats.UintValue(index)
 		}
 	}
 	if !foundNodes || !foundDepth {
 		t.Fatal("PDR search statistics", foundNodes, foundDepth)
+	}
+	pdrMust(t, context.UpdateRules(set))
+	updated := statistics.New()
+	pdrMust(t, context.CollectStatistics(updated))
+	for _, counter := range []struct {
+		key  statistics.Key
+		want uint32
+	}{
+		{"PDR num unfoldings", nodeCount}, {"PDR max depth", depthCount},
+	} {
+		var got uint32
+		for index := 0; index < updated.Size(); index++ {
+			if updated.IsUint(index) && updated.Key(index) == counter.key {
+				got += updated.UintValue(index)
+			}
+		}
+		if got != counter.want {
+			t.Fatal("rule update cleared source cumulative search statistics", counter.key, got, counter.want)
+		}
 	}
 	pdrMust(t, context.ResetStatistics())
 	stats.Reset()
@@ -310,6 +332,25 @@ func TestContextSolveFindsInductiveUnreachablePredicate(t *testing.T) {
 		t.Fatal("single-query-relation certificate is not the empty conjunction")
 	}
 	pdrMust(t, manager.DelRef(&certificate))
+	inductiveLevel := func() uint32 {
+		t.Helper()
+		stats := statistics.New()
+		pdrMust(t, context.CollectStatistics(stats))
+		for index := 0; index < stats.Size(); index++ {
+			if stats.IsUint(index) && stats.Key(index) == "PDR inductive level" {
+				return stats.UintValue(index)
+			}
+		}
+		return 0
+	}
+	level := inductiveLevel()
+	if level == 0 {
+		t.Fatal("fixture did not establish an inductive frame")
+	}
+	pdrMust(t, context.ResetStatistics())
+	if got := inductiveLevel(); got != level {
+		t.Fatal("statistics reset changed the inductive result frame", got, level)
+	}
 	before := manager.ResourceLimit().Count()
 	manager.ResourceLimit().Cancel()
 	status, err = context.Solve(predicate)

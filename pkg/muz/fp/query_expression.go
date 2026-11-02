@@ -8,8 +8,8 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/pdr"
 	"github.com/glycerine/g3/pkg/util/lbool"
-	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
 // QueryExpression evaluates an arbitrary Boolean Horn query without adding
@@ -162,17 +162,17 @@ func (e *PropositionalEngine) clearQueryResources() error {
 	if e.queryClone == nil {
 		return nil
 	}
-	var archived statistics.Statistics
+	var archived pdr.StatisticsSnapshot
 	var result error
 	archivePDR := e.queryClone.backend == "pdr" || e.queryClone.backend == "qpdr"
 	if archivePDR {
-		result = e.queryClone.CollectStatistics(&archived)
+		archived, result = e.queryClone.snapshotPDRStatistics()
 	}
 	if err := e.queryClone.Close(); err != nil {
 		return errors.Join(result, err)
 	}
 	if archivePDR && result == nil {
-		e.pdrStatistics.Copy(archived)
+		e.pdrStatistics.Merge(archived)
 	}
 	e.queryClone = nil
 	e.queryClonePredicate = ast.ASTHandle{}

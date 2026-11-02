@@ -88530,6 +88530,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/muz/pdr/context_statistics_snapshot.go",
         "pkg/muz/pdr/context_reset.go",
         "pkg/muz/pdr/context_reset_test.go",
         "pkg/muz/pdr/context_reset_pool_test.go",
@@ -88771,6 +88772,12 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {
+          "name": "context statistics ownership across program/query reset: cumulative solver checks/unfoldings, maximum depth, live-only transformer gauges and preserved inductive result frame during statistics reset",
+          "status": "ported",
+          "go_target": "pkg/muz/pdr/context_statistics_snapshot.go",
+          "tests": ["TestPDRExpressionStatisticsSurviveCloneDisposal", "TestContextSolveFindsInductiveUnreachablePredicate", "TestContextResetReleasesSolverPoolsAndPreservesStatistics"]
+        },
         {
           "name": "context::reset disposes search/transformers, clears program/results and allows arithmetic/proof-mode reselection while preserving manager/configuration and caller-owned answers",
           "status": "ported",

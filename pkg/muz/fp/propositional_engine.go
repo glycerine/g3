@@ -101,7 +101,7 @@ type PropositionalEngine struct {
 	pdrConversions      []hornModelConversion
 	pdrProof            ast.ASTRef
 	pdrSliceProof       bool
-	pdrStatistics       statistics.Statistics
+	pdrStatistics       muzpdr.StatisticsSnapshot
 	bmcStatistics       statistics.Statistics
 	bmcTrace            []*base.Rule
 	bmcProof            ast.ASTRef
@@ -1581,16 +1581,7 @@ func (e *PropositionalEngine) CollectStatistics(destination *statistics.Statisti
 		return ErrPropositionalEngine
 	}
 	if e.backend == "pdr" || e.backend == "qpdr" {
-		destination.Copy(e.pdrStatistics)
-		if e.pdr != nil {
-			if err := e.pdr.CollectStatistics(destination); err != nil {
-				return err
-			}
-		}
-		if e.queryClone != nil && (e.queryClone.backend == "pdr" || e.queryClone.backend == "qpdr") {
-			return e.queryClone.CollectStatistics(destination)
-		}
-		return nil
+		return e.collectPDRStatistics(destination, muzpdr.StatisticsSnapshot{})
 	}
 	if e.backend == "spacer" && e.spacer != nil {
 		return e.spacer.CollectStatistics(destination)

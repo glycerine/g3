@@ -81,7 +81,7 @@ func (c *Context) UpdateRules(set *base.RuleSet) (resultErr error) {
 	c.query = nil
 	c.queryDecl = ast.ASTHandle{}
 	c.lastResult = lbool.Undef
-	c.expanded, c.inductive, c.nodes, c.maxDepth = 0, 0, 0, 0
+	c.expanded, c.inductive = 0, 0
 	c.farkasActive = c.useFarkas && plan.nonBoolean
 	committed = true
 	return nil

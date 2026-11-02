@@ -750,12 +750,19 @@ func (c *Context) InitialStatus(query ast.ASTHandle) (lbool.LBool, error) {
 }
 
 func (c *Context) CollectStatistics(destination *statistics.Statistics) error {
+	return c.CollectStatisticsWithSnapshot(destination, StatisticsSnapshot{})
+}
+
+// CollectStatisticsWithSnapshot combines prior query counters with this live
+// program, preserving maximum depth and current transformer gauges.
+func (c *Context) CollectStatisticsWithSnapshot(destination *statistics.Statistics, previous StatisticsSnapshot) error {
 	if err := c.open(); err != nil {
 		return err
 	}
 	if destination == nil {
 		return ErrContextOwner
 	}
+	destination.Copy(previous.Solvers)
 	for _, declaration := range c.order {
 		if err := c.transformers[declaration].CollectStatistics(destination); err != nil {
 			return err
@@ -764,8 +771,12 @@ func (c *Context) CollectStatistics(destination *statistics.Statistics) error {
 	if err := c.owner.CollectStatistics(destination); err != nil {
 		return err
 	}
-	destination.UpdateUint("PDR num unfoldings", c.nodes)
-	destination.UpdateUint("PDR max depth", c.maxDepth)
+	destination.UpdateUint("PDR num unfoldings", c.nodes+previous.Unfoldings)
+	depth := c.maxDepth
+	if previous.MaxDepth > depth {
+		depth = previous.MaxDepth
+	}
+	destination.UpdateUint("PDR max depth", depth)
 	destination.UpdateUint("PDR inductive level", c.inductive)
 	return nil
 }
@@ -782,7 +793,7 @@ func (c *Context) ResetStatistics() error {
 	if err := c.owner.ResetStatistics(); err != nil {
 		return err
 	}
-	c.nodes, c.maxDepth, c.inductive = 0, 0, 0
+	c.nodes, c.maxDepth = 0, 0
 	return nil
 }
 

@@ -14,12 +14,52 @@ import (
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
+func (e *PropositionalEngine) snapshotPDRStatistics() (pdr.StatisticsSnapshot, error) {
+	var result pdr.StatisticsSnapshot
+	result.Merge(e.pdrStatistics)
+	if e.pdr != nil {
+		current, err := e.pdr.SnapshotStatistics()
+		if err != nil {
+			return result, err
+		}
+		result.Merge(current)
+	}
+	if e.queryClone != nil && (e.queryClone.backend == "pdr" || e.queryClone.backend == "qpdr") {
+		current, err := e.queryClone.snapshotPDRStatistics()
+		if err != nil {
+			return result, err
+		}
+		result.Merge(current)
+	}
+	return result, nil
+}
+
+func (e *PropositionalEngine) collectPDRStatistics(destination *statistics.Statistics, previous pdr.StatisticsSnapshot) error {
+	previous.Merge(e.pdrStatistics)
+	if e.queryClone != nil && (e.queryClone.backend == "pdr" || e.queryClone.backend == "qpdr") {
+		if e.pdr != nil {
+			current, err := e.pdr.SnapshotStatistics()
+			if err != nil {
+				return err
+			}
+			previous.Merge(current)
+		}
+		return e.queryClone.collectPDRStatistics(destination, previous)
+	}
+	if e.pdr != nil {
+		return e.pdr.CollectStatisticsWithSnapshot(destination, previous)
+	}
+	return previous.Collect(destination)
+}
+
 func (e *PropositionalEngine) closePDRForReplacement() error {
 	var result error
 	if e.pdr != nil {
-		archived := statistics.New()
-		result = e.pdr.CollectStatistics(archived)
-		e.pdrStatistics.Copy(*archived)
+		archived, err := e.pdr.SnapshotStatistics()
+		result = err
+		if err == nil {
+			e.pdrStatistics.Merge(archived)
+		}
 		result = errors.Join(result, e.pdr.Close())
 		e.pdr = nil
 	}
