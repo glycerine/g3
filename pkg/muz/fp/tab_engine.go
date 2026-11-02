@@ -22,6 +22,21 @@ func (e *PropositionalEngine) clearTabAnswer() error {
 	}
 	return e.manager.DelRef(&e.tabAnswer)
 }
+func (e *PropositionalEngine) closeTabSession() error {
+	if e.tabSession == nil {
+		return nil
+	}
+	if e.tabSessionBorrowed {
+		e.tabSession = nil
+		e.tabSessionBorrowed = false
+		return nil
+	}
+	if err := e.tabSession.Close(); err != nil {
+		return err
+	}
+	e.tabSession = nil
+	return nil
+}
 func (e *PropositionalEngine) queryTabPredicate(declaration ast.ASTHandle) (status lbool.LBool, err error) {
 	if e.params == nil || e.globals == nil {
 		return lbool.Undef, ErrPropositionalEngine
@@ -46,16 +61,17 @@ func (e *PropositionalEngine) queryTabPredicate(declaration ast.ASTHandle) (stat
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}
-	view, err := e.fixedpointParamView()
+	attempt := &tabBackendAttempt{manager: e.manager, params: e.params}
+	defer func() { err = errors.Join(err, attempt.dispose()) }()
+	attempt.view, err = e.fixedpointParamView()
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { err = errors.Join(err, view.Close()) }()
 	fallback, err := e.manager.Symbols.Intern("weight")
 	if err != nil {
 		return lbool.Undef, err
 	}
-	selected, err := view.Symbol("tab.selection", fallback)
+	selected, err := attempt.view.Symbol("tab.selection", fallback)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -63,52 +79,47 @@ func (e *PropositionalEngine) queryTabPredicate(declaration ast.ASTHandle) (stat
 	if err != nil {
 		return lbool.Undef, err
 	}
-	rw, err := rewriter.NewTheoryRewriter(e.manager, e.params, e.globals, nil)
-	if err != nil {
-		if rw != nil {
-			err = errors.Join(err, rw.Close())
+	if e.tabSession == nil {
+		e.tabSession, err = tab.NewSession(e.manager, strategy)
+		if err != nil {
+			return lbool.Undef, err
 		}
-		return lbool.Undef, err
 	}
-	defer func() { err = errors.Join(err, rw.Close()) }()
-	cooperation, err := cooperate.NewCooperation(e.manager.Budget())
+	attempt.rw, err = rewriter.NewTheoryRewriter(e.manager, e.params, e.globals, nil)
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { err = errors.Join(err, cooperation.Close()) }()
-	lite, err := qe.NewLite(e.manager, nil, false, qe.Config{Context: e.params, Globals: e.globals, Cooperation: cooperation})
-	if err != nil {
-		if lite != nil {
-			err = errors.Join(err, lite.Close())
-		}
-		return lbool.Undef, err
-	}
-	defer func() { err = errors.Join(err, lite.Close()) }()
-	params, err := e.params.NewValue()
+	attempt.coop, err = cooperate.NewCooperation(e.manager.Budget())
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { err = errors.Join(err, e.params.Del(&params)) }()
+	attempt.lite, err = qe.NewLite(e.manager, nil, false, qe.Config{Context: e.params, Globals: e.globals, Cooperation: attempt.coop})
+	if err != nil {
+		return lbool.Undef, err
+	}
+	attempt.local, err = e.params.NewValue()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	attempt.localOK = true
 	mbqi, timeout := "mbqi", "timeout"
-	if err = e.params.SetBoolName(&params, &mbqi, false); err != nil {
+	if err = e.params.SetBoolName(&attempt.local, &mbqi, false); err != nil {
 		return lbool.Undef, err
 	}
-	if err = e.params.SetUIntName(&params, &timeout, 1000); err != nil {
+	if err = e.params.SetUIntName(&attempt.local, &timeout, 1000); err != nil {
 		return lbool.Undef, err
 	}
-	modelEvaluator := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals, Memory: e.manager.NumeralService().RuntimeOwner(), Cooperation: cooperation}
+	modelEvaluator := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals, Memory: e.manager.NumeralService().RuntimeOwner(), Cooperation: attempt.coop}
 	config := smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals, ModelEvaluator: modelEvaluator}
-	querySolver, err := smtcore.NewSMTSolver(e.manager, &params, "", config)
+	attempt.query, err = smtcore.NewSMTSolver(e.manager, &attempt.local, "", config)
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { err = errors.Join(err, querySolver.Close()) }()
-	subSolver, err := smtcore.NewSMTSolver(e.manager, nil, "", config)
+	attempt.sub, err = smtcore.NewSMTSolver(e.manager, nil, "", config)
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { err = errors.Join(err, subSolver.Close()) }()
-	if err = subSolver.SetProduceModels(true); err != nil {
+	if err = attempt.sub.SetProduceModels(true); err != nil {
 		return lbool.Undef, err
 	}
 	arity, err := e.manager.GetArity(declaration)
@@ -130,13 +141,12 @@ func (e *PropositionalEngine) queryTabPredicate(declaration ast.ASTHandle) (stat
 	if err != nil {
 		return lbool.Undef, err
 	}
-	ref, err := e.manager.NewRef(query)
+	attempt.queryRef, err = e.manager.NewRef(query)
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { err = errors.Join(err, e.manager.DelRef(&ref)) }()
 	var stats tab.Statistics
-	status, e.tabAnswer, err = tab.QueryPredicateWithStatistics(e.set, query, rw, lite, querySolver, subSolver, strategy, &stats, modelEvaluator)
+	status, e.tabAnswer, err = tab.QueryPredicateWithSession(e.set, query, attempt.rw, attempt.lite, attempt.query, attempt.sub, e.tabSession, &stats, modelEvaluator)
 	e.tabUnfold += stats.Unfold
 	e.tabUnfoldFail += stats.UnfoldFail
 	e.tabSubsumed += stats.Subsumed

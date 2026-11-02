@@ -235,7 +235,8 @@ func (p *legacyArithmeticProjection) projectFormulaMapped(md *model.ModelCore, v
 			}
 			err = e
 		}
-		err = errors.Join(err, replace.Close(), projection.Close())
+		err = errors.Join(err, replace.Close())
+		err = closeTransferredLegacyRealProjection(projection, err)
 		if err != nil {
 			if next != (ast.ASTRef{}) {
 				err = errors.Join(err, p.syntax.manager.DelRef(&next))

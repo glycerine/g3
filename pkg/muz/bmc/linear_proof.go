@@ -115,21 +115,15 @@ func (c *Compiler) linearProofStep(rm *base.RuleManager, rule *base.Rule, index,
 func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.Rule, bindingRefs []ast.ASTRef, previous *base.Rule, previousProof ast.ASTRef, normalizer *transforms.RuleInlinerPlugin, position ast.ASTProofPosition) (next *base.Rule, proofRef ast.ASTRef, resultErr error) {
 	m := c.manager
 	refs := append([]ast.ASTRef(nil), bindingRefs...)
+	var temporaryRules []*base.Rule
+	var unifier *transforms.RuleUnifier
+	var sub *rewriter.VarSubstitution
 	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			if refs[i] != (ast.ASTRef{}) {
-				resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
-			}
-		}
+		owner := &linearProofStepOwner{manager: m, refs: refs, temps: temporaryRules, sub: sub, unifier: unifier, next: next, proof: proofRef}
+		resultErr = owner.dispose(resultErr)
 		if resultErr != nil {
-			if next != nil {
-				resultErr = errors.Join(resultErr, next.Close())
-				next = nil
-			}
-			if proofRef != (ast.ASTRef{}) {
-				resultErr = errors.Join(resultErr, m.DelRef(&proofRef))
-				proofRef = ast.ASTRef{}
-			}
+			next = nil
+			proofRef = ast.ASTRef{}
 		}
 	}()
 	var err error
@@ -146,7 +140,7 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 	if err != nil {
 		return nil, proofRef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, instantiated.Close()) }()
+	temporaryRules = append(temporaryRules, instantiated)
 	proof, found, err := rule.Proof()
 	if err != nil {
 		return nil, proofRef, err
@@ -177,11 +171,11 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 	if previous == nil {
 		next, err = instantiated.Retain()
 	} else {
-		unifier, e := transforms.NewRuleUnifier(m)
+		var e error
+		unifier, e = transforms.NewRuleUnifier(m)
 		if e != nil {
 			return nil, proofRef, e
 		}
-		defer func() { resultErr = errors.Join(resultErr, unifier.Close()) }()
 		ok, e := unifier.UnifyRules(previous, 0, instantiated)
 		if e != nil || !ok {
 			return nil, proofRef, errors.Join(ast.ErrASTDomain, e)
@@ -210,14 +204,10 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 				return nil, proofRef, e
 			}
 		}
-		sub, e := rewriter.NewVarSubstitution(m, false)
+		sub, e = rewriter.NewVarSubstitution(m, false)
 		if e != nil {
-			if sub != nil {
-				e = errors.Join(e, sub.Close())
-			}
 			return nil, proofRef, e
 		}
-		defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
 		for i, binding := range bindings {
 			if binding.IsNull() {
 				continue
@@ -313,9 +303,11 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 		}
 		if e = next.Close(); e != nil {
 			if normalized != nil {
-				e = errors.Join(e, normalized.Close())
+				// Keep the unpublished normalized rule in the same retry owner as
+				// the raw resolvent whose close was refused.
+				temporaryRules = append(temporaryRules, normalized)
 			}
-			return nil, proofRef, e
+			return next, proofRef, e
 		}
 		next = normalized
 		if next == nil {
