@@ -86,6 +86,7 @@ type PropositionalEngine struct {
 	dualityMBQI         bool
 	pdr                 *muzpdr.Context
 	pdrRules            *base.RuleSet
+	pdrSourceRules      *base.RuleSet
 	pdrRuleRevision     uint64
 	pdrQuery            ast.ASTHandle
 	pdrDerived          map[ast.ASTHandle]ast.ASTHandle
@@ -427,7 +428,7 @@ func (e *PropositionalEngine) AddRuleWithBound(formula ast.ASTHandle, name strin
 		e.rawRules = append(e.rawRules, rawRuleFormula{original, name, recursionBound})
 		keepOriginal = true
 		e.autoRules = append(e.autoRules, autoRuleEntry{name: name, kind: autoKind})
-		e.revision++
+		e.advanceRuleRevision()
 	}
 	return getErr
 }
@@ -612,12 +613,7 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 		e.autoRules = kept
 	}
 	e.autoRules = append(e.autoRules, autoRuleEntry{name: name, kind: autoKind})
-	// A rule-only change can preserve frame properties. Do not turn an older
-	// background/parameter revision into a reusable context revision.
-	if e.pdrRuleRevision == e.revision {
-		e.pdrRuleRevision++
-	}
-	e.revision++
+	e.advanceRuleRevision()
 	keepOriginal = true
 	return errors.Join(e.replaceRawRule(name, original, oldIndex >= 0), prior.Close())
 }
@@ -2349,6 +2345,10 @@ func (e *PropositionalEngine) Close() (result error) {
 	if e.pdrRules != nil {
 		result = errors.Join(result, e.pdrRules.Close())
 		e.pdrRules = nil
+	}
+	if e.pdrSourceRules != nil {
+		result = errors.Join(result, e.pdrSourceRules.Close())
+		e.pdrSourceRules = nil
 	}
 	e.pdrRuleRevision = 0
 	if e.spacer != nil {

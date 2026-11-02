@@ -21,7 +21,9 @@ Each completed item needs source paths, implementation/test evidence and a commi
 
 - [ ] Close context/rule ownership, scope rollback, query transformation and engine lifecycle audits (`base/dl_context`, `dl_rule`, `dl_engine_base`).
   - [x] Preserve background/constructor-parameter invalidation through a subsequent named PDR rule update; verify SAT/UNSAT/SAT after background replacement and context disposal after parameter replacement.
-  - [ ] Match PDR source-rule snapshot comparison before preprocessing and preserve safe covers across covered rule additions and changed query roots.
+  - [x] Match PDR source-rule snapshot comparison before preprocessing; preserve covers across covered additions, with independent snapshot ownership and background/parameter invalidation guards.
+  - [x] Enter and restore the PDR arithmetic proof mode when rebuilding transformers during UpdateRules, including raw-cover preservation through a covered addition.
+  - [ ] Match source context reset/reuse across uncovered additions and changed query roots.
 - [ ] Verify parameter defaults, aliases, updates and engine selection against `fixedpoint_params.hpp` and engine registration.
 - [ ] Close SMT-LIB/Datalog command parsing, error reporting, query state and exported result/proof/model contracts.
   - [x] Preserve source pop rejection after pre-query PDR/QPDR/Spacer context instantiation; verify an uninstantiated scope can still pop.
@@ -298,3 +300,6 @@ Source comparison arity/type preconditions are enforced by AST construction/acce
 
 - 2026-11-02 — Corrected the preceding test-file edit by restoring the existing `TestPDREngineRebuildsContextForBackgroundChange` alongside the two new revision regressions. The original independent background-change check remains in addition to the update-rule sequences; no coverage is intentionally removed.
   Validation: focused native background/configuration lifecycle regressions passed. Commit title: `Restore independent PDR background lifecycle regression`.
+
+- 2026-11-02 — PDR now owns distinct original-rule and transformed-rule snapshots. Reuse checks original rules against the current source rules before preprocessing, as in `pdr_dl_interface::check_reset`; covered additions can reuse state without hiding earlier background/parameter invalidation. Snapshots rotate and close independently, including engine replacement/close. Added regression coverage for source-rule counts, covered-addition reuse, uncovered-addition replacement and snapshot retirement. An arithmetic covered-addition test exposed a real proof-mode gap in `Context.UpdateRules`: replacement solvers were constructed in the caller's mode rather than the context's. Scoped proof-mode entry/restoration fixes the subsequent reachability precondition failure; the regression checks the preserved raw x=0 frame and unchanged caller proof mode. Updated the stale interface manifest description without claiming whole-engine closure. Changed query-root reuse and source-compatible reset identity remain open.
+  Validation: complete native PDR/fixedpoint/parser checks and port inventory checks passed. Commit title: `Preserve PDR covers across source-subsumed rule additions`.

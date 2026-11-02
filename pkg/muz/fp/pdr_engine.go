@@ -27,6 +27,10 @@ func (e *PropositionalEngine) closePDRForReplacement() error {
 		result = errors.Join(result, e.pdrRules.Close())
 		e.pdrRules = nil
 	}
+	if e.pdrSourceRules != nil {
+		result = errors.Join(result, e.pdrSourceRules.Close())
+		e.pdrSourceRules = nil
+	}
 	e.pdrRevision = 0
 	e.pdrRuleRevision = 0
 	e.pdrQuery = ast.ASTHandle{}
@@ -151,10 +155,14 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	if err != nil {
 		return lbool.Undef, errors.Join(err, closeContext())
 	}
+	sourceSnapshot, err := snapshotHornRules(e.set)
+	if err != nil {
+		return lbool.Undef, errors.Join(err, snapshot.Close(), closeContext())
+	}
 	keepSnapshot := false
 	defer func() {
 		if !keepSnapshot {
-			resultErr = errors.Join(resultErr, snapshot.Close())
+			resultErr = errors.Join(resultErr, snapshot.Close(), sourceSnapshot.Close())
 		}
 	}()
 	installed := false
@@ -186,6 +194,7 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	oldSnapshot := e.pdrRules
+	oldSourceSnapshot := e.pdrSourceRules
 	if reuse {
 		if err = context.Close(); err != nil {
 			return lbool.Undef, err
@@ -226,16 +235,22 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	e.pdrDerived = derivedPredicates
 	e.pdr = context
 	e.pdrRules = snapshot
+	e.pdrSourceRules = sourceSnapshot
 	e.pdrRevision = e.revision
 	e.pdrRuleRevision = e.revision
 	e.pdrQuery = declaration
+	keepSnapshot = true
+	installed = true
 	if reuse && oldSnapshot != nil {
 		if err = oldSnapshot.Close(); err != nil {
 			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
 		}
 	}
-	keepSnapshot = true
-	installed = true
+	if reuse && oldSourceSnapshot != nil {
+		if err = oldSourceSnapshot.Close(); err != nil {
+			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
+		}
+	}
 	status, err := context.Solve(queryDeclaration)
 	if err != nil || status != lbool.True || preprocessed.sliceProof == nil {
 		return status, err

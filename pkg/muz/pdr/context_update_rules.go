@@ -48,6 +48,11 @@ func (c *Context) UpdateRules(set *base.RuleSet) (resultErr error) {
 	if requiredProof != c.proofActive {
 		return ast.ErrASTDomain
 	}
+	restoreProofMode, err := c.enterPDRProofMode()
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, restoreProofMode()) }()
 	staged, err := c.buildRuleTransformers(plan)
 	if err != nil {
 		return err
