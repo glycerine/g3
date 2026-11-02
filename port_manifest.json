@@ -87287,7 +87287,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/duality/query_engine.go", "pkg/muz/duality/build_graph.go",
+      "go_targets": ["pkg/muz/duality/query_options.go", "pkg/muz/duality/query_engine.go", "pkg/muz/duality/build_graph.go",
         "pkg/muz/duality/query_clause.go",
         "pkg/muz/duality/query_clause_test.go",
         "pkg/muz/duality/missing_heads.go",
@@ -87297,7 +87297,7 @@
         "pkg/muz/duality/prepare_query_failure_test.go",
         "pkg/muz/duality/prepare_query_failure_test.go"
       ],
-      "tests": ["pkg/muz/duality/build_graph_test.go",
+      "tests": ["pkg/muz/duality/query_options_test.go", "pkg/muz/duality/build_graph_test.go",
         "TestQueryClauseSparseAndGroundVariables",
         "TestMissingHeadClausesQuantifiedAndGround",
         "TestPrepareQueryRulesMissingHeadsAndBounds",
@@ -87385,7 +87385,7 @@
       ],
       "methods_audited": true,
       "ownership_audited": false,
-      "methods": [{"name": "duality_data/query solver lifecycle", "status": "partial", "go_target": "pkg/muz/duality/query_engine.go", "reason": "Owning repeated-query graph/engine lifecycle, previous-solver learning, safety-to-fixedpoint result conversion and borrowed counterexample access with retryable cleanup; engine registration, option routing and full answer/report publication remain unfinished.", "tests": ["TestPreparedQueryBuildGraphNativeEngineAndIndependentLifetime"]},{"name": "query RPFP construction", "status": "partial", "go_target": "pkg/muz/duality/build_graph.go", "reason": "Prepared fixedpoint query clauses and bounds now construct the owning Duality RPFP with context validation and failure cleanup; fixedpoint dispatch, solver lifecycle and result publication remain unfinished.", "tests": ["TestPreparedQueryBuildGraphNativeEngineAndIndependentLifetime"]},
+      "methods": [{"name": "query solver option routing", "status": "ported", "go_target": "pkg/muz/duality/query_options.go", "reason": "Typed fixedpoint solver options use source defaults and local-over-module parameter precedence; QueryEngine applies each option to every new engine after history transfer, including the source false-returning conjecture filename setter.", "tests": ["TestDualityQueryOptionsDefaultsAndLocalModulePrecedence", "TestPreparedQueryBuildGraphNativeEngineAndIndependentLifetime"]},{"name": "duality_data/query solver lifecycle", "status": "partial", "go_target": "pkg/muz/duality/query_engine.go", "reason": "Owning repeated-query graph/engine lifecycle, previous-solver learning, safety-to-fixedpoint result conversion and borrowed counterexample access with retryable cleanup; engine registration, option routing and full answer/report publication remain unfinished.", "tests": ["TestPreparedQueryBuildGraphNativeEngineAndIndependentLifetime"]},{"name": "query RPFP construction", "status": "partial", "go_target": "pkg/muz/duality/build_graph.go", "reason": "Prepared fixedpoint query clauses and bounds now construct the owning Duality RPFP with context validation and failure cleanup; fixedpoint dispatch, solver lifecycle and result publication remain unfinished.", "tests": ["TestPreparedQueryBuildGraphNativeEngineAndIndependentLifetime"]},
         {
           "name": "query preparation: ordered rule/query clauses, missing predicate heads and recursion bounds",
           "status": "ported",

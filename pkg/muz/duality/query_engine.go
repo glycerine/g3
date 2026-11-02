@@ -12,6 +12,7 @@ import (
 // Close. Registration and rule preprocessing are performed by its caller.
 // Source: duality_dl_interface.cpp, duality_data and query solver lifecycle.
 type QueryEngine struct {
+	options QueryOptions
 	self    *QueryEngine
 	context *graph.Context
 	config  graph.EngineConfig
@@ -48,7 +49,7 @@ func NewQueryEngine(context *graph.Context, config graph.EngineConfig) (*QueryEn
 	if config.Native == nil || config.Auxiliary == nil || config.Factory == nil || config.Simplifier == nil || config.Quantifiers == nil {
 		return nil, graph.ErrWrapperOwner
 	}
-	e := &QueryEngine{context: context, config: config, status: lbool.Undef}
+	e := &QueryEngine{context: context, config: config, status: lbool.Undef, options: DefaultQueryOptions()}
 	e.self = e
 	return e, nil
 }
@@ -106,6 +107,7 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 			return lbool.Undef, err
 		}
 	}
+	e.options.apply(next.engine)
 	solved, err := next.engine.Solve()
 	if err != nil {
 		return lbool.Undef, err

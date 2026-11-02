@@ -113,6 +113,19 @@ func TestPreparedQueryBuildGraphNativeEngineAndIndependentLifetime(t *testing.T)
 			}
 			var previous *graph.Counterexample
 			for round := 0; round < 3; round++ {
+				options := duality.DefaultQueryOptions()
+				if round == 1 {
+					options.StratifiedInlining = true
+				}
+				if round == 2 {
+					options.FullExpand = true
+					options.UseUnderapprox = true
+					options.NoConj = true
+					options.BatchExpand = true
+					options.EnableRestarts = true
+					options.FeasibleEdges = false
+				}
+				must(session.SetOptions(options))
 				next, err := duality.PrepareQuery(m, []ast.ASTHandle{rule}, []uint32{math.MaxUint32}, query, []ast.ASTHandle{decl}, math.MaxUint32)
 				must(err)
 				status, err := session.Query(next)
