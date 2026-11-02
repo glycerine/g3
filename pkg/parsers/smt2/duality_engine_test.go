@@ -162,3 +162,31 @@ func TestSMT2DualityArrayValuedOutputQuantification(t *testing.T) {
 		t.Fatalf("array output results %q", output.String())
 	}
 }
+
+func TestSMT2DualityBackgroundCertificateWitness(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	context.PrintSuccess = false
+	var output bytes.Buffer
+	script := `(set-option :fixedpoint.engine duality)
+(declare-fun background-k () Int)
+(assert (= background-k 7))
+(declare-rel Goal ())
+(rule (forall ((w Int)) (=> (= w background-k) Goal)))
+(query Goal :print-answer false :print-certificate true)
+`
+	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	text := output.String()
+	if !strings.HasPrefix(text, "sat\n(derivation\n") || !strings.Contains(text, "(= w 7)") || !strings.Contains(text, "background-k -> 7") {
+		t.Fatal("background witness certificate", text)
+	}
+}

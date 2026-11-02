@@ -40,7 +40,7 @@ func (c *Counterexample) Proof(factory solver.Factory) (out ast.ASTRef, result e
 	return c.tree.extractCounterexampleProof(c.root, make(map[*Node]bool), factory)
 }
 
-func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, factory solver.Factory) (out ast.ASTRef, result error) {
+func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, factory solver.Factory, background ...*Expr) (out ast.ASTRef, result error) {
 	if node == nil || node.closed || node.Owner != g || node.Outgoing == nil || active[node] {
 		return out, ErrWrapperOwner
 	}
@@ -127,7 +127,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 		if empty {
 			continue
 		}
-		proof, err := g.extractCounterexampleProof(child, active, factory)
+		proof, err := g.extractCounterexampleProof(child, active, factory, background...)
 		if err != nil {
 			return out, err
 		}
@@ -183,7 +183,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 	}
 	refs = append(refs, conclusionRef)
 	if len(substitutions[0]) > 0 {
-		values, err := g.recoverProofWitness(factory, quantified, clause, positions, resolved, premises, conclusion)
+		values, err := g.recoverProofWitness(factory, quantified, clause, positions, resolved, premises, conclusion, background...)
 		if err != nil {
 			return out, err
 		}

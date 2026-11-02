@@ -12,9 +12,9 @@ import (
 
 // WriteCertificate appends the source V2 counterexample model, excluding the
 // localized quantified variables displayed in the derivation substitutions.
-func (c *Counterexample) WriteCertificate(out io.Writer, writeExpr func(io.Writer, ast.ASTHandle) error, factory solver.Factory, params *uparams.ParamsContext, globals *uparams.GlobalParamsService) (result error) {
+func (c *Counterexample) WriteCertificate(out io.Writer, writeExpr func(io.Writer, ast.ASTHandle) error, factory solver.Factory, params *uparams.ParamsContext, globals *uparams.GlobalParamsService, background ...*Expr) (result error) {
 	locals := make(map[ast.ASTHandle]bool)
-	if err := c.writeDerivation(out, writeExpr, factory, locals); err != nil {
+	if err := c.writeDerivation(out, writeExpr, factory, locals, background); err != nil {
 		return err
 	}
 	g := c.tree

@@ -31,8 +31,7 @@ func (b *Backend) WriteCertificate(out io.Writer, writeExpr func(io.Writer, ast.
 	if e.active == nil || e.status != lbool.True {
 		return graph.ErrWrapperOwner
 	}
-	if len(e.active.background) > 0 || len(e.config.Theory) > 0 {
-		return graph.ErrProofWitness
-	}
-	return e.active.engine.GetCounterexample().WriteCertificate(out, writeExpr, e.config.Factory, e.config.Evaluator.Context, e.config.Evaluator.Globals)
+	background := append([]*graph.Expr(nil), e.config.Theory...)
+	background = append(background, e.active.background...)
+	return e.active.engine.GetCounterexample().WriteCertificate(out, writeExpr, e.config.Factory, e.config.Evaluator.Context, e.config.Evaluator.Globals, background...)
 }

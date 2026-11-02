@@ -14,10 +14,10 @@ import (
 // Quantified substitutions use reconstructed original-rule witnesses so values
 // eliminated by preprocessing are not printed as arbitrary model defaults.
 func (c *Counterexample) WriteDerivation(out io.Writer, writeExpr func(io.Writer, ast.ASTHandle) error, factory solver.Factory) (result error) {
-	return c.writeDerivation(out, writeExpr, factory, nil)
+	return c.writeDerivation(out, writeExpr, factory, nil, nil)
 }
 
-func (c *Counterexample) writeDerivation(out io.Writer, writeExpr func(io.Writer, ast.ASTHandle) error, factory solver.Factory, locals map[ast.ASTHandle]bool) (result error) {
+func (c *Counterexample) writeDerivation(out io.Writer, writeExpr func(io.Writer, ast.ASTHandle) error, factory solver.Factory, locals map[ast.ASTHandle]bool, background []*Expr) (result error) {
 	if err := c.open(); err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (c *Counterexample) writeDerivation(out io.Writer, writeExpr func(io.Writer
 				return err
 			}
 			if forall {
-				proof, err := g.extractCounterexampleProof(node, make(map[*Node]bool), factory)
+				proof, err := g.extractCounterexampleProof(node, make(map[*Node]bool), factory, background...)
 				if err != nil {
 					return err
 				}

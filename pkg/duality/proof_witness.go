@@ -88,7 +88,7 @@ func (c *proofWitnessCall) pin(h ast.ASTHandle, err error) (ast.ASTHandle, error
 	return h, nil
 }
 
-func (g *RPFP) recoverProofWitness(factory solver.Factory, quantified, clause ast.ASTHandle, positions [][]uint32, resolved []ast.ASTProofPosition, premises []ast.ASTHandle, conclusion ast.ASTHandle) (out []ast.ASTRef, result error) {
+func (g *RPFP) recoverProofWitness(factory solver.Factory, quantified, clause ast.ASTHandle, positions [][]uint32, resolved []ast.ASTProofPosition, premises []ast.ASTHandle, conclusion ast.ASTHandle, background ...*Expr) (out []ast.ASTRef, result error) {
 	if factory == nil {
 		return nil, ErrWrapperOwner
 	}
@@ -273,6 +273,21 @@ func (g *RPFP) recoverProofWitness(factory solver.Factory, quantified, clause as
 	c.native, err = factory.New(m, nil, false, true, false, "")
 	if err != nil {
 		return nil, err
+	}
+	for _, axiom := range background {
+		if err := axiom.open(); err != nil {
+			return nil, err
+		}
+		if axiom.value.object.context != g.context {
+			return nil, ErrContextMismatch
+		}
+		h, err := axiom.Raw()
+		if err != nil {
+			return nil, err
+		}
+		if err := c.native.Assert(h); err != nil {
+			return nil, err
+		}
 	}
 	for _, constraint := range constraints {
 		if err := c.native.Assert(constraint); err != nil {
