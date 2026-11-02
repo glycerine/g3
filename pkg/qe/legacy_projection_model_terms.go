@@ -124,6 +124,12 @@ func (p *LegacyProjection) modelProjectionTerms(root, variable ast.ASTHandle) ([
 // caller-owned output remains valid (possibly null) after a typed exception.
 // Interrupted traversals are deliberately not reset here.
 func (p *LegacyProjection) evaluateModelProjectionValue(evaluator *model.ModelEvaluator, expression ast.ASTHandle) (ast.ASTRef, error) {
+	// model_evaluator_util::eval applies its model_completion argument on every
+	// probe. Do not inherit completion from an evaluator's preceding consumer:
+	// MBQI must compare only interpretations already present in the model.
+	if err := evaluator.SetModelCompletion(false); err != nil {
+		return ast.ASTRef{}, err
+	}
 	value, err := p.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTRef{}, err
