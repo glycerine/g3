@@ -89,6 +89,7 @@ type PropositionalEngine struct {
 	pdrSourceRules      *base.RuleSet
 	pdrRuleRevision     uint64
 	pdrQuery            ast.ASTHandle
+	pdrTraceQuery       ast.ASTHandle // borrowed only during the enclosing expression-query call
 	pdrDerived          map[ast.ASTHandle]ast.ASTHandle
 	pdrPredicates       map[ast.ASTHandle]ast.ASTHandle
 	pdrSlices           map[ast.ASTHandle][]bool

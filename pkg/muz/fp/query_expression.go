@@ -42,6 +42,15 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
+	var originalTraceQuery ast.ASTRef
+	if (e.backend == "pdr" || e.backend == "qpdr") && e.manager.BorrowSourceTraceTags().ShouldTrace("pdr") {
+		ref, err := e.manager.NewRef(query)
+		if err != nil {
+			return lbool.Undef, err
+		}
+		originalTraceQuery = ref
+		defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&originalTraceQuery)) }()
+	}
 	if e.backend == "duality" {
 		e.queried = true
 		result, err := e.queryDuality(query)
@@ -189,6 +198,13 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		if err := e.closeSpacerForReplacement(); err != nil {
 			return lbool.Undef, err
 		}
+	}
+	if originalTraceQuery != (ast.ASTRef{}) {
+		clone.pdrTraceQuery, err = e.manager.RefGet(originalTraceQuery)
+		if err != nil {
+			return lbool.Undef, err
+		}
+		defer func() { clone.pdrTraceQuery = ast.ASTHandle{} }()
 	}
 	if level != nil {
 		result, err = clone.QueryPredicateFromLevel(declaration, *level)

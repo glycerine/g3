@@ -63,6 +63,10 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 			if mode == "enabled" {
 				queryTrace = "-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:144 ---------\nrules:\n; rule count: 1\n; predicate count: 1\n; output: fresh-trace-P\nold-fact:\nfresh-trace-P().\n(declare-rel fresh-trace-P ())\n(query fresh-trace-P)\n------------------------------------------------\n"
 			}
+			postQueryTrace := queryTrace
+			if mode == "enabled" {
+				queryTrace = "-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:92 ---------\nquery: fresh-trace-P\nrules:\n; rule count: 1\n; predicate count: 1\n; output: fresh-trace-P\nold-fact:\nfresh-trace-P().\n------------------------------------------------\n" + postQueryTrace
+			}
 			if output.String() != queryTrace {
 				t.Fatalf("initial query trace got %q; want %q", output.String(), queryTrace)
 			}
@@ -84,6 +88,9 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 			expected := ""
 			if mode == "enabled" {
 				expected = "-------- [pdr] check_reset src/muz/pdr/pdr_dl_interface.cpp:68 ---------\nFresh rule first-fresh:\nfresh-trace-Q().\n------------------------------------------------\n"
+			}
+			if mode == "enabled" {
+				queryTrace = "-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:92 ---------\nquery: fresh-trace-P\nrules:\n; rule count: 3\n; predicate count: 3\n; output: fresh-trace-P\nold-fact:\nfresh-trace-P().\nfirst-fresh:\nfresh-trace-Q().\nlater-fresh:\nfresh-trace-R().\n------------------------------------------------\n" + postQueryTrace
 			}
 			expected += queryTrace
 			if got := output.String(); got != expected {
