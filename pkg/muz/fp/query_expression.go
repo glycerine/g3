@@ -143,7 +143,16 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 				e.queryCloneRevision = e.revision
 				return
 			}
-			resultErr = errors.Join(resultErr, clone.Close())
+			if clone.backend == "spacer" {
+				archived, statsErr := clone.snapshotSpacerStatistics()
+				closeErr := clone.Close()
+				resultErr = errors.Join(resultErr, statsErr, closeErr)
+				if statsErr == nil && closeErr == nil {
+					e.spacerStatistics.Merge(archived)
+				}
+			} else {
+				resultErr = errors.Join(resultErr, clone.Close())
+			}
 		}
 	}()
 	declaration, head, err := clone.makeQueryHead(query)

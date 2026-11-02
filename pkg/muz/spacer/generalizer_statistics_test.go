@@ -6,6 +6,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
 func TestSpacerGeneralizerStatisticsFollowSourceOwners(t *testing.T) {
@@ -51,6 +52,8 @@ func TestSpacerGeneralizerStatisticsFollowSourceOwners(t *testing.T) {
 		t.Fatal("statistics reset did not clear generalizer counters", got)
 	}
 	generalize()
+	previous, err := c.SnapshotStatistics()
+	depthMust(t, err)
 	m.Budget().FailAfter(0)
 	err = c.UpdateRules(f.rules)
 	m.Budget().FailAfter(-1)
@@ -59,6 +62,16 @@ func TestSpacerGeneralizerStatisticsFollowSourceOwners(t *testing.T) {
 	}
 	if got := spacerContextStatistic(t, c, "bool inductive gen"); got != 0 {
 		t.Fatal("failed rule installation preserved old generalizer counters", got)
+	}
+	failed, err := c.SnapshotStatistics()
+	depthMust(t, err)
+	previous.Merge(failed)
+	collected := statistics.New()
+	depthMust(t, previous.Collect(collected))
+	for i := 0; i < collected.Size(); i++ {
+		if collected.Key(i) == "bool inductive gen" || collected.Key(i) == "time.spacer.solve.reach.gen.bool_ind" {
+			t.Fatal("failed installation snapshot kept the previous generalizer owner")
+		}
 	}
 	depthMust(t, c.UpdateRules(f.rules))
 }

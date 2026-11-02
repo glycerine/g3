@@ -670,13 +670,17 @@ func (p *PredicateTransformer) Close() (result error) {
 			result = errors.Join(result, p.rules[i].rule.Close())
 		}
 		for i := len(p.ruleReferences) - 1; i >= 0; i-- {
-			result = errors.Join(result, p.manager.DelRef(&p.ruleReferences[i]))
+			if p.ruleReferences[i] != (ast.ASTRef{}) {
+				result = errors.Join(result, p.manager.DelRef(&p.ruleReferences[i]))
+			}
 		}
 		if p.extendLiteral != (ast.ASTRef{}) {
 			result = errors.Join(result, p.manager.DelRef(&p.extendLiteral))
 		}
 		for i := len(p.signature) - 1; i >= 0; i-- {
-			result = errors.Join(result, p.manager.DelRef(&p.signature[i]))
+			if p.signature[i] != (ast.ASTRef{}) {
+				result = errors.Join(result, p.manager.DelRef(&p.signature[i]))
+			}
 		}
 		if p.head != (ast.ASTRef{}) {
 			result = errors.Join(result, p.manager.DelRef(&p.head))

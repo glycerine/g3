@@ -2337,7 +2337,9 @@ func (e *PropositionalEngine) Close() (result error) {
 		}
 		e.external = nil
 	}
-	result = errors.Join(result, e.clearQueryResources())
+	if err := e.clearQueryResources(); err != nil {
+		return err
+	}
 	if err := e.closeDuality(); err != nil {
 		return errors.Join(result, err)
 	}
@@ -2357,7 +2359,9 @@ func (e *PropositionalEngine) Close() (result error) {
 	result = errors.Join(result, e.clearBMCTrace())
 	result = errors.Join(result, e.clearTabAnswer())
 	if e.pdr != nil {
-		result = errors.Join(result, e.pdr.Close())
+		if err := e.pdr.Close(); err != nil {
+			return errors.Join(result, err)
+		}
 		e.pdr = nil
 		e.pdrRevision = 0
 		e.pdrQuery = ast.ASTHandle{}
@@ -2373,7 +2377,9 @@ func (e *PropositionalEngine) Close() (result error) {
 	}
 	e.pdrRuleRevision = 0
 	if e.spacer != nil {
-		result = errors.Join(result, e.spacer.Close())
+		if err := e.spacer.Close(); err != nil {
+			return errors.Join(result, err)
+		}
 		e.spacer = nil
 		e.spacerRevision = 0
 		e.spacerPredicates = nil

@@ -8,18 +8,26 @@ import "github.com/glycerine/g3/pkg/util/statistics"
 // StatisticsSnapshot owns contributions from owners that survive a source
 // program reset. Predicate frame/propagation gauges remain with the live program.
 type StatisticsSnapshot struct {
-	Solvers     statistics.Statistics
-	Virtual     statistics.Statistics
-	Timers      statistics.Statistics
-	counters    contextStatistics
-	cexDepth    uint32
-	cexDepthSet bool
+	Solvers                 statistics.Statistics
+	Virtual                 statistics.Statistics
+	Timers                  statistics.Statistics
+	counters                contextStatistics
+	cexDepth                uint32
+	cexDepthSet             bool
+	generalizers            boolGeneralizerStatistics
+	generalizersInitialized bool
 }
 
 func (s *StatisticsSnapshot) Merge(other StatisticsSnapshot) {
 	s.Solvers.Copy(other.Solvers)
 	s.Virtual.Copy(other.Virtual)
 	s.Timers.Copy(other.Timers)
+	// update_rules recreates the generalizer owner before attempting rule
+	// installation. Earlier preparation failures leave the preceding owner live.
+	if other.generalizersInitialized {
+		s.generalizers = other.generalizers
+		s.generalizersInitialized = true
+	}
 	s.counters.queries += other.counters.queries
 	s.counters.reachQueries += other.counters.reachQueries
 	s.counters.reuseReach += other.counters.reuseReach
@@ -44,6 +52,7 @@ func (s *StatisticsSnapshot) Merge(other StatisticsSnapshot) {
 func (s *StatisticsSnapshot) Reset() {
 	s.Virtual.Reset()
 	s.Timers.Reset()
+	s.generalizers = boolGeneralizerStatistics{}
 	s.counters = contextStatistics{}
 	s.cexDepth, s.cexDepthSet = 0, false
 }
@@ -55,6 +64,7 @@ func (s *StatisticsSnapshot) Collect(destination *statistics.Statistics) error {
 	destination.Copy(s.Solvers)
 	destination.Copy(s.Virtual)
 	destination.Copy(s.Timers)
+	s.generalizers.collect(destination)
 	destination.UpdateUint("SPACER num queries", s.counters.queries)
 	destination.UpdateUint("SPACER num reach queries", s.counters.reachQueries)
 	destination.UpdateUint("SPACER num reuse reach facts", s.counters.reuseReach)
@@ -71,7 +81,7 @@ func (c *Context) SnapshotStatistics() (StatisticsSnapshot, error) {
 	if err := c.open(); err != nil {
 		return StatisticsSnapshot{}, err
 	}
-	result := StatisticsSnapshot{counters: c.stats, cexDepth: c.cexDepth, cexDepthSet: c.cexDepthSet}
+	result := StatisticsSnapshot{counters: c.stats, cexDepth: c.cexDepth, cexDepthSet: c.cexDepthSet, generalizers: c.generalizerStats, generalizersInitialized: c.generalizersInitialized}
 	if err := c.timers.collect(&result.Timers); err != nil {
 		return result, err
 	}

@@ -19,47 +19,48 @@ import (
 var ErrContextOwner = errors.New("muz/spacer: invalid or closed context")
 
 type Context struct {
-	manager          *ast.ASTManager
-	owner            *Manager
-	config           PropSolverConfig
-	transformers     map[ast.ASTHandle]*PredicateTransformer
-	order            []ast.ASTHandle
-	query            *PredicateTransformer
-	queryRef         ast.ASTRef
-	queryDecl        ast.ASTHandle
-	queue            ProofObligationQueue
-	lastResult       lbool.LBool
-	inductive        uint32
-	cexDepth         uint32
-	cexDepthSet      bool
-	stats            contextStatistics
-	generalizerStats boolGeneralizerStatistics
-	timers           contextTiming
-	skipPropagate    bool
-	resetQueue       bool
-	flexibleTrace    bool
-	flexibleDepth    uint32
-	reusePOBs        bool
-	simplifyPOBs     bool
-	blastTermITE     bool
-	initReachFacts   bool
-	reachAsInitial   bool
-	useDerivations   bool
-	reverseChildren  bool
-	eliminateAux     bool
-	reachDNF         bool
-	useRestarts      bool
-	restartInitial   uint32
-	instantiate      bool
-	quantifiedLemmas bool
-	groundCTI        bool
-	weakAbstraction  bool
-	validateResult   bool
-	simplifyPre      bool
-	simplifyPost     bool
-	initialized      bool
-	solved           bool
-	closed           bool
+	manager                 *ast.ASTManager
+	owner                   *Manager
+	config                  PropSolverConfig
+	transformers            map[ast.ASTHandle]*PredicateTransformer
+	order                   []ast.ASTHandle
+	query                   *PredicateTransformer
+	queryRef                ast.ASTRef
+	queryDecl               ast.ASTHandle
+	queue                   ProofObligationQueue
+	lastResult              lbool.LBool
+	inductive               uint32
+	cexDepth                uint32
+	cexDepthSet             bool
+	stats                   contextStatistics
+	generalizerStats        boolGeneralizerStatistics
+	generalizersInitialized bool
+	timers                  contextTiming
+	skipPropagate           bool
+	resetQueue              bool
+	flexibleTrace           bool
+	flexibleDepth           uint32
+	reusePOBs               bool
+	simplifyPOBs            bool
+	blastTermITE            bool
+	initReachFacts          bool
+	reachAsInitial          bool
+	useDerivations          bool
+	reverseChildren         bool
+	eliminateAux            bool
+	reachDNF                bool
+	useRestarts             bool
+	restartInitial          uint32
+	instantiate             bool
+	quantifiedLemmas        bool
+	groundCTI               bool
+	weakAbstraction         bool
+	validateResult          bool
+	simplifyPre             bool
+	simplifyPost            bool
+	initialized             bool
+	solved                  bool
+	closed                  bool
 }
 
 func NewContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumContexts uint32, config smtcore.SMTSolverConfig) (result *Context, resultErr error) {
@@ -342,6 +343,7 @@ func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.AST
 	}
 	// Source update_rules recreates generalizers before init_rules, even
 	// when subsequent rule installation fails. Context.Reset alone does not.
+	c.generalizersInitialized = true
 	c.generalizerStats = boolGeneralizerStatistics{}
 	watch, err := stopwatch.NewScopedWatch(&c.timers.initRules, false)
 	if err != nil {
@@ -880,7 +882,6 @@ func (c *Context) CollectStatisticsWithSnapshot(destination *statistics.Statisti
 			return err
 		}
 	}
-	c.generalizerStats.collect(destination)
 	destination.UpdateUint("SPACER inductive level", c.inductive)
 	return nil
 }
@@ -937,11 +938,14 @@ func (c *Context) Reset() (result error) {
 }
 
 func (c *Context) Close() (result error) {
-	if c == nil || c.manager == nil {
+	if c == nil {
 		return ErrContextOwner
 	}
 	if c.closed {
 		return nil
+	}
+	if c.manager == nil {
+		return ErrContextOwner
 	}
 	for index := len(c.order) - 1; index >= 0; index-- {
 		declaration := c.order[index]

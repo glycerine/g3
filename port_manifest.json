@@ -98614,6 +98614,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/fp/spacer_expression_generalizer_statistics_test.go",
         "pkg/muz/fp/spacer_relation_query.go",
         "pkg/muz/fp/spacer_relation_query_test.go",
         "pkg/parsers/smt2/spacer_slice_trace_test.go",
@@ -98635,6 +98636,7 @@
         "pkg/muz/fp/pdr_expression_fixture_test.go"
       ],
       "tests": [
+        "TestSpacerGeneralizerStatisticsSurviveFailedExpressionPreparation",
         "TestSpacerRelationQueryReversesMixedSortHead",
         "TestSMT2SpacerSlicesWithProofTrace",
         "TestSpacerEngineRunsReachableAndInductiveHornQueries",
@@ -98766,7 +98768,7 @@
         "PropositionalEngine owns the active Spacer Context and rebuilds it after tracked rule or parameter changes; returned answers and inductive models transfer ownership to the caller."
       ],
       "deviations": [
-        "Expression-query covers now follow the active context, including tested preparation/solve allocation failures and cancellation. Expression-query context/factory/kernel statistics now follow source accumulation/latest-value/reset lifetimes. Boolean generalizer counters/timers now follow the shared context owner and rule-installation reset lifetime. Expression-preparation-failure statistics and full model/proof validation remain open; source context/transformer stopwatches are implemented with focused lifetime coverage.",
+        "Expression-query covers now follow the active context, including tested preparation/solve allocation failures and cancellation. Expression-query context/factory/kernel statistics now follow source accumulation/latest-value/reset lifetimes. Boolean generalizer counters/timers now follow the shared context owner and rule-installation reset lifetime. Preparation-failure generalizer statistics now preserve the preceding owner until a rule-installation attempt replaces it, and a refused previous-query disposal preserves its owners through zero-budget retry/disposal. Broader cleanup-error paths and full model/proof validation remain open; source context/transformer stopwatches are implemented with focused lifetime coverage.",
         "Go reconstructs model-derived public formulas through the ordered Horn conversion ledger. The Go model converter expands complete interpretation expressions instead of storing source non-ground wildcard function entries. Coalesce/unfold source hyper-resolution proof construction is implemented and verified through combined preprocessing with original asserted leaves; slice proof conversion is partial.",
         "Expression-query trace names follow transformed rules as in the source: rule_unifier concatenates target and source names with semicolons, while subsumption checking can collapse a total named chain into the unnamed synthetic query fact. No reconstruction of original names is performed by the source get_rules_along_trace forwarding path."
       ]
