@@ -106,6 +106,16 @@ func TestSimpleJoinsUsesSourceSplitPredicateNames(t *testing.T) {
 }
 
 func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
+	for _, sparse := range []bool{false, true} {
+		name := "hash"
+		if sparse {
+			name = "sparse"
+		}
+		t.Run(name, func(t *testing.T) { testSimpleJoinsSelectsLowestEstimatedPair(t, sparse) })
+	}
+}
+
+func testSimpleJoinsSelectsLowestEstimatedPair(t *testing.T, sparse bool) {
 	context, err := cmd_context.NewStandaloneContext()
 	coneMust(t, err)
 	t.Cleanup(func() { coneMust(t, context.Close()) })
@@ -160,7 +170,7 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 	} {
 		declaration, x := manager.GetDecl(fixture.application)
 		coneMust(t, x)
-		table, x := relations.GetRelation(declaration)
+		table, x := sparseTransformRelation(relations, declaration, sparse)
 		coneMust(t, x)
 		for i := 0; i < fixture.rows; i++ {
 			row := append(rel.Fact(nil), fixture.row...)

@@ -46,7 +46,7 @@ func (e *PropositionalEngine) publishDatalogQueryRelations(clone *PropositionalE
 		if state == nil || state.table == nil {
 			continue
 		}
-		table, err := state.table.Clone()
+		table, err := state.table.CloneFinite()
 		if err != nil {
 			return err
 		}
@@ -59,18 +59,14 @@ func (e *PropositionalEngine) publishDatalogQueryRelations(clone *PropositionalE
 
 // installDatalogTable consumes the incoming clone on every exit. The prior
 // borrowed state table is retired only after relation-manager publication.
-func (e *PropositionalEngine) installDatalogTable(d ast.ASTHandle, table *rel.HashTable) error {
+func (e *PropositionalEngine) installDatalogTable(d ast.ASTHandle, table rel.FiniteTable) error {
 	state := e.predicates[d]
 	if state == nil {
 		return errors.Join(ErrPropositionalEngine, table.Close())
 	}
-	if err := e.relations.StoreRelation(d, table); err != nil {
+	if err := e.relations.StoreFiniteRelation(d, table); err != nil {
 		return errors.Join(err, table.Close())
 	}
-	prior := state.table
 	state.table = table
-	if prior != nil && prior != table {
-		return prior.Close()
-	}
 	return nil
 }

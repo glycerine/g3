@@ -4,8 +4,58 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
+
+func TestDatalogCheckedPublicationPreservesFiniteRepresentation(t *testing.T) {
+	signature, err := rel.NewSignature([]uint64{3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sparse, err := rel.NewSparseTable(signature, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if sparse != nil {
+			if err := sparse.Close(); err != nil {
+				t.Error(err)
+			}
+		}
+	}()
+	if _, err = sparse.Add(rel.Fact{0}); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := finiteHashSnapshot(sparse)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := snapshot.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	if found, err := snapshot.Contains(rel.Fact{0}); err != nil || !found {
+		t.Fatal("hash snapshot", found, err)
+	}
+	published, err := publishCheckedFactsLike(sparse, []rel.Fact{{2}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := published.(*rel.SparseTable); !ok {
+		t.Fatalf("publication changed representation: %T", published)
+	}
+	if found, err := published.Contains(rel.Fact{0}); err != nil || found {
+		t.Fatal("publication retained stale row", found, err)
+	}
+	if found, err := published.Contains(rel.Fact{2}); err != nil || !found {
+		t.Fatal("publication missing checked row", found, err)
+	}
+	if err = published.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestDatalogCheckRelationParameterRunsCheckedSaturation(t *testing.T) {
 	f := newDirectFactFixture(t)
@@ -147,5 +197,86 @@ func TestDatalogCheckRelationSparseBackend(t *testing.T) {
 	must(err)
 	if status != lbool.True {
 		t.Fatal("repeated sparse checked query", status)
+	}
+}
+
+func TestDatalogDefaultTableCheckedParametersRunConcretePair(t *testing.T) {
+	f := newDirectFactFixture(t)
+	e, m := f.engine, f.manager
+	must := func(err error) { t.Helper(); fragmentMust(t, err) }
+	must(e.SelectEngine("datalog"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checked", "true"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.default_table", "sparse"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checker", "hashtable"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.unbound_compressor", "false"))
+	b, err := m.MkBoolSort()
+	must(err)
+	name, err := m.Symbols.Intern("checked-default-table")
+	must(err)
+	predicate, err := m.MkFuncDecl(name, []ast.ASTHandle{b}, b, ast.ASTFuncDeclInfo{})
+	must(err)
+	must(e.RegisterPredicate(predicate))
+	must(e.SetPredicateRepresentation(predicate, []string{"tr_sparse"}))
+	yes, err := m.MkTrue()
+	must(err)
+	must(e.AddFact(predicate, []ast.ASTHandle{yes}))
+
+	status, err := e.QueryPredicate(predicate)
+	must(err)
+	if status != lbool.True || e.compiled {
+		t.Fatal("checked default table result/compiler", status, e.compiled)
+	}
+	if _, ok := e.predicates[predicate].table.(*rel.SparseTable); !ok {
+		t.Fatalf("checked publication changed default table representation: %T", e.predicates[predicate].table)
+	}
+	found, err := e.predicates[predicate].table.Contains(rel.Fact{1})
+	if err != nil || !found {
+		t.Fatal("checked default table fact", found, err)
+	}
+}
+
+func TestDatalogDefaultTableCheckedParameterPrecedenceAndNull(t *testing.T) {
+	f := newDirectFactFixture(t)
+	e, m := f.engine, f.manager
+	must := func(err error) { t.Helper(); fragmentMust(t, err) }
+	must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checked", "true"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.default_table", "hashtable"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checker", "hashtable"))
+	mode, enabled, err := e.datalogDefaultTableCheck()
+	if err != nil || !enabled || mode != "hashtable" {
+		t.Fatal("module same-plugin checker", mode, enabled, err)
+	}
+
+	local, err := e.params.NewValue()
+	must(err)
+	checkedKey := "datalog.default_table_checked"
+	must(e.params.SetBoolName(&local, &checkedKey, false))
+	must(e.SetQueryParameters(&local))
+	must(e.params.Del(&local))
+	if mode, enabled, err = e.datalogDefaultTableCheck(); err != nil || enabled || mode != "" {
+		t.Fatal("local false did not override module true", mode, enabled, err)
+	}
+
+	local, err = e.params.NewValue()
+	must(err)
+	checkerKey := "datalog.default_table_checker"
+	null, err := m.Symbols.Intern("null")
+	must(err)
+	must(e.params.SetSymbolName(&local, &checkerKey, null))
+	must(e.SetQueryParameters(&local))
+	must(e.params.Del(&local))
+	if mode, enabled, err = e.datalogDefaultTableCheck(); err != nil || enabled || mode != "" {
+		t.Fatal("local null did not disable module checker", mode, enabled, err)
+	}
+
+	must(e.SetQueryParameters(nil))
+	must(e.globals.SourceSetName("fixedpoint.datalog.default_table", "sparse"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checker", "sparse"))
+	if mode, enabled, err = e.datalogDefaultTableCheck(); err != nil || !enabled || mode != "sparse" {
+		t.Fatal("module sparse same-plugin checker", mode, enabled, err)
+	}
+	must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checker", "null"))
+	if mode, enabled, err = e.datalogDefaultTableCheck(); err != nil || enabled || mode != "" {
+		t.Fatal("module null checker", mode, enabled, err)
 	}
 }

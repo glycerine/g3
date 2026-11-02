@@ -171,12 +171,12 @@ func (p *SimpleJoinsPlugin) tailCost(tail ast.ASTHandle) (float32, map[uint32]as
 			return 0, nil, x
 		}
 		if saturated {
-			table, found, x := p.relations.TryGetRelation(declaration)
+			table, found, x := p.relations.TryGetFiniteRelation(declaration)
 			if x != nil {
 				return 0, nil, x
 			}
 			if found {
-				rows, x := table.SizeEstimateRows()
+				rows, x := table.Len()
 				if x != nil {
 					return 0, nil, x
 				}

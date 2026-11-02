@@ -170,7 +170,15 @@ func TestConePluginCapturesOrderedModelDefinitions(t *testing.T) {
 		foundTop = f.manager.IsTrue(formula)
 	}
 	for _, definition := range steps[1] {
-		if definition.Declaration != f.declarations["S"] {
+		// In dataflow.h:70-76, step_bottom_up creates a head fact entry only
+		// while evaluating a rule reached through m_body2rules. With no seed
+		// for X, X -> S is never evaluated, so S is absent from engine facts.
+		// dl_mk_coi_filter.cpp:81-86 then emits false for enumerated engine
+		// facts followed by explicitly scanned unreachable tails: X, not S.
+		if definition.Declaration == f.declarations["S"] {
+			t.Fatal("bottom-up converter fabricated an entry for an unevaluated head")
+		}
+		if definition.Declaration != f.declarations["X"] {
 			continue
 		}
 		formula, getErr := f.manager.RefGet(definition.Formula)
@@ -201,6 +209,16 @@ func TestConeOfInfluenceReturnsNilWhenUnchanged(t *testing.T) {
 }
 
 func TestConeOfInfluenceBailsOutWhenNegativeTailHasMaterializedFacts(t *testing.T) {
+	for _, sparse := range []bool{false, true} {
+		name := "hash"
+		if sparse {
+			name = "sparse"
+		}
+		t.Run(name, func(t *testing.T) { testConeOfInfluenceBailsOutWhenNegativeTailHasMaterializedFacts(t, sparse) })
+	}
+}
+
+func testConeOfInfluenceBailsOutWhenNegativeTailHasMaterializedFacts(t *testing.T, sparse bool) {
 	f := newConeFixture(t, "P", "E")
 	addTransformRule(t, f, f.applications["P"], []ast.ASTHandle{f.applications["E"]}, []bool{true}, "negative-fact-table")
 	coneMust(t, f.set.SetOutputPredicate(f.declarations["P"]))
@@ -212,7 +230,7 @@ func TestConeOfInfluenceBailsOutWhenNegativeTailHasMaterializedFacts(t *testing.
 	relations, err := rel.NewRelationManager(f.manager)
 	coneMust(t, err)
 	t.Cleanup(func() { coneMust(t, relations.Close()) })
-	table, err := relations.GetRelation(f.declarations["E"])
+	table, err := sparseTransformRelation(relations, f.declarations["E"], sparse)
 	coneMust(t, err)
 	if inserted, addErr := table.Add(rel.Fact{}); addErr != nil || !inserted {
 		t.Fatalf("materialize E fact: inserted=%v err=%v", inserted, addErr)

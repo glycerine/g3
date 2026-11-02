@@ -8,7 +8,7 @@ func (e *PropositionalEngine) copyQueryPredicates(clone *PropositionalEngine) er
 			return err
 		}
 		if e.backend == "datalog" && e.predicates[declaration].table != nil {
-			table, err := e.predicates[declaration].table.Clone()
+			table, err := e.predicates[declaration].table.CloneFinite()
 			if err != nil {
 				return err
 			}

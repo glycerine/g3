@@ -408,7 +408,7 @@ func (p *MagicSetsPlugin) addTransferRule(task magicTask, result *base.RuleSet) 
 	if p.relations == nil {
 		return nil
 	}
-	table, found, err := p.relations.TryGetRelation(task.description.predicate)
+	table, found, err := p.relations.TryGetFiniteRelation(task.description.predicate)
 	if err != nil || !found {
 		return err
 	}

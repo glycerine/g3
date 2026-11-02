@@ -22,7 +22,17 @@ type reachRule struct {
 // Reachability is the completed Boolean abstract-domain result. Missing
 // predicate declarations denote the source null fact and are unreachable.
 type Reachability struct {
-	facts map[ast.ASTHandle]bool
+	facts      map[ast.ASTHandle]bool
+	known      map[ast.ASTHandle]bool
+	knownOrder []ast.ASTHandle
+}
+
+func (r *Reachability) markKnown(declaration ast.ASTHandle) {
+	if r.known[declaration] {
+		return
+	}
+	r.known[declaration] = true
+	r.knownOrder = append(r.knownOrder, declaration)
 }
 
 func snapshot(rules *base.RuleSet) ([]reachRule, map[ast.ASTHandle][]int, map[ast.ASTHandle][]int, error) {
@@ -88,8 +98,8 @@ func snapshotRule(rule *base.Rule) (reachRule, error) {
 	return entry, nil
 }
 
-func propagate(queue map[ast.ASTHandle]bool, declaration ast.ASTHandle) {
-	queue[declaration] = true
+func propagate(queue *[]ast.ASTHandle, declaration ast.ASTHandle) {
+	*queue = append(*queue, declaration)
 }
 
 // BottomUp computes predicate reachability from rules with no positive tails.
@@ -100,19 +110,25 @@ func BottomUp(rules *base.RuleSet) (*Reachability, error) {
 	if err != nil {
 		return nil, err
 	}
-	result := &Reachability{facts: make(map[ast.ASTHandle]bool)}
-	current := make(map[ast.ASTHandle]bool)
+	result := &Reachability{facts: make(map[ast.ASTHandle]bool), known: make(map[ast.ASTHandle]bool)}
+	var current []ast.ASTHandle
 	for _, rule := range snapshot {
-		if rule.positive == 0 && !result.facts[rule.head] {
-			result.facts[rule.head] = true
-			propagate(current, rule.head)
+		if rule.positive == 0 {
+			result.markKnown(rule.head)
+			if !result.facts[rule.head] {
+				result.facts[rule.head] = true
+				propagate(&current, rule.head)
+			}
 		}
 	}
 	for len(current) != 0 {
-		next := make(map[ast.ASTHandle]bool)
-		for declaration := range current {
+		var next []ast.ASTHandle
+		for _, declaration := range current {
 			for _, index := range byTail[declaration] {
 				rule := snapshot[index]
+				// Source step_bottom_up inserts the head's default fact before
+				// propagate_up, even when another positive tail is unreachable.
+				result.markKnown(rule.head)
 				if result.facts[rule.head] {
 					continue
 				}
@@ -125,7 +141,7 @@ func BottomUp(rules *base.RuleSet) (*Reachability, error) {
 				}
 				if reachable {
 					result.facts[rule.head] = true
-					propagate(next, rule.head)
+					propagate(&next, rule.head)
 				}
 			}
 		}
@@ -145,22 +161,24 @@ func TopDown(rules *base.RuleSet) (*Reachability, error) {
 	if err != nil {
 		return nil, err
 	}
-	result := &Reachability{facts: make(map[ast.ASTHandle]bool)}
-	current := make(map[ast.ASTHandle]bool)
+	result := &Reachability{facts: make(map[ast.ASTHandle]bool), known: make(map[ast.ASTHandle]bool)}
+	var current []ast.ASTHandle
 	for _, declaration := range outputs {
 		if len(byHead[declaration]) != 0 {
+			result.markKnown(declaration)
 			result.facts[declaration] = true
-			propagate(current, declaration)
+			propagate(&current, declaration)
 		}
 	}
 	for len(current) != 0 {
-		next := make(map[ast.ASTHandle]bool)
-		for declaration := range current {
+		var next []ast.ASTHandle
+		for _, declaration := range current {
 			for _, index := range byHead[declaration] {
 				for _, tail := range snapshot[index].tails {
+					result.markKnown(tail)
 					if !result.facts[tail] {
 						result.facts[tail] = true
-						propagate(next, tail)
+						propagate(&next, tail)
 					}
 				}
 			}
@@ -172,4 +190,14 @@ func TopDown(rules *base.RuleSet) (*Reachability, error) {
 
 func (r *Reachability) IsReachable(declaration ast.ASTHandle) bool {
 	return r != nil && r.facts[declaration]
+}
+
+// KnownDeclarations returns the declarations for which the source dataflow
+// fact database constructed an entry. A missing declaration still denotes the
+// null fact, but is distinct when a consumer enumerates the database.
+func (r *Reachability) KnownDeclarations() []ast.ASTHandle {
+	if r == nil {
+		return nil
+	}
+	return append([]ast.ASTHandle(nil), r.knownOrder...)
 }

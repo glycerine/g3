@@ -36,7 +36,7 @@ var (
 
 type predicateState struct {
 	sorts    []ast.ASTHandle
-	table    *rel.HashTable
+	table    rel.FiniteTable
 	external *rel.ExternalRelation
 	checked  *rel.FormulaCheckedTable
 	sparse   *rel.CheckedRelation
@@ -61,7 +61,7 @@ func (e *PropositionalEngine) predicateState(declaration ast.ASTHandle) (*predic
 			return nil, err
 		}
 	}
-	table, tableErr := e.relations.GetRelation(declaration)
+	table, tableErr := e.relations.GetFiniteRelation(declaration)
 	if tableErr != nil && !errors.Is(tableErr, rel.ErrTable) {
 		return nil, tableErr
 	}
@@ -340,6 +340,11 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 			}
 		default:
 			return fmt.Errorf("muz/fp: relation plugin %s does not exist", kind)
+		}
+	}
+	if len(kinds) == 1 && (kinds[0] == "tr_sparse" || kinds[0] == "tr_hashtable") {
+		if err := e.selectFiniteRepresentation(declaration, kinds[0]); err != nil {
+			return err
 		}
 	}
 	e.revision++
@@ -1652,6 +1657,15 @@ func (e *PropositionalEngine) saturate() error {
 }
 
 func (e *PropositionalEngine) tryCompiledSaturation() (used bool, resultErr error) {
+	// The current bytecode registers own HashTable values. Other concrete
+	// stores use the existing interpreted evaluator until compiled support.
+	for _, state := range e.predicates {
+		if state.table != nil {
+			if _, ok := state.table.(*rel.HashTable); !ok {
+				return false, nil
+			}
+		}
+	}
 	execution, termination, err := rel.CompileFiniteRulesWithGuard(e.relations, e.set, e.guard)
 	if errors.Is(err, rel.ErrCompilerUnsupported) {
 		return false, nil

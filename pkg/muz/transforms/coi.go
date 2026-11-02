@@ -272,12 +272,12 @@ func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.Relati
 	}
 	kept := 0
 	declarations := make(map[ast.ASTHandle]bool)
-	var declarationOrder []ast.ASTHandle
+	var unreachableTailOrder []ast.ASTHandle
 	var astManager *ast.ASTManager
 	remember := func(declaration ast.ASTHandle) {
 		if !declarations[declaration] {
 			declarations[declaration] = true
-			declarationOrder = append(declarationOrder, declaration)
+			unreachableTailOrder = append(unreachableTailOrder, declaration)
 		}
 	}
 	for i := 0; i < count; i++ {
@@ -294,7 +294,7 @@ func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.Relati
 				if e != nil {
 					break
 				}
-				table, found, relationErr := relations.TryGetRelation(declaration)
+				table, found, relationErr := relations.TryGetFiniteRelation(declaration)
 				e = relationErr
 				if e == nil && found {
 					var rows int
@@ -312,19 +312,12 @@ func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.Relati
 		if captureModel && e == nil {
 			astManager, e = rule.ASTManager()
 			if e == nil {
-				var declaration ast.ASTHandle
-				declaration, e = rule.HeadDeclaration()
-				if e == nil {
-					remember(declaration)
-				}
-			}
-			if e == nil {
 				var tails int
 				tails, e = rule.UninterpretedTailSize()
 				for j := 0; e == nil && j < tails; j++ {
 					var declaration ast.ASTHandle
 					declaration, e = rule.TailDeclaration(j)
-					if e == nil {
+					if e == nil && !reachable.IsReachable(declaration) {
 						remember(declaration)
 					}
 				}
@@ -361,10 +354,21 @@ func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.Relati
 		if makeErr != nil {
 			return nil, nil, makeErr
 		}
-		for _, declaration := range declarationOrder {
-			if reachable.IsReachable(declaration) {
-				continue
+		declarationOrder := make([]ast.ASTHandle, 0, len(reachable.KnownDeclarations())+len(unreachableTailOrder))
+		seen := make(map[ast.ASTHandle]bool)
+		appendUnreachable := func(declaration ast.ASTHandle) {
+			if !reachable.IsReachable(declaration) && !seen[declaration] {
+				seen[declaration] = true
+				declarationOrder = append(declarationOrder, declaration)
 			}
+		}
+		for _, declaration := range reachable.KnownDeclarations() {
+			appendUnreachable(declaration)
+		}
+		for _, declaration := range unreachableTailOrder {
+			appendUnreachable(declaration)
+		}
+		for _, declaration := range declarationOrder {
 			formula, refErr := astManager.NewRef(falsity)
 			if refErr != nil {
 				return nil, nil, errors.Join(refErr, closeConeModelSteps([]ConeModelStep{step}))

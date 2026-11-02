@@ -15,6 +15,7 @@ import (
 type RelationManager struct {
 	manager      *ast.ASTManager
 	relations    map[ast.ASTHandle]*HashTable
+	finite       map[ast.ASTHandle]FiniteTable
 	explanations map[ast.ASTHandle]*FiniteExplanationProduct
 	saturated    map[ast.ASTHandle]bool
 	closed       bool
@@ -27,11 +28,11 @@ func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
 	if err := manager.RegisterDeclarationPlugins(); err != nil {
 		return nil, err
 	}
-	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), explanations: make(map[ast.ASTHandle]*FiniteExplanationProduct), saturated: make(map[ast.ASTHandle]bool)}, nil
+	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), finite: make(map[ast.ASTHandle]FiniteTable), explanations: make(map[ast.ASTHandle]*FiniteExplanationProduct), saturated: make(map[ast.ASTHandle]bool)}, nil
 }
 
 func (m *RelationManager) open() error {
-	if m == nil || m.closed || m.manager == nil || m.relations == nil || m.explanations == nil || m.saturated == nil {
+	if m == nil || m.closed || m.manager == nil || m.relations == nil || m.finite == nil || m.explanations == nil || m.saturated == nil {
 		return ErrTable
 	}
 	return nil
@@ -72,6 +73,9 @@ func (m *RelationManager) TryGetRelation(predicate ast.ASTHandle) (*HashTable, b
 	if err := m.open(); err != nil {
 		return nil, false, err
 	}
+	if m.finite[predicate] != nil {
+		return nil, false, ErrTable
+	}
 	table, found := m.relations[predicate]
 	if table != nil {
 		if err := table.open(); err != nil {
@@ -86,6 +90,9 @@ func (m *RelationManager) TryGetRelation(predicate ast.ASTHandle) (*HashTable, b
 func (m *RelationManager) GetRelation(predicate ast.ASTHandle) (*HashTable, error) {
 	if err := m.open(); err != nil {
 		return nil, err
+	}
+	if m.finite[predicate] != nil {
+		return nil, ErrTable
 	}
 	if table := m.relations[predicate]; table != nil {
 		if err := table.open(); err != nil {
@@ -107,35 +114,7 @@ func (m *RelationManager) GetRelation(predicate ast.ASTHandle) (*HashTable, erro
 // StoreRelation transfers ownership of table to the manager. The predicate is
 // retained on first insertion and the previous table is replaced.
 func (m *RelationManager) StoreRelation(predicate ast.ASTHandle, table *HashTable) error {
-	if err := m.open(); err != nil {
-		return err
-	}
-	if err := table.open(); err != nil {
-		return err
-	}
-	_, expected, err := m.PredicateSignature(predicate)
-	if err != nil {
-		return err
-	}
-	actual, err := table.Signature()
-	if err != nil {
-		return err
-	}
-	if !expected.equal(actual) {
-		return fmt.Errorf("%w: stored relation signature differs from predicate", ErrTable)
-	}
-	if prior, found := m.relations[predicate]; found {
-		if prior == table {
-			return nil
-		}
-		if err = prior.Close(); err != nil {
-			return err
-		}
-	} else if err = m.manager.IncRef(predicate); err != nil {
-		return err
-	}
-	m.relations[predicate] = table
-	return nil
+	return m.StoreFiniteRelation(predicate, table)
 }
 
 // ResetRelations releases every retained predicate and drops its owned table.
@@ -152,6 +131,18 @@ func (m *RelationManager) ResetRelations() (result error) {
 		result = errors.Join(result, err)
 		if consumed {
 			delete(m.explanations, predicate)
+			delete(m.saturated, predicate)
+		}
+	}
+	for predicate, table := range m.finite {
+		if err := table.Close(); err != nil {
+			result = errors.Join(result, err)
+			continue
+		}
+		consumed, err := m.manager.DecRefConsumed(predicate)
+		result = errors.Join(result, err)
+		if consumed {
+			delete(m.finite, predicate)
 			delete(m.saturated, predicate)
 		}
 	}
@@ -178,12 +169,13 @@ func (m *RelationManager) Close() (result error) {
 		return nil
 	}
 	result = m.ResetRelations()
-	if len(m.relations) != 0 || len(m.explanations) != 0 {
+	if len(m.relations) != 0 || len(m.finite) != 0 || len(m.explanations) != 0 {
 		return errors.Join(result, ErrTable)
 	}
 	m.closed = true
 	m.manager = nil
 	m.relations = nil
+	m.finite = nil
 	m.explanations = nil
 	m.saturated = nil
 	return result

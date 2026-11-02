@@ -70,7 +70,7 @@ func TestDatalogUnboundCompressorLiveParametersAndScopedRules(t *testing.T) {
 				t.Fatalf("compressed=%v, want %v", scope != nil, tc.compressed)
 			}
 			if scope != nil {
-				var temporary *rel.HashTable
+				var temporary rel.FiniteTable
 				for decl := range e.auxiliary {
 					temporary = e.predicates[decl].table
 				}

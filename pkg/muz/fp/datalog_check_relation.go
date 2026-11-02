@@ -16,11 +16,11 @@ import (
 type datalogCheckedPredicate struct {
 	declaration ast.ASTHandle
 	state       *predicateState
-	original    *rel.HashTable
+	original    rel.FiniteTable
 	shadow      *rel.HashTable
 	checked     *rel.FormulaCheckedTable
 	sparse      *rel.CheckedRelation
-	publish     *rel.HashTable
+	publish     rel.FiniteTable
 }
 
 type datalogCheckRelationScope struct {
@@ -36,6 +36,60 @@ type datalogCheckRelationCleanupFailure struct {
 func (f *datalogCheckRelationCleanupFailure) Error() string  { return f.cause.Error() }
 func (f *datalogCheckRelationCleanupFailure) Unwrap() error  { return f.cause }
 func (f *datalogCheckRelationCleanupFailure) Cleanup() error { return f.scope.dispose() }
+
+// finiteHashSnapshot materializes the concrete finite input required by the
+// formula checker without assuming manager storage is already a hashtable.
+func finiteHashSnapshot(source rel.FiniteTable) (_ *rel.HashTable, resultErr error) {
+	if source == nil {
+		return nil, rel.ErrTable
+	}
+	signature, err := source.Signature()
+	if err != nil {
+		return nil, err
+	}
+	result := rel.NewHashTable(signature)
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+		}
+	}()
+	facts, err := source.Facts()
+	if err != nil {
+		return nil, err
+	}
+	for _, fact := range facts {
+		if _, err = result.Add(fact); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// publishCheckedFactsLike builds query output using the original selected
+// finite representation rather than leaking the checker's hashtable shadow.
+func publishCheckedFactsLike(original rel.FiniteTable, facts []rel.Fact) (_ rel.FiniteTable, resultErr error) {
+	if original == nil {
+		return nil, rel.ErrTable
+	}
+	result, err := original.CloneFinite()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+		}
+	}()
+	if err = result.Reset(); err != nil {
+		return nil, err
+	}
+	for _, fact := range facts {
+		if _, err = result.Add(fact); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
 
 func (e *PropositionalEngine) datalogCheckRelationName() (name string, enabled bool, resultErr error) {
 	if e.params == nil || e.globals == nil {
@@ -76,10 +130,77 @@ func (e *PropositionalEngine) datalogCheckRelationName() (name string, enabled b
 	return name, true, nil
 }
 
+// datalogDefaultTableCheck consumes the source table-checking parameters for
+// the concrete hashtable/sparse pair currently available to finite execution.
+func (e *PropositionalEngine) datalogDefaultTableCheck() (mode string, enabled bool, resultErr error) {
+	if e.params == nil || e.globals == nil {
+		return "", false, nil
+	}
+	view, err := e.fixedpointParamView()
+	if err != nil {
+		return "", false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, view.Close()) }()
+	enabled, err = view.Bool("datalog.default_table_checked", false)
+	if err != nil || !enabled {
+		return "", false, err
+	}
+	readName := func(key string) (string, error) {
+		value, err := view.Symbol(key, symbol.Symbol{})
+		if err != nil || value.Value == 0 {
+			return "", err
+		}
+		name, _, err := e.manager.Symbols.BareString(value)
+		return name, err
+	}
+	base, err := readName("datalog.default_table")
+	if err != nil {
+		return "", false, err
+	}
+	checker, err := readName("datalog.default_table_checker")
+	if err != nil {
+		return "", false, err
+	}
+	if checker == "" || checker == "null" {
+		// Source registration leaves checking disabled when the named checker
+		// plugin does not exist; null is its catalog default.
+		return "", false, nil
+	}
+	normalize := func(name string) string {
+		switch name {
+		case "tr_hashtable":
+			return "hashtable"
+		case "tr_sparse":
+			return "sparse"
+		default:
+			return name
+		}
+	}
+	base, checker = normalize(base), normalize(checker)
+	if (base != "hashtable" && base != "sparse") || (checker != "hashtable" && checker != "sparse") {
+		return "", false, fmt.Errorf("muz/fp: checked default table pair %s/%s is not available", base, checker)
+	}
+	// The source permits the same plugin on both sides. For the reached Go
+	// instantiations, Hash/Hash uses the stronger source check_relation SMT
+	// verifier; every pair involving Sparse uses the concrete Hash/Sparse
+	// cross-checker. This avoids imposing a configuration restriction absent
+	// from dl_relation_manager.cpp while still checking every live operation.
+	if base == "hashtable" && checker == "hashtable" {
+		return "hashtable", true, nil
+	}
+	return "sparse", true, nil
+}
+
 func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelationScope, resultErr error) {
 	name, enabled, err := e.datalogCheckRelationName()
-	if err != nil || !enabled {
+	if err != nil {
 		return nil, err
+	}
+	if !enabled {
+		name, enabled, err = e.datalogDefaultTableCheck()
+		if err != nil || !enabled {
+			return nil, err
+		}
 	}
 	scope := &datalogCheckRelationScope{engine: e}
 	published := false
@@ -103,9 +224,17 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 			if signature.Len() == 0 {
 				continue
 			}
-			checked, err := rel.NewCheckedRelationFromTable(state.table)
+			snapshot, err := finiteHashSnapshot(state.table)
 			if err != nil {
 				return nil, err
+			}
+			checked, err := rel.NewCheckedRelationFromTable(snapshot)
+			closeErr := snapshot.Close()
+			if err != nil {
+				return nil, errors.Join(err, closeErr)
+			}
+			if closeErr != nil {
+				return nil, errors.Join(closeErr, checked.Close())
 			}
 			shadow, err := checked.Primary()
 			if err != nil {
@@ -116,7 +245,7 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 			state.table, state.sparse = shadow, checked
 			continue
 		}
-		shadow, err := state.table.Clone()
+		shadow, err := finiteHashSnapshot(state.table)
 		if err != nil {
 			return nil, err
 		}
@@ -152,7 +281,13 @@ func (s *datalogCheckRelationScope) complete(publish bool) (result error) {
 	if publish {
 		for i := range s.entries {
 			entry := &s.entries[i]
-			entry.publish, result = entry.shadow.Clone()
+			facts, err := entry.shadow.Facts()
+			if err != nil {
+				result = err
+				publish = false
+				break
+			}
+			entry.publish, result = publishCheckedFactsLike(entry.original, facts)
 			if result != nil {
 				publish = false
 				break
@@ -197,6 +332,7 @@ func (s *datalogCheckRelationScope) dispose() (result error) {
 				continue
 			}
 			entry.checked = nil
+			entry.shadow = nil
 		}
 		if entry.sparse != nil {
 			if err := entry.sparse.Close(); err != nil {

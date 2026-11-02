@@ -95,4 +95,26 @@ func TestReachabilityRunsFromIngestedHornProgram(t *testing.T) {
 	if !top.IsReachable(declarations["M"]) || !top.IsReachable(declarations["N"]) {
 		t.Fatal("top-down negative-tail reachability does not match source")
 	}
+	knownOrder := bottom.KnownDeclarations()
+	wantKnownOrder := []ast.ASTHandle{declarations["P"], declarations["M"], declarations["Q"], declarations["R"]}
+	if len(knownOrder) != len(wantKnownOrder) {
+		t.Fatal("source fact database order", knownOrder)
+	}
+	known := make(map[ast.ASTHandle]bool)
+	for index, declaration := range knownOrder {
+		if declaration != wantKnownOrder[index] {
+			t.Fatal("source fact database order", knownOrder, wantKnownOrder)
+		}
+		known[declaration] = true
+	}
+	for _, name := range []string{"P", "Q", "R", "M"} {
+		if !known[declarations[name]] {
+			t.Fatal("source fact database entry omitted", name)
+		}
+	}
+	for _, name := range []string{"U", "V", "N"} {
+		if known[declarations[name]] {
+			t.Fatal("unevaluated declaration received a source fact entry", name)
+		}
+	}
 }

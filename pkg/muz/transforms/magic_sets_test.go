@@ -178,6 +178,16 @@ func TestMagicSetsPreservesNegatedAndInterpretedTails(t *testing.T) {
 }
 
 func TestMagicSetsTransfersExistingIntentionalRelation(t *testing.T) {
+	for _, sparse := range []bool{false, true} {
+		name := "hash"
+		if sparse {
+			name = "sparse"
+		}
+		t.Run(name, func(t *testing.T) { testMagicSetsTransfersExistingIntentionalRelation(t, sparse) })
+	}
+}
+
+func testMagicSetsTransfersExistingIntentionalRelation(t *testing.T, sparse bool) {
 	f := newConeFixture(t)
 	boolean, err := f.manager.MkBoolSort()
 	coneMust(t, err)
@@ -209,7 +219,7 @@ func TestMagicSetsTransfersExistingIntentionalRelation(t *testing.T) {
 	relations, err := rel.NewRelationManager(f.manager)
 	coneMust(t, err)
 	t.Cleanup(func() { coneMust(t, relations.Close()) })
-	table, err := relations.GetRelation(qDecl)
+	table, err := sparseTransformRelation(relations, qDecl, sparse)
 	coneMust(t, err)
 	if inserted, addErr := table.Add(rel.Fact{1}); addErr != nil || !inserted {
 		t.Fatalf("insert existing Q fact: inserted=%v err=%v", inserted, addErr)
