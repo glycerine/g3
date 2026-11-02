@@ -46,6 +46,7 @@ Each completed item needs source paths, implementation/test evidence and a commi
 - [ ] Close `spacer_context` reach-fact selection, predecessor tags, obligation search and ownership/exception audits.
   - [x] Verify unknown-case skipping, first-false ordering, initial-fact filtering and non-completing evaluation with the existing selection regression.
   - [x] Verify all-true/all-unknown no-selection results for current and origin-state cases without model completion or temporary-reference leaks.
+  - [x] Verify the direct constant-model selection path remains usable with a zero-step evaluator budget and releases its returned owner.
   - [ ] Audit source VERIFY/UNREACHABLE/SASSERT transport and evaluator-exception cleanup before closing reach-fact selection.
 - [ ] Close `spacer_util` model evaluation, QE/MBP, array auxiliaries, appended datatype literals and source diagnostics.
 - [ ] Finish slice-proof conversion for every live proof shape. Sparse/trailing/vacuous/mixed-sort binders and reverse binary resolution now have evidence, but general multi-premise mixed orientations remain unproven.
@@ -207,3 +208,6 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Added `TestSpacerReachFactSelectionWithoutFalseCase` for current/origin cases with all-true or all-unknown model interpretations. Each case requires no selected fact, no model completion and unchanged live-reference count; the existing selection-order regression also passes. Source assertion/exception transport remains explicitly open. Previous scope-contract commit: `5e2c2e350`.
   Validation: `go -C pkg test ./muz/spacer -run '^TestSpacerReachFactSelection' -count=1` passed. Commit title: `Test Spacer reach selection without a false case`.
+
+- 2026-11-02 — Added `TestSpacerReachFactSelectionWithZeroStepBudget`: a directly interpreted false case must select the correct reach fact even with evaluator max_steps=0, and closing the returned owner restores the reference baseline. The focused native test passes. The experiment confirms direct Boolean cases bypass the rewriting limit; it does not claim to exercise a caught evaluator exception, whose transport/cleanup audit stays open. Previous no-selection coverage commit: `bae0c4178`.
+  Validation: `go -C pkg test ./muz/spacer -run '^TestSpacerReachFactSelectionWithZeroStepBudget$' -count=1` passed. Commit title: `Test Spacer constant reach selection under zero step budget`.

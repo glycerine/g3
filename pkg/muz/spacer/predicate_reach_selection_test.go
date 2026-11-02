@@ -163,3 +163,45 @@ func TestSpacerReachFactSelectionWithoutFalseCase(t *testing.T) {
 		}
 	}
 }
+
+func TestSpacerReachFactSelectionWithZeroStepBudget(t *testing.T) {
+	f := newContextAnswerFixture(t, false)
+	p, m := f.context.transformers[f.query], f.context.manager
+	config := p.owner.contexts[0].config.ModelEvaluator
+	params, err := config.Context.NewValue()
+	depthMust(t, err)
+	key := "max_steps"
+	depthMust(t, config.Context.SetUIntName(&params, &key, 0))
+	limited := config
+	limited.Params = &params
+	p.owner.contexts[0].config.ModelEvaluator = limited
+	defer func() { p.owner.contexts[0].config.ModelEvaluator = config; depthMust(t, config.Context.Del(&params)) }()
+	md, err := model.NewModel(m)
+	depthMust(t, err)
+	defer func() { depthMust(t, md.Close()) }()
+	if len(p.reachCaseVariables) == 0 {
+		t.Fatal("missing reach cases")
+	}
+	h, err := m.RefGet(p.reachCaseVariables[0])
+	depthMust(t, err)
+	decl, err := m.GetDecl(h)
+	depthMust(t, err)
+	falsity, err := m.MkFalse()
+	depthMust(t, err)
+	depthMust(t, md.Core().RegisterConstant(decl, falsity))
+	before := m.Stats().LiveReferences
+	fact, found, err := p.UsedReachFact(md.Core(), true)
+	depthMust(t, err)
+	if !found || fact == nil {
+		t.Fatal("zero-step constant case was not selected")
+	}
+	if fact.state != p.reachFacts[0].state {
+		depthMust(t, fact.Close())
+		t.Fatal("wrong constant case")
+	}
+	depthMust(t, fact.Close())
+
+	if m.Stats().LiveReferences != before {
+		t.Fatal("limited selection leaked references")
+	}
+}
