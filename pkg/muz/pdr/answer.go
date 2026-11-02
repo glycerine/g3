@@ -396,10 +396,13 @@ func (c *Context) Model(queryDeclaration ast.ASTHandle) (result *model.Model, re
 	if err != nil {
 		return nil, err
 	}
+	owner := &pdrModelExportOwner{manager: c.manager, model: result}
 	defer func() {
-		if resultErr != nil && result != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+		if resultErr == nil {
+			owner.model = nil
+		} else {
 			result = nil
+			resultErr = owner.dispose(resultErr)
 		}
 	}()
 	for _, declaration := range c.order {
@@ -410,9 +413,10 @@ func (c *Context) Model(queryDeclaration ast.ASTHandle) (result *model.Model, re
 		if x != nil {
 			return result, x
 		}
+		owner.references = append(owner.references, body)
 		bodyHandle, x := c.manager.RefGet(body)
 		if x != nil {
-			return result, errors.Join(x, c.manager.DelRef(&body))
+			return result, x
 		}
 		arity, x := c.manager.GetArity(declaration)
 		if x == nil && arity == 0 {
@@ -420,18 +424,25 @@ func (c *Context) Model(queryDeclaration ast.ASTHandle) (result *model.Model, re
 		} else if x == nil {
 			var interpretation *model.FunctionInterpretation
 			interpretation, x = model.NewFunctionInterpretation(c.manager, arity)
+			if interpretation != nil {
+				owner.interpretations = append(owner.interpretations, interpretation)
+			}
 			if x == nil {
 				x = interpretation.SetElse(bodyHandle)
 			}
 			if x == nil {
 				x = result.Core().RegisterFunction(declaration, interpretation)
-				interpretation = nil
-			}
-			if interpretation != nil {
-				x = errors.Join(x, interpretation.Close())
+				if x == nil {
+					owner.interpretations = owner.interpretations[:len(owner.interpretations)-1]
+					interpretation = nil
+				}
 			}
 		}
-		x = errors.Join(x, c.manager.DelRef(&body))
+		if releaseErr := owner.releaseLastReference(); x == nil {
+			x = releaseErr
+		} else {
+			x = errors.Join(x, releaseErr)
+		}
 		if x != nil {
 			return result, x
 		}

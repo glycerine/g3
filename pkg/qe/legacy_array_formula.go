@@ -105,7 +105,7 @@ func (p *legacyArrayProjection) projectFormula(md *model.ModelCore, variables []
 				}
 				err = e
 			}
-			err = errors.Join(err, store.Close())
+			err = closeTransferredLegacyArraySelect(store, err)
 			if err != nil {
 				return nil, err
 			}
@@ -171,7 +171,7 @@ func (p *legacyArrayProjection) projectFormula(md *model.ModelCore, variables []
 		}
 		err = e
 	}
-	err = errors.Join(err, selects.Close())
+	err = closeTransferredLegacyArraySelect(selects, err)
 	if err != nil {
 		return nil, err
 	}

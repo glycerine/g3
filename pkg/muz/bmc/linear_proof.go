@@ -27,7 +27,7 @@ func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level u
 	// an error.
 	defer func() {
 		if resultErr != nil && result != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, m.DelRef(&result))
+			resultErr = disposeASTRefs(m, []ast.ASTRef{result}, resultErr)
 			result = ast.ASTRef{}
 		}
 	}()
@@ -48,7 +48,7 @@ func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level u
 	var previous *base.Rule
 	defer func() {
 		if previous != nil {
-			resultErr = errors.Join(resultErr, previous.Close())
+			resultErr = errors.Join(resultErr, closeRuleOwners(m, []*base.Rule{previous}))
 		}
 	}()
 	predicate := query
@@ -70,7 +70,7 @@ func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level u
 		if tailErr == nil && tails > 0 {
 			nextPredicate, tailErr = rule.TailDeclaration(0)
 		}
-		err = errors.Join(err, tailErr, rule.Close())
+		err = errors.Join(err, tailErr, closeRuleOwners(m, []*base.Rule{rule}))
 		if err != nil {
 			if nextRule != nil {
 				err = errors.Join(err, nextRule.Close())

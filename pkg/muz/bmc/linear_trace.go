@@ -21,9 +21,7 @@ func (c *Compiler) LinearTrace(rules *base.RuleSet, query ast.ASTHandle, level u
 	m := c.manager
 	defer func() {
 		if resultErr != nil {
-			for i := len(result) - 1; i >= 0; i-- {
-				resultErr = errors.Join(resultErr, result[i].Close())
-			}
+			resultErr = errors.Join(resultErr, closeRuleOwners(c.manager, result))
 			result = nil
 		}
 	}()
@@ -99,12 +97,10 @@ func (c *Compiler) selectedLinearRule(rules *base.RuleSet, predicate ast.ASTHand
 	if err == nil {
 		owned, err = selected.Retain()
 	}
-	for i := len(group) - 1; i >= 0; i-- {
-		err = errors.Join(err, group[i].Close())
-	}
+	err = errors.Join(err, closeRuleOwners(m, group))
 	if err != nil {
 		if owned != nil {
-			err = errors.Join(err, owned.Close())
+			err = errors.Join(err, closeRuleOwners(m, []*base.Rule{owned}))
 		}
 		return nil, 0, err
 	}
