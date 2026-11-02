@@ -49,28 +49,52 @@ func sparseIntervalKinds(kinds []string) bool {
 	return seenSparse && seenInterval
 }
 
-// NewSparseIntervalSieveProduct is the caller-ready representation-selection
-// boundary. full chooses the source mk_full rather than mk_empty components.
-func NewSparseIntervalSieveProduct(manager *RelationManager, sorts []ast.ASTHandle, kinds []string, full bool) (_ *SparseIntervalSieveProduct, resultErr error) {
-	if manager == nil || manager.open() != nil || !sparseIntervalKinds(kinds) {
-		return nil, ErrSparseIntervalProduct
+func sparseIntervalProductColumns(manager *RelationManager, sorts []ast.ASTHandle) (finiteColumns []int, finiteSorts []ast.ASTHandle, domains []uint64, resultErr error) {
+	if manager == nil || manager.open() != nil {
+		return nil, nil, nil, ErrSparseIntervalProduct
 	}
-	p := &SparseIntervalSieveProduct{manager: manager, sorts: append([]ast.ASTHandle(nil), sorts...)}
-	var domains []uint64
 	for column, sort := range sorts {
 		if CanHandleIntervalSorts(manager.manager, []ast.ASTHandle{sort}) {
 			continue
 		}
 		domain, err := manager.sortDomain(sort)
 		if err != nil {
-			return nil, errors.Join(ErrSparseIntervalProduct, err)
+			return nil, nil, nil, errors.Join(ErrSparseIntervalProduct, err)
 		}
-		p.finiteColumns = append(p.finiteColumns, column)
-		p.finiteSorts = append(p.finiteSorts, sort)
+		finiteColumns = append(finiteColumns, column)
+		finiteSorts = append(finiteSorts, sort)
 		domains = append(domains, domain)
 	}
-	if len(p.finiteColumns) == 0 || len(p.finiteColumns) == len(sorts) {
+	return finiteColumns, finiteSorts, domains, nil
+}
+
+// CanSelectSparseIntervalSieveProduct checks the caller-visible concrete
+// representation boundary without constructing an owned relation. Generated
+// pure and nullary intermediates use NewSparseIntervalSieveProductAuxiliary.
+func CanSelectSparseIntervalSieveProduct(manager *RelationManager, sorts []ast.ASTHandle, kinds []string) (bool, error) {
+	if !sparseIntervalKinds(kinds) {
+		return false, nil
+	}
+	finiteColumns, _, _, err := sparseIntervalProductColumns(manager, sorts)
+	if err != nil {
+		return false, err
+	}
+	return len(finiteColumns) != 0 && len(finiteColumns) != len(sorts), nil
+}
+
+func newSparseIntervalSieveProduct(manager *RelationManager, sorts []ast.ASTHandle, full, requireMixed bool) (_ *SparseIntervalSieveProduct, resultErr error) {
+	finiteColumns, finiteSorts, domains, err := sparseIntervalProductColumns(manager, sorts)
+	if err != nil {
+		return nil, err
+	}
+	if requireMixed && (len(finiteColumns) == 0 || len(finiteColumns) == len(sorts)) {
 		return nil, ErrSparseIntervalProduct
+	}
+	p := &SparseIntervalSieveProduct{
+		manager:       manager,
+		sorts:         append([]ast.ASTHandle(nil), sorts...),
+		finiteColumns: finiteColumns,
+		finiteSorts:   finiteSorts,
 	}
 	signature, err := NewSignature(domains)
 	if err != nil {
@@ -99,6 +123,15 @@ func NewSparseIntervalSieveProduct(manager *RelationManager, sorts []ast.ASTHand
 	}
 	published = true
 	return p, nil
+}
+
+// NewSparseIntervalSieveProduct is the caller-ready representation-selection
+// boundary. full chooses the source mk_full rather than mk_empty components.
+func NewSparseIntervalSieveProduct(manager *RelationManager, sorts []ast.ASTHandle, kinds []string, full bool) (_ *SparseIntervalSieveProduct, resultErr error) {
+	if !sparseIntervalKinds(kinds) {
+		return nil, ErrSparseIntervalProduct
+	}
+	return newSparseIntervalSieveProduct(manager, sorts, full, true)
 }
 
 func (p *SparseIntervalSieveProduct) open() error {
