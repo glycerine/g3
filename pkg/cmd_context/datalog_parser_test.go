@@ -52,6 +52,11 @@ func TestDatalogParserDomainSuffixWildcardAndBounds(t *testing.T) {
 	if err := overflow.ParseDatalogString("Tiny 1\n\nT(x:Tiny)\nT(2).\nT(3).\n"); err == nil {
 		t.Fatal("accepted two distinct numeric symbols in a one-element domain")
 	}
+
+	wide := contextFixture(t)
+	if err := wide.ParseDatalogString("Tiny 1\n\nT(x:Tiny)\nT(18446744073709551616).\n"); err == nil {
+		t.Fatal("accepted a finite-domain numeric token outside uint64")
+	}
 }
 
 func TestDatalogParserCommentOnlyLinesDoNotEndDomains(t *testing.T) {

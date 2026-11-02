@@ -38,7 +38,7 @@ func (p *datalogParser) parseArgument(sort ast.ASTHandle) (ast.ASTHandle, error)
 	case dlNumber:
 		// Source mk_symbol_const maps a finite-domain numeral by its spelling,
 		// just like a quoted symbol; only arithmetic domains use its value.
-		result, err = p.symbolicConstant(token.text, sort)
+		result, err = p.numericConstant(token.text, sort)
 	default:
 		return ast.ASTHandle{}, p.expected("argument")
 	}
@@ -50,6 +50,13 @@ func (p *datalogParser) parseArgument(sort ast.ASTHandle) (ast.ASTHandle, error)
 		err = p.advance()
 	}
 	return result, err
+}
+
+func (p *datalogParser) numericConstant(spelling string, sort ast.ASTHandle) (ast.ASTHandle, error) {
+	if _, err := strconv.ParseUint(spelling, 10, 64); err != nil {
+		return ast.ASTHandle{}, fmt.Errorf("invalid unsigned integer %q", spelling)
+	}
+	return p.symbolicConstant(spelling, sort)
 }
 
 func (p *datalogParser) symbolicConstant(name string, sort ast.ASTHandle) (ast.ASTHandle, error) {
@@ -115,6 +122,9 @@ func (p *datalogParser) parseInfix() (ast.ASTHandle, error) {
 	operand := func(token datalogLexeme, variable ast.ASTHandle, found bool) (ast.ASTHandle, error) {
 		if found {
 			return variable, nil
+		}
+		if token.kind == dlNumber {
+			return p.numericConstant(token.text, sort)
 		}
 		return p.symbolicConstant(token.text, sort)
 	}
