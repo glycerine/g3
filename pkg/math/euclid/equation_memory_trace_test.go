@@ -1,3 +1,5 @@
+//go:build g3debug && g3trace
+
 package euclid
 
 import (
@@ -35,12 +37,6 @@ func TestEuclideanEquationMemoryWrappersFollowTraceRebinding(t *testing.T) {
 	euclidMust(t, s.Close())
 	euclidMust(t, z.Del(&a))
 	euclidMust(t, z.Del(&c))
-	if !diagnostic.DebugBuild {
-		if before.Len() != 0 || after.Len() != 0 {
-			t.Fatalf("ordinary build emitted memory records: %q %q", before.String(), after.String())
-		}
-		return
-	}
 	alloc := "alloc " + fmt.Sprintf("%p", eq) + " src/math/euclid/euclidean_solver.cpp:155 equation " +
 		strconv.FormatUint(uint64(reflect.TypeOf(equation{}).Size()), 10) + "\n"
 	dealloc := "dealloc " + fmt.Sprintf("%p", eq) + " src/math/euclid/euclidean_solver.cpp:303\n"
@@ -84,11 +80,7 @@ func TestEuclideanEquationMemoryDeallocationSuppressedDuringFinalize(t *testing.
 	euclidMust(t, z.Del(&a))
 	euclidMust(t, z.Del(&c))
 	euclidMust(t, process.CompleteFinalize())
-	if diagnostic.DebugBuild {
-		if !strings.Contains(output.String(), "alloc ") || strings.Contains(output.String(), "dealloc ") {
-			t.Fatalf("finalizing memory records = %q", output.String())
-		}
-	} else if output.Len() != 0 {
-		t.Fatalf("ordinary build emitted memory records: %q", output.String())
+	if !strings.Contains(output.String(), "alloc ") || strings.Contains(output.String(), "dealloc ") {
+		t.Fatalf("finalizing memory records = %q", output.String())
 	}
 }

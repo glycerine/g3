@@ -52837,6 +52837,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/math/euclid/memory_lifetime_test.go",
         "pkg/math/euclid/equation.go",
         "pkg/math/euclid/equation_memory_trace.go",
         "pkg/math/euclid/equation_memory_trace_test.go",
@@ -52882,6 +52883,9 @@
         "pkg/smtcore/theory_arith_euclidean_test.go"
       ],
       "tests": [
+        "TestEuclideanResetAllocationRefusalReleasesOldOwner",
+        "TestEuclideanEquationAndSolverOwnersReleaseMemory",
+        "TestEuclideanResetReplacesOwnerAndReleasesMemory",
         "TestEuclideanEquationConstructionSortAndOwnedRelease",
         "TestEuclideanEquationMemoryWrappersFollowTraceRebinding",
         "TestEuclideanEquationMemoryDeallocationSuppressedDuringFinalize",

@@ -1,3 +1,5 @@
+//go:build g3debug && g3trace
+
 package euclid
 
 import (
@@ -38,14 +40,10 @@ func TestEuclideanImpMemoryResetRefusalAfterOldDeallocation(t *testing.T) {
 	if !errors.Is(err, arena.ErrInjectedFailure) || s.setup != nil || s.stop == nil {
 		t.Fatalf("reset replacement did not stop after old owner teardown: %v %#v", err, s.setup)
 	}
-	if diagnostic.DebugBuild {
-		want := euclidImpMemoryRecord("dealloc ", old, 799)
-		got := output.String()
-		if strings.Count(got, want) != 1 || strings.Contains(got, "src/math/euclid/euclidean_solver.cpp:800 imp ") {
-			t.Fatalf("reset refusal memory prefix: %q", got)
-		}
-	} else if output.Len() != 0 {
-		t.Fatalf("ordinary build emitted memory records: %q", output.String())
+	want := euclidImpMemoryRecord("dealloc ", old, 799)
+	got := output.String()
+	if strings.Count(got, want) != 1 || strings.Contains(got, "src/math/euclid/euclidean_solver.cpp:800 imp ") {
+		t.Fatalf("reset refusal memory prefix: %q", got)
 	}
 	euclidMust(t, s.Close())
 	if got := m.BudgetField.Used(); got != baseline {
@@ -69,12 +67,6 @@ func TestEuclideanImpMemoryWrappersEncloseEquationLifetime(t *testing.T) {
 	euclidMust(t, s.Close())
 	euclidMust(t, z.Del(&a))
 	euclidMust(t, z.Del(&c))
-	if !diagnostic.DebugBuild {
-		if output.Len() != 0 {
-			t.Fatalf("ordinary build emitted memory records: %q", output.String())
-		}
-		return
-	}
 	got := output.String()
 	impAlloc := euclidImpMemoryRecord("alloc ", s, 784)
 	impDealloc := euclidImpMemoryRecord("dealloc ", s, 788)
@@ -101,12 +93,6 @@ func TestEuclideanImpMemoryWrappersResetSites(t *testing.T) {
 	euclidMust(t, s.Reset())
 	fresh := s.setup
 	euclidMust(t, s.Close())
-	if !diagnostic.DebugBuild {
-		if output.Len() != 0 {
-			t.Fatalf("ordinary build emitted memory records: %q", output.String())
-		}
-		return
-	}
 	got := output.String()
 	oldRelease := euclidImpMemoryRecord("dealloc ", old, 799)
 	freshAlloc := euclidImpMemoryRecord("alloc ", fresh, 800)
