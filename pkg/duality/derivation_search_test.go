@@ -8,7 +8,7 @@ import (
 )
 
 func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
-	for _, mode := range []string{"sat", "unsat", "restart", "constrained", "underapprox"} {
+	for _, mode := range []string{"sat", "unsat", "restart", "constrained", "underapprox", "bound-sat", "bound-unsat", "bound-underapprox"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx, m, main, globals := dualityNativeSolverServicesFixture(t)
 			must := func(err error) {
@@ -57,7 +57,7 @@ func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
 				original = append(original, node)
 			}
 			must(original[0].Bound.SetEmpty())
-			wantSAT := mode == "sat" || mode == "constrained" || mode == "underapprox"
+			wantSAT := mode == "sat" || mode == "constrained" || mode == "underapprox" || mode == "bound-sat" || mode == "bound-underapprox"
 			rootFormula := terms[1]
 			if !wantSAT {
 				negative, err := p.Not()
@@ -139,9 +139,30 @@ func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
 			baseline, err := main.NumAssertions()
 			must(err)
 			controller := &DerivationSearch{Search: search, Checker: checker, Auxiliary: aux, Simplifier: manager, EnableRestarts: mode == "restart"}
-			sat, err := controller.Derive(mapped[0], mode == "underapprox", mode == "constrained")
+			under := mode == "underapprox" || mode == "bound-underapprox"
+			var sat bool
+			if mode == "bound-sat" || mode == "bound-unsat" || mode == "bound-underapprox" {
+				covering, err := NewCovering(unwinding, aux)
+				must(err)
+				outer, err := NewUnwinding(source, unwinding, covering)
+				must(err)
+				cex := NewCounterexample()
+				defer cex.Close()
+				satisfied, err := outer.SatisfyUpperBound(mapped[0], controller, cex, under)
+				must(err)
+				sat = !satisfied
+				if sat {
+					if cex.Tree() != working || cex.Root() != base.Top || working.closed {
+						t.Fatal("SAT graph was not transferred to counterexample")
+					}
+				} else if cex.Tree() != nil || !working.closed {
+					t.Fatal("UNSAT graph ownership was not released")
+				}
+			} else {
+				sat, err = controller.Derive(mapped[0], under, mode == "constrained")
+				must(err)
+			}
 			top := base.Top
-			must(err)
 			if sat != wantSAT {
 				t.Fatal("search result mismatch", sat, mode)
 			}
@@ -152,10 +173,14 @@ func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
 			}
 			remaining, err := main.NumAssertions()
 			must(err)
-			if remaining != baseline || len(working.scopes) != 1 {
+			expectedScopes := 1
+			if working.closed {
+				expectedScopes = 0
+			}
+			if remaining != baseline || len(working.scopes) != expectedScopes {
 				t.Fatal("Derive disturbed enclosing assertion/graph scope", remaining, baseline)
 			}
-			if !base.FalseApprox || base.Underapprox != (mode == "underapprox") || base.Constrained != (mode == "constrained") {
+			if !base.FalseApprox || base.Underapprox != under || base.Constrained != (mode == "constrained") {
 				t.Fatal("source derive mode flags not initialized")
 			}
 
