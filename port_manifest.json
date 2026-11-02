@@ -104803,12 +104803,14 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/rule_unfold.go",
+        "pkg/muz/transforms/rule_unfold_close_pending_test.go",
         "pkg/muz/fp/spacer_engine.go",
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestRuleUnfoldExpandsOriginalTailOnce",
         "TestRuleUnfoldCarriesHyperResolutionProof",
+        "TestRuleUnfoldClosePreservesResolverWhileManagerExecutes",
         "TestSMTLibRunnerScripts/fixedpoint_spacer_unfold_rules.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_spacer_unfold_rules.smt2"
       ],
@@ -104840,10 +104842,17 @@
           "tests": [
             "TestRuleUnfoldCarriesHyperResolutionProof"
           ]
+        },
+        {
+          "name": "initialized resolver cleanup continuation after native AST execution refusal",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/rule_unfold.go",
+          "tests": ["TestRuleUnfoldClosePreservesResolverWhileManagerExecutes"]
         }
       ],
       "ownership": [
-        "Each source definition and recursive resolved rule is held by an owning Go Rule reference through expansion and closed after insertion or failure."
+        "Each source definition and recursive resolved rule is held by an owning Go Rule reference through expansion and closed after insertion or failure.",
+        "Cleanup keeps the initialized resolver attached until child disposal succeeds and rejects transformation while cleanup is pending."
       ],
       "deviations": []
     },
@@ -104853,11 +104862,13 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
-        "pkg/muz/transforms/rule_unfold.go"
+        "pkg/muz/transforms/rule_unfold.go",
+        "pkg/muz/transforms/rule_unfold_close_pending_test.go"
       ],
       "tests": [
         "TestRuleUnfoldExpandsOriginalTailOnce",
-        "TestRuleUnfoldCarriesHyperResolutionProof"
+        "TestRuleUnfoldCarriesHyperResolutionProof",
+        "TestRuleUnfoldClosePreservesResolverWhileManagerExecutes"
       ],
       "conditionals": [
         {
@@ -104875,7 +104886,8 @@
         {
           "name": "RuleUnfoldPlugin construction, transformation contract, priority, cancellation metadata, and owned lifecycle",
           "status": "ported",
-          "go_target": "pkg/muz/transforms/rule_unfold.go"
+          "go_target": "pkg/muz/transforms/rule_unfold.go",
+          "tests": ["TestRuleUnfoldClosePreservesResolverWhileManagerExecutes"]
         }
       ],
       "ownership": [

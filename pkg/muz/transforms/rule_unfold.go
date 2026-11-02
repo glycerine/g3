@@ -17,6 +17,7 @@ type RuleUnfoldPlugin struct {
 	resolver *RuleInlinerPlugin
 	priority uint32
 	closed   bool
+	closing  bool
 }
 
 func NewRuleUnfoldPlugin(manager *ast.ASTManager, rules *base.RuleManager, params *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) *RuleUnfoldPlugin {
@@ -72,7 +73,7 @@ func (p *RuleUnfoldPlugin) expand(rule *base.Rule, tailIndex int, source, destin
 }
 
 func (p *RuleUnfoldPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
-	if p == nil || p.closed || p.resolver == nil {
+	if p == nil || p.closed || p.closing || p.resolver == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	result, err := base.NewRuleSet(p.resolver.rules)
@@ -110,8 +111,11 @@ func (p *RuleUnfoldPlugin) Close() error {
 	if p == nil || p.closed {
 		return base.ErrRuleTransformerOwner
 	}
-	p.closed = true
-	err := p.resolver.Close()
+	p.closing = true
+	if err := p.resolver.Close(); err != nil {
+		return err
+	}
 	p.resolver = nil
-	return err
+	p.closed = true
+	return nil
 }
