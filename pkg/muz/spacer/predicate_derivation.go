@@ -8,6 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/stopwatch"
 )
 
 // CreateDerivationChild projects the selected rule/model path, builds ordered
@@ -18,6 +19,13 @@ func (p *PredicateTransformer) CreateDerivationChild(obligation *ProofObligation
 	}
 	if obligation == nil || obligation.valid() != nil || obligation.transformer != p || rule == nil || md == nil || md.Manager() != p.manager {
 		return nil, ErrManagerOwner
+	}
+	if p.contextTimers != nil {
+		watch, err := stopwatch.NewScopedWatch(&p.contextTimers.children, false)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, watch.Close()) }()
 	}
 	predecessors, err := p.RulePredecessors(rule)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/luby"
+	"github.com/glycerine/g3/pkg/util/stopwatch"
 )
 
 type searchRestartPolicy struct {
@@ -40,6 +41,13 @@ func (p *searchRestartPolicy) observe(lemmas uint64) (bool, error) {
 func (q *ProofObligationQueue) confirmConcreteReachability(obligation *ProofObligation) (_ bool, resultErr error) {
 	if q == nil || obligation == nil || obligation.valid() != nil {
 		return false, ErrManagerOwner
+	}
+	if timers := obligation.transformer.contextTimers; timers != nil {
+		watch, err := stopwatch.NewScopedWatch(&timers.isReach, false)
+		if err != nil {
+			return false, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, watch.Close()) }()
 	}
 	saved := obligation.level
 	obligation.level = InfinityLevel
@@ -122,9 +130,16 @@ func (q *ProofObligationQueue) CheckReachability() (bool, error) {
 	return q.checkReachability(true, false, InfinityLevel, false, 0, nil)
 }
 
-func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleDepth uint32, useRestarts bool, restartInitial uint32, lemmaCount func() (uint64, error)) (bool, error) {
+func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleDepth uint32, useRestarts bool, restartInitial uint32, lemmaCount func() (uint64, error)) (_ bool, resultErr error) {
 	if q == nil || q.root == nil || q.root.valid() != nil {
 		return false, ErrManagerOwner
+	}
+	if timers := q.root.transformer.contextTimers; timers != nil {
+		watch, err := stopwatch.NewScopedWatch(&timers.reach, false)
+		if err != nil {
+			return false, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, watch.Close()) }()
 	}
 	if reset {
 		if err := q.Reset(); err != nil {

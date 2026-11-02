@@ -10,6 +10,7 @@ import "github.com/glycerine/g3/pkg/util/statistics"
 type StatisticsSnapshot struct {
 	Solvers     statistics.Statistics
 	Virtual     statistics.Statistics
+	Timers      statistics.Statistics
 	counters    contextStatistics
 	cexDepth    uint32
 	cexDepthSet bool
@@ -18,6 +19,7 @@ type StatisticsSnapshot struct {
 func (s *StatisticsSnapshot) Merge(other StatisticsSnapshot) {
 	s.Solvers.Copy(other.Solvers)
 	s.Virtual.Copy(other.Virtual)
+	s.Timers.Copy(other.Timers)
 	s.counters.queries += other.counters.queries
 	s.counters.reachQueries += other.counters.reachQueries
 	s.counters.reuseReach += other.counters.reuseReach
@@ -41,6 +43,7 @@ func (s *StatisticsSnapshot) Merge(other StatisticsSnapshot) {
 // Reset clears factory/search counters; the native SMT kernel reset is a no-op.
 func (s *StatisticsSnapshot) Reset() {
 	s.Virtual.Reset()
+	s.Timers.Reset()
 	s.counters = contextStatistics{}
 	s.cexDepth, s.cexDepthSet = 0, false
 }
@@ -51,6 +54,7 @@ func (s *StatisticsSnapshot) Collect(destination *statistics.Statistics) error {
 	}
 	destination.Copy(s.Solvers)
 	destination.Copy(s.Virtual)
+	destination.Copy(s.Timers)
 	destination.UpdateUint("SPACER num queries", s.counters.queries)
 	destination.UpdateUint("SPACER num reach queries", s.counters.reachQueries)
 	destination.UpdateUint("SPACER num reuse reach facts", s.counters.reuseReach)
@@ -68,6 +72,9 @@ func (c *Context) SnapshotStatistics() (StatisticsSnapshot, error) {
 		return StatisticsSnapshot{}, err
 	}
 	result := StatisticsSnapshot{counters: c.stats, cexDepth: c.cexDepth, cexDepthSet: c.cexDepthSet}
+	if err := c.timers.collect(&result.Timers); err != nil {
+		return result, err
+	}
 	for _, pool := range c.owner.contexts {
 		for _, factory := range pool.factories {
 			if err := factory.backend.CollectStatistics(&result.Solvers); err != nil {

@@ -13,6 +13,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/stopwatch"
 )
 
 var ErrContextOwner = errors.New("muz/spacer: invalid or closed context")
@@ -33,6 +34,7 @@ type Context struct {
 	cexDepthSet      bool
 	stats            contextStatistics
 	generalizerStats boolGeneralizerStatistics
+	timers           contextTiming
 	skipPropagate    bool
 	resetQueue       bool
 	flexibleTrace    bool
@@ -341,6 +343,11 @@ func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.AST
 	// Source update_rules recreates generalizers before init_rules, even
 	// when subsequent rule installation fails. Context.Reset alone does not.
 	c.generalizerStats = boolGeneralizerStatistics{}
+	watch, err := stopwatch.NewScopedWatch(&c.timers.initRules, false)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, watch.Close()) }()
 	var order []ast.ASTHandle
 	seen := make(map[ast.ASTHandle]bool)
 	buckets := make(map[ast.ASTHandle][]*base.Rule)
@@ -396,6 +403,7 @@ func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.AST
 			return err
 		}
 		transformer.contextStats = &c.stats
+		transformer.contextTimers = &c.timers
 		transformer.generalizerStats = &c.generalizerStats
 		transformer.sharedGeneralizerStats = true
 		created[declaration] = transformer
@@ -439,6 +447,9 @@ func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.AST
 		if err = created[declaration].InitReachFacts(); err != nil {
 			return err
 		}
+	}
+	if err = watch.Close(); err != nil {
+		return err
 	}
 	if updating {
 		// Source inherits only predicates present in both rule sets, after
@@ -535,6 +546,7 @@ func (c *Context) AddCover(level int, declaration, property ast.ASTHandle) error
 			return err
 		}
 		transformer.contextStats = &c.stats
+		transformer.contextTimers = &c.timers
 		transformer.generalizerStats = &c.generalizerStats
 		transformer.sharedGeneralizerStats = true
 		c.transformers[declaration] = transformer
@@ -564,7 +576,12 @@ func (c *Context) Reachable(declaration ast.ASTHandle) (ast.ASTRef, error) {
 	return transformer.Reachable()
 }
 
-func (c *Context) propagate(minimum, maximum uint32) (bool, error) {
+func (c *Context) propagate(minimum, maximum uint32) (_ bool, resultErr error) {
+	watch, err := stopwatch.NewScopedWatch(&c.timers.propagate, false)
+	if err != nil {
+		return false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, watch.Close()) }()
 	if minimum == InfinityLevel {
 		return false, nil
 	}
@@ -637,6 +654,11 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 	if !c.initialized || c.queryDecl.IsNull() || c.solved {
 		return lbool.Undef, ast.ErrASTDomain
 	}
+	watch, err := stopwatch.NewScopedWatch(&c.timers.solve, false)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, watch.Close()) }()
 	// update_rules clears the old transformer pointer but preserves the
 	// selected declaration. Source solve_core resolves it in the new map.
 	c.query = c.transformers[c.queryDecl]
@@ -688,6 +710,9 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 		}
 		if reachable {
 			c.lastResult = lbool.True
+			if err = watch.Close(); err != nil {
+				return c.lastResult, err
+			}
 			if err = c.validate(); err != nil {
 				return c.lastResult, err
 			}
@@ -707,6 +732,9 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 					return lbool.Undef, err
 				}
 				c.lastResult = lbool.False
+				if err = watch.Close(); err != nil {
+					return c.lastResult, err
+				}
 				return c.lastResult, c.validate()
 			}
 		}
@@ -874,6 +902,7 @@ func (c *Context) ResetStatistics() error {
 	c.cexDepthSet = false
 	c.stats = contextStatistics{}
 	c.generalizerStats = boolGeneralizerStatistics{}
+	c.timers.reset()
 	return nil
 }
 

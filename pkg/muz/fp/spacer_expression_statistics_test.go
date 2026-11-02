@@ -74,6 +74,19 @@ func TestSpacerExpressionStatisticsSurviveCloneDisposal(t *testing.T) {
 		}
 		return count
 	}
+	seconds := func(engine *PropositionalEngine, key statistics.Key) float64 {
+		t.Helper()
+		stats := statistics.New()
+		must(engine.CollectStatistics(stats))
+		var result float64
+		for i := 0; i < stats.Size(); i++ {
+			if !stats.IsUint(i) && stats.Key(i) == key {
+				result += stats.DoubleValue(i)
+			}
+		}
+		return result
+	}
+	var solveSeconds, initSeconds float64
 	checks := func(engine *PropositionalEngine) uint32 { return value(engine, "num checks") }
 	var total, virtualChecks, queries, depth uint32
 	for round := 0; round < 3; round++ {
@@ -95,6 +108,14 @@ func TestSpacerExpressionStatisticsSurviveCloneDisposal(t *testing.T) {
 		current := checks(e.queryClone)
 		if current == 0 {
 			t.Fatal("query clone reported no solver checks")
+		}
+		solveSeconds += seconds(e.queryClone, "time.spacer.solve")
+		initSeconds += seconds(e.queryClone, "time.spacer.init_rules")
+		if got := seconds(e, "time.spacer.solve"); got != solveSeconds {
+			t.Fatal("solve timer history lost or duplicated", got, solveSeconds)
+		}
+		if got := seconds(e, "time.spacer.init_rules"); got != initSeconds {
+			t.Fatal("initialization timer history lost or duplicated", got, initSeconds)
 		}
 		total += current
 		virtualChecks += value(e.queryClone, "virtual_solver.checks")
@@ -141,6 +162,9 @@ func TestSpacerExpressionStatisticsSurviveCloneDisposal(t *testing.T) {
 		t.Fatal("fixture did not perform virtual solver checks")
 	}
 	must(e.ResetStatistics())
+	if seconds(e, "time.spacer.solve") != 0 || seconds(e, "time.spacer.init_rules") != 0 {
+		t.Fatal("statistics reset left context timer history")
+	}
 	if value(e, "virtual_solver.checks") != 0 {
 		t.Fatal("statistics reset kept archived virtual solver checks")
 	}
