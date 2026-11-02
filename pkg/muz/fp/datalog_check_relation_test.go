@@ -242,7 +242,7 @@ func TestDatalogDefaultTableCheckedParametersRunConcretePair(t *testing.T) {
 
 	status, err := e.QueryPredicate(predicate)
 	must(err)
-	if status != lbool.True || e.compiled {
+	if status != lbool.True || !e.compiled {
 		t.Fatal("checked default table result/compiler", status, e.compiled)
 	}
 	if _, ok := e.predicates[predicate].table.(*rel.SparseTable); !ok {

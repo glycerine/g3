@@ -2076,15 +2076,7 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 		defer func() { resultErr = errors.Join(resultErr, checkScope.complete(resultErr == nil)) }()
 	}
 	started := time.Now()
-	if checkScope != nil {
-		e.compiled = false
-		err = e.saturate()
-	} else {
-		e.compiled, err = e.tryCompiledSaturation()
-		if err == nil && !e.compiled {
-			err = e.saturate()
-		}
-	}
+	err = e.saturateDatalogQuery(checkScope)
 	e.datalogElapsed += time.Since(started).Seconds()
 	if err != nil {
 		return lbool.Undef, err

@@ -25,8 +25,9 @@ type datalogCheckedPredicate struct {
 }
 
 type datalogCheckRelationScope struct {
-	engine  *PropositionalEngine
-	entries []datalogCheckedPredicate
+	engine   *PropositionalEngine
+	entries  []datalogCheckedPredicate
+	compiled *datalogCompiledCheckScope
 }
 
 type datalogCheckRelationCleanupFailure struct {
@@ -301,6 +302,11 @@ func (s *datalogCheckRelationScope) complete(publish bool) (result error) {
 	if s == nil {
 		return nil
 	}
+	if s.compiled != nil {
+		if err := s.compiled.Close(); err != nil {
+			return &datalogCheckRelationCleanupFailure{cause: err, scope: s}
+		}
+	}
 	if publish {
 		for i := range s.entries {
 			entry := &s.entries[i]
@@ -351,6 +357,11 @@ func (s *datalogCheckRelationScope) complete(publish bool) (result error) {
 func (s *datalogCheckRelationScope) dispose() (result error) {
 	if s == nil {
 		return nil
+	}
+	if s.compiled != nil {
+		if err := s.compiled.Close(); err != nil {
+			return err
+		}
 	}
 	s.restoreStates()
 	for i := range s.entries {
