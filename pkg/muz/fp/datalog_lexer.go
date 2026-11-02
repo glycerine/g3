@@ -83,11 +83,35 @@ func (l *datalogLexer) next() datalogToken {
 	}
 	line, column := l.line, l.column
 	r := l.take()
+	identifierPrefix := string(r)
 	switch r {
 	case -1:
 		return datalogToken{kind: datalogEOF, line: line, column: column}
 	case '\n':
 		return datalogToken{kind: datalogNewline, text: "\\n", line: line, column: column}
+	case '\\':
+		// Source lookahead_newline ignores spaces after a continuation
+		// backslash. A following column-reset comment is part of the same
+		// continuation; otherwise the backslash begins an ordinary identifier.
+		var prefix strings.Builder
+		prefix.WriteRune(r)
+		for l.peek() == ' ' {
+			prefix.WriteRune(l.take())
+		}
+		if l.peek() == '\n' {
+			l.take()
+			return l.next()
+		}
+		if l.peek() == '#' {
+			for l.peek() >= 0 && l.peek() != '\n' {
+				l.take()
+			}
+			if l.peek() == '\n' {
+				l.take()
+			}
+			return l.next()
+		}
+		identifierPrefix = prefix.String()
 	case '#':
 		lineComment := column == 1
 		for l.peek() >= 0 && l.peek() != '\n' {
@@ -154,7 +178,7 @@ func (l *datalogLexer) next() datalogToken {
 		return datalogToken{kind: datalogNumber, text: value.String(), line: line, column: column}
 	}
 	var value strings.Builder
-	value.WriteRune(r)
+	value.WriteString(identifierPrefix)
 	for {
 		p := l.peek()
 		if p < 0 || unicode.IsSpace(p) || strings.ContainsRune("(),:#=<>!", p) || (!l.parsingDomains && p == '.') {

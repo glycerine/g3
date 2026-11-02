@@ -19,6 +19,38 @@ type externalFactRule struct {
 	joinRight  []uint32
 	removed    []uint32
 	cycles     [][]uint32
+	filters    [2]externalTailFilter
+}
+
+type externalTailFilter struct {
+	equalColumns []uint32
+	equalValues  []ast.ASTHandle
+	identical    [][]uint32
+}
+
+func prepareExternalRuleTail(source *ExternalRelation, filter externalTailFilter) (_ *ExternalRelation, resultErr error) {
+	value, err := source.Clone()
+	if err != nil {
+		return nil, err
+	}
+	published := false
+	defer func() {
+		if !published {
+			resultErr = errors.Join(resultErr, value.Close())
+		}
+	}()
+	for index, column := range filter.equalColumns {
+		if err = value.FilterEqual(column, filter.equalValues[index]); err != nil {
+			return nil, err
+		}
+	}
+	for _, columns := range filter.identical {
+		if err = value.FilterIdentical(columns); err != nil {
+			return nil, err
+		}
+	}
+	published = true
+	return value, nil
 }
 
 func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externalFactRule, error) {
@@ -85,27 +117,46 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 		if cause != nil {
 			return result, cause
 		}
-		local := make(map[ast.ASTHandle]bool, count)
+		local := make(map[ast.ASTHandle][]uint32, count)
+		localOrder := make([]ast.ASTHandle, 0, count)
 		for index := uint32(0); index < count; index++ {
 			argument, argErr := manager.GetArg(tail, index)
 			if argErr != nil {
 				return result, argErr
 			}
-			kind, argErr := manager.GetKind(argument)
-			if argErr != nil || kind != ast.ASTVar || local[argument] {
-				return result, errors.Join(argErr, ErrCompilerUnsupported)
-			}
-			local[argument] = true
 			combined := uint32(len(columns))
 			columns = append(columns, argument)
-			if tailIndex == 0 {
-				firstTail[argument] = index
-			} else if left, shared := firstTail[argument]; shared {
-				result.joinLeft = append(result.joinLeft, left)
-				result.joinRight = append(result.joinRight, index)
+			kind, argErr := manager.GetKind(argument)
+			if argErr != nil {
+				return result, argErr
 			}
-			if _, found := positions[argument]; !found {
-				positions[argument] = combined
+			if kind != ast.ASTVar {
+				value, valueErr := manager.IsValue(argument)
+				if valueErr != nil || !value {
+					return result, errors.Join(valueErr, ErrCompilerUnsupported)
+				}
+				result.filters[tailIndex].equalColumns = append(result.filters[tailIndex].equalColumns, index)
+				result.filters[tailIndex].equalValues = append(result.filters[tailIndex].equalValues, argument)
+				continue
+			}
+			local[argument] = append(local[argument], index)
+			if len(local[argument]) == 1 {
+				localOrder = append(localOrder, argument)
+				if tailIndex == 0 {
+					firstTail[argument] = index
+				} else if left, shared := firstTail[argument]; shared {
+					result.joinLeft = append(result.joinLeft, left)
+					result.joinRight = append(result.joinRight, index)
+				}
+				if _, found := positions[argument]; !found {
+					positions[argument] = combined
+				}
+			}
+		}
+		for _, variable := range localOrder {
+			group := local[variable]
+			if len(group) > 1 {
+				result.filters[tailIndex].identical = append(result.filters[tailIndex].identical, group)
 			}
 		}
 	}
@@ -160,7 +211,7 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 
 // ExecuteExternalFactRules runs the concrete source-reached external relation
 // slice: ground facts, single positive-tail transformations, and two-tail
-// equality joins over distinct variable columns. It validates the whole set
+// equality joins with constant and repeated-variable tail filters. It validates the whole set
 // before mutation.
 func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet) (resultErr error) {
 	if plugin == nil || plugin.closed || plugin.ast == nil || set == nil {
@@ -251,18 +302,28 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 			if cause != nil {
 				return cause
 			}
-			var value *ExternalRelation
-			if entry.tail2.IsNull() {
-				value, cause = source.Clone()
-			} else {
-				second, secondErr := plugin.PredicateRelation(entry.tail2)
-				if secondErr != nil {
-					return secondErr
-				}
-				value, cause = JoinExternalRelations(source, second, entry.joinLeft, entry.joinRight)
-			}
+			value, cause := prepareExternalRuleTail(source, entry.filters[0])
 			if cause != nil {
 				return cause
+			}
+			if !entry.tail2.IsNull() {
+				second, secondErr := plugin.PredicateRelation(entry.tail2)
+				if secondErr != nil {
+					return errors.Join(secondErr, value.Close())
+				}
+				secondValue, secondErr := prepareExternalRuleTail(second, entry.filters[1])
+				if secondErr != nil {
+					return errors.Join(secondErr, value.Close())
+				}
+				joined, joinErr := JoinExternalRelations(value, secondValue, entry.joinLeft, entry.joinRight)
+				joinErr = errors.Join(joinErr, value.Close(), secondValue.Close())
+				if joinErr != nil {
+					if joined != nil {
+						joinErr = errors.Join(joinErr, joined.Close())
+					}
+					return joinErr
+				}
+				value = joined
 			}
 			if len(entry.removed) != 0 {
 				projected, projectErr := value.Project(entry.removed)

@@ -56,6 +56,7 @@ type Context struct {
 	groundCTI               bool
 	weakAbstraction         bool
 	validateResult          bool
+	printStatistics         bool
 	simplifyPre             bool
 	simplifyPost            bool
 	initialized             bool
@@ -164,6 +165,10 @@ func NewContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 	if err != nil {
 		return nil, errors.Join(err, owner.Close())
 	}
+	printStatistics, err := getBool("print_statistics", false)
+	if err != nil {
+		return nil, errors.Join(err, owner.Close())
+	}
 	simplifyPre, err := getBool("pdr.simplify_formulas_pre", false)
 	if err != nil {
 		return nil, errors.Join(err, owner.Close())
@@ -183,6 +188,7 @@ func NewContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 		groundCTI:       groundCTI,
 		weakAbstraction: weakAbstraction,
 		validateResult:  validateResult,
+		printStatistics: printStatistics,
 		simplifyPre:     simplifyPre,
 		simplifyPost:    simplifyPost,
 	}, nil
@@ -665,6 +671,11 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 	if err != nil {
 		return lbool.Undef, err
 	}
+	defer func() {
+		if resultErr == nil {
+			resultErr = c.printSolveStatistics()
+		}
+	}()
 	defer func() { resultErr = errors.Join(resultErr, watch.Close()) }()
 	// update_rules clears the old transformer pointer but preserves the
 	// selected declaration. Source solve_core resolves it in the new map.
@@ -708,7 +719,7 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 		c.stats.queryLevelSet = true
 		reachable, err := c.queue.checkReachability(c.resetQueue, c.flexibleTrace, c.flexibleDepth, c.useRestarts, c.restartInitial, c.lemmaAdditions)
 		if err != nil {
-			return lbool.Undef, err
+			return c.finishSearchFailure(err)
 		}
 		if reachable {
 			c.lastResult = lbool.True
