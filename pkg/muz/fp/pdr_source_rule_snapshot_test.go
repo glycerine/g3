@@ -50,8 +50,8 @@ func TestPDRCoveredAdditionUsesOriginalRuleSnapshot(t *testing.T) {
 	must(e.AddRule(f.applications["u"], "uncovered-added-fact"))
 	status, err = e.QueryPredicate(query)
 	must(err)
-	if status != lbool.True || e.pdr == context {
-		t.Fatal("uncovered addition reused old PDR state", status)
+	if status != lbool.True || e.pdr != context {
+		t.Fatal("uncovered addition replaced the context instead of resetting its state", status)
 	}
 	if _, err := source.Len(); err == nil {
 		t.Fatal("replaced source snapshot remained open")

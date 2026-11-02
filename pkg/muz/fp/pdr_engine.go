@@ -195,6 +195,7 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	}
 	oldSnapshot := e.pdrRules
 	oldSourceSnapshot := e.pdrSourceRules
+	reset := !reuse && e.pdr != nil && e.pdrRules != nil && e.pdrRuleRevision == e.revision
 	if reuse {
 		if err = context.Close(); err != nil {
 			return lbool.Undef, err
@@ -213,6 +214,17 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 				return lbool.Undef, err
 			}
 			context = e.pdr
+		} else if reset {
+			if err = context.Close(); err != nil {
+				return lbool.Undef, err
+			}
+			context = e.pdr
+			if err = context.Reset(); err != nil {
+				return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
+			}
+			if err = e.clearPDRPreprocessing(); err != nil {
+				return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
+			}
 		} else if err = e.closePDRForReplacement(); err != nil {
 			return lbool.Undef, errors.Join(err, closeContext())
 		}
@@ -241,12 +253,12 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	e.pdrQuery = declaration
 	keepSnapshot = true
 	installed = true
-	if reuse && oldSnapshot != nil {
+	if (reuse || reset) && oldSnapshot != nil {
 		if err = oldSnapshot.Close(); err != nil {
 			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
 		}
 	}
-	if reuse && oldSourceSnapshot != nil {
+	if (reuse || reset) && oldSourceSnapshot != nil {
 		if err = oldSourceSnapshot.Close(); err != nil {
 			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
 		}

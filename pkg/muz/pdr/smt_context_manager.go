@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -28,6 +29,7 @@ type SMTContextManager struct {
 	predicates  []ast.ASTRef
 	auxiliary   map[ast.ASTHandle]bool
 	active      uint32
+	retired     statistics.Statistics
 	arithmetic  struct {
 		enabled, selectMode, eq2ineq bool
 		mode                         uint32
@@ -163,6 +165,10 @@ func (m *SMTContextManager) CollectStatistics(destination *statistics.Statistics
 	if err := m.open(); err != nil {
 		return err
 	}
+	if destination == nil {
+		return arena.ErrInvalidSlot
+	}
+	destination.Copy(m.retired)
 	for _, solver := range m.solvers {
 		if err := solver.CollectStatistics(destination); err != nil {
 			return err
@@ -175,6 +181,8 @@ func (m *SMTContextManager) ResetStatistics() error {
 	if err := m.open(); err != nil {
 		return err
 	}
+	// Source kernel reset_statistics is a no-op; retired counters obey the
+	// same contract as the still-live kernels below.
 	for _, solver := range m.solvers {
 		if err := solver.ResetStatistics(); err != nil {
 			return err
@@ -190,21 +198,50 @@ func (m *SMTContextManager) Close() (result error) {
 	if m.closed {
 		return nil
 	}
+	if result = m.resetSolvers(false); result == nil {
+		m.retired = statistics.Statistics{}
+		m.manager = nil
+		m.closed = true
+	}
+	return result
+}
+
+// Resetting a program retires kernels whose proof/arithmetic configuration
+// cannot be changed after search. Archive their statistics before disposal.
+func (m *SMTContextManager) resetSolvers(preserveStatistics bool) (result error) {
 	if m.active != 0 {
 		return fmt.Errorf("%w: %d contexts remain active", ErrSMTContextOwner, m.active)
 	}
 	for index := len(m.solvers) - 1; index >= 0; index-- {
-		result = errors.Join(result, m.solvers[index].Close())
+		solver := m.solvers[index]
+		if solver == nil {
+			continue
+		}
+		var archived statistics.Statistics
+		if preserveStatistics {
+			result = errors.Join(result, solver.CollectStatistics(&archived))
+		}
+		if err := solver.Close(); err != nil {
+			result = errors.Join(result, err)
+		} else {
+			m.solvers[index] = nil
+			if preserveStatistics {
+				m.retired.Copy(archived)
+			}
+		}
 	}
 	for index := len(m.predicates) - 1; index >= 0; index-- {
-		result = errors.Join(result, m.manager.DelRef(&m.predicates[index]))
+		if m.predicates[index] != (ast.ASTRef{}) {
+			result = errors.Join(result, m.manager.DelRef(&m.predicates[index]))
+		}
 	}
 	if result == nil {
 		m.solvers = nil
 		m.predicates = nil
-		m.auxiliary = nil
-		m.manager = nil
-		m.closed = true
+		m.auxiliary = make(map[ast.ASTHandle]bool)
+		m.solverStart = 0
+		m.arithmetic.enabled = false
+		m.arithmetic.effective = smtcore.SMTArithmeticNoSolver
 	}
 	return result
 }

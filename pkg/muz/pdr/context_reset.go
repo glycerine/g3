@@ -20,6 +20,9 @@ func (c *Context) Reset() error {
 	if err := closeTransformers(c.order, c.transformers); err != nil {
 		return err
 	}
+	if err := c.owner.contexts.resetSolvers(true); err != nil {
+		return err
+	}
 	c.transformers = nil
 	c.order = nil
 	c.auxiliary = make(map[ast.ASTHandle]bool)

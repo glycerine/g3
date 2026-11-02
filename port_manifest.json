@@ -88532,6 +88532,7 @@
       "go_targets": [
         "pkg/muz/pdr/context_reset.go",
         "pkg/muz/pdr/context_reset_test.go",
+        "pkg/muz/pdr/context_reset_pool_test.go",
         "pkg/muz/pdr/predicate_transformer.go",
         "pkg/muz/pdr/predicate_transformer_test.go",
         "pkg/muz/pdr/predicate_rules.go",
@@ -88774,7 +88775,7 @@
           "name": "context::reset disposes search/transformers, clears program/results and allows arithmetic/proof-mode reselection while preserving manager/configuration and caller-owned answers",
           "status": "ported",
           "go_target": "pkg/muz/pdr/context_reset.go",
-          "tests": ["TestContextResetDiscardsFramesAndAllowsReinitialization", "TestContextResetReselectsArithmeticAndProofMode"]
+          "tests": ["TestContextResetDiscardsFramesAndAllowsReinitialization", "TestContextResetReselectsArithmeticAndProofMode", "TestContextResetReleasesSolverPoolsAndPreservesStatistics"]
         },
         {
           "name": "context::create_children model substitutions evaluate sources with completion before source simplifying replacement; Boolean complete/incomplete and function-backed array substitutions preserve proof mode and clean up/retry under allocation failure (pdr_context.cpp:2260-2271,2287-2306)",
@@ -88997,7 +88998,7 @@
       "ownership": [
         "PredicateTransformer owns its head/system/property AST references, PropSolver, and ReachableCache. It closes both context consumers before releasing AST pins; returned signatures, formulas, and cores borrow AST handles while requested models retain explicit ownership.",
         "ModelSearch owns its root and complete descendant tree. ModelNode owns one state AST reference plus optional retained model and rule references; reset releases descendants bottom-up after removing frontier/cache links.",
-        "Context owns the reusable model-implicant and QE-lite projector and, when the caller supplies no cooperation service, a private cooperation owner. These close before transformers and the shared PDR manager."
+        "Context Reset closes retired Go solver pools and archives their cumulative statistics because solver proof/arithmetic setup is immutable after search; repeated resets release all obsolete kernel/predicate storage. Context owns the reusable model-implicant and QE-lite projector and, when the caller supplies no cooperation service, a private cooperation owner. These close before transformers and the shared PDR manager."
       ],
       "deviations": [
         "InitializeSystem remains available for independently testing the frame engine; InitializeRules provides the retained native rule-to-transition path. Typed results replace mutable model/core output pointers.",
@@ -89390,6 +89391,8 @@
             "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP",
             "TestPDREngineReadsContextAndCacheParameters",
             "TestPDRCoveredAdditionUsesOriginalRuleSnapshot",
+            "TestPDREngineResetsContextForChangedQuery",
+            "TestPDREngineResetsContextForGeneralRuleAddition",
             "TestPDRCoveredArithmeticAdditionPreservesRawCover",
             "TestPDRCoveredAdditionDoesNotHideBackgroundRevision",
             "TestSMTContextFixedpointParameterUpdateRebuildsPDR",
@@ -89489,7 +89492,7 @@
         "PropositionalEngine separately owns source-rule and transformed-rule snapshots, rotates both after a query and releases both on replacement/close. It owns the current query-specific sliced RuleSet through PDR initialization, snapshots original/derived declarations and removed-column masks while the Context retains their ASTs, closes/replaces the Context before clearing those maps, and transfers returned expanded inductive models to the caller."
       ],
       "deviations": [
-        "The integration compares original rules before preprocessing for covered additions and named rule updates, while preserving background/parameter revision guards. It still rebuilds after a changed query root or uncovered rules; source-compatible context reset and reuse across query roots remain under audit. Covers and inductive models are expanded to original predicate columns, while relation-query SAT answers intentionally retain native sliced vocabulary. Source compound predicate arguments remain hoisted before slicing, and arbitrary interpreted conjuncts are classified without mistaking theory-local operator numbers for basic equality/ITE. Successful declaration queries use native-style two-bank rule/head unification. Go's declaration-query surface omits the native synthetic query predicate, so exact differential comparison normalizes only the resulting nonsemantic slice fresh-ID offset. The public proof surface forwards the per-node reduced-rule hyper-resolution trace."
+        "The integration compares original rules before preprocessing for covered additions and named rule updates, while preserving background/parameter revision guards. Direct declaration queries reset programs after changed roots or uncovered rules while preserving the configured context; changed constructor/background revisions reconstruct it. General expression queries still use an isolated query clone, whose lifecycle/property propagation remains under audit. Covers and inductive models are expanded to original predicate columns, while relation-query SAT answers intentionally retain native sliced vocabulary. Source compound predicate arguments remain hoisted before slicing, and arbitrary interpreted conjuncts are classified without mistaking theory-local operator numbers for basic equality/ITE. Successful declaration queries use native-style two-bank rule/head unification. Go's declaration-query surface omits the native synthetic query predicate, so exact differential comparison normalizes only the resulting nonsemantic slice fresh-ID offset. The public proof surface forwards the per-node reduced-rule hyper-resolution trace."
       ]
     },
     {
