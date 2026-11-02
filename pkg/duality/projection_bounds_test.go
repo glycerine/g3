@@ -115,3 +115,62 @@ func TestProjectionRedundantIntegerBoundsAndOwnership(t *testing.T) {
 		t.Fatal("bound allocation sweep never succeeded")
 	}
 }
+
+func TestFourierMotzkinCombinesBounds(t *testing.T) {
+	ctx, m, native, globals := dualityNativeSolverServicesFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	simplifier, err := interp.NewManagerWithParams(m, ctx.config.params, globals)
+	must(err)
+	defer simplifier.Close()
+	graph, err := NewRPFP(ctx)
+	must(err)
+	defer graph.Close()
+	wrap := func(h ast.ASTHandle, err error) *Expr {
+		t.Helper()
+		must(err)
+		e, err := NewExpr(ctx, h)
+		must(err)
+		closeExpr(t, e)
+		return e
+	}
+	raw := func(e *Expr) ast.ASTHandle { t.Helper(); h, err := e.Raw(); must(err); return h }
+	family, err := m.ArithmeticFamilyID()
+	must(err)
+	zero := wrap(m.ArithmeticIntegerNumeralText("0"))
+	sort, err := m.GetSort(raw(zero))
+	must(err)
+	xn, err := m.Symbols.Intern("fourier-x")
+	must(err)
+	yn, err := m.Symbols.Intern("fourier-y")
+	must(err)
+	x := wrap(m.MkConst(xn, sort))
+	y := wrap(m.MkConst(yn, sort))
+	lower := wrap(m.MkFamilyApp(family, 3, nil, []ast.ASTHandle{raw(x), raw(zero)}))
+	upper := wrap(m.MkFamilyApp(family, 2, nil, []ast.ASTHandle{raw(x), raw(y)}))
+	expected := wrap(m.MkFamilyApp(family, 3, nil, []ast.ASTHandle{raw(y), raw(zero)}))
+	output, err := graph.FourierMotzkinCheap([]*Expr{y}, []*Expr{lower, upper}, simplifier)
+	must(err)
+	defer func() {
+		for _, e := range output {
+			must(e.Close())
+		}
+	}()
+	args := make([]ast.ASTHandle, len(output))
+	for i, e := range output {
+		args[i] = raw(e)
+	}
+	combined := wrap(m.MkAndArgs(args))
+	iff := wrap(m.MkIff(raw(combined), raw(expected)))
+	neg := wrap(m.MkNot(raw(iff)))
+	must(native.Assert(raw(neg)))
+	status, err := native.CheckSat(nil)
+	must(err)
+	if status != lbool.False {
+		t.Fatal("Fourier projection differs", status)
+	}
+}
