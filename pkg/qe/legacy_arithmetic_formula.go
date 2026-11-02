@@ -21,16 +21,23 @@ func (r *legacyFormulaProjection) Close() (result error) {
 	if r == nil || r.manager == nil {
 		return ast.ErrASTHandle
 	}
-	for index := len(r.variables) - 1; index >= 0; index-- {
-		result = errors.Join(result, r.manager.DelRef(&r.variables[index]))
+	// Refuse cleanup before discarding any roots when manager entry is pending.
+	if _, err := r.manager.ProofMode(); err != nil {
+		return err
 	}
-	r.variables = nil
+	for len(r.variables) != 0 {
+		index := len(r.variables) - 1
+		if err := r.manager.DelRef(&r.variables[index]); err != nil {
+			return err
+		}
+		r.variables = r.variables[:index]
+	}
 	if r.formula != (ast.ASTRef{}) {
-		result = errors.Join(result, r.manager.DelRef(&r.formula))
+		if err := r.manager.DelRef(&r.formula); err != nil {
+			return err
+		}
 	}
-	if result == nil {
-		r.manager = nil
-	}
+	r.manager = nil
 	return result
 }
 

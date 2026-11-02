@@ -23,6 +23,18 @@ func TestLegacyArrayProjectionOwnersPreservePendingReferences(t *testing.T) {
 	}
 }
 
+func TestLegacyArithmeticProjectionOwnersPreservePendingReferences(t *testing.T) {
+	for _, kind := range []string{"arithmetic-formula", "mods", "real"} {
+		t.Run(kind, func(t *testing.T) { testProjectionPendingOwner(t, kind) })
+	}
+}
+
+func TestLegacyPartialEqualityOwnersPreservePendingReferences(t *testing.T) {
+	for _, kind := range []string{"partial", "expansion", "factored-partial"} {
+		t.Run(kind, func(t *testing.T) { testProjectionPendingOwner(t, kind) })
+	}
+}
+
 func testProjectionPendingOwner(t *testing.T, kind string) {
 	must := func(err error) {
 		t.Helper()
@@ -32,6 +44,8 @@ func testProjectionPendingOwner(t *testing.T, kind string) {
 	}
 	budget := arena.NewBudget(1 << 28)
 	var combined *LegacyProjectionResult
+	var remainingPartial *legacyPartialEquality
+	freeOriginal := false
 	var closeOwner func() error
 	var intactOwner func() bool
 	active, callbacks, intact := false, 0, true
@@ -85,6 +99,71 @@ func testProjectionPendingOwner(t *testing.T, kind string) {
 		intactOwner = func() bool {
 			return result.manager == m && result.formula == formulaRef && len(result.variables) == 1 && result.variables[0] == variableRef
 		}
+
+	case "arithmetic-formula":
+		result := &legacyFormulaProjection{manager: m, formula: formulaRef, variables: []ast.ASTRef{variableRef}}
+		closeOwner = result.Close
+		intactOwner = func() bool {
+			return result.manager == m && result.formula == formulaRef && len(result.variables) == 1 && result.variables[0] == variableRef
+		}
+	case "mods":
+		result := &legacyFactoredMods{manager: m, formula: formulaRef, variables: []ast.ASTRef{variableRef}}
+		closeOwner = result.Close
+		intactOwner = func() bool {
+			return result.manager == m && result.formula == formulaRef && len(result.variables) == 1 && result.variables[0] == variableRef
+		}
+	case "real":
+		divisibility, err := m.CopyRef(formulaRef)
+		must(err)
+		result := &legacyRealProjection{manager: m, substitution: variableRef, divisibility: divisibility, replacements: []legacyLiteralReplacement{{literal: formula, replacement: formulaRef}}}
+		closeOwner = result.Close
+		intactOwner = func() bool {
+			return result.manager == m && result.substitution == variableRef && result.divisibility == divisibility && len(result.replacements) == 1 && result.replacements[0].literal == formula && result.replacements[0].replacement == formulaRef
+		}
+
+	case "partial", "expansion", "factored-partial":
+		family, err := m.RegisterArrayPlugin()
+		must(err)
+		arraySort, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{boolean}), boolean)
+		must(err)
+		a, err := m.MkFreshConst("partial-a", arraySort)
+		must(err)
+		aRef, err := m.NewRef(a)
+		must(err)
+		b, err := m.MkFreshConst("partial-b", arraySort)
+		must(err)
+		bRef, err := m.NewRef(b)
+		must(err)
+		partial, err := newLegacyPartialEquality(m, family, a, b, []ast.ASTHandle{variable})
+		must(err)
+		must(m.DelRef(&aRef))
+		must(m.DelRef(&bRef))
+		lhs, rhs, decl, index := partial.lhs, partial.rhs, partial.decl, partial.indices[0]
+		partialIntact := func() bool {
+			return partial.manager == m && partial.lhs == lhs && partial.rhs == rhs && partial.decl == decl && len(partial.indices) == 1 && partial.indices[0] == index
+		}
+		switch kind {
+		case "partial":
+			freeOriginal = true
+			closeOwner = partial.Close
+			intactOwner = partialIntact
+		case "expansion":
+			freeOriginal = true
+			remainingPartial = partial
+			result, err := partial.Expand(true)
+			must(err)
+			equality, constant := result.equality, result.constants[0]
+			closeOwner = result.Close
+			intactOwner = func() bool {
+				return result.manager == m && result.equality == equality && len(result.constants) == 1 && result.constants[0] == constant && partialIntact()
+			}
+		case "factored-partial":
+			result := &legacyFactoredPartialEquality{manager: m, partial: partial, variables: []ast.ASTRef{variableRef}, equalities: []ast.ASTRef{formulaRef}}
+			closeOwner = result.Close
+			intactOwner = func() bool {
+				return result.manager == m && result.partial == partial && partialIntact() && len(result.variables) == 1 && result.variables[0] == variableRef && len(result.equalities) == 1 && result.equalities[0] == formulaRef
+			}
+		}
 	case "equalities":
 		result := &legacyArrayEqualities{manager: m, equalities: []ast.ASTRef{variableRef, formulaRef}, stores: map[ast.ASTHandle]bool{variable: true}}
 		closeOwner = result.Close
@@ -128,6 +207,13 @@ func testProjectionPendingOwner(t *testing.T, kind string) {
 		}
 	}
 	must(closeOwner())
+	if remainingPartial != nil {
+		must(remainingPartial.Close())
+	}
+	if freeOriginal {
+		must(m.DelRef(&formulaRef))
+		must(m.DelRef(&variableRef))
+	}
 	must(m.Close())
 	must(numbers.Close())
 	must(symbols.Close())

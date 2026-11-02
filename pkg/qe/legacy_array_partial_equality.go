@@ -88,23 +88,33 @@ func (p *legacyPartialEquality) Close() (result error) {
 	if p == nil || p.manager == nil {
 		return ast.ErrASTHandle
 	}
+	if _, err := p.manager.ProofMode(); err != nil {
+		return err
+	}
 	if p.decl != (ast.ASTRef{}) {
-		result = errors.Join(result, p.manager.DelRef(&p.decl))
+		if err := p.manager.DelRef(&p.decl); err != nil {
+			return err
+		}
 	}
-	for index := len(p.indices) - 1; index >= 0; index-- {
-		result = errors.Join(result, p.manager.DelRef(&p.indices[index]))
+	for len(p.indices) != 0 {
+		index := len(p.indices) - 1
+		if err := p.manager.DelRef(&p.indices[index]); err != nil {
+			return err
+		}
+		p.indices = p.indices[:index]
 	}
-	p.indices = nil
 	if p.rhs != (ast.ASTRef{}) {
-		result = errors.Join(result, p.manager.DelRef(&p.rhs))
+		if err := p.manager.DelRef(&p.rhs); err != nil {
+			return err
+		}
 	}
 	if p.lhs != (ast.ASTRef{}) {
-		result = errors.Join(result, p.manager.DelRef(&p.lhs))
+		if err := p.manager.DelRef(&p.lhs); err != nil {
+			return err
+		}
 	}
-	if result == nil {
-		p.manager = nil
-	}
-	return result
+	p.manager = nil
+	return nil
 }
 
 func (p *legacyPartialEquality) Application() (ast.ASTRef, error) {
@@ -201,15 +211,21 @@ func (r *legacyPartialEqualityExpansion) Close() (result error) {
 	if r == nil || r.manager == nil {
 		return ast.ErrASTHandle
 	}
+	if _, err := r.manager.ProofMode(); err != nil {
+		return err
+	}
 	if r.equality != (ast.ASTRef{}) {
-		result = errors.Join(result, r.manager.DelRef(&r.equality))
+		if err := r.manager.DelRef(&r.equality); err != nil {
+			return err
+		}
 	}
-	for index := len(r.constants) - 1; index >= 0; index-- {
-		result = errors.Join(result, r.manager.DelRef(&r.constants[index]))
+	for len(r.constants) != 0 {
+		index := len(r.constants) - 1
+		if err := r.manager.DelRef(&r.constants[index]); err != nil {
+			return err
+		}
+		r.constants = r.constants[:index]
 	}
-	r.constants = nil
-	if result == nil {
-		r.manager = nil
-	}
-	return result
+	r.manager = nil
+	return nil
 }

@@ -27,19 +27,27 @@ func (r *legacyRealProjection) Close() (result error) {
 	if r == nil || r.manager == nil {
 		return ast.ErrASTHandle
 	}
-	for index := len(r.replacements) - 1; index >= 0; index-- {
-		result = errors.Join(result, r.manager.DelRef(&r.replacements[index].replacement))
+	if _, err := r.manager.ProofMode(); err != nil {
+		return err
 	}
-	r.replacements = nil
+	for len(r.replacements) != 0 {
+		index := len(r.replacements) - 1
+		if err := r.manager.DelRef(&r.replacements[index].replacement); err != nil {
+			return err
+		}
+		r.replacements = r.replacements[:index]
+	}
 	if r.substitution != (ast.ASTRef{}) {
-		result = errors.Join(result, r.manager.DelRef(&r.substitution))
+		if err := r.manager.DelRef(&r.substitution); err != nil {
+			return err
+		}
 	}
 	if r.divisibility != (ast.ASTRef{}) {
-		result = errors.Join(result, r.manager.DelRef(&r.divisibility))
+		if err := r.manager.DelRef(&r.divisibility); err != nil {
+			return err
+		}
 	}
-	if result == nil {
-		r.manager = nil
-	}
+	r.manager = nil
 	return result
 }
 

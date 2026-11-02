@@ -21,22 +21,31 @@ func (r *legacyFactoredPartialEquality) Close() (result error) {
 	if r == nil || r.manager == nil {
 		return ast.ErrASTHandle
 	}
+	if _, err := r.manager.ProofMode(); err != nil {
+		return err
+	}
 	if r.partial != nil {
-		result = errors.Join(result, r.partial.Close())
+		if err := r.partial.Close(); err != nil {
+			return err
+		}
 		r.partial = nil
 	}
-	for index := len(r.equalities) - 1; index >= 0; index-- {
-		result = errors.Join(result, r.manager.DelRef(&r.equalities[index]))
+	for len(r.equalities) != 0 {
+		index := len(r.equalities) - 1
+		if err := r.manager.DelRef(&r.equalities[index]); err != nil {
+			return err
+		}
+		r.equalities = r.equalities[:index]
 	}
-	r.equalities = nil
-	for index := len(r.variables) - 1; index >= 0; index-- {
-		result = errors.Join(result, r.manager.DelRef(&r.variables[index]))
+	for len(r.variables) != 0 {
+		index := len(r.variables) - 1
+		if err := r.manager.DelRef(&r.variables[index]); err != nil {
+			return err
+		}
+		r.variables = r.variables[:index]
 	}
-	r.variables = nil
-	if result == nil {
-		r.manager = nil
-	}
-	return result
+	r.manager = nil
+	return nil
 }
 
 func (p *legacyArrayProjection) factorPartialSelects(md *model.ModelCore, evaluator *model.ModelEvaluator, variable ast.ASTHandle, partial *legacyPartialEquality) (result *legacyFactoredPartialEquality, resultErr error) {
