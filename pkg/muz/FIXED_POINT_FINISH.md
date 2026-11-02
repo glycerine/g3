@@ -948,3 +948,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Added unique-wrapper ownership enforcement to Duality prepared queries. Struct copies can no longer append background references, expose clauses/bounds, enter the backend or release the original query's owners; the original still executes and closes normally. Focused and complete native Duality validation passed in 0.008s/1.071s. Broader search ownership remains open.
 
 - 2026-11-02 — Aligned Duality counterexample lifetime with query replacement: every query attempt now clears the previously borrowed counterexample before setup, including nil and allocation-failing attempts, while preserving the old annotation graph for learning. Failure/retry and the complete native Duality package passed in 1.236s. Broader search integration remains open.
+
+- 2026-11-02 — Made PDR predicate-transformer cleanup explicitly retryable. Operations now reject while native AST cleanup is pending, owned roots survive refusal, cleanup retry completes, and repeated completed close is idempotent; focused transformer tests passed in 0.026s. Deeper PDR child cleanup frontiers remain open.

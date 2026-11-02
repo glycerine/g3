@@ -44,6 +44,7 @@ type PredicateTransformer struct {
 	propagations  uint32
 	initialized   bool
 	rulesReady    bool
+	closing       bool
 	closed        bool
 }
 
@@ -106,6 +107,9 @@ func NewPredicateTransformer(owner *Manager, head ast.ASTHandle, cacheMode Reach
 }
 
 func (p *PredicateTransformer) open() error {
+	if p != nil && p.closing && !p.closed {
+		return ast.ErrASTPending
+	}
 	if p == nil || p.closed || p.owner == nil || p.manager == nil || p.solver == nil || p.reachable == nil {
 		return ErrPredicateTransformerOwner
 	}
@@ -605,12 +609,16 @@ func (p *PredicateTransformer) ResetStatistics() error {
 }
 
 func (p *PredicateTransformer) Close() (result error) {
-	if p == nil || p.manager == nil {
+	if p == nil {
 		return ErrPredicateTransformerOwner
 	}
 	if p.closed {
 		return nil
 	}
+	if p.manager == nil {
+		return ErrPredicateTransformerOwner
+	}
+	p.closing = true
 	if p.reachable != nil {
 		result = errors.Join(result, p.reachable.Close())
 	}
@@ -637,6 +645,7 @@ func (p *PredicateTransformer) Close() (result error) {
 		p.rules = nil
 		p.uses = nil
 		p.references = nil
+		p.closing = false
 		p.closed = true
 	}
 	return result
