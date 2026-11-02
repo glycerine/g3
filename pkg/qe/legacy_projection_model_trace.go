@@ -102,3 +102,17 @@ func (p *LegacyProjection) traceModelTermProjection(variable, term ast.ASTHandle
 	}
 	return err
 }
+
+// Source: model_evaluator_util::eval's typed exception diagnostic.
+func (p *LegacyProjection) traceModelTermEvaluationFailure(failure error) error {
+	tags := p.config.Trace
+	if tags == nil {
+		tags = p.manager.BorrowSourceTraceTags()
+	}
+	err := tags.EmitConditional("spacer_model_evaluator", "eval", "src/muz/spacer/spacer_util.cpp", 101,
+		func() bool { return true }, func(out io.Writer) error { _, err := io.WriteString(out, failure.Error()+"\n"); return err })
+	if tags.IsStreamFailure(err) {
+		return nil
+	}
+	return err
+}

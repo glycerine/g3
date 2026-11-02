@@ -101152,6 +101152,12 @@
       "ownership_audited": false,
       "methods": [
         {
+          "name": "mbqi_project/model_evaluator_util value probes keep nullable owning outputs and catch typed evaluator exceptions across warm-up, variable and candidate evaluation; single-candidate refusal declines elimination, subsequent interrupted traversal preconditions remain errors, and fresh-evaluator retry preserves the first equivalent term (spacer_util.cpp:92-103,1213-1279); broader exception TRACE and failure ownership audits remain open",
+          "status": "partial",
+          "go_targets": ["pkg/qe/legacy_projection_model_terms.go", "pkg/qe/legacy_projection_model_trace.go", "pkg/qe/trace.go", "pkg/qe/legacy_model_term_exception_test.go"],
+          "tests": ["TestLegacyModelTermCandidateCatchesTypedEvaluatorException", "TestLegacyModelTermNullValueFormatting"]
+        },
+        {
           "name": "model_evaluator_util Boolean probes use non-completing evaluation, typed model-evaluator rewrite-exception catches and source exception TRACE output",
           "status": "partial",
           "go_targets": ["pkg/muz/spacer/implicant_partial_model_test.go", "pkg/muz/spacer/model_evaluator.go", "pkg/muz/spacer/implicant_literals.go", "pkg/model/model_evaluator.go", "pkg/muz/spacer/implicant_evaluator_limit_test.go", "pkg/muz/spacer/predicate_derivation.go", "pkg/muz/spacer/weak_derivation_evaluator_test.go"],
@@ -101393,6 +101399,12 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "mbqi_project/model_evaluator_util value probes keep nullable owning outputs and catch typed evaluator exceptions across warm-up, variable and candidate evaluation; single-candidate refusal declines elimination, subsequent interrupted traversal preconditions remain errors, and fresh-evaluator retry preserves the first equivalent term (spacer_util.cpp:92-103,1213-1279); broader exception TRACE and failure ownership audits remain open",
+          "status": "partial",
+          "go_targets": ["pkg/qe/legacy_projection_model_terms.go", "pkg/qe/legacy_projection_model_trace.go", "pkg/qe/trace.go", "pkg/qe/legacy_model_term_exception_test.go"],
+          "tests": ["TestLegacyModelTermCandidateCatchesTypedEvaluatorException", "TestLegacyModelTermNullValueFormatting"]
+        },
         {
           "name": "model_evaluator_util Boolean probes use non-completing evaluation, typed model-evaluator rewrite-exception catches and source exception TRACE output",
           "status": "partial",

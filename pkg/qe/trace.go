@@ -54,6 +54,12 @@ func writeExpressionVector(m *ast.ASTManager, config Config, out io.Writer, form
 }
 
 func writeExpression(m *ast.ASTManager, config Config, out io.Writer, expression ast.ASTHandle) (err error) {
+	// Source mk_ismt2_pp prints a null expr_ref directly, before formatting.
+	if expression == (ast.ASTHandle{}) {
+		_, err := io.WriteString(out, "null")
+		return err
+	}
+
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.Budget()})
 	if err != nil {
 		return err

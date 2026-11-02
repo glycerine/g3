@@ -120,6 +120,25 @@ func (p *LegacyProjection) modelProjectionTerms(root, variable ast.ASTHandle) ([
 	return result, nil
 }
 
+// evaluateModelProjectionValue follows model_evaluator_util::eval: its
+// caller-owned output remains valid (possibly null) after a typed exception.
+// Interrupted traversals are deliberately not reset here.
+func (p *LegacyProjection) evaluateModelProjectionValue(evaluator *model.ModelEvaluator, expression ast.ASTHandle) (ast.ASTRef, error) {
+	value, err := p.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	if err = evaluator.Evaluate(expression, value); err != nil {
+		if rewriter.IsRewriterException(err) {
+			err = p.traceModelTermEvaluationFailure(err)
+		}
+		if err != nil {
+			return ast.ASTRef{}, errors.Join(err, p.manager.DelRef(&value))
+		}
+	}
+	return value, nil
+}
+
 func (p *LegacyProjection) projectModelTerms(md *model.ModelCore, current ast.ASTRef, variables []ast.ASTHandle) (remaining []ast.ASTHandle, resultErr error) {
 	evaluator, err := newLegacyModelEvaluator(md, model.ModelEvaluatorConfig{Context: p.config.Context, Globals: p.config.Globals, Memory: p.manager.NumeralService().RuntimeOwner(), Cooperation: p.config.Cooperation, Trace: p.config.Trace})
 	if err != nil {
@@ -133,7 +152,7 @@ func (p *LegacyProjection) projectModelTerms(md *model.ModelCore, current ast.AS
 	if err != nil {
 		return nil, err
 	}
-	warm, err := evaluator.EvaluateValue(root)
+	warm, err := p.evaluateModelProjectionValue(evaluator, root)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +176,7 @@ func (p *LegacyProjection) projectModelTerms(md *model.ModelCore, current ast.AS
 }
 
 func (p *LegacyProjection) projectModelTerm(evaluator *model.ModelEvaluator, current ast.ASTRef, variable ast.ASTHandle) (_ bool, resultErr error) {
-	value, err := evaluator.EvaluateValue(variable)
+	value, err := p.evaluateModelProjectionValue(evaluator, variable)
 	if err != nil {
 		return false, err
 	}
@@ -181,7 +200,7 @@ func (p *LegacyProjection) projectModelTerm(evaluator *model.ModelEvaluator, cur
 		return false, err
 	}
 	for _, term := range terms {
-		evaluated, err := evaluator.EvaluateValue(term)
+		evaluated, err := p.evaluateModelProjectionValue(evaluator, term)
 		if err != nil {
 			return false, err
 		}
