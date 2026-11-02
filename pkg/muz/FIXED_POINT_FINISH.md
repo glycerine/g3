@@ -140,7 +140,8 @@ Each completed item needs source paths, implementation/test evidence and a commi
 - [ ] Verify exceptional cleanup and parameter restoration in projection and preprocessing.
   - [x] Preserve LegacyProjectionResult residual formula/variable owners across actual AST execution-guard refusal; verify repeated refusal, post-guard access, cleanup retry and zero-budget final disposal.
   - [ ] Audit independent projection destruction failures after manager admission and construction-error ownership transfer; the isolated result-owner regression does not close whole projection ownership.
-    - [ ] Check cleanup continuation through LegacyProjection.Close and legacyArrayProjection.Close after an earlier child has already closed; audit legacyArrayEqualities and other temporary result slices for the same unconsumed-reference loss.
+    - [x] Preserve legacyArrayEqualities, legacyArrayProjectionResult and legacyArraySelectProjection roots across repeated native manager-entry refusal, with exact owner checks, retry and zero-budget disposal.
+    - [ ] Check cleanup continuation through LegacyProjection.Close and legacyArrayProjection.Close after an earlier child has already closed; audit remaining arithmetic/array temporary owners and post-admission release failures.
 - [ ] Close all Spacer source obligations before declaring the engine complete.
 
 ## 5. Duality — engine and external source dependency closure
@@ -248,6 +249,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/udoc_relation.cpp` (partial), `src/muz/rel/udoc_relation.h` (partial)
 
 ### spacer
+
+- [ ] `src/muz/spacer/spacer_qe_project.cpp` (reopened partial: remaining exceptional ownership/cleanup audit; implemented algorithms preserved)
 
 - [ ] `src/muz/spacer/spacer_context.cpp` (partial), `src/muz/spacer/spacer_context.h` (partial)
 - [ ] `src/muz/spacer/spacer_dl_interface.cpp` (partial)
@@ -534,3 +537,6 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 
 - 2026-11-02 — Spacer QE/MBP cleanup audit reproduced `LegacyProjectionResult.Close` discarding its remaining-variable reference slice despite AST-manager refusal. Result cleanup now preflights manager admission and removes individual owners only after successful release. The regression constructs a valid residual formula/variable owner independently of theory elimination, uses a real numerical runtime transport callback to attempt cleanup twice during AST execution, and verifies exact roots remain available afterward; retry releases every service at zero final budget. This tests the result owner directly, not a new end-to-end projection scenario. Broader construction-error and post-admission cleanup audits remain open.
   Validation: focused native LegacyProjection tests, complete native QE and Spacer packages, and portcheck passed. Commit title: `Preserve projection result owners across refused cleanup`.
+
+- 2026-11-02 — Extended the real numerical transport regression to array equalities, whole-array projection results and select-projection results. All three failed against the prior code by discarding their owned slices after AST entry refusal. Their destructors now preflight manager admission, stop on a refused release and retire only successfully released roots. Concrete typed test cases preserve equality-store metadata, formula and variable roots through two refused closes, verify root identity after guard exit and complete cleanup at zero budget; the prior combined-result public-access checks remain covered. These are direct result-owner tests, not end-to-end array-projection failure campaigns. Reopened spacer_qe_project.cpp as partial with ownership_audited=false because its remaining parent/temporary destructor and construction-error paths are not yet proven; previously ported algorithm records stay intact.
+  Validation: focused native legacy array/projection tests, complete native QE and Spacer packages, and updated-manifest portcheck passed. Commit title: `Preserve array projection roots across refused cleanup`.

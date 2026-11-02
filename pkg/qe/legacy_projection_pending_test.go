@@ -14,6 +14,16 @@ import (
 // Exercise the result owner independently of which theory leaves variables
 // unprojected: both the residual formula and remaining variable own AST roots.
 func TestLegacyProjectionResultClosePreservesPendingOwners(t *testing.T) {
+	testProjectionPendingOwner(t, "combined")
+}
+
+func TestLegacyArrayProjectionOwnersPreservePendingReferences(t *testing.T) {
+	for _, kind := range []string{"equalities", "formula", "selects"} {
+		t.Run(kind, func(t *testing.T) { testProjectionPendingOwner(t, kind) })
+	}
+}
+
+func testProjectionPendingOwner(t *testing.T, kind string) {
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -21,19 +31,16 @@ func TestLegacyProjectionResultClosePreservesPendingOwners(t *testing.T) {
 		}
 	}
 	budget := arena.NewBudget(1 << 28)
-	var result *LegacyProjectionResult
-	var mOwner *ast.ASTManager
+	var combined *LegacyProjectionResult
+	var closeOwner func() error
+	var intactOwner func() bool
 	active, callbacks, intact := false, 0, true
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
 		if active {
 			callbacks++
-			formula, variable := result.formula, result.variables[0]
 			for i := 0; i < 2; i++ {
-				closeErr := result.Close()
-				intact = intact && errors.Is(closeErr, ast.ErrASTPending) && result.manager == mOwner && result.formula == formula && len(result.variables) == 1
-				if len(result.variables) == 1 {
-					intact = intact && result.variables[0] == variable
-				}
+				closeErr := closeOwner()
+				intact = intact && errors.Is(closeErr, ast.ErrASTPending) && intactOwner()
 			}
 		}
 		return f
@@ -46,7 +53,6 @@ func TestLegacyProjectionResultClosePreservesPendingOwners(t *testing.T) {
 	m, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: symbols, Numerals: numbers, Budget: budget})
 	must(err)
 
-	mOwner = m
 	_, err = m.RegisterArithmeticPlugin()
 	must(err)
 	boolean, err := m.MkBoolSort()
@@ -59,7 +65,35 @@ func TestLegacyProjectionResultClosePreservesPendingOwners(t *testing.T) {
 	must(err)
 	formulaRef, err := m.NewRef(formula)
 	must(err)
-	result = &LegacyProjectionResult{manager: m, formula: formulaRef, variables: []ast.ASTRef{variableRef}}
+	switch kind {
+	case "combined":
+		result := &LegacyProjectionResult{manager: m, formula: formulaRef, variables: []ast.ASTRef{variableRef}}
+		combined = result
+		closeOwner = result.Close
+		intactOwner = func() bool {
+			return result.manager == m && result.formula == formulaRef && len(result.variables) == 1 && result.variables[0] == variableRef
+		}
+	case "formula":
+		result := &legacyArrayProjectionResult{manager: m, formula: formulaRef, variables: []ast.ASTRef{variableRef}}
+		closeOwner = result.Close
+		intactOwner = func() bool {
+			return result.manager == m && result.formula == formulaRef && len(result.variables) == 1 && result.variables[0] == variableRef
+		}
+	case "selects":
+		result := &legacyArraySelectProjection{manager: m, formula: formulaRef, variables: []ast.ASTRef{variableRef}}
+		closeOwner = result.Close
+		intactOwner = func() bool {
+			return result.manager == m && result.formula == formulaRef && len(result.variables) == 1 && result.variables[0] == variableRef
+		}
+	case "equalities":
+		result := &legacyArrayEqualities{manager: m, equalities: []ast.ASTRef{variableRef, formulaRef}, stores: map[ast.ASTHandle]bool{variable: true}}
+		closeOwner = result.Close
+		intactOwner = func() bool {
+			return result.manager == m && len(result.equalities) == 2 && result.equalities[0] == variableRef && result.equalities[1] == formulaRef && result.stores[variable]
+		}
+	default:
+		t.Fatal("unknown projection owner", kind)
+	}
 	value, err := numbers.NewValue()
 	must(err)
 	must(numbers.SetString(&value, "18446744073709551617/18446744073709551619"))
@@ -77,14 +111,23 @@ func TestLegacyProjectionResultClosePreservesPendingOwners(t *testing.T) {
 	if !intact {
 		t.Fatal("projection result discarded refused owners")
 	}
-	got, err := result.Formula()
+	got, err := m.RefGet(formulaRef)
 	must(err)
-	vars, err := result.Variables()
+	gotVariable, err := m.RefGet(variableRef)
 	must(err)
-	if got != formula || len(vars) != 1 || vars[0] != variable {
+	if got != formula || gotVariable != variable {
 		t.Fatal("residual projection changed after refusal")
 	}
-	must(result.Close())
+	if combined != nil {
+		h, err := combined.Formula()
+		must(err)
+		vars, err := combined.Variables()
+		must(err)
+		if h != formula || len(vars) != 1 || vars[0] != variable {
+			t.Fatal("combined result access changed")
+		}
+	}
+	must(closeOwner())
 	must(m.Close())
 	must(numbers.Close())
 	must(symbols.Close())

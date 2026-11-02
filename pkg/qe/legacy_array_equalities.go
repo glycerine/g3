@@ -58,15 +58,19 @@ func (r *legacyArrayEqualities) Close() (result error) {
 	if r == nil || r.manager == nil {
 		return ast.ErrASTHandle
 	}
-	for index := len(r.equalities) - 1; index >= 0; index-- {
-		result = errors.Join(result, r.manager.DelRef(&r.equalities[index]))
+	if _, err := r.manager.ProofMode(); err != nil {
+		return err
 	}
-	r.equalities = nil
-	if result == nil {
-		r.manager = nil
-		r.stores = nil
+	for len(r.equalities) != 0 {
+		index := len(r.equalities) - 1
+		if err := r.manager.DelRef(&r.equalities[index]); err != nil {
+			return err
+		}
+		r.equalities = r.equalities[:index]
 	}
-	return result
+	r.manager = nil
+	r.stores = nil
+	return nil
 }
 
 func (p *legacyArrayProjection) arrayExpression(expression ast.ASTHandle) (bool, error) {
