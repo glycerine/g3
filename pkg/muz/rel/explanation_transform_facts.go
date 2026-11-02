@@ -52,6 +52,23 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, t.manager.DelRef(&factRef)) }()
+	var singleton *ExplanationRelation
+	if !relationLevel {
+		sort, err := t.manager.MkDatalogRuleSort()
+		if err != nil {
+			return err
+		}
+		singleton, err = NewExplanationRelation(t.manager, []ast.ASTHandle{sort})
+		if singleton != nil {
+			defer func() { resultErr = errors.Join(resultErr, singleton.Close()) }()
+		}
+		if err != nil {
+			return err
+		}
+		if err = singleton.AddFact([]ast.ASTHandle{fact}); err != nil {
+			return err
+		}
+	}
 	for _, original := range predicates {
 		explained, err := t.ExplanationDeclaration(original)
 		if err != nil {
@@ -102,20 +119,26 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 			t.relationProducts[original] = product
 			continue
 		}
-		product, err := NewFiniteExplanationProduct(relations, sorts)
-		if err != nil {
-			return err
-		}
+		var product *FiniteExplanationProduct
 		if exists {
-			facts, err := table.Facts()
+			// transform_facts uses the finite-product converting join of the
+			// original table with the singleton fact explanation.
+			converted, err := finiteExplanationProductFromHashTable(relations, sorts, table)
 			if err != nil {
-				return errors.Join(err, product.Close())
+				return err
 			}
-			for _, row := range facts {
-				key := append(append(Fact(nil), row...), 0)
-				if err = product.addEncoded(key, fact); err != nil {
-					return errors.Join(err, product.Close())
+			product, err = converted.JoinExplanationRelation(singleton)
+			err = errors.Join(err, converted.Close())
+			if err != nil {
+				if product != nil {
+					err = errors.Join(err, product.Close())
 				}
+				return err
+			}
+		} else {
+			product, err = NewFiniteExplanationProduct(relations, sorts)
+			if err != nil {
+				return err
 			}
 		}
 		t.factProducts[original] = product

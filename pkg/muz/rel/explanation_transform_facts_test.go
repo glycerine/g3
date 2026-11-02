@@ -24,11 +24,16 @@ func TestExplanationTransformerTransfersFiniteFacts(t *testing.T) {
 		return d
 	}
 	ext := declare("explanation-extensional", []ast.ASTHandle{f.boolean})
+	zero := declare("explanation-nullary", nil)
 	dummy := declare("explanation-rule-head", nil)
 	unused := declare("explanation-unused", nil)
 	table, err := f.relations.GetRelation(ext)
 	astTestMust(t, err)
 	_, err = table.Add(Fact{1})
+	astTestMust(t, err)
+	zeroTable, err := f.relations.GetRelation(zero)
+	astTestMust(t, err)
+	_, err = zeroTable.Add(Fact{})
 	astTestMust(t, err)
 	head, err := f.ast.MkApp(dummy, nil)
 	astTestMust(t, err)
@@ -43,7 +48,7 @@ func TestExplanationTransformerTransfersFiniteFacts(t *testing.T) {
 	target, err := transformer.TransformRulesOnly(set)
 	astTestMust(t, err)
 	defer func() { astTestMust(t, target.Close()) }()
-	astTestMust(t, transformer.TransferFiniteFacts(set, target, f.relations, []ast.ASTHandle{ext, dummy, unused}))
+	astTestMust(t, transformer.TransferFiniteFacts(set, target, f.relations, []ast.ASTHandle{ext, zero, dummy, unused}))
 	product, found, err := transformer.FactProduct(ext)
 	astTestMust(t, err)
 	if !found {
@@ -62,6 +67,16 @@ func TestExplanationTransformerTransfersFiniteFacts(t *testing.T) {
 	astTestMust(t, err)
 	if name != "fact" {
 		t.Fatal("fact explanation symbol", name)
+	}
+	zeroProduct, found, err := transformer.FactProduct(zero)
+	astTestMust(t, err)
+	if !found {
+		t.Fatal("missing zero-column fact product")
+	}
+	zeroExplanation, found, err := zeroProduct.Explanation(nil)
+	astTestMust(t, err)
+	if !found || zeroExplanation != explanation {
+		t.Fatal("nullary fact conversion lost its explanation", zeroExplanation, found)
 	}
 	joined, err := product.Join(product, []int{0}, []int{0})
 	astTestMust(t, err)
