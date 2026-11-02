@@ -588,6 +588,13 @@ func (e *PropositionalEngine) AddInvariant(declaration, property ast.ASTHandle) 
 
 // Reachable returns the accumulated Spacer reach summary for a predicate.
 func (e *PropositionalEngine) Reachable(declaration ast.ASTHandle) (ast.ASTRef, error) {
+	if e.queryClone != nil && e.backend == "spacer" {
+		clone, _, err := e.expressionQueryState()
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		return clone.Reachable(declaration)
+	}
 	if err := e.requireResultSnapshot(EngineSpacer); err != nil {
 		return ast.ASTRef{}, err
 	}

@@ -6707,7 +6707,7 @@
         {"name": "Z3_fixedpoint_get_ground_sat_answer typed Go equivalent", "status": "ported", "go_target": "pkg/api/api_fixedpoint.go", "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]},
         {"name": "Z3_fixedpoint_get_rules_along_trace and Z3_fixedpoint_get_rule_names_along_trace typed Go equivalents", "status": "ported", "go_target": "pkg/api/api_fixedpoint.go", "go_targets": ["pkg/muz/fp/pdr_engine.go", "pkg/muz/spacer/context.go"], "tests": ["TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestSpacerEngineRunsReachableAndInductiveHornQueries", "TestSMTContextFixedpointSpacerInductiveExports"]},
         {"name": "Z3_fixedpoint_add_invariant typed Go equivalent", "status": "ported", "go_target": "pkg/api/api_fixedpoint.go", "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]},
-        {"name": "Z3_fixedpoint_get_reachable typed Go equivalent", "status": "ported", "go_target": "pkg/api/api_fixedpoint.go", "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]}
+        {"name": "Z3_fixedpoint_get_reachable typed Go equivalent", "status": "ported", "go_target": "pkg/api/api_fixedpoint.go", "go_targets": ["pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/spacer_expression_reachable_test.go"], "tests": ["TestSMTContextFixedpointSpacerInductiveExports", "TestSpacerExpressionQueryReachableSummary"]}
       ],
       "ownership": ["FixedpointGroundSatAnswer and FixedpointReachable transfer one ASTRef to the caller. FixedpointRulesAlongTrace transfers one ASTRef per formula plus ordinary Go name strings. AddFixedpointInvariant borrows its declaration and property for the call, after which the engine retains the normalized lemma."],
       "deviations": ["Typed Go methods replace opaque C handles and saved API trails."]
@@ -98924,6 +98924,7 @@
         "pkg/muz/fp/spacer_expression_statistics_test.go",
         "pkg/muz/fp/query_expression.go",
         "pkg/muz/fp/spacer_expression_cover_test.go",
+        "pkg/muz/fp/spacer_expression_reachable_test.go",
         "pkg/muz/fp/spacer_expression_cancellation_test.go",
         "pkg/muz/fp/spacer_expression_owner_failure_test.go",
         "pkg/muz/fp/pdr_expression_fixture_test.go"
@@ -98947,6 +98948,7 @@
         "TestAPIFixedpointSpacerExpressionQueryFromLevel",
         "TestSpacerExpressionStatisticsSurviveCloneDisposal",
         "TestSpacerExpressionQueryUsesPrequeryCoverOwner",
+        "TestSpacerExpressionQueryReachableSummary",
         "TestSpacerExpressionCancellationPreservesOwnersAndRetry",
         "TestSpacerExpressionPrequeryOwnerFailureAndRetry"
       ],
@@ -98963,6 +98965,7 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {"name": "get_reachable forwards through the active direct or expression-query Spacer context (spacer_dl_interface.cpp:294-300)", "status": "ported", "go_targets": ["pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/spacer_expression_reachable_test.go"], "tests": ["TestSpacerExpressionQueryReachableSummary"], "reason": "Repeated summaries are independently SMT-checked in original predicate vocabulary; stale mutation is rejected and returned AST ownership survives engine disposal."},
         {
           "name": "Spacer query uses apply_default_transformation without rel_context filter/simple-join preprocessing; public ordinary/sliced/inlined shared-witness exports preserve source body/name/arity contracts, original rule-set stability and returned owners across repeated query/disposal (spacer_dl_interface.cpp:110; dl_transforms.cpp:42 onward; rel_context.cpp:297-301)",
           "status": "ported",
@@ -288620,7 +288623,8 @@
       ],
       "status": "ported",
       "go_target": "pkg/api/api_fixedpoint.go",
-      "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]
+      "go_targets": ["pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/spacer_expression_reachable_test.go"],
+      "tests": ["TestSMTContextFixedpointSpacerInductiveExports", "TestSpacerExpressionQueryReachableSummary"]
     },
     {
       "name": "Z3_fixedpoint_get_reason_unknown",
