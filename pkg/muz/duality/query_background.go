@@ -8,7 +8,7 @@ import (
 )
 
 func (q *PreparedQuery) AddBackground(formula ast.ASTHandle) error {
-	if q == nil || q.manager == nil {
+	if q == nil || q.manager == nil || q.self != q {
 		return graph.ErrWrapperOwner
 	}
 	ref, err := q.manager.NewRef(formula)

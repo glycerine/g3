@@ -87739,7 +87739,8 @@
           "go_target": "pkg/muz/duality/prepare_query.go",
           "tests": [
             "TestPrepareQueryRulesMissingHeadsAndBounds",
-            "TestPrepareQueryFailureReleasesClauseOwners"
+            "TestPrepareQueryFailureReleasesClauseOwners",
+            "TestPreparedQueryCopyCannotMutateOrReleaseOriginalOwners"
           ]
         },
         {
@@ -87797,7 +87798,8 @@
           "go_target": "pkg/muz/duality/prepare_query.go",
           "tests": [
             "TestPrepareQueryRulesMissingHeadsAndBounds",
-            "TestPrepareQueryFailureReleasesClauseOwners"
+            "TestPrepareQueryFailureReleasesClauseOwners",
+            "TestPreparedQueryCopyCannotMutateOrReleaseOriginalOwners"
           ]
         }
       ],

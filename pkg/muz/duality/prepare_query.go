@@ -7,10 +7,12 @@ import (
 	"math"
 
 	"github.com/glycerine/g3/pkg/ast"
+	graph "github.com/glycerine/g3/pkg/duality"
 )
 
 // PreparedQuery owns the clauses passed to Duality's RPFP construction.
 type PreparedQuery struct {
+	self       *PreparedQuery
 	manager    *ast.ASTManager
 	background []ast.ASTRef
 	clauses    []ast.ASTRef
@@ -24,6 +26,7 @@ func PrepareQuery(m *ast.ASTManager, rules []ast.ASTHandle, bounds []uint32, que
 		return nil, ast.ErrASTDomain
 	}
 	result = &PreparedQuery{manager: m}
+	result.self = result
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, result.Close())
@@ -69,6 +72,9 @@ func (q *PreparedQuery) Clauses() ([]ast.ASTHandle, error) {
 	if q == nil || q.manager == nil {
 		return nil, ast.ErrASTHandle
 	}
+	if q.self != q {
+		return nil, graph.ErrWrapperOwner
+	}
 	values := make([]ast.ASTHandle, len(q.clauses))
 	for i, ref := range q.clauses {
 		h, err := q.manager.RefGet(ref)
@@ -83,11 +89,17 @@ func (q *PreparedQuery) Bounds() ([]uint32, error) {
 	if q == nil || q.manager == nil {
 		return nil, ast.ErrASTHandle
 	}
+	if q.self != q {
+		return nil, graph.ErrWrapperOwner
+	}
 	return append([]uint32(nil), q.bounds...), nil
 }
 func (q *PreparedQuery) Close() error {
 	if q == nil || q.manager == nil {
 		return nil
+	}
+	if q.self != q {
+		return graph.ErrWrapperOwner
 	}
 	for len(q.background) > 0 {
 		i := len(q.background) - 1
