@@ -104580,6 +104580,12 @@
       "ownership_audited": true,
       "methods": [
         {
+          "name": "Horn preprocessing ownership preserves transformed rules, slice proofs and model ledgers across pending cleanup and rejects ledger transfer while closing",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/horn_preprocess.go", "pkg/muz/fp/horn_preprocess_pending_test.go", "pkg/muz/transforms/coi.go", "pkg/muz/transforms/rule_inliner.go"],
+          "tests": ["TestHornPreprocessClosePreservesPendingRuleAndProofOwners"]
+        },
+        {
           "name": "live Spacer query specialization: clone finalized rules and run the retained acyclic inliner without mutating rules needed by later queries",
           "status": "ported",
           "go_target": "pkg/muz/fp/spacer_engine.go"

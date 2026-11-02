@@ -42,7 +42,12 @@ type InlineModelRule struct {
 // CloseInlineModelRules releases every captured clause root.
 func CloseInlineModelRules(rules []InlineModelRule) (result error) {
 	for i := len(rules) - 1; i >= 0; i-- {
-		result = errors.Join(result, rules[i].manager.DelRef(&rules[i].Body), rules[i].manager.DelRef(&rules[i].Head))
+		if rules[i].Body != (ast.ASTRef{}) {
+			result = errors.Join(result, rules[i].manager.DelRef(&rules[i].Body))
+		}
+		if rules[i].Head != (ast.ASTRef{}) {
+			result = errors.Join(result, rules[i].manager.DelRef(&rules[i].Head))
+		}
 	}
 	return result
 }

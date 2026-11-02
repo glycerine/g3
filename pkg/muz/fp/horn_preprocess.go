@@ -30,24 +30,38 @@ type hornPreprocessResult struct {
 	modelConversions       []hornModelConversion
 	sliceProof             *transforms.SliceProofConverter
 
-	closed bool
+	closed  bool
+	closing bool
 }
 
-func (r *hornPreprocessResult) Close() (result error) {
+func (r *hornPreprocessResult) Close() error {
 	if r == nil {
 		return base.ErrRuleSetOwner
 	}
 	if r.closed {
 		return nil
 	}
+	r.closing = true
 	if r.rules != nil {
-		result = errors.Join(result, r.rules.Close())
+		if err := r.rules.Close(); err != nil {
+			return err
+		}
+		r.rules = nil
 	}
 	if r.sliceProof != nil {
-		result = errors.Join(result, r.sliceProof.Close())
+		if err := r.sliceProof.Close(); err != nil {
+			return err
+		}
+		r.sliceProof = nil
 	}
-	result = errors.Join(result, closeHornModelConversions(r.modelConversions))
-	r.rules = nil
+	for len(r.modelConversions) > 0 {
+		last := len(r.modelConversions) - 1
+		if err := closeHornModelConversions(r.modelConversions[last:]); err != nil {
+			return err
+		}
+		r.modelConversions[last] = hornModelConversion{}
+		r.modelConversions = r.modelConversions[:last]
+	}
 	r.slicedPredicates = nil
 	r.slicedColumns = nil
 	r.quantifiedPredicates = nil
@@ -59,11 +73,11 @@ func (r *hornPreprocessResult) Close() (result error) {
 	r.modelConversions = nil
 	r.sliceProof = nil
 	r.closed = true
-	return result
+	return nil
 }
 
 func (r *hornPreprocessResult) takeModelConversions() []hornModelConversion {
-	if r == nil || r.closed {
+	if r == nil || r.closed || r.closing {
 		return nil
 	}
 	conversions := r.modelConversions

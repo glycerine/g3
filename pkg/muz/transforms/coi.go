@@ -29,7 +29,9 @@ type ConeModelStep []ConeModelDefinition
 func closeConeModelSteps(steps []ConeModelStep) (result error) {
 	for i := len(steps) - 1; i >= 0; i-- {
 		for j := len(steps[i]) - 1; j >= 0; j-- {
-			result = errors.Join(result, steps[i][j].manager.DelRef(&steps[i][j].Formula))
+			if steps[i][j].Formula != (ast.ASTRef{}) {
+				result = errors.Join(result, steps[i][j].manager.DelRef(&steps[i][j].Formula))
+			}
 		}
 	}
 	return result
