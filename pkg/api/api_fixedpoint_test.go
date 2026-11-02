@@ -369,13 +369,28 @@ func TestSMTContextFixedpointQueryOptionsAreLocalAndTyped(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal("query-local fixedpoint options", status)
 	}
-	if _, err = context.QueryFixedpoint(predicate); err == nil || !strings.Contains(err.Error(), "fixedpoint engine duality is not ported") {
-		t.Fatal("query-local fixedpoint options leaked", err)
+	status, err = context.QueryFixedpoint(predicate)
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("global Duality query", status)
 	}
+	if answer, err := context.FixedpointAnswer(predicate); err == nil || answer != (ast.ASTRef{}) {
+		t.Fatal("query-local Datalog selection leaked into Duality", answer, err)
+	}
+	proof, err := context.FixedpointProof(predicate)
+	astTestMust(t, err)
+	proofHandle, err := manager.RefGet(proof)
+	astTestMust(t, err)
+	conclusion, err := manager.GetProofFact(proofHandle)
+	astTestMust(t, err)
+	if !manager.IsFalse(conclusion) {
+		t.Fatal("Duality query proof conclusion")
+	}
+	astTestMust(t, manager.DelRef(&proof))
 	status, err = context.QueryFixedpointWithOptions(predicate, options)
 	astTestMust(t, err)
 	if status != lbool.True {
-		t.Fatal("query-local fixedpoint options after global refusal", status)
+		t.Fatal("query-local fixedpoint options after global Duality query", status)
 	}
 	bad := &FixedpointQueryOptions{Bool: map[FixedpointBoolParameter]bool{FixedpointBoolParameter(FixedpointEngine): true}}
 	if _, err = context.QueryFixedpointWithOptions(predicate, bad); err == nil || !strings.Contains(err.Error(), "has kind symbol, expected bool") {

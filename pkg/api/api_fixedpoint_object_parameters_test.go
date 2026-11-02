@@ -1,10 +1,11 @@
 package api
 
 import (
-	"strings"
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/fp"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -24,15 +25,25 @@ func TestAPIFixedpointParametersAreOwnedAndLocal(t *testing.T) {
 		func() (lbool.LBool, error) { return f.fp.Query(f.p) },
 		func() (lbool.LBool, error) { return f.fp.QueryExpression(f.pAtom) },
 		func() (lbool.LBool, error) { return f.fp.QueryRelations([]ast.ASTHandle{f.p}) },
-		func() (lbool.LBool, error) { return f.fp.QueryExpressionFromLevel(f.pAtom, 0) },
 	} {
-		if _, err = query(); err == nil || !strings.Contains(err.Error(), "duality is not ported") {
-			t.Fatal("local engine not applied", err)
+		status, err := query()
+		astTestMust(t, err)
+		if status != lbool.False {
+			t.Fatal("empty local Duality query", status)
 		}
+		if answer, err := f.fp.Answer(f.p); answer != (ast.ASTRef{}) || !errors.Is(err, fp.ErrPropositionalEngine) {
+			t.Fatal("local Duality get_answer guard", answer, err)
+		}
+	}
+	if _, err := f.fp.QueryExpressionFromLevel(f.pAtom, 0); !errors.Is(err, fp.ErrPropositionalEngine) {
+		t.Fatal("Duality accepted Spacer level query", err)
 	}
 	if _, err = other.Query(p); err != nil {
 		t.Fatal("another fixedpoint inherited local options", err)
 	}
+	answer, err := other.Answer(p)
+	astTestMust(t, err)
+	astTestMust(t, f.m.DelRef(&answer))
 	params, err = f.c.NewParameterSet()
 	astTestMust(t, err)
 	astTestMust(t, params.SetSymbol("engine", "pdr"))
