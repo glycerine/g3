@@ -112,6 +112,17 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 	}
 	// Every attempted query invalidates publication, including setup failures.
 	e.status = lbool.Undef
+	// The source swaps the old solver's counterexample out before constructing
+	// the replacement problem. Invalidate the borrowed Go view at the same
+	// boundary; LearnFrom still consumes the old engine's annotation graph.
+	if e.active != nil {
+		counterexample := e.active.engine.GetCounterexample()
+		if counterexample != nil {
+			if err := counterexample.Clear(); err != nil {
+				return lbool.Undef, err
+			}
+		}
+	}
 	manager, err := e.context.Manager()
 	if err != nil {
 		return lbool.Undef, err
