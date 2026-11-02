@@ -31,7 +31,7 @@ Each completed item needs source paths, implementation/test evidence and a commi
   - [x] Verify difference/UTVPI classification, backend selection and rejection of out-of-fragment proof lemmas.
   - [x] Verify exact arithmetic normalization, owning publication, cancellation retry and disposal under a refused allocation budget.
   - [ ] Close interrupted-decrement ownership coverage in `arith_normalize.go`, including any unconsumed roots and explicit cleanup continuation.
-  - [ ] Confirm the full caller graph for `ceil_log2` and cube formatting; exclude only genuinely unused helpers or dormant self-tests.
+  - [x] Confirm the full caller graph for `ceil_log2` and cube formatting; exclude only genuinely unused helpers or dormant self-tests.
   - [ ] Reconcile method-level audit evidence and mark the unit complete only after the remaining checks are satisfied.
 - [ ] Confirm method and ownership evidence for all PDR units, including arithmetic fragment selection and proof-derived lemmas.
 - [ ] Verify recursive/nonlinear SAT and UNSAT, assumptions/background, repeated queries, witnesses, proofs and original-rule traces at the public boundary.
@@ -175,3 +175,6 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — PDR utility checklist decomposed into verified algorithm evidence and explicit remaining ownership/consumer obligations. The prior checklist/inventory commit is `763135367`. Current evidence covers disequality ordering, fragment classification/backend gates, exact normalization, cancellation/retry and no-allocation temporary disposal; interrupted decrement closure remains unchecked. Source targets: `src/muz/pdr/pdr_util.cpp`, `pkg/muz/pdr/pdr_util.go`, `fragment.go`, `arith_normalize.go` and their focused tests.
   Validation: `go -C pkg test ./muz/pdr -run 'Test(PDRDisequality|PDRDifference|PDRFragment|PDRContextSelects|PropSolverRejects|NormalizeArithmetic|ArithmeticNormalization|PDRArithmeticNormalization)' -short -count=1` passed. Commit title: `Record verified PDR utility evidence and remaining obligations`.
+
+- 2026-11-02 — PDR helper caller audit: whole-source searches find `ceil_log2` only at `pdr_util.h:44` and `pdr_util.cpp:50`. Outside its overload implementations, `pp_cube` has four calls, all inside `farkas_learner::test` (`pdr_farkas_learner.cpp:952-1003`); that static self-test has a declaration and definition but no source caller. These helpers are excluded under the live-consumer rule, not added as unused Go APIs. No runtime code changed, so no additional runtime tests were needed. Previous utility evidence commit: `98ddabdf6`.
+- 2026-11-02 — Cleanup review: `arithmeticNormalization.close` uses the actual `DecRefConsumed` result to retire roots; `ast_core_delete.go` decrements the reference before native worklist destruction, while `ast_core_accessors.go` reports pre-consumption manager/handle failures. The existing refused-budget test proves normal native disposal, but does not prove every diagnostic-reentrancy or tagged destructor interruption. Keep the interrupted-decrement checklist item open; do not infer coverage from allocation refusal alone.
