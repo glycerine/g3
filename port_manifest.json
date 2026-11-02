@@ -89764,19 +89764,22 @@
           "go_targets": [
             "pkg/muz/pdr/context_test.go",
             "pkg/api/api_fixedpoint_test.go",
-            "pkg/muz/fp/propositional_engine_test.go"
+            "pkg/muz/fp/propositional_engine_test.go",
+            "pkg/muz/fp/configured_property_dispatch_test.go"
           ],
           "tests": [
             "TestContextInitializesHornProgramAndAnswersInitialQueries",
             "TestSMTContextFixedpointPDRLifecycle",
-            "TestPDREngineExpandsSlicedModelsAndCovers"
+            "TestPDREngineExpandsSlicedModelsAndCovers",
+            "TestConfiguredPrequeryPropertyDispatch",
+            "TestConfiguredPropertyDispatchPreservesSlicingGuard"
           ]
         },
         {
           "name": "PDR context and transformed/source rule-snapshot replacement ownership across native cleanup refusal (destructor/updt_params/check_reset)",
           "status": "ported",
           "go_target": "pkg/muz/fp/pdr_engine.go",
-          "go_targets": ["pkg/muz/fp/pdr_rule_lifecycle.go", "pkg/muz/fp/pdr_replacement_pending_test.go", "pkg/muz/fp/pdr_snapshot_replacement_pending_test.go"],
+          "go_targets": ["pkg/muz/fp/pdr_rule_lifecycle.go", "pkg/muz/fp/pdr_context_construction.go", "pkg/muz/fp/pdr_replacement_pending_test.go", "pkg/muz/fp/pdr_snapshot_replacement_pending_test.go"],
           "tests": ["TestPDRReplacementPreservesContextWhenNativeCleanupRefuses", "TestPDRSnapshotReplacementPublishesOnlyAfterNativeCleanup"]
         },
         {

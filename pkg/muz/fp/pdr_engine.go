@@ -431,7 +431,7 @@ func (e *PropositionalEngine) pdrContext() (_ *pdr.Context, resultErr error) {
 		err = context.SetBackground(background)
 	}
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	e.pdr = context
 	e.pdrRevision = e.revision
@@ -450,6 +450,10 @@ func (e *PropositionalEngine) propertyQueryClone() (*PropositionalEngine, error)
 // NumLevels returns the finite frame count for a PDR or Spacer relation.
 func (e *PropositionalEngine) NumLevels(declaration ast.ASTHandle) (uint32, error) {
 	if err := e.open(); err != nil {
+		return 0, err
+	}
+	// Source context property entry points resolve the configured engine.
+	if err := e.selectFactEngine(); err != nil {
 		return 0, err
 	}
 	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr" || e.backend == "spacer") {
@@ -477,6 +481,10 @@ func (e *PropositionalEngine) NumLevels(declaration ast.ASTHandle) (uint32, erro
 // CoverDelta returns an owning reference to a PDR or Spacer cover frame.
 func (e *PropositionalEngine) CoverDelta(level int, declaration ast.ASTHandle) (ast.ASTRef, error) {
 	if err := e.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	// Source context property entry points resolve the configured engine.
+	if err := e.selectFactEngine(); err != nil {
 		return ast.ASTRef{}, err
 	}
 	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr" || e.backend == "spacer") {
@@ -526,6 +534,10 @@ func (e *PropositionalEngine) CoverDelta(level int, declaration ast.ASTHandle) (
 // frame.
 func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTHandle) error {
 	if err := e.open(); err != nil {
+		return err
+	}
+	// Source context property entry points resolve the configured engine.
+	if err := e.selectFactEngine(); err != nil {
 		return err
 	}
 	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr" || e.backend == "spacer") {
@@ -696,98 +708,98 @@ func (e *PropositionalEngine) newConfiguredPDRContext(parameters *fixedpointPara
 	}
 	useFarkas, err := parameters.Bool("pdr.farkas", true)
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	if err = context.SetUseFarkas(useFarkas); err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	useInductive, err := parameters.Bool("pdr.use_inductive_generalizer", true)
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	if err = context.SetUseInductiveGeneralizer(useInductive); err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	useMultiCore, err := parameters.Bool("pdr.use_multicore_generalizer", false)
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	if err = context.SetUseMultiCoreGeneralizer(useMultiCore); err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	useArithmeticInductive, err := parameters.Bool("pdr.use_arith_inductive_generalizer", false)
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	if err = context.SetUseArithmeticInductiveGeneralizer(useArithmeticInductive); err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	useInductiveReachability, err := parameters.Bool("pdr.inductive_reachability_check", false)
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	if err = context.SetUseInductiveReachabilityGeneralizer(useInductiveReachability); err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	useConvexClosure, err := parameters.Bool("pdr.use_convex_closure_generalizer", false)
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	if err = context.SetUseConvexClosureGeneralizer(useConvexClosure); err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	useConvexInterior, err := parameters.Bool("pdr.use_convex_interior_generalizer", false)
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	if err = context.SetUseConvexInteriorGeneralizer(useConvexInterior); err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	useUTVPI, err := parameters.Bool("pdr.utvpi", true)
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	if err = context.SetUseUTVPI(useUTVPI); err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	useModelGeneralizer, err := parameters.Bool("pdr.use_model_generalizer", false)
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	if err = context.SetUseModelGeneralizer(useModelGeneralizer); err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	breadthFirst, err := parameters.Bool("pdr.bfs_model_search", true)
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	if err = context.SetBreadthFirstModelSearch(breadthFirst); err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	flexible, err := parameters.Bool("pdr.flexible_trace", false)
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	if err = context.SetFlexibleTrace(flexible); err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	inlineEager, err := parameters.Bool("xform.inline_eager", true)
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	inlineLinear, err := parameters.Bool("xform.inline_linear", true)
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	if err = context.SetFullTraceAnswer(!inlineEager && !inlineLinear); err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	generateProofTrace, err := parameters.Bool("generate_proof_trace", false)
 	if err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	if err = context.SetGenerateProofTrace(generateProofTrace || e.forceProofTrace); err != nil {
-		return nil, errors.Join(err, context.Close())
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	return context, nil
 }

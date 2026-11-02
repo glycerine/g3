@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/pdr"
 	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -24,9 +25,14 @@ func TestPDRReplacementPreservesContextWhenNativeCleanupRefuses(t *testing.T) {
 	}
 	budget := arena.NewBudget(1 << 28)
 	var engine *PropositionalEngine
+	var construction *pdr.Context
+	constructionCause := errors.New("configured PDR construction failed")
+	var constructionCleanup memory.ConstructionFailure
+	var runtime *memory.Runtime
+	var err error
 	active, callback := false, false
 	var closeErr error
-	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
+	runtime, err = memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
 		if active && !callback {
 			callback = true
 			original := engine.pdr
@@ -36,6 +42,13 @@ func TestPDRReplacementPreservesContextWhenNativeCleanupRefuses(t *testing.T) {
 			closeErr = engine.closePDRForReplacement()
 			if !errors.Is(closeErr, ast.ErrASTPending) || engine.pdr != original || engine.pdrRevision != revision || engine.pdrStatistics.Unfoldings != unfoldings || engine.pdrStatistics.MaxDepth != depth || engine.pdrStatistics.Solvers.Size() != statisticsSize {
 				t.Fatalf("refused replacement discarded PDR owner: %v", closeErr)
+			}
+			returned, failure := failPDRContextConstruction(construction, runtime, constructionCause)
+			if returned != nil || !errors.Is(failure, constructionCause) || !errors.Is(failure, ast.ErrASTPending) || !errors.As(failure, &constructionCleanup) {
+				t.Fatalf("refused construction cleanup discarded PDR owner: %v", failure)
+			}
+			if constructionCleanup.RuntimeOwner() != runtime || !errors.Is(constructionCleanup.OriginalCause(), constructionCause) || !errors.Is(constructionCleanup.CleanupCause(), ast.ErrASTPending) {
+				t.Fatal("construction failure did not expose its concrete causes")
 			}
 		}
 		return f
@@ -61,6 +74,9 @@ func TestPDRReplacementPreservesContextWhenNativeCleanupRefuses(t *testing.T) {
 		if engine != nil {
 			must(engine.Close())
 		}
+		if construction != nil && constructionCleanup == nil {
+			must(construction.Close())
+		}
 		must(manager.Close())
 		must(globals.Close())
 		must(catalog.Close())
@@ -75,6 +91,10 @@ func TestPDRReplacementPreservesContextWhenNativeCleanupRefuses(t *testing.T) {
 	engine, err = NewPropositionalEngineWithServices(manager, params, globals)
 	must(err)
 	must(engine.SelectEngine("pdr"))
+	view, err := engine.fixedpointParamView()
+	must(err)
+	construction, err = engine.newConfiguredPDRContext(view)
+	must(errors.Join(err, view.Close()))
 	context, err := engine.pdrContext()
 	must(err)
 	if context == nil || engine.pdr == nil || engine.pdrRevision == 0 {
@@ -94,6 +114,14 @@ func TestPDRReplacementPreservesContextWhenNativeCleanupRefuses(t *testing.T) {
 		t.Fatal("numerical callback did not refuse PDR cleanup", body, callback, closeErr)
 	}
 	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
+	must(constructionCleanup.Cleanup())
+	must(constructionCleanup.Cleanup())
+	if constructionCleanup.CleanupCause() != nil {
+		t.Fatal("completed construction cleanup kept a stale failure")
+	}
+	if _, err := construction.Initialized(); err == nil {
+		t.Fatal("construction cleanup retry left context open")
+	}
 	must(engine.closePDRForReplacement())
 	must(engine.closePDRForReplacement())
 	if engine.pdr != nil || engine.pdrRevision != 0 || engine.pdrRuleRevision != 0 {
