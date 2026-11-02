@@ -16,6 +16,14 @@ Use three or four independent implementation lanes selected from current uncheck
 
 Run relevant cross-package checks at integration and the full native suite roughly hourly, avoiding duplicate active runs. The user continues checked/debug validation. Track completed behaviors and dependencies rather than translated-file counts; keep partial source statuses until the wider audit is actually complete.
 
+Acceleration tactics are durable for every batch:
+
+- Select work from the dependency frontier: prefer a live source consumer whose dependencies already exist, and port two or more source units together when that is the smallest coherent Go design.
+- Divide lanes by non-overlapping ownership, not arbitrary file counts. Use read-only source triage before editing shared infrastructure; the integration owner alone coordinates cross-lane files, the inventory and this checklist.
+- Prioritize actual registered engine/transform/relation specializations and end-to-end query paths. Do not spend a lane on dead templates, unused adapters or diagnostic polish while a functional consumer remains open.
+- Give each behavior a source-derived semantic oracle, ownership/lifecycle assertions and a focused native package test. Preserve guards and existing tests; record legacy source limitations explicitly instead of inventing silent divergences.
+- Integrate and commit each green slice immediately with a one-sentence message, then reassign that lane from the next unchecked dependency-frontier item. Run affected cross-package checks after integration and reserve the full native suite for the roughly hourly checkpoint.
+
 ## 1. Inventory and baseline
 
 - [x] Enumerate every current partial or unclassified muz unit below from `port_manifest.json`.
