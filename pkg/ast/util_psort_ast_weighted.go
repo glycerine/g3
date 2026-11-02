@@ -2,10 +2,11 @@ package ast
 
 // Source: src/util/sorting_network.h weighted le/ge/eq and cmp.
 
-func (s *PsortASTNetwork) weightedGE(k, n uint32, weights []uint32, p psortASTPointer) (result ASTHandle, err error) {
-	var sum, maximum uint32
+func (s *PsortASTNetwork) weightedGE(k uint64, n uint32, weights []uint32, p psortASTPointer) (result ASTHandle, err error) {
+	var sum uint64
+	var maximum uint32
 	for i := uint32(0); i < n; i++ {
-		sum += weights[i]
+		sum += uint64(weights[i])
 		if weights[i] > maximum {
 			maximum = weights[i]
 		}
@@ -24,7 +25,7 @@ func (s *PsortASTNetwork) weightedGE(k, n uint32, weights []uint32, p psortASTPo
 		bits++
 	}
 	power := uint32(1) << (bits - 1)
-	a := uint32((uint64(k) + uint64(power) - 1) / uint64(power))
+	a := uint32((k + uint64(power) - 1) / uint64(power))
 	rounded := uint64(a) * uint64(power)
 
 	f, e := s.beginFrame(5)
@@ -40,7 +41,7 @@ func (s *PsortASTNetwork) weightedGE(k, n uint32, weights []uint32, p psortASTPo
 	if e = s.appendPointer(xs, n, p); e != nil {
 		return result, e
 	}
-	if rounded > uint64(k) {
+	if rounded > k {
 		ws = append(ws, uint32(rounded-uint64(k)))
 		truth, x := s.context.True()
 		if x != nil {
@@ -123,7 +124,7 @@ func (s *PsortASTNetwork) weightedGE(k, n uint32, weights []uint32, p psortASTPo
 }
 
 func (s *PsortASTNetwork) weightedLE(k, n uint32, weights []uint32, p psortASTPointer) (result ASTHandle, err error) {
-	var sum uint32
+	var sum uint64
 	f, e := s.beginFrame(1)
 	if e != nil {
 		return result, e
@@ -134,7 +135,7 @@ func (s *PsortASTNetwork) weightedLE(k, n uint32, weights []uint32, p psortASTPo
 	}
 	negated := &f.vectors[0]
 	for i := uint32(0); i < n; i++ {
-		sum += weights[i]
+		sum += uint64(weights[i])
 		h, x := p.at(i)
 		if x != nil {
 			return result, x
@@ -147,12 +148,12 @@ func (s *PsortASTNetwork) weightedLE(k, n uint32, weights []uint32, p psortASTPo
 			return result, e
 		}
 	}
-	if k >= sum {
+	if uint64(k) >= sum {
 		return s.context.True()
 	}
 	np, e := psortVectorPointer(negated)
 	if e != nil {
 		return result, e
 	}
-	return s.weightedGE(sum-k, n, weights, np)
+	return s.weightedGE(sum-uint64(k), n, weights, np)
 }

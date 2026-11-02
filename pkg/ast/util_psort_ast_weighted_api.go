@@ -15,7 +15,7 @@ func (s *PsortASTNetwork) WeightedGe(k uint32, weights []uint32, literals ASTLit
 	s.running = true
 	defer func() { s.running = false }()
 	s.mode, s.modeInitialized = psortGEFull, true
-	return s.weightedGE(k, uint32(len(weights)), weights, psortASTPointer{span: literals})
+	return s.weightedGE(uint64(k), uint32(len(weights)), weights, psortASTPointer{span: literals})
 }
 
 func (s *PsortASTNetwork) WeightedLe(k uint32, weights []uint32, literals ASTLiteralVectorSpan) (ASTHandle, error) {
@@ -42,7 +42,7 @@ func (s *PsortASTNetwork) WeightedEq(k uint32, weights []uint32, literals ASTLit
 	defer func() { s.running = false }()
 	s.mode, s.modeInitialized = psortGEFull, true
 	p := psortASTPointer{span: literals}
-	ge, e := s.weightedGE(k, uint32(len(weights)), weights, p)
+	ge, e := s.weightedGE(uint64(k), uint32(len(weights)), weights, p)
 	if e != nil {
 		return ASTHandle{}, e
 	}
