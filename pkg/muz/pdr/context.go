@@ -513,6 +513,8 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 	// Build rule transformers from a fresh pool; the manager continues to own
 	// the old solvers until Close, while their frame properties are inherited.
 	c.owner.contexts.solverStart = len(c.owner.contexts.solvers)
+	c.owner.contexts.arithmetic.enabled = false
+	c.owner.contexts.arithmetic.effective = smtcore.SMTArithmeticNoSolver
 	nonBoolean, err := c.expressionsUseNonBooleanSort(forms)
 	if err != nil {
 		return err

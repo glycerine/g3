@@ -88530,6 +88530,8 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/muz/pdr/context_reset.go",
+        "pkg/muz/pdr/context_reset_test.go",
         "pkg/muz/pdr/predicate_transformer.go",
         "pkg/muz/pdr/predicate_transformer_test.go",
         "pkg/muz/pdr/predicate_rules.go",
@@ -88768,6 +88770,12 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {
+          "name": "context::reset disposes search/transformers, clears program/results and allows arithmetic/proof-mode reselection while preserving manager/configuration and caller-owned answers",
+          "status": "ported",
+          "go_target": "pkg/muz/pdr/context_reset.go",
+          "tests": ["TestContextResetDiscardsFramesAndAllowsReinitialization", "TestContextResetReselectsArithmeticAndProofMode"]
+        },
         {
           "name": "context::create_children model substitutions evaluate sources with completion before source simplifying replacement; Boolean complete/incomplete and function-backed array substitutions preserve proof mode and clean up/retry under allocation failure (pdr_context.cpp:2260-2271,2287-2306)",
           "status": "ported",
