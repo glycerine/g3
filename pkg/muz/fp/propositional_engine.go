@@ -156,6 +156,7 @@ type PropositionalEngine struct {
 	datalogStats        statistics.Statistics
 	datalogElapsed      float64
 	closed              bool
+	closing             bool
 	ddnf                ddnfEngineState
 }
 
@@ -210,7 +211,7 @@ func NewPropositionalEngine(manager *ast.ASTManager) (*PropositionalEngine, erro
 }
 
 func (e *PropositionalEngine) open() error {
-	if e == nil || e.closed || e.manager == nil || e.rules == nil || e.set == nil || e.binder == nil || e.relations == nil {
+	if e == nil || e.closed || e.closing || e.manager == nil || e.rules == nil || e.set == nil || e.binder == nil || e.relations == nil {
 		return ErrPropositionalEngine
 	}
 	return nil
@@ -2343,6 +2344,9 @@ func (e *PropositionalEngine) Close() (result error) {
 			return err
 		}
 	}
+	e.closing = true
+	e.queryReady = false
+	e.lastResult = lbool.Undef
 	if e.external != nil {
 		if err := e.external.Close(); err != nil {
 			return err
