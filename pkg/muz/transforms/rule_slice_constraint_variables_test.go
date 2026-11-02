@@ -1,6 +1,8 @@
 package transforms_test
 
 import (
+	"testing"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/proofs"
 	"github.com/glycerine/g3/pkg/muz/base"
@@ -8,10 +10,19 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/symbol"
-	"testing"
 )
 
 func TestRuleSliceDerivedSubstitutionOfConstraintOnlyVariable(t *testing.T) {
+	for _, mixedSparse := range []bool{false, true} {
+		name := "dense-integer"
+		if mixedSparse {
+			name = "sparse-mixed"
+		}
+		t.Run(name, func(t *testing.T) { testRuleSliceConstraintVariables(t, mixedSparse) })
+	}
+}
+
+func testRuleSliceConstraintVariables(t *testing.T, mixedSparse bool) {
 	f := newConeFixture(t)
 	m := f.manager
 	zero, err := m.ArithmeticIntegerNumeralText("0")
@@ -22,14 +33,22 @@ func TestRuleSliceDerivedSubstitutionOfConstraintOnlyVariable(t *testing.T) {
 	coneMust(t, err)
 	y, err := m.MkVar(1, integer)
 	coneMust(t, err)
-	z, err := m.MkVar(2, integer)
+	guardZero := zero
+	guardSort := integer
+	if mixedSparse {
+		guardZero, err = m.ArithmeticRealNumeralText("0")
+		coneMust(t, err)
+		guardSort, err = m.GetSort(guardZero)
+		coneMust(t, err)
+	}
+	z, err := m.MkVar(2, guardSort)
 	coneMust(t, err)
 	p := declareTransformPredicate(t, f, "constraint-P", []ast.ASTHandle{integer, integer}, []ast.ASTHandle{x, y})
 	q := declareTransformPredicate(t, f, "constraint-Q", []ast.ASTHandle{integer, integer}, []ast.ASTHandle{x, y})
 	goal := declareTransformPredicate(t, f, "constraint-Goal", []ast.ASTHandle{integer}, []ast.ASTHandle{y})
 	outputGuard, err := m.MkEq(y, zero)
 	coneMust(t, err)
-	guard, err := m.MkEq(z, zero)
+	guard, err := m.MkEq(z, guardZero)
 	coneMust(t, err)
 	sources := make(map[ast.ASTHandle]bool)
 	for _, spec := range []struct {
@@ -92,30 +111,66 @@ func TestRuleSliceDerivedSubstitutionOfConstraintOnlyVariable(t *testing.T) {
 		coneMust(t, rs[0].Close())
 	}
 	// The resolved clause has a variable appearing only in its arithmetic guard.
-	qx, err := m.MkApp(sq, []ast.ASTHandle{x})
+	selected := x
+	constraintVariable, err := m.MkVar(1, guardSort)
 	coneMust(t, err)
-	yz, err := m.MkEq(y, zero)
+	sorts := []ast.ASTHandle{guardSort, integer}
+	substitution := []ast.ASTHandle{zero, guardZero}
+	if mixedSparse {
+		boolean, e := m.MkBoolSort()
+		coneMust(t, e)
+		truth, e := m.MkTrue()
+		coneMust(t, e)
+		selected, err = m.MkVar(1, integer)
+		coneMust(t, err)
+		constraintVariable, err = m.MkVar(3, guardSort)
+		coneMust(t, err)
+		sorts = []ast.ASTHandle{guardSort, boolean, integer, boolean}
+		substitution = []ast.ASTHandle{truth, zero, truth, guardZero}
+	}
+	qx, err := m.MkApp(sq, []ast.ASTHandle{selected})
+	coneMust(t, err)
+	yz, err := m.MkEq(constraintVariable, guardZero)
 	coneMust(t, err)
 	body, err := m.MkImplies(yz, qx)
 	coneMust(t, err)
 	name, err := m.Symbols.Intern("constraint-variable")
 	coneMust(t, err)
-	formula, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer, integer}, Names: []symbol.Symbol{name, name}, Body: body})
+	names := make([]symbol.Symbol, len(sorts))
+	for i := range names {
+		names[i] = name
+	}
+	formula, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: body})
 	coneMust(t, err)
 	scope, err := ast.NewScopedProof(m)
 	coneMust(t, err)
-	inner, err := m.MkProofHyperResolve(parents, formula, []ast.ASTProofPosition{{First: 1}}, [][]ast.ASTHandle{{x}, {x, y}})
+	inner, err := m.MkProofHyperResolve(parents, formula, []ast.ASTProofPosition{{First: 1}}, [][]ast.ASTHandle{{selected}, {selected, constraintVariable}})
 	coneMust(t, err)
 	innerRef, err := m.NewRef(inner)
 	coneMust(t, err)
 	defer func() { coneMust(t, m.DelRef(&innerRef)) }()
+	// Pass through another derived unary step before grounding. The sparse
+	// bank contains unused Boolean binders between its integer and real slots.
+	identity := append([]ast.ASTHandle(nil), substitution...)
+	if mixedSparse {
+		identity[1] = selected
+		identity[3] = constraintVariable
+	} else {
+		identity[0] = selected
+		identity[1] = constraintVariable
+	}
+	middle, err := m.MkProofHyperResolve([]ast.ASTHandle{inner}, formula, nil, [][]ast.ASTHandle{identity})
+	coneMust(t, err)
+	middleRef, err := m.NewRef(middle)
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&middleRef)) }()
 	qzero, err := m.MkApp(sq, []ast.ASTHandle{zero})
 	coneMust(t, err)
-	zeroEq, err := m.MkEq(zero, zero)
+	zeroEq, err := m.MkEq(guardZero, guardZero)
 	coneMust(t, err)
 	conclusion, err := m.MkImplies(zeroEq, qzero)
 	coneMust(t, err)
-	outer, err := m.MkProofHyperResolve([]ast.ASTHandle{inner}, conclusion, nil, [][]ast.ASTHandle{{zero, zero}})
+	outer, err := m.MkProofHyperResolve([]ast.ASTHandle{middle}, conclusion, nil, [][]ast.ASTHandle{substitution})
 	coneMust(t, err)
 	outerRef, err := m.NewRef(outer)
 	coneMust(t, err)
@@ -196,5 +251,4 @@ func TestRuleSliceDerivedSubstitutionOfConstraintOnlyVariable(t *testing.T) {
 			}
 		}
 	}
-
 }

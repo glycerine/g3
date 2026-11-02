@@ -63,11 +63,17 @@ func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalP
 			continue
 		}
 		var index uint32
-		if i < len(variables) && variables[i] != ^uint32(0) {
+		mapped := i < len(variables) && variables[i] != ^uint32(0)
+		if mapped && int(variables[i]) >= len(sorts) {
+			return nil, proof, ast.ErrASTDomain
+		}
+		// Terms in a hyper-resolution substitution belong to its result
+		// variable bank, not necessarily the premise's bank. An index can
+		// therefore denote a different sort than the corresponding premise
+		// variable; give that result variable a fresh slot instead of rejecting
+		// an otherwise well-sorted substitution.
+		if mapped && sort == sorts[variables[i]] {
 			index = variables[i]
-			if int(index) >= len(sorts) || sort != sorts[index] {
-				return nil, proof, ast.ErrASTDomain
-			}
 		} else {
 			fresh := uint64(len(sorts)) + uint64(i)
 			if fresh > uint64(^uint32(0)) {
