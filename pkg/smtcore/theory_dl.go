@@ -45,6 +45,14 @@ func NewSMTDatalogTheory(family ast.FamilyID) (*SMTDatalogTheory, error) {
 }
 
 func (t *SMTDatalogTheory) declarationsFor(sort ast.ASTHandle) (smtDatalogDeclarations, error) {
+	// Source get_rep consults both declaration maps, including a published
+	// prefix whose later trail allocation failed.
+	if rep, found := t.representatives[sort]; found {
+		if abs, found := t.abstractions[sort]; found {
+			return smtDatalogDeclarations{rep: rep, abs: abs, bits: 64}, nil
+		}
+	}
+
 	if declarations, found := t.declarations[sort]; found {
 		return declarations, nil
 	}

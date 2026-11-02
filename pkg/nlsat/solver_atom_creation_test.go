@@ -7,6 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/sat"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func TestSolverExactInequalityAtomAndEmptyLiteralFactories(t *testing.T) {
@@ -75,7 +76,12 @@ func TestSolverExactAtomFactoriesNormalizeAndCanonicalize(t *testing.T) {
 	if rootLiteral.Variable() != rootVariable || !rootLiteral.Sign() {
 		t.Fatal("root canonical identity", rootLiteral, rootVariable)
 	}
-	if _, err = s.MkRootAtom(AtomRootEQ, 0, 0, negative); !errors.Is(err, arena.ErrConfig) {
+	atomDebugFixture(t)
+	want := error(arena.ErrConfig)
+	if diagnostic.DebugBuild {
+		want = diagnostic.ErrDebugAssertion
+	}
+	if _, err = s.MkRootAtom(AtomRootEQ, 0, 0, negative); !errors.Is(err, want) {
 		t.Fatal("zero root index accepted", err)
 	}
 }
