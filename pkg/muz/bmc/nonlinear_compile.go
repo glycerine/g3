@@ -19,6 +19,8 @@ type ruleOwnerCleanupFailure struct {
 	manager    *ast.ASTManager
 	cause      error
 	cleanupErr error
+	reported   error
+	reportText string
 	rules      []*base.Rule
 }
 
@@ -27,11 +29,20 @@ type astRefCleanupFailure struct {
 	refs       []ast.ASTRef
 	cause      error
 	cleanupErr error
+	reported   error
+	reportText string
+	child      memory.ConstructionFailure
 }
 
-func (f *astRefCleanupFailure) Error() string { return errors.Join(f.cause, f.cleanupErr).Error() }
-func (f *astRefCleanupFailure) Unwrap() error { return errors.Join(f.cause, f.cleanupErr) }
+func (f *astRefCleanupFailure) Error() string { return f.reportText }
+func (f *astRefCleanupFailure) Unwrap() error { return f.reported }
 func (f *astRefCleanupFailure) Cleanup() error {
+	if f.child != nil {
+		if f.cleanupErr = f.child.Cleanup(); f.cleanupErr != nil {
+			return f.cleanupErr
+		}
+		f.child = nil
+	}
 	f.cleanupErr = closeASTRefs(f.manager, f.refs)
 	return f.cleanupErr
 }
@@ -56,13 +67,26 @@ func closeASTRefs(manager *ast.ASTManager, refs []ast.ASTRef) (result error) {
 func disposeASTRefs(manager *ast.ASTManager, refs []ast.ASTRef, cause error) error {
 	failure := &astRefCleanupFailure{manager: manager, refs: refs, cause: cause}
 	if cleanup := failure.Cleanup(); cleanup != nil {
+		reported := cleanup
+		if cause == nil {
+			// Keep the refusal as the stable originating cause after a later
+			// successful retry clears cleanupErr.
+			failure.cause = cleanup
+		} else {
+			reported = errors.Join(cause, cleanup)
+			// A caller-local refusal must not hide a construction receipt
+			// returned by the nested operation whose roots precede these refs.
+			errors.As(cause, &failure.child)
+		}
+		failure.reported = reported
+		failure.reportText = reported.Error()
 		return failure
 	}
 	return cause
 }
 
-func (f *ruleOwnerCleanupFailure) Error() string { return errors.Join(f.cause, f.cleanupErr).Error() }
-func (f *ruleOwnerCleanupFailure) Unwrap() error { return errors.Join(f.cause, f.cleanupErr) }
+func (f *ruleOwnerCleanupFailure) Error() string { return f.reportText }
+func (f *ruleOwnerCleanupFailure) Unwrap() error { return f.reported }
 func (f *ruleOwnerCleanupFailure) RuntimeOwner() *memory.Runtime {
 	return f.manager.NumeralService().RuntimeOwner()
 }
@@ -93,6 +117,8 @@ func closeRuleOwners(manager *ast.ASTManager, rules []*base.Rule) error {
 	failure := &ruleOwnerCleanupFailure{manager: manager, rules: rules}
 	if err := failure.Cleanup(); err != nil {
 		failure.cause = err
+		failure.reported = err
+		failure.reportText = err.Error()
 		return failure
 	}
 	return nil

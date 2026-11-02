@@ -10,6 +10,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
@@ -464,6 +465,32 @@ func (p *PredicateTransformer) Formulas(level uint32, addAxioms bool) (ast.ASTHa
 		}
 	}
 	return p.manager.MkAndArray(formulas)
+}
+
+// SimplifyFormulas applies the source unit-subsumption pass independently to
+// the invariant frame and every finite frame. The property-level index and
+// solver assertions intentionally remain unchanged: source PDR simplifies the
+// exported frame vectors, not the incremental solver state.
+func (p *PredicateTransformer) SimplifyFormulas() error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	contexts := p.owner.contexts
+	if contexts == nil || contexts.config.Params == nil {
+		return ErrPredicateTransformerOwner
+	}
+	var err error
+	p.invariants, err = smtcore.UnitSubsumptionKeep(p.manager, p.invariants, contexts.params, contexts.config)
+	if err != nil {
+		return err
+	}
+	for index := range p.levels {
+		p.levels[index], err = smtcore.UnitSubsumptionKeep(p.manager, p.levels[index], contexts.params, contexts.config)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (p *PredicateTransformer) CheckReachable(level uint32, state ast.ASTHandle, wantCore, wantModel bool) (PropCheckResult, error) {

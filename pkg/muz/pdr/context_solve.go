@@ -207,6 +207,9 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 				return lbool.Undef, x
 			}
 			if fixed {
+				if x = c.simplifyFormulas(); x != nil {
+					return lbool.Undef, x
+				}
 				c.lastResult = lbool.False
 				for _, declaration := range c.order {
 					if c.transformers[declaration] != c.query && c.inductive > 0 {
@@ -222,6 +225,15 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 			return lbool.Undef, nil
 		}
 	}
+}
+
+func (c *Context) simplifyFormulas() error {
+	for _, declaration := range c.order {
+		if err := c.transformers[declaration].SimplifyFormulas(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *Context) LastResult() (lbool.LBool, error) {

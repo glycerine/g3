@@ -24,15 +24,16 @@ func TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes(t *tes
 	budget := arena.NewBudget(1 << 28)
 	var manager *ast.ASTManager
 	var owned *base.Rule
-	var proofRefs []ast.ASTRef
+	var proofRefs, childRefs []ast.ASTRef
 	var ruleFailure, proofFailure error
 	callbacks, intact := 0, true
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
 		callbacks++
 		before := proofRefs[0]
 		ruleFailure = closeRuleOwners(manager, []*base.Rule{owned})
-		proofFailure = disposeASTRefs(manager, proofRefs, errors.New("linear proof construction failed"))
-		intact = intact && errors.Is(ruleFailure, ast.ErrASTPending) && errors.Is(proofFailure, ast.ErrASTPending) && proofRefs[0] == before
+		childFailure := disposeASTRefs(manager, childRefs, nil)
+		proofFailure = disposeASTRefs(manager, proofRefs, childFailure)
+		intact = intact && errors.Is(ruleFailure, ast.ErrASTPending) && errors.Is(proofFailure, ast.ErrASTPending) && proofRefs[0] == before && childRefs[0] != (ast.ASTRef{})
 		return f
 	}})
 	must(err)
@@ -75,6 +76,9 @@ func TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes(t *tes
 	proofRef, err := manager.NewRef(head)
 	must(err)
 	proofRefs = []ast.ASTRef{proofRef}
+	childRef, err := manager.NewRef(head)
+	must(err)
+	childRefs = []ast.ASTRef{childRef}
 
 	value, err := numbers.NewValue()
 	must(err)
@@ -93,12 +97,13 @@ func TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes(t *tes
 		if !errors.As(failure, &cleanup) {
 			t.Fatal("linear cleanup lost retry owner", failure)
 		}
+		reported := cleanup.Error()
 		must(cleanup.Cleanup())
-		if cleanup.Error() == "" || cleanup.Unwrap() == nil {
+		if cleanup.Error() == "" || cleanup.Error() != reported || cleanup.Unwrap() == nil {
 			t.Fatal("linear cleanup lost stable cause")
 		}
 	}
-	if proofRefs[0] != (ast.ASTRef{}) {
+	if proofRefs[0] != (ast.ASTRef{}) || childRefs[0] != (ast.ASTRef{}) {
 		t.Fatal("linear proof retry left reference")
 	}
 	if _, err = owned.Head(); err == nil {

@@ -3,7 +3,6 @@ package bmc
 // Source: src/muz/bmc/dl_bmc_engine.cpp, linear::check.
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -51,9 +50,7 @@ func (c *Compiler) SearchLinear(rules *base.RuleSet, query ast.ASTHandle, solver
 				break
 			}
 		}
-		for i := len(formulas) - 1; i >= 0; i-- {
-			err = errors.Join(err, m.DelRef(&formulas[i]))
-		}
+		err = disposeASTRefs(m, formulas, err)
 		if err != nil {
 			return lbool.Undef, level, err
 		}
@@ -65,7 +62,7 @@ func (c *Compiler) SearchLinear(rules *base.RuleSet, query ast.ASTHandle, solver
 		if err == nil {
 			status, err = solver.CheckSat([]ast.ASTHandle{queryValue})
 		}
-		err = errors.Join(err, m.DelRef(&queryRef))
+		err = disposeASTRefs(m, []ast.ASTRef{queryRef}, err)
 		if err != nil || status != lbool.False {
 			return status, level, err
 		}

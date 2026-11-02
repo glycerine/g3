@@ -3,7 +3,6 @@ package bmc
 // Source: src/muz/bmc/dl_bmc_engine.cpp, nonlinear::check and check(level).
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -45,9 +44,7 @@ func (c *Compiler) SearchNonlinear(rules *base.RuleSet, query ast.ASTHandle, sol
 				break
 			}
 		}
-		for i := len(formulas) - 1; i >= 0; i-- {
-			err = errors.Join(err, m.DelRef(&formulas[i]))
-		}
+		err = disposeASTRefs(m, formulas, err)
 		if err != nil {
 			return lbool.Undef, level, err
 		}
@@ -63,11 +60,13 @@ func (c *Compiler) SearchNonlinear(rules *base.RuleSet, query ast.ASTHandle, sol
 
 func (c *Compiler) checkNonlinearLevel(solver *smtcore.SMTSolver, query ast.ASTHandle, level uint32) (status lbool.LBool, resultErr error) {
 	m := c.manager
+	var refs []ast.ASTRef
+	defer func() { resultErr = disposeASTRefs(m, refs, resultErr) }()
 	queryRef, err := c.CompileQuery(query, level)
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&queryRef)) }()
+	refs = append(refs, queryRef)
 	queryValue, err := m.RefGet(queryRef)
 	if err != nil {
 		return lbool.Undef, err
@@ -84,7 +83,7 @@ func (c *Compiler) checkNonlinearLevel(solver *smtcore.SMTSolver, query ast.ASTH
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&guardRef)) }()
+	refs = append(refs, guardRef)
 	implication, err := m.MkImplies(guard, queryValue)
 	if err != nil {
 		return lbool.Undef, err

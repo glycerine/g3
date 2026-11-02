@@ -314,10 +314,12 @@ func (e *PropositionalEngine) expandHornModel(source *model.Model, conversions [
 	if source == nil {
 		return nil, ast.ErrASTHandle
 	}
+	// Converters consume and may clear their local source on failure. Keep
+	// the incoming owner independently until all conversion stages succeed.
+	owner := &hornModelConversionOwner{manager: e.manager, model: source}
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, source.Close())
-			source = nil
+			resultErr = owner.fail(resultErr)
 		}
 	}()
 	core := source.Core()
