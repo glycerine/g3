@@ -709,6 +709,20 @@ func TestSpacerEngineExpandsSlicedModelPredicates(t *testing.T) {
 }
 
 func TestPDREngineExpandsSlicedModelsAndCovers(t *testing.T) {
+	for _, test := range []struct {
+		name          string
+		disableInline bool
+	}{
+		{name: "default-inlining"},
+		{name: "live-sliced-transformer", disableInline: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			testPDREngineExpandsSlicedModelsAndCovers(t, test.disableInline)
+		})
+	}
+}
+
+func testPDREngineExpandsSlicedModelsAndCovers(t *testing.T, disableInline bool) {
 	context, err := cmd_context.NewStandaloneContext()
 	fpMust(t, err)
 	t.Cleanup(func() { fpMust(t, context.Close()) })
@@ -716,6 +730,12 @@ func TestPDREngineExpandsSlicedModelsAndCovers(t *testing.T) {
 	fpMust(t, err)
 	globals, err := context.GlobalParameters()
 	fpMust(t, err)
+	if disableInline {
+		// Keep the sliced predicate live in the backend so the cover assertion
+		// exercises pred_transformer::get_cover_delta and its model converter.
+		fpMust(t, globals.SourceSetName("fixedpoint.xform.inline_eager", "false"))
+		fpMust(t, globals.SourceSetName("fixedpoint.xform.inline_linear", "false"))
+	}
 	engine, err := fp.NewPropositionalEngineWithServices(manager, globals.Context, globals)
 	fpMust(t, err)
 	t.Cleanup(func() { fpMust(t, engine.Close()) })
@@ -798,8 +818,14 @@ func TestPDREngineExpandsSlicedModelsAndCovers(t *testing.T) {
 	used, err := ast.NewASTUsedVars(manager)
 	fpMust(t, err)
 	fpMust(t, used.Process(coverFormula))
-	if used.Contains(0) != (ast.ASTHandle{}) || used.Contains(1) == (ast.ASTHandle{}) {
-		t.Fatalf("PDR cover did not restore the original second-column variable: max=%d v0=%v v1=%v", used.MaxFoundVarIndexPlusOne(), used.Contains(0), used.Contains(1))
+	if disableInline {
+		if used.Contains(0) != (ast.ASTHandle{}) || used.Contains(1) == (ast.ASTHandle{}) {
+			t.Fatalf("PDR cover did not restore the original second-column variable: max=%d v0=%v v1=%v", used.MaxFoundVarIndexPlusOne(), used.Contains(0), used.Contains(1))
+		}
+	} else if !manager.IsTrue(coverFormula) {
+		// Eager inlining eliminates P from transformed rules. Source contexts
+		// have no transformer in that case and return true before conversion.
+		t.Fatal("inlined-away predicate cover is not true", coverFormula)
 	}
 	truth, err := manager.MkTrue()
 	fpMust(t, err)

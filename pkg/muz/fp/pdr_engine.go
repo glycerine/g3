@@ -509,7 +509,10 @@ func (e *PropositionalEngine) CoverDelta(level int, declaration ast.ASTHandle) (
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
-		return e.expandHornCover(declaration, derived, cover, found, e.spacerConversions)
+		if !found {
+			return cover, nil
+		}
+		return e.expandHornCover(declaration, derived, cover, true, e.spacerConversions)
 	}
 	context, err := e.pdrContext()
 	if err != nil {
@@ -527,7 +530,10 @@ func (e *PropositionalEngine) CoverDelta(level int, declaration ast.ASTHandle) (
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	return e.expandHornCover(declaration, derived, cover, found, e.pdrConversions)
+	if !found {
+		return cover, nil
+	}
+	return e.expandHornCover(declaration, derived, cover, true, e.pdrConversions)
 }
 
 // AddCover installs a bound-variable property in a retained PDR or Spacer

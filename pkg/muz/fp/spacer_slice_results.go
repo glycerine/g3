@@ -374,75 +374,71 @@ func (e *PropositionalEngine) expandHornModel(source *model.Model, conversions [
 	return source, nil
 }
 
-func (e *PropositionalEngine) expandHornCover(original, derived ast.ASTHandle, source ast.ASTRef, includeDerived bool, conversions []hornModelConversion) (_ ast.ASTRef, resultErr error) {
+func (e *PropositionalEngine) expandHornCover(original, derived ast.ASTHandle, source ast.ASTRef, includeDerived bool, conversions []hornModelConversion) (result ast.ASTRef, resultErr error) {
+	attempt := &hornCoverAttempt{manager: e.manager, source: source}
+	defer func() { result, resultErr = attempt.finish(resultErr) }()
 	formula, err := e.manager.RefGet(source)
 	if err != nil {
-		return ast.ASTRef{}, errors.Join(err, e.manager.DelRef(&source))
+		return ast.ASTRef{}, err
 	}
-	seed, err := model.NewModel(e.manager)
+	attempt.seed, err = model.NewModel(e.manager)
 	if err != nil {
-		return ast.ASTRef{}, errors.Join(err, e.manager.DelRef(&source))
+		return ast.ASTRef{}, err
 	}
-	seedOwned := true
-	defer func() {
-		resultErr = errors.Join(resultErr, e.manager.DelRef(&source))
-		if seedOwned {
-			resultErr = errors.Join(resultErr, seed.Close())
-		}
-	}()
 	if includeDerived {
-		derivedArity, arityErr := e.manager.GetArity(derived)
-		if arityErr != nil {
-			return ast.ASTRef{}, arityErr
+		arity, err := e.manager.GetArity(derived)
+		if err != nil {
+			return ast.ASTRef{}, err
 		}
-		if derivedArity == 0 {
-			err = seed.Core().RegisterConstant(derived, formula)
+		if arity == 0 {
+			if err = attempt.seed.Core().RegisterConstant(derived, formula); err != nil {
+				return ast.ASTRef{}, err
+			}
 		} else {
-			interpretation, makeErr := model.NewFunctionInterpretation(e.manager, derivedArity)
-			if makeErr == nil {
-				makeErr = interpretation.SetElse(formula)
+			attempt.interpretation, err = model.NewFunctionInterpretation(e.manager, arity)
+			if err != nil {
+				return ast.ASTRef{}, err
 			}
-			if makeErr == nil {
-				makeErr = seed.Core().RegisterFunction(derived, interpretation)
-				if makeErr == nil {
-					interpretation = nil
-				}
+			if err = attempt.interpretation.SetElse(formula); err != nil {
+				return ast.ASTRef{}, err
 			}
-			if interpretation != nil {
-				makeErr = errors.Join(makeErr, interpretation.Close())
+			if err = attempt.seed.Core().RegisterFunction(derived, attempt.interpretation); err != nil {
+				return ast.ASTRef{}, err
 			}
-			err = makeErr
+			attempt.interpretation = nil
 		}
 	}
+	// Converters currently mutate this model in place and consume it on errors.
+	// Keep the original pointer as a cleanup root even if their cleanup refuses.
+	attempt.expanded, err = e.expandHornModel(attempt.seed, conversions)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	expanded, err := e.expandHornModel(seed, conversions)
-	seedOwned = false
-	if err != nil {
-		return ast.ASTRef{}, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, expanded.Close()) }()
 	originalArity, err := e.manager.GetArity(original)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
 	if originalArity == 0 {
-		present, presentErr := expanded.Core().HasConstantInterpretation(original)
-		if presentErr != nil {
-			return ast.ASTRef{}, presentErr
+		present, err := attempt.expanded.Core().HasConstantInterpretation(original)
+		if err != nil {
+			return ast.ASTRef{}, err
 		}
 		if present {
-			formula, err = expanded.Core().ConstantInterpretation(original)
+			formula, err = attempt.expanded.Core().ConstantInterpretation(original)
+		} else if includeDerived {
+			return ast.ASTRef{}, ast.ErrASTDomain
 		} else {
 			formula, err = e.manager.MkTrue()
 		}
 	} else {
-		interpretation, getErr := expanded.Core().FunctionInterpretation(original)
+		interpretation, getErr := attempt.expanded.Core().FunctionInterpretation(original)
 		if getErr != nil {
 			return ast.ASTRef{}, getErr
 		}
 		if interpretation == nil {
+			if includeDerived {
+				return ast.ASTRef{}, ast.ErrASTDomain
+			}
 			formula, err = e.manager.MkTrue()
 		} else {
 			formula, err = interpretation.Else()
@@ -454,5 +450,6 @@ func (e *PropositionalEngine) expandHornCover(original, derived ast.ASTHandle, s
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	return e.manager.NewRef(formula)
+	attempt.result, err = e.manager.NewRef(formula)
+	return ast.ASTRef{}, err
 }

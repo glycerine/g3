@@ -21,12 +21,9 @@ func (c *Compiler) linearRuleBindings(rule *base.Rule, predicate ast.ASTHandle, 
 	}
 	result = make([]ast.ASTRef, len(sorts))
 	defer func() {
+		owner := &linearBindingOwner{manager: m, outputs: result}
+		resultErr = owner.dispose(resultErr)
 		if resultErr != nil {
-			for i := len(result) - 1; i >= 0; i-- {
-				if result[i] != (ast.ASTRef{}) {
-					resultErr = errors.Join(resultErr, m.DelRef(&result[i]))
-				}
-			}
 			result = nil
 		}
 	}()
@@ -118,17 +115,9 @@ func (c *Compiler) LinearModelBindings(rule *base.Rule, ruleIndex, level uint32,
 		return nil, err
 	}
 	defer func() {
-		for i := len(bindings) - 1; i >= 0; i-- {
-			if bindings[i] != (ast.ASTRef{}) {
-				resultErr = errors.Join(resultErr, m.DelRef(&bindings[i]))
-			}
-		}
+		owner := &linearBindingOwner{manager: m, inputs: bindings, outputs: result}
+		resultErr = owner.dispose(resultErr)
 		if resultErr != nil {
-			for i := len(result) - 1; i >= 0; i-- {
-				if result[i] != (ast.ASTRef{}) {
-					resultErr = errors.Join(resultErr, m.DelRef(&result[i]))
-				}
-			}
 			result = nil
 		}
 	}()

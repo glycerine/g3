@@ -371,7 +371,7 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 				pending = append(pending, handle)
 			}
 		}
-		err = errors.Join(err, projected.Close())
+		err = closeTransferredLegacyOuterArray(projected, err)
 		if err != nil {
 			return nil, err
 		}
@@ -415,7 +415,7 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 					remaining = append(remaining, handle)
 				}
 			}
-			err = errors.Join(err, projected.Close())
+			err = closeTransferredLegacyOuterArithmetic(projected, err)
 			if err != nil {
 				return nil, err
 			}
