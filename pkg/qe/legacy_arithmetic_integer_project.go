@@ -92,10 +92,16 @@ func (p *legacyArithmeticProjection) projectInteger(md *model.ModelCore, variabl
 		if literal == nil {
 			return nil, false, nil
 		}
+		// The source scoped literal vector owns a classified literal before
+		// model evaluation and normalization can fail.
+		literals = append(literals, literal)
+		originals = append(originals, input)
 		if literal.coefficient.Sign() == 0 {
 			if err = literal.Close(); err != nil {
 				return nil, false, err
 			}
+			literals = literals[:len(literals)-1]
+			originals = originals[:len(originals)-1]
 			continue
 		}
 		term, err := p.syntax.manager.RefGet(literal.term)
@@ -116,7 +122,7 @@ func (p *legacyArithmeticProjection) projectInteger(md *model.ModelCore, variabl
 		}
 		if literal.equality {
 			if equalityIndex < 0 && value.Sign() == 0 {
-				equalityIndex = len(literals)
+				equalityIndex = len(literals) - 1
 			}
 		} else {
 			if literal.disequality {
@@ -142,8 +148,6 @@ func (p *legacyArithmeticProjection) projectInteger(md *model.ModelCore, variabl
 				}
 			}
 		}
-		literals = append(literals, literal)
-		originals = append(originals, input)
 	}
 	if len(literals) == 0 {
 		return &legacyRealProjection{manager: p.syntax.manager}, true, nil

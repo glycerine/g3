@@ -374,6 +374,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 ### spacer
 
 - [ ] `src/muz/spacer/spacer_qe_project.cpp` (reopened partial: remaining exceptional ownership/cleanup audit; implemented algorithms preserved)
+  - [x] Real/integer classified literals enter scoped cleanup before later fallible model/AST work; dense frontiers fix the reproduced real one-reference leak and cover integer symmetry.
+  - [x] Public mapped projection rejects cleanup-pending parents and keeps failed result construction independently owned.
 
 - [ ] `src/muz/spacer/spacer_context.cpp` (partial), `src/muz/spacer/spacer_context.h` (partial)
   - [x] Reach-fact selection catches model-evaluator step/memory exceptions as unknown for current and origin probes, without completion or owner leakage, and permits unrestricted retry.
@@ -898,3 +900,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Made PDR replacement ownership retry-safe across source destructor, parameter-update and reset paths. Snapshot/statistics failure or native context Close refusal leaves the old engine/revision/statistics reachable; archived counters merge only after successful close. Superseded transformed/source RuleSets close before new snapshots publish, while caller defers keep unpublished replacements safe. Real native-refusal regressions verify owner identity, retry, idempotence and zero final budget; focused lifecycle matrices passed in 0.035s/0.012s. Broader PDR interface auditing remains open.
 
 - 2026-11-02 — Matched CLP's stateless `get_answer` by constructing true on demand and removing its non-source persistent answer root. Grounding cleanup now retires fresh constants incrementally, preserves exact remaining constants plus a successfully constructed unpublished substitution across native AST refusal, and exposes a complete retryable construction-failure contract. Focused lifecycle/allocation tests passed in 0.083s and the complete native CLP package passed in 0.126s. Temporary search ownership beyond the exercised grounding path and full unit audit remain open.
+
+- 2026-11-02 — Dense legacy arithmetic projection frontiers reproduced a real one-reference leak at allocation stop 16: classified real literals were not transferred to scoped cleanup before later fallible model/AST work. Real and integer paths now acquire literal ownership immediately; both frontiers and existing semantic paths pass in 0.155s. Mapped projection also rejects cleanup-pending parents, allocates nothing on that path, and independently owns failed result construction through its 2,048-step frontier. Remaining exceptional Spacer projection paths keep the unit partial.

@@ -13,13 +13,14 @@ import (
 // arithmetic projection pipeline. Mapping is borrowed and intentionally does
 // not receive Boolean substitutions.
 func (p *LegacyProjection) ProjectSkolem(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, mapping *ast.ASTExprMap) (result *LegacyProjectionResult, resultErr error) {
-	if p == nil || p.manager == nil || md == nil || md.Manager() != p.manager || mapping == nil {
+	if p == nil || p.closing || p.manager == nil || md == nil || md.Manager() != p.manager || mapping == nil {
 		return nil, ast.ErrASTHandle
 	}
 	result = &LegacyProjectionResult{manager: p.manager}
+	ownedResult := result
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+			resultErr = errors.Join(resultErr, ownedResult.Close())
 			result = nil
 		}
 	}()

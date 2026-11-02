@@ -117,10 +117,17 @@ func (p *legacyArithmeticProjection) projectReal(md *model.ModelCore, variable a
 			}
 			return nil, false, nil
 		}
+		// Publish the literal to the function-owned cleanup vector before any
+		// later AST construction can fail. The source scoped vector owns each
+		// classified literal immediately rather than only after evaluation.
+		literals = append(literals, literal)
+		originals = append(originals, input)
 		if literal.coefficient.Sign() == 0 {
 			if err = literal.Close(); err != nil {
 				return nil, false, err
 			}
+			literals = literals[:len(literals)-1]
+			originals = originals[:len(originals)-1]
 			continue
 		}
 		term, err := p.syntax.manager.RefGet(literal.term)
@@ -141,7 +148,7 @@ func (p *legacyArithmeticProjection) projectReal(md *model.ModelCore, variable a
 		}
 		if literal.equality {
 			if equalityIndex < 0 && value.Sign() == 0 {
-				equalityIndex = len(literals)
+				equalityIndex = len(literals) - 1
 			}
 		} else {
 			if literal.disequality {
@@ -174,8 +181,6 @@ func (p *legacyArithmeticProjection) projectReal(md *model.ModelCore, variable a
 				}
 			}
 		}
-		literals = append(literals, literal)
-		originals = append(originals, input)
 	}
 	if len(literals) == 0 {
 		return result, true, nil

@@ -107,6 +107,23 @@ func TestLegacyProjectionParentCleanupContinuation(t *testing.T) {
 						t.Fatal("closing projection entered query work", native, err)
 					}
 				}
+				mapping, err := ast.NewASTExprMapWithProofs(m, false)
+				fmMust(t, err)
+				before := m.Stats().LiveReferences
+				m.Budget().FailAfter(0)
+				mapped, err := combined.ProjectSkolem(md, nil, truth, mapping)
+				m.Budget().FailAfter(-1)
+				if mapped != nil {
+					fmMust(t, mapped.Close())
+					t.Fatal("closing projection published a mapped result")
+				}
+				if err != ast.ErrASTHandle {
+					t.Fatal("closing projection entered mapped query work", err)
+				}
+				if got := m.Stats().LiveReferences; got != before {
+					t.Fatal("closing mapped projection allocated roots", got, before)
+				}
+				fmMust(t, mapping.Close())
 			}
 			var pendingRoot ast.ASTRef
 			if array != nil {
