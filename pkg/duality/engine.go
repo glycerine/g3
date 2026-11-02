@@ -9,7 +9,9 @@ import (
 )
 
 // EngineConfig borrows the native solvers, factory, interpolation manager and
-// evaluator services. Theory expressions are copied. A nil Quantifiers asks
+// evaluator services. Native must produce proofs; arithmetic interpolation
+// requires eq2ineq normalization before assertions so certificates use the
+// supported inequality rules. Theory expressions are copied. A nil Quantifiers asks
 // the engine to own its qe-lite service; a supplied service stays borrowed.
 type EngineConfig struct {
 	Native, Auxiliary solver.Solver
@@ -66,6 +68,15 @@ func NewEngine(source *RPFP, config EngineConfig) (out *Engine, result error) {
 	if m != source.context.manager {
 		return nil, ErrContextMismatch
 	}
+	// The source interpolator obtains this factory from global solver state.
+	run := interp.RunConfig{}
+	if config.Interpolation != nil {
+		run = *config.Interpolation
+	}
+	if run.SolverFactory == nil {
+		run.SolverFactory = config.Factory
+	}
+	config.Interpolation = &run
 	e := &Engine{source: source, config: config, options: *NewSolverOptions(), counterexample: NewCounterexample()}
 	e.self = e
 	defer func() {

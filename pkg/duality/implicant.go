@@ -320,7 +320,26 @@ func (g *RPFP) FixCurrentState(edge *Edge) (result error) {
 		return err
 	}
 	defer func() { result = errors.Join(result, formula.Close()) }()
-	decision, err := g.UnderapproxFormula(formula, nil)
+	// Underapproximation flags are temporary query controls. Fixing their
+	// model polarity can contradict the next expansion-selection assumptions.
+	var controls []*Expr
+	defer func() {
+		for _, control := range controls {
+			result = errors.Join(result, control.Close())
+		}
+	}()
+	for _, ref := range g.underapproxFlagRefs {
+		h, err := m.RefGet(ref)
+		if err != nil {
+			return err
+		}
+		control, err := NewExpr(g.context, h)
+		if err != nil {
+			return err
+		}
+		controls = append(controls, control)
+	}
+	decision, err := g.UnderapproxFormula(formula, controls)
 	if err != nil {
 		return err
 	}
