@@ -9,11 +9,6 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
-type autoRuleEntry struct {
-	name string
-	kind EngineKind
-}
-
 func (e *PropositionalEngine) autoRuleKind(rule *base.Rule, arithmetic, datatype ast.FamilyID, boolean ast.ASTHandle) (EngineKind, error) {
 	head, err := rule.Head()
 	if err != nil {
@@ -121,14 +116,6 @@ func (e *PropositionalEngine) autoFormulaKind(formula ast.ASTHandle) (EngineKind
 }
 
 func (e *PropositionalEngine) autoEngineKind() (EngineKind, error) {
-	if len(e.autoRules) != 0 {
-		for _, rule := range e.autoRules {
-			if rule.kind != EngineDatalog {
-				return rule.kind, nil
-			}
-		}
-		return EngineDatalog, nil
-	}
 	arithmetic, datatype, boolean, err := e.autoFamilies()
 	if err != nil {
 		return EngineDatalog, err
@@ -137,13 +124,43 @@ func (e *PropositionalEngine) autoEngineKind() (EngineKind, error) {
 	if err != nil {
 		return EngineDatalog, err
 	}
+	// Eager normalization also stores pending inputs in e.set. Source scans
+	// only its normalized prefix first, then the still-pending raw archive.
+	pending := make([]bool, count)
+	for _, raw := range e.rawRules {
+		if !raw.pending {
+			continue
+		}
+		if raw.first < 0 || raw.end > count || raw.first > raw.end {
+			return EngineDatalog, ErrPropositionalEngine
+		}
+		for i := raw.first; i < raw.end; i++ {
+			pending[i] = true
+		}
+	}
 	for i := 0; i < count; i++ {
+		if pending[i] {
+			continue
+		}
 		rule, cause := e.set.Rule(i)
 		if cause != nil {
 			return EngineDatalog, cause
 		}
 		kind, cause := e.autoRuleKind(rule, arithmetic, datatype, boolean)
 		cause = errors.Join(cause, rule.Close())
+		if cause != nil || kind != EngineDatalog {
+			return kind, cause
+		}
+	}
+	for _, raw := range e.rawRules {
+		if !raw.pending {
+			continue
+		}
+		formula, cause := e.manager.RefGet(raw.formula)
+		if cause != nil {
+			return EngineDatalog, cause
+		}
+		kind, cause := e.autoFormulaKind(formula)
 		if cause != nil || kind != EngineDatalog {
 			return kind, cause
 		}

@@ -84,7 +84,9 @@ func TestFixedpointAutoConfigRestoresRuleClassification(t *testing.T) {
 	check(fp.EngineDatalog)
 	fpMust(t, engine.Push())
 	fpMust(t, engine.UpdateRule(autoQuantifiedRule(t, manager, head), "fact"))
-	check(fp.EngineQPDR)
+	// Source scans this normalized update: its existential antecedent was
+	// hoisted to a free integer variable, so the result is PDR, not QPDR.
+	check(fp.EnginePDR)
 	fpMust(t, engine.Pop())
 	check(fp.EngineDatalog)
 }

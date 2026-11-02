@@ -113,11 +113,9 @@ type PropositionalEngine struct {
 	spacer              *muzspacer.Context
 	spacerStatistics    muzspacer.StatisticsSnapshot
 	scopes              []*base.RuleSet
-	autoRules           []autoRuleEntry
 	rawRules            []rawRuleFormula
 	rawRuleScopes       [][]rawRuleFormula
 	retiredRawRules     []rawRuleFormula
-	autoRuleScopes      [][]autoRuleEntry
 	assertions          []ast.ASTRef
 	assertionScopes     []int
 	predicates          map[ast.ASTHandle]*predicateState
@@ -406,10 +404,6 @@ func (e *PropositionalEngine) AddRuleWithBound(formula ast.ASTHandle, name strin
 	if err := e.open(); err != nil {
 		return err
 	}
-	autoKind, err := e.autoFormulaKind(formula)
-	if err != nil {
-		return err
-	}
 	original, err := e.manager.NewRef(formula)
 	if err != nil {
 		return err
@@ -450,7 +444,6 @@ func (e *PropositionalEngine) AddRuleWithBound(formula ast.ASTHandle, name strin
 	if added {
 		e.rawRules = append(e.rawRules, rawRuleFormula{formula: original, name: name, bound: recursionBound, pending: true, first: first, end: end})
 		keepOriginal = true
-		e.autoRules = append(e.autoRules, autoRuleEntry{name: name, kind: autoKind})
 		e.advanceRuleRevision()
 	}
 	return getErr
@@ -509,10 +502,6 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 // A replacement must preserve the head and may only strengthen the body.
 func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (resultErr error) {
 	if err := e.open(); err != nil {
-		return err
-	}
-	autoKind, err := e.autoFormulaKind(formula)
-	if err != nil {
 		return err
 	}
 	candidateSet, err := base.NewRuleSet(e.rules)
@@ -662,16 +651,6 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 	prior := e.set
 	e.set = replacement
 	keepReplacement = true
-	if oldIndex >= 0 {
-		kept := e.autoRules[:0]
-		for _, entry := range e.autoRules {
-			if entry.name != name {
-				kept = append(kept, entry)
-			}
-		}
-		e.autoRules = kept
-	}
-	e.autoRules = append(e.autoRules, autoRuleEntry{name: name, kind: autoKind})
 	e.advanceRuleRevision()
 	return prior.Close()
 }
@@ -696,7 +675,6 @@ func (e *PropositionalEngine) Push() error {
 	}
 	e.scopes = append(e.scopes, snapshot)
 	e.rawRuleScopes = append(e.rawRuleScopes, rawSnapshot)
-	e.autoRuleScopes = append(e.autoRuleScopes, append([]autoRuleEntry(nil), e.autoRules...))
 	e.assertionScopes = append(e.assertionScopes, len(e.assertions))
 	return nil
 }
@@ -713,7 +691,7 @@ func (e *PropositionalEngine) Pop() error {
 	if (e.queried || e.pdr != nil || e.spacer != nil) && e.backend != "duality" {
 		return fmt.Errorf("muz/fp: pop operation is only supported by duality engine")
 	}
-	if len(e.assertionScopes) != len(e.scopes) || len(e.autoRuleScopes) != len(e.scopes) || len(e.rawRuleScopes) != len(e.scopes) {
+	if len(e.assertionScopes) != len(e.scopes) || len(e.rawRuleScopes) != len(e.scopes) {
 		return ErrPropositionalEngine
 	}
 	last := len(e.scopes) - 1
@@ -726,8 +704,6 @@ func (e *PropositionalEngine) Pop() error {
 	e.retiredRawRules = append(e.retiredRawRules, e.rawRules...)
 	e.rawRules = e.rawRuleScopes[last]
 	e.rawRuleScopes = e.rawRuleScopes[:last]
-	e.autoRules = e.autoRuleScopes[last]
-	e.autoRuleScopes = e.autoRuleScopes[:last]
 	assertionSize := e.assertionScopes[last]
 	e.assertionScopes = e.assertionScopes[:last]
 	var result error
@@ -2469,8 +2445,6 @@ func (e *PropositionalEngine) Close() (result error) {
 		result = errors.Join(result, e.scopes[i].Close())
 	}
 	e.scopes = nil
-	e.autoRules = nil
-	e.autoRuleScopes = nil
 	e.assertionScopes = nil
 	for i := len(e.assertions) - 1; i >= 0; i-- {
 		result = errors.Join(result, e.manager.DelRef(&e.assertions[i]))
