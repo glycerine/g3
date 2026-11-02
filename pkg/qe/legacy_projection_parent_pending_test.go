@@ -85,6 +85,29 @@ func TestLegacyProjectionParentCleanupContinuation(t *testing.T) {
 					t.Fatal("lost pending arithmetic owner")
 				}
 			}
+			if combined != nil {
+				truth, err := m.MkTrue()
+				fmMust(t, err)
+				for _, native := range []bool{false, true} {
+					// A closing owner must reject before any allocation or
+					// mutation of the still-owned pending child call.
+					m.Budget().FailAfter(0)
+					var result *LegacyProjectionResult
+					if native {
+						result, err = combined.ProjectNativeArithmetic(md, nil, truth, false, true)
+					} else {
+						result, err = combined.Project(md, nil, truth, false, true)
+					}
+					m.Budget().FailAfter(-1)
+					if result != nil {
+						fmMust(t, result.Close())
+						t.Fatal("closing projection published a result")
+					}
+					if err != ast.ErrASTHandle {
+						t.Fatal("closing projection entered query work", native, err)
+					}
+				}
+			}
 			var pendingRoot ast.ASTRef
 			if array != nil {
 				pendingRoot = array.syntax.pending[0].refs[0]

@@ -13,6 +13,7 @@ import (
 )
 
 type LegacyProjection struct {
+	closing    bool
 	manager    *ast.ASTManager
 	config     Config
 	arithmetic *legacyArithmeticProjection
@@ -52,6 +53,7 @@ func (p *LegacyProjection) Close() error {
 	if p == nil || p.manager == nil {
 		return ast.ErrASTHandle
 	}
+	p.closing = true
 	if p.array != nil {
 		if err := p.array.Close(); err != nil {
 			return err
@@ -175,7 +177,7 @@ func (p *LegacyProjection) ProjectNativeArithmetic(md *model.ModelCore, variable
 }
 
 func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, reduceAllSelects, retainFailures, nativeArithmetic bool) (result *LegacyProjectionResult, resultErr error) {
-	if p == nil || p.manager == nil || md == nil || md.Manager() != p.manager {
+	if p == nil || p.closing || p.manager == nil || md == nil || md.Manager() != p.manager {
 		return nil, ast.ErrASTHandle
 	}
 	result = &LegacyProjectionResult{manager: p.manager}
