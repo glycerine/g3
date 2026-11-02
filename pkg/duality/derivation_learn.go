@@ -6,6 +6,16 @@ import (
 	"github.com/glycerine/g3/pkg/solver"
 )
 
+func (d *BacktrackingDerivation) refinementFailure(err error) error {
+	if !errors.Is(err, ErrGreedyReduceFailed) {
+		return err
+	}
+	if report := d.original.streamReporter.Message("interpolant verification failed"); report != nil {
+		return errors.Join(err, report)
+	}
+	return nil
+}
+
 func (d *BacktrackingDerivation) reduceAnnotation(node *Node, manager *interp.Manager) (result error) {
 	if manager == nil {
 		return ErrWrapperOwner
@@ -80,7 +90,7 @@ func (d *BacktrackingDerivation) LearnCurrentExpansions(checker *LocalEdgeChecke
 			}
 			return checker.Generalize(node)
 		}
-		if err := refine(); err != nil && !errors.Is(err, ErrGreedyReduceFailed) {
+		if err := d.refinementFailure(refine()); err != nil {
 			return updates, err
 		}
 		changed, err := d.RecordAnnotationUpdate(node, aux)
