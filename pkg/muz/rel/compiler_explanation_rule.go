@@ -31,9 +31,15 @@ type explanationTailJoin struct {
 	left, right []int
 }
 
+type explanationNegativeTail struct {
+	predicate        ast.ASTHandle
+	target, negative []int
+}
+
 type explanationRuleLayout struct {
 	head, tail       ast.ASTHandle
 	joins            []explanationTailJoin
+	negatives        []explanationNegativeTail
 	columns          map[uint32]int
 	sorts            map[uint32]ast.ASTHandle
 	conditions       []ast.ASTHandle
@@ -68,9 +74,6 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	uninterpreted, err := rule.UninterpretedTailSize()
 	if err != nil {
 		return plan, err
-	}
-	if positive != uninterpreted {
-		return plan, ErrCompilerUnsupported
 	}
 	m := relations.manager
 	var tails []ast.ASTHandle
@@ -238,6 +241,72 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 		}
 	}
 	sort.Slice(plan.identical, func(i, j int) bool { return plan.identical[i][0] < plan.identical[j][0] })
+	// Source add_unbound_columns_for_negation materializes finite variables
+	// missing from the positive body; constants get singleton matching columns.
+	for index := positive; index < uninterpreted; index++ {
+		literal, negative, err := rule.Tail(index)
+		if err != nil {
+			return plan, err
+		}
+		if !negative {
+			return plan, ErrCompilerUnsupported
+		}
+		predicate, err := m.GetDecl(literal)
+		if err != nil {
+			return plan, err
+		}
+		explained, err := relations.predicateUsesExplanationColumns(predicate)
+		if err != nil {
+			return plan, err
+		}
+		if explained {
+			return plan, ErrCompilerUnsupported
+		}
+		sorts, _, err := relations.PredicateSignature(predicate)
+		if err != nil {
+			return plan, errors.Join(ErrCompilerUnsupported, err)
+		}
+		filter := explanationNegativeTail{predicate: predicate}
+		for column, negativeSort := range sorts {
+			argument, err := m.GetArg(literal, uint32(column))
+			if err != nil {
+				return plan, err
+			}
+			kind, err := m.GetKind(argument)
+			if err != nil {
+				return plan, err
+			}
+			from := len(tailSorts) + len(plan.appendFinite)
+			if kind == ast.ASTVar {
+				variableIndex, actual, err := variable(literal, column)
+				if err != nil {
+					return plan, err
+				}
+				if actual != negativeSort {
+					return plan, ErrCompilerUnsupported
+				}
+				if previous, found := plan.columns[variableIndex]; found {
+					if plan.sorts[variableIndex] != actual {
+						return plan, ErrCompilerUnsupported
+					}
+					from = previous
+				} else {
+					plan.appendFinite = append(plan.appendFinite, explanationFiniteColumn{sort: actual})
+					plan.columns[variableIndex], plan.sorts[variableIndex] = from, actual
+					tailVariables[variableIndex] = []int{from}
+				}
+			} else {
+				value, err := relations.EncodeValue(negativeSort, argument)
+				if err != nil {
+					return plan, err
+				}
+				plan.appendFinite = append(plan.appendFinite, explanationFiniteColumn{sort: negativeSort, value: value, singleton: true})
+			}
+			filter.target = append(filter.target, from)
+			filter.negative = append(filter.negative, column)
+		}
+		plan.negatives = append(plan.negatives, filter)
+	}
 	plan.finiteWidth = len(tailSorts)
 	plan.explanationWidth = explanationOffset
 	var headColumns []int
@@ -386,8 +455,9 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 // CompileExplanationRuleWithGuard lowers a positive explained rule or its
 // finite output bridge using source-ordered binary joins. Tail constants and
 // repeated finite columns use filtering and duplicate-column lowering. Finite head
-// constants and unbound variables use singleton/full columns. Negated tails
-// and condition-only unbound variables are rejected before a program is published.
+// constants and unbound variables use singleton/full columns. Finite negative
+// tails preserve only positive proof dependencies; negative rule-sort tails and
+// condition-only unbound variables are rejected before a program is published.
 func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule, guard *rewriter.TheoryRewriter) (result *InstructionBlock, resultErr error) {
 	registers := explanationRuleRegisters{inputTail: -1, outputDelta: VoidRegister}
 	return compileExplanationRuleWithRegisters(relations, rule, guard, &registers)
@@ -515,6 +585,22 @@ func compileExplanationRuleWithRegisters(relations *RelationManager, rule *base.
 			return result, err
 		}
 		current = joined
+	}
+	for _, negative := range plan.negatives {
+		right := fresh()
+		load, err := newExplanationFiniteLoadInstruction(relations, negative.predicate, VoidRegister, right)
+		if err != nil {
+			return result, err
+		}
+		if err = emit(load); err != nil {
+			return result, err
+		}
+		if err = emit(newExplanationNegationInstruction(current, right, negative.target, negative.negative)); err != nil {
+			return result, err
+		}
+		if err = emit(NewDeallocateInstruction(right)); err != nil {
+			return result, err
+		}
 	}
 	if plan.appendHead {
 		total := fresh()

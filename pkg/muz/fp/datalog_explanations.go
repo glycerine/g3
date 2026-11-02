@@ -96,6 +96,11 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 	if err = transformer.TransferFiniteFacts(e.set, transformed, e.relations, e.predicateOrder); err != nil {
 		return lbool.Undef, err
 	}
+	// Check the unpruned program: magic sets may erase the explained producer
+	// that distinguishes a derived negative predicate from extensional facts.
+	if err = rel.ValidateExplanationNegativeRelations(transformed); err != nil {
+		return lbool.Undef, err
+	}
 	explained, err := transformer.ExplanationDeclaration(declarations[0])
 	if err != nil {
 		return lbool.Undef, err

@@ -176,6 +176,16 @@ func TestCompileExplanationRuleRejectsUnsupportedShapesBeforePublication(t *test
 	unboundCondition, err := f.ast.MkEq(y, f.truth)
 	astTestMust(t, err)
 	astTestPin(t, f.ast, unboundCondition)
+	ruleSort, err := f.ast.MkDatalogRuleSort()
+	astTestMust(t, err)
+	astTestPin(t, f.ast, ruleSort)
+	proofPredicate := declare("unsupported-negative-proof", []ast.ASTHandle{f.boolean, ruleSort})
+	proof, err := f.ast.MkVar(2, ruleSort)
+	astTestMust(t, err)
+	astTestPin(t, f.ast, proof)
+	negativeProof, err := f.ast.MkApp(proofPredicate, []ast.ASTHandle{x, proof})
+	astTestMust(t, err)
+	astTestPin(t, f.ast, negativeProof)
 	transformer, err := NewExplanationTransformer(f.ast, rm)
 	astTestMust(t, err)
 	defer func() { astTestMust(t, transformer.Close()) }()
@@ -183,7 +193,7 @@ func TestCompileExplanationRuleRejectsUnsupportedShapesBeforePublication(t *test
 		head     ast.ASTHandle
 		tails    []ast.ASTHandle
 		negative []bool
-	}{{pX, []ast.ASTHandle{pX}, []bool{true}}, {pX, []ast.ASTHandle{pX, unboundCondition}, nil}, {pX, []ast.ASTHandle{pX, pX}, []bool{false, true}}} {
+	}{{pX, []ast.ASTHandle{negativeProof}, []bool{true}}, {pX, []ast.ASTHandle{pX, unboundCondition}, nil}, {pX, []ast.ASTHandle{pX, negativeProof}, []bool{false, true}}} {
 		rule, e := rm.NewRule(spec.head, spec.tails, spec.negative, "unsupported")
 		astTestMust(t, e)
 		generated, e := transformer.ExplanationRule(rule)

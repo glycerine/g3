@@ -70,6 +70,12 @@ func CompileExplanationRulesWithGuard(relations *RelationManager, set *base.Rule
 		for _, join := range plan.joins {
 			dependencies[plan.head] = append(dependencies[plan.head], join.predicate)
 		}
+		for _, negative := range plan.negatives {
+			dependencies[plan.head] = append(dependencies[plan.head], negative.predicate)
+		}
+	}
+	if err := ValidateExplanationNegativeRelations(set); err != nil {
+		return nil, nil, err
 	}
 	finalized, err := set.IsFinalized()
 	if err != nil {
