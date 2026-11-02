@@ -1,7 +1,8 @@
 package base
 
-// Source: src/muz/base/dl_context.cpp context::display_smt2 with default
-// fixedpoint options (HORN assertions, no fixedpoint extensions).
+// Source: src/muz/base/dl_context.cpp context::display_smt2 plain HORN
+// assertion formatting. This explicit RuleSet export includes every rule;
+// it is not the context dump with output-query conversion or default options.
 
 import (
 	"errors"

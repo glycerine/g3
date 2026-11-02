@@ -84950,6 +84950,8 @@
         "pkg/muz/base/datalog_context_background_snapshot.go",
         "pkg/muz/base/datalog_context_background_formula.go",
         "pkg/muz/base/rule_set_smt2.go",
+        "pkg/muz/base/rule_set_display_formulas.go",
+        "pkg/muz/base/rule_set_display_formulas_test.go",
         "pkg/muz/dataflow/reachability.go",
         "pkg/muz/rel/table.go",
         "pkg/muz/rel/relation_manager.go",
@@ -85068,6 +85070,19 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "get_rules_as_formulas finalized-rule partition: output clauses become ordered queries, quantified implications use an existential body, quantified facts retain their original universal formula (dl_context.cpp:1072-1105)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/base/rule_set_display_formulas.go", "pkg/muz/base/rule_set_display_formulas_test.go"],
+          "tests": ["TestRuleSetDisplayFormulasPartitionOrderAppendAndOwnership", "TestRuleSetDisplayFormulasQuantifiedQueriesAndFacts", "TestRuleSetDisplayFormulasFailurePrefixOwnershipAndRetry"],
+          "reason": "Concrete preparatory stage for the live PDR/context dump consumers; caller-owned vectors keep any successfully appended prefix on failure. Pending raw-formula handling and full context dump integration remain separate open obligations."
+        },
+        {
+          "name": "context display_smt2 profiles, output queries and pending raw-formula handoff",
+          "status": "partial",
+          "go_target": "pkg/muz/base/rule_set_smt2.go",
+          "reason": "Existing RuleSet.WriteSMT2 is an explicit plain-HORN all-rule export, not context::display_smt2: source defaults print_fixedpoint_extensions=true and partitions output clauses into queries. The finalized partition helper is now implemented; full profile-aware context emission, raw pending-formula handling and PDR trace integration remain open."
+        },
         {
           "name": "admitted Go fixedpoint engine disposal invalidates query snapshots and blocks ordinary operations after a solver guard-disabling refusal while allowing Close retry",
           "status": "ported",
