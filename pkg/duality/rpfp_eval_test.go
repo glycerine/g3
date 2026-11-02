@@ -1,6 +1,7 @@
 package duality
 
 import (
+	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -93,6 +94,32 @@ func TestRPFPModelEvaluationCompletesIndexedParameters(t *testing.T) {
 	must(err)
 	if vh != arg {
 		t.Fatal("edge evaluation did not use indexed node parameter")
+	}
+	simplifier, err := interp.NewManagerWithParams(m, ctx.config.params, globals)
+	must(err)
+	defer simplifier.Close()
+	lower, err := g.ComputeUnderapprox(node, simplifier)
+	must(err)
+	lowerHandle, err := lower.Raw()
+	must(err)
+	if !m.IsTrue(lowerHandle) {
+		t.Fatal("unconstrained lower fact should be true")
+	}
+	must(lower.Close())
+	full, err := node.Underapprox.IsFull()
+	must(err)
+	if !full {
+		t.Fatal("active node did not acquire its lower fact")
+	}
+	leaf, err := g.CloneNode(node)
+	must(err)
+	lower, err = g.ComputeUnderapprox(leaf, simplifier)
+	must(err)
+	must(lower.Close())
+	emptyLower, err := leaf.Underapprox.IsEmpty()
+	must(err)
+	if !emptyLower {
+		t.Fatal("unexpanded leaf must have empty lower fact")
 	}
 	must(value.Close())
 	must(evaluated.Close())
