@@ -55,7 +55,7 @@ func TestModel2ExprSourceConstantFullAndPartialFunctionOrder(t *testing.T) {
 	for i, expected := range []struct {
 		name string
 		body int32
-	}{{"B", ast.ASTOpIff}, {"A", ast.ASTOpImplies}} {
+	}{{"C", ast.ASTOpIff}, {"A", ast.ASTOpImplies}} {
 		q, e := m.GetArg(result, uint32(i+1))
 		astTestMust(t, e)
 		kind, e := m.GetKind(q)

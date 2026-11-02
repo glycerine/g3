@@ -84,7 +84,7 @@ func TestClauseFormulaClosesFreeVariablesAndAvoidsNames(t *testing.T) {
 		must(e)
 		text, e := m.Symbols.String(sym)
 		must(e)
-		if text != string(rune('B'+i)) {
+		if text != string(rune('C'+i)) {
 			t.Fatalf("declaration name %q", text)
 		}
 	}

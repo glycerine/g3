@@ -39,7 +39,7 @@ func TestModel2ExprFreshNameConcreteSymbolSetAndSequence(t *testing.T) {
 		}
 	}
 	fresh.AddSymbol(astTestSymbol(t, m, "A1"))
-	for i := byte('D'); i <= 'Z'; i++ {
+	for i := byte('E'); i <= 'Z'; i++ {
 		got, e := fresh.Next()
 		astTestMust(t, e)
 		spelling, e := m.Symbols.String(got)
@@ -52,7 +52,7 @@ func TestModel2ExprFreshNameConcreteSymbolSetAndSequence(t *testing.T) {
 	astTestMust(t, e)
 	spelling, e := m.Symbols.String(got)
 	astTestMust(t, e)
-	if spelling != "B1" {
+	if spelling != "C1" {
 		t.Fatal("source numbered collision skip", spelling)
 	}
 	pName := astTestSymbol(t, m, "pattern-name")
@@ -79,6 +79,38 @@ func TestModel2ExprFreshNameConcreteSymbolSetAndSequence(t *testing.T) {
 		astTestMust(t, collector.AddAST(annotated))
 		if !collector.Contains(pName) {
 			t.Fatal("annotation declaration not visited", annotations)
+		}
+	}
+}
+
+// Source model2expr.cpp increments inside the body and again at the loop
+// boundary on rejection. Returned candidates execute only the first increment.
+func TestModel2ExprFreshNameOccupiedCandidateSourceAdvance(t *testing.T) {
+	for _, tc := range []struct {
+		used []string
+		want []string
+	}{
+		{nil, []string{"A", "B", "C"}},
+		{[]string{"A"}, []string{"C", "D", "E"}},
+		{[]string{"B"}, []string{"A", "D", "E"}},
+		{[]string{"A", "C"}, []string{"E", "F", "G"}},
+	} {
+		m := astTestManager(t)
+		fresh := model.NewFreshName(m)
+		for _, name := range tc.used {
+			fresh.AddSymbol(astTestSymbol(t, m, name))
+		}
+		for _, want := range tc.want {
+			got, err := fresh.Next()
+			astTestMust(t, err)
+			text, err := m.Symbols.String(got)
+			astTestMust(t, err)
+			if text != want {
+				t.Fatal(tc.used, text, want)
+			}
+			if fresh.Contains(got) {
+				t.Fatal("next unexpectedly reserved a generated name", text)
+			}
 		}
 	}
 }

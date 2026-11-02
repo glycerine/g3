@@ -83176,7 +83176,7 @@
         "pkg/model/model2expr.go"
       ],
       "tests": [
-        "TestModel2ExprFreshNameConcreteSymbolSetAndSequence",
+        "TestModel2ExprFreshNameConcreteSymbolSetAndSequence", "TestModel2ExprFreshNameOccupiedCandidateSourceAdvance",
         "TestModel2ExprEntryConditionSourceArityAndReferenceScope",
         "TestModel2ExprSourceConstantFullAndPartialFunctionOrder",
         "TestModel2ExprSourceReverseEntriesAndEmptyPartialSkip",
@@ -83195,7 +83195,7 @@
           "name": "mk_fresh_name::add and next concrete symbol collection, collisions and A..Z/A1 sequence (model2expr.cpp:24-61)",
           "status": "ported",
           "go_target": "pkg/model/model2expr_fresh_name.go",
-          "tests": ["TestModel2ExprFreshNameConcreteSymbolSetAndSequence"]
+          "tests": ["TestModel2ExprFreshNameConcreteSymbolSetAndSequence", "TestModel2ExprFreshNameOccupiedCandidateSourceAdvance"]
         },
         {
           "name": "model2expr constant clauses, full and partial function clauses, reverse entry precedence, variable substitution and quantified conjunction (model2expr.cpp:79-155)",
@@ -83213,7 +83213,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": ["pkg/model/model2expr_fresh_name.go", "pkg/model/model2expr.go"],
-      "tests": ["TestModel2ExprFreshNameConcreteSymbolSetAndSequence", "TestModel2ExprSourceConstantFullAndPartialFunctionOrder"],
+      "tests": ["TestModel2ExprFreshNameConcreteSymbolSetAndSequence", "TestModel2ExprFreshNameOccupiedCandidateSourceAdvance", "TestModel2ExprSourceConstantFullAndPartialFunctionOrder"],
       "conditionals": [
         {
           "line": 19,
@@ -83231,7 +83231,7 @@
           "name": "mk_fresh_name concrete symbol_set, add/contains/next state and borrowed AST manager (model2expr.h:28-39)",
           "status": "ported",
           "go_target": "pkg/model/model2expr_fresh_name.go",
-          "tests": ["TestModel2ExprFreshNameConcreteSymbolSetAndSequence"]
+          "tests": ["TestModel2ExprFreshNameConcreteSymbolSetAndSequence", "TestModel2ExprFreshNameOccupiedCandidateSourceAdvance"]
         },
         {
           "name": "model2expr model reference entry point and result expression owner (model2expr.h:24-26)",

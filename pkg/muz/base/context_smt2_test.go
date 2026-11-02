@@ -236,3 +236,41 @@ func TestContextSMT2DeclaredVariablesReusePerSortAndKeepDeBruijnOrder(t *testing
 		t.Fatal("mixed-sort dump leaked references")
 	}
 }
+
+func TestContextSMT2OccupiedVariableNameUsesSourceSkip(t *testing.T) {
+	f := newRuleSetFixture(t)
+	m := f.manager
+	boolean, err := m.MkBoolSort()
+	ruleMust(t, err)
+	aName, err := m.Symbols.Intern("A")
+	ruleMust(t, err)
+	a, err := m.MkFuncDecl(aName, nil, boolean, ast.ASTFuncDeclInfo{})
+	ruleMust(t, err)
+	ruleMust(t, f.rules.RegisterPredicate(a))
+	atom, err := m.MkApp(a, nil)
+	ruleMust(t, err)
+	pin, err := m.NewRef(atom)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, m.DelRef(&pin)) }()
+	pName, err := m.Symbols.Intern("P")
+	ruleMust(t, err)
+	p, err := m.MkFuncDecl(pName, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
+	ruleMust(t, err)
+	ruleMust(t, f.rules.RegisterPredicate(p))
+	x, err := m.MkVar(0, boolean)
+	ruleMust(t, err)
+	head, err := m.MkApp(p, []ast.ASTHandle{x})
+	ruleMust(t, err)
+	r, err := f.rules.NewRule(head, []ast.ASTHandle{atom}, nil, "step")
+	ruleMust(t, err)
+	defer func() { ruleMust(t, r.Close()) }()
+	set, err := base.NewRuleSet(f.rules)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, set.Close()) }()
+	ruleMust(t, set.Add(r))
+	var out bytes.Buffer
+	ruleMust(t, set.WriteContextSMT2(&out, base.DefaultContextSMT2Config()))
+	if !strings.Contains(out.String(), "(declare-var C Bool)") || !strings.Contains(out.String(), "(=> A (P C))") || strings.Contains(out.String(), "(declare-var B ") {
+		t.Fatal("source occupied-name advancement", out.String())
+	}
+}

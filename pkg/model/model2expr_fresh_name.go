@@ -133,6 +133,8 @@ func (f *FreshName) Next() (usymbol.Symbol, error) {
 			if !f.Contains(s) {
 				return s, nil
 			}
+			// A rejected candidate also executes the source for-loop increment.
+			f.letter++
 		}
 		f.letter = 'A'
 		f.number++
