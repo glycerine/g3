@@ -454,6 +454,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Apply interpreted filters to checked LazySparse pairs through the deferred compiled guard on both sides, rejecting nullary capability and detecting one-sided divergence.
   - [x] Execute checked LazySparse union/delta through each concrete primary/checker implementation in source order, preserving Lazy forcing, cumulative deltas and post-update extensional verification.
   - [x] Execute fused interpreted filtering and projection checker-first over independent concrete clones, preserving Lazy ownership and verifying the projected pair before publication.
+  - [x] Build nullary/unary full nested formula-checked pairs by complementing an independent empty pair, preserving mismatch guards and leaving wider complements explicit.
 - [ ] `src/muz/rel/dl_base.cpp` (partial), `src/muz/rel/dl_base.h` (partial)
 - [ ] `src/muz/rel/dl_bound_relation.cpp` (partial), `src/muz/rel/dl_bound_relation.h` (partial)
   - [x] Concrete Int/Real/nullary plugin capability, empty/full construction, and typed join dispatch.
@@ -719,6 +720,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Exact bound/interval products now expose the source select-equal-then-project fallback. The transformer clones before filtering, removes the selected column, preserves requested component order, source independence and empty propagation, and rejects nil/out-of-range inputs before mutation; public compiler dispatch remains separate.
   Validation: `go -C pkg test ./muz/rel -run '^TestIntervalBoundProductSelect' -count=5` passed. Commit title: `Select and project bound interval products`.
+
+- 2026-11-02 — Nested formula-checked finite pairs now implement the source `mk_full` path by complementing a fresh empty checked/formula pair. Source owners stay independent, primary/checker mismatch rejects before publication, nullary/unary rows are exact and unsupported wider complements remain explicit rather than approximated.
+  Validation: `go -C pkg test ./muz/rel -run '^(TestFormulaCheckedFinitePair|TestRelationExplanationNested)' -count=5` passed. Commit title: `Build full nested checked relations`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
