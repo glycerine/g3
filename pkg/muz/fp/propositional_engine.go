@@ -136,6 +136,7 @@ type PropositionalEngine struct {
 	spacer              *muzspacer.Context
 	spacerStatistics    muzspacer.StatisticsSnapshot
 	scopes              []*base.RuleSet
+	popPhase            contextPopPhase
 	rawRules            []rawRuleFormula
 	rawRuleScopes       [][]rawRuleFormula
 	retiredRawRules     []rawRuleFormula
@@ -148,6 +149,7 @@ type PropositionalEngine struct {
 	queried             bool
 	queryReady          bool
 	queryClone          *PropositionalEngine
+	queryCloneDisposal  *queryCloneCleanup
 	queryCleanup        []*queryCloneCleanup
 	queryCloneRevision  uint64
 	queryClonePredicate ast.ASTHandle
@@ -250,6 +252,16 @@ func NewPropositionalEngine(manager *ast.ASTManager) (*PropositionalEngine, erro
 }
 
 func (e *PropositionalEngine) open() error {
+	if err := e.openState(); err != nil {
+		return err
+	}
+	if e.popPhase != contextPopNone {
+		return ErrPropositionalEngine
+	}
+	return nil
+}
+
+func (e *PropositionalEngine) openState() error {
 	if e == nil || e.closed || e.closing || e.manager == nil || e.rules == nil || e.set == nil || e.binder == nil || e.relations == nil {
 		return ErrPropositionalEngine
 	}
@@ -939,7 +951,7 @@ func (e *PropositionalEngine) Push() error {
 // Pop restores the most recent rule snapshot. Duality also supports popping
 // after queries; PDR/Spacer reject pops once their context has been created.
 func (e *PropositionalEngine) Pop() error {
-	if err := e.open(); err != nil {
+	if err := e.openState(); err != nil {
 		return err
 	}
 	if len(e.scopes) == 0 {
@@ -952,23 +964,20 @@ func (e *PropositionalEngine) Pop() error {
 		return ErrPropositionalEngine
 	}
 	last := len(e.scopes) - 1
-	snapshot := e.scopes[last]
-	if err := e.set.ReplaceRules(snapshot); err != nil {
+	if e.assertionScopes[last] < 0 || e.assertionScopes[last] > len(e.assertions) {
+		return ErrPropositionalEngine
+	}
+	// Refuse native callback reentry before consuming any scope state.
+	if _, err := e.manager.ProofMode(); err != nil {
 		return err
 	}
-	e.revision++
-	e.scopes = e.scopes[:last]
-	e.retiredRawRules = append(e.retiredRawRules, e.rawRules...)
-	e.rawRules = e.rawRuleScopes[last]
-	e.rawRuleScopes = e.rawRuleScopes[:last]
-	assertionSize := e.assertionScopes[last]
-	e.assertionScopes = e.assertionScopes[:last]
-	var result error
-	for i := len(e.assertions) - 1; i >= assertionSize; i-- {
-		result = errors.Join(result, e.manager.DelRef(&e.assertions[i]))
+	if e.popPhase == contextPopNone {
+		e.popPhase = contextPopAssertions
+		e.revision++
+		e.queryReady = false
+		e.lastResult = lbool.Undef
 	}
-	e.assertions = e.assertions[:assertionSize]
-	return errors.Join(result, snapshot.Close(), e.cleanupRetiredRawRules())
+	return e.resumeContextPop()
 }
 
 func (e *PropositionalEngine) validateFragment() error {
@@ -2062,6 +2071,13 @@ func (e *PropositionalEngine) ResetStatistics() error {
 	if err := e.open(); err != nil {
 		return err
 	}
+	// A previous disposal may already have closed the query's solver. Finish
+	// archiving its saved counters before applying the source reset semantics.
+	if e.queryCloneDisposal != nil {
+		if err := e.clearQueryResources(); err != nil {
+			return err
+		}
+	}
 	if err := e.clearQueryCleanup(); err != nil {
 		return err
 	}
@@ -2967,6 +2983,11 @@ func (e *PropositionalEngine) Close() (result error) {
 	// error transport. Refuse before disposing any engine-owned component.
 	if e.manager != nil {
 		if _, err := e.manager.ProofMode(); err != nil {
+			return err
+		}
+	}
+	if e.popPhase != contextPopNone {
+		if err := e.resumeContextPop(); err != nil {
 			return err
 		}
 	}

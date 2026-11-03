@@ -338,30 +338,30 @@ func (e *PropositionalEngine) clearQueryResources() error {
 	if e.queryClone == nil {
 		return nil
 	}
-	var archived pdr.StatisticsSnapshot
-	var archivedSpacer spacer.StatisticsSnapshot
-	var result error
-	archivePDR := e.queryClone.backend == "pdr" || e.queryClone.backend == "qpdr"
-	if archivePDR {
-		archived, result = e.queryClone.snapshotPDRStatistics()
+	// Destruction can close the solver before a later reference release fails.
+	// Save its complete source counters once, while keeping the active clone
+	// available for a refused disposal to resume through the same owner.
+	if e.queryCloneDisposal == nil {
+		e.queryCloneDisposal = &queryCloneCleanup{clone: e.queryClone}
 	}
-	archiveSpacer := e.queryClone.backend == "spacer"
-	if archiveSpacer {
-		archivedSpacer, result = e.queryClone.snapshotSpacerStatistics()
+	pending := e.queryCloneDisposal
+	if err := pending.captureStatistics(); err != nil {
+		return err
 	}
 	if err := e.queryClone.Close(); err != nil {
-		return errors.Join(result, fmt.Errorf("muz/fp: close expression-query clone: %w", err))
+		return fmt.Errorf("muz/fp: close expression-query clone: %w", err)
 	}
-	if archivePDR && result == nil {
-		e.pdrStatistics.Merge(archived)
-	}
-	if archiveSpacer && result == nil {
-		e.spacerStatistics.Merge(archivedSpacer)
+	switch pending.clone.backend {
+	case "pdr", "qpdr":
+		e.pdrStatistics.Merge(pending.pdr)
+	case "spacer":
+		e.spacerStatistics.Merge(pending.spacer)
 	}
 	e.queryClone = nil
+	e.queryCloneDisposal = nil
 	e.queryCloneRevision = 0
 	e.queryClonePredicate = ast.ASTHandle{}
-	return result
+	return nil
 }
 
 // ExpressionAnswer returns the backend answer to the most recent expression

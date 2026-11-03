@@ -34,11 +34,15 @@ func (e *PropositionalEngine) snapshotPDRStatistics() (pdr.StatisticsSnapshot, e
 		result.Merge(current)
 	}
 	if e.queryClone != nil && (e.queryClone.backend == "pdr" || e.queryClone.backend == "qpdr") {
-		current, err := e.queryClone.snapshotPDRStatistics()
-		if err != nil {
-			return result, err
+		if pending := e.queryCloneDisposal; pending != nil && pending.statisticsReady && pending.clone.closing {
+			result.Merge(pending.pdr)
+		} else {
+			current, err := e.queryClone.snapshotPDRStatistics()
+			if err != nil {
+				return result, err
+			}
+			result.Merge(current)
 		}
-		result.Merge(current)
 	}
 	return result, nil
 }
@@ -54,14 +58,18 @@ func (e *PropositionalEngine) collectPDRStatistics(destination *statistics.Stati
 		}
 	}
 	if e.queryClone != nil && (e.queryClone.backend == "pdr" || e.queryClone.backend == "qpdr") {
-		if e.pdr != nil {
-			current, err := e.pdr.SnapshotStatistics()
-			if err != nil {
-				return err
+		if pending := e.queryCloneDisposal; pending != nil && pending.statisticsReady && pending.clone.closing {
+			previous.Merge(pending.pdr)
+		} else {
+			if e.pdr != nil {
+				current, err := e.pdr.SnapshotStatistics()
+				if err != nil {
+					return err
+				}
+				previous.Merge(current)
 			}
-			previous.Merge(current)
+			return e.queryClone.collectPDRStatistics(destination, previous)
 		}
-		return e.queryClone.collectPDRStatistics(destination, previous)
 	}
 	if e.pdr != nil {
 		return e.pdr.CollectStatisticsWithSnapshot(destination, previous)

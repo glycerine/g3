@@ -24,11 +24,15 @@ func (e *PropositionalEngine) snapshotSpacerStatistics() (spacer.StatisticsSnaps
 		result.Merge(current)
 	}
 	if e.queryClone != nil && e.queryClone.backend == "spacer" {
-		current, err := e.queryClone.snapshotSpacerStatistics()
-		if err != nil {
-			return result, err
+		if pending := e.queryCloneDisposal; pending != nil && pending.statisticsReady && pending.clone.closing {
+			result.Merge(pending.spacer)
+		} else {
+			current, err := e.queryClone.snapshotSpacerStatistics()
+			if err != nil {
+				return result, err
+			}
+			result.Merge(current)
 		}
-		result.Merge(current)
 	}
 	return result, nil
 }
@@ -44,14 +48,18 @@ func (e *PropositionalEngine) collectSpacerStatistics(destination *statistics.St
 		}
 	}
 	if e.queryClone != nil && e.queryClone.backend == "spacer" {
-		if e.spacer != nil {
-			current, err := e.spacer.SnapshotStatistics()
-			if err != nil {
-				return err
+		if pending := e.queryCloneDisposal; pending != nil && pending.statisticsReady && pending.clone.closing {
+			previous.Merge(pending.spacer)
+		} else {
+			if e.spacer != nil {
+				current, err := e.spacer.SnapshotStatistics()
+				if err != nil {
+					return err
+				}
+				previous.Merge(current)
 			}
-			previous.Merge(current)
+			return e.queryClone.collectSpacerStatistics(destination, previous)
 		}
-		return e.queryClone.collectSpacerStatistics(destination, previous)
 	}
 	if e.spacer != nil {
 		return e.spacer.CollectStatisticsWithSnapshot(destination, previous)
