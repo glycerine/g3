@@ -412,11 +412,24 @@ func (p *FiniteCheckedPair) Len() (int, error) {
 	return p.primary.Len()
 }
 func (p *FiniteCheckedPair) SizeEstimateRows() (uint32, error) {
-	rows, err := p.Len()
-	return uint32(rows), err
+	if err := p.open(); err != nil {
+		return 0, err
+	}
+	// Source check_table forwards metadata without iterating either side.
+	// In particular, lazy_table's estimate remains 1 after materialization.
+	switch primary := p.primary.(type) {
+	case *HashTable:
+		return primary.SizeEstimateRows()
+	case *SparseTable:
+		return primary.SizeEstimateRows()
+	case *LazySparseTable:
+		return primary.SizeEstimateRows()
+	default:
+		return 0, ErrCheckTable
+	}
 }
 func (p *FiniteCheckedPair) SizeEstimateBytes() (uint32, error) {
-	if err := p.verify("size estimate"); err != nil {
+	if err := p.open(); err != nil {
 		return 0, err
 	}
 	switch primary := p.primary.(type) {
