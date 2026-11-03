@@ -107,14 +107,32 @@ func TestSpacerSymbolicNonlinearWitnessOriginalClauses(t *testing.T) {
 				}
 				forms, names, err := e.RulesAlongTrace()
 				fragmentMust(t, err)
+				typedForms, typedNames, err := e.RulesAlongTraceWithSymbols()
+				fragmentMust(t, err)
+				if len(typedForms) != len(forms) || len(typedNames) != len(names) || len(forms) != len(names) {
+					t.Fatal("typed trace shape differs from source string view")
+				}
 				occurrences := map[string]int{}
 				for i, name := range names {
+					if (typedNames[i] == (symbol.Symbol{})) != (i == 0) {
+						t.Fatal("synthetic query null label identity", i, typedNames[i])
+					}
+					text, err := m.Symbols.String(typedNames[i])
+					fragmentMust(t, err)
+					formula, err := m.RefGet(typedForms[i])
+					fragmentMust(t, err)
+					want, err := m.RefGet(forms[i])
+					fragmentMust(t, err)
+					if text != name || formula != want {
+						t.Fatal("typed trace changed label spelling or formula order", i)
+					}
 					occurrences[name]++
+					fragmentMust(t, m.DelRef(&typedForms[i]))
 					fragmentMust(t, m.DelRef(&forms[i]))
 				}
-				wantNames := map[string]int{"": 1, "numeric-goal-step": 1, "numeric-left-step": 1, "numeric-right-step": 1, "numeric-leaf-range": 2}
+				wantNames := map[string]int{"<null>": 1, "numeric-goal-step": 1, "numeric-left-step": 1, "numeric-right-step": 1, "numeric-leaf-range": 2}
 				if eagerInline {
-					wantNames = map[string]int{"": 1, "numeric-goal-step;numeric-left-step;numeric-right-step": 1, "numeric-leaf-range": 2}
+					wantNames = map[string]int{"<null>": 1, "numeric-goal-step;numeric-left-step;numeric-right-step": 1, "numeric-leaf-range": 2}
 					for _, predicate := range []ast.ASTHandle{left, right} {
 						eliminated, err := e.hornInlineEliminated(e.spacerConversions, predicate)
 						fragmentMust(t, err)

@@ -420,11 +420,24 @@ func TestSpacerEngineRunsReachableAndInductiveHornQueries(t *testing.T) {
 	}
 	trace, names, err := engine.RulesAlongTrace()
 	fpMust(t, err)
-	// Default preprocessing inlines the source query wrapper to an unnamed
-	// fact; the trace starts with that query rule.
-	if len(trace) != 1 || len(names) != 1 || names[0] != "" {
+	// Default preprocessing/subsumption simplifies the query to an unnamed
+	// fact; source symbol::str renders that null name as "<null>".
+	if len(trace) != 1 || len(names) != 1 || names[0] != "<null>" {
 		t.Fatal("Spacer preorder trace rules", names, len(trace))
 	}
+	typedTrace, labels, err := engine.RulesAlongTraceWithSymbols()
+	fpMust(t, err)
+	if len(typedTrace) != 1 || len(labels) != 1 || !labels[0].IsNull() {
+		t.Fatal("synthetic Spacer trace label is not a null symbol", labels)
+	}
+	textRule, err := manager.RefGet(trace[0])
+	fpMust(t, err)
+	typedRule, err := manager.RefGet(typedTrace[0])
+	fpMust(t, err)
+	if typedRule != textRule {
+		t.Fatal("typed trace changed the synthetic query formula")
+	}
+	fpMust(t, manager.DelRef(&typedTrace[0]))
 	for index := len(trace) - 1; index >= 0; index-- {
 		fpMust(t, manager.DelRef(&trace[index]))
 	}

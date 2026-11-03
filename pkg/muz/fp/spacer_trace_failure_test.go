@@ -68,7 +68,9 @@ func testSpacerExpressionTraceFailure(t *testing.T, spare int) {
 					fragmentMust(t, m.DelRef(&forms[i]))
 				}
 			}
-			want := []string{"", "failed-expression-zero"}
+			// The synthetic query has a null symbol, whose source str() is
+			// "<null>"; an explicitly empty rule label would print "".
+			want := []string{"<null>", "failed-expression-zero"}
 			m.Budget().FailAfter(stop)
 			forms, names, failure := e.RulesAlongTrace()
 			m.Budget().FailAfter(-1)
@@ -105,6 +107,23 @@ func testSpacerExpressionTraceFailure(t *testing.T, spare int) {
 			if fact != f.fact {
 				t.Fatal("trace leaf is not the original numeric fact", fact, f.fact)
 			}
+			typedForms, labels, err := e.RulesAlongTraceWithSymbols()
+			fragmentMust(t, err)
+			leafLabel, err := m.Symbols.Intern("failed-expression-zero")
+			fragmentMust(t, err)
+			if len(typedForms) != 2 || len(labels) != 2 || !labels[0].IsNull() || labels[1] != leafLabel {
+				t.Fatal("retry trace lost the synthetic null or original leaf label", labels)
+			}
+			for i, ref := range typedForms {
+				typed, err := m.RefGet(ref)
+				fragmentMust(t, err)
+				text, err := m.RefGet(forms[i])
+				fragmentMust(t, err)
+				if typed != text {
+					t.Fatal("typed retry trace changed formula order", i)
+				}
+			}
+			release(typedForms)
 			fragmentMust(t, e.AddRule(f.fact, "retire-trace-query"))
 			m.Budget().FailAfter(0)
 			stale, staleNames, staleErr := e.RulesAlongTrace()

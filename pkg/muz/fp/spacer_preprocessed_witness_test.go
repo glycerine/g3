@@ -105,24 +105,42 @@ func TestSpacerPreprocessedSharedWitnessExports(t *testing.T) {
 					fragmentMust(t, m.DelRef(&forms[i]))
 				}
 			}()
+			typedForms, typedNames, err := e.RulesAlongTraceWithSymbols()
+			fragmentMust(t, err)
+			defer func() { fragmentMust(t, closeASTRefs(m, typedForms)) }()
+			if len(typedForms) != len(forms) || len(typedNames) != len(traceNames) || len(forms) != len(traceNames) {
+				t.Fatal("typed trace shape differs from source string view")
+			}
+			for i, name := range typedNames {
+				if (name == (symbol.Symbol{})) != (mode != "inline" && i == 0) {
+					t.Fatal("synthetic query null label identity", i, name)
+				}
+				text, err := m.Symbols.String(name)
+				fragmentMust(t, err)
+				formula, err := m.RefGet(typedForms[i])
+				fragmentMust(t, err)
+				want, err := m.RefGet(forms[i])
+				fragmentMust(t, err)
+				if text != traceNames[i] || formula != want {
+					t.Fatal("typed trace changed label spelling or formula order", i)
+				}
+			}
 			if mode == "inline" {
 				if !m.IsTrue(root) || len(forms) != 1 {
 					t.Fatal("inlined fact export", len(forms))
 				}
 				got := map[string]int{}
 				for _, name := range strings.Split(traceNames[0], ";") {
-					if name != "" {
-						got[name]++
-					}
+					got[name]++
 				}
-				want := map[string]int{"goal-rule": 1, "root-rule": 1, "left-rule": 1, "right-rule": 1, "mid-rule": 1, "leaf-fact": 2}
+				want := map[string]int{"<null>": 1, "goal-rule": 1, "root-rule": 1, "left-rule": 1, "right-rule": 1, "mid-rule": 1, "leaf-fact": 2}
 				if !reflect.DeepEqual(got, want) {
 					t.Fatal("source inlined name occurrences", traceNames, got, want)
 				}
 			} else {
 				// Source HNF flatten_and moves the final appended body child
 				// into the conjunction slot, so right precedes left here.
-				wantNames := []string{"", "goal-rule", "root-rule", "right-rule", "left-rule", "mid-rule", "leaf-fact", "leaf-fact"}
+				wantNames := []string{"<null>", "goal-rule", "root-rule", "right-rule", "left-rule", "mid-rule", "leaf-fact", "leaf-fact"}
 				if !reflect.DeepEqual(traceNames, wantNames) {
 					t.Fatal("source queue trace names", traceNames, wantNames)
 				}
