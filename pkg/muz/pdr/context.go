@@ -759,11 +759,14 @@ func (c *Context) ResetStatistics() error {
 }
 
 func (c *Context) Close() (result error) {
-	if c == nil || c.manager == nil {
+	if c == nil {
 		return ErrContextOwner
 	}
 	if c.closed {
 		return nil
+	}
+	if c.manager == nil {
+		return ErrContextOwner
 	}
 	if c.search != nil {
 		if err := c.search.Close(); err != nil {
