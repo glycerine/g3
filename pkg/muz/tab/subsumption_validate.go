@@ -128,6 +128,12 @@ func validateSubsumption(m *ast.ASTManager, candidate *Clause, bindings *substit
 }
 
 func normalizeSubsumptionLiteral(m *ast.ASTManager, h ast.ASTHandle) (ast.ASTHandle, error) {
+	// Source is_eq accepts arbitrary expressions; non-applications pass
+	// through unchanged before check_substitution's groundness restriction.
+	nodeKind, err := m.GetKind(h)
+	if err != nil || nodeKind != ast.ASTApp {
+		return h, err
+	}
 	family, err := m.GetFamilyID(h)
 	if err != nil || family != 0 {
 		return h, err
