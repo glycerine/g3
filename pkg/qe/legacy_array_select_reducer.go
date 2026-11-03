@@ -8,11 +8,68 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 type legacyArrayFormula struct {
 	manager *ast.ASTManager
 	formula ast.ASTRef
+}
+
+type legacyArrayRewriteConstructionFailure struct {
+	manager        *ast.ASTManager
+	result         ast.ASTRef
+	nested         memory.ConstructionFailure
+	runtime        *memory.Runtime
+	cause, cleanup error
+	reported       error
+}
+
+var _ memory.ConstructionFailure = (*legacyArrayRewriteConstructionFailure)(nil)
+
+func (f *legacyArrayRewriteConstructionFailure) Error() string                 { return f.reported.Error() }
+func (f *legacyArrayRewriteConstructionFailure) Unwrap() error                 { return f.reported }
+func (f *legacyArrayRewriteConstructionFailure) OriginalCause() error          { return f.cause }
+func (f *legacyArrayRewriteConstructionFailure) CleanupCause() error           { return f.cleanup }
+func (f *legacyArrayRewriteConstructionFailure) RuntimeOwner() *memory.Runtime { return f.runtime }
+func (f *legacyArrayRewriteConstructionFailure) Cleanup() error {
+	if f.nested != nil {
+		f.cleanup = f.nested.Cleanup()
+		if f.cleanup != nil {
+			return f.cleanup
+		}
+		f.nested = nil
+	}
+	if f.result == (ast.ASTRef{}) {
+		f.cleanup = nil
+		return nil
+	}
+	f.cleanup = f.manager.DelRef(&f.result)
+	return f.cleanup
+}
+
+func closeFailedLegacyArrayRewrite(manager *ast.ASTManager, result ast.ASTRef, cause error) error {
+	cleanup := manager.DelRef(&result)
+	if cleanup == nil {
+		return cause
+	}
+	if result == (ast.ASTRef{}) {
+		return errors.Join(cause, cleanup)
+	}
+	origin := cause
+	if origin == nil {
+		origin = cleanup
+	}
+	reported := cleanup
+	if cause != nil {
+		reported = errors.Join(cause, cleanup)
+	}
+	var nested memory.ConstructionFailure
+	_ = errors.As(cause, &nested)
+	return &legacyArrayRewriteConstructionFailure{
+		manager: manager, result: result, nested: nested, runtime: manager.NumeralService().RuntimeOwner(),
+		cause: origin, cleanup: cleanup, reported: reported,
+	}
 }
 
 func (r *legacyArrayFormula) Close() error {
@@ -32,7 +89,7 @@ func (p *legacyArrayProjection) rewrite(expression ast.ASTHandle) (_ ast.ASTRef,
 		return ast.ASTRef{}, err
 	}
 	if err = p.theory.Rewrite(expression, result); err != nil {
-		return ast.ASTRef{}, errors.Join(err, p.syntax.manager.DelRef(&result))
+		return ast.ASTRef{}, closeFailedLegacyArrayRewrite(p.syntax.manager, result, err)
 	}
 	return result, nil
 }
