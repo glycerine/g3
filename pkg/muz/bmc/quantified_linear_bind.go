@@ -3,7 +3,6 @@ package bmc
 // Source: src/muz/bmc/dl_bmc_engine.cpp, qlinear::get_model substitutions.
 
 import (
-	"errors"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -19,32 +18,25 @@ func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, lev
 		return nil, ast.ErrASTHandle
 	}
 	m := c.manager
-	q, err := newQuantifiedLinear(m, width)
-	if err != nil {
-		return nil, err
-	}
+	owner := &quantifiedLinearBindingOwner{manager: m}
 	defer func() {
-		resultErr = q.disposeResults(result, resultErr)
-		if resultErr != nil {
-			result = nil
-		}
+		result, resultErr = finishQuantifiedLinearBindings(owner, resultErr)
 	}()
+	q, err := newQuantifiedLinear(m, width)
+	owner.terms = q
+	if err != nil {
+		return nil, err
+	}
 	evaluator, err := model.NewModelEvaluator(md, services)
+	owner.evaluator = evaluator
 	if err != nil {
-		if evaluator != nil {
-			err = errors.Join(err, evaluator.Close())
-		}
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
 	sub, err := rewriter.NewVarSubstitution(m, false)
+	owner.substitution = sub
 	if err != nil {
-		if sub != nil {
-			err = errors.Join(err, sub.Close())
-		}
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
 	predicate, err := rule.HeadDeclaration()
 	if err != nil {
 		return nil, err
@@ -57,7 +49,8 @@ func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, lev
 	if err != nil {
 		return nil, err
 	}
-	result = make([]ast.ASTRef, len(bindings))
+	owner.outputs = make([]ast.ASTRef, len(bindings))
+	result = owner.outputs
 	for i, binding := range bindings {
 		if binding.IsNull() {
 			continue
