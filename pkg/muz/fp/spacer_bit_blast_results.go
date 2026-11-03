@@ -38,19 +38,28 @@ func (e *PropositionalEngine) expandSpacerBitBlastedFunction(destination *model.
 			resultErr = errors.Join(resultErr, e.manager.DelRef(&pins[i]))
 		}
 	}()
-	pin := func(handle ast.ASTHandle) error {
-		reference, pinErr := e.manager.NewRef(handle)
-		if pinErr == nil {
+	reserve := func() (ast.ASTRef, error) {
+		reference, pinErr := e.manager.NewRef(ast.ASTHandle{})
+		if reference != (ast.ASTRef{}) {
 			pins = append(pins, reference)
 		}
-		return pinErr
+		return reference, pinErr
 	}
 	for i := uint32(0); i < oldArity; i++ {
 		sort, getErr := e.manager.GetDomain(original, i)
 		if getErr != nil {
 			return getErr
 		}
+		// Source arg/proj are expr_refs. Reserve their owners before creating
+		// fresh nodes, including arguments unused by the derived model body.
+		argumentRef, getErr := reserve()
+		if getErr != nil {
+			return getErr
+		}
 		argument, getErr := e.manager.MkVar(i, sort)
+		if !argument.IsNull() {
+			getErr = errors.Join(getErr, e.manager.SetRef(argumentRef, argument))
+		}
 		if getErr != nil {
 			return getErr
 		}
@@ -67,11 +76,15 @@ func (e *PropositionalEngine) expandSpacerBitBlastedFunction(destination *model.
 			return getErr
 		}
 		for bit := uint32(0); bit < width; bit++ {
-			projection, projectionErr := e.manager.MkBitVectorBit2Bool(bit, argument)
+			projectionRef, projectionErr := reserve()
 			if projectionErr != nil {
 				return projectionErr
 			}
-			if projectionErr = pin(projection); projectionErr != nil {
+			projection, projectionErr := e.manager.MkBitVectorBit2Bool(bit, argument)
+			if !projection.IsNull() {
+				projectionErr = errors.Join(projectionErr, e.manager.SetRef(projectionRef, projection))
+			}
+			if projectionErr != nil {
 				return projectionErr
 			}
 			bindings = append(bindings, projection)
