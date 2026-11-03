@@ -125,41 +125,8 @@ func validateSubsumption(m *ast.ASTManager, candidate *Clause, bindings *substit
 		return false, err
 	}
 	if status == lbool.True && falseLiterals != nil && evaluator != nil {
-		md, e := smt.AcquireModel()
-		if e != nil {
-			return false, e
-		}
-		if md != nil {
-			defer func() { err = errors.Join(err, md.DecRef()) }()
-			ev, e := model.NewModelEvaluator(md, *evaluator)
-			if e != nil {
-				return false, e
-			}
-			defer func() { err = errors.Join(err, ev.Close()) }()
-			for _, value := range values {
-				result, evalErr := ev.EvaluateValue(value)
-				if evalErr != nil {
-					return false, evalErr
-				}
-				actual, evalErr := m.RefGet(result)
-				evalErr = errors.Join(evalErr, m.DelRef(&result))
-				if evalErr != nil {
-					return false, evalErr
-				}
-				if m.IsFalse(actual) {
-					key, e := normalizeSubsumptionLiteral(m, value)
-					if e != nil {
-						return false, e
-					}
-					if _, exists := falseLiterals[key]; !exists {
-						ref, refErr := m.NewRef(key)
-						if refErr != nil {
-							return false, refErr
-						}
-						falseLiterals[key] = ref
-					}
-				}
-			}
+		if err = cacheFalseSubsumptionLiterals(m, smt, values, falseLiterals, *evaluator); err != nil {
+			return false, err
 		}
 	}
 	return status == lbool.False, nil
