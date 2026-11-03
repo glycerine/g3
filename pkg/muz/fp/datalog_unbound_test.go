@@ -11,14 +11,19 @@ import (
 
 func TestDatalogUnboundCompressorLiveParametersAndScopedRules(t *testing.T) {
 	for _, tc := range []struct {
-		name, module, local, relation string
-		compressed                    bool
+		name, module, local, relation   string
+		transformModule, transformLocal string
+		compressed                      bool
 	}{
 		{name: "default", compressed: true},
 		{name: "module-disabled", module: "false"},
 		{name: "local-disabled", module: "true", local: "false"},
 		{name: "local-enabled", module: "false", local: "true", compressed: true},
 		{name: "doc-disables", local: "true", relation: "doc"},
+		{name: "transform-module-disabled", module: "true", transformModule: "false"},
+		{name: "transform-local-disabled", transformModule: "true", transformLocal: "false"},
+		{name: "transform-local-enabled", transformModule: "false", transformLocal: "true", compressed: true},
+		{name: "outer-disable-wins", module: "false", transformLocal: "true"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newDirectFactFixture(t)
@@ -28,11 +33,18 @@ func TestDatalogUnboundCompressorLiveParametersAndScopedRules(t *testing.T) {
 			if tc.module != "" {
 				must(e.globals.SourceSetName("fixedpoint.datalog.unbound_compressor", tc.module))
 			}
+			if tc.transformModule != "" {
+				must(e.globals.SourceSetName("fixedpoint.xform.compress_unbound", tc.transformModule))
+			}
 			value, err := e.params.NewValue()
 			must(err)
 			if tc.local != "" {
 				key := "datalog.unbound_compressor"
 				must(e.params.SetBoolName(&value, &key, tc.local == "true"))
+			}
+			if tc.transformLocal != "" {
+				key := "xform.compress_unbound"
+				must(e.params.SetBoolName(&value, &key, tc.transformLocal == "true"))
 			}
 			if tc.relation != "" {
 				key := "datalog.default_relation"
@@ -106,17 +118,22 @@ func TestDatalogUnboundCompressorLiveParametersAndScopedRules(t *testing.T) {
 				t.Fatal("original Boolean relation lost tuples", count)
 			}
 			if tc.name == "default" {
-				for _, enabled := range []bool{false, true} {
+				for _, setting := range []struct {
+					key     string
+					enabled bool
+				}{
+					{"datalog.unbound_compressor", false}, {"datalog.unbound_compressor", true},
+					{"xform.compress_unbound", false}, {"xform.compress_unbound", true},
+				} {
 					updated, err := e.params.NewValue()
 					must(err)
-					key := "datalog.unbound_compressor"
-					must(e.params.SetBoolName(&updated, &key, enabled))
+					must(e.params.SetBoolName(&updated, &setting.key, setting.enabled))
 					must(e.SetQueryParameters(&updated))
 					must(e.params.Del(&updated))
 					scope, err := e.prepareDatalogUnbound([]ast.ASTHandle{f.declarations["q"]})
 					must(err)
-					if (scope != nil) != enabled {
-						t.Fatal("parameter update did not change compression", enabled)
+					if (scope != nil) != setting.enabled {
+						t.Fatal("parameter update did not change compression", setting.key, setting.enabled)
 					}
 					if scope != nil {
 						must(scope.Close())

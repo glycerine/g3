@@ -67,12 +67,18 @@ func (s *datalogUnboundScope) Close() error {
 // may request a predicate whose unbound columns this query can project away.
 func (e *PropositionalEngine) prepareDatalogUnbound(outputs []ast.ASTHandle) (_ *datalogUnboundScope, resultErr error) {
 	enabled := true
+	compress := true
 	if e.params != nil && e.globals != nil {
 		view, err := e.fixedpointParamView()
 		if err != nil {
 			return nil, err
 		}
 		enabled, err = view.Bool("datalog.unbound_compressor", true)
+		if err == nil && enabled {
+			// The outer registration switch and the transform's own gate
+			// are distinct source parameters, with the same local precedence.
+			compress, err = view.Bool("xform.compress_unbound", true)
+		}
 		if err == nil && enabled {
 			relation, cause := view.Symbol("datalog.default_relation", symbol.Symbol{})
 			err = cause
@@ -126,7 +132,7 @@ func (e *PropositionalEngine) prepareDatalogUnbound(outputs []ast.ASTHandle) (_ 
 	if !valid {
 		return nil, fmt.Errorf("muz/fp: negation is not stratified")
 	}
-	plugin := transforms.NewUnboundCompressorPlugin(e.manager, e.rules, true, 0)
+	plugin := transforms.NewUnboundCompressorPlugin(e.manager, e.rules, compress, 0)
 	transformer := base.NewRuleTransformer()
 	if err = transformer.Register(plugin); err != nil {
 		return nil, errors.Join(err, plugin.Close(), transformer.Close())
