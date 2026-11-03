@@ -20,14 +20,16 @@ func TestSpacerLiteralExpansionPreservesRootsDuringPendingCleanup(t *testing.T) 
 	}
 	budget := arena.NewBudget(1 << 24)
 	var expansion literalExpansion
+	semantic := errors.New("literal expansion construction failed")
+	var failure error
 	active, callbacks, intact := false, 0, true
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(source memory.Failure) error {
 		if active {
 			callbacks++
-			for i := 0; i < 2; i++ {
-				cause := expansion.Close()
-				intact = intact && errors.Is(cause, ast.ErrASTPending) && len(expansion.refs) == 1 && len(expansion.literals) == 1
+			if failure == nil {
+				failure = finishLiteralExpansionFailure(&expansion, semantic)
 			}
+			intact = intact && errors.Is(failure, semantic) && errors.Is(failure, ast.ErrASTPending) && len(expansion.refs) == 1 && len(expansion.literals) == 1
 		}
 		return source
 	}})
@@ -76,10 +78,18 @@ func TestSpacerLiteralExpansionPreservesRootsDuringPendingCleanup(t *testing.T) 
 	if expansion.refs[0] != truth || expansion.literals[0] != truth {
 		t.Fatal("pending cleanup changed expansion identity")
 	}
+	var receipt memory.ConstructionFailure
+	if !errors.As(failure, &receipt) || receipt.RuntimeOwner() != runtime || receipt.OriginalCause() != semantic || !errors.Is(receipt.CleanupCause(), ast.ErrASTPending) {
+		t.Fatal("pending cleanup lost stable literal-expansion receipt", failure)
+	}
+	message, exposed := receipt.Error(), receipt.Unwrap()
 	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
-	must(expansion.Close())
-	must(expansion.Close())
+	must(receipt.Cleanup())
+	must(receipt.Cleanup())
 	if len(expansion.refs) != 0 || expansion.literals != nil {
 		t.Fatal("cleanup retry did not retire expansion owners")
+	}
+	if receipt.CleanupCause() != nil || receipt.OriginalCause() != semantic || receipt.Error() != message || receipt.Unwrap() != exposed {
+		t.Fatal("cleanup retry changed literal-expansion receipt identity")
 	}
 }

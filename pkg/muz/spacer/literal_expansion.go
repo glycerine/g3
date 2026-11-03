@@ -10,10 +10,12 @@ import (
 // literalExpansion owns the source extra_lits vector. Construction pins are
 // released when finish publishes its roots, before candidate checks begin.
 type literalExpansion struct {
-	manager           *ast.ASTManager
-	literals          []ast.ASTHandle
-	refs              []ast.ASTHandle
-	cause, cleanupErr error
+	manager              *ast.ASTManager
+	literals             []ast.ASTHandle
+	refs                 []ast.ASTHandle
+	original, cleanupErr error
+	reported             error
+	reportText           string
 }
 
 func (e *literalExpansion) keep(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
@@ -61,11 +63,22 @@ func (e *literalExpansion) Close() (result error) {
 	return result
 }
 
-func (e *literalExpansion) Error() string  { return e.cause.Error() }
-func (e *literalExpansion) Unwrap() error  { return e.cause }
+func finishLiteralExpansionFailure(e *literalExpansion, cause error) error {
+	cleanup := e.Close()
+	if cleanup == nil {
+		return cause
+	}
+	reported := errors.Join(cause, cleanup)
+	e.original, e.cleanupErr = cause, cleanup
+	e.reported, e.reportText = reported, reported.Error()
+	return e
+}
+
+func (e *literalExpansion) Error() string  { return e.reportText }
+func (e *literalExpansion) Unwrap() error  { return e.reported }
 func (e *literalExpansion) Cleanup() error { e.cleanupErr = e.Close(); return e.cleanupErr }
 func (e *literalExpansion) RuntimeOwner() *memory.Runtime {
 	return e.manager.NumeralService().RuntimeOwner()
 }
-func (e *literalExpansion) OriginalCause() error { return e.cause }
+func (e *literalExpansion) OriginalCause() error { return e.original }
 func (e *literalExpansion) CleanupCause() error  { return e.cleanupErr }

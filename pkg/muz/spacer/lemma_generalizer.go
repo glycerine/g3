@@ -85,10 +85,7 @@ func (p *PredicateTransformer) expandInductiveLiteral(literal ast.ASTHandle) (re
 	owner := &literalExpansion{manager: p.manager}
 	defer func() {
 		if resultErr != nil {
-			if cleanup := owner.Close(); cleanup != nil {
-				owner.cause, owner.cleanupErr = errors.Join(resultErr, cleanup), cleanup
-				resultErr = owner
-			}
+			resultErr = finishLiteralExpansionFailure(owner, resultErr)
 		}
 	}()
 	if _, err := owner.keep(literal, nil); err != nil {

@@ -197,6 +197,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Verify nested datatype fields appended during literal expansion are revisited across integer, Boolean and bit-vector fields; check source displacement order, positive appended-bit re-expansion and SMT equivalence in both equality orientations.
   - [x] Scan nested mixed-field expansion allocations through first success with exact semantic retry, preserved caller/proof-mode ownership and zero-budget final disposal.
   - [x] Preserve the live expansion vector's exact AST roots across refused native cleanup and complete repeatable retry with zero budget.
+  - [x] Keep literal-expansion construction receipts' semantic origin and reported error stable while native cleanup advances independently through retry.
   - [ ] Complete remaining expand_literals trace/exception and live-consumer audit before closing its whole source method.
 - [ ] Finish slice-proof conversion for every live source proof shape. Sparse/trailing/vacuous/mixed-sort binders and reverse binary resolution have focused evidence; full substitution/ownership/exception closure remains open.
   - [x] Enumerate source hyper-resolution producers and position-preserving rebuilders; cover unary instantiation, forward multi-premise resolution and nested reverse-binary/forward resolution (source map below).
@@ -511,6 +512,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Spacer literal-expansion construction failures now separate the semantic origin from retryable native cleanup. The receipt freezes `Error`/`Unwrap` and preserves every literal/root while `CleanupCause` advances to success, so generalizer retry cannot lose or relabel its live expansion vector; remaining trace/consumer auditing stays open.
+  Validation: `go -C pkg test ./muz/spacer -run '^(TestSpacerLiteralExpansionPreservesRootsDuringPendingCleanup|TestSpacer.*Literal.*Expansion|TestSpacer.*Generalizer)' -count=3` passed. Commit title: `Stabilize Spacer literal expansion cleanup receipts`.
 
 - 2026-11-02 — Spacer context and predicate-transformer statistics now stage complete contributions before touching the caller destination. Late solver/frame/timer or brunch-output failure publishes no prefix, so retry contributes each counter exactly once while preserving preexisting caller statistics; clone snapshot and teardown continuation audits remain open.
   Validation: `go -C pkg test ./muz/spacer -run '^(TestSpacerStatisticsCollectionRetryDoesNotDuplicatePartialCounters|TestSpacerPredicateStatisticsRetryDoesNotDuplicatePartialCounters)$' -count=3` passed. Commit title: `Publish Spacer statistics transactionally`.
