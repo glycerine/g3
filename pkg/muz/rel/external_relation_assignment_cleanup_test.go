@@ -115,7 +115,7 @@ func TestExternalAssignmentCleanupRefusalKeepsRetryOwner(t *testing.T) {
 			t.Fatal("external assignment refusal lost retry owner", failure, callbackKind, callbackCount)
 		}
 		owned, ok := receipt.(*externalAssignmentCleanupFailure)
-		if !ok || owned.RuntimeOwner() != runtime || len(owned.attempt.roots) != 1 || owned.assignmentCommitted() {
+		if !ok || owned.RuntimeOwner() != runtime || len(owned.attempt.roots) != 1 || owned.assignmentCommitted() || ExternalAssignmentCommitted(failure) {
 			t.Fatal("external assignment receipt lost app-root frontier", owned)
 		}
 		return owned, receipt
@@ -172,7 +172,7 @@ func TestExternalAssignmentCleanupRefusalKeepsRetryOwner(t *testing.T) {
 		t.Fatal("native assignment finalizer lost retry receipt", nativeFailure)
 	}
 	owned, ok := receipt.(*externalAssignmentCleanupFailure)
-	if !ok || len(owned.attempt.roots) != 1 || owned.attempt.roots[0] == (ast.ASTRef{}) || !owned.assignmentCommitted() {
+	if !ok || len(owned.attempt.roots) != 1 || owned.attempt.roots[0] == (ast.ASTRef{}) || !owned.assignmentCommitted() || !ExternalAssignmentCommitted(nativeFailure) {
 		t.Fatalf("native assignment finalizer lost live root frontier: type=%T roots=%#v", receipt, owned.attempt.roots)
 	}
 	checkRetry(owned, receipt, nil)

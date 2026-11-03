@@ -38,11 +38,15 @@ type externalIntervalDatalogEntry struct {
 // the current rule-free program. The callback plugin is borrowed from the
 // fixedpoint context and must outlive this owner.
 type externalIntervalDatalogActivation struct {
-	manager *ast.ASTManager
-	plugin  *rel.ExternalRelationPlugin
-	entries map[ast.ASTHandle]*externalIntervalDatalogEntry
-	order   []ast.ASTHandle
-	closed  bool
+	manager                  *ast.ASTManager
+	plugin                   *rel.ExternalRelationPlugin
+	entries                  map[ast.ASTHandle]*externalIntervalDatalogEntry
+	order                    []ast.ASTHandle
+	identity                 *externalIntervalDatalogIdentityRule
+	pending                  memory.ConstructionFailure
+	pendingCompletesIdentity bool
+	pendingIdentity          *externalIntervalDatalogIdentityRule
+	closed                   bool
 }
 
 type externalIntervalDatalogConstructionFailure struct {
@@ -223,6 +227,9 @@ func (a *externalIntervalDatalogActivation) addFact(declaration ast.ASTHandle, v
 	if err := a.open(); err != nil {
 		return err
 	}
+	if _, err := a.resumeExternalIntervalIdentity(); err != nil {
+		return err
+	}
 	entry := a.entries[declaration]
 	if entry == nil || len(values) != len(entry.sorts) {
 		return ErrExternalIntervalDatalogFragment
@@ -262,6 +269,14 @@ func (a *externalIntervalDatalogActivation) close() error {
 	if a == nil || a.closed {
 		return nil
 	}
+	if a.pending != nil {
+		if err := a.pending.Cleanup(); err != nil {
+			return err
+		}
+		a.pending = nil
+		a.pendingCompletesIdentity = false
+		a.pendingIdentity = nil
+	}
 	// Products own external-plugin users, so every product must retire before
 	// the borrowed plugin can be closed by the fixedpoint engine.
 	for i := len(a.order) - 1; i >= 0; i-- {
@@ -285,5 +300,6 @@ func (a *externalIntervalDatalogActivation) close() error {
 	a.plugin = nil
 	a.entries = nil
 	a.order = nil
+	a.identity = nil
 	return nil
 }

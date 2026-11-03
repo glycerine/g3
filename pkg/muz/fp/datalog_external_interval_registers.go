@@ -147,6 +147,33 @@ func (r *externalIntervalDatalogRegisters) relation(declaration ast.ASTHandle) (
 	return r.slots[index].product, nil
 }
 
+// ensureRelation materializes the source UNION target when its loaded
+// register is nil. The fresh product uses the persistent predicate's exact
+// signature and ordered component kinds.
+func (r *externalIntervalDatalogRegisters) ensureRelation(declaration ast.ASTHandle) (*rel.ExternalIntervalProduct, error) {
+	if err := r.open(); err != nil {
+		return nil, err
+	}
+	index, found := r.indices[declaration]
+	if !found || r.published {
+		return nil, ErrExternalIntervalDatalogFragment
+	}
+	slot := &r.slots[index]
+	if slot.product != nil {
+		return slot.product, nil
+	}
+	product, selected, err := rel.NewSelectedExternalIntervalProduct(r.activation.plugin, slot.entry.sorts, slot.entry.kinds)
+	if err != nil {
+		errors.As(err, &r.nested)
+		return nil, err
+	}
+	if !selected || product == nil {
+		return nil, ErrExternalIntervalDatalogFragment
+	}
+	slot.product = product
+	return product, nil
+}
+
 func (r *externalIntervalDatalogRegisters) cleanupNested() error {
 	if r.nested == nil {
 		return nil

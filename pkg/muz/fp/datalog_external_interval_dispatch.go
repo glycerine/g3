@@ -63,12 +63,9 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (bool, error) {
 	if e.external == nil || len(predicates) == 0 {
 		return true, ErrExternalIntervalDatalogFragment
 	}
-	count, err := e.set.Len()
+	identity, err := e.externalIntervalIdentityRule()
 	if err != nil {
 		return true, err
-	}
-	if count != 0 {
-		return true, ErrExternalIntervalDatalogFragment
 	}
 	if e.udocDatalog != nil || e.sparseIntervalDatalog != nil || e.intervalDatalog != nil || e.boundDatalog != nil {
 		return true, ErrExternalIntervalDatalogFragment
@@ -94,12 +91,17 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (bool, error) {
 		}
 	}
 	if e.externalIntervalDatalog != nil {
-		return true, e.externalIntervalDatalog.syncPredicates(predicates)
+		if err = e.externalIntervalDatalog.syncPredicates(predicates); err != nil {
+			return true, err
+		}
+		e.externalIntervalDatalog.identity = identity
+		return true, nil
 	}
 	owner, err := newExternalIntervalDatalogActivation(e.manager, e.external, predicates)
 	if err != nil {
 		return true, err
 	}
+	owner.identity = identity
 	e.externalIntervalDatalog = owner
 	return true, nil
 }
@@ -107,6 +109,9 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (bool, error) {
 func (e *PropositionalEngine) queryExternalIntervalDatalog(declarations []ast.ASTHandle) (lbool.LBool, error) {
 	e.compiled = false
 	e.datalogStats.Reset()
+	if err := e.externalIntervalDatalog.executeExternalIntervalIdentity(); err != nil {
+		return lbool.Undef, err
+	}
 	return e.externalIntervalDatalog.query(declarations)
 }
 

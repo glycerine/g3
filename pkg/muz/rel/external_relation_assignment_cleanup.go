@@ -19,6 +19,14 @@ func externalAssignmentWasCommitted(cause error) bool {
 	return errors.As(cause, &receipt) && receipt.assignmentCommitted()
 }
 
+// ExternalAssignmentCommitted reports whether an external assignment callback
+// completed and only its temporary-owner cleanup remains pending. Concrete
+// product executors use this receipt to resume publication without replaying
+// the already committed callback.
+func ExternalAssignmentCommitted(cause error) bool {
+	return externalAssignmentWasCommitted(cause)
+}
+
 type externalAssignmentAttempt struct {
 	manager *ast.ASTManager
 	nested  memory.ConstructionFailure

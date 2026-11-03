@@ -59,6 +59,8 @@ func (s *externalIntervalCallbackState) callbacks() rel.ExternalRelationCallback
 				s.nonempty[outputs[0]] = false
 			case ast.DatalogOpClone:
 				s.nonempty[outputs[0]] = s.nonempty[arguments[0]]
+			case ast.DatalogOpUnion:
+				s.nonempty[outputs[0]] = s.nonempty[arguments[0]] || s.nonempty[arguments[1]]
 			case ast.DatalogOpStore:
 				s.nonempty[outputs[0]] = true
 			default:

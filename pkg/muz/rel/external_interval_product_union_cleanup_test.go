@@ -65,13 +65,13 @@ func TestExternalIntervalProductCleanupOnlyCommitPublishesWithoutReplay(t *testi
 					nested:  frontier,
 				}, nil)
 			})
-			if assignment == nil || !externalAssignmentWasCommitted(assignment) {
+			if assignment == nil || !externalAssignmentWasCommitted(assignment) || !ExternalAssignmentCommitted(assignment) {
 				t.Fatal("successful external assignment lost cleanup-only commit marker", assignment)
 			}
 			operation := assignment
 			if test.wrapped {
 				operation = finishExternalIntervalUnion(&externalIntervalUnionOwner{runtime: runtime}, assignment)
-				if operation == nil || !externalAssignmentWasCommitted(operation) {
+				if operation == nil || !externalAssignmentWasCommitted(operation) || !ExternalAssignmentCommitted(operation) {
 					t.Fatal("product cleanup owner lost assignment commit marker", operation)
 				}
 			}
