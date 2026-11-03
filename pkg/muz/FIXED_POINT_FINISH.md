@@ -469,6 +469,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/dl_sparse_table.cpp` (partial), `src/muz/rel/dl_sparse_table.h` (partial)
   - [x] Concrete empty query and zero-key functional complement consumption.
   - [x] Direct supported join/negation operations dispatch through indexed plans; functional-key and zero-column fallbacks remain explicit.
+  - [x] Fetch functional rows by nonfunctional key, including zero-column keys, and use the owned suffix in live finite-product add/membership/union consumers.
 - [ ] `src/muz/rel/dl_vector_relation.h` (partial)
   - [x] Interval intersection uses the actually reached join/project/reset/union fallback with atomic validation; source vector relations do not enable `can_swap`.
 - [ ] `src/muz/rel/rel_context.cpp` (partial), `src/muz/rel/rel_context.h` (partial)
@@ -507,6 +508,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Sparse functional tables now fetch an owned stored suffix from the nonfunctional key, including the source zero-column key. Finite sparse products use that key-only lookup for add, membership and union, so multiple inner facts share one nullary outer index row without dummy full-row probes; other sparse fallbacks remain open.
+  Validation: `go -C pkg test ./muz/rel -run '^(TestSparseFunctionalZeroKeyFetchDrivesFiniteProductConsumer|TestFiniteSparseProduct)' -count=3` passed. Commit title: `Fetch sparse functional rows by key`.
 
 - 2026-11-02 — PDR unreachable-certificate export now keeps the finite-frame model in a typed validation attempt through a writer error followed by native cleanup refusal. The receipt preserves both causes and runtime custody, retries idempotently and allows a later public certificate export; reachable ordinary/Boogie certificate cleanup remains open.
   Validation: `go -C pkg test ./muz/pdr -run '^(TestContextDisplayCertificate|TestPDRValidationPreservesFreshSolverAndRootsOnNativeCleanupRefusal)' -count=3` passed. Commit title: `Preserve PDR certificate models through cleanup refusal`.

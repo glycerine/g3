@@ -147,7 +147,7 @@ func (p *FiniteSparseProduct) AddFact(values []ast.ASTHandle) (resultErr error) 
 }
 
 func (p *FiniteSparseProduct) addEncodedFact(key, innerFact Fact) (resultErr error) {
-	found, err := p.table.FetchFact(key)
+	found, err := p.fetchInnerKey(key)
 	if err != nil {
 		return err
 	}
@@ -747,7 +747,7 @@ func (p *FiniteSparseProduct) ContainsFact(values []ast.ASTHandle) (bool, error)
 	if err != nil {
 		return false, err
 	}
-	found, err := p.table.FetchFact(key)
+	found, err := p.fetchInnerKey(key)
 	if err != nil || !found {
 		return false, err
 	}
@@ -859,7 +859,7 @@ func (p *FiniteSparseProduct) UnionFrom(source *FiniteSparseProduct) error {
 			return ErrTableRelation
 		}
 		key := append(Fact(nil), sourceKey...)
-		exists, err := p.table.FetchFact(key)
+		exists, err := p.fetchInnerKey(key)
 		if err != nil {
 			return err
 		}
