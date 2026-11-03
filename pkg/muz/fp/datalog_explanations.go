@@ -42,9 +42,6 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 	if err != nil {
 		return lbool.Undef, err
 	}
-	if relationLevel {
-		return lbool.Undef, rel.ErrCompilerUnsupported
-	}
 	// The concrete paired finite checker does not yet compare proof-bearing
 	// products. Refuse this requested combination instead of skipping checking.
 	_, checked, err := e.datalogCheckRelationName()
@@ -93,7 +90,12 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 		return lbool.False, err
 	}
 	owners.set = transformed
-	if err = transformer.TransferFiniteFacts(e.set, transformed, e.relations, e.predicateOrder); err != nil {
+	if relationLevel {
+		err = transformer.TransferRelationFacts(e.set, transformed, e.relations, e.predicateOrder)
+	} else {
+		err = transformer.TransferFiniteFacts(e.set, transformed, e.relations, e.predicateOrder)
+	}
+	if err != nil {
 		return lbool.Undef, err
 	}
 	// Check the unpruned program: magic sets may erase the explained producer
@@ -123,7 +125,12 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 			return lbool.Undef, err
 		}
 	}
-	execution, termination, err := rel.CompileExplanationRulesWithGuard(e.relations, transformed, e.guard)
+	var execution, termination *rel.InstructionBlock
+	if relationLevel {
+		execution, termination, err = rel.CompileRelationExplanationRulesWithGuard(e.relations, transformed, e.guard)
+	} else {
+		execution, termination, err = rel.CompileExplanationRulesWithGuard(e.relations, transformed, e.guard)
+	}
 	if err != nil {
 		return lbool.Undef, fmt.Errorf("muz/fp: compile explanation query: %w", err)
 	}
@@ -166,6 +173,18 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 		if found {
 			state.table = table
 		}
+	}
+	if relationLevel {
+		product, err := e.relations.GetRelationExplanation(explained)
+		if err != nil {
+			return lbool.Undef, err
+		}
+		empty, err := product.Empty()
+		if err != nil {
+			return lbool.Undef, err
+		}
+		e.datalogExplanationAnswer, err = product.ToFormula()
+		return lbool.FromBool(!empty), err
 	}
 	product, err := e.relations.GetExplanationRelation(explained)
 	if err != nil {

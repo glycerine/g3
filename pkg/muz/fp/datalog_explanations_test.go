@@ -135,7 +135,7 @@ func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) 
 			must(err)
 			defer func() { must(m.DelRef(&queryRef)) }()
 			status, err := e.QueryExpression(query)
-			if mode == "relation-level" || mode == "checked" || mode == "checked-default" {
+			if mode == "checked" || mode == "checked-default" {
 				if !errors.Is(err, rel.ErrCompilerUnsupported) {
 					t.Fatal("unsupported explanation combination guard", status, err)
 				}
