@@ -140,6 +140,13 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 	}
 	var magicPredicates []ast.ASTHandle
 	if magic {
+		var finiteOrigins map[ast.ASTHandle]ast.ASTHandle
+		if !relationLevel {
+			finiteOrigins, err = e.datalogExplanationFiniteOrigins(transformer)
+			if err != nil {
+				return lbool.Undef, err
+			}
+		}
 		valid, err := transformed.Finalize()
 		if err != nil {
 			return lbool.Undef, err
@@ -157,6 +164,11 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 			return lbool.Undef, err
 		}
 		magicPredicates = append(magicPredicates, plugin.FreshPredicates()...)
+		if !relationLevel {
+			if err = e.installDatalogExplanationMagicFinite(plugin, finiteOrigins); err != nil {
+				return lbool.Undef, err
+			}
+		}
 		if formulaScope != nil && formulaScope.nested {
 			if err = formulaScope.installFreshProducts(magicPredicates); err != nil {
 				return lbool.Undef, err
@@ -266,4 +278,95 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 	}
 	e.datalogExplanationAnswer, err = product.ToFormula()
 	return lbool.FromBool(count != 0), err
+}
+
+// datalogExplanationFiniteOrigins records the source predicate behind each
+// fact-level explanation declaration. MagicSets creates adorned and magic
+// predicates from these declarations, and source relation-kind inheritance
+// follows that direct-origin chain.
+func (e *PropositionalEngine) datalogExplanationFiniteOrigins(transformer *rel.ExplanationTransformer) (map[ast.ASTHandle]ast.ASTHandle, error) {
+	origins := make(map[ast.ASTHandle]ast.ASTHandle, len(e.predicateOrder))
+	for _, original := range e.predicateOrder {
+		explained, err := transformer.ExplanationDeclaration(original)
+		if err != nil {
+			return nil, err
+		}
+		origins[explained] = original
+	}
+	return origins, nil
+}
+
+// installDatalogExplanationMagicFinite preselects the original predicate's
+// explicit finite representation for proof-free MagicSets declarations. A
+// declaration that still carries a rule-proof sort remains owned by the
+// explanation product compiler; zero-column Sparse families use source's Hash
+// compatibility fallback.
+func (e *PropositionalEngine) installDatalogExplanationMagicFinite(plugin *transforms.MagicSetsPlugin, origins map[ast.ASTHandle]ast.ASTHandle) error {
+	for _, declaration := range plugin.FreshPredicates() {
+		origin, found := plugin.FreshPredicateOrigin(declaration)
+		if !found {
+			continue
+		}
+		original, found := origins[origin]
+		if !found {
+			continue
+		}
+		// FreshPredicates is creation ordered, so publishing each resolved
+		// link also resolves later magic predicates created from adorned ones.
+		origins[declaration] = original
+		state := e.predicates[original]
+		if state == nil || !state.explicitFiniteRepresentation || len(state.requestedRepresentations) != 1 {
+			continue
+		}
+		kind := state.requestedRepresentations[0]
+		switch kind {
+		case "tr_hashtable", "tr_sparse", "tr_lazy_sparse":
+		default:
+			continue
+		}
+		arity, err := e.manager.GetArity(declaration)
+		if err != nil {
+			return err
+		}
+		proofFree := true
+		for column := uint32(0); column < arity; column++ {
+			sort, err := e.manager.GetDomain(declaration, column)
+			if err != nil {
+				return err
+			}
+			proof, err := e.manager.IsDatalogRuleSort(sort)
+			if err != nil {
+				return err
+			}
+			if proof {
+				proofFree = false
+				break
+			}
+		}
+		if !proofFree {
+			continue
+		}
+		_, signature, err := e.relations.PredicateSignature(declaration)
+		if err != nil {
+			return err
+		}
+		var table rel.FiniteTable
+		if kind == "tr_hashtable" || signature.Len() == 0 {
+			table = rel.NewHashTable(signature)
+		} else if kind == "tr_sparse" {
+			table, err = rel.NewSparseTable(signature, 0)
+		} else {
+			if e.lazyFinite == nil {
+				e.lazyFinite = rel.NewLazySparseFiniteFactory()
+			}
+			table, err = e.lazyFinite.New(signature)
+		}
+		if err != nil {
+			return err
+		}
+		if err = e.relations.StoreFiniteRelation(declaration, table); err != nil {
+			return errors.Join(err, table.Close())
+		}
+	}
+	return nil
 }
