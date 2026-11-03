@@ -138,59 +138,9 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 		if err != nil {
 			return ExpansionResult{}, err
 		}
-		generalize, err := shouldGeneralizeLemma(obligation, lemma)
+		lemma, err = p.generalizeBlockingLemma(obligation, lemma)
 		if err != nil {
-			return ExpansionResult{}, errors.Join(err, lemma.Close())
-		}
-		if generalize && p.useEqClassGeneralizer {
-			if err := spacerCheckpoint(p.manager); err != nil {
-				return ExpansionResult{}, errors.Join(err, lemma.Close())
-			}
-			generalized, generalizeErr := p.generalizeEqualityClasses(obligation, lemma)
-			if generalizeErr != nil {
-				return ExpansionResult{}, errors.Join(generalizeErr, lemma.Close())
-			}
-			if generalized != lemma {
-				if closeErr := lemma.Close(); closeErr != nil {
-					return ExpansionResult{}, errors.Join(closeErr, generalized.Close())
-				}
-				lemma = generalized
-			}
-		}
-		if generalize && p.useInductiveGeneralizer {
-			if err := spacerCheckpoint(p.manager); err != nil {
-				return ExpansionResult{}, errors.Join(err, lemma.Close())
-			}
-			generalized, generalizeErr := p.generalizeInductiveLemma(obligation, lemma)
-			if generalizeErr != nil {
-				return ExpansionResult{}, errors.Join(generalizeErr, lemma.Close())
-			}
-			if generalized != lemma {
-				if closeErr := lemma.Close(); closeErr != nil {
-					return ExpansionResult{}, errors.Join(closeErr, generalized.Close())
-				}
-				lemma = generalized
-			}
-		}
-		if generalize && p.useArrayEqGeneralizer {
-			if err := spacerCheckpoint(p.manager); err != nil {
-				return ExpansionResult{}, errors.Join(err, lemma.Close())
-			}
-			generalized, generalizeErr := p.generalizeArrayEqualityLemma(obligation, lemma)
-			if generalizeErr != nil {
-				return ExpansionResult{}, errors.Join(generalizeErr, lemma.Close())
-			}
-			if generalized != lemma {
-				if closeErr := lemma.Close(); closeErr != nil {
-					return ExpansionResult{}, errors.Join(closeErr, generalized.Close())
-				}
-				lemma = generalized
-			}
-		}
-		if generalize && p.lemmaSanityCheck {
-			if sanityErr := p.checkLemmaSanity(lemma); sanityErr != nil {
-				return ExpansionResult{}, errors.Join(sanityErr, lemma.Close())
-			}
+			return ExpansionResult{}, err
 		}
 		var cti ast.ASTRef
 		if p.useLemmaAsCTI {
