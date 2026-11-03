@@ -202,18 +202,19 @@ func (p *InductiveProperty) Expr() (result ast.ASTRef, resultErr error) {
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, md.Close()) }()
+	attempt := &inductiveExprExportAttempt{manager: p.manager, runtime: p.manager.NumeralService().RuntimeOwner(), model: md}
+	defer func() { attempt.result = result; result, resultErr = attempt.finish(resultErr) }()
 	builder, err := model.NewModel2ExprBuilder(md.Core())
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, builder.Close()) }()
+	attempt.builder = builder
 	result, err = p.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return result, err
 	}
 	if err = builder.Build(result); err != nil {
-		return result, errors.Join(err, p.manager.DelRef(&result))
+		return result, err
 	}
 	return result, nil
 }
