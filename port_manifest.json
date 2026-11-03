@@ -35972,13 +35972,18 @@
       "status": "ported",
       "go_targets": [
         "pkg/ast/rewriter/der.go",
-        "pkg/ast/rewriter/der_rewrite.go"
+        "pkg/ast/rewriter/der_rewrite.go",
+        "pkg/ast/rewriter/source_trace_stream.go",
+        "pkg/ast/rewriter/source_trace_stream_test.go",
+        "pkg/ast/rewriter/der_trace.go"
       ],
       "tests": [
         "TestDERVariableDisequalityEncodings",
         "TestDERSortVariablesOrderCyclesAndExclusions",
         "TestDERUnitAndMultiEqualityReduction",
-        "TestDERRewriterNestedCycleAndProofEntry"
+        "TestDERRewriterNestedCycleAndProofEntry",
+        "TestRewriterTraceStreamContinuesOperandsAndPreservesTheirErrors",
+        "TestRewriterTraceBadStreamStillComputesFormattingOperand"
       ],
       "assertions": [
         {
@@ -36054,6 +36059,20 @@
           "tests": [
             "TestDERRewriterNestedCycleAndProofEntry"
           ]
+        },
+        {
+          "name": "concrete DER TRACE emitter preserves operand evaluation and errors after nonthrowing stream insertion failure",
+          "status": "ported",
+          "go_targets": [
+            "pkg/ast/rewriter/source_trace_stream.go",
+            "pkg/ast/rewriter/source_trace_stream_test.go",
+            "pkg/ast/rewriter/der_trace.go"
+          ],
+          "tests": [
+            "TestRewriterTraceStreamContinuesOperandsAndPreservesTheirErrors",
+            "TestRewriterTraceBadStreamStillComputesFormattingOperand"
+          ],
+          "reason": "The five concrete rewriter emitters continue body operands after sticky stream insertion failure and preserve final flush behavior. Actual operand errors still escape even when identical to the writer error; SMT2-formatting allocation failure remains observable with unchanged reference ownership. These tests require g3trace and cover this shared adapter rather than every trace consumer or literal source-site header. This method records trace-emitter behavior without claiming coverage of every DER algorithm branch."
         }
       ],
       "ownership": [
@@ -37099,11 +37118,14 @@
       "component": "ast",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/ast/rewriter/factor_rewriter.go"],
+      "go_targets": ["pkg/ast/rewriter/factor_rewriter.go", "pkg/ast/rewriter/source_trace_stream.go", "pkg/ast/rewriter/source_trace_stream_test.go", "pkg/ast/rewriter/factor_rewriter_trace.go", "pkg/ast/rewriter/factor_rewriter_trace_pipeline_test.go"],
       "tests": [
         "TestFactorRewriterEqualitySingleAndCommonFactors",
         "TestFactorRewriterInequalityParityStrictnessAndReverse",
-        "TestFactorRewriterRefusalZeroDifferenceTraversalAndGuards"
+        "TestFactorRewriterRefusalZeroDifferenceTraversalAndGuards",
+        "TestRewriterTraceStreamContinuesOperandsAndPreservesTheirErrors",
+        "TestRewriterTraceBadStreamStillComputesFormattingOperand",
+        "TestFactorRewriterSourceTracePipeline"
       ],
       "assertions": [
         {
@@ -37157,8 +37179,13 @@
           "tests": [
             "TestFactorRewriterEqualitySingleAndCommonFactors",
             "TestFactorRewriterInequalityParityStrictnessAndReverse",
-            "TestFactorRewriterRefusalZeroDifferenceTraversalAndGuards"
-          ]
+            "TestFactorRewriterRefusalZeroDifferenceTraversalAndGuards",
+            "TestRewriterTraceStreamContinuesOperandsAndPreservesTheirErrors",
+            "TestRewriterTraceBadStreamStillComputesFormattingOperand",
+            "TestFactorRewriterSourceTracePipeline"
+          ],
+          "go_targets": ["pkg/ast/rewriter/source_trace_stream.go","pkg/ast/rewriter/source_trace_stream_test.go","pkg/ast/rewriter/factor_rewriter_trace.go", "pkg/ast/rewriter/factor_rewriter_trace_pipeline_test.go"],
+          "reason": "The five concrete rewriter emitters continue body operands after sticky stream insertion failure and preserve final flush behavior. Actual operand errors still escape even when identical to the writer error; SMT2-formatting allocation failure remains observable with unchanged reference ownership. These tests require g3trace and cover this shared adapter rather than every trace consumer or literal source-site header. The full ordered factor-rewriter transcript checks one mk_adds visit per product, factor expansion in mk_muls, source signs/spaces and SMT2 let bindings/line breaks at the source body checkpoints."
         }
       ],
       "ownership": [
@@ -38229,8 +38256,8 @@
       "component": "ast",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/ast/rewriter/maximize_ac_sharing.go"],
-      "tests": ["TestMaximizeBVSharingBalancedTreesReuseAndNumeralPosition", "TestMaximizeBVSharingScopesResetAndGuards", "TestMaximizeBVSharingWrapperProofAndLifecycle"],
+      "go_targets": ["pkg/ast/rewriter/maximize_ac_sharing.go", "pkg/ast/rewriter/source_trace_stream.go", "pkg/ast/rewriter/source_trace_stream_test.go", "pkg/ast/rewriter/maximize_ac_sharing_trace.go"],
+      "tests": ["TestMaximizeBVSharingBalancedTreesReuseAndNumeralPosition", "TestMaximizeBVSharingScopesResetAndGuards", "TestMaximizeBVSharingWrapperProofAndLifecycle", "TestRewriterTraceStreamContinuesOperandsAndPreservesTheirErrors", "TestRewriterTraceBadStreamStillComputesFormattingOperand"],
       "assertions": [
         {
           "line": 62,
@@ -38247,8 +38274,10 @@
         "name": "register_kind, reduce_app, contains, insert, constructor/destructor, push_scope, pop_scope, restore_entries, reset, BV init_core/is_numeral/constructor",
         "status": "ported",
         "go_target": "pkg/ast/rewriter/maximize_ac_sharing.go",
-        "tests": ["TestMaximizeBVSharingBalancedTreesReuseAndNumeralPosition", "TestMaximizeBVSharingScopesResetAndGuards", "TestMaximizeBVSharingWrapperProofAndLifecycle"]
-      }],
+        "tests": ["TestMaximizeBVSharingBalancedTreesReuseAndNumeralPosition", "TestMaximizeBVSharingScopesResetAndGuards", "TestMaximizeBVSharingWrapperProofAndLifecycle", "TestRewriterTraceStreamContinuesOperandsAndPreservesTheirErrors", "TestRewriterTraceBadStreamStillComputesFormattingOperand"],
+          "go_targets": ["pkg/ast/rewriter/source_trace_stream.go","pkg/ast/rewriter/source_trace_stream_test.go","pkg/ast/rewriter/maximize_ac_sharing_trace.go"],
+          "reason": "The five concrete rewriter emitters continue body operands after sticky stream insertion failure and preserve final flush behavior. Actual operand errors still escape even when identical to the writer error; SMT2-formatting allocation failure remains observable with unchanged reference ownership. These tests require g3trace and cover this shared adapter rather than every trace consumer or literal source-site header."
+        }],
       "ownership": ["Each canonical operand-pair entry owns two AST references until scope restoration or close. Scope limits restore entries in reverse order. Reset preserves owned entries and clears only the lookup map. Native Go slices and maps replace region/vector/hashtable storage."],
       "deviations": ["Allocation and reference failures use checked Go errors. The proof-enabled wrapper publishes one valid root rewrite or reflexivity proof instead of preserving the generic source traversal's internal proof-tree shape."]
     },
@@ -40000,7 +40029,13 @@
       "go_targets": [
         "pkg/ast/rewriter/push_app_ite.go",
         "pkg/smtcore/smt_asserted_ite.go",
-        "pkg/smtcore/smt_asserted_ite_test.go"
+        "pkg/smtcore/smt_asserted_ite_test.go",
+        "pkg/ast/rewriter/source_trace_stream.go",
+        "pkg/ast/rewriter/source_trace_stream_test.go",
+        "pkg/ast/rewriter/push_app_ite_trace.go",
+        "pkg/ast/rewriter/push_app_ite_trace_target.go",
+        "pkg/ast/rewriter/push_app_ite_trace_target_test.go",
+        "pkg/ast/rewriter/push_app_ite_trace_result_test.go"
       ],
       "tests": [
         "TestPushAppITELiftsTermArgumentsAndHonorsConservativeMode",
@@ -40009,7 +40044,11 @@
         "TestPushAppITEConfigurationProofAndOwnerGuards",
         "TestPushAppITEPreservesQuantifierAndCongruenceProofs",
         "TestSMTAssertedITELiftingModesAndProofs",
-        "TestSMTAssertedITEPassesScopedConflict"
+        "TestSMTAssertedITEPassesScopedConflict",
+        "TestRewriterTraceStreamContinuesOperandsAndPreservesTheirErrors",
+        "TestRewriterTraceBadStreamStillComputesFormattingOperand",
+        "TestPushAppITESourceTargetTrace",
+        "TestPushAppITESourceResultTraceFollowsTarget"
       ],
       "assertions": [
         {
@@ -40028,8 +40067,14 @@
             "TestPushAppITELiftsTermArgumentsAndHonorsConservativeMode",
             "TestPushAppITERefusesBooleanITEAndITEDeclaration",
             "TestNGPushAppITERequiresNongroundArgument",
-            "TestPushAppITEConfigurationProofAndOwnerGuards"
-          ]
+            "TestPushAppITEConfigurationProofAndOwnerGuards",
+            "TestRewriterTraceStreamContinuesOperandsAndPreservesTheirErrors",
+            "TestRewriterTraceBadStreamStillComputesFormattingOperand",
+            "TestPushAppITESourceTargetTrace",
+            "TestPushAppITESourceResultTraceFollowsTarget"
+          ],
+          "go_targets": ["pkg/ast/rewriter/source_trace_stream.go","pkg/ast/rewriter/source_trace_stream_test.go","pkg/ast/rewriter/push_app_ite_trace.go", "pkg/ast/rewriter/push_app_ite_trace_target.go", "pkg/ast/rewriter/push_app_ite_trace_target_test.go", "pkg/ast/rewriter/push_app_ite_trace_result_test.go"],
+          "reason": "The five concrete rewriter emitters continue body operands after sticky stream insertion failure and preserve final flush behavior. Actual operand errors still escape even when identical to the writer error; SMT2-formatting allocation failure remains observable with unchanged reference ownership. These tests require g3trace and cover this shared adapter rather than every trace consumer or literal source-site header. Target output omits the extra conservative-mode line absent from the source body. Transcript tests check target-before-result order, exactly one target record, default-width result formatting and no output when tracing is erased; existing semantic tests continue to cover conservative rewrite behavior."
         },
         {
           "name": "proof-aware rewriter wrapper retains local rewrite, congruence, transitivity and quantifier-introduction proofs through bounded revisits",
@@ -40041,7 +40086,7 @@
         }
       ],
       "ownership": ["Configuration borrows the AST manager and application arguments. Each reduction uses native Go handle storage and retains no per-call AST nodes. The wrapper owns its charged traversal/configuration representation and releases it idempotently."],
-      "deviations": []
+      "deviations": ["Current Go push_app_ite transcript stamps use lines 51/78 while current C++ macro locations are 50/76. This regression slice establishes trace body order, formatting and stream behavior without claiming literal source-site-number parity."]
     },
     {
       "path": "src/ast/rewriter/push_app_ite.h",
@@ -79115,7 +79160,17 @@
         "pkg/math/subpaving/fast_split.go",
         "pkg/math/subpaving/fast_selector_split_test.go",
         "pkg/math/subpaving/fast_search.go",
-        "pkg/math/subpaving/fast_search_test.go"
+        "pkg/math/subpaving/fast_search_test.go",
+        "pkg/math/subpaving/hardware_context_init.go",
+        "pkg/math/subpaving/hardware_init_trace_test.go",
+        "pkg/math/subpaving/init_trace_expectations_test.go",
+        "pkg/math/subpaving/arbitrary_context_init.go",
+        "pkg/math/subpaving/arbitrary_init_trace_test.go",
+        "pkg/math/subpaving/fast_init_trace_test.go",
+        "pkg/math/subpaving/fixed_context_init.go",
+        "pkg/math/subpaving/fixed_init_trace_test.go",
+        "pkg/math/subpaving/rational_context_init.go",
+        "pkg/math/subpaving/rational_init_trace_test.go"
       ],
       "tests": [
         "TestArbitraryShellCoefficientSourceConversionAndCleanup",
@@ -79219,8 +79274,18 @@
         "TestFastSearchRetainsRefusedSplitChildrenForOwnerClose"
       ,
         "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
-        "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
-],
+        "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses",
+        "TestHardwareRootInitializationTraceRefusalAndPrinterPrefix",
+        "TestHardwareRootInitializationTraceSourceOrderAndResume",
+        "TestArbitraryRootInitializationTraceRefusalAndPrinterPrefix",
+        "TestArbitraryRootInitializationTraceSourceOrderAndResume",
+        "TestFastRootInitializationTraceRefusalAndPrinterPrefix",
+        "TestFastRootInitializationTraceSourceOrderAndResume",
+        "TestFixedRootInitializationTraceRefusalAndPrinterPrefix",
+        "TestFixedRootInitializationTraceSourceOrderAndResume",
+        "TestRationalRootInitializationTraceRefusalAndPrinterPrefix",
+        "TestRationalRootInitializationTraceSourceOrderAndResume"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -79407,15 +79472,21 @@
             "pkg/math/subpaving/rational_context_propagate.go",
             "pkg/math/subpaving/rational_clause.go",
             "pkg/math/subpaving/rational_context_init.go"
-          , "pkg/math/subpaving/rational_context_init_test.go"],
+          , "pkg/math/subpaving/rational_context_init_test.go",
+            "pkg/math/subpaving/rational_init_trace_test.go",
+            "pkg/math/subpaving/init_trace_expectations_test.go"
+          ],
           "tests": [
             "TestRationalContextRootUnitCheckpointConflictAndOwnership",
             "TestRationalContextQueuedBoundCheckpointResume",
             "TestRationalClauseExactTruthAndRegistration",
             "TestRationalClauseQueuedWatchCancellationAndConflict",
             "TestRationalClauseAllFalseFirstAtomConflict",
-            "TestRationalContextInitializeRootDoesNotResumeCanceledSourceInit"
-          ]
+            "TestRationalContextInitializeRootDoesNotResumeCanceledSourceInit",
+            "TestRationalRootInitializationTraceRefusalAndPrinterPrefix",
+            "TestRationalRootInitializationTraceSourceOrderAndResume"
+          ],
+          "reason": "Source root publication precedes initial-constraint TRACE (subpaving_t_def.h:1794-1797). A variable-printer error in initial constraints or unit tracing preserves the root and exact emitted prefix; later InitializeRoot calls neither replay nor advance initialization, matching the existing-root guard at 1806-1808. An explicit unit-assertion call may publish the interrupted unit once without rerunning constraints or post-propagation tracing. Ordinary borrowed-writer refusal remains nonthrowing and permits initialization to finish. Broader trace and solver-lifecycle audits remain separate."
         },
         {
           "name": "Concrete config_mpq polynomial mk_sum with variable-indexed coefficient buffer, duplicate sorting, integer classification, forward/reverse interval propagation, exact integer candidate normalization, definition watches and root sweep (src/math/subpaving/subpaving_t_def.h:668-685,741-769,1408-1496,1695-1808); source arithmetic-exception flag transport and remaining solver lifecycle remain open",
@@ -80043,28 +80114,36 @@
           "tests": ["TestFixedSearchSourceParameterDisplayAndTrace", "TestFixedSearchBranchTraceIDsAndDepthLimit"]
         },
         {
-          "name": "Concrete config_hwf root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_hwf root initialization TRACE order, source root publication and non-resuming initialization after printer/checkpoint interruption (subpaving_t_def.h:1780-1808)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_init_trace.go",
-          "tests": ["TestHardwareRootInitializationTraceSourceOrderAndResume", "TestHardwareRootInitializationTraceRefusalAndPrinterPrefix"]
+          "tests": ["TestHardwareRootInitializationTraceSourceOrderAndResume", "TestHardwareRootInitializationTraceRefusalAndPrinterPrefix"],
+          "go_targets": ["pkg/math/subpaving/hardware_context_init.go","pkg/math/subpaving/hardware_init_trace_test.go","pkg/math/subpaving/init_trace_expectations_test.go"],
+          "reason": "Source root publication precedes initial-constraint TRACE (subpaving_t_def.h:1794-1797). A variable-printer error in initial constraints or unit tracing preserves the root and exact emitted prefix; later InitializeRoot calls neither replay nor advance initialization, matching the existing-root guard at 1806-1808. An explicit unit-assertion call may publish the interrupted unit once without rerunning constraints or post-propagation tracing. Ordinary borrowed-writer refusal remains nonthrowing and permits initialization to finish. Broader trace and solver-lifecycle audits remain separate."
         },
         {
-          "name": "Concrete config_mpf root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_mpf root initialization TRACE order, source root publication and non-resuming initialization after printer/checkpoint interruption (subpaving_t_def.h:1780-1808)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_init_trace.go",
-          "tests": ["TestArbitraryRootInitializationTraceSourceOrderAndResume", "TestArbitraryRootInitializationTraceRefusalAndPrinterPrefix"]
+          "tests": ["TestArbitraryRootInitializationTraceSourceOrderAndResume", "TestArbitraryRootInitializationTraceRefusalAndPrinterPrefix"],
+          "go_targets": ["pkg/math/subpaving/arbitrary_context_init.go","pkg/math/subpaving/arbitrary_init_trace_test.go","pkg/math/subpaving/init_trace_expectations_test.go"],
+          "reason": "Source root publication precedes initial-constraint TRACE (subpaving_t_def.h:1794-1797). A variable-printer error in initial constraints or unit tracing preserves the root and exact emitted prefix; later InitializeRoot calls neither replay nor advance initialization, matching the existing-root guard at 1806-1808. An explicit unit-assertion call may publish the interrupted unit once without rerunning constraints or post-propagation tracing. Ordinary borrowed-writer refusal remains nonthrowing and permits initialization to finish. Broader trace and solver-lifecycle audits remain separate."
         },
         {
-          "name": "Concrete config_mpff root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_mpff root initialization TRACE order, source root publication and non-resuming initialization after printer/checkpoint interruption (subpaving_t_def.h:1780-1808)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_init_trace.go",
-          "tests": ["TestFastRootInitializationTraceSourceOrderAndResume", "TestFastRootInitializationTraceRefusalAndPrinterPrefix"]
+          "tests": ["TestFastRootInitializationTraceSourceOrderAndResume", "TestFastRootInitializationTraceRefusalAndPrinterPrefix"],
+          "go_targets": ["pkg/math/subpaving/fast_context_init.go","pkg/math/subpaving/fast_init_trace_test.go","pkg/math/subpaving/init_trace_expectations_test.go"],
+          "reason": "Source root publication precedes initial-constraint TRACE (subpaving_t_def.h:1794-1797). A variable-printer error in initial constraints or unit tracing preserves the root and exact emitted prefix; later InitializeRoot calls neither replay nor advance initialization, matching the existing-root guard at 1806-1808. An explicit unit-assertion call may publish the interrupted unit once without rerunning constraints or post-propagation tracing. Ordinary borrowed-writer refusal remains nonthrowing and permits initialization to finish. Broader trace and solver-lifecycle audits remain separate."
         },
         {
-          "name": "Concrete config_mpfx root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_mpfx root initialization TRACE order, source root publication and non-resuming initialization after printer/checkpoint interruption (subpaving_t_def.h:1780-1808)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_init_trace.go",
-          "tests": ["TestFixedRootInitializationTraceSourceOrderAndResume", "TestFixedRootInitializationTraceRefusalAndPrinterPrefix"]
+          "tests": ["TestFixedRootInitializationTraceSourceOrderAndResume", "TestFixedRootInitializationTraceRefusalAndPrinterPrefix"],
+          "go_targets": ["pkg/math/subpaving/fixed_context_init.go","pkg/math/subpaving/fixed_init_trace_test.go","pkg/math/subpaving/init_trace_expectations_test.go"],
+          "reason": "Source root publication precedes initial-constraint TRACE (subpaving_t_def.h:1794-1797). A variable-printer error in initial constraints or unit tracing preserves the root and exact emitted prefix; later InitializeRoot calls neither replay nor advance initialization, matching the existing-root guard at 1806-1808. An explicit unit-assertion call may publish the interrupted unit once without rerunning constraints or post-propagation tracing. Ordinary borrowed-writer refusal remains nonthrowing and permits initialization to finish. Broader trace and solver-lifecycle audits remain separate."
         },
         {
           "name": "Concrete config_mpfx bound publication and conflict TRACE before conflict/timestamp/queue transitions (subpaving_t_def.h:563-566)",
@@ -80403,7 +80482,16 @@
         "pkg/math/subpaving/fast_split.go",
         "pkg/math/subpaving/fast_selector_split_test.go",
         "pkg/math/subpaving/fast_search.go",
-        "pkg/math/subpaving/fast_search_test.go"
+        "pkg/math/subpaving/fast_search_test.go",
+        "pkg/math/subpaving/hardware_context_init.go",
+        "pkg/math/subpaving/hardware_init_trace_test.go",
+        "pkg/math/subpaving/init_trace_expectations_test.go",
+        "pkg/math/subpaving/arbitrary_init_trace_test.go",
+        "pkg/math/subpaving/fast_init_trace_test.go",
+        "pkg/math/subpaving/fixed_context_init.go",
+        "pkg/math/subpaving/fixed_init_trace_test.go",
+        "pkg/math/subpaving/rational_context_init.go",
+        "pkg/math/subpaving/rational_init_trace_test.go"
       ],
       "tests": [
         "TestArbitraryShellCoefficientSourceConversionAndCleanup",
@@ -80540,8 +80628,18 @@
         "TestFixedContextRootUsesBoundCooperation"
       ,
         "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
-        "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
-],
+        "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses",
+        "TestHardwareRootInitializationTraceRefusalAndPrinterPrefix",
+        "TestHardwareRootInitializationTraceSourceOrderAndResume",
+        "TestArbitraryRootInitializationTraceRefusalAndPrinterPrefix",
+        "TestArbitraryRootInitializationTraceSourceOrderAndResume",
+        "TestFastRootInitializationTraceRefusalAndPrinterPrefix",
+        "TestFastRootInitializationTraceSourceOrderAndResume",
+        "TestFixedRootInitializationTraceRefusalAndPrinterPrefix",
+        "TestFixedRootInitializationTraceSourceOrderAndResume",
+        "TestRationalRootInitializationTraceRefusalAndPrinterPrefix",
+        "TestRationalRootInitializationTraceSourceOrderAndResume"
+      ],
       "assertions": [
         {
           "line": 85,
@@ -81493,10 +81591,12 @@
           "tests": ["TestRationalBoundTracePublicationAndConflictOrder", "TestRationalBoundTraceStreamAndPrinterFailurePrefix"]
         },
         {
-          "name": "Concrete config_mpq init constraint, unit assertion, post-unit and post-propagation TRACE sites with Go writer retry; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_mpq initial-constraint/unit/post-propagation TRACE with source root publication and non-resuming initialization after printer/checkpoint interruption (subpaving_t_def.h:1780-1808)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_init_trace.go",
-          "tests": ["TestRationalRootInitializationTraceSourceOrderAndResume", "TestRationalRootInitializationTraceRefusalAndPrinterPrefix"]
+          "tests": ["TestRationalRootInitializationTraceSourceOrderAndResume", "TestRationalRootInitializationTraceRefusalAndPrinterPrefix"],
+          "go_targets": ["pkg/math/subpaving/rational_context_init.go","pkg/math/subpaving/rational_init_trace_test.go","pkg/math/subpaving/init_trace_expectations_test.go"],
+          "reason": "Source root publication precedes initial-constraint TRACE (subpaving_t_def.h:1794-1797). A variable-printer error in initial constraints or unit tracing preserves the root and exact emitted prefix; later InitializeRoot calls neither replay nor advance initialization, matching the existing-root guard at 1806-1808. An explicit unit-assertion call may publish the interrupted unit once without rerunning constraints or post-propagation tracing. Ordinary borrowed-writer refusal remains nonthrowing and permits initialization to finish. Broader trace and solver-lifecycle audits remain separate."
         },
         {
           "name": "Concrete config_mpf search parameter, pre-removal selected-node, post-propagation bound, conflict, depth-limit and split-variable TRACE sites (subpaving_t_def.h:1810,1819,1825,1828,1833,1837)",
@@ -81799,28 +81899,36 @@
           "tests": ["TestFixedSearchSourceParameterDisplayAndTrace", "TestFixedSearchBranchTraceIDsAndDepthLimit"]
         },
         {
-          "name": "Concrete config_hwf root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_hwf root initialization TRACE order, source root publication and non-resuming initialization after printer/checkpoint interruption (subpaving_t_def.h:1780-1808)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_init_trace.go",
-          "tests": ["TestHardwareRootInitializationTraceSourceOrderAndResume", "TestHardwareRootInitializationTraceRefusalAndPrinterPrefix"]
+          "tests": ["TestHardwareRootInitializationTraceSourceOrderAndResume", "TestHardwareRootInitializationTraceRefusalAndPrinterPrefix"],
+          "go_targets": ["pkg/math/subpaving/hardware_context_init.go","pkg/math/subpaving/hardware_init_trace_test.go","pkg/math/subpaving/init_trace_expectations_test.go"],
+          "reason": "Source root publication precedes initial-constraint TRACE (subpaving_t_def.h:1794-1797). A variable-printer error in initial constraints or unit tracing preserves the root and exact emitted prefix; later InitializeRoot calls neither replay nor advance initialization, matching the existing-root guard at 1806-1808. An explicit unit-assertion call may publish the interrupted unit once without rerunning constraints or post-propagation tracing. Ordinary borrowed-writer refusal remains nonthrowing and permits initialization to finish. Broader trace and solver-lifecycle audits remain separate."
         },
         {
-          "name": "Concrete config_mpf root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_mpf root initialization TRACE order, source root publication and non-resuming initialization after printer/checkpoint interruption (subpaving_t_def.h:1780-1808)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_init_trace.go",
-          "tests": ["TestArbitraryRootInitializationTraceSourceOrderAndResume", "TestArbitraryRootInitializationTraceRefusalAndPrinterPrefix"]
+          "tests": ["TestArbitraryRootInitializationTraceSourceOrderAndResume", "TestArbitraryRootInitializationTraceRefusalAndPrinterPrefix"],
+          "go_targets": ["pkg/math/subpaving/arbitrary_context_init.go","pkg/math/subpaving/arbitrary_init_trace_test.go","pkg/math/subpaving/init_trace_expectations_test.go"],
+          "reason": "Source root publication precedes initial-constraint TRACE (subpaving_t_def.h:1794-1797). A variable-printer error in initial constraints or unit tracing preserves the root and exact emitted prefix; later InitializeRoot calls neither replay nor advance initialization, matching the existing-root guard at 1806-1808. An explicit unit-assertion call may publish the interrupted unit once without rerunning constraints or post-propagation tracing. Ordinary borrowed-writer refusal remains nonthrowing and permits initialization to finish. Broader trace and solver-lifecycle audits remain separate."
         },
         {
-          "name": "Concrete config_mpff root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_mpff root initialization TRACE order, source root publication and non-resuming initialization after printer/checkpoint interruption (subpaving_t_def.h:1780-1808)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_init_trace.go",
-          "tests": ["TestFastRootInitializationTraceSourceOrderAndResume", "TestFastRootInitializationTraceRefusalAndPrinterPrefix"]
+          "tests": ["TestFastRootInitializationTraceSourceOrderAndResume", "TestFastRootInitializationTraceRefusalAndPrinterPrefix"],
+          "go_targets": ["pkg/math/subpaving/fast_context_init.go","pkg/math/subpaving/fast_init_trace_test.go","pkg/math/subpaving/init_trace_expectations_test.go"],
+          "reason": "Source root publication precedes initial-constraint TRACE (subpaving_t_def.h:1794-1797). A variable-printer error in initial constraints or unit tracing preserves the root and exact emitted prefix; later InitializeRoot calls neither replay nor advance initialization, matching the existing-root guard at 1806-1808. An explicit unit-assertion call may publish the interrupted unit once without rerunning constraints or post-propagation tracing. Ordinary borrowed-writer refusal remains nonthrowing and permits initialization to finish. Broader trace and solver-lifecycle audits remain separate."
         },
         {
-          "name": "Concrete config_mpfx root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_mpfx root initialization TRACE order, source root publication and non-resuming initialization after printer/checkpoint interruption (subpaving_t_def.h:1780-1808)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_init_trace.go",
-          "tests": ["TestFixedRootInitializationTraceSourceOrderAndResume", "TestFixedRootInitializationTraceRefusalAndPrinterPrefix"]
+          "tests": ["TestFixedRootInitializationTraceSourceOrderAndResume", "TestFixedRootInitializationTraceRefusalAndPrinterPrefix"],
+          "go_targets": ["pkg/math/subpaving/fixed_context_init.go","pkg/math/subpaving/fixed_init_trace_test.go","pkg/math/subpaving/init_trace_expectations_test.go"],
+          "reason": "Source root publication precedes initial-constraint TRACE (subpaving_t_def.h:1794-1797). A variable-printer error in initial constraints or unit tracing preserves the root and exact emitted prefix; later InitializeRoot calls neither replay nor advance initialization, matching the existing-root guard at 1806-1808. An explicit unit-assertion call may publish the interrupted unit once without rerunning constraints or post-propagation tracing. Ordinary borrowed-writer refusal remains nonthrowing and permits initialization to finish. Broader trace and solver-lifecycle audits remain separate."
         },
         {
           "name": "Concrete config_mpfx bound publication and conflict TRACE before conflict/timestamp/queue transitions (subpaving_t_def.h:563-566)",
@@ -89089,7 +89197,8 @@
         "pkg/muz/pdr/model_search_test.go",
         "pkg/cmd/g3/fixedpoint_trace_order_test.go",
         "pkg/muz/fp/propositional_engine_test.go",
-        "pkg/parsers/smt2/fixedpoint_commands_test.go"
+        "pkg/parsers/smt2/fixedpoint_commands_test.go",
+        "pkg/muz/fp/pdr_query_trace_test.go"
       ],
       "tests": [
         "TestPredicateTransformerSignatureFramesAndReachability",
@@ -89131,7 +89240,8 @@
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_untransformed_nonlinear_trace.smt2",
         "TestModelSearchFrontierOrderingClosureAndOwnership",
         "TestModelNodeRejectsInvalidParentLevel",
-        "TestFixedpointPDRBranchingTraceSourceOrder"
+        "TestFixedpointPDRBranchingTraceSourceOrder",
+        "TestPDRFreshRuleTraceOrderGateAndStreamFailure"
       ],
       "assertions": [
         {
@@ -89536,9 +89646,9 @@
         {
           "name": "pred_transformer, model_node, model_search and context stream renderers reached by TRACE/IF_VERBOSE, with solve-time lazy diagnostics and source ostream-failure policy (pdr_context.cpp:89-105,871-1128,1888-1918,2357-2364)",
           "status": "ported",
-          "go_targets": ["pkg/muz/pdr/predicate_display.go", "pkg/muz/pdr/search_display.go", "pkg/muz/pdr/context_display.go", "pkg/muz/pdr/context_solve_diagnostics.go", "pkg/muz/pdr/context_solve.go"],
-          "tests": ["TestPredicateTransformerWriteDisplay", "TestModelSearchAndContextWriteDisplayTreeAndGoals", "TestContextSolveVerboseSearchOperandIsLazy", "TestContextSolveIgnoresVerboseStreamRefusal"],
-          "reason": "Display methods borrow transformer/search state. Disabled IF_VERBOSE operands stay unevaluated, while source-style diagnostic writers swallow stream refusal without changing the solve result."
+          "go_targets": ["pkg/muz/pdr/predicate_display.go", "pkg/muz/pdr/search_display.go", "pkg/muz/pdr/context_display.go", "pkg/muz/pdr/context_solve_diagnostics.go", "pkg/muz/pdr/context_solve.go", "pkg/muz/fp/pdr_query_trace_test.go"],
+          "tests": ["TestPredicateTransformerWriteDisplay", "TestModelSearchAndContextWriteDisplayTreeAndGoals", "TestContextSolveVerboseSearchOperandIsLazy", "TestContextSolveIgnoresVerboseStreamRefusal", "TestPDRFreshRuleTraceOrderGateAndStreamFailure"],
+          "reason": "Display methods borrow transformer/search state. Disabled IF_VERBOSE operands stay unevaluated, while source-style diagnostic writers swallow stream refusal without changing the solve result. The fixedpoint trace regression also checks the solve-entry checkpoint after the interface reset/query traces (pdr_context.cpp:1888)."
         },
         {
           "name": "model_search::get_trace appends child nodes and paired predicates in ascending rule-tail order before LIFO traversal",
@@ -89990,7 +90100,8 @@
         "TestExpressionModelOriginalClausesAndLifecycle",
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_trace.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_compound_tail.smt2",
-        "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_compound_head.smt2"
+        "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_compound_head.smt2",
+        "TestPDRFreshRuleTraceOrderGateAndStreamFailure"
       ],
       "assertions": [
         {
@@ -90010,21 +90121,21 @@
           "status": "ported",
           "go_targets": ["pkg/muz/fp/pdr_query_trace.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/pdr_query_trace_test.go", "pkg/muz/fp/pdr_input_trace_test.go"],
           "tests": ["TestPDRFreshRuleTraceOrderGateAndStreamFailure", "TestPDRInputTracePreservesOriginalExpressionAndBackground", "TestPDRInputTraceOriginalOwnerSurvivesDumpFailure"],
-          "reason": "Expression-query tracing pins the original root before hoisting/compaction, lends its handle only during backend execution and clears it on return. Direct predicate calls build their canonical query inside the enabled body. A temporary snapshot adds the output marker without mutating persistent rules; scoped owners are released on success/error. Broader interface closure still includes model-output and rebuild-path audits."
+          "reason": "Expression-query tracing pins the original root before hoisting/compaction, lends its handle only during backend execution and clears it on return. Direct predicate calls build their canonical query inside the enabled body. A temporary snapshot adds the output marker without mutating persistent rules; scoped owners are released on success/error. Broader interface closure still includes model-output and rebuild-path audits. The enabled full query transcript includes the subsequent context::solve entry record at pdr_context.cpp:1888, preserving reset/query/transformed-rule ordering without changing runtime behavior."
         },
         {
           "name": "query transformed-rule TRACE and source context SMT2 dump with parameter profiles and nonthrowing ostream operand continuation (pdr_dl_interface.cpp:144-148)",
           "status": "ported",
           "go_targets": ["pkg/muz/fp/pdr_query_trace.go", "pkg/muz/fp/pdr_query_trace_test.go", "pkg/muz/fp/pdr_transformed_trace_test.go", "pkg/muz/base/context_smt2.go"],
           "tests": ["TestPDRFreshRuleTraceOrderGateAndStreamFailure", "TestPDRTransformedTraceUsesContextPrintProfiles", "TestPDRTransformedTraceStreamFailureKeepsLaterOperandErrors"],
-          "reason": "Initial/reused PDR queries emit the source listing then context dump, borrowing ordered raw background assertions or a nontrivial aggregate. Both print formats, low-level expressions, declared-variable control and post-stream-failure exceptions are covered. Disabled tags skip operands; failed formatting invalidates public results and supports retry. Other interface query checkpoints remain under audit."
+          "reason": "Initial/reused PDR queries emit the source listing then context dump, borrowing ordered raw background assertions or a nontrivial aggregate. Both print formats, low-level expressions, declared-variable control and post-stream-failure exceptions are covered. Disabled tags skip operands; failed formatting invalidates public results and supports retry. Other interface query checkpoints remain under audit. The enabled full query transcript includes the subsequent context::solve entry record at pdr_context.cpp:1888, preserving reset/query/transformed-rule ordering without changing runtime behavior."
         },
         {
           "name": "check_reset first uncovered-rule TRACE preserves source scan order and continues after ostream refusal on the same-query rule-update path (pdr_dl_interface.cpp:68)",
           "status": "ported",
           "go_targets": ["pkg/muz/fp/horn_rule_lifecycle.go", "pkg/muz/fp/pdr_rule_lifecycle.go", "pkg/muz/fp/pdr_query_trace.go", "pkg/muz/fp/horn_rule_lifecycle_test.go", "pkg/muz/fp/pdr_query_trace_test.go"],
           "tests": ["TestHornRuleLifecycleFirstUncoveredRuleOrder", "TestPDRFreshRuleTraceOrderGateAndStreamFailure"],
-          "reason": "The shared scan reports the first uncovered source-rule index without a second subsumption scan. Trace operands are lazy and their rule owner is closed on every exit. Initial/unchanged queries emit no fresh-rule trace; disabled and failed streams preserve query results. Different-root/configuration rebuild paths remain under the broader interface audit."
+          "reason": "The shared scan reports the first uncovered source-rule index without a second subsumption scan. Trace operands are lazy and their rule owner is closed on every exit. Initial/unchanged queries emit no fresh-rule trace; disabled and failed streams preserve query results. Different-root/configuration rebuild paths remain under the broader interface audit. The enabled full query transcript includes the subsequent context::solve entry record at pdr_context.cpp:1888, preserving reset/query/transformed-rule ordering without changing runtime behavior."
         },
         {
           "name": "query displays transformed rules at source verbosity 2, including repeated queries using an existing context (pdr_dl_interface.cpp:153)",
@@ -137339,7 +137450,8 @@
         "TestDatatypeFactoryPrinterWholeProfileSourceOrder",
         "TestDatatypeFactoryPrinterParameterFailurePrecedesDocumentOwnership",
         "TestDatatypeFactoryFreshArgumentsOwnBeforeNextProvider",
-        "TestDatatypeFactoryUsesOwnedRecursionCache"
+        "TestDatatypeFactoryUsesOwnedRecursionCache",
+        "TestDatatypeFactoryLexicalScopeStopsBeforeMembersAndRetries"
       ],
       "assertions": [
         {
@@ -137441,7 +137553,9 @@
           "go_target": "pkg/smtcore/proto_model/datatype_factory.go",
           "tests": [
             "TestDatatypeFactoryUtilityStopsBeforeBaseTeardown"
-          ]
+          ],
+          "go_targets": ["pkg/smtcore/proto_model/datatype_teardown_source_test.go"],
+          "reason": "Trace-dependent native-refusal evidence is compiled only with g3trace; it preserves the utility-before-base destruction barrier without relying on a runtime trace skip."
         },
         {
           "name": "Native datatype value/fresh/almost control flow: lookup-only cold get_some_value, recursive almost-fresh seed, utility-owned constructor lists, actual contains_app including quantifier bodies, unsigned recursive iteration and all seven source SASSERT sites",
@@ -137465,13 +137579,16 @@
           "go_targets": [
             "pkg/smtcore/proto_model/datatype_scope.go",
             "pkg/smtcore/proto_model/datatype_factory.go",
-            "pkg/smtcore/proto_model/datatype_factory_source_test.go"
+            "pkg/smtcore/proto_model/datatype_factory_source_test.go",
+            "pkg/smtcore/proto_model/datatype_teardown_source_test.go"
           ],
           "tests": [
             "TestDatatypeFactoryFreshCandidateOwnedAcrossRegistrationFailure",
             "TestDatatypeFactorySourceFreshDistinctnessAssertion",
-            "TestDatatypeFactoryFreshArgumentsOwnBeforeNextProvider"
-          ]
+            "TestDatatypeFactoryFreshArgumentsOwnBeforeNextProvider",
+            "TestDatatypeFactoryLexicalScopeStopsBeforeMembersAndRetries"
+          ],
+          "reason": "The g3trace lexical-scope fixture finishes floating-point sort construction before arming one register-node callback inside the numeral mutation guard. It checks exactly one refused cleanup attempt, unchanged lexical roots and pending-before-member retry; this is precise regression evidence, not broader constructor/destructor completion."
         },
         {
           "name": "All fourteen datatype_factory TRACE/CTRACE sites with lazy operands, source insertion order, actual global pp constructor profile, borrowed AST input and owned format document; shared nested stream refusal preserves operand side effects",
@@ -137593,7 +137710,8 @@
         "TestDatatypeFactoryTraceFiniteSiblingFallback",
         "TestDatatypeFactoryTraceBorrowsInputAndOwnsDocument",
         "TestDatatypeFactoryFreshArgumentsOwnBeforeNextProvider",
-        "TestDatatypeFactoryUsesOwnedRecursionCache"
+        "TestDatatypeFactoryUsesOwnedRecursionCache",
+        "TestDatatypeFactoryLexicalScopeStopsBeforeMembersAndRetries"
       ],
       "conditionals": [
         {
@@ -137675,7 +137793,9 @@
           "go_target": "pkg/smtcore/proto_model/datatype_factory.go",
           "tests": [
             "TestDatatypeFactoryUtilityStopsBeforeBaseTeardown"
-          ]
+          ],
+          "go_targets": ["pkg/smtcore/proto_model/datatype_teardown_source_test.go"],
+          "reason": "Trace-dependent native-refusal evidence is compiled only with g3trace; it preserves the utility-before-base destruction barrier without relying on a runtime trace skip."
         },
         {
           "name": "Native datatype value/fresh/almost control flow: lookup-only cold get_some_value, recursive almost-fresh seed, utility-owned constructor lists, actual contains_app including quantifier bodies, unsigned recursive iteration and all seven source SASSERT sites",
@@ -137699,13 +137819,16 @@
           "go_targets": [
             "pkg/smtcore/proto_model/datatype_scope.go",
             "pkg/smtcore/proto_model/datatype_factory.go",
-            "pkg/smtcore/proto_model/datatype_factory_source_test.go"
+            "pkg/smtcore/proto_model/datatype_factory_source_test.go",
+            "pkg/smtcore/proto_model/datatype_teardown_source_test.go"
           ],
           "tests": [
             "TestDatatypeFactoryFreshCandidateOwnedAcrossRegistrationFailure",
             "TestDatatypeFactorySourceFreshDistinctnessAssertion",
-            "TestDatatypeFactoryFreshArgumentsOwnBeforeNextProvider"
-          ]
+            "TestDatatypeFactoryFreshArgumentsOwnBeforeNextProvider",
+            "TestDatatypeFactoryLexicalScopeStopsBeforeMembersAndRetries"
+          ],
+          "reason": "The g3trace lexical-scope fixture finishes floating-point sort construction before arming one register-node callback inside the numeral mutation guard. It checks exactly one refused cleanup attempt, unchanged lexical roots and pending-before-member retry; this is precise regression evidence, not broader constructor/destructor completion."
         },
         {
           "name": "All fourteen datatype_factory TRACE/CTRACE sites with lazy operands, source insertion order, actual global pp constructor profile, borrowed AST input and owned format document; shared nested stream refusal preserves operand side effects",
@@ -178996,7 +179119,8 @@
         "pkg/solver/named_assertions.go",
         "pkg/solver/named_assertions_test.go",
         "pkg/solver/named_assertions_owner_test.go",
-        "pkg/solver/named_assertions_scope_failure_test.go"
+        "pkg/solver/named_assertions_scope_failure_test.go",
+        "pkg/solver/named_assertions_owner_trace_test.go"
       ],
       "tests": [
         "TestNamedAssertionsTrackedChecksScopesAndTemporaryAssumptions",
@@ -179061,7 +179185,9 @@
           "tests": [
             "TestNamedAssertionsTemporaryRetirementFollowsSourceForwardRange",
             "TestNamedAssertionInterruptedRangeRetirementRequiresClose"
-          ]
+          ],
+          "go_targets": ["pkg/solver/named_assertions_owner_trace_test.go"],
+          "reason": "The g3trace fixture stages the post-core retirement boundary, consumes a real first assumption token, then refuses the remaining suffix under the native AST guard. Close skips the consumed prefix, retires the live suffix once and does not replay a completed core Pop. Ordinary owner tests remain in named_assertions_owner_test.go."
         },
         {
           "name": "Tracked assert_expr new_t concrete lexical ASTRef across virtual core forwarding; normal/error retirement after the core, preserved assumption publication, borrowed null-tag branch and pending local-before-member Close continuation",
@@ -179072,7 +179198,9 @@
             "TestNamedAssertionNullTagBorrowsInput",
             "TestNamedAssertionStoppedLocalPrecedesMemberRetirement",
             "TestNamedAssertionInterruptedRangeRetirementRequiresClose"
-          ]
+          ],
+          "go_targets": ["pkg/solver/named_assertions_owner_trace_test.go"],
+          "reason": "The g3trace fixture completes floating-point sort setup before entering the native numeral mutation guard, then verifies pending lexical implication cleanup precedes member assumptions and resumes without losing or replaying a pin. The trace-dependent test now has its own build-tagged file; ordinary lexical ownership tests remain available without tracing."
         }
       ],
       "ownership": [
@@ -179097,7 +179225,8 @@
         "pkg/solver/named_assertions.go",
         "pkg/solver/named_assertions_test.go",
         "pkg/solver/named_assertions_owner_test.go",
-        "pkg/solver/named_assertions_scope_failure_test.go"
+        "pkg/solver/named_assertions_scope_failure_test.go",
+        "pkg/solver/named_assertions_owner_trace_test.go"
       ],
       "tests": [
         "TestNamedAssertionsTrackedChecksScopesAndTemporaryAssumptions",
@@ -179141,7 +179270,9 @@
           "tests": [
             "TestNamedAssertionsTemporaryRetirementFollowsSourceForwardRange",
             "TestNamedAssertionInterruptedRangeRetirementRequiresClose"
-          ]
+          ],
+          "go_targets": ["pkg/solver/named_assertions_owner_trace_test.go"],
+          "reason": "The g3trace fixture stages the post-core retirement boundary, consumes a real first assumption token, then refuses the remaining suffix under the native AST guard. Close skips the consumed prefix, retires the live suffix once and does not replay a completed core Pop. Ordinary owner tests remain in named_assertions_owner_test.go."
         },
         {
           "name": "Tracked assert_expr new_t concrete lexical ASTRef across virtual core forwarding; normal/error retirement after the core, preserved assumption publication, borrowed null-tag branch and pending local-before-member Close continuation",
@@ -179152,7 +179283,9 @@
             "TestNamedAssertionNullTagBorrowsInput",
             "TestNamedAssertionStoppedLocalPrecedesMemberRetirement",
             "TestNamedAssertionInterruptedRangeRetirementRequiresClose"
-          ]
+          ],
+          "go_targets": ["pkg/solver/named_assertions_owner_trace_test.go"],
+          "reason": "The g3trace fixture completes floating-point sort setup before entering the native numeral mutation guard, then verifies pending lexical implication cleanup precedes member assumptions and resumes without losing or replaying a pin. The trace-dependent test now has its own build-tagged file; ordinary lexical ownership tests remain available without tracing."
         }
       ],
       "ownership": [
@@ -284159,7 +284292,14 @@
         "pkg/ast/rewriter/bool_rewriter_ite_value_trace.go",
         "pkg/ast/rewriter/array_rewriter_trace.go",
         "pkg/ast/rewriter/var_substitution_trace.go",
-        "pkg/util/diagnostic/util_trace_nested_failure_test.go"
+        "pkg/util/diagnostic/util_trace_nested_failure_test.go",
+        "pkg/ast/rewriter/source_trace_stream.go",
+        "pkg/ast/rewriter/source_trace_stream_test.go",
+        "pkg/ast/rewriter/der_trace.go",
+        "pkg/ast/rewriter/factor_rewriter_trace.go",
+        "pkg/ast/rewriter/maximize_ac_sharing_trace.go",
+        "pkg/ast/rewriter/push_app_ite_trace.go",
+        "pkg/ast/rewriter/unused_vars_trace.go"
       ],
       "tests": [
         "TestASTFPAFPComponentsNumeralsAndTrace",
@@ -284271,7 +284411,9 @@
         "TestBoolRewriterTryITEValueFalseSourceTrace",
         "TestArrayRewriterAppCoreSourceTrace",
         "TestVarSubstitutionResultSourceTrace",
-        "TestNestedTraceRecordsShareImmediateStreamFailure"
+        "TestNestedTraceRecordsShareImmediateStreamFailure",
+        "TestRewriterTraceStreamContinuesOperandsAndPreservesTheirErrors",
+        "TestRewriterTraceBadStreamStillComputesFormattingOperand"
       ],
       "conditionals": [
         {
@@ -284915,8 +285057,12 @@
             "TestTraceShortBodyFailureSkipsSourceFlush",
             "TestTraceConditionalOperandFailureSkipsFooterAndFlush",
             "TestTraceStreamFailurePersistsAcrossRecords",
-            "TestTraceBodyErrorDoesNotPoisonStream"
-          ]
+            "TestTraceBodyErrorDoesNotPoisonStream",
+            "TestRewriterTraceStreamContinuesOperandsAndPreservesTheirErrors",
+            "TestRewriterTraceBadStreamStillComputesFormattingOperand"
+          ],
+          "go_targets": ["pkg/ast/rewriter/source_trace_stream.go","pkg/ast/rewriter/source_trace_stream_test.go","pkg/ast/rewriter/der_trace.go","pkg/ast/rewriter/factor_rewriter_trace.go","pkg/ast/rewriter/maximize_ac_sharing_trace.go","pkg/ast/rewriter/push_app_ite_trace.go","pkg/ast/rewriter/unused_vars_trace.go"],
+          "reason": "The five concrete rewriter emitters continue body operands after sticky stream insertion failure and preserve final flush behavior. Actual operand errors still escape even when identical to the writer error; SMT2-formatting allocation failure remains observable with unchanged reference ownership. These tests require g3trace and cover this shared adapter rather than every trace consumer or literal source-site header. The unused-vars emitter is evidence for Go stream semantics only; this slice does not establish an elim_unused_vars TRACE site in current var_subst.cpp."
         },
         {
           "name": "mpz_manager::divides STRACE result and TRACE temporary at retained integer caller",
