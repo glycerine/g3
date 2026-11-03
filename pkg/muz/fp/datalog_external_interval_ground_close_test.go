@@ -82,7 +82,13 @@ func testExternalIntervalDatalogGroundTemporaryCloseAfterPublicationRetry(t *tes
 		value, err = manager.ArithmeticIntegerNumeralText("17")
 		must(err)
 	}
-	must(activation.installExternalIntervalRulePlans(nil, &externalIntervalDatalogGroundRule{head: predicate, value: value}, nil))
+	var values []ast.ASTHandle
+	if !nullary {
+		values = []ast.ASTHandle{value}
+	}
+	application, err := manager.MkApp(predicate, values)
+	must(err)
+	must(activation.installExternalIntervalRulePlans(nil, &externalIntervalDatalogGroundRule{head: predicate, application: application, values: values}, nil))
 
 	old := activation.entries[predicate].product
 	registers, err := activation.loadExternalIntervalDatalogRegisters([]ast.ASTHandle{predicate})

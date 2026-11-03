@@ -36,7 +36,7 @@ func TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat(t *testing.T) {
 			selected, err := engine.ensureExternalIntervalDatalog()
 			fragmentMust(t, err)
 			plan := engine.externalIntervalDatalog.ground
-			if !selected || plan == nil || !plan.value.IsNull() {
+			if !selected || plan == nil || len(plan.values) != 0 {
 				t.Fatal("nullary ground plan was not selected")
 			}
 
@@ -163,12 +163,15 @@ func TestExternalIntervalDatalogUnaryGroundRuleAndRepeat(t *testing.T) {
 					t.Fatal("ground product was not selected")
 				}
 				plan := engine.externalIntervalDatalog.ground
-				if plan == nil || plan.valueRoot == (ast.ASTRef{}) {
+				if plan == nil || plan.applicationRoot == (ast.ASTRef{}) {
 					t.Fatal("ground plan did not root its numeral")
 				}
-				rooted, err := manager.RefGet(plan.valueRoot)
+				planRoot := plan.applicationRoot
+				rooted, err := manager.RefGet(planRoot)
 				fragmentMust(t, err)
-				if rooted != value {
+				rootedValue, err := manager.GetArg(rooted, 0)
+				fragmentMust(t, err)
+				if rooted != plan.application || rootedValue != value {
 					t.Fatal("ground plan rooted a different numeral")
 				}
 
@@ -197,7 +200,7 @@ func TestExternalIntervalDatalogUnaryGroundRuleAndRepeat(t *testing.T) {
 					ast.DatalogOpIsEmpty, ast.DatalogOpClone, ast.DatalogOpEmpty,
 					ast.DatalogOpStore, ast.DatalogOpUnion, ast.DatalogOpIsEmpty,
 				})
-				if engine.externalIntervalDatalog.ground != plan || engine.externalIntervalDatalog.ground.valueRoot != plan.valueRoot {
+				if engine.externalIntervalDatalog.ground != plan || engine.externalIntervalDatalog.ground.applicationRoot != planRoot {
 					t.Fatal("repeated query churned the rooted ground plan")
 				}
 			})
@@ -405,7 +408,7 @@ func TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay(
 }
 
 func TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks(t *testing.T) {
-	for _, shape := range []string{"arity-two", "variable", "body", "nullary-body", "multi-rule"} {
+	for _, shape := range []string{"nonnumeral-second", "variable", "body", "nullary-body", "multi-rule"} {
 		t.Run(shape, func(t *testing.T) {
 			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 			family, err := manager.RegisterArithmeticPlugin()
@@ -416,7 +419,7 @@ func TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks(t *testi
 			if shape == "nullary-body" {
 				sorts = nil
 			}
-			if shape == "arity-two" {
+			if shape == "nonnumeral-second" {
 				sorts = []ast.ASTHandle{integer, integer}
 			}
 			kinds := []string{"external_relation", "interval_relation"}
@@ -427,8 +430,10 @@ func TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks(t *testi
 			if shape == "nullary-body" {
 				arguments = nil
 			}
-			if shape == "arity-two" {
-				arguments = []ast.ASTHandle{one, one}
+			if shape == "nonnumeral-second" {
+				variable, variableErr := manager.MkVar(0, integer)
+				fragmentMust(t, variableErr)
+				arguments = []ast.ASTHandle{one, variable}
 			}
 			if shape == "variable" {
 				variable, variableErr := manager.MkVar(0, integer)

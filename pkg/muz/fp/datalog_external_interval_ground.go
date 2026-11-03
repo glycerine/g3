@@ -1,8 +1,8 @@
 package fp
 
 // Source: src/muz/rel/dl_compiler.cpp zero-tail head assembly and
-// src/muz/rel/dl_instruction.cpp LOAD, TOTAL, MK_UNARY_SINGLETON, UNION, and
-// STORE.
+// src/muz/rel/dl_instruction.cpp LOAD, TOTAL, MK_UNARY_SINGLETON, JOIN, UNION,
+// DEALLOC, and STORE.
 
 import (
 	"errors"
@@ -15,20 +15,29 @@ import (
 )
 
 type externalIntervalDatalogGroundRule struct {
-	head      ast.ASTHandle
-	value     ast.ASTHandle
-	valueRoot ast.ASTRef
+	head            ast.ASTHandle
+	application     ast.ASTHandle
+	values          []ast.ASTHandle
+	applicationRoot ast.ASTRef
 }
 
 func (r *externalIntervalDatalogGroundRule) close(manager *ast.ASTManager) error {
-	if r == nil || r.valueRoot == (ast.ASTRef{}) {
+	if r == nil || r.applicationRoot == (ast.ASTRef{}) {
 		return nil
 	}
-	return manager.DelRef(&r.valueRoot)
+	return manager.DelRef(&r.applicationRoot)
 }
 
 func sameExternalIntervalGroundRule(left, right *externalIntervalDatalogGroundRule) bool {
-	return left != nil && right != nil && left.head == right.head && left.value == right.value
+	if left == nil || right == nil || left.head != right.head || len(left.values) != len(right.values) {
+		return false
+	}
+	for i, value := range left.values {
+		if value != right.values[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func (e *PropositionalEngine) externalIntervalGroundRule(rule *base.Rule) (*externalIntervalDatalogGroundRule, error) {
@@ -52,7 +61,7 @@ func (e *PropositionalEngine) externalIntervalGroundRule(rule *base.Rule) (*exte
 		return nil, err
 	}
 	state := e.predicates[declaration]
-	if state == nil || !isExternalIntervalRepresentation(state.requestedRepresentations) || len(state.sorts) > 1 {
+	if state == nil || !isExternalIntervalRepresentation(state.requestedRepresentations) {
 		return nil, ErrExternalIntervalDatalogFragment
 	}
 	count, err := e.manager.GetNumArgs(head)
@@ -62,30 +71,31 @@ func (e *PropositionalEngine) externalIntervalGroundRule(rule *base.Rule) (*exte
 	if int(count) != len(state.sorts) {
 		return nil, ErrExternalIntervalDatalogFragment
 	}
-	if count == 0 {
-		return &externalIntervalDatalogGroundRule{head: declaration}, nil
+	values := make([]ast.ASTHandle, count)
+	for i := range values {
+		value, cause := e.manager.GetArg(head, uint32(i))
+		if cause != nil {
+			return nil, cause
+		}
+		sort, cause := e.manager.GetSort(value)
+		if cause != nil {
+			return nil, cause
+		}
+		_, _, numeral, cause := e.manager.ArithmeticNumeralText(value)
+		if cause != nil {
+			return nil, cause
+		}
+		if !numeral || sort != state.sorts[i] {
+			return nil, ErrExternalIntervalDatalogFragment
+		}
+		values[i] = value
 	}
-	value, err := e.manager.GetArg(head, 0)
-	if err != nil {
-		return nil, err
-	}
-	sort, err := e.manager.GetSort(value)
-	if err != nil {
-		return nil, err
-	}
-	_, _, numeral, err := e.manager.ArithmeticNumeralText(value)
-	if err != nil {
-		return nil, err
-	}
-	if !numeral || sort != state.sorts[0] {
-		return nil, ErrExternalIntervalDatalogFragment
-	}
-	return &externalIntervalDatalogGroundRule{head: declaration, value: value}, nil
+	return &externalIntervalDatalogGroundRule{head: declaration, application: head, values: values}, nil
 }
 
 // externalIntervalRulePlans validates the complete retained one-rule fragment
 // before relation callbacks. The live plans are the aligned identity edge, a
-// zero-tail nullary or unary arithmetic fact, and the exact two-unary-tail
+// zero-tail arithmetic numeral fact, and the exact two-unary-tail
 // Cartesian rule.
 func (e *PropositionalEngine) externalIntervalRulePlans() (_ *externalIntervalDatalogIdentityRule, _ *externalIntervalDatalogGroundRule, _ *externalIntervalDatalogCartesianRule, resultErr error) {
 	count, err := e.set.Len()
@@ -153,12 +163,12 @@ func (a *externalIntervalDatalogActivation) installExternalIntervalRulePlans(ide
 		a.cartesian != nil && (identity != nil || ground != nil) {
 		return ErrExternalIntervalDatalogFragment
 	}
-	if ground != nil && !ground.value.IsNull() && ground.valueRoot == (ast.ASTRef{}) {
-		root, err := a.manager.NewRef(ground.value)
+	if ground != nil && ground.applicationRoot == (ast.ASTRef{}) {
+		root, err := a.manager.NewRef(ground.application)
 		if err != nil {
 			return err
 		}
-		ground.valueRoot = root
+		ground.applicationRoot = root
 	}
 	a.identity = identity
 	a.ground = ground
@@ -169,6 +179,7 @@ func (a *externalIntervalDatalogActivation) installExternalIntervalRulePlans(ide
 type externalIntervalDatalogGroundContinuation struct {
 	registers *externalIntervalDatalogRegisters
 	temporary *rel.ExternalIntervalProduct
+	tuple     *externalIntervalDatalogGroundTuple
 	nested    memory.ConstructionFailure
 	runtime   *memory.Runtime
 	publish   bool
@@ -180,6 +191,13 @@ func (c *externalIntervalDatalogGroundContinuation) resume() error {
 			return err
 		}
 		c.nested = nil
+	}
+	// A joined head register is explicitly deallocated by the source rule
+	// code before termination STORE; cached unary singletons outlive STORE.
+	if c.tuple != nil {
+		if err := c.tuple.closeJoined(); err != nil {
+			return err
+		}
 	}
 	if c.publish && c.registers != nil {
 		if err := c.registers.store(); err != nil {
@@ -197,6 +215,12 @@ func (c *externalIntervalDatalogGroundContinuation) resume() error {
 			return err
 		}
 		c.temporary = nil
+	}
+	if c.tuple != nil {
+		if err := c.tuple.closeSingletons(); err != nil {
+			return err
+		}
+		c.tuple = nil
 	}
 	if !c.publish && c.registers != nil {
 		if err := c.registers.Close(); err != nil {
@@ -289,7 +313,14 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 	}
 	var temporary *rel.ExternalIntervalProduct
 	var selected bool
-	if a.ground.value.IsNull() {
+	if len(a.ground.values) > 1 {
+		owner.tuple = &externalIntervalDatalogGroundTuple{}
+		if err = owner.tuple.assemble(a.plugin, entry.kinds, entry.sorts, a.ground.values); err != nil {
+			return rollback(err)
+		}
+		temporary = owner.tuple.current
+		selected = temporary != nil
+	} else if len(a.ground.values) == 0 {
 		temporary, selected, err = rel.NewSelectedExternalIntervalNullaryTotal(a.plugin, entry.kinds)
 	} else {
 		temporary, selected, err = rel.NewSelectedExternalIntervalProduct(a.plugin, entry.sorts, entry.kinds)
@@ -300,9 +331,11 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 	if !selected || temporary == nil {
 		return rollback(ErrExternalIntervalDatalogFragment)
 	}
-	owner.temporary = temporary
-	if !a.ground.value.IsNull() {
-		if err = temporary.AddFact([]ast.ASTHandle{a.ground.value}); err != nil {
+	if owner.tuple == nil {
+		owner.temporary = temporary
+	}
+	if len(a.ground.values) == 1 {
+		if err = temporary.AddFact(a.ground.values); err != nil {
 			return rollback(err)
 		}
 	}
