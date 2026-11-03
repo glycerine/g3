@@ -44,6 +44,9 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 			}
 		}()
 	}
+	if selected, err := e.selectUDocProducts(owner, docFavourite, checkerEnabled); err != nil || selected {
+		return selected, err
+	}
 	any, other, finiteGuards := false, false, false
 	finiteInputs := make(map[ast.ASTHandle]*udocFiniteInput)
 	for _, d := range e.predicateOrder {

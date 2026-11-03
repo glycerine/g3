@@ -431,5 +431,8 @@ func (c *datalogUDocContext) saturate(set *base.RuleSet) error {
 	if c == nil || c.manager == nil || c.factory == nil || c.result == nil || set == nil {
 		return ErrUDocDatalogFragment
 	}
+	if c.products != nil {
+		return c.saturateProducts(set)
+	}
 	return c.saturateStratified(set)
 }

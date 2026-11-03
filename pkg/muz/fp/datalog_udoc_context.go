@@ -29,6 +29,7 @@ type datalogUDocContext struct {
 	inputOrder         []ast.ASTHandle
 	finiteResult       map[ast.ASTHandle]rel.FiniteTable
 	finiteUnionCleanup []*udocFiniteUnionAttempt
+	products           *udocProductContext
 }
 
 func newDatalogUDocContext(manager *ast.ASTManager) (*datalogUDocContext, error) {
@@ -40,6 +41,9 @@ func newDatalogUDocContext(manager *ast.ASTManager) (*datalogUDocContext, error)
 }
 
 func (c *datalogUDocContext) discardResult() error {
+	if err := c.products.discardResult(); err != nil {
+		return err
+	}
 	if err := c.clearFiniteUnionCleanup(); err != nil {
 		return err
 	}
@@ -71,6 +75,10 @@ func (c *datalogUDocContext) close() error {
 	if err := c.discardResult(); err != nil {
 		return err
 	}
+	if err := c.products.close(); err != nil {
+		return err
+	}
+	c.products = nil
 	for d, r := range c.seeds {
 		if err := r.Close(); err != nil {
 			return err
@@ -90,6 +98,9 @@ func (c *datalogUDocContext) close() error {
 }
 
 func (c *datalogUDocContext) sync(e *PropositionalEngine) error {
+	if c.products != nil {
+		return c.syncExistingProducts(e)
+	}
 	c.relations = e.relations
 	// Validate the whole new signature set before creating or publishing owners.
 	for _, d := range e.predicateOrder {
@@ -187,6 +198,12 @@ func (c *datalogUDocContext) sync(e *PropositionalEngine) error {
 }
 
 func (c *datalogUDocContext) addFact(declaration ast.ASTHandle, values []ast.ASTHandle) error {
+	if c.products != nil && c.products.program.productHead(declaration) && c.products.seeds[declaration] != nil {
+		if err := c.products.addFact(declaration, values); err != nil {
+			return err
+		}
+		return c.discardResult()
+	}
 	if input := c.finiteInputs[declaration]; input != nil {
 		fact, err := c.relations.EncodeFact(input.sorts, values)
 		if err != nil {
@@ -222,6 +239,12 @@ func (c *datalogUDocContext) addFact(declaration ast.ASTHandle, values []ast.AST
 // hasSeedFacts exposes the source relation's pre-query contents to query-local
 // transforms without moving UDoc ownership into the generic relation manager.
 func (c *datalogUDocContext) hasSeedFacts(declaration ast.ASTHandle) (bool, error) {
+	if c.products != nil && c.products.program.productHead(declaration) {
+		if seed := c.products.seeds[declaration]; seed != nil {
+			empty, err := seed.Empty()
+			return !empty, err
+		}
+	}
 	if input := c.finiteInputs[declaration]; input != nil {
 		length, err := input.table.Len()
 		return length != 0, err
@@ -239,6 +262,9 @@ func (c *datalogUDocContext) hasSeedFacts(declaration ast.ASTHandle) (bool, erro
 
 func (c *datalogUDocContext) snapshot() error {
 	if err := c.discardResult(); err != nil {
+		return err
+	}
+	if err := c.products.snapshot(); err != nil {
 		return err
 	}
 	c.result = make(map[ast.ASTHandle]*rel.TypedUDocRelation, len(c.seeds))
@@ -276,6 +302,16 @@ func (c *datalogUDocContext) status(declarations []ast.ASTHandle) (lbool.LBool, 
 		return lbool.True, nil
 	}
 	for _, d := range declarations {
+		if c.products != nil && c.products.program.productHead(d) {
+			empty, err := c.productEmpty(d)
+			if err != nil {
+				return lbool.Undef, err
+			}
+			if !empty {
+				return lbool.True, nil
+			}
+			continue
+		}
 		if table := c.finiteResult[d]; table != nil {
 			length, err := table.Len()
 			if err != nil {
@@ -308,6 +344,9 @@ func (c *datalogUDocContext) status(declarations []ast.ASTHandle) (lbool.LBool, 
 }
 
 func (c *datalogUDocContext) answer(declaration ast.ASTHandle) (ast.ASTRef, error) {
+	if c.products != nil && c.products.program.productHead(declaration) {
+		return c.productAnswer(declaration)
+	}
 	if table := c.finiteResult[declaration]; table != nil {
 		return c.finiteInputAnswer(declaration, table)
 	}
@@ -323,6 +362,7 @@ func (c *datalogUDocContext) answer(declaration ast.ASTHandle) (ast.ASTRef, erro
 
 func (c *datalogUDocContext) clone() (*datalogUDocContext, error) {
 	copy := &datalogUDocContext{manager: c.manager, factory: c.factory, borrowed: true, seeds: make(map[ast.ASTHandle]*rel.TypedUDocRelation), order: append([]ast.ASTHandle(nil), c.order...)}
+	copy.products = c.products.clone()
 	for _, d := range c.order {
 		relation, err := c.seeds[d].Clone()
 		if err != nil {
