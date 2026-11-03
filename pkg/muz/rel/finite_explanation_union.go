@@ -86,7 +86,7 @@ func (p *FiniteExplanationProduct) Union(source, delta *FiniteExplanationProduct
 			return ErrTableRelation
 		}
 		key := append(Fact(nil), fact...)
-		found, e := p.table.FetchFact(key)
+		found, e := p.fetchInnerKey(key)
 		if e != nil {
 			return e
 		}
@@ -98,7 +98,7 @@ func (p *FiniteExplanationProduct) Union(source, delta *FiniteExplanationProduct
 		}
 		if delta != nil {
 			deltaKey := append(Fact(nil), fact...)
-			deltaFound, e := delta.table.FetchFact(deltaKey)
+			deltaFound, e := delta.fetchInnerKey(deltaKey)
 			if e != nil {
 				return e
 			}

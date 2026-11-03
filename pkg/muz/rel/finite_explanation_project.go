@@ -57,7 +57,7 @@ func (p *FiniteExplanationProduct) Project(removed []int) (_ *FiniteExplanationP
 			}
 		}
 		projected = append(projected, 0)
-		found, e := result.table.FetchFact(projected)
+		found, e := result.fetchInnerKey(projected)
 		if e != nil {
 			return nil, e
 		}

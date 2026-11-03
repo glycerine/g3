@@ -118,7 +118,7 @@ func (p *FiniteExplanationProduct) addEncodedRow(key Fact, explanation []ast.AST
 	if len(key) != len(p.finiteSorts)+1 || len(explanation) != p.explanationColumns {
 		return ast.ErrASTDomain
 	}
-	found, err := p.table.FetchFact(key)
+	found, err := p.fetchInnerKey(key)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (p *FiniteExplanationProduct) ExplanationRow(values []ast.ASTHandle) ([]ast
 	if err != nil {
 		return nil, false, err
 	}
-	found, err := p.table.FetchFact(key)
+	found, err := p.fetchInnerKey(key)
 	if err != nil || !found {
 		return nil, false, err
 	}

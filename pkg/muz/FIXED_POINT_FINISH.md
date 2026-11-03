@@ -470,6 +470,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Finite/interval product display, size estimates, forced garbage collection and non-table tuple-display fallback.
   - [x] Finite/explanation product display, garbage collection and outer-table row/byte estimates.
   - [x] Use prefix-only sparse functional-key lookup for finite/interval add, membership, union and projection collisions, including an empty outer key with one shared interval hull.
+  - [x] Use prefix-only sparse functional-key lookup for finite/explanation insertion, retrieval, projection collisions and target/delta union, including project-all zero-column keys.
 - [ ] `src/muz/rel/dl_interval_relation.cpp` (partial), `src/muz/rel/dl_interval_relation.h` (partial)
   - [x] Plugin signature capability, n-ary identical-column filtering and formula construction allocation ownership.
   - [x] Retained finite/interval product consumer now uses the concrete interval capability predicate.
@@ -606,6 +607,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — PDR Boogie certificate export now owns the formatter, source proof reference and temporary proof-mode change in one ordered validation transaction. Writer failure followed by native cleanup refusal preserves both causes and exact retry custody, restores proof mode and publishes no partial certificate; lower composite validation teardown remains open.
   Validation: `go -C pkg test ./muz/pdr -run '^TestContextDisplayCertificate' -count=3` and `go -C pkg test ./muz/fp -run '^TestPDRBoogieCertificateParameterSelectsSourcePresentation$' -count=3` passed. Commit title: `Preserve Boogie certificate cleanup ownership`.
+
+- 2026-11-02 — Finite/explanation products now query plain sparse storage by its nonfunctional prefix throughout insertion, retrieval, projection collisions and target/delta union. Projecting every finite column therefore produces one nullary functional row and preserves the source first-explanation policy, while checked and lazy tables keep their verified full-row paths; broader finite-product dispatch remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^(TestFiniteExplanationProjectAllUsesZeroColumnFunctionalKey|TestFiniteExplanation.*|TestSparseFunctional)' -count=3` passed. Commit title: `Use functional keys in explanation products`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
