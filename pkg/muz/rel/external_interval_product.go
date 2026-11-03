@@ -3,9 +3,7 @@ package rel
 // Source: src/muz/rel/rel_context.cpp multi-plugin predicate
 // representations and src/muz/rel/dl_product_relation.cpp/.h.
 
-import (
-	"github.com/glycerine/g3/pkg/ast"
-)
+import "github.com/glycerine/g3/pkg/ast"
 
 // ExternalIntervalProduct is the concrete source product for an arithmetic
 // predicate represented simultaneously by external_relation and
@@ -146,6 +144,106 @@ func (p *ExternalIntervalProduct) Clone() (*ExternalIntervalProduct, error) {
 		external: external,
 		interval: interval,
 	}, nil
+}
+
+func (p *ExternalIntervalProduct) transformed(external *ExternalRelation, interval *IntervalRelation) *ExternalIntervalProduct {
+	return &ExternalIntervalProduct{
+		plugin:   p.plugin,
+		sorts:    append([]ast.ASTHandle(nil), external.sorts...),
+		kinds:    append([]string(nil), p.kinds...),
+		external: external,
+		interval: interval,
+	}
+}
+
+// Project applies the same column removal to both aligned components.
+func (p *ExternalIntervalProduct) Project(removed []uint32) (*ExternalIntervalProduct, error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	interval, err := p.interval.Project(removed)
+	if err != nil {
+		return nil, err
+	}
+	external, err := p.external.Project(removed)
+	if err != nil {
+		return nil, err
+	}
+	return p.transformed(external, interval), nil
+}
+
+// Rename applies the source permutation cycle to both aligned components.
+func (p *ExternalIntervalProduct) Rename(cycle []uint32) (*ExternalIntervalProduct, error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	interval, err := p.interval.Rename(cycle)
+	if err != nil {
+		return nil, err
+	}
+	external, err := p.external.Rename(cycle)
+	if err != nil {
+		return nil, err
+	}
+	return p.transformed(external, interval), nil
+}
+
+// FilterEqual intersects both components with one arithmetic value. The
+// interval candidate is published only after the external callback succeeds.
+func (p *ExternalIntervalProduct) FilterEqual(column uint32, value ast.ASTHandle) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	candidate, err := p.interval.Clone()
+	if err != nil {
+		return err
+	}
+	if err = candidate.FilterEqualExpression(p.plugin.ast, column, value); err != nil {
+		return err
+	}
+	if err = p.external.FilterEqual(column, value); err != nil {
+		return err
+	}
+	p.interval = candidate
+	return nil
+}
+
+// FilterIdentical intersects both components with the same equality class.
+func (p *ExternalIntervalProduct) FilterIdentical(columns []uint32) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	candidate, err := p.interval.Clone()
+	if err != nil {
+		return err
+	}
+	if err = candidate.FilterIdenticalColumns(columns); err != nil {
+		return err
+	}
+	if err = p.external.FilterIdentical(columns); err != nil {
+		return err
+	}
+	p.interval = candidate
+	return nil
+}
+
+// FilterInterpreted applies one source condition to both components.
+func (p *ExternalIntervalProduct) FilterInterpreted(condition ast.ASTHandle) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	candidate, err := p.interval.Clone()
+	if err != nil {
+		return err
+	}
+	if err = candidate.FilterInterpreted(p.plugin.ast, condition); err != nil {
+		return err
+	}
+	if err = p.external.FilterInterpreted(condition); err != nil {
+		return err
+	}
+	p.interval = candidate
+	return nil
 }
 
 // Close releases the owned external relation. A refused close leaves the

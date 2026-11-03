@@ -435,6 +435,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Dependency-first semi-naive SCC scheduling with one-output initialization and recursive widening callbacks.
   - [x] Preserve all unpublished rule-evaluation and recursive-delta relations across native cleanup refusal, with stable aggregate error transport and exact retry without damaging published predicates.
   - [x] All-or-nothing recursion, registered default selection, arithmetic signatures and independent expression clones with original-result publication.
+  - [x] Apply project, rename, equal/identical and interpreted filters componentwise to concrete external/interval products, preserving callback order, nullary results and failure-atomic interval publication.
   - [ ] Mixed external products and remaining exceptional working/delta ownership.
 - [ ] `src/muz/rel/dl_finite_product_relation.cpp` (partial), `src/muz/rel/dl_finite_product_relation.h` (partial)
   - [x] Finite/interval product display, size estimates, forced garbage collection and non-table tuple-display fallback.
@@ -496,6 +497,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Mixed external/interval products now project, rename and apply equality, identity and interpreted filters componentwise. The concrete path preserves requested schema and kind order, supports nullary projection, forwards exact callback parameters and publishes no local interval result when an external callback refuses; union/delta and public activation remain open.
+  Validation: `go -C pkg test ./muz/rel -run '^TestExternalIntervalProduct(CallbacksBoundsAndOwnership|SelectionAndConstructionRefusal|TransformsAndFilterAtomicity)$' -count=3` passed. Commit title: `Transform mixed external interval products`.
 
 - 2026-11-02 — Duality `LearnFrom` now owns the next history proposer before transferring the old counterexample replay guide. Recoverable history acquisition failure leaves the active engine and exact graph/root unchanged; retry transfers replay and history guidance once, while rollback after a later new-solve failure remains open.
   Validation: `go -C pkg test ./duality -run '^TestDuality(LearnFromKeepsReplayGuideUntilHistoryIsOwned|InvalidateCounterexampleViewPreservesReplayTransfer)$' -count=3` passed. Commit title: `Make Duality replay transfer transactional`.
