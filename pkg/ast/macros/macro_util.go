@@ -17,11 +17,13 @@ type Candidate struct {
 
 // Candidates owns one AST reference for every non-null handle in each row.
 type Candidates struct {
-	self    *Candidates
-	manager *ast.ASTManager
-	rows    []Candidate
-	header  uint64
-	closed  bool
+	self      *Candidates
+	manager   *ast.ASTManager
+	rows      []Candidate
+	header    uint64
+	closed    bool
+	resetting bool
+	closing   bool
 }
 
 func NewCandidates(m *ast.ASTManager) (*Candidates, error) {
@@ -38,6 +40,16 @@ func NewCandidates(m *ast.ASTManager) (*Candidates, error) {
 }
 
 func (c *Candidates) open() error {
+	if err := c.cleanupOwner(); err != nil {
+		return err
+	}
+	if c.resetting || c.closing {
+		return ast.ErrASTPending
+	}
+	return nil
+}
+
+func (c *Candidates) cleanupOwner() error {
 	if c == nil || c.self != c || c.manager == nil {
 		return ast.ErrASTHandle
 	}
@@ -48,7 +60,7 @@ func (c *Candidates) open() error {
 }
 
 func (c *Candidates) Len() int {
-	if c == nil || c.closed || c.self != c {
+	if c == nil || c.closed || c.self != c || c.resetting || c.closing {
 		return 0
 	}
 	return len(c.rows)
@@ -89,21 +101,42 @@ func (c *Candidates) Insert(row Candidate) error {
 	return nil
 }
 
-func (c *Candidates) Reset() (result error) {
-	if err := c.open(); err != nil {
+func (c *Candidates) Reset() error {
+	if err := c.cleanupOwner(); err != nil {
 		return err
 	}
-	for i := len(c.rows) - 1; i >= 0; i-- {
+	if c.closing {
+		return ast.ErrASTPending
+	}
+	c.resetting = true
+	if err := c.resetRows(); err != nil {
+		return err
+	}
+	c.resetting = false
+	return nil
+}
+
+func (c *Candidates) resetRows() error {
+	// Keep the remaining source vector owners until each decrement is consumed;
+	// native numerical destruction can report an error after consuming a root.
+	for len(c.rows) != 0 {
+		i := len(c.rows) - 1
 		row := &c.rows[i]
-		for _, h := range [...]ast.ASTHandle{row.Condition, row.Definition, row.Declaration} {
+		for _, h := range [...]*ast.ASTHandle{&row.Condition, &row.Definition, &row.Declaration} {
 			if !h.IsNull() {
-				result = errors.Join(result, c.manager.DecRef(h))
+				consumed, err := c.manager.DecRefConsumed(*h)
+				if consumed {
+					*h = ast.ASTHandle{}
+				}
+				if err != nil {
+					return err
+				}
 			}
 		}
 		*row = Candidate{}
+		c.rows = c.rows[:i]
 	}
-	c.rows = c.rows[:0]
-	return result
+	return nil
 }
 
 func (c *Candidates) Close() error {
@@ -113,13 +146,18 @@ func (c *Candidates) Close() error {
 	if c.closed {
 		return nil
 	}
-	if err := c.Reset(); err != nil {
+	if err := c.cleanupOwner(); err != nil {
+		return err
+	}
+	c.closing = true
+	if err := c.resetRows(); err != nil {
 		return err
 	}
 	c.manager.Budget().Release(c.header)
 	c.header = 0
 	c.rows = nil
 	c.closed = true
+	c.resetting, c.closing = false, false
 	return nil
 }
 
