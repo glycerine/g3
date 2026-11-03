@@ -174,6 +174,7 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 	definitions := make(map[ast.ASTHandle]int)
 	groundRules := make(map[int]*udocProductGroundRule)
 	groundHeads := make(map[ast.ASTHandle]bool)
+	forwardHeads := make(map[ast.ASTHandle]bool)
 	for i := 0; i < count; i++ {
 		rule, err := e.set.Rule(i)
 		if err != nil {
@@ -249,6 +250,25 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 		total, err := rule.TailSize()
 		if err != nil {
 			return nil, err
+		}
+		if positive == 1 && total == 1 {
+			// Source acyclic strata forward an existing product through
+			// filtering and head assembly. Keep ordinary targets mixed so
+			// their later unions still have two nontransparent components.
+			for _, sort := range state.sorts {
+				if sort == boolean {
+					continue
+				}
+				bitVector, err := e.manager.IsBitVectorSort(sort)
+				if err != nil {
+					return nil, err
+				}
+				if !bitVector {
+					return nil, ErrUDocDatalogFragment
+				}
+			}
+			forwardHeads[head] = true
+			continue
 		}
 		if positive != 2 || total != 2 {
 			return nil, ErrUDocDatalogFragment
@@ -423,7 +443,7 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 			if err != nil {
 				return nil, err
 			}
-			if !e.auxiliary[head] || definitions[head] != 1 || positive != 1 || total != 1 {
+			if !e.auxiliary[head] && !forwardHeads[head] || definitions[head] != 1 || positive != 1 || total != 1 {
 				return nil, ErrUDocDatalogFragment
 			}
 			tail, _, err := rule.Tail(0)
@@ -433,6 +453,15 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 			source, err := e.manager.GetDecl(tail)
 			if err != nil {
 				return nil, err
+			}
+			if forwardHeads[head] && !p.productHead(source) {
+				// A later rule may establish the source's product kind. The
+				// no-progress check below rejects recursive or unresolved
+				// dependencies; generated DOC/finite auxiliaries stay separate.
+				if p.rules[source] != nil || p.docs[source] || p.finite[source] {
+					return nil, ErrUDocDatalogFragment
+				}
+				continue
 			}
 			if !p.productHead(source) && p.rules[source] == nil && !p.docs[source] && !p.finite[source] {
 				continue
