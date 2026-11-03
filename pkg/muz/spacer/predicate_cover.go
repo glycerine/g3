@@ -109,11 +109,13 @@ func (p *PredicateTransformer) CoverDelta(level int) (result ast.ASTRef, resultE
 	if err != nil {
 		return result, err
 	}
+	attempt := &coverExportAttempt{manager: p.manager, runtime: p.manager.NumeralService().RuntimeOwner()}
+	defer func() { attempt.result = result; result, resultErr = attempt.finish(resultErr) }()
 	formulaRef, err := p.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&formulaRef)) }()
+	attempt.formula = formulaRef
 	if err = p.owner.boolean.MkAnd(lemmas, formulaRef); err != nil {
 		return result, err
 	}
@@ -125,7 +127,7 @@ func (p *PredicateTransformer) CoverDelta(level int) (result ast.ASTRef, resultE
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, p.manager.DelExprSubstitution(&substitution)) }()
+	attempt.substitution = substitution
 	for index, signature := range p.signature {
 		declaration, x := p.manager.RefGet(signature)
 		if x != nil {
@@ -155,7 +157,7 @@ func (p *PredicateTransformer) CoverDelta(level int) (result ast.ASTRef, resultE
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, replacer.Close()) }()
+	attempt.replacer = replacer
 	if err = replacer.SetSubstitution(&substitution); err != nil {
 		return result, err
 	}
@@ -164,7 +166,7 @@ func (p *PredicateTransformer) CoverDelta(level int) (result ast.ASTRef, resultE
 		return result, err
 	}
 	if err = replacer.Rewrite(formula, result); err != nil {
-		return ast.ASTRef{}, errors.Join(err, p.manager.DelRef(&result))
+		return result, err
 	}
 	return result, nil
 }

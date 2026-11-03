@@ -218,6 +218,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Trace and repair the separately observed invalid normalization side condition in that regression: proof substitutions now follow resolvent variable compaction, coalescing uses both source proofs, and unbound-variable reconstruction preserves its proof. Independent SMT checks now refute every negated side condition.
 
 - [ ] Close exported model, answer, counterexample and trace behavior through `spacer_dl_interface`.
+  - [x] Export cover deltas transactionally: preserve copied result, formula, substitution and replacer roots through native cleanup refusal, suppress partial answers and retry with stable cause separation.
   - [x] Forward `get_reachable` through the active Spacer expression-query clone; independently prove the repeated-query summary, reject stale access after mutation and preserve returned ownership after disposal.
   - [x] Recheck the source presentation contract: context::get_proof is empty and display_certificate is a no-op; the interface forwards both directly. Internal rule/SMT proofs remain distinct from an exported overall Spacer proof.
   - [x] Align context::get_rules_along_trace's non-SAT branch with the source empty return and level-1 diagnostic (spacer_context.cpp:2332-2337); verify unsolved/UNDEF/UNSAT/SAT at verbosity 0/1, an unconfigured context, closed-owner rejection, SAT rule ownership and unchanged public snapshot guards.
@@ -538,6 +539,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Spacer `CoverDelta` now owns the copied result, formula, expression substitution and replacer until export cleanup completes. Native refusal publishes no partial cover, preserves every conversion owner, separates semantic and cleanup causes with stable presentation and retries idempotently; deeper replacer-internal continuation remains open.
+  Validation: `go -C pkg test ./muz/spacer -run '^(TestSpacerCoverExportPreservesCopiedResultOnNativeCleanupRefusal|TestSpacer.*Cover)' -count=3` passed. Commit title: `Preserve Spacer cover exports through cleanup refusal`.
 
 - 2026-11-02 — Similarity compression now reaches interval-only arithmetic programs through query-local auxiliary interval facts and owned evaluator snapshots. Strict thresholds, queried-output protection, original seeds/rules, no-op source rule order, repeated updates, imprecise result status and answer lifetime are preserved; bound/hybrid/external activation and deeper allocation-frontier audits remain open.
   Validation: `go -C pkg test ./muz/rel -run '^Test(Similarity|FiniteSimilarity|IntervalSimilarity)' -count=1` and `go -C pkg test ./muz/fp -run '^Test(IntervalDatalog|DatalogConfiguredInterval|DatalogInterval)' -count=1` passed. Commit title: `Apply similarity compression to interval programs`.
