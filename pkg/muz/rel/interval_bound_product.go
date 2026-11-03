@@ -15,6 +15,7 @@ import (
 type IntervalBoundProduct struct {
 	interval *IntervalRelation
 	bound    *BoundRelation
+	kinds    []string
 }
 
 func NewIntervalBoundProduct(arity uint32, empty bool) *IntervalBoundProduct {
@@ -22,7 +23,7 @@ func NewIntervalBoundProduct(arity uint32, empty bool) *IntervalBoundProduct {
 	if empty {
 		interval = NewIntervalEmpty(arity)
 	}
-	return &IntervalBoundProduct{interval: interval, bound: NewBoundRelation(arity, empty)}
+	return &IntervalBoundProduct{interval: interval, bound: NewBoundRelation(arity, empty), kinds: []string{"interval_relation", "bound_relation"}}
 }
 func (p *IntervalBoundProduct) Empty() bool { return p == nil || p.interval.Empty() || p.bound.Empty() }
 
@@ -171,7 +172,7 @@ func JoinIntervalBoundProducts(left, right *IntervalBoundProduct, leftColumns, r
 	if err != nil {
 		return nil, err
 	}
-	return &IntervalBoundProduct{interval: interval, bound: bound}, nil
+	return &IntervalBoundProduct{interval: interval, bound: bound, kinds: append([]string(nil), left.kinds...)}, nil
 }
 
 func (p *IntervalBoundProduct) Project(removed []uint32) (*IntervalBoundProduct, error) {
@@ -186,7 +187,7 @@ func (p *IntervalBoundProduct) Project(removed []uint32) (*IntervalBoundProduct,
 	if err != nil {
 		return nil, err
 	}
-	return &IntervalBoundProduct{interval: interval, bound: bound}, nil
+	return &IntervalBoundProduct{interval: interval, bound: bound, kinds: append([]string(nil), p.kinds...)}, nil
 }
 
 func (p *IntervalBoundProduct) Rename(cycle []uint32) (*IntervalBoundProduct, error) {
@@ -201,5 +202,5 @@ func (p *IntervalBoundProduct) Rename(cycle []uint32) (*IntervalBoundProduct, er
 	if err != nil {
 		return nil, err
 	}
-	return &IntervalBoundProduct{interval: interval, bound: bound}, nil
+	return &IntervalBoundProduct{interval: interval, bound: bound, kinds: append([]string(nil), p.kinds...)}, nil
 }
