@@ -34,11 +34,12 @@ func (p *wpaParser) readMaps() error {
 				continue
 			}
 			entry.numbers[number] = true
-			if old, found := p.mapNames[number]; found && old != name {
-				file.Close()
-				return fmt.Errorf("%s:%d: symbol %d has conflicting names %q and %q", path, line, number, old, name)
+			// Source num2sym::insert_if_not_there2 keeps the first name when
+			// independent sort maps reuse a numeric symbol. A different later
+			// spelling is warning-only and must not reject the directory.
+			if _, found := p.mapNames[number]; !found {
+				p.mapNames[number] = name
 			}
-			p.mapNames[number] = name
 		}
 		err = scanner.Err()
 		err = joinClose(err, file.Close())

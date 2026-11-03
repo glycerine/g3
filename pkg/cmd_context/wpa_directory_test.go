@@ -37,3 +37,20 @@ func TestWPADirectoryRejectsUnknownTuplePredicate(t *testing.T) {
 		t.Fatal("accepted tuple file for unknown predicate")
 	}
 }
+
+func TestWPADirectoryKeepsFirstNameForSharedMapNumber(t *testing.T) {
+	directory := t.TempDir()
+	contextMust(t, os.WriteFile(filepath.Join(directory, "V.map"), []byte("10 alpha\n"), 0600))
+	contextMust(t, os.WriteFile(filepath.Join(directory, "W.map"), []byte("10 beta\n"), 0600))
+	contextMust(t, os.WriteFile(filepath.Join(directory, "program.rules"), []byte("Edge(x:V,y:W) outputtuples\n"), 0600))
+	contextMust(t, os.WriteFile(filepath.Join(directory, "Edge.rel"), []byte("10 10\n"), 0600))
+	context := contextFixture(t)
+	contextMust(t, context.ParseWPADirectory(directory))
+	edge, err := context.FindFunctionDeclaration("Edge", nil, nil, ast.ASTHandle{})
+	contextMust(t, err)
+	answer, err := context.QueryFixedpoint(edge)
+	contextMust(t, err)
+	if answer != lbool.True {
+		t.Fatal("WPA shared-number fact", answer)
+	}
+}
