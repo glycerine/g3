@@ -109,7 +109,7 @@ func (i *subsumptionIndex) ruleSubsumed(rule *base.Rule) (bool, error) {
 		return true, nil
 	}
 	for _, prior := range i.rules {
-		same, e := prior.Same(rule)
+		same, e := prior.Equal(rule)
 		if e != nil {
 			return false, e
 		}

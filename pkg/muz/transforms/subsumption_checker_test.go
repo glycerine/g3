@@ -136,6 +136,39 @@ func TestSubsumptionCheckerTransfersRuleProof(t *testing.T) {
 	}
 }
 
+func TestSubsumptionCheckerDropsStructurallyDuplicateRules(t *testing.T) {
+	f := newConeFixture(t, "P", "Q")
+	for _, name := range []string{"first-duplicate", "second-duplicate"} {
+		addTransformRule(t, f, f.applications["P"], []ast.ASTHandle{f.applications["Q"]}, nil, name)
+	}
+	coneMust(t, f.set.SetOutputPredicate(f.declarations["P"]))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("duplicate-rule fixture rejected")
+	}
+
+	transformer := base.NewRuleTransformer()
+	t.Cleanup(func() { coneMust(t, transformer.Close()) })
+	coneMust(t, transformer.Register(transforms.NewSubsumptionCheckerPlugin(true, 0)))
+	modified, err := transformer.Apply(f.set)
+	coneMust(t, err)
+	if !modified {
+		t.Fatal("structurally duplicate rule was not removed")
+	}
+	if count, countErr := f.set.Len(); countErr != nil || count != 1 {
+		t.Fatal("duplicate-rule count", count, countErr)
+	}
+	remaining, err := f.set.Rule(0)
+	coneMust(t, err)
+	defer func() { coneMust(t, remaining.Close()) }()
+	name, err := remaining.Name()
+	coneMust(t, err)
+	if name != "first-duplicate" {
+		t.Fatalf("duplicate pruning kept %q, want first source rule", name)
+	}
+}
+
 func TestSubsumptionCheckerDisabledReturnsNoChange(t *testing.T) {
 	f := newConeFixture(t, "Loop")
 	f.edge(t, "Loop", "Loop")
