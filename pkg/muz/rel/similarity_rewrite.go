@@ -3,7 +3,6 @@ package rel
 // Source: dl_mk_similarity_compressor.cpp, merge_class rule construction.
 
 import (
-	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"math"
@@ -24,15 +23,17 @@ func similarityRewriteRule(rm *base.RuleManager, rule *base.Rule, positions []si
 		return nil, e
 	}
 	next := used.MaxFoundVarIndexPlusOne()
-	var refs []ast.ASTRef
+	owner := &similarityRewriteOwner{manager: m}
 	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			err = errors.Join(err, m.DelRef(&refs[i]))
+		if err == nil {
+			err = owner.closeRefs()
+			if err == nil {
+				result, owner.rule = owner.rule, nil
+				return
+			}
 		}
-		if err != nil && result != nil {
-			err = errors.Join(err, result.Close())
-			result = nil
-		}
+		result = nil
+		err = finishSimilarityRewriteConstruction(err, owner)
 	}()
 	pin := func(h ast.ASTHandle, e error) (ast.ASTHandle, error) {
 		if e != nil {
@@ -42,7 +43,7 @@ func similarityRewriteRule(rm *base.RuleManager, rule *base.Rule, positions []si
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		refs = append(refs, r)
+		owner.refs = append(owner.refs, r)
 		return h, nil
 	}
 	head, e := rule.Head()
@@ -137,12 +138,12 @@ func similarityRewriteRule(rm *base.RuleManager, rule *base.Rule, positions []si
 	if e != nil {
 		return nil, e
 	}
-	result, e = rm.NewRule(head, tails, negs, name)
+	owner.rule, e = rm.NewRule(head, tails, negs, name)
 	if e != nil {
 		return nil, e
 	}
-	if e = result.SetAccountingParentRule(rule); e != nil {
-		return result, e
+	if e = owner.rule.SetAccountingParentRule(rule); e != nil {
+		return nil, e
 	}
-	return result, nil
+	return owner.rule, nil
 }

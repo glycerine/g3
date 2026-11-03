@@ -460,6 +460,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Force source-compatible emptiness and sequential bulk removal over sparse/nullary storage while keeping lazy exact-size knowledge false and deferred-source mutation independent.
 - [ ] `src/muz/rel/dl_mk_explanations.cpp` (partial), `src/muz/rel/dl_mk_explanations.h` (partial)
 - [ ] `src/muz/rel/dl_mk_similarity_compressor.cpp` (partial), `src/muz/rel/dl_mk_similarity_compressor.h` (partial)
+  - [x] Preserve rewritten rules and temporary AST roots through native cleanup refusal with nested child-first retry and no partial transformation publication.
 - [ ] `src/muz/rel/dl_product_relation.cpp` (partial), `src/muz/rel/dl_product_relation.h` (partial)
 - [ ] `src/muz/rel/dl_relation_manager.h` (partial)
 - [ ] `src/muz/rel/dl_sieve_relation.cpp` (partial), `src/muz/rel/dl_sieve_relation.h` (partial)
@@ -509,6 +510,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Similarity rule rewriting now owns every temporary AST root and the unpublished rewritten rule until cleanup completes. Native refusal suppresses partial publication, keeps nested construction receipts child-first and resumes the exact frontier before a semantic retry; nonfinite similarity activation remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^(TestSimilarity|TestFiniteSimilarity)' -count=3` passed. Commit title: `Preserve similarity rewrites through cleanup refusal`.
 
 - 2026-11-02 — Concrete sieves now build full selected-column products and independent empty instances while preserving ignored-column layout and nullary identity. Both source mixed-delta union directions between all-inner sieves and ordinary tables enforce exact signatures/layout and record only newly changed rows across repeated unions; wider sieve auditing remains open.
   Validation: `go -C pkg test ./muz/rel -run '^TestSieve' -count=3` passed. Commit title: `Complete sieve full and mixed delta operations`.
