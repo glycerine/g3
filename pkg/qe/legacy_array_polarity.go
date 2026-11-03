@@ -85,7 +85,7 @@ func (p *legacyArrayProjection) replaceEqualityPolarities(md *model.ModelCore, v
 		return nil, errors.Join(err, p.syntax.manager.DelRef(&replaced))
 	}
 	final, err := p.rewrite(handle)
-	err = errors.Join(err, p.syntax.manager.DelRef(&replaced))
+	err = finishLegacyPolarityRewrite(p.syntax.manager, final, replaced, err)
 	if err != nil {
 		return nil, err
 	}
