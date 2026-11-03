@@ -76,7 +76,7 @@ func TestSymbolMuxClosePreservesTupleRootsDuringNativeRefusal(t *testing.T) {
 	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
 	must(mux.Close())
 	must(mux.Close())
-	if !mux.closed || mux.closing || mux.manager != nil || len(mux.references) != 0 {
+	if !mux.closed || mux.closing || mux.manager != nil || mux.references != nil || cap(mux.references) != 0 {
 		t.Fatal("symbol-mux cleanup retry did not finish")
 	}
 
