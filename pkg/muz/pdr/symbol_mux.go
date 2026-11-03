@@ -32,6 +32,7 @@ type SymbolMux struct {
 	primary       []ast.ASTHandle
 	nonModel      map[ast.ASTHandle]bool
 	references    []ast.ASTRef
+	closing       bool
 	closed        bool
 }
 
@@ -56,6 +57,9 @@ func NewSymbolMux(manager *ast.ASTManager) (*SymbolMux, error) {
 }
 
 func (m *SymbolMux) open() error {
+	if m != nil && m.closing && !m.closed {
+		return ast.ErrASTPending
+	}
 	if m == nil || m.closed || m.manager == nil {
 		return ErrSymbolMuxOwner
 	}
@@ -844,18 +848,29 @@ func (m *SymbolMux) ModelString(modelCore *model.ModelCore) (string, error) {
 	return out.String(), nil
 }
 
-func (m *SymbolMux) Close() (result error) {
-	if m == nil || m.manager == nil {
+func (m *SymbolMux) Close() error {
+	if m == nil {
 		return ErrSymbolMuxOwner
 	}
 	if m.closed {
 		return nil
 	}
-	for index := len(m.references) - 1; index >= 0; index-- {
-		result = errors.Join(result, m.manager.DelRef(&m.references[index]))
+	if m.manager == nil {
+		return ErrSymbolMuxOwner
 	}
-	if result != nil {
-		return fmt.Errorf("%w: %v", ErrSymbolMuxOwner, result)
+	m.closing = true
+	for len(m.references) != 0 {
+		index := len(m.references) - 1
+		err := m.manager.DelRef(&m.references[index])
+		if m.references[index] == (ast.ASTRef{}) {
+			m.references = m.references[:index]
+		}
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrSymbolMuxOwner, err)
+		}
+		if len(m.references) != index {
+			return fmt.Errorf("%w: %w", ErrSymbolMuxOwner, ast.ErrASTPending)
+		}
 	}
 	m.references = nil
 	m.primaryTuples = nil
@@ -866,6 +881,7 @@ func (m *SymbolMux) Close() (result error) {
 	m.primary = nil
 	m.nonModel = nil
 	m.manager = nil
+	m.closing = false
 	m.closed = true
 	return nil
 }
