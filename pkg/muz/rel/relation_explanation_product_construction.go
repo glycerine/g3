@@ -18,24 +18,30 @@ func newRelationExplanationFiniteBacking(manager *RelationManager, signature Sig
 		if manager.checkedFinite == nil {
 			return emptyFiniteLike(source)
 		}
+		// Checked favourites participate only when both concrete plugins handle
+		// the signature. Sparse and lazy_sparse reject the nullary signature, so
+		// preserve the source-selected ordinary Hash fallback for that product.
+		if !manager.checkedFinite.CanHandleSignature(signature) {
+			return emptyFiniteLike(source)
+		}
 		if _, checked := source.(*FiniteCheckedPair); checked {
 			return emptyFiniteLike(source)
 		}
-		primary := ""
-		switch source.(type) {
-		case *HashTable:
-			primary = "hashtable"
-		case *SparseTable:
-			primary = "sparse"
+		// Source transfer preserves the actual selected primary (including the
+		// context-owned lazy_sparse engine) while constructing an empty backing;
+		// the caller copies the snapshot exactly once into both checked sides.
+		primary, err := source.CloneFinite()
+		if err != nil {
+			return nil, err
 		}
-		if primary != "" {
-			factory, err := NewFiniteCheckedFactory(primary, manager.checkedFinite.checkerKind)
-			if err != nil {
-				return nil, err
-			}
-			return factory.New(signature)
+		if err = primary.Reset(); err != nil {
+			return nil, errors.Join(err, primary.Close())
 		}
-		return nil, ErrCompilerUnsupported
+		checker, err := manager.checkedFinite.table(manager.checkedFinite.checkerKind, signature, 0)
+		if err != nil {
+			return nil, errors.Join(err, primary.Close())
+		}
+		return adoptFiniteCheckedPair(primary, checker)
 	}
 	return manager.NewDefaultFiniteTable(signature)
 }
@@ -203,10 +209,30 @@ func (p *RelationExplanationProduct) CheckedConcreteKinds() (primary, checker st
 	if err = p.open(); err != nil {
 		return "", "", false, err
 	}
-	pair, ok := p.table.(*FiniteCheckedPair)
-	if !ok {
-		return "", "", false, nil
+	switch table := p.table.(type) {
+	case *FiniteCheckedPair:
+		primary, checker, err = table.ConcreteKinds()
+		return primary, checker, true, err
+	case *FormulaCheckedTable:
+		return "hashtable", "formula", true, nil
+	case *HashTable:
+		return "hashtable", "", false, nil
+	case *SparseTable:
+		return "sparse", "", false, nil
+	case *LazySparseTable:
+		return "lazy_sparse", "", false, nil
+	default:
+		return "", "", false, ErrCompilerUnsupported
 	}
-	primary, checker, err = pair.ConcreteKinds()
-	return primary, checker, true, err
+}
+
+// FormulaChecked reports whether the finite sieve is guarded by the concrete
+// source check_relation wrapper. The whole proof relation is never part of
+// this checker.
+func (p *RelationExplanationProduct) FormulaChecked() (bool, error) {
+	if err := p.open(); err != nil {
+		return false, err
+	}
+	_, ok := p.table.(*FormulaCheckedTable)
+	return ok, nil
 }

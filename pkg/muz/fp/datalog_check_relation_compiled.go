@@ -31,8 +31,10 @@ func (e *PropositionalEngine) datalogDefaultCheckedPrimary() (primary string, re
 		primary = "hashtable"
 	case "tr_sparse":
 		primary = "sparse"
+	case "tr_lazy_sparse":
+		primary = "lazy_sparse"
 	}
-	if primary != "hashtable" && primary != "sparse" {
+	if primary != "hashtable" && primary != "sparse" && primary != "lazy_sparse" {
 		return "", fmt.Errorf("muz/fp: checked default table %s is not available", primary)
 	}
 	return primary, nil
@@ -58,7 +60,13 @@ func (s *datalogCheckRelationScope) beginCompiled() (_ *datalogCompiledCheckScop
 	if err != nil || !enabled {
 		return nil, false, err
 	}
-	factory, err := rel.NewFiniteCheckedFactory(primary, checker)
+	if (primary == "lazy_sparse" || checker == "lazy_sparse") && s.engine.lazyFinite == nil {
+		s.engine.lazyFinite = rel.NewLazySparseFiniteFactory()
+		if err = s.engine.relations.SetLazySparseFiniteFactory(s.engine.lazyFinite); err != nil {
+			return nil, false, err
+		}
+	}
+	factory, err := rel.NewFiniteCheckedFactoryWithLazy(primary, checker, s.engine.lazyFinite)
 	if err != nil {
 		return nil, false, err
 	}

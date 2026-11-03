@@ -73,7 +73,7 @@ func TestDatalogExpressionExplanationsCarryNamedProofAndSurviveScope(t *testing.
 }
 
 func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) {
-	for _, mode := range []string{"enabled", "magic", "local-disabled", "relation-level", "checked", "checked-default", "checked-default-reverse", "relation-checked-default", "relation-checked-default-reverse", "empty"} {
+	for _, mode := range []string{"enabled", "magic", "local-disabled", "relation-level", "checked", "relation-checked", "relation-checked-explicit", "checked-default", "checked-default-reverse", "checked-default-lazy", "relation-checked-default", "relation-checked-default-reverse", "relation-checked-default-lazy", "empty"} {
 		t.Run(mode, func(t *testing.T) {
 			f := newDirectFactFixture(t)
 			e, m := f.engine, f.manager
@@ -86,6 +86,9 @@ func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) 
 			if mode == "checked" {
 				must(e.globals.SourceSetName("fixedpoint.datalog.check_relation", "sparse"))
 			}
+			if mode == "relation-checked" || mode == "relation-checked-explicit" {
+				must(e.globals.SourceSetName("fixedpoint.datalog.check_relation", "hashtable"))
+			}
 			if mode == "checked-default" || mode == "relation-checked-default" {
 				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checked", "true"))
 				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checker", "hashtable"))
@@ -95,7 +98,12 @@ func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) 
 				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checked", "true"))
 				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checker", "sparse"))
 			}
-			if mode == "relation-level" || mode == "relation-checked-default" || mode == "relation-checked-default-reverse" {
+			if mode == "checked-default-lazy" || mode == "relation-checked-default-lazy" {
+				must(e.globals.SourceSetName("fixedpoint.datalog.default_table", "lazy_sparse"))
+				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checked", "true"))
+				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checker", "hashtable"))
+			}
+			if mode == "relation-level" || mode == "relation-checked" || mode == "relation-checked-explicit" || mode == "relation-checked-default" || mode == "relation-checked-default-reverse" || mode == "relation-checked-default-lazy" {
 				must(e.globals.SourceSetName("fixedpoint.datalog.explanations_on_relation_level", "true"))
 			}
 			if mode == "local-disabled" {
@@ -126,6 +134,9 @@ func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) 
 			rd, err := m.MkFuncDecl(rsym, []ast.ASTHandle{b}, b, ast.ASTFuncDeclInfo{})
 			must(err)
 			must(e.RegisterPredicate(rd))
+			if mode == "relation-checked-explicit" {
+				must(e.SetPredicateRepresentation(rd, []string{"tr_sparse"}))
+			}
 			rx, err := m.MkApp(rd, []ast.ASTHandle{x})
 			must(err)
 			forward, err := m.MkImplies(px, rx)
@@ -167,7 +178,11 @@ func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) 
 			} else if e.queryClone.datalogExplanationAnswer == (ast.ASTRef{}) {
 				t.Fatal("missing explanation answer")
 			}
-			if mode == "checked-default-reverse" || mode == "relation-checked-default-reverse" {
+			if mode == "checked-default-lazy" || mode == "relation-checked-default-lazy" {
+				if _, ok := e.predicates[d].table.(*rel.LazySparseTable); !ok {
+					t.Fatalf("explanation query lost configured lazy seed storage: %T", e.predicates[d].table)
+				}
+			} else if mode == "checked-default-reverse" || mode == "relation-checked-default-reverse" {
 				if _, ok := e.predicates[d].table.(*rel.HashTable); !ok {
 					t.Fatalf("explanation query lost configured hash seed storage: %T", e.predicates[d].table)
 				}
@@ -240,5 +255,47 @@ func TestDatalogExpressionExplanationOpenQueryKeepsFiniteAndProofColumns(t *test
 	must(err)
 	if variables[0] != b || variables[1] != proofSort || len(variables) != 2 {
 		t.Fatal("answer lost finite key or shifted proof column", variables)
+	}
+}
+
+func TestDatalogRelationExplanationFormulaCheckConstantHeadWithoutPositiveTail(t *testing.T) {
+	f := newDirectFactFixture(t)
+	e, m := f.engine, f.manager
+	must := func(err error) { t.Helper(); fragmentMust(t, err) }
+	must(e.SelectEngine("datalog"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.generate_explanations", "true"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.explanations_on_relation_level", "true"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.check_relation", "hashtable"))
+	boolean, err := m.MkBoolSort()
+	must(err)
+	bits, err := m.BitVectorSort(2)
+	must(err)
+	name, err := m.Symbols.Intern("relation-formula-constant-head")
+	must(err)
+	predicate, err := m.MkFuncDecl(name, []ast.ASTHandle{boolean, bits}, boolean, ast.ASTFuncDeclInfo{})
+	must(err)
+	must(e.RegisterPredicate(predicate))
+	three, err := m.BitVectorNumeralUnsigned(3, 2)
+	must(err)
+	truth, err := m.MkTrue()
+	must(err)
+	head, err := m.MkApp(predicate, []ast.ASTHandle{truth, three})
+	must(err)
+	headRef, err := m.NewRef(head)
+	must(err)
+	defer func() { must(m.DelRef(&headRef)) }()
+	must(e.AddRule(head, "constant-head-no-tail"))
+	status, err := e.QueryExpression(head)
+	must(err)
+	if status != lbool.True {
+		t.Fatal("constant-head formula-checked explanation", status)
+	}
+	answer, err := e.ExpressionAnswer()
+	must(err)
+	defer func() { must(m.DelRef(&answer)) }()
+	root, err := m.RefGet(answer)
+	must(err)
+	if !datalogExplanationFormulaNames(t, m, root)["constant-head-no-tail"] {
+		t.Fatal("constant-head answer lacks named proof")
 	}
 }

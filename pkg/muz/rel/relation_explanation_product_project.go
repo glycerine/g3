@@ -6,6 +6,7 @@ package rel
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -59,11 +60,11 @@ func (p *RelationExplanationProduct) ProjectColumns(removed []int) (_ *RelationE
 func (p *RelationExplanationProduct) projectComponents(finiteRemoved, proofRemoved []int, finiteFlags []bool) (_ *RelationExplanationProduct, resultErr error) {
 	table, err := finiteTableProject(p.table, finiteRemoved)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("finite projection: %w", err)
 	}
 	explanation, err := p.explanation.Project(proofRemoved)
 	if err != nil {
-		return nil, errors.Join(err, table.Close())
+		return nil, errors.Join(fmt.Errorf("proof projection: %w", err), table.Close())
 	}
 	sorts := make([]ast.ASTHandle, 0, len(p.finiteSorts)-len(finiteRemoved))
 	for column, sort := range p.finiteSorts {

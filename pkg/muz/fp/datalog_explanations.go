@@ -44,19 +44,32 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 	}
 	// Formula-backed check_relation remains a distinct whole-relation checker;
 	// the concrete default-table checker below checks only finite/index storage.
-	_, checked, err := e.datalogCheckRelationName()
+	_, formulaRequested, err := e.datalogCheckRelationName()
 	if err != nil {
 		return lbool.Undef, err
 	}
-	if checked {
-		return lbool.Undef, rel.ErrCompilerUnsupported
-	}
-	checkedScope, _, err := e.beginDatalogExplanationCheckedScope()
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if checkedScope != nil {
-		defer func() { resultErr = errors.Join(resultErr, checkedScope.Close()) }()
+	var formulaScope *datalogExplanationFormulaScope
+	var checkedScope *datalogExplanationCheckedScope
+	if formulaRequested {
+		// Native fact-level explanation products mix the proof index into joins
+		// that the formula checker cannot safely own. Relation-level checking
+		// wraps only the independent finite sieve.
+		if !relationLevel {
+			return lbool.Undef, rel.ErrCompilerUnsupported
+		}
+		formulaScope, _, err = e.beginDatalogExplanationFormulaScope()
+		if err != nil {
+			return lbool.Undef, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, formulaScope.Close()) }()
+	} else {
+		checkedScope, _, err = e.beginDatalogExplanationCheckedScope()
+		if err != nil {
+			return lbool.Undef, err
+		}
+		if checkedScope != nil {
+			defer func() { resultErr = errors.Join(resultErr, checkedScope.Close()) }()
+		}
 	}
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
@@ -92,12 +105,16 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 	}
 	owners.set = transformed
 	if relationLevel {
-		err = transformer.TransferRelationFacts(e.set, transformed, e.relations, e.predicateOrder)
+		if formulaScope != nil {
+			err = formulaScope.transferFacts(transformer, e.set, transformed)
+		} else {
+			err = transformer.TransferRelationFacts(e.set, transformed, e.relations, e.predicateOrder)
+		}
 	} else {
 		err = transformer.TransferFiniteFacts(e.set, transformed, e.relations, e.predicateOrder)
 	}
 	if err != nil {
-		return lbool.Undef, err
+		return lbool.Undef, fmt.Errorf("muz/fp: transfer explanation facts: %w", err)
 	}
 	// Check the unpruned program: magic sets may erase the explained producer
 	// that distinguishes a derived negative predicate from extensional facts.
@@ -180,7 +197,11 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 		if err != nil {
 			return lbool.Undef, err
 		}
-		if err = checkedScope.requireProduct(product); err != nil {
+		if formulaScope != nil {
+			if err = formulaScope.requireProduct(declarations[0], product); err != nil {
+				return lbool.Undef, err
+			}
+		} else if err = checkedScope.requireProduct(product); err != nil {
 			return lbool.Undef, err
 		}
 		empty, err := product.Empty()

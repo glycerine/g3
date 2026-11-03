@@ -8,8 +8,11 @@ import (
 
 func TestDatalogExplanationCheckedScopeConfiguredConcretePairs(t *testing.T) {
 	for _, tc := range []struct{ primary, checker string }{
+		{primary: "hashtable", checker: "hashtable"},
 		{primary: "hashtable", checker: "sparse"},
 		{primary: "sparse", checker: "hashtable"},
+		{primary: "lazy_sparse", checker: "hashtable"},
+		{primary: "hashtable", checker: "lazy_sparse"},
 	} {
 		t.Run(tc.primary+"-"+tc.checker, func(t *testing.T) {
 			f := newDirectFactFixture(t)
@@ -36,6 +39,19 @@ func TestDatalogExplanationCheckedScopeConfiguredConcretePairs(t *testing.T) {
 				t.Fatal("concrete checked kinds", primary, checker)
 			}
 			fragmentMust(t, table.Close())
+			nullary, err := rel.NewRelationExplanationProduct(e.relations, nil)
+			fragmentMust(t, err)
+			nullaryPrimary, nullaryChecker, nullaryChecked, err := nullary.CheckedConcreteKinds()
+			fragmentMust(t, err)
+			if tc.primary == "hashtable" && tc.checker == "hashtable" {
+				if !nullaryChecked || nullaryPrimary != "hashtable" || nullaryChecker != "hashtable" {
+					t.Fatal("hash/hash nullary was not checked", nullaryPrimary, nullaryChecker, nullaryChecked)
+				}
+			} else if nullaryChecked || nullaryPrimary != "hashtable" {
+				t.Fatal("unsupported nullary pair did not fall back to ordinary hash", nullaryPrimary, nullaryChecker, nullaryChecked)
+			}
+			fragmentMust(t, scope.requireProduct(nullary))
+			fragmentMust(t, nullary.Close())
 			fragmentMust(t, scope.Close())
 			ordinary, err := e.relations.NewDefaultFiniteTable(signature)
 			fragmentMust(t, err)

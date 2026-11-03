@@ -4,9 +4,11 @@ package rel
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/smtcore"
 )
 
 // TransferFiniteFacts adds the source fact explanation to each existing
@@ -14,16 +16,30 @@ import (
 // relation manager owns the published products under explained declarations.
 // The transformer exposes borrowed views until it closes.
 func (t *ExplanationTransformer) TransferFiniteFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle) error {
-	return t.transferFacts(source, target, relations, predicates, false)
+	return t.transferFacts(source, target, relations, predicates, false, nil, smtcore.SMTSolverConfig{})
 }
 
 // TransferRelationFacts attaches the source fact explanation to the whole
 // finite relation rather than to individual tuples.
 func (t *ExplanationTransformer) TransferRelationFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle) error {
-	return t.transferFacts(source, target, relations, predicates, true)
+	return t.transferFacts(source, target, relations, predicates, true, nil, smtcore.SMTSolverConfig{})
 }
 
-func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle, relationLevel bool) (resultErr error) {
+// TransferRelationFactsFormulaChecked gives eligible whole-relation products a
+// formula-checked finite sieve. Callers omit predicates with an explicit
+// representation request; their concrete source representation is therefore
+// preserved by TransferRelationFacts instead.
+func (t *ExplanationTransformer) TransferRelationFactsFormulaChecked(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle, eligible map[ast.ASTHandle]bool, config smtcore.SMTSolverConfig) error {
+	if len(eligible) == 0 {
+		return t.TransferRelationFacts(source, target, relations, predicates)
+	}
+	if config.Params == nil {
+		return ErrTableRelation
+	}
+	return t.transferFacts(source, target, relations, predicates, true, eligible, config)
+}
+
+func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle, relationLevel bool, formulaEligible map[ast.ASTHandle]bool, formulaConfig smtcore.SMTSolverConfig) (resultErr error) {
 	if err := t.open(); err != nil {
 		return err
 	}
@@ -117,7 +133,7 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 			return err
 		}
 		if relationLevel {
-			product, err := newRelationExplanationProductFromFinite(relations, sorts, finite, fact)
+			product, err := newRelationExplanationProductFromFiniteChecked(relations, sorts, finite, fact, formulaEligible[original], formulaConfig)
 			if err != nil {
 				return err
 			}
@@ -160,15 +176,33 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 }
 
 func newRelationExplanationProductFromFinite(manager *RelationManager, sorts []ast.ASTHandle, source FiniteTable, fact ast.ASTHandle) (_ *RelationExplanationProduct, resultErr error) {
+	return newRelationExplanationProductFromFiniteChecked(manager, sorts, source, fact, false, smtcore.SMTSolverConfig{})
+}
+
+func newRelationExplanationProductFromFiniteChecked(manager *RelationManager, sorts []ast.ASTHandle, source FiniteTable, fact ast.ASTHandle, formulaChecked bool, config smtcore.SMTSolverConfig) (_ *RelationExplanationProduct, resultErr error) {
 	product, err := newRelationExplanationProductWithBacking(manager, sorts, source)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("relation explanation finite backing: %w", err)
 	}
 	defer func() {
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, product.Close())
 		}
 	}()
+	if formulaChecked {
+		table, err := NewTableRelation(manager, sorts)
+		if err != nil {
+			return nil, err
+		}
+		checked, err := NewFormulaCheckedTable(table, config)
+		if err != nil {
+			return nil, errors.Join(err, table.Close())
+		}
+		if err = product.table.Close(); err != nil {
+			return nil, errors.Join(err, checked.Close())
+		}
+		product.table = checked
+	}
 	if source != nil {
 		expected, err := product.table.Signature()
 		if err != nil {
@@ -180,11 +214,11 @@ func newRelationExplanationProductFromFinite(manager *RelationManager, sorts []a
 		}
 		rows, err := source.Facts()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("relation explanation source facts: %w", err)
 		}
 		for _, row := range rows {
 			if _, err = product.table.Add(row); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("relation explanation snapshot add %v: %w", row, err)
 			}
 		}
 	}

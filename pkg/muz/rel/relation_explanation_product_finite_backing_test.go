@@ -152,9 +152,32 @@ func TestRelationExplanationProductCheckedFiniteDispatch(t *testing.T) {
 	lazyFactory := NewLazySparseFiniteFactory()
 	lazySource, err := lazyFactory.New(signature)
 	must(t, err)
-	if product, err := newRelationExplanationProductFromFinite(f.relations, []ast.ASTHandle{f.boolean}, lazySource, b); err == nil || product != nil {
-		t.Fatal("unsupported checked lazy source silently changed kind", product, err)
+	lazyProduct, err := newRelationExplanationProductFromFinite(f.relations, []ast.ASTHandle{f.boolean}, lazySource, b)
+	must(t, err)
+	primary, checker, checked, err = lazyProduct.CheckedConcreteKinds()
+	if err != nil || !checked || primary != "lazy_sparse" || checker != "hashtable" {
+		t.Fatal("checked lazy source primary not preserved", primary, checker, checked, err)
 	}
+	must(t, lazyProduct.Close())
 	must(t, lazySource.Close())
 	must(t, lazyFactory.Close())
+
+	// Sparse cannot represent the empty signature. The source plugin's
+	// capability fallback keeps the nullary Hash relation ordinary instead of
+	// fabricating a checked pair that cannot be constructed.
+	reverse, err := NewFiniteCheckedFactory("hashtable", "sparse")
+	must(t, err)
+	must(t, f.relations.SetCheckedFiniteFactory(reverse))
+	nullarySignature, err := NewSignature(nil)
+	must(t, err)
+	nullary := NewHashTable(nullarySignature)
+	_, err = nullary.Add(Fact{})
+	must(t, err)
+	nullaryProduct, err := newRelationExplanationProductFromFinite(f.relations, nil, nullary, b)
+	must(t, err)
+	defer func() { must(t, nullaryProduct.Close()); must(t, nullary.Close()) }()
+	primary, checker, checked, err = nullaryProduct.CheckedConcreteKinds()
+	if err != nil || checked || primary != "hashtable" || checker != "" {
+		t.Fatal("nullary checked capability fallback", primary, checker, checked, err)
+	}
 }

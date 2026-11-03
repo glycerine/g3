@@ -13,10 +13,11 @@ import (
 // datalogExplanationCheckedScope owns only the temporary factory installation.
 // The relation manager owns every table created through the borrowed factory.
 type datalogExplanationCheckedScope struct {
-	engine    *PropositionalEngine
-	primary   string
-	checker   string
-	installed bool
+	engine                   *PropositionalEngine
+	primary                  string
+	checker                  string
+	uncheckedNullaryFallback bool
+	installed                bool
 }
 
 func (e *PropositionalEngine) beginDatalogExplanationCheckedScope() (_ *datalogExplanationCheckedScope, enabled bool, resultErr error) {
@@ -28,11 +29,22 @@ func (e *PropositionalEngine) beginDatalogExplanationCheckedScope() (_ *datalogE
 	if err != nil {
 		return nil, false, err
 	}
-	factory, err := rel.NewFiniteCheckedFactory(primary, checker)
+	if (primary == "lazy_sparse" || checker == "lazy_sparse") && e.lazyFinite == nil {
+		e.lazyFinite = rel.NewLazySparseFiniteFactory()
+		if err = e.relations.SetLazySparseFiniteFactory(e.lazyFinite); err != nil {
+			return nil, false, err
+		}
+	}
+	factory, err := rel.NewFiniteCheckedFactoryWithLazy(primary, checker, e.lazyFinite)
 	if err != nil {
 		return nil, false, err
 	}
-	scope := &datalogExplanationCheckedScope{engine: e, primary: primary, checker: checker}
+	scope := &datalogExplanationCheckedScope{
+		engine:                   e,
+		primary:                  primary,
+		checker:                  checker,
+		uncheckedNullaryFallback: factory.AllowsUncheckedNullaryFallback(),
+	}
 	defer func() {
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, scope.Close())
@@ -49,6 +61,10 @@ type datalogExplanationCheckedProduct interface {
 	CheckedConcreteKinds() (primary, checker string, checked bool, err error)
 }
 
+type datalogExplanationFiniteSignature interface {
+	FiniteSignature() (rel.Signature, error)
+}
+
 // requireProduct proves the explanation product's finite/index component was
 // actually constructed by this scope before a checked query may succeed.
 func (s *datalogExplanationCheckedScope) requireProduct(product datalogExplanationCheckedProduct) error {
@@ -60,6 +76,19 @@ func (s *datalogExplanationCheckedScope) requireProduct(product datalogExplanati
 		return err
 	}
 	if !checked {
+		// sparse/lazy plugins cannot represent the empty signature. Source
+		// favourite selection deliberately falls back to ordinary Hash here;
+		// accept only that proved capability boundary, never a generic bypass.
+		signatureProduct, hasSignature := product.(datalogExplanationFiniteSignature)
+		if s.uncheckedNullaryFallback && hasSignature && primary == "hashtable" {
+			signature, signatureErr := signatureProduct.FiniteSignature()
+			if signatureErr != nil {
+				return signatureErr
+			}
+			if signature.Len() == 0 {
+				return nil
+			}
+		}
 		return fmt.Errorf("%w: explanation product kinds %s/%s checked=false", rel.ErrCheckTable, primary, checker)
 	}
 	return nil

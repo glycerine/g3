@@ -31,8 +31,30 @@ func (p *RelationExplanationProduct) Join(other *RelationExplanationProduct, lef
 			return nil, ast.ErrASTDomain
 		}
 	}
-	table, err := finiteTableJoin(p.table, other.table, left, right)
+	first, second := p.table, other.table
+	var firstOwned, secondOwned bool
+	var err error
+	if checked, ok := p.table.(*FormulaCheckedTable); ok {
+		second, err = liftFormulaCheckedWithSorts(checked, other.table, other.finiteSorts)
+		secondOwned = second != other.table
+	} else if checked, ok := other.table.(*FormulaCheckedTable); ok {
+		first, err = liftFormulaCheckedWithSorts(checked, p.table, p.finiteSorts)
+		firstOwned = first != p.table
+	}
 	if err != nil {
+		return nil, err
+	}
+	table, err := finiteTableJoin(first, second, left, right)
+	if firstOwned {
+		err = errors.Join(err, first.Close())
+	}
+	if secondOwned {
+		err = errors.Join(err, second.Close())
+	}
+	if err != nil {
+		if table != nil {
+			err = errors.Join(err, table.Close())
+		}
 		return nil, err
 	}
 	explanation, err := p.explanation.Join(other.explanation)

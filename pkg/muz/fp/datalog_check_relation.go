@@ -183,12 +183,15 @@ func (e *PropositionalEngine) datalogDefaultTableCheck() (checker string, enable
 			return "hashtable"
 		case "tr_sparse":
 			return "sparse"
+		case "tr_lazy_sparse":
+			return "lazy_sparse"
 		default:
 			return name
 		}
 	}
 	base, checker = normalize(base), normalize(checker)
-	if (base != "hashtable" && base != "sparse") || (checker != "hashtable" && checker != "sparse") {
+	available := func(name string) bool { return name == "hashtable" || name == "sparse" || name == "lazy_sparse" }
+	if !available(base) || !available(checker) {
 		return "", false, fmt.Errorf("muz/fp: checked default table pair %s/%s is not available", base, checker)
 	}
 	return checker, true, nil

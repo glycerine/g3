@@ -5,6 +5,7 @@ package rel
 
 import (
 	"errors"
+	"fmt"
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -146,6 +147,20 @@ func performRelationExplanationIO(i *relationIOInstruction, context *ExecutionCo
 			return false, err
 		}
 		if empty {
+			checked, checkErr := product.FormulaChecked()
+			if checkErr != nil {
+				return false, checkErr
+			}
+			if checked {
+				clone, cloneErr := product.Clone()
+				if cloneErr != nil {
+					return false, cloneErr
+				}
+				if setErr := context.SetRelationExplanationRegister(i.register, clone); setErr != nil {
+					return false, errors.Join(setErr, clone.Close())
+				}
+				return true, nil
+			}
 			return true, context.MakeEmpty(i.register)
 		}
 		clone, err := product.Clone()
@@ -297,7 +312,7 @@ func performRelationExplanationTable(i *tableInstruction, context *ExecutionCont
 		}
 		product, err := source.Join(right, i.left, i.right)
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("relation explanation join: %w", err)
 		}
 		return setRelationExplanationResult(context, i.result, product)
 	case "project", "rename":
@@ -309,7 +324,7 @@ func performRelationExplanationTable(i *tableInstruction, context *ExecutionCont
 			product, err = source.RenameFinite(i.left)
 		}
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("relation explanation %s: %w", i.kind, err)
 		}
 		return setRelationExplanationResult(context, i.result, product)
 	case "union", "widen":
@@ -351,6 +366,9 @@ func performRelationExplanationTable(i *tableInstruction, context *ExecutionCont
 			}
 		}
 		err = target.Union(source, delta)
+		if err != nil {
+			err = fmt.Errorf("relation explanation union: %w", err)
+		}
 		return err == nil, err
 	}
 	return false, ErrCompilerUnsupported

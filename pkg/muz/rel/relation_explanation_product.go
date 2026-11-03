@@ -70,7 +70,7 @@ func newRelationExplanationProduct(manager *RelationManager, sorts []ast.ASTHand
 		}
 	}()
 	if source != nil {
-		if err = finiteTableUnion(p.table, source, nil); err != nil {
+		if err = relationExplanationFiniteUnion(p.table, source, nil, p.finiteSorts); err != nil {
 			return nil, err
 		}
 	}
@@ -211,7 +211,7 @@ func (p *RelationExplanationProduct) Union(source, delta *RelationExplanationPro
 	if delta != nil {
 		deltaTable = delta.table
 	}
-	if err := finiteTableUnion(p.table, source.table, deltaTable); err != nil {
+	if err := relationExplanationFiniteUnion(p.table, source.table, deltaTable, p.finiteSorts); err != nil {
 		return err
 	}
 	var deltaExplanation *ExplanationRelation
