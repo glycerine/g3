@@ -181,6 +181,8 @@ type PropositionalEngine struct {
 	closing             bool
 	ddnf                ddnfEngineState
 
+	datalogTransformCleanup *datalogTransformOwners
+
 	lazyFinite               *rel.LazySparseFiniteFactory
 	sparseIntervalDatalog    *sparseIntervalDatalogActivation
 	externalIntervalDatalog  *externalIntervalDatalogActivation
@@ -999,23 +1001,16 @@ func (e *PropositionalEngine) validateFragment() error {
 }
 
 func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
-	cone := transforms.NewConePluginWithRelations(e.relations, 0)
-	filter := transforms.NewFilterRulesPlugin(e.manager, e.rules, 0)
-	plugin := transforms.NewSimpleJoinsPlugin(e.manager, e.rules, 0, e.relations)
-	transformer := base.NewRuleTransformer()
-	if err := transformer.Register(cone); err != nil {
-		return errors.Join(err, cone.Close(), filter.Close(), plugin.Close(), transformer.Close())
+	if err := e.clearDatalogTransformCleanup(); err != nil {
+		return err
 	}
-	if err := transformer.Register(filter); err != nil {
-		return errors.Join(err, filter.Close(), plugin.Close(), transformer.Close())
-	}
-	if err := transformer.Register(plugin); err != nil {
-		return errors.Join(err, plugin.Close(), transformer.Close())
-	}
+	owners := &datalogTransformOwners{transformer: base.NewRuleTransformer()}
+	transformer := owners.transformer
 	conversionBase := len(e.datalogConversions)
 	var coneSteps []transforms.ConeModelStep
 	defer func() {
-		resultErr = errors.Join(resultErr, transformer.Close())
+		e.datalogTransformCleanup = owners
+		resultErr = errors.Join(resultErr, e.clearDatalogTransformCleanup())
 		if resultErr != nil {
 			cleanupErr := closeHornModelConversions(e.datalogConversions[conversionBase:])
 			resultErr = errors.Join(resultErr, cleanupErr)
@@ -1031,6 +1026,47 @@ func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
 			}
 		}
 	}()
+	context, globals := e.params, e.globals
+	if context == nil && globals == nil {
+		var err error
+		owners.context, err = uparams.NewParamsContext(e.manager.Symbols, e.manager.NumeralService(), uparams.ParamsConfig{Budget: e.manager.Budget()})
+		if err != nil {
+			return err
+		}
+		owners.catalog, err = uparams.NewGlobalParamsCatalog(e.manager.Symbols, uparams.GlobalParamsCatalogConfig{Budget: e.manager.Budget()})
+		if err != nil {
+			return err
+		}
+		owners.globals, err = uparams.NewGlobalParamsService(e.manager.Symbols, owners.context, uparams.GlobalParamsConfig{
+			Budget: e.manager.Budget(), Catalog: owners.catalog,
+		})
+		if err != nil {
+			return err
+		}
+		if err := owners.globals.InitializeSource(); err != nil {
+			return err
+		}
+		context, globals = owners.context, owners.globals
+	}
+	simplifier, err := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, context, globals, 0)
+	if err != nil {
+		return err
+	}
+	cone := transforms.NewConePluginWithRelations(e.relations, 0)
+	filter := transforms.NewFilterRulesPlugin(e.manager, e.rules, 0)
+	plugin := transforms.NewSimpleJoinsPlugin(e.manager, e.rules, 0, e.relations)
+	if err := transformer.Register(cone); err != nil {
+		return errors.Join(err, cone.Close(), simplifier.Close(), filter.Close(), plugin.Close())
+	}
+	if err := transformer.Register(simplifier); err != nil {
+		return errors.Join(err, simplifier.Close(), filter.Close(), plugin.Close())
+	}
+	if err := transformer.Register(filter); err != nil {
+		return errors.Join(err, filter.Close(), plugin.Close())
+	}
+	if err := transformer.Register(plugin); err != nil {
+		return errors.Join(err, plugin.Close())
+	}
 	modified, err := transformer.Apply(e.set)
 	if err != nil {
 		return err
