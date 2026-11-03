@@ -139,16 +139,20 @@ func (t *SMTBitVectorTheory) numeralBits(expression ast.ASTHandle, width uint32)
 	return result, nil
 }
 
-func (t *SMTBitVectorTheory) releaseTemporary() (result error) {
+func (t *SMTBitVectorTheory) releaseTemporary() error {
 	state, err := t.State()
 	if err != nil {
 		return err
 	}
 	for i := range t.temporary {
-		result = errors.Join(result, state.manager.DelRef(&t.temporary[i]))
+		if t.temporary[i] != (ast.ASTRef{}) {
+			if err := state.manager.DelRef(&t.temporary[i]); err != nil {
+				return err
+			}
+		}
 	}
 	t.temporary = t.temporary[:0]
-	return result
+	return nil
 }
 
 // The concrete source bit-blaster owns each returned output reference until
@@ -930,7 +934,7 @@ func (t *SMTBitVectorTheory) ResetStatistics() {
 	}
 }
 
-func (t *SMTBitVectorTheory) Close() (result error) {
+func (t *SMTBitVectorTheory) Close() error {
 	if t == nil {
 		return ast.ErrASTHandle
 	}
@@ -938,9 +942,19 @@ func (t *SMTBitVectorTheory) Close() (result error) {
 	if err != nil {
 		return err
 	}
-	result = errors.Join(result, t.releaseTemporary())
+	if err := t.releaseTemporary(); err != nil {
+		return err
+	}
 	for expression, owner := range t.bitOwners {
-		result = errors.Join(result, state.manager.DelRef(&owner))
+		if owner != (ast.ASTRef{}) {
+			err := state.manager.DelRef(&owner)
+			// DelRef clears a consumed reference even if its child cleanup
+			// fails. Publish that receipt before returning to the owner.
+			t.bitOwners[expression] = owner
+			if err != nil {
+				return err
+			}
+		}
 		delete(t.bitOwners, expression)
 		delete(t.bits, expression)
 	}
@@ -955,7 +969,7 @@ func (t *SMTBitVectorTheory) Close() (result error) {
 	t.comparisonAtoms = nil
 	t.bitTrail = t.bitTrail[:0]
 	t.scopes = t.scopes[:0]
-	return result
+	return nil
 }
 
 func (t *SMTBitVectorTheory) InitializeModel(generator *SMTModelGenerator) error {
