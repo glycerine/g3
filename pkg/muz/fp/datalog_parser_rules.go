@@ -90,6 +90,8 @@ func (p *datalogParser) parseInfix(first datalogToken) (ast.ASTHandle, error) {
 	second := p.token
 	secondVariable, secondIsVariable := p.vars[second.text]
 	firstVariable, firstIsVariable := p.vars[first.text]
+	secondIsVariable = secondIsVariable && second.kind == datalogIdentifier
+	firstIsVariable = firstIsVariable && first.kind == datalogIdentifier
 	if second.kind != datalogString && second.kind != datalogNumber && !secondIsVariable {
 		return ast.ASTHandle{}, p.fail("expected constant or previously typed variable")
 	}

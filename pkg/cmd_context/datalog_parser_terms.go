@@ -5,6 +5,7 @@ package cmd_context
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -36,8 +37,8 @@ func (p *datalogParser) parseArgument(sort ast.ASTHandle) (ast.ASTHandle, error)
 	case dlString:
 		result, err = p.symbolicConstant(token.text, sort)
 	case dlNumber:
-		// Source mk_symbol_const maps a finite-domain numeral by its spelling,
-		// just like a quoted symbol; only arithmetic domains use its value.
+		// Source parse_arg converts the token to uint64 before mk_symbol_const
+		// maps its canonical decimal spelling into a finite-domain symbol.
 		result, err = p.numericConstant(token.text, sort)
 	default:
 		return ast.ASTHandle{}, p.expected("argument")
@@ -53,10 +54,15 @@ func (p *datalogParser) parseArgument(sort ast.ASTHandle) (ast.ASTHandle, error)
 }
 
 func (p *datalogParser) numericConstant(spelling string, sort ast.ASTHandle) (ast.ASTHandle, error) {
-	if _, err := strconv.ParseUint(spelling, 10, 64); err != nil {
+	// Source rational parsing accepts signed zero as an unsigned value.
+	if len(spelling) > 1 && spelling[0] == '-' && strings.Trim(spelling[1:], "0") == "" {
+		spelling = "0"
+	}
+	value, err := strconv.ParseUint(spelling, 10, 64)
+	if err != nil {
 		return ast.ASTHandle{}, fmt.Errorf("invalid unsigned integer %q", spelling)
 	}
-	return p.symbolicConstant(spelling, sort)
+	return p.symbolicConstant(strconv.FormatUint(value, 10), sort)
 }
 
 func (p *datalogParser) symbolicConstant(name string, sort ast.ASTHandle) (ast.ASTHandle, error) {
@@ -109,6 +115,11 @@ func (p *datalogParser) parseInfix() (ast.ASTHandle, error) {
 	}
 	leftVar, leftOK := p.variables[leftToken.text]
 	rightVar, rightOK := p.variables[rightToken.text]
+	leftOK = leftOK && leftToken.kind == dlIdentifier
+	rightOK = rightOK && rightToken.kind == dlIdentifier
+	if rightToken.kind == dlIdentifier && !rightOK {
+		return ast.ASTHandle{}, p.expected("previously typed variable")
+	}
 	if !leftOK && !rightOK {
 		return ast.ASTHandle{}, fmt.Errorf("datalog:%d: at least one infix argument must be a variable", leftToken.line)
 	}
@@ -123,9 +134,8 @@ func (p *datalogParser) parseInfix() (ast.ASTHandle, error) {
 		if found {
 			return variable, nil
 		}
-		if token.kind == dlNumber {
-			return p.numericConstant(token.text, sort)
-		}
+		// Unlike predicate arguments, source parse_infix sends both numeric
+		// and quoted tokens directly to mk_const, preserving their spelling.
 		return p.symbolicConstant(token.text, sort)
 	}
 	left, err := operand(leftToken, leftVar, leftOK)

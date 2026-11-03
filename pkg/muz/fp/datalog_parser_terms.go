@@ -4,6 +4,7 @@ package fp
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -95,13 +96,26 @@ func (p *datalogParser) argumentFromToken(token datalogToken, sort ast.ASTHandle
 			p.vars[token.text] = result
 		}
 		return result, err
-	case datalogString:
+	case datalogString, datalogNumber:
+		nameText := token.text
+		if token.kind == datalogNumber && createVariable {
+			// parse_arg uses mk_symbol_const(uint64), whereas parse_infix uses
+			// mk_const(symbol). Only predicate numerals canonicalize spelling.
+			if len(nameText) > 1 && nameText[0] == '-' && strings.Trim(nameText[1:], "0") == "" {
+				nameText = "0"
+			}
+			value, err := strconv.ParseUint(nameText, 10, 64)
+			if err != nil {
+				return ast.ASTHandle{}, p.fail("invalid integer")
+			}
+			nameText = strconv.FormatUint(value, 10)
+		}
 		finite, err := p.manager.IsDatalogFiniteSort(sort)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
 		if finite {
-			name, err := p.symbol(token.text)
+			name, err := p.symbol(nameText)
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
@@ -111,31 +125,10 @@ func (p *datalogParser) argumentFromToken(token datalogToken, sort ast.ASTHandle
 			}
 			return p.manager.MkDatalogNumeral(number, sort)
 		}
-		if _, err = strconv.ParseUint(token.text, 10, 64); err != nil {
+		if _, err = strconv.ParseUint(nameText, 10, 64); err != nil {
 			return ast.ASTHandle{}, p.fail("invalid integer")
 		}
-		return p.manager.ArithmeticIntegerNumeralText(token.text)
-	case datalogNumber:
-		_, err := strconv.ParseUint(token.text, 10, 64)
-		if err != nil {
-			return ast.ASTHandle{}, p.fail("invalid integer")
-		}
-		finite, err := p.manager.IsDatalogFiniteSort(sort)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		if finite {
-			name, err := p.symbol(token.text)
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-			number, err := p.context.SymbolNumber(sort, name)
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-			return p.manager.MkDatalogNumeral(number, sort)
-		}
-		return p.manager.ArithmeticIntegerNumeralText(token.text)
+		return p.manager.ArithmeticIntegerNumeralText(nameText)
 	default:
 		return ast.ASTHandle{}, p.fail("expected predicate argument")
 	}
