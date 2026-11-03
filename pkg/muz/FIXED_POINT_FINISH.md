@@ -462,6 +462,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] All-or-nothing recursion, registered default selection, arithmetic signatures and independent expression clones with original-result publication.
   - [x] Apply project, rename, equal/identical and interpreted filters componentwise to concrete external/interval products, preserving callback order, nullary results and failure-atomic interval publication.
   - [x] Union and widen aligned external/interval products with a fresh per-component delta followed by ordinary accumulation into the caller delta, preserving preexisting rows and source operation order under refusal.
+  - [x] Join aligned external/interval products componentwise with exact schema/kind preflight, callback column order, interval equality constraints and independent result ownership.
   - [ ] Mixed external products and remaining exceptional working/delta ownership.
 - [ ] `src/muz/rel/dl_finite_product_relation.cpp` (partial), `src/muz/rel/dl_finite_product_relation.h` (partial)
   - [x] Finite/interval product display, size estimates, forced garbage collection and non-table tuple-display fallback.
@@ -539,6 +540,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Mixed external/interval products now join corresponding components after exact plugin, kind, column and sort preflight. External callback parameters and concatenated schema align with interval equality constraints, sources stay independent and callback refusal publishes no product; public product-aware execution still remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^TestExternalIntervalProductJoin' -count=3` passed. Commit title: `Join mixed external interval products`.
 
 - 2026-11-02 — Spacer `CoverDelta` now owns the copied result, formula, expression substitution and replacer until export cleanup completes. Native refusal publishes no partial cover, preserves every conversion owner, separates semantic and cleanup causes with stable presentation and retries idempotently; deeper replacer-internal continuation remains open.
   Validation: `go -C pkg test ./muz/spacer -run '^(TestSpacerCoverExportPreservesCopiedResultOnNativeCleanupRefusal|TestSpacer.*Cover)' -count=3` passed. Commit title: `Preserve Spacer cover exports through cleanup refusal`.
