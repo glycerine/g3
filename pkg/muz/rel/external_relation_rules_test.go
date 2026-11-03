@@ -121,7 +121,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 				}
 				return f.ast.MkFalse()
 			}
-			if kind != ast.DatalogOpProject && kind != ast.DatalogOpRename && kind != ast.DatalogOpJoin {
+			if kind != ast.DatalogOpProject && kind != ast.DatalogOpRename && kind != ast.DatalogOpJoin && kind != ast.DatalogOpComplement {
 				t.Fatalf("unexpected reduction operation %d", kind)
 			}
 			sort, err := f.ast.GetRange(declaration)
@@ -131,6 +131,17 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 			result, err := f.ast.MkFreshConst("external-project", sort)
 			if err != nil {
 				return ast.ASTHandle{}, err
+			}
+			if kind == ast.DatalogOpComplement {
+				columns, cause := f.ast.DatalogRelationColumns(sort)
+				if cause != nil || len(columns) != 1 || columns[0] != f.boolean {
+					return ast.ASTHandle{}, errors.Join(cause, ErrTableRelation)
+				}
+				if len(rows[arguments[0]]) == 0 {
+					appendUnique(result, []ast.ASTHandle{f.falsehood})
+					appendUnique(result, []ast.ASTHandle{f.truth})
+				}
+				return result, nil
 			}
 			if kind == ast.DatalogOpJoin {
 				joins++
@@ -404,11 +415,22 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 		astTestMust(t, rule.Close())
 	}
 	beforeInterpretedFailureStores := stores
-	if err = ExecuteExternalFactRules(plugin, interpretedFailure); !errors.Is(err, ErrCompilerUnsupported) {
-		t.Fatal("unbound interpreted variable preflight", err)
+	if err = ExecuteExternalFactRules(plugin, interpretedFailure); err != nil {
+		t.Fatal("unbound interpreted variable execution", err)
 	}
-	if stores != beforeInterpretedFailureStores {
-		t.Fatal("interpreted validation failure published a ground prefix", beforeInterpretedFailureStores, stores)
+	if stores != beforeInterpretedFailureStores+1 {
+		t.Fatal("interpreted full-column rule ground fact count", beforeInterpretedFailureStores, stores)
+	}
+	rRelation, err := plugin.PredicateRelation(r)
+	astTestMust(t, err)
+	rHandle, err := rRelation.Relation()
+	astTestMust(t, err)
+	foundFalse := false
+	for _, tuple := range rows[rHandle] {
+		foundFalse = foundFalse || len(tuple) == 1 && tuple[0] == f.falsehood
+	}
+	if !foundFalse {
+		t.Fatal("unbound interpreted variable did not enumerate and filter its full column", rows[rHandle])
 	}
 	nonBooleanFailure, err := base.NewRuleSet(rules)
 	astTestMust(t, err)

@@ -35,10 +35,13 @@ func TestExecuteExternalBoundNegativeRules(t *testing.T) {
 	storeCalls := 0
 	duplicateKeys := 0
 	nullaryComplements, unaryComplements := 0, 0
+	conjunctionFilters := 0
 	failComplement := false
 	failEmpty := false
+	failStore := false
 	complementFailure := errors.New("negative column total complement refused")
 	emptyFailure := errors.New("negative column total empty refused")
+	storeFailure := errors.New("constant singleton store refused")
 	plugin, err := NewExternalRelationPlugin(f.relations, ExternalRelationCallbacks{
 		ReduceAssign: func(declaration ast.ASTHandle, arguments, outputs []ast.ASTHandle) error {
 			kind, cause := f.ast.GetDeclKind(declaration)
@@ -57,6 +60,9 @@ func TestExecuteExternalBoundNegativeRules(t *testing.T) {
 				astTestMust(t, columnsErr)
 				arities[outputs[0]] = len(columns)
 			case ast.DatalogOpStore:
+				if failStore {
+					return storeFailure
+				}
 				storeCalls++
 				appendUnique(outputs[0], arguments[1:])
 			case ast.DatalogOpClone:
@@ -99,10 +105,11 @@ func TestExecuteExternalBoundNegativeRules(t *testing.T) {
 				condition, conditionErr := f.ast.ParameterAST(parameters[0])
 				astTestMust(t, f.ast.DelParameter(&parameters[0]))
 				astTestMust(t, conditionErr)
-				left, conditionErr := f.ast.GetArg(condition, 0)
+				operator, conditionErr := f.ast.GetDeclKind(condition)
 				astTestMust(t, conditionErr)
-				right, conditionErr := f.ast.GetArg(condition, 1)
-				astTestMust(t, conditionErr)
+				if operator == ast.ASTOpAnd {
+					conjunctionFilters++
+				}
 				kept := rows[outputs[0]][:0]
 				for _, tuple := range rows[outputs[0]] {
 					value := func(term ast.ASTHandle) ast.ASTHandle {
@@ -115,7 +122,34 @@ func TestExecuteExternalBoundNegativeRules(t *testing.T) {
 						astTestMust(t, valueErr)
 						return tuple[column]
 					}
-					if value(left) == value(right) {
+					var evaluate func(ast.ASTHandle) bool
+					evaluate = func(term ast.ASTHandle) bool {
+						op, evalErr := f.ast.GetDeclKind(term)
+						astTestMust(t, evalErr)
+						count, evalErr := f.ast.GetNumArgs(term)
+						astTestMust(t, evalErr)
+						switch op {
+						case ast.ASTOpAnd:
+							for i := uint32(0); i < count; i++ {
+								argument, argumentErr := f.ast.GetArg(term, i)
+								astTestMust(t, argumentErr)
+								if !evaluate(argument) {
+									return false
+								}
+							}
+							return true
+						case ast.ASTOpEq, ast.ASTOpIff:
+							left, argumentErr := f.ast.GetArg(term, 0)
+							astTestMust(t, argumentErr)
+							right, argumentErr := f.ast.GetArg(term, 1)
+							astTestMust(t, argumentErr)
+							return value(left) == value(right)
+						default:
+							t.Fatalf("unexpected interpreted operator %d", op)
+							return false
+						}
+					}
+					if evaluate(condition) {
 						kept = append(kept, tuple)
 					}
 				}
@@ -171,9 +205,23 @@ func TestExecuteExternalBoundNegativeRules(t *testing.T) {
 				}
 			case ast.DatalogOpJoin:
 				arities[result] = arities[arguments[0]] + arities[arguments[1]]
+				parameters, parameterErr := f.ast.GetDeclParametersCopy(declaration)
+				astTestMust(t, parameterErr)
+				indices := make([]int32, len(parameters))
+				for i := range parameters {
+					indices[i], parameterErr = f.ast.ParameterInt(parameters[i])
+					astTestMust(t, f.ast.DelParameter(&parameters[i]))
+					astTestMust(t, parameterErr)
+				}
 				for _, left := range rows[arguments[0]] {
 					for _, right := range rows[arguments[1]] {
-						appendUnique(result, append(append([]ast.ASTHandle(nil), left...), right...))
+						matches := true
+						for i := 0; i < len(indices); i += 2 {
+							matches = matches && left[indices[i]] == right[indices[i+1]]
+						}
+						if matches {
+							appendUnique(result, append(append([]ast.ASTHandle(nil), left...), right...))
+						}
 					}
 				}
 			case ast.DatalogOpProject:
@@ -338,6 +386,76 @@ func TestExecuteExternalBoundNegativeRules(t *testing.T) {
 	if nullaryComplements != beforeNullary || unaryComplements != beforeUnary+1 || !contains(fullStartHead, []ast.ASTHandle{f.truth}) {
 		t.Fatal("unbound-only rule did not start directly from its unary total", beforeNullary, nullaryComplements, beforeUnary, unaryComplements)
 	}
+	interpretedAndUnsafe, err := base.NewRuleSet(rules)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, interpretedAndUnsafe.Close()) }()
+	interpretedOnly := declare("interpreted-only-full-column", 1)
+	unsafeHead := declare("unsafe-head-full-column", 2)
+	unsafeFact := declare("unsafe-empty-body-full-column", 2)
+	yEqualsTruth, err := f.ast.MkEq(y, f.truth)
+	astTestMust(t, err)
+	yEqualsSelf, err := f.ast.MkEq(y, y)
+	astTestMust(t, err)
+	for _, spec := range []struct {
+		head  ast.ASTHandle
+		tails []ast.ASTHandle
+		name  string
+	}{{app(interpretedOnly, y), []ast.ASTHandle{yEqualsTruth, yEqualsSelf}, "interpreted-only-conjunction"}, {app(unsafeHead, y, y), []ast.ASTHandle{app(seed, x)}, "repeated-unsafe-head"}, {app(unsafeFact, y, y), nil, "repeated-unsafe-empty-body"}} {
+		rule, cause := rules.NewRule(spec.head, spec.tails, nil, spec.name)
+		astTestMust(t, cause)
+		astTestMust(t, interpretedAndUnsafe.Add(rule))
+		astTestMust(t, rule.Close())
+	}
+	beforeNullary, beforeUnary = nullaryComplements, unaryComplements
+	beforeConjunctions := conjunctionFilters
+	astTestMust(t, ExecuteExternalFactRules(plugin, interpretedAndUnsafe))
+	if nullaryComplements != beforeNullary || unaryComplements != beforeUnary+1 {
+		t.Fatal("interpreted or unsafe variable introduced an extra nullary/full setup", beforeNullary, nullaryComplements, beforeUnary, unaryComplements)
+	}
+	if conjunctionFilters != beforeConjunctions+2 || contains(interpretedOnly, []ast.ASTHandle{f.falsehood}) || !contains(interpretedOnly, []ast.ASTHandle{f.truth}) {
+		t.Fatal("interpreted-only variable was not filtered by one conjunction per round", beforeConjunctions, conjunctionFilters)
+	}
+	for _, tuple := range [][]ast.ASTHandle{{f.falsehood, f.falsehood}, {f.truth, f.truth}} {
+		if !contains(unsafeHead, tuple) || !contains(unsafeFact, tuple) {
+			t.Fatal("unsafe head variable did not enumerate or reuse its one full column", tuple)
+		}
+	}
+	if contains(unsafeHead, []ast.ASTHandle{f.falsehood, f.truth}) || contains(unsafeHead, []ast.ASTHandle{f.truth, f.falsehood}) {
+		t.Fatal("repeated unsafe head variable used independent full columns")
+	}
+	for _, test := range []struct {
+		name        string
+		interpreted bool
+	}{{"interpreted", true}, {"unsafe-head", false}} {
+		preflight, cause := base.NewRuleSet(rules)
+		astTestMust(t, cause)
+		prefixDeclaration := declare("full-column-prefix-"+test.name, 0)
+		headDeclaration := declare("full-column-failure-"+test.name, 1)
+		prefixRule, ruleErr := rules.NewRule(app(prefixDeclaration), nil, nil, "prefix")
+		astTestMust(t, ruleErr)
+		astTestMust(t, preflight.Add(prefixRule))
+		astTestMust(t, prefixRule.Close())
+		var tail []ast.ASTHandle
+		if test.interpreted {
+			condition, conditionErr := f.ast.MkEq(y, f.truth)
+			astTestMust(t, conditionErr)
+			tail = []ast.ASTHandle{condition}
+		} else {
+			tail = []ast.ASTHandle{app(seed, x)}
+		}
+		fullRule, ruleErr := rules.NewRule(app(headDeclaration, y), tail, nil, test.name)
+		astTestMust(t, ruleErr)
+		astTestMust(t, preflight.Add(fullRule))
+		astTestMust(t, fullRule.Close())
+		before := storeCalls
+		failComplement = true
+		cause = ExecuteExternalFactRules(plugin, preflight)
+		failComplement = false
+		if !errors.Is(cause, complementFailure) || storeCalls != before || contains(prefixDeclaration, nil) {
+			t.Fatal("full-column constructor failure published a fact prefix", test.name, cause, before, storeCalls)
+		}
+		astTestMust(t, preflight.Close())
+	}
 	failing, err := base.NewRuleSet(rules)
 	astTestMust(t, err)
 	defer func() { astTestMust(t, failing.Close()) }()
@@ -394,6 +512,33 @@ func TestExecuteExternalBoundNegativeRules(t *testing.T) {
 	failEmpty = false
 	if contains(nullaryPrefix, nil) {
 		t.Fatal("fact prefix survived failed nullary seed preflight")
+	}
+	constantFailing, err := base.NewRuleSet(rules)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, constantFailing.Close()) }()
+	constantPrefix := declare("constant-singleton-preflight-prefix", 0)
+	constantFailureHead := declare("constant-singleton-preflight-head", 1)
+	for _, spec := range []struct {
+		head, tail ast.ASTHandle
+		name       string
+	}{{app(constantPrefix), ast.ASTHandle{}, "constant-prefix"}, {app(constantFailureHead, f.truth), app(seed, x), "constant-store-failure"}} {
+		var tails []ast.ASTHandle
+		if !spec.tail.IsNull() {
+			tails = []ast.ASTHandle{spec.tail}
+		}
+		rule, cause := rules.NewRule(spec.head, tails, nil, spec.name)
+		astTestMust(t, cause)
+		astTestMust(t, constantFailing.Add(rule))
+		astTestMust(t, rule.Close())
+	}
+	beforeConstantFailure := storeCalls
+	failStore = true
+	if cause := ExecuteExternalFactRules(plugin, constantFailing); !errors.Is(cause, storeFailure) || storeCalls != beforeConstantFailure {
+		t.Fatal("constant singleton failure published a fact prefix", cause, beforeConstantFailure, storeCalls)
+	}
+	failStore = false
+	if contains(constantPrefix, nil) {
+		t.Fatal("fact prefix survived failed constant singleton preflight")
 	}
 	cycle, err := base.NewRuleSet(rules)
 	astTestMust(t, err)
