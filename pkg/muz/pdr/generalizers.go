@@ -157,6 +157,21 @@ func (c *Context) generalizeBlockingCores(node *ModelNode, literals []ast.ASTHan
 		return nil, err
 	}
 	cores := []generalizedCore{initial}
+	applyBoolean := func() error {
+		next := make([]generalizedCore, 0, len(cores))
+		for _, core := range cores {
+			generalized, x := generalizeBoolCore(node.transformer, node.level, core)
+			if x != nil {
+				return errors.Join(x, closeGeneralizedCores(c.manager, next), closeGeneralizedCores(c.manager, cores))
+			}
+			next = append(next, generalized)
+		}
+		if x := closeGeneralizedCores(c.manager, cores); x != nil {
+			return errors.Join(x, closeGeneralizedCores(c.manager, next))
+		}
+		cores = next
+		return nil
+	}
 	applyConvex := func(closed bool) error {
 		next := make([]generalizedCore, 0, len(cores))
 		for _, core := range cores {
@@ -172,6 +187,14 @@ func (c *Context) generalizeBlockingCores(node *ModelNode, literals []ast.ASTHan
 		cores = next
 		return nil
 	}
+	// Source installs multicore before either convex generalizer. Its
+	// old_core vector is empty, so its reached operation is the Boolean
+	// minimizer; the separate inductive minimizer follows convex instead.
+	if c.useMultiCore {
+		if err = applyBoolean(); err != nil {
+			return nil, err
+		}
+	}
 	if c.useConvexClosure {
 		if err = applyConvex(true); err != nil {
 			return nil, err
@@ -182,22 +205,10 @@ func (c *Context) generalizeBlockingCores(node *ModelNode, literals []ast.ASTHan
 			return nil, err
 		}
 	}
-	// core_multi_generalizer first invokes the same Boolean minimizer. Its
-	// source old_core vector is never populated, so no additional cores are
-	// produced and this is its complete reached behavior.
-	if c.useMultiCore || c.useInductive {
-		next := make([]generalizedCore, 0, len(cores))
-		for _, core := range cores {
-			generalized, x := generalizeBoolCore(node.transformer, node.level, core)
-			if x != nil {
-				return nil, errors.Join(x, closeGeneralizedCores(c.manager, next), closeGeneralizedCores(c.manager, cores))
-			}
-			next = append(next, generalized)
+	if !c.useMultiCore && c.useInductive {
+		if err = applyBoolean(); err != nil {
+			return nil, err
 		}
-		if err = closeGeneralizedCores(c.manager, cores); err != nil {
-			return nil, errors.Join(err, closeGeneralizedCores(c.manager, next))
-		}
-		cores = next
 	}
 	if c.useInduction {
 		next := make([]generalizedCore, 0, len(cores))
