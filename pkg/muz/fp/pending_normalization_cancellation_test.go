@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -15,7 +16,7 @@ import (
 func TestPendingNormalizationCancellationPreservesRulesAndRetry(t *testing.T) {
 	for _, flush := range []bool{false, true} {
 		t.Run(fmt.Sprintf("flush=%t", flush), func(t *testing.T) {
-			failures, completed := 0, false
+			failures, completed, observedPrefix := 0, false, false
 			for steps := uint32(0); steps < 256 && !completed; steps++ {
 				t.Run(fmt.Sprint(steps), func(t *testing.T) {
 					f := newExpressionFixture(t, "pdr", false)
@@ -51,15 +52,60 @@ func TestPendingNormalizationCancellationPreservesRulesAndRetry(t *testing.T) {
 						}
 						after, countErr := e.set.Len()
 						must(countErr)
-						if e.set != original || e.revision != revision || after != count || len(e.rawRules) != len(raw) {
+						if e.set != original || after != count || len(e.rawRules) != len(raw) {
 							t.Fatal("canceled normalization changed the persistent rule owner")
 						}
+						prefix, pendingSeen := 0, false
 						for i := range raw {
-							if e.rawRules[i] != raw[i] {
-								t.Fatal("canceled normalization advanced raw formula/name/bound/range", i)
+							got := e.rawRules[i]
+							if got.formula != raw[i].formula || got.name != raw[i].name || got.bound != raw[i].bound {
+								t.Fatal("canceled normalization changed raw input identity", i)
+							}
+							if !flush {
+								if got != raw[i] {
+									t.Fatal("canceled display normalization changed its input", i)
+								}
+								continue
+							}
+							if got.pending {
+								pendingSeen = true
+								if got.first != raw[i].first || got.end != raw[i].end {
+									t.Fatal("canceled flush changed an unfinished input range", i)
+								}
+							} else {
+								if pendingSeen {
+									t.Fatal("canceled flush published a non-prefix input", i)
+								}
+								prefix++
 							}
 						}
+						if e.revision != revision+uint64(prefix) {
+							t.Fatal("canceled normalization published an unexpected number of inputs", e.revision, revision, prefix)
+						}
+						var committed []*base.Rule
+						for i := 0; i < prefix; i++ {
+							rule, getErr := e.set.Rule(i)
+							must(getErr)
+							name, getErr := rule.NameSymbol()
+							must(getErr)
+							if name != raw[i].name {
+								t.Fatal("published prefix changed rule order or name", i)
+							}
+							committed = append(committed, rule)
+						}
+						observedPrefix = observedPrefix || prefix > 0
 						must(e.normalizePendingRules(flush))
+						for i, rule := range committed {
+							retried, getErr := e.set.Rule(i)
+							must(getErr)
+							same, sameErr := rule.Same(retried)
+							must(sameErr)
+							must(retried.Close())
+							must(rule.Close())
+							if !same {
+								t.Fatal("retry reconstructed a completed prefix rule", i)
+							}
+						}
 					} else {
 						completed = true
 					}
@@ -73,8 +119,8 @@ func TestPendingNormalizationCancellationPreservesRulesAndRetry(t *testing.T) {
 					break
 				}
 			}
-			if failures == 0 || !completed {
-				t.Fatal("campaign missed cancellation or completion", failures, completed)
+			if failures == 0 || !completed || flush && !observedPrefix {
+				t.Fatal("campaign missed cancellation, completed prefix, or completion", failures, observedPrefix, completed)
 			}
 		})
 	}

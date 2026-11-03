@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -99,19 +100,36 @@ func TestPendingClosedFlushAllocationFailureRetryAndClose(t *testing.T) {
 	if t.Failed() {
 		return
 	}
-	failures, completed := 0, 0
+	failures := 0
+	var completed, prefixPublished [2]bool
 	for allowance := int64(0); allowance <= 2048; allowance++ {
 		t.Run(fmt.Sprintf("reservations-%d", allowance), func(t *testing.T) {
 			f := newPendingFlushAllocationFixture(t)
+			var committed *base.Rule
+			entry := int(allowance % 2)
 			archive, phases := pendingFlushArchive(t, f)
 			if !reflect.DeepEqual(phases, []bool{false, true, true}) {
 				t.Fatal("closed flush fixture has the wrong pending phase", phases)
 			}
 			f.m.Budget().FailAfter(allowance)
-			cause := f.e.flushPendingRules()
+			// Exercise both entry points: direct normalization must also drain
+			// all pending inputs while publishing each completed prefix.
+			var cause error
+			if entry == 0 {
+				cause = f.e.flushPendingRules()
+			} else {
+				cause = f.e.normalizePendingRules(true)
+			}
 			f.m.Budget().FailAfter(-1)
 			if cause != nil {
 				failures++
+				_, interrupted := pendingFlushArchive(t, f)
+				if reflect.DeepEqual(interrupted, []bool{false, false, true}) {
+					prefixPublished[entry] = true
+					var getErr error
+					committed, getErr = f.e.set.Rule(2)
+					fragmentMust(t, getErr)
+				}
 				var native memory.Failure
 				if !errors.Is(cause, arena.ErrInjectedFailure) && (!errors.As(cause, &native) || native.Kind != memory.FailureMemout) {
 					t.Fatal("closed flush lost the allocation cause", allowance, cause)
@@ -122,13 +140,24 @@ func TestPendingClosedFlushAllocationFailureRetryAndClose(t *testing.T) {
 					fragmentMust(t, receipt.Cleanup())
 				}
 			} else {
-				completed++
+				completed[entry] = true
 			}
 			current, _ := pendingFlushArchive(t, f)
 			if !reflect.DeepEqual(current, archive) {
 				t.Fatal("failed flush changed its original input archive", allowance, archive, current)
 			}
 			checkPendingFlush(t, f, archive)
+			if committed != nil {
+				retried, err := f.e.set.Rule(2)
+				fragmentMust(t, err)
+				same, err := committed.Same(retried)
+				fragmentMust(t, err)
+				fragmentMust(t, retried.Close())
+				fragmentMust(t, committed.Close())
+				if !same {
+					t.Fatal("retry reconstructed the already published source prefix")
+				}
+			}
 			checkPendingFlush(t, f, archive)
 			if actual := contextDisplayLiveCounts(f.m.Stats()); actual != expected {
 				t.Fatal("closed flush retry leaked AST ownership", allowance, expected, actual, cause)
@@ -136,12 +165,12 @@ func TestPendingClosedFlushAllocationFailureRetryAndClose(t *testing.T) {
 			fragmentMust(t, f.e.Close())
 			fragmentMust(t, f.e.Close())
 		})
-		if t.Failed() || completed != 0 {
+		if t.Failed() || completed[0] && completed[1] && prefixPublished[0] && prefixPublished[1] {
 			break
 		}
 	}
-	if failures == 0 || completed == 0 {
-		t.Fatal("closed flush allocation campaign missed failure or completion", failures, completed)
+	if failures == 0 || !completed[0] || !completed[1] || !prefixPublished[0] || !prefixPublished[1] {
+		t.Fatal("closed flush allocation campaign missed failure, completed prefix, or completion", failures, prefixPublished, completed)
 	}
 }
 

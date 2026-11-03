@@ -66,7 +66,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 
 ## 2. Shared fixedpoint infrastructure
 
-- [x] Complete source context SMT-LIB dump fidelity, including pending-rule phases.
+- [ ] Complete source context SMT-LIB dump fidelity, including pending-rule phases.
   - [x] Implement finalized-rule get_rules_as_formulas partitioning, preserving source order/names and quantified output-clause behavior, with ownership and dense allocation-failure coverage.
   - [x] Normalize pending open formulas before partitioning; promote clauses in source swap-removal order and update the raw archive/bounds consumed by Duality.
   - [x] Implement context display_smt2 flags: fixedpoint extensions (default true), low-level printing, declared variables, background rejection in plain HORN, output-query emission and source name freshness.
@@ -74,7 +74,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Route PDR's transformed trace through the source context dump, including print switches, background assertions and ostream-failure operand continuation.
   - [x] Route DDNF compiled-rule output through its inner fixedpoint context formatter, preserving output queries, module print options and writer-failure cleanup.
   - [x] Route the owning fixedpoint API string/writer through the context formatter, applying fixedpoint-local print options without query configuration changes.
-  - [x] Reconcile eager Go ingestion with source pending-closed versus flushed display phase: preserve original binder/annotation metadata before flushing, normalized clause identity/order after flushing, updates and scoped restoration.
+  - [ ] Reconcile eager Go ingestion with source pending-closed versus flushed display phase: preserve original binder/annotation metadata before flushing, normalized clause identity/order after flushing, updates and scoped restoration. Success and per-input failure phases are covered; the single-input partial-publication audit remains open below.
     - [x] Rebuild pending open formulas at display/enumeration time using current `xform.fix_unbound_vars`, preserving normalized prefix identity, swap order and pending closed ranges; retain temporary owners through cleanup refusal. Focused parameter, dense allocation and retry tests pass.
     - [x] Preserve already-valid Duality proof and model results when display promotes an open rule; stale results remain invalid after actual mutations, with writer and cancellation retry coverage.
     - [x] Rebuild pending closed formulas at query flush using current parameters, preserving raw archives, scope rollback and cleanup continuation; semantic, allocation and public API tests pass.
@@ -84,6 +84,9 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
     - [x] Preserve source-published clauses from rejected multi-clause updates, including pending/flushed ordering, later queries and pre-query scope rollback; keep single-clause rejection guards.
     - [x] Preserve completed update clauses when later conversion returns an ordinary error, with typed labels, source ordering and scope/retry coverage; deferred publication after refused native cleanup is covered in the lifecycle section below.
     - [x] Match destructive open-formula display swap/removal order, repeated display and post-normalization writer refusal; construction staging remains transactional in Go.
+    - [x] Publish each completed pending formula before flushing the next; allocation and cancellation campaigns cover completed-prefix preservation, retry identity and both flush entry points.
+    - [x] Verify pending binder, weight, QID, skolem ID, pattern and no-pattern metadata through display, scoped named replacement, rollback and normalized flush.
+    - [ ] Audit partial clause publication within a single failing multi-clause input and cleanup refusal after publication. Bounded probes have not established whether that boundary is reachable in the current port.
   - [x] Route legacy SMTContext display through the source to_string formatter with ordered queries; keep explicit complete-declaration replay APIs and roundtrip/guard coverage.
   - [x] Preserve context dump temporary owners through allocation and writer failures, and emit fresh query declarations before variable construction. Both display modes pass dense exact-owner campaigns and focused order tests.
 
@@ -2145,3 +2148,4 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Fixed the `log.red` PDR input-trace regression: source-order query preparation now creates a legitimate PDR context before the trace fails, so the test measures its reference cost independently and verifies that the same context is reused. Focused `g3trace` and three-tag tests pass.
 - 2026-11-03 — Matched the corrected C++ QBMC binding level, positive-level fact termination and proof positions; re-enabled the equivalent recursive Go proof regression. The numeric proof matrix and focused checks pass with all three tags, and the native base short suite passes. Internal substitution now accepts symbolic rule heads while public ingestion remains strict. The existing uninterpreted-binding proof test remains red in the independent checker and is documented in `DIVERGE.md`.
 - 2026-11-03 — Fixed the direct Go QBMC proof helper for symbolic bindings by explicitly instantiating its first conclusion; the public fixedpoint path keeps the C++ query-bridge behavior. The formerly red independent proof check and broad three-tag QBMC/numeric proof checks pass. The empty-model test now captures the expected source VERIFY diagnostic in both build modes.
+- 2026-11-03 — Re-audited pending-closed display and flush phases. Completed inputs now publish individually before a later input fails; expanded allocation/cancellation tests verify prefix identity and retry. New tests cover binder, QID, skolem, weight, pattern and no-pattern display, named updates, scoped rollback and normalized identities. Native `muz/fp`, `api` and `parsers/smt2` short suites pass (84.222s/37.814s/7.752s; `/tmp/g3-pending-closed-integration-final.log`); focused three-tag tests pass. Partial publication inside one failing multi-clause input remains an open audit.

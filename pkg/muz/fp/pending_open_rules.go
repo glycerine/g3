@@ -15,6 +15,27 @@ func (e *PropositionalEngine) normalizePendingOpenRules() error {
 }
 
 func (e *PropositionalEngine) normalizePendingRules(flush bool) (resultErr error) {
+	if !flush {
+		return e.normalizePendingRulesPass(false)
+	}
+	for {
+		pending := false
+		for _, rule := range e.rawRules {
+			if rule.pending {
+				pending = true
+				break
+			}
+		}
+		if !pending {
+			return nil
+		}
+		if err := e.normalizePendingRulesPass(true); err != nil {
+			return err
+		}
+	}
+}
+
+func (e *PropositionalEngine) normalizePendingRulesPass(flush bool) (resultErr error) {
 	remaining := append([]rawRuleFormula(nil), e.rawRules...)
 	var promoted []rawRuleFormula
 	for i := 0; i < len(remaining); {
@@ -25,8 +46,10 @@ func (e *PropositionalEngine) normalizePendingRules(flush bool) (resultErr error
 		}
 		if flush {
 			promoted = append(promoted, raw)
-			i++
-			continue
+			// flush_add_rules publishes each completed formula before
+			// beginning the next one, advancing the source head once.
+			remaining[i].pending = false
+			break
 		}
 		h, err := e.manager.RefGet(raw.formula)
 		if err != nil {
@@ -131,7 +154,7 @@ func (e *PropositionalEngine) normalizePendingRules(flush bool) (resultErr error
 	}
 	for j := range remaining {
 		raw := &remaining[j]
-		if flush || !raw.pending {
+		if !raw.pending {
 			continue
 		}
 		first := next
@@ -162,11 +185,7 @@ func (e *PropositionalEngine) normalizePendingRules(flush bool) (resultErr error
 		return err
 	}
 	e.rawRules = remaining
-	if flush {
-		// A query flush advances the source pending head but keeps the
-		// original formula/name/bound archive for raw-rule consumers.
-		e.flushRawDisplayRules()
-	} else {
+	if !flush {
 		e.retiredRawRules = append(e.retiredRawRules, promoted...)
 	}
 	// The temporary replacement now owns the old contents until their last
