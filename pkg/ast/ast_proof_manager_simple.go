@@ -1,5 +1,7 @@
 package ast
 
+import "errors"
+
 func (m *ASTManager) MkProofTrue() (ASTHandle, error) {
 	if e := m.lock(); e != nil {
 		return ASTHandle{}, e
@@ -84,7 +86,7 @@ func (m *ASTManager) MkProofOEqReflexivity(h ASTHandle) (ASTHandle, error) {
 	defer m.mu.Unlock()
 	return m.proofReflexivity(h, true)
 }
-func (m *ASTManager) proofRewrite(a, b ASTHandle, oeq bool) (ASTHandle, error) {
+func (m *ASTManager) proofRewrite(a, b ASTHandle, oeq bool) (_ ASTHandle, resultErr error) {
 	if m.proofMode == ASTProofDisabled {
 		return ASTHandle{}, nil
 	}
@@ -92,6 +94,17 @@ func (m *ASTManager) proofRewrite(a, b ASTHandle, oeq bool) (ASTHandle, error) {
 	if e != nil {
 		return ASTHandle{}, e
 	}
+	// The equality can be fresh even when both input formulas are owned.
+	// Keep it alive through proof construction, and reclaim it if that
+	// construction refuses an allocation before adopting the argument.
+	node, e := m.internal(fact)
+	if e != nil {
+		return ASTHandle{}, e
+	}
+	if e = m.incNode(node); e != nil {
+		return ASTHandle{}, e
+	}
+	defer func() { _, e := m.decNode(node); resultErr = errors.Join(resultErr, e) }()
 	return m.proofMake(ASTPrRewrite, fact)
 }
 func (m *ASTManager) MkProofRewrite(a, b ASTHandle) (ASTHandle, error) {

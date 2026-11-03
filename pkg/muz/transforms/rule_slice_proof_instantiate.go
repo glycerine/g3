@@ -81,15 +81,16 @@ func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalP
 			}
 			index = uint32(fresh)
 		}
-		variable, e := m.MkVar(index, sort)
-		if e != nil {
-			return nil, proof, e
-		}
-		ref, e := m.NewRef(variable)
+		ref, e := m.NewRef(ast.ASTHandle{})
 		if e != nil {
 			return nil, proof, e
 		}
 		refs = append(refs, ref)
+		variable, e := m.MkVar(index, sort)
+		e = errors.Join(e, m.SetRef(ref, variable))
+		if e != nil {
+			return nil, proof, e
+		}
 		inputMap[i] = variable
 	}
 	var sub *rewriter.VarSubstitution
@@ -209,15 +210,16 @@ func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalP
 		if sort.IsNull() {
 			continue
 		}
-		variable, e := m.MkVar(next, sort)
-		if e != nil {
-			return nil, proof, e
-		}
-		ref, e := m.NewRef(variable)
+		ref, e := m.NewRef(ast.ASTHandle{})
 		if e != nil {
 			return nil, proof, e
 		}
 		refs = append(refs, ref)
+		variable, e := m.MkVar(next, sort)
+		e = errors.Join(e, m.SetRef(ref, variable))
+		if e != nil {
+			return nil, proof, e
+		}
 		renaming[i] = variable
 		next++
 	}

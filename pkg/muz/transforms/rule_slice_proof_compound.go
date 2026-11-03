@@ -85,11 +85,13 @@ func (c *SliceProofConverter) instantiateCompoundHead(original *base.Rule, origi
 		if sort.IsNull() {
 			continue
 		}
-		variable, e := m.MkVar(uint32(len(sorts)), sort)
+		owner, e := hold(ast.ASTHandle{})
 		if e != nil {
 			return nil, proof, e
 		}
-		if _, e = hold(variable); e != nil {
+		variable, e := m.MkVar(uint32(len(sorts)), sort)
+		e = errors.Join(e, m.SetRef(owner, variable))
+		if e != nil {
 			return nil, proof, e
 		}
 		renaming[i] = variable
@@ -133,11 +135,13 @@ func (c *SliceProofConverter) instantiateCompoundHead(original *base.Rule, origi
 			names[i] = symbol.Numerical(uint32(i))
 			reverse[len(sorts)-1-i] = sorts[i]
 		}
-		normal, err = m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: reverse, Names: names, Body: normal})
-		if err != nil {
-			return nil, proof, err
+		owner, e := hold(ast.ASTHandle{})
+		if e != nil {
+			return nil, proof, e
 		}
-		if _, err = hold(normal); err != nil {
+		normal, err = m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: reverse, Names: names, Body: normal})
+		err = errors.Join(err, m.SetRef(owner, normal))
+		if err != nil {
 			return nil, proof, err
 		}
 	}

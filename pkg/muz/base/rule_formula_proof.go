@@ -54,11 +54,20 @@ func (m *RuleManager) NewRuleFromFormulaWithProof(formula, proof ast.ASTHandle, 
 		}
 		defer func() { resultErr = errors.Join(resultErr, m.manager.ToggleProofMode(mode)) }()
 	}
+	// Keep both intermediate proofs owned across the next fallible
+	// constructor, including SetProof's allocation of the rule's reference.
+	proofOwner, err := m.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&proofOwner)) }()
 	rewrite, err := m.manager.MkProofRewrite(oldFact, newFact)
+	err = errors.Join(err, m.manager.SetRef(proofOwner, rewrite))
 	if err != nil {
 		return nil, err
 	}
 	translated, err := m.manager.MkProofModusPonens(proof, rewrite)
+	err = errors.Join(err, m.manager.SetRef(proofOwner, translated))
 	if err != nil {
 		return nil, err
 	}
