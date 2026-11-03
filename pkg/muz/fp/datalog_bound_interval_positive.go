@@ -3,7 +3,8 @@ package fp
 // Source: dl_compiler.cpp lowers a positive rule by cloning one tail or joining
 // two tails, applying one compiler-produced interpreted condition, projecting
 // unused columns, and renaming the remaining columns into head order. This
-// typed slice covers aligned exact-pair tails with unique, safe variables.
+// typed slice covers aligned exact-pair tails, including repeated variables
+// in a single positive tail.
 
 import (
 	"errors"
@@ -133,9 +134,10 @@ type boundIntervalPositiveTail struct {
 	product     *rel.IntervalBoundProduct
 	sorts       []ast.ASTHandle
 	variables   []uint32
+	owned       bool // independent product; another clone would lose equality classes
 }
 
-func (a *boundIntervalDatalogActivation) parsePositiveTail(rule *base.Rule, index int, products map[ast.ASTHandle]*rel.IntervalBoundProduct) (*boundIntervalPositiveTail, error) {
+func (a *boundIntervalDatalogActivation) parsePositiveTail(rule *base.Rule, index int, products map[ast.ASTHandle]*rel.IntervalBoundProduct, allowRepeated bool) (*boundIntervalPositiveTail, error) {
 	tail, negated, err := rule.Tail(index)
 	if err != nil || negated {
 		return nil, errors.Join(err, ErrBoundIntervalDatalogFragment)
@@ -180,7 +182,7 @@ func (a *boundIntervalDatalogActivation) parsePositiveTail(rule *base.Rule, inde
 		if cause != nil {
 			return nil, cause
 		}
-		if seen[variable] {
+		if seen[variable] && !allowRepeated {
 			return nil, ErrBoundIntervalDatalogFragment
 		}
 		seen[variable] = true
@@ -196,7 +198,41 @@ func (a *boundIntervalDatalogActivation) parsePositiveTail(rule *base.Rule, inde
 		column := int(constant.column)
 		sorts = append(sorts[:column], sorts[column+1:]...)
 	}
-	return &boundIntervalPositiveTail{declaration: declaration, product: product, sorts: sorts, variables: variables}, nil
+	owned := len(constants) != 0
+	if allowRepeated {
+		// The source filters each occurrence class after constant columns
+		// have been selected/projected. Keep every variable column until
+		// interpreted filtering and head assembly: bound projection can
+		// discard referenced bounds, so eagerly removing duplicates is not
+		// equivalent to the compiler's final projection.
+		columns := make(map[uint32][]uint32, len(variables))
+		var order []uint32
+		for column, variable := range variables {
+			if len(columns[variable]) == 0 {
+				order = append(order, variable)
+			}
+			columns[variable] = append(columns[variable], uint32(column))
+		}
+		for _, variable := range order {
+			occurrences := columns[variable]
+			if len(occurrences) < 2 {
+				continue
+			}
+			if !owned {
+				product, err = product.Clone()
+				if err != nil {
+					return nil, err
+				}
+				owned = true
+			}
+			for _, column := range occurrences[1:] {
+				if err = product.FilterIdentical(occurrences[0], column); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	return &boundIntervalPositiveTail{declaration: declaration, product: product, sorts: sorts, variables: variables, owned: owned}, nil
 }
 
 func joinBoundIntervalPositiveTails(left, right *boundIntervalPositiveTail) (*rel.IntervalBoundProduct, []ast.ASTHandle, map[uint32]uint32, error) {
@@ -254,7 +290,7 @@ func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, p
 	}
 	tails := make([]*boundIntervalPositiveTail, positive)
 	for i := 0; i < positive; i++ {
-		tails[i], err = a.parsePositiveTail(rule, i, products)
+		tails[i], err = a.parsePositiveTail(rule, i, products, positive == 1)
 		if err != nil {
 			return false, err
 		}
@@ -262,15 +298,23 @@ func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, p
 	var working *rel.IntervalBoundProduct
 	var workingSorts []ast.ASTHandle
 	var variables map[uint32]uint32
+	var occurrences map[uint32][]uint32
+	repeatedTail := false
 	if positive == 1 {
-		working, err = tails[0].product.Clone()
-		if err != nil {
-			return false, err
+		working = tails[0].product
+		if !tails[0].owned {
+			working, err = working.Clone()
+			if err != nil {
+				return false, err
+			}
 		}
 		workingSorts = append([]ast.ASTHandle(nil), tails[0].sorts...)
 		variables = make(map[uint32]uint32, len(tails[0].variables))
+		occurrences = make(map[uint32][]uint32, len(tails[0].variables))
 		for column, variable := range tails[0].variables {
 			variables[variable] = uint32(column)
+			repeatedTail = repeatedTail || len(occurrences[variable]) != 0
+			occurrences[variable] = append(occurrences[variable], uint32(column))
 		}
 	} else {
 		working, workingSorts, variables, err = joinBoundIntervalPositiveTails(tails[0], tails[1])
@@ -313,6 +357,78 @@ func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, p
 	if err != nil || int(headCount) != len(a.entries[headDeclaration].sorts) {
 		return false, errors.Join(err, ErrBoundIntervalDatalogFragment)
 	}
+	conditionApplied := false
+	if repeatedTail && condition != (ast.ASTRef{}) {
+		// Source filters before assembling head columns, and fuses only the
+		// projection of whole variables absent from the head. Unused repeated
+		// occurrences of a head variable remain through this filter: the
+		// fused fallback clones and intentionally loses equality classes.
+		headVariables := make(map[uint32]bool)
+		for i := uint32(0); i < headCount; i++ {
+			argument, cause := a.manager.GetArg(head, i)
+			if cause != nil {
+				return false, cause
+			}
+			kind, cause := a.manager.GetKind(argument)
+			if cause != nil {
+				return false, cause
+			}
+			if kind == ast.ASTVar {
+				variable, cause := a.manager.GetVarIndex(argument)
+				if cause != nil {
+					return false, cause
+				}
+				headVariables[variable] = true
+			}
+		}
+		var removed []uint32
+		for variable, column := range variables {
+			if len(occurrences[variable]) == 0 {
+				occurrences[variable] = []uint32{column}
+			}
+			if !headVariables[variable] {
+				removed = append(removed, occurrences[variable]...)
+			}
+		}
+		sort.Slice(removed, func(i, j int) bool { return removed[i] < removed[j] })
+		conditionHandle, cause := a.manager.RefGet(condition)
+		if cause != nil {
+			return false, cause
+		}
+		if len(removed) == 0 {
+			err = working.FilterInterpreted(a.manager, conditionHandle)
+		} else {
+			working, err = working.FilterInterpretedAndProject(a.manager, conditionHandle, removed)
+		}
+		if err != nil {
+			return false, err
+		}
+		if len(removed) != 0 {
+			remapped := make([]uint32, len(workingSorts))
+			keptSorts := make([]ast.ASTHandle, 0, len(workingSorts)-len(removed))
+			for column, sortHandle := range workingSorts {
+				index := sort.Search(len(removed), func(i int) bool { return removed[i] >= uint32(column) })
+				if index < len(removed) && removed[index] == uint32(column) {
+					continue
+				}
+				remapped[column] = uint32(len(keptSorts))
+				keptSorts = append(keptSorts, sortHandle)
+			}
+			for variable, columns := range occurrences {
+				if !headVariables[variable] {
+					delete(variables, variable)
+					delete(occurrences, variable)
+					continue
+				}
+				for i, column := range columns {
+					columns[i] = remapped[column]
+				}
+				variables[variable] = columns[len(columns)-1]
+			}
+			workingSorts = keptSorts
+		}
+		conditionApplied = true
+	}
 	desired := make([]uint32, headCount)
 	usedColumns := make(map[uint32]bool, headCount)
 	headSorts := a.entries[headDeclaration].sorts
@@ -333,6 +449,14 @@ func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, p
 			}
 			var found bool
 			column, found = variables[variable]
+			if columns := occurrences[variable]; len(columns) != 0 {
+				// compiler head assembly consumes available occurrences from
+				// the back before synthesizing any duplicated column.
+				column = columns[len(columns)-1]
+				if len(columns) > 1 {
+					occurrences[variable] = columns[:len(columns)-1]
+				}
+			}
 			if !found {
 				column = uint32(len(workingSorts))
 				working, cause = working.AppendFullColumn(a.manager, workingSorts, headSorts[i])
@@ -376,7 +500,7 @@ func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, p
 			removed = append(removed, column)
 		}
 	}
-	if condition != (ast.ASTRef{}) {
+	if condition != (ast.ASTRef{}) && !conditionApplied {
 		conditionHandle, cause := a.manager.RefGet(condition)
 		if cause != nil {
 			return false, cause
