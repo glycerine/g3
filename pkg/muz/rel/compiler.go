@@ -87,7 +87,6 @@ type finiteCompiler struct {
 	constants     map[constantRegisterKey]uint32
 	totals        map[totalRegisterKey]uint32
 	emptyTotals   map[ast.ASTHandle]uint32
-	markOrder     []ast.ASTHandle
 	marked        map[ast.ASTHandle]bool
 }
 
@@ -1652,21 +1651,21 @@ func (c *finiteCompiler) compile(set *base.RuleSet) (resultErr error) {
 			}
 			if !c.marked[head] {
 				c.marked[head] = true
-				c.markOrder = append(c.markOrder, head)
+				// Source compile_{nonrecursive,recursive}_stratum marks only
+				// after its execution completes. A timed-out round still stores
+				// partial relations, but must not mark unfinished work saturated.
+				instruction, x := NewMarkSaturatedInstruction(c.relations, head)
+				if x != nil {
+					return x
+				}
+				if x = c.append(c.execution, instruction, nil); x != nil {
+					return x
+				}
 			}
 		}
 	}
 	for _, predicate := range c.loaded {
 		instruction, x := NewStoreInstruction(c.relations, predicate, c.predicateRegs[predicate])
-		if x != nil {
-			return x
-		}
-		if x = c.append(c.termination, instruction, nil); x != nil {
-			return x
-		}
-	}
-	for _, predicate := range c.markOrder {
-		instruction, x := NewMarkSaturatedInstruction(c.relations, predicate)
 		if x != nil {
 			return x
 		}
