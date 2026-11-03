@@ -1,8 +1,6 @@
 package duality
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	graph "github.com/glycerine/g3/pkg/duality"
 	"github.com/glycerine/g3/pkg/interp"
@@ -35,17 +33,13 @@ func NewBackend(manager *ast.ASTManager, config smtcore.SMTSolverConfig, mbqi bo
 	}
 	b := &Backend{}
 	b.self = b
-	defer func() {
-		if result != nil {
-			result = errors.Join(result, b.Close())
-			out = nil
-		}
-	}()
+	attempt := &backendConstruction{backend: b, runtime: config.ModelEvaluator.Memory}
+	defer func() { out, result = attempt.finish(result) }()
 	cfg, err := graph.NewConfig(config.Params, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { result = errors.Join(result, cfg.Close()) }()
+	attempt.config = cfg
 	if err := cfg.SetBool("mbqi", mbqi); err != nil {
 		return nil, err
 	}

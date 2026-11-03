@@ -1,8 +1,6 @@
 package duality
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	graph "github.com/glycerine/g3/pkg/duality"
 	"github.com/glycerine/g3/pkg/solver"
@@ -26,46 +24,43 @@ func NewNativeSolver(context *graph.Context, params *uparams.ParamsContext, fact
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		result = errors.Join(result, scope.Close())
-		if result != nil && out != nil {
-			result = errors.Join(result, out.Close())
-			out = nil
-		}
-	}()
-	p := params.EmptyValue()
-	defer func() { result = errors.Join(result, params.Del(&p)) }()
+	attempt := &nativeSolverConstruction{params: params, settings: params.EmptyValue(), proof: scope}
+	if numbers := m.NumeralService(); numbers != nil {
+		attempt.runtime = numbers.RuntimeOwner()
+	}
+	defer func() { out, result = attempt.finish(result) }()
+	p := &attempt.settings
 	for _, setting := range []struct {
 		name  string
 		value bool
 	}{
 		{"proof", true}, {"model", true}, {"unsat_core", true}, {"mbqi", mbqi}, {"eq2ineq", true},
 	} {
-		if err := params.SetBoolName(&p, &setting.name, setting.value); err != nil {
+		if err := params.SetBoolName(p, &setting.name, setting.value); err != nil {
 			return nil, err
 		}
 	}
 	if mbqi {
 		name := "array.extensional"
-		if err := params.SetBoolName(&p, &name, true); err != nil {
+		if err := params.SetBoolName(p, &name, true); err != nil {
 			return nil, err
 		}
 	}
 	name := "mbqi.id"
 	id := "itp"
-	if err := params.SetStringName(&p, &name, &id); err != nil {
+	if err := params.SetStringName(p, &name, &id); err != nil {
 		return nil, err
 	}
 	name = "mbqi.max_iterations"
-	if err := params.SetUIntName(&p, &name, 1); err != nil {
+	if err := params.SetUIntName(p, &name, 1); err != nil {
 		return nil, err
 	}
-	out, err = factory.New(m, &p, true, true, true, "")
+	attempt.native, err = factory.New(m, p, true, true, true, "")
 	if err != nil {
-		return out, err
+		return nil, err
 	}
-	if err := out.UpdateParams(&p); err != nil {
-		return out, err
+	if err := attempt.native.UpdateParams(p); err != nil {
+		return nil, err
 	}
-	return out, nil
+	return attempt.native, nil
 }
