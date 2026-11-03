@@ -128,6 +128,48 @@ func formulaCheckedFilterEqual(table *FormulaCheckedTable, value Element, column
 }
 
 func relationExplanationFiniteUnion(target, source, delta FiniteTable, sorts []ast.ASTHandle) (resultErr error) {
+	if nested, ok := target.(*FormulaCheckedFinitePair); ok {
+		nestedSource, err := liftFormulaCheckedFinitePairWithSorts(nested, source, sorts)
+		if err != nil {
+			return err
+		}
+		sourceOwned := nestedSource != source
+		if sourceOwned {
+			defer func() { resultErr = errors.Join(resultErr, nestedSource.Close()) }()
+		}
+		var nestedDelta *FormulaCheckedFinitePair
+		deltaOwned := false
+		if delta != nil {
+			if concrete, same := delta.(*FormulaCheckedFinitePair); same {
+				nestedDelta = concrete
+			} else {
+				nestedDelta, err = liftFormulaCheckedFinitePairWithSorts(nested, delta, sorts)
+				if err != nil {
+					return err
+				}
+				deltaOwned = true
+				defer func() { resultErr = errors.Join(resultErr, nestedDelta.Close()) }()
+			}
+		}
+		if err = nested.UnionFrom(nestedSource, nestedDelta); err != nil {
+			return err
+		}
+		if deltaOwned {
+			facts, err := nestedDelta.Facts()
+			if err != nil {
+				return err
+			}
+			if err = delta.Reset(); err != nil {
+				return err
+			}
+			for _, fact := range facts {
+				if _, err = delta.Add(fact); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	checked, ok := target.(*FormulaCheckedTable)
 	if !ok {
 		return finiteTableUnion(target, source, delta)

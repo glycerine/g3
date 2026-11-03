@@ -40,6 +40,15 @@ func (p *RelationExplanationProduct) FilterByNegation(negative *RelationExplanat
 			defer func() { resultErr = errors.Join(resultErr, lifted.Close()) }()
 		}
 		negativeTable = lifted
+	} else if checked, ok := p.table.(*FormulaCheckedFinitePair); ok {
+		lifted, err := liftFormulaCheckedFinitePairWithSorts(checked, negative.table, negative.finiteSorts)
+		if err != nil {
+			return err
+		}
+		if lifted != negative.table {
+			defer func() { resultErr = errors.Join(resultErr, lifted.Close()) }()
+		}
+		negativeTable = lifted
 	}
 	return finiteTableFilterNegation(p.table, negativeTable, targetColumns, negativeColumns)
 }

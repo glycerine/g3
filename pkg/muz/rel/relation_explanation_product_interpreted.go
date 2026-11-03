@@ -97,6 +97,8 @@ func (p *RelationExplanationProduct) filterFiniteInterpreted(theory *astrewriter
 		return table.FilterInterpreted(p.manager, p.finiteSorts, theory, conditions, columns, sorts)
 	case *FormulaCheckedTable:
 		return formulaCheckedFilterInterpretedBound(table, theory, conditions, columns, sorts)
+	case *FormulaCheckedFinitePair:
+		return table.FilterInterpreted(p.manager, p.finiteSorts, theory, conditions, columns, sorts)
 	default:
 		return ErrCompilerUnsupported
 	}

@@ -15,6 +15,10 @@ func newRelationExplanationFiniteBacking(manager *RelationManager, signature Sig
 		return nil, ErrTableRelation
 	}
 	if source != nil {
+		switch source.(type) {
+		case *FormulaCheckedTable, *FormulaCheckedFinitePair:
+			return emptyFiniteLike(source)
+		}
 		if manager.checkedFinite == nil {
 			return emptyFiniteLike(source)
 		}
@@ -215,6 +219,9 @@ func (p *RelationExplanationProduct) CheckedConcreteKinds() (primary, checker st
 		return primary, checker, true, err
 	case *FormulaCheckedTable:
 		return "hashtable", "formula", true, nil
+	case *FormulaCheckedFinitePair:
+		primary, checker, _, err = table.ConcreteKinds()
+		return primary, checker, true, err
 	case *HashTable:
 		return "hashtable", "", false, nil
 	case *SparseTable:
@@ -233,6 +240,10 @@ func (p *RelationExplanationProduct) FormulaChecked() (bool, error) {
 	if err := p.open(); err != nil {
 		return false, err
 	}
-	_, ok := p.table.(*FormulaCheckedTable)
-	return ok, nil
+	switch p.table.(type) {
+	case *FormulaCheckedTable, *FormulaCheckedFinitePair:
+		return true, nil
+	default:
+		return false, nil
+	}
 }

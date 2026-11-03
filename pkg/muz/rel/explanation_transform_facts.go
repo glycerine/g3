@@ -190,18 +190,26 @@ func newRelationExplanationProductFromFiniteChecked(manager *RelationManager, so
 		}
 	}()
 	if formulaChecked {
-		table, err := NewTableRelation(manager, sorts)
-		if err != nil {
-			return nil, err
+		if pair, nested := product.table.(*FiniteCheckedPair); nested {
+			checked, err := NewFormulaCheckedFinitePair(manager, sorts, pair, config)
+			if err != nil {
+				return nil, err
+			}
+			product.table = checked
+		} else {
+			table, err := NewTableRelation(manager, sorts)
+			if err != nil {
+				return nil, err
+			}
+			checked, err := NewFormulaCheckedTable(table, config)
+			if err != nil {
+				return nil, errors.Join(err, table.Close())
+			}
+			if err = product.table.Close(); err != nil {
+				return nil, errors.Join(err, checked.Close())
+			}
+			product.table = checked
 		}
-		checked, err := NewFormulaCheckedTable(table, config)
-		if err != nil {
-			return nil, errors.Join(err, table.Close())
-		}
-		if err = product.table.Close(); err != nil {
-			return nil, errors.Join(err, checked.Close())
-		}
-		product.table = checked
 	}
 	if source != nil {
 		expected, err := product.table.Signature()

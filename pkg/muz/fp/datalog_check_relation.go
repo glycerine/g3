@@ -126,7 +126,7 @@ func (e *PropositionalEngine) datalogCheckRelationName() (name string, enabled b
 	}
 	// doc uses finite execution here while preserving source's compressor
 	// interaction. Sparse is checked by the concrete paired sparse table.
-	if name != "hashtable" && name != "sparse" && name != "doc" {
+	if name != "hashtable" && name != "sparse" && name != "doc" && name != "check" {
 		return "", false, fmt.Errorf("muz/fp: relation plugin %s is not available for datalog.check_relation", name)
 	}
 	return name, true, nil
@@ -201,6 +201,13 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 	name, enabled, err := e.datalogCheckRelationName()
 	if err != nil {
 		return nil, err
+	}
+	if enabled && name == "check" {
+		// The nested table-relation selector is activated by the relation-level
+		// explanation pipeline, which can preserve both checker layers. The
+		// ordinary finite saturation scope has no product boundary for its outer
+		// formula and must not silently substitute the Hash-only checker.
+		return nil, rel.ErrCompilerUnsupported
 	}
 	tableCheck := false
 	if !enabled {

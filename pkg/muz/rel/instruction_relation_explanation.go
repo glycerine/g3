@@ -98,9 +98,15 @@ func (i *relationExplanationInstruction) Perform(context *ExecutionContext) (boo
 		if instruction.kind == "dealloc" {
 			return true, context.MakeEmpty(instruction.source)
 		}
+		// Relation-level programs also keep proof-free magic and auxiliary
+		// predicates in ordinary finite registers. Their register moves retain
+		// the concrete finite representation and must use the base instruction.
+		if !hasRelationExplanationRegister(context, instruction.source) {
+			return instruction.Perform(context)
+		}
 		product, err := context.RelationExplanationRegister(instruction.source)
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("relation explanation register %s source %d: %w", instruction.kind, instruction.source, err)
 		}
 		if product == nil {
 			return true, context.MakeEmpty(instruction.target)
@@ -115,7 +121,7 @@ func (i *relationExplanationInstruction) Perform(context *ExecutionContext) (boo
 		if instruction.kind == "move" {
 			product, err = context.ReleaseRelationExplanationRegister(instruction.source)
 			if err != nil {
-				return false, err
+				return false, fmt.Errorf("relation explanation register move release %d: %w", instruction.source, err)
 			}
 			if err := context.SetRelationExplanationRegister(instruction.target, product); err != nil {
 				return false, errors.Join(err, context.SetRelationExplanationRegister(instruction.source, product))

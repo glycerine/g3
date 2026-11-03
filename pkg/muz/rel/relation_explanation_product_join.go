@@ -34,7 +34,13 @@ func (p *RelationExplanationProduct) Join(other *RelationExplanationProduct, lef
 	first, second := p.table, other.table
 	var firstOwned, secondOwned bool
 	var err error
-	if checked, ok := p.table.(*FormulaCheckedTable); ok {
+	if checked, ok := p.table.(*FormulaCheckedFinitePair); ok {
+		second, err = liftFormulaCheckedFinitePairWithSorts(checked, other.table, other.finiteSorts)
+		secondOwned = second != other.table
+	} else if checked, ok := other.table.(*FormulaCheckedFinitePair); ok {
+		first, err = liftFormulaCheckedFinitePairWithSorts(checked, p.table, p.finiteSorts)
+		firstOwned = first != p.table
+	} else if checked, ok := p.table.(*FormulaCheckedTable); ok {
 		second, err = liftFormulaCheckedWithSorts(checked, other.table, other.finiteSorts)
 		secondOwned = second != other.table
 	} else if checked, ok := other.table.(*FormulaCheckedTable); ok {

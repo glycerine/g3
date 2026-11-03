@@ -4,6 +4,7 @@ package fp
 // check_relation as the favourite only when no explicit relation kind applies.
 // Explanation products keep their proof component outside this finite sieve.
 import (
+	"errors"
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -15,6 +16,7 @@ import (
 type datalogExplanationFormulaScope struct {
 	engine   *PropositionalEngine
 	eligible map[ast.ASTHandle]bool
+	nested   bool
 }
 
 func (e *PropositionalEngine) beginDatalogExplanationFormulaScope() (*datalogExplanationFormulaScope, bool, error) {
@@ -24,10 +26,10 @@ func (e *PropositionalEngine) beginDatalogExplanationFormulaScope() (*datalogExp
 	}
 	// The live formula checker currently owns a Hash TableRelation. Other
 	// selected checker plugins must not silently fall back to that backing.
-	if name != "hashtable" {
+	if name != "hashtable" && name != "check" {
 		return nil, false, fmt.Errorf("%w: explanation formula checker %s", rel.ErrCompilerUnsupported, name)
 	}
-	scope := &datalogExplanationFormulaScope{engine: e, eligible: make(map[ast.ASTHandle]bool)}
+	scope := &datalogExplanationFormulaScope{engine: e, eligible: make(map[ast.ASTHandle]bool), nested: name == "check"}
 	for _, declaration := range e.predicateOrder {
 		state := e.predicates[declaration]
 		if state != nil {
@@ -45,6 +47,34 @@ func (s *datalogExplanationFormulaScope) transferFacts(transformer *rel.Explanat
 	return transformer.TransferRelationFactsFormulaChecked(source, target, e.relations, e.predicateOrder, s.eligible, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
 }
 
+func (s *datalogExplanationFormulaScope) installFreshProducts(predicates []ast.ASTHandle) error {
+	if s == nil || s.engine == nil {
+		return rel.ErrCompilerUnsupported
+	}
+	e := s.engine
+	config := smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals}
+	for _, declaration := range predicates {
+		_, found, err := e.relations.TryGetRelationExplanation(declaration)
+		if err != nil {
+			return err
+		}
+		if found {
+			continue
+		}
+		product, eligible, err := rel.NewFormulaCheckedRelationExplanationForPredicate(e.relations, declaration, config)
+		if err != nil {
+			return fmt.Errorf("muz/fp: construct fresh explanation product %v: %w", declaration, err)
+		}
+		if !eligible {
+			continue
+		}
+		if err = e.relations.StoreRelationExplanation(declaration, product); err != nil {
+			return errors.Join(fmt.Errorf("muz/fp: store fresh explanation product %v: %w", declaration, err), product.Close())
+		}
+	}
+	return nil
+}
+
 func (s *datalogExplanationFormulaScope) requireProduct(original ast.ASTHandle, product *rel.RelationExplanationProduct) error {
 	if s == nil || s.engine == nil {
 		return rel.ErrCompilerUnsupported
@@ -55,6 +85,13 @@ func (s *datalogExplanationFormulaScope) requireProduct(original ast.ASTHandle, 
 	}
 	if !eligible {
 		return nil
+	}
+	return s.requireConcreteProduct(product)
+}
+
+func (s *datalogExplanationFormulaScope) requireConcreteProduct(product *rel.RelationExplanationProduct) error {
+	if s == nil || s.engine == nil {
+		return rel.ErrCompilerUnsupported
 	}
 	checked, err := product.FormulaChecked()
 	if err != nil {

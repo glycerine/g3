@@ -62,6 +62,19 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 			return lbool.Undef, err
 		}
 		defer func() { resultErr = errors.Join(resultErr, formulaScope.Close()) }()
+		// Source check_relation wraps the table plugin selected for the finite
+		// sieve. When default_table_checked is also active, preserve that inner
+		// concrete pair instead of replacing it with the outer formula oracle.
+		if formulaScope.nested {
+			checkedScope, _, err = e.beginDatalogExplanationCheckedScope()
+			if err != nil {
+				return lbool.Undef, err
+			}
+			if checkedScope == nil {
+				return lbool.Undef, fmt.Errorf("%w: explanation check relation requires an active checked table pair", rel.ErrCompilerUnsupported)
+			}
+			defer func() { resultErr = errors.Join(resultErr, checkedScope.Close()) }()
+		}
 	} else {
 		checkedScope, _, err = e.beginDatalogExplanationCheckedScope()
 		if err != nil {
@@ -125,6 +138,7 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 	if err != nil {
 		return lbool.Undef, err
 	}
+	var magicPredicates []ast.ASTHandle
 	if magic {
 		valid, err := transformed.Finalize()
 		if err != nil {
@@ -141,6 +155,12 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 		}
 		if _, err = pass.Apply(transformed); err != nil {
 			return lbool.Undef, err
+		}
+		magicPredicates = append(magicPredicates, plugin.FreshPredicates()...)
+		if formulaScope != nil && formulaScope.nested {
+			if err = formulaScope.installFreshProducts(magicPredicates); err != nil {
+				return lbool.Undef, err
+			}
 		}
 	}
 	var execution, termination *rel.InstructionBlock
@@ -183,6 +203,23 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 	if err = context.CollectStatistics(&e.datalogStats); err != nil {
 		return lbool.Undef, err
 	}
+	if formulaScope != nil && formulaScope.nested {
+		for _, declaration := range magicPredicates {
+			product, found, err := e.relations.TryGetRelationExplanation(declaration)
+			if err != nil {
+				return lbool.Undef, err
+			}
+			if !found {
+				continue
+			}
+			if err = formulaScope.requireConcreteProduct(product); err != nil {
+				return lbool.Undef, fmt.Errorf("muz/fp: magic explanation product %v: %w", declaration, err)
+			}
+			if err = checkedScope.requireProduct(product); err != nil {
+				return lbool.Undef, fmt.Errorf("muz/fp: magic explanation product %v: %w", declaration, err)
+			}
+		}
+	}
 	for declaration, state := range e.predicates {
 		table, found, err := e.relations.TryGetFiniteRelation(declaration)
 		if err != nil {
@@ -200,6 +237,11 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 		if formulaScope != nil {
 			if err = formulaScope.requireProduct(declarations[0], product); err != nil {
 				return lbool.Undef, err
+			}
+			if checkedScope != nil {
+				if err = checkedScope.requireProduct(product); err != nil {
+					return lbool.Undef, err
+				}
 			}
 		} else if err = checkedScope.requireProduct(product); err != nil {
 			return lbool.Undef, err
