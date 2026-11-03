@@ -507,6 +507,16 @@ func (c *Context) FixedpointRulesAlongTrace() ([]ast.ASTRef, []string, error) {
 	return engine.RulesAlongTrace()
 }
 
+// FixedpointRulesAlongTraceWithSymbols returns caller-owned formulas and the
+// exact source rule-name symbols, including absent, empty and numerical names.
+func (c *Context) FixedpointRulesAlongTraceWithSymbols() ([]ast.ASTRef, []symbol.Symbol, error) {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return nil, nil, err
+	}
+	return engine.RulesAlongTraceWithSymbols()
+}
+
 func (c *Context) FixedpointStatistics() (statistics.Statistics, error) {
 	engine, err := c.fixedpointContext()
 	if err != nil {

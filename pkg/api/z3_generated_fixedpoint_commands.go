@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 type replayFixedpoint struct {
@@ -282,13 +283,13 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 		return f.value.SetPredicateRepresentation(decl.handle, kinds[:count]...)
 	case 528, 529, 653, 654:
 		var refs []ast.ASTRef
-		var names []string
+		var names []symbol.Symbol
 		if id == 528 {
 			refs, err = f.value.Rules()
 		} else if id == 529 {
 			refs, err = f.value.Assertions()
 		} else {
-			refs, names, err = f.value.RulesAlongTrace()
+			refs, names, err = f.value.RulesAlongTraceWithSymbols()
 		}
 		if err != nil {
 			return err
@@ -300,7 +301,16 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 			}
 		}()
 		if id == 654 {
-			if _, e := owner.context.StringSymbol(strings.Join(names, ";")); e != nil {
+			texts := make([]string, len(names))
+			for i, name := range names {
+				texts[i], err = manager.Symbols.String(name)
+				if err != nil {
+					return err
+				}
+			}
+			// api_datalog_spacer.inc uses symbol::str and constructs a string
+			// symbol directly, so an empty aggregate is a present empty name.
+			if _, e := manager.Symbols.Intern(strings.Join(texts, ";")); e != nil {
 				return e
 			}
 			vector, e := owner.context.NewASTVector()

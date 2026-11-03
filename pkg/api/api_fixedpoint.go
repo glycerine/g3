@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // FixedpointParameterDescriptor is copied metadata for one fixedpoint option.
@@ -410,6 +411,15 @@ func (c *SMTContext) FixedpointRulesAlongTrace() ([]ast.ASTRef, []string, error)
 		return nil, nil, err
 	}
 	return c.command.FixedpointRulesAlongTrace()
+}
+
+// FixedpointRulesAlongTraceWithSymbols returns caller-owned trace formulas and
+// their exact rule-name symbols. Release every formula through Manager().DelRef.
+func (c *SMTContext) FixedpointRulesAlongTraceWithSymbols() ([]ast.ASTRef, []symbol.Symbol, error) {
+	if err := c.open(); err != nil {
+		return nil, nil, err
+	}
+	return c.command.FixedpointRulesAlongTraceWithSymbols()
 }
 
 // FixedpointStatistics returns an owning Go copy of current engine statistics.

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // NumLevels reports the number of PDR or Spacer frames for a relation.
@@ -54,6 +55,15 @@ func (f *APIFixedpoint) RulesAlongTrace() ([]ast.ASTRef, []string, error) {
 		return nil, nil, err
 	}
 	return f.command.FixedpointRulesAlongTrace()
+}
+
+// RulesAlongTraceWithSymbols returns caller-owned trace formulas and the exact
+// source rule-name symbols, preserving absent, empty and numerical names.
+func (f *APIFixedpoint) RulesAlongTraceWithSymbols() ([]ast.ASTRef, []symbol.Symbol, error) {
+	if err := f.open(); err != nil {
+		return nil, nil, err
+	}
+	return f.command.FixedpointRulesAlongTraceWithSymbols()
 }
 
 func (f *APIFixedpoint) ReasonUnknown() (string, error) {
