@@ -168,7 +168,8 @@ func (s *tabSearch) Run() (lbool.LBool, error) {
 		return lbool.Undef, ast.ErrASTHandle
 	}
 	selectPredicate := true
-	for len(s.stack) != 0 {
+	backtrack, complete := false, false
+	for {
 		canceled, err := s.manager.Canceled()
 		if err != nil {
 			return lbool.Undef, err
@@ -176,13 +177,27 @@ func (s *tabSearch) Run() (lbool.LBool, error) {
 		if canceled {
 			return lbool.Undef, s.cleanupClauses()
 		}
+		// Source run checks cancellation before interpreting SATISFIABLE or
+		// UNSATISFIABLE, including after the empty-clause diagnostic.
+		if complete {
+			return lbool.True, nil
+		}
+		if len(s.stack) == 0 {
+			return lbool.False, nil
+		}
+		if backtrack {
+			s.stack = s.stack[:len(s.stack)-1]
+			backtrack = false
+			continue
+		}
 		current := s.stack[len(s.stack)-1]
 		if selectPredicate {
 			if len(current.predicates) == 0 {
 				if err = s.verboseEmptyClause(current); err != nil {
 					return lbool.Undef, err
 				}
-				return lbool.True, nil
+				complete = true
+				continue
 			}
 			current.predicateIndex, err = s.selection.Select(current)
 			if err != nil {
@@ -208,7 +223,9 @@ func (s *tabSearch) Run() (lbool.LBool, error) {
 			return lbool.Undef, err
 		}
 		if uint64(current.nextRule) >= uint64(count) {
-			s.stack = s.stack[:len(s.stack)-1]
+			// BACKTRACK is a separate source instruction, with its own
+			// cancellation boundary before retiring the active stack entry.
+			backtrack = true
 			continue
 		}
 		rule, err := s.rules.Rule(decl, int(current.nextRule))
@@ -265,5 +282,4 @@ func (s *tabSearch) Run() (lbool.LBool, error) {
 		s.unfold++
 		selectPredicate = true
 	}
-	return lbool.False, nil
 }
