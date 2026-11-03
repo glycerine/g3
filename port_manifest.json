@@ -6516,6 +6516,7 @@
         "pkg/api/api_fixedpoint_object.go",
         "pkg/api/api_fixedpoint_object_declarations.go",
         "pkg/api/api_fixedpoint_object_mutation.go",
+        "pkg/api/api_fixedpoint_duplicate_registration_test.go",
         "pkg/api/api_fixedpoint_object_query.go",
         "pkg/api/api_fixedpoint_object_results.go",
         "pkg/api/api_fixedpoint_expression_model.go",
@@ -6586,7 +6587,8 @@
         "TestAPIFixedpointDatalogMultipleRelationAnswers",
         "TestAPIFixedpointSpacerExpressionQueryFromLevel",
         "TestSMTContextFixedpointExternalRelationCallbackRegistration",
-        "TestAPIFixedpointParametersReplaceWrapperAndAccumulateEngine"
+        "TestAPIFixedpointParametersReplaceWrapperAndAccumulateEngine",
+        "TestAPIFixedpointDuplicateRelationRegistrationIsIdempotent"
       ],
       "assertions": [
         {
@@ -6601,6 +6603,13 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "Z3_fixedpoint_register_relation delegates duplicate registration idempotently",
+          "status": "ported",
+          "go_targets": ["pkg/api/api_fixedpoint_object_mutation.go", "pkg/muz/fp/propositional_engine.go", "pkg/api/api_fixedpoint_duplicate_registration_test.go"],
+          "tests": ["TestAPIFixedpointDuplicateRelationRegistrationIsIdempotent"],
+          "reason": "Repeated registration preserves predicate order, engine revision and the current owning answer, then leaves later queries unchanged."
+        },
         {
           "name": "Z3_fixedpoint_set_params replaces the API wrapper snapshot while the underlying fixedpoint context accumulates parameter updates (api_datalog.cpp:578-586)",
           "status": "ported",
@@ -12781,13 +12790,16 @@
       "go_targets": [
         "pkg/api/api_fixedpoint.go",
         "pkg/api/api_fixedpoint_object.go",
+        "pkg/api/api_fixedpoint_object_mutation.go",
+        "pkg/api/api_fixedpoint_duplicate_registration_test.go",
         "pkg/api/api_fixedpoint_object_results.go",
         "pkg/api/api_fixedpoint_object_query_test.go",
         "pkg/api/api_fixedpoint_test.go"
       ],
       "tests": [
         "TestAPIFixedpointRulesScopesAndQueries",
-        "TestSMTContextFixedpointPDRLifecycle"
+        "TestSMTContextFixedpointPDRLifecycle",
+        "TestAPIFixedpointDuplicateRelationRegistrationIsIdempotent"
       ],
       "conditionals": [
         {
@@ -12818,6 +12830,13 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "Z3_fixedpoint_register_relation declaration and owning object path (z3_fixedpoint.h:215-217)",
+          "status": "ported",
+          "go_targets": ["pkg/api/api_fixedpoint_object_mutation.go", "pkg/api/api_fixedpoint_duplicate_registration_test.go", "pkg/muz/fp/propositional_engine.go"],
+          "tests": ["TestAPIFixedpointDuplicateRelationRegistrationIsIdempotent"],
+          "reason": "Repeated registration is idempotent and preserves the live query result while the broader C API header remains partial."
+        },
         {
           "name": "fixedpoint object rule and query paths",
           "status": "partial",
@@ -84991,6 +85010,8 @@
         "pkg/parsers/smt2/qbmc_engine_test.go",
         "pkg/muz/fp/bmc_engine_test.go",
         "pkg/muz/fp/propositional_engine.go",
+        "pkg/muz/fp/predicate_registration_idempotence_test.go",
+        "pkg/api/api_fixedpoint_duplicate_registration_test.go",
         "pkg/muz/fp/rule_ingest.go",
         "pkg/muz/fp/rule_ingest_unbound_test.go",
         "pkg/muz/fp/datalog_model.go",
@@ -84999,6 +85020,8 @@
         "pkg/muz/fp/pdr_engine.go",
         "pkg/muz/base/hnf.go",
         "pkg/muz/base/datalog_context_background.go",
+        "pkg/muz/base/datalog_context_predicates.go",
+        "pkg/muz/base/datalog_context_query_test.go",
         "pkg/muz/base/datalog_context_background_snapshot.go",
         "pkg/muz/base/datalog_context_background_formula.go",
         "pkg/muz/base/rule_set_smt2.go",
@@ -85024,6 +85047,8 @@
         "pkg/api/api_fixedpoint_expression_answer_test.go",
         "pkg/cmd_context/fixedpoint_expression_answer.go",
         "pkg/muz/fp/engine_result_routing_test.go",
+        "pkg/muz/fp/engine_result_state.go",
+        "pkg/muz/fp/engine_result_status_source_test.go",
         "pkg/muz/fp/relation_query_answer.go",
         "pkg/muz/fp/relation_query_answer_test.go",
         "pkg/api/api_fixedpoint_relations_answer_test.go",
@@ -85058,6 +85083,8 @@
         "TestExpressionQueryLastResultAndSpacerTraceInvalidation",
         "TestFailedExpressionQueryInvalidatesPreviousResult",
         "TestExpressionQueryAllocationFailureInvalidatesSnapshot",
+        "TestFixedpointUndefinedStatusMatchesSourceBackend",
+        "TestFixedpointExplicitApproximationDoesNotInheritSpacerBound",
         "TestDatalogRelationsAnswerConjoinsRequestedRelations",
         "TestDatalogRelationsAnswerPreservesTupleFormulas",
         "TestAPIFixedpointDatalogMultipleRelationAnswers",
@@ -85069,7 +85096,10 @@
         "TestAPIFixedpointParametersSelectFactStorageBeforeQuery",
         "TestSMTContextFixedpointSMT2Replay",
         "TestConfiguredUnknownEngineFallsBackToSourceAutoSelection",
-        "TestAPIFixedpointParametersReplaceWrapperAndAccumulateEngine"
+        "TestAPIFixedpointParametersReplaceWrapperAndAccumulateEngine",
+        "TestDuplicatePredicateRegistrationPreservesSolvedState",
+        "TestAPIFixedpointDuplicateRelationRegistrationIsIdempotent",
+        "TestDatalogContextAddQueryLowersFreeVariableBody"
       ],
       "assertions": [
         {
@@ -85136,12 +85166,15 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "context::register_predicate is idempotent for an existing declaration (dl_context.cpp:344-353)", "status": "ported", "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/predicate_registration_idempotence_test.go", "pkg/api/api_fixedpoint_duplicate_registration_test.go"], "tests": ["TestDuplicatePredicateRegistrationPreservesSolvedState", "TestAPIFixedpointDuplicateRelationRegistrationIsIdempotent"], "reason": "Repeated registration preserves predicate state, source order, program revision, current result/answer and later query behavior."},
+        {"name": "context::mk_fresh_head_predicate registers the generated declaration by name (dl_context.cpp:443-455)", "status": "ported", "go_targets": ["pkg/muz/base/datalog_context_predicates.go", "pkg/muz/base/datalog_context_query_test.go"], "tests": ["TestDatalogContextAddQueryLowersFreeVariableBody"], "reason": "Live AddQuery consumers can recover the exact generated declaration through Predicate(actual AST name)."},
         {"name": "caller-visible context::updt_params cumulatively copies fixedpoint updates while API wrapper snapshots are independently replaced (dl_context.cpp:744-749)", "status": "ported", "go_targets": ["pkg/api/api_fixedpoint_object_parameters.go", "pkg/api/api_fixedpoint_object_parameters_test.go", "pkg/muz/fp/fixedpoint_params.go"], "tests": ["TestAPIFixedpointParametersReplaceWrapperAndAccumulateEngine"], "reason": "Covers cumulative query/display option precedence and later same-key overwrite through the owning API object; other context update side effects remain tracked separately."},
         {"name": "source public get_rules_as_formulas enumeration preserves pending inputs and appends negated output queries", "status": "ported", "go_targets": ["pkg/muz/fp/context_formula_rules.go", "pkg/muz/fp/context_formula_rules_test.go", "pkg/api/api_fixedpoint_rule_formulas_test.go"], "tests": ["TestPublicRuleFormulasAppendNegatedOutputsAfterPendingInputs", "TestAPIFixedpointRulesPreservePendingInputsAndFlushExpansion"], "reason": "Shares display phase selection/open normalization; preserves internal Rules/NamedRules normalized contracts and returns independently owned source formulas."},
         {"name": "automatic engine selection scans normalized rules before pending formulas (dl_context.cpp:840-859)", "status": "ported", "go_targets": ["pkg/muz/fp/auto_engine.go", "pkg/muz/fp/auto_engine_phase_test.go", "pkg/muz/fp/engine_result_routing_test.go"], "tests": ["TestFixedpointAutoConfigNormalizedPrefixPrecedesPendingInputs", "TestFixedpointAutoConfigTracksUpdatePromotionAndPop", "TestFixedpointAutoConfigRestoresRuleClassification"], "reason": "Actual phase order replaces cached ingestion classifications; covers genuine normalized QPDR, existential-to-PDR normalization, named updates, display promotion and scope restoration."},
         {"name": "unrecognized configured engine symbols fall through to automatic classification (dl_context.cpp:801-859)", "status": "ported", "go_targets": ["pkg/muz/fp/fixedpoint_params.go", "pkg/muz/fp/configured_engine_fallback_test.go"], "tests": ["TestConfiguredUnknownEngineFallsBackToSourceAutoSelection"], "reason": "Preserves query-local/module precedence, source engine caching, Datalog/PDR/QPDR classification and the strict explicit Go selector guard."},
         {"name": "query-parameter updates preserve instantiated PDR/QPDR/Spacer engine lifetime while backend contexts rebuild (dl_context.cpp:185-195,744)", "status": "ported", "go_targets": ["pkg/muz/fp/fixedpoint_params.go", "pkg/muz/fp/parameter_update_engine_lifetime_test.go"], "tests": ["TestParameterUpdatePreservesPrequeryEngineLifetime"], "reason": "Replacement and clearing preserve pre-query Pop refusal only after actual engine instantiation, while never-instantiated contexts remain lazy."},
         {"name": "query cancellation publishes source unknown reason and preserves retryable result state", "status": "ported", "go_targets": ["pkg/muz/fp/engine_result_state.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/engine_canceled_status_test.go"], "tests": ["TestFixedpointCanceledQueryPublishesSourceReasonAndRetries"], "reason": "A canceled backend result records the resource-limit cancellation message as reason_unknown, leaves answer/certificate unavailable, and permits a later query after cancellation is cleared instead of preserving stale success state."},
+        {"name": "context::query and query_from_lvl reset execution status to OK before backend dispatch (dl_context.cpp:861-910)", "status": "ported", "go_targets": ["pkg/muz/fp/engine_result_state.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/engine_result_status_source_test.go"], "tests": ["TestFixedpointUndefinedStatusMatchesSourceBackend", "TestFixedpointExplicitApproximationDoesNotInheritSpacerBound"], "reason": "An ordinary undefined result from CLP, TAB, BMC/QBMC, DDNF, PDR/QPDR, Spacer or Duality leaves the reset status OK. Relational Datalog approximation and Spacer level exhaustion publish explicit statuses; the public non-Datalog multiple-relation extension deliberately reports approximation and does not inherit a prior Spacer bound."},
         {"name": "configured engine caching plus direct Datalog and raw non-Datalog fact ingestion (dl_context.cpp:627-665,801-859)", "status": "ported", "go_targets": ["pkg/muz/fp/datalog_facts.go", "pkg/muz/fp/datalog_facts_test.go", "pkg/muz/fp/stored_fact_formulas.go", "pkg/muz/fp/fixedpoint_params.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_clone_predicates.go", "pkg/muz/fp/query_expression.go", "pkg/cmd_context/fixedpoint_replay.go", "pkg/api/api_fixedpoint_fact_selection_test.go"], "tests": ["TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries", "TestDatalogFactSelectionUsesParametersAndCachesSourceChoice", "TestDatalogDirectFiniteFactValidationAndCloneOwnership", "TestAPIFixedpointParametersSelectFactStorageBeforeQuery", "TestSMTContextFixedpointSMT2Replay"], "reason": "Datalog owns encoded relation tuples and publishes successful expression-query tables; other engines preserve ground raw rules. Public source enumeration omits relation tuples while the explicit Go replay exporter serializes them. Covers instantiation/pop, invalid values, duplicates, result invalidation, parameter precedence and independent clone ownership."},
         {
           "name": "get_rules_as_formulas finalized-rule partition: output clauses become ordered queries, quantified implications use an existential body, quantified facts retain their original universal formula (dl_context.cpp:1072-1105)",
@@ -85308,8 +85341,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/datalog_facts.go", "pkg/muz/fp/datalog_facts_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go"],
-      "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries", "TestDatalogFactSelectionUsesParametersAndCachesSourceChoice", "TestDatalogDirectFiniteFactValidationAndCloneOwnership", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointRuleScopesMatchCPP"],
+      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/predicate_registration_idempotence_test.go", "pkg/api/api_fixedpoint_duplicate_registration_test.go", "pkg/muz/base/datalog_context_predicates.go", "pkg/muz/base/datalog_context_query_test.go", "pkg/muz/fp/engine_result_state.go", "pkg/muz/fp/engine_result_status_source_test.go", "pkg/muz/fp/datalog_facts.go", "pkg/muz/fp/datalog_facts_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go"],
+      "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestDuplicatePredicateRegistrationPreservesSolvedState", "TestAPIFixedpointDuplicateRelationRegistrationIsIdempotent", "TestDatalogContextAddQueryLowersFreeVariableBody", "TestFixedpointUndefinedStatusMatchesSourceBackend", "TestFixedpointExplicitApproximationDoesNotInheritSpacerBound", "TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries", "TestDatalogFactSelectionUsesParametersAndCachesSourceChoice", "TestDatalogDirectFiniteFactValidationAndCloneOwnership", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointRuleScopesMatchCPP"],
       "conditionals": [
         {
           "line": 19,
@@ -85331,6 +85364,8 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "context::register_predicate declaration is idempotent for an existing declaration (dl_context.h:310)", "status": "ported", "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/predicate_registration_idempotence_test.go", "pkg/api/api_fixedpoint_duplicate_registration_test.go"], "tests": ["TestDuplicatePredicateRegistrationPreservesSolvedState", "TestAPIFixedpointDuplicateRelationRegistrationIsIdempotent"]},
+        {"name": "context::mk_fresh_head_predicate declaration and named-registration contract (dl_context.h:343)", "status": "ported", "go_targets": ["pkg/muz/base/datalog_context_predicates.go", "pkg/muz/base/datalog_context_query_test.go"], "tests": ["TestDatalogContextAddQueryLowersFreeVariableBody"]},
         {
           "name": "Concrete add_fact/add_table_fact engine-dependent storage and configured engine caching surface (dl_context.h:127-616)",
           "status": "ported",
@@ -85351,6 +85386,13 @@
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "go_targets": ["pkg/parsers/smt2/fixedpoint_commands_test.go"],
           "tests": ["TestPropositionalEngineScopeGuards", "TestSMT2FixedpointRuleScopesMatchCPP"]
+        },
+        {
+          "name": "OK, APPROX and BOUNDED execution-result classification on the context status surface (dl_context.h:51-58,548-553)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/engine_result_state.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/engine_result_status_source_test.go"],
+          "tests": ["TestFixedpointUndefinedStatusMatchesSourceBackend", "TestFixedpointExplicitApproximationDoesNotInheritSpacerBound"],
+          "reason": "The live public query classifier distinguishes ordinary undefined, relational approximation and Spacer level exhaustion without claiming the rest of the context surface."
         }
       ],
       "ownership": [
@@ -85466,8 +85508,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go", "pkg/muz/fp/propositional_engine_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
-      "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsUnsupportedInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails", "TestSMT2FixedpointPropositionalQueriesMatchCPP"],
+      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/engine_result_state.go", "pkg/muz/fp/engine_result_status_source_test.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go", "pkg/muz/fp/propositional_engine_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
+      "tests": ["TestFixedpointUndefinedStatusMatchesSourceBackend", "TestFixedpointExplicitApproximationDoesNotInheritSpacerBound", "TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsUnsupportedInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails", "TestSMT2FixedpointPropositionalQueriesMatchCPP"],
       "conditionals": [
         {
           "line": 19,
@@ -85482,6 +85524,7 @@
       "ownership_audited": false,
       "methods": [
         {"name": "single-relation BMC query binds variables in declaration order before constructing the reversed query-head domain (dl_engine_base.h:52-70)", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go"], "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate"]},
+        {"name": "engine_base ordinary undefined result leaves the context execution status unchanged (dl_engine_base.h:51-73)", "status": "ported", "go_targets": ["pkg/muz/fp/engine_result_state.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/engine_result_status_source_test.go"], "tests": ["TestFixedpointUndefinedStatusMatchesSourceBackend", "TestFixedpointExplicitApproximationDoesNotInheritSpacerBound"], "reason": "Ordinary backend Undef therefore observes the context's pre-dispatch OK status. The Go public multiple-relation extension explicitly classifies unsupported non-Datalog combinations as approximate instead of inheriting stale state."},
         {
           "name": "Concrete query and cleanup contract for the first exact positive-propositional fixedpoint engine slice (dl_engine_base.h:40-114)",
           "status": "partial",
@@ -85974,11 +86017,13 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
-        "pkg/muz/transforms/subsumption_checker.go"
+        "pkg/muz/transforms/subsumption_checker.go",
+        "pkg/muz/transforms/subsumption_checker_test.go"
       ],
       "tests": [
         "TestSubsumptionCheckerDropsTautologicalSelfRule",
-        "TestSubsumptionCheckerRemovesTotalPositiveTail"
+        "TestSubsumptionCheckerRemovesTotalPositiveTail",
+        "TestSubsumptionCheckerDropsStructurallyDuplicateRules"
       ],
       "assertions": [
         {
@@ -85990,9 +86035,12 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "rule_subsumption_index exact unconditional-head and retained-rule identity indexing",
+          "name": "rule_subsumption_index exact unconditional-head and structural rule_eq_proc indexing",
           "status": "ported",
-          "go_target": "pkg/muz/transforms/subsumption_checker.go"
+          "go_target": "pkg/muz/transforms/subsumption_checker.go",
+          "go_targets": ["pkg/muz/transforms/subsumption_checker_test.go"],
+          "tests": ["TestSubsumptionCheckerDropsStructurallyDuplicateRules"],
+          "reason": "Separately constructed equal rules are compared structurally without their names, and the first source rule and name survive pruning."
         }
       ],
       "ownership": [
@@ -86006,11 +86054,13 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
-        "pkg/muz/transforms/subsumption_checker.go"
+        "pkg/muz/transforms/subsumption_checker.go",
+        "pkg/muz/transforms/subsumption_checker_test.go"
       ],
       "tests": [
         "TestSubsumptionCheckerDropsTautologicalSelfRule",
-        "TestSubsumptionCheckerRemovesTotalPositiveTail"
+        "TestSubsumptionCheckerRemovesTotalPositiveTail",
+        "TestSubsumptionCheckerDropsStructurallyDuplicateRules"
       ],
       "conditionals": [
         {
@@ -86026,9 +86076,10 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "rule_subsumption_index concrete retained interface",
+          "name": "rule_subsumption_index concrete structural-equality interface",
           "status": "ported",
-          "go_target": "pkg/muz/transforms/subsumption_checker.go"
+          "go_target": "pkg/muz/transforms/subsumption_checker.go",
+          "tests": ["TestSubsumptionCheckerDropsStructurallyDuplicateRules"]
         }
       ],
       "ownership": [
@@ -86999,8 +87050,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/bmc_numeric_proof_test.go", "pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_solver_profile_test.go", "pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_bind_test.go", "pkg/muz/bmc/quantified_linear_proof.go", "pkg/muz/bmc/quantified_linear_proof_cleanup.go", "pkg/muz/bmc/quantified_linear_proof_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_compile_test.go", "pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_bind_test.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_compile_test.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/nonlinear_search_test.go", "pkg/muz/bmc/nonlinear_trace.go", "pkg/muz/bmc/nonlinear_proof.go", "pkg/muz/bmc/nonlinear_trace_test.go", "pkg/muz/bmc/linear_compile.go", "pkg/muz/bmc/linear_bind.go", "pkg/muz/bmc/linear_compile_test.go", "pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/linear_trace.go", "pkg/muz/bmc/linear_proof.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_empty_cancellation_test.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go"],
-      "tests": ["TestBMCNumericProofIndependentValidation", "TestBMCSolverProfilesInstallSourceParameters", "TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler", "TestBMCQuantifiedLinearBindingsUseDerivationLevel", "TestBMCQuantifiedLinearProofWithUninterpretedBinding", "TestSMT2QBMCProofWithUnconstrainedRuleVariable", "TestBMCQuantifiedLinearProofWithRuleVariables", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers", "TestBMCBindVariablesCompressesGapsAndBuildsPattern", "TestBMCNonlinearCompilationUnfoldsRulesByLevel", "TestBMCNonlinearCompilationSharesExistentialAcrossBranches", "TestBMCNonlinearCompilationPreservesRepeatedHeadVariables", "TestBMCNonlinearSearchFindsFirstReachableLevel", "TestBMCNonlinearTraceVisitsModelSelectedRules", "TestQBMCConvertsNonlinearSlicedProof", "TestQBMCConvertsSliceProofWhenResolutionMergesTails", "TestSMT2QBMCProofConvertsMergedTails", "TestSMT2QBMCNonlinearSlicedProofTrace", "TestSMT2BMCNonlinearProofTrace", "TestBMCLinearCompilationSharesRuleVariables", "TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses", "TestBMCEngineRuleTraceAndSnapshot", "TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses", "TestBMCEmptyQueryChecksCancellationBeforeFalseResult", "TestSMT2BMCEngineSearch", "TestSMT2BMCCertificate", "TestSMT2BMCRecursiveCertificate", "TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates"],
+      "go_targets": ["pkg/muz/fp/bmc_numeric_proof_test.go", "pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_solver_profile_test.go", "pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_bind_test.go", "pkg/muz/bmc/quantified_linear_proof.go", "pkg/muz/bmc/quantified_linear_proof_cleanup.go", "pkg/muz/bmc/quantified_linear_proof_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_compile_test.go", "pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_bind_test.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_compile_test.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/nonlinear_search_test.go", "pkg/muz/bmc/nonlinear_trace.go", "pkg/muz/bmc/nonlinear_proof.go", "pkg/muz/bmc/nonlinear_trace_test.go", "pkg/muz/bmc/linear_compile.go", "pkg/muz/bmc/linear_bind.go", "pkg/muz/bmc/linear_compile_test.go", "pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/linear_trace.go", "pkg/muz/bmc/linear_proof.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_empty_cancellation_test.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go", "pkg/muz/fp/bmc_query_verbose.go", "pkg/muz/fp/bmc_query_verbose_test.go"],
+      "tests": ["TestBMCNumericProofIndependentValidation", "TestBMCSolverProfilesInstallSourceParameters", "TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler", "TestBMCQuantifiedLinearBindingsUseDerivationLevel", "TestBMCQuantifiedLinearProofWithUninterpretedBinding", "TestSMT2QBMCProofWithUnconstrainedRuleVariable", "TestBMCQuantifiedLinearProofWithRuleVariables", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers", "TestBMCBindVariablesCompressesGapsAndBuildsPattern", "TestBMCNonlinearCompilationUnfoldsRulesByLevel", "TestBMCNonlinearCompilationSharesExistentialAcrossBranches", "TestBMCNonlinearCompilationPreservesRepeatedHeadVariables", "TestBMCNonlinearSearchFindsFirstReachableLevel", "TestBMCNonlinearTraceVisitsModelSelectedRules", "TestQBMCConvertsNonlinearSlicedProof", "TestQBMCConvertsSliceProofWhenResolutionMergesTails", "TestSMT2QBMCProofConvertsMergedTails", "TestSMT2QBMCNonlinearSlicedProofTrace", "TestSMT2BMCNonlinearProofTrace", "TestBMCLinearCompilationSharesRuleVariables", "TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses", "TestBMCEngineRuleTraceAndSnapshot", "TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses", "TestBMCEmptyQueryChecksCancellationBeforeFalseResult", "TestSMT2BMCEngineSearch", "TestSMT2BMCCertificate", "TestSMT2BMCRecursiveCertificate", "TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates", "TestNonlinearBMCWarningMatchesSourceDispatch", "TestLinearBMCDoesNotEmitNonlinearWarning", "TestNonlinearBMCWarningRefusalDoesNotChangeResult"],
       "assertions": [
         {
           "line": 138,
@@ -87101,9 +87152,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "numeric linear/qlinear resolution proof substitutions, compacted variable mapping and proof-preserving normalization", "status": "ported", "go_targets": ["pkg/muz/bmc/linear_proof.go", "pkg/muz/transforms/rule_inliner.go", "pkg/muz/fp/bmc_numeric_proof_test.go"], "tests": ["TestBMCNumericProofIndependentValidation"], "reason": "Six public BMC/QBMC linear/nonlinear/recursive cases independently check the query conclusion, structural proof, every logical side condition and asserted leaf provenance. Broader source/ownership audit remains partial."}, {"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "ported", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}, {"name": "linear BMC constructs a model-selected proof when proof tracing is enabled", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go"], "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate"]}, {"name": "nonlinear BMC prepares rule proofs for subsequent answers and certificates without a global proof option", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_requested_proof_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/api/api_fixedpoint_expression_answer_test.go"], "tests": ["TestBMCRequestedNonlinearProofWithoutGlobalTracing", "TestSMT2BMCNonlinearCertificateWithoutProofOption", "TestAPIFixedpointNonlinearBMCAnswersWithoutProofOption"]}, {"name": "BMC query preprocessing applies default transformations and optional slicing without Spacer unfold/coalesce stages", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go"], "tests": ["TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates"]}, {"name": "nonlinear query/binding construction and quantified-tail execution preserve allocation-frontier ownership", "status": "ported", "go_targets": ["pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_quantified_test.go", "pkg/muz/bmc/nonlinear_query_failure_test.go"], "tests": ["TestBMCNonlinearCompilationExecutesQuantifiedPredicateTail", "TestBMCNonlinearQueryAndAppliedVariablesAllocationFrontiers"]}, {"name": "linear and nonlinear search check cancellation before level compilation and preserve formula/query/guard and nested construction owners across refused cleanup", "status": "ported", "go_targets": ["pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/linear_cleanup_pending_test.go", "pkg/muz/bmc/linear_search_cancel_test.go"], "tests": ["TestBMCLinearSearchCancellationPrecedesLevelCompilation", "TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes"]}, {"name": "quantified linear search restores solver scopes and construction owners at every allocation boundary and checkpoints cancellation after per-width compilation before query publication", "status": "ported", "go_targets": ["pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_search_failure_test.go", "pkg/muz/bmc/quantified_linear_compile_test.go"], "tests": ["TestBMCQuantifiedLinearSearchAllocationScopeCleanup", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers"]}, {"name": "quantified-linear indexed-symbol and output cleanup preserves every result across refused native release", "status": "ported", "go_targets": ["pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_cleanup_pending_test.go"], "tests": ["TestQuantifiedLinearCleanupPreservesRefsWhileManagerExecutes"]}, {"name": "BMC and QBMC query checkpoint cancellation after transformed query installation and before an empty rule group returns false", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_empty_cancellation_test.go"], "tests": ["TestBMCEmptyQueryChecksCancellationBeforeFalseResult"], "reason": "Predicate and expression entry points publish neither a result nor query owners on cancellation, then recover on retry and replace the prior query clone on repetition."}],
+      "methods": [{"name": "numeric linear/qlinear resolution proof substitutions, compacted variable mapping and proof-preserving normalization", "status": "ported", "go_targets": ["pkg/muz/bmc/linear_proof.go", "pkg/muz/transforms/rule_inliner.go", "pkg/muz/fp/bmc_numeric_proof_test.go"], "tests": ["TestBMCNumericProofIndependentValidation"], "reason": "Six public BMC/QBMC linear/nonlinear/recursive cases independently check the query conclusion, structural proof, every logical side condition and asserted leaf provenance. Broader source/ownership audit remains partial."}, {"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "ported", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}, {"name": "linear BMC constructs a model-selected proof when proof tracing is enabled", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go"], "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate"]}, {"name": "nonlinear BMC prepares rule proofs for subsequent answers and certificates without a global proof option", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_requested_proof_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/api/api_fixedpoint_expression_answer_test.go"], "tests": ["TestBMCRequestedNonlinearProofWithoutGlobalTracing", "TestSMT2BMCNonlinearCertificateWithoutProofOption", "TestAPIFixedpointNonlinearBMCAnswersWithoutProofOption"]}, {"name": "BMC query preprocessing applies default transformations and optional slicing without Spacer unfold/coalesce stages", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go"], "tests": ["TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates"]}, {"name": "nonlinear query/binding construction and quantified-tail execution preserve allocation-frontier ownership", "status": "ported", "go_targets": ["pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_quantified_test.go", "pkg/muz/bmc/nonlinear_query_failure_test.go"], "tests": ["TestBMCNonlinearCompilationExecutesQuantifiedPredicateTail", "TestBMCNonlinearQueryAndAppliedVariablesAllocationFrontiers"]}, {"name": "linear and nonlinear search check cancellation before level compilation and preserve formula/query/guard and nested construction owners across refused cleanup", "status": "ported", "go_targets": ["pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/linear_cleanup_pending_test.go", "pkg/muz/bmc/linear_search_cancel_test.go"], "tests": ["TestBMCLinearSearchCancellationPrecedesLevelCompilation", "TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes"]}, {"name": "quantified linear search restores solver scopes and construction owners at every allocation boundary and checkpoints cancellation after per-width compilation before query publication", "status": "ported", "go_targets": ["pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_search_failure_test.go", "pkg/muz/bmc/quantified_linear_compile_test.go"], "tests": ["TestBMCQuantifiedLinearSearchAllocationScopeCleanup", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers"]}, {"name": "quantified-linear indexed-symbol and output cleanup preserves every result across refused native release", "status": "ported", "go_targets": ["pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_cleanup_pending_test.go"], "tests": ["TestQuantifiedLinearCleanupPreservesRefsWhileManagerExecutes"]}, {"name": "BMC and QBMC query checkpoint cancellation after transformed query installation and before an empty rule group returns false", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_empty_cancellation_test.go"], "tests": ["TestBMCEmptyQueryChecksCancellationBeforeFalseResult"], "reason": "Predicate and expression entry points publish neither a result nor query owners on cancellation, then recover on retry and replace the prior query clone on repetition."}, {"name": "bmc::query nonlinear dispatch emits the source inefficiency warning after proof-preparation retry (dl_bmc_engine.cpp:1499-1502)", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_query_verbose.go", "pkg/muz/fp/bmc_query_verbose_test.go"], "tests": ["TestNonlinearBMCWarningMatchesSourceDispatch", "TestLinearBMCDoesNotEmitNonlinearWarning", "TestNonlinearBMCWarningRefusalDoesNotChangeResult"], "reason": "The zero-verbosity threshold warns only for nonlinear dispatch after proof preparation; diagnostic write refusal does not alter the solver result."}],
       "ownership": ["Quantified-linear compilation owns indexed-symbol and output references through a retryable cleanup owner; refused native release preserves the concrete owner and every successfully published result until cleanup completes. Quantified-linear proof-step publication adopts newly constructed rule/proof outputs behind the same cleanup frontier when retirement of the old step refuses; selector and evaluated-index roots use the same retryable disposal path. Linear proof-step construction in pkg/muz/bmc/linear_proof_cleanup.go groups the selected rule, substitution, child proofs and unpublished result into one retryable owner and publishes only after cleanup succeeds; TestLinearProofStepCleanupPreservesAllOwnersAcrossNativeRefusal covers the live refusal path. Linear binding construction in pkg/muz/bmc/linear_bind_cleanup.go transactionally owns symbolic inputs and model-derived outputs across native refusal; TestLinearBindingCleanupPreservesInputsAndOutputsAcrossNativeRefusal covers exact retry and publication."],
-      "deviations": ["Nonlinear and quantified compilation, search, model-selected traces and hyper-resolution proofs are integrated. Nonlinear query, trace and proof assembly transfer nested rule, query, premise and result owners into dependency-ordered retryable cleanup frontiers before native release; TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes exercises the shared refusal path. Quantified-linear proof publication stages new rule/proof outputs behind retirement of the previous step; TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses covers refused retirement, and selector roots share the retryable disposal path. Solver profiles set compact=true for all three engines; only quantified-linear enables MBQI. Source dispatch never constructs nonlinear_dt. General proof conversion for all transformations, trace/verbosity parity and remaining linear-helper cleanup paths remain pending. Quantified bindings use the selected derivation level and raw traces bind head variables from model-evaluated arguments."]
+      "deviations": ["Nonlinear and quantified compilation, search, model-selected traces and hyper-resolution proofs are integrated. Nonlinear query, trace and proof assembly transfer nested rule, query, premise and result owners into dependency-ordered retryable cleanup frontiers before native release; TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes exercises the shared refusal path. Quantified-linear proof publication stages new rule/proof outputs behind retirement of the previous step; TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses covers refused retirement, and selector roots share the retryable disposal path. Solver profiles set compact=true for all three engines; only quantified-linear enables MBQI. Source dispatch never constructs nonlinear_dt. General proof conversion for all transformations, remaining level/model/TRACE diagnostic parity and linear-helper cleanup paths remain pending. Quantified bindings use the selected derivation level and raw traces bind head variables from model-evaluated arguments."]
     },
     {
       "path": "src/muz/bmc/dl_bmc_engine.h",
@@ -87141,6 +87192,8 @@
         "pkg/muz/clp/rules.go",
         "pkg/muz/clp/search.go",
         "pkg/muz/clp/search_rule.go",
+        "pkg/muz/clp/search_scope.go",
+        "pkg/muz/clp/search_scope_pending_test.go",
         "pkg/muz/clp/verbose.go"
       ],
       "tests": [],
@@ -87169,6 +87222,8 @@
         "pkg/muz/clp/rules.go",
         "pkg/muz/clp/search.go",
         "pkg/muz/clp/search_rule.go",
+        "pkg/muz/clp/search_scope.go",
+        "pkg/muz/clp/search_scope_pending_test.go",
         "pkg/muz/clp/verbose.go",
         "pkg/muz/clp/query.go",
         "pkg/muz/clp/lifecycle.go",
@@ -87188,6 +87243,7 @@
         "pkg/muz/fp/clp_engine.go",
         "pkg/muz/fp/clp_cleanup.go",
         "pkg/muz/fp/clp_cleanup_pending_test.go",
+        "pkg/muz/fp/clp_nested_cleanup_test.go",
         "pkg/muz/fp/bmc_engine.go",
         "pkg/muz/fp/spacer_engine.go",
         "pkg/muz/fp/propositional_engine.go",
@@ -87214,18 +87270,24 @@
         "TestCLPVerboseRuleUsesPrettyPrinterParameters",
         "TestCLPSortsFactsBeforeRecursiveRules",
         "TestCLPStableRuleOrderAndBacktracking",
-        "TestSMT2CLPBacktracksAcrossConstrainedSiblingGoals"
+        "TestSMT2CLPBacktracksAcrossConstrainedSiblingGoals",
+        "TestCLPRuleScopeReconcilesPartialPush",
+        "TestCLPRuleScopePopRefusalIsRetryableAndSuppressesResult",
+        "TestCLPRuleScopeRecognizesPopConsumedBeforeFailure",
+        "TestCLPNestedRuleScopeCleanupPrecedesParentAndPreservesCallerDepth",
+        "TestCLPBackendAttemptDrainsSearchReceiptBeforeBackend"
       ],
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {"name": "search per-rule and recursive solver scopes reconcile exact saved depth before releasing grounded assertion owners (clp_context.cpp:131-195)", "status": "ported", "go_targets": ["pkg/muz/clp/search.go", "pkg/muz/clp/search_rule.go", "pkg/muz/clp/search_scope.go", "pkg/muz/clp/search_scope_pending_test.go"], "tests": ["TestCLPRuleScopeReconcilesPartialPush", "TestCLPRuleScopePopRefusalIsRetryableAndSuppressesResult", "TestCLPRuleScopeRecognizesPopConsumedBeforeFailure", "TestCLPNestedRuleScopeCleanupPrecedesParentAndPreservesCallerDepth"], "reason": "Failures before or after Push/Pop publication resume inner-before-parent at the exact nonzero caller depth; successful results stay suppressed until cleanup finishes and the solver remains reusable."},
         {"name": "constructor and query lifecycle configure mbqi false and a 1000 ms timeout, create the synthetic query rule, apply default transformations, select the transformed output head, and use a fresh solver for each query", "status": "ported", "go_targets": ["pkg/muz/fp/clp_engine.go", "pkg/muz/fp/clp_cleanup.go", "pkg/muz/fp/clp_engine_test.go", "pkg/muz/fp/clp_cleanup_pending_test.go", "pkg/muz/clp/engine_types.go", "pkg/muz/clp/query.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPQueryWrapperDoesNotMutateProgram", "TestSMT2CLPQueryDepthIncludesSyntheticRule", "TestSMT2CLPEngineConstrainedRules", "TestCLPBackendAttemptPreservesRefusedCleanup"]},
         {"name": "stable ordering of rules by positive-tail size and backtracking across sibling goals", "status": "ported", "go_targets": ["pkg/muz/clp/rules.go", "pkg/muz/clp/search.go", "pkg/muz/clp/engine_order_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPSortsFactsBeforeRecursiveRules", "TestCLPStableRuleOrderAndBacktracking", "TestSMT2CLPBacktracksAcrossConstrainedSiblingGoals"]},
         {"name": "search verbosity levels and rule-head diagnostics", "status": "ported", "go_targets": ["pkg/muz/clp/verbose.go", "pkg/muz/clp/engine_verbose_test.go"], "tests": ["TestCLPSearchVerboseLevels", "TestCLPVerboseRuleUsesPrettyPrinterParameters"]},
         {"name": "CLP search leaves its statistics counters unchanged and reset clears them", "status": "ported", "go_targets": ["pkg/muz/clp/search.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_query_test.go", "pkg/muz/clp/engine_depth_test.go"], "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPDepthFrontierUnknown", "TestCLPStatisticsRemainZeroAfterRejectedRule"]},
         {"name": "grounding and rule attempts close partial substitutions, grounded head/tail roots and fresh constants as one retryable construction-failure owner, and balance query allocations", "status": "ported", "go_targets": ["pkg/muz/clp/ground.go", "pkg/muz/clp/search_owner.go", "pkg/muz/clp/search_rule.go", "pkg/muz/clp/engine_failure_test.go", "pkg/muz/clp/ground_cleanup_pending_test.go"], "tests": ["TestCLPGroundingClosesPartialSubstitutionOnAllocationFailure", "TestCLPGroundCleanupPreservesFreshConstantsOnNativeRefusal", "TestCLPQueryAllocationFrontiers"]},
         {"name": "query, verbose-printing and grounding locals preserve substitution, output and fresh-constant references as retryable owners across native cleanup refusal", "status": "ported", "go_targets": ["pkg/muz/clp/reference_owner.go", "pkg/muz/clp/query.go", "pkg/muz/clp/verbose.go", "pkg/muz/clp/ground.go", "pkg/muz/clp/local_cleanup_pending_test.go"], "tests": ["TestCLPLocalCleanupOwnersSurviveNativeRefusal", "TestCLPGroundCleanupPreservesFreshConstantsOnNativeRefusal"]},
-        {"name": "fixedpoint CLP backend attempt preserves preprocessing, parameter, solver and engine owners when cleanup refuses and resumes without double release", "status": "ported", "go_targets": ["pkg/muz/fp/clp_cleanup.go", "pkg/muz/fp/clp_engine.go", "pkg/muz/fp/clp_cleanup_pending_test.go"], "tests": ["TestCLPBackendAttemptPreservesRefusedCleanup"]},
+        {"name": "fixedpoint CLP backend attempt preserves preprocessing, parameter, solver and engine owners when cleanup refuses and resumes without double release", "status": "ported", "go_targets": ["pkg/muz/fp/clp_cleanup.go", "pkg/muz/fp/clp_engine.go", "pkg/muz/fp/clp_cleanup_pending_test.go", "pkg/muz/fp/clp_nested_cleanup_test.go"], "tests": ["TestCLPBackendAttemptPreservesRefusedCleanup", "TestCLPBackendAttemptDrainsSearchReceiptBeforeBackend"], "reason": "A nested search receipt drains before engine, solver, parameter and preprocessing teardown, preserving exact ownership across retry."},
         {"name": "query constructs a synthetic rule, runs default transformations, and starts bounded search from the transformed output rule head", "status": "ported", "go_targets": ["pkg/muz/fp/clp_engine.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPQueryWrapperDoesNotMutateProgram", "TestSMT2CLPQueryDepthIncludesSyntheticRule", "TestSMT2CLPEngineConstrainedRules"]},
         {"name": "display_certificate prints the true answer for both reachable and unreachable queries", "status": "ported", "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPEngineResultSnapshotAndAnswer", "TestSMT2CLPCertificateForReachableAndUnreachable"]},
         {"name": "get_answer constructs source true on demand without persistent engine ownership", "status": "ported", "go_targets": ["pkg/muz/clp/lifecycle.go", "pkg/muz/clp/answer_source_test.go"], "tests": ["TestCLPAnswerIsStatelessSourceTruth"]},
@@ -87240,9 +87302,9 @@
         },
         {"name": "public engine wrappers close the live engine, reset and report the source's zero statistics, construct true answers, and display true certificates", "status": "ported", "go_targets": ["pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_lifecycle_test.go", "pkg/muz/clp/engine_query_test.go", "pkg/muz/clp/answer_source_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/clp_cleanup.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPLifecycleAndStatistics", "TestCLPStatisticsRemainZeroAfterRejectedRule", "TestCLPAnswerIsStatelessSourceTruth", "TestCLPEngineResultSnapshotAndAnswer", "TestSMT2CLPCertificateForReachableAndUnreachable"]}
       ],
-      "ownership": ["Rule-local grounding owns fresh constants, substitutions, grounded head and tail roots, and unpublished results until cleanup succeeds; query, rule-attempt, candidate-rule, and verbose-format owners preserve every exact remaining reference across native cleanup refusal. Each fixedpoint query owns a fresh solver, parameter value, transformed rule set, and CLP engine through one retryable backend-attempt owner. CLP answers are stateless source true handles and add no engine-owned AST reference."],
+      "ownership": ["Rule-local grounding owns fresh constants, substitutions, grounded head and tail roots, and unpublished results until cleanup succeeds; query, rule-attempt, candidate-rule, and verbose-format owners preserve every exact remaining reference across native cleanup refusal. Each fixedpoint query owns a fresh solver, parameter value, transformed rule set, and CLP engine through one retryable backend-attempt owner. CLP answers are stateless source true handles and add no engine-owned AST reference.", "Per-rule scope owners drain recursive child receipts before restoring their exact saved solver depth and only then release grounded assertion owners; fixedpoint cleanup drains that receipt before backend teardown."],
       "deviations": [
-        "The source solver reset is implemented by constructing a fresh solver backend for every live fixedpoint query. Go restores solver scopes on errors and successful branches, while the source can exit through an exception or successful branch without a local pop. The private get_proof method has no source caller and is intentionally not ported. Generic fixedpoint expression-wrapper audits belong to their separate source units and are not claimed here."
+        "The source solver reset is implemented by constructing a fresh solver backend for every live fixedpoint query. Go restores partial and refused solver scopes retryably on errors and successful branches, while the source can exit through an exception or successful branch without a local pop. The private get_proof method has no source caller and is intentionally not ported. Generic fixedpoint expression-wrapper audits belong to their separate source units and are not claimed here."
       ]
     },
     {
@@ -88231,6 +88293,7 @@
         "TestSMT2FixedpointPDRStatistics",
         "TestSMT2FixedpointPDRPrintCertificate",
         "TestSMT2FixedpointSpacerPrintsBoundedStatus",
+        "TestSMT2FixedpointUnknownReasonUsesSourceStatusLines",
         "TestSMT2CLPOrdinaryUnknownSkipsCertificate",
         "TestSMT2CLPCertificateForReachableAndUnreachable",
         "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP",
@@ -88268,11 +88331,18 @@
       "ownership_audited": false,
       "methods": [
         {
+          "name": "undefined fixedpoint query output prints bounded or unknown and emits a source status line only for printable non-OK classifications (dl_cmds.cpp:278-315)",
+          "status": "ported",
+          "go_targets": ["pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
+          "tests": ["TestSMT2FixedpointUnknownReasonUsesSourceStatusLines", "TestSMT2CLPOrdinaryUnknownSkipsCertificate"],
+          "reason": "Exact input-error, memory, timeout, approximation and canceled spellings receive a following status line; ordinary OK-status Undef prints bare unknown. Decided and bounded output remains unchanged, while canceled profile output stays outside this narrow claim."
+        },
+        {
           "name": "query certificate output is gated by fixedpoint status (dl_cmds.cpp:265-319,364-369)",
           "status": "ported",
           "go_targets": ["pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/clp_engine_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
           "tests": ["TestSMT2FixedpointPDRPrintCertificate", "TestSMT2FixedpointSpacerPrintsBoundedStatus", "TestSMT2CLPOrdinaryUnknownSkipsCertificate", "TestSMT2CLPCertificateForReachableAndUnreachable"],
-          "reason": "A requested certificate is printed for sat, unsat and bounded unknown, but ordinary unknown emits only its status."
+          "reason": "A requested certificate is printed for sat, unsat and bounded unknown, but ordinary unknown skips certificate emission and may print its source reason line."
         },
         {
           "name": "declare-rel, declare-var, named/bounded rule, command-assertion background handoff and declaration-query execution for retained Horn programs, including typed query-local fixedpoint parameters, timeout, answer, PDR certificate and statistics output plus finite tuple-answer formulas (dl_cmds.cpp:64-370)",
@@ -88347,6 +88417,7 @@
       "go_targets": [
         "pkg/cmd_context/fixedpoint.go",
         "pkg/parsers/smt2/commands.go",
+        "pkg/parsers/smt2/fixedpoint_commands_test.go",
         "pkg/cmd/g3/main_test.go",
         "pkg/cmd/g3/test_vectors/fixedpoint_propositional.smt2",
         "pkg/cmd/g3/test_vectors/fixedpoint_finite_relations.smt2"
@@ -88359,6 +88430,8 @@
         "TestSMT2FixedpointTupleAnswerMatchesCPP",
         "TestSMT2FixedpointRuleScopesMatchCPP",
         "TestSMT2FixedpointQueryRefusesUnknownOutputParameters",
+        "TestSMT2FixedpointUnknownReasonUsesSourceStatusLines",
+        "TestSMT2CLPOrdinaryUnknownSkipsCertificate",
         "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2",
         "TestSMTLibRunnerScripts/fixedpoint_finite_relations.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2",
@@ -88384,11 +88457,14 @@
           "tests": [
             "TestSMT2FixedpointEmptyProgramQueryMatchesCPP",
             "TestSMT2FixedpointPropositionalQueriesMatchCPP",
+            "TestSMT2FixedpointUnknownReasonUsesSourceStatusLines",
+            "TestSMT2CLPOrdinaryUnknownSkipsCertificate",
             "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2",
             "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2"
           ],
           "go_targets": [
-            "pkg/cmd/g3/main_test.go"
+            "pkg/cmd/g3/main_test.go",
+            "pkg/parsers/smt2/fixedpoint_commands_test.go"
           ]
         },
         {
@@ -93012,6 +93088,19 @@
         "pkg/muz/rel/compiler_explanation_rule.go",
         "pkg/muz/rel/compiler_explanation_rule_test.go",
         "pkg/muz/fp/propositional_engine.go",
+        "pkg/muz/fp/datalog_interval_positive.go",
+        "pkg/muz/fp/datalog_interval_head_assembly_test.go",
+        "pkg/muz/rel/interval_relation_columns.go",
+        "pkg/muz/rel/interval_relation_columns_test.go",
+        "pkg/muz/fp/datalog_bound_interval_positive.go",
+        "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go",
+        "pkg/muz/fp/datalog_external_interval_ground.go",
+        "pkg/muz/fp/datalog_external_interval_ground_test.go",
+        "pkg/muz/fp/datalog_external_interval_ground_close_test.go",
+        "pkg/muz/fp/datalog_external_interval_identity.go",
+        "pkg/muz/fp/datalog_external_interval_identity_test.go",
+        "pkg/muz/rel/external_interval_product_union.go",
+        "pkg/muz/rel/external_interval_product_union_test.go",
         "pkg/parsers/smt2/fixedpoint_commands_test.go",
         "pkg/cmd/g3/main_test.go"
       ],
@@ -93022,6 +93111,16 @@
         "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution",
         "TestFiniteCompilerSaturatesRecursiveRules",
         "TestFiniteCompilerStratumTrace",
+        "TestDatalogConfiguredIntervalHeadAssemblyAndUpdates",
+        "TestIntervalRelationHeadAssemblyColumns",
+        "TestBoundIntervalDatalogHeadAssemblyAndUpdates",
+        "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat",
+        "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack",
+        "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing",
+        "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay",
+        "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks",
+        "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry",
+        "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack",
         "TestCompileTransformedExplanationRuleBuildsHeadAndOutputBridge",
         "TestCompileExplanationRuleRejectsUnsupportedShapesBeforePublication",
         "TestPropositionalEngineExecutesStratifiedNegation",
@@ -93352,11 +93451,25 @@
           "reason": "Live mixed lazy-sparse/hash/nullary and recursive lazy-sparse programs use compiled bytecode, including deferred interpreted-filter/project fusion. FiniteCheckedPair has typed constructors and mixed-operation lifting; concrete checked-table query scopes now exchange manager owners and execute compiled bytecode, while formula-checked relation scopes deliberately remain interpreted."
         },
         {
+          "name": "make_add_constant_column/make_add_unbound_column plus make_assembling_code head classification for concrete interval and bound-plus-interval runtimes (dl_compiler.cpp:169-217,327-400,813-861)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go", "pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_head_assembly_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go"],
+          "tests": ["TestIntervalRelationHeadAssemblyColumns", "TestDatalogConfiguredIntervalHeadAssemblyAndUpdates", "TestBoundIntervalDatalogHeadAssemblyAndUpdates"],
+          "reason": "These exact typed runtimes materialize numeral constants, repeated columns and unbound head variables as full columns. Generic relation-manager instruction dispatch and other product combinations remain open."
+        },
+        {
+          "name": "zero-tail compilation and constant head assembly for one unary Int/Real arithmetic-numeral external-plus-interval rule (dl_compiler.cpp:169-187,542-548,813-861)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go"],
+          "tests": ["TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry"],
+          "reason": "The exact specialized slice lowers one zero-tail unary arithmetic numeral through singleton, union and store instructions. Additional ground rules, other sorts/arities and generic abstract relation dispatch remain open."
+        },
+        {
           "name": "source-live generic relation-manager compilation for interval, bound and product relations, including recursive SCC widening selected by datalog.compile_with_widening (dl_compiler.cpp:104-114,1022-1185; rel_context.cpp:102-116,170,486-512)",
           "status": "partial",
-          "go_targets": ["pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_store.go", "pkg/muz/fp/datalog_interval_query.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_positive_test.go", "pkg/muz/fp/datalog_external_interval_registers.go", "pkg/muz/fp/datalog_external_interval_registers_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/rel/interval_bound_product.go", "pkg/muz/rel/bound_relation_union.go"],
-          "tests": ["TestIntervalDatalogPositiveUnaryRepeatedBoundsAndFixpoint", "TestIntervalDatalogPositiveUnaryConstantAndHeadPermutation", "TestIntervalDatalogPositiveSharedTailJoin", "TestIntervalDatalogWideningOnlyAppliesToRecursivePredicates", "TestIntervalDatalogStoreSnapshotsQueriesAndOwnership", "TestBoundIntervalDatalogTwoPositiveJoinFilterProjectAndRepeat", "TestBoundIntervalDatalogTwoPositiveDisjointAndThreeTailBoundary", "TestExternalIntervalDatalogRegistersLoadStoreAndRepeat", "TestExternalIntervalDatalogRegisterCloneRefusalPublishesNothing", "TestExternalIntervalDatalogRegisterStorePublishesBeforeRetirementRetry", "TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat", "TestExternalIntervalDatalogAlignedIdentityEmptySource", "TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly", "TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan", "TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks"],
-          "reason": "Specialized live slices now lower one or two unique-variable bound/interval tails and one aligned acyclic external/interval identity edge, including typed register LOAD/STORE and transactional UNION publication. The explicit interval runtime also covers fact and positive-rule SCC propagation, ordinary initialization and recursive widening. Generic abstract relation/product bytecode dispatch for registered plugins remains unresolved."
+          "go_targets": ["pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_head_assembly_test.go", "pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go", "pkg/muz/fp/datalog_interval_store.go", "pkg/muz/fp/datalog_interval_query.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_positive_test.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/fp/datalog_external_interval_registers.go", "pkg/muz/fp/datalog_external_interval_registers_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go", "pkg/muz/rel/interval_bound_product.go", "pkg/muz/rel/bound_relation_union.go"],
+          "tests": ["TestIntervalDatalogPositiveUnaryRepeatedBoundsAndFixpoint", "TestIntervalDatalogPositiveUnaryConstantAndHeadPermutation", "TestIntervalDatalogPositiveSharedTailJoin", "TestIntervalDatalogWideningOnlyAppliesToRecursivePredicates", "TestIntervalDatalogStoreSnapshotsQueriesAndOwnership", "TestDatalogConfiguredIntervalHeadAssemblyAndUpdates", "TestIntervalRelationHeadAssemblyColumns", "TestBoundIntervalDatalogTwoPositiveJoinFilterProjectAndRepeat", "TestBoundIntervalDatalogTwoPositiveDisjointAndThreeTailBoundary", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestExternalIntervalDatalogRegistersLoadStoreAndRepeat", "TestExternalIntervalDatalogRegisterCloneRefusalPublishesNothing", "TestExternalIntervalDatalogRegisterStorePublishesBeforeRetirementRetry", "TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat", "TestExternalIntervalDatalogAlignedIdentityEmptySource", "TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly", "TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan", "TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry"],
+          "reason": "Specialized live slices lower interval and bound/interval heads with constants, repeated columns and head-only full-column materialization, plus one zero-tail unary Int/Real arithmetic-numeral external/interval rule and aligned or opposite-order acyclic identity edges. Typed LOAD, MK_UNARY_SINGLETON, UNION and STORE publication remains transactional across callback and cleanup refusal. Additional ground rules, other ground sorts/arities, multi-tail or cyclic identities and generic abstract relation/product bytecode dispatch remain unresolved; fact and positive-rule SCC propagation preserves ordinary initialization and recursive widening."
         },
         {
           "name": "Recursive finite least-fixpoint bytecode using per-predicate current/next control deltas, semi-naive one-tail-at-a-time delta substitution, loop termination on empty deltas, and temporary ownership transfer (dl_compiler.cpp:902-1188)",
@@ -93429,8 +93542,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/compiler.go"],
-      "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace"],
+      "go_targets": ["pkg/muz/rel/compiler.go", "pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go", "pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_head_assembly_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go"],
+      "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace", "TestIntervalRelationHeadAssemblyColumns", "TestDatalogConfiguredIntervalHeadAssemblyAndUpdates", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack"],
       "conditionals": [
         {
           "line": 19,
@@ -93457,11 +93570,11 @@
           "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace"]
         },
         {
-          "name": "compiler context surface exposing source-live all_or_nothing_deltas, compile_with_widening, abstract relation signatures and instruction-observer dispatch (dl_compiler.h:37-65,122-165)",
+          "name": "compiler context surface exposing source-live all_or_nothing_deltas, compile_with_widening, abstract relation signatures, instruction-observer dispatch and head-column helper declarations (dl_compiler.h:37-65,122-165,180-191)",
           "status": "partial",
-          "go_targets": ["pkg/muz/rel/compiler.go", "pkg/muz/fp/datalog_interval_positive.go"],
-          "tests": ["TestIntervalDatalogWideningOnlyAppliesToRecursivePredicates"],
-          "reason": "Finite typed compiler state is implemented, and the explicitly selected interval runtime models SCC widening. The public Go generic compiler context does not yet carry the source-live abstract relation/plugin and widening selection used by rel_context."
+          "go_targets": ["pkg/muz/rel/compiler.go", "pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go", "pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_head_assembly_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go"],
+          "tests": ["TestIntervalDatalogWideningOnlyAppliesToRecursivePredicates", "TestIntervalRelationHeadAssemblyColumns", "TestDatalogConfiguredIntervalHeadAssemblyAndUpdates", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack"],
+          "reason": "Concrete interval and bound-plus-interval instantiations cover numeral constants, repeated columns, head-only full columns and SCC widening; the exact external-plus-interval slice covers one unary arithmetic numeral rule and opposite-order identity union. The public Go generic compiler context still lacks the source-live abstract relation/plugin and widening selection used by rel_context."
         }
       ],
       "ownership": [
@@ -94629,8 +94742,8 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/rel/instruction.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_interpreted.go", "pkg/muz/rel/instruction_explanation_interpreted.go", "pkg/muz/rel/instruction_explanation_interpreted_test.go", "pkg/muz/rel/instruction_io.go", "pkg/muz/rel/instruction_explanation_io.go", "pkg/muz/rel/instruction_explanation_registers.go", "pkg/muz/rel/instruction_explanation_table.go", "pkg/muz/rel/instruction_explanation_io_test.go", "pkg/muz/rel/instruction_explanation_table_test.go", "pkg/muz/rel/instruction_loop.go", "pkg/muz/rel/instruction_saturation.go", "pkg/muz/rel/instruction_table.go"],
-      "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestExplanationRelationInstructionsLoadCloneStoreAndReset", "TestExplanationProjectionUnionBytecodePublishesTypedAndFiniteOutputs", "TestExplanationProjectionToNullaryOutputBytecode", "TestExplanationAssignmentBytecodeMapsSparseVariablesAndPublishesHead", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRelationBindingChecksProcessWatermark", "TestExecutionContextRejectsZeroTimeout"],
+      "go_targets": ["pkg/muz/rel/instruction.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_interpreted.go", "pkg/muz/rel/instruction_explanation_interpreted.go", "pkg/muz/rel/instruction_explanation_interpreted_test.go", "pkg/muz/rel/instruction_io.go", "pkg/muz/rel/instruction_explanation_io.go", "pkg/muz/rel/instruction_explanation_registers.go", "pkg/muz/rel/instruction_explanation_table.go", "pkg/muz/rel/instruction_explanation_io_test.go", "pkg/muz/rel/instruction_explanation_table_test.go", "pkg/muz/rel/instruction_loop.go", "pkg/muz/rel/instruction_saturation.go", "pkg/muz/rel/instruction_table.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go"],
+      "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestExplanationRelationInstructionsLoadCloneStoreAndReset", "TestExplanationProjectionUnionBytecodePublishesTypedAndFiniteOutputs", "TestExplanationProjectionToNullaryOutputBytecode", "TestExplanationAssignmentBytecodeMapsSparseVariablesAndPublishesHead", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRelationBindingChecksProcessWatermark", "TestExecutionContextRejectsZeroTimeout", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry"],
       "assertions": [
         {
           "name": "Concrete interpreted finite-relation filtering through tuple decoding, de-Bruijn variable binding, and the retained theory rewriter (dl_instruction.cpp:526-635)",
@@ -94661,11 +94774,11 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "typed external/interval execution registers implement LOAD cloning, UNION publication and transactional STORE replacement (dl_instruction.cpp instr_io and union instruction)",
+          "name": "typed external/interval execution registers implement LOAD cloning, MK_UNARY_SINGLETON construction, UNION publication and transactional STORE replacement (dl_instruction.cpp:188-241,639-748,1003-1037)",
           "status": "ported",
-          "go_targets": ["pkg/muz/fp/datalog_external_interval_registers.go", "pkg/muz/fp/datalog_external_interval_registers_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go"],
-          "tests": ["TestExternalIntervalDatalogRegistersLoadStoreAndRepeat", "TestExternalIntervalDatalogRegisterCloneRefusalPublishesNothing", "TestExternalIntervalDatalogRegisterStorePublishesBeforeRetirementRetry", "TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat", "TestExternalIntervalDatalogAlignedIdentityEmptySource", "TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly", "TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan"],
-          "reason": "LOAD maps empty products to nil, clones nonempty products in first-encounter order and reuses duplicate declarations. STORE publishes all replacements before retryable retirement; committed external callbacks resume without replay."
+          "go_targets": ["pkg/muz/fp/datalog_external_interval_registers.go", "pkg/muz/fp/datalog_external_interval_registers_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go"],
+          "tests": ["TestExternalIntervalDatalogRegistersLoadStoreAndRepeat", "TestExternalIntervalDatalogRegisterCloneRefusalPublishesNothing", "TestExternalIntervalDatalogRegisterStorePublishesBeforeRetirementRetry", "TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat", "TestExternalIntervalDatalogAlignedIdentityEmptySource", "TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly", "TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry"],
+          "reason": "LOAD maps empty products to nil, clones nonempty products in first-encounter order and reuses duplicate declarations. MK_UNARY_SINGLETON constructs one zero-tail unary Int/Real arithmetic-numeral head before UNION and STORE; publication is transactional, retirement is retryable, and committed external callbacks resume without replay."
         },
         {
           "name": "execution_context register ownership, annotations, reset/close, time limits, big-relation reporting, runtime/process watermark termination for relation-backed contexts, and statistics collection (dl_instruction.cpp:41-141)",
@@ -94746,8 +94859,8 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/rel/instruction.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_io.go", "pkg/muz/rel/instruction_explanation_io.go", "pkg/muz/rel/instruction_explanation_registers.go", "pkg/muz/rel/instruction_explanation_table.go", "pkg/muz/rel/instruction_explanation_table_test.go", "pkg/muz/rel/instruction_loop.go", "pkg/muz/rel/instruction_table.go"],
-      "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestExplanationRelationInstructionsLoadCloneStoreAndReset", "TestExplanationProjectionUnionBytecodePublishesTypedAndFiniteOutputs", "TestExplanationProjectionToNullaryOutputBytecode", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRelationBindingChecksProcessWatermark", "TestExecutionContextRejectsZeroTimeout"],
+      "go_targets": ["pkg/muz/rel/instruction.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_io.go", "pkg/muz/rel/instruction_explanation_io.go", "pkg/muz/rel/instruction_explanation_registers.go", "pkg/muz/rel/instruction_explanation_table.go", "pkg/muz/rel/instruction_explanation_table_test.go", "pkg/muz/rel/instruction_loop.go", "pkg/muz/rel/instruction_table.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go"],
+      "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestExplanationRelationInstructionsLoadCloneStoreAndReset", "TestExplanationProjectionUnionBytecodePublishesTypedAndFiniteOutputs", "TestExplanationProjectionToNullaryOutputBytecode", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRelationBindingChecksProcessWatermark", "TestExecutionContextRejectsZeroTimeout", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry"],
       "conditionals": [
         {
           "line": 19,
@@ -94812,10 +94925,12 @@
           "tests": ["TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody"]
         },
         {
-          "name": "Concrete finite unary-singleton, total, and signature-assertion constructors (dl_instruction.h:312-325)",
+          "name": "Concrete finite unary-singleton, total, and signature-assertion constructors plus the exact external/interval unary-singleton instantiation (dl_instruction.h:296-305)",
           "status": "ported",
           "go_target": "pkg/muz/rel/instruction_construct.go",
-          "tests": ["TestFiniteRelationConstructionInstructions", "TestUnarySingletonInstructionRejectsOutOfDomainValue"]
+          "go_targets": ["pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go"],
+          "tests": ["TestFiniteRelationConstructionInstructions", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry"],
+          "reason": "The live external/interval instantiation is limited to one zero-tail unary Int/Real arithmetic numeral head; broader abstract relation constructors remain separately scoped."
         }
       ],
       "ownership": [
@@ -94834,6 +94949,8 @@
         "pkg/muz/rel/interval_relation_capability.go",
         "pkg/muz/rel/interval_relation_capability_test.go",
         "pkg/muz/rel/interval_relation_formula_failure_test.go",
+        "pkg/muz/rel/interval_relation_columns.go",
+        "pkg/muz/rel/interval_relation_columns_test.go",
         "pkg/muz/rel/interval_recognizer.go",
         "pkg/muz/rel/interval_recognizer_test.go",
         "pkg/smtcore/old_interval_relation.go",
@@ -94856,6 +94973,7 @@
         "TestIntervalVectorUnionAndWiden",
         "TestIntervalRelationFactAndJoin",
         "TestIntervalRelationFull",
+        "TestIntervalRelationHeadAssemblyColumns",
         "TestIntervalRelationRename",
         "TestIntervalRelationUnionDelta",
         "TestIntervalRelationASTEqualFilter",
@@ -94925,11 +95043,14 @@
           "name": "concrete interval relation join/project/union and fact/filter API",
           "status": "ported",
           "go_target": "pkg/muz/rel/interval_relation.go",
+          "go_targets": ["pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go"],
           "tests": [
             "TestIntervalRelationFactAndJoin",
             "TestIntervalRelationUnionDelta",
-            "TestIntervalRelationToFormula"
-          ]
+            "TestIntervalRelationToFormula",
+            "TestIntervalRelationHeadAssemblyColumns"
+          ],
+          "reason": "AppendFullColumn, AppendConstantColumn and DuplicateColumn compose typed arithmetic total, singleton and equality-column relations while preserving the source, nullary identity and empty propagation."
         },
         {
           "name": "interval relation rename and union delta",
@@ -94987,7 +95108,7 @@
         "Interval bounds are copied across the package boundary and carry no arithmetic dependencies."
       ],
       "deviations": [
-        "Pending full vector relation operations, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The concrete interval implementation is not yet installed in a live relation plugin. The source formula builder ignores the empty flag, so empty interval relations export the conjunction identity."
+        "Pending full vector relation operations, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The concrete interval implementation is live through the specialized fixedpoint runtime but is not installed through generic relation-plugin registration. The source formula builder ignores the empty flag, so empty interval relations export the conjunction identity."
       ]
     },
     {
@@ -95004,6 +95125,8 @@
         "pkg/muz/rel/interval_vector_operations.go",
         "pkg/muz/rel/interval_vector_operations_test.go",
         "pkg/muz/rel/interval_relation.go",
+        "pkg/muz/rel/interval_relation_columns.go",
+        "pkg/muz/rel/interval_relation_columns_test.go",
         "pkg/muz/rel/interval_relation_test.go",
         "pkg/muz/rel/interval_relation_formula.go",
         "pkg/muz/rel/interval_relation_formula_test.go",
@@ -95017,6 +95140,7 @@
         "TestIntervalVectorJoinProject",
         "TestIntervalVectorUnionAndWiden",
         "TestIntervalRelationFactAndJoin",
+        "TestIntervalRelationHeadAssemblyColumns",
         "TestIntervalRelationRename",
         "TestIntervalRelationUnionDelta",
         "TestIntervalVectorRenameEquivalences",
@@ -95067,11 +95191,14 @@
           "name": "concrete interval relation join/project/union and fact/filter API",
           "status": "ported",
           "go_target": "pkg/muz/rel/interval_relation.go",
+          "go_targets": ["pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go"],
           "tests": [
             "TestIntervalRelationFactAndJoin",
             "TestIntervalRelationUnionDelta",
-            "TestIntervalRelationToFormula"
-          ]
+            "TestIntervalRelationToFormula",
+            "TestIntervalRelationHeadAssemblyColumns"
+          ],
+          "reason": "Concrete typed head assembly composes full, numeral-singleton and duplicate equality columns without a generic relation adapter."
         },
         {
           "name": "interval relation rename and union delta",
@@ -95103,7 +95230,7 @@
         "Interval bounds are copied across the package boundary and carry no arithmetic dependencies."
       ],
       "deviations": [
-        "Pending full vector relation operations, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The concrete interval implementation is not yet installed in a live relation plugin. Empty interval relations export false, while the source formula builder ignores the empty flag."
+        "Pending full vector relation operations, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The concrete interval implementation is live through the specialized fixedpoint runtime but is not installed through generic relation-plugin registration. Empty interval relations export false, while the source formula builder ignores the empty flag."
       ]
     },
     {
@@ -95959,13 +96086,16 @@
         "pkg/muz/rel/interval_bound_product.go",
         "pkg/muz/rel/interval_bound_product_test.go",
         "pkg/muz/rel/interval_relation.go",
-        "pkg/muz/rel/bound_relation.go"
+        "pkg/muz/rel/bound_relation.go",
+        "pkg/muz/rel/external_interval_product_union.go",
+        "pkg/muz/rel/external_interval_product_union_test.go"
       ],
       "tests": [
         "TestIntervalBoundProductFiltersAndTransforms",
         "TestIntervalBoundProductFactsAndEmpty",
         "TestIntervalBoundProductUnionAndDelta",
-        "TestIntervalBoundProductWiden"
+        "TestIntervalBoundProductWiden",
+        "TestExternalIntervalProductUnalignedUnionCanonicalizesWritableSpecs"
       ],
       "assertions": [
         {
@@ -96147,8 +96277,15 @@
           "name": "concrete external_relation plus interval_relation product selection, facts, empty/precision, formula, cloning and transactional component ownership",
           "status": "partial",
           "go_targets": ["pkg/muz/rel/external_interval_product.go", "pkg/muz/rel/external_interval_product_test.go", "pkg/muz/rel/external_interval_product_transform_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go", "pkg/muz/rel/external_interval_product_join.go", "pkg/muz/rel/external_interval_product_join_test.go", "pkg/muz/rel/external_interval_product_display.go", "pkg/muz/rel/external_interval_product_display_test.go"],
-          "tests": ["TestExternalIntervalProductCallbacksBoundsAndOwnership", "TestExternalIntervalProductSelectionAndConstructionRefusal", "TestExternalIntervalProductTransformsAndFilterAtomicity", "TestExternalIntervalProductUnionWidenDeltaAndRefusal", "TestExternalIntervalProductJoinCallbacksSemanticsAndRollback", "TestExternalIntervalProductDisplaySourceOrderAndFailures"],
-          "reason": "The exact ordered pair preserves requested component order and applies transforms, union, widening and joins transactionally. Join invokes observable external callbacks with source column mappings, combines interval constraints, and rolls back all unpublished component owners on refusal. One aligned identity rule is activated by the fixedpoint slice recorded under rel_context; generic compiler activation remains open."
+          "tests": ["TestExternalIntervalProductCallbacksBoundsAndOwnership", "TestExternalIntervalProductSelectionAndConstructionRefusal", "TestExternalIntervalProductTransformsAndFilterAtomicity", "TestExternalIntervalProductUnionWidenDeltaAndRefusal", "TestExternalIntervalProductUnalignedUnionCanonicalizesWritableSpecs", "TestExternalIntervalProductJoinCallbacksSemanticsAndRollback", "TestExternalIntervalProductDisplaySourceOrderAndFailures"],
+          "reason": "Aligned pairs preserve requested component order; unaligned writable target and delta canonicalize external-first while the source remains unchanged. Transforms, permutation-aware union, widening, delta and joins are transactional; join invokes observable external callbacks with source column mappings and rolls back unpublished owners on refusal. Aligned and opposite-order identity rules are activated by the fixedpoint slice recorded under rel_context; generic compiler activation remains open."
+        },
+        {
+          "name": "product_relation_plugin::get_common_spec plus unaligned_union_fn/mk_union_w_fn for the exact external_relation plus interval_relation pair (dl_product_relation.cpp:129-166,734-800)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go"],
+          "tests": ["TestExternalIntervalProductUnalignedUnionCanonicalizesWritableSpecs"],
+          "reason": "All operands validate before mutation. Only unaligned writable target and delta canonicalize external-first; source and aligned reversed specifications remain unchanged. Union, widening and delta preserve callback-refusal rollback; arbitrary specifications and other component combinations remain open."
         },
         {
           "name": "concrete sparse-table and interval-sieve product selected by the ordered pair, with independent strict finite/arithmetic original snapshots, transparent full missing components, pure/nullary auxiliary construction, formula export, lifecycle and component-directed operations",
@@ -96182,7 +96319,7 @@
         "Concrete products own their component relations and transfer returned formula references to the caller. Sparse/interval clones own independent components; reset and rejected cross-manager clone leave the source valid."
       ],
       "deviations": [
-        "The sparse+interval representation pair is concrete and ownership-tested. General product specifications, other component combinations, cross-component side intersections where both directions are available, unaligned union, generic relation-manager registration and main compiler abstract dispatch remain open."
+        "The sparse+interval representation pair is concrete and ownership-tested. General product specifications, other component combinations, cross-component side intersections where both directions are available, generic relation-manager registration and main compiler abstract dispatch remain open."
       ]
     },
     {
@@ -96194,13 +96331,16 @@
         "pkg/muz/rel/interval_bound_product.go",
         "pkg/muz/rel/interval_bound_product_test.go",
         "pkg/muz/rel/interval_relation.go",
-        "pkg/muz/rel/bound_relation.go"
+        "pkg/muz/rel/bound_relation.go",
+        "pkg/muz/rel/external_interval_product_union.go",
+        "pkg/muz/rel/external_interval_product_union_test.go"
       ],
       "tests": [
         "TestIntervalBoundProductFiltersAndTransforms",
         "TestIntervalBoundProductFactsAndEmpty",
         "TestIntervalBoundProductUnionAndDelta",
-        "TestIntervalBoundProductWiden"
+        "TestIntervalBoundProductWiden",
+        "TestExternalIntervalProductUnalignedUnionCanonicalizesWritableSpecs"
       ],
       "conditionals": [
         {
@@ -96250,15 +96390,22 @@
           "name": "concrete external_relation plus interval_relation product selection, facts, empty/precision, formula, cloning and transactional component ownership",
           "status": "partial",
           "go_targets": ["pkg/muz/rel/external_interval_product.go", "pkg/muz/rel/external_interval_product_test.go", "pkg/muz/rel/external_interval_product_transform_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go", "pkg/muz/rel/external_interval_product_join.go", "pkg/muz/rel/external_interval_product_join_test.go", "pkg/muz/rel/external_interval_product_display.go", "pkg/muz/rel/external_interval_product_display_test.go"],
-          "tests": ["TestExternalIntervalProductCallbacksBoundsAndOwnership", "TestExternalIntervalProductSelectionAndConstructionRefusal", "TestExternalIntervalProductTransformsAndFilterAtomicity", "TestExternalIntervalProductUnionWidenDeltaAndRefusal", "TestExternalIntervalProductJoinCallbacksSemanticsAndRollback", "TestExternalIntervalProductDisplaySourceOrderAndFailures"],
-          "reason": "The exact pair applies transforms, union, widening and join transactionally with exact mappings/deltas and callback-refusal rollback. One aligned identity rule is activated by the fixedpoint slice recorded under rel_context; generic compiler activation remains open."
+          "tests": ["TestExternalIntervalProductCallbacksBoundsAndOwnership", "TestExternalIntervalProductSelectionAndConstructionRefusal", "TestExternalIntervalProductTransformsAndFilterAtomicity", "TestExternalIntervalProductUnionWidenDeltaAndRefusal", "TestExternalIntervalProductUnalignedUnionCanonicalizesWritableSpecs", "TestExternalIntervalProductJoinCallbacksSemanticsAndRollback", "TestExternalIntervalProductDisplaySourceOrderAndFailures"],
+          "reason": "Aligned pairs preserve requested component order; unaligned writable target and delta canonicalize external-first while source remains unchanged. The exact pair applies transforms, permutation-aware union, widening, delta and join transactionally with exact mappings and callback-refusal rollback. Aligned or opposite-order identity rules are activated by the fixedpoint slice recorded under rel_context; generic compiler activation remains open."
+        },
+        {
+          "name": "exact external_relation plus interval_relation unaligned union/widen declaration surface (dl_product_relation.h:40-42,84-87,102-106)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go"],
+          "tests": ["TestExternalIntervalProductUnalignedUnionCanonicalizesWritableSpecs"],
+          "reason": "Writable target and delta canonicalize external-first only when unaligned; source and aligned reversed specifications retain their order, and broader product specifications remain open."
         }
       ],
       "ownership": [
         "The concrete product owns its interval and bound relations and transfers returned formula references to the caller."
       ],
       "deviations": [
-        "Pending general product specifications, other component combinations, cross-component side intersections where both directions are available, unaligned union, relation-manager registration and ownership/failure audit."
+        "Pending general product specifications, other component combinations, cross-component side intersections where both directions are available, relation-manager registration and ownership/failure audit."
       ]
     },
     {
@@ -96268,6 +96415,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/rel/relation_manager.go",
+        "pkg/muz/rel/relation_manager_display_output.go",
+        "pkg/muz/rel/relation_manager_display_output_test.go",
         "pkg/muz/rel/relation_manager_explanation.go",
         "pkg/muz/rel/relation_manager_restrict.go",
         "pkg/muz/rel/relation_manager_restrict_test.go",
@@ -96297,7 +96446,9 @@
         "TestSparseFunctionalProjectWithReduceReportsEveryCollision",
         "TestSparseFunctionalProjectWithReduceRejectsMissingReducer",
         "TestSparseFunctionalProjectWithReducePublishesMergedSuffix",
-        "TestDatalogCheckedFavouriteHonorsBothNullaryCapabilities"
+        "TestDatalogCheckedFavouriteHonorsBothNullaryCapabilities",
+        "TestRelationManagerDisplaysFiniteExplanationAndMissingOutputs",
+        "TestRelationManagerDisplaysSparseAndLazyFiniteOutputs"
       ],
       "assertions": [
         {
@@ -96437,6 +96588,13 @@
       "ownership_audited": true,
       "methods": [
         {
+          "name": "relation_manager::display_output_tables uses try_get_relation and concrete display_tuples for outputs (dl_relation_manager.cpp:517-529)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/rel/relation_manager_display_output.go", "pkg/muz/rel/relation_manager_display_output_test.go"],
+          "tests": ["TestRelationManagerDisplaysFiniteExplanationAndMissingOutputs", "TestRelationManagerDisplaysSparseAndLazyFiniteOutputs"],
+          "reason": "Missing outputs keep their heading; Sparse insertion order and deferred LazySparse forcing display through borrowed owners whose identity and queryability survive, and writer failures propagate."
+        },
+        {
           "name": "favourite checked-table construction honors both component capabilities and falls through to the ordinary favourite when either rejects a signature",
           "status": "ported",
           "go_targets": ["pkg/muz/rel/relation_manager_default_finite.go", "pkg/muz/fp/datalog_check_relation.go", "pkg/muz/fp/datalog_check_relation_compiled.go", "pkg/muz/fp/datalog_checked_capability_test.go"],
@@ -96559,8 +96717,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/relation_manager.go", "pkg/muz/rel/relation_manager_explanation.go", "pkg/muz/rel/instruction_explanation_io_test.go", "pkg/muz/rel/table.go", "pkg/muz/rel/table_join_project.go", "pkg/muz/rel/table_join_project_test.go"],
-      "tests": ["TestRelationManagerFiniteSignatureAndFactRoundTrip", "TestRelationManagerOwnsStoredPredicateRelations", "TestExplanationRelationInstructionsLoadCloneStoreAndReset", "TestRelationManagerRejectsInfiniteAndWrongSortValues", "TestHashTableFiniteFiltersValidateAndMutate", "TestHashTableJoinProjectMatchesSourceCompositionAndZeroSignature", "TestRelationInstructionsLoadCloneAndStoreOwnership"],
+      "go_targets": ["pkg/muz/rel/relation_manager.go", "pkg/muz/rel/relation_manager_display_output.go", "pkg/muz/rel/relation_manager_display_output_test.go", "pkg/muz/rel/relation_manager_explanation.go", "pkg/muz/rel/instruction_explanation_io_test.go", "pkg/muz/rel/table.go", "pkg/muz/rel/table_join_project.go", "pkg/muz/rel/table_join_project_test.go"],
+      "tests": ["TestRelationManagerFiniteSignatureAndFactRoundTrip", "TestRelationManagerOwnsStoredPredicateRelations", "TestRelationManagerDisplaysFiniteExplanationAndMissingOutputs", "TestRelationManagerDisplaysSparseAndLazyFiniteOutputs", "TestExplanationRelationInstructionsLoadCloneStoreAndReset", "TestRelationManagerRejectsInfiniteAndWrongSortValues", "TestHashTableFiniteFiltersValidateAndMutate", "TestHashTableJoinProjectMatchesSourceCompositionAndZeroSignature", "TestRelationInstructionsLoadCloneAndStoreOwnership"],
       "conditionals": [
         {
           "line": 19,
@@ -96616,6 +96774,12 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "relation_manager::display_output_tables declaration and output-display surface (dl_relation_manager.h:621)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/rel/relation_manager_display_output.go", "pkg/muz/rel/relation_manager_display_output_test.go"],
+          "tests": ["TestRelationManagerDisplaysFiniteExplanationAndMissingOutputs", "TestRelationManagerDisplaysSparseAndLazyFiniteOutputs"]
+        },
         {
           "name": "Concrete finite predicate relation get/try-get/store and reset ownership surface (dl_relation_manager.h:112-149)",
           "status": "ported",
@@ -97190,7 +97354,9 @@
         "pkg/muz/rel/table_intersection_test.go",
         "pkg/muz/rel/table_relation_intersection_test.go",
         "pkg/muz/rel/table_relation_capability_test.go",
-        "pkg/muz/rel/table_relation_display_tuples.go"
+        "pkg/muz/rel/table_relation_display_tuples.go",
+        "pkg/muz/rel/relation_manager_display_output.go",
+        "pkg/muz/rel/relation_manager_display_output_test.go"
       ],
       "tests": [
         "TestTableRelationSourceFactConversionCloneAndOwnership",
@@ -97206,7 +97372,8 @@
         "TestTableRelationInterpretedMultipleConditions",
         "TestTableRelationInterpretedFailureIsAtomic",
         "TestTableRelationFiniteSignatureCapability",
-        "TestTableRelationDisplayTuplesUsesDatalogNamesAndConstants"
+        "TestTableRelationDisplayTuplesUsesDatalogNamesAndConstants",
+        "TestRelationManagerDisplaysSparseAndLazyFiniteOutputs"
       ],
       "assertions": [
         {
@@ -97336,8 +97503,10 @@
           "name": "TableRelation display_tuples argument labels, constant names, ordered rows and numeric suffix (dl_table_relation.cpp:459-490)",
           "status": "ported",
           "go_target": "pkg/muz/rel/table_relation_display_tuples.go",
+          "go_targets": ["pkg/muz/rel/relation_manager_display_output.go", "pkg/muz/rel/relation_manager_display_output_test.go"],
           "tests": [
-            "TestTableRelationDisplayTuplesUsesDatalogNamesAndConstants"
+            "TestTableRelationDisplayTuplesUsesDatalogNamesAndConstants",
+            "TestRelationManagerDisplaysSparseAndLazyFiniteOutputs"
           ]
         }
       ],
@@ -97831,6 +98000,8 @@
         "pkg/muz/fp/expression_model_test.go",
         "pkg/muz/fp/query_clone.go",
         "pkg/muz/fp/propositional_engine.go",
+        "pkg/muz/fp/engine_result_state.go",
+        "pkg/muz/fp/engine_result_status_source_test.go",
         "pkg/muz/fp/query_magic_sets_test.go",
         "pkg/muz/fp/propositional_engine_test.go",
         "pkg/muz/fp/datalog_profile_test.go",
@@ -97855,6 +98026,8 @@
       "tests": [
         "TestQueryMagicSetsRunsForSyntheticQueryPredicate",
         "TestPropositionalEngineExecutesStratifiedNegation",
+        "TestFixedpointUndefinedStatusMatchesSourceBackend",
+        "TestFixedpointExplicitApproximationDoesNotInheritSpacerBound",
         "TestDatalogProfileCountsRulesRelationsTuplesAndCompiler",
         "TestDatalogDefaultFiniteTableSelectionAndLifetime",
         "TestRelationManagerDefaultFiniteSelectionAndExplicitPrecedence",
@@ -97921,6 +98094,13 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "rel_context marks only imprecise relational answers as APPROX (rel_context.cpp:272-279,358-374)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/engine_result_state.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/engine_result_status_source_test.go"],
+          "tests": ["TestFixedpointUndefinedStatusMatchesSourceBackend", "TestFixedpointExplicitApproximationDoesNotInheritSpacerBound"],
+          "reason": "Datalog abstraction reports approximated when a nonempty relation or answer formula is imprecise; ordinary undefined results from other engines keep the context's reset OK status."
+        },
         {
           "name": "Scoped expression query magic-set pass with configured parameter lookup and filter-before-simple-join prerequisite; remaining relational query orchestration is unported",
           "status": "partial",
@@ -98004,9 +98184,9 @@
         {
           "name": "configured interval-relation runtime executes fact and positive arithmetic rule sets in dependency-first SCC order with cloned external seeds, source widening boundaries, abstract predicate/expression queries and caller-owned relation formulas",
           "status": "partial",
-          "go_targets": ["pkg/muz/fp/datalog_interval_facts.go", "pkg/muz/fp/datalog_interval_facts_test.go", "pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_positive_test.go", "pkg/muz/fp/datalog_interval_store.go", "pkg/muz/fp/datalog_interval_store_test.go", "pkg/muz/fp/datalog_interval_query.go", "pkg/muz/fp/datalog_interval_activation.go", "pkg/muz/fp/datalog_interval_activation_test.go", "pkg/muz/fp/datalog_interval_dispatch.go", "pkg/muz/fp/datalog_interval_dispatch_test.go", "pkg/muz/fp/predicate_metadata.go", "pkg/muz/rel/interval_relation_fact_ast.go"],
-          "tests": ["TestIntervalDatalogEvaluatorFactRulesAndOwnership", "TestIntervalDatalogEvaluatorRejectsUnsupportedRulesAndSeeds", "TestIntervalDatalogPositiveUnaryRepeatedBoundsAndFixpoint", "TestIntervalDatalogPositiveUnaryConstantAndHeadPermutation", "TestIntervalDatalogPositiveSharedTailJoin", "TestIntervalDatalogWideningOnlyAppliesToRecursivePredicates", "TestIntervalDatalogStoreSnapshotsQueriesAndOwnership", "TestIntervalDatalogStoreRejectsNonArithmeticSignature", "TestIntervalDatalogEvaluatorRejectsNonBooleanRange", "TestIntervalDatalogActivationLifecycleAndZeroArityQuery", "TestIntervalDatalogActivationDeclinesMixedSignaturesAndRejectsUnsupportedRules", "TestDatalogConfiguredIntervalFactsLatePredicatesAndExpressionOwners", "TestDatalogConfiguredIntervalNullaryAndUnsupportedFragment", "TestDatalogConfiguredIntervalEmptyProgramQuery"],
-          "reason": "Explicit interval_relation/default_relation metadata now selects this runtime for live predicate and expression queries, with late predicate registration and clone ownership. External SCC seeds and fact rules initialize through ordinary union before recursive internal rules can widen, preserving precise seed bounds. A nonempty interval relation is only an over-approximate witness, so Query returns Undef rather than sat; all requested empty relations return false. Negation, unsafe heads, expression arguments inside rules and mixed finite/arithmetic signatures reject or decline without partial publication. Generic dl_compiler abstract relation/product dispatch remains separately open."
+          "go_targets": ["pkg/muz/fp/datalog_interval_facts.go", "pkg/muz/fp/datalog_interval_facts_test.go", "pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_positive_test.go", "pkg/muz/fp/datalog_interval_head_assembly_test.go", "pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go", "pkg/muz/fp/datalog_interval_store.go", "pkg/muz/fp/datalog_interval_store_test.go", "pkg/muz/fp/datalog_interval_query.go", "pkg/muz/fp/datalog_interval_activation.go", "pkg/muz/fp/datalog_interval_activation_test.go", "pkg/muz/fp/datalog_interval_dispatch.go", "pkg/muz/fp/datalog_interval_dispatch_test.go", "pkg/muz/fp/predicate_metadata.go", "pkg/muz/rel/interval_relation_fact_ast.go"],
+          "tests": ["TestIntervalDatalogEvaluatorFactRulesAndOwnership", "TestIntervalDatalogEvaluatorRejectsUnsupportedRulesAndSeeds", "TestIntervalDatalogPositiveUnaryRepeatedBoundsAndFixpoint", "TestIntervalDatalogPositiveUnaryConstantAndHeadPermutation", "TestIntervalDatalogPositiveSharedTailJoin", "TestIntervalDatalogWideningOnlyAppliesToRecursivePredicates", "TestDatalogConfiguredIntervalHeadAssemblyAndUpdates", "TestIntervalRelationHeadAssemblyColumns", "TestIntervalDatalogStoreSnapshotsQueriesAndOwnership", "TestIntervalDatalogStoreRejectsNonArithmeticSignature", "TestIntervalDatalogEvaluatorRejectsNonBooleanRange", "TestIntervalDatalogActivationLifecycleAndZeroArityQuery", "TestIntervalDatalogActivationDeclinesMixedSignaturesAndRejectsUnsupportedRules", "TestDatalogConfiguredIntervalFactsLatePredicatesAndExpressionOwners", "TestDatalogConfiguredIntervalNullaryAndUnsupportedFragment", "TestDatalogConfiguredIntervalEmptyProgramQuery"],
+          "reason": "Explicit interval_relation/default_relation metadata selects this runtime for live predicate and expression queries, with late predicate registration, clone ownership, and source head assembly for constants, repeated columns and head-only full-column materialization. External SCC seeds and fact rules initialize through ordinary union before recursive internal rules can widen, preserving precise seed bounds. A nonempty interval relation is only an over-approximate witness, so Query returns Undef rather than sat; all requested empty relations return false. Negation, unsafe heads, expression arguments inside rules and mixed finite/arithmetic signatures reject or decline without partial publication. Generic dl_compiler abstract relation/product dispatch remains separately open."
         },
         {
           "name": "registered external favourite construction, finite seed migration, fact/query/expression routing, independent query clones and failure-atomic publication",
@@ -98023,18 +98203,18 @@
           "reason": "Explicit/cached doc predicates run dependency-first stratified fixpoints, including finite negative tails and update propagation after lower strata saturate. Bound guards materialize condition-only finite columns, map joined variables and contradictions, and fuse equality filtering with removal of dead head columns without publishing an intermediate relation. Full-column lowering handles zero-positive, negative-only, constant, unbound and repeated-variable tails plus unsafe or repeated heads; whole-program preflight rejects unsupported infinite columns before even a ground prefix is published. Mixed representations and explanation/checker combinations remain guarded."
         },
         {
-          "name": "staged external_relation plus interval_relation activation with typed execution registers and one aligned acyclic identity rule",
+          "name": "staged external_relation plus interval_relation activation with typed execution registers, one zero-tail unary arithmetic-numeral rule and acyclic identity rules",
           "status": "partial",
-          "go_targets": ["pkg/muz/fp/datalog_external_interval_activation.go", "pkg/muz/fp/datalog_external_interval_dispatch.go", "pkg/muz/fp/datalog_external_interval_dispatch_test.go", "pkg/muz/fp/datalog_external_interval_registers.go", "pkg/muz/fp/datalog_external_interval_registers_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go"],
-          "tests": ["TestExternalIntervalDatalogRegistersLoadStoreAndRepeat", "TestExternalIntervalDatalogRegisterCloneRefusalPublishesNothing", "TestExternalIntervalDatalogRegisterStorePublishesBeforeRetirementRetry", "TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat", "TestExternalIntervalDatalogAlignedIdentityEmptySource", "TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly", "TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan", "TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks"],
-          "reason": "LOAD uses nil for empty products, clones nonempty products in first-encounter order and reuses duplicate registers; STORE publishes replacements transactionally and keeps retirement retryable. The only admitted rule is an aligned, unique-variable, one-tail identity edge lowered through LOAD, UNION and STORE; ground, multi-tail, cyclic, reordered and richer rules remain open."
+          "go_targets": ["pkg/muz/fp/datalog_external_interval_activation.go", "pkg/muz/fp/datalog_external_interval_dispatch.go", "pkg/muz/fp/datalog_external_interval_dispatch_test.go", "pkg/muz/fp/datalog_external_interval_registers.go", "pkg/muz/fp/datalog_external_interval_registers_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go"],
+          "tests": ["TestExternalIntervalDatalogRegistersLoadStoreAndRepeat", "TestExternalIntervalDatalogRegisterCloneRefusalPublishesNothing", "TestExternalIntervalDatalogRegisterStorePublishesBeforeRetirementRetry", "TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat", "TestExternalIntervalDatalogAlignedIdentityEmptySource", "TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly", "TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan", "TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry"],
+          "reason": "LOAD uses nil for empty products, clones nonempty products in first-encounter order and reuses duplicate registers; STORE publishes replacements transactionally and keeps retirement retryable. One zero-tail unary Int/Real arithmetic numeral head lowers through MK_UNARY_SINGLETON, and unique-variable one-tail identity edges accept aligned or opposite product order through canonicalized UNION. Additional ground rules, other sorts/arities, multi-tail, cyclic, reordered, repeated-variable and richer identity shapes remain open."
         },
         {
           "name": "staged explicit bound_relation plus interval_relation product activation with aligned original kinds, facts, clones and abstract query formulas",
           "status": "partial",
-          "go_targets": ["pkg/muz/fp/datalog_bound_interval_activation.go", "pkg/muz/fp/datalog_bound_interval_activation_test.go", "pkg/muz/fp/datalog_bound_interval_query_status_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_positive_test.go", "pkg/muz/rel/interval_bound_product.go", "pkg/muz/rel/interval_bound_product_fact_ast.go", "pkg/muz/rel/interval_bound_product_lifecycle.go", "pkg/muz/rel/interval_bound_product_selection.go", "pkg/muz/rel/interval_bound_product_selection_test.go"],
-          "tests": ["TestBoundIntervalDatalogActivationFactsCloneFormulaAndRuleBoundary", "TestBoundIntervalDatalogActivationDeclinesOtherKinds", "TestBoundIntervalDatalogPositiveFilterProjectConsumer", "TestBoundIntervalDatalogTwoPositiveJoinFilterProjectAndRepeat", "TestBoundIntervalDatalogTwoPositiveDisjointAndThreeTailBoundary", "TestBoundIntervalDatalogQueryCombinesOutputNonemptiness", "TestIntervalBoundProductSelectionClonePrecisionAndOrder", "TestIntervalBoundProductASTFactInsertionIsValidatedBeforeMutation"],
-          "reason": "The aligned pair preserves component order, source imprecision, independent clones and validated facts. Positive rules with one or two unique-variable tails join, filter, project and reorder through SCC evaluation; more than two positive tails remain rejected. Query status combines all requested output components: definitely empty is false, any abstract nonempty witness remains unknown, and no single component may incorrectly force sat. Negation and generic mixed products remain open."
+          "go_targets": ["pkg/muz/fp/datalog_bound_interval_activation.go", "pkg/muz/fp/datalog_bound_interval_activation_test.go", "pkg/muz/fp/datalog_bound_interval_query_status_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_positive_test.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/rel/interval_bound_product.go", "pkg/muz/rel/interval_bound_product_fact_ast.go", "pkg/muz/rel/interval_bound_product_lifecycle.go", "pkg/muz/rel/interval_bound_product_selection.go", "pkg/muz/rel/interval_bound_product_selection_test.go"],
+          "tests": ["TestBoundIntervalDatalogActivationFactsCloneFormulaAndRuleBoundary", "TestBoundIntervalDatalogActivationDeclinesOtherKinds", "TestBoundIntervalDatalogPositiveFilterProjectConsumer", "TestBoundIntervalDatalogTwoPositiveJoinFilterProjectAndRepeat", "TestBoundIntervalDatalogTwoPositiveDisjointAndThreeTailBoundary", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestBoundIntervalDatalogQueryCombinesOutputNonemptiness", "TestIntervalBoundProductSelectionClonePrecisionAndOrder", "TestIntervalBoundProductASTFactInsertionIsValidatedBeforeMutation"],
+          "reason": "The aligned pair preserves component order, source imprecision, independent clones and validated facts. Positive rules with one or two unique-variable tails join, filter, project and reorder through SCC evaluation; head constants, repeated columns and head-only full-column materialization update both components transactionally, while more than two positive tails remain rejected. Query status combines all requested output components: definitely empty is false, any abstract nonempty witness remains unknown, and no single component may incorrectly force sat. Negation and generic mixed products remain open."
         },
         {
           "name": "rel_context public bound-relation selection, arithmetic table-fact insertion and named-program replacement lifecycle",
@@ -99426,9 +99606,9 @@
         {
           "name": "bounded search status records level exhaustion separately from an unbounded result",
           "status": "ported",
-          "go_targets": ["pkg/muz/spacer/context.go", "pkg/muz/spacer/context_status.go", "pkg/muz/spacer/context_bounded_status_test.go", "pkg/muz/spacer/context_tail_query_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/spacer_expression_bounded_status_test.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
-          "tests": ["TestContextBoundedStatusTracksLevelExhaustion", "TestSpacerTailOnlyQueryHonorsBoundedSearch", "TestSpacerExpressionQueryReportsCloneBoundedStatus", "TestSMT2FixedpointSpacerPrintsBoundedStatus"],
-          "reason": "Tail-only predicates retain their initialized transformer and enter bounded search; only an absent query transformer takes the early false wrapper path."
+          "go_targets": ["pkg/muz/spacer/context.go", "pkg/muz/spacer/context_status.go", "pkg/muz/spacer/context_bounded_status_test.go", "pkg/muz/spacer/context_tail_query_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/engine_result_state.go", "pkg/muz/fp/engine_result_status_source_test.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/spacer_expression_bounded_status_test.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
+          "tests": ["TestContextBoundedStatusTracksLevelExhaustion", "TestSpacerTailOnlyQueryHonorsBoundedSearch", "TestSpacerExpressionQueryReportsCloneBoundedStatus", "TestSMT2FixedpointSpacerPrintsBoundedStatus", "TestFixedpointUndefinedStatusMatchesSourceBackend", "TestFixedpointExplicitApproximationDoesNotInheritSpacerBound"],
+          "reason": "Tail-only predicates retain their initialized transformer and enter bounded search; only actual level exhaustion publishes BOUNDED. Ordinary Spacer Undef keeps the pre-dispatch OK status, and an explicit approximation replaces rather than inherits an earlier bound."
         },
         {
           "name": "context::solve wrapper completes every early solve_core false result by simplifying frames, publishing result metadata and conditionally validating original rules",
@@ -99899,6 +100079,8 @@
         "pkg/muz/fp/spacer_expression_generalizer_statistics_test.go",
         "pkg/muz/fp/spacer_relation_query.go",
         "pkg/muz/fp/spacer_relation_query_test.go",
+        "pkg/muz/fp/spacer_query_verbose.go",
+        "pkg/muz/fp/spacer_query_verbose_test.go",
         "pkg/parsers/smt2/spacer_slice_trace_test.go",
         "pkg/muz/fp/propositional_engine.go",
         "pkg/muz/fp/spacer_slice_results.go",
@@ -99927,6 +100109,7 @@
         "TestSpacerExpressionConstructionFailureWithoutPrequeryOwner",
         "TestSpacerGeneralizerStatisticsSurviveFailedExpressionPreparation",
         "TestSpacerRelationQueryReversesMixedSortHead",
+        "TestSpacerQueryDisplaysEmptyProgramModelAtSourceVerbosity",
         "TestSMT2SpacerSlicesWithProofTrace",
         "TestSpacerEngineRunsReachableAndInductiveHornQueries",
         "TestSpacerEngineExpandsSlicedReachableColumns",
@@ -99994,6 +100177,13 @@
             "TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules",
             "TestSpacerRuleSnapshotOwnsOriginalRulesBeforePreprocessing"
           ]
+        },
+        {
+          "name": "empty transformed-program model diagnostics use verbosity two for query and one for query_from_lvl (spacer_dl_interface.cpp:166-169,260-263)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/spacer_query_verbose.go", "pkg/muz/fp/spacer_query_verbose_test.go"],
+          "tests": ["TestSpacerQueryDisplaysEmptyProgramModelAtSourceVerbosity"],
+          "reason": "Horn model conversion restores original predicates, omits the synthetic query interpretation, owns the temporary model retryably and leaves caller model access and reference counts stable across repeated presentation."
         },
         {
           "name": "direct-predicate and from-level query selection, Spacer context construction and solve routing",
@@ -100085,10 +100275,13 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/fp/propositional_engine.go",
+        "pkg/muz/fp/spacer_query_verbose.go",
+        "pkg/muz/fp/spacer_query_verbose_test.go",
         "pkg/api/api_fixedpoint.go"
       ],
       "tests": [
         "TestSpacerEngineRunsReachableAndInductiveHornQueries",
+        "TestSpacerQueryDisplaysEmptyProgramModelAtSourceVerbosity",
         "TestSMTContextFixedpointSpacerInductiveExports"
       ],
       "conditionals": [
@@ -100133,16 +100326,19 @@
           ]
         },
         {
-          "name": "retained query/from-level query, answer, ground answer, trace rules/names, model, level, cover/invariant, reachable summary and statistics interface",
+          "name": "retained query/from-level query, answer, ground answer, trace rules/names, model, level, cover/invariant, reachable summary and statistics interface (spacer_dl_interface.h:50-52)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "tests": [
             "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms",
             "TestSpacerEngineRunsReachableAndInductiveHornQueries",
+            "TestSpacerQueryDisplaysEmptyProgramModelAtSourceVerbosity",
             "TestSMTContextFixedpointSpacerInductiveExports"
           ],
           "go_targets": [
             "pkg/muz/spacer/context_test.go",
+            "pkg/muz/fp/spacer_query_verbose.go",
+            "pkg/muz/fp/spacer_query_verbose_test.go",
             "pkg/api/api_fixedpoint_test.go"
           ]
         },
@@ -103060,6 +103256,8 @@
         "pkg/muz/tab/subsumption_setup.go",
         "pkg/muz/tab/subsumption_validate.go",
         "pkg/muz/tab/subsumption_match.go",
+        "pkg/muz/tab/subsumption_scope_cleanup.go",
+        "pkg/muz/tab/subsumption_scope_cleanup_pending_test.go",
         "pkg/muz/tab/unfold_clause.go",
         "pkg/muz/tab/unfold_finalize.go",
         "pkg/muz/tab/unfold_substitutions.go",
@@ -103093,7 +103291,10 @@
         "TestQueryExpressionScopesCompoundRuleAndPreservesProof",
         "TestTabStatisticsCollectAndResetSourceKeys",
         "TestSMTLibRunnerTabulationArithmeticRules",
-        "TestSubsumptionLiteralNormalizationOrdersEqualityArguments"
+        "TestSubsumptionLiteralNormalizationOrdersEqualityArguments",
+        "TestSubsumptionValidationOwnsPartiallyPublishedSolverScope",
+        "TestClauseSubsumptionDrainsNestedScopeBeforeOuterScope",
+        "TestClauseSubsumptionSuppressesMatchOnOuterPopRefusal"
       ],
       "assertions": [
         {
@@ -103160,6 +103361,13 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "index::is_subsumed and check_substitution nested solver scopes restore the saved depth before releasing grounded and formula owners (tab_context.cpp:531-538,644-709)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/tab/subsumption_match.go", "pkg/muz/tab/subsumption_validate.go", "pkg/muz/tab/subsumption_scope_cleanup.go", "pkg/muz/tab/subsumption_scope_cleanup_pending_test.go"],
+          "tests": ["TestSubsumptionValidationOwnsPartiallyPublishedSolverScope", "TestClauseSubsumptionDrainsNestedScopeBeforeOuterScope", "TestClauseSubsumptionSuppressesMatchOnOuterPopRefusal"],
+          "reason": "Partial Push and pre/post-consuming Pop failures resume inner-before-outer at the exact nonzero caller depth; semantic success is suppressed until cleanup succeeds and the solver remains reusable."
+        },
         {
           "name": "persistent TAB session carries selection decay/cache, sequence numbering and reusable query services across predicate and compound-expression queries and closes them after the active expression clone",
           "status": "ported",
@@ -103238,10 +103446,11 @@
         }
       ],
       "ownership": [
-        "Cancellation immediately closes active query/derived clauses and clears stack/index while leaving reusable selection and borrowed RuleIndex services live until Close. Clause AST owners stay attached across refused native release and retire incrementally on retry. Query-attempt owners preserve the search, rule index, properties, scoped expression-query rules, compacted root and published answer until cleanup can resume. The fixedpoint backend and proof replay each keep all partially acquired services, substitutions, premises and unpublished results in retryable owners."
+        "Cancellation immediately closes active query/derived clauses and clears stack/index while leaving reusable selection and borrowed RuleIndex services live until Close. Clause AST owners stay attached across refused native release and retire incrementally on retry. Query-attempt owners preserve the search, rule index, properties, scoped expression-query rules, compacted root and published answer until cleanup can resume. The fixedpoint backend and proof replay each keep all partially acquired services, substitutions, premises and unpublished results in retryable owners.",
+        "Composite subsumption attempts preserve nested receipt, solver scope, formula/condition/cache, substitution and grounded owners in that cleanup order."
       ],
       "deviations": [
-        "Predicate queries, search, subsumption and proof replay are connected to fixedpoint selection; normalized counterexample-literal caching and persistent source selection/sequence state are covered in Go. Inner subsumption, unfolding and formula multi-owner cleanup still need retry-continuation coverage; live IF_VERBOSE diagnostics remain unported."
+        "Predicate queries, search, subsumption and proof replay are connected to fixedpoint selection; normalized counterexample-literal caching, persistent source selection/sequence state and nested subsumption scope continuation are covered in Go. Remaining unfolding/formula multi-owner cleanup and live IF_VERBOSE diagnostics remain open."
       ]
     },
     {
@@ -105504,6 +105713,7 @@
         "TestQBMCConvertsNonlinearSlicedProof", "TestQBMCConvertsSliceProofWhenResolutionMergesTails", "TestSMT2QBMCProofConvertsMergedTails", "TestSMT2QBMCNonlinearSlicedProofTrace",
         "TestSMT2QBMCProofConvertsSlicedPredicate",
         "TestRuleSliceRetainsConstantConstrainedColumn",
+        "TestRuleSliceHeadValueAllowsExistentialColumnRemoval",
         "TestRuleSliceRetainsNegatedPredicateColumns",
         "TestRuleSlicePropagatesInterpretedEqualityMasks",
         "TestSpacerEngineExpandsSlicedReachableColumns",
@@ -105559,12 +105769,14 @@
           "tests": [
             "TestRuleSliceRemovesUnconstrainedPredicateColumns",
             "TestRuleSliceRetainsConstantConstrainedColumn",
+            "TestRuleSliceHeadValueAllowsExistentialColumnRemoval",
             "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_compound_tail.smt2",
             "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_compound_head.smt2"
           ],
           "go_targets": [
             "pkg/cmd/g3/main_test.go"
-          ]
+          ],
+          "reason": "Source asymmetry is preserved: non-variable body/input positions clear sliceability, while a ground head value does not block existential projection to the sliced predicate."
         },
         {
           "name": "fresh sliced predicate declaration, original-to-derived mapping, output preservation, and rewritten rule construction",
@@ -105654,6 +105866,7 @@
       "tests": [
         "TestRuleSliceRemovesUnconstrainedPredicateColumns",
         "TestRuleSliceRetainsConstantConstrainedColumn",
+        "TestRuleSliceHeadValueAllowsExistentialColumnRemoval",
         "TestRuleSliceLeavesZeroArityOutputRulesUnchanged",
         "TestRuleSliceClosePreservesOwnedProofConverter"
       ],
@@ -105674,7 +105887,8 @@
           "name": "RuleSlicePlugin construction, transformation contract, derived-predicate lookup, priority, cancellation metadata, and owned lifecycle",
           "status": "ported",
           "go_target": "pkg/muz/transforms/rule_slice.go",
-          "tests": ["TestRuleSliceClosePreservesOwnedProofConverter"]
+          "tests": ["TestRuleSliceHeadValueAllowsExistentialColumnRemoval", "TestRuleSliceClosePreservesOwnedProofConverter"],
+          "reason": "The public transformation contract preserves the source asymmetry in which a ground head value does not block existential slicing of that predicate column."
         }
       ],
       "ownership": [
@@ -105698,6 +105912,7 @@
         "TestSubsumptionCheckerRemovesTotalPositiveTail",
         "TestSubsumptionCheckerDisabledReturnsNoChange",
         "TestSubsumptionCheckerTransfersRuleProof",
+        "TestSubsumptionCheckerDropsStructurallyDuplicateRules",
         "TestSubsumptionClosePreservesModelStepsWhileManagerExecutes",
         "TestSMTLibRunnerCPPReference/fp_spacer_skip_propagate.smt2"
       ],
@@ -105747,9 +105962,11 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "retained fixedpoint preprocessing: total-rule discovery, exact fact/rule subsumption, total-tail removal, tautological self-rule removal, output preservation, and parameter gate",
+          "name": "retained fixedpoint preprocessing: total-rule discovery, structural fact/rule subsumption, total-tail removal, tautological self-rule removal, output preservation, and parameter gate",
           "status": "ported",
-          "go_target": "pkg/muz/transforms/subsumption_checker.go"
+          "go_target": "pkg/muz/transforms/subsumption_checker.go",
+          "tests": ["TestSubsumptionCheckerDropsStructurallyDuplicateRules"],
+          "reason": "The source rule_eq_proc comparison prunes separately constructed structurally equal rules while preserving the first rule and its name."
         },
         {
           "name": "ordered total-relation model-converter extension",
@@ -105779,12 +105996,14 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
-        "pkg/muz/transforms/subsumption_checker.go"
+        "pkg/muz/transforms/subsumption_checker.go",
+        "pkg/muz/transforms/subsumption_checker_test.go"
       ],
       "tests": [
         "TestSubsumptionCheckerDropsTautologicalSelfRule",
         "TestSubsumptionCheckerRemovesTotalPositiveTail",
-        "TestSubsumptionCheckerDisabledReturnsNoChange"
+        "TestSubsumptionCheckerDisabledReturnsNoChange",
+        "TestSubsumptionCheckerDropsStructurallyDuplicateRules"
       ],
       "conditionals": [
         {
@@ -105802,7 +106021,9 @@
         {
           "name": "owned prioritized rule-transform plugin surface and retained fixedpoint transformation state",
           "status": "ported",
-          "go_target": "pkg/muz/transforms/subsumption_checker.go"
+          "go_target": "pkg/muz/transforms/subsumption_checker.go",
+          "go_targets": ["pkg/muz/transforms/subsumption_checker_test.go"],
+          "tests": ["TestSubsumptionCheckerDropsStructurallyDuplicateRules"]
         },
         {
           "name": "total-relation model-converter state",
@@ -289956,7 +290177,7 @@
       ],
       "status": "ported",
       "go_target": "pkg/api/api_fixedpoint.go",
-      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
+      "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestAPIFixedpointDuplicateRelationRegistrationIsIdempotent"]
     },
     {
       "name": "Z3_fixedpoint_set_params",
