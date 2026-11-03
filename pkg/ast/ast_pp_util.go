@@ -117,11 +117,7 @@ func (p *ASTPPUtil) DisplayDeclarations(out io.Writer) error {
 		if family != NullFamilyID {
 			continue
 		}
-		format, e := modern.PrettyFuncDecl(decl)
-		if e != nil {
-			return e
-		}
-		if e = modern.displayFormat(out, format, 0); e != nil {
+		if e = modern.displayDeclaration(out, decl); e != nil {
 			return e
 		}
 		if e = legacySMTWriteText(out, "\n"); e != nil {
@@ -148,11 +144,7 @@ func (p *ASTPPUtil) DisplayAssertions(out io.Writer, formulas []ASTHandle, neat 
 			return err
 		}
 		if neat {
-			format, e := modern.PrettyExpr(formula)
-			if e != nil {
-				return e
-			}
-			if e = modern.displayFormat(out, format, 0); e != nil {
+			if e := modern.DisplayExpr(out, formula, 0); e != nil {
 				return e
 			}
 		} else if err = legacy.DisplayExpr(out, formula, nil); err != nil {

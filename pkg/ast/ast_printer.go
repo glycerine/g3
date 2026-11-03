@@ -4,7 +4,6 @@ package ast
 // src/ast/ast.cpp:115-137 parameter/declaration head display.
 
 import (
-	"errors"
 	"io"
 	"os"
 	"strconv"
@@ -253,19 +252,19 @@ func (p *SimpleASTPrinterContext) PrettyExprVariables(expr ASTHandle, numVars ui
 	return p.manager.SMT2PPExprTree(expr, lookup)
 }
 
-func (p *SimpleASTPrinterContext) displayFormat(out io.Writer, format ASTHandle, indent uint32) (result error) {
+func (p *SimpleASTPrinterContext) displayFormat(out io.Writer, owner *astPrinterFormatOwner, format ASTHandle, indent uint32) error {
 	if p == nil || p.manager == nil || out == nil {
 		return ErrASTHandle
 	}
-	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: p.manager.BudgetField})
+	var err error
+	owner.stream, err = utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: p.manager.BudgetField})
 	if err != nil {
 		return err
 	}
-	defer func() { result = errors.Join(result, stream.Close()) }()
-	if err = p.manager.PrintFormat(stream, format, nil, nil, nil); err != nil {
+	if err = p.manager.PrintFormat(owner.stream, format, nil, nil, nil); err != nil {
 		return err
 	}
-	text, err := stream.String()
+	text, err := owner.stream.String()
 	if err != nil {
 		return err
 	}
@@ -276,19 +275,42 @@ func (p *SimpleASTPrinterContext) displayFormat(out io.Writer, format ASTHandle,
 	return err
 }
 
-func (p *SimpleASTPrinterContext) DisplaySort(out io.Writer, sort ASTHandle, indent uint32) error {
+func (p *SimpleASTPrinterContext) DisplaySort(out io.Writer, sort ASTHandle, indent uint32) (result error) {
+	owner, err := p.reserveFormat()
+	if err != nil {
+		return err
+	}
+	defer func() { result = owner.finish(result) }()
 	format, err := p.PrettySort(sort)
-	if err != nil {
+	if err = owner.adopt(format, err); err != nil {
 		return err
 	}
-	return p.displayFormat(out, format, indent)
+	return p.displayFormat(out, owner, format, indent)
 }
-func (p *SimpleASTPrinterContext) DisplayExpr(out io.Writer, expr ASTHandle, indent uint32) error {
-	format, err := p.PrettyExpr(expr)
+func (p *SimpleASTPrinterContext) DisplayExpr(out io.Writer, expr ASTHandle, indent uint32) (result error) {
+	owner, err := p.reserveFormat()
 	if err != nil {
 		return err
 	}
-	return p.displayFormat(out, format, indent)
+	defer func() { result = owner.finish(result) }()
+	format, err := p.PrettyExpr(expr)
+	if err = owner.adopt(format, err); err != nil {
+		return err
+	}
+	return p.displayFormat(out, owner, format, indent)
+}
+
+func (p *SimpleASTPrinterContext) displayDeclaration(out io.Writer, decl ASTHandle) (result error) {
+	owner, err := p.reserveFormat()
+	if err != nil {
+		return err
+	}
+	defer func() { result = owner.finish(result) }()
+	format, err := p.PrettyFuncDecl(decl)
+	if err = owner.adopt(format, err); err != nil {
+		return err
+	}
+	return p.displayFormat(out, owner, format, 0)
 }
 func (p *SimpleASTPrinterContext) DisplayFuncDecl(out io.Writer, decl ASTHandle, indent uint32) error {
 	if p == nil || p.manager == nil || out == nil {

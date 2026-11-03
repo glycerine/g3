@@ -4,7 +4,12 @@ package ast
 
 // smt2FormatTail is the concrete format-pointer mk_seq loop: a line break
 // precedes each non-nil document in the supplied suffix.
-func (m *ASTManager) smt2FormatTail(args []ASTHandle) (ASTHandle, error) {
+func (m *ASTManager) smt2FormatTail(args []ASTHandle) (document ASTHandle, resultErr error) {
+	documents, err := newASTFormatDocuments(m)
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	defer documents.finish(&document, &resultErr)
 	formatOwner, err := m.GetFormatManager()
 	if err != nil {
 		return ASTHandle{}, err
@@ -18,80 +23,86 @@ func (m *ASTManager) smt2FormatTail(args []ASTHandle) (ASTHandle, error) {
 		if kind == ASTFormatNil {
 			continue
 		}
-		breakDoc, e := m.FormatLineBreak()
+		breakDoc, e := documents.own(m.FormatLineBreak())
 		if e != nil {
 			return ASTHandle{}, e
 		}
 		parts = append(parts, breakDoc, arg)
 	}
-	return m.FormatCompose(parts)
+	return documents.own(m.FormatCompose(parts))
 }
 
 // SMT2PPAppFormat builds process_app's source document after the expression
 // traversal has produced ordered child documents. Constant and label/pattern
 // dispatch remain the surrounding traversal's responsibility.
-func (m *ASTManager) SMT2PPAppFormat(decl ASTHandle, args []ASTHandle) (ASTHandle, error) {
+func (m *ASTManager) SMT2PPAppFormat(decl ASTHandle, args []ASTHandle) (document ASTHandle, resultErr error) {
+	documents, err := newASTFormatDocuments(m)
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	defer documents.finish(&document, &resultErr)
 	if len(args) == 0 {
 		return ASTHandle{}, ErrASTDomain
 	}
 	fname, length, err := m.SMT2Fdecl(decl)
+	fname, err = documents.own(fname, err)
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	left, err := m.FormatString("(")
+	left, err := documents.own(m.FormatString("("))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	right, err := m.FormatString(")")
+	right, err := documents.own(m.FormatString(")"))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	header, err := m.FormatCompose([]ASTHandle{left, fname})
+	header, err := documents.own(m.FormatCompose([]ASTHandle{left, fname}))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	header, err = m.FormatIndent(1, header)
+	header, err = documents.own(m.FormatIndent(1, header))
 	if err != nil {
 		return ASTHandle{}, err
 	}
 	if length > 16 {
-		tail, e := m.smt2FormatTail(args)
+		tail, e := documents.own(m.smt2FormatTail(args))
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		body, e := m.FormatCompose([]ASTHandle{tail, right})
+		body, e := documents.own(m.FormatCompose([]ASTHandle{tail, right}))
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		body, e = m.FormatIndent(2, body)
+		body, e = documents.own(m.FormatIndent(2, body))
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		whole, e := m.FormatCompose([]ASTHandle{header, body})
+		whole, e := documents.own(m.FormatCompose([]ASTHandle{header, body}))
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		return m.FormatGroup(whole)
+		return documents.own(m.FormatGroup(whole))
 	}
-	space, err := m.FormatString(" ")
+	space, err := documents.own(m.FormatString(" "))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	tail, err := m.smt2FormatTail(args[1:])
+	tail, err := documents.own(m.smt2FormatTail(args[1:]))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	body, err := m.FormatCompose([]ASTHandle{space, args[0], tail, right})
+	body, err := documents.own(m.FormatCompose([]ASTHandle{space, args[0], tail, right}))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	body, err = m.FormatIndent(length+2, body)
+	body, err = documents.own(m.FormatIndent(length+2, body))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	whole, err := m.FormatCompose([]ASTHandle{header, body})
+	whole, err := documents.own(m.FormatCompose([]ASTHandle{header, body}))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	return m.FormatGroup(whole)
+	return documents.own(m.FormatGroup(whole))
 }

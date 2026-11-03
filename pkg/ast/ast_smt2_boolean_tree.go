@@ -93,7 +93,12 @@ func (m *ASTManager) smt2PPExprTreeWithInfoProfile(root ASTHandle, names []usymb
 	return m.smt2PPExprTreeWithInfoAt(root, names, requireBool, info, 0, true, config)
 }
 
-func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Symbol, requireBool bool, info *smt2PPInfo, enclosingAliases int, allowAliases bool, config SMT2PPExprConfig) (ASTHandle, error) {
+func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Symbol, requireBool bool, info *smt2PPInfo, enclosingAliases int, allowAliases bool, config SMT2PPExprConfig) (document ASTHandle, resultErr error) {
+	documents, err := newASTFormatDocuments(m)
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	defer documents.finish(&document, &resultErr)
 	profile := defaultSMT2PPExprProfile()
 	profile.Decimal = config.Decimal
 	profile.DecimalPrecision = config.DecimalPrecision
@@ -109,13 +114,13 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 		return ASTHandle{}, err
 	}
 	if rootKind == ASTQuantifier {
-		format, err := m.smt2PPQuantifierRootWithInfoAt(root, names, info, enclosingAliases, allowAliases, config)
+		format, err := documents.own(m.smt2PPQuantifierRootWithInfoAt(root, names, info, enclosingAliases, allowAliases, config))
 		if err != nil || !allowAliases {
 			return format, err
 		}
 		// The source printer runs pp_let once more on the completed root,
 		// after the quantifier has already wrapped its own body.
-		return m.smt2PPLetAt(format, nil, enclosingAliases)
+		return documents.own(m.smt2PPLetAt(format, nil, enclosingAliases))
 	}
 	// shared_occs visits each compound node's children once, but records a
 	// second incoming edge as shared. Its default profile ignores atomic nodes
@@ -194,7 +199,7 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 			}
 			aliases[h] = len(bindings)
 			bindings = append(bindings, smt2LetBinding{name: name, format: format, level: level})
-			aliasFormat, e := m.FormatString(name)
+			aliasFormat, e := documents.own(m.FormatString(name))
 			return result{docs: []ASTHandle{aliasFormat}, level: level + 1, weight: 1, depth: 1}, e
 		}
 	}
@@ -202,7 +207,7 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 	visit = func(h ASTHandle, flatten bool) (result, error) {
 		if idx, found := aliases[h]; found {
 			binding := bindings[idx]
-			format, e := m.FormatString(binding.name)
+			format, e := documents.own(m.FormatString(binding.name))
 			return result{docs: []ASTHandle{format}, level: binding.level + 1, weight: 1, depth: 1}, e
 		}
 		kind, e := m.GetKind(h)
@@ -211,7 +216,7 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 		}
 		if kind == ASTQuantifier {
 			var childInfo smt2PPInfo
-			format, e := m.smt2PPQuantifierRootWithInfoAt(h, names, &childInfo, enclosingAliases+len(bindings), allowAliases, config)
+			format, e := documents.own(m.smt2PPQuantifierRootWithInfoAt(h, names, &childInfo, enclosingAliases+len(bindings), allowAliases, config))
 			if e != nil {
 				return result{}, e
 			}
@@ -235,7 +240,7 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 			if e != nil {
 				return result{}, e
 			}
-			format, e := m.SMT2PPVar(index, names)
+			format, e := documents.own(m.SMT2PPVar(index, names))
 			return result{docs: []ASTHandle{format}, weight: 1, depth: 1}, e
 		}
 		count, e := m.GetNumArgs(h)
@@ -245,6 +250,7 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 		if count == 0 {
 			if sort != boolSort {
 				format, matched, e := m.smt2PPArithLiteral(h, profile.Decimal, profile.DecimalPrecision)
+				format, e = documents.own(format, e)
 				if e != nil {
 					return result{}, e
 				}
@@ -252,6 +258,7 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 					return result{docs: []ASTHandle{format}, weight: 1, depth: 1}, nil
 				}
 				format, matched, e = m.SMT2PPStringLiteral(h)
+				format, e = documents.own(format, e)
 				if e != nil {
 					return result{}, e
 				}
@@ -263,7 +270,7 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 					return result{}, e
 				}
 				if matched {
-					format, e = m.ppBitVectorLiteral(h, profile.BVNegative, profile.BVLiterals, config.Globals)
+					format, e = documents.own(m.ppBitVectorLiteral(h, profile.BVNegative, profile.BVLiterals, config.Globals))
 					return result{docs: []ASTHandle{format}, weight: 1, depth: 1}, e
 				}
 				matched, e = m.smt2IsFloatingPointNumeral(h)
@@ -271,10 +278,11 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 					return result{}, e
 				}
 				if matched {
-					format, e = m.ppFloatLiteral(h, profile.BVLiterals, profile.FPRealLiterals, config.Globals)
+					format, e = documents.own(m.ppFloatLiteral(h, profile.BVLiterals, profile.FPRealLiterals, config.Globals))
 					return result{docs: []ASTHandle{format}, weight: 1, depth: 1}, e
 				}
 				format, matched, e = m.SMT2PPDatalogLiteral(h)
+				format, e = documents.own(format, e)
 				if e != nil {
 					return result{}, e
 				}
@@ -290,11 +298,11 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 				return result{}, e
 			}
 			if labeled {
-				body, e := m.FormatString("true")
+				body, e := documents.own(m.FormatString("true"))
 				if e != nil {
 					return result{}, e
 				}
-				format, e := m.SMT2PPLabels(true, labels, body)
+				format, e := documents.own(m.SMT2PPLabels(true, labels, body))
 				return result{docs: []ASTHandle{format}, weight: 1, depth: 1}, e
 			}
 			decl, e := m.GetDecl(h)
@@ -302,6 +310,7 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 				return result{}, e
 			}
 			format, _, e := m.SMT2Fdecl(decl)
+			format, e = documents.own(format, e)
 			return result{docs: []ASTHandle{format}, weight: 1, depth: 1}, e
 		}
 		args := make([]ASTHandle, 0, count)
@@ -356,7 +365,7 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 			if len(args) != 1 {
 				return result{}, ErrASTDomain
 			}
-			format, e = m.SMT2PPLabels(positive, labels, args[0])
+			format, e = documents.own(m.SMT2PPLabels(positive, labels, args[0]))
 		} else {
 			family, familyErr := m.GetFamilyID(h)
 			if familyErr != nil {
@@ -367,13 +376,13 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 				return result{}, kindErr
 			}
 			if family == 2 && declKind == 0 && patternChildrenApps {
-				format, e = m.FormatSeq5(args)
+				format, e = documents.own(m.FormatSeq5(args))
 			} else {
 				decl, declErr := m.GetDecl(h)
 				if declErr != nil {
 					return result{}, declErr
 				}
-				format, e = m.SMT2PPAppFormat(decl, args)
+				format, e = documents.own(m.SMT2PPAppFormat(decl, args))
 			}
 		}
 		if e != nil {
@@ -395,5 +404,5 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 	if !allowAliases {
 		return printed.docs[0], nil
 	}
-	return m.smt2PPLetAt(printed.docs[0], bindings, enclosingAliases)
+	return documents.own(m.smt2PPLetAt(printed.docs[0], bindings, enclosingAliases))
 }

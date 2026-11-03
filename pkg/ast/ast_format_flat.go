@@ -114,7 +114,7 @@ func (m *ASTManager) flatVisit(f *astFormatFlatFrame, n astNodeRef) (astNodeRef,
 	}
 	return m.mkAppArguments(a.decl, SliceArguments(f.results))
 }
-func (m *ASTManager) formatFlat(root astNodeRef) (result astNodeRef, err error) {
+func (m *ASTManager) formatFlat(root astNodeRef, documents *astFormatDocuments) (result astNodeRef, err error) {
 	family, e := m.formatFamilyID()
 	if e != nil {
 		return astNodeRef{}, e
@@ -207,7 +207,7 @@ func (m *ASTManager) formatFlat(root astNodeRef) (result astNodeRef, err error) 
 			}
 			f.results = append(f.results, m.external(value))
 		}
-		result, e = m.flatVisit(f, n)
+		result, e = documents.ownNode(m.flatVisit(f, n))
 		if e != nil {
 			return astNodeRef{}, e
 		}
@@ -224,30 +224,40 @@ func (m *ASTManager) formatFlat(root astNodeRef) (result astNodeRef, err error) 
 	}
 	return result, nil
 }
-func (m *ASTManager) FormatFlat(root ASTHandle) (ASTHandle, error) {
+func (m *ASTManager) FormatFlat(root ASTHandle) (document ASTHandle, resultErr error) {
 	f, e := m.lockFormat()
 	if e != nil {
 		return ASTHandle{}, e
 	}
+	documents := &astFormatDocuments{manager: f}
+	defer documents.finish(&document, &resultErr)
 	defer f.unlockFormat()
 	r, e := f.requireExpr(root)
 	if e != nil {
 		return ASTHandle{}, e
 	}
-	r, e = f.formatFlat(r)
+	if e = documents.borrowRoot(r); e != nil {
+		return ASTHandle{}, e
+	}
+	r, e = f.formatFlat(r, documents)
 	return f.external(r), e
 }
-func (m *ASTManager) FormatGroup(root ASTHandle) (ASTHandle, error) {
+func (m *ASTManager) FormatGroup(root ASTHandle) (document ASTHandle, resultErr error) {
 	f, e := m.lockFormat()
 	if e != nil {
 		return ASTHandle{}, e
 	}
+	documents := &astFormatDocuments{manager: f}
+	defer documents.finish(&document, &resultErr)
 	defer f.unlockFormat()
 	r, e := f.requireExpr(root)
 	if e != nil {
 		return ASTHandle{}, e
 	}
-	flat, e := f.formatFlat(r)
+	if e = documents.borrowRoot(r); e != nil {
+		return ASTHandle{}, e
+	}
+	flat, e := f.formatFlat(r, documents)
 	if e != nil {
 		return ASTHandle{}, e
 	}

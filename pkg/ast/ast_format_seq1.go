@@ -7,26 +7,31 @@ import "math"
 // FormatSeq1 constructs the source grouped (header arg...) document used by
 // SMT2 indexed declarations and sort applications. Nil tail documents are
 // skipped by the source mk_seq loop; the first document is always retained.
-func (m *ASTManager) FormatSeq1(header string, children []ASTHandle) (ASTHandle, error) {
-	left, err := m.FormatString("(")
+func (m *ASTManager) FormatSeq1(header string, children []ASTHandle) (document ASTHandle, resultErr error) {
+	documents, err := newASTFormatDocuments(m)
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	head, err := m.FormatString(header)
+	defer documents.finish(&document, &resultErr)
+	left, err := documents.own(m.FormatString("("))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	right, err := m.FormatString(")")
+	head, err := documents.own(m.FormatString(header))
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	right, err := documents.own(m.FormatString(")"))
 	if err != nil {
 		return ASTHandle{}, err
 	}
 	if len(children) == 0 {
-		return m.FormatCompose([]ASTHandle{left, head, right})
+		return documents.own(m.FormatCompose([]ASTHandle{left, head, right}))
 	}
 	if uint64(len(header))+2 > math.MaxUint32 {
 		return ASTHandle{}, ErrASTDomain
 	}
-	space, err := m.FormatString(" ")
+	space, err := documents.own(m.FormatString(" "))
 	if err != nil {
 		return ASTHandle{}, err
 	}
@@ -43,27 +48,27 @@ func (m *ASTManager) FormatSeq1(header string, children []ASTHandle) (ASTHandle,
 		if kind == ASTFormatNil {
 			continue
 		}
-		breakDoc, e := m.FormatLineBreak()
+		breakDoc, e := documents.own(m.FormatLineBreak())
 		if e != nil {
 			return ASTHandle{}, e
 		}
 		tail = append(tail, breakDoc, child)
 	}
-	seq, err := m.FormatCompose(tail)
+	seq, err := documents.own(m.FormatCompose(tail))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	body, err := m.FormatCompose([]ASTHandle{space, children[0], seq, right})
+	body, err := documents.own(m.FormatCompose([]ASTHandle{space, children[0], seq, right}))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	indented, err := m.FormatIndent(uint32(len(header)+2), body)
+	indented, err := documents.own(m.FormatIndent(uint32(len(header)+2), body))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	whole, err := m.FormatCompose([]ASTHandle{left, head, indented})
+	whole, err := documents.own(m.FormatCompose([]ASTHandle{left, head, indented}))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	return m.FormatGroup(whole)
+	return documents.own(m.FormatGroup(whole))
 }

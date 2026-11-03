@@ -4,17 +4,22 @@ package ast
 
 // FormatSeq5 builds the grouped parenthesized sequence used by SMT2 function
 // signatures. Its source mk_seq tail skips nil documents but keeps the first.
-func (m *ASTManager) FormatSeq5(children []ASTHandle) (ASTHandle, error) {
-	left, err := m.FormatString("(")
+func (m *ASTManager) FormatSeq5(children []ASTHandle) (document ASTHandle, resultErr error) {
+	documents, err := newASTFormatDocuments(m)
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	right, err := m.FormatString(")")
+	defer documents.finish(&document, &resultErr)
+	left, err := documents.own(m.FormatString("("))
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	right, err := documents.own(m.FormatString(")"))
 	if err != nil {
 		return ASTHandle{}, err
 	}
 	if len(children) == 0 {
-		return m.FormatCompose([]ASTHandle{left, right})
+		return documents.own(m.FormatCompose([]ASTHandle{left, right}))
 	}
 	formatOwner, err := m.GetFormatManager()
 	if err != nil {
@@ -29,35 +34,35 @@ func (m *ASTManager) FormatSeq5(children []ASTHandle) (ASTHandle, error) {
 		if kind == ASTFormatNil {
 			continue
 		}
-		line, e := m.FormatLineBreak()
+		line, e := documents.own(m.FormatLineBreak())
 		if e != nil {
 			return ASTHandle{}, e
 		}
 		tail = append(tail, line, child)
 	}
-	seq, err := m.FormatCompose(tail)
+	seq, err := documents.own(m.FormatCompose(tail))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	first, err := m.FormatCompose([]ASTHandle{left, children[0]})
+	first, err := documents.own(m.FormatCompose([]ASTHandle{left, children[0]}))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	first, err = m.FormatIndent(1, first)
+	first, err = documents.own(m.FormatIndent(1, first))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	last, err := m.FormatCompose([]ASTHandle{seq, right})
+	last, err := documents.own(m.FormatCompose([]ASTHandle{seq, right}))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	last, err = m.FormatIndent(1, last)
+	last, err = documents.own(m.FormatIndent(1, last))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	whole, err := m.FormatCompose([]ASTHandle{first, last})
+	whole, err := documents.own(m.FormatCompose([]ASTHandle{first, last}))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	return m.FormatGroup(whole)
+	return documents.own(m.FormatGroup(whole))
 }

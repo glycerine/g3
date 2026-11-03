@@ -74,7 +74,12 @@ func (m *ASTManager) smt2SortView(h ASTHandle) (smt2SortView, error) {
 
 // SMT2PPSort builds the base SMT2 environment's sort document. The command
 // context's separate parametric-sort override is a different source owner.
-func (m *ASTManager) SMT2PPSort(sort ASTHandle) (ASTHandle, error) {
+func (m *ASTManager) SMT2PPSort(sort ASTHandle) (result ASTHandle, resultErr error) {
+	documents, err := newASTFormatDocuments(m)
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	defer documents.finish(&result, &resultErr)
 	v, err := m.smt2SortView(sort)
 	if err != nil {
 		return ASTHandle{}, err
@@ -90,11 +95,11 @@ func (m *ASTManager) SMT2PPSort(sort ASTHandle) (ASTHandle, error) {
 		if len(v.params) != 1 || v.params[0].kind != ASTParameterInt {
 			return ASTHandle{}, ErrASTDomain
 		}
-		name, e := m.FormatString("BitVec")
+		name, e := documents.own(m.FormatString("BitVec"))
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		width, e := m.FormatUnsigned(v.params[0].ival)
+		width, e := documents.own(m.FormatUnsigned(v.params[0].ival))
 		if e != nil {
 			return ASTHandle{}, e
 		}
@@ -108,7 +113,7 @@ func (m *ASTManager) SMT2PPSort(sort ASTHandle) (ASTHandle, error) {
 			if p.kind != ASTParameterAST {
 				return ASTHandle{}, ErrASTDomain
 			}
-			f, e := m.SMT2PPSort(p.ast)
+			f, e := documents.own(m.SMT2PPSort(p.ast))
 			if e != nil {
 				return ASTHandle{}, e
 			}
@@ -119,15 +124,15 @@ func (m *ASTManager) SMT2PPSort(sort ASTHandle) (ASTHandle, error) {
 		if len(v.params) != 2 || v.params[0].kind != ASTParameterInt || v.params[1].kind != ASTParameterInt {
 			return ASTHandle{}, ErrASTDomain
 		}
-		name, e := m.FormatString("FloatingPoint")
+		name, e := documents.own(m.FormatString("FloatingPoint"))
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		ebits, e := m.FormatUnsigned(v.params[0].ival)
+		ebits, e := documents.own(m.FormatUnsigned(v.params[0].ival))
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		sbits, e := m.FormatUnsigned(v.params[1].ival)
+		sbits, e := documents.own(m.FormatUnsigned(v.params[1].ival))
 		if e != nil {
 			return ASTHandle{}, e
 		}
@@ -136,7 +141,7 @@ func (m *ASTManager) SMT2PPSort(sort ASTHandle) (ASTHandle, error) {
 		if len(v.params) < 1 || v.params[0].kind != ASTParameterAST {
 			return ASTHandle{}, ErrASTDomain
 		}
-		inner, e := m.SMT2PPSort(v.params[0].ast)
+		inner, e := documents.own(m.SMT2PPSort(v.params[0].ast))
 		if e != nil {
 			return ASTHandle{}, e
 		}
@@ -154,7 +159,7 @@ func (m *ASTManager) SMT2PPSort(sort ASTHandle) (ASTHandle, error) {
 			if p.kind != ASTParameterAST {
 				return ASTHandle{}, ErrASTDomain
 			}
-			f, e := m.SMT2PPSort(p.ast)
+			f, e := documents.own(m.SMT2PPSort(p.ast))
 			if e != nil {
 				return ASTHandle{}, e
 			}

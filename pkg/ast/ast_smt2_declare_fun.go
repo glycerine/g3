@@ -4,8 +4,14 @@ package ast
 
 // SMT2PPDeclareFun builds smt2_printer::operator()(func_decl*)'s declaration
 // document. This entrypoint uses pp_fdecl_name, not the indexed pp_fdecl form.
-func (m *ASTManager) SMT2PPDeclareFun(decl ASTHandle) (ASTHandle, error) {
+func (m *ASTManager) SMT2PPDeclareFun(decl ASTHandle) (result ASTHandle, resultErr error) {
+	documents, err := newASTFormatDocuments(m)
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	defer documents.finish(&result, &resultErr)
 	name, _, err := m.SMT2FdeclNameDecl(decl)
+	name, err = documents.own(name, err)
 	if err != nil {
 		return ASTHandle{}, err
 	}
@@ -19,13 +25,13 @@ func (m *ASTManager) SMT2PPDeclareFun(decl ASTHandle) (ASTHandle, error) {
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		format, e := m.SMT2PPSort(sort)
+		format, e := documents.own(m.SMT2PPSort(sort))
 		if e != nil {
 			return ASTHandle{}, e
 		}
 		domains = append(domains, format)
 	}
-	printedDomains, err := m.FormatSeq5(domains)
+	printedDomains, err := documents.own(m.FormatSeq5(domains))
 	if err != nil {
 		return ASTHandle{}, err
 	}
@@ -33,7 +39,7 @@ func (m *ASTManager) SMT2PPDeclareFun(decl ASTHandle) (ASTHandle, error) {
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	printedRange, err := m.SMT2PPSort(rangeSort)
+	printedRange, err := documents.own(m.SMT2PPSort(rangeSort))
 	if err != nil {
 		return ASTHandle{}, err
 	}

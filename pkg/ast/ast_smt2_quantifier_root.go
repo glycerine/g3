@@ -14,7 +14,12 @@ func (m *ASTManager) smt2PPQuantifierRootWithInfo(q ASTHandle, outer []usymbol.S
 	return m.smt2PPQuantifierRootWithInfoAt(q, outer, info, 0, true, SMT2PPExprConfig{DecimalPrecision: 10})
 }
 
-func (m *ASTManager) smt2PPQuantifierRootWithInfoAt(q ASTHandle, outer []usymbol.Symbol, info *smt2PPInfo, enclosingAliases int, allowAliases bool, config SMT2PPExprConfig) (ASTHandle, error) {
+func (m *ASTManager) smt2PPQuantifierRootWithInfoAt(q ASTHandle, outer []usymbol.Symbol, info *smt2PPInfo, enclosingAliases int, allowAliases bool, config SMT2PPExprConfig) (document ASTHandle, resultErr error) {
+	documents, err := newASTFormatDocuments(m)
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	defer documents.finish(&document, &resultErr)
 	count, err := m.GetNumDeclarations(q)
 	if err != nil || count == 0 {
 		return ASTHandle{}, ErrASTDomain
@@ -103,7 +108,7 @@ func (m *ASTManager) smt2PPQuantifierRootWithInfoAt(q ASTHandle, outer []usymbol
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		printed, e := m.smt2PPExprTreeWithInfoAt(pattern, scopedNames, false, nil, enclosingAliases, false, config)
+		printed, e := documents.own(m.smt2PPExprTreeWithInfoAt(pattern, scopedNames, false, nil, enclosingAliases, false, config))
 		if e != nil {
 			return ASTHandle{}, e
 		}
@@ -115,7 +120,7 @@ func (m *ASTManager) smt2PPQuantifierRootWithInfoAt(q ASTHandle, outer []usymbol
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		printed, e := m.smt2PPExprTreeWithInfoAt(pattern, scopedNames, false, nil, enclosingAliases, false, config)
+		printed, e := documents.own(m.smt2PPExprTreeWithInfoAt(pattern, scopedNames, false, nil, enclosingAliases, false, config))
 		if e != nil {
 			return ASTHandle{}, e
 		}
@@ -126,14 +131,14 @@ func (m *ASTManager) smt2PPQuantifierRootWithInfoAt(q ASTHandle, outer []usymbol
 		return ASTHandle{}, err
 	}
 	var bodyInfo smt2PPInfo
-	printedBody, err := m.smt2PPExprTreeWithInfoAt(body, scopedNames, false, &bodyInfo, enclosingAliases, allowAliases, config)
+	printedBody, err := documents.own(m.smt2PPExprTreeWithInfoAt(body, scopedNames, false, &bodyInfo, enclosingAliases, allowAliases, config))
 	if err != nil {
 		return ASTHandle{}, err
 	}
 	if !allowAliases {
 		// A pattern suppresses new aliases, but a quantifier encountered in
 		// that pattern still executes its own pp_let checkpoint.
-		printedBody, err = m.smt2PPLetAt(printedBody, nil, enclosingAliases)
+		printedBody, err = documents.own(m.smt2PPLetAt(printedBody, nil, enclosingAliases))
 		if err != nil {
 			return ASTHandle{}, err
 		}
@@ -141,58 +146,58 @@ func (m *ASTManager) smt2PPQuantifierRootWithInfoAt(q ASTHandle, outer []usymbol
 	if patterns != 0 || noPatterns != 0 || weight > 1 || !skid.IsNull() || !qid.IsNull() && !qid.IsNumerical() {
 		parts := []ASTHandle{printedBody}
 		for _, printed := range printedPatterns {
-			attr, e := m.SMT2PPAttribute(":pattern ", printed)
+			attr, e := documents.own(m.SMT2PPAttribute(":pattern ", printed))
 			if e != nil {
 				return ASTHandle{}, e
 			}
 			parts = append(parts, attr)
 		}
 		for _, printed := range printedNoPatterns {
-			attr, e := m.SMT2PPAttribute(":no-pattern ", printed)
+			attr, e := documents.own(m.SMT2PPAttribute(":no-pattern ", printed))
 			if e != nil {
 				return ASTHandle{}, e
 			}
 			parts = append(parts, attr)
 		}
 		if weight > 1 {
-			attr, e := m.SMT2PPSimpleAttributeInt(":weight ", weight)
+			attr, e := documents.own(m.SMT2PPSimpleAttributeInt(":weight ", weight))
 			if e != nil {
 				return ASTHandle{}, e
 			}
 			parts = append(parts, attr)
 		}
 		if !skid.IsNull() {
-			attr, e := m.SMT2PPSimpleAttributeSymbol(":skolemid ", skid)
+			attr, e := documents.own(m.SMT2PPSimpleAttributeSymbol(":skolemid ", skid))
 			if e != nil {
 				return ASTHandle{}, e
 			}
 			parts = append(parts, attr)
 		}
 		if !qid.IsNull() && !qid.IsNumerical() {
-			attr, e := m.SMT2PPSimpleAttributeSymbol(":qid ", qid)
+			attr, e := documents.own(m.SMT2PPSimpleAttributeSymbol(":qid ", qid))
 			if e != nil {
 				return ASTHandle{}, e
 			}
 			parts = append(parts, attr)
 		}
-		printedBody, err = m.FormatSeq1("!", parts)
+		printedBody, err = documents.own(m.FormatSeq1("!", parts))
 		if err != nil {
 			return ASTHandle{}, err
 		}
 	}
 	decls := make([]ASTHandle, 0, count)
 	for i, sort := range sorts {
-		printedSort, e := m.SMT2PPSort(sort)
+		printedSort, e := documents.own(m.SMT2PPSort(sort))
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		decl, e := m.FormatSeq1(spellings[i], []ASTHandle{printedSort})
+		decl, e := documents.own(m.FormatSeq1(spellings[i], []ASTHandle{printedSort}))
 		if e != nil {
 			return ASTHandle{}, e
 		}
 		decls = append(decls, decl)
 	}
-	printedDecls, err := m.FormatSeq5(decls)
+	printedDecls, err := documents.own(m.FormatSeq5(decls))
 	if err != nil {
 		return ASTHandle{}, err
 	}
@@ -204,7 +209,7 @@ func (m *ASTManager) smt2PPQuantifierRootWithInfoAt(q ASTHandle, outer []usymbol
 	if forall {
 		header = "forall"
 	}
-	whole, err := m.FormatSeq3(header, []ASTHandle{printedDecls, printedBody}, 1, 2)
+	whole, err := documents.own(m.FormatSeq3(header, []ASTHandle{printedDecls, printedBody}, 1, 2))
 	if err != nil {
 		return ASTHandle{}, err
 	}

@@ -18,7 +18,12 @@ func (m *ASTManager) smt2PPLet(body ASTHandle, bindings []smt2LetBinding) (ASTHa
 
 // oldSize is the enclosing alias count captured by begin_scope. The native
 // binding slice contains only declarations created in this scope.
-func (m *ASTManager) smt2PPLetAt(body ASTHandle, bindings []smt2LetBinding, oldSize int) (ASTHandle, error) {
+func (m *ASTManager) smt2PPLetAt(body ASTHandle, bindings []smt2LetBinding, oldSize int) (document ASTHandle, resultErr error) {
+	documents, err := newASTFormatDocuments(m)
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	defer documents.finish(&document, &resultErr)
 	if err := m.traceSMT2Let(806, "old_sz: "+strconv.Itoa(oldSize)+", sz: ", oldSize+len(bindings)); err != nil {
 		return ASTHandle{}, err
 	}
@@ -30,7 +35,7 @@ func (m *ASTManager) smt2PPLetAt(body ASTHandle, bindings []smt2LetBinding, oldS
 		for uint32(len(levels)) <= binding.level {
 			levels = append(levels, nil)
 		}
-		decl, err := m.FormatSeq1(binding.name, []ASTHandle{binding.format})
+		decl, err := documents.own(m.FormatSeq1(binding.name, []ASTHandle{binding.format}))
 		if err != nil {
 			return ASTHandle{}, err
 		}
@@ -46,22 +51,22 @@ func (m *ASTManager) smt2PPLetAt(body ASTHandle, bindings []smt2LetBinding, oldS
 			continue
 		}
 		if open > 0 {
-			line, err := m.FormatLineBreak()
+			line, err := documents.own(m.FormatLineBreak())
 			if err != nil {
 				return ASTHandle{}, err
 			}
 			parts = append(parts, line)
 		}
 		open++
-		prefix, err := m.FormatString("(let ")
+		prefix, err := documents.own(m.FormatString("(let "))
 		if err != nil {
 			return ASTHandle{}, err
 		}
-		group, err := m.FormatSeq5(decls)
+		group, err := documents.own(m.FormatSeq5(decls))
 		if err != nil {
 			return ASTHandle{}, err
 		}
-		group, err = m.FormatIndent(5, group)
+		group, err = documents.own(m.FormatIndent(5, group))
 		if err != nil {
 			return ASTHandle{}, err
 		}
@@ -70,25 +75,25 @@ func (m *ASTManager) smt2PPLetAt(body ASTHandle, bindings []smt2LetBinding, oldS
 	if err := m.traceSMT2Let(833, "num_op: ", open); err != nil {
 		return ASTHandle{}, err
 	}
-	line, err := m.FormatLineBreak()
+	line, err := documents.own(m.FormatLineBreak())
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	inner, err := m.FormatCompose([]ASTHandle{line, body})
+	inner, err := documents.own(m.FormatCompose([]ASTHandle{line, body}))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	inner, err = m.FormatIndent(2, inner)
+	inner, err = documents.own(m.FormatIndent(2, inner))
 	if err != nil {
 		return ASTHandle{}, err
 	}
 	parts = append(parts, inner)
 	for i := 0; i < open; i++ {
-		close, err := m.FormatString(")")
+		close, err := documents.own(m.FormatString(")"))
 		if err != nil {
 			return ASTHandle{}, err
 		}
 		parts = append(parts, close)
 	}
-	return m.FormatCompose(parts)
+	return documents.own(m.FormatCompose(parts))
 }

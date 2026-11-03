@@ -7,21 +7,26 @@ import "math"
 // FormatSeq3 builds the source split header sequence. The first split
 // documents stay aligned after the header; the remaining documents use the
 // outer indentation. Nil documents after the first are omitted by mk_seq.
-func (m *ASTManager) FormatSeq3(header string, children []ASTHandle, split, indent uint32) (ASTHandle, error) {
-	left, err := m.FormatString("(")
+func (m *ASTManager) FormatSeq3(header string, children []ASTHandle, split, indent uint32) (document ASTHandle, resultErr error) {
+	documents, err := newASTFormatDocuments(m)
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	head, err := m.FormatString(header)
+	defer documents.finish(&document, &resultErr)
+	left, err := documents.own(m.FormatString("("))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	right, err := m.FormatString(")")
+	head, err := documents.own(m.FormatString(header))
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	right, err := documents.own(m.FormatString(")"))
 	if err != nil {
 		return ASTHandle{}, err
 	}
 	if len(children) == 0 {
-		return m.FormatCompose([]ASTHandle{left, head, right})
+		return documents.own(m.FormatCompose([]ASTHandle{left, head, right}))
 	}
 	if split == 0 {
 		return ASTHandle{}, ErrASTDomain
@@ -33,13 +38,13 @@ func (m *ASTManager) FormatSeq3(header string, children []ASTHandle, split, inde
 	if end > uint64(len(children)) {
 		end = uint64(len(children))
 	}
-	seq := func(documents []ASTHandle) (ASTHandle, error) {
+	seq := func(children []ASTHandle) (ASTHandle, error) {
 		formatOwner, e := m.GetFormatManager()
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		parts := make([]ASTHandle, 0, 2*len(documents))
-		for _, document := range documents {
+		parts := make([]ASTHandle, 0, 2*len(children))
+		for _, document := range children {
 			kind, e := formatOwner.GetDeclKind(document)
 			if e != nil {
 				return ASTHandle{}, e
@@ -47,15 +52,15 @@ func (m *ASTManager) FormatSeq3(header string, children []ASTHandle, split, inde
 			if kind == ASTFormatNil {
 				continue
 			}
-			line, e := m.FormatLineBreak()
+			line, e := documents.own(m.FormatLineBreak())
 			if e != nil {
 				return ASTHandle{}, e
 			}
 			parts = append(parts, line, document)
 		}
-		return m.FormatCompose(parts)
+		return documents.own(m.FormatCompose(parts))
 	}
-	space, err := m.FormatString(" ")
+	space, err := documents.own(m.FormatString(" "))
 	if err != nil {
 		return ASTHandle{}, err
 	}
@@ -63,15 +68,15 @@ func (m *ASTManager) FormatSeq3(header string, children []ASTHandle, split, inde
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	first, err := m.FormatCompose([]ASTHandle{space, children[0], firstTail})
+	first, err := documents.own(m.FormatCompose([]ASTHandle{space, children[0], firstTail}))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	first, err = m.FormatIndent(uint32(len(header)+2), first)
+	first, err = documents.own(m.FormatIndent(uint32(len(header)+2), first))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	first, err = m.FormatGroup(first)
+	first, err = documents.own(m.FormatGroup(first))
 	if err != nil {
 		return ASTHandle{}, err
 	}
@@ -79,13 +84,13 @@ func (m *ASTManager) FormatSeq3(header string, children []ASTHandle, split, inde
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	tail, err = m.FormatIndent(indent, tail)
+	tail, err = documents.own(m.FormatIndent(indent, tail))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	whole, err := m.FormatCompose([]ASTHandle{left, head, first, tail, right})
+	whole, err := documents.own(m.FormatCompose([]ASTHandle{left, head, first, tail, right}))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	return m.FormatGroup(whole)
+	return documents.own(m.FormatGroup(whole))
 }
