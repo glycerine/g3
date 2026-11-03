@@ -175,12 +175,12 @@ func TestFixedpointPopResumesConsumedAssertionInSourceOrder(t *testing.T) {
 	f.must(m.DelParameter(&parameter))
 	f.must(numbers.Del(&value))
 	f.must(scoped.Close())
-	remaining, revision := e.assertions[0], e.revision
+	remaining, revision := e.assertions[2], e.revision
 	if count, err := m.GetRefCount(declaration); err != nil || count != 1 {
 		t.Fatal("not the sole metadata owner", count, err)
 	}
 	// Real signed TLS accounting refusal occurs after physically releasing
-	// the large rational, consuming its ASTRef while leaving the first owner.
+	// the large rational, consuming its ASTRef while leaving the last owner.
 	a, err := runtime.Allocate(8)
 	f.must(err)
 	c, err := runtime.Allocate(8)

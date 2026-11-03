@@ -16,21 +16,55 @@ const (
 	contextPopSnapshot
 )
 
+// ref_vector::shrink decrements the removed suffix from front to back. The
+// consumed prefix is compacted even when a finalizer reports an error, so retry
+// starts with the first remaining owner without replaying completed callbacks.
+func (e *PropositionalEngine) releasePoppedAssertions(start int) error {
+	next := start
+	defer func() {
+		remaining := copy(e.assertions[start:], e.assertions[next:])
+		clear(e.assertions[start+remaining:])
+		e.assertions = e.assertions[:start+remaining]
+	}()
+	for next < len(e.assertions) {
+		err := e.manager.DelRef(&e.assertions[next])
+		if e.assertions[next] == (ast.ASTRef{}) {
+			next++
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (e *PropositionalEngine) releasePoppedRawRules() error {
+	next := 0
+	defer func() {
+		remaining := copy(e.retiredRawRules, e.retiredRawRules[next:])
+		clear(e.retiredRawRules[remaining:])
+		e.retiredRawRules = e.retiredRawRules[:remaining]
+	}()
+	for next < len(e.retiredRawRules) {
+		err := e.manager.DelRef(&e.retiredRawRules[next].formula)
+		if e.retiredRawRules[next].formula == (ast.ASTRef{}) {
+			next++
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (e *PropositionalEngine) resumeContextPop() error {
 	last := len(e.scopes) - 1
 	if last < 0 || len(e.rawRuleScopes) != last+1 || len(e.assertionScopes) != last+1 {
 		return ErrPropositionalEngine
 	}
 	if e.popPhase == contextPopAssertions {
-		for len(e.assertions) > e.assertionScopes[last] {
-			i := len(e.assertions) - 1
-			err := e.manager.DelRef(&e.assertions[i])
-			if e.assertions[i] == (ast.ASTRef{}) {
-				e.assertions = e.assertions[:i]
-			}
-			if err != nil {
-				return err
-			}
+		if err := e.releasePoppedAssertions(e.assertionScopes[last]); err != nil {
+			return err
 		}
 		e.retiredRawRules = append(e.retiredRawRules, e.rawRules...)
 		e.rawRules = e.rawRuleScopes[last]
@@ -38,7 +72,7 @@ func (e *PropositionalEngine) resumeContextPop() error {
 		e.popPhase = contextPopRawRules
 	}
 	if e.popPhase == contextPopRawRules {
-		if err := e.cleanupRetiredRawRules(); err != nil {
+		if err := e.releasePoppedRawRules(); err != nil {
 			return err
 		}
 		e.popPhase = contextPopRules
