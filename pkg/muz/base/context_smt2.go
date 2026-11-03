@@ -184,6 +184,9 @@ func (s *RuleSet) WriteContextSMT2(out io.Writer, config ContextSMT2Config) (res
 			return err
 		}
 		if names[i] != "" {
+			if _, err = io.WriteString(out, " :named "); err != nil {
+				return err
+			}
 			name := names[i]
 			for {
 				symbol, e := m.Symbols.Intern(name)
@@ -195,9 +198,6 @@ func (s *RuleSet) WriteContextSMT2(out io.Writer, config ContextSMT2Config) (res
 					break
 				}
 				name += "!"
-			}
-			if _, err = io.WriteString(out, " :named "); err != nil {
-				return err
 			}
 			if err = s.writeContextSymbol(out, name); err != nil {
 				return err
