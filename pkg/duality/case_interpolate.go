@@ -25,6 +25,20 @@ type CaseInterpolator struct {
 	badCount, badLimit int
 }
 
+func popCaseGraphScope(graph *RPFP, active *bool) error {
+	if active == nil {
+		return ErrWrapperOwner
+	}
+	if !*active {
+		return nil
+	}
+	if err := graph.Pop(1); err != nil {
+		return err
+	}
+	*active = false
+	return nil
+}
+
 func (c *CaseInterpolator) Interpolate(root, node *Node, config *interp.RunConfig) (result error) {
 	if c == nil || c.Auxiliary == nil || c.Simplifier == nil {
 		return ErrWrapperOwner
@@ -65,7 +79,7 @@ func (c *CaseInterpolator) Interpolate(root, node *Node, config *interp.RunConfi
 	var facts []*Transformer
 	defer func() {
 		if graphScope {
-			result = errors.Join(result, g.Pop(1))
+			result = errors.Join(result, popCaseGraphScope(g, &graphScope))
 		}
 		for len(aux.limits) > 0 {
 			if err := aux.Pop(); err != nil {
@@ -305,8 +319,7 @@ func (c *CaseInterpolator) Interpolate(root, node *Node, config *interp.RunConfi
 			}
 			axiomsAdded = true
 		}
-		graphScope = false
-		if err = g.Pop(1); err != nil {
+		if err = popCaseGraphScope(g, &graphScope); err != nil {
 			return err
 		}
 		previousAnnotation = current

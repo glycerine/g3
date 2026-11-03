@@ -14,6 +14,9 @@ func (c *CachedGraphAssertions) Push() error {
 	if err := c.graph.solverReady(); err != nil {
 		return err
 	}
+	if c.graph.scopes[len(c.graph.scopes)-1].solverPopped {
+		return ErrWrapperOwner
+	}
 	if err := c.active.Push(); err != nil {
 		return err
 	}
@@ -27,10 +30,7 @@ func (c *CachedGraphAssertions) Pop(count uint32) error {
 	if uint64(count) >= uint64(len(c.graph.scopes)) {
 		return ast.ErrASTDomain
 	}
-	if err := c.active.Pop(int(count)); err != nil {
-		return err
-	}
-	return c.graph.releaseGraphScopes(count)
+	return c.graph.popGraphScopes(count, func(n uint32) error { return c.active.Pop(int(n)) })
 }
 func (c *CachedGraphAssertions) AssertNode(node *Node) (result error) {
 	if c == nil || node == nil || node.Owner != c.graph || node.closed {

@@ -267,6 +267,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Reconcile the external `src/duality/` overview descriptions against current code and native tests.
   - [ ] Complete the method-level and ownership audit records; overview corrections do not close the units.
 - [ ] Audit RPFP graph/vocabulary ownership, nodes/edges, clone/delete, assertions, dual formulas and incremental solver scopes.
+  - [x] Make raw and cached graph-scope pops phase-aware so native solver scopes pop exactly once while failed AST-owner cleanup remains retryable, including multi-scope and case-interpolation cleanup.
 - [ ] Audit lazy-annotation expansion, heuristic ordering, covering, backtracking, restarts and constrained counterexample completion.
   - [x] Preserve cloned lower facts during constrained fast completion under the compiled source guard; keep model-derived underapproximation computation available for its legitimate unconstrained source path and verify the real SAT counterexample graph/model.
   - [x] Acquire the next history proposer before transferring the previous counterexample replay guide, so recoverable history failure leaves the active engine unchanged and retry transfers both owners exactly once.
@@ -598,6 +599,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Added the source ownership-moving transition between ordinary tables and all-inner sieves. Validation is failure-atomic, the exact concrete table moves without cloning, nullary identity survives round trips and partial sieves remain owned by their source; broader sieve dispatch remains open.
   Validation: `go -C pkg test ./muz/rel -run '^TestSieve' -count=3` passed. Commit title: `Transfer tables into sieve relations`.
+
+- 2026-11-02 — Duality raw and cached RPFP graph scopes now record native solver-pop completion independently from graph-reference cleanup. Case interpolation and multi-scope retries preserve the full owner frontier, never pop the solver twice and retire consumed references in place; wider graph ownership auditing remains open.
+  Validation: `go -C pkg test ./duality -run '^(TestDualityCaseInterpolationGraphScopePopRetriesOwnership|TestDuality.*(Graph|Scope|Case|Restart))$' -count=3` passed. Commit title: `Retry Duality graph scope cleanup safely`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.

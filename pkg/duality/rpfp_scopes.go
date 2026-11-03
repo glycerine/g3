@@ -12,9 +12,10 @@ type edgeConstraint struct {
 	ref  ast.ASTRef
 }
 type graphScope struct {
-	edges       []*Edge
-	nodes       []*Node
-	constraints []edgeConstraint
+	edges        []*Edge
+	nodes        []*Node
+	constraints  []edgeConstraint
+	solverPopped bool // native pop completed; retry releases only owning graph references
 }
 
 // BindSolver borrows the native solver. Bind before asserting graph state;
@@ -54,6 +55,9 @@ func (g *RPFP) Push() error {
 	if err := g.solverReady(); err != nil {
 		return err
 	}
+	if g.scopes[len(g.scopes)-1].solverPopped {
+		return ErrWrapperOwner
+	}
 	if err := g.solver.Push(); err != nil {
 		return err
 	}
@@ -67,8 +71,21 @@ func (g *RPFP) Pop(count uint32) error {
 	if uint64(count) >= uint64(len(g.scopes)) {
 		return ast.ErrASTDomain
 	}
-	if err := g.solver.Pop(count); err != nil {
-		return err
+	return g.popGraphScopes(count, g.solver.Pop)
+}
+
+func (g *RPFP) popGraphScopes(count uint32, popSolver func(uint32) error) error {
+	pending := uint32(0)
+	for pending < count && g.scopes[len(g.scopes)-1-int(pending)].solverPopped {
+		pending++
+	}
+	if pending < count {
+		if err := popSolver(count - pending); err != nil {
+			return err
+		}
+		for n := pending; n < count; n++ {
+			g.scopes[len(g.scopes)-1-int(n)].solverPopped = true
+		}
 	}
 	return g.releaseGraphScopes(count)
 }
@@ -76,7 +93,7 @@ func (g *RPFP) Pop(count uint32) error {
 func (g *RPFP) releaseGraphScopes(count uint32) error {
 	m := g.context.manager
 	for n := uint32(0); n < count; n++ {
-		scope := &g.scopes[len(g.scopes)-1]
+		scope := &g.scopes[len(g.scopes)-1-int(n)]
 		for _, edge := range scope.edges {
 			if edge.dual != (ast.ASTRef{}) {
 				if err := m.DelRef(&edge.dual); err != nil {
@@ -91,22 +108,27 @@ func (g *RPFP) releaseGraphScopes(count uint32) error {
 				}
 			}
 		}
-		for _, constraint := range scope.constraints {
+		for i := range scope.constraints {
+			constraint := &scope.constraints[i]
 			edge := constraint.edge
 			if len(edge.constraints) > 0 {
 				idx := len(edge.constraints) - 1
-				if err := m.DelRef(&edge.constraints[idx]); err != nil {
+				err := m.DelRef(&edge.constraints[idx])
+				if edge.constraints[idx] == (ast.ASTRef{}) {
+					edge.constraints = edge.constraints[:idx]
+				}
+				if err != nil {
 					return err
 				}
-				edge.constraints = edge.constraints[:idx]
 			}
-			ref := constraint.ref
-			if err := m.DelRef(&ref); err != nil {
-				return err
+			if constraint.ref != (ast.ASTRef{}) {
+				if err := m.DelRef(&constraint.ref); err != nil {
+					return err
+				}
 			}
 		}
-		g.scopes = g.scopes[:len(g.scopes)-1]
 	}
+	g.scopes = g.scopes[:len(g.scopes)-int(count)]
 	return nil
 }
 func (g *RPFP) AssertNode(node *Node) (result error) {
