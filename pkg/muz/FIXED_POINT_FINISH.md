@@ -466,6 +466,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Equality, identical and negation mutators release transferred source nodes before applying the operation, with retryable child cleanup.
   - [x] Forced functional Fetch/Ensure/Remove, independent checked roots, same-engine derived indices and nonforcing source estimates.
   - [x] Force source-compatible emptiness and sequential bulk removal over sparse/nullary storage while keeping lazy exact-size knowledge false and deferred-source mutation independent.
+  - [x] Force and complement deferred sparse or nullary storage with functional-suffix semantics, adopting an independently owned lazy result in the same engine.
 - [ ] `src/muz/rel/dl_mk_explanations.cpp` (partial), `src/muz/rel/dl_mk_explanations.h` (partial)
 - [ ] `src/muz/rel/dl_mk_similarity_compressor.cpp` (partial), `src/muz/rel/dl_mk_similarity_compressor.h` (partial)
   - [x] Preserve rewritten rules and temporary AST roots through native cleanup refusal with nested child-first retry and no partial transformation publication.
@@ -520,6 +521,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — LazySparse complement now forces deferred sparse or nullary storage, applies the concrete functional-suffix complement and adopts an independent lazy base result in the same engine. Unary, functional and nullary complements preserve source ownership and do not mutate the deferred source; broader lazy method auditing remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^TestLazySparse(Complement|BulkRemoval|NullaryBulk)' -count=3` passed. Commit title: `Complement lazy sparse relations`.
 
 - 2026-11-02 — Exact bound/interval products now execute the compiler's fused interpreted-filter-and-project transformer: clone first, apply the single conjunction componentwise, then project. The operation preserves requested order and source independence, handles empty products, rejects invalid projections atomically and keeps compound conditions coarse instead of unsafely splitting them; main compiler wiring remains open.
   Validation: `go -C pkg test ./muz/rel -run '^TestIntervalBoundProductFilterInterpretedAndProject' -count=3` passed. Commit title: `Filter and project bound interval products`.
