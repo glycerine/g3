@@ -428,6 +428,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Live `datalog.check_relation` selection for concrete hashtable/doc execution, local precedence, checked derived facts, persistent publication and scoped cleanup.
   - [x] Concrete sparse checker pairing, native `tr_hashtable`/`tr_sparse` names, independent primary/checker copies and zero-arity sparse fallback.
   - [x] Construct a concrete outer formula checker around an inner primary/check-table finite pair with typed operations, lazy estimates and retryable failure ownership.
+  - [x] Apply interpreted filters to checked LazySparse pairs through the deferred compiled guard on both sides, rejecting nullary capability and detecting one-sided divergence.
 - [ ] `src/muz/rel/dl_base.cpp` (partial), `src/muz/rel/dl_base.h` (partial)
 - [ ] `src/muz/rel/dl_bound_relation.cpp` (partial), `src/muz/rel/dl_bound_relation.h` (partial)
   - [x] Concrete Int/Real/nullary plugin capability, empty/full construction, and typed join dispatch.
@@ -523,6 +524,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Checked LazySparse pairs now apply interpreted conditions through the existing deferred compiled guard on checker and primary storage. Semantic filtering preserves matching rows and deliberate one-sided corruption fails closed; the source capability still rejects nullary Lazy storage, and other checked-Lazy operations remain open.
+  Validation: `go -C pkg test ./muz/rel -run '^(TestFiniteCheckedPairLazyInterpretedFilterAndMismatch|TestFiniteCheckedPair.*Interpreted)' -count=3` passed. Commit title: `Filter checked lazy sparse pairs`.
 
 - 2026-11-02 — Added independent ordinary-table↔all-inner-sieve conversions for concrete mixed-operation and publication transitions. Exact signatures and nullary identity are preserved, clones survive source close/reset, and partial ignored-column layouts reject instead of unsafely enumerating missing coordinates; broader sieve dispatch remains open.
   Validation: `go -C pkg test ./muz/rel -run '^TestSieveTableConversion' -count=3` passed. Commit title: `Convert between tables and full sieves`.

@@ -647,6 +647,8 @@ func filterCheckedPairInterpreted(table FiniteTable, manager *RelationManager, r
 		return relation.FilterInterpreted(theory, conditions, columns, sorts)
 	case *SparseTable:
 		return filterSparseInterpretedBound(concrete, manager, theory, conditions, columns, sorts)
+	case *LazySparseTable:
+		return concrete.filterInterpretedCompiled(manager, theory, conditions, columns, sorts)
 	default:
 		return ErrCheckTable
 	}
