@@ -314,6 +314,13 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 // clearQueryResources releases the backend state used to answer the previous
 // expression query. It is also called when the engine itself is closed.
 func (e *PropositionalEngine) clearQueryResources() error {
+	// Finish an earlier direct-context replacement before a new expression
+	// query can transfer its pre-query owner into a clone.
+	if e.pdrDisposal != nil {
+		if err := e.closePDRForReplacement(); err != nil {
+			return err
+		}
+	}
 	if err := e.clearDatalogTransformCleanup(); err != nil {
 		return err
 	}

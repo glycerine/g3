@@ -465,8 +465,10 @@ func (m *Manager) Close() (result error) {
 	// Source member destruction is reverse declaration order: contexts, the
 	// background expr_ref, then sym_mux. Stop at each refused owner so later
 	// siblings remain untouched and retry resumes at the same boundary.
-	if result = m.manager.DelRef(&m.background); result != nil {
-		return result
+	if m.background != (ast.ASTRef{}) {
+		if result = m.manager.DelRef(&m.background); result != nil {
+			return result
+		}
 	}
 	if result = m.mux.Close(); result != nil {
 		return result

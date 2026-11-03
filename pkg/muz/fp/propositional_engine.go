@@ -124,6 +124,7 @@ type PropositionalEngine struct {
 	pdrProof            ast.ASTRef
 	pdrSliceProof       bool
 	pdrStatistics       muzpdr.StatisticsSnapshot
+	pdrDisposal         *pdrContextDisposal
 	bmcStatistics       statistics.Statistics
 	bmcTrace            []*base.Rule
 	bmcProof            ast.ASTRef
@@ -2073,7 +2074,7 @@ func (e *PropositionalEngine) ResetStatistics() error {
 	}
 	// A previous disposal may already have closed the query's solver. Finish
 	// archiving its saved counters before applying the source reset semantics.
-	if e.queryCloneDisposal != nil {
+	if e.queryCloneDisposal != nil || e.pdrDisposal != nil {
 		if err := e.clearQueryResources(); err != nil {
 			return err
 		}

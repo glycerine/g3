@@ -15,6 +15,11 @@ import (
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
+type pdrContextDisposal struct {
+	context    *pdr.Context
+	statistics pdr.StatisticsSnapshot
+}
+
 func (e *PropositionalEngine) snapshotPDRStatistics() (pdr.StatisticsSnapshot, error) {
 	var result pdr.StatisticsSnapshot
 	result.Merge(e.pdrStatistics)
@@ -27,11 +32,15 @@ func (e *PropositionalEngine) snapshotPDRStatistics() (pdr.StatisticsSnapshot, e
 		}
 	}
 	if e.pdr != nil {
-		current, err := e.pdr.SnapshotStatistics()
-		if err != nil {
-			return result, err
+		if pending := e.pdrDisposal; pending != nil {
+			result.Merge(pending.statistics)
+		} else {
+			current, err := e.pdr.SnapshotStatistics()
+			if err != nil {
+				return result, err
+			}
+			result.Merge(current)
 		}
-		result.Merge(current)
 	}
 	if e.queryClone != nil && (e.queryClone.backend == "pdr" || e.queryClone.backend == "qpdr") {
 		if pending := e.queryCloneDisposal; pending != nil && pending.statisticsReady && pending.clone.closing {
@@ -49,6 +58,9 @@ func (e *PropositionalEngine) snapshotPDRStatistics() (pdr.StatisticsSnapshot, e
 
 func (e *PropositionalEngine) collectPDRStatistics(destination *statistics.Statistics, previous pdr.StatisticsSnapshot) error {
 	previous.Merge(e.pdrStatistics)
+	if pending := e.pdrDisposal; pending != nil {
+		previous.Merge(pending.statistics)
+	}
 	for _, pending := range e.queryCleanup {
 		if pending.clone.backend == "pdr" || pending.clone.backend == "qpdr" {
 			if err := pending.captureStatistics(); err != nil {
@@ -61,7 +73,7 @@ func (e *PropositionalEngine) collectPDRStatistics(destination *statistics.Stati
 		if pending := e.queryCloneDisposal; pending != nil && pending.statisticsReady && pending.clone.closing {
 			previous.Merge(pending.pdr)
 		} else {
-			if e.pdr != nil {
+			if e.pdr != nil && e.pdrDisposal == nil {
 				current, err := e.pdr.SnapshotStatistics()
 				if err != nil {
 					return err
@@ -71,7 +83,7 @@ func (e *PropositionalEngine) collectPDRStatistics(destination *statistics.Stati
 			return e.queryClone.collectPDRStatistics(destination, previous)
 		}
 	}
-	if e.pdr != nil {
+	if e.pdr != nil && e.pdrDisposal == nil {
 		return e.pdr.CollectStatisticsWithSnapshot(destination, previous)
 	}
 	return previous.Collect(destination)
@@ -79,15 +91,23 @@ func (e *PropositionalEngine) collectPDRStatistics(destination *statistics.Stati
 
 func (e *PropositionalEngine) closePDRForReplacement() error {
 	if e.pdr != nil {
-		archived, err := e.pdr.SnapshotStatistics()
-		if err != nil {
+		// A later source member can refuse destruction after the solver pool
+		// has closed. Keep its complete snapshot and resume that exact owner
+		// without asking the closing manager to collect statistics again.
+		if e.pdrDisposal == nil {
+			archived, err := e.pdr.SnapshotStatistics()
+			if err != nil {
+				return err
+			}
+			e.pdrDisposal = &pdrContextDisposal{context: e.pdr, statistics: archived}
+		}
+		pending := e.pdrDisposal
+		if err := pending.context.Close(); err != nil {
 			return err
 		}
-		if err = e.pdr.Close(); err != nil {
-			return err
-		}
-		e.pdrStatistics.Merge(archived)
+		e.pdrStatistics.Merge(pending.statistics)
 		e.pdr = nil
+		e.pdrDisposal = nil
 	}
 	if e.pdrRules != nil {
 		if err := e.pdrRules.Close(); err != nil {
@@ -405,6 +425,9 @@ func (e *PropositionalEngine) pdrContext() (_ *pdr.Context, resultErr error) {
 	}
 	if e.backend != "pdr" && e.backend != "qpdr" {
 		return nil, ErrPropositionalEngine
+	}
+	if e.pdrDisposal != nil {
+		return nil, ast.ErrASTPending
 	}
 	if e.pdr != nil {
 		if e.pdrRules != nil && e.pdrRevision != e.revision {
