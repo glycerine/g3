@@ -344,15 +344,21 @@ func (c *Context) reducedProofTrace(root *ModelNode) (result ast.ASTRef, resultE
 		if x != nil {
 			return reducedProofEntry{}, x
 		}
-		currentProof, x := c.manager.MkProofAsserted(formulaHandle)
-		if x != nil {
-			return reducedProofEntry{}, x
-		}
-		proofReference, x := c.manager.NewRef(currentProof)
+		// Source proof_ref/trail ownership exists before a proof is built.
+		// Reserve the Go reference first so a page allocation cannot strand
+		// the fresh asserted or hyper-resolution node.
+		proofReference, x := c.manager.NewRef(ast.ASTHandle{})
 		if x != nil {
 			return reducedProofEntry{}, x
 		}
 		references = append(references, proofReference)
+		currentProof, x := c.manager.MkProofAsserted(formulaHandle)
+		if !currentProof.IsNull() {
+			x = errors.Join(x, c.manager.SetRef(proofReference, currentProof))
+		}
+		if x != nil {
+			return reducedProofEntry{}, x
+		}
 		currentRule := selected.rule
 		children, x := node.Children()
 		if x != nil {
@@ -397,19 +403,22 @@ func (c *Context) reducedProofTrace(root *ModelNode) (result ast.ASTRef, resultE
 			if y != nil {
 				return reducedProofEntry{}, y
 			}
+			proofReference, y = c.manager.NewRef(ast.ASTHandle{})
+			if y != nil {
+				return reducedProofEntry{}, y
+			}
+			references = append(references, proofReference)
 			currentProof, y = c.manager.MkProofHyperResolve(
 				[]ast.ASTHandle{currentProof, childEntry.proof}, conclusionHandle,
 				[]ast.ASTProofPosition{{First: uint32(selected + 1), Second: 0}},
 				[][]ast.ASTHandle{targetSubst, sourceSubst},
 			)
+			if !currentProof.IsNull() {
+				y = errors.Join(y, c.manager.SetRef(proofReference, currentProof))
+			}
 			if y != nil {
 				return reducedProofEntry{}, y
 			}
-			proofReference, y = c.manager.NewRef(currentProof)
-			if y != nil {
-				return reducedProofEntry{}, y
-			}
-			references = append(references, proofReference)
 			for i, position := range positions {
 				if position >= 0 {
 					positions[i] = tailMap[position]
