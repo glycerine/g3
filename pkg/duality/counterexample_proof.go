@@ -287,28 +287,15 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 				return nil, ErrWrapperOwner
 			}
 			programAxioms = nil
-			targetDeclarations, err := sourceGraph.proofPredicateDeclarations(target)
+			indices, err := sourceGraph.proofProgramPremiseIndices(target, currentIndex)
 			if err != nil {
 				return nil, err
 			}
-			for i, source := range sourceGraph.sourceClauses {
-				if i == currentIndex {
-					continue
-				}
+			for _, i := range indices {
+				source := sourceGraph.sourceClauses[i]
 				h, err := m.RefGet(source)
 				if err != nil {
 					return nil, err
-				}
-				head, body, err := sourceGraph.proofClauseHeadBody(h)
-				if err != nil {
-					return nil, err
-				}
-				headDecl, err := m.GetDecl(head)
-				if err != nil {
-					return nil, err
-				}
-				if !targetDeclarations[headDecl] && !m.IsTrue(body) {
-					continue
 				}
 				axiom, err := hold(NewExpr(g.context, h))
 				if err != nil {
@@ -545,6 +532,69 @@ func (g *RPFP) proofPredicateDeclarations(root ast.ASTHandle) (map[ast.ASTHandle
 		}
 	}
 	return result, nil
+}
+
+// proofProgramPremiseIndices closes the source program backwards from a
+// quantified proof obligation. Facts remain available as source axioms, while
+// selected rule bodies add their predicate dependencies until a fixed point is
+// reached. The returned indices preserve source order and never include the
+// clause whose proof is currently being reconstructed.
+func (g *RPFP) proofProgramPremiseIndices(target ast.ASTHandle, currentIndex int) ([]int, error) {
+	if err := g.open(); err != nil {
+		return nil, err
+	}
+	if currentIndex < 0 || currentIndex >= len(g.sourceClauses) {
+		return nil, ErrWrapperOwner
+	}
+	m := g.context.manager
+	needed, err := g.proofPredicateDeclarations(target)
+	if err != nil {
+		return nil, err
+	}
+	selected := make([]bool, len(g.sourceClauses))
+	changed := true
+	for changed {
+		changed = false
+		for i, source := range g.sourceClauses {
+			if i == currentIndex || selected[i] {
+				continue
+			}
+			h, err := m.RefGet(source)
+			if err != nil {
+				return nil, err
+			}
+			head, body, err := g.proofClauseHeadBody(h)
+			if err != nil {
+				return nil, err
+			}
+			headDecl, err := m.GetDecl(head)
+			if err != nil {
+				return nil, err
+			}
+			if !m.IsTrue(body) && !needed[headDecl] {
+				continue
+			}
+			selected[i] = true
+			changed = true
+			dependencies, err := g.proofPredicateDeclarations(body)
+			if err != nil {
+				return nil, err
+			}
+			for declaration := range dependencies {
+				if !needed[declaration] {
+					needed[declaration] = true
+					changed = true
+				}
+			}
+		}
+	}
+	indices := make([]int, 0, len(g.sourceClauses))
+	for i, include := range selected {
+		if include {
+			indices = append(indices, i)
+		}
+	}
+	return indices, nil
 }
 
 // Retain literal positions from the original antecedent, including theory

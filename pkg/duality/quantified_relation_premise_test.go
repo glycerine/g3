@@ -49,9 +49,11 @@ func TestDualityQuantifiedRelationPremiseIsTheoryObligation(t *testing.T) {
 		return decl
 	}
 	seedDecl := declare("quantified-premise-Seed", nil)
+	midDecl := declare("quantified-premise-Mid", nil)
 	pDecl := declare("quantified-premise-P", []ast.ASTHandle{integer, integer})
 	goalDecl := declare("quantified-premise-Goal", nil)
 	seed := raw(wrap(m.MkApp(seedDecl, nil)))
+	mid := raw(wrap(m.MkApp(midDecl, nil)))
 	goal := raw(wrap(m.MkApp(goalDecl, nil)))
 	variable := raw(wrap(m.MkVar(0, integer)))
 	pv := raw(wrap(m.MkApp(pDecl, []ast.ASTHandle{variable, seven})))
@@ -61,13 +63,14 @@ func TestDualityQuantifiedRelationPremiseIsTheoryObligation(t *testing.T) {
 		t.Helper()
 		return raw(wrap(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []usymbol.Symbol{binder}, Body: body})))
 	}
-	seedToP := forall(raw(wrap(m.MkImplies(seed, pv))))
+	seedToMid := raw(wrap(m.MkImplies(seed, mid)))
+	midToP := forall(raw(wrap(m.MkImplies(mid, pv))))
 	quantifiedP := forall(pv)
 	wrapper := raw(wrap(m.MkEq(quantifiedP, truth)))
 	goalRule := raw(wrap(m.MkImplies(wrapper, goal)))
 	falsity := raw(wrap(m.MkFalse()))
 	queryRule := raw(wrap(m.MkImplies(goal, falsity)))
-	clauses := []*Expr{wrap(seed, nil), wrap(seedToP, nil), wrap(goalRule, nil), wrap(queryRule, nil)}
+	clauses := []*Expr{wrap(seed, nil), wrap(seedToMid, nil), wrap(midToP, nil), wrap(goalRule, nil), wrap(queryRule, nil)}
 
 	evaluator := derivationEvaluatorFixture(t, ctx, globals)
 	quantifiers, err := qe.NewLite(m, nil, true, qe.Config{Context: ctx.config.params, Globals: globals, Cooperation: evaluator.Cooperation})
@@ -144,6 +147,7 @@ func TestDualityQuantifiedRelationPremiseIsTheoryObligation(t *testing.T) {
 		sources[raw(clause)] = true
 	}
 	seen := make(map[ast.ASTHandle]bool)
+	assertedSeen := make(map[ast.ASTHandle]bool)
 	stack := []ast.ASTHandle{proofHandle}
 	for len(stack) > 0 {
 		i := len(stack) - 1
@@ -161,6 +165,7 @@ func TestDualityQuantifiedRelationPremiseIsTheoryObligation(t *testing.T) {
 			if !sources[fact] {
 				t.Fatal("proof contains an asserted leaf outside transformed source clauses")
 			}
+			assertedSeen[fact] = true
 		}
 		parents, err := m.GetProofNumParents(current)
 		must(err)
@@ -168,6 +173,94 @@ func TestDualityQuantifiedRelationPremiseIsTheoryObligation(t *testing.T) {
 			parent, err := m.GetProofParent(current, j)
 			must(err)
 			stack = append(stack, parent)
+		}
+	}
+	for source := range sources {
+		if !assertedSeen[source] {
+			t.Fatal("proof omitted a transitive source clause", source)
+		}
+	}
+}
+
+func TestQuantifiedProgramPremisesCloseCyclesInSourceOrder(t *testing.T) {
+	ctx, m, _, _ := dualityNativeSolverServicesFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	wrap := func(h ast.ASTHandle, err error) *Expr {
+		t.Helper()
+		must(err)
+		expression, err := NewExpr(ctx, h)
+		must(err)
+		closeExpr(t, expression)
+		return expression
+	}
+	raw := func(expression *Expr) ast.ASTHandle {
+		t.Helper()
+		h, err := expression.Raw()
+		must(err)
+		return h
+	}
+	truth := raw(wrap(m.MkTrue()))
+	boolean, err := m.GetSort(truth)
+	must(err)
+	zero := raw(wrap(m.ArithmeticIntegerNumeralText("0")))
+	integer, err := m.GetSort(zero)
+	must(err)
+	declare := func(name string, domain []ast.ASTHandle) ast.ASTHandle {
+		symbol, err := m.Symbols.Intern(name)
+		must(err)
+		declaration, err := m.MkFuncDecl(symbol, domain, boolean, ast.ASTFuncDeclInfo{})
+		must(err)
+		return declaration
+	}
+	seedDeclaration := declare("quantified-cycle-Seed", nil)
+	midDeclaration := declare("quantified-cycle-Mid", nil)
+	loopDeclaration := declare("quantified-cycle-Loop", nil)
+	pDeclaration := declare("quantified-cycle-P", []ast.ASTHandle{integer})
+	goalDeclaration := declare("quantified-cycle-Goal", nil)
+	seed := raw(wrap(m.MkApp(seedDeclaration, nil)))
+	mid := raw(wrap(m.MkApp(midDeclaration, nil)))
+	loop := raw(wrap(m.MkApp(loopDeclaration, nil)))
+	goal := raw(wrap(m.MkApp(goalDeclaration, nil)))
+	variable := raw(wrap(m.MkVar(0, integer)))
+	pVariable := raw(wrap(m.MkApp(pDeclaration, []ast.ASTHandle{variable})))
+	binder, err := m.Symbols.Intern("quantified-cycle-index")
+	must(err)
+	forallP := raw(wrap(m.MkQuantifier(ast.ASTQuantifierSpec{
+		Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []usymbol.Symbol{binder}, Body: pVariable,
+	})))
+	midToPBody := raw(wrap(m.MkImplies(mid, pVariable)))
+	midToP := raw(wrap(m.MkQuantifier(ast.ASTQuantifierSpec{
+		Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []usymbol.Symbol{binder}, Body: midToPBody,
+	})))
+	formulas := []ast.ASTHandle{
+		seed,
+		raw(wrap(m.MkImplies(seed, mid))),
+		raw(wrap(m.MkImplies(loop, mid))),
+		raw(wrap(m.MkImplies(mid, loop))),
+		midToP,
+		raw(wrap(m.MkImplies(forallP, goal))),
+	}
+	graph, err := NewRPFP(ctx)
+	must(err)
+	defer func() { must(graph.Close()) }()
+	for _, formula := range formulas {
+		ref, err := m.NewRef(formula)
+		must(err)
+		graph.sourceClauses = append(graph.sourceClauses, ref)
+	}
+	indices, err := graph.proofProgramPremiseIndices(forallP, len(formulas)-1)
+	must(err)
+	if len(indices) != len(formulas)-1 {
+		t.Fatal("transitive cycle premise count", indices)
+	}
+	for i, index := range indices {
+		if index != i {
+			t.Fatal("transitive cycle premises lost source order", indices)
 		}
 	}
 }

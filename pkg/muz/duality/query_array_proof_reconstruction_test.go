@@ -46,8 +46,10 @@ func testDualityQuantifiedArrayProofReconstructsBridgePremise(t *testing.T, rang
 	var output bytes.Buffer
 	fact := fmt.Sprintf("(P ((as const (Array Int %s)) %s))", rangeSort, value)
 	rule := fmt.Sprintf("(rule %s)", fact)
+	bridgeDeclaration := ""
 	if guarded {
-		rule = fmt.Sprintf("(rule (=> Seed %s))", fact)
+		bridgeDeclaration = "(declare-rel Mid ())"
+		rule = fmt.Sprintf("(rule (=> Seed Mid))\n(rule (=> Mid %s))", fact)
 	}
 	script := fmt.Sprintf(`(set-option :fixedpoint.engine duality)
 (set-option :fixedpoint.generate_proof_trace true)
@@ -55,11 +57,12 @@ func testDualityQuantifiedArrayProofReconstructsBridgePremise(t *testing.T, rang
 (declare-rel Seed ())
 (declare-rel P ((Array Int %s)))
 (declare-rel Goal ())
+%s
 (rule Seed)
 %s
 (rule (=> %s Goal))
 (query Goal :print-answer false)
-`, rangeSort, rule, fact)
+`, rangeSort, bridgeDeclaration, rule, fact)
 	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
 		t.Fatal(err)
 	}
@@ -153,5 +156,37 @@ func testDualityQuantifiedArrayProofReconstructsBridgePremise(t *testing.T, rang
 			t.Log("invalid condition", rendered.String())
 			t.Fatal("quantified-array proof side condition is not valid", i, status)
 		}
+	}
+}
+
+func TestDualityQuantifiedArrayProofRejectsMissingTransitiveBridge(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	context.PrintSuccess = false
+	const script = `(set-option :fixedpoint.engine duality)
+(set-option :fixedpoint.generate_proof_trace true)
+(set-option :fixedpoint.xform.quantify_arrays true)
+(declare-rel Seed ())
+(declare-rel Mid ())
+(declare-rel P ((Array Int Int)))
+(declare-rel Goal ())
+(rule Seed)
+(rule (=> Mid (P ((as const (Array Int Int)) 7))))
+(rule (=> (P ((as const (Array Int Int)) 7)) Goal))
+(query Goal :print-answer false)
+`
+	var output bytes.Buffer
+	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != "unsat\n" {
+		t.Fatal("missing transitive bridge was accepted", output.String())
 	}
 }
