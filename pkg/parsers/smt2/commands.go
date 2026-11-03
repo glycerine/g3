@@ -17,6 +17,7 @@ import (
 	"github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 type commandParser struct {
@@ -576,10 +577,20 @@ func (p *commandParser) command() (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		name := ""
+		name := symbol.Symbol{}
 		bound := ^uint32(0)
 		if p.token != RightParenToken {
-			name, err = p.symbol()
+			text, err := p.symbol()
+			if err != nil {
+				return false, err
+			}
+			manager, err := p.astManager()
+			if err != nil {
+				return false, err
+			}
+			// A supplied quoted empty symbol is distinct from an absent name.
+			// SMT-LIB symbol tokens are strings, including the spelling k!7.
+			name, err = manager.Symbols.Intern(text)
 			if err != nil {
 				return false, err
 			}
@@ -597,7 +608,7 @@ func (p *commandParser) command() (bool, error) {
 			if err = p.queryCollector.addRule(p, expression, name); err != nil {
 				return false, err
 			}
-		} else if err = p.context.AddFixedpointRuleWithBound(expression, name, bound); err != nil {
+		} else if err = p.context.AddFixedpointRuleWithSymbolAndBound(expression, name, bound); err != nil {
 			return false, err
 		}
 	case "fixedpoint-push", "fixedpoint-pop":

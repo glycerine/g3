@@ -4,7 +4,6 @@ package api
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"reflect"
@@ -145,13 +144,16 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 		if e != nil {
 			return e
 		}
-		if name.numericSymbol || (!name.nullSymbol && name.s == "") {
-			return fmt.Errorf("fixedpoint replay: numeric and empty-string rule names are not supported")
+		// Replay symbols are already values: N, # and $ distinguish null,
+		// numerical and string symbols, including an interned empty string.
+		label, e := replayFixedpointRuleSymbol(owner, name)
+		if e != nil {
+			return e
 		}
 		if id == 514 {
-			return f.value.AddRule(value.handle, name.s)
+			return f.value.AddRuleWithSymbol(value.handle, label)
 		}
-		return f.value.UpdateRule(value.handle, name.s)
+		return f.value.UpdateRuleWithSymbol(value.handle, label)
 	case 515:
 		decl, e := r.astObject(owner, 2)
 		if e != nil {

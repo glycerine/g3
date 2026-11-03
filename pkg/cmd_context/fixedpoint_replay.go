@@ -33,7 +33,7 @@ func (c *Context) WriteFixedpointReplaySMT2(out io.Writer) (resultErr error) {
 			resultErr = errors.Join(resultErr, c.manager.DelRef(&assertions[i]))
 		}
 	}()
-	rules, names, err := engine.NamedRules()
+	rules, names, err := engine.NamedRulesWithSymbols()
 	if err != nil {
 		return err
 	}
@@ -172,24 +172,22 @@ func (c *Context) WriteFixedpointReplaySMT2(out io.Writer) (resultErr error) {
 		if _, x = io.WriteString(out, "(rule "); x != nil {
 			return x
 		}
-		if names[i] != "" {
-			if _, x = io.WriteString(out, "(! "); x != nil {
-				return x
-			}
-		}
 		if x = c.WriteExpression(out, handle); x != nil {
 			return x
 		}
-		if names[i] != "" {
-			symbol, y := c.manager.Symbols.Intern(names[i])
+		// Rule names are command arguments. A :named expression annotation is
+		// display syntax and does not restore the rule's label on replay.
+		if !names[i].IsNull() {
+			name, y := c.smt2SymbolName(names[i])
 			if y != nil {
 				return y
 			}
-			name, y := c.smt2SymbolName(symbol)
-			if y != nil {
-				return y
+			// The legacy display quoting helper leaves empty text bare;
+			// replay needs an explicit token for a present empty symbol.
+			if name == "" {
+				name = "||"
 			}
-			if _, y = fmt.Fprintf(out, " :named %s)", name); y != nil {
+			if _, y = fmt.Fprintf(out, " %s", name); y != nil {
 				return y
 			}
 		}

@@ -84,7 +84,7 @@ func (f *APIFixedpoint) LoadSMT2WithQueries(input io.Reader) (vector *ASTVector,
 		if e != nil {
 			return vector, e
 		}
-		if e = f.command.AddFixedpointRule(h, program.Names[i]); e != nil {
+		if e = f.command.AddFixedpointRuleWithSymbol(h, program.NameSymbols[i]); e != nil {
 			return vector, e
 		}
 	}

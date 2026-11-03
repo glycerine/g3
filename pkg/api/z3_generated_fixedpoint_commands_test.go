@@ -369,30 +369,6 @@ func TestGeneratedFixedpointReplayNamedRuleUpdate(t *testing.T) {
 	}
 }
 
-func TestGeneratedFixedpointReplayRejectsUnsupportedRuleSymbol(t *testing.T) {
-	for _, name := range []string{"# 7", "$ ||"} {
-		log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 54\n= 0x42\nR\nP 0x41\nC 511\n= 0x43\nR\nP 0x41\nP 0x43\nC 512\n" +
-			"R\nP 0x41\nP 0x43\nP 0x42\n" + name + "\nC 514\n"
-		r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err = RegisterZ3GeneratedContextCommands(r); err != nil {
-			t.Fatal(err)
-		}
-		if err = RegisterZ3GeneratedASTCommands(r); err != nil {
-			t.Fatal(err)
-		}
-		err = r.Parse()
-		if err == nil || !strings.Contains(err.Error(), "rule names are not supported") {
-			t.Fatal("rule symbol", name, err)
-		}
-		if err = r.Close(); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
 func TestGeneratedFixedpointReplayUnnamedRule(t *testing.T) {
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\n$ |R|\nU 0\np 0\nP 0x42\nC 49\n= 0x43\n" +
 		"R\nP 0x41\nP 0x43\nU 0\np 0\nC 50\n= 0x44\nR\nP 0x41\nC 511\n= 0x45\nR\nP 0x41\nP 0x45\nC 512\n" +

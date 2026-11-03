@@ -14,6 +14,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func (c *Context) fixedpointContext() (*muzfp.PropositionalEngine, error) {
@@ -82,6 +83,20 @@ func (c *Context) AddFixedpointRuleWithBound(formula ast.ASTHandle, name string,
 	return engine.AddRuleWithBound(formula, name, bound)
 }
 
+// AddFixedpointRuleWithSymbol preserves null, empty and numerical label identity.
+func (c *Context) AddFixedpointRuleWithSymbol(formula ast.ASTHandle, name symbol.Symbol) error {
+	return c.AddFixedpointRuleWithSymbolAndBound(formula, name, ^uint32(0))
+}
+
+// AddFixedpointRuleWithSymbolAndBound also preserves the original recursion bound.
+func (c *Context) AddFixedpointRuleWithSymbolAndBound(formula ast.ASTHandle, name symbol.Symbol, bound uint32) error {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return err
+	}
+	return engine.AddRuleWithSymbolAndBound(formula, name, bound)
+}
+
 // UpdateFixedpointRule adds a named Horn rule or strengthens the unique
 // existing rule carrying that name.
 func (c *Context) UpdateFixedpointRule(formula ast.ASTHandle, name string) error {
@@ -90,6 +105,25 @@ func (c *Context) UpdateFixedpointRule(formula ast.ASTHandle, name string) error
 		return err
 	}
 	return engine.UpdateRule(formula, name)
+}
+
+// UpdateFixedpointRuleWithSymbol matches the exact source label when replacing a rule.
+func (c *Context) UpdateFixedpointRuleWithSymbol(formula ast.ASTHandle, name symbol.Symbol) error {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return err
+	}
+	return engine.UpdateRuleWithSymbol(formula, name)
+}
+
+// FixedpointNamedRulesWithSymbols returns owned formulas and exact source labels.
+// The caller releases each formula through Manager.DelRef.
+func (c *Context) FixedpointNamedRulesWithSymbols() ([]ast.ASTRef, []symbol.Symbol, error) {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return nil, nil, err
+	}
+	return engine.NamedRulesWithSymbols()
 }
 
 // AddFixedpointFact adds a ground relation tuple using concrete AST values.

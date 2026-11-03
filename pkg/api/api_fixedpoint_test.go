@@ -243,7 +243,7 @@ func TestSMTContextFixedpointSMT2Replay(t *testing.T) {
 		"(declare-rel fp-replay-Q ())",
 		"(assert true)",
 		"(rule fp-replay-P)",
-		":named fp-replay-edge",
+		" fp-replay-edge)",
 	} {
 		if !strings.Contains(script, fragment) {
 			t.Fatalf("fixedpoint replay omitted %q:\n%s", fragment, script)

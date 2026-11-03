@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // ParseAssertionsWithFixedpointQueries parses without executing checks and
@@ -42,7 +43,9 @@ type FixedpointProgram struct {
 	Rules     []ast.ASTRef
 	Relations []ast.ASTRef
 	Names     []string
-	manager   *ast.ASTManager
+	// NameSymbols preserves exact source labels; Names is the legacy text view.
+	NameSymbols []symbol.Symbol
+	manager     *ast.ASTManager
 }
 
 // ParseFixedpointProgram collects fixedpoint commands without executing checks
@@ -57,17 +60,18 @@ func ParseFixedpointProgram(context *cmd_context.Context, input io.Reader) (prog
 	if err := parseCommands(context, input, io.Discard, true, c); err != nil {
 		return program, err
 	}
-	return FixedpointProgram{Queries: c.queries, Rules: c.rules, Relations: c.relations, Names: c.names, manager: c.manager}, nil
+	return FixedpointProgram{Queries: c.queries, Rules: c.rules, Relations: c.relations, Names: c.names, NameSymbols: c.nameSymbols, manager: c.manager}, nil
 }
 
 type fixedpointCollectorScope struct{ queries, rules, relations int }
 type fixedpointQueryCollector struct {
-	manager   *ast.ASTManager
-	queries   []ast.ASTRef
-	rules     []ast.ASTRef
-	relations []ast.ASTRef
-	names     []string
-	scopes    []fixedpointCollectorScope
+	manager     *ast.ASTManager
+	queries     []ast.ASTRef
+	rules       []ast.ASTRef
+	relations   []ast.ASTRef
+	names       []string
+	nameSymbols []symbol.Symbol
+	scopes      []fixedpointCollectorScope
 }
 
 func (c *fixedpointQueryCollector) addRelation(p *commandParser, declaration ast.ASTHandle) error {
@@ -84,18 +88,26 @@ func (c *fixedpointQueryCollector) addRelation(p *commandParser, declaration ast
 	return nil
 }
 
-func (c *fixedpointQueryCollector) addRule(p *commandParser, formula ast.ASTHandle, name string) error {
+func (c *fixedpointQueryCollector) addRule(p *commandParser, formula ast.ASTHandle, name symbol.Symbol) error {
 	m, err := p.astManager()
 	if err != nil {
 		return err
 	}
 	c.manager = m
+	text := ""
+	if name != (symbol.Symbol{}) {
+		text, err = m.Symbols.String(name)
+		if err != nil {
+			return err
+		}
+	}
 	ref, err := p.context.BindFixedpointRule(formula)
 	if err != nil {
 		return err
 	}
 	c.rules = append(c.rules, ref)
-	c.names = append(c.names, name)
+	c.names = append(c.names, text)
+	c.nameSymbols = append(c.nameSymbols, name)
 	return nil
 }
 
@@ -150,6 +162,7 @@ func (c *fixedpointQueryCollector) truncate(scope fixedpointCollectorScope) (res
 	c.queries = c.queries[:scope.queries]
 	c.rules = c.rules[:scope.rules]
 	c.names = c.names[:scope.rules]
+	c.nameSymbols = c.nameSymbols[:scope.rules]
 	return result
 }
 func (c *fixedpointQueryCollector) pop(n uint32) error {
