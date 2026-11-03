@@ -1,11 +1,9 @@
 package fp
 
-// Source: src/muz/base/dl_context.cpp get_model and
-// src/muz/rel/dl_finite_product_relation.cpp finite relation interpretation.
+// The finite-table model is an existing Go extension. Source rel_context
+// inherits the empty model from src/muz/base/dl_engine_base.h get_model.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 )
@@ -23,16 +21,18 @@ func (e *PropositionalEngine) datalogModel(omitted ast.ASTHandle) (result *model
 	if e.boundIntervalDatalog != nil || e.queryClone != nil && e.queryClone.boundIntervalDatalog != nil {
 		return nil, ErrBoundIntervalDatalogFragment
 	}
-	result, err := model.NewModel(e.manager)
+	attempt := &datalogModelAttempt{manager: e.manager}
+	var err error
+	attempt.seed, err = model.NewModel(e.manager)
+	defer func() {
+		if resultErr != nil {
+			result = nil
+			resultErr = attempt.fail(resultErr)
+		}
+	}()
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if resultErr != nil && result != nil {
-			resultErr = errors.Join(resultErr, result.Close())
-			result = nil
-		}
-	}()
 	truth, err := e.manager.MkTrue()
 	if err != nil {
 		return nil, err
@@ -58,26 +58,21 @@ func (e *PropositionalEngine) datalogModel(omitted ast.ASTHandle) (result *model
 			if len(facts) != 0 {
 				value = truth
 			}
-			if x = result.Core().RegisterConstant(declaration, value); x != nil {
+			if x = attempt.seed.Core().RegisterConstant(declaration, value); x != nil {
 				return nil, x
 			}
 			continue
 		}
-		interpretation, x := model.NewFunctionInterpretation(e.manager, uint32(len(state.sorts)))
+		attempt.interpretation, x = model.NewFunctionInterpretation(e.manager, uint32(len(state.sorts)))
 		if x != nil {
 			return nil, x
 		}
-		registered := false
-		defer func() {
-			if !registered && interpretation != nil {
-				resultErr = errors.Join(resultErr, interpretation.Close())
-			}
-		}()
-		if x = interpretation.SetElse(falsity); x != nil {
+		if x = attempt.interpretation.SetElse(falsity); x != nil {
 			return nil, x
 		}
 		for _, fact := range facts {
 			values, y := e.relations.DecodeFact(state.sorts, fact)
+			attempt.values = values
 			if y != nil {
 				return nil, y
 			}
@@ -89,20 +84,23 @@ func (e *PropositionalEngine) datalogModel(omitted ast.ASTHandle) (result *model
 				}
 			}
 			if y == nil {
-				y = interpretation.InsertNewEntry(handles, truth)
-			}
-			for index := len(values) - 1; index >= 0; index-- {
-				y = errors.Join(y, e.manager.DelRef(&values[index]))
+				y = attempt.interpretation.InsertNewEntry(handles, truth)
 			}
 			if y != nil {
 				return nil, y
 			}
+			if y = attempt.clearValues(); y != nil {
+				return nil, y
+			}
 		}
-		if x = result.Core().RegisterFunction(declaration, interpretation); x != nil {
+		if x = attempt.seed.Core().RegisterFunction(declaration, attempt.interpretation); x != nil {
 			return nil, x
 		}
-		registered = true
-		interpretation = nil
+		attempt.interpretation = nil
 	}
-	return e.expandDatalogModel(result)
+	attempt.expanded, err = e.expandDatalogModel(attempt.seed)
+	if err != nil {
+		return nil, err
+	}
+	return attempt.expanded, nil
 }
