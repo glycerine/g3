@@ -55,6 +55,7 @@ type SMTSolver struct {
 	logic         usymbol.Symbol
 	tracked       []smtTrackedAssertion
 	trackedScopes []uint32
+	pendingPop    *smtSolverPendingPop
 	consequences  []ast.ASTRef
 	objectives    []smtSolverObjective
 	callback      solver.ProgressCallback
@@ -223,6 +224,16 @@ func (s *SMTSolver) newAuxiliarySolver() (auxiliary *SMTSolver, resultErr error)
 }
 
 func (s *SMTSolver) open() error {
+	if err := s.openOwner(); err != nil {
+		return err
+	}
+	if s.pendingPop != nil {
+		return ast.ErrASTPending
+	}
+	return nil
+}
+
+func (s *SMTSolver) openOwner() error {
 	if s == nil || s.self != s {
 		return ast.ErrASTHandle
 	}
@@ -241,7 +252,7 @@ func (s *SMTSolver) IncRef() error {
 }
 
 func (s *SMTSolver) DecRef() error {
-	if err := s.open(); err != nil {
+	if err := s.openOwner(); err != nil {
 		return err
 	}
 	if s.references == 0 {
@@ -549,12 +560,21 @@ func (s *SMTSolver) PushCore() error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	if err := s.kernel.Push(); err != nil {
+	before := s.kernel.ScopeLevel()
+	err := s.kernel.Push()
+	if s.kernel.ScopeLevel() > before {
+		s.trackedScopes = append(s.trackedScopes, uint32(len(s.tracked)))
+	}
+	if err != nil {
 		return err
 	}
-	s.trackedScopes = append(s.trackedScopes, uint32(len(s.tracked)))
 	return s.clearResult()
 }
+
+// ScopeLevelCore reports the scope ledger behind the named-assertion adapter.
+// A pending pop remains in this ledger until its tracked roots and result are
+// disposed, allowing a saved-depth caller to retry the same pop.
+func (s *SMTSolver) ScopeLevelCore() uint32 { return uint32(len(s.trackedScopes)) }
 
 func (s *SMTSolver) Push() error { return s.named.Push() }
 
@@ -562,6 +582,9 @@ func (s *SMTSolver) restoreTracked(size uint32) error {
 	for uint32(len(s.tracked)) > size {
 		index := len(s.tracked) - 1
 		if err := s.manager.DelRef(&s.tracked[index].formula); err != nil {
+			if s.tracked[index].formula == (ast.ASTRef{}) {
+				s.tracked = s.tracked[:index]
+			}
 			return err
 		}
 		s.tracked = s.tracked[:index]
@@ -570,27 +593,59 @@ func (s *SMTSolver) restoreTracked(size uint32) error {
 }
 
 func (s *SMTSolver) PopCore(count uint32) error {
-	if err := s.open(); err != nil {
+	if err := s.openOwner(); err != nil {
 		return err
+	}
+	if count == 0 {
+		return nil
+	}
+	if s.pendingPop != nil && s.pendingPop.count != count {
+		return ast.ErrASTPending
 	}
 	if count > uint32(len(s.trackedScopes)) {
 		return arena.ErrBounds
 	}
-	level := uint32(len(s.trackedScopes)) - count
-	if err := s.kernel.Pop(count); err != nil {
+	if s.pendingPop == nil {
+		level := uint32(len(s.trackedScopes)) - count
+		s.pendingPop = &smtSolverPendingPop{count: count, level: level, tracked: s.trackedScopes[level]}
+	}
+	pop := s.pendingPop
+	if !pop.kernelPopped {
+		before := s.kernel.ScopeLevel()
+		err := s.kernel.Pop(count)
+		pop.kernelPopped = before >= count && s.kernel.ScopeLevel() == before-count
+		pop.kernelCleanup = err != nil && pop.kernelPopped
+		if err != nil {
+			return err
+		}
+	}
+	if pop.kernelCleanup {
+		if err := s.kernel.finishPop(count); err != nil {
+			return err
+		}
+		pop.kernelCleanup = false
+	}
+	if err := s.restoreTracked(pop.tracked); err != nil {
 		return err
 	}
-	if err := s.restoreTracked(s.trackedScopes[level]); err != nil {
+	if err := s.clearResult(); err != nil {
 		return err
 	}
-	s.trackedScopes = s.trackedScopes[:level]
-	return s.clearResult()
+	s.trackedScopes = s.trackedScopes[:pop.level]
+	s.pendingPop = nil
+	return nil
+}
+
+type smtSolverPendingPop struct {
+	count, level, tracked uint32
+	kernelPopped          bool
+	kernelCleanup         bool
 }
 
 func (s *SMTSolver) Pop(count uint32) error { return s.named.Pop(count) }
 
 func (s *SMTSolver) ScopeLevel() (uint32, error) {
-	if err := s.open(); err != nil {
+	if err := s.openOwner(); err != nil {
 		return 0, err
 	}
 	return s.named.ScopeLevel()
@@ -1033,13 +1088,23 @@ func (s *SMTSolver) translateWithConfig(manager *ast.ASTManager, params *uparams
 	return next, nil
 }
 
-func (s *SMTSolver) Close() error {
+func (s *SMTSolver) Close() (resultErr error) {
 	if s == nil || s.self != s {
 		return ast.ErrASTHandle
 	}
 	if s.closed {
 		return nil
 	}
+	// Destruction closes all kernel owners directly; it must not replay a
+	// partly consumed native pop. Temporarily detach the metadata so the
+	// normal owner cleanup can run, restoring the operation gate on refusal.
+	pop := s.pendingPop
+	s.pendingPop = nil
+	defer func() {
+		if resultErr != nil {
+			s.pendingPop = pop
+		}
+	}()
 	var result error
 	result = errors.Join(result, s.clearConsequences())
 	result = errors.Join(result, s.clearResult())

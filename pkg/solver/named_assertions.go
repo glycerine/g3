@@ -22,6 +22,12 @@ type NamedAssertionCore interface {
 	DisplayCore(io.Writer) error
 }
 
+// NamedAssertionCoreScopes reports scopes actually published by a native
+// core. A failed native push may return before or after that publication.
+type NamedAssertionCoreScopes interface {
+	ScopeLevelCore() uint32
+}
+
 type NamedAssertions struct {
 	self        *NamedAssertions
 	manager     *ast.ASTManager
@@ -228,8 +234,19 @@ func (n *NamedAssertions) Push() error {
 	if err := n.open(); err != nil {
 		return err
 	}
+	coreScopes, reportsScopes := n.core.(NamedAssertionCoreScopes)
+	var before uint32
+	if reportsScopes {
+		before = coreScopes.ScopeLevelCore()
+	}
 	n.scopes = append(n.scopes, uint32(len(n.assumptions)))
-	return n.core.PushCore()
+	err := n.core.PushCore()
+	if err != nil && reportsScopes && coreScopes.ScopeLevelCore() == before {
+		// Keep the source append-before-push order, but do not expose a
+		// phantom scope when the Go error precedes native publication.
+		n.scopes = n.scopes[:len(n.scopes)-1]
+	}
+	return err
 }
 
 func (n *NamedAssertions) Pop(count uint32) error {

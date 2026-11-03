@@ -995,6 +995,12 @@ func (k *SMTKernel) Pop(count uint32) error {
 	k.scopes = k.scopes[:level]
 	k.assertedInconsistent = k.assertedScopeConflicts[level]
 	k.assertedScopeConflicts = k.assertedScopeConflicts[:level]
+	return k.finishPop(count)
+}
+
+// finishPop is the post-publication cleanup tail. Native solver retry must
+// repeat this tail, not the already-consumed scopes, if cache reset refuses.
+func (k *SMTKernel) finishPop(count uint32) error {
 	if k.preprocessor != nil {
 		if err := k.flushAssertedCache(); err != nil {
 			return err
