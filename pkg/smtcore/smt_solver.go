@@ -63,6 +63,9 @@ type SMTSolver struct {
 	produceModels bool
 	ownedCatalog  *uparams.GlobalParamsCatalog
 	ownedGlobals  *uparams.GlobalParamsService
+	closing       bool
+	closingModel  *model.ModelCore
+	paramsClose   uparams.ParamsDecrementReceipt
 	closed        bool
 	optimization  *smtOptimizationSolverState
 }
@@ -240,6 +243,9 @@ func (s *SMTSolver) openOwner() error {
 	if s.closed {
 		return arena.ErrClosed
 	}
+	if s.closing {
+		return ast.ErrASTPending
+	}
 	return s.config.Params.Check(&s.params)
 }
 
@@ -252,6 +258,11 @@ func (s *SMTSolver) IncRef() error {
 }
 
 func (s *SMTSolver) DecRef() error {
+	// A refused destructor has already consumed the last solver reference.
+	// Retry that destructor without decrementing the reference again.
+	if s != nil && s.self == s && s.closing && !s.closed && s.references == 0 {
+		return s.Close()
+	}
 	if err := s.openOwner(); err != nil {
 		return err
 	}
@@ -374,8 +385,10 @@ func (s *SMTSolver) Assignments() ([]ast.ASTHandle, error) {
 func (s *SMTSolver) clearConsequences() error {
 	for len(s.consequences) != 0 {
 		i := len(s.consequences) - 1
-		if err := s.manager.DelRef(&s.consequences[i]); err != nil {
-			return err
+		if s.consequences[i] != (ast.ASTRef{}) {
+			if err := s.manager.DelRef(&s.consequences[i]); err != nil {
+				return err
+			}
 		}
 		s.consequences = s.consequences[:i]
 	}
@@ -383,6 +396,9 @@ func (s *SMTSolver) clearConsequences() error {
 }
 
 func (s *SMTSolver) RetainConsequence(value ast.ASTHandle) (ast.ASTHandle, error) {
+	if err := s.open(); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	ref, err := s.manager.NewRef(value)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -576,16 +592,23 @@ func (s *SMTSolver) PushCore() error {
 // disposed, allowing a saved-depth caller to retry the same pop.
 func (s *SMTSolver) ScopeLevelCore() uint32 { return uint32(len(s.trackedScopes)) }
 
-func (s *SMTSolver) Push() error { return s.named.Push() }
+func (s *SMTSolver) Push() error {
+	if err := s.open(); err != nil {
+		return err
+	}
+	return s.named.Push()
+}
 
 func (s *SMTSolver) restoreTracked(size uint32) error {
 	for uint32(len(s.tracked)) > size {
 		index := len(s.tracked) - 1
-		if err := s.manager.DelRef(&s.tracked[index].formula); err != nil {
-			if s.tracked[index].formula == (ast.ASTRef{}) {
-				s.tracked = s.tracked[:index]
+		if s.tracked[index].formula != (ast.ASTRef{}) {
+			if err := s.manager.DelRef(&s.tracked[index].formula); err != nil {
+				if s.tracked[index].formula == (ast.ASTRef{}) {
+					s.tracked = s.tracked[:index]
+				}
+				return err
 			}
-			return err
 		}
 		s.tracked = s.tracked[:index]
 	}
@@ -642,7 +665,12 @@ type smtSolverPendingPop struct {
 	kernelCleanup         bool
 }
 
-func (s *SMTSolver) Pop(count uint32) error { return s.named.Pop(count) }
+func (s *SMTSolver) Pop(count uint32) error {
+	if err := s.openOwner(); err != nil {
+		return err
+	}
+	return s.named.Pop(count)
+}
 
 func (s *SMTSolver) ScopeLevel() (uint32, error) {
 	if err := s.openOwner(); err != nil {
@@ -782,6 +810,9 @@ func (s *SMTSolver) PrepareCandidateModel() (bool, error) {
 }
 
 func (s *SMTSolver) CheckSat(assumptions []ast.ASTHandle) (lbool.LBool, error) {
+	if err := s.open(); err != nil {
+		return lbool.Undef, err
+	}
 	return s.named.CheckSat(assumptions)
 }
 
@@ -803,8 +834,16 @@ func (s *SMTSolver) Assertion(index uint32) (ast.ASTHandle, error) {
 	return assertions[index].Formula, nil
 }
 
-func (s *SMTSolver) NumAssumptions() (uint32, error) { return s.named.NumAssumptions() }
+func (s *SMTSolver) NumAssumptions() (uint32, error) {
+	if err := s.open(); err != nil {
+		return 0, err
+	}
+	return s.named.NumAssumptions()
+}
 func (s *SMTSolver) Assumption(index uint32) (ast.ASTHandle, error) {
+	if err := s.open(); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	return s.named.Assumption(index)
 }
 
@@ -1088,70 +1127,108 @@ func (s *SMTSolver) translateWithConfig(manager *ast.ASTManager, params *uparams
 	return next, nil
 }
 
-func (s *SMTSolver) Close() (resultErr error) {
+func (s *SMTSolver) Close() error {
 	if s == nil || s.self != s {
 		return ast.ErrASTHandle
 	}
 	if s.closed {
 		return nil
 	}
-	// Destruction closes all kernel owners directly; it must not replay a
-	// partly consumed native pop. Temporarily detach the metadata so the
-	// normal owner cleanup can run, restoring the operation gate on refusal.
-	pop := s.pendingPop
-	s.pendingPop = nil
-	defer func() {
-		if resultErr != nil {
-			s.pendingPop = pop
+	// Source destructors do not refuse. Native Go cleanup does, so stop at
+	// its unfinished owner and keep later borrowed dependencies alive.
+	s.closing = true
+	if err := s.clearConsequences(); err != nil {
+		return err
+	}
+	if err := s.clearResult(); err != nil {
+		return err
+	}
+	if s.named != nil {
+		if err := s.named.Close(); err != nil {
+			return err
 		}
-	}()
-	var result error
-	result = errors.Join(result, s.clearConsequences())
-	result = errors.Join(result, s.clearResult())
-	result = errors.Join(result, s.named.Close())
-	result = errors.Join(result, s.restoreTracked(0))
-	result = errors.Join(result, s.ResetObjectives())
+		s.named = nil
+	}
+	if err := s.restoreTracked(0); err != nil {
+		return err
+	}
+	if err := s.clearObjectives(); err != nil {
+		return err
+	}
 	if s.optimization != nil {
 		if err := s.optimization.parameters.CloseHelpers(); err != nil {
-			return errors.Join(result, err)
+			return err
 		}
-	}
-	if s.optimization != nil {
-		for i, md := range s.optimization.models {
-			if md == nil {
-				continue
+		for i := range s.optimization.models {
+			if err := s.closeOptimizationModel(&s.optimization.models[i]); err != nil {
+				return err
 			}
-			if err := md.DecRef(); err != nil {
-				return errors.Join(result, err)
-			}
-			s.optimization.models[i] = nil
+		}
+		if err := s.closeOptimizationModel(&s.optimization.model); err != nil {
+			return err
 		}
 	}
-	if s.optimization != nil && s.optimization.model != nil {
-		err := s.optimization.model.DecRef()
-		result = errors.Join(result, err)
-		if err == nil {
-			s.optimization.model = nil
+	if s.kernel != nil {
+		if err := s.kernel.Close(); err != nil {
+			return err
+		}
+		s.kernel = nil
+	}
+	if s.params != (uparams.ParamsRef{}) {
+		var err error
+		if s.paramsClose.InvocationField != 0 {
+			err = s.config.Params.CompleteDecrement(&s.params, s.paramsClose)
+		} else {
+			err = s.config.Params.DelTracked(&s.params, &s.paramsClose)
+		}
+		if err != nil {
+			return err
 		}
 	}
-	result = errors.Join(result, s.kernel.Close())
-	result = errors.Join(result, s.config.Params.Del(&s.params))
 	if s.ownedGlobals != nil {
-		result = errors.Join(result, s.ownedGlobals.Close())
+		if err := s.ownedGlobals.Close(); err != nil {
+			return err
+		}
+		s.ownedGlobals = nil
 	}
 	if s.ownedCatalog != nil {
-		result = errors.Join(result, s.ownedCatalog.Close())
-	}
-	if result == nil {
-		s.named = nil
-		s.kernel = nil
-		s.callback = nil
-		s.manager = nil
-		s.ownedGlobals = nil
+		if err := s.ownedCatalog.Close(); err != nil {
+			return err
+		}
 		s.ownedCatalog = nil
-		s.closed = true
 	}
-	return result
+	s.trackedScopes = nil
+	s.pendingPop = nil
+	s.callback = nil
+	s.manager = nil
+	s.closed = true
+	return nil
+}
+
+func (s *SMTSolver) closeOptimizationModel(owner **model.ModelCore) error {
+	md := *owner
+	if md == nil {
+		return nil
+	}
+	if s.closingModel == md {
+		if err := md.Close(); err != nil {
+			return err
+		}
+	} else {
+		consumed, err := md.DecRefConsumed()
+		if consumed && err != nil {
+			s.closingModel = md
+		}
+		if err != nil {
+			return err
+		}
+		if !consumed {
+			return ast.ErrASTPending
+		}
+	}
+	s.closingModel = nil
+	*owner = nil
+	return nil
 }
 
 type smtSolverFactory struct {

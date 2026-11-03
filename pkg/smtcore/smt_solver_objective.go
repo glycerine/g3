@@ -144,10 +144,16 @@ func (s *SMTSolver) ResetObjectives() error {
 	if err := s.open(); err != nil {
 		return err
 	}
+	return s.clearObjectives()
+}
+
+func (s *SMTSolver) clearObjectives() error {
 	for len(s.objectives) != 0 {
 		last := len(s.objectives) - 1
-		if err := s.manager.DelRef(&s.objectives[last].term); err != nil {
-			return err
+		if s.objectives[last].term != (ast.ASTRef{}) {
+			if err := s.manager.DelRef(&s.objectives[last].term); err != nil {
+				return err
+			}
 		}
 		s.objectives = s.objectives[:last]
 	}
