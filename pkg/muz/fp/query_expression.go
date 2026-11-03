@@ -298,6 +298,11 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if level != nil {
 		result, err = clone.QueryPredicateFromLevel(declaration, *level)
 	} else if clone.backend == "ddnf" {
+		// DDNF calls mk_query before compiling; its output marker lets the
+		// inner context's display_smt2 emit the query instead of its helper.
+		if err = clone.set.SetOutputPredicate(declaration); err != nil {
+			return lbool.Undef, err
+		}
 		result, err = clone.queryDDNF()
 	} else {
 		result, err = clone.QueryPredicate(declaration)

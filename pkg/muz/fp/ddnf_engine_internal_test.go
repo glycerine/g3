@@ -87,7 +87,7 @@ func TestDDNFRegistryPersistsAcrossQueryClones(t *testing.T) {
 	if engine.ddnf.registry != first {
 		t.Fatal("query clone replaced the source engine's DDNF registry")
 	}
-	if got := bytes.Count(output.Bytes(), []byte("(set-logic HORN)")); got != 1 {
+	if got := bytes.Count(output.Bytes(), []byte("(declare-rel ddnf-persistent-registry (")); got != 1 {
 		t.Fatalf("query dump count = %d, want only the completed first query", got)
 	}
 	if err = engine.SelectEngine("datalog"); err != nil {

@@ -70,6 +70,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Implement context display_smt2 flags: fixedpoint extensions (default true), low-level printing, declared variables, background rejection in plain HORN, output-query emission and source name freshness.
   - [x] Correct the shared model2expr FreshName::next occupied-name sequence: source advances an additional letter on a rejected candidate, while the current Go helper advances only once.
   - [x] Route PDR's transformed trace through the source context dump, including print switches, background assertions and ostream-failure operand continuation.
+  - [x] Route DDNF compiled-rule output through its inner fixedpoint context formatter, preserving output queries, module print options and writer-failure cleanup.
   - [x] Route the owning fixedpoint API string/writer through the context formatter, applying fixedpoint-local print options without query configuration changes.
   - [x] Reconcile eager Go ingestion with source pending-closed versus flushed display phase: preserve original binder/annotation metadata before flushing, normalized clause identity/order after flushing, updates and scoped restoration.
     - [x] Rebuild pending open formulas at display/enumeration time using current `xform.fix_unbound_vars`, preserving normalized prefix identity, swap order and pending closed ranges; retain temporary owners through cleanup refusal. Focused parameter, dense allocation and retry tests pass.
@@ -2049,3 +2050,5 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Reconciled four existing Spacer trace/witness tests with source `<null>` serialization, preserving their allocation, multiplicity and original-clause checks and adding typed-null/formula ordering assertions. The formerly failing focused cases pass; a fresh native integration gate follows.
 
 - 2026-11-03 — Full native fixedpoint, base, relation, transform, API and CLI short suites passed on committed snapshot `a6424b867` (74.227s/50.261s/5.272s/12.872s/38.308s/64.382s); log `/tmp/g3-label-native-repair-20261103.log`. The subsequent unbound-parameter gate has its own focused checks.
+
+- 2026-11-03 — Native fixedpoint, API and CLI short suites passed on `8685ed6e3` (70.633s/37.844s/66.608s); log `/tmp/g3-unbound-native-20261103.log`. The subsequent DDNF display correction has focused coverage.

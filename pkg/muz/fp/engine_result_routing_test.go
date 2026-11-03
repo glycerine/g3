@@ -201,7 +201,7 @@ func TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown(t *testing.T) {
 	if status != lbool.Undef {
 		t.Fatal("disabled DDNF executor returned a decided result", status)
 	}
-	if !bytes.Contains(dump.Bytes(), []byte("(set-logic HORN)")) || !bytes.Contains(dump.Bytes(), []byte("ddnf-fact")) || !bytes.Contains(dump.Bytes(), []byte("ddnf-routing-predicate")) || bytes.Count(dump.Bytes(), []byte("(assert ")) != 2 {
+	if bytes.Contains(dump.Bytes(), []byte("(set-logic HORN)")) || !bytes.Contains(dump.Bytes(), []byte("(rule (! ddnf-routing-predicate :named ddnf-fact))")) || !bytes.Contains(dump.Bytes(), []byte("(declare-rel ddnf-routing-predicate ())")) || bytes.Count(dump.Bytes(), []byte("(rule ")) != 1 || bytes.Count(dump.Bytes(), []byte("(query ")) != 1 {
 		t.Fatalf("compiled DDNF SMT2 dump is incomplete: %s", dump.String())
 	}
 	last, err := engine.LastResult()

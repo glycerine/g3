@@ -10,6 +10,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/ddnf"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -81,10 +82,48 @@ func (e *PropositionalEngine) queryDDNF() (result lbool.LBool, resultErr error) 
 	if err != nil {
 		return lbool.Undef, fmt.Errorf("ddnf compile: %w", err)
 	}
-	defer func() { resultErr = errors.Join(resultErr, compiled.Close()) }()
-	if err = compiled.WriteSMT2(output); err != nil {
+	// The formatter may return a native cleanup owner. Drain it before the
+	// compiled rule set, preserving both scopes if cleanup has to retry.
+	attempt := &contextFormulaAttempt{manager: e.manager, sets: []*base.RuleSet{compiled}}
+	defer func() { resultErr = attempt.finish(resultErr) }()
+	if ok, err = compiled.Finalize(); err != nil {
+		return lbool.Undef, err
+	} else if !ok {
+		return lbool.Undef, errors.New("Negation is not stratified!")
+	}
+	config, err := e.ddnfContextSMT2Config()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if err = compiled.WriteContextSMT2(output, config); err != nil {
 		return lbool.Undef, fmt.Errorf("ddnf dump: %w", err)
 	}
 	// Source execute_rules is disabled; query deliberately remains unknown.
 	return lbool.Undef, nil
+}
+
+// The source inner context sets only engine=datalog. Its print parameters
+// fall back to the fixedpoint module; outer local overrides and background
+// assertions are not copied into it (ddnf.cpp:498-504, 664-676).
+func (e *PropositionalEngine) ddnfContextSMT2Config() (config base.ContextSMT2Config, resultErr error) {
+	config = base.DefaultContextSMT2Config()
+	if e.params == nil || e.globals == nil {
+		return config, nil
+	}
+	parameters, err := e.fixedpointParamView()
+	if err != nil {
+		return config, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
+	parameters.local = nil
+	config.FixedpointExtensions, err = parameters.Bool("print_fixedpoint_extensions", true)
+	if err != nil {
+		return config, err
+	}
+	config.LowLevel, err = parameters.Bool("print_low_level_smt2", false)
+	if err != nil {
+		return config, err
+	}
+	config.DeclareVariables, err = parameters.Bool("print_with_variable_declarations", true)
+	return config, err
 }
