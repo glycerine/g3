@@ -15,7 +15,7 @@ import (
 
 // externalIntervalDatalogCartesianRule lowers two positive tails with
 // numerals, distinct variable columns and bound interpreted guards to a head of
-// distinct bound variables. It also covers the original Cartesian rule as
+// bound variables. It also covers the original Cartesian rule as
 // the no-key/no-projection case.
 type externalIntervalDatalogCartesianRule struct {
 	head          ast.ASTHandle
@@ -27,6 +27,7 @@ type externalIntervalDatalogCartesianRule struct {
 	filterRemoved []uint32
 	headRemoved   []uint32
 	constants     []externalIntervalCartesianConstant
+	duplicates    []uint32
 	renames       [][]uint32
 	condition     *externalIntervalUnaryCondition
 }
@@ -49,6 +50,7 @@ func sameExternalIntervalCartesianRule(left, right *externalIntervalDatalogCarte
 		!externalIntervalColumnsEqual(left.removed, right.removed) ||
 		!externalIntervalColumnsEqual(left.filterRemoved, right.filterRemoved) ||
 		!externalIntervalColumnsEqual(left.headRemoved, right.headRemoved) || len(left.constants) != len(right.constants) ||
+		!externalIntervalColumnsEqual(left.duplicates, right.duplicates) ||
 		!sameExternalIntervalUnaryCondition(left.condition, right.condition) || len(left.renames) != len(right.renames) {
 		return false
 	}
@@ -169,7 +171,7 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 			if cause != nil {
 				return nil, cause
 			}
-			if seen[variable] {
+			if index != 0 && seen[variable] {
 				return nil, ErrExternalIntervalDatalogFragment
 			}
 			seen[variable] = true
@@ -197,13 +199,15 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 	joinedArguments := append(append([]externalIntervalCartesianArgument(nil), leftArguments...), rightArguments...)
 	joinedSorts := append(append([]ast.ASTHandle(nil), sorts[1]...), sorts[2]...)
 	last := make(map[uint32]uint32)
+	remaining := make(map[uint32]uint32)
 	for column, argument := range joinedArguments {
 		if argument.numeral.IsNull() {
 			last[argument.variable] = uint32(column)
+			remaining[argument.variable]++
 		}
 	}
 	wanted := make(map[uint32]bool)
-	needed := make(map[uint32]bool)
+	needed := make(map[uint32]uint32)
 	for column, argument := range arguments[0] {
 		variable := argument.variable
 		source, found := last[variable]
@@ -211,7 +215,7 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 			return nil, ErrExternalIntervalDatalogFragment
 		}
 		wanted[variable] = true
-		needed[variable] = true
+		needed[variable]++
 	}
 	if total > 2 {
 		boolean, cause := e.manager.MkBoolSort()
@@ -254,15 +258,17 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 				if !bound || joinedSorts[column] != sort {
 					return nil, ErrExternalIntervalDatalogFragment
 				}
-				needed[variable] = true
+				if needed[variable] == 0 {
+					needed[variable] = 1
+				}
 			}
 			condition.source = append(condition.source, guard)
 		}
 		plan.condition = condition
 	}
 	// Source get_local_indexes_for_projection discards unused variables and
-	// the earliest extra copies, leaving one last occurrence for every head
-	// or guard variable. The guard's binding uses these projected columns.
+	// the earliest surplus copies, preserving the head's required multiplicity
+	// and at least one copy for each guard variable.
 	surviving := make(map[uint32]uint32)
 	var projectedArguments []externalIntervalCartesianArgument
 	for column, argument := range joinedArguments {
@@ -274,8 +280,9 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 				column: uint32(len(projectedArguments)), value: argument.numeral,
 			})
 			projectedArguments = append(projectedArguments, argument)
-		} else if !needed[variable] || last[variable] != uint32(column) {
+		} else if remaining[variable] > needed[variable] {
 			plan.removed = append(plan.removed, uint32(column))
+			remaining[variable]--
 		} else {
 			surviving[variable] = uint32(len(projectedArguments))
 			projectedArguments = append(projectedArguments, argument)
@@ -283,8 +290,8 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 	}
 	filteredArguments := projectedArguments
 	if plan.condition != nil {
-		for _, argument := range projectedArguments {
-			if argument.numeral.IsNull() {
+		for column, argument := range projectedArguments {
+			if argument.numeral.IsNull() && surviving[argument.variable] == uint32(column) {
 				variable := argument.variable
 				plan.condition.bindings = append(plan.condition.bindings, externalIntervalUnaryConditionBinding{
 					variable: variable, column: surviving[variable], sort: joinedSorts[last[variable]],
@@ -303,17 +310,49 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 			}
 		}
 	}
-	surviving = make(map[uint32]uint32)
+	occurrences := make(map[uint32][]uint32)
 	for column, argument := range filteredArguments {
-		if !argument.numeral.IsNull() || !wanted[argument.variable] {
-			plan.headRemoved = append(plan.headRemoved, uint32(column))
-		} else {
-			surviving[argument.variable] = uint32(len(surviving))
+		if argument.numeral.IsNull() {
+			occurrences[argument.variable] = append(occurrences[argument.variable], uint32(column))
 		}
 	}
-	permutation := make([]uint32, len(arguments[0]))
+	// Source head assembly consumes available copies from the back, keeping
+	// the last remaining column available for later explicit duplication.
+	headSources := make([]uint32, len(arguments[0]))
+	referenced := make(map[uint32]bool)
 	for column, argument := range arguments[0] {
-		permutation[column] = surviving[argument.variable]
+		copies := occurrences[argument.variable]
+		if len(copies) == 0 {
+			return nil, ErrExternalIntervalDatalogFragment
+		}
+		source := copies[len(copies)-1]
+		headSources[column] = source
+		referenced[source] = true
+		if len(copies) > 1 {
+			occurrences[argument.variable] = copies[:len(copies)-1]
+		}
+	}
+	projectedColumns := make(map[uint32]uint32)
+	for column := range filteredArguments {
+		if !referenced[uint32(column)] {
+			plan.headRemoved = append(plan.headRemoved, uint32(column))
+		} else {
+			projectedColumns[uint32(column)] = uint32(len(projectedColumns))
+		}
+	}
+	permutation := make([]uint32, len(headSources))
+	usedColumns := make(map[uint32]bool)
+	width := uint32(len(projectedColumns))
+	for column, source := range headSources {
+		source = projectedColumns[source]
+		if usedColumns[source] {
+			plan.duplicates = append(plan.duplicates, source)
+			permutation[column] = width
+			width++
+		} else {
+			usedColumns[source] = true
+			permutation[column] = source
+		}
 	}
 	for column := range permutation {
 		if permutation[column] == uint32(column) {
@@ -349,6 +388,7 @@ type externalIntervalDatalogCartesianContinuation struct {
 	registers *externalIntervalDatalogRegisters
 	temporary *rel.ExternalIntervalProduct
 	retiring  *rel.ExternalIntervalProduct
+	auxiliary *rel.ExternalIntervalProduct
 	nested    memory.ConstructionFailure
 	runtime   *memory.Runtime
 	publish   bool
@@ -372,6 +412,12 @@ func (c *externalIntervalDatalogCartesianContinuation) resume() error {
 			return err
 		}
 		c.retiring = nil
+	}
+	if c.auxiliary != nil {
+		if err := c.auxiliary.Close(); err != nil {
+			return err
+		}
+		c.auxiliary = nil
 	}
 	if c.publish && c.registers != nil {
 		if err := c.registers.store(); err != nil {
@@ -574,6 +620,15 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 			}
 			if cause = owner.replaceTemporary(projected); cause != nil {
 				return rollback(cause)
+			}
+		}
+		for _, column := range a.cartesian.duplicates {
+			empty, cause := owner.duplicateColumn(column)
+			if cause != nil {
+				return rollback(cause)
+			}
+			if empty {
+				return finish()
 			}
 		}
 		for _, cycle := range a.cartesian.renames {

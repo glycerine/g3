@@ -295,7 +295,7 @@ func TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay(t *testin
 
 func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *testing.T) {
 	shapes := []string{
-		"repeated-head", "constant", "repeated-tail",
+		"constant", "repeated-tail",
 		"negative", "unbound-guard", "cycle", "unsafe-head", "nullary-tail",
 		"repeated-tail-column", "third-tail",
 		"mutual-recursion",
@@ -341,8 +341,6 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 				rightApplication = app(q)
 			case "repeated-tail-column":
 				rightApplication = app(q, y, y)
-			case "repeated-head":
-				rightApplication = app(q, x)
 			case "repeated-tail":
 				rightApplication = app(p, y)
 			case "constant":
@@ -378,8 +376,6 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 			headDeclaration := h
 			headArguments := []ast.ASTHandle{x, y}
 			switch shape {
-			case "repeated-head":
-				headArguments = []ast.ASTHandle{x, x}
 			case "constant":
 				headArguments = []ast.ASTHandle{x, constant}
 			case "cycle":
