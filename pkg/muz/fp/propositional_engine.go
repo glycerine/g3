@@ -3156,7 +3156,9 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.guard = nil
 	}
 	if e.unboundLite != nil {
-		result = errors.Join(result, e.unboundLite.Close())
+		if err := e.unboundLite.Close(); err != nil {
+			return errors.Join(result, err)
+		}
 		e.unboundLite = nil
 	}
 	if e.unboundCooperation != nil {
