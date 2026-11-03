@@ -85619,7 +85619,7 @@
         "Finite model materialization copies saturated table rows into a caller-owned Model. Function graphs retain decoded row values before the temporary DecodeFact references are released, and model registration transfers graph ownership."
       ],
       "deviations": [
-        "The Datalog slice remains finite-domain and produces tuple answers. Infinite-domain positive Horn rules may now dispatch through PDR/Spacer, consume current command assertions as background constraints, and reconstruct successful existential answers including recursive-SCC state traces and native nonlinear-rule reduction; remaining general trace unification, certificate/model/proof reconstruction, full transformations, parameters and broader engine selection remain open."
+        "Finite Datalog tuple answers, configured dispatch for all ten source engines and automatic engine selection, and concrete arithmetic/abstract/product backends have Go implementations. PDR/Spacer consume command assertions as background constraints and reconstruct existential answers and recursive-SCC state traces; implemented model, proof, certificate and transformation consumers are mapped by individual records. Full shared context display/lifecycle, backend-specific parameter semantics and broader derived algorithm/transform/proof/model audits remain open."
       ]
     },
     {
@@ -85661,7 +85661,7 @@
           "tests": ["TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries", "TestDatalogFactSelectionUsesParametersAndCachesSourceChoice", "TestDatalogDirectFiniteFactValidationAndCloneOwnership"]
         },
         {
-          "name": "Retained positive-propositional subset of context predicate registration, rule addition, query, and owned lifecycle surface (dl_context.h:127-616)",
+          "name": "concrete context predicate/rule/fact registration, scoped snapshots, configured/automatic query and owned export surface (dl_context.h:127-616)",
           "status": "partial",
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "go_targets": ["pkg/muz/fp/propositional_engine_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
@@ -85693,7 +85693,7 @@
         "The narrow Go engine is a single explicit owner rather than exposing the full native context aggregate before its remaining members exist."
       ],
       "deviations": [
-        "The complete context public surface and general relational/fixedpoint state remain unported."
+        "Concrete predicate/rule/fact registration, scoped rule snapshots, configured/automatic queries and owning result exports are implemented. Full context/display and exceptional-cleanup audits remain open; the mapped public surface does not establish whole-header completion."
       ]
     },
     {
@@ -86638,7 +86638,7 @@
           "reason": "The finite-query linear-only inliner consumes source false-body model capture for an eliminated unreachable definition (dl_util.cpp:284-307), while existing eager removed-rule reconstruction remains covered. Shared-use linear contraction captures the source false model body only on last-use definition deletion; negative uses postpone deletion and its model event (dl_util.cpp:284-307)."
         }, {"name": "predicate output and variable-set helpers used by retained rule and simple-join diagnostics/planning", "status": "ported", "go_target": "pkg/muz/base/rule_display.go", "go_targets": ["pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/transforms/simple_joins_pair.go"], "tests": ["TestRuleManagerWriteSourceRuleDisplay", "TestSimpleJoinPairCostCountsRepeatedVariablePositions"]}, {"name": "variable_intersection and column projection/permutation helper instantiations used by retained finite relational compilation", "status": "ported", "go_target": "pkg/muz/rel/compiler.go", "go_targets": ["pkg/muz/rel/table.go", "pkg/muz/rel/sieve_relation.go"], "tests": ["TestFiniteCompilerJoinsTwoPositiveTails", "TestHashTableJoinProjectSelectionAndRename", "TestSieveRenameCycleMovesMaskDomainsAndRows"]}],
       "ownership": ["Retained rule transformations return owning Go Rule wrappers; trace formatting borrows the AST manager, and relation/table transformations return independently owned values."],
-      "deviations": ["Helpers whose only consumers are unported or test-only C++ units remain excluded: contains_var, count_variable_arguments, display_fact, and finite-product set transforms. The retained algorithms use concrete typed Go slices/maps instead of universal adapters for C++ templates or STL containers."]
+      "deviations": ["Similarity compression implements the live variable/constant-argument counting consumer through similarityConstantPositions and its count. contains_var has a live explanation assertion consumer that still needs an explicit fidelity audit; display_fact and finite-product set-transform exclusions require individual consumer justification. Concrete typed Go slices/maps replace the reached algorithms, without universal C++ template or STL adapters."]
     },
     {
       "path": "src/muz/base/dl_util.h",
@@ -86780,7 +86780,7 @@
         "Pure set/index helpers borrow their input slices; Go relation and table operations return fresh typed slices or owned table values, while file discovery returns an owned path slice."
       ],
       "deviations": [
-        "C++ templates are represented only for retained concrete consumers. Helpers used only by unported explanation, similarity-compression, or generic STL-oriented adapters remain excluded."
+        "C++ templates are represented only for concrete live consumers. Similarity-compression counting is implemented through concrete constant-position collection. The explanation contains_var assertion and the remaining helper/set-operation exclusions require individual consumer audits; no blanket unported-explanation or similarity-consumer exclusion is justified."
       ]
     },
     {
@@ -87351,7 +87351,7 @@
       ],
       "ownership": [],
       "deviations": [
-        "The retained PDR guards inspect the concrete HNF rule set and return checked Go errors instead of constructing native rule display exceptions. Other rule-property collectors and engine-specific checks remain unported."
+        "The reusable owning RuleProperties collector and engine-specific validators are implemented and consumed by fixedpoint fragment validation and TAB queries. Typed Go errors replace source rule-display exception formatting; broader source diagnostic and exceptional-ownership fidelity require their separate audits."
       ]
     },
     {
@@ -87417,7 +87417,7 @@
       ],
       "ownership": [],
       "deviations": [
-        "The Go PDR engine performs the retained check through its concrete rule set without adding a general rule_properties owner."
+        "The Go RuleProperties owner provides collection, reset, reuse, close and concrete engine-specific checks over owning rule references. Fixedpoint and TAB consumers are connected; typed Go errors replace source exception formatting without claiming every diagnostic or exceptional-cleanup path complete."
       ]
     },
     {
@@ -89035,7 +89035,7 @@
         "cmd_context.Context owns and closes the lazily created fixedpoint engine before declarations and the AST manager; parser command references are temporary and clear after the engine retains rules."
       ],
       "deviations": [
-        "This command slice accepts declare-rel, declare-var, optional rule names and recursion bounds, scoped rules, declaration queries, command assertions as PDR background constraints, the registered typed query-parameter catalog with query-local precedence and timeout cancellation, finite variable expansion, stratified negation, direct finite guards, ground theory-rewritten bit-vector arithmetic/comparison guards, finite tuple-answer formulas, PDR existential answers, Spacer empty certificate lines and explicit inherited Datalog certificate refusal, and fixedpoint statistics. Retained PDR/Spacer/preprocessing settings consume the local snapshot; parameters for unported engines remain syntactically retained but have no live consumer. As in the source Datalog flush path, recursion bounds have no Datalog effect; the command layer forwards them to the live Duality raw-rule preparation. Rich certificates, broader arithmetic, and remaining fixedpoint engines remain open; unknown requested output is refused explicitly."
+        "This command slice accepts declare-rel, declare-var, optional rule names and recursion bounds, scoped rules, declaration queries, command assertions as PDR background constraints, the registered typed query-parameter catalog with query-local precedence and timeout cancellation, finite variable expansion, stratified negation, direct finite guards, ground theory-rewritten bit-vector arithmetic/comparison guards, finite tuple-answer formulas, PDR existential answers, Spacer empty certificate lines and explicit inherited Datalog certificate refusal, and fixedpoint statistics. All six source commands and collection mode are registered, and all ten source engine names have concrete dispatch. PDR/Spacer/preprocessing settings and other implemented backend settings consume the local snapshot; remaining parameter semantics require per-consumer audits. As in the source Datalog flush path, recursion bounds have no Datalog effect; the command layer forwards them to the live Duality raw-rule preparation. Certificate dispatch includes PDR, BMC/QBMC, TAB, CLP and Duality output, Spacer empty presentation and explicit Datalog/DDNF refusal. Detailed argument/error/query/output/ownership and derived backend algorithm audits remain partial; unknown requested output is refused explicitly."
       ]
     },
     {
@@ -89080,7 +89080,7 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "Registration surface for the retained declare-rel, rule, and query command subset (dl_cmds.h:23-34)",
+          "name": "registration surface for declare-rel, declare-var, rule, query and collected-rule/query command mode (dl_cmds.h:23-34)",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/commands.go",
           "tests": [
@@ -89109,7 +89109,7 @@
         "Go command dispatch is package-owned and stateless; fixedpoint session state is owned by cmd_context.Context."
       ],
       "deviations": [
-        "The remaining fixedpoint command registrations and richer command argument surfaces are not yet ported."
+        "All six source fixedpoint commands and the collected-rule/query registration mode have concrete Go consumers. Detailed argument, error, query/output and ownership audits remain partial; registration coverage does not complete backend algorithms or every parameter consumer."
       ]
     },
     {
@@ -89577,14 +89577,14 @@
         {
           "name": "mk_horn_simplify_tactic",
           "status": "reference_only",
-          "reason": "No retained Go command registration or production factory consumer requests horn-simplify."
+          "reason": "The source ADD_TACTIC registration has a live Go command/API consumer: cmd_context named-tactic dispatch invokes NewHornSimplifyTactic, with transformed-goal, default-pipeline and optional-slice regressions. The existing reference_only classification is preserved in this prose-only reconciliation pending its separate method/interface audit."
         }
       ],
       "ownership": [
         "NewHornTactic returns the concrete Go tactic and participates in the shared tactic reference-count protocol."
       ],
       "deviations": [
-        "The retained verification factory supports both finite Datalog and infinite PDR selection; the unregistered and unconsumed horn-simplify factory remains reference-only."
+        "The verification factory supports finite Datalog and infinite PDR selection. The source-registered horn-simplify factory is implemented and consumed by command/API named-tactic dispatch; its method classification and broader interface/ownership closure require separate reconciliation."
       ]
     },
     {
@@ -90091,7 +90091,7 @@
           "reason": "PDR difference-logic and UTVPI transitions now call the source term-ITE hoister after transition rewriting (pdr_context.cpp:609-617), using an output ASTRef reserved in the rule builder before traversal. The owning BlastTermITEInto surface preserves the rewritten root after traversal destruction without introducing auxiliary uninterpreted declarations or changing proof mode (blast_term_ite_tactic.cpp:189-197,204-206). Five PDR cases cover difference logic, UTVPI, general arithmetic, disabled selection and convex override; independent SMT equivalence, reachable/unreachable branches and proof side-condition/conclusion checks validate the selected path. The direct helper test dereferences all output nodes after traversal closure in both proof modes and checks release ownership. The older raw-handle helper remains unused by production callers, and its returned-handle lifetime limitation is not closed by this owning-consumer correction. The source classifier now visits head and predicate-tail arguments while treating relation declarations separately, traverses interpreted tails including Boolean nonbasic applications and quantifiers, and tracks arithmetic presence independently from non-Boolean classification (pdr_context.cpp:1596-1693,1815-1846). Arithmetic-free Boolean UF or quantified inputs therefore select the general arithmetic policy instead of vacuous DL/UTVPI classification. Initialize and compatible rule-update planning share this classifier before child solver policy selection. Six shape cases check proof/Farkas activation, arithmetic mode and tuning, solve results and restored proof mode; three update cases reject changed classification before mutating the prior program, then verify reset/reinitialization and same-policy updates. This bounded policy parity does not complete the context or exceptional-ownership audit."
         },
         {
-          "name": "bounded tag-selected transition composition used as the narrow Go end-to-end integration path while native model_search is ported",
+          "name": "explicit finite-depth tag-selected transition composition for bounded integration tests",
           "status": "platform_replacement",
           "go_target": "pkg/muz/pdr/context_bounded.go",
           "tests": [
@@ -90295,7 +90295,7 @@
       ],
       "deviations": [
         "InitializeSystem remains available for independently testing the frame engine; InitializeRules provides the retained native rule-to-transition path. Typed results replace mutable model/core output pointers.",
-        "CheckBounded is an explicit staging API requested to expose an end-to-end Horn path early. It composes the native tagged transitions soundly to a finite depth.",
+        "CheckBounded is an explicit finite-depth integration-test API that soundly composes native tagged transitions. Production Solve uses the separately implemented unbounded frame/model-search loop.",
         "Solve now drives the unbounded native frame/model-search loop, selects literal or model-cone minimization through pdr.use_model_generalizer, applies the native QE-lite constant-elimination overload, reduces repeated disequalities in literal mode, and partitions projected literals among predecessor states.",
         "Successful relation-declaration queries reconstruct the native model-search trace after two-bank rule/head unification. With fixedpoint slicing and both inliners disabled, the query predicate and every reached predicate follow source-tail order; exact C++ vectors cover linear and nonlinear traces. Default transformed acyclic/nonlinear answers use the native true presentation, while recursive traces expose reached recursive states. Unsuccessful queries expose direct-predicate universally quantified frame definitions and filter simple-join auxiliary predicates. Reverse-ledger model/cover converters remap transformed predicates, reachable proof answers use per-node reduced-rule hyper-resolution, and TRACE finite-frame certificates apply the live converter ledger while false IF_VERBOSE remains raw. The listed lower-level cleanup-refusal paths remain open."
       ]
@@ -90657,7 +90657,7 @@
       ],
       "deviations": [
         "The Go frame API uses explicit methods and returned result values rather than C++ reference outputs and scoped mutable solver settings.",
-        "CheckBounded remains a finite-depth context operation for early integration coverage.",
+        "CheckBounded remains an explicit finite-depth integration-test operation; production Solve uses the unbounded frame/model-search surface mapped below.",
         "Solve selects model-implicant literal minimization or model-cone equalities, applies QE-lite and literal-mode repeated-disequality reduction before model-substituting surviving current and auxiliary state, then partitions projected transition literals into child cubes."
       ]
     },
@@ -90791,13 +90791,13 @@
           "reason": "The shared scan reports the first uncovered source-rule index without a second subsumption scan. Trace operands are lazy and their rule owner is closed on every exit. Initial/unchanged queries emit no fresh-rule trace; disabled and failed streams preserve query results. Different-root/configuration rebuild paths remain under the broader interface audit. The enabled full query transcript includes the subsequent context::solve entry record at pdr_context.cpp:1888, preserving reset/query/transformed-rule ordering without changing runtime behavior."
         },
         {
-          "name": "query displays transformed rules at source verbosity 2, including repeated queries using an existing context (pdr_dl_interface.cpp:153)",
+          "name": "query displays transformed rules at source verbosity 2, including repeated queries using an existing context (pdr_dl_interface.cpp:150)",
           "status": "ported",
           "go_targets": ["pkg/muz/fp/pdr_query_verbose.go", "pkg/muz/fp/pdr_query_verbose_test.go"],
           "tests": ["TestPDRQueryDisplaysTransformedRulesAtSourceVerbosity"]
         },
         {
-          "name": "empty transformed-program level-1 model construction, preprocessing conversion replay, streaming and temporary-owner disposal (pdr_dl_interface.cpp:174)",
+          "name": "empty transformed-program level-1 model construction, preprocessing conversion replay, streaming and temporary-owner disposal (pdr_dl_interface.cpp:166-169)",
           "status": "partial",
           "go_targets": ["pkg/muz/fp/pdr_query_verbose.go", "pkg/muz/fp/pdr_model_presentation.go", "pkg/muz/fp/pdr_model_presentation_test.go", "pkg/muz/fp/pdr_query_verbose_test.go", "pkg/muz/fp/pdr_empty_model_failure_test.go"],
           "tests": ["TestPDRQueryDisplaysEmptyProgramModelAtSourceVerbosity", "TestPDREmptyProgramModelDiagnosticFailureOwnershipAndRetry", "TestPDRModelPresentationPreservesRefusedCleanupOwner"],
@@ -90830,7 +90830,7 @@
           "reason": "The installed query clone retains cleanup authority after transfer; refused disposal publishes no stale result, retry retires each completed owner once and final engine close leaves zero budget usage."
         },
         {
-          "name": "PDR/Spacer engine selection, fixedpoint PDR Farkas/generalizer/UTVPI/search/flexible-trace/cache/context-limit parameter forwarding, parameter-update context invalidation, finalized rule-set and command-background handoff, original-rule subsumption and configuration-revision-guarded context reuse and lbool solve dispatch (pdr_dl_interface.cpp:84-173)",
+          "name": "PDR/Spacer engine selection, fixedpoint PDR Farkas/generalizer/UTVPI/search/flexible-trace/cache/context-limit parameter forwarding, parameter-update context invalidation, finalized rule-set and command-background handoff, original-rule subsumption and configuration-revision-guarded configured-object reuse with fresh-query reset/reinstallation and lbool solve dispatch (pdr_dl_interface.cpp:84-173)",
           "status": "ported",
           "go_target": "pkg/muz/fp/pdr_engine.go",
           "tests": [
@@ -90985,7 +90985,7 @@
         "PropositionalEngine separately owns source-rule and transformed-rule snapshots, rotates both after a query and releases both on replacement/close. It owns the current query-specific sliced RuleSet through PDR initialization, snapshots original/derived declarations and removed-column masks while the Context retains their ASTs, closes/replaces the Context before clearing those maps, and transfers returned expanded inductive models to the caller. Empty-program presentation keeps its converted temporary model in a retryable owner until streaming and disposal both complete."
       ],
       "deviations": [
-        "The integration compares original rules before preprocessing for covered additions and named rule updates, while preserving background/parameter revision guards. Direct declaration queries reset programs after changed roots or uncovered rules while preserving the configured context; changed constructor/background revisions reconstruct it. General expression queries use an isolated clone: the pre-query PDR owner transfers into it, public cover/level operations forward to that active owner, and disposed-query statistics are archived. Ordinary query predicates are excluded from the auxiliary set. Dense allocation-failure coverage preserves uninitialized pre-query owners and installed frames without publishing failed results, while retaining property revision guards. Caller cancellation and dense resource-step exhaustion preserve pre/post-installation ownership, cover access, proof mode and retry, including zero-budget final disposal. Distinct cleanup-error recovery and complete model/proof validation remain under audit. Covers and inductive models are expanded to original predicate columns, while relation-query SAT answers intentionally retain native sliced vocabulary. Source compound predicate arguments remain hoisted before slicing, and arbitrary interpreted conjuncts are classified without mistaking theory-local operator numbers for basic equality/ITE. Successful declaration queries use native-style two-bank rule/head unification. Go's declaration-query surface omits the native synthetic query predicate, so exact differential comparison normalizes only the resulting nonsemantic slice fresh-ID offset. The public proof surface forwards the per-node reduced-rule hyper-resolution trace."
+        "The integration compares original rules before preprocessing for covered additions and named rule updates, while preserving background/parameter revision guards. Later queries with installed source/transformed snapshots and unchanged constructor/background revisions reset and reinstall the program in the configured context, discarding old frames and replacing those snapshots; changed revisions reconstruct it. General expression queries use an isolated clone: the pre-query PDR owner transfers into it, public cover/level operations forward to that active owner, and disposed-query statistics are archived. Ordinary query predicates are excluded from the auxiliary set. Dense allocation-failure coverage preserves uninitialized pre-query owners and installed frames without publishing failed results, while retaining property revision guards. Caller cancellation and dense resource-step exhaustion preserve pre/post-installation ownership, cover access, proof mode and retry, including zero-budget final disposal. Distinct cleanup-error recovery and complete model/proof validation remain under audit. Covers and inductive models are expanded to original predicate columns, while relation-query SAT answers intentionally retain native sliced vocabulary. Source compound predicate arguments remain hoisted before slicing, and arbitrary interpreted conjuncts are classified without mistaking theory-local operator numbers for basic equality/ITE. Successful declaration queries use native-style two-bank rule/head unification. Go's declaration-query surface omits the native synthetic query predicate, so exact differential comparison normalizes only the resulting nonsemantic slice fresh-ID offset. The public proof surface forwards the per-node reduced-rule hyper-resolution trace."
       ]
     },
     {
@@ -91064,7 +91064,7 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "retained query, engine-selection, parameter-update invalidation and unchanged-program context-reuse surface",
+          "name": "query, engine-selection, parameter-update invalidation and configured-context reset/reinstallation surface",
           "status": "ported",
           "go_target": "pkg/muz/fp/pdr_engine.go",
           "tests": [
@@ -91154,7 +91154,7 @@
         "The fixedpoint engine owns its concrete PDR Context directly rather than through the native engine_base pointer."
       ],
       "deviations": [
-        "Query dispatch, revision-tracked exact-program context reuse, statistics, native-style banked acyclic/recursive answer traces, and owning reduced-rule proof forwarding are exposed. Native transformed-rule subsumption reuse is an intentionally omitted optimization because query-dependent preprocessing is rebuilt after tracked mutations; textual/debug diagnostic surfaces remain open."
+        "Query dispatch, configured-context reuse with fresh-query reset/reinstallation, statistics, native-style banked acyclic/recursive answer traces and owning reduced-rule proof forwarding are exposed. Original-rule subsumption is checked before preprocessing. Later queries with installed source/transformed snapshots and unchanged constructor/background revisions reset and reinstall the configured Context, discarding old frames and replacing those snapshots; changed revisions reconstruct it. Broader diagnostic and ownership audits remain open."
       ]
     },
     {
@@ -92579,13 +92579,13 @@
           "tests": ["TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRFragmentRejectionUsesSourceTraversalAndVerbosity", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"]
         },
         {
-          "name": "remaining utility declarations without retained consumers",
+          "name": "ceil_log2 and diagnostic pp_cube declarations without live consumers",
           "status": "reference_only",
-          "reason": "ceil_log2 has no source caller; pp_cube is used only by the dormant farkas_learner::test self-test; normalize_arithmetic is used only by src/test/arith_rewriter.cpp"
+          "reason": "ceil_log2 has no source caller; pp_cube is used only by dormant farkas_learner::test. normalize_arithmetic is excluded from this unused-helper entry: its live src/test/arith_rewriter.cpp consumer maps to NormalizeArithmeticRef and TestArithmeticRewriterSourceExamples, recorded under pdr_util.cpp methods[2]."
         }
       ],
       "ownership": ["The concrete Go helper returns one explicit owning AST reference."],
-      "deviations": ["No universal Go adapters are introduced for diagnostic/test-only utility declarations without a retained production consumer."]
+      "deviations": ["No universal Go adapters are introduced for unused ceil_log2 or dormant pp_cube diagnostics. The test-consumed arithmetic normalization declaration has a concrete owning NormalizeArithmeticRef implementation and source-example regression mapped under pdr_util.cpp."]
     },
     {
       "path": "src/muz/rel/CMakeLists.txt",
@@ -103000,7 +103000,7 @@
           ]
         },
         {
-          "name": "bounded proof-obligation search with Luby lemma restarts, configurable ground-CTI derivation projection, parameterized concrete reach-fact projection, and preorder ground satisfying-answer reconstruction with source ground-counterexample TRACE output",
+          "name": "bounded proof-obligation search with Luby lemma restarts, configurable ground-CTI derivation projection, parameterized concrete reach-fact projection, and queue-ordered ground satisfying-answer reconstruction with source ground-counterexample TRACE output",
           "status": "partial",
           "go_target": "pkg/muz/spacer/context_answer.go",
           "tests": [
@@ -103435,7 +103435,7 @@
           ]
         },
         {
-          "name": "pred_transformer::get_used_reach_fact/get_used_origin_reach_fact explicitly disable model completion, skip unknown case values, select the first false case and exclude initial facts when requested (spacer_context.cpp:165-198); evaluator exception/assertion fidelity remains under audit",
+          "name": "pred_transformer::get_used_reach_fact/get_used_origin_reach_fact explicitly disable model completion, skip unknown case values, select the first false case and exclude initial facts when requested (spacer_context.cpp:165-198); typed evaluator-resource-exception fallback is implemented; broader assertion, exception-diagnostic and cleanup fidelity remains under audit",
           "status": "partial",
           "go_targets": [
             "pkg/muz/spacer/predicate_reach.go",
@@ -103574,7 +103574,7 @@
           ]
         },
         {
-          "name": "retained context/predicate-transformer lifecycle, full propagation scheduling, configured and final-inductive frame unit-subsumption simplification, Farkas-only lemma generalization, solving, result validation, answers, inductive models, levels and covers",
+          "name": "retained context/predicate-transformer lifecycle, full propagation scheduling, configured and final-inductive frame unit-subsumption simplification, Farkas-gated ordered configured lemma generalizers, solving, result validation, answers, inductive models, levels and covers",
           "status": "partial",
           "go_target": "pkg/muz/spacer/context.go",
           "tests": [
@@ -103591,7 +103591,8 @@
           ]
         },
         {
-          "name": "remaining optional generalizers, transformed-rule inheritance, and proof/trace diagnostics",
+          "name": "remaining whole-context proof/trace validation, diagnostic and exceptional-ownership audits beyond implemented generalizers and rule/frame inheritance",
+          "reason": "Configured lemma generalizers are mapped under spacer_generalizers.cpp, and UpdateRules frame/rule inheritance is implemented and tested by TestSpacerUpdateRulesCopiesFramesAndClearsSearchState and TestSpacerUpdateRulesReplacesPredicateSetAndInitialReachFacts. This residual record covers broader proof/trace, diagnostic and exceptional-ownership closure; it does not classify those implemented consumers as absent.",
           "status": "unported",
           "go_target": null,
           "tests": []
@@ -104372,7 +104373,7 @@
         "The Go wrapper explicitly borrows solver.Solver and owns only wrapper AST state; this makes backend ownership independent and testable."
       ],
       "deviations": [
-        "Only operations reached by the forthcoming Spacer PropSolver are exposed; universal delegation of the native solver base class is intentionally not reproduced. Header guards and scoped RAII helpers become package compilation and explicit Close calls."
+        "Only operations reached by the implemented Spacer PropSolver are exposed; universal delegation of the native solver base class is intentionally not reproduced. Header guards and scoped RAII helpers become package compilation and explicit Close calls."
       ]
     },
     {
@@ -105387,7 +105388,7 @@
         {"name": "legacy array rewrite retry resets interrupted shared traversal while pinning the next input before reset (spacer_qe_project.cpp:1731-1753,1954-1966)", "status": "partial", "go_targets": ["pkg/qe/legacy_array_equalities.go", "pkg/qe/legacy_array_select_reducer.go", "pkg/qe/legacy_array_construction_failure_test.go"], "tests": ["TestLegacyPartialSelectConstructionFailuresAndRetry", "TestLegacyArraySelectAndFormulaConstructionFailures", "TestLegacyArrayStoreTransferConstructionFailures", "TestLegacyWholeArrayStoreTransferConstructionFailures"], "reason": "The legacy projection records an interrupted theory rewrite and resets the shared Go traversal before the next rewrite, restoring the fresh local source-rewriter behavior (spacer_qe_project.cpp:1731-1753,1954-1966). The next input is pinned before Reset, protecting an expression identical to an old cached node; interruption clears only after successful reset, and reset errors preserve the existing cleanup ownership. The allocation campaigns preserve dense allowances 0 through 2047, then test doubling allowances from 4096 through a finite 65536 cap until an injected run succeeds. Later probes are sparse, so completion identifies a successful tested allowance rather than the first successful allowance; existing retry, model-truth, array-elimination and reference-baseline checks remain. This corrective evidence does not independently inject every pin/reset failure or complete generic exceptional/ownership audits."}
       ],
       "ownership": ["Each classified legacy literal owns its residual arithmetic term reference. LegacyProjection owns the concrete arithmetic and array services; each result owns its formula and remaining or auxiliary variable references until Close. The arithmetic coordinator transfers its child result into a retryable owner before any later formula cleanup can refuse."],
-      "deviations": ["The retained free functions are consolidated into the owning LegacyProjection API. Live spacer.native_mbp selection belongs to spacer_legacy_mbp.cpp/spacer_util.cpp integration and is tracked separately. Non-arithmetic array index classes use pairwise disequalities instead of the source's arithmetic-only index ordering precondition."]
+      "deviations": ["The retained free functions are consolidated into the owning LegacyProjection API. Live spacer.native_mbp selection belongs to spacer_util.cpp:602-613 and shared LegacyProjection native-MBP integration and is tracked separately. Non-arithmetic array index classes use pairwise disequalities instead of the source's arithmetic-only index ordering precondition."]
     },
     {
       "path": "src/muz/spacer/spacer_qe_project.h",
@@ -105956,7 +105957,7 @@
         "The lemma plugin borrows its owning learner and is closed by that learner; core insertion acquires an owning learner reference."
       ],
       "deviations": [
-        "The ordinary fallback and both retained arithmetic plugin variants are complete. The optional minimize-unsat-core min-cut plugin remains open."
+        "The ordinary fallback, both live arithmetic plugin variants and optional minimize-unsat-core min-cut plugin are implemented. The bounded Farkas alternative is unreachable behind the source literal optimized selection."
       ]
     },
     {
@@ -106009,7 +106010,7 @@
         "UnsatCorePlugin is an explicitly owned Go interface; registered concrete plugins borrow their learner and are destroyed by it."
       ],
       "deviations": [
-        "The virtual base becomes a Go interface. Remaining concrete plugin types are tracked separately as unported methods."
+        "The virtual base becomes a Go interface. The live concrete plugins are implemented; the bounded arithmetic alternative has no live source path."
       ]
     },
     {
