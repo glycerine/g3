@@ -61,8 +61,18 @@ func TestCheckedExplanationUnionInstructionPreservesSourceKindsAfterScope(t *tes
 						t.Fatalf("%s register: product %v, error %v", label, product, e)
 					}
 					gotPrimary, gotChecker, checked, e := product.CheckedConcreteKinds()
-					if e != nil || !checked || gotPrimary != primary || gotChecker != checker {
-						t.Fatalf("%s pair (%q, %q, checked=%t, %v), want (%q, %q)", label, gotPrimary, gotChecker, checked, e, primary, checker)
+					wantChecked := primary != "hashtable" && checker != "hashtable"
+					if e != nil {
+						t.Fatalf("%s concrete kind error: %v", label, e)
+					}
+					if wantChecked {
+						if !checked || gotPrimary != primary || gotChecker != checker {
+							t.Fatalf("%s pair (%q, %q, checked=%t), want (%q, %q)", label, gotPrimary, gotChecker, checked, primary, checker)
+						}
+					} else if checked {
+						t.Fatalf("%s unexpectedly used checked Hash functional pair (%q, %q)", label, gotPrimary, gotChecker)
+					} else if _, ok := product.table.(*SparseTable); !ok {
+						t.Fatalf("%s source fallback type %T, want *SparseTable", label, product.table)
 					}
 					got, found, e := product.Explanation([]ast.ASTHandle{f.truth})
 					if e != nil || !found || got != want {

@@ -50,11 +50,7 @@ func TestCheckedExplanationIndexProjectFiniteNullaryAndMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	factory, err := NewFiniteCheckedFactory("sparse", "hashtable")
-	if err != nil {
-		t.Fatal(err)
-	}
-	index, err := factory.NewExplanationIndex(signature, 1)
+	index, err := directCheckedExplanationIndex("sparse", "hashtable", nil, signature)
 	if err != nil {
 		t.Fatal(err)
 	}

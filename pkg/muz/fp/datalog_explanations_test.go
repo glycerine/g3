@@ -73,7 +73,7 @@ func TestDatalogExpressionExplanationsCarryNamedProofAndSurviveScope(t *testing.
 }
 
 func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) {
-	for _, mode := range []string{"enabled", "magic", "local-disabled", "relation-level", "checked", "relation-checked", "relation-checked-explicit", "checked-default", "checked-default-reverse", "checked-default-lazy", "relation-checked-default", "relation-checked-default-reverse", "relation-checked-default-lazy", "empty"} {
+	for _, mode := range []string{"enabled", "magic", "local-disabled", "relation-level", "checked", "relation-checked", "relation-checked-explicit", "checked-default", "checked-default-reverse", "checked-default-lazy", "checked-default-sparse-lazy", "checked-default-lazy-sparse", "relation-checked-default", "relation-checked-default-reverse", "relation-checked-default-lazy", "empty"} {
 		t.Run(mode, func(t *testing.T) {
 			f := newDirectFactFixture(t)
 			e, m := f.engine, f.manager
@@ -102,6 +102,15 @@ func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) 
 				must(e.globals.SourceSetName("fixedpoint.datalog.default_table", "lazy_sparse"))
 				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checked", "true"))
 				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checker", "hashtable"))
+			}
+			if mode == "checked-default-sparse-lazy" || mode == "checked-default-lazy-sparse" {
+				primary, checker := "sparse", "lazy_sparse"
+				if mode == "checked-default-lazy-sparse" {
+					primary, checker = checker, primary
+				}
+				must(e.globals.SourceSetName("fixedpoint.datalog.default_table", primary))
+				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checked", "true"))
+				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checker", checker))
 			}
 			if mode == "relation-level" || mode == "relation-checked" || mode == "relation-checked-explicit" || mode == "relation-checked-default" || mode == "relation-checked-default-reverse" || mode == "relation-checked-default-lazy" {
 				must(e.globals.SourceSetName("fixedpoint.datalog.explanations_on_relation_level", "true"))
@@ -178,7 +187,7 @@ func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) 
 			} else if e.queryClone.datalogExplanationAnswer == (ast.ASTRef{}) {
 				t.Fatal("missing explanation answer")
 			}
-			if mode == "checked-default-lazy" || mode == "relation-checked-default-lazy" {
+			if mode == "checked-default-lazy" || mode == "checked-default-lazy-sparse" || mode == "relation-checked-default-lazy" {
 				if _, ok := e.predicates[d].table.(*rel.LazySparseTable); !ok {
 					t.Fatalf("explanation query lost configured lazy seed storage: %T", e.predicates[d].table)
 				}

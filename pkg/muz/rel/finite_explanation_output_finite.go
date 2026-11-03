@@ -23,6 +23,8 @@ func (p *FiniteExplanationProduct) ToFiniteTable() (FiniteTable, error) {
 		return table.ProjectFinite()
 	case *SparseTable:
 		return finiteTableProject(table, []int{len(p.finiteSorts)})
+	case *LazySparseTable:
+		return finiteTableProject(table, []int{len(p.finiteSorts)})
 	default:
 		return nil, ErrTableRelation
 	}

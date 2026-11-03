@@ -7,7 +7,7 @@ import (
 )
 
 func TestFiniteExplanationCheckedConversionProjectsBothPlugins(t *testing.T) {
-	for _, kinds := range [][2]string{{"hashtable", "sparse"}, {"lazy_sparse", "hashtable"}, {"sparse", "lazy_sparse"}} {
+	for _, kinds := range [][2]string{{"sparse", "sparse"}, {"lazy_sparse", "sparse"}, {"sparse", "lazy_sparse"}} {
 		t.Run(kinds[0]+"-"+kinds[1], func(t *testing.T) {
 			f := newTableRelationFixture(t)
 			lazy := NewLazySparseFiniteFactory()

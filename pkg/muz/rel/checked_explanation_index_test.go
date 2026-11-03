@@ -8,6 +8,34 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+func directExplanationIndexTable(kind string, lazy *LazySparseFiniteFactory, signature Signature) (FiniteTable, error) {
+	switch kind {
+	case "hashtable":
+		return NewHashTable(signature), nil
+	case "sparse":
+		return NewSparseTable(signature, 1)
+	case "lazy_sparse":
+		if lazy == nil {
+			return nil, ErrCheckTable
+		}
+		return lazy.NewFunctional(signature, 1)
+	default:
+		return nil, ErrCheckTable
+	}
+}
+
+func directCheckedExplanationIndex(primaryKind, checkerKind string, lazy *LazySparseFiniteFactory, signature Signature) (*CheckedExplanationIndex, error) {
+	primary, err := directExplanationIndexTable(primaryKind, lazy, signature)
+	if err != nil {
+		return nil, err
+	}
+	checker, err := directExplanationIndexTable(checkerKind, lazy, signature)
+	if err != nil {
+		return nil, errors.Join(err, primary.Close())
+	}
+	return adoptCheckedExplanationIndex(primary, checker, 1)
+}
+
 func TestCheckedExplanationIndexFunctionalMatrixAndSuffixMismatch(t *testing.T) {
 	signature, err := NewSignature([]uint64{2, math.MaxInt32})
 	if err != nil {
@@ -17,11 +45,7 @@ func TestCheckedExplanationIndexFunctionalMatrixAndSuffixMismatch(t *testing.T) 
 		for _, checker := range []string{"hashtable", "sparse"} {
 			name := primary + "-checked-by-" + checker
 			t.Run(name, func(t *testing.T) {
-				factory, err := NewFiniteCheckedFactory(primary, checker)
-				if err != nil {
-					t.Fatal(err)
-				}
-				index, err := factory.NewExplanationIndex(signature, 1)
+				index, err := directCheckedExplanationIndex(primary, checker, nil, signature)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -111,8 +135,18 @@ func TestCheckedExplanationProductProjectUnionAndNullaryOwnership(t *testing.T) 
 				checkKinds := func(label string, product *FiniteExplanationProduct) {
 					t.Helper()
 					gotPrimary, gotChecker, checked, e := product.CheckedConcreteKinds()
-					if e != nil || !checked || gotPrimary != primary || gotChecker != checker {
-						t.Fatalf("%s concrete pair (%q, %q, checked=%t, %v), want (%q, %q)", label, gotPrimary, gotChecker, checked, e, primary, checker)
+					wantChecked := primary != "hashtable" && checker != "hashtable"
+					if e != nil {
+						t.Fatalf("%s concrete kind error: %v", label, e)
+					}
+					if wantChecked {
+						if !checked || gotPrimary != primary || gotChecker != checker {
+							t.Fatalf("%s concrete pair (%q, %q, checked=%t), want (%q, %q)", label, gotPrimary, gotChecker, checked, primary, checker)
+						}
+					} else if checked {
+						t.Fatalf("%s unexpectedly used checked Hash functional pair (%q, %q)", label, gotPrimary, gotChecker)
+					} else if _, ok := product.table.(*SparseTable); !ok {
+						t.Fatalf("%s source fallback type %T, want *SparseTable", label, product.table)
 					}
 				}
 

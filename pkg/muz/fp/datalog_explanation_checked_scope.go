@@ -14,6 +14,7 @@ import (
 // The relation manager owns every table created through the borrowed factory.
 type datalogExplanationCheckedScope struct {
 	engine                   *PropositionalEngine
+	factory                  *rel.FiniteCheckedFactory
 	primary                  string
 	checker                  string
 	uncheckedNullaryFallback bool
@@ -41,6 +42,7 @@ func (e *PropositionalEngine) beginDatalogExplanationCheckedScope() (_ *datalogE
 	}
 	scope := &datalogExplanationCheckedScope{
 		engine:                   e,
+		factory:                  factory,
 		primary:                  primary,
 		checker:                  checker,
 		uncheckedNullaryFallback: factory.AllowsUncheckedNullaryFallback(),
@@ -76,6 +78,19 @@ func (s *datalogExplanationCheckedScope) requireProduct(product datalogExplanati
 		return err
 	}
 	if !checked {
+		// A per-fact explanation table has one functional index column. Hash
+		// cannot represent it, so source plugin selection falls through to an
+		// ordinary Sparse index when either side of the checked favourite is
+		// Hash. Accept only that concrete product and factory-proved boundary.
+		if factProduct, fact := product.(*rel.FiniteExplanationProduct); fact && primary == "sparse" && checker == "" && s.factory != nil {
+			signature, signatureErr := factProduct.IndexSignature()
+			if signatureErr != nil {
+				return signatureErr
+			}
+			if s.factory.AllowsUncheckedExplanationIndexFallback(signature, 1) {
+				return nil
+			}
+		}
 		// sparse/lazy plugins cannot represent the empty signature. Source
 		// favourite selection deliberately falls back to ordinary Hash here;
 		// accept only that proved capability boundary, never a generic bypass.

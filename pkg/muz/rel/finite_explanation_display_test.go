@@ -11,6 +11,7 @@ import (
 
 func TestFiniteExplanationProductDisplayEstimatesAndEmptyCollection(t *testing.T) {
 	f := newTableRelationFixture(t)
+	astTestMust(t, f.relations.SetDefaultFiniteTable("sparse"))
 	ruleSort, err := f.ast.MkDatalogRuleSort()
 	astTestMust(t, err)
 	symbol, err := f.ast.Symbols.Intern("finite-explanation-display")
@@ -33,7 +34,7 @@ func TestFiniteExplanationProductDisplayEstimatesAndEmptyCollection(t *testing.T
 	}
 	sparse, ok := p.table.(*SparseTable)
 	if !ok {
-		t.Fatalf("default explanation index is %T, want SparseTable", p.table)
+		t.Fatalf("selected explanation index is %T, want SparseTable", p.table)
 	}
 	wantBytes := uint32(len(sparse.data.entries)) * sparse.layout.EntryBytes()
 	if size, e := p.SizeEstimateBytes(); e != nil || size != wantBytes {

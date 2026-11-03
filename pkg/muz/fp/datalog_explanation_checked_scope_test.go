@@ -3,6 +3,7 @@ package fp
 import (
 	"testing"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
@@ -13,6 +14,10 @@ func TestDatalogExplanationCheckedScopeConfiguredConcretePairs(t *testing.T) {
 		{primary: "sparse", checker: "hashtable"},
 		{primary: "lazy_sparse", checker: "hashtable"},
 		{primary: "hashtable", checker: "lazy_sparse"},
+		{primary: "sparse", checker: "sparse"},
+		{primary: "sparse", checker: "lazy_sparse"},
+		{primary: "lazy_sparse", checker: "sparse"},
+		{primary: "lazy_sparse", checker: "lazy_sparse"},
 	} {
 		t.Run(tc.primary+"-"+tc.checker, func(t *testing.T) {
 			f := newDirectFactFixture(t)
@@ -39,6 +44,22 @@ func TestDatalogExplanationCheckedScopeConfiguredConcretePairs(t *testing.T) {
 				t.Fatal("concrete checked kinds", primary, checker)
 			}
 			fragmentMust(t, table.Close())
+			boolean, err := f.manager.MkBoolSort()
+			fragmentMust(t, err)
+			factProduct, err := rel.NewFiniteExplanationProduct(e.relations, []ast.ASTHandle{boolean})
+			fragmentMust(t, err)
+			factPrimary, factChecker, factChecked, err := factProduct.CheckedConcreteKinds()
+			fragmentMust(t, err)
+			wantFactChecked := tc.primary != "hashtable" && tc.checker != "hashtable"
+			if wantFactChecked {
+				if !factChecked || factPrimary != tc.primary || factChecker != tc.checker {
+					t.Fatal("functional explanation index was not checked", factPrimary, factChecker, factChecked)
+				}
+			} else if factChecked || factPrimary != "sparse" || factChecker != "" {
+				t.Fatal("Hash functional explanation index did not fall back to ordinary Sparse", factPrimary, factChecker, factChecked)
+			}
+			fragmentMust(t, scope.requireProduct(factProduct))
+			fragmentMust(t, factProduct.Close())
 			nullary, err := rel.NewRelationExplanationProduct(e.relations, nil)
 			fragmentMust(t, err)
 			nullaryPrimary, nullaryChecker, nullaryChecked, err := nullary.CheckedConcreteKinds()

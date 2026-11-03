@@ -66,6 +66,32 @@ func (f *FiniteCheckedFactory) CanHandleSignature(signature Signature) bool {
 	return f != nil && checkedKindHandles(f.primaryKind, signature) && checkedKindHandles(f.checkerKind, signature)
 }
 
+func checkedKindHandlesFunctional(kind string, signature Signature, functional int) bool {
+	if functional == 0 {
+		return checkedKindHandles(kind, signature)
+	}
+	switch kind {
+	case "sparse", "tr_sparse", "lazy_sparse", "tr_lazy_sparse":
+		return signature.Len() != 0 && functional > 0 && functional <= signature.Len()
+	default:
+		return false
+	}
+}
+
+// CanHandleExplanationIndex mirrors the functional-column capability of both
+// wrapped plugins. Hash rejects functional signatures; Sparse and LazySparse
+// accept the live nonempty explanation index.
+func (f *FiniteCheckedFactory) CanHandleExplanationIndex(signature Signature, functional int) bool {
+	return f != nil && checkedKindHandlesFunctional(f.primaryKind, signature, functional) && checkedKindHandlesFunctional(f.checkerKind, signature, functional)
+}
+
+// AllowsUncheckedExplanationIndexFallback reports the exact source boundary
+// where the checked favourite rejects a valid functional signature and manager
+// plugin selection must fall through to ordinary Sparse.
+func (f *FiniteCheckedFactory) AllowsUncheckedExplanationIndexFallback(signature Signature, functional int) bool {
+	return f != nil && functional == 1 && signature.Len() >= functional && !f.CanHandleExplanationIndex(signature, functional)
+}
+
 // AllowsUncheckedNullaryFallback reports whether source plugin selection must
 // bypass this checked favourite for the empty signature.
 func (f *FiniteCheckedFactory) AllowsUncheckedNullaryFallback() bool {

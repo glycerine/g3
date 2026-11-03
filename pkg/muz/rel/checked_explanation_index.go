@@ -104,8 +104,9 @@ func (t *CheckedExplanationIndex) NewLike(signature Signature, functional int) (
 	return adoptCheckedExplanationIndex(primary, checker, functional)
 }
 
-// NewExplanationIndex constructs the source check_table pair for the one
-// functional finite-product index column.
+// NewExplanationIndex constructs a direct reusable Go checker pair. Source
+// favourite selection additionally applies CanHandleExplanationIndex in
+// RelationManager.NewExplanationIndexTable before calling this helper.
 func (f *FiniteCheckedFactory) NewExplanationIndex(signature Signature, functional int) (*CheckedExplanationIndex, error) {
 	if f == nil {
 		return nil, ErrCheckTable
@@ -123,9 +124,22 @@ func (m *RelationManager) NewExplanationIndexTable(signature Signature, function
 		return nil, ErrTable
 	}
 	if m.checkedFinite != nil {
-		return m.checkedFinite.NewExplanationIndex(signature, functional)
+		if m.checkedFinite.CanHandleExplanationIndex(signature, functional) {
+			return m.checkedFinite.NewExplanationIndex(signature, functional)
+		}
+		return NewSparseTable(signature, functional)
 	}
-	return NewSparseTable(signature, functional)
+	switch m.defaultFinite {
+	case "lazy_sparse":
+		if m.lazyFinite == nil {
+			return nil, ErrTable
+		}
+		return m.lazyFinite.NewFunctional(signature, functional)
+	default:
+		// Hash rejects functional columns, so source registration order falls
+		// through to Sparse, the first plugin that accepts this signature.
+		return NewSparseTable(signature, functional)
+	}
 }
 
 func (t *CheckedExplanationIndex) open() error {

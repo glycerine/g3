@@ -10,8 +10,6 @@ import (
 
 func TestCheckedLazyExplanationIndexAndDerivedProducts(t *testing.T) {
 	pairs := []struct{ primary, checker string }{
-		{"lazy_sparse", "hashtable"},
-		{"hashtable", "lazy_sparse"},
 		{"lazy_sparse", "sparse"},
 		{"sparse", "lazy_sparse"},
 		{"lazy_sparse", "lazy_sparse"},
@@ -163,6 +161,133 @@ func TestCheckedLazyExplanationIndexAndDerivedProducts(t *testing.T) {
 			astTestMust(t, lazy.Close())
 			if err = lazy.open(); !errors.Is(err, ErrLazySparse) {
 				t.Fatalf("closed shared lazy factory error %v, want ErrLazySparse", err)
+			}
+		})
+	}
+}
+
+func TestCheckedLazyExplanationHashPairsUseOrdinarySparseFallback(t *testing.T) {
+	for _, pair := range []struct{ primary, checker string }{
+		{"lazy_sparse", "hashtable"},
+		{"hashtable", "lazy_sparse"},
+	} {
+		t.Run(pair.primary+"-checked-by-"+pair.checker, func(t *testing.T) {
+			lazy := NewLazySparseFiniteFactory()
+			t.Cleanup(func() {
+				if err := lazy.Close(); err != nil {
+					t.Fatal(err)
+				}
+			})
+			factory, err := NewFiniteCheckedFactoryWithLazy(pair.primary, pair.checker, lazy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			signature, err := NewSignature([]uint64{2, math.MaxInt32})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if factory.CanHandleExplanationIndex(signature, 1) {
+				t.Fatal("checked Hash pair claimed a functional explanation index")
+			}
+			// Package-local adoption keeps otherwise unreachable Hash checker
+			// corruption coverage without weakening source plugin selection.
+			direct, err := directCheckedExplanationIndex(pair.primary, pair.checker, lazy, signature)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gotPrimary, gotChecker, err := direct.ConcreteKinds()
+			if err != nil || gotPrimary != pair.primary || gotChecker != pair.checker {
+				t.Fatalf("direct pair (%q, %q, %v), want (%q, %q)", gotPrimary, gotChecker, err, pair.primary, pair.checker)
+			}
+			if err = direct.EnsureFact(Fact{0, 7}); err != nil {
+				t.Fatal(err)
+			}
+			if err = explanationIndexEnsure(direct.checker, Fact{0, 9}, 1); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = direct.Facts(); !errors.Is(err, ErrCheckTable) {
+				t.Fatalf("direct suffix mismatch error %v, want ErrCheckTable", err)
+			}
+			if err = direct.Close(); err != nil {
+				t.Fatal(err)
+			}
+
+			f := newTableRelationFixture(t)
+			if err = f.relations.SetLazySparseFiniteFactory(lazy); err != nil {
+				t.Fatal(err)
+			}
+			if err = f.relations.SetDefaultFiniteTable("lazy_sparse"); err != nil {
+				t.Fatal(err)
+			}
+			if err = f.relations.SetCheckedFiniteFactory(factory); err != nil {
+				t.Fatal(err)
+			}
+			index, err := f.relations.NewExplanationIndexTable(signature, 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, ok := index.(*SparseTable); !ok {
+				t.Fatalf("manager functional fallback type %T, want *SparseTable", index)
+			}
+			if err = index.EnsureFact(Fact{1, 5}); err != nil {
+				t.Fatal(err)
+			}
+			probe := Fact{1, 0}
+			if found, err := index.FetchFact(probe); err != nil || !found || probe[1] != 5 {
+				t.Fatalf("fallback fetch (%v, found=%t, %v), want suffix 5", probe, found, err)
+			}
+			if err = index.Close(); err != nil {
+				t.Fatal(err)
+			}
+
+			product, err := NewFiniteExplanationProduct(f.relations, []ast.ASTHandle{f.boolean})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, ok := product.table.(*SparseTable); !ok {
+				t.Fatalf("fact-product fallback type %T, want *SparseTable", product.table)
+			}
+			if primary, checker, checked, err := product.CheckedConcreteKinds(); err != nil || checked {
+				t.Fatalf("fallback reported checked pair (%q, %q, checked=%t, %v)", primary, checker, checked, err)
+			}
+			ruleSort, err := f.ast.MkDatalogRuleSort()
+			astTestMust(t, err)
+			symbol, err := f.ast.Symbols.Intern("hash-fallback-proof")
+			astTestMust(t, err)
+			proof, err := f.ast.MkConst(symbol, ruleSort)
+			astTestMust(t, err)
+			proofRef, err := f.ast.NewRef(proof)
+			astTestMust(t, err)
+			astTestMust(t, product.AddFact([]ast.ASTHandle{f.truth}, proof))
+			astTestMust(t, f.ast.DelRef(&proofRef))
+			projected, err := product.Project([]int{0})
+			astTestMust(t, err)
+			if _, ok := projected.table.(*SparseTable); !ok {
+				t.Fatalf("derived fallback type %T, want *SparseTable", projected.table)
+			}
+			if primary, checker, checked, err := projected.CheckedConcreteKinds(); err != nil || checked {
+				t.Fatalf("derived fallback reported checked pair (%q, %q, checked=%t, %v)", primary, checker, checked, err)
+			}
+			if err = product.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if got, found, err := projected.Explanation(nil); err != nil || !found || got != proof {
+				t.Fatalf("derived fallback proof (%v, found=%t, %v), want %v", got, found, err, proof)
+			}
+			if _, err = f.ast.GetKind(proof); err != nil {
+				t.Fatalf("derived fallback lost proof after source close: %v", err)
+			}
+			if err = projected.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = f.ast.GetKind(proof); err == nil {
+				t.Fatal("closed derived fallback kept proof alive")
+			}
+			if err = f.relations.SetLazySparseFiniteFactory(nil); err != nil {
+				t.Fatal(err)
+			}
+			if err = lazy.Close(); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}

@@ -31,7 +31,7 @@ func newFiniteExplanationProduct(manager *RelationManager, finiteSorts []ast.AST
 	return newFiniteExplanationProductWithIndex(manager, finiteSorts, explanationColumns, nil)
 }
 
-func newFiniteExplanationProductWithIndex(manager *RelationManager, finiteSorts []ast.ASTHandle, explanationColumns int, template *CheckedExplanationIndex) (*FiniteExplanationProduct, error) {
+func newFiniteExplanationProductWithIndex(manager *RelationManager, finiteSorts []ast.ASTHandle, explanationColumns int, template ExplanationIndexTable) (*FiniteExplanationProduct, error) {
 	if explanationColumns < 0 {
 		return nil, ast.ErrASTDomain
 	}
@@ -52,10 +52,19 @@ func newFiniteExplanationProductWithIndex(manager *RelationManager, finiteSorts 
 		return nil, err
 	}
 	var table ExplanationIndexTable
-	if template != nil {
-		table, err = template.NewLike(signature, 1)
-	} else {
+	switch concrete := template.(type) {
+	case nil:
 		table, err = manager.NewExplanationIndexTable(signature, 1)
+	case *CheckedExplanationIndex:
+		table, err = concrete.NewLike(signature, 1)
+	case *SparseTable:
+		table, err = NewSparseTable(signature, 1)
+	case *LazySparseTable:
+		if err = concrete.open(); err == nil {
+			table, err = concrete.engine.New(signature, 1)
+		}
+	default:
+		return nil, ErrTableRelation
 	}
 	if err != nil {
 		return nil, err
