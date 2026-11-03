@@ -64,7 +64,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 
 ## 2. Shared fixedpoint infrastructure
 
-- [ ] Complete source context SMT-LIB dump fidelity, including pending-rule phases.
+- [x] Complete source context SMT-LIB dump fidelity, including pending-rule phases.
   - [x] Implement finalized-rule get_rules_as_formulas partitioning, preserving source order/names and quantified output-clause behavior, with ownership and dense allocation-failure coverage.
   - [x] Normalize pending open formulas before partitioning; promote clauses in source swap-removal order and update the raw archive/bounds consumed by Duality.
   - [x] Implement context display_smt2 flags: fixedpoint extensions (default true), low-level printing, declared variables, background rejection in plain HORN, output-query emission and source name freshness.
@@ -86,6 +86,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Preserve context dump temporary owners through allocation and writer failures, and emit fresh query declarations before variable construction. Both display modes pass dense exact-owner campaigns and focused order tests.
 
 - [ ] Close context/rule ownership, scope rollback, query transformation and engine lifecycle audits (`base/dl_context`, `dl_rule`, `dl_engine_base`).
+  - [ ] Preserve deferred publication of a completed update prefix when its native cleanup is refused; ordinary conversion-error publication is covered separately.
   - [x] Preserve background/constructor-parameter invalidation through a subsequent named PDR rule update; verify SAT/UNSAT/SAT after background replacement and context disposal after parameter replacement.
   - [x] Match PDR source-rule snapshot comparison before preprocessing; preserve covers across covered additions, with independent snapshot ownership and background/parameter invalidation guards.
   - [x] Enter and restore the PDR arithmetic proof mode when rebuilding transformers during UpdateRules, including raw-cover preservation through a covered addition.
@@ -2062,3 +2063,5 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — The full filtered `g3checked,g3debug,g3trace` short suite passed on snapshot `d81bcec1e`, including the repaired debug allocation campaign. Log: `/tmp/g3-filtered-three-tag-repair-20261103.log`.
 
 - 2026-11-03 — Matched source partial update publication when a later rule conversion fails, preserving the original error and completed prefix. Focused fixedpoint and public API tests pass; native cleanup-refusal continuation is still tracked separately.
+
+- 2026-11-03 — Completed the independent context display audit: source formula/query partition, pending phases, print options, declarations, typed labels, caller routes and tested cleanup map to the Go context formatter. Shared rule lifecycle, including publication after refused native cleanup, remains explicitly open below.
