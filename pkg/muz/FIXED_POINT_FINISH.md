@@ -390,6 +390,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/fp/datalog_parser.cpp` (partial), `src/muz/fp/datalog_parser.h` (partial)
   - [x] Constant-left equality/ordering infix bodies, source greater-than reversal, finite/numeric constants, quoted integer construction and constant-only rejection.
   - [x] Column-one comment newline handling, negative numeral token classification and finite-domain ordering through `DatalogOpLT`.
+  - [x] Require the source parent newline after a domain include while preserving the child include's earlier mutation when that parent token is invalid.
 - [ ] `src/muz/fp/dl_cmds.cpp` (partial), `src/muz/fp/dl_cmds.h` (partial)
   - [x] `dl_query_cmd::set_next_arg` rejects non-uninterpreted and unregistered ordinary Boolean functions before parameters/backend execution.
 - [ ] `src/muz/fp/dl_register_engine.cpp` (partial), `src/muz/fp/dl_register_engine.h` (partial)
@@ -494,6 +495,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Datalog domain includes now require the source parent newline after the included child finishes parsing. Same-line parent tokens reject at the correct boundary while preserving the child-first domain mutation order; broader parser auditing remains open.
+  Validation: `go -C pkg test ./muz/fp -run 'TestDatalogParser.*Include|TestDatalogParser.*Map' -count=3` passed. Commit title: `Require newlines after Datalog domain includes`.
 
 - 2026-11-02 — Exact bound/interval activations now synchronize inherited query-head declarations transactionally after construction. Late nullary products preserve requested component order and existing seeds, while missing, duplicate, mismatched or non-pair declarations reject without partial mutation; public engine selection and positive-rule lowering remain open.
   Validation: `go -C pkg test ./muz/fp -run '^TestBoundIntervalDatalogActivation' -count=3` passed. Commit title: `Synchronize late bound interval query heads`.

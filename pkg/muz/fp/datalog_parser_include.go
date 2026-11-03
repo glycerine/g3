@@ -19,6 +19,7 @@ func (p *datalogParser) parseInclude(domains bool) error {
 	}
 	path := p.includePath(p.token.text)
 	p.advance()
+	terminated := p.token.kind == datalogNewline
 	if p.token.kind == datalogNewline {
 		p.advance()
 	}
@@ -65,6 +66,9 @@ func (p *datalogParser) parseInclude(domains bool) error {
 		if err != nil {
 			return err
 		}
+	}
+	if domains && !terminated {
+		return p.fail("newline expected after include statement")
 	}
 	return nil
 }
