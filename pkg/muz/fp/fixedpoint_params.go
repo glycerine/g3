@@ -111,16 +111,13 @@ func (e *PropositionalEngine) SetQueryParameters(params *uparams.ParamsRef) (res
 	if err := e.resetSpacerForParameterUpdate(); err != nil {
 		return err
 	}
-	if e.queryParamsReady {
-		result = e.params.Del(&e.queryParams)
-		e.queryParamsReady = false
-	}
+	result = e.clearQueryParameters()
 	if result == nil && params != nil {
 		e.queryParams = e.params.EmptyValue()
 		result = e.params.Assign(&e.queryParams, params)
 		e.queryParamsReady = result == nil
 		if result != nil {
-			result = errors.Join(result, e.params.Del(&e.queryParams))
+			result = errors.Join(result, e.clearQueryParameters())
 		}
 	}
 	if result == nil {

@@ -346,9 +346,14 @@ func TestDatalogResultSnapshotRoutesAndInvalidates(t *testing.T) {
 	resultModel, err := engine.Model(declaration)
 	fpMust(t, err)
 	fpMust(t, resultModel.Close())
-	if _, err = engine.Proof(declaration); !errors.Is(err, fp.ErrPropositionalEngine) {
-		t.Fatal("Datalog exposed PDR proof", err)
+	proof, err := engine.Proof(declaration)
+	fpMust(t, err)
+	proofHandle, err := manager.RefGet(proof)
+	fpMust(t, err)
+	if !proofHandle.IsNull() {
+		t.Fatal("proof-disabled Datalog did not preserve source null asserted proof", proofHandle)
 	}
+	fpMust(t, manager.DelRef(&proof))
 	var output bytes.Buffer
 	found, err := engine.WriteCertificate(&output, declaration, func(io.Writer, ast.ASTHandle) error { return nil })
 	if err != nil || found || output.Len() != 0 {
@@ -388,10 +393,9 @@ func TestPDRAndSpacerPreQueryResultGuards(t *testing.T) {
 			var output bytes.Buffer
 			_, err = engine.WriteCertificate(&output, declaration, func(io.Writer, ast.ASTHandle) error { return nil })
 			assertOwner("certificate", err)
-			if backend == "pdr" || backend == "qpdr" {
-				_, err = engine.Proof(declaration)
-				assertOwner("proof", err)
-			} else {
+			_, err = engine.Proof(declaration)
+			assertOwner("proof", err)
+			if backend == "spacer" {
 				_, err = engine.GroundSatAnswer(declaration)
 				assertOwner("ground answer", err)
 				_, _, err = engine.RulesAlongTrace()
@@ -427,6 +431,16 @@ func TestPDRAndSpacerResultSnapshotsInvalidateAfterParameterRevision(t *testing.
 			answer, err := engine.Answer(declaration)
 			fpMust(t, err)
 			fpMust(t, manager.DelRef(&answer))
+			if backend == "spacer" {
+				proof, proofErr := engine.Proof(declaration)
+				fpMust(t, proofErr)
+				proofHandle, proofErr := manager.RefGet(proof)
+				fpMust(t, proofErr)
+				if !proofHandle.IsNull() {
+					t.Fatal("Spacer did not preserve source null overall proof", proofHandle)
+				}
+				fpMust(t, manager.DelRef(&proof))
+			}
 			var certificate bytes.Buffer
 			calls := 0
 			found, err := engine.WriteCertificate(&certificate, declaration, func(io.Writer, ast.ASTHandle) error {

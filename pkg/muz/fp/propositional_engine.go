@@ -173,6 +173,7 @@ type PropositionalEngine struct {
 	forceProofTrace     bool
 	queryParams         uparams.ParamsRef
 	queryParamsReady    bool
+	queryParamsReceipt  uparams.ParamsDecrementReceipt
 	datalogStats        statistics.Statistics
 	datalogElapsed      float64
 	closed              bool
@@ -2480,9 +2481,10 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 	return e.manager.NewRef(formula)
 }
 
-// Proof returns the owning reachable PDR proof trace selected by
-// fixedpoint.generate_proof_trace. The caller releases it through
-// ASTManager.DelRef.
+// Proof returns the selected engine's owning fixedpoint proof. PDR and
+// Duality provide concrete proofs, Spacer preserves its source null proof,
+// and engines that do not override engine_base::get_proof return asserted
+// true. The caller releases the result through ASTManager.DelRef.
 func (e *PropositionalEngine) Proof(declaration ast.ASTHandle) (ast.ASTRef, error) {
 	if e.backend == "duality" {
 		if err := e.requireResultSnapshot(EngineDuality); err != nil {
@@ -2490,16 +2492,38 @@ func (e *PropositionalEngine) Proof(declaration ast.ASTHandle) (ast.ASTRef, erro
 		}
 		return e.duality.GetProof()
 	}
-	if err := e.requirePDRSnapshot(); err != nil {
+	kind, err := parseEngineKind(e.backend)
+	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	if e.pdrProof != (ast.ASTRef{}) {
-		if e.pdrPredicate(declaration) != e.pdrPredicate(e.pdrQuery) {
-			return ast.ASTRef{}, ast.ErrASTDomain
-		}
-		return e.manager.CopyRef(e.pdrProof)
+	if err = e.requireResultSnapshot(kind); err != nil {
+		return ast.ASTRef{}, err
 	}
-	return e.pdr.Proof(e.pdrPredicate(declaration))
+	if kind == EnginePDR || kind == EngineQPDR {
+		if e.pdrProof != (ast.ASTRef{}) {
+			if e.pdrPredicate(declaration) != e.pdrPredicate(e.pdrQuery) {
+				return ast.ASTRef{}, ast.ErrASTDomain
+			}
+			return e.manager.CopyRef(e.pdrProof)
+		}
+		return e.pdr.Proof(e.pdrPredicate(declaration))
+	}
+	if kind == EngineSpacer {
+		proof, proofErr := e.spacer.Proof()
+		if proofErr != nil {
+			return ast.ASTRef{}, proofErr
+		}
+		return e.manager.NewRef(proof)
+	}
+	truth, err := e.manager.MkTrue()
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	proof, err := e.manager.MkProofAsserted(truth)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	return e.manager.NewRef(proof)
 }
 
 // WriteCertificate emits the selected backend's fixedpoint certificate.
@@ -2752,9 +2776,8 @@ func (e *PropositionalEngine) Close() (result error) {
 	if err := e.cleanupRetiredRawRules(); err != nil {
 		return errors.Join(result, err)
 	}
-	if e.queryParamsReady {
-		result = errors.Join(result, e.params.Del(&e.queryParams))
-		e.queryParamsReady = false
+	if err := e.clearQueryParameters(); err != nil {
+		return errors.Join(result, err)
 	}
 	result = errors.Join(result, e.clearBMCTrace())
 	result = errors.Join(result, e.clearTabAnswer())

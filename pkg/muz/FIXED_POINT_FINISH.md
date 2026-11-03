@@ -370,8 +370,10 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [x] `src/muz/base/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/base/dl_context.cpp` (partial), `src/muz/base/dl_context.h` (partial)
 - [ ] `src/muz/base/dl_engine_base.h` (partial)
+  - [x] Route public proof retrieval through engine overrides and the source asserted-true base fallback, while preserving Spacer's owning null proof.
 - [ ] `src/muz/base/dl_rule.cpp` (partial), `src/muz/base/dl_rule.h` (partial)
 - [ ] `src/muz/base/fixedpoint_params.hpp` (partial)
+  - [x] Preserve stopped query-parameter decrement receipts across parameter replacement and engine disposal, retrying the exact native invocation before clearing ownership.
 
 ### bmc
 
@@ -642,6 +644,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Duality derivation level pops now preflight expansion edges, updated children and exact mapping multiplicity before mutating solver state. After one graph pop, edge and node deletion frontiers retry phase-aware without a second pop, and node maps, leaves and stack commit only after cleanup succeeds; later backtracking ownership audits remain open.
   Validation: `go -C pkg test ./duality -run '^(TestDualityPopLevelRefusesInvalidOwnershipBeforeSolverMutation|Test.*Backtrack|Test.*Restart|Test.*ProofCore|Test.*Annotation.*Update)' -count=3` passed. Commit title: `Make Duality level pops retryable`.
+
+- 2026-11-02 — Public fixedpoint proof retrieval now follows the source engine contract: Duality and PDR keep custom proofs, Spacer returns an owning null proof and Datalog/BMC/QBMC/TAB/CLP/DDNF use the base asserted-true fallback. Query-parameter replacement and engine disposal also preserve stopped native decrement receipts for exact retry; broader base-engine and parameter audits remain open.
+  Validation: the focused proof-routing, Horn-tactic, result-snapshot and parameter-lifecycle gate passed three times with `go -C pkg test ./muz/fp` in 0.322s. Commit title: `Route fixedpoint proofs and preserve query parameters`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
