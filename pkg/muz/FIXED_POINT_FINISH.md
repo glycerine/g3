@@ -73,6 +73,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Route the owning fixedpoint API string/writer through the context formatter, applying fixedpoint-local print options without query configuration changes.
   - [ ] Reconcile eager Go ingestion with source pending-closed versus flushed display phase: preserve original binder/annotation metadata before flushing, normalized clause identity/order after flushing, updates and scoped restoration.
     - [x] Rebuild pending open formulas at display/enumeration time using current `xform.fix_unbound_vars`, preserving normalized prefix identity, swap order and pending closed ranges; retain temporary owners through cleanup refusal. Focused parameter, dense allocation and retry tests pass.
+    - [x] Rebuild pending closed formulas at query flush using current parameters, preserving raw archives, scope rollback and cleanup continuation; semantic, allocation and public API tests pass.
     - [x] Preserve closed-input binder/weight metadata before flush, normalized expansions afterward, mixed pending additions, scope snapshots and update range shifts; ordinary Duality queries preserve raw inputs.
     - [x] Match normalized-only named updates before/after flush, preserve raw Duality inputs, replacement slot order and pending suffix order.
     - [x] Match destructive open-formula display swap/removal order, repeated display and post-normalization writer refusal; construction staging remains transactional in Go.

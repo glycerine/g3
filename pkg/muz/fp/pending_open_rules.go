@@ -6,12 +6,21 @@ package fp
 
 import "github.com/glycerine/g3/pkg/muz/base"
 
-func (e *PropositionalEngine) normalizePendingOpenRules() (resultErr error) {
+func (e *PropositionalEngine) normalizePendingOpenRules() error {
+	return e.normalizePendingRules(false)
+}
+
+func (e *PropositionalEngine) normalizePendingRules(flush bool) (resultErr error) {
 	remaining := append([]rawRuleFormula(nil), e.rawRules...)
 	var promoted []rawRuleFormula
 	for i := 0; i < len(remaining); {
 		raw := remaining[i]
 		if !raw.pending {
+			i++
+			continue
+		}
+		if flush {
+			promoted = append(promoted, raw)
 			i++
 			continue
 		}
@@ -86,8 +95,8 @@ func (e *PropositionalEngine) normalizePendingOpenRules() (resultErr error) {
 		if err != nil {
 			return err
 		}
-		// Source get_rules_as_formulas invokes mk_rule now, rather than
-		// reusing clauses built under the parameter values at add_rule.
+		// Both source flush_add_rules and get_rules_as_formulas invoke
+		// mk_rule now, using the current context parameter values.
 		if err = e.addFormula(replacement, formula, raw.name); err != nil {
 			return err
 		}
@@ -98,7 +107,7 @@ func (e *PropositionalEngine) normalizePendingOpenRules() (resultErr error) {
 	}
 	for j := range remaining {
 		raw := &remaining[j]
-		if !raw.pending {
+		if flush || !raw.pending {
 			continue
 		}
 		first := next
@@ -121,7 +130,13 @@ func (e *PropositionalEngine) normalizePendingOpenRules() (resultErr error) {
 	prior := e.set
 	e.set = replacement
 	e.rawRules = remaining
-	e.retiredRawRules = append(e.retiredRawRules, promoted...)
+	if flush {
+		// A query flush advances the source pending head but keeps the
+		// original formula/name/bound archive for raw-rule consumers.
+		e.flushRawDisplayRules()
+	} else {
+		e.retiredRawRules = append(e.retiredRawRules, promoted...)
+	}
 	// The replacement is now persistent; this scope instead owns the old
 	// set until its last reference releases have completed.
 	a.sets[0] = prior

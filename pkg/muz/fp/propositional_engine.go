@@ -2152,7 +2152,9 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 	}
 	e.queried = true
 	if e.backend != "duality" {
-		e.flushRawDisplayRules()
+		if err := e.flushPendingRules(); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	if e.backend == "duality" {
 		e.compiled = false
@@ -2228,7 +2230,9 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 		}
 	}
 	e.queried = true
-	e.flushRawDisplayRules()
+	if err := e.flushPendingRules(); err != nil {
+		return lbool.Undef, err
+	}
 	return e.queryDatalogPredicates(declarations)
 }
 
@@ -2456,7 +2460,9 @@ func (e *PropositionalEngine) QueryPredicateFromLevel(declaration ast.ASTHandle,
 		return lbool.Undef, ErrPropositionalEngine
 	}
 	e.queried = true
-	e.flushRawDisplayRules()
+	if err := e.flushPendingRules(); err != nil {
+		return lbool.Undef, err
+	}
 	e.compiled = false
 	return e.querySpacerFromLevel(declaration, level)
 }

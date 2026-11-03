@@ -78,7 +78,9 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		e.recordQueryStatus(result, err)
 		return result, err
 	}
-	e.flushRawDisplayRules()
+	if err := e.flushPendingRules(); err != nil {
+		return lbool.Undef, err
+	}
 	hoisted, err := e.hoistQueryExistentials(query)
 	if err != nil {
 		return lbool.Undef, fmt.Errorf("muz/fp: hoist query existentials: %w", err)

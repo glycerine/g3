@@ -58,7 +58,9 @@ func (e *PropositionalEngine) queryDuality(query ast.ASTHandle) (status lbool.LB
 	if quantifyArrays {
 		// Source context::query flushes before check_rules and backend
 		// construction. A rejected rule still crosses that display boundary.
-		e.flushRawDisplayRules()
+		if err := e.flushPendingRules(); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	if err := e.validateFragment(); err != nil {
 		return lbool.Undef, err

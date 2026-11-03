@@ -83,8 +83,14 @@ func (e *PropositionalEngine) cleanupRetiredRawRules() error {
 	return nil
 }
 
-// flushRawDisplayRules records the source flush boundary; normalization itself
-// is eager in the Go engine. The original archive remains available to Duality.
+// flushPendingRules rebuilds the pending source clauses under the current
+// context parameters before query validation and backend construction.
+func (e *PropositionalEngine) flushPendingRules() error {
+	return e.normalizePendingRules(true)
+}
+
+// flushRawDisplayRules records a successfully reconstructed source boundary.
+// The original archive remains available to Duality and scoped restoration.
 func (e *PropositionalEngine) flushRawDisplayRules() {
 	for i := range e.rawRules {
 		e.rawRules[i].pending = false
