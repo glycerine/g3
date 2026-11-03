@@ -7,16 +7,18 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 type contextFormulaAttempt struct {
-	manager    *ast.ASTManager
-	sets       []*base.RuleSet
-	rules      []*base.Rule
-	references []ast.ASTRef
-	nested     memory.ConstructionFailure
+	manager      *ast.ASTManager
+	sets         []*base.RuleSet
+	rules        []*base.Rule
+	references   []ast.ASTRef
+	substitution *rewriter.VarSubstitution
+	nested       memory.ConstructionFailure
 }
 
 func (a *contextFormulaAttempt) closeRules() error {
@@ -38,6 +40,12 @@ func (a *contextFormulaAttempt) close() error {
 			return err
 		}
 		a.nested = nil
+	}
+	if a.substitution != nil {
+		if err := a.substitution.Close(); err != nil {
+			return err
+		}
+		a.substitution = nil
 	}
 	if err := a.closeRules(); err != nil {
 		return err

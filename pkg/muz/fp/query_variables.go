@@ -56,6 +56,23 @@ func (e *PropositionalEngine) compactQueryVariables(query ast.ASTHandle) (result
 	if err != nil {
 		return result, err
 	}
+	// Source mk_query holds the entire substitution vector in expr_refs,
+	// including dummy Boolean variables for holes. VarSubstitution borrows
+	// these bindings, so own them before constructing each possibly fresh AST.
+	attempt := &contextFormulaAttempt{manager: e.manager}
+	defer func() {
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			attempt.references = append(attempt.references, result)
+			result = ast.ASTRef{}
+		}
+		resultErr = attempt.finish(resultErr)
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			// A refused temporary destructor also prevents publication. Its
+			// receipt owns this attempt and the unpublished output as well.
+			attempt.references = append(attempt.references, result)
+			result = ast.ASTRef{}
+		}
+	}()
 	bindings := make([]ast.ASTHandle, count)
 	var next uint32
 	for i := uint32(0); i < count; i++ {
@@ -67,21 +84,22 @@ func (e *PropositionalEngine) compactQueryVariables(query ast.ASTHandle) (result
 			index = next
 			next++
 		}
+		owned, err := e.manager.NewRef(ast.ASTHandle{})
+		if owned != (ast.ASTRef{}) {
+			attempt.references = append(attempt.references, owned)
+		}
+		if err != nil {
+			return result, err
+		}
 		bindings[i], err = e.manager.MkVar(index, sort)
+		if !bindings[i].IsNull() {
+			err = errors.Join(err, e.manager.SetRef(owned, bindings[i]))
+		}
 		if err != nil {
 			return result, err
 		}
 	}
-	substitution, err := rewriter.NewVarSubstitution(e.manager, false)
-	defer func() {
-		if substitution != nil {
-			resultErr = errors.Join(resultErr, substitution.Close())
-		}
-		if resultErr != nil && result != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, e.manager.DelRef(&result))
-			result = ast.ASTRef{}
-		}
-	}()
+	attempt.substitution, err = rewriter.NewVarSubstitution(e.manager, false)
 	if err != nil {
 		return result, err
 	}
@@ -89,7 +107,7 @@ func (e *PropositionalEngine) compactQueryVariables(query ast.ASTHandle) (result
 	if err != nil {
 		return result, err
 	}
-	if err = substitution.Substitute(query, bindings, result); err != nil {
+	if err = attempt.substitution.Substitute(query, bindings, result); err != nil {
 		return result, err
 	}
 	return result, nil
