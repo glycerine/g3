@@ -140,7 +140,7 @@ func (c *Context) instantiateTraceExpression(node *ModelNode, rule *normalizedRu
 	return result, nil
 }
 
-func (c *Context) selectedTraceRule(node *ModelNode) (*normalizedRule, error) {
+func (c *Context) selectedTraceRule(node *ModelNode) (result *normalizedRule, resultErr error) {
 	if node.selected != nil {
 		return node.selected, nil
 	}
@@ -155,9 +155,12 @@ func (c *Context) selectedTraceRule(node *ModelNode) (*normalizedRule, error) {
 			tags = append(tags, rule.tag)
 		}
 	}
-	if len(initial) == 1 {
+	if len(initial) == 1 && node.model != nil {
 		return initial[0], nil
 	}
+	// A constraint-cache hit need not carry a model. Even a unique initial
+	// rule must satisfy this state; recover its witness with the source
+	// level-zero/tag selection instead of assuming it explains the cache hit.
 	if len(initial) == 0 || len(tags) != len(initial) {
 		return nil, ast.ErrASTDomain
 	}
@@ -165,6 +168,13 @@ func (c *Context) selectedTraceRule(node *ModelNode) (*normalizedRule, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Proof export temporarily enables proof construction, but this query
+	// must use the proof mode in which the live PDR solver was initialized.
+	restoreProofMode, err := c.enterPDRProofMode()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, restoreProofMode()) }()
 	check, err := node.transformer.solver.CheckAtLevel(0, []ast.ASTHandle{selection, node.state}, false, true)
 	if err != nil {
 		return nil, err
@@ -226,7 +236,11 @@ func traceRecursiveAnchor(root *ModelNode) (*PredicateTransformer, error) {
 }
 
 func updateTraceModels(root *ModelNode) error {
-	byState := make(map[ast.ASTHandle]*ModelNode)
+	// The historical source keys this map only by state. Distinct nullary
+	// predicates share the true cube, so copying its donor rule can attach a
+	// different predicate's derivation. Match the search cache's predicate
+	// identity as well as the projected state.
+	byState := make(map[modelStateKey]*ModelNode)
 	nodes := []*ModelNode{root}
 	for index := 0; index < len(nodes); index++ {
 		node := nodes[index]
@@ -235,7 +249,7 @@ func updateTraceModels(root *ModelNode) error {
 			return err
 		}
 		if found {
-			byState[node.state] = node
+			byState[modelState(node)] = node
 		}
 		children, err := node.Children()
 		if err != nil {
@@ -251,9 +265,12 @@ func updateTraceModels(root *ModelNode) error {
 		if found {
 			continue
 		}
-		donor := byState[node.state]
+		donor := byState[modelState(node)]
 		if donor == nil {
-			return ast.ErrASTDomain
+			// As in source update_models, leave unmatched nodes untouched.
+			// Constraint-cache initial hits have no expanded donor; their own
+			// transformer selects an initial rule in selectedTraceRule.
+			continue
 		}
 		modelCore, _, err := donor.Model()
 		if err != nil {
