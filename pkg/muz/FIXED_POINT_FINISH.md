@@ -571,6 +571,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Preserve unfolded-clause substitution state, temporary roots, work clause and unpublished result through final cleanup refusal, suppressing publication until exact retry completes.
   - [x] Preserve subsumption grounding's substitution, fresh variables, in-flight output/condition roots and completed ground clause through stable retryable construction cleanup.
   - [x] Publish clause bodies and formulas transactionally, preserving their AST result and nested construction receipt through native cleanup refusal.
+  - [x] Advance subsumption condition cleanup past consumed zero references even when deletion reports the original error, with validated retry frontiers.
 
 ### transforms
 
@@ -743,6 +744,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — QBMC quantified-linear compilation now retires grouped borrowed rules through typed reverse cleanup and adopts any nested rule receipt before indexed symbols or result roots. Simultaneous native child/outer refusal leaves all owners unchanged, then exact retry drains them with stable diagnostics and no double close; broader compiler teardown remains open.
   Validation: the focused quantified-linear compilation/nested-cleanup gate in `go -C pkg test ./muz/bmc` passed five times in 0.112s. Commit title: `Preserve QBMC compiler cleanup ownership`.
+
+- 2026-11-02 — TAB subsumption condition cleanup now validates the requested frontier and removes reference slots once native deletion has consumed them, even when deletion reports an error. Retry therefore cannot strand on a dead zero reference and remains idempotent; broader subsumption model/diagnostic cleanup remains open.
+  Validation: `go -C pkg test ./muz/tab -run '^(TestSubsumptionConditionCleanupAdvancesConsumedFrontier|Test.*Subsumption)' -count=5` passed. Commit title: `Advance TAB subsumption cleanup frontiers`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.

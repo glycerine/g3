@@ -25,12 +25,21 @@ type subsumptionSearch struct {
 }
 
 func (s *subsumptionSearch) truncateConditions(n int) error {
+	if n < 0 || n > len(s.conditions) {
+		return ast.ErrASTDomain
+	}
 	for len(s.conditions) > n {
 		i := len(s.conditions) - 1
-		if err := s.manager.DelRef(&s.conditions[i]); err != nil {
+		err := s.manager.DelRef(&s.conditions[i])
+		if s.conditions[i] == (ast.ASTRef{}) {
+			s.conditions = s.conditions[:i]
+		}
+		if err != nil {
 			return err
 		}
-		s.conditions = s.conditions[:i]
+		if len(s.conditions) != i {
+			return ast.ErrASTPending
+		}
 	}
 	return nil
 }
