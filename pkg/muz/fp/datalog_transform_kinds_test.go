@@ -132,7 +132,7 @@ func TestDatalogGeneratedFiltersAndJoinsInheritFiniteKinds(t *testing.T) {
 					if !valid {
 						t.Fatal("kind fixture is not stratified")
 					}
-					must(e.normalizeSimpleJoins())
+					must(e.normalizeSimpleJoins(nil))
 					if len(e.auxiliary) != 1 {
 						t.Fatal("expected exactly one shared filter/split", len(e.auxiliary))
 					}

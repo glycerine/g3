@@ -29,6 +29,7 @@ import (
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	"github.com/glycerine/g3/pkg/util/symbol"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 var (
@@ -1025,7 +1026,7 @@ func (e *PropositionalEngine) validateFragment() error {
 	return nil
 }
 
-func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
+func (e *PropositionalEngine) normalizeSimpleJoins(bitBlast *datalogBitBlastQuery) (resultErr error) {
 	if err := e.clearDatalogTransformCleanup(); err != nil {
 		return err
 	}
@@ -1104,6 +1105,9 @@ func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
 			return errors.Join(err, similarity.Close())
 		}
 	}
+	if err = bitBlast.register(transformer, context, globals); err != nil {
+		return err
+	}
 	modified, err := transformer.Apply(e.set)
 	if err != nil {
 		return err
@@ -1118,6 +1122,9 @@ func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
 	}
 	if !modified {
 		return nil
+	}
+	if err = bitBlast.install(); err != nil {
+		return err
 	}
 	if err = e.installDatalogSimilarityPredicates(similarity); err != nil {
 		return err
@@ -2287,7 +2294,8 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if err = e.relations.ResetSaturatedMarks(); err != nil {
 		return lbool.Undef, err
 	}
-	if err = e.normalizeSimpleJoins(); err != nil {
+	bitBlast := &datalogBitBlastQuery{engine: e}
+	if err = e.normalizeSimpleJoins(bitBlast); err != nil {
 		return lbool.Undef, err
 	}
 	scoped, err := e.prepareDatalogUnbound(declarations)
@@ -2301,6 +2309,15 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 			e.set = original
 			resultErr = errors.Join(resultErr, scoped.dispose())
 		}()
+	}
+	// Source rel_context::saturate checks cancellation after transform_rules:
+	// a canceled plugin may return a deliberately partial transformed set.
+	canceled, err := e.manager.Canceled()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if canceled {
+		return lbool.Undef, z3exception.NewDefaultException(e.manager.ResourceLimit().CancelMessage())
 	}
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
@@ -2322,13 +2339,39 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 		return lbool.Undef, err
 	}
 	if checkScope != nil {
-		defer func() { resultErr = errors.Join(resultErr, checkScope.complete(resultErr == nil)) }()
+		defer func() {
+			if checkScope != nil {
+				resultErr = errors.Join(resultErr, checkScope.complete(resultErr == nil))
+			}
+		}()
 	}
 	started := time.Now()
 	err = e.saturateDatalogQuery(checkScope)
 	e.datalogElapsed += time.Since(started).Seconds()
 	if err != nil {
 		return lbool.Undef, err
+	}
+	// The source checks again after executing its instruction block before
+	// accepting a result or exposing the completed relation.
+	canceled, err = e.manager.Canceled()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if canceled {
+		return lbool.Undef, z3exception.NewDefaultException(e.manager.ResourceLimit().CancelMessage())
+	}
+	if len(bitBlast.columns) != 0 {
+		// Publish checker shadows before rebuilding original BV tables; a
+		// later scope restore must not overwrite the inverse conversion.
+		if checkScope != nil {
+			if err = checkScope.complete(true); err != nil {
+				return lbool.Undef, err
+			}
+			checkScope = nil
+		}
+		if err = bitBlast.publish(); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	for _, declaration := range declarations {
 		count, x := e.predicates[declaration].table.Len()

@@ -53,13 +53,12 @@ func (e *PropositionalEngine) installDatalogSimilarityPredicates(plugin *rel.Fin
 		if e.predicates[decl] == nil {
 			e.predicateOrder = append(e.predicateOrder, decl)
 		}
+		e.predicates[decl] = state
 		if origin, found := plugin.FreshPredicateOrigin(decl); found {
-			if original := e.predicates[origin]; original != nil {
-				state.explicitFiniteRepresentation = original.explicitFiniteRepresentation
-				state.requestedRepresentations = append([]string(nil), original.requestedRepresentations...)
+			if err = e.inheritDatalogFiniteRepresentation(decl, origin); err != nil {
+				return err
 			}
 		}
-		e.predicates[decl] = state
 		e.auxiliary[decl] = true
 	}
 	return nil
