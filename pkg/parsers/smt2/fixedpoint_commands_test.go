@@ -616,6 +616,64 @@ func TestSMT2FixedpointSpacerPrintsBoundedStatus(t *testing.T) {
 	}
 }
 
+func TestSMT2FixedpointUnknownReasonUsesSourceStatusLines(t *testing.T) {
+	tests := []struct {
+		name, script, want string
+	}{
+		{
+			name: "approximated",
+			script: `(set-option :fixedpoint.engine datalog)
+(declare-rel P (Int) interval_relation)
+(rule (P 0))
+(query P :print-answer false)
+`,
+			want: "unknown\napproximated relations\n",
+		},
+		{
+			name: "decided",
+			script: `(set-option :fixedpoint.engine datalog)
+(declare-rel P ())
+(declare-rel U ())
+(rule P)
+(query P :print-answer false)
+(query U :print-answer false)
+`,
+			want: "sat\nunsat\n",
+		},
+		{
+			name: "bounded",
+			script: `(set-option :fixedpoint.engine spacer)
+(set-option :fixedpoint.spacer.max_level 0)
+(declare-rel Goal ())
+(rule Goal)
+(query Goal :print-answer false)
+`,
+			want: "bounded\n",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			context, err := cmd_context.NewStandaloneContext()
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if err := context.Close(); err != nil {
+					t.Error(err)
+				}
+			})
+			context.PrintSuccess = false
+			var output bytes.Buffer
+			if err = smt2.ParseCommands(context, strings.NewReader(test.script), &output); err != nil {
+				t.Fatal(err, output.String())
+			}
+			if got := output.String(); got != test.want {
+				t.Fatalf("fixedpoint status output = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func TestSMT2FixedpointSpacerRecursiveTraceAnswerMatchesCPP(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
 	if err != nil {

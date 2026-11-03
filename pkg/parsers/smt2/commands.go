@@ -758,19 +758,39 @@ func (p *commandParser) command() (bool, error) {
 		}
 		if !p.ignoreChecks {
 			text := "unknown"
+			reason := ""
 			bounded := false
 			if status == lbool.True {
 				text = "sat"
 			} else if status == lbool.False {
 				text = "unsat"
-			} else if reason, reasonErr := p.context.FixedpointReasonUnknown(); reasonErr != nil {
-				return false, reasonErr
-			} else if reason == "bounded" {
-				bounded = true
-				text = "bounded"
+			} else {
+				var reasonErr error
+				reason, reasonErr = p.context.FixedpointReasonUnknown()
+				if reasonErr != nil {
+					return false, reasonErr
+				}
+				if reason == "bounded" {
+					bounded = true
+					text = "bounded"
+				}
 			}
 			if _, err = fmt.Fprintln(p.out, text); err != nil {
 				return false, err
+			}
+			if status == lbool.Undef && !bounded {
+				detail := ""
+				switch reason {
+				case "input error", "memory bounds exceeded", "timeout", "canceled":
+					detail = reason
+				case "approximated":
+					detail = "approximated relations"
+				}
+				if detail != "" {
+					if _, err = fmt.Fprintln(p.out, detail); err != nil {
+						return false, err
+					}
+				}
 			}
 			if status == lbool.True && printAnswer {
 				manager, y := p.context.Manager()
