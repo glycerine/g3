@@ -453,6 +453,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Interval-source union/widen dispatch preserves source pruning and ignored-delta behavior.
   - [x] Assemble exact bound/interval product head columns for unbound, repeated and numeral terms, preserving requested component order, source-coarse bound constants and interval constraints.
   - [x] Fuse one compiler interpreted conjunction with projection over exact bound/interval products by cloning, filtering both components and projecting afterward without splitting coarse compound conditions.
+  - [x] Compose the source default join/project fallback over exact bound/interval products while preserving left component order, empty propagation and operand independence.
 - [ ] `src/muz/rel/dl_check_table.cpp` (partial), `src/muz/rel/dl_check_table.h` (partial)
   - [x] Preserve cloned formula-checked table owners through native cleanup refusal with child-first nested cleanup, stable construction receipts and exact retry.
 - [ ] `src/muz/rel/dl_compiler.cpp` (partial), `src/muz/rel/dl_compiler.h` (partial)
@@ -651,6 +652,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Bound/interval query status now follows the source output disjunction: no outputs is true, all requested outputs empty is false and any nonempty approximate product makes the result undefined regardless of declaration order. Mixed empty/nonempty, repeated and singleton output matrices cover the corrected boundary.
   Validation: `go -C pkg test ./muz/fp -run '^TestBoundIntervalDatalog' -count=5` passed. Commit title: `Combine bound interval output statuses correctly`.
+
+- 2026-11-02 — Exact bound/interval products now expose the source default join-then-project composition. Cross-order aligned components preserve the left representation order and endpoint mapping, empty inputs propagate, source operands remain independent and invalid join/projection mappings reject atomically; this is fallback composition rather than a new optimized kernel.
+  Validation: `go -C pkg test ./muz/rel -run '^TestIntervalBoundProductJoinProject' -count=5` passed. Commit title: `Compose bound interval joins with projection`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
