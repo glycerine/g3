@@ -1,7 +1,6 @@
 package duality
 
 import (
-	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	graph "github.com/glycerine/g3/pkg/duality"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -38,7 +37,8 @@ func (b *Backend) WriteCertificate(out io.Writer, writeExpr func(io.Writer, ast.
 		if err != nil {
 			return err
 		}
-		defer func() { result = errors.Join(result, md.Close()) }()
+		scope := &certificateModelScope{snapshot: md, runtime: e.config.Evaluator.Memory}
+		defer func() { result = scope.finish(result) }()
 		if _, err = io.WriteString(out, "(fixedpoint \n"); err != nil {
 			return err
 		}
