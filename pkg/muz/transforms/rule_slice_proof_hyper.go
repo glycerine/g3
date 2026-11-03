@@ -510,11 +510,17 @@ func (c *SliceProofConverter) resolveProof(first *base.Rule, firstProof ast.ASTR
 		return rule, proof, err
 	}
 	position := ast.ASTProofPosition{First: uint32(tailIndex + 1), Second: 0}
+	// Reserve the owner before constructing a proof that owns both premises.
+	// Reference-page growth must not strand a completed hyper-resolution node.
+	proof, err = m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return rule, proof, err
+	}
 	node, err := m.MkProofHyperResolve([]ast.ASTHandle{left, right}, fact, []ast.ASTProofPosition{position}, substitutions)
 	if err != nil {
 		return rule, proof, err
 	}
-	proof, err = m.NewRef(node)
+	err = m.SetRef(proof, node)
 	return rule, proof, err
 }
 

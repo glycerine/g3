@@ -16,14 +16,39 @@ import (
 )
 
 func TestRuleSliceProofConverterColdFailureAndRetry(t *testing.T) {
+	testRuleSliceProofConverterFailureAndRetry(t, -1)
+}
+
+func TestRuleSliceProofConverterReferencePressureFailureAndRetry(t *testing.T) {
+	for _, available := range []int{0, 64, 128} {
+		t.Run(fmt.Sprint(available), func(t *testing.T) {
+			testRuleSliceProofConverterFailureAndRetry(t, available)
+		})
+		if t.Failed() {
+			return
+		}
+	}
+}
+
+func testRuleSliceProofConverterFailureAndRetry(t *testing.T, available int) {
+	t.Helper()
 	failures, succeeded := 0, false
 	for stop := int64(0); stop <= 16384; stop++ {
 		t.Run(fmt.Sprint(stop), func(t *testing.T) {
 			f, converter, proof, expected, sources := newSliceFailureFixture(t)
 			m := f.manager
+			if available >= 0 {
+				pinSliceReferenceCapacity(t, m, available)
+			}
 			before := m.Stats().LiveReferences
 			inputCount, err := m.GetRefCount(proof)
 			coneMust(t, err)
+			sourceCounts := make(map[ast.ASTHandle]uint32, len(sources))
+			for _, source := range sources {
+				count, err := m.GetRefCount(source)
+				coneMust(t, err)
+				sourceCounts[source] = count
+			}
 			mode, err := m.ProofMode()
 			coneMust(t, err)
 			m.Budget().FailAfter(stop)
@@ -56,6 +81,13 @@ func TestRuleSliceProofConverterColdFailureAndRetry(t *testing.T) {
 			coneMust(t, err)
 			if count != inputCount {
 				t.Fatalf("checkpoint %d: converter kept its input proof", stop)
+			}
+			for source, want := range sourceCounts {
+				count, err := m.GetRefCount(source)
+				coneMust(t, err)
+				if count != want {
+					t.Fatalf("checkpoint %d: original clause references = %d, want %d", stop, count, want)
+				}
 			}
 			if current, err := m.ProofMode(); err != nil || current != mode {
 				t.Fatalf("checkpoint %d: proof mode = %v, %v", stop, current, err)
@@ -142,6 +174,13 @@ func TestRuleSliceProofConverterColdFailureAndRetry(t *testing.T) {
 			if got := m.Stats().LiveReferences; got != before {
 				t.Fatalf("checkpoint %d: retry references = %d, want %d", stop, got, before)
 			}
+			for source, want := range sourceCounts {
+				count, err := m.GetRefCount(source)
+				coneMust(t, err)
+				if count != want {
+					t.Fatalf("checkpoint %d: retry original clause references = %d, want %d", stop, count, want)
+				}
+			}
 		})
 		if t.Failed() || succeeded {
 			break
@@ -149,6 +188,44 @@ func TestRuleSliceProofConverterColdFailureAndRetry(t *testing.T) {
 	}
 	if !succeeded || failures < 8 {
 		t.Fatal("missing slice proof failure/success frontier", failures, succeeded)
+	}
+}
+
+// Fill the currently allocated reference pages through the public owner API,
+// then leave a small prefix available to conversion. This moves reference-page
+// allocation into the proof construction path without changing AST contents.
+func pinSliceReferenceCapacity(t *testing.T, m *ast.ASTManager, available int) {
+	t.Helper()
+	var held []ast.ASTRef
+	t.Cleanup(func() {
+		for i := len(held) - 1; i >= 0; i-- {
+			coneMust(t, m.DelRef(&held[i]))
+		}
+	})
+	for {
+		m.Budget().FailAfter(0)
+		for {
+			ref, err := m.NewRef(ast.ASTHandle{})
+			if err != nil {
+				m.Budget().FailAfter(-1)
+				if !errors.Is(err, arena.ErrInjectedFailure) {
+					t.Fatal("reference-page frontier", err)
+				}
+				break
+			}
+			held = append(held, ref)
+		}
+		if len(held) >= available {
+			break
+		}
+		ref, err := m.NewRef(ast.ASTHandle{})
+		coneMust(t, err)
+		held = append(held, ref)
+	}
+	for i := 0; i < available; i++ {
+		last := len(held) - 1
+		coneMust(t, m.DelRef(&held[last]))
+		held = held[:last]
 	}
 }
 

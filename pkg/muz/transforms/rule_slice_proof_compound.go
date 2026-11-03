@@ -145,11 +145,15 @@ func (c *SliceProofConverter) instantiateCompoundHead(original *base.Rule, origi
 	if err != nil {
 		return nil, proof, err
 	}
+	instantiatedOwner, err := hold(ast.ASTHandle{})
+	if err != nil {
+		return nil, proof, err
+	}
 	instantiated, err := m.MkProofHyperResolve([]ast.ASTHandle{parent}, normal, nil, [][]ast.ASTHandle{bindings})
 	if err != nil {
 		return nil, proof, err
 	}
-	if _, err = hold(instantiated); err != nil {
+	if err = m.SetRef(instantiatedOwner, instantiated); err != nil {
 		return nil, proof, err
 	}
 	name, err := original.Name()

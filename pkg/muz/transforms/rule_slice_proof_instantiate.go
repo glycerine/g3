@@ -288,10 +288,14 @@ func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalP
 	if err != nil {
 		return rule, proof, err
 	}
+	proof, err = m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return rule, proof, err
+	}
 	node, err := m.MkProofHyperResolve([]ast.ASTHandle{parent}, fact, nil, [][]ast.ASTHandle{bindings})
 	if err != nil {
 		return rule, proof, err
 	}
-	proof, err = m.NewRef(node)
+	err = m.SetRef(proof, node)
 	return rule, proof, err
 }
