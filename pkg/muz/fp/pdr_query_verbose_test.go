@@ -4,6 +4,7 @@ package fp
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -36,14 +37,26 @@ func TestPDRQueryDisplaysTransformedRulesAtSourceVerbosity(t *testing.T) {
 				if status != lbool.True {
 					t.Fatal("query", status)
 				}
-				var expected bytes.Buffer
+				var expectedRules bytes.Buffer
 				if level >= 2 {
-					fragmentMust(t, f.engine.pdrRules.WriteDisplay(&expected))
+					fragmentMust(t, f.engine.pdrRules.WriteDisplay(&expectedRules))
 				}
 				got, err := stream.String()
 				fragmentMust(t, err)
-				if got != expected.String() {
-					t.Fatalf("verbosity %d: got %q; want %q", level, got, expected.String())
+				if !strings.HasPrefix(got, expectedRules.String()) {
+					t.Fatalf("verbosity %d transformed-rule prefix: got %q; want prefix %q", level, got, expectedRules.String())
+				}
+				got = strings.TrimPrefix(got, expectedRules.String())
+				if level == 0 {
+					if got != "" {
+						t.Fatalf("verbosity %d: got %q after transformed rules", level, got)
+					}
+					continue
+				}
+				// context::solve has its own IF_VERBOSE(1) reachable-search
+				// diagnostic after pdr_dl_interface's IF_VERBOSE(2) rule list.
+				if !strings.HasPrefix(got, "\n0 pdr-lifecycle-q closed\n  true ") || !strings.HasSuffix(got, "\ngoals 0\n") {
+					t.Fatalf("verbosity %d reachable-search suffix: %q", level, got)
 				}
 			}
 		})
