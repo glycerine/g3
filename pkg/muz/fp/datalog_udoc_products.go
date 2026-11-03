@@ -2,9 +2,10 @@ package fp
 
 // Source: dl_relation_manager.cpp mixed join fallback, dl_product_relation.cpp,
 // and instr_io/instr_union's inference of an empty target from its source kind.
-// This first public consumer accepts API-seeded extensional unary DOC plus a
-// finite Bool/BV input, one acyclic rule per mixed head, and query auxiliaries.
-// Zero-tail fact rules and broader mixed programs keep the existing finite path.
+// This public consumer accepts extensional unary DOC plus a finite Bool/BV
+// input, one acyclic rule per mixed head, and query auxiliaries. Ground rules
+// may populate unary DOC and all-Bool finite inputs; broader programs keep the
+// existing finite path.
 
 import (
 	"errors"
@@ -36,6 +37,7 @@ type udocProductProgram struct {
 	finiteSorts  map[ast.ASTHandle][]ast.ASTHandle
 	docs, finite map[ast.ASTHandle]bool
 	order        []ast.ASTHandle
+	groundFacts  []*udocProductGroundRule
 }
 
 func (p *udocProductProgram) productHead(d ast.ASTHandle) bool {
@@ -166,12 +168,22 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 		}
 	}()
 	definitions := make(map[ast.ASTHandle]int)
+	groundRules := make(map[int]*udocProductGroundRule)
+	groundHeads := make(map[ast.ASTHandle]bool)
 	for i := 0; i < count; i++ {
 		rule, err := e.set.Rule(i)
 		if err != nil {
 			return nil, err
 		}
 		rules = append(rules, rule)
+		fact, err := udocProductGroundFact(e.manager, rule)
+		if err != nil {
+			return nil, err
+		}
+		if fact != nil {
+			groundRules[i], groundHeads[fact.head] = fact, true
+			continue
+		}
 		head, err := rule.HeadDeclaration()
 		if err != nil {
 			return nil, err
@@ -194,7 +206,10 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 		}
 		return factory.CanHandleSignature(state.sorts)
 	}
-	for _, rule := range rules {
+	for ruleIndex, rule := range rules {
+		if groundRules[ruleIndex] != nil {
+			continue
+		}
 		head, err := rule.HeadDeclaration()
 		if err != nil {
 			return nil, err
@@ -203,7 +218,7 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 			continue
 		}
 		state := e.predicates[head]
-		if definitions[head] != 1 || state == nil || state.external != nil || len(state.requestedRepresentations) != 0 || !e.relations.CanHandleTableSorts(state.sorts) {
+		if definitions[head] != 1 || groundHeads[head] || state == nil || state.external != nil || len(state.requestedRepresentations) != 0 || !e.relations.CanHandleTableSorts(state.sorts) {
 			return nil, ErrUDocDatalogFragment
 		}
 		hasBool, hasOther := false, false
@@ -323,10 +338,33 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 	if len(p.order) == 0 {
 		return nil, nil
 	}
+	// Source singleton assembly of a mixed Bool/BV ground tuple can itself
+	// infer a product. Only all-Bool finite tuples are ordinary table unions;
+	// do not flatten the mixed case or let its cache choose another kind.
+	for ruleIndex := range rules {
+		fact := groundRules[ruleIndex]
+		if fact == nil {
+			continue
+		}
+		if !p.docs[fact.head] {
+			if !p.finite[fact.head] {
+				return nil, ErrUDocDatalogFragment
+			}
+			for _, sort := range p.finiteSorts[fact.head] {
+				if sort != boolean {
+					return nil, ErrUDocDatalogFragment
+				}
+			}
+		}
+		p.groundFacts = append(p.groundFacts, fact)
+	}
 	for pending := true; pending; {
 		pending = false
 		advanced := false
 		for ruleIndex, rule := range rules {
+			if groundRules[ruleIndex] != nil {
+				continue
+			}
 			head, err := rule.HeadDeclaration()
 			if err != nil {
 				return nil, err

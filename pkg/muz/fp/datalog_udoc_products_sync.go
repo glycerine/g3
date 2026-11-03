@@ -119,6 +119,12 @@ func (c *datalogUDocContext) syncExistingProducts(e *PropositionalEngine) error 
 }
 
 func (c *datalogUDocContext) saturateProducts(set *base.RuleSet) error {
+	// The source compiler runs extensional ground-rule strata before their
+	// consumers, irrespective of where those rules occurred in the input.
+	// Populate this query's snapshots; rule facts never become API seed facts.
+	if err := c.evaluateProductGroundFacts(c.products.program.groundFacts); err != nil {
+		return err
+	}
 	for _, d := range c.products.program.order {
 		if err := c.checkpoint(); err != nil {
 			return err

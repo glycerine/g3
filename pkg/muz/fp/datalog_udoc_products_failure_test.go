@@ -13,6 +13,10 @@ import (
 )
 
 func newPublicUDocProductFailureFixture(t *testing.T) *publicUDocProductFixture {
+	return newPublicUDocProductFailureFixtureMode(t, false)
+}
+
+func newPublicUDocProductFailureFixtureMode(t *testing.T, groundRules bool) *publicUDocProductFixture {
 	t.Helper()
 	var budget *arena.Budget
 	// Registered before fixture cleanup so this runs after engine, AST and
@@ -22,11 +26,17 @@ func newPublicUDocProductFailureFixture(t *testing.T) *publicUDocProductFixture 
 			t.Fatal("public DOC product fixture leaked native budget", budget.Used())
 		}
 	})
-	f := newPublicUDocProductFixture(t, "hashtable", false, false)
+	f := newPublicUDocProductFixture(t, "hashtable", false, groundRules)
 	budget = f.m.Budget()
-	fragmentMust(t, f.e.AddTableFact(f.doc, []uint32{1}))
-	fragmentMust(t, f.e.AddTableFact(f.finite, []uint32{1, 1}))
-	fragmentMust(t, f.e.AddTableFact(f.finite, []uint32{0, 2}))
+	if groundRules {
+		prepareUDocProductGroundRules(f)
+		f.addGroundRule(f.doc, "ground-doc", f.values[1])
+		f.addGroundRule(f.finite, "ground-finite", f.yes)
+	} else {
+		fragmentMust(t, f.e.AddTableFact(f.doc, []uint32{1}))
+		fragmentMust(t, f.e.AddTableFact(f.finite, []uint32{1, 1}))
+		fragmentMust(t, f.e.AddTableFact(f.finite, []uint32{0, 2}))
+	}
 	f.addRule(false)
 	if f.e.udocDatalog != nil {
 		t.Fatal("failure fixture adopted DOC before a public query")
@@ -47,9 +57,14 @@ func publicUDocProductLiveCounts(stats ast.ASTManagerStats) [4]uint64 {
 }
 
 func TestDatalogUDocProductsPublicAllocationFailureRetryAndClose(t *testing.T) {
+	checkPublicUDocProductAllocationFailureRetryAndClose(t, newPublicUDocProductFailureFixture)
+}
+
+func checkPublicUDocProductAllocationFailureRetryAndClose(t *testing.T, fixture func(*testing.T) *publicUDocProductFixture) {
+	t.Helper()
 	var expected [4]uint64
 	t.Run("uninterrupted-baseline", func(t *testing.T) {
-		f := newPublicUDocProductFailureFixture(t)
+		f := fixture(t)
 		f.checkRows(lbool.True, [2]uint32{1, 1})
 		f.checkRows(lbool.True, [2]uint32{1, 1})
 		fragmentMust(t, f.e.udocDatalog.discardResult())
@@ -62,7 +77,7 @@ func TestDatalogUDocProductsPublicAllocationFailureRetryAndClose(t *testing.T) {
 	failures, completed := 0, 0
 	for allowance := int64(0); allowance <= 1024; allowance++ {
 		t.Run(fmt.Sprintf("reservations-%d", allowance), func(t *testing.T) {
-			f := newPublicUDocProductFailureFixture(t)
+			f := fixture(t)
 			f.m.Budget().FailAfter(allowance)
 			status, cause := f.e.QueryPredicate(f.head)
 			f.m.Budget().FailAfter(-1)

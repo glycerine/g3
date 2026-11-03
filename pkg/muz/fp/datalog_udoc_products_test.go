@@ -22,7 +22,7 @@ type publicUDocProductFixture struct {
 	cartesian         bool
 }
 
-func newPublicUDocProductFixture(t *testing.T, tableKind string, explicitDoc, cartesian bool) *publicUDocProductFixture {
+func newPublicUDocProductFixture(t *testing.T, tableKind string, explicitDoc, cartesian bool, finiteBoolColumns ...int) *publicUDocProductFixture {
 	t.Helper()
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
@@ -51,6 +51,11 @@ func newPublicUDocProductFixture(t *testing.T, tableKind string, explicitDoc, ca
 	finiteSorts := []ast.ASTHandle{f.boolean, f.bits}
 	if cartesian {
 		finiteSorts = []ast.ASTHandle{f.boolean}
+		if len(finiteBoolColumns) != 0 {
+			for i := 1; i < finiteBoolColumns[0]; i++ {
+				finiteSorts = append(finiteSorts, f.boolean)
+			}
+		}
 	}
 	f.finite = declare("public-doc-product-T", finiteSorts)
 	f.head = declare("public-doc-product-H", []ast.ASTHandle{f.bits, f.boolean})
