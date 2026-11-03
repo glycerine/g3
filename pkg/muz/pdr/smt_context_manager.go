@@ -30,6 +30,7 @@ type SMTContextManager struct {
 	auxiliary   map[ast.ASTHandle]bool
 	active      uint32
 	retired     statistics.Statistics
+	retiring    map[*smtcore.SMTSolver]statistics.Statistics
 	arithmetic  struct {
 		enabled, selectMode, eq2ineq bool
 		mode                         uint32
@@ -173,6 +174,13 @@ func (m *SMTContextManager) CollectStatistics(destination *statistics.Statistics
 	var pending statistics.Statistics
 	pending.Copy(m.retired)
 	for _, solver := range m.solvers {
+		if solver == nil {
+			continue
+		}
+		if archived, found := m.retiring[solver]; found {
+			pending.Copy(archived)
+			continue
+		}
 		if err := solver.CollectStatistics(&pending); err != nil {
 			return err
 		}
@@ -188,6 +196,12 @@ func (m *SMTContextManager) ResetStatistics() error {
 	// Source kernel reset_statistics is a no-op; retired counters obey the
 	// same contract as the still-live kernels below.
 	for _, solver := range m.solvers {
+		if solver == nil {
+			continue
+		}
+		if _, found := m.retiring[solver]; found {
+			continue
+		}
 		if err := solver.ResetStatistics(); err != nil {
 			return err
 		}
@@ -226,7 +240,20 @@ func (m *SMTContextManager) resetSolvers(preserveStatistics bool) (result error)
 		}
 		var archived statistics.Statistics
 		if preserveStatistics {
-			result = errors.Join(result, solver.CollectStatistics(&archived))
+			var found bool
+			archived, found = m.retiring[solver]
+			if !found {
+				// A failed Close may already destroy the kernel counters. Keep
+				// its complete pre-close contribution until disposal succeeds.
+				if err := solver.CollectStatistics(&archived); err != nil {
+					result = errors.Join(result, err)
+					continue
+				}
+				if m.retiring == nil {
+					m.retiring = make(map[*smtcore.SMTSolver]statistics.Statistics)
+				}
+				m.retiring[solver] = archived
+			}
 		}
 		if err := solver.Close(); err != nil {
 			result = errors.Join(result, err)
@@ -235,6 +262,7 @@ func (m *SMTContextManager) resetSolvers(preserveStatistics bool) (result error)
 			if preserveStatistics {
 				m.retired.Copy(archived)
 			}
+			delete(m.retiring, solver)
 		}
 	}
 	for index := len(m.predicates) - 1; index >= 0; index-- {
@@ -244,6 +272,7 @@ func (m *SMTContextManager) resetSolvers(preserveStatistics bool) (result error)
 	}
 	if result == nil {
 		m.solvers = nil
+		m.retiring = nil
 		m.predicates = nil
 		m.auxiliary = make(map[ast.ASTHandle]bool)
 		m.solverStart = 0
