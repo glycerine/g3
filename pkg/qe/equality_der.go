@@ -43,6 +43,7 @@ type equalityDERCall struct {
 	owner       *EqualityDER
 	refs        []ast.ASTRef
 	numbers     []*numeral.OwnedRational
+	numeralRead *equalityDERNumeralRead
 	booleans    []*rewriter.BoolRewriter
 	selectors   []*VariableTest
 	failures    []memory.ConstructionFailure
@@ -92,6 +93,12 @@ func (c *equalityDERCall) close() error {
 			return err
 		}
 		c.failures = c.failures[:last]
+	}
+	if c.numeralRead != nil {
+		if err := c.numeralRead.close(); err != nil {
+			return err
+		}
+		c.numeralRead = nil
 	}
 	for len(c.booleans) != 0 {
 		last := len(c.booleans) - 1

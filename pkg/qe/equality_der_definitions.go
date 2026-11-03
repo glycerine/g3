@@ -35,7 +35,7 @@ func (d *EqualityDER) real(h ast.ASTHandle) (bool, error) {
 	real, err := d.manager.MkFamilySort(d.arithmetic, 0, nil)
 	return s == real, err
 }
-func (d *EqualityDER) invertibleConstant(integer bool, h ast.ASTHandle, coefficient *numeral.OwnedRational) (bool, error) {
+func (d *EqualityDER) invertibleConstant(c *equalityDERCall, integer bool, h ast.ASTHandle, coefficient *numeral.OwnedRational) (bool, error) {
 	negative, err := d.operation(h, d.arithmetic, 8)
 	if err != nil {
 		return false, err
@@ -45,20 +45,17 @@ func (d *EqualityDER) invertibleConstant(integer bool, h ast.ASTHandle, coeffici
 		if err != nil {
 			return false, err
 		}
-		yes, err := d.invertibleConstant(integer, a, coefficient)
+		yes, err := d.invertibleConstant(c, integer, a, coefficient)
 		if err != nil || !yes {
 			return false, err
 		}
 		return true, d.manager.NumeralService().NegAssign(coefficient)
 	}
-	text, _, matched, err := d.manager.ArithmeticNumeralText(h)
+	matched, err := c.readNumeral(h, coefficient)
 	if err != nil || !matched {
 		return false, err
 	}
 	n := d.manager.NumeralService()
-	if err = n.SetString(coefficient, text); err != nil {
-		return false, err
-	}
 	zero, err := n.IsZero(coefficient)
 	if err != nil || zero {
 		return false, err
@@ -72,7 +69,7 @@ func (d *EqualityDER) invertibleConstant(integer bool, h ast.ASTHandle, coeffici
 	}
 	return n.IsMinusOne(coefficient)
 }
-func (d *EqualityDER) invertibleProduct(integer bool, h ast.ASTHandle, coefficient *numeral.OwnedRational) (ast.ASTHandle, bool, error) {
+func (d *EqualityDER) invertibleProduct(c *equalityDERCall, integer bool, h ast.ASTHandle, coefficient *numeral.OwnedRational) (ast.ASTHandle, bool, error) {
 	yes, err := d.selection.IsVariable(h)
 	if err != nil {
 		return ast.ASTHandle{}, false, err
@@ -96,7 +93,7 @@ func (d *EqualityDER) invertibleProduct(integer bool, h ast.ASTHandle, coefficie
 		if !variable {
 			continue
 		}
-		invertible, err := d.invertibleConstant(integer, pair[1], coefficient)
+		invertible, err := d.invertibleConstant(c, integer, pair[1], coefficient)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
@@ -147,7 +144,7 @@ func (d *EqualityDER) solveArithmetic(c *equalityDERCall, lhs, rhs ast.ASTHandle
 			}
 			continue
 		}
-		variable, solved, err := d.invertibleProduct(integer, current.term, coefficient)
+		variable, solved, err := d.invertibleProduct(c, integer, current.term, coefficient)
 		if err != nil {
 			return nil, false, err
 		}
