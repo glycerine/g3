@@ -12,8 +12,16 @@ import (
 type managerEntry struct {
 	declaration, quantifier, proof ast.ASTHandle
 	dependency                     ast.ASTDependency
+	dependencyPending              bool
 }
 type managerScope struct{ declarations, forbidden int }
+
+const (
+	managerCleanupNone uint8 = iota
+	managerCleanupPop
+	managerCleanupReset
+	managerCleanupClose
+)
 
 // Manager owns installed macro formulas, optional proofs and dependencies.
 type Manager struct {
@@ -28,6 +36,8 @@ type Manager struct {
 	scopes        []managerScope
 	header        uint64
 	closed        bool
+	cleanup       uint8
+	popCount      uint32
 }
 
 func NewManager(m *ast.ASTManager) (owner *Manager, result error) {
@@ -54,6 +64,15 @@ func NewManager(m *ast.ASTManager) (owner *Manager, result error) {
 }
 
 func (m *Manager) open() error {
+	if err := m.cleanupOwner(); err != nil {
+		return err
+	}
+	if m.cleanup != managerCleanupNone {
+		return ast.ErrASTPending
+	}
+	return nil
+}
+func (m *Manager) cleanupOwner() error {
 	if m == nil || m.self != m || m.manager == nil || m.closed {
 		return ast.ErrASTHandle
 	}
@@ -88,26 +107,56 @@ func (m *Manager) PushScope() error {
 	return nil
 }
 
-func (m *Manager) releaseEntry(e *managerEntry) (result error) {
+func (m *Manager) releaseEntry(e *managerEntry) error {
 	if !e.dependency.IsNull() {
-		result = errors.Join(result, m.manager.DependencyDec(e.dependency))
-		e.dependency = ast.ASTDependency{}
-	}
-	for _, h := range [...]ast.ASTHandle{e.proof, e.quantifier, e.declaration} {
-		if !h.IsNull() {
-			result = errors.Join(result, m.manager.DecRef(h))
+		if e.dependencyPending {
+			// The root DEC already happened. Resume its stopped child deletion
+			// before releasing another root owned by this macro.
+			if err := m.manager.CompleteDependencyDec(e.dependency); err != nil {
+				return err
+			}
+			e.dependency, e.dependencyPending = ast.ASTDependency{}, false
+		} else {
+			consumed, err := m.manager.DependencyDecConsumed(e.dependency)
+			if consumed {
+				if err != nil {
+					e.dependencyPending = true
+				} else {
+					e.dependency = ast.ASTDependency{}
+				}
+			}
+			if err != nil {
+				return err
+			}
 		}
 	}
-	*e = managerEntry{}
-	return result
+	for _, h := range [...]*ast.ASTHandle{&e.proof, &e.quantifier, &e.declaration} {
+		if !h.IsNull() {
+			consumed, err := m.manager.DecRefConsumed(*h)
+			if consumed {
+				*h = ast.ASTHandle{}
+			}
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (m *Manager) restoreDeclarations(limit int) (result error) {
 	for len(m.entries) > limit {
 		i := len(m.entries) - 1
 		e := &m.entries[i]
-		delete(m.byDeclaration, e.declaration)
-		result = errors.Join(result, m.dependencies.Erase(e.declaration), m.releaseEntry(e))
+		if !e.declaration.IsNull() {
+			if err := m.dependencies.Erase(e.declaration); err != nil {
+				return err
+			}
+			delete(m.byDeclaration, e.declaration)
+		}
+		if err := m.releaseEntry(e); err != nil {
+			return err
+		}
 		m.entries = m.entries[:i]
 	}
 	return result
@@ -116,9 +165,15 @@ func (m *Manager) restoreForbidden(limit int) (result error) {
 	for len(m.forbidden) > limit {
 		i := len(m.forbidden) - 1
 		d := m.forbidden[i]
-		delete(m.forbiddenSet, d)
-		result = errors.Join(result, m.manager.DecRef(d))
-		m.forbidden = m.forbidden[:i]
+		consumed, err := m.manager.DecRefConsumed(d)
+		if consumed {
+			delete(m.forbiddenSet, d)
+			m.forbidden = m.forbidden[:i]
+			m.publishForbidden()
+		}
+		if err != nil {
+			return err
+		}
 	}
 	m.publishForbidden()
 	return result
@@ -132,8 +187,11 @@ func (m *Manager) publishForbidden() {
 }
 
 func (m *Manager) PopScope(count uint32) error {
-	if err := m.open(); err != nil {
+	if err := m.cleanupOwner(); err != nil {
 		return err
+	}
+	if m.cleanup != managerCleanupNone && (m.cleanup != managerCleanupPop || m.popCount != count) {
+		return ast.ErrASTPending
 	}
 	if uint64(count) > uint64(len(m.scopes)) {
 		return ast.ErrASTDomain
@@ -143,9 +201,18 @@ func (m *Manager) PopScope(count uint32) error {
 		return nil
 	}
 	s := m.scopes[level]
-	err := errors.Join(m.restoreDeclarations(s.declarations), m.restoreForbidden(s.forbidden))
+	// Keep the scope vector intact until the entire request finishes so the
+	// kernel can retry the same count after a partially consumed destructor.
+	m.cleanup, m.popCount = managerCleanupPop, count
+	if err := m.restoreDeclarations(s.declarations); err != nil {
+		return err
+	}
+	if err := m.restoreForbidden(s.forbidden); err != nil {
+		return err
+	}
 	m.scopes = m.scopes[:level]
-	return err
+	m.cleanup, m.popCount = managerCleanupNone, 0
+	return nil
 }
 
 func (m *Manager) GetHeadDefinition(q, declaration ast.ASTHandle) (head, definition ast.ASTHandle, result error) {
@@ -237,7 +304,7 @@ func (m *Manager) Insert(declaration, quantifier, proof ast.ASTHandle, dependenc
 		}
 	}
 	m.byDeclaration[declaration] = len(m.entries)
-	m.entries = append(m.entries, managerEntry{declaration, quantifier, proof, dependency})
+	m.entries = append(m.entries, managerEntry{declaration: declaration, quantifier: quantifier, proof: proof, dependency: dependency})
 	return true, nil
 }
 
@@ -251,7 +318,7 @@ func (m *Manager) MacroDeclaration(i int) (ast.ASTHandle, error) {
 	return m.entries[i].declaration, nil
 }
 func (m *Manager) MacroQuantifier(declaration ast.ASTHandle) (ast.ASTHandle, bool) {
-	if m == nil || m.closed {
+	if m == nil || m.closed || m.cleanup != managerCleanupNone {
 		return ast.ASTHandle{}, false
 	}
 	i, yes := m.byDeclaration[declaration]
@@ -366,12 +433,25 @@ func (m *Manager) MarkForbidden(expressions []ast.ASTHandle) error {
 func (m *Manager) IsForbidden(d ast.ASTHandle) bool { _, yes := m.forbiddenSet[d]; return yes }
 
 func (m *Manager) Reset() error {
-	if err := m.open(); err != nil {
+	if err := m.cleanupOwner(); err != nil {
 		return err
 	}
-	err := errors.Join(m.restoreDeclarations(0), m.restoreForbidden(0), m.dependencies.Reset())
+	if m.cleanup != managerCleanupNone && m.cleanup != managerCleanupReset {
+		return ast.ErrASTPending
+	}
+	m.cleanup = managerCleanupReset
+	if err := m.restoreDeclarations(0); err != nil {
+		return err
+	}
+	if err := m.restoreForbidden(0); err != nil {
+		return err
+	}
+	if err := m.dependencies.Reset(); err != nil {
+		return err
+	}
 	m.scopes = nil
-	return err
+	m.cleanup = managerCleanupNone
+	return nil
 }
 func (m *Manager) Close() error {
 	if m == nil || m.self != m {
@@ -380,14 +460,20 @@ func (m *Manager) Close() error {
 	if m.closed {
 		return nil
 	}
-	var result error
+	m.cleanup = managerCleanupClose
 	if m.dependencies != nil {
-		result = errors.Join(result, m.restoreDeclarations(0), m.restoreForbidden(0), m.dependencies.Close())
+		if err := m.restoreDeclarations(0); err != nil {
+			return err
+		}
+		if err := m.restoreForbidden(0); err != nil {
+			return err
+		}
+		if err := m.dependencies.Close(); err != nil {
+			return err
+		}
 		m.dependencies = nil
 	}
-	if result != nil {
-		return result
-	}
+	m.scopes = nil
 	m.manager.Budget().Release(m.header)
 	m.header = 0
 	m.closed = true
