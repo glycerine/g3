@@ -47,12 +47,29 @@ func (p *SparseIntervalSieveProduct) Reset() error {
 	if err := p.open(); err != nil {
 		return err
 	}
-	interval, err := NewIntervalSieveEmpty(p.manager.manager, p.sorts)
+	pureFinite := len(p.finiteColumns) == len(p.sorts)
+	pureArithmetic := len(p.sorts) != 0 && len(p.finiteColumns) == 0
+	var interval *IntervalSieve
+	var err error
+	if pureFinite {
+		interval, err = NewIntervalSieveFull(p.manager.manager, p.sorts)
+	} else {
+		interval, err = NewIntervalSieveEmpty(p.manager.manager, p.sorts)
+	}
 	if err != nil {
 		return err
 	}
 	if err = p.finite.Reset(); err != nil {
 		return err
+	}
+	if pureArithmetic {
+		signature, signatureErr := p.finite.Signature()
+		if signatureErr != nil {
+			return signatureErr
+		}
+		if err = fillTotalTable(p.finite, signature); err != nil {
+			return err
+		}
 	}
 	p.interval = interval
 	return nil

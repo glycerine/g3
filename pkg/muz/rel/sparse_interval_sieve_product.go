@@ -110,10 +110,14 @@ func newSparseIntervalSieveProduct(manager *RelationManager, sorts []ast.ASTHand
 			resultErr = errors.Join(resultErr, p.finite.Close())
 		}
 	}()
-	if full {
+	pureFinite := len(finiteColumns) == len(sorts)
+	pureArithmetic := len(sorts) != 0 && len(finiteColumns) == 0
+	if full || pureArithmetic {
 		if err = fillTotalTable(p.finite, signature); err != nil {
 			return nil, err
 		}
+	}
+	if full || pureFinite {
 		p.interval, err = NewIntervalSieveFull(manager.manager, sorts)
 	} else {
 		p.interval, err = NewIntervalSieveEmpty(manager.manager, sorts)
