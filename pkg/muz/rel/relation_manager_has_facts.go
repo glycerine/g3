@@ -22,7 +22,9 @@ func (m *RelationManager) HasFacts(predicate ast.ASTHandle) (bool, error) {
 	}
 	var table FiniteTable = m.finite[predicate]
 	if table == nil {
-		table = m.relations[predicate]
+		if hash := m.relations[predicate]; hash != nil {
+			table = hash
+		}
 	}
 	if table == nil {
 		return false, nil
