@@ -233,6 +233,9 @@ func TestExplanationTransformerTransfersSparseRelationFacts(t *testing.T) {
 	if !found {
 		t.Fatal("sparse relation snapshot not published")
 	}
+	if _, ok := product.table.(*SparseTable); !ok {
+		t.Fatalf("sparse requested kind became %T", product.table)
+	}
 	proof, found, err := product.Explanation([]ast.ASTHandle{f.truth})
 	astTestMust(t, err)
 	if !found || proof.IsNull() {

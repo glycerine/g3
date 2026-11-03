@@ -57,7 +57,7 @@ func (p *RelationExplanationProduct) ProjectColumns(removed []int) (_ *RelationE
 }
 
 func (p *RelationExplanationProduct) projectComponents(finiteRemoved, proofRemoved []int, finiteFlags []bool) (_ *RelationExplanationProduct, resultErr error) {
-	table, err := p.table.Project(finiteRemoved)
+	table, err := finiteTableProject(p.table, finiteRemoved)
 	if err != nil {
 		return nil, err
 	}

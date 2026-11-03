@@ -25,7 +25,7 @@ func (p *FiniteExplanationProduct) Project(removed []int) (_ *FiniteExplanationP
 			sorts = append(sorts, sort)
 		}
 	}
-	result, err := newFiniteExplanationProduct(p.manager, sorts, p.explanationColumns)
+	result, err := p.newProduct(sorts, p.explanationColumns)
 	if err != nil {
 		return nil, err
 	}

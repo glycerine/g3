@@ -22,7 +22,7 @@ func (p *FiniteExplanationProduct) RenameFinite(cycle []int) (_ *FiniteExplanati
 	for i, from := range permutation {
 		sorts[i] = p.finiteSorts[from]
 	}
-	result, err := newFiniteExplanationProduct(p.manager, sorts, p.explanationColumns)
+	result, err := p.newProduct(sorts, p.explanationColumns)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (p *FiniteExplanationProduct) RenameExplanation(cycle []int) (_ *FiniteExpl
 	if err != nil {
 		return nil, err
 	}
-	result, err := newFiniteExplanationProduct(p.manager, p.finiteSorts, p.explanationColumns)
+	result, err := p.newProduct(p.finiteSorts, p.explanationColumns)
 	if err != nil {
 		return nil, err
 	}

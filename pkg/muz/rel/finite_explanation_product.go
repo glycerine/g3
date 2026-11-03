@@ -12,13 +12,13 @@ import (
 )
 
 // FiniteExplanationProduct maps a finite tuple to its single explanation row.
-// It borrows the relation manager and finite sort handles and owns the sparse
-// table and explanation relations.
+// It borrows the relation manager and finite sort handles and owns its
+// functional index table (plain or checked) and explanation relations.
 type FiniteExplanationProduct struct {
 	manager            *RelationManager
 	finiteSorts        []ast.ASTHandle
 	explanationColumns int
-	table              *SparseTable
+	table              ExplanationIndexTable
 	inner              []*ExplanationRelation
 	closing            bool
 }
@@ -28,6 +28,10 @@ func NewFiniteExplanationProduct(manager *RelationManager, finiteSorts []ast.AST
 }
 
 func newFiniteExplanationProduct(manager *RelationManager, finiteSorts []ast.ASTHandle, explanationColumns int) (*FiniteExplanationProduct, error) {
+	return newFiniteExplanationProductWithFactory(manager, finiteSorts, explanationColumns, nil)
+}
+
+func newFiniteExplanationProductWithFactory(manager *RelationManager, finiteSorts []ast.ASTHandle, explanationColumns int, factory *FiniteCheckedFactory) (*FiniteExplanationProduct, error) {
 	if explanationColumns < 0 {
 		return nil, ast.ErrASTDomain
 	}
@@ -47,7 +51,12 @@ func newFiniteExplanationProduct(manager *RelationManager, finiteSorts []ast.AST
 	if err != nil {
 		return nil, err
 	}
-	table, err := NewSparseTable(signature, 1)
+	var table ExplanationIndexTable
+	if factory != nil {
+		table, err = factory.NewExplanationIndex(signature, 1)
+	} else {
+		table, err = manager.NewExplanationIndexTable(signature, 1)
+	}
 	if err != nil {
 		return nil, err
 	}

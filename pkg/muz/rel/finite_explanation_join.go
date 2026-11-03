@@ -28,7 +28,13 @@ func (p *FiniteExplanationProduct) Join(other *FiniteExplanationProduct, left, r
 		}
 	}
 	sorts := append(append([]ast.ASTHandle(nil), p.finiteSorts...), other.finiteSorts...)
-	result, err := newFiniteExplanationProduct(p.manager, sorts, p.explanationColumns+other.explanationColumns)
+	template := p
+	if _, checked := p.table.(*CheckedExplanationIndex); !checked {
+		if _, otherChecked := other.table.(*CheckedExplanationIndex); otherChecked {
+			template = other
+		}
+	}
+	result, err := template.newProduct(sorts, p.explanationColumns+other.explanationColumns)
 	if err != nil {
 		return nil, err
 	}

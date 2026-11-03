@@ -77,12 +77,27 @@ func (p *RelationExplanationProduct) FilterInterpreted(theory *astrewriter.Theor
 		for variable := range finiteVariables {
 			finiteColumns[variable] = columns[variable]
 		}
-		relation := &TableRelation{manager: p.manager, sorts: p.finiteSorts, table: p.table}
-		if err = relation.FilterInterpreted(theory, []ast.ASTHandle{condition}, finiteColumns, finiteVariables); err != nil {
+		if err = p.filterFiniteInterpreted(theory, []ast.ASTHandle{condition}, finiteColumns, finiteVariables); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (p *RelationExplanationProduct) filterFiniteInterpreted(theory *astrewriter.TheoryRewriter, conditions []ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle) error {
+	switch table := p.table.(type) {
+	case *HashTable:
+		relation := &TableRelation{manager: p.manager, sorts: p.finiteSorts, table: table}
+		return relation.FilterInterpreted(theory, conditions, columns, sorts)
+	case *SparseTable:
+		return filterSparseInterpretedBound(table, p.manager, theory, conditions, columns, sorts)
+	case *LazySparseTable:
+		return table.filterInterpretedCompiled(p.manager, theory, conditions, columns, sorts)
+	case *FiniteCheckedPair:
+		return table.FilterInterpreted(p.manager, p.finiteSorts, theory, conditions, columns, sorts)
+	default:
+		return ErrCompilerUnsupported
+	}
 }
 
 func (p *RelationExplanationProduct) assignExplanationCondition(condition ast.ASTHandle, columns map[uint32]int, variables map[uint32]ast.ASTHandle) (resultErr error) {

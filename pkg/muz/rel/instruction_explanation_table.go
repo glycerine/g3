@@ -63,7 +63,7 @@ func (i *tableInstruction) performExplanation(context *ExecutionContext) (bool, 
 		if i.column < 0 || i.column >= len(source.finiteSorts) {
 			return false, ErrInstruction
 		}
-		if err := source.table.FilterEqual(i.value, i.column); err != nil {
+		if err := source.filterFiniteEqualEncoded(i.column, i.value); err != nil {
 			return false, err
 		}
 		count, err := source.Len()

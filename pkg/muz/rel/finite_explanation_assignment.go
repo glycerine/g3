@@ -81,7 +81,7 @@ func (p *FiniteExplanationProduct) ProjectExplanation(removed []int) (_ *FiniteE
 	if err != nil {
 		return nil, err
 	}
-	result, err := newFiniteExplanationProduct(p.manager, p.finiteSorts, p.explanationColumns-len(removed))
+	result, err := p.newProduct(p.finiteSorts, p.explanationColumns-len(removed))
 	if err != nil {
 		return nil, err
 	}

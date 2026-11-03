@@ -73,7 +73,7 @@ func TestDatalogExpressionExplanationsCarryNamedProofAndSurviveScope(t *testing.
 }
 
 func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) {
-	for _, mode := range []string{"enabled", "magic", "local-disabled", "relation-level", "checked", "checked-default", "empty"} {
+	for _, mode := range []string{"enabled", "magic", "local-disabled", "relation-level", "checked", "checked-default", "checked-default-reverse", "relation-checked-default", "relation-checked-default-reverse", "empty"} {
 		t.Run(mode, func(t *testing.T) {
 			f := newDirectFactFixture(t)
 			e, m := f.engine, f.manager
@@ -86,11 +86,16 @@ func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) 
 			if mode == "checked" {
 				must(e.globals.SourceSetName("fixedpoint.datalog.check_relation", "sparse"))
 			}
-			if mode == "checked-default" {
+			if mode == "checked-default" || mode == "relation-checked-default" {
 				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checked", "true"))
 				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checker", "hashtable"))
 			}
-			if mode == "relation-level" {
+			if mode == "checked-default-reverse" || mode == "relation-checked-default-reverse" {
+				must(e.globals.SourceSetName("fixedpoint.datalog.default_table", "hashtable"))
+				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checked", "true"))
+				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checker", "sparse"))
+			}
+			if mode == "relation-level" || mode == "relation-checked-default" || mode == "relation-checked-default-reverse" {
 				must(e.globals.SourceSetName("fixedpoint.datalog.explanations_on_relation_level", "true"))
 			}
 			if mode == "local-disabled" {
@@ -135,7 +140,7 @@ func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) 
 			must(err)
 			defer func() { must(m.DelRef(&queryRef)) }()
 			status, err := e.QueryExpression(query)
-			if mode == "checked" || mode == "checked-default" {
+			if mode == "checked" {
 				if !errors.Is(err, rel.ErrCompilerUnsupported) {
 					t.Fatal("unsupported explanation combination guard", status, err)
 				}
@@ -162,8 +167,12 @@ func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) 
 			} else if e.queryClone.datalogExplanationAnswer == (ast.ASTRef{}) {
 				t.Fatal("missing explanation answer")
 			}
-			if _, ok := e.predicates[d].table.(*rel.SparseTable); !ok {
-				t.Fatal("explanation query converted seed storage")
+			if mode == "checked-default-reverse" || mode == "relation-checked-default-reverse" {
+				if _, ok := e.predicates[d].table.(*rel.HashTable); !ok {
+					t.Fatalf("explanation query lost configured hash seed storage: %T", e.predicates[d].table)
+				}
+			} else if _, ok := e.predicates[d].table.(*rel.SparseTable); !ok {
+				t.Fatalf("explanation query converted sparse seed storage: %T", e.predicates[d].table)
 			}
 		})
 	}

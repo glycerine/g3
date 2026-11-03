@@ -88,7 +88,7 @@ func (i *relationExplanationInstruction) Perform(context *ExecutionContext) (boo
 			return err == nil, err
 		}
 		context.stats.FilterByNegation++
-		err = product.table.FilterByNegation(negative.table, instruction.left, instruction.right)
+		err = finiteTableFilterNegation(product.table, negative.table, instruction.left, instruction.right)
 		return finishRelationExplanationMutation(context, instruction.first, product, err)
 	case *registerInstruction:
 		if err := instruction.open(); err != nil {
@@ -280,11 +280,11 @@ func performRelationExplanationTable(i *tableInstruction, context *ExecutionCont
 	switch i.kind {
 	case "filter_equal":
 		context.stats.FilterEqual++
-		err = source.table.FilterEqual(i.value, i.column)
+		err = finiteTableFilterEqual(source.table, i.value, i.column)
 		return finishRelationExplanationMutation(context, i.first, source, err)
 	case "filter_identical":
 		context.stats.FilterIdentical++
-		err = source.table.FilterIdentical(i.left)
+		err = finiteTableFilterIdentical(source.table, i.left)
 		return finishRelationExplanationMutation(context, i.first, source, err)
 	case "join":
 		context.stats.Join++
@@ -326,7 +326,7 @@ func performRelationExplanationTable(i *tableInstruction, context *ExecutionCont
 			return false, err
 		}
 		if target == nil {
-			target, err = NewRelationExplanationProduct(source.manager, source.finiteSorts)
+			target, err = source.EmptyLike()
 			if err != nil {
 				return false, err
 			}
@@ -341,7 +341,7 @@ func performRelationExplanationTable(i *tableInstruction, context *ExecutionCont
 				return false, err
 			}
 			if delta == nil {
-				delta, err = NewRelationExplanationProduct(source.manager, source.finiteSorts)
+				delta, err = source.EmptyLike()
 				if err != nil {
 					return false, err
 				}

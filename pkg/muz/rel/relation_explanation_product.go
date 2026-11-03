@@ -15,7 +15,7 @@ import (
 type RelationExplanationProduct struct {
 	manager     *RelationManager
 	finiteSorts []ast.ASTHandle
-	table       *HashTable
+	table       FiniteTable
 	explanation *ExplanationRelation
 }
 
@@ -38,7 +38,11 @@ func NewRelationExplanationProduct(manager *RelationManager, sorts []ast.ASTHand
 	if err != nil {
 		return nil, err
 	}
-	p := &RelationExplanationProduct{manager: manager, finiteSorts: append([]ast.ASTHandle(nil), sorts...), table: NewHashTable(signature)}
+	table, err := manager.NewDefaultFiniteTable(signature)
+	if err != nil {
+		return nil, err
+	}
+	p := &RelationExplanationProduct{manager: manager, finiteSorts: append([]ast.ASTHandle(nil), sorts...), table: table}
 	defer func() {
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, p.Close())
@@ -55,8 +59,8 @@ func NewRelationExplanationProduct(manager *RelationManager, sorts []ast.ASTHand
 	return p, nil
 }
 
-func newRelationExplanationProduct(manager *RelationManager, sorts []ast.ASTHandle, source *HashTable, fact ast.ASTHandle) (_ *RelationExplanationProduct, resultErr error) {
-	p, err := NewRelationExplanationProduct(manager, sorts)
+func newRelationExplanationProduct(manager *RelationManager, sorts []ast.ASTHandle, source FiniteTable, fact ast.ASTHandle) (_ *RelationExplanationProduct, resultErr error) {
+	p, err := newRelationExplanationProductWithBacking(manager, sorts, source)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +70,7 @@ func newRelationExplanationProduct(manager *RelationManager, sorts []ast.ASTHand
 		}
 	}()
 	if source != nil {
-		if err = p.table.Union(source, nil); err != nil {
+		if err = finiteTableUnion(p.table, source, nil); err != nil {
 			return nil, err
 		}
 	}
@@ -126,7 +130,7 @@ func (p *RelationExplanationProduct) Clone() (_ *RelationExplanationProduct, res
 	if err := p.open(); err != nil {
 		return nil, err
 	}
-	table, err := p.table.Clone()
+	table, err := p.table.CloneFinite()
 	if err != nil {
 		return nil, err
 	}
@@ -203,11 +207,11 @@ func (p *RelationExplanationProduct) Union(source, delta *RelationExplanationPro
 			return err
 		}
 	}
-	var deltaTable *HashTable
+	var deltaTable FiniteTable
 	if delta != nil {
 		deltaTable = delta.table
 	}
-	if err := p.table.Union(source.table, deltaTable); err != nil {
+	if err := finiteTableUnion(p.table, source.table, deltaTable); err != nil {
 		return err
 	}
 	var deltaExplanation *ExplanationRelation

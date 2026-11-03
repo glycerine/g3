@@ -31,7 +31,11 @@ func TestFiniteExplanationProductDisplayEstimatesAndEmptyCollection(t *testing.T
 	if rows, e := p.SizeEstimateRows(); e != nil || rows != 2 {
 		t.Fatalf("outer row estimate = %d, want 2 (%v)", rows, e)
 	}
-	wantBytes := uint32(len(p.table.data.entries)) * p.table.layout.EntryBytes()
+	sparse, ok := p.table.(*SparseTable)
+	if !ok {
+		t.Fatalf("default explanation index is %T, want SparseTable", p.table)
+	}
+	wantBytes := uint32(len(sparse.data.entries)) * sparse.layout.EntryBytes()
 	if size, e := p.SizeEstimateBytes(); e != nil || size != wantBytes {
 		t.Fatalf("outer byte estimate = %d, want %d (%v)", size, wantBytes, e)
 	}

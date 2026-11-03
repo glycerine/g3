@@ -132,7 +132,7 @@ func (p *FiniteExplanationProduct) Clone() (result *FiniteExplanationProduct, re
 	if err := p.open(); err != nil {
 		return nil, err
 	}
-	result, resultErr = newFiniteExplanationProduct(p.manager, p.finiteSorts, p.explanationColumns)
+	result, resultErr = p.newProduct(p.finiteSorts, p.explanationColumns)
 	if resultErr != nil {
 		return nil, resultErr
 	}

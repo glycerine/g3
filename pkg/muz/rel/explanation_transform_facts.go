@@ -160,7 +160,7 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 }
 
 func newRelationExplanationProductFromFinite(manager *RelationManager, sorts []ast.ASTHandle, source FiniteTable, fact ast.ASTHandle) (_ *RelationExplanationProduct, resultErr error) {
-	product, err := NewRelationExplanationProduct(manager, sorts)
+	product, err := newRelationExplanationProductWithBacking(manager, sorts, source)
 	if err != nil {
 		return nil, err
 	}

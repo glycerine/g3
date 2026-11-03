@@ -84,5 +84,64 @@ func (p *FiniteExplanationProduct) FilterFiniteNegation(negative *FiniteExplanat
 			return ast.ErrASTDomain
 		}
 	}
-	return p.table.FilterNegation(negative.table, targetColumns, negativeColumns)
+	rows, err := p.table.Facts()
+	if err != nil {
+		return err
+	}
+	excluded, err := negative.table.Facts()
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		for _, other := range excluded {
+			match := true
+			for index, column := range targetColumns {
+				if row[column] != other[negativeColumns[index]] {
+					match = false
+					break
+				}
+			}
+			if match {
+				if _, err := p.table.Remove(row); err != nil {
+					return err
+				}
+				break
+			}
+		}
+	}
+	return nil
+}
+
+// filterFiniteEqualEncoded is the finite-index filter used by bytecode after
+// literal encoding. Proof ownership and functional indices remain unchanged.
+func (p *FiniteExplanationProduct) filterFiniteEqualEncoded(column int, value Element) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	if column < 0 || column >= len(p.finiteSorts) {
+		return ast.ErrASTDomain
+	}
+	signature, err := p.table.Signature()
+	if err != nil {
+		return err
+	}
+	domain, err := signature.Domain(column)
+	if err != nil {
+		return err
+	}
+	if uint64(value) >= domain {
+		return ast.ErrASTDomain
+	}
+	rows, err := p.table.Facts()
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if row[column] != value {
+			if _, err = p.table.Remove(row); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

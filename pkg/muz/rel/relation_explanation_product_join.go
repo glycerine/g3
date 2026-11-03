@@ -31,7 +31,7 @@ func (p *RelationExplanationProduct) Join(other *RelationExplanationProduct, lef
 			return nil, ast.ErrASTDomain
 		}
 	}
-	table, err := p.table.Join(other.table, left, right)
+	table, err := finiteTableJoin(p.table, other.table, left, right)
 	if err != nil {
 		return nil, err
 	}

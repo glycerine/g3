@@ -42,20 +42,21 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 	if err != nil {
 		return lbool.Undef, err
 	}
-	// The concrete paired finite checker does not yet compare proof-bearing
-	// products. Refuse this requested combination instead of skipping checking.
+	// Formula-backed check_relation remains a distinct whole-relation checker;
+	// the concrete default-table checker below checks only finite/index storage.
 	_, checked, err := e.datalogCheckRelationName()
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if !checked {
-		_, checked, err = e.datalogDefaultTableCheck()
-	}
 	if err != nil {
 		return lbool.Undef, err
 	}
 	if checked {
 		return lbool.Undef, rel.ErrCompilerUnsupported
+	}
+	checkedScope, _, err := e.beginDatalogExplanationCheckedScope()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if checkedScope != nil {
+		defer func() { resultErr = errors.Join(resultErr, checkedScope.Close()) }()
 	}
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
@@ -179,6 +180,9 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 		if err != nil {
 			return lbool.Undef, err
 		}
+		if err = checkedScope.requireProduct(product); err != nil {
+			return lbool.Undef, err
+		}
 		empty, err := product.Empty()
 		if err != nil {
 			return lbool.Undef, err
@@ -188,6 +192,9 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 	}
 	product, err := e.relations.GetExplanationRelation(explained)
 	if err != nil {
+		return lbool.Undef, err
+	}
+	if err = checkedScope.requireProduct(product); err != nil {
 		return lbool.Undef, err
 	}
 	count, err := product.Len()
