@@ -199,6 +199,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [ ] Complete independent wrapper construction/cleanup failures before closing the entire value-consumer audit.
     - [x] Keep `simplify_bounds_new` cleanup receipt presentation and semantic origin stable while retry advances only the remaining input-reference frontier.
     - [x] Keep failed model-evaluator construction receipts' reported identity and semantic origin stable while native cleanup advances independently through retry.
+    - [x] Preserve the extended-pretty rewritten result through formatting/write failure and final native release refusal with stable retry ownership.
   - [x] Verify implicant vector selection under a partial model: source flatten-and displacement order, true/unknown filtering, shared-literal deduplication, false-vector collapse, unknown/empty inputs, no model completion and temporary-reference cleanup.
   - [x] Verify seventeen Boolean implicant policy cases against source first-match/LIFO rules, equality guards and implication preference; independently check cube-implies-formula UNSAT and compatibility with the supplied assignment SAT, with unchanged temporary reference counts.
   - [x] Verify ten arithmetic literal-policy cases across Int/Real equality, disequality and binary distinct: both strict orientations, negative/normalized/large rational values, source repeated-value equality order, independent implication/model compatibility and temporary-reference cleanup.
@@ -707,6 +708,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Temporary fixedpoint parameter views now return a concrete construction-failure owner when their deferred native decrement refuses cleanup. The returned error carries the otherwise out-of-scope view and exact decrement receipt, preserves runtime/original identity and retries idempotently; broader parameter-consumer auditing remains open.
   Validation: `go -C pkg test ./muz/fp -run '^Test(FixedpointQueryParameter|FixedpointParamView|PDRPrequeryContext|ParameterUpdate)' -count=3` passed. Commit title: `Transport fixedpoint parameter view cleanup`.
+
+- 2026-11-02 — Spacer extended-pretty output now transfers its rewritten AST result into a typed owner before formatter and writer work. Operation failure plus native final-release refusal preserves the sole cleanup handle with stable origin/error/runtime presentation and exact retry; broader trace and pretty-printer auditing remains open.
+  Validation: `go -C pkg test ./muz/spacer -run '^(TestExtendedPretty|Test.*Pretty.*Failure|Test.*Pretty.*Trace)' -count=3` passed. Commit title: `Preserve extended pretty rewrite cleanup`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
