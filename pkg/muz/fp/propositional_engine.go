@@ -807,8 +807,12 @@ func (e *PropositionalEngine) UpdateRuleWithSymbol(formula ast.ASTHandle, name s
 	if err != nil {
 		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, candidateSet.Close()) }()
+	attempt := &contextFormulaAttempt{manager: e.manager, sets: []*base.RuleSet{candidateSet}}
+	defer func() { resultErr = attempt.finish(resultErr) }()
 	bound, err := e.binder.Bind(formula, true)
+	if bound != (ast.ASTRef{}) {
+		attempt.references = append(attempt.references, bound)
+	}
 	if err != nil {
 		return err
 	}
@@ -816,7 +820,6 @@ func (e *PropositionalEngine) UpdateRuleWithSymbol(formula ast.ASTHandle, name s
 	if err == nil {
 		err = e.addFormula(candidateSet, boundFormula, name)
 	}
-	err = errors.Join(err, e.manager.DelRef(&bound))
 	if err != nil {
 		return err
 	}
@@ -825,7 +828,11 @@ func (e *PropositionalEngine) UpdateRuleWithSymbol(formula ast.ASTHandle, name s
 		return err
 	}
 	if candidateCount != 1 {
-		return fmt.Errorf("muz/fp: rule %s has a non-trivial body; it cannot be modified", nameText)
+		// Source mk_rule has already appended every completed clause when
+		// this count check rejects the update. Single-rule validation below
+		// instead removes the candidate on duplicate/subsumption failure.
+		cause := fmt.Errorf("muz/fp: rule %s has a non-trivial body; it cannot be modified", nameText)
+		return errors.Join(cause, e.publishRejectedUpdate(candidateSet))
 	}
 	candidate, err := candidateSet.Rule(0)
 	if err != nil {

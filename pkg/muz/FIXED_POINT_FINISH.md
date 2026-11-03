@@ -78,6 +78,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
     - [x] Honor the source `xform.fix_unbound_vars` gate before creating the ingestion QE helper, including current-parameter display and query phases.
     - [x] Preserve closed-input binder/weight metadata before flush, normalized expansions afterward, mixed pending additions, scope snapshots and update range shifts; ordinary Duality queries preserve raw inputs.
     - [x] Match normalized-only named updates before/after flush, preserve raw Duality inputs, replacement slot order and pending suffix order.
+    - [x] Preserve source-published clauses from rejected multi-clause updates, including pending/flushed ordering, later queries and pre-query scope rollback; keep single-clause rejection guards.
     - [x] Match destructive open-formula display swap/removal order, repeated display and post-normalization writer refusal; construction staging remains transactional in Go.
   - [x] Route legacy SMTContext display through the source to_string formatter with ordered queries; keep explicit complete-declaration replay APIs and roundtrip/guard coverage.
   - [x] Preserve context dump temporary owners through allocation and writer failures, and emit fresh query declarations before variable construction. Both display modes pass dense exact-owner campaigns and focused order tests.
@@ -2052,3 +2053,5 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Full native fixedpoint, base, relation, transform, API and CLI short suites passed on committed snapshot `a6424b867` (74.227s/50.261s/5.272s/12.872s/38.308s/64.382s); log `/tmp/g3-label-native-repair-20261103.log`. The subsequent unbound-parameter gate has its own focused checks.
 
 - 2026-11-03 — Native fixedpoint, API and CLI short suites passed on `8685ed6e3` (70.633s/37.844s/66.608s); log `/tmp/g3-unbound-native-20261103.log`. The subsequent DDNF display correction has focused coverage.
+
+- 2026-11-03 — Matched source publication of normalized clauses when a multi-clause update is rejected. Public source-oracle, ordering, scope, owner and native refusal tests pass; partial HNF errors before normalization completes remain open.
