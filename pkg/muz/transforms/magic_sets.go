@@ -5,6 +5,7 @@ package transforms
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -255,8 +256,67 @@ func (p *MagicSetsPlugin) boundCount(literal ast.ASTHandle, bound map[uint32]boo
 	}
 	return n, nil
 }
+
+func (p *MagicSetsPlugin) unboundCost(literal ast.ASTHandle, bound map[uint32]bool) (float32, error) {
+	declaration, err := p.manager.GetDecl(literal)
+	if err != nil {
+		return 0, err
+	}
+	count, err := p.manager.GetNumArgs(literal)
+	if err != nil {
+		return 0, err
+	}
+	cost := float32(1)
+	for index := uint32(0); index < count; index++ {
+		argument, getErr := p.manager.GetArg(literal, index)
+		if getErr != nil {
+			return 0, getErr
+		}
+		kind, getErr := p.manager.GetKind(argument)
+		if getErr != nil {
+			return 0, getErr
+		}
+		if kind != ast.ASTVar {
+			continue
+		}
+		variable, getErr := p.manager.GetVarIndex(argument)
+		if getErr != nil {
+			return 0, getErr
+		}
+		if bound[variable] {
+			continue
+		}
+		sort, getErr := p.manager.GetDomain(declaration, index)
+		if getErr != nil {
+			return 0, getErr
+		}
+		ruleSort, getErr := p.manager.IsDatalogRuleSort(sort)
+		if getErr != nil {
+			return 0, getErr
+		}
+		size := uint64(1)
+		if !ruleSort {
+			cardinality, sizeErr := p.manager.GetSortSize(sort)
+			if sizeErr != nil {
+				return 0, sizeErr
+			}
+			if cardinality.IsFinite() {
+				size, sizeErr = cardinality.Size()
+				if sizeErr != nil {
+					return 0, sizeErr
+				}
+			} else {
+				size = math.MaxUint64
+			}
+		}
+		cost *= float32(size)
+	}
+	return cost, nil
+}
+
 func (p *MagicSetsPlugin) popBound(indices *[]int, rule *base.Rule, bound map[uint32]bool) (int, error) {
-	best, bestCount := -1, 0
+	best := -1
+	var bestCost float32
 	for pos, index := range *indices {
 		lit, _, e := rule.Tail(index)
 		if e != nil {
@@ -266,8 +326,15 @@ func (p *MagicSetsPlugin) popBound(indices *[]int, rule *base.Rule, bound map[ui
 		if e != nil {
 			return -1, e
 		}
-		if count > bestCount {
-			best, bestCount = pos, count
+		if count == 0 {
+			continue
+		}
+		cost, e := p.unboundCost(lit, bound)
+		if e != nil {
+			return -1, e
+		}
+		if best < 0 || cost < bestCost {
+			best, bestCost = pos, cost
 		}
 	}
 	if best < 0 {
