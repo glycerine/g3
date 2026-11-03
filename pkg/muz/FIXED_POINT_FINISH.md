@@ -458,6 +458,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/dl_compiler.cpp` (partial), `src/muz/rel/dl_compiler.h` (partial)
   - [x] Finite, sparse, lazy and explanation compilation has concrete method-level evidence, including SCC scheduling and mixed magic inputs.
   - [x] Execute one aligned positive exact bound/interval tail with one compiler conjunction, unused-column projection, head reordering, fixpoint union and cancellation.
+  - [x] Combine requested bound/interval outputs by source nonempty disjunction, returning false only when every output relation is empty.
   - [ ] Complete source-live abstract/product/widening dispatch and compiler ownership audits; explicit interval activation and exact checked bytecode do not close source-default bound or mixed-product compilation.
 - [ ] `src/muz/rel/dl_external_relation.cpp` (partial), `src/muz/rel/dl_external_relation.h` (partial)
   - [x] Concrete predicate-signature construction, plugin-owned caching/drop/close and registered fixedpoint predicate lookup.
@@ -647,6 +648,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Public fixedpoint proof retrieval now follows the source engine contract: Duality and PDR keep custom proofs, Spacer returns an owning null proof and Datalog/BMC/QBMC/TAB/CLP/DDNF use the base asserted-true fallback. Query-parameter replacement and engine disposal also preserve stopped native decrement receipts for exact retry; broader base-engine and parameter audits remain open.
   Validation: the focused proof-routing, Horn-tactic, result-snapshot and parameter-lifecycle gate passed three times with `go -C pkg test ./muz/fp` in 0.322s. Commit title: `Route fixedpoint proofs and preserve query parameters`.
+
+- 2026-11-02 — Bound/interval query status now follows the source output disjunction: no outputs is true, all requested outputs empty is false and any nonempty approximate product makes the result undefined regardless of declaration order. Mixed empty/nonempty, repeated and singleton output matrices cover the corrected boundary.
+  Validation: `go -C pkg test ./muz/fp -run '^TestBoundIntervalDatalog' -count=5` passed. Commit title: `Combine bound interval output statuses correctly`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.

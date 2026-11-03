@@ -390,11 +390,11 @@ func (a *boundIntervalDatalogActivation) query(declarations []ast.ASTHandle) (lb
 		return lbool.True, nil
 	}
 	for _, declaration := range declarations {
-		if evaluated[declaration].Empty() {
-			return lbool.False, nil
+		if !evaluated[declaration].Empty() {
+			return lbool.Undef, nil
 		}
 	}
-	return lbool.Undef, nil
+	return lbool.False, nil
 }
 
 func (a *boundIntervalDatalogActivation) relationFormula(declaration ast.ASTHandle) (ast.ASTRef, error) {
