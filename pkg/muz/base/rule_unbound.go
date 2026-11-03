@@ -278,10 +278,12 @@ func (m *RuleManager) FixUnboundVariables(rule *Rule, lite *qe.Lite, enabled boo
 		}
 	}
 	substitution, err := rewriter.NewVarSubstitution(m.manager, false)
+	if substitution != nil {
+		defer func() { resultErr = errors.Join(resultErr, substitution.Close()) }()
+	}
 	if err != nil {
 		return nil, false, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, substitution.Close()) }()
 	bodyRef, err := m.manager.NewRef(body)
 	if err != nil {
 		return nil, false, err
