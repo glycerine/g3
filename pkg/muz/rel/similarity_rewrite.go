@@ -134,11 +134,11 @@ func similarityRewriteRule(rm *base.RuleManager, rule *base.Rule, positions []si
 	}
 	tails = append(tails, auxTail)
 	negs = append(negs, false)
-	name, e := rule.Name()
+	name, e := rule.NameSymbol()
 	if e != nil {
 		return nil, e
 	}
-	owner.rule, e = rm.NewRule(head, tails, negs, name)
+	owner.rule, e = rm.NewRuleWithSymbol(head, tails, negs, name)
 	if e != nil {
 		return nil, e
 	}

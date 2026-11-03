@@ -131,11 +131,11 @@ func (c *Compiler) compileRule(source *base.Rule, oldRules, newRules *base.RuleS
 			return getErr
 		}
 	}
-	name, err := source.Name()
+	name, err := source.NameSymbol()
 	if err != nil {
 		return err
 	}
-	compiledRule, err := c.rules.NewRule(compiledHead, tail, nil, name)
+	compiledRule, err := c.rules.NewRuleWithSymbol(compiledHead, tail, nil, name)
 	if err != nil {
 		return err
 	}

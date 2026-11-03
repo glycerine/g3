@@ -11,6 +11,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // ExplanationTransformer owns fresh explanation declarations and borrows the
@@ -219,22 +220,21 @@ func (t *ExplanationTransformer) ExplanationRule(rule *base.Rule) (result *base.
 		}
 		tails, negative = append(tails, tail), append(negative, negated)
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return nil, err
 	}
-	if name == "" {
+	if name == (symbol.Symbol{}) {
 		var display bytes.Buffer
 		if err = t.rules.WriteRuleDisplay(&display, rule); err != nil {
 			return nil, err
 		}
-		name = strings.TrimRight(display.String(), "\n")
+		name, err = m.Symbols.Intern(strings.TrimRight(display.String(), "\n"))
+		if err != nil {
+			return nil, err
+		}
 	}
-	symbol, err := m.Symbols.Intern(name)
-	if err != nil {
-		return nil, err
-	}
-	record, err := m.MkDatalogRule(symbol, ruleArguments)
+	record, err := m.MkDatalogRule(name, ruleArguments)
 	if err != nil {
 		return nil, err
 	}

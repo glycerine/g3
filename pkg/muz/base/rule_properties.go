@@ -335,7 +335,7 @@ func rulePropertyName(rule *Rule) string {
 	if rule == nil {
 		return ""
 	}
-	name, _ := rule.Name()
+	name, _ := rule.NameText()
 	return name
 }
 
@@ -358,7 +358,7 @@ func (p *RuleProperties) CheckUninterpretedFree() error {
 	}
 	name := ""
 	if symbol, err := p.manager.GetASTName(p.uninterpDecl); err == nil {
-		name, _, _ = p.manager.Symbols.BareString(symbol)
+		name, _ = p.manager.Symbols.Display(symbol)
 	}
 	return &RulePropertyError{Kind: RulePropertyUninterpreted, RuleName: rulePropertyName(p.uninterpreted), Symbol: name}
 }

@@ -237,11 +237,11 @@ func (c *Context) resolveProofRules(rules *base.RuleManager, target, source *bas
 			return nil, nil, nil, temporaries, err
 		}
 	}
-	targetName, err := target.Name()
+	targetName, err := target.NameText()
 	if err != nil {
 		return nil, nil, nil, temporaries, err
 	}
-	sourceName, err := source.Name()
+	sourceName, err := source.NameText()
 	if err != nil {
 		return nil, nil, nil, temporaries, err
 	}
