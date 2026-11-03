@@ -162,16 +162,23 @@ func (m *RuleManager) hoistCompoundPredicate(expression ast.ASTHandle, next *uin
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		variable, e := m.manager.MkVar(*next, sort)
+		variableRoot, e := m.manager.NewRef(ast.ASTHandle{})
 		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		*temporaries = append(*temporaries, variableRoot)
+		variable, e := m.manager.MkVar(*next, sort)
+		if e = errors.Join(e, m.manager.SetRef(variableRoot, variable)); e != nil {
 			return ast.ASTHandle{}, e
 		}
 		(*next)++
-		equality, e := m.manager.MkEq(variable, argument)
+		equalityRoot, e := m.manager.NewRef(ast.ASTHandle{})
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		if e = m.pinTemporary(temporaries, equality); e != nil {
+		*temporaries = append(*temporaries, equalityRoot)
+		equality, e := m.manager.MkEq(variable, argument)
+		if e = errors.Join(e, m.manager.SetRef(equalityRoot, equality)); e != nil {
 			return ast.ASTHandle{}, e
 		}
 		arguments[i] = variable
@@ -185,11 +192,13 @@ func (m *RuleManager) hoistCompoundPredicate(expression ast.ASTHandle, next *uin
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	result, err := m.manager.MkApp(declaration, arguments)
+	resultRoot, err := m.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = m.pinTemporary(temporaries, result); err != nil {
+	*temporaries = append(*temporaries, resultRoot)
+	result, err := m.manager.MkApp(declaration, arguments)
+	if err = errors.Join(err, m.manager.SetRef(resultRoot, result)); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	return result, nil

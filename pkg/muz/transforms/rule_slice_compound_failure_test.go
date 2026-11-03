@@ -142,6 +142,14 @@ func newCompoundSliceFailureFixture(t *testing.T, inputIndex int) (*coneFixture,
 }
 
 func TestRuleSliceCompoundHeadAllocationFailureAndRetry(t *testing.T) {
+	testRuleSliceCompoundHeadAllocationFailureAndRetry(t, false)
+}
+
+func TestRuleSliceCompoundHeadNodeOwnershipFailureAndRetry(t *testing.T) {
+	testRuleSliceCompoundHeadAllocationFailureAndRetry(t, true)
+}
+
+func testRuleSliceCompoundHeadAllocationFailureAndRetry(t *testing.T, countNodes bool) {
 	for _, inputIndex := range []int{-1, 0, 4} {
 		t.Run(fmt.Sprintf("variable=%d", inputIndex), func(t *testing.T) {
 			success, failures := false, 0
@@ -149,7 +157,14 @@ func TestRuleSliceCompoundHeadAllocationFailureAndRetry(t *testing.T) {
 				t.Run(fmt.Sprint(stop), func(t *testing.T) {
 					f, converter, input, expected := newCompoundSliceFailureFixture(t, inputIndex)
 					m := f.manager
+					if countNodes {
+						// The basic plugin owns proof declarations after first use.
+						// The separate cold campaign still exercises their allocation.
+						// Prime only those caches for exact temporary-node accounting.
+						warmCompoundSliceProofDeclarations(t, m)
+					}
 					before := m.Stats().LiveReferences
+					nodesBefore := m.Stats().LiveNodes
 					inputCount, err := m.GetRefCount(input)
 					coneMust(t, err)
 					mode, err := m.ProofMode()
@@ -176,6 +191,9 @@ func TestRuleSliceCompoundHeadAllocationFailureAndRetry(t *testing.T) {
 					}
 					if got := m.Stats().LiveReferences; got != before {
 						t.Fatal("conversion leaked references", stop, got, before)
+					}
+					if got := m.Stats().LiveNodes; countNodes && got != nodesBefore {
+						t.Fatal("conversion leaked unowned AST nodes", stop, got, nodesBefore, err)
 					}
 					if current, err := m.GetRefCount(input); err != nil || current != inputCount {
 						t.Fatal("conversion changed caller proof ownership", current, inputCount, err)
@@ -258,6 +276,26 @@ func TestRuleSliceCompoundHeadAllocationFailureAndRetry(t *testing.T) {
 			}
 		})
 	}
+}
+
+func warmCompoundSliceProofDeclarations(t *testing.T, m *ast.ASTManager) {
+	t.Helper()
+	scope, err := ast.NewScopedProof(m)
+	coneMust(t, err)
+	truth, err := m.MkTrue()
+	coneMust(t, err)
+	conjunction, err := m.MkAndArgs([]ast.ASTHandle{truth, truth})
+	coneMust(t, err)
+	asserted, err := m.MkProofAsserted(conjunction)
+	coneMust(t, err)
+	rewrite, err := m.MkProofRewrite(conjunction, truth)
+	coneMust(t, err)
+	translated, err := m.MkProofModusPonens(asserted, rewrite)
+	coneMust(t, err)
+	owner, err := m.NewRef(translated)
+	coneMust(t, err)
+	coneMust(t, m.DelRef(&owner))
+	coneMust(t, scope.Close())
 }
 
 // These symbolic fixtures produce forall a,b,c. c=b+1 => P(a,c).

@@ -510,12 +510,32 @@ func (r *Rule) ToFormula() (result ast.ASTRef, resultErr error) {
 	if err != nil {
 		return result, err
 	}
+	// Source to_formula builds into an expr_ref and an expr_ref_vector body.
+	// Reserve their owners before publishing any fresh Boolean/quantifier node.
+	var temporaries []ast.ASTRef
+	defer func() {
+		for i := len(temporaries) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, state.manager.DelRef(&temporaries[i]))
+		}
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, state.manager.DelRef(&result))
+		}
+	}()
+	result, err = state.manager.NewRef(state.head)
+	if err != nil {
+		return result, err
+	}
 	body := make([]ast.ASTHandle, len(state.tail))
 	for i, entry := range state.tail {
 		body[i] = entry.handle
 		if entry.negated {
+			pin, e := state.manager.NewRef(ast.ASTHandle{})
+			if e != nil {
+				return result, e
+			}
+			temporaries = append(temporaries, pin)
 			body[i], err = state.manager.MkNot(entry.handle)
-			if err != nil {
+			if err = errors.Join(err, state.manager.SetRef(pin, body[i])); err != nil {
 				return result, err
 			}
 		}
@@ -526,13 +546,19 @@ func (r *Rule) ToFormula() (result ast.ASTRef, resultErr error) {
 	case 1:
 		formula, err = state.manager.MkImplies(body[0], formula)
 	default:
+		pin, e := state.manager.NewRef(ast.ASTHandle{})
+		if e != nil {
+			return result, e
+		}
+		temporaries = append(temporaries, pin)
 		var conjunction ast.ASTHandle
 		conjunction, err = state.manager.MkAndArgs(body)
+		err = errors.Join(err, state.manager.SetRef(pin, conjunction))
 		if err == nil {
 			formula, err = state.manager.MkImplies(conjunction, formula)
 		}
 	}
-	if err != nil {
+	if err = errors.Join(err, state.manager.SetRef(result, formula)); err != nil {
 		return result, err
 	}
 	used, err := ast.NewASTUsedVars(state.manager)
@@ -582,11 +608,11 @@ func (r *Rule) ToFormula() (result ast.ASTRef, resultErr error) {
 			}
 		}
 		formula, err = state.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: formula})
-		if err != nil {
+		if err = errors.Join(err, state.manager.SetRef(result, formula)); err != nil {
 			return result, err
 		}
 	}
-	return state.manager.NewRef(formula)
+	return result, nil
 }
 
 // Close releases a shared owner immediately, but final destruction preserves
