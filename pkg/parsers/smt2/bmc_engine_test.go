@@ -3,10 +3,13 @@ package smt2
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/ast/proofs"
 	"github.com/glycerine/g3/pkg/cmd_context"
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func TestSMT2BMCEngineSearch(t *testing.T) {
@@ -89,38 +92,167 @@ func TestSMT2BMCRecursiveCertificate(t *testing.T) {
 (rule (=> (and (P x) (< x 3)) (P (+ x 1))))
 (rule (=> (P 3) G))
 (query G :print-certificate true)`
-	// Keep an exact certificate oracle with valid body/head pivots and explicit
-	// arithmetic rewrite proofs; independent recursive proof checks live in
-	// fp.TestBMCNumericProofIndependentValidation.
-	want := `sat
-(let ((a!1 ((_ hyper-res 1 0)
-             (asserted (=> G query!0))
-             (asserted (=> (P 3) G))
-             (=> (P 3) query!0)))
-      (a!2 (forall ((A Int) (B Int))
-             (=> (and (P B) (not (<= 3 B)) (= A (+ 1 B))) (P A))))
-      (a!3 (=> (and (P 2) (not (<= 3 2)) (= 3 (+ 1 2))) query!0))
-      (a!5 (=> (and (P 1) (not (<= 3 1)) (= 2 (+ 1 1))) query!0))
-      (a!8 (=> (and (P 0) (not (<= 3 0)) (= 1 (+ 1 0))) query!0)))
-(let ((a!4 (rewrite (= a!3 (=> (P 2) query!0))))
-      (a!7 (rewrite (= a!5 (=> (P 1) query!0))))
-      (a!10 (rewrite (= a!8 (=> (P 0) query!0)))))
-(let ((a!6 (hyper-res (mp (hyper-res a!1 (asserted a!2) a!3)
-                          a!4
-                          (=> (P 2) query!0))
-                      (asserted a!2)
-                      a!5)))
-(let ((a!9 (hyper-res (mp a!6 a!7 (=> (P 1) query!0)) (asserted a!2) a!8)))
-  ((_ hyper-res 1 0) (mp a!9 a!10 (=> (P 0) query!0)) (asserted (P 0)) query!0)))))
-
-`
 	var output bytes.Buffer
-	if err = ParseCommands(context, strings.NewReader(script), &output); err != nil {
+	if err := ParseCommands(context, strings.NewReader(script), &output); err != nil {
 		t.Fatal(err)
 	}
-	if got := output.String(); got != want {
-		t.Fatalf("recursive BMC certificate:\n%s\nwant:\n%s", got, want)
+	if got := output.String(); !strings.HasPrefix(got, "sat\n") || !strings.Contains(got, "hyper-res") {
+		t.Fatalf("expected a reachable query with a hyper-resolution certificate: %s", got)
 	}
+	manager, err := context.Manager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	answer, err := context.FixedpointExpressionAnswer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := manager.DelRef(&answer); err != nil {
+			t.Error(err)
+		}
+	}()
+	proof, err := manager.RefGet(answer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conclusion, err := manager.GetProofFact(proof)
+	if err != nil {
+		t.Fatal(err)
+	}
+	declaration, err := manager.GetDecl(conclusion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, err := manager.GetASTName(declaration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	queryName, err := manager.Symbols.Display(name)
+	if err != nil || !strings.HasPrefix(queryName, "query!") {
+		t.Fatalf("proof does not conclude the synthetic query: %q, %v", queryName, err)
+	}
+	// The serialized output must contain exactly one complete S-expression,
+	// including the checked proof's conclusion and original predicates. This
+	// permits printer layout and let-binding changes without accepting a
+	// truncated certificate.
+	scanner, err := NewScanner(strings.NewReader(strings.TrimPrefix(output.String(), "sat\n")), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	depth, roots := 0, 0
+	seen := make(map[string]bool)
+	var printedTokens []string
+	tokenText := func(scanner *Scanner, token Token) string {
+		switch token {
+		case SymbolToken, KeywordToken:
+			return scanner.ID()
+		case StringToken:
+			return scanner.String()
+		case IntegerToken, DecimalToken, BitVectorToken:
+			return fmt.Sprintf("%s/%d", scanner.Number().RatString(), scanner.BitVectorSize())
+		default:
+			return ""
+		}
+	}
+	for {
+		token, err := scanner.Scan()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if token == EOFToken {
+			break
+		}
+		printedTokens = append(printedTokens, fmt.Sprintf("%d:%s", token, tokenText(scanner, token)))
+		switch token {
+		case LeftParenToken:
+			if depth == 0 {
+				roots++
+			}
+			depth++
+		case RightParenToken:
+			depth--
+			if depth < 0 {
+				t.Fatal("unbalanced printed certificate")
+			}
+		case SymbolToken:
+			if depth == 0 {
+				t.Fatal("unexpected token outside printed certificate")
+			}
+			seen[scanner.ID()] = true
+		default:
+			if depth == 0 {
+				t.Fatal("unexpected token outside printed certificate")
+			}
+		}
+	}
+	if depth != 0 || roots != 1 || !seen[queryName] || !seen["P"] || !seen["G"] || !seen["hyper-res"] {
+		t.Fatalf("incomplete printed certificate: depth=%d roots=%d symbols=%v", depth, roots, seen)
+	}
+	var formatted bytes.Buffer
+	if err = context.WriteExpression(&formatted, proof); err != nil {
+		t.Fatal(err)
+	}
+	expectedScanner, err := NewScanner(strings.NewReader(formatted.String()), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var proofTokens []string
+	for {
+		token, err := expectedScanner.Scan()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if token == EOFToken {
+			break
+		}
+		proofTokens = append(proofTokens, fmt.Sprintf("%d:%s", token, tokenText(expectedScanner, token)))
+	}
+	if !reflect.DeepEqual(printedTokens, proofTokens) {
+		t.Fatal("printed certificate differs from the checked proof")
+	}
+	checker, err := proofs.NewChecker(manager)
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid, conditions, err := checker.Check(proof)
+	defer func() {
+		if err := checker.ReleaseSideConditions(conditions); err != nil {
+			t.Error(err)
+		}
+	}()
+	if err != nil || !valid {
+		t.Fatalf("invalid recursive BMC proof: valid=%v error=%v", valid, err)
+	}
+	solver, err := context.NewSimpleSolver()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := solver.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	for i, condition := range conditions {
+		if err := solver.Push(); err != nil {
+			t.Fatal(err)
+		}
+		negated, err := manager.MkNot(condition)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = solver.Assert(negated); err != nil {
+			t.Fatal(err)
+		}
+		status, err := solver.CheckSat(nil)
+		if err != nil || status != lbool.False {
+			t.Fatalf("proof side condition %d is not valid: status=%v error=%v", i, status, err)
+		}
+		if err = solver.Pop(1); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 }
 
 func TestSMT2BMCNonlinearProofTrace(t *testing.T) {
