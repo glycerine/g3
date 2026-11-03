@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -19,6 +20,45 @@ func TestBoundDatalogConditionAndHeadOnlyColumnAssembly(t *testing.T) {
 	fragmentMust(t, err)
 	boolean, err := m.MkBoolSort()
 	fragmentMust(t, err)
+	var containsEquality func(ast.ASTHandle) bool
+	containsEquality = func(current ast.ASTHandle) bool {
+		kind, queryErr := m.GetKind(current)
+		if queryErr != nil || kind != ast.ASTApp {
+			return false
+		}
+		op, queryErr := m.GetDeclKind(current)
+		if queryErr != nil {
+			return false
+		}
+		if op == ast.ASTOpEq {
+			return true
+		}
+		count, queryErr := m.GetNumArgs(current)
+		if queryErr != nil {
+			return false
+		}
+		for i := uint32(0); i < count; i++ {
+			argument, argumentErr := m.GetArg(current, i)
+			if argumentErr == nil && containsEquality(argument) {
+				return true
+			}
+		}
+		return false
+	}
+	duplicated, duplicatedSorts, duplicateColumn, err := duplicateBoundColumn(rel.NewBoundRelation(1, false), []ast.ASTHandle{integer}, 0)
+	fragmentMust(t, err)
+	if duplicateColumn != 1 || len(duplicatedSorts) != 2 {
+		t.Fatal("duplicate head column shape", duplicateColumn, len(duplicatedSorts))
+	}
+	duplicateFormula, err := duplicated.ToFormula(m, duplicatedSorts)
+	fragmentMust(t, err)
+	duplicateHandle, err := m.RefGet(duplicateFormula)
+	fragmentMust(t, err)
+	hasDuplicateEquality := containsEquality(duplicateHandle)
+	fragmentMust(t, m.DelRef(&duplicateFormula))
+	if !hasDuplicateEquality {
+		t.Fatal("make_duplicate_column did not build its equality class")
+	}
 	declare := func(text string, arity int) ast.ASTHandle {
 		name, cause := m.Symbols.Intern(text)
 		fragmentMust(t, cause)
@@ -99,44 +139,19 @@ func TestBoundDatalogConditionAndHeadOnlyColumnAssembly(t *testing.T) {
 		t.Fatal("condition-only column was not projected from the head", strict, weak)
 	}
 
-	assertEquality := func(declaration ast.ASTHandle) {
+	assertSourceCopyDropsEquality := func(declaration ast.ASTHandle) {
 		t.Helper()
 		formula, cause := runtime.relationFormula(declaration)
 		fragmentMust(t, cause)
 		defer func() { fragmentMust(t, m.DelRef(&formula)) }()
 		handle, cause := m.RefGet(formula)
 		fragmentMust(t, cause)
-		var containsEquality func(ast.ASTHandle) bool
-		containsEquality = func(current ast.ASTHandle) bool {
-			kind, queryErr := m.GetKind(current)
-			if queryErr != nil || kind != ast.ASTApp {
-				return false
-			}
-			op, queryErr := m.GetDeclKind(current)
-			if queryErr != nil {
-				return false
-			}
-			if op == ast.ASTOpEq {
-				return true
-			}
-			count, queryErr := m.GetNumArgs(current)
-			if queryErr != nil {
-				return false
-			}
-			for i := uint32(0); i < count; i++ {
-				argument, argumentErr := m.GetArg(current, i)
-				if argumentErr == nil && containsEquality(argument) {
-					return true
-				}
-			}
-			return false
-		}
-		if !containsEquality(handle) {
-			t.Fatal("repeated head column was not duplicated with equality")
+		if containsEquality(handle) {
+			t.Fatal("empty-target vector copy unexpectedly preserved the duplicate equality")
 		}
 	}
-	assertEquality(repeated)
-	assertEquality(unboundRepeated)
+	assertSourceCopyDropsEquality(repeated)
+	assertSourceCopyDropsEquality(unboundRepeated)
 
 	for _, declaration := range []ast.ASTHandle{constant, unbound} {
 		result, cause := runtime.relation(declaration)
