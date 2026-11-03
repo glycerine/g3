@@ -3166,7 +3166,9 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.rules = nil
 	}
 	if e.binder != nil {
-		result = errors.Join(result, e.binder.Close())
+		if err := e.binder.Close(); err != nil {
+			return errors.Join(result, err)
+		}
 		e.binder = nil
 	}
 	if e.relations != nil {
