@@ -674,6 +674,10 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	if err = context.SetQuery(queryDeclaration); err != nil {
 		return lbool.Undef, errors.Join(fmt.Errorf("muz/fp: set preprocessed Spacer query: %w", err), closeContext())
 	}
+	preparedRuleCount, err := prepared.Len()
+	if err != nil {
+		return lbool.Undef, errors.Join(err, closeContext())
+	}
 	previousSnapshot := e.spacerRules
 	e.spacerRules = snapshot
 	installedSnapshot = true
@@ -686,5 +690,11 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	e.spacerRevision = e.revision
 	e.spacerOriginalQuery = declaration
 	e.spacerQuery = queryDeclaration
+	if preparedRuleCount == 0 {
+		if err = context.SetEmptyProgramUnsat(); err != nil {
+			return lbool.Undef, err
+		}
+		return lbool.False, nil
+	}
 	return context.Solve(fromLevel, maximumLevels)
 }
