@@ -360,9 +360,7 @@ func (m *RelationManager) DecodeFact(sorts []ast.ASTHandle, fact Fact) (_ []ast.
 	result := make([]ast.ASTRef, 0, len(fact))
 	defer func() {
 		if resultErr != nil {
-			for i := len(result) - 1; i >= 0; i-- {
-				resultErr = errors.Join(resultErr, m.manager.DelRef(&result[i]))
-			}
+			resultErr = finishDecodedFact(m.manager, result, resultErr)
 		}
 	}()
 	for i, value := range fact {

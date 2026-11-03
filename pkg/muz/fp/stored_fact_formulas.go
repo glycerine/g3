@@ -1,8 +1,6 @@
 package fp
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -13,9 +11,10 @@ func (e *PropositionalEngine) StoredFactFormulas() (result []ast.ASTRef, resultE
 	if err := e.open(); err != nil {
 		return nil, err
 	}
+	attempt := &storedFactFormulaAttempt{manager: e.manager}
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, closeASTRefs(e.manager, result))
+			resultErr = attempt.fail(resultErr)
 			result = nil
 		}
 	}()
@@ -30,6 +29,7 @@ func (e *PropositionalEngine) StoredFactFormulas() (result []ast.ASTRef, resultE
 		}
 		for _, fact := range facts {
 			values, err := e.relations.DecodeFact(state.sorts, fact)
+			attempt.current = values
 			if err != nil {
 				return nil, err
 			}
@@ -48,15 +48,18 @@ func (e *PropositionalEngine) StoredFactFormulas() (result []ast.ASTRef, resultE
 			if err == nil {
 				reference, err = e.manager.NewRef(application)
 			}
-			err = errors.Join(err, closeASTRefs(e.manager, values))
+			if reference != (ast.ASTRef{}) {
+				attempt.outputs = append(attempt.outputs, reference)
+			}
+			if err == nil {
+				err = attempt.clearCurrent()
+			}
 			if err != nil {
-				if reference != (ast.ASTRef{}) {
-					err = errors.Join(err, e.manager.DelRef(&reference))
-				}
 				return nil, err
 			}
-			result = append(result, reference)
 		}
 	}
+	result = attempt.outputs
+	attempt.outputs = nil
 	return result, nil
 }
