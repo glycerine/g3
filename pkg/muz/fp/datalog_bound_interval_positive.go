@@ -7,6 +7,7 @@ package fp
 
 import (
 	"errors"
+	"math/big"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -118,7 +119,12 @@ func (a *boundIntervalDatalogActivation) parsePositiveTail(rule *base.Rule, inde
 	if err != nil || int(arguments) != len(sorts) {
 		return nil, errors.Join(err, ErrBoundIntervalDatalogFragment)
 	}
-	variables := make([]uint32, arguments)
+	type tailConstant struct {
+		column uint32
+		value  *big.Rat
+	}
+	variables := make([]uint32, 0, arguments)
+	constants := make([]tailConstant, 0, arguments)
 	seen := make(map[uint32]bool, arguments)
 	for column := uint32(0); column < arguments; column++ {
 		argument, cause := a.manager.GetArg(tail, column)
@@ -126,8 +132,19 @@ func (a *boundIntervalDatalogActivation) parsePositiveTail(rule *base.Rule, inde
 			return nil, cause
 		}
 		kind, cause := a.manager.GetKind(argument)
-		if cause != nil || kind != ast.ASTVar {
-			return nil, errors.Join(cause, ErrBoundIntervalDatalogFragment)
+		if cause != nil {
+			return nil, cause
+		}
+		if kind != ast.ASTVar {
+			actualSort, sortErr := a.manager.GetSort(argument)
+			text, _, numeral, numeralErr := a.manager.ArithmeticNumeralText(argument)
+			cause = errors.Join(sortErr, numeralErr)
+			value, valid := new(big.Rat).SetString(text)
+			if cause != nil || !numeral || !valid || actualSort != sorts[column] {
+				return nil, errors.Join(cause, ErrBoundIntervalDatalogFragment)
+			}
+			constants = append(constants, tailConstant{column: column, value: value})
+			continue
 		}
 		variable, cause := a.manager.GetVarIndex(argument)
 		if cause != nil {
@@ -137,9 +154,19 @@ func (a *boundIntervalDatalogActivation) parsePositiveTail(rule *base.Rule, inde
 			return nil, ErrBoundIntervalDatalogFragment
 		}
 		seen[variable] = true
-		variables[column] = variable
+		variables = append(variables, variable)
 	}
-	return &boundIntervalPositiveTail{declaration: declaration, product: products[declaration], sorts: sorts, variables: variables}, nil
+	product := products[declaration]
+	sort.Slice(constants, func(i, j int) bool { return constants[i].column > constants[j].column })
+	for _, constant := range constants {
+		product, err = product.SelectEqualAndProject(constant.column, constant.value)
+		if err != nil {
+			return nil, err
+		}
+		column := int(constant.column)
+		sorts = append(sorts[:column], sorts[column+1:]...)
+	}
+	return &boundIntervalPositiveTail{declaration: declaration, product: product, sorts: sorts, variables: variables}, nil
 }
 
 func joinBoundIntervalPositiveTails(left, right *boundIntervalPositiveTail) (*rel.IntervalBoundProduct, []ast.ASTHandle, map[uint32]uint32, error) {
