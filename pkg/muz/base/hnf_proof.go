@@ -10,11 +10,22 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/qe"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // AddFormulaWithProof ingests a formula and proof through the source Horn
 // normalization worklist, carrying proofs through each transformation.
 func (m *RuleManager) AddFormulaWithProof(set *RuleSet, formula, proof ast.ASTHandle, name string) (resultErr error) {
+	label, err := m.ruleName(name)
+	if err != nil {
+		return err
+	}
+	return m.AddFormulaWithProofAndSymbol(set, formula, proof, label)
+}
+
+// AddFormulaWithProofAndSymbol carries the input proof and exact source label
+// through the Horn normalization worklist.
+func (m *RuleManager) AddFormulaWithProofAndSymbol(set *RuleSet, formula, proof ast.ASTHandle, name usymbol.Symbol) error {
 	return m.addFormulaWithProof(set, formula, proof, name, nil, false)
 }
 
@@ -24,14 +35,27 @@ func (m *RuleManager) AddFormulaWithProofAndUnboundFix(set *RuleSet, formula, pr
 	if lite == nil {
 		return fmt.Errorf("muz/base: nil unbound-variable eliminator")
 	}
+	label, err := m.ruleName(name)
+	if err != nil {
+		return err
+	}
+	return m.AddFormulaWithProofAndSymbolAndUnboundFix(set, formula, proof, label, lite, enabled)
+}
+
+// AddFormulaWithProofAndSymbolAndUnboundFix preserves the label while carrying
+// proofs through normalization and the configured unbound-variable rewrite.
+func (m *RuleManager) AddFormulaWithProofAndSymbolAndUnboundFix(set *RuleSet, formula, proof ast.ASTHandle, name usymbol.Symbol, lite *qe.Lite, enabled bool) error {
+	if lite == nil {
+		return fmt.Errorf("muz/base: nil unbound-variable eliminator")
+	}
 	return m.addFormulaWithProof(set, formula, proof, name, lite, enabled)
 }
 
-func (m *RuleManager) addFormulaWithProof(set *RuleSet, formula, proof ast.ASTHandle, name string, lite *qe.Lite, fixUnbound bool) (resultErr error) {
+func (m *RuleManager) addFormulaWithProof(set *RuleSet, formula, proof ast.ASTHandle, name usymbol.Symbol, lite *qe.Lite, fixUnbound bool) (resultErr error) {
 	if proof.IsNull() {
 		return m.addFormula(set, formula, name, lite, fixUnbound)
 	}
-	if err := m.open(); err != nil {
+	if err := m.checkRuleName(name); err != nil {
 		return err
 	}
 	if set == nil || set.manager != m {
@@ -110,7 +134,7 @@ func (m *RuleManager) addFormulaWithProof(set *RuleSet, formula, proof ast.ASTHa
 	}
 	for i, clause := range clauses {
 		clauseProof := clauseProofs[i]
-		rule, e := m.NewRuleFromFormulaWithProof(clause, clauseProof, name)
+		rule, e := m.NewRuleFromFormulaWithProofAndSymbol(clause, clauseProof, name)
 		if e != nil {
 			return e
 		}

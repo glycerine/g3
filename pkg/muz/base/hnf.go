@@ -350,7 +350,23 @@ func (n *HornNormalizer) freshHead(expression ast.ASTHandle, result *HornNormali
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	declaration, err := n.manager.MkFreshFuncDecl(n.prefix, usymbol.Symbol{}, domain, boolean)
+	// Source converts the stored label through symbol::str before the
+	// char-pointer overload interns the textual prefix. The label itself stays
+	// unchanged, including numerical identity and present-empty spelling.
+	text, err := n.manager.Symbols.String(n.prefix)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	prefix, err := n.manager.Symbols.Intern(text)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	// The empty, non-null suffix contributes a second separator to the name.
+	suffix, err := n.manager.Symbols.Intern("")
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	declaration, err := n.manager.MkFreshFuncDecl(prefix, suffix, domain, boolean)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -725,6 +741,16 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 // AddFormula normalizes a formula, registers introduced predicates, converts
 // every Horn conjunct to a Rule, and retains it in set.
 func (m *RuleManager) AddFormula(set *RuleSet, formula ast.ASTHandle, name string) (resultErr error) {
+	label, err := m.ruleName(name)
+	if err != nil {
+		return err
+	}
+	return m.AddFormulaWithSymbol(set, formula, label)
+}
+
+// AddFormulaWithSymbol preserves the source label through Horn normalization
+// and uses its source spelling as the prefix for introduced predicates.
+func (m *RuleManager) AddFormulaWithSymbol(set *RuleSet, formula ast.ASTHandle, name usymbol.Symbol) error {
 	return m.addFormula(set, formula, name, nil, false)
 }
 
@@ -735,11 +761,24 @@ func (m *RuleManager) AddFormulaWithUnboundFix(set *RuleSet, formula ast.ASTHand
 	if lite == nil {
 		return fmt.Errorf("muz/base: nil unbound-variable eliminator")
 	}
+	label, err := m.ruleName(name)
+	if err != nil {
+		return err
+	}
+	return m.AddFormulaWithSymbolAndUnboundFix(set, formula, label, lite, enabled)
+}
+
+// AddFormulaWithSymbolAndUnboundFix carries the exact label through the
+// configured unbound-variable rewrite of each normalized clause.
+func (m *RuleManager) AddFormulaWithSymbolAndUnboundFix(set *RuleSet, formula ast.ASTHandle, name usymbol.Symbol, lite *qe.Lite, enabled bool) error {
+	if lite == nil {
+		return fmt.Errorf("muz/base: nil unbound-variable eliminator")
+	}
 	return m.addFormula(set, formula, name, lite, enabled)
 }
 
-func (m *RuleManager) addFormula(set *RuleSet, formula ast.ASTHandle, name string, lite *qe.Lite, fixUnbound bool) (resultErr error) {
-	if err := m.open(); err != nil {
+func (m *RuleManager) addFormula(set *RuleSet, formula ast.ASTHandle, name usymbol.Symbol, lite *qe.Lite, fixUnbound bool) (resultErr error) {
+	if err := m.checkRuleName(name); err != nil {
 		return err
 	}
 	if set == nil || set.manager != m {
@@ -786,7 +825,7 @@ func (m *RuleManager) addFormula(set *RuleSet, formula ast.ASTHandle, name strin
 		if e != nil {
 			return e
 		}
-		rule, e := m.NewRuleFromFormula(horn, name)
+		rule, e := m.NewRuleFromFormulaWithSymbol(horn, name)
 		if e != nil {
 			return e
 		}

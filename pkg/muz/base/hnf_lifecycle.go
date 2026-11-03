@@ -142,19 +142,11 @@ func (n *HornNormalizer) Close() error {
 	return nil
 }
 
-func (m *RuleManager) prepareHornNormalizer(name string) (*HornNormalizer, error) {
+func (m *RuleManager) prepareHornNormalizer(name usymbol.Symbol) (*HornNormalizer, error) {
 	if err := m.normalizer.Reset(); err != nil {
 		return nil, err
 	}
-	var prefix usymbol.Symbol
-	if name != "" {
-		var err error
-		prefix, err = m.manager.Symbols.Intern(name)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if err := m.normalizer.SetName(prefix); err != nil {
+	if err := m.normalizer.SetName(name); err != nil {
 		return nil, err
 	}
 	return m.normalizer, nil
