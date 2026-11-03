@@ -1863,7 +1863,19 @@ func (e *PropositionalEngine) saturate() error {
 }
 
 func (e *PropositionalEngine) tryCompiledSaturation() (used bool, resultErr error) {
-	execution, termination, err := rel.CompileFiniteRulesWithGuard(e.relations, e.set, e.guard)
+	options := rel.FiniteCompilerOptions{}
+	if e.params != nil && e.globals != nil {
+		parameters, err := e.fixedpointParamView()
+		if err != nil {
+			return false, err
+		}
+		options.AllOrNothingDeltas, err = parameters.Bool("datalog.all_or_nothing_deltas", false)
+		err = errors.Join(err, parameters.Close())
+		if err != nil {
+			return false, err
+		}
+	}
+	execution, termination, err := rel.CompileFiniteRulesWithOptions(e.relations, e.set, e.guard, options)
 	if errors.Is(err, rel.ErrCompilerUnsupported) {
 		return false, nil
 	}

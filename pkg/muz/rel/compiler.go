@@ -16,6 +16,13 @@ import (
 
 var ErrCompilerUnsupported = errors.New("muz/rel: rule is outside the finite compiler fragment")
 
+// FiniteCompilerOptions selects source rule evaluation modes.
+type FiniteCompilerOptions struct {
+	// AllOrNothingDeltas uses deltas only to detect changes, evaluating each
+	// rule in a recursive stratum against full relations on every iteration.
+	AllOrNothingDeltas bool
+}
+
 func onlyCompilerUnsupported(err error) bool {
 	if err == nil {
 		return false
@@ -73,6 +80,7 @@ type finiteCompiler struct {
 	termination   *InstructionBlock
 	current       *InstructionBlock
 	guard         *astrewriter.TheoryRewriter
+	options       FiniteCompilerOptions
 	predicateRegs map[ast.ASTHandle]uint32
 	signatures    []Signature
 	loaded        []ast.ASTHandle
@@ -1382,9 +1390,9 @@ func (c *finiteCompiler) compileRule(rule finiteCompiledRule, delta uint32, tail
 	return nil
 }
 
-// compileRecursive emits an exact semi-naive finite fixpoint loop. Each rule
-// run substitutes one changed tail relation and reads accumulated relations
-// for its other tails, recording newly inserted tuples in the next deltas.
+// compileRecursive emits a finite fixpoint loop. By default each rule run
+// substitutes one changed tail and reads accumulated relations for its other
+// tails; all-or-nothing mode reads full relations. Both record new delta rows.
 func (c *finiteCompiler) compileRecursive(set *base.RuleSet, rules []finiteCompiledRule) (resultErr error) {
 	orderedRules, err := c.orderRecursiveRules(rules)
 	if err != nil {
@@ -1472,6 +1480,12 @@ func (c *finiteCompiler) compileRecursive(set *base.RuleSet, rules []finiteCompi
 		head, err := c.manager.GetDecl(rule.head)
 		if err != nil {
 			return err
+		}
+		if c.options.AllOrNothingDeltas {
+			if err = c.compileRule(rule, nextDeltas[head], fullSources); err != nil {
+				return err
+			}
+			continue
 		}
 		tails := []ast.ASTHandle{rule.tail}
 		if rule.kind == finiteTwoTailRule {
@@ -1672,6 +1686,12 @@ func CompileFiniteRules(relations *RelationManager, set *base.RuleSet) (*Instruc
 
 // CompileFiniteRulesWithGuard additionally compiles interpreted finite guards.
 func CompileFiniteRulesWithGuard(relations *RelationManager, set *base.RuleSet, guard *astrewriter.TheoryRewriter) (*InstructionBlock, *InstructionBlock, error) {
+	return CompileFiniteRulesWithOptions(relations, set, guard, FiniteCompilerOptions{})
+}
+
+// CompileFiniteRulesWithOptions compiles finite rules and interpreted guards
+// using the selected recursive evaluation mode.
+func CompileFiniteRulesWithOptions(relations *RelationManager, set *base.RuleSet, guard *astrewriter.TheoryRewriter, options FiniteCompilerOptions) (*InstructionBlock, *InstructionBlock, error) {
 	if relations == nil {
 		return nil, nil, ErrCompilerUnsupported
 	}
@@ -1682,6 +1702,7 @@ func CompileFiniteRulesWithGuard(relations *RelationManager, set *base.RuleSet, 
 	if err != nil {
 		return nil, nil, err
 	}
+	compiler.options = options
 	if set == nil {
 		if closeErr := compiler.closeBlocks(); closeErr != nil {
 			return nil, nil, closeErr
