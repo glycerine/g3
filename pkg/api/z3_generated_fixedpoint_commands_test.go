@@ -309,7 +309,7 @@ func TestGeneratedFixedpointReplayRejectsShortRepresentationArray(t *testing.T) 
 
 // A source update enters the normalized rule set without consuming an earlier
 // queued AddRule input, so the later query flush exposes both formulas.
-func TestGeneratedFixedpointReplayPendingNamedRuleUpdate(t *testing.T) {
+func TestGeneratedFixedpointReplayNamedRuleUpdate(t *testing.T) {
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\n$ |R|\nU 0\np 0\nP 0x42\nC 49\n= 0x43\n" +
 		"R\nP 0x41\nP 0x43\nU 0\np 0\nC 50\n= 0x44\nR\nP 0x41\nC 511\n= 0x45\nR\nP 0x41\nP 0x45\nC 512\n" +
 		"R\nP 0x41\nP 0x45\nP 0x43\nC 526\nR\nP 0x41\nP 0x45\nP 0x44\n$ |rule|\nC 514\n" +
