@@ -26,16 +26,16 @@ func QueryPredicate(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theor
 
 // QueryPredicateWithStatistics adds this query's search counters to stats.
 func QueryPredicateWithStatistics(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, stats *Statistics, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, err error) {
-	return queryPredicate(rules, query, rw, lite, querySolver, subsumptionSolver, strategy, nil, stats, evaluator...)
+	return queryPredicate(rules, query, nil, rw, lite, querySolver, subsumptionSolver, strategy, nil, stats, evaluator...)
 }
 
 // QueryPredicateWithSession runs a query using source state that persists
 // across calls, including selection decay/cache and clause sequence IDs.
 func QueryPredicateWithSession(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, session *Session, stats *Statistics, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, err error) {
-	return queryPredicate(rules, query, rw, lite, querySolver, subsumptionSolver, "", session, stats, evaluator...)
+	return queryPredicate(rules, query, nil, rw, lite, querySolver, subsumptionSolver, "", session, stats, evaluator...)
 }
 
-func queryPredicate(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, session *Session, stats *Statistics, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, err error) {
+func queryPredicate(rules *base.RuleSet, query ast.ASTHandle, queryRule *base.Rule, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, session *Session, stats *Statistics, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, err error) {
 	if rules == nil || rw == nil || rw.Manager() == nil || lite == nil || querySolver == nil || subsumptionSolver == nil {
 		return lbool.Undef, answer, ast.ErrASTHandle
 	}
@@ -73,11 +73,23 @@ func queryPredicate(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theor
 	if err != nil {
 		return lbool.Undef, answer, err
 	}
-	goal, err := NewClause(m, rw, falsehood, []ast.ASTHandle{query}, truth)
+	var goal *Clause
+	if queryRule == nil {
+		goal, err = NewClause(m, rw, falsehood, []ast.ASTHandle{query}, truth)
+	} else {
+		// Source imp::query initializes the last query rule, then replaces its
+		// head with false. The query rule never enters the program index.
+		goal, err = NewClauseFromRule(queryRule, rw)
+	}
+	attempt.goal = goal
 	if err != nil {
 		return lbool.Undef, answer, err
 	}
-	attempt.goal = goal
+	if queryRule != nil {
+		if err = m.SetRef(goal.head, falsehood); err != nil {
+			return lbool.Undef, answer, err
+		}
+	}
 	var modelConfig *model.ModelEvaluatorConfig
 	if len(evaluator) > 1 {
 		return lbool.Undef, answer, ast.ErrASTHandle
@@ -100,6 +112,25 @@ func queryPredicate(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theor
 	}()
 	if err = search.verboseInitialClause(); err != nil {
 		return lbool.Undef, answer, err
+	}
+	if queryRule != nil && len(goal.predicates) == 0 {
+		// C++ select_predicate skips the initial clause's constraint check.
+		// Preserve the existing Go false/theory-only query behavior: before
+		// direct initialization, the synthetic unfold ran this tautology check.
+		canceled, cause := m.Canceled()
+		if cause != nil {
+			return lbool.Undef, answer, cause
+		}
+		if !canceled {
+			tautology, cause := search.isTautology(goal)
+			if cause != nil {
+				return lbool.Undef, answer, cause
+			}
+			if tautology {
+				answer, err = m.NewRef(truth)
+				return lbool.False, answer, err
+			}
+		}
 	}
 	status, err = search.Run()
 	if err != nil {

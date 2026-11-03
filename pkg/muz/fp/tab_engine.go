@@ -38,6 +38,17 @@ func (e *PropositionalEngine) closeTabSession() error {
 	return nil
 }
 func (e *PropositionalEngine) queryTabPredicate(declaration ast.ASTHandle) (status lbool.LBool, err error) {
+	return e.queryTab(declaration, false)
+}
+
+func (e *PropositionalEngine) queryTabExpression(query ast.ASTHandle) (status lbool.LBool, err error) {
+	e.queried = true
+	e.compiled = false
+	defer func() { e.recordQueryStatus(status, err) }()
+	return e.queryTab(query, true)
+}
+
+func (e *PropositionalEngine) queryTab(target ast.ASTHandle, expression bool) (status lbool.LBool, err error) {
 	if e.params == nil || e.globals == nil {
 		return lbool.Undef, ErrPropositionalEngine
 	}
@@ -122,31 +133,38 @@ func (e *PropositionalEngine) queryTabPredicate(declaration ast.ASTHandle) (stat
 	if err = attempt.sub.SetProduceModels(true); err != nil {
 		return lbool.Undef, err
 	}
-	arity, err := e.manager.GetArity(declaration)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	args := make([]ast.ASTHandle, arity)
-	for i := range args {
-		sort, e2 := e.manager.GetDomain(declaration, uint32(i))
+	query := target
+	if !expression {
+		arity, e2 := e.manager.GetArity(target)
 		if e2 != nil {
 			return lbool.Undef, e2
 		}
-		args[i], e2 = e.manager.MkVar(arity-uint32(i)-1, sort)
-		if e2 != nil {
-			return lbool.Undef, e2
+		args := make([]ast.ASTHandle, arity)
+		for i := range args {
+			sort, e2 := e.manager.GetDomain(target, uint32(i))
+			if e2 != nil {
+				return lbool.Undef, e2
+			}
+			args[i], e2 = e.manager.MkVar(arity-uint32(i)-1, sort)
+			if e2 != nil {
+				return lbool.Undef, e2
+			}
 		}
-	}
-	query, err := e.manager.MkApp(declaration, args)
-	if err != nil {
-		return lbool.Undef, err
+		query, err = e.manager.MkApp(target, args)
+		if err != nil {
+			return lbool.Undef, err
+		}
 	}
 	attempt.queryRef, err = e.manager.NewRef(query)
 	if err != nil {
 		return lbool.Undef, err
 	}
 	var stats tab.Statistics
-	status, e.tabAnswer, err = tab.QueryPredicateWithSession(e.set, query, attempt.rw, attempt.lite, attempt.query, attempt.sub, e.tabSession, &stats, modelEvaluator)
+	if expression {
+		status, e.tabAnswer, err = tab.QueryExpressionWithSessionStatistics(e.set, query, attempt.rw, attempt.lite, attempt.query, attempt.sub, e.tabSession, &stats, modelEvaluator)
+	} else {
+		status, e.tabAnswer, err = tab.QueryPredicateWithSession(e.set, query, attempt.rw, attempt.lite, attempt.query, attempt.sub, e.tabSession, &stats, modelEvaluator)
+	}
 	e.tabUnfold += stats.Unfold
 	e.tabUnfoldFail += stats.UnfoldFail
 	e.tabSubsumed += stats.Subsumed

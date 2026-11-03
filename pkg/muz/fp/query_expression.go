@@ -190,6 +190,11 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			resultErr = errors.Join(resultErr, e.discardQueryClone(clone))
 		}
 	}()
+	if clone.backend == "tab" {
+		// TAB initializes its false-head goal from the expression query rule;
+		// only the original program belongs in the search rule index.
+		return clone.queryTabExpression(query)
+	}
 	declaration, head, err := clone.makeQueryHead(query)
 	if err != nil {
 		return lbool.Undef, err

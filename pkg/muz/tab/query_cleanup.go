@@ -105,11 +105,13 @@ func (a *tabQueryAttempt) finish(answer ast.ASTRef, cause error) (ast.ASTRef, er
 var _ memory.ConstructionFailure = (*tabQueryCleanupFailure)(nil)
 
 type tabExpressionAttempt struct {
-	manager   *ast.ASTManager
-	nested    memory.ConstructionFailure
-	scoped    *base.RuleSet
-	compacted ast.ASTRef
-	answer    ast.ASTRef
+	manager    *ast.ASTManager
+	nested     memory.ConstructionFailure
+	properties *base.RuleProperties
+	queryRule  *base.Rule
+	scoped     *base.RuleSet
+	compacted  ast.ASTRef
+	answer     ast.ASTRef
 }
 
 func (a *tabExpressionAttempt) closeResources() error {
@@ -118,6 +120,18 @@ func (a *tabExpressionAttempt) closeResources() error {
 			return err
 		}
 		a.nested = nil
+	}
+	if a.properties != nil {
+		if err := a.properties.Close(); err != nil {
+			return err
+		}
+		a.properties = nil
+	}
+	if a.queryRule != nil {
+		if err := a.queryRule.Close(); err != nil {
+			return err
+		}
+		a.queryRule = nil
 	}
 	if a.scoped != nil {
 		if err := a.scoped.Close(); err != nil {

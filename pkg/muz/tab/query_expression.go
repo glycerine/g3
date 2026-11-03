@@ -20,16 +20,22 @@ import (
 // QueryExpression runs tabulation for an arbitrary Boolean Horn expression.
 // The synthetic query rule is query-owned; the supplied program is unchanged.
 func QueryExpression(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, resultErr error) {
-	return queryExpression(rules, query, rw, lite, querySolver, subsumptionSolver, strategy, nil, evaluator...)
+	return queryExpression(rules, query, rw, lite, querySolver, subsumptionSolver, strategy, nil, nil, evaluator...)
 }
 
 // QueryExpressionWithSession preserves the source TAB session state while
 // keeping the synthetic query rule scoped to this call.
 func QueryExpressionWithSession(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, session *Session, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, resultErr error) {
-	return queryExpression(rules, query, rw, lite, querySolver, subsumptionSolver, "", session, evaluator...)
+	return QueryExpressionWithSessionStatistics(rules, query, rw, lite, querySolver, subsumptionSolver, session, nil, evaluator...)
 }
 
-func queryExpression(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, session *Session, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, resultErr error) {
+// QueryExpressionWithSessionStatistics also accumulates this query's source
+// search counters, without indexing an additional synthetic query rule.
+func QueryExpressionWithSessionStatistics(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, session *Session, stats *Statistics, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, resultErr error) {
+	return queryExpression(rules, query, rw, lite, querySolver, subsumptionSolver, "", session, stats, evaluator...)
+}
+
+func queryExpression(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, session *Session, stats *Statistics, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, resultErr error) {
 	if rules == nil || rw == nil || rw.Manager() == nil {
 		return lbool.Undef, answer, ast.ErrASTHandle
 	}
@@ -112,16 +118,33 @@ func queryExpression(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theo
 		return lbool.Undef, answer, err
 	}
 	attempt.scoped = scoped
-	if err = scoped.AddRules(rules); err != nil {
-		return lbool.Undef, answer, err
-	}
 	if err = ruleManager.AddFormula(scoped, implication, ""); err != nil {
 		return lbool.Undef, answer, err
 	}
-	if session != nil {
-		return QueryPredicateWithSession(scoped, head, rw, lite, querySolver, subsumptionSolver, session, nil, evaluator...)
+	// Preserve the query's fragment checks even though its rule no longer
+	// belongs to the indexed program collected by queryPredicate.
+	attempt.properties, err = base.NewRuleProperties(ruleManager)
+	if err != nil {
+		return lbool.Undef, answer, err
 	}
-	return QueryPredicate(scoped, head, rw, lite, querySolver, subsumptionSolver, strategy, evaluator...)
+	if err = attempt.properties.Collect(scoped); err != nil {
+		return lbool.Undef, answer, err
+	}
+	if err = attempt.properties.CheckExistentialTail(); err != nil {
+		return lbool.Undef, answer, err
+	}
+	if err = attempt.properties.CheckNegativePredicates(); err != nil {
+		return lbool.Undef, answer, err
+	}
+	countRules, err := scoped.Len()
+	if err != nil {
+		return lbool.Undef, answer, err
+	}
+	attempt.queryRule, err = scoped.Rule(countRules - 1)
+	if err != nil {
+		return lbool.Undef, answer, err
+	}
+	return queryPredicate(rules, ast.ASTHandle{}, attempt.queryRule, rw, lite, querySolver, subsumptionSolver, strategy, session, stats, evaluator...)
 }
 
 func compactExpressionVariables(m *ast.ASTManager, ruleManager *base.RuleManager, expression ast.ASTHandle) (result ast.ASTRef, resultErr error) {
