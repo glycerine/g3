@@ -3,11 +3,7 @@ package rel
 // Source: src/muz/rel/dl_relation_manager.cpp get_relation and
 // src/muz/rel/dl_external_relation.cpp external_relation_plugin::mk_empty.
 
-import (
-	"errors"
-
-	"github.com/glycerine/g3/pkg/ast"
-)
+import "github.com/glycerine/g3/pkg/ast"
 
 // PredicateRelation returns the manager-owned external relation for predicate,
 // constructing it from the predicate signature on first use. The returned
@@ -30,17 +26,13 @@ func (p *ExternalRelationPlugin) PredicateRelation(predicate ast.ASTHandle) (_ *
 	if err != nil {
 		return nil, err
 	}
-	published := false
-	defer func() {
-		if !published {
-			resultErr = errors.Join(resultErr, relation.Close())
-		}
-	}()
+	owner := &externalRelationConstructionOwner{manager: p.ast, result: relation}
+	defer func() { resultErr = owner.dispose(resultErr) }()
 	if err = p.ast.IncRef(predicate); err != nil {
 		return nil, err
 	}
 	p.predicates[predicate] = relation
-	published = true
+	owner.result = nil
 	return relation, nil
 }
 
