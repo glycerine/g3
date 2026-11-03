@@ -1,6 +1,9 @@
 package rel
 
-import "errors"
+import (
+	"errors"
+	"io"
+)
 
 func (e *LazySparseEngine) adoptSparse(table *SparseTable) (*LazySparseTable, error) {
 	if err := e.open(); err != nil || table == nil || table.open() != nil {
@@ -38,6 +41,59 @@ func (t *LazySparseTable) Len() (int, error) {
 		return 0, err
 	}
 	return table.Len()
+}
+
+// FetchFact forces this lazy root and reads the functional suffix from its
+// actual packed sparse owner.
+func (t *LazySparseTable) FetchFact(fact Fact) (bool, error) {
+	table, err := t.eval()
+	if err != nil {
+		return false, err
+	}
+	return table.FetchFact(fact)
+}
+
+// EnsureFact forces this lazy root and mutates its actual packed sparse owner.
+func (t *LazySparseTable) EnsureFact(fact Fact) error {
+	table, err := t.eval()
+	if err != nil {
+		return err
+	}
+	return table.EnsureFact(fact)
+}
+
+// Remove forces this lazy root and removes the functional key from its actual
+// packed sparse owner.
+func (t *LazySparseTable) Remove(fact Fact) (bool, error) {
+	table, err := t.eval()
+	if err != nil {
+		return false, err
+	}
+	return table.Remove(fact)
+}
+
+func (t *LazySparseTable) SizeEstimateRows() (uint32, error) {
+	table, err := t.eval()
+	if err != nil {
+		return 0, err
+	}
+	return table.SizeEstimateRows()
+}
+
+func (t *LazySparseTable) SizeEstimateBytes() (uint32, error) {
+	table, err := t.eval()
+	if err != nil {
+		return 0, err
+	}
+	return table.SizeEstimateBytes()
+}
+
+func (t *LazySparseTable) Display(out io.Writer) error {
+	table, err := t.eval()
+	if err != nil {
+		return err
+	}
+	return table.Display(out)
 }
 
 func (t *LazySparseTable) Reset() error {

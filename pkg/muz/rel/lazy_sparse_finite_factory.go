@@ -28,6 +28,15 @@ func (f *LazySparseFiniteFactory) New(signature Signature) (*LazySparseTable, er
 	return f.engine.New(signature, 0)
 }
 
+// NewFunctional constructs a non-nullary lazy sparse table whose final
+// functional columns use the concrete sparse-table update semantics.
+func (f *LazySparseFiniteFactory) NewFunctional(signature Signature, functional int) (*LazySparseTable, error) {
+	if err := f.open(); err != nil || signature.Len() == 0 || functional <= 0 {
+		return nil, ErrLazySparse
+	}
+	return f.engine.New(signature, functional)
+}
+
 // Migrate copies source rows without consuming or aliasing source.
 func (f *LazySparseFiniteFactory) Migrate(source FiniteTable) (_ *LazySparseTable, resultErr error) {
 	if err := f.open(); err != nil || source == nil {
