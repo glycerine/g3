@@ -33,8 +33,8 @@ func (w *projectedCubeAllocationWriter) Write(p []byte) (int, error) {
 		w.line.Reset()
 		if !w.fired && strings.HasPrefix(line, "[mk-app] #") && strings.HasSuffix(line, w.suffix) {
 			w.fired = true
-			// This completed record belongs to the first freshly assembled
-			// child cube. Stop tracing before later AST trace bookkeeping can
+			// This completed record belongs to the selected new expression.
+			// Stop tracing before later AST trace bookkeeping can
 			// consume the intended model-node reference allocation failure.
 			w.manager.TraceStream = nil
 			w.manager.Budget().FailAfter(0)
@@ -43,7 +43,25 @@ func (w *projectedCubeAllocationWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+const projectedCubePredecessorCount = 64
+
 func TestPDRProjectedChildCubeReleasedAfterNodeAllocationFailure(t *testing.T) {
+	// Debug storage allocates each cube payload again, while native storage
+	// can reuse it. Find the actual node-reference allocation boundary without
+	// counting an earlier payload failure as ownership coverage.
+	for target := 0; target < projectedCubePredecessorCount; target++ {
+		matched := false
+		passed := t.Run(fmt.Sprintf("cube-%d", target), func(t *testing.T) {
+			matched = testPDRProjectedChildCubeAllocation(t, target)
+		})
+		if !passed || matched {
+			return
+		}
+	}
+	t.Fatal("no projected model-node reference allocation boundary reached")
+}
+
+func testPDRProjectedChildCubeAllocation(t *testing.T, target int) bool {
 	m, context, rules := classifierContextFixture(t)
 	var pins []ast.ASTRef
 	t.Cleanup(func() { closureMust(t, closeASTRefs(m, pins)) })
@@ -78,7 +96,7 @@ func TestPDRProjectedChildCubeReleasedAfterNodeAllocationFailure(t *testing.T) {
 	}
 	// One native reference page worth of children forces reference growth
 	// during the final loop after filling the previously available slots.
-	const predecessorCount = 64
+	const predecessorCount = projectedCubePredecessorCount
 	var tail []ast.ASTHandle
 	for i := uint32(0); i < predecessorCount; i++ {
 		predicate := declare(fmt.Sprintf("cube-owner-P%d", i), []ast.ASTHandle{boolean, boolean})
@@ -131,9 +149,9 @@ func TestPDRProjectedChildCubeReleasedAfterNodeAllocationFailure(t *testing.T) {
 	}
 	closureMust(t, context.search.Reset())
 	root = newRoot()
-	leftID, err := m.GetASTID(cubes[0][0])
+	leftID, err := m.GetASTID(cubes[target][0])
 	closureMust(t, err)
-	rightID, err := m.GetASTID(cubes[0][1])
+	rightID, err := m.GetASTID(cubes[target][1])
 	closureMust(t, err)
 	writer := &projectedCubeAllocationWriter{manager: m, suffix: fmt.Sprintf(" and #%d #%d\n", leftID, rightID)}
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.Budget(), BorrowedWriter: writer})
@@ -159,8 +177,11 @@ func TestPDRProjectedChildCubeReleasedAfterNodeAllocationFailure(t *testing.T) {
 		}()
 		err = context.createChildrenProjected(root)
 	}()
-	if !writer.fired || !errors.Is(err, arena.ErrInjectedFailure) || !strings.Contains(err.Error(), "projected model-node construction") || len(root.children) >= predecessorCount {
+	if !writer.fired || !errors.Is(err, arena.ErrInjectedFailure) || len(root.children) >= predecessorCount {
 		t.Fatal("missed child model-node reference allocation failure", writer.fired, len(root.children), err)
+	}
+	if !strings.Contains(err.Error(), "projected model-node construction") {
+		return false
 	}
 	counts := func() [4]uint32 {
 		s := m.Stats()
@@ -192,4 +213,5 @@ func TestPDRProjectedChildCubeReleasedAfterNodeAllocationFailure(t *testing.T) {
 		}
 	}
 	// The fixture closes all source owners and requires zero final budget.
+	return true
 }
