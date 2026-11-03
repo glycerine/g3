@@ -155,12 +155,11 @@ func TestExternalRuleSCCSchedulingAndWideningCallbacks(t *testing.T) {
 			x, err := f.ast.MkVar(0, f.boolean)
 			astTestMust(t, err)
 			astTestPin(t, f.ast, x)
-			checkedAllOrNothing := false
 			run := func(specs []struct {
 				head  ast.ASTHandle
 				tails []ast.ASTHandle
 				name  string
-			}) {
+			}, requested ...ExternalRuleExecutionOptions) {
 				t.Helper()
 				set, cause := base.NewRuleSet(rules)
 				astTestMust(t, cause)
@@ -171,15 +170,11 @@ func TestExternalRuleSCCSchedulingAndWideningCallbacks(t *testing.T) {
 					astTestMust(t, set.Add(rule))
 					astTestMust(t, rule.Close())
 				}
-				if !checkedAllOrNothing {
-					before := len(events)
-					cause = ExecuteExternalFactRulesWithOptions(plugin, set, ExternalRuleExecutionOptions{AllOrNothingDeltas: true})
-					if !errors.Is(cause, ErrCompilerUnsupported) || len(events) != before {
-						t.Fatal("unsupported all-or-nothing schedule mutated relations", cause, before, len(events))
-					}
-					checkedAllOrNothing = true
+				options := ExternalRuleExecutionOptions{CompileWithWidening: widen}
+				if len(requested) != 0 {
+					options = requested[0]
 				}
-				astTestMust(t, ExecuteExternalFactRulesWithOptions(plugin, set, ExternalRuleExecutionOptions{CompileWithWidening: widen}))
+				astTestMust(t, ExecuteExternalFactRulesWithOptions(plugin, set, options))
 			}
 			handle := func(predicate ast.ASTHandle) ast.ASTHandle {
 				relation, cause := plugin.PredicateRelation(predicate)
@@ -260,6 +255,27 @@ func TestExternalRuleSCCSchedulingAndWideningCallbacks(t *testing.T) {
 			for _, current := range doubled {
 				if current.op != int(loopOp) || current.outputs != 2 {
 					t.Fatal("internal-tail loop update profile", doubled)
+				}
+			}
+
+			// All-or-nothing mode evaluates every nonground component rule once
+			// with full inputs while any component delta is active. Thus the
+			// lower-only seed rule joins the recursive rule in the single loop
+			// round, instead of being initialization-only as above.
+			allSeed, allRecursive := declare("all-seed"), declare("all-p")
+			start = len(events)
+			run([]struct {
+				head  ast.ASTHandle
+				tails []ast.ASTHandle
+				name  string
+			}{{app(allRecursive, x), []ast.ASTHandle{app(allRecursive, x)}, "all-self"}, {app(allRecursive, x), []ast.ASTHandle{app(allSeed, x)}, "all-lower-seed"}, {app(allSeed, f.truth), nil, "all-fact"}}, ExternalRuleExecutionOptions{CompileWithWidening: widen, AllOrNothingDeltas: true})
+			all := targetEvents(allRecursive, start)
+			if len(all) != 3 || all[0].op != int(ast.DatalogOpUnion) || all[0].outputs != 1 {
+				t.Fatal("all-or-nothing initialization profile", all)
+			}
+			for _, current := range all[1:] {
+				if current.op != int(loopOp) || current.outputs != 2 {
+					t.Fatal("all-or-nothing full-input loop profile", all)
 				}
 			}
 

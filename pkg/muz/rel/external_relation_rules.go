@@ -343,9 +343,6 @@ func ExecuteExternalFactRulesWithOptions(plugin *ExternalRelationPlugin, set *ba
 	if plugin == nil || plugin.closed || plugin.ast == nil || set == nil {
 		return ErrCompilerUnsupported
 	}
-	if options.AllOrNothingDeltas {
-		return errors.Join(ErrCompilerUnsupported, errors.New("muz/rel: all-or-nothing external deltas are not ported"))
-	}
 	count, err := set.Len()
 	if err != nil {
 		return err
@@ -685,6 +682,15 @@ func ExecuteExternalFactRulesWithOptions(plugin *ExternalRelationPlugin, set *ba
 			}
 			for _, scheduled := range component.rules {
 				entry := compiled[scheduled.index]
+				if entry.ground {
+					continue
+				}
+				if options.AllOrNothingDeltas {
+					if err = executeEntry(entry, -1, nil, next[entry.head], options.CompileWithWidening); err != nil {
+						return errors.Join(err, closeDeltas(next, component.heads), closeDeltas(current, component.heads))
+					}
+					continue
+				}
 				for _, tailIndex := range scheduled.internalTails {
 					delta := current[entry.tails[tailIndex]]
 					if err = executeEntry(entry, tailIndex, delta, next[entry.head], options.CompileWithWidening); err != nil {

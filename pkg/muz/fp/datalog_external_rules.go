@@ -57,7 +57,21 @@ func (e *PropositionalEngine) queryExternalDatalogPredicates(declarations []ast.
 		if err := e.validateExternalRulePredicates(); err != nil {
 			return lbool.Undef, err
 		}
-		if err := rel.ExecuteExternalFactRules(e.external, e.set); err != nil {
+		options := rel.ExternalRuleExecutionOptions{}
+		if e.params != nil && e.globals != nil {
+			view, err := e.fixedpointParamView()
+			if err != nil {
+				return lbool.Undef, err
+			}
+			options.CompileWithWidening, err = view.Bool("datalog.compile_with_widening", false)
+			if err == nil {
+				options.AllOrNothingDeltas, err = view.Bool("datalog.all_or_nothing_deltas", false)
+			}
+			if err = errors.Join(err, view.Close()); err != nil {
+				return lbool.Undef, err
+			}
+		}
+		if err := rel.ExecuteExternalFactRulesWithOptions(e.external, e.set, options); err != nil {
 			return lbool.Undef, err
 		}
 	}
