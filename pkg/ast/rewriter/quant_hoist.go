@@ -295,27 +295,31 @@ func (s *quantifierHoistState) extract(q ast.ASTHandle, useFresh bool) (ast.ASTH
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		var v ast.ASTHandle
-		if useFresh {
-			prefix, e := s.owner.m.Symbols.String(name)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			v, e = s.owner.m.MkFreshConst(prefix, sort)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-		} else {
-			v, e = s.owner.m.MkConst(name, sort)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
+		// Reserve the app_ref_vector entry before creating a fresh constant;
+		// allocating its Go root afterward can strand the new application.
+		ref, e := s.owner.m.NewRef(ast.ASTHandle{})
+		if ref != (ast.ASTRef{}) {
+			s.variables = append(s.variables, ref)
 		}
-		ref, e := s.owner.m.NewRef(v)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		s.variables = append(s.variables, ref)
+		var v ast.ASTHandle
+		if useFresh {
+			prefix, cause := s.owner.m.Symbols.String(name)
+			if cause != nil {
+				return ast.ASTHandle{}, cause
+			}
+			v, e = s.owner.m.MkFreshConst(prefix, sort)
+		} else {
+			v, e = s.owner.m.MkConst(name, sort)
+		}
+		if !v.IsNull() {
+			e = errors.Join(e, s.owner.m.SetRef(ref, v))
+		}
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
 	}
 	values := make([]ast.ASTHandle, n)
 	base := len(s.variables) - int(n)
@@ -734,7 +738,16 @@ func (h *QuantifierHoister) PullQuantifierIndexed(forall bool, fml ast.ASTHandle
 		}
 		boundNames = append(boundNames, name)
 		boundSorts = append(boundSorts, sort)
+		// ExprSafeReplace owns inserted substitutions. Its temporary root
+		// also covers variable construction and a failed Insert allocation.
+		root, x := rep.scratch()
+		if x != nil {
+			return nil, x
+		}
 		variable, x := h.m.MkVar(index, sort)
+		if !variable.IsNull() {
+			x = errors.Join(x, h.m.SetRef(root, variable))
+		}
 		if x != nil {
 			return nil, x
 		}
