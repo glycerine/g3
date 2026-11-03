@@ -148,6 +148,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Simplify invariant and finite frame vectors at the final UNSAT boundary and configured pre/post propagation hooks, preserving incremental assertions and property indices.
   - [x] Implement pdr.validate_result SAT trace/proof and UNSAT inductive-model validation, including missing-query finalization, invalid-result rejection and retryable native guard-boundary cleanup.
   - [x] Preserve Boogie certificate formatter, proof reference and temporary proof-mode ownership across writer and native cleanup refusal, with stable retry and no partial publication.
+  - [x] Preserve reachable hash-cache reference roots through refused native destruction and make completed cache cleanup idempotent.
   - [ ] Audit composite validation teardown beyond the tested guard boundary; internally partial SMTSolver.Close replay remains a lower-layer obligation.
   - [x] Emit the PDR interface transformed-rule listing at verbosity 2 for both new and reused contexts; verify the same threshold for PDR and QPDR.
   - [ ] Complete pdr_dl_interface check_reset/query TRACE checkpoints (fresh rule, background/query/original rules, transformed rules/SMT2 dump).
@@ -671,6 +672,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Mixed external/interval products now emit the source product header followed by concrete components in the requested representation order. Exact content for both orders, real interval facts, writer refusal and nil/closed validation are covered; the upstream ill-typed external `ToFormula` boundary remains explicitly excluded.
   Validation: `go -C pkg test ./muz/rel -run '^TestExternalIntervalProductDisplay' -count=5` passed. Commit title: `Display mixed external interval products`.
+
+- 2026-11-02 — PDR reachable hash-cache destruction now removes an entry only after its AST reference has actually been consumed. Native refusal preserves the exact source ref-holder root for retry, successful completion empties the cache and repeated `Close` is idempotent; composite constraint-cache teardown remains separate.
+  Validation: `go -C pkg test ./muz/pdr -run '^(TestReachableHashCacheClosePreservesUnconsumedRoots|TestReachable.*Cache|Test.*ReachableCache)' -count=5` passed. Commit title: `Preserve PDR reachable cache cleanup`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.

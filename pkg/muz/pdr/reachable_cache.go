@@ -215,11 +215,14 @@ func (c *ReachableCache) ResetStatistics() error {
 }
 
 func (c *ReachableCache) Close() (result error) {
-	if c == nil || c.manager == nil {
+	if c == nil {
 		return ErrSMTContextOwner
 	}
 	if c.closed {
 		return nil
+	}
+	if c.manager == nil {
+		return ErrSMTContextOwner
 	}
 	if c.context != nil {
 		result = errors.Join(result, c.context.Close())
@@ -228,8 +231,14 @@ func (c *ReachableCache) Close() (result error) {
 		result = errors.Join(result, c.manager.DelRef(&c.connector))
 	}
 	for handle, reference := range c.cache {
-		result = errors.Join(result, c.manager.DelRef(&reference))
-		delete(c.cache, handle)
+		err := c.manager.DelRef(&reference)
+		result = errors.Join(result, err)
+		// DelRef clears its owner only after consuming the reference. Keep an
+		// unconsumed cache entry reachable when native cleanup is refused so a
+		// later Close can resume instead of losing the source ref-holder root.
+		if reference == (ast.ASTRef{}) {
+			delete(c.cache, handle)
+		}
 	}
 	if result == nil {
 		c.context = nil
