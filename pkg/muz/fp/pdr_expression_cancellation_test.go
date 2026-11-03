@@ -82,9 +82,17 @@ func TestPDRExpressionCancellationPreservesOwnersAndRetry(t *testing.T) {
 				if last != lbool.Undef {
 					t.Fatal("unknown query published a decided result", last)
 				}
-				if _, err := e.ExpressionAnswer(); err == nil {
-					t.Fatal("unknown query published an answer")
+				// pdr::context::get_answer returns true for l_undef. Preserve
+				// that source certificate while the unknown result snapshot is
+				// live; only an error-producing cancellation suppresses it.
+				answer, err := e.ExpressionAnswer()
+				must(err)
+				answerHandle, err := m.RefGet(answer)
+				must(err)
+				if !m.IsTrue(answerHandle) {
+					t.Fatal("unknown query answer is not source true", answerHandle)
 				}
+				must(m.DelRef(&answer))
 			}
 			if e.queryClone != nil {
 				solveFailures++
