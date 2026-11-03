@@ -656,6 +656,11 @@ func (m *Manager) Close() (result error) {
 	if m.manager == nil {
 		return ErrManagerOwner
 	}
+	// Native error transport can reenter this owner during an AST operation.
+	// Refuse before closing siblings that its background reference still needs.
+	if _, err := m.manager.ProofMode(); err != nil {
+		return err
+	}
 	for _, context := range m.contexts {
 		if context == nil {
 			continue
