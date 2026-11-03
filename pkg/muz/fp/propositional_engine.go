@@ -2537,23 +2537,29 @@ func (e *PropositionalEngine) inductiveModelAnswer(inductive *model.Model) (answ
 	if inductive == nil {
 		return answer, ast.ErrASTHandle
 	}
-	defer func() { result = errors.Join(result, inductive.Close()) }()
-	builder, err := model.NewModel2ExprBuilder(inductive.Core())
+	owner := &inductiveModelAnswerOwner{manager: e.manager, model: inductive}
+	defer func() {
+		if result != nil && answer != (ast.ASTRef{}) {
+			owner.output, answer = answer, ast.ASTRef{}
+		}
+		result = owner.finish(result)
+		if result != nil && answer != (ast.ASTRef{}) {
+			// A refused destructor also prevents publication. The cleanup
+			// receipt already owns this scope and its unpublished output.
+			owner.output = answer
+			answer = ast.ASTRef{}
+		}
+	}()
+	var err error
+	owner.builder, err = model.NewModel2ExprBuilder(inductive.Core())
 	if err != nil {
 		return answer, err
 	}
-	defer func() { result = errors.Join(result, builder.Close()) }()
 	answer, err = e.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return answer, err
 	}
-	defer func() {
-		if result != nil && answer != (ast.ASTRef{}) {
-			result = errors.Join(result, e.manager.DelRef(&answer))
-			answer = ast.ASTRef{}
-		}
-	}()
-	if err = builder.Build(answer); err != nil {
+	if err = owner.builder.Build(answer); err != nil {
 		return answer, err
 	}
 	return answer, nil
