@@ -102,7 +102,7 @@ func NewManager(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 	return result, nil
 }
 
-func spacerSolverParams(source *uparams.ParamsRef, config smtcore.SMTSolverConfig) (result uparams.ParamsRef, resultErr error) {
+func spacerSolverParams(source *uparams.ParamsRef, config smtcore.SMTSolverConfig) (_ uparams.ParamsRef, resultErr error) {
 	if config.Params == nil || config.Globals == nil {
 		return uparams.ParamsRef{}, ErrManagerOwner
 	}
@@ -123,7 +123,9 @@ func spacerSolverParams(source *uparams.ParamsRef, config smtcore.SMTSolverConfi
 	if err != nil {
 		return uparams.ParamsRef{}, err
 	}
-	result = config.Params.EmptyValue()
+	// Keep the construction owner independent of the returned value: an error
+	// returns an empty handle, while this local still owns the partial params.
+	result := config.Params.EmptyValue()
 	committed := false
 	defer func() {
 		if !committed {
