@@ -2,7 +2,15 @@ package ast
 
 // Source: src/ast/factor_equivs.cpp; src/ast/factor_equivs.h.
 
-import "testing"
+import (
+	"errors"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/memory"
+	"github.com/glycerine/g3/pkg/util/numeral"
+	"github.com/glycerine/g3/pkg/util/symbol"
+)
 
 func TestASTFactorEqualitiesArithmeticNormalizationAndRemainder(t *testing.T) {
 	m := astTestManager(t)
@@ -91,5 +99,83 @@ func TestASTExprEquivClassEmissionAndOwnership(t *testing.T) {
 	astTestMust(t, equiv.Reset())
 	if len(equiv.objects) != 0 || len(equiv.ids) != 0 {
 		t.Fatal("reset retained class state")
+	}
+}
+
+func TestASTExprEquivClassCloseAdvancesAfterNativeRefusalConsumesSlot(t *testing.T) {
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	budget := arena.NewBudget(1 << 27)
+	var manager *ASTManager
+	var equiv *ExprEquivClass
+	active, callbacks := false, 0
+	var closeErr error
+	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(source memory.Failure) error {
+		if active && callbacks == 0 {
+			callbacks++
+			closeErr = equiv.Close()
+		}
+		return source
+	}})
+	must(err)
+	numerals, err := numeral.NewRationalService(numeral.RationalServiceConfig{Integers: numeral.IntegerConfig{
+		Memory: runtime, Profile: memory.SmallAllocatorProfile{PointerBits: 64, Debug: true},
+		Cells: arena.Config{Budget: budget}, Words: arena.VectorConfig{Descriptors: arena.Config{Budget: budget}},
+	}})
+	must(err)
+	symbols, err := symbol.NewManager(symbol.Config{Budget: budget})
+	must(err)
+	manager, err = NewASTManager(ASTManagerConfig{Symbols: symbols, Numerals: numerals, Budget: budget})
+	must(err)
+	must(manager.RegisterDeclarationPlugins())
+	defer func() {
+		active = false
+		must(runtime.SetMaxCount(0))
+		if equiv != nil {
+			must(equiv.Close())
+		}
+		must(manager.Close())
+		must(numerals.Close())
+		must(symbols.Close())
+		must(runtime.Close())
+		if budget.Used() != 0 {
+			t.Fatal("equivalence cleanup fixture leaked bytes", budget.Used())
+		}
+	}()
+	boolean, err := manager.MkBoolSort()
+	must(err)
+	left, err := manager.MkFreshConst("equiv-close-left", boolean)
+	must(err)
+	right, err := manager.MkFreshConst("equiv-close-right", boolean)
+	must(err)
+	equiv, err = NewExprEquivClass(manager)
+	must(err)
+	must(equiv.Merge(left, right))
+
+	value, err := numerals.NewValue()
+	must(err)
+	defer func() { must(numerals.Del(&value)) }()
+	must(numerals.SetString(&value, "18446744073709551617/18446744073709551619"))
+	must(runtime.SetMaxCount(uint64(runtime.State().GlobalCount) + 1))
+	var invocation ASTArithmeticNumeralInvocation
+	active = true
+	_, body := manager.ArithmeticNumeralWithInvocation(&value, false, &invocation)
+	active = false
+	must(runtime.SetMaxCount(0))
+	if body == nil || callbacks != 1 || !errors.Is(closeErr, ErrASTPending) {
+		t.Fatal("native refusal did not stop equivalence cleanup", body, callbacks, closeErr)
+	}
+	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
+	if equiv.nextRef < len(equiv.refs) && equiv.refs[equiv.nextRef] != (ASTRef{}) {
+		must(manager.DelRef(&equiv.refs[equiv.nextRef]))
+	}
+	must(equiv.Close())
+	must(equiv.Close())
+	if !equiv.closed || equiv.nextRef != 0 || len(equiv.refs) != 0 {
+		t.Fatal("equivalence cleanup did not advance past consumed slot")
 	}
 }

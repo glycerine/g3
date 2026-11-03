@@ -2,7 +2,11 @@ package ast
 
 // Source: src/ast/factor_equivs.cpp; src/ast/factor_equivs.h.
 
-import "github.com/glycerine/g3/pkg/util/backtrack"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/util/backtrack"
+)
 
 // ExprEquivClass is the concrete expression specialization of
 // obj_equiv_class. It owns one AST reference for each inserted expression.
@@ -131,10 +135,17 @@ func (e *ExprEquivClass) Reset() error {
 		return err
 	}
 	for e.nextRef < len(e.refs) {
-		if err := e.manager.DelRef(&e.refs[e.nextRef]); err != nil {
+		if e.refs[e.nextRef] == (ASTRef{}) {
+			e.nextRef++
+			continue
+		}
+		err := e.manager.DelRef(&e.refs[e.nextRef])
+		if e.refs[e.nextRef] == (ASTRef{}) {
+			e.nextRef++
+		}
+		if err != nil {
 			return err
 		}
-		e.nextRef++
 	}
 	e.uf.Reset()
 	clear(e.ids)
@@ -289,6 +300,27 @@ func releaseFactorRefs(m *ASTManager, refs []ASTRef) {
 	}
 }
 
+// releaseFactorRefsReverse advances an owning slice only after each native
+// reference has actually been consumed. The residual slice is therefore an
+// exact retry frontier when destruction is refused.
+func releaseFactorRefsReverse(m *ASTManager, refs *[]ASTRef) error {
+	for len(*refs) != 0 {
+		index := len(*refs) - 1
+		if (*refs)[index] == (ASTRef{}) {
+			*refs = (*refs)[:index]
+			continue
+		}
+		err := m.DelRef(&(*refs)[index])
+		if (*refs)[index] == (ASTRef{}) {
+			*refs = (*refs)[:index]
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // EquivToExpr emits one equality from a non-value representative to every
 // other member of each equivalence class.
 func (m *ASTManager) EquivToExpr(equiv *ExprEquivClass) ([]ASTRef, error) {
@@ -334,7 +366,8 @@ func (m *ASTManager) EquivToExpr(equiv *ExprEquivClass) ([]ASTRef, error) {
 	return out, nil
 }
 
-// EquivToExprFull emits every unordered equality pair in every class.
+// EquivToExprFull emits every unordered equality pair in every class. On
+// failure, the returned slice contains any reference whose cleanup was refused.
 func (m *ASTManager) EquivToExprFull(equiv *ExprEquivClass) ([]ASTRef, bool, error) {
 	classes, err := equiv.Classes()
 	if err != nil {
@@ -346,13 +379,13 @@ func (m *ASTManager) EquivToExprFull(equiv *ExprEquivClass) ([]ASTRef, bool, err
 			for j := i + 1; j < len(class); j++ {
 				eq, err := m.MkEq(class[i], class[j])
 				if err != nil {
-					releaseFactorRefs(m, out)
-					return nil, false, err
+					cleanup := releaseFactorRefsReverse(m, &out)
+					return out, false, errors.Join(err, cleanup)
 				}
 				ref, err := m.NewRef(eq)
 				if err != nil {
-					releaseFactorRefs(m, out)
-					return nil, false, err
+					cleanup := releaseFactorRefsReverse(m, &out)
+					return out, false, errors.Join(err, cleanup)
 				}
 				out = append(out, ref)
 			}
