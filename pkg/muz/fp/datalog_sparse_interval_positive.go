@@ -70,12 +70,12 @@ func (e *SparseIntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, w
 		return false, err
 	}
 	positive, err := rule.PositiveTailSize()
-	if err != nil || positive == 0 {
-		return false, errors.Join(err, fmt.Errorf("%w: expected positive tail", ErrSparseIntervalDatalogFragment))
+	if err != nil {
+		return false, err
 	}
 	uninterpreted, err := rule.UninterpretedTailSize()
-	if err != nil || uninterpreted != positive {
-		return false, errors.Join(err, fmt.Errorf("%w: negated predicate tail", ErrSparseIntervalDatalogFragment))
+	if err != nil || uninterpreted < positive || uninterpreted == 0 {
+		return false, errors.Join(err, ErrSparseIntervalDatalogFragment)
 	}
 	var working *rel.SparseIntervalSieveProduct
 	defer func() {
@@ -85,6 +85,15 @@ func (e *SparseIntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, w
 	}()
 	var workingSorts []ast.ASTHandle
 	variables := make(map[uint32]int)
+	if positive == 0 {
+		// dl_compiler.cpp starts a negation-only rule with a full nullary
+		// relation, then materializes each unbound negative variable as a full
+		// column before applying the exact table difference.
+		working, err = rel.NewSparseIntervalSieveProductAuxiliary(e.relations, nil, true)
+		if err != nil {
+			return false, err
+		}
+	}
 	for tailIndex := 0; tailIndex < positive; tailIndex++ {
 		tail, negated, cause := rule.Tail(tailIndex)
 		if cause != nil || negated {
@@ -170,6 +179,10 @@ func (e *SparseIntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, w
 				variables[variable] = offset + column
 			}
 		}
+	}
+	working, workingSorts, err = e.applySparseIntervalFiniteNegation(rule, positive, uninterpreted, working, workingSorts, variables)
+	if err != nil {
+		return false, err
 	}
 	tailSize, err := rule.TailSize()
 	if err != nil {
@@ -460,13 +473,10 @@ func (e *SparseIntervalDatalogEvaluator) SaturatePositive(widen bool) (resultErr
 			return cause
 		}
 	}
-	// SCC construction depends only on declarations and rules; reuse the
-	// existing source-order implementation shared with the interval lane.
-	helper := &IntervalDatalogEvaluator{rules: e.rules, sorts: e.sorts}
 	if err = e.checkpoint(); err != nil {
 		return err
 	}
-	component, order, err := helper.intervalPredicateSCCs()
+	component, order, err := e.sparseIntervalPredicateStrata()
 	if err != nil {
 		return errors.Join(err, ErrSparseIntervalDatalogFragment)
 	}
