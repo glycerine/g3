@@ -22,6 +22,16 @@ func (o *externalRuleExecutionOwner) adopt(relation *ExternalRelation) *External
 	return relation
 }
 
+func (o *externalRuleExecutionOwner) release(relation *ExternalRelation) *ExternalRelation {
+	for index := len(o.relations) - 1; index >= 0; index-- {
+		if o.relations[index] == relation {
+			o.relations[index] = nil
+			break
+		}
+	}
+	return relation
+}
+
 func (o *externalRuleExecutionOwner) closeOne(relation *ExternalRelation) error {
 	if relation == nil {
 		return nil

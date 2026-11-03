@@ -64,12 +64,15 @@ func assembleExternalRuleHead(source *ExternalRelation, columns []externalHeadCo
 	if err != nil {
 		return nil, err
 	}
+	owner := &externalRuleExecutionOwner{runtime: source.ast.NumeralService().RuntimeOwner()}
+	current = owner.adopt(current)
 	defer func() {
+		resultErr = finishExternalRuleExecution(owner, resultErr)
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, current.Close())
 			result = nil
 		}
 	}()
+	closeOwned := func(relation *ExternalRelation) error { return owner.closeOne(relation) }
 	removed := make([]uint32, 0, len(sorts))
 	compact := make(map[uint32]uint32)
 	for index := range sorts {
@@ -81,11 +84,10 @@ func assembleExternalRuleHead(source *ExternalRelation, columns []externalHeadCo
 	}
 	if len(removed) != 0 {
 		next, cause := current.Project(removed)
-		cause = errors.Join(cause, current.Close())
+		next = owner.adopt(next)
+		cause = errors.Join(cause, closeOwned(current))
 		if cause != nil {
-			if next != nil {
-				cause = errors.Join(cause, next.Close())
-			}
+			cause = errors.Join(cause, closeOwned(next))
 			return nil, cause
 		}
 		current = next
@@ -100,11 +102,10 @@ func assembleExternalRuleHead(source *ExternalRelation, columns []externalHeadCo
 		if !column.constant.IsNull() {
 			singleton := constants[column.constant]
 			next, joinErr := JoinExternalRelations(current, singleton, nil, nil)
-			joinErr = errors.Join(joinErr, current.Close())
+			next = owner.adopt(next)
+			joinErr = errors.Join(joinErr, closeOwned(current))
 			if joinErr != nil {
-				if next != nil {
-					joinErr = errors.Join(joinErr, next.Close())
-				}
+				joinErr = errors.Join(joinErr, closeOwned(next))
 				return nil, joinErr
 			}
 			assigned[destination] = uint32(len(currentSorts))
@@ -132,12 +133,12 @@ func assembleExternalRuleHead(source *ExternalRelation, columns []externalHeadCo
 		if cause != nil {
 			return nil, cause
 		}
+		singleton = owner.adopt(singleton)
 		next, joinErr := JoinExternalRelations(current, singleton, []uint32{columnIndex}, []uint32{0})
-		joinErr = errors.Join(joinErr, singleton.Close(), current.Close())
+		next = owner.adopt(next)
+		joinErr = errors.Join(joinErr, closeOwned(singleton), closeOwned(current))
 		if joinErr != nil {
-			if next != nil {
-				joinErr = errors.Join(joinErr, next.Close())
-			}
+			joinErr = errors.Join(joinErr, closeOwned(next))
 			return nil, joinErr
 		}
 		assigned[destination] = uint32(len(currentSorts))
@@ -160,15 +161,14 @@ func assembleExternalRuleHead(source *ExternalRelation, columns []externalHeadCo
 			return nil, ErrCompilerUnsupported
 		}
 		next, renameErr := current.Rename(cycle)
-		renameErr = errors.Join(renameErr, current.Close())
+		next = owner.adopt(next)
+		renameErr = errors.Join(renameErr, closeOwned(current))
 		if renameErr != nil {
-			if next != nil {
-				renameErr = errors.Join(renameErr, next.Close())
-			}
+			renameErr = errors.Join(renameErr, closeOwned(next))
 			return nil, renameErr
 		}
 		current = next
 	}
-	result = current
+	result = owner.release(current)
 	return result, nil
 }
