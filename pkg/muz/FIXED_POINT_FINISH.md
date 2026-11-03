@@ -2065,3 +2065,4 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Matched source partial update publication when a later rule conversion fails, preserving the original error and completed prefix. Focused fixedpoint and public API tests pass; native cleanup-refusal continuation is still tracked separately.
 
 - 2026-11-03 — Completed the independent context display audit: source formula/query partition, pending phases, print options, declarations, typed labels, caller routes and tested cleanup map to the Go context formatter. Shared rule lifecycle, including publication after refused native cleanup, remains explicitly open below.
+- 2026-11-03 — Made Spacer manager teardown release its background before the dependent mux and resume after a consumed native release failure. Public pre-query update, expression-query and statistics-reset retries pass with zero final budgets; other exceptional destruction paths remain open.

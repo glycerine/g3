@@ -705,17 +705,32 @@ func (m *Manager) Close() (result error) {
 		m.paramsReceipt = uparams.ParamsDecrementReceipt{}
 		m.ownsParams = false
 	}
-	result = errors.Join(result, m.mux.Close(), m.manager.DelRef(&m.background))
-	if m.cooperation != nil {
-		result = errors.Join(result, m.cooperation.Close())
+	if result != nil {
+		return result
 	}
-	if result == nil {
-		m.contexts = [3]*SMTContextManager{}
+	// Source member destruction releases the background before the mux.
+	// A native release can consume its reference and still return an error;
+	// stop at that boundary and skip the consumed reference on retry.
+	if m.background != (ast.ASTRef{}) {
+		if err := m.manager.DelRef(&m.background); err != nil {
+			return err
+		}
+	}
+	if m.mux != nil {
+		if err := m.mux.Close(); err != nil {
+			return err
+		}
 		m.mux = nil
-		m.cooperation = nil
-		m.paramsContext = nil
-		m.manager = nil
-		m.closed = true
 	}
-	return result
+	if m.cooperation != nil {
+		if err := m.cooperation.Close(); err != nil {
+			return err
+		}
+		m.cooperation = nil
+	}
+	m.contexts = [3]*SMTContextManager{}
+	m.paramsContext = nil
+	m.manager = nil
+	m.closed = true
+	return nil
 }
