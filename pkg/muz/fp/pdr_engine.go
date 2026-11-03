@@ -213,25 +213,14 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 		return lbool.Undef, err
 	}
 	// Source check_reset scans original rules before default transformations.
-	sourceReusable, err := e.canReusePDRSourceRules(declaration)
-	if err != nil {
+	// rule_manager::mk_query then contributes a fresh synthetic query head, so
+	// every query after the first resets the installed context even when the
+	// caller supplies the same declaration and persistent program.
+	if err = e.checkPDRSourceRules(); err != nil {
 		return lbool.Undef, err
 	}
 	if err = e.tracePDRInput(declaration); err != nil {
 		return lbool.Undef, err
-	}
-	if e.pdr != nil && e.pdrRevision == e.revision && e.pdrQuery == declaration && !e.pdrSliceProof {
-		if err = e.tracePDRTransformedRules(e.pdrRules); err != nil {
-			return lbool.Undef, err
-		}
-		if err = writePDRQueryRules(e.pdrRules); err != nil {
-			return lbool.Undef, err
-		}
-		status, err := solvePDRProgram(e.pdr, e.pdrRules, e.pdrPredicate(declaration))
-		if err == nil && status == lbool.False {
-			err = e.writePDREmptyProgramModel(declaration)
-		}
-		return status, err
 	}
 	parameters, err := e.fixedpointParamView()
 	if err != nil {
@@ -307,61 +296,41 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 		derived := hornDerivedPredicate(declaration, preprocessed.quantifiedPredicates, preprocessed.scaledPredicates, preprocessed.magicPredicates, preprocessed.bitBlastedPredicates, preprocessed.instantiatedPredicates, preprocessed.slicedPredicates)
 		auxiliary = append(auxiliary, derived)
 	}
-	reuse := sourceReusable
-	if reuse {
-		reuse, err = e.pdr.CanUpdateRules(prepared)
-	}
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	reset := !reuse && e.pdr != nil && e.pdrRules != nil && e.pdrRuleRevision == e.revision
-	if reuse {
+	reset := e.pdr != nil && e.pdrRules != nil && e.pdrRuleRevision == e.revision
+	if e.pdr != nil && e.pdrRules == nil {
+		// Source check_reset preserves covers supplied before any old rules.
 		if err = context.Close(); err != nil {
 			return lbool.Undef, err
 		}
 		context = e.pdr
-		if err = context.UpdateRules(prepared); err != nil {
+	} else if reset {
+		if err = context.Close(); err != nil {
+			return lbool.Undef, err
+		}
+		context = e.pdr
+		if err = context.Reset(); err != nil {
 			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
 		}
 		if err = e.clearPDRPreprocessing(); err != nil {
 			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
 		}
-	} else {
-		if e.pdr != nil && e.pdrRules == nil {
-			// Source check_reset preserves covers supplied before any old rules.
-			if err = context.Close(); err != nil {
-				return lbool.Undef, err
-			}
-			context = e.pdr
-		} else if reset {
-			if err = context.Close(); err != nil {
-				return lbool.Undef, err
-			}
-			context = e.pdr
-			if err = context.Reset(); err != nil {
-				return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
-			}
-			if err = e.clearPDRPreprocessing(); err != nil {
-				return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
-			}
-		} else if err = e.closePDRForReplacement(); err != nil {
-			return lbool.Undef, errors.Join(err, closeContext())
-		}
-		if err = context.SetAuxiliaryPredicates(auxiliary); err != nil {
-			return lbool.Undef, errors.Join(err, closeContext())
-		}
-		background, backgroundErr := e.manager.RefGet(e.background)
-		if backgroundErr != nil {
-			return lbool.Undef, errors.Join(backgroundErr, closeContext())
-		}
-		if err = context.SetBackground(background); err != nil {
-			return lbool.Undef, errors.Join(err, closeContext())
-		}
-		if err = context.Initialize(prepared); err != nil {
-			return lbool.Undef, errors.Join(err, closeContext())
-		}
+	} else if err = e.closePDRForReplacement(); err != nil {
+		return lbool.Undef, errors.Join(err, closeContext())
 	}
-	if reuse || reset {
+	if err = context.SetAuxiliaryPredicates(auxiliary); err != nil {
+		return lbool.Undef, errors.Join(err, closeContext())
+	}
+	background, backgroundErr := e.manager.RefGet(e.background)
+	if backgroundErr != nil {
+		return lbool.Undef, errors.Join(backgroundErr, closeContext())
+	}
+	if err = context.SetBackground(background); err != nil {
+		return lbool.Undef, errors.Join(err, closeContext())
+	}
+	if err = context.Initialize(prepared); err != nil {
+		return lbool.Undef, errors.Join(err, closeContext())
+	}
+	if reset {
 		if err = e.replacePDRRuleSnapshots(snapshot, sourceSnapshot); err != nil {
 			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
 		}

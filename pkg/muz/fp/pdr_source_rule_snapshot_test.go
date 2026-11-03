@@ -66,7 +66,7 @@ func TestPDRCoveredAdditionUsesOriginalRuleSnapshot(t *testing.T) {
 	}
 }
 
-func TestPDRCoveredArithmeticAdditionPreservesRawCover(t *testing.T) {
+func TestPDRCoveredArithmeticAdditionResetsRawCover(t *testing.T) {
 	f := newPDRLifecycleFixture(t)
 	e, m := f.engine, f.manager
 	must := func(err error) {
@@ -112,6 +112,11 @@ func TestPDRCoveredArithmeticAdditionPreservesRawCover(t *testing.T) {
 	must(err)
 	defer func() { must(m.DelRef(&propertyRef)) }()
 	must(e.AddCover(2, query, property))
+	transformer, found, err := context.Transformer(e.pdrPredicate(query))
+	must(err)
+	if !found {
+		t.Fatal("missing covered predicate transformer")
+	}
 	edge, err := m.MkImplies(f.applications["p"], fact)
 	must(err)
 	must(e.AddRule(edge, "covered-zero-rule"))
@@ -127,13 +132,16 @@ func TestPDRCoveredArithmeticAdditionPreservesRawCover(t *testing.T) {
 	if status != lbool.True || e.pdr != context {
 		t.Fatal("covered arithmetic addition lost its context", status)
 	}
+	if _, err = transformer.Head(); err == nil {
+		t.Fatal("fresh synthetic query rule preserved the old transformer")
+	}
 	raw, err := e.pdr.CoverDelta(2, e.pdrPredicate(query))
 	must(err)
 	defer func() { must(m.DelRef(&raw)) }()
 	handle, err := m.RefGet(raw)
 	must(err)
-	if handle != property {
-		t.Fatal("covered addition lost the raw frame property", handle, property)
+	if !m.IsTrue(handle) {
+		t.Fatal("fresh synthetic query rule preserved the old raw frame property", handle)
 	}
 }
 
