@@ -15,7 +15,7 @@ import (
 
 // externalIntervalDatalogCartesianRule lowers two positive tails with
 // numerals, distinct variable columns and bound interpreted guards to a head of
-// bound variables. It also covers the original Cartesian rule as
+// bound variables and numerals. It also covers the original Cartesian rule as
 // the no-key/no-projection case.
 type externalIntervalDatalogCartesianRule struct {
 	head          ast.ASTHandle
@@ -27,6 +27,7 @@ type externalIntervalDatalogCartesianRule struct {
 	filterRemoved []uint32
 	headRemoved   []uint32
 	constants     []externalIntervalCartesianConstant
+	headConstants []externalIntervalCartesianHeadConstant
 	duplicates    []uint32
 	renames       [][]uint32
 	condition     *externalIntervalUnaryCondition
@@ -43,6 +44,11 @@ type externalIntervalCartesianConstant struct {
 	root   ast.ASTRef
 }
 
+type externalIntervalCartesianHeadConstant struct {
+	sort, value ast.ASTHandle
+	root        ast.ASTRef
+}
+
 func sameExternalIntervalCartesianRule(left, right *externalIntervalDatalogCartesianRule) bool {
 	if left == nil || right == nil || left.head != right.head || left.left != right.left || left.right != right.right ||
 		!externalIntervalColumnsEqual(left.leftColumns, right.leftColumns) ||
@@ -50,6 +56,7 @@ func sameExternalIntervalCartesianRule(left, right *externalIntervalDatalogCarte
 		!externalIntervalColumnsEqual(left.removed, right.removed) ||
 		!externalIntervalColumnsEqual(left.filterRemoved, right.filterRemoved) ||
 		!externalIntervalColumnsEqual(left.headRemoved, right.headRemoved) || len(left.constants) != len(right.constants) ||
+		len(left.headConstants) != len(right.headConstants) ||
 		!externalIntervalColumnsEqual(left.duplicates, right.duplicates) ||
 		!sameExternalIntervalUnaryCondition(left.condition, right.condition) || len(left.renames) != len(right.renames) {
 		return false
@@ -57,6 +64,12 @@ func sameExternalIntervalCartesianRule(left, right *externalIntervalDatalogCarte
 	for i, constant := range left.constants {
 		other := right.constants[i]
 		if constant.column != other.column || constant.value != other.value {
+			return false
+		}
+	}
+	for i, constant := range left.headConstants {
+		other := right.headConstants[i]
+		if constant.sort != other.sort || constant.value != other.value {
 			return false
 		}
 	}
@@ -154,9 +167,6 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 				return nil, ErrExternalIntervalDatalogFragment
 			}
 			if kind != ast.ASTVar {
-				if index == 0 {
-					return nil, ErrExternalIntervalDatalogFragment
-				}
 				_, _, numeral, cause := e.manager.ArithmeticNumeralText(argument)
 				if cause != nil {
 					return nil, cause
@@ -209,6 +219,9 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 	wanted := make(map[uint32]bool)
 	needed := make(map[uint32]uint32)
 	for column, argument := range arguments[0] {
+		if !argument.numeral.IsNull() {
+			continue
+		}
 		variable := argument.variable
 		source, found := last[variable]
 		if !found || joinedSorts[source] != sorts[0][column] {
@@ -321,6 +334,9 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 	headSources := make([]uint32, len(arguments[0]))
 	referenced := make(map[uint32]bool)
 	for column, argument := range arguments[0] {
+		if !argument.numeral.IsNull() {
+			continue
+		}
 		copies := occurrences[argument.variable]
 		if len(copies) == 0 {
 			return nil, ErrExternalIntervalDatalogFragment
@@ -340,11 +356,23 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 			projectedColumns[uint32(column)] = uint32(len(projectedColumns))
 		}
 	}
+	width := uint32(len(projectedColumns))
+	// Source assembly appends every constant column before duplicating any
+	// repeated variable column, even when those head positions interleave.
+	for column, argument := range arguments[0] {
+		if argument.numeral.IsNull() {
+			headSources[column] = projectedColumns[headSources[column]]
+		} else {
+			plan.headConstants = append(plan.headConstants, externalIntervalCartesianHeadConstant{
+				sort: sorts[0][column], value: argument.numeral,
+			})
+			headSources[column] = width
+			width++
+		}
+	}
 	permutation := make([]uint32, len(headSources))
 	usedColumns := make(map[uint32]bool)
-	width := uint32(len(projectedColumns))
 	for column, source := range headSources {
-		source = projectedColumns[source]
 		if usedColumns[source] {
 			plan.duplicates = append(plan.duplicates, source)
 			permutation[column] = width
@@ -401,23 +429,8 @@ func (c *externalIntervalDatalogCartesianContinuation) resume() error {
 		}
 		c.nested = nil
 	}
-	if c.temporary != nil {
-		if err := c.temporary.Close(); err != nil {
-			return err
-		}
-		c.temporary = nil
-	}
-	if c.retiring != nil {
-		if err := c.retiring.Close(); err != nil {
-			return err
-		}
-		c.retiring = nil
-	}
-	if c.auxiliary != nil {
-		if err := c.auxiliary.Close(); err != nil {
-			return err
-		}
-		c.auxiliary = nil
+	if err := c.closeProducts(); err != nil {
+		return err
 	}
 	if c.publish && c.registers != nil {
 		if err := c.registers.store(); err != nil {
@@ -540,6 +553,21 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 		}
 		return nil
 	}
+	finishEmpty := func() error {
+		if len(a.cartesian.headConstants) == 0 {
+			return finish()
+		}
+		// Source make_empty retires the current relation before later
+		// unconditional singleton instructions execute. An empty producer
+		// still determines first-use cache ownership for later rules.
+		if cause := owner.closeProducts(); cause != nil {
+			return rollback(cause)
+		}
+		if cause := registers.initializeCartesianHeadConstants(a.cartesian); cause != nil {
+			return rollback(cause)
+		}
+		return finish()
+	}
 
 	left, err := registers.relation(a.cartesian.left)
 	if err != nil {
@@ -548,6 +576,9 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 	right, err := registers.relation(a.cartesian.right)
 	if err != nil {
 		return rollback(err)
+	}
+	if left == nil || right == nil {
+		return finishEmpty()
 	}
 	if left != nil && right != nil {
 		joined, cause := rel.JoinExternalIntervalProducts(left, right, a.cartesian.leftColumns, a.cartesian.rightColumns)
@@ -571,7 +602,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 			return rollback(cause)
 		}
 		if empty {
-			return finish()
+			return finishEmpty()
 		}
 		for _, constant := range a.cartesian.constants {
 			if cause = owner.temporary.FilterEqual(constant.column, constant.value); cause != nil {
@@ -582,7 +613,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 				return rollback(cause)
 			}
 			if empty {
-				return finish()
+				return finishEmpty()
 			}
 		}
 		if a.cartesian.condition != nil {
@@ -610,7 +641,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 				return rollback(cause)
 			}
 			if empty {
-				return finish()
+				return finishEmpty()
 			}
 		}
 		if len(a.cartesian.headRemoved) != 0 {
@@ -622,13 +653,22 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 				return rollback(cause)
 			}
 		}
+		for _, constant := range a.cartesian.headConstants {
+			empty, cause := owner.appendHeadConstant(a.cartesian.head, constant)
+			if cause != nil {
+				return rollback(cause)
+			}
+			if empty {
+				return finishEmpty()
+			}
+		}
 		for _, column := range a.cartesian.duplicates {
 			empty, cause := owner.duplicateColumn(column)
 			if cause != nil {
 				return rollback(cause)
 			}
 			if empty {
-				return finish()
+				return finishEmpty()
 			}
 		}
 		for _, cycle := range a.cartesian.renames {

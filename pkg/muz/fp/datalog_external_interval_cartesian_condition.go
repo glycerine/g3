@@ -19,6 +19,16 @@ func (p *externalIntervalDatalogCartesianRule) pin(manager *ast.ASTManager) erro
 			constant.root = root
 		}
 	}
+	for i := range p.headConstants {
+		constant := &p.headConstants[i]
+		if constant.root == (ast.ASTRef{}) {
+			root, err := manager.NewRef(constant.value)
+			if err != nil {
+				return err
+			}
+			constant.root = root
+		}
+	}
 	return p.condition.prepare(manager)
 }
 
@@ -28,6 +38,13 @@ func (p *externalIntervalDatalogCartesianRule) close(manager *ast.ASTManager) er
 	}
 	if err := p.condition.close(manager); err != nil {
 		return err
+	}
+	for i := len(p.headConstants) - 1; i >= 0; i-- {
+		if p.headConstants[i].root != (ast.ASTRef{}) {
+			if err := manager.DelRef(&p.headConstants[i].root); err != nil {
+				return err
+			}
+		}
 	}
 	for i := len(p.constants) - 1; i >= 0; i-- {
 		if p.constants[i].root != (ast.ASTRef{}) {

@@ -295,7 +295,7 @@ func TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay(t *testin
 
 func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *testing.T) {
 	shapes := []string{
-		"constant", "repeated-tail",
+		"compound-head", "repeated-tail",
 		"negative", "unbound-guard", "cycle", "unsafe-head", "nullary-tail",
 		"repeated-tail-column", "third-tail",
 		"mutual-recursion",
@@ -334,8 +334,6 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 			}
 			leftApplication := app(p, x)
 			var rightApplication ast.ASTHandle
-			var constant ast.ASTHandle
-			var constantRoot ast.ASTRef
 			switch shape {
 			case "nullary-tail":
 				rightApplication = app(q)
@@ -343,13 +341,6 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 				rightApplication = app(q, y, y)
 			case "repeated-tail":
 				rightApplication = app(p, y)
-			case "constant":
-				constant, err = manager.ArithmeticIntegerNumeralText("1")
-				fragmentMust(t, err)
-				constantRoot, err = manager.NewRef(constant)
-				fragmentMust(t, err)
-				defer func() { fragmentMust(t, manager.DelRef(&constantRoot)) }()
-				rightApplication = app(q, constant)
 			default:
 				rightApplication = app(q, y)
 			}
@@ -376,8 +367,15 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 			headDeclaration := h
 			headArguments := []ast.ASTHandle{x, y}
 			switch shape {
-			case "constant":
-				headArguments = []ast.ASTHandle{x, constant}
+			case "compound-head":
+				one, cause := manager.ArithmeticIntegerNumeralText("1")
+				fragmentMust(t, cause)
+				sum, cause := manager.MkArithmeticAdd(x, one)
+				fragmentMust(t, cause)
+				sumRoot, cause := manager.NewRef(sum)
+				fragmentMust(t, cause)
+				defer func() { fragmentMust(t, manager.DelRef(&sumRoot)) }()
+				headArguments = []ast.ASTHandle{x, sum}
 			case "cycle":
 				headDeclaration = p
 				headArguments = []ast.ASTHandle{x}

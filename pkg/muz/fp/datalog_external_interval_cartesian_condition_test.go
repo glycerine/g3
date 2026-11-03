@@ -9,14 +9,18 @@ import (
 )
 
 func TestExternalIntervalDatalogCartesianConditionInstallationRetryAndReuse(t *testing.T) {
-	testExternalIntervalCartesianPlanInstallation(t, false)
+	testExternalIntervalCartesianPlanInstallation(t, false, false)
 }
 
 func TestExternalIntervalDatalogCartesianConstantPinningRetryAndReuse(t *testing.T) {
-	testExternalIntervalCartesianPlanInstallation(t, true)
+	testExternalIntervalCartesianPlanInstallation(t, true, false)
 }
 
-func testExternalIntervalCartesianPlanInstallation(t *testing.T, withConstants bool) {
+func TestExternalIntervalDatalogCartesianHeadConstantPinningRetryAndReuse(t *testing.T) {
+	testExternalIntervalCartesianPlanInstallation(t, true, true)
+}
+
+func testExternalIntervalCartesianPlanInstallation(t *testing.T, withConstants, withHeadConstants bool) {
 	t.Helper()
 	var budget *arena.Budget
 	t.Cleanup(func() {
@@ -37,7 +41,11 @@ func testExternalIntervalCartesianPlanInstallation(t *testing.T, withConstants b
 	}
 	p := declareExternalIntervalPredicate(t, manager, engine, "cartesian-condition-p", tailSorts, kinds)
 	q := declareExternalIntervalPredicate(t, manager, engine, "cartesian-condition-q", tailSorts, kinds)
-	h := declareExternalIntervalPredicate(t, manager, engine, "cartesian-condition-h", []ast.ASTHandle{integer, integer}, kinds)
+	headSorts := []ast.ASTHandle{integer, integer}
+	if withHeadConstants {
+		headSorts = append(headSorts, integer, integer)
+	}
+	h := declareExternalIntervalPredicate(t, manager, engine, "cartesian-condition-h", headSorts, kinds)
 	x, err := manager.MkVar(0, integer)
 	fragmentMust(t, err)
 	y, err := manager.MkVar(1, integer)
@@ -80,6 +88,9 @@ func testExternalIntervalCartesianPlanInstallation(t *testing.T, withConstants b
 			plan.headRemoved = []uint32{1, 3}
 			plan.condition.bindings[1].column = 2
 		}
+		if withHeadConstants {
+			plan.headConstants = []externalIntervalCartesianHeadConstant{{sort: integer, value: values[0]}, {sort: integer, value: values[1]}}
+		}
 		return plan
 	}
 	assertConstantRoots := func(plan *externalIntervalDatalogCartesianRule, pinned bool) {
@@ -97,6 +108,19 @@ func testExternalIntervalCartesianPlanInstallation(t *testing.T, withConstants b
 				t.Fatal("constant root changed its numeral", constant.column)
 			}
 		}
+		for column, constant := range plan.headConstants {
+			if !pinned {
+				if constant.root != (ast.ASTRef{}) {
+					t.Fatal("head constant root was not released", column)
+				}
+				continue
+			}
+			value, cause := manager.RefGet(constant.root)
+			fragmentMust(t, cause)
+			if value != constant.value {
+				t.Fatal("head constant root changed its numeral", column)
+			}
+		}
 	}
 	// Reach a real reference-page allocation so initial condition pinning
 	// fails after the activation has adopted the complete immutable plan.
@@ -108,11 +132,20 @@ func testExternalIntervalCartesianPlanInstallation(t *testing.T, withConstants b
 			}
 		}
 	})
-	// Seed one reference without failure injection, so the constant case can
-	// release exactly one slot even when the fixture starts at a page boundary.
-	seed, err := manager.NewRef(ast.ASTHandle{})
-	fragmentMust(t, err)
-	pins = append(pins, seed)
+	free := 0
+	if withConstants {
+		free = 1
+	}
+	if withHeadConstants {
+		free = 3 // Both tail constants and the first head constant.
+	}
+	// Seed enough references without failure injection to free the desired
+	// prefix even when the fixture starts at a page boundary.
+	for i := 0; i <= free; i++ {
+		seed, cause := manager.NewRef(ast.ASTHandle{})
+		fragmentMust(t, cause)
+		pins = append(pins, seed)
+	}
 	for i := 0; i < 4096; i++ {
 		budget.FailAfter(0)
 		pin, cause := manager.NewRef(ast.ASTHandle{})
@@ -126,8 +159,8 @@ func testExternalIntervalCartesianPlanInstallation(t *testing.T, withConstants b
 			t.Fatal("Cartesian condition reference-page frontier not reached")
 		}
 	}
-	if withConstants {
-		fragmentMust(t, manager.DelRef(&pins[len(pins)-1]))
+	for i := len(pins) - free; i < len(pins); i++ {
+		fragmentMust(t, manager.DelRef(&pins[i]))
 	}
 	first := newPlan()
 	initial := publicUDocProductLiveCounts(manager.Stats())
@@ -138,12 +171,21 @@ func testExternalIntervalCartesianPlanInstallation(t *testing.T, withConstants b
 		t.Fatal("failed condition installation lost adopted plan", cause)
 	}
 	var firstConstantRoot ast.ASTRef
+	var firstHeadConstantRoot ast.ASTRef
 	if withConstants {
 		firstConstantRoot = first.constants[0].root
-		if firstConstantRoot == (ast.ASTRef{}) || first.constants[1].root != (ast.ASTRef{}) || len(first.condition.sourceRoots) != 0 {
-			t.Fatal("constant pin failure did not preserve exactly the first numeral root")
+		if firstConstantRoot == (ast.ASTRef{}) || len(first.condition.sourceRoots) != 0 {
+			t.Fatal("constant pin failure lost its completed prefix")
 		}
-		initial[3]++
+		if withHeadConstants {
+			firstHeadConstantRoot = first.headConstants[0].root
+			if first.constants[1].root == (ast.ASTRef{}) || firstHeadConstantRoot == (ast.ASTRef{}) || first.headConstants[1].root != (ast.ASTRef{}) {
+				t.Fatal("head constant pin failure lost the three-root prefix")
+			}
+		} else if first.constants[1].root != (ast.ASTRef{}) {
+			t.Fatal("constant pin failure did not stop after the first numeral root")
+		}
+		initial[3] += uint64(free)
 	}
 	if actual := publicUDocProductLiveCounts(manager.Stats()); actual != initial {
 		t.Fatal("partial installation lost AST ownership", initial, actual)
@@ -157,6 +199,9 @@ func testExternalIntervalCartesianPlanInstallation(t *testing.T, withConstants b
 	assertConstantRoots(retry, false)
 	if withConstants && first.constants[0].root != firstConstantRoot {
 		t.Fatal("constant pin retry replaced the completed first pin")
+	}
+	if withHeadConstants && first.headConstants[0].root != firstHeadConstantRoot {
+		t.Fatal("head constant pin retry replaced the completed first head pin")
 	}
 	mapped := first.condition.mapped
 	before := publicUDocProductLiveCounts(manager.Stats())
