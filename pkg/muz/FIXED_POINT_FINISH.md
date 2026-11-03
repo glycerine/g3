@@ -515,6 +515,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Convert independently between ordinary tables and all-inner sieves for mixed-operation/publication transitions, preserving nullary identity and refusing partial ignored-column layouts.
   - [x] Move the concrete table owner between ordinary tables and all-inner sieves for source `mk_from_inner` transitions, consuming the source only after validation and preserving nullary identity.
   - [x] Reset and union interval-backed sieves with exact layout validation, cumulative delta and source widening fallback to ordinary union.
+  - [x] Rename interval-backed sieve columns through the outer cycle and derived selected-column permutation, preserving ignored coordinates and source independence.
 - [ ] `src/muz/rel/dl_sparse_table.cpp` (partial), `src/muz/rel/dl_sparse_table.h` (partial)
   - [x] Concrete empty query and zero-key functional complement consumption.
   - [x] Direct supported join/negation operations dispatch through indexed plans; functional-key and zero-column fallbacks remain explicit.
@@ -695,6 +696,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Interval-backed sieves now reset their selected inner storage and union compatible layouts with optional cumulative delta while preserving ignored outer columns. Because the source sieve plugin has no widening override, requested widening correctly falls back to ordinary finite interval union—`[1]` plus `[2]` stays closed `[1,2]` instead of widening to infinity.
   Validation: `go -C pkg test ./muz/rel -run '^TestIntervalSieve' -count=5` passed. Commit title: `Implement interval sieve union and reset`.
+
+- 2026-11-02 — Interval-backed sieves now rename outer columns using the source cycle direction and derive the exact permutation of selected interval columns. Selected and ignored coordinates may cross positions, ignored values remain unconstrained, empty/source owners stay independent and invalid cycles reject before mutation; wider sieve dispatch remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^TestIntervalSieveRename' -count=5` passed. Commit title: `Rename interval sieve columns directly`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
