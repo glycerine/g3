@@ -71,31 +71,71 @@ func onlyErrorKind(err, target error) bool {
 // queryRelationExpression implements engine_base's single-relation wrapper,
 // which turns a relation into an expression query with fresh variables.
 func (e *PropositionalEngine) queryRelationExpression(declaration ast.ASTHandle) (status lbool.LBool, resultErr error) {
-	arity, err := e.manager.GetArity(declaration)
+	ref, err := e.makeRelationQueryExpression(declaration)
 	if err != nil {
 		return lbool.Undef, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(e.manager, []ast.ASTRef{ref})) }()
+	query, err := e.manager.RefGet(ref)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	return e.QueryExpression(query)
+}
+
+// makeRelationQueryExpression owns the source expr_ref_vector arguments and
+// query before any later construction can fail. QueryExpression performs the
+// source existential-variable hoisting when it builds the query rule.
+func (e *PropositionalEngine) makeRelationQueryExpression(declaration ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	var roots []ast.ASTRef
+	defer func() {
+		if resultErr != nil {
+			result = ast.ASTRef{}
+			resultErr = errors.Join(resultErr, closeASTRefs(e.manager, roots))
+			return
+		}
+		// Keep the query in the same owner until its argument references have
+		// been released. A refusal must not publish an unfinished result.
+		if cleanup := releaseQueryReferences(e.manager, roots[:len(roots)-1]); cleanup != nil {
+			result = ast.ASTRef{}
+			resultErr = &queryReferenceCleanupFailure{manager: e.manager, runtime: e.manager.NumeralService().RuntimeOwner(), references: roots, cause: cleanup, cleanup: cleanup}
+			return
+		}
+		result = roots[len(roots)-1]
+	}()
+	arity, err := e.manager.GetArity(declaration)
+	if err != nil {
+		return result, err
 	}
 	arguments := make([]ast.ASTHandle, arity)
 	for i := uint32(0); i < arity; i++ {
 		sort, err := e.manager.GetDomain(declaration, i)
 		if err != nil {
-			return lbool.Undef, err
+			return result, err
 		}
-		arguments[i], err = e.manager.MkVar(i, sort)
+		root, err := e.manager.NewRef(ast.ASTHandle{})
 		if err != nil {
-			return lbool.Undef, err
+			return result, err
+		}
+		roots = append(roots, root)
+		arguments[i], err = e.manager.MkVar(i, sort)
+		if !arguments[i].IsNull() {
+			err = errors.Join(err, e.manager.SetRef(root, arguments[i]))
+		}
+		if err != nil {
+			return result, err
 		}
 	}
+	root, err := e.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return result, err
+	}
+	roots = append(roots, root)
 	query, err := e.manager.MkApp(declaration, arguments)
-	if err != nil {
-		return lbool.Undef, err
+	if !query.IsNull() {
+		err = errors.Join(err, e.manager.SetRef(root, query))
 	}
-	ref, err := e.manager.NewRef(query)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&ref)) }()
-	return e.QueryExpression(query)
+	return result, err
 }
 
 func (e *PropositionalEngine) clearBMCTrace() (result error) {
