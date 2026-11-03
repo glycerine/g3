@@ -334,15 +334,23 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 // negation with full or singleton columns, and bound interpreted filters,
 // followed by source head assembly. It validates the whole set before mutation.
 func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet) (resultErr error) {
+	return ExecuteExternalFactRulesWithOptions(plugin, set, ExternalRuleExecutionOptions{})
+}
+
+// ExecuteExternalFactRulesWithOptions preserves the source compiler's
+// dependency-first SCC schedule and recursive widening callback selection.
+func ExecuteExternalFactRulesWithOptions(plugin *ExternalRelationPlugin, set *base.RuleSet, options ExternalRuleExecutionOptions) (resultErr error) {
 	if plugin == nil || plugin.closed || plugin.ast == nil || set == nil {
 		return ErrCompilerUnsupported
+	}
+	if options.AllOrNothingDeltas {
+		return errors.Join(ErrCompilerUnsupported, errors.New("muz/rel: all-or-nothing external deltas are not ported"))
 	}
 	count, err := set.Len()
 	if err != nil {
 		return err
 	}
 	compiled := make([]externalFactRule, 0, count)
-	hasNegative := false
 	for index := 0; index < count; index++ {
 		rule, cause := set.Rule(index)
 		if cause != nil {
@@ -353,33 +361,11 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 		if cause != nil {
 			return cause
 		}
-		hasNegative = hasNegative || len(entry.negative) != 0
 		compiled = append(compiled, entry)
 	}
-	var maximumStratum uint32
-	if hasNegative {
-		finalized, cause := set.IsFinalized()
-		if cause != nil {
-			return cause
-		}
-		if !finalized {
-			valid, finalizeErr := set.Finalize()
-			if finalizeErr != nil {
-				return finalizeErr
-			}
-			if !valid {
-				return ErrCompilerUnsupported
-			}
-		}
-		for index := range compiled {
-			compiled[index].stratum, err = set.PredicateStratum(compiled[index].head)
-			if err != nil {
-				return err
-			}
-			if compiled[index].stratum > maximumStratum {
-				maximumStratum = compiled[index].stratum
-			}
-		}
+	components, err := planExternalRuleComponents(set, compiled)
+	if err != nil {
+		return err
 	}
 	boolean, err := plugin.ast.MkBoolSort()
 	if err != nil {
@@ -510,140 +496,206 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 			return cause
 		}
 	}
-	for stratum := uint32(0); stratum <= maximumStratum; stratum++ {
+	executeEntry := func(entry externalFactRule, overrideIndex int, override, delta *ExternalRelation, widen bool) error {
+		var value *ExternalRelation
+		var cause error
+		seedStart := 0
+		headSeedStart := 0
+		if len(entry.tails) == 0 {
+			if len(entry.seeds) != 0 && !entry.seeds[0].sort.IsNull() {
+				value, cause = fullRelations[entry.seeds[0].sort].Clone()
+				seedStart = 1
+			} else if len(entry.headSeeds) != 0 {
+				value, cause = fullRelations[entry.headSeeds[0].sort].Clone()
+				headSeedStart = 1
+			} else {
+				value, cause = nullaryTotal.Clone()
+			}
+		} else {
+			source := override
+			var sourceErr error
+			if overrideIndex != 0 {
+				source, sourceErr = plugin.PredicateRelation(entry.tails[0])
+			}
+			if sourceErr != nil {
+				return sourceErr
+			}
+			value, cause = prepareExternalRuleTail(source, entry.filters[0])
+		}
+		if cause != nil {
+			return cause
+		}
+		for tailIndex := 1; tailIndex < len(entry.tails); tailIndex++ {
+			second := override
+			var secondErr error
+			if overrideIndex != tailIndex {
+				second, secondErr = plugin.PredicateRelation(entry.tails[tailIndex])
+			}
+			if secondErr != nil {
+				return errors.Join(secondErr, value.Close())
+			}
+			secondValue, secondErr := prepareExternalRuleTail(second, entry.filters[tailIndex])
+			if secondErr != nil {
+				return errors.Join(secondErr, value.Close())
+			}
+			joined, joinErr := JoinExternalRelations(value, secondValue, entry.joinLeft[tailIndex-1], entry.joinRight[tailIndex-1])
+			joinErr = errors.Join(joinErr, value.Close(), secondValue.Close())
+			if joinErr != nil {
+				if joined != nil {
+					joinErr = errors.Join(joinErr, joined.Close())
+				}
+				return joinErr
+			}
+			value = joined
+		}
+		for _, seed := range entry.seeds[seedStart:] {
+			second := fullRelations[seed.sort]
+			if second == nil {
+				second = constantRelations[seed.constant]
+			}
+			joined, joinErr := JoinExternalRelations(value, second, nil, nil)
+			joinErr = errors.Join(joinErr, value.Close())
+			if joinErr != nil {
+				if joined != nil {
+					joinErr = errors.Join(joinErr, joined.Close())
+				}
+				return joinErr
+			}
+			value = joined
+		}
+		for _, negative := range entry.negative {
+			relation, negativeErr := plugin.PredicateRelation(negative.predicate)
+			if negativeErr == nil {
+				negativeErr = value.FilterNegation(relation, negative.targetColumns, negative.negativeColumns)
+			}
+			if negativeErr != nil {
+				return errors.Join(negativeErr, value.Close())
+			}
+		}
+		if len(entry.interpreted) != 0 {
+			if cause = filterExternalRuleInterpreted(value, entry.interpreted, entry.columns); cause != nil {
+				return errors.Join(cause, value.Close())
+			}
+		}
+		for _, seed := range entry.headSeeds[headSeedStart:] {
+			joined, joinErr := JoinExternalRelations(value, fullRelations[seed.sort], nil, nil)
+			joinErr = errors.Join(joinErr, value.Close())
+			if joinErr != nil {
+				if joined != nil {
+					joinErr = errors.Join(joinErr, joined.Close())
+				}
+				return joinErr
+			}
+			value = joined
+		}
+		assembled, assembleErr := assembleExternalRuleHead(value, entry.headColumns, constantRelations)
+		assembleErr = errors.Join(assembleErr, value.Close())
+		if assembleErr != nil {
+			if assembled != nil {
+				assembleErr = errors.Join(assembleErr, assembled.Close())
+			}
+			return assembleErr
+		}
+		value = assembled
+		target, cause := plugin.PredicateRelation(entry.head)
+		if cause == nil {
+			cause = target.Union(value, delta, widen)
+		}
+		cause = errors.Join(cause, value.Close())
+		return cause
+	}
+	closeDeltas := func(deltas map[ast.ASTHandle]*ExternalRelation, heads []ast.ASTHandle) error {
+		var cause error
+		for index := len(heads) - 1; index >= 0; index-- {
+			if delta := deltas[heads[index]]; delta != nil {
+				cause = errors.Join(cause, delta.Close())
+			}
+		}
+		return cause
+	}
+	newDeltas := func(heads []ast.ASTHandle, clone bool) (map[ast.ASTHandle]*ExternalRelation, error) {
+		deltas := make(map[ast.ASTHandle]*ExternalRelation, len(heads))
+		for _, head := range heads {
+			target, cause := plugin.PredicateRelation(head)
+			var delta *ExternalRelation
+			if cause == nil && clone {
+				delta, cause = target.Clone()
+			} else if cause == nil {
+				var sorts []ast.ASTHandle
+				sorts, cause = target.Sorts()
+				if cause == nil {
+					delta, cause = plugin.NewEmpty(sorts)
+				}
+			}
+			if cause != nil {
+				return nil, errors.Join(cause, closeDeltas(deltas, heads))
+			}
+			deltas[head] = delta
+		}
+		return deltas, nil
+	}
+	for _, component := range components {
+		if err = checkpoint(); err != nil {
+			return err
+		}
+		if !component.recursive {
+			for _, scheduled := range component.rules {
+				entry := compiled[scheduled.index]
+				if !entry.ground {
+					if err = executeEntry(entry, -1, nil, nil, false); err != nil {
+						return err
+					}
+				}
+			}
+			continue
+		}
+		for _, scheduled := range component.rules {
+			entry := compiled[scheduled.index]
+			if !entry.ground && len(scheduled.internalTails) == 0 {
+				if err = executeEntry(entry, -1, nil, nil, false); err != nil {
+					return err
+				}
+			}
+		}
+		current, cause := newDeltas(component.heads, true)
+		if cause != nil {
+			return cause
+		}
 		for {
-			changed := false
 			if err = checkpoint(); err != nil {
-				return err
+				return errors.Join(err, closeDeltas(current, component.heads))
 			}
-			for _, entry := range compiled {
-				if entry.stratum != stratum {
-					continue
+			active := false
+			for _, head := range component.heads {
+				empty, emptyErr := current[head].Empty()
+				if emptyErr != nil {
+					return errors.Join(emptyErr, closeDeltas(current, component.heads))
 				}
-				if entry.ground {
-					continue
-				}
-				var value *ExternalRelation
-				var cause error
-				seedStart := 0
-				headSeedStart := 0
-				if len(entry.tails) == 0 {
-					if len(entry.seeds) != 0 && !entry.seeds[0].sort.IsNull() {
-						value, cause = fullRelations[entry.seeds[0].sort].Clone()
-						seedStart = 1
-					} else if len(entry.headSeeds) != 0 {
-						value, cause = fullRelations[entry.headSeeds[0].sort].Clone()
-						headSeedStart = 1
-					} else {
-						value, cause = nullaryTotal.Clone()
-					}
-				} else {
-					source, sourceErr := plugin.PredicateRelation(entry.tails[0])
-					if sourceErr != nil {
-						return sourceErr
-					}
-					value, cause = prepareExternalRuleTail(source, entry.filters[0])
-				}
-				if cause != nil {
-					return cause
-				}
-				for tailIndex := 1; tailIndex < len(entry.tails); tailIndex++ {
-					second, secondErr := plugin.PredicateRelation(entry.tails[tailIndex])
-					if secondErr != nil {
-						return errors.Join(secondErr, value.Close())
-					}
-					secondValue, secondErr := prepareExternalRuleTail(second, entry.filters[tailIndex])
-					if secondErr != nil {
-						return errors.Join(secondErr, value.Close())
-					}
-					joined, joinErr := JoinExternalRelations(value, secondValue, entry.joinLeft[tailIndex-1], entry.joinRight[tailIndex-1])
-					joinErr = errors.Join(joinErr, value.Close(), secondValue.Close())
-					if joinErr != nil {
-						if joined != nil {
-							joinErr = errors.Join(joinErr, joined.Close())
-						}
-						return joinErr
-					}
-					value = joined
-				}
-				for _, seed := range entry.seeds[seedStart:] {
-					second := fullRelations[seed.sort]
-					if second == nil {
-						second = constantRelations[seed.constant]
-					}
-					joined, joinErr := JoinExternalRelations(value, second, nil, nil)
-					joinErr = errors.Join(joinErr, value.Close())
-					if joinErr != nil {
-						if joined != nil {
-							joinErr = errors.Join(joinErr, joined.Close())
-						}
-						return joinErr
-					}
-					value = joined
-				}
-				for _, negative := range entry.negative {
-					relation, negativeErr := plugin.PredicateRelation(negative.predicate)
-					if negativeErr == nil {
-						negativeErr = value.FilterNegation(relation, negative.targetColumns, negative.negativeColumns)
-					}
-					if negativeErr != nil {
-						return errors.Join(negativeErr, value.Close())
-					}
-				}
-				if len(entry.interpreted) != 0 {
-					if cause = filterExternalRuleInterpreted(value, entry.interpreted, entry.columns); cause != nil {
-						return errors.Join(cause, value.Close())
-					}
-				}
-				for _, seed := range entry.headSeeds[headSeedStart:] {
-					joined, joinErr := JoinExternalRelations(value, fullRelations[seed.sort], nil, nil)
-					joinErr = errors.Join(joinErr, value.Close())
-					if joinErr != nil {
-						if joined != nil {
-							joinErr = errors.Join(joinErr, joined.Close())
-						}
-						return joinErr
-					}
-					value = joined
-				}
-				assembled, assembleErr := assembleExternalRuleHead(value, entry.headColumns, constantRelations)
-				assembleErr = errors.Join(assembleErr, value.Close())
-				if assembleErr != nil {
-					if assembled != nil {
-						assembleErr = errors.Join(assembleErr, assembled.Close())
-					}
-					return assembleErr
-				}
-				value = assembled
-				target, cause := plugin.PredicateRelation(entry.head)
-				var delta *ExternalRelation
-				if cause == nil {
-					sorts, sortErr := target.Sorts()
-					if sortErr != nil {
-						cause = sortErr
-					} else {
-						delta, cause = plugin.NewEmpty(sorts)
-					}
-				}
-				if cause == nil {
-					cause = target.Union(value, delta, false)
-				}
-				if cause == nil {
-					empty, emptyErr := delta.Empty()
-					cause = emptyErr
-					changed = changed || !empty
-				}
-				if delta != nil {
-					cause = errors.Join(cause, delta.Close())
-				}
-				cause = errors.Join(cause, value.Close())
-				if cause != nil {
-					return cause
-				}
+				active = active || !empty
 			}
-			if !changed {
+			if !active {
+				if err = closeDeltas(current, component.heads); err != nil {
+					return err
+				}
 				break
 			}
+			next, nextErr := newDeltas(component.heads, false)
+			if nextErr != nil {
+				return errors.Join(nextErr, closeDeltas(current, component.heads))
+			}
+			for _, scheduled := range component.rules {
+				entry := compiled[scheduled.index]
+				for _, tailIndex := range scheduled.internalTails {
+					delta := current[entry.tails[tailIndex]]
+					if err = executeEntry(entry, tailIndex, delta, next[entry.head], options.CompileWithWidening); err != nil {
+						return errors.Join(err, closeDeltas(next, component.heads), closeDeltas(current, component.heads))
+					}
+				}
+			}
+			if err = closeDeltas(current, component.heads); err != nil {
+				return errors.Join(err, closeDeltas(next, component.heads))
+			}
+			current = next
 		}
 	}
 	return nil

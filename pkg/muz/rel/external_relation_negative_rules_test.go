@@ -159,11 +159,15 @@ func TestExecuteExternalBoundNegativeRules(t *testing.T) {
 				}
 				rows[outputs[0]] = kept
 			case ast.DatalogOpUnion:
-				rows[outputs[1]] = nil
-				arities[outputs[1]] = arities[outputs[0]]
+				if len(outputs) == 2 {
+					rows[outputs[1]] = nil
+					arities[outputs[1]] = arities[outputs[0]]
+				}
 				for _, tuple := range rows[arguments[1]] {
 					if appendUnique(outputs[0], tuple) {
-						appendUnique(outputs[1], tuple)
+						if len(outputs) == 2 {
+							appendUnique(outputs[1], tuple)
+						}
 					}
 				}
 			default:
@@ -422,8 +426,8 @@ func TestExecuteExternalBoundNegativeRules(t *testing.T) {
 	if nullaryComplements != beforeNullary || unaryComplements != beforeUnary+1 {
 		t.Fatal("interpreted or unsafe variable introduced an extra nullary/full setup", beforeNullary, nullaryComplements, beforeUnary, unaryComplements)
 	}
-	if conjunctionFilters != beforeConjunctions+2 || contains(interpretedOnly, []ast.ASTHandle{f.falsehood}) || !contains(interpretedOnly, []ast.ASTHandle{f.truth}) {
-		t.Fatal("interpreted-only variable was not filtered by one conjunction per round", beforeConjunctions, conjunctionFilters)
+	if conjunctionFilters != beforeConjunctions+1 || contains(interpretedOnly, []ast.ASTHandle{f.falsehood}) || !contains(interpretedOnly, []ast.ASTHandle{f.truth}) {
+		t.Fatal("interpreted-only variable was not filtered by one nonrecursive conjunction", beforeConjunctions, conjunctionFilters)
 	}
 	for _, tuple := range [][]ast.ASTHandle{{f.falsehood, f.falsehood}, {f.truth, f.truth}} {
 		if !contains(unsafeHead, tuple) || !contains(unsafeFact, tuple) {

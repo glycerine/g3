@@ -35,7 +35,7 @@ func TestExecuteExternalGroundInterpretedRules(t *testing.T) {
 		return result
 	}
 	theory := tableRelationTheoryRewriter(t, f.ast)
-	complements, filters, nonemptyDeltas := 0, 0, 0
+	complements, filters, nonemptyDeltas, oneOutputUnions := 0, 0, 0, 0
 	failComplement := false
 	complementFailure := errors.New("external nullary complement refused")
 	plugin, err := NewExternalRelationPlugin(f.relations, ExternalRelationCallbacks{
@@ -87,6 +87,8 @@ func TestExecuteExternalGroundInterpretedRules(t *testing.T) {
 			case ast.DatalogOpUnion:
 				if len(outputs) == 2 {
 					rows[outputs[1]] = nil
+				} else {
+					oneOutputUnions++
 				}
 				for _, tuple := range rows[arguments[1]] {
 					if appendUnique(outputs[0], tuple) && len(outputs) == 2 {
@@ -200,14 +202,14 @@ func TestExecuteExternalGroundInterpretedRules(t *testing.T) {
 	check(accept, [][]ast.ASTHandle{{f.truth}})
 	check(reject, nil)
 	check(nullary, [][]ast.ASTHandle{{}})
-	if complements != 1 || filters == 0 || nonemptyDeltas != 2 {
-		t.Fatal("ground interpreted callbacks", complements, filters, nonemptyDeltas)
+	if complements != 1 || filters == 0 || nonemptyDeltas != 0 || oneOutputUnions != 3 {
+		t.Fatal("ground interpreted callbacks", complements, filters, nonemptyDeltas, oneOutputUnions)
 	}
 	astTestMust(t, ExecuteExternalFactRules(plugin, set))
 	check(accept, [][]ast.ASTHandle{{f.truth}})
 	check(nullary, [][]ast.ASTHandle{{}})
-	if complements != 2 || nonemptyDeltas != 2 {
-		t.Fatal("repeated ground interpreted execution", complements, nonemptyDeltas)
+	if complements != 2 || nonemptyDeltas != 0 || oneOutputUnions != 6 {
+		t.Fatal("repeated ground interpreted execution", complements, nonemptyDeltas, oneOutputUnions)
 	}
 
 	ground := declare("external-ground-before-complement-failure", nil)

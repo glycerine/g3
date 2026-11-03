@@ -34,7 +34,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 		rows[target] = append(rows[target], append([]ast.ASTHandle(nil), values...))
 		return true
 	}
-	stores, renames, joins, filters, assembledDeltaRows := 0, 0, 0, 0, 0
+	stores, renames, joins, filters, assembledOneOutputRows := 0, 0, 0, 0, 0
 	emptyCalls, failEmptyAt := 0, 0
 	emptyFailure := errors.New("external empty construction refused")
 	constructed := make([]ast.ASTHandle, 0)
@@ -98,10 +98,11 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 					rows[outputs[1]] = nil
 				}
 				for _, values := range rows[arguments[1]] {
-					if appendUnique(outputs[0], values) && len(outputs) == 2 {
-						appendUnique(outputs[1], values)
-						if len(values) == 4 {
-							assembledDeltaRows++
+					if appendUnique(outputs[0], values) {
+						if len(outputs) == 2 {
+							appendUnique(outputs[1], values)
+						} else if len(values) == 4 {
+							assembledOneOutputRows++
 						}
 					}
 				}
@@ -325,8 +326,8 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	if renames == 0 || joins == 0 || filters == 0 {
 		t.Fatal("richer external operations", renames, joins, filters)
 	}
-	if assembledDeltaRows == 0 {
-		t.Fatal("assembled head never reached the union delta output")
+	if assembledOneOutputRows == 0 {
+		t.Fatal("assembled head never reached the one-output nonrecursive union")
 	}
 	beforeRepeatFilters := filters
 	astTestMust(t, ExecuteExternalFactRules(plugin, set))
