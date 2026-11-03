@@ -143,11 +143,13 @@ func (p *SimpleJoinsPlugin) variableSorts(expressions []ast.ASTHandle) (map[uint
 func (p *SimpleJoinsPlugin) domainCost(sort ast.ASTHandle) float32 {
 	size, err := p.manager.GetSortSize(sort)
 	if err != nil || !size.IsFinite() {
-		return math.MaxFloat32
+		// context::get_sort_size_estimate returns uint64 maximum, which
+		// join_planner then converts to its float32 cost before arithmetic.
+		return float32(math.MaxUint64)
 	}
 	domain, err := size.Size()
 	if err != nil {
-		return math.MaxFloat32
+		return float32(math.MaxUint64)
 	}
 	return float32(domain)
 }
