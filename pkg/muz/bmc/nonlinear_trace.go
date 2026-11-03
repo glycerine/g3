@@ -53,7 +53,10 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 	m := c.manager
 	defer func() {
 		if resultErr != nil && proofResult != nil && *proofResult != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, m.DelRef(proofResult))
+			// Transfer the output token into the retry receipt before clearing
+			// the caller-visible slot. A native refusal must not discard the
+			// recursive frame's sole proof owner.
+			resultErr = disposeASTRefs(m, []ast.ASTRef{*proofResult}, resultErr)
 			*proofResult = ast.ASTRef{}
 		}
 	}()
@@ -170,9 +173,10 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 	}
 	var refs []ast.ASTRef
 	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
-		}
+		// nonlinear::get_proof owns model-evaluated bindings, substituted
+		// children, and its conclusion until this recursive frame retires.
+		// Preserve the exact reverse frontier when native cleanup refuses.
+		resultErr = disposeASTRefs(m, refs, resultErr)
 	}()
 	bindings := make([]ast.ASTHandle, len(variableSorts))
 	// The source proof path normally sees transformed rules. When compiling a

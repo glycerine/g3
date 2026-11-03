@@ -25,7 +25,9 @@ func (c *Compiler) NonlinearProof(rules *base.RuleSet, query ast.ASTHandle, leve
 	defer func() {
 		resultErr = errors.Join(resultErr, scope.Close())
 		if resultErr != nil && result != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, m.DelRef(&result))
+			// Suppress publication only after transferring the concrete proof
+			// token to a retryable cleanup receipt on native refusal.
+			resultErr = disposeASTRefs(m, []ast.ASTRef{result}, resultErr)
 			result = ast.ASTRef{}
 		}
 	}()

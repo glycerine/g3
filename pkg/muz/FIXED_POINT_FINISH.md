@@ -370,6 +370,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Linear trace/proof allocation-frontier ownership and late scoped-proof/normalizer cleanup publication ordering.
   - [x] Nonlinear two-branch trace/proof allocation-frontier ownership through every reachable failure and successful retry.
   - [x] Preserve the quantified-linear compiled formula vector through reverse native cleanup refusal before result publication.
+  - [x] Transfer nonlinear recursive temporaries and recursive/public proof outputs into typed reverse cleanup receipts before suppressing publication on native refusal.
   - [ ] Nonlinear/QBMC late-cleanup audits and broader source/ownership closure.
 
 ### clp
@@ -527,6 +528,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Nonlinear BMC proof reconstruction now retires model bindings, substituted children and conclusions through the typed reverse cleanup frontier. Recursive and public proof outputs transfer their concrete AST token into that receipt before the visible slot is cleared, preventing native refusal from losing the sole owner while still suppressing partial publication; raw query/trace cleanup remains open.
+  Validation: `go -C pkg test ./muz/bmc -run '^(TestBMCNonlinearTraceAndProofAllocationFrontiers|TestBMCNonlinearTraceVisitsModelSelectedRules|TestBMCNonlinearQueryAndAppliedVariablesAllocationFrontiers)' -count=3` passed. Commit title: `Preserve nonlinear BMC proof cleanup frontiers`.
 
 - 2026-11-02 — Mixed external/interval products now perform aligned union, widening and delta updates with the source two-stage protocol: each component writes a fresh delta, then ordinary union accumulates it into the caller's existing delta. Prepopulated/empty deltas, callback order, refusal publication boundaries, reversed-kind products and alias rejection are covered; public compiler activation remains open.
   Validation: `go -C pkg test ./muz/rel -run '^TestExternalIntervalProductUnionWidenDeltaAndRefusal$' -count=5` passed. Commit title: `Union mixed external interval products`.
