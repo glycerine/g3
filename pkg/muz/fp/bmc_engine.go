@@ -14,9 +14,35 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 var errRetryUnslicedProof = errors.New("muz/fp: retry proof without slicing")
+
+// configureBMCSolverParams installs the three source setup profiles. Nonlinear
+// BMC leaves MBQI at its inherited default; linear BMC disables it and QBMC
+// enables it explicitly.
+func (e *PropositionalEngine) configureBMCSolverParams(local *uparams.ParamsRef, linear, quantified bool) error {
+	if e == nil || e.params == nil || local == nil || quantified && !linear {
+		return ErrPropositionalEngine
+	}
+	compact := "compact"
+	if err := e.params.SetBoolName(local, &compact, true); err != nil {
+		return err
+	}
+	if linear {
+		mbqi := "mbqi"
+		if err := e.params.SetBoolName(local, &mbqi, quantified); err != nil {
+			return err
+		}
+	}
+	relevancy := "relevancy"
+	value := uint32(2)
+	if linear && !quantified {
+		value = 0
+	}
+	return e.params.SetUIntName(local, &relevancy, value)
+}
 
 // onlyErrorKind ensures cleanup errors are not hidden by a retry signal.
 func onlyErrorKind(err, target error) bool {
@@ -179,24 +205,7 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 	}
 	defer func() { resultErr = errors.Join(resultErr, e.params.Del(&local)) }()
 	quantified := linear && e.backend == "qbmc"
-	if linear {
-		name := "mbqi"
-		if err = e.params.SetBoolName(&local, &name, quantified); err != nil {
-			return lbool.Undef, err
-		}
-	}
-	if quantified {
-		name := "compact"
-		if err = e.params.SetBoolName(&local, &name, true); err != nil {
-			return lbool.Undef, err
-		}
-	}
-	relevancy := "relevancy"
-	value := uint32(2)
-	if linear && !quantified {
-		value = 0
-	}
-	if err = e.params.SetUIntName(&local, &relevancy, value); err != nil {
+	if err = e.configureBMCSolverParams(&local, linear, quantified); err != nil {
 		return lbool.Undef, err
 	}
 	solver, err := smtcore.NewSMTSolver(e.manager, &local, "", smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
