@@ -685,21 +685,6 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 	if c.query == nil {
 		return c.finishEarlyUnreachable(fromLevel)
 	}
-	queryRules, err := c.query.Rules()
-	if err != nil {
-		return lbool.Undef, err
-	}
-	for _, rule := range queryRules {
-		resultErr = errors.Join(resultErr, rule.Close())
-	}
-	if resultErr != nil {
-		return lbool.Undef, resultErr
-	}
-	// context::solve_core returns false before constructing a root obligation
-	// when preprocessing removed every definition of the query predicate.
-	if len(queryRules) == 0 {
-		return c.finishEarlyUnreachable(fromLevel)
-	}
 	truth, err := c.manager.MkTrue()
 	if err != nil {
 		return lbool.Undef, err

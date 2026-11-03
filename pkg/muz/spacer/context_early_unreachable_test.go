@@ -22,6 +22,15 @@ func installEmptyFixtureQuery(t *testing.T, fixture *contextAnswerFixture) {
 	if err = fixture.context.SetQuery(fixture.other); err != nil {
 		t.Fatal(err)
 	}
+	// Updating to the live rules removes the cover-only query transformer
+	// while preserving the selected query declaration, as source update_rules
+	// does. This exercises absence, not a live tail-only predicate.
+	if err = fixture.context.UpdateRules(fixture.rules); err != nil {
+		t.Fatal(err)
+	}
+	if fixture.context.transformers[fixture.other] != nil {
+		t.Fatal("query transformer survived rule update")
+	}
 }
 
 func TestContextEarlyUnreachableSimplifiesModelFrames(t *testing.T) {
@@ -59,6 +68,7 @@ func TestContextEarlyUnreachableSimplifiesModelFrames(t *testing.T) {
 		}
 	}
 	installEmptyFixtureQuery(t, fixture)
+	transformer = context.transformers[fixture.query]
 
 	status, err := context.Solve(0, 1)
 	if err != nil || status != lbool.False {
