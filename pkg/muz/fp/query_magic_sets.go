@@ -65,7 +65,7 @@ func (e *PropositionalEngine) applyQueryMagicSets(goal ast.ASTHandle) (resultErr
 		}
 		e.predicates[declaration] = state
 		if origin, found := plugin.FreshPredicateOrigin(declaration); found {
-			if stateErr = e.inheritMagicFiniteRepresentation(declaration, origin); stateErr != nil {
+			if stateErr = e.inheritDatalogFiniteRepresentation(declaration, origin); stateErr != nil {
 				return stateErr
 			}
 		}
@@ -84,12 +84,12 @@ func (e *PropositionalEngine) applyQueryMagicSets(goal ast.ASTHandle) (resultErr
 	return nil
 }
 
-// inheritMagicFiniteRepresentation mirrors rel_context::inherit_predicate_kind
+// inheritDatalogFiniteRepresentation mirrors rel_context::inherit_predicate_kind
 // for the finite representations reached by the ordinary Go Datalog executor.
 // A requested Sparse kind remains attached to a generated nullary predicate,
 // but relation construction falls back to a compatible Hash table just as the
 // source relation manager does when the requested plugin rejects a signature.
-func (e *PropositionalEngine) inheritMagicFiniteRepresentation(declaration, origin ast.ASTHandle) error {
+func (e *PropositionalEngine) inheritDatalogFiniteRepresentation(declaration, origin ast.ASTHandle) error {
 	target, source := e.predicates[declaration], e.predicates[origin]
 	if target == nil || source == nil || len(source.requestedRepresentations) != 1 {
 		return nil

@@ -1104,8 +1104,27 @@ func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
 		if x != nil {
 			return x
 		}
+		if e.predicates[declaration] == nil {
+			e.predicateOrder = append(e.predicateOrder, declaration)
+		}
 		e.predicates[declaration] = state
 		e.auxiliary[declaration] = true
+	}
+	// Source mk_fresh_head_predicate copies an explicit requested kind.
+	// Apply origins in creation order after all generated states are known.
+	for _, declaration := range filter.FreshPredicates() {
+		if origin, found := filter.FreshPredicateOrigin(declaration); found {
+			if err = e.inheritDatalogFiniteRepresentation(declaration, origin); err != nil {
+				return err
+			}
+		}
+	}
+	for _, declaration := range plugin.FreshPredicates() {
+		if origin, found := plugin.FreshPredicateOrigin(declaration); found {
+			if err = e.inheritDatalogFiniteRepresentation(declaration, origin); err != nil {
+				return err
+			}
+		}
 	}
 	for _, step := range coneSteps {
 		e.datalogConversions = append(e.datalogConversions, hornModelConversion{kind: hornConvertCone, cone: step})
