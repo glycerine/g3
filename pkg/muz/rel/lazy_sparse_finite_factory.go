@@ -22,8 +22,8 @@ func (f *LazySparseFiniteFactory) open() error {
 }
 
 func (f *LazySparseFiniteFactory) New(signature Signature) (*LazySparseTable, error) {
-	if err := f.open(); err != nil {
-		return nil, err
+	if !f.CanHandleSignature(signature) {
+		return nil, ErrLazySparse
 	}
 	return f.engine.New(signature, 0)
 }

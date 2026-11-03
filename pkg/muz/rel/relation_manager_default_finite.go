@@ -65,14 +65,16 @@ func (m *RelationManager) NewDefaultFiniteTable(signature Signature) (FiniteTabl
 		// the first capable implementation. Hash is that fallback for nullary.
 		return NewHashTable(signature), nil
 	}
-	if signature.Len() != 0 {
-		switch m.defaultFinite {
-		case "sparse":
+	switch m.defaultFinite {
+	case "sparse":
+		if signature.Len() != 0 {
 			return NewSparseTable(signature, 0)
-		case "lazy_sparse":
-			if m.lazyFinite == nil {
-				return nil, ErrTable
-			}
+		}
+	case "lazy_sparse":
+		if m.lazyFinite == nil {
+			return nil, ErrTable
+		}
+		if m.lazyFinite.CanHandleSignature(signature) {
 			return m.lazyFinite.New(signature)
 		}
 	}
