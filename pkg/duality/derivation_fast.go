@@ -48,7 +48,11 @@ func (s *DerivationSearch) buildFast() (sat bool, result error) {
 			if _, err := d.tree.solver.CheckSat(nil); err != nil {
 				return false, err
 			}
-			status, err := d.tree.Solve(d.Top, s.Simplifier, s.Config)
+			var theory []*Expr
+			if s.Cases != nil {
+				theory = s.Cases.Theory
+			}
+			status, err := d.tree.solveWithTheory(d.Top, s.Simplifier, theory, s.Config)
 			if err != nil {
 				return false, err
 			}

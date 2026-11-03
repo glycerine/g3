@@ -51,6 +51,12 @@ func CollapseTermTree(root *TermTree) error {
 // SolveSingleNode separates one subtree from its collapsed surrounding
 // context, learns its interpolant, and updates only that node's annotation.
 func (g *RPFP) SolveSingleNode(root, node *Node, manager *interp.Manager, config *interp.RunConfig) (status lbool.LBool, result error) {
+	return g.solveSingleNodeWithTheory(root, node, manager, nil, config)
+}
+
+// solveSingleNodeWithTheory keeps the engine's interpolation axioms visible
+// while separating the selected subtree from its surrounding context.
+func (g *RPFP) solveSingleNodeWithTheory(root, node *Node, manager *interp.Manager, theory []*Expr, config *interp.RunConfig) (status lbool.LBool, result error) {
 	if err := g.open(); err != nil {
 		return lbool.Undef, err
 	}
@@ -86,7 +92,7 @@ func (g *RPFP) SolveSingleNode(root, node *Node, manager *interp.Manager, config
 		return lbool.Undef, err
 	}
 	defer func() { result = errors.Join(result, interpolationTimer.Close()) }()
-	status, learned, err := g.InterpolateTree(manager, tree, nil, true, config)
+	status, learned, err := g.InterpolateTree(manager, tree, theory, true, config)
 	err = errors.Join(err, interpolationTimer.Close())
 	if learned != nil {
 		defer func() { result = errors.Join(result, learned.Close()) }()

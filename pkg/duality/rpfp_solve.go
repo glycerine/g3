@@ -24,6 +24,13 @@ func (g *RPFP) GetConstraintTree(root, skip *Node) (*TermTree, error) {
 // by the graph. The source persist argument affects only disabled code in
 // DecodeTree and is therefore unnecessary here.
 func (g *RPFP) Solve(root *Node, manager *interp.Manager, config *interp.RunConfig) (status lbool.LBool, result error) {
+	return g.solveWithTheory(root, manager, nil, config)
+}
+
+// solveWithTheory supplies the background axioms recorded by the owning
+// Duality engine to proof interpolation. Direct graph callers retain the
+// source-compatible empty-background Solve surface above.
+func (g *RPFP) solveWithTheory(root *Node, manager *interp.Manager, theory []*Expr, config *interp.RunConfig) (status lbool.LBool, result error) {
 	if err := g.open(); err != nil {
 		return lbool.Undef, err
 	}
@@ -45,7 +52,7 @@ func (g *RPFP) Solve(root *Node, manager *interp.Manager, config *interp.RunConf
 		return lbool.Undef, err
 	}
 	defer func() { result = errors.Join(result, interpolationTimer.Close()) }()
-	status, learned, err := g.InterpolateTree(manager, tree, nil, true, config)
+	status, learned, err := g.InterpolateTree(manager, tree, theory, true, config)
 	err = errors.Join(err, interpolationTimer.Close())
 	if learned != nil {
 		defer func() { result = errors.Join(result, learned.Close()) }()

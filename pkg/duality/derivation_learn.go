@@ -85,12 +85,16 @@ func (d *BacktrackingDerivation) LearnCurrentExpansions(checker *LocalEdgeChecke
 		return 0, ErrWrapperOwner
 	}
 	expansions := d.stack[len(d.stack)-1].expansions
+	var theory []*Expr
+	if cases != nil {
+		theory = cases.Theory
+	}
 	for _, node := range expansions {
 		if node == nil || node.closed || node.Owner != d.tree || node.Map == nil {
 			return updates, ErrWrapperOwner
 		}
 		refine := func() error {
-			if _, err := d.tree.SolveSingleNode(d.Top, node, manager, config); err != nil {
+			if _, err := d.tree.solveSingleNodeWithTheory(d.Top, node, manager, theory, config); err != nil {
 				return err
 			}
 			complicated := false

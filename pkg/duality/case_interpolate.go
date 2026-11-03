@@ -252,7 +252,7 @@ func (c *CaseInterpolator) Interpolate(root, node *Node, config *interp.RunConfi
 				delete(needed, h)
 			}
 		}
-		if _, err = g.SolveSingleNode(root, node, c.Simplifier, config); err != nil {
+		if _, err = g.solveSingleNodeWithTheory(root, node, c.Simplifier, c.Theory, config); err != nil {
 			return err
 		}
 		learned, err := own(g.GetAnnotation(node))
