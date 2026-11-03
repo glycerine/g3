@@ -364,10 +364,6 @@ func ExecuteExternalFactRulesWithOptions(plugin *ExternalRelationPlugin, set *ba
 	if err != nil {
 		return err
 	}
-	boolean, err := plugin.ast.MkBoolSort()
-	if err != nil {
-		return err
-	}
 	validated := make(map[ast.ASTHandle]bool)
 	predicateOrder := make([]ast.ASTHandle, 0)
 	for _, entry := range compiled {
@@ -381,12 +377,8 @@ func ExecuteExternalFactRulesWithOptions(plugin *ExternalRelationPlugin, set *ba
 			if predicate.IsNull() || validated[predicate] {
 				continue
 			}
-			if _, _, err = plugin.manager.PredicateSignature(predicate); err != nil {
-				return err
-			}
-			rangeSort, cause := plugin.ast.GetRange(predicate)
-			if cause != nil || rangeSort != boolean {
-				return errors.Join(cause, ErrCompilerUnsupported)
+			if _, err = externalPredicateSorts(plugin.ast, predicate); err != nil {
+				return errors.Join(err, ErrCompilerUnsupported)
 			}
 			validated[predicate] = true
 			predicateOrder = append(predicateOrder, predicate)

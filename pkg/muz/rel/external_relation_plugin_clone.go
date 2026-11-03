@@ -178,19 +178,11 @@ func (p *ExternalRelationPlugin) ReplacePredicateFrom(predicate ast.ASTHandle, s
 	if p == nil || p.closed || p.manager == nil || p.manager.open() != nil || predicate.IsNull() || source == nil || source.open() != nil || source.ast != p.ast {
 		return ErrTableRelation
 	}
-	sorts, _, err := p.manager.PredicateSignature(predicate)
+	sorts, err := externalPredicateSorts(p.ast, predicate)
 	if err != nil {
 		return err
 	}
-	rangeSort, err := p.ast.GetRange(predicate)
-	if err != nil {
-		return err
-	}
-	boolean, err := p.ast.MkBoolSort()
-	if err != nil {
-		return err
-	}
-	if rangeSort != boolean || len(sorts) != len(source.sorts) {
+	if len(sorts) != len(source.sorts) {
 		return ErrTableRelation
 	}
 	for i := range sorts {

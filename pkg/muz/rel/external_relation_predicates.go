@@ -22,20 +22,9 @@ func (p *ExternalRelationPlugin) PredicateRelation(predicate ast.ASTHandle) (_ *
 		}
 		return relation, nil
 	}
-	sorts, _, err := p.manager.PredicateSignature(predicate)
+	sorts, err := externalPredicateSorts(p.ast, predicate)
 	if err != nil {
 		return nil, err
-	}
-	rangeSort, err := p.ast.GetRange(predicate)
-	if err != nil {
-		return nil, err
-	}
-	boolean, err := p.ast.MkBoolSort()
-	if err != nil {
-		return nil, err
-	}
-	if rangeSort != boolean {
-		return nil, ErrTableRelation
 	}
 	relation, err := p.NewEmpty(sorts)
 	if err != nil {
