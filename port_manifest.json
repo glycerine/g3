@@ -87255,8 +87255,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/bmc_numeric_proof_test.go", "pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_solver_profile_test.go", "pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_bind_test.go", "pkg/muz/bmc/quantified_linear_proof.go", "pkg/muz/bmc/quantified_linear_proof_cleanup.go", "pkg/muz/bmc/quantified_linear_proof_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_compile_test.go", "pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_bind_test.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_compile_test.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/nonlinear_search_test.go", "pkg/muz/bmc/nonlinear_trace.go", "pkg/muz/bmc/nonlinear_proof.go", "pkg/muz/bmc/nonlinear_trace_test.go", "pkg/muz/bmc/linear_compile.go", "pkg/muz/bmc/linear_bind.go", "pkg/muz/bmc/linear_compile_test.go", "pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/linear_trace.go", "pkg/muz/bmc/linear_proof.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_empty_cancellation_test.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go", "pkg/muz/fp/bmc_query_verbose.go", "pkg/muz/fp/bmc_query_verbose_test.go", "pkg/muz/bmc/nonlinear_selector_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_search_cleanup.go", "pkg/muz/bmc/quantified_linear_search_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_search_failure_test.go", "pkg/muz/bmc/quantified_linear_trace_cleanup.go", "pkg/muz/bmc/quantified_linear_trace_cleanup_pending_test.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/bmc_expression_statistics_test.go", "pkg/muz/fp/bmc_expression_statistics_work_test.go"],
-      "tests": ["TestBMCNumericProofIndependentValidation", "TestBMCSolverProfilesInstallSourceParameters", "TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler", "TestBMCQuantifiedLinearBindingsUseDerivationLevel", "TestBMCQuantifiedLinearProofWithUninterpretedBinding", "TestSMT2QBMCProofWithUnconstrainedRuleVariable", "TestBMCQuantifiedLinearProofWithRuleVariables", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers", "TestBMCBindVariablesCompressesGapsAndBuildsPattern", "TestBMCNonlinearCompilationUnfoldsRulesByLevel", "TestBMCNonlinearCompilationSharesExistentialAcrossBranches", "TestBMCNonlinearCompilationPreservesRepeatedHeadVariables", "TestBMCNonlinearSearchFindsFirstReachableLevel", "TestBMCNonlinearTraceVisitsModelSelectedRules", "TestQBMCConvertsNonlinearSlicedProof", "TestQBMCConvertsSliceProofWhenResolutionMergesTails", "TestSMT2QBMCProofConvertsMergedTails", "TestSMT2QBMCNonlinearSlicedProofTrace", "TestSMT2BMCNonlinearProofTrace", "TestBMCLinearCompilationSharesRuleVariables", "TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses", "TestBMCEngineRuleTraceAndSnapshot", "TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses", "TestBMCEmptyQueryChecksCancellationBeforeFalseResult", "TestSMT2BMCEngineSearch", "TestSMT2BMCCertificate", "TestSMT2BMCRecursiveCertificate", "TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates", "TestNonlinearBMCWarningMatchesSourceDispatch", "TestLinearBMCDoesNotEmitNonlinearWarning", "TestNonlinearBMCWarningRefusalDoesNotChangeResult", "TestNonlinearSelectorCleanupPreservesRootsAndNestedReceipt", "TestQuantifiedLinearSearchCleanupPreservesScopeTermsAndModel", "TestBMCQuantifiedLinearSearchAllocationScopeCleanup", "TestQuantifiedLinearTraceCleanupPreservesOwnersAcrossNativeRefusal", "TestBMCExpressionStatisticsReplacePreviousQueryAfterCancellation", "TestBMCExpressionStatisticsIncludeWorkBeforeFailure"],
+      "go_targets": ["pkg/muz/fp/bmc_numeric_proof_test.go", "pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_solver_profile_test.go", "pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_bind_test.go", "pkg/muz/bmc/quantified_linear_proof.go", "pkg/muz/bmc/quantified_linear_proof_cleanup.go", "pkg/muz/bmc/quantified_linear_proof_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_compile_test.go", "pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_bind_test.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_compile_test.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/nonlinear_search_test.go", "pkg/muz/bmc/nonlinear_trace.go", "pkg/muz/bmc/nonlinear_proof.go", "pkg/muz/bmc/nonlinear_trace_test.go", "pkg/muz/bmc/linear_compile.go", "pkg/muz/bmc/linear_bind.go", "pkg/muz/bmc/linear_compile_test.go", "pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/linear_trace.go", "pkg/muz/bmc/linear_proof.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_empty_cancellation_test.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go", "pkg/muz/fp/bmc_query_verbose.go", "pkg/muz/fp/bmc_query_verbose_test.go", "pkg/muz/bmc/nonlinear_selector_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_search_cleanup.go", "pkg/muz/bmc/quantified_linear_search_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_search_failure_test.go", "pkg/muz/bmc/quantified_linear_trace_cleanup.go", "pkg/muz/bmc/quantified_linear_trace_cleanup_pending_test.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/bmc_expression_statistics_test.go", "pkg/muz/fp/bmc_expression_statistics_work_test.go", "pkg/muz/bmc/nonlinear_bind_cleanup.go", "pkg/muz/bmc/nonlinear_bind_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_bind_cleanup.go", "pkg/muz/bmc/quantified_linear_bind_cleanup_test.go"],
+      "tests": ["TestBMCNumericProofIndependentValidation", "TestBMCSolverProfilesInstallSourceParameters", "TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler", "TestBMCQuantifiedLinearBindingsUseDerivationLevel", "TestBMCQuantifiedLinearProofWithUninterpretedBinding", "TestSMT2QBMCProofWithUnconstrainedRuleVariable", "TestBMCQuantifiedLinearProofWithRuleVariables", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers", "TestBMCBindVariablesCompressesGapsAndBuildsPattern", "TestBMCNonlinearCompilationUnfoldsRulesByLevel", "TestBMCNonlinearCompilationSharesExistentialAcrossBranches", "TestBMCNonlinearCompilationPreservesRepeatedHeadVariables", "TestBMCNonlinearSearchFindsFirstReachableLevel", "TestBMCNonlinearTraceVisitsModelSelectedRules", "TestQBMCConvertsNonlinearSlicedProof", "TestQBMCConvertsSliceProofWhenResolutionMergesTails", "TestSMT2QBMCProofConvertsMergedTails", "TestSMT2QBMCNonlinearSlicedProofTrace", "TestSMT2BMCNonlinearProofTrace", "TestBMCLinearCompilationSharesRuleVariables", "TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses", "TestBMCEngineRuleTraceAndSnapshot", "TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses", "TestBMCEmptyQueryChecksCancellationBeforeFalseResult", "TestSMT2BMCEngineSearch", "TestSMT2BMCCertificate", "TestSMT2BMCRecursiveCertificate", "TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates", "TestNonlinearBMCWarningMatchesSourceDispatch", "TestLinearBMCDoesNotEmitNonlinearWarning", "TestNonlinearBMCWarningRefusalDoesNotChangeResult", "TestNonlinearSelectorCleanupPreservesRootsAndNestedReceipt", "TestQuantifiedLinearSearchCleanupPreservesScopeTermsAndModel", "TestBMCQuantifiedLinearSearchAllocationScopeCleanup", "TestQuantifiedLinearTraceCleanupPreservesOwnersAcrossNativeRefusal", "TestBMCExpressionStatisticsReplacePreviousQueryAfterCancellation", "TestBMCExpressionStatisticsIncludeWorkBeforeFailure", "TestNonlinearBindingCleanupPreservesOwnersAcrossNativeRefusal", "TestQuantifiedLinearBindingCleanupPreservesOwnersAcrossNativeRefusal"],
       "assertions": [
         {
           "line": 138,
@@ -87357,7 +87357,11 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "numeric linear/qlinear resolution proof substitutions, compacted variable mapping and proof-preserving normalization", "status": "ported", "go_targets": ["pkg/muz/bmc/linear_proof.go", "pkg/muz/transforms/rule_inliner.go", "pkg/muz/fp/bmc_numeric_proof_test.go"], "tests": ["TestBMCNumericProofIndependentValidation"], "reason": "Six public BMC/QBMC linear/nonlinear/recursive cases independently check the query conclusion, structural proof, every logical side condition and asserted leaf provenance. Broader source/ownership audit remains partial."}, {"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "ported", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}, {"name": "linear BMC constructs a model-selected proof when proof tracing is enabled", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go"], "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate"]}, {"name": "nonlinear BMC prepares rule proofs for subsequent answers and certificates without a global proof option", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_requested_proof_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/api/api_fixedpoint_expression_answer_test.go"], "tests": ["TestBMCRequestedNonlinearProofWithoutGlobalTracing", "TestSMT2BMCNonlinearCertificateWithoutProofOption", "TestAPIFixedpointNonlinearBMCAnswersWithoutProofOption"]}, {"name": "BMC query preprocessing applies default transformations and optional slicing without Spacer unfold/coalesce stages", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go"], "tests": ["TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates"]}, {"name": "nonlinear query/binding construction and quantified-tail execution preserve allocation-frontier ownership", "status": "ported", "go_targets": ["pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_quantified_test.go", "pkg/muz/bmc/nonlinear_query_failure_test.go"], "tests": ["TestBMCNonlinearCompilationExecutesQuantifiedPredicateTail", "TestBMCNonlinearQueryAndAppliedVariablesAllocationFrontiers"]}, {"name": "linear and nonlinear search check cancellation before level compilation and preserve formula/query/guard and nested construction owners across refused cleanup", "status": "ported", "go_targets": ["pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/linear_cleanup_pending_test.go", "pkg/muz/bmc/linear_search_cancel_test.go"], "tests": ["TestBMCLinearSearchCancellationPrecedesLevelCompilation", "TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes"]}, {"name":"quantified linear search checkpoints cancellation and preserves caller scopes, quantified terms and the winning model through allocation and cleanup failures (dl_bmc_engine.cpp:51-73)","status":"ported","go_targets":["pkg/muz/bmc/quantified_linear_search.go","pkg/muz/bmc/quantified_linear_search_failure_test.go","pkg/muz/bmc/quantified_linear_compile_test.go","pkg/muz/bmc/quantified_linear_search_cleanup.go","pkg/muz/bmc/quantified_linear_search_cleanup_pending_test.go"],"tests":["TestBMCQuantifiedLinearSearchAllocationScopeCleanup","TestBMCQuantifiedLinearCompilationLevels","TestBMCQuantifiedLinearSearchPreservesSolverScope","TestBMCQuantifiedLinearCompilationAllocationFrontiers","TestQuantifiedLinearSearchCleanupPreservesScopeTermsAndModel"],"reason":"Each search attempt saves caller scope depth, drains nested construction receipts and quantified terms, then retires its one published scope before transferring a winning model. Failed cleanup returns Undef with no model; one stable receipt preserves ordinary and already-consumed model references, resumes cleanup and closes idempotently. Tested kernel/internalizer/quantifier cleanup continuations are tracked under their SMT units; this search-owner slice does not claim every untested child-internal interruption path."}, {"name": "quantified-linear indexed-symbol and output cleanup preserves every result across refused native release", "status": "ported", "go_targets": ["pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_cleanup_pending_test.go"], "tests": ["TestQuantifiedLinearCleanupPreservesRefsWhileManagerExecutes"]}, {"name": "BMC and QBMC query checkpoint cancellation after transformed query installation and before an empty rule group returns false", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_empty_cancellation_test.go"], "tests": ["TestBMCEmptyQueryChecksCancellationBeforeFalseResult"], "reason": "Predicate and expression entry points publish neither a result nor query owners on cancellation, then recover on retry and replace the prior query clone on repetition."}, {"name": "bmc::query nonlinear dispatch emits the source inefficiency warning after proof-preparation retry (dl_bmc_engine.cpp:1499-1502)", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_query_verbose.go", "pkg/muz/fp/bmc_query_verbose_test.go"], "tests": ["TestNonlinearBMCWarningMatchesSourceDispatch", "TestLinearBMCDoesNotEmitNonlinearWarning", "TestNonlinearBMCWarningRefusalDoesNotChangeResult"], "reason": "The zero-verbosity threshold warns only for nonlinear dispatch after proof preparation; diagnostic write refusal does not alter the solver result."},
+      "methods": [{"name": "numeric linear/qlinear resolution proof substitutions, compacted variable mapping and proof-preserving normalization", "status": "ported", "go_targets": ["pkg/muz/bmc/linear_proof.go", "pkg/muz/transforms/rule_inliner.go", "pkg/muz/fp/bmc_numeric_proof_test.go"], "tests": ["TestBMCNumericProofIndependentValidation"], "reason": "Six public BMC/QBMC linear/nonlinear/recursive cases independently check the query conclusion, structural proof, every logical side condition and asserted leaf provenance. Broader source/ownership audit remains partial."}, {"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "ported", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}, {"name": "linear BMC constructs a model-selected proof when proof tracing is enabled", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go"], "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate"]}, {"name": "nonlinear BMC prepares rule proofs for subsequent answers and certificates without a global proof option", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_requested_proof_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/api/api_fixedpoint_expression_answer_test.go"], "tests": ["TestBMCRequestedNonlinearProofWithoutGlobalTracing", "TestSMT2BMCNonlinearCertificateWithoutProofOption", "TestAPIFixedpointNonlinearBMCAnswersWithoutProofOption"]}, {"name": "BMC query preprocessing applies default transformations and optional slicing without Spacer unfold/coalesce stages", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go"], "tests": ["TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates"]}, {"name": "nonlinear query/binding construction and quantified-tail execution preserve allocation-frontier ownership", "status": "ported", "go_targets": ["pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_quantified_test.go", "pkg/muz/bmc/nonlinear_query_failure_test.go", "pkg/muz/bmc/nonlinear_bind_cleanup.go", "pkg/muz/bmc/nonlinear_bind_cleanup_pending_test.go"], "tests": ["TestBMCNonlinearCompilationExecutesQuantifiedPredicateTail", "TestBMCNonlinearQueryAndAppliedVariablesAllocationFrontiers", "TestNonlinearBindingCleanupPreservesOwnersAcrossNativeRefusal"],
+          "reason": "The nonlinear::bind_vars result remains unpublished until nested construction receipts, its substitution and temporary AST roots retire (dl_bmc_engine.cpp:631-660). Native cleanup refusal preserves the remaining owners and result behind one stable retry receipt; cleanup is idempotent and preserves the original diagnostic. Four concrete owner cleanup-frontier cases cover nested receipt, substitution, temporaries and result ownership; these are not complete public-query fault campaigns."
+        }, {"name": "linear and nonlinear search check cancellation before level compilation and preserve formula/query/guard and nested construction owners across refused cleanup", "status": "ported", "go_targets": ["pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/linear_cleanup_pending_test.go", "pkg/muz/bmc/linear_search_cancel_test.go"], "tests": ["TestBMCLinearSearchCancellationPrecedesLevelCompilation", "TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes"]}, {"name":"quantified linear search checkpoints cancellation and preserves caller scopes, quantified terms and the winning model through allocation and cleanup failures (dl_bmc_engine.cpp:51-73)","status":"ported","go_targets":["pkg/muz/bmc/quantified_linear_search.go","pkg/muz/bmc/quantified_linear_search_failure_test.go","pkg/muz/bmc/quantified_linear_compile_test.go","pkg/muz/bmc/quantified_linear_search_cleanup.go","pkg/muz/bmc/quantified_linear_search_cleanup_pending_test.go"],"tests":["TestBMCQuantifiedLinearSearchAllocationScopeCleanup","TestBMCQuantifiedLinearCompilationLevels","TestBMCQuantifiedLinearSearchPreservesSolverScope","TestBMCQuantifiedLinearCompilationAllocationFrontiers","TestQuantifiedLinearSearchCleanupPreservesScopeTermsAndModel"],"reason":"Each search attempt saves caller scope depth, drains nested construction receipts and quantified terms, then retires its one published scope before transferring a winning model. Failed cleanup returns Undef with no model; one stable receipt preserves ordinary and already-consumed model references, resumes cleanup and closes idempotently. Tested kernel/internalizer/quantifier cleanup continuations are tracked under their SMT units; this search-owner slice does not claim every untested child-internal interruption path."}, {"name": "quantified-linear indexed-symbol and output cleanup preserves every result across refused native release", "status": "ported", "go_targets": ["pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_bind_cleanup.go", "pkg/muz/bmc/quantified_linear_bind_cleanup_test.go"], "tests": ["TestQuantifiedLinearCleanupPreservesRefsWhileManagerExecutes", "TestQuantifiedLinearBindingCleanupPreservesOwnersAcrossNativeRefusal"],
+          "reason": "Quantified-linear model binding extraction owns its substitution, evaluator, indexed terms and partial output vector until cleanup completes (qlinear::eval_q/get_model, dl_bmc_engine.cpp:237-245,284-298). Nested receipts drain first, followed by substitution, evaluator and indexed terms; errors publish no output prefix. Five concrete native-refusal cases cover nested receipt, substitution, evaluator, terms and outputs, with stable diagnostics and idempotent retry. These owner cleanup-frontier cases do not complete the whole-engine source or ownership audits."
+        }, {"name": "BMC and QBMC query checkpoint cancellation after transformed query installation and before an empty rule group returns false", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_empty_cancellation_test.go"], "tests": ["TestBMCEmptyQueryChecksCancellationBeforeFalseResult"], "reason": "Predicate and expression entry points publish neither a result nor query owners on cancellation, then recover on retry and replace the prior query clone on repetition."}, {"name": "bmc::query nonlinear dispatch emits the source inefficiency warning after proof-preparation retry (dl_bmc_engine.cpp:1499-1502)", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_query_verbose.go", "pkg/muz/fp/bmc_query_verbose_test.go"], "tests": ["TestNonlinearBMCWarningMatchesSourceDispatch", "TestLinearBMCDoesNotEmitNonlinearWarning", "TestNonlinearBMCWarningRefusalDoesNotChangeResult"], "reason": "The zero-verbosity threshold warns only for nonlinear dispatch after proof preparation; diagnostic write refusal does not alter the solver result."},
         {
           "name": "nonlinear proof selector cleanup preserves unpublished roots and nested cleanup receipts through retry",
           "status": "ported",
@@ -92296,7 +92300,9 @@
         "pkg/muz/rel/udoc_relation_typed_filter_project.go",
         "pkg/muz/rel/udoc_relation_typed_negation.go",
         "pkg/muz/rel/udoc_relation_typed_formula.go",
-        "pkg/muz/rel/udoc_relation_typed_formula_cleanup.go"
+        "pkg/muz/rel/udoc_relation_typed_formula_cleanup.go",
+        "pkg/muz/rel/udoc_table_union.go",
+        "pkg/muz/rel/udoc_table_union_test.go"
       ],
       "tests": [
         "TestDatalogCheckRelationParameterRunsCheckedSaturation",
@@ -92321,7 +92327,8 @@
         "TestFormulaCheckedUDocUnionKeepsCumulativeDelta",
         "TestFormulaCheckedUDocNegationAndNullary",
         "TestFormulaCheckedUDocDetectsSourceIncompleteMembership",
-        "TestFormulaCheckedUDocWideBitVectorsUseSymbolicStorage"
+        "TestFormulaCheckedUDocWideBitVectorsUseSymbolicStorage",
+        "TestUnionUDocFromTableNullaryAndPreflight"
       ],
       "assertions": [
         {
@@ -92397,10 +92404,11 @@
           "go_target": "pkg/muz/rel/formula_checked_table_union.go",
           "tests": [
             "TestFormulaCheckedTableUnionAndDelta",
-            "TestFormulaCheckedUDocUnionKeepsCumulativeDelta"
+            "TestFormulaCheckedUDocUnionKeepsCumulativeDelta",
+            "TestUnionUDocFromTableNullaryAndPreflight"
           ],
-          "go_targets": ["pkg/muz/rel/relation_formula_checker.go","pkg/muz/rel/udoc_formula_checker.go","pkg/muz/rel/udoc_formula_checker_transform.go","pkg/muz/rel/udoc_formula_checker_test.go","pkg/muz/rel/udoc_relation_factory.go","pkg/muz/rel/udoc_relation_typed.go","pkg/muz/rel/udoc_relation_typed_operations.go","pkg/muz/rel/udoc_relation_typed_filter_project.go","pkg/muz/rel/udoc_relation_typed_negation.go","pkg/muz/rel/udoc_relation_typed_formula.go","pkg/muz/rel/udoc_relation_typed_formula_cleanup.go"],
-          "reason": "The concrete symbolic check_relation(doc) consumer additionally checks this operation against actual DOC storage; arbitrary relation-family wrapping remains open."
+          "go_targets": ["pkg/muz/rel/relation_formula_checker.go","pkg/muz/rel/udoc_formula_checker.go","pkg/muz/rel/udoc_formula_checker_transform.go","pkg/muz/rel/udoc_formula_checker_test.go","pkg/muz/rel/udoc_relation_factory.go","pkg/muz/rel/udoc_relation_typed.go","pkg/muz/rel/udoc_relation_typed_operations.go","pkg/muz/rel/udoc_relation_typed_filter_project.go","pkg/muz/rel/udoc_relation_typed_negation.go","pkg/muz/rel/udoc_relation_typed_formula.go","pkg/muz/rel/udoc_relation_typed_formula_cleanup.go", "pkg/muz/rel/udoc_table_union.go", "pkg/muz/rel/udoc_table_union_test.go"],
+          "reason": "The concrete symbolic check_relation(doc) consumer additionally checks this operation against actual DOC storage; arbitrary relation-family wrapping remains open. Raw finite-table union refuses formula-checked DOC targets or deltas before mutation: check_relation_plugin::mk_union_fn dynamically casts its operands before invoking the table fallback (check_relation.cpp:157-165,508-513), so this raw mixed pair cannot reach the checked route. This boundary does not claim direct checked AddNewFact coverage."
         },
         {
           "name": "SMT-verified column renaming",
@@ -92539,7 +92547,9 @@
         "pkg/muz/rel/udoc_relation_typed_filter_project.go",
         "pkg/muz/rel/udoc_relation_typed_negation.go",
         "pkg/muz/rel/udoc_relation_typed_formula.go",
-        "pkg/muz/rel/udoc_relation_typed_formula_cleanup.go"
+        "pkg/muz/rel/udoc_relation_typed_formula_cleanup.go",
+        "pkg/muz/rel/udoc_table_union.go",
+        "pkg/muz/rel/udoc_table_union_test.go"
       ],
       "tests": [
         "TestFormulaCheckedTableFactsAndReset",
@@ -92559,7 +92569,8 @@
         "TestFormulaCheckedUDocUnionKeepsCumulativeDelta",
         "TestFormulaCheckedUDocNegationAndNullary",
         "TestFormulaCheckedUDocDetectsSourceIncompleteMembership",
-        "TestFormulaCheckedUDocWideBitVectorsUseSymbolicStorage"
+        "TestFormulaCheckedUDocWideBitVectorsUseSymbolicStorage",
+        "TestUnionUDocFromTableNullaryAndPreflight"
       ],
       "conditionals": [
         {
@@ -92631,10 +92642,11 @@
           "go_target": "pkg/muz/rel/formula_checked_table_union.go",
           "tests": [
             "TestFormulaCheckedTableUnionAndDelta",
-            "TestFormulaCheckedUDocUnionKeepsCumulativeDelta"
+            "TestFormulaCheckedUDocUnionKeepsCumulativeDelta",
+            "TestUnionUDocFromTableNullaryAndPreflight"
           ],
-          "go_targets": ["pkg/muz/rel/relation_formula_checker.go","pkg/muz/rel/udoc_formula_checker.go","pkg/muz/rel/udoc_formula_checker_transform.go","pkg/muz/rel/udoc_formula_checker_test.go","pkg/muz/rel/udoc_relation_factory.go","pkg/muz/rel/udoc_relation_typed.go","pkg/muz/rel/udoc_relation_typed_operations.go","pkg/muz/rel/udoc_relation_typed_filter_project.go","pkg/muz/rel/udoc_relation_typed_negation.go","pkg/muz/rel/udoc_relation_typed_formula.go","pkg/muz/rel/udoc_relation_typed_formula_cleanup.go"],
-          "reason": "The concrete symbolic check_relation(doc) consumer additionally checks this operation against actual DOC storage; arbitrary relation-family wrapping remains open."
+          "go_targets": ["pkg/muz/rel/relation_formula_checker.go","pkg/muz/rel/udoc_formula_checker.go","pkg/muz/rel/udoc_formula_checker_transform.go","pkg/muz/rel/udoc_formula_checker_test.go","pkg/muz/rel/udoc_relation_factory.go","pkg/muz/rel/udoc_relation_typed.go","pkg/muz/rel/udoc_relation_typed_operations.go","pkg/muz/rel/udoc_relation_typed_filter_project.go","pkg/muz/rel/udoc_relation_typed_negation.go","pkg/muz/rel/udoc_relation_typed_formula.go","pkg/muz/rel/udoc_relation_typed_formula_cleanup.go", "pkg/muz/rel/udoc_table_union.go", "pkg/muz/rel/udoc_table_union_test.go"],
+          "reason": "The concrete symbolic check_relation(doc) consumer additionally checks this operation against actual DOC storage; arbitrary relation-family wrapping remains open. Raw finite-table union refuses formula-checked DOC targets or deltas before mutation: check_relation_plugin::mk_union_fn dynamically casts its operands before invoking the table fallback (check_relation.cpp:157-165,508-513), so this raw mixed pair cannot reach the checked route. This boundary does not claim direct checked AddNewFact coverage."
         },
         {
           "name": "SMT-verified column renaming",
@@ -96227,7 +96239,8 @@
         "pkg/muz/fp/datalog_similarity_bound_test.go",
         "pkg/muz/fp/datalog_similarity_bound_cleanup_test.go",
         "pkg/muz/rel/similarity_interval.go",
-        "pkg/muz/rel/similarity_interval_cleanup.go"
+        "pkg/muz/rel/similarity_interval_cleanup.go",
+        "pkg/muz/fp/datalog_similarity_order_test.go"
       ],
       "tests": [
         "TestSimilarityRuleComparisons",
@@ -96241,7 +96254,8 @@
         "TestDatalogSimilarityQueryParameterControls",
         "TestDatalogSimilarityKeepsQueriedOutputUnmerged",
         "TestDatalogBoundSimilarityPublicQueriesAndUpdates",
-        "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult"
+        "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult",
+        "TestDatalogSimilarityPrecedesConstantTailFilters"
       ],
       "conditionals": [
         {
@@ -96394,7 +96408,10 @@
             "pkg/muz/fp/datalog_bound_dispatch.go",
             "pkg/muz/fp/datalog_similarity_bound.go",
             "pkg/muz/fp/datalog_similarity_bound_test.go",
-            "pkg/muz/fp/datalog_similarity_bound_cleanup_test.go"
+            "pkg/muz/fp/datalog_similarity_bound_cleanup_test.go",
+            "pkg/muz/fp/datalog_similarity.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/fp/datalog_similarity_order_test.go"
           ],
           "tests": [
             "TestSimilarityMergeFinitePublishesFactsAndRule",
@@ -96402,9 +96419,10 @@
             "TestFiniteSimilarityCompressorTransformerAndExecution",
             "TestIntervalSimilarityProgramBuildsArithmeticAuxiliaryWithoutSourceMutation",
             "TestDatalogBoundSimilarityPublicQueriesAndUpdates",
-            "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult"
+            "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult",
+            "TestDatalogSimilarityPrecedesConstantTailFilters"
           ],
-          "reason": "Configured bound queries honor similarity enablement, strict threshold and output-predicate guards (rel_context.cpp:305-306; dl_mk_similarity_compressor.cpp:340-500). Query-local auxiliary predicates use source-coarse BoundRelation facts while preserving source rules, source order and original registrations. The borrowing evaluator closes before its transformed program; cleanup refusal invalidates published results and keeps both owners reachable. Repeated queries, fact updates and independently owned answers are covered. Finite and interval consumers remain supported; other abstract/product representations and generic dispatch remain open."
+          "reason": "Configured bound queries honor similarity enablement, strict threshold and output-predicate guards (rel_context.cpp:305-306; dl_mk_similarity_compressor.cpp:340-500). Query-local auxiliary predicates use source-coarse BoundRelation facts while preserving source rules, source order and original registrations. The borrowing evaluator closes before its transformed program; cleanup refusal invalidates published results and keeps both owners reachable. Repeated queries, fact updates and independently owned answers are covered. Finite and interval consumers remain supported; other abstract/product representations and generic dispatch remain open. Finite similarity participates in the shared query transformer at source priority 5000, ahead of filter rules at 2000, simple joins at 1000 and unbound compression at 500 (rel_context.cpp:297-316; dl_mk_similarity_compressor.cpp:28; dl_mk_filter_rules.cpp:28; dl_mk_simple_joins.cpp:32; dl_mk_unbound_compressor.cpp:27). Generated similarity predicates are installed after transformation. Enabled/disabled regression cases check actual membership join_project execution, exact tuples before and after a fact update, and restoration of original rules, predicates and auxiliaries. Broader abstract backends, ownership audit and similarity-origin metadata remain open."
         },
         {
           "name": "rel_context finite, interval and bound Datalog similarity registration and query-local parameter/output selection",
@@ -96425,7 +96443,8 @@
             "pkg/muz/fp/datalog_similarity_bound_test.go",
             "pkg/muz/fp/datalog_similarity_bound_cleanup_test.go",
             "pkg/muz/rel/similarity_interval.go",
-            "pkg/muz/rel/similarity_interval_cleanup.go"
+            "pkg/muz/rel/similarity_interval_cleanup.go",
+            "pkg/muz/fp/datalog_similarity_order_test.go"
           ],
           "tests": [
             "TestDatalogSimilarityLiveQuery",
@@ -96434,9 +96453,10 @@
             "TestDatalogSimilarityInheritsRequestedFiniteKind",
             "TestDatalogIntervalSimilarityPublicQueriesAndUpdates",
             "TestDatalogBoundSimilarityPublicQueriesAndUpdates",
-            "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult"
+            "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult",
+            "TestDatalogSimilarityPrecedesConstantTailFilters"
           ],
-          "reason": "Configured bound queries honor similarity enablement, strict threshold and output-predicate guards (rel_context.cpp:305-306; dl_mk_similarity_compressor.cpp:340-500). Query-local auxiliary predicates use source-coarse BoundRelation facts while preserving source rules, source order and original registrations. The borrowing evaluator closes before its transformed program; cleanup refusal invalidates published results and keeps both owners reachable. Repeated queries, fact updates and independently owned answers are covered. Finite and interval consumers remain supported; other abstract/product representations and generic dispatch remain open."
+          "reason": "Configured bound queries honor similarity enablement, strict threshold and output-predicate guards (rel_context.cpp:305-306; dl_mk_similarity_compressor.cpp:340-500). Query-local auxiliary predicates use source-coarse BoundRelation facts while preserving source rules, source order and original registrations. The borrowing evaluator closes before its transformed program; cleanup refusal invalidates published results and keeps both owners reachable. Repeated queries, fact updates and independently owned answers are covered. Finite and interval consumers remain supported; other abstract/product representations and generic dispatch remain open. Finite similarity participates in the shared query transformer at source priority 5000, ahead of filter rules at 2000, simple joins at 1000 and unbound compression at 500 (rel_context.cpp:297-316; dl_mk_similarity_compressor.cpp:28; dl_mk_filter_rules.cpp:28; dl_mk_simple_joins.cpp:32; dl_mk_unbound_compressor.cpp:27). Generated similarity predicates are installed after transformation. Enabled/disabled regression cases check actual membership join_project execution, exact tuples before and after a fact update, and restoration of original rules, predicates and auxiliaries. Broader abstract backends, ownership audit and similarity-origin metadata remain open."
         }
       ],
       "ownership": [
@@ -96465,7 +96485,8 @@
         "pkg/muz/fp/datalog_similarity_bound_test.go",
         "pkg/muz/fp/datalog_similarity_bound_cleanup_test.go",
         "pkg/muz/rel/similarity_interval.go",
-        "pkg/muz/rel/similarity_interval_cleanup.go"
+        "pkg/muz/rel/similarity_interval_cleanup.go",
+        "pkg/muz/fp/datalog_similarity_order_test.go"
       ],
       "tests": [
         "TestSimilarityMergeFinitePublishesFactsAndRule",
@@ -96475,7 +96496,8 @@
         "TestDatalogSimilarityQueryParameterControls",
         "TestDatalogSimilarityKeepsQueriedOutputUnmerged",
         "TestDatalogBoundSimilarityPublicQueriesAndUpdates",
-        "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult"
+        "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult",
+        "TestDatalogSimilarityPrecedesConstantTailFilters"
       ],
       "conditionals": [
         {
@@ -96506,7 +96528,10 @@
             "pkg/muz/fp/datalog_bound_dispatch.go",
             "pkg/muz/fp/datalog_similarity_bound.go",
             "pkg/muz/fp/datalog_similarity_bound_test.go",
-            "pkg/muz/fp/datalog_similarity_bound_cleanup_test.go"
+            "pkg/muz/fp/datalog_similarity_bound_cleanup_test.go",
+            "pkg/muz/fp/datalog_similarity.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/fp/datalog_similarity_order_test.go"
           ],
           "tests": [
             "TestSimilarityMergeFinitePublishesFactsAndRule",
@@ -96514,9 +96539,10 @@
             "TestFiniteSimilarityCompressorTransformerAndExecution",
             "TestIntervalSimilarityProgramBuildsArithmeticAuxiliaryWithoutSourceMutation",
             "TestDatalogBoundSimilarityPublicQueriesAndUpdates",
-            "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult"
+            "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult",
+            "TestDatalogSimilarityPrecedesConstantTailFilters"
           ],
-          "reason": "Configured bound queries honor similarity enablement, strict threshold and output-predicate guards (rel_context.cpp:305-306; dl_mk_similarity_compressor.cpp:340-500). Query-local auxiliary predicates use source-coarse BoundRelation facts while preserving source rules, source order and original registrations. The borrowing evaluator closes before its transformed program; cleanup refusal invalidates published results and keeps both owners reachable. Repeated queries, fact updates and independently owned answers are covered. Finite and interval consumers remain supported; other abstract/product representations and generic dispatch remain open."
+          "reason": "Configured bound queries honor similarity enablement, strict threshold and output-predicate guards (rel_context.cpp:305-306; dl_mk_similarity_compressor.cpp:340-500). Query-local auxiliary predicates use source-coarse BoundRelation facts while preserving source rules, source order and original registrations. The borrowing evaluator closes before its transformed program; cleanup refusal invalidates published results and keeps both owners reachable. Repeated queries, fact updates and independently owned answers are covered. Finite and interval consumers remain supported; other abstract/product representations and generic dispatch remain open. Finite similarity participates in the shared query transformer at source priority 5000, ahead of filter rules at 2000, simple joins at 1000 and unbound compression at 500 (rel_context.cpp:297-316; dl_mk_similarity_compressor.cpp:28; dl_mk_filter_rules.cpp:28; dl_mk_simple_joins.cpp:32; dl_mk_unbound_compressor.cpp:27). Generated similarity predicates are installed after transformation. Enabled/disabled regression cases check actual membership join_project execution, exact tuples before and after a fact update, and restoration of original rules, predicates and auxiliaries. Broader abstract backends, ownership audit and similarity-origin metadata remain open."
         },
         {
           "name": "rel_context finite, interval and bound Datalog similarity registration and query-local parameter/output selection",
@@ -96537,7 +96563,8 @@
             "pkg/muz/fp/datalog_similarity_bound_test.go",
             "pkg/muz/fp/datalog_similarity_bound_cleanup_test.go",
             "pkg/muz/rel/similarity_interval.go",
-            "pkg/muz/rel/similarity_interval_cleanup.go"
+            "pkg/muz/rel/similarity_interval_cleanup.go",
+            "pkg/muz/fp/datalog_similarity_order_test.go"
           ],
           "tests": [
             "TestDatalogSimilarityLiveQuery",
@@ -96546,9 +96573,10 @@
             "TestDatalogSimilarityInheritsRequestedFiniteKind",
             "TestDatalogIntervalSimilarityPublicQueriesAndUpdates",
             "TestDatalogBoundSimilarityPublicQueriesAndUpdates",
-            "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult"
+            "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult",
+            "TestDatalogSimilarityPrecedesConstantTailFilters"
           ],
-          "reason": "Configured bound queries honor similarity enablement, strict threshold and output-predicate guards (rel_context.cpp:305-306; dl_mk_similarity_compressor.cpp:340-500). Query-local auxiliary predicates use source-coarse BoundRelation facts while preserving source rules, source order and original registrations. The borrowing evaluator closes before its transformed program; cleanup refusal invalidates published results and keeps both owners reachable. Repeated queries, fact updates and independently owned answers are covered. Finite and interval consumers remain supported; other abstract/product representations and generic dispatch remain open."
+          "reason": "Configured bound queries honor similarity enablement, strict threshold and output-predicate guards (rel_context.cpp:305-306; dl_mk_similarity_compressor.cpp:340-500). Query-local auxiliary predicates use source-coarse BoundRelation facts while preserving source rules, source order and original registrations. The borrowing evaluator closes before its transformed program; cleanup refusal invalidates published results and keeps both owners reachable. Repeated queries, fact updates and independently owned answers are covered. Finite and interval consumers remain supported; other abstract/product representations and generic dispatch remain open. Finite similarity participates in the shared query transformer at source priority 5000, ahead of filter rules at 2000, simple joins at 1000 and unbound compression at 500 (rel_context.cpp:297-316; dl_mk_similarity_compressor.cpp:28; dl_mk_filter_rules.cpp:28; dl_mk_simple_joins.cpp:32; dl_mk_unbound_compressor.cpp:27). Generated similarity predicates are installed after transformation. Enabled/disabled regression cases check actual membership join_project execution, exact tuples before and after a fact update, and restoration of original rules, predicates and auxiliaries. Broader abstract backends, ownership audit and similarity-origin metadata remain open."
         }
       ],
       "ownership": [
@@ -96569,7 +96597,8 @@
         "pkg/muz/transforms/simple_joins_cost.go",
         "pkg/muz/base/rule_display.go",
         "pkg/muz/fp/propositional_engine.go",
-        "pkg/parsers/smt2/fixedpoint_commands_test.go"
+        "pkg/parsers/smt2/fixedpoint_commands_test.go",
+        "pkg/muz/transforms/filter_simple_origins_test.go"
       ],
       "tests": [
         "TestPropositionalEngineCompilesSimpleJoinNormalization",
@@ -96579,7 +96608,8 @@
         "TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder",
         "TestRuleManagerWriteSourceRuleDisplay",
         "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP",
-        "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"
+        "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
+        "TestSimpleJoinsOriginUsesLastRegisteredSharedConsumer"
       ],
       "assertions": [
         {
@@ -96708,13 +96738,18 @@
             "TestRuleManagerWriteSourceRuleDisplay",
             "TestPropositionalEngineCompilesSimpleJoinNormalization",
             "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP",
-            "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"
+            "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
+            "TestSimpleJoinsOriginUsesLastRegisteredSharedConsumer"
           ],
           "go_targets": [
             "pkg/muz/base/rule_formula_display_test.go",
             "pkg/muz/fp/propositional_engine_test.go",
-            "pkg/parsers/smt2/fixedpoint_commands_test.go"
-          ]
+            "pkg/parsers/smt2/fixedpoint_commands_test.go",
+            "pkg/muz/transforms/simple_joins.go",
+            "pkg/muz/transforms/filter_simple_origins_test.go",
+            "pkg/muz/transforms/simple_joins_close_pending_test.go"
+          ],
+          "reason": "A shared split reports the last registered pair consumer's head, including an already-binary consumer (dl_mk_simple_joins.cpp:385-399). Shared consumers reuse the same helper. Origin metadata survives refused pin cleanup, becomes unavailable while closing, and clears after successful close. This exposes borrowed source-predicate origin metadata for the planned finite consumer; this slice does not activate relation-kind inheritance in that consumer."
         },
         {
           "name": "join-planner pair costs consume concrete finite and relation-explanation size estimates across representations",
@@ -96739,12 +96774,16 @@
       "go_targets": [
         "pkg/muz/transforms/simple_joins.go",
         "pkg/muz/fp/propositional_engine_test.go",
-        "pkg/parsers/smt2/fixedpoint_commands_test.go"
+        "pkg/parsers/smt2/fixedpoint_commands_test.go",
+        "pkg/muz/transforms/filter_simple_origins_test.go",
+        "pkg/muz/transforms/simple_joins_close_pending_test.go"
       ],
       "tests": [
         "TestPropositionalEngineCompilesSimpleJoinNormalization",
         "TestSimpleJoinsUsesSourceSplitPredicateNames",
-        "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP"
+        "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP",
+        "TestSimpleJoinsOriginUsesLastRegisteredSharedConsumer",
+        "TestSimpleJoinsClosePreservesAuxiliaryPins"
       ],
       "conditionals": [
         {
@@ -96765,11 +96804,17 @@
           "go_target": "pkg/muz/transforms/simple_joins.go",
           "tests": [
             "TestPropositionalEngineCompilesSimpleJoinNormalization",
-            "TestSimpleJoinsUsesSourceSplitPredicateNames"
+            "TestSimpleJoinsUsesSourceSplitPredicateNames",
+            "TestSimpleJoinsOriginUsesLastRegisteredSharedConsumer",
+            "TestSimpleJoinsClosePreservesAuxiliaryPins"
           ],
           "go_targets": [
-            "pkg/muz/fp/propositional_engine_test.go"
-          ]
+            "pkg/muz/fp/propositional_engine_test.go",
+            "pkg/muz/transforms/simple_joins.go",
+            "pkg/muz/transforms/filter_simple_origins_test.go",
+            "pkg/muz/transforms/simple_joins_close_pending_test.go"
+          ],
+          "reason": "A shared split reports the last registered pair consumer's head, including an already-binary consumer (dl_mk_simple_joins.cpp:385-399). Shared consumers reuse the same helper. Origin metadata survives refused pin cleanup, becomes unavailable while closing, and clears after successful close. This exposes borrowed source-predicate origin metadata for the planned finite consumer; this slice does not activate relation-kind inheritance in that consumer."
         }
       ],
       "ownership": [
@@ -98235,7 +98280,10 @@
         "pkg/muz/rel/table_relation_capability_test.go",
         "pkg/muz/rel/table_relation_display_tuples.go",
         "pkg/muz/rel/relation_manager_display_output.go",
-        "pkg/muz/rel/relation_manager_display_output_test.go"
+        "pkg/muz/rel/relation_manager_display_output_test.go",
+        "pkg/muz/rel/udoc_table_union.go",
+        "pkg/muz/rel/udoc_relation_typed_add_new.go",
+        "pkg/muz/rel/udoc_table_union_test.go"
       ],
       "tests": [
         "TestTableRelationSourceFactConversionCloneAndOwnership",
@@ -98252,7 +98300,11 @@
         "TestTableRelationInterpretedFailureIsAtomic",
         "TestTableRelationFiniteSignatureCapability",
         "TestTableRelationDisplayTuplesUsesDatalogNamesAndConstants",
-        "TestRelationManagerDisplaysSparseAndLazyFiniteOutputs"
+        "TestRelationManagerDisplaysSparseAndLazyFiniteOutputs",
+        "TestUnionUDocFromTablePreservesConcreteSourcesAndCumulativeDelta",
+        "TestUnionUDocFromTableNullaryAndPreflight",
+        "TestUnionUDocFromTablePreservesSourceConservativeMembership",
+        "TestUnionUDocFromTableAllocationFailurePreservesBorrowedOwners"
       ],
       "assertions": [
         {
@@ -98387,6 +98439,22 @@
             "TestTableRelationDisplayTuplesUsesDatalogNamesAndConstants",
             "TestRelationManagerDisplaysSparseAndLazyFiniteOutputs"
           ]
+        },
+        {
+          "name": "concrete universal_target_union_fn specialization for raw DOC targets and optional raw DOC deltas (dl_table_relation.cpp:237-268,289-305; dl_table_relation.h:35,67-69)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/rel/udoc_table_union.go",
+            "pkg/muz/rel/udoc_relation_typed_add_new.go",
+            "pkg/muz/rel/udoc_table_union_test.go"
+          ],
+          "tests": [
+            "TestUnionUDocFromTablePreservesConcreteSourcesAndCumulativeDelta",
+            "TestUnionUDocFromTableNullaryAndPreflight",
+            "TestUnionUDocFromTablePreservesSourceConservativeMembership",
+            "TestUnionUDocFromTableAllocationFailurePreservesBorrowedOwners"
+          ],
+          "reason": "Concrete Hash/Sparse/LazySparse rows are decoded in iteration order into raw DOC storage. Without a delta each row uses AddFact; with a delta target membership decides whether AddNewFact appends to the target and AddFact accumulates into the existing delta. Nullary truth, signatures, factory identity, AST-manager identity and borrowed source ownership are checked. Publication is incremental as in source: the allocation regression resets partially changed targets and deltas before retry, so this primitive does not provide transactional rollback or activate a public mixed finite/DOC query consumer. Formula-checked targets and deltas reject before mutation at the source dynamic-cast dispatch boundary."
         }
       ],
       "ownership": [
@@ -98414,7 +98482,10 @@
         "pkg/muz/rel/table_relation_capability_test.go",
         "pkg/muz/rel/table_relation_formula.go",
         "pkg/muz/rel/table_display.go",
-        "pkg/muz/rel/table_relation_display_tuples.go"
+        "pkg/muz/rel/table_relation_display_tuples.go",
+        "pkg/muz/rel/udoc_table_union.go",
+        "pkg/muz/rel/udoc_relation_typed_add_new.go",
+        "pkg/muz/rel/udoc_table_union_test.go"
       ],
       "tests": [
         "TestTableRelationSourceFactConversionCloneAndOwnership",
@@ -98427,7 +98498,11 @@
         "TestTableRelationToFormulaZeroArityAndMixedSortRows",
         "TestHashTableAndRelationDisplaySourceFormat",
         "TestHashTableDisplayEmptyAndWriterFailure",
-        "TestTableRelationDisplayTuplesUsesDatalogNamesAndConstants"
+        "TestTableRelationDisplayTuplesUsesDatalogNamesAndConstants",
+        "TestUnionUDocFromTablePreservesConcreteSourcesAndCumulativeDelta",
+        "TestUnionUDocFromTableNullaryAndPreflight",
+        "TestUnionUDocFromTablePreservesSourceConservativeMembership",
+        "TestUnionUDocFromTableAllocationFailurePreservesBorrowedOwners"
       ],
       "conditionals": [
         {
@@ -98481,6 +98556,22 @@
           "tests": [
             "TestTableRelationDisplayTuplesUsesDatalogNamesAndConstants"
           ]
+        },
+        {
+          "name": "concrete universal_target_union_fn specialization for raw DOC targets and optional raw DOC deltas (dl_table_relation.cpp:237-268,289-305; dl_table_relation.h:35,67-69)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/rel/udoc_table_union.go",
+            "pkg/muz/rel/udoc_relation_typed_add_new.go",
+            "pkg/muz/rel/udoc_table_union_test.go"
+          ],
+          "tests": [
+            "TestUnionUDocFromTablePreservesConcreteSourcesAndCumulativeDelta",
+            "TestUnionUDocFromTableNullaryAndPreflight",
+            "TestUnionUDocFromTablePreservesSourceConservativeMembership",
+            "TestUnionUDocFromTableAllocationFailurePreservesBorrowedOwners"
+          ],
+          "reason": "Concrete Hash/Sparse/LazySparse rows are decoded in iteration order into raw DOC storage. Without a delta each row uses AddFact; with a delta target membership decides whether AddNewFact appends to the target and AddFact accumulates into the existing delta. Nullary truth, signatures, factory identity, AST-manager identity and borrowed source ownership are checked. Publication is incremental as in source: the allocation regression resets partially changed targets and deltas before retry, so this primitive does not provide transactional rollback or activate a public mixed finite/DOC query consumer. Formula-checked targets and deltas reject before mutation at the source dynamic-cast dispatch boundary."
         }
       ],
       "ownership": [
@@ -98959,7 +99050,8 @@
         "pkg/muz/rel/udoc_relation_typed_formula.go",
         "pkg/muz/rel/udoc_relation_typed_formula_cleanup.go",
         "pkg/muz/fp/datalog_bound_interval_conjunction_test.go",
-        "pkg/muz/fp/datalog_inline_branch_test.go"
+        "pkg/muz/fp/datalog_inline_branch_test.go",
+        "pkg/muz/fp/datalog_similarity_order_test.go"
       ],
       "tests": [
         "TestQueryMagicSetsRunsForSyntheticQueryPredicate",
@@ -99019,7 +99111,8 @@
         "TestDatalogDocFormulaCheckerParameterClearPreservesAdoptedFacts",
         "TestDatalogDocCheckerScopeNativeCleanupKeepsFactoryUntilNestedRootsRelease",
         "TestBoundIntervalDatalogCombinesInterpretedTailsWithoutStrengthening",
-        "TestDatalogLinearInliningBranchParametersAndFacts"
+        "TestDatalogLinearInliningBranchParametersAndFacts",
+        "TestDatalogSimilarityPrecedesConstantTailFilters"
       ],
       "conditionals": [
         {
@@ -99092,11 +99185,16 @@
           "status": "partial",
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "go_targets": [
-            "pkg/muz/rel/relation_manager.go"
+            "pkg/muz/rel/relation_manager.go",
+            "pkg/muz/fp/datalog_similarity.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/fp/datalog_similarity_order_test.go"
           ],
           "tests": [
-            "TestPropositionalEngineExecutesStratifiedNegation"
-          ]
+            "TestPropositionalEngineExecutesStratifiedNegation",
+            "TestDatalogSimilarityPrecedesConstantTailFilters"
+          ],
+          "reason": "Old saturation marks are cleared before transformations can publish saturated similarity auxiliaries for the new query."
         },
         {
           "name": "Collect saturation time, compiled instruction statistics, and execution-context counters",
@@ -99123,7 +99221,8 @@
             "pkg/muz/fp/datalog_similarity_bound_test.go",
             "pkg/muz/fp/datalog_similarity_bound_cleanup_test.go",
             "pkg/muz/rel/similarity_interval.go",
-            "pkg/muz/rel/similarity_interval_cleanup.go"
+            "pkg/muz/rel/similarity_interval_cleanup.go",
+            "pkg/muz/fp/datalog_similarity_order_test.go"
           ],
           "tests": [
             "TestDatalogSimilarityLiveQuery",
@@ -99131,9 +99230,10 @@
             "TestDatalogSimilarityKeepsQueriedOutputUnmerged",
             "TestDatalogSimilarityInheritsRequestedFiniteKind",
             "TestDatalogBoundSimilarityPublicQueriesAndUpdates",
-            "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult"
+            "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult",
+            "TestDatalogSimilarityPrecedesConstantTailFilters"
           ],
-          "reason": "Generated compressed declarations inherit the source predicate's requested finite representation and create auxiliaries through that concrete plugin, preserving explicit Hash/Sparse/LazySparse kind and ownership. Configured bound queries honor similarity enablement, strict threshold and output-predicate guards (rel_context.cpp:305-306; dl_mk_similarity_compressor.cpp:340-500). Query-local auxiliary predicates use source-coarse BoundRelation facts while preserving source rules, source order and original registrations. The borrowing evaluator closes before its transformed program; cleanup refusal invalidates published results and keeps both owners reachable. Repeated queries, fact updates and independently owned answers are covered. Finite and interval consumers remain supported; other abstract/product representations and generic dispatch remain open."
+          "reason": "Generated compressed declarations inherit the source predicate's requested finite representation and create auxiliaries through that concrete plugin, preserving explicit Hash/Sparse/LazySparse kind and ownership. Configured bound queries honor similarity enablement, strict threshold and output-predicate guards (rel_context.cpp:305-306; dl_mk_similarity_compressor.cpp:340-500). Query-local auxiliary predicates use source-coarse BoundRelation facts while preserving source rules, source order and original registrations. The borrowing evaluator closes before its transformed program; cleanup refusal invalidates published results and keeps both owners reachable. Repeated queries, fact updates and independently owned answers are covered. Finite and interval consumers remain supported; other abstract/product representations and generic dispatch remain open. Finite similarity participates in the shared query transformer at source priority 5000, ahead of filter rules at 2000, simple joins at 1000 and unbound compression at 500 (rel_context.cpp:297-316; dl_mk_similarity_compressor.cpp:28; dl_mk_filter_rules.cpp:28; dl_mk_simple_joins.cpp:32; dl_mk_unbound_compressor.cpp:27). Generated similarity predicates are installed after transformation. Enabled/disabled regression cases check actual membership join_project execution, exact tuples before and after a fact update, and restoration of original rules, predicates and auxiliaries. Broader abstract backends, ownership audit and similarity-origin metadata remain open."
         },
         {
           "name": "query-scoped unbound compression with live parameter/default-relation selection and generated relation cleanup (transform_rules/setup_default_relation/scoped_query)",
@@ -99152,7 +99252,7 @@
           ]
         },
         {
-          "name": "rel_context scoped_query restoration around cone, interpreted-tail simplification, inlining, negative-tail separation, filter, simple-join, unbound and similarity transformations (rel_context.cpp:58-91,232-241,297-316)",
+          "name": "rel_context scoped_query restoration around cone, interpreted-tail simplification, inlining, negative-tail separation, similarity, filter, simple-join and unbound transformations (rel_context.cpp:58-91,232-241,297-316)",
           "status": "ported",
           "go_target": "pkg/muz/fp/datalog_query_scope.go",
           "go_targets": [
@@ -99170,7 +99270,9 @@
             "pkg/muz/fp/datalog_inline_pipeline.go",
             "pkg/muz/fp/datalog_inline_query_test.go",
             "pkg/muz/transforms/rule_inliner.go",
-            "pkg/muz/fp/datalog_inline_branch_test.go"
+            "pkg/muz/fp/datalog_inline_branch_test.go",
+            "pkg/muz/fp/datalog_similarity.go",
+            "pkg/muz/fp/datalog_similarity_order_test.go"
           ],
           "tests": [
             "TestDatalogQueriesRestoreFilterAndJoinScopes",
@@ -99181,9 +99283,10 @@
             "TestDatalogInterpretedEqualityPrecedesFiniteCompilation",
             "TestDatalogPrivateNegativeTailHasQueryLocalComplement",
             "TestDatalogInliningPreservesFactsModelsAndQueryScope",
-            "TestDatalogLinearInliningBranchParametersAndFacts"
+            "TestDatalogLinearInliningBranchParametersAndFacts",
+            "TestDatalogSimilarityPrecedesConstantTailFilters"
           ],
-          "reason": "Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open. The finite query pipeline registers separate-negated-tails at source priority 21000 after interpreted-tail simplification and before filter/simple joins (rel_context.cpp:297-316). Private negative variables receive query-local lower-stratum complement predicates in creation order. Repeated compiled queries and later blocked-fact updates preserve the persistent rules/predicates and release every query-owned auxiliary. Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services. xform.inline_linear_branch keeps source default false and now reaches the finite query inliner with module/local enablement and local disable override. The public test checks extensional-fact protection, exact output tuples and later queries restoring the source program. Shared Horn preprocessing also forwards the resolved option through spacer_engine.go; this new public test covers Datalog rather than an independent Spacer/PDR branch scenario."
+          "reason": "Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open. The finite query pipeline registers separate-negated-tails at source priority 21000 after interpreted-tail simplification and before filter/simple joins (rel_context.cpp:297-316). Private negative variables receive query-local lower-stratum complement predicates in creation order. Repeated compiled queries and later blocked-fact updates preserve the persistent rules/predicates and release every query-owned auxiliary. Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services. xform.inline_linear_branch keeps source default false and now reaches the finite query inliner with module/local enablement and local disable override. The public test checks extensional-fact protection, exact output tuples and later queries restoring the source program. Shared Horn preprocessing also forwards the resolved option through spacer_engine.go; this new public test covers Datalog rather than an independent Spacer/PDR branch scenario. Finite similarity participates in the shared query transformer at source priority 5000, ahead of filter rules at 2000, simple joins at 1000 and unbound compression at 500 (rel_context.cpp:297-316; dl_mk_similarity_compressor.cpp:28; dl_mk_filter_rules.cpp:28; dl_mk_simple_joins.cpp:32; dl_mk_unbound_compressor.cpp:27). Generated similarity predicates are installed after transformation. Enabled/disabled regression cases check actual membership join_project execution, exact tuples before and after a fact update, and restoration of original rules, predicates and auxiliaries. Broader abstract backends, ownership audit and similarity-origin metadata remain open."
         },
         {
           "name": "configured interval-relation runtime executes fact and positive arithmetic rule sets in dependency-first SCC order with cloned external seeds, source widening boundaries, abstract predicate/expression queries and caller-owned relation formulas",
@@ -99256,7 +99359,7 @@
           "reason": "Concrete LazySparse tables are installed by the live representation selector; compiled interpreted guards stay deferred and fuse with projection. Parent and expression-query clones migrate rows into independent factories so either context can close first; mutating deferred nodes clone shared packed sources before transfer. Concrete Hash/Sparse checked pairs exchange live manager owners and compile constructors/mixed operations, while formula-checked relation scopes deliberately remain interpreted. The finite compiler honors datalog.all_or_nothing_deltas: false keeps one changed-tail substitution per run; true evaluates each recursive-stratum rule against full relations once per iteration while deltas detect change (dl_compiler.cpp:911-946; dl_compiler.h:130). Hash/Sparse/LazySparse/FiniteCheckedPair checks cover selected input registers, exact loop counters, rules with no recursive tails and the same least fixpoint. Public configuration preserves source false default and local-over-module precedence."
         },
         {
-          "name": "finite Datalog query normalization runs relation-aware cone pruning, interpreted-tail simplification, inlining, negative-tail separation and filter/simple joins with owned model-conversion steps",
+          "name": "finite Datalog query normalization runs relation-aware cone pruning, interpreted-tail simplification, inlining, negative-tail separation, similarity and filter/simple joins with owned model-conversion steps",
           "status": "ported",
           "go_targets": [
             "pkg/muz/fp/propositional_engine.go",
@@ -99270,22 +99373,25 @@
             "pkg/muz/fp/datalog_inline_pipeline.go",
             "pkg/muz/fp/datalog_inline_query_test.go",
             "pkg/muz/transforms/rule_inliner.go",
-            "pkg/muz/fp/datalog_inline_branch_test.go"
+            "pkg/muz/fp/datalog_inline_branch_test.go",
+            "pkg/muz/fp/datalog_similarity.go",
+            "pkg/muz/fp/datalog_similarity_order_test.go"
           ],
           "tests": [
             "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts",
             "TestDatalogInterpretedEqualityPrecedesFiniteCompilation",
             "TestDatalogPrivateNegativeTailHasQueryLocalComplement",
             "TestDatalogInliningPreservesFactsModelsAndQueryScope",
-            "TestDatalogLinearInliningBranchParametersAndFacts"
+            "TestDatalogLinearInliningBranchParametersAndFacts",
+            "TestDatalogSimilarityPrecedesConstantTailFilters"
           ],
-          "reason": "The query-local rule set restores the original program after pruning, including later disconnected-predicate queries. Cone steps transfer in order, reconstruct the original model and remain reachable across cleanup refusal. Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open. The finite query pipeline registers separate-negated-tails at source priority 21000 after interpreted-tail simplification and before filter/simple joins (rel_context.cpp:297-316). Private negative variables receive query-local lower-stratum complement predicates in creation order. Repeated compiled queries and later blocked-fact updates preserve the persistent rules/predicates and release every query-owned auxiliary. Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services. xform.inline_linear_branch keeps source default false and now reaches the finite query inliner with module/local enablement and local disable override. The public test checks extensional-fact protection, exact output tuples and later queries restoring the source program. Shared Horn preprocessing also forwards the resolved option through spacer_engine.go; this new public test covers Datalog rather than an independent Spacer/PDR branch scenario."
+          "reason": "The query-local rule set restores the original program after pruning, including later disconnected-predicate queries. Cone steps transfer in order, reconstruct the original model and remain reachable across cleanup refusal. Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open. The finite query pipeline registers separate-negated-tails at source priority 21000 after interpreted-tail simplification and before filter/simple joins (rel_context.cpp:297-316). Private negative variables receive query-local lower-stratum complement predicates in creation order. Repeated compiled queries and later blocked-fact updates preserve the persistent rules/predicates and release every query-owned auxiliary. Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services. xform.inline_linear_branch keeps source default false and now reaches the finite query inliner with module/local enablement and local disable override. The public test checks extensional-fact protection, exact output tuples and later queries restoring the source program. Shared Horn preprocessing also forwards the resolved option through spacer_engine.go; this new public test covers Datalog rather than an independent Spacer/PDR branch scenario. Finite similarity participates in the shared query transformer at source priority 5000, ahead of filter rules at 2000, simple joins at 1000 and unbound compression at 500 (rel_context.cpp:297-316; dl_mk_similarity_compressor.cpp:28; dl_mk_filter_rules.cpp:28; dl_mk_simple_joins.cpp:32; dl_mk_unbound_compressor.cpp:27). Generated similarity predicates are installed after transformation. Enabled/disabled regression cases check actual membership join_project execution, exact tuples before and after a fact update, and restoration of original rules, predicates and auxiliaries. Broader abstract backends, ownership audit and similarity-origin metadata remain open."
         }
       ],
       "ownership": [
         "The query scope owns its transformed RuleSet and every generated concrete relation; disposal restores the original program and restricts the relation manager to the pre-query predicate set, while refused native cleanup remains retryable through the construction-failure contract. Default finite selection migrates only implicit predicate owners before evaluation; explicit representations remain independently owned, and compiler temporaries are newly owned concrete finite tables. LazySparse parent and expression-query contexts own independent factories and migrate copied rows rather than sharing deferred engines, so either context can close first without invalidating the other. The staged interval store pins registered declarations and gives each evaluator cloned seed relations; relation formulas transfer one caller-owned AST reference."
       ],
-      "deviations": ["Query scoping now covers cone, interpreted-tail simplification, inlining, negative-tail separation, filter, simple-join, unbound and similarity transformations, including query-owned cone model reconstruction. Relation-backend diversity and the remaining transform pipeline stay open.","Go permits changing a requested finite-nullary representation to doc before query execution, beyond source set_predicate_kind requiring no existing relation. Migration imports the nullary truth value before removing borrowed finite metadata, preserves the original relation-manager-owned table, and leaves failed construction unpublished for retry. TestDatalogUDocNullaryRepresentationMigrationAndRetry covers empty and true facts through allocation refusal."]
+      "deviations": ["Query scoping now covers cone, interpreted-tail simplification, inlining, negative-tail separation, similarity, filter, simple-join and unbound transformations, including query-owned cone model reconstruction. Relation-backend diversity and the remaining transform pipeline stay open.","Go permits changing a requested finite-nullary representation to doc before query execution, beyond source set_predicate_kind requiring no existing relation. Migration imports the nullary truth value before removing borrowed finite metadata, preserves the original relation-manager-owned table, and leaves failed construction unpublished for retry. TestDatalogUDocNullaryRepresentationMigrationAndRetry covers empty and true facts through allocation refusal."]
     },
     {
       "path": "src/muz/rel/rel_context.h",
@@ -99323,7 +99429,8 @@
         "pkg/muz/fp/datalog_inline_pipeline.go",
         "pkg/muz/fp/datalog_inline_query_test.go",
         "pkg/muz/transforms/rule_inliner.go",
-        "pkg/muz/fp/datalog_inline_branch_test.go"
+        "pkg/muz/fp/datalog_inline_branch_test.go",
+        "pkg/muz/fp/datalog_similarity_order_test.go"
       ],
       "tests": [
         "TestDatalogSimilarityLiveQuery",
@@ -99347,7 +99454,8 @@
         "TestDatalogBoundSimilarityPublicQueriesAndUpdates",
         "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult",
         "TestDatalogInliningPreservesFactsModelsAndQueryScope",
-        "TestDatalogLinearInliningBranchParametersAndFacts"
+        "TestDatalogLinearInliningBranchParametersAndFacts",
+        "TestDatalogSimilarityPrecedesConstantTailFilters"
       ],
       "conditionals": [
         {
@@ -99378,19 +99486,21 @@
             "pkg/muz/fp/datalog_similarity_bound_test.go",
             "pkg/muz/fp/datalog_similarity_bound_cleanup_test.go",
             "pkg/muz/rel/similarity_interval.go",
-            "pkg/muz/rel/similarity_interval_cleanup.go"
+            "pkg/muz/rel/similarity_interval_cleanup.go",
+            "pkg/muz/fp/datalog_similarity_order_test.go"
           ],
           "tests": [
             "TestDatalogSimilarityLiveQuery",
             "TestDatalogSimilarityQueryParameterControls",
             "TestDatalogSimilarityKeepsQueriedOutputUnmerged",
             "TestDatalogBoundSimilarityPublicQueriesAndUpdates",
-            "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult"
+            "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult",
+            "TestDatalogSimilarityPrecedesConstantTailFilters"
           ],
-          "reason": "Configured bound queries honor similarity enablement, strict threshold and output-predicate guards (rel_context.cpp:305-306; dl_mk_similarity_compressor.cpp:340-500). Query-local auxiliary predicates use source-coarse BoundRelation facts while preserving source rules, source order and original registrations. The borrowing evaluator closes before its transformed program; cleanup refusal invalidates published results and keeps both owners reachable. Repeated queries, fact updates and independently owned answers are covered. Finite and interval consumers remain supported; other abstract/product representations and generic dispatch remain open."
+          "reason": "Configured bound queries honor similarity enablement, strict threshold and output-predicate guards (rel_context.cpp:305-306; dl_mk_similarity_compressor.cpp:340-500). Query-local auxiliary predicates use source-coarse BoundRelation facts while preserving source rules, source order and original registrations. The borrowing evaluator closes before its transformed program; cleanup refusal invalidates published results and keeps both owners reachable. Repeated queries, fact updates and independently owned answers are covered. Finite and interval consumers remain supported; other abstract/product representations and generic dispatch remain open. Finite similarity participates in the shared query transformer at source priority 5000, ahead of filter rules at 2000, simple joins at 1000 and unbound compression at 500 (rel_context.cpp:297-316; dl_mk_similarity_compressor.cpp:28; dl_mk_filter_rules.cpp:28; dl_mk_simple_joins.cpp:32; dl_mk_unbound_compressor.cpp:27). Generated similarity predicates are installed after transformation. Enabled/disabled regression cases check actual membership join_project execution, exact tuples before and after a fact update, and restoration of original rules, predicates and auxiliaries. Broader abstract backends, ownership audit and similarity-origin metadata remain open."
         },
         {
-          "name": "finite Datalog query normalization runs relation-aware cone pruning, interpreted-tail simplification, inlining, negative-tail separation and filter/simple joins with owned model-conversion steps",
+          "name": "finite Datalog query normalization runs relation-aware cone pruning, interpreted-tail simplification, inlining, negative-tail separation, similarity and filter/simple joins with owned model-conversion steps",
           "status": "ported",
           "go_targets": [
             "pkg/muz/fp/propositional_engine.go",
@@ -99404,16 +99514,19 @@
             "pkg/muz/fp/datalog_inline_pipeline.go",
             "pkg/muz/fp/datalog_inline_query_test.go",
             "pkg/muz/transforms/rule_inliner.go",
-            "pkg/muz/fp/datalog_inline_branch_test.go"
+            "pkg/muz/fp/datalog_inline_branch_test.go",
+            "pkg/muz/fp/datalog_similarity.go",
+            "pkg/muz/fp/datalog_similarity_order_test.go"
           ],
           "tests": [
             "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts",
             "TestDatalogInterpretedEqualityPrecedesFiniteCompilation",
             "TestDatalogPrivateNegativeTailHasQueryLocalComplement",
             "TestDatalogInliningPreservesFactsModelsAndQueryScope",
-            "TestDatalogLinearInliningBranchParametersAndFacts"
+            "TestDatalogLinearInliningBranchParametersAndFacts",
+            "TestDatalogSimilarityPrecedesConstantTailFilters"
           ],
-          "reason": "The query-local rule set restores the original program after pruning, including later disconnected-predicate queries. Cone steps transfer in order, reconstruct the original model and remain reachable across cleanup refusal. Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open. The finite query pipeline registers separate-negated-tails at source priority 21000 after interpreted-tail simplification and before filter/simple joins (rel_context.cpp:297-316). Private negative variables receive query-local lower-stratum complement predicates in creation order. Repeated compiled queries and later blocked-fact updates preserve the persistent rules/predicates and release every query-owned auxiliary. Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services. xform.inline_linear_branch keeps source default false and now reaches the finite query inliner with module/local enablement and local disable override. The public test checks extensional-fact protection, exact output tuples and later queries restoring the source program. Shared Horn preprocessing also forwards the resolved option through spacer_engine.go; this new public test covers Datalog rather than an independent Spacer/PDR branch scenario."
+          "reason": "The query-local rule set restores the original program after pruning, including later disconnected-predicate queries. Cone steps transfer in order, reconstruct the original model and remain reachable across cleanup refusal. Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open. The finite query pipeline registers separate-negated-tails at source priority 21000 after interpreted-tail simplification and before filter/simple joins (rel_context.cpp:297-316). Private negative variables receive query-local lower-stratum complement predicates in creation order. Repeated compiled queries and later blocked-fact updates preserve the persistent rules/predicates and release every query-owned auxiliary. Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services. xform.inline_linear_branch keeps source default false and now reaches the finite query inliner with module/local enablement and local disable override. The public test checks extensional-fact protection, exact output tuples and later queries restoring the source program. Shared Horn preprocessing also forwards the resolved option through spacer_engine.go; this new public test covers Datalog rather than an independent Spacer/PDR branch scenario. Finite similarity participates in the shared query transformer at source priority 5000, ahead of filter rules at 2000, simple joins at 1000 and unbound compression at 500 (rel_context.cpp:297-316; dl_mk_similarity_compressor.cpp:28; dl_mk_filter_rules.cpp:28; dl_mk_simple_joins.cpp:32; dl_mk_unbound_compressor.cpp:27). Generated similarity predicates are installed after transformation. Enabled/disabled regression cases check actual membership join_project execution, exact tuples before and after a fact update, and restoration of original rules, predicates and auxiliaries. Broader abstract backends, ownership audit and similarity-origin metadata remain open."
         }
       ],
       "ownership": [],
@@ -99488,8 +99601,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_relation_filter.go", "pkg/muz/rel/udoc_guard.go", "pkg/muz/rel/udoc_guard_test.go", "pkg/muz/rel/udoc_guard_compile.go", "pkg/muz/rel/udoc_guard_compile_test.go", "pkg/muz/rel/udoc_relation_join_project.go", "pkg/muz/rel/udoc_relation_join_project_test.go", "pkg/muz/rel/udoc_relation_factory.go", "pkg/muz/rel/udoc_relation_factory_test.go", "pkg/muz/rel/udoc_relation_typed.go", "pkg/muz/rel/udoc_relation_typed_formula.go", "pkg/muz/rel/udoc_relation_typed_operations.go", "pkg/muz/rel/udoc_relation_typed_test.go", "pkg/muz/rel/relation_formula_checker.go", "pkg/muz/rel/udoc_formula_checker.go", "pkg/muz/rel/udoc_formula_checker_transform.go", "pkg/muz/rel/udoc_formula_checker_test.go", "pkg/muz/rel/udoc_relation_typed_filter_project.go", "pkg/muz/rel/udoc_relation_typed_negation.go", "pkg/muz/rel/udoc_relation_typed_formula_cleanup.go", "pkg/muz/rel/udoc_relation_rename_cycle_test.go"],
-      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocJoinWithoutKeysIsCartesianProduct", "TestUDocCyclicJoinThenProject", "TestUDocRelationFormulaEmptyAndPopulated", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterIdenticalColumns", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocGuardRecognition", "TestUDocCompileAndFilterGuardBitVectorAndBoolean", "TestUDocCompileVariableRangeEqualities", "TestUDocCompileEqualityBetweenExtracts", "TestUDocCompileConcatenatedBitVectorEqualities", "TestUDocCompileConcatsWithDifferentSegmentBoundaries", "TestUDocCompileBooleanIffAndEquality", "TestUDocGuardSourceExpressionMatrix", "TestUDocFilterGuardAndProjectRejectsUnsupportedResidual", "TestUDocFilterByNegationRepeatedColumnsAndZeroArity", "TestUDocFilterByNegationSourceCubeMatrix", "TestUDocJoinProjectMatchesComposition", "TestUDocJoinProjectRepeatedKeysAndNullary", "TestUDocJoinProjectIntersectionAndDuplicateGuard", "TestUDocRelationFactoryCapabilitiesCacheAndConstruction", "TestUDocRelationFactoryCloseInvalidatesBorrowers", "TestTypedUDocFactsCloneAndColumnFormula", "TestTypedUDocJoinProjectAndNullaryFormula", "TestTypedUDocUnionFiltersRenameAndDelta", "TestFormulaCheckedUDocFactsCloneResetAndCorruption", "TestFormulaCheckedUDocCloseAfterFactoryRetirementReleasesOracle", "TestFormulaCheckedUDocConstructionNativeRefusalKeepsNestedOwners", "TestFormulaCheckedUDocJoinProjectAndSourceIndependence", "TestFormulaCheckedUDocFiltersAndRename", "TestFormulaCheckedUDocRenameThreeCycleUsesSourceDirection", "TestFormulaCheckedUDocUnionKeepsCumulativeDelta", "TestFormulaCheckedUDocNegationAndNullary", "TestFormulaCheckedUDocDetectsSourceIncompleteMembership", "TestFormulaCheckedUDocWideBitVectorsUseSymbolicStorage", "TestUDocRenameThreeCyclePreservesMixedWidthsAndComplement"],
+      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_relation_filter.go", "pkg/muz/rel/udoc_guard.go", "pkg/muz/rel/udoc_guard_test.go", "pkg/muz/rel/udoc_guard_compile.go", "pkg/muz/rel/udoc_guard_compile_test.go", "pkg/muz/rel/udoc_relation_join_project.go", "pkg/muz/rel/udoc_relation_join_project_test.go", "pkg/muz/rel/udoc_relation_factory.go", "pkg/muz/rel/udoc_relation_factory_test.go", "pkg/muz/rel/udoc_relation_typed.go", "pkg/muz/rel/udoc_relation_typed_formula.go", "pkg/muz/rel/udoc_relation_typed_operations.go", "pkg/muz/rel/udoc_relation_typed_test.go", "pkg/muz/rel/relation_formula_checker.go", "pkg/muz/rel/udoc_formula_checker.go", "pkg/muz/rel/udoc_formula_checker_transform.go", "pkg/muz/rel/udoc_formula_checker_test.go", "pkg/muz/rel/udoc_relation_typed_filter_project.go", "pkg/muz/rel/udoc_relation_typed_negation.go", "pkg/muz/rel/udoc_relation_typed_formula_cleanup.go", "pkg/muz/rel/udoc_relation_rename_cycle_test.go", "pkg/muz/rel/udoc_table_union.go", "pkg/muz/rel/udoc_relation_typed_add_new.go", "pkg/muz/rel/udoc_table_union_test.go"],
+      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocJoinWithoutKeysIsCartesianProduct", "TestUDocCyclicJoinThenProject", "TestUDocRelationFormulaEmptyAndPopulated", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterIdenticalColumns", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocGuardRecognition", "TestUDocCompileAndFilterGuardBitVectorAndBoolean", "TestUDocCompileVariableRangeEqualities", "TestUDocCompileEqualityBetweenExtracts", "TestUDocCompileConcatenatedBitVectorEqualities", "TestUDocCompileConcatsWithDifferentSegmentBoundaries", "TestUDocCompileBooleanIffAndEquality", "TestUDocGuardSourceExpressionMatrix", "TestUDocFilterGuardAndProjectRejectsUnsupportedResidual", "TestUDocFilterByNegationRepeatedColumnsAndZeroArity", "TestUDocFilterByNegationSourceCubeMatrix", "TestUDocJoinProjectMatchesComposition", "TestUDocJoinProjectRepeatedKeysAndNullary", "TestUDocJoinProjectIntersectionAndDuplicateGuard", "TestUDocRelationFactoryCapabilitiesCacheAndConstruction", "TestUDocRelationFactoryCloseInvalidatesBorrowers", "TestTypedUDocFactsCloneAndColumnFormula", "TestTypedUDocJoinProjectAndNullaryFormula", "TestTypedUDocUnionFiltersRenameAndDelta", "TestFormulaCheckedUDocFactsCloneResetAndCorruption", "TestFormulaCheckedUDocCloseAfterFactoryRetirementReleasesOracle", "TestFormulaCheckedUDocConstructionNativeRefusalKeepsNestedOwners", "TestFormulaCheckedUDocJoinProjectAndSourceIndependence", "TestFormulaCheckedUDocFiltersAndRename", "TestFormulaCheckedUDocRenameThreeCycleUsesSourceDirection", "TestFormulaCheckedUDocUnionKeepsCumulativeDelta", "TestFormulaCheckedUDocNegationAndNullary", "TestFormulaCheckedUDocDetectsSourceIncompleteMembership", "TestFormulaCheckedUDocWideBitVectorsUseSymbolicStorage", "TestUDocRenameThreeCyclePreservesMixedWidthsAndComplement", "TestUnionUDocFromTablePreservesConcreteSourcesAndCumulativeDelta", "TestUnionUDocFromTableNullaryAndPreflight", "TestUnionUDocFromTablePreservesSourceConservativeMembership", "TestUnionUDocFromTableAllocationFailurePreservesBorrowedOwners"],
       "conditionals": [
         {
           "line": 958,
@@ -99653,6 +99766,22 @@
             "TestFormulaCheckedUDocRenameThreeCycleUsesSourceDirection"
           ],
           "reason": "Three-cycle and inverse-round-trip checks preserve source column direction across unequal bit widths and complement cubes; the symbolic DOC checker verifies the same direction independently."
+        },
+        {
+          "name": "udoc_relation::add_new_fact appends a converted DOC without insertion normalization (udoc_relation.cpp:84-86; udoc_relation.h:45)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/rel/udoc_table_union.go",
+            "pkg/muz/rel/udoc_relation_typed_add_new.go",
+            "pkg/muz/rel/udoc_table_union_test.go"
+          ],
+          "tests": [
+            "TestUnionUDocFromTablePreservesConcreteSourcesAndCumulativeDelta",
+            "TestUnionUDocFromTableNullaryAndPreflight",
+            "TestUnionUDocFromTablePreservesSourceConservativeMembership",
+            "TestUnionUDocFromTableAllocationFailurePreservesBorrowedOwners"
+          ],
+          "reason": "The concrete raw finite-table union consumer calls AddNewFact only when the target's source-defined ContainsFact reports absence. Conservative false-negative membership for a negative cube therefore appends the row and includes it in the cumulative delta, preserving source behavior. The typed method also forwards to its checker, but these new tests cover raw insertion and reject checked union targets; they do not add direct checked AddNewFact coverage or public mixed-query integration."
         }
       ],
       "ownership": [],
@@ -99663,8 +99792,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_relation_filter.go", "pkg/muz/rel/udoc_guard.go", "pkg/muz/rel/udoc_guard_test.go", "pkg/muz/rel/udoc_guard_compile.go", "pkg/muz/rel/udoc_guard_compile_test.go", "pkg/muz/rel/udoc_relation_factory.go", "pkg/muz/rel/udoc_relation_factory_test.go", "pkg/muz/rel/udoc_relation_typed.go", "pkg/muz/rel/udoc_relation_typed_formula.go", "pkg/muz/rel/udoc_relation_typed_operations.go", "pkg/muz/rel/udoc_relation_typed_test.go", "pkg/muz/rel/relation_formula_checker.go", "pkg/muz/rel/udoc_formula_checker.go", "pkg/muz/rel/udoc_formula_checker_transform.go", "pkg/muz/rel/udoc_formula_checker_test.go", "pkg/muz/rel/udoc_relation_typed_filter_project.go", "pkg/muz/rel/udoc_relation_typed_negation.go", "pkg/muz/rel/udoc_relation_typed_formula_cleanup.go", "pkg/muz/rel/udoc_relation_rename_cycle_test.go"],
-      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocJoinWithoutKeysIsCartesianProduct", "TestUDocCyclicJoinThenProject", "TestUDocRelationFormulaEmptyAndPopulated", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterIdenticalColumns", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocGuardRecognition", "TestUDocCompileAndFilterGuardBitVectorAndBoolean", "TestUDocCompileVariableRangeEqualities", "TestUDocCompileEqualityBetweenExtracts", "TestUDocCompileConcatenatedBitVectorEqualities", "TestUDocCompileConcatsWithDifferentSegmentBoundaries", "TestUDocCompileBooleanIffAndEquality", "TestUDocGuardSourceExpressionMatrix", "TestUDocFilterGuardAndProjectRejectsUnsupportedResidual", "TestUDocFilterByNegationRepeatedColumnsAndZeroArity", "TestUDocFilterByNegationSourceCubeMatrix", "TestUDocRelationFactoryCapabilitiesCacheAndConstruction", "TestUDocRelationFactoryCloseInvalidatesBorrowers", "TestTypedUDocFactsCloneAndColumnFormula", "TestTypedUDocJoinProjectAndNullaryFormula", "TestTypedUDocUnionFiltersRenameAndDelta", "TestFormulaCheckedUDocFactsCloneResetAndCorruption", "TestFormulaCheckedUDocCloseAfterFactoryRetirementReleasesOracle", "TestFormulaCheckedUDocConstructionNativeRefusalKeepsNestedOwners", "TestFormulaCheckedUDocJoinProjectAndSourceIndependence", "TestFormulaCheckedUDocFiltersAndRename", "TestFormulaCheckedUDocRenameThreeCycleUsesSourceDirection", "TestFormulaCheckedUDocUnionKeepsCumulativeDelta", "TestFormulaCheckedUDocNegationAndNullary", "TestFormulaCheckedUDocDetectsSourceIncompleteMembership", "TestFormulaCheckedUDocWideBitVectorsUseSymbolicStorage", "TestUDocRenameThreeCyclePreservesMixedWidthsAndComplement"],
+      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_relation_filter.go", "pkg/muz/rel/udoc_guard.go", "pkg/muz/rel/udoc_guard_test.go", "pkg/muz/rel/udoc_guard_compile.go", "pkg/muz/rel/udoc_guard_compile_test.go", "pkg/muz/rel/udoc_relation_factory.go", "pkg/muz/rel/udoc_relation_factory_test.go", "pkg/muz/rel/udoc_relation_typed.go", "pkg/muz/rel/udoc_relation_typed_formula.go", "pkg/muz/rel/udoc_relation_typed_operations.go", "pkg/muz/rel/udoc_relation_typed_test.go", "pkg/muz/rel/relation_formula_checker.go", "pkg/muz/rel/udoc_formula_checker.go", "pkg/muz/rel/udoc_formula_checker_transform.go", "pkg/muz/rel/udoc_formula_checker_test.go", "pkg/muz/rel/udoc_relation_typed_filter_project.go", "pkg/muz/rel/udoc_relation_typed_negation.go", "pkg/muz/rel/udoc_relation_typed_formula_cleanup.go", "pkg/muz/rel/udoc_relation_rename_cycle_test.go", "pkg/muz/rel/udoc_table_union.go", "pkg/muz/rel/udoc_relation_typed_add_new.go", "pkg/muz/rel/udoc_table_union_test.go"],
+      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocJoinWithoutKeysIsCartesianProduct", "TestUDocCyclicJoinThenProject", "TestUDocRelationFormulaEmptyAndPopulated", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterIdenticalColumns", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocGuardRecognition", "TestUDocCompileAndFilterGuardBitVectorAndBoolean", "TestUDocCompileVariableRangeEqualities", "TestUDocCompileEqualityBetweenExtracts", "TestUDocCompileConcatenatedBitVectorEqualities", "TestUDocCompileConcatsWithDifferentSegmentBoundaries", "TestUDocCompileBooleanIffAndEquality", "TestUDocGuardSourceExpressionMatrix", "TestUDocFilterGuardAndProjectRejectsUnsupportedResidual", "TestUDocFilterByNegationRepeatedColumnsAndZeroArity", "TestUDocFilterByNegationSourceCubeMatrix", "TestUDocRelationFactoryCapabilitiesCacheAndConstruction", "TestUDocRelationFactoryCloseInvalidatesBorrowers", "TestTypedUDocFactsCloneAndColumnFormula", "TestTypedUDocJoinProjectAndNullaryFormula", "TestTypedUDocUnionFiltersRenameAndDelta", "TestFormulaCheckedUDocFactsCloneResetAndCorruption", "TestFormulaCheckedUDocCloseAfterFactoryRetirementReleasesOracle", "TestFormulaCheckedUDocConstructionNativeRefusalKeepsNestedOwners", "TestFormulaCheckedUDocJoinProjectAndSourceIndependence", "TestFormulaCheckedUDocFiltersAndRename", "TestFormulaCheckedUDocRenameThreeCycleUsesSourceDirection", "TestFormulaCheckedUDocUnionKeepsCumulativeDelta", "TestFormulaCheckedUDocNegationAndNullary", "TestFormulaCheckedUDocDetectsSourceIncompleteMembership", "TestFormulaCheckedUDocWideBitVectorsUseSymbolicStorage", "TestUDocRenameThreeCyclePreservesMixedWidthsAndComplement", "TestUnionUDocFromTablePreservesConcreteSourcesAndCumulativeDelta", "TestUnionUDocFromTableNullaryAndPreflight", "TestUnionUDocFromTablePreservesSourceConservativeMembership", "TestUnionUDocFromTableAllocationFailurePreservesBorrowedOwners"],
       "conditionals": [
         {
           "line": 22,
@@ -99692,6 +99821,22 @@
             "TestFormulaCheckedUDocRenameThreeCycleUsesSourceDirection"
           ],
           "reason": "Three-cycle and inverse-round-trip checks preserve source column direction across unequal bit widths and complement cubes; the symbolic DOC checker verifies the same direction independently."
+        },
+        {
+          "name": "udoc_relation::add_new_fact appends a converted DOC without insertion normalization (udoc_relation.cpp:84-86; udoc_relation.h:45)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/rel/udoc_table_union.go",
+            "pkg/muz/rel/udoc_relation_typed_add_new.go",
+            "pkg/muz/rel/udoc_table_union_test.go"
+          ],
+          "tests": [
+            "TestUnionUDocFromTablePreservesConcreteSourcesAndCumulativeDelta",
+            "TestUnionUDocFromTableNullaryAndPreflight",
+            "TestUnionUDocFromTablePreservesSourceConservativeMembership",
+            "TestUnionUDocFromTableAllocationFailurePreservesBorrowedOwners"
+          ],
+          "reason": "The concrete raw finite-table union consumer calls AddNewFact only when the target's source-defined ContainsFact reports absence. Conservative false-negative membership for a negative cube therefore appends the row and includes it in the cumulative delta, preserving source behavior. The typed method also forwards to its checker, but these new tests cover raw insertion and reject checked union targets; they do not add direct checked AddNewFact coverage or public mixed-query integration."
         }
       ],
       "ownership": [],
@@ -105640,8 +105785,8 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/transforms/filter_rules.go", "pkg/muz/transforms/filter_rules_test.go", "pkg/muz/transforms/filter_rules_close_pending_test.go"],
-      "tests": ["TestFilterRulesCachesNormalizedRepeatedArgumentFilters", "TestFilterRulesLocalRepeatedAndValueArguments", "TestFilterRulesRemoveDuplicateRewrittenTails", "TestFilterRulesIgnoreDistinctAndNegatedPredicateArguments", "TestFilterRulesCacheCleanupRefusal"],
+      "go_targets": ["pkg/muz/transforms/filter_rules.go", "pkg/muz/transforms/filter_rules_test.go", "pkg/muz/transforms/filter_rules_close_pending_test.go", "pkg/muz/transforms/filter_simple_origins_test.go"],
+      "tests": ["TestFilterRulesCachesNormalizedRepeatedArgumentFilters", "TestFilterRulesLocalRepeatedAndValueArguments", "TestFilterRulesRemoveDuplicateRewrittenTails", "TestFilterRulesIgnoreDistinctAndNegatedPredicateArguments", "TestFilterRulesCacheCleanupRefusal", "TestFilterRulesOriginsFollowTailsAndCacheReplacement"],
       "assertions": [
         {
           "line": 65,
@@ -105666,7 +105811,10 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name":"whole filter-rules transform, normalized filter caching, repeated/value argument rewriting and duplicate-tail removal","status":"ported","go_target":"pkg/muz/transforms/filter_rules.go","tests":["TestFilterRulesCachesNormalizedRepeatedArgumentFilters","TestFilterRulesLocalRepeatedAndValueArguments","TestFilterRulesRemoveDuplicateRewrittenTails","TestFilterRulesIgnoreDistinctAndNegatedPredicateArguments"]}],
+      "methods": [{"name":"whole filter-rules transform, normalized filter caching, repeated/value argument rewriting and duplicate-tail removal","status":"ported","go_target":"pkg/muz/transforms/filter_rules.go","tests":["TestFilterRulesCachesNormalizedRepeatedArgumentFilters","TestFilterRulesLocalRepeatedAndValueArguments","TestFilterRulesRemoveDuplicateRewrittenTails","TestFilterRulesIgnoreDistinctAndNegatedPredicateArguments", "TestFilterRulesOriginsFollowTailsAndCacheReplacement", "TestFilterRulesCacheCleanupRefusal"],
+          "go_targets": ["pkg/muz/transforms/filter_rules.go","pkg/muz/transforms/filter_simple_origins_test.go","pkg/muz/transforms/filter_rules_close_pending_test.go"],
+          "reason": "Each generated filter reports the original tail declaration supplied to mk_fresh_head_predicate (dl_mk_filter_rules.cpp:85-86). Equivalent repeated/constant tails share one filter; cache replacement forgets old origins and failed reset preserves origins with their pins. Closing, closed and nil plugins publish no origin. This exposes borrowed source-predicate origin metadata for the planned finite consumer; this slice does not activate relation-kind inheritance in that consumer."
+        }],
       "ownership": ["The transform owns generated declarations/rules through the existing rule-set owner and keeps call-local cache keys concrete and deterministic. Cache reset and Close remove pins only after successful native release, preserve unconsumed owners on refusal, and support retry without publishing closing state."],
       "deviations": []
     },
@@ -105675,8 +105823,8 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/transforms/filter_rules.go", "pkg/muz/transforms/filter_rules_test.go"],
-      "tests": ["TestFilterRulesCachesNormalizedRepeatedArgumentFilters", "TestFilterRulesLocalRepeatedAndValueArguments", "TestFilterRulesRemoveDuplicateRewrittenTails", "TestFilterRulesIgnoreDistinctAndNegatedPredicateArguments"],
+      "go_targets": ["pkg/muz/transforms/filter_rules.go", "pkg/muz/transforms/filter_rules_test.go", "pkg/muz/transforms/filter_simple_origins_test.go", "pkg/muz/transforms/filter_rules_close_pending_test.go"],
+      "tests": ["TestFilterRulesCachesNormalizedRepeatedArgumentFilters", "TestFilterRulesLocalRepeatedAndValueArguments", "TestFilterRulesRemoveDuplicateRewrittenTails", "TestFilterRulesIgnoreDistinctAndNegatedPredicateArguments", "TestFilterRulesOriginsFollowTailsAndCacheReplacement", "TestFilterRulesCacheCleanupRefusal"],
       "conditionals": [
         {
           "line": 19,
@@ -105689,7 +105837,10 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name":"filter-rules plugin public transform and retained mk_new_rule_tail helper","status":"ported","go_target":"pkg/muz/transforms/filter_rules.go","tests":["TestFilterRulesRemoveDuplicateRewrittenTails"]}],
+      "methods": [{"name":"filter-rules plugin public transform and retained mk_new_rule_tail helper","status":"ported","go_target":"pkg/muz/transforms/filter_rules.go","tests":["TestFilterRulesRemoveDuplicateRewrittenTails", "TestFilterRulesOriginsFollowTailsAndCacheReplacement", "TestFilterRulesCacheCleanupRefusal"],
+          "go_targets": ["pkg/muz/transforms/filter_rules.go","pkg/muz/transforms/filter_simple_origins_test.go","pkg/muz/transforms/filter_rules_close_pending_test.go"],
+          "reason": "Each generated filter reports the original tail declaration supplied to mk_fresh_head_predicate (dl_mk_filter_rules.cpp:85-86). Equivalent repeated/constant tails share one filter; cache replacement forgets old origins and failed reset preserves origins with their pins. Closing, closed and nil plugins publish no origin. This exposes borrowed source-predicate origin metadata for the planned finite consumer; this slice does not activate relation-kind inheritance in that consumer."
+        }],
       "ownership": ["Plugin state is scoped to each transform invocation; output rules transfer to the returned RuleSet."],
       "deviations": []
     },
