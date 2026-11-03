@@ -446,34 +446,6 @@ func (e *PropositionalEngine) AssertBackground(formula ast.ASTHandle) error {
 	return nil
 }
 
-// BackgroundAssertions returns owning references in insertion order.
-func (e *PropositionalEngine) BackgroundAssertions() (result []ast.ASTRef, resultErr error) {
-	if err := e.open(); err != nil {
-		return nil, err
-	}
-	result = make([]ast.ASTRef, 0, len(e.assertions))
-	defer func() {
-		if resultErr != nil {
-			for i := len(result) - 1; i >= 0; i-- {
-				resultErr = errors.Join(resultErr, e.manager.DelRef(&result[i]))
-			}
-			result = nil
-		}
-	}()
-	for _, assertion := range e.assertions {
-		handle, err := e.manager.RefGet(assertion)
-		if err != nil {
-			return nil, err
-		}
-		reference, err := e.manager.NewRef(handle)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, reference)
-	}
-	return result, nil
-}
-
 // ParametersUpdated invalidates the published result. Duality reads its query
 // options on each query and preserves its learning context across updates.
 func (e *PropositionalEngine) ParametersUpdated() error {
@@ -1902,48 +1874,6 @@ func (e *PropositionalEngine) ResetStatistics() error {
 func (e *PropositionalEngine) Rules() (result []ast.ASTRef, resultErr error) {
 	result, _, resultErr = e.NamedRules()
 	return result, resultErr
-}
-
-// NamedRules returns owning formulas and their copied names in insertion
-// order.
-func (e *PropositionalEngine) NamedRules() (result []ast.ASTRef, names []string, resultErr error) {
-	if err := e.open(); err != nil {
-		return nil, nil, err
-	}
-	count, err := e.set.Len()
-	if err != nil {
-		return nil, nil, err
-	}
-	defer func() {
-		if resultErr != nil {
-			for index := len(result) - 1; index >= 0; index-- {
-				resultErr = errors.Join(resultErr, e.manager.DelRef(&result[index]))
-			}
-			result = nil
-			names = nil
-		}
-	}()
-	result = make([]ast.ASTRef, 0, count)
-	names = make([]string, 0, count)
-	for index := 0; index < count; index++ {
-		rule, getErr := e.set.Rule(index)
-		if getErr != nil {
-			return nil, nil, getErr
-		}
-		formula, formulaErr := rule.ToFormula()
-		name, nameErr := rule.Name()
-		formulaErr = errors.Join(formulaErr, nameErr)
-		formulaErr = errors.Join(formulaErr, rule.Close())
-		if formulaErr != nil {
-			if _, referenceErr := e.manager.RefGet(formula); referenceErr == nil {
-				formulaErr = errors.Join(formulaErr, e.manager.DelRef(&formula))
-			}
-			return nil, nil, formulaErr
-		}
-		result = append(result, formula)
-		names = append(names, name)
-	}
-	return result, names, nil
 }
 
 // Predicates returns borrowed registered relation declarations in declaration
