@@ -2854,6 +2854,12 @@ func (e *PropositionalEngine) Model(declaration ast.ASTHandle) (*model.Model, er
 		}
 		return e.expandSpacerModel(result)
 	}
+	// These engines inherit engine_base::get_model, which returns a fresh
+	// empty model independently of the completed query's result status.
+	switch kind {
+	case EngineBMC, EngineQBMC, EngineTab, EngineCLP, EngineDDNF:
+		return model.NewModel(e.manager)
+	}
 	return nil, ErrPropositionalEngine
 }
 
