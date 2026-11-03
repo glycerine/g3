@@ -1385,7 +1385,7 @@ func (c *finiteCompiler) compileRule(rule finiteCompiledRule, delta uint32, tail
 // compileRecursive emits an exact semi-naive finite fixpoint loop. Each rule
 // run substitutes one changed tail relation and reads accumulated relations
 // for its other tails, recording newly inserted tuples in the next deltas.
-func (c *finiteCompiler) compileRecursive(rules []finiteCompiledRule) (resultErr error) {
+func (c *finiteCompiler) compileRecursive(set *base.RuleSet, rules []finiteCompiledRule) (resultErr error) {
 	orderedRules, err := c.orderRecursiveRules(rules)
 	if err != nil {
 		return err
@@ -1394,6 +1394,7 @@ func (c *finiteCompiler) compileRecursive(rules []finiteCompiledRule) (resultErr
 	fullSources := [2]uint32{VoidRegister, VoidRegister}
 	headOrder := make([]ast.ASTHandle, 0)
 	seen := make(map[ast.ASTHandle]bool)
+	rulesByHead := make(map[ast.ASTHandle][]finiteCompiledRule)
 	currentDeltas := make(map[ast.ASTHandle]uint32)
 	nextDeltas := make(map[ast.ASTHandle]uint32)
 	for _, rule := range rules {
@@ -1401,6 +1402,7 @@ func (c *finiteCompiler) compileRecursive(rules []finiteCompiledRule) (resultErr
 		if err != nil {
 			return err
 		}
+		rulesByHead[head] = append(rulesByHead[head], rule)
 		if seen[head] {
 			continue
 		}
@@ -1410,12 +1412,45 @@ func (c *finiteCompiler) compileRecursive(rules []finiteCompiledRule) (resultErr
 		currentDeltas[head] = c.fresh(signature)
 		nextDeltas[head] = c.fresh(signature)
 	}
-	for _, rule := range rules {
-		head, err := c.manager.GetDecl(rule.head)
+	// compile_preds_init evaluates only lower-stratum inputs before entering
+	// the recursive loop. Every existing head row, including preloaded facts,
+	// then participates in the first iteration through a full relation clone.
+	for _, head := range headOrder {
+		stratum, err := set.PredicateStratum(head)
 		if err != nil {
 			return err
 		}
-		if err = c.compileRule(rule, currentDeltas[head], fullSources); err != nil {
+		for _, rule := range rulesByHead[head] {
+			count, err := rule.rule.UninterpretedTailSize()
+			if err != nil {
+				return err
+			}
+			initial := true
+			for index := 0; index < count; index++ {
+				tail, _, err := rule.rule.Tail(index)
+				if err != nil {
+					return err
+				}
+				predicate, err := c.manager.GetDecl(tail)
+				if err != nil {
+					return err
+				}
+				tailStratum, err := set.PredicateStratum(predicate)
+				if err != nil {
+					return err
+				}
+				if tailStratum >= stratum {
+					initial = false
+					break
+				}
+			}
+			if initial {
+				if err = c.compileRule(rule, VoidRegister, fullSources); err != nil {
+					return err
+				}
+			}
+		}
+		if err = c.emit(NewCloneInstruction(c.predicateRegs[head], currentDeltas[head]), nil); err != nil {
 			return err
 		}
 	}
@@ -1586,7 +1621,7 @@ func (c *finiteCompiler) compile(set *base.RuleSet) (resultErr error) {
 			if !errors.Is(x, ErrCompilerUnsupported) {
 				return x
 			}
-			if x = c.compileRecursive(group); x != nil {
+			if x = c.compileRecursive(set, group); x != nil {
 				return x
 			}
 		} else {
