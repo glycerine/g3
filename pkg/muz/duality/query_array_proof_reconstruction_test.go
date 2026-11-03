@@ -2,6 +2,7 @@ package duality_test
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -16,6 +17,22 @@ import (
 // a predicate below a forall. That antecedent is a real proof premise even
 // though it is not represented by an RPFP child edge.
 func TestDualityQuantifiedArrayProofReconstructsBridgePremise(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		rangeSort string
+		value     string
+		guarded   bool
+	}{
+		{name: "integer_equality", rangeSort: "Int", value: "7", guarded: true},
+		{name: "Boolean_equivalence", rangeSort: "Bool", value: "true"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			testDualityQuantifiedArrayProofReconstructsBridgePremise(t, test.rangeSort, test.value, test.guarded)
+		})
+	}
+}
+
+func testDualityQuantifiedArrayProofReconstructsBridgePremise(t *testing.T, rangeSort, value string, guarded bool) {
 	context, err := cmd_context.NewStandaloneContext()
 	if err != nil {
 		t.Fatal(err)
@@ -27,17 +44,22 @@ func TestDualityQuantifiedArrayProofReconstructsBridgePremise(t *testing.T) {
 	}()
 	context.PrintSuccess = false
 	var output bytes.Buffer
-	script := `(set-option :fixedpoint.engine duality)
+	fact := fmt.Sprintf("(P ((as const (Array Int %s)) %s))", rangeSort, value)
+	rule := fmt.Sprintf("(rule %s)", fact)
+	if guarded {
+		rule = fmt.Sprintf("(rule (=> Seed %s))", fact)
+	}
+	script := fmt.Sprintf(`(set-option :fixedpoint.engine duality)
 (set-option :fixedpoint.generate_proof_trace true)
 (set-option :fixedpoint.xform.quantify_arrays true)
 (declare-rel Seed ())
-(declare-rel P ((Array Int Int)))
+(declare-rel P ((Array Int %s)))
 (declare-rel Goal ())
 (rule Seed)
-(rule (=> Seed (P ((as const (Array Int Int)) 7))))
-(rule (=> (P ((as const (Array Int Int)) 7)) Goal))
+%s
+(rule (=> %s Goal))
 (query Goal :print-answer false)
-`
+`, rangeSort, rule, fact)
 	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
 		t.Fatal(err)
 	}

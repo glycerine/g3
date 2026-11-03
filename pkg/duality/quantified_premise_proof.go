@@ -95,7 +95,7 @@ func (g *RPFP) proveQuantifiedHornLiteral(factory solver.Factory, source *RPFP, 
 			}
 			headDecl, err := m.GetDecl(head)
 			if err == nil && headDecl == targetDecl && formulaKind == ast.ASTQuantifier {
-				supported, err := g.structuralQuantifiedDefinition(bodyFormula)
+				supported, err := source.structuralQuantifiedDefinition(bodyFormula)
 				if err != nil {
 					return ast.ASTRef{}, err
 				}
@@ -203,9 +203,10 @@ func (g *RPFP) proveQuantifiedHornDefinition(factory solver.Factory, definition,
 			}
 		}
 	}
-	// Once one equality side is determined by the head substitution, match the
-	// other source term against that exact target term to select still-unbound
-	// source witnesses. This is constructive instantiation, not inverse
+	// Once one equality or Boolean-equivalence side is determined by the head
+	// substitution, match the other source term against that exact target term
+	// to select still-unbound source witnesses. This is constructive
+	// instantiation, not inverse
 	// reasoning (for example, select is never assumed injective); the complete
 	// instantiated antecedent remains an independently checked proof condition.
 	var known func(ast.ASTHandle) (ast.ASTHandle, bool, error)
@@ -339,7 +340,7 @@ func (g *RPFP) proveQuantifiedHornDefinition(factory solver.Factory, definition,
 				return ast.ASTRef{}, err
 			}
 			op, err := m.GetDeclKind(atom)
-			if err != nil || family != m.BasicFamilyID() || op != ast.ASTOpEq {
+			if err != nil || family != m.BasicFamilyID() || (op != ast.ASTOpEq && op != ast.ASTOpIff) {
 				continue
 			}
 			left, err := m.GetArg(atom, 0)
@@ -477,10 +478,12 @@ func (g *RPFP) validQuantifiedDefinitionProof(factory solver.Factory, proof ast.
 	return true, nil
 }
 
-// structuralQuantifiedDefinition bounds the specialized constructor to the
-// clause shape emitted by QuantifierAbstraction: an all-variable predicate
-// head guarded only by equalities (or their conjunction). Relation antecedents
-// require real parent proofs and therefore use the native fallback instead.
+// structuralQuantifiedDefinition bounds the specialized constructor to an
+// all-variable predicate head with a relation-free antecedent. Equalities are
+// used above to reconstruct otherwise missing witnesses, while any remaining
+// background-theory conjuncts become independently checked side conditions.
+// Program relations require the recursive parent proofs used by the source
+// proof converter and therefore stay on the native fallback path.
 func (g *RPFP) structuralQuantifiedDefinition(body ast.ASTHandle) (bool, error) {
 	m := g.context.manager
 	head, err := m.GetArg(body, 1)
@@ -508,40 +511,12 @@ func (g *RPFP) structuralQuantifiedDefinition(body ast.ASTHandle) (bool, error) 
 	if err != nil {
 		return false, err
 	}
-	atoms := []ast.ASTHandle{antecedent}
-	family, err := m.GetFamilyID(antecedent)
+	relations, err := g.proofPredicateDeclarations(antecedent)
 	if err != nil {
 		return false, err
 	}
-	op, err := m.GetDeclKind(antecedent)
-	if err != nil {
-		return false, err
-	}
-	if family == m.BasicFamilyID() && op == ast.ASTOpAnd {
-		count, err := m.GetNumArgs(antecedent)
-		if err != nil {
-			return false, err
-		}
-		atoms = make([]ast.ASTHandle, count)
-		for i := range atoms {
-			atoms[i], err = m.GetArg(antecedent, uint32(i))
-			if err != nil {
-				return false, err
-			}
-		}
-	}
-	for _, atom := range atoms {
-		family, err := m.GetFamilyID(atom)
-		if err != nil {
-			return false, err
-		}
-		op, err := m.GetDeclKind(atom)
-		if err != nil {
-			return false, err
-		}
-		if family != m.BasicFamilyID() || op != ast.ASTOpEq {
-			return false, nil
-		}
+	if len(relations) != 0 {
+		return false, nil
 	}
 	return true, nil
 }

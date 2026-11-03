@@ -171,3 +171,68 @@ func TestDualityQuantifiedRelationPremiseIsTheoryObligation(t *testing.T) {
 		}
 	}
 }
+
+func TestQuantifiedPremiseSpecializationRequiresRelationParent(t *testing.T) {
+	ctx, m, _, _ := dualityNativeSolverServicesFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	wrap := func(h ast.ASTHandle, err error) *Expr {
+		t.Helper()
+		must(err)
+		e, err := NewExpr(ctx, h)
+		must(err)
+		closeExpr(t, e)
+		return e
+	}
+	raw := func(e *Expr) ast.ASTHandle {
+		t.Helper()
+		h, err := e.Raw()
+		must(err)
+		return h
+	}
+
+	truth := raw(wrap(m.MkTrue()))
+	boolean, err := m.GetSort(truth)
+	must(err)
+	zero := raw(wrap(m.ArithmeticIntegerNumeralText("0")))
+	integer, err := m.GetSort(zero)
+	must(err)
+	declare := func(name string, domain []ast.ASTHandle) ast.ASTHandle {
+		t.Helper()
+		symbol, err := m.Symbols.Intern(name)
+		must(err)
+		decl, err := m.MkFuncDecl(symbol, domain, boolean, ast.ASTFuncDeclInfo{})
+		must(err)
+		return decl
+	}
+	seedDecl := declare("quantified-parent-Seed", nil)
+	pDecl := declare("quantified-parent-P", []ast.ASTHandle{integer})
+	seed := raw(wrap(m.MkApp(seedDecl, nil)))
+	variable := raw(wrap(m.MkVar(0, integer)))
+	head := raw(wrap(m.MkApp(pDecl, []ast.ASTHandle{variable})))
+	body := raw(wrap(m.MkImplies(seed, head)))
+	definition := raw(wrap(m.MkQuantifier(ast.ASTQuantifierSpec{
+		Forall: true,
+		Sorts:  []ast.ASTHandle{integer},
+		Names:  []usymbol.Symbol{usymbol.Numerical(0)},
+		Body:   body,
+	})))
+
+	graph, err := NewRPFP(ctx)
+	must(err)
+	defer func() { must(graph.Close()) }()
+	for _, formula := range []ast.ASTHandle{seed, definition} {
+		ref, err := m.NewRef(formula)
+		must(err)
+		graph.sourceClauses = append(graph.sourceClauses, ref)
+	}
+	supported, err := graph.structuralQuantifiedDefinition(body)
+	must(err)
+	if supported {
+		t.Fatal("relation guard was accepted without its recursive proof parent")
+	}
+}
