@@ -184,6 +184,24 @@ func (c *Context) propagate(maximum uint32) (bool, error) {
 	return false, nil
 }
 
+// SetEmptyProgramUnsat records the source interface's trivial empty-program
+// result without entering context::solve. The initialized program must be
+// empty; in particular, this path emits no solve diagnostics and does not run
+// post-solve validation.
+func (c *Context) SetEmptyProgramUnsat(queryDeclaration ast.ASTHandle) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	if !c.initialized || queryDeclaration.IsNull() || len(c.order) != 0 || len(c.transformers) != 0 {
+		return ast.ErrASTDomain
+	}
+	c.query = nil
+	c.queryDecl = queryDeclaration
+	c.lastResult = lbool.False
+	c.expanded, c.inductive = 0, 0
+	return nil
+}
+
 // Solve runs the retained frame-expansion and propagation loop for the query
 // predicate. Child projection preserves transition literals between predecessor
 // states; native implicant minimization and QE generalization refine that cube.

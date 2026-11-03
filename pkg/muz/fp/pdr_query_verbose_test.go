@@ -136,3 +136,28 @@ func TestPDRQueryDisplaysEmptyProgramModelAtSourceVerbosity(t *testing.T) {
 		})
 	}
 }
+
+// pdr_dl_interface marks a zero-rule transformed program unsatisfiable
+// without entering context::solve, so even enabled post-solve validation is
+// not reached by a repeated empty-program query.
+func TestPDREmptyProgramBypassesSolveValidation(t *testing.T) {
+	for _, backend := range []string{"pdr", "qpdr"} {
+		t.Run(backend, func(t *testing.T) {
+			f := newPDRLifecycleFixture(t)
+			fragmentMust(t, f.engine.SelectEngine(backend))
+			fragmentMust(t, f.engine.globals.SourceSetName("fixedpoint.pdr.validate_result", "true"))
+			status, err := f.engine.QueryPredicate(f.declarations["u"])
+			fragmentMust(t, err)
+			if status != lbool.False {
+				t.Fatal("warm empty-program query", status)
+			}
+			f.manager.Budget().FailAfter(0)
+			status, err = f.engine.QueryPredicate(f.declarations["u"])
+			f.manager.Budget().FailAfter(-1)
+			fragmentMust(t, err)
+			if status != lbool.False {
+				t.Fatal("empty-program query entered solve validation", status)
+			}
+		})
+	}
+}

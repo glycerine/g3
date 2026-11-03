@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/pdr"
 	"github.com/glycerine/g3/pkg/muz/transforms"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -144,6 +145,23 @@ func (e *PropositionalEngine) installPDRPreprocessing(result *hornPreprocessResu
 	e.pdrConversions = result.takeModelConversions()
 }
 
+// The source interface marks an empty transformed program unsatisfiable
+// directly. It does not enter context::solve (and therefore emits none of the
+// solve TRACE/validation/cancellation lifecycle) before printing its model.
+func solvePDRProgram(context *pdr.Context, rules *base.RuleSet, query ast.ASTHandle) (lbool.LBool, error) {
+	count, err := rules.Len()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if count != 0 {
+		return context.Solve(query)
+	}
+	if err = context.SetEmptyProgramUnsat(query); err != nil {
+		return lbool.Undef, err
+	}
+	return lbool.False, nil
+}
+
 func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool, resultErr error) {
 	status, err := e.queryPDRWithSliceProof(declaration, true)
 	if onlyErrorKind(err, errRetryUnslicedProof) {
@@ -209,7 +227,7 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 		if err = writePDRQueryRules(e.pdrRules); err != nil {
 			return lbool.Undef, err
 		}
-		status, err := e.pdr.Solve(e.pdrPredicate(declaration))
+		status, err := solvePDRProgram(e.pdr, e.pdrRules, e.pdrPredicate(declaration))
 		if err == nil && status == lbool.False {
 			err = e.writePDREmptyProgramModel(declaration)
 		}
@@ -360,7 +378,7 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	e.pdrQuery = declaration
 	keepSnapshot = true
 	installed = true
-	status, err := context.Solve(queryDeclaration)
+	status, err := solvePDRProgram(context, e.pdrRules, queryDeclaration)
 	if err == nil && status == lbool.False {
 		err = e.writePDREmptyProgramModel(declaration)
 	}
