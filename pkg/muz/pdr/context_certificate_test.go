@@ -79,14 +79,16 @@ func TestContextDisplayCertificateSourceResultPresentations(t *testing.T) {
 	if !strings.Contains(output.String(), "false") {
 		t.Fatalf("finite-frame certificate ignored finite cover = %q", output.String())
 	}
-	infinity, err := unreachable.context.Model(unreachable.declaration)
+	// context::get_model and display_certificate both materialize
+	// get_level_property(m_inductive_lvl), not the infinity-only cover.
+	inductive, err := unreachable.context.Model(unreachable.declaration)
 	pdrMust(t, err)
-	defer func() { pdrMust(t, infinity.Close()) }()
+	defer func() { pdrMust(t, inductive.Close()) }()
 	globals, err := unreachable.command.GlobalParameters()
 	pdrMust(t, err)
-	var infinityOutput bytes.Buffer
-	pdrMust(t, infinity.Core().WriteSMT2(&infinityOutput, globals.Context, globals, 0))
-	if !strings.Contains(infinityOutput.String(), "true") || strings.Contains(infinityOutput.String(), "false") {
-		t.Fatalf("finite cover changed infinity model = %q", infinityOutput.String())
+	var modelOutput bytes.Buffer
+	pdrMust(t, inductive.Core().WriteSMT2(&modelOutput, globals.Context, globals, 0))
+	if !strings.Contains(modelOutput.String(), "false") {
+		t.Fatalf("inductive model ignored finite cover = %q", modelOutput.String())
 	}
 }
