@@ -186,12 +186,21 @@ func (k *SMTKernel) clearUnsatCore() error {
 	if k == nil || k.manager == nil {
 		return ast.ErrASTHandle
 	}
-	var result error
-	for _, expression := range k.unsatCore {
-		result = errors.Join(result, k.manager.DecRef(expression))
+	for index := range k.unsatCore {
+		root := &k.unsatCore[index]
+		if root.IsNull() {
+			continue
+		}
+		consumed, err := k.manager.DecRefConsumed(*root)
+		if consumed {
+			*root = ast.ASTHandle{}
+		}
+		if err != nil {
+			return err
+		}
 	}
 	k.unsatCore = nil
-	return result
+	return nil
 }
 
 func (k *SMTKernel) captureUnsatCore(resolver *SMTConflictResolver, conflict SMTBooleanJustification, notLiteral SMTLiteral) error {

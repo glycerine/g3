@@ -47,6 +47,7 @@ type SMTKernel struct {
 	assertions       []SMTKernelAssertion
 	assertedHead     int
 	scopes           []int
+	pendingPop       *smtKernelPendingPop
 	unsatCore        []ast.ASTHandle
 	unsatProof       ast.ASTRef
 	assumptions      map[SMTLiteral]ast.ASTHandle
@@ -77,6 +78,7 @@ type SMTKernel struct {
 	produceModel     bool
 	preprocess       bool
 	timerClock       func() (uint64, error)
+	closing          bool
 	closed           bool
 
 	// Source m_has_quantifiers is sticky, including across scope pops.
@@ -594,7 +596,23 @@ func (k *SMTKernel) UpdateParams(params *uparams.ParamsRef) error {
 }
 
 func (k *SMTKernel) open() error {
-	if k == nil || k.manager == nil || k.internalizer == nil || k.closed {
+	if err := k.openOwner(); err != nil {
+		return err
+	}
+	if k.pendingPop != nil {
+		return ast.ErrASTPending
+	}
+	return nil
+}
+
+func (k *SMTKernel) openOwner() error {
+	if k == nil || k.manager == nil || k.closed {
+		return ast.ErrASTHandle
+	}
+	if k.closing {
+		return ast.ErrASTPending
+	}
+	if k.internalizer == nil {
 		return ast.ErrASTHandle
 	}
 	return nil
@@ -656,8 +674,8 @@ func (k *SMTKernel) RegisterTheory(theory SMTTheoryInternalizer) error {
 }
 
 func (k *SMTKernel) Assert(formula, proof ast.ASTHandle) (err error) {
-	if k == nil || k.manager == nil {
-		return ast.ErrASTHandle
+	if err := k.open(); err != nil {
+		return err
 	}
 	if (k.setupLogic != "QF_NRA" && k.setupLogic != "QF_NIA") || !k.nraInputsValid || k.assertedFormulasInconsistent() {
 		return k.assertFormulaCore(formula, proof)
@@ -944,72 +962,160 @@ func (k *SMTKernel) Push() error {
 }
 
 func (k *SMTKernel) Pop(count uint32) error {
-	if err := k.open(); err != nil {
+	if err := k.openOwner(); err != nil {
 		return err
 	}
-	if count == 0 || count > uint32(len(k.scopes)) {
-		return ast.ErrASTDomain
+	if k.pendingPop != nil {
+		if k.pendingPop.count != count {
+			return ast.ErrASTPending
+		}
+	} else {
+		if count == 0 || count > uint32(len(k.scopes)) {
+			return ast.ErrASTDomain
+		}
+		if err := k.traceAssertedBody("asserted_formulas_scopes", "pop_scope", 194, func(out io.Writer) error {
+			_, err := fmt.Fprintf(out, "before pop %d of %d\n", count, len(k.scopes))
+			return err
+		}); err != nil {
+			return err
+		}
+		level := len(k.scopes) - int(count)
+		k.pendingPop = &smtKernelPendingPop{count: count, level: level, assertions: k.scopes[level], nraInputs: k.nraScopes[level]}
 	}
-	if err := k.traceAssertedBody("asserted_formulas_scopes", "pop_scope", 194, func(out io.Writer) error {
-		_, err := fmt.Fprintf(out, "before pop %d of %d\n", count, len(k.scopes))
-		return err
-	}); err != nil {
-		return err
+	pop := k.pendingPop
+	if pop.stage == smtKernelPopInternalizer {
+		if err := k.internalizer.PopScopes(count); err != nil {
+			return err
+		}
+		pop.stage++
 	}
-	level := len(k.scopes) - int(count)
-	limit := k.scopes[level]
-	if err := k.internalizer.PopScopes(count); err != nil {
-		return err
+	if pop.stage == smtKernelPopBVSharing {
+		if err := k.bvSharing.PopScope(count); err != nil {
+			return err
+		}
+		pop.stage++
 	}
-	if err := k.bvSharing.PopScope(count); err != nil {
-		return err
+	if pop.stage == smtKernelPopMacros {
+		if err := k.assertedMacros.PopScope(count); err != nil {
+			return err
+		}
+		pop.stage++
 	}
-	if err := k.assertedMacros.PopScope(count); err != nil {
-		return err
+	if pop.stage == smtKernelPopDefinedNames {
+		if err := k.definedNames.Pop(count); err != nil {
+			return err
+		}
+		pop.stage++
 	}
-	if err := k.definedNames.Pop(count); err != nil {
-		return err
+	if pop.stage == smtKernelPopSubstitution {
+		// The substitution owns its own deletion continuation and may report
+		// an error after publishing the new depth. Observe that publication
+		// before deciding whether another scope pop is needed.
+		before, err := k.manager.ScopedExprSubstitutionScopeLevel(k.assertedScopedSubst)
+		if err != nil {
+			return err
+		}
+		err = k.manager.ScopedExprSubstitutionPop(k.assertedScopedSubst, count)
+		if err == nil {
+			pop.stage++
+		} else {
+			after, depthErr := k.manager.ScopedExprSubstitutionScopeLevel(k.assertedScopedSubst)
+			if depthErr == nil && before >= count && after == before-count {
+				pop.stage++
+			}
+			return errors.Join(err, depthErr)
+		}
 	}
-	if err := k.manager.ScopedExprSubstitutionPop(k.assertedScopedSubst, count); err != nil {
-		return err
+	if pop.stage == smtKernelPopAssertions {
+		if err := k.restoreAssertions(pop.assertions); err != nil {
+			return err
+		}
+		pop.stage++
 	}
-	for index := len(k.assertions); index > limit; index-- {
-		assertion := &k.assertions[index-1]
-		if !assertion.Proof.IsNull() {
-			if err := k.manager.DecRef(assertion.Proof); err != nil {
+	if pop.stage == smtKernelPopNRAInputs {
+		if err := k.restoreNRAInputs(pop.nraInputs); err != nil {
+			return err
+		}
+		pop.stage++
+	}
+	if pop.stage == smtKernelPopPublish {
+		k.nraScopes = k.nraScopes[:pop.level]
+		k.scopes = k.scopes[:pop.level]
+		k.assertedInconsistent = k.assertedScopeConflicts[pop.level]
+		k.assertedScopeConflicts = k.assertedScopeConflicts[:pop.level]
+		pop.stage++
+	}
+	return k.finishPop(count)
+}
+
+type smtKernelPopStage uint8
+
+const (
+	smtKernelPopInternalizer smtKernelPopStage = iota
+	smtKernelPopBVSharing
+	smtKernelPopMacros
+	smtKernelPopDefinedNames
+	smtKernelPopSubstitution
+	smtKernelPopAssertions
+	smtKernelPopNRAInputs
+	smtKernelPopPublish
+	smtKernelPopFinish
+)
+
+// Each successful source pop is consumed exactly once. Go cleanup can refuse
+// between owners, so the next call resumes the same source-order operation.
+type smtKernelPendingPop struct {
+	count                        uint32
+	level, assertions, nraInputs int
+	stage                        smtKernelPopStage
+}
+
+func (k *SMTKernel) restoreAssertions(limit int) error {
+	for len(k.assertions) > limit {
+		last := len(k.assertions) - 1
+		assertion := &k.assertions[last]
+		for _, root := range []*ast.ASTHandle{&assertion.Proof, &assertion.Formula} {
+			if root.IsNull() {
+				continue
+			}
+			consumed, err := k.manager.DecRefConsumed(*root)
+			if consumed {
+				*root = ast.ASTHandle{}
+			}
+			if err != nil {
 				return err
 			}
 		}
-		if err := k.manager.DecRef(assertion.Formula); err != nil {
-			return err
+		k.assertions = k.assertions[:last]
+		if k.assertedHead > last {
+			k.assertedHead = last
 		}
 	}
-	k.assertions = k.assertions[:limit]
-	if k.assertedHead > limit {
-		k.assertedHead = limit
-	}
-	if err := k.restoreNRAInputs(k.nraScopes[level]); err != nil {
-		return err
-	}
-	k.nraScopes = k.nraScopes[:level]
-	k.scopes = k.scopes[:level]
-	k.assertedInconsistent = k.assertedScopeConflicts[level]
-	k.assertedScopeConflicts = k.assertedScopeConflicts[:level]
-	return k.finishPop(count)
+	return nil
 }
 
 // finishPop is the post-publication cleanup tail. Native solver retry must
 // repeat this tail, not the already-consumed scopes, if cache reset refuses.
 func (k *SMTKernel) finishPop(count uint32) error {
+	if err := k.openOwner(); err != nil {
+		return err
+	}
+	if k.pendingPop != nil && (k.pendingPop.count != count || k.pendingPop.stage != smtKernelPopFinish) {
+		return ast.ErrASTPending
+	}
 	if k.preprocessor != nil {
 		if err := k.flushAssertedCache(); err != nil {
 			return err
 		}
 	}
-	return k.traceAssertedBody("asserted_formulas_scopes", "pop_scope", 206, func(out io.Writer) error {
+	if err := k.traceAssertedBody("asserted_formulas_scopes", "pop_scope", 206, func(out io.Writer) error {
 		_, err := fmt.Fprintf(out, "after pop %d\n", count)
 		return err
-	})
+	}); err != nil {
+		return err
+	}
+	k.pendingPop = nil
+	return nil
 }
 
 func (k *SMTKernel) ScopeLevel() uint32 {
@@ -1352,12 +1458,16 @@ func (k *SMTKernel) Display(out io.Writer) error {
 }
 
 func (k *SMTKernel) Close() error {
-	if k == nil || k.manager == nil {
+	if k == nil {
 		return ast.ErrASTHandle
 	}
 	if k.closed {
 		return nil
 	}
+	if k.manager == nil {
+		return ast.ErrASTHandle
+	}
+	k.closing = true
 	if k.univariateNRA != nil {
 		if err := k.univariateNRA.Close(); err != nil {
 			return err
@@ -1367,94 +1477,123 @@ func (k *SMTKernel) Close() error {
 	if err := k.restoreNRAInputs(0); err != nil {
 		return err
 	}
-	var result error
-	result = errors.Join(result, k.clearLiteralResults())
-	result = errors.Join(result, k.clearGeneratedModel())
-	result = errors.Join(result, k.clearUnsatCore())
+	// Source destruction has no failing release. The Go owners can refuse;
+	// leave later dependencies live and remember every completed child.
+	if err := k.clearLiteralResults(); err != nil {
+		return err
+	}
+	if err := k.clearGeneratedModel(); err != nil {
+		return err
+	}
+	if err := k.clearUnsatCore(); err != nil {
+		return err
+	}
 	if k.bvSharing != nil {
 		if err := k.bvSharing.Close(); err != nil {
-			result = errors.Join(result, err)
-		} else {
-			k.bvSharing = nil
+			return err
+		}
+		k.bvSharing = nil
+	}
+	if k.unsatProof != (ast.ASTRef{}) {
+		if err := k.manager.DelRef(&k.unsatProof); err != nil {
+			return err
 		}
 	}
-	result = errors.Join(result, k.manager.DelRef(&k.unsatProof))
 	if k.patternInference != nil {
 		if err := k.patternInference.Close(); err != nil {
-			result = errors.Join(result, err)
-		} else {
-			k.patternInference = nil
+			return err
 		}
-	}
-	if k.preprocessor != nil {
-		if err := k.preprocessor.Close(); err != nil {
-			result = errors.Join(result, err)
-		} else {
-			k.preprocessor = nil
-		}
+		k.patternInference = nil
 	}
 	if k.pendingSetupLRA != nil {
 		if err := k.pendingSetupLRA.Close(); err != nil {
-			result = errors.Join(result, err)
-		} else {
-			k.pendingSetupLRA = nil
+			return err
+		}
+		k.pendingSetupLRA = nil
+	}
+	if k.internalizer != nil {
+		if err := k.internalizer.Close(); err != nil {
+			return err
+		}
+		k.internalizer = nil
+	}
+	// Pending internalizer scope cleanup can rebuild learned clauses through
+	// its borrowed theory rewriter. Close that borrower before its owner.
+	if k.preprocessor != nil {
+		if err := k.preprocessor.Close(); err != nil {
+			return err
+		}
+		k.preprocessor = nil
+	}
+	if k.assertedScopedSubst != (ast.ASTScopedExprSubstitution{}) {
+		if err := k.manager.DelScopedExprSubstitution(&k.assertedScopedSubst); err != nil {
+			return err
 		}
 	}
-	result = errors.Join(result, k.internalizer.Close())
-	if k.preprocessor == nil {
-		if k.assertedScopedSubst != (ast.ASTScopedExprSubstitution{}) {
-			result = errors.Join(result, k.manager.DelScopedExprSubstitution(&k.assertedScopedSubst))
-		}
-		if k.assertedScopedSubst == (ast.ASTScopedExprSubstitution{}) && k.assertedSubstitution != (ast.ASTExprSubstitution{}) {
-			result = errors.Join(result, k.manager.DelExprSubstitution(&k.assertedSubstitution))
+	if k.assertedSubstitution != (ast.ASTExprSubstitution{}) {
+		if err := k.manager.DelExprSubstitution(&k.assertedSubstitution); err != nil {
+			return err
 		}
 	}
-	result = errors.Join(result, k.assertedMacros.Close())
-	result = errors.Join(result, k.definedNames.Close())
+	if k.assertedMacros != nil {
+		if err := k.assertedMacros.Close(); err != nil {
+			return err
+		}
+		k.assertedMacros = nil
+	}
+	if k.definedNames != nil {
+		if err := k.definedNames.Close(); err != nil {
+			return err
+		}
+		k.definedNames = nil
+	}
 	if k.quantifierCosts != nil {
-		result = errors.Join(result, k.quantifierCosts.Close())
+		if err := k.quantifierCosts.Close(); err != nil {
+			return err
+		}
+		k.quantifierCosts = nil
 	}
 	if k.modelCooperation != nil {
-		result = errors.Join(result, k.modelCooperation.Close())
+		if err := k.modelCooperation.Close(); err != nil {
+			return err
+		}
+		k.modelCooperation = nil
 	}
 	if k.smtParams != nil && !k.smtParamsBorrowed {
-		result = errors.Join(result, k.smtParams.Close())
+		if err := k.smtParams.Close(); err != nil {
+			return err
+		}
+		k.smtParams = nil
 	}
 	if k.assertedParamsReady {
 		if err := k.paramContext.Del(&k.assertedParams); err != nil {
-			result = errors.Join(result, err)
-		} else {
-			k.assertedParamsReady = false
+			return err
 		}
+		k.assertedParamsReady = false
 	}
-	for index := len(k.assertions); index > 0; index-- {
-		assertion := &k.assertions[index-1]
-		if !assertion.Proof.IsNull() {
-			result = errors.Join(result, k.manager.DecRef(assertion.Proof))
-		}
-		result = errors.Join(result, k.manager.DecRef(assertion.Formula))
+	if err := k.restoreAssertions(0); err != nil {
+		return err
 	}
-	if result == nil {
-		k.assertions = nil
-		k.scopes = nil
-		k.assertedScopeConflicts = nil
-		k.assertedInconsistent = false
-		k.caseSplitQueue = nil
-		k.queueWarnings = nil
-		k.booleanSetupSeeded = false
-		k.internalizer = nil
-		k.checker = nil
-		k.relevancy = nil
-		k.paramContext = nil
-		k.paramGlobals = nil
-		k.smtParams = nil
-		k.smtParamsBorrowed = false
-		k.smtState = SMTParamsState{}
-		k.preprocessState = SMTPreprocessorState{}
-		k.quantifierCosts = nil
-		k.modelCooperation = nil
-		k.manager = nil
-		k.closed = true
-	}
-	return result
+	k.assertions = nil
+	k.scopes = nil
+	k.pendingPop = nil
+	k.assertedScopeConflicts = nil
+	k.assertedInconsistent = false
+	k.caseSplitQueue = nil
+	k.queueWarnings = nil
+	k.booleanSetupSeeded = false
+	k.internalizer = nil
+	k.checker = nil
+	k.relevancy = nil
+	k.paramContext = nil
+	k.paramGlobals = nil
+	k.smtParams = nil
+	k.smtParamsBorrowed = false
+	k.smtState = SMTParamsState{}
+	k.preprocessState = SMTPreprocessorState{}
+	k.quantifierCosts = nil
+	k.modelCooperation = nil
+	k.manager = nil
+	k.closed = true
+	return nil
 }

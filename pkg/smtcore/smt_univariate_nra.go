@@ -735,6 +735,9 @@ func (k *SMTKernel) restoreNRAInputs(size int) error {
 	for len(k.nraInputs) > size {
 		last := len(k.nraInputs) - 1
 		if err := k.manager.DelRef(&k.nraInputs[last]); err != nil {
+			if k.nraInputs[last] == (ast.ASTRef{}) {
+				k.nraInputs = k.nraInputs[:last]
+			}
 			return err
 		}
 		k.nraInputs = k.nraInputs[:last]

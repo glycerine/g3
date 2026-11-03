@@ -32,16 +32,23 @@ func (k *SMTKernel) ownLiteral(literal SMTLiteral) (ast.ASTHandle, error) {
 }
 
 func (k *SMTKernel) clearLiteralResults() error {
-	var result error
-	for _, values := range [][]ast.ASTHandle{k.assignments, k.relevantLiterals, k.relevantLabeled, k.guessed} {
-		for _, expression := range values {
-			result = errors.Join(result, k.manager.DecRef(expression))
+	for _, values := range []*[]ast.ASTHandle{&k.assignments, &k.relevantLiterals, &k.relevantLabeled, &k.guessed} {
+		for index := range *values {
+			root := &(*values)[index]
+			if root.IsNull() {
+				continue
+			}
+			consumed, err := k.manager.DecRefConsumed(*root)
+			if consumed {
+				*root = ast.ASTHandle{}
+			}
+			if err != nil {
+				return err
+			}
 		}
+		*values = nil
 	}
-	if result == nil {
-		k.assignments, k.relevantLiterals, k.relevantLabeled, k.guessed = nil, nil, nil, nil
-	}
-	return result
+	return nil
 }
 
 func (k *SMTKernel) captureLiteralResults(baseLevel uint32) error {
