@@ -250,6 +250,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
     - [x] Preserve whole-array coordinator ownership after copying store auxiliaries; densely scan an eight-store composed transfer case, verify sixteen variables, no failed publication, source-lifetime retry, model truth and input-only live-reference accounting.
     - [x] Audit named-result overwrite risk across array construction entry points: captured owners protect factorPartialSelects/projectSelects/projectStoreEquality/projectFormula; findEqualities/newLegacyPartialEquality/Expand keep local result owners; direct equality/select reduction/polarity replacement publish their named objects only at their successful terminal return.
     - [ ] Audit local final-reference ownership when rewrite success is followed by failed temporary cleanup (direct equality and polarity replacement), plus independent parent-continuation failures, construction-cleanup refusal and post-admission numerical release failures.
+      - [x] Preserve the projection theory rewriter's final owning AST reference after its rewritten result has been copied but local native cleanup refuses, with stable retry ownership and idempotent release.
 - [ ] Close all Spacer source obligations before declaring the engine complete.
 
 ## 5. Duality — engine and external source dependency closure
@@ -514,6 +515,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Legacy Spacer projection now preserves the theory rewriter's final AST owner when the rewritten formula has been copied into `current` but local native cleanup refuses. The published formula remains valid, the extra reference has typed retry custody and idempotent release, and receipt presentation remains stable; other direct/polarity final-reference paths remain open.
+  Validation: `go -C pkg test ./qe -run '^(TestLegacyProjectionRewriteFinalReferenceSurvivesNativeCleanupRefusal|TestLegacyProjection.*Rewrite|TestLegacyProjection.*Pending)' -count=3` passed. Commit title: `Preserve projection rewrite owners through cleanup refusal`.
 
 - 2026-11-02 — TAB unfolded-clause finalization now owns its substitution, temporary AST roots, work clause and completed result under one retryable attempt. A late native refusal suppresses publication, preserves the exact cleanup frontier and freezes the construction receipt until idempotent retry; broader TAB inner cleanup/diagnostics remain open.
   Validation: `go -C pkg test ./muz/tab -run '^(TestUnfoldFinalizePreservesClausesOnNativeCleanupRefusal|Test.*Unfold)' -count=3` passed. Commit title: `Preserve TAB unfolded clauses through cleanup refusal`.

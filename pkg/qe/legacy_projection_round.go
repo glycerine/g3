@@ -53,12 +53,12 @@ func (p *LegacyProjection) rewriteProjectionCurrent(current ast.ASTRef) (resultE
 	if err != nil {
 		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&rewritten)) }()
 	root, err = p.manager.RefGet(rewritten)
 	if err != nil {
-		return err
+		return closeLegacyProjectionRewriteResult(p.manager, rewritten, err)
 	}
-	return p.manager.SetRef(current, root)
+	err = p.manager.SetRef(current, root)
+	return closeLegacyProjectionRewriteResult(p.manager, rewritten, err)
 }
 
 func (p *LegacyProjection) prepareProjectionRound(variables []ast.ASTHandle, current ast.ASTRef) (refs []ast.ASTRef, resultErr error) {
