@@ -42,6 +42,7 @@ type externalIntervalDatalogActivation struct {
 	plugin               *rel.ExternalRelationPlugin
 	entries              map[ast.ASTHandle]*externalIntervalDatalogEntry
 	order                []ast.ASTHandle
+	borrowedEntries      map[ast.ASTHandle]*externalIntervalDatalogEntry
 	identity             *externalIntervalDatalogIdentityRule
 	ground               *externalIntervalDatalogGroundRule
 	cartesian            *externalIntervalDatalogCartesianRule
@@ -277,6 +278,11 @@ func (a *externalIntervalDatalogActivation) close() error {
 	if a == nil || a.closed {
 		return nil
 	}
+	for declaration, entry := range a.borrowedEntries {
+		if entry == nil || a.entries[declaration] != entry {
+			return ErrExternalIntervalDatalogFragment
+		}
+	}
 	if a.pending != nil {
 		if err := a.pending.Cleanup(); err != nil {
 			return err
@@ -293,6 +299,9 @@ func (a *externalIntervalDatalogActivation) close() error {
 		return err
 	}
 	for i := len(a.order) - 1; i >= 0; i-- {
+		if _, borrowed := a.borrowedEntries[a.order[i]]; borrowed {
+			continue
+		}
 		entry := a.entries[a.order[i]]
 		if entry != nil && entry.product != nil {
 			if err := entry.product.Close(); err != nil {
@@ -318,6 +327,9 @@ func (a *externalIntervalDatalogActivation) close() error {
 		}
 	}
 	for i := len(a.order) - 1; i >= 0; i-- {
+		if _, borrowed := a.borrowedEntries[a.order[i]]; borrowed {
+			continue
+		}
 		entry := a.entries[a.order[i]]
 		if entry != nil && entry.root != (ast.ASTRef{}) {
 			if err := a.manager.DelRef(&entry.root); err != nil {
@@ -329,6 +341,7 @@ func (a *externalIntervalDatalogActivation) close() error {
 	a.plugin = nil
 	a.entries = nil
 	a.order = nil
+	a.borrowedEntries = nil
 	a.identity = nil
 	a.ground = nil
 	a.cartesian = nil
