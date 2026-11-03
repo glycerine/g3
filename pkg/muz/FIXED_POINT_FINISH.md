@@ -527,6 +527,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Direct supported join/negation operations dispatch through indexed plans; functional-key and zero-column fallbacks remain explicit.
   - [x] Fetch functional rows by nonfunctional key, including zero-column keys, and use the owned suffix in live finite-product add/membership/union consumers.
   - [x] Union functional sparse rows by nonfunctional prefix so existing suffixes win and conflicting zero-column keys never enter the delta.
+  - [x] Remove functional sparse rows by their nonfunctional prefix, including empty keys, while validating complete public rows before bulk/negation deletion.
 - [ ] `src/muz/rel/dl_vector_relation.h` (partial)
   - [x] Interval intersection uses the actually reached join/project/reset/union fallback with atomic validation; source vector relations do not enable `can_swap`.
 - [ ] `src/muz/rel/rel_context.cpp` (partial), `src/muz/rel/rel_context.h` (partial)
@@ -723,6 +724,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Nested formula-checked finite pairs now implement the source `mk_full` path by complementing a fresh empty checked/formula pair. Source owners stay independent, primary/checker mismatch rejects before publication, nullary/unary rows are exact and unsupported wider complements remain explicit rather than approximated.
   Validation: `go -C pkg test ./muz/rel -run '^(TestFormulaCheckedFinitePair|TestRelationExplanationNested)' -count=5` passed. Commit title: `Build full nested checked relations`.
+
+- 2026-11-02 — Sparse functional storage now exposes key-only removal and routes reached bulk/negation consumers through the unique nonfunctional prefix. Empty keys remove nullary functional rows, complete public rows are still domain-validated before deletion and missing keys remain stable; broader sparse auditing remains open.
+  Validation: the focused functional removal and sparse negation gate in `go -C pkg test ./muz/rel` passed five times in 0.019s. Commit title: `Remove sparse functional rows by key`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
