@@ -157,7 +157,7 @@ func TestRuleSliceLeavesZeroArityOutputRulesUnchanged(t *testing.T) {
 	}
 }
 
-func TestRuleSliceHeadValuePreventsColumnRemoval(t *testing.T) {
+func TestRuleSliceHeadValueAllowsExistentialColumnRemoval(t *testing.T) {
 	f := newConeFixture(t)
 	boolean, err := f.manager.MkBoolSort()
 	coneMust(t, err)
@@ -206,11 +206,19 @@ func TestRuleSliceHeadValuePreventsColumnRemoval(t *testing.T) {
 	coneMust(t, transformer.Register(plugin))
 	modified, err := transformer.Apply(f.set)
 	coneMust(t, err)
-	if modified {
-		t.Fatal("head value allowed its predicate column to be removed")
+	if !modified {
+		t.Fatal("head value prevented its existential predicate column from being removed")
 	}
-	if _, found := plugin.DerivedPredicate(p); found {
-		t.Fatal("head value acquired a sliced predicate")
+	derived, found := plugin.DerivedPredicate(p)
+	if !found {
+		t.Fatal("head value did not acquire a sliced predicate")
+	}
+	if arity, arityErr := f.manager.GetArity(derived); arityErr != nil || arity != 0 {
+		t.Fatal("head-value sliced predicate arity", arity, arityErr)
+	}
+	predicates, slices := plugin.PredicateSlices()
+	if predicates[p] != derived || len(slices[p]) != 1 || !slices[p][0] {
+		t.Fatal("head-value slice mapping did not project the existential column", predicates, slices)
 	}
 	if arity, arityErr := f.manager.GetArity(p); arityErr != nil || arity != 1 {
 		t.Fatal("source predicate arity changed", arity, arityErr)
