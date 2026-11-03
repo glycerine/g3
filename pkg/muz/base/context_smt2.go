@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/smt2"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // ContextSMT2Config contains the source print switches and borrowed inputs.
@@ -20,9 +21,12 @@ type ContextSMT2Config struct {
 	Background           []ast.ASTHandle
 	Queries              []ast.ASTHandle
 	// PendingRules are closed source input formulas not yet flushed into the
-	// rule set. PendingNames has one name per borrowed formula.
-	PendingRules []ast.ASTHandle
-	PendingNames []string
+	// rule set. Select one name vector, with one name per borrowed formula.
+	// PendingNames is the string convenience form (empty means absent).
+	// PendingNameSymbols preserves source null, empty and numerical identities.
+	PendingRules       []ast.ASTHandle
+	PendingNames       []string
+	PendingNameSymbols []symbol.Symbol
 }
 
 func DefaultContextSMT2Config() ContextSMT2Config {
@@ -40,18 +44,37 @@ func (s *RuleSet) WriteContextSMT2(out io.Writer, config ContextSMT2Config) (res
 	}
 	m := s.manager.manager
 	var rules, queries []ast.ASTRef
-	var names []string
+	var names []symbol.Symbol
 	owner := &contextSMT2Owner{manager: m}
 	defer func() {
 		owner.refs = append(owner.refs, rules...)
 		owner.refs = append(owner.refs, queries...)
 		resultErr = owner.finish(resultErr)
 	}()
-	if err := s.AppendDisplayFormulas(&rules, &queries, &names); err != nil {
+	if err := s.AppendDisplayFormulasWithSymbols(&rules, &queries, &names); err != nil {
 		return err
 	}
-	if len(config.PendingRules) != len(config.PendingNames) {
+	if config.PendingNames != nil && config.PendingNameSymbols != nil {
+		return errors.New("muz/base: competing pending rule name vectors")
+	}
+	pendingNames := config.PendingNameSymbols
+	if pendingNames == nil {
+		pendingNames = make([]symbol.Symbol, len(config.PendingNames))
+		for i, text := range config.PendingNames {
+			var err error
+			pendingNames[i], err = s.manager.ruleName(text)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if len(config.PendingRules) != len(pendingNames) {
 		return errors.New("muz/base: pending rule/name count mismatch")
+	}
+	for _, name := range pendingNames {
+		if err := s.manager.checkRuleName(name); err != nil {
+			return err
+		}
 	}
 	for i, h := range config.PendingRules {
 		r, err := m.NewRef(h)
@@ -59,7 +82,7 @@ func (s *RuleSet) WriteContextSMT2(out io.Writer, config ContextSMT2Config) (res
 			return err
 		}
 		rules = append(rules, r)
-		names = append(names, config.PendingNames[i])
+		names = append(names, pendingNames[i])
 	}
 	for _, h := range config.Queries {
 		r, err := m.NewRef(h)
@@ -171,7 +194,7 @@ func (s *RuleSet) WriteContextSMT2(out io.Writer, config ContextSMT2Config) (res
 		if _, err = io.WriteString(out, prefix); err != nil {
 			return err
 		}
-		if names[i] != "" {
+		if names[i] != (symbol.Symbol{}) {
 			if _, err = io.WriteString(out, "(! "); err != nil {
 				return err
 			}
@@ -183,23 +206,23 @@ func (s *RuleSet) WriteContextSMT2(out io.Writer, config ContextSMT2Config) (res
 		if err = s.writeContextExpression(out, printer, h, config.LowLevel); err != nil {
 			return err
 		}
-		if names[i] != "" {
+		if names[i] != (symbol.Symbol{}) {
 			if _, err = io.WriteString(out, " :named "); err != nil {
 				return err
 			}
 			name := names[i]
-			for {
-				symbol, e := m.Symbols.Intern(name)
+			for fresh.Contains(name) {
+				text, e := m.Symbols.Display(name)
 				if e != nil {
 					return e
 				}
-				if !fresh.Contains(symbol) {
-					fresh.AddSymbol(symbol)
-					break
+				name, e = m.Symbols.Intern(text + "!")
+				if e != nil {
+					return e
 				}
-				name += "!"
 			}
-			if err = s.writeContextSymbol(out, name); err != nil {
+			fresh.AddSymbol(name)
+			if err = s.writeContextName(out, name); err != nil {
 				return err
 			}
 			if _, err = io.WriteString(out, ")"); err != nil {
@@ -257,24 +280,21 @@ func (s *RuleSet) WriteContextSMT2(out io.Writer, config ContextSMT2Config) (res
 	return nil
 }
 
-func (s *RuleSet) writeContextSymbol(out io.Writer, name string) error {
+func (s *RuleSet) writeContextName(out io.Writer, name symbol.Symbol) error {
 	m := s.manager.manager
-	symbol, err := m.Symbols.Intern(name)
-	if err != nil {
-		return err
-	}
-	quote, err := smt2.IsSMT2QuotedSymbol(m.Symbols, symbol)
+	quote, err := smt2.IsSMT2QuotedSymbol(m.Symbols, name)
 	if err != nil {
 		return err
 	}
 	if quote {
-		name, err = smt2.MkSMT2QuotedSymbol(m.Symbols, symbol, nil)
+		text, err := smt2.MkSMT2QuotedSymbol(m.Symbols, name, nil)
 		if err != nil {
 			return err
 		}
+		_, err = io.WriteString(out, text)
+		return err
 	}
-	_, err = io.WriteString(out, name)
-	return err
+	return m.Symbols.WriteDisplay(out, name)
 }
 func (s *RuleSet) writeContextRelation(out io.Writer, printer *ast.LegacySMTPrinter, d ast.ASTHandle) error {
 	m := s.manager.manager
@@ -282,14 +302,10 @@ func (s *RuleSet) writeContextRelation(out io.Writer, printer *ast.LegacySMTPrin
 	if err != nil {
 		return err
 	}
-	name, err := m.Symbols.String(symbol)
-	if err != nil {
-		return err
-	}
 	if _, err = io.WriteString(out, "(declare-rel "); err != nil {
 		return err
 	}
-	if err = s.writeContextSymbol(out, name); err != nil {
+	if err = s.writeContextName(out, symbol); err != nil {
 		return err
 	}
 	if _, err = io.WriteString(out, " ("); err != nil {

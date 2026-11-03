@@ -17,6 +17,31 @@ func (s *RuleSet) AppendDisplayFormulas(rules, queries *[]ast.ASTRef, names *[]s
 	if err := s.open(); err != nil {
 		return err
 	}
+	if names == nil {
+		return ast.ErrASTDomain
+	}
+	var labels []symbol.Symbol
+	err := s.AppendDisplayFormulasWithSymbols(rules, queries, &labels)
+	for _, label := range labels {
+		text := ""
+		if label != (symbol.Symbol{}) {
+			var nameErr error
+			text, nameErr = s.manager.manager.Symbols.String(label)
+			if nameErr != nil {
+				return errors.Join(err, nameErr)
+			}
+		}
+		*names = append(*names, text)
+	}
+	return err
+}
+
+// AppendDisplayFormulasWithSymbols preserves the source label identities.
+// The caller owns every appended formula/query prefix, including on failure.
+func (s *RuleSet) AppendDisplayFormulasWithSymbols(rules, queries *[]ast.ASTRef, names *[]symbol.Symbol) (resultErr error) {
+	if err := s.open(); err != nil {
+		return err
+	}
 	if rules == nil || queries == nil || names == nil || rules == queries {
 		return ast.ErrASTDomain
 	}
@@ -46,7 +71,7 @@ func (s *RuleSet) AppendDisplayFormulas(rules, queries *[]ast.ASTRef, names *[]s
 				}
 				*queries = append(*queries, formula)
 			} else {
-				name, err := rule.Name()
+				name, err := rule.NameSymbol()
 				if err != nil {
 					return err
 				}

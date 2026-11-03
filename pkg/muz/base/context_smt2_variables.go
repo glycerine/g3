@@ -279,14 +279,10 @@ func (s *RuleSet) writeContextQuery(out io.Writer, printer *ast.LegacySMTPrinter
 	if err != nil {
 		return err
 	}
-	text, err := m.Symbols.String(name)
-	if err != nil {
-		return err
-	}
 	if _, err = io.WriteString(out, "(query "); err != nil {
 		return err
 	}
-	if err = s.writeContextSymbol(out, text); err != nil {
+	if err = s.writeContextName(out, name); err != nil {
 		return err
 	}
 	_, err = io.WriteString(out, ")\n")

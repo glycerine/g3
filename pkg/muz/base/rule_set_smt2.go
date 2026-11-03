@@ -9,7 +9,7 @@ import (
 	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/util/smt2"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // WriteSMT2 writes a RuleSet as the source fixedpoint SMT-LIB HORN dump.
@@ -32,7 +32,7 @@ func (s *RuleSet) WriteSMT2(out io.Writer) (resultErr error) {
 	}
 	type sourceRule struct {
 		formula ast.ASTRef
-		name    string
+		name    symbol.Symbol
 	}
 	rules := make([]sourceRule, 0, len(s.rules))
 	defer func() {
@@ -52,7 +52,7 @@ func (s *RuleSet) WriteSMT2(out io.Writer) (resultErr error) {
 		if e != nil {
 			return errors.Join(e, manager.DelRef(&formula))
 		}
-		name, e := rule.Name()
+		name, e := rule.NameSymbol()
 		if e != nil {
 			return errors.Join(e, manager.DelRef(&formula))
 		}
@@ -68,17 +68,13 @@ func (s *RuleSet) WriteSMT2(out io.Writer) (resultErr error) {
 	if err != nil {
 		return err
 	}
-	usedNames := make(map[string]struct{}, len(declarations)+len(rules))
+	usedNames := make(map[symbol.Symbol]struct{}, len(declarations)+len(rules))
 	for _, declaration := range declarations {
 		symbol, e := manager.GetASTName(declaration)
 		if e != nil {
 			return e
 		}
-		name, e := manager.Symbols.String(symbol)
-		if e != nil {
-			return e
-		}
-		usedNames[name] = struct{}{}
+		usedNames[symbol] = struct{}{}
 	}
 	for _, item := range rules {
 		if _, err = io.WriteString(out, "(assert "); err != nil {
@@ -88,36 +84,35 @@ func (s *RuleSet) WriteSMT2(out io.Writer) (resultErr error) {
 		if e != nil {
 			return e
 		}
-		if item.name != "" {
+		if item.name != (symbol.Symbol{}) {
 			name := item.name
-			for {
-				if _, found := usedNames[name]; !found {
-					break
-				}
-				name += "!"
-			}
-			usedNames[name] = struct{}{}
 			if _, err = io.WriteString(out, "(! "); err != nil {
 				return err
 			}
 			if err = printer.DisplayExpr(out, handle, nil); err != nil {
 				return err
 			}
-			symbol, e := manager.Symbols.Intern(name)
-			if e != nil {
-				return e
+			if _, err = io.WriteString(out, " :named "); err != nil {
+				return err
 			}
-			quoted, e := smt2.IsSMT2QuotedSymbol(manager.Symbols, symbol)
-			if e != nil {
-				return e
-			}
-			if quoted {
-				name, e = smt2.MkSMT2QuotedSymbol(manager.Symbols, symbol, nil)
+			for {
+				if _, found := usedNames[name]; !found {
+					break
+				}
+				text, e := manager.Symbols.Display(name)
+				if e != nil {
+					return e
+				}
+				name, e = manager.Symbols.Intern(text + "!")
 				if e != nil {
 					return e
 				}
 			}
-			if _, err = io.WriteString(out, " :named "+name+")"); err != nil {
+			usedNames[name] = struct{}{}
+			if err = s.writeContextName(out, name); err != nil {
+				return err
+			}
+			if _, err = io.WriteString(out, ")"); err != nil {
 				return err
 			}
 		} else if err = printer.DisplayExpr(out, handle, nil); err != nil {
