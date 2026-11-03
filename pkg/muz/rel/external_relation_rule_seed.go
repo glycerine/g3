@@ -6,13 +6,13 @@ import (
 	"github.com/glycerine/g3/pkg/util/memory"
 )
 
-// externalRuleSeedOwner keeps the source nullary empty/total pair retryable
-// across native cleanup refusal. Complement borrows empty, so both owners stay
-// live through saturation and retire in reverse construction order.
+// externalRuleSeedOwner keeps every full relation used to introduce rule
+// columns retryable across native cleanup refusal. Totals retire in reverse
+// construction order after any nested constructor receipt.
 type externalRuleSeedOwner struct {
-	plugin       *ExternalRelationPlugin
-	nested       memory.ConstructionFailure
-	empty, total *ExternalRelation
+	plugin *ExternalRelationPlugin
+	nested memory.ConstructionFailure
+	totals []*ExternalRelation
 }
 
 func (o *externalRuleSeedOwner) close() error {
@@ -22,17 +22,14 @@ func (o *externalRuleSeedOwner) close() error {
 		}
 		o.nested = nil
 	}
-	if o.total != nil {
-		if err := o.total.Close(); err != nil {
+	for index := len(o.totals) - 1; index >= 0; index-- {
+		if o.totals[index] == nil {
+			continue
+		}
+		if err := o.totals[index].Close(); err != nil {
 			return err
 		}
-		o.total = nil
-	}
-	if o.empty != nil {
-		if err := o.empty.Close(); err != nil {
-			return err
-		}
-		o.empty = nil
+		o.totals[index] = nil
 	}
 	return nil
 }
@@ -57,10 +54,7 @@ func (f *externalRuleSeedCleanupFailure) Cleanup() error {
 
 func finishExternalRuleSeed(owner *externalRuleSeedOwner, cause error) error {
 	if cause != nil {
-		var nested memory.ConstructionFailure
-		if errors.As(cause, &nested) {
-			owner.nested = nested
-		}
+		errors.As(cause, &owner.nested)
 	}
 	cleanup := owner.close()
 	if cleanup == nil {

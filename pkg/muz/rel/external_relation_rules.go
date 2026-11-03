@@ -22,7 +22,12 @@ type externalFactRule struct {
 	interpreted []ast.ASTHandle
 	columns     map[uint32]uint32
 	negative    []externalNegativeTail
+	seeds       []externalRuleColumnSeed
 	stratum     uint32
+}
+
+type externalRuleColumnSeed struct {
+	sort, constant ast.ASTHandle
 }
 
 type externalNegativeTail struct {
@@ -94,17 +99,15 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 			return result, err
 		}
 	}
-	if positive == 0 {
+	if positive == 0 && tails == 0 {
 		for _, value := range headArgs {
 			valid, cause := manager.IsValue(value)
 			if cause != nil || !valid {
 				return result, errors.Join(cause, ErrCompilerUnsupported)
 			}
 		}
-		if tails == 0 {
-			result.values = headArgs
-			return result, nil
-		}
+		result.values = headArgs
+		return result, nil
 	}
 	positions := make(map[ast.ASTHandle]uint32)
 	columns := make([]ast.ASTHandle, 0)
@@ -170,18 +173,9 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 			}
 		}
 	}
-	result.columns = make(map[uint32]uint32, len(positions))
-	for variable, column := range positions {
-		index, cause := manager.GetVarIndex(variable)
-		if cause != nil {
-			return result, cause
-		}
-		result.columns[index] = column
-	}
+	negativeApplications := make([]ast.ASTHandle, 0, uninterpreted-positive)
+	negativePredicates := make([]ast.ASTHandle, 0, uninterpreted-positive)
 	for tailIndex := positive; tailIndex < uninterpreted; tailIndex++ {
-		if positive == 0 {
-			return result, ErrCompilerUnsupported
-		}
 		negative, negated, cause := rule.Tail(tailIndex)
 		if cause != nil || !negated {
 			return result, errors.Join(cause, ErrCompilerUnsupported)
@@ -190,7 +184,8 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 		if cause != nil {
 			return result, cause
 		}
-		entry := externalNegativeTail{predicate: predicate}
+		negativeApplications = append(negativeApplications, negative)
+		negativePredicates = append(negativePredicates, predicate)
 		count, cause := manager.GetNumArgs(negative)
 		if cause != nil {
 			return result, cause
@@ -201,17 +196,61 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 				return result, argErr
 			}
 			kind, argErr := manager.GetKind(argument)
-			if argErr != nil || kind != ast.ASTVar {
-				return result, errors.Join(argErr, ErrCompilerUnsupported)
+			if argErr != nil {
+				return result, argErr
 			}
-			target, found := positions[argument]
-			if !found {
-				return result, ErrCompilerUnsupported
+			if kind == ast.ASTVar {
+				_, found := positions[argument]
+				if !found {
+					sort, sortErr := manager.GetSort(argument)
+					if sortErr != nil {
+						return result, sortErr
+					}
+					positions[argument] = uint32(len(columns) + len(result.seeds))
+					result.seeds = append(result.seeds, externalRuleColumnSeed{sort: sort})
+				}
+			} else {
+				value, valueErr := manager.IsValue(argument)
+				if valueErr != nil || !value {
+					return result, errors.Join(valueErr, ErrCompilerUnsupported)
+				}
+			}
+		}
+	}
+	for tailIndex, negative := range negativeApplications {
+		entry := externalNegativeTail{predicate: negativePredicates[tailIndex]}
+		count, cause := manager.GetNumArgs(negative)
+		if cause != nil {
+			return result, cause
+		}
+		for column := uint32(0); column < count; column++ {
+			argument, argErr := manager.GetArg(negative, column)
+			if argErr != nil {
+				return result, argErr
+			}
+			kind, argErr := manager.GetKind(argument)
+			if argErr != nil {
+				return result, argErr
+			}
+			var target uint32
+			if kind == ast.ASTVar {
+				target = positions[argument]
+			} else {
+				target = uint32(len(columns) + len(result.seeds))
+				result.seeds = append(result.seeds, externalRuleColumnSeed{constant: argument})
 			}
 			entry.targetColumns = append(entry.targetColumns, target)
 			entry.negativeColumns = append(entry.negativeColumns, column)
 		}
 		result.negative = append(result.negative, entry)
+	}
+	result.columns = make(map[uint32]uint32, len(positions))
+	for variable, column := range positions {
+		index, cause := manager.GetVarIndex(variable)
+		if cause != nil {
+			return result, cause
+		}
+		result.columns[index] = column
 	}
 	for tailIndex := uninterpreted; tailIndex < tails; tailIndex++ {
 		condition, negated, cause := rule.Tail(tailIndex)
@@ -249,9 +288,9 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 }
 
 // ExecuteExternalFactRules runs the concrete source-reached external relation
-// slice: ground facts and ordered positive-tail equality joins with constant,
-// repeated-variable, and bound interpreted filters, followed by source head
-// assembly. It validates the whole set before mutation.
+// slice: ground facts and ordered positive-tail equality joins, stratified
+// negation with full or singleton columns, and bound interpreted filters,
+// followed by source head assembly. It validates the whole set before mutation.
 func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet) (resultErr error) {
 	if plugin == nil || plugin.closed || plugin.ast == nil || set == nil {
 		return ErrCompilerUnsupported
@@ -346,47 +385,71 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 			resultErr = errors.Join(resultErr, constantOwners[index].Close())
 		}
 	}()
+	makeConstant := func(constant ast.ASTHandle) error {
+		if constant.IsNull() || constantRelations[constant] != nil {
+			return nil
+		}
+		sort, cause := plugin.ast.GetSort(constant)
+		if cause != nil {
+			return cause
+		}
+		singleton, cause := plugin.NewEmpty([]ast.ASTHandle{sort})
+		if cause == nil {
+			cause = singleton.AddFact([]ast.ASTHandle{constant})
+		}
+		if cause != nil {
+			if singleton != nil {
+				cause = errors.Join(cause, singleton.Close())
+			}
+			return cause
+		}
+		constantRelations[constant] = singleton
+		constantOwners = append(constantOwners, singleton)
+		return nil
+	}
 	for _, entry := range compiled {
 		for _, column := range entry.headColumns {
-			if column.constant.IsNull() || constantRelations[column.constant] != nil {
-				continue
+			if err = makeConstant(column.constant); err != nil {
+				return err
 			}
-			sort, cause := plugin.ast.GetSort(column.constant)
-			if cause != nil {
-				return cause
+		}
+		for _, seed := range entry.seeds {
+			if err = makeConstant(seed.constant); err != nil {
+				return err
 			}
-			singleton, cause := plugin.NewEmpty([]ast.ASTHandle{sort})
-			if cause == nil {
-				cause = singleton.AddFact([]ast.ASTHandle{column.constant})
-			}
-			if cause != nil {
-				if singleton != nil {
-					cause = errors.Join(cause, singleton.Close())
-				}
-				return cause
-			}
-			constantRelations[column.constant] = singleton
-			constantOwners = append(constantOwners, singleton)
 		}
 	}
+	fullRelations := make(map[ast.ASTHandle]*ExternalRelation)
 	seedOwner := &externalRuleSeedOwner{plugin: plugin}
 	defer func() { resultErr = finishExternalRuleSeed(seedOwner, resultErr) }()
+	for _, entry := range compiled {
+		for _, seed := range entry.seeds {
+			if seed.sort.IsNull() || fullRelations[seed.sort] != nil {
+				continue
+			}
+			full, cause := plugin.NewTotal([]ast.ASTHandle{seed.sort})
+			if cause != nil {
+				return cause
+			}
+			fullRelations[seed.sort] = full
+			seedOwner.totals = append(seedOwner.totals, full)
+		}
+	}
+	var nullaryTotal *ExternalRelation
 	needsNullaryTotal := false
 	for _, entry := range compiled {
-		if len(entry.tails) == 0 && len(entry.interpreted) != 0 {
+		hasFullSeed := len(entry.seeds) != 0 && !entry.seeds[0].sort.IsNull()
+		if len(entry.tails) == 0 && !hasFullSeed && (len(entry.interpreted) != 0 || len(entry.negative) != 0) {
 			needsNullaryTotal = true
 			break
 		}
 	}
 	if needsNullaryTotal {
-		seedOwner.empty, err = plugin.NewEmpty(nil)
+		nullaryTotal, err = plugin.NewTotal(nil)
 		if err != nil {
 			return err
 		}
-		seedOwner.total, err = seedOwner.empty.Complement()
-		if err != nil {
-			return err
-		}
+		seedOwner.totals = append(seedOwner.totals, nullaryTotal)
 	}
 	checkpoint := func() error {
 		canceled, cause := plugin.ast.Canceled()
@@ -402,7 +465,7 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 		return err
 	}
 	for _, entry := range compiled {
-		if len(entry.tails) != 0 || len(entry.interpreted) != 0 {
+		if len(entry.tails) != 0 || len(entry.interpreted) != 0 || len(entry.negative) != 0 {
 			continue
 		}
 		target, cause := plugin.PredicateRelation(entry.head)
@@ -423,13 +486,19 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 				if entry.stratum != stratum {
 					continue
 				}
-				if len(entry.tails) == 0 && len(entry.interpreted) == 0 {
+				if len(entry.tails) == 0 && len(entry.interpreted) == 0 && len(entry.negative) == 0 {
 					continue
 				}
 				var value *ExternalRelation
 				var cause error
+				seedStart := 0
 				if len(entry.tails) == 0 {
-					value, cause = seedOwner.total.Clone()
+					if len(entry.seeds) != 0 && !entry.seeds[0].sort.IsNull() {
+						value, cause = fullRelations[entry.seeds[0].sort].Clone()
+						seedStart = 1
+					} else {
+						value, cause = nullaryTotal.Clone()
+					}
 				} else {
 					source, sourceErr := plugin.PredicateRelation(entry.tails[0])
 					if sourceErr != nil {
@@ -459,9 +528,37 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 					}
 					value = joined
 				}
+				for _, seed := range entry.seeds[seedStart:] {
+					second := fullRelations[seed.sort]
+					if second == nil {
+						second = constantRelations[seed.constant]
+					}
+					joined, joinErr := JoinExternalRelations(value, second, nil, nil)
+					joinErr = errors.Join(joinErr, value.Close())
+					if joinErr != nil {
+						if joined != nil {
+							joinErr = errors.Join(joinErr, joined.Close())
+						}
+						return joinErr
+					}
+					value = joined
+				}
 				for _, negative := range entry.negative {
 					relation, negativeErr := plugin.PredicateRelation(negative.predicate)
-					if negativeErr == nil {
+					if negativeErr == nil && len(negative.targetColumns) == 0 {
+						var complement *ExternalRelation
+						complement, negativeErr = relation.Complement()
+						if negativeErr == nil {
+							var joined *ExternalRelation
+							joined, negativeErr = JoinExternalRelations(value, complement, nil, nil)
+							negativeErr = errors.Join(negativeErr, value.Close(), complement.Close())
+							if negativeErr == nil {
+								value = joined
+							} else if joined != nil {
+								negativeErr = errors.Join(negativeErr, joined.Close())
+							}
+						}
+					} else if negativeErr == nil {
 						negativeErr = value.FilterNegation(relation, negative.targetColumns, negative.negativeColumns)
 					}
 					if negativeErr != nil {
