@@ -130,6 +130,23 @@ func (e *Engine) GetCounterexample() *Counterexample {
 	}
 	return e.counterexample
 }
+
+// InvalidateCounterexampleView retires the counterexample wrapper previously
+// returned by GetCounterexample while preserving its owned derivation for a
+// subsequent LearnFrom. This is the Go counterpart of the fixedpoint
+// interface swapping its published counterexample back into the old solver
+// before constructing the next query.
+func (e *Engine) InvalidateCounterexampleView() error {
+	if err := e.open(); err != nil {
+		return err
+	}
+	owned := NewCounterexample()
+	if err := owned.Swap(e.counterexample); err != nil {
+		return err
+	}
+	e.counterexample = owned
+	return nil
+}
 func (e *Engine) UnwindingGraph() *RPFP {
 	if e == nil || e.self != e || e.closed {
 		return nil

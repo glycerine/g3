@@ -3,7 +3,6 @@ package duality
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"strings"
@@ -338,7 +337,7 @@ func TestDualitySlowSearchRestartPolicyAndFailureThresholds(t *testing.T) {
 		t.Fatal("interpolation exception did not request restart")
 	}
 	pointerFailure := interp.NewError("pointer interpolation exception")
-	for _, failure := range []error{&pointerFailure, fmt.Errorf("wrapped: %w", &pointerFailure)} {
+	for _, failure := range []error{&pointerFailure, errors.Join(&pointerFailure)} {
 		if !errors.Is(controller.learningFailure(failure), ErrDerivationRestart) {
 			t.Fatal("pointer interpolation failure did not restart", failure)
 		}
