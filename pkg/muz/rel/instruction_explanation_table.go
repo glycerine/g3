@@ -164,7 +164,7 @@ func (i *tableInstruction) performExplanation(context *ExecutionContext) (bool, 
 			return false, err
 		}
 		if target == nil {
-			target, err = newFiniteExplanationProduct(source.manager, source.finiteSorts, source.explanationColumns)
+			target, err = source.newProduct(source.finiteSorts, source.explanationColumns)
 			if err != nil {
 				return false, err
 			}
@@ -179,7 +179,7 @@ func (i *tableInstruction) performExplanation(context *ExecutionContext) (bool, 
 				return false, err
 			}
 			if delta == nil {
-				delta, err = newFiniteExplanationProduct(source.manager, source.finiteSorts, source.explanationColumns)
+				delta, err = source.newProduct(source.finiteSorts, source.explanationColumns)
 				if err != nil {
 					return false, err
 				}
