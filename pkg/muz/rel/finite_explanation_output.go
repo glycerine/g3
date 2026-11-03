@@ -59,32 +59,27 @@ func (p *FiniteExplanationProduct) collectEmptyExplanationRows() error {
 // ToTableRelation copies projected finite tuples into an independently owned
 // table after the source empty-inner collection and functional-index removal.
 func (p *FiniteExplanationProduct) ToTableRelation() (result *TableRelation, resultErr error) {
-	can, err := p.CanConvertToTableRelation()
-	if err != nil {
-		return nil, err
-	}
-	if !can {
-		return nil, ErrTableRelation
-	}
-	if err = p.collectEmptyExplanationRows(); err != nil {
-		return nil, err
-	}
-	result, err = NewTableRelation(p.manager, p.finiteSorts)
+	converted, err := p.ToFiniteTable()
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		if resultErr != nil {
+		resultErr = errors.Join(resultErr, converted.Close())
+		if resultErr != nil && result != nil {
 			resultErr = errors.Join(resultErr, result.Close())
 			result = nil
 		}
 	}()
-	rows, err := p.table.Facts()
+	result, err = NewTableRelation(p.manager, p.finiteSorts)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := converted.Facts()
 	if err != nil {
 		return result, err
 	}
 	for _, row := range rows {
-		if _, err = result.AddTableFact(row[:len(row)-1]); err != nil {
+		if _, err = result.AddTableFact(row); err != nil {
 			return result, err
 		}
 	}

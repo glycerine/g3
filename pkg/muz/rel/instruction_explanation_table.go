@@ -239,13 +239,13 @@ func (i *tableInstruction) unionProjectedExplanationIntoTable(context *Execution
 			}
 		}
 	}
-	converted, err := source.ToTableRelation()
+	converted, err := source.ToFiniteTable()
 	if err != nil {
 		return false, err
 	}
 	// The execution registers already own target and delta. The source converter
 	// projects only its temporary; no owning table wrapper is manufactured here.
-	err = errors.Join(finiteTableUnion(target, converted.table, delta), converted.Close())
+	err = errors.Join(finiteTableUnion(target, converted, delta), converted.Close())
 	if err != nil {
 		return false, err
 	}
