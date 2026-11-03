@@ -31,7 +31,7 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 			}
 		}()
 	}
-	any, other := false, false
+	any, other, finiteGuards := false, false, false
 	for _, d := range e.predicateOrder {
 		state := e.predicates[d]
 		supported, err := owner.factory.CanHandleSignature(state.sorts)
@@ -41,10 +41,22 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 		hasDoc := len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "doc"
 		candidate := supported && !state.explicitFiniteRepresentation && state.external == nil && (hasDoc || e.datalogRelationFavourite == "doc" && len(state.requestedRepresentations) == 0 || e.auxiliary[d])
 		any = any || candidate
-		other = other || !candidate
+		guard := udocFiniteNullary(state) && owner.seeds[d] == nil
+		finiteGuards = finiteGuards || guard
+		// The existing finite setter rejects an adopted UDoc owner. Keep that
+		// boundary rather than allowing a second owner to mask its facts.
+		changedOwner := udocFiniteNullary(state) && owner.seeds[d] != nil
+		other = other || !candidate && !guard || changedOwner
 	}
 	if !any {
 		return false, nil
+	}
+	if finiteGuards {
+		allowed, err := e.udocNullaryGuardsOnly()
+		if err != nil {
+			return false, err
+		}
+		other = other || !allowed
 	}
 	if other {
 		// The source generic compiler may mix the favourite doc plugin with a

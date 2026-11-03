@@ -124,6 +124,13 @@ func (c *datalogUDocContext) preflightUDocApplication(application ast.ASTHandle,
 	if err != nil {
 		return err
 	}
+	if _, finite := c.nullaryResult[declaration]; finite {
+		count, err := c.manager.GetNumArgs(application)
+		if err != nil || count != 0 {
+			return errors.Join(err, ErrUDocDatalogFragment)
+		}
+		return nil
+	}
 	relation := c.result[declaration]
 	if relation == nil {
 		return fmt.Errorf("%w: undeclared relation", ErrUDocDatalogFragment)
@@ -214,6 +221,13 @@ func (c *datalogUDocContext) preflightUDocRule(rule *base.Rule) error {
 	head, err := rule.Head()
 	if err != nil {
 		return err
+	}
+	declaration, err := c.manager.GetDecl(head)
+	if err != nil {
+		return err
+	}
+	if _, finite := c.nullaryResult[declaration]; finite {
+		return ErrUDocDatalogFragment
 	}
 	if err = c.preflightUDocApplication(head, variables); err != nil {
 		return err

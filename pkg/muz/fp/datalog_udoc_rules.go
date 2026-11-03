@@ -144,6 +144,12 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 			return false, errors.Join(cause, ErrUDocDatalogFragment)
 		}
 		declaration, cause := c.manager.GetDecl(tail)
+		if present, finite := c.nullaryResult[declaration]; finite && cause == nil {
+			if !present {
+				return false, nil
+			}
+			continue
+		}
 		source := c.result[declaration]
 		if cause != nil || source == nil {
 			return false, errors.Join(cause, ErrUDocDatalogFragment)
