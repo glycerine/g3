@@ -94,6 +94,10 @@ func externalIntervalColumnsEqual(left, right []uint32) bool {
 }
 
 func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*externalIntervalDatalogCartesianRule, error) {
+	return e.externalIntervalCompiler().externalIntervalCartesianRule(rule)
+}
+
+func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *base.Rule) (*externalIntervalDatalogCartesianRule, error) {
 	positive, err := rule.PositiveTailSize()
 	if err != nil {
 		return nil, err
@@ -131,15 +135,15 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 	arguments := make([][]externalIntervalCartesianArgument, 3)
 	sorts := make([][]ast.ASTHandle, 3)
 	for index, application := range applications {
-		declaration, cause := e.manager.GetDecl(application)
+		declaration, cause := c.manager.GetDecl(application)
 		if cause != nil {
 			return nil, cause
 		}
-		state := e.predicates[declaration]
-		if state == nil || e.auxiliary[declaration] || !isExternalIntervalRepresentation(state.requestedRepresentations) {
+		state := c.predicates[declaration]
+		if state == nil || c.queryAuxiliary[declaration] || !isExternalIntervalRepresentation(state.kinds) {
 			return nil, ErrExternalIntervalDatalogFragment
 		}
-		count, cause := e.manager.GetNumArgs(application)
+		count, cause := c.manager.GetNumArgs(application)
 		if cause != nil {
 			return nil, cause
 		}
@@ -151,15 +155,15 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 		arguments[index] = make([]externalIntervalCartesianArgument, count)
 		seen := make(map[uint32]bool)
 		for column := uint32(0); column < count; column++ {
-			argument, cause := e.manager.GetArg(application, column)
+			argument, cause := c.manager.GetArg(application, column)
 			if cause != nil {
 				return nil, cause
 			}
-			kind, cause := e.manager.GetKind(argument)
+			kind, cause := c.manager.GetKind(argument)
 			if cause != nil {
 				return nil, cause
 			}
-			sort, cause := e.manager.GetSort(argument)
+			sort, cause := c.manager.GetSort(argument)
 			if cause != nil {
 				return nil, cause
 			}
@@ -167,7 +171,7 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 				return nil, ErrExternalIntervalDatalogFragment
 			}
 			if kind != ast.ASTVar {
-				_, _, numeral, cause := e.manager.ArithmeticNumeralText(argument)
+				_, _, numeral, cause := c.manager.ArithmeticNumeralText(argument)
 				if cause != nil {
 					return nil, cause
 				}
@@ -177,7 +181,7 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 				arguments[index][column].numeral = argument
 				continue
 			}
-			variable, cause := e.manager.GetVarIndex(argument)
+			variable, cause := c.manager.GetVarIndex(argument)
 			if cause != nil {
 				return nil, cause
 			}
@@ -231,11 +235,11 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 		needed[variable]++
 	}
 	if total > 2 {
-		boolean, cause := e.manager.MkBoolSort()
+		boolean, cause := c.manager.MkBoolSort()
 		if cause != nil {
 			return nil, cause
 		}
-		used, cause := ast.NewASTUsedVars(e.manager)
+		used, cause := ast.NewASTUsedVars(c.manager)
 		if cause != nil {
 			return nil, cause
 		}
@@ -248,11 +252,11 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 			if negated {
 				return nil, ErrExternalIntervalDatalogFragment
 			}
-			kind, cause := e.manager.GetKind(guard)
+			kind, cause := c.manager.GetKind(guard)
 			if cause != nil {
 				return nil, cause
 			}
-			sort, cause := e.manager.GetSort(guard)
+			sort, cause := c.manager.GetSort(guard)
 			if cause != nil {
 				return nil, cause
 			}

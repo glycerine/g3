@@ -46,7 +46,11 @@ func (e *PropositionalEngine) externalIntervalIdentityRule() (_ *externalInterva
 }
 
 func (e *PropositionalEngine) externalIntervalIdentityRulePlan(rule *base.Rule) (*externalIntervalDatalogIdentityRule, error) {
-	head, tail, transform, err := e.externalIntervalUnaryPlan(rule)
+	return e.externalIntervalCompiler().externalIntervalIdentityRulePlan(rule)
+}
+
+func (c *externalIntervalDatalogCompiler) externalIntervalIdentityRulePlan(rule *base.Rule) (*externalIntervalDatalogIdentityRule, error) {
+	head, tail, transform, err := c.externalIntervalUnaryPlan(rule)
 	if err != nil {
 		return nil, err
 	}

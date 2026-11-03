@@ -41,6 +41,10 @@ func sameExternalIntervalGroundRule(left, right *externalIntervalDatalogGroundRu
 }
 
 func (e *PropositionalEngine) externalIntervalGroundRule(rule *base.Rule) (*externalIntervalDatalogGroundRule, error) {
+	return e.externalIntervalCompiler().externalIntervalGroundRule(rule)
+}
+
+func (c *externalIntervalDatalogCompiler) externalIntervalGroundRule(rule *base.Rule) (*externalIntervalDatalogGroundRule, error) {
 	positive, err := rule.PositiveTailSize()
 	if err != nil {
 		return nil, err
@@ -56,15 +60,15 @@ func (e *PropositionalEngine) externalIntervalGroundRule(rule *base.Rule) (*exte
 	if err != nil {
 		return nil, err
 	}
-	declaration, err := e.manager.GetDecl(head)
+	declaration, err := c.manager.GetDecl(head)
 	if err != nil {
 		return nil, err
 	}
-	state := e.predicates[declaration]
-	if state == nil || !isExternalIntervalRepresentation(state.requestedRepresentations) {
+	state := c.predicates[declaration]
+	if state == nil || !isExternalIntervalRepresentation(state.kinds) {
 		return nil, ErrExternalIntervalDatalogFragment
 	}
-	count, err := e.manager.GetNumArgs(head)
+	count, err := c.manager.GetNumArgs(head)
 	if err != nil {
 		return nil, err
 	}
@@ -73,15 +77,15 @@ func (e *PropositionalEngine) externalIntervalGroundRule(rule *base.Rule) (*exte
 	}
 	values := make([]ast.ASTHandle, count)
 	for i := range values {
-		value, cause := e.manager.GetArg(head, uint32(i))
+		value, cause := c.manager.GetArg(head, uint32(i))
 		if cause != nil {
 			return nil, cause
 		}
-		sort, cause := e.manager.GetSort(value)
+		sort, cause := c.manager.GetSort(value)
 		if cause != nil {
 			return nil, cause
 		}
-		_, _, numeral, cause := e.manager.ArithmeticNumeralText(value)
+		_, _, numeral, cause := c.manager.ArithmeticNumeralText(value)
 		if cause != nil {
 			return nil, cause
 		}
@@ -98,7 +102,11 @@ func (e *PropositionalEngine) externalIntervalGroundRule(rule *base.Rule) (*exte
 // zero-tail arithmetic numeral fact, and two positive variable-only tails with
 // a bound, distinct-variable head.
 func (e *PropositionalEngine) externalIntervalRulePlans() (_ *externalIntervalDatalogIdentityRule, _ *externalIntervalDatalogGroundRule, _ *externalIntervalDatalogCartesianRule, resultErr error) {
-	count, err := e.set.Len()
+	return e.externalIntervalCompiler().externalIntervalRulePlans()
+}
+
+func (c *externalIntervalDatalogCompiler) externalIntervalRulePlans() (_ *externalIntervalDatalogIdentityRule, _ *externalIntervalDatalogGroundRule, _ *externalIntervalDatalogCartesianRule, resultErr error) {
+	count, err := c.set.Len()
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -108,7 +116,7 @@ func (e *PropositionalEngine) externalIntervalRulePlans() (_ *externalIntervalDa
 	if count != 1 {
 		return nil, nil, nil, ErrExternalIntervalDatalogFragment
 	}
-	rule, err := e.set.Rule(0)
+	rule, err := c.set.Rule(0)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -118,7 +126,7 @@ func (e *PropositionalEngine) externalIntervalRulePlans() (_ *externalIntervalDa
 		return nil, nil, nil, err
 	}
 	if total == 0 {
-		ground, cause := e.externalIntervalGroundRule(rule)
+		ground, cause := c.externalIntervalGroundRule(rule)
 		return nil, ground, nil, cause
 	}
 	positive, err := rule.PositiveTailSize()
@@ -126,11 +134,11 @@ func (e *PropositionalEngine) externalIntervalRulePlans() (_ *externalIntervalDa
 		return nil, nil, nil, err
 	}
 	if positive == 1 {
-		identity, cause := e.externalIntervalIdentityRulePlan(rule)
+		identity, cause := c.externalIntervalIdentityRulePlan(rule)
 		return identity, nil, nil, cause
 	}
 	if positive == 2 {
-		cartesian, cause := e.externalIntervalCartesianRule(rule)
+		cartesian, cause := c.externalIntervalCartesianRule(rule)
 		return nil, nil, cartesian, cause
 	}
 	return nil, nil, nil, ErrExternalIntervalDatalogFragment

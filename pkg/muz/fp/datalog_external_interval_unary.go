@@ -105,6 +105,10 @@ func sameExternalIntervalUnaryCondition(left, right *externalIntervalUnaryCondit
 }
 
 func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDecl, tailDecl ast.ASTHandle, transform *externalIntervalDatalogUnaryTransform, err error) {
+	return e.externalIntervalCompiler().externalIntervalUnaryPlan(rule)
+}
+
+func (c *externalIntervalDatalogCompiler) externalIntervalUnaryPlan(rule *base.Rule) (headDecl, tailDecl ast.ASTHandle, transform *externalIntervalDatalogUnaryTransform, err error) {
 	fail := func(cause error) (ast.ASTHandle, ast.ASTHandle, *externalIntervalDatalogUnaryTransform, error) {
 		return ast.ASTHandle{}, ast.ASTHandle{}, nil, cause
 	}
@@ -138,15 +142,15 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 	sorts := make([][]ast.ASTHandle, 2)
 	plan := &externalIntervalDatalogUnaryTransform{}
 	for index, application := range []ast.ASTHandle{head, tail} {
-		declaration, cause := e.manager.GetDecl(application)
+		declaration, cause := c.manager.GetDecl(application)
 		if cause != nil {
 			return fail(cause)
 		}
-		state := e.predicates[declaration]
-		if state == nil || e.auxiliary[declaration] || !isExternalIntervalRepresentation(state.requestedRepresentations) {
+		state := c.predicates[declaration]
+		if state == nil || c.queryAuxiliary[declaration] || !isExternalIntervalRepresentation(state.kinds) {
 			return fail(ErrExternalIntervalDatalogFragment)
 		}
-		count, cause := e.manager.GetNumArgs(application)
+		count, cause := c.manager.GetNumArgs(application)
 		if cause != nil {
 			return fail(cause)
 		}
@@ -160,15 +164,15 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 		}
 		seen := make(map[uint32]bool)
 		for column := uint32(0); column < count; column++ {
-			argument, cause := e.manager.GetArg(application, column)
+			argument, cause := c.manager.GetArg(application, column)
 			if cause != nil {
 				return fail(cause)
 			}
-			kind, cause := e.manager.GetKind(argument)
+			kind, cause := c.manager.GetKind(argument)
 			if cause != nil {
 				return fail(cause)
 			}
-			sort, cause := e.manager.GetSort(argument)
+			sort, cause := c.manager.GetSort(argument)
 			if cause != nil {
 				return fail(cause)
 			}
@@ -179,7 +183,7 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 				if index != 1 {
 					return fail(ErrExternalIntervalDatalogFragment)
 				}
-				_, _, numeral, cause := e.manager.ArithmeticNumeralText(argument)
+				_, _, numeral, cause := c.manager.ArithmeticNumeralText(argument)
 				if cause != nil {
 					return fail(cause)
 				}
@@ -192,7 +196,7 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 				plan.application = tail
 				continue
 			}
-			variable, cause := e.manager.GetVarIndex(argument)
+			variable, cause := c.manager.GetVarIndex(argument)
 			if cause != nil {
 				return fail(cause)
 			}
@@ -236,11 +240,11 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 		wanted[variable] = true
 	}
 	if total > 1 {
-		boolean, cause := e.manager.MkBoolSort()
+		boolean, cause := c.manager.MkBoolSort()
 		if cause != nil {
 			return fail(cause)
 		}
-		used, cause := ast.NewASTUsedVars(e.manager)
+		used, cause := ast.NewASTUsedVars(c.manager)
 		if cause != nil {
 			return fail(cause)
 		}
@@ -253,11 +257,11 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 			if negated {
 				return fail(ErrExternalIntervalDatalogFragment)
 			}
-			kind, cause := e.manager.GetKind(guard)
+			kind, cause := c.manager.GetKind(guard)
 			if cause != nil {
 				return fail(cause)
 			}
-			sort, cause := e.manager.GetSort(guard)
+			sort, cause := c.manager.GetSort(guard)
 			if cause != nil {
 				return fail(cause)
 			}

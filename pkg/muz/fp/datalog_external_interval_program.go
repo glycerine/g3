@@ -39,13 +39,17 @@ type externalIntervalDatalogProgram struct {
 // Validate every rule before any callback. Constants are constructed lazily
 // in scheduled rule/column order and shared across the execution register bank.
 func (e *PropositionalEngine) externalIntervalProgramPlan() (*externalIntervalDatalogProgram, error) {
-	count, err := e.set.Len()
+	return e.externalIntervalCompiler().externalIntervalProgramPlan()
+}
+
+func (c *externalIntervalDatalogCompiler) externalIntervalProgramPlan() (*externalIntervalDatalogProgram, error) {
+	count, err := c.set.Len()
 	if err != nil || count < 2 {
 		return nil, err
 	}
 	program := &externalIntervalDatalogProgram{}
 	for index := 0; index < count; index++ {
-		rule, cause := e.set.Rule(index)
+		rule, cause := c.set.Rule(index)
 		if cause != nil {
 			return nil, cause
 		}
@@ -57,11 +61,11 @@ func (e *PropositionalEngine) externalIntervalProgramPlan() (*externalIntervalDa
 			if cause == nil {
 				switch {
 				case total == 0:
-					plan.ground, cause = e.externalIntervalGroundRule(rule)
+					plan.ground, cause = c.externalIntervalGroundRule(rule)
 				case positive == 1:
-					plan.identity, cause = e.externalIntervalIdentityRulePlan(rule)
+					plan.identity, cause = c.externalIntervalIdentityRulePlan(rule)
 				case positive == 2:
-					plan.cartesian, cause = e.externalIntervalCartesianRule(rule)
+					plan.cartesian, cause = c.externalIntervalCartesianRule(rule)
 				default:
 					cause = ErrExternalIntervalDatalogFragment
 				}
@@ -74,12 +78,12 @@ func (e *PropositionalEngine) externalIntervalProgramPlan() (*externalIntervalDa
 		program.rules = append(program.rules, plan)
 		program.declarations = append(program.declarations, plan.declarations()...)
 	}
-	finalized, err := e.set.IsFinalized()
+	finalized, err := c.set.IsFinalized()
 	if err != nil {
 		return nil, err
 	}
 	if !finalized {
-		valid, cause := e.set.Finalize()
+		valid, cause := c.set.Finalize()
 		if cause != nil {
 			return nil, cause
 		}
@@ -90,12 +94,12 @@ func (e *PropositionalEngine) externalIntervalProgramPlan() (*externalIntervalDa
 	for index := range program.rules {
 		plan := &program.rules[index]
 		declarations := plan.declarations()
-		plan.stratum, err = e.set.PredicateStratum(declarations[0])
+		plan.stratum, err = c.set.PredicateStratum(declarations[0])
 		if err != nil {
 			return nil, err
 		}
 		for _, tail := range declarations[1:] {
-			stratum, cause := e.set.PredicateStratum(tail)
+			stratum, cause := c.set.PredicateStratum(tail)
 			if cause != nil {
 				return nil, cause
 			}
