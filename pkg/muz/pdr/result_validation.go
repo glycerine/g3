@@ -82,7 +82,18 @@ func (c *Context) validateProofHandle(proofHandle ast.ASTHandle) (result error) 
 		return fmt.Errorf("%w: proof checker rejected reachable trace", errPDRResultValidation)
 	}
 	for index, condition := range sideConditions {
+		// Source expr_ref tmp owns the negation before kernel construction.
+		// Reserve its owner first so either allocation failure leaves the
+		// temporary attached to the existing validation cleanup attempt.
+		guard, x := c.manager.NewRef(ast.ASTHandle{})
+		if x != nil {
+			return x
+		}
+		attempt.references = append(attempt.references, guard)
 		negated, x := c.manager.MkNot(condition)
+		if !negated.IsNull() {
+			x = errors.Join(x, c.manager.SetRef(guard, negated))
+		}
 		if x != nil {
 			return x
 		}
