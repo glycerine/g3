@@ -309,12 +309,14 @@ func (r *UDocRelation) Rename(cycle []uint32) (*UDocRelation, error) {
 		columnPermutation[i] = uint32(i)
 	}
 	seen := make(map[uint32]bool, len(cycle))
-	for i, source := range cycle {
-		if source >= uint32(len(r.widths)) || seen[source] {
+	for i, destination := range cycle {
+		if destination >= uint32(len(r.widths)) || seen[destination] {
 			return nil, arena.ErrBounds
 		}
-		seen[source] = true
-		destination := cycle[(i+1)%len(cycle)]
+		seen[destination] = true
+		// Source permutate_by_cycle moves the next source column into the
+		// current destination, independently of the columns' bit widths.
+		source := cycle[(i+1)%len(cycle)]
 		columnPermutation[destination] = source
 	}
 	newWidths := make([]uint32, len(r.widths))

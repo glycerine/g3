@@ -118,11 +118,7 @@ func (c *datalogUDocContext) sync(e *PropositionalEngine) error {
 				return err
 			}
 			for _, fact := range facts {
-				values := make([]uint64, len(fact))
-				for i, value := range fact {
-					values[i] = uint64(value)
-				}
-				if _, err = relation.Core().AddFact(values); err != nil {
+				if err = c.importFiniteFact(e, relation, state.sorts, fact); err != nil {
 					return err
 				}
 			}

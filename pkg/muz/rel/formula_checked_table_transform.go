@@ -11,7 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func (r *FormulaCheckedTable) substitute(formula ast.ASTHandle, bindings []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+func (r *relationFormulaChecker) substitute(formula ast.ASTHandle, bindings []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	subst, err := rewriter.NewVarSubstitution(r.manager, false)
 	if subst != nil {
 		defer func() {
@@ -37,7 +37,7 @@ func (r *FormulaCheckedTable) projectFormula(formula ast.ASTHandle, removed []in
 	return r.projectFormulaForSorts(formula, r.table.sorts, removed)
 }
 
-func (r *FormulaCheckedTable) projectFormulaForSorts(formula ast.ASTHandle, sorts []ast.ASTHandle, removed []int) (result ast.ASTRef, resultErr error) {
+func (r *relationFormulaChecker) projectFormulaForSorts(formula ast.ASTHandle, sorts []ast.ASTHandle, removed []int) (result ast.ASTRef, resultErr error) {
 	var refs []ast.ASTRef
 	defer func() {
 		for i := len(refs) - 1; i >= 0; i-- {

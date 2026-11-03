@@ -10,7 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
-func (r *FormulaCheckedTable) verifyGrounded(left, right ast.ASTHandle, named bool) (resultErr error) {
+func (r *relationFormulaChecker) verifyGrounded(left, right ast.ASTHandle, named bool) (resultErr error) {
 	a, err := r.groundWithNames(left, named)
 	if err != nil {
 		return err

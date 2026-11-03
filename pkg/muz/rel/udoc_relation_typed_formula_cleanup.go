@@ -13,12 +13,13 @@ import (
 )
 
 type typedUDocFormulaOwner struct {
-	manager *ast.ASTManager
-	roots   []ast.ASTRef
-	numbers []*numeral.OwnedRational
-	calls   []*numeral.RationalServiceInvocation
-	result  ast.ASTRef
-	nested  memory.ConstructionFailure
+	manager  *ast.ASTManager
+	roots    []ast.ASTRef
+	numbers  []*numeral.OwnedRational
+	calls    []*numeral.RationalServiceInvocation
+	result   ast.ASTRef
+	nested   memory.ConstructionFailure
+	relation *TypedUDocRelation
 }
 
 func (o *typedUDocFormulaOwner) hold(value ast.ASTHandle, cause error) (ast.ASTHandle, error) {
@@ -173,7 +174,15 @@ func (o *typedUDocFormulaOwner) close() error {
 		return err
 	}
 	if o.result != (ast.ASTRef{}) {
-		return o.manager.DelRef(&o.result)
+		if err := o.manager.DelRef(&o.result); err != nil {
+			return err
+		}
+	}
+	if o.relation != nil {
+		if err := o.relation.Close(); err != nil {
+			return err
+		}
+		o.relation = nil
 	}
 	return nil
 }

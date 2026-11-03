@@ -106,6 +106,20 @@ func (r *TypedUDocRelation) ToFormula() (result ast.ASTRef, resultErr error) {
 	if err := r.open(); err != nil {
 		return ast.ASTRef{}, err
 	}
+	if r.checker != nil {
+		formula, err := r.factory.manager.RefGet(r.checker.formula)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		return r.factory.manager.NewRef(formula)
+	}
+	return r.toUncheckedFormula()
+}
+
+func (r *TypedUDocRelation) toUncheckedFormula() (result ast.ASTRef, resultErr error) {
+	if err := r.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
 	owner := &typedUDocFormulaOwner{manager: r.factory.manager}
 	defer func() {
 		resultErr = finishTypedUDocFormula(owner, resultErr)

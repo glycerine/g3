@@ -17,15 +17,56 @@ func (r *TypedUDocRelation) sameShape(other *TypedUDocRelation) bool {
 	return true
 }
 
-func (r *TypedUDocRelation) UnionFrom(source, delta *TypedUDocRelation) error {
+func (r *TypedUDocRelation) UnionFrom(source, delta *TypedUDocRelation) (resultErr error) {
 	if !r.sameShape(source) || delta != nil && !r.sameShape(delta) {
 		return ErrDOC
+	}
+	var old, sourceFormula, deltaOld ast.ASTRef
+	if r.checker != nil {
+		m := r.factory.manager
+		owner := &typedUDocFormulaOwner{manager: m}
+		defer func() {
+			resultErr = finishTypedUDocFormula(owner, resultErr)
+		}()
+		var err error
+		old, err = r.checkerProject(nil)
+		if old != (ast.ASTRef{}) {
+			owner.roots = append(owner.roots, old)
+		}
+		if err != nil {
+			return err
+		}
+		if source.checker == nil || delta != nil && delta.checker == nil {
+			return ErrRelationVerification
+		}
+		sourceFormula, err = source.checkerProject(nil)
+		if sourceFormula != (ast.ASTRef{}) {
+			owner.roots = append(owner.roots, sourceFormula)
+		}
+		if err != nil {
+			return err
+		}
+		if delta != nil {
+			deltaOld, err = delta.checkerProject(nil)
+			if deltaOld != (ast.ASTRef{}) {
+				owner.roots = append(owner.roots, deltaOld)
+			}
+			if err != nil {
+				return err
+			}
+		}
 	}
 	var deltaCore *UDocRelation
 	if delta != nil {
 		deltaCore = delta.relation
 	}
-	return r.relation.UnionFrom(source.relation, deltaCore)
+	if err := r.relation.UnionFrom(source.relation, deltaCore); err != nil {
+		return err
+	}
+	if r.checker != nil {
+		return r.checkerUnion(sourceFormula, delta, old, deltaOld)
+	}
+	return nil
 }
 
 func (r *TypedUDocRelation) FilterEqual(column uint32, value ast.ASTHandle) error {
@@ -45,13 +86,19 @@ func (r *TypedUDocRelation) FilterEqual(column uint32, value ast.ASTHandle) erro
 		if width != r.relation.widths[column] {
 			return ast.ErrASTDomain
 		}
-		return r.relation.FilterEqualBig(column, number)
+		if err = r.relation.FilterEqualBig(column, number); err != nil {
+			return err
+		}
+		return r.checkerEqual(column, value)
 	}
 	number, matched, err := r.factory.manager.DatalogNumeralValue(value)
 	if err != nil || !matched {
 		return ast.ErrASTDomain
 	}
-	return r.relation.FilterEqual(column, number)
+	if err = r.relation.FilterEqual(column, number); err != nil {
+		return err
+	}
+	return r.checkerEqual(column, value)
 }
 
 func (r *TypedUDocRelation) FilterIdentical(columns []uint32) error {
@@ -66,14 +113,20 @@ func (r *TypedUDocRelation) FilterIdentical(columns []uint32) error {
 			return ast.ErrASTDomain
 		}
 	}
-	return r.relation.FilterIdentical(columns)
+	if err := r.relation.FilterIdentical(columns); err != nil {
+		return err
+	}
+	return r.checkerIdentical(columns)
 }
 
 func (r *TypedUDocRelation) FilterInterpreted(condition ast.ASTHandle) error {
 	if err := r.open(); err != nil {
 		return err
 	}
-	return r.relation.FilterGuard(r.factory.manager, condition)
+	if err := r.relation.FilterGuard(r.factory.manager, condition); err != nil {
+		return err
+	}
+	return r.checkerFilter(condition)
 }
 
 func (r *TypedUDocRelation) Rename(cycle []uint32) (*TypedUDocRelation, error) {
@@ -91,13 +144,18 @@ func (r *TypedUDocRelation) Rename(cycle []uint32) (*TypedUDocRelation, error) {
 		}
 		seen[column] = true
 	}
-	for i, source := range cycle {
-		destination := cycle[(i+1)%len(cycle)]
+	for i, destination := range cycle {
+		source := cycle[(i+1)%len(cycle)]
 		sorts[destination] = r.sorts[source]
 	}
 	renamed, err := r.relation.Rename(cycle)
 	if err != nil {
 		return nil, err
 	}
-	return &TypedUDocRelation{factory: r.factory, sorts: sorts, relation: renamed}, nil
+	result := &TypedUDocRelation{factory: r.factory, sorts: sorts, relation: renamed}
+	var expected ast.ASTRef
+	if r.checker != nil {
+		expected, err = r.checker.renameFormulaRef(r.checker.formula, r.sorts, sorts, cycle)
+	}
+	return r.checkedResult(result, expected, err)
 }

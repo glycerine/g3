@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -22,13 +23,16 @@ type datalogCheckedPredicate struct {
 	sparse      *rel.CheckedRelation
 	pair        *rel.FiniteCheckedPair
 	publish     rel.FiniteTable
+	doc         *rel.UDocNullaryTable
 }
 
 type datalogCheckRelationScope struct {
-	engine   *PropositionalEngine
-	entries  []datalogCheckedPredicate
-	compiled *datalogCompiledCheckScope
-	factory  *rel.FiniteCheckedFactory
+	engine     *PropositionalEngine
+	entries    []datalogCheckedPredicate
+	compiled   *datalogCompiledCheckScope
+	factory    *rel.FiniteCheckedFactory
+	docFactory *rel.UDocRelationFactory
+	docNested  memory.ConstructionFailure
 }
 
 type datalogCheckRelationCleanupFailure struct {
@@ -125,8 +129,8 @@ func (e *PropositionalEngine) datalogCheckRelationName() (name string, enabled b
 	case "tr_sparse":
 		name = "sparse"
 	}
-	// doc uses finite execution here while preserving source's compressor
-	// interaction. Sparse is checked by the concrete paired sparse table.
+	// doc selects the actual UDoc checking factory before finite execution.
+	// Sparse is checked by the concrete paired sparse table.
 	if name != "hashtable" && name != "sparse" && name != "doc" && name != "check" {
 		return "", false, fmt.Errorf("muz/fp: relation plugin %s is not available for datalog.check_relation", name)
 	}
@@ -202,6 +206,23 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 	name, enabled, err := e.datalogCheckRelationName()
 	if err != nil {
 		return nil, err
+	}
+	if enabled && name == "doc" {
+		// The UDoc query path has already selected every source-capable doc
+		// program. Signatures rejected by doc (for example Bool) fall through
+		// to ordinary table plugins, just as relation_manager does in source.
+		legacy, err := e.legacyMixedDocChecker()
+		if err != nil {
+			return nil, err
+		}
+		if !legacy {
+			return e.beginDatalogDocNullaries()
+		}
+		// Preserve the preexisting finite checking behavior for initially
+		// mixed positive-arity programs. This path is not source doc/table
+		// product parity; the actual checked UDoc executor handles pure doc
+		// programs before this finite fallback is reached.
+		name = "hashtable"
 	}
 	if enabled && name == "check" {
 		// The nested table-relation selector is activated by the relation-level
@@ -319,7 +340,7 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 func (s *datalogCheckRelationScope) restoreStates() {
 	for i := range s.entries {
 		entry := &s.entries[i]
-		if entry.state != nil && (entry.state.checked == entry.checked && entry.checked != nil || entry.state.sparse == entry.sparse && entry.sparse != nil || entry.pair != nil && entry.state.table == entry.pair) {
+		if entry.state != nil && (entry.state.checked == entry.checked && entry.checked != nil || entry.state.sparse == entry.sparse && entry.sparse != nil || entry.pair != nil && entry.state.table == entry.pair || entry.doc != nil && entry.state.table == entry.doc) {
 			entry.state.table, entry.state.checked, entry.state.sparse = entry.original, nil, nil
 		}
 	}
@@ -339,7 +360,9 @@ func (s *datalogCheckRelationScope) complete(publish bool) (result error) {
 			entry := &s.entries[i]
 			var facts []rel.Fact
 			var err error
-			if entry.pair != nil {
+			if entry.doc != nil {
+				facts, err = entry.doc.Facts()
+			} else if entry.pair != nil {
 				facts, err = entry.pair.Facts()
 			} else {
 				facts, err = entry.shadow.Facts()
@@ -385,6 +408,12 @@ func (s *datalogCheckRelationScope) dispose() (result error) {
 	if s == nil {
 		return nil
 	}
+	if s.docNested != nil {
+		if err := s.docNested.Cleanup(); err != nil {
+			return err
+		}
+		s.docNested = nil
+	}
 	if s.compiled != nil {
 		if err := s.compiled.Close(); err != nil {
 			return err
@@ -393,6 +422,13 @@ func (s *datalogCheckRelationScope) dispose() (result error) {
 	s.restoreStates()
 	for i := range s.entries {
 		entry := &s.entries[i]
+		if entry.doc != nil {
+			if err := entry.doc.Close(); err != nil {
+				result = errors.Join(result, err)
+				continue
+			}
+			entry.doc = nil
+		}
 		if entry.checked != nil {
 			if err := entry.checked.Close(); err != nil {
 				result = errors.Join(result, err)
@@ -420,6 +456,10 @@ func (s *datalogCheckRelationScope) dispose() (result error) {
 			result = errors.Join(result, entry.shadow.Close())
 			entry.shadow = nil
 		}
+	}
+	if result == nil && s.docFactory != nil {
+		s.docFactory.Close()
+		s.docFactory = nil
 	}
 	return result
 }

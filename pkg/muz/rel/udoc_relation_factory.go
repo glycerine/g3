@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/smtcore"
 )
 
 // UDocRelationFactory owns the source plugin's DocManager cache and borrows
@@ -18,6 +19,7 @@ type UDocRelationFactory struct {
 	config   arena.VectorConfig
 	managers map[uint32]*DocManager
 	closed   bool
+	checker  *smtcore.SMTSolverConfig
 }
 
 type TypedUDocRelation struct {
@@ -25,6 +27,7 @@ type TypedUDocRelation struct {
 	sorts    []ast.ASTHandle
 	relation *UDocRelation
 	closed   bool
+	checker  *udocFormulaChecker
 }
 
 func NewUDocRelationFactory(manager *ast.ASTManager, config arena.VectorConfig) (*UDocRelationFactory, error) {
@@ -36,6 +39,24 @@ func NewUDocRelationFactory(manager *ast.ASTManager, config arena.VectorConfig) 
 	}
 	return &UDocRelationFactory{manager: manager, config: config, managers: make(map[uint32]*DocManager)}, nil
 }
+
+// NewFormulaCheckedUDocFactory selects the source check_relation(doc)
+// specialization. Every relation and derived operation still uses UDoc storage.
+func NewFormulaCheckedUDocFactory(manager *ast.ASTManager, config arena.VectorConfig, checker smtcore.SMTSolverConfig) (*UDocRelationFactory, error) {
+	if manager == nil || checker.Params == nil {
+		return nil, ast.ErrASTDomain
+	}
+	if err := checker.Params.CheckServices(manager.Symbols, manager.NumeralService()); err != nil {
+		return nil, err
+	}
+	factory, err := NewUDocRelationFactory(manager, config)
+	if err == nil {
+		factory.checker = &checker
+	}
+	return factory, err
+}
+
+func (f *UDocRelationFactory) FormulaChecked() bool { return f != nil && f.checker != nil }
 
 func (*UDocRelationFactory) Name() string { return "doc" }
 
@@ -133,7 +154,17 @@ func (f *UDocRelationFactory) NewEmpty(sorts []ast.ASTHandle) (*TypedUDocRelatio
 	if err != nil {
 		return nil, err
 	}
-	return &TypedUDocRelation{factory: f, sorts: append([]ast.ASTHandle(nil), sorts...), relation: relation}, nil
+	result := &TypedUDocRelation{factory: f, sorts: append([]ast.ASTHandle(nil), sorts...), relation: relation}
+	if f.checker != nil {
+		falsity, err := f.manager.MkFalse()
+		if err == nil {
+			err = result.installChecker(falsity)
+		}
+		if err != nil {
+			return nil, finishCheckedUDocConstruction(err, result, ast.ASTRef{})
+		}
+	}
+	return result, nil
 }
 
 func (f *UDocRelationFactory) NewFull(sorts []ast.ASTHandle) (result *TypedUDocRelation, resultErr error) {
@@ -146,7 +177,16 @@ func (f *UDocRelationFactory) NewFull(sorts []ast.ASTHandle) (result *TypedUDocR
 		err = result.relation.elems.PushOwned(full)
 	}
 	if err != nil {
-		return nil, errors.Join(err, result.Close())
+		return nil, finishCheckedUDocConstruction(err, result, ast.ASTRef{})
+	}
+	if result.checker != nil {
+		truth, err := f.manager.MkTrue()
+		if err == nil {
+			err = result.checkFormula(truth)
+		}
+		if err != nil {
+			return nil, finishCheckedUDocConstruction(err, result, ast.ASTRef{})
+		}
 	}
 	return result, nil
 }
@@ -175,6 +215,12 @@ func (r *TypedUDocRelation) Core() *UDocRelation {
 func (r *TypedUDocRelation) Close() error {
 	if r == nil || r.closed {
 		return nil
+	}
+	if r.checker != nil {
+		if err := r.checker.manager.DelRef(&r.checker.formula); err != nil {
+			return err
+		}
+		r.checker = nil
 	}
 	err := r.relation.Close()
 	r.closed = true

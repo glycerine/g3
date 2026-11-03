@@ -19,9 +19,8 @@ var ErrRelationVerification = errors.New("muz/rel: operation was not verified")
 // FormulaCheckedTable owns a concrete table relation and keeps the source
 // check relation's expected formula. Solver services are borrowed.
 type FormulaCheckedTable struct {
-	table   *TableRelation
-	manager *ast.ASTManager
-	config  smtcore.SMTSolverConfig
+	table *TableRelation
+	*relationFormulaChecker
 	formula ast.ASTRef
 	closed  bool
 }
@@ -82,7 +81,7 @@ func NewFormulaCheckedTable(source *TableRelation, config smtcore.SMTSolverConfi
 	if err != nil {
 		return nil, err
 	}
-	return &FormulaCheckedTable{table: source, manager: m, config: config, formula: formula}, nil
+	return &FormulaCheckedTable{table: source, relationFormulaChecker: &relationFormulaChecker{manager: m, config: config, sorts: source.sorts}, formula: formula}, nil
 }
 
 func (r *FormulaCheckedTable) open() error {
@@ -93,11 +92,11 @@ func (r *FormulaCheckedTable) open() error {
 }
 
 // ground replaces each column variable with the source numeric-symbol constant.
-func (r *FormulaCheckedTable) ground(formula ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+func (r *relationFormulaChecker) ground(formula ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	return r.groundWithNames(formula, false)
 }
 
-func (r *FormulaCheckedTable) groundWithNames(formula ast.ASTHandle, named bool) (result ast.ASTRef, resultErr error) {
+func (r *relationFormulaChecker) groundWithNames(formula ast.ASTHandle, named bool) (result ast.ASTRef, resultErr error) {
 	var refs []ast.ASTRef
 	owned := false
 	defer func() {
@@ -109,8 +108,8 @@ func (r *FormulaCheckedTable) groundWithNames(formula ast.ASTHandle, named bool)
 			result = ast.ASTRef{}
 		}
 	}()
-	vars := make([]ast.ASTHandle, len(r.table.sorts))
-	for i, sort := range r.table.sorts {
+	vars := make([]ast.ASTHandle, len(r.sorts))
+	for i, sort := range r.sorts {
 		name := symbol.Numerical(uint32(i))
 		if named {
 			var err error
@@ -146,7 +145,7 @@ func (r *FormulaCheckedTable) groundWithNames(formula ast.ASTHandle, named bool)
 	return result, resultErr
 }
 
-func (r *FormulaCheckedTable) checkEquivalent(left, right ast.ASTHandle) (resultErr error) {
+func (r *relationFormulaChecker) checkEquivalent(left, right ast.ASTHandle) (resultErr error) {
 	m := r.manager
 	eq, err := m.MkEq(left, right)
 	if err != nil {
@@ -187,7 +186,7 @@ func (r *FormulaCheckedTable) checkEquivalent(left, right ast.ASTHandle) (result
 	return nil
 }
 
-func (r *FormulaCheckedTable) factFormula(values []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+func (r *relationFormulaChecker) factFormula(values []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	m := r.manager
 	var refs []ast.ASTRef
 	defer func() {
@@ -197,7 +196,7 @@ func (r *FormulaCheckedTable) factFormula(values []ast.ASTHandle) (result ast.AS
 	}()
 	conjuncts := make([]ast.ASTHandle, 0, len(values))
 	for i, value := range values {
-		variable, err := m.MkVar(uint32(i), r.table.sorts[i])
+		variable, err := m.MkVar(uint32(i), r.sorts[i])
 		if err != nil {
 			return result, err
 		}

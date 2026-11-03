@@ -44,7 +44,11 @@ func (r *TypedUDocRelation) AddFact(values []ast.ASTHandle) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return r.relation.AddBigFact(fact)
+	added, err := r.relation.AddBigFact(fact)
+	if err == nil {
+		err = r.checkerAddFact(values)
+	}
+	return added, err
 }
 
 func (r *TypedUDocRelation) ContainsFact(values []ast.ASTHandle) (bool, error) {
@@ -52,23 +56,60 @@ func (r *TypedUDocRelation) ContainsFact(values []ast.ASTHandle) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	if err = r.checkCurrentFormula(); err != nil {
+		return false, err
+	}
 	document, err := r.relation.factToDoc(fact)
 	if err != nil {
 		return false, err
 	}
 	defer r.relation.manager.Deallocate(document)
-	return r.relation.elems.Contains(document)
+	found, err := r.relation.elems.Contains(document)
+	if err == nil {
+		err = r.checkerContains(values, found)
+	}
+	return found, err
 }
 
-func (r *TypedUDocRelation) FastEmpty() bool {
-	return r.open() != nil || r.relation.FastEmpty()
+func (r *TypedUDocRelation) FastEmpty() (bool, error) {
+	if err := r.open(); err != nil {
+		return false, err
+	}
+	empty := r.relation.FastEmpty()
+	if empty && r.checker != nil {
+		if err := r.checkCurrentFormula(); err != nil {
+			return false, err
+		}
+	}
+	return empty, nil
 }
 
 func (r *TypedUDocRelation) Empty() (bool, error) {
 	if err := r.open(); err != nil {
 		return false, err
 	}
-	return r.relation.Empty(r.factory.manager)
+	if err := r.checkCurrentFormula(); err != nil {
+		return false, err
+	}
+	empty, err := r.relation.Empty(r.factory.manager)
+	if err != nil {
+		return false, err
+	}
+	if empty && r.checker != nil {
+		m := r.factory.manager
+		expected, err := m.RefGet(r.checker.formula)
+		if err != nil {
+			return false, err
+		}
+		falsity, err := m.MkFalse()
+		if err != nil {
+			return false, err
+		}
+		if err = r.checker.verifyGrounded(expected, falsity, false); err != nil {
+			return false, err
+		}
+	}
+	return empty, nil
 }
 
 func (r *TypedUDocRelation) Clone() (*TypedUDocRelation, error) {
@@ -79,14 +120,26 @@ func (r *TypedUDocRelation) Clone() (*TypedUDocRelation, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &TypedUDocRelation{factory: r.factory, sorts: append([]ast.ASTHandle(nil), r.sorts...), relation: copy}, nil
+	result := &TypedUDocRelation{factory: r.factory, sorts: append([]ast.ASTHandle(nil), r.sorts...), relation: copy}
+	expected, err := r.checkerProject(nil)
+	return r.checkedResult(result, expected, err)
 }
 
 func (r *TypedUDocRelation) Reset() error {
 	if err := r.open(); err != nil {
 		return err
 	}
-	return r.relation.Reset()
+	if err := r.relation.Reset(); err != nil {
+		return err
+	}
+	if r.checker != nil {
+		falsity, err := r.factory.manager.MkFalse()
+		if err != nil {
+			return err
+		}
+		return r.checkFormula(falsity)
+	}
+	return nil
 }
 
 func (r *TypedUDocRelation) Project(removed []uint32) (*TypedUDocRelation, error) {
@@ -117,7 +170,9 @@ func (r *TypedUDocRelation) Project(removed []uint32) (*TypedUDocRelation, error
 	if err != nil {
 		return nil, err
 	}
-	return &TypedUDocRelation{factory: r.factory, sorts: sorts, relation: projected}, nil
+	result := &TypedUDocRelation{factory: r.factory, sorts: sorts, relation: projected}
+	expected, err := r.checkerProject(removed)
+	return r.checkedResult(result, expected, err)
 }
 
 func (r *TypedUDocRelation) Join(other *TypedUDocRelation, leftColumns, rightColumns []uint32) (*TypedUDocRelation, error) {
@@ -145,7 +200,9 @@ func (r *TypedUDocRelation) Join(other *TypedUDocRelation, leftColumns, rightCol
 	if err != nil {
 		return nil, err
 	}
-	return &TypedUDocRelation{factory: r.factory, sorts: sorts, relation: joined}, nil
+	result := &TypedUDocRelation{factory: r.factory, sorts: sorts, relation: joined}
+	expected, err := r.checkerJoin(other, leftColumns, rightColumns, nil)
+	return r.checkedResult(result, expected, err)
 }
 
 func (r *TypedUDocRelation) JoinProject(other *TypedUDocRelation, leftColumns, rightColumns, removed []uint32) (*TypedUDocRelation, error) {
@@ -194,5 +251,7 @@ func (r *TypedUDocRelation) JoinProject(other *TypedUDocRelation, leftColumns, r
 	if err != nil {
 		return nil, err
 	}
-	return &TypedUDocRelation{factory: r.factory, sorts: resultSorts, relation: joined}, nil
+	result := &TypedUDocRelation{factory: r.factory, sorts: resultSorts, relation: joined}
+	expected, err := r.checkerJoin(other, leftColumns, rightColumns, removed)
+	return r.checkedResult(result, expected, err)
 }

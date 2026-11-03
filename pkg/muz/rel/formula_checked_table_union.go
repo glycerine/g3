@@ -9,7 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (r *FormulaCheckedTable) verifyUnion(old, source, actual, deltaOld, deltaActual ast.ASTHandle, hasDelta bool) (resultErr error) {
+func (r *relationFormulaChecker) verifyUnion(old, source, actual, deltaOld, deltaActual ast.ASTHandle, hasDelta bool) (resultErr error) {
 	m := r.manager
 	var refs []ast.ASTRef
 	defer func() {

@@ -54,8 +54,11 @@ func TestTypedUDocFactsCloneAndColumnFormula(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer clone.Close()
-	if err = relation.Reset(); err != nil || relation.FastEmpty() == false {
+	if err = relation.Reset(); err != nil {
 		t.Fatal("reset", err)
+	}
+	if empty, err := relation.FastEmpty(); err != nil || !empty {
+		t.Fatal("reset emptiness", empty, err)
 	}
 	found, err = clone.ContainsFact([]ast.ASTHandle{bvValue, finiteValue})
 	if err != nil || !found {

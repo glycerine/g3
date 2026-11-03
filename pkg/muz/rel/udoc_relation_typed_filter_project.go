@@ -50,7 +50,9 @@ func (r *TypedUDocRelation) FilterInterpretedAndProject(condition ast.ASTHandle,
 	if err != nil {
 		return nil, err
 	}
-	return &TypedUDocRelation{factory: r.factory, sorts: sorts, relation: filtered}, nil
+	result := &TypedUDocRelation{factory: r.factory, sorts: sorts, relation: filtered}
+	expected, err := r.checkerFilterProject(condition, removed)
+	return r.checkedResult(result, expected, err)
 }
 
 // udocProjectEqualityRange implements source is_var_range for equality

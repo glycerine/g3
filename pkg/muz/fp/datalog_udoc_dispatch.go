@@ -11,17 +11,30 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 	if err := e.cacheDatalogRelationFavourite(); err != nil {
 		return false, err
 	}
+	checkerName, checkerEnabled, err := e.datalogCheckRelationName()
+	if err != nil {
+		return false, err
+	}
+	checkedDoc := checkerEnabled && checkerName == "doc"
+	docFavourite := e.datalogRelationFavourite == "doc" || checkedDoc
+	if e.udocDatalog != nil {
+		// Source relation_manager keeps the existing concrete relation owner
+		// when favourite/checker parameters change. Its migrated facts must
+		// not fall back to the finite table whose contents it already adopted.
+		docFavourite = true
+		checkedDoc = e.udocDatalog.factory.FormulaChecked()
+	}
 	requested := false
 	for _, state := range e.predicates {
 		requested = requested || len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "doc"
 	}
-	if e.datalogRelationFavourite != "doc" && !requested {
+	if !docFavourite && !requested {
 		return false, nil
 	}
 	owner := e.udocDatalog
 	if owner == nil {
 		var err error
-		owner, err = newDatalogUDocContext(e.manager)
+		owner, err = e.newUDocDatalogOwner(checkedDoc)
 		if err != nil {
 			return false, err
 		}
@@ -39,7 +52,10 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 			return false, err
 		}
 		hasDoc := len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "doc"
-		candidate := supported && !state.explicitFiniteRepresentation && state.external == nil && (hasDoc || e.datalogRelationFavourite == "doc" && len(state.requestedRepresentations) == 0 || e.auxiliary[d])
+		if checkedDoc && hasDoc {
+			return true, ErrUDocDatalogFragment
+		}
+		candidate := supported && !state.explicitFiniteRepresentation && state.external == nil && (hasDoc || docFavourite && len(state.requestedRepresentations) == 0 || e.auxiliary[d])
 		any = any || candidate
 		guard := udocFiniteNullary(state) && owner.seeds[d] == nil
 		finiteGuards = finiteGuards || guard
@@ -59,6 +75,17 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 		other = other || !allowed
 	}
 	if other {
+		if checkedDoc {
+			// Preserve existing mixed finite execution until the generic
+			// checked doc/table product compiler is integrated. Pure doc
+			// programs take the concrete checked factory above; mixed Bool
+			// signatures with only doc nullaries use the zero-column DOC
+			// specialization in the finite scope.
+			if e.udocDatalog == nil {
+				return false, nil
+			}
+			return true, ErrUDocDatalogFragment
+		}
 		// The source generic compiler may mix the favourite doc plugin with a
 		// fallback relation plugin. The specialized Go UDoc executor cannot,
 		// so leave an initially mixed program to the ordinary finite executor.
@@ -72,8 +99,8 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 	if enabled, err := e.datalogExplanationsEnabled(); err != nil || enabled {
 		return true, errors.Join(err, ErrUDocDatalogFragment)
 	}
-	if _, enabled, err := e.datalogCheckRelationName(); err != nil || enabled {
-		return true, errors.Join(err, ErrUDocDatalogFragment)
+	if checkerEnabled && !checkedDoc {
+		return true, ErrUDocDatalogFragment
 	}
 	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled {
 		return true, errors.Join(err, ErrUDocDatalogFragment)
