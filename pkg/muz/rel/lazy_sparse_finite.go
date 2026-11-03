@@ -94,11 +94,11 @@ func (t *LazySparseTable) SizeEstimateBytes() (uint32, error) {
 }
 
 func (t *LazySparseTable) Display(out io.Writer) error {
-	table, err := t.eval()
+	table, err := t.finiteEval()
 	if err != nil {
 		return err
 	}
-	return table.Display(out)
+	return displayLazySparseFinite(table, out)
 }
 
 func (t *LazySparseTable) Reset() error {
