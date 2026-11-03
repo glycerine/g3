@@ -136,15 +136,35 @@ func (m *SMTContextManager) Fresh() (_ *SMTContext, resultErr error) {
 		if err != nil {
 			return nil, err
 		}
-		predicate, err = m.manager.MkConst(name, boolean)
+		// Source mk_fresh owns pred in an app_ref before constructing it.
+		// Reserve the Go root first so a new reference page cannot strand the
+		// fresh guard application and its declaration.
+		reference, err := m.manager.NewRef(ast.ASTHandle{})
 		if err != nil {
 			return nil, err
 		}
-		reference, err := m.manager.NewRef(predicate)
+		published := false
+		defer func() {
+			if published {
+				return
+			}
+			cleanup := m.manager.DelRef(&reference)
+			if reference != (ast.ASTRef{}) {
+				// The pool outlives its guards and can finish a refused local
+				// destructor through its existing predicate cleanup frontier.
+				m.predicates = append(m.predicates, reference)
+			}
+			resultErr = errors.Join(resultErr, cleanup)
+		}()
+		predicate, err = m.manager.MkConst(name, boolean)
+		if !predicate.IsNull() {
+			err = errors.Join(err, m.manager.SetRef(reference, predicate))
+		}
 		if err != nil {
 			return nil, err
 		}
 		m.predicates = append(m.predicates, reference)
+		published = true
 		declaration, err := m.manager.GetDecl(predicate)
 		if err != nil {
 			return nil, err
