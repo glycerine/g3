@@ -487,6 +487,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Union and widen aligned external/interval products with a fresh per-component delta followed by ordinary accumulation into the caller delta, preserving preexisting rows and source operation order under refusal.
   - [x] Join aligned external/interval products componentwise with exact schema/kind preflight, callback column order, interval equality constraints and independent result ownership.
   - [x] Display mixed external/interval products with the source header and component order, propagating writer failures without mutating either component.
+  - [x] Preserve external UNION/WIDEN assignment application roots behind nested callback cleanup receipts, retrying child-first without revisiting consumed slots.
   - [ ] Mixed external products and remaining exceptional working/delta ownership.
 - [ ] `src/muz/rel/dl_finite_product_relation.cpp` (partial), `src/muz/rel/dl_finite_product_relation.h` (partial)
   - [x] Finite/interval product display, size estimates, forced garbage collection and non-table tuple-display fallback.
@@ -735,6 +736,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Exact bound/interval products now implement the source default intersection filter as join/project followed by atomic target replacement. Selected columns refine the target, requested component order and borrowed source ownership remain intact, empty/aliased inputs work and invalid mappings reject before mutation; compiler activation remains separate.
   Validation: `go -C pkg test ./muz/rel -run '^TestIntervalBoundProduct(FilterByIntersection|Intersection)' -count=5` passed. Commit title: `Filter bound interval products by intersection`.
+
+- 2026-11-02 — External UNION/WIDEN callback dispatch now stages its assignment-application root behind any typed callback cleanup receipt. Production callback failures drain nested ownership before the app root, native refusal preserves the zero-aware frontier and retry remains stable/idempotent without invalidating live relations; remaining external working/delta ownership stays open.
+  Validation: `go -C pkg test ./muz/rel -run '^TestExternalAssignmentCleanupRefusalKeepsRetryOwner$' -count=5` passed. Commit title: `Preserve external assignment cleanup owners`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.

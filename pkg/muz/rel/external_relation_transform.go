@@ -2,11 +2,7 @@ package rel
 
 // Source: src/muz/rel/dl_external_relation.cpp, project and rename functions.
 
-import (
-	"errors"
-
-	"github.com/glycerine/g3/pkg/ast"
-)
+import "github.com/glycerine/g3/pkg/ast"
 
 // Sorts returns a caller-owned copy of the relation signature.
 func (r *ExternalRelation) Sorts() ([]ast.ASTHandle, error) {
@@ -173,7 +169,8 @@ func (r *ExternalRelation) Union(source, delta *ExternalRelation, widen bool) (r
 	if err != nil {
 		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, r.ast.DelRef(&appRef)) }()
+	attempt := &externalAssignmentAttempt{manager: r.ast, roots: []ast.ASTRef{appRef}}
+	defer func() { resultErr = finishExternalAssignment(attempt, resultErr) }()
 	decl, err := r.ast.GetDecl(app)
 	if err != nil {
 		return err
