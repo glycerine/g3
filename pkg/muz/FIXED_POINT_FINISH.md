@@ -450,6 +450,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Preserve cloned formula-checked table owners through native cleanup refusal with child-first nested cleanup, stable construction receipts and exact retry.
 - [ ] `src/muz/rel/dl_compiler.cpp` (partial), `src/muz/rel/dl_compiler.h` (partial)
   - [x] Finite, sparse, lazy and explanation compilation has concrete method-level evidence, including SCC scheduling and mixed magic inputs.
+  - [x] Execute one aligned positive exact bound/interval tail with one compiler conjunction, unused-column projection, head reordering, fixpoint union and cancellation.
   - [ ] Complete source-live abstract/product/widening dispatch and compiler ownership audits; explicit interval activation and exact checked bytecode do not close source-default bound or mixed-product compilation.
 - [ ] `src/muz/rel/dl_external_relation.cpp` (partial), `src/muz/rel/dl_external_relation.h` (partial)
   - [x] Concrete predicate-signature construction, plugin-owned caching/drop/close and registered fixedpoint predicate lookup.
@@ -610,6 +611,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Finite/explanation products now query plain sparse storage by its nonfunctional prefix throughout insertion, retrieval, projection collisions and target/delta union. Projecting every finite column therefore produces one nullary functional row and preserves the source first-explanation policy, while checked and lazy tables keep their verified full-row paths; broader finite-product dispatch remains open.
   Validation: `go -C pkg test ./muz/rel -run '^(TestFiniteExplanationProjectAllUsesZeroColumnFunctionalKey|TestFiniteExplanation.*|TestSparseFunctional)' -count=3` passed. Commit title: `Use functional keys in explanation products`.
+
+- 2026-11-02 — The exact bound/interval activation now executes source-shaped single-positive-tail rules to fixpoint. It clones the tail, remaps one interpreted conjunction, fuses filtering with unused-column projection, reorders unique safe head variables, unions the result and honors cancellation; wider multi-tail and mixed compiler shapes remain explicit errors.
+  Validation: `go -C pkg test ./muz/fp -run '^(TestBoundIntervalDatalogActivation|TestBoundIntervalDatalogPositiveFilterProjectConsumer)$' -count=5` passed. Commit title: `Execute positive bound interval rules`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
