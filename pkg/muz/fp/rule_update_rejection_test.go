@@ -5,9 +5,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/memory"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func rejectedUpdateFormula(t *testing.T, f *contextDisplayCleanupFixture) ast.ASTHandle {
@@ -109,6 +111,12 @@ func TestFixedpointRejectedUpdatePublicationNativeCleanupRetry(t *testing.T) {
 		if !errors.As(cause, &inner) {
 			t.Fatal("publication failed without its concrete replacement owner", cause)
 		}
+		if got := f.e.preserveFailedUpdatePrefix(clauses, cause); got != cause {
+			t.Fatal("partial-update failure path replaced an unfinished native receipt", got, cause)
+		}
+		if got := f.e.preserveFailedUpdatePrefix(clauses, ast.ErrASTPending); got != ast.ErrASTPending {
+			t.Fatal("partial-update failure path crossed a bare native refusal", got)
+		}
 		// This is the caller's finalizer frontier: the inner replacement
 		// must drain before the candidate set and bound formula.
 		cause = outer.finish(errors.Join(rejection, cause))
@@ -160,4 +168,53 @@ func TestFixedpointRejectedUpdatePublicationNativeCleanupRetry(t *testing.T) {
 	if f.e.set != persistent || count != beforeCount+2 {
 		t.Fatal("publication retry lost completed clauses", count)
 	}
+}
+
+// A real numeral constructor receipt can own physical allocations without an
+// active AST invocation. It must bypass publication independently of ErrASTPending.
+func TestFixedpointFailedUpdatePreservesConstructionFailureWithoutPendingAST(t *testing.T) {
+	f := newContextDisplayCleanupFixture(t)
+	formula := rejectedUpdateFormula(t, f)
+	name, err := f.m.Symbols.Intern("split-construction-failure")
+	fragmentMust(t, err)
+	clauses, err := base.NewRuleSet(f.e.rules)
+	fragmentMust(t, err)
+	t.Cleanup(func() { fragmentMust(t, clauses.Close()) })
+	fragmentMust(t, f.e.addFormula(clauses, formula, name))
+	before, err := f.e.set.Len()
+	fragmentMust(t, err)
+
+	budget := arena.NewBudget(1 << 20)
+	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64})
+	fragmentMust(t, err)
+	integers, cause := numeral.NewIntegerManager(numeral.IntegerConfig{
+		Memory: runtime, Profile: memory.SmallAllocatorProfile{PointerBits: 64, Debug: true},
+		Cells: arena.Config{Budget: budget, PageSize: 2, SlotLimit: 7},
+		Words: arena.VectorConfig{PageSize: 16, Descriptors: arena.Config{Budget: budget, PageSize: 2}},
+	})
+	var receipt memory.ConstructionFailure
+	if integers != nil || !errors.Is(cause, arena.ErrSlotLimit) || errors.Is(cause, ast.ErrASTPending) || !errors.As(cause, &receipt) {
+		t.Fatal("fixture missed an owning non-AST constructor failure", integers, cause)
+	}
+	t.Cleanup(func() {
+		fragmentMust(t, receipt.Cleanup())
+		fragmentMust(t, runtime.Close())
+		if budget.Used() != 0 {
+			t.Fatal("constructor failure receipt leaked bytes", budget.Used())
+		}
+	})
+	blocks, used := runtime.Stats().LiveBlocks, budget.Used()
+	if blocks == 0 {
+		t.Fatal("constructor failure has no pending physical ownership")
+	}
+	if got := f.e.preserveFailedUpdatePrefix(clauses, cause); got != cause {
+		t.Fatal("partial-update failure replaced its native constructor receipt", got, cause)
+	}
+	after, err := f.e.set.Len()
+	fragmentMust(t, err)
+	if after != before || runtime.Stats().LiveBlocks != blocks || budget.Used() != used {
+		t.Fatal("partial-update failure published clauses or consumed its native receipt", before, after)
+	}
+	fragmentMust(t, receipt.Cleanup())
+	fragmentMust(t, receipt.Cleanup())
 }

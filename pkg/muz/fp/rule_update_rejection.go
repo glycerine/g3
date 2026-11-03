@@ -1,9 +1,31 @@
 package fp
 
-// Source: dl_context.cpp:479-491 appends normalized clauses before rejecting
-// an update whose formula did not produce exactly one rule.
+// Source: dl_context.cpp:479-491 appends each completed clause into the
+// persistent set before either a later conversion error or count rejection.
 
-import "github.com/glycerine/g3/pkg/muz/base"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/memory"
+)
+
+// preserveFailedUpdatePrefix publishes only rules whose construction already
+// completed. HNF output that failed before conversion never entered clauses.
+func (e *PropositionalEngine) preserveFailedUpdatePrefix(clauses *base.RuleSet, cause error) error {
+	// Native failure receipts may still own an unfinished invocation. Keep
+	// their existing cleanup path; publication across a refused cleanup
+	// frontier needs its own continuation and is not performed here.
+	var cleanup memory.ConstructionFailure
+	if errors.Is(cause, ast.ErrASTPending) || errors.As(cause, &cleanup) {
+		return cause
+	}
+	if err := e.publishRejectedUpdate(clauses); err != nil {
+		return errors.Join(cause, err)
+	}
+	return cause
+}
 
 // publishRejectedUpdate inserts completed clauses into the normalized prefix.
 // Go keeps eager copies of pending inputs in the same set, so they move after

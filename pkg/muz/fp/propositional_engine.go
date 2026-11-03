@@ -821,7 +821,7 @@ func (e *PropositionalEngine) UpdateRuleWithSymbol(formula ast.ASTHandle, name s
 		err = e.addFormula(candidateSet, boundFormula, name)
 	}
 	if err != nil {
-		return err
+		return e.preserveFailedUpdatePrefix(candidateSet, err)
 	}
 	candidateCount, err := candidateSet.Len()
 	if err != nil {

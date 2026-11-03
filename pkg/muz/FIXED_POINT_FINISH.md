@@ -80,6 +80,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
     - [x] Preserve closed-input binder/weight metadata before flush, normalized expansions afterward, mixed pending additions, scope snapshots and update range shifts; ordinary Duality queries preserve raw inputs.
     - [x] Match normalized-only named updates before/after flush, preserve raw Duality inputs, replacement slot order and pending suffix order.
     - [x] Preserve source-published clauses from rejected multi-clause updates, including pending/flushed ordering, later queries and pre-query scope rollback; keep single-clause rejection guards.
+    - [x] Preserve completed update clauses when later conversion returns an ordinary error, with typed labels, source ordering and scope/retry coverage; deferred publication after refused native cleanup remains open.
     - [x] Match destructive open-formula display swap/removal order, repeated display and post-normalization writer refusal; construction staging remains transactional in Go.
   - [x] Route legacy SMTContext display through the source to_string formatter with ordered queries; keep explicit complete-declaration replay APIs and roundtrip/guard coverage.
   - [x] Preserve context dump temporary owners through allocation and writer failures, and emit fresh query declarations before variable construction. Both display modes pass dense exact-owner campaigns and focused order tests.
@@ -2059,3 +2060,5 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Fixed the three-tag display allocation campaign's debug-only attempt-limit failure. Native retains exhaustive 128-query coverage; debug exhausts a 22-query fixture that crosses the reference-page boundary and separately checks cold 128-query failure/completion and negation-owner boundaries. Focused native and three-tag tests pass; the earlier filtered run failed only this campaign.
 
 - 2026-11-03 — The full filtered `g3checked,g3debug,g3trace` short suite passed on snapshot `d81bcec1e`, including the repaired debug allocation campaign. Log: `/tmp/g3-filtered-three-tag-repair-20261103.log`.
+
+- 2026-11-03 — Matched source partial update publication when a later rule conversion fails, preserving the original error and completed prefix. Focused fixedpoint and public API tests pass; native cleanup-refusal continuation is still tracked separately.
