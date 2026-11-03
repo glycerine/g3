@@ -68,25 +68,38 @@ func (f *SMTFarkasUtil) Close() (result error) {
 	if f.closed {
 		return nil
 	}
-	result = f.Reset()
+	if result = f.Reset(); result != nil {
+		return result
+	}
 	if f.rewriter != nil {
-		result = errors.Join(result, f.rewriter.Close())
+		if result = f.rewriter.Close(); result != nil {
+			return result
+		}
 		f.rewriter = nil
 	}
 	f.closed = true
-	return result
+	return nil
 }
 
 func (f *SMTFarkasUtil) Reset() (result error) {
 	if err := f.open(); err != nil {
 		return err
 	}
-	for _, premise := range f.inequalities {
-		result = errors.Join(result, f.manager.DecRef(premise))
+	for len(f.inequalities) != 0 {
+		index := len(f.inequalities) - 1
+		consumed, err := f.manager.DecRefConsumed(f.inequalities[index])
+		if consumed {
+			f.inequalities = f.inequalities[:index]
+			f.coefficients = f.coefficients[:index]
+		}
+		if err != nil {
+			return err
+		}
+		if !consumed {
+			return ast.ErrASTPending
+		}
 	}
-	f.inequalities = f.inequalities[:0]
-	f.coefficients = f.coefficients[:0]
-	return result
+	return nil
 }
 
 func (f *SMTFarkasUtil) SetSplitLiterals(enabled bool) error {

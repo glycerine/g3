@@ -20,6 +20,7 @@ type FarkasLearner struct {
 	manager             *ast.ASTManager
 	utility             *smtcore.SMTFarkasUtil
 	combineCoefficients bool
+	closing             bool
 	closed              bool
 }
 
@@ -35,7 +36,7 @@ func NewFarkasLearner(manager *ast.ASTManager, context *uparams.ParamsContext, g
 }
 
 func (f *FarkasLearner) open() error {
-	if f == nil || f.closed || f.manager == nil || f.utility == nil {
+	if f == nil || f.closing || f.closed || f.manager == nil || f.utility == nil {
 		return ast.ErrASTHandle
 	}
 	return nil
@@ -48,10 +49,19 @@ func (f *FarkasLearner) Close() error {
 	if f.closed {
 		return nil
 	}
-	f.closed = true
+	if f.utility == nil {
+		return ast.ErrASTHandle
+	}
+	f.closing = true
 	err := f.utility.Close()
+	if err != nil {
+		return err
+	}
 	f.utility = nil
-	return err
+	f.manager = nil
+	f.closing = false
+	f.closed = true
+	return nil
 }
 
 // SetCombineCoefficients selects the source learner's coefficient-combination
