@@ -4,8 +4,6 @@ package tab
 // borrows the query precondition in an enclosing scope.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/ast/substitution"
@@ -26,23 +24,22 @@ func validateSubsumption(m *ast.ASTManager, candidate *Clause, bindings *substit
 	if solverManager != m {
 		return false, ast.ErrASTHandle
 	}
+	attempt := &subsumptionCleanupAttempt{manager: m, scope: subsumptionSolverScope{solver: smt}}
+	defer func() {
+		err = finishSubsumptionScope(attempt, err)
+		if err != nil {
+			valid = false
+		}
+	}()
 	if err = bindings.ResetCache(); err != nil {
 		return false, err
 	}
-	var forms []ast.ASTRef
-	defer func() {
-		for i := len(forms) - 1; i >= 0; i-- {
-			if forms[i] != (ast.ASTRef{}) {
-				err = errors.Join(err, m.DelRef(&forms[i]))
-			}
-		}
-	}()
 	apply := func(h ast.ASTHandle) error {
 		ref, e := m.NewRef(ast.ASTHandle{})
 		if e != nil {
 			return e
 		}
-		forms = append(forms, ref)
+		attempt.forms = append(attempt.forms, ref)
 		return bindings.Apply(2, []uint32{0, 0}, substitution.NewExprOffset(h, 0), ref)
 	}
 	for _, ref := range side {
@@ -61,11 +58,11 @@ func validateSubsumption(m *ast.ASTManager, candidate *Clause, bindings *substit
 	if err = apply(constraint); err != nil {
 		return false, err
 	}
-	if err = lite.EliminateConjunctions(nil, false, &forms); err != nil {
+	if err = lite.EliminateConjunctions(nil, false, &attempt.forms); err != nil {
 		return false, err
 	}
-	values := make([]ast.ASTHandle, len(forms))
-	for i, ref := range forms {
+	values := make([]ast.ASTHandle, len(attempt.forms))
+	for i, ref := range attempt.forms {
 		values[i], err = m.RefGet(ref)
 		if err != nil {
 			return false, err
@@ -84,15 +81,14 @@ func validateSubsumption(m *ast.ASTManager, candidate *Clause, bindings *substit
 			return false, nil
 		}
 	}
-	post, err := m.NewRef(ast.ASTHandle{})
+	attempt.post, err = m.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return false, err
 	}
-	defer func() { err = errors.Join(err, m.DelRef(&post)) }()
-	if err = rewriter.SimplifyBooleanGateDefault(m, ast.ASTOpAnd, values, post); err != nil {
+	if err = rewriter.SimplifyBooleanGateDefault(m, ast.ASTOpAnd, values, attempt.post); err != nil {
 		return false, err
 	}
-	h, err := m.RefGet(post)
+	h, err := m.RefGet(attempt.post)
 	if err != nil {
 		return false, err
 	}
@@ -110,13 +106,12 @@ func validateSubsumption(m *ast.ASTManager, candidate *Clause, bindings *substit
 	if err != nil {
 		return false, err
 	}
-	if err = m.SetRef(post, negated); err != nil {
+	if err = m.SetRef(attempt.post, negated); err != nil {
 		return false, err
 	}
-	if err = smt.Push(); err != nil {
+	if err = attempt.scope.begin(); err != nil {
 		return false, err
 	}
-	defer func() { err = errors.Join(err, smt.Pop(1)) }()
 	if err = smt.Assert(negated); err != nil {
 		return false, err
 	}

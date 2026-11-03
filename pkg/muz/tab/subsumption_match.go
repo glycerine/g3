@@ -95,11 +95,18 @@ func isClauseSubsumed(query *Clause, candidates []*Clause, lite *qe.Lite, smt so
 	if solverManager != m {
 		return false, 0, ast.ErrASTHandle
 	}
+	attempt := &subsumptionCleanupAttempt{manager: m, scope: subsumptionSolverScope{solver: smt}}
+	defer func() {
+		err = finishSubsumptionScope(attempt, err)
+		if err != nil {
+			found, sequence = false, 0
+		}
+	}()
 	grounded, err := setupGroundClause(query)
 	if err != nil {
 		return false, 0, err
 	}
-	defer func() { err = errors.Join(err, grounded.Close()) }()
+	attempt.grounded = grounded
 	matcher, err := NewSemanticMatcher(m)
 	if err != nil {
 		return false, 0, err
@@ -108,26 +115,21 @@ func isClauseSubsumed(query *Clause, candidates []*Clause, lite *qe.Lite, smt so
 	if err != nil {
 		return false, 0, err
 	}
-	defer func() { err = errors.Join(err, bindings.Close()) }()
+	attempt.bindings = bindings
 	if len(evaluator) > 1 {
 		return false, 0, ast.ErrASTHandle
 	}
 	var modelEvaluator *model.ModelEvaluatorConfig
 	falseLiterals := make(map[ast.ASTHandle]ast.ASTRef)
-	defer func() {
-		for _, ref := range falseLiterals {
-			err = errors.Join(err, m.DelRef(&ref))
-		}
-	}()
+	attempt.falseLiterals = falseLiterals
 	if len(evaluator) == 1 {
 		modelEvaluator = evaluator[0]
 	}
 	search := &subsumptionSearch{manager: m, goal: grounded, matcher: matcher, bindings: bindings, lite: lite, smt: smt, falseLiterals: falseLiterals, modelEvaluator: modelEvaluator}
-	defer func() { err = errors.Join(err, search.truncateConditions(0)) }()
-	if err = smt.Push(); err != nil {
+	attempt.search = search
+	if err = attempt.scope.begin(); err != nil {
 		return false, 0, err
 	}
-	defer func() { err = errors.Join(err, smt.Pop(1)) }()
 	precondition, err := m.RefGet(grounded.precondition)
 	if err != nil {
 		return false, 0, err
