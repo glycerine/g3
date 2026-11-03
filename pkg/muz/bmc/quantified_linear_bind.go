@@ -12,7 +12,9 @@ import (
 )
 
 // QuantifiedLinearModelBindings evaluates a rule's indexed variable bindings
-// at its selected derivation level. The caller owns each nonempty reference.
+// at its selected rule ordinal, matching qlinear::get_model. The level is
+// retained in the API because callers also track the selected trace level.
+// The caller owns each nonempty reference.
 func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, level, width uint32, md *model.ModelCore, services model.ModelEvaluatorConfig) (result []ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || rule == nil || md == nil || md.Manager() != c.manager {
 		return nil, ast.ErrASTHandle
@@ -40,7 +42,7 @@ func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, lev
 	if err != nil {
 		return nil, err
 	}
-	index, err := q.hold(m.BitVectorNumeralRat(new(big.Rat).SetUint64(uint64(level)), width))
+	index, err := q.hold(m.BitVectorNumeralRat(new(big.Rat).SetUint64(uint64(ruleIndex)), width))
 	if err != nil {
 		return nil, err
 	}
@@ -79,30 +81,6 @@ func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, lev
 			return result, cause
 		}
 		owner.evaluator = nil
-		value, cause := m.RefGet(result[i])
-		if cause != nil {
-			return result, cause
-		}
-		isValue, cause := m.IsValue(value)
-		if cause != nil {
-			return result, cause
-		}
-		if !isValue {
-			// An uninterpreted function with no model entry evaluates to its
-			// application, not a value. Keep the rule variable unbound, as the
-			// linear path does for an absent model interpretation.
-			sort, e := m.GetSort(term)
-			if e != nil {
-				return result, e
-			}
-			variable, e := m.MkVar(uint32(i), sort)
-			if e != nil {
-				return result, e
-			}
-			if e = m.SetRef(result[i], variable); e != nil {
-				return result, e
-			}
-		}
 	}
 	return result, nil
 }

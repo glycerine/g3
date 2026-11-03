@@ -18,7 +18,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/memory"
 )
 
-func TestBMCQuantifiedLinearBindingsUseDerivationLevel(t *testing.T) {
+func TestBMCQuantifiedLinearBindingsUseRuleOrdinal(t *testing.T) {
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -92,8 +92,10 @@ func TestBMCQuantifiedLinearBindingsUseDerivationLevel(t *testing.T) {
 	defer func() { must(m.DelRef(&unbound[0])) }()
 	missing, err := m.RefGet(unbound[0])
 	must(err)
-	if missing != x {
-		t.Fatal("missing interpretation did not preserve the rule variable", missing)
+	symbolic, err := m.MkApp(argument, []ast.ASTHandle{zero})
+	must(err)
+	if missing != symbolic {
+		t.Error("missing interpretation did not preserve the symbolic result", missing)
 	}
 	bindings, err := compiler.QuantifiedLinearModelBindings(rule, 0, 1, 4, md.Core(), services)
 	must(err)
@@ -103,8 +105,8 @@ func TestBMCQuantifiedLinearBindingsUseDerivationLevel(t *testing.T) {
 	defer func() { must(m.DelRef(&bindings[0])) }()
 	value, err := m.RefGet(bindings[0])
 	must(err)
-	if value != seven {
-		t.Fatal("binding was evaluated at the rule number instead of its derivation level", value)
+	if value != nine {
+		t.Fatal("binding was not evaluated at the selected rule ordinal", value)
 	}
 }
 

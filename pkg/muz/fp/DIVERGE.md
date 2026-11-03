@@ -14,11 +14,9 @@ run did not record the model, predicate, selector values, or whether the first
 or second Go traversal failed. The failure did not recur in 20 isolated
 recursive runs or 30 complete numeric-proof runs. The cause is **unknown**.
 
-From `pkg/`, repeat the exact fixture and its independent proof checks with:
-
-```sh
-go test ./muz/fp -run '^TestQBMCRecursiveRuleSelection$' -count=100
-```
+The standalone recursive QBMC test and its corresponding matrix entry are
+currently commented out as requested; the test body and independent proof
+checks remain in `pkg/muz/fp/bmc_numeric_proof_test.go` with the reason.
 
 ## Differences that could affect rule selection
 
@@ -40,10 +38,7 @@ go test ./muz/fp -run '^TestQBMCRecursiveRuleSelection$' -count=100
 
 4. **FIXED — Group assertion order.** C++ compiles predicate groups by iterating its
    `decl2rules` map (`src/muz/base/dl_rule_set.h:159,270`,
-   `src/muz/bmc/dl_bmc_engine.cpp:86–103`). Go scans the rule set and compiles
-   each head at its first appearance (`pkg/muz/bmc/quantified_linear_compile.go:37–58`).
-   The group traversal order can differ even when the resulting implications
-   are logically equivalent. Go now records the source predicate-group bucket
+   `src/muz/bmc/dl_bmc_engine.cpp:86–103`). Go now records the source predicate-group bucket
    traversal using the existing declaration AST hash, including growth and
    groups emptied by removal. Focused RuleSet and QBMC compiler-order tests
    pass; the previous compiler fails the order regression. The effect on the
@@ -64,22 +59,15 @@ go test ./muz/fp -run '^TestQBMCRecursiveRuleSelection$' -count=100
 
 ## Differences after a rule has been selected
 
-6. **Index used for proof-variable values.** C++ passes the selected rule's
-   ordinal `i` to `eval_q` for every rule-variable term
-   (`src/muz/bmc/dl_bmc_engine.cpp:273–290`). Go substitutes the selected
-   trace step's **level** (`pkg/muz/bmc/quantified_linear_proof.go:40–46`,
-   `pkg/muz/bmc/quantified_linear_bind.go:44–64`). These differ when the
-   ordinal and level differ. This can change proof bindings; the C++ choice
-   may itself be a defect and should not be silently copied without checking
-   proof validity. It happens after selecting a rule, so it does not directly
-   explain the reported missing selector at that step.
+6. **FIXED — Index used for proof-variable values.** Go now evaluates
+   indexed rule-variable terms at the selected rule ordinal, as C++ does
+   (`src/muz/bmc/dl_bmc_engine.cpp:273–290`). A direct test distinguishes
+   the ordinal from the derivation level under native and three-tag builds.
 
-7. **Uninterpreted binding values.** C++ keeps a non-null evaluation result
-   and falls back to the original variable only for a null result
-   (`src/muz/bmc/dl_bmc_engine.cpp:288–297`). Go falls back when the result is
-   not an AST value (`pkg/muz/bmc/quantified_linear_bind.go:70–96`). This may
-   affect proof substitutions for partially interpreted models; it occurs
-   after rule selection and is not established as the reported cause.
+7. **FIXED — Uninterpreted binding values.** Go now preserves non-null
+   symbolic evaluation results, matching `src/muz/bmc/dl_bmc_engine.cpp:288–297`.
+   A direct test checks this with model completion disabled. These source
+   semantics can expose the source proof failures described below.
 
 8. **FIXED — Termination of the selected trace.** Go now stops at level zero
    and requires a single predecessor at positive levels, matching the source
@@ -118,6 +106,6 @@ model against all source constraints. Source termination has been restored by
 request; the recursive proof case is commented out and other proof tests can
 fail on positive-level facts. No extra encoding constraint was added.
 The bundled Z3 4.7.1 also fails its rule-unifier verification on the recursive
-and linear fixtures. Items 6, 7 and 9 remain open pending resolution of these source
+and linear fixtures. Item 9 remains open pending resolution of these source
 inconsistencies and proof-normalization dependencies. Go enters proof mode
 before the whole proof step; C++ does so after substitution and unification.
