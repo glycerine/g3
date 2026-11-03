@@ -81,7 +81,7 @@ func (e *PropositionalEngine) migrateSparseIntervalFiniteSeeds(activation *spars
 		if entry == nil {
 			return ErrSparseIntervalDatalogFragment
 		}
-		if entry.class != sparseIntervalFiniteOriginal {
+		if entry.class != sparseIntervalFiniteOriginal && entry.class != sparseIntervalHashOriginal {
 			continue
 		}
 		if activation.migratedFinite[declaration] {
@@ -263,7 +263,7 @@ func (e *PropositionalEngine) addSparseIntervalFact(declaration ast.ASTHandle, v
 	if entry == nil {
 		return ErrSparseIntervalDatalogFragment
 	}
-	if entry.class != sparseIntervalFiniteOriginal {
+	if entry.class != sparseIntervalFiniteOriginal && entry.class != sparseIntervalHashOriginal {
 		return a.addFact(declaration, values)
 	}
 	state := e.predicates[declaration]

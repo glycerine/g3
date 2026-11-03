@@ -88,8 +88,8 @@ func TestSparseIntervalDatalogFullConditionAndHeadAssembly(t *testing.T) {
 	fragmentMust(t, evaluator.SaturatePositive(false))
 	status, err := evaluator.Query(declarations[1:])
 	fragmentMust(t, err)
-	if status != lbool.Undef {
-		t.Fatal("nonempty mixed overapproximation was not unknown", status)
+	if status != lbool.True {
+		t.Fatal("sieve-wrapped mixed heads were not source-precise", status)
 	}
 	contains := func(declaration ast.ASTHandle, values ...ast.ASTHandle) bool {
 		t.Helper()

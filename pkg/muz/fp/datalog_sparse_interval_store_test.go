@@ -75,8 +75,8 @@ func TestSparseIntervalDatalogStoreMixedSeedsResetAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status, cause := seededSnapshot.Query([]ast.ASTHandle{predicate}); cause != nil || status != lbool.Undef {
-		t.Fatal("nonempty overapproximate query status", status, cause)
+	if status, cause := seededSnapshot.Query([]ast.ASTHandle{predicate}); cause != nil || status != lbool.True {
+		t.Fatal("sieve-wrapped product did not inherit source precision", status, cause)
 	}
 	if err = seededSnapshot.Close(); err != nil {
 		t.Fatal(err)

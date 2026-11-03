@@ -55,7 +55,7 @@ func (p *SparseIntervalSieveProduct) Project(removed []int) (*SparseIntervalSiev
 		finiteColumns = append(finiteColumns, outer-offset[outer])
 		finiteSorts = append(finiteSorts, p.finiteSorts[local])
 	}
-	return &SparseIntervalSieveProduct{manager: p.manager, sorts: sorts, finiteColumns: finiteColumns, finiteSorts: finiteSorts, finite: finite, interval: interval}, nil
+	return &SparseIntervalSieveProduct{manager: p.manager, sorts: sorts, finiteColumns: finiteColumns, finiteSorts: finiteSorts, finite: finite, interval: interval, intervalShape: p.intervalShape, intervalNullary: p.intervalShape == sparseIntervalShapeRaw && len(sorts) == 0}, nil
 }
 
 func sparseIntervalOuterSources(size int, cycle []int) ([]int, error) {
@@ -192,5 +192,5 @@ func (p *SparseIntervalSieveProduct) Rename(cycle []int) (*SparseIntervalSievePr
 		_ = finite.Close()
 		return nil, err
 	}
-	return &SparseIntervalSieveProduct{manager: p.manager, sorts: sorts, finiteColumns: finiteColumns, finiteSorts: finiteSorts, finite: finite, interval: interval}, nil
+	return &SparseIntervalSieveProduct{manager: p.manager, sorts: sorts, finiteColumns: finiteColumns, finiteSorts: finiteSorts, finite: finite, interval: interval, intervalShape: p.intervalShape, intervalNullary: p.intervalShape == sparseIntervalShapeRaw && len(sorts) == 0}, nil
 }

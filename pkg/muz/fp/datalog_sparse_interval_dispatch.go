@@ -37,12 +37,21 @@ func (e *PropositionalEngine) ensureSparseIntervalDatalog() (bool, error) {
 			class = sparseIntervalMixedOriginal
 		case len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "tr_sparse":
 			class = sparseIntervalFiniteOriginal
+		case len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "tr_hashtable":
+			class = sparseIntervalHashOriginal
 		case len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "interval_relation":
 			class = sparseIntervalArithmeticOriginal
-		case len(state.requestedRepresentations) == 0 && state.table != nil && len(state.sorts) != 0 && e.datalogDefaultTable == "sparse":
-			class = sparseIntervalFiniteOriginal
 		case len(state.requestedRepresentations) == 0 && e.datalogRelationFavourite == "interval_relation" && rel.CanHandleIntervalSorts(e.manager, state.sorts):
 			class = sparseIntervalArithmeticOriginal
+		case len(state.requestedRepresentations) == 0 && state.table != nil:
+			switch state.table.(type) {
+			case *rel.SparseTable:
+				class = sparseIntervalFiniteOriginal
+			case *rel.HashTable:
+				class = sparseIntervalHashOriginal
+			default:
+				return true, ErrSparseIntervalDatalogFragment
+			}
 		default:
 			return true, ErrSparseIntervalDatalogFragment
 		}

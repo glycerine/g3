@@ -96,6 +96,109 @@ func TestSparseIntervalOriginalSnapshotsAreOwnedAndClassified(t *testing.T) {
 	}
 }
 
+func TestSparseIntervalHashOriginalSnapshotsPreserveHashAndNullary(t *testing.T) {
+	f, _, _ := intervalSieveFixture(t)
+	relations, err := NewRelationManager(f.ast)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, relations.Close()) })
+
+	for _, sorts := range [][]ast.ASTHandle{{f.boolean}, nil} {
+		product, cause := NewSparseIntervalHashOriginal(relations, sorts, false)
+		astTestMust(t, cause)
+		values := []ast.ASTHandle{f.truth}
+		if len(sorts) == 0 {
+			values = nil
+		}
+		astTestMust(t, product.AddFact(values))
+		snapshot, cause := product.HashSnapshot()
+		astTestMust(t, cause)
+		facts, cause := snapshot.Facts()
+		astTestMust(t, cause)
+		if len(facts) != 1 || len(facts[0]) != len(sorts) {
+			t.Fatal("hash snapshot lost exact original row", len(sorts), facts)
+		}
+		astTestMust(t, product.Reset())
+		length, cause := snapshot.Len()
+		astTestMust(t, cause)
+		if length != 1 {
+			t.Fatal("hash snapshot borrowed product mutation", len(sorts), length)
+		}
+		if len(sorts) == 0 {
+			if interval, intervalErr := product.ArithmeticSnapshot(); intervalErr == nil || interval != nil {
+				t.Fatal("hash nullary exposed its transparent interval identity", interval, intervalErr)
+			}
+		}
+		astTestMust(t, snapshot.Close())
+		astTestMust(t, product.Close())
+	}
+
+	full, err := NewSparseIntervalHashOriginal(relations, nil, true)
+	astTestMust(t, err)
+	if empty, cause := full.Empty(); cause != nil || empty {
+		t.Fatal("full nullary hash original lost the zero tuple", empty, cause)
+	}
+	astTestMust(t, full.Reset())
+	if empty, cause := full.Empty(); cause != nil || !empty {
+		t.Fatal("reset did not empty the exact nullary component", empty, cause)
+	}
+	if full.IntervalComponent().Empty() {
+		t.Fatal("reset emptied the nullary missing-component identity")
+	}
+	astTestMust(t, full.Close())
+}
+
+func TestSparseIntervalArithmeticNullaryUsesIntervalTruthValue(t *testing.T) {
+	f, _, _ := intervalSieveFixture(t)
+	relations, err := NewRelationManager(f.ast)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, relations.Close()) })
+
+	empty, err := NewSparseIntervalArithmeticOriginal(relations, nil, false)
+	astTestMust(t, err)
+	if isEmpty, cause := empty.Empty(); cause != nil || !isEmpty {
+		t.Fatal("empty interval nullary was not false", isEmpty, cause)
+	}
+	astTestMust(t, empty.AddFact(nil))
+	if isEmpty, cause := empty.Empty(); cause != nil || isEmpty {
+		t.Fatal("interval nullary fact remained false", isEmpty, cause)
+	}
+	clone, err := empty.Clone()
+	astTestMust(t, err)
+	snapshot, err := empty.ArithmeticSnapshot()
+	astTestMust(t, err)
+	if snapshot.Empty() {
+		t.Fatal("interval nullary snapshot lost truth")
+	}
+	if hash, cause := empty.HashSnapshot(); cause == nil || hash != nil {
+		t.Fatal("interval nullary exposed its transparent finite identity", hash, cause)
+	}
+	astTestMust(t, empty.Reset())
+	if isEmpty, cause := empty.Empty(); cause != nil || !isEmpty {
+		t.Fatal("interval nullary reset reversed component roles", isEmpty, cause)
+	}
+	resetSnapshot, cause := empty.ArithmeticSnapshot()
+	astTestMust(t, cause)
+	if !resetSnapshot.Empty() {
+		t.Fatal("reset interval nullary snapshot remained true")
+	}
+	if isEmpty, cause := clone.Empty(); cause != nil || isEmpty {
+		t.Fatal("interval nullary clone borrowed reset", isEmpty, cause)
+	}
+	astTestMust(t, clone.Reset())
+	if isEmpty, cause := clone.Empty(); cause != nil || !isEmpty {
+		t.Fatal("clone lost interval-nullary role on reset", isEmpty, cause)
+	}
+	astTestMust(t, clone.Close())
+	astTestMust(t, empty.Close())
+
+	full, err := NewSparseIntervalArithmeticOriginal(relations, nil, true)
+	astTestMust(t, err)
+	if isEmpty, cause := full.Empty(); cause != nil || isEmpty {
+		t.Fatal("full interval nullary was not true", isEmpty, cause)
+	}
+	astTestMust(t, full.Close())
+}
+
 func TestSparseIntervalOriginalJoinCompletesMissingComponents(t *testing.T) {
 	f, integer, numeral := intervalSieveFixture(t)
 	relations, err := NewRelationManager(f.ast)

@@ -23,6 +23,22 @@ func NewSparseIntervalFiniteOriginal(manager *RelationManager, sorts []ast.ASTHa
 	return newSparseIntervalSieveProduct(manager, sorts, full, false)
 }
 
+// NewSparseIntervalHashOriginal constructs the product used for an exact
+// hashtable original. The evaluator's finite component is private; callers
+// recover an owned HashTable through HashSnapshot, including for nullary
+// predicates, so the requested/public representation is never normalized to
+// sparse storage.
+func NewSparseIntervalHashOriginal(manager *RelationManager, sorts []ast.ASTHandle, full bool) (*SparseIntervalSieveProduct, error) {
+	finiteColumns, _, _, err := sparseIntervalProductColumns(manager, sorts)
+	if err != nil {
+		return nil, err
+	}
+	if len(finiteColumns) != len(sorts) {
+		return nil, ErrSparseIntervalProduct
+	}
+	return newSparseIntervalSieveProduct(manager, sorts, full, false)
+}
+
 // NewSparseIntervalArithmeticOriginal constructs the concrete evaluator owner
 // for an Int/Real original predicate. Its finite component is a full,
 // transparent zero-column sparse table.
@@ -31,8 +47,30 @@ func NewSparseIntervalArithmeticOriginal(manager *RelationManager, sorts []ast.A
 	if err != nil {
 		return nil, err
 	}
-	if len(sorts) == 0 || len(finiteColumns) != 0 {
+	if len(finiteColumns) != 0 {
 		return nil, ErrSparseIntervalProduct
+	}
+	if len(sorts) == 0 {
+		product, cause := newSparseIntervalSieveProduct(manager, sorts, full, false)
+		if cause != nil {
+			return nil, cause
+		}
+		// interval_relation owns the nullary truth value. The finite side is
+		// the transparent zero-column identity, while the interval side is
+		// empty/full according to the requested relation constructor.
+		signature, cause := product.finite.Signature()
+		if cause == nil {
+			cause = fillTotalTable(product.finite, signature)
+		}
+		if cause == nil && !full {
+			product.interval, cause = NewIntervalSieveEmpty(manager.manager, sorts)
+		}
+		if cause != nil {
+			return nil, errors.Join(cause, product.Close())
+		}
+		product.intervalNullary = true
+		product.intervalShape = sparseIntervalShapeRaw
+		return product, nil
 	}
 	return newSparseIntervalSieveProduct(manager, sorts, full, false)
 }
@@ -100,13 +138,40 @@ func (p *SparseIntervalSieveProduct) FiniteSnapshot() (*SparseTable, error) {
 	return p.finite.Clone()
 }
 
+// HashSnapshot returns an owned exact hashtable snapshot of a pure finite or
+// nullary original. Rows are copied from the evaluator component; the product
+// remains private and the observable representation stays hashtable-backed.
+func (p *SparseIntervalSieveProduct) HashSnapshot() (*HashTable, error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	if p.intervalNullary || len(p.finiteColumns) != len(p.sorts) {
+		return nil, ErrSparseIntervalProduct
+	}
+	signature, err := p.finite.Signature()
+	if err != nil {
+		return nil, err
+	}
+	result := NewHashTable(signature)
+	facts, err := p.finite.Facts()
+	if err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	for _, fact := range facts {
+		if _, err = result.Add(fact); err != nil {
+			return nil, errors.Join(err, result.Close())
+		}
+	}
+	return result, nil
+}
+
 // ArithmeticSnapshot returns an owned interval snapshot of a pure arithmetic
 // original.
 func (p *SparseIntervalSieveProduct) ArithmeticSnapshot() (*IntervalRelation, error) {
 	if err := p.open(); err != nil {
 		return nil, err
 	}
-	if len(p.sorts) == 0 || len(p.finiteColumns) != 0 {
+	if len(p.finiteColumns) != 0 || (len(p.sorts) == 0 && !p.intervalNullary) {
 		return nil, ErrSparseIntervalProduct
 	}
 	return p.interval.inner.Clone()

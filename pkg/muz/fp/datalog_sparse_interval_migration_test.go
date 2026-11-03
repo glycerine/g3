@@ -28,6 +28,11 @@ func TestSparseIntervalFiniteSeedMigrationCloneAndPublication(t *testing.T) {
 	}
 	finite := declare("sparse-interval-migrated-finite", boolean)
 	arithmetic := declare("sparse-interval-migrated-arithmetic", integer)
+	nullaryName, err := m.Symbols.Intern("sparse-interval-migrated-nullary")
+	must(err)
+	nullary, err := m.MkFuncDecl(nullaryName, nil, boolean, ast.ASTFuncDeclInfo{})
+	must(err)
+	must(e.RegisterPredicate(nullary))
 	truth, err := m.MkTrue()
 	must(err)
 	falsehood, err := m.MkFalse()
@@ -41,8 +46,11 @@ func TestSparseIntervalFiniteSeedMigrationCloneAndPublication(t *testing.T) {
 	must(err)
 	_, err = state.table.Add(seed)
 	must(err)
+	_, err = e.predicates[nullary].table.Add(rel.Fact{})
+	must(err)
 	originals := []sparseIntervalOriginal{
 		{declaration: finite, class: sparseIntervalFiniteOriginal},
+		{declaration: nullary, class: sparseIntervalHashOriginal},
 		{declaration: arithmetic, class: sparseIntervalArithmeticOriginal},
 	}
 	activation, selected, err := newClassifiedSparseIntervalDatalogActivation(m, e.set, e.guard, originals)
@@ -51,7 +59,8 @@ func TestSparseIntervalFiniteSeedMigrationCloneAndPublication(t *testing.T) {
 		t.Fatal("heterogeneous activation not selected")
 	}
 	e.sparseIntervalDatalog = activation
-	must(e.migrateSparseIntervalFiniteSeeds(activation, []ast.ASTHandle{finite, arithmetic}))
+	declarations := []ast.ASTHandle{finite, nullary, arithmetic}
+	must(e.migrateSparseIntervalFiniteSeeds(activation, declarations))
 	intervalSource, intervalSelected, err := newIntervalDatalogActivation(m, e.set, []ast.ASTHandle{arithmetic})
 	must(err)
 	if !intervalSelected {
@@ -64,6 +73,11 @@ func TestSparseIntervalFiniteSeedMigrationCloneAndPublication(t *testing.T) {
 	must(err)
 	if !foundArithmetic {
 		t.Fatal("interval seed was not transferred without enumeration")
+	}
+	foundNullary, err := activation.store.entries[nullary].relation.ContainsFact(nil)
+	must(err)
+	if !foundNullary {
+		t.Fatal("nullary Hash seed was not migrated")
 	}
 	if e.predicates[finite].table != prior {
 		t.Fatal("migration replaced public finite owner")
@@ -82,7 +96,7 @@ func TestSparseIntervalFiniteSeedMigrationCloneAndPublication(t *testing.T) {
 	must(err)
 	_, err = prior.Add(late)
 	must(err)
-	must(e.migrateSparseIntervalFiniteSeeds(activation, []ast.ASTHandle{finite, arithmetic}))
+	must(e.migrateSparseIntervalFiniteSeeds(activation, declarations))
 	found, err = activation.store.entries[finite].relation.ContainsFact([]ast.ASTHandle{falsehood})
 	must(err)
 	if found {
@@ -130,5 +144,11 @@ func TestSparseIntervalFiniteSeedMigrationCloneAndPublication(t *testing.T) {
 	}
 	if _, ok := e.predicates[finite].table.(*rel.SparseTable); !ok {
 		t.Fatal("finite publication did not install sparse snapshot")
+	}
+	if _, ok := e.predicates[nullary].table.(*rel.HashTable); !ok {
+		t.Fatal("nullary publication did not preserve Hash snapshot kind")
+	}
+	if contains, cause := e.predicates[nullary].table.Contains(rel.Fact{}); cause != nil || !contains {
+		t.Fatal("nullary Hash publication lost unit row", contains, cause)
 	}
 }

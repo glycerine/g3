@@ -163,7 +163,7 @@ func (a *sparseIntervalDatalogActivation) syncOriginals(originals []sparseInterv
 	}
 	current := make(map[ast.ASTHandle]sparseIntervalPredicateClass, len(originals))
 	for _, original := range originals {
-		if original.declaration.IsNull() || current[original.declaration] != 0 || original.class == sparseIntervalGeneratedAuxiliary || original.class == sparseIntervalFiniteAuxiliary {
+		if original.declaration.IsNull() || current[original.declaration] != 0 || original.class == sparseIntervalGeneratedAuxiliary {
 			return ErrSparseIntervalDatalogFragment
 		}
 		current[original.declaration] = original.class
@@ -211,38 +211,6 @@ func (a *sparseIntervalDatalogActivation) syncOriginals(originals []sparseInterv
 // nullary predicates without widening original-program backend selection.
 func (a *sparseIntervalDatalogActivation) syncAuxiliaryPredicates(declarations []ast.ASTHandle) error {
 	return a.sync(declarations, true)
-}
-
-// markFiniteAuxiliary records a generated query head whose concrete producer
-// is finite and precise. It remains an auxiliary and is not publishable as an
-// original finite predicate snapshot.
-func (a *sparseIntervalDatalogActivation) markFiniteAuxiliary(declaration ast.ASTHandle) error {
-	if err := a.open(); err != nil {
-		return err
-	}
-	entry := a.store.entries[declaration]
-	if entry == nil || !entry.auxiliary {
-		return ErrSparseIntervalDatalogFragment
-	}
-	for _, sort := range entry.sorts {
-		if rel.CanHandleIntervalSorts(a.manager, []ast.ASTHandle{sort}) {
-			// A requested sparse producer does not make an arithmetic query
-			// head exact. Source plugin selection simply falls through to the
-			// generated product representation, which remains approximate.
-			return nil
-		}
-	}
-	if entry.class == sparseIntervalFiniteAuxiliary {
-		return nil
-	}
-	if entry.class != sparseIntervalGeneratedAuxiliary {
-		return ErrSparseIntervalDatalogFragment
-	}
-	if err := a.discardEvaluator(); err != nil {
-		return err
-	}
-	entry.class = sparseIntervalFiniteAuxiliary
-	return nil
 }
 
 func (a *sparseIntervalDatalogActivation) sync(declarations []ast.ASTHandle, auxiliary bool) error {
@@ -385,7 +353,7 @@ func (a *sparseIntervalDatalogActivation) relationFormula(declaration ast.ASTHan
 
 // finiteSnapshot publishes an owned exact table only for a sparse original.
 // Mixed products and arithmetic relations remain non-enumerable.
-func (a *sparseIntervalDatalogActivation) finiteSnapshot(declaration ast.ASTHandle) (*rel.SparseTable, bool, error) {
+func (a *sparseIntervalDatalogActivation) finiteSnapshot(declaration ast.ASTHandle) (rel.FiniteTable, bool, error) {
 	if err := a.open(); err != nil || a.evaluator == nil {
 		if err == nil {
 			err = ErrSparseIntervalDatalogFragment
@@ -393,14 +361,20 @@ func (a *sparseIntervalDatalogActivation) finiteSnapshot(declaration ast.ASTHand
 		return nil, false, err
 	}
 	entry := a.store.entries[declaration]
-	if entry == nil || entry.class != sparseIntervalFiniteOriginal {
+	if entry == nil || (entry.class != sparseIntervalFiniteOriginal && entry.class != sparseIntervalHashOriginal) {
 		return nil, false, nil
 	}
 	product := a.evaluator.products[declaration]
 	if product == nil {
 		return nil, false, ErrSparseIntervalDatalogFragment
 	}
-	table, err := product.FiniteSnapshot()
+	var table rel.FiniteTable
+	var err error
+	if entry.class == sparseIntervalHashOriginal {
+		table, err = product.HashSnapshot()
+	} else {
+		table, err = product.FiniteSnapshot()
+	}
 	return table, err == nil, err
 }
 

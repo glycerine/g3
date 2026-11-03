@@ -69,7 +69,7 @@ func TestSparseIntervalDatalogDependencyFirstRecursiveFixpoint(t *testing.T) {
 		}
 		fragmentMust(t, relation.Close())
 	}
-	if status, cause := evaluator.Query([]ast.ASTHandle{r}); cause != nil || status != lbool.Undef {
+	if status, cause := evaluator.Query([]ast.ASTHandle{r}); cause != nil || status != lbool.True {
 		t.Fatal("nonempty product query status", status, cause)
 	}
 	formula, err := evaluator.RelationFormula(r)
@@ -135,7 +135,7 @@ func TestSparseIntervalDatalogActivationCloneOwnsIndependentSeeds(t *testing.T) 
 	fragmentMust(t, copyActivation.addFact(extra, []ast.ASTHandle{truth, one}))
 	status, err := copyActivation.query([]ast.ASTHandle{predicate}, true)
 	fragmentMust(t, err)
-	if status != lbool.Undef {
+	if status != lbool.True {
 		t.Fatal("clone lost nonempty product seed", status)
 	}
 	relation, err := copyActivation.relation(predicate)
@@ -148,7 +148,7 @@ func TestSparseIntervalDatalogActivationCloneOwnsIndependentSeeds(t *testing.T) 
 	fragmentMust(t, relation.Close())
 	status, err = copyActivation.query([]ast.ASTHandle{extra}, true)
 	fragmentMust(t, err)
-	if status != lbool.Undef {
+	if status != lbool.True {
 		t.Fatal("synced predicate lost seed", status)
 	}
 	for _, declaration := range []ast.ASTHandle{pureFinite, pureArithmetic, nullary} {

@@ -76,8 +76,8 @@ func TestDatalogSparseIntervalRequestedPairLifecycle(t *testing.T) {
 	}
 	status, err := e.QueryPredicate(q)
 	must(err)
-	if status != lbool.Undef {
-		t.Fatal("nonempty product was not imprecise", status)
+	if status != lbool.True {
+		t.Fatal("nonempty sieve product did not report source precision", status)
 	}
 	if e.sparseIntervalDatalog.store.entries[q].auxiliary {
 		t.Fatal("late original predicate misclassified as auxiliary")
@@ -130,7 +130,7 @@ func TestDatalogSparseIntervalRequestedPairLifecycle(t *testing.T) {
 		name  string
 		query ast.ASTHandle
 		want  lbool.LBool
-	}{{"nullary", app(q, yes, seven), lbool.Undef}, {"finite-empty", app(q, no, seven), lbool.False}, {"arithmetic-empty", app(q, yes, eight), lbool.False}, {"pure-finite", app(q, b, seven), lbool.Undef}, {"pure-arithmetic", app(q, yes, z), lbool.Undef}} {
+	}{{"nullary", app(q, yes, seven), lbool.True}, {"finite-empty", app(q, no, seven), lbool.False}, {"arithmetic-empty", app(q, yes, eight), lbool.False}, {"pure-finite", app(q, b, seven), lbool.True}, {"pure-arithmetic", app(q, yes, z), lbool.True}} {
 		t.Run(tc.name, func(t *testing.T) {
 			queryRef, err := m.NewRef(tc.query)
 			must(err)
@@ -172,7 +172,7 @@ func TestDatalogSparseIntervalRequestedPairLifecycle(t *testing.T) {
 	must(e.AddTableFact(r, []uint32{1, 7}))
 	status, err = e.QueryPredicate(q)
 	must(err)
-	if status != lbool.Undef {
+	if status != lbool.True {
 		t.Fatal("product update lost prior seeds", status)
 	}
 	m.Limit.Cancel()

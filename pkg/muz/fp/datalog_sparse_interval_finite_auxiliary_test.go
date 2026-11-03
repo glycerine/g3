@@ -7,14 +7,10 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func TestSparseIntervalFiniteAuxiliaryPrecisionSurvivesClone(t *testing.T) {
+func TestSparseIntervalDerivedFiniteAuxiliaryShapeSurvivesClone(t *testing.T) {
 	f := newDirectFactFixture(t)
 	m, engine := f.manager, f.engine
 	boolean, err := m.MkBoolSort()
-	fragmentMust(t, err)
-	family, err := m.RegisterArithmeticPlugin()
-	fragmentMust(t, err)
-	integer, err := m.MkFamilySort(family, 1, nil)
 	fragmentMust(t, err)
 	declare := func(name string, sorts []ast.ASTHandle) ast.ASTHandle {
 		symbol, cause := m.Symbols.Intern(name)
@@ -24,49 +20,50 @@ func TestSparseIntervalFiniteAuxiliaryPrecisionSurvivesClone(t *testing.T) {
 		fragmentMust(t, engine.RegisterPredicate(declaration))
 		return declaration
 	}
-	original := declare("finite-auxiliary-mixed-original", []ast.ASTHandle{boolean, integer})
-	finite := declare("finite-auxiliary-finite-query", []ast.ASTHandle{boolean})
-	nullary := declare("finite-auxiliary-nullary-query", nil)
-	arithmetic := declare("finite-auxiliary-arithmetic-query", []ast.ASTHandle{integer})
-	activation, selected, err := newSparseIntervalDatalogActivation(m, engine.set, engine.guard, []ast.ASTHandle{original})
+	seed := declare("shape-finite-seed", []ast.ASTHandle{boolean})
+	finite := declare("shape-finite-derived", []ast.ASTHandle{boolean})
+	nullary := declare("shape-nullary-derived", nil)
+	variable, err := m.MkVar(0, boolean)
+	fragmentMust(t, err)
+	app := func(declaration ast.ASTHandle, values ...ast.ASTHandle) ast.ASTHandle {
+		result, cause := m.MkApp(declaration, values)
+		fragmentMust(t, cause)
+		return result
+	}
+	rule, err := m.MkImplies(app(seed, variable), app(finite, variable))
+	fragmentMust(t, err)
+	fragmentMust(t, engine.AddRule(rule, "derive finite shape"))
+	rule, err = m.MkImplies(app(seed, variable), app(nullary))
+	fragmentMust(t, err)
+	fragmentMust(t, engine.AddRule(rule, "derive nullary shape"))
+
+	activation, selected, err := newClassifiedSparseIntervalDatalogActivation(m, engine.set, engine.guard, []sparseIntervalOriginal{{declaration: seed, class: sparseIntervalFiniteOriginal}})
 	fragmentMust(t, err)
 	if !selected {
-		t.Fatal("mixed activation was not selected")
+		t.Fatal("finite activation was not selected")
 	}
-	fragmentMust(t, activation.syncAuxiliaryPredicates([]ast.ASTHandle{original, finite, nullary, arithmetic}))
-	fragmentMust(t, activation.markFiniteAuxiliary(finite))
-	fragmentMust(t, activation.markFiniteAuxiliary(nullary))
-	fragmentMust(t, activation.markFiniteAuxiliary(arithmetic))
+	fragmentMust(t, activation.syncAuxiliaryPredicates([]ast.ASTHandle{seed, finite, nullary}))
 	truth, err := m.MkTrue()
 	fragmentMust(t, err)
-	one, err := m.ArithmeticIntegerNumeralText("1")
-	fragmentMust(t, err)
-	fragmentMust(t, activation.addFact(finite, []ast.ASTHandle{truth}))
-	fragmentMust(t, activation.addFact(nullary, nil))
-	fragmentMust(t, activation.addFact(arithmetic, []ast.ASTHandle{one}))
-	status, err := activation.query([]ast.ASTHandle{finite}, true)
+	fragmentMust(t, activation.addFact(seed, []ast.ASTHandle{truth}))
+	status, err := activation.query([]ast.ASTHandle{finite, nullary}, true)
 	fragmentMust(t, err)
 	if status != lbool.True {
-		t.Fatal("finite auxiliary query was not precise", status)
+		t.Fatal("derived finite/nullary shape was not precise", status)
 	}
-	if snapshot, ok, cause := activation.finiteSnapshot(finite); cause != nil || ok || snapshot != nil {
-		t.Fatal("generated finite auxiliary became a public original snapshot", ok, cause)
-	}
-	status, err = activation.query([]ast.ASTHandle{arithmetic}, true)
-	fragmentMust(t, err)
-	if status != lbool.Undef {
-		t.Fatal("arithmetic auxiliary was incorrectly marked precise", status)
+	for _, declaration := range []ast.ASTHandle{finite, nullary} {
+		if snapshot, exact, cause := activation.finiteSnapshot(declaration); cause != nil || exact || snapshot != nil {
+			t.Fatal("generated auxiliary became a public original snapshot", declaration, exact, cause)
+		}
 	}
 
 	clone, err := activation.clone(engine.set, engine.guard)
 	fragmentMust(t, err)
 	fragmentMust(t, activation.close())
-	for _, declaration := range []ast.ASTHandle{finite, nullary} {
-		status, cause := clone.query([]ast.ASTHandle{declaration}, true)
-		fragmentMust(t, cause)
-		if status != lbool.True {
-			t.Fatal("clone lost precise finite auxiliary class", declaration, status)
-		}
+	status, err = clone.query([]ast.ASTHandle{finite, nullary}, true)
+	fragmentMust(t, err)
+	if status != lbool.True {
+		t.Fatal("clone lost derived finite/nullary precision after source close", status)
 	}
 	fragmentMust(t, clone.close())
 }

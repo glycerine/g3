@@ -11,6 +11,14 @@ import (
 
 var ErrSparseIntervalProduct = errors.New("muz/rel: invalid sparse/interval product")
 
+type sparseIntervalComponentShape uint8
+
+const (
+	sparseIntervalShapeAbsent sparseIntervalComponentShape = iota + 1
+	sparseIntervalShapeRaw
+	sparseIntervalShapeSieve
+)
+
 // SparseIntervalSieveProduct is the concrete product selected by the ordered
 // representation pair tr_sparse + interval_relation. Its components are
 // independent abstractions over the same mixed signature, matching source
@@ -22,7 +30,13 @@ type SparseIntervalSieveProduct struct {
 	finiteSorts   []ast.ASTHandle
 	finite        *SparseTable
 	interval      *IntervalSieve
-	closed        bool
+	intervalShape sparseIntervalComponentShape
+	// intervalNullary distinguishes interval_relation's zero-arity truth
+	// value from a hashtable zero-arity truth value. Their signatures are
+	// identical, but their exact and transparent product components are
+	// opposite and must survive Clone/Reset.
+	intervalNullary bool
+	closed          bool
 }
 
 func sparseIntervalKinds(kinds []string) bool {
@@ -95,6 +109,14 @@ func newSparseIntervalSieveProduct(manager *RelationManager, sorts []ast.ASTHand
 		sorts:         append([]ast.ASTHandle(nil), sorts...),
 		finiteColumns: finiteColumns,
 		finiteSorts:   finiteSorts,
+	}
+	switch {
+	case len(sorts) != 0 && len(finiteColumns) == 0:
+		p.intervalShape = sparseIntervalShapeRaw
+	case len(finiteColumns) == len(sorts):
+		p.intervalShape = sparseIntervalShapeAbsent
+	default:
+		p.intervalShape = sparseIntervalShapeSieve
 	}
 	signature, err := NewSignature(domains)
 	if err != nil {

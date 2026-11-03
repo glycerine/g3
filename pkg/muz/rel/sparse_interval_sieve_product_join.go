@@ -5,6 +5,31 @@ package rel
 
 import "github.com/glycerine/g3/pkg/ast"
 
+func sparseIntervalJoinShape(left, right *SparseIntervalSieveProduct) sparseIntervalComponentShape {
+	if left.intervalShape == sparseIntervalShapeSieve || right.intervalShape == sparseIntervalShapeSieve {
+		return sparseIntervalShapeSieve
+	}
+	if left.intervalShape == sparseIntervalShapeRaw && right.intervalShape == sparseIntervalShapeRaw {
+		return sparseIntervalShapeRaw
+	}
+	if left.intervalShape == sparseIntervalShapeAbsent && right.intervalShape == sparseIntervalShapeAbsent {
+		return sparseIntervalShapeAbsent
+	}
+	raw, opposite := left, right
+	if right.intervalShape == sparseIntervalShapeRaw {
+		raw, opposite = right, left
+	}
+	if raw.intervalShape != sparseIntervalShapeRaw || opposite.intervalShape != sparseIntervalShapeAbsent {
+		return sparseIntervalShapeSieve
+	}
+	for _, sort := range opposite.sorts {
+		if !CanHandleIntervalSorts(left.manager.manager, []ast.ASTHandle{sort}) {
+			return sparseIntervalShapeSieve
+		}
+	}
+	return sparseIntervalShapeRaw
+}
+
 func JoinSparseIntervalSieveProducts(left, right *SparseIntervalSieveProduct, leftColumns, rightColumns []int) (*SparseIntervalSieveProduct, error) {
 	if left == nil || right == nil || left.open() != nil || right.open() != nil || left.manager != right.manager || len(leftColumns) != len(rightColumns) {
 		return nil, ErrSparseIntervalProduct
@@ -51,5 +76,6 @@ func JoinSparseIntervalSieveProducts(left, right *SparseIntervalSieveProduct, le
 		columns[len(left.finiteColumns)+i] = len(left.sorts) + outer
 	}
 	finiteSorts := append(append([]ast.ASTHandle(nil), left.finiteSorts...), right.finiteSorts...)
-	return &SparseIntervalSieveProduct{manager: left.manager, sorts: sorts, finiteColumns: columns, finiteSorts: finiteSorts, finite: finite, interval: interval}, nil
+	shape := sparseIntervalJoinShape(left, right)
+	return &SparseIntervalSieveProduct{manager: left.manager, sorts: sorts, finiteColumns: columns, finiteSorts: finiteSorts, finite: finite, interval: interval, intervalShape: shape, intervalNullary: shape == sparseIntervalShapeRaw && len(sorts) == 0}, nil
 }

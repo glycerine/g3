@@ -33,12 +33,14 @@ func (p *SparseIntervalSieveProduct) CloneTo(manager *RelationManager) (*SparseI
 		return nil, errors.Join(err, finite.Close())
 	}
 	return &SparseIntervalSieveProduct{
-		manager:       manager,
-		sorts:         append([]ast.ASTHandle(nil), p.sorts...),
-		finiteColumns: append([]int(nil), p.finiteColumns...),
-		finiteSorts:   append([]ast.ASTHandle(nil), p.finiteSorts...),
-		finite:        finite,
-		interval:      interval,
+		manager:         manager,
+		sorts:           append([]ast.ASTHandle(nil), p.sorts...),
+		finiteColumns:   append([]int(nil), p.finiteColumns...),
+		finiteSorts:     append([]ast.ASTHandle(nil), p.finiteSorts...),
+		finite:          finite,
+		interval:        interval,
+		intervalShape:   p.intervalShape,
+		intervalNullary: p.intervalNullary,
 	}, nil
 }
 
@@ -47,7 +49,7 @@ func (p *SparseIntervalSieveProduct) Reset() error {
 	if err := p.open(); err != nil {
 		return err
 	}
-	pureFinite := len(p.finiteColumns) == len(p.sorts)
+	pureFinite := len(p.finiteColumns) == len(p.sorts) && !p.intervalNullary
 	pureArithmetic := len(p.sorts) != 0 && len(p.finiteColumns) == 0
 	var interval *IntervalSieve
 	var err error
@@ -62,7 +64,7 @@ func (p *SparseIntervalSieveProduct) Reset() error {
 	if err = p.finite.Reset(); err != nil {
 		return err
 	}
-	if pureArithmetic {
+	if pureArithmetic || p.intervalNullary {
 		signature, signatureErr := p.finite.Signature()
 		if signatureErr != nil {
 			return signatureErr

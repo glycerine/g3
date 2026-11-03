@@ -337,7 +337,17 @@ func (e *SparseIntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, w
 	if err != nil || empty {
 		return false, err
 	}
-	return e.products[headDeclaration].Union(working, widen)
+	target := e.products[headDeclaration]
+	targetEmpty, cause := target.Empty()
+	if cause != nil {
+		return false, cause
+	}
+	if targetEmpty {
+		if cause = target.AdoptPrecisionShape(working); cause != nil {
+			return false, cause
+		}
+	}
+	return target.Union(working, widen)
 }
 
 func (e *SparseIntervalDatalogEvaluator) evaluateComponent(component map[ast.ASTHandle]int, current int, internal, widen bool) (changed bool, resultErr error) {

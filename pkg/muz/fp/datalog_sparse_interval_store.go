@@ -20,9 +20,9 @@ type sparseIntervalPredicateClass uint8
 const (
 	sparseIntervalMixedOriginal sparseIntervalPredicateClass = iota + 1
 	sparseIntervalFiniteOriginal
+	sparseIntervalHashOriginal
 	sparseIntervalArithmeticOriginal
 	sparseIntervalGeneratedAuxiliary
-	sparseIntervalFiniteAuxiliary
 )
 
 type sparseIntervalOriginal struct {
@@ -45,12 +45,10 @@ func (s *SparseIntervalDatalogStore) Evaluator(rules *base.RuleSet, guard *astre
 		return nil, err
 	}
 	seeds := make(map[ast.ASTHandle]*rel.SparseIntervalSieveProduct, len(s.entries))
-	classes := make(map[ast.ASTHandle]sparseIntervalPredicateClass, len(s.entries))
 	for declaration, entry := range s.entries {
 		seeds[declaration] = entry.relation
-		classes[declaration] = entry.class
 	}
-	return NewSparseIntervalDatalogEvaluator(s.manager, s.relations, rules, guard, append([]ast.ASTHandle(nil), s.order...), seeds, classes)
+	return NewSparseIntervalDatalogEvaluator(s.manager, s.relations, rules, guard, append([]ast.ASTHandle(nil), s.order...), seeds)
 }
 
 // SparseIntervalDatalogStore owns mixed finite/arithmetic seed relations. The
@@ -87,7 +85,7 @@ func (s *SparseIntervalDatalogStore) Register(declaration ast.ASTHandle) error {
 }
 
 func (s *SparseIntervalDatalogStore) RegisterOriginal(declaration ast.ASTHandle, class sparseIntervalPredicateClass) error {
-	if class != sparseIntervalMixedOriginal && class != sparseIntervalFiniteOriginal && class != sparseIntervalArithmeticOriginal {
+	if class != sparseIntervalMixedOriginal && class != sparseIntervalFiniteOriginal && class != sparseIntervalHashOriginal && class != sparseIntervalArithmeticOriginal {
 		return ErrSparseIntervalDatalogFragment
 	}
 	return s.register(declaration, class)
@@ -145,12 +143,14 @@ func (s *SparseIntervalDatalogStore) prepareRegistration(declaration ast.ASTHand
 	}
 	var product *rel.SparseIntervalSieveProduct
 	switch class {
-	case sparseIntervalGeneratedAuxiliary, sparseIntervalFiniteAuxiliary:
+	case sparseIntervalGeneratedAuxiliary:
 		product, err = rel.NewSparseIntervalSieveProductAuxiliary(s.relations, sorts, false)
 	case sparseIntervalMixedOriginal:
 		product, err = rel.NewSparseIntervalSieveProduct(s.relations, sorts, []string{"tr_sparse", "interval_relation"}, false)
 	case sparseIntervalFiniteOriginal:
 		product, err = rel.NewSparseIntervalFiniteOriginal(s.relations, sorts, false)
+	case sparseIntervalHashOriginal:
+		product, err = rel.NewSparseIntervalHashOriginal(s.relations, sorts, false)
 	case sparseIntervalArithmeticOriginal:
 		product, err = rel.NewSparseIntervalArithmeticOriginal(s.relations, sorts, false)
 	default:
@@ -159,11 +159,17 @@ func (s *SparseIntervalDatalogStore) prepareRegistration(declaration ast.ASTHand
 	if err != nil {
 		return nil, errors.Join(ErrSparseIntervalDatalogFragment, err)
 	}
+	if class == sparseIntervalGeneratedAuxiliary {
+		err = product.MarkGeneratedRawShape()
+	}
+	if err != nil {
+		return nil, errors.Join(ErrSparseIntervalDatalogFragment, err, product.Close())
+	}
 	declarationRef, err := s.manager.NewRef(declaration)
 	if err != nil {
 		return nil, finishSparseIntervalProductConstruction(err, s.manager, product)
 	}
-	auxiliary := class == sparseIntervalGeneratedAuxiliary || class == sparseIntervalFiniteAuxiliary
+	auxiliary := class == sparseIntervalGeneratedAuxiliary
 	return &sparseIntervalDatalogStoreEntry{sorts: sorts, relation: product, root: declarationRef, auxiliary: auxiliary, class: class}, nil
 }
 
