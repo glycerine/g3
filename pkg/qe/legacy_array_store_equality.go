@@ -317,7 +317,7 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 		return nil, false, errors.Join(err, p.syntax.manager.DelRef(&replaced))
 	}
 	result.formula, err = p.rewrite(replacedHandle)
-	err = errors.Join(err, p.syntax.manager.DelRef(&replaced))
+	ownedResult, err = finishLegacyStoreEqualityRewrite(p.syntax.manager, result, replaced, err)
 	if err != nil {
 		return nil, false, err
 	}

@@ -59,6 +59,9 @@ func TestLegacyArrayStoreConstructionFailuresAndRetry(t *testing.T) {
 				if result != nil || eliminated {
 					t.Fatal("failed projection published a result")
 				}
+				if errors.Is(cause, ast.ErrASTHandle) {
+					t.Fatal("store projection cleanup closed an owner twice", cause)
+				}
 				var construction memory.ConstructionFailure
 				if errors.As(cause, &construction) {
 					fmMust(t, construction.Cleanup())
