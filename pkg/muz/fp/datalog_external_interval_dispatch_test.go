@@ -12,15 +12,17 @@ import (
 )
 
 type externalIntervalCallbackState struct {
-	manager          *ast.ASTManager
-	nonempty         map[ast.ASTHandle]bool
-	operations       []int32
-	cloneOutputs     []ast.ASTHandle
-	joinArguments    [][]ast.ASTHandle
-	joinParameters   [][]uint32
-	refusalOperation int32
-	refusalAt        int
-	refusal          error
+	manager           *ast.ASTManager
+	nonempty          map[ast.ASTHandle]bool
+	operations        []int32
+	cloneOutputs      []ast.ASTHandle
+	joinArguments     [][]ast.ASTHandle
+	joinParameters    [][]uint32
+	projectParameters [][]uint32
+	renameParameters  [][]uint32
+	refusalOperation  int32
+	refusalAt         int
+	refusal           error
 }
 
 type externalIntervalNestedConstructionFailure struct {
@@ -82,6 +84,38 @@ func (s *externalIntervalCallbackState) callbacks() rel.ExternalRelationCallback
 				return ast.ASTHandle{}, s.refusal
 			}
 			switch op {
+			case ast.DatalogOpProject, ast.DatalogOpRename:
+				if len(arguments) != 1 {
+					return ast.ASTHandle{}, fmt.Errorf("unexpected external/interval transformation argument count %d", len(arguments))
+				}
+				parameters, cause := s.manager.GetDeclParametersCopy(declaration)
+				if cause != nil {
+					return ast.ASTHandle{}, cause
+				}
+				indices := make([]uint32, 0, len(parameters))
+				for i := range parameters {
+					value, parameterErr := s.manager.ParameterInt(parameters[i])
+					deleteErr := s.manager.DelParameter(&parameters[i])
+					if parameterErr != nil || deleteErr != nil {
+						return ast.ASTHandle{}, errors.Join(parameterErr, deleteErr)
+					}
+					indices = append(indices, uint32(value))
+				}
+				if op == ast.DatalogOpProject {
+					s.projectParameters = append(s.projectParameters, indices)
+				} else {
+					s.renameParameters = append(s.renameParameters, indices)
+				}
+				sort, cause := s.manager.GetRange(declaration)
+				if cause != nil {
+					return ast.ASTHandle{}, cause
+				}
+				result, cause := s.manager.MkFreshConst("external-interval-transform", sort)
+				if cause != nil {
+					return ast.ASTHandle{}, cause
+				}
+				s.nonempty[result] = s.nonempty[arguments[0]]
+				return result, nil
 			case ast.DatalogOpJoin:
 				if len(arguments) != 2 {
 					return ast.ASTHandle{}, fmt.Errorf("unexpected external/interval JOIN argument count %d", len(arguments))

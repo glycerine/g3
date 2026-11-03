@@ -1,7 +1,7 @@
 package fp
 
 // Source: src/muz/rel/dl_compiler.cpp two-tail rule lowering and
-// src/muz/rel/dl_instruction.cpp LOAD, JOIN, UNION, and STORE execution.
+// src/muz/rel/dl_instruction.cpp LOAD, JOIN_PROJECT, RENAME, UNION, and STORE.
 
 import (
 	"errors"
@@ -13,18 +13,44 @@ import (
 	"github.com/glycerine/g3/pkg/util/memory"
 )
 
-// externalIntervalDatalogCartesianRule is the exact acyclic rule
-// H(x,y) :- P(x), Q(y). The left and right declarations preserve tail order,
-// which is also the result column order of the source Cartesian JOIN.
+// externalIntervalDatalogCartesianRule lowers two positive variable-only
+// tails with distinct columns to a head of distinct bound variables. It also
+// covers the original Cartesian rule as the no-key/no-projection case.
 type externalIntervalDatalogCartesianRule struct {
-	head  ast.ASTHandle
-	left  ast.ASTHandle
-	right ast.ASTHandle
+	head         ast.ASTHandle
+	left         ast.ASTHandle
+	right        ast.ASTHandle
+	leftColumns  []uint32
+	rightColumns []uint32
+	removed      []uint32
+	renames      [][]uint32
 }
 
 func sameExternalIntervalCartesianRule(left, right *externalIntervalDatalogCartesianRule) bool {
-	return left != nil && right != nil && left.head == right.head &&
-		left.left == right.left && left.right == right.right
+	if left == nil || right == nil || left.head != right.head || left.left != right.left || left.right != right.right ||
+		!externalIntervalColumnsEqual(left.leftColumns, right.leftColumns) ||
+		!externalIntervalColumnsEqual(left.rightColumns, right.rightColumns) ||
+		!externalIntervalColumnsEqual(left.removed, right.removed) || len(left.renames) != len(right.renames) {
+		return false
+	}
+	for i := range left.renames {
+		if !externalIntervalColumnsEqual(left.renames[i], right.renames[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func externalIntervalColumnsEqual(left, right []uint32) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i, column := range left {
+		if column != right[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*externalIntervalDatalogCartesianRule, error) {
@@ -36,146 +62,158 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 	if err != nil {
 		return nil, err
 	}
-	if positive != 2 || uninterpreted != 2 {
+	total, err := rule.TailSize()
+	if err != nil {
+		return nil, err
+	}
+	if positive != 2 || uninterpreted != 2 || total != 2 {
 		return nil, ErrExternalIntervalDatalogFragment
 	}
-
 	head, err := rule.Head()
 	if err != nil {
 		return nil, err
 	}
-	first, firstNegated, err := rule.Tail(0)
+	// The source compiler consumes normalized rule tail order directly.
+	left, leftNegated, err := rule.Tail(0)
 	if err != nil {
 		return nil, err
 	}
-	second, secondNegated, err := rule.Tail(1)
+	right, rightNegated, err := rule.Tail(1)
 	if err != nil {
 		return nil, err
 	}
-	if firstNegated || secondNegated {
+	if leftNegated || rightNegated {
 		return nil, ErrExternalIntervalDatalogFragment
 	}
-
-	headDeclaration, err := e.manager.GetDecl(head)
-	if err != nil {
-		return nil, err
-	}
-	firstDeclaration, err := e.manager.GetDecl(first)
-	if err != nil {
-		return nil, err
-	}
-	secondDeclaration, err := e.manager.GetDecl(second)
-	if err != nil {
-		return nil, err
-	}
-	if headDeclaration == firstDeclaration || headDeclaration == secondDeclaration || firstDeclaration == secondDeclaration ||
-		e.auxiliary[headDeclaration] || e.auxiliary[firstDeclaration] || e.auxiliary[secondDeclaration] {
-		return nil, ErrExternalIntervalDatalogFragment
-	}
-
-	headCount, err := e.manager.GetNumArgs(head)
-	if err != nil {
-		return nil, err
-	}
-	firstCount, err := e.manager.GetNumArgs(first)
-	if err != nil {
-		return nil, err
-	}
-	secondCount, err := e.manager.GetNumArgs(second)
-	if err != nil {
-		return nil, err
-	}
-	if headCount != 2 || firstCount != 1 || secondCount != 1 {
-		return nil, ErrExternalIntervalDatalogFragment
-	}
-
-	firstArgument, err := e.manager.GetArg(first, 0)
-	if err != nil {
-		return nil, err
-	}
-	secondArgument, err := e.manager.GetArg(second, 0)
-	if err != nil {
-		return nil, err
-	}
-	headLeftArgument, err := e.manager.GetArg(head, 0)
-	if err != nil {
-		return nil, err
-	}
-	headRightArgument, err := e.manager.GetArg(head, 1)
-	if err != nil {
-		return nil, err
-	}
-	arguments := []ast.ASTHandle{firstArgument, secondArgument, headLeftArgument, headRightArgument}
-	for _, argument := range arguments {
-		kind, cause := e.manager.GetKind(argument)
+	plan := &externalIntervalDatalogCartesianRule{}
+	applications := []ast.ASTHandle{head, left, right}
+	declarations := []*ast.ASTHandle{&plan.head, &plan.left, &plan.right}
+	variables := make([][]uint32, 3)
+	sorts := make([][]ast.ASTHandle, 3)
+	for index, application := range applications {
+		declaration, cause := e.manager.GetDecl(application)
 		if cause != nil {
 			return nil, cause
 		}
-		if kind != ast.ASTVar {
+		state := e.predicates[declaration]
+		if state == nil || e.auxiliary[declaration] || !isExternalIntervalRepresentation(state.requestedRepresentations) {
 			return nil, ErrExternalIntervalDatalogFragment
 		}
-	}
-	firstVariable, err := e.manager.GetVarIndex(firstArgument)
-	if err != nil {
-		return nil, err
-	}
-	secondVariable, err := e.manager.GetVarIndex(secondArgument)
-	if err != nil {
-		return nil, err
-	}
-	headLeftVariable, err := e.manager.GetVarIndex(headLeftArgument)
-	if err != nil {
-		return nil, err
-	}
-	headRightVariable, err := e.manager.GetVarIndex(headRightArgument)
-	if err != nil {
-		return nil, err
-	}
-	if firstVariable == secondVariable || headLeftVariable == headRightVariable {
-		return nil, ErrExternalIntervalDatalogFragment
-	}
-	// Rule normalization stores the two conjuncts in reverse source order.
-	// Admit only H(x,y) :- P(x), Q(y): the normalized first tail must supply
-	// the second head column and the normalized second tail the first.
-	if firstVariable != headRightVariable || secondVariable != headLeftVariable {
-		return nil, ErrExternalIntervalDatalogFragment
-	}
-	leftDeclaration, rightDeclaration := secondDeclaration, firstDeclaration
-	leftArgument, rightArgument := secondArgument, firstArgument
-
-	headState := e.predicates[headDeclaration]
-	leftState := e.predicates[leftDeclaration]
-	rightState := e.predicates[rightDeclaration]
-	if headState == nil || leftState == nil || rightState == nil ||
-		!isExternalIntervalRepresentation(headState.requestedRepresentations) ||
-		!isExternalIntervalRepresentation(leftState.requestedRepresentations) ||
-		!isExternalIntervalRepresentation(rightState.requestedRepresentations) ||
-		len(headState.sorts) != 2 || len(leftState.sorts) != 1 || len(rightState.sorts) != 1 ||
-		headState.sorts[0] != leftState.sorts[0] || headState.sorts[1] != rightState.sorts[0] {
-		return nil, ErrExternalIntervalDatalogFragment
-	}
-	for column, argument := range []ast.ASTHandle{leftArgument, rightArgument, headLeftArgument, headRightArgument} {
-		sort, cause := e.manager.GetSort(argument)
+		count, cause := e.manager.GetNumArgs(application)
 		if cause != nil {
 			return nil, cause
 		}
-		want := headState.sorts[column%2]
-		if sort != want {
+		if int(count) != len(state.sorts) || index != 0 && count == 0 {
 			return nil, ErrExternalIntervalDatalogFragment
 		}
+		*declarations[index] = declaration
+		sorts[index] = state.sorts
+		variables[index] = make([]uint32, count)
+		seen := make(map[uint32]bool)
+		for column := uint32(0); column < count; column++ {
+			argument, cause := e.manager.GetArg(application, column)
+			if cause != nil {
+				return nil, cause
+			}
+			kind, cause := e.manager.GetKind(argument)
+			if cause != nil {
+				return nil, cause
+			}
+			if kind != ast.ASTVar {
+				return nil, ErrExternalIntervalDatalogFragment
+			}
+			variable, cause := e.manager.GetVarIndex(argument)
+			if cause != nil {
+				return nil, cause
+			}
+			sort, cause := e.manager.GetSort(argument)
+			if cause != nil {
+				return nil, cause
+			}
+			if seen[variable] || sort != state.sorts[column] {
+				return nil, ErrExternalIntervalDatalogFragment
+			}
+			seen[variable] = true
+			variables[index][column] = variable
+		}
 	}
-	return &externalIntervalDatalogCartesianRule{
-		head: headDeclaration, left: leftDeclaration, right: rightDeclaration,
-	}, nil
+	if plan.head == plan.left || plan.head == plan.right || plan.left == plan.right {
+		return nil, ErrExternalIntervalDatalogFragment
+	}
+	leftVariables, rightVariables := variables[1], variables[2]
+	for first, variable := range leftVariables {
+		for second, other := range rightVariables {
+			if variable == other {
+				if sorts[1][first] != sorts[2][second] {
+					return nil, ErrExternalIntervalDatalogFragment
+				}
+				plan.leftColumns = append(plan.leftColumns, uint32(first))
+				plan.rightColumns = append(plan.rightColumns, uint32(second))
+			}
+		}
+	}
+	joinedVariables := append(append([]uint32(nil), leftVariables...), rightVariables...)
+	joinedSorts := append(append([]ast.ASTHandle(nil), sorts[1]...), sorts[2]...)
+	last := make(map[uint32]uint32)
+	for column, variable := range joinedVariables {
+		last[variable] = uint32(column)
+	}
+	wanted := make(map[uint32]bool)
+	for column, variable := range variables[0] {
+		source, found := last[variable]
+		if !found || joinedSorts[source] != sorts[0][column] {
+			return nil, ErrExternalIntervalDatalogFragment
+		}
+		wanted[variable] = true
+	}
+	// Source get_local_indexes_for_projection discards unused variables and
+	// the earliest extra copies, leaving the last occurrence for each head.
+	surviving := make(map[uint32]uint32)
+	for column, variable := range joinedVariables {
+		if !wanted[variable] || last[variable] != uint32(column) {
+			plan.removed = append(plan.removed, uint32(column))
+		} else {
+			surviving[variable] = uint32(len(surviving))
+		}
+	}
+	permutation := make([]uint32, len(variables[0]))
+	for column, variable := range variables[0] {
+		permutation[column] = surviving[variable]
+	}
+	for column := range permutation {
+		if permutation[column] == uint32(column) {
+			continue
+		}
+		var cycle []uint32
+		next := uint32(column)
+		for {
+			cycle = append(cycle, next)
+			previous := next
+			next = permutation[previous]
+			permutation[previous] = previous
+			if next == uint32(column) {
+				break
+			}
+		}
+		// The compiler's source permutation rotates left, while the source
+		// datalog declaration and vector-relation rename rotate right. Those
+		// disagree for cycles longer than two. Lower the compiler permutation
+		// to adjacent transpositions, whose signatures, external callbacks and
+		// interval values agree, instead of changing either shared primitive.
+		for i := 0; i+1 < len(cycle); i++ {
+			plan.renames = append(plan.renames, []uint32{cycle[i], cycle[i+1]})
+		}
+	}
+	return plan, nil
 }
 
 // externalIntervalDatalogCartesianContinuation owns every temporary created
-// after LOAD. A committed UNION is cleaned before STORE, and STORE publication
-// completes before the joined temporary is closed. Every frontier is retryable
-// without replaying JOIN or UNION.
+// after LOAD. A committed UNION and its temporary are cleaned before STORE.
+// Every frontier is retryable without replaying JOIN or UNION.
 type externalIntervalDatalogCartesianContinuation struct {
 	registers *externalIntervalDatalogRegisters
 	temporary *rel.ExternalIntervalProduct
+	retiring  *rel.ExternalIntervalProduct
 	nested    memory.ConstructionFailure
 	runtime   *memory.Runtime
 	publish   bool
@@ -188,6 +226,18 @@ func (c *externalIntervalDatalogCartesianContinuation) resume() error {
 		}
 		c.nested = nil
 	}
+	if c.temporary != nil {
+		if err := c.temporary.Close(); err != nil {
+			return err
+		}
+		c.temporary = nil
+	}
+	if c.retiring != nil {
+		if err := c.retiring.Close(); err != nil {
+			return err
+		}
+		c.retiring = nil
+	}
 	if c.publish && c.registers != nil {
 		if err := c.registers.store(); err != nil {
 			var owner *externalIntervalDatalogRegisterFailure
@@ -199,17 +249,22 @@ func (c *externalIntervalDatalogCartesianContinuation) resume() error {
 		}
 		c.registers = nil
 	}
-	if c.temporary != nil {
-		if err := c.temporary.Close(); err != nil {
-			return err
-		}
-		c.temporary = nil
-	}
 	if !c.publish && c.registers != nil {
 		if err := c.registers.Close(); err != nil {
 			return err
 		}
 		c.registers = nil
+	}
+	return nil
+}
+
+func (c *externalIntervalDatalogCartesianContinuation) replaceTemporary(next *rel.ExternalIntervalProduct) error {
+	c.retiring, c.temporary = c.temporary, next
+	if c.retiring != nil {
+		if err := c.retiring.Close(); err != nil {
+			return err
+		}
+		c.retiring = nil
 	}
 	return nil
 }
@@ -305,16 +360,49 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 		return rollback(err)
 	}
 	if left != nil && right != nil {
-		joined, cause := rel.JoinExternalIntervalProducts(left, right, nil, nil)
+		joined, cause := rel.JoinExternalIntervalProducts(left, right, a.cartesian.leftColumns, a.cartesian.rightColumns)
 		if cause != nil {
 			return rollback(cause)
 		}
 		owner.temporary = joined
+		if len(a.cartesian.removed) != 0 {
+			projected, cause := owner.temporary.Project(a.cartesian.removed)
+			if cause != nil {
+				return rollback(cause)
+			}
+			if cause = owner.replaceTemporary(projected); cause != nil {
+				return rollback(cause)
+			}
+		}
+		// instr_join_project canonicalizes an empty result before any head
+		// assembly. In particular, disjoint interval keys must not reach UNION.
+		empty, cause := owner.temporary.Empty()
+		if cause != nil {
+			return rollback(cause)
+		}
+		if empty {
+			owner.publish = true
+			if cause = owner.resume(); cause != nil {
+				failure := newExternalIntervalDatalogCartesianFailure(cause, owner)
+				a.setCartesianPending(failure, true)
+				return failure
+			}
+			return nil
+		}
+		for _, cycle := range a.cartesian.renames {
+			renamed, cause := owner.temporary.Rename(cycle)
+			if cause != nil {
+				return rollback(cause)
+			}
+			if cause = owner.replaceTemporary(renamed); cause != nil {
+				return rollback(cause)
+			}
+		}
 		target, cause := registers.ensureRelation(a.cartesian.head)
 		if cause != nil {
 			return rollback(cause)
 		}
-		if cause = target.Union(joined, nil, false); cause != nil {
+		if cause = target.Union(owner.temporary, nil, false); cause != nil {
 			if rel.ExternalAssignmentCommitted(cause) {
 				var nested memory.ConstructionFailure
 				if !errors.As(cause, &nested) {

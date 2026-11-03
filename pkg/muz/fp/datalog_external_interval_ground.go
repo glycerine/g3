@@ -95,8 +95,8 @@ func (e *PropositionalEngine) externalIntervalGroundRule(rule *base.Rule) (*exte
 
 // externalIntervalRulePlans validates the complete retained one-rule fragment
 // before relation callbacks. The live plans are the aligned identity edge, a
-// zero-tail arithmetic numeral fact, and the exact two-unary-tail
-// Cartesian rule.
+// zero-tail arithmetic numeral fact, and two positive variable-only tails with
+// a bound, distinct-variable head.
 func (e *PropositionalEngine) externalIntervalRulePlans() (_ *externalIntervalDatalogIdentityRule, _ *externalIntervalDatalogGroundRule, _ *externalIntervalDatalogCartesianRule, resultErr error) {
 	count, err := e.set.Len()
 	if err != nil {

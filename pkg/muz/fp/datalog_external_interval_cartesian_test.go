@@ -33,6 +33,8 @@ func resetExternalIntervalCartesianCallbacks(callbacks *externalIntervalCallback
 	callbacks.cloneOutputs = nil
 	callbacks.joinArguments = nil
 	callbacks.joinParameters = nil
+	callbacks.projectParameters = nil
+	callbacks.renameParameters = nil
 }
 
 func assertExternalIntervalCartesianJoin(t *testing.T, callbacks *externalIntervalCallbackState, leftClone, rightClone int) {
@@ -57,7 +59,9 @@ func TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat(t *testing.
 			label = "external-left"
 			leftKinds, rightKinds = rightKinds, leftKinds
 		}
-		headKinds := append([]string(nil), rightKinds...)
+		// The normalized left JOIN input is q, so keep h in p's opposite
+		// component order to exercise source product UNION alignment.
+		headKinds := append([]string(nil), leftKinds...)
 		t.Run(label, func(t *testing.T) {
 			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 			family, err := manager.RegisterArithmeticPlugin()
@@ -90,7 +94,7 @@ func TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat(t *testing.
 				ast.DatalogOpIsEmpty,
 				ast.DatalogOpIsEmpty, ast.DatalogOpClone,
 				ast.DatalogOpIsEmpty, ast.DatalogOpClone,
-				ast.DatalogOpJoin, ast.DatalogOpEmpty, ast.DatalogOpUnion,
+				ast.DatalogOpJoin, ast.DatalogOpIsEmpty, ast.DatalogOpRename, ast.DatalogOpEmpty, ast.DatalogOpUnion,
 				ast.DatalogOpIsEmpty,
 			}
 			if headKinds[0] != "external_relation" {
@@ -118,7 +122,7 @@ func TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat(t *testing.
 				ast.DatalogOpIsEmpty, ast.DatalogOpClone,
 				ast.DatalogOpIsEmpty, ast.DatalogOpClone,
 				ast.DatalogOpIsEmpty, ast.DatalogOpClone,
-				ast.DatalogOpJoin, ast.DatalogOpUnion, ast.DatalogOpIsEmpty,
+				ast.DatalogOpJoin, ast.DatalogOpIsEmpty, ast.DatalogOpRename, ast.DatalogOpUnion, ast.DatalogOpIsEmpty,
 			})
 			assertExternalIntervalCartesianJoin(t, callbacks, 1, 2)
 
@@ -291,9 +295,9 @@ func TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay(t *testin
 
 func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *testing.T) {
 	shapes := []string{
-		"shared-key", "reordered-head", "constant", "repeated-tail",
+		"repeated-head", "constant", "repeated-tail",
 		"negative", "guard", "cycle", "unsafe-head", "nullary-tail",
-		"nonunary-tail", "nonbinary-head", "third-tail",
+		"repeated-tail-column", "third-tail",
 		"multiple-rules",
 	}
 	for _, shape := range shapes {
@@ -308,12 +312,12 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 			qSorts := []ast.ASTHandle{integer}
 			if shape == "nullary-tail" {
 				qSorts = nil
-			} else if shape == "nonunary-tail" {
+			} else if shape == "repeated-tail-column" {
 				qSorts = []ast.ASTHandle{integer, integer}
 			}
 			q := declareExternalIntervalPredicate(t, manager, engine, "external-interval-cartesian-invalid-q-"+shape, qSorts, kinds)
 			headSorts := []ast.ASTHandle{integer, integer}
-			if shape == "nonbinary-head" || shape == "cycle" {
+			if shape == "cycle" {
 				headSorts = []ast.ASTHandle{integer}
 			}
 			h := declareExternalIntervalPredicate(t, manager, engine, "external-interval-cartesian-invalid-h-"+shape, headSorts, kinds)
@@ -335,9 +339,9 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 			switch shape {
 			case "nullary-tail":
 				rightApplication = app(q)
-			case "nonunary-tail":
-				rightApplication = app(q, y, z)
-			case "shared-key":
+			case "repeated-tail-column":
+				rightApplication = app(q, y, y)
+			case "repeated-head":
 				rightApplication = app(q, x)
 			case "repeated-tail":
 				rightApplication = app(p, y)
@@ -374,10 +378,8 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 			headDeclaration := h
 			headArguments := []ast.ASTHandle{x, y}
 			switch shape {
-			case "shared-key":
+			case "repeated-head":
 				headArguments = []ast.ASTHandle{x, x}
-			case "reordered-head":
-				headArguments = []ast.ASTHandle{y, x}
 			case "constant":
 				headArguments = []ast.ASTHandle{x, constant}
 			case "cycle":
@@ -385,8 +387,6 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 				headArguments = []ast.ASTHandle{x}
 			case "unsafe-head":
 				headArguments = []ast.ASTHandle{x, z}
-			case "nonbinary-head":
-				headArguments = []ast.ASTHandle{x}
 			}
 			headApplication := app(headDeclaration, headArguments...)
 			formula, err := manager.MkImplies(body, headApplication)
