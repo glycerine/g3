@@ -98,6 +98,9 @@ func queryPredicate(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theor
 			stats.Subsumed += search.subsumed
 		}
 	}()
+	if err = search.verboseInitialClause(); err != nil {
+		return lbool.Undef, answer, err
+	}
 	status, err = search.Run()
 	if err != nil {
 		return status, answer, err

@@ -179,10 +179,16 @@ func (s *tabSearch) Run() (lbool.LBool, error) {
 		current := s.stack[len(s.stack)-1]
 		if selectPredicate {
 			if len(current.predicates) == 0 {
+				if err = s.verboseEmptyClause(current); err != nil {
+					return lbool.Undef, err
+				}
 				return lbool.True, nil
 			}
 			current.predicateIndex, err = s.selection.Select(current)
 			if err != nil {
+				return lbool.Undef, err
+			}
+			if err = s.verboseSelectedPredicate(current); err != nil {
 				return lbool.Undef, err
 			}
 			selectPredicate = false
