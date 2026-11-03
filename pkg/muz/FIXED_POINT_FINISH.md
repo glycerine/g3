@@ -514,6 +514,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Construct full and empty-like sieves with concrete selected-column layout, and cover both ordinary/sieve mixed-delta union directions with changed-only cumulative deltas.
   - [x] Convert independently between ordinary tables and all-inner sieves for mixed-operation/publication transitions, preserving nullary identity and refusing partial ignored-column layouts.
   - [x] Move the concrete table owner between ordinary tables and all-inner sieves for source `mk_from_inner` transitions, consuming the source only after validation and preserving nullary identity.
+  - [x] Reset and union interval-backed sieves with exact layout validation, cumulative delta and source widening fallback to ordinary union.
 - [ ] `src/muz/rel/dl_sparse_table.cpp` (partial), `src/muz/rel/dl_sparse_table.h` (partial)
   - [x] Concrete empty query and zero-key functional complement consumption.
   - [x] Direct supported join/negation operations dispatch through indexed plans; functional-key and zero-column fallbacks remain explicit.
@@ -691,6 +692,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Public UDoc execution now evaluates bound-variable, repeated-key, partial-key, aligned and nullary negative tails through typed anti-joins after source stratum preflight. Derived negative predicates saturate before consumers, updates recompute correctly, invalid cycles/shapes publish no prefix or stale answer and the caller's open/finalized RuleSet state is restored; negative constants, unbound and negative-only bodies remain explicit guards.
   Validation: `go -C pkg test ./muz/fp -run '^(TestDatalogUDoc|TestUDocPositive)' -count=3` passed. Commit title: `Execute stratified UDoc negation`.
+
+- 2026-11-02 — Interval-backed sieves now reset their selected inner storage and union compatible layouts with optional cumulative delta while preserving ignored outer columns. Because the source sieve plugin has no widening override, requested widening correctly falls back to ordinary finite interval union—`[1]` plus `[2]` stays closed `[1,2]` instead of widening to infinity.
+  Validation: `go -C pkg test ./muz/rel -run '^TestIntervalSieve' -count=5` passed. Commit title: `Implement interval sieve union and reset`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
