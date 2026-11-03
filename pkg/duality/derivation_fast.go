@@ -65,17 +65,23 @@ func (s *DerivationSearch) buildFast() (sat bool, result error) {
 				continue
 			}
 		}
-		timer, err := startProfile(d.tree.context, "ComputeUnderapprox")
-		if err != nil {
-			return false, err
-		}
-		fact, err := d.tree.ComputeUnderapprox(d.Top, s.Simplifier)
-		if fact != nil {
-			err = errors.Join(err, fact.Close())
-		}
-		err = errors.Join(err, timer.Close())
-		if err != nil {
-			return false, err
+		// The compiled source skips model-derived lower facts for constrained
+		// completion (UNDERAPPROX_NODES is paired with
+		// SKIP_UNDERAPPROX_NODES). Preserve the lower facts cloned into the
+		// partial counterexample instead of publishing completion-model states.
+		if d.Underapprox && !d.Constrained {
+			timer, err := startProfile(d.tree.context, "ComputeUnderapprox")
+			if err != nil {
+				return false, err
+			}
+			fact, err := d.tree.ComputeUnderapprox(d.Top, s.Simplifier)
+			if fact != nil {
+				err = errors.Join(err, fact.Close())
+			}
+			err = errors.Join(err, timer.Close())
+			if err != nil {
+				return false, err
+			}
 		}
 		return true, nil
 	}

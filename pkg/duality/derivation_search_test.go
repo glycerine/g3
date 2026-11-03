@@ -226,6 +226,19 @@ func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
 				if len(working.edges) != 3 || len(working.nodes) != 3 || working.dualModel == nil {
 					t.Fatal("SAT counterexample graph/model missing")
 				}
+				if mode == "full-cex-underapprox" {
+					// Constrained completion keeps the partial counterexample's
+					// cloned lower facts. The source's compiled
+					// SKIP_UNDERAPPROX_NODES branch does not replace them with
+					// facts extracted from the completion model.
+					for _, node := range working.nodes {
+						full, err := node.Underapprox.IsFull()
+						must(err)
+						if !full {
+							t.Fatal("constrained completion replaced a cloned lower fact", node.Number)
+						}
+					}
+				}
 			} else if top.Outgoing != nil || len(working.edges) != 0 {
 				t.Fatal("refuted derivation graph not unwound")
 			}
