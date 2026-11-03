@@ -53,6 +53,11 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
+	if e.backend == "bmc" || e.backend == "qbmc" {
+		// bmc::query resets its solver before query-rule preparation. A
+		// failure before clone construction must not expose the prior solve.
+		e.bmcStatistics.Reset()
+	}
 	if e.backend == "datalog" {
 		if err := e.cacheDatalogRelationFavourite(); err != nil {
 			return lbool.Undef, err
@@ -122,16 +127,20 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 				clone.tabAnswer = ast.ASTRef{}
 			}
 		}
-		if (e.backend == "bmc" || e.backend == "qbmc") && resultErr == nil {
-			if err := e.clearBMCTrace(); err != nil {
-				resultErr = errors.Join(resultErr, err)
-			} else {
-				e.bmcTrace = clone.bmcTrace
-				clone.bmcTrace = nil
-				e.bmcProof = clone.bmcProof
-				clone.bmcProof = ast.ASTRef{}
-				e.bmcStatistics.Reset()
-				e.bmcStatistics.Copy(clone.bmcStatistics)
+		if e.backend == "bmc" || e.backend == "qbmc" {
+			// Source statistics belong to the solver that attempted the query,
+			// including work completed before cancellation or another failure.
+			e.bmcStatistics.Reset()
+			e.bmcStatistics.Copy(clone.bmcStatistics)
+			if resultErr == nil {
+				if err := e.clearBMCTrace(); err != nil {
+					resultErr = errors.Join(resultErr, err)
+				} else {
+					e.bmcTrace = clone.bmcTrace
+					clone.bmcTrace = nil
+					e.bmcProof = clone.bmcProof
+					clone.bmcProof = ast.ASTRef{}
+				}
 			}
 		}
 		if e.backend == "ddnf" && e.ddnf.registry == nil && clone.ddnf.registry != nil {
