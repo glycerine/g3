@@ -57,6 +57,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 - [x] Establish a native full-suite baseline: `go -C pkg test ./... -short -timeout=0` exited 0; log `/tmp/g3-native-port-audit.log`. This run began before the latest changes; those received focused checks separately.
 - [ ] Reconcile stale manifest descriptions with current code, especially Duality; preserve partial status until independently justified.
   - [x] Repair manifest evidence links to existing tests at unit and method scope; restore the broad portcheck gate without changing test declarations, validator rules or audited statuses. This verifies evidence availability, not semantic completion.
+  - [x] Reconcile evidence for 18 further fixedpoint construction and cleanup batches through `8da2b9286`; independent review and portcheck preserve existing statuses and audits. Later changes and the remaining source inventory stay open.
 - [ ] Inspect every source conditional, function and live consumer for each partial unit; turn each remaining obligation into an explicit implementation or audit item.
 - [ ] Verify previously marked ported units against their actual consumers and proof/ownership requirements; status labels alone are insufficient.
   - [x] Correct the stale whole-unit completion claims for `dl_compiler.cpp/.h`: completed finite/explanation methods remain recorded, while live abstract/product/widening dispatch makes both units partial until their broader consumers are integrated and audited.
@@ -2113,3 +2114,4 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Native `muz/pdr` and `muz/fp` short suites passed on `ff6d97a22` (64.433s/77.791s); log `/tmp/g3-pdr-search-native-20261103.log`.
 - 2026-11-03 — Preserved a projected PDR child equality across renaming allocation failure. The old implementation reproduces an orphaned AST node; focused projection tests and the same-context public solve retry pass.
 - 2026-11-03 — Preserved both PDR node-model owners when releasing the previous model fails, publishing the replacement only after the release succeeds. Solved-model native refusal, retry and ordinary replacement tests pass; an end-to-end backtracking trigger remains unproven.
+- 2026-11-03 — Refreshed manifest evidence for 28 units through `8da2b9286`, preserving prior status and audit metadata. Independent reviews and `go -C pkg run ./cmd/portcheck` pass; newer fixes are outside this checkpoint.
