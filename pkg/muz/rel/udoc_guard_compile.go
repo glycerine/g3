@@ -255,11 +255,11 @@ func (r *UDocRelation) extractRangeEqualities(m *ast.ASTManager, condition ast.A
 		if err != nil {
 			return ast.ASTHandle{}, equalities, err
 		}
-		leftVar, leftLow, leftHigh, leftOK, err := udocGuardRange(m, left)
+		leftVar, leftLow, leftHigh, leftOK, err := udocProjectEqualityRange(m, left)
 		if err != nil {
 			return ast.ASTHandle{}, equalities, err
 		}
-		rightVar, rightLow, rightHigh, rightOK, err := udocGuardRange(m, right)
+		rightVar, rightLow, rightHigh, rightOK, err := udocProjectEqualityRange(m, right)
 		if err != nil {
 			return ast.ASTHandle{}, equalities, err
 		}

@@ -501,6 +501,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/udoc_relation.cpp` (partial), `src/muz/rel/udoc_relation.h` (partial)
   - [x] Activate concrete typed UDoc storage for source-capable bit-vector and nullary predicates, including facts, positive recursive joins/projections, typed formulas, query clones and source fallback selection.
   - [x] Compile bound interpreted tails as one rooted conjunction after positive joins, remap rule variables to compacted UDoc columns and preserve failed guard cleanup in the query context.
+  - [x] Fuse interpreted filtering with projection over typed UDoc relations, including source `is_var_range` equality extraction for finite-sort variables while keeping the ordinary finite guard language narrow.
   - [ ] Add interpreted/negative rules, mixed representation composition, model/finite enumeration and remaining UDoc method/ownership parity.
 
 ### spacer
@@ -533,6 +534,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Typed UDoc relations now support the source fused interpreted-filter-and-project operation. Whole finite-sort variables participate in equality-range extraction alongside bit-vector ranges, projected owners remain independent and nullary identity is preserved, while ordinary finite/numeral guards stay explicitly unsupported; public fused compiler dispatch remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^(TestTypedUDoc|TestUDocCompile|TestUDocFilterGuardAndProject)' -count=3` passed. Commit title: `Fuse UDoc interpreted filtering with projection`.
 
 - 2026-11-02 — Public UDoc positive rules now compile bound interpreted tails after their positive joins. All conditions remain one source conjunction, sparse rule-variable indices remap to compacted typed columns, contradictions filter rows before head assembly, unbound variables reject without stale answers and failed guard roots/substitution stay in the context cleanup frontier; negative and condition-only variables remain open.
   Validation: `go -C pkg test ./muz/fp -run '^Test(DatalogUDoc|UDocPositive)' -count=3` passed. Commit title: `Filter UDoc rules with bound interpreted tails`.
