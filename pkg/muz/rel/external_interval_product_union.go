@@ -37,6 +37,7 @@ type externalIntervalUnionCleanupFailure struct {
 	original, cleanup error
 	reported          error
 	text              string
+	committed         bool
 }
 
 var _ memory.ConstructionFailure = (*externalIntervalUnionCleanupFailure)(nil)
@@ -45,6 +46,9 @@ func (f *externalIntervalUnionCleanupFailure) Error() string        { return f.t
 func (f *externalIntervalUnionCleanupFailure) Unwrap() error        { return f.reported }
 func (f *externalIntervalUnionCleanupFailure) OriginalCause() error { return f.original }
 func (f *externalIntervalUnionCleanupFailure) CleanupCause() error  { return f.cleanup }
+func (f *externalIntervalUnionCleanupFailure) assignmentCommitted() bool {
+	return f.committed
+}
 func (f *externalIntervalUnionCleanupFailure) RuntimeOwner() *memory.Runtime {
 	return f.owner.runtime
 }
@@ -54,6 +58,7 @@ func (f *externalIntervalUnionCleanupFailure) Cleanup() error {
 }
 
 func finishExternalIntervalUnion(owner *externalIntervalUnionOwner, cause error) error {
+	committed := cause == nil || externalAssignmentWasCommitted(cause)
 	if cause != nil {
 		errors.As(cause, &owner.nested)
 	}
@@ -68,8 +73,16 @@ func finishExternalIntervalUnion(owner *externalIntervalUnionOwner, cause error)
 	reported := errors.Join(cause, cleanup)
 	return &externalIntervalUnionCleanupFailure{
 		owner: owner, original: original, cleanup: cleanup,
-		reported: reported, text: reported.Error(),
+		reported: reported, text: reported.Error(), committed: committed,
 	}
+}
+
+func applyExternalIntervalAssignment(destination **IntervalRelation, candidate *IntervalRelation, assignment func() error) error {
+	cause := assignment()
+	if cause == nil || externalAssignmentWasCommitted(cause) {
+		*destination = candidate
+	}
+	return cause
 }
 
 func (p *ExternalIntervalProduct) unionCompatible(other *ExternalIntervalProduct) error {
@@ -98,7 +111,8 @@ func (p *ExternalIntervalProduct) unionCompatible(other *ExternalIntervalProduct
 // Union performs the source aligned product update. External and interval
 // plugins do not support cross-kind unions in both directions, so only the two
 // corresponding component unions are applied. Local interval candidates are
-// published after the external callback reports success.
+// published after the external assignment commits, even when only cleanup of
+// that committed callback remains pending.
 func (p *ExternalIntervalProduct) Union(source, delta *ExternalIntervalProduct, widen bool) (resultErr error) {
 	if err := p.unionCompatible(source); err != nil {
 		return err
@@ -119,10 +133,11 @@ func (p *ExternalIntervalProduct) Union(source, delta *ExternalIntervalProduct, 
 		if _, err = targetCandidate.Union(source.interval, widen); err != nil {
 			return err
 		}
-		if err = p.external.Union(source.external, nil, widen); err != nil {
+		if err = applyExternalIntervalAssignment(&p.interval, targetCandidate, func() error {
+			return p.external.Union(source.external, nil, widen)
+		}); err != nil {
 			return err
 		}
-		p.interval = targetCandidate
 		return nil
 	}
 
@@ -146,15 +161,15 @@ func (p *ExternalIntervalProduct) Union(source, delta *ExternalIntervalProduct, 
 	if err != nil {
 		return err
 	}
-	if err = p.external.Union(source.external, owner.fresh, widen); err != nil {
+	if err = applyExternalIntervalAssignment(&p.interval, targetCandidate, func() error {
+		return p.external.Union(source.external, owner.fresh, widen)
+	}); err != nil {
 		return err
 	}
-	// The target component update is complete even when later delta
-	// accumulation fails, so publish its local counterpart at the same point.
-	p.interval = targetCandidate
-	if err = delta.external.Union(owner.fresh, nil, false); err != nil {
+	if err = applyExternalIntervalAssignment(&delta.interval, deltaCandidate, func() error {
+		return delta.external.Union(owner.fresh, nil, false)
+	}); err != nil {
 		return err
 	}
-	delta.interval = deltaCandidate
 	return nil
 }

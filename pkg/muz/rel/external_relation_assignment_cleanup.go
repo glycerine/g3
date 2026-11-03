@@ -10,6 +10,15 @@ import (
 	"github.com/glycerine/g3/pkg/util/memory"
 )
 
+type externalAssignmentCommitReceipt interface {
+	assignmentCommitted() bool
+}
+
+func externalAssignmentWasCommitted(cause error) bool {
+	var receipt externalAssignmentCommitReceipt
+	return errors.As(cause, &receipt) && receipt.assignmentCommitted()
+}
+
 type externalAssignmentAttempt struct {
 	manager *ast.ASTManager
 	nested  memory.ConstructionFailure
@@ -44,6 +53,7 @@ type externalAssignmentCleanupFailure struct {
 	attempt                  *externalAssignmentAttempt
 	cause, cleanup, reported error
 	text                     string
+	committed                bool
 }
 
 var _ memory.ConstructionFailure = (*externalAssignmentCleanupFailure)(nil)
@@ -52,6 +62,9 @@ func (f *externalAssignmentCleanupFailure) Error() string        { return f.text
 func (f *externalAssignmentCleanupFailure) Unwrap() error        { return f.reported }
 func (f *externalAssignmentCleanupFailure) OriginalCause() error { return f.cause }
 func (f *externalAssignmentCleanupFailure) CleanupCause() error  { return f.cleanup }
+func (f *externalAssignmentCleanupFailure) assignmentCommitted() bool {
+	return f.committed
+}
 func (f *externalAssignmentCleanupFailure) RuntimeOwner() *memory.Runtime {
 	return f.attempt.manager.NumeralService().RuntimeOwner()
 }
@@ -61,6 +74,11 @@ func (f *externalAssignmentCleanupFailure) Cleanup() error {
 }
 
 func finishExternalAssignment(attempt *externalAssignmentAttempt, cause error) error {
+	// A nil operation cause means ReduceAssign completed and only temporary
+	// ownership cleanup failed. Preserve that distinction so a product caller
+	// can publish its corresponding local component and retry Cleanup without
+	// replaying an already committed callback.
+	committed := cause == nil
 	if cause != nil {
 		errors.As(cause, &attempt.nested)
 	}
@@ -70,8 +88,8 @@ func finishExternalAssignment(attempt *externalAssignmentAttempt, cause error) e
 	}
 	if cause == nil {
 		cause = cleanup
-		return &externalAssignmentCleanupFailure{attempt: attempt, cause: cause, cleanup: cleanup, reported: cause, text: cause.Error()}
+		return &externalAssignmentCleanupFailure{attempt: attempt, cause: cause, cleanup: cleanup, reported: cause, text: cause.Error(), committed: committed}
 	}
 	reported := errors.Join(cause, cleanup)
-	return &externalAssignmentCleanupFailure{attempt: attempt, cause: cause, cleanup: cleanup, reported: reported, text: reported.Error()}
+	return &externalAssignmentCleanupFailure{attempt: attempt, cause: cause, cleanup: cleanup, reported: reported, text: reported.Error(), committed: committed}
 }
