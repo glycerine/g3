@@ -45,6 +45,7 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 		}()
 	}
 	any, other, finiteGuards := false, false, false
+	finiteInputs := make(map[ast.ASTHandle]*udocFiniteInput)
 	for _, d := range e.predicateOrder {
 		state := e.predicates[d]
 		supported, err := owner.factory.CanHandleSignature(state.sorts)
@@ -58,17 +59,28 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 		candidate := supported && !state.explicitFiniteRepresentation && state.external == nil && (hasDoc || docFavourite && len(state.requestedRepresentations) == 0 || e.auxiliary[d])
 		any = any || candidate
 		guard := udocFiniteNullary(state) && owner.seeds[d] == nil
+		forward := !checkedDoc && supported && udocFiniteForwardingInput(state) && owner.seeds[d] == nil
+		if forward {
+			finiteInputs[d] = &udocFiniteInput{table: state.table, sorts: state.sorts, auxiliary: e.auxiliary[d]}
+		}
 		finiteGuards = finiteGuards || guard
 		// The existing finite setter rejects an adopted UDoc owner. Keep that
 		// boundary rather than allowing a second owner to mask its facts.
 		changedOwner := udocFiniteNullary(state) && owner.seeds[d] != nil
-		other = other || !candidate && !guard || changedOwner
+		other = other || !candidate && !guard && !forward || changedOwner
 	}
 	if !any {
 		return false, nil
 	}
 	if finiteGuards {
 		allowed, err := e.udocNullaryGuardsOnly()
+		if err != nil {
+			return false, err
+		}
+		other = other || !allowed
+	}
+	if len(finiteInputs) != 0 {
+		allowed, err := e.udocFiniteForwardingOnly(finiteInputs)
 		if err != nil {
 			return false, err
 		}

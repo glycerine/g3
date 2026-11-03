@@ -79,6 +79,13 @@ func (c *datalogUDocContext) duplicateColumn(working *rel.TypedUDocRelation, sor
 
 func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, resultErr error) {
 	defer func() { resultErr = errors.Join(resultErr, rule.Close()) }()
+	finiteHead, finiteSource, err := classifyUDocFiniteForwarding(c.manager, rule, c.finiteInputs)
+	if err != nil {
+		return false, err
+	}
+	if !finiteSource.IsNull() {
+		return c.evaluateFiniteForwarding(rule, finiteHead, finiteSource)
+	}
 	positive, err := rule.PositiveTailSize()
 	if err != nil {
 		return false, err

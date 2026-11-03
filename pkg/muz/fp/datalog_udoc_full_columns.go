@@ -161,6 +161,13 @@ func (c *datalogUDocContext) preflightUDocApplication(application ast.ASTHandle,
 // preflightUDocRule validates every source operation that can allocate a full
 // column before saturation publishes even an earlier ground rule.
 func (c *datalogUDocContext) preflightUDocRule(rule *base.Rule) error {
+	_, finiteSource, err := classifyUDocFiniteForwarding(c.manager, rule, c.finiteInputs)
+	if err != nil {
+		return err
+	}
+	if !finiteSource.IsNull() {
+		return nil
+	}
 	positive, err := rule.PositiveTailSize()
 	if err != nil {
 		return err
