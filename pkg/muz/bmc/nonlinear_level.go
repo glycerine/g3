@@ -3,8 +3,6 @@ package bmc
 // Source: src/muz/bmc/dl_bmc_engine.cpp, nonlinear::level_replacer.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 )
@@ -20,8 +18,11 @@ func (c *Compiler) ReplacePredicates(rules *base.RuleManager, expression ast.AST
 	memo := make(map[ast.ASTHandle]ast.ASTHandle)
 	var refs []ast.ASTRef
 	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
+		resultErr = disposeASTRefs(m, refs, resultErr)
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			owned := result
+			result = ast.ASTRef{}
+			resultErr = disposeASTRefs(m, []ast.ASTRef{owned}, resultErr)
 		}
 	}()
 	hold := func(h ast.ASTHandle) error {
