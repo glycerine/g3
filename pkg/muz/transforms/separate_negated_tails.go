@@ -16,11 +16,23 @@ type SeparateNegatedTailsPlugin struct {
 	manager  *ast.ASTManager
 	rules    *base.RuleManager
 	priority uint32
+	fresh    []ast.ASTHandle
 	closed   bool
 }
 
 func NewSeparateNegatedTailsPlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32) *SeparateNegatedTailsPlugin {
+	if priority == 0 {
+		priority = 21000
+	}
 	return &SeparateNegatedTailsPlugin{manager: manager, rules: rules, priority: priority}
+}
+
+// FreshPredicates returns borrowed abstraction declarations in creation order.
+func (p *SeparateNegatedTailsPlugin) FreshPredicates() []ast.ASTHandle {
+	if p == nil || p.closed {
+		return nil
+	}
+	return append([]ast.ASTHandle(nil), p.fresh...)
 }
 
 func (p *SeparateNegatedTailsPlugin) Priority() uint32            { return p.priority }
@@ -132,6 +144,7 @@ func (p *SeparateNegatedTailsPlugin) abstractPredicate(tail ast.ASTHandle, priva
 	if err = p.rules.RegisterPredicate(fresh); err != nil {
 		return ast.ASTHandle{}, pin, err
 	}
+	p.fresh = append(p.fresh, fresh)
 	abstraction, err := p.manager.MkApp(fresh, arguments)
 	if err != nil {
 		return ast.ASTHandle{}, pin, err
@@ -237,6 +250,7 @@ func (p *SeparateNegatedTailsPlugin) Transform(source *base.RuleSet) (_ *base.Ru
 	if p == nil || p.closed || p.manager == nil || p.rules == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
+	p.fresh = nil
 	result, err := base.NewRuleSet(p.rules)
 	if err != nil {
 		return nil, err
@@ -298,5 +312,6 @@ func (p *SeparateNegatedTailsPlugin) Close() error {
 		return nil
 	}
 	p.closed = true
+	p.fresh = nil
 	return nil
 }

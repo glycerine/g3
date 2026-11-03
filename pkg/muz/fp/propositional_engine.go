@@ -1053,13 +1053,17 @@ func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
 		return err
 	}
 	cone := transforms.NewConePluginWithRelations(e.relations, 0)
+	negative := transforms.NewSeparateNegatedTailsPlugin(e.manager, e.rules, 0)
 	filter := transforms.NewFilterRulesPlugin(e.manager, e.rules, 0)
 	plugin := transforms.NewSimpleJoinsPlugin(e.manager, e.rules, 0, e.relations)
 	if err := transformer.Register(cone); err != nil {
-		return errors.Join(err, cone.Close(), simplifier.Close(), filter.Close(), plugin.Close())
+		return errors.Join(err, cone.Close(), simplifier.Close(), negative.Close(), filter.Close(), plugin.Close())
 	}
 	if err := transformer.Register(simplifier); err != nil {
-		return errors.Join(err, simplifier.Close(), filter.Close(), plugin.Close())
+		return errors.Join(err, simplifier.Close(), negative.Close(), filter.Close(), plugin.Close())
+	}
+	if err := transformer.Register(negative); err != nil {
+		return errors.Join(err, negative.Close(), filter.Close(), plugin.Close())
 	}
 	if err := transformer.Register(filter); err != nil {
 		return errors.Join(err, filter.Close(), plugin.Close())
@@ -1078,7 +1082,9 @@ func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
 	if !modified {
 		return nil
 	}
-	for _, declaration := range append(filter.FreshPredicates(), plugin.FreshPredicates()...) {
+	fresh := append(negative.FreshPredicates(), filter.FreshPredicates()...)
+	fresh = append(fresh, plugin.FreshPredicates()...)
+	for _, declaration := range fresh {
 		state, x := e.predicateState(declaration)
 		if x != nil {
 			return x
