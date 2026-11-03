@@ -4,7 +4,10 @@ package fp
 // normalization and swap removal. The eager Go clauses for pending inputs
 // are replaced by fresh normalization using the current context parameters.
 
-import "github.com/glycerine/g3/pkg/muz/base"
+import (
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
+)
 
 func (e *PropositionalEngine) normalizePendingOpenRules() error {
 	return e.normalizePendingRules(false)
@@ -92,6 +95,19 @@ func (e *PropositionalEngine) normalizePendingRules(flush bool) (resultErr error
 	}
 	for _, raw := range promoted {
 		formula, err := e.manager.RefGet(raw.formula)
+		if err != nil {
+			return err
+		}
+		// Source mk_rule binds registered variable constants before label
+		// removal and Horn normalization, including during a pending flush.
+		bound, err := e.binder.Bind(formula, true)
+		if bound != (ast.ASTRef{}) {
+			a.references = append(a.references, bound)
+		}
+		if err != nil {
+			return err
+		}
+		formula, err = e.manager.RefGet(bound)
 		if err != nil {
 			return err
 		}
