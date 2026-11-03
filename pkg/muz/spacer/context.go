@@ -811,8 +811,12 @@ func (c *Context) Model(declaration ast.ASTHandle) (_ *model.Model, resultErr er
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, property.Close()) }()
-	return property.Model()
+	attempt := &contextExportAttempt{manager: c.manager, runtime: c.manager.NumeralService().RuntimeOwner(), property: property}
+	attempt.model, err = property.Model()
+	if err = attempt.finish(err); err != nil {
+		return nil, err
+	}
+	return attempt.model, nil
 }
 
 // Answer returns the source ground reach-fact trace for a reachable query or
@@ -832,8 +836,12 @@ func (c *Context) Answer(declaration ast.ASTHandle) (ast.ASTRef, error) {
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
-		result, answerErr := property.Expr()
-		return result, errors.Join(answerErr, property.Close())
+		attempt := &contextExportAttempt{manager: c.manager, runtime: c.manager.NumeralService().RuntimeOwner(), property: property}
+		attempt.answer, err = property.Expr()
+		if err = attempt.finish(err); err != nil {
+			return ast.ASTRef{}, err
+		}
+		return attempt.answer, nil
 	}
 	truth, err := c.manager.MkTrue()
 	if err != nil {
