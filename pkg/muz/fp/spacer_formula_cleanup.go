@@ -14,6 +14,7 @@ type slicedFormulaAttempt struct {
 	manager        *ast.ASTManager
 	source, result ast.ASTRef
 	substitute     *astrewriter.VarSubstitution
+	bindings       []ast.ASTRef
 }
 
 type slicedFormulaCleanupFailure struct {
@@ -39,6 +40,15 @@ func (a *slicedFormulaAttempt) closeTemporary() error {
 			return err
 		}
 		a.substitute = nil
+	}
+	for len(a.bindings) != 0 {
+		last := len(a.bindings) - 1
+		if a.bindings[last] != (ast.ASTRef{}) {
+			if err := a.manager.DelRef(&a.bindings[last]); err != nil {
+				return err
+			}
+		}
+		a.bindings = a.bindings[:last]
 	}
 	if a.source != (ast.ASTRef{}) {
 		return a.manager.DelRef(&a.source)

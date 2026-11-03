@@ -56,8 +56,18 @@ func expandSlicedFormula(manager *ast.ASTManager, slices map[ast.ASTHandle][]boo
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
+		// Source subst is an expr_ref_vector. Own each variable before the
+		// next binding or substitution construction can fail.
+		pin, err := manager.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		attempt.bindings = append(attempt.bindings, pin)
 		variable, err := manager.MkVar(uint32(index), sort)
 		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		if err = manager.SetRef(pin, variable); err != nil {
 			return ast.ASTRef{}, err
 		}
 		bindings = append(bindings, variable)

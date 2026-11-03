@@ -95,6 +95,9 @@ func TestSlicedFormulaCopiedOwnersSurviveNativeCleanupRefusal(t *testing.T) {
 	must(err)
 	completed.result, err = m.NewRef(y)
 	must(err)
+	binding, err := m.NewRef(y)
+	must(err)
+	completed.bindings = []ast.ASTRef{binding}
 	value, err := numbers.NewValue()
 	must(err)
 	defer func() { must(numbers.Del(&value)) }()
@@ -118,6 +121,14 @@ func TestSlicedFormulaCopiedOwnersSurviveNativeCleanupRefusal(t *testing.T) {
 	must(err)
 	if got != y {
 		t.Fatal("copied result changed during refusal")
+	}
+	if len(completed.bindings) != 1 {
+		t.Fatal("refused cleanup lost binding owners")
+	}
+	got, err = m.RefGet(completed.bindings[0])
+	must(err)
+	if got != y {
+		t.Fatal("binding changed during cleanup refusal")
 	}
 	for _, failure := range failures {
 		must(failure.Cleanup())
