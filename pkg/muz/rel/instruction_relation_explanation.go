@@ -89,7 +89,7 @@ func (i *relationExplanationInstruction) Perform(context *ExecutionContext) (boo
 			return err == nil, err
 		}
 		context.stats.FilterByNegation++
-		err = finiteTableFilterNegation(product.table, negative.table, instruction.left, instruction.right)
+		err = product.FilterByNegation(negative, instruction.left, instruction.right)
 		return finishRelationExplanationMutation(context, instruction.first, product, err)
 	case *registerInstruction:
 		if err := instruction.open(); err != nil {

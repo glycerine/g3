@@ -16,7 +16,7 @@ func (r *FormulaCheckedTable) FilterByNegation(negative *FormulaCheckedTable, co
 	if err := r.open(); err != nil {
 		return err
 	}
-	if negative.open() != nil || r.manager != negative.manager || len(columns) == 0 || len(columns) != len(negativeColumns) {
+	if negative.open() != nil || r.manager != negative.manager || len(columns) != len(negativeColumns) {
 		return ErrTableRelation
 	}
 	for i, column := range columns {
