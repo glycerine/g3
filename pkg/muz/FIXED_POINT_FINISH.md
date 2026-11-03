@@ -2,7 +2,7 @@
 
 This tracks completion of the whole `src/muz/` port in `pkg/muz/`, including live dependencies outside that directory. A working engine or green test is not a whole-source completion claim. Source algorithms, proofs, models, incremental behavior, diagnostics and explicit ownership must all be accounted for.
 
-Last updated: 2026-11-02. Work is active. The live CLP context source units have completed independent method and ownership audits; the wider fixedpoint infrastructure and other engine audits remain open.
+Last updated: 2026-11-03. The current implementation batches are committed; the next authorized work is fixing the tagged regressions in `pkg/log.red` before any new port batch. The live CLP context source units have completed independent method and ownership audits; the wider fixedpoint infrastructure and other engine audits remain open.
 
 ## How to follow progress
 
@@ -18,7 +18,7 @@ The latest user direction is maximum parallel porting capacity and cancellation 
 
 Run relevant focused cross-package checks at integration; the explicitly canceled broad native run must not restart. The user continues checked/debug validation. Track completed behaviors and dependencies rather than translated-file counts; keep partial source statuses until the wider audit is actually complete.
 
-Current integrated frontier: fixedpoint SMT2 loading stages each fresh parser context before publication; finite bytecode fuses interpreted filtering with dead-column projection; finite queries apply cone pruning with model reconstruction; external/interval products execute the exact two-unary-tail Cartesian rule in either component order. The next parallel lanes cover n-ary external ground construction, repeated bound/interval tail variables, finite join/project fusion, QBMC cleanup, and remaining query orchestration. These entries refine the broader open boundaries above without claiming whole-unit completion.
+Current integrated frontier: fixedpoint SMT2 loading stages each fresh parser context before publication; finite bytecode fuses interpreted filtering and joins with dead-column projection; finite queries apply cone pruning and interpreted-tail simplification in source order. External/interval products execute the exact two-unary-tail Cartesian rule in either component order and n-ary arithmetic ground rules. Single positive bound/interval tails support repeated variables. QBMC attempts preserve scope and temporary ownership through cleanup failures. These entries refine the broader open boundaries above without claiming whole-unit completion. The current tagged regression gate covers BMC proof allocation, nullary formula-checked negation, Spacer expression ownership and rule-slice proof composition; new port lanes wait until it is green.
 
 Acceleration tactics are durable for every batch:
 
@@ -594,6 +594,13 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-03 — Finished and committed the pending batches before investigating `pkg/log.red`, as requested. The combined native gate passed for fixedpoint (57.347s), BMC (0.680s), relations (3.760s), transforms (10.835s), solver (0.022s) and SMT core (25.978s); final solver/BMC and COI checks also passed after their last review corrections. Independent source and ownership reviews approved all slices. The canceled broad run remains stopped; checked/debug tags are authorized for the reported regressions.
+  - `eb69c083c` preserves nonlinear BMC selector cleanup owners; `6019dca15` fuses finite joins with dead-column projection while preserving later-variable multiplicities.
+  - `88dcd96e8` tracks actually published solver scopes and resumes post-publication cleanup; arbitrary failures inside a partially completed kernel Pop remain a separate audit. `abb7b53e5` uses that scope contract to preserve QBMC search attempts and suppress failed results.
+  - `917e9dd2a` assembles external arithmetic ground tuples with sort/value-keyed singleton reuse and source-ordered joins, callback cleanup and publication. `b0e9ab639` supports repeated variables in a single positive abstract tail while preserving source equality and guard behavior; two-tail repetition remains open.
+  - `7b09d47a2` installs interpreted-tail simplification at source priority 40000 and owns fallback parameter services through retryable transformer cleanup. `fdf0819e9` corrects cone tail traversal, unnamed unnormalized replacement rules and construction cleanup, with 24 allocation-refusal points followed by successful completion. Cone diagnostics and broader whole-unit audits remain open.
+  - `2e29e0b64` reconciles landed source evidence through the prior nonlinear selector slice without changing source/API statuses or audit flags. Newer method evidence will be reconciled after this checkpoint.
 
 - 2026-11-02 — Integrated all three prepared lanes after current-tree native package checks: API 37.266s, relations 3.676s and fixedpoint 60.142s. Fixedpoint loading now uses a fresh staged parser, preserves prior assertions and publishes nothing after malformed input (`f55c1266f Stage fixedpoint SMT2 loads before publication.`). Finite bytecode now emits the source fused interpreted filter/project with pre-projection bindings and surviving-column remapping (`d2748ddf4 Fuse finite interpreted filtering with projection.`). The exact two-unary-tail external/interval Cartesian rule executes with left-ordered family matching and retryable callback/publication cleanup (`4231d804b Execute external interval Cartesian rules.`). Independent source reviews passed; the formula-checked compiler concern was ruled out by its existing representation preflight, so no unused adapter was introduced. The full native SMT-LIB runner regression passed in 22.337s after integration. Next lanes are n-ary ground construction, repeated bound/interval tails, finite join/project fusion and BMC cleanup.
 
