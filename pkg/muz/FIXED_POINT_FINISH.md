@@ -420,6 +420,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Concrete Int/Real/nullary plugin capability, empty/full construction, and typed join dispatch.
   - [x] Concrete project and rename dispatch with source renumbering/cycle semantics and independent results.
   - [x] Interval-source union/widen dispatch preserves source pruning and ignored-delta behavior.
+  - [x] Assemble exact bound/interval product head columns for unbound, repeated and numeral terms, preserving requested component order, source-coarse bound constants and interval constraints.
 - [ ] `src/muz/rel/dl_check_table.cpp` (partial), `src/muz/rel/dl_check_table.h` (partial)
 - [ ] `src/muz/rel/dl_compiler.cpp` (partial), `src/muz/rel/dl_compiler.h` (partial)
   - [x] Finite, sparse, lazy and explanation compilation has concrete method-level evidence, including SCC scheduling and mixed magic inputs.
@@ -497,6 +498,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Exact bound/interval products now assemble compiler head columns for unbound variables, repeated variables and arithmetic numerals. Full unary joins, componentwise identity filtering and source-coarse bound constants preserve requested order, nullary identity, empty propagation and source independence while rejecting bad sorts/indices atomically; compiler wiring remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^TestIntervalBoundProduct(ConstantColumn|FullAndDuplicate|NullaryFull)' -count=3` passed. Commit title: `Assemble bound interval product columns`.
 
 - 2026-11-02 — Mixed external/interval products now project, rename and apply equality, identity and interpreted filters componentwise. The concrete path preserves requested schema and kind order, supports nullary projection, forwards exact callback parameters and publishes no local interval result when an external callback refuses; union/delta and public activation remain open.
   Validation: `go -C pkg test ./muz/rel -run '^TestExternalIntervalProduct(CallbacksBoundsAndOwnership|SelectionAndConstructionRefusal|TransformsAndFilterAtomicity)$' -count=3` passed. Commit title: `Transform mixed external interval products`.
