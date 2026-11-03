@@ -124,7 +124,7 @@ func (p *legacyArrayProjection) projectDirectEquality(md *model.ModelCore, varia
 		return nil, false, errors.Join(err, p.syntax.manager.DelRef(&replaced))
 	}
 	final, err := p.rewrite(replacedHandle)
-	err = errors.Join(err, p.syntax.manager.DelRef(&replaced))
+	err = finishLegacyDirectEqualityRewrite(p.syntax.manager, final, replaced, err)
 	if err != nil {
 		return nil, false, err
 	}
