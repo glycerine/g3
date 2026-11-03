@@ -1066,6 +1066,19 @@ func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
 	if err := transformer.Register(plugin); err != nil {
 		return errors.Join(err, plugin.Close())
 	}
+	outputs, err := e.set.OutputPredicates()
+	if err != nil {
+		return err
+	}
+	similarity, err := e.datalogSimilarityPlugin(outputs)
+	if err != nil {
+		return err
+	}
+	if similarity != nil {
+		if err = transformer.Register(similarity); err != nil {
+			return errors.Join(err, similarity.Close())
+		}
+	}
 	modified, err := transformer.Apply(e.set)
 	if err != nil {
 		return err
@@ -1080,6 +1093,9 @@ func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
 	}
 	if !modified {
 		return nil
+	}
+	if err = e.installDatalogSimilarityPredicates(similarity); err != nil {
+		return err
 	}
 	fresh := append(negative.FreshPredicates(), filter.FreshPredicates()...)
 	fresh = append(fresh, plugin.FreshPredicates()...)
@@ -2217,12 +2233,12 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if e.datalogExplanationQuery {
 		return e.queryDatalogExplanation(declarations)
 	}
-	if err = e.normalizeSimpleJoins(); err != nil {
-		return lbool.Undef, err
-	}
 	// Clear old query marks before transformations can publish saturated
 	// auxiliary relations for this query.
 	if err = e.relations.ResetSaturatedMarks(); err != nil {
+		return lbool.Undef, err
+	}
+	if err = e.normalizeSimpleJoins(); err != nil {
 		return lbool.Undef, err
 	}
 	scoped, err := e.prepareDatalogUnbound(declarations)
@@ -2237,10 +2253,6 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 			resultErr = errors.Join(resultErr, scoped.dispose())
 		}()
 	}
-	if err = e.applyDatalogSimilarity(declarations); err != nil {
-		return lbool.Undef, err
-	}
-
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}

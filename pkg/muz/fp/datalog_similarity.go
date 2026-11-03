@@ -9,15 +9,15 @@ import (
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
-func (e *PropositionalEngine) applyDatalogSimilarity(outputs []ast.ASTHandle) (resultErr error) {
+func (e *PropositionalEngine) datalogSimilarityPlugin(outputs []ast.ASTHandle) (*rel.FiniteSimilarityCompressor, error) {
 	if e.backend != "datalog" {
-		return nil
+		return nil, nil
 	}
 	enabled, threshold := true, uint32(11)
 	if e.params != nil && e.globals != nil {
 		view, err := e.fixedpointParamView()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		enabled, err = view.Bool("datalog.similarity_compressor", true)
 		if err == nil && enabled {
@@ -25,11 +25,11 @@ func (e *PropositionalEngine) applyDatalogSimilarity(outputs []ast.ASTHandle) (r
 		}
 		err = errors.Join(err, view.Close())
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 	if !enabled {
-		return nil
+		return nil, nil
 	}
 	var requested []ast.ASTHandle
 	for _, declaration := range e.predicateOrder {
@@ -38,18 +38,12 @@ func (e *PropositionalEngine) applyDatalogSimilarity(outputs []ast.ASTHandle) (r
 			requested = append(requested, declaration)
 		}
 	}
-	plugin, err := rel.NewFiniteSimilarityCompressorForRulesWithRequestedKinds(e.rules, e.relations, threshold, outputs, requested)
-	if err != nil {
-		return err
-	}
-	transformer := base.NewRuleTransformer()
-	if err = transformer.Register(plugin); err != nil {
-		return errors.Join(err, plugin.Close(), transformer.Close())
-	}
-	defer func() { resultErr = errors.Join(resultErr, transformer.Close()) }()
-	modified, err := transformer.Apply(e.set)
-	if err != nil || !modified {
-		return err
+	return rel.NewFiniteSimilarityCompressorForRulesWithRequestedKinds(e.rules, e.relations, threshold, outputs, requested)
+}
+
+func (e *PropositionalEngine) installDatalogSimilarityPredicates(plugin *rel.FiniteSimilarityCompressor) error {
+	if plugin == nil {
+		return nil
 	}
 	for _, decl := range plugin.FreshPredicates() {
 		state, err := e.predicateState(decl)
@@ -67,6 +61,26 @@ func (e *PropositionalEngine) applyDatalogSimilarity(outputs []ast.ASTHandle) (r
 		}
 		e.predicates[decl] = state
 		e.auxiliary[decl] = true
+	}
+	return nil
+}
+
+func (e *PropositionalEngine) applyDatalogSimilarity(outputs []ast.ASTHandle) (resultErr error) {
+	plugin, err := e.datalogSimilarityPlugin(outputs)
+	if err != nil || plugin == nil {
+		return err
+	}
+	transformer := base.NewRuleTransformer()
+	if err = transformer.Register(plugin); err != nil {
+		return errors.Join(err, plugin.Close(), transformer.Close())
+	}
+	defer func() { resultErr = errors.Join(resultErr, transformer.Close()) }()
+	modified, err := transformer.Apply(e.set)
+	if err != nil || !modified {
+		return err
+	}
+	if err = e.installDatalogSimilarityPredicates(plugin); err != nil {
+		return err
 	}
 	e.revision++
 	return nil
