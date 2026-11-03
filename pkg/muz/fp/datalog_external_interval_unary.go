@@ -18,6 +18,7 @@ type externalIntervalDatalogUnaryTransform struct {
 	identical       [][]uint32
 	removed         []uint32
 	renames         [][]uint32
+	condition       *externalIntervalUnaryCondition
 	application     ast.ASTHandle
 	applicationRoot ast.ASTRef
 }
@@ -28,19 +29,27 @@ type externalIntervalDatalogUnaryConstant struct {
 }
 
 func (p *externalIntervalDatalogIdentityRule) pin(manager *ast.ASTManager) error {
-	if p == nil || p.transform == nil || len(p.transform.constants) == 0 || p.transform.applicationRoot != (ast.ASTRef{}) {
+	if p == nil || p.transform == nil {
 		return nil
 	}
-	root, err := manager.NewRef(p.transform.application)
-	if err != nil {
-		return err
+	if len(p.transform.constants) != 0 && p.transform.applicationRoot == (ast.ASTRef{}) {
+		root, err := manager.NewRef(p.transform.application)
+		if err != nil {
+			return err
+		}
+		p.transform.applicationRoot = root
 	}
-	p.transform.applicationRoot = root
-	return nil
+	return p.transform.condition.prepare(manager)
 }
 
 func (p *externalIntervalDatalogIdentityRule) close(manager *ast.ASTManager) error {
-	if p == nil || p.transform == nil || p.transform.applicationRoot == (ast.ASTRef{}) {
+	if p == nil || p.transform == nil {
+		return nil
+	}
+	if err := p.transform.condition.close(manager); err != nil {
+		return err
+	}
+	if p.transform.applicationRoot == (ast.ASTRef{}) {
 		return nil
 	}
 	return manager.DelRef(&p.transform.applicationRoot)
@@ -49,6 +58,9 @@ func (p *externalIntervalDatalogIdentityRule) close(manager *ast.ASTManager) err
 func sameExternalIntervalUnaryTransform(left, right *externalIntervalDatalogUnaryTransform) bool {
 	if left == nil || right == nil {
 		return left == right
+	}
+	if !sameExternalIntervalUnaryCondition(left.condition, right.condition) {
+		return false
 	}
 	if !externalIntervalColumnsEqual(left.removed, right.removed) || len(left.constants) != len(right.constants) || len(left.identical) != len(right.identical) || len(left.renames) != len(right.renames) {
 		return false
@@ -71,6 +83,26 @@ func sameExternalIntervalUnaryTransform(left, right *externalIntervalDatalogUnar
 	return true
 }
 
+func sameExternalIntervalUnaryCondition(left, right *externalIntervalUnaryCondition) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	if len(left.source) != len(right.source) || len(left.bindings) != len(right.bindings) {
+		return false
+	}
+	for i := range left.source {
+		if left.source[i] != right.source[i] {
+			return false
+		}
+	}
+	for i := range left.bindings {
+		if left.bindings[i] != right.bindings[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDecl, tailDecl ast.ASTHandle, transform *externalIntervalDatalogUnaryTransform, err error) {
 	fail := func(cause error) (ast.ASTHandle, ast.ASTHandle, *externalIntervalDatalogUnaryTransform, error) {
 		return ast.ASTHandle{}, ast.ASTHandle{}, nil, cause
@@ -87,7 +119,7 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 	if err != nil {
 		return fail(err)
 	}
-	if total != 1 || positive != 1 || uninterpreted != 1 {
+	if total < 1 || positive != 1 || uninterpreted != 1 {
 		return fail(ErrExternalIntervalDatalogFragment)
 	}
 	head, err := rule.Head()
@@ -202,6 +234,62 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 		}
 		wanted[variable] = true
 	}
+	if total > 1 {
+		// This batch lowers the source in-place filter branch. A tail
+		// variable omitted from the head requires fused filter/project.
+		if len(wanted) != len(columns) {
+			return fail(ErrExternalIntervalDatalogFragment)
+		}
+		boolean, cause := e.manager.MkBoolSort()
+		if cause != nil {
+			return fail(cause)
+		}
+		used, cause := ast.NewASTUsedVars(e.manager)
+		if cause != nil {
+			return fail(cause)
+		}
+		condition := &externalIntervalUnaryCondition{}
+		for index := 1; index < total; index++ {
+			guard, negated, cause := rule.Tail(index)
+			if cause != nil {
+				return fail(cause)
+			}
+			if negated {
+				return fail(ErrExternalIntervalDatalogFragment)
+			}
+			kind, cause := e.manager.GetKind(guard)
+			if cause != nil {
+				return fail(cause)
+			}
+			sort, cause := e.manager.GetSort(guard)
+			if cause != nil {
+				return fail(cause)
+			}
+			if kind != ast.ASTApp || sort != boolean {
+				return fail(ErrExternalIntervalDatalogFragment)
+			}
+			if cause := used.Collect(guard); cause != nil {
+				return fail(cause)
+			}
+			for variable := uint32(0); variable < used.MaxFoundVarIndexPlusOne(); variable++ {
+				sort := used.Contains(variable)
+				if sort.IsNull() {
+					continue
+				}
+				group := columns[variable]
+				if len(group) == 0 || sorts[1][group[len(group)-1]] != sort {
+					return fail(ErrExternalIntervalDatalogFragment)
+				}
+			}
+			condition.source = append(condition.source, guard)
+		}
+		for _, variable := range order {
+			group := columns[variable]
+			column := group[len(group)-1]
+			condition.bindings = append(condition.bindings, externalIntervalUnaryConditionBinding{variable: variable, column: column, sort: sorts[1][column]})
+		}
+		plan.condition = condition
+	}
 	surviving := make(map[uint32]uint32)
 	for column, variable := range variables[1] {
 		group := columns[variable]
@@ -236,7 +324,7 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 			plan.renames = append(plan.renames, []uint32{cycle[i], cycle[i+1]})
 		}
 	}
-	if len(plan.constants)+len(plan.identical)+len(plan.removed)+len(plan.renames) != 0 {
+	if len(plan.constants)+len(plan.identical)+len(plan.removed)+len(plan.renames) != 0 || plan.condition != nil {
 		transform = plan
 	}
 	return headDecl, tailDecl, transform, nil
@@ -322,6 +410,29 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalUnary(plan *e
 			if empty {
 				return finish()
 			}
+		}
+	}
+	if transform.condition != nil {
+		condition, err := transform.condition.handle(a.manager)
+		if err != nil {
+			return rollback(err)
+		}
+		if owner.temporary == nil {
+			owner.temporary, err = current.Clone()
+			if err != nil {
+				return rollback(err)
+			}
+			current = owner.temporary
+		}
+		if err := current.FilterInterpreted(condition); err != nil {
+			return rollback(err)
+		}
+		empty, err := current.Empty()
+		if err != nil {
+			return rollback(err)
+		}
+		if empty {
+			return finish()
 		}
 	}
 	if len(transform.removed) != 0 {

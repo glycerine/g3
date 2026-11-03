@@ -121,8 +121,12 @@ func (e *PropositionalEngine) externalIntervalRulePlans() (_ *externalIntervalDa
 		ground, cause := e.externalIntervalGroundRule(rule)
 		return nil, ground, nil, cause
 	}
-	if total == 1 {
-		identity, cause := e.externalIntervalIdentityRule()
+	positive, err := rule.PositiveTailSize()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if positive == 1 {
+		identity, cause := e.externalIntervalIdentityRulePlan(rule)
 		return identity, nil, nil, cause
 	}
 	if total == 2 {

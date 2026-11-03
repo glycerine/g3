@@ -25,6 +25,7 @@ type externalIntervalCallbackState struct {
 	constantColumns   []uint32
 	constantValues    []string
 	constantSorts     []ast.ASTHandle
+	guardConditions   []string
 	refusalOperation  int32
 	refusalAt         int
 	refusal           error
@@ -208,7 +209,15 @@ func (s *externalIntervalCallbackState) recordEqualityFilter(declaration ast.AST
 	if err != nil {
 		return err
 	}
-	if kind != ast.ASTOpEq || count != 2 {
+	if kind != ast.ASTOpEq {
+		text, cause := describeExternalIntervalGuard(s.manager, condition)
+		if cause != nil {
+			return cause
+		}
+		s.guardConditions = append(s.guardConditions, text)
+		return nil
+	}
+	if count != 2 {
 		return fmt.Errorf("unexpected FILTER condition %d/%d", kind, count)
 	}
 	columns := make([]uint32, count)

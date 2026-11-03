@@ -52,15 +52,19 @@ func (e *PropositionalEngine) externalIntervalProgramPlan() (*externalIntervalDa
 		total, cause := rule.TailSize()
 		plan := externalIntervalDatalogProgramRule{}
 		if cause == nil {
-			switch total {
-			case 0:
-				plan.ground, cause = e.externalIntervalGroundRule(rule)
-			case 1:
-				plan.identity, cause = e.externalIntervalIdentityRulePlan(rule)
-			case 2:
-				plan.cartesian, cause = e.externalIntervalCartesianRule(rule)
-			default:
-				cause = ErrExternalIntervalDatalogFragment
+			var positive int
+			positive, cause = rule.PositiveTailSize()
+			if cause == nil {
+				switch {
+				case total == 0:
+					plan.ground, cause = e.externalIntervalGroundRule(rule)
+				case positive == 1:
+					plan.identity, cause = e.externalIntervalIdentityRulePlan(rule)
+				case total == 2:
+					plan.cartesian, cause = e.externalIntervalCartesianRule(rule)
+				default:
+					cause = ErrExternalIntervalDatalogFragment
+				}
 			}
 		}
 		cause = errors.Join(cause, rule.Close())
