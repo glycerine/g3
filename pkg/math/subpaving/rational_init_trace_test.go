@@ -71,44 +71,63 @@ func TestRationalRootInitializationTraceRefusalAndPrinterPrefix(t *testing.T) {
 		t.Fatal("trace stream refusal changed initialization", err, c.initStage)
 	}
 
-	d, dm, dv, dx, _ := rationalClauseFixture(t)
-	if err := dm.SetInt32(dv, 7); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := d.AddInequality(dx, dv, true, false, true); err != nil {
-		t.Fatal(err)
-	}
-	var output polynomialTraceFlushingBuffer
-	tags := diagnostic.NewTraceTagsWithWriter(&output)
-	tags.Enable("subpaving_init")
-	if err := d.BindTrace(tags); err != nil {
-		t.Fatal(err)
-	}
-	printerErr := errors.New("borrowed variable printer stopped")
-	calls := 0
-	if err := d.SetVariableDisplay(func(w io.Writer, variable uint32) error {
-		calls++
-		_, _ = io.WriteString(w, "candidate")
-		if calls == 2 {
-			return printerErr
-		}
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
-	err := d.InitializeRoot()
-	if tags.ShouldTrace("subpaving_init") {
-		if !errors.Is(err, printerErr) || d.unitHead != 0 || d.root.lower[dx] != nil || d.initStage != 0 || !d.initConstraintsTraced || !strings.Contains(output.String(), "asserting: 7 <= candidate") {
-			t.Fatal("printer stopped before first unit publication", err, d.unitHead, d.initStage, output.String())
-		}
-		if err := d.SetVariableDisplay(nil); err != nil {
-			t.Fatal(err)
-		}
-		before := output.String()
-		if err := d.InitializeRoot(); err != nil || d.unitHead != 1 || strings.Count(output.String(), "subpaving_t_def.h:1797") != 1 || output.String() == before {
-			t.Fatal("resume repeated constraints or skipped unit", err, output.String())
-		}
-	} else if err != nil || d.unitHead != 1 {
-		t.Fatal("native trace gate changed root initialization", err, d.unitHead)
+	for _, stop := range []struct {
+		name string
+		at   int
+	}{{"constraints", 1}, {"unit", 2}} {
+		t.Run(stop.name, func(t *testing.T) {
+			d, dm, dv, dx, _ := rationalClauseFixture(t)
+			if err := dm.SetInt32(dv, 7); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := d.AddInequality(dx, dv, true, false, true); err != nil {
+				t.Fatal(err)
+			}
+			var output polynomialTraceFlushingBuffer
+			tags := diagnostic.NewTraceTagsWithWriter(&output)
+			tags.Enable("subpaving_init")
+			if err := d.BindTrace(tags); err != nil {
+				t.Fatal(err)
+			}
+			printerErr := errors.New("borrowed variable printer stopped")
+			calls := 0
+			if err := d.SetVariableDisplay(func(w io.Writer, variable uint32) error {
+				calls++
+				_, _ = io.WriteString(w, "candidate")
+				if calls == stop.at {
+					return printerErr
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			err := d.InitializeRoot()
+			if tags.ShouldTrace("subpaving_init") {
+				if !errors.Is(err, printerErr) || d.unitHead != 0 || d.root.lower[dx] != nil || d.initStage != 0 || !d.rootInitStarted || d.initConstraintsTraced != (stop.at == 2) {
+					t.Fatal("printer stopped before first unit publication", err, d.unitHead, d.initStage, output.String())
+				}
+				requireRootInitPrinterPrefix(t, &output, calls, stop.at)
+				if err := d.SetVariableDisplay(nil); err != nil {
+					t.Fatal(err)
+				}
+				// Source operator() does not call init again once its root exists.
+				root := d.root
+				before, flushes := output.String(), output.flushes
+				if err := d.InitializeRoot(); err != nil || d.root != root || d.unitHead != 0 || d.initStage != 0 || root.lower[dx] != nil || output.String() != before || output.flushes != flushes || calls != stop.at {
+					t.Fatal("stopped root initialization replayed or advanced", err, output.String())
+				}
+				if actual, err := d.AssertRootUnits(); err != nil || actual != root || d.unitHead != 1 || root.lower[dx] == nil {
+					t.Fatal("explicit unit assertion did not publish the stopped unit", err, d.unitHead)
+				}
+				requireExplicitRootUnitTrace(t, &output, before, stop.at)
+				bound := root.lower[dx]
+				before, flushes = output.String(), output.flushes
+				if _, err := d.AssertRootUnits(); err != nil || d.unitHead != 1 || root.lower[dx] != bound || output.String() != before || output.flushes != flushes {
+					t.Fatal("explicit unit assertion replayed its completed prefix", err)
+				}
+			} else if err != nil || d.unitHead != 1 {
+				t.Fatal("native trace gate changed root initialization", err, d.unitHead)
+			}
+		})
 	}
 }

@@ -19,13 +19,14 @@ func (c *RationalContext) InitializeRoot() error {
 		return nil
 	}
 	if c.initStage == 0 {
+		// Source publishes m_root before displaying the initial constraints.
+		c.rootInitStarted = true
 		if !c.initConstraintsTraced {
 			if err := c.traceInitialConstraints(); err != nil {
 				return err
 			}
 			c.initConstraintsTraced = true
 		}
-		c.rootInitStarted = true
 		if _, err := c.AssertRootUnits(); err != nil {
 			return err
 		}

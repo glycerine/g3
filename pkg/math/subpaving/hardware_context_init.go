@@ -25,13 +25,14 @@ func (c *HardwareContext) InitializeRoot() error {
 		return err
 	}
 	if c.initStage == 0 {
+		// Source publishes m_root before displaying the initial constraints.
+		c.rootInitStarted = true
 		if !c.initConstraintsTraced {
 			if err := c.traceInitialConstraints(); err != nil {
 				return err
 			}
 			c.initConstraintsTraced = true
 		}
-		c.rootInitStarted = true
 		if err := c.AssertUnitClauses(n); err != nil {
 			return err
 		}
