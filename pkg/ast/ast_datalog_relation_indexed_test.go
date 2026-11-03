@@ -59,6 +59,30 @@ func TestASTDatalogOriginalProjectRenameJoinAndNegationFilter(t *testing.T) {
 	datalogTestRelationColumns(t, m, negation, a, b, c)
 }
 
+func TestASTDatalogOriginalNullaryNegationFilter(t *testing.T) {
+	m := astTestManager(t)
+	sort, e := m.MkDatalogRelationSort(nil)
+	astTestMust(t, e)
+	left, e := m.MkDatalogEmpty(sort)
+	astTestMust(t, e)
+	right, e := m.MkDatalogEmpty(sort)
+	astTestMust(t, e)
+	filter, e := m.MkDatalogNegationFilter(left, right, nil)
+	astTestMust(t, e)
+	astTestPin(t, m, filter)
+	datalogTestRelationColumns(t, m, filter)
+	declaration, e := m.GetDecl(filter)
+	astTestMust(t, e)
+	if kind, cause := m.GetDeclKind(declaration); cause != nil || kind != DatalogOpNegationFilter {
+		t.Fatal("nullary negation declaration", kind, cause)
+	}
+	parameters, e := m.GetDeclParametersCopy(declaration)
+	astTestMust(t, e)
+	if len(parameters) != 0 {
+		t.Fatal("nullary negation unexpectedly has column parameters", parameters)
+	}
+}
+
 func TestASTDatalogOriginalIndexedRelationGuards(t *testing.T) {
 	m := astTestManager(t)
 	a, e := m.MkDatalogFiniteSort(astTestSymbol(t, m, "guard-a"), 2)
@@ -77,7 +101,13 @@ func TestASTDatalogOriginalIndexedRelationGuards(t *testing.T) {
 		"rename-out-of-range": func() (ASTHandle, error) { return m.MkDatalogRename(relation, []uint32{0, 2}) },
 		"odd-join":            func() (ASTHandle, error) { return m.MkDatalogJoin(relation, relation, []uint32{0}) },
 		"join-sort-mismatch":  func() (ASTHandle, error) { return m.MkDatalogJoin(relation, relation, []uint32{0, 1}) },
-		"empty-negation":      func() (ASTHandle, error) { return m.MkDatalogNegationFilter(relation, relation, nil) },
+		"odd-negation":        func() (ASTHandle, error) { return m.MkDatalogNegationFilter(relation, relation, []uint32{0}) },
+		"negation-out-of-range": func() (ASTHandle, error) {
+			return m.MkDatalogNegationFilter(relation, relation, []uint32{2, 0})
+		},
+		"negation-sort-mismatch": func() (ASTHandle, error) {
+			return m.MkDatalogNegationFilter(relation, relation, []uint32{0, 1})
+		},
 	} {
 		if _, e := call(); !errors.Is(e, ErrASTDomain) {
 			t.Fatal(name, e)

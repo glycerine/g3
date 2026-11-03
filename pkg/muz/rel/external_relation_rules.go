@@ -583,20 +583,7 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 				}
 				for _, negative := range entry.negative {
 					relation, negativeErr := plugin.PredicateRelation(negative.predicate)
-					if negativeErr == nil && len(negative.targetColumns) == 0 {
-						var complement *ExternalRelation
-						complement, negativeErr = relation.Complement()
-						if negativeErr == nil {
-							var joined *ExternalRelation
-							joined, negativeErr = JoinExternalRelations(value, complement, nil, nil)
-							negativeErr = errors.Join(negativeErr, value.Close(), complement.Close())
-							if negativeErr == nil {
-								value = joined
-							} else if joined != nil {
-								negativeErr = errors.Join(negativeErr, joined.Close())
-							}
-						}
-					} else if negativeErr == nil {
+					if negativeErr == nil {
 						negativeErr = value.FilterNegation(relation, negative.targetColumns, negative.negativeColumns)
 					}
 					if negativeErr != nil {

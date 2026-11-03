@@ -286,7 +286,8 @@ func TestExternalRelationFilters(t *testing.T) {
 	astTestMust(t, left.FilterEqual(1, f.truth))
 	astTestMust(t, left.FilterIdentical([]uint32{0, 1}))
 	astTestMust(t, left.FilterNegation(right, []uint32{1}, []uint32{0}))
-	want := []int32{ast.DatalogOpFilter, ast.DatalogOpFilter, ast.DatalogOpFilter, ast.DatalogOpNegationFilter}
+	astTestMust(t, left.FilterNegation(right, nil, nil))
+	want := []int32{ast.DatalogOpFilter, ast.DatalogOpFilter, ast.DatalogOpFilter, ast.DatalogOpNegationFilter, ast.DatalogOpNegationFilter}
 	if len(ops) != len(want) {
 		t.Fatal("filter callbacks", ops)
 	}
@@ -297,9 +298,6 @@ func TestExternalRelationFilters(t *testing.T) {
 	}
 	if err = left.FilterEqual(2, f.truth); err == nil {
 		t.Fatal("invalid equality column accepted")
-	}
-	if err = left.FilterNegation(right, nil, nil); err == nil {
-		t.Fatal("source empty negation guard was bypassed")
 	}
 }
 

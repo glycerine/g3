@@ -35,6 +35,7 @@ func TestExecuteExternalBoundNegativeRules(t *testing.T) {
 	storeCalls := 0
 	duplicateKeys := 0
 	nullaryComplements, unaryComplements := 0, 0
+	zeroKeyNegations, nullaryJoins := 0, 0
 	conjunctionFilters := 0
 	failComplement := false
 	failEmpty := false
@@ -83,6 +84,9 @@ func TestExecuteExternalBoundNegativeRules(t *testing.T) {
 				}
 				if len(indices) == 4 && indices[0] == indices[2] && indices[1] != indices[3] {
 					duplicateKeys++
+				}
+				if len(indices) == 0 {
+					zeroKeyNegations++
 				}
 				kept := rows[outputs[0]][:0]
 				for _, target := range rows[outputs[0]] {
@@ -205,6 +209,9 @@ func TestExecuteExternalBoundNegativeRules(t *testing.T) {
 				}
 			case ast.DatalogOpJoin:
 				arities[result] = arities[arguments[0]] + arities[arguments[1]]
+				if arities[arguments[0]] == 0 && arities[arguments[1]] == 0 {
+					nullaryJoins++
+				}
 				parameters, parameterErr := f.ast.GetDeclParametersCopy(declaration)
 				astTestMust(t, parameterErr)
 				indices := make([]int32, len(parameters))
@@ -372,6 +379,9 @@ func TestExecuteExternalBoundNegativeRules(t *testing.T) {
 	}
 	if !contains(nullaryAllowed, nil) || contains(nullaryBlocked, nil) {
 		t.Fatal("nullary negation did not filter the nullary total seed")
+	}
+	if zeroKeyNegations < 2 || nullaryComplements != 1 || nullaryJoins != 0 {
+		t.Fatal("nullary negation did not dispatch the source zero-key filter directly", zeroKeyNegations, nullaryComplements, nullaryJoins)
 	}
 	fullStart, err := base.NewRuleSet(rules)
 	astTestMust(t, err)

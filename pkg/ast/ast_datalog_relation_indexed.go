@@ -112,11 +112,7 @@ func (m *ASTManager) datalogIndexedRelationDecl(kind int32, ps []ASTParameter, d
 		}
 		return m.pluginDecl(p.symbols[kind], p.family, kind, ps, domain, result, ASTFuncFlags{}, false)
 	case DatalogOpJoin, DatalogOpNegationFilter:
-		minimum := 0
-		if kind == DatalogOpNegationFilter {
-			minimum = 1
-		}
-		if len(indices) < minimum || len(indices)%2 != 0 || len(domain) != 2 {
+		if len(indices)%2 != 0 || len(domain) != 2 {
 			return astNodeRef{}, ErrASTDomain
 		}
 		left, e := m.requireKind(domain[0], ASTSort)
