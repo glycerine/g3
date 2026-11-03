@@ -110,6 +110,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
       - [x] Preserve the source NNF distinction between caller cancellation and resource-limit exhaustion in the fixedpoint preprocessing path.
       - [ ] Verify independent cleanup-error transport/continuation after owner transfer.
         - [x] Exercise real PDR solve and Spacer validation failures after pre-query context transfer, preserving the owner and allowing a successful query retry and zero-budget close. Broader independent cleanup-error continuations remain open.
+        - [x] Exercise an actual QE-lite cleanup receipt after PDR context transfer, including explicit cleanup, ignored receipt, retry and Close without replay.
     - [ ] Close Spacer expression-query property/statistics propagation and complete model/proof validation for both engines.
       - [x] Transfer pre-query Spacer covers to the expression-query context, route later property access to the active clone and verify stale-frame rejection.
       - [x] Complete dense allocation/cancellation scans through success, with preserved owners, retry and zero-budget disposal.
