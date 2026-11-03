@@ -75,7 +75,7 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 		return false, err
 	}
 	tails, err := rule.TailSize()
-	if err != nil || positive != uninterpreted || positive == 0 && tails != 0 {
+	if err != nil || positive == 0 && tails != 0 {
 		return false, errors.Join(err, ErrUDocDatalogFragment)
 	}
 	head, err := rule.Head()
@@ -250,6 +250,9 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 	for variable, column := range variables {
 		columnVariables[column] = variable
 	}
+	if err = c.filterNegativeTails(working, rule, variables); err != nil {
+		return false, err
+	}
 	filtered, err := c.filterInterpretedTailsAndProject(working, rule, head, uninterpreted, tails, variables, columnVariables)
 	if err != nil {
 		return false, err
@@ -360,26 +363,5 @@ func (c *datalogUDocContext) saturate(set *base.RuleSet) error {
 	if c == nil || c.manager == nil || c.factory == nil || c.result == nil || set == nil {
 		return ErrUDocDatalogFragment
 	}
-	count, err := set.Len()
-	if err != nil {
-		return err
-	}
-	for changed := true; changed; {
-		changed = false
-		for i := 0; i < count; i++ {
-			if err = c.checkpoint(); err != nil {
-				return err
-			}
-			rule, cause := set.Rule(i)
-			if cause != nil {
-				return cause
-			}
-			ruleChanged, cause := c.evaluateRule(rule)
-			if cause != nil {
-				return fmt.Errorf("muz/fp: evaluate UDoc rule %d: %w", i, cause)
-			}
-			changed = changed || ruleChanged
-		}
-	}
-	return nil
+	return c.saturateStratified(set)
 }

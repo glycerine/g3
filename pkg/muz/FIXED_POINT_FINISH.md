@@ -531,7 +531,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Compile bound interpreted tails as one rooted conjunction after positive joins, remap rule variables to compacted UDoc columns and preserve failed guard cleanup in the query context.
   - [x] Fuse interpreted filtering with projection over typed UDoc relations, including source `is_var_range` equality extraction for finite-sort variables while keeping the ordinary finite guard language narrow.
   - [x] Add full finite columns for condition-only variables and dispatch the fused guard/project operation from public rule execution when body variables are absent from the head.
-  - [ ] Add interpreted/negative rules, mixed representation composition, model/finite enumeration and remaining UDoc method/ownership parity.
+  - [x] Execute bound-variable and nullary negative tails through typed anti-joins in finalized source strata, rejecting negative cycles and unsupported shapes before evaluation.
+  - [ ] Add mixed representation composition, model/finite enumeration and remaining UDoc method/ownership parity.
 
 ### spacer
 
@@ -687,6 +688,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — QBMC quantified-linear model reconstruction now releases the selected trace index and each rule-selector evaluation through the typed AST cleanup frontier. Native refusal retains the exact reference for retry instead of losing it in a joined error, while solver-scope and trace semantics remain unchanged; wider QBMC ownership auditing remains open.
   Validation: the focused quantified-linear search/cleanup gate in `go -C pkg test ./muz/bmc` passed three times in 0.900s. Commit title: `Preserve QBMC selector cleanup owners`.
+
+- 2026-11-02 — Public UDoc execution now evaluates bound-variable, repeated-key, partial-key, aligned and nullary negative tails through typed anti-joins after source stratum preflight. Derived negative predicates saturate before consumers, updates recompute correctly, invalid cycles/shapes publish no prefix or stale answer and the caller's open/finalized RuleSet state is restored; negative constants, unbound and negative-only bodies remain explicit guards.
+  Validation: `go -C pkg test ./muz/fp -run '^(TestDatalogUDoc|TestUDocPositive)' -count=3` passed. Commit title: `Execute stratified UDoc negation`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
