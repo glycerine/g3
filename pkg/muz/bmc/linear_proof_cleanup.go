@@ -16,6 +16,7 @@ import (
 
 type linearProofStepOwner struct {
 	manager *ast.ASTManager
+	nested  memory.ConstructionFailure
 	refs    []ast.ASTRef
 	temps   []*base.Rule
 	sub     *rewriter.VarSubstitution
@@ -27,14 +28,16 @@ type linearProofStepOwner struct {
 type linearProofStepCleanupFailure struct {
 	cause      error
 	cleanupErr error
+	reported   error
+	message    string
 	owner      *linearProofStepOwner
 }
 
 func (f *linearProofStepCleanupFailure) Error() string {
-	return errors.Join(f.cause, f.cleanupErr).Error()
+	return f.message
 }
 func (f *linearProofStepCleanupFailure) Unwrap() error {
-	return errors.Join(f.cause, f.cleanupErr)
+	return f.reported
 }
 func (f *linearProofStepCleanupFailure) Cleanup() error {
 	f.cleanupErr = f.owner.closeAll()
@@ -47,6 +50,12 @@ func (f *linearProofStepCleanupFailure) OriginalCause() error { return f.cause }
 func (f *linearProofStepCleanupFailure) CleanupCause() error  { return f.cleanupErr }
 
 func (o *linearProofStepOwner) closeLocals() error {
+	if o.nested != nil {
+		if err := o.nested.Cleanup(); err != nil {
+			return err
+		}
+		o.nested = nil
+	}
 	// Match the source lifetime nesting: the variable substitution was
 	// constructed after the unifier, so it is destroyed first.
 	if o.sub != nil {
@@ -109,6 +118,11 @@ func (o *linearProofStepOwner) closeAll() error {
 // construction failed. A cleanup refusal transfers all remaining owners into
 // one retryable construction failure.
 func (o *linearProofStepOwner) dispose(cause error) error {
+	if cause != nil {
+		// Substitution or normalization can return an unfinished owner that
+		// still depends on this step's unifier, expressions and rules.
+		errors.As(cause, &o.nested)
+	}
 	cleanup := o.closeRefs()
 	if cleanup == nil && cause != nil {
 		cleanup = o.closeOutputs()
@@ -119,5 +133,6 @@ func (o *linearProofStepOwner) dispose(cause error) error {
 	if cause == nil {
 		cause = cleanup
 	}
-	return &linearProofStepCleanupFailure{cause: cause, cleanupErr: cleanup, owner: o}
+	reported := errors.Join(cause, cleanup)
+	return &linearProofStepCleanupFailure{cause: cause, cleanupErr: cleanup, reported: reported, message: reported.Error(), owner: o}
 }

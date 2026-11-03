@@ -3,8 +3,6 @@ package bmc
 // Source: src/muz/bmc/dl_bmc_engine.cpp, qlinear::get_model proof assembly.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
@@ -18,42 +16,28 @@ func (c *Compiler) QuantifiedLinearProof(rules *base.RuleSet, query ast.ASTHandl
 		return result, ast.ErrASTHandle
 	}
 	m := c.manager
+	owner := &linearProofOwner{manager: m}
+	var previous *base.Rule
 	defer func() {
-		if resultErr != nil && result != (ast.ASTRef{}) {
-			owned := result
-			result = ast.ASTRef{}
-			resultErr = disposeASTRefs(m, []ast.ASTRef{owned}, resultErr)
-		}
+		owner.previous, owner.proof = previous, result
+		result, resultErr = finishLinearProof(owner, resultErr)
 	}()
 	rm, err := rules.RuleManager()
 	if err != nil {
 		return result, err
 	}
 	scope, err := ast.NewScopedProof(m)
+	owner.scope = scope
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, scope.Close()) }()
 	normalizer := transforms.NewRuleInlinerPluginWithServices(m, rm, nil, true, true, services.Context, services.Globals, 0)
-	defer func() { resultErr = errors.Join(resultErr, normalizer.Close()) }()
+	owner.normalizer = normalizer
 	steps, err := c.quantifiedLinearSteps(rules, query, width, md, services)
+	owner.steps = steps
 	if err != nil {
 		return result, err
 	}
-	defer func() {
-		owners := make([]*base.Rule, len(steps))
-		for i := range steps {
-			owners[i] = steps[i].rule
-		}
-		resultErr = disposeRuleOwners(m, owners, resultErr)
-	}()
-	var previous *base.Rule
-	defer func() {
-		if previous != nil {
-			resultErr = disposeRuleOwners(m, []*base.Rule{previous}, resultErr)
-			previous = nil
-		}
-	}()
 	for _, step := range steps {
 		bindings, cause := c.QuantifiedLinearModelBindings(step.rule, step.index, step.level, width, md, services)
 		if cause != nil {

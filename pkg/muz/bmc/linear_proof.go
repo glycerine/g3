@@ -22,36 +22,26 @@ func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level u
 		return result, ast.ErrASTHandle
 	}
 	m := c.manager
-	// Run publication cleanup after every child destructor. A refused scoped
-	// proof or normalizer close must not return an owning proof together with
-	// an error.
+	owner := &linearProofOwner{manager: m}
+	var previous *base.Rule
 	defer func() {
-		if resultErr != nil && result != (ast.ASTRef{}) {
-			resultErr = disposeASTRefs(m, []ast.ASTRef{result}, resultErr)
-			result = ast.ASTRef{}
-		}
+		owner.previous, owner.proof = previous, result
+		result, resultErr = finishLinearProof(owner, resultErr)
 	}()
 	rm, err := rules.RuleManager()
 	if err != nil {
 		return result, err
 	}
 	scope, err := ast.NewScopedProof(m)
+	owner.scope = scope
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, scope.Close()) }()
 	if services.Context == nil || services.Globals == nil {
 		return result, ast.ErrASTHandle
 	}
 	normalizer := transforms.NewRuleInlinerPluginWithServices(m, rm, nil, true, true, services.Context, services.Globals, 0)
-	defer func() { resultErr = errors.Join(resultErr, normalizer.Close()) }()
-	var previous *base.Rule
-	defer func() {
-		if previous != nil {
-			resultErr = disposeRuleOwners(m, []*base.Rule{previous}, resultErr)
-			previous = nil
-		}
-	}()
+	owner.normalizer = normalizer
 	predicate := query
 	for {
 		canceled, err := m.Canceled()
