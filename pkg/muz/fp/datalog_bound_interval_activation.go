@@ -305,6 +305,10 @@ func (a *boundIntervalDatalogActivation) applyFactRule(rule *base.Rule, products
 }
 
 func (a *boundIntervalDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool, error) {
+	return a.queryWithWidening(declarations, false, false)
+}
+
+func (a *boundIntervalDatalogActivation) queryWithWidening(declarations []ast.ASTHandle, widen, allOrNothing bool) (lbool.LBool, error) {
 	if err := a.open(); err != nil {
 		return lbool.Undef, err
 	}
@@ -348,35 +352,41 @@ func (a *boundIntervalDatalogActivation) query(declarations []ast.ASTHandle) (lb
 			return lbool.Undef, cause
 		}
 	}
-	for {
-		changed := false
-		for i := 0; i < count; i++ {
-			if err = a.checkpoint(); err != nil {
-				return lbool.Undef, err
-			}
-			rule, cause := a.rules.Rule(i)
-			if cause != nil {
-				return lbool.Undef, cause
-			}
-			tails, cause := rule.TailSize()
-			if cause != nil {
-				_ = rule.Close()
-				return lbool.Undef, cause
-			}
-			if tails == 0 {
-				if cause = rule.Close(); cause != nil {
+	if widen {
+		if err = a.saturateWithWidening(evaluated, allOrNothing); err != nil {
+			return lbool.Undef, err
+		}
+	} else {
+		for {
+			changed := false
+			for i := 0; i < count; i++ {
+				if err = a.checkpoint(); err != nil {
+					return lbool.Undef, err
+				}
+				rule, cause := a.rules.Rule(i)
+				if cause != nil {
 					return lbool.Undef, cause
 				}
-				continue
+				tails, cause := rule.TailSize()
+				if cause != nil {
+					_ = rule.Close()
+					return lbool.Undef, cause
+				}
+				if tails == 0 {
+					if cause = rule.Close(); cause != nil {
+						return lbool.Undef, cause
+					}
+					continue
+				}
+				ruleChanged, cause := a.evaluatePositiveRule(rule, evaluated)
+				if cause != nil {
+					return lbool.Undef, cause
+				}
+				changed = changed || ruleChanged
 			}
-			ruleChanged, cause := a.evaluatePositiveRule(rule, evaluated)
-			if cause != nil {
-				return lbool.Undef, cause
+			if !changed {
+				break
 			}
-			changed = changed || ruleChanged
-		}
-		if !changed {
-			break
 		}
 	}
 	for _, declaration := range declarations {

@@ -69,12 +69,8 @@ func (e *PropositionalEngine) ensureBoundIntervalDatalog() (bool, error) {
 			return true, err
 		}
 		magic, err := view.Bool("datalog.magic_sets_for_queries", false)
-		widen := false
-		if err == nil {
-			widen, err = view.Bool("datalog.compile_with_widening", false)
-		}
 		err = errors.Join(err, view.Close())
-		if err != nil || magic || widen {
+		if err != nil || magic {
 			return true, errors.Join(err, ErrBoundIntervalDatalogFragment)
 		}
 	}
@@ -109,9 +105,24 @@ func (e *PropositionalEngine) ensureBoundIntervalDatalog() (bool, error) {
 }
 
 func (e *PropositionalEngine) queryBoundIntervalDatalog(declarations []ast.ASTHandle) (lbool.LBool, error) {
+	widen, allOrNothing := false, false
+	if e.params != nil && e.globals != nil {
+		view, err := e.fixedpointParamView()
+		if err != nil {
+			return lbool.Undef, err
+		}
+		widen, err = view.Bool("datalog.compile_with_widening", false)
+		if err == nil && widen {
+			allOrNothing, err = view.Bool("datalog.all_or_nothing_deltas", false)
+		}
+		err = errors.Join(err, view.Close())
+		if err != nil {
+			return lbool.Undef, err
+		}
+	}
 	e.compiled = false
 	e.datalogStats.Reset()
-	return e.boundIntervalDatalog.query(declarations)
+	return e.boundIntervalDatalog.queryWithWidening(declarations, widen, allOrNothing)
 }
 
 func (e *PropositionalEngine) closeBoundIntervalDatalog() error {

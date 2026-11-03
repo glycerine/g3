@@ -236,6 +236,12 @@ func (a *boundIntervalDatalogActivation) parsePositiveTail(rule *base.Rule, inde
 }
 
 func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, products map[ast.ASTHandle]*rel.IntervalBoundProduct) (changed bool, resultErr error) {
+	return a.evaluatePositiveRuleInto(rule, products, products, nil, false)
+}
+
+// Input delta registers are distinct from the full target relation. Keeping
+// those maps separate matters when the same predicate is both head and tail.
+func (a *boundIntervalDatalogActivation) evaluatePositiveRuleInto(rule *base.Rule, inputs, products map[ast.ASTHandle]*rel.IntervalBoundProduct, delta *rel.IntervalBoundProduct, widen bool) (changed bool, resultErr error) {
 	defer func() { resultErr = errors.Join(resultErr, rule.Close()) }()
 	positive, err := rule.PositiveTailSize()
 	if err != nil || positive < 1 || positive > 2 {
@@ -251,7 +257,7 @@ func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, p
 	var occurrences map[uint32][]uint32
 	repeatedTail := false
 	if positive == 1 {
-		tail, cause := a.parsePositiveTail(rule, 0, products, true)
+		tail, cause := a.parsePositiveTail(rule, 0, inputs, true)
 		if cause != nil {
 			return false, cause
 		}
@@ -271,7 +277,7 @@ func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, p
 			occurrences[variable] = append(occurrences[variable], uint32(column))
 		}
 	} else {
-		working, workingSorts, variables, occurrences, err = a.joinBoundIntervalPositiveTails(rule, products)
+		working, workingSorts, variables, occurrences, err = a.joinBoundIntervalPositiveTails(rule, inputs)
 		if err != nil {
 			return false, err
 		}
@@ -502,5 +508,5 @@ func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, p
 			current[position], current[destination] = current[destination], current[position]
 		}
 	}
-	return products[headDeclaration].Union(working, nil, false)
+	return products[headDeclaration].Union(working, delta, widen)
 }
