@@ -21,11 +21,13 @@ type pdrValidationAttempt struct {
 	solvers        []*smtcore.SMTSolver
 	evaluators     []*model.ModelEvaluator
 	modelOwners    []*pdrModelExportOwner
+	boogieProofs   []*base.BoogieProof
 	abstractors    []*ast.ExprAbstractor
 	streams        []*utext.NumericTextStream
 	rules          []*base.Rule
 	sideConditions []ast.ASTHandle
 	references     []ast.ASTRef
+	proofModes     []ast.ASTProofMode
 }
 
 func newPDRValidationAttempt(manager *ast.ASTManager) *pdrValidationAttempt {
@@ -38,6 +40,15 @@ func (a *pdrValidationAttempt) Close() error {
 			return err
 		}
 		a.nested = nil
+	}
+	// display_certificate destroys its Boogie formatter before releasing the
+	// source proof reference. BoogieProof.Close is itself replayable.
+	for len(a.boogieProofs) != 0 {
+		i := len(a.boogieProofs) - 1
+		if err := a.boogieProofs[i].Close(); err != nil {
+			return err
+		}
+		a.boogieProofs = a.boogieProofs[:i]
 	}
 	// Release scalar AST guards before composite services. A native callback
 	// refuses here without partially tearing down an SMT solver whose Close
@@ -109,6 +120,13 @@ func (a *pdrValidationAttempt) Close() error {
 			return err
 		}
 		a.rules = a.rules[:i]
+	}
+	for len(a.proofModes) != 0 {
+		i := len(a.proofModes) - 1
+		if err := a.manager.ToggleProofMode(a.proofModes[i]); err != nil {
+			return err
+		}
+		a.proofModes = a.proofModes[:i]
 	}
 	return nil
 }

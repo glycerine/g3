@@ -169,6 +169,43 @@ func TestContextDisplayCertificatePreservesResultOwnersOnNativeCleanupRefusal(t 
 		t.Fatal("reachable certificate answer retry remained pending", receipt.CleanupCause(), len(attempt.references))
 	}
 
+	// The Boogie branch additionally owns a formatter and restores a temporary
+	// proof mode only after its proof references have been released.
+	must(manager.ToggleProofMode(ast.ASTProofEnabled))
+	proof, err := manager.NewRef(factApplication)
+	must(err)
+	boogie, err := base.NewBoogieProof(manager, base.BoogieProofConfig{Context: parameters, Globals: globals, Diagnostic: io.Discard})
+	must(err)
+	attempt = newPDRValidationAttempt(manager)
+	attempt.references = append(attempt.references, proof)
+	attempt.boogieProofs = append(attempt.boogieProofs, boogie)
+	attempt.proofModes = append(attempt.proofModes, ast.ASTProofDisabled)
+	callback = false
+	certificateErr = nil
+	receipt = nil
+	must(numbers.SetString(&value, "18446744073709551667/18446744073709551697"))
+	must(runtime.SetMaxCount(uint64(runtime.State().GlobalCount) + 1))
+	var boogieInvocation ast.ASTArithmeticNumeralInvocation
+	active = true
+	_, body = manager.ArithmeticNumeralWithInvocation(&value, false, &boogieInvocation)
+	active = false
+	must(runtime.SetMaxCount(0))
+	writerFailure = errors.Is(certificateErr, io.ErrClosedPipe)
+	pending = errors.Is(certificateErr, ast.ErrASTPending)
+	hasReceipt = errors.As(certificateErr, &receipt)
+	owner = hasReceipt && receipt.RuntimeOwner() == runtime
+	mode, modeErr := manager.ProofMode()
+	if body == nil || !callback || !writerFailure || !pending || !hasReceipt || !owner || modeErr != nil || mode != ast.ASTProofEnabled || len(attempt.references) != 1 || len(attempt.boogieProofs) != 1 || len(attempt.proofModes) != 1 {
+		t.Fatal("Boogie certificate cleanup refusal did not preserve its owners", body, callback, certificateErr, writerFailure, pending, hasReceipt, owner, mode, modeErr)
+	}
+	must(manager.CleanupArithmeticNumeralInvocation(&boogieInvocation))
+	must(receipt.Cleanup())
+	must(receipt.Cleanup())
+	mode, modeErr = manager.ProofMode()
+	if receipt.CleanupCause() != nil || modeErr != nil || mode != ast.ASTProofDisabled || len(attempt.references) != 0 || len(attempt.boogieProofs) != 0 || len(attempt.proofModes) != 0 {
+		t.Fatal("Boogie certificate cleanup retry remained pending", receipt.CleanupCause(), mode, modeErr)
+	}
+
 	var output bytes.Buffer
 	must(context.DisplayCertificate(&output, query, false))
 	if output.Len() == 0 {

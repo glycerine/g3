@@ -3,7 +3,6 @@ package pdr
 // Source: context::display_certificate in src/muz/pdr/pdr_context.cpp.
 
 import (
-	"errors"
 	"fmt"
 	"io"
 
@@ -15,7 +14,7 @@ import (
 // DisplayCertificate writes the source diagnostic certificate for the latest
 // result. boogie selects the source print_boogie_certificate presentation for
 // reachable proof traces; queryDeclaration must identify the latest query.
-func (c *Context) DisplayCertificate(out io.Writer, queryDeclaration ast.ASTHandle, boogie bool) (result error) {
+func (c *Context) DisplayCertificate(out io.Writer, queryDeclaration ast.ASTHandle, boogie bool) error {
 	if err := c.open(); err != nil {
 		return err
 	}
@@ -33,46 +32,51 @@ func (c *Context) DisplayCertificate(out io.Writer, queryDeclaration ast.ASTHand
 		return c.displayUnreachableCertificate(out, queryDeclaration, true)
 	case lbool.True:
 		if boogie {
-			proofsEnabled, err := c.manager.ProofsEnabled()
-			if err != nil {
-				return err
-			}
-			if !proofsEnabled {
-				if err = c.manager.ToggleProofMode(ast.ASTProofEnabled); err != nil {
-					return err
-				}
-				defer func() { result = errors.Join(result, c.manager.ToggleProofMode(ast.ASTProofDisabled)) }()
-			}
-			proof, err := c.Proof(queryDeclaration)
-			if err != nil {
-				return fmt.Errorf("pdr: construct Boogie certificate proof: %w", err)
-			}
-			defer func() { result = errors.Join(result, c.manager.DelRef(&proof)) }()
-			handle, err := c.manager.RefGet(proof)
-			if err != nil {
-				return err
-			}
-			config := c.owner.contexts.config
-			certificate, err := base.NewBoogieProof(c.manager, base.BoogieProofConfig{Context: config.Params, Globals: config.Globals, Diagnostic: io.Discard})
-			if err != nil {
-				return err
-			}
-			defer func() { result = errors.Join(result, certificate.Close()) }()
-			if err = certificate.SetProof(handle); err != nil {
-				return fmt.Errorf("pdr: normalize Boogie certificate proof: %w", err)
-			}
-			if err = certificate.SetModel(nil); err != nil {
-				return err
-			}
-			if err = certificate.PP(out); err != nil {
-				return fmt.Errorf("pdr: write Boogie certificate proof: %w", err)
-			}
-			return nil
+			return c.displayBoogieCertificate(out, queryDeclaration)
 		}
 		return c.displayReachableCertificate(out, queryDeclaration)
 	default:
 		return ast.ErrASTDomain
 	}
+}
+
+func (c *Context) displayBoogieCertificate(out io.Writer, queryDeclaration ast.ASTHandle) error {
+	attempt := newPDRValidationAttempt(c.manager)
+	proofsEnabled, err := c.manager.ProofsEnabled()
+	if err != nil {
+		return err
+	}
+	if !proofsEnabled {
+		if err = c.manager.ToggleProofMode(ast.ASTProofEnabled); err != nil {
+			return err
+		}
+		attempt.proofModes = append(attempt.proofModes, ast.ASTProofDisabled)
+	}
+	proof, err := c.Proof(queryDeclaration)
+	if err != nil {
+		return finishPDRValidation(attempt, fmt.Errorf("pdr: construct Boogie certificate proof: %w", err))
+	}
+	attempt.references = append(attempt.references, proof)
+	handle, err := c.manager.RefGet(proof)
+	if err != nil {
+		return finishPDRValidation(attempt, err)
+	}
+	config := c.owner.contexts.config
+	certificate, err := base.NewBoogieProof(c.manager, base.BoogieProofConfig{Context: config.Params, Globals: config.Globals, Diagnostic: io.Discard})
+	if err != nil {
+		return finishPDRValidation(attempt, err)
+	}
+	attempt.boogieProofs = append(attempt.boogieProofs, certificate)
+	if err = certificate.SetProof(handle); err != nil {
+		return finishPDRValidation(attempt, fmt.Errorf("pdr: normalize Boogie certificate proof: %w", err))
+	}
+	if err = certificate.SetModel(nil); err != nil {
+		return finishPDRValidation(attempt, err)
+	}
+	if err = certificate.PP(out); err != nil {
+		err = fmt.Errorf("pdr: write Boogie certificate proof: %w", err)
+	}
+	return finishPDRValidation(attempt, err)
 }
 
 func (c *Context) displayReachableCertificate(out io.Writer, queryDeclaration ast.ASTHandle) error {

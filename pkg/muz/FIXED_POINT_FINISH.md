@@ -147,6 +147,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 - [ ] Confirm method and ownership evidence for all PDR units, including arithmetic fragment selection and proof-derived lemmas.
   - [x] Simplify invariant and finite frame vectors at the final UNSAT boundary and configured pre/post propagation hooks, preserving incremental assertions and property indices.
   - [x] Implement pdr.validate_result SAT trace/proof and UNSAT inductive-model validation, including missing-query finalization, invalid-result rejection and retryable native guard-boundary cleanup.
+  - [x] Preserve Boogie certificate formatter, proof reference and temporary proof-mode ownership across writer and native cleanup refusal, with stable retry and no partial publication.
   - [ ] Audit composite validation teardown beyond the tested guard boundary; internally partial SMTSolver.Close replay remains a lower-layer obligation.
   - [x] Emit the PDR interface transformed-rule listing at verbosity 2 for both new and reused contexts; verify the same threshold for PDR and QPDR.
   - [ ] Complete pdr_dl_interface check_reset/query TRACE checkpoints (fresh rule, background/query/original rules, transformed rules/SMT2 dump).
@@ -602,6 +603,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Duality raw and cached RPFP graph scopes now record native solver-pop completion independently from graph-reference cleanup. Case interpolation and multi-scope retries preserve the full owner frontier, never pop the solver twice and retire consumed references in place; wider graph ownership auditing remains open.
   Validation: `go -C pkg test ./duality -run '^(TestDualityCaseInterpolationGraphScopePopRetriesOwnership|TestDuality.*(Graph|Scope|Case|Restart))$' -count=3` passed. Commit title: `Retry Duality graph scope cleanup safely`.
+
+- 2026-11-02 — PDR Boogie certificate export now owns the formatter, source proof reference and temporary proof-mode change in one ordered validation transaction. Writer failure followed by native cleanup refusal preserves both causes and exact retry custody, restores proof mode and publishes no partial certificate; lower composite validation teardown remains open.
+  Validation: `go -C pkg test ./muz/pdr -run '^TestContextDisplayCertificate' -count=3` and `go -C pkg test ./muz/fp -run '^TestPDRBoogieCertificateParameterSelectsSourcePresentation$' -count=3` passed. Commit title: `Preserve Boogie certificate cleanup ownership`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
