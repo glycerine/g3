@@ -25,6 +25,7 @@ type Manager struct {
 	contexts   *SMTContextManager
 	background ast.ASTRef
 	oldZero    []ast.ASTHandle
+	closing    bool
 	closed     bool
 }
 
@@ -65,6 +66,9 @@ func NewManager(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 }
 
 func (m *Manager) open() error {
+	if m != nil && m.closing && !m.closed {
+		return ast.ErrASTPending
+	}
 	if m == nil || m.closed || m.manager == nil || m.mux == nil || m.contexts == nil {
 		return ErrManagerOwner
 	}
@@ -436,24 +440,33 @@ func (m *Manager) ResetStatistics() error {
 }
 
 func (m *Manager) Close() (result error) {
-	if m == nil || m.manager == nil {
+	if m == nil {
 		return ErrManagerOwner
 	}
 	if m.closed {
 		return nil
 	}
-	result = errors.Join(result, m.contexts.Close())
-	if result != nil {
+	if m.manager == nil {
+		return ErrManagerOwner
+	}
+	m.closing = true
+	if result = m.contexts.Close(); result != nil {
 		return result
 	}
-	result = errors.Join(result, m.mux.Close())
-	result = errors.Join(result, m.manager.DelRef(&m.background))
-	if result == nil {
-		m.manager = nil
-		m.mux = nil
-		m.contexts = nil
-		m.oldZero = nil
-		m.closed = true
+	// Source member destruction is reverse declaration order: contexts, the
+	// background expr_ref, then sym_mux. Stop at each refused owner so later
+	// siblings remain untouched and retry resumes at the same boundary.
+	if result = m.manager.DelRef(&m.background); result != nil {
+		return result
 	}
-	return result
+	if result = m.mux.Close(); result != nil {
+		return result
+	}
+	m.manager = nil
+	m.mux = nil
+	m.contexts = nil
+	m.oldZero = nil
+	m.closing = false
+	m.closed = true
+	return nil
 }
