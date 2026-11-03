@@ -76,17 +76,40 @@ func joinUDocFinite(manager *RelationManager, doc *TypedUDocRelation, finiteSort
 	if err != nil {
 		return a.finish(err)
 	}
-	empty, err := manager.NewDefaultFiniteTable(fullSignature)
+	full, err := a.fullUnaryFinite(fullSignature, finite)
+	if err != nil {
+		return a.finish(err)
+	}
+	if docFirst {
+		a.product.table, err = finiteTableJoin(full, finite, left, right)
+	} else {
+		a.product.table, err = finiteTableJoin(finite, full, right, left)
+	}
+	return a.finish(err)
+}
+
+// Source get_full_tableish_relation preserves the actual table kind. The
+// complement implementation is defined for at most one ordinary column;
+// these two live mixed-join callers supply exactly the unary DOC signature.
+// Every temporary is registered before the next fallible operation.
+func (a *udocTableProductAttempt) fullUnaryFinite(signature Signature, like FiniteTable) (FiniteTable, error) {
+	if signature.Len() != 1 || rawUDocProductFiniteKind(like) == 0 {
+		return nil, ErrUDocTableProduct
+	}
+	if lazy, ok := like.(*LazySparseTable); ok && (a.manager.lazyFinite == nil || !a.manager.lazyFinite.Owns(lazy)) {
+		return nil, ErrUDocTableProduct
+	}
+	empty, err := a.manager.NewDefaultFiniteTable(signature)
 	if empty != nil {
 		a.tables = append(a.tables, empty)
 	}
 	if err != nil {
-		return a.finish(err)
+		return nil, err
 	}
 	// get_full_tableish_relation passes the original table kind to the selected
 	// plugin. This bounded path requires that concrete plugin to agree.
-	if rawUDocProductFiniteKind(empty) != rawUDocProductFiniteKind(finite) {
-		return a.finish(ErrUDocTableProduct)
+	if rawUDocProductFiniteKind(empty) != rawUDocProductFiniteKind(like) {
+		return nil, ErrUDocTableProduct
 	}
 	var full FiniteTable
 	switch table := empty.(type) {
@@ -114,13 +137,5 @@ func joinUDocFinite(manager *RelationManager, doc *TypedUDocRelation, finiteSort
 	if full != nil {
 		a.tables = append(a.tables, full)
 	}
-	if err != nil {
-		return a.finish(err)
-	}
-	if docFirst {
-		a.product.table, err = finiteTableJoin(full, finite, left, right)
-	} else {
-		a.product.table, err = finiteTableJoin(finite, full, right, left)
-	}
-	return a.finish(err)
+	return full, err
 }
