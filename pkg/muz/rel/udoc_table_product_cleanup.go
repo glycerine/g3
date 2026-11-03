@@ -12,6 +12,7 @@ type udocTableProductAttempt struct {
 	manager *RelationManager
 	product *UDocTableProduct
 	fullDoc *UDocSieve
+	inners  []*TypedUDocRelation
 	tables  []FiniteTable
 	nested  memory.ConstructionFailure
 }
@@ -32,6 +33,13 @@ func (a *udocTableProductAttempt) closeTemps() error {
 			return err
 		}
 		a.fullDoc = nil
+	}
+	for len(a.inners) != 0 {
+		last := len(a.inners) - 1
+		if err := a.inners[last].Close(); err != nil {
+			return err
+		}
+		a.inners = a.inners[:last]
 	}
 	for len(a.tables) != 0 {
 		last := len(a.tables) - 1
@@ -93,4 +101,22 @@ func (a *udocTableProductAttempt) finish(cause error) (*UDocTableProduct, error)
 	result := a.product
 	a.product = nil
 	return result, nil
+}
+
+// discard finalizes a temporary mutation owner without publishing its delta.
+// The mutation itself is already applied; Cleanup only retries destruction.
+func (a *udocTableProductAttempt) discard(cause error) error {
+	if cause != nil {
+		errors.As(cause, &a.nested)
+	}
+	cleanup := a.close()
+	if cleanup == nil {
+		return cause
+	}
+	original := cause
+	if original == nil {
+		original = cleanup
+	}
+	reported := errors.Join(cause, cleanup)
+	return &udocTableProductFailure{owner: a, original: original, cleanup: cleanup, reported: reported, text: reported.Error()}
 }
