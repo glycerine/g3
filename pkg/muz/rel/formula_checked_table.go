@@ -358,7 +358,7 @@ func (r *FormulaCheckedTable) Clone() (_ *FormulaCheckedTable, resultErr error) 
 	}
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+			resultErr = finishFormulaCheckedTableConstruction(resultErr, result)
 		}
 	}()
 	left, err := r.manager.RefGet(r.formula)

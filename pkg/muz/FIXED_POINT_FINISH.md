@@ -422,6 +422,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Interval-source union/widen dispatch preserves source pruning and ignored-delta behavior.
   - [x] Assemble exact bound/interval product head columns for unbound, repeated and numeral terms, preserving requested component order, source-coarse bound constants and interval constraints.
 - [ ] `src/muz/rel/dl_check_table.cpp` (partial), `src/muz/rel/dl_check_table.h` (partial)
+  - [x] Preserve cloned formula-checked table owners through native cleanup refusal with child-first nested cleanup, stable construction receipts and exact retry.
 - [ ] `src/muz/rel/dl_compiler.cpp` (partial), `src/muz/rel/dl_compiler.h` (partial)
   - [x] Finite, sparse, lazy and explanation compilation has concrete method-level evidence, including SCC scheduling and mixed magic inputs.
   - [ ] Complete source-live abstract/product/widening dispatch and compiler ownership audits; explicit interval activation and exact checked bytecode do not close source-default bound or mixed-product compilation.
@@ -501,6 +502,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Formula-checked table cloning now preserves the strong result owner through refused native cleanup. Nested construction receipts drain child-first, runtime and semantic/cleanup causes stay stable, and retry releases the exact formula/table frontier; deeper checker integration remains a separate slice.
+  Validation: `go -C pkg test ./muz/rel -run '^(TestFormulaCheckedTableConstructionCleanupRefusal|TestFormulaCheckedTable|TestFormulaCheckedFinitePair)' -count=3` passed. Commit title: `Preserve formula checked clones through cleanup refusal`.
 
 - 2026-11-02 — Public Datalog now activates concrete typed UDoc relations for source-capable bit-vector and nullary predicates. Facts and positive ground/recursive rules execute through typed filters, joins, projections, repeated/constant head assembly and delta fixpoint; owning formulas, expression clones, updates, cancellation and source-aware finite/bound fallbacks are covered. Unsupported interpreted/negative/mixed/checker/magic and enumeration/model surfaces remain explicit follow-ons.
   Validation: `go -C pkg test ./muz/fp -run '^Test(DatalogUDoc|UDocPositive|DatalogBound|DatalogConfiguredInterval)' -count=1` and the UDoc-only gate at count three passed. Commit title: `Activate typed UDoc Datalog queries`.
