@@ -14,7 +14,7 @@ import (
 
 // CompileExplanationRulesWithGuard compiles a positive transformed explanation
 // rule set, including its finite output bridges, into dependency-ordered
-// execution and saturation-marking termination blocks. Both blocks transfer to
+// execution and termination blocks. Both blocks transfer to
 // the caller. Unsupported rules publish neither block.
 func CompileExplanationRulesWithGuard(relations *RelationManager, set *base.RuleSet, guard *rewriter.TheoryRewriter) (*InstructionBlock, *InstructionBlock, error) {
 	return compileExplanationRulesWithGuard(relations, set, guard, false)
@@ -139,6 +139,19 @@ func compileExplanationRulesWithGuard(relations *RelationManager, set *base.Rule
 		if len(group) == 0 {
 			continue
 		}
+		// Source compile_strats skips completed dependency components when
+		// compiling again after an interrupted saturation round.
+		allSaturated := true
+		for _, head := range group {
+			saturated, err := relations.IsSaturated(head)
+			if err != nil {
+				return execution, termination, err
+			}
+			allSaturated = allSaturated && saturated
+		}
+		if allSaturated {
+			continue
+		}
 		inside := make(map[ast.ASTHandle]bool, len(group))
 		keys := make([]finitePredicateOrderKey, 0, len(group))
 		keyHeads := make(map[finitePredicateOrderKey]ast.ASTHandle, len(group))
@@ -249,7 +262,9 @@ func compileExplanationRulesWithGuard(relations *RelationManager, set *base.Rule
 			if err != nil {
 				return execution, termination, err
 			}
-			if err := appendRuntime(termination, mark); err != nil {
+			// Per-rule STORE instructions already publish completed results.
+			// Mark this component only after every rule/recursive loop finishes.
+			if err := appendRuntime(execution, mark); err != nil {
 				return execution, termination, err
 			}
 		}

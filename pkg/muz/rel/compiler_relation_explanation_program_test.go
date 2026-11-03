@@ -104,6 +104,13 @@ func TestCompileRelationExplanationProgramRecursiveSeedsAndFiniteTermination(t *
 						if !complete {
 							t.Fatal("whole-proof growth prevented the finite fixpoint")
 						}
+						for _, predicate := range []ast.ASTHandle{p, explainedP} {
+							marked, err := f.relations.IsSaturated(predicate)
+							astTestMust(t, err)
+							if !marked {
+								t.Fatal("completed execution did not mark output", predicate)
+							}
+						}
 						complete, err = termination.Perform(context)
 						astTestMust(t, err)
 						if !complete {
@@ -141,7 +148,7 @@ func TestCompileRelationExplanationProgramRecursiveSeedsAndFiniteTermination(t *
 							marked, err := f.relations.IsSaturated(predicate)
 							astTestMust(t, err)
 							if !marked {
-								t.Fatal("compiled termination did not mark output", predicate)
+								t.Fatal("termination changed completed output mark", predicate)
 							}
 						}
 						astTestMust(t, context.Reset())

@@ -83,8 +83,8 @@ func TestCompileExplanationProgramOrdersDependenciesAndFirstProofs(t *testing.T)
 		for _, head := range heads {
 			marked, e := f.relations.IsSaturated(head)
 			astTestMust(t, e)
-			if marked {
-				t.Fatal("execution marked a head before termination")
+			if !marked {
+				t.Fatal("completed execution did not mark an explained or finite head")
 			}
 		}
 		complete, e = termination.Perform(context)
@@ -96,7 +96,7 @@ func TestCompileExplanationProgramOrdersDependenciesAndFirstProofs(t *testing.T)
 			marked, e := f.relations.IsSaturated(head)
 			astTestMust(t, e)
 			if !marked {
-				t.Fatal("termination did not mark an explained or finite head")
+				t.Fatal("termination changed a completed saturation mark")
 			}
 		}
 		output, e := f.relations.GetRelation(q)
