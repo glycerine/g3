@@ -605,13 +605,13 @@ func TestSMT2FixedpointSpacerPrintsBoundedStatus(t *testing.T) {
 (set-option :fixedpoint.spacer.max_level 0)
 (declare-rel Goal ())
 (rule Goal)
-(query Goal :print-answer false)
+(query Goal :print-answer false :print-certificate true)
 `
 	var output bytes.Buffer
 	if err = smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
 		t.Fatal(err, output.String())
 	}
-	if text := output.String(); text != "bounded\n" {
+	if text := output.String(); text != "bounded\n\n" {
 		t.Fatal("bounded Spacer status", text)
 	}
 }

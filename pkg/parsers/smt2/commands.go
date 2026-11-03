@@ -758,6 +758,7 @@ func (p *commandParser) command() (bool, error) {
 		}
 		if !p.ignoreChecks {
 			text := "unknown"
+			bounded := false
 			if status == lbool.True {
 				text = "sat"
 			} else if status == lbool.False {
@@ -765,6 +766,7 @@ func (p *commandParser) command() (bool, error) {
 			} else if reason, reasonErr := p.context.FixedpointReasonUnknown(); reasonErr != nil {
 				return false, reasonErr
 			} else if reason == "bounded" {
+				bounded = true
 				text = "bounded"
 			}
 			if _, err = fmt.Fprintln(p.out, text); err != nil {
@@ -790,7 +792,7 @@ func (p *commandParser) command() (bool, error) {
 					return false, y
 				}
 			}
-			if printCertificate {
+			if printCertificate && (status != lbool.Undef || bounded) {
 				_, y := p.context.WriteFixedpointCertificate(p.out, declaration)
 				if y != nil {
 					return false, y

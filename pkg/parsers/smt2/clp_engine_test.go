@@ -101,6 +101,40 @@ func TestSMT2CLPQueryDepthIncludesSyntheticRule(t *testing.T) {
 	}
 }
 
+func TestSMT2CLPOrdinaryUnknownSkipsCertificate(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	var script strings.Builder
+	script.WriteString(`(set-option :fixedpoint.engine clp)
+(set-option :fixedpoint.xform.inline_eager false)
+(set-option :fixedpoint.xform.inline_linear false)
+(set-option :fixedpoint.datalog.subsumption false)
+`)
+	const depth = 19
+	for i := 0; i <= depth; i++ {
+		fmt.Fprintf(&script, "(declare-rel P%d ())\n", i)
+	}
+	script.WriteString("(rule P0)\n")
+	for i := 0; i < depth; i++ {
+		fmt.Fprintf(&script, "(rule (=> P%d P%d))\n", i, i+1)
+	}
+	fmt.Fprintf(&script, "(query P%d :print-certificate true)\n", depth)
+	var output bytes.Buffer
+	if err = ParseCommands(context, strings.NewReader(script.String()), &output); err != nil {
+		t.Fatal(err, output.String())
+	}
+	if got := output.String(); got != "unknown\n" {
+		t.Fatalf("ordinary CLP unknown certificate output %q", got)
+	}
+}
+
 func TestSMT2CLPCertificateForReachableAndUnreachable(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
 	if err != nil {
