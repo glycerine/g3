@@ -1,14 +1,10 @@
 package fp
 
 // Source: dl_context.cpp context::get_rules_as_formulas, pending free-variable
-// normalization and swap removal. The Go rule bodies were normalized eagerly;
-// this operation moves their origin ranges into the source normalized prefix.
+// normalization and swap removal. The eager Go clauses for pending inputs
+// are replaced by fresh normalization using the current context parameters.
 
-import (
-	"errors"
-
-	"github.com/glycerine/g3/pkg/muz/base"
-)
+import "github.com/glycerine/g3/pkg/muz/base"
 
 func (e *PropositionalEngine) normalizePendingOpenRules() (resultErr error) {
 	remaining := append([]rawRuleFormula(nil), e.rawRules...)
@@ -61,19 +57,18 @@ func (e *PropositionalEngine) normalizePendingOpenRules() (resultErr error) {
 	if err != nil {
 		return err
 	}
-	keep := false
-	defer func() {
-		if !keep {
-			resultErr = errors.Join(resultErr, replacement.Close())
-		}
-	}()
+	a := &contextFormulaAttempt{manager: e.manager, sets: []*base.RuleSet{replacement}}
+	defer func() { resultErr = a.finish(resultErr) }()
 	next := 0
 	add := func(i int) error {
 		rule, err := e.set.Rule(i)
+		if rule != nil {
+			a.rules = append(a.rules, rule)
+		}
 		if err != nil {
 			return err
 		}
-		err = errors.Join(replacement.Add(rule), rule.Close())
+		err = replacement.Add(rule)
 		if err == nil {
 			next++
 		}
@@ -87,10 +82,18 @@ func (e *PropositionalEngine) normalizePendingOpenRules() (resultErr error) {
 		}
 	}
 	for _, raw := range promoted {
-		for i := raw.first; i < raw.end; i++ {
-			if err = add(i); err != nil {
-				return err
-			}
+		formula, err := e.manager.RefGet(raw.formula)
+		if err != nil {
+			return err
+		}
+		// Source get_rules_as_formulas invokes mk_rule now, rather than
+		// reusing clauses built under the parameter values at add_rule.
+		if err = e.addFormula(replacement, formula, raw.name); err != nil {
+			return err
+		}
+		next, err = replacement.Len()
+		if err != nil {
+			return err
 		}
 	}
 	for j := range remaining {
@@ -112,11 +115,16 @@ func (e *PropositionalEngine) normalizePendingOpenRules() (resultErr error) {
 	if err = e.rebindArithmeticRules(replacement); err != nil {
 		return err
 	}
+	if err = a.closeRules(); err != nil {
+		return err
+	}
 	prior := e.set
 	e.set = replacement
 	e.rawRules = remaining
 	e.retiredRawRules = append(e.retiredRawRules, promoted...)
-	keep = true
+	// The replacement is now persistent; this scope instead owns the old
+	// set until its last reference releases have completed.
+	a.sets[0] = prior
 	e.advanceRuleRevision()
-	return errors.Join(prior.Close(), e.cleanupRetiredRawRules())
+	return e.cleanupRetiredRawRules()
 }

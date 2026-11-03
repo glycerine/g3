@@ -75,7 +75,8 @@ func (e *PropositionalEngine) WriteContextSMT2(out io.Writer, queries []ast.ASTH
 		return err
 	}
 	if rules != e.set {
-		defer func() { resultErr = errors.Join(resultErr, rules.Close()) }()
+		a := &contextFormulaAttempt{manager: e.manager, sets: []*base.RuleSet{rules}}
+		defer func() { resultErr = a.finish(resultErr) }()
 	}
 	config.PendingRules = pending
 	config.PendingNames = names

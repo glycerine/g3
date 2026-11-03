@@ -4,8 +4,6 @@ package fp
 // src/api/api_datalog.cpp Z3_fixedpoint_get_rules.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 )
@@ -45,11 +43,8 @@ func (e *PropositionalEngine) contextFormulaRules() (_ *base.RuleSet, pending []
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	defer func() {
-		if resultErr != nil {
-			resultErr = errors.Join(resultErr, snapshot.Close())
-		}
-	}()
+	a := &contextFormulaAttempt{manager: e.manager, sets: []*base.RuleSet{snapshot}}
+	defer func() { resultErr = a.finish(resultErr) }()
 	if err = snapshot.InheritPredicates(e.set); err != nil {
 		return nil, nil, nil, err
 	}
@@ -58,14 +53,21 @@ func (e *PropositionalEngine) contextFormulaRules() (_ *base.RuleSet, pending []
 			continue
 		}
 		rule, err := e.set.Rule(i)
+		if rule != nil {
+			a.rules = append(a.rules, rule)
+		}
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		err = errors.Join(snapshot.Add(rule), rule.Close())
+		err = snapshot.Add(rule)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 	}
+	if err = a.closeRules(); err != nil {
+		return nil, nil, nil, err
+	}
+	a.sets = nil
 	return snapshot, pending, names, nil
 }
 
@@ -80,19 +82,21 @@ func (e *PropositionalEngine) RuleFormulas() (result []ast.ASTRef, resultErr err
 		return nil, err
 	}
 	var queries []ast.ASTRef
+	a := &contextFormulaAttempt{manager: e.manager}
+	if rules != e.set {
+		a.sets = append(a.sets, rules)
+	}
 	defer func() {
-		if rules != e.set {
-			resultErr = errors.Join(resultErr, rules.Close())
-		}
-		for i := range queries {
-			if queries[i] != (ast.ASTRef{}) {
-				resultErr = errors.Join(resultErr, e.manager.DelRef(&queries[i]))
-			}
-		}
+		a.references = append(a.references, queries...)
 		if resultErr != nil {
-			for i := range result {
-				resultErr = errors.Join(resultErr, e.manager.DelRef(&result[i]))
-			}
+			a.references = append(a.references, result...)
+			result = nil
+		}
+		resultErr = a.finish(resultErr)
+		if resultErr != nil && result != nil {
+			// Failed temporary cleanup prevents publication. The returned
+			// receipt still owns the attempt and these unpublished outputs.
+			a.references = append(a.references, result...)
 			result = nil
 		}
 	}()
