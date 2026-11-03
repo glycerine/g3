@@ -200,7 +200,7 @@ func TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly(t *tes
 		t.Fatal("LOAD cleanup refusal did not fail the public query", status, queryErr)
 	}
 	activation := engine.externalIntervalDatalog
-	if activation.pending == nil || activation.pendingCompletesIdentity || nested.calls != 1 {
+	if activation.pending == nil || activation.pendingCompletesRule || nested.calls != 1 {
 		t.Fatal("LOAD cleanup refusal was not adopted by the activation", nested.calls)
 	}
 	if operationCount(callbacks.operations, ast.DatalogOpUnion) != 0 {
@@ -270,7 +270,7 @@ func TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay
 			}
 			pending := newExternalIntervalDatalogIdentityFailure(nested, registers, nested)
 			activation.pending = pending
-			activation.pendingCompletesIdentity = true
+			activation.pendingCompletesRule = true
 			activation.pendingIdentity = activation.identity
 			callbacksBeforeCleanup := len(callbacks.operations)
 			if err = pending.Cleanup(); !errors.Is(err, refusal) || activation.entries[q].product != oldTarget {
@@ -281,7 +281,7 @@ func TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay
 			if status != lbool.Undef || activation.entries[q].product == oldTarget || len(callbacks.operations) != callbacksBeforeCleanup+1 || operationCount(callbacks.operations, ast.DatalogOpUnion) != 1 {
 				t.Fatal("public retry replayed committed UNION or missed STORE", status, callbacks.operations)
 			}
-			if activation.pending != nil || activation.pendingCompletesIdentity || nested.calls != 2 {
+			if activation.pending != nil || activation.pendingCompletesRule || nested.calls != 2 {
 				t.Fatal("activation did not consume the completed continuation", nested.calls)
 			}
 			empty, err := activation.entries[q].product.Empty()
@@ -320,7 +320,7 @@ func TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay
 				refusal: mutationRefusal,
 			}
 			activation.pending = newExternalIntervalDatalogIdentityFailure(mutationNested, registers, mutationNested)
-			activation.pendingCompletesIdentity = true
+			activation.pendingCompletesRule = true
 			activation.pendingIdentity = activation.identity
 			six, err := manager.ArithmeticIntegerNumeralText("6")
 			fragmentMust(t, err)
@@ -328,7 +328,7 @@ func TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay
 				t.Fatal("fact mutation bypassed pending identity cleanup", err)
 			}
 			fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{six}))
-			if activation.pending != nil || activation.pendingCompletesIdentity || activation.entries[p].product == oldSource || mutationNested.calls != 2 {
+			if activation.pending != nil || activation.pendingCompletesRule || activation.entries[p].product == oldSource || mutationNested.calls != 2 {
 				t.Fatal("fact retry did not publish before mutation", mutationNested.calls)
 			}
 			if operationCount(callbacks.operations, ast.DatalogOpUnion) != 1 || operationCount(callbacks.operations, ast.DatalogOpStore) != 1 {
@@ -380,7 +380,7 @@ func TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan(t *test
 	}
 	pending := newExternalIntervalDatalogIdentityFailure(nested, registers, nested)
 	activation.pending = pending
-	activation.pendingCompletesIdentity = true
+	activation.pendingCompletesRule = true
 	activation.pendingIdentity = activation.identity
 	if err = pending.Cleanup(); !errors.Is(err, refusal) {
 		t.Fatal("old identity cleanup did not pause", err)

@@ -1,6 +1,6 @@
 package fp
 
-// Source: rel_context::set_predicate_representation and rule-free query
+// Source: rel_context::set_predicate_representation and specialized query
 // dispatch for an external_relation plus interval_relation product.
 
 import (
@@ -55,7 +55,7 @@ func (e *PropositionalEngine) externalIntervalPredicates() ([]externalIntervalDa
 	return predicates, true, nil
 }
 
-func (e *PropositionalEngine) ensureExternalIntervalDatalog() (bool, error) {
+func (e *PropositionalEngine) ensureExternalIntervalDatalog() (_ bool, resultErr error) {
 	predicates, selected, err := e.externalIntervalPredicates()
 	if err != nil || !selected {
 		return selected, err
@@ -63,10 +63,16 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (bool, error) {
 	if e.external == nil || len(predicates) == 0 {
 		return true, ErrExternalIntervalDatalogFragment
 	}
-	identity, err := e.externalIntervalIdentityRule()
+	identity, ground, err := e.externalIntervalRulePlans()
 	if err != nil {
 		return true, err
 	}
+	keepGround := false
+	defer func() {
+		if ground != nil && !keepGround {
+			resultErr = errors.Join(resultErr, ground.close(e.manager))
+		}
+	}()
 	if e.udocDatalog != nil || e.sparseIntervalDatalog != nil || e.intervalDatalog != nil || e.boundDatalog != nil {
 		return true, ErrExternalIntervalDatalogFragment
 	}
@@ -94,14 +100,20 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (bool, error) {
 		if err = e.externalIntervalDatalog.syncPredicates(predicates); err != nil {
 			return true, err
 		}
-		e.externalIntervalDatalog.identity = identity
+		if err = e.externalIntervalDatalog.installExternalIntervalRulePlans(identity, ground); err != nil {
+			return true, err
+		}
+		keepGround = true
 		return true, nil
 	}
 	owner, err := newExternalIntervalDatalogActivation(e.manager, e.external, predicates)
 	if err != nil {
 		return true, err
 	}
-	owner.identity = identity
+	if err = owner.installExternalIntervalRulePlans(identity, ground); err != nil {
+		return true, errors.Join(err, owner.close())
+	}
+	keepGround = true
 	e.externalIntervalDatalog = owner
 	return true, nil
 }

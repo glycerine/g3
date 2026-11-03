@@ -219,10 +219,11 @@ func (a *externalIntervalDatalogActivation) resumeExternalIntervalIdentity() (bo
 	if err := a.pending.Cleanup(); err != nil {
 		return false, err
 	}
-	completed := a.pendingCompletesIdentity && sameExternalIntervalIdentityRule(a.pendingIdentity, a.identity)
+	completed := a.pendingCompletesRule && (sameExternalIntervalIdentityRule(a.pendingIdentity, a.identity) || sameExternalIntervalGroundRule(a.pendingGround, a.ground))
 	a.pending = nil
-	a.pendingCompletesIdentity = false
+	a.pendingCompletesRule = false
 	a.pendingIdentity = nil
+	a.pendingGround = nil
 	return completed, nil
 }
 
@@ -238,6 +239,9 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalIdentity() (r
 		return nil
 	}
 	if a.identity == nil {
+		if a.ground != nil {
+			return a.executeExternalIntervalGround()
+		}
 		return nil
 	}
 	registers, err := a.loadExternalIntervalDatalogRegisters([]ast.ASTHandle{a.identity.head, a.identity.tail})
@@ -245,8 +249,9 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalIdentity() (r
 		var pending memory.ConstructionFailure
 		if errors.As(err, &pending) {
 			a.pending = pending
-			a.pendingCompletesIdentity = false
+			a.pendingCompletesRule = false
 			a.pendingIdentity = nil
+			a.pendingGround = nil
 		}
 		return err
 	}
@@ -255,8 +260,9 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalIdentity() (r
 		var pending memory.ConstructionFailure
 		if errors.As(finished, &pending) {
 			a.pending = pending
-			a.pendingCompletesIdentity = false
+			a.pendingCompletesRule = false
 			a.pendingIdentity = nil
+			a.pendingGround = nil
 		}
 		registers = nil
 		return finished
@@ -278,8 +284,9 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalIdentity() (r
 				}
 				failure := newExternalIntervalDatalogIdentityFailure(cause, registers, nested)
 				a.pending = failure
-				a.pendingCompletesIdentity = true
+				a.pendingCompletesRule = true
 				a.pendingIdentity = a.identity
+				a.pendingGround = nil
 				registers = nil
 				return failure
 			}
@@ -290,15 +297,17 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalIdentity() (r
 		var pending *externalIntervalDatalogRegisterFailure
 		if errors.As(err, &pending) && pending.owner == registers {
 			a.pending = pending
-			a.pendingCompletesIdentity = true
+			a.pendingCompletesRule = true
 			a.pendingIdentity = a.identity
+			a.pendingGround = nil
 			registers = nil
 			return err
 		}
 		failure := newExternalIntervalDatalogIdentityFailure(err, registers, nil)
 		a.pending = failure
-		a.pendingCompletesIdentity = true
+		a.pendingCompletesRule = true
 		a.pendingIdentity = a.identity
+		a.pendingGround = nil
 		registers = nil
 		return failure
 	}

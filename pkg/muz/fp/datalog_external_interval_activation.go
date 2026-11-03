@@ -35,18 +35,20 @@ type externalIntervalDatalogEntry struct {
 }
 
 // externalIntervalDatalogActivation owns the concrete product relations for
-// the current rule-free program. The callback plugin is borrowed from the
+// the retained specialized program. The callback plugin is borrowed from the
 // fixedpoint context and must outlive this owner.
 type externalIntervalDatalogActivation struct {
-	manager                  *ast.ASTManager
-	plugin                   *rel.ExternalRelationPlugin
-	entries                  map[ast.ASTHandle]*externalIntervalDatalogEntry
-	order                    []ast.ASTHandle
-	identity                 *externalIntervalDatalogIdentityRule
-	pending                  memory.ConstructionFailure
-	pendingCompletesIdentity bool
-	pendingIdentity          *externalIntervalDatalogIdentityRule
-	closed                   bool
+	manager              *ast.ASTManager
+	plugin               *rel.ExternalRelationPlugin
+	entries              map[ast.ASTHandle]*externalIntervalDatalogEntry
+	order                []ast.ASTHandle
+	identity             *externalIntervalDatalogIdentityRule
+	ground               *externalIntervalDatalogGroundRule
+	pending              memory.ConstructionFailure
+	pendingCompletesRule bool
+	pendingIdentity      *externalIntervalDatalogIdentityRule
+	pendingGround        *externalIntervalDatalogGroundRule
+	closed               bool
 }
 
 type externalIntervalDatalogConstructionFailure struct {
@@ -237,7 +239,7 @@ func (a *externalIntervalDatalogActivation) addFact(declaration ast.ASTHandle, v
 	return entry.product.AddFact(values)
 }
 
-// query implements the exact zero-rule nonemptiness contract. A nonempty
+// query implements the specialized product nonemptiness contract. A nonempty
 // product is imprecise because of its interval component, so it is unknown,
 // never true. Formula export is deliberately not attempted.
 func (a *externalIntervalDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool, error) {
@@ -274,8 +276,9 @@ func (a *externalIntervalDatalogActivation) close() error {
 			return err
 		}
 		a.pending = nil
-		a.pendingCompletesIdentity = false
+		a.pendingCompletesRule = false
 		a.pendingIdentity = nil
+		a.pendingGround = nil
 	}
 	// Products own external-plugin users, so every product must retire before
 	// the borrowed plugin can be closed by the fixedpoint engine.
@@ -286,6 +289,11 @@ func (a *externalIntervalDatalogActivation) close() error {
 				return err
 			}
 			entry.product = nil
+		}
+	}
+	if a.ground != nil {
+		if err := a.ground.close(a.manager); err != nil {
+			return err
 		}
 	}
 	for i := len(a.order) - 1; i >= 0; i-- {
@@ -301,5 +309,6 @@ func (a *externalIntervalDatalogActivation) close() error {
 	a.entries = nil
 	a.order = nil
 	a.identity = nil
+	a.ground = nil
 	return nil
 }

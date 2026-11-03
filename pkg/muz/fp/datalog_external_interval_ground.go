@@ -1,0 +1,305 @@
+package fp
+
+// Source: src/muz/rel/dl_compiler.cpp zero-tail ACK_CONSTANT lowering and
+// src/muz/rel/dl_instruction.cpp LOAD, MK_UNARY_SINGLETON, UNION, and STORE.
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/muz/rel"
+	"github.com/glycerine/g3/pkg/util/memory"
+)
+
+type externalIntervalDatalogGroundRule struct {
+	head      ast.ASTHandle
+	value     ast.ASTHandle
+	valueRoot ast.ASTRef
+}
+
+func (r *externalIntervalDatalogGroundRule) close(manager *ast.ASTManager) error {
+	if r == nil || r.valueRoot == (ast.ASTRef{}) {
+		return nil
+	}
+	return manager.DelRef(&r.valueRoot)
+}
+
+func sameExternalIntervalGroundRule(left, right *externalIntervalDatalogGroundRule) bool {
+	return left != nil && right != nil && left.head == right.head && left.value == right.value
+}
+
+func (e *PropositionalEngine) externalIntervalGroundRule(rule *base.Rule) (*externalIntervalDatalogGroundRule, error) {
+	positive, err := rule.PositiveTailSize()
+	if err != nil {
+		return nil, err
+	}
+	uninterpreted, err := rule.UninterpretedTailSize()
+	if err != nil {
+		return nil, err
+	}
+	if positive != 0 || uninterpreted != 0 {
+		return nil, ErrExternalIntervalDatalogFragment
+	}
+	head, err := rule.Head()
+	if err != nil {
+		return nil, err
+	}
+	declaration, err := e.manager.GetDecl(head)
+	if err != nil {
+		return nil, err
+	}
+	state := e.predicates[declaration]
+	if state == nil || !isExternalIntervalRepresentation(state.requestedRepresentations) || len(state.sorts) != 1 {
+		return nil, ErrExternalIntervalDatalogFragment
+	}
+	count, err := e.manager.GetNumArgs(head)
+	if err != nil {
+		return nil, err
+	}
+	if count != 1 {
+		return nil, ErrExternalIntervalDatalogFragment
+	}
+	value, err := e.manager.GetArg(head, 0)
+	if err != nil {
+		return nil, err
+	}
+	sort, err := e.manager.GetSort(value)
+	if err != nil {
+		return nil, err
+	}
+	_, _, numeral, err := e.manager.ArithmeticNumeralText(value)
+	if err != nil {
+		return nil, err
+	}
+	if !numeral || sort != state.sorts[0] {
+		return nil, ErrExternalIntervalDatalogFragment
+	}
+	return &externalIntervalDatalogGroundRule{head: declaration, value: value}, nil
+}
+
+// externalIntervalRulePlans validates the complete retained one-rule fragment
+// before relation callbacks. The only live plans are the aligned identity edge
+// and the zero-tail unary arithmetic numeral fact.
+func (e *PropositionalEngine) externalIntervalRulePlans() (_ *externalIntervalDatalogIdentityRule, _ *externalIntervalDatalogGroundRule, resultErr error) {
+	count, err := e.set.Len()
+	if err != nil {
+		return nil, nil, err
+	}
+	if count == 0 {
+		return nil, nil, nil
+	}
+	if count != 1 {
+		return nil, nil, ErrExternalIntervalDatalogFragment
+	}
+	rule, err := e.set.Rule(0)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, rule.Close()) }()
+	total, err := rule.TailSize()
+	if err != nil {
+		return nil, nil, err
+	}
+	if total == 0 {
+		ground, cause := e.externalIntervalGroundRule(rule)
+		return nil, ground, cause
+	}
+	if total != 1 {
+		return nil, nil, ErrExternalIntervalDatalogFragment
+	}
+	identity, err := e.externalIntervalIdentityRule()
+	return identity, nil, err
+}
+
+func (a *externalIntervalDatalogActivation) installExternalIntervalRulePlans(identity *externalIntervalDatalogIdentityRule, ground *externalIntervalDatalogGroundRule) error {
+	if identity != nil && ground != nil {
+		return ErrExternalIntervalDatalogFragment
+	}
+	if a.ground != nil {
+		if !sameExternalIntervalGroundRule(a.ground, ground) || identity != nil {
+			return ErrExternalIntervalDatalogFragment
+		}
+		ground = a.ground
+	}
+	if a.identity != nil && identity != nil && !sameExternalIntervalIdentityRule(a.identity, identity) {
+		return ErrExternalIntervalDatalogFragment
+	}
+	if a.identity != nil && ground != nil || a.ground != nil && identity != nil {
+		return ErrExternalIntervalDatalogFragment
+	}
+	if ground != nil && ground.valueRoot == (ast.ASTRef{}) {
+		root, err := a.manager.NewRef(ground.value)
+		if err != nil {
+			return err
+		}
+		ground.valueRoot = root
+	}
+	a.identity = identity
+	a.ground = ground
+	return nil
+}
+
+type externalIntervalDatalogGroundContinuation struct {
+	registers *externalIntervalDatalogRegisters
+	temporary *rel.ExternalIntervalProduct
+	nested    memory.ConstructionFailure
+	runtime   *memory.Runtime
+	publish   bool
+}
+
+func (c *externalIntervalDatalogGroundContinuation) resume() error {
+	if c.nested != nil {
+		if err := c.nested.Cleanup(); err != nil {
+			return err
+		}
+		c.nested = nil
+	}
+	if c.publish && c.registers != nil {
+		if err := c.registers.store(); err != nil {
+			var owner *externalIntervalDatalogRegisterFailure
+			if errors.As(err, &owner) && owner.owner == c.registers {
+				c.nested = owner
+				c.registers = nil
+			}
+			return err
+		}
+		c.registers = nil
+	}
+	if c.temporary != nil {
+		if err := c.temporary.Close(); err != nil {
+			return err
+		}
+		c.temporary = nil
+	}
+	if !c.publish && c.registers != nil {
+		if err := c.registers.Close(); err != nil {
+			return err
+		}
+		c.registers = nil
+	}
+	return nil
+}
+
+type externalIntervalDatalogGroundFailure struct {
+	original, cleanup error
+	reported          error
+	text              string
+	owner             *externalIntervalDatalogGroundContinuation
+}
+
+var _ memory.ConstructionFailure = (*externalIntervalDatalogGroundFailure)(nil)
+
+func (f *externalIntervalDatalogGroundFailure) Error() string        { return f.text }
+func (f *externalIntervalDatalogGroundFailure) Unwrap() error        { return f.reported }
+func (f *externalIntervalDatalogGroundFailure) OriginalCause() error { return f.original }
+func (f *externalIntervalDatalogGroundFailure) CleanupCause() error  { return f.cleanup }
+func (f *externalIntervalDatalogGroundFailure) RuntimeOwner() *memory.Runtime {
+	return f.owner.runtime
+}
+func (f *externalIntervalDatalogGroundFailure) Cleanup() error {
+	f.cleanup = f.owner.resume()
+	return f.cleanup
+}
+
+func newExternalIntervalDatalogGroundFailure(cause error, owner *externalIntervalDatalogGroundContinuation) *externalIntervalDatalogGroundFailure {
+	return &externalIntervalDatalogGroundFailure{
+		original: cause, cleanup: cause, reported: cause, text: cause.Error(), owner: owner,
+	}
+}
+
+func finishExternalIntervalDatalogGroundFailure(cause error, owner *externalIntervalDatalogGroundContinuation) error {
+	if cause != nil {
+		errors.As(cause, &owner.nested)
+	}
+	cleanup := owner.resume()
+	if cleanup == nil {
+		return cause
+	}
+	original := cause
+	if original == nil {
+		original = cleanup
+	}
+	reported := errors.Join(cause, cleanup)
+	return &externalIntervalDatalogGroundFailure{
+		original: original, cleanup: cleanup, reported: reported,
+		text: reported.Error(), owner: owner,
+	}
+}
+
+func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() error {
+	registers, err := a.loadExternalIntervalDatalogRegisters([]ast.ASTHandle{a.ground.head})
+	if err != nil {
+		var pending memory.ConstructionFailure
+		if errors.As(err, &pending) {
+			a.pending = pending
+			a.pendingCompletesRule = false
+			a.pendingIdentity = nil
+			a.pendingGround = nil
+		}
+		return err
+	}
+	owner := &externalIntervalDatalogGroundContinuation{
+		registers: registers,
+		runtime:   registers.runtime,
+	}
+	rollback := func(cause error) error {
+		finished := finishExternalIntervalDatalogGroundFailure(cause, owner)
+		var pending memory.ConstructionFailure
+		if errors.As(finished, &pending) {
+			a.pending = pending
+			a.pendingCompletesRule = false
+			a.pendingIdentity = nil
+			a.pendingGround = nil
+		}
+		owner = nil
+		return finished
+	}
+	entry := a.entries[a.ground.head]
+	if entry == nil {
+		return rollback(ErrExternalIntervalDatalogFragment)
+	}
+	temporary, selected, err := rel.NewSelectedExternalIntervalProduct(a.plugin, entry.sorts, entry.kinds)
+	if err != nil {
+		return rollback(err)
+	}
+	if !selected || temporary == nil {
+		return rollback(ErrExternalIntervalDatalogFragment)
+	}
+	owner.temporary = temporary
+	if err = temporary.AddFact([]ast.ASTHandle{a.ground.value}); err != nil {
+		return rollback(err)
+	}
+	target, err := registers.ensureRelation(a.ground.head)
+	if err != nil {
+		return rollback(err)
+	}
+	if err = target.Union(temporary, nil, false); err != nil {
+		if rel.ExternalAssignmentCommitted(err) {
+			var nested memory.ConstructionFailure
+			if !errors.As(err, &nested) {
+				return rollback(fmt.Errorf("%w: committed union has no cleanup owner", ErrExternalIntervalDatalogFragment))
+			}
+			owner.nested = nested
+			owner.publish = true
+			failure := newExternalIntervalDatalogGroundFailure(err, owner)
+			a.pending = failure
+			a.pendingCompletesRule = true
+			a.pendingIdentity = nil
+			a.pendingGround = a.ground
+			return failure
+		}
+		return rollback(err)
+	}
+	owner.publish = true
+	if err = owner.resume(); err != nil {
+		failure := newExternalIntervalDatalogGroundFailure(err, owner)
+		a.pending = failure
+		a.pendingCompletesRule = true
+		a.pendingIdentity = nil
+		a.pendingGround = a.ground
+		return failure
+	}
+	return nil
+}

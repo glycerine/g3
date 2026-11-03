@@ -215,7 +215,11 @@ func TestExternalIntervalDatalogRejectsUnsupportedPathsBeforeCallbacks(t *testin
 	if status != lbool.Undef || !errors.Is(err, ErrExternalIntervalDatalogFragment) || engine.queryClone != nil || engine.externalIntervalDatalog != nil || len(callbacks.operations) != 0 {
 		t.Fatal("expression query reached clone or callbacks", status, err, engine.queryClone, engine.externalIntervalDatalog, callbacks.operations)
 	}
-	fragmentMust(t, engine.AddRule(application, "unsupported-product-fact-rule"))
+	variable, err := manager.MkVar(0, integer)
+	fragmentMust(t, err)
+	variableHead, err := manager.MkApp(p, []ast.ASTHandle{variable})
+	fragmentMust(t, err)
+	fragmentMust(t, engine.AddRule(variableHead, "unsupported-product-variable-rule"))
 	status, err = engine.QueryPredicate(p)
 	if status != lbool.Undef || !errors.Is(err, ErrExternalIntervalDatalogFragment) || engine.externalIntervalDatalog != nil || len(callbacks.operations) != 0 {
 		t.Fatal("ruleful query reached product construction", status, err, engine.externalIntervalDatalog, callbacks.operations)
