@@ -4,7 +4,6 @@ package bmc
 // Rule substitution and hyper-resolution proof assembly remain separate.
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -21,7 +20,7 @@ func (c *Compiler) LinearTrace(rules *base.RuleSet, query ast.ASTHandle, level u
 	m := c.manager
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, closeRuleOwners(c.manager, result))
+			resultErr = disposeRuleOwners(c.manager, result, resultErr)
 			result = nil
 		}
 	}()
@@ -85,7 +84,7 @@ func (c *Compiler) selectedLinearRule(rules *base.RuleSet, predicate ast.ASTHand
 				}
 			}
 		}
-		err = errors.Join(e, m.DelRef(&ref))
+		err = disposeASTRefs(m, []ast.ASTRef{ref}, e)
 		if err != nil || selected != nil {
 			break
 		}
@@ -97,10 +96,10 @@ func (c *Compiler) selectedLinearRule(rules *base.RuleSet, predicate ast.ASTHand
 	if err == nil {
 		owned, err = selected.Retain()
 	}
-	err = errors.Join(err, closeRuleOwners(m, group))
+	err = disposeRuleOwners(m, group, err)
 	if err != nil {
 		if owned != nil {
-			err = errors.Join(err, closeRuleOwners(m, []*base.Rule{owned}))
+			err = disposeRuleOwners(m, []*base.Rule{owned}, err)
 		}
 		return nil, 0, err
 	}
