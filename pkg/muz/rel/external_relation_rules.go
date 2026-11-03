@@ -485,6 +485,9 @@ func ExecuteExternalFactRulesWithOptions(plugin *ExternalRelationPlugin, set *ba
 			return cause
 		}
 	}
+	executionOwner := &externalRuleExecutionOwner{runtime: plugin.ast.NumeralService().RuntimeOwner()}
+	defer func() { resultErr = finishExternalRuleExecution(executionOwner, resultErr) }()
+	closeOwned := func(relation *ExternalRelation) error { return executionOwner.closeOne(relation) }
 	executeEntry := func(entry externalFactRule, overrideIndex int, override, delta *ExternalRelation, widen bool) error {
 		var value *ExternalRelation
 		var cause error
@@ -511,6 +514,7 @@ func ExecuteExternalFactRulesWithOptions(plugin *ExternalRelationPlugin, set *ba
 			}
 			value, cause = prepareExternalRuleTail(source, entry.filters[0])
 		}
+		value = executionOwner.adopt(value)
 		if cause != nil {
 			return cause
 		}
@@ -521,18 +525,17 @@ func ExecuteExternalFactRulesWithOptions(plugin *ExternalRelationPlugin, set *ba
 				second, secondErr = plugin.PredicateRelation(entry.tails[tailIndex])
 			}
 			if secondErr != nil {
-				return errors.Join(secondErr, value.Close())
+				return errors.Join(secondErr, closeOwned(value))
 			}
 			secondValue, secondErr := prepareExternalRuleTail(second, entry.filters[tailIndex])
+			secondValue = executionOwner.adopt(secondValue)
 			if secondErr != nil {
-				return errors.Join(secondErr, value.Close())
+				return errors.Join(secondErr, closeOwned(value))
 			}
 			joined, joinErr := JoinExternalRelations(value, secondValue, entry.joinLeft[tailIndex-1], entry.joinRight[tailIndex-1])
-			joinErr = errors.Join(joinErr, value.Close(), secondValue.Close())
+			joined = executionOwner.adopt(joined)
+			joinErr = errors.Join(joinErr, closeOwned(value), closeOwned(secondValue))
 			if joinErr != nil {
-				if joined != nil {
-					joinErr = errors.Join(joinErr, joined.Close())
-				}
 				return joinErr
 			}
 			value = joined
@@ -543,11 +546,9 @@ func ExecuteExternalFactRulesWithOptions(plugin *ExternalRelationPlugin, set *ba
 				second = constantRelations[seed.constant]
 			}
 			joined, joinErr := JoinExternalRelations(value, second, nil, nil)
-			joinErr = errors.Join(joinErr, value.Close())
+			joined = executionOwner.adopt(joined)
+			joinErr = errors.Join(joinErr, closeOwned(value))
 			if joinErr != nil {
-				if joined != nil {
-					joinErr = errors.Join(joinErr, joined.Close())
-				}
 				return joinErr
 			}
 			value = joined
@@ -558,31 +559,27 @@ func ExecuteExternalFactRulesWithOptions(plugin *ExternalRelationPlugin, set *ba
 				negativeErr = value.FilterNegation(relation, negative.targetColumns, negative.negativeColumns)
 			}
 			if negativeErr != nil {
-				return errors.Join(negativeErr, value.Close())
+				return errors.Join(negativeErr, closeOwned(value))
 			}
 		}
 		if len(entry.interpreted) != 0 {
 			if cause = filterExternalRuleInterpreted(value, entry.interpreted, entry.columns); cause != nil {
-				return errors.Join(cause, value.Close())
+				return errors.Join(cause, closeOwned(value))
 			}
 		}
 		for _, seed := range entry.headSeeds[headSeedStart:] {
 			joined, joinErr := JoinExternalRelations(value, fullRelations[seed.sort], nil, nil)
-			joinErr = errors.Join(joinErr, value.Close())
+			joined = executionOwner.adopt(joined)
+			joinErr = errors.Join(joinErr, closeOwned(value))
 			if joinErr != nil {
-				if joined != nil {
-					joinErr = errors.Join(joinErr, joined.Close())
-				}
 				return joinErr
 			}
 			value = joined
 		}
 		assembled, assembleErr := assembleExternalRuleHead(value, entry.headColumns, constantRelations)
-		assembleErr = errors.Join(assembleErr, value.Close())
+		assembled = executionOwner.adopt(assembled)
+		assembleErr = errors.Join(assembleErr, closeOwned(value))
 		if assembleErr != nil {
-			if assembled != nil {
-				assembleErr = errors.Join(assembleErr, assembled.Close())
-			}
 			return assembleErr
 		}
 		value = assembled
@@ -590,14 +587,14 @@ func ExecuteExternalFactRulesWithOptions(plugin *ExternalRelationPlugin, set *ba
 		if cause == nil {
 			cause = target.Union(value, delta, widen)
 		}
-		cause = errors.Join(cause, value.Close())
+		cause = errors.Join(cause, closeOwned(value))
 		return cause
 	}
 	closeDeltas := func(deltas map[ast.ASTHandle]*ExternalRelation, heads []ast.ASTHandle) error {
 		var cause error
 		for index := len(heads) - 1; index >= 0; index-- {
 			if delta := deltas[heads[index]]; delta != nil {
-				cause = errors.Join(cause, delta.Close())
+				cause = errors.Join(cause, closeOwned(delta))
 			}
 		}
 		return cause
@@ -616,6 +613,7 @@ func ExecuteExternalFactRulesWithOptions(plugin *ExternalRelationPlugin, set *ba
 					delta, cause = plugin.NewEmpty(sorts)
 				}
 			}
+			delta = executionOwner.adopt(delta)
 			if cause != nil {
 				return nil, errors.Join(cause, closeDeltas(deltas, heads))
 			}

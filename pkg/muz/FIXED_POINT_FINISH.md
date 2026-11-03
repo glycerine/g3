@@ -431,6 +431,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Positive-tail interpreted guards use joined-column variable substitution and one conjunctive external callback, with Boolean preflight and retryable cleanup.
   - [x] Unbound/unsafe heads, interpreted-only bodies and bound/unbound/nullary negation, including direct zero-column negation callbacks.
   - [x] Dependency-first semi-naive SCC scheduling with one-output initialization and recursive widening callbacks.
+  - [x] Preserve all unpublished rule-evaluation and recursive-delta relations across native cleanup refusal, with stable aggregate error transport and exact retry without damaging published predicates.
   - [x] All-or-nothing recursion, registered default selection, arithmetic signatures and independent expression clones with original-result publication.
   - [ ] Mixed external products and remaining exceptional working/delta ownership.
 - [ ] `src/muz/rel/dl_finite_product_relation.cpp` (partial), `src/muz/rel/dl_finite_product_relation.h` (partial)
@@ -493,6 +494,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Recursive external-rule execution now owns every unpublished join, head-assembly and SCC-delta relation until native cleanup completes. Refused cleanup returns one stable retry receipt, preserves published predicate relations, resumes the exact reverse frontier and remains idempotent; wider mixed-product dispatch remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^TestExternalRuleExecution' -count=3` passed. Commit title: `Preserve external rule temporaries through cleanup refusal`.
 
 - 2026-11-02 — Created the complete component/unit checklist from the current inventory. Recent proof work includes sparse/trailing binder remapping and reverse binary resolution; all remain part of a partial slice-converter audit. Native PDR, Spacer, fixedpoint, Duality and transforms checks have passed in recent focused runs; the full native baseline exited 0. Current next action: reconcile stale Duality inventory entries, then continue concrete source-gap closure in the priority order above.
 
