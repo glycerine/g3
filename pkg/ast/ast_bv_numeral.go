@@ -315,11 +315,17 @@ func (m *ASTManager) mkBitVectorNumeralInput(value *unumeral.OwnedRational, bits
 	return m.bitVectorNumeralAppCore(f, bits)
 }
 
-func (m *ASTManager) bitVectorNumeralAppCore(f *astBVNumeralFrame, bits uint32) (astNodeRef, error) {
+func (m *ASTManager) bitVectorNumeralAppCore(f *astBVNumeralFrame, bits uint32) (node astNodeRef, cause error) {
 	decl, e := m.bitVectorNumeralDeclCore(f, &f.values[0], bits)
 	if e != nil {
 		return astNodeRef{}, e
 	}
+	// Numeral declarations are uncached. Own this one across source local
+	// cleanup and application allocation until the application acquires it.
+	if e = m.incNode(decl); e != nil {
+		return astNodeRef{}, e
+	}
+	defer func() { _, err := m.decNode(decl); cause = errors.Join(cause, err) }()
 	for _, i := range f.childOrder() {
 		if i >= 0 {
 			if e = f.children[i].SourceReady(); e != nil {
