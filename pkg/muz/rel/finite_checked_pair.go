@@ -709,9 +709,22 @@ func (p *FiniteCheckedPair) Close() error {
 	if p.closed {
 		return nil
 	}
-	err := errors.Join(p.primary.Close(), p.checker.Close())
-	p.primary, p.checker, p.closed = nil, nil, true
-	return err
+	// Source destruction releases the primary before the checker. A lazy
+	// side may refuse AST-condition cleanup; keep that owner for retry.
+	if p.primary != nil {
+		if err := p.primary.Close(); err != nil {
+			return err
+		}
+		p.primary = nil
+	}
+	if p.checker != nil {
+		if err := p.checker.Close(); err != nil {
+			return err
+		}
+		p.checker = nil
+	}
+	p.closed = true
+	return nil
 }
 
 func (p *FiniteCheckedPair) ConcreteKinds() (primary, checker string, err error) {
