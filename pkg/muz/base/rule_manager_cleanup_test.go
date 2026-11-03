@@ -22,6 +22,12 @@ func TestRuleManagerAndHornNormalizerCleanupNativePending(t *testing.T) {
 	}
 }
 
+func TestHornNormalizationResultCleanupNativePending(t *testing.T) {
+	for _, operation := range []string{"result-close", "proof-result-close"} {
+		t.Run(operation, func(t *testing.T) { testHornCleanupNativePending(t, operation) })
+	}
+}
+
 func testHornCleanupNativePending(t *testing.T, operation string) {
 	must := func(err error) {
 		t.Helper()
@@ -31,6 +37,8 @@ func testHornCleanupNativePending(t *testing.T, operation string) {
 	}
 	budget := arena.NewBudget(1 << 28)
 	var rules *RuleManager
+	var normalized *HornNormalization
+	resultClose := operation == "result-close" || operation == "proof-result-close"
 	var input ast.ASTRef
 	active, callbacks, intact := false, 0, true
 	var observed []string
@@ -48,6 +56,12 @@ func testHornCleanupNativePending(t *testing.T, operation string) {
 		fresh := append([]ast.ASTRef(nil), n.freshPredicates...)
 		todo := append([]ast.ASTRef(nil), n.todoRefs...)
 		body := append([]ast.ASTRef(nil), n.bodyRefs...)
+		var resultProofs, resultFormulas, resultFresh []ast.ASTRef
+		if resultClose {
+			resultProofs = append(resultProofs, normalized.Proofs...)
+			resultFormulas = append(resultFormulas, normalized.Formulas...)
+			resultFresh = append(resultFresh, normalized.FreshPredicates...)
+		}
 		observed = append(observed, fmt.Sprintf("before callback %d: predicates=%d work=%d fresh=%d todo=%d body=%d", callbacks, len(predicates), len(work), len(fresh), len(todo), len(body)))
 		for call := 1; call <= 2; call++ {
 			var failure error
@@ -60,8 +74,13 @@ func testHornCleanupNativePending(t *testing.T, operation string) {
 				failure = n.Reset()
 			case "normalizer-body":
 				failure = n.beginHornStep()
+			case "result-close", "proof-result-close":
+				failure = normalized.Close()
 			}
 			same := !rules.closed && !n.closed && reflect.DeepEqual(rules.predicates, predicates) && reflect.DeepEqual(n.workRefs, work) && reflect.DeepEqual(n.freshPredicates, fresh) && reflect.DeepEqual(n.todoRefs, todo) && reflect.DeepEqual(n.bodyRefs, body)
+			if resultClose {
+				same = same && !normalized.closed && reflect.DeepEqual(normalized.Proofs, resultProofs) && reflect.DeepEqual(normalized.Formulas, resultFormulas) && reflect.DeepEqual(normalized.FreshPredicates, resultFresh)
+			}
 			intact = intact && errors.Is(failure, ast.ErrASTPending) && same
 			observed = append(observed, fmt.Sprintf("close %d: pending=%v err=%v closed=%v normalizer_closed=%v predicates=%d work=%d fresh=%d todo=%d body=%d owners_intact=%v", call, errors.Is(failure, ast.ErrASTPending), failure, rules.closed, n.closed, len(rules.predicates), len(n.workRefs), len(n.freshPredicates), len(n.todoRefs), len(n.bodyRefs), same))
 		}
@@ -85,6 +104,9 @@ func testHornCleanupNativePending(t *testing.T, operation string) {
 	defer func() {
 		active = false
 		must(runtime.SetMaxCount(0))
+		if normalized != nil {
+			must(normalized.Close())
+		}
 		if input != (ast.ASTRef{}) {
 			must(m.DelRef(&input))
 		}
@@ -119,9 +141,23 @@ func testHornCleanupNativePending(t *testing.T, operation string) {
 	must(err)
 	input, err = m.NewRef(formula)
 	must(err)
-	normalized, err := rules.normalizer.Normalize(formula)
+	if operation == "proof-result-close" {
+		must(m.ToggleProofMode(ast.ASTProofEnabled))
+		proof, cause := m.MkProofAsserted(formula)
+		must(cause)
+		must(m.ToggleProofMode(ast.ASTProofDisabled))
+		normalized, err = rules.normalizer.NormalizeWithProof(formula, proof)
+	} else {
+		normalized, err = rules.normalizer.Normalize(formula)
+	}
 	must(err)
-	must(normalized.Close())
+	if resultClose {
+		if len(normalized.Formulas) != 3 || len(normalized.FreshPredicates) != 1 || operation == "proof-result-close" && len(normalized.Proofs) != 3 {
+			t.Fatal("normalization did not produce the expected owning result", len(normalized.Formulas), len(normalized.Proofs), len(normalized.FreshPredicates))
+		}
+	} else {
+		must(normalized.Close())
+	}
 	if len(rules.normalizer.workRefs) == 0 || len(rules.normalizer.freshPredicates) == 0 || len(rules.normalizer.bodyRefs) == 0 {
 		t.Fatal("normalization did not populate actual root owners")
 	}
@@ -129,6 +165,7 @@ func testHornCleanupNativePending(t *testing.T, operation string) {
 	must(err)
 	defer func() { must(numbers.Del(&value)) }()
 	must(numbers.SetString(&value, "18446744073709551617/18446744073709551619"))
+	beforeRefs := m.Stats().LiveReferences
 	must(runtime.SetMaxCount(uint64(runtime.State().GlobalCount) + 1))
 	var invocation ast.ASTArithmeticNumeralInvocation
 	active = true
@@ -144,6 +181,23 @@ func testHornCleanupNativePending(t *testing.T, operation string) {
 	}
 	if !intact {
 		t.Fatalf("cleanup discarded real owners during native callback: callbacks=%d", callbacks)
+	}
+	if resultClose {
+		if m.Stats().LiveReferences != beforeRefs {
+			t.Fatal("refused result cleanup changed AST root counts", beforeRefs, m.Stats().LiveReferences)
+		}
+		owned := uint64(len(normalized.Proofs) + len(normalized.Formulas) + len(normalized.FreshPredicates))
+		for _, group := range [][]ast.ASTRef{normalized.Proofs, normalized.Formulas, normalized.FreshPredicates} {
+			for _, ref := range group {
+				_, cause := m.RefGet(ref)
+				must(cause)
+			}
+		}
+		must(normalized.Close())
+		must(normalized.Close())
+		if !normalized.closed || normalized.Proofs != nil || normalized.Formulas != nil || normalized.FreshPredicates != nil || uint64(m.Stats().LiveReferences)+owned != uint64(beforeRefs) {
+			t.Fatal("result cleanup retry lost or repeated a root release", owned, beforeRefs, m.Stats().LiveReferences)
+		}
 	}
 	// Reset must finish a refused reset without changing the source current
 	// body, but finish a refused body release before allowing new work.

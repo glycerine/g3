@@ -27,27 +27,30 @@ type HornNormalization struct {
 	closed          bool
 }
 
-func (r *HornNormalization) Close() (result error) {
+func (r *HornNormalization) Close() error {
 	if r == nil || r.manager == nil {
 		return ErrHornNormalizationOwner
 	}
 	if r.closed {
 		return nil
 	}
-	for i := len(r.Proofs) - 1; i >= 0; i-- {
-		result = errors.Join(result, r.manager.DelRef(&r.Proofs[i]))
+	// Source ref_vector destruction decrements each vector in forward order.
+	// A decrement may consume its reference before reporting a later error;
+	// keep only the unfinished suffix and stop before touching later owners.
+	for _, refs := range []*[]ast.ASTRef{&r.Proofs, &r.Formulas, &r.FreshPredicates} {
+		for len(*refs) != 0 {
+			err := r.manager.DelRef(&(*refs)[0])
+			if (*refs)[0] == (ast.ASTRef{}) {
+				*refs = (*refs)[1:]
+			}
+			if err != nil {
+				return err
+			}
+		}
+		*refs = nil
 	}
-	for i := len(r.Formulas) - 1; i >= 0; i-- {
-		result = errors.Join(result, r.manager.DelRef(&r.Formulas[i]))
-	}
-	for i := len(r.FreshPredicates) - 1; i >= 0; i-- {
-		result = errors.Join(result, r.manager.DelRef(&r.FreshPredicates[i]))
-	}
-	r.Proofs = nil
-	r.Formulas = nil
-	r.FreshPredicates = nil
 	r.closed = true
-	return result
+	return nil
 }
 
 type hornPrefix struct {
