@@ -32,7 +32,11 @@ func (m *RuleManager) WriteRuleDisplayWithProfile(out io.Writer, rule *Rule, out
 	if state.manager != m.manager {
 		return ErrRuleOwner
 	}
-	if _, err = fmt.Fprintf(out, "%s:\n", state.name); err != nil {
+	name, err := rule.NameText()
+	if err != nil {
+		return err
+	}
+	if _, err = fmt.Fprintf(out, "%s:\n", name); err != nil {
 		return err
 	}
 	if err = m.writePredicateDisplay(out, state.head); err != nil {

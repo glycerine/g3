@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // NewRuleFromFormulaWithProof constructs an already-Horn rule and transfers a
@@ -11,10 +12,20 @@ import (
 // rewrite and modus-ponens path. General formulas requiring HNF definitions
 // remain the responsibility of AddFormula.
 func (m *RuleManager) NewRuleFromFormulaWithProof(formula, proof ast.ASTHandle, name string) (result *Rule, resultErr error) {
-	if proof.IsNull() {
-		return m.NewRuleFromFormula(formula, name)
+	label, err := m.ruleName(name)
+	if err != nil {
+		return nil, err
 	}
-	rule, err := m.NewRuleFromFormula(formula, name)
+	return m.NewRuleFromFormulaWithProofAndSymbol(formula, proof, label)
+}
+
+// NewRuleFromFormulaWithProofAndSymbol preserves the exact source label while
+// transferring the input proof to the normalized rule formula.
+func (m *RuleManager) NewRuleFromFormulaWithProofAndSymbol(formula, proof ast.ASTHandle, name symbol.Symbol) (result *Rule, resultErr error) {
+	if proof.IsNull() {
+		return m.NewRuleFromFormulaWithSymbol(formula, name)
+	}
+	rule, err := m.NewRuleFromFormulaWithSymbol(formula, name)
 	if err != nil {
 		return nil, err
 	}

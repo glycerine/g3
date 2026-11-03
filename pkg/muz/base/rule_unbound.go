@@ -97,11 +97,11 @@ func (m *RuleManager) rebuildRule(rule *Rule, interpreted []ast.ASTHandle) (*Rul
 	if err != nil {
 		return nil, err
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return nil, err
 	}
-	return m.NewRule(head, tails, negated, name)
+	return m.NewRuleWithSymbol(head, tails, negated, name)
 }
 
 // ReduceUnboundVariables applies qe_lite to interpreted tails, selecting the

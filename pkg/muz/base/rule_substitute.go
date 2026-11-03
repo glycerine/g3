@@ -73,7 +73,7 @@ func (m *RuleManager) SubstituteRule(rule *Rule, bindings []ast.ASTHandle) (_ *R
 		}
 		negated[i] = negative
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return nil, err
 	}

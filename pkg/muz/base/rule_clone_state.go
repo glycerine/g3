@@ -6,11 +6,15 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func (m *RuleManager) cloneRuleState(source *Rule, head ast.ASTHandle, name string) (_ *Rule, resultErr error) {
+func (m *RuleManager) cloneRuleState(source *Rule, head ast.ASTHandle, name symbol.Symbol) (_ *Rule, resultErr error) {
 	state, err := m.checkRuleAnalysisOwner(source)
 	if err != nil {
+		return nil, err
+	}
+	if err := m.checkRuleName(name); err != nil {
 		return nil, err
 	}
 	if err = m.validHead(head); err != nil {

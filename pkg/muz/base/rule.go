@@ -29,7 +29,7 @@ type ruleState struct {
 	tail           []ruleTail
 	positive       int
 	uninterpreted  int
-	name           string
+	name           usymbol.Symbol
 	proofReference ast.ASTRef
 	hasProof       bool
 	references     uint32
@@ -151,11 +151,21 @@ func (m *RuleManager) validHead(head ast.ASTHandle) error {
 // have one entry per tail. Negated interpreted formulas are materialized as
 // Boolean not applications, matching the native representation.
 func (m *RuleManager) NewRule(head ast.ASTHandle, tail []ast.ASTHandle, negated []bool, name string) (_ *Rule, resultErr error) {
+	label, err := m.ruleName(name)
+	if err != nil {
+		return nil, err
+	}
+	return m.NewRuleWithSymbol(head, tail, negated, label)
+}
+
+// NewRuleWithSymbol preserves the source name without converting its identity
+// to text. The symbol must belong to this AST manager or be null/numerical.
+func (m *RuleManager) NewRuleWithSymbol(head ast.ASTHandle, tail []ast.ASTHandle, negated []bool, name usymbol.Symbol) (*Rule, error) {
 	return m.newRule(head, tail, negated, name, true)
 }
 
-func (m *RuleManager) newRule(head ast.ASTHandle, tail []ast.ASTHandle, negated []bool, name string, normalize bool) (_ *Rule, resultErr error) {
-	if err := m.open(); err != nil {
+func (m *RuleManager) newRule(head ast.ASTHandle, tail []ast.ASTHandle, negated []bool, name usymbol.Symbol, normalize bool) (_ *Rule, resultErr error) {
+	if err := m.checkRuleName(name); err != nil {
 		return nil, err
 	}
 	if negated != nil && len(negated) != len(tail) {
@@ -375,12 +385,17 @@ func (r *Rule) HeadDeclaration() (ast.ASTHandle, error) {
 	return state.manager.GetDecl(state.head)
 }
 
+// Name is the string convenience view; absent and present-empty labels both
+// produce an empty string. Use NameSymbol for copying or comparing labels.
 func (r *Rule) Name() (string, error) {
 	state, err := r.open()
 	if err != nil {
 		return "", err
 	}
-	return state.name, nil
+	if state.name == (usymbol.Symbol{}) {
+		return "", nil
+	}
+	return state.manager.Symbols.String(state.name)
 }
 
 // Proof returns the borrowed proof currently attached to this shared rule.

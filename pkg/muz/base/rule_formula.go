@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func (m *RuleManager) pinTemporary(temporaries *[]ast.ASTRef, handle ast.ASTHandle) error {
@@ -215,7 +216,17 @@ func (m *RuleManager) hoistCompoundPredicate(expression ast.ASTHandle, next *uin
 // General formulas that require HNF fresh-predicate definitions are rejected
 // explicitly until the HNF transformer supplies those additional rules.
 func (m *RuleManager) NewRuleFromFormula(formula ast.ASTHandle, name string) (_ *Rule, resultErr error) {
-	if err := m.open(); err != nil {
+	label, err := m.ruleName(name)
+	if err != nil {
+		return nil, err
+	}
+	return m.NewRuleFromFormulaWithSymbol(formula, label)
+}
+
+// NewRuleFromFormulaWithSymbol constructs an already-Horn source rule without
+// collapsing null, empty-string, or numerical labels.
+func (m *RuleManager) NewRuleFromFormulaWithSymbol(formula ast.ASTHandle, name symbol.Symbol) (_ *Rule, resultErr error) {
+	if err := m.checkRuleName(name); err != nil {
 		return nil, err
 	}
 	var temporaries []ast.ASTRef
@@ -331,5 +342,5 @@ func (m *RuleManager) NewRuleFromFormula(formula ast.ASTHandle, name string) (_ 
 			}
 		}
 	}
-	return m.NewRule(head, body, negated, name)
+	return m.NewRuleWithSymbol(head, body, negated, name)
 }
