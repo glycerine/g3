@@ -9,7 +9,7 @@ import (
 func TestAPIFixedpointObjectLoadSMT2File(t *testing.T) {
 	f := newAPIFixedpointFixture(t)
 	path := filepath.Join(t.TempDir(), "fixedpoint.smt2")
-	astTestMust(t, os.WriteFile(path, []byte(`(rule (! api-object-fp-p :named file-p))`), 0o600))
+	astTestMust(t, os.WriteFile(path, []byte(`(declare-rel file-p ()) (rule (! file-p :named file-rule))`), 0o600))
 	astTestMust(t, f.fp.LoadSMT2File(path))
 	rules, err := f.fp.Rules()
 	astTestMust(t, err)

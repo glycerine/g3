@@ -7,7 +7,7 @@ import (
 
 func TestAPIFixedpointObjectLoadSMT2Reader(t *testing.T) {
 	f := newAPIFixedpointFixture(t)
-	astTestMust(t, f.fp.LoadSMT2(strings.NewReader(`(assert true) (rule (! api-object-fp-p :named reader-p))`)))
+	astTestMust(t, f.fp.LoadSMT2(strings.NewReader(`(declare-rel reader-p ()) (assert true) (rule (! reader-p :named reader-rule))`)))
 	assertions, err := f.fp.Assertions()
 	astTestMust(t, err)
 	rules, err := f.fp.Rules()
