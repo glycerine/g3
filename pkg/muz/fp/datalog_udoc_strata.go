@@ -35,7 +35,7 @@ func (c *datalogUDocContext) saturateStratified(set *base.RuleSet) (resultErr er
 			return err
 		}
 		head, headErr := rule.HeadDeclaration()
-		_, shapeErr := c.negativeRuleTails(rule)
+		shapeErr := c.preflightUDocRule(rule)
 		stratum, stratumErr := set.PredicateStratum(head)
 		if err = errors.Join(headErr, shapeErr, stratumErr, rule.Close()); err != nil {
 			return err

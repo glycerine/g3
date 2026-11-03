@@ -33,6 +33,9 @@ func (c *datalogUDocContext) appendConstantColumn(working *rel.TypedUDocRelation
 	if err = column.FilterEqual(0, value); err != nil {
 		return nil, nil, 0, errors.Join(err, column.Close())
 	}
+	if working == nil {
+		return column, []ast.ASTHandle{sortHandle}, 0, nil
+	}
 	joined, err := working.Join(column, nil, nil)
 	if err != nil {
 		return nil, nil, 0, errors.Join(err, column.Close())
@@ -44,6 +47,16 @@ func (c *datalogUDocContext) appendConstantColumn(working *rel.TypedUDocRelation
 }
 
 func (c *datalogUDocContext) duplicateColumn(working *rel.TypedUDocRelation, sorts []ast.ASTHandle, source uint32) (*rel.TypedUDocRelation, []ast.ASTHandle, uint32, error) {
+	if len(sorts) == 1 {
+		joined, err := working.Join(working, []uint32{source}, []uint32{0})
+		if err != nil {
+			return nil, nil, 0, err
+		}
+		if err = working.Close(); err != nil {
+			return nil, nil, 0, errors.Join(err, joined.Close())
+		}
+		return joined, append(sorts, sorts[source]), 1, nil
+	}
 	remove := make([]uint32, 0, len(sorts)-1)
 	for i := range sorts {
 		if uint32(i) != source {
@@ -75,7 +88,7 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 		return false, err
 	}
 	tails, err := rule.TailSize()
-	if err != nil || positive == 0 && tails != 0 {
+	if err != nil {
 		return false, errors.Join(err, ErrUDocDatalogFragment)
 	}
 	head, err := rule.Head()
@@ -92,17 +105,28 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 			return false, cause
 		}
 		values := make([]ast.ASTHandle, count)
+		ground := true
 		for i := range values {
 			values[i], cause = c.manager.GetArg(head, uint32(i))
 			if cause != nil {
 				return false, cause
 			}
 			kind, cause := c.manager.GetKind(values[i])
-			if cause != nil || kind == ast.ASTVar {
-				return false, errors.Join(cause, ErrUDocDatalogFragment)
+			if cause != nil {
+				return false, cause
+			}
+			if kind == ast.ASTVar {
+				ground = false
+				continue
+			}
+			value, valueErr := c.manager.IsValue(values[i])
+			if valueErr != nil || !value {
+				return false, errors.Join(valueErr, ErrUDocDatalogFragment)
 			}
 		}
-		return c.result[headDeclaration].AddFact(values)
+		if ground {
+			return c.result[headDeclaration].AddFact(values)
+		}
 	}
 
 	var working *rel.TypedUDocRelation
@@ -244,13 +268,23 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 		}
 	}
 
+	negativeTails, err := c.negativeRuleTails(rule)
+	if err != nil {
+		return false, err
+	}
+	if err = c.addUDocNegativeColumns(&working, &workingSorts, negativeTails, variables); err != nil {
+		return false, err
+	}
 	if err = c.addUDocConditionColumns(&working, rule, uninterpreted, tails, variables); err != nil {
 		return false, err
+	}
+	if working != nil {
+		workingSorts = working.Sorts()
 	}
 	for variable, column := range variables {
 		columnVariables[column] = variable
 	}
-	if err = c.filterNegativeTails(working, rule, variables); err != nil {
+	if err = c.filterNegativeTails(&working, &workingSorts, negativeTails, variables); err != nil {
 		return false, err
 	}
 	filtered, err := c.filterInterpretedTailsAndProject(working, rule, head, uninterpreted, tails, variables, columnVariables)
@@ -258,18 +292,28 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 		return false, err
 	}
 	if filtered != working {
-		if err = working.Close(); err != nil {
+		if working != nil {
+			err = working.Close()
+		}
+		if err != nil {
 			return false, errors.Join(err, filtered.Close())
 		}
 		working = filtered
 	}
-	workingSorts = working.Sorts()
+	if working != nil {
+		workingSorts = working.Sorts()
+	}
 
 	headSorts := c.result[headDeclaration].Sorts()
 	count, err := c.manager.GetNumArgs(head)
 	if err != nil || int(count) != len(headSorts) {
 		return false, errors.Join(err, ErrUDocDatalogFragment)
 	}
+	projectedInputs, projectedSorts, err := c.projectUDocHeadInputs(working, workingSorts, head, variables)
+	if err != nil {
+		return false, err
+	}
+	working, workingSorts = projectedInputs, projectedSorts
 	desired := make([]uint32, count)
 	used := make(map[uint32]bool)
 	for i := uint32(0); i < count; i++ {
@@ -290,7 +334,12 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 			var found bool
 			column, found = variables[variable]
 			if !found {
-				return false, fmt.Errorf("%w: unbound head variable", ErrUDocDatalogFragment)
+				appended, appendedSorts, appendedColumn, appendErr := c.appendFullColumn(working, workingSorts, headSorts[i])
+				if appendErr != nil {
+					return false, appendErr
+				}
+				working, workingSorts, column = appended, appendedSorts, appendedColumn
+				variables[variable] = column
 			}
 		} else {
 			appended, appendedSorts, appendedColumn, appendErr := c.appendConstantColumn(working, workingSorts, headSorts[i], argument)
@@ -307,6 +356,12 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 			working, workingSorts, column = duplicated, duplicatedSorts, duplicatedColumn
 		}
 		used[column], desired[i] = true, column
+	}
+	if working == nil {
+		if err = c.ensureFullNullary(&working); err != nil {
+			return false, err
+		}
+		workingSorts = working.Sorts()
 	}
 	selected := append([]uint32(nil), desired...)
 	sort.Slice(selected, func(i, j int) bool { return selected[i] < selected[j] })

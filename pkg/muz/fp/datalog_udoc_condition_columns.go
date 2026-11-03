@@ -4,7 +4,6 @@ package fp
 // in the interpreted conjunction before constructing its column substitution.
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -16,7 +15,7 @@ func (c *datalogUDocContext) addUDocConditionColumns(working **rel.TypedUDocRela
 	if first == total {
 		return nil
 	}
-	if working == nil || *working == nil {
+	if working == nil {
 		return ErrUDocDatalogFragment
 	}
 	used, err := ast.NewASTUsedVars(c.manager)
@@ -36,6 +35,10 @@ func (c *datalogUDocContext) addUDocConditionColumns(working **rel.TypedUDocRela
 		}
 	}
 	// Validate every missing column before changing the working relation.
+	sorts := []ast.ASTHandle(nil)
+	if *working != nil {
+		sorts = (*working).Sorts()
+	}
 	for variable := uint32(0); variable < used.MaxFoundVarIndexPlusOne(); variable++ {
 		sort := used.Contains(variable)
 		if sort.IsNull() {
@@ -63,21 +66,14 @@ func (c *datalogUDocContext) addUDocConditionColumns(working **rel.TypedUDocRela
 		if err = c.checkpoint(); err != nil {
 			return err
 		}
-		column, cause := c.factory.NewFull([]ast.ASTHandle{sort})
+		appended, appendedSorts, index, cause := c.appendFullColumn(*working, sorts, sort)
 		if cause != nil {
 			return cause
 		}
-		joined, cause := (*working).Join(column, nil, nil)
-		if cause != nil {
-			return errors.Join(cause, column.Close())
-		}
-		prior := *working
-		index := uint32(len(prior.Sorts()))
-		*working = joined
+		*working, sorts = appended, appendedSorts
 		variables[variable] = index
-		if cause = errors.Join(prior.Close(), column.Close()); cause != nil {
-			return cause
-		}
 	}
-	return nil
+	// A variable-free interpreted conjunction still filters one logical
+	// nullary row when there was no positive or negative column source.
+	return c.ensureFullNullary(working)
 }
