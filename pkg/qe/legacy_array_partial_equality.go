@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 type legacyPartialEquality struct {
@@ -21,6 +22,62 @@ type legacyPartialEqualityExpansion struct {
 	manager   *ast.ASTManager
 	equality  ast.ASTRef
 	constants []ast.ASTRef
+}
+
+type legacyPartialEqualityConstructionFailure struct {
+	owner          *legacyPartialEquality
+	nested         memory.ConstructionFailure
+	runtime        *memory.Runtime
+	cause, cleanup error
+	reported       error
+}
+
+var _ memory.ConstructionFailure = (*legacyPartialEqualityConstructionFailure)(nil)
+
+func (f *legacyPartialEqualityConstructionFailure) Error() string                 { return f.reported.Error() }
+func (f *legacyPartialEqualityConstructionFailure) Unwrap() error                 { return f.reported }
+func (f *legacyPartialEqualityConstructionFailure) OriginalCause() error          { return f.cause }
+func (f *legacyPartialEqualityConstructionFailure) CleanupCause() error           { return f.cleanup }
+func (f *legacyPartialEqualityConstructionFailure) RuntimeOwner() *memory.Runtime { return f.runtime }
+func (f *legacyPartialEqualityConstructionFailure) Cleanup() error {
+	if f.nested != nil {
+		f.cleanup = f.nested.Cleanup()
+		if f.cleanup != nil {
+			return f.cleanup
+		}
+		f.nested = nil
+	}
+	if f.owner == nil || f.owner.manager == nil {
+		f.owner = nil
+		f.cleanup = nil
+		return nil
+	}
+	f.cleanup = f.owner.Close()
+	if f.cleanup == nil {
+		f.owner = nil
+	}
+	return f.cleanup
+}
+
+func closeFailedLegacyPartialEquality(owner *legacyPartialEquality, cause error) error {
+	cleanup := owner.Close()
+	if cleanup == nil {
+		return cause
+	}
+	origin := cause
+	if origin == nil {
+		origin = cleanup
+	}
+	reported := cleanup
+	if cause != nil {
+		reported = errors.Join(cause, cleanup)
+	}
+	var nested memory.ConstructionFailure
+	_ = errors.As(cause, &nested)
+	return &legacyPartialEqualityConstructionFailure{
+		owner: owner, nested: nested, runtime: owner.manager.NumeralService().RuntimeOwner(),
+		cause: origin, cleanup: cleanup, reported: reported,
+	}
 }
 
 func newLegacyPartialEquality(manager *ast.ASTManager, family ast.FamilyID, lhs, rhs ast.ASTHandle, indices []ast.ASTHandle) (_ *legacyPartialEquality, resultErr error) {
@@ -41,7 +98,7 @@ func newLegacyPartialEquality(manager *ast.ASTManager, family ast.FamilyID, lhs,
 	result := &legacyPartialEquality{manager: manager, family: family}
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+			resultErr = closeFailedLegacyPartialEquality(result, resultErr)
 		}
 	}()
 	result.lhs, err = manager.NewRef(lhs)
