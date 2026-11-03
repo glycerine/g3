@@ -107,38 +107,41 @@ func (c *Context) expandNode(node *ModelNode) (resultStatus lbool.LBool, resultE
 	return lbool.Undef, nil
 }
 
-func (c *Context) checkReachability(level uint32) (bool, error) {
+func (c *Context) checkReachability(level uint32) (lbool.LBool, error) {
 	truth, err := c.manager.MkTrue()
 	if err != nil {
-		return false, err
+		return lbool.Undef, err
 	}
 	root, err := NewModelNode(nil, truth, c.query, level)
 	if err != nil {
-		return false, err
+		return lbool.Undef, err
 	}
 	if err = c.search.SetRoot(root); err != nil {
-		return false, err
+		return lbool.Undef, err
 	}
 	for {
 		if x := c.checkpoint(); x != nil {
-			return false, x
+			return lbool.Undef, x
 		}
 		node, found, x := c.search.Next()
 		if x != nil {
-			return false, x
+			return lbool.Undef, x
 		}
 		if !found {
 			break
 		}
 		status, x := c.expandNode(node)
 		if x != nil {
-			return false, x
+			return lbool.Undef, x
 		}
 		if status == lbool.Undef {
-			return false, nil
+			return lbool.Undef, nil
 		}
 	}
-	return root.IsClosed(), nil
+	if root.IsClosed() {
+		return lbool.True, nil
+	}
+	return lbool.False, nil
 }
 
 func (c *Context) propagate(maximum uint32) (bool, error) {
@@ -233,11 +236,14 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 			return lbool.Undef, err
 		}
 		c.expanded = level
-		reachable, err := c.checkReachability(level)
+		reachability, err := c.checkReachability(level)
 		if err != nil {
 			return lbool.Undef, err
 		}
-		if reachable {
+		if reachability == lbool.Undef {
+			return lbool.Undef, nil
+		}
+		if reachability == lbool.True {
 			if err = c.verboseReachableSearch(); err != nil {
 				return lbool.Undef, err
 			}
