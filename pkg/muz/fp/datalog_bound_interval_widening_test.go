@@ -147,33 +147,46 @@ func TestDatalogBoundIntervalWideningParameterPrecedence(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalWideningRefusesUnsupportedRecursiveComponents(t *testing.T) {
-	for _, widen := range []bool{false, true} {
-		name := "multiple-heads/ordinary"
-		if widen {
-			name = "multiple-heads/widen"
-		}
-		t.Run(name, func(t *testing.T) {
-			f := newBoundIntervalPublicFixture(t, []string{"bound_relation", "interval_relation"})
-			h, q := f.declare("widen-boundary-H", 1), f.declare("widen-boundary-Q", 1)
-			f.fact(h, 0)
-			x := f.hold(f.m.MkVar(0, f.integer))
-			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(f.app(h, x), f.app(q, x))), "recursive-first"))
-			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(f.app(q, x), f.app(h, x))), "recursive-second"))
+	for _, shape := range []string{"three-heads", "mutual-two-tails"} {
+		for _, widen := range []bool{false, true} {
+			name := shape + "/ordinary"
 			if widen {
-				fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
-				if _, err := f.e.QueryPredicate(h); !errors.Is(err, ErrBoundIntervalDatalogFragment) {
-					t.Fatal("unsupported widening component accepted", err)
-				}
-				if _, err := f.e.Answer(h); !errors.Is(err, ErrPropositionalEngine) {
-					t.Fatal("refused widening query published an answer", err)
-				}
-				return
+				name = shape + "/widen"
 			}
-			answer := boundIntervalWideningAnswer(t, f, h)
-			f.checkFormula(answer, []int{0}, true)
-			f.checkFormula(answer, []int{20}, false)
-			f.checkFormula(answer, []int{21}, false)
-		})
+			t.Run(name, func(t *testing.T) {
+				f := newBoundIntervalPublicFixture(t, []string{"bound_relation", "interval_relation"})
+				h, q := f.declare("widen-boundary-H", 1), f.declare("widen-boundary-Q", 1)
+				f.fact(h, 0)
+				x := f.hold(f.m.MkVar(0, f.integer))
+				body := f.app(h, x)
+				if shape == "mutual-two-tails" {
+					body = f.hold(f.m.MkAnd(body, f.app(q, x)))
+					f.fact(q, 0)
+				}
+				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(body, f.app(q, x))), "recursive-first"))
+				tail := f.app(q, x)
+				if shape == "three-heads" {
+					r := f.declare("widen-boundary-R", 1)
+					fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(tail, f.app(r, x))), "recursive-middle"))
+					tail = f.app(r, x)
+				}
+				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(tail, f.app(h, x))), "recursive-last"))
+				if widen {
+					fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
+					if _, err := f.e.QueryPredicate(h); !errors.Is(err, ErrBoundIntervalDatalogFragment) {
+						t.Fatal("unsupported widening component accepted", err)
+					}
+					if _, err := f.e.Answer(h); !errors.Is(err, ErrPropositionalEngine) {
+						t.Fatal("refused widening query published an answer", err)
+					}
+					return
+				}
+				answer := boundIntervalWideningAnswer(t, f, h)
+				f.checkFormula(answer, []int{0}, true)
+				f.checkFormula(answer, []int{20}, false)
+				f.checkFormula(answer, []int{21}, false)
+			})
+		}
 	}
 }
 

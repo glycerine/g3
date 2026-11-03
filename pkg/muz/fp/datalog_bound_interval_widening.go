@@ -2,7 +2,8 @@ package fp
 
 // Source: dl_compiler.cpp compile_preds_init/compile_dependent_rules and
 // dl_instruction.cpp instr_union/while_loop. This widening consumer admits
-// singleton recursive strata with up to two positive tails per rule.
+// singleton recursive strata with up to two positive tails per rule and
+// two-predicate recursive strata with one positive tail per rule.
 
 import (
 	"errors"
@@ -19,6 +20,10 @@ type boundIntervalWideningRule struct {
 }
 
 type boundIntervalWideningStratum struct {
+	heads []boundIntervalWideningHead
+}
+
+type boundIntervalWideningHead struct {
 	head      ast.ASTHandle
 	initial   []int
 	recursive []boundIntervalWideningVariant
@@ -26,8 +31,9 @@ type boundIntervalWideningStratum struct {
 }
 
 type boundIntervalWideningVariant struct {
-	rule int
-	tail int // -1 selects full relations for all-or-nothing compilation
+	rule      int
+	tail      int // -1 selects full relations for all-or-nothing compilation
+	predicate ast.ASTHandle
 }
 
 func (a *boundIntervalDatalogActivation) wideningRule(index int, rule *base.Rule) (_ boundIntervalWideningRule, resultErr error) {
@@ -101,28 +107,47 @@ func (a *boundIntervalDatalogActivation) wideningPlan() ([]boundIntervalWidening
 		if len(predicates) == 0 {
 			continue
 		}
-		if len(predicates) != 1 {
+		if len(predicates) > 2 {
 			return nil, ErrBoundIntervalDatalogFragment
 		}
-		head := predicates[0]
-		plan := boundIntervalWideningStratum{head: head}
-		for _, rule := range byHead[head] {
-			plan.all = append(plan.all, boundIntervalWideningVariant{rule: rule.index, tail: -1})
-			if len(rule.tails) == 0 {
-				continue // Ground rules have already initialized their targets.
+		inside := make(map[ast.ASTHandle]bool, len(predicates))
+		dependencies := make(map[ast.ASTHandle][]ast.ASTHandle, len(predicates))
+		for _, head := range predicates {
+			inside[head] = true
+			dependencies[head], err = a.rules.Dependencies(head)
+			if err != nil {
+				return nil, err
 			}
-			recursive := false
-			// Source compile_rule emits one variant per recursive occurrence,
-			// in tail order, leaving all other operands as full registers.
-			for index, tail := range rule.tails {
-				if tail == head {
-					recursive = true
-					plan.recursive = append(plan.recursive, boundIntervalWideningVariant{rule: rule.index, tail: index})
+		}
+		ordered, err := rel.SourceRecursivePredicateOrder(predicates, dependencies)
+		if err != nil {
+			return nil, err
+		}
+		plan := boundIntervalWideningStratum{}
+		for _, head := range ordered {
+			headPlan := boundIntervalWideningHead{head: head}
+			for _, rule := range byHead[head] {
+				if len(predicates) > 1 && len(rule.tails) > 1 {
+					return nil, ErrBoundIntervalDatalogFragment
+				}
+				headPlan.all = append(headPlan.all, boundIntervalWideningVariant{rule: rule.index, tail: -1})
+				if len(rule.tails) == 0 {
+					continue // Ground rules have already initialized their targets.
+				}
+				recursive := false
+				// Each SCC-tail occurrence gets its own old input register.
+				// Singleton strata preserve the existing two-tail variants.
+				for index, tail := range rule.tails {
+					if inside[tail] {
+						recursive = true
+						headPlan.recursive = append(headPlan.recursive, boundIntervalWideningVariant{rule: rule.index, tail: index, predicate: tail})
+					}
+				}
+				if !recursive {
+					headPlan.initial = append(headPlan.initial, rule.index)
 				}
 			}
-			if !recursive {
-				plan.initial = append(plan.initial, rule.index)
-			}
+			plan.heads = append(plan.heads, headPlan)
 		}
 		result = append(result, plan)
 	}
@@ -163,57 +188,82 @@ func (a *boundIntervalDatalogActivation) saturateWithWidening(products map[ast.A
 		return err
 	}
 	for _, stratum := range plan {
-		for _, index := range stratum.initial {
-			if err = a.checkpoint(); err != nil {
-				return err
-			}
-			rule, err := a.rules.Rule(index)
-			if err != nil {
-				return err
-			}
-			if _, err = a.evaluatePositiveRule(rule, products); err != nil {
-				return err
-			}
+		current := make(map[ast.ASTHandle]*rel.IntervalBoundProduct, len(stratum.heads))
+		recursive := false
+		for _, head := range stratum.heads {
+			recursive = recursive || len(head.recursive) != 0
 		}
-		if len(stratum.recursive) == 0 {
-			continue
-		}
-		current, err := products[stratum.head].Clone()
-		if err != nil {
-			return err
-		}
-		loop := stratum.recursive
-		if allOrNothing {
-			loop = stratum.all
-		}
-		for current != nil && !current.Empty() {
-			var next *rel.IntervalBoundProduct
-			for _, variant := range loop {
+		for _, head := range stratum.heads {
+			for _, index := range head.initial {
 				if err = a.checkpoint(); err != nil {
 					return err
 				}
-				if next == nil {
-					entry := a.entries[stratum.head]
-					var selected bool
-					next, selected, err = rel.NewSelectedIntervalBoundProduct(a.manager, entry.sorts, entry.kinds, true)
-					if err != nil || !selected {
-						return errors.Join(err, ErrBoundIntervalDatalogFragment)
-					}
-				}
-				inputs := boundIntervalRuleInputs{products: products}
-				if variant.tail >= 0 {
-					inputs.deltaTail, inputs.delta = variant.tail, current
-				}
-				if err = a.evaluateWideningRule(variant.rule, stratum.head, inputs, products, next); err != nil {
+				rule, err := a.rules.Rule(index)
+				if err != nil {
 					return err
 				}
-				// instr_union clears an empty delta register after EACH variant.
-				// Its hidden nonempty component must not join a later variant's
-				// different component and spuriously keep the loop running.
-				if next.Empty() {
-					next = nil
+				if _, err = a.evaluatePositiveRule(rule, products); err != nil {
+					return err
 				}
 			}
+			if recursive {
+				current[head.head], err = products[head.head].Clone()
+				if err != nil {
+					return err
+				}
+			}
+		}
+		if !recursive {
+			continue
+		}
+		for {
+			active := false
+			for _, head := range stratum.heads {
+				active = active || !current[head.head].Empty()
+			}
+			if !active {
+				break
+			}
+			next := make(map[ast.ASTHandle]*rel.IntervalBoundProduct, len(stratum.heads))
+			for _, head := range stratum.heads {
+				loop := head.recursive
+				if allOrNothing {
+					loop = head.all
+				}
+				for _, variant := range loop {
+					if err = a.checkpoint(); err != nil {
+						return err
+					}
+					inputs := boundIntervalRuleInputs{products: products}
+					if variant.tail >= 0 {
+						delta := current[variant.predicate]
+						// An absent delta is an empty source register, not the
+						// selector's nil override meaning a full relation.
+						if delta.Empty() {
+							continue
+						}
+						inputs.deltaTail, inputs.delta = variant.tail, delta
+					}
+					if next[head.head] == nil {
+						entry := a.entries[head.head]
+						var selected bool
+						next[head.head], selected, err = rel.NewSelectedIntervalBoundProduct(a.manager, entry.sorts, entry.kinds, true)
+						if err != nil || !selected {
+							return errors.Join(err, ErrBoundIntervalDatalogFragment)
+						}
+					}
+					if err = a.evaluateWideningRule(variant.rule, head.head, inputs, products, next[head.head]); err != nil {
+						return err
+					}
+					// instr_union clears an empty delta after EACH variant.
+					// Hidden component changes must not combine across runs.
+					if next[head.head].Empty() {
+						delete(next, head.head)
+					}
+				}
+			}
+			// All SCC predicates use global deltas in the source. Move
+			// every output together, only after the complete iteration.
 			current = next
 		}
 	}
