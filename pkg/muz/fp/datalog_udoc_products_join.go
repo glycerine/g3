@@ -48,10 +48,20 @@ func (e *PropositionalEngine) planUDocProductPair(program *udocProductProgram, r
 			if err != nil {
 				return nil, err
 			}
-			if kind != ast.ASTVar || seen[argument] {
+			if kind == ast.ASTVar {
+				if seen[argument] {
+					return nil, ErrUDocDatalogFragment
+				}
+				seen[argument] = true
+				continue
+			}
+			value, err := e.manager.IsValue(argument)
+			if err != nil {
+				return nil, err
+			}
+			if !value {
 				return nil, ErrUDocDatalogFragment
 			}
-			seen[argument] = true
 		}
 	}
 	if !ready {
@@ -67,6 +77,15 @@ func (e *PropositionalEngine) planUDocProductPair(program *udocProductProgram, r
 	}
 	pair := &udocProductPairPlan{left: declarations[0], right: declarations[1]}
 	for i, left := range arguments[0] {
+		kind, err := e.manager.GetKind(left)
+		if err != nil {
+			return nil, err
+		}
+		// Source variable_intersection only matches variables. Identical
+		// constants in different tails are separate post-join filters.
+		if kind != ast.ASTVar {
+			continue
+		}
 		for j, right := range arguments[1] {
 			if left == right {
 				pair.leftColumns = append(pair.leftColumns, uint32(i))
@@ -76,9 +95,13 @@ func (e *PropositionalEngine) planUDocProductPair(program *udocProductProgram, r
 	}
 	plan := &udocProductRulePlan{head: declaration, pair: pair}
 	joined := append(append([]ast.ASTHandle(nil), arguments[0]...), arguments[1]...)
-	if err = planUDocProductAssembly(e.manager, plan, joined, head, false); err != nil {
+	if err = planUDocProductAssembly(e.manager, plan, joined, head, true); err != nil {
 		return nil, err
 	}
+	// Same-tail repeats remain outside this slice. Every remaining repeated
+	// variable crosses the two tails, so source joins already enforce its
+	// identity and the compiler skips the later FilterIdentical operation.
+	plan.identical = nil
 	return plan, nil
 }
 
