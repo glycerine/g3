@@ -12,7 +12,6 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/smtcore"
-	"github.com/glycerine/g3/pkg/tactic"
 	tacticcore "github.com/glycerine/g3/pkg/tactic/core"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -193,48 +192,19 @@ func (b *predicateRuleBuilder) rewrite(formula ast.ASTHandle) (ast.ASTHandle, er
 	return result, nil
 }
 
-func (b *predicateRuleBuilder) blastTermITE(formula ast.ASTHandle) (_ ast.ASTHandle, resultErr error) {
-	proofs, err := b.transformer.manager.ProofsEnabled()
+func (b *predicateRuleBuilder) blastTermITE(formula ast.ASTHandle) (ast.ASTHandle, error) {
+	manager := b.transformer.manager
+	output, err := manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	goal, err := tactic.NewGoal(b.transformer.manager, proofs, false, false)
-	if err != nil {
+	// Source rewrites an expr_ref in place; keep its root owned by the rule
+	// builder before the standalone traversal can publish a new expression.
+	b.references = append(b.references, output)
+	if err = tacticcore.BlastTermITEInto(manager, formula, output); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, goal.Close()) }()
-	if err = goal.Assert(formula); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	config := b.transformer.owner.contexts.config
-	runner, err := tacticcore.NewEliminateTermITETactic(b.transformer.manager, config.Params, config.Globals, nil, config.ModelEvaluator)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if err = runner.IncRef(); err != nil {
-		return ast.ASTHandle{}, errors.Join(err, runner.Close())
-	}
-	defer func() { resultErr = errors.Join(resultErr, runner.DecRef()) }()
-	output := &tactic.TacticResult{}
-	defer func() { resultErr = errors.Join(resultErr, output.Close()) }()
-	if err = runner.Apply(goal, output); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if len(output.Goals) != 1 {
-		return ast.ASTHandle{}, ast.ErrASTDomain
-	}
-	formulas, err := output.Goals[0].AppendFormulas(nil)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	result, err := b.transformer.manager.MkAndArray(formulas)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if err = b.pin(result); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	return result, nil
+	return manager.RefGet(output)
 }
 
 func (b *predicateRuleBuilder) stateApplication(transformer *PredicateTransformer, argument uint32, old *uint32) (ast.ASTHandle, error) {
