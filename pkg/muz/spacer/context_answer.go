@@ -20,7 +20,7 @@ func closeReachFacts(facts []*ReachFact) (result error) {
 
 func (c *Context) groundSatAnswer() (result ast.ASTRef, resultErr error) {
 	defer func() {
-		if resultErr != nil {
+		if resultErr != nil && result != (ast.ASTRef{}) {
 			resultErr = errors.Join(resultErr, c.manager.DelRef(&result))
 		}
 	}()
