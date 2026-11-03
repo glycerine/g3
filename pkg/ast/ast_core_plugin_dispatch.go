@@ -9,7 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 )
 
-func (m *ASTManager) mkFamilyApp(fid FamilyID, k int32, ps []ASTParameter, args []ASTHandle) (astNodeRef, error) {
+func (m *ASTManager) mkFamilyApp(fid FamilyID, k int32, ps []ASTParameter, args []ASTHandle) (result astNodeRef, cause error) {
 	if fid < 0 || !m.pluginAt(fid).present {
 		return astNodeRef{}, nil
 	}
@@ -148,6 +148,12 @@ func (m *ASTManager) mkFamilyApp(fid FamilyID, k int32, ps []ASTParameter, args 
 			if e != nil || d.slot == 0 {
 				return astNodeRef{}, e
 			}
+			// Parameterized proof declarations are not cached. Own the declaration
+			// until the application takes its reference, or discard it on failure.
+			if e = m.incNode(d); e != nil {
+				return astNodeRef{}, e
+			}
+			defer func() { _, err := m.decNode(d); cause = errors.Join(cause, err) }()
 			return m.mkApp(d, args)
 		}
 	}

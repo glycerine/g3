@@ -297,8 +297,8 @@ func TestASTProofHyperBuilderAllFailurePrefixesImmediateOwnership(t *testing.T) 
 		} else {
 			successes++
 		}
-		// Inspect immediately, before Del/Close/String: completed declaration
-		// publication may legitimately survive a subsequent app failure.
+		// Inspect immediately, before Del/Close/String, so later cleanup cannot
+		// hide a temporary left behind by a failed application construction.
 		// Every surviving parameter must belong to a published node's info;
 		// lexical parameter ownership must already be retired; argument slices
 		// create no numeric-arena reservations.
