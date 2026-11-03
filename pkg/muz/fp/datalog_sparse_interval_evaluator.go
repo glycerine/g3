@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // SparseIntervalDatalogEvaluator borrows the relation manager and rule set,
@@ -87,6 +88,17 @@ func NewSparseIntervalDatalogEvaluator(manager *ast.ASTManager, relations *rel.R
 func (e *SparseIntervalDatalogEvaluator) open() error {
 	if e == nil || e.closed || e.manager == nil || e.relations == nil || e.rules == nil || e.guard == nil || e.sorts == nil || e.products == nil {
 		return ErrSparseIntervalDatalogFragment
+	}
+	return nil
+}
+
+func (e *SparseIntervalDatalogEvaluator) checkpoint() error {
+	canceled, err := e.manager.Canceled()
+	if err != nil {
+		return err
+	}
+	if canceled {
+		return z3exception.NewDefaultException(e.manager.ResourceLimit().CancelMessage())
 	}
 	return nil
 }

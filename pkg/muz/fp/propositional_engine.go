@@ -37,6 +37,7 @@ var (
 )
 
 type predicateState struct {
+	requestedRepresentations     []string
 	argumentNames                []symbol.Symbol
 	argumentNamesSet             bool
 	explicitFiniteRepresentation bool
@@ -75,6 +76,7 @@ func (e *PropositionalEngine) predicateState(declaration ast.ASTHandle) (*predic
 		state.explicitFiniteRepresentation = prior.explicitFiniteRepresentation
 		state.argumentNames = append([]symbol.Symbol(nil), prior.argumentNames...)
 		state.argumentNamesSet = prior.argumentNamesSet
+		state.requestedRepresentations = append([]string(nil), prior.requestedRepresentations...)
 	}
 	return state, nil
 }
@@ -178,6 +180,7 @@ type PropositionalEngine struct {
 	ddnf                ddnfEngineState
 
 	lazyFinite               *rel.LazySparseFiniteFactory
+	sparseIntervalDatalog    *sparseIntervalDatalogActivation
 	intervalDatalog          *intervalDatalogActivation
 	boundDatalog             *boundDatalogRuntime
 	arithmeticFactCleanup    []*arithmeticTableFactAttempt
@@ -282,9 +285,8 @@ func (e *PropositionalEngine) RegisterPredicate(declaration ast.ASTHandle) error
 	return nil
 }
 
-// SetPredicateRepresentation accepts the native finite-table implementation
-// names. The Go backend uses one exact tuple-set
-// representation for all four storage-equivalent native table plugins.
+// SetPredicateRepresentation selects the reached concrete relation plugins
+// and preserves the requested source names for later backend activation.
 func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHandle, kinds []string) error {
 	if err := e.open(); err != nil {
 		return err
@@ -327,6 +329,9 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 	if e.queried {
 		return fmt.Errorf("muz/fp: predicate representation must be selected before querying")
 	}
+	if isSparseIntervalRepresentation(kinds) {
+		return e.selectSparseIntervalRepresentation(declaration, kinds)
+	}
 	if len(kinds) == 1 && kinds[0] == "external_relation" {
 		external, err := e.ExternalPredicateRelation(declaration)
 		if err != nil {
@@ -334,6 +339,7 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		}
 		state.external = external
 		state.table = nil
+		state.requestedRepresentations = append([]string(nil), kinds...)
 		e.revision++
 		return nil
 	}
@@ -377,6 +383,7 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		}
 	}
 	state.explicitFiniteRepresentation = true
+	state.requestedRepresentations = append([]string(nil), kinds...)
 	e.revision++
 	return nil
 }
@@ -546,6 +553,17 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 			return err
 		}
 		e.engineInstantiated = true
+		if selected, err := e.ensureSparseIntervalDatalog(); err != nil {
+			return err
+		} else if selected {
+			if err = e.sparseIntervalDatalog.addFact(declaration, values); err != nil {
+				return err
+			}
+			e.invalidateQueryForMutation()
+			e.advanceRuleRevision()
+			e.compiled = false
+			return nil
+		}
 		if selected, err := e.ensureIntervalDatalog(); err != nil {
 			return err
 		} else if selected {
@@ -613,6 +631,11 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 			return err
 		}
 		e.engineInstantiated = true
+		if selected, err := e.ensureSparseIntervalDatalog(); err != nil {
+			return err
+		} else if selected {
+			return e.addArithmeticTableFact(declaration, values)
+		}
 		if selected, err := e.ensureIntervalDatalog(); err != nil {
 			return err
 		} else if selected {
@@ -2016,6 +2039,11 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if err := e.applyDatalogDefaultFiniteTable(); err != nil {
 		return lbool.Undef, err
 	}
+	if selected, err := e.ensureSparseIntervalDatalog(); err != nil {
+		return lbool.Undef, err
+	} else if selected {
+		return e.querySparseIntervalDatalog(declarations)
+	}
 	if selected, err := e.ensureIntervalDatalog(); err != nil {
 		return lbool.Undef, err
 	} else if selected {
@@ -2249,6 +2277,9 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 	}
 	if err = e.requireResultSnapshot(kind); err != nil {
 		return answer, err
+	}
+	if kind == EngineDatalog && e.sparseIntervalDatalog != nil {
+		return e.sparseIntervalDatalog.relationFormula(declaration)
 	}
 	if kind == EngineDatalog && e.boundDatalog != nil {
 		return e.boundDatalog.relationFormula(declaration)
@@ -2670,6 +2701,9 @@ func (e *PropositionalEngine) Close() (result error) {
 		return err
 	}
 	if err := e.closeDuality(); err != nil {
+		return errors.Join(result, err)
+	}
+	if err := e.closeSparseIntervalDatalog(); err != nil {
 		return errors.Join(result, err)
 	}
 	if err := e.closeIntervalDatalog(); err != nil {

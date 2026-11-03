@@ -66,6 +66,9 @@ func ensureSparseIntervalConditionVariables(manager *ast.ASTManager, condition a
 
 func (e *SparseIntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, widen bool) (changed bool, resultErr error) {
 	defer func() { resultErr = errors.Join(resultErr, rule.Close()) }()
+	if err := e.checkpoint(); err != nil {
+		return false, err
+	}
 	positive, err := rule.PositiveTailSize()
 	if err != nil || positive == 0 {
 		return false, errors.Join(err, fmt.Errorf("%w: expected positive tail", ErrSparseIntervalDatalogFragment))
@@ -339,6 +342,9 @@ func (e *SparseIntervalDatalogEvaluator) evaluateComponent(component map[ast.AST
 		return false, err
 	}
 	for i := 0; i < count; i++ {
+		if err = e.checkpoint(); err != nil {
+			return false, err
+		}
 		rule, cause := e.rules.Rule(i)
 		if cause != nil {
 			return false, cause
@@ -396,6 +402,9 @@ func (e *SparseIntervalDatalogEvaluator) SaturatePositive(widen bool) (resultErr
 	if err := e.open(); err != nil {
 		return err
 	}
+	if err := e.checkpoint(); err != nil {
+		return err
+	}
 	previous := make(map[ast.ASTHandle]*rel.SparseIntervalSieveProduct, len(e.products))
 	for declaration, product := range e.products {
 		clone, err := product.Clone()
@@ -417,6 +426,9 @@ func (e *SparseIntervalDatalogEvaluator) SaturatePositive(widen bool) (resultErr
 		return err
 	}
 	for i := 0; i < count; i++ {
+		if err = e.checkpoint(); err != nil {
+			return err
+		}
 		rule, cause := e.rules.Rule(i)
 		if cause != nil {
 			return cause
@@ -437,15 +449,24 @@ func (e *SparseIntervalDatalogEvaluator) SaturatePositive(widen bool) (resultErr
 	// SCC construction depends only on declarations and rules; reuse the
 	// existing source-order implementation shared with the interval lane.
 	helper := &IntervalDatalogEvaluator{rules: e.rules, sorts: e.sorts}
+	if err = e.checkpoint(); err != nil {
+		return err
+	}
 	component, order, err := helper.intervalPredicateSCCs()
 	if err != nil {
 		return errors.Join(err, ErrSparseIntervalDatalogFragment)
 	}
 	for _, current := range order {
+		if err = e.checkpoint(); err != nil {
+			return err
+		}
 		if _, err = e.evaluateComponent(component, current, false, false); err != nil {
 			return err
 		}
 		for {
+			if err = e.checkpoint(); err != nil {
+				return err
+			}
 			changed, cause := e.evaluateComponent(component, current, true, widen)
 			if cause != nil {
 				return cause
