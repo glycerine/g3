@@ -1,3 +1,5 @@
+//go:build g3trace
+
 package protomodel
 
 import (
@@ -38,9 +40,6 @@ func TestDatatypeFactoryUtilityStopsBeforeBaseTeardown(t *testing.T) {
 	floatSort, err := m.FloatingPointSort(3, 4)
 	protoMust(t, err)
 	tags.Enable("ast")
-	if !tags.ShouldTrace("ast") {
-		t.Skip("requires source trace build")
-	}
 	_, err = m.MkFPAZeroOfSort(floatSort, false)
 	protoMust(t, err)
 	if !output.attempted || !errors.Is(output.failure, ast.ErrASTPending) {
@@ -97,9 +96,6 @@ func TestDatatypeFactoryLexicalScopeStopsBeforeMembersAndRetries(t *testing.T) {
 		f.finishScope(scope, &lexicalErr)
 	}
 	tags.Enable("ast")
-	if !tags.ShouldTrace("ast") {
-		t.Skip("requires source trace build")
-	}
 	_, err = m.MkFPAZeroOfSort(floatSort, false)
 	protoMust(t, err)
 	if attempts != 1 || !errors.Is(lexicalErr, ast.ErrASTPending) || len(f.pending) != 1 || f.pending[0].scope != scope {
