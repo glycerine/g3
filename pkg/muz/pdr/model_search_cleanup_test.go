@@ -20,14 +20,18 @@ import (
 // The solved nonlinear trace below produces fresh numeric assignments, so
 // native failure exercises those actual models rather than fabricated metadata.
 func TestModelSearchResetPreservesSolvedModelsAfterConsumedNativeFailure(t *testing.T) {
-	testModelSearchNativeCleanup(t, false)
+	testModelSearchNativeCleanup(t, false, false)
 }
 
 func TestPDRRepeatedSolveReleasesUnadoptedRootAfterNativeResetFailure(t *testing.T) {
-	testModelSearchNativeCleanup(t, true)
+	testModelSearchNativeCleanup(t, true, false)
 }
 
-func testModelSearchNativeCleanup(t *testing.T, replacing bool) {
+func TestModelNodeReplacementPreservesBothSolvedModelOwnersAfterNativeFailure(t *testing.T) {
+	testModelSearchNativeCleanup(t, false, true)
+}
+
+func testModelSearchNativeCleanup(t *testing.T, replacing, replacingModel bool) {
 	must := func(e error) {
 		t.Helper()
 		if e != nil {
@@ -245,7 +249,9 @@ func testModelSearchNativeCleanup(t *testing.T, replacing bool) {
 	// Its destructor consumes a numeric block before synchronization refuses.
 	before := rt.Stats().LiveBlocks
 	var cause error
-	if replacing {
+	if replacingModel {
+		cause = root.SetModel(childModel)
+	} else if replacing {
 		status, cause = c.Solve(g)
 		if status != lbool.Undef {
 			t.Fatal("failed root replacement published a result", status, cause)
@@ -259,37 +265,60 @@ func testModelSearchNativeCleanup(t *testing.T, replacing bool) {
 		cause = c.Reset()
 	}
 	if !errors.Is(cause, arena.ErrBounds) || rt.Stats().LiveBlocks+1 != before {
-		t.Fatal("reset missed the consumed child model failure", cause, before, rt.Stats().LiveBlocks)
+		t.Fatal("operation missed the consumed model cleanup failure", cause, before, rt.Stats().LiveBlocks)
 	}
-	if c.search.root != root || child.model != childModel || childModel.References != 0 || childModel.Closed || rootModel.References != 1 {
-		t.Fatal("child failure discarded a model or later root", child.model == childModel, childModel.References, childModel.Closed, rootModel.References)
+	if replacingModel {
+		if c.search.root != root || root.model != rootModel || rootModel.References != 0 || rootModel.Closed || root.pendingModel != childModel || childModel.References != 2 || child.model != childModel {
+			t.Fatal("failed replacement changed source publication order or lost a counted owner", root.model == rootModel, rootModel.References, rootModel.Closed, root.pendingModel == childModel, childModel.References)
+		}
+		if _, _, err = root.Model(); !errors.Is(err, ast.ErrASTPending) {
+			t.Fatal("partly replaced root remained usable", err)
+		}
+		if err = root.SetModel(nil); !errors.Is(err, ast.ErrASTPending) {
+			t.Fatal("interrupted replacement accepted another model mutation", err)
+		}
+		if _, err = m.GetRefCount(childValue); err != nil {
+			t.Fatal("failed replacement disturbed the staged incoming payload", err)
+		}
+	} else {
+		if c.search.root != root || child.model != childModel || childModel.References != 0 || childModel.Closed || rootModel.References != 1 {
+			t.Fatal("child failure discarded a model or later root", child.model == childModel, childModel.References, childModel.Closed, rootModel.References)
+		}
+		pendingChild := false
+		for _, node := range c.search.pendingRelease {
+			pendingChild = pendingChild || node == child
+		}
+		if !pendingChild {
+			t.Fatal("search lost its pending child release")
+		}
 	}
-	pendingChild := false
-	for _, node := range c.search.pendingRelease {
-		pendingChild = pendingChild || node == child
+	if !replacingModel {
+		if _, _, err = c.search.Root(); !errors.Is(err, ast.ErrASTPending) {
+			t.Fatal("interrupted search remained observable", err)
+		}
+		if _, _, err = child.Model(); !errors.Is(err, ast.ErrASTPending) {
+			t.Fatal("partly released child remained usable", err)
+		}
+		if _, err = m.GetRefCount(rootValue); err != nil {
+			t.Fatal("child failure disturbed later root payload", err)
+		}
 	}
-	if !pendingChild {
-		t.Fatal("search lost its pending child release")
-	}
-	if _, _, err = c.search.Root(); !errors.Is(err, ast.ErrASTPending) {
-		t.Fatal("interrupted search remained observable", err)
-	}
-	if _, _, err = child.Model(); !errors.Is(err, ast.ErrASTPending) {
-		t.Fatal("partly released child remained usable", err)
-	}
-	if _, err = m.GetRefCount(rootValue); err != nil {
-		t.Fatal("child failure disturbed later root payload", err)
-	}
-	// Retry without repairing the allocator. Child cleanup must use Close,
-	// never decrement its already consumed reference, and reach the root's
-	// independent numeric payload before refusing again.
+	// Retry without repairing the allocator. Cleanup must use Close for the
+	// consumed reference. The reset/solve cases then reach the root payload;
+	// the replacement case reaches the staged incoming model payload.
 	before = rt.Stats().LiveBlocks
 	second := c.Reset()
 	if !errors.Is(second, arena.ErrBounds) || rt.Stats().LiveBlocks+1 != before {
 		t.Fatal("retry missed the consumed root model failure", second, before, rt.Stats().LiveBlocks)
 	}
-	if !childModel.Closed || child.model != nil || c.search.root != root || root.model != rootModel || rootModel.References != 0 || rootModel.Closed {
-		t.Fatal("retry lost a root or decremented an already consumed model", childModel.Closed, child.model == nil, root.model == rootModel, rootModel.References, rootModel.Closed)
+	if replacingModel {
+		if !rootModel.Closed || child.model != nil || c.search.root != root || root.model != childModel || root.pendingModel != nil || childModel.References != 0 || childModel.Closed {
+			t.Fatal("reset lost staged replacement cleanup or decremented a consumed owner", rootModel.Closed, child.model == nil, root.model == childModel, root.pendingModel == nil, childModel.References, childModel.Closed)
+		}
+	} else {
+		if !childModel.Closed || child.model != nil || c.search.root != root || root.model != rootModel || rootModel.References != 0 || rootModel.Closed {
+			t.Fatal("retry lost a root or decremented an already consumed model", childModel.Closed, child.model == nil, root.model == rootModel, rootModel.References, rootModel.Closed)
+		}
 	}
 	if len(c.search.pendingRelease) != 0 || !c.search.rootRemoved {
 		t.Fatal("root failure lost its source removal phase", len(c.search.pendingRelease), c.search.rootRemoved)
@@ -303,7 +332,7 @@ func testModelSearchNativeCleanup(t *testing.T, replacing bool) {
 	must(err)
 	must(c.Reset())
 	must(c.Reset())
-	if c.search.root != nil || len(c.search.pendingRelease) != 0 || c.search.rootRemoved || !rootModel.Closed || root.model != nil {
+	if c.search.root != nil || len(c.search.pendingRelease) != 0 || c.search.rootRemoved || !rootModel.Closed || !childModel.Closed || root.model != nil {
 		t.Fatal("public reset did not drain its model owners")
 	}
 	initialized, err = c.Initialized()
@@ -327,6 +356,31 @@ func testModelSearchNativeCleanup(t *testing.T, replacing bool) {
 	must(err)
 	if status != lbool.True {
 		t.Fatal("reinitialized source program changed result", status)
+	}
+	if replacingModel {
+		fresh, found, getErr := c.search.Root()
+		must(getErr)
+		if !found || len(fresh.children) != 2 {
+			t.Fatal("reinitialized trace lost its actual model owners")
+		}
+		prior, incoming := fresh.model, fresh.children[0].model
+		if prior == nil || incoming == nil || prior == incoming || prior.References != 1 || incoming.References != 1 {
+			t.Fatal("unexpected solved model owners before successful replacement")
+		}
+		must(fresh.SetModel(incoming))
+		if !prior.Closed || fresh.model != incoming || incoming.References != 2 {
+			t.Fatal("successful replacement lost its source model references")
+		}
+		must(fresh.SetModel(incoming))
+		if incoming.References != 2 {
+			t.Fatal("self replacement changed its reference count", incoming.References)
+		}
+		must(fresh.SetModel(nil))
+		current, found, getErr := fresh.Model()
+		must(getErr)
+		if current != nil || found || incoming.References != 1 || incoming.Closed {
+			t.Fatal("nil replacement changed the independent child owner")
+		}
 	}
 	must(c.Reset())
 	must(c.Close())

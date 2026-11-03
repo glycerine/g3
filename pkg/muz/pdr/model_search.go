@@ -22,6 +22,7 @@ type ModelNode struct {
 	state         ast.ASTHandle
 	stateRef      ast.ASTRef
 	model         *model.ModelCore
+	pendingModel  *model.ModelCore
 	modelConsumed bool
 	rule          *base.Rule
 	selected      *normalizedRule
@@ -115,7 +116,7 @@ func (n *ModelNode) IncreaseLevel() error {
 	return nil
 }
 
-func (n *ModelNode) SetModel(value *model.ModelCore) (result error) {
+func (n *ModelNode) SetModel(value *model.ModelCore) error {
 	if err := n.open(); err != nil {
 		return err
 	}
@@ -127,12 +128,24 @@ func (n *ModelNode) SetModel(value *model.ModelCore) (result error) {
 			return err
 		}
 	}
-	prior := n.model
-	n.model = value
-	if prior != nil {
-		result = prior.DecRef()
+	// Source ref::operator= acquires the replacement, releases the old
+	// reference, and only then publishes the new pointer. A refused release
+	// keeps both owners on this node until its search is reset or closed.
+	n.pendingModel = value
+	if n.model != nil {
+		consumed, err := n.model.DecRefConsumed()
+		if err != nil || !consumed {
+			n.modelConsumed = consumed
+			n.releasing = true
+			if err == nil {
+				err = ast.ErrASTPending
+			}
+			return err
+		}
 	}
-	return result
+	n.model = n.pendingModel
+	n.pendingModel = nil
+	return nil
 }
 
 func (n *ModelNode) Model() (*model.ModelCore, bool, error) {
@@ -302,7 +315,7 @@ func (n *ModelNode) release() error {
 		return ast.ErrASTDomain
 	}
 	n.releasing = true
-	if n.model != nil {
+	for n.model != nil {
 		// A final decrement can consume the counted reference before native
 		// storage cleanup fails. Its continuation is Close, not another DecRef.
 		if n.modelConsumed {
@@ -319,7 +332,10 @@ func (n *ModelNode) release() error {
 				return ast.ErrASTPending
 			}
 		}
-		n.model = nil
+		// A replacement interrupted before publication owns an additional
+		// counted model. Retire it after the prior model's cleanup finishes.
+		n.model = n.pendingModel
+		n.pendingModel = nil
 		n.modelConsumed = false
 	}
 	if n.rule != nil {
