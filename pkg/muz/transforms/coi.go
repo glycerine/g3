@@ -294,14 +294,10 @@ func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.Relati
 				if e != nil {
 					break
 				}
-				table, found, relationErr := relations.TryGetFiniteRelation(declaration)
-				e = relationErr
-				if e == nil && found {
-					var rows int
-					rows, e = table.Len()
-					if e == nil && rows != 0 {
-						return nil, nil, nil
-					}
+				var materialized bool
+				materialized, e = relations.HasFacts(declaration)
+				if e == nil && materialized {
+					return nil, nil, nil
 				}
 			}
 			if e != nil {

@@ -316,6 +316,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
     - [x] Lower condition-only variables and repeated unsafe heads, including empty-body unsafe facts; keep condition columns before filtering and head-only columns afterward. A single aggregate owns full and singleton preflight relations before callback mutation, with nested and independent native cleanup-frontier tests.
 - [ ] Audit explanations, similarity compression, relation-manager dispatch, external relations and checking wrappers against actual consumers.
 - [ ] Audit remaining transforms, dataflow and DDNF consumers, including interactions with engine-specific preprocessing.
+  - [x] Make cone-of-influence fact detection representation-neutral through RelationManager storage, including per-fact and whole-relation explanation products.
 
 ## 7. Acceptance gates
 
@@ -525,6 +526,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Cone-of-influence filtering now asks the relation manager whether any representation has materialized facts instead of probing only finite tables. Per-fact and whole-relation explanation products therefore trigger the source bailout rather than being incorrectly pruned; wider transform/dataflow auditing remains open.
+  Validation: `go -C pkg test ./muz/transforms -run '^(TestConeOfInfluenceBailsOutForMaterializedExplanationRelations|TestConeOfInfluence.*|TestRuleTransformerAppliesConePlugin)$' -count=3` passed. Commit title: `Detect explanation facts during cone filtering`.
 
 - 2026-11-02 — Finite/interval products now use the sparse table's prefix-only functional lookup for add, membership, union and projection collisions instead of fabricating full rows. All-interval signatures share one zero-key outer row whose stored suffix points to the complete interval hull; broader finite-product dispatch remains open.
   Validation: `go -C pkg test ./muz/rel -run '^(TestFiniteIntervalProductFunctionalKey|TestFiniteIntervalProduct)' -count=3` passed. Commit title: `Use sparse functional keys in interval products`.
