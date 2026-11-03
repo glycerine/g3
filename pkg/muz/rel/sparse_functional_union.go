@@ -18,6 +18,16 @@ func (target *SparseTable) UnionFunctional(source, delta *SparseTable) (int, err
 	}
 	inserted := 0
 	for _, fact := range facts {
+		if target.functional != 0 {
+			firstFunctional := target.signature.Len() - target.functional
+			_, found, fetchErr := target.FetchFunctionalKey(fact[:firstFunctional])
+			if fetchErr != nil {
+				return inserted, fetchErr
+			}
+			if found {
+				continue
+			}
+		}
 		changed, addErr := target.Add(fact)
 		if addErr != nil {
 			return inserted, addErr

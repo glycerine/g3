@@ -513,6 +513,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Concrete empty query and zero-key functional complement consumption.
   - [x] Direct supported join/negation operations dispatch through indexed plans; functional-key and zero-column fallbacks remain explicit.
   - [x] Fetch functional rows by nonfunctional key, including zero-column keys, and use the owned suffix in live finite-product add/membership/union consumers.
+  - [x] Union functional sparse rows by nonfunctional prefix so existing suffixes win and conflicting zero-column keys never enter the delta.
 - [ ] `src/muz/rel/dl_vector_relation.h` (partial)
   - [x] Interval intersection uses the actually reached join/project/reset/union fallback with atomic validation; source vector relations do not enable `can_swap`.
 - [ ] `src/muz/rel/rel_context.cpp` (partial), `src/muz/rel/rel_context.h` (partial)
@@ -663,6 +664,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — LazySparse single-fact removal now dispatches through the evaluated concrete owner, including the source nullary Hash fallback instead of requiring Sparse storage. Removal forces only the derived node, repeated nullary removal is stable and the deferred source remains independently usable; wider lazy lifecycle auditing remains open.
   Validation: `go -C pkg test ./muz/rel -run '^TestLazySparse(Remove|Nullary|Bulk|Clone|Complement|Capability)' -count=5` passed. Commit title: `Remove facts from lazy nullary tables`.
+
+- 2026-11-02 — Sparse functional union now probes the nonfunctional prefix before insertion, including the empty key. Existing target suffixes keep source first-row precedence, conflicting rows do not enter the delta and new rows still publish to both target and delta; broader sparse method auditing remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^(TestSparseFunctionalUnion|TestSparseFunctional)' -count=5` passed. Commit title: `Preserve sparse functional rows during union`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
