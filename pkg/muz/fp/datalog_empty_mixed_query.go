@@ -2,8 +2,8 @@ package fp
 
 // Source: src/muz/rel/rel_context.cpp rel_context::query. An empty program
 // obtains each requested relation independently, so a heterogeneous set of
-// empty finite and infinite outputs does not require a whole-program relation
-// plugin merely to decide whether any output is nonempty.
+// finite and infinite outputs in a rule-free context does not require a
+// whole-program relation plugin merely to decide whether any output is nonempty.
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
