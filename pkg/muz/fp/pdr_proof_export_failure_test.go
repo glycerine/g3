@@ -179,6 +179,7 @@ func testPDRProofExportFailure(t *testing.T, available int, stop int64) bool {
 		must(err)
 		heldHandle, err := manager.RefGet(held)
 		must(err)
+		beforeValidation := manager.Stats()
 		checker, err := proofs.NewChecker(manager)
 		must(err)
 		valid, side, err := checker.Check(heldHandle)
@@ -206,6 +207,10 @@ func testPDRProofExportFailure(t *testing.T, available int, stop int64) bool {
 		}
 		must(solver.Close())
 		must(checker.ReleaseSideConditions(side))
+		afterValidation := manager.Stats()
+		if afterValidation.LiveNodes != beforeValidation.LiveNodes || afterValidation.LiveReferences != beforeValidation.LiveReferences || afterValidation.LiveInfos != beforeValidation.LiveInfos || afterValidation.LiveParameters != beforeValidation.LiveParameters {
+			t.Fatal("independent verifier changed live AST ownership", beforeValidation, afterValidation)
+		}
 		status, err = engine.QueryPredicate(goal)
 		must(err)
 		if status != lbool.True {
