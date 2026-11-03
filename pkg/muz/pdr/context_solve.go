@@ -198,6 +198,7 @@ func (c *Context) SetEmptyProgramUnsat(queryDeclaration ast.ASTHandle) error {
 	c.query = nil
 	c.queryDecl = queryDeclaration
 	c.lastResult = lbool.False
+	c.unknownResult = false
 	c.expanded, c.inductive = 0, 0
 	return nil
 }
@@ -209,6 +210,10 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 	if err := c.open(); err != nil {
 		return lbool.Undef, err
 	}
+	c.unknownResult = false
+	// Register this before cleanup: a refused proof-mode restoration must
+	// not publish an unknown answer for an unsuccessful solve.
+	defer func() { c.unknownResult = result == lbool.Undef && resultErr == nil }()
 	restoreProofMode, err := c.enterPDRProofMode()
 	if err != nil {
 		return lbool.Undef, err

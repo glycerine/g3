@@ -70,6 +70,7 @@ func (c *Context) UpdateRules(set *base.RuleSet) (resultErr error) {
 			}
 		}
 	}
+	c.unknownResult = false
 	if err = c.search.Reset(); err != nil {
 		return err
 	}

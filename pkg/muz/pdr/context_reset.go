@@ -14,6 +14,7 @@ func (c *Context) Reset() error {
 	if err := c.open(); err != nil {
 		return err
 	}
+	c.unknownResult = false
 	if err := c.search.Reset(); err != nil {
 		return err
 	}

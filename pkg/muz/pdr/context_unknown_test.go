@@ -1,7 +1,7 @@
 package pdr_test
 
 // Source: pdr_context.cpp expand_node l_undef -> unknown_exception and
-// context::solve unknown_exception -> l_undef.
+// context::solve unknown_exception -> l_undef and get_answer's owning true.
 
 import (
 	"bytes"
@@ -69,6 +69,15 @@ func TestContextSolvePropagatesNativeConflictLimitUnknown(t *testing.T) {
 	pdrMust(t, rules.Add(rule))
 	pdrMust(t, rule.Close())
 	pdrMust(t, context.Initialize(rules))
+	// Local reachability checks do not publish a global query result.
+	local, err := context.CheckInitial(head, false)
+	pdrMust(t, err)
+	if local.Status != lbool.Undef {
+		t.Fatal("native local conflict-limit result", local.Status)
+	}
+	if localAnswer, err := context.Answer(query); !errors.Is(err, ast.ErrASTDomain) || localAnswer != (ast.ASTRef{}) {
+		t.Fatal("local check published a global answer", localAnswer, err)
+	}
 
 	status, err := context.Solve(query)
 	pdrMust(t, err)
@@ -80,8 +89,22 @@ func TestContextSolvePropagatesNativeConflictLimitUnknown(t *testing.T) {
 	if last != lbool.Undef {
 		t.Fatal("unknown solve published a stale result", last)
 	}
-	if answer, err := context.Answer(query); !errors.Is(err, ast.ErrASTDomain) || answer != (ast.ASTRef{}) {
-		t.Fatal("unknown solve published an answer", answer, err)
+	before := manager.Stats().LiveReferences
+	answer, err := context.Answer(query)
+	pdrMust(t, err)
+	answerHandle, err := manager.RefGet(answer)
+	pdrMust(t, err)
+	if !manager.IsTrue(answerHandle) || manager.Stats().LiveReferences != before+1 {
+		t.Fatal("unknown solve did not return one owning true answer", answerHandle)
+	}
+	duplicate, err := context.Answer(query)
+	pdrMust(t, err)
+	pdrMust(t, manager.DelRef(&duplicate))
+	if manager.Stats().LiveReferences != before+1 {
+		t.Fatal("repeated unknown answer changed reference ownership")
+	}
+	if wrong, err := context.Answer(ast.ASTHandle{}); !errors.Is(err, ast.ErrASTDomain) || wrong != (ast.ASTRef{}) {
+		t.Fatal("unknown answer accepted another query", wrong, err)
 	}
 	if model, err := context.Model(query); !errors.Is(err, ast.ErrASTDomain) || model != nil {
 		t.Fatal("unknown solve published a model", model, err)
@@ -91,8 +114,52 @@ func TestContextSolvePropagatesNativeConflictLimitUnknown(t *testing.T) {
 	if certificate.String() != "unknown" {
 		t.Fatalf("unknown solve published a decided certificate: %q", certificate.String())
 	}
+	assertUnavailable := func(stage string) {
+		t.Helper()
+		if stale, err := context.Answer(query); !errors.Is(err, ast.ErrASTDomain) || stale != (ast.ASTRef{}) {
+			t.Fatal(stage, "published a stale unknown answer", stale, err)
+		}
+	}
+	solveUnknown := func() {
+		t.Helper()
+		status, err := context.Solve(query)
+		pdrMust(t, err)
+		if status != lbool.Undef {
+			t.Fatal("repeated native unknown solve", status)
+		}
+		reference, err := context.Answer(query)
+		pdrMust(t, err)
+		handle, err := manager.RefGet(reference)
+		pdrMust(t, err)
+		if !manager.IsTrue(handle) {
+			t.Fatal("repeated unknown solve lost source true answer")
+		}
+		pdrMust(t, manager.DelRef(&reference))
+	}
+	manager.ResourceLimit().Cancel()
+	status, err = context.Solve(query)
+	manager.ResourceLimit().ResetCancel()
+	if status != lbool.Undef || err == nil {
+		t.Fatal("canceled solve did not fail", status, err)
+	}
+	assertUnavailable("canceled solve")
+	solveUnknown()
+	pdrMust(t, context.UpdateRules(rules))
+	assertUnavailable("rule update")
+	solveUnknown()
+	pdrMust(t, context.Reset())
+	assertUnavailable("reset")
+	pdrMust(t, context.Initialize(rules))
+	solveUnknown()
 
 	pdrMust(t, context.Close())
+	if stale, err := context.Answer(query); !errors.Is(err, pdr.ErrContextOwner) || stale != (ast.ASTRef{}) {
+		t.Fatal("closed context published an unknown answer", stale, err)
+	}
+	if handle, err := manager.RefGet(answer); err != nil || handle != answerHandle {
+		t.Fatal("caller-owned unknown answer lost across reset and context close", handle, err)
+	}
+	pdrMust(t, manager.DelRef(&answer))
 	pdrMust(t, rules.Close())
 	pdrMust(t, ruleManager.Close())
 	pdrMust(t, globals.Context.Del(&limited))

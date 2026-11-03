@@ -35,6 +35,7 @@ type Context struct {
 	cooperation        *cooperate.Cooperation
 	ownedCoop          bool
 	lastResult         lbool.LBool
+	unknownResult      bool // a successful unknown solve, not an operational failure
 	query              *PredicateTransformer
 	queryDecl          ast.ASTHandle
 	expanded           uint32

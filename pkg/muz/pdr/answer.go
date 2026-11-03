@@ -399,14 +399,22 @@ func (c *Context) Model(queryDeclaration ast.ASTHandle) (result *model.Model, re
 }
 
 // Answer reconstructs the selected satisfying rule trace or the direct
-// predicate inductive certificate for the latest query and returns one owning
-// reference. The caller releases it through ASTManager.DelRef.
+// predicate inductive certificate for the latest query. A successful unknown
+// solve returns true, matching the source default branch. The caller releases
+// the returned owning reference through ASTManager.DelRef.
 func (c *Context) Answer(queryDeclaration ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	if err := c.open(); err != nil {
 		return result, err
 	}
 	if c.queryDecl != queryDeclaration {
 		return result, ast.ErrASTDomain
+	}
+	if c.lastResult == lbool.Undef && c.unknownResult {
+		truth, err := c.manager.MkTrue()
+		if err != nil {
+			return result, err
+		}
+		return c.manager.NewRef(truth)
 	}
 	if c.lastResult == lbool.False {
 		return c.unsatAnswer(queryDeclaration)
