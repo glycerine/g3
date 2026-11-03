@@ -464,29 +464,48 @@ func (p *PropSolver) expandEqualities(atoms []ast.ASTHandle) (result []ast.ASTHa
 				return nil, references, generated, x
 			}
 			for bitIndex, set := range bits {
+				extractRef, x := p.manager.NewRef(ast.ASTHandle{})
+				if x != nil {
+					return nil, references, generated, x
+				}
+				references = append(references, extractRef)
 				extract, x := p.manager.MkBitVectorExtract(uint32(bitIndex), uint32(bitIndex), bitTerm)
+				if !extract.IsNull() {
+					x = errors.Join(x, p.manager.SetRef(extractRef, extract))
+				}
 				if x != nil {
 					return nil, references, generated, x
 				}
-				if x = pin(extract, false); x != nil {
+				bitEqualityRef, x := p.manager.NewRef(ast.ASTHandle{})
+				if x != nil {
 					return nil, references, generated, x
 				}
+				references = append(references, bitEqualityRef)
 				bitEquality, x := p.manager.MkEq(one, extract)
+				if !bitEquality.IsNull() {
+					x = errors.Join(x, p.manager.SetRef(bitEqualityRef, bitEquality))
+				}
 				if x != nil {
 					return nil, references, generated, x
 				}
-				if x = pin(bitEquality, set); x != nil {
-					return nil, references, generated, x
+				if set {
+					generated[bitEquality] = true
 				}
 				literal := bitEquality
 				if !set {
-					literal, x = p.manager.MkNot(bitEquality)
+					literalRef, x := p.manager.NewRef(ast.ASTHandle{})
 					if x != nil {
 						return nil, references, generated, x
 					}
-					if x = pin(literal, true); x != nil {
+					references = append(references, literalRef)
+					literal, x = p.manager.MkNot(bitEquality)
+					if !literal.IsNull() {
+						x = errors.Join(x, p.manager.SetRef(literalRef, literal))
+					}
+					if x != nil {
 						return nil, references, generated, x
 					}
+					generated[literal] = true
 				}
 				if bitIndex == 0 {
 					atoms[index] = literal

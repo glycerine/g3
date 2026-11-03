@@ -108,6 +108,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
     - [x] Preserve detached PDR model-search nodes, an unadopted replacement root and both model owners during a failed node-model replacement. Solved-context Reset, repeated-Solve and direct replacement tests verify retries and exact owner counts; an end-to-end backtracking replacement trigger remains unproven.
     - [x] Own coupled predecessor equalities before projected-child renaming can fail. An actual allocation-boundary regression checks exact AST counts and a same-context solve retry with both predecessors.
     - [x] Own fresh PDR shared-solver guards before reference allocation can fail. Boundary tests verify exact AST counts, retry and isolation between real solver contexts.
+    - [x] Own generated extract, equality and negation terms during PDR bit-vector assumption expansion. Public failure/retry tests verify exact AST counts, generated cores and solver scope rollback.
     - [ ] Audit exceptional cleanup after transferring pre-query owners.
       - [x] Scan every allocation stop through first expression-query success; preserve pre-query ownership before installation and inspectable frames after failed solves, reject failed results/stale frames, retry and close each fixture with zero budget usage.
       - [x] Close a nonnil partially constructed theory rewriter when predicate-rule initialization fails.
@@ -2122,3 +2123,4 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Preserved bit-blast model-reconstruction temporaries across reference allocation failure and verified caller mutation isolation for PDR/Spacer expression models. Focused allocation and model tests pass; the independent ground bit-to-Boolean validation issue remains open.
 - 2026-11-03 — Reserved the PDR shared-solver guard owner before constructing its application. Focused failure/retry and context-isolation tests pass with exact AST counts; the prior implementation strands the new application and declaration.
 - 2026-11-03 — Validated exported PDR/Spacer bit-blast models against original facts and query using independent ground-bit values. Source inspection confirms the raw internal bit-to-Boolean operator is outside the ordinary solver oracle; its established behavior is unchanged.
+- 2026-11-03 — Preserved the three generated bit-vector assumption terms before fallible reference allocation. Focused public failure/retry, core and rollback tests pass; each corresponding old-code allocation boundary leaked an AST node.
