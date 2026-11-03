@@ -277,15 +277,30 @@ func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, p
 		}
 	}
 	tailSize, err := rule.TailSize()
-	if err != nil || tailSize-uninterpreted > 1 {
+	if err != nil || tailSize < uninterpreted {
 		return false, errors.Join(err, ErrBoundIntervalDatalogFragment)
 	}
 	var condition ast.ASTRef
 	if tailSize > uninterpreted {
-		raw, conditionNegated, cause := rule.Tail(uninterpreted)
-		if cause != nil || conditionNegated {
-			return false, errors.Join(cause, ErrBoundIntervalDatalogFragment)
+		// compile_rule supplies one conjunction to each component, rather
+		// than applying separately stronger filters to this coarse product.
+		terms := make([]ast.ASTHandle, 0, tailSize-uninterpreted)
+		for index := uninterpreted; index < tailSize; index++ {
+			term, conditionNegated, cause := rule.Tail(index)
+			if cause != nil || conditionNegated {
+				return false, errors.Join(cause, ErrBoundIntervalDatalogFragment)
+			}
+			terms = append(terms, term)
 		}
+		raw, cause := a.manager.MkAndArray(terms)
+		if cause != nil {
+			return false, cause
+		}
+		conjunction, cause := a.manager.NewRef(raw)
+		if cause != nil {
+			return false, cause
+		}
+		defer func() { resultErr = errors.Join(resultErr, a.manager.DelRef(&conjunction)) }()
 		working, workingSorts, cause = ensureBoundIntervalConditionVariables(a.manager, raw, variables, working, workingSorts)
 		if cause != nil {
 			return false, cause
