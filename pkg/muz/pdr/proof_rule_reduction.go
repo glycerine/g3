@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	astsubst "github.com/glycerine/g3/pkg/ast/substitution"
 	"github.com/glycerine/g3/pkg/muz/base"
 )
@@ -172,6 +173,70 @@ func (c *Context) resolveProofRules(rules *base.RuleManager, target, source *bas
 	if err = appendRule(source, 1, -1); err != nil {
 		return nil, nil, nil, temporaries, err
 	}
+	// NewRule compresses sparse variable indices. Apply that same renaming to
+	// the proof substitutions, so its quantified conclusion and its premises
+	// use the same variables after the two substitution banks are merged.
+	used, err := ast.NewASTUsedVars(c.manager)
+	if err != nil {
+		return nil, nil, nil, temporaries, err
+	}
+	for _, expression := range append([]ast.ASTHandle{newHead}, tails...) {
+		if err = used.Process(expression); err != nil {
+			return nil, nil, nil, temporaries, err
+		}
+	}
+	rename := func(expression ast.ASTHandle) (ast.ASTHandle, error) { return expression, nil }
+	if count := used.MaxFoundVarIndexPlusOne(); !used.UsesAllVars(count) {
+		bindings := make([]ast.ASTHandle, count)
+		var next uint32
+		for index := uint32(0); index < count; index++ {
+			sort := used.Contains(index)
+			if sort.IsNull() {
+				continue
+			}
+			reference, x := c.manager.NewRef(ast.ASTHandle{})
+			if x != nil {
+				return nil, nil, nil, temporaries, x
+			}
+			temporaries = append(temporaries, reference)
+			bindings[index], x = c.manager.MkVar(next, sort)
+			if x = errors.Join(x, c.manager.SetRef(reference, bindings[index])); x != nil {
+				return nil, nil, nil, temporaries, x
+			}
+			next++
+		}
+		renamer, x := rewriter.NewVarSubstitution(c.manager, false)
+		if renamer != nil {
+			defer func() { resultErr = errors.Join(resultErr, renamer.Close()) }()
+		}
+		if x != nil {
+			return nil, nil, nil, temporaries, x
+		}
+		rename = func(expression ast.ASTHandle) (ast.ASTHandle, error) {
+			if expression.IsNull() {
+				return expression, nil
+			}
+			reference, x := c.manager.NewRef(ast.ASTHandle{})
+			if x != nil {
+				return ast.ASTHandle{}, x
+			}
+			temporaries = append(temporaries, reference)
+			if x = renamer.Substitute(expression, bindings, reference); x != nil {
+				return ast.ASTHandle{}, x
+			}
+			return c.manager.RefGet(reference)
+		}
+		for _, terms := range [][]ast.ASTHandle{targetSubstitution, sourceSubstitution, tails} {
+			for index, term := range terms {
+				if terms[index], err = rename(term); err != nil {
+					return nil, nil, nil, temporaries, err
+				}
+			}
+		}
+		if newHead, err = rename(newHead); err != nil {
+			return nil, nil, nil, temporaries, err
+		}
+	}
 	targetName, err := target.Name()
 	if err != nil {
 		return nil, nil, nil, temporaries, err
@@ -198,12 +263,18 @@ func (c *Context) resolveProofRules(rules *base.RuleManager, target, source *bas
 		if x == nil {
 			term, x = apply(term, 0)
 		}
+		if x == nil {
+			term, x = rename(term)
+		}
 		if x != nil {
 			return resolved, targetSubstitution, sourceSubstitution, temporaries, x
 		}
 		resolvedTail, _, x := target.Tail(selected)
 		if x == nil {
 			resolvedTail, x = apply(resolvedTail, 0)
+		}
+		if x == nil {
+			resolvedTail, x = rename(resolvedTail)
 		}
 		if x != nil {
 			return resolved, targetSubstitution, sourceSubstitution, temporaries, x
@@ -249,10 +320,15 @@ func (c *Context) reducedProofTrace(root *ModelNode) (result ast.ASTRef, resultE
 			resultErr = errors.Join(resultErr, generated[index].Close())
 		}
 	}()
-	cache := make(map[*ModelNode]reducedProofEntry)
+	// The search precloses duplicate obligations without expanding their
+	// children. Like the source state cache, share the completed derivation;
+	// include the transformer because different nullary predicates can have
+	// the same true state cube.
+	cache := make(map[modelStateKey]reducedProofEntry)
 	var reduce func(*ModelNode) (reducedProofEntry, error)
 	reduce = func(node *ModelNode) (reducedProofEntry, error) {
-		if prior, found := cache[node]; found {
+		key := modelState(node)
+		if prior, found := cache[key]; found {
 			return prior, nil
 		}
 		selected, x := c.selectedTraceRule(node)
@@ -342,7 +418,7 @@ func (c *Context) reducedProofTrace(root *ModelNode) (result ast.ASTRef, resultE
 			currentRule = resolved
 		}
 		entry := reducedProofEntry{rule: currentRule, proof: currentProof}
-		cache[node] = entry
+		cache[key] = entry
 		return entry, nil
 	}
 	entry, err := reduce(root)
