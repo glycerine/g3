@@ -118,9 +118,7 @@ func (p *RuleSlicePlugin) initializeApplication(application ast.ASTHandle, isOut
 			if valueErr != nil || !value {
 				return errors.Join(valueErr, ast.ErrASTDomain)
 			}
-			if !isOutput {
-				slice[index] = false
-			}
+			slice[index] = false
 		}
 	}
 	return nil
