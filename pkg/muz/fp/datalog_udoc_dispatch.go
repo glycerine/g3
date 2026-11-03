@@ -47,7 +47,15 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 		return false, nil
 	}
 	if other {
-		return true, ErrUDocDatalogFragment
+		// The source generic compiler may mix the favourite doc plugin with a
+		// fallback relation plugin. The specialized Go UDoc executor cannot,
+		// so leave an initially mixed program to the ordinary finite executor.
+		// Once UDoc has adopted facts, falling back would silently abandon its
+		// seed owners, so preserve the explicit unsupported-fragment result.
+		if e.udocDatalog != nil {
+			return true, ErrUDocDatalogFragment
+		}
+		return false, nil
 	}
 	if enabled, err := e.datalogExplanationsEnabled(); err != nil || enabled {
 		return true, errors.Join(err, ErrUDocDatalogFragment)
