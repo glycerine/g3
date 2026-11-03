@@ -1990,6 +1990,11 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if _, err := e.ensureDefaultExternalDatalog(); err != nil {
 		return lbool.Undef, err
 	}
+	if status, handled, err := e.queryEmptyMixedDatalog(declarations); err != nil {
+		return lbool.Undef, err
+	} else if handled {
+		return status, nil
+	}
 	if selected, err := e.ensureUDocDatalog(); err != nil {
 		return lbool.Undef, err
 	} else if selected {
