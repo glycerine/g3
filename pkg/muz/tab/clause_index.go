@@ -20,16 +20,13 @@ type RuleIndex struct {
 	closed  bool
 }
 
-func NewRuleIndex(rules *base.RuleSet, rw *rewriter.TheoryRewriter) (_ *RuleIndex, result error) {
+func NewRuleIndex(rules *base.RuleSet, rw *rewriter.TheoryRewriter) (built *RuleIndex, result error) {
 	if rules == nil || rw == nil || rw.Manager() == nil {
 		return nil, ast.ErrASTHandle
 	}
 	index := &RuleIndex{manager: rw.Manager(), byHead: make(map[ast.ASTHandle][]int)}
-	defer func() {
-		if result != nil {
-			result = errors.Join(result, index.Close())
-		}
-	}()
+	attempt := &ruleIndexConstructionAttempt{manager: rw.Manager(), index: index}
+	defer func() { built, result = finishRuleIndexConstruction(attempt, result) }()
 	size, err := rules.Len()
 	if err != nil {
 		return nil, err
@@ -39,12 +36,17 @@ func NewRuleIndex(rules *base.RuleSet, rw *rewriter.TheoryRewriter) (_ *RuleInde
 		if e != nil {
 			return nil, e
 		}
+		attempt.rule = rule
 		clause, e := NewClauseFromRule(rule, rw)
-		e = errors.Join(e, rule.Close())
+		if clause != nil {
+			attempt.clause = clause
+		}
+		if closeErr := rule.Close(); closeErr != nil {
+			e = errors.Join(e, closeErr)
+		} else {
+			attempt.rule = nil
+		}
 		if e != nil {
-			if clause != nil {
-				e = errors.Join(e, clause.Close())
-			}
 			return nil, e
 		}
 		clause.index = uint32(i)
@@ -58,6 +60,7 @@ func NewRuleIndex(rules *base.RuleSet, rw *rewriter.TheoryRewriter) (_ *RuleInde
 		}
 		index.byHead[decl] = append(index.byHead[decl], len(index.clauses))
 		index.clauses = append(index.clauses, clause)
+		attempt.clause = nil
 	}
 	return index, nil
 }
