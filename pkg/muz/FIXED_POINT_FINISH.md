@@ -495,6 +495,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 ## Progress log
 
+- 2026-11-02 — Exact bound/interval activations now synchronize inherited query-head declarations transactionally after construction. Late nullary products preserve requested component order and existing seeds, while missing, duplicate, mismatched or non-pair declarations reject without partial mutation; public engine selection and positive-rule lowering remain open.
+  Validation: `go -C pkg test ./muz/fp -run '^TestBoundIntervalDatalogActivation' -count=3` passed. Commit title: `Synchronize late bound interval query heads`.
+
 - 2026-11-02 — Recursive external-rule execution now owns every unpublished join, head-assembly and SCC-delta relation until native cleanup completes. Refused cleanup returns one stable retry receipt, preserves published predicate relations, resumes the exact reverse frontier and remains idempotent; wider mixed-product dispatch remains open.
   Validation: `go -C pkg test ./muz/rel -run '^TestExternalRuleExecution' -count=3` passed. Commit title: `Preserve external rule temporaries through cleanup refusal`.
 

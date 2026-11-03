@@ -175,6 +175,64 @@ func (a *boundIntervalDatalogActivation) addFact(declaration ast.ASTHandle, valu
 
 var _ memory.ConstructionFailure = (*boundIntervalDatalogConstructionFailure)(nil)
 
+func boundIntervalKindsEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// syncPredicates adds inherited synthetic query heads without changing any
+// existing seed. The complete list must still describe the same aligned
+// product program; direct bound-only or interval-only declarations are never
+// normalized into this activation.
+func (a *boundIntervalDatalogActivation) syncPredicates(predicates []boundIntervalDatalogPredicate) error {
+	if err := a.open(); err != nil {
+		return err
+	}
+	seen := make(map[ast.ASTHandle]bool, len(predicates))
+	additions := make([]boundIntervalDatalogPredicate, 0, len(predicates)-len(a.entries))
+	for _, predicate := range predicates {
+		if seen[predicate.declaration] {
+			return ErrBoundIntervalDatalogFragment
+		}
+		seen[predicate.declaration] = true
+		if entry := a.entries[predicate.declaration]; entry != nil {
+			if !boundIntervalKindsEqual(entry.kinds, predicate.kinds) {
+				return ErrBoundIntervalDatalogFragment
+			}
+			continue
+		}
+		additions = append(additions, predicate)
+	}
+	for declaration := range a.entries {
+		if !seen[declaration] {
+			return ErrBoundIntervalDatalogFragment
+		}
+	}
+	if len(additions) == 0 {
+		return nil
+	}
+	staged, selected, err := newBoundIntervalDatalogActivation(a.manager, a.rules, additions)
+	if err != nil || !selected {
+		return errors.Join(err, ErrBoundIntervalDatalogFragment)
+	}
+	for _, declaration := range staged.order {
+		a.entries[declaration] = staged.entries[declaration]
+		a.order = append(a.order, declaration)
+	}
+	staged.entries = nil
+	staged.order = nil
+	staged.closed = true
+	a.evaluated = nil
+	return nil
+}
+
 func (a *boundIntervalDatalogActivation) clone(rules *base.RuleSet) (_ *boundIntervalDatalogActivation, resultErr error) {
 	if err := a.open(); err != nil || rules == nil {
 		return nil, errors.Join(err, ErrBoundIntervalDatalogFragment)

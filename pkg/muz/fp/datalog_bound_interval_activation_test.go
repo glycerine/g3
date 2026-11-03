@@ -35,7 +35,6 @@ func TestBoundIntervalDatalogActivationFactsCloneFormulaAndRuleBoundary(t *testi
 	predicates := []boundIntervalDatalogPredicate{
 		{declaration: p, kinds: []string{"bound_relation", "interval_relation"}},
 		{declaration: q, kinds: []string{"interval_relation", "bound_relation"}},
-		{declaration: unit, kinds: []string{"bound_relation", "interval_relation"}},
 	}
 	activation, selected, err := newBoundIntervalDatalogActivation(m, e.set, predicates)
 	must(err)
@@ -45,6 +44,13 @@ func TestBoundIntervalDatalogActivationFactsCloneFormulaAndRuleBoundary(t *testi
 	defer func() { must(activation.close()) }()
 	if got := activation.entries[p].kinds; len(got) != 2 || got[0] != "bound_relation" || got[1] != "interval_relation" {
 		t.Fatal("product component order was not preserved", got)
+	}
+	predicates = append(predicates, boundIntervalDatalogPredicate{declaration: unit, kinds: []string{"bound_relation", "interval_relation"}})
+	must(activation.syncPredicates(predicates))
+	beforeSync := len(activation.entries)
+	invalid := append(append([]boundIntervalDatalogPredicate(nil), predicates...), boundIntervalDatalogPredicate{declaration: f.declarations["p"], kinds: []string{"bound_relation"}})
+	if cause := activation.syncPredicates(invalid); !errors.Is(cause, ErrBoundIntervalDatalogFragment) || len(activation.entries) != beforeSync {
+		t.Fatal("invalid late predicate partially changed product activation", cause, len(activation.entries), beforeSync)
 	}
 	two, err := m.ArithmeticIntegerNumeralText("2")
 	must(err)
