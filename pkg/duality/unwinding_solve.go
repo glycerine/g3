@@ -1,8 +1,9 @@
 package duality
 
 // TestRecursionBounded records whether any uncovered active instance exceeds
-// an original node's recursion limit. Covered instances do not affect results.
-// Source: duality_solver.cpp:815-833; reporting hooks remain separate.
+// an original node's recursion limit. Covered instances do not affect results;
+// each active cutoff publishes the source relation/depth message.
+// Source: duality_solver.cpp:815-857.
 func (u *Unwinding) TestRecursionBounded() error {
 	if u == nil {
 		return ErrWrapperOwner
@@ -18,7 +19,7 @@ func (u *Unwinding) TestRecursionBounded() error {
 				return err
 			}
 			if contains {
-				past, err := u.NodePastRecursionBound(instance)
+				past, err := u.nodePastRecursionBound(instance, true)
 				if err != nil {
 					return err
 				}

@@ -3,12 +3,20 @@ package duality
 // Source: duality_solver.cpp:845-857,867-900,1700-1714.
 import (
 	"errors"
+	"fmt"
 	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func (u *Unwinding) NodePastRecursionBound(node *Node) (bool, error) {
+	return u.nodePastRecursionBound(node, false)
+}
+
+// nodePastRecursionBound optionally publishes the source's final-result
+// cutoff diagnostic. Candidate filtering uses the silent form; only
+// TestRecursionBounded reports a cutoff that can affect the published result.
+func (u *Unwinding) nodePastRecursionBound(node *Node, report bool) (bool, error) {
 	if u == nil || node == nil || node.Owner != u.graph || node.closed {
 		return false, ErrWrapperOwner
 	}
@@ -17,6 +25,15 @@ func (u *Unwinding) NodePastRecursionBound(node *Node) (bool, error) {
 	}
 	for original, count := range u.backEdges[node] {
 		if uint64(count) > uint64(original.RecursionBound) {
+			if report && u.graph.streamReporter != nil {
+				name, err := u.graph.streamReporter.nodeName(original)
+				if err != nil {
+					return false, err
+				}
+				if err := u.graph.streamReporter.Message(fmt.Sprintf("cut off %s at depth %d", name, count)); err != nil {
+					return false, err
+				}
+			}
 			return true, nil
 		}
 	}
