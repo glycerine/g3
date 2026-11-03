@@ -318,10 +318,22 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 	var selected bool
 	if len(a.ground.values) > 1 {
 		owner.tuple = &externalIntervalDatalogGroundTuple{}
-		if err = owner.tuple.assemble(a.plugin, entry.kinds, entry.sorts, a.ground.values); err != nil {
+		if a.program != nil {
+			err = owner.tuple.assembleCached(registers, a.ground.head, entry.sorts, a.ground.values)
+		} else {
+			err = owner.tuple.assemble(a.plugin, entry.kinds, entry.sorts, a.ground.values)
+		}
+		if err != nil {
 			return rollback(err)
 		}
 		temporary = owner.tuple.current
+		selected = temporary != nil
+	} else if a.program != nil {
+		if len(a.ground.values) == 0 {
+			temporary, err = registers.nullaryTotal(a.ground.head)
+		} else {
+			temporary, err = registers.unarySingleton(a.ground.head, entry.sorts[0], a.ground.values[0])
+		}
 		selected = temporary != nil
 	} else if len(a.ground.values) == 0 {
 		temporary, selected, err = rel.NewSelectedExternalIntervalNullaryTotal(a.plugin, entry.kinds)
@@ -334,10 +346,10 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 	if !selected || temporary == nil {
 		return rollback(ErrExternalIntervalDatalogFragment)
 	}
-	if owner.tuple == nil {
+	if owner.tuple == nil && a.program == nil {
 		owner.temporary = temporary
 	}
-	if len(a.ground.values) == 1 {
+	if len(a.ground.values) == 1 && a.program == nil {
 		if err = temporary.AddFact(a.ground.values); err != nil {
 			return rollback(err)
 		}

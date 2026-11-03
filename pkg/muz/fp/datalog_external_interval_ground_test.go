@@ -408,7 +408,7 @@ func TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay(
 }
 
 func TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks(t *testing.T) {
-	for _, shape := range []string{"nonnumeral-second", "variable", "body", "nullary-body", "multi-rule"} {
+	for _, shape := range []string{"nonnumeral-second", "variable", "body", "nullary-body", "later-unsafe-rule"} {
 		t.Run(shape, func(t *testing.T) {
 			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 			family, err := manager.RegisterArithmeticPlugin()
@@ -460,9 +460,13 @@ func TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks(t *testi
 				fragmentMust(t, err)
 			}
 			fragmentMust(t, engine.AddRule(formula, "external-interval-ground-invalid-"+shape))
-			if shape == "multi-rule" {
+			if shape == "later-unsafe-rule" {
+				// Validate the complete program before executing its valid
+				// first ground rule or activating any relation callbacks.
 				r := declareExternalIntervalPredicate(t, manager, engine, "external-interval-ground-invalid-r", []ast.ASTHandle{integer}, kinds)
-				second, secondErr := manager.MkApp(r, []ast.ASTHandle{one})
+				variable, secondErr := manager.MkVar(0, integer)
+				fragmentMust(t, secondErr)
+				second, secondErr := manager.MkApp(r, []ast.ASTHandle{variable})
 				fragmentMust(t, secondErr)
 				fragmentMust(t, engine.AddRule(second, "external-interval-ground-invalid-second"))
 			}

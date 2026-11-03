@@ -130,7 +130,7 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (_ bool, resultErr
 		err = owner.installExternalIntervalRulePlans(identity, ground, cartesian)
 	}
 	if err != nil {
-		return true, errors.Join(err, owner.close())
+		return true, finishExternalIntervalDatalogConstruction(err, owner)
 	}
 	keepGround = true
 	e.externalIntervalDatalog = owner

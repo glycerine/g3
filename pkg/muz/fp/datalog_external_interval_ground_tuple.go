@@ -22,6 +22,13 @@ type externalIntervalDatalogGroundTuple struct {
 	current    *rel.ExternalIntervalProduct
 	joined     *rel.ExternalIntervalProduct
 	retiring   *rel.ExternalIntervalProduct
+	registers  *externalIntervalDatalogRegisters
+	head       ast.ASTHandle
+}
+
+func (t *externalIntervalDatalogGroundTuple) assembleCached(registers *externalIntervalDatalogRegisters, head ast.ASTHandle, sorts, values []ast.ASTHandle) error {
+	t.registers, t.head = registers, head
+	return t.assemble(registers.activation.plugin, registers.activation.entries[head].kinds, sorts, values)
 }
 
 func (t *externalIntervalDatalogGroundTuple) assemble(plugin *rel.ExternalRelationPlugin, kinds []string, sorts, values []ast.ASTHandle) error {
@@ -32,7 +39,13 @@ func (t *externalIntervalDatalogGroundTuple) assemble(plugin *rel.ExternalRelati
 	for column, value := range values {
 		key := externalIntervalGroundConstant{sort: sorts[column], value: value}
 		singleton := t.cache[key]
-		if singleton == nil {
+		if t.registers != nil {
+			var err error
+			singleton, err = t.registers.unarySingleton(t.head, sorts[column], value)
+			if err != nil {
+				return err
+			}
+		} else if singleton == nil {
 			created, selected, err := rel.NewSelectedExternalIntervalProduct(plugin, []ast.ASTHandle{sorts[column]}, kinds)
 			if err != nil {
 				return err

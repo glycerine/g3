@@ -27,6 +27,7 @@ type externalIntervalDatalogRegisters struct {
 	slots      []externalIntervalDatalogRegisterSlot
 	indices    map[ast.ASTHandle]int
 	nested     memory.ConstructionFailure
+	constants  *externalIntervalDatalogConstantRegisters
 	retired    []*rel.ExternalIntervalProduct
 	retireNext int
 	published  bool
@@ -270,7 +271,7 @@ func (r *externalIntervalDatalogRegisters) retire() error {
 		}
 		r.retireNext--
 	}
-	return nil
+	return r.constants.close()
 }
 
 func (r *externalIntervalDatalogRegisters) finish() {
@@ -280,6 +281,7 @@ func (r *externalIntervalDatalogRegisters) finish() {
 	r.indices = nil
 	r.retired = nil
 	r.nested = nil
+	r.constants = nil
 }
 
 func (r *externalIntervalDatalogRegisters) close() error {
@@ -303,6 +305,9 @@ func (r *externalIntervalDatalogRegisters) close() error {
 			}
 			r.slots[i].product = nil
 		}
+	}
+	if err := r.constants.close(); err != nil {
+		return err
 	}
 	r.finish()
 	return nil
