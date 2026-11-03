@@ -44,6 +44,7 @@ type PropSolver struct {
 	coreReferences []ast.ASTRef
 	useFarkas      bool
 	subsetCore     bool
+	closing        bool
 	closed         bool
 }
 
@@ -77,6 +78,9 @@ func NewPropSolver(manager *ast.ASTManager, contexts *SMTContextManager, backgro
 }
 
 func (p *PropSolver) open() error {
+	if p != nil && p.closing && !p.closed {
+		return ast.ErrASTPending
+	}
 	if p == nil || p.closed || p.manager == nil || p.context == nil {
 		return ErrPropSolverOwner
 	}
@@ -618,12 +622,22 @@ func (p *PropSolver) levelAssumptions(level uint32) []ast.ASTHandle {
 	return result
 }
 
-func (p *PropSolver) clearCoreReferences() (result error) {
-	for index := len(p.coreReferences) - 1; index >= 0; index-- {
-		result = errors.Join(result, p.manager.DelRef(&p.coreReferences[index]))
+func (p *PropSolver) clearCoreReferences() error {
+	for len(p.coreReferences) != 0 {
+		index := len(p.coreReferences) - 1
+		err := p.manager.DelRef(&p.coreReferences[index])
+		if p.coreReferences[index] == (ast.ASTRef{}) {
+			p.coreReferences = p.coreReferences[:index]
+		}
+		if err != nil {
+			return err
+		}
+		if len(p.coreReferences) != index {
+			return ast.ErrASTPending
+		}
 	}
 	p.coreReferences = nil
-	return result
+	return nil
 }
 
 func (p *PropSolver) publishTheoryResults(safe *safeAssumptions, learned []ast.ASTRef) (_ []ast.ASTHandle, resultErr error) {
@@ -992,25 +1006,42 @@ func (p *PropSolver) CheckAssumptionsWithConsequences(atoms []ast.ASTHandle, wan
 }
 
 func (p *PropSolver) Close() (result error) {
-	if p == nil || p.manager == nil {
+	if p == nil {
 		return ErrPropSolverOwner
 	}
 	if p.closed {
 		return nil
 	}
+	if p.manager == nil {
+		return ErrPropSolverOwner
+	}
+	p.closing = true
 	if p.context != nil {
-		result = errors.Join(result, p.context.Close())
+		if result = p.context.Close(); result != nil {
+			return result
+		}
 	}
-	result = errors.Join(result, p.clearCoreReferences())
-	for index := len(p.references) - 1; index >= 0; index-- {
-		result = errors.Join(result, p.manager.DelRef(&p.references[index]))
+	if result = p.clearCoreReferences(); result != nil {
+		return result
 	}
-	if result == nil {
-		p.context = nil
-		p.manager = nil
-		p.contexts = nil
-		p.references = nil
-		p.closed = true
+	for len(p.references) != 0 {
+		index := len(p.references) - 1
+		result = p.manager.DelRef(&p.references[index])
+		if p.references[index] == (ast.ASTRef{}) {
+			p.references = p.references[:index]
+		}
+		if result != nil {
+			return result
+		}
+		if len(p.references) != index {
+			return ast.ErrASTPending
+		}
 	}
-	return result
+	p.context = nil
+	p.manager = nil
+	p.contexts = nil
+	p.references = nil
+	p.closing = false
+	p.closed = true
+	return nil
 }

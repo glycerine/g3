@@ -397,11 +397,14 @@ func (s *SMTDelayScope) Close() error {
 }
 
 func (c *SMTContext) Close() error {
-	if c == nil || c.parent == nil {
+	if c == nil {
 		return ErrSMTContextOwner
 	}
 	if c.closed {
 		return nil
+	}
+	if c.parent == nil {
+		return ErrSMTContextOwner
 	}
 	if c.delayed || c.pushed {
 		return ErrSMTContextOwner
