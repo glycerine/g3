@@ -69,10 +69,45 @@ func TestDatalogSparseIntervalRequestedPairLifecycle(t *testing.T) {
 	must(err)
 	must(e.AddRule(rule, "copy-product"))
 	prior := e.set
+	activation := e.sparseIntervalDatalog
+	store := activation.store
+	entry := store.entries[p]
+	seed := store.entries[p].relation
+	revision := e.revision
+	if len(e.rawRules) != 1 || !e.rawRules[0].pending {
+		t.Fatal("display fixture did not start with a pending input")
+	}
 	var text bytes.Buffer
 	must(e.WriteContextSMT2(&text, nil, nil))
-	if e.set == prior || e.sparseIntervalDatalog.rules != e.set {
-		t.Fatal("open-rule display did not rebind product source program")
+	// Source get_rules_as_formulas adds normalized clauses to the same
+	// m_rule_set. Display must advance that phase without replacing the
+	// persistent program, its arithmetic borrower, or any seed storage.
+	if e.set != prior || e.sparseIntervalDatalog != activation || activation.rules != prior || activation.store != store || store.entries[p] != entry || entry.relation != seed {
+		t.Fatal("open-rule display changed persistent program or product seed ownership")
+	}
+	if len(e.rawRules) != 0 || len(e.retiredRawRules) != 0 || e.revision != revision+1 {
+		t.Fatal("open-rule display did not finish pending normalization", len(e.rawRules), len(e.retiredRawRules), revision, e.revision)
+	}
+	count, err := prior.Len()
+	must(err)
+	normalized, err := prior.Rule(0)
+	must(err)
+	head, err := normalized.Head()
+	must(err)
+	tailCount, err := normalized.TailSize()
+	must(err)
+	tail, negated, err := normalized.Tail(0)
+	must(err)
+	name, err := normalized.Name()
+	must(err)
+	must(normalized.Close())
+	if count != 1 || head != qx || tailCount != 1 || tail != px || negated || name != "copy-product" {
+		t.Fatal("open-rule display changed its normalized Horn clause", count, head, tailCount, tail, negated, name)
+	}
+	var repeated bytes.Buffer
+	must(e.WriteContextSMT2(&repeated, nil, nil))
+	if e.set != prior || activation.rules != prior || len(e.rawRules) != 0 || e.revision != revision+1 || repeated.String() != text.String() {
+		t.Fatal("repeated display renormalized the source program or changed its output")
 	}
 	status, err := e.QueryPredicate(q)
 	must(err)
