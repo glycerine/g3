@@ -74,6 +74,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Reconcile eager Go ingestion with source pending-closed versus flushed display phase: preserve original binder/annotation metadata before flushing, normalized clause identity/order after flushing, updates and scoped restoration.
     - [x] Rebuild pending open formulas at display/enumeration time using current `xform.fix_unbound_vars`, preserving normalized prefix identity, swap order and pending closed ranges; retain temporary owners through cleanup refusal. Focused parameter, dense allocation and retry tests pass.
     - [x] Rebuild pending closed formulas at query flush using current parameters, preserving raw archives, scope rollback and cleanup continuation; semantic, allocation and public API tests pass.
+    - [x] Honor the source `xform.fix_unbound_vars` gate before creating the ingestion QE helper, including current-parameter display and query phases.
     - [x] Preserve closed-input binder/weight metadata before flush, normalized expansions afterward, mixed pending additions, scope snapshots and update range shifts; ordinary Duality queries preserve raw inputs.
     - [x] Match normalized-only named updates before/after flush, preserve raw Duality inputs, replacement slot order and pending suffix order.
     - [x] Match destructive open-formula display swap/removal order, repeated display and post-normalization writer refusal; construction staging remains transactional in Go.
@@ -2046,3 +2047,5 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Routed typed trace names through both fixedpoint API facades and generated replay, preserving null, empty, numeric and textual symbols until source serialization. Public trace and generated replay tests pass; numerical-kind preservation through SMT-LIB text remains a language limitation.
 - 2026-11-03 — Added a source-checked four-kind Spacer trace regression with exact rendering and independently held rule/formula owners across query replacement and engine close.
 - 2026-11-03 — Reconciled four existing Spacer trace/witness tests with source `<null>` serialization, preserving their allocation, multiplicity and original-clause checks and adding typed-null/formula ordering assertions. The formerly failing focused cases pass; a fresh native integration gate follows.
+
+- 2026-11-03 — Full native fixedpoint, base, relation, transform, API and CLI short suites passed on committed snapshot `a6424b867` (74.227s/50.261s/5.272s/12.872s/38.308s/64.382s); log `/tmp/g3-label-native-repair-20261103.log`. The subsequent unbound-parameter gate has its own focused checks.

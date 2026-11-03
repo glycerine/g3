@@ -10,8 +10,8 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-// addFormula applies the fixedpoint rule-ingestion option and the source's
-// unconditional QE-lite reduction for unbound interpreted tail variables.
+// addFormula applies mk_horn_rule's option gate before unbound-variable
+// reduction. Source dl_rule.cpp:218 skips the entire rewrite when disabled.
 func (e *PropositionalEngine) addFormula(set *base.RuleSet, formula ast.ASTHandle, name symbol.Symbol) error {
 	if e.params == nil || e.globals == nil {
 		return e.rules.AddFormulaWithSymbol(set, formula, name)
@@ -24,6 +24,9 @@ func (e *PropositionalEngine) addFormula(set *base.RuleSet, formula ast.ASTHandl
 	err = errors.Join(getErr, parameters.Close())
 	if err != nil {
 		return err
+	}
+	if !fixUnbound {
+		return e.rules.AddFormulaWithSymbol(set, formula, name)
 	}
 	if e.unboundLite == nil {
 		cooperation, createErr := cooperate.NewCooperation(e.manager.Budget())
@@ -40,5 +43,5 @@ func (e *PropositionalEngine) addFormula(set *base.RuleSet, formula ast.ASTHandl
 		e.unboundCooperation = cooperation
 		e.unboundLite = lite
 	}
-	return e.rules.AddFormulaWithSymbolAndUnboundFix(set, formula, name, e.unboundLite, fixUnbound)
+	return e.rules.AddFormulaWithSymbolAndUnboundFix(set, formula, name, e.unboundLite, true)
 }
