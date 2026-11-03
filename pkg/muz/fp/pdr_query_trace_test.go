@@ -2,7 +2,8 @@
 
 package fp
 
-// Source: pdr_dl_interface.cpp:68 check_reset's first fresh-rule trace.
+// Source: pdr_dl_interface.cpp:68,92,144 reset/query traces followed by
+// pdr_context.cpp:1888 context::solve's entry trace.
 
 import (
 	"bytes"
@@ -65,6 +66,7 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 			}
 			postQueryTrace := queryTrace
 			if mode == "enabled" {
+				postQueryTrace += "-------- [pdr] solve src/muz/pdr/pdr_context.cpp:1888 ---------\nsolve\n------------------------------------------------\n"
 				queryTrace = "-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:92 ---------\nquery: fresh-trace-P\nrules:\n; rule count: 1\n; predicate count: 1\n; output: fresh-trace-P\nold-fact:\nfresh-trace-P().\n------------------------------------------------\n" + postQueryTrace
 			}
 			if output.String() != queryTrace {
