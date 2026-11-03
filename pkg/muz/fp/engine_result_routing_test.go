@@ -13,6 +13,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/fp"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
@@ -228,11 +229,34 @@ func TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown(t *testing.T) {
 	if !errors.Is(answerErr, fp.ErrPropositionalEngine) {
 		t.Fatal("disabled DDNF executor exposed a fabricated answer", answerErr)
 	}
-	if model, modelErr := engine.Model(predicate); !errors.Is(modelErr, fp.ErrPropositionalEngine) {
-		if model != nil {
-			fpMust(t, model.Close())
+	// DDNF inherits engine_base's fresh empty model even for an unknown
+	// result. This container supplies no interpretation of the query.
+	first, modelErr := engine.Model(predicate)
+	fpMust(t, modelErr)
+	defer func() { fpMust(t, first.Close()) }()
+	second, modelErr := engine.Model(predicate)
+	fpMust(t, modelErr)
+	defer func() { fpMust(t, second.Close()) }()
+	if first == second || first.Core() == second.Core() {
+		t.Fatal("DDNF default models share an owner")
+	}
+	for _, model := range []*model.Model{first, second} {
+		declarations, err := model.Core().NumDeclarations()
+		fpMust(t, err)
+		sorts, err := model.NumUninterpretedSorts()
+		fpMust(t, err)
+		if declarations != 0 || sorts != 0 {
+			t.Fatal("DDNF default model contains an interpretation", declarations, sorts)
 		}
-		t.Fatal("disabled DDNF executor exposed a fabricated model", modelErr)
+	}
+	truth, err := manager.MkTrue()
+	fpMust(t, err)
+	fpMust(t, first.Core().RegisterConstant(predicate, truth))
+	fpMust(t, first.Close())
+	declarations, err := second.Core().NumDeclarations()
+	fpMust(t, err)
+	if declarations != 0 {
+		t.Fatal("mutating and closing one DDNF model changed the other")
 	}
 	var certificate bytes.Buffer
 	if found, certErr := engine.WriteCertificate(&certificate, predicate, func(io.Writer, ast.ASTHandle) error { return nil }); found || !errors.Is(certErr, fp.ErrPropositionalEngine) || certificate.Len() != 0 {

@@ -2654,7 +2654,7 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 // Duality provide concrete proofs, Spacer preserves its source null proof,
 // and engines that do not override engine_base::get_proof return asserted
 // true. The caller releases the result through ASTManager.DelRef.
-func (e *PropositionalEngine) Proof(declaration ast.ASTHandle) (ast.ASTRef, error) {
+func (e *PropositionalEngine) Proof(declaration ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	if e.backend == "duality" {
 		if err := e.requireResultSnapshot(EngineDuality); err != nil {
 			return ast.ASTRef{}, err
@@ -2688,11 +2688,24 @@ func (e *PropositionalEngine) Proof(declaration ast.ASTHandle) (ast.ASTRef, erro
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	proof, err := e.manager.MkProofAsserted(truth)
+	// Reserve the owning proof_ref before constructing a possibly fresh AST.
+	// A later reference-page allocation must not strand asserted(true).
+	result, err = e.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	return e.manager.NewRef(proof)
+	defer func() {
+		if resultErr != nil {
+			owned := result
+			result = ast.ASTRef{}
+			resultErr = errors.Join(resultErr, closeASTRefs(e.manager, []ast.ASTRef{owned}))
+		}
+	}()
+	proof, err := e.manager.MkProofAsserted(truth)
+	if !proof.IsNull() {
+		err = errors.Join(err, e.manager.SetRef(result, proof))
+	}
+	return result, err
 }
 
 // WriteCertificate emits the selected backend's fixedpoint certificate.
