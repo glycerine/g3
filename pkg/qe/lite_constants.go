@@ -1,6 +1,8 @@
 package qe
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -76,7 +78,16 @@ func (l *Lite) EliminateConstants(variables *[]ast.ASTRef, formula ast.ASTRef) (
 	if err != nil {
 		return err
 	}
-	q, err := c.hold(l.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: sorts, Names: names, Body: body, Weight: 1, QID: qid}))
+	quantifier, err := c.ref(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	q, err := l.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: sorts, Names: names, Body: body, Weight: 1, QID: qid})
+	// Like the source quantifier_ref, own a registered result even when its
+	// trace emission fails after construction.
+	if !q.IsNull() {
+		err = errors.Join(err, l.manager.SetRef(quantifier, q))
+	}
 	if err != nil {
 		return err
 	}
