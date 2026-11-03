@@ -14,9 +14,9 @@ The user approved parallel implementation on 2026-11-02. Prioritize live solver 
 
 Use the available parallel worker capacity for independent implementation and source-audit lanes selected from current unchecked functional items: shared context selection/enumeration, engine and proof behavior, live Duality consumers, and registered relational plugins. Give shared files one owner and coordinate cross-lane changes through integration; prepare helper definitions before publishing callers so the shared tree stays compilable. Each lane delivers a source-backed behavior change or meaningful semantic regression, with focused native tests and explicit remaining gaps. The integration owner reviews patches, coordinates checklist/inventory updates and commits passing slices, targeting 5–10-minute checkpoints. Do not wait for every lane before committing a ready slice.
 
-The latest user direction is maximum parallel porting capacity and cancellation of the pending broad test run. Keep native verification focused on each new slice. Concrete sparse/lazy storage, checked-table bytecode, both explanation query modes with Hash/Sparse checked finite backing, bound/interval queries and heterogeneous sparse/interval queries are integrated. The next parallel lanes are remaining heterogeneous source fallbacks, lazy checked functional indices, relation-level formula-checking finite sieves and source-driven engine audits, without competing for shared manager/query ownership.
+The latest user direction is maximum parallel porting capacity and cancellation of the pending broad test run. Keep that run stopped and use focused native verification for new slices. Checked LazySparse functional indices, relation-level formula-checking finite sieves, typed mixed negation, heterogeneous Hash/nullary originals and source runtime-shape precision are integrated. Current parallel lanes are external default/clone/parameter routing and all-or-nothing recursion, ordinary unchecked explanation-index favourites, exact finite negation within heterogeneous programs, and fused UDoc join/project. Keep shared manager/query files under one owner.
 
-Run relevant cross-package checks at integration and the full native suite roughly hourly, avoiding duplicate active runs. The user continues checked/debug validation. Track completed behaviors and dependencies rather than translated-file counts; keep partial source statuses until the wider audit is actually complete.
+Run relevant focused cross-package checks at integration; the explicitly canceled broad native run must not restart. The user continues checked/debug validation. Track completed behaviors and dependencies rather than translated-file counts; keep partial source statuses until the wider audit is actually complete.
 
 Acceleration tactics are durable for every batch:
 
@@ -24,9 +24,9 @@ Acceleration tactics are durable for every batch:
 - Divide lanes by non-overlapping ownership, not arbitrary file counts. Use read-only source triage before editing shared infrastructure; the integration owner alone coordinates cross-lane files, the inventory and this checklist.
 - Prioritize actual registered engine/transform/relation specializations and end-to-end query paths. Do not spend a lane on dead templates, unused adapters or diagnostic polish while a functional consumer remains open.
 - Give each behavior a source-derived semantic oracle, ownership/lifecycle assertions and a focused native package test. Preserve guards and existing tests; record legacy source limitations explicitly instead of inventing silent divergences.
-- Integrate and commit each green slice immediately with a one-sentence message, then reassign that lane from the next unchecked dependency-frontier item. Run affected cross-package checks after integration and reserve the full native suite for the roughly hourly checkpoint.
+- Integrate and commit each green slice immediately with a one-sentence message, then reassign that lane from the next unchecked dependency-frontier item. Run affected focused cross-package checks after integration; the explicit cancellation of the broad run overrides the usual hourly checkpoint.
 
-Heterogeneous sparse/interval products now preserve exact finite originals and generated-query precision, seed migration, transactional publication and complete head assembly. Remaining selection cases include default-hash/nullary originals and source-bound arithmetic fallback. Both explanation modes use configured Hash/Sparse checked finite components, with selected whole-product backing and typed union targets/deltas. External condition-only and unsafe-head columns are implemented. PDR arithmetic-update configuration, Spacer false-lemma stage gating and Duality constrained lower-fact preservation now match their live source paths. Keep one owner for shared fixedpoint selection and lifecycle files while other lanes prepare typed operations and independent semantic tests. Lazy checking, relation-level formula-checking finite sieves and unsupported infinite-domain explanation bodies stay explicit obligations; absence of a Go caller alone never proves a live C++ path dead.
+Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary originals, seed migration, transactional publication and head assembly. Precision follows the actual absent/raw/sieve component shape, including the source rule that an empty union target adopts the input plugin. Fresh query heads therefore do not need the previously hypothesized bound adapter. Bound hybrids, arithmetic/mixed negation and infinite-domain explanation bodies remain open. Both explanation modes support configured checked LazySparse components; relation-level formula checking wraps only the finite sieve, while the fact-level formula guard remains. External condition-only/unsafe-head/negative rules and semi-naive SCC widening are implemented. Recent engine fixes include PDR inductive finite-frame model export, Spacer tail-only bounded search and Duality constrained lower facts. Absence of a Go caller alone never proves a live C++ path dead.
 
 ## 1. Inventory and baseline
 
@@ -398,7 +398,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - [ ] `src/muz/pdr/pdr_context.cpp` (partial), `src/muz/pdr/pdr_context.h` (partial): corrected stale completion claims after finding source result-validation and live display/certificate/invariant surfaces; implemented algorithms and tests are unchanged.
   - [x] Invariant/finite-frame simplification and configured pre/post propagation hooks.
-  - [ ] Complete source result validation, outstanding diagnostic consumers and exceptional ownership before closing these units.
+  - [x] Source result validation, original-rule converted certificates, invariant checks and inductive finite-frame public model export.
+  - [ ] Complete exceptional ownership and the final method/conditional audit before closing these units.
 
 - [ ] `src/muz/pdr/pdr_dl_interface.cpp` (partial: query-pipeline regression repaired and tested; broader interface method audit remains open)
   - [x] Context/statistics and transformed/source rule-snapshot replacement publish only after superseded owners finish cleanup, with retry after native refusal.
@@ -428,7 +429,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Reordered/repeated/constant external heads, two-tail joins, tail constant/repeated-variable filters and finite-delta recursive saturation.
   - [x] Arbitrary ordered positive tails preserve constants, repeated/shared variables, head assembly and recursive delta convergence.
   - [x] Positive-tail interpreted guards use joined-column variable substitution and one conjunctive external callback, with Boolean preflight and retryable cleanup.
-  - [ ] Unbound external heads, negation, interpreted-only bodies, widening and broader manager selection.
+  - [x] Unbound/unsafe heads, interpreted-only bodies and bound/unbound/nullary negation, including direct zero-column negation callbacks.
+  - [x] Dependency-first semi-naive SCC scheduling with one-output initialization and recursive widening callbacks.
+  - [ ] All-or-nothing recursion, default plugin selection, expression clones and remaining exceptional ownership.
 - [ ] `src/muz/rel/dl_finite_product_relation.cpp` (partial), `src/muz/rel/dl_finite_product_relation.h` (partial)
   - [x] Finite/interval product display, size estimates, forced garbage collection and non-table tuple-display fallback.
   - [x] Finite/explanation product display, garbage collection and outer-table row/byte estimates.
@@ -441,6 +444,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Negated-join direct forcing plus cached join/equality-filter projection fusion after observation.
   - [x] Interpreted-force failure preserves its transferred table without publishing an incomplete cache and retries transactionally.
   - [x] Equality, identical and negation mutators release transferred source nodes before applying the operation, with retryable child cleanup.
+  - [x] Forced functional Fetch/Ensure/Remove, independent checked roots, same-engine derived indices and nonforcing source estimates.
 - [ ] `src/muz/rel/dl_mk_explanations.cpp` (partial), `src/muz/rel/dl_mk_explanations.h` (partial)
 - [ ] `src/muz/rel/dl_mk_similarity_compressor.cpp` (partial), `src/muz/rel/dl_mk_similarity_compressor.h` (partial)
 - [ ] `src/muz/rel/dl_product_relation.cpp` (partial), `src/muz/rel/dl_product_relation.h` (partial)
@@ -1272,3 +1276,5 @@ Current next parallel handoff after checked explanations and heterogeneous activ
 - 2026-11-02 — Added source dependency-first external SCC scheduling. Nonrecursive rules and recursive lower-component initialization now use one-output UNION; recursive semi-naive rounds substitute each internal tail delta and optionally call WIDEN. The callback matrix covers dependency order, duplicate recursive tails, mutual recursion, empty seeds and no-prefix refusal of the still-unported all-or-nothing option. Existing tests now accept the source callback arity while preserving tuple assertions. Independent review approved and focused tests passed five runs. Public parameter wiring and all-or-nothing rounds remain followups; exceptional delta cleanup is still an explicit ownership obligation. Commit: `Schedule external recursion with source deltas and widening`.
 
 - 2026-11-02 — Added typed relation-explanation negation for implicit FormulaChecked targets and explicit Hash/Sparse negatives. Actual AST sorts validate and lift the negative finite component without weakening generic sort guards or altering proof rows; source nullary negation is supported. Positive/blocked facts, named proofs, nullary transitions and equal-cardinality wrong-sort rejection pass. Rel/public focused gates passed in 0.018s/0.049s, with the combined explanation matrix in 0.120s. Commit: `Filter checked explanation products through typed negation`.
+
+- 2026-11-02 — Ported the source-live fused UDoc JoinProject kernel: each document pair joins, projects and inserts directly with exact bit/column mappings and deduplication. The source intersection shortcut now requires complete distinct join-column coverage, avoiding its demonstrated repeated-key error. Mixed widths, explicit tuples, repeated keys, nullary outputs and independent inputs are tested; captured cleanup owners protect all unpublished results. Independent review approved; all focused UDoc tests passed in 0.062s. Public UDoc activation remains separate. Commit: `Fuse UDoc joins with streamed projection and deduplication`.
