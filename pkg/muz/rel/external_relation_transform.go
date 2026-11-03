@@ -21,10 +21,10 @@ func (r *ExternalRelation) reduceRelation(app ast.ASTHandle, args, sorts []ast.A
 	if err != nil {
 		return nil, err
 	}
+	owner := &externalRelationConstructionOwner{manager: r.ast, temps: []ast.ASTRef{appRef}}
 	defer func() {
-		resultErr = errors.Join(resultErr, r.ast.DelRef(&appRef))
-		if resultErr != nil && out != nil {
-			resultErr = errors.Join(resultErr, out.Close())
+		resultErr = owner.dispose(resultErr)
+		if resultErr != nil {
 			out = nil
 		}
 	}()
@@ -41,7 +41,9 @@ func (r *ExternalRelation) reduceRelation(app ast.ASTHandle, args, sorts []ast.A
 		return nil, err
 	}
 	r.plugin.users++
-	return &ExternalRelation{plugin: r.plugin, manager: r.manager, ast: r.ast, sorts: append([]ast.ASTHandle(nil), sorts...), relation: ref}, nil
+	out = &ExternalRelation{plugin: r.plugin, manager: r.manager, ast: r.ast, sorts: append([]ast.ASTHandle(nil), sorts...), relation: ref}
+	owner.result = out
+	return out, nil
 }
 
 // Project removes sorted, distinct columns and invokes the project reduction.
