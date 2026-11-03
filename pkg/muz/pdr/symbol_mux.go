@@ -254,8 +254,8 @@ func (m *SymbolMux) ensureTupleSize(primary ast.ASTHandle, size uint32) (resultE
 		added = append(added, ref)
 		created = append(created, declaration)
 	}
-	for offset, declaration := range created {
-		index := uint32(len(tuple) + offset)
+	for _, declaration := range created {
+		index := uint32(len(tuple))
 		tuple = append(tuple, declaration)
 		m.symbolIndex[declaration] = index
 		m.symbolPrimary[declaration] = primary
