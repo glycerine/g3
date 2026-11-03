@@ -193,6 +193,9 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 	e.options.apply(next.engine)
 	solved, err := next.engine.Solve()
 	if err != nil {
+		if e.active != nil {
+			err = errors.Join(err, next.engine.RollbackLearnFrom(e.active.engine))
+		}
 		return lbool.Undef, err
 	}
 	status = lbool.True

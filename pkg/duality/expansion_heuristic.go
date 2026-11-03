@@ -93,6 +93,19 @@ func (h *ExpansionHeuristic) Done() error {
 	return nil
 }
 
+// restoreReplay returns an unconsumed guide before an interrupted search
+// releases its heuristic. Any partial replacement result moves into the
+// heuristic and is discarded by Close.
+func (h *ExpansionHeuristic) restoreReplay(target *Counterexample) error {
+	if h == nil || h.replay == nil {
+		return nil
+	}
+	if target == nil {
+		return ErrWrapperOwner
+	}
+	return target.Swap(h.replay.previous)
+}
+
 // Close releases a replay counterexample after interrupted searches as well.
 func (h *ExpansionHeuristic) Close() error           { return h.Done() }
 func (h *ExpansionHeuristic) UseNode(node *Node) int { return 0 }

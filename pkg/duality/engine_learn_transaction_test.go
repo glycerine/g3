@@ -3,7 +3,7 @@ package duality
 import "testing"
 
 func TestDualityLearnFromKeepsReplayGuideUntilHistoryIsOwned(t *testing.T) {
-	context, _, _ := dualityNativeSolverFixture(t)
+	context, _, auxiliary := dualityNativeSolverFixture(t)
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -71,7 +71,7 @@ func TestDualityLearnFromKeepsReplayGuideUntilHistoryIsOwned(t *testing.T) {
 	oldEngine := &Engine{source: oldSource, graph: refusingHistory, counterexample: NewCounterexample()}
 	oldEngine.self = oldEngine
 	defer func() { must(oldEngine.Close()) }()
-	newEngine := &Engine{source: newSource, counterexample: NewCounterexample()}
+	newEngine := &Engine{source: newSource, counterexample: NewCounterexample(), config: EngineConfig{Auxiliary: auxiliary}}
 	newEngine.self = newEngine
 	defer func() { must(newEngine.Close()) }()
 	must(oldEngine.counterexample.Set(replayGraph, replayRoot))
@@ -92,5 +92,21 @@ func TestDualityLearnFromKeepsReplayGuideUntilHistoryIsOwned(t *testing.T) {
 	}
 	if len(newEngine.proposers) != 1 || replayGraph.closed {
 		t.Fatal("successful LearnFrom did not publish both replay and history guidance")
+	}
+	_, failure := newEngine.Solve()
+	if failure == nil {
+		t.Fatal("incomplete learned-solve services unexpectedly succeeded")
+	}
+	if newEngine.counterexample.Tree() != replayGraph || newEngine.counterexample.Root() != replayRoot || newEngine.heuristic != nil {
+		t.Fatal("failed solve did not restore the replay guide before service cleanup", failure)
+	}
+	must(newEngine.RollbackLearnFrom(oldEngine))
+	if oldEngine.counterexample.Tree() != replayGraph || oldEngine.counterexample.Root() != replayRoot || newEngine.counterexample.Tree() != nil {
+		t.Fatal("failed-run rollback did not return the exact replay guide")
+	}
+	must(newEngine.closeProposers())
+	must(newEngine.LearnFrom(oldEngine))
+	if oldEngine.counterexample.Tree() != nil || newEngine.counterexample.Tree() != replayGraph || len(newEngine.proposers) != 1 {
+		t.Fatal("retry did not relearn replay and history guidance")
 	}
 }

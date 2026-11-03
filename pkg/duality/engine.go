@@ -47,6 +47,7 @@ type Engine struct {
 	cases           *CaseInterpolator
 	quantifiers     *qe.Lite
 	ownsQuantifiers bool
+	learnedReplay   bool
 	running, closed bool
 }
 
@@ -213,7 +214,13 @@ func (e *Engine) Solve() (satisfied bool, result error) {
 	e.source.context.activeProfiler = e.config.Profiler
 	defer func() { e.source.context.activeProfiler = previousProfile }()
 	e.running = true
-	defer func() { result = errors.Join(result, e.closeRunServices(), e.closeProposers()); e.running = false }()
+	defer func() {
+		if result != nil && e.learnedReplay && e.heuristic != nil {
+			result = errors.Join(result, e.heuristic.restoreReplay(e.counterexample))
+		}
+		result = errors.Join(result, e.closeRunServices(), e.closeProposers())
+		e.running = false
+	}()
 	if err := e.closeRunServices(); err != nil {
 		return false, err
 	}
@@ -294,13 +301,16 @@ func (e *Engine) Solve() (satisfied bool, result error) {
 		defer func() { result = errors.Join(result, e.config.Profiler.TimerStop("SolveMain")) }()
 	}
 	safe, err := search.SolveMain()
-	if err != nil || safe || !e.counterexampleHasQuantifiedTheory() {
-		return safe, err
-	}
-	if err := e.validateQuantifiedCounterexample(); err != nil {
+	if err != nil {
 		return false, err
 	}
-	return false, nil
+	if !safe && e.counterexampleHasQuantifiedTheory() {
+		if err := e.validateQuantifiedCounterexample(); err != nil {
+			return false, err
+		}
+	}
+	e.learnedReplay = false
+	return safe, nil
 }
 
 // LearnFrom swaps counterexamples and caches translated history facts from the
@@ -320,10 +330,35 @@ func (e *Engine) LearnFrom(other *Engine) error {
 	if err != nil {
 		return err
 	}
+	hasReplay := other.counterexample.Tree() != nil
 	if err := e.counterexample.Swap(other.counterexample); err != nil {
 		return errors.Join(err, proposer.Close())
 	}
+	e.learnedReplay = hasReplay
 	e.proposers = append(e.proposers, proposer)
+	return nil
+}
+
+// RollbackLearnFrom returns an unconsumed replay guide to the engine that
+// supplied it. History proposals remain owned by this engine and are released
+// with its failed run.
+func (e *Engine) RollbackLearnFrom(other *Engine) error {
+	if err := e.open(); err != nil {
+		return err
+	}
+	if err := other.open(); err != nil {
+		return err
+	}
+	if !e.learnedReplay {
+		return nil
+	}
+	if other.counterexample.Tree() != nil {
+		return ErrWrapperOwner
+	}
+	if err := other.counterexample.Swap(e.counterexample); err != nil {
+		return err
+	}
+	e.learnedReplay = false
 	return nil
 }
 func (e *Engine) Close() error {

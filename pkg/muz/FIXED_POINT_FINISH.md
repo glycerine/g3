@@ -268,6 +268,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 - [ ] Audit lazy-annotation expansion, heuristic ordering, covering, backtracking, restarts and constrained counterexample completion.
   - [x] Preserve cloned lower facts during constrained fast completion under the compiled source guard; keep model-derived underapproximation computation available for its legitimate unconstrained source path and verify the real SAT counterexample graph/model.
   - [x] Acquire the next history proposer before transferring the previous counterexample replay guide, so recoverable history failure leaves the active engine unchanged and retry transfers both owners exactly once.
+  - [x] Restore an unconsumed replay guide from a failed new solve, discard only its partial counterexample, and return the guide to the previous active engine before reaping the failed run; successful solve marks it consumed.
 - [ ] Audit interpolation learning, generalization, proof cores, underapproximation, Gaussian elimination and integer/array projection.
 - [ ] Preserve independent cleanup/resource errors through recovery and restart paths; extend actual-path failure campaigns where coverage is missing.
 - [ ] Close fixedpoint registration, preprocessing/model conversion, quantified witness reconstruction, proofs and certificate export.
@@ -528,6 +529,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Duality now rolls back replay guidance when a newly learned run fails after its replay heuristic has taken ownership. The exact original graph/root returns to the previous active engine, partial failed-run counterexamples are discarded, history guidance can transfer again on retry, and only a successful solve marks replay consumed; wider restart auditing remains open.
+  Validation: `go -C pkg test ./duality -run '^(TestDualityInterruptedReplayRestoresGuideAndDiscardsPartialResult|TestDualityLearnFromKeepsReplayGuideUntilHistoryIsOwned)$' -count=3` and `go -C pkg test ./muz/duality -run '^TestDualityBackendCancellationAndRetry$' -count=3` passed. Commit title: `Roll back Duality replay guides after failed solves`.
 
 - 2026-11-02 — Nonlinear BMC proof reconstruction now retires model bindings, substituted children and conclusions through the typed reverse cleanup frontier. Recursive and public proof outputs transfer their concrete AST token into that receipt before the visible slot is cleared, preventing native refusal from losing the sole owner while still suppressing partial publication; raw query/trace cleanup remains open.
   Validation: `go -C pkg test ./muz/bmc -run '^(TestBMCNonlinearTraceAndProofAllocationFrontiers|TestBMCNonlinearTraceVisitsModelSelectedRules|TestBMCNonlinearQueryAndAppliedVariablesAllocationFrontiers)' -count=3` passed. Commit title: `Preserve nonlinear BMC proof cleanup frontiers`.
