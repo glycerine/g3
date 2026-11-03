@@ -24,6 +24,10 @@ func similarityMergeFinite(context *base.DatalogContext, relations *RelationMana
 }
 
 func similarityMergeFiniteCore(context *base.DatalogContext, rm *base.RuleManager, relations *RelationManager, class similarityClass) (result ast.ASTHandle, rule *base.Rule, err error) {
+	return similarityMergeFiniteCoreWithTemplate(context, rm, relations, class, nil)
+}
+
+func similarityMergeFiniteCoreWithTemplate(context *base.DatalogContext, rm *base.RuleManager, relations *RelationManager, class similarityClass, template FiniteTable) (result ast.ASTHandle, rule *base.Rule, err error) {
 	if rm == nil || relations == nil || !class.merge || len(class.rules) < 2 || len(class.constants) == 0 {
 		return ast.ASTHandle{}, nil, ast.ErrASTDomain
 	}
@@ -99,7 +103,23 @@ func similarityMergeFiniteCore(context *base.DatalogContext, rm *base.RuleManage
 	if e != nil {
 		return ast.ASTHandle{}, nil, e
 	}
-	table, e := relations.GetFiniteRelation(aux)
+	var table FiniteTable
+	if template == nil {
+		table, e = relations.GetFiniteRelation(aux)
+	} else {
+		// mk_fresh_head_predicate inherits the explicitly requested source
+		// relation kind before add_fact first constructs the auxiliary owner.
+		var signature Signature
+		signature, e = tableRelationSignature(relations, domains)
+		if e == nil {
+			table, e = newFiniteTableLike(template, signature)
+		}
+		if e == nil {
+			if e = relations.StoreFiniteRelation(aux, table); e != nil {
+				e = errors.Join(e, table.Close())
+			}
+		}
+	}
 	if e != nil {
 		return aux, nil, e
 	}

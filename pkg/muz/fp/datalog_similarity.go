@@ -31,7 +31,14 @@ func (e *PropositionalEngine) applyDatalogSimilarity(outputs []ast.ASTHandle) (r
 	if !enabled {
 		return nil
 	}
-	plugin, err := rel.NewFiniteSimilarityCompressorForRules(e.rules, e.relations, threshold, outputs)
+	var requested []ast.ASTHandle
+	for _, declaration := range e.predicateOrder {
+		state := e.predicates[declaration]
+		if state != nil && state.explicitFiniteRepresentation {
+			requested = append(requested, declaration)
+		}
+	}
+	plugin, err := rel.NewFiniteSimilarityCompressorForRulesWithRequestedKinds(e.rules, e.relations, threshold, outputs, requested)
 	if err != nil {
 		return err
 	}
@@ -51,6 +58,12 @@ func (e *PropositionalEngine) applyDatalogSimilarity(outputs []ast.ASTHandle) (r
 		}
 		if e.predicates[decl] == nil {
 			e.predicateOrder = append(e.predicateOrder, decl)
+		}
+		if origin, found := plugin.FreshPredicateOrigin(decl); found {
+			if original := e.predicates[origin]; original != nil {
+				state.explicitFiniteRepresentation = original.explicitFiniteRepresentation
+				state.requestedRepresentations = append([]string(nil), original.requestedRepresentations...)
+			}
 		}
 		e.predicates[decl] = state
 		e.auxiliary[decl] = true

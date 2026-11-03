@@ -18,6 +18,8 @@ type FiniteSimilarityCompressor struct {
 	rules     *base.RuleManager
 	relations *RelationManager
 	fresh     []ast.ASTHandle
+	origins   map[ast.ASTHandle]ast.ASTHandle
+	requested map[ast.ASTHandle]bool
 	protected map[ast.ASTHandle]bool
 	threshold uint32
 	closed    bool
@@ -49,6 +51,13 @@ func NewFiniteSimilarityCompressor(context *base.DatalogContext, relations *Rela
 // NewFiniteSimilarityCompressorForRules binds the finite relational engine's
 // concrete rule manager directly; the relation manager owns generated facts.
 func NewFiniteSimilarityCompressorForRules(rules *base.RuleManager, relations *RelationManager, threshold uint32, outputs []ast.ASTHandle) (*FiniteSimilarityCompressor, error) {
+	return NewFiniteSimilarityCompressorForRulesWithRequestedKinds(rules, relations, threshold, outputs, nil)
+}
+
+// NewFiniteSimilarityCompressorForRulesWithRequestedKinds inherits the actual
+// finite plugin of explicitly selected source predicates. Unselected heads
+// continue to use the current favourite for their generated auxiliary table.
+func NewFiniteSimilarityCompressorForRulesWithRequestedKinds(rules *base.RuleManager, relations *RelationManager, threshold uint32, outputs, requested []ast.ASTHandle) (*FiniteSimilarityCompressor, error) {
 	if rules == nil || relations == nil || threshold <= 1 {
 		return nil, ast.ErrASTDomain
 	}
@@ -56,6 +65,10 @@ func NewFiniteSimilarityCompressorForRules(rules *base.RuleManager, relations *R
 		return nil, err
 	}
 	p := &FiniteSimilarityCompressor{rules: rules, relations: relations, threshold: threshold}
+	p.requested = make(map[ast.ASTHandle]bool, len(requested))
+	for _, declaration := range requested {
+		p.requested[declaration] = true
+	}
 	p.protected = make(map[ast.ASTHandle]bool, len(outputs))
 	for _, output := range outputs {
 		p.protected[output] = true
@@ -70,6 +83,16 @@ func (p *FiniteSimilarityCompressor) FreshPredicates() []ast.ASTHandle {
 		return nil
 	}
 	return append([]ast.ASTHandle(nil), p.fresh...)
+}
+
+// FreshPredicateOrigin returns the source head whose requested relation kind
+// a generated predicate inherits. Both declarations are borrowed.
+func (p *FiniteSimilarityCompressor) FreshPredicateOrigin(predicate ast.ASTHandle) (ast.ASTHandle, bool) {
+	if p == nil {
+		return ast.ASTHandle{}, false
+	}
+	origin, found := p.origins[predicate]
+	return origin, found
 }
 func (p *FiniteSimilarityCompressor) open() error {
 	if p == nil || p.self != p || p.closed {
@@ -148,11 +171,26 @@ func (p *FiniteSimilarityCompressor) Transform(source *base.RuleSet) (result *ba
 	}
 	for _, class := range classes {
 		if class.merge {
-			aux, merged, e := similarityMergeFiniteCore(p.context, rm, p.relations, class)
+			head, e := class.rules[0].HeadDeclaration()
+			if e != nil {
+				return result, e
+			}
+			var template FiniteTable
+			if p.requested[head] {
+				template, e = p.relations.GetFiniteRelation(head)
+				if e != nil {
+					return result, e
+				}
+			}
+			aux, merged, e := similarityMergeFiniteCoreWithTemplate(p.context, rm, p.relations, class, template)
 			if e != nil {
 				return result, e
 			}
 			p.fresh = append(p.fresh, aux)
+			if p.origins == nil {
+				p.origins = make(map[ast.ASTHandle]ast.ASTHandle)
+			}
+			p.origins[aux] = head
 			e = result.Add(merged)
 			e = errors.Join(e, merged.Close())
 			if e != nil {
