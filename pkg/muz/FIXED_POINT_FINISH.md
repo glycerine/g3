@@ -391,6 +391,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Preserve nonlinear raw query roots, recursive rule groups, public trace rules and proof results through child-first nested cleanup retries.
   - [x] Retire each quantified-linear proof step before publishing its successor, preserving old and new rule/proof owners behind one retryable cleanup frontier.
   - [x] Preserve quantified-linear model-index and rule-selector evaluation references through typed native cleanup retry.
+  - [x] Preserve quantified-linear grouped rule owners and drain their nested receipts before indexed compiler/result roots during failed compilation teardown.
   - [ ] Nonlinear/QBMC late-cleanup audits and broader source/ownership closure.
 
 ### clp
@@ -739,6 +740,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — External UNION/WIDEN callback dispatch now stages its assignment-application root behind any typed callback cleanup receipt. Production callback failures drain nested ownership before the app root, native refusal preserves the zero-aware frontier and retry remains stable/idempotent without invalidating live relations; remaining external working/delta ownership stays open.
   Validation: `go -C pkg test ./muz/rel -run '^TestExternalAssignmentCleanupRefusalKeepsRetryOwner$' -count=5` passed. Commit title: `Preserve external assignment cleanup owners`.
+
+- 2026-11-02 — QBMC quantified-linear compilation now retires grouped borrowed rules through typed reverse cleanup and adopts any nested rule receipt before indexed symbols or result roots. Simultaneous native child/outer refusal leaves all owners unchanged, then exact retry drains them with stable diagnostics and no double close; broader compiler teardown remains open.
+  Validation: the focused quantified-linear compilation/nested-cleanup gate in `go -C pkg test ./muz/bmc` passed five times in 0.112s. Commit title: `Preserve QBMC compiler cleanup ownership`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.

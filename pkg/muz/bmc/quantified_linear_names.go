@@ -25,18 +25,37 @@ type quantifiedLinear struct {
 type quantifiedLinearCleanupFailure struct {
 	cause      error
 	cleanupErr error
+	reported   error
+	reportText string
 	owner      *quantifiedLinear
 	results    []ast.ASTRef
+	nested     memory.ConstructionFailure
 }
 
 func (f *quantifiedLinearCleanupFailure) Error() string {
-	return errors.Join(f.cause, f.cleanupErr).Error()
+	return f.reportText
 }
 func (f *quantifiedLinearCleanupFailure) Unwrap() error {
-	return errors.Join(f.cause, f.cleanupErr)
+	return f.reported
 }
+
+func (f *quantifiedLinearCleanupFailure) captureReport() {
+	f.reported = errors.Join(f.cause, f.cleanupErr)
+	f.reportText = f.reported.Error()
+}
+
+func (f *quantifiedLinearCleanupFailure) closeOwner() error {
+	if f.nested != nil {
+		if err := f.nested.Cleanup(); err != nil {
+			return err
+		}
+		f.nested = nil
+	}
+	return f.owner.close()
+}
+
 func (f *quantifiedLinearCleanupFailure) Cleanup() error {
-	f.cleanupErr = f.owner.close()
+	f.cleanupErr = f.closeOwner()
 	if f.cleanupErr == nil {
 		f.cleanupErr = closeQuantifiedResults(f.owner.manager, f.results)
 	}
@@ -55,8 +74,12 @@ func newQuantifiedLinear(m *ast.ASTManager, width uint32) (q *quantifiedLinear, 
 	q = &quantifiedLinear{manager: m, width: width}
 	defer func() {
 		if err != nil {
-			if cleanup := q.close(); cleanup != nil {
-				err = &quantifiedLinearCleanupFailure{cause: err, cleanupErr: cleanup, owner: q}
+			failure := &quantifiedLinearCleanupFailure{cause: err, owner: q}
+			errors.As(err, &failure.nested)
+			if cleanup := failure.closeOwner(); cleanup != nil {
+				failure.cleanupErr = cleanup
+				failure.captureReport()
+				err = failure
 			}
 			q = nil
 		}
@@ -91,7 +114,9 @@ func (q *quantifiedLinear) close() (err error) {
 
 func (q *quantifiedLinear) dispose() error {
 	if err := q.close(); err != nil {
-		return &quantifiedLinearCleanupFailure{cause: err, cleanupErr: err, owner: q}
+		failure := &quantifiedLinearCleanupFailure{cause: err, cleanupErr: err, owner: q}
+		failure.captureReport()
+		return failure
 	}
 	return nil
 }
@@ -112,7 +137,11 @@ func closeQuantifiedResults(manager *ast.ASTManager, refs []ast.ASTRef) error {
 // operation both succeed. On either failure the concrete retry owner keeps q
 // and every result reference reachable until cleanup completes.
 func (q *quantifiedLinear) disposeResults(refs []ast.ASTRef, cause error) error {
-	cleanup := q.close()
+	failure := &quantifiedLinearCleanupFailure{cause: cause, owner: q, results: refs}
+	if cause != nil {
+		errors.As(cause, &failure.nested)
+	}
+	cleanup := failure.closeOwner()
 	if cause == nil && cleanup == nil {
 		return nil
 	}
@@ -121,11 +150,13 @@ func (q *quantifiedLinear) disposeResults(refs []ast.ASTRef, cause error) error 
 		// retry so Error and Unwrap remain stable diagnostics.
 		cause = cleanup
 	}
-	failure := &quantifiedLinearCleanupFailure{cause: cause, cleanupErr: cleanup, owner: q, results: refs}
+	failure.cause = cause
+	failure.cleanupErr = cleanup
 	if cleanup == nil {
 		failure.cleanupErr = closeQuantifiedResults(q.manager, refs)
 	}
 	if failure.cleanupErr != nil {
+		failure.captureReport()
 		return failure
 	}
 	return cause

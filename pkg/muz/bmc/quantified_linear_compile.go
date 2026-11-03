@@ -45,7 +45,7 @@ func (c *Compiler) CompileQuantifiedLinear(rules *base.RuleSet, width uint32) (r
 			return result, e
 		}
 		predicate, e := rule.HeadDeclaration()
-		e = errors.Join(e, rule.Close())
+		e = disposeRuleOwners(c.manager, []*base.Rule{rule}, e)
 		if e != nil {
 			return result, e
 		}
@@ -74,9 +74,7 @@ func (q *quantifiedLinear) compileGroup(c *Compiler, rules *base.RuleSet, predic
 		return err
 	}
 	defer func() {
-		for i := len(group) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, group[i].Close())
-		}
+		resultErr = disposeRuleOwners(q.manager, group, resultErr)
 	}()
 	var alternatives []ast.ASTHandle
 	for i, rule := range group {
