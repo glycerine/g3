@@ -136,11 +136,19 @@ func (r *SimpleCheckSatResult) CollectStatistics(dst *statistics.Statistics) err
 
 func closeASTRefs(m *ast.ASTManager, refs *[]ast.ASTRef) error {
 	for len(*refs) != 0 {
-		if err := m.DelRef(&(*refs)[0]); err != nil {
+		var err error
+		if (*refs)[0] != (ast.ASTRef{}) {
+			err = m.DelRef(&(*refs)[0])
+		}
+		// A release error can follow consumption of the reference token.
+		// Advance only consumed owners; leave a refused owner for retry.
+		if (*refs)[0] == (ast.ASTRef{}) {
+			copy(*refs, (*refs)[1:])
+			*refs = (*refs)[:len(*refs)-1]
+		}
+		if err != nil {
 			return err
 		}
-		copy(*refs, (*refs)[1:])
-		*refs = (*refs)[:len(*refs)-1]
 	}
 	return nil
 }
@@ -328,8 +336,10 @@ func (r *SimpleCheckSatResult) Close() error {
 	if err := closeASTRefs(r.manager, &r.core); err != nil {
 		return err
 	}
-	if err := r.manager.DelRef(&r.proof); err != nil {
-		return err
+	if r.proof != (ast.ASTRef{}) {
+		if err := r.manager.DelRef(&r.proof); err != nil {
+			return err
+		}
 	}
 	r.labels = nil
 	r.closed = true
