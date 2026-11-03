@@ -3,8 +3,6 @@ package tab
 // Source: src/muz/tab/tab_context.cpp, clause get_body and to_formula.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
@@ -17,6 +15,8 @@ func (c *Clause) Body() (result ast.ASTRef, err error) {
 		return result, ast.ErrASTHandle
 	}
 	m := c.manager
+	attempt := &clauseFormulaAttempt{manager: m}
+	defer func() { result, err = finishClauseFormula(attempt, result, err) }()
 	values, err := c.Predicates()
 	if err != nil {
 		return result, err
@@ -34,8 +34,9 @@ func (c *Clause) Body() (result ast.ASTRef, err error) {
 	if err != nil {
 		return result, err
 	}
+	attempt.result = result
 	if err = rewriter.SimplifyBooleanGateDefault(m, ast.ASTOpAnd, values, result); err != nil {
-		return ast.ASTRef{}, errors.Join(err, m.DelRef(&result))
+		return ast.ASTRef{}, err
 	}
 	return result, nil
 }
@@ -46,17 +47,13 @@ func (c *Clause) Formula() (result ast.ASTRef, err error) {
 		return result, ast.ErrASTHandle
 	}
 	m := c.manager
+	attempt := &clauseFormulaAttempt{manager: m}
+	defer func() { result, err = finishClauseFormula(attempt, result, err) }()
 	result, err = c.Body()
 	if err != nil {
 		return result, err
 	}
-	owned := true
-	defer func() {
-		if err != nil && owned {
-			err = errors.Join(err, m.DelRef(&result))
-			result = ast.ASTRef{}
-		}
-	}()
+	attempt.result = result
 	head, err := c.Head()
 	if err != nil {
 		return result, err
@@ -110,7 +107,6 @@ func (c *Clause) Formula() (result ast.ASTRef, err error) {
 			return result, err
 		}
 	}
-	owned = false
 	return result, nil
 }
 

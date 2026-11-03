@@ -539,6 +539,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Compound queries and source statistics are implemented; public certificate output renders reachable proofs and unreachable true answers with owning/stale-result guards.
   - [x] Preserve unfolded-clause substitution state, temporary roots, work clause and unpublished result through final cleanup refusal, suppressing publication until exact retry completes.
   - [x] Preserve subsumption grounding's substitution, fresh variables, in-flight output/condition roots and completed ground clause through stable retryable construction cleanup.
+  - [x] Publish clause bodies and formulas transactionally, preserving their AST result and nested construction receipt through native cleanup refusal.
 
 ### transforms
 
@@ -618,6 +619,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — The exact bound/interval activation now executes source-shaped single-positive-tail rules to fixpoint. It clones the tail, remaps one interpreted conjunction, fuses filtering with unused-column projection, reorders unique safe head variables, unions the result and honors cancellation; wider multi-tail and mixed compiler shapes remain explicit errors.
   Validation: `go -C pkg test ./muz/fp -run '^(TestBoundIntervalDatalogActivation|TestBoundIntervalDatalogPositiveFilterProjectConsumer)$' -count=5` passed. Commit title: `Execute positive bound interval rules`.
+
+- 2026-11-02 — TAB clause body and formula construction now stages the unpublished AST result with any nested construction receipt. A semantic failure followed by native cleanup refusal publishes no partial formula, preserves stable retry custody and releases the exact remaining owner frontier idempotently; broader inner TAB cleanup and diagnostics remain open.
+  Validation: `go -C pkg test ./muz/tab -run '^(TestClauseFormula|TestClause.*Body)' -count=5` passed. Commit title: `Preserve TAB clause formula construction`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
