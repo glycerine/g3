@@ -169,6 +169,53 @@ func TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack(t *testing.
 	}
 }
 
+func TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack(t *testing.T) {
+	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
+	family, err := manager.RegisterArithmeticPlugin()
+	fragmentMust(t, err)
+	integer, err := manager.MkFamilySort(family, 1, nil)
+	fragmentMust(t, err)
+	pKinds := []string{"external_relation", "interval_relation"}
+	qKinds := []string{"interval_relation", "external_relation"}
+	p := declareExternalIntervalPredicate(t, manager, engine, "external-interval-identity-refuse-p", []ast.ASTHandle{integer}, pKinds)
+	q := declareExternalIntervalPredicate(t, manager, engine, "external-interval-identity-refuse-q", []ast.ASTHandle{integer}, qKinds)
+	one, err := manager.ArithmeticIntegerNumeralText("1")
+	fragmentMust(t, err)
+	fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{one}))
+	addExternalIntervalIdentityRule(t, manager, engine, p, q, []ast.ASTHandle{integer}, "external-interval-refused-identity")
+	refusal := errors.New("external identity union refused")
+	callbacks.operations = nil
+	callbacks.refusalOperation = ast.DatalogOpUnion
+	callbacks.refusalAt = 1
+	callbacks.refusal = refusal
+	status, queryErr := engine.QueryPredicate(q)
+	if status != lbool.Undef || !errors.Is(queryErr, refusal) {
+		t.Fatal("UNION refusal did not fail identity query", status, queryErr)
+	}
+	assertExternalIntervalRegisterOperations(t, callbacks.operations, []int32{
+		ast.DatalogOpIsEmpty, ast.DatalogOpClone, ast.DatalogOpEmpty, ast.DatalogOpUnion,
+	})
+	callbacks.refusal = nil
+	empty, err := engine.externalIntervalDatalog.entries[q].product.Empty()
+	fragmentMust(t, err)
+	if !empty {
+		t.Fatal("refused UNION published the working target")
+	}
+	if got := engine.externalIntervalDatalog.entries[q].product.Kinds(); len(got) != 2 || got[0] != qKinds[0] || got[1] != qKinds[1] {
+		t.Fatal("refused unaligned UNION changed the persistent target spec", got)
+	}
+
+	callbacks.operations = nil
+	status, err = engine.QueryPredicate(q)
+	fragmentMust(t, err)
+	if status != lbool.Undef {
+		t.Fatal("identity query did not recover after UNION refusal", status)
+	}
+	if got := engine.externalIntervalDatalog.entries[q].product.Kinds(); len(got) != 2 || got[0] != "external_relation" || got[1] != "interval_relation" {
+		t.Fatal("successful unaligned UNION did not publish the common spec", got)
+	}
+}
+
 func TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly(t *testing.T) {
 	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 	family, err := manager.RegisterArithmeticPlugin()
@@ -222,18 +269,25 @@ func TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly(t *tes
 }
 
 func TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay(t *testing.T) {
-	for _, kinds := range [][]string{
-		{"external_relation", "interval_relation"},
-		{"interval_relation", "external_relation"},
+	externalFirst := []string{"external_relation", "interval_relation"}
+	intervalFirst := []string{"interval_relation", "external_relation"}
+	for _, test := range []struct {
+		name           string
+		pKinds, qKinds []string
+	}{
+		{name: "aligned-external-first", pKinds: externalFirst, qKinds: externalFirst},
+		{name: "aligned-interval-first", pKinds: intervalFirst, qKinds: intervalFirst},
+		{name: "opposite-head-external-first", pKinds: intervalFirst, qKinds: externalFirst},
+		{name: "opposite-head-interval-first", pKinds: externalFirst, qKinds: intervalFirst},
 	} {
-		t.Run(kinds[0]+"-first", func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 			family, err := manager.RegisterArithmeticPlugin()
 			fragmentMust(t, err)
 			integer, err := manager.MkFamilySort(family, 1, nil)
 			fragmentMust(t, err)
-			p := declareExternalIntervalPredicate(t, manager, engine, "external-interval-identity-continuation-p-"+kinds[0], []ast.ASTHandle{integer}, kinds)
-			q := declareExternalIntervalPredicate(t, manager, engine, "external-interval-identity-continuation-q-"+kinds[0], []ast.ASTHandle{integer}, kinds)
+			p := declareExternalIntervalPredicate(t, manager, engine, "external-interval-identity-continuation-p-"+test.name, []ast.ASTHandle{integer}, test.pKinds)
+			q := declareExternalIntervalPredicate(t, manager, engine, "external-interval-identity-continuation-q-"+test.name, []ast.ASTHandle{integer}, test.qKinds)
 			five, err := manager.ArithmeticIntegerNumeralText("5")
 			fragmentMust(t, err)
 			fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{five}))
@@ -258,7 +312,7 @@ func TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay
 				ast.DatalogOpIsEmpty, ast.DatalogOpIsEmpty, ast.DatalogOpClone,
 				ast.DatalogOpEmpty, ast.DatalogOpUnion,
 			}
-			if kinds[0] != "external_relation" {
+			if test.qKinds[0] != "external_relation" {
 				want = []int32{ast.DatalogOpIsEmpty, ast.DatalogOpClone, ast.DatalogOpEmpty, ast.DatalogOpUnion}
 			}
 			assertExternalIntervalRegisterOperations(t, callbacks.operations, want)
@@ -288,6 +342,13 @@ func TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay
 			fragmentMust(t, err)
 			if empty || operationCount(callbacks.operations, ast.DatalogOpUnion) != 1 {
 				t.Fatal("committed continuation did not publish its union target", empty, callbacks.operations)
+			}
+			wantKinds := test.qKinds
+			if test.pKinds[0] != test.qKinds[0] {
+				wantKinds = externalFirst
+			}
+			if got := activation.entries[q].product.Kinds(); len(got) != 2 || got[0] != wantKinds[0] || got[1] != wantKinds[1] {
+				t.Fatal("committed continuation published the wrong product spec", got, wantKinds)
 			}
 
 			callbacks.operations = nil
@@ -402,7 +463,7 @@ func TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan(t *test
 }
 
 func TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks(t *testing.T) {
-	for _, shape := range []string{"self", "constant", "reordered", "repeated", "nullary", "kind-order", "two-rules"} {
+	for _, shape := range []string{"self", "constant", "reordered", "repeated", "nullary", "two-rules"} {
 		t.Run(shape, func(t *testing.T) {
 			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 			family, err := manager.RegisterArithmeticPlugin()
@@ -418,9 +479,6 @@ func TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks(
 			}
 			pKinds := []string{"external_relation", "interval_relation"}
 			qKinds := append([]string(nil), pKinds...)
-			if shape == "kind-order" {
-				qKinds = []string{"interval_relation", "external_relation"}
-			}
 			p := declareExternalIntervalPredicate(t, manager, engine, "external-interval-identity-invalid-p-"+shape, sorts, pKinds)
 			q := declareExternalIntervalPredicate(t, manager, engine, "external-interval-identity-invalid-q-"+shape, sorts, qKinds)
 			headDeclaration := q

@@ -100,19 +100,47 @@ func (p *ExternalIntervalProduct) unionCompatible(other *ExternalIntervalProduct
 			return ast.ErrASTDomain
 		}
 	}
-	for i := range p.kinds {
-		if p.kinds[i] != other.kinds[i] {
-			return ErrTableRelation
-		}
+	if !externalIntervalProductKinds(p.kinds) || !externalIntervalProductKinds(other.kinds) {
+		return ErrTableRelation
 	}
 	return nil
 }
 
-// Union performs the source aligned product update. External and interval
-// plugins do not support cross-kind unions in both directions, so only the two
-// corresponding component unions are applied. Local interval candidates are
-// published after the external assignment commits, even when only cleanup of
-// that committed callback remains pending.
+func externalIntervalProductKindsEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func (p *ExternalIntervalProduct) canonicalizeUnalignedUnion(source, delta *ExternalIntervalProduct) {
+	unaligned := !externalIntervalProductKindsEqual(p.kinds, source.kinds)
+	if delta != nil {
+		unaligned = unaligned || !externalIntervalProductKindsEqual(p.kinds, delta.kinds)
+	}
+	if !unaligned {
+		return
+	}
+	// get_common_spec orders the exact live pair by its registered family
+	// identifiers. The concrete Go pair uses the matching external-first
+	// canonical representation while its typed components need no conversion.
+	p.kinds = []string{"external_relation", "interval_relation"}
+	if delta != nil {
+		delta.kinds = []string{"external_relation", "interval_relation"}
+	}
+}
+
+// Union performs the source aligned update after converting an unaligned exact
+// pair to its common specification. External and interval plugins do not
+// support cross-kind unions in both directions, so only the two corresponding
+// component unions are applied. Local interval candidates are published after
+// the external assignment commits, even when only cleanup of that committed
+// callback remains pending.
 func (p *ExternalIntervalProduct) Union(source, delta *ExternalIntervalProduct, widen bool) (resultErr error) {
 	if err := p.unionCompatible(source); err != nil {
 		return err
@@ -125,6 +153,7 @@ func (p *ExternalIntervalProduct) Union(source, delta *ExternalIntervalProduct, 
 			return err
 		}
 	}
+	p.canonicalizeUnalignedUnion(source, delta)
 	targetCandidate, err := p.interval.Clone()
 	if err != nil {
 		return err

@@ -24,7 +24,6 @@ func sameExternalIntervalIdentityRule(left, right *externalIntervalDatalogIdenti
 func externalIntervalIdentitySpecsEqual(head, tail *predicateState) bool {
 	if head == nil || tail == nil || !isExternalIntervalRepresentation(head.requestedRepresentations) ||
 		!isExternalIntervalRepresentation(tail.requestedRepresentations) ||
-		!externalIntervalKindsEqual(head.requestedRepresentations, tail.requestedRepresentations) ||
 		len(head.sorts) == 0 || len(head.sorts) != len(tail.sorts) {
 		return false
 	}
