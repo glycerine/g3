@@ -1081,6 +1081,49 @@ func (c *finiteCompiler) conditionVariables(root ast.ASTHandle, variables map[ui
 	return nil
 }
 
+func (c *finiteCompiler) ruleVariableSorts(rule finiteCompiledRule) (map[uint32]ast.ASTHandle, error) {
+	result := make(map[uint32]ast.ASTHandle)
+	roots := []ast.ASTHandle{rule.head, rule.tail, rule.tail2}
+	roots = append(roots, rule.negative...)
+	roots = append(roots, rule.interpreted...)
+	for _, root := range roots {
+		if root.IsNull() {
+			continue
+		}
+		if err := c.conditionVariables(root, result); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+func (c *finiteCompiler) relationSortsForVariables(signature Signature, variableColumns map[uint32][]int, variableSorts map[uint32]ast.ASTHandle) ([]ast.ASTHandle, error) {
+	result := make([]ast.ASTHandle, signature.Len())
+	assigned := make([]bool, signature.Len())
+	for variable, columns := range variableColumns {
+		sort, found := variableSorts[variable]
+		if !found || sort.IsNull() {
+			return nil, ErrCompilerUnsupported
+		}
+		domain, err := c.relations.sortDomain(sort)
+		if err != nil {
+			return nil, err
+		}
+		for _, column := range columns {
+			if column < 0 || column >= signature.Len() || signature.domains[column] != domain {
+				return nil, ErrCompilerUnsupported
+			}
+			result[column], assigned[column] = sort, true
+		}
+	}
+	for _, found := range assigned {
+		if !found {
+			return nil, ErrCompilerUnsupported
+		}
+	}
+	return result, nil
+}
+
 func (c *finiteCompiler) filterInterpreted(rule finiteCompiledRule, predicate ast.ASTHandle, current uint32, signature Signature, owned, present bool, variableColumns map[uint32][]int) (uint32, Signature, bool, bool, map[uint32][]int, error) {
 	if !present {
 		seed, err := c.emptyTotalRegister(rule.rule, predicate)
@@ -1124,16 +1167,69 @@ func (c *finiteCompiler) filterInterpreted(rule finiteCompiledRule, predicate as
 		}
 		variableColumns[variable] = []int{column}
 	}
+	columns := make(map[uint32]int, len(variables))
+	for variable := range variables {
+		columns[variable] = variableColumns[variable][0]
+	}
+	sourceVariableColumns := copyVariableColumns(variableColumns)
+	headVariables := make(map[uint32]ast.ASTHandle)
+	if err := c.conditionVariables(rule.head, headVariables); err != nil {
+		return 0, Signature{}, false, false, nil, err
+	}
+	removed := make([]int, 0)
+	for variable, sourceColumns := range variableColumns {
+		if _, found := headVariables[variable]; found {
+			continue
+		}
+		removed = append(removed, sourceColumns...)
+		delete(variableColumns, variable)
+	}
+	if len(removed) != 0 {
+		sort.Ints(removed)
+		allVariableSorts, err := c.ruleVariableSorts(rule)
+		if err != nil {
+			return 0, Signature{}, false, false, nil, err
+		}
+		relationSorts, err := c.relationSortsForVariables(signature, sourceVariableColumns, allVariableSorts)
+		if err != nil {
+			return 0, Signature{}, false, false, nil, err
+		}
+		projected, err := projectedSignature(signature, removed)
+		if err != nil {
+			return 0, Signature{}, false, false, nil, err
+		}
+		result := current
+		if owned {
+			c.signatures[result] = projected
+		} else {
+			result = c.fresh(projected)
+		}
+		instruction, err := NewFilterInterpretedAndProjectInstruction(c.manager, c.relations, c.guard, current, rule.interpreted, columns, variables, relationSorts, removed, result)
+		if err != nil {
+			return 0, Signature{}, false, false, nil, err
+		}
+		if err = c.emit(instruction, rule.rule); err != nil {
+			return 0, Signature{}, false, false, nil, err
+		}
+		offsets := make([]int, signature.Len())
+		for _, removedColumn := range removed {
+			for column := removedColumn; column < len(offsets); column++ {
+				offsets[column]++
+			}
+		}
+		for variable, survivingColumns := range variableColumns {
+			for index, column := range survivingColumns {
+				variableColumns[variable][index] = column - offsets[column]
+			}
+		}
+		return result, projected, true, present, variableColumns, nil
+	}
 	if !owned {
 		clone := c.fresh(signature)
 		if err := c.emit(NewCloneInstruction(current, clone), rule.rule); err != nil {
 			return 0, Signature{}, false, false, nil, err
 		}
 		current, owned = clone, true
-	}
-	columns := make(map[uint32]int, len(variables))
-	for variable := range variables {
-		columns[variable] = variableColumns[variable][0]
 	}
 	instruction, err := NewFilterInterpretedInstruction(c.manager, c.relations, c.guard, current, rule.interpreted, columns, variables)
 	if err != nil {

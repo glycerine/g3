@@ -29,6 +29,10 @@ type interpretedFilterInstruction struct {
 // variable-to-column binding. The manager, relation manager, and rewriter are
 // borrowed until the instruction is closed.
 func NewFilterInterpretedInstruction(manager *ast.ASTManager, relations *RelationManager, rewriter *astrewriter.TheoryRewriter, register uint32, conditions []ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle) (Instruction, error) {
+	return newInterpretedFilterInstruction(manager, relations, rewriter, register, conditions, columns, sorts)
+}
+
+func newInterpretedFilterInstruction(manager *ast.ASTManager, relations *RelationManager, rewriter *astrewriter.TheoryRewriter, register uint32, conditions []ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle) (*interpretedFilterInstruction, error) {
 	if manager == nil || relations == nil || rewriter == nil || len(conditions) == 0 {
 		return nil, ErrInstruction
 	}
