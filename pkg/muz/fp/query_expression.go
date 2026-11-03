@@ -44,6 +44,12 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			e.recordQueryStatus(result, resultErr)
 		}
 	}()
+	// The source mixed product has no well-sorted Boolean formula answer: its
+	// external component is relation-sorted while the interval component is
+	// Boolean. Reject before allocating a query clone or invoking callbacks.
+	if e.backend == "datalog" && e.hasExternalIntervalRepresentation() {
+		return lbool.Undef, ErrExternalIntervalDatalogFragment
+	}
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}

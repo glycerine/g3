@@ -12,7 +12,7 @@ import (
 )
 
 func (e *PropositionalEngine) queryEmptyMixedDatalog(declarations []ast.ASTHandle) (lbool.LBool, bool, error) {
-	if e.udocDatalog != nil || e.sparseIntervalDatalog != nil || e.intervalDatalog != nil || e.boundDatalog != nil {
+	if e.udocDatalog != nil || e.externalIntervalDatalog != nil || e.sparseIntervalDatalog != nil || e.intervalDatalog != nil || e.boundDatalog != nil {
 		return lbool.Undef, false, nil
 	}
 	count, err := e.set.Len()

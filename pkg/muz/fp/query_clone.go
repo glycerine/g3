@@ -9,6 +9,9 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	if err := e.open(); err != nil {
 		return nil, err
 	}
+	if e.backend == "datalog" && (e.externalIntervalDatalog != nil || e.hasExternalIntervalRepresentation()) {
+		return nil, ErrExternalIntervalDatalogFragment
+	}
 	if err := e.clearQueryCleanup(); err != nil {
 		return nil, err
 	}

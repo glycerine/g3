@@ -182,6 +182,7 @@ type PropositionalEngine struct {
 
 	lazyFinite               *rel.LazySparseFiniteFactory
 	sparseIntervalDatalog    *sparseIntervalDatalogActivation
+	externalIntervalDatalog  *externalIntervalDatalogActivation
 	udocDatalog              *datalogUDocContext
 	intervalDatalog          *intervalDatalogActivation
 	boundDatalog             *boundDatalogRuntime
@@ -330,6 +331,30 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 	}
 	if e.queried {
 		return fmt.Errorf("muz/fp: predicate representation must be selected before querying")
+	}
+	if isExternalIntervalRepresentation(kinds) {
+		if e.external == nil || !rel.CanHandleIntervalSorts(e.manager, state.sorts) || state.external != nil || state.explicitFiniteRepresentation {
+			return ErrExternalIntervalDatalogFragment
+		}
+		if e.externalIntervalDatalog == nil && (e.udocDatalog != nil || e.sparseIntervalDatalog != nil || e.intervalDatalog != nil || e.boundDatalog != nil) {
+			return ErrExternalIntervalDatalogFragment
+		}
+		if state.table != nil {
+			count, err := state.table.Len()
+			if err != nil {
+				return err
+			}
+			if count != 0 {
+				return ErrExternalIntervalDatalogFragment
+			}
+		}
+		if e.externalIntervalDatalog != nil && !e.externalIntervalDatalog.allowsSelection(declaration, kinds) {
+			return ErrExternalIntervalDatalogFragment
+		}
+		state.requestedRepresentations = append([]string(nil), kinds...)
+		state.explicitFiniteRepresentation = false
+		e.revision++
+		return nil
 	}
 	if len(kinds) == 1 && kinds[0] == "doc" {
 		state.requestedRepresentations = append([]string(nil), kinds...)
@@ -539,6 +564,18 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 			return err
 		}
 		e.engineInstantiated = true
+		if selected, err := e.ensureExternalIntervalDatalog(); err != nil {
+			return err
+		} else if selected {
+			e.invalidateQueryForMutation()
+			if err = e.externalIntervalDatalog.addFact(declaration, values); err != nil {
+				return err
+			}
+			e.invalidateQueryForMutation()
+			e.advanceRuleRevision()
+			e.compiled = false
+			return nil
+		}
 		if selected, err := e.ensureUDocDatalog(); err != nil {
 			return err
 		} else if selected {
@@ -632,6 +669,11 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 			return err
 		}
 		e.engineInstantiated = true
+		if selected, err := e.ensureExternalIntervalDatalog(); err != nil {
+			return err
+		} else if selected {
+			return e.addArithmeticTableFact(declaration, values)
+		}
 		if selected, err := e.ensureUDocDatalog(); err != nil {
 			return err
 		} else if selected {
@@ -1990,6 +2032,11 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if _, err := e.ensureDefaultExternalDatalog(); err != nil {
 		return lbool.Undef, err
 	}
+	if selected, err := e.ensureExternalIntervalDatalog(); err != nil {
+		return lbool.Undef, err
+	} else if selected {
+		return e.queryExternalIntervalDatalog(declarations)
+	}
 	if status, handled, err := e.queryEmptyMixedDatalog(declarations); err != nil {
 		return lbool.Undef, err
 	} else if handled {
@@ -2241,6 +2288,9 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 	}
 	if kind == EngineDatalog && (e.udocDatalog != nil || e.queryClone != nil && e.queryClone.udocDatalog != nil) {
 		return e.udocAnswer(declaration)
+	}
+	if kind == EngineDatalog && e.externalIntervalDatalog != nil && e.externalIntervalDatalog.contains(declaration) {
+		return answer, ErrExternalIntervalDatalogFragment
 	}
 	if kind == EngineDatalog && e.sparseIntervalDatalog != nil {
 		return e.sparseIntervalDatalog.relationFormula(declaration)
@@ -2678,6 +2728,9 @@ func (e *PropositionalEngine) Close() (result error) {
 	e.closing = true
 	e.queryReady = false
 	e.lastResult = lbool.Undef
+	if err := e.closeExternalIntervalDatalog(); err != nil {
+		return err
+	}
 	if e.external != nil {
 		if err := e.external.Close(); err != nil {
 			return err

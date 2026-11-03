@@ -18,6 +18,9 @@ func (e *PropositionalEngine) RelationsAnswer() (answer ast.ASTRef, resultErr er
 	if !e.queryRelationsSet {
 		return answer, ErrPropositionalEngine
 	}
+	if e.externalIntervalDatalog != nil {
+		return answer, ErrExternalIntervalDatalogFragment
+	}
 	if e.lastResult == lbool.False {
 		h, err := e.manager.MkFalse()
 		if err != nil {
