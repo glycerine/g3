@@ -308,6 +308,9 @@ func (a *externalIntervalDatalogActivation) close() error {
 		if err := a.identity.close(a.manager); err != nil {
 			return err
 		}
+		if err := a.cartesian.close(a.manager); err != nil {
+			return err
+		}
 	}
 	if a.program == nil && a.ground != nil {
 		if err := a.ground.close(a.manager); err != nil {

@@ -60,7 +60,7 @@ func (e *PropositionalEngine) externalIntervalProgramPlan() (*externalIntervalDa
 					plan.ground, cause = e.externalIntervalGroundRule(rule)
 				case positive == 1:
 					plan.identity, cause = e.externalIntervalIdentityRulePlan(rule)
-				case total == 2:
+				case positive == 2:
 					plan.cartesian, cause = e.externalIntervalCartesianRule(rule)
 				default:
 					cause = ErrExternalIntervalDatalogFragment
@@ -132,6 +132,9 @@ func (a *externalIntervalDatalogActivation) installExternalIntervalProgram(progr
 	if err := a.identity.close(a.manager); err != nil {
 		return err
 	}
+	if err := a.cartesian.close(a.manager); err != nil {
+		return err
+	}
 	a.program = program
 	a.identity, a.cartesian = nil, nil
 	return a.pinExternalIntervalProgramPlans()
@@ -142,6 +145,9 @@ func (a *externalIntervalDatalogActivation) installExternalIntervalProgram(progr
 func (a *externalIntervalDatalogActivation) pinExternalIntervalProgramPlans() error {
 	for _, rule := range a.program.rules {
 		if err := rule.identity.pin(a.manager); err != nil {
+			return err
+		}
+		if err := rule.cartesian.pin(a.manager); err != nil {
 			return err
 		}
 		if rule.ground != nil && rule.ground.applicationRoot == (ast.ASTRef{}) {
@@ -161,6 +167,9 @@ func (a *externalIntervalDatalogActivation) closeExternalIntervalProgramPlans() 
 	}
 	for i := len(a.program.rules) - 1; i >= 0; i-- {
 		if err := a.program.rules[i].identity.close(a.manager); err != nil {
+			return err
+		}
+		if err := a.program.rules[i].cartesian.close(a.manager); err != nil {
 			return err
 		}
 		if err := a.program.rules[i].ground.close(a.manager); err != nil {

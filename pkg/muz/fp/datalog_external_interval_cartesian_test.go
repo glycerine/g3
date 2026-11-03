@@ -296,7 +296,7 @@ func TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay(t *testin
 func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *testing.T) {
 	shapes := []string{
 		"repeated-head", "constant", "repeated-tail",
-		"negative", "guard", "cycle", "unsafe-head", "nullary-tail",
+		"negative", "unbound-guard", "cycle", "unsafe-head", "nullary-tail",
 		"repeated-tail-column", "third-tail",
 		"mutual-recursion",
 	}
@@ -363,8 +363,8 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 				body, err = manager.MkAnd(leftApplication, negated)
 				fragmentMust(t, err)
 			}
-			if shape == "guard" {
-				guard, cause := manager.MkArithmeticLT(x, y)
+			if shape == "unbound-guard" {
+				guard, cause := manager.MkArithmeticLT(x, z)
 				fragmentMust(t, cause)
 				body, err = manager.MkAnd(body, guard)
 				fragmentMust(t, err)

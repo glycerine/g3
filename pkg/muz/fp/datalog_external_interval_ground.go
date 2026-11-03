@@ -129,7 +129,7 @@ func (e *PropositionalEngine) externalIntervalRulePlans() (_ *externalIntervalDa
 		identity, cause := e.externalIntervalIdentityRulePlan(rule)
 		return identity, nil, nil, cause
 	}
-	if total == 2 {
+	if positive == 2 {
 		cartesian, cause := e.externalIntervalCartesianRule(rule)
 		return nil, nil, cartesian, cause
 	}
@@ -165,8 +165,11 @@ func (a *externalIntervalDatalogActivation) installExternalIntervalRulePlans(ide
 		}
 		identity = a.identity
 	}
-	if a.cartesian != nil && cartesian != nil && !sameExternalIntervalCartesianRule(a.cartesian, cartesian) {
-		return ErrExternalIntervalDatalogFragment
+	if a.cartesian != nil && cartesian != nil {
+		if !sameExternalIntervalCartesianRule(a.cartesian, cartesian) {
+			return ErrExternalIntervalDatalogFragment
+		}
+		cartesian = a.cartesian
 	}
 	if a.identity != nil && (ground != nil || cartesian != nil) ||
 		a.ground != nil && (identity != nil || cartesian != nil) ||
@@ -185,10 +188,18 @@ func (a *externalIntervalDatalogActivation) installExternalIntervalRulePlans(ide
 			return err
 		}
 	}
+	if cartesian == nil {
+		if err := a.cartesian.close(a.manager); err != nil {
+			return err
+		}
+	}
 	a.identity = identity
 	a.ground = ground
 	a.cartesian = cartesian
-	return identity.pin(a.manager)
+	if err := identity.pin(a.manager); err != nil {
+		return err
+	}
+	return cartesian.pin(a.manager)
 }
 
 type externalIntervalDatalogGroundContinuation struct {
