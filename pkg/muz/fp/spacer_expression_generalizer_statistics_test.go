@@ -2,13 +2,14 @@ package fp
 
 import (
 	"errors"
+	"strings"
+	"testing"
+
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	"github.com/glycerine/g3/pkg/util/symbol"
-	"strings"
-	"testing"
 )
 
 func TestSpacerGeneralizerStatisticsSurviveFailedExpressionPreparation(t *testing.T) {
@@ -57,8 +58,17 @@ func TestSpacerGeneralizerStatisticsSurviveFailedExpressionPreparation(t *testin
 	limit.IncCancel()
 	_, err = e.QueryExpression(quantified)
 	limit.DecCancel()
-	if err == nil || !strings.Contains(err.Error(), "canceled") || e.queryClone != nil || e.spacer != nil {
+	if err == nil || !strings.Contains(err.Error(), "canceled") || e.queryClone != nil || e.spacer == nil || e.spacerRules != nil || !e.engineInstantiated {
 		t.Fatal("expected failed preparation before program installation", err)
+	}
+	// Source context::query constructs dl_interface and its Spacer context
+	// before mk_query can observe cancellation. This owner has no installed
+	// program and must survive to perform the successful retry.
+	preparationContext := e.spacer
+	initialized, err := preparationContext.Initialized()
+	must(err)
+	if initialized {
+		t.Fatal("failed preparation installed a program")
 	}
 	if _, err = e.LastResult(); !errors.Is(err, ErrPropositionalEngine) {
 		t.Fatal("failed preparation published a result", err)
@@ -71,7 +81,7 @@ func TestSpacerGeneralizerStatisticsSurviveFailedExpressionPreparation(t *testin
 	}
 	status, err = e.QueryExpression(query)
 	must(err)
-	if status != lbool.False {
+	if status != lbool.False || e.queryClone == nil || e.queryClone.spacer != preparationContext || e.spacer != nil {
 		t.Fatal("retry result", status)
 	}
 	collected := statistics.New()
