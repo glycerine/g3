@@ -106,13 +106,29 @@ func TestPDRInputTraceOriginalOwnerSurvivesDumpFailure(t *testing.T) {
 	ref, err := m.NewRef(original)
 	fragmentMust(t, err)
 	defer func() { fragmentMust(t, m.DelRef(&ref)); fragmentMust(t, fact.Close()) }()
+	// context::query constructs its PDR engine before entering mk_query. A
+	// dump failure leaves that pre-query context owned by the parent. Measure
+	// its references independently so the exact count still detects leaked
+	// temporary query owners without treating the live context as a leak.
+	controlTags := diagnostic.NewTraceTagsWithWriter(&bytes.Buffer{})
+	control, _ := newPDRTransformedTraceFixture(t, controlTags)
+	controlBefore := control.manager.Stats().LiveReferences
+	_, err = control.pdrContext()
+	fragmentMust(t, err)
+	contextReferences := control.manager.Stats().LiveReferences - controlBefore
 	before := m.Stats().LiveReferences
 	_, err = e.QueryExpression(original)
 	if err == nil || !strings.Contains(err.Error(), "Background axioms cannot be used with SMT-LIB2 HORN format") {
 		t.Fatal("missing later dump failure", err)
 	}
-	if m.Stats().LiveReferences != before {
-		t.Fatal("failed expression trace lost temporary owners")
+	if e.pdr == nil || m.Stats().LiveReferences != before+contextReferences {
+		t.Fatal("failed expression trace lost temporary owners or its PDR context", before, contextReferences, m.Stats().LiveReferences)
+	}
+	prequery := e.pdr
+	initialized, err := prequery.Initialized()
+	fragmentMust(t, err)
+	if initialized {
+		t.Fatal("failed dump installed a PDR program")
 	}
 	if e.queryClone != nil || !e.pdrTraceQuery.IsNull() {
 		t.Fatal("failed query published a clone or borrowed input")
@@ -127,5 +143,8 @@ func TestPDRInputTraceOriginalOwnerSurvivesDumpFailure(t *testing.T) {
 	fragmentMust(t, err)
 	if status != lbool.True {
 		t.Fatal("expression query retry", status)
+	}
+	if e.queryClone == nil || e.queryClone.pdr != prequery {
+		t.Fatal("expression query retry lost its pre-query context")
 	}
 }
