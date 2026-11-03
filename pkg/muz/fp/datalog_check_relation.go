@@ -28,6 +28,7 @@ type datalogCheckRelationScope struct {
 	engine   *PropositionalEngine
 	entries  []datalogCheckedPredicate
 	compiled *datalogCompiledCheckScope
+	factory  *rel.FiniteCheckedFactory
 }
 
 type datalogCheckRelationCleanupFailure struct {
@@ -210,14 +211,29 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 		return nil, rel.ErrCompilerUnsupported
 	}
 	tableCheck := false
+	var checkedFactory *rel.FiniteCheckedFactory
 	if !enabled {
 		name, enabled, err = e.datalogDefaultTableCheck()
 		if err != nil || !enabled {
 			return nil, err
 		}
 		tableCheck = true
+		primary, err := e.datalogDefaultCheckedPrimary()
+		if err != nil {
+			return nil, err
+		}
+		if (primary == "lazy_sparse" || name == "lazy_sparse") && e.lazyFinite == nil {
+			e.lazyFinite = rel.NewLazySparseFiniteFactory()
+			if err = e.relations.SetLazySparseFiniteFactory(e.lazyFinite); err != nil {
+				return nil, err
+			}
+		}
+		checkedFactory, err = rel.NewFiniteCheckedFactoryWithLazy(primary, name, e.lazyFinite)
+		if err != nil {
+			return nil, err
+		}
 	}
-	scope := &datalogCheckRelationScope{engine: e}
+	scope := &datalogCheckRelationScope{engine: e, factory: checkedFactory}
 	published := false
 	defer func() {
 		if !published {
@@ -234,12 +250,13 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 			if err != nil {
 				return nil, err
 			}
-			// sparse_table_plugin cannot handle the empty signature; source
-			// relation selection falls back instead of constructing check_table.
-			if name == "sparse" && signature.Len() == 0 {
+			// check_table_plugin accepts a signature only when both selected
+			// concrete plugins do. Source favourite selection falls through to
+			// the ordinary table plugins when either side rejects it.
+			if !checkedFactory.CanHandleSignature(signature) {
 				continue
 			}
-			pair, err := rel.NewFiniteCheckedPair(state.table, name)
+			pair, err := rel.NewFiniteCheckedPairFromFactory(state.table, checkedFactory)
 			if err != nil {
 				return nil, err
 			}

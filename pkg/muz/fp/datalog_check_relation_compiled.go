@@ -44,7 +44,7 @@ func (e *PropositionalEngine) datalogDefaultCheckedPrimary() (primary string, re
 // and selects checked construction for compiler temporaries. Formula-backed
 // datalog.check_relation scopes remain interpreted.
 func (s *datalogCheckRelationScope) beginCompiled() (_ *datalogCompiledCheckScope, supported bool, resultErr error) {
-	if s == nil || s.engine == nil || len(s.entries) == 0 {
+	if s == nil || s.engine == nil {
 		return nil, false, nil
 	}
 	for i := range s.entries {
@@ -52,23 +52,8 @@ func (s *datalogCheckRelationScope) beginCompiled() (_ *datalogCompiledCheckScop
 			return nil, false, nil
 		}
 	}
-	primary, err := s.engine.datalogDefaultCheckedPrimary()
-	if err != nil {
-		return nil, false, err
-	}
-	checker, enabled, err := s.engine.datalogDefaultTableCheck()
-	if err != nil || !enabled {
-		return nil, false, err
-	}
-	if (primary == "lazy_sparse" || checker == "lazy_sparse") && s.engine.lazyFinite == nil {
-		s.engine.lazyFinite = rel.NewLazySparseFiniteFactory()
-		if err = s.engine.relations.SetLazySparseFiniteFactory(s.engine.lazyFinite); err != nil {
-			return nil, false, err
-		}
-	}
-	factory, err := rel.NewFiniteCheckedFactoryWithLazy(primary, checker, s.engine.lazyFinite)
-	if err != nil {
-		return nil, false, err
+	if s.factory == nil {
+		return nil, false, nil
 	}
 	compiled := &datalogCompiledCheckScope{check: s}
 	s.compiled = compiled
@@ -77,7 +62,7 @@ func (s *datalogCheckRelationScope) beginCompiled() (_ *datalogCompiledCheckScop
 			resultErr = errors.Join(resultErr, compiled.Close())
 		}
 	}()
-	if err = s.engine.relations.SetCheckedFiniteFactory(factory); err != nil {
+	if err := s.engine.relations.SetCheckedFiniteFactory(s.factory); err != nil {
 		return nil, false, err
 	}
 	compiled.factory = true
