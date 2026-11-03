@@ -3,8 +3,6 @@ package tab
 // Source: src/muz/tab/tab_context.cpp, index::setup.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -49,20 +47,8 @@ func setupGroundClause(c *Clause) (result *groundClause, err error) {
 		return nil, err
 	}
 	result = &groundClause{manager: m}
-	var ownedVars []ast.ASTRef
-	var subst *rewriter.VarSubstitution
-	defer func() {
-		if subst != nil {
-			err = errors.Join(err, subst.Close())
-		}
-		for i := len(ownedVars) - 1; i >= 0; i-- {
-			err = errors.Join(err, m.DelRef(&ownedVars[i]))
-		}
-		if err != nil {
-			err = errors.Join(err, result.Close())
-			result = nil
-		}
-	}()
+	attempt := &groundClauseConstructionAttempt{manager: m, result: result}
+	defer func() { result, err = finishGroundClauseConstruction(attempt, err) }()
 	vars := make([]ast.ASTHandle, fv.Size())
 	for i := range vars {
 		sort, e := fv.Get(uint32(i))
@@ -83,19 +69,21 @@ func setupGroundClause(c *Clause) (result *groundClause, err error) {
 		if e != nil {
 			return result, e
 		}
-		ownedVars = append(ownedVars, ref)
+		attempt.variables = append(attempt.variables, ref)
 	}
-	subst, err = rewriter.NewVarSubstitution(m, false)
+	subst, err := rewriter.NewVarSubstitution(m, false)
 	if err != nil {
 		return result, err
 	}
+	attempt.subst = subst
 	apply := func(h ast.ASTHandle) (out ast.ASTRef, e error) {
 		out, e = m.NewRef(ast.ASTHandle{})
 		if e != nil {
 			return out, e
 		}
 		if e = subst.Substitute(h, vars, out); e != nil {
-			e = errors.Join(e, m.DelRef(&out))
+			attempt.temporary = out
+			return ast.ASTRef{}, e
 		}
 		return out, e
 	}
@@ -126,15 +114,15 @@ func setupGroundClause(c *Clause) (result *groundClause, err error) {
 	if err != nil {
 		return result, err
 	}
+	attempt.temporary = reduced
 	h, err := m.RefGet(reduced)
 	if err != nil {
-		return result, errors.Join(err, m.DelRef(&reduced))
+		return result, err
 	}
 	precondition, err := m.MkAndArgs([]ast.ASTHandle{h})
 	if err != nil {
-		return result, errors.Join(err, m.DelRef(&reduced))
+		return result, err
 	}
 	result.precondition, err = m.NewRef(precondition)
-	err = errors.Join(err, m.DelRef(&reduced))
 	return result, err
 }

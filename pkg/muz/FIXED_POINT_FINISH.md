@@ -523,6 +523,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] `imp::cleanup` cancellation releases active clauses immediately while preserving reusable search services; clause AST destruction is retry-safe under native refusal.
   - [x] Compound queries and source statistics are implemented; public certificate output renders reachable proofs and unreachable true answers with owning/stale-result guards.
   - [x] Preserve unfolded-clause substitution state, temporary roots, work clause and unpublished result through final cleanup refusal, suppressing publication until exact retry completes.
+  - [x] Preserve subsumption grounding's substitution, fresh variables, in-flight output/condition roots and completed ground clause through stable retryable construction cleanup.
 
 ### transforms
 
@@ -530,6 +531,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — TAB subsumption grounding now stages its variable substitution, fresh-variable roots, in-flight substituted output/reduced condition and completed ground clause under one retryable owner. Failed cleanup suppresses clause publication, freezes the receipt and resumes the exact native frontier; remaining subsumption/unfold diagnostics stay open.
+  Validation: `go -C pkg test ./muz/tab -run '^(TestSubsumptionSetup|Test.*Subsumption|TestGroundClauseConstructionPreservesOwnersOnNativeCleanupRefusal)' -count=3` passed. Commit title: `Preserve TAB subsumption grounding owners`.
 
 - 2026-11-02 — Spacer Boolean model probes now transfer `EvaluateValue`'s owning AST reference into a typed cleanup owner before reading it. Native release refusal suppresses truth/falsehood publication, preserves the sole retry handle and freezes origin/error/runtime presentation until idempotent cleanup; broader model-value consumer auditing remains open.
   Validation: `go -C pkg test ./muz/spacer -run '^(TestSpacerModelValueCleanupReceiptKeepsNativeOwner|TestSpacer.*Model.*Evaluation|TestSpacer.*Evaluator)' -count=3` passed. Commit title: `Preserve Spacer model values through cleanup refusal`.
