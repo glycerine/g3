@@ -118,10 +118,12 @@ func (r *ExprSafeReplace) rewriteQuantifier(q ast.ASTHandle) (result ast.ASTHand
 	}
 	defer func() { err = errors.Join(err, nested.Close()) }()
 	shifter, err := newVarShifter(r.manager)
+	if shifter != nil {
+		defer func() { err = errors.Join(err, shifter.Close()) }()
+	}
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	defer func() { err = errors.Join(err, shifter.Close()) }()
 	declarations, err := r.manager.GetNumDeclarations(q)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -282,11 +284,17 @@ func (r *ExprSafeReplace) Apply(root ast.ASTHandle, out ast.ASTRef) (result erro
 				if e != nil {
 					return e
 				}
-				rewritten, e = r.manager.MkApp(decl, args)
+				// Reserve the owning entry before constructing the replacement;
+				// a failed reference allocation must not strand the fresh app.
+				root, e := r.scratch()
 				if e != nil {
 					return e
 				}
-				if e = r.retainTemporary(rewritten); e != nil {
+				rewritten, e = r.manager.MkApp(decl, args)
+				if !rewritten.IsNull() {
+					e = errors.Join(e, r.manager.SetRef(root, rewritten))
+				}
+				if e != nil {
 					return e
 				}
 			}
