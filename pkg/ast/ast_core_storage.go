@@ -168,6 +168,7 @@ type astInfoRecord struct {
 	kind                            int32
 	parameters                      []ASTParameter
 	count                           uint32
+	droppedParameters               uint32
 	size                            SortSize
 	flags                           ASTFuncFlags
 }
@@ -296,6 +297,7 @@ type ASTManager struct {
 	boolSort, proofSort, trueApp, falseApp, undefProof                                                 astNodeRef
 	deletionHead, deletionCurrent                                                                      astNodeRef
 	pendingDeletionHead, pendingDeletionCurrent                                                        astNodeRef
+	pendingDeletions                                                                                   []astDeletionContinuation
 	// Source fresh_id and lexical func_decl_info storage; included in owner header.
 	freshID                                        uint32
 	freshInfo                                      astInfoRecord
@@ -426,6 +428,10 @@ func (m *ASTManager) lock() error {
 	if !m.constructorComplete {
 		m.mu.Unlock()
 		return ErrASTDomain
+	}
+	if err := m.cleanupNodeDeletions(); err != nil {
+		m.mu.Unlock()
+		return err
 	}
 	return nil
 }

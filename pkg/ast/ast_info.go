@@ -114,14 +114,15 @@ func (m *ASTManager) dropInfoStorage(slot, generation uint32) error {
 	if e != nil {
 		return e
 	}
-	for i := uint32(0); i < r.count; i++ {
-		p, e := m.infoParameter(r, i)
+	for r.droppedParameters < r.count {
+		p, e := m.infoParameter(r, r.droppedParameters)
 		if e != nil {
 			return e
 		}
 		if e = m.dropParameter(p); e != nil {
 			return e
 		}
+		r.droppedParameters++
 	}
 	m.traceInfoDeallocated(r)
 	r.parameters = nil

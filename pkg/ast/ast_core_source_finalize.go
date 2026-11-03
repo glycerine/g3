@@ -26,6 +26,9 @@ func (m *ASTManager) SourceFinalize() error {
 	if m.Closed {
 		return ErrASTHandle
 	}
+	if e := m.cleanupNodeDeletions(); e != nil {
+		return e
+	}
 	m.sourceDTStarted = true
 	e := m.closeCore(true)
 	if e != nil && m.sourceDTCause == nil {

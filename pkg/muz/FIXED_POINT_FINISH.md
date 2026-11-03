@@ -121,6 +121,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
         - [x] Exercise real PDR solve and Spacer validation failures after pre-query context transfer, preserving the owner and allowing a successful query retry and zero-budget close. Broader independent cleanup-error continuations remain open.
         - [x] Exercise an actual QE-lite cleanup receipt after PDR context transfer, including explicit cleanup, ignored receipt, retry and Close without replay.
         - [x] Exercise a native failure in PDR model substitution after context transfer, preserving the owner through retry and Close.
+        - [x] Resume interrupted AST info-storage deletion and its remaining worklist after a consumed native release. A public expression-query retry verifies exact pre-manager-close ownership; broader deletion callback and terminal-close failure paths remain open.
     - [ ] Close Spacer expression-query property/statistics propagation and complete model/proof validation for both engines.
       - [x] Transfer pre-query Spacer covers to the expression-query context, route later property access to the active clone and verify stale-frame rejection.
       - [x] Complete dense allocation/cancellation scans through success, with preserved owners, retry and zero-budget disposal.
@@ -139,6 +140,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
       - [x] Invalidate direct predicate/multi-predicate/from-level result snapshots when previous-query cleanup fails, while preserving cleanup owners for retry.
       - [x] Invalidate result/property snapshots before parameter or engine mutation disposes a query owner; verify refusal preserves owners and successful retries apply requested changes.
       - [ ] Extend independent cleanup-error continuation audits beyond the exercised allocation-refusal path, including partially completed statistics collection and direct constructor-context mutation cleanup.
+        - A raw-backend pending-pop probe can block statistics capture, but a bounded public-query sweep did not establish that the normal wrapper path reaches it. Keep this audit open; do not resume a lower solver scope independently of its wrappers.
 - [ ] Verify parameter defaults, aliases, updates and engine selection against `fixedpoint_params.hpp` and engine registration.
   - [x] Compare all 123 source catalog defaults with Go, and honor profile-output and profile-timeout options in PDR/QPDR rule diagnostics. Local/global precedence and source display boundaries pass focused tests; other live parameter consumers remain open.
   - [x] Preserve fixedpoint local/module parameter snapshot decrement receipts across native numerical cleanup refusal and resume the exact owner on Close retry.
@@ -2138,3 +2140,4 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Matched source initial trace-rule selection using the existing PDR witness model. Direct and public expression-query Answer/Proof tests verify no extra solver check or model replacement, including allocation failure and retry.
 - 2026-11-03 — Matched PDR/QPDR rule diagnostics to the profile-output and profile-timeout parameters, including local overrides. All 123 source catalog defaults match the Go catalog; focused native and three-tag parameter tests pass.
 - 2026-11-03 — The integrated native fixedpoint run found a stale Spacer statistics test expectation after the engine-order change and an intermittent QBMC proof failure. Updated the Spacer test to check the source-correct uninitialized context and exact transfer on retry while preserving its statistics assertions; focused native and three-tag checks pass. The QBMC failure remains under investigation.
+- 2026-11-03 — Preserved interrupted AST info-storage deletion and its pending worklist after a consumed native release. Native AST and public query regressions, three-tag focused checks and the full native AST short suite pass; callback and terminal-close failure paths remain separate.

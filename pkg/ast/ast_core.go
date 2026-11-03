@@ -246,6 +246,9 @@ func (m *ASTManager) Close() error {
 	if m.Closed {
 		return nil
 	}
+	if e := m.cleanupNodeDeletions(); e != nil {
+		return e
+	}
 	if e := m.cleanupExprVisitFrame(); e != nil {
 		return e
 	}
