@@ -110,12 +110,19 @@ func (e *PropositionalEngine) ensureIntervalDatalog() (bool, error) {
 
 func (e *PropositionalEngine) queryIntervalDatalog(declarations []ast.ASTHandle) (lbool.LBool, error) {
 	widen := false
+	similarity, threshold := true, uint32(11)
 	if e.params != nil && e.globals != nil {
 		view, err := e.fixedpointParamView()
 		if err != nil {
 			return lbool.Undef, err
 		}
 		widen, err = view.Bool("datalog.compile_with_widening", false)
+		if err == nil {
+			similarity, err = view.Bool("datalog.similarity_compressor", true)
+		}
+		if err == nil && similarity {
+			threshold, err = view.UInt("datalog.similarity_compressor_threshold", 11)
+		}
 		err = errors.Join(err, view.Close())
 		if err != nil {
 			return lbool.Undef, err
@@ -123,6 +130,9 @@ func (e *PropositionalEngine) queryIntervalDatalog(declarations []ast.ASTHandle)
 	}
 	e.compiled = false
 	e.datalogStats.Reset()
+	if similarity {
+		return e.intervalDatalog.queryWithSimilarity(declarations, widen, threshold)
+	}
 	return e.intervalDatalog.query(declarations, widen)
 }
 

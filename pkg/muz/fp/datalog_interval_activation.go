@@ -68,6 +68,7 @@ type intervalDatalogActivation struct {
 	rules      *base.RuleSet
 	store      *IntervalDatalogStore
 	evaluator  *IntervalDatalogEvaluator
+	similarity *rel.IntervalSimilarityProgram
 	predicates []ast.ASTHandle
 	closed     bool
 }
@@ -103,14 +104,19 @@ func (a *intervalDatalogActivation) open() error {
 }
 
 func (a *intervalDatalogActivation) discardEvaluator() error {
-	if a.evaluator == nil {
-		return nil
-	}
-	err := a.evaluator.Close()
-	if err == nil {
+	if a.evaluator != nil {
+		if err := a.evaluator.Close(); err != nil {
+			return err
+		}
 		a.evaluator = nil
 	}
-	return err
+	if a.similarity != nil {
+		if err := a.similarity.Close(); err != nil {
+			return err
+		}
+		a.similarity = nil
+	}
+	return nil
 }
 
 func (a *intervalDatalogActivation) addFact(declaration ast.ASTHandle, values []ast.ASTHandle) error {

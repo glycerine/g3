@@ -482,6 +482,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/dl_mk_explanations.cpp` (partial), `src/muz/rel/dl_mk_explanations.h` (partial)
 - [ ] `src/muz/rel/dl_mk_similarity_compressor.cpp` (partial), `src/muz/rel/dl_mk_similarity_compressor.h` (partial)
   - [x] Preserve rewritten rules and temporary AST roots through native cleanup refusal with nested child-first retry and no partial transformation publication.
+  - [x] Execute similarity compression for interval-only arithmetic programs with query-local auxiliary interval facts, strict threshold/output guards, source rule order on no-op and owning evaluator snapshots.
 - [ ] `src/muz/rel/dl_product_relation.cpp` (partial), `src/muz/rel/dl_product_relation.h` (partial)
 - [ ] `src/muz/rel/dl_relation_manager.h` (partial)
 - [ ] `src/muz/rel/dl_sieve_relation.cpp` (partial), `src/muz/rel/dl_sieve_relation.h` (partial)
@@ -537,6 +538,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Similarity compression now reaches interval-only arithmetic programs through query-local auxiliary interval facts and owned evaluator snapshots. Strict thresholds, queried-output protection, original seeds/rules, no-op source rule order, repeated updates, imprecise result status and answer lifetime are preserved; bound/hybrid/external activation and deeper allocation-frontier audits remain open.
+  Validation: `go -C pkg test ./muz/rel -run '^Test(Similarity|FiniteSimilarity|IntervalSimilarity)' -count=1` and `go -C pkg test ./muz/fp -run '^Test(IntervalDatalog|DatalogConfiguredInterval|DatalogInterval)' -count=1` passed. Commit title: `Apply similarity compression to interval programs`.
 
 - 2026-11-02 — Simple-join costing now asks the relation manager for the stored representation's row estimate instead of requiring a finite table. Per-fact explanation products contribute their exact outer count, whole-relation products use the source conservative maximum and finite/lazy estimates stay concrete; wider transform costing audits remain open.
   Validation: `go -C pkg test ./muz/transforms -run '^(TestSimpleJoin|TestSimpleJoins|Test.*Explanation.*Cost)' -count=3` passed. Commit title: `Cost simple joins across relation representations`.
