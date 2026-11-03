@@ -451,6 +451,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Interpreted-force failure preserves its transferred table without publishing an incomplete cache and retries transactionally.
   - [x] Equality, identical and negation mutators release transferred source nodes before applying the operation, with retryable child cleanup.
   - [x] Forced functional Fetch/Ensure/Remove, independent checked roots, same-engine derived indices and nonforcing source estimates.
+  - [x] Force source-compatible emptiness and sequential bulk removal over sparse/nullary storage while keeping lazy exact-size knowledge false and deferred-source mutation independent.
 - [ ] `src/muz/rel/dl_mk_explanations.cpp` (partial), `src/muz/rel/dl_mk_explanations.h` (partial)
 - [ ] `src/muz/rel/dl_mk_similarity_compressor.cpp` (partial), `src/muz/rel/dl_mk_similarity_compressor.h` (partial)
 - [ ] `src/muz/rel/dl_product_relation.cpp` (partial), `src/muz/rel/dl_product_relation.h` (partial)
@@ -498,6 +499,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — LazySparse tables now expose source-compatible emptiness, sequential bulk removal and size knowledge. Empty/removal force the concrete sparse or nullary fallback without mutating a shared deferred source, while `KnowsExactSize` remains false even after forcing; broader lazy source auditing remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^TestLazySparse(BulkRemoval|NullaryBulkRemoval)' -count=3` passed. Commit title: `Complete lazy sparse size and removal queries`.
 
 - 2026-11-02 — Exact bound/interval products now assemble compiler head columns for unbound variables, repeated variables and arithmetic numerals. Full unary joins, componentwise identity filtering and source-coarse bound constants preserve requested order, nullary identity, empty propagation and source independence while rejecting bad sorts/indices atomically; compiler wiring remains open.
   Validation: `go -C pkg test ./muz/rel -run '^TestIntervalBoundProduct(ConstantColumn|FullAndDuplicate|NullaryFull)' -count=3` passed. Commit title: `Assemble bound interval product columns`.
