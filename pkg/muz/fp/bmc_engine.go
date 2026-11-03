@@ -203,6 +203,11 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 		defer func() { e.forceProofTrace = false }()
 		return e.queryBMCPredicateWithSliceProof(sourceDeclaration, allowSliceProof)
 	}
+	if !linear {
+		// Keep this after the proof-preparation retry so one public query emits
+		// the source warning exactly once.
+		warnNonlinearBMC()
+	}
 	depth, err := view.UInt("bmc.linear_unrolling_depth", math.MaxUint32)
 	if err != nil {
 		return lbool.Undef, err
