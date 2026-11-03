@@ -190,10 +190,12 @@ func simplifyQEQuantifier(m *ast.ASTManager, quantifier ast.ASTHandle) (result a
 		return result, nil
 	}
 	shifter, err := rewriter.NewVarShifter(m)
+	if shifter != nil {
+		defer func() { err = errors.Join(err, shifter.Close()) }()
+	}
 	if err != nil {
 		return result, err
 	}
-	defer func() { err = errors.Join(err, shifter.Close()) }()
 	if err = shifter.ShiftBy(body, uint32(len(simplified.variables)), result); err != nil {
 		return result, err
 	}
