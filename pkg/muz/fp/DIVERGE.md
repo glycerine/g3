@@ -45,17 +45,13 @@ checks remain in `pkg/muz/fp/bmc_numeric_proof_test.go` with the reason.
    intermittent failure remains unproven. Reset capacity retention and sparse
    table shrink behavior also match source and have focused tests.
 
-5. **Query-predicate check and failure reporting.** C++ has a debug assertion
-   that the indexed query predicate evaluates true at the chosen level before
-   it walks rules, followed by `SASSERT(r)` for a missing selected rule
-   (`src/muz/bmc/dl_bmc_engine.cpp:260–265,275–284`). Go checks that `T` is a
-   representable bit-vector numeral but does not make that same predicate
-   assertion; it returns the observed explicit error if no rule selector is
-   true (`pkg/muz/bmc/quantified_linear_trace.go:61–77,95–133`). C++ also
-   ignores the boolean return from `model::eval` in `eval_q`, whereas Go
-   propagates evaluator errors. This explains the difference in diagnostics,
-   not why the Go selector was non-true. A source assertion or subsequent
-   dereference is not evidence that C++ would return the same error.
+5. **IN PROGRESS — Query-predicate check and failure reporting.** Go now
+   performs the source debug assertions for the query predicate at `T` and
+   a missing selector, and catches the same typed rewriter exception in model
+   evaluation. Focused native and three-tag tests pass. The source can still
+   continue from an assertion into a null dereference, while Go reports an
+   explicit error; failed `T` evaluation also differs from source VERIFY.
+   These remaining behaviors have not been marked fixed.
 
 ## Differences after a rule has been selected
 

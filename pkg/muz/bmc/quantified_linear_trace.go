@@ -3,12 +3,16 @@ package bmc
 // Source: src/muz/bmc/dl_bmc_engine.cpp, qlinear::get_model rule tracing.
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 // QuantifiedLinearTrace follows model-selected rules from the query to a fact.
@@ -29,6 +33,28 @@ type quantifiedLinearStep struct {
 	rule  *base.Rule
 	index uint32
 	level uint32
+}
+
+// model::eval catches rewriter_exception, but not independent cleanup or
+// non-rewriter failures joined with it.
+func quantifiedLinearEvalException(err error) bool {
+	if err == nil {
+		return false
+	}
+	if many, ok := err.(interface{ Unwrap() []error }); ok {
+		children := many.Unwrap()
+		if len(children) == 0 {
+			return false
+		}
+		for _, child := range children {
+			if !quantifiedLinearEvalException(child) {
+				return false
+			}
+		}
+		return true
+	}
+	var pending memory.ConstructionFailure
+	return !errors.As(err, &pending) && rewriter.IsRewriterException(err)
 }
 
 func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandle, width uint32, md *model.ModelCore, services model.ModelEvaluatorConfig) (result []quantifiedLinearStep, resultErr error) {
@@ -62,6 +88,15 @@ func (c *Compiler) quantifiedLinearStepsVisit(rules *base.RuleSet, query ast.AST
 		}
 		ref, err := evaluator.EvaluateValue(term)
 		if err != nil {
+			// model::eval catches rewriter_exception and leaves the result null.
+			// A failed local cleanup must still escape with its retry owner.
+			if quantifiedLinearEvalException(err) {
+				if cleanup := evaluator.Close(); cleanup != nil {
+					return ast.ASTRef{}, cleanup
+				}
+				owner.evaluator = nil
+				return ast.ASTRef{}, nil
+			}
 			return ast.ASTRef{}, err
 		}
 		if err = evaluator.Close(); err != nil {
@@ -82,6 +117,9 @@ func (c *Compiler) quantifiedLinearStepsVisit(rules *base.RuleSet, query ast.AST
 	if err != nil {
 		return nil, err
 	}
+	if indexRef == (ast.ASTRef{}) {
+		return nil, ast.ErrASTDomain
+	}
 	value, err := m.RefGet(indexRef)
 	if err != nil {
 		return nil, disposeASTRefs(m, []ast.ASTRef{indexRef}, err)
@@ -95,6 +133,43 @@ func (c *Compiler) quantifiedLinearStepsVisit(rules *base.RuleSet, query ast.AST
 		return nil, ast.ErrASTDomain
 	}
 	level := uint32(num.Uint64())
+	// Source qlinear::get_model checks q(T) only in an enabled SASSERT.
+	debug := diagnostic.BorrowProcessDebugContext()
+	enabled, err := diagnostic.SourceAssertionsEnabled(debug)
+	if err != nil {
+		return nil, err
+	}
+	if enabled {
+		levelExpr, e := q.hold(m.BitVectorNumeralRat(new(big.Rat).SetUint64(uint64(level)), width))
+		if e != nil {
+			return nil, e
+		}
+		queryAtLevel, e := q.predicate(query, levelExpr)
+		if e != nil {
+			return nil, e
+		}
+		checked, e := evaluate(queryAtLevel)
+		if e != nil {
+			return nil, e
+		}
+		valid := false
+		if checked != (ast.ASTRef{}) {
+			var h ast.ASTHandle
+			h, e = m.RefGet(checked)
+			if e == nil {
+				valid = m.IsTrue(h)
+			}
+			e = disposeASTRefs(m, []ast.ASTRef{checked}, e)
+			if e != nil {
+				return nil, e
+			}
+		}
+		if !valid {
+			if e = diagnostic.DebugAssertionFailure(debug, "src/muz/bmc/dl_bmc_engine.cpp", 265, "m.is_true(eval_q(md, b.m_query_pred, level))"); e != nil {
+				return nil, e
+			}
+		}
+	}
 	predicate := query
 	for {
 		canceled, e := m.Canceled()
@@ -125,7 +200,7 @@ func (c *Compiler) quantifiedLinearStepsVisit(rules *base.RuleSet, query ast.AST
 			if cause == nil {
 				var evaluated ast.ASTRef
 				evaluated, cause = evaluate(atom)
-				if cause == nil {
+				if cause == nil && evaluated != (ast.ASTRef{}) {
 					var h ast.ASTHandle
 					h, cause = m.RefGet(evaluated)
 					if cause == nil && m.IsTrue(h) {
@@ -150,6 +225,11 @@ func (c *Compiler) quantifiedLinearStepsVisit(rules *base.RuleSet, query ast.AST
 			return result, e
 		}
 		if owner.selected == nil {
+			if enabled {
+				if e = diagnostic.DebugAssertionFailure(debug, "src/muz/bmc/dl_bmc_engine.cpp", 283, "r"); e != nil {
+					return result, e
+				}
+			}
 			return result, fmt.Errorf("bmc: model has no selected quantified rule at level %d", level)
 		}
 		selected := owner.selected
