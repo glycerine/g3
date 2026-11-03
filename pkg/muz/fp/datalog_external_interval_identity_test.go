@@ -463,7 +463,7 @@ func TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan(t *test
 }
 
 func TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks(t *testing.T) {
-	for _, shape := range []string{"self", "constant", "reordered", "repeated", "nullary", "two-rules"} {
+	for _, shape := range []string{"self", "constant", "reordered", "repeated", "nullary", "mutual-recursion"} {
 		t.Run(shape, func(t *testing.T) {
 			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 			family, err := manager.RegisterArithmeticPlugin()
@@ -509,11 +509,10 @@ func TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks(
 			formula, err := manager.MkImplies(tail, head)
 			fragmentMust(t, err)
 			fragmentMust(t, engine.AddRule(formula, "external-interval-invalid-"+shape))
-			if shape == "two-rules" {
-				r := declareExternalIntervalPredicate(t, manager, engine, "external-interval-identity-invalid-r", sorts, pKinds)
-				rTail, ruleErr := manager.MkApp(r, arguments)
-				fragmentMust(t, ruleErr)
-				second, ruleErr := manager.MkImplies(rTail, head)
+			if shape == "mutual-recursion" {
+				// Each identity is supported on its own, but the complete
+				// program needs recursive scheduling before either can run.
+				second, ruleErr := manager.MkImplies(head, tail)
 				fragmentMust(t, ruleErr)
 				fragmentMust(t, engine.AddRule(second, "external-interval-invalid-second"))
 			}

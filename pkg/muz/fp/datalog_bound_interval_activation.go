@@ -2,9 +2,8 @@ package fp
 
 // Source: rel_context::set_predicate_representation selects a product kind
 // for the requested bound_relation plus interval_relation pair. This first
-// activation slice supports aligned pair originals, inherited aligned query
-// heads, direct facts, and ground fact rules. Non-fact rules remain an
-// explicit fragment error until the product compiler lowering is installed.
+// activation supports exact-pair originals, inherited query heads, direct
+// facts, ground rules and the one/two-positive-tail compiler fragment.
 
 import (
 	"errors"
@@ -400,6 +399,15 @@ func (a *boundIntervalDatalogActivation) query(declarations []ast.ASTHandle) (lb
 func (a *boundIntervalDatalogActivation) relationFormula(declaration ast.ASTHandle) (ast.ASTRef, error) {
 	if err := a.open(); err != nil || a.evaluated == nil || a.evaluated[declaration] == nil {
 		return ast.ASTRef{}, errors.Join(err, ErrBoundIntervalDatalogFragment)
+	}
+	// rel_context::query tests emptiness before asking the relation plugin
+	// for its formula; empty vector components alone describe no constraints.
+	if a.evaluated[declaration].Empty() {
+		falsity, err := a.manager.MkFalse()
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		return a.manager.NewRef(falsity)
 	}
 	return a.evaluated[declaration].ToFormula(a.manager, a.entries[declaration].sorts)
 }

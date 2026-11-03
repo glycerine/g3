@@ -30,6 +30,7 @@ type externalIntervalDatalogRegisters struct {
 	retired    []*rel.ExternalIntervalProduct
 	retireNext int
 	published  bool
+	deferStore bool
 	closed     bool
 }
 
@@ -82,6 +83,18 @@ func finishExternalIntervalDatalogRegisterFailure(cause error, owner *externalIn
 func (a *externalIntervalDatalogActivation) loadExternalIntervalDatalogRegisters(declarations []ast.ASTHandle) (_ *externalIntervalDatalogRegisters, resultErr error) {
 	if err := a.open(); err != nil {
 		return nil, err
+	}
+	if a.program != nil && a.program.registers != nil {
+		registers := a.program.registers
+		if err := registers.open(); err != nil {
+			return nil, err
+		}
+		for _, declaration := range declarations {
+			if _, found := registers.indices[declaration]; !found {
+				return nil, ErrExternalIntervalDatalogFragment
+			}
+		}
+		return registers, nil
 	}
 	registers := &externalIntervalDatalogRegisters{
 		activation: a,
@@ -194,6 +207,11 @@ func (r *externalIntervalDatalogRegisters) cleanupNested() error {
 func (r *externalIntervalDatalogRegisters) store() error {
 	if err := r.open(); err != nil {
 		return err
+	}
+	// A complete program owns one LOAD/STORE boundary. Individual rule
+	// continuations finish their temporaries while the program keeps registers.
+	if r.deferStore {
+		return nil
 	}
 	if err := r.cleanupNested(); err != nil {
 		return err

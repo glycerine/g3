@@ -19,6 +19,9 @@ func (e *PropositionalEngine) selectBackend(kind EngineKind) error {
 		if err := e.closeBoundDatalog(); err != nil {
 			return err
 		}
+		if err := e.closeBoundIntervalDatalog(); err != nil {
+			return err
+		}
 		if err := e.closeDuality(); err != nil {
 			return err
 		}

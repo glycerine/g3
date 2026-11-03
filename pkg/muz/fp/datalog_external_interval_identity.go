@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/util/memory"
 )
@@ -54,6 +55,10 @@ func (e *PropositionalEngine) externalIntervalIdentityRule() (_ *externalInterva
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, rule.Close()) }()
+	return e.externalIntervalIdentityRulePlan(rule)
+}
+
+func (e *PropositionalEngine) externalIntervalIdentityRulePlan(rule *base.Rule) (*externalIntervalDatalogIdentityRule, error) {
 	total, err := rule.TailSize()
 	if err != nil {
 		return nil, err

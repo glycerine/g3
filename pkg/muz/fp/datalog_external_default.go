@@ -123,7 +123,7 @@ func (e *PropositionalEngine) ensureDefaultExternalDatalog() (selected bool, res
 	if len(candidates) == 0 {
 		return false, nil
 	}
-	if e.sparseIntervalDatalog != nil || e.intervalDatalog != nil || e.boundDatalog != nil {
+	if e.sparseIntervalDatalog != nil || e.intervalDatalog != nil || e.boundDatalog != nil || e.boundIntervalDatalog != nil {
 		return true, ErrPropositionalHorn
 	}
 	staged := make([]externalDefaultRegistration, 0, len(candidates))

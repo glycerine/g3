@@ -5,7 +5,7 @@ import "github.com/glycerine/g3/pkg/muz/base"
 // Arithmetic stores borrow the current source program. Retire their old
 // result before committing a replacement, keeping facts independently owned.
 func (e *PropositionalEngine) rebindArithmeticRules(replacement *base.RuleSet) error {
-	if e.intervalDatalog == nil && e.boundDatalog == nil && e.sparseIntervalDatalog == nil {
+	if e.intervalDatalog == nil && e.boundDatalog == nil && e.sparseIntervalDatalog == nil && e.boundIntervalDatalog == nil {
 		return nil
 	}
 	e.invalidateQueryForMutation()
@@ -28,6 +28,10 @@ func (e *PropositionalEngine) rebindArithmeticRules(replacement *base.RuleSet) e
 	if e.boundDatalog != nil {
 		e.boundDatalog.rules = replacement
 		e.boundDatalog.evaluated = nil
+	}
+	if e.boundIntervalDatalog != nil {
+		e.boundIntervalDatalog.rules = replacement
+		e.boundIntervalDatalog.evaluated = nil
 	}
 	return nil
 }

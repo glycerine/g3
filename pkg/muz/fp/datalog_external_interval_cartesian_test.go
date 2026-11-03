@@ -298,7 +298,7 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 		"repeated-head", "constant", "repeated-tail",
 		"negative", "guard", "cycle", "unsafe-head", "nullary-tail",
 		"repeated-tail-column", "third-tail",
-		"multiple-rules",
+		"mutual-recursion",
 	}
 	for _, shape := range shapes {
 		t.Run(shape, func(t *testing.T) {
@@ -392,9 +392,12 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 			formula, err := manager.MkImplies(body, headApplication)
 			fragmentMust(t, err)
 			fragmentMust(t, engine.AddRule(formula, "external-interval-cartesian-invalid-"+shape))
-			if shape == "multiple-rules" {
-				h2 := declareExternalIntervalPredicate(t, manager, engine, "external-interval-cartesian-invalid-h2", []ast.ASTHandle{integer, integer}, kinds)
-				second, cause := manager.MkImplies(body, app(h2, x, y))
+			if shape == "mutual-recursion" {
+				// Both joins are individually supported; the back-edge makes
+				// the complete program recursive and must fail preflight.
+				backBody, cause := manager.MkAnd(app(h, x, y), app(q, y))
+				fragmentMust(t, cause)
+				second, cause := manager.MkImplies(backBody, app(p, x))
 				fragmentMust(t, cause)
 				fragmentMust(t, engine.AddRule(second, "external-interval-cartesian-invalid-second"))
 			}

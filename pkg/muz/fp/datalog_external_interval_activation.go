@@ -45,6 +45,7 @@ type externalIntervalDatalogActivation struct {
 	identity             *externalIntervalDatalogIdentityRule
 	ground               *externalIntervalDatalogGroundRule
 	cartesian            *externalIntervalDatalogCartesianRule
+	program              *externalIntervalDatalogProgram
 	pending              memory.ConstructionFailure
 	pendingCompletesRule bool
 	pendingIdentity      *externalIntervalDatalogIdentityRule
@@ -234,6 +235,9 @@ func (a *externalIntervalDatalogActivation) addFact(declaration ast.ASTHandle, v
 	if _, err := a.resumeExternalIntervalIdentity(); err != nil {
 		return err
 	}
+	if err := a.discardExternalIntervalProgramExecution(); err != nil {
+		return err
+	}
 	entry := a.entries[declaration]
 	if entry == nil || len(values) != len(entry.sorts) {
 		return ErrExternalIntervalDatalogFragment
@@ -285,6 +289,9 @@ func (a *externalIntervalDatalogActivation) close() error {
 	}
 	// Products own external-plugin users, so every product must retire before
 	// the borrowed plugin can be closed by the fixedpoint engine.
+	if err := a.discardExternalIntervalProgramExecution(); err != nil {
+		return err
+	}
 	for i := len(a.order) - 1; i >= 0; i-- {
 		entry := a.entries[a.order[i]]
 		if entry != nil && entry.product != nil {

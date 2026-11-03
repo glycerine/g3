@@ -133,6 +133,9 @@ func (e *PropositionalEngine) externalIntervalRulePlans() (_ *externalIntervalDa
 }
 
 func (a *externalIntervalDatalogActivation) installExternalIntervalRulePlans(identity *externalIntervalDatalogIdentityRule, ground *externalIntervalDatalogGroundRule, cartesian *externalIntervalDatalogCartesianRule) error {
+	if a.program != nil {
+		return ErrExternalIntervalDatalogFragment
+	}
 	selected := 0
 	if identity != nil {
 		selected++

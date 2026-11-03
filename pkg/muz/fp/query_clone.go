@@ -82,6 +82,12 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 			return nil, errors.Join(err, e.discardQueryClone(clone))
 		}
 	}
+	if e.boundIntervalDatalog != nil {
+		clone.boundIntervalDatalog, err = e.boundIntervalDatalog.clone(clone.set)
+		if err != nil {
+			return nil, errors.Join(err, e.discardQueryClone(clone))
+		}
+	}
 	if e.sparseIntervalDatalog != nil {
 		clone.sparseIntervalDatalog, err = e.sparseIntervalDatalog.clone(clone.set, clone.guard)
 		if err != nil {

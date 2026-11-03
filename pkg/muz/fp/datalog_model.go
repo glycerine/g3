@@ -17,6 +17,12 @@ func (e *PropositionalEngine) datalogModel(omitted ast.ASTHandle) (result *model
 	if e.backend != "datalog" || !e.queried || e.predicates[omitted] == nil {
 		return nil, ErrPropositionalEngine
 	}
+	// Product answers are formulas, not the eager finite tables that may
+	// still contain pre-selection nullary seeds. Formula-backed product model
+	// construction is a separate consumer from the finite table model below.
+	if e.boundIntervalDatalog != nil || e.queryClone != nil && e.queryClone.boundIntervalDatalog != nil {
+		return nil, ErrBoundIntervalDatalogFragment
+	}
 	result, err := model.NewModel(e.manager)
 	if err != nil {
 		return nil, err
