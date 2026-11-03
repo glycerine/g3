@@ -47,6 +47,47 @@ func (c *Compiler) NonlinearTrace(rules *base.RuleSet, query ast.ASTHandle, leve
 	return result, nil
 }
 
+// finishNonlinearSelector keeps the selector declaration, application and
+// evaluated value alive until nested evaluator cleanup has completed. A match
+// is not published while any of these temporary owners still needs cleanup.
+func finishNonlinearSelector(m *ast.ASTManager, refs []ast.ASTRef, matched bool, cause error) (bool, error) {
+	if err := disposeASTRefs(m, refs, cause); err != nil {
+		return false, err
+	}
+	return matched, nil
+}
+
+func (c *Compiler) nonlinearRuleSelected(evaluator *model.ModelEvaluator, predicate ast.ASTHandle, args []ast.ASTHandle, index, level uint32) (matched bool, resultErr error) {
+	m := c.manager
+	var refs []ast.ASTRef
+	defer func() { matched, resultErr = finishNonlinearSelector(m, refs, matched, resultErr) }()
+	declaration, err := c.levelDeclaration(predicate, level, &index)
+	if err != nil {
+		return false, err
+	}
+	refs = append(refs, declaration)
+	decl, err := m.RefGet(declaration)
+	if err != nil {
+		return false, err
+	}
+	probe, err := m.MkApp(decl, args)
+	if err != nil {
+		return false, err
+	}
+	probeRef, err := m.NewRef(probe)
+	if err != nil {
+		return false, err
+	}
+	refs = append(refs, probeRef)
+	valueRef, err := evaluator.EvaluateValue(probe)
+	if err != nil {
+		return false, err
+	}
+	refs = append(refs, valueRef)
+	value, err := m.RefGet(valueRef)
+	return err == nil && m.IsTrue(value), err
+}
+
 func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.ModelEvaluator, predicate, application ast.ASTHandle, level uint32, trace *[]*base.Rule, proofResult *ast.ASTRef) (resultErr error) {
 	m := c.manager
 	defer func() {
@@ -90,30 +131,7 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 	}
 	var selected *base.Rule
 	for i, rule := range group {
-		index := uint32(i)
-		declRef, err := c.levelDeclaration(predicate, level, &index)
-		if err != nil {
-			return err
-		}
-		decl, err := m.RefGet(declRef)
-		if err != nil {
-			return errors.Join(err, m.DelRef(&declRef))
-		}
-		probe, err := m.MkApp(decl, args)
-		if err != nil {
-			return errors.Join(err, m.DelRef(&declRef))
-		}
-		probeRef, err := m.NewRef(probe)
-		if err != nil {
-			return errors.Join(err, m.DelRef(&declRef))
-		}
-		valueRef, err := evaluator.EvaluateValue(probe)
-		if err != nil {
-			return errors.Join(err, m.DelRef(&probeRef), m.DelRef(&declRef))
-		}
-		value, err := m.RefGet(valueRef)
-		matched := err == nil && m.IsTrue(value)
-		err = errors.Join(err, m.DelRef(&valueRef), m.DelRef(&probeRef), m.DelRef(&declRef))
+		matched, err := c.nonlinearRuleSelected(evaluator, predicate, args, uint32(i), level)
 		if err != nil {
 			return err
 		}
