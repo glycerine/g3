@@ -53,6 +53,63 @@ func TestRuleUnfoldExpandsOriginalTailOnce(t *testing.T) {
 	}
 }
 
+func TestRuleUnfoldPropagatesAccountingToTargetRule(t *testing.T) {
+	f := newConeFixture(t, "P", "Q", "Goal")
+	closeOwnedRules := func(rules []*base.Rule) (result error) {
+		for _, rule := range rules {
+			result = errors.Join(result, rule.Close())
+		}
+		return result
+	}
+	f.add(t, f.applications["P"], "fact-P")
+	f.edge(t, "P", "Q")
+	f.edge(t, "Q", "Goal")
+	coneMust(t, f.set.SetOutputPredicate(f.declarations["Goal"]))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("unfold accounting fixture rejected")
+	}
+	targets, err := f.set.PredicateRules(f.declarations["Goal"])
+	coneMust(t, err)
+	if len(targets) != 1 {
+		coneMust(t, closeOwnedRules(targets))
+		t.Fatalf("original goal rule count %d, want 1", len(targets))
+	}
+	target := targets[0]
+	t.Cleanup(func() { coneMust(t, target.Close()) })
+
+	transformer := base.NewRuleTransformer()
+	t.Cleanup(func() { coneMust(t, transformer.Close()) })
+	coneMust(t, transformer.Register(transforms.NewRuleUnfoldPlugin(f.manager, f.rules, f.globals.Context, f.globals, 0)))
+	modified, err := transformer.Apply(f.set)
+	coneMust(t, err)
+	if !modified {
+		t.Fatal("unfold plugin returned no replacement")
+	}
+	unfolded, err := f.set.PredicateRules(f.declarations["Goal"])
+	coneMust(t, err)
+	if len(unfolded) != 1 {
+		coneMust(t, closeOwnedRules(unfolded))
+		t.Fatalf("unfolded goal rule count %d, want 1", len(unfolded))
+	}
+	defer func() { coneMust(t, unfolded[0].Close()) }()
+
+	charge := base.NewAccountedObject()
+	defer func() { coneMust(t, charge.Close()) }()
+	coneMust(t, charge.SetAccountingParentRule(unfolded[0]))
+	costs, err := charge.CurrentCosts()
+	coneMust(t, err)
+	want := base.Costs{Milliseconds: 7, Instructions: 3}
+	*costs = want
+	coneMust(t, charge.ProcessCosts())
+	got, err := target.AccountingCosts()
+	coneMust(t, err)
+	if got != want {
+		t.Fatalf("original target accounting = %+v, want %+v", got, want)
+	}
+}
+
 func TestRuleUnfoldCarriesHyperResolutionProof(t *testing.T) {
 	f := newConeFixture(t, "P", "Q", "Goal")
 	if err := f.manager.ToggleProofMode(ast.ASTProofEnabled); err != nil {

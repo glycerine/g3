@@ -227,6 +227,9 @@ func (u *RuleUnifier) resolveRaw(rules *base.RuleManager, target *base.Rule, tai
 	if err != nil {
 		return nil, renaming, fmt.Errorf("muz/transforms: construct resolved rule: %w", err)
 	}
+	if err = resolved.SetAccountingParentRule(target); err != nil {
+		return nil, renaming, errors.Join(fmt.Errorf("muz/transforms: account resolved rule to target: %w", err), resolved.Close())
+	}
 	return resolved, renaming, nil
 }
 
