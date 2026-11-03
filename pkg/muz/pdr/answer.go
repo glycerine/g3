@@ -144,6 +144,22 @@ func (c *Context) selectedTraceRule(node *ModelNode) (result *normalizedRule, re
 	if node.selected != nil {
 		return node.selected, nil
 	}
+	// Source model_node::get_rule first selects from the witness already
+	// stored by the search. Initial-rule export does not rerun that search
+	// or replace its model.
+	if node.model != nil {
+		rule, err := node.transformer.selectRule(node.model)
+		if err != nil {
+			return nil, err
+		}
+		if len(rule.predecessors) == 0 {
+			if err = node.SetRule(rule.rule); err != nil {
+				return nil, err
+			}
+			node.selected = rule
+			return rule, nil
+		}
+	}
 	initial := make([]*normalizedRule, 0)
 	tags := make([]ast.ASTHandle, 0)
 	for _, rule := range node.transformer.rules {
@@ -154,9 +170,6 @@ func (c *Context) selectedTraceRule(node *ModelNode) (result *normalizedRule, re
 		if !rule.tag.IsNull() {
 			tags = append(tags, rule.tag)
 		}
-	}
-	if len(initial) == 1 && node.model != nil {
-		return initial[0], nil
 	}
 	// A constraint-cache hit need not carry a model. Even a unique initial
 	// rule must satisfy this state; recover its witness with the source
@@ -186,7 +199,9 @@ func (c *Context) selectedTraceRule(node *ModelNode) (result *normalizedRule, re
 		return nil, errors.Join(ast.ErrASTDomain, err)
 	}
 	rule, selectErr := node.transformer.selectInitialRule(check.Model)
-	if selectErr == nil {
+	if selectErr == nil && node.model == nil {
+		// The model-less cache recovery is a Go extension. Source fallback
+		// selection leaves an existing witness model in place.
 		selectErr = node.SetModel(check.Model)
 	}
 	if selectErr == nil {
