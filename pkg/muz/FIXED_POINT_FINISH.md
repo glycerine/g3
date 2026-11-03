@@ -18,6 +18,8 @@ The latest user direction is maximum parallel porting capacity and cancellation 
 
 Run relevant focused cross-package checks at integration; the explicitly canceled broad native run must not restart. The user continues checked/debug validation. Track completed behaviors and dependencies rather than translated-file counts; keep partial source statuses until the wider audit is actually complete.
 
+Current integrated frontier: fixedpoint SMT2 loading stages each fresh parser context before publication; finite bytecode fuses interpreted filtering with dead-column projection; finite queries apply cone pruning with model reconstruction; external/interval products execute the exact two-unary-tail Cartesian rule in either component order. The next parallel lanes cover n-ary external ground construction, repeated bound/interval tail variables, finite join/project fusion, QBMC cleanup, and remaining query orchestration. These entries refine the broader open boundaries above without claiming whole-unit completion.
+
 Acceleration tactics are durable for every batch:
 
 - Select work from the dependency frontier: prefer a live source consumer whose dependencies already exist, and port two or more source units together when that is the smallest coherent Go design.
@@ -101,6 +103,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Resolve configured/automatic engines at direct predicate, multi-predicate, expression and from-level query entry points before backend-specific validation; preserve explicit Datalog rejection tests.
   - [x] Preserve instantiated PDR/QPDR/Spacer engine lifetime across query-parameter replacement and clearing, so pre-query Pop remains refused while backend contexts rebuild lazily.
 - [ ] Close SMT-LIB/Datalog command parsing, error reporting, query state and exported result/proof/model contracts.
+  - [x] Parse each public fixedpoint SMT2 load in a fresh temporary context before publishing rules, relations or assertions; reject incomplete input without mutation, preserve earlier target assertions across per-input reset, and require declarations in each input.
   - [x] Classify canceled/resource/step failures as source `canceled`, memory failures as `memory bounds exceeded`, and other query failures as `input error`, resetting status on successful retry.
   - [x] Route public FixedpointRules enumeration through phase-aware source get_rules_as_formulas, preserving closed pending formulas and appending negated output queries; internal normalized enumeration remains available.
   - [x] Reconcile Datalog AddFact/AddTableFact direct relation storage with other engines' raw-rule insertion; verify source enumeration, duplicates/invalid values, instantiation/pop policy, result invalidation, repeated/direct/expression queries and independent clone-table ownership.
@@ -334,6 +337,8 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 - [ ] Audit explanations, similarity compression, relation-manager dispatch, external relations and checking wrappers against actual consumers.
 - [ ] Audit remaining transforms, dataflow and DDNF consumers, including interactions with engine-specific preprocessing.
   - [x] Make cone-of-influence fact detection representation-neutral through RelationManager storage, including per-fact and whole-relation explanation products.
+  - [x] Run finite Datalog cone pruning before filter/simple-join lowering on query-local rules, transfer ordered model-conversion steps into query ownership, reconstruct original predicate models and restore source rules for subsequent queries.
+  - [x] Close dynamically discovered subsumption totals to a fixed point and propagate rule-unifier accounting through live unfold results to the original target rule.
   - [x] Make simple-join costing representation-neutral through relation row estimates, including exact per-fact explanation counts and conservative whole-relation product estimates.
   - [x] Activate query-local MagicSets over UDoc seeds and generated predicates with transactional clone rollback.
   - [x] Select eligible MagicSets tails by the source minimum unbound-domain product, including finite, rule-sort and infinite cardinality fallbacks with first-candidate ties.
@@ -476,6 +481,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Preserve cloned formula-checked table owners through native cleanup refusal with child-first nested cleanup, stable construction receipts and exact retry.
 - [ ] `src/muz/rel/dl_compiler.cpp` (partial), `src/muz/rel/dl_compiler.h` (partial)
   - [x] Finite, sparse, lazy and explanation compilation has concrete method-level evidence, including SCC scheduling and mixed magic inputs.
+  - [x] Emit fused interpreted filtering/projection for absent-head body columns over admitted Hash/Sparse/LazySparse/FiniteCheckedPair bytecode, preserving pre-projection guard bindings, full column sorts, independent source ownership, survivor remapping and fused operation counters.
   - [x] Execute one aligned positive exact bound/interval tail with one compiler conjunction, unused-column projection, head reordering, fixpoint union and cancellation.
   - [x] Combine requested bound/interval outputs by source nonempty disjunction, returning false only when every output relation is empty.
   - [ ] Complete source-live abstract/product/widening dispatch and compiler ownership audits; explicit interval activation and exact checked bytecode do not close source-default bound or mixed-product compilation.
@@ -493,6 +499,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Apply project, rename, equal/identical and interpreted filters componentwise to concrete external/interval products, preserving callback order, nullary results and failure-atomic interval publication.
   - [x] Union and widen aligned external/interval products with a fresh per-component delta followed by ordinary accumulation into the caller delta, preserving preexisting rows and source operation order under refusal.
   - [x] Join aligned external/interval products componentwise with exact schema/kind preflight, callback column order, interval equality constraints and independent result ownership.
+  - [x] Match external/interval product join components by family across either permutation and execute the exact acyclic rule `H(x,y) :- P(x), Q(y)` through LOAD/JOIN/UNION/STORE, with callback-free invalid-shape refusal and no-replay cleanup continuations.
   - [x] Display mixed external/interval products with the source header and component order, propagating writer failures without mutating either component.
   - [x] Preserve external UNION/WIDEN assignment application roots behind nested callback cleanup receipts, retrying child-first without revisiting consumed slots.
   - [ ] Mixed external products and remaining exceptional working/delta ownership.
@@ -522,6 +529,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Preserve rewritten rules and temporary AST roots through native cleanup refusal with nested child-first retry and no partial transformation publication.
   - [x] Execute similarity compression for interval-only arithmetic programs with query-local auxiliary interval facts, strict threshold/output guards, source rule order on no-op and owning evaluator snapshots.
 - [ ] `src/muz/rel/dl_product_relation.cpp` (partial), `src/muz/rel/dl_product_relation.h` (partial)
+  - [x] Display stored relation-level explanation products through source product/sieve/table formatting, including nested checked finite diagnostics, proof symbols, writer failures and unchanged owner/query state.
 - [ ] `src/muz/rel/dl_relation_manager.h` (partial)
 - [ ] `src/muz/rel/dl_sieve_relation.cpp` (partial), `src/muz/rel/dl_sieve_relation.h` (partial)
   - [x] Formula reconstruction and concrete interpreted filtering with source ignored-column approximation.
@@ -542,7 +550,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Interval intersection uses the actually reached join/project/reset/union fallback with atomic validation; source vector relations do not enable `can_swap`.
 - [ ] `src/muz/rel/rel_context.cpp` (partial), `src/muz/rel/rel_context.h` (partial)
   - [x] Query-scoped unbound compression, live module/local parameter precedence, `datalog.default_relation=doc` disabling, original-rule restoration, and generated finite-relation cleanup.
-  - [x] Source `scoped_query` restoration around filter, simple-join, unbound and similarity transformations, including failure paths.
+  - [x] Source `scoped_query` restoration around cone, filter, simple-join, unbound and similarity transformations, including failure paths and query-owned cone model reconstruction.
   - [x] `datalog.check_relation` local/module selection, hashtable/doc checked saturation, result publication and doc/unbound interaction.
   - [ ] Wider backend selection diversity and the remaining transformation/query orchestration pipeline.
 - [ ] `src/muz/rel/udoc_relation.cpp` (partial), `src/muz/rel/udoc_relation.h` (partial)
@@ -587,6 +595,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 ## Progress log
 
+- 2026-11-02 — Integrated all three prepared lanes after current-tree native package checks: API 37.266s, relations 3.676s and fixedpoint 60.142s. Fixedpoint loading now uses a fresh staged parser, preserves prior assertions and publishes nothing after malformed input (`f55c1266f Stage fixedpoint SMT2 loads before publication.`). Finite bytecode now emits the source fused interpreted filter/project with pre-projection bindings and surviving-column remapping (`d2748ddf4 Fuse finite interpreted filtering with projection.`). The exact two-unary-tail external/interval Cartesian rule executes with left-ordered family matching and retryable callback/publication cleanup (`4231d804b Execute external interval Cartesian rules.`). Independent source reviews passed; the formula-checked compiler concern was ruled out by its existing representation preflight, so no unused adapter was introduced. The full native SMT-LIB runner regression passed in 22.337s after integration. Next lanes are n-ary ground construction, repeated bound/interval tails, finite join/project fusion and BMC cleanup.
+
 - 2026-11-02 — Fixed the user-reported checked/debug Duality bit-vector projection failure in its SMT proof dependency. Source `simplify_aux_clause_literals` records the true parent for every removed false literal, including clauses carried by a theory justification rather than a concrete proof; Go now does the same, so reconstructed unit proofs conclude the equality instead of `(or false equality)`. The direct duplicate-false proof regression and projection oracle pass, and subtest helpers now report against their own test and always pop solver scopes. Commit: `9c6c06926 Preserve constant-false parents in theory clause proofs.`
 
 - 2026-11-02 — Corrected interpolation allocation-campaign accounting for the debug allocation profile without dropping injected checkpoints, the 256-deep input, failed-output ownership checks or either simplifier retry. Completion is verified through successful reuse of the interrupted selected simplifier, including clearing its dirty state, instead of requiring an injected call to finish within 128 reservations. Disabling the recovery reset makes the revised test fail. Commit: `487c99bf7 Verify interpolation recovery across allocation profiles.` The user explicitly authorized checked/debug checks for these reds: full `duality`, `interp` and `smtcore` passed with `-timeout=0 -count=1 -short -tags g3checked,g3debug` (2.572s, 8.830s, 33.150s), and ordinary short runs also passed (2.072s, 2.565s, 26.272s). This focused exception does not restart the canceled repository-wide run.
@@ -597,7 +607,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Integrated backend-specific unknown status, bound interval numeral-tail filtering and nullary external/interval ground rules. Ordinary non-Datalog unknowns report source `ok`, Datalog approximation and actual Spacer bounds remain distinct, and nullary external execution follows LOAD/total/UNION/STORE with retryable temporary ownership. Commits: `570d8d98c Classify fixedpoint unknowns by backend.`, `d5fd441f4 Filter bound interval tails by numerals.` and `7f292c205 Execute nullary external interval ground rules.`
 
-- 2026-11-02 — Pending integration checkpoint: isolated uncommitted lanes contain staged fixedpoint SMT2 loading, finite fused interpreted filtering/projection, and two-tail external/interval Cartesian execution. Reviews and focused native checks are available, but these changes are not yet claimed as integrated or added to manifest evidence. Finish their exact staging, final cross-package gates and individual commits before opening overlapping work; retain fresh parser-scope/reset tests for the API lane and source/ownership boundaries for the compiler lanes.
+- 2026-11-02 — The previously pending staged-loader, fused filter/project and external Cartesian lanes are now integrated by `f55c1266f`, `d2748ddf4` and `4231d804b`; their final gates are recorded above. The next evidence refresh must update the manifest without promoting broader source units from partial.
 
 - 2026-11-02 — Opposite-order external/interval products now follow the source common-spec union path for ordinary union, widening, delta accumulation and aligned identity rules. Validation precedes conversion; only writable target/delta metadata canonicalizes, source and aligned reversed specs remain unchanged, and refusal plus committed-cleanup retries preserve rollback/no-replay behavior. Focused matrices passed five runs, broader product/fixedpoint gates passed three runs and independent review approved. Commit: `d31569118 Union opposite-order external interval products.`
 
