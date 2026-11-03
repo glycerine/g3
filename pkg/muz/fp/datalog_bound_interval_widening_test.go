@@ -147,7 +147,7 @@ func TestDatalogBoundIntervalWideningParameterPrecedence(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalWideningRefusesUnsupportedRecursiveComponents(t *testing.T) {
-	for _, shape := range []string{"multiple-heads", "multiple-recursive-rules"} {
+	for _, shape := range []string{"multiple-heads", "multiple-recursive-tails"} {
 		for _, widen := range []bool{false, true} {
 			name := shape + "/ordinary"
 			if widen {
@@ -159,12 +159,17 @@ func TestDatalogBoundIntervalWideningRefusesUnsupportedRecursiveComponents(t *te
 				f.fact(h, 0)
 				x := f.hold(f.m.MkVar(0, f.integer))
 				first, second := f.app(q, x), f.app(h, x)
-				if shape == "multiple-recursive-rules" {
+				if shape == "multiple-recursive-tails" {
 					first, second = f.app(h, f.numeral(10)), f.app(h, f.numeral(20))
 				}
-				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(f.app(h, x), first)), "recursive-first"))
+				body := f.app(h, x)
+				if shape == "multiple-recursive-tails" {
+					y := f.hold(f.m.MkVar(1, f.integer))
+					body = f.hold(f.m.MkAnd(body, f.app(h, y)))
+				}
+				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(body, first)), "recursive-first"))
 				tail := f.app(q, x)
-				if shape == "multiple-recursive-rules" {
+				if shape == "multiple-recursive-tails" {
 					tail = f.app(h, x)
 				}
 				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(tail, second)), "recursive-second"))
@@ -180,7 +185,7 @@ func TestDatalogBoundIntervalWideningRefusesUnsupportedRecursiveComponents(t *te
 				}
 				answer := boundIntervalWideningAnswer(t, f, h)
 				f.checkFormula(answer, []int{0}, true)
-				f.checkFormula(answer, []int{20}, shape == "multiple-recursive-rules")
+				f.checkFormula(answer, []int{20}, shape == "multiple-recursive-tails")
 				f.checkFormula(answer, []int{21}, false)
 			})
 		}

@@ -2,7 +2,7 @@ package fp
 
 // Source: dl_compiler.cpp compile_preds_init/compile_dependent_rules and
 // dl_instruction.cpp instr_union/while_loop. This first widening consumer
-// admits singleton recursive strata with one rule and one positive self-tail.
+// admits singleton recursive strata with one positive self-tail per rule.
 
 import (
 	"errors"
@@ -21,7 +21,8 @@ type boundIntervalWideningRule struct {
 type boundIntervalWideningStratum struct {
 	head      ast.ASTHandle
 	initial   []int
-	recursive int
+	recursive []int
+	all       []int
 }
 
 func (a *boundIntervalDatalogActivation) wideningRule(index int, rule *base.Rule) (_ boundIntervalWideningRule, resultErr error) {
@@ -99,8 +100,9 @@ func (a *boundIntervalDatalogActivation) wideningPlan() ([]boundIntervalWidening
 			return nil, ErrBoundIntervalDatalogFragment
 		}
 		head := predicates[0]
-		plan := boundIntervalWideningStratum{head: head, recursive: -1}
+		plan := boundIntervalWideningStratum{head: head}
 		for _, rule := range byHead[head] {
+			plan.all = append(plan.all, rule.index)
 			if len(rule.tails) == 0 {
 				continue // Ground rules have already initialized their targets.
 			}
@@ -109,10 +111,10 @@ func (a *boundIntervalDatalogActivation) wideningPlan() ([]boundIntervalWidening
 				recursive = recursive || tail == head
 			}
 			if recursive {
-				if len(rule.tails) != 1 || plan.recursive != -1 {
+				if len(rule.tails) != 1 {
 					return nil, ErrBoundIntervalDatalogFragment
 				}
-				plan.recursive = rule.index
+				plan.recursive = append(plan.recursive, rule.index)
 			} else {
 				plan.initial = append(plan.initial, rule.index)
 			}
@@ -120,6 +122,34 @@ func (a *boundIntervalDatalogActivation) wideningPlan() ([]boundIntervalWidening
 		result = append(result, plan)
 	}
 	return result, nil
+}
+
+// All-or-nothing compilation runs every head rule in each loop, including
+// ground rules. Construct the ground relation independently before widening
+// it into the target, just as the compiler assembles a fresh head register.
+func (a *boundIntervalDatalogActivation) evaluateWideningRule(index int, head ast.ASTHandle, inputs, products map[ast.ASTHandle]*rel.IntervalBoundProduct, delta *rel.IntervalBoundProduct) error {
+	rule, err := a.rules.Rule(index)
+	if err != nil {
+		return err
+	}
+	tails, err := rule.TailSize()
+	if err != nil {
+		return errors.Join(err, rule.Close())
+	}
+	if tails != 0 {
+		_, err = a.evaluatePositiveRuleInto(rule, inputs, products, delta, true)
+		return err
+	}
+	entry := a.entries[head]
+	source, selected, err := rel.NewSelectedIntervalBoundProduct(a.manager, entry.sorts, entry.kinds, true)
+	if err != nil || !selected {
+		return errors.Join(err, ErrBoundIntervalDatalogFragment, rule.Close())
+	}
+	if err = a.applyFactRule(rule, map[ast.ASTHandle]*rel.IntervalBoundProduct{head: source}); err != nil {
+		return err
+	}
+	_, err = products[head].Union(source, delta, true)
+	return err
 }
 
 func (a *boundIntervalDatalogActivation) saturateWithWidening(products map[ast.ASTHandle]*rel.IntervalBoundProduct, allOrNothing bool) error {
@@ -140,35 +170,45 @@ func (a *boundIntervalDatalogActivation) saturateWithWidening(products map[ast.A
 				return err
 			}
 		}
-		if stratum.recursive < 0 {
+		if len(stratum.recursive) == 0 {
 			continue
 		}
 		current, err := products[stratum.head].Clone()
 		if err != nil {
 			return err
 		}
-		for !current.Empty() {
-			if err = a.checkpoint(); err != nil {
-				return err
-			}
-			entry := a.entries[stratum.head]
-			next, selected, err := rel.NewSelectedIntervalBoundProduct(a.manager, entry.sorts, entry.kinds, true)
-			if err != nil || !selected {
-				return errors.Join(err, ErrBoundIntervalDatalogFragment)
-			}
+		loop := stratum.recursive
+		if allOrNothing {
+			loop = stratum.all
+		}
+		for current != nil && !current.Empty() {
+			var next *rel.IntervalBoundProduct
 			inputs := products
 			if !allOrNothing {
 				inputs = map[ast.ASTHandle]*rel.IntervalBoundProduct{stratum.head: current}
 			}
-			rule, err := a.rules.Rule(stratum.recursive)
-			if err != nil {
-				return err
+			for _, index := range loop {
+				if err = a.checkpoint(); err != nil {
+					return err
+				}
+				if next == nil {
+					entry := a.entries[stratum.head]
+					var selected bool
+					next, selected, err = rel.NewSelectedIntervalBoundProduct(a.manager, entry.sorts, entry.kinds, true)
+					if err != nil || !selected {
+						return errors.Join(err, ErrBoundIntervalDatalogFragment)
+					}
+				}
+				if err = a.evaluateWideningRule(index, stratum.head, inputs, products, next); err != nil {
+					return err
+				}
+				// instr_union clears an empty delta register after EACH rule.
+				// Its hidden nonempty component must not join a later rule's
+				// different component and spuriously keep the loop running.
+				if next.Empty() {
+					next = nil
+				}
 			}
-			if _, err = a.evaluatePositiveRuleInto(rule, inputs, products, next, true); err != nil {
-				return err
-			}
-			// Source clears an empty delta register after UNION/WIDEN. Even if
-			// the target changed, one empty component ends this product loop.
 			current = next
 		}
 	}

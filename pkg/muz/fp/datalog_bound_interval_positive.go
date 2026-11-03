@@ -508,5 +508,11 @@ func (a *boundIntervalDatalogActivation) evaluatePositiveRuleInto(rule *base.Rul
 			current[position], current[destination] = current[destination], current[position]
 		}
 	}
+	// Source filters and transforms clear a register when its whole product
+	// is empty; instr_union then skips it. A nonempty component of that empty
+	// product must not weaken the corresponding target component.
+	if working.Empty() {
+		return false, nil
+	}
 	return products[headDeclaration].Union(working, delta, widen)
 }
