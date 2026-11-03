@@ -2815,8 +2815,10 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 	return true, writeExpression(out, handle)
 }
 
-// Model returns the finite least-fixed-point or inductive PDR/Spacer model for
-// the latest unreachable query. The caller owns and closes the returned model.
+// Model exports the selected engine's model for its latest valid query result.
+// BMC, QBMC, TAB, CLP and DDNF inherit an empty model independent of result
+// status; other engines enforce their own model availability restrictions.
+// The caller owns and closes the returned model.
 func (e *PropositionalEngine) Model(declaration ast.ASTHandle) (*model.Model, error) {
 	if err := e.open(); err != nil {
 		return nil, err
