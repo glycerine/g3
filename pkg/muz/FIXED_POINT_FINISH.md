@@ -476,6 +476,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Forced functional Fetch/Ensure/Remove, independent checked roots, same-engine derived indices and nonforcing source estimates.
   - [x] Force source-compatible emptiness and sequential bulk removal over sparse/nullary storage while keeping lazy exact-size knowledge false and deferred-source mutation independent.
   - [x] Force and complement deferred sparse or nullary storage with functional-suffix semantics, adopting an independently owned lazy result in the same engine.
+  - [x] Clone deferred LazySparse storage into an independently mutable same-engine base while preserving sparse functional metadata or the nullary Hash fallback.
 - [ ] `src/muz/rel/dl_mk_explanations.cpp` (partial), `src/muz/rel/dl_mk_explanations.h` (partial)
 - [ ] `src/muz/rel/dl_mk_similarity_compressor.cpp` (partial), `src/muz/rel/dl_mk_similarity_compressor.h` (partial)
   - [x] Preserve rewritten rules and temporary AST roots through native cleanup refusal with nested child-first retry and no partial transformation publication.
@@ -534,6 +535,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — LazySparse cloning now forces the deferred root once, preserves sparse functional metadata or the nullary Hash fallback and adopts an independently mutable same-engine base owner. `CloneFinite` delegates to this source-faithful path and joins adoption cleanup failures; broader lazy lifecycle auditing remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^TestLazySparse(Clone|Complement|BulkRemoval|NullaryBulk)' -count=3` passed. Commit title: `Clone lazy sparse relations independently`.
 
 - 2026-11-02 — Typed UDoc relations now support the source fused interpreted-filter-and-project operation. Whole finite-sort variables participate in equality-range extraction alongside bit-vector ranges, projected owners remain independent and nullary identity is preserved, while ordinary finite/numeral guards stay explicitly unsupported; public fused compiler dispatch remains open.
   Validation: `go -C pkg test ./muz/rel -run '^(TestTypedUDoc|TestUDocCompile|TestUDocFilterGuardAndProject)' -count=3` passed. Commit title: `Fuse UDoc interpreted filtering with projection`.
