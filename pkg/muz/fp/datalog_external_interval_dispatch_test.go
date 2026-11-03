@@ -12,9 +12,12 @@ import (
 )
 
 type externalIntervalCallbackState struct {
-	manager    *ast.ASTManager
-	nonempty   map[ast.ASTHandle]bool
-	operations []int32
+	manager          *ast.ASTManager
+	nonempty         map[ast.ASTHandle]bool
+	operations       []int32
+	refusalOperation int32
+	refusalAt        int
+	refusal          error
 }
 
 type externalIntervalNestedConstructionFailure struct {
@@ -48,9 +51,14 @@ func (s *externalIntervalCallbackState) callbacks() rel.ExternalRelationCallback
 				return err
 			}
 			s.operations = append(s.operations, op)
+			if s.refusal != nil && op == s.refusalOperation && operationCount(s.operations, op) == s.refusalAt {
+				return s.refusal
+			}
 			switch op {
 			case ast.DatalogOpEmpty:
 				s.nonempty[outputs[0]] = false
+			case ast.DatalogOpClone:
+				s.nonempty[outputs[0]] = s.nonempty[arguments[0]]
 			case ast.DatalogOpStore:
 				s.nonempty[outputs[0]] = true
 			default:
