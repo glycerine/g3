@@ -258,6 +258,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 - [ ] Audit RPFP graph/vocabulary ownership, nodes/edges, clone/delete, assertions, dual formulas and incremental solver scopes.
 - [ ] Audit lazy-annotation expansion, heuristic ordering, covering, backtracking, restarts and constrained counterexample completion.
   - [x] Preserve cloned lower facts during constrained fast completion under the compiled source guard; keep model-derived underapproximation computation available for its legitimate unconstrained source path and verify the real SAT counterexample graph/model.
+  - [x] Acquire the next history proposer before transferring the previous counterexample replay guide, so recoverable history failure leaves the active engine unchanged and retry transfers both owners exactly once.
 - [ ] Audit interpolation learning, generalization, proof cores, underapproximation, Gaussian elimination and integer/array projection.
 - [ ] Preserve independent cleanup/resource errors through recovery and restart paths; extend actual-path failure campaigns where coverage is missing.
 - [ ] Close fixedpoint registration, preprocessing/model conversion, quantified witness reconstruction, proofs and certificate export.
@@ -495,6 +496,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Duality `LearnFrom` now owns the next history proposer before transferring the old counterexample replay guide. Recoverable history acquisition failure leaves the active engine and exact graph/root unchanged; retry transfers replay and history guidance once, while rollback after a later new-solve failure remains open.
+  Validation: `go -C pkg test ./duality -run '^TestDuality(LearnFromKeepsReplayGuideUntilHistoryIsOwned|InvalidateCounterexampleViewPreservesReplayTransfer)$' -count=3` passed. Commit title: `Make Duality replay transfer transactional`.
 
 - 2026-11-02 — Datalog domain includes now require the source parent newline after the included child finishes parsing. Same-line parent tokens reject at the correct boundary while preserving the child-first domain mutation order; broader parser auditing remains open.
   Validation: `go -C pkg test ./muz/fp -run 'TestDatalogParser.*Include|TestDatalogParser.*Map' -count=3` passed. Commit title: `Require newlines after Datalog domain includes`.

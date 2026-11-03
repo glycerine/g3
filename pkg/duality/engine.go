@@ -316,12 +316,12 @@ func (e *Engine) LearnFrom(other *Engine) error {
 	if other.graph == nil {
 		return ErrWrapperOwner
 	}
-	if err := e.counterexample.Swap(other.counterexample); err != nil {
-		return err
-	}
 	proposer, err := NewHistoryProposer(other.graph, e.source)
 	if err != nil {
 		return err
+	}
+	if err := e.counterexample.Swap(other.counterexample); err != nil {
+		return errors.Join(err, proposer.Close())
 	}
 	e.proposers = append(e.proposers, proposer)
 	return nil
