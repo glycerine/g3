@@ -32,7 +32,7 @@ func (e *PropositionalEngine) fixedpointParamView() (*fixedpointParamView, error
 	return view, nil
 }
 
-func (v *fixedpointParamView) Close() error {
+func (v *fixedpointParamView) closeOwned() error {
 	if v == nil || v.context == nil {
 		return nil
 	}

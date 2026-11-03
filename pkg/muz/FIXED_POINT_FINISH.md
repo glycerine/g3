@@ -376,6 +376,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/base/dl_rule.cpp` (partial), `src/muz/base/dl_rule.h` (partial)
 - [ ] `src/muz/base/fixedpoint_params.hpp` (partial)
   - [x] Preserve stopped query-parameter decrement receipts across parameter replacement and engine disposal, retrying the exact native invocation before clearing ownership.
+  - [x] Transport temporary parameter-view decrement receipts through deferred cleanup errors after the local view leaves scope.
 
 ### bmc
 
@@ -703,6 +704,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Generic lazy tables now expose source display through the forcing iterator boundary. Deferred roots stay unforced until display, concrete signature/row formatting and insertion order are preserved, the source owner remains independent and writer refusal propagates unchanged; this does not claim new registered LazySparse activation.
   Validation: `go -C pkg test ./muz/rel -run '^(TestLazyTableDisplay|TestHashTableDisplay)' -count=5` passed. Commit title: `Display lazy tables through concrete iteration`.
+
+- 2026-11-02 — Temporary fixedpoint parameter views now return a concrete construction-failure owner when their deferred native decrement refuses cleanup. The returned error carries the otherwise out-of-scope view and exact decrement receipt, preserves runtime/original identity and retries idempotently; broader parameter-consumer auditing remains open.
+  Validation: `go -C pkg test ./muz/fp -run '^Test(FixedpointQueryParameter|FixedpointParamView|PDRPrequeryContext|ParameterUpdate)' -count=3` passed. Commit title: `Transport fixedpoint parameter view cleanup`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
