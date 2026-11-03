@@ -71,13 +71,14 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Correct the shared model2expr FreshName::next occupied-name sequence: source advances an additional letter on a rejected candidate, while the current Go helper advances only once.
   - [x] Route PDR's transformed trace through the source context dump, including print switches, background assertions and ostream-failure operand continuation.
   - [x] Route the owning fixedpoint API string/writer through the context formatter, applying fixedpoint-local print options without query configuration changes.
-  - [ ] Reconcile eager Go ingestion with source pending-closed versus flushed display phase: preserve original binder/annotation metadata before flushing, normalized clause identity/order after flushing, updates and scoped restoration.
+  - [x] Reconcile eager Go ingestion with source pending-closed versus flushed display phase: preserve original binder/annotation metadata before flushing, normalized clause identity/order after flushing, updates and scoped restoration.
     - [x] Rebuild pending open formulas at display/enumeration time using current `xform.fix_unbound_vars`, preserving normalized prefix identity, swap order and pending closed ranges; retain temporary owners through cleanup refusal. Focused parameter, dense allocation and retry tests pass.
     - [x] Rebuild pending closed formulas at query flush using current parameters, preserving raw archives, scope rollback and cleanup continuation; semantic, allocation and public API tests pass.
     - [x] Preserve closed-input binder/weight metadata before flush, normalized expansions afterward, mixed pending additions, scope snapshots and update range shifts; ordinary Duality queries preserve raw inputs.
     - [x] Match normalized-only named updates before/after flush, preserve raw Duality inputs, replacement slot order and pending suffix order.
     - [x] Match destructive open-formula display swap/removal order, repeated display and post-normalization writer refusal; construction staging remains transactional in Go.
   - [x] Route legacy SMTContext display through the source to_string formatter with ordered queries; keep explicit complete-declaration replay APIs and roundtrip/guard coverage.
+  - [x] Preserve context dump temporary owners through allocation and writer failures, and emit fresh query declarations before variable construction. Both display modes pass dense exact-owner campaigns and focused order tests.
 
 - [ ] Close context/rule ownership, scope rollback, query transformation and engine lifecycle audits (`base/dl_context`, `dl_rule`, `dl_engine_base`).
   - [x] Preserve background/constructor-parameter invalidation through a subsequent named PDR rule update; verify SAT/UNSAT/SAT after background replacement and context disposal after parameter replacement.

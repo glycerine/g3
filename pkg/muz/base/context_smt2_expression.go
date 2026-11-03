@@ -16,6 +16,17 @@ func (s *RuleSet) writeContextExpression(out io.Writer, printer *ast.LegacySMTPr
 		return printer.DisplayExpr(out, h, nil)
 	}
 	m := s.manager.manager
+	owner := &contextSMT2Owner{manager: m}
+	defer func() { resultErr = owner.finish(resultErr) }()
+	var err error
+	owner.formats, err = m.GetFormatManager()
+	if err != nil {
+		return err
+	}
+	owner.format, err = owner.formats.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
 	c, g, err := m.RewriterParameterServices()
 	if err != nil {
 		return err
@@ -26,50 +37,59 @@ func (s *RuleSet) writeContextExpression(out io.Writer, printer *ast.LegacySMTPr
 	} else {
 		format, err = m.SMT2PPExprTree(h, nil)
 	}
+	if !format.IsNull() {
+		err = errors.Join(err, owner.formats.SetRef(owner.format, format))
+	}
 	if err != nil {
 		return err
 	}
-	return s.writeContextFormat(out, format)
+	return s.writeContextFormat(out, owner, format)
 }
 
-func (s *RuleSet) writeContextSort(out io.Writer, sort ast.ASTHandle) error {
-	format, err := s.manager.manager.SMT2PPSort(sort)
-	if err != nil {
-		return err
-	}
-	return s.writeContextFormat(out, format)
-}
-
-func (s *RuleSet) writeContextFormat(out io.Writer, format ast.ASTHandle) (resultErr error) {
+func (s *RuleSet) writeContextSort(out io.Writer, sort ast.ASTHandle) (resultErr error) {
 	m := s.manager.manager
-	formats, err := m.GetFormatManager()
+	owner := &contextSMT2Owner{manager: m}
+	defer func() { resultErr = owner.finish(resultErr) }()
+	var err error
+	owner.formats, err = m.GetFormatManager()
 	if err != nil {
 		return err
 	}
-	ref, err := formats.NewRef(format)
+	owner.format, err = owner.formats.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, formats.DelRef(&ref)) }()
-	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.Budget()})
+	format, err := m.SMT2PPSort(sort)
+	if !format.IsNull() {
+		err = errors.Join(err, owner.formats.SetRef(owner.format, format))
+	}
 	if err != nil {
 		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, stream.Close()) }()
+	return s.writeContextFormat(out, owner, format)
+}
+
+func (s *RuleSet) writeContextFormat(out io.Writer, owner *contextSMT2Owner, format ast.ASTHandle) error {
+	m := s.manager.manager
+	var err error
+	owner.stream, err = utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.Budget()})
+	if err != nil {
+		return err
+	}
 	c, g, err := m.RewriterParameterServices()
 	if err != nil {
 		return err
 	}
 	if c != nil && g != nil {
 		empty := c.EmptyValue()
-		err = m.PrintFormat(stream, format, c, &empty, g)
+		err = m.PrintFormat(owner.stream, format, c, &empty, g)
 	} else {
-		err = m.PrintFormat(stream, format, nil, nil, nil)
+		err = m.PrintFormat(owner.stream, format, nil, nil, nil)
 	}
 	if err != nil {
 		return err
 	}
-	body, err := stream.String()
+	body, err := owner.stream.String()
 	if err != nil {
 		return err
 	}

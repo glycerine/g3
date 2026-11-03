@@ -13,19 +13,13 @@ import (
 
 func (s *RuleSet) declareContextVariables(out io.Writer, printer *ast.LegacySMTPrinter, rules []ast.ASTRef, fresh *model.FreshName) (resultErr error) {
 	m := s.manager.manager
-	sub, err := rewriter.NewVarSubstitution(m, false)
-	if sub != nil {
-		defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
-	}
+	owner := &contextSMT2Owner{manager: m}
+	defer func() { resultErr = owner.finish(resultErr) }()
+	var err error
+	owner.substitution, err = rewriter.NewVarSubstitution(m, false)
 	if err != nil {
 		return err
 	}
-	var roots []ast.ASTRef
-	defer func() {
-		for i := len(roots) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.DelRef(&roots[i]))
-		}
-	}()
 	bySort := make(map[ast.ASTHandle][]ast.ASTHandle)
 	for _, r := range rules {
 		h, err := m.RefGet(r)
@@ -76,15 +70,28 @@ func (s *RuleSet) declareContextVariables(out io.Writer, printer *ast.LegacySMTP
 				if err != nil {
 					return err
 				}
-				constant, err := m.MkConst(name, sort)
+				declarationRef, err := owner.reserve()
 				if err != nil {
 					return err
 				}
-				ref, err := m.NewRef(constant)
+				ref, err := owner.reserve()
 				if err != nil {
 					return err
 				}
-				roots = append(roots, ref)
+				declaration, err := m.MkFuncDecl(name, nil, sort, ast.ASTFuncDeclInfo{})
+				if !declaration.IsNull() {
+					err = errors.Join(err, m.SetRef(declarationRef, declaration))
+				}
+				if err != nil {
+					return err
+				}
+				constant, err := m.MkApp(declaration, nil)
+				if !constant.IsNull() {
+					err = errors.Join(err, m.SetRef(ref, constant))
+				}
+				if err != nil {
+					return err
+				}
 				pool = append(pool, constant)
 				bySort[sort] = pool
 				if _, err = io.WriteString(out, "(declare-var "); err != nil {
@@ -106,12 +113,11 @@ func (s *RuleSet) declareContextVariables(out io.Writer, printer *ast.LegacySMTP
 			}
 			args[j] = pool[index]
 		}
-		result, err := m.NewRef(ast.ASTHandle{})
+		result, err := owner.reserve()
 		if err != nil {
 			return err
 		}
-		roots = append(roots, result)
-		if err = sub.Substitute(body, args, result); err != nil {
+		if err = owner.substitution.Substitute(body, args, result); err != nil {
 			return err
 		}
 		value, err := m.RefGet(result)
@@ -172,23 +178,8 @@ func (s *RuleSet) writeContextQuery(out io.Writer, printer *ast.LegacySMTPrinter
 		return err
 	}
 	var declaration ast.ASTHandle
-	var roots []ast.ASTRef
-	defer func() {
-		for i := len(roots) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.DelRef(&roots[i]))
-		}
-	}()
-	own := func(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
-		if err != nil {
-			return h, err
-		}
-		r, err := m.NewRef(h)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		roots = append(roots, r)
-		return h, nil
-	}
+	owner := &contextSMT2Owner{manager: m}
+	defer func() { resultErr = owner.finish(resultErr) }()
 	if direct {
 		declaration, err = m.GetDecl(h)
 		if err != nil {
@@ -214,10 +205,6 @@ func (s *RuleSet) writeContextQuery(out io.Writer, printer *ast.LegacySMTPrinter
 				sort = boolean
 			}
 			domain[i] = sort
-			args[i], err = own(m.MkVar(i, sort))
-			if err != nil {
-				return err
-			}
 		}
 		prefix, err := m.Symbols.Intern("q")
 		if err != nil {
@@ -227,18 +214,54 @@ func (s *RuleSet) writeContextQuery(out io.Writer, printer *ast.LegacySMTPrinter
 		if err != nil {
 			return err
 		}
-		declaration, err = own(m.MkFreshFuncDecl(prefix, suffix, domain, boolean))
+		declarationRef, err := owner.reserve()
+		if err != nil {
+			return err
+		}
+		declaration, err = m.MkFreshFuncDecl(prefix, suffix, domain, boolean)
+		if !declaration.IsNull() {
+			err = errors.Join(err, m.SetRef(declarationRef, declaration))
+		}
 		if err != nil {
 			return err
 		}
 		if err = s.writeContextRelation(out, printer, declaration); err != nil {
 			return err
 		}
-		app, err := own(m.MkApp(declaration, args))
+		// Source emits the fresh declaration before constructing the bridge
+		// arguments, including Boolean defaults for unused variable indices.
+		for i := uint32(0); i < count; i++ {
+			ref, err := owner.reserve()
+			if err != nil {
+				return err
+			}
+			args[i], err = m.MkVar(i, domain[i])
+			if !args[i].IsNull() {
+				err = errors.Join(err, m.SetRef(ref, args[i]))
+			}
+			if err != nil {
+				return err
+			}
+		}
+		appRef, err := owner.reserve()
 		if err != nil {
 			return err
 		}
-		implication, err := own(m.MkImplies(h, app))
+		app, err := m.MkApp(declaration, args)
+		if !app.IsNull() {
+			err = errors.Join(err, m.SetRef(appRef, app))
+		}
+		if err != nil {
+			return err
+		}
+		implicationRef, err := owner.reserve()
+		if err != nil {
+			return err
+		}
+		implication, err := m.MkImplies(h, app)
+		if !implication.IsNull() {
+			err = errors.Join(err, m.SetRef(implicationRef, implication))
+		}
 		if err != nil {
 			return err
 		}

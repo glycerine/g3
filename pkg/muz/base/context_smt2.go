@@ -41,13 +41,11 @@ func (s *RuleSet) WriteContextSMT2(out io.Writer, config ContextSMT2Config) (res
 	m := s.manager.manager
 	var rules, queries []ast.ASTRef
 	var names []string
+	owner := &contextSMT2Owner{manager: m}
 	defer func() {
-		for i := len(rules) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.DelRef(&rules[i]))
-		}
-		for i := len(queries) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.DelRef(&queries[i]))
-		}
+		owner.refs = append(owner.refs, rules...)
+		owner.refs = append(owner.refs, queries...)
+		resultErr = owner.finish(resultErr)
 	}()
 	if err := s.AppendDisplayFormulas(&rules, &queries, &names); err != nil {
 		return err
@@ -230,16 +228,19 @@ func (s *RuleSet) WriteContextSMT2(out io.Writer, config ContextSMT2Config) (res
 			if _, err = io.WriteString(out, "(assert "); err != nil {
 				return err
 			}
-			not, e := m.MkNot(h)
-			if e != nil {
-				return e
-			}
-			owned, e := m.NewRef(not)
-			if e != nil {
-				return e
-			}
-			err = s.writeContextExpression(out, printer, not, config.LowLevel)
-			err = errors.Join(err, m.DelRef(&owned))
+			err = func() (resultErr error) {
+				queryOwner := &contextSMT2Owner{manager: m}
+				defer func() { resultErr = queryOwner.finish(resultErr) }()
+				owned, e := queryOwner.reserve()
+				if e != nil {
+					return e
+				}
+				not, e := m.MkNot(h)
+				if e = errors.Join(e, m.SetRef(owned, not)); e != nil {
+					return e
+				}
+				return s.writeContextExpression(out, printer, not, config.LowLevel)
+			}()
 			if err != nil {
 				return err
 			}

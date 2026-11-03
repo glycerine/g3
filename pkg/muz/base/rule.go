@@ -513,16 +513,19 @@ func (r *Rule) ToFormula() (result ast.ASTRef, resultErr error) {
 	}
 	// Source to_formula builds into an expr_ref and an expr_ref_vector body.
 	// Reserve their owners before publishing any fresh Boolean/quantifier node.
-	var temporaries []ast.ASTRef
+	owner := &contextSMT2Owner{manager: state.manager}
+	output := &contextSMT2Owner{manager: state.manager}
 	defer func() {
-		for i := len(temporaries) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, state.manager.DelRef(&temporaries[i]))
-		}
-		if resultErr != nil && result != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, state.manager.DelRef(&result))
+		resultErr = owner.finish(resultErr)
+		if resultErr != nil {
+			resultErr = output.finish(resultErr)
+			result = ast.ASTRef{}
 		}
 	}()
 	result, err = state.manager.NewRef(state.head)
+	if result != (ast.ASTRef{}) {
+		output.refs = append(output.refs, result)
+	}
 	if err != nil {
 		return result, err
 	}
@@ -530,11 +533,10 @@ func (r *Rule) ToFormula() (result ast.ASTRef, resultErr error) {
 	for i, entry := range state.tail {
 		body[i] = entry.handle
 		if entry.negated {
-			pin, e := state.manager.NewRef(ast.ASTHandle{})
+			pin, e := owner.reserve()
 			if e != nil {
 				return result, e
 			}
-			temporaries = append(temporaries, pin)
 			body[i], err = state.manager.MkNot(entry.handle)
 			if err = errors.Join(err, state.manager.SetRef(pin, body[i])); err != nil {
 				return result, err
@@ -547,11 +549,10 @@ func (r *Rule) ToFormula() (result ast.ASTRef, resultErr error) {
 	case 1:
 		formula, err = state.manager.MkImplies(body[0], formula)
 	default:
-		pin, e := state.manager.NewRef(ast.ASTHandle{})
+		pin, e := owner.reserve()
 		if e != nil {
 			return result, e
 		}
-		temporaries = append(temporaries, pin)
 		var conjunction ast.ASTHandle
 		conjunction, err = state.manager.MkAndArgs(body)
 		err = errors.Join(err, state.manager.SetRef(pin, conjunction))

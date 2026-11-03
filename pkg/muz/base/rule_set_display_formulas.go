@@ -23,15 +23,15 @@ func (s *RuleSet) AppendDisplayFormulas(rules, queries *[]ast.ASTRef, names *[]s
 	m := s.manager.manager
 	for _, rule := range s.rules {
 		if err := func() (resultErr error) {
+			owner := &contextSMT2Owner{manager: m}
+			defer func() { resultErr = owner.finish(resultErr) }()
 			formula, err := rule.ToFormula()
+			if formula != (ast.ASTRef{}) {
+				owner.refs = append(owner.refs, formula)
+			}
 			if err != nil {
 				return err
 			}
-			defer func() {
-				if formula != (ast.ASTRef{}) {
-					resultErr = errors.Join(resultErr, m.DelRef(&formula))
-				}
-			}()
 			declaration, err := rule.HeadDeclaration()
 			if err != nil {
 				return err
@@ -53,7 +53,7 @@ func (s *RuleSet) AppendDisplayFormulas(rules, queries *[]ast.ASTRef, names *[]s
 				*rules = append(*rules, formula)
 				*names = append(*names, name)
 			}
-			formula = ast.ASTRef{}
+			owner.refs = nil // The caller owns the successfully appended formula.
 			return nil
 		}(); err != nil {
 			return err
@@ -111,8 +111,5 @@ func (s *RuleSet) makeDisplayQuery(formula ast.ASTRef) error {
 	// Source builds a fresh existential binder with default weight and IDs;
 	// a quantified fact takes the earlier no-implication branch unchanged.
 	query, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: false, Sorts: sorts, Names: names, Body: body, Weight: 0})
-	if err != nil {
-		return err
-	}
-	return m.SetRef(formula, query)
+	return errors.Join(err, m.SetRef(formula, query))
 }
