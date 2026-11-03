@@ -48,10 +48,11 @@ type Rule struct {
 // RuleManager owns the registered predicate declarations used to classify
 // rule heads and tails. Rules own their AST references independently.
 type RuleManager struct {
-	manager    *ast.ASTManager
-	normalizer *HornNormalizer
-	predicates map[ast.ASTHandle]ast.ASTRef
-	closed     bool
+	manager        *ast.ASTManager
+	normalizer     *HornNormalizer
+	predicates     map[ast.ASTHandle]ast.ASTRef
+	closed         bool
+	cleanupPending bool
 }
 
 func NewRuleManager(manager *ast.ASTManager) (*RuleManager, error) {
@@ -66,7 +67,7 @@ func NewRuleManager(manager *ast.ASTManager) (*RuleManager, error) {
 }
 
 func (m *RuleManager) open() error {
-	if m == nil || m.closed || m.manager == nil {
+	if m == nil || m.closed || m.cleanupPending || m.manager == nil {
 		return ErrRuleOwner
 	}
 	return nil
@@ -672,19 +673,33 @@ func (r *Rule) Close() error {
 	return nil
 }
 
-func (m *RuleManager) Close() (result error) {
+func (m *RuleManager) Close() error {
 	if m == nil || m.manager == nil {
 		return ErrRuleOwner
 	}
 	if m.closed {
 		return nil
 	}
-	result = errors.Join(result, m.normalizer.Close())
+	if _, err := m.manager.ProofMode(); err != nil {
+		return err
+	}
+	m.cleanupPending = true
+	if err := m.normalizer.Close(); err != nil {
+		return err
+	}
 	for declaration, reference := range m.predicates {
 		ref := reference
-		result = errors.Join(result, m.manager.DelRef(&ref))
-		delete(m.predicates, declaration)
+		err := m.manager.DelRef(&ref)
+		if ref == (ast.ASTRef{}) {
+			delete(m.predicates, declaration)
+		} else {
+			m.predicates[declaration] = ref
+		}
+		if err != nil {
+			return err
+		}
 	}
+	m.cleanupPending = false
 	m.closed = true
-	return result
+	return nil
 }

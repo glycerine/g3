@@ -71,6 +71,7 @@ type HornNormalizer struct {
 	bodyRefs        []ast.ASTRef
 	freshPredicates []ast.ASTRef
 	closed          bool
+	cleanupPending  hornCleanup
 }
 
 func NewHornNormalizer(manager *ast.ASTManager, name string) (*HornNormalizer, error) {

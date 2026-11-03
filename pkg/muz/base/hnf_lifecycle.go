@@ -10,8 +10,17 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
+type hornCleanup uint8
+
+const (
+	hornCleanupNone hornCleanup = iota
+	hornCleanupReset
+	hornCleanupBody
+	hornCleanupClose
+)
+
 func (n *HornNormalizer) open() error {
-	if n == nil || n.manager == nil || n.closed {
+	if n == nil || n.manager == nil || n.closed || n.cleanupPending != hornCleanupNone {
 		return ErrHornNormalizationOwner
 	}
 	return nil
@@ -37,14 +46,48 @@ func (n *HornNormalizer) SetName(name usymbol.Symbol) error {
 // current body. The next processing step clears that body. Previously returned
 // results and fresh-predicate snapshots own their references.
 func (n *HornNormalizer) Reset() error {
-	if err := n.open(); err != nil {
+	if n == nil || n.manager == nil || n.closed || n.cleanupPending == hornCleanupClose {
+		return ErrHornNormalizationOwner
+	}
+	// Finish an interrupted previous step before beginning this reset. A
+	// normal reset still preserves the current body, as in the source.
+	if n.cleanupPending == hornCleanupBody {
+		if err := n.drainHornRoots(&n.bodyRefs); err != nil {
+			return err
+		}
+	}
+	n.cleanupPending = hornCleanupReset
+	if err := n.resetHornRoots(); err != nil {
 		return err
 	}
-	err := errors.Join(closeASTRefs(n.manager, n.workRefs), closeASTRefs(n.manager, n.freshPredicates), closeASTRefs(n.manager, n.todoRefs))
-	n.workRefs = nil
-	n.todoRefs = nil
-	n.freshPredicates = nil
-	return err
+	n.cleanupPending = hornCleanupNone
+	return nil
+}
+
+// DelRef may consume an owner while returning a later destruction error.
+// Preserve each unfinished owner and the untouched prefix for a cleanup retry.
+func (n *HornNormalizer) drainHornRoots(refs *[]ast.ASTRef) error {
+	for len(*refs) > 0 {
+		last := len(*refs) - 1
+		err := n.manager.DelRef(&(*refs)[last])
+		if (*refs)[last] == (ast.ASTRef{}) {
+			*refs = (*refs)[:last]
+		}
+		if err != nil {
+			return err
+		}
+	}
+	*refs = nil
+	return nil
+}
+
+func (n *HornNormalizer) resetHornRoots() error {
+	for _, refs := range []*[]ast.ASTRef{&n.workRefs, &n.freshPredicates, &n.todoRefs} {
+		if err := n.drainHornRoots(refs); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // FreshPredicates copies the source declaration vector into owning references.
@@ -81,15 +124,20 @@ func (n *HornNormalizer) Close() error {
 	if n.closed {
 		return nil
 	}
-	if err := n.Reset(); err != nil {
+	if _, err := n.manager.ProofMode(); err != nil {
 		return err
 	}
-	if err := n.beginHornStep(); err != nil {
+	n.cleanupPending = hornCleanupClose
+	if err := n.resetHornRoots(); err != nil {
+		return err
+	}
+	if err := n.drainHornRoots(&n.bodyRefs); err != nil {
 		return err
 	}
 	if err := n.hoister.Close(); err != nil {
 		return err
 	}
+	n.cleanupPending = hornCleanupNone
 	n.closed = true
 	return nil
 }
@@ -137,9 +185,15 @@ func (n *HornNormalizer) rememberHornRoot(h ast.ASTHandle) error {
 }
 
 func (n *HornNormalizer) beginHornStep() error {
-	err := closeASTRefs(n.manager, n.bodyRefs)
-	n.bodyRefs = nil
-	return err
+	if n == nil || n.manager == nil || n.closed || (n.cleanupPending != hornCleanupNone && n.cleanupPending != hornCleanupBody) {
+		return ErrHornNormalizationOwner
+	}
+	n.cleanupPending = hornCleanupBody
+	if err := n.drainHornRoots(&n.bodyRefs); err != nil {
+		return err
+	}
+	n.cleanupPending = hornCleanupNone
+	return nil
 }
 
 func (n *HornNormalizer) storeHornBody(body []ast.ASTHandle) error {
