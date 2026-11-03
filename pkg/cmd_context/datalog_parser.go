@@ -19,9 +19,12 @@ type datalogParser struct {
 	sorts      map[string]ast.ASTHandle
 	predicates map[string]ast.ASTHandle
 	constants  map[ast.ASTHandle]map[string]uint64
-	variables  map[string]ast.ASTHandle
-	nextVar    uint32
-	pins       []ast.ASTRef
+	// WPA numeric domains use uint64 keys for relation tuples. Ordinary
+	// Datalog finite domains keep their existing symbolic constant identity.
+	numericConstants map[ast.ASTHandle]map[uint64]uint64
+	variables        map[string]ast.ASTHandle
+	nextVar          uint32
+	pins             []ast.ASTRef
 }
 
 func newDatalogParser(context *Context) (*datalogParser, error) {

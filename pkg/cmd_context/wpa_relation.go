@@ -42,6 +42,7 @@ func (p *wpaParser) readRelation(path string, declaration ast.ASTHandle) error {
 		return err
 	}
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 1024), int(^uint(0)>>1))
 	line := 0
 	for scanner.Scan() {
 		line++
@@ -100,12 +101,30 @@ func (p *wpaParser) relationElement(sortHandle ast.ASTHandle, number uint64) (ui
 	if entry == nil {
 		return 0, false, fmt.Errorf("unknown WPA sort %s", text)
 	}
-	if text == "SHORT" {
-		if number >= 65536 {
-			return 0, false, nil
-		}
-		return uint32(number), true, nil
+	builtin := text == "BOOL" || text == "SHORT"
+	if !builtin && number != 0 && !entry.numbers[number] {
+		return 0, false, nil
 	}
-	index, found := entry.indices[number]
-	return index, found, nil
+	if builtin || !p.useMapNames {
+		table := p.rules.numericConstants[sortHandle]
+		if index, found := table[number]; found {
+			return uint32(index), true, nil
+		}
+		index := uint64(len(table))
+		if index >= entry.size {
+			return 0, false, fmt.Errorf("WPA sort %s exceeds finite domain size %d", text, entry.size)
+		}
+		table[number] = index
+		return uint32(index), true, nil
+	}
+	constant := "<zero element>"
+	if number != 0 {
+		var found bool
+		constant, found = p.mapNames[number]
+		if !found {
+			return 0, false, fmt.Errorf("unknown WPA symbol number %d", number)
+		}
+	}
+	index, err := p.rules.symbolicConstantNumber(constant, sortHandle)
+	return uint32(index), err == nil, err
 }

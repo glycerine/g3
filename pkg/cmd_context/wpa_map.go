@@ -15,17 +15,22 @@ func (p *wpaParser) readMaps() error {
 		return err
 	}
 	for _, path := range files {
-		entry := &wpaSort{name: wpaBase(path), numbers: make(map[uint64]bool)}
-		p.sorts[entry.name] = entry
+		name := wpaBase(path)
+		entry := p.sorts[name]
+		if entry == nil {
+			entry = &wpaSort{name: name, numbers: make(map[uint64]bool)}
+			p.sorts[name] = entry
+		}
 		file, openErr := os.Open(path)
 		if openErr != nil {
 			return openErr
 		}
 		scanner := bufio.NewScanner(file)
+		scanner.Buffer(make([]byte, 1024), int(^uint(0)>>1))
 		line := 0
 		for scanner.Scan() {
 			line++
-			number, name, present, parseErr := parseWPAMapLine(scanner.Text())
+			number, name, present, parseErr := parseWPAMapLineWithNames(scanner.Text(), p.useMapNames)
 			if parseErr != nil {
 				file.Close()
 				return fmt.Errorf("%s:%d: %w", path, line, parseErr)
@@ -37,8 +42,10 @@ func (p *wpaParser) readMaps() error {
 			// Source num2sym::insert_if_not_there2 keeps the first name when
 			// independent sort maps reuse a numeric symbol. A different later
 			// spelling is warning-only and must not reject the directory.
-			if _, found := p.mapNames[number]; !found {
-				p.mapNames[number] = name
+			if p.useMapNames {
+				if _, found := p.mapNames[number]; !found {
+					p.mapNames[number] = name
+				}
 			}
 		}
 		err = scanner.Err()

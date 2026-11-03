@@ -2,36 +2,36 @@ package cmd_context
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
+
+	"github.com/glycerine/g3/pkg/muz/base"
 )
 
 func parseWPAMapLine(line string) (uint64, string, bool, error) {
-	if comment := strings.IndexByte(line, '#'); comment >= 0 {
-		line = line[:comment]
+	return parseWPAMapLineWithNames(line, true)
+}
+
+func parseWPAMapLineWithNames(line string, useNames bool) (uint64, string, bool, error) {
+	number, name, present, err := base.ParseUint64Mapping(line)
+	if err != nil || !present {
+		return 0, "", present, err
 	}
-	line = strings.TrimSpace(line)
-	if line == "" {
-		return 0, "", false, nil
+	if !useNames {
+		return number, "<names ignored>", true, nil
 	}
-	space := strings.IndexByte(line, ' ')
-	if space < 0 {
-		return 0, "", false, fmt.Errorf("map line requires a number and name")
-	}
-	number, err := strconv.ParseUint(line[:space], 10, 64)
-	if err != nil {
-		return 0, "", false, fmt.Errorf("invalid symbol number %q", line[:space])
-	}
-	name := strings.TrimSpace(line[space+1:])
 	for _, marker := range []string{" SC_EXTERN ", " _ZONE_"} {
 		if cut := strings.Index(name, marker); cut >= 0 {
 			name = name[:cut]
 		}
 	}
-	name = strings.TrimSpace(name)
-	name = strings.TrimSpace(strings.TrimSuffix(name, "Constant"))
+	if len(name) > len("Constant ") && strings.HasSuffix(name, "Constant ") {
+		name = strings.TrimSuffix(name, "Constant ")
+	}
 	if name == "" {
+		// Source indexes the final byte here. Return an explicit error for
+		// that undefined empty-name input instead of indexing before zero.
 		return 0, "", false, fmt.Errorf("empty symbol name")
 	}
+	name = strings.TrimSuffix(name, " ")
 	return number, name, true, nil
 }

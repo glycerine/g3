@@ -3,10 +3,7 @@ package cmd_context
 // Source: wpa_parser_impl::finish_map_files and parse_rules_file.
 
 import (
-	"fmt"
 	"os"
-	"sort"
-	"strings"
 )
 
 func (p *wpaParser) readRules() error {
@@ -14,39 +11,22 @@ func (p *wpaParser) readRules() error {
 	if err != nil {
 		return err
 	}
-	names := make([]string, 0, len(p.sorts))
-	for name := range p.sorts {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	var program strings.Builder
-	for _, name := range names {
-		size := uint64(0)
-		switch name {
-		case "BOOL":
-			size = 2
-		case "SHORT":
-			size = 65536
-		default:
-			size = uint64(len(p.sorts[name].indices))
-		}
-		if size == 0 {
-			size = 1
-		}
-		fmt.Fprintf(&program, "%s %d\n", name, size)
-	}
-	program.WriteByte('\n')
 	for _, path := range files {
 		contents, readErr := os.ReadFile(path)
 		if readErr != nil {
 			return readErr
 		}
-		program.Write(contents)
-		if len(contents) == 0 || contents[len(contents)-1] != '\n' {
-			program.WriteByte('\n')
+		// WPA registers domains once, then parses each rules file into the
+		// same source constant tables that its relation tuples will use.
+		p.rules.lexer = newDatalogLexer(contents)
+		if err = p.rules.advance(); err != nil {
+			return err
+		}
+		if err = p.rules.parseRules(); err != nil {
+			return err
 		}
 	}
-	return p.context.ParseDatalogString(program.String())
+	return nil
 }
 
 func (p *wpaParser) indexDeclarations() error {

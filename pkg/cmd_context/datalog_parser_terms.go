@@ -77,6 +77,19 @@ func (p *datalogParser) symbolicConstant(name string, sort ast.ASTHandle) (ast.A
 		}
 		return p.manager.MkDatalogNumeral(value, sort)
 	}
+	value, err := p.symbolicConstantNumber(name, sort)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return p.manager.MkDatalogNumeral(value, sort)
+}
+
+// symbolicConstantNumber is shared by source rule constants and WPA map names.
+// Both consume context::get_constant_number's first-use symbolic numbering.
+func (p *datalogParser) symbolicConstantNumber(name string, sort ast.ASTHandle) (uint64, error) {
+	if _, numeric := p.numericConstants[sort]; numeric {
+		return 0, fmt.Errorf("datalog: symbolic rule constant %q requires a symbolic domain", name)
+	}
 	table := p.constants[sort]
 	if table == nil {
 		table = make(map[string]uint64)
@@ -89,12 +102,12 @@ func (p *datalogParser) symbolicConstant(name string, sort ast.ASTHandle) (ast.A
 	}
 	size, _, err := p.manager.DatalogFiniteSortSize(sort)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return 0, err
 	}
 	if value >= size {
-		return ast.ASTHandle{}, fmt.Errorf("constant %q exceeds finite domain size %d", name, size)
+		return 0, fmt.Errorf("constant %q exceeds finite domain size %d", name, size)
 	}
-	return p.manager.MkDatalogNumeral(value, sort)
+	return value, nil
 }
 
 func (p *datalogParser) parseInfix() (ast.ASTHandle, error) {
