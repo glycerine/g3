@@ -4,7 +4,26 @@ package fp
 // src/muz/pdr/pdr_dl_interface.{h,cpp}, and
 // src/muz/spacer/spacer_dl_interface.{h,cpp}.
 
-import "github.com/glycerine/g3/pkg/util/lbool"
+import (
+	"strings"
+
+	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/messages"
+)
+
+func fixedpointFailureStatus(cause error) string {
+	if cause == nil {
+		return "ok"
+	}
+	message := cause.Error()
+	if strings.Contains(message, messages.MaxMemory) {
+		return "memory bounds exceeded"
+	}
+	if strings.Contains(message, messages.Canceled) || strings.Contains(message, messages.MaxResource) || strings.Contains(message, messages.MaxSteps) {
+		return "canceled"
+	}
+	return "input error"
+}
 
 // recordResultSnapshot publishes a result only after its query returned. The
 // revision and engine kind prevent stale models/certificates from escaping

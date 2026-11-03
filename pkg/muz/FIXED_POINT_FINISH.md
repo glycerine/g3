@@ -99,6 +99,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Resolve configured/automatic engines at direct predicate, multi-predicate, expression and from-level query entry points before backend-specific validation; preserve explicit Datalog rejection tests.
   - [x] Preserve instantiated PDR/QPDR/Spacer engine lifetime across query-parameter replacement and clearing, so pre-query Pop remains refused while backend contexts rebuild lazily.
 - [ ] Close SMT-LIB/Datalog command parsing, error reporting, query state and exported result/proof/model contracts.
+  - [x] Classify canceled/resource/step failures as source `canceled`, memory failures as `memory bounds exceeded`, and other query failures as `input error`, resetting status on successful retry.
   - [x] Route public FixedpointRules enumeration through phase-aware source get_rules_as_formulas, preserving closed pending formulas and appending negated output queries; internal normalized enumeration remains available.
   - [x] Reconcile Datalog AddFact/AddTableFact direct relation storage with other engines' raw-rule insertion; verify source enumeration, duplicates/invalid values, instantiation/pop policy, result invalidation, repeated/direct/expression queries and independent clone-table ownership.
   - [x] Preserve source pop rejection after pre-query PDR/QPDR/Spacer context instantiation; verify an uninstantiated scope can still pop.
@@ -518,6 +519,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Fixedpoint query errors now publish the source status classes: cancellation, resource and step exhaustion report `canceled`; memory exhaustion reports `memory bounds exceeded`; other failures remain `input error`. A real canceled PDR query publishes no result, and successful retry resets the reason to `ok`.
+  Validation: `go -C pkg test ./muz/fp -run '^(TestFixedpointCanceledQueryPublishesSourceReasonAndRetries|TestSpacerExpressionQueryReportsCloneBoundedStatus)' -count=3` passed. Commit title: `Report fixedpoint cancellation status accurately`.
 
 - 2026-11-02 — Spacer ReachFact construction and SAT trace export now keep every partially advanced fact/rule owner under stable retry receipts. Refused destruction after individual AST releases preserves the exact remaining frontier; trace traversal suppresses partial rule publication, freezes semantic/cleanup presentation and drains facts before copied rules on idempotent retry. Other post-admission destruction continuations remain open.
   Validation: `go -C pkg test ./muz/spacer -run '^(TestReachFact|TestSpacerTrace|TestSpacer.*RulesAlongTrace)' -count=1` passed, and the focused reach/trace/depth family passed in 0.134s. Commit title: `Preserve Spacer reach facts and traces through cleanup refusal`.

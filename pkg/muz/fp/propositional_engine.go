@@ -2226,7 +2226,7 @@ func (e *PropositionalEngine) QueryPredicateFromLevel(declaration ast.ASTHandle,
 func (e *PropositionalEngine) recordQueryStatus(result lbool.LBool, err error) {
 	e.recordResultSnapshot(result, err)
 	if err != nil {
-		e.lastStatus = "input error"
+		e.lastStatus = fixedpointFailureStatus(err)
 		return
 	}
 	if result == lbool.Undef {
