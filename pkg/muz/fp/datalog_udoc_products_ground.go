@@ -4,7 +4,8 @@ package fp
 // singleton registers before unioning them into their predicate. The singleton
 // cache is keyed by (sort, value), not predicate kind. Unary DOC and all-Bool
 // table heads cannot share a singleton across different relation kinds, so
-// their exact singleton unions reduce to the concrete insertions below.
+// their exact singleton unions reduce to concrete insertions. Mixed Bool/BV
+// heads execute the separate singleton-product assembly before component union.
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
@@ -46,6 +47,12 @@ func (c *datalogUDocContext) evaluateProductGroundFacts(facts []*udocProductGrou
 	for _, fact := range facts {
 		if err := c.checkpoint(); err != nil {
 			return err
+		}
+		if column, mixed := c.products.program.groundProducts[fact.head]; mixed {
+			if err := c.evaluateProductMixedGround(fact, column); err != nil {
+				return err
+			}
+			continue
 		}
 		if c.products.program.docs[fact.head] {
 			if _, err := c.result[fact.head].AddFact(fact.values); err != nil {

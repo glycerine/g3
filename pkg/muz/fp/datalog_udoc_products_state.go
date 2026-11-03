@@ -18,6 +18,8 @@ type udocProductContext struct {
 
 type udocProductAttempt struct {
 	values []*rel.UDocTableProduct
+	docs   []*rel.TypedUDocRelation
+	tables []rel.FiniteTable
 	nested memory.ConstructionFailure
 }
 
@@ -36,6 +38,20 @@ func (a *udocProductAttempt) close() error {
 			}
 		}
 		a.values = a.values[:last]
+	}
+	for len(a.docs) != 0 {
+		last := len(a.docs) - 1
+		if err := a.docs[last].Close(); err != nil {
+			return err
+		}
+		a.docs = a.docs[:last]
+	}
+	for len(a.tables) != 0 {
+		last := len(a.tables) - 1
+		if err := a.tables[last].Close(); err != nil {
+			return err
+		}
+		a.tables = a.tables[:last]
 	}
 	return nil
 }

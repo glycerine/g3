@@ -20,14 +20,20 @@ type publicUDocProductFixture struct {
 	x, b, yes, no     ast.ASTHandle
 	values            []ast.ASTHandle
 	cartesian         bool
+	finiteBitsFirst   bool
 }
 
 func newPublicUDocProductFixture(t *testing.T, tableKind string, explicitDoc, cartesian bool, finiteBoolColumns ...int) *publicUDocProductFixture {
 	t.Helper()
+	return newPublicUDocProductFixtureColumnOrder(t, tableKind, explicitDoc, cartesian, false, finiteBoolColumns...)
+}
+
+func newPublicUDocProductFixtureColumnOrder(t *testing.T, tableKind string, explicitDoc, cartesian, finiteBitsFirst bool, finiteBoolColumns ...int) *publicUDocProductFixture {
+	t.Helper()
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	fragmentMust(t, err)
-	f := &publicUDocProductFixture{t: t, m: m, e: e, cartesian: cartesian}
+	f := &publicUDocProductFixture{t: t, m: m, e: e, cartesian: cartesian, finiteBitsFirst: finiteBitsFirst}
 	t.Cleanup(func() { fragmentMust(t, e.Close()) })
 	fragmentMust(t, g.SourceSetName("fixedpoint.datalog.default_table", tableKind))
 	if !explicitDoc {
@@ -49,6 +55,9 @@ func newPublicUDocProductFixture(t *testing.T, tableKind string, explicitDoc, ca
 	}
 	f.doc = declare("public-doc-product-D", []ast.ASTHandle{f.bits})
 	finiteSorts := []ast.ASTHandle{f.boolean, f.bits}
+	if finiteBitsFirst {
+		finiteSorts = []ast.ASTHandle{f.bits, f.boolean}
+	}
 	if cartesian {
 		finiteSorts = []ast.ASTHandle{f.boolean}
 		if len(finiteBoolColumns) != 0 {
@@ -86,6 +95,9 @@ func (f *publicUDocProductFixture) addRule(reverse bool) {
 	f.t.Helper()
 	doc := f.app(f.doc, f.x)
 	args := []ast.ASTHandle{f.b, f.x}
+	if f.finiteBitsFirst {
+		args = []ast.ASTHandle{f.x, f.b}
+	}
 	if f.cartesian {
 		args = []ast.ASTHandle{f.b}
 	}

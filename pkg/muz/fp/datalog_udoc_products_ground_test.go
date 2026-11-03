@@ -103,11 +103,14 @@ func TestDatalogUDocProductsGroundRulesReplayAndUpdates(t *testing.T) {
 	f.checkRows(lbool.True, [2]uint32{1, 0}, [2]uint32{1, 1}, [2]uint32{3, 0}, [2]uint32{3, 1})
 }
 
-func TestDatalogUDocProductsGroundMixedTuplesAndSeededHeadsKeepFiniteRoute(t *testing.T) {
+func TestDatalogUDocProductsExplicitGroundMixedTuplesAndSeededHeadsKeepFiniteRoute(t *testing.T) {
 	for _, mixedTuple := range []bool{false, true} {
 		t.Run(fmt.Sprintf("mixed-ground-tuple=%v", mixedTuple), func(t *testing.T) {
 			f := newPublicUDocProductFixture(t, "hashtable", false, !mixedTuple)
 			prepareUDocProductGroundRules(f)
+			if mixedTuple {
+				fragmentMust(t, f.e.SetPredicateRepresentation(f.finite, []string{"tr_hashtable"}))
+			}
 			f.addRule(false)
 			f.addGroundRule(f.doc, "doc-one", f.values[1])
 			if mixedTuple {

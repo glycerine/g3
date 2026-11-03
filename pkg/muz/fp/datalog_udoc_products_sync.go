@@ -36,6 +36,12 @@ func (c *datalogUDocContext) syncProducts(e *PropositionalEngine, program *udocP
 			// source store(empty) leaves the ordinary favourite finite owner.
 			// Keep that actual owner available for subsequent head facts.
 		}
+		if _, mixed := program.groundProducts[d]; mixed {
+			// Ground singleton assembly establishes this input's product kind
+			// during saturation. Its initial ordinary table is empty and stays
+			// engine-owned until that inferred product has been recorded.
+			continue
+		}
 		if program.finite[d] || plan != nil && (plan.inputKind == 2 || program.productHead(d)) {
 			if c.finiteInputs == nil {
 				c.finiteInputs = make(map[ast.ASTHandle]*udocFiniteInput)

@@ -4,8 +4,8 @@ package fp
 // and instr_io/instr_union's inference of an empty target from its source kind.
 // This public consumer accepts extensional unary DOC plus a finite Bool/BV
 // input, one acyclic rule per mixed head, and query auxiliaries. Ground rules
-// may populate unary DOC and all-Bool finite inputs; broader programs keep the
-// existing finite path.
+// may populate unary DOC, all-Bool finite inputs, and unseeded Bool/BV products
+// assembled under favourite DOC; broader programs keep the existing finite path.
 
 import (
 	"errors"
@@ -32,15 +32,19 @@ type udocProductRulePlan struct {
 	ruleIndex                 int
 }
 type udocProductProgram struct {
-	rules        map[ast.ASTHandle]*udocProductRulePlan
-	sorts        map[ast.ASTHandle][]ast.ASTHandle
-	finiteSorts  map[ast.ASTHandle][]ast.ASTHandle
-	docs, finite map[ast.ASTHandle]bool
-	order        []ast.ASTHandle
-	groundFacts  []*udocProductGroundRule
+	rules          map[ast.ASTHandle]*udocProductRulePlan
+	sorts          map[ast.ASTHandle][]ast.ASTHandle
+	finiteSorts    map[ast.ASTHandle][]ast.ASTHandle
+	docs, finite   map[ast.ASTHandle]bool
+	order          []ast.ASTHandle
+	groundFacts    []*udocProductGroundRule
+	groundProducts map[ast.ASTHandle]int // Mixed ground input -> its BV column.
 }
 
 func (p *udocProductProgram) productHead(d ast.ASTHandle) bool {
+	if _, found := p.groundProducts[d]; found {
+		return true
+	}
 	plan := p.rules[d]
 	return plan != nil && plan.inputKind == 0
 }
@@ -190,7 +194,7 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 		}
 		definitions[head]++
 	}
-	p := &udocProductProgram{rules: make(map[ast.ASTHandle]*udocProductRulePlan), sorts: make(map[ast.ASTHandle][]ast.ASTHandle), finiteSorts: make(map[ast.ASTHandle][]ast.ASTHandle), docs: make(map[ast.ASTHandle]bool), finite: make(map[ast.ASTHandle]bool)}
+	p := &udocProductProgram{rules: make(map[ast.ASTHandle]*udocProductRulePlan), sorts: make(map[ast.ASTHandle][]ast.ASTHandle), finiteSorts: make(map[ast.ASTHandle][]ast.ASTHandle), docs: make(map[ast.ASTHandle]bool), finite: make(map[ast.ASTHandle]bool), groundProducts: make(map[ast.ASTHandle]int)}
 	boolean, err := e.manager.MkBoolSort()
 	if err != nil {
 		return nil, err
@@ -277,18 +281,53 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 		}
 		doc, finite := decls[di], decls[ti]
 		input := e.predicates[finite]
-		if definitions[doc] != 0 || definitions[finite] != 0 || input == nil || input.external != nil || input.table == nil || !e.relations.CanHandleTableSorts(input.sorts) || udocProductFiniteKind(input.table) != e.datalogDefaultTable {
+		if definitions[doc] != 0 || definitions[finite] != 0 || input == nil || input.external != nil || !e.relations.CanHandleTableSorts(input.sorts) {
+			return nil, ErrUDocDatalogFragment
+		}
+		if input.table == nil && known[finite] == nil || input.table != nil && udocProductFiniteKind(input.table) != e.datalogDefaultTable {
 			return nil, ErrUDocDatalogFragment
 		}
 		if len(input.requestedRepresentations) != 0 && !input.explicitFiniteRepresentation {
 			return nil, ErrUDocDatalogFragment
 		}
-		hasBool = false
+		hasBool, hasOther = false, false
 		for _, sort := range input.sorts {
 			hasBool = hasBool || sort == boolean
+			hasOther = hasOther || sort != boolean
 		}
 		if !hasBool {
 			return nil, ErrUDocDatalogFragment
+		}
+		mixedGround := groundHeads[finite] && hasOther
+		if mixedGround {
+			// A mixed ground tuple is assembled from singletons. Requiring
+			// favourite DOC and no predicate override makes every cached BV
+			// singleton choose DOC, regardless of its first source consumer.
+			if !docFavourite || e.datalogRelationFavourite != "doc" || len(input.sorts) != 2 || len(input.requestedRepresentations) != 0 || input.explicitFiniteRepresentation {
+				return nil, ErrUDocDatalogFragment
+			}
+			bitColumn := 0
+			if input.sorts[0] == boolean {
+				bitColumn = 1
+			}
+			bitVector, err := e.manager.IsBitVectorSort(input.sorts[bitColumn])
+			if err != nil {
+				return nil, err
+			}
+			if !bitVector {
+				return nil, ErrUDocDatalogFragment
+			}
+			if known[finite] == nil && input.table != nil {
+				rows, err := input.table.Len()
+				if err != nil {
+					return nil, err
+				}
+				if rows != 0 {
+					return nil, ErrUDocDatalogFragment
+				}
+			}
+			p.groundProducts[finite] = bitColumn
+			p.sorts[finite] = append([]ast.ASTHandle(nil), input.sorts...)
 		}
 		da, err := productArguments(e.manager, tails[di])
 		if err != nil {
@@ -331,22 +370,25 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 		if err = planUDocProductAssembly(e.manager, plan, arguments, h, false); err != nil {
 			return nil, err
 		}
-		p.rules[head], p.sorts[head], p.docs[doc], p.finite[finite] = plan, append([]ast.ASTHandle(nil), state.sorts...), true, true
+		p.rules[head], p.sorts[head], p.docs[doc] = plan, append([]ast.ASTHandle(nil), state.sorts...), true
+		if !mixedGround {
+			p.finite[finite] = true
+		}
 		p.finiteSorts[finite] = append([]ast.ASTHandle(nil), input.sorts...)
 		p.order = append(p.order, head)
 	}
 	if len(p.order) == 0 {
 		return nil, nil
 	}
-	// Source singleton assembly of a mixed Bool/BV ground tuple can itself
-	// infer a product. Only all-Bool finite tuples are ordinary table unions;
-	// do not flatten the mixed case or let its cache choose another kind.
+	// Only all-Bool finite tuples reduce to ordinary table unions; admitted
+	// mixed tuples must execute their source singleton product assembly.
 	for ruleIndex := range rules {
 		fact := groundRules[ruleIndex]
 		if fact == nil {
 			continue
 		}
-		if !p.docs[fact.head] {
+		_, mixed := p.groundProducts[fact.head]
+		if !p.docs[fact.head] && !mixed {
 			if !p.finite[fact.head] {
 				return nil, ErrUDocDatalogFragment
 			}
@@ -392,7 +434,7 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 			if err != nil {
 				return nil, err
 			}
-			if p.rules[source] == nil && !p.docs[source] && !p.finite[source] {
+			if !p.productHead(source) && p.rules[source] == nil && !p.docs[source] && !p.finite[source] {
 				continue
 			}
 			plan := &udocProductRulePlan{head: head, source: source, ruleIndex: ruleIndex}
@@ -425,7 +467,7 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 		}
 	}
 	for _, d := range e.predicateOrder {
-		if p.rules[d] == nil && !p.docs[d] && !p.finite[d] {
+		if !p.productHead(d) && p.rules[d] == nil && !p.docs[d] && !p.finite[d] {
 			return nil, ErrUDocDatalogFragment
 		}
 	}

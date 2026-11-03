@@ -22,24 +22,37 @@ func (p *udocProductContext) evaluate(plan *udocProductRulePlan, docs map[ast.AS
 		working, err = source.Clone()
 	} else {
 		doc, table := docs[plan.doc], finite[plan.finite]
-		if doc == nil || table == nil {
+		if doc == nil {
 			return ErrUDocDatalogFragment
 		}
 		empty, emptyErr := doc.Empty()
 		if emptyErr != nil || empty {
 			return emptyErr
 		}
-		rows, rowsErr := table.Len()
-		if rowsErr != nil || rows == 0 {
-			return rowsErr
-		}
-		// The finite source declaration owns the sort signature; it is the
-		// unchanged segment of the joined outer columns supplied by the plan.
-		inputSorts := p.program.finiteSorts[plan.finite]
-		if plan.docFirst {
-			working, err = rel.JoinUDocFinite(p.manager, doc, inputSorts, table, plan.docColumns, plan.finiteColumns)
+		if _, mixed := p.program.groundProducts[plan.finite]; mixed {
+			input := p.result[plan.finite]
+			if input == nil {
+				return nil
+			}
+			if plan.docFirst {
+				working, err = rel.JoinUDocProduct(doc, input, plan.docColumns, plan.finiteColumns)
+			} else {
+				working, err = rel.JoinProductUDoc(input, doc, plan.finiteColumns, plan.docColumns)
+			}
 		} else {
-			working, err = rel.JoinFiniteUDoc(p.manager, inputSorts, table, doc, plan.finiteColumns, plan.docColumns)
+			if table == nil {
+				return ErrUDocDatalogFragment
+			}
+			rows, rowsErr := table.Len()
+			if rowsErr != nil || rows == 0 {
+				return rowsErr
+			}
+			inputSorts := p.program.finiteSorts[plan.finite]
+			if plan.docFirst {
+				working, err = rel.JoinUDocFinite(p.manager, doc, inputSorts, table, plan.docColumns, plan.finiteColumns)
+			} else {
+				working, err = rel.JoinFiniteUDoc(p.manager, inputSorts, table, doc, plan.finiteColumns, plan.docColumns)
+			}
 		}
 	}
 	if working != nil {
@@ -82,9 +95,15 @@ func (p *udocProductContext) evaluate(plan *udocProductRulePlan, docs map[ast.AS
 		}
 		working = next
 	}
-	target := p.result[plan.head]
-	if target == nil && finite[plan.head] != nil {
-		count, cause := finite[plan.head].Len()
+	return p.unionResult(plan.head, working, a, finite[plan.head])
+}
+
+// Source instr_union infers an absent target from the incoming concrete kind.
+func (p *udocProductContext) unionResult(head ast.ASTHandle, working *rel.UDocTableProduct, a *udocProductAttempt, ordinary rel.FiniteTable) error {
+	var err error
+	target := p.result[head]
+	if target == nil && ordinary != nil {
+		count, cause := ordinary.Len()
 		if cause != nil {
 			return cause
 		}
@@ -94,12 +113,12 @@ func (p *udocProductContext) evaluate(plan *udocProductRulePlan, docs map[ast.AS
 			return ErrUDocDatalogFragment
 		}
 	}
-	if p.seeds[plan.head] == nil {
+	if p.seeds[head] == nil {
 		// Source relation kind survives invalidation caused by another
 		// predicate's mutation, even before this head has explicit seed facts.
 		seed, cause := working.EmptyLike()
 		if seed != nil {
-			p.seeds[plan.head] = seed
+			p.seeds[head] = seed
 		}
 		if cause != nil {
 			return cause
@@ -108,7 +127,7 @@ func (p *udocProductContext) evaluate(plan *udocProductRulePlan, docs map[ast.AS
 	if target == nil {
 		target, err = working.EmptyLike()
 		if target != nil {
-			p.result[plan.head] = target
+			p.result[head] = target
 		}
 		if err != nil {
 			return err
