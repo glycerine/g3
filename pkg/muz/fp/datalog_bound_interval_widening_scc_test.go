@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/rel"
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func requireBoundIntervalThreeHeadOrder(t *testing.T, f *boundIntervalPublicFixture, a, b, c ast.ASTHandle) {
@@ -107,7 +108,7 @@ func TestDatalogBoundIntervalWideningThreeHeadEmptyDeltaWaves(t *testing.T) {
 	}
 }
 
-func TestDatalogBoundIntervalWideningRefusesUnsupportedRecursiveComponents(t *testing.T) {
+func TestDatalogBoundIntervalWideningNormalizesJoinsAndKeepsCompilerGuards(t *testing.T) {
 	for _, shape := range []string{"three-positive-tails", "negative-tail"} {
 		for _, widen := range []bool{false, true} {
 			name := shape + "/ordinary"
@@ -131,6 +132,28 @@ func TestDatalogBoundIntervalWideningRefusesUnsupportedRecursiveComponents(t *te
 				fragmentMust(t, rule.Close())
 				if widen {
 					fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
+				}
+				if shape == "three-positive-tails" {
+					selected, err := f.e.ensureBoundIntervalDatalog()
+					fragmentMust(t, err)
+					if !selected {
+						t.Fatal("bound/interval representation was not selected")
+					}
+					// The source compiler still requires its two-tail input;
+					// only the public pipeline normalizes this original rule.
+					if _, err = f.e.boundIntervalDatalog.queryWithWidening([]ast.ASTHandle{h}, widen, false); !errors.Is(err, ErrBoundIntervalDatalogFragment) {
+						t.Fatal("raw compiler accepted three positive tails", err)
+					}
+					if _, err = f.e.boundIntervalDatalog.relationFormula(h); !errors.Is(err, ErrBoundIntervalDatalogFragment) {
+						t.Fatal("raw compiler failure published an answer", err)
+					}
+					status, err := f.e.QueryPredicate(h)
+					fragmentMust(t, err)
+					if status != lbool.False {
+						t.Fatal("normalized empty recursive join was not false", status)
+					}
+					f.checkFormula(f.own(f.e.Answer(h)), []int{0}, false)
+					return
 				}
 				if _, err := f.e.QueryPredicate(h); !errors.Is(err, ErrBoundIntervalDatalogFragment) {
 					t.Fatal("unsupported tail shape accepted", err)

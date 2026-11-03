@@ -122,6 +122,14 @@ func (e *PropositionalEngine) queryBoundIntervalDatalog(declarations []ast.ASTHa
 	}
 	e.compiled = false
 	e.datalogStats.Reset()
+	normalize, err := e.boundIntervalDatalog.needsJoinNormalization()
+	if err != nil {
+		e.boundIntervalDatalog.evaluated = nil
+		return lbool.Undef, err
+	}
+	if normalize {
+		return e.boundIntervalDatalog.queryNormalized(declarations, widen, allOrNothing)
+	}
 	return e.boundIntervalDatalog.queryWithWidening(declarations, widen, allOrNothing)
 }
 

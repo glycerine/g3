@@ -207,7 +207,7 @@ func TestDatalogBoundIntervalPublicQueriesAndOwnership(t *testing.T) {
 	}
 }
 
-func TestDatalogBoundIntervalPublicRejectsUnsupportedRules(t *testing.T) {
+func TestDatalogBoundIntervalPublicNormalizesJoinsAndRejectsNegativeRules(t *testing.T) {
 	for _, name := range []string{"three-positive-tails", "negative-tail"} {
 		t.Run(name, func(t *testing.T) {
 			f := newBoundIntervalPublicFixture(t, []string{"bound_relation", "interval_relation"})
@@ -221,6 +221,18 @@ func TestDatalogBoundIntervalPublicRejectsUnsupportedRules(t *testing.T) {
 				body = f.hold(f.m.MkAnd(f.app(p, x), f.hold(f.m.MkNot(f.app(q, x)))))
 			}
 			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(body, f.app(output, x))), name))
+			if name == "three-positive-tails" {
+				status, err := f.e.QueryPredicate(output)
+				fragmentMust(t, err)
+				if status != lbool.Undef {
+					t.Fatal("normalized product join lost its tuple", status)
+				}
+				answer := f.own(f.e.Answer(output))
+				f.checkFormula(answer, []int{7}, true)
+				f.checkFormula(answer, []int{6}, false)
+				f.checkFormula(answer, []int{8}, false)
+				return
+			}
 			if _, err := f.e.QueryPredicate(output); !errors.Is(err, ErrBoundIntervalDatalogFragment) {
 				t.Fatal("unsupported product program did not report its fragment boundary", err)
 			}
