@@ -13,6 +13,14 @@ import (
 )
 
 func TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry(t *testing.T) {
+	testExternalIntervalDatalogGroundTemporaryCloseAfterPublicationRetry(t, false)
+}
+
+func TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry(t *testing.T) {
+	testExternalIntervalDatalogGroundTemporaryCloseAfterPublicationRetry(t, true)
+}
+
+func testExternalIntervalDatalogGroundTemporaryCloseAfterPublicationRetry(t *testing.T, nullary bool) {
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -47,9 +55,16 @@ func TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry(t *tes
 	must(err)
 	boolean, err := manager.MkBoolSort()
 	must(err)
-	name, err := symbols.Intern("external-interval-ground-singleton-close")
+	label := "singleton"
+	var sorts []ast.ASTHandle
+	if nullary {
+		label = "nullary-total"
+	} else {
+		sorts = []ast.ASTHandle{integer}
+	}
+	name, err := symbols.Intern("external-interval-ground-" + label + "-close")
 	must(err)
-	predicate, err := manager.MkFuncDecl(name, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	predicate, err := manager.MkFuncDecl(name, sorts, boolean, ast.ASTFuncDeclInfo{})
 	must(err)
 	relations, err := rel.NewRelationManager(manager)
 	must(err)
@@ -58,23 +73,34 @@ func TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry(t *tes
 	must(err)
 	activation, err := newExternalIntervalDatalogActivation(manager, plugin, []externalIntervalDatalogPredicate{{
 		declaration: predicate,
-		sorts:       []ast.ASTHandle{integer},
+		sorts:       sorts,
 		kinds:       []string{"external_relation", "interval_relation"},
 	}})
 	must(err)
-	value, err := manager.ArithmeticIntegerNumeralText("17")
-	must(err)
+	var value ast.ASTHandle
+	if !nullary {
+		value, err = manager.ArithmeticIntegerNumeralText("17")
+		must(err)
+	}
 	must(activation.installExternalIntervalRulePlans(nil, &externalIntervalDatalogGroundRule{head: predicate, value: value}))
 
 	old := activation.entries[predicate].product
 	registers, err := activation.loadExternalIntervalDatalogRegisters([]ast.ASTHandle{predicate})
 	must(err)
-	temporary, selected, err := rel.NewSelectedExternalIntervalProduct(plugin, []ast.ASTHandle{integer}, []string{"external_relation", "interval_relation"})
+	var temporary *rel.ExternalIntervalProduct
+	var selected bool
+	if nullary {
+		temporary, selected, err = rel.NewSelectedExternalIntervalNullaryTotal(plugin, []string{"external_relation", "interval_relation"})
+	} else {
+		temporary, selected, err = rel.NewSelectedExternalIntervalProduct(plugin, sorts, []string{"external_relation", "interval_relation"})
+	}
 	must(err)
 	if !selected || temporary == nil {
-		t.Fatal("ground singleton product was not selected")
+		t.Fatal("ground temporary product was not selected")
 	}
-	must(temporary.AddFact([]ast.ASTHandle{value}))
+	if !nullary {
+		must(temporary.AddFact([]ast.ASTHandle{value}))
+	}
 	target, err := registers.ensureRelation(predicate)
 	must(err)
 	must(target.Union(temporary, nil, false))
@@ -87,7 +113,7 @@ func TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry(t *tes
 		t.Fatal("ground STORE did not retire the displaced product", err)
 	}
 	// Keep a harmless already-published register owner in the continuation.
-	// Its STORE continuation must finish before the real singleton Close is
+	// Its STORE continuation must finish before the real temporary Close is
 	// attempted, making this fixture sensitive to the source teardown order.
 	storeFrontier := &externalIntervalDatalogRegisters{
 		activation: activation,
@@ -115,10 +141,10 @@ func TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry(t *tes
 	must(runtime.SetMaxCount(0))
 	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
 	if body == nil || !fired || !errors.Is(closeFailure, ast.ErrASTPending) || continuation.registers != nil || !storeFrontier.closed || continuation.temporary != temporary {
-		t.Fatal("native singleton close refusal was not preserved", body, fired, closeFailure)
+		t.Fatal("native ground temporary close refusal was not preserved", body, fired, closeFailure)
 	}
 	if activation.entries[predicate].product != published || len(callbacks.operations) != callbacksBeforeClose {
-		t.Fatal("singleton close refusal changed publication or replayed callbacks", callbacks.operations)
+		t.Fatal("ground temporary close refusal changed publication or replayed callbacks", callbacks.operations)
 	}
 
 	pending := newExternalIntervalDatalogGroundFailure(closeFailure, continuation)
@@ -127,12 +153,12 @@ func TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry(t *tes
 	activation.pendingGround = activation.ground
 	var receipt memory.ConstructionFailure
 	if !errors.As(pending, &receipt) || receipt.RuntimeOwner() != runtime || !errors.Is(receipt.CleanupCause(), ast.ErrASTPending) {
-		t.Fatal("singleton close refusal lost typed ground continuation", pending)
+		t.Fatal("ground temporary close refusal lost typed continuation", pending)
 	}
 	shown, exposed, original := receipt.Error(), receipt.Unwrap(), receipt.OriginalCause()
 	must(activation.executeExternalIntervalIdentity())
 	if activation.pending != nil || activation.pendingCompletesRule || activation.pendingGround != nil || continuation.temporary != nil {
-		t.Fatal("ground continuation retry did not finish singleton close")
+		t.Fatal("ground continuation retry did not finish temporary close")
 	}
 	if receipt.Error() != shown || receipt.Unwrap() != exposed || receipt.OriginalCause() != original || receipt.CleanupCause() != nil {
 		t.Fatal("ground continuation retry changed receipt identity")
@@ -159,6 +185,6 @@ func TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry(t *tes
 	must(symbols.Close())
 	must(runtime.Close())
 	if used := budget.Used(); used != 0 {
-		t.Fatal("ground singleton close fixture leaked bytes", used)
+		t.Fatal("ground temporary close fixture leaked bytes", used)
 	}
 }

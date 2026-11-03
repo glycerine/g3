@@ -74,10 +74,21 @@ func (s *externalIntervalCallbackState) callbacks() rel.ExternalRelationCallback
 				return ast.ASTHandle{}, err
 			}
 			s.operations = append(s.operations, op)
-			if op != ast.DatalogOpIsEmpty || len(arguments) != 1 {
+			if s.refusal != nil && op == s.refusalOperation && operationCount(s.operations, op) == s.refusalAt {
+				return ast.ASTHandle{}, s.refusal
+			}
+			if len(arguments) != 1 {
 				return ast.ASTHandle{}, fmt.Errorf("unexpected external/interval reduction operation %d", op)
 			}
-			return s.manager.MkBoolVal(!s.nonempty[arguments[0]])
+			switch op {
+			case ast.DatalogOpIsEmpty:
+				return s.manager.MkBoolVal(!s.nonempty[arguments[0]])
+			case ast.DatalogOpComplement:
+				s.nonempty[arguments[0]] = true
+				return arguments[0], nil
+			default:
+				return ast.ASTHandle{}, fmt.Errorf("unexpected external/interval reduction operation %d", op)
+			}
 		},
 	}
 }
