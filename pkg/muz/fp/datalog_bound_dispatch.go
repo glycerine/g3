@@ -19,7 +19,7 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 		return false, nil
 	}
 	explicit := e.datalogRelationFavourite == "bound_relation"
-	if !explicit && e.datalogRelationFavourite != "pentagon" {
+	if !explicit && e.datalogRelationFavourite != "pentagon" && e.datalogRelationFavourite != "doc" {
 		return false, nil
 	}
 	if !explicit {

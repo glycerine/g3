@@ -38,6 +38,9 @@ func (e *PropositionalEngine) addDatalogFact(state *predicateState, fact rel.Fac
 // Expression queries use private rule sets in Go. Publish only original
 // relation tables back to the persistent Datalog store after successful search.
 func (e *PropositionalEngine) publishDatalogQueryRelations(clone *PropositionalEngine) error {
+	if clone.udocDatalog != nil {
+		return nil
+	}
 	if clone.sparseIntervalDatalog != nil {
 		return e.publishSparseIntervalFiniteRelations(clone)
 	}

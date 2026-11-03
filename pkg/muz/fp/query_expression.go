@@ -196,6 +196,9 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		return lbool.Undef, err
 	}
 	if clone.backend == "datalog" {
+		if _, cause := clone.ensureUDocDatalog(); cause != nil {
+			return lbool.Undef, cause
+		}
 		if selected, cause := clone.ensureSparseIntervalDatalog(); cause != nil {
 			return lbool.Undef, cause
 		} else if !selected {

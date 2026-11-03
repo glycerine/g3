@@ -471,6 +471,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] `datalog.check_relation` local/module selection, hashtable/doc checked saturation, result publication and doc/unbound interaction.
   - [ ] Wider backend selection diversity and the remaining transformation/query orchestration pipeline.
 - [ ] `src/muz/rel/udoc_relation.cpp` (partial), `src/muz/rel/udoc_relation.h` (partial)
+  - [x] Activate concrete typed UDoc storage for source-capable bit-vector and nullary predicates, including facts, positive recursive joins/projections, typed formulas, query clones and source fallback selection.
+  - [ ] Add interpreted/negative rules, mixed representation composition, model/finite enumeration and remaining UDoc method/ownership parity.
 
 ### spacer
 
@@ -499,6 +501,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Public Datalog now activates concrete typed UDoc relations for source-capable bit-vector and nullary predicates. Facts and positive ground/recursive rules execute through typed filters, joins, projections, repeated/constant head assembly and delta fixpoint; owning formulas, expression clones, updates, cancellation and source-aware finite/bound fallbacks are covered. Unsupported interpreted/negative/mixed/checker/magic and enumeration/model surfaces remain explicit follow-ons.
+  Validation: `go -C pkg test ./muz/fp -run '^Test(DatalogUDoc|UDocPositive|DatalogBound|DatalogConfiguredInterval)' -count=1` and the UDoc-only gate at count three passed. Commit title: `Activate typed UDoc Datalog queries`.
 
 - 2026-11-02 — LazySparse tables now expose source-compatible emptiness, sequential bulk removal and size knowledge. Empty/removal force the concrete sparse or nullary fallback without mutating a shared deferred source, while `KnowsExactSize` remains false even after forcing; broader lazy source auditing remains open.
   Validation: `go -C pkg test ./muz/rel -run '^TestLazySparse(BulkRemoval|NullaryBulkRemoval)' -count=3` passed. Commit title: `Complete lazy sparse size and removal queries`.
