@@ -91,6 +91,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
       - [x] Invalidate result/property snapshots before parameter or engine mutation disposes a query owner; verify refusal preserves owners and successful retries apply requested changes.
       - [ ] Extend independent cleanup-error continuation audits beyond the exercised allocation-refusal path, including partially completed statistics collection and direct constructor-context mutation cleanup.
 - [ ] Verify parameter defaults, aliases, updates and engine selection against `fixedpoint_params.hpp` and engine registration.
+  - [x] Preserve fixedpoint local/module parameter snapshot decrement receipts across native numerical cleanup refusal and resume the exact owner on Close retry.
   - [x] Scan actual normalized rules before pending raw inputs during automatic engine selection, matching dl_context.cpp:840–859; remove stale ingestion-order classifications and preserve update/display/scope priority.
   - [x] Cache the first configured engine choice across later parameter updates, while preserving explicit Go engine overrides; apply owning API parameters before pre-query fact ingestion.
   - [x] Treat an unrecognized configured engine symbol like source's unset engine and run automatic classification; preserve local/module precedence, cached choice and explicit Go selector rejection.
@@ -505,6 +506,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Fixedpoint parameter views now preserve the exact tracked decrement receipt when a module snapshot's large numeral cleanup stops natively. `Close` resumes that decrement before dropping the context/global owner and remains idempotent; broader command and parameter audits stay open.
+  Validation: `go -C pkg test ./muz/fp -run '^(TestFixedpointParamViewCompletesStoppedModuleDecrement|TestFixedpoint.*Param|TestPropositionalEngine.*Param)' -count=3` passed. Commit title: `Resume fixedpoint parameter snapshot cleanup`.
 
 - 2026-11-02 — Quantified-linear BMC now retires its compiled formula vector through the typed reverse cleanup frontier. Native AST destruction refusal preserves every remaining root and suppresses result publication until cleanup succeeds; nonlinear/QBMC late-cleanup auditing remains open.
   Validation: `go -C pkg test ./muz/bmc -run '^(TestBMCQuantifiedLinearSearchAllocationScopeCleanup|TestBMCQuantifiedLinearSearchPreservesSolverScope|TestQuantifiedLinearCleanupPreservesRefsWhileManagerExecutes)$' -count=3` passed. Commit title: `Preserve quantified BMC formulas through cleanup refusal`.

@@ -14,6 +14,7 @@ type fixedpointParamView struct {
 	context *uparams.ParamsContext
 	local   *uparams.ParamsRef
 	global  uparams.ParamsRef
+	receipt uparams.ParamsDecrementReceipt
 }
 
 func (e *PropositionalEngine) fixedpointParamView() (*fixedpointParamView, error) {
@@ -35,9 +36,23 @@ func (v *fixedpointParamView) Close() error {
 	if v == nil || v.context == nil {
 		return nil
 	}
-	err := v.context.Del(&v.global)
+	if v.receipt.Invocation() != 0 {
+		if err := v.context.CompleteDecrement(&v.global, v.receipt); err != nil {
+			return err
+		}
+		v.receipt = uparams.ParamsDecrementReceipt{}
+		v.context, v.local = nil, nil
+		return nil
+	}
+	var receipt uparams.ParamsDecrementReceipt
+	if err := v.context.DelTracked(&v.global, &receipt); err != nil {
+		if receipt.Invocation() != 0 {
+			v.receipt = receipt
+		}
+		return err
+	}
 	v.context, v.local = nil, nil
-	return err
+	return nil
 }
 
 func (v *fixedpointParamView) Bool(name string, fallback bool) (bool, error) {
