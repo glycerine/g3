@@ -937,8 +937,31 @@ func (c *finiteCompiler) twoTailBody(rule finiteCompiledRule, sources [2]uint32)
 	if err != nil {
 		return 0, Signature{}, false, nil, err
 	}
+	variableColumns := copyVariableColumns(leftVariables)
+	offset := leftSignature.Len()
+	for variable, columns := range rightVariables {
+		for _, column := range columns {
+			variableColumns[variable] = append(variableColumns[variable], offset+column)
+		}
+	}
+	removed, err := c.joinProjectionColumns(rule, joinedSignature.Len(), variableColumns)
+	if err != nil {
+		return 0, Signature{}, false, nil, err
+	}
+	if len(removed) != 0 {
+		joinedSignature, err = projectedSignature(joinedSignature, removed)
+		if err != nil {
+			return 0, Signature{}, false, nil, err
+		}
+	}
 	joined := c.fresh(joinedSignature)
-	if err = c.emit(NewJoinInstruction(left, right, leftJoin, rightJoin, joined), rule.rule); err != nil {
+	var join Instruction
+	if len(removed) != 0 {
+		join = NewJoinProjectInstruction(left, right, leftJoin, rightJoin, removed, joined)
+	} else {
+		join = NewJoinInstruction(left, right, leftJoin, rightJoin, joined)
+	}
+	if err = c.emit(join, rule.rule); err != nil {
 		return 0, Signature{}, false, nil, err
 	}
 	if leftOwned {
@@ -951,14 +974,78 @@ func (c *finiteCompiler) twoTailBody(rule finiteCompiledRule, sources [2]uint32)
 			return 0, Signature{}, false, nil, err
 		}
 	}
-	variableColumns := copyVariableColumns(leftVariables)
-	offset := leftSignature.Len()
-	for variable, columns := range rightVariables {
-		for _, column := range columns {
-			variableColumns[variable] = append(variableColumns[variable], offset+column)
+	return joined, joinedSignature, true, variableColumns, nil
+}
+
+// joinProjectionColumns follows get_local_indexes_for_projection: preserve
+// one column per head occurrence, or one for a later negative/interpreted use,
+// and remove the earliest surplus occurrences from the joined relation.
+// prepareTail has already filtered repeated variables and selected constants.
+// Join keys still refer to the input columns; only the result map is remapped.
+func (c *finiteCompiler) joinProjectionColumns(rule finiteCompiledRule, width int, variables map[uint32][]int) ([]int, error) {
+	needed := make(map[uint32]int)
+	count, err := c.manager.GetNumArgs(rule.head)
+	if err != nil {
+		return nil, err
+	}
+	for index := uint32(0); index < count; index++ {
+		argument, err := c.manager.GetArg(rule.head, index)
+		if err != nil {
+			return nil, err
+		}
+		kind, err := c.manager.GetKind(argument)
+		if err != nil {
+			return nil, err
+		}
+		if kind == ast.ASTVar {
+			variable, err := c.manager.GetVarIndex(argument)
+			if err != nil {
+				return nil, err
+			}
+			needed[variable]++
 		}
 	}
-	return joined, joinedSignature, true, variableColumns, nil
+	later := make(map[uint32]ast.ASTHandle)
+	for _, terms := range [][]ast.ASTHandle{rule.negative, rule.interpreted} {
+		for _, term := range terms {
+			if err := c.conditionVariables(term, later); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for variable := range later {
+		if needed[variable] == 0 {
+			needed[variable] = 1
+		}
+	}
+	remove := make([]bool, width)
+	for variable, columns := range variables {
+		for index := 0; index < len(columns)-needed[variable]; index++ {
+			remove[columns[index]] = true
+		}
+	}
+	removed := make([]int, 0)
+	positions := make([]int, width)
+	for column := 0; column < width; column++ {
+		positions[column] = column - len(removed)
+		if remove[column] {
+			removed = append(removed, column)
+		}
+	}
+	for variable, columns := range variables {
+		kept := columns[:0]
+		for _, column := range columns {
+			if !remove[column] {
+				kept = append(kept, positions[column])
+			}
+		}
+		if len(kept) == 0 {
+			delete(variables, variable)
+		} else {
+			variables[variable] = kept
+		}
+	}
+	return removed, nil
 }
 
 func (c *finiteCompiler) filterNegatives(rule finiteCompiledRule, predicate ast.ASTHandle, current uint32, signature Signature, owned, present bool, variableColumns map[uint32][]int) (uint32, Signature, bool, bool, map[uint32][]int, error) {
