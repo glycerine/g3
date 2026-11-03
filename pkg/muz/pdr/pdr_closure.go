@@ -165,6 +165,7 @@ type convexClosure struct {
 	sigmas      []ast.ASTHandle
 	variables   []map[ast.ASTHandle]ast.ASTHandle
 	references  []ast.ASTRef
+	closing     bool
 	closed      bool
 }
 
@@ -183,6 +184,9 @@ func newConvexClosure(transformer *PredicateTransformer, isClosure bool) (*conve
 }
 
 func (c *convexClosure) open() error {
+	if c != nil && c.closing && !c.closed {
+		return ast.ErrASTPending
+	}
 	if c == nil || c.closed || c.manager == nil || c.transformer == nil {
 		return ErrPredicateTransformerOwner
 	}
@@ -520,18 +524,35 @@ func (c *convexClosure) Apply(regions []ast.ASTHandle) (_ ast.ASTRef, resultErr 
 	return c.manager.NewRef(result)
 }
 
-func (c *convexClosure) Close() (result error) {
-	if c == nil || c.manager == nil {
+func (c *convexClosure) Close() error {
+	if c == nil {
 		return ErrPredicateTransformerOwner
 	}
 	if c.closed {
 		return nil
 	}
-	c.closed = true
-	result = closeASTRefs(c.manager, c.references)
-	c.references = nil
+	if c.manager == nil {
+		return ErrPredicateTransformerOwner
+	}
+	c.closing = true
+	for len(c.references) != 0 {
+		index := len(c.references) - 1
+		err := c.manager.DelRef(&c.references[index])
+		if c.references[index] == (ast.ASTRef{}) {
+			c.references = c.references[:index]
+		}
+		if err != nil {
+			return err
+		}
+		if len(c.references) != index {
+			return ast.ErrASTPending
+		}
+	}
 	c.sigmas = nil
 	c.variables = nil
 	c.transformer = nil
-	return result
+	c.manager = nil
+	c.closing = false
+	c.closed = true
+	return nil
 }
