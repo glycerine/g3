@@ -14,7 +14,12 @@ func (p *udocProductContext) evaluate(plan *udocProductRulePlan, docs map[ast.AS
 	defer func() { resultErr = p.finish(a, resultErr) }()
 	var working *rel.UDocTableProduct
 	var err error
-	if !plan.source.IsNull() {
+	if plan.pair != nil {
+		working, err = p.evaluateProductPair(plan.pair, finite)
+		if err == nil && working == nil {
+			return nil
+		}
+	} else if !plan.source.IsNull() {
 		source := p.result[plan.source]
 		if source == nil {
 			return nil

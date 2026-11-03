@@ -21,6 +21,7 @@ type udocProductFilter struct {
 }
 type udocProductRulePlan struct {
 	head, doc, finite, source ast.ASTHandle
+	pair                      *udocProductPairPlan
 	docFirst                  bool
 	docColumns, finiteColumns []uint32
 	filters                   []udocProductFilter
@@ -175,6 +176,7 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 	groundRules := make(map[int]*udocProductGroundRule)
 	groundHeads := make(map[ast.ASTHandle]bool)
 	forwardHeads := make(map[ast.ASTHandle]bool)
+	pairHeads := make(map[ast.ASTHandle]bool)
 	for i := 0; i < count; i++ {
 		rule, err := e.set.Rule(i)
 		if err != nil {
@@ -293,7 +295,26 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 			return nil, err
 		}
 		if leftDoc == rightDoc {
-			return nil, ErrUDocDatalogFragment
+			if leftDoc {
+				return nil, ErrUDocDatalogFragment
+			}
+			// Both producers may acquire product kinds later in dependency
+			// order. This slice keeps their ordinary target mixed BV/Bool,
+			// with the same concrete union boundary as product forwarding.
+			for _, sort := range state.sorts {
+				if sort == boolean {
+					continue
+				}
+				bitVector, err := e.manager.IsBitVectorSort(sort)
+				if err != nil {
+					return nil, err
+				}
+				if !bitVector {
+					return nil, ErrUDocDatalogFragment
+				}
+			}
+			pairHeads[head] = true
+			continue
 		}
 		di, ti := 0, 1
 		if rightDoc {
@@ -442,6 +463,22 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 			total, err := rule.TailSize()
 			if err != nil {
 				return nil, err
+			}
+			if pairHeads[head] {
+				if definitions[head] != 1 || positive != 2 || total != 2 {
+					return nil, ErrUDocDatalogFragment
+				}
+				plan, err := e.planUDocProductPair(p, rule)
+				if err != nil {
+					return nil, err
+				}
+				if plan == nil {
+					continue
+				}
+				p.rules[head], p.sorts[head] = plan, append([]ast.ASTHandle(nil), e.predicates[head].sorts...)
+				p.order = append(p.order, head)
+				advanced = true
+				continue
 			}
 			if !e.auxiliary[head] && !forwardHeads[head] || definitions[head] != 1 || positive != 1 || total != 1 {
 				return nil, ErrUDocDatalogFragment
