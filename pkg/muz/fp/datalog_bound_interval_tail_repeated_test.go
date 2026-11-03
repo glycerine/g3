@@ -1,7 +1,6 @@
 package fp
 
 import (
-	"errors"
 	"math/big"
 	"testing"
 
@@ -153,16 +152,14 @@ func TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates(t *testing.T) {
 			addFact(mixed, 6, 7, 6, 40, 6)
 			check(6, 40)
 
-			// Two-tail repetitions need the source cross-tail occurrence
-			// equality order, independently of this single-tail lowering.
 			body, err := m.MkAnd(app(p, x, x), app(q, x))
 			must(err)
-			addRule(app(empty, x), body, "repeated two-tail boundary")
-			if _, cause := activation.query([]ast.ASTHandle{empty}); !errors.Is(cause, ErrBoundIntervalDatalogFragment) {
-				t.Fatal("unaudited repeated two-tail shape was accepted", cause)
+			addRule(app(empty, x), body, "repeated two-tail shared variable")
+			if status, cause := activation.query([]ast.ASTHandle{empty}); cause != nil || status != lbool.Undef {
+				t.Fatal("repeated two-tail query failed", status, cause)
 			}
-			if _, cause := activation.relationFormula(q); !errors.Is(cause, ErrBoundIntervalDatalogFragment) {
-				t.Fatal("failed repeated two-tail query exposed stale output", cause)
+			if !contains(empty, 3) || !contains(empty, 6) || contains(empty, 2) || contains(empty, 7) {
+				t.Fatal("repeated two-tail join did not intersect all shared occurrences")
 			}
 		})
 	}

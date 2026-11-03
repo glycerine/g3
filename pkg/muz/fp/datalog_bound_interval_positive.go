@@ -4,7 +4,7 @@ package fp
 // two tails, applying one compiler-produced interpreted condition, projecting
 // unused columns, and renaming the remaining columns into head order. This
 // typed slice covers aligned exact-pair tails, including repeated variables
-// in a single positive tail.
+// and the source's multiplicity-based two-tail projection.
 
 import (
 	"errors"
@@ -235,49 +235,6 @@ func (a *boundIntervalDatalogActivation) parsePositiveTail(rule *base.Rule, inde
 	return &boundIntervalPositiveTail{declaration: declaration, product: product, sorts: sorts, variables: variables, owned: owned}, nil
 }
 
-func joinBoundIntervalPositiveTails(left, right *boundIntervalPositiveTail) (*rel.IntervalBoundProduct, []ast.ASTHandle, map[uint32]uint32, error) {
-	if left == nil || right == nil {
-		return nil, nil, nil, ErrBoundIntervalDatalogFragment
-	}
-	leftVariables := make(map[uint32]uint32, len(left.variables))
-	variables := make(map[uint32]uint32, len(left.variables)+len(right.variables))
-	for column, variable := range left.variables {
-		leftVariables[variable] = uint32(column)
-		variables[variable] = uint32(column)
-	}
-	type sharedVariable struct {
-		variable uint32
-		left     uint32
-		right    uint32
-	}
-	shared := make([]sharedVariable, 0, len(right.variables))
-	removed := make([]uint32, 0, len(right.variables))
-	workingSorts := append([]ast.ASTHandle(nil), left.sorts...)
-	for column, variable := range right.variables {
-		if leftColumn, found := leftVariables[variable]; found {
-			if left.sorts[leftColumn] != right.sorts[column] {
-				return nil, nil, nil, ErrBoundIntervalDatalogFragment
-			}
-			shared = append(shared, sharedVariable{variable: variable, left: leftColumn, right: uint32(column)})
-			removed = append(removed, uint32(len(left.sorts)+column))
-			continue
-		}
-		variables[variable] = uint32(len(workingSorts))
-		workingSorts = append(workingSorts, right.sorts[column])
-	}
-	sort.Slice(shared, func(i, j int) bool { return shared[i].variable < shared[j].variable })
-	leftColumns := make([]uint32, len(shared))
-	rightColumns := make([]uint32, len(shared))
-	for i := range shared {
-		leftColumns[i], rightColumns[i] = shared[i].left, shared[i].right
-	}
-	working, err := rel.JoinProjectIntervalBoundProducts(left.product, right.product, leftColumns, rightColumns, removed)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return working, workingSorts, variables, nil
-}
-
 func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, products map[ast.ASTHandle]*rel.IntervalBoundProduct) (changed bool, resultErr error) {
 	defer func() { resultErr = errors.Join(resultErr, rule.Close()) }()
 	positive, err := rule.PositiveTailSize()
@@ -288,36 +245,33 @@ func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, p
 	if err != nil || uninterpreted != positive {
 		return false, errors.Join(err, ErrBoundIntervalDatalogFragment)
 	}
-	tails := make([]*boundIntervalPositiveTail, positive)
-	for i := 0; i < positive; i++ {
-		tails[i], err = a.parsePositiveTail(rule, i, products, positive == 1)
-		if err != nil {
-			return false, err
-		}
-	}
 	var working *rel.IntervalBoundProduct
 	var workingSorts []ast.ASTHandle
 	var variables map[uint32]uint32
 	var occurrences map[uint32][]uint32
 	repeatedTail := false
 	if positive == 1 {
-		working = tails[0].product
-		if !tails[0].owned {
+		tail, cause := a.parsePositiveTail(rule, 0, products, true)
+		if cause != nil {
+			return false, cause
+		}
+		working = tail.product
+		if !tail.owned {
 			working, err = working.Clone()
 			if err != nil {
 				return false, err
 			}
 		}
-		workingSorts = append([]ast.ASTHandle(nil), tails[0].sorts...)
-		variables = make(map[uint32]uint32, len(tails[0].variables))
-		occurrences = make(map[uint32][]uint32, len(tails[0].variables))
-		for column, variable := range tails[0].variables {
+		workingSorts = append([]ast.ASTHandle(nil), tail.sorts...)
+		variables = make(map[uint32]uint32, len(tail.variables))
+		occurrences = make(map[uint32][]uint32, len(tail.variables))
+		for column, variable := range tail.variables {
 			variables[variable] = uint32(column)
 			repeatedTail = repeatedTail || len(occurrences[variable]) != 0
 			occurrences[variable] = append(occurrences[variable], uint32(column))
 		}
 	} else {
-		working, workingSorts, variables, err = joinBoundIntervalPositiveTails(tails[0], tails[1])
+		working, workingSorts, variables, occurrences, err = a.joinBoundIntervalPositiveTails(rule, products)
 		if err != nil {
 			return false, err
 		}
@@ -358,7 +312,7 @@ func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, p
 		return false, errors.Join(err, ErrBoundIntervalDatalogFragment)
 	}
 	conditionApplied := false
-	if repeatedTail && condition != (ast.ASTRef{}) {
+	if (repeatedTail || positive == 2) && condition != (ast.ASTRef{}) {
 		// Source filters before assembling head columns, and fuses only the
 		// projection of whole variables absent from the head. Unused repeated
 		// occurrences of a head variable remain through this filter: the
