@@ -90,9 +90,15 @@ func (r *FormulaCheckedTable) FilterByNegation(negative *FormulaCheckedTable, co
 	for i := range names {
 		names[i] = symbol.Numerical(uint32(i))
 	}
-	exists, err := hold(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: bound, Names: names, Body: body}))
-	if err != nil {
-		return err
+	// A nullary negative has no witnesses to bind, so its existential
+	// condition is the body itself. The source AST factory requires at
+	// least one binder (src/ast/ast.cpp, ast_manager::mk_quantifier).
+	exists := body
+	if len(bound) != 0 {
+		exists, err = hold(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: bound, Names: names, Body: body}))
+		if err != nil {
+			return err
+		}
 	}
 	notExists, err := hold(m.MkNot(exists))
 	if err != nil {
