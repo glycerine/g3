@@ -15,6 +15,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/symbol"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
@@ -370,25 +371,27 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 }
 
 // bmcRulesAlongTrace returns caller-owned formulas from the latest query.
-func (e *PropositionalEngine) bmcRulesAlongTrace() (formulas []ast.ASTRef, names []string, resultErr error) {
+func (e *PropositionalEngine) bmcRulesAlongTrace() (formulas []ast.ASTRef, names []symbol.Symbol, resultErr error) {
 	if err := e.requireBMCSnapshot(); err != nil {
 		return nil, nil, err
 	}
+	a := &contextFormulaAttempt{manager: e.manager}
 	defer func() {
 		if resultErr != nil {
-			for i := len(formulas) - 1; i >= 0; i-- {
-				resultErr = errors.Join(resultErr, e.manager.DelRef(&formulas[i]))
-			}
+			a.references = append(a.references, formulas...)
 			formulas, names = nil, nil
 		}
+		resultErr = a.finish(resultErr)
 	}()
 	for _, rule := range e.bmcTrace {
 		formula, err := rule.ToFormula()
+		if formula != (ast.ASTRef{}) {
+			formulas = append(formulas, formula)
+		}
 		if err != nil {
 			return formulas, names, err
 		}
-		formulas = append(formulas, formula)
-		name, err := rule.Name()
+		name, err := rule.NameSymbol()
 		if err != nil {
 			return formulas, names, err
 		}

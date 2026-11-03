@@ -30,7 +30,7 @@ func TestBMCEngineRuleTraceAndSnapshot(t *testing.T) {
 		fpMust(t, manager.DelRef(&formulas[i]))
 	}
 	// Default inlining folds both named rules into the synthetic query rule.
-	if len(names) != 1 || names[0] != "" {
+	if len(names) != 1 || names[0] != "<null>" {
 		t.Fatal("BMC trace", names)
 	}
 	answer, err := engine.Answer(goalDecl)

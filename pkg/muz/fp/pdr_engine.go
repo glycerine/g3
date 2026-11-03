@@ -13,6 +13,7 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 type pdrContextDisposal struct {
@@ -665,15 +666,33 @@ func (e *PropositionalEngine) GroundSatAnswer(declaration ast.ASTHandle) (ast.AS
 	return e.expandSpacerFormula(declaration, answer)
 }
 
-// RulesAlongTrace returns owning rule formulas and their names in preorder for
-// the latest successful Spacer query. The caller releases every ASTRef.
+// RulesAlongTrace returns owning rule formulas and the source symbol::str
+// spelling of each name, including "<null>" for an absent label.
 func (e *PropositionalEngine) RulesAlongTrace() (formulas []ast.ASTRef, names []string, resultErr error) {
+	formulas, labels, err := e.RulesAlongTraceWithSymbols()
+	if err != nil {
+		return nil, nil, err
+	}
+	names = make([]string, len(labels))
+	for i, label := range labels {
+		names[i], err = e.manager.Symbols.String(label)
+		if err != nil {
+			a := &contextFormulaAttempt{manager: e.manager, references: formulas}
+			return nil, nil, a.finish(err)
+		}
+	}
+	return formulas, names, nil
+}
+
+// RulesAlongTraceWithSymbols preserves the source trace label identities and
+// returns caller-owned rule formulas for the latest Spacer or BMC query.
+func (e *PropositionalEngine) RulesAlongTraceWithSymbols() (formulas []ast.ASTRef, names []symbol.Symbol, resultErr error) {
 	if e.queryClone != nil && e.backend == "spacer" {
 		clone, _, err := e.expressionQueryState()
 		if err != nil {
 			return nil, nil, err
 		}
-		return clone.RulesAlongTrace()
+		return clone.RulesAlongTraceWithSymbols()
 	}
 	if e.backend == "bmc" || e.backend == "qbmc" {
 		return e.bmcRulesAlongTrace()
@@ -682,31 +701,35 @@ func (e *PropositionalEngine) RulesAlongTrace() (formulas []ast.ASTRef, names []
 		return nil, nil, err
 	}
 	rules, err := e.spacer.RulesAlongTrace()
+	a := &contextFormulaAttempt{manager: e.manager, rules: rules}
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, a.finish(err)
 	}
 	defer func() {
-		for index := len(rules) - 1; index >= 0; index-- {
-			resultErr = errors.Join(resultErr, rules[index].Close())
-		}
 		if resultErr != nil {
-			for index := len(formulas) - 1; index >= 0; index-- {
-				resultErr = errors.Join(resultErr, e.manager.DelRef(&formulas[index]))
-			}
+			a.references = append(a.references, formulas...)
+			formulas = nil
+			names = nil
+		}
+		resultErr = a.finish(resultErr)
+		if resultErr != nil && formulas != nil {
+			a.references = append(a.references, formulas...)
 			formulas = nil
 			names = nil
 		}
 	}()
 	for _, rule := range rules {
 		formula, err := rule.ToFormula()
+		if formula != (ast.ASTRef{}) {
+			formulas = append(formulas, formula)
+		}
 		if err != nil {
 			return formulas, names, err
 		}
-		name, err := rule.Name()
+		name, err := rule.NameSymbol()
 		if err != nil {
 			return formulas, names, err
 		}
-		formulas = append(formulas, formula)
 		names = append(names, name)
 	}
 	return formulas, names, resultErr

@@ -56,12 +56,12 @@ func TestSpacerExpressionQueryTraceNamesFollowInlining(t *testing.T) {
 						fragmentMust(t, m.DelRef(&forms[i]))
 					}
 				}()
-				want := []string{"", "step", "fact"}
+				want := []string{"<null>", "step", "fact"}
 				if inline {
-					want = []string{";step;fact"}
+					want = []string{"<null>;step;fact"}
 				}
 				if checker {
-					want = []string{""}
+					want = []string{"<null>"}
 				}
 				if !reflect.DeepEqual(names, want) {
 					t.Fatalf("trace names = %q, want %q", names, want)
