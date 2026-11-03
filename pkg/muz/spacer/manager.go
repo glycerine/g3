@@ -29,6 +29,7 @@ type Manager struct {
 	cooperation   *cooperate.Cooperation
 	paramsContext *uparams.ParamsContext
 	solverParams  uparams.ParamsRef
+	paramsReceipt uparams.ParamsDecrementReceipt
 	useNativeMBP  bool
 	ownsParams    bool
 	unique        uint32
@@ -685,11 +686,19 @@ func (m *Manager) Close() (result error) {
 		}
 	}
 	if result == nil && m.ownsParams {
-		paramErr := m.paramsContext.Del(&m.solverParams)
-		result = errors.Join(result, paramErr)
-		if paramErr == nil {
-			m.ownsParams = false
+		// A stopped zero-reference decrement must continue its exact native
+		// invocation, without decrementing again or disposing later owners.
+		var paramErr error
+		if m.paramsReceipt.Invocation() != 0 {
+			paramErr = m.paramsContext.CompleteDecrement(&m.solverParams, m.paramsReceipt)
+		} else {
+			paramErr = m.paramsContext.DelTracked(&m.solverParams, &m.paramsReceipt)
 		}
+		if paramErr != nil {
+			return paramErr
+		}
+		m.paramsReceipt = uparams.ParamsDecrementReceipt{}
+		m.ownsParams = false
 	}
 	result = errors.Join(result, m.mux.Close(), m.manager.DelRef(&m.background))
 	if m.cooperation != nil {
