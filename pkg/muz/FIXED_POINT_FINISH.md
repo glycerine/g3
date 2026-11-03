@@ -225,6 +225,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 - [ ] Close exported model, answer, counterexample and trace behavior through `spacer_dl_interface`.
   - [x] Export cover deltas transactionally: preserve copied result, formula, substitution and replacer roots through native cleanup refusal, suppress partial answers and retry with stable cause separation.
   - [x] Forward `get_reachable` through the active Spacer expression-query clone; independently prove the repeated-query summary, reject stale access after mutation and preserve returned ownership after disposal.
+    - [x] Preserve rewritten fact roots, substitution, simplifying replacer and copied output through native cleanup refusal, suppressing failed publication until retry completes.
   - [x] Recheck the source presentation contract: context::get_proof is empty and display_certificate is a no-op; the interface forwards both directly. Internal rule/SMT proofs remain distinct from an exported overall Spacer proof.
   - [x] Align context::get_rules_along_trace's non-SAT branch with the source empty return and level-1 diagnostic (spacer_context.cpp:2332-2337); verify unsolved/UNDEF/UNSAT/SAT at verbosity 0/1, an unconfigured context, closed-owner rejection, SAT rule ownership and unchanged public snapshot guards.
   - [x] Own all facts and copied rules during SAT trace traversal so semantic or cleanup failure publishes no partial trace and preserves the exact remaining cleanup frontier for retry.
@@ -711,6 +712,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Spacer extended-pretty output now transfers its rewritten AST result into a typed owner before formatter and writer work. Operation failure plus native final-release refusal preserves the sole cleanup handle with stable origin/error/runtime presentation and exact retry; broader trace and pretty-printer auditing remains open.
   Validation: `go -C pkg test ./muz/spacer -run '^(TestExtendedPretty|Test.*Pretty.*Failure|Test.*Pretty.*Trace)' -count=3` passed. Commit title: `Preserve extended pretty rewrite cleanup`.
+
+- 2026-11-02 — Spacer reachable export now stages every per-fact rewritten root, expression substitution, simplifying replacer and copied output under one typed owner. Semantic or native cleanup failure publishes no result, preserves the exact reverse frontier and stable receipt identity, and retries without changing source simplification order; broader export cleanup remains open.
+  Validation: `go -C pkg test ./muz/spacer -run '^TestSpacerReachable' -count=3` passed. Commit title: `Preserve Spacer reachable export owners`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.

@@ -4,8 +4,6 @@ package spacer
 // src/muz/spacer/spacer_context.cpp.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
@@ -16,11 +14,8 @@ func (p *PredicateTransformer) Reachable() (result ast.ASTRef, resultErr error) 
 	if err := p.open(); err != nil {
 		return result, err
 	}
-	defer func() {
-		if resultErr != nil && result != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, p.manager.DelRef(&result))
-		}
-	}()
+	attempt := &reachableExportAttempt{manager: p.manager, runtime: p.manager.NumeralService().RuntimeOwner()}
+	defer func() { attempt.result = result; result, resultErr = attempt.finish(resultErr) }()
 	facts := make([]ast.ASTHandle, len(p.reachFacts))
 	for index, fact := range p.reachFacts {
 		auxiliaries, err := fact.Auxiliaries()
@@ -46,7 +41,7 @@ func (p *PredicateTransformer) Reachable() (result ast.ASTRef, resultErr error) 
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, p.manager.DelExprSubstitution(&substitution)) }()
+	attempt.substitution = substitution
 	for index, signature := range p.signature {
 		declaration, x := p.manager.RefGet(signature)
 		if x != nil {
@@ -74,26 +69,21 @@ func (p *PredicateTransformer) Reachable() (result ast.ASTRef, resultErr error) 
 	}
 	config := p.owner.contexts[0].config
 	replacer, err := rewriter.NewSimplifyingExprReplacer(p.manager, config.Params, config.Globals, nil)
+	attempt.replacer = replacer
 	if err != nil {
-		if replacer != nil {
-			err = errors.Join(err, replacer.Close())
-		}
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, replacer.Close()) }()
 	if err = replacer.SetSubstitution(&substitution); err != nil {
 		return result, err
 	}
 	// Source rewrites each fact before mk_or. Rewriting the combined
 	// disjunction would simplify across facts and change its output shape.
-	var rewritten []ast.ASTRef
-	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, rewritten)) }()
 	for index, fact := range facts {
 		ref, err := p.manager.NewRef(fact)
 		if err != nil {
 			return result, err
 		}
-		rewritten = append(rewritten, ref)
+		attempt.rewritten = append(attempt.rewritten, ref)
 		if err = replacer.Rewrite(fact, ref); err != nil {
 			return result, err
 		}
