@@ -208,7 +208,7 @@ func testRuleProofComposition(t *testing.T, withSlice, withCoalesce bool, stop i
 			n, e := m.GetRefCount(source)
 			coneMust(t, e)
 			if n != want {
-				t.Fatal("conversion changed original clause proof ownership", stop, n, want)
+				t.Fatal("conversion changed original clause proof ownership", stop, n, want, "cause", cause)
 			}
 		}
 		currentMode, e := m.ProofMode()

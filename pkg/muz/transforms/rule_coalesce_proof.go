@@ -21,6 +21,23 @@ func makeCoalesceProof(m *ast.ASTManager, source, target, merged *base.Rule) (re
 			resultErr = errors.Join(resultErr, m.DelRef(&result))
 		}
 	}()
+	// Allocate owning slots before constructing the proof chain. Each later
+	// constructor can fail, and a completed intermediate proof already owns its
+	// source clauses even before the final proof is published to the caller.
+	var temporary [7]ast.ASTRef
+	defer func() {
+		for i := len(temporary) - 1; i >= 0; i-- {
+			if temporary[i] != (ast.ASTRef{}) {
+				resultErr = errors.Join(resultErr, m.DelRef(&temporary[i]))
+			}
+		}
+	}()
+	for i := range temporary {
+		temporary[i], err = m.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return result, err
+		}
+	}
 	var parents, facts []ast.ASTHandle
 	for _, r := range []*base.Rule{source, target} {
 		p, found, e := r.Proof()
@@ -50,8 +67,14 @@ func makeCoalesceProof(m *ast.ASTManager, source, target, merged *base.Rule) (re
 	if err != nil {
 		return result, err
 	}
+	if err = m.SetRef(temporary[0], inner); err != nil {
+		return result, err
+	}
 	theorem, err := m.MkImplies(facts[0], inner)
 	if err != nil {
+		return result, err
+	}
+	if err = m.SetRef(temporary[1], theorem); err != nil {
 		return result, err
 	}
 	truth, err := m.MkTrue()
@@ -62,20 +85,35 @@ func makeCoalesceProof(m *ast.ASTManager, source, target, merged *base.Rule) (re
 	if err != nil {
 		return result, err
 	}
+	if err = m.SetRef(temporary[2], rewrite); err != nil {
+		return result, err
+	}
 	trueProof, err := m.MkProofTrue()
 	if err != nil {
+		return result, err
+	}
+	if err = m.SetRef(temporary[3], trueProof); err != nil {
 		return result, err
 	}
 	proof, err := m.MkProofModusPonens(trueProof, rewrite)
 	if err != nil {
 		return result, err
 	}
+	if err = m.SetRef(temporary[4], proof); err != nil {
+		return result, err
+	}
 	proof, err = m.MkProofModusPonens(parents[0], proof)
 	if err != nil {
 		return result, err
 	}
+	if err = m.SetRef(temporary[5], proof); err != nil {
+		return result, err
+	}
 	proof, err = m.MkProofModusPonens(parents[1], proof)
 	if err != nil {
+		return result, err
+	}
+	if err = m.SetRef(temporary[6], proof); err != nil {
 		return result, err
 	}
 	return m.NewRef(proof)
