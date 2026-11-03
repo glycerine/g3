@@ -26,6 +26,8 @@ type RuleSet struct {
 	rules               []*Rule
 	byHead              map[ast.ASTHandle][]*Rule
 	headOrder           []ast.ASTHandle
+	groupBuckets        []ruleGroupBucket
+	groupCount          int
 	dependencies        map[ast.ASTHandle][]ast.ASTHandle
 	strata              map[ast.ASTHandle]uint32
 	outputs             map[ast.ASTHandle]ast.ASTRef
@@ -101,11 +103,16 @@ func (s *RuleSet) Add(rule *Rule) error {
 	if err != nil {
 		return err
 	}
+	hash, err := s.manager.manager.GetHash(declaration)
+	if err != nil {
+		return err
+	}
 	owned, err := rule.Retain()
 	if err != nil {
 		return err
 	}
 	s.rules = append(s.rules, owned)
+	s.insertGroup(declaration, hash)
 	if len(s.byHead[declaration]) == 0 {
 		s.headOrder = append(s.headOrder, declaration)
 	}
@@ -716,6 +723,8 @@ func (s *RuleSet) resetContents() error {
 	s.rules = nil
 	s.byHead = make(map[ast.ASTHandle][]*Rule)
 	s.headOrder = nil
+	s.groupBuckets = nil
+	s.groupCount = 0
 	s.dependencies = nil
 	s.strata = nil
 	s.outputs = make(map[ast.ASTHandle]ast.ASTRef)

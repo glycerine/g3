@@ -34,27 +34,13 @@ func (c *Compiler) CompileQuantifiedLinear(rules *base.RuleSet, width uint32) (r
 			result = nil
 		}
 	}()
-	count, err := rules.Len()
+	predicates, err := rules.GroupedPredicates()
 	if err != nil {
 		return nil, err
 	}
-	seen := make(map[ast.ASTHandle]bool)
-	for i := 0; i < count; i++ {
-		rule, e := rules.Rule(i)
-		if e != nil {
-			return result, e
-		}
-		predicate, e := rule.HeadDeclaration()
-		e = disposeRuleOwners(c.manager, []*base.Rule{rule}, e)
-		if e != nil {
-			return result, e
-		}
-		if seen[predicate] {
-			continue
-		}
-		seen[predicate] = true
-		if e = q.compileGroup(c, rules, predicate, &result); e != nil {
-			return result, e
+	for _, predicate := range predicates {
+		if err = q.compileGroup(c, rules, predicate, &result); err != nil {
+			return result, err
 		}
 	}
 	return result, nil

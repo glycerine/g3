@@ -55,14 +55,16 @@ go test ./muz/fp -run '^TestQBMCRecursiveRuleSelection$' -count=100
    can therefore differ from the C++ call. Evaluator cache or state effects
    with the default fixture are unproven.
 
-4. **Group assertion order.** C++ compiles predicate groups by iterating its
+4. **FIXED — Group assertion order.** C++ compiles predicate groups by iterating its
    `decl2rules` map (`src/muz/base/dl_rule_set.h:159,270`,
    `src/muz/bmc/dl_bmc_engine.cpp:86–103`). Go scans the rule set and compiles
    each head at its first appearance (`pkg/muz/bmc/quantified_linear_compile.go:37–58`).
    The group traversal order can differ even when the resulting implications
-   are logically equivalent. Different assertion/quantifier ordering can alter
-   solver search or the selected model; neither the actual ordering in the
-   failed run nor a causal effect has been demonstrated.
+   are logically equivalent. Go now records the source predicate-group bucket
+   traversal using the existing declaration AST hash, including growth and
+   groups emptied by removal. Focused RuleSet and QBMC compiler-order tests
+   pass; the previous compiler fails the order regression. The effect on the
+   intermittent failure remains unproven.
 
 5. **Query-predicate check and failure reporting.** C++ has a debug assertion
    that the indexed query predicate evaluates true at the chosen level before
