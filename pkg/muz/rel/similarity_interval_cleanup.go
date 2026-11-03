@@ -6,7 +6,7 @@ import (
 )
 
 type intervalSimilarityConstructionFailure struct {
-	owner                       *IntervalSimilarityProgram
+	owner                       *arithmeticSimilarityProgram
 	nested                      memory.ConstructionFailure
 	runtime                     *memory.Runtime
 	original, cleanup, reported error
@@ -29,7 +29,7 @@ func (f *intervalSimilarityConstructionFailure) Cleanup() error {
 	f.cleanup = f.owner.Close()
 	return f.cleanup
 }
-func finishIntervalSimilarityConstruction(cause error, owner *IntervalSimilarityProgram) error {
+func finishIntervalSimilarityConstruction(cause error, owner *arithmeticSimilarityProgram) error {
 	f := &intervalSimilarityConstructionFailure{owner: owner, original: cause, runtime: owner.manager.NumeralService().RuntimeOwner()}
 	errors.As(cause, &f.nested)
 	cleanup := f.Cleanup()

@@ -100,6 +100,24 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 func (e *PropositionalEngine) queryBoundDatalog(declarations []ast.ASTHandle) (lbool.LBool, error) {
 	e.compiled = false
 	e.datalogStats.Reset()
+	enabled, threshold := true, uint32(11)
+	if e.params != nil && e.globals != nil {
+		view, err := e.fixedpointParamView()
+		if err != nil {
+			return lbool.Undef, err
+		}
+		enabled, err = view.Bool("datalog.similarity_compressor", true)
+		if err == nil && enabled {
+			threshold, err = view.UInt("datalog.similarity_compressor_threshold", 11)
+		}
+		err = errors.Join(err, view.Close())
+		if err != nil {
+			return lbool.Undef, err
+		}
+	}
+	if enabled {
+		return e.boundDatalog.queryWithSimilarity(declarations, threshold)
+	}
 	return e.boundDatalog.query(declarations)
 }
 func (e *PropositionalEngine) closeBoundDatalog() error {

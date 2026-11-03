@@ -26,13 +26,16 @@ type boundDatalogEntry struct {
 // boundDatalogRuntime owns declaration pins and seed facts, and publishes a
 // separate saturated snapshot only after the complete supported program succeeds.
 type boundDatalogRuntime struct {
-	manager   *ast.ASTManager
-	rules     *base.RuleSet
-	entries   map[ast.ASTHandle]*boundDatalogEntry
-	order     []ast.ASTHandle
-	evaluated map[ast.ASTHandle]*rel.BoundRelation
-	pending   []ast.ASTRef
-	closed    bool
+	manager           *ast.ASTManager
+	rules             *base.RuleSet
+	entries           map[ast.ASTHandle]*boundDatalogEntry
+	order             []ast.ASTHandle
+	evaluated         map[ast.ASTHandle]*rel.BoundRelation
+	similarity        *rel.BoundSimilarityProgram
+	similarityRuntime *boundDatalogRuntime
+	similarityCleanup memory.ConstructionFailure
+	pending           []ast.ASTRef
+	closed            bool
 }
 
 type boundDatalogDeclaration struct {
@@ -316,6 +319,13 @@ func (r *boundDatalogRuntime) addFact(declaration ast.ASTHandle, values []ast.AS
 }
 
 func (r *boundDatalogRuntime) query(declarations []ast.ASTHandle) (lbool.LBool, error) {
+	if err := r.open(); err != nil {
+		return lbool.Undef, err
+	}
+	r.evaluated = nil
+	if err := r.discardSimilarity(); err != nil {
+		return lbool.Undef, err
+	}
 	if err := r.saturatePositive(true); err != nil {
 		return lbool.Undef, err
 	}
@@ -359,6 +369,10 @@ func (r *boundDatalogRuntime) reset() error {
 	if err := r.open(); err != nil {
 		return err
 	}
+	r.evaluated = nil
+	if err := r.discardSimilarity(); err != nil {
+		return err
+	}
 	for _, entry := range r.entries {
 		entry.seed = rel.NewBoundRelation(uint32(len(entry.sorts)), true)
 	}
@@ -369,6 +383,9 @@ func (r *boundDatalogRuntime) reset() error {
 func (r *boundDatalogRuntime) close() (result error) {
 	if r == nil || r.closed {
 		return nil
+	}
+	if err := r.discardSimilarity(); err != nil {
+		return err
 	}
 	result = errors.Join(result, r.retirePending())
 	for i := len(r.order) - 1; i >= 0; i-- {

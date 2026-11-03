@@ -11,10 +11,10 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
-// IntervalSimilarityProgram owns query-local rules and arithmetic auxiliary
-// relations. Its private rule manager keeps generated predicates out of the
-// original program's registration state.
-type IntervalSimilarityProgram struct {
+// arithmeticSimilarityProgram owns the common rule-construction lifetime of
+// the two live arithmetic relation specializations. Its private rule manager
+// keeps generated predicates out of the original registration state.
+type arithmeticSimilarityProgram struct {
 	manager     *ast.ASTManager
 	rules       *base.RuleManager
 	set         *base.RuleSet
@@ -23,16 +23,84 @@ type IntervalSimilarityProgram struct {
 	refs        []ast.ASTRef
 	auxiliary   []ast.ASTHandle
 	seeds       map[ast.ASTHandle]*IntervalRelation
+	boundSeeds  map[ast.ASTHandle]*BoundRelation
 	origins     map[ast.ASTHandle]ast.ASTHandle
 	modified    bool
 	closed      bool
 }
 
-func NewIntervalSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet, threshold uint32, outputs []ast.ASTHandle) (_ *IntervalSimilarityProgram, resultErr error) {
+type IntervalSimilarityProgram struct{ *arithmeticSimilarityProgram }
+type BoundSimilarityProgram struct{ *arithmeticSimilarityProgram }
+
+func (p *IntervalSimilarityProgram) Rules() (*base.RuleSet, error) {
+	if p == nil {
+		return nil, ast.ErrASTHandle
+	}
+	return p.arithmeticSimilarityProgram.Rules()
+}
+func (p *BoundSimilarityProgram) Rules() (*base.RuleSet, error) {
+	if p == nil {
+		return nil, ast.ErrASTHandle
+	}
+	return p.arithmeticSimilarityProgram.Rules()
+}
+func (p *IntervalSimilarityProgram) AuxiliaryPredicates() []ast.ASTHandle {
+	if p == nil {
+		return nil
+	}
+	return p.arithmeticSimilarityProgram.AuxiliaryPredicates()
+}
+func (p *BoundSimilarityProgram) AuxiliaryPredicates() []ast.ASTHandle {
+	if p == nil {
+		return nil
+	}
+	return p.arithmeticSimilarityProgram.AuxiliaryPredicates()
+}
+func (p *IntervalSimilarityProgram) Modified() bool {
+	return p != nil && p.arithmeticSimilarityProgram.Modified()
+}
+func (p *BoundSimilarityProgram) Modified() bool {
+	return p != nil && p.arithmeticSimilarityProgram.Modified()
+}
+func (p *IntervalSimilarityProgram) Close() error {
+	if p == nil {
+		return nil
+	}
+	return p.arithmeticSimilarityProgram.Close()
+}
+func (p *BoundSimilarityProgram) Close() error {
+	if p == nil {
+		return nil
+	}
+	return p.arithmeticSimilarityProgram.Close()
+}
+
+func NewIntervalSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet, threshold uint32, outputs []ast.ASTHandle) (*IntervalSimilarityProgram, error) {
+	p, err := newArithmeticSimilarityProgram(manager, source, threshold, outputs, false)
+	if err != nil {
+		return nil, err
+	}
+	return &IntervalSimilarityProgram{p}, nil
+}
+
+func NewBoundSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet, threshold uint32, outputs []ast.ASTHandle) (*BoundSimilarityProgram, error) {
+	p, err := newArithmeticSimilarityProgram(manager, source, threshold, outputs, true)
+	if err != nil {
+		return nil, err
+	}
+	return &BoundSimilarityProgram{p}, nil
+}
+
+func newArithmeticSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet, threshold uint32, outputs []ast.ASTHandle, bounds bool) (_ *arithmeticSimilarityProgram, resultErr error) {
 	if manager == nil || source == nil || threshold <= 1 {
 		return nil, ast.ErrASTDomain
 	}
-	p := &IntervalSimilarityProgram{manager: manager, seeds: make(map[ast.ASTHandle]*IntervalRelation), origins: make(map[ast.ASTHandle]ast.ASTHandle)}
+	p := &arithmeticSimilarityProgram{manager: manager, origins: make(map[ast.ASTHandle]ast.ASTHandle)}
+	if bounds {
+		p.boundSeeds = make(map[ast.ASTHandle]*BoundRelation)
+	} else {
+		p.seeds = make(map[ast.ASTHandle]*IntervalRelation)
+	}
 	defer func() {
 		if resultErr != nil {
 			resultErr = finishIntervalSimilarityConstruction(resultErr, p)
@@ -131,7 +199,7 @@ func NewIntervalSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet,
 			}
 			continue
 		}
-		if err = p.merge(class); err != nil {
+		if err = p.merge(class, bounds); err != nil {
 			return nil, err
 		}
 		p.modified = true
@@ -139,7 +207,7 @@ func NewIntervalSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet,
 	return p, nil
 }
 
-func (p *IntervalSimilarityProgram) merge(class similarityClass) error {
+func (p *arithmeticSimilarityProgram) merge(class similarityClass, bounds bool) error {
 	domains, rows, err := similarityOrphanRows(class.rules, class.constants)
 	if err != nil {
 		return err
@@ -147,10 +215,21 @@ func (p *IntervalSimilarityProgram) merge(class similarityClass) error {
 	if !CanHandleIntervalSorts(p.manager, domains) {
 		return ast.ErrASTDomain
 	}
-	seed := NewIntervalEmpty(uint32(len(domains)))
-	for _, row := range rows {
-		if err = seed.AddFactExpressions(p.manager, domains, row); err != nil {
-			return err
+	var intervalSeed *IntervalRelation
+	var boundSeed *BoundRelation
+	if bounds {
+		boundSeed = NewBoundRelation(uint32(len(domains)), true)
+		for _, row := range rows {
+			if err = boundSeed.AddFact(row); err != nil {
+				return err
+			}
+		}
+	} else {
+		intervalSeed = NewIntervalEmpty(uint32(len(domains)))
+		for _, row := range rows {
+			if err = intervalSeed.AddFactExpressions(p.manager, domains, row); err != nil {
+				return err
+			}
 		}
 	}
 	head, err := class.rules[0].HeadDeclaration()
@@ -182,7 +261,12 @@ func (p *IntervalSimilarityProgram) merge(class similarityClass) error {
 		return err
 	}
 	p.auxiliary = append(p.auxiliary, auxiliary)
-	p.seeds[auxiliary], p.origins[auxiliary] = seed, head
+	if bounds {
+		p.boundSeeds[auxiliary] = boundSeed
+	} else {
+		p.seeds[auxiliary] = intervalSeed
+	}
+	p.origins[auxiliary] = head
 	merged, err := similarityRewriteRule(p.rules, class.rules[0], class.constants, auxiliary)
 	if err != nil {
 		return err
@@ -198,14 +282,14 @@ func (p *IntervalSimilarityProgram) merge(class similarityClass) error {
 	return nil
 }
 
-func (p *IntervalSimilarityProgram) Rules() (*base.RuleSet, error) {
+func (p *arithmeticSimilarityProgram) Rules() (*base.RuleSet, error) {
 	if p == nil || p.closed || p.set == nil {
 		return nil, ast.ErrASTHandle
 	}
 	return p.set, nil
 }
 
-func (p *IntervalSimilarityProgram) AuxiliaryPredicates() []ast.ASTHandle {
+func (p *arithmeticSimilarityProgram) AuxiliaryPredicates() []ast.ASTHandle {
 	if p == nil || p.closed {
 		return nil
 	}
@@ -214,16 +298,25 @@ func (p *IntervalSimilarityProgram) AuxiliaryPredicates() []ast.ASTHandle {
 
 // AuxiliaryRelation returns a borrowed numeric seed; evaluators clone it.
 func (p *IntervalSimilarityProgram) AuxiliaryRelation(predicate ast.ASTHandle) (*IntervalRelation, bool) {
-	if p == nil || p.closed {
+	if p == nil || p.arithmeticSimilarityProgram == nil || p.closed {
 		return nil, false
 	}
 	relation, found := p.seeds[predicate]
 	return relation, found
 }
 
-func (p *IntervalSimilarityProgram) Modified() bool { return p != nil && !p.closed && p.modified }
+// AuxiliaryRelation returns a borrowed bound seed; query runtimes clone it.
+func (p *BoundSimilarityProgram) AuxiliaryRelation(predicate ast.ASTHandle) (*BoundRelation, bool) {
+	if p == nil || p.arithmeticSimilarityProgram == nil || p.closed {
+		return nil, false
+	}
+	relation, found := p.boundSeeds[predicate]
+	return relation, found
+}
 
-func (p *IntervalSimilarityProgram) Close() error {
+func (p *arithmeticSimilarityProgram) Modified() bool { return p != nil && !p.closed && p.modified }
+
+func (p *arithmeticSimilarityProgram) Close() error {
 	if p == nil || p.closed {
 		return nil
 	}
@@ -263,6 +356,6 @@ func (p *IntervalSimilarityProgram) Close() error {
 			return err
 		}
 	}
-	p.seeds, p.origins, p.auxiliary, p.closed = nil, nil, nil, true
+	p.seeds, p.boundSeeds, p.origins, p.auxiliary, p.closed = nil, nil, nil, nil, true
 	return nil
 }
