@@ -4,6 +4,7 @@ package ast
 
 import (
 	"bytes"
+	"errors"
 	"math"
 	"strconv"
 	"strings"
@@ -65,7 +66,7 @@ func (m *ASTManager) MkFreshConst(prefix string, sort ASTHandle) (ASTHandle, err
 }
 
 // MkFreshConstNullable retains the source symbol(nullptr) constructor shortcut.
-func (m *ASTManager) MkFreshConstNullable(prefix *string, sort ASTHandle) (ASTHandle, error) {
+func (m *ASTManager) MkFreshConstNullable(prefix *string, sort ASTHandle) (result ASTHandle, cause error) {
 	if e := m.lock(); e != nil {
 		return ASTHandle{}, e
 	}
@@ -78,6 +79,13 @@ func (m *ASTManager) MkFreshConstNullable(prefix *string, sort ASTHandle) (ASTHa
 	if e != nil {
 		return ASTHandle{}, e
 	}
+	// The source publishes the fresh ID before constructing the application.
+	// Preserve that order while owning the declaration across a failed Go
+	// application allocation, which otherwise leaves it without an owner.
+	if e = m.incNode(d); e != nil {
+		return ASTHandle{}, e
+	}
+	defer func() { _, err := m.decNode(d); cause = errors.Join(cause, err) }()
 	r, e := m.mkApp(d, nil)
 	return m.external(r), e
 }
