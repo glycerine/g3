@@ -72,10 +72,10 @@ func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandl
 	}
 	value, err := m.RefGet(indexRef)
 	if err != nil {
-		return nil, errors.Join(err, m.DelRef(&indexRef))
+		return nil, disposeASTRefs(m, []ast.ASTRef{indexRef}, err)
 	}
 	num, bits, matched, err := m.BitVectorNumeralBigInt(value)
-	err = errors.Join(err, m.DelRef(&indexRef))
+	err = disposeASTRefs(m, []ast.ASTRef{indexRef}, err)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandl
 						selected, cause = rule.Retain()
 						selectedIndex = uint32(i)
 					}
-					cause = errors.Join(cause, m.DelRef(&evaluated))
+					cause = disposeASTRefs(m, []ast.ASTRef{evaluated}, cause)
 				}
 			}
 			if cause != nil {
