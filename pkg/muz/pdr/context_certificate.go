@@ -88,7 +88,7 @@ func (c *Context) DisplayCertificate(out io.Writer, queryDeclaration ast.ASTHand
 	}
 }
 
-func (c *Context) displayUnreachableCertificate(out io.Writer, queryDeclaration ast.ASTHandle, converted bool) (result error) {
+func (c *Context) displayUnreachableCertificate(out io.Writer, queryDeclaration ast.ASTHandle, converted bool) error {
 	certificate, err := c.finiteFrameModel(c.inductive, queryDeclaration)
 	if err != nil {
 		return err
@@ -102,7 +102,8 @@ func (c *Context) displayUnreachableCertificate(out io.Writer, queryDeclaration 
 			return ast.ErrASTHandle
 		}
 	}
-	defer func() { result = errors.Join(result, certificate.Close()) }()
+	attempt := newPDRValidationAttempt(c.manager)
+	attempt.modelOwners = append(attempt.modelOwners, &pdrModelExportOwner{manager: c.manager, model: certificate})
 	config := c.owner.contexts.config
-	return certificate.Core().WriteSMT2(out, config.Params, config.Globals, 0)
+	return finishPDRValidation(attempt, certificate.Core().WriteSMT2(out, config.Params, config.Globals, 0))
 }

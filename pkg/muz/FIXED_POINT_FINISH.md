@@ -404,6 +404,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/pdr/pdr_context.cpp` (partial), `src/muz/pdr/pdr_context.h` (partial): corrected stale completion claims after finding source result-validation and live display/certificate/invariant surfaces; implemented algorithms and tests are unchanged.
   - [x] Invariant/finite-frame simplification and configured pre/post propagation hooks.
   - [x] Source result validation, original-rule converted certificates, invariant checks and inductive finite-frame public model export.
+  - [x] Preserve the unreachable finite-frame certificate model through combined writer failure and native cleanup refusal, with typed retry custody and successful public replay.
   - [ ] Complete exceptional ownership and the final method/conditional audit before closing these units.
 
 - [ ] `src/muz/pdr/pdr_dl_interface.cpp` (partial: query-pipeline regression repaired and tested; broader interface method audit remains open)
@@ -506,6 +507,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — PDR unreachable-certificate export now keeps the finite-frame model in a typed validation attempt through a writer error followed by native cleanup refusal. The receipt preserves both causes and runtime custody, retries idempotently and allows a later public certificate export; reachable ordinary/Boogie certificate cleanup remains open.
+  Validation: `go -C pkg test ./muz/pdr -run '^(TestContextDisplayCertificate|TestPDRValidationPreservesFreshSolverAndRootsOnNativeCleanupRefusal)' -count=3` passed. Commit title: `Preserve PDR certificate models through cleanup refusal`.
 
 - 2026-11-02 — Fixedpoint parameter views now preserve the exact tracked decrement receipt when a module snapshot's large numeral cleanup stops natively. `Close` resumes that decrement before dropping the context/global owner and remains idempotent; broader command and parameter audits stay open.
   Validation: `go -C pkg test ./muz/fp -run '^(TestFixedpointParamViewCompletesStoppedModuleDecrement|TestFixedpoint.*Param|TestPropositionalEngine.*Param)' -count=3` passed. Commit title: `Resume fixedpoint parameter snapshot cleanup`.
