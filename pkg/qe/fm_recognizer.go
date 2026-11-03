@@ -97,7 +97,7 @@ func (r *fmRecognizer) monomial(h ast.ASTHandle) (ast.ASTHandle, bool, error) {
 			if err != nil {
 				return ast.ASTHandle{}, false, err
 			}
-			_, _, numeral, err := r.manager.ArithmeticNumeralText(coefficient)
+			numeral, err := r.operation(coefficient, r.arithmetic, 0)
 			if err != nil {
 				return ast.ASTHandle{}, false, err
 			}
@@ -210,7 +210,7 @@ func (r *fmRecognizer) inequality(h ast.ASTHandle) (result bool, err error) {
 	if err != nil {
 		return false, err
 	}
-	_, _, numeral, err := r.manager.ArithmeticNumeralText(rhs)
+	numeral, err := r.operation(rhs, r.arithmetic, 0)
 	if err != nil || !numeral {
 		return false, err
 	}

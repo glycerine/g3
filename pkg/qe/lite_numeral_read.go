@@ -1,6 +1,6 @@
 package qe
 
-// Source: src/qe/qe_lite.cpp:227-237, arith_util::is_numeral.
+// Source: src/qe/qe_lite.cpp:227-237,1734,1755, arith_util::is_numeral.
 
 import (
 	"reflect"
@@ -9,17 +9,25 @@ import (
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-// The coefficient belongs to the enclosing call's numbers. This concrete
+// The destination belongs to the enclosing DER or FM call's numbers. This
 // reader keeps the native copy invocation alive until its destination and
 // detached allocations can be cleaned up together after an interrupted copy.
-type equalityDERNumeralRead struct {
+type liteNumeralRead struct {
 	manager    *ast.ASTManager
 	receiver   *numeral.OwnedRational
 	invocation numeral.RationalServiceInvocation
 	bytes      uint64
 }
 
-func (r *equalityDERNumeralRead) retire() error {
+func newLiteNumeralRead(m *ast.ASTManager) (*liteNumeralRead, error) {
+	bytes := uint64(reflect.TypeOf(liteNumeralRead{}).Size())
+	if err := m.Budget().Reserve(bytes); err != nil {
+		return nil, err
+	}
+	return &liteNumeralRead{manager: m, bytes: bytes}, nil
+}
+
+func (r *liteNumeralRead) retire() error {
 	if err := r.invocation.SourceReady(); err != nil {
 		return err
 	}
@@ -37,7 +45,7 @@ func (r *equalityDERNumeralRead) retire() error {
 	return nil
 }
 
-func (r *equalityDERNumeralRead) close() error {
+func (r *liteNumeralRead) close() error {
 	if err := r.invocation.Cleanup(false); err != nil {
 		return err
 	}
@@ -59,20 +67,23 @@ func (r *equalityDERNumeralRead) close() error {
 	return nil
 }
 
-func (c *equalityDERCall) readNumeral(h ast.ASTHandle, coefficient *numeral.OwnedRational) (bool, error) {
-	if c.numeralRead == nil {
-		bytes := uint64(reflect.TypeOf(equalityDERNumeralRead{}).Size())
-		if err := c.owner.manager.Budget().Reserve(bytes); err != nil {
-			return false, err
-		}
-		c.numeralRead = &equalityDERNumeralRead{manager: c.owner.manager, bytes: bytes}
-	}
-	r := c.numeralRead
-	r.receiver = coefficient
+func (r *liteNumeralRead) read(family ast.FamilyID, h ast.ASTHandle, destination *numeral.OwnedRational) (bool, error) {
+	r.receiver = destination
 	var integer bool
-	matched, err := c.owner.manager.ArithmeticNumeralValueWithInvocation(c.owner.arithmetic, h, coefficient, &integer, &r.invocation)
+	matched, err := r.manager.ArithmeticNumeralValueWithInvocation(family, h, destination, &integer, &r.invocation)
 	if err == nil {
 		err = r.retire()
 	}
 	return matched, err
+}
+
+func (c *equalityDERCall) readNumeral(h ast.ASTHandle, coefficient *numeral.OwnedRational) (bool, error) {
+	if c.numeralRead == nil {
+		var err error
+		c.numeralRead, err = newLiteNumeralRead(c.owner.manager)
+		if err != nil {
+			return false, err
+		}
+	}
+	return c.numeralRead.read(c.owner.arithmetic, h, coefficient)
 }

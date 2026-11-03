@@ -43,7 +43,7 @@ type equalityDERCall struct {
 	owner       *EqualityDER
 	refs        []ast.ASTRef
 	numbers     []*numeral.OwnedRational
-	numeralRead *equalityDERNumeralRead
+	numeralRead *liteNumeralRead
 	booleans    []*rewriter.BoolRewriter
 	selectors   []*VariableTest
 	failures    []memory.ConstructionFailure

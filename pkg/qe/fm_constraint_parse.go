@@ -122,20 +122,22 @@ func (s *fmStore) literal(h ast.ASTHandle) (int32, error) {
 	}
 	return x, err
 }
-func (s *fmStore) numeral(scope *fmScope, h ast.ASTHandle) (*numeral.OwnedRational, error) {
-	n := s.recognizer.manager.NumeralService()
-	text, _, yes, err := s.recognizer.manager.ArithmeticNumeralText(h)
+func (s *fmStore) numeral(scope *fmScope, h ast.ASTHandle, destination *numeral.OwnedRational) error {
+	if scope.numeralRead == nil {
+		var err error
+		scope.numeralRead, err = newLiteNumeralRead(s.recognizer.manager)
+		if err != nil {
+			return err
+		}
+	}
+	yes, err := scope.numeralRead.read(s.recognizer.arithmetic, h, destination)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if !yes {
-		return nil, ast.ErrASTDomain
+		return ast.ErrASTDomain
 	}
-	v, err := scope.number()
-	if err != nil {
-		return nil, err
-	}
-	return v, n.SetString(v, text)
+	return nil
 }
 
 func (s *fmStore) parse(form ast.ASTHandle) (result *fmConstraint, err error) {
@@ -235,11 +237,7 @@ func (s *fmStore) parse(form ast.ASTHandle) (result *fmConstraint, err error) {
 		if err != nil {
 			return nil, err
 		}
-		rhsNumber, err := s.numeral(scope, rhs)
-		if err != nil {
-			return nil, err
-		}
-		if err = n.Copy(c, rhsNumber); err != nil {
+		if err = s.numeral(scope, rhs, c); err != nil {
 			return nil, err
 		}
 		if negative {
@@ -288,11 +286,7 @@ func (s *fmStore) parse(form ast.ASTHandle) (result *fmConstraint, err error) {
 				if err != nil {
 					return nil, err
 				}
-				v, err := s.numeral(scope, coefficient)
-				if err != nil {
-					return nil, err
-				}
-				if err = n.Copy(a, v); err != nil {
+				if err = s.numeral(scope, coefficient, a); err != nil {
 					return nil, err
 				}
 				x, err = m.GetArg(mon, 1)

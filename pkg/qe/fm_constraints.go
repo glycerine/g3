@@ -50,10 +50,11 @@ type fmStore struct {
 }
 
 type fmScope struct {
-	store    *fmStore
-	numbers  []*numeral.OwnedRational
-	refs     []ast.ASTRef
-	failures []memory.ConstructionFailure
+	store       *fmStore
+	numbers     []*numeral.OwnedRational
+	numeralRead *liteNumeralRead
+	refs        []ast.ASTRef
+	failures    []memory.ConstructionFailure
 }
 
 func newFMStore(r *fmRecognizer) (*fmStore, error) {
@@ -122,6 +123,12 @@ func (c *fmScope) close() error {
 			return err
 		}
 		c.failures = c.failures[:i]
+	}
+	if c.numeralRead != nil {
+		if err := c.numeralRead.close(); err != nil {
+			return err
+		}
+		c.numeralRead = nil
 	}
 	for len(c.refs) != 0 {
 		i := len(c.refs) - 1
