@@ -73,19 +73,17 @@ func (t *LazySparseTable) Remove(fact Fact) (bool, error) {
 }
 
 func (t *LazySparseTable) SizeEstimateRows() (uint32, error) {
-	table, err := t.eval()
-	if err != nil {
+	if err := t.open(); err != nil {
 		return 0, err
 	}
-	return table.SizeEstimateRows()
+	return 1, nil
 }
 
 func (t *LazySparseTable) SizeEstimateBytes() (uint32, error) {
-	table, err := t.eval()
-	if err != nil {
+	if err := t.open(); err != nil {
 		return 0, err
 	}
-	return table.SizeEstimateBytes()
+	return 1, nil
 }
 
 func (t *LazySparseTable) Display(out io.Writer) error {

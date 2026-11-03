@@ -28,6 +28,15 @@ func TestLazySparseFunctionalOperationsForceAndMutateActualOwner(t *testing.T) {
 	if deferred.Forced() {
 		t.Fatal("derived functional root forced eagerly")
 	}
+	if rows, rowsErr := deferred.SizeEstimateRows(); rowsErr != nil || rows != 1 {
+		t.Fatal("source lazy row estimate", rows, rowsErr)
+	}
+	if size, sizeErr := deferred.SizeEstimateBytes(); sizeErr != nil || size != 1 {
+		t.Fatal("source lazy byte estimate", size, sizeErr)
+	}
+	if deferred.Forced() {
+		t.Fatal("source lazy estimates forced deferred root")
+	}
 	if err = deferred.EnsureFact(Fact{1, 9}); err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +50,7 @@ func TestLazySparseFunctionalOperationsForceAndMutateActualOwner(t *testing.T) {
 	if rows, rowsErr := deferred.SizeEstimateRows(); rowsErr != nil || rows != 1 {
 		t.Fatal("functional row estimate", rows, rowsErr)
 	}
-	if size, sizeErr := deferred.SizeEstimateBytes(); sizeErr != nil || size == 0 {
+	if size, sizeErr := deferred.SizeEstimateBytes(); sizeErr != nil || size != 1 {
 		t.Fatal("functional byte estimate", size, sizeErr)
 	}
 	var display bytes.Buffer
