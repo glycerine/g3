@@ -600,18 +600,20 @@ func (p *PredicateTransformer) CollectStatistics(destination *statistics.Statist
 	if destination == nil {
 		return ast.ErrASTHandle
 	}
-	if err := p.solver.CollectStatistics(destination); err != nil {
+	// Keep direct callers retryable when a source timer read fails.
+	var pending statistics.Statistics
+	if err := p.solver.CollectStatistics(&pending); err != nil {
 		return err
 	}
 	lemmas, err := p.frames.LemmaSize()
 	if err != nil {
 		return err
 	}
-	destination.UpdateUint64("SPACER num propagations", p.propagations)
-	destination.UpdateUint("SPACER num properties", uint32(lemmas))
-	destination.UpdateUint64("SPACER num invariants", p.invariants)
+	pending.UpdateUint64("SPACER num propagations", p.propagations)
+	pending.UpdateUint("SPACER num properties", uint32(lemmas))
+	pending.UpdateUint64("SPACER num invariants", p.invariants)
 	if !p.sharedGeneralizerStats {
-		p.generalizerStats.collect(destination)
+		p.generalizerStats.collect(&pending)
 	}
 	initialized, err := p.initializeWatch.Seconds()
 	if err != nil {
@@ -621,8 +623,9 @@ func (p *PredicateTransformer) CollectStatistics(destination *statistics.Statist
 	if err != nil {
 		return err
 	}
-	destination.UpdateDouble("time.spacer.init_rules.pt.init", initialized)
-	destination.UpdateDouble("time.spacer.solve.pt.must_reachable", reachable)
+	pending.UpdateDouble("time.spacer.init_rules.pt.init", initialized)
+	pending.UpdateDouble("time.spacer.solve.pt.must_reachable", reachable)
+	destination.Copy(pending)
 	return nil
 }
 

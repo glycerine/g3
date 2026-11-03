@@ -872,17 +872,24 @@ func (c *Context) CollectStatisticsWithSnapshot(destination *statistics.Statisti
 	if err != nil {
 		return err
 	}
+	// Clock and diagnostic writes can fail in Go. Publish the complete source
+	// contribution once, so callers can retry without duplicating a prefix.
+	var pending statistics.Statistics
 	previous.Merge(current)
-	if err = previous.Collect(destination); err != nil {
+	if err = previous.Collect(&pending); err != nil {
 		return err
 	}
 	for _, declaration := range c.order {
-		if err = c.transformers[declaration].CollectStatistics(destination); err != nil {
+		if err = c.transformers[declaration].CollectStatistics(&pending); err != nil {
 			return err
 		}
 	}
-	destination.UpdateUint("SPACER inductive level", c.inductive)
-	return writeSpacerBrunchStatistics(previous, c.inductive)
+	pending.UpdateUint("SPACER inductive level", c.inductive)
+	if err := writeSpacerBrunchStatistics(previous, c.inductive); err != nil {
+		return err
+	}
+	destination.Copy(pending)
+	return nil
 }
 
 func (c *Context) ResetStatistics() error {

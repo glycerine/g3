@@ -493,6 +493,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Reach-fact selection catches model-evaluator step/memory exceptions as unknown for current and origin probes, without completion or owner leakage, and permits unrestricted retry.
   - [x] Level exhaustion records bounded status, including clone-owned expression queries, and SMT2 emits `bounded`.
   - [x] Source statistics records, missing-cover diagnostics, initialized-transformer display and candidate-rule traces are wired; trace-only tests require `g3trace`.
+  - [x] Stage context and predicate-transformer statistic contributions until every solver/frame/timer read succeeds, so failed direct or aggregate collection leaves caller counters unchanged for retry.
 - [ ] `src/muz/spacer/spacer_dl_interface.cpp` (partial)
 - [x] `src/muz/spacer/spacer_dl_interface.h` (interface declaration and owner mapping audited; implementation remains partial)
 - [ ] `src/muz/spacer/spacer_util.cpp` (partial), `src/muz/spacer/spacer_util.h` (partial)
@@ -510,6 +511,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Spacer context and predicate-transformer statistics now stage complete contributions before touching the caller destination. Late solver/frame/timer or brunch-output failure publishes no prefix, so retry contributes each counter exactly once while preserving preexisting caller statistics; clone snapshot and teardown continuation audits remain open.
+  Validation: `go -C pkg test ./muz/spacer -run '^(TestSpacerStatisticsCollectionRetryDoesNotDuplicatePartialCounters|TestSpacerPredicateStatisticsRetryDoesNotDuplicatePartialCounters)$' -count=3` passed. Commit title: `Publish Spacer statistics transactionally`.
 
 - 2026-11-02 — Similarity rule rewriting now owns every temporary AST root and the unpublished rewritten rule until cleanup completes. Native refusal suppresses partial publication, keeps nested construction receipts child-first and resumes the exact frontier before a semantic retry; nonfinite similarity activation remains open.
   Validation: `go -C pkg test ./muz/rel -run '^(TestSimilarity|TestFiniteSimilarity)' -count=3` passed. Commit title: `Preserve similarity rewrites through cleanup refusal`.
