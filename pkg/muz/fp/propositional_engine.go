@@ -99,6 +99,7 @@ type PropositionalEngine struct {
 	backend             string
 	engineSelectionSet  bool
 	datalogDefaultTable string
+	datalogConversions  []hornModelConversion
 	engineInstantiated  bool
 	duality             *muzduality.Backend
 	dualityCooperation  *cooperate.Cooperation
@@ -998,19 +999,48 @@ func (e *PropositionalEngine) validateFragment() error {
 }
 
 func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
+	cone := transforms.NewConePluginWithRelations(e.relations, 0)
 	filter := transforms.NewFilterRulesPlugin(e.manager, e.rules, 0)
 	plugin := transforms.NewSimpleJoinsPlugin(e.manager, e.rules, 0, e.relations)
 	transformer := base.NewRuleTransformer()
+	if err := transformer.Register(cone); err != nil {
+		return errors.Join(err, cone.Close(), filter.Close(), plugin.Close(), transformer.Close())
+	}
 	if err := transformer.Register(filter); err != nil {
 		return errors.Join(err, filter.Close(), plugin.Close(), transformer.Close())
 	}
 	if err := transformer.Register(plugin); err != nil {
-		return errors.Join(err, transformer.Close())
+		return errors.Join(err, plugin.Close(), transformer.Close())
 	}
-	defer func() { resultErr = errors.Join(resultErr, transformer.Close()) }()
+	conversionBase := len(e.datalogConversions)
+	var coneSteps []transforms.ConeModelStep
+	defer func() {
+		resultErr = errors.Join(resultErr, transformer.Close())
+		if resultErr != nil {
+			cleanupErr := closeHornModelConversions(e.datalogConversions[conversionBase:])
+			resultErr = errors.Join(resultErr, cleanupErr)
+			if cleanupErr == nil {
+				e.datalogConversions = e.datalogConversions[:conversionBase]
+			}
+		}
+		cleanupErr := transforms.CloseConeModelSteps(coneSteps)
+		resultErr = errors.Join(resultErr, cleanupErr)
+		if cleanupErr != nil {
+			for _, step := range coneSteps {
+				e.datalogConversions = append(e.datalogConversions, hornModelConversion{kind: hornConvertCone, cone: step})
+			}
+		}
+	}()
 	modified, err := transformer.Apply(e.set)
-	if err != nil || !modified {
+	if err != nil {
 		return err
+	}
+	coneSteps, err = cone.TakeModelSteps()
+	if err != nil {
+		return err
+	}
+	if !modified {
+		return nil
 	}
 	for _, declaration := range append(filter.FreshPredicates(), plugin.FreshPredicates()...) {
 		state, x := e.predicateState(declaration)
@@ -1020,6 +1050,10 @@ func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
 		e.predicates[declaration] = state
 		e.auxiliary[declaration] = true
 	}
+	for _, step := range coneSteps {
+		e.datalogConversions = append(e.datalogConversions, hornModelConversion{kind: hornConvertCone, cone: step})
+	}
+	coneSteps = nil
 	e.revision++
 	return nil
 }

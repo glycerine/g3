@@ -277,6 +277,10 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 // clearQueryResources releases the backend state used to answer the previous
 // expression query. It is also called when the engine itself is closed.
 func (e *PropositionalEngine) clearQueryResources() error {
+	if err := closeHornModelConversions(e.datalogConversions); err != nil {
+		return err
+	}
+	e.datalogConversions = nil
 	if err := e.clearArithmeticTableFactCleanup(); err != nil {
 		return err
 	}
