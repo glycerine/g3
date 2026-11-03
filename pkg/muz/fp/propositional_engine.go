@@ -26,6 +26,7 @@ import (
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/memory"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	"github.com/glycerine/g3/pkg/util/symbol"
@@ -139,6 +140,7 @@ type PropositionalEngine struct {
 	spacerStatistics    muzspacer.StatisticsSnapshot
 	scopes              []*base.RuleSet
 	popPhase            contextPopPhase
+	pendingUpdate       *pendingRuleUpdate
 	rawRules            []rawRuleFormula
 	rawRuleScopes       [][]rawRuleFormula
 	retiredRawRules     []rawRuleFormula
@@ -267,7 +269,7 @@ func (e *PropositionalEngine) openState() error {
 	if e == nil || e.closed || e.closing || e.manager == nil || e.rules == nil || e.set == nil || e.binder == nil || e.relations == nil {
 		return ErrPropositionalEngine
 	}
-	return nil
+	return e.resumePendingRuleUpdate()
 }
 
 func (e *PropositionalEngine) RegisterPredicate(declaration ast.ASTHandle) error {
@@ -808,7 +810,11 @@ func (e *PropositionalEngine) UpdateRuleWithSymbol(formula ast.ASTHandle, name s
 		return err
 	}
 	attempt := &contextFormulaAttempt{manager: e.manager, sets: []*base.RuleSet{candidateSet}}
-	defer func() { resultErr = attempt.finish(resultErr) }()
+	defer func() {
+		if attempt != nil {
+			resultErr = attempt.finish(resultErr)
+		}
+	}()
 	bound, err := e.binder.Bind(formula, true)
 	if bound != (ast.ASTRef{}) {
 		attempt.references = append(attempt.references, bound)
@@ -821,6 +827,12 @@ func (e *PropositionalEngine) UpdateRuleWithSymbol(formula ast.ASTHandle, name s
 		err = e.addFormula(candidateSet, boundFormula, name)
 	}
 	if err != nil {
+		var cleanup memory.ConstructionFailure
+		if errors.Is(err, ast.ErrASTPending) || errors.As(err, &cleanup) {
+			owned := attempt
+			attempt = nil
+			return e.deferFailedRuleUpdate(candidateSet, owned, err)
+		}
 		return e.preserveFailedUpdatePrefix(candidateSet, err)
 	}
 	candidateCount, err := candidateSet.Len()
@@ -3032,6 +3044,9 @@ func (e *PropositionalEngine) Close() (result error) {
 			return err
 		}
 	}
+	if err := e.resumePendingRuleUpdate(); err != nil {
+		return err
+	}
 	if e.popPhase != contextPopNone {
 		if err := e.resumeContextPop(); err != nil {
 			return err
@@ -3162,7 +3177,9 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.set = nil
 	}
 	if e.rules != nil {
-		result = errors.Join(result, e.rules.Close())
+		if err := e.rules.Close(); err != nil {
+			return errors.Join(result, err)
+		}
 		e.rules = nil
 	}
 	if e.binder != nil {

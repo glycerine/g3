@@ -14,9 +14,9 @@ import (
 // preserveFailedUpdatePrefix publishes only rules whose construction already
 // completed. HNF output that failed before conversion never entered clauses.
 func (e *PropositionalEngine) preserveFailedUpdatePrefix(clauses *base.RuleSet, cause error) error {
-	// Native failure receipts may still own an unfinished invocation. Keep
-	// their existing cleanup path; publication across a refused cleanup
-	// frontier needs its own continuation and is not performed here.
+	// UpdateRule transfers these cases to its engine-owned continuation.
+	// This helper never consumes an unrelated caller's cleanup receipt or
+	// publishes while an unfinished invocation may still own the clauses.
 	var cleanup memory.ConstructionFailure
 	if errors.Is(cause, ast.ErrASTPending) || errors.As(cause, &cleanup) {
 		return cause
@@ -31,14 +31,22 @@ func (e *PropositionalEngine) preserveFailedUpdatePrefix(clauses *base.RuleSet, 
 // Go keeps eager copies of pending inputs in the same set, so they move after
 // the new clauses while their raw formula/name/bound archive stays unchanged.
 // The persistent RuleSet and cached query state keep their source identities.
-func (e *PropositionalEngine) publishRejectedUpdate(clauses *base.RuleSet) (resultErr error) {
+func (e *PropositionalEngine) publishRejectedUpdate(clauses *base.RuleSet) error {
+	_, err := e.publishRejectedUpdateResult(clauses)
+	return err
+}
+
+func (e *PropositionalEngine) publishRejectedUpdateResult(clauses *base.RuleSet) (published bool, resultErr error) {
 	added, err := clauses.Len()
-	if err != nil || added == 0 {
-		return err
+	if err != nil {
+		return false, err
+	}
+	if added == 0 {
+		return true, nil
 	}
 	count, err := e.set.Len()
 	if err != nil {
-		return err
+		return false, err
 	}
 	pending := make([]bool, count)
 	for _, raw := range e.rawRules {
@@ -46,7 +54,7 @@ func (e *PropositionalEngine) publishRejectedUpdate(clauses *base.RuleSet) (resu
 			continue
 		}
 		if raw.first < 0 || raw.end > count || raw.first > raw.end {
-			return ErrPropositionalEngine
+			return false, ErrPropositionalEngine
 		}
 		for i := raw.first; i < raw.end; i++ {
 			pending[i] = true
@@ -54,7 +62,7 @@ func (e *PropositionalEngine) publishRejectedUpdate(clauses *base.RuleSet) (resu
 	}
 	replacement, err := base.NewRuleSet(e.rules)
 	if err != nil {
-		return err
+		return false, err
 	}
 	attempt := &contextFormulaAttempt{manager: e.manager, sets: []*base.RuleSet{replacement}}
 	defer func() { resultErr = attempt.finish(resultErr) }()
@@ -71,30 +79,30 @@ func (e *PropositionalEngine) publishRejectedUpdate(clauses *base.RuleSet) (resu
 	for i := 0; i < count; i++ {
 		if !pending[i] {
 			if err = appendRule(e.set, i); err != nil {
-				return err
+				return false, err
 			}
 		}
 	}
 	for i := 0; i < added; i++ {
 		if err = appendRule(clauses, i); err != nil {
-			return err
+			return false, err
 		}
 	}
 	for i := 0; i < count; i++ {
 		if pending[i] {
 			if err = appendRule(e.set, i); err != nil {
-				return err
+				return false, err
 			}
 		}
 	}
 	if err = replacement.InheritPredicates(e.set); err != nil {
-		return err
+		return false, err
 	}
 	if err = attempt.closeRules(); err != nil {
-		return err
+		return false, err
 	}
 	if err = e.set.ExchangeContents(replacement); err != nil {
-		return err
+		return false, err
 	}
 	for i := range e.rawRules {
 		if e.rawRules[i].pending {
@@ -105,5 +113,5 @@ func (e *PropositionalEngine) publishRejectedUpdate(clauses *base.RuleSet) (resu
 	// Source update_rule leaves prior answers and engine state available.
 	// The next query consumes the changed persistent set through its normal
 	// rule preparation; no update-only raw formula is added to the archive.
-	return nil
+	return true, nil
 }

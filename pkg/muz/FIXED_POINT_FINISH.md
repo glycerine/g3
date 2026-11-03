@@ -86,7 +86,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Preserve context dump temporary owners through allocation and writer failures, and emit fresh query declarations before variable construction. Both display modes pass dense exact-owner campaigns and focused order tests.
 
 - [ ] Close context/rule ownership, scope rollback, query transformation and engine lifecycle audits (`base/dl_context`, `dl_rule`, `dl_engine_base`).
-  - [ ] Preserve deferred publication of a completed update prefix when its native cleanup is refused; ordinary conversion-error publication is covered separately.
+  - [x] Preserve deferred publication of a completed update prefix when its native cleanup is refused; ordinary conversion-error publication is covered separately. Actual trace-path failures cover access, Pop and Close recovery; a staged native post-publication refusal verifies no replay.
   - [x] Preserve background/constructor-parameter invalidation through a subsequent named PDR rule update; verify SAT/UNSAT/SAT after background replacement and context disposal after parameter replacement.
   - [x] Match PDR source-rule snapshot comparison before preprocessing; preserve covers across covered additions, with independent snapshot ownership and background/parameter invalidation guards.
   - [x] Enter and restore the PDR arithmetic proof mode when rebuilding transformers during UpdateRules, including raw-cover preservation through a covered addition.
@@ -2080,3 +2080,5 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Replaced Fourier–Motzkin's numeral text/reparse path with source-style typed copies, including native copy-failure retry and a trace-specific live update regression. DER and FM focused tests pass; deferred prefix publication remains separate.
 - 2026-11-03 — Owned existential-query hoister constants and indexed variables before fallible construction. Dense allocation/retry checks and public witness-column tests pass; broader hoister cleanup remains open.
 - 2026-11-03 — Owned expression-replacement applications and partially constructed shifters before fallible operations. Dense direct tests and the live query-hoister reproduction pass with exact ownership and retry checks.
+
+- 2026-11-03 — Added a concrete engine-owned deferred update continuation: drain nested cleanup, publish the completed prefix once, then release local owners. Actual trace-path failures and staged post-publication refusal pass recovery tests. Also preserved the RuleManager when engine Close encounters a consumed native release; public retry passes.
