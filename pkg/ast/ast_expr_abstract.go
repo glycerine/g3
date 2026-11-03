@@ -3,6 +3,7 @@ package ast
 // Source: src/ast/expr_abstract.cpp:22-145; src/util/ref_buffer.h:38-99.
 
 import (
+	"errors"
 	"math"
 
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -39,6 +40,24 @@ func (a *ExprAbstractor) pin(h ASTHandle) error {
 	}
 	a.pinned = append(a.pinned, r)
 	return nil
+}
+
+// Reserve ownership before a constructor can produce a fresh expression. The
+// source ref_buffer acquires its expression in the same construction scope;
+// a failed Go reference allocation must not strand an unreferenced AST node.
+func (a *ExprAbstractor) reservePin() (ASTRef, error) {
+	r, err := a.manager.NewRef(ASTHandle{})
+	if r != (ASTRef{}) {
+		a.pinned = append(a.pinned, r)
+	}
+	return r, err
+}
+
+func (a *ExprAbstractor) setPin(ref ASTRef, node ASTHandle, cause error) error {
+	if !node.IsNull() {
+		cause = errors.Join(cause, a.manager.SetRef(ref, node))
+	}
+	return cause
 }
 
 func (a *ExprAbstractor) Close() error {
@@ -138,10 +157,9 @@ func (a *ExprAbstractor) mkQuantifier(forall bool, bound []ASTHandle, body ASTHa
 		return e
 	}
 	q, e := m.MkQuantifier(ASTQuantifierSpec{Forall: forall, Sorts: sorts, Names: names, Body: abstracted})
-	if e != nil {
-		return e
-	}
-	if e = m.SetRef(out, q); e != nil {
+	// Registration can publish the quantifier before its trace stream fails.
+	// Capture that returned node even when construction reports the failure.
+	if e = a.setPin(out, q, e); e != nil {
 		return e
 	}
 	return a.traceExprAbstract(body, bound, q, true)
@@ -168,11 +186,12 @@ func (a *ExprAbstractor) abstract(base uint32, bound []ASTHandle, root ASTHandle
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		v, e := m.MkVar(base+uint32(len(bound)-i-1), sort)
+		pin, e := a.reservePin()
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		if e = a.pin(v); e != nil {
+		v, e := m.MkVar(base+uint32(len(bound)-i-1), sort)
+		if e = a.setPin(pin, v, e); e != nil {
 			return ASTHandle{}, e
 		}
 		result[b] = v
@@ -222,11 +241,12 @@ func (a *ExprAbstractor) abstract(base uint32, bound []ASTHandle, root ASTHandle
 				if e != nil {
 					return ASTHandle{}, e
 				}
-				v, e = m.MkApp(decl, args)
+				pin, e := a.reservePin()
 				if e != nil {
 					return ASTHandle{}, e
 				}
-				if e = a.pin(v); e != nil {
+				v, e = m.MkApp(decl, args)
+				if e = a.setPin(pin, v, e); e != nil {
 					return ASTHandle{}, e
 				}
 			}
@@ -267,11 +287,12 @@ func (a *ExprAbstractor) abstract(base uint32, bound []ASTHandle, root ASTHandle
 			if e = a.pin(body); e != nil {
 				return ASTHandle{}, e
 			}
-			v, e := m.UpdateQuantifierPatterns(curr, patterns, body)
+			pin, e := a.reservePin()
 			if e != nil {
 				return ASTHandle{}, e
 			}
-			if e = a.pin(v); e != nil {
+			v, e := m.UpdateQuantifierPatterns(curr, patterns, body)
+			if e = a.setPin(pin, v, e); e != nil {
 				return ASTHandle{}, e
 			}
 			result[curr] = v
