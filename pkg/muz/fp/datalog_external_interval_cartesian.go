@@ -13,8 +13,8 @@ import (
 	"github.com/glycerine/g3/pkg/util/memory"
 )
 
-// externalIntervalDatalogCartesianRule lowers two positive variable-only
-// tails with distinct columns and bound interpreted guards to a head of
+// externalIntervalDatalogCartesianRule lowers two positive tails with
+// numerals, distinct variable columns and bound interpreted guards to a head of
 // distinct bound variables. It also covers the original Cartesian rule as
 // the no-key/no-projection case.
 type externalIntervalDatalogCartesianRule struct {
@@ -25,8 +25,21 @@ type externalIntervalDatalogCartesianRule struct {
 	rightColumns  []uint32
 	removed       []uint32
 	filterRemoved []uint32
+	headRemoved   []uint32
+	constants     []externalIntervalCartesianConstant
 	renames       [][]uint32
 	condition     *externalIntervalUnaryCondition
+}
+
+type externalIntervalCartesianArgument struct {
+	variable uint32
+	numeral  ast.ASTHandle
+}
+
+type externalIntervalCartesianConstant struct {
+	column uint32
+	value  ast.ASTHandle
+	root   ast.ASTRef
 }
 
 func sameExternalIntervalCartesianRule(left, right *externalIntervalDatalogCartesianRule) bool {
@@ -35,8 +48,15 @@ func sameExternalIntervalCartesianRule(left, right *externalIntervalDatalogCarte
 		!externalIntervalColumnsEqual(left.rightColumns, right.rightColumns) ||
 		!externalIntervalColumnsEqual(left.removed, right.removed) ||
 		!externalIntervalColumnsEqual(left.filterRemoved, right.filterRemoved) ||
+		!externalIntervalColumnsEqual(left.headRemoved, right.headRemoved) || len(left.constants) != len(right.constants) ||
 		!sameExternalIntervalUnaryCondition(left.condition, right.condition) || len(left.renames) != len(right.renames) {
 		return false
+	}
+	for i, constant := range left.constants {
+		other := right.constants[i]
+		if constant.column != other.column || constant.value != other.value {
+			return false
+		}
 	}
 	for i := range left.renames {
 		if !externalIntervalColumnsEqual(left.renames[i], right.renames[i]) {
@@ -93,7 +113,7 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 	plan := &externalIntervalDatalogCartesianRule{}
 	applications := []ast.ASTHandle{head, left, right}
 	declarations := []*ast.ASTHandle{&plan.head, &plan.left, &plan.right}
-	variables := make([][]uint32, 3)
+	arguments := make([][]externalIntervalCartesianArgument, 3)
 	sorts := make([][]ast.ASTHandle, 3)
 	for index, application := range applications {
 		declaration, cause := e.manager.GetDecl(application)
@@ -113,7 +133,7 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 		}
 		*declarations[index] = declaration
 		sorts[index] = state.sorts
-		variables[index] = make([]uint32, count)
+		arguments[index] = make([]externalIntervalCartesianArgument, count)
 		seen := make(map[uint32]bool)
 		for column := uint32(0); column < count; column++ {
 			argument, cause := e.manager.GetArg(application, column)
@@ -124,31 +144,48 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 			if cause != nil {
 				return nil, cause
 			}
-			if kind != ast.ASTVar {
+			sort, cause := e.manager.GetSort(argument)
+			if cause != nil {
+				return nil, cause
+			}
+			if sort != state.sorts[column] {
 				return nil, ErrExternalIntervalDatalogFragment
+			}
+			if kind != ast.ASTVar {
+				if index == 0 {
+					return nil, ErrExternalIntervalDatalogFragment
+				}
+				_, _, numeral, cause := e.manager.ArithmeticNumeralText(argument)
+				if cause != nil {
+					return nil, cause
+				}
+				if !numeral {
+					return nil, ErrExternalIntervalDatalogFragment
+				}
+				arguments[index][column].numeral = argument
+				continue
 			}
 			variable, cause := e.manager.GetVarIndex(argument)
 			if cause != nil {
 				return nil, cause
 			}
-			sort, cause := e.manager.GetSort(argument)
-			if cause != nil {
-				return nil, cause
-			}
-			if seen[variable] || sort != state.sorts[column] {
+			if seen[variable] {
 				return nil, ErrExternalIntervalDatalogFragment
 			}
 			seen[variable] = true
-			variables[index][column] = variable
+			arguments[index][column].variable = variable
 		}
 	}
 	if plan.head == plan.left || plan.head == plan.right || plan.left == plan.right {
 		return nil, ErrExternalIntervalDatalogFragment
 	}
-	leftVariables, rightVariables := variables[1], variables[2]
-	for first, variable := range leftVariables {
-		for second, other := range rightVariables {
-			if variable == other {
+	leftArguments, rightArguments := arguments[1], arguments[2]
+	for first, argument := range leftArguments {
+		if !argument.numeral.IsNull() {
+			continue
+		}
+		for second, other := range rightArguments {
+			if other.numeral.IsNull() && argument.variable == other.variable {
 				if sorts[1][first] != sorts[2][second] {
 					return nil, ErrExternalIntervalDatalogFragment
 				}
@@ -157,15 +194,18 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 			}
 		}
 	}
-	joinedVariables := append(append([]uint32(nil), leftVariables...), rightVariables...)
+	joinedArguments := append(append([]externalIntervalCartesianArgument(nil), leftArguments...), rightArguments...)
 	joinedSorts := append(append([]ast.ASTHandle(nil), sorts[1]...), sorts[2]...)
 	last := make(map[uint32]uint32)
-	for column, variable := range joinedVariables {
-		last[variable] = uint32(column)
+	for column, argument := range joinedArguments {
+		if argument.numeral.IsNull() {
+			last[argument.variable] = uint32(column)
+		}
 	}
 	wanted := make(map[uint32]bool)
 	needed := make(map[uint32]bool)
-	for column, variable := range variables[0] {
+	for column, argument := range arguments[0] {
+		variable := argument.variable
 		source, found := last[variable]
 		if !found || joinedSorts[source] != sorts[0][column] {
 			return nil, ErrExternalIntervalDatalogFragment
@@ -224,35 +264,56 @@ func (e *PropositionalEngine) externalIntervalCartesianRule(rule *base.Rule) (*e
 	// the earliest extra copies, leaving one last occurrence for every head
 	// or guard variable. The guard's binding uses these projected columns.
 	surviving := make(map[uint32]uint32)
-	var projectedVariables []uint32
-	for column, variable := range joinedVariables {
-		if !needed[variable] || last[variable] != uint32(column) {
+	var projectedArguments []externalIntervalCartesianArgument
+	for column, argument := range joinedArguments {
+		variable := argument.variable
+		if !argument.numeral.IsNull() {
+			// Constants survive JOIN_PROJECT and are filtered in place at
+			// fixed physical columns before any interpreted guard runs.
+			plan.constants = append(plan.constants, externalIntervalCartesianConstant{
+				column: uint32(len(projectedArguments)), value: argument.numeral,
+			})
+			projectedArguments = append(projectedArguments, argument)
+		} else if !needed[variable] || last[variable] != uint32(column) {
 			plan.removed = append(plan.removed, uint32(column))
 		} else {
-			surviving[variable] = uint32(len(surviving))
-			projectedVariables = append(projectedVariables, variable)
+			surviving[variable] = uint32(len(projectedArguments))
+			projectedArguments = append(projectedArguments, argument)
 		}
 	}
+	filteredArguments := projectedArguments
 	if plan.condition != nil {
-		for _, variable := range projectedVariables {
-			plan.condition.bindings = append(plan.condition.bindings, externalIntervalUnaryConditionBinding{
-				variable: variable, column: surviving[variable], sort: joinedSorts[last[variable]],
-			})
+		for _, argument := range projectedArguments {
+			if argument.numeral.IsNull() {
+				variable := argument.variable
+				plan.condition.bindings = append(plan.condition.bindings, externalIntervalUnaryConditionBinding{
+					variable: variable, column: surviving[variable], sort: joinedSorts[last[variable]],
+				})
+			}
 		}
 		// Guard-only variables survive the initial join projection, then
-		// leave through the source fused filter/project before head assembly.
-		surviving = make(map[uint32]uint32)
-		for column, variable := range projectedVariables {
-			if !wanted[variable] {
+		// leave through the fused filter/project. Constants stay until the
+		// separate head projection, so guard bindings count their columns.
+		filteredArguments = nil
+		for column, argument := range projectedArguments {
+			if argument.numeral.IsNull() && !wanted[argument.variable] {
 				plan.filterRemoved = append(plan.filterRemoved, uint32(column))
 			} else {
-				surviving[variable] = uint32(len(surviving))
+				filteredArguments = append(filteredArguments, argument)
 			}
 		}
 	}
-	permutation := make([]uint32, len(variables[0]))
-	for column, variable := range variables[0] {
-		permutation[column] = surviving[variable]
+	surviving = make(map[uint32]uint32)
+	for column, argument := range filteredArguments {
+		if !argument.numeral.IsNull() || !wanted[argument.variable] {
+			plan.headRemoved = append(plan.headRemoved, uint32(column))
+		} else {
+			surviving[argument.variable] = uint32(len(surviving))
+		}
+	}
+	permutation := make([]uint32, len(arguments[0]))
+	for column, argument := range arguments[0] {
+		permutation[column] = surviving[argument.variable]
 	}
 	for column := range permutation {
 		if permutation[column] == uint32(column) {
@@ -466,6 +527,18 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 		if empty {
 			return finish()
 		}
+		for _, constant := range a.cartesian.constants {
+			if cause = owner.temporary.FilterEqual(constant.column, constant.value); cause != nil {
+				return rollback(cause)
+			}
+			empty, cause = owner.temporary.Empty()
+			if cause != nil {
+				return rollback(cause)
+			}
+			if empty {
+				return finish()
+			}
+		}
 		if a.cartesian.condition != nil {
 			condition, cause := a.cartesian.condition.handle(a.manager)
 			if cause != nil {
@@ -492,6 +565,15 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 			}
 			if empty {
 				return finish()
+			}
+		}
+		if len(a.cartesian.headRemoved) != 0 {
+			projected, cause := owner.temporary.Project(a.cartesian.headRemoved)
+			if cause != nil {
+				return rollback(cause)
+			}
+			if cause = owner.replaceTemporary(projected); cause != nil {
+				return rollback(cause)
 			}
 		}
 		for _, cycle := range a.cartesian.renames {
