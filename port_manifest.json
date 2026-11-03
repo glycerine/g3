@@ -17307,10 +17307,14 @@
       "status": "ported",
       "go_targets": [
         "pkg/ast/ast_pp_util.go",
-        "pkg/ast/ast_pp_util_test.go"
+        "pkg/ast/ast_pp_util_test.go",
+        "pkg/ast/ast_printer_format_owner.go",
+        "pkg/ast/ast_printer.go",
+        "pkg/ast/ast_pp_util_ownership_test.go"
       ],
       "tests": [
-        "TestASTPPUtilCollectRemoveDeclarationsAndAssertions"
+        "TestASTPPUtilCollectRemoveDeclarationsAndAssertions",
+        "TestASTPPUtilDisplayOwnsFormatsThroughWriterFailure"
       ],
       "methods_audited": true,
       "ownership_audited": true,
@@ -17320,8 +17324,11 @@
           "status": "ported",
           "go_target": "pkg/ast/ast_pp_util.go",
           "tests": [
-            "TestASTPPUtilCollectRemoveDeclarationsAndAssertions"
-          ]
+            "TestASTPPUtilCollectRemoveDeclarationsAndAssertions",
+            "TestASTPPUtilDisplayOwnsFormatsThroughWriterFailure"
+          ],
+          "go_targets": ["pkg/ast/ast_printer_format_owner.go", "pkg/ast/ast_printer.go", "pkg/ast/ast_pp_util.go", "pkg/ast/ast_pp_util_ownership_test.go"],
+          "reason": "Printer display reserves an owning format ASTRef and temporary numeric stream while borrowing the input AST and writer; failed cleanup remains on a concrete receipt (ast_printer.cpp:31-40; ast_pp_util.cpp:38-53,61-68; ast_pp_util.h:42-44). Declaration/neat-assertion success, writer refusal and retry preserve exact four format AST counts and expected text occurrences. Full declaration printing is ASTPPUtil's direct SMT2 consumer, not the simple printer func_decl overload that only prints a name. No newly injected native-finalizer campaign or whole exceptional-printer closure is claimed."
         }
       ],
       "ownership": [
@@ -17338,10 +17345,14 @@
       "status": "ported",
       "go_targets": [
         "pkg/ast/ast_pp_util.go",
-        "pkg/ast/ast_pp_util_test.go"
+        "pkg/ast/ast_pp_util_test.go",
+        "pkg/ast/ast_printer_format_owner.go",
+        "pkg/ast/ast_printer.go",
+        "pkg/ast/ast_pp_util_ownership_test.go"
       ],
       "tests": [
-        "TestASTPPUtilCollectRemoveDeclarationsAndAssertions"
+        "TestASTPPUtilCollectRemoveDeclarationsAndAssertions",
+        "TestASTPPUtilDisplayOwnsFormatsThroughWriterFailure"
       ],
       "conditionals": [
         {
@@ -17361,8 +17372,11 @@
           "status": "ported",
           "go_target": "pkg/ast/ast_pp_util.go",
           "tests": [
-            "TestASTPPUtilCollectRemoveDeclarationsAndAssertions"
-          ]
+            "TestASTPPUtilCollectRemoveDeclarationsAndAssertions",
+            "TestASTPPUtilDisplayOwnsFormatsThroughWriterFailure"
+          ],
+          "go_targets": ["pkg/ast/ast_printer_format_owner.go", "pkg/ast/ast_printer.go", "pkg/ast/ast_pp_util.go", "pkg/ast/ast_pp_util_ownership_test.go"],
+          "reason": "Printer display reserves an owning format ASTRef and temporary numeric stream while borrowing the input AST and writer; failed cleanup remains on a concrete receipt (ast_printer.cpp:31-40; ast_pp_util.cpp:38-53,61-68; ast_pp_util.h:42-44). Declaration/neat-assertion success, writer refusal and retry preserve exact four format AST counts and expected text occurrences. Full declaration printing is ASTPPUtil's direct SMT2 consumer, not the simple printer func_decl overload that only prints a name. No newly injected native-finalizer campaign or whole exceptional-printer closure is claimed."
         }
       ],
       "ownership": [
@@ -17379,10 +17393,14 @@
       "status": "ported",
       "go_targets": [
         "pkg/ast/ast_printer.go",
-        "pkg/ast/ast_printer_test.go"
+        "pkg/ast/ast_printer_test.go",
+        "pkg/ast/ast_printer_format_owner.go",
+        "pkg/ast/ast_pp_util.go",
+        "pkg/ast/ast_pp_util_ownership_test.go"
       ],
       "tests": [
-        "TestASTPrinterDefaultIDsAndSimpleSMT2Context"
+        "TestASTPrinterDefaultIDsAndSimpleSMT2Context",
+        "TestASTPPUtilDisplayOwnsFormatsThroughWriterFailure"
       ],
       "methods_audited": true,
       "ownership_audited": true,
@@ -17392,8 +17410,11 @@
           "status": "ported",
           "go_target": "pkg/ast/ast_printer.go",
           "tests": [
-            "TestASTPrinterDefaultIDsAndSimpleSMT2Context"
-          ]
+            "TestASTPrinterDefaultIDsAndSimpleSMT2Context",
+            "TestASTPPUtilDisplayOwnsFormatsThroughWriterFailure"
+          ],
+          "go_targets": ["pkg/ast/ast_printer_format_owner.go", "pkg/ast/ast_printer.go", "pkg/ast/ast_pp_util.go", "pkg/ast/ast_pp_util_ownership_test.go"],
+          "reason": "Printer display reserves an owning format ASTRef and temporary numeric stream while borrowing the input AST and writer; failed cleanup remains on a concrete receipt (ast_printer.cpp:31-40; ast_pp_util.cpp:38-53,61-68; ast_pp_util.h:42-44). Declaration/neat-assertion success, writer refusal and retry preserve exact four format AST counts and expected text occurrences. Full declaration printing is ASTPPUtil's direct SMT2 consumer, not the simple printer func_decl overload that only prints a name. No newly injected native-finalizer campaign or whole exceptional-printer closure is claimed."
         },
         {
           "name": "mk_simple_ast_printer_context factory and source NOT_IMPLEMENTED variable-display overload (ast_printer.cpp:34-52)",
@@ -17404,9 +17425,7 @@
           ]
         }
       ],
-      "ownership": [
-        "SimpleASTPrinterContext borrows its AST manager and output writers. Each display owns and closes its temporary NumericTextStream; returned format handles remain manager-owned AST handles."
-      ],
+      "ownership": ["SimpleASTPrinterContext borrows its AST manager, input handles and output writers. Sort/expression display and the private ASTPPUtil declaration-rendering path reserve a format ASTRef and own their temporary NumericTextStream; a concrete receipt preserves unfinished cleanup. Raw returned format handles keep their existing manager/RC0 contract."],
       "deviations": [
         "Go uses named methods for the C++ overload set and returns ErrorNotImplementedYet for the source NOT_IMPLEMENTED_YET display overload instead of terminating the process. SMT2 output inherits the separately recorded ast_smt2_pp profile coverage."
       ]
@@ -17491,7 +17510,12 @@
         "pkg/smtcore/proto_model/datatype_trace_source_test.go",
         "pkg/smtcore/proto_model/source_collectors_external_test.go",
         "pkg/ast/rewriter/enum2bv_error_printer.go",
-        "pkg/ast/rewriter/enum2bv_error_source_test.go"
+        "pkg/ast/rewriter/enum2bv_error_source_test.go",
+        "pkg/ast/ast_format_documents.go",
+        "pkg/ast/ast_printer_format_owner.go",
+        "pkg/ast/ast_format_documents_test.go",
+        "pkg/ast/ast_format_borrowed_input_test.go",
+        "pkg/ast/ast_pp_util_ownership_test.go"
       ],
       "tests": [
         "TestASTSMT2AliasSourceTraceFormatterRefusalKeepsPrefix",
@@ -17539,7 +17563,10 @@
         "TestEnum2BVNonFDErrorUsesActualExpressionAndPPParameters",
         "TestEnum2BVCheckForFDErrorNamesArgument",
         "TestEnum2BVErrorPrinterBorrowsInputAndOwnsDocument",
-        "TestEnum2BVErrorFormatterRefusalsPropagateWithoutFallback"
+        "TestEnum2BVErrorFormatterRefusalsPropagateWithoutFallback",
+        "TestASTFormatDocumentsPublishRawRootAndBorrowInputs",
+        "TestASTFormatGroupFailurePreservesRawBorrowedInput",
+        "TestASTPPUtilDisplayOwnsFormatsThroughWriterFailure"
       ],
       "conditionals": [
         {
@@ -17704,16 +17731,26 @@
           "tests": [
             "TestASTSMT2LetSourceTraceEmptyAndAliased",
             "TestASTSMT2LetSourceTraceNestedScopeOffset",
-            "TestASTSMT2LetPatternDisablesAliasTraversal"
-          ]
+            "TestASTSMT2LetPatternDisablesAliasTraversal",
+            "TestASTFormatDocumentsPublishRawRootAndBorrowInputs",
+            "TestASTFormatGroupFailurePreservesRawBorrowedInput",
+            "TestASTPPUtilDisplayOwnsFormatsThroughWriterFailure"
+          ],
+          "go_targets": ["pkg/ast/ast_format_documents.go", "pkg/ast/ast_printer_format_owner.go", "pkg/ast/ast_smt2_app_format.go", "pkg/ast/ast_smt2_boolean_tree.go", "pkg/ast/ast_smt2_declare_fun.go", "pkg/ast/ast_smt2_let.go", "pkg/ast/ast_smt2_quantifier_root.go", "pkg/ast/ast_smt2_sort.go", "pkg/ast/ast_format_documents_test.go", "pkg/ast/ast_format_borrowed_input_test.go", "pkg/ast/ast_pp_util_ownership_test.go"],
+          "reason": "Concrete SMT2 document construction now transfers generated intermediates through the common format owner before assembling sort/application/Boolean-tree/let/quantifier/declaration results, and reached output wrappers own the final format document (ast_smt2_pp.cpp:397-448,451-488,738-845,872-989,1031-1053,1116-1131,1165-1196). Common-owner, borrowed-input group-allocation and declaration/neat-assertion writer tests establish their stated edges only; they do not independently inject every syntax branch or native finalizer. Broader exceptional-printer and physical cleanup exclusions remain."
         },
         {
           "name": "smt2_printer::operator()(func_decl*,format_ref&) declare-fun document from name, domain and range sorts (ast_smt2_pp.cpp:1117-1131)",
           "status": "ported",
           "go_target": "pkg/ast/ast_smt2_declare_fun.go",
           "tests": [
-            "TestASTSMT2DeclareFunSourceEntrypoint"
-          ]
+            "TestASTSMT2DeclareFunSourceEntrypoint",
+            "TestASTFormatDocumentsPublishRawRootAndBorrowInputs",
+            "TestASTFormatGroupFailurePreservesRawBorrowedInput",
+            "TestASTPPUtilDisplayOwnsFormatsThroughWriterFailure"
+          ],
+          "go_targets": ["pkg/ast/ast_format_documents.go", "pkg/ast/ast_printer_format_owner.go", "pkg/ast/ast_smt2_app_format.go", "pkg/ast/ast_smt2_boolean_tree.go", "pkg/ast/ast_smt2_declare_fun.go", "pkg/ast/ast_smt2_let.go", "pkg/ast/ast_smt2_quantifier_root.go", "pkg/ast/ast_smt2_sort.go", "pkg/ast/ast_format_documents_test.go", "pkg/ast/ast_format_borrowed_input_test.go", "pkg/ast/ast_pp_util_ownership_test.go"],
+          "reason": "Concrete SMT2 document construction now transfers generated intermediates through the common format owner before assembling sort/application/Boolean-tree/let/quantifier/declaration results, and reached output wrappers own the final format document (ast_smt2_pp.cpp:397-448,451-488,738-845,872-989,1031-1053,1116-1131,1165-1196). Common-owner, borrowed-input group-allocation and declaration/neat-assertion writer tests establish their stated edges only; they do not independently inject every syntax branch or native finalizer. Broader exceptional-printer and physical cleanup exclusions remain."
         },
         {
           "name": "smt2_printer child-before-parent expression traversal with constant/label dispatch, flat associative expansion, alias registration/reuse, info-stack weight/depth/level, let wrapping, configured arithmetic numerals, string/BV/FPA/datalog literals, quantifiers and pattern applications",
@@ -17726,16 +17763,26 @@
             "TestASTSMT2BooleanComparisonsWithBitVectorLiterals",
             "TestASTSMT2BooleanComparisonsWithFloatingPointLiterals",
             "TestASTWellSortedNonBooleanRootTraceProfiles",
-            "TestASTQuantifierPatternSourceTraceBeforeRegistration"
-          ]
+            "TestASTQuantifierPatternSourceTraceBeforeRegistration",
+            "TestASTFormatDocumentsPublishRawRootAndBorrowInputs",
+            "TestASTFormatGroupFailurePreservesRawBorrowedInput",
+            "TestASTPPUtilDisplayOwnsFormatsThroughWriterFailure"
+          ],
+          "go_targets": ["pkg/ast/ast_format_documents.go", "pkg/ast/ast_printer_format_owner.go", "pkg/ast/ast_smt2_app_format.go", "pkg/ast/ast_smt2_boolean_tree.go", "pkg/ast/ast_smt2_declare_fun.go", "pkg/ast/ast_smt2_let.go", "pkg/ast/ast_smt2_quantifier_root.go", "pkg/ast/ast_smt2_sort.go", "pkg/ast/ast_format_documents_test.go", "pkg/ast/ast_format_borrowed_input_test.go", "pkg/ast/ast_pp_util_ownership_test.go"],
+          "reason": "Concrete SMT2 document construction now transfers generated intermediates through the common format owner before assembling sort/application/Boolean-tree/let/quantifier/declaration results, and reached output wrappers own the final format document (ast_smt2_pp.cpp:397-448,451-488,738-845,872-989,1031-1053,1116-1131,1165-1196). Common-owner, borrowed-input group-allocation and declaration/neat-assertion writer tests establish their stated edges only; they do not independently inject every syntax branch or native finalizer. Broader exceptional-printer and physical cleanup exclusions remain."
         },
         {
           "name": "smt2_printer quantified expressions: source named/numerical/duplicate binders, nested shadowing, child-before-body pattern/no-pattern documents, local aliases, weight/skolemid/qid attributes and mk_seq3 wrapper (ast_smt2_pp.cpp:872-989)",
           "status": "ported",
           "go_target": "pkg/ast/ast_smt2_quantifier_root.go",
           "tests": [
-            "TestASTSMT2QuantifierRootSourceFormat"
-          ]
+            "TestASTSMT2QuantifierRootSourceFormat",
+            "TestASTFormatDocumentsPublishRawRootAndBorrowInputs",
+            "TestASTFormatGroupFailurePreservesRawBorrowedInput",
+            "TestASTPPUtilDisplayOwnsFormatsThroughWriterFailure"
+          ],
+          "go_targets": ["pkg/ast/ast_format_documents.go", "pkg/ast/ast_printer_format_owner.go", "pkg/ast/ast_smt2_app_format.go", "pkg/ast/ast_smt2_boolean_tree.go", "pkg/ast/ast_smt2_declare_fun.go", "pkg/ast/ast_smt2_let.go", "pkg/ast/ast_smt2_quantifier_root.go", "pkg/ast/ast_smt2_sort.go", "pkg/ast/ast_format_documents_test.go", "pkg/ast/ast_format_borrowed_input_test.go", "pkg/ast/ast_pp_util_ownership_test.go"],
+          "reason": "Concrete SMT2 document construction now transfers generated intermediates through the common format owner before assembling sort/application/Boolean-tree/let/quantifier/declaration results, and reached output wrappers own the final format document (ast_smt2_pp.cpp:397-448,451-488,738-845,872-989,1031-1053,1116-1131,1165-1196). Common-owner, borrowed-input group-allocation and declaration/neat-assertion writer tests establish their stated edges only; they do not independently inject every syntax branch or native finalizer. Broader exceptional-printer and physical cleanup exclusions remain."
         },
         {
           "name": "smt2_pp_environment::pp_arith_literal exact and decimal integer, rational and irrational algebraic profiles (ast_smt2_pp.cpp:296-368)",
@@ -17767,8 +17814,13 @@
           "status": "ported",
           "go_target": "pkg/ast/ast_smt2_app_format.go",
           "tests": [
-            "TestASTSMT2ApplicationSourceShortAndLongNameLayout"
-          ]
+            "TestASTSMT2ApplicationSourceShortAndLongNameLayout",
+            "TestASTFormatDocumentsPublishRawRootAndBorrowInputs",
+            "TestASTFormatGroupFailurePreservesRawBorrowedInput",
+            "TestASTPPUtilDisplayOwnsFormatsThroughWriterFailure"
+          ],
+          "go_targets": ["pkg/ast/ast_format_documents.go", "pkg/ast/ast_printer_format_owner.go", "pkg/ast/ast_smt2_app_format.go", "pkg/ast/ast_smt2_boolean_tree.go", "pkg/ast/ast_smt2_declare_fun.go", "pkg/ast/ast_smt2_let.go", "pkg/ast/ast_smt2_quantifier_root.go", "pkg/ast/ast_smt2_sort.go", "pkg/ast/ast_format_documents_test.go", "pkg/ast/ast_format_borrowed_input_test.go", "pkg/ast/ast_pp_util_ownership_test.go"],
+          "reason": "Concrete SMT2 document construction now transfers generated intermediates through the common format owner before assembling sort/application/Boolean-tree/let/quantifier/declaration results, and reached output wrappers own the final format document (ast_smt2_pp.cpp:397-448,451-488,738-845,872-989,1031-1053,1116-1131,1165-1196). Common-owner, borrowed-input group-allocation and declaration/neat-assertion writer tests establish their stated edges only; they do not independently inject every syntax branch or native finalizer. Broader exceptional-printer and physical cleanup exclusions remain."
         },
         {
           "name": "smt2_printer variable-name format, ensure_quote, pp_attribute, pp_simple_attribute and pp_labels with frame info-stack integration (ast_smt2_pp.cpp:550-626)",
@@ -17791,8 +17843,13 @@
           "status": "ported",
           "go_target": "pkg/ast/ast_smt2_sort.go",
           "tests": [
-            "TestASTSMT2SortSourceBuiltinAndParametricFormats"
-          ]
+            "TestASTSMT2SortSourceBuiltinAndParametricFormats",
+            "TestASTFormatDocumentsPublishRawRootAndBorrowInputs",
+            "TestASTFormatGroupFailurePreservesRawBorrowedInput",
+            "TestASTPPUtilDisplayOwnsFormatsThroughWriterFailure"
+          ],
+          "go_targets": ["pkg/ast/ast_format_documents.go", "pkg/ast/ast_printer_format_owner.go", "pkg/ast/ast_smt2_app_format.go", "pkg/ast/ast_smt2_boolean_tree.go", "pkg/ast/ast_smt2_declare_fun.go", "pkg/ast/ast_smt2_let.go", "pkg/ast/ast_smt2_quantifier_root.go", "pkg/ast/ast_smt2_sort.go", "pkg/ast/ast_format_documents_test.go", "pkg/ast/ast_format_borrowed_input_test.go", "pkg/ast/ast_pp_util_ownership_test.go"],
+          "reason": "Concrete SMT2 document construction now transfers generated intermediates through the common format owner before assembling sort/application/Boolean-tree/let/quantifier/declaration results, and reached output wrappers own the final format document (ast_smt2_pp.cpp:397-448,451-488,738-845,872-989,1031-1053,1116-1131,1165-1196). Common-owner, borrowed-input group-allocation and declaration/neat-assertion writer tests establish their stated edges only; they do not independently inject every syntax branch or native finalizer. Broader exceptional-printer and physical cleanup exclusions remain."
         },
         {
           "name": "smt2_pp_environment::is_indexed_fdecl and is_sort_param source parameter classification (ast_smt2_pp.cpp:75-99)",
@@ -22356,7 +22413,13 @@
         "pkg/ast/ast_format_source_test.go",
         "pkg/ast/ast_format_buffer.go",
         "pkg/ast/ast_format_buffer_source_test.go",
-        "pkg/ast/ast_format_flat.go"
+        "pkg/ast/ast_format_flat.go",
+        "pkg/ast/ast_format_documents.go",
+        "pkg/ast/ast_format_documents_test.go",
+        "pkg/ast/ast_format_borrowed_input_test.go",
+        "pkg/ast/ast_format_seq1.go",
+        "pkg/ast/ast_format_seq3.go",
+        "pkg/ast/ast_format_seq5.go"
       ],
       "tests": [
         "TestASTFormatSourcePluginAndLiteralPrimitives",
@@ -22368,7 +22431,9 @@
         "TestASTFormatNativeBufferOwnsInternedSpelling",
         "TestASTFormatFlatNativeDeepSharedCacheWithOnlyFrameReservation",
         "TestASTFormatPluginMemoryWrapperLazyLifetime",
-        "TestASTFormatPluginMemoryWrapperLaterFormatFailure"
+        "TestASTFormatPluginMemoryWrapperLaterFormatFailure",
+        "TestASTFormatDocumentsPublishRawRootAndBorrowInputs",
+        "TestASTFormatGroupFailurePreservesRawBorrowedInput"
       ],
       "conditionals": [
         {
@@ -22440,16 +22505,24 @@
             "TestASTFormatSourceFlatLiteralChoiceAndSharedChildren",
             "TestASTFormatSourceEveryFlatAllocationAndImmediateGraph",
             "TestASTFormatFlatHistorySurvivesNativeSourceFinalize",
-            "TestASTFormatFlatNativeDeepSharedCacheWithOnlyFrameReservation"
-          ]
+            "TestASTFormatFlatNativeDeepSharedCacheWithOnlyFrameReservation",
+            "TestASTFormatDocumentsPublishRawRootAndBorrowInputs",
+            "TestASTFormatGroupFailurePreservesRawBorrowedInput"
+          ],
+          "go_targets": ["pkg/ast/ast_format_documents.go", "pkg/ast/ast_format_documents_test.go", "pkg/ast/ast_format_borrowed_input_test.go", "pkg/ast/ast_format_flat.go", "pkg/ast/ast_format_seq1.go", "pkg/ast/ast_format_seq3.go", "pkg/ast/ast_format_seq5.go"],
+          "reason": "Reached format helpers own generated intermediate documents while borrowing caller handles and preserving the raw RC0 result contract (format.cpp:141-145,187-188; format.h:89-104,138-195). Tests check duplicate interned roots, logical producer failure, borrowed passthrough and four AST counts. A real declaration-info-page allocation frontier sweeps allowances below 128 through completion for group construction, suppresses failed output while preserving raw borrowed input, drains any returned receipt twice, retries and verifies exact final release. This is not a new native-finalizer-refusal campaign or an all-syntax formatter sweep."
         },
         {
           "name": "string, signed, unsigned, indent, line-break, choice, group, compose and nil factories (format.cpp:147-212)",
           "status": "ported",
           "go_target": "pkg/ast/ast_format.go",
           "tests": [
-            "TestASTFormatSourcePluginAndLiteralPrimitives"
-          ]
+            "TestASTFormatSourcePluginAndLiteralPrimitives",
+            "TestASTFormatDocumentsPublishRawRootAndBorrowInputs",
+            "TestASTFormatGroupFailurePreservesRawBorrowedInput"
+          ],
+          "go_targets": ["pkg/ast/ast_format_documents.go", "pkg/ast/ast_format_documents_test.go", "pkg/ast/ast_format_borrowed_input_test.go", "pkg/ast/ast_format_flat.go", "pkg/ast/ast_format_seq1.go", "pkg/ast/ast_format_seq3.go", "pkg/ast/ast_format_seq5.go"],
+          "reason": "Reached format helpers own generated intermediate documents while borrowing caller handles and preserving the raw RC0 result contract (format.cpp:141-145,187-188; format.h:89-104,138-195). Tests check duplicate interned roots, logical producer failure, borrowed passthrough and four AST counts. A real declaration-info-page allocation frontier sweeps allowances below 128 through completion for group construction, suppresses failed output while preserving raw borrowed input, drains any returned receipt twice, retries and verifies exact final release. This is not a new native-finalizer-refusal campaign or an all-syntax formatter sweep."
         },
         {
           "name": "format string construction from native caller bytes (format.cpp:147-152)",
@@ -22480,7 +22553,10 @@
         "pkg/ast/ast_format_source_test.go",
         "pkg/ast/ast_format_seq1.go",
         "pkg/ast/ast_format_seq3.go",
-        "pkg/ast/ast_format_seq5.go"
+        "pkg/ast/ast_format_seq5.go",
+        "pkg/ast/ast_format_documents.go",
+        "pkg/ast/ast_format_documents_test.go",
+        "pkg/ast/ast_format_borrowed_input_test.go"
       ],
       "tests": [
         "TestASTFormatSourcePluginAndLiteralPrimitives",
@@ -22488,7 +22564,9 @@
         "TestASTFormatSeq1SourceGroupingAndNilTail",
         "TestASTFormatSeq3SourceSplitAndNilDocuments",
         "TestASTSMT2QuantifierRootSourceFormat",
-        "TestASTSMT2FunctionDeclarationSourceFormatsAndRecursiveReference"
+        "TestASTSMT2FunctionDeclarationSourceFormatsAndRecursiveReference",
+        "TestASTFormatDocumentsPublishRawRootAndBorrowInputs",
+        "TestASTFormatGroupFailurePreservesRawBorrowedInput"
       ],
       "conditionals": [
         {
@@ -22522,16 +22600,24 @@
           "status": "ported",
           "go_target": "pkg/ast/ast_format_seq5.go",
           "tests": [
-            "TestASTSMT2FunctionDeclarationSourceFormatsAndRecursiveReference"
-          ]
+            "TestASTSMT2FunctionDeclarationSourceFormatsAndRecursiveReference",
+            "TestASTFormatDocumentsPublishRawRootAndBorrowInputs",
+            "TestASTFormatGroupFailurePreservesRawBorrowedInput"
+          ],
+          "go_targets": ["pkg/ast/ast_format_documents.go", "pkg/ast/ast_format_documents_test.go", "pkg/ast/ast_format_borrowed_input_test.go", "pkg/ast/ast_format_flat.go", "pkg/ast/ast_format_seq1.go", "pkg/ast/ast_format_seq3.go", "pkg/ast/ast_format_seq5.go"],
+          "reason": "Reached format helpers own generated intermediate documents while borrowing caller handles and preserving the raw RC0 result contract (format.cpp:141-145,187-188; format.h:89-104,138-195). Tests check duplicate interned roots, logical producer failure, borrowed passthrough and four AST counts. A real declaration-info-page allocation frontier sweeps allowances below 128 through completion for group construction, suppresses failed output while preserving raw borrowed input, drains any returned receipt twice, retries and verifies exact final release. This is not a new native-finalizer-refusal campaign or an all-syntax formatter sweep."
         },
         {
           "name": "Concrete format-pointer mk_seq and mk_seq1 grouped header, indentation and nil-tail behavior (format.h:67-108)",
           "status": "ported",
           "go_target": "pkg/ast/ast_format_seq1.go",
           "tests": [
-            "TestASTFormatSeq1SourceGroupingAndNilTail"
-          ]
+            "TestASTFormatSeq1SourceGroupingAndNilTail",
+            "TestASTFormatDocumentsPublishRawRootAndBorrowInputs",
+            "TestASTFormatGroupFailurePreservesRawBorrowedInput"
+          ],
+          "go_targets": ["pkg/ast/ast_format_documents.go", "pkg/ast/ast_format_documents_test.go", "pkg/ast/ast_format_borrowed_input_test.go", "pkg/ast/ast_format_flat.go", "pkg/ast/ast_format_seq1.go", "pkg/ast/ast_format_seq3.go", "pkg/ast/ast_format_seq5.go"],
+          "reason": "Reached format helpers own generated intermediate documents while borrowing caller handles and preserving the raw RC0 result contract (format.cpp:141-145,187-188; format.h:89-104,138-195). Tests check duplicate interned roots, logical producer failure, borrowed passthrough and four AST counts. A real declaration-info-page allocation frontier sweeps allowances below 128 through completion for group construction, suppresses failed output while preserving raw borrowed input, drains any returned receipt twice, retries and verifies exact final release. This is not a new native-finalizer-refusal campaign or an all-syntax formatter sweep."
         },
         {
           "name": "Concrete format-pointer mk_seq3 split header layout used by the retained SMT2 quantifier printer (format.h:132-162)",
@@ -22539,8 +22625,12 @@
           "go_target": "pkg/ast/ast_format_seq3.go",
           "tests": [
             "TestASTFormatSeq3SourceSplitAndNilDocuments",
-            "TestASTSMT2QuantifierRootSourceFormat"
-          ]
+            "TestASTSMT2QuantifierRootSourceFormat",
+            "TestASTFormatDocumentsPublishRawRootAndBorrowInputs",
+            "TestASTFormatGroupFailurePreservesRawBorrowedInput"
+          ],
+          "go_targets": ["pkg/ast/ast_format_documents.go", "pkg/ast/ast_format_documents_test.go", "pkg/ast/ast_format_borrowed_input_test.go", "pkg/ast/ast_format_flat.go", "pkg/ast/ast_format_seq1.go", "pkg/ast/ast_format_seq3.go", "pkg/ast/ast_format_seq5.go"],
+          "reason": "Reached format helpers own generated intermediate documents while borrowing caller handles and preserving the raw RC0 result contract (format.cpp:141-145,187-188; format.h:89-104,138-195). Tests check duplicate interned roots, logical producer failure, borrowed passthrough and four AST counts. A real declaration-info-page allocation frontier sweeps allowances below 128 through completion for group construction, suppresses failed output while preserving raw borrowed input, drains any returned receipt twice, retries and verifies exact final release. This is not a new native-finalizer-refusal campaign or an all-syntax formatter sweep."
         },
         {
           "name": "mk_seq2 concrete template (format.h:110-129)",
@@ -22548,9 +22638,7 @@
           "reason": "No source consumer instantiates mk_seq2 anywhere in the retained tree."
         }
       ],
-      "ownership": [
-        "Concrete Go sequence helpers borrow caller format handles and construct ordinary manager-owned format AST nodes through the existing factories. Temporary Go slices own only traversal order; returned AST handles follow the manager's existing reference contract."
-      ],
+      "ownership": ["Concrete Go sequence helpers borrow caller format handles and own their generated intermediate documents through the common format owner; temporary Go slices describe traversal order. Returned handles preserve the existing raw RC0 manager contract, and cleanup receipts preserve unfinished intermediate owners without claiming an all-syntax native destruction audit."],
       "deviations": [
         "Retained format flat recursion now borrows native []astNodeRef todo, []ASTHandle transformed arguments and a lookup-only map[astNodeRef]astNodeRef cache. Stack and child iteration preserve source order; the cache never iterates. Removed cache capacity/probing/rehash/pending-growth and vector backing/refusal emulation, plus unused IgnorePatterns=true results2 storage and obsolete AppArguments format-vector representation. Actual recursion header, AST construction, source UNREACHABLE guards and failed-frame history through enclosing teardown remain. A deep shared graph with 129 distinct leaves grows native storage with only the actual frame reservation in release; exact leaf reference counts and original CHOICE arg0 behavior remain. Original allocation campaign now covers actual frame/factory reservations, and history test stops at real line-break-to-string construction. Shared arithmetic/BV cache storage remains separately pending; no generic container, STL or whole-unit completion credit is added.",
         "The retained concrete format-pointer instantiations are FormatSeq1, FormatSeq3 and FormatSeq5. They preserve source grouping, indentation, split placement and nil-tail filtering. The identity f2f adapter is direct ASTHandle use; mk_seq2 has no source instantiation and is dead. No universal iterator or callback adapter is introduced."
@@ -85312,7 +85400,33 @@
         "pkg/muz/transforms/simple_joins_cost.go",
         "pkg/muz/transforms/simple_joins_nonfinite_cost_test.go",
         "pkg/muz/fp/engine_default_proof_test.go",
-        "pkg/muz/fp/engine_default_certificate_test.go"
+        "pkg/muz/fp/engine_default_certificate_test.go",
+        "pkg/muz/fp/pending_open_rules.go",
+        "pkg/muz/fp/context_formula_cleanup.go",
+        "pkg/muz/fp/duality_engine.go",
+        "pkg/muz/fp/pending_open_parameter_test.go",
+        "pkg/muz/fp/pending_open_allocation_test.go",
+        "pkg/muz/fp/context_display_cleanup_test.go",
+        "pkg/muz/fp/pending_closed_parameter_test.go",
+        "pkg/muz/fp/pending_flush_allocation_test.go",
+        "pkg/muz/fp/pending_registered_variables_test.go",
+        "pkg/muz/base/rule_set_exchange.go",
+        "pkg/muz/base/rule_set_exchange_test.go",
+        "pkg/muz/fp/pending_normalization_cancellation_test.go",
+        "pkg/muz/fp/datalog_sparse_interval_dispatch_test.go",
+        "pkg/muz/fp/context_scope.go",
+        "pkg/muz/fp/context_scope_test.go",
+        "pkg/muz/fp/context_scope_native_test.go",
+        "pkg/muz/fp/context_scope_finalizer_order_test.go",
+        "pkg/muz/fp/query_clone_cleanup.go",
+        "pkg/muz/fp/spacer_statistics.go",
+        "pkg/muz/fp/query_clone_statistics_cleanup_test.go",
+        "pkg/api/api_fixedpoint_failed_display_phase_test.go",
+        "pkg/muz/base/context_smt2_cleanup.go",
+        "pkg/muz/base/context_smt2_allocation_test.go",
+        "pkg/muz/base/context_smt2_cleanup_test.go",
+        "pkg/muz/base/context_smt2_query_order_test.go",
+        "pkg/muz/base/context_smt2_named_order_test.go"
       ],
       "tests": [
         "TestQBMCEngineRuleTraceAndSnapshot",
@@ -85379,7 +85493,31 @@
         "TestEngineDefaultProofReferenceAllocationFailureAndRetry",
         "TestDatalogResultSnapshotRoutesAndInvalidates",
         "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown",
-        "TestDatalogDefaultCertificateRefusesWithoutChangingResult"
+        "TestDatalogDefaultCertificateRefusesWithoutChangingResult",
+        "TestPendingOpenDisplayUsesCurrentUnboundParameter",
+        "TestPendingOpenRuleFormulasAllocationFailureRetryAndClose",
+        "TestContextDisplayPublicWriterErrorPreservesRuleOwners",
+        "TestContextDisplayOwnersSurviveNativeCleanupRefusal",
+        "TestPendingClosedQueryFlushUsesCurrentUnboundParameter",
+        "TestPendingClosedFlushAllocationFailureRetryAndClose",
+        "TestPendingClosedFlushPushPopRestoresPhase",
+        "TestPendingClosedFlushNativeRefusalPreservesPhase",
+        "TestPendingNormalizationBindsRegisteredVariables",
+        "TestRuleSetExchangeContentsTransfersMetadataAndOwners",
+        "TestRuleSetExchangeContentsRejectsInvalidOwnersWithoutMutation",
+        "TestPendingNormalizationCancellationPreservesRulesAndRetry",
+        "TestPendingNormalizationHonorsSuspendedLimit",
+        "TestDatalogSparseIntervalRequestedPairLifecycle",
+        "TestFixedpointPopResumesMetadataAllocationFailure",
+        "TestFixedpointPopRefusesNativeInvocationBeforeMutation",
+        "TestFixedpointPopResumesConsumedAssertionInSourceOrder",
+        "TestFixedpointPopPreservesSourceExternalFinalizerOrder",
+        "TestQueryCloneStatisticsSurviveNativeLateCleanup",
+        "TestAPIFixedpointFailedDualityQueryPreservesSourceDisplayPhase",
+        "TestContextSMT2AllocationExactASTOwnership",
+        "TestContextSMT2OwnerNativePendingCleanup",
+        "TestContextSMT2FreshQueryDeclarationPrecedesArguments",
+        "TestContextSMT2NamedPrefixPrecedesFreshLabel"
       ],
       "assertions": [
         {
@@ -85449,12 +85587,12 @@
         {"name": "context::register_predicate is idempotent for an existing declaration (dl_context.cpp:344-353)", "status": "ported", "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/predicate_registration_idempotence_test.go", "pkg/api/api_fixedpoint_duplicate_registration_test.go"], "tests": ["TestDuplicatePredicateRegistrationPreservesSolvedState", "TestAPIFixedpointDuplicateRelationRegistrationIsIdempotent"], "reason": "Repeated registration preserves predicate state, source order, program revision, current result/answer and later query behavior."},
         {"name": "context::mk_fresh_head_predicate registers the generated declaration by name (dl_context.cpp:443-455)", "status": "ported", "go_targets": ["pkg/muz/base/datalog_context_predicates.go", "pkg/muz/base/datalog_context_query_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_magic_sets.go", "pkg/muz/fp/datalog_transform_kinds_test.go"], "tests": ["TestDatalogContextAddQueryLowersFreeVariableBody", "TestDatalogGeneratedFiltersAndJoinsInheritFiniteKinds"], "reason": "Live AddQuery consumers can recover the exact generated declaration through Predicate(actual AST name). The finite Datalog query consumer applies filter and simple-join origins in creation order after installing generated states (dl_context.cpp:443-452; dl_context.h:343-344; rel_context.cpp:608-615; rel_context.h:79). It copies explicit Hash/Sparse/LazySparse requests without treating incidental backing storage as an explicit request. Unsupported nullary Sparse/LazySparse signatures preserve requested metadata and use compatible Hash storage. Shared splits inherit from the selected last consumer, including an already-binary parent. The 16 cases cover filter, nullary-filter, split and shared-split shapes across unrequested, Hash, Sparse and LazySparse kinds; they verify concrete owners, lazy-factory ownership, repeated compiled queries, fact updates and restoration of source rules and predicates. Broader abstract/product/checker kind inheritance and exceptional construction cleanup are not established by this slice."},
         {"name": "caller-visible context::updt_params cumulatively copies fixedpoint updates while API wrapper snapshots are independently replaced (dl_context.cpp:744-749)", "status": "ported", "go_targets": ["pkg/api/api_fixedpoint_object_parameters.go", "pkg/api/api_fixedpoint_object_parameters_test.go", "pkg/muz/fp/fixedpoint_params.go"], "tests": ["TestAPIFixedpointParametersReplaceWrapperAndAccumulateEngine"], "reason": "Covers cumulative query/display option precedence and later same-key overwrite through the owning API object; other context update side effects remain tracked separately."},
-        {"name": "source public get_rules_as_formulas enumeration preserves pending inputs and appends negated output queries", "status": "ported", "go_targets": ["pkg/muz/fp/context_formula_rules.go", "pkg/muz/fp/context_formula_rules_test.go", "pkg/api/api_fixedpoint_rule_formulas_test.go"], "tests": ["TestPublicRuleFormulasAppendNegatedOutputsAfterPendingInputs", "TestAPIFixedpointRulesPreservePendingInputsAndFlushExpansion"], "reason": "Shares display phase selection/open normalization; preserves internal Rules/NamedRules normalized contracts and returns independently owned source formulas."},
+        {"name": "source public get_rules_as_formulas enumeration preserves pending inputs and appends negated output queries", "status": "ported", "go_targets": ["pkg/muz/fp/context_formula_rules.go", "pkg/muz/fp/context_formula_rules_test.go", "pkg/api/api_fixedpoint_rule_formulas_test.go", "pkg/muz/fp/pending_open_rules.go", "pkg/muz/fp/context_formula_cleanup.go", "pkg/muz/fp/context_smt2.go", "pkg/muz/fp/raw_rules.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/duality_engine.go", "pkg/muz/fp/pending_open_parameter_test.go", "pkg/muz/fp/pending_open_allocation_test.go", "pkg/muz/fp/context_display_cleanup_test.go", "pkg/muz/fp/pending_closed_parameter_test.go", "pkg/muz/fp/pending_flush_allocation_test.go", "pkg/muz/fp/pending_registered_variables_test.go", "pkg/muz/base/rule_set_exchange.go", "pkg/muz/base/rule_set_exchange_test.go", "pkg/muz/fp/pending_normalization_cancellation_test.go", "pkg/api/api_fixedpoint_failed_display_phase_test.go", "pkg/muz/base/rule_set_display_formulas.go", "pkg/muz/base/context_smt2_cleanup.go"], "tests": ["TestPublicRuleFormulasAppendNegatedOutputsAfterPendingInputs", "TestAPIFixedpointRulesPreservePendingInputsAndFlushExpansion", "TestPendingOpenDisplayUsesCurrentUnboundParameter", "TestPendingOpenRuleFormulasAllocationFailureRetryAndClose", "TestContextDisplayPublicWriterErrorPreservesRuleOwners", "TestContextDisplayOwnersSurviveNativeCleanupRefusal", "TestPendingClosedQueryFlushUsesCurrentUnboundParameter", "TestPendingClosedFlushAllocationFailureRetryAndClose", "TestPendingClosedFlushPushPopRestoresPhase", "TestPendingClosedFlushNativeRefusalPreservesPhase", "TestPendingNormalizationBindsRegisteredVariables", "TestRuleSetExchangeContentsTransfersMetadataAndOwners", "TestRuleSetExchangeContentsRejectsInvalidOwnersWithoutMutation", "TestPendingNormalizationCancellationPreservesRulesAndRetry", "TestPendingNormalizationHonorsSuspendedLimit", "TestAPIFixedpointFailedDualityQueryPreservesSourceDisplayPhase"], "reason": "Shares display phase selection/open normalization; preserves internal Rules/NamedRules normalized contracts and returns independently owned source formulas. Pending open display inputs are freshly normalized under current parameters before source-ordered raw-slot retirement; pending closed inputs likewise flush under current parameters before validation/query dispatch, preserving the original formula/name/bound archive while retiring its pending phase (dl_context.cpp:463-473,876-904,1054-1105). The existing swap-removal order and unswapped-bound behavior remain. Registered variables are bound through an owning binder result before formula ingestion, matching the source binding step (dl_rule.cpp:146-151; dl_context.cpp:335-339). Opposite unbound-parameter cases inspect the boundary through deliberately rejected queries; four closed/open and direct-query/display-first cases verify binding, repeat queries and raw archives without claiming a full backend matrix. Dense open/closed campaigns from zero through completion with an inclusive 2048 ceiling retry twice and check all four live AST counts. Closed-flush native refusal is an entry guard preserving phase; the separate display-owner test stages actual temporary finalization, with and without a nested receipt, retries inside the guard and drains afterward. A public writer failure preserves rule owners. This does not claim injected public WriteContextSMT2 destructor failure, generic exceptional closure or exact source partial-publication behavior; Go construction staging and scoped restoration remain explicit adaptations. Staged pending normalization now exchanges prepared contents into the same persistent RuleSet object, a concrete Go publication adaptation of context-owned rule insertion (dl_context.cpp:463-471,1060-1070), not a newly invented C++ exchange method. Same-manager/open checks precede transfer of rule owners, head index, output/original-to-derived metadata and finalized dependencies/strata; no AST reference acquisition or release occurs during exchange. Tests preserve independently held Rule owners and reject null/closed/foreign cases without mutation, including self behavior. After formula ingestion, ResourceLimit.IncOffset(0) detects canceled HNF prefixes without charging another resource step; canceled work preserves old rules/phase and permits retry, while suspended cancellation allows successful publication. Broader HNF ownership and source partial-publication audits remain separate. Duality's xform.quantify_arrays-enabled query path flushes pending inputs before fragment validation, matching context dispatch order (dl_context.cpp:861-887, especially 878-882). With the option true, two rejected expression queries expose normalized rules/display; false preserves the original closed quantified input, binder and weight. The test keeps one rule and an earlier independently owning Rules snapshot intact. This is the conditional array-quantification display boundary, not unconditional flushing of every failed Duality input, a backend algorithm change or a new native-cleanup campaign. The finalized-rule AppendDisplayFormulas consumer now joins returned formula roots and temporary references to the shared retryable display owner (dl_context.cpp:1054-1108). This is context formula collection ownership rather than an additional C++ rule_set display algorithm; its separate source partition/order contract remains unchanged."},
         {"name": "automatic engine selection scans normalized rules before pending formulas (dl_context.cpp:840-859)", "status": "ported", "go_targets": ["pkg/muz/fp/auto_engine.go", "pkg/muz/fp/auto_engine_phase_test.go", "pkg/muz/fp/engine_result_routing_test.go"], "tests": ["TestFixedpointAutoConfigNormalizedPrefixPrecedesPendingInputs", "TestFixedpointAutoConfigTracksUpdatePromotionAndPop", "TestFixedpointAutoConfigRestoresRuleClassification"], "reason": "Actual phase order replaces cached ingestion classifications; covers genuine normalized QPDR, existential-to-PDR normalization, named updates, display promotion and scope restoration."},
         {"name": "unrecognized configured engine symbols fall through to automatic classification (dl_context.cpp:801-859)", "status": "ported", "go_targets": ["pkg/muz/fp/fixedpoint_params.go", "pkg/muz/fp/configured_engine_fallback_test.go"], "tests": ["TestConfiguredUnknownEngineFallsBackToSourceAutoSelection"], "reason": "Preserves query-local/module precedence, source engine caching, Datalog/PDR/QPDR classification and the strict explicit Go selector guard."},
         {"name": "query-parameter updates preserve instantiated PDR/QPDR/Spacer engine lifetime while backend contexts rebuild (dl_context.cpp:185-195,744)", "status": "ported", "go_targets": ["pkg/muz/fp/fixedpoint_params.go", "pkg/muz/fp/parameter_update_engine_lifetime_test.go"], "tests": ["TestParameterUpdatePreservesPrequeryEngineLifetime"], "reason": "Replacement and clearing preserve pre-query Pop refusal only after actual engine instantiation, while never-instantiated contexts remain lazy."},
         {"name": "query cancellation publishes source unknown reason and preserves retryable result state", "status": "ported", "go_targets": ["pkg/muz/fp/engine_result_state.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/engine_canceled_status_test.go"], "tests": ["TestFixedpointCanceledQueryPublishesSourceReasonAndRetries"], "reason": "A canceled backend result records the resource-limit cancellation message as reason_unknown, leaves answer/certificate unavailable, and permits a later query after cancellation is cleared instead of preserving stale success state."},
-        {"name": "context::query and query_from_lvl reset execution status to OK before backend dispatch (dl_context.cpp:861-910)", "status": "ported", "go_targets": ["pkg/muz/fp/engine_result_state.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/engine_result_status_source_test.go"], "tests": ["TestFixedpointUndefinedStatusMatchesSourceBackend", "TestFixedpointExplicitApproximationDoesNotInheritSpacerBound"], "reason": "An ordinary undefined result from CLP, TAB, BMC/QBMC, DDNF, PDR/QPDR, Spacer or Duality leaves the reset status OK. Relational Datalog approximation and Spacer level exhaustion publish explicit statuses; the public non-Datalog multiple-relation extension deliberately reports approximation and does not inherit a prior Spacer bound."},
+        {"name": "context::query and query_from_lvl reset execution status to OK before backend dispatch (dl_context.cpp:861-910)", "status": "ported", "go_targets": ["pkg/muz/fp/engine_result_state.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/engine_result_status_source_test.go", "pkg/muz/fp/duality_engine.go", "pkg/api/api_fixedpoint_failed_display_phase_test.go"], "tests": ["TestFixedpointUndefinedStatusMatchesSourceBackend", "TestFixedpointExplicitApproximationDoesNotInheritSpacerBound", "TestAPIFixedpointFailedDualityQueryPreservesSourceDisplayPhase"], "reason": "An ordinary undefined result from CLP, TAB, BMC/QBMC, DDNF, PDR/QPDR, Spacer or Duality leaves the reset status OK. Relational Datalog approximation and Spacer level exhaustion publish explicit statuses; the public non-Datalog multiple-relation extension deliberately reports approximation and does not inherit a prior Spacer bound. Duality's xform.quantify_arrays-enabled query path flushes pending inputs before fragment validation, matching context dispatch order (dl_context.cpp:861-887, especially 878-882). With the option true, two rejected expression queries expose normalized rules/display; false preserves the original closed quantified input, binder and weight. The test keeps one rule and an earlier independently owning Rules snapshot intact. This is the conditional array-quantification display boundary, not unconditional flushing of every failed Duality input, a backend algorithm change or a new native-cleanup campaign."},
         {"name": "configured engine caching plus direct Datalog and raw non-Datalog fact ingestion (dl_context.cpp:627-665,801-859)", "status": "ported", "go_targets": ["pkg/muz/fp/datalog_facts.go", "pkg/muz/fp/datalog_facts_test.go", "pkg/muz/fp/stored_fact_formulas.go", "pkg/muz/fp/fixedpoint_params.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_clone_predicates.go", "pkg/muz/fp/query_expression.go", "pkg/cmd_context/fixedpoint_replay.go", "pkg/api/api_fixedpoint_fact_selection_test.go"], "tests": ["TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries", "TestDatalogFactSelectionUsesParametersAndCachesSourceChoice", "TestDatalogDirectFiniteFactValidationAndCloneOwnership", "TestAPIFixedpointParametersSelectFactStorageBeforeQuery", "TestSMTContextFixedpointSMT2Replay"], "reason": "Datalog owns encoded relation tuples and publishes successful expression-query tables; other engines preserve ground raw rules. Public source enumeration omits relation tuples while the explicit Go replay exporter serializes them. Covers instantiation/pop, invalid values, duplicates, result invalidation, parameter precedence and independent clone ownership."},
         {
           "name": "get_rules_as_formulas finalized-rule partition: output clauses become ordered queries, quantified implications use an existential body, quantified facts retain their original universal formula (dl_context.cpp:1072-1105)",
@@ -85466,17 +85604,17 @@
         {
           "name": "finalized context display_smt2 printing profiles, declare_vars per-sort reuse, canonical is_query recognition and fresh query bridges (dl_context.cpp:1120-1335)",
           "status": "ported",
-          "go_targets": ["pkg/muz/base/context_smt2.go", "pkg/muz/base/context_smt2_expression.go", "pkg/muz/base/context_smt2_variables.go", "pkg/muz/base/context_smt2_test.go", "pkg/muz/base/context_smt2_failure_test.go"],
-          "tests": ["TestContextSMT2OutputQueriesProfilesAndReplay", "TestContextSMT2BackgroundPlainHORNRejectionPrefix", "TestContextSMT2VariableDeclarationAndQuantifiedQueryProfiles", "TestContextSMT2DeclaredVariablesReusePerSortAndKeepDeBruijnOrder", "TestContextSMT2AllocationFailureOwnershipAndRetry", "TestContextSMT2WriterFailureReleasesTemporaryOwners"],
-          "reason": "Provides the concrete finalized dump needed by the live PDR/context source consumers. Both syntactic profiles replay ground queries independently; quantified declaration/bridge and cleanup policies have focused tests. Production PDR/API entry points and open-formula display normalization ordering are wired, with explicit transactional construction and scope-snapshot differences."
+          "go_targets": ["pkg/muz/base/context_smt2.go", "pkg/muz/base/context_smt2_expression.go", "pkg/muz/base/context_smt2_variables.go", "pkg/muz/base/context_smt2_test.go", "pkg/muz/base/context_smt2_failure_test.go", "pkg/muz/base/context_smt2_cleanup.go", "pkg/muz/base/rule_set_display_formulas.go", "pkg/muz/base/context_smt2_allocation_test.go", "pkg/muz/base/context_smt2_cleanup_test.go", "pkg/muz/base/context_smt2_query_order_test.go", "pkg/muz/base/context_smt2_named_order_test.go"],
+          "tests": ["TestContextSMT2OutputQueriesProfilesAndReplay", "TestContextSMT2BackgroundPlainHORNRejectionPrefix", "TestContextSMT2VariableDeclarationAndQuantifiedQueryProfiles", "TestContextSMT2DeclaredVariablesReusePerSortAndKeepDeBruijnOrder", "TestContextSMT2AllocationFailureOwnershipAndRetry", "TestContextSMT2WriterFailureReleasesTemporaryOwners", "TestContextSMT2AllocationExactASTOwnership", "TestContextSMT2OwnerNativePendingCleanup", "TestContextSMT2FreshQueryDeclarationPrecedesArguments", "TestContextSMT2NamedPrefixPrecedesFreshLabel"],
+          "reason": "Provides the concrete finalized dump needed by the live PDR/context source consumers. Both syntactic profiles replay ground queries independently; quantified declaration/bridge and cleanup policies have focused tests. Production PDR/API entry points and open-formula display normalization ordering are wired, with explicit transactional construction and scope-snapshot differences. Fixedpoint SMT2 display now keeps generated declaration/argument/formula roots on a concrete retryable owner through output and cleanup (dl_context.cpp:1120-1242,1275-1334; dl_context.h:491,604). Source order creates/writes the fresh query declaration before Bool-gap arguments, and writes the named assertion prefix before allocating or interning a collision-free label (dl_context.cpp:1191-1198,1213-1220). Both printing profiles run allocation campaigns below 4096 through completion over 128 plain queries or a pending quantified rule/fresh bridge, checking four main and four format AST counts, receipt cleanup and healthy retry. Writer-refusal oracles observe only the fresh declaration before its arguments and no label interning before a failed named prefix; collision retries remain correct. A separate direct owner test stages actual nested/root native-pending finalization and retries inside/outside the guard. It does not inject whole WriteContextSMT2 native failure, stream/format/substitution pending finalizers or every formatter shape; full-context exceptional audits remain open."
         },
         {
           "name": "context display_smt2 pending raw-formula handoff and production consumers",
           "status": "partial",
           "go_target": "pkg/muz/base/context_smt2.go",
-          "go_targets": ["pkg/muz/fp/context_smt2.go", "pkg/api/api_fixedpoint_pending_display_test.go", "pkg/muz/fp/pending_open_rules.go", "pkg/muz/fp/pending_open_rules_test.go"],
-          "tests": ["TestAPIFixedpointPendingDisplayPreservesBindersAcrossFlushAndScopes", "TestAPIFixedpointPendingDisplayExpansionAndUpdateRanges", "TestAPIFixedpointDualityQueryKeepsClosedRawDisplay", "TestPendingOpenDisplayPromotesRulesAndSwapsRawArchive"],
-          "reason": "The finalized formatter is used by PDR TRACE and owning fixedpoint API string/writer entry points, including local print-option precedence without query mutation. Closed-input pending/flushed phases now preserve original metadata and avoid normalized duplicates, with scope and update-range handling. Named updates operate on the normalized prefix and leave the raw archive unchanged. Open-formula display promotes normalized ranges and removes raw inputs in source swap order, preserving the source unswapped-bound behavior; constructor staging and Go scope snapshots remain explicit architectural differences. Existing RuleSet.WriteSMT2 remains a separate explicit all-rule plain-HORN export."
+          "go_targets": ["pkg/muz/fp/context_smt2.go", "pkg/api/api_fixedpoint_pending_display_test.go", "pkg/muz/fp/pending_open_rules.go", "pkg/muz/fp/pending_open_rules_test.go", "pkg/muz/fp/context_formula_rules.go", "pkg/muz/fp/context_formula_cleanup.go", "pkg/muz/fp/raw_rules.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/duality_engine.go", "pkg/muz/fp/pending_open_parameter_test.go", "pkg/muz/fp/pending_open_allocation_test.go", "pkg/muz/fp/context_display_cleanup_test.go", "pkg/muz/fp/pending_closed_parameter_test.go", "pkg/muz/fp/pending_flush_allocation_test.go", "pkg/muz/fp/pending_registered_variables_test.go", "pkg/muz/base/rule_set_exchange.go", "pkg/muz/base/rule_set_exchange_test.go", "pkg/muz/fp/pending_normalization_cancellation_test.go", "pkg/muz/fp/datalog_sparse_interval_dispatch_test.go", "pkg/api/api_fixedpoint_failed_display_phase_test.go"],
+          "tests": ["TestAPIFixedpointPendingDisplayPreservesBindersAcrossFlushAndScopes", "TestAPIFixedpointPendingDisplayExpansionAndUpdateRanges", "TestAPIFixedpointDualityQueryKeepsClosedRawDisplay", "TestPendingOpenDisplayPromotesRulesAndSwapsRawArchive", "TestPendingOpenDisplayUsesCurrentUnboundParameter", "TestPendingOpenRuleFormulasAllocationFailureRetryAndClose", "TestContextDisplayPublicWriterErrorPreservesRuleOwners", "TestContextDisplayOwnersSurviveNativeCleanupRefusal", "TestPendingClosedQueryFlushUsesCurrentUnboundParameter", "TestPendingClosedFlushAllocationFailureRetryAndClose", "TestPendingClosedFlushPushPopRestoresPhase", "TestPendingClosedFlushNativeRefusalPreservesPhase", "TestPendingNormalizationBindsRegisteredVariables", "TestRuleSetExchangeContentsTransfersMetadataAndOwners", "TestRuleSetExchangeContentsRejectsInvalidOwnersWithoutMutation", "TestPendingNormalizationCancellationPreservesRulesAndRetry", "TestPendingNormalizationHonorsSuspendedLimit", "TestDatalogSparseIntervalRequestedPairLifecycle", "TestAPIFixedpointFailedDualityQueryPreservesSourceDisplayPhase"],
+          "reason": "The finalized formatter is used by PDR TRACE and owning fixedpoint API string/writer entry points, including local print-option precedence without query mutation. Closed-input pending/flushed phases now preserve original metadata and avoid normalized duplicates, with scope and update-range handling. Named updates operate on the normalized prefix and leave the raw archive unchanged. Open-formula display freshly normalizes pending open inputs under current parameters and promotes their resulting ranges and removes raw inputs in source swap order, preserving the source unswapped-bound behavior; constructor staging and Go scope snapshots remain explicit architectural differences. Existing RuleSet.WriteSMT2 remains a separate explicit all-rule plain-HORN export. Pending open display inputs are freshly normalized under current parameters before source-ordered raw-slot retirement; pending closed inputs likewise flush under current parameters before validation/query dispatch, preserving the original formula/name/bound archive while retiring its pending phase (dl_context.cpp:463-473,876-904,1054-1105). The existing swap-removal order and unswapped-bound behavior remain. Registered variables are bound through an owning binder result before formula ingestion, matching the source binding step (dl_rule.cpp:146-151; dl_context.cpp:335-339). Opposite unbound-parameter cases inspect the boundary through deliberately rejected queries; four closed/open and direct-query/display-first cases verify binding, repeat queries and raw archives without claiming a full backend matrix. Dense open/closed campaigns from zero through completion with an inclusive 2048 ceiling retry twice and check all four live AST counts. Closed-flush native refusal is an entry guard preserving phase; the separate display-owner test stages actual temporary finalization, with and without a nested receipt, retries inside the guard and drains afterward. A public writer failure preserves rule owners. This does not claim injected public WriteContextSMT2 destructor failure, generic exceptional closure or exact source partial-publication behavior; Go construction staging and scoped restoration remain explicit adaptations. Staged pending normalization now exchanges prepared contents into the same persistent RuleSet object, a concrete Go publication adaptation of context-owned rule insertion (dl_context.cpp:463-471,1060-1070), not a newly invented C++ exchange method. Same-manager/open checks precede transfer of rule owners, head index, output/original-to-derived metadata and finalized dependencies/strata; no AST reference acquisition or release occurs during exchange. Tests preserve independently held Rule owners and reject null/closed/foreign cases without mutation, including self behavior. After formula ingestion, ResourceLimit.IncOffset(0) detects canceled HNF prefixes without charging another resource step; canceled work preserves old rules/phase and permits retry, while suspended cancellation allows successful publication. Broader HNF ownership and source partial-publication audits remain separate. The strengthened sparse/interval lifecycle regression now requires open display to preserve the exact persistent RuleSet, arithmetic activation/rule borrower, store, entry and seed-relation owners. Pending/raw phase retires, revision advances once and the exact normalized head/tail/name survives; repeated display is identical without renormalization before the existing query executes. This is stable-owner evidence for the display publication fix, not new sparse-table functionality or a whole lifecycle audit. Duality's xform.quantify_arrays-enabled query path flushes pending inputs before fragment validation, matching context dispatch order (dl_context.cpp:861-887, especially 878-882). With the option true, two rejected expression queries expose normalized rules/display; false preserves the original closed quantified input, binder and weight. The test keeps one rule and an earlier independently owning Rules snapshot intact. This is the conditional array-quantification display boundary, not unconditional flushing of every failed Duality input, a backend algorithm change or a new native-cleanup campaign."
         },
         {
           "name": "admitted Go fixedpoint engine disposal invalidates query snapshots and blocks ordinary operations after a solver guard-disabling refusal while allowing Close retry",
@@ -85494,9 +85632,10 @@
           "name": "get_raw_rule_formulas and original input/scoped rule ownership",
           "status": "ported",
           "go_target": "pkg/muz/fp/raw_rules.go",
-          "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/raw_rules_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/cmd_context/fixedpoint_rule_bounds_test.go", "pkg/api/api_fixedpoint_pending_display_test.go"],
-          "tests": ["TestFixedpointRawRulesPreserveInputBoundsAndScopedLifetime", "TestFixedpointRawRuleUpdateAndPopPreserveOriginalArchive", "TestFixedpointCommandBoundsReachDualityPreparation", "TestAPIFixedpointUpdateBeforeFlushPreservesPendingInputs", "TestAPIFixedpointNormalizedUpdateKeepsSourceSlotBeforePendingRules"],
-          "notes": "Keeps original formulas, names and recursion bounds in insertion order independently of normalized/split rules. RawRules binds current implicit variables and returns owned snapshots. Scope snapshots restore original formulas and metadata. Named updates change only normalized rules, leaving the raw archive and recursion bounds untouched for ordinary Duality; pending raw rules are not candidates for named replacement. Partially copied owners have retryable cleanup. The command/API boundary forwards explicit bounds, including zero, into the raw archive and Duality query preparation; unspecified bounds use the query fallback. Scoped restoration is covered through the command context."
+          "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/raw_rules_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/cmd_context/fixedpoint_rule_bounds_test.go", "pkg/api/api_fixedpoint_pending_display_test.go", "pkg/muz/fp/pending_open_rules.go", "pkg/muz/fp/context_formula_rules.go", "pkg/muz/fp/context_formula_cleanup.go", "pkg/muz/fp/context_smt2.go", "pkg/muz/fp/raw_rules.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/duality_engine.go", "pkg/muz/fp/pending_open_parameter_test.go", "pkg/muz/fp/pending_open_allocation_test.go", "pkg/muz/fp/context_display_cleanup_test.go", "pkg/muz/fp/pending_closed_parameter_test.go", "pkg/muz/fp/pending_flush_allocation_test.go", "pkg/muz/fp/pending_registered_variables_test.go", "pkg/muz/fp/context_scope.go", "pkg/muz/fp/context_scope_test.go", "pkg/muz/fp/context_scope_native_test.go", "pkg/muz/fp/context_scope_finalizer_order_test.go"],
+          "tests": ["TestFixedpointRawRulesPreserveInputBoundsAndScopedLifetime", "TestFixedpointRawRuleUpdateAndPopPreserveOriginalArchive", "TestFixedpointCommandBoundsReachDualityPreparation", "TestAPIFixedpointUpdateBeforeFlushPreservesPendingInputs", "TestAPIFixedpointNormalizedUpdateKeepsSourceSlotBeforePendingRules", "TestPendingOpenDisplayUsesCurrentUnboundParameter", "TestPendingOpenRuleFormulasAllocationFailureRetryAndClose", "TestContextDisplayPublicWriterErrorPreservesRuleOwners", "TestContextDisplayOwnersSurviveNativeCleanupRefusal", "TestPendingClosedQueryFlushUsesCurrentUnboundParameter", "TestPendingClosedFlushAllocationFailureRetryAndClose", "TestPendingClosedFlushPushPopRestoresPhase", "TestPendingClosedFlushNativeRefusalPreservesPhase", "TestPendingNormalizationBindsRegisteredVariables", "TestFixedpointPopResumesMetadataAllocationFailure", "TestFixedpointPopRefusesNativeInvocationBeforeMutation", "TestFixedpointPopResumesConsumedAssertionInSourceOrder", "TestFixedpointPopPreservesSourceExternalFinalizerOrder"],
+          "notes": "Keeps original formulas, names and recursion bounds in insertion order independently of normalized/split rules. RawRules binds current implicit variables and returns owned snapshots. Scope snapshots restore original formulas and metadata. Named updates change only normalized rules, leaving the raw archive and recursion bounds untouched for ordinary Duality; pending raw rules are not candidates for named replacement. Partially copied owners have retryable cleanup. The command/API boundary forwards explicit bounds, including zero, into the raw archive and Duality query preparation; unspecified bounds use the query fallback. Scoped restoration is covered through the command context.",
+          "reason": "Closed-input query flushing under current parameters preserves original formula/name/bound archives while retiring only the pending phase; registered-variable binding occurs before fresh normalization. Rejected query and display-first/direct-query cases inspect phase and independently owning raw snapshots. Open/closed allocation retries and native entry refusal preserve those archives without closing broader raw-snapshot fidelity obligations. Scoped pop now retires background suffix owners, then raw-formula owners, replaces the rule set and finally closes its snapshot; suffix reference owners retire forward and compact each consumed prefix before returning an error (dl_context.cpp:153-195; ref_vector.h:90-93, dec_range_ref). A scope remains pending until completion, blocks ordinary access/query/Push, and invalidates query state and increments revision once. Native entry refuses before mutation. Real reference-page exhaustion interrupts output-metadata restoration for same-scope Pop or Close retry; a real consumed large-rational release preserves the remaining assertion and later raw/rule owners without replaying decrements. Recycled external-ID tests independently verify forward finalizer order for background and pattern-only raw formulas while the outer owner survives. This closes ordering evidence for these concrete suffix consumers only; Go resumable cleanup does not imply full raw-archive snapshot fidelity or a general disposal audit."
         },
         {
           "name": "expression-query result invalidation covers normalization, construction and cleanup failures",
@@ -85504,12 +85643,19 @@
           "go_targets": [
             "pkg/muz/fp/query_expression.go",
             "pkg/muz/fp/engine_result_routing_test.go",
-            "pkg/muz/fp/query_expression_failure_test.go"
+            "pkg/muz/fp/query_expression_failure_test.go",
+            "pkg/muz/fp/query_clone_cleanup.go",
+            "pkg/muz/fp/pdr_engine.go",
+            "pkg/muz/fp/spacer_statistics.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/fp/query_clone_statistics_cleanup_test.go"
           ],
           "tests": [
             "TestFailedExpressionQueryInvalidatesPreviousResult",
-            "TestExpressionQueryAllocationFailureInvalidatesSnapshot"
-          ]
+            "TestExpressionQueryAllocationFailureInvalidatesSnapshot",
+            "TestQueryCloneStatisticsSurviveNativeLateCleanup"
+          ],
+          "reason": "Expression-query clone disposal captures a complete statistics snapshot once before backend close, serves it while the clone is closing and merges it only after successful disposal; ResetStatistics first drains pending cleanup (pdr_dl_interface.cpp:195-202; spacer_dl_interface.cpp:310-317; dl_context.cpp:1009-1018). PDR/Spacer clear/reset cases reach a real late native accounting refusal while retiring a large-rational background after backend closure. Nonzero num checks and engine search counters remain correct before, during and after repeated cleanup; reset preserves lifetime checks but clears search counters without resurrecting them. The independently owning answer survives and final budget returns to zero. This is an actual late-disposal frontier, not an interrupted statistics-collection injection or generic clone-cleanup closure."
         },
         {
           "name": "Retained register_predicate/add_rule/close-reopen/query orchestration for finite-domain Horn programs, including compiled relational-bytecode execution and recursive least-fixpoint saturation for positive rules with up to two tails and complete structural head assembly, implicit-variable binding, HNF ingestion with computed head terms, stratified negation, finite direct guards and ground theory-rewritten guards, dependency-ordered fallback table saturation, tuple answers, and lbool results (dl_context.cpp:122-190,344-469,680-738,861-889)",
@@ -85517,7 +85663,24 @@
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "go_targets": [
             "pkg/muz/rel/compiler_test.go",
-            "pkg/parsers/smt2/fixedpoint_commands_test.go"
+            "pkg/parsers/smt2/fixedpoint_commands_test.go",
+            "pkg/muz/fp/pending_open_rules.go",
+            "pkg/muz/fp/context_formula_rules.go",
+            "pkg/muz/fp/context_formula_cleanup.go",
+            "pkg/muz/fp/context_smt2.go",
+            "pkg/muz/fp/raw_rules.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/fp/query_expression.go",
+            "pkg/muz/fp/duality_engine.go",
+            "pkg/muz/fp/pending_open_parameter_test.go",
+            "pkg/muz/fp/pending_open_allocation_test.go",
+            "pkg/muz/fp/context_display_cleanup_test.go",
+            "pkg/muz/fp/pending_closed_parameter_test.go",
+            "pkg/muz/fp/pending_flush_allocation_test.go",
+            "pkg/muz/fp/pending_registered_variables_test.go",
+            "pkg/muz/base/rule_set_exchange.go",
+            "pkg/muz/base/rule_set_exchange_test.go",
+            "pkg/muz/fp/pending_normalization_cancellation_test.go"
           ],
           "tests": [
             "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads",
@@ -85533,23 +85696,47 @@
             "TestSMT2FixedpointTwoTailJoinMatchesCPP",
             "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP",
             "TestSMT2FixedpointRejectsUnstratifiedNegation",
-            "TestSMT2FixedpointRuleScopesMatchCPP"
-          ]
+            "TestSMT2FixedpointRuleScopesMatchCPP",
+            "TestPendingOpenDisplayUsesCurrentUnboundParameter",
+            "TestPendingOpenRuleFormulasAllocationFailureRetryAndClose",
+            "TestContextDisplayPublicWriterErrorPreservesRuleOwners",
+            "TestContextDisplayOwnersSurviveNativeCleanupRefusal",
+            "TestPendingClosedQueryFlushUsesCurrentUnboundParameter",
+            "TestPendingClosedFlushAllocationFailureRetryAndClose",
+            "TestPendingClosedFlushPushPopRestoresPhase",
+            "TestPendingClosedFlushNativeRefusalPreservesPhase",
+            "TestPendingNormalizationBindsRegisteredVariables",
+            "TestRuleSetExchangeContentsTransfersMetadataAndOwners",
+            "TestRuleSetExchangeContentsRejectsInvalidOwnersWithoutMutation",
+            "TestPendingNormalizationCancellationPreservesRulesAndRetry",
+            "TestPendingNormalizationHonorsSuspendedLimit"
+          ],
+          "reason": "Pending open display inputs are freshly normalized under current parameters before source-ordered raw-slot retirement; pending closed inputs likewise flush under current parameters before validation/query dispatch, preserving the original formula/name/bound archive while retiring its pending phase (dl_context.cpp:463-473,876-904,1054-1105). The existing swap-removal order and unswapped-bound behavior remain. Registered variables are bound through an owning binder result before formula ingestion, matching the source binding step (dl_rule.cpp:146-151; dl_context.cpp:335-339). Opposite unbound-parameter cases inspect the boundary through deliberately rejected queries; four closed/open and direct-query/display-first cases verify binding, repeat queries and raw archives without claiming a full backend matrix. Dense open/closed campaigns from zero through completion with an inclusive 2048 ceiling retry twice and check all four live AST counts. Closed-flush native refusal is an entry guard preserving phase; the separate display-owner test stages actual temporary finalization, with and without a nested receipt, retries inside the guard and drains afterward. A public writer failure preserves rule owners. This does not claim injected public WriteContextSMT2 destructor failure, generic exceptional closure or exact source partial-publication behavior; Go construction staging and scoped restoration remain explicit adaptations. Staged pending normalization now exchanges prepared contents into the same persistent RuleSet object, a concrete Go publication adaptation of context-owned rule insertion (dl_context.cpp:463-471,1060-1070), not a newly invented C++ exchange method. Same-manager/open checks precede transfer of rule owners, head index, output/original-to-derived metadata and finalized dependencies/strata; no AST reference acquisition or release occurs during exchange. Tests preserve independently held Rule owners and reject null/closed/foreign cases without mutation, including self behavior. After formula ingestion, ResourceLimit.IncOffset(0) detects canceled HNF prefixes without charging another resource step; canceled work preserves old rules/phase and permits retry, while suspended cancellation allows successful publication. Broader HNF ownership and source partial-publication audits remain separate."
         },
         {
-          "name": "Rule-set push/pop snapshots and native Datalog post-query pop refusal (dl_context.cpp:180-195)",
+          "name": "Rule-set push/pop snapshots, source-ordered suffix retirement and native Datalog post-query pop refusal (dl_context.cpp:153-195)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "go_targets": [
             "pkg/parsers/smt2/fixedpoint_commands_test.go",
-            "pkg/cmd/g3/main_test.go"
+            "pkg/cmd/g3/main_test.go",
+            "pkg/muz/fp/context_scope.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/fp/context_scope_test.go",
+            "pkg/muz/fp/context_scope_native_test.go",
+            "pkg/muz/fp/context_scope_finalizer_order_test.go"
           ],
           "tests": [
             "TestPropositionalEngineScopeGuards",
             "TestSMT2FixedpointRuleScopesMatchCPP",
             "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2",
-            "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2"
-          ]
+            "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2",
+            "TestFixedpointPopResumesMetadataAllocationFailure",
+            "TestFixedpointPopRefusesNativeInvocationBeforeMutation",
+            "TestFixedpointPopResumesConsumedAssertionInSourceOrder",
+            "TestFixedpointPopPreservesSourceExternalFinalizerOrder"
+          ],
+          "reason": "Scoped pop now retires background suffix owners, then raw-formula owners, replaces the rule set and finally closes its snapshot; suffix reference owners retire forward and compact each consumed prefix before returning an error (dl_context.cpp:153-195; ref_vector.h:90-93, dec_range_ref). A scope remains pending until completion, blocks ordinary access/query/Push, and invalidates query state and increments revision once. Native entry refuses before mutation. Real reference-page exhaustion interrupts output-metadata restoration for same-scope Pop or Close retry; a real consumed large-rational release preserves the remaining assertion and later raw/rule owners without replaying decrements. Recycled external-ID tests independently verify forward finalizer order for background and pattern-only raw formulas while the outer owner survives. This closes ordering evidence for these concrete suffix consumers only; Go resumable cleanup does not imply full raw-archive snapshot fidelity or a general disposal audit."
         },
         {
           "name": "default fixedpoint SMT-LIB HORN rule-set dump with declarations, named rules and collision-safe fresh labels (dl_context.cpp:1120-1207)",
@@ -85627,8 +85814,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/predicate_registration_idempotence_test.go", "pkg/api/api_fixedpoint_duplicate_registration_test.go", "pkg/muz/base/datalog_context_predicates.go", "pkg/muz/base/datalog_context_query_test.go", "pkg/muz/fp/engine_result_state.go", "pkg/muz/fp/engine_result_status_source_test.go", "pkg/muz/fp/datalog_facts.go", "pkg/muz/fp/datalog_facts_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go", "pkg/muz/fp/query_magic_sets.go", "pkg/muz/fp/datalog_transform_kinds_test.go", "pkg/muz/fp/datalog_map_names.go", "pkg/muz/fp/datalog_map_names_test.go", "pkg/cmd_context/wpa_parser.go", "pkg/cmd_context/wpa_numeric_test.go", "pkg/cmd_context/context.go", "pkg/cmd_context/datalog_display.go", "pkg/cmd_context/datalog_display_test.go", "pkg/cmd_context/datalog_parser.go", "pkg/cmd_context/datalog_parser_domains.go", "pkg/muz/fp/datalog_output.go", "pkg/muz/fp/datalog_print_tuples.go", "pkg/muz/fp/datalog_print_tuples_test.go", "pkg/shell/datalog_frontend.go", "pkg/shell/datalog_frontend_run.go", "pkg/shell/datalog_frontend_tuples.go", "pkg/shell/datalog_frontend_tuples_test.go", "pkg/api/api_datalog_tuples_test.go", "pkg/muz/fp/engine_default_model_test.go", "pkg/api/api_fixedpoint_default_model_test.go", "pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/transforms/simple_joins_nonfinite_cost_test.go", "pkg/muz/fp/engine_default_proof_test.go", "pkg/muz/fp/engine_result_routing_test.go", "pkg/muz/fp/engine_result_routing_test.go", "pkg/muz/fp/engine_default_certificate_test.go"],
-      "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestDuplicatePredicateRegistrationPreservesSolvedState", "TestAPIFixedpointDuplicateRelationRegistrationIsIdempotent", "TestDatalogContextAddQueryLowersFreeVariableBody", "TestFixedpointUndefinedStatusMatchesSourceBackend", "TestFixedpointExplicitApproximationDoesNotInheritSpacerBound", "TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries", "TestDatalogFactSelectionUsesParametersAndCachesSourceChoice", "TestDatalogDirectFiniteFactValidationAndCloneOwnership", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointRuleScopesMatchCPP", "TestDatalogGeneratedFiltersAndJoinsInheritFiniteKinds", "TestDatalogUseMapNamesParametersAndGuard", "TestWPAParserSnapshotsMapNameOptionBeforeLoading", "TestDatalogDisplayRepeatedLoadsAndReset", "TestDatalogDisplayRepeatedWPANumericLoads", "TestDatalogPrintTuplesParametersAndGuard", "TestDatalogFrontendTuplesOrdinaryNamesAndPragmas", "TestDatalogFrontendTuplesWPAMappedAndNumericNames", "TestDatalogFrontendTuplesModuleParameterSuppressesOutput", "TestDatalogFrontendTuplesWriterRefusalPreservesResults", "TestAPIRunDatalogPathPrintsMappedOutputTuples", "TestEngineDefaultModelStatusAndIndependentOwners", "TestEngineDefaultModelConstructionFailureAndRetry", "TestAPIFixedpointLastDefaultModel", "TestSimpleJoinsNonfiniteDomainAndFloatingCosts", "TestSimpleJoinsNonfiniteCostsChooseFiniteArithmeticBooleanPair", "TestEngineDefaultProofReferenceAllocationFailureAndRetry", "TestDatalogResultSnapshotRoutesAndInvalidates", "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown", "TestDatalogDefaultCertificateRefusesWithoutChangingResult"],
+      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/predicate_registration_idempotence_test.go", "pkg/api/api_fixedpoint_duplicate_registration_test.go", "pkg/muz/base/datalog_context_predicates.go", "pkg/muz/base/datalog_context_query_test.go", "pkg/muz/fp/engine_result_state.go", "pkg/muz/fp/engine_result_status_source_test.go", "pkg/muz/fp/datalog_facts.go", "pkg/muz/fp/datalog_facts_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go", "pkg/muz/fp/query_magic_sets.go", "pkg/muz/fp/datalog_transform_kinds_test.go", "pkg/muz/fp/datalog_map_names.go", "pkg/muz/fp/datalog_map_names_test.go", "pkg/cmd_context/wpa_parser.go", "pkg/cmd_context/wpa_numeric_test.go", "pkg/cmd_context/context.go", "pkg/cmd_context/datalog_display.go", "pkg/cmd_context/datalog_display_test.go", "pkg/cmd_context/datalog_parser.go", "pkg/cmd_context/datalog_parser_domains.go", "pkg/muz/fp/datalog_output.go", "pkg/muz/fp/datalog_print_tuples.go", "pkg/muz/fp/datalog_print_tuples_test.go", "pkg/shell/datalog_frontend.go", "pkg/shell/datalog_frontend_run.go", "pkg/shell/datalog_frontend_tuples.go", "pkg/shell/datalog_frontend_tuples_test.go", "pkg/api/api_datalog_tuples_test.go", "pkg/muz/fp/engine_default_model_test.go", "pkg/api/api_fixedpoint_default_model_test.go", "pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/transforms/simple_joins_nonfinite_cost_test.go", "pkg/muz/fp/engine_default_proof_test.go", "pkg/muz/fp/engine_result_routing_test.go", "pkg/muz/fp/engine_result_routing_test.go", "pkg/muz/fp/engine_default_certificate_test.go", "pkg/muz/fp/pending_open_rules.go", "pkg/muz/fp/context_formula_rules.go", "pkg/muz/fp/context_formula_cleanup.go", "pkg/muz/fp/context_smt2.go", "pkg/muz/fp/raw_rules.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/duality_engine.go", "pkg/muz/fp/pending_open_parameter_test.go", "pkg/muz/fp/pending_open_allocation_test.go", "pkg/muz/fp/context_display_cleanup_test.go", "pkg/muz/fp/pending_closed_parameter_test.go", "pkg/muz/fp/pending_flush_allocation_test.go", "pkg/muz/fp/pending_registered_variables_test.go", "pkg/muz/base/rule_set_exchange.go", "pkg/muz/base/rule_set_exchange_test.go", "pkg/muz/fp/pending_normalization_cancellation_test.go", "pkg/muz/fp/datalog_sparse_interval_dispatch_test.go", "pkg/muz/fp/context_scope.go", "pkg/muz/fp/context_scope_test.go", "pkg/muz/fp/context_scope_native_test.go", "pkg/muz/fp/context_scope_finalizer_order_test.go", "pkg/api/api_fixedpoint_failed_display_phase_test.go", "pkg/muz/base/context_smt2.go", "pkg/muz/base/context_smt2_cleanup.go", "pkg/muz/base/context_smt2_expression.go", "pkg/muz/base/context_smt2_variables.go", "pkg/muz/base/rule_set_display_formulas.go", "pkg/muz/base/context_smt2_allocation_test.go", "pkg/muz/base/context_smt2_cleanup_test.go", "pkg/muz/base/context_smt2_query_order_test.go", "pkg/muz/base/context_smt2_named_order_test.go"],
+      "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestDuplicatePredicateRegistrationPreservesSolvedState", "TestAPIFixedpointDuplicateRelationRegistrationIsIdempotent", "TestDatalogContextAddQueryLowersFreeVariableBody", "TestFixedpointUndefinedStatusMatchesSourceBackend", "TestFixedpointExplicitApproximationDoesNotInheritSpacerBound", "TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries", "TestDatalogFactSelectionUsesParametersAndCachesSourceChoice", "TestDatalogDirectFiniteFactValidationAndCloneOwnership", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointRuleScopesMatchCPP", "TestDatalogGeneratedFiltersAndJoinsInheritFiniteKinds", "TestDatalogUseMapNamesParametersAndGuard", "TestWPAParserSnapshotsMapNameOptionBeforeLoading", "TestDatalogDisplayRepeatedLoadsAndReset", "TestDatalogDisplayRepeatedWPANumericLoads", "TestDatalogPrintTuplesParametersAndGuard", "TestDatalogFrontendTuplesOrdinaryNamesAndPragmas", "TestDatalogFrontendTuplesWPAMappedAndNumericNames", "TestDatalogFrontendTuplesModuleParameterSuppressesOutput", "TestDatalogFrontendTuplesWriterRefusalPreservesResults", "TestAPIRunDatalogPathPrintsMappedOutputTuples", "TestEngineDefaultModelStatusAndIndependentOwners", "TestEngineDefaultModelConstructionFailureAndRetry", "TestAPIFixedpointLastDefaultModel", "TestSimpleJoinsNonfiniteDomainAndFloatingCosts", "TestSimpleJoinsNonfiniteCostsChooseFiniteArithmeticBooleanPair", "TestEngineDefaultProofReferenceAllocationFailureAndRetry", "TestDatalogResultSnapshotRoutesAndInvalidates", "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown", "TestDatalogDefaultCertificateRefusesWithoutChangingResult", "TestPendingOpenDisplayUsesCurrentUnboundParameter", "TestPendingOpenRuleFormulasAllocationFailureRetryAndClose", "TestContextDisplayPublicWriterErrorPreservesRuleOwners", "TestContextDisplayOwnersSurviveNativeCleanupRefusal", "TestPendingClosedQueryFlushUsesCurrentUnboundParameter", "TestPendingClosedFlushAllocationFailureRetryAndClose", "TestPendingClosedFlushPushPopRestoresPhase", "TestPendingClosedFlushNativeRefusalPreservesPhase", "TestPendingNormalizationBindsRegisteredVariables", "TestRuleSetExchangeContentsTransfersMetadataAndOwners", "TestRuleSetExchangeContentsRejectsInvalidOwnersWithoutMutation", "TestPendingNormalizationCancellationPreservesRulesAndRetry", "TestPendingNormalizationHonorsSuspendedLimit", "TestDatalogSparseIntervalRequestedPairLifecycle", "TestFixedpointPopResumesMetadataAllocationFailure", "TestFixedpointPopRefusesNativeInvocationBeforeMutation", "TestFixedpointPopResumesConsumedAssertionInSourceOrder", "TestFixedpointPopPreservesSourceExternalFinalizerOrder", "TestAPIFixedpointFailedDualityQueryPreservesSourceDisplayPhase", "TestContextSMT2AllocationExactASTOwnership", "TestContextSMT2OwnerNativePendingCleanup", "TestContextSMT2FreshQueryDeclarationPrecedesArguments", "TestContextSMT2NamedPrefixPrecedesFreshLabel"],
       "conditionals": [
         {
           "line": 19,
@@ -85664,16 +85851,17 @@
           "name": "concrete context predicate/rule/fact registration, scoped snapshots, configured/automatic query and owned export surface (dl_context.h:127-616)",
           "status": "partial",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "go_targets": ["pkg/muz/fp/propositional_engine_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
-          "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsUnsupportedInfinitePredicateSorts", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointRuleScopesMatchCPP"]
-
+          "go_targets": ["pkg/muz/fp/propositional_engine_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go", "pkg/muz/fp/pending_open_rules.go", "pkg/muz/fp/context_formula_rules.go", "pkg/muz/fp/context_formula_cleanup.go", "pkg/muz/fp/context_smt2.go", "pkg/muz/fp/raw_rules.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/duality_engine.go", "pkg/muz/fp/pending_open_parameter_test.go", "pkg/muz/fp/pending_open_allocation_test.go", "pkg/muz/fp/context_display_cleanup_test.go", "pkg/muz/fp/pending_closed_parameter_test.go", "pkg/muz/fp/pending_flush_allocation_test.go", "pkg/muz/fp/pending_registered_variables_test.go", "pkg/muz/base/rule_set_exchange.go", "pkg/muz/base/rule_set_exchange_test.go", "pkg/muz/fp/pending_normalization_cancellation_test.go", "pkg/muz/fp/datalog_sparse_interval_dispatch_test.go", "pkg/api/api_fixedpoint_failed_display_phase_test.go", "pkg/muz/base/context_smt2.go", "pkg/muz/base/context_smt2_cleanup.go", "pkg/muz/base/context_smt2_expression.go", "pkg/muz/base/context_smt2_variables.go", "pkg/muz/base/rule_set_display_formulas.go", "pkg/muz/base/context_smt2_allocation_test.go", "pkg/muz/base/context_smt2_cleanup_test.go", "pkg/muz/base/context_smt2_query_order_test.go", "pkg/muz/base/context_smt2_named_order_test.go"],
+          "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsUnsupportedInfinitePredicateSorts", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointRuleScopesMatchCPP", "TestPendingOpenDisplayUsesCurrentUnboundParameter", "TestPendingOpenRuleFormulasAllocationFailureRetryAndClose", "TestContextDisplayPublicWriterErrorPreservesRuleOwners", "TestContextDisplayOwnersSurviveNativeCleanupRefusal", "TestPendingClosedQueryFlushUsesCurrentUnboundParameter", "TestPendingClosedFlushAllocationFailureRetryAndClose", "TestPendingClosedFlushPushPopRestoresPhase", "TestPendingClosedFlushNativeRefusalPreservesPhase", "TestPendingNormalizationBindsRegisteredVariables", "TestRuleSetExchangeContentsTransfersMetadataAndOwners", "TestRuleSetExchangeContentsRejectsInvalidOwnersWithoutMutation", "TestPendingNormalizationCancellationPreservesRulesAndRetry", "TestPendingNormalizationHonorsSuspendedLimit", "TestDatalogSparseIntervalRequestedPairLifecycle", "TestAPIFixedpointFailedDualityQueryPreservesSourceDisplayPhase", "TestContextSMT2AllocationExactASTOwnership", "TestContextSMT2OwnerNativePendingCleanup", "TestContextSMT2FreshQueryDeclarationPrecedesArguments", "TestContextSMT2NamedPrefixPrecedesFreshLabel"],
+          "reason": "Pending open display inputs are freshly normalized under current parameters before source-ordered raw-slot retirement; pending closed inputs likewise flush under current parameters before validation/query dispatch, preserving the original formula/name/bound archive while retiring its pending phase (dl_context.cpp:463-473,876-904,1054-1105). The existing swap-removal order and unswapped-bound behavior remain. Registered variables are bound through an owning binder result before formula ingestion, matching the source binding step (dl_rule.cpp:146-151; dl_context.cpp:335-339). Opposite unbound-parameter cases inspect the boundary through deliberately rejected queries; four closed/open and direct-query/display-first cases verify binding, repeat queries and raw archives without claiming a full backend matrix. Dense open/closed campaigns from zero through completion with an inclusive 2048 ceiling retry twice and check all four live AST counts. Closed-flush native refusal is an entry guard preserving phase; the separate display-owner test stages actual temporary finalization, with and without a nested receipt, retries inside the guard and drains afterward. A public writer failure preserves rule owners. This does not claim injected public WriteContextSMT2 destructor failure, generic exceptional closure or exact source partial-publication behavior; Go construction staging and scoped restoration remain explicit adaptations. Staged pending normalization now exchanges prepared contents into the same persistent RuleSet object, a concrete Go publication adaptation of context-owned rule insertion (dl_context.cpp:463-471,1060-1070), not a newly invented C++ exchange method. Same-manager/open checks precede transfer of rule owners, head index, output/original-to-derived metadata and finalized dependencies/strata; no AST reference acquisition or release occurs during exchange. Tests preserve independently held Rule owners and reject null/closed/foreign cases without mutation, including self behavior. After formula ingestion, ResourceLimit.IncOffset(0) detects canceled HNF prefixes without charging another resource step; canceled work preserves old rules/phase and permits retry, while suspended cancellation allows successful publication. Broader HNF ownership and source partial-publication audits remain separate. The strengthened sparse/interval lifecycle regression now requires open display to preserve the exact persistent RuleSet, arithmetic activation/rule borrower, store, entry and seed-relation owners. Pending/raw phase retires, revision advances once and the exact normalized head/tail/name survives; repeated display is identical without renormalization before the existing query executes. This is stable-owner evidence for the display publication fix, not new sparse-table functionality or a whole lifecycle audit. Duality's xform.quantify_arrays-enabled query path flushes pending inputs before fragment validation, matching context dispatch order (dl_context.cpp:861-887, especially 878-882). With the option true, two rejected expression queries expose normalized rules/display; false preserves the original closed quantified input, binder and weight. The test keeps one rule and an earlier independently owning Rules snapshot intact. This is the conditional array-quantification display boundary, not unconditional flushing of every failed Duality input, a backend algorithm change or a new native-cleanup campaign. Fixedpoint SMT2 display now keeps generated declaration/argument/formula roots on a concrete retryable owner through output and cleanup (dl_context.cpp:1120-1242,1275-1334; dl_context.h:491,604). Source order creates/writes the fresh query declaration before Bool-gap arguments, and writes the named assertion prefix before allocating or interning a collision-free label (dl_context.cpp:1191-1198,1213-1220). Both printing profiles run allocation campaigns below 4096 through completion over 128 plain queries or a pending quantified rule/fresh bridge, checking four main and four format AST counts, receipt cleanup and healthy retry. Writer-refusal oracles observe only the fresh declaration before its arguments and no label interning before a failed named prefix; collision retries remain correct. A separate direct owner test stages actual nested/root native-pending finalization and retries inside/outside the guard. It does not inject whole WriteContextSMT2 native failure, stream/format/substitution pending finalizers or every formatter shape; full-context exceptional audits remain open."
         },
         {
           "name": "Retained context push/pop lifecycle for rule snapshots (dl_context.h:142-143,440-441)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "go_targets": ["pkg/parsers/smt2/fixedpoint_commands_test.go"],
-          "tests": ["TestPropositionalEngineScopeGuards", "TestSMT2FixedpointRuleScopesMatchCPP"]
+          "go_targets": ["pkg/parsers/smt2/fixedpoint_commands_test.go", "pkg/muz/fp/context_scope.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/context_scope_test.go", "pkg/muz/fp/context_scope_native_test.go", "pkg/muz/fp/context_scope_finalizer_order_test.go"],
+          "tests": ["TestPropositionalEngineScopeGuards", "TestSMT2FixedpointRuleScopesMatchCPP", "TestFixedpointPopResumesMetadataAllocationFailure", "TestFixedpointPopRefusesNativeInvocationBeforeMutation", "TestFixedpointPopResumesConsumedAssertionInSourceOrder", "TestFixedpointPopPreservesSourceExternalFinalizerOrder"],
+          "reason": "Scoped pop now retires background suffix owners, then raw-formula owners, replaces the rule set and finally closes its snapshot; suffix reference owners retire forward and compact each consumed prefix before returning an error (dl_context.cpp:153-195; ref_vector.h:90-93, dec_range_ref). A scope remains pending until completion, blocks ordinary access/query/Push, and invalidates query state and increments revision once. Native entry refuses before mutation. Real reference-page exhaustion interrupts output-metadata restoration for same-scope Pop or Close retry; a real consumed large-rational release preserves the remaining assertion and later raw/rule owners without replaying decrements. Recycled external-ID tests independently verify forward finalizer order for background and pattern-only raw formulas while the outer owner survives. This closes ordering evidence for these concrete suffix consumers only; Go resumable cleanup does not imply full raw-archive snapshot fidelity or a general disposal audit."
         },
         {
           "name": "OK, APPROX and BOUNDED execution-result classification on the context status surface (dl_context.h:51-58,548-553)",
@@ -85859,7 +86047,8 @@
         "pkg/muz/fp/spacer_relation_query_cleanup.go",
         "pkg/muz/fp/spacer_relation_query_cleanup_test.go",
         "pkg/muz/fp/query_magic_sets_test.go",
-        "pkg/muz/fp/datalog_udoc_magic_test.go"
+        "pkg/muz/fp/datalog_udoc_magic_test.go",
+        "pkg/muz/base/context_smt2_cleanup.go"
       ],
       "tests": ["TestQueryExpressionHoistsExistentialVariablesIntoHead", "TestFixedpointQueryExpressionExistential", "TestFixedpointQueryExpressionNestedExistential", "TestFixedpointQueryExpressionExistentialWithSparseFreeVariable", "TestCompactQueryVariablesPreservesSortsAndBoundVariables", "TestFixedpointQueryExpressionCompactsVariableGaps", "TestBMCQuantifiedLinearProofWithRuleVariables",
         "TestRuleManagerFixUnboundSimplifiesIntegerEquation","TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleSubstitutionPreservesVariableIndices", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerBuildsHornRuleAndCarriesFormulaProof", "TestRuleManagerFormulaProofNoOpPreservesEnabledProofMode", "TestRuleManagerAddsProofForAlreadyHornFormula", "TestRuleManagerRejectsMismatchedHNFProofWithoutPublishing", "TestRuleManagerRemovesLabelsAndPreservesHNFProofs", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit", "TestRuleManagerAddsProofsForHNFDefinitionIntroduction", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestRuleManagerGroupsMultipleResidualTailsUnderOneExistential", "TestRuleManagerAddFormulaAppliesUnboundVariableReductionAndFix", "TestPropositionalEngineRuleIngestionHonorsUnboundVariableParameter", "TestHornNormalizerPreservesAlreadyHornUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestRuleManagerAddFormulaRemovesNestedLabels", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures",
@@ -85940,9 +86129,9 @@
           "name": "rule_manager::mk concrete head/tail construction and native positive-predicate, negative-predicate, interpreted-tail layout; rule::norm_vars sparse de-Bruijn compaction; to_formula with source binder-sort reversal and collision-free names; check_valid_head; rule ownership, proof ownership and rewrite transfer, tail queries, negation and dependency lookup (dl_rule.cpp:467-607,792-801,833-901,878-885,939-1011)",
           "status": "partial",
           "go_target": "pkg/muz/base/rule.go",
-          "go_targets": ["pkg/muz/dataflow/reachability_test.go", "pkg/muz/base/rule_unnormalized.go", "pkg/muz/transforms/coi_bottom_up_source_test.go", "pkg/muz/base/rule.go", "pkg/muz/transforms/rule_slice_compound_failure_test.go"],
+          "go_targets": ["pkg/muz/dataflow/reachability_test.go", "pkg/muz/base/rule_unnormalized.go", "pkg/muz/transforms/coi_bottom_up_source_test.go", "pkg/muz/base/rule.go", "pkg/muz/transforms/rule_slice_compound_failure_test.go", "pkg/muz/base/context_smt2_cleanup.go"],
           "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestConeBottomUpReplacementClearsNameAndPreservesVariableSlots", "TestRuleSliceCompoundHeadNodeOwnershipFailureAndRetry"],
-          "reason": "The live cone-pruning replacement consumer uses rule_manager::mk with symbol::null and normalize=false (dl_rule.cpp:467-534; dl_rule.h:212-213; dl_mk_coi_filter.cpp:86-87), preserving sparse variable slots while clearing the removed-tail rule name. Other construction and ownership obligations keep their existing partial scope. Formula conversion roots the head/formula before construction, separately roots negated tails and their conjunction before implication construction, and updates the same owner through universal quantification (dl_rule.cpp:560-600; dl_rule.h:263). The new separate node-accounting campaign primes only proof-declaration caches, sweeps allocation stops through first success for constant, variable-0 and variable-4 inputs, checks output suppression and original input/reference/proof-mode state, and validates retry proof premises, side conditions and conclusion. The prior cold campaign remains in place; broader proof and exceptional-cleanup audits remain partial."
+          "reason": "The live cone-pruning replacement consumer uses rule_manager::mk with symbol::null and normalize=false (dl_rule.cpp:467-534; dl_rule.h:212-213; dl_mk_coi_filter.cpp:86-87), preserving sparse variable slots while clearing the removed-tail rule name. Other construction and ownership obligations keep their existing partial scope. Formula conversion roots the head/formula before construction, separately roots negated tails and their conjunction before implication construction, and updates the same owner through universal quantification (dl_rule.cpp:560-600; dl_rule.h:263). The new separate node-accounting campaign primes only proof-declaration caches, sweeps allocation stops through first success for constant, variable-0 and variable-4 inputs, checks output suppression and original input/reference/proof-mode state, and validates retry proof premises, side conditions and conclusion. The prior cold campaign remains in place; broader proof and exceptional-cleanup audits remain partial. ToFormula adopts a nonnull constructor result and its temporary roots into the shared retryable cleanup owner (dl_rule.cpp:560-600; dl_rule.h:263). The new context allocation campaign uses pending raw rules/queries, so it is not additional direct finalized-rule ToFormula native-failure evidence; existing proof and exceptional-ownership audit limits remain."
         },
         {
           "name": "rule::set_proof ownership and rule_manager::mk_rule_rewrite_proof transfer via rewrite and modus ponens (dl_rule.cpp:792-801,878-885)",
@@ -86019,7 +86208,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_substitute.go", "pkg/muz/base/rule_substitute_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/dataflow/reachability_test.go", "pkg/muz/base/rule_unnormalized.go", "pkg/muz/transforms/coi_bottom_up_source_test.go", "pkg/muz/base/rule_compound_failure_test.go", "pkg/muz/transforms/rule_slice_compound_failure_test.go", "pkg/muz/base/rule_formula_boolean_test.go", "pkg/muz/base/rule_formula_proof.go", "pkg/muz/base/rule_formula_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_lifecycle.go", "pkg/muz/base/rule_manager_cleanup_test.go", "pkg/muz/base/rule_manager_cleanup_consumed_test.go", "pkg/muz/fp/query_head.go", "pkg/muz/fp/query_head_ownership_test.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/duality_preprocess.go", "pkg/muz/fp/spacer_relation_query.go", "pkg/muz/fp/spacer_relation_query_cleanup.go", "pkg/muz/fp/spacer_relation_query_cleanup_test.go", "pkg/muz/fp/query_magic_sets_test.go", "pkg/muz/fp/datalog_udoc_magic_test.go"],
+      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_substitute.go", "pkg/muz/base/rule_substitute_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/dataflow/reachability_test.go", "pkg/muz/base/rule_unnormalized.go", "pkg/muz/transforms/coi_bottom_up_source_test.go", "pkg/muz/base/rule_compound_failure_test.go", "pkg/muz/transforms/rule_slice_compound_failure_test.go", "pkg/muz/base/rule_formula_boolean_test.go", "pkg/muz/base/rule_formula_proof.go", "pkg/muz/base/rule_formula_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_lifecycle.go", "pkg/muz/base/rule_manager_cleanup_test.go", "pkg/muz/base/rule_manager_cleanup_consumed_test.go", "pkg/muz/fp/query_head.go", "pkg/muz/fp/query_head_ownership_test.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/duality_preprocess.go", "pkg/muz/fp/spacer_relation_query.go", "pkg/muz/fp/spacer_relation_query_cleanup.go", "pkg/muz/fp/spacer_relation_query_cleanup_test.go", "pkg/muz/fp/query_magic_sets_test.go", "pkg/muz/fp/datalog_udoc_magic_test.go", "pkg/muz/base/context_smt2_cleanup.go"],
       "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleSubstitutionPreservesVariableIndices", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestRuleManagerGroupsMultipleResidualTailsUnderOneExistential", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures", "TestConeBottomUpReplacementClearsNameAndPreservesVariableSlots", "TestRuleCompoundHoistingOwnsVariableBeforeReferenceAllocation", "TestRuleSliceCompoundHeadNodeOwnershipFailureAndRetry", "TestRuleManagerFormulaNegatedBooleanVariable", "TestRuleManagerBuildsHornRuleAndCarriesFormulaProof", "TestRuleSliceCompoundHeadAllocationFailureAndRetry", "TestRuleManagerAndHornNormalizerCleanupNativePending", "TestRuleManagerCloseRetriesAfterConsumedNativeRelease", "TestHornNormalizerResetFinishesPartiallyConsumedBody", "TestQueryHeadAndSpacerRelationColdConstructionOwnership", "TestSpacerRelationQueryFinalizerPreservesUnpublishedRule", "TestQueryMagicSetsRunsForSyntheticQueryPredicate", "TestDatalogUDocMagicSetsTransfersSeededIntentionalFacts"],
       "conditionals": [
         {
@@ -86060,9 +86249,9 @@
           "name": "Concrete rule and rule_manager retained representation, registered predicates, head/tail/name accessors, native tail partitions, variable normalization, formula conversion, and explicit shared Go ownership; general substitution, proof traces, HNF/query construction, and quantifier analysis remain open",
           "status": "partial",
           "go_target": "pkg/muz/base/rule.go",
-          "go_targets": ["pkg/muz/dataflow/reachability_test.go", "pkg/muz/base/rule_unnormalized.go", "pkg/muz/transforms/coi_bottom_up_source_test.go", "pkg/muz/base/rule.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_compound_failure_test.go", "pkg/muz/transforms/rule_slice_compound_failure_test.go", "pkg/muz/base/rule_formula_boolean_test.go", "pkg/muz/base/rule_formula_proof.go", "pkg/muz/base/rule_formula_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_lifecycle.go", "pkg/muz/base/rule_manager_cleanup_test.go", "pkg/muz/base/rule_manager_cleanup_consumed_test.go", "pkg/muz/fp/query_head.go", "pkg/muz/fp/query_head_ownership_test.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/duality_preprocess.go", "pkg/muz/fp/spacer_relation_query.go", "pkg/muz/fp/spacer_relation_query_cleanup.go", "pkg/muz/fp/spacer_relation_query_cleanup_test.go", "pkg/muz/fp/query_magic_sets_test.go", "pkg/muz/fp/datalog_udoc_magic_test.go"],
+          "go_targets": ["pkg/muz/dataflow/reachability_test.go", "pkg/muz/base/rule_unnormalized.go", "pkg/muz/transforms/coi_bottom_up_source_test.go", "pkg/muz/base/rule.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_compound_failure_test.go", "pkg/muz/transforms/rule_slice_compound_failure_test.go", "pkg/muz/base/rule_formula_boolean_test.go", "pkg/muz/base/rule_formula_proof.go", "pkg/muz/base/rule_formula_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_lifecycle.go", "pkg/muz/base/rule_manager_cleanup_test.go", "pkg/muz/base/rule_manager_cleanup_consumed_test.go", "pkg/muz/fp/query_head.go", "pkg/muz/fp/query_head_ownership_test.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/duality_preprocess.go", "pkg/muz/fp/spacer_relation_query.go", "pkg/muz/fp/spacer_relation_query_cleanup.go", "pkg/muz/fp/spacer_relation_query_cleanup_test.go", "pkg/muz/fp/query_magic_sets_test.go", "pkg/muz/fp/datalog_udoc_magic_test.go", "pkg/muz/base/context_smt2_cleanup.go"],
           "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestReachabilityRunsFromIngestedHornProgram", "TestConeBottomUpReplacementClearsNameAndPreservesVariableSlots", "TestRuleCompoundHoistingOwnsVariableBeforeReferenceAllocation", "TestRuleSliceCompoundHeadNodeOwnershipFailureAndRetry", "TestRuleManagerFormulaNegatedBooleanVariable", "TestRuleManagerBuildsHornRuleAndCarriesFormulaProof", "TestRuleSliceCompoundHeadAllocationFailureAndRetry", "TestRuleManagerAndHornNormalizerCleanupNativePending", "TestRuleManagerCloseRetriesAfterConsumedNativeRelease", "TestHornNormalizerResetFinishesPartiallyConsumedBody", "TestQueryHeadAndSpacerRelationColdConstructionOwnership", "TestSpacerRelationQueryFinalizerPreservesUnpublishedRule", "TestQueryMagicSetsRunsForSyntheticQueryPredicate", "TestDatalogUDocMagicSetsTransfersSeededIntentionalFacts"],
-          "reason": "The live cone-pruning replacement consumer uses rule_manager::mk with symbol::null and normalize=false (dl_rule.cpp:467-534; dl_rule.h:212-213; dl_mk_coi_filter.cpp:86-87), preserving sparse variable slots while clearing the removed-tail rule name. Other construction and ownership obligations keep their existing partial scope. Compound predicate hoisting reserves owning ASTRef slots before constructing the fresh variable, defining equality and replacement predicate application, then publishes each result with SetRef (dl_rule.cpp:253-263,372-407; dl_rule.h:132-134). A cold reference-page refusal leaves no extra live nodes or references and publishes no Rule; retry preserves variable index 1 and the equality to the original compound argument. This concrete construction-frontier evidence does not close general allocation or cleanup obligations. Formula conversion roots the head/formula before construction, separately roots negated tails and their conjunction before implication construction, and updates the same owner through universal quantification (dl_rule.cpp:560-600; dl_rule.h:263). The new separate node-accounting campaign primes only proof-declaration caches, sweeps allocation stops through first success for constant, variable-0 and variable-4 inputs, checks output suppression and original input/reference/proof-mode state, and validates retry proof premises, side conditions and conclusion. The prior cold campaign remains in place; broader proof and exceptional-cleanup audits remain partial. The hoisting path now calls the source ensure_app behavior for a negated Boolean variable: NOT(variable) becomes the interpreted NOT(IFF(variable,true)) tail, preserving the original variable and true operand instead of treating it as a predicate tail (dl_rule.cpp:372-380,449-465; dl_rule.h:132-134). This direct no-proof ingestion test does not establish full HNF, bit-blast or proof coverage. The already-Horn proof transfer now reserves one proof owner before constructing the rewrite, holds that proof through MkProofModusPonens, and then holds the translated proof through Rule.SetProof reference allocation (dl_rule.cpp:184-230, especially 205-227; dl_rule.h:152). The live compound-slice instantiation child path exercises this ownership order. Existing cold and warmed-declaration node-accounting campaigns check suppressed failed output, input/reference/node ownership, proof-mode restoration and validated retry; they do not isolate every entry point or establish a native-refusal cleanup audit. RuleManager and its HNF member now keep unfinished Go AST owners across refused cleanup, with close/reset/body phases preventing new work until the applicable cleanup completes (dl_rule.cpp:51-61,169-178; dl_rule.h:108-116; hnf.cpp:80-96,191-199,233-239,514-520; hnf.h:37-47). Each reference is removed from its owning vector or predicate map only when DelRef has consumed it; later errors preserve untouched owners and retries do not repeat consumed releases. Ordinary HNF Reset still preserves the current body as in the source; Reset after an interrupted body release first completes that release, then clears pending work/fresh/todo owners. Four real native-guard modes cover manager Close, normalizer Close, Reset and body cleanup using an actually populated normalizer, repeated refusal, intact owners and healthy retry. Separate signed-accounting destruction tests cover an already-consumed registered-predicate release and a partially consumed three-element body with an untouched prefix and pending work owner. They verify blocked mutation during pending cleanup, exact live-reference/physical-block progress, idempotent completion without replay and zero final budget. These are manager/normalizer ownership adaptations; individual Rule.Close post-release audit limits and broader query-pipeline integration remain unchanged. The concrete query-head helper reserves owners for descending de Bruijn arguments, the fresh reversed-domain declaration and its head application before fallible construction, returning an owning head with its declaration borrowed until registration (dl_rule.cpp:318-342; dl_rule.h:204). The expression-query and Duality preprocessing callers keep that head through rule installation and pre-reserve an implication owner; Spacer keeps the owned relation application and head in its construction attempt. All three production callers and both existing magic-set test callers adopt/release the owning result. The source existential-hoisting and gap-compaction behavior is unchanged. Cold head/Spacer helper campaigns cover widths 0 and 512 with allowances below 512 through completion, requiring actual failure for the wide case while nullary work may use existing pages. The head input query/variables are built before injection; failed declaration/head/Rule publication is suppressed, head-stage live node/reference balance is checked immediately, and Spacer registered declarations are accounted at engine Close against the pre-engine baseline. Retry and final zero budget are checked; the Spacer allocation campaign disables proof generation. Separate native-finalizer evidence uses an actual unpublished Rule and its two head/query roots; it does not cover proof construction, head prepublication argument-retirement refusal or full public solve failures."
+          "reason": "The live cone-pruning replacement consumer uses rule_manager::mk with symbol::null and normalize=false (dl_rule.cpp:467-534; dl_rule.h:212-213; dl_mk_coi_filter.cpp:86-87), preserving sparse variable slots while clearing the removed-tail rule name. Other construction and ownership obligations keep their existing partial scope. Compound predicate hoisting reserves owning ASTRef slots before constructing the fresh variable, defining equality and replacement predicate application, then publishes each result with SetRef (dl_rule.cpp:253-263,372-407; dl_rule.h:132-134). A cold reference-page refusal leaves no extra live nodes or references and publishes no Rule; retry preserves variable index 1 and the equality to the original compound argument. This concrete construction-frontier evidence does not close general allocation or cleanup obligations. Formula conversion roots the head/formula before construction, separately roots negated tails and their conjunction before implication construction, and updates the same owner through universal quantification (dl_rule.cpp:560-600; dl_rule.h:263). The new separate node-accounting campaign primes only proof-declaration caches, sweeps allocation stops through first success for constant, variable-0 and variable-4 inputs, checks output suppression and original input/reference/proof-mode state, and validates retry proof premises, side conditions and conclusion. The prior cold campaign remains in place; broader proof and exceptional-cleanup audits remain partial. The hoisting path now calls the source ensure_app behavior for a negated Boolean variable: NOT(variable) becomes the interpreted NOT(IFF(variable,true)) tail, preserving the original variable and true operand instead of treating it as a predicate tail (dl_rule.cpp:372-380,449-465; dl_rule.h:132-134). This direct no-proof ingestion test does not establish full HNF, bit-blast or proof coverage. The already-Horn proof transfer now reserves one proof owner before constructing the rewrite, holds that proof through MkProofModusPonens, and then holds the translated proof through Rule.SetProof reference allocation (dl_rule.cpp:184-230, especially 205-227; dl_rule.h:152). The live compound-slice instantiation child path exercises this ownership order. Existing cold and warmed-declaration node-accounting campaigns check suppressed failed output, input/reference/node ownership, proof-mode restoration and validated retry; they do not isolate every entry point or establish a native-refusal cleanup audit. RuleManager and its HNF member now keep unfinished Go AST owners across refused cleanup, with close/reset/body phases preventing new work until the applicable cleanup completes (dl_rule.cpp:51-61,169-178; dl_rule.h:108-116; hnf.cpp:80-96,191-199,233-239,514-520; hnf.h:37-47). Each reference is removed from its owning vector or predicate map only when DelRef has consumed it; later errors preserve untouched owners and retries do not repeat consumed releases. Ordinary HNF Reset still preserves the current body as in the source; Reset after an interrupted body release first completes that release, then clears pending work/fresh/todo owners. Four real native-guard modes cover manager Close, normalizer Close, Reset and body cleanup using an actually populated normalizer, repeated refusal, intact owners and healthy retry. Separate signed-accounting destruction tests cover an already-consumed registered-predicate release and a partially consumed three-element body with an untouched prefix and pending work owner. They verify blocked mutation during pending cleanup, exact live-reference/physical-block progress, idempotent completion without replay and zero final budget. These are manager/normalizer ownership adaptations; individual Rule.Close post-release audit limits and broader query-pipeline integration remain unchanged. The concrete query-head helper reserves owners for descending de Bruijn arguments, the fresh reversed-domain declaration and its head application before fallible construction, returning an owning head with its declaration borrowed until registration (dl_rule.cpp:318-342; dl_rule.h:204). The expression-query and Duality preprocessing callers keep that head through rule installation and pre-reserve an implication owner; Spacer keeps the owned relation application and head in its construction attempt. All three production callers and both existing magic-set test callers adopt/release the owning result. The source existential-hoisting and gap-compaction behavior is unchanged. Cold head/Spacer helper campaigns cover widths 0 and 512 with allowances below 512 through completion, requiring actual failure for the wide case while nullary work may use existing pages. The head input query/variables are built before injection; failed declaration/head/Rule publication is suppressed, head-stage live node/reference balance is checked immediately, and Spacer registered declarations are accounted at engine Close against the pre-engine baseline. Retry and final zero budget are checked; the Spacer allocation campaign disables proof generation. Separate native-finalizer evidence uses an actual unpublished Rule and its two head/query roots; it does not cover proof construction, head prepublication argument-retirement refusal or full public solve failures. ToFormula adopts a nonnull constructor result and its temporary roots into the shared retryable cleanup owner (dl_rule.cpp:560-600; dl_rule.h:263). The new context allocation campaign uses pending raw rules/queries, so it is not additional direct finalized-rule ToFormula native-failure evidence; existing proof and exceptional-ownership audit limits remain."
         },
         {
           "name": "rule_manager::display_smt2 quantified rule-formula output declaration (dl_rule.h:265)",
@@ -86090,7 +86279,11 @@
         "pkg/muz/base/rule_set_display.go",
         "pkg/muz/base/rule_set_display_test.go",
         "pkg/muz/rel/compiler.go",
-        "pkg/muz/transforms/coi_test.go"
+        "pkg/muz/transforms/coi_test.go",
+        "pkg/muz/base/rule_set_exchange.go",
+        "pkg/muz/base/rule_set_exchange_test.go",
+        "pkg/muz/fp/pending_open_rules.go",
+        "pkg/muz/fp/pending_normalization_cancellation_test.go"
       ],
       "tests": [
         "TestRuleSetFinalizesDependenciesAndStratifiedNegation",
@@ -86099,7 +86292,11 @@
         "TestConeOfInfluencePrunesOutsideAndUnfoundedRules",
         "TestConeOfInfluenceReturnsNilWhenUnchanged",
         "TestRuleSetWriteSourceDisplay",
-        "TestRuleSetWriteDisplayIncludesProofsOnRulesWithTails"
+        "TestRuleSetWriteDisplayIncludesProofsOnRulesWithTails",
+        "TestRuleSetExchangeContentsTransfersMetadataAndOwners",
+        "TestRuleSetExchangeContentsRejectsInvalidOwnersWithoutMutation",
+        "TestPendingNormalizationCancellationPreservesRulesAndRetry",
+        "TestPendingNormalizationHonorsSuspendedLimit"
       ],
       "assertions": [
         {
@@ -86232,11 +86429,20 @@
             "TestRuleSetPredicateMappingsCopiesAndFoundedPartition",
             "TestConeOfInfluencePrunesOutsideAndUnfoundedRules",
             "TestConeOfInfluenceReturnsNilWhenUnchanged",
-            "TestRuleSetWriteSourceDisplay"
+            "TestRuleSetWriteSourceDisplay",
+            "TestRuleSetExchangeContentsTransfersMetadataAndOwners",
+            "TestRuleSetExchangeContentsRejectsInvalidOwnersWithoutMutation",
+            "TestPendingNormalizationCancellationPreservesRulesAndRetry",
+            "TestPendingNormalizationHonorsSuspendedLimit"
           ],
           "go_targets": [
-            "pkg/muz/transforms/coi_test.go"
-          ]
+            "pkg/muz/transforms/coi_test.go",
+            "pkg/muz/base/rule_set_exchange.go",
+            "pkg/muz/base/rule_set_exchange_test.go",
+            "pkg/muz/fp/pending_open_rules.go",
+            "pkg/muz/fp/pending_normalization_cancellation_test.go"
+          ],
+          "reason": "Staged pending normalization now exchanges prepared contents into the same persistent RuleSet object, a concrete Go publication adaptation of context-owned rule insertion (dl_context.cpp:463-471,1060-1070), not a newly invented C++ exchange method. Same-manager/open checks precede transfer of rule owners, head index, output/original-to-derived metadata and finalized dependencies/strata; no AST reference acquisition or release occurs during exchange. Tests preserve independently held Rule owners and reject null/closed/foreign cases without mutation, including self behavior. After formula ingestion, ResourceLimit.IncOffset(0) detects canceled HNF prefixes without charging another resource step; canceled work preserves old rules/phase and permits retry, while suspended cancellation allows successful publication. Broader HNF ownership and source partial-publication audits remain separate."
         },
         {
           "name": "rule_set::display_deps source dependency and stratum formatting (dl_rule_set.cpp:537-566)",
@@ -86276,7 +86482,11 @@
         "pkg/muz/base/rule_set_display.go",
         "pkg/muz/base/rule_set_display_test.go",
         "pkg/muz/rel/compiler.go",
-        "pkg/muz/transforms/coi_test.go"
+        "pkg/muz/transforms/coi_test.go",
+        "pkg/muz/base/rule_set_exchange.go",
+        "pkg/muz/base/rule_set_exchange_test.go",
+        "pkg/muz/fp/pending_open_rules.go",
+        "pkg/muz/fp/pending_normalization_cancellation_test.go"
       ],
       "tests": [
         "TestRuleSetFinalizesDependenciesAndStratifiedNegation",
@@ -86284,7 +86494,11 @@
         "TestRuleSetPredicateMappingsCopiesAndFoundedPartition",
         "TestConeOfInfluencePrunesOutsideAndUnfoundedRules",
         "TestConeOfInfluenceReturnsNilWhenUnchanged",
-        "TestRuleSetWriteSourceDisplay"
+        "TestRuleSetWriteSourceDisplay",
+        "TestRuleSetExchangeContentsTransfersMetadataAndOwners",
+        "TestRuleSetExchangeContentsRejectsInvalidOwnersWithoutMutation",
+        "TestPendingNormalizationCancellationPreservesRulesAndRetry",
+        "TestPendingNormalizationHonorsSuspendedLimit"
       ],
       "conditionals": [
         {
@@ -86331,11 +86545,20 @@
             "TestRuleSetRejectsNegativeDependencyCycle",
             "TestRuleSetPredicateMappingsCopiesAndFoundedPartition",
             "TestConeOfInfluencePrunesOutsideAndUnfoundedRules",
-            "TestConeOfInfluenceReturnsNilWhenUnchanged"
+            "TestConeOfInfluenceReturnsNilWhenUnchanged",
+            "TestRuleSetExchangeContentsTransfersMetadataAndOwners",
+            "TestRuleSetExchangeContentsRejectsInvalidOwnersWithoutMutation",
+            "TestPendingNormalizationCancellationPreservesRulesAndRetry",
+            "TestPendingNormalizationHonorsSuspendedLimit"
           ],
           "go_targets": [
-            "pkg/muz/transforms/coi_test.go"
-          ]
+            "pkg/muz/transforms/coi_test.go",
+            "pkg/muz/base/rule_set_exchange.go",
+            "pkg/muz/base/rule_set_exchange_test.go",
+            "pkg/muz/fp/pending_open_rules.go",
+            "pkg/muz/fp/pending_normalization_cancellation_test.go"
+          ],
+          "reason": "Staged pending normalization now exchanges prepared contents into the same persistent RuleSet object, a concrete Go publication adaptation of context-owned rule insertion (dl_context.cpp:463-471,1060-1070), not a newly invented C++ exchange method. Same-manager/open checks precede transfer of rule owners, head index, output/original-to-derived metadata and finalized dependencies/strata; no AST reference acquisition or release occurs during exchange. Tests preserve independently held Rule owners and reject null/closed/foreign cases without mutation, including self behavior. After formula ingestion, ResourceLimit.IncOffset(0) detects canceled HNF prefixes without charging another resource step; canceled work preserves old rules/phase and permits retry, while suspended cancellation allows successful publication. Broader HNF ownership and source partial-publication audits remain separate."
         }
       ],
       "ownership": [
@@ -88215,7 +88438,9 @@
         "pkg/muz/duality/certificate_cleanup.go",
         "pkg/muz/duality/query_certificate_cleanup_test.go",
         "pkg/muz/duality/constructor_cleanup.go",
-        "pkg/muz/duality/constructor_cleanup_test.go"
+        "pkg/muz/duality/constructor_cleanup_test.go",
+        "pkg/muz/fp/duality_engine.go",
+        "pkg/api/api_fixedpoint_failed_display_phase_test.go"
       ],
       "tests": ["TestDualityBackendProfileOutputAndWriterRetry", "TestSMT2DualityArrayQuantificationQueries", "TestSMT2DualityArrayValuedOutputQuantification", "TestRPFPAnnotationModelParameterOrderAndIndependentLifetime", "TestRPFPAnnotationModelEveryAllocationPrefix", "pkg/muz/duality/backend_test.go", "pkg/muz/duality/native_solver_test.go", "pkg/muz/duality/query_options_test.go", "pkg/muz/duality/build_graph_test.go",
         "TestQueryClauseSparseAndGroundVariables",
@@ -88228,7 +88453,8 @@
         "TestDualityBackgroundScopeCloseRetry",
         "TestDualityBackgroundScopeAllocationFrontiers",
         "TestDualitySafeCertificateNativeFailurePreservesModelOwner",
-        "TestDualityConstructorNativeFailureKeepsOwners"
+        "TestDualityConstructorNativeFailureKeepsOwners",
+        "TestAPIFixedpointFailedDualityQueryPreservesSourceDisplayPhase"
       ],
       "conditionals": [
         {
@@ -88359,8 +88585,11 @@
           "tests": [
             "TestPrepareQueryRulesMissingHeadsAndBounds",
             "TestPrepareQueryFailureReleasesClauseOwners",
-            "TestPreparedQueryCopyCannotMutateOrReleaseOriginalOwners"
-          ]
+            "TestPreparedQueryCopyCannotMutateOrReleaseOriginalOwners",
+            "TestAPIFixedpointFailedDualityQueryPreservesSourceDisplayPhase"
+          ],
+          "go_targets": ["pkg/muz/fp/duality_engine.go", "pkg/api/api_fixedpoint_failed_display_phase_test.go"],
+          "reason": "Duality's xform.quantify_arrays-enabled query path flushes pending inputs before fragment validation, matching context dispatch order (dl_context.cpp:861-887, especially 878-882). With the option true, two rejected expression queries expose normalized rules/display; false preserves the original closed quantified input, binder and weight. The test keeps one rule and an earlier independently owning Rules snapshot intact. This is the conditional array-quantification display boundary, not unconditional flushing of every failed Duality input, a backend algorithm change or a new native-cleanup campaign."
         },
         {
           "name": "display_certificate safe-result model branch and reachable-result derivation branch",
@@ -89761,7 +89990,9 @@
         "pkg/muz/pdr/context_classifier_test.go",
         "pkg/muz/pdr/context_rule_plan.go",
         "pkg/muz/pdr/context_update_rules.go",
-        "pkg/muz/pdr/context_unknown_test.go"
+        "pkg/muz/pdr/context_unknown_test.go",
+        "pkg/muz/pdr/result_validation.go",
+        "pkg/muz/pdr/result_validation_negation_failure_test.go"
       ],
       "tests": [
         "TestPredicateTransformerSignatureFramesAndReachability",
@@ -89811,7 +90042,8 @@
         "TestBlastTermITEIntoKeepsHoistedResultOwned",
         "TestContextClassifierMatchesSourceArgumentAndTheoryBranches",
         "TestContextClassifierUpdateCompatibilityMatchesInitialization",
-        "TestContextSolvePropagatesNativeConflictLimitUnknown"
+        "TestContextSolvePropagatesNativeConflictLimitUnknown",
+        "TestPDRProofValidationOwnsNegatedConditionBeforeSolverConstruction"
       ],
       "assertions": [
         {
@@ -90267,9 +90499,9 @@
         {
           "name": "pdr.validate_result dispatch validates SAT search/proof witnesses and UNSAT inductive models against live normalized rules, invalidating failed results before publication (pdr_context.cpp:1696-1808,1897,1926)",
           "status": "ported",
-          "go_targets": ["pkg/muz/pdr/context.go", "pkg/muz/pdr/context_solve.go", "pkg/muz/pdr/result_validation.go", "pkg/muz/pdr/result_validation_dispatch.go", "pkg/muz/pdr/validate_model.go", "pkg/muz/fp/pdr_engine.go"],
-          "tests": ["TestValidateSATFormulaAcceptsWitnessAndRejectsCorruption", "TestValidateProofHandleChecksSemanticSideConditions", "TestValidateInductiveModelRuleViolationsAndFiniteFrame", "TestValidationFailureInvalidatesDirectContextResult", "TestValidatedMissingQueryUsesUNSATFinalization", "TestPDRValidateResultParameterChecksSATAndUNSATQueries", "TestPDRValidationPreservesFreshSolverAndRootsOnNativeCleanupRefusal", "TestPDRModelValidationPreservesPartialOwnersWhenCleanupRefuses"],
-          "reason": "SAT validation uses fresh source-style kernels for the trace formula and proof side conditions. UNSAT validation constructs the finite/invariant interpretation and checks every normalized rule without weakening by background assertions or adding a separate query-falsity obligation. The configured fixedpoint path exercises both outcomes, and a failed validation sets the direct context result to unknown."
+          "go_targets": ["pkg/muz/pdr/context.go", "pkg/muz/pdr/context_solve.go", "pkg/muz/pdr/result_validation.go", "pkg/muz/pdr/result_validation_dispatch.go", "pkg/muz/pdr/validate_model.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/pdr/result_validation_negation_failure_test.go"],
+          "tests": ["TestValidateSATFormulaAcceptsWitnessAndRejectsCorruption", "TestValidateProofHandleChecksSemanticSideConditions", "TestValidateInductiveModelRuleViolationsAndFiniteFrame", "TestValidationFailureInvalidatesDirectContextResult", "TestValidatedMissingQueryUsesUNSATFinalization", "TestPDRValidateResultParameterChecksSATAndUNSATQueries", "TestPDRValidationPreservesFreshSolverAndRootsOnNativeCleanupRefusal", "TestPDRModelValidationPreservesPartialOwnersWhenCleanupRefuses", "TestPDRProofValidationOwnsNegatedConditionBeforeSolverConstruction"],
+          "reason": "SAT validation uses fresh source-style kernels for the trace formula and proof side conditions. UNSAT validation constructs the finite/invariant interpretation and checks every normalized rule without weakening by background assertions or adding a separate query-falsity obligation. The configured fixedpoint path exercises both outcomes, and a failed validation sets the direct context result to unknown. Proof validation reserves its cleanup-owned reference before constructing the negated side condition, adopts any nonnull result and keeps it owned before fresh-kernel construction (pdr_context.cpp:1696-1728). A warmed-cache test reaches one FailAfter(0) fresh-kernel allocation frontier after negation, checks all four live AST counts, retries a valid proof twice and still rejects an invalid rewrite. This is not a dense sweep, separately injected reference/negation/adoption frontier or new native-cleanup campaign."
         },
         {
           "name": "expand_node native SMT l_undef propagates through unknown_exception to context::solve l_undef before propagation, validation or decided-result publication",
@@ -90336,7 +90568,9 @@
         "pkg/muz/pdr/context_rule_plan.go",
         "pkg/muz/pdr/context_reset.go",
         "pkg/muz/pdr/context_update_rules.go",
-        "pkg/muz/pdr/context_unknown_test.go"
+        "pkg/muz/pdr/context_unknown_test.go",
+        "pkg/muz/pdr/result_validation.go",
+        "pkg/muz/pdr/result_validation_negation_failure_test.go"
       ],
       "tests": [
         "TestPredicateTransformerSignatureFramesAndReachability",
@@ -90363,7 +90597,8 @@
         "TestBlastTermITEIntoKeepsHoistedResultOwned",
         "TestContextClassifierMatchesSourceArgumentAndTheoryBranches",
         "TestContextClassifierUpdateCompatibilityMatchesInitialization",
-        "TestContextSolvePropagatesNativeConflictLimitUnknown"
+        "TestContextSolvePropagatesNativeConflictLimitUnknown",
+        "TestPDRProofValidationOwnsNegatedConditionBeforeSolverConstruction"
       ],
       "conditionals": [
         {
@@ -90631,8 +90866,9 @@
         {
           "name": "retained pdr.validate_result configuration and SAT-proof/search plus UNSAT-inductive-model validation surface",
           "status": "ported",
-          "go_targets": ["pkg/muz/pdr/context.go", "pkg/muz/pdr/result_validation.go", "pkg/muz/pdr/result_validation_dispatch.go", "pkg/muz/pdr/validate_model.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/pdr_result_validation_config_test.go"],
-          "tests": ["TestValidateSATFormulaAcceptsWitnessAndRejectsCorruption", "TestValidateProofHandleChecksSemanticSideConditions", "TestValidateInductiveModelRuleViolationsAndFiniteFrame", "TestValidationFailureInvalidatesDirectContextResult", "TestValidatedMissingQueryUsesUNSATFinalization", "TestPDRValidateResultParameterChecksSATAndUNSATQueries"]
+          "go_targets": ["pkg/muz/pdr/context.go", "pkg/muz/pdr/result_validation.go", "pkg/muz/pdr/result_validation_dispatch.go", "pkg/muz/pdr/validate_model.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/pdr_result_validation_config_test.go", "pkg/muz/pdr/result_validation_negation_failure_test.go"],
+          "tests": ["TestValidateSATFormulaAcceptsWitnessAndRejectsCorruption", "TestValidateProofHandleChecksSemanticSideConditions", "TestValidateInductiveModelRuleViolationsAndFiniteFrame", "TestValidationFailureInvalidatesDirectContextResult", "TestValidatedMissingQueryUsesUNSATFinalization", "TestPDRValidateResultParameterChecksSATAndUNSATQueries", "TestPDRProofValidationOwnsNegatedConditionBeforeSolverConstruction"],
+          "reason": "Proof validation reserves its cleanup-owned reference before constructing the negated side condition, adopts any nonnull result and keeps it owned before fresh-kernel construction (pdr_context.cpp:1696-1728). A warmed-cache test reaches one FailAfter(0) fresh-kernel allocation frontier after negation, checks all four live AST counts, retries a valid proof twice and still rejects an invalid rewrite. This is not a dense sweep, separately injected reference/negation/adoption frontier or new native-cleanup campaign."
         },
         {
           "name": "three-valued reachability/search result surface preserves native SMT unknown through Solve and result accessors",
@@ -90713,7 +90949,12 @@
         "pkg/cmd/g3/test_vectors/fixedpoint_pdr_sliced_trace.smt2",
         "pkg/cmd/g3/test_vectors/fixedpoint_pdr_sliced_compound_tail.smt2",
         "pkg/cmd/g3/test_vectors/fixedpoint_pdr_sliced_compound_head.smt2",
-        "pkg/cmd/g3/main_test.go"
+        "pkg/cmd/g3/main_test.go",
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/muz/fp/pdr_prequery_statistics_cleanup_test.go",
+        "pkg/muz/fp/query_clone_cleanup.go",
+        "pkg/muz/fp/spacer_statistics.go",
+        "pkg/muz/fp/query_clone_statistics_cleanup_test.go"
       ],
       "tests": [
         "TestPDREngineMatchesCPPIntegerHornQueries",
@@ -90754,7 +90995,9 @@
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_trace.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_compound_tail.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_compound_head.smt2",
-        "TestPDRFreshRuleTraceOrderGateAndStreamFailure"
+        "TestPDRFreshRuleTraceOrderGateAndStreamFailure",
+        "TestPDRPrequeryParameterUpdateResumesAfterNativeBackgroundCleanup",
+        "TestQueryCloneStatisticsSurviveNativeLateCleanup"
       ],
       "assertions": [
         {
@@ -90918,11 +91161,21 @@
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "tests": [
             "TestPDREngineMatchesCPPIntegerHornQueries",
-            "TestSMT2FixedpointPDRStatistics"
+            "TestSMT2FixedpointPDRStatistics",
+            "TestPDRPrequeryParameterUpdateResumesAfterNativeBackgroundCleanup",
+            "TestQueryCloneStatisticsSurviveNativeLateCleanup"
           ],
           "go_targets": [
-            "pkg/parsers/smt2/fixedpoint_commands_test.go"
-          ]
+            "pkg/parsers/smt2/fixedpoint_commands_test.go",
+            "pkg/muz/fp/pdr_engine.go",
+            "pkg/muz/fp/query_expression.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/fp/pdr_prequery_statistics_cleanup_test.go",
+            "pkg/muz/fp/query_clone_cleanup.go",
+            "pkg/muz/fp/spacer_statistics.go",
+            "pkg/muz/fp/query_clone_statistics_cleanup_test.go"
+          ],
+          "reason": "PDR prequery disposal snapshots statistics before teardown, exposes that snapshot while cleanup is pending and merges it only after successful disposal; parameter replacement, query transfer and statistics reset first complete pending direct-context disposal (pdr_dl_interface.cpp:36-48,196-202,214-217). The test reaches a real large-rational background release that frees its physical block before reporting a native accounting error after pool teardown. The same context stays owned while the saved statistics remain readable; parameter update, implicit expression-query completion or statistics reset then retire the old owner and recover the original fact with zero final budget. Prequery counters are not asserted nonzero, so this does not establish quantitative once-only accumulation, a dense failure campaign or full PDR cleanup closure. Expression-query clone disposal captures a complete statistics snapshot once before backend close, serves it while the clone is closing and merges it only after successful disposal; ResetStatistics first drains pending cleanup (pdr_dl_interface.cpp:195-202; spacer_dl_interface.cpp:310-317; dl_context.cpp:1009-1018). PDR/Spacer clear/reset cases reach a real late native accounting refusal while retiring a large-rational background after backend closure. Nonzero num checks and engine search counters remain correct before, during and after repeated cleanup; reset preserves lifetime checks but clears search counters without resurrecting them. The independently owning answer survives and final budget returns to zero. This is an actual late-disposal frontier, not an interrupted statistics-collection injection or generic clone-cleanup closure."
         },
         {
           "name": "PDR finite-level count and direct-predicate cover forwarding (pdr_dl_interface.cpp:175-195)",
@@ -90946,8 +91199,9 @@
           "name": "PDR context and transformed/source rule-snapshot replacement ownership across native cleanup refusal (destructor/updt_params/check_reset)",
           "status": "ported",
           "go_target": "pkg/muz/fp/pdr_engine.go",
-          "go_targets": ["pkg/muz/fp/pdr_rule_lifecycle.go", "pkg/muz/fp/pdr_context_construction.go", "pkg/muz/fp/pdr_replacement_pending_test.go", "pkg/muz/fp/pdr_snapshot_replacement_pending_test.go"],
-          "tests": ["TestPDRReplacementPreservesContextWhenNativeCleanupRefuses", "TestPDRSnapshotReplacementPublishesOnlyAfterNativeCleanup"]
+          "go_targets": ["pkg/muz/fp/pdr_rule_lifecycle.go", "pkg/muz/fp/pdr_context_construction.go", "pkg/muz/fp/pdr_replacement_pending_test.go", "pkg/muz/fp/pdr_snapshot_replacement_pending_test.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/pdr_prequery_statistics_cleanup_test.go"],
+          "tests": ["TestPDRReplacementPreservesContextWhenNativeCleanupRefuses", "TestPDRSnapshotReplacementPublishesOnlyAfterNativeCleanup", "TestPDRPrequeryParameterUpdateResumesAfterNativeBackgroundCleanup"],
+          "reason": "PDR prequery disposal snapshots statistics before teardown, exposes that snapshot while cleanup is pending and merges it only after successful disposal; parameter replacement, query transfer and statistics reset first complete pending direct-context disposal (pdr_dl_interface.cpp:36-48,196-202,214-217). The test reaches a real large-rational background release that frees its physical block before reporting a native accounting error after pool teardown. The same context stays owned while the saved statistics remain readable; parameter update, implicit expression-query completion or statistics reset then retire the old owner and recover the original fact with zero final budget. Prequery counters are not asserted nonzero, so this does not establish quantitative once-only accumulation, a dense failure campaign or full PDR cleanup closure."
         },
         {
           "name": "Spacer transformed/source rule replacement preserves the old snapshot and cleanup continuation across native refusal",
@@ -91015,7 +91269,13 @@
         "pkg/cmd/g3/test_vectors/fixedpoint_pdr_convex_closure.smt2",
         "pkg/cmd/g3/test_vectors/fixedpoint_pdr_convex_interior.smt2",
         "pkg/parsers/smt2/fixedpoint_commands_test.go",
-        "pkg/cmd/g3/main_test.go"
+        "pkg/cmd/g3/main_test.go",
+        "pkg/muz/fp/query_expression.go",
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/muz/fp/pdr_prequery_statistics_cleanup_test.go",
+        "pkg/muz/fp/query_clone_cleanup.go",
+        "pkg/muz/fp/spacer_statistics.go",
+        "pkg/muz/fp/query_clone_statistics_cleanup_test.go"
       ],
       "tests": [
         "TestPDREngineMatchesCPPIntegerHornQueries",
@@ -91048,7 +91308,9 @@
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_interior.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_utvpi_fragment.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_general_arithmetic_fragment.smt2",
-        "TestSMTContextFixedpointPDRLifecycle"
+        "TestSMTContextFixedpointPDRLifecycle",
+        "TestPDRPrequeryParameterUpdateResumesAfterNativeBackgroundCleanup",
+        "TestQueryCloneStatisticsSurviveNativeLateCleanup"
       ],
       "conditionals": [
         {
@@ -91079,13 +91341,19 @@
             "TestSMTLibRunnerCPPReference/fixedpoint_pdr_integer.smt2",
             "TestSMTLibRunnerCPPReference/fixedpoint_pdr_background.smt2",
             "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_closure.smt2",
-            "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_interior.smt2"
+            "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_interior.smt2",
+            "TestPDRPrequeryParameterUpdateResumesAfterNativeBackgroundCleanup"
           ],
           "go_targets": [
             "pkg/parsers/smt2/fixedpoint_commands_test.go",
             "pkg/api/api_fixedpoint_test.go",
-            "pkg/cmd/g3/main_test.go"
-          ]
+            "pkg/cmd/g3/main_test.go",
+            "pkg/muz/fp/pdr_engine.go",
+            "pkg/muz/fp/query_expression.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/fp/pdr_prequery_statistics_cleanup_test.go"
+          ],
+          "reason": "PDR prequery disposal snapshots statistics before teardown, exposes that snapshot while cleanup is pending and merges it only after successful disposal; parameter replacement, query transfer and statistics reset first complete pending direct-context disposal (pdr_dl_interface.cpp:36-48,196-202,214-217). The test reaches a real large-rational background release that frees its physical block before reporting a native accounting error after pool teardown. The same context stays owned while the saved statistics remain readable; parameter update, implicit expression-query completion or statistics reset then retire the old owner and recover the original fact with zero final budget. Prequery counters are not asserted nonzero, so this does not establish quantitative once-only accumulation, a dense failure campaign or full PDR cleanup closure."
         },
         {
           "name": "successful existential relation-declaration trace and unsuccessful direct-predicate inductive-certificate surface, including banked rule/head unification, acyclic and recursive traces, initial-rule model recovery and nonlinear-rule reduction",
@@ -91118,11 +91386,21 @@
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "tests": [
             "TestPDREngineMatchesCPPIntegerHornQueries",
-            "TestSMT2FixedpointPDRStatistics"
+            "TestSMT2FixedpointPDRStatistics",
+            "TestPDRPrequeryParameterUpdateResumesAfterNativeBackgroundCleanup",
+            "TestQueryCloneStatisticsSurviveNativeLateCleanup"
           ],
           "go_targets": [
-            "pkg/parsers/smt2/fixedpoint_commands_test.go"
-          ]
+            "pkg/parsers/smt2/fixedpoint_commands_test.go",
+            "pkg/muz/fp/pdr_engine.go",
+            "pkg/muz/fp/query_expression.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/fp/pdr_prequery_statistics_cleanup_test.go",
+            "pkg/muz/fp/query_clone_cleanup.go",
+            "pkg/muz/fp/spacer_statistics.go",
+            "pkg/muz/fp/query_clone_statistics_cleanup_test.go"
+          ],
+          "reason": "PDR prequery disposal snapshots statistics before teardown, exposes that snapshot while cleanup is pending and merges it only after successful disposal; parameter replacement, query transfer and statistics reset first complete pending direct-context disposal (pdr_dl_interface.cpp:36-48,196-202,214-217). The test reaches a real large-rational background release that frees its physical block before reporting a native accounting error after pool teardown. The same context stays owned while the saved statistics remain readable; parameter update, implicit expression-query completion or statistics reset then retire the old owner and recover the original fact with zero final budget. Prequery counters are not asserted nonzero, so this does not establish quantitative once-only accumulation, a dense failure campaign or full PDR cleanup closure. Expression-query clone disposal captures a complete statistics snapshot once before backend close, serves it while the clone is closing and merges it only after successful disposal; ResetStatistics first drains pending cleanup (pdr_dl_interface.cpp:195-202; spacer_dl_interface.cpp:310-317; dl_context.cpp:1009-1018). PDR/Spacer clear/reset cases reach a real late native accounting refusal while retiring a large-rational background after backend closure. Nonzero num checks and engine search counters remain correct before, during and after repeated cleanup; reset preserves lifetime checks but clears search counters without resurrecting them. The independently owning answer survives and final budget returns to zero. This is an actual late-disposal frontier, not an interrupted statistics-collection injection or generic clone-cleanup closure."
         },
         {
           "name": "PDR finite-level count and direct-predicate cover forwarding",
@@ -91686,14 +91964,16 @@
         "pkg/muz/pdr/manager_test.go",
         "pkg/muz/pdr/answer.go",
         "pkg/muz/fp/propositional_engine.go",
-        "pkg/parsers/smt2/commands.go"
+        "pkg/parsers/smt2/commands.go",
+        "pkg/muz/fp/pdr_prequery_statistics_cleanup_test.go"
       ],
       "tests": [
         "TestManagerStateCreationConversionAndAtomRecognition",
         "TestManagerBooleanBackgroundSolverAndImplicationIntegration",
         "TestContextSolveFindsInductiveUnreachablePredicate",
         "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
-        "TestSMT2FixedpointPDRPrintCertificate"
+        "TestSMT2FixedpointPDRPrintCertificate",
+        "TestPDRPrequeryParameterUpdateResumesAfterNativeBackgroundCleanup"
       ],
       "assertions": [
         {
@@ -91722,8 +92002,11 @@
           "go_target": "pkg/muz/pdr/manager.go",
           "tests": [
             "TestManagerStateCreationConversionAndAtomRecognition",
-            "TestManagerBooleanBackgroundSolverAndImplicationIntegration"
-          ]
+            "TestManagerBooleanBackgroundSolverAndImplicationIntegration",
+            "TestPDRPrequeryParameterUpdateResumesAfterNativeBackgroundCleanup"
+          ],
+          "go_targets": ["pkg/muz/pdr/manager.go", "pkg/muz/fp/pdr_prequery_statistics_cleanup_test.go"],
+          "reason": "The concrete manager skips an already-consumed empty background reference on cleanup retry after native release has physically freed the rational block (pdr_manager.cpp:163-172; pdr_manager.h:84-87). Its actual prequery consumer preserves the pending context until parameter-update, expression-query or statistics-reset completion and closes to zero budget. This covers the consumed-background member frontier, not every reverse-member destructor failure."
         },
         {
           "name": "inductive_property direct-predicate universally quantified expression construction (pdr_manager.cpp:57-76,85-122)",
@@ -91785,13 +92068,15 @@
         "pkg/muz/pdr/manager_test.go",
         "pkg/muz/pdr/answer.go",
         "pkg/muz/fp/propositional_engine.go",
-        "pkg/parsers/smt2/commands.go"
+        "pkg/parsers/smt2/commands.go",
+        "pkg/muz/fp/pdr_prequery_statistics_cleanup_test.go"
       ],
       "tests": [
         "TestManagerStateCreationConversionAndAtomRecognition",
         "TestManagerBooleanBackgroundSolverAndImplicationIntegration",
         "TestContextSolveFindsInductiveUnreachablePredicate",
-        "TestSMT2FixedpointPDRPrintCertificate"
+        "TestSMT2FixedpointPDRPrintCertificate",
+        "TestPDRPrequeryParameterUpdateResumesAfterNativeBackgroundCleanup"
       ],
       "conditionals": [
         {
@@ -91822,8 +92107,11 @@
           "go_target": "pkg/muz/pdr/manager.go",
           "tests": [
             "TestManagerStateCreationConversionAndAtomRecognition",
-            "TestManagerBooleanBackgroundSolverAndImplicationIntegration"
-          ]
+            "TestManagerBooleanBackgroundSolverAndImplicationIntegration",
+            "TestPDRPrequeryParameterUpdateResumesAfterNativeBackgroundCleanup"
+          ],
+          "go_targets": ["pkg/muz/pdr/manager.go", "pkg/muz/fp/pdr_prequery_statistics_cleanup_test.go"],
+          "reason": "The concrete manager skips an already-consumed empty background reference on cleanup retry after native release has physically freed the rational block (pdr_manager.cpp:163-172; pdr_manager.h:84-87). Its actual prequery consumer preserves the pending context until parameter-update, expression-query or statistics-reset completion and closes to zero budget. This covers the consumed-background member frontier, not every reverse-member destructor failure."
         },
         {
           "name": "direct-predicate inductive_property expression surface",
@@ -100941,7 +101229,8 @@
         "pkg/muz/fp/datalog_restart_test.go",
         "pkg/muz/fp/datalog_checked_saturation.go",
         "pkg/muz/rel/instruction.go",
-        "pkg/cmd/g3/datalog_udoc_ground_products_anchor_test.go"
+        "pkg/cmd/g3/datalog_udoc_ground_products_anchor_test.go",
+        "pkg/muz/fp/datalog_sparse_interval_dispatch_test.go"
       ],
       "tests": [
         "TestQueryMagicSetsRunsForSyntheticQueryPredicate",
@@ -101161,7 +101450,8 @@
         "TestDatalogInitialRestartTimeoutParameters",
         "TestDatalogRestartTimeoutUsesInitialMultiplierAndClamps",
         "TestDatalogRestartRoundResetsTimerAndAccumulatesOperations",
-        "TestDatalogRestartDriverCompletesClosureAndPreservesProgram"
+        "TestDatalogRestartDriverCompletesClosureAndPreservesProgram",
+        "TestDatalogSparseIntervalRequestedPairLifecycle"
       ],
       "conditionals": [
         {
@@ -101433,7 +101723,7 @@
           "status": "partial",
           "go_targets": ["pkg/muz/fp/datalog_sparse_interval_activation.go", "pkg/muz/fp/datalog_sparse_interval_cleanup.go", "pkg/muz/fp/datalog_sparse_interval_dispatch.go", "pkg/muz/fp/datalog_sparse_interval_evaluator.go", "pkg/muz/fp/datalog_sparse_interval_migration.go", "pkg/muz/fp/datalog_sparse_interval_negation.go", "pkg/muz/fp/datalog_sparse_interval_positive.go", "pkg/muz/fp/datalog_sparse_interval_query_kind.go", "pkg/muz/fp/datalog_sparse_interval_store.go", "pkg/muz/fp/datalog_sparse_interval_strata.go", "pkg/muz/fp/sparse_interval_representation.go", "pkg/muz/fp/datalog_sparse_interval_positive_test.go", "pkg/muz/fp/datalog_sparse_interval_negation_test.go", "pkg/muz/fp/datalog_sparse_interval_head_assembly_test.go", "pkg/muz/fp/datalog_sparse_interval_cleanup_test.go", "pkg/muz/fp/datalog_sparse_interval_dispatch_test.go", "pkg/muz/fp/datalog_sparse_interval_heterogeneous_test.go", "pkg/muz/fp/datalog_sparse_interval_migration_test.go", "pkg/muz/fp/datalog_sparse_interval_finite_auxiliary_test.go", "pkg/muz/fp/datalog_sparse_interval_hash_original_test.go", "pkg/muz/fp/datalog_sparse_interval_hash_test.go", "pkg/muz/fp/datalog_requested_interval_test.go", "pkg/muz/fp/datalog_sparse_interval_store_test.go", "pkg/muz/rel/sparse_interval_sieve_product_negation.go", "pkg/muz/rel/sparse_interval_sieve_product_negation_test.go", "pkg/muz/rel/sparse_interval_sieve_product_original.go", "pkg/muz/rel/sparse_interval_sieve_product_original_test.go", "pkg/muz/rel/sparse_interval_sieve_product_precision.go", "pkg/muz/rel/sparse_interval_sieve_product_precision_test.go", "pkg/muz/rel/sparse_interval_sieve_product_union_duplicate_test.go"],
           "tests": ["TestSparseIntervalDatalogStoreMixedSeedsResetAndOwnership", "TestSparseIntervalDatalogStoreRejectsSingleComponentSignatures", "TestSparseIntervalDatalogDependencyFirstRecursiveFixpoint", "TestSparseIntervalDatalogActivationCloneOwnsIndependentSeeds", "TestSparseIntervalDatalogMixedGuardsUseSingleProductFilter", "TestSparseIntervalDatalogAuxiliarySyncPreflightsWholeBatch", "TestSparseIntervalDatalogFullConditionAndHeadAssembly", "TestSparseIntervalConstructionReceiptRetriesNativeRefusalAndNestedCleanup", "TestSparseIntervalConstructionHelpersReturnOriginalAfterCleanClose", "TestSparseIntervalSieveProductUnionCoarsensOnlyIntervalDuplicateEquality", "TestDatalogSparseIntervalRequestedPairLifecycle", "TestDatalogSparseIntervalRequiresUniformOriginalRequests", "TestDatalogSparseIntervalHeterogeneousOriginals", "TestDatalogSparseIntervalMigratesExistingIntervalSeeds", "TestSparseIntervalFiniteSeedMigrationCloneAndPublication", "TestSparseIntervalDerivedFiniteAuxiliaryShapeSurvivesClone", "TestDatalogRequestedIntervalOverridesFavourite", "TestDatalogSparseIntervalHashAndNullaryOriginals", "TestDatalogSparseIntervalNullaryIntervalFavourite", "TestSparseIntervalHashOriginalPreservesHashAndNullary", "TestSparseIntervalArithmeticNullaryResetPreservesComponentRoles", "TestSparseIntervalHashOriginalSnapshotsPreserveHashAndNullary", "TestSparseIntervalArithmeticNullaryUsesIntervalTruthValue", "TestSparseIntervalPrecisionTracksRawAndSieveJoinShape", "TestSparseIntervalFiniteNegationExactAndRefusal", "TestDatalogSparseIntervalExactFiniteNegationUsesLowerStrata", "TestDatalogSparseIntervalNegationRejectsMixedNegative"],
-          "reason": "The typed evaluator follows dependency-first stratification and SCC scheduling and lowers complete finite/arithmetic layouts. Exact lower-stratum finite negation supports Sparse, Hash-backed and full-nullary negative relations, including negation-only rules; negative cycles and mixed/raw-interval negatives reject before publication. Public selection integrates heterogeneous explicit Hash, Sparse, interval and mixed originals plus sparse-default finite fallback; independently owned snapshots preserve nullary truth and concrete source kinds, and facts/results publish transactionally. Precision follows the source raw interval versus sieve/full component flag rather than declaration metadata, without claiming the mixed abstraction is mathematically exact. Source-bound pure-arithmetic fallback, checker/magic combinations and generic abstract compiler dispatch remain guarded."
+          "reason": "The typed evaluator follows dependency-first stratification and SCC scheduling and lowers complete finite/arithmetic layouts. Exact lower-stratum finite negation supports Sparse, Hash-backed and full-nullary negative relations, including negation-only rules; negative cycles and mixed/raw-interval negatives reject before publication. Public selection integrates heterogeneous explicit Hash, Sparse, interval and mixed originals plus sparse-default finite fallback; independently owned snapshots preserve nullary truth and concrete source kinds, and facts/results publish transactionally. Precision follows the source raw interval versus sieve/full component flag rather than declaration metadata, without claiming the mixed abstraction is mathematically exact. Source-bound pure-arithmetic fallback, checker/magic combinations and generic abstract compiler dispatch remain guarded. The strengthened sparse/interval lifecycle regression now requires open display to preserve the exact persistent RuleSet, arithmetic activation/rule borrower, store, entry and seed-relation owners. Pending/raw phase retires, revision advances once and the exact normalized head/tail/name survives; repeated display is identical without renormalization before the existing query executes. This is stable-owner evidence for the display publication fix, not new sparse-table functionality or a whole lifecycle audit."
         },
         {
           "name": "rel_context selects datalog.default_table for implicit predicate and compiler-temporary relations while explicit per-predicate representations take precedence; datalog.default_table_checked runs the selected concrete primary/checker pair",
@@ -103647,7 +103937,13 @@
         "pkg/muz/fp/query_head.go",
         "pkg/muz/fp/query_head_ownership_test.go",
         "pkg/muz/fp/spacer_relation_query_cleanup.go",
-        "pkg/muz/fp/spacer_relation_query_cleanup_test.go"
+        "pkg/muz/fp/spacer_relation_query_cleanup_test.go",
+        "pkg/muz/spacer/manager.go",
+        "pkg/muz/fp/spacer_prequery_construction_failure_test.go",
+        "pkg/muz/fp/spacer_prequery_parameter_cleanup_test.go",
+        "pkg/muz/fp/spacer_prequery_pending_test.go",
+        "pkg/muz/fp/pdr_engine.go",
+        "pkg/muz/fp/query_clone_statistics_cleanup_test.go"
       ],
       "tests": [
         "TestFixedpointMutationCleanupFailureInvalidatesSnapshots",
@@ -103676,7 +103972,11 @@
         "TestSlicedFormulaFailureReleasesTemporaryBindings",
         "TestSlicedFormulaCopiedOwnersSurviveNativeCleanupRefusal",
         "TestQueryHeadAndSpacerRelationColdConstructionOwnership",
-        "TestSpacerRelationQueryFinalizerPreservesUnpublishedRule"
+        "TestSpacerRelationQueryFinalizerPreservesUnpublishedRule",
+        "TestSpacerPrequeryConstructionAllocationFailureAndRetry",
+        "TestSpacerPrequeryParameterCleanupContinuesNativeDecrement",
+        "TestSpacerPrequeryMutationPreservesNativePendingOwner",
+        "TestQueryCloneStatisticsSurviveNativeLateCleanup"
       ],
       "assertions": [
         {
@@ -103708,11 +104008,15 @@
             "pkg/muz/fp/pdr_engine.go",
             "pkg/muz/fp/spacer_engine.go",
             "pkg/muz/fp/spacer_rule_lifecycle.go",
-            "pkg/muz/fp/spacer_cover_before_query_test.go"
+            "pkg/muz/fp/spacer_cover_before_query_test.go",
+            "pkg/muz/spacer/manager.go",
+            "pkg/muz/fp/spacer_prequery_construction_failure_test.go"
           ],
           "tests": [
-            "TestSpacerCoverBeforeFirstQuerySurvivesRuleInstallation"
-          ]
+            "TestSpacerCoverBeforeFirstQuerySurvivesRuleInstallation",
+            "TestSpacerPrequeryConstructionAllocationFailureAndRetry"
+          ],
+          "reason": "The prequery property consumer reaches the repaired manager parameter ownership during construction (spacer_dl_interface.cpp:40-56,303-307). Default/local allowance campaigns below 256 check failed-context suppression, parameter accounting and AST references, then retry a fresh NumLevels-zero context and close to zero budget. This is a constructor allocation frontier campaign, not whole-interface cleanup closure."
         },
         {
           "name": "dl_interface::check_reset and updt_params rule lifecycle: compare owned original-rule snapshots before preprocessing, reset uncovered rules, update covered frames, and replace context on parameter changes",
@@ -103722,12 +104026,18 @@
             "pkg/muz/fp/spacer_engine.go",
             "pkg/muz/fp/fixedpoint_params.go",
             "pkg/muz/fp/propositional_engine.go",
-            "pkg/muz/fp/spacer_rule_lifecycle_test.go"
+            "pkg/muz/fp/spacer_rule_lifecycle_test.go",
+            "pkg/muz/spacer/manager.go",
+            "pkg/muz/fp/spacer_prequery_parameter_cleanup_test.go",
+            "pkg/muz/fp/spacer_prequery_pending_test.go"
           ],
           "tests": [
             "TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules",
-            "TestSpacerRuleSnapshotOwnsOriginalRulesBeforePreprocessing"
-          ]
+            "TestSpacerRuleSnapshotOwnsOriginalRulesBeforePreprocessing",
+            "TestSpacerPrequeryParameterCleanupContinuesNativeDecrement",
+            "TestSpacerPrequeryMutationPreservesNativePendingOwner"
+          ],
+          "reason": "Prequery replacement/Close now preserve the same context until consumed parameter decrements complete, and native pending entry refuses mutation before sibling teardown (spacer_dl_interface.cpp:40-56,340-344; spacer_dl_interface.h:66,76). Separate engine-snapshot and manager-parameter receipts resume in source-owner order. Actual large-rational consumed-release and reentrant local/module mutation tests check stable context/revision/accounting, later cover use and zero final budgets; no all-member destruction audit is claimed."
         },
         {
           "name": "empty transformed-program model diagnostics use verbosity two for query and one for query_from_lvl (spacer_dl_interface.cpp:166-169,260-263)",
@@ -103757,12 +104067,20 @@
           "tests": [
             "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms",
             "TestSpacerEngineRunsReachableAndInductiveHornQueries",
-            "TestSMTContextFixedpointSpacerInductiveExports"
+            "TestSMTContextFixedpointSpacerInductiveExports",
+            "TestQueryCloneStatisticsSurviveNativeLateCleanup"
           ],
           "go_targets": [
             "pkg/muz/spacer/context_test.go",
-            "pkg/api/api_fixedpoint_test.go"
-          ]
+            "pkg/api/api_fixedpoint_test.go",
+            "pkg/muz/fp/query_expression.go",
+            "pkg/muz/fp/query_clone_cleanup.go",
+            "pkg/muz/fp/pdr_engine.go",
+            "pkg/muz/fp/spacer_statistics.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/fp/query_clone_statistics_cleanup_test.go"
+          ],
+          "reason": "Expression-query clone disposal captures a complete statistics snapshot once before backend close, serves it while the clone is closing and merges it only after successful disposal; ResetStatistics first drains pending cleanup (pdr_dl_interface.cpp:195-202; spacer_dl_interface.cpp:310-317; dl_context.cpp:1009-1018). PDR/Spacer clear/reset cases reach a real late native accounting refusal while retiring a large-rational background after backend closure. Nonzero num checks and engine search counters remain correct before, during and after repeated cleanup; reset preserves lifetime checks but clears search counters without resurrecting them. The independently owning answer survives and final budget returns to zero. This is an actual late-disposal frontier, not an interrupted statistics-collection injection or generic clone-cleanup closure."
         },
         {
           "name": "parameter-controlled semantic slice, coalesce, and iterative unfold preprocessing with direct query predicate remapping",
@@ -103836,14 +104154,27 @@
         "pkg/muz/fp/query_head_ownership_test.go",
         "pkg/muz/fp/spacer_relation_query.go",
         "pkg/muz/fp/spacer_relation_query_cleanup.go",
-        "pkg/muz/fp/spacer_relation_query_cleanup_test.go"
+        "pkg/muz/fp/spacer_relation_query_cleanup_test.go",
+        "pkg/muz/spacer/manager.go",
+        "pkg/muz/fp/spacer_prequery_construction_failure_test.go",
+        "pkg/muz/fp/spacer_prequery_parameter_cleanup_test.go",
+        "pkg/muz/fp/spacer_prequery_pending_test.go",
+        "pkg/muz/fp/query_expression.go",
+        "pkg/muz/fp/query_clone_cleanup.go",
+        "pkg/muz/fp/pdr_engine.go",
+        "pkg/muz/fp/spacer_statistics.go",
+        "pkg/muz/fp/query_clone_statistics_cleanup_test.go"
       ],
       "tests": [
         "TestSpacerEngineRunsReachableAndInductiveHornQueries",
         "TestSpacerQueryDisplaysEmptyProgramModelAtSourceVerbosity",
         "TestSMTContextFixedpointSpacerInductiveExports",
         "TestQueryHeadAndSpacerRelationColdConstructionOwnership",
-        "TestSpacerRelationQueryFinalizerPreservesUnpublishedRule"
+        "TestSpacerRelationQueryFinalizerPreservesUnpublishedRule",
+        "TestSpacerPrequeryConstructionAllocationFailureAndRetry",
+        "TestSpacerPrequeryParameterCleanupContinuesNativeDecrement",
+        "TestSpacerPrequeryMutationPreservesNativePendingOwner",
+        "TestQueryCloneStatisticsSurviveNativeLateCleanup"
       ],
       "conditionals": [
         {
@@ -103865,11 +104196,15 @@
             "pkg/muz/fp/pdr_engine.go",
             "pkg/muz/fp/spacer_engine.go",
             "pkg/muz/fp/spacer_rule_lifecycle.go",
-            "pkg/muz/fp/spacer_cover_before_query_test.go"
+            "pkg/muz/fp/spacer_cover_before_query_test.go",
+            "pkg/muz/spacer/manager.go",
+            "pkg/muz/fp/spacer_prequery_construction_failure_test.go"
           ],
           "tests": [
-            "TestSpacerCoverBeforeFirstQuerySurvivesRuleInstallation"
-          ]
+            "TestSpacerCoverBeforeFirstQuerySurvivesRuleInstallation",
+            "TestSpacerPrequeryConstructionAllocationFailureAndRetry"
+          ],
+          "reason": "The prequery property consumer reaches the repaired manager parameter ownership during construction (spacer_dl_interface.cpp:40-56,303-307). Default/local allowance campaigns below 256 check failed-context suppression, parameter accounting and AST references, then retry a fresh NumLevels-zero context and close to zero budget. This is a constructor allocation frontier campaign, not whole-interface cleanup closure."
         },
         {
           "name": "dl_interface::check_reset and updt_params rule lifecycle: compare owned original-rule snapshots before preprocessing, reset uncovered rules, update covered frames, and replace context on parameter changes",
@@ -103879,12 +104214,18 @@
             "pkg/muz/fp/spacer_engine.go",
             "pkg/muz/fp/fixedpoint_params.go",
             "pkg/muz/fp/propositional_engine.go",
-            "pkg/muz/fp/spacer_rule_lifecycle_test.go"
+            "pkg/muz/fp/spacer_rule_lifecycle_test.go",
+            "pkg/muz/spacer/manager.go",
+            "pkg/muz/fp/spacer_prequery_parameter_cleanup_test.go",
+            "pkg/muz/fp/spacer_prequery_pending_test.go"
           ],
           "tests": [
             "TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules",
-            "TestSpacerRuleSnapshotOwnsOriginalRulesBeforePreprocessing"
-          ]
+            "TestSpacerRuleSnapshotOwnsOriginalRulesBeforePreprocessing",
+            "TestSpacerPrequeryParameterCleanupContinuesNativeDecrement",
+            "TestSpacerPrequeryMutationPreservesNativePendingOwner"
+          ],
+          "reason": "Prequery replacement/Close now preserve the same context until consumed parameter decrements complete, and native pending entry refuses mutation before sibling teardown (spacer_dl_interface.cpp:40-56,340-344; spacer_dl_interface.h:66,76). Separate engine-snapshot and manager-parameter receipts resume in source-owner order. Actual large-rational consumed-release and reentrant local/module mutation tests check stable context/revision/accounting, later cover use and zero final budgets; no all-member destruction audit is claimed."
         },
         {
           "name": "retained query/from-level query, answer, ground answer, trace rules/names, model, level, cover/invariant, reachable summary and statistics interface (spacer_dl_interface.h:50-52)",
@@ -103896,7 +104237,8 @@
             "TestSpacerQueryDisplaysEmptyProgramModelAtSourceVerbosity",
             "TestSMTContextFixedpointSpacerInductiveExports",
             "TestQueryHeadAndSpacerRelationColdConstructionOwnership",
-            "TestSpacerRelationQueryFinalizerPreservesUnpublishedRule"
+            "TestSpacerRelationQueryFinalizerPreservesUnpublishedRule",
+            "TestQueryCloneStatisticsSurviveNativeLateCleanup"
           ],
           "go_targets": [
             "pkg/muz/spacer/context_test.go",
@@ -103908,9 +104250,15 @@
             "pkg/muz/fp/query_head_ownership_test.go",
             "pkg/muz/fp/spacer_relation_query.go",
             "pkg/muz/fp/spacer_relation_query_cleanup.go",
-            "pkg/muz/fp/spacer_relation_query_cleanup_test.go"
+            "pkg/muz/fp/spacer_relation_query_cleanup_test.go",
+            "pkg/muz/fp/query_expression.go",
+            "pkg/muz/fp/query_clone_cleanup.go",
+            "pkg/muz/fp/pdr_engine.go",
+            "pkg/muz/fp/spacer_statistics.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/fp/query_clone_statistics_cleanup_test.go"
           ],
-          "reason": "Spacer query-rule setup now reuses the owning relation-expression builder and owning fresh-head helper, keeping both temporary roots and the unpublished Rule until construction and temporary retirement succeed (spacer_dl_interface.cpp:83-95,176-188; dl_rule.cpp:318-342). The failure owner drains nested cleanup, the Rule and remaining roots in order without publishing a partly finalized rule. Cold nullary/512-column helper campaigns suppress failed outputs and verify ordinal/head reversal, same-manager retry, final node/reference balance after closing intentional fresh-predicate registrations and zero budget; proof generation is disabled in that campaign. The native finalizer regression directly stages successful finish(declaration,nil) with an actual two-variable Rule and two roots inside an unrelated arithmetic native guard. It verifies nil original cause, unchanged unpublished rule/head/tail, stable runtime/cause receipt, repeated refusal, idempotent retry and reference/budget balance. It does not separately inject nonnil/nested-cause finalization, proof construction, head prepublication retirement or an entire public query. Existing broader interface ownership/proof audit limits remain."
+          "reason": "Spacer query-rule setup now reuses the owning relation-expression builder and owning fresh-head helper, keeping both temporary roots and the unpublished Rule until construction and temporary retirement succeed (spacer_dl_interface.cpp:83-95,176-188; dl_rule.cpp:318-342). The failure owner drains nested cleanup, the Rule and remaining roots in order without publishing a partly finalized rule. Cold nullary/512-column helper campaigns suppress failed outputs and verify ordinal/head reversal, same-manager retry, final node/reference balance after closing intentional fresh-predicate registrations and zero budget; proof generation is disabled in that campaign. The native finalizer regression directly stages successful finish(declaration,nil) with an actual two-variable Rule and two roots inside an unrelated arithmetic native guard. It verifies nil original cause, unchanged unpublished rule/head/tail, stable runtime/cause receipt, repeated refusal, idempotent retry and reference/budget balance. It does not separately inject nonnil/nested-cause finalization, proof construction, head prepublication retirement or an entire public query. Existing broader interface ownership/proof audit limits remain. Expression-query clone disposal captures a complete statistics snapshot once before backend close, serves it while the clone is closing and merges it only after successful disposal; ResetStatistics first drains pending cleanup (pdr_dl_interface.cpp:195-202; spacer_dl_interface.cpp:310-317; dl_context.cpp:1009-1018). PDR/Spacer clear/reset cases reach a real late native accounting refusal while retiring a large-rational background after backend closure. Nonzero num checks and engine search counters remain correct before, during and after repeated cleanup; reset preserves lifetime checks but clears search counters without resurrecting them. The independently owning answer survives and final budget returns to zero. This is an actual late-disposal frontier, not an interrupted statistics-collection injection or generic clone-cleanup closure."
         },
         {
           "name": "remaining proof and certificate display surface",
@@ -104709,8 +105057,8 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/spacer/manager.go", "pkg/muz/spacer/inductive_property.go", "pkg/muz/fp/expression_model_failure_test.go", "pkg/muz/spacer/context.go"],
-      "tests": ["TestSpacerManagerBuildsStateAndPropSolverServices", "TestSymMuxClassifiesCollectsAndFiltersStateLiterals", "TestSpacerInductivePropertyBuildsNullaryAndAbstractedModels", "TestExpressionModelAllocationFailurePublicationAndRetry", "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms"],
+      "go_targets": ["pkg/muz/spacer/manager.go", "pkg/muz/spacer/inductive_property.go", "pkg/muz/fp/expression_model_failure_test.go", "pkg/muz/spacer/context.go", "pkg/muz/fp/spacer_prequery_construction_failure_test.go", "pkg/muz/fp/spacer_prequery_parameter_cleanup_test.go", "pkg/muz/fp/spacer_prequery_pending_test.go"],
+      "tests": ["TestSpacerManagerBuildsStateAndPropSolverServices", "TestSymMuxClassifiesCollectsAndFiltersStateLiterals", "TestSpacerInductivePropertyBuildsNullaryAndAbstractedModels", "TestExpressionModelAllocationFailurePublicationAndRetry", "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestSpacerPrequeryConstructionAllocationFailureAndRetry", "TestSpacerPrequeryParameterCleanupContinuesNativeDecrement", "TestSpacerPrequeryMutationPreservesNativePendingOwner"],
       "assertions": [
         {
           "line": 193,
@@ -104737,7 +105085,9 @@
           "name": "manager construction, current/old state creation and conversion, background, unique numbering, three solver pools and statistics",
           "status": "ported",
           "go_target": "pkg/muz/spacer/manager.go",
-          "tests": ["TestSpacerManagerBuildsStateAndPropSolverServices"]
+          "tests": ["TestSpacerManagerBuildsStateAndPropSolverServices", "TestSpacerPrequeryConstructionAllocationFailureAndRetry", "TestSpacerPrequeryParameterCleanupContinuesNativeDecrement", "TestSpacerPrequeryMutationPreservesNativePendingOwner"],
+          "go_targets": ["pkg/muz/spacer/manager.go", "pkg/muz/fp/spacer_prequery_construction_failure_test.go", "pkg/muz/fp/spacer_prequery_parameter_cleanup_test.go", "pkg/muz/fp/spacer_prequery_pending_test.go"],
+          "reason": "Spacer prequery manager construction and disposal now preserve the concrete Go solver-parameter owner across both allocation and native cleanup failures (spacer_manager.cpp:178-188; spacer_manager.h:78-102). Default/local construction campaigns sweep allowances below 256 through completion, require a failure and success, suppress the failed context and check parameter blocks/references/entries plus live AST references before a fresh zero-level context retry and zero final budget. Separate replacement/Close cases reach an actual stopped zero-reference parameter decrement on a large rational after physical release; the same context survives and its engine-snapshot and manager-parameter receipts complete in their respective order with fresh-cover use checked on replacement/recovery routes and disposal checked on the Close route. Two reentrant local/module parameter mutations during actual arithmetic failure transport are refused before sibling teardown, preserving context/revision/parameter counts and AST references; retry succeeds afterward. These are distinct constructor, consumed-decrement and pending-entry frontiers, not all-member destruction or whole Spacer ownership closure."
         },
         {
           "name": "inductive_property model conversion and expression/SMT2 export",
@@ -104769,8 +105119,8 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/spacer/manager.go", "pkg/muz/spacer/inductive_property.go"],
-      "tests": ["TestSpacerManagerBuildsStateAndPropSolverServices", "TestSymMuxClassifiesCollectsAndFiltersStateLiterals", "TestSpacerInductivePropertyBuildsNullaryAndAbstractedModels"],
+      "go_targets": ["pkg/muz/spacer/manager.go", "pkg/muz/spacer/inductive_property.go", "pkg/muz/fp/spacer_prequery_construction_failure_test.go", "pkg/muz/fp/spacer_prequery_parameter_cleanup_test.go", "pkg/muz/fp/spacer_prequery_pending_test.go"],
+      "tests": ["TestSpacerManagerBuildsStateAndPropSolverServices", "TestSymMuxClassifiesCollectsAndFiltersStateLiterals", "TestSpacerInductivePropertyBuildsNullaryAndAbstractedModels", "TestSpacerPrequeryConstructionAllocationFailureAndRetry", "TestSpacerPrequeryParameterCleanupContinuesNativeDecrement", "TestSpacerPrequeryMutationPreservesNativePendingOwner"],
       "conditionals": [
         {
           "line": 21,
@@ -104803,7 +105153,9 @@
           "name": "retained manager state conversion, homogeneity, state collection/filtering, background, solver creation and statistics surface",
           "status": "ported",
           "go_target": "pkg/muz/spacer/manager.go",
-          "tests": ["TestSpacerManagerBuildsStateAndPropSolverServices", "TestSymMuxClassifiesCollectsAndFiltersStateLiterals"]
+          "tests": ["TestSpacerManagerBuildsStateAndPropSolverServices", "TestSymMuxClassifiesCollectsAndFiltersStateLiterals", "TestSpacerPrequeryConstructionAllocationFailureAndRetry", "TestSpacerPrequeryParameterCleanupContinuesNativeDecrement", "TestSpacerPrequeryMutationPreservesNativePendingOwner"],
+          "go_targets": ["pkg/muz/spacer/manager.go", "pkg/muz/fp/spacer_prequery_construction_failure_test.go", "pkg/muz/fp/spacer_prequery_parameter_cleanup_test.go", "pkg/muz/fp/spacer_prequery_pending_test.go"],
+          "reason": "Spacer prequery manager construction and disposal now preserve the concrete Go solver-parameter owner across both allocation and native cleanup failures (spacer_manager.cpp:178-188; spacer_manager.h:78-102). Default/local construction campaigns sweep allowances below 256 through completion, require a failure and success, suppress the failed context and check parameter blocks/references/entries plus live AST references before a fresh zero-level context retry and zero final budget. Separate replacement/Close cases reach an actual stopped zero-reference parameter decrement on a large rational after physical release; the same context survives and its engine-snapshot and manager-parameter receipts complete in their respective order with fresh-cover use checked on replacement/recovery routes and disposal checked on the Close route. Two reentrant local/module parameter mutations during actual arithmetic failure transport are refused before sibling teardown, preserving context/revision/parameter counts and AST references; retry succeeds afterward. These are distinct constructor, consumed-decrement and pending-entry frontiers, not all-member destruction or whole Spacer ownership closure."
         },
         {
           "name": "atom partition/filter helpers",
