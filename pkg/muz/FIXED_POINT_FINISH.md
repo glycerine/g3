@@ -433,6 +433,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Concrete project and rename dispatch with source renumbering/cycle semantics and independent results.
   - [x] Interval-source union/widen dispatch preserves source pruning and ignored-delta behavior.
   - [x] Assemble exact bound/interval product head columns for unbound, repeated and numeral terms, preserving requested component order, source-coarse bound constants and interval constraints.
+  - [x] Fuse one compiler interpreted conjunction with projection over exact bound/interval products by cloning, filtering both components and projecting afterward without splitting coarse compound conditions.
 - [ ] `src/muz/rel/dl_check_table.cpp` (partial), `src/muz/rel/dl_check_table.h` (partial)
   - [x] Preserve cloned formula-checked table owners through native cleanup refusal with child-first nested cleanup, stable construction receipts and exact retry.
 - [ ] `src/muz/rel/dl_compiler.cpp` (partial), `src/muz/rel/dl_compiler.h` (partial)
@@ -519,6 +520,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Exact bound/interval products now execute the compiler's fused interpreted-filter-and-project transformer: clone first, apply the single conjunction componentwise, then project. The operation preserves requested order and source independence, handles empty products, rejects invalid projections atomically and keeps compound conditions coarse instead of unsafely splitting them; main compiler wiring remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^TestIntervalBoundProductFilterInterpretedAndProject' -count=3` passed. Commit title: `Filter and project bound interval products`.
 
 - 2026-11-02 — Fixedpoint query errors now publish the source status classes: cancellation, resource and step exhaustion report `canceled`; memory exhaustion reports `memory bounds exceeded`; other failures remain `input error`. A real canceled PDR query publishes no result, and successful retry resets the reason to `ok`.
   Validation: `go -C pkg test ./muz/fp -run '^(TestFixedpointCanceledQueryPublishesSourceReasonAndRetries|TestSpacerExpressionQueryReportsCloneBoundedStatus)' -count=3` passed. Commit title: `Report fixedpoint cancellation status accurately`.
