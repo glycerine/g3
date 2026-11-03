@@ -454,6 +454,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Preserve all unpublished rule-evaluation and recursive-delta relations across native cleanup refusal, with stable aggregate error transport and exact retry without damaging published predicates.
   - [x] All-or-nothing recursion, registered default selection, arithmetic signatures and independent expression clones with original-result publication.
   - [x] Apply project, rename, equal/identical and interpreted filters componentwise to concrete external/interval products, preserving callback order, nullary results and failure-atomic interval publication.
+  - [x] Union and widen aligned external/interval products with a fresh per-component delta followed by ordinary accumulation into the caller delta, preserving preexisting rows and source operation order under refusal.
   - [ ] Mixed external products and remaining exceptional working/delta ownership.
 - [ ] `src/muz/rel/dl_finite_product_relation.cpp` (partial), `src/muz/rel/dl_finite_product_relation.h` (partial)
   - [x] Finite/interval product display, size estimates, forced garbage collection and non-table tuple-display fallback.
@@ -526,6 +527,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Mixed external/interval products now perform aligned union, widening and delta updates with the source two-stage protocol: each component writes a fresh delta, then ordinary union accumulates it into the caller's existing delta. Prepopulated/empty deltas, callback order, refusal publication boundaries, reversed-kind products and alias rejection are covered; public compiler activation remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^TestExternalIntervalProductUnionWidenDeltaAndRefusal$' -count=5` passed. Commit title: `Union mixed external interval products`.
 
 - 2026-11-02 — Cone-of-influence filtering now asks the relation manager whether any representation has materialized facts instead of probing only finite tables. Per-fact and whole-relation explanation products therefore trigger the source bailout rather than being incorrectly pruned; wider transform/dataflow auditing remains open.
   Validation: `go -C pkg test ./muz/transforms -run '^(TestConeOfInfluenceBailsOutForMaterializedExplanationRelations|TestConeOfInfluence.*|TestRuleTransformerAppliesConePlugin)$' -count=3` passed. Commit title: `Detect explanation facts during cone filtering`.
