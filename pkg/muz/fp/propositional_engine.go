@@ -528,7 +528,24 @@ func (e *PropositionalEngine) AddRule(formula ast.ASTHandle, name string) error 
 
 // AddRuleWithBound also preserves the raw rule's Duality recursion bound.
 func (e *PropositionalEngine) AddRuleWithBound(formula ast.ASTHandle, name string, recursionBound uint32) (resultErr error) {
+	label, err := e.ruleNameSymbol(name)
+	if err != nil {
+		return err
+	}
+	return e.AddRuleWithSymbolAndBound(formula, label, recursionBound)
+}
+
+// AddRuleWithSymbol preserves the source symbol identity of the rule name.
+func (e *PropositionalEngine) AddRuleWithSymbol(formula ast.ASTHandle, name symbol.Symbol) error {
+	return e.AddRuleWithSymbolAndBound(formula, name, ^uint32(0))
+}
+
+// AddRuleWithSymbolAndBound stores the original symbol and recursion bound.
+func (e *PropositionalEngine) AddRuleWithSymbolAndBound(formula ast.ASTHandle, name symbol.Symbol, recursionBound uint32) (resultErr error) {
 	if err := e.open(); err != nil {
+		return err
+	}
+	if _, err := e.manager.Symbols.String(name); err != nil {
 		return err
 	}
 	original, err := e.manager.NewRef(formula)
@@ -769,7 +786,21 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 // inputs and the raw archive are untouched, matching context::update_rule.
 // A replacement must preserve the head and may only strengthen the body.
 func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (resultErr error) {
+	label, err := e.ruleNameSymbol(name)
+	if err != nil {
+		return err
+	}
+	return e.UpdateRuleWithSymbol(formula, label)
+}
+
+// UpdateRuleWithSymbol matches only the exact label in the normalized prefix.
+// Pending inputs remain in the source archive and do not participate in lookup.
+func (e *PropositionalEngine) UpdateRuleWithSymbol(formula ast.ASTHandle, name symbol.Symbol) (resultErr error) {
 	if err := e.open(); err != nil {
+		return err
+	}
+	nameText, err := e.manager.Symbols.Display(name)
+	if err != nil {
 		return err
 	}
 	candidateSet, err := base.NewRuleSet(e.rules)
@@ -794,7 +825,7 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 		return err
 	}
 	if candidateCount != 1 {
-		return fmt.Errorf("muz/fp: rule %s has a non-trivial body; it cannot be modified", name)
+		return fmt.Errorf("muz/fp: rule %s has a non-trivial body; it cannot be modified", nameText)
 	}
 	candidate, err := candidateSet.Rule(0)
 	if err != nil {
@@ -823,7 +854,7 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 		if x != nil {
 			return x
 		}
-		ruleName, x := rule.Name()
+		ruleName, x := rule.NameSymbol()
 		x = errors.Join(x, rule.Close())
 		if x != nil {
 			return x
@@ -832,7 +863,7 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 			continue
 		}
 		if oldIndex >= 0 {
-			return fmt.Errorf("muz/fp: rule %s occurs twice; it cannot be modified", name)
+			return fmt.Errorf("muz/fp: rule %s occurs twice; it cannot be modified", nameText)
 		}
 		oldIndex = i
 	}
@@ -847,7 +878,7 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 			return x
 		}
 		if !subsumes {
-			return fmt.Errorf("muz/fp: old rule %s does not subsume its replacement", name)
+			return fmt.Errorf("muz/fp: old rule %s does not subsume its replacement", nameText)
 		}
 	}
 

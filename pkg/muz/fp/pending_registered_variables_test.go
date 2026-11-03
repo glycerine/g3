@@ -56,6 +56,8 @@ func TestPendingNormalizationBindsRegisteredVariables(t *testing.T) {
 					t.Fatal("registered-variable fixture has the wrong raw free-variable phase", free, open)
 				}
 				const name, bound = "registered-pending", uint32(19)
+				nameSymbol, err := m.Symbols.Intern(name)
+				fragmentMust(t, err)
 				fragmentMust(t, e.AddRuleWithBound(original, name, bound))
 				checkArchive := func(wantPending bool) {
 					t.Helper()
@@ -71,7 +73,7 @@ func TestPendingNormalizationBindsRegisteredVariables(t *testing.T) {
 					raw := e.rawRules[0]
 					h, err := m.RefGet(raw.formula)
 					fragmentMust(t, err)
-					if h != original || raw.name != name || raw.bound != bound || raw.pending != wantPending {
+					if h != original || raw.name != nameSymbol || raw.bound != bound || raw.pending != wantPending {
 						t.Fatal("normalization changed original raw formula/name/bound or phase", h, raw.name, raw.bound, raw.pending)
 					}
 				}

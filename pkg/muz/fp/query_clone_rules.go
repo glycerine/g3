@@ -6,7 +6,7 @@ package fp
 import "errors"
 
 func (e *PropositionalEngine) copyQueryRules(clone *PropositionalEngine) (resultErr error) {
-	formulas, names, err := e.NamedRules()
+	formulas, names, err := e.NamedRulesWithSymbols()
 	if err != nil {
 		return err
 	}
@@ -16,7 +16,7 @@ func (e *PropositionalEngine) copyQueryRules(clone *PropositionalEngine) (result
 		if x != nil {
 			return x
 		}
-		if x = clone.AddRule(formula, names[i]); x != nil {
+		if x = clone.AddRuleWithSymbol(formula, names[i]); x != nil {
 			return x
 		}
 	}

@@ -7,13 +7,14 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/util/cooperate"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // addFormula applies the fixedpoint rule-ingestion option and the source's
 // unconditional QE-lite reduction for unbound interpreted tail variables.
-func (e *PropositionalEngine) addFormula(set *base.RuleSet, formula ast.ASTHandle, name string) error {
+func (e *PropositionalEngine) addFormula(set *base.RuleSet, formula ast.ASTHandle, name symbol.Symbol) error {
 	if e.params == nil || e.globals == nil {
-		return e.rules.AddFormula(set, formula, name)
+		return e.rules.AddFormulaWithSymbol(set, formula, name)
 	}
 	parameters, err := e.fixedpointParamView()
 	if err != nil {
@@ -39,5 +40,5 @@ func (e *PropositionalEngine) addFormula(set *base.RuleSet, formula ast.ASTHandl
 		e.unboundCooperation = cooperation
 		e.unboundLite = lite
 	}
-	return e.rules.AddFormulaWithUnboundFix(set, formula, name, e.unboundLite, fixUnbound)
+	return e.rules.AddFormulaWithSymbolAndUnboundFix(set, formula, name, e.unboundLite, fixUnbound)
 }

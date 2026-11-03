@@ -14,7 +14,7 @@ import (
 
 type pendingFlushArchiveEntry struct {
 	formula ast.ASTHandle
-	name    string
+	name    symbol.Symbol
 	bound   uint32
 }
 

@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // BackgroundAssertions returns owning references in insertion order.
@@ -38,6 +39,21 @@ func (e *PropositionalEngine) BackgroundAssertions() (result []ast.ASTRef, resul
 // NamedRules returns owning formulas and their copied names in insertion
 // order.
 func (e *PropositionalEngine) NamedRules() (result []ast.ASTRef, names []string, resultErr error) {
+	formulas, labels, err := e.NamedRulesWithSymbols()
+	if err != nil {
+		return nil, nil, err
+	}
+	names, err = e.ruleNameStrings(labels)
+	if err != nil {
+		a := &contextFormulaAttempt{manager: e.manager, references: formulas}
+		return nil, nil, a.finish(err)
+	}
+	return formulas, names, nil
+}
+
+// NamedRulesWithSymbols returns owning formulas and exact source label
+// identities. Each returned formula belongs to the caller.
+func (e *PropositionalEngine) NamedRulesWithSymbols() (result []ast.ASTRef, names []symbol.Symbol, resultErr error) {
 	if err := e.open(); err != nil {
 		return nil, nil, err
 	}
@@ -46,23 +62,32 @@ func (e *PropositionalEngine) NamedRules() (result []ast.ASTRef, names []string,
 		return nil, nil, err
 	}
 	owned := make([]ast.ASTRef, 0, count)
+	a := &contextFormulaAttempt{manager: e.manager}
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, closeASTRefs(e.manager, owned))
+			a.references = append(a.references, owned...)
+			result = nil
+			names = nil
+		}
+		resultErr = a.finish(resultErr)
+		if resultErr != nil && result != nil {
+			a.references = append(a.references, result...)
 			result = nil
 			names = nil
 		}
 	}()
-	names = make([]string, 0, count)
+	names = make([]symbol.Symbol, 0, count)
 	for index := 0; index < count; index++ {
 		rule, getErr := e.set.Rule(index)
+		if rule != nil {
+			a.rules = append(a.rules, rule)
+		}
 		if getErr != nil {
 			return nil, nil, getErr
 		}
 		formula, formulaErr := rule.ToFormula()
-		name, nameErr := rule.Name()
+		name, nameErr := rule.NameSymbol()
 		formulaErr = errors.Join(formulaErr, nameErr)
-		formulaErr = errors.Join(formulaErr, rule.Close())
 		if formula != (ast.ASTRef{}) {
 			owned = append(owned, formula)
 		}

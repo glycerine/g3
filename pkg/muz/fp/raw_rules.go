@@ -6,11 +6,12 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 type rawRuleFormula struct {
 	formula ast.ASTRef
-	name    string
+	name    symbol.Symbol
 	bound   uint32
 	pending bool
 	// Half-open origin range in the eager rule set, meaningful only while pending.
@@ -22,6 +23,21 @@ type rawRuleFormula struct {
 // with their original names and recursion bounds. They precede normalization
 // into the rule set used by other fixedpoint backends.
 func (e *PropositionalEngine) RawRules() (forms []ast.ASTRef, names []string, bounds []uint32, resultErr error) {
+	forms, labels, bounds, err := e.RawRulesWithSymbols()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	names, err = e.ruleNameStrings(labels)
+	if err != nil {
+		a := &contextFormulaAttempt{manager: e.manager, references: forms}
+		return nil, nil, nil, a.finish(err)
+	}
+	return forms, names, bounds, nil
+}
+
+// RawRulesWithSymbols returns owning bound formulas and the original source
+// symbols and recursion bounds, without projecting label identities to text.
+func (e *PropositionalEngine) RawRulesWithSymbols() (forms []ast.ASTRef, names []symbol.Symbol, bounds []uint32, resultErr error) {
 	if err := e.open(); err != nil {
 		return nil, nil, nil, err
 	}
@@ -40,10 +56,12 @@ func (e *PropositionalEngine) RawRules() (forms []ast.ASTRef, names []string, bo
 			return nil, nil, nil, err
 		}
 		bound, err := e.binder.Bind(h, true)
+		if bound != (ast.ASTRef{}) {
+			acquired = append(acquired, bound)
+		}
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		acquired = append(acquired, bound)
 		names = append(names, rule.name)
 		bounds = append(bounds, rule.bound)
 	}

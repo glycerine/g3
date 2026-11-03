@@ -6,11 +6,12 @@ package fp
 import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // contextFormulaRules returns a borrowed persistent set or a caller-owned
 // snapshot excluding pending closed inputs. Pending handles remain borrowed.
-func (e *PropositionalEngine) contextFormulaRules() (_ *base.RuleSet, pending []ast.ASTHandle, names []string, resultErr error) {
+func (e *PropositionalEngine) contextFormulaRules() (_ *base.RuleSet, pending []ast.ASTHandle, names []symbol.Symbol, resultErr error) {
 	if err := e.normalizePendingOpenRules(); err != nil {
 		return nil, nil, nil, err
 	}
@@ -100,8 +101,8 @@ func (e *PropositionalEngine) RuleFormulas() (result []ast.ASTRef, resultErr err
 			result = nil
 		}
 	}()
-	var names []string
-	if err = rules.AppendDisplayFormulas(&result, &queries, &names); err != nil {
+	var names []symbol.Symbol
+	if err = rules.AppendDisplayFormulasWithSymbols(&result, &queries, &names); err != nil {
 		return result, err
 	}
 	for _, formula := range pending {

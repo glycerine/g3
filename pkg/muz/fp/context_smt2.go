@@ -79,6 +79,6 @@ func (e *PropositionalEngine) WriteContextSMT2(out io.Writer, queries []ast.ASTH
 		defer func() { resultErr = a.finish(resultErr) }()
 	}
 	config.PendingRules = pending
-	config.PendingNames = names
+	config.PendingNameSymbols = names
 	return rules.WriteContextSMT2(out, config)
 }
