@@ -69,13 +69,84 @@ func TestSubsumptionCheckerRemovesTotalPositiveTail(t *testing.T) {
 	steps, err := plugin.TakeModelSteps()
 	coneMust(t, err)
 	t.Cleanup(func() { coneMust(t, transforms.CloseConeModelSteps(steps)) })
-	if len(steps) != 1 || len(steps[0]) != 1 || steps[0][0].Declaration != f.declarations["Total"] {
+	if len(steps) != 1 || len(steps[0]) != 2 || steps[0][0].Declaration != f.declarations["Total"] || steps[0][1].Declaration != f.declarations["Goal"] {
 		t.Fatal("total-relation model step", steps)
 	}
-	formula, err := f.manager.RefGet(steps[0][0].Formula)
+	for _, definition := range steps[0] {
+		formula, getErr := f.manager.RefGet(definition.Formula)
+		coneMust(t, getErr)
+		if !f.manager.IsTrue(formula) {
+			t.Fatal("total-relation interpretation is not true", definition.Declaration, formula)
+		}
+	}
+}
+
+func TestSubsumptionCheckerClosesDynamicallyDiscoveredTotals(t *testing.T) {
+	f := newConeFixture(t)
+	zero, err := f.manager.ArithmeticIntegerNumeralText("0")
 	coneMust(t, err)
-	if !f.manager.IsTrue(formula) {
-		t.Fatal("total-relation interpretation is not true", formula)
+	integer, err := f.manager.GetSort(zero)
+	coneMust(t, err)
+	x, err := f.manager.MkVar(0, integer)
+	coneMust(t, err)
+	y, err := f.manager.MkVar(1, integer)
+	coneMust(t, err)
+	total := declareTransformPredicate(t, f, "subsumption-closure-total", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+	mid := declareTransformPredicate(t, f, "subsumption-closure-mid", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+	goal := declareTransformPredicate(t, f, "subsumption-closure-goal", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+	midY, err := f.manager.MkApp(mid.declaration, []ast.ASTHandle{y})
+	coneMust(t, err)
+	addTransformRule(t, f, total.application, nil, nil, "total")
+	addTransformRule(t, f, mid.application, []ast.ASTHandle{total.application}, nil, "mid-from-total")
+	addTransformRule(t, f, goal.application, []ast.ASTHandle{midY}, nil, "goal-from-mid")
+	coneMust(t, f.set.SetOutputPredicate(goal.declaration))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("dynamic total-relation fixture rejected")
+	}
+
+	transformer := base.NewRuleTransformer()
+	t.Cleanup(func() { coneMust(t, transformer.Close()) })
+	plugin := transforms.NewSubsumptionCheckerPlugin(true, 0)
+	coneMust(t, transformer.Register(plugin))
+	modified, err := transformer.Apply(f.set)
+	coneMust(t, err)
+	if !modified {
+		t.Fatal("dynamic total-relation closure made no change")
+	}
+	if count, countErr := f.set.Len(); countErr != nil || count != 1 {
+		t.Fatal("dynamic total-relation rule count", count, countErr)
+	}
+	rule, err := f.set.Rule(0)
+	coneMust(t, err)
+	defer func() { coneMust(t, rule.Close()) }()
+	head, err := rule.HeadDeclaration()
+	coneMust(t, err)
+	tails, err := rule.TailSize()
+	coneMust(t, err)
+	if head != goal.declaration || tails != 0 {
+		t.Fatal("dynamic total-relation closure", head, tails)
+	}
+
+	steps, err := plugin.TakeModelSteps()
+	coneMust(t, err)
+	t.Cleanup(func() { coneMust(t, transforms.CloseConeModelSteps(steps)) })
+	want := []ast.ASTHandle{total.declaration, mid.declaration, goal.declaration}
+	if len(steps) != 1 || len(steps[0]) != len(want) {
+		t.Fatal("dynamic total-relation model steps", steps)
+	}
+	seen := make(map[ast.ASTHandle]bool, len(want))
+	for index, definition := range steps[0] {
+		if definition.Declaration != want[index] || seen[definition.Declaration] {
+			t.Fatal("dynamic total-relation model order", index, definition.Declaration, want[index])
+		}
+		seen[definition.Declaration] = true
+		formula, getErr := f.manager.RefGet(definition.Formula)
+		coneMust(t, getErr)
+		if !f.manager.IsTrue(formula) {
+			t.Fatal("dynamic total-relation model definition", definition.Declaration, formula)
+		}
 	}
 }
 

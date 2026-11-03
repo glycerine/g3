@@ -11,6 +11,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 type SubsumptionCheckerPlugin struct {
@@ -19,6 +20,75 @@ type SubsumptionCheckerPlugin struct {
 	modelSteps []ConeModelStep
 	closed     bool
 	closing    bool
+}
+
+type subsumptionConstructionFailure struct {
+	manager        *ast.ASTManager
+	sets           []*base.RuleSet
+	steps          []ConeModelStep
+	nested         memory.ConstructionFailure
+	cause, cleanup error
+	reported       error
+	text           string
+}
+
+var _ memory.ConstructionFailure = (*subsumptionConstructionFailure)(nil)
+
+func (f *subsumptionConstructionFailure) Error() string        { return f.text }
+func (f *subsumptionConstructionFailure) Unwrap() error        { return f.reported }
+func (f *subsumptionConstructionFailure) OriginalCause() error { return f.cause }
+func (f *subsumptionConstructionFailure) CleanupCause() error  { return f.cleanup }
+func (f *subsumptionConstructionFailure) RuntimeOwner() *memory.Runtime {
+	if f.manager == nil || f.manager.NumeralService() == nil {
+		return nil
+	}
+	return f.manager.NumeralService().RuntimeOwner()
+}
+func (f *subsumptionConstructionFailure) Cleanup() error {
+	if f.nested != nil {
+		f.cleanup = f.nested.Cleanup()
+		if f.cleanup != nil {
+			return f.cleanup
+		}
+		f.nested = nil
+	}
+	for len(f.sets) != 0 {
+		last := len(f.sets) - 1
+		f.cleanup = f.sets[last].Close()
+		if f.cleanup != nil {
+			return f.cleanup
+		}
+		f.sets[last] = nil
+		f.sets = f.sets[:last]
+	}
+	f.cleanup = closeConeModelSteps(f.steps)
+	if f.cleanup == nil {
+		f.steps = nil
+	}
+	return f.cleanup
+}
+
+func closeSubsumptionConstruction(manager *ast.ASTManager, cause error, sets []*base.RuleSet, steps []ConeModelStep) error {
+	if len(sets) == 0 && len(steps) == 0 {
+		return cause
+	}
+	failure := &subsumptionConstructionFailure{manager: manager, sets: sets, steps: steps, cause: cause}
+	_ = errors.As(cause, &failure.nested)
+	cleanup := failure.Cleanup()
+	if cleanup == nil {
+		return cause
+	}
+	origin := cause
+	if origin == nil {
+		origin = cleanup
+	}
+	failure.cause = origin
+	failure.reported = cleanup
+	if cause != nil {
+		failure.reported = errors.Join(cause, cleanup)
+	}
+	failure.text = failure.reported.Error()
+	return failure
 }
 
 func NewSubsumptionCheckerPlugin(enabled bool, priority uint32) *SubsumptionCheckerPlugin {
@@ -198,52 +268,56 @@ func closeTotalRules(total map[ast.ASTHandle]*base.Rule) (result error) {
 	return result
 }
 
-func totalRelationModelStep(source *base.RuleSet) (_ ConeModelStep, resultErr error) {
-	total, err := discoverTotalRules(source)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, closeTotalRules(total)) }()
+func appendTotalRelationDeclarations(source *base.RuleSet, seen map[ast.ASTHandle]bool, order *[]ast.ASTHandle, manager **ast.ASTManager) (grew bool, resultErr error) {
 	count, err := source.Len()
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	step := make(ConeModelStep, 0, len(total))
-	keep := false
-	defer func() {
-		if !keep {
-			resultErr = errors.Join(resultErr, closeConeModelSteps([]ConeModelStep{step}))
-		}
-	}()
-	seen := make(map[ast.ASTHandle]bool, len(total))
 	for index := 0; index < count; index++ {
 		rule, getErr := source.Rule(index)
 		if getErr != nil {
-			return nil, getErr
+			return false, getErr
 		}
-		declaration, getErr := rule.HeadDeclaration()
-		if getErr == nil && total[declaration] != nil && !seen[declaration] {
-			manager, managerErr := rule.ASTManager()
-			if managerErr == nil {
-				var truth ast.ASTHandle
-				truth, managerErr = manager.MkTrue()
-				if managerErr == nil {
-					var formula ast.ASTRef
-					formula, managerErr = manager.NewRef(truth)
-					if managerErr == nil {
-						step = append(step, ConeModelDefinition{Declaration: declaration, Formula: formula, manager: manager})
-						seen[declaration] = true
-					}
-				}
+		isTotal, getErr := totalRule(rule)
+		if getErr == nil && isTotal {
+			declaration, declarationErr := rule.HeadDeclaration()
+			getErr = declarationErr
+			if getErr == nil && *manager == nil {
+				*manager, getErr = rule.ASTManager()
 			}
-			getErr = managerErr
+			if getErr == nil && !seen[declaration] {
+				seen[declaration] = true
+				*order = append(*order, declaration)
+				grew = true
+			}
 		}
 		getErr = errors.Join(getErr, rule.Close())
 		if getErr != nil {
-			return nil, getErr
+			return false, getErr
 		}
 	}
-	keep = true
+	return grew, nil
+}
+
+func totalRelationModelStep(manager *ast.ASTManager, declarations []ast.ASTHandle) (ConeModelStep, error) {
+	if len(declarations) == 0 {
+		return nil, nil
+	}
+	if manager == nil {
+		return nil, ast.ErrASTHandle
+	}
+	step := make(ConeModelStep, 0, len(declarations))
+	truth, err := manager.MkTrue()
+	if err != nil {
+		return nil, err
+	}
+	for _, declaration := range declarations {
+		formula, getErr := manager.NewRef(truth)
+		if getErr != nil {
+			return step, getErr
+		}
+		step = append(step, ConeModelDefinition{Declaration: declaration, Formula: formula, manager: manager})
+	}
 	return step, nil
 }
 
@@ -419,23 +493,67 @@ func subsumptionPass(source *base.RuleSet) (_ *base.RuleSet, changed bool, resul
 	return result, true, nil
 }
 
-func (p *SubsumptionCheckerPlugin) Transform(source *base.RuleSet) (*base.RuleSet, error) {
+func (p *SubsumptionCheckerPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
 	if p == nil || p.closed || p.closing {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	if !p.enabled {
 		return nil, nil
 	}
-	step, err := totalRelationModelStep(source)
+	seen := make(map[ast.ASTHandle]bool)
+	var order []ast.ASTHandle
+	var manager *ast.ASTManager
+	if _, err := appendTotalRelationDeclarations(source, seen, &order, &manager); err != nil {
+		return nil, err
+	}
+	current := source
+	owned := false
+	var ownedSets []*base.RuleSet
+	var step ConeModelStep
+	defer func() {
+		if resultErr != nil {
+			var steps []ConeModelStep
+			if len(step) != 0 {
+				steps = []ConeModelStep{step}
+			}
+			resultErr = closeSubsumptionConstruction(manager, resultErr, ownedSets, steps)
+		}
+	}()
+	for {
+		next, _, err := subsumptionPass(current)
+		if err != nil {
+			return nil, err
+		}
+		if next == nil {
+			break
+		}
+		ownedSets = append(ownedSets, next)
+		grew, err := appendTotalRelationDeclarations(next, seen, &order, &manager)
+		if err != nil {
+			return nil, err
+		}
+		if owned {
+			if err = current.Close(); err != nil {
+				return nil, err
+			}
+		}
+		current, owned = next, true
+		if !grew {
+			break
+		}
+	}
+	var err error
+	step, err = totalRelationModelStep(manager, order)
 	if err != nil {
 		return nil, err
 	}
-	result, _, err := subsumptionPass(source)
-	if err != nil {
-		return nil, errors.Join(err, closeConeModelSteps([]ConeModelStep{step}))
-	}
 	if len(step) != 0 {
 		p.modelSteps = append(p.modelSteps, step)
+		step = nil
 	}
-	return result, err
+	if !owned {
+		return nil, nil
+	}
+	owned = false
+	return current, nil
 }
