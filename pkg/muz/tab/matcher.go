@@ -3,6 +3,8 @@ package tab
 // Source: src/muz/tab/tab_context.cpp, tb::matcher.
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/substitution"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -180,15 +182,20 @@ func (m *SemanticMatcher) Match(pattern, term ast.ASTHandle, bindings *substitut
 			return false, nil
 		}
 		if state == lbool.Undef {
-			equality, err := m.manager.MkEq(left, current.term)
-			if err != nil {
-				return false, err
-			}
-			ref, err := m.manager.NewRef(equality)
+			// The caller owns partial conditions on failure. Reserve that
+			// ownership before constructing the source side-condition equality.
+			ref, err := m.manager.NewRef(ast.ASTHandle{})
 			if err != nil {
 				return false, err
 			}
 			*conditions = append(*conditions, ref)
+			equality, err := m.manager.MkEq(left, current.term)
+			if !equality.IsNull() {
+				err = errors.Join(err, m.manager.SetRef(ref, equality))
+			}
+			if err != nil {
+				return false, err
+			}
 		}
 	}
 	return true, nil
