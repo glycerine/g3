@@ -95,11 +95,18 @@ func TestSimplifyBoundsPreservesConsumedInputsWhenCleanupIsPending(t *testing.T)
 	if inputs[0] == (ast.ASTRef{}) || cleanup.RuntimeOwner() != runtime {
 		t.Fatal("cleanup receipt lost the transferred input owner")
 	}
+	origin, exposed, message := cleanup.OriginalCause(), errors.Unwrap(cleanup), cleanup.Error()
+	if origin == nil || exposed == nil || message == "" {
+		t.Fatal("cleanup receipt lost its stable failure presentation", origin, exposed, message)
+	}
 	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
 	must(cleanup.Cleanup())
 	must(cleanup.Cleanup())
 	if inputs[0] != (ast.ASTRef{}) || cleanup.CleanupCause() != nil {
 		t.Fatal("cleanup retry did not consume input", inputs[0], cleanup.CleanupCause())
+	}
+	if cleanup.OriginalCause() != origin || errors.Unwrap(cleanup) != exposed || cleanup.Error() != message {
+		t.Fatal("cleanup retry changed simplify-bounds receipt identity")
 	}
 	failure = nil
 }

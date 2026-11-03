@@ -191,6 +191,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Print nullable MBQI evaluation outputs as source `mk_ismt2_pp` does, without formatter allocation.
   - [x] Verify model-evaluator typed-exception TRACE writer refusal remains a caught unknown with no leaked evaluator roots and fresh-evaluator recovery.
   - [ ] Complete independent wrapper construction/cleanup failures before closing the entire value-consumer audit.
+    - [x] Keep `simplify_bounds_new` cleanup receipt presentation and semantic origin stable while retry advances only the remaining input-reference frontier.
   - [x] Verify implicant vector selection under a partial model: source flatten-and displacement order, true/unknown filtering, shared-literal deduplication, false-vector collapse, unknown/empty inputs, no model completion and temporary-reference cleanup.
   - [x] Verify seventeen Boolean implicant policy cases against source first-match/LIFO rules, equality guards and implication preference; independently check cube-implies-formula UNSAT and compatibility with the supplied assignment SAT, with unchanged temporary reference counts.
   - [x] Verify ten arithmetic literal-policy cases across Int/Real equality, disequality and binary distinct: both strict orientations, negative/normalized/large rational values, source repeated-value equality order, independent implication/model compatibility and temporary-reference cleanup.
@@ -512,6 +513,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Spacer `simplify_bounds_new` cleanup receipts now freeze their reported error, unwrap chain and semantic origin while native retry advances only `CleanupCause`. The transferred input root remains owned through refusal and is consumed exactly once on idempotent retry; other wrapper-construction paths remain open.
+  Validation: `go -C pkg test ./muz/spacer -run '^TestSimplifyBounds' -count=3` passed. Commit title: `Stabilize Spacer bound simplification cleanup`.
 
 - 2026-11-02 — Spacer literal-expansion construction failures now separate the semantic origin from retryable native cleanup. The receipt freezes `Error`/`Unwrap` and preserves every literal/root while `CleanupCause` advances to success, so generalizer retry cannot lose or relabel its live expansion vector; remaining trace/consumer auditing stays open.
   Validation: `go -C pkg test ./muz/spacer -run '^(TestSpacerLiteralExpansionPreservesRootsDuringPendingCleanup|TestSpacer.*Literal.*Expansion|TestSpacer.*Generalizer)' -count=3` passed. Commit title: `Stabilize Spacer literal expansion cleanup receipts`.

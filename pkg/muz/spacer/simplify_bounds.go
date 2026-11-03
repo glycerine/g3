@@ -14,17 +14,18 @@ import (
 )
 
 type simplifyBoundsCleanupFailure struct {
-	manager    *ast.ASTManager
-	values     []ast.ASTRef
-	cause      error
-	cleanupErr error
+	manager           *ast.ASTManager
+	values            []ast.ASTRef
+	cause, cleanupErr error
+	reported          error
+	reportText        string
 }
 
 func (f *simplifyBoundsCleanupFailure) Error() string {
-	return errors.Join(f.cause, f.cleanupErr).Error()
+	return f.reportText
 }
 func (f *simplifyBoundsCleanupFailure) Unwrap() error {
-	return errors.Join(f.cause, f.cleanupErr)
+	return f.reported
 }
 func (f *simplifyBoundsCleanupFailure) Cleanup() error {
 	f.cleanupErr = closeSimplifyBoundRefs(f.manager, f.values)
@@ -57,8 +58,10 @@ func simplifyBounds(manager *ast.ASTManager, context *uparams.ParamsContext, glo
 			return
 		}
 		if cleanup := closeSimplifyBoundRefs(manager, values); cleanup != nil {
+			reported := errors.Join(resultErr, cleanup)
 			resultErr = &simplifyBoundsCleanupFailure{
 				manager: manager, values: values, cause: resultErr, cleanupErr: cleanup,
+				reported: reported, reportText: reported.Error(),
 			}
 		}
 	}()
