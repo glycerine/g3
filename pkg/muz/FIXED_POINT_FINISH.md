@@ -190,6 +190,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
       - [x] Preserve a partially destroyed ReachFact after its fact/auxiliary AST prefix has retired but its retained rule refuses cleanup, with a stable runtime receipt and exact retry frontier.
 - [ ] Close `spacer_util` model evaluation, QE/MBP, array auxiliaries, appended datatype literals and source diagnostics.
   - [x] Apply model_evaluator_util typed-exception policy to MBQI warm/variable/candidate evaluation; verify a single interrupted candidate declines elimination without error, a subsequent candidate preserves the traversal precondition, unchanged formula/reference ownership and fresh-evaluator retry.
+  - [x] Transfer Boolean model-evaluation results into a typed owner before `RefGet`, suppress truth publication on cleanup refusal and preserve the exact AST reference for stable retry.
   - [x] Print nullable MBQI evaluation outputs as source `mk_ismt2_pp` does, without formatter allocation.
   - [x] Verify model-evaluator typed-exception TRACE writer refusal remains a caught unknown with no leaked evaluator roots and fresh-evaluator recovery.
   - [ ] Complete independent wrapper construction/cleanup failures before closing the entire value-consumer audit.
@@ -529,6 +530,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Spacer Boolean model probes now transfer `EvaluateValue`'s owning AST reference into a typed cleanup owner before reading it. Native release refusal suppresses truth/falsehood publication, preserves the sole retry handle and freezes origin/error/runtime presentation until idempotent cleanup; broader model-value consumer auditing remains open.
+  Validation: `go -C pkg test ./muz/spacer -run '^(TestSpacerModelValueCleanupReceiptKeepsNativeOwner|TestSpacer.*Model.*Evaluation|TestSpacer.*Evaluator)' -count=3` passed. Commit title: `Preserve Spacer model values through cleanup refusal`.
 
 - 2026-11-02 — Duality now rolls back replay guidance when a newly learned run fails after its replay heuristic has taken ownership. The exact original graph/root returns to the previous active engine, partial failed-run counterexamples are discarded, history guidance can transfer again on retry, and only a successful solve marks replay consumed; wider restart auditing remains open.
   Validation: `go -C pkg test ./duality -run '^(TestDualityInterruptedReplayRestoresGuideAndDiscardsPartialResult|TestDualityLearnFromKeepsReplayGuideUntilHistoryIsOwned)$' -count=3` and `go -C pkg test ./muz/duality -run '^TestDualityBackendCancellationAndRetry$' -count=3` passed. Commit title: `Roll back Duality replay guides after failed solves`.

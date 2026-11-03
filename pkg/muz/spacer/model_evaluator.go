@@ -20,6 +20,57 @@ type spacerModelEvaluatorConstructionFailure struct {
 	cleanupErr error
 }
 
+// spacerModelValueOwner keeps EvaluateValue's owning result reachable until
+// the Boolean probe has completed its native release frontier.
+type spacerModelValueOwner struct {
+	manager *ast.ASTManager
+	value   ast.ASTRef
+}
+
+func (o *spacerModelValueOwner) close() error {
+	if o.value == (ast.ASTRef{}) {
+		return nil
+	}
+	return o.manager.DelRef(&o.value)
+}
+
+type spacerModelValueCleanupFailure struct {
+	owner             *spacerModelValueOwner
+	original, cleanup error
+	reported          error
+	text              string
+}
+
+var _ memory.ConstructionFailure = (*spacerModelValueCleanupFailure)(nil)
+
+func (f *spacerModelValueCleanupFailure) Error() string        { return f.text }
+func (f *spacerModelValueCleanupFailure) Unwrap() error        { return f.reported }
+func (f *spacerModelValueCleanupFailure) OriginalCause() error { return f.original }
+func (f *spacerModelValueCleanupFailure) CleanupCause() error  { return f.cleanup }
+func (f *spacerModelValueCleanupFailure) RuntimeOwner() *memory.Runtime {
+	return f.owner.manager.NumeralService().RuntimeOwner()
+}
+func (f *spacerModelValueCleanupFailure) Cleanup() error {
+	f.cleanup = f.owner.close()
+	return f.cleanup
+}
+
+func finishSpacerModelValue(owner *spacerModelValueOwner, cause error) error {
+	cleanup := owner.close()
+	if cleanup == nil {
+		return cause
+	}
+	original := cause
+	if original == nil {
+		original = cleanup
+	}
+	reported := errors.Join(cause, cleanup)
+	return &spacerModelValueCleanupFailure{
+		owner: owner, original: original, cleanup: cleanup,
+		reported: reported, text: reported.Error(),
+	}
+}
+
 func (f *spacerModelEvaluatorConstructionFailure) Error() string {
 	return errors.Join(f.cause, f.cleanupErr).Error()
 }
@@ -80,7 +131,7 @@ func traceSpacerModelEvaluationFailure(manager *ast.ASTManager, config model.Mod
 // evaluateSpacerModelBoolean implements model_evaluator_util's Boolean probes:
 // evaluator rewrite exceptions mean unknown; ownership/parameter errors remain
 // errors. An interrupted evaluator still obeys the rewriter resume contract.
-func evaluateSpacerModelBoolean(manager *ast.ASTManager, evaluator *model.ModelEvaluator, config model.ModelEvaluatorConfig, expression ast.ASTHandle) (bool, bool, error) {
+func evaluateSpacerModelBoolean(manager *ast.ASTManager, evaluator *model.ModelEvaluator, config model.ModelEvaluatorConfig, expression ast.ASTHandle) (truth, falsehood bool, resultErr error) {
 	if err := evaluator.SetModelCompletion(false); err != nil {
 		return false, false, err
 	}
@@ -91,10 +142,16 @@ func evaluateSpacerModelBoolean(manager *ast.ASTManager, evaluator *model.ModelE
 		}
 		return false, false, err
 	}
+	owner := &spacerModelValueOwner{manager: manager, value: value}
+	defer func() {
+		resultErr = finishSpacerModelValue(owner, resultErr)
+		if resultErr != nil {
+			truth, falsehood = false, false
+		}
+	}()
 	h, err := manager.RefGet(value)
 	if err != nil {
-		return false, false, errors.Join(err, manager.DelRef(&value))
+		return false, false, err
 	}
-	truth, falsehood := manager.IsTrue(h), manager.IsFalse(h)
-	return truth, falsehood, manager.DelRef(&value)
+	return manager.IsTrue(h), manager.IsFalse(h), nil
 }
