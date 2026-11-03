@@ -463,7 +463,7 @@ func TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan(t *test
 }
 
 func TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks(t *testing.T) {
-	for _, shape := range []string{"self", "constant", "unsafe-head", "repeated", "nullary", "mutual-recursion"} {
+	for _, shape := range []string{"self", "constant-head", "unsafe-head", "repeated", "nullary", "mutual-recursion"} {
 		t.Run(shape, func(t *testing.T) {
 			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 			family, err := manager.RegisterArithmeticPlugin()
@@ -493,10 +493,10 @@ func TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks(
 			tailArguments := append([]ast.ASTHandle(nil), arguments...)
 			headArguments := append([]ast.ASTHandle(nil), arguments...)
 			switch shape {
-			case "constant":
+			case "constant-head":
 				value, valueErr := manager.ArithmeticIntegerNumeralText("9")
 				fragmentMust(t, valueErr)
-				tailArguments[0], headArguments[0] = value, value
+				headArguments[0] = value
 			case "unsafe-head":
 				headArguments[1], err = manager.MkVar(2, integer)
 				fragmentMust(t, err)

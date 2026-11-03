@@ -120,20 +120,26 @@ func (a *externalIntervalDatalogActivation) installExternalIntervalProgram(progr
 				return ErrExternalIntervalDatalogFragment
 			}
 		}
-		return a.pinExternalIntervalProgramGrounds()
+		return a.pinExternalIntervalProgramPlans()
 	}
 	if a.pending != nil || a.ground != nil {
 		return ErrExternalIntervalDatalogFragment
 	}
+	if err := a.identity.close(a.manager); err != nil {
+		return err
+	}
 	a.program = program
 	a.identity, a.cartesian = nil, nil
-	return a.pinExternalIntervalProgramGrounds()
+	return a.pinExternalIntervalProgramPlans()
 }
 
 // Adoption precedes rooting: a partially installed program stays owned by
 // the activation, including every already-acquired application root.
-func (a *externalIntervalDatalogActivation) pinExternalIntervalProgramGrounds() error {
+func (a *externalIntervalDatalogActivation) pinExternalIntervalProgramPlans() error {
 	for _, rule := range a.program.rules {
+		if err := rule.identity.pin(a.manager); err != nil {
+			return err
+		}
 		if rule.ground != nil && rule.ground.applicationRoot == (ast.ASTRef{}) {
 			root, err := a.manager.NewRef(rule.ground.application)
 			if err != nil {
@@ -145,11 +151,14 @@ func (a *externalIntervalDatalogActivation) pinExternalIntervalProgramGrounds() 
 	return nil
 }
 
-func (a *externalIntervalDatalogActivation) closeExternalIntervalProgramGrounds() error {
+func (a *externalIntervalDatalogActivation) closeExternalIntervalProgramPlans() error {
 	if a.program == nil {
 		return nil
 	}
 	for i := len(a.program.rules) - 1; i >= 0; i-- {
+		if err := a.program.rules[i].identity.close(a.manager); err != nil {
+			return err
+		}
 		if err := a.program.rules[i].ground.close(a.manager); err != nil {
 			return err
 		}

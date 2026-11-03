@@ -301,8 +301,13 @@ func (a *externalIntervalDatalogActivation) close() error {
 			entry.product = nil
 		}
 	}
-	if err := a.closeExternalIntervalProgramGrounds(); err != nil {
+	if err := a.closeExternalIntervalProgramPlans(); err != nil {
 		return err
+	}
+	if a.program == nil {
+		if err := a.identity.close(a.manager); err != nil {
+			return err
+		}
 	}
 	if a.program == nil && a.ground != nil {
 		if err := a.ground.close(a.manager); err != nil {

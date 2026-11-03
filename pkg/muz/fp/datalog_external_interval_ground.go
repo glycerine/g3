@@ -155,8 +155,11 @@ func (a *externalIntervalDatalogActivation) installExternalIntervalRulePlans(ide
 		}
 		ground = a.ground
 	}
-	if a.identity != nil && identity != nil && !sameExternalIntervalIdentityRule(a.identity, identity) {
-		return ErrExternalIntervalDatalogFragment
+	if a.identity != nil && identity != nil {
+		if !sameExternalIntervalIdentityRule(a.identity, identity) {
+			return ErrExternalIntervalDatalogFragment
+		}
+		identity = a.identity
 	}
 	if a.cartesian != nil && cartesian != nil && !sameExternalIntervalCartesianRule(a.cartesian, cartesian) {
 		return ErrExternalIntervalDatalogFragment
@@ -173,10 +176,15 @@ func (a *externalIntervalDatalogActivation) installExternalIntervalRulePlans(ide
 		}
 		ground.applicationRoot = root
 	}
+	if identity == nil {
+		if err := a.identity.close(a.manager); err != nil {
+			return err
+		}
+	}
 	a.identity = identity
 	a.ground = ground
 	a.cartesian = cartesian
-	return nil
+	return identity.pin(a.manager)
 }
 
 type externalIntervalDatalogGroundContinuation struct {

@@ -14,17 +14,49 @@ import (
 )
 
 type externalIntervalDatalogUnaryTransform struct {
-	identical [][]uint32
-	removed   []uint32
-	renames   [][]uint32
+	constants       []externalIntervalDatalogUnaryConstant
+	identical       [][]uint32
+	removed         []uint32
+	renames         [][]uint32
+	application     ast.ASTHandle
+	applicationRoot ast.ASTRef
+}
+
+type externalIntervalDatalogUnaryConstant struct {
+	column uint32
+	value  ast.ASTHandle
+}
+
+func (p *externalIntervalDatalogIdentityRule) pin(manager *ast.ASTManager) error {
+	if p == nil || p.transform == nil || len(p.transform.constants) == 0 || p.transform.applicationRoot != (ast.ASTRef{}) {
+		return nil
+	}
+	root, err := manager.NewRef(p.transform.application)
+	if err != nil {
+		return err
+	}
+	p.transform.applicationRoot = root
+	return nil
+}
+
+func (p *externalIntervalDatalogIdentityRule) close(manager *ast.ASTManager) error {
+	if p == nil || p.transform == nil || p.transform.applicationRoot == (ast.ASTRef{}) {
+		return nil
+	}
+	return manager.DelRef(&p.transform.applicationRoot)
 }
 
 func sameExternalIntervalUnaryTransform(left, right *externalIntervalDatalogUnaryTransform) bool {
 	if left == nil || right == nil {
 		return left == right
 	}
-	if !externalIntervalColumnsEqual(left.removed, right.removed) || len(left.identical) != len(right.identical) || len(left.renames) != len(right.renames) {
+	if !externalIntervalColumnsEqual(left.removed, right.removed) || len(left.constants) != len(right.constants) || len(left.identical) != len(right.identical) || len(left.renames) != len(right.renames) {
 		return false
+	}
+	for i := range left.constants {
+		if left.constants[i] != right.constants[i] {
+			return false
+		}
 	}
 	for i := range left.identical {
 		if !externalIntervalColumnsEqual(left.identical[i], right.identical[i]) {
@@ -71,6 +103,7 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 	}
 	variables := make([][]uint32, 2)
 	sorts := make([][]ast.ASTHandle, 2)
+	plan := &externalIntervalDatalogUnaryTransform{}
 	for index, application := range []ast.ASTHandle{head, tail} {
 		declaration, cause := e.manager.GetDecl(application)
 		if cause != nil {
@@ -92,7 +125,6 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 		} else {
 			tailDecl = declaration
 		}
-		sorts[index] = state.sorts
 		seen := make(map[uint32]bool)
 		for column := uint32(0); column < count; column++ {
 			argument, cause := e.manager.GetArg(application, column)
@@ -103,22 +135,40 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 			if cause != nil {
 				return fail(cause)
 			}
-			if kind != ast.ASTVar {
+			sort, cause := e.manager.GetSort(argument)
+			if cause != nil {
+				return fail(cause)
+			}
+			if sort != state.sorts[column] {
 				return fail(ErrExternalIntervalDatalogFragment)
+			}
+			if kind != ast.ASTVar {
+				if index != 1 {
+					return fail(ErrExternalIntervalDatalogFragment)
+				}
+				_, _, numeral, cause := e.manager.ArithmeticNumeralText(argument)
+				if cause != nil {
+					return fail(cause)
+				}
+				if !numeral {
+					return fail(ErrExternalIntervalDatalogFragment)
+				}
+				// Earlier constants have already been projected away; the
+				// source instruction selects at the number of prior variables.
+				plan.constants = append(plan.constants, externalIntervalDatalogUnaryConstant{column: uint32(len(variables[index])), value: argument})
+				plan.application = tail
+				continue
 			}
 			variable, cause := e.manager.GetVarIndex(argument)
 			if cause != nil {
 				return fail(cause)
 			}
-			sort, cause := e.manager.GetSort(argument)
-			if cause != nil {
-				return fail(cause)
-			}
-			if sort != state.sorts[column] || index == 0 && seen[variable] {
+			if index == 0 && seen[variable] {
 				return fail(ErrExternalIntervalDatalogFragment)
 			}
 			seen[variable] = true
 			variables[index] = append(variables[index], variable)
+			sorts[index] = append(sorts[index], sort)
 		}
 	}
 	if headDecl == tailDecl {
@@ -132,7 +182,6 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 		}
 		columns[variable] = append(previous, uint32(column))
 	}
-	plan := &externalIntervalDatalogUnaryTransform{}
 	order := make([]uint32, 0, len(columns))
 	for variable := range columns {
 		order = append(order, variable)
@@ -187,7 +236,7 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 			plan.renames = append(plan.renames, []uint32{cycle[i], cycle[i+1]})
 		}
 	}
-	if len(plan.identical)+len(plan.removed)+len(plan.renames) != 0 {
+	if len(plan.constants)+len(plan.identical)+len(plan.removed)+len(plan.renames) != 0 {
 		transform = plan
 	}
 	return headDecl, tailDecl, transform, nil
@@ -235,12 +284,33 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalUnary(plan *e
 	if current == nil {
 		return finish()
 	}
-	if len(transform.identical) != 0 {
-		owner.temporary, err = current.Clone()
+	for _, constant := range transform.constants {
+		next, err := selectExternalIntervalUnary(current, constant.column, constant.value, registers.runtime)
 		if err != nil {
 			return rollback(err)
 		}
-		current = owner.temporary
+		if err := owner.replaceTemporary(next); err != nil {
+			return rollback(err)
+		}
+		current = next
+		// The default source operation always projects after filtering.
+		// Only the completed SELECT_EQUAL_AND_PROJECT tests emptiness.
+		empty, err := current.Empty()
+		if err != nil {
+			return rollback(err)
+		}
+		if empty {
+			return finish()
+		}
+	}
+	if len(transform.identical) != 0 {
+		if owner.temporary == nil {
+			owner.temporary, err = current.Clone()
+			if err != nil {
+				return rollback(err)
+			}
+			current = owner.temporary
+		}
 		for _, columns := range transform.identical {
 			if err := current.FilterIdentical(columns); err != nil {
 				return rollback(err)

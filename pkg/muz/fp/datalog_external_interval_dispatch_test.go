@@ -22,6 +22,9 @@ type externalIntervalCallbackState struct {
 	renameParameters  [][]uint32
 	filterColumns     [][]uint32
 	filterArguments   []ast.ASTHandle
+	constantColumns   []uint32
+	constantValues    []string
+	constantSorts     []ast.ASTHandle
 	refusalOperation  int32
 	refusalAt         int
 	refusal           error
@@ -213,6 +216,27 @@ func (s *externalIntervalCallbackState) recordEqualityFilter(declaration ast.AST
 		argument, cause := s.manager.GetArg(condition, uint32(i))
 		if cause != nil {
 			return cause
+		}
+		kind, cause := s.manager.GetKind(argument)
+		if cause != nil {
+			return cause
+		}
+		if kind != ast.ASTVar {
+			value, _, matched, cause := s.manager.ArithmeticNumeralText(argument)
+			if cause != nil {
+				return cause
+			}
+			if i != 1 || !matched {
+				return fmt.Errorf("unexpected FILTER equality operand %d", i)
+			}
+			sort, cause := s.manager.GetSort(argument)
+			if cause != nil {
+				return cause
+			}
+			s.constantColumns = append(s.constantColumns, columns[0])
+			s.constantValues = append(s.constantValues, value)
+			s.constantSorts = append(s.constantSorts, sort)
+			return nil
 		}
 		columns[i], cause = s.manager.GetVarIndex(argument)
 		if cause != nil {
