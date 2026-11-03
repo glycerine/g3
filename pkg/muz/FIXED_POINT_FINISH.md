@@ -74,6 +74,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Route the owning fixedpoint API string/writer through the context formatter, applying fixedpoint-local print options without query configuration changes.
   - [x] Reconcile eager Go ingestion with source pending-closed versus flushed display phase: preserve original binder/annotation metadata before flushing, normalized clause identity/order after flushing, updates and scoped restoration.
     - [x] Rebuild pending open formulas at display/enumeration time using current `xform.fix_unbound_vars`, preserving normalized prefix identity, swap order and pending closed ranges; retain temporary owners through cleanup refusal. Focused parameter, dense allocation and retry tests pass.
+    - [x] Preserve already-valid Duality proof and model results when display promotes an open rule; stale results remain invalid after actual mutations, with writer and cancellation retry coverage.
     - [x] Rebuild pending closed formulas at query flush using current parameters, preserving raw archives, scope rollback and cleanup continuation; semantic, allocation and public API tests pass.
     - [x] Honor the source `xform.fix_unbound_vars` gate before creating the ingestion QE helper, including current-parameter display and query phases.
     - [x] Preserve closed-input binder/weight metadata before flush, normalized expansions afterward, mixed pending additions, scope snapshots and update range shifts; ordinary Duality queries preserve raw inputs.
@@ -2056,3 +2057,5 @@ Current next parallel handoff after external scheduling and checked-index capabi
 
 - 2026-11-03 — Matched source publication of normalized clauses when a multi-clause update is rejected. Public source-oracle, ordering, scope, owner and native refusal tests pass; partial HNF errors before normalization completes remain open.
 - 2026-11-03 — Fixed the three-tag display allocation campaign's debug-only attempt-limit failure. Native retains exhaustive 128-query coverage; debug exhausts a 22-query fixture that crosses the reference-page boundary and separately checks cold 128-query failure/completion and negation-owner boundaries. Focused native and three-tag tests pass; the earlier filtered run failed only this campaign.
+
+- 2026-11-03 — The full filtered `g3checked,g3debug,g3trace` short suite passed on snapshot `d81bcec1e`, including the repaired debug allocation campaign. Log: `/tmp/g3-filtered-three-tag-repair-20261103.log`.

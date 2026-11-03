@@ -151,6 +151,11 @@ func (e *PropositionalEngine) normalizePendingRules(flush bool) (resultErr error
 	if err = a.closeRules(); err != nil {
 		return err
 	}
+	// Ordinary Duality solves the raw archive without flushing it. Source
+	// display/get_rules may subsequently promote open inputs, but do not
+	// replace the engine's completed proof/model. Carry only an already-valid
+	// result across this display phase; mutations must still leave it stale.
+	preserveDualityResult := !flush && e.backend == "duality" && e.requireResultSnapshot(EngineDuality) == nil
 	// Source context::flush_add_rules keeps the persistent m_rule_set
 	// object. Arithmetic stores and query scopes also borrow that owner.
 	if err = e.set.ExchangeContents(replacement); err != nil {
@@ -167,5 +172,8 @@ func (e *PropositionalEngine) normalizePendingRules(flush bool) (resultErr error
 	// The temporary replacement now owns the old contents until their last
 	// reference releases have completed; the persistent set keeps its identity.
 	e.advanceRuleRevision()
+	if preserveDualityResult {
+		e.queryRevision = e.revision
+	}
 	return e.cleanupRetiredRawRules()
 }
