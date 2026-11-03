@@ -28,16 +28,13 @@ type Clause struct {
 
 // NewClause initializes and simplifies a tabulation clause. The theory rewriter
 // is borrowed and must use the same manager.
-func NewClause(m *ast.ASTManager, rw *rewriter.TheoryRewriter, head ast.ASTHandle, predicates []ast.ASTHandle, constraint ast.ASTHandle) (_ *Clause, result error) {
+func NewClause(m *ast.ASTManager, rw *rewriter.TheoryRewriter, head ast.ASTHandle, predicates []ast.ASTHandle, constraint ast.ASTHandle) (built *Clause, result error) {
 	if m == nil || rw == nil || rw.Manager() != m {
 		return nil, ast.ErrASTHandle
 	}
 	c := &Clause{manager: m, nextRule: ^uint32(0)}
-	defer func() {
-		if result != nil {
-			result = errors.Join(result, c.Close())
-		}
-	}()
+	attempt := &clauseConstructionAttempt{manager: m, clause: c}
+	defer func() { built, result = finishClauseConstruction(attempt, result) }()
 	for _, h := range append([]ast.ASTHandle{head}, predicates...) {
 		kind, err := m.GetKind(h)
 		if err != nil {
