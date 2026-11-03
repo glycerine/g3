@@ -476,6 +476,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Apply project, rename, equal/identical and interpreted filters componentwise to concrete external/interval products, preserving callback order, nullary results and failure-atomic interval publication.
   - [x] Union and widen aligned external/interval products with a fresh per-component delta followed by ordinary accumulation into the caller delta, preserving preexisting rows and source operation order under refusal.
   - [x] Join aligned external/interval products componentwise with exact schema/kind preflight, callback column order, interval equality constraints and independent result ownership.
+  - [x] Display mixed external/interval products with the source header and component order, propagating writer failures without mutating either component.
   - [ ] Mixed external products and remaining exceptional working/delta ownership.
 - [ ] `src/muz/rel/dl_finite_product_relation.cpp` (partial), `src/muz/rel/dl_finite_product_relation.h` (partial)
   - [x] Finite/interval product display, size estimates, forced garbage collection and non-table tuple-display fallback.
@@ -667,6 +668,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Sparse functional union now probes the nonfunctional prefix before insertion, including the empty key. Existing target suffixes keep source first-row precedence, conflicting rows do not enter the delta and new rows still publish to both target and delta; broader sparse method auditing remains open.
   Validation: `go -C pkg test ./muz/rel -run '^(TestSparseFunctionalUnion|TestSparseFunctional)' -count=5` passed. Commit title: `Preserve sparse functional rows during union`.
+
+- 2026-11-02 — Mixed external/interval products now emit the source product header followed by concrete components in the requested representation order. Exact content for both orders, real interval facts, writer refusal and nil/closed validation are covered; the upstream ill-typed external `ToFormula` boundary remains explicitly excluded.
+  Validation: `go -C pkg test ./muz/rel -run '^TestExternalIntervalProductDisplay' -count=5` passed. Commit title: `Display mixed external interval products`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
