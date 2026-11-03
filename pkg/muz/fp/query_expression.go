@@ -183,6 +183,11 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		return lbool.Undef, err
 	}
 	clone.auxiliary[declaration] = true
+	if clone.backend == "datalog" {
+		if err = clone.inheritDatalogQueryKind(query, declaration); err != nil {
+			return lbool.Undef, err
+		}
+	}
 	rule, err := clone.manager.MkImplies(query, head)
 	if err != nil {
 		return lbool.Undef, err
@@ -193,11 +198,7 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if clone.backend == "datalog" {
 		if selected, cause := clone.ensureSparseIntervalDatalog(); cause != nil {
 			return lbool.Undef, cause
-		} else if selected {
-			if err = clone.inheritSparseIntervalQueryKind(query, declaration); err != nil {
-				return lbool.Undef, err
-			}
-		} else {
+		} else if !selected {
 			if _, err = clone.ensureIntervalDatalog(); err != nil {
 				return lbool.Undef, err
 			}

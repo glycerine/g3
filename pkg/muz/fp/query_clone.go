@@ -50,6 +50,12 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 		clone.ddnf.registryBorrowed = true
 	}
 	clone.forceProofTrace = e.forceProofTrace
+	if e.backend == "datalog" && e.external != nil {
+		clone.external, err = e.external.CloneForManager(clone.relations)
+		if err != nil {
+			return nil, errors.Join(err, e.discardQueryClone(clone))
+		}
+	}
 	if err = e.copyQueryPredicates(clone); err != nil {
 		return nil, errors.Join(err, e.discardQueryClone(clone))
 	}

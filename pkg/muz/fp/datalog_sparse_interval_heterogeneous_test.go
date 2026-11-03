@@ -203,8 +203,8 @@ func TestDatalogSparseIntervalHeterogeneousOriginals(t *testing.T) {
 		t.Fatal("ground product projection lost source sieve precision", status)
 	}
 	inherited = e.queryClone.predicates[e.queryClonePredicate].requestedRepresentations
-	if len(inherited) != 1 || inherited[0] != "tr_sparse" {
-		t.Fatal("full-body precision changed first predicate kind", inherited)
+	if len(inherited) != 1 || inherited[0] != "interval_relation" {
+		t.Fatal("query kind did not follow source flatten-and swap order", inherited)
 	}
 	must(m.DelRef(&groundProductRef))
 	must(m.DelRef(&sevenRef))

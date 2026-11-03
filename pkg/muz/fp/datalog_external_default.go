@@ -104,7 +104,19 @@ func (e *PropositionalEngine) ensureDefaultExternalDatalog() (selected bool, res
 			continue
 		}
 		if len(state.requestedRepresentations) != 0 && (len(state.requestedRepresentations) != 1 || state.requestedRepresentations[0] != "external_relation") {
-			continue
+			// rule_manager::mk_query inherits the first body predicate's
+			// requested plugin name before constructing its nullary query
+			// head. Sparse plugins cannot handle that inherited signature, so
+			// relation-manager favourite selection proceeds to the registered
+			// external plugin. Valid finite selections were marked explicit by
+			// inheritDatalogQueryKind above and have already been skipped.
+			name := ""
+			if len(state.requestedRepresentations) == 1 {
+				name = state.requestedRepresentations[0]
+			}
+			if len(state.sorts) != 0 || (name != "tr_sparse" && name != "tr_lazy_sparse") {
+				continue
+			}
 		}
 		candidates = append(candidates, declaration)
 	}

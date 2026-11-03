@@ -555,6 +555,9 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 		if err := e.applyDatalogDefaultFiniteTable(); err != nil {
 			return err
 		}
+		if _, err := e.ensureDefaultExternalDatalog(); err != nil {
+			return err
+		}
 		e.engineInstantiated = true
 		if selected, err := e.ensureSparseIntervalDatalog(); err != nil {
 			return err
@@ -633,6 +636,9 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 		if err := e.applyDatalogDefaultFiniteTable(); err != nil {
 			return err
 		}
+		if _, err := e.ensureDefaultExternalDatalog(); err != nil {
+			return err
+		}
 		e.engineInstantiated = true
 		if selected, err := e.ensureSparseIntervalDatalog(); err != nil {
 			return err
@@ -650,23 +656,7 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 			return e.addArithmeticTableFact(declaration, values)
 		}
 		if state.external != nil {
-			references, err := e.relations.DecodeFact(state.sorts, fact)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				for i := len(references) - 1; i >= 0; i-- {
-					resultErr = errors.Join(resultErr, e.manager.DelRef(&references[i]))
-				}
-			}()
-			handles := make([]ast.ASTHandle, len(references))
-			for i := range references {
-				handles[i], err = e.manager.RefGet(references[i])
-				if err != nil {
-					return err
-				}
-			}
-			return e.AddFact(declaration, handles)
+			return e.addArithmeticTableFact(declaration, values)
 		}
 		return e.addDatalogFact(state, fact)
 	}
@@ -2040,6 +2030,9 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 
 func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandle) (status lbool.LBool, resultErr error) {
 	if err := e.applyDatalogDefaultFiniteTable(); err != nil {
+		return lbool.Undef, err
+	}
+	if _, err := e.ensureDefaultExternalDatalog(); err != nil {
 		return lbool.Undef, err
 	}
 	if selected, err := e.ensureSparseIntervalDatalog(); err != nil {

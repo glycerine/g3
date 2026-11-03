@@ -20,6 +20,17 @@ func (e *PropositionalEngine) copyQueryPredicates(clone *PropositionalEngine) er
 		clone.predicates[declaration].argumentNamesSet = e.predicates[declaration].argumentNamesSet
 		clone.predicates[declaration].requestedRepresentations = append([]string(nil), e.predicates[declaration].requestedRepresentations...)
 		clone.predicates[declaration].explicitFiniteRepresentation = e.predicates[declaration].explicitFiniteRepresentation
+		if e.backend == "datalog" && e.predicates[declaration].external != nil {
+			if clone.external == nil {
+				return ErrPropositionalHorn
+			}
+			relation, err := clone.external.PredicateRelation(declaration)
+			if err != nil {
+				return err
+			}
+			clone.predicates[declaration].external = relation
+			clone.predicates[declaration].table = nil
+		}
 		if e.backend == "datalog" && e.predicates[declaration].table != nil {
 			table, err := clone.cloneFiniteForContext(e.predicates[declaration].table)
 			if err != nil {

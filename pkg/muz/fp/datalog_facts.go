@@ -46,6 +46,31 @@ func (e *PropositionalEngine) publishDatalogQueryRelations(clone *PropositionalE
 			continue
 		}
 		state := clone.predicates[d]
+		if state != nil && state.external != nil {
+			if e.external == nil {
+				return ErrPropositionalHorn
+			}
+			prior, existed, priorErr := e.external.TryGetPredicateRelation(d)
+			if priorErr != nil {
+				return priorErr
+			}
+			replaceErr := e.external.ReplacePredicateFrom(d, state.external)
+			// Retirement can refuse after replacement publication. Refresh
+			// the borrowed pointer even then, without creating a relation
+			// when construction failed before publication.
+			relation, found, lookupErr := e.external.TryGetPredicateRelation(d)
+			if lookupErr == nil && found && (replaceErr == nil || !existed || relation != prior || e.predicates[d].external != nil) {
+				e.predicates[d].external = relation
+				e.predicates[d].table = nil
+			}
+			if err := errors.Join(replaceErr, lookupErr); err != nil {
+				return err
+			}
+			if !found {
+				return ErrPropositionalHorn
+			}
+			continue
+		}
 		if state == nil || state.table == nil {
 			continue
 		}
