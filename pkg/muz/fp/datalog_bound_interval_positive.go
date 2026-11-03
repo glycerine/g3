@@ -137,13 +137,28 @@ type boundIntervalPositiveTail struct {
 	owned       bool // independent product; another clone would lose equality classes
 }
 
-func (a *boundIntervalDatalogActivation) parsePositiveTail(rule *base.Rule, index int, products map[ast.ASTHandle]*rel.IntervalBoundProduct, allowRepeated bool) (*boundIntervalPositiveTail, error) {
+// compile_rule selects a delta register by tail occurrence. The other tails
+// read the live full relations, even if they use the same predicate.
+type boundIntervalRuleInputs struct {
+	products  map[ast.ASTHandle]*rel.IntervalBoundProduct
+	deltaTail int
+	delta     *rel.IntervalBoundProduct
+}
+
+func (inputs boundIntervalRuleInputs) relation(declaration ast.ASTHandle, index int) *rel.IntervalBoundProduct {
+	if inputs.delta != nil && inputs.deltaTail == index {
+		return inputs.delta
+	}
+	return inputs.products[declaration]
+}
+
+func (a *boundIntervalDatalogActivation) parsePositiveTail(rule *base.Rule, index int, inputs boundIntervalRuleInputs, allowRepeated bool) (*boundIntervalPositiveTail, error) {
 	tail, negated, err := rule.Tail(index)
 	if err != nil || negated {
 		return nil, errors.Join(err, ErrBoundIntervalDatalogFragment)
 	}
 	declaration, err := a.manager.GetDecl(tail)
-	if err != nil || products[declaration] == nil || a.entries[declaration] == nil {
+	if err != nil || inputs.relation(declaration, index) == nil || a.entries[declaration] == nil {
 		return nil, errors.Join(err, ErrBoundIntervalDatalogFragment)
 	}
 	sorts := append([]ast.ASTHandle(nil), a.entries[declaration].sorts...)
@@ -188,7 +203,7 @@ func (a *boundIntervalDatalogActivation) parsePositiveTail(rule *base.Rule, inde
 		seen[variable] = true
 		variables = append(variables, variable)
 	}
-	product := products[declaration]
+	product := inputs.relation(declaration, index)
 	sort.Slice(constants, func(i, j int) bool { return constants[i].column > constants[j].column })
 	for _, constant := range constants {
 		product, err = product.SelectEqualAndProject(constant.column, constant.value)
@@ -236,12 +251,12 @@ func (a *boundIntervalDatalogActivation) parsePositiveTail(rule *base.Rule, inde
 }
 
 func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, products map[ast.ASTHandle]*rel.IntervalBoundProduct) (changed bool, resultErr error) {
-	return a.evaluatePositiveRuleInto(rule, products, products, nil, false)
+	return a.evaluatePositiveRuleInto(rule, boundIntervalRuleInputs{products: products}, products, nil, false)
 }
 
-// Input delta registers are distinct from the full target relation. Keeping
-// those maps separate matters when the same predicate is both head and tail.
-func (a *boundIntervalDatalogActivation) evaluatePositiveRuleInto(rule *base.Rule, inputs, products map[ast.ASTHandle]*rel.IntervalBoundProduct, delta *rel.IntervalBoundProduct, widen bool) (changed bool, resultErr error) {
+// Input delta registers are distinct from the full target relation and from
+// other occurrences of that predicate in the same rule.
+func (a *boundIntervalDatalogActivation) evaluatePositiveRuleInto(rule *base.Rule, inputs boundIntervalRuleInputs, products map[ast.ASTHandle]*rel.IntervalBoundProduct, delta *rel.IntervalBoundProduct, widen bool) (changed bool, resultErr error) {
 	defer func() { resultErr = errors.Join(resultErr, rule.Close()) }()
 	positive, err := rule.PositiveTailSize()
 	if err != nil || positive < 1 || positive > 2 {

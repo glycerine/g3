@@ -147,47 +147,58 @@ func TestDatalogBoundIntervalWideningParameterPrecedence(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalWideningRefusesUnsupportedRecursiveComponents(t *testing.T) {
-	for _, shape := range []string{"multiple-heads", "multiple-recursive-tails"} {
-		for _, widen := range []bool{false, true} {
-			name := shape + "/ordinary"
-			if widen {
-				name = shape + "/widen"
-			}
-			t.Run(name, func(t *testing.T) {
-				f := newBoundIntervalPublicFixture(t, []string{"bound_relation", "interval_relation"})
-				h, q := f.declare("widen-boundary-H", 1), f.declare("widen-boundary-Q", 1)
-				f.fact(h, 0)
-				x := f.hold(f.m.MkVar(0, f.integer))
-				first, second := f.app(q, x), f.app(h, x)
-				if shape == "multiple-recursive-tails" {
-					first, second = f.app(h, f.numeral(10)), f.app(h, f.numeral(20))
-				}
-				body := f.app(h, x)
-				if shape == "multiple-recursive-tails" {
-					y := f.hold(f.m.MkVar(1, f.integer))
-					body = f.hold(f.m.MkAnd(body, f.app(h, y)))
-				}
-				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(body, first)), "recursive-first"))
-				tail := f.app(q, x)
-				if shape == "multiple-recursive-tails" {
-					tail = f.app(h, x)
-				}
-				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(tail, second)), "recursive-second"))
-				if widen {
-					fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
-					if _, err := f.e.QueryPredicate(h); !errors.Is(err, ErrBoundIntervalDatalogFragment) {
-						t.Fatal("unsupported widening component accepted", err)
-					}
-					if _, err := f.e.Answer(h); !errors.Is(err, ErrPropositionalEngine) {
-						t.Fatal("refused widening query published an answer", err)
-					}
-					return
-				}
-				answer := boundIntervalWideningAnswer(t, f, h)
-				f.checkFormula(answer, []int{0}, true)
-				f.checkFormula(answer, []int{20}, shape == "multiple-recursive-tails")
-				f.checkFormula(answer, []int{21}, false)
-			})
+	for _, widen := range []bool{false, true} {
+		name := "multiple-heads/ordinary"
+		if widen {
+			name = "multiple-heads/widen"
 		}
+		t.Run(name, func(t *testing.T) {
+			f := newBoundIntervalPublicFixture(t, []string{"bound_relation", "interval_relation"})
+			h, q := f.declare("widen-boundary-H", 1), f.declare("widen-boundary-Q", 1)
+			f.fact(h, 0)
+			x := f.hold(f.m.MkVar(0, f.integer))
+			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(f.app(h, x), f.app(q, x))), "recursive-first"))
+			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(f.app(q, x), f.app(h, x))), "recursive-second"))
+			if widen {
+				fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
+				if _, err := f.e.QueryPredicate(h); !errors.Is(err, ErrBoundIntervalDatalogFragment) {
+					t.Fatal("unsupported widening component accepted", err)
+				}
+				if _, err := f.e.Answer(h); !errors.Is(err, ErrPropositionalEngine) {
+					t.Fatal("refused widening query published an answer", err)
+				}
+				return
+			}
+			answer := boundIntervalWideningAnswer(t, f, h)
+			f.checkFormula(answer, []int{0}, true)
+			f.checkFormula(answer, []int{20}, false)
+			f.checkFormula(answer, []int{21}, false)
+		})
+	}
+}
+
+func TestDatalogBoundIntervalWideningRecursiveTailsWithConstantHeads(t *testing.T) {
+	for _, widen := range []bool{false, true} {
+		name := "ordinary"
+		if widen {
+			name = "widen"
+		}
+		t.Run(name, func(t *testing.T) {
+			f := newBoundIntervalPublicFixture(t, []string{"bound_relation", "interval_relation"})
+			h := f.declare("widen-constant-head-H", 1)
+			f.fact(h, 0)
+			x, y := f.hold(f.m.MkVar(0, f.integer)), f.hold(f.m.MkVar(1, f.integer))
+			body := f.hold(f.m.MkAnd(f.app(h, x), f.app(h, y)))
+			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(body, f.app(h, f.numeral(10)))), "recursive-first"))
+			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(f.app(h, x), f.app(h, f.numeral(20)))), "recursive-second"))
+			if widen {
+				fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
+			}
+			answer := boundIntervalWideningAnswer(t, f, h)
+			f.checkFormula(answer, []int{0}, true)
+			f.checkFormula(answer, []int{20}, true)
+			f.checkFormula(answer, []int{21}, widen)
+			f.checkFormula(answer, []int{-1}, false)
+		})
 	}
 }

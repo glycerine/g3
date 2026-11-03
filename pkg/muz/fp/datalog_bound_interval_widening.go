@@ -1,8 +1,8 @@
 package fp
 
 // Source: dl_compiler.cpp compile_preds_init/compile_dependent_rules and
-// dl_instruction.cpp instr_union/while_loop. This first widening consumer
-// admits singleton recursive strata with one positive self-tail per rule.
+// dl_instruction.cpp instr_union/while_loop. This widening consumer admits
+// singleton recursive strata with up to two positive tails per rule.
 
 import (
 	"errors"
@@ -21,8 +21,13 @@ type boundIntervalWideningRule struct {
 type boundIntervalWideningStratum struct {
 	head      ast.ASTHandle
 	initial   []int
-	recursive []int
-	all       []int
+	recursive []boundIntervalWideningVariant
+	all       []boundIntervalWideningVariant
+}
+
+type boundIntervalWideningVariant struct {
+	rule int
+	tail int // -1 selects full relations for all-or-nothing compilation
 }
 
 func (a *boundIntervalDatalogActivation) wideningRule(index int, rule *base.Rule) (_ boundIntervalWideningRule, resultErr error) {
@@ -102,20 +107,20 @@ func (a *boundIntervalDatalogActivation) wideningPlan() ([]boundIntervalWidening
 		head := predicates[0]
 		plan := boundIntervalWideningStratum{head: head}
 		for _, rule := range byHead[head] {
-			plan.all = append(plan.all, rule.index)
+			plan.all = append(plan.all, boundIntervalWideningVariant{rule: rule.index, tail: -1})
 			if len(rule.tails) == 0 {
 				continue // Ground rules have already initialized their targets.
 			}
 			recursive := false
-			for _, tail := range rule.tails {
-				recursive = recursive || tail == head
-			}
-			if recursive {
-				if len(rule.tails) != 1 {
-					return nil, ErrBoundIntervalDatalogFragment
+			// Source compile_rule emits one variant per recursive occurrence,
+			// in tail order, leaving all other operands as full registers.
+			for index, tail := range rule.tails {
+				if tail == head {
+					recursive = true
+					plan.recursive = append(plan.recursive, boundIntervalWideningVariant{rule: rule.index, tail: index})
 				}
-				plan.recursive = append(plan.recursive, rule.index)
-			} else {
+			}
+			if !recursive {
 				plan.initial = append(plan.initial, rule.index)
 			}
 		}
@@ -127,7 +132,7 @@ func (a *boundIntervalDatalogActivation) wideningPlan() ([]boundIntervalWidening
 // All-or-nothing compilation runs every head rule in each loop, including
 // ground rules. Construct the ground relation independently before widening
 // it into the target, just as the compiler assembles a fresh head register.
-func (a *boundIntervalDatalogActivation) evaluateWideningRule(index int, head ast.ASTHandle, inputs, products map[ast.ASTHandle]*rel.IntervalBoundProduct, delta *rel.IntervalBoundProduct) error {
+func (a *boundIntervalDatalogActivation) evaluateWideningRule(index int, head ast.ASTHandle, inputs boundIntervalRuleInputs, products map[ast.ASTHandle]*rel.IntervalBoundProduct, delta *rel.IntervalBoundProduct) error {
 	rule, err := a.rules.Rule(index)
 	if err != nil {
 		return err
@@ -183,11 +188,7 @@ func (a *boundIntervalDatalogActivation) saturateWithWidening(products map[ast.A
 		}
 		for current != nil && !current.Empty() {
 			var next *rel.IntervalBoundProduct
-			inputs := products
-			if !allOrNothing {
-				inputs = map[ast.ASTHandle]*rel.IntervalBoundProduct{stratum.head: current}
-			}
-			for _, index := range loop {
+			for _, variant := range loop {
 				if err = a.checkpoint(); err != nil {
 					return err
 				}
@@ -199,11 +200,15 @@ func (a *boundIntervalDatalogActivation) saturateWithWidening(products map[ast.A
 						return errors.Join(err, ErrBoundIntervalDatalogFragment)
 					}
 				}
-				if err = a.evaluateWideningRule(index, stratum.head, inputs, products, next); err != nil {
+				inputs := boundIntervalRuleInputs{products: products}
+				if variant.tail >= 0 {
+					inputs.deltaTail, inputs.delta = variant.tail, current
+				}
+				if err = a.evaluateWideningRule(variant.rule, stratum.head, inputs, products, next); err != nil {
 					return err
 				}
-				// instr_union clears an empty delta register after EACH rule.
-				// Its hidden nonempty component must not join a later rule's
+				// instr_union clears an empty delta register after EACH variant.
+				// Its hidden nonempty component must not join a later variant's
 				// different component and spuriously keep the loop running.
 				if next.Empty() {
 					next = nil

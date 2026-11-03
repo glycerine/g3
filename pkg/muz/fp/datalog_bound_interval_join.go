@@ -18,7 +18,7 @@ type boundIntervalJoinColumn struct {
 	sort     ast.ASTHandle
 }
 
-func (a *boundIntervalDatalogActivation) joinBoundIntervalPositiveTails(rule *base.Rule, products map[ast.ASTHandle]*rel.IntervalBoundProduct) (*rel.IntervalBoundProduct, []ast.ASTHandle, map[uint32]uint32, map[uint32][]uint32, error) {
+func (a *boundIntervalDatalogActivation) joinBoundIntervalPositiveTails(rule *base.Rule, inputs boundIntervalRuleInputs) (*rel.IntervalBoundProduct, []ast.ASTHandle, map[uint32]uint32, map[uint32][]uint32, error) {
 	var tails [2]*rel.IntervalBoundProduct
 	var columns []boundIntervalJoinColumn
 	boundary := 0
@@ -29,10 +29,10 @@ func (a *boundIntervalDatalogActivation) joinBoundIntervalPositiveTails(rule *ba
 			return nil, nil, nil, nil, errors.Join(err, ErrBoundIntervalDatalogFragment)
 		}
 		declaration, err := a.manager.GetDecl(tail)
-		if err != nil || products[declaration] == nil || a.entries[declaration] == nil {
+		if err != nil || inputs.relation(declaration, i) == nil || a.entries[declaration] == nil {
 			return nil, nil, nil, nil, errors.Join(err, ErrBoundIntervalDatalogFragment)
 		}
-		tails[i] = products[declaration]
+		tails[i] = inputs.relation(declaration, i)
 		arguments, err := a.manager.GetNumArgs(tail)
 		sorts := a.entries[declaration].sorts
 		if err != nil || int(arguments) != len(sorts) {
