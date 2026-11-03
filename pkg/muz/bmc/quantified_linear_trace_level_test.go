@@ -11,6 +11,8 @@ import (
 	"github.com/glycerine/g3/pkg/muz/bmc"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"math/big"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -23,7 +25,8 @@ func TestQuantifiedLinearTraceFactLevel(t *testing.T) {
 		wantErr       bool
 		falseQuery    bool
 		falseSelector bool
-	}{{"zero", 0, false, false, false}, {"positive", 1, true, false, false}, {"false query debug assertion", 0, false, true, false}, {"missing selector debug assertion", 0, false, false, true}} {
+		noIndex       bool
+	}{{"zero", 0, false, false, false, false}, {"positive", 1, true, false, false, false}, {"false query debug assertion", 0, false, true, false, false}, {"missing selector debug assertion", 0, false, false, true, false}, {"non-numeral index verify", 0, false, false, false, true}} {
 		t.Run(tc.name, func(t *testing.T) {
 			must := func(err error) {
 				t.Helper()
@@ -68,7 +71,9 @@ func TestQuantifiedLinearTraceFactLevel(t *testing.T) {
 			must(err)
 			level, err := m.BitVectorNumeralRat(big.NewRat(tc.level, 1), 4)
 			must(err)
-			must(md.Core().RegisterConstant(tDecl, level))
+			if !tc.noIndex {
+				must(md.Core().RegisterConstant(tDecl, level))
+			}
 			selectorName, err := m.Symbols.Intern("fact-level#0")
 			must(err)
 			selector, err := m.MkFuncDecl(selectorName, []ast.ASTHandle{indexSort}, boolean, ast.ASTFuncDeclInfo{})
@@ -97,17 +102,30 @@ func TestQuantifiedLinearTraceFactLevel(t *testing.T) {
 			}
 			must(queryInterpretation.SetElse(queryValue))
 			must(md.Core().RegisterFunction(queryDecl, queryInterpretation))
-			if (tc.falseQuery || tc.falseSelector) && diagnostic.DebugBuild {
+			var diagnosticFile *os.File
+			if ((tc.falseQuery || tc.falseSelector) && diagnostic.DebugBuild) || tc.noIndex {
 				region, e := arena.NewBytesRegion(arena.BytesRegionConfig{DirectOnly: true, Descriptors: arena.Config{Budget: m.Budget()}})
 				must(e)
 				debug, e := diagnostic.NewDebugContext(region, m.Budget())
 				must(e)
+				var streams *diagnostic.MemoryStandardStreams
+				if tc.noIndex {
+					diagnosticFile, e = os.CreateTemp(t.TempDir(), "qlinear-verify")
+					must(e)
+					streams, e = diagnostic.NewMemoryStandardStreams(diagnostic.MemoryStandardStreamsConfig{Budget: m.Budget(), Stdout: diagnosticFile, Stderr: diagnosticFile})
+					must(e)
+					must(debug.BindAssertionStreams(streams))
+				}
 				previous, e := diagnostic.BindProcessDebugContext(debug)
 				must(e)
 				defer func() {
 					_, e := diagnostic.BindProcessDebugContext(previous)
 					must(e)
 					must(debug.Close())
+					if streams != nil {
+						must(streams.Close())
+						must(diagnosticFile.Close())
+					}
 					must(region.Close())
 				}()
 			}
@@ -117,7 +135,20 @@ func TestQuantifiedLinearTraceFactLevel(t *testing.T) {
 			must(err)
 			defer func() { must(compiler.Close()) }()
 			trace, err := compiler.QuantifiedLinearTrace(set, predicate, 4, md.Core(), services)
-			if (tc.falseQuery || tc.falseSelector) && diagnostic.DebugBuild {
+			if tc.noIndex {
+				if diagnostic.DebugBuild {
+					if !errors.Is(err, diagnostic.ErrDebugAssertion) {
+						t.Fatalf("missing debug VERIFY failure: %v", err)
+					}
+				} else if !errors.Is(err, diagnostic.ErrDebugNativeUnreachable) {
+					t.Fatalf("missing release VERIFY guard: %v", err)
+				}
+				output, e := os.ReadFile(diagnosticFile.Name())
+				must(e)
+				if !strings.Contains(string(output), "Failed to verify: m_bv.is_numeral(vl, num, bv_size)") {
+					t.Fatalf("missing VERIFY output: %q", output)
+				}
+			} else if (tc.falseQuery || tc.falseSelector) && diagnostic.DebugBuild {
 				if !errors.Is(err, diagnostic.ErrDebugAssertion) {
 					t.Fatalf("missing source assertion: %v", err)
 				}

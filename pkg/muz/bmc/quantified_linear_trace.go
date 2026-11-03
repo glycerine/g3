@@ -57,6 +57,18 @@ func quantifiedLinearEvalException(err error) bool {
 	return !errors.As(err, &pending) && rewriter.IsRewriterException(err)
 }
 
+// VERIFY reports a failed numeral check in every source build. After a
+// continued debugger action, the C++ code uses an undefined bit-vector
+// size; keep the defined Go boundary explicit instead of using that value.
+func quantifiedLinearVerifyIndexFailure() error {
+	err := diagnostic.BorrowProcessDebugContext().VerifyFailure(
+		"src/muz/bmc/dl_bmc_engine.cpp", 262, "m_bv.is_numeral(vl, num, bv_size)")
+	if err != nil {
+		return err
+	}
+	return ast.ErrASTDomain
+}
+
 func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandle, width uint32, md *model.ModelCore, services model.ModelEvaluatorConfig) (result []quantifiedLinearStep, resultErr error) {
 	return c.quantifiedLinearStepsVisit(rules, query, width, md, services, nil)
 }
@@ -118,27 +130,37 @@ func (c *Compiler) quantifiedLinearStepsVisit(rules *base.RuleSet, query ast.AST
 		return nil, err
 	}
 	if indexRef == (ast.ASTRef{}) {
-		return nil, ast.ErrASTDomain
+		return nil, quantifiedLinearVerifyIndexFailure()
 	}
 	value, err := m.RefGet(indexRef)
 	if err != nil {
 		return nil, disposeASTRefs(m, []ast.ASTRef{indexRef}, err)
 	}
-	num, bits, matched, err := m.BitVectorNumeralBigInt(value)
+	num, _, matched, err := m.BitVectorNumeralBigInt(value)
 	err = disposeASTRefs(m, []ast.ASTRef{indexRef}, err)
 	if err != nil {
 		return nil, err
 	}
-	if !matched || bits != width || !num.IsUint64() || num.Uint64() > uint64(^uint32(0)) {
-		return nil, ast.ErrASTDomain
+	if !matched {
+		return nil, quantifiedLinearVerifyIndexFailure()
 	}
-	level := uint32(num.Uint64())
-	// Source qlinear::get_model checks q(T) only in an enabled SASSERT.
 	debug := diagnostic.BorrowProcessDebugContext()
 	enabled, err := diagnostic.SourceAssertionsEnabled(debug)
 	if err != nil {
 		return nil, err
 	}
+	unsigned := num.IsUint64() && num.Uint64() <= uint64(^uint32(0))
+	if !unsigned {
+		if enabled {
+			if err = diagnostic.DebugAssertionFailure(debug, "src/muz/bmc/dl_bmc_engine.cpp", 263, "num.is_unsigned()"); err != nil {
+				return nil, err
+			}
+		}
+		// Continuing would invoke C++ get_unsigned outside its source domain.
+		return nil, ast.ErrASTDomain
+	}
+	level := uint32(num.Uint64())
+	// Source qlinear::get_model checks q(T) only in an enabled SASSERT.
 	if enabled {
 		levelExpr, e := q.hold(m.BitVectorNumeralRat(new(big.Rat).SetUint64(uint64(level)), width))
 		if e != nil {

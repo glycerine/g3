@@ -45,13 +45,12 @@ checks remain in `pkg/muz/fp/bmc_numeric_proof_test.go` with the reason.
    intermittent failure remains unproven. Reset capacity retention and sparse
    table shrink behavior also match source and have focused tests.
 
-5. **IN PROGRESS — Query-predicate check and failure reporting.** Go now
+5. **FIXED — Query-predicate check and failure reporting.** Go now
    performs the source debug assertions for the query predicate at `T` and
-   a missing selector, and catches the same typed rewriter exception in model
-   evaluation. Focused native and three-tag tests pass. The source can still
-   continue from an assertion into a null dereference, while Go reports an
-   explicit error; failed `T` evaluation also differs from source VERIFY.
-   These remaining behaviors have not been marked fixed.
+   a missing selector, catches the same typed rewriter exception and emits
+   source VERIFY diagnostics for an invalid `T`. Focused native and three-tag
+   tests pass. If execution continues beyond an invalid source assertion, Go
+   reports an explicit error instead of reproducing C++ undefined behavior.
 
 ## Differences after a rule has been selected
 
@@ -101,4 +100,4 @@ model against all source constraints. Source termination has been restored by
 request; the recursive proof case is commented out and other proof tests can
 fail on positive-level facts. No extra encoding constraint was added.
 The bundled Z3 4.7.1 also fails its rule-unifier verification on the recursive
-and linear fixtures. The remaining item 5 concerns source failure and assertion continuation.
+and linear fixtures. Continuing beyond a failed source assertion can invoke undefined C++ behavior; Go reports an explicit error at that boundary.
