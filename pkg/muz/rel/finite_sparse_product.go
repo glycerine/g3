@@ -432,11 +432,6 @@ func (p *FiniteSparseProduct) Join(right *FiniteSparseProduct, leftColumns, righ
 		if joinErr != nil {
 			return nil, joinErr
 		}
-		innerFacts, factsErr := joinedInner.Facts()
-		closeErr := joinedInner.Close()
-		if factsErr != nil || closeErr != nil {
-			return nil, errors.Join(factsErr, closeErr)
-		}
 		key := make(Fact, len(result.tableColumns)+1)
 		for position, column := range result.tableColumns {
 			if column < len(p.sorts) {
@@ -446,10 +441,8 @@ func (p *FiniteSparseProduct) Join(right *FiniteSparseProduct, leftColumns, righ
 				key[position] = outerFact[len(p.tableColumns)+rightTablePosition[rightColumn]]
 			}
 		}
-		for _, innerFact := range innerFacts {
-			if err = result.addEncodedFact(key, innerFact); err != nil {
-				return nil, err
-			}
+		if err = result.storeEncodedInner(key, joinedInner); err != nil {
+			return nil, errors.Join(err, joinedInner.Close())
 		}
 	}
 	if len(crossPairs) != 0 {
