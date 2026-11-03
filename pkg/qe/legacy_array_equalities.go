@@ -22,6 +22,64 @@ type legacyArrayEqualities struct {
 	stores     map[ast.ASTHandle]bool
 }
 
+// legacyArrayEqualitiesConstructionFailure preserves find_arr_eqs' local
+// result when traversal failed after publication and native rollback refused.
+type legacyArrayEqualitiesConstructionFailure struct {
+	owner          *legacyArrayEqualities
+	nested         memory.ConstructionFailure
+	runtime        *memory.Runtime
+	cause, cleanup error
+	reported       error
+}
+
+var _ memory.ConstructionFailure = (*legacyArrayEqualitiesConstructionFailure)(nil)
+
+func (f *legacyArrayEqualitiesConstructionFailure) Error() string                 { return f.reported.Error() }
+func (f *legacyArrayEqualitiesConstructionFailure) Unwrap() error                 { return f.reported }
+func (f *legacyArrayEqualitiesConstructionFailure) OriginalCause() error          { return f.cause }
+func (f *legacyArrayEqualitiesConstructionFailure) CleanupCause() error           { return f.cleanup }
+func (f *legacyArrayEqualitiesConstructionFailure) RuntimeOwner() *memory.Runtime { return f.runtime }
+func (f *legacyArrayEqualitiesConstructionFailure) Cleanup() error {
+	if f.nested != nil {
+		f.cleanup = f.nested.Cleanup()
+		if f.cleanup != nil {
+			return f.cleanup
+		}
+		f.nested = nil
+	}
+	if f.owner == nil || f.owner.manager == nil {
+		f.owner = nil
+		f.cleanup = nil
+		return nil
+	}
+	f.cleanup = f.owner.Close()
+	if f.cleanup == nil {
+		f.owner = nil
+	}
+	return f.cleanup
+}
+
+func closeFailedLegacyArrayEqualities(owner *legacyArrayEqualities, cause error) error {
+	cleanup := owner.Close()
+	if cleanup == nil {
+		return cause
+	}
+	origin := cause
+	if origin == nil {
+		origin = cleanup
+	}
+	reported := cleanup
+	if cause != nil {
+		reported = errors.Join(cause, cleanup)
+	}
+	var nested memory.ConstructionFailure
+	_ = errors.As(cause, &nested)
+	return &legacyArrayEqualitiesConstructionFailure{
+		owner: owner, nested: nested, runtime: owner.manager.NumeralService().RuntimeOwner(),
+		cause: origin, cleanup: cleanup, reported: reported,
+	}
+}
+
 // legacyArrayProjectionConstructionFailure keeps the actual partially built
 // legacy service reachable when constructor rollback is refused.
 type legacyArrayProjectionConstructionFailure struct {
@@ -125,7 +183,7 @@ func (p *legacyArrayProjection) findEqualities(variable, formula ast.ASTHandle) 
 	result := &legacyArrayEqualities{manager: p.syntax.manager, stores: make(map[ast.ASTHandle]bool)}
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+			resultErr = closeFailedLegacyArrayEqualities(result, resultErr)
 		}
 	}()
 	done := make(map[ast.ASTHandle]bool)

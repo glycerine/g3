@@ -243,6 +243,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Preserve LegacyProjectionResult residual formula/variable owners across actual AST execution-guard refusal; verify repeated refusal, post-guard access, cleanup retry and zero-budget final disposal.
   - [ ] Audit independent projection destruction failures after manager admission and construction-error ownership transfer; the isolated result-owner regression does not close whole projection ownership.
     - [x] Preserve legacyArrayEqualities, legacyArrayProjectionResult and legacyArraySelectProjection roots across repeated native manager-entry refusal, with exact owner checks, retry and zero-budget disposal.
+    - [x] Preserve `find_arr_eqs` equality roots, store metadata and nested cleanup receipts when traversal fails and constructor destruction is refused, with stable retry and no partial publication.
     - [x] Preserve arithmetic formula, modulo factoring and real replacement owners plus partial-equality, expansion and factored-select owners across repeated native manager-entry refusal; preserve nested owner identity and all unconsumed roots with retry and zero-budget final disposal.
     - [x] Resume LegacyProjection.Close and legacyArrayProjection.Close when a preceding child is already closed; stage the valid continuation with real child cleanup, refuse the remaining pending-call root twice through native AST entry and verify retry/zero-budget disposal.
     - [x] Reject both public LegacyProjection query entry points once Close begins; exercise native pending-entry and staged continuation refusal, require rejection before an exhausted allocation budget can be touched and preserve pending child roots for Close retry.
@@ -521,6 +522,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
+  Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
 
 - 2026-11-02 — LazySparse complement now forces deferred sparse or nullary storage, applies the concrete functional-suffix complement and adopts an independent lazy base result in the same engine. Unary, functional and nullary complements preserve source ownership and do not mutate the deferred source; broader lazy method auditing remains open.
   Validation: `go -C pkg test ./muz/rel -run '^TestLazySparse(Complement|BulkRemoval|NullaryBulk)' -count=3` passed. Commit title: `Complement lazy sparse relations`.
