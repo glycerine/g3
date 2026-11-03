@@ -114,13 +114,57 @@ func TestExternalIntervalProductJoinCallbacksSemanticsAndRollback(t *testing.T) 
 	}
 	failJoin = false
 
-	reversed := makeProduct([]ast.ASTHandle{realSort}, nil, []string{"interval_relation", "external_relation"})
+	reversedKinds := []string{"interval_relation", "external_relation"}
+	reversed := makeProduct([]ast.ASTHandle{realSort}, []ast.ASTHandle{three}, reversedKinds)
 	defer func() { astTestMust(t, reversed.Close()) }()
+	events = nil
+	reversedJoin, err := JoinExternalIntervalProducts(left, reversed, []uint32{1}, []uint32{0})
+	astTestMust(t, err)
+	if len(events) != 1 || events[0].inputs != 2 || len(events[0].parameters) != 2 ||
+		events[0].parameters[0] != 1 || events[0].parameters[1] != 0 {
+		t.Fatal("opposite-order mixed join callback parameters/order", events)
+	}
+	if got := reversedJoin.Kinds(); len(got) != len(kinds) || got[0] != kinds[0] || got[1] != kinds[1] {
+		t.Fatal("opposite-order mixed join did not keep left kinds", got)
+	}
+	if got := reversed.Kinds(); len(got) != len(reversedKinds) || got[0] != reversedKinds[0] || got[1] != reversedKinds[1] {
+		t.Fatal("opposite-order mixed join changed right kinds", got)
+	}
+	if got := left.Kinds(); len(got) != len(kinds) || got[0] != kinds[0] || got[1] != kinds[1] {
+		t.Fatal("opposite-order mixed join changed left kinds", got)
+	}
+	astTestMust(t, reversedJoin.Close())
+	events = nil
+	reversedLeftJoin, err := JoinExternalIntervalProducts(reversed, right, nil, nil)
+	astTestMust(t, err)
+	if len(events) != 1 || events[0].inputs != 2 || len(events[0].parameters) != 0 {
+		t.Fatal("interval-first mixed join callback shape", events)
+	}
+	if got := reversedLeftJoin.Kinds(); len(got) != len(reversedKinds) || got[0] != reversedKinds[0] || got[1] != reversedKinds[1] {
+		t.Fatal("interval-first mixed join did not keep left kinds", got)
+	}
+	if got := right.Kinds(); len(got) != len(kinds) || got[0] != kinds[0] || got[1] != kinds[1] {
+		t.Fatal("interval-first mixed join changed right kinds", got)
+	}
+	astTestMust(t, reversedLeftJoin.Close())
 	integerProduct := makeProduct([]ast.ASTHandle{integerSort}, nil, kinds)
 	defer func() { astTestMust(t, integerProduct.Close()) }()
+	forged := makeProduct([]ast.ASTHandle{realSort}, nil, kinds)
+	forged.kinds[1] = "external_relation"
+	defer func() { astTestMust(t, forged.Close()) }()
+	otherPlugin, err := NewExternalRelationPlugin(f.relations, plugin.callbacks)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, otherPlugin.Close()) }()
+	otherProduct, selected, err := NewSelectedExternalIntervalProduct(otherPlugin, []ast.ASTHandle{realSort}, kinds)
+	astTestMust(t, err)
+	if !selected {
+		t.Fatal("other-plugin mixed join product not selected")
+	}
+	defer func() { astTestMust(t, otherProduct.Close()) }()
 	events = nil
 	for _, attempt := range []func() error{
-		func() error { _, cause := JoinExternalIntervalProducts(left, reversed, nil, nil); return cause },
+		func() error { _, cause := JoinExternalIntervalProducts(left, forged, nil, nil); return cause },
+		func() error { _, cause := JoinExternalIntervalProducts(left, otherProduct, nil, nil); return cause },
 		func() error {
 			_, cause := JoinExternalIntervalProducts(left, integerProduct, []uint32{0}, []uint32{0})
 			return cause

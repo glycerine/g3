@@ -84,45 +84,60 @@ func (e *PropositionalEngine) externalIntervalGroundRule(rule *base.Rule) (*exte
 }
 
 // externalIntervalRulePlans validates the complete retained one-rule fragment
-// before relation callbacks. The only live plans are the aligned identity edge
-// and a zero-tail nullary fact or unary arithmetic numeral fact.
-func (e *PropositionalEngine) externalIntervalRulePlans() (_ *externalIntervalDatalogIdentityRule, _ *externalIntervalDatalogGroundRule, resultErr error) {
+// before relation callbacks. The live plans are the aligned identity edge, a
+// zero-tail nullary or unary arithmetic fact, and the exact two-unary-tail
+// Cartesian rule.
+func (e *PropositionalEngine) externalIntervalRulePlans() (_ *externalIntervalDatalogIdentityRule, _ *externalIntervalDatalogGroundRule, _ *externalIntervalDatalogCartesianRule, resultErr error) {
 	count, err := e.set.Len()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if count == 0 {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	if count != 1 {
-		return nil, nil, ErrExternalIntervalDatalogFragment
+		return nil, nil, nil, ErrExternalIntervalDatalogFragment
 	}
 	rule, err := e.set.Rule(0)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, rule.Close()) }()
 	total, err := rule.TailSize()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if total == 0 {
 		ground, cause := e.externalIntervalGroundRule(rule)
-		return nil, ground, cause
+		return nil, ground, nil, cause
 	}
-	if total != 1 {
-		return nil, nil, ErrExternalIntervalDatalogFragment
+	if total == 1 {
+		identity, cause := e.externalIntervalIdentityRule()
+		return identity, nil, nil, cause
 	}
-	identity, err := e.externalIntervalIdentityRule()
-	return identity, nil, err
+	if total == 2 {
+		cartesian, cause := e.externalIntervalCartesianRule(rule)
+		return nil, nil, cartesian, cause
+	}
+	return nil, nil, nil, ErrExternalIntervalDatalogFragment
 }
 
-func (a *externalIntervalDatalogActivation) installExternalIntervalRulePlans(identity *externalIntervalDatalogIdentityRule, ground *externalIntervalDatalogGroundRule) error {
-	if identity != nil && ground != nil {
+func (a *externalIntervalDatalogActivation) installExternalIntervalRulePlans(identity *externalIntervalDatalogIdentityRule, ground *externalIntervalDatalogGroundRule, cartesian *externalIntervalDatalogCartesianRule) error {
+	selected := 0
+	if identity != nil {
+		selected++
+	}
+	if ground != nil {
+		selected++
+	}
+	if cartesian != nil {
+		selected++
+	}
+	if selected > 1 {
 		return ErrExternalIntervalDatalogFragment
 	}
 	if a.ground != nil {
-		if !sameExternalIntervalGroundRule(a.ground, ground) || identity != nil {
+		if !sameExternalIntervalGroundRule(a.ground, ground) || identity != nil || cartesian != nil {
 			return ErrExternalIntervalDatalogFragment
 		}
 		ground = a.ground
@@ -130,7 +145,12 @@ func (a *externalIntervalDatalogActivation) installExternalIntervalRulePlans(ide
 	if a.identity != nil && identity != nil && !sameExternalIntervalIdentityRule(a.identity, identity) {
 		return ErrExternalIntervalDatalogFragment
 	}
-	if a.identity != nil && ground != nil || a.ground != nil && identity != nil {
+	if a.cartesian != nil && cartesian != nil && !sameExternalIntervalCartesianRule(a.cartesian, cartesian) {
+		return ErrExternalIntervalDatalogFragment
+	}
+	if a.identity != nil && (ground != nil || cartesian != nil) ||
+		a.ground != nil && (identity != nil || cartesian != nil) ||
+		a.cartesian != nil && (identity != nil || ground != nil) {
 		return ErrExternalIntervalDatalogFragment
 	}
 	if ground != nil && !ground.value.IsNull() && ground.valueRoot == (ast.ASTRef{}) {
@@ -142,6 +162,7 @@ func (a *externalIntervalDatalogActivation) installExternalIntervalRulePlans(ide
 	}
 	a.identity = identity
 	a.ground = ground
+	a.cartesian = cartesian
 	return nil
 }
 
@@ -241,6 +262,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 			a.pendingCompletesRule = false
 			a.pendingIdentity = nil
 			a.pendingGround = nil
+			a.pendingCartesian = nil
 		}
 		return err
 	}
@@ -256,6 +278,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 			a.pendingCompletesRule = false
 			a.pendingIdentity = nil
 			a.pendingGround = nil
+			a.pendingCartesian = nil
 		}
 		owner = nil
 		return finished
@@ -300,6 +323,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 			a.pendingCompletesRule = true
 			a.pendingIdentity = nil
 			a.pendingGround = a.ground
+			a.pendingCartesian = nil
 			return failure
 		}
 		return rollback(err)
@@ -311,6 +335,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 		a.pendingCompletesRule = true
 		a.pendingIdentity = nil
 		a.pendingGround = a.ground
+		a.pendingCartesian = nil
 		return failure
 	}
 	return nil

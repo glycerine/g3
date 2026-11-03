@@ -15,6 +15,9 @@ type externalIntervalCallbackState struct {
 	manager          *ast.ASTManager
 	nonempty         map[ast.ASTHandle]bool
 	operations       []int32
+	cloneOutputs     []ast.ASTHandle
+	joinArguments    [][]ast.ASTHandle
+	joinParameters   [][]uint32
 	refusalOperation int32
 	refusalAt        int
 	refusal          error
@@ -59,6 +62,7 @@ func (s *externalIntervalCallbackState) callbacks() rel.ExternalRelationCallback
 				s.nonempty[outputs[0]] = false
 			case ast.DatalogOpClone:
 				s.nonempty[outputs[0]] = s.nonempty[arguments[0]]
+				s.cloneOutputs = append(s.cloneOutputs, outputs[0])
 			case ast.DatalogOpUnion:
 				s.nonempty[outputs[0]] = s.nonempty[arguments[0]] || s.nonempty[arguments[1]]
 			case ast.DatalogOpStore:
@@ -77,13 +81,45 @@ func (s *externalIntervalCallbackState) callbacks() rel.ExternalRelationCallback
 			if s.refusal != nil && op == s.refusalOperation && operationCount(s.operations, op) == s.refusalAt {
 				return ast.ASTHandle{}, s.refusal
 			}
-			if len(arguments) != 1 {
-				return ast.ASTHandle{}, fmt.Errorf("unexpected external/interval reduction operation %d", op)
-			}
 			switch op {
+			case ast.DatalogOpJoin:
+				if len(arguments) != 2 {
+					return ast.ASTHandle{}, fmt.Errorf("unexpected external/interval JOIN argument count %d", len(arguments))
+				}
+				parameters, cause := s.manager.GetDeclParametersCopy(declaration)
+				if cause != nil {
+					return ast.ASTHandle{}, cause
+				}
+				indices := make([]uint32, 0, len(parameters))
+				for i := range parameters {
+					value, parameterErr := s.manager.ParameterInt(parameters[i])
+					deleteErr := s.manager.DelParameter(&parameters[i])
+					if parameterErr != nil || deleteErr != nil {
+						return ast.ASTHandle{}, errors.Join(parameterErr, deleteErr)
+					}
+					indices = append(indices, uint32(value))
+				}
+				s.joinArguments = append(s.joinArguments, append([]ast.ASTHandle(nil), arguments...))
+				s.joinParameters = append(s.joinParameters, indices)
+				sort, cause := s.manager.GetRange(declaration)
+				if cause != nil {
+					return ast.ASTHandle{}, cause
+				}
+				result, cause := s.manager.MkFreshConst("external-interval-join", sort)
+				if cause != nil {
+					return ast.ASTHandle{}, cause
+				}
+				s.nonempty[result] = s.nonempty[arguments[0]] && s.nonempty[arguments[1]]
+				return result, nil
 			case ast.DatalogOpIsEmpty:
+				if len(arguments) != 1 {
+					return ast.ASTHandle{}, fmt.Errorf("unexpected external/interval ISEMPTY argument count %d", len(arguments))
+				}
 				return s.manager.MkBoolVal(!s.nonempty[arguments[0]])
 			case ast.DatalogOpComplement:
+				if len(arguments) != 1 {
+					return ast.ASTHandle{}, fmt.Errorf("unexpected external/interval COMPLEMENT argument count %d", len(arguments))
+				}
 				s.nonempty[arguments[0]] = true
 				return arguments[0], nil
 			default:

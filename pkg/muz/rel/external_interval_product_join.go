@@ -6,9 +6,11 @@ package rel
 import "github.com/glycerine/g3/pkg/ast"
 
 // JoinExternalIntervalProducts joins corresponding external and interval
-// components and returns their aligned product. The source result signature is
-// the concatenation of both input signatures; join columns constrain tuples
-// but are not projected.
+// components and returns their product in the left input's component order.
+// The exact external/interval pair can occur in either input order because
+// source join_fn matches product components by relation family, not position.
+// The result signature is the concatenation of both input signatures; join
+// columns constrain tuples but are not projected.
 func JoinExternalIntervalProducts(left, right *ExternalIntervalProduct, leftColumns, rightColumns []uint32) (*ExternalIntervalProduct, error) {
 	if err := left.open(); err != nil {
 		return nil, err
@@ -16,13 +18,9 @@ func JoinExternalIntervalProducts(left, right *ExternalIntervalProduct, leftColu
 	if err := right.open(); err != nil {
 		return nil, err
 	}
-	if left.plugin != right.plugin || len(left.kinds) != len(right.kinds) || len(leftColumns) != len(rightColumns) {
+	if left.plugin != right.plugin || !externalIntervalProductKinds(left.kinds) ||
+		!externalIntervalProductKinds(right.kinds) || len(leftColumns) != len(rightColumns) {
 		return nil, ErrTableRelation
-	}
-	for i := range left.kinds {
-		if left.kinds[i] != right.kinds[i] {
-			return nil, ErrTableRelation
-		}
 	}
 	for i, leftColumn := range leftColumns {
 		rightColumn := rightColumns[i]

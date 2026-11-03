@@ -44,10 +44,12 @@ type externalIntervalDatalogActivation struct {
 	order                []ast.ASTHandle
 	identity             *externalIntervalDatalogIdentityRule
 	ground               *externalIntervalDatalogGroundRule
+	cartesian            *externalIntervalDatalogCartesianRule
 	pending              memory.ConstructionFailure
 	pendingCompletesRule bool
 	pendingIdentity      *externalIntervalDatalogIdentityRule
 	pendingGround        *externalIntervalDatalogGroundRule
+	pendingCartesian     *externalIntervalDatalogCartesianRule
 	closed               bool
 }
 
@@ -279,6 +281,7 @@ func (a *externalIntervalDatalogActivation) close() error {
 		a.pendingCompletesRule = false
 		a.pendingIdentity = nil
 		a.pendingGround = nil
+		a.pendingCartesian = nil
 	}
 	// Products own external-plugin users, so every product must retire before
 	// the borrowed plugin can be closed by the fixedpoint engine.
@@ -310,5 +313,6 @@ func (a *externalIntervalDatalogActivation) close() error {
 	a.order = nil
 	a.identity = nil
 	a.ground = nil
+	a.cartesian = nil
 	return nil
 }

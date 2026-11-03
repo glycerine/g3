@@ -63,7 +63,7 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (_ bool, resultErr
 	if e.external == nil || len(predicates) == 0 {
 		return true, ErrExternalIntervalDatalogFragment
 	}
-	identity, ground, err := e.externalIntervalRulePlans()
+	identity, ground, cartesian, err := e.externalIntervalRulePlans()
 	if err != nil {
 		return true, err
 	}
@@ -100,7 +100,7 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (_ bool, resultErr
 		if err = e.externalIntervalDatalog.syncPredicates(predicates); err != nil {
 			return true, err
 		}
-		if err = e.externalIntervalDatalog.installExternalIntervalRulePlans(identity, ground); err != nil {
+		if err = e.externalIntervalDatalog.installExternalIntervalRulePlans(identity, ground, cartesian); err != nil {
 			return true, err
 		}
 		keepGround = true
@@ -110,7 +110,7 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (_ bool, resultErr
 	if err != nil {
 		return true, err
 	}
-	if err = owner.installExternalIntervalRulePlans(identity, ground); err != nil {
+	if err = owner.installExternalIntervalRulePlans(identity, ground, cartesian); err != nil {
 		return true, errors.Join(err, owner.close())
 	}
 	keepGround = true

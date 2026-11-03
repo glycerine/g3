@@ -218,11 +218,14 @@ func (a *externalIntervalDatalogActivation) resumeExternalIntervalIdentity() (bo
 	if err := a.pending.Cleanup(); err != nil {
 		return false, err
 	}
-	completed := a.pendingCompletesRule && (sameExternalIntervalIdentityRule(a.pendingIdentity, a.identity) || sameExternalIntervalGroundRule(a.pendingGround, a.ground))
+	completed := a.pendingCompletesRule && (sameExternalIntervalIdentityRule(a.pendingIdentity, a.identity) ||
+		sameExternalIntervalGroundRule(a.pendingGround, a.ground) ||
+		sameExternalIntervalCartesianRule(a.pendingCartesian, a.cartesian))
 	a.pending = nil
 	a.pendingCompletesRule = false
 	a.pendingIdentity = nil
 	a.pendingGround = nil
+	a.pendingCartesian = nil
 	return completed, nil
 }
 
@@ -241,6 +244,9 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalIdentity() (r
 		if a.ground != nil {
 			return a.executeExternalIntervalGround()
 		}
+		if a.cartesian != nil {
+			return a.executeExternalIntervalCartesian()
+		}
 		return nil
 	}
 	registers, err := a.loadExternalIntervalDatalogRegisters([]ast.ASTHandle{a.identity.head, a.identity.tail})
@@ -251,6 +257,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalIdentity() (r
 			a.pendingCompletesRule = false
 			a.pendingIdentity = nil
 			a.pendingGround = nil
+			a.pendingCartesian = nil
 		}
 		return err
 	}
@@ -262,6 +269,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalIdentity() (r
 			a.pendingCompletesRule = false
 			a.pendingIdentity = nil
 			a.pendingGround = nil
+			a.pendingCartesian = nil
 		}
 		registers = nil
 		return finished
@@ -286,6 +294,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalIdentity() (r
 				a.pendingCompletesRule = true
 				a.pendingIdentity = a.identity
 				a.pendingGround = nil
+				a.pendingCartesian = nil
 				registers = nil
 				return failure
 			}
@@ -299,6 +308,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalIdentity() (r
 			a.pendingCompletesRule = true
 			a.pendingIdentity = a.identity
 			a.pendingGround = nil
+			a.pendingCartesian = nil
 			registers = nil
 			return err
 		}
@@ -307,6 +317,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalIdentity() (r
 		a.pendingCompletesRule = true
 		a.pendingIdentity = a.identity
 		a.pendingGround = nil
+		a.pendingCartesian = nil
 		registers = nil
 		return failure
 	}
