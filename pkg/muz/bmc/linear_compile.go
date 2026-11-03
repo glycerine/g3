@@ -4,11 +4,9 @@ package bmc
 // substitution and compile.
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
@@ -94,9 +92,7 @@ func (c *Compiler) CompileLinear(rules *base.RuleSet, level uint32) (result []as
 	m := c.manager
 	defer func() {
 		if resultErr != nil {
-			for i := len(result) - 1; i >= 0; i-- {
-				resultErr = errors.Join(resultErr, m.DelRef(&result[i]))
-			}
+			resultErr = disposeASTRefs(m, result, resultErr)
 			result = nil
 		}
 	}()
@@ -112,7 +108,7 @@ func (c *Compiler) CompileLinear(rules *base.RuleSet, level uint32) (result []as
 			return result, err
 		}
 		decl, e := rule.HeadDeclaration()
-		e = errors.Join(e, rule.Close())
+		e = disposeRuleOwners(m, []*base.Rule{rule}, e)
 		if e != nil {
 			return result, e
 		}
@@ -136,15 +132,11 @@ func (c *Compiler) compileLinearGroup(rules *base.RuleSet, predicate ast.ASTHand
 		return err
 	}
 	defer func() {
-		for i := len(group) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, group[i].Close())
-		}
+		resultErr = disposeRuleOwners(m, group, resultErr)
 	}()
 	var refs []ast.ASTRef
 	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
-		}
+		resultErr = disposeASTRefs(m, refs, resultErr)
 	}()
 	holdRef := func(ref ast.ASTRef, err error) (ast.ASTHandle, error) {
 		if err != nil {
@@ -229,21 +221,21 @@ func (c *Compiler) compileLinearGroup(rules *base.RuleSet, predicate ast.ASTHand
 
 func (c *Compiler) compileLinearRule(rule *base.Rule, predicate ast.ASTHandle, ruleIndex, level uint32) (result ast.ASTRef, resultErr error) {
 	m := c.manager
-	var refs []ast.ASTRef
+	owner := &linearCompileRuleOwner{manager: m}
 	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
-		}
-		if resultErr != nil && result != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, m.DelRef(&result))
+		owner.result = result
+		resultErr = finishLinearCompileRule(owner, resultErr)
+		if resultErr != nil {
 			result = ast.ASTRef{}
+		} else {
+			owner.result = ast.ASTRef{}
 		}
 	}()
 	holdRef := func(ref ast.ASTRef, err error) (ast.ASTHandle, error) {
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		refs = append(refs, ref)
+		owner.refs = append(owner.refs, ref)
 		return m.RefGet(ref)
 	}
 	hold := func(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
@@ -260,7 +252,7 @@ func (c *Compiler) compileLinearRule(rule *base.Rule, predicate ast.ASTHandle, r
 	bindings := make([]ast.ASTHandle, len(bindingRefs))
 	for _, ref := range bindingRefs {
 		if ref != (ast.ASTRef{}) {
-			refs = append(refs, ref)
+			owner.refs = append(owner.refs, ref)
 		}
 	}
 	for i, ref := range bindingRefs {
@@ -280,18 +272,16 @@ func (c *Compiler) compileLinearRule(rule *base.Rule, predicate ast.ASTHandle, r
 	if err != nil {
 		return result, err
 	}
-	sub, err := rewriter.NewVarSubstitution(m, false)
-	if err != nil {
+	if err = owner.newSubstitution(false); err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
 	substitute := func(expression ast.ASTHandle) (ast.ASTHandle, error) {
 		ref, err := m.NewRef(ast.ASTHandle{})
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		refs = append(refs, ref)
-		if err = sub.Substitute(expression, bindings, ref); err != nil {
+		owner.refs = append(owner.refs, ref)
+		if err = owner.sub.Substitute(expression, bindings, ref); err != nil {
 			return ast.ASTHandle{}, err
 		}
 		return m.RefGet(ref)
