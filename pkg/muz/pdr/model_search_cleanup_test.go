@@ -20,6 +20,14 @@ import (
 // The solved nonlinear trace below produces fresh numeric assignments, so
 // native failure exercises those actual models rather than fabricated metadata.
 func TestModelSearchResetPreservesSolvedModelsAfterConsumedNativeFailure(t *testing.T) {
+	testModelSearchNativeCleanup(t, false)
+}
+
+func TestPDRRepeatedSolveReleasesUnadoptedRootAfterNativeResetFailure(t *testing.T) {
+	testModelSearchNativeCleanup(t, true)
+}
+
+func testModelSearchNativeCleanup(t *testing.T, replacing bool) {
 	must := func(e error) {
 		t.Helper()
 		if e != nil {
@@ -78,6 +86,9 @@ func TestModelSearchResetPreservesSolvedModelsAfterConsumedNativeFailure(t *test
 		finish(rm.Close)
 		for i := range refs {
 			must(m.DelRef(&refs[i]))
+		}
+		if live := m.Stats().LiveReferences; live != 0 {
+			t.Errorf("public cleanup left unowned AST references before manager shutdown: %d", live)
 		}
 		finish(m.Close)
 		finish(globals.Close)
@@ -233,7 +244,20 @@ func TestModelSearchResetPreservesSolvedModelsAfterConsumedNativeFailure(t *test
 	// that reference succeeds; the earlier child has the first exclusive model.
 	// Its destructor consumes a numeric block before synchronization refuses.
 	before := rt.Stats().LiveBlocks
-	cause := c.Reset()
+	var cause error
+	if replacing {
+		status, cause = c.Solve(g)
+		if status != lbool.Undef {
+			t.Fatal("failed root replacement published a result", status, cause)
+		}
+		last, lastErr := c.LastResult()
+		must(lastErr)
+		if last != lbool.Undef {
+			t.Fatal("failed root replacement left a completed result", last)
+		}
+	} else {
+		cause = c.Reset()
+	}
 	if !errors.Is(cause, arena.ErrBounds) || rt.Stats().LiveBlocks+1 != before {
 		t.Fatal("reset missed the consumed child model failure", cause, before, rt.Stats().LiveBlocks)
 	}

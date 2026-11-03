@@ -117,6 +117,16 @@ func (c *Context) checkReachability(level uint32) (lbool.LBool, error) {
 		return lbool.Undef, err
 	}
 	if err = c.search.SetRoot(root); err != nil {
+		// Source set_root resets the prior search before adopting this node.
+		// A refused reset leaves the newly constructed root owned here.
+		if c.search.root != root {
+			if cleanup := root.release(); cleanup != nil {
+				// Keep its transformer alive through the search's existing
+				// cleanup frontier if even the local destructor refuses.
+				c.search.pendingRelease = append(c.search.pendingRelease, root)
+				err = errors.Join(err, cleanup)
+			}
+		}
 		return lbool.Undef, err
 	}
 	for {
