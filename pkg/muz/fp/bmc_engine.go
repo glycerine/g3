@@ -157,8 +157,9 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 		return lbool.Undef, err
 	}
 	// BMC uses the same default Horn transformations and optional slicing as
-	// Spacer before it selects the linear or nonlinear compiler.
-	preprocessed, err := e.preprocessHornRulesWithStages(declaration, nil, true, true, allowSliceProof && e.backend == "qbmc", true, false)
+	// Spacer before it selects the linear or nonlinear compiler. Both BMC
+	// backends translate sliced proofs back to the original rules below.
+	preprocessed, err := e.preprocessHornRulesWithStages(declaration, nil, true, true, allowSliceProof, true, false)
 	if err != nil {
 		return lbool.Undef, err
 	}
