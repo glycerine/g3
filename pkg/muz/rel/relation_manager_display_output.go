@@ -117,6 +117,12 @@ func (m *RelationManager) DisplayOutputTables(context *base.DatalogContext, rule
 			}
 			continue
 		}
+		if product := m.relationLevel[predicate]; product != nil {
+			if err = product.DisplayTuples(context, predicate, out); err != nil {
+				return err
+			}
+			continue
+		}
 		if finite := m.finite[predicate]; finite != nil {
 			if err = m.displayFiniteTableTuples(context, predicate, finite, out); err != nil {
 				return err

@@ -148,3 +148,61 @@ func TestRelationManagerDisplaysSparseAndLazyFiniteOutputs(t *testing.T) {
 		t.Fatal("finite tuple display ignored writer refusal", err)
 	}
 }
+
+func TestRelationManagerDisplaysRelationLevelExplanationOutput(t *testing.T) {
+	f := newTableRelationFixture(t)
+	context, err := base.NewDatalogContext(f.ast)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, context.Close()) }()
+	rules, err := context.Rules()
+	astTestMust(t, err)
+	ruleSort, err := f.ast.MkDatalogRuleSort()
+	astTestMust(t, err)
+	name, err := f.ast.Symbols.Intern("display-output-relation-level")
+	astTestMust(t, err)
+	predicate, err := f.ast.MkFuncDecl(name, []ast.ASTHandle{f.boolean, ruleSort}, f.boolean, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	astTestMust(t, context.RegisterPredicate(predicate, true))
+	astTestMust(t, context.SetOutputPredicate(predicate))
+
+	product, err := f.relations.GetRelationExplanation(predicate)
+	astTestMust(t, err)
+	_, err = product.table.Add(Fact{1})
+	astTestMust(t, err)
+	proofName, err := f.ast.Symbols.Intern("display-output-relation-proof")
+	astTestMust(t, err)
+	proof, err := f.ast.MkConst(proofName, ruleSort)
+	astTestMust(t, err)
+	astTestMust(t, product.explanation.AddFact([]ast.ASTHandle{proof}))
+
+	var output bytes.Buffer
+	astTestMust(t, f.relations.DisplayOutputTables(context, rules, &output))
+	want := "Tuples in display-output-relation-level: \n" +
+		"Product of the following relations:\n" +
+		"Sieve relation (0)\n" +
+		"table with signature (2):\n" +
+		"(1)\n\n" +
+		"Sieve relation (1)\n" +
+		"display-output-relation-proof\n"
+	if output.String() != want {
+		t.Fatalf("relation-level output\n got: %q\nwant: %q", output.String(), want)
+	}
+	stored, found, err := f.relations.TryGetRelationExplanation(predicate)
+	if err != nil || !found || stored != product {
+		t.Fatal("display replaced relation-level product", stored, found, err)
+	}
+	storedProof, found, err := product.Explanation([]ast.ASTHandle{f.truth})
+	if err != nil || !found || storedProof != proof {
+		t.Fatal("display changed relation-level contents", storedProof, found, err)
+	}
+	refusal := errors.New("relation-level output writer refusal")
+	if err = f.relations.DisplayOutputTables(context, rules, productDisplayRefusingWriter{err: refusal}); !errors.Is(err, refusal) {
+		t.Fatalf("writer error = %v, want %v", err, refusal)
+	}
+	if err = product.Display(productDisplayRefusingWriter{err: refusal}); !errors.Is(err, refusal) {
+		t.Fatalf("product writer error = %v, want %v", err, refusal)
+	}
+	if err = product.Display(nil); !errors.Is(err, ErrTableRelation) {
+		t.Fatalf("nil product writer error = %v", err)
+	}
+}
