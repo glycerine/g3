@@ -506,6 +506,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/tab/tab_context.cpp` (partial), `src/muz/tab/tab_context.h` (partial)
   - [x] `imp::cleanup` cancellation releases active clauses immediately while preserving reusable search services; clause AST destruction is retry-safe under native refusal.
   - [x] Compound queries and source statistics are implemented; public certificate output renders reachable proofs and unreachable true answers with owning/stale-result guards.
+  - [x] Preserve unfolded-clause substitution state, temporary roots, work clause and unpublished result through final cleanup refusal, suppressing publication until exact retry completes.
 
 ### transforms
 
@@ -513,6 +514,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — TAB unfolded-clause finalization now owns its substitution, temporary AST roots, work clause and completed result under one retryable attempt. A late native refusal suppresses publication, preserves the exact cleanup frontier and freezes the construction receipt until idempotent retry; broader TAB inner cleanup/diagnostics remain open.
+  Validation: `go -C pkg test ./muz/tab -run '^(TestUnfoldFinalizePreservesClausesOnNativeCleanupRefusal|Test.*Unfold)' -count=3` passed. Commit title: `Preserve TAB unfolded clauses through cleanup refusal`.
 
 - 2026-11-02 — Spacer `simplify_bounds_new` cleanup receipts now freeze their reported error, unwrap chain and semantic origin while native retry advances only `CleanupCause`. The transferred input root remains owned through refusal and is consumed exactly once on idempotent retry; other wrapper-construction paths remain open.
   Validation: `go -C pkg test ./muz/spacer -run '^TestSimplifyBounds' -count=3` passed. Commit title: `Stabilize Spacer bound simplification cleanup`.

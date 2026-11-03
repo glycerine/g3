@@ -3,8 +3,6 @@ package tab
 // Source: src/muz/tab/tab_context.cpp, unifier::unify QE and variable compaction.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/qe"
@@ -15,25 +13,8 @@ func finalizeUnfoldedClause(u *unfoldedClause, rw *rewriter.TheoryRewriter, lite
 		return nil, false, ast.ErrASTHandle
 	}
 	m := u.manager
-	var work *Clause
-	var subst *rewriter.VarSubstitution
-	var temps []ast.ASTRef
-	defer func() {
-		if subst != nil {
-			err = errors.Join(err, subst.Close())
-		}
-		for i := len(temps) - 1; i >= 0; i-- {
-			err = errors.Join(err, m.DelRef(&temps[i]))
-		}
-		if work != nil {
-			err = errors.Join(err, work.Close())
-		}
-		if err != nil && result != nil {
-			err = errors.Join(err, result.Close())
-			result = nil
-			matched = false
-		}
-	}()
+	attempt := &unfoldFinalizeAttempt{manager: m}
+	defer func() { result, matched, err = finishUnfoldFinalize(attempt, matched, err) }()
 	head, err := m.RefGet(u.head)
 	if err != nil {
 		return nil, false, err
@@ -67,7 +48,7 @@ func finalizeUnfoldedClause(u *unfoldedClause, rw *rewriter.TheoryRewriter, lite
 	if err != nil {
 		return nil, false, err
 	}
-	temps = append(temps, constraint)
+	attempt.temps = append(attempt.temps, constraint)
 	if err = lite.EliminateIndices(keep, false, constraint); err != nil {
 		return nil, false, err
 	}
@@ -78,10 +59,11 @@ func finalizeUnfoldedClause(u *unfoldedClause, rw *rewriter.TheoryRewriter, lite
 	if m.IsFalse(condition) {
 		return nil, false, nil
 	}
-	work, err = NewClause(m, rw, head, predicates, condition)
+	work, err := NewClause(m, rw, head, predicates, condition)
 	if err != nil {
 		return nil, false, err
 	}
+	attempt.work = work
 	free, err = work.freeVariables()
 	if err != nil {
 		return nil, false, err
@@ -119,24 +101,26 @@ func finalizeUnfoldedClause(u *unfoldedClause, rw *rewriter.TheoryRewriter, lite
 		if u.bindings != nil {
 			u.rename[i] = ref
 		} else {
-			temps = append(temps, ref)
+			attempt.temps = append(attempt.temps, ref)
 		}
 		next++
 	}
 	if !changed {
-		result, work = work, nil
+		result, attempt.work = work, nil
+		attempt.result = result
 		return result, true, nil
 	}
-	subst, err = rewriter.NewVarSubstitution(m, false)
+	subst, err := rewriter.NewVarSubstitution(m, false)
 	if err != nil {
 		return nil, false, err
 	}
+	attempt.subst = subst
 	apply := func(h ast.ASTHandle) (ast.ASTHandle, error) {
 		ref, e := m.NewRef(ast.ASTHandle{})
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		temps = append(temps, ref)
+		attempt.temps = append(attempt.temps, ref)
 		if e = subst.Substitute(h, renaming, ref); e != nil {
 			return ast.ASTHandle{}, e
 		}
@@ -172,5 +156,6 @@ func finalizeUnfoldedClause(u *unfoldedClause, rw *rewriter.TheoryRewriter, lite
 	if err != nil {
 		return nil, false, err
 	}
+	attempt.result = result
 	return result, true, nil
 }
