@@ -80,7 +80,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
     - [x] Preserve closed-input binder/weight metadata before flush, normalized expansions afterward, mixed pending additions, scope snapshots and update range shifts; ordinary Duality queries preserve raw inputs.
     - [x] Match normalized-only named updates before/after flush, preserve raw Duality inputs, replacement slot order and pending suffix order.
     - [x] Preserve source-published clauses from rejected multi-clause updates, including pending/flushed ordering, later queries and pre-query scope rollback; keep single-clause rejection guards.
-    - [x] Preserve completed update clauses when later conversion returns an ordinary error, with typed labels, source ordering and scope/retry coverage; deferred publication after refused native cleanup remains open.
+    - [x] Preserve completed update clauses when later conversion returns an ordinary error, with typed labels, source ordering and scope/retry coverage; deferred publication after refused native cleanup is covered in the lifecycle section below.
     - [x] Match destructive open-formula display swap/removal order, repeated display and post-normalization writer refusal; construction staging remains transactional in Go.
   - [x] Route legacy SMTContext display through the source to_string formatter with ordered queries; keep explicit complete-declaration replay APIs and roundtrip/guard coverage.
   - [x] Preserve context dump temporary owners through allocation and writer failures, and emit fresh query declarations before variable construction. Both display modes pass dense exact-owner campaigns and focused order tests.
@@ -103,6 +103,8 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
     - [x] Preserve PDR expression-query solver statistics across collection and clone disposal without double counting.
     - [x] Select the configured engine for command/API pre-query property access; preserve absent query-local overrides while invalidating real local/module updates.
     - [x] Preserve source PDR statistics lifetimes: retain kernel counters, sum unfoldings, take maximum depth, report only live properties/cache counters and preserve the inductive result frame during statistics reset.
+    - [x] Preserve PDR proof-export roots across allocation failure, and release proof-checker pivot and intermediate resolvent temporaries. Public proof retry, independent checking and exact ownership tests pass; broader proof and exceptional-cleanup audits remain open.
+    - [x] Preserve detached PDR model-search nodes and an unadopted replacement root when native cleanup fails. Solved-context Reset and repeated-Solve tests verify retries and exact owner counts; model replacement within a node remains a separate audit.
     - [ ] Audit exceptional cleanup after transferring pre-query owners.
       - [x] Scan every allocation stop through first expression-query success; preserve pre-query ownership before installation and inspectable frames after failed solves, reject failed results/stale frames, retry and close each fixture with zero budget usage.
       - [x] Close a nonnil partially constructed theory rewriter when predicate-rule initialization fails.
