@@ -119,7 +119,8 @@ func TestLegacyPartialSelectConstructionFailuresAndRetry(t *testing.T) {
 	for _, count := range []int{8, 64} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
 			success, failures := false, 0
-			for stop := int64(0); stop < 2048 && !success; stop++ {
+			successfulAllowance := int64(-1)
+			for stop := int64(0); stop <= 1<<16 && !success; stop = nextLegacyArrayConstructionAllowance(stop) {
 				t.Run(fmt.Sprint(stop), func(t *testing.T) {
 					f := newFMFixture(t)
 					m := f.r.manager
@@ -186,6 +187,7 @@ func TestLegacyPartialSelectConstructionFailuresAndRetry(t *testing.T) {
 						fmMust(t, err)
 					} else {
 						success = true
+						successfulAllowance = stop
 					}
 					defer func() { fmMust(t, result.Close()) }()
 					if result.partial == nil || len(result.variables) != count || len(result.equalities) != count {
@@ -211,9 +213,22 @@ func TestLegacyPartialSelectConstructionFailuresAndRetry(t *testing.T) {
 			if !success || failures == 0 {
 				t.Fatal("missing failure/success frontier", failures, success)
 			}
-			t.Log("first successful allowance", failures)
+			t.Log("successful tested allowance", successfulAllowance, "injected failures", failures)
 		})
 	}
+}
+
+// Keep every original checkpoint through 2047. Debug AST storage uses direct
+// blocks, so the cold width-64 cases need over 4100 reservations; continue with
+// bounded doubling checkpoints until an injected run actually completes.
+func nextLegacyArrayConstructionAllowance(current int64) int64 {
+	if current < 2047 {
+		return current + 1
+	}
+	if current == 2047 {
+		return 4096
+	}
+	return current * 2
 }
 
 func TestLegacyArraySelectAndFormulaConstructionFailures(t *testing.T) {
@@ -239,7 +254,8 @@ func testLegacyArrayConstructionFailures(t *testing.T, kinds []string) {
 			for _, count := range counts {
 				t.Run(fmt.Sprint(count), func(t *testing.T) {
 					success, failures := false, 0
-					for stop := int64(0); stop < 2048 && !success; stop++ {
+					successfulAllowance := int64(-1)
+					for stop := int64(0); stop <= 1<<16 && !success; stop = nextLegacyArrayConstructionAllowance(stop) {
 						t.Run(fmt.Sprint(stop), func(t *testing.T) {
 							f := newFMFixture(t)
 							m := f.r.manager
@@ -328,6 +344,7 @@ func testLegacyArrayConstructionFailures(t *testing.T, kinds []string) {
 								fmMust(t, run())
 							} else {
 								success = true
+								successfulAllowance = stop
 							}
 							var root ast.ASTRef
 							var vars []ast.ASTRef
@@ -377,7 +394,7 @@ func testLegacyArrayConstructionFailures(t *testing.T, kinds []string) {
 					if !success || failures == 0 {
 						t.Fatal("missing failure/success frontier", failures, success)
 					}
-					t.Log("first successful allowance", failures)
+					t.Log("successful tested allowance", successfulAllowance, "injected failures", failures)
 				})
 			}
 		})

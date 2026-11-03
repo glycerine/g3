@@ -84,11 +84,21 @@ func (r *legacyArrayFormula) Close() error {
 }
 
 func (p *legacyArrayProjection) rewrite(expression ast.ASTHandle) (_ ast.ASTRef, resultErr error) {
-	result, err := p.syntax.manager.NewRef(ast.ASTHandle{})
+	// Pin the input before Reset can release an identical cached expression.
+	result, err := p.syntax.manager.NewRef(expression)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
+	// Source mk_result constructs its th_rewriter locally. The Go utility
+	// reuses one, so discard an abandoned traversal before starting another.
+	if p.theoryInterrupted {
+		if err := p.theory.Reset(); err != nil {
+			return ast.ASTRef{}, closeFailedLegacyArrayRewrite(p.syntax.manager, result, err)
+		}
+		p.theoryInterrupted = false
+	}
 	if err = p.theory.Rewrite(expression, result); err != nil {
+		p.theoryInterrupted = true
 		return ast.ASTRef{}, closeFailedLegacyArrayRewrite(p.syntax.manager, result, err)
 	}
 	return result, nil

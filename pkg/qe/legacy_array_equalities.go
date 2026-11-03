@@ -12,8 +12,9 @@ import (
 )
 
 type legacyArrayProjection struct {
-	syntax *ArrayProjection
-	theory *rewriter.TheoryRewriter
+	syntax            *ArrayProjection
+	theory            *rewriter.TheoryRewriter
+	theoryInterrupted bool
 }
 
 type legacyArrayEqualities struct {
