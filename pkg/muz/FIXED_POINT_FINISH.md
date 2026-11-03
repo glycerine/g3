@@ -493,6 +493,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Equality, identical and negation mutators release transferred source nodes before applying the operation, with retryable child cleanup.
   - [x] Forced functional Fetch/Ensure/Remove, independent checked roots, same-engine derived indices and nonforcing source estimates.
   - [x] Force source-compatible emptiness and sequential bulk removal over sparse/nullary storage while keeping lazy exact-size knowledge false and deferred-source mutation independent.
+  - [x] Force single-fact removal through either concrete Sparse storage or the source nullary Hash fallback without mutating the deferred source.
   - [x] Force and complement deferred sparse or nullary storage with functional-suffix semantics, adopting an independently owned lazy result in the same engine.
   - [x] Clone deferred LazySparse storage into an independently mutable same-engine base while preserving sparse functional metadata or the nullary Hash fallback.
 - [ ] `src/muz/rel/dl_mk_explanations.cpp` (partial), `src/muz/rel/dl_mk_explanations.h` (partial)
@@ -659,6 +660,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Checked finite pairs now execute the source fused interpreted-filter-and-project operation checker-first, then primary, over independent clones and verify equality before publication. LazySparse projections preserve their own deferred/nullary owners after the input closes, and mismatched inputs reject before transformation; compiler activation remains separate.
   Validation: `go -C pkg test ./muz/rel -run '^(TestFiniteCheckedPairLazyInterpreted|TestCheckTableInterpreted|TestCheckedTable)' -count=5` passed. Commit title: `Fuse checked relation filtering with projection`.
+
+- 2026-11-02 — LazySparse single-fact removal now dispatches through the evaluated concrete owner, including the source nullary Hash fallback instead of requiring Sparse storage. Removal forces only the derived node, repeated nullary removal is stable and the deferred source remains independently usable; wider lazy lifecycle auditing remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^TestLazySparse(Remove|Nullary|Bulk|Clone|Complement|Capability)' -count=5` passed. Commit title: `Remove facts from lazy nullary tables`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.

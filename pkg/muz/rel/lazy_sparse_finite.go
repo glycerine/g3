@@ -62,14 +62,21 @@ func (t *LazySparseTable) EnsureFact(fact Fact) error {
 	return table.EnsureFact(fact)
 }
 
-// Remove forces this lazy root and removes the functional key from its actual
-// packed sparse owner.
+// Remove forces this lazy root and removes the fact from its actual packed
+// sparse owner or the source nullary Hash fallback.
 func (t *LazySparseTable) Remove(fact Fact) (bool, error) {
-	table, err := t.eval()
+	table, err := t.finiteEval()
 	if err != nil {
 		return false, err
 	}
-	return table.Remove(fact)
+	switch concrete := table.(type) {
+	case *SparseTable:
+		return concrete.Remove(fact)
+	case *HashTable:
+		return concrete.Remove(fact)
+	default:
+		return false, ErrLazySparse
+	}
 }
 
 func (t *LazySparseTable) SizeEstimateRows() (uint32, error) {
