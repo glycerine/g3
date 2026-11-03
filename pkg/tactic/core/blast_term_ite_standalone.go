@@ -24,10 +24,14 @@ func BlastTermITEInto(m *ast.ASTManager, formula ast.ASTHandle, out ast.ASTRef) 
 	owner := &BlastTermITETactic{manager: m}
 	config := blastTermITEConfiguration{owner: owner, standalone: true}
 	traversal, err := rewriter.NewTraversal(m, &config)
+	// The traversal owns its header before its caches are constructed and
+	// may therefore return a partial owner together with an error.
+	if traversal != nil {
+		defer func() { err = errors.Join(err, traversal.Close()) }()
+	}
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, traversal.Close()) }()
 	return traversal.Rewrite(formula, out)
 }
 
@@ -40,10 +44,12 @@ func BlastTermITE(m *ast.ASTManager, formula ast.ASTHandle) (_ ast.ASTHandle, er
 	owner := &BlastTermITETactic{manager: m}
 	config := blastTermITEConfiguration{owner: owner, standalone: true}
 	traversal, err := rewriter.NewTraversal(m, &config)
+	if traversal != nil {
+		defer func() { err = errors.Join(err, traversal.Close()) }()
+	}
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	defer func() { err = errors.Join(err, traversal.Close()) }()
 	out, err := m.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTHandle{}, err

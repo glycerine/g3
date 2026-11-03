@@ -3,11 +3,59 @@ package core
 // Source: src/tactic/core/blast_term_ite_tactic.cpp:65-88,189-197.
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 )
+
+func TestBlastTermITEStandaloneClosesPartialTraversal(t *testing.T) {
+	for _, ownedOutput := range []bool{false, true} {
+		for _, proofs := range []bool{false, true} {
+			t.Run(fmt.Sprintf("owned=%t/proofs=%t", ownedOutput, proofs), func(t *testing.T) {
+				f := newBlastTermITEFixture(t, proofs)
+				out, err := f.m.NewRef(f.cond)
+				simplifyMust(t, err)
+				defer func() { simplifyMust(t, f.m.DelRef(&out)) }()
+				budget := f.m.Budget()
+				defer budget.FailAfter(-1)
+				beforeBytes, beforeRefs := budget.Used(), f.m.Stats().LiveReferences
+				beforeMode, err := f.m.ProofMode()
+				simplifyMust(t, err)
+				// Reserve the traversal owner, then refuse its first cache.
+				// The partial owner must be destroyed even though no rewrite ran.
+				budget.FailAfter(1)
+				if ownedOutput {
+					err = BlastTermITEInto(f.m, f.cond, out)
+				} else {
+					_, err = BlastTermITE(f.m, f.cond)
+				}
+				budget.FailAfter(-1)
+				if !errors.Is(err, arena.ErrInjectedFailure) {
+					t.Fatal("expected traversal construction refusal", err)
+				}
+				if budget.Used() != beforeBytes || f.m.Stats().LiveReferences != beforeRefs {
+					t.Fatal("partial traversal leaked storage or references", budget.Used()-beforeBytes, f.m.Stats().LiveReferences, beforeRefs)
+				}
+				if got, err := f.m.RefGet(out); err != nil || got != f.cond {
+					t.Fatal("failed traversal changed caller output", got, err)
+				}
+				if ownedOutput {
+					simplifyMust(t, BlastTermITEInto(f.m, f.cond, out))
+				} else if got, err := BlastTermITE(f.m, f.cond); err != nil || got != f.cond {
+					t.Fatal("standalone retry", got, err)
+				}
+				afterMode, err := f.m.ProofMode()
+				simplifyMust(t, err)
+				if afterMode != beforeMode {
+					t.Fatal("standalone failure/retry changed proof mode", beforeMode, afterMode)
+				}
+			})
+		}
+	}
+}
 
 func TestBlastTermITEIntoKeepsHoistedResultOwned(t *testing.T) {
 	for _, proofs := range []bool{false, true} {
