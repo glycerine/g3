@@ -1989,3 +1989,5 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-02 — Matched the PDR/QPDR fresh synthetic-query lifecycle: every query after the first resets and reinstalls the same configured context, closes old snapshots/transformers and discards post-query frames while preserving pre-query covers. Focused lifecycle tests passed three runs and the complete native fixedpoint package passed. Commit: `Reset PDR state for every fresh synthetic query.`
 
 - 2026-11-02 — Matched Spacer's ordinary and from-level empty transformed-program shortcut after query/update state and conversion installation. False Model/Answer export remains available while validation, allocation, solve timing, queues and statistics output are skipped; full native Spacer/fixedpoint packages and independent review passed. Commit: `Bypass Spacer solving for empty transformed programs.`
+
+- 2026-11-03 — Added source-derived TAB selection regressions for the per-argument constructor cap, natural score decay and rollover while preserving cached choices. The native focused tests pass; quantified subsumption and remaining TAB ownership audits stay open.
