@@ -99,6 +99,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
     - [x] Release retired solver pools on reset, preserve cumulative counters and verify repeated reset/solve cycles keep the live pool bounded.
   - [x] Match the fresh synthetic-query lifecycle: every post-first PDR/QPDR query resets and reinstalls the same configured context, discarding prior frames/covers while preserving first-query preloaded covers.
   - [x] Bypass `context::solve` for empty transformed PDR/QPDR programs after installing query state, preserving false Model/Answer export without validation, cancellation or solve diagnostics.
+  - [x] Construct PDR/QPDR/Spacer contexts after rule flush and before expression-query preparation, matching source engine lifetime and scope-pop behavior on failed preparation. Failed flush and constructor paths remain poppable; retry and owner transfer are tested.
   - [ ] Close expression-query clone lifecycle, including propagation of pre-query properties, cumulative statistics and model/proof ownership.
     - [x] Invalidate pre-query PDR constructor state immediately on parameter updates; test invalid settings and successful retry before any query.
     - [x] Carry pre-query PDR/QPDR covers into the expression-query engine and forward property access to the active query owner.
@@ -2129,3 +2130,4 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — The filtered three-tag suite on `8ae48ac94` found two allocation-test failures (log `/tmp/g3-filtered-three-tag-1700-20261103.log`). Extended the expression-answer campaign without skipping allowances: native succeeds at 29 and the three-tag direct allocator at 543. The projected-child test is being repaired separately.
 - 2026-11-03 — Repaired the projected-child allocation test for debug allocation order. Native and three-tag tests reach the actual model-node boundary, preserve the orphan/retry checks and fail against the corresponding ownership mutant; the filtered suite needs a fresh run.
 - 2026-11-03 — The filtered `g3checked,g3debug,g3trace` short suite passed on snapshot `5e9fc0e51` after both allocation-test repairs. Log: `/tmp/g3-filtered-three-tag-repair-1700-20261103.log`.
+- 2026-11-03 — Matched source engine construction before expression-query preparation for PDR/QPDR/Spacer. Failed flush, failed constructor, preparation failure, scope rollback and successful context-transfer retries pass in native and three-tag focused tests.

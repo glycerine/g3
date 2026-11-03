@@ -81,6 +81,27 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err := e.flushPendingRules(); err != nil {
 		return lbool.Undef, err
 	}
+	// Source context::query calls ensure_engine before dl_interface::query
+	// reaches mk_query. PDR and Spacer construct their actual contexts in the
+	// interface constructor, so a later hoist/compaction failure still forbids
+	// Pop. A failed constructor must not publish that phase. Existing contexts
+	// are checked for rule replacement when transferred into the query clone.
+	switch e.backend {
+	case "pdr", "qpdr":
+		if e.pdr == nil {
+			if _, err := e.pdrContext(); err != nil {
+				return lbool.Undef, err
+			}
+		}
+		e.engineInstantiated = true
+	case "spacer":
+		if e.spacer == nil {
+			if _, err := e.spacerContext(); err != nil {
+				return lbool.Undef, err
+			}
+		}
+		e.engineInstantiated = true
+	}
 	hoisted, err := e.hoistQueryExistentials(query)
 	if err != nil {
 		return lbool.Undef, fmt.Errorf("muz/fp: hoist query existentials: %w", err)
