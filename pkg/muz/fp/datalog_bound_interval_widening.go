@@ -2,8 +2,7 @@ package fp
 
 // Source: dl_compiler.cpp compile_preds_init/compile_dependent_rules and
 // dl_instruction.cpp instr_union/while_loop. This widening consumer admits
-// singleton recursive strata with up to two positive tails per rule and
-// two-predicate recursive strata with one positive tail per rule.
+// recursive strata whose rules have up to two positive tails.
 
 import (
 	"errors"
@@ -107,9 +106,6 @@ func (a *boundIntervalDatalogActivation) wideningPlan() ([]boundIntervalWidening
 		if len(predicates) == 0 {
 			continue
 		}
-		if len(predicates) > 2 {
-			return nil, ErrBoundIntervalDatalogFragment
-		}
 		inside := make(map[ast.ASTHandle]bool, len(predicates))
 		dependencies := make(map[ast.ASTHandle][]ast.ASTHandle, len(predicates))
 		for _, head := range predicates {
@@ -127,16 +123,13 @@ func (a *boundIntervalDatalogActivation) wideningPlan() ([]boundIntervalWidening
 		for _, head := range ordered {
 			headPlan := boundIntervalWideningHead{head: head}
 			for _, rule := range byHead[head] {
-				if len(predicates) > 1 && len(rule.tails) > 1 {
-					return nil, ErrBoundIntervalDatalogFragment
-				}
 				headPlan.all = append(headPlan.all, boundIntervalWideningVariant{rule: rule.index, tail: -1})
 				if len(rule.tails) == 0 {
 					continue // Ground rules have already initialized their targets.
 				}
 				recursive := false
-				// Each SCC-tail occurrence gets its own old input register.
-				// Singleton strata preserve the existing two-tail variants.
+				// Each SCC-tail occurrence selects that predicate's old input
+				// register while its other operands read live full relations.
 				for index, tail := range rule.tails {
 					if inside[tail] {
 						recursive = true

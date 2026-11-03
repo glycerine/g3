@@ -146,7 +146,7 @@ func TestDatalogBoundIntervalWideningParameterPrecedence(t *testing.T) {
 	}
 }
 
-func TestDatalogBoundIntervalWideningRefusesUnsupportedRecursiveComponents(t *testing.T) {
+func TestDatalogBoundIntervalWideningMultiHeadIdentityComponents(t *testing.T) {
 	for _, shape := range []string{"three-heads", "mutual-two-tails"} {
 		for _, widen := range []bool{false, true} {
 			name := shape + "/ordinary"
@@ -173,13 +173,6 @@ func TestDatalogBoundIntervalWideningRefusesUnsupportedRecursiveComponents(t *te
 				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(tail, f.app(h, x))), "recursive-last"))
 				if widen {
 					fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
-					if _, err := f.e.QueryPredicate(h); !errors.Is(err, ErrBoundIntervalDatalogFragment) {
-						t.Fatal("unsupported widening component accepted", err)
-					}
-					if _, err := f.e.Answer(h); !errors.Is(err, ErrPropositionalEngine) {
-						t.Fatal("refused widening query published an answer", err)
-					}
-					return
 				}
 				answer := boundIntervalWideningAnswer(t, f, h)
 				f.checkFormula(answer, []int{0}, true)
