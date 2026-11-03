@@ -16,20 +16,33 @@ func cloneBoundColumn(c boundColumn) boundColumn {
 	return result
 }
 
-// copyFrom mirrors vector_relation::copy: bounds and equality classes are both
-// part of the relation value.
+// copyFrom mirrors vector_relation::copy. It copies each representative's
+// payload into a fresh destination column, but does not recreate source
+// equality classes.
 func (r *BoundRelation) copyFrom(source *BoundRelation) {
-	r.parent = append(r.parent[:0], source.parent...)
-	r.size = append(r.size[:0], source.size...)
+	if len(r.parent) != len(source.parent) {
+		r.parent = make([]uint32, len(source.parent))
+		r.size = make([]uint32, len(source.size))
+	}
 	if cap(r.columns) < len(source.columns) {
 		r.columns = make([]boundColumn, len(source.columns))
 	} else {
 		r.columns = r.columns[:len(source.columns)]
 	}
 	for i := range source.columns {
-		r.columns[i] = cloneBoundColumn(source.columns[i])
+		r.parent[i], r.size[i] = uint32(i), 1
 	}
-	r.empty = source.empty
+	if source.empty {
+		for i := range r.columns {
+			r.columns[i] = boundColumn{lt: make(map[uint32]bool), le: make(map[uint32]bool)}
+		}
+		r.empty = true
+		return
+	}
+	for i := range source.columns {
+		r.columns[i] = cloneBoundColumn(source.columns[source.find(uint32(i))])
+	}
+	r.empty = false
 }
 
 func sameBoundColumn(a, b boundColumn) bool {

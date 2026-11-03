@@ -88,7 +88,7 @@ func TestBoundRelationUnionDelta(t *testing.T) {
 	}
 }
 
-func TestBoundRelationUnionIntoEmptyCopiesEqualityClasses(t *testing.T) {
+func TestBoundRelationUnionIntoEmptyUsesSourceVectorCopy(t *testing.T) {
 	source := NewBoundRelation(3, false)
 	astTestMust(t, source.Equate(0, 1))
 	astTestMust(t, source.AddLess(0, 2))
@@ -96,8 +96,8 @@ func TestBoundRelationUnionIntoEmptyCopiesEqualityClasses(t *testing.T) {
 	target := NewBoundRelation(3, true)
 	changed, err := target.Union(source)
 	astTestMust(t, err)
-	if !changed || target.Empty() || target.find(0) != target.find(1) {
-		t.Fatal("union into empty lost source equality", changed, target.Empty())
+	if !changed || target.Empty() || target.find(0) == target.find(1) {
+		t.Fatal("union into empty preserved source equality", changed, target.Empty())
 	}
 	strict, _, err := target.Bounds(1)
 	astTestMust(t, err)
@@ -109,8 +109,8 @@ func TestBoundRelationUnionIntoEmptyCopiesEqualityClasses(t *testing.T) {
 	delta := NewBoundRelation(3, true)
 	changed, err = deltaTarget.UnionWithDelta(source, delta, false)
 	astTestMust(t, err)
-	if !changed || delta.find(0) != delta.find(1) {
-		t.Fatal("delta copy lost source equality", changed)
+	if !changed || delta.find(0) == delta.find(1) {
+		t.Fatal("delta copy preserved source equality", changed)
 	}
 	strict, _, err = delta.Bounds(1)
 	astTestMust(t, err)
@@ -129,7 +129,7 @@ func TestBoundRelationEmptySourceCopiesItsDeltaState(t *testing.T) {
 	target, delta := NewBoundRelation(2, false), NewBoundRelation(2, false)
 	changed, err := target.UnionWithDelta(source, delta, false)
 	astTestMust(t, err)
-	if changed || !delta.Empty() || delta.find(0) != delta.find(1) {
+	if changed || !delta.Empty() || delta.find(0) == delta.find(1) {
 		t.Fatal("empty source delta did not copy source state", changed, delta.Empty())
 	}
 }
