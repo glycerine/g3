@@ -138,6 +138,11 @@ func TestBMCQuantifiedLinearSearchAllocationScopeCleanup(t *testing.T) {
 			}
 			failures++
 		}
+		depth, scopeErr := solver.ScopeLevel()
+		must(scopeErr)
+		if depth != 0 {
+			t.Fatalf("quantified search frontier %d left solver scope %d", stop, depth)
+		}
 
 		if cause == nil {
 			// The assertion below the source qlinear push survives the successful

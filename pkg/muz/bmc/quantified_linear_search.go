@@ -42,16 +42,16 @@ func (c *Compiler) SearchQuantifiedLinear(rules *base.RuleSet, query ast.ASTHand
 }
 
 func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.ASTHandle, solver *smtcore.SMTSolver, width uint32) (status lbool.LBool, winning *model.ModelCore, resultErr error) {
-	if err := solver.Push(); err != nil {
-		return lbool.Undef, nil, err
-	}
+	attempt := &quantifiedLinearSearchAttempt{manager: c.manager, solver: solver}
 	defer func() {
-		resultErr = errors.Join(resultErr, solver.Pop(1))
-		if resultErr != nil && winning != nil {
-			resultErr = errors.Join(resultErr, winning.DecRef())
-			winning = nil
+		winning, resultErr = finishQuantifiedLinearSearch(attempt, resultErr)
+		if resultErr != nil {
+			status = lbool.Undef
 		}
 	}()
+	if err := attempt.begin(); err != nil {
+		return lbool.Undef, nil, err
+	}
 	formulas, err := c.CompileQuantifiedLinear(rules, width)
 	if err != nil {
 		return lbool.Undef, nil, err
@@ -87,7 +87,7 @@ func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.AST
 	if err != nil {
 		return lbool.Undef, nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, q.dispose()) }()
+	attempt.terms = q
 	name, err := c.manager.Symbols.Intern("T")
 	if err != nil {
 		return lbool.Undef, nil, err
@@ -107,9 +107,9 @@ func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.AST
 	if err != nil || status != lbool.True {
 		return status, nil, err
 	}
-	winning, err = solver.AcquireModel()
-	if err != nil || winning == nil {
-		return lbool.Undef, winning, errors.Join(err, ast.ErrASTDomain)
+	attempt.winning, err = solver.AcquireModel()
+	if err != nil || attempt.winning == nil {
+		return lbool.Undef, nil, errors.Join(err, ast.ErrASTDomain)
 	}
-	return status, winning, nil
+	return status, nil, nil
 }
