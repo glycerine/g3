@@ -2,7 +2,7 @@
 
 This tracks completion of the whole `src/muz/` port in `pkg/muz/`, including live dependencies outside that directory. A working engine or green test is not a whole-source completion claim. Source algorithms, proofs, models, incremental behavior, diagnostics and explicit ownership must all be accounted for.
 
-Last updated: 2026-11-03. The current implementation batches and all regressions reported in `pkg/log.red` are fixed, tested and committed. The live CLP context source units have completed independent method and ownership audits; the wider fixedpoint infrastructure and other engine audits remain open.
+Last updated: 2026-11-03. The reported `pkg/log.red` regressions are fixed and committed, and the user has resumed the full goal with maximum available parallelism. Independent implementation and source-review lanes are active; ready slices are committed without waiting for the slowest lane. The live CLP context source units have completed independent method and ownership audits; the wider fixedpoint infrastructure and other engine audits remain open.
 
 ## How to follow progress
 
@@ -338,6 +338,8 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 - [ ] Audit remaining transforms, dataflow and DDNF consumers, including interactions with engine-specific preprocessing.
   - [x] Make cone-of-influence fact detection representation-neutral through RelationManager storage, including per-fact and whole-relation explanation products.
   - [x] Run finite Datalog cone pruning before filter/simple-join lowering on query-local rules, transfer ordered model-conversion steps into query ownership, reconstruct original predicate models and restore source rules for subsequent queries.
+  - [x] Run interpreted-tail simplification at source priority 40000, with query-owned fallback parameter services and retryable cleanup for service-free engines.
+  - [x] Separate private negative-tail variables at source priority 21000, register query-local complement predicates and preserve persistent rules/predicates across repeated queries and later facts.
   - [x] Close dynamically discovered subsumption totals to a fixed point and propagate rule-unifier accounting through live unfold results to the original target rule.
   - [x] Make simple-join costing representation-neutral through relation row estimates, including exact per-fact explanation counts and conservative whole-relation product estimates.
   - [x] Activate query-local MagicSets over UDoc seeds and generated predicates with transactional clone rollback.
@@ -482,6 +484,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/dl_compiler.cpp` (partial), `src/muz/rel/dl_compiler.h` (partial)
   - [x] Finite, sparse, lazy and explanation compilation has concrete method-level evidence, including SCC scheduling and mixed magic inputs.
   - [x] Emit fused interpreted filtering/projection for absent-head body columns over admitted Hash/Sparse/LazySparse/FiniteCheckedPair bytecode, preserving pre-projection guard bindings, full column sorts, independent source ownership, survivor remapping and fused operation counters.
+  - [x] Fuse finite joins with source dead-column projection, preserving head multiplicities, later guards/negative tails and survivor renumbering across Hash/Sparse/LazySparse/checked backends.
+  - [x] Initialize recursive predicates from lower-stratum rules before recursive evaluation and clone the complete initial relations into loop deltas, preserving own-seed insertion order, preloaded facts and empty cycles.
   - [x] Execute one aligned positive exact bound/interval tail with one compiler conjunction, unused-column projection, head reordering, fixpoint union and cancellation.
   - [x] Combine requested bound/interval outputs by source nonempty disjunction, returning false only when every output relation is empty.
   - [ ] Complete source-live abstract/product/widening dispatch and compiler ownership audits; explicit interval activation and exact checked bytecode do not close source-default bound or mixed-product compilation.
@@ -594,6 +598,10 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-03 — Resumed the full goal at the user's request and filled available worker capacity with independent implementation and source-review lanes. Functional lanes cover bound/external product rules, finite compiler recursion/options, query transformation stages, real UDoc checking/mixed consumers, bound similarity compression and parser identity semantics. Engine lanes cover QBMC trace publication, Duality graph/wrapper recovery and slice proof construction. A live SMT scope dependency is split across kernel, internalizer, learned clauses, macro and quantifier owners so a completed sibling is never replayed after a later cleanup refusal. Shared files have one owner; complete helper definitions before callers, preserve existing source guards and test strength, use focused native tests, and integrate passing slices promptly. The broad run remains canceled and checked/debug runs remain with the user outside explicitly requested regression fixes.
+  - `700bcda99` seeds recursive finite loops in source phases; sixteen backing/seed cases include eight pre-fix ordering failures. Root finite compiler tests passed in 0.107s and independent source review approved.
+  - `08a97940d` activates source separate-negated-tail lowering and query-local fresh predicates; public repeated-query/update/cleanup tests and transform tests passed in 0.022s/0.015s with independent source review.
 
 - 2026-11-03 — Fixed all reported `pkg/log.red` failures after committing the current batches. `7546aef04` handles nullary formula-checked negation without creating an empty quantifier, preserving AST guards and semantic equivalence checks. `91e16b181` owns fresh proof declarations through application allocation failure; a direct pre-fix overlay reproduces the exact 24-/32-byte leaks and the corrected allocation campaign restores all node/info/parameter/reference/byte counts. `2805d9a2c` owns every intermediate coalesced proof so failed composition cannot increase original-clause proof counts. `04607e9bc` preserves all Spacer cover frames until fallible solver retirement completes, blocks partial solver use, invalidates stale results at reset entry and resumes cleanup on retry. Existing regression assertions and allocation campaigns remain intact. The new direct Spacer cleanup test uses `g3debug` because its injected allocation exists only under debug accounting; the original expression-query regression remains untagged.
   - Full affected-package checks with `-short -tags g3checked,g3debug -count=1 -timeout=0` passed: AST 20.466s, BMC 0.812s, fixedpoint 73.466s, relations 3.995s, Spacer 6.184s and transforms 24.867s. Independent source/ownership reviews approved each fix. Native BMC and AST proof checks passed; the integrated batches also passed native base tests (0.664s), public fixedpoint API tests (0.441s) and SMT-LIB runner scripts (40.194s).
