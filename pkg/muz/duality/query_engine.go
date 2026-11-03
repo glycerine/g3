@@ -32,9 +32,13 @@ type queryRun struct {
 	graph      *graph.RPFP
 	engine     *graph.Engine
 	background []*graph.Expr
+	scopes     []querySolverScope
 }
 
 func (r *queryRun) close() error {
+	if err := r.closeScopes(); err != nil {
+		return err
+	}
 	if r.engine != nil {
 		if err := r.engine.Close(); err != nil {
 			return err
@@ -121,6 +125,11 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 			return lbool.Undef, err
 		}
 	}
+	// A previous attempt may still own a refused background-scope Pop.
+	// Drain it before either borrowed solver is used by another query.
+	if err := e.reap(); err != nil {
+		return lbool.Undef, err
+	}
 	manager, err := e.context.Manager()
 	if err != nil {
 		return lbool.Undef, err
@@ -144,7 +153,16 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 	next := &queryRun{graph: nextGraph}
 	e.runs = append(e.runs, next)
 	defer func() {
-		result = errors.Join(result, e.reap())
+		result = errors.Join(result, next.closeScopes())
+		if result == nil {
+			e.active = next
+			e.status = status
+		}
+		// Refused scopes keep their run alive until the next Query or Close.
+		// Its graph and engine depend on the same borrowed native solvers.
+		if len(next.scopes) == 0 {
+			result = errors.Join(result, e.reap())
+		}
 		if result != nil {
 			status = lbool.Undef
 			e.status = lbool.Undef
@@ -166,10 +184,9 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 	}
 	if len(config.Theory) > 0 {
 		for _, native := range []solver.Solver{config.Native, config.Auxiliary} {
-			if err := native.Push(); err != nil {
+			if err := next.pushScope(native); err != nil {
 				return lbool.Undef, err
 			}
-			defer func() { result = errors.Join(result, native.Pop(1)) }()
 			for _, axiom := range config.Theory {
 				h, err := axiom.Raw()
 				if err != nil {
@@ -214,8 +231,6 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 			return lbool.Undef, err
 		}
 	}
-	e.active = next
-	e.status = status
 	return status, nil
 }
 
