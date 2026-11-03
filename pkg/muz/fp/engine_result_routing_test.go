@@ -380,7 +380,7 @@ func TestDatalogResultSnapshotRoutesAndInvalidates(t *testing.T) {
 	fpMust(t, manager.DelRef(&proof))
 	var output bytes.Buffer
 	found, err := engine.WriteCertificate(&output, declaration, func(io.Writer, ast.ASTHandle) error { return nil })
-	if err != nil || found || output.Len() != 0 {
+	if !errors.Is(err, fp.ErrPropositionalEngine) || found || output.Len() != 0 {
 		t.Fatal("Datalog certificate route", found, output.String(), err)
 	}
 

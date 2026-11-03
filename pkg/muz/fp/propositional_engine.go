@@ -2786,7 +2786,9 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 		return e.writeTabCertificate(out, declaration)
 	}
 	if e.backend != "pdr" && e.backend != "qpdr" {
-		return false, nil
+		// Datalog inherits engine_base::display_certificate's unsupported
+		// default; only Spacer overrides it with an empty presentation.
+		return false, ErrPropositionalEngine
 	}
 	if err := e.requirePDRSnapshot(); err != nil {
 		return false, err
