@@ -120,10 +120,13 @@ func testQueryMagicSets(t *testing.T, global bool, local *bool) {
 			t.Error(err)
 		}
 	}()
-	declaration, head, err := clone.makeQueryHead(query)
+	declaration, headRef, err := clone.makeQueryHead(query)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() { fragmentMust(t, closeASTRefs(manager, []ast.ASTRef{headRef})) }()
+	head, err := manager.RefGet(headRef)
+	fragmentMust(t, err)
 	if err = clone.RegisterPredicate(declaration); err != nil {
 		t.Fatal(err)
 	}

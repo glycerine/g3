@@ -20,14 +20,28 @@ func (e *PropositionalEngine) prepareDualityTransformedQuery(query ast.ASTHandle
 			out = nil
 		}
 	}()
-	declaration, head, err := clone.makeQueryHead(query)
+	declaration, headRef, err := clone.makeQueryHead(query)
+	if err != nil {
+		return nil, err
+	}
+	queryRoots := []ast.ASTRef{headRef}
+	defer func() { result = errors.Join(result, closeASTRefs(e.manager, queryRoots)) }()
+	head, err := e.manager.RefGet(headRef)
 	if err != nil {
 		return nil, err
 	}
 	if err := clone.RegisterPredicate(declaration); err != nil {
 		return nil, err
 	}
+	implicationRef, err := e.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return nil, err
+	}
+	queryRoots = append(queryRoots, implicationRef)
 	implication, err := e.manager.MkImplies(query, head)
+	if !implication.IsNull() {
+		err = errors.Join(err, e.manager.SetRef(implicationRef, implication))
+	}
 	if err != nil {
 		return nil, err
 	}

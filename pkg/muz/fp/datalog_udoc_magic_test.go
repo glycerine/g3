@@ -69,8 +69,11 @@ func TestDatalogUDocMagicSetsTransfersSeededIntentionalFacts(t *testing.T) {
 	seedQuery := app(goal, seedValue)
 	prepared, err := engine.newQueryClone()
 	must(err)
-	queryDeclaration, queryHead, err := prepared.makeQueryHead(seedQuery)
+	queryDeclaration, headRef, err := prepared.makeQueryHead(seedQuery)
 	must(err)
+	defer func() { fragmentMust(t, closeASTRefs(manager, []ast.ASTRef{headRef})) }()
+	queryHead, err := manager.RefGet(headRef)
+	fragmentMust(t, err)
 	must(prepared.RegisterPredicate(queryDeclaration))
 	prepared.auxiliary[queryDeclaration] = true
 	must(prepared.inheritDatalogQueryKind(seedQuery, queryDeclaration))

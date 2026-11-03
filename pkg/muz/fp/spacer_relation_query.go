@@ -4,35 +4,29 @@ package fp
 // src/muz/base/dl_rule.cpp rule_manager::mk_query.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
 // makeSpacerRelationQuery creates a local synthetic rule without changing the
 // persistent program. Its predicate remains registered for model filtering.
-func (e *PropositionalEngine) makeSpacerRelationQuery(declaration ast.ASTHandle, generateProof bool) (ast.ASTHandle, *base.Rule, error) {
-	arity, err := e.manager.GetArity(declaration)
+func (e *PropositionalEngine) makeSpacerRelationQuery(declaration ast.ASTHandle, generateProof bool) (queryDeclaration ast.ASTHandle, result *base.Rule, resultErr error) {
+	queryRef, err := e.makeRelationQueryExpression(declaration)
 	if err != nil {
 		return ast.ASTHandle{}, nil, err
 	}
-	arguments := make([]ast.ASTHandle, arity)
-	for i := uint32(0); i < arity; i++ {
-		sort, err := e.manager.GetDomain(declaration, i)
-		if err != nil {
-			return ast.ASTHandle{}, nil, err
-		}
-		arguments[i], err = e.manager.MkVar(i, sort)
-		if err != nil {
-			return ast.ASTHandle{}, nil, err
-		}
-	}
-	query, err := e.manager.MkApp(declaration, arguments)
+	attempt := &spacerRelationQueryAttempt{manager: e.manager, roots: []ast.ASTRef{queryRef}}
+	defer func() { queryDeclaration, result, resultErr = attempt.finish(queryDeclaration, resultErr) }()
+	query, err := e.manager.RefGet(queryRef)
 	if err != nil {
 		return ast.ASTHandle{}, nil, err
 	}
-	queryDeclaration, head, err := e.makeQueryHead(query)
+	queryDeclaration, headRef, err := e.makeQueryHead(query)
+	if err != nil {
+		return ast.ASTHandle{}, nil, err
+	}
+	attempt.roots = append(attempt.roots, headRef)
+	head, err := e.manager.RefGet(headRef)
 	if err != nil {
 		return ast.ASTHandle{}, nil, err
 	}
@@ -40,14 +34,14 @@ func (e *PropositionalEngine) makeSpacerRelationQuery(declaration ast.ASTHandle,
 		return ast.ASTHandle{}, nil, err
 	}
 	e.auxiliary[queryDeclaration] = true
-	rule, err := e.rules.NewRule(head, []ast.ASTHandle{query}, nil, "")
+	attempt.rule, err = e.rules.NewRule(head, []ast.ASTHandle{query}, nil, "")
 	if err != nil {
 		return ast.ASTHandle{}, nil, err
 	}
 	if generateProof {
-		if err = e.rules.MkRuleAssertedProof(rule); err != nil {
-			return ast.ASTHandle{}, nil, errors.Join(err, rule.Close())
+		if err = e.rules.MkRuleAssertedProof(attempt.rule); err != nil {
+			return ast.ASTHandle{}, nil, err
 		}
 	}
-	return queryDeclaration, rule, nil
+	return queryDeclaration, attempt.rule, nil
 }

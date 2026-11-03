@@ -195,7 +195,13 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		// only the original program belongs in the search rule index.
 		return clone.queryTabExpression(query)
 	}
-	declaration, head, err := clone.makeQueryHead(query)
+	declaration, headRef, err := clone.makeQueryHead(query)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	queryRoots := []ast.ASTRef{headRef}
+	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(e.manager, queryRoots)) }()
+	head, err := e.manager.RefGet(headRef)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -208,7 +214,15 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			return lbool.Undef, err
 		}
 	}
+	implicationRef, err := e.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return lbool.Undef, err
+	}
+	queryRoots = append(queryRoots, implicationRef)
 	rule, err := clone.manager.MkImplies(query, head)
+	if !rule.IsNull() {
+		err = errors.Join(err, e.manager.SetRef(implicationRef, rule))
+	}
 	if err != nil {
 		return lbool.Undef, err
 	}
