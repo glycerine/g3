@@ -281,7 +281,15 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 				if y != nil {
 					return y
 				}
+				equalityRef, y := c.manager.NewRef(ast.ASTHandle{})
+				if y != nil {
+					return y
+				}
+				references = append(references, equalityRef)
 				equality, y := c.manager.MkEq(variable, value)
+				if !equality.IsNull() {
+					y = errors.Join(y, c.manager.SetRef(equalityRef, equality))
+				}
 				if y != nil {
 					return y
 				}

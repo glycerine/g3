@@ -105,6 +105,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
     - [x] Preserve source PDR statistics lifetimes: retain kernel counters, sum unfoldings, take maximum depth, report only live properties/cache counters and preserve the inductive result frame during statistics reset.
     - [x] Preserve PDR proof-export roots across allocation failure, and release proof-checker pivot and intermediate resolvent temporaries. Public proof retry, independent checking and exact ownership tests pass; broader proof and exceptional-cleanup audits remain open.
     - [x] Preserve detached PDR model-search nodes and an unadopted replacement root when native cleanup fails. Solved-context Reset and repeated-Solve tests verify retries and exact owner counts; model replacement within a node remains a separate audit.
+    - [x] Own coupled predecessor equalities before projected-child renaming can fail. An actual allocation-boundary regression checks exact AST counts and a same-context solve retry with both predecessors.
     - [ ] Audit exceptional cleanup after transferring pre-query owners.
       - [x] Scan every allocation stop through first expression-query success; preserve pre-query ownership before installation and inspectable frames after failed solves, reject failed results/stale frames, retry and close each fixture with zero budget usage.
       - [x] Close a nonnil partially constructed theory rewriter when predicate-rule initialization fails.
@@ -2110,3 +2111,4 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Preserved detached PDR model-search nodes and their model owners across consumed native cleanup failures during Reset. A solved-context test exercises successive child/root refusals, retry, reinitialization and zero final budget; incoming-root and model-replacement refusal remain separate audits.
 - 2026-11-03 — Preserved the new PDR search root when replacing an old search fails, releasing or queuing it before returning. A real repeated-Solve native cleanup regression passes with exact pre-manager-close reference counts; model-replacement refusal remains separate.
 - 2026-11-03 — Native `muz/pdr` and `muz/fp` short suites passed on `ff6d97a22` (64.433s/77.791s); log `/tmp/g3-pdr-search-native-20261103.log`.
+- 2026-11-03 — Preserved a projected PDR child equality across renaming allocation failure. The old implementation reproduces an orphaned AST node; focused projection tests and the same-context public solve retry pass.
