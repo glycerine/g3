@@ -358,7 +358,10 @@ func finiteTableJoinProject(first, second FiniteTable, left, right, removed []in
 	if err != nil {
 		return nil, err
 	}
-	result, projectErr := finiteTableProject(joined, removed)
+	result, handled, projectErr := finiteTableSparseJoinProjectReduce(first, second, joined, left, right, removed)
+	if !handled {
+		result, projectErr = finiteTableProject(joined, removed)
+	}
 	closeErr := joined.Close()
 	if projectErr != nil || closeErr != nil {
 		if result != nil {

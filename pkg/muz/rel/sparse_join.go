@@ -110,10 +110,5 @@ func (a *SparseTable) JoinProject(b *SparseTable, left, right, removed []int) (*
 		result, _, executeErr := plan.Execute(a, b)
 		return result, executeErr
 	}
-	joined, e := a.Join(b, left, right)
-	if e != nil {
-		return nil, e
-	}
-	defer joined.Close()
-	return joined.Project(removed)
+	return sparseJoinProjectFallback(a, b, left, right, removed)
 }
