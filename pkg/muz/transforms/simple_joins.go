@@ -20,6 +20,7 @@ type SimpleJoinsPlugin struct {
 	relations *rel.RelationManager
 	priority  uint32
 	fresh     []ast.ASTHandle
+	origins   map[ast.ASTHandle]ast.ASTHandle
 	pins      []ast.ASTRef
 	closed    bool
 	closing   bool
@@ -55,6 +56,18 @@ func (p *SimpleJoinsPlugin) FreshPredicates() []ast.ASTHandle {
 		return nil
 	}
 	return append([]ast.ASTHandle(nil), p.fresh...)
+}
+
+// FreshPredicateOrigin returns the parent head passed to
+// context::mk_fresh_head_predicate by the source join planner. A shared helper
+// keeps the last registered parent's origin selected when it was created.
+// Both declarations are borrowed from the rule manager.
+func (p *SimpleJoinsPlugin) FreshPredicateOrigin(predicate ast.ASTHandle) (ast.ASTHandle, bool) {
+	if p == nil || p.closed || p.closing {
+		return ast.ASTHandle{}, false
+	}
+	origin, found := p.origins[predicate]
+	return origin, found
 }
 
 func (p *SimpleJoinsPlugin) variables(root ast.ASTHandle, result map[uint32]ast.ASTHandle) error {
@@ -111,6 +124,13 @@ func (p *SimpleJoinsPlugin) auxiliary(pair normalizedPair, outside []ast.ASTHand
 	entry, found := shared[key]
 	var definition *base.Rule
 	if !found {
+		var origin ast.ASTHandle
+		if parent != nil {
+			origin, err = parent.HeadDeclaration()
+			if err != nil {
+				return ast.ASTHandle{}, nil, err
+			}
+		}
 		domain := make([]ast.ASTHandle, len(outputs))
 		canonicalArguments := make([]ast.ASTHandle, len(outputs))
 		for i, output := range outputs {
@@ -136,6 +156,12 @@ func (p *SimpleJoinsPlugin) auxiliary(pair normalizedPair, outside []ast.ASTHand
 			return ast.ASTHandle{}, nil, err
 		}
 		p.fresh = append(p.fresh, declaration)
+		if !origin.IsNull() {
+			if p.origins == nil {
+				p.origins = make(map[ast.ASTHandle]ast.ASTHandle)
+			}
+			p.origins[declaration] = origin
+		}
 		canonicalHead, err := p.manager.MkApp(declaration, canonicalArguments)
 		if err != nil {
 			return ast.ASTHandle{}, nil, err
@@ -332,6 +358,7 @@ func (p *SimpleJoinsPlugin) Close() error {
 	}
 	p.pins = nil
 	p.fresh = nil
+	p.origins = nil
 	p.closed = true
 	return nil
 }

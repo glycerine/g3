@@ -15,6 +15,7 @@ type filterRuleCacheEntry struct {
 	predicate   ast.ASTHandle
 	arguments   []ast.ASTHandle
 	declaration ast.ASTHandle
+	origin      ast.ASTHandle
 	pin         ast.ASTRef
 }
 
@@ -48,6 +49,21 @@ func (p *FilterRulesPlugin) FreshPredicates() []ast.ASTHandle {
 		result[i] = p.cache[i].declaration
 	}
 	return result
+}
+
+// FreshPredicateOrigin returns the filtered tail declaration passed to
+// context::mk_fresh_head_predicate, whose requested relation kind the filter
+// inherits. Both declarations are borrowed from the rule manager.
+func (p *FilterRulesPlugin) FreshPredicateOrigin(predicate ast.ASTHandle) (ast.ASTHandle, bool) {
+	if p == nil || p.closed || p.closing {
+		return ast.ASTHandle{}, false
+	}
+	for _, entry := range p.cache {
+		if entry.declaration == predicate {
+			return entry.origin, true
+		}
+	}
+	return ast.ASTHandle{}, false
 }
 
 func (p *FilterRulesPlugin) resetCache() error {
@@ -262,7 +278,7 @@ func (p *FilterRulesPlugin) makeFilter(application ast.ASTHandle, nonLocal map[u
 	}
 	p.cache = append(p.cache, filterRuleCacheEntry{
 		predicate: normalized, arguments: append([]ast.ASTHandle(nil), filterArguments...),
-		declaration: filterDeclaration, pin: normalizedPin,
+		declaration: filterDeclaration, origin: originalDeclaration, pin: normalizedPin,
 	})
 	keepNormalizedPin = true
 	return filterDeclaration, nil

@@ -26,6 +26,7 @@ func TestSimpleJoinsClosePreservesAuxiliaryPins(t *testing.T) {
 	var plugin *SimpleJoinsPlugin
 	active, callbacks, intact := false, 0, true
 	var original []ast.ASTRef
+	var fresh, origin ast.ASTHandle
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
 		if active {
 			callbacks++
@@ -35,6 +36,8 @@ func TestSimpleJoinsClosePreservesAuxiliaryPins(t *testing.T) {
 				for j := range plugin.pins {
 					intact = intact && plugin.pins[j] == original[j]
 				}
+				_, visible := plugin.FreshPredicateOrigin(fresh)
+				intact = intact && !visible && plugin.origins[fresh] == origin
 			}
 		}
 		return f
@@ -88,6 +91,12 @@ func TestSimpleJoinsClosePreservesAuxiliaryPins(t *testing.T) {
 	}
 	defer func() { must(transformed.Close()) }()
 	original = append([]ast.ASTRef(nil), plugin.pins...)
+	fresh = plugin.FreshPredicates()[0]
+	origin, err = m.GetDecl(apps[3])
+	must(err)
+	if actual, found := plugin.FreshPredicateOrigin(fresh); !found || actual != origin {
+		t.Fatal("join origin missing before cleanup", actual, found)
+	}
 	joined, err := transformed.Rule(0)
 	must(err)
 	if n, e := joined.PositiveTailSize(); e != nil || n != 2 {
@@ -122,7 +131,7 @@ func TestSimpleJoinsClosePreservesAuxiliaryPins(t *testing.T) {
 	}
 	must(plugin.Close())
 	must(plugin.Close())
-	if !plugin.closed || plugin.pins != nil || plugin.fresh != nil {
+	if !plugin.closed || plugin.pins != nil || plugin.fresh != nil || plugin.origins != nil {
 		t.Fatal("retry did not release join pins")
 	}
 }

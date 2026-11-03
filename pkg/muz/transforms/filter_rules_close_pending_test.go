@@ -39,7 +39,12 @@ func testFilterRulesCacheRefusal(t *testing.T, duringTransform bool) {
 				}
 				intact = intact && errors.Is(cause, ast.ErrASTPending) && !plugin.closed && len(plugin.cache) == len(original)
 				for j := range plugin.cache {
-					intact = intact && plugin.cache[j].pin == original[j].pin
+					intact = intact && plugin.cache[j].pin == original[j].pin && plugin.cache[j].origin == original[j].origin
+					origin, visible := plugin.FreshPredicateOrigin(original[j].declaration)
+					intact = intact && visible == duringTransform
+					if visible {
+						intact = intact && origin == original[j].origin
+					}
 				}
 			}
 		}
@@ -102,6 +107,11 @@ func testFilterRulesCacheRefusal(t *testing.T, duringTransform bool) {
 	}
 	defer func() { must(transformed.Close()) }()
 	original = append([]filterRuleCacheEntry(nil), plugin.cache...)
+	tailDeclaration, err := m.GetDecl(tail)
+	must(err)
+	if origin, found := plugin.FreshPredicateOrigin(original[0].declaration); !found || origin != tailDeclaration {
+		t.Fatal("filter origin missing before cleanup", origin, found)
+	}
 	if count, e := transformed.Len(); e != nil || count != 2 {
 		t.Fatal("filter did not create definition and rewritten rule", count, e)
 	}
