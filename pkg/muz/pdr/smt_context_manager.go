@@ -168,12 +168,16 @@ func (m *SMTContextManager) CollectStatistics(destination *statistics.Statistics
 	if destination == nil {
 		return arena.ErrInvalidSlot
 	}
-	destination.Copy(m.retired)
+	// A later solver may be finishing a refused scope pop. Publish the
+	// complete pool contribution only after every live provider succeeds.
+	var pending statistics.Statistics
+	pending.Copy(m.retired)
 	for _, solver := range m.solvers {
-		if err := solver.CollectStatistics(destination); err != nil {
+		if err := solver.CollectStatistics(&pending); err != nil {
 			return err
 		}
 	}
+	destination.Copy(pending)
 	return nil
 }
 

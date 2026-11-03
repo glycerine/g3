@@ -718,22 +718,27 @@ func (c *Context) CollectStatisticsWithSnapshot(destination *statistics.Statisti
 	if destination == nil {
 		return ErrContextOwner
 	}
-	destination.Copy(previous.Solvers)
+	// A backend can refuse collection while completing a failed scope pop.
+	// Keep the earlier transformer and archived contributions local so a
+	// retry cannot publish their prefix more than once.
+	var pending statistics.Statistics
+	pending.Copy(previous.Solvers)
 	for _, declaration := range c.order {
-		if err := c.transformers[declaration].CollectStatistics(destination); err != nil {
+		if err := c.transformers[declaration].CollectStatistics(&pending); err != nil {
 			return err
 		}
 	}
-	if err := c.owner.CollectStatistics(destination); err != nil {
+	if err := c.owner.CollectStatistics(&pending); err != nil {
 		return err
 	}
-	destination.UpdateUint("PDR num unfoldings", c.nodes+previous.Unfoldings)
+	pending.UpdateUint("PDR num unfoldings", c.nodes+previous.Unfoldings)
 	depth := c.maxDepth
 	if previous.MaxDepth > depth {
 		depth = previous.MaxDepth
 	}
-	destination.UpdateUint("PDR max depth", depth)
-	destination.UpdateUint("PDR inductive level", c.inductive)
+	pending.UpdateUint("PDR max depth", depth)
+	pending.UpdateUint("PDR inductive level", c.inductive)
+	destination.Copy(pending)
 	return nil
 }
 
