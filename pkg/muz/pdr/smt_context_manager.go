@@ -192,11 +192,14 @@ func (m *SMTContextManager) ResetStatistics() error {
 }
 
 func (m *SMTContextManager) Close() (result error) {
-	if m == nil || m.manager == nil {
+	if m == nil {
 		return ErrSMTContextOwner
 	}
 	if m.closed {
 		return nil
+	}
+	if m.manager == nil {
+		return ErrSMTContextOwner
 	}
 	if result = m.resetSolvers(false); result == nil {
 		m.retired = statistics.Statistics{}
