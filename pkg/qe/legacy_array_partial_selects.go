@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 type legacyFactoredPartialEquality struct {
@@ -15,6 +16,62 @@ type legacyFactoredPartialEquality struct {
 	partial    *legacyPartialEquality
 	variables  []ast.ASTRef
 	equalities []ast.ASTRef
+}
+
+type legacyFactoredPartialConstructionFailure struct {
+	owner          *legacyFactoredPartialEquality
+	nested         memory.ConstructionFailure
+	runtime        *memory.Runtime
+	cause, cleanup error
+	reported       error
+}
+
+var _ memory.ConstructionFailure = (*legacyFactoredPartialConstructionFailure)(nil)
+
+func (f *legacyFactoredPartialConstructionFailure) Error() string                 { return f.reported.Error() }
+func (f *legacyFactoredPartialConstructionFailure) Unwrap() error                 { return f.reported }
+func (f *legacyFactoredPartialConstructionFailure) OriginalCause() error          { return f.cause }
+func (f *legacyFactoredPartialConstructionFailure) CleanupCause() error           { return f.cleanup }
+func (f *legacyFactoredPartialConstructionFailure) RuntimeOwner() *memory.Runtime { return f.runtime }
+func (f *legacyFactoredPartialConstructionFailure) Cleanup() error {
+	if f.nested != nil {
+		f.cleanup = f.nested.Cleanup()
+		if f.cleanup != nil {
+			return f.cleanup
+		}
+		f.nested = nil
+	}
+	if f.owner == nil || f.owner.manager == nil {
+		f.owner = nil
+		f.cleanup = nil
+		return nil
+	}
+	f.cleanup = f.owner.Close()
+	if f.cleanup == nil {
+		f.owner = nil
+	}
+	return f.cleanup
+}
+
+func closeFailedLegacyFactoredPartial(owner *legacyFactoredPartialEquality, cause error) error {
+	cleanup := owner.Close()
+	if cleanup == nil {
+		return cause
+	}
+	origin := cause
+	if origin == nil {
+		origin = cleanup
+	}
+	reported := cleanup
+	if cause != nil {
+		reported = errors.Join(cause, cleanup)
+	}
+	var nested memory.ConstructionFailure
+	_ = errors.As(cause, &nested)
+	return &legacyFactoredPartialConstructionFailure{
+		owner: owner, nested: nested, runtime: owner.manager.NumeralService().RuntimeOwner(),
+		cause: origin, cleanup: cleanup, reported: reported,
+	}
 }
 
 func (r *legacyFactoredPartialEquality) Close() (result error) {
@@ -32,6 +89,10 @@ func (r *legacyFactoredPartialEquality) Close() (result error) {
 	}
 	for len(r.equalities) != 0 {
 		index := len(r.equalities) - 1
+		if r.equalities[index] == (ast.ASTRef{}) {
+			r.equalities = r.equalities[:index]
+			continue
+		}
 		if err := r.manager.DelRef(&r.equalities[index]); err != nil {
 			return err
 		}
@@ -39,6 +100,10 @@ func (r *legacyFactoredPartialEquality) Close() (result error) {
 	}
 	for len(r.variables) != 0 {
 		index := len(r.variables) - 1
+		if r.variables[index] == (ast.ASTRef{}) {
+			r.variables = r.variables[:index]
+			continue
+		}
 		if err := r.manager.DelRef(&r.variables[index]); err != nil {
 			return err
 		}
@@ -56,7 +121,7 @@ func (p *legacyArrayProjection) factorPartialSelects(md *model.ModelCore, evalua
 	ownedResult := result
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, ownedResult.Close())
+			resultErr = closeFailedLegacyFactoredPartial(ownedResult, resultErr)
 			result = nil
 		}
 	}()

@@ -155,6 +155,10 @@ func (p *legacyPartialEquality) Close() (result error) {
 	}
 	for len(p.indices) != 0 {
 		index := len(p.indices) - 1
+		if p.indices[index] == (ast.ASTRef{}) {
+			p.indices = p.indices[:index]
+			continue
+		}
 		if err := p.manager.DelRef(&p.indices[index]); err != nil {
 			return err
 		}
