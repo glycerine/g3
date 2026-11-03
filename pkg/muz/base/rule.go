@@ -165,14 +165,30 @@ func (m *RuleManager) NewRuleWithSymbol(head ast.ASTHandle, tail []ast.ASTHandle
 }
 
 func (m *RuleManager) newRule(head ast.ASTHandle, tail []ast.ASTHandle, negated []bool, name usymbol.Symbol, normalize bool) (_ *Rule, resultErr error) {
+	return m.newRuleWithHeadPolicy(head, tail, negated, name, normalize, true)
+}
+
+// Source rule_manager::substitute uses its internal mk path, which permits
+// symbolic head arguments in release builds while retaining the predicate.
+func (m *RuleManager) newRuleWithHeadPolicy(head ast.ASTHandle, tail []ast.ASTHandle, negated []bool, name usymbol.Symbol, normalize, validateHead bool) (_ *Rule, resultErr error) {
 	if err := m.checkRuleName(name); err != nil {
 		return nil, err
 	}
 	if negated != nil && len(negated) != len(tail) {
 		return nil, fmt.Errorf("muz/base: negation count does not match tail size")
 	}
-	if err := m.validHead(head); err != nil {
-		return nil, err
+	if validateHead {
+		if err := m.validHead(head); err != nil {
+			return nil, err
+		}
+	} else {
+		predicate, err := m.isPredicate(head)
+		if err != nil {
+			return nil, err
+		}
+		if !predicate {
+			return nil, fmt.Errorf("muz/base: illegal head; predicate must be registered")
+		}
 	}
 	r := &Rule{state: &ruleState{manager: m.manager, head: head, name: name, references: 1, accounting: &AccountedObject{}}}
 	var err error

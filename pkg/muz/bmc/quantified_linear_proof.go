@@ -54,7 +54,7 @@ func (c *Compiler) QuantifiedLinearTraceAndProof(rules *base.RuleSet, query ast.
 		if cause != nil {
 			return cause
 		}
-		position := ast.ASTProofPosition{First: 0, Second: 1}
+		position := ast.ASTProofPosition{First: 1, Second: 0}
 		next, proof, cause := c.linearProofStepWithBindings(rm, step.rule, bindings, previous, result, normalizer, position, true)
 		if cause != nil {
 			_, _, cause = advanceQuantifiedLinearProofStep(m, nil, next, ast.ASTRef{}, proof, cause)
@@ -101,8 +101,8 @@ func (c *Compiler) quantifiedLinearProofSteps(rules *base.RuleSet, width uint32,
 		if cause != nil {
 			return result, cause
 		}
-		// qlinear::get_model records the source's (0, 1) position pair.
-		position := ast.ASTProofPosition{First: 0, Second: 1}
+		// The corrected qlinear::get_model resolves the body at 1 against the head at 0.
+		position := ast.ASTProofPosition{First: 1, Second: 0}
 		next, proof, cause := c.linearProofStepWithBindings(rm, step.rule, bindings, previous, result, normalizer, position, true)
 		if cause != nil {
 			_, _, cause = advanceQuantifiedLinearProofStep(m, nil, next, ast.ASTRef{}, proof, cause)

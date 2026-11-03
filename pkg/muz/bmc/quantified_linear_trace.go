@@ -266,11 +266,16 @@ func (c *Compiler) quantifiedLinearStepsVisit(rules *base.RuleSet, query ast.AST
 		if e != nil {
 			return result, e
 		}
-		if level == 0 {
-			if tails != 0 {
-				return result, ast.ErrASTDomain
-			}
+		if tails == 0 {
 			return result, nil
+		}
+		// Corrected C++ accepts a fact at any level, but verifies in every
+		// build that a rule with a predecessor can decrease the level.
+		if level == 0 {
+			if e = debug.VerifyFailure("src/muz/bmc/dl_bmc_engine.cpp", 355, "level > 0"); e != nil {
+				return result, e
+			}
+			return result, ast.ErrASTDomain
 		}
 		if tails != 1 {
 			return result, ast.ErrASTDomain

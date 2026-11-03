@@ -77,5 +77,5 @@ func (m *RuleManager) SubstituteRule(rule *Rule, bindings []ast.ASTHandle) (_ *R
 	if err != nil {
 		return nil, err
 	}
-	return m.newRule(head, tails, negated, name, false)
+	return m.newRuleWithHeadPolicy(head, tails, negated, name, false, false)
 }

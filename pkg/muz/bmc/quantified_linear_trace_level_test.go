@@ -16,8 +16,8 @@ import (
 	"testing"
 )
 
-// C++ qlinear::get_model requires a fact at level zero and a single
-// predecessor at every positive level, even when the model selects a fact.
+// Corrected C++ accepts a fact at any level and verifies a positive level
+// before following a predecessor.
 func TestQuantifiedLinearTraceFactLevel(t *testing.T) {
 	for _, tc := range []struct {
 		name          string
@@ -26,7 +26,8 @@ func TestQuantifiedLinearTraceFactLevel(t *testing.T) {
 		falseQuery    bool
 		falseSelector bool
 		noIndex       bool
-	}{{"zero", 0, false, false, false, false}, {"positive", 1, true, false, false, false}, {"false query debug assertion", 0, false, true, false, false}, {"missing selector debug assertion", 0, false, false, true, false}, {"non-numeral index verify", 0, false, false, false, true}} {
+		nonFact       bool
+	}{{"zero", 0, false, false, false, false, false}, {"positive", 1, false, false, false, false, false}, {"false query debug assertion", 0, false, true, false, false, false}, {"missing selector debug assertion", 0, false, false, true, false, false}, {"non-numeral index verify", 0, false, false, false, true, false}, {"zero-level predecessor verify", 0, false, false, false, false, true}} {
 		t.Run(tc.name, func(t *testing.T) {
 			must := func(err error) {
 				t.Helper()
@@ -54,7 +55,11 @@ func TestQuantifiedLinearTraceFactLevel(t *testing.T) {
 			set, err := base.NewRuleSet(rm)
 			must(err)
 			defer func() { must(set.Close()) }()
-			rule, err := rm.NewRule(head, nil, nil, "fact")
+			var tails []ast.ASTHandle
+			if tc.nonFact {
+				tails = append(tails, head)
+			}
+			rule, err := rm.NewRule(head, tails, nil, "fact")
 			must(err)
 			must(set.Add(rule))
 			must(rule.Close())
@@ -103,13 +108,13 @@ func TestQuantifiedLinearTraceFactLevel(t *testing.T) {
 			must(queryInterpretation.SetElse(queryValue))
 			must(md.Core().RegisterFunction(queryDecl, queryInterpretation))
 			var diagnosticFile *os.File
-			if ((tc.falseQuery || tc.falseSelector) && diagnostic.DebugBuild) || tc.noIndex {
+			if ((tc.falseQuery || tc.falseSelector) && diagnostic.DebugBuild) || tc.noIndex || tc.nonFact {
 				region, e := arena.NewBytesRegion(arena.BytesRegionConfig{DirectOnly: true, Descriptors: arena.Config{Budget: m.Budget()}})
 				must(e)
 				debug, e := diagnostic.NewDebugContext(region, m.Budget())
 				must(e)
 				var streams *diagnostic.MemoryStandardStreams
-				if tc.noIndex {
+				if tc.noIndex || tc.nonFact {
 					diagnosticFile, e = os.CreateTemp(t.TempDir(), "qlinear-verify")
 					must(e)
 					streams, e = diagnostic.NewMemoryStandardStreams(diagnostic.MemoryStandardStreamsConfig{Budget: m.Budget(), Stdout: diagnosticFile, Stderr: diagnosticFile})
@@ -135,7 +140,7 @@ func TestQuantifiedLinearTraceFactLevel(t *testing.T) {
 			must(err)
 			defer func() { must(compiler.Close()) }()
 			trace, err := compiler.QuantifiedLinearTrace(set, predicate, 4, md.Core(), services)
-			if tc.noIndex {
+			if tc.noIndex || tc.nonFact {
 				if diagnostic.DebugBuild {
 					if !errors.Is(err, diagnostic.ErrDebugAssertion) {
 						t.Fatalf("missing debug VERIFY failure: %v", err)
@@ -145,7 +150,11 @@ func TestQuantifiedLinearTraceFactLevel(t *testing.T) {
 				}
 				output, e := os.ReadFile(diagnosticFile.Name())
 				must(e)
-				if !strings.Contains(string(output), "Failed to verify: m_bv.is_numeral(vl, num, bv_size)") {
+				message := "Failed to verify: m_bv.is_numeral(vl, num, bv_size)"
+				if tc.nonFact {
+					message = "Failed to verify: level > 0"
+				}
+				if !strings.Contains(string(output), message) {
 					t.Fatalf("missing VERIFY output: %q", output)
 				}
 			} else if (tc.falseQuery || tc.falseSelector) && diagnostic.DebugBuild {

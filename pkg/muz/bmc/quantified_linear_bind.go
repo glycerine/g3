@@ -12,8 +12,8 @@ import (
 )
 
 // QuantifiedLinearModelBindings evaluates a rule's indexed variable bindings
-// at its selected rule ordinal, matching qlinear::get_model. The level is
-// retained in the API because callers also track the selected trace level.
+// at the selected derivation level, matching qlinear::get_model. The rule
+// ordinal still identifies the rule-specific indexed variables.
 // The caller owns each nonempty reference.
 func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, level, width uint32, md *model.ModelCore, services model.ModelEvaluatorConfig) (result []ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || rule == nil || md == nil || md.Manager() != c.manager {
@@ -42,7 +42,7 @@ func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, lev
 	if err != nil {
 		return nil, err
 	}
-	index, err := q.hold(m.BitVectorNumeralRat(new(big.Rat).SetUint64(uint64(ruleIndex)), width))
+	index, err := q.hold(m.BitVectorNumeralRat(new(big.Rat).SetUint64(uint64(level)), width))
 	if err != nil {
 		return nil, err
 	}

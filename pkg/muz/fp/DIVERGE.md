@@ -14,9 +14,8 @@ run did not record the model, predicate, selector values, or whether the first
 or second Go traversal failed. The failure did not recur in 20 isolated
 recursive runs or 30 complete numeric-proof runs. The cause is **unknown**.
 
-The standalone recursive QBMC test and its corresponding matrix entry are
-currently commented out as requested; the test body and independent proof
-checks remain in `pkg/muz/fp/bmc_numeric_proof_test.go` with the reason.
+The standalone recursive QBMC test and its matrix entry have been re-enabled
+to match the corrected C++ regression and independently check the proof.
 
 ## Differences that could affect rule selection
 
@@ -54,31 +53,24 @@ checks remain in `pkg/muz/fp/bmc_numeric_proof_test.go` with the reason.
 
 ## Differences after a rule has been selected
 
-6. **FIXED — Index used for proof-variable values.** Go now evaluates
-   indexed rule-variable terms at the selected rule ordinal, as C++ does
-   (`src/muz/bmc/dl_bmc_engine.cpp:273–290`). A direct test distinguishes
-   the ordinal from the derivation level under native and three-tag builds.
+6. **FIXED — Index used for proof-variable values.** Go evaluates indexed
+   rule variables at the trace level, matching the corrected C++ implementation.
+   A focused test distinguishes this from the rule ordinal.
 
 7. **FIXED — Uninterpreted binding values.** Go now preserves non-null
    symbolic evaluation results, matching `src/muz/bmc/dl_bmc_engine.cpp:288–297`.
    A direct test checks this with model completion disabled. These source
    semantics can expose the source proof failures described below.
 
-8. **FIXED — Termination of the selected trace.** Go now stops at level zero
-   and requires a single predecessor at positive levels, matching the source
-   assumptions (`src/muz/bmc/dl_bmc_engine.cpp:347–354`). Go reports an AST
-   precondition error when those assumptions are violated. A focused test
-   exercises facts selected at levels zero and one. The recursive QBMC proof
-   test has been commented out by request; other proof tests also fail when
-   the solver selects a source-valid positive-level fact.
+8. **FIXED — Termination of the selected trace.** Go accepts a selected fact
+   at any level and verifies that a non-fact has a positive level, matching
+   the corrected C++ extractor. Focused tests cover both cases.
 
-9. **FIXED — Proof resolution and normalization.** QBMC now follows the
-   C++ proof sequence: normalize before hyper-resolution, use the original
-   first-rule conclusion and source resolution position, and omit the extra
-   variable-bank substitution composition. Proof mode starts after
-   substitution and unification and is restored after retryable cleanup.
-   Focused source-conclusion and native cleanup tests pass; source-compatible
-   proof failures remain in the existing integration tests.
+9. **FIXED — Proof resolution and normalization.** Both Go QBMC proof paths
+   use corrected C++ hyper-resolution positions `(1, 0)`. The re-enabled
+   recursive and numeric proof tests check proof structure, side conditions
+   and original premises. Symbolic model bindings can still expose a separate
+   source-compatible proof-checking failure, described below.
 
 ## Next evidence to capture
 
@@ -93,19 +85,12 @@ the independent proof checks.
 
 ## Integration findings
 
-The source encoding permits facts at positive levels, but source trace
-extraction assumes every positive-level rule has a predecessor. An actual Go
-model had T=10 and reached the base fact at level 5; bundled Z3 verified that
-model against all source constraints. Source termination has been restored by
-request; the recursive proof case is commented out and other proof tests can
-fail on positive-level facts. No extra encoding constraint was added.
-The bundled Z3 4.7.1 also fails its rule-unifier verification on the recursive
-and linear fixtures. Continuing beyond a failed source assertion can invoke undefined C++ behavior; Go reports an explicit error at that boundary.
-
-After these changes, a focused three-tag integration run still fails
-`TestBMCQuantifiedLinearProofWithRuleVariables`,
-`TestBMCQuantifiedLinearProofWithUninterpretedBinding`, and
-`TestBMCNumericProofIndependentValidation/qbmc/linear`. These tests remain
-enabled; the user explicitly authorized matching source despite red proofs.
-The separate `TestPDRInputTrace` regression from `pkg/log.red` passes with
-all three tags after its context-ownership accounting fix.
+The later C++ fixes use the trace level for bindings, stop at a selected fact
+regardless of level, and correct hyper-resolution positions. The Go recursive
+proof regression is re-enabled, including independent checks of its proof.
+Internal substitution accepts symbolic rule heads as the C++ Release path
+does while public rule ingestion still validates heads. The existing
+`TestBMCQuantifiedLinearProofWithUninterpretedBinding` remains red: with a
+symbolic binding, the source-shaped first proof conclusion stays quantified
+while the instantiated rule has no variables, leaving the next proof step
+without the substitution needed by the independent checker.

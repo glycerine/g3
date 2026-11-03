@@ -55,4 +55,24 @@ func TestRuleSubstitutionPreservesVariableIndices(t *testing.T) {
 	if originalHead != head {
 		t.Fatal("substitution changed the original rule")
 	}
+	functionName, err := m.Symbols.Intern("substitute-symbolic-function")
+	ruleMust(t, err)
+	function, err := m.MkFuncDecl(functionName, []ast.ASTHandle{integer}, integer, ast.ASTFuncDeclInfo{})
+	ruleMust(t, err)
+	symbolic, err := m.MkApp(function, []ast.ASTHandle{y})
+	ruleMust(t, err)
+	symbolicHead, err := m.MkApp(pred, []ast.ASTHandle{symbolic, y})
+	ruleMust(t, err)
+	if direct, err := rm.NewRule(symbolicHead, nil, nil, "invalid-input"); err == nil {
+		ruleMust(t, direct.Close())
+		t.Fatal("public construction accepted a symbolic head argument")
+	}
+	internal, err := rm.SubstituteRule(original, []ast.ASTHandle{symbolic, y})
+	ruleMust(t, err)
+	defer func() { ruleMust(t, internal.Close()) }()
+	internalHead, err := internal.Head()
+	ruleMust(t, err)
+	if internalHead != symbolicHead {
+		t.Fatal("substitution did not preserve the symbolic head", internalHead)
+	}
 }
