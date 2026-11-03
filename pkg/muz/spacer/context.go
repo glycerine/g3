@@ -60,6 +60,7 @@ type Context struct {
 	simplifyPre             bool
 	simplifyPost            bool
 	initialized             bool
+	resetting               bool
 	solved                  bool
 	bounded                 bool
 	closed                  bool
@@ -548,6 +549,9 @@ func (c *Context) AddCover(level int, declaration, property ast.ASTHandle) error
 	if err := c.open(); err != nil {
 		return err
 	}
+	if c.resetting {
+		return ErrContextOwner
+	}
 	transformer := c.transformers[declaration]
 	if transformer == nil {
 		var err error
@@ -664,6 +668,9 @@ func (c *Context) lemmaAdditions() (uint64, error) {
 func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr error) {
 	if err := c.open(); err != nil {
 		return lbool.Undef, err
+	}
+	if c.resetting {
+		return lbool.Undef, ErrContextOwner
 	}
 	if !c.initialized || c.queryDecl.IsNull() || c.solved {
 		return lbool.Undef, ast.ErrASTDomain
@@ -934,7 +941,23 @@ func (c *Context) Reset() (result error) {
 	if err := c.open(); err != nil {
 		return err
 	}
+	c.resetting = true
 	c.queue = ProofObligationQueue{}
+	c.query = nil
+	c.lastResult = lbool.Undef
+	c.inductive = 0
+	c.solved = false
+	c.bounded = false
+	// Keep every old predicate's cover until all allocation-capable solver
+	// retirements finish. update_rules can then expose or inherit those covers
+	// again when a virtual solver's disabled-guard assertion refuses allocation.
+	for index := len(c.order) - 1; index >= 0; index-- {
+		if transformer := c.transformers[c.order[index]]; transformer != nil {
+			if err := transformer.closeSolvers(); err != nil {
+				return err
+			}
+		}
+	}
 	for index := len(c.order) - 1; index >= 0; index-- {
 		declaration := c.order[index]
 		if transformer := c.transformers[declaration]; transformer != nil {
@@ -950,12 +973,8 @@ func (c *Context) Reset() (result error) {
 	}
 	c.transformers = make(map[ast.ASTHandle]*PredicateTransformer)
 	c.order = nil
-	c.query = nil
-	c.lastResult = lbool.Undef
-	c.inductive = 0
-	c.solved = false
-	c.bounded = false
 	c.initialized = false
+	c.resetting = false
 	return nil
 }
 

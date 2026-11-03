@@ -83,6 +83,7 @@ type PropSolver struct {
 	keepProxy     bool
 	ownedBackends [2]*VirtualSolver
 	closed        bool
+	closing       bool
 }
 
 func NewPropSolver(manager *ast.ASTManager, backends [2]solver.Solver, background ast.ASTHandle, name string, config PropSolverConfig) (_ *PropSolver, resultErr error) {
@@ -115,7 +116,7 @@ func NewPropSolver(manager *ast.ASTManager, backends [2]solver.Solver, backgroun
 }
 
 func (p *PropSolver) open() error {
-	if p == nil || p.closed || p.manager == nil || p.contexts[0] == nil || p.contexts[1] == nil {
+	if p == nil || p.closed || p.closing || p.manager == nil || p.contexts[0] == nil || p.contexts[1] == nil {
 		return ErrPropSolverOwner
 	}
 	return nil
@@ -505,25 +506,38 @@ func (p *PropSolver) Close() (result error) {
 	if p.closed {
 		return nil
 	}
+	p.closing = true
 	for i := len(p.contexts) - 1; i >= 0; i-- {
 		if p.contexts[i] != nil {
-			result = errors.Join(result, p.contexts[i].Close())
-			p.contexts[i] = nil
+			if err := p.contexts[i].Close(); err != nil {
+				result = errors.Join(result, err)
+			} else {
+				p.contexts[i] = nil
+			}
 		}
 	}
 	for i := len(p.ownedBackends) - 1; i >= 0; i-- {
 		if p.ownedBackends[i] != nil {
-			result = errors.Join(result, p.ownedBackends[i].Close())
-			p.ownedBackends[i] = nil
+			if err := p.ownedBackends[i].Close(); err != nil {
+				result = errors.Join(result, err)
+			} else {
+				p.ownedBackends[i] = nil
+			}
 		}
 	}
 	if p.manager != nil {
 		for i := len(p.references) - 1; i >= 0; i-- {
-			result = errors.Join(result, p.manager.DelRef(&p.references[i]))
+			if p.references[i] != (ast.ASTRef{}) {
+				result = errors.Join(result, p.manager.DelRef(&p.references[i]))
+			}
 		}
+	}
+	if result != nil {
+		return result
 	}
 	p.references = nil
 	p.manager = nil
+	p.closing = false
 	p.closed = true
 	return result
 }

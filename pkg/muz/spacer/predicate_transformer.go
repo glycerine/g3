@@ -646,6 +646,23 @@ func (p *PredicateTransformer) ResetStatistics() error {
 	return nil
 }
 
+// Virtual solver destruction asserts the disabled guard into a shared
+// backend. Finish this allocation-capable work before destroying the cover
+// frames that a failed rule update still needs to inspect and inherit.
+func (p *PredicateTransformer) closeSolvers() error {
+	if p.solver != nil {
+		if err := p.solver.Close(); err != nil {
+			return err
+		}
+	}
+	if p.reachSolver != nil {
+		if err := p.reachSolver.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (p *PredicateTransformer) Close() (result error) {
 	if p == nil {
 		return ErrManagerOwner
