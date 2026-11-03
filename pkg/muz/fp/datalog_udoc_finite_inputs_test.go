@@ -234,7 +234,10 @@ func TestDatalogUDocFiniteForwardingRefusesNewMixedJoinAfterAdoption(t *testing.
 
 func TestDatalogUDocFiniteInputAnswerAllocationFailureAndCanonicalShape(t *testing.T) {
 	failures, completed := 0, 0
-	for _, allowance := range []int64{0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512} {
+	// Debug AST storage uses direct blocks instead of amortized pooled pages.
+	// Keep every original checkpoint through 512, then extend the injected
+	// allowance until a fresh fixture completes, with a finite upper bound.
+	for allowance := int64(0); allowance <= 1<<16; {
 		t.Run(fmt.Sprint(allowance), func(t *testing.T) {
 			var budget *arena.Budget
 			t.Cleanup(func() {
@@ -314,6 +317,14 @@ func TestDatalogUDocFiniteInputAnswerAllocationFailureAndCanonicalShape(t *testi
 				t.Fatal("answer failure changed borrowed input", length, err)
 			}
 		})
+		if allowance >= 512 && completed != 0 {
+			break
+		}
+		if allowance == 0 {
+			allowance = 1
+		} else {
+			allowance *= 2
+		}
 	}
 	if failures == 0 || completed == 0 {
 		t.Fatal("finite answer campaign missed failure or completion", failures, completed)
