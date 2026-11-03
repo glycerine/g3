@@ -73,7 +73,7 @@ func TestDatatypeFactoryUtilityStopsBeforeBaseTeardown(t *testing.T) {
 }
 
 func TestDatatypeFactoryLexicalScopeStopsBeforeMembersAndRetries(t *testing.T) {
-	w := &datatypeFactoryTraceStopWriter{at: ""}
+	w := &datatypeFactoryTraceStopWriter{at: "[ast] register_node_core src/ast/ast.cpp:1696"}
 	m, f, tags, sort, _ := datatypeFactoryTraceFixture(t, w)
 	value, err := f.SomeValue(sort)
 	protoMust(t, err)
@@ -84,19 +84,26 @@ func TestDatatypeFactoryLexicalScopeStopsBeforeMembersAndRetries(t *testing.T) {
 	protoMust(t, scope.push(value))
 	before, err := m.GetRefCount(value)
 	protoMust(t, err)
+	// Finish prerequisite registration before arming the cleanup callback.
+	// MkFPAZeroOfSort below establishes the native execution guard that must
+	// refuse lexical cleanup; FloatingPointSort holds the ordinary AST lock.
+	floatSort, err := m.FloatingPointSort(3, 4)
+	protoMust(t, err)
 
 	var lexicalErr error
-	w.action = func() { f.finishScope(scope, &lexicalErr) }
+	attempts := 0
+	w.action = func() {
+		attempts++
+		f.finishScope(scope, &lexicalErr)
+	}
 	tags.Enable("ast")
 	if !tags.ShouldTrace("ast") {
 		t.Skip("requires source trace build")
 	}
-	floatSort, err := m.FloatingPointSort(3, 4)
-	protoMust(t, err)
 	_, err = m.MkFPAZeroOfSort(floatSort, false)
 	protoMust(t, err)
-	if !errors.Is(lexicalErr, ast.ErrASTPending) || len(f.pending) != 1 || f.pending[0].scope != scope {
-		t.Fatal("lexical scope failure was not retained before member teardown", lexicalErr, len(f.pending))
+	if attempts != 1 || !errors.Is(lexicalErr, ast.ErrASTPending) || len(f.pending) != 1 || f.pending[0].scope != scope {
+		t.Fatal("lexical scope failure was not retained before member teardown", attempts, lexicalErr, len(f.pending))
 	}
 	afterStop, err := m.GetRefCount(value)
 	protoMust(t, err)
