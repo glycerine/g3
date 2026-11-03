@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -15,6 +17,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/bmc"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/memory"
 )
@@ -388,7 +391,45 @@ func TestBMCQuantifiedLinearSearchPreservesSolverScope(t *testing.T) {
 	}
 	emptyModel, err := model.NewModelCore(m)
 	must(err)
-	invalidTrace, invalidErr := compiler.QuantifiedLinearTrace(set, goal, width, emptyModel, services)
+	var invalidTrace []*base.Rule
+	var invalidErr error
+	func() {
+		// Source VERIFY reports the absent T interpretation even in Release.
+		// Bind controlled streams and actions so the failure stays testable in
+		// both debug and release instead of terminating the test process.
+		region, e := arena.NewBytesRegion(arena.BytesRegionConfig{DirectOnly: true, Descriptors: arena.Config{Budget: m.Budget()}})
+		must(e)
+		debug, e := diagnostic.NewDebugContext(region, m.Budget())
+		must(e)
+		output, e := os.CreateTemp(t.TempDir(), "qlinear-missing-index")
+		must(e)
+		streams, e := diagnostic.NewMemoryStandardStreams(diagnostic.MemoryStandardStreamsConfig{Budget: m.Budget(), Stdout: output, Stderr: output})
+		must(e)
+		must(debug.BindAssertionStreams(streams))
+		prior, e := diagnostic.BindProcessDebugContext(debug)
+		must(e)
+		defer func() {
+			_, e := diagnostic.BindProcessDebugContext(prior)
+			must(e)
+			must(debug.Close())
+			must(streams.Close())
+			must(output.Close())
+			must(region.Close())
+		}()
+		invalidTrace, invalidErr = compiler.QuantifiedLinearTrace(set, goal, width, emptyModel, services)
+		if diagnostic.DebugBuild {
+			if !errors.Is(invalidErr, diagnostic.ErrDebugAssertion) {
+				t.Fatalf("missing debug VERIFY failure: %v", invalidErr)
+			}
+		} else if !errors.Is(invalidErr, diagnostic.ErrDebugNativeUnreachable) {
+			t.Fatalf("missing release VERIFY failure: %v", invalidErr)
+		}
+		contents, e := os.ReadFile(output.Name())
+		must(e)
+		if !strings.Contains(string(contents), "Failed to verify: m_bv.is_numeral(vl, num, bv_size)") {
+			t.Fatalf("missing source VERIFY diagnostic: %q", contents)
+		}
+	}()
 	must(emptyModel.Close())
 	if invalidErr == nil || len(invalidTrace) != 0 {
 		t.Fatal("uninterpreted model was accepted for trace reconstruction", invalidErr)

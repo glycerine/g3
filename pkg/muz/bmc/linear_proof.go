@@ -92,11 +92,11 @@ func (c *Compiler) linearProofStep(rm *base.RuleManager, rule *base.Rule, index,
 	if err != nil {
 		return nil, ast.ASTRef{}, err
 	}
-	return c.linearProofStepWithBindings(rm, rule, bindings, previous, previousProof, normalizer, ast.ASTProofPosition{First: 1, Second: 0}, false)
+	return c.linearProofStepWithBindings(rm, rule, bindings, previous, previousProof, normalizer, ast.ASTProofPosition{First: 1, Second: 0}, false, false)
 }
 
 // linearProofStepWithBindings takes ownership of all supplied references.
-func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.Rule, bindingRefs []ast.ASTRef, previous *base.Rule, previousProof ast.ASTRef, normalizer *transforms.RuleInlinerPlugin, position ast.ASTProofPosition, sourceQuantified bool) (next *base.Rule, proofRef ast.ASTRef, resultErr error) {
+func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.Rule, bindingRefs []ast.ASTRef, previous *base.Rule, previousProof ast.ASTRef, normalizer *transforms.RuleInlinerPlugin, position ast.ASTProofPosition, sourceQuantified, instantiateFirst bool) (next *base.Rule, proofRef ast.ASTRef, resultErr error) {
 	m := c.manager
 	refs := append([]ast.ASTRef(nil), bindingRefs...)
 	var temporaryRules []*base.Rule
@@ -298,7 +298,7 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 		return next, proofRef, err
 	}
 	conclusionRule := next
-	if sourceQuantified && previous == nil {
+	if sourceQuantified && !instantiateFirst && previous == nil {
 		// Source qlinear uses the uninstantiated input rule as its first
 		// hyper-resolution conclusion, while keeping r2 instantiated.
 		conclusionRule = rule

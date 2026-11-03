@@ -89,8 +89,9 @@ The later C++ fixes use the trace level for bindings, stop at a selected fact
 regardless of level, and correct hyper-resolution positions. The Go recursive
 proof regression is re-enabled, including independent checks of its proof.
 Internal substitution accepts symbolic rule heads as the C++ Release path
-does while public rule ingestion still validates heads. The existing
-`TestBMCQuantifiedLinearProofWithUninterpretedBinding` remains red: with a
-symbolic binding, the source-shaped first proof conclusion stays quantified
-while the instantiated rule has no variables, leaving the next proof step
-without the substitution needed by the independent checker.
+does while public rule ingestion still validates heads. The direct Go compiler
+proof helper, which can be called without the public fixedpoint query bridge,
+uses an instantiated first conclusion so its proof remains checkable for a
+symbolic binding. The public fixedpoint path keeps the source conclusion.
+`TestBMCQuantifiedLinearProofWithUninterpretedBinding` and the recursive and
+numeric proof tests pass their independent checks.

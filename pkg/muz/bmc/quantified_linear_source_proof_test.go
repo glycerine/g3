@@ -67,7 +67,7 @@ func TestQuantifiedLinearFirstProofUsesSourceConclusion(t *testing.T) {
 	defer func() { must(compiler.Close()) }()
 	beforeMode, err := manager.ProofMode()
 	must(err)
-	next, proof, err := compiler.linearProofStepWithBindings(rm, rule, []ast.ASTRef{binding}, nil, ast.ASTRef{}, nil, ast.ASTProofPosition{First: 0, Second: 1}, true)
+	next, proof, err := compiler.linearProofStepWithBindings(rm, rule, []ast.ASTRef{binding}, nil, ast.ASTRef{}, nil, ast.ASTProofPosition{First: 0, Second: 1}, true, false)
 	must(err)
 	afterMode, err := manager.ProofMode()
 	must(err)
