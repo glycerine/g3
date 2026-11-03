@@ -1,9 +1,9 @@
 package fp
 
-// Source: dl_compiler.cpp lowers a positive rule by cloning its tail,
-// applying one compiler-produced interpreted condition, projecting unused
-// columns, and renaming the remaining columns into head order. This typed
-// slice covers one aligned exact-pair tail with unique, safe head variables.
+// Source: dl_compiler.cpp lowers a positive rule by cloning one tail or joining
+// two tails, applying one compiler-produced interpreted condition, projecting
+// unused columns, and renaming the remaining columns into head order. This
+// typed slice covers aligned exact-pair tails with unique, safe variables.
 
 import (
 	"errors"
@@ -97,51 +97,129 @@ func (a *boundIntervalDatalogActivation) positiveRuleHead(rule *base.Rule) (head
 	return head, formula, err
 }
 
+type boundIntervalPositiveTail struct {
+	declaration ast.ASTHandle
+	product     *rel.IntervalBoundProduct
+	sorts       []ast.ASTHandle
+	variables   []uint32
+}
+
+func (a *boundIntervalDatalogActivation) parsePositiveTail(rule *base.Rule, index int, products map[ast.ASTHandle]*rel.IntervalBoundProduct) (*boundIntervalPositiveTail, error) {
+	tail, negated, err := rule.Tail(index)
+	if err != nil || negated {
+		return nil, errors.Join(err, ErrBoundIntervalDatalogFragment)
+	}
+	declaration, err := a.manager.GetDecl(tail)
+	if err != nil || products[declaration] == nil || a.entries[declaration] == nil {
+		return nil, errors.Join(err, ErrBoundIntervalDatalogFragment)
+	}
+	sorts := append([]ast.ASTHandle(nil), a.entries[declaration].sorts...)
+	arguments, err := a.manager.GetNumArgs(tail)
+	if err != nil || int(arguments) != len(sorts) {
+		return nil, errors.Join(err, ErrBoundIntervalDatalogFragment)
+	}
+	variables := make([]uint32, arguments)
+	seen := make(map[uint32]bool, arguments)
+	for column := uint32(0); column < arguments; column++ {
+		argument, cause := a.manager.GetArg(tail, column)
+		if cause != nil {
+			return nil, cause
+		}
+		kind, cause := a.manager.GetKind(argument)
+		if cause != nil || kind != ast.ASTVar {
+			return nil, errors.Join(cause, ErrBoundIntervalDatalogFragment)
+		}
+		variable, cause := a.manager.GetVarIndex(argument)
+		if cause != nil {
+			return nil, cause
+		}
+		if seen[variable] {
+			return nil, ErrBoundIntervalDatalogFragment
+		}
+		seen[variable] = true
+		variables[column] = variable
+	}
+	return &boundIntervalPositiveTail{declaration: declaration, product: products[declaration], sorts: sorts, variables: variables}, nil
+}
+
+func joinBoundIntervalPositiveTails(left, right *boundIntervalPositiveTail) (*rel.IntervalBoundProduct, []ast.ASTHandle, map[uint32]uint32, error) {
+	if left == nil || right == nil {
+		return nil, nil, nil, ErrBoundIntervalDatalogFragment
+	}
+	leftVariables := make(map[uint32]uint32, len(left.variables))
+	variables := make(map[uint32]uint32, len(left.variables)+len(right.variables))
+	for column, variable := range left.variables {
+		leftVariables[variable] = uint32(column)
+		variables[variable] = uint32(column)
+	}
+	type sharedVariable struct {
+		variable uint32
+		left     uint32
+		right    uint32
+	}
+	shared := make([]sharedVariable, 0, len(right.variables))
+	removed := make([]uint32, 0, len(right.variables))
+	workingSorts := append([]ast.ASTHandle(nil), left.sorts...)
+	for column, variable := range right.variables {
+		if leftColumn, found := leftVariables[variable]; found {
+			if left.sorts[leftColumn] != right.sorts[column] {
+				return nil, nil, nil, ErrBoundIntervalDatalogFragment
+			}
+			shared = append(shared, sharedVariable{variable: variable, left: leftColumn, right: uint32(column)})
+			removed = append(removed, uint32(len(left.sorts)+column))
+			continue
+		}
+		variables[variable] = uint32(len(workingSorts))
+		workingSorts = append(workingSorts, right.sorts[column])
+	}
+	sort.Slice(shared, func(i, j int) bool { return shared[i].variable < shared[j].variable })
+	leftColumns := make([]uint32, len(shared))
+	rightColumns := make([]uint32, len(shared))
+	for i := range shared {
+		leftColumns[i], rightColumns[i] = shared[i].left, shared[i].right
+	}
+	working, err := rel.JoinProjectIntervalBoundProducts(left.product, right.product, leftColumns, rightColumns, removed)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return working, workingSorts, variables, nil
+}
+
 func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, products map[ast.ASTHandle]*rel.IntervalBoundProduct) (changed bool, resultErr error) {
 	defer func() { resultErr = errors.Join(resultErr, rule.Close()) }()
 	positive, err := rule.PositiveTailSize()
-	if err != nil || positive != 1 {
+	if err != nil || positive < 1 || positive > 2 {
 		return false, errors.Join(err, ErrBoundIntervalDatalogFragment)
 	}
 	uninterpreted, err := rule.UninterpretedTailSize()
 	if err != nil || uninterpreted != positive {
 		return false, errors.Join(err, ErrBoundIntervalDatalogFragment)
 	}
-	tail, negated, err := rule.Tail(0)
-	if err != nil || negated {
-		return false, errors.Join(err, ErrBoundIntervalDatalogFragment)
-	}
-	tailDeclaration, err := a.manager.GetDecl(tail)
-	if err != nil || products[tailDeclaration] == nil {
-		return false, errors.Join(err, ErrBoundIntervalDatalogFragment)
-	}
-	working, err := products[tailDeclaration].Clone()
-	if err != nil {
-		return false, err
-	}
-	workingSorts := append([]ast.ASTHandle(nil), a.entries[tailDeclaration].sorts...)
-	variables := make(map[uint32]uint32, len(workingSorts))
-	arguments, err := a.manager.GetNumArgs(tail)
-	if err != nil || int(arguments) != len(workingSorts) {
-		return false, errors.Join(err, ErrBoundIntervalDatalogFragment)
-	}
-	for column := uint32(0); column < arguments; column++ {
-		argument, cause := a.manager.GetArg(tail, column)
-		if cause != nil {
-			return false, cause
+	tails := make([]*boundIntervalPositiveTail, positive)
+	for i := 0; i < positive; i++ {
+		tails[i], err = a.parsePositiveTail(rule, i, products)
+		if err != nil {
+			return false, err
 		}
-		kind, cause := a.manager.GetKind(argument)
-		if cause != nil || kind != ast.ASTVar {
-			return false, errors.Join(cause, ErrBoundIntervalDatalogFragment)
+	}
+	var working *rel.IntervalBoundProduct
+	var workingSorts []ast.ASTHandle
+	var variables map[uint32]uint32
+	if positive == 1 {
+		working, err = tails[0].product.Clone()
+		if err != nil {
+			return false, err
 		}
-		variable, cause := a.manager.GetVarIndex(argument)
-		if cause != nil {
-			return false, cause
+		workingSorts = append([]ast.ASTHandle(nil), tails[0].sorts...)
+		variables = make(map[uint32]uint32, len(tails[0].variables))
+		for column, variable := range tails[0].variables {
+			variables[variable] = uint32(column)
 		}
-		if _, repeated := variables[variable]; repeated {
-			return false, ErrBoundIntervalDatalogFragment
+	} else {
+		working, workingSorts, variables, err = joinBoundIntervalPositiveTails(tails[0], tails[1])
+		if err != nil {
+			return false, err
 		}
-		variables[variable] = column
 	}
 	tailSize, err := rule.TailSize()
 	if err != nil || tailSize-uninterpreted > 1 {

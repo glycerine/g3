@@ -103,13 +103,13 @@ func TestBoundIntervalDatalogActivationFactsCloneFormulaAndRuleBoundary(t *testi
 	must(err)
 	unsupported, err := m.MkImplies(twoTails, qHead)
 	must(err)
-	must(e.AddRule(unsupported, "bound-interval-two-positive-pending"))
-	if _, cause := activation.query([]ast.ASTHandle{q}); !errors.Is(cause, ErrBoundIntervalDatalogFragment) {
-		t.Fatal("unfinished multi-tail product rule silently approximated", cause)
+	must(e.AddRule(unsupported, "bound-interval-two-positive"))
+	if status, cause := activation.query([]ast.ASTHandle{q}); cause != nil || status != lbool.Undef {
+		t.Fatal("two-positive product rule", status, cause)
 	}
-	if _, cause := activation.relationFormula(q); !errors.Is(cause, ErrBoundIntervalDatalogFragment) {
-		t.Fatal("failed product execution exposed stale answer", cause)
-	}
+	twoTailFormula, cause := activation.relationFormula(q)
+	must(cause)
+	must(m.DelRef(&twoTailFormula))
 	m.Limit.Cancel()
 	status, cause := clone.query([]ast.ASTHandle{p})
 	m.Limit.ResetCancel()
