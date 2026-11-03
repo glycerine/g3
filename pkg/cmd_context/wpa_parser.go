@@ -68,7 +68,10 @@ func (c *Context) ParseWPADirectory(directory string) (resultErr error) {
 	if err = p.indexDeclarations(); err != nil {
 		return err
 	}
-	return p.readRelations()
+	if err = p.readRelations(); err != nil {
+		return err
+	}
+	return c.rememberDatalogDisplay(p.rules)
 }
 
 func (p *wpaParser) finishSorts() error {
@@ -106,6 +109,9 @@ func (p *wpaParser) finishSorts() error {
 			p.rules.numericConstants[handle] = make(map[uint64]uint64)
 		} else {
 			p.rules.constants[handle] = make(map[string]uint64)
+		}
+		if err = p.rules.seedDatalogDomain(handle, name == "BOOL" || name == "SHORT" || !p.useMapNames); err != nil {
+			return err
 		}
 	}
 	return nil

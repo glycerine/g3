@@ -14,6 +14,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/muz/base"
 	muzfp "github.com/glycerine/g3/pkg/muz/fp"
 	"github.com/glycerine/g3/pkg/opt"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -84,6 +85,7 @@ type Context struct {
 	debugExpressions                 map[string]ast.ASTRef
 	borrowedManager                  bool
 	fixedpoint                       *muzfp.PropositionalEngine
+	datalogDisplay                   *base.DatalogContext
 	solver                           solver.Solver
 	tacticResult                     *solver.SimpleCheckSatResult
 	retainedSolverResult             solver.Solver
@@ -1306,6 +1308,15 @@ func (c *Context) resetManagerState() error {
 			return err
 		}
 		c.fixedpoint = nil
+	}
+	if c.datalogDisplay != nil {
+		if _, err := c.manager.ProofMode(); err != nil {
+			return err
+		}
+		if err := c.datalogDisplay.Close(); err != nil {
+			return err
+		}
+		c.datalogDisplay = nil
 	}
 	if c.solver != nil {
 		if err := c.solver.Close(); err != nil {

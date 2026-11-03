@@ -78,6 +78,9 @@ func (p *datalogParser) parseDomain() error {
 			return e
 		}
 		p.sorts[sortName], p.constants[sort] = sort, make(map[string]uint64)
+		if err = p.seedDatalogDomain(sort, false); err != nil {
+			return err
+		}
 		if err = p.advance(); err != nil {
 			return err
 		}

@@ -10,6 +10,10 @@ func (f *DatalogFrontend) Saturate() error {
 	if f == nil || !f.loaded || f.saturated {
 		return ErrDatalogFrontend
 	}
+	printTuples, err := f.context.FixedpointDatalogPrintTuples()
+	if err != nil {
+		return err
+	}
 	predicates, err := f.context.FixedpointPredicates()
 	if err != nil {
 		return err
@@ -38,7 +42,7 @@ func (f *DatalogFrontend) Saturate() error {
 		}
 		f.results = append(f.results, DatalogPredicateResult{Declaration: declaration, Name: text, Status: status})
 	}
-	f.runFinished, f.saturated = time.Now(), true
+	f.runFinished, f.saturated, f.printTuples = time.Now(), true, printTuples
 	return nil
 }
 
@@ -47,6 +51,9 @@ func (f *DatalogFrontend) Run(path string) error {
 		return err
 	}
 	if err := f.Saturate(); err != nil {
+		return err
+	}
+	if err := f.WriteTuples(f.output); err != nil {
 		return err
 	}
 	return f.WriteStatistics()

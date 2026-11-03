@@ -26,6 +26,7 @@ type DatalogFrontend struct {
 	output                              io.Writer
 	path                                string
 	loaded, saturated                   bool
+	printTuples                         bool
 	started, parseFinished, runFinished time.Time
 	results                             []DatalogPredicateResult
 	snapshots                           []cmd_context.FixedpointRelationSnapshot

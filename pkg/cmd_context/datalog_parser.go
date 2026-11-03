@@ -81,7 +81,10 @@ func (c *Context) ParseDatalogString(input string) (resultErr error) {
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, p.close()) }()
-	return p.parse([]byte(input), "")
+	if err = p.parse([]byte(input), ""); err != nil {
+		return err
+	}
+	return c.rememberDatalogDisplay(p)
 }
 
 // ParseDatalogFile preserves source-relative .include resolution.
@@ -95,5 +98,8 @@ func (c *Context) ParseDatalogFile(filename string) (resultErr error) {
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, p.close()) }()
-	return p.parse(input, filepath.Dir(filename))
+	if err = p.parse(input, filepath.Dir(filename)); err != nil {
+		return err
+	}
+	return c.rememberDatalogDisplay(p)
 }
