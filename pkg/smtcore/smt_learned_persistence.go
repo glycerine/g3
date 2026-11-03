@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 type smtPersistentLearnedUnit struct {
@@ -14,12 +15,87 @@ type smtPersistentLearnedUnit struct {
 	proof                      ast.ASTHandle
 	sign                       bool
 	ownerLevel, installedLevel uint32
+	discard                    bool
+	pending                    smtLearnedAssignment
 }
 
 type smtPreservedLearnedClause struct {
-	atoms    []smtRetainedLemmaAtom
-	proof    ast.ASTHandle
-	activity uint32
+	atoms     []smtRetainedLemmaAtom
+	proof     ast.ASTHandle
+	activity  uint32
+	installed bool
+	clause    *SMTClause
+	pending   smtLearnedAssignment
+}
+
+// Assignment publication precedes context/relevance notifications. Preserve
+// the exact remainder when clause installation fails after that publication.
+type smtLearnedAssignment struct {
+	literal       SMTLiteral
+	justification SMTBooleanJustification
+	stage         uint8
+}
+
+const (
+	smtLearnedAssignmentDone uint8 = iota
+	smtLearnedAssignmentContext
+	smtLearnedAssignmentMetadata
+	smtLearnedAssignmentGoal
+	smtLearnedAssignmentEvent
+)
+
+func (s *SMTInternalizerState) finishLearnedAssignment(p *smtLearnedAssignment) error {
+	if p.stage == smtLearnedAssignmentDone {
+		return nil
+	}
+	literal := p.literal
+	expression := s.boolExpr[literal.Var()]
+	if p.stage == smtLearnedAssignmentContext {
+		if err := s.context.SetAssignment(expression, lbool.FromBool(!literal.Sign())); err != nil {
+			return err
+		}
+		p.stage = smtLearnedAssignmentMetadata
+	}
+	if p.stage == smtLearnedAssignmentMetadata {
+		data := &s.booleanData[literal.Var()]
+		data.SetJustification(p.justification)
+		data.ScopeLevel = s.scopeLevel
+		if s.searching && s.searchRestartAdaptive && data.PhaseAvailable {
+			s.searchAgility *= s.searchAgilityFactor
+			if data.Phase == literal.Sign() {
+				s.searchAgility += 1 - s.searchAgilityFactor
+			}
+		}
+		data.PhaseAvailable, data.Phase = true, !literal.Sign()
+		s.assignedLiterals = append(s.assignedLiterals, literal)
+		p.stage = smtLearnedAssignmentGoal
+	}
+	if p.stage == smtLearnedAssignmentGoal {
+		if err := s.relevanceGoalAssigned(literal); err != nil {
+			return err
+		}
+		p.stage = smtLearnedAssignmentEvent
+	}
+	if p.stage == smtLearnedAssignmentEvent {
+		if s.relevancy != nil {
+			if err := s.relevancy.AssignmentEvent(expression, !literal.Sign()); err != nil {
+				return err
+			}
+		}
+		p.stage = smtLearnedAssignmentDone
+	}
+	return nil
+}
+
+func (s *SMTInternalizerState) learnedAssignmentRemainder(literal SMTLiteral, before lbool.LBool, assigned int, justification SMTBooleanJustification) smtLearnedAssignment {
+	if before != lbool.Undef || s.assignment[literal.Index()] != lbool.True {
+		return smtLearnedAssignment{}
+	}
+	stage := smtLearnedAssignmentContext
+	if len(s.assignedLiterals) > assigned {
+		stage = smtLearnedAssignmentGoal
+	}
+	return smtLearnedAssignment{literal: literal, justification: justification, stage: stage}
 }
 
 func (s *SMTInternalizerState) beginSearchPersistence(base uint32, params SMTParamsState) error {
@@ -50,18 +126,15 @@ func (s *SMTInternalizerState) endSearchPersistence() (result error) {
 	s.searchAgility = 0
 	s.searchAgilityFactor = 0
 	s.searchRestartAdaptive = false
-	kept := 0
-	for index := range s.learnedUnits {
-		if s.learnedUnits[index].installedLevel == s.learnedUnits[index].ownerLevel {
-			result = errors.Join(result, s.releaseLearnedUnit(&s.learnedUnits[index]))
-			continue
+	for index := len(s.learnedUnits) - 1; index >= 0; index-- {
+		unit := &s.learnedUnits[index]
+		if unit.discard || unit.installedLevel == unit.ownerLevel {
+			if err := s.releaseLearnedUnit(unit); err != nil {
+				return err
+			}
+			s.removeLearnedUnit(index)
 		}
-		if kept != index {
-			s.learnedUnits[kept] = s.learnedUnits[index]
-		}
-		kept++
 	}
-	s.learnedUnits = s.learnedUnits[:kept]
 	return result
 }
 
@@ -75,11 +148,21 @@ func (s *SMTInternalizerState) retainProof(proof ast.ASTHandle) (ast.ASTHandle, 
 	return proof, nil
 }
 
-func (s *SMTInternalizerState) releaseProof(proof ast.ASTHandle) error {
-	if proof.IsNull() {
+func (s *SMTInternalizerState) releaseLearnedRoot(root *ast.ASTHandle) error {
+	if root.IsNull() {
 		return nil
 	}
-	return s.manager.DecRef(proof)
+	consumed, err := s.manager.DecRefConsumed(*root)
+	if consumed {
+		*root = ast.ASTHandle{}
+	}
+	if err != nil {
+		return err
+	}
+	if !consumed {
+		return ast.ErrASTPending
+	}
+	return nil
 }
 
 func (s *SMTInternalizerState) learnedClauseProof(clause *SMTClause) (ast.ASTHandle, error) {
@@ -94,6 +177,8 @@ func (s *SMTInternalizerState) learnedClauseProof(clause *SMTClause) (ast.ASTHan
 	return wrapper.Proof()
 }
 
+// A failed acquisition returns its owned prefix to the pending Pop; it must
+// release that prefix before attempting another capture.
 func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreservedLearnedClause, error) {
 	if limit < 0 || limit > len(s.clauses) {
 		return nil, ast.ErrASTDomain
@@ -104,61 +189,79 @@ func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreserved
 		if clause == nil || !clause.IsLearned() {
 			continue
 		}
-		atoms, err := s.retainLemmaAtoms(clause.literals)
+		result = append(result, smtPreservedLearnedClause{})
+		saved := &result[len(result)-1]
+		var err error
+		saved.atoms, err = s.captureLemmaAtoms(clause.literals)
 		if err != nil {
-			_ = s.releasePreservedLearnedClauses(result)
-			return nil, err
+			return result, err
 		}
 		proof, err := s.learnedClauseProof(clause)
 		if err == nil {
-			proof, err = s.retainProof(proof)
+			saved.proof, err = s.retainProof(proof)
 		}
 		if err != nil {
-			_ = s.releaseLemmaAtoms(atoms)
-			_ = s.releasePreservedLearnedClauses(result)
-			return nil, err
+			return result, err
 		}
-		activity, err := clause.Activity()
+		saved.activity, err = clause.Activity()
 		if err != nil {
-			_ = s.releaseLemmaAtoms(atoms)
-			_ = s.releaseProof(proof)
-			_ = s.releasePreservedLearnedClauses(result)
-			return nil, err
+			return result, err
 		}
-		result = append(result, smtPreservedLearnedClause{atoms: atoms, proof: proof, activity: activity})
 	}
 	return result, nil
 }
 
 func (s *SMTInternalizerState) releasePreservedLearnedClauses(clauses []smtPreservedLearnedClause) (result error) {
 	for index := len(clauses) - 1; index >= 0; index-- {
-		result = errors.Join(result, s.releaseProof(clauses[index].proof))
-		result = errors.Join(result, s.releaseLemmaAtoms(clauses[index].atoms))
+		if err := s.releaseLearnedRoot(&clauses[index].proof); err != nil {
+			return err
+		}
+		if err := s.releaseLemmaAtoms(clauses[index].atoms); err != nil {
+			return err
+		}
 	}
 	return result
 }
 
-func (s *SMTInternalizerState) restoreLearnedClauses(clauses []smtPreservedLearnedClause) (result error) {
-	defer func() { result = errors.Join(result, s.releasePreservedLearnedClauses(clauses)) }()
-	for _, saved := range clauses {
-		literals, err := s.reinternalizeLemmaAtoms(saved.atoms)
-		if err != nil {
-			return err
-		}
-		before := len(s.clauses)
-		if err = s.addLearnedClauseWithProof(literals, saved.proof, false); err != nil {
-			return err
-		}
-		if len(s.clauses) > before {
-			clause := s.clauses[len(s.clauses)-1].clause
-			if clause != nil && clause.IsLearned() {
-				if err = clause.SetActivity(saved.activity); err != nil {
-					return err
+func (s *SMTInternalizerState) restoreLearnedClauses(clauses []smtPreservedLearnedClause) error {
+	for index := range clauses {
+		saved := &clauses[index]
+		if !saved.installed {
+			literals, err := s.reinternalizeLemmaAtoms(saved.atoms)
+			if err != nil {
+				return err
+			}
+			before, assigned := len(s.clauses), len(s.assignedLiterals)
+			first := literals[0]
+			assignment := s.assignment[first.Index()]
+			err = s.addLearnedClauseWithProof(literals, saved.proof, false)
+			if len(s.clauses) > before {
+				saved.installed = true
+				saved.clause = s.clauses[len(s.clauses)-1].clause
+				if err != nil {
+					record := s.clauses[len(s.clauses)-1]
+					justification := NewSMTBooleanClause(record.clause)
+					if record.Binary {
+						justification = NewSMTBooleanBinaryClause(record.Literals[1].Negated())
+					}
+					saved.pending = s.learnedAssignmentRemainder(first, assignment, assigned, justification)
 				}
+			}
+			if err != nil {
+				return err
+			}
+			saved.installed = true
+		}
+		if err := s.finishLearnedAssignment(&saved.pending); err != nil {
+			return err
+		}
+		if saved.clause != nil && saved.clause.IsLearned() {
+			if err := saved.clause.SetActivity(saved.activity); err != nil {
+				return err
 			}
 		}
 	}
-	return nil
+	return s.releasePreservedLearnedClauses(clauses)
 }
 
 func (s *SMTInternalizerState) captureLearnedUnit(literal SMTLiteral, proof ast.ASTHandle) error {
@@ -171,7 +274,12 @@ func (s *SMTInternalizerState) captureLearnedUnit(literal SMTLiteral, proof ast.
 	}
 	proof, err = s.retainProof(proof)
 	if err != nil {
-		return errors.Join(err, s.manager.DecRef(expression))
+		unit := smtPersistentLearnedUnit{expression: expression, discard: true}
+		cleanup := s.releaseLearnedUnit(&unit)
+		if cleanup != nil {
+			s.learnedUnits = append(s.learnedUnits, unit)
+		}
+		return errors.Join(err, cleanup)
 	}
 	s.learnedUnits = append(s.learnedUnits, smtPersistentLearnedUnit{
 		expression: expression, proof: proof, sign: literal.Sign(), ownerLevel: s.searchBaseLevel, installedLevel: s.scopeLevel,
@@ -180,9 +288,11 @@ func (s *SMTInternalizerState) captureLearnedUnit(literal SMTLiteral, proof ast.
 }
 
 func (s *SMTInternalizerState) releaseLearnedUnit(unit *smtPersistentLearnedUnit) (result error) {
-	result = errors.Join(result, s.releaseProof(unit.proof))
-	if !unit.expression.IsNull() {
-		result = errors.Join(result, s.manager.DecRef(unit.expression))
+	if err := s.releaseLearnedRoot(&unit.proof); err != nil {
+		return err
+	}
+	if err := s.releaseLearnedRoot(&unit.expression); err != nil {
+		return err
 	}
 	*unit = smtPersistentLearnedUnit{}
 	return result
@@ -191,6 +301,12 @@ func (s *SMTInternalizerState) releaseLearnedUnit(unit *smtPersistentLearnedUnit
 func (s *SMTInternalizerState) restoreLearnedUnits(level uint32) error {
 	for index := range s.learnedUnits {
 		unit := &s.learnedUnits[index]
+		if unit.discard {
+			continue
+		}
+		if err := s.finishLearnedAssignment(&unit.pending); err != nil {
+			return err
+		}
 		if unit.ownerLevel > level || unit.installedLevel <= level {
 			continue
 		}
@@ -204,7 +320,20 @@ func (s *SMTInternalizerState) restoreLearnedUnits(level uint32) error {
 		if unit.sign {
 			literal = literal.Negated()
 		}
+		assignment, assigned, owners := s.assignment[literal.Index()], len(s.assignedLiterals), len(s.ownedJustifications)
 		if err = s.addLearnedClauseWithProof([]SMTLiteral{literal}, unit.proof, false); err != nil {
+			justification := NewSMTBooleanAxiom()
+			if len(s.ownedJustifications) > owners {
+				var cause error
+				justification, cause = NewSMTBooleanJustification(s.ownedJustifications[len(s.ownedJustifications)-1])
+				if cause != nil {
+					return errors.Join(err, cause)
+				}
+			}
+			unit.pending = s.learnedAssignmentRemainder(literal, assignment, assigned, justification)
+			if unit.pending.stage != smtLearnedAssignmentDone {
+				unit.installedLevel = level
+			}
 			return err
 		}
 		unit.installedLevel = level
@@ -213,25 +342,46 @@ func (s *SMTInternalizerState) restoreLearnedUnits(level uint32) error {
 }
 
 func (s *SMTInternalizerState) discardLearnedUnitsAbove(level uint32) (result error) {
-	kept := 0
-	for index := range s.learnedUnits {
-		if s.learnedUnits[index].ownerLevel > level {
-			result = errors.Join(result, s.releaseLearnedUnit(&s.learnedUnits[index]))
-			continue
+	for index := len(s.learnedUnits) - 1; index >= 0; index-- {
+		if s.learnedUnits[index].discard || s.learnedUnits[index].ownerLevel > level {
+			if err := s.releaseLearnedUnit(&s.learnedUnits[index]); err != nil {
+				return err
+			}
+			s.removeLearnedUnit(index)
 		}
-		if kept != index {
-			s.learnedUnits[kept] = s.learnedUnits[index]
-		}
-		kept++
 	}
-	s.learnedUnits = s.learnedUnits[:kept]
 	return result
 }
 
 func (s *SMTInternalizerState) releaseLearnedUnits() (result error) {
 	for index := len(s.learnedUnits) - 1; index >= 0; index-- {
-		result = errors.Join(result, s.releaseLearnedUnit(&s.learnedUnits[index]))
+		if err := s.releaseLearnedUnit(&s.learnedUnits[index]); err != nil {
+			return err
+		}
+		s.learnedUnits = s.learnedUnits[:index]
 	}
 	s.learnedUnits = nil
 	return result
+}
+
+func (s *SMTInternalizerState) removeLearnedUnit(index int) {
+	copy(s.learnedUnits[index:], s.learnedUnits[index+1:])
+	s.learnedUnits[len(s.learnedUnits)-1] = smtPersistentLearnedUnit{}
+	s.learnedUnits = s.learnedUnits[:len(s.learnedUnits)-1]
+}
+
+func (s *SMTInternalizerState) discardLearnedUnitsFrom(limit int) error {
+	if limit < 0 || limit > len(s.learnedUnits) {
+		return ast.ErrASTDomain
+	}
+	for index := limit; index < len(s.learnedUnits); index++ {
+		s.learnedUnits[index].discard = true
+	}
+	for index := len(s.learnedUnits) - 1; index >= limit; index-- {
+		if err := s.releaseLearnedUnit(&s.learnedUnits[index]); err != nil {
+			return err
+		}
+		s.learnedUnits = s.learnedUnits[:index]
+	}
+	return nil
 }

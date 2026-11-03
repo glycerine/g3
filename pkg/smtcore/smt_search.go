@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
 )
 
@@ -26,17 +27,17 @@ type smtRetainedLemmaAtom struct {
 	relevant   bool
 }
 
-func (s *SMTInternalizerState) retainLemmaAtoms(literals []SMTLiteral) ([]smtRetainedLemmaAtom, error) {
+// captureLemmaAtoms transfers every acquired reference to the returned slice,
+// including the prefix preceding an acquisition failure.
+func (s *SMTInternalizerState) captureLemmaAtoms(literals []SMTLiteral) ([]smtRetainedLemmaAtom, error) {
 	atoms := make([]smtRetainedLemmaAtom, 0, len(literals))
 	for _, literal := range literals {
 		expression, err := s.BoolExpression(literal.Var())
 		if err != nil {
-			_ = s.releaseLemmaAtoms(atoms)
-			return nil, err
+			return atoms, err
 		}
 		if err = s.manager.IncRef(expression); err != nil {
-			_ = s.releaseLemmaAtoms(atoms)
-			return nil, err
+			return atoms, err
 		}
 		relevant := false
 		if s.relevancy != nil {
@@ -47,12 +48,82 @@ func (s *SMTInternalizerState) retainLemmaAtoms(literals []SMTLiteral) ([]smtRet
 	return atoms, nil
 }
 
-func (s *SMTInternalizerState) releaseLemmaAtoms(atoms []smtRetainedLemmaAtom) (result error) {
-	for index := len(atoms) - 1; index >= 0; index-- {
-		result = errors.Join(result, s.manager.DecRef(atoms[index].expression))
+func (s *SMTInternalizerState) retainLemmaAtoms(literals []SMTLiteral) ([]smtRetainedLemmaAtom, error) {
+	atoms, err := s.captureLemmaAtoms(literals)
+	if err != nil {
+		return nil, s.disposeLemmaAtoms(atoms, err)
 	}
-	return result
+	return atoms, nil
 }
+
+func (s *SMTInternalizerState) releaseLemmaAtoms(atoms []smtRetainedLemmaAtom) error {
+	return releaseSMTLemmaAtoms(s.manager, atoms)
+}
+
+func releaseSMTLemmaAtoms(manager *ast.ASTManager, atoms []smtRetainedLemmaAtom) error {
+	for index := len(atoms) - 1; index >= 0; index-- {
+		if atoms[index].expression.IsNull() {
+			continue
+		}
+		consumed, err := manager.DecRefConsumed(atoms[index].expression)
+		if consumed {
+			atoms[index].expression = ast.ASTHandle{}
+		}
+		if err != nil {
+			return err
+		}
+		if !consumed {
+			return ast.ErrASTPending
+		}
+	}
+	return nil
+}
+
+type smtLemmaAtomsCleanupFailure struct {
+	manager                     *ast.ASTManager
+	atoms                       []smtRetainedLemmaAtom
+	child                       memory.ConstructionFailure
+	cause, cleanupErr, reported error
+	message                     string
+}
+
+func (f *smtLemmaAtomsCleanupFailure) Error() string        { return f.message }
+func (f *smtLemmaAtomsCleanupFailure) Unwrap() error        { return f.reported }
+func (f *smtLemmaAtomsCleanupFailure) OriginalCause() error { return f.cause }
+func (f *smtLemmaAtomsCleanupFailure) CleanupCause() error  { return f.cleanupErr }
+func (f *smtLemmaAtomsCleanupFailure) RuntimeOwner() *memory.Runtime {
+	return f.manager.NumeralService().RuntimeOwner()
+}
+func (f *smtLemmaAtomsCleanupFailure) Cleanup() error {
+	if f.child != nil {
+		if f.cleanupErr = f.child.Cleanup(); f.cleanupErr != nil {
+			return f.cleanupErr
+		}
+		f.child = nil
+	}
+	f.cleanupErr = releaseSMTLemmaAtoms(f.manager, f.atoms)
+	return f.cleanupErr
+}
+
+// disposeLemmaAtoms keeps the lexical backjump roots reachable when a child
+// operation or their own native reference release refuses cleanup.
+func (s *SMTInternalizerState) disposeLemmaAtoms(atoms []smtRetainedLemmaAtom, cause error) error {
+	failure := &smtLemmaAtomsCleanupFailure{manager: s.manager, atoms: atoms, cause: cause}
+	if cause != nil {
+		errors.As(cause, &failure.child)
+	}
+	if cleanup := failure.Cleanup(); cleanup != nil {
+		if cause == nil {
+			failure.cause = cleanup
+		}
+		failure.reported = errors.Join(failure.cause, cleanup)
+		failure.message = failure.reported.Error()
+		return failure
+	}
+	return cause
+}
+
+var _ memory.ConstructionFailure = (*smtLemmaAtomsCleanupFailure)(nil)
 
 func (s *SMTInternalizerState) reinternalizeLemmaAtoms(atoms []smtRetainedLemmaAtom) ([]SMTLiteral, error) {
 	literals := make([]SMTLiteral, len(atoms))
@@ -281,11 +352,11 @@ func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
 				return lbool.Undef, fmt.Errorf("smt search retain lemma atoms: %w", err)
 			}
 			if err = k.internalizer.PopScopes(k.internalizer.scopeLevel - newScopeLevel); err != nil {
-				err = errors.Join(err, k.internalizer.releaseLemmaAtoms(retained))
+				err = k.internalizer.disposeLemmaAtoms(retained, err)
 				return lbool.Undef, fmt.Errorf("smt search backjump: %w", err)
 			}
 			resolution.Lemma, err = k.internalizer.reinternalizeLemmaAtoms(retained)
-			err = errors.Join(err, k.internalizer.releaseLemmaAtoms(retained))
+			err = k.internalizer.disposeLemmaAtoms(retained, err)
 			if err != nil {
 				return lbool.Undef, fmt.Errorf("smt search reinternalize learned clause: %w", err)
 			}

@@ -40,8 +40,10 @@ func (j *SMTJustificationProofWrapper) Release(manager *ast.ASTManager) error {
 	if j.released {
 		return nil
 	}
-	if err := manager.DelRef(&j.proof); err != nil {
-		return err
+	if j.proof != (ast.ASTRef{}) {
+		if err := manager.DelRef(&j.proof); err != nil {
+			return err
+		}
 	}
 	j.released = true
 	return nil
@@ -275,8 +277,10 @@ func (j *SMTTheoryLemmaJustification) Release(manager *ast.ASTManager) error {
 	}
 	for len(j.expressions) != 0 {
 		i := len(j.expressions) - 1
-		if err := manager.DelRef(&j.expressions[i]); err != nil {
-			return err
+		if j.expressions[i] != (ast.ASTRef{}) {
+			if err := manager.DelRef(&j.expressions[i]); err != nil {
+				return err
+			}
 		}
 		j.expressions = j.expressions[:i]
 		j.signs = j.signs[:i]

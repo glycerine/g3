@@ -89,12 +89,13 @@ type SMTTheoryPropagation struct {
 }
 
 type SMTInternalizedClause struct {
-	Literals []SMTLiteral
-	Root     bool
-	Binary   bool
-	Proof    ast.ASTHandle
-	clause   *SMTClause
-	owner    SMTJustification
+	Literals     []SMTLiteral
+	Root         bool
+	Binary       bool
+	Proof        ast.ASTHandle
+	clause       *SMTClause
+	owner        SMTJustification
+	closeWatches uint8
 }
 
 type SMTInternalizerCongruence struct {
@@ -159,6 +160,14 @@ type SMTInternalizerState struct {
 	booleanStack               []ast.ASTHandle
 	enodeStack                 []*SMTEnode
 	scopes                     []smtInternalizerScope
+	pendingPop                 *smtInternalizerPendingPop
+	popActive                  bool
+	closing                    bool
+	congruenceRestorePending   bool
+	retiringEnode              *SMTEnode
+	retiringEnodeRoot          ast.ASTHandle
+	retiringBoolean            bool
+	retiringBooleanRoot        ast.ASTHandle
 	cachedGeneration           map[ast.ASTHandle]uint32
 	pending                    []smtPendingEquality
 	pendingHead                int
@@ -417,6 +426,16 @@ func (s *SMTInternalizerState) undoTheoryAttachments(limit int) error {
 }
 
 func (s *SMTInternalizerState) open() error {
+	if err := s.openOwner(); err != nil {
+		return err
+	}
+	if (s.pendingPop != nil || s.closing) && !s.popActive {
+		return ast.ErrASTPending
+	}
+	return nil
+}
+
+func (s *SMTInternalizerState) openOwner() error {
 	if s == nil || s.manager == nil || s.context == nil || s.congruence == nil || s.closed {
 		return ast.ErrASTHandle
 	}
@@ -801,6 +820,12 @@ func (s *SMTInternalizerState) PushScope() error {
 }
 
 func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
+	if s.retiringEnode != nil {
+		if s.retiringEnode != node {
+			return ast.ErrASTPending
+		}
+		return s.finishUnregisterEnode()
+	}
 	if s.context.enodes[node.owner] != node {
 		return fmt.Errorf("enode owner %d is not current: %w", node.owner.Slot(), ast.ErrASTDomain)
 	}
@@ -827,9 +852,21 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 	if err := node.Delete(true); err != nil {
 		return fmt.Errorf("delete enode: %w", err)
 	}
-	if err := s.manager.DecRef(node.owner); err != nil {
-		return fmt.Errorf("release enode owner: %w", err)
+	s.retiringEnode, s.retiringEnodeRoot = node, node.owner
+	return s.finishUnregisterEnode()
+}
+
+func (s *SMTInternalizerState) finishUnregisterEnode() error {
+	if !s.retiringEnodeRoot.IsNull() {
+		consumed, err := s.manager.DecRefConsumed(s.retiringEnodeRoot)
+		if consumed {
+			s.retiringEnodeRoot = ast.ASTHandle{}
+		}
+		if err != nil {
+			return fmt.Errorf("release enode owner: %w", err)
+		}
 	}
+	s.retiringEnode = nil
 	s.statistics.NumDelEnode++
 	return nil
 }
@@ -872,7 +909,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 	if scope.equalityLimit < 0 || scope.equalityLimit > len(s.equalityTrail) {
 		return ast.ErrASTDomain
 	}
-	equalitiesRestored := len(s.equalityTrail) > scope.equalityLimit
+	s.congruenceRestorePending = s.congruenceRestorePending || len(s.equalityTrail) > scope.equalityLimit
 	for len(s.equalityTrail) > scope.equalityLimit {
 		index := len(s.equalityTrail) - 1
 		entry := s.equalityTrail[index]
@@ -884,10 +921,11 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 			return fmt.Errorf("restore equality snapshot: %w", err)
 		}
 	}
-	if equalitiesRestored {
+	if s.congruenceRestorePending {
 		if err := s.rebuildCongruence(); err != nil {
 			return fmt.Errorf("restore congruence index: %w", err)
 		}
+		s.congruenceRestorePending = false
 	}
 	if scope.disequalities == nil {
 		s.context.disequalities = make(map[smtEnodePairKey]struct{})
@@ -904,7 +942,6 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 	}
 	for len(s.assignmentTrail) > scope.assignmentLimit {
 		entry := s.assignmentTrail[len(s.assignmentTrail)-1]
-		s.assignmentTrail = s.assignmentTrail[:len(s.assignmentTrail)-1]
 		positive := NewSMTLiteral(entry.variable, false)
 		s.assignment[positive.Index()] = entry.value
 		s.assignment[positive.Negated().Index()] = entry.value.Negated()
@@ -926,6 +963,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 		if err := s.context.SetAssignment(s.boolExpr[entry.variable], entry.value); err != nil {
 			return fmt.Errorf("restore Boolean assignment: %w", err)
 		}
+		s.assignmentTrail = s.assignmentTrail[:len(s.assignmentTrail)-1]
 	}
 	if scope.assignedLimit < 0 || scope.assignedLimit > len(s.assignedLiterals) {
 		return ast.ErrASTDomain
@@ -1006,54 +1044,64 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 	}
 	for len(s.booleanStack) > scope.booleanLimit {
 		expression := s.booleanStack[len(s.booleanStack)-1]
-		variable := s.boolVar[expression]
-		if (s.cachedActivity || s.caseSplitStrategy == 2) && s.searching && s.activity[variable] > 0 {
-			if err := s.cacheBooleanActivity(expression, s.activity[variable]); err != nil {
-				return err
-			}
-		}
-		if err := s.basicActivityDeleted(variable); err != nil {
-			return err
-		}
-		if err := s.relevanceActivityDeleted(variable); err != nil {
-			return err
-		}
-		if s.theoryAwareBranching != nil {
-			if err := s.theoryAwareBranching.deleted(variable); err != nil {
-				return err
-			}
-		}
-		if s.quantifiers != nil {
-			kind, err := s.manager.GetKind(expression)
-			if err != nil {
-				return err
-			}
-			if kind == ast.ASTQuantifier {
-				if _, statErr := s.quantifiers.Stat(expression); statErr == nil {
-					if err = s.quantifiers.Delete(expression); err != nil {
-						return err
-					}
-				} else if !errors.Is(statErr, ast.ErrASTDomain) {
-					return statErr
+		if !s.retiringBoolean {
+			variable := s.boolVar[expression]
+			if (s.cachedActivity || s.caseSplitStrategy == 2) && s.searching && s.activity[variable] > 0 {
+				if err := s.cacheBooleanActivity(expression, s.activity[variable]); err != nil {
+					return err
 				}
 			}
+			if err := s.basicActivityDeleted(variable); err != nil {
+				return err
+			}
+			if err := s.relevanceActivityDeleted(variable); err != nil {
+				return err
+			}
+			if s.theoryAwareBranching != nil {
+				if err := s.theoryAwareBranching.deleted(variable); err != nil {
+					return err
+				}
+			}
+			if s.quantifiers != nil {
+				kind, err := s.manager.GetKind(expression)
+				if err != nil {
+					return err
+				}
+				if kind == ast.ASTQuantifier {
+					if _, statErr := s.quantifiers.Stat(expression); statErr == nil {
+						if err = s.quantifiers.Delete(expression); err != nil {
+							return err
+						}
+					} else if !errors.Is(statErr, ast.ErrASTDomain) {
+						return statErr
+					}
+				}
+			}
+			delete(s.boolVar, expression)
+			delete(s.context.assignments, expression)
+			if s.relevancy == nil {
+				delete(s.context.relevant, expression)
+			}
+			s.boolExpr[variable] = ast.ASTHandle{}
+			s.boolExpr = s.boolExpr[:variable]
+			s.booleanData = s.booleanData[:variable]
+			s.booleanCreation = s.booleanCreation[:variable]
+			s.activity = s.activity[:variable]
+			s.assignment = s.assignment[:2*variable]
+			s.watches = s.watches[:2*variable]
+			s.retiringBoolean, s.retiringBooleanRoot = true, expression
 		}
-		delete(s.boolVar, expression)
-		delete(s.context.assignments, expression)
-		if s.relevancy == nil {
-			delete(s.context.relevant, expression)
+		if !s.retiringBooleanRoot.IsNull() {
+			consumed, err := s.manager.DecRefConsumed(s.retiringBooleanRoot)
+			if consumed {
+				s.retiringBooleanRoot = ast.ASTHandle{}
+			}
+			if err != nil {
+				return fmt.Errorf("release Boolean expression: %w", err)
+			}
 		}
-		s.boolExpr[variable] = ast.ASTHandle{}
-		s.boolExpr = s.boolExpr[:variable]
-		s.booleanData = s.booleanData[:variable]
-		s.booleanCreation = s.booleanCreation[:variable]
-		s.activity = s.activity[:variable]
-		s.assignment = s.assignment[:2*variable]
-		s.watches = s.watches[:2*variable]
+		s.retiringBoolean = false
 		s.booleanStack = s.booleanStack[:len(s.booleanStack)-1]
-		if err := s.manager.DecRef(expression); err != nil {
-			return fmt.Errorf("release Boolean expression: %w", err)
-		}
 		s.statistics.NumDelBoolVar++
 	}
 	if scope.pendingLimit < 0 || scope.pendingLimit > len(s.pending) {
@@ -1071,58 +1119,118 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 	return nil
 }
 
+// A source scope pop visits several owners. Keep its cursor across Go native
+// cleanup errors so a completed child scope is never consumed a second time.
+type smtInternalizerPendingPop struct {
+	count    uint32
+	level    int
+	stage    uint8
+	theory   int
+	preserve bool
+	learned  []smtPreservedLearnedClause
+}
+
 func (s *SMTInternalizerState) PopScopes(count uint32) error {
-	if err := s.open(); err != nil {
+	if err := s.openOwner(); err != nil {
 		return err
 	}
-	if err := s.assertCaseSplitPopCount(count); err != nil {
+	if s.closing && !s.popActive {
+		return ast.ErrASTPending
+	}
+	if s.pendingPop != nil {
+		if s.pendingPop.count != count {
+			return ast.ErrASTPending
+		}
+	} else {
+		if err := s.assertCaseSplitPopCount(count); err != nil {
+			return err
+		}
+		if count == 0 || count > uint32(len(s.scopes)) {
+			return ast.ErrASTDomain
+		}
+		level := len(s.scopes) - int(count)
+		s.pendingPop = &smtInternalizerPendingPop{count: count, level: level, theory: len(s.theoryOrder) - 1,
+			preserve: s.searching && uint32(level) >= s.searchBaseLevel}
+	}
+	pop := s.pendingPop
+	active := s.popActive
+	s.popActive = true
+	defer func() { s.popActive = active }()
+	if pop.stage == 0 {
+		if pop.preserve {
+			if len(pop.learned) != 0 {
+				if err := s.releasePreservedLearnedClauses(pop.learned); err != nil {
+					return err
+				}
+				pop.learned = nil
+			}
+			var err error
+			pop.learned, err = s.preserveLearnedClauses(s.scopes[pop.level].clauseLimit)
+			if err != nil {
+				return err
+			}
+		}
+		pop.stage++
+	}
+	if pop.stage == 1 {
+		if err := s.popTo(s.scopes[pop.level]); err != nil {
+			return err
+		}
+		pop.stage++
+	}
+	if pop.stage == 2 {
+		if s.relevancy != nil {
+			if err := s.relevancy.PopScopes(count); err != nil {
+				return err
+			}
+		}
+		pop.stage++
+	}
+	if pop.stage == 3 {
+		for pop.theory >= 0 {
+			if err := s.theoryOrder[pop.theory].PopScopes(count); err != nil {
+				return err
+			}
+			pop.theory--
+		}
+		pop.stage++
+	}
+	if pop.stage == 4 {
+		if s.quantifierManager != nil {
+			if err := s.quantifierManager.PopScopes(count); err != nil {
+				return err
+			}
+		}
+		pop.stage++
+	}
+	if pop.stage == 5 {
+		if s.quantifiers != nil {
+			if err := s.quantifiers.PopScopes(count); err != nil {
+				return err
+			}
+		}
+		s.scopes = s.scopes[:pop.level]
+		s.scopeLevel = uint32(pop.level)
+		pop.stage++
+	}
+	if pop.stage == 6 {
+		if pop.preserve {
+			if err := s.restoreLearnedClauses(pop.learned); err != nil {
+				return err
+			}
+			pop.learned = nil
+		}
+		pop.stage++
+	}
+	if pop.preserve {
+		if err := s.restoreLearnedUnits(uint32(pop.level)); err != nil {
+			return err
+		}
+	} else if err := s.discardLearnedUnitsAbove(uint32(pop.level)); err != nil {
 		return err
 	}
-	if count == 0 || count > uint32(len(s.scopes)) {
-		return ast.ErrASTDomain
-	}
-	level := len(s.scopes) - int(count)
-	preserve := s.searching && uint32(level) >= s.searchBaseLevel
-	var learned []smtPreservedLearnedClause
-	var err error
-	if preserve {
-		learned, err = s.preserveLearnedClauses(s.scopes[level].clauseLimit)
-		if err != nil {
-			return err
-		}
-	}
-	if err := s.popTo(s.scopes[level]); err != nil {
-		return errors.Join(err, s.releasePreservedLearnedClauses(learned))
-	}
-	if s.relevancy != nil {
-		if err := s.relevancy.PopScopes(count); err != nil {
-			return errors.Join(err, s.releasePreservedLearnedClauses(learned))
-		}
-	}
-	for index := len(s.theoryOrder) - 1; index >= 0; index-- {
-		if err := s.theoryOrder[index].PopScopes(count); err != nil {
-			return errors.Join(err, s.releasePreservedLearnedClauses(learned))
-		}
-	}
-	if s.quantifierManager != nil {
-		if err := s.quantifierManager.PopScopes(count); err != nil {
-			return errors.Join(err, s.releasePreservedLearnedClauses(learned))
-		}
-	}
-	if s.quantifiers != nil {
-		if err := s.quantifiers.PopScopes(count); err != nil {
-			return errors.Join(err, s.releasePreservedLearnedClauses(learned))
-		}
-	}
-	s.scopes = s.scopes[:level]
-	s.scopeLevel = uint32(level)
-	if preserve {
-		if err = s.restoreLearnedClauses(learned); err != nil {
-			return err
-		}
-		return s.restoreLearnedUnits(uint32(level))
-	}
-	return s.discardLearnedUnitsAbove(uint32(level))
+	s.pendingPop = nil
+	return nil
 }
 
 func (s *SMTInternalizerState) Statistics() SMTContextStatistics {
@@ -1133,86 +1241,113 @@ func (s *SMTInternalizerState) Statistics() SMTContextStatistics {
 }
 
 func (s *SMTInternalizerState) Close() error {
-	if s == nil || s.manager == nil {
+	if s == nil {
 		return ast.ErrASTHandle
 	}
 	if s.closed {
 		return nil
 	}
-	var result error
+	if s.manager == nil {
+		return ast.ErrASTHandle
+	}
+	s.closing = true
+	active := s.popActive
+	s.popActive = true
+	defer func() { s.popActive = active }()
 	if s.lemmaProblem != nil {
 		if err := s.lemmaProblem.close(); err != nil {
-			result = errors.Join(result, err)
+			return err
 		} else {
 			s.lemmaProblem = nil
 		}
 	}
+	if s.pendingPop != nil {
+		if err := s.PopScopes(s.pendingPop.count); err != nil {
+			return fmt.Errorf("resume closing SMT scopes: %w", err)
+		}
+	}
 	if len(s.scopes) != 0 {
 		if err := s.PopScopes(uint32(len(s.scopes))); err != nil {
-			result = errors.Join(result, fmt.Errorf("close SMT scopes: %w", err))
+			return fmt.Errorf("close SMT scopes: %w", err)
 		}
 	}
 	if err := s.popTo(smtInternalizerScope{}); err != nil {
-		result = errors.Join(result, fmt.Errorf("close SMT root scope: %w", err))
+		return fmt.Errorf("close SMT root scope: %w", err)
 	}
-	for i := len(s.theoryOrder) - 1; i >= 0; i-- {
+	for len(s.theoryOrder) != 0 {
+		i := len(s.theoryOrder) - 1
 		if closer, ok := s.theoryOrder[i].(interface{ Close() error }); ok {
 			if err := closer.Close(); err != nil {
-				result = errors.Join(result, fmt.Errorf("close SMT theory %T: %w", s.theoryOrder[i], err))
+				return fmt.Errorf("close SMT theory %T: %w", s.theoryOrder[i], err)
 			}
 		}
+		s.theoryOrder = s.theoryOrder[:i]
 	}
-	result = errors.Join(result, s.releaseLearnedUnits())
-	result = errors.Join(result, s.releaseBooleanActivityCache())
+	if err := s.releaseLearnedUnits(); err != nil {
+		return err
+	}
+	if err := s.releaseBooleanActivityCache(); err != nil {
+		return err
+	}
 	if s.theoryAwareBranching != nil {
-		result = errors.Join(result, s.theoryAwareBranching.heap.Close())
+		if err := s.theoryAwareBranching.heap.Close(); err != nil {
+			return err
+		}
 		s.theoryAwareBranching = nil
 	}
 	if s.delayedActivity != nil {
 		if err := s.delayedActivity.Close(); err != nil {
-			result = errors.Join(result, err)
+			return err
 		} else {
 			s.delayedActivity = nil
 		}
 	}
 	if s.basicActivity != nil {
 		if err := s.basicActivity.Close(); err != nil {
-			result = errors.Join(result, err)
+			return err
 		} else {
 			s.basicActivity = nil
 		}
 	}
 	if s.relevanceGoal.heap != nil {
 		if err := s.relevanceGoal.heap.Close(); err != nil {
-			result = errors.Join(result, err)
+			return err
 		} else {
 			s.relevanceGoal.heap = nil
 		}
 	}
 	if s.relevanceActivity.delayed != nil {
 		if err := s.relevanceActivity.delayed.Close(); err != nil {
-			result = errors.Join(result, err)
+			return err
 		} else {
 			s.relevanceActivity.delayed = nil
 		}
 	}
-	result = errors.Join(result, s.dynamicAck.close())
+	if err := s.dynamicAck.close(); err != nil {
+		return err
+	}
 	if s.quantifierManager != nil {
-		result = errors.Join(result, s.quantifierManager.Close())
+		if err := s.quantifierManager.Close(); err != nil {
+			return err
+		}
+		s.quantifierManager = nil
 	}
 	if s.quantifiers != nil {
-		result = errors.Join(result, s.quantifiers.schedule.Reset())
-	}
-	result = errors.Join(result, s.congruence.Close())
-	if result == nil {
-		if s.relevancy != nil && s.relevancy.internalizer == s {
-			s.relevancy.internalizer = nil
+		if err := s.quantifiers.schedule.Reset(); err != nil {
+			return err
 		}
-		s.closed = true
-		s.theoryRewriter = nil
-		s.smtParams = nil
-		s.context = nil
-		s.manager = nil
+		s.quantifiers = nil
 	}
-	return result
+	if err := s.congruence.Close(); err != nil {
+		return err
+	}
+	if s.relevancy != nil && s.relevancy.internalizer == s {
+		s.relevancy.internalizer = nil
+	}
+	s.closed = true
+	s.theoryRewriter = nil
+	s.smtParams = nil
+	s.context = nil
+	s.manager = nil
+	return nil
 }

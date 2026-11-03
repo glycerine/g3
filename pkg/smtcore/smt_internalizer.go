@@ -215,11 +215,13 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 			if err != nil {
 				return err
 			}
-			if err = s.AssignLiteral(kept[0], wrapped); err != nil {
-				return err
+			before := len(s.assignedLiterals)
+			beforeAssignment := s.assignment[kept[0].Index()]
+			err = s.AssignLiteral(kept[0], wrapped)
+			if err == nil || len(s.assignedLiterals) != before || s.assignment[kept[0].Index()] != beforeAssignment {
+				s.ownedJustifications = append(s.ownedJustifications, justification)
 			}
-			s.ownedJustifications = append(s.ownedJustifications, justification)
-			return nil
+			return err
 		}
 		if !proof.IsNull() {
 			owner, err := NewSMTJustificationProofWrapper(s.manager, proof, false)
@@ -230,11 +232,14 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 			if err != nil {
 				return errors.Join(err, owner.Release(s.manager))
 			}
-			if err = s.AssignLiteral(kept[0], wrapped); err != nil {
+			before := len(s.assignedLiterals)
+			beforeAssignment := s.assignment[kept[0].Index()]
+			err = s.AssignLiteral(kept[0], wrapped)
+			if err != nil && len(s.assignedLiterals) == before && s.assignment[kept[0].Index()] == beforeAssignment {
 				return errors.Join(err, owner.Release(s.manager))
 			}
 			s.ownedJustifications = append(s.ownedJustifications, owner)
-			return nil
+			return err
 		}
 		return s.assignLiteral(kept[0])
 	}
@@ -427,8 +432,7 @@ func (s *SMTInternalizerState) addLearnedClauseWithProof(literals []SMTLiteral, 
 	}
 	if err := s.addClauseKind(literals, false, SMTClauseLearned, proof); err != nil {
 		if len(s.learnedUnits) != unitCount {
-			err = errors.Join(err, s.releaseLearnedUnit(&s.learnedUnits[len(s.learnedUnits)-1]))
-			s.learnedUnits = s.learnedUnits[:unitCount]
+			err = errors.Join(err, s.discardLearnedUnitsFrom(unitCount))
 		}
 		return err
 	}

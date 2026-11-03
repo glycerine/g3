@@ -190,25 +190,29 @@ func (s *SMTInternalizerState) closeClause(record *SMTInternalizedClause) error 
 	if record.clause == nil {
 		return nil
 	}
-	for index := 0; index < 2; index++ {
-		literal, err := record.clause.Literal(index)
+	for record.closeWatches < 2 {
+		literal, err := record.clause.Literal(int(record.closeWatches))
 		if err != nil {
 			return err
 		}
 		if !s.watches[literal.Negated().Index()].RemoveClause(record.clause) {
 			return ast.ErrASTDomain
 		}
+		record.closeWatches++
 	}
-	var result error
 	// Auxiliary clauses do not own their optional proof justification. Lemma
 	// clauses do, so their record only keeps a non-owning interface reference.
 	if record.owner != nil && !record.clause.IsLemma() {
-		result = errors.Join(result, record.owner.Release(s.manager))
+		if err := record.owner.Release(s.manager); err != nil {
+			return err
+		}
 	}
 	record.owner = nil
-	result = errors.Join(result, record.clause.Close())
+	if err := record.clause.Close(); err != nil {
+		return err
+	}
 	record.clause = nil
-	return result
+	return nil
 }
 
 // Propagate runs source two-watched-literal Boolean constraint propagation.
