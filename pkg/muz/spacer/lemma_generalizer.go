@@ -304,24 +304,18 @@ func (p *PredicateTransformer) expandInductiveBitVectorEquality(owner *literalEx
 	return result, true, nil
 }
 
-func (p *PredicateTransformer) generalizeInductiveLemma(obligation *ProofObligation, lemma *Lemma) (_ *Lemma, resultErr error) {
+func (p *PredicateTransformer) generalizeInductiveLemma(obligation *ProofObligation, lemma *Lemma) (result *Lemma, resultErr error) {
 	cube, err := lemma.Cube()
 	if err != nil || len(cube) == 0 {
 		return lemma, err
 	}
 	// Source cube and extra_lits are owning vectors. Keep all solver cores
 	// and speculative expansion candidates until the final lemma owns its cube.
-	var held []ast.ASTRef
-	var expansions []*literalExpansion
-	defer func() {
-		for _, expanded := range expansions {
-			resultErr = errors.Join(resultErr, expanded.Close())
-		}
-	}()
-	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, held)) }()
+	expansions := &literalExpansionListOwner{manager: p.manager, runtime: p.manager.NumeralService().RuntimeOwner()}
+	defer func() { result, resultErr = finishInductiveGeneralization(expansions, lemma, result, resultErr) }()
 	checkCube := func(cube []ast.ASTHandle, level uint32) ([]ast.ASTHandle, uint32, bool, error) {
 		refs, used, inductive, err := p.checkInductiveCube(cube, level)
-		held = append(held, refs...)
+		expansions.adoptRefs(refs)
 		if err != nil {
 			return nil, used, inductive, err
 		}
@@ -374,7 +368,7 @@ func (p *PredicateTransformer) generalizeInductiveLemma(obligation *ProofObligat
 		if expandErr != nil {
 			return lemma, expandErr
 		}
-		expansions = append(expansions, expansion)
+		expansions.adopt(expansion)
 		expanded := expansion.literals
 		found := false
 		if len(expanded) > 1 || expanded[0] != literal {
