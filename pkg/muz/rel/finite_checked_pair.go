@@ -424,6 +424,8 @@ func (p *FiniteCheckedPair) SizeEstimateBytes() (uint32, error) {
 		return primary.SizeEstimateBytes()
 	case *SparseTable:
 		return primary.SizeEstimateBytes()
+	case *LazySparseTable:
+		return primary.SizeEstimateBytes()
 	default:
 		return 0, ErrCheckTable
 	}

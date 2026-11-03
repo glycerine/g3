@@ -415,6 +415,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/check_relation.cpp` (partial), `src/muz/rel/check_relation.h` (partial)
   - [x] Live `datalog.check_relation` selection for concrete hashtable/doc execution, local precedence, checked derived facts, persistent publication and scoped cleanup.
   - [x] Concrete sparse checker pairing, native `tr_hashtable`/`tr_sparse` names, independent primary/checker copies and zero-arity sparse fallback.
+  - [x] Construct a concrete outer formula checker around an inner primary/check-table finite pair with typed operations, lazy estimates and retryable failure ownership.
 - [ ] `src/muz/rel/dl_base.cpp` (partial), `src/muz/rel/dl_base.h` (partial)
 - [ ] `src/muz/rel/dl_bound_relation.cpp` (partial), `src/muz/rel/dl_bound_relation.h` (partial)
   - [x] Concrete Int/Real/nullary plugin capability, empty/full construction, and typed join dispatch.
@@ -502,6 +503,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Added the concrete nested formula-checked finite pair used by combined `check_relation` and `check_table`: exact signature preflight, clone/select/project/join/union/filter operations, lazy estimates and child-first retry ownership preserve all three layers. Public explanation/magic dispatch follows in the next checkpoint.
+  Validation: `go -C pkg test ./muz/rel -run '^TestFormulaCheckedFinitePair' -count=3` passed. Commit title: `Construct nested formula checked finite pairs`.
 
 - 2026-11-02 — Formula-checked table cloning now preserves the strong result owner through refused native cleanup. Nested construction receipts drain child-first, runtime and semantic/cleanup causes stay stable, and retry releases the exact formula/table frontier; deeper checker integration remains a separate slice.
   Validation: `go -C pkg test ./muz/rel -run '^(TestFormulaCheckedTableConstructionCleanupRefusal|TestFormulaCheckedTable|TestFormulaCheckedFinitePair)' -count=3` passed. Commit title: `Preserve formula checked clones through cleanup refusal`.
