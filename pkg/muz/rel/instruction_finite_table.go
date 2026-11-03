@@ -62,7 +62,10 @@ func emptyFiniteLike(table FiniteTable) (FiniteTable, error) {
 }
 
 func newFiniteJoinResult(signature Signature, functional int, first, second FiniteTable) (FiniteTable, error) {
-	if lazy, ok := first.(*LazySparseTable); ok {
+	// Source default_table_join_fn asks each actual plugin whether it can
+	// handle the result. Lazy Sparse inherits Sparse's nonnullary capability;
+	// its same-kind direct join above this fallback can still return Lazy.
+	if lazy, ok := first.(*LazySparseTable); ok && signature.Len() != 0 {
 		return lazySparseInstructionResult(lazy, signature, functional)
 	}
 	if _, sparse := first.(*SparseTable); sparse && signature.Len() != 0 {
@@ -76,7 +79,7 @@ func newFiniteJoinResult(signature Signature, functional int, first, second Fini
 	if _, sparse := second.(*SparseTable); sparse && signature.Len() != 0 {
 		return NewSparseTable(signature, functional)
 	}
-	if lazy, ok := second.(*LazySparseTable); ok {
+	if lazy, ok := second.(*LazySparseTable); ok && signature.Len() != 0 {
 		return lazySparseInstructionResult(lazy, signature, functional)
 	}
 	return NewHashTable(signature), nil
