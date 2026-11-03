@@ -312,21 +312,35 @@ func TestBMCQuantifiedLinearSearchPreservesSolverScope(t *testing.T) {
 	}
 	services, err := context.ModelEvaluatorConfig()
 	must(err)
+	// Warm the model-evaluator and indexed symbols before checking exact
+	// ownership accounting across every trace-construction failure prefix.
+	warmTrace, err := compiler.QuantifiedLinearTrace(set, goal, width, md, services)
+	must(err)
+	for i := len(warmTrace) - 1; i >= 0; i-- {
+		must(warmTrace[i].Close())
+	}
 	completed, failures := false, 0
 	for stop := int64(0); stop < 512 && !completed; stop++ {
+		beforeBytes, beforeRefs := budget.Used(), m.Stats().LiveReferences
 		budget.FailAfter(stop)
 		candidate, cause := compiler.QuantifiedLinearTrace(set, goal, width, md, services)
 		budget.FailAfter(-1)
 		for i := len(candidate) - 1; i >= 0; i-- {
 			must(candidate[i].Close())
 		}
+		var construction memory.ConstructionFailure
+		if errors.As(cause, &construction) {
+			must(construction.Cleanup())
+		}
+		if budget.Used() != beforeBytes || m.Stats().LiveReferences != beforeRefs {
+			t.Fatalf("trace frontier %d changed owners: bytes %d/%d refs %d/%d; cause %v", stop, budget.Used(), beforeBytes, m.Stats().LiveReferences, beforeRefs, cause)
+		}
 		if cause == nil {
 			completed = true
 			break
 		}
-		var construction memory.ConstructionFailure
-		if errors.As(cause, &construction) {
-			must(construction.Cleanup())
+		if len(candidate) != 0 {
+			t.Fatal("failed trace published selected rules", stop, len(candidate), cause)
 		}
 		var memout memory.Failure
 		if !errors.Is(cause, arena.ErrInjectedFailure) && (!errors.As(cause, &memout) || memout.Kind != memory.FailureMemout) {

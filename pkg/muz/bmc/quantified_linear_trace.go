@@ -3,7 +3,6 @@ package bmc
 // Source: src/muz/bmc/dl_bmc_engine.cpp, qlinear::get_model rule tracing.
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -37,27 +36,20 @@ func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandl
 		return nil, ast.ErrASTHandle
 	}
 	m := c.manager
+	owner := &quantifiedLinearTraceOwner{manager: m}
 	defer func() {
-		if resultErr != nil {
-			for i := len(result) - 1; i >= 0; i-- {
-				resultErr = errors.Join(resultErr, result[i].rule.Close())
-			}
-			result = nil
-		}
+		result, resultErr = finishQuantifiedLinearTrace(owner, resultErr)
 	}()
 	q, err := newQuantifiedLinear(m, width)
+	owner.terms = q
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, q.dispose()) }()
 	evaluator, err := model.NewModelEvaluator(md, services)
+	owner.evaluator = evaluator
 	if err != nil {
-		if evaluator != nil {
-			err = errors.Join(err, evaluator.Close())
-		}
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
 	name, err := m.Symbols.Intern("T")
 	if err != nil {
 		return nil, err
@@ -96,13 +88,12 @@ func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandl
 		if e != nil {
 			return result, e
 		}
-		group, e := rules.PredicateRules(predicate)
+		owner.group, e = rules.PredicateRules(predicate)
 		if e != nil {
 			return result, e
 		}
-		var selected *base.Rule
 		var selectedIndex uint32
-		for i, rule := range group {
+		for i, rule := range owner.group {
 			atom, cause := q.rule(predicate, uint32(i))
 			if cause == nil {
 				var decl ast.ASTHandle
@@ -118,7 +109,7 @@ func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandl
 					var h ast.ASTHandle
 					h, cause = m.RefGet(evaluated)
 					if cause == nil && m.IsTrue(h) {
-						selected, cause = rule.Retain()
+						owner.selected, cause = rule.Retain()
 						selectedIndex = uint32(i)
 					}
 					cause = disposeASTRefs(m, []ast.ASTRef{evaluated}, cause)
@@ -128,23 +119,22 @@ func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandl
 				e = cause
 				break
 			}
-			if selected != nil {
+			if owner.selected != nil {
 				break
 			}
 		}
-		for i := len(group) - 1; i >= 0; i-- {
-			e = errors.Join(e, group[i].Close())
-		}
 		if e != nil {
-			if selected != nil {
-				e = errors.Join(e, selected.Close())
-			}
 			return result, e
 		}
-		if selected == nil {
+		if e = owner.closeGroup(); e != nil {
+			return result, e
+		}
+		if owner.selected == nil {
 			return result, fmt.Errorf("bmc: model has no selected quantified rule at level %d", level)
 		}
-		result = append(result, quantifiedLinearStep{rule: selected, index: selectedIndex, level: level})
+		selected := owner.selected
+		owner.steps = append(owner.steps, quantifiedLinearStep{rule: selected, index: selectedIndex, level: level})
+		owner.selected = nil
 		tails, e := selected.UninterpretedTailSize()
 		if e != nil {
 			return result, e
