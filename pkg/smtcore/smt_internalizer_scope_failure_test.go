@@ -47,7 +47,7 @@ func TestSMTInternalizerPopResumesNativeRootRetirement(t *testing.T) {
 					astTestMust(t, state.addLearnedClauseWithProof(literals, proof, false))
 				}
 				trigger()
-				if !errors.Is(failure, ast.ErrASTPending) || state.pendingPop == nil || state.scopeLevel != 1 {
+				if !errors.Is(failure, ast.ErrASTPending) || state.scopeLevel != 1 || (!closeOnly && state.pendingPop == nil) || (closeOnly && !state.closing) {
 					t.Fatal("native refusal lost its pending scope", failure, state.pendingPop, state.scopeLevel)
 				}
 				switch owner {

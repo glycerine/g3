@@ -1262,18 +1262,25 @@ func (s *SMTInternalizerState) Close() error {
 		}
 	}
 	if s.pendingPop != nil {
-		if err := s.PopScopes(s.pendingPop.count); err != nil {
-			return fmt.Errorf("resume closing SMT scopes: %w", err)
+		// context::flush destroys owners instead of completing an operational
+		// pop. A numeric theory may already have consumed its scope and allow
+		// only Close after failure. Retire the pop's lexical roots without
+		// restoring learned clauses or invoking that theory a second time.
+		if err := s.releasePreservedLearnedClauses(s.pendingPop.learned); err != nil {
+			return fmt.Errorf("close preserved SMT clauses: %w", err)
 		}
-	}
-	if len(s.scopes) != 0 {
-		if err := s.PopScopes(uint32(len(s.scopes))); err != nil {
-			return fmt.Errorf("close SMT scopes: %w", err)
-		}
+		s.pendingPop = nil
 	}
 	if err := s.popTo(smtInternalizerScope{}); err != nil {
 		return fmt.Errorf("close SMT root scope: %w", err)
 	}
+	if s.relevancy != nil && len(s.relevancy.scopes) != 0 {
+		if err := s.relevancy.PopScopes(uint32(len(s.relevancy.scopes))); err != nil {
+			return err
+		}
+	}
+	s.scopes = nil
+	s.scopeLevel = 0
 	for len(s.theoryOrder) != 0 {
 		i := len(s.theoryOrder) - 1
 		if closer, ok := s.theoryOrder[i].(interface{ Close() error }); ok {
@@ -1336,6 +1343,15 @@ func (s *SMTInternalizerState) Close() error {
 		if err := s.quantifiers.schedule.Reset(); err != nil {
 			return err
 		}
+		// The registry is borrowed. Its queued instances and scope bookkeeping
+		// belong to this context; other registrations are left with its owner.
+		if s.quantifiers.fingerprints != nil {
+			s.quantifiers.fingerprints.Reset()
+			s.quantifiers.fingerprints.scopes = nil
+		}
+		s.quantifiers.scopeLevel = 0
+		s.quantifiers.pendingPop = 0
+		s.quantifiers.popScheduled = false
 		s.quantifiers = nil
 	}
 	if err := s.congruence.Close(); err != nil {
