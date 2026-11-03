@@ -97,7 +97,7 @@ func (c *DatalogContext) FreshHeadPredicate(prefix, suffix usymbol.Symbol, domai
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = c.RegisterPredicate(d, false); err != nil {
+	if err = c.RegisterPredicate(d, true); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	return d, nil

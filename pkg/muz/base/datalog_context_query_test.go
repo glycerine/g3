@@ -48,6 +48,13 @@ func TestDatalogContextAddQueryLowersFreeVariableBody(t *testing.T) {
 	ruleMust(t, err)
 	queryPredicate, err := f.context.AddQuery(body)
 	ruleMust(t, err)
+	queryName, err := f.manager.GetASTName(queryPredicate)
+	ruleMust(t, err)
+	registered, found, err := f.context.Predicate(queryName)
+	ruleMust(t, err)
+	if !found || registered != queryPredicate {
+		t.Fatal("fresh query predicate name was not registered", registered, found)
+	}
 	if arity, err := f.manager.GetArity(queryPredicate); err != nil || arity != 1 {
 		t.Fatal("query arity", arity, err)
 	}
