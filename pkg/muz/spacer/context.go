@@ -685,6 +685,13 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 	if c.query == nil {
 		return c.finishEarlyUnreachable(fromLevel)
 	}
+	// The Go context also constructs transformers for registered/output
+	// predicates that the source init_rules traversal never encounters. Treat
+	// such a metadata-only query like the source's absent transformer, while a
+	// ruleless predicate reached from another rule remains a live tail query.
+	if len(c.query.rules) == 0 && len(c.query.uses) == 0 {
+		return c.finishEarlyUnreachable(fromLevel)
+	}
 	truth, err := c.manager.MkTrue()
 	if err != nil {
 		return lbool.Undef, err
