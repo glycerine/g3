@@ -14,7 +14,7 @@ The user approved parallel implementation on 2026-11-02. Prioritize live solver 
 
 Use the available parallel worker capacity for independent implementation and source-audit lanes selected from current unchecked functional items: shared context selection/enumeration, engine and proof behavior, live Duality consumers, and registered relational plugins. Give shared files one owner and coordinate cross-lane changes through integration; prepare helper definitions before publishing callers so the shared tree stays compilable. Each lane delivers a source-backed behavior change or meaningful semantic regression, with focused native tests and explicit remaining gaps. The integration owner reviews patches, coordinates checklist/inventory updates and commits passing slices, targeting 5–10-minute checkpoints. Do not wait for every lane before committing a ready slice.
 
-The latest user direction is maximum parallel porting capacity and cancellation of the pending broad test run. Keep that run stopped and use focused native verification for new slices. Checked LazySparse functional indices, relation-level formula-checking finite sieves, typed mixed negation, heterogeneous Hash/nullary originals and source runtime-shape precision are integrated. External default/clone/parameter routing and both recursion schedules, ordinary LazySparse explanation indices, exact finite heterogeneous negation, fused UDoc join/project and public bound execution are now integrated. Manifest/source triage now finds no wholly unported production C++ source unit; the remaining production work is honestly classified as partial. The next live dependency-frontier lanes are UDoc MagicSets and negative/full-column lowering, public external/interval product execution and Duality quantified-proof widening, with targeted remaining source/ownership audits. Keep shared manager/query files under one owner.
+The latest user direction is maximum parallel porting capacity and cancellation of the pending broad test run. Keep that run stopped and use focused native verification for new slices. Checked LazySparse functional indices, relation-level formula-checking finite sieves, typed mixed negation, heterogeneous Hash/nullary originals and source runtime-shape precision are integrated. External default/clone/parameter routing and both recursion schedules, ordinary LazySparse explanation indices, exact finite heterogeneous negation, fused UDoc join/project and public bound execution are now integrated. Manifest/source triage now finds no wholly unported production C++ source unit; the remaining production work is honestly classified as partial. UDoc MagicSets and negative/full-column lowering, relation-free Duality quantified-proof reconstruction, source MagicSets tail costing, PDR fresh-query resets and both PDR/Spacer zero-rule shortcuts are integrated. The next live dependency-frontier lanes are MagicSets requested-kind inheritance, public external/interval product execution, PDR/Spacer interface diagnostics and the remaining proof/model ownership audits. Keep shared manager/query files under one owner.
 
 Run relevant focused cross-package checks at integration; the explicitly canceled broad native run must not restart. The user continues checked/debug validation. Track completed behaviors and dependencies rather than translated-file counts; keep partial source statuses until the wider audit is actually complete.
 
@@ -63,6 +63,8 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
     - [x] Implement direct Context.Reset with frame/result disposal, repeatable cleanup, preserved caller-owned answers and Boolean/arithmetic reinitialization.
     - [x] Route direct-query interface invalidation through reset while keeping configuration changes on their separate reconstruction path.
     - [x] Release retired solver pools on reset, preserve cumulative counters and verify repeated reset/solve cycles keep the live pool bounded.
+  - [x] Match the fresh synthetic-query lifecycle: every post-first PDR/QPDR query resets and reinstalls the same configured context, discarding prior frames/covers while preserving first-query preloaded covers.
+  - [x] Bypass `context::solve` for empty transformed PDR/QPDR programs after installing query state, preserving false Model/Answer export without validation, cancellation or solve diagnostics.
   - [ ] Close expression-query clone lifecycle, including propagation of pre-query properties, cumulative statistics and model/proof ownership.
     - [x] Invalidate pre-query PDR constructor state immediately on parameter updates; test invalid settings and successful retry before any query.
     - [x] Carry pre-query PDR/QPDR covers into the expression-query engine and forward property access to the active query owner.
@@ -168,6 +170,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 
 ## 4. Spacer — second engine closure
 
+- [x] Bypass `context::solve` for empty transformed ordinary/from-level programs after query/update installation, preserving Model/Answer ownership while skipping validation, timers, queues and statistics output.
 - [x] Check live next-frame invariants against source premises with a fresh fparams2 solver, and invoke the conditional assertion after blocking-lemma insertion with the level-zero short circuit. Native guard-boundary refusal preserves scalar roots and the solver; checker TRACE presentation and broader context ownership remain separate.
 - [x] Re-evaluate the source false-lemma/Farkas gate before every enabled ordered generalizer, stop after false strengthening and checkpoint before the sanity stage; an actual inductive-strengthening regression verifies the skipped solver invocation.
 - [ ] Close `spacer_context` reach-fact selection, predecessor tags, obligation search and ownership/exception audits.
@@ -284,6 +287,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 - [ ] Audit interpolation learning, generalization, proof cores, underapproximation, Gaussian elimination and integer/array projection.
 - [ ] Preserve independent cleanup/resource errors through recovery and restart paths; extend actual-path failure campaigns where coverage is missing.
 - [ ] Close fixedpoint registration, preprocessing/model conversion, quantified witness reconstruction, proofs and certificate export.
+  - [x] Reconstruct relation-free quantified theory premises, including equality/Iff witness binding and Boolean arrays, while requiring explicit recursive parents for relation premises and independently validating proof closure and side conditions.
 - [ ] Test recursive, mutually recursive and nonlinear SAT/UNSAT plus original-clause proof/certificate validity.
 - [ ] Close wrapper numerical ownership, diagnostics, profiling and all live conditional branches.
 - [ ] Close all Duality source obligations before declaring the engine complete.
@@ -331,6 +335,8 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 - [ ] Audit remaining transforms, dataflow and DDNF consumers, including interactions with engine-specific preprocessing.
   - [x] Make cone-of-influence fact detection representation-neutral through RelationManager storage, including per-fact and whole-relation explanation products.
   - [x] Make simple-join costing representation-neutral through relation row estimates, including exact per-fact explanation counts and conservative whole-relation product estimates.
+  - [x] Activate query-local MagicSets over UDoc seeds and generated predicates with transactional clone rollback.
+  - [x] Select eligible MagicSets tails by the source minimum unbound-domain product, including finite, rule-sort and infinite cardinality fallbacks with first-candidate ties.
 
 ## 7. Acceptance gates
 
@@ -545,6 +551,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Fuse interpreted filtering with projection over typed UDoc relations, including source `is_var_range` equality extraction for finite-sort variables while keeping the ordinary finite guard language narrow.
   - [x] Add full finite columns for condition-only variables and dispatch the fused guard/project operation from public rule execution when body variables are absent from the head.
   - [x] Execute bound-variable and nullary negative tails through typed anti-joins in finalized source strata, rejecting negative cycles and unsupported shapes before evaluation.
+  - [x] Lower zero-positive, negative-only, constant/unbound/repeated negative variables, interpreted-only variables and unsafe/repeated heads through full finite columns, nullary units and source-ordered projection/join assembly with whole-program preflight.
   - [ ] Add mixed representation composition, model/finite enumeration and remaining UDoc method/ownership parity.
 
 ### spacer
@@ -1722,3 +1729,17 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-02 — Corrected the generated fixedpoint named-update replay to match source normalization phases: an update before the queued add is flushed produces the normalized update plus the pending original. The replay checks both entries, keeps its manifest evidence identifier and passes focused runs; the complete native API package passed in 37.261s. Commits: `Correct fixedpoint replay update phase expectations` and `Restore fixedpoint replay evidence identifier`.
 
 - 2026-11-02 — Integrated the current ownership batch in nine small implementation commits: stable Spacer implicant receipts, array/equality/inductive generalizer frontiers, TAB tautology scopes and four legacy-array QE construction/finalization paths. Independent reviews caught and closed partial-Push publication, nested cleanup ownership, unpublished-lemma disposal, consumed-reference continuation, store-result double close and ExprEquivClass retry wedges before integration. The complete native affected-package gate passed: ast 18.052s, Spacer 2.327s, TAB 0.066s and QE 93.798s; no checked/debug tags ran. Final portcheck passed for 2103 units and 677 APIs with 1306 ported, 258 partial, 365 unported and 29 dead/deleted. Read-only manifest/source triage confirms that the 365 unported entries contain no production C++ source unit, so subsequent work continues on the live partial dependency frontier instead of fabricating a new-source batch.
+
+- 2026-11-02 — Activated query-local MagicSets for UDoc by probing intentional seed facts and synchronizing generated predicates into the query clone before saturation. Seeded, derived, false-result and rollback cases passed focused fixedpoint/transform checks and independent review. Commit: `Activate MagicSets for UDoc queries`.
+
+- 2026-11-02 — Widened Duality quantified-premise reconstruction from equality-only guards to relation-free theory antecedents, including Iff witnesses and Boolean arrays. Relation premises still require explicit recursive proof parents; proof closure, source-leaf provenance, semantic entailment and invalid-guard rejection passed both Duality packages and independent review. Commit: `Widen Duality quantified premise reconstruction`.
+
+- 2026-11-02 — Matched PDR/QPDR's empty transformed-program branch by publishing false after query installation without entering solve validation, cancellation or diagnostics. Repeated Model/Answer ownership and both backends passed focused tests. Commit: `Bypass PDR solving for empty transformed programs.`
+
+- 2026-11-02 — Matched MagicSets `pop_bound` ordering with the source minimum unbound-domain product instead of bound-position count. Finite, rule-sort and infinite cardinality cases plus the full native transforms package passed. Commit: `Match MagicSets tail ordering to source domain costs.`
+
+- 2026-11-02 — Completed UDoc full-column lowering for zero-positive, negative-only, constant/unbound/repeated negative variables, interpreted-only witnesses and unsafe/repeated heads. Source-ordered nullary, projection, singleton, self-join and project/join assembly passed the UDoc fixedpoint/negation suites and independent review. Commit: `Complete UDoc negative and full-column rule lowering.`
+
+- 2026-11-02 — Matched the PDR/QPDR fresh synthetic-query lifecycle: every query after the first resets and reinstalls the same configured context, closes old snapshots/transformers and discards post-query frames while preserving pre-query covers. Focused lifecycle tests passed three runs and the complete native fixedpoint package passed. Commit: `Reset PDR state for every fresh synthetic query.`
+
+- 2026-11-02 — Matched Spacer's ordinary and from-level empty transformed-program shortcut after query/update state and conversion installation. False Model/Answer export remains available while validation, allocation, solve timing, queues and statistics output are skipped; full native Spacer/fixedpoint packages and independent review passed. Commit: `Bypass Spacer solving for empty transformed programs.`
