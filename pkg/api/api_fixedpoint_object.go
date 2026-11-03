@@ -11,9 +11,12 @@ import (
 // AST manager but owns declarations, rules, assertions, scopes, and query
 // state, matching the independent Z3_fixedpoint object lifetime.
 type APIFixedpoint struct {
-	owner             *smtContextState
-	command           *cmd_context.Context
-	params            *ParameterSet
+	owner   *smtContextState
+	command *cmd_context.Context
+	// params mirrors api::Z3_fixedpoint_ref::m_params: the latest API update.
+	params *ParameterSet
+	// engineParams mirrors datalog::context::m_params_ref: cumulative updates.
+	engineParams      *ParameterSet
 	retiredParams     []*ParameterSet
 	timeout           uint32
 	hasTimeout        bool
@@ -54,6 +57,12 @@ func (f *APIFixedpoint) Close() error {
 			return err
 		}
 		f.params = nil
+	}
+	if f.engineParams != nil {
+		if err := f.engineParams.Close(); err != nil {
+			return err
+		}
+		f.engineParams = nil
 	}
 	for len(f.retiredParams) != 0 {
 		i := len(f.retiredParams) - 1

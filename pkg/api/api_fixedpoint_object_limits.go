@@ -18,8 +18,8 @@ func (f *APIFixedpoint) effectiveQueryTimeout() (uint32, error) {
 	return (&SMTContext{smtContextState: f.owner}).contextTimeout()
 }
 
-// executeQuery copies the cumulative engine settings but selects the timeout
-// from the latest API parameter update, falling back to the current parent.
+// executeQuery copies the cumulative engine snapshot but selects the timeout
+// from the latest replacement parameter set, falling back to the current parent.
 func (f *APIFixedpoint) executeQuery(limited bool, run func(*uparams.ParamsRef) (lbool.LBool, error)) (status lbool.LBool, resultErr error) {
 	context := &SMTContext{smtContextState: f.owner}
 	timeout, err := f.effectiveQueryTimeout()
@@ -31,8 +31,8 @@ func (f *APIFixedpoint) executeQuery(limited bool, run func(*uparams.ParamsRef) 
 		return lbool.Undef, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, queryParams.Close()) }()
-	if f.params != nil {
-		if err = queryParams.params.Append(&queryParams.value, &f.params.value); err != nil {
+	if f.engineParams != nil {
+		if err = queryParams.params.Append(&queryParams.value, &f.engineParams.value); err != nil {
 			return lbool.Undef, err
 		}
 	}

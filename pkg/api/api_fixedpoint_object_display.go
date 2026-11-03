@@ -18,8 +18,8 @@ func (f *APIFixedpoint) WriteSMT2(output io.Writer, queries ...ast.ASTHandle) er
 		return io.ErrClosedPipe
 	}
 	var local *uparams.ParamsRef
-	if f.params != nil {
-		local = &f.params.value
+	if f.engineParams != nil {
+		local = &f.engineParams.value
 	}
 	return f.command.WriteFixedpointSMT2WithQueryParameters(output, queries, local)
 }
@@ -30,8 +30,8 @@ func (f *APIFixedpoint) SMT2(queries ...ast.ASTHandle) (string, error) {
 	}
 	var output strings.Builder
 	var local *uparams.ParamsRef
-	if f.params != nil {
-		local = &f.params.value
+	if f.engineParams != nil {
+		local = &f.engineParams.value
 	}
 	if err := f.command.WriteFixedpointSMT2WithQueryParameters(&output, queries, local); err != nil {
 		return "", err

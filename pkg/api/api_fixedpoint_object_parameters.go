@@ -22,7 +22,8 @@ func (f *APIFixedpoint) ParameterHelp() (text string, resultErr error) {
 	return d.value.Display(0, false, true)
 }
 
-// SetParameters validates and copies fixedpoint-local options for later queries.
+// SetParameters replaces the API wrapper snapshot and copies the update into
+// the cumulative fixedpoint engine snapshot.
 func (f *APIFixedpoint) SetParameters(parameters *ParameterSet) (resultErr error) {
 	if err := f.open(); err != nil {
 		return err
@@ -65,25 +66,41 @@ func (f *APIFixedpoint) SetParameters(parameters *ParameterSet) (resultErr error
 			resultErr = errors.Join(resultErr, next.Close())
 		}
 	}()
-	if f.params != nil {
-		if err = next.params.Append(&next.value, &f.params.value); err != nil {
-			return err
-		}
-	}
 	if err = next.params.Append(&next.value, &parameters.value); err != nil {
 		return err
 	}
-	if err = f.command.SetFixedpointParameters(&next.value); err != nil {
+	engineNext, err := (&SMTContext{smtContextState: f.owner}).NewParameterSet()
+	if err != nil {
 		return err
 	}
-	old := f.params
-	f.params, published = next, true
-	f.timeout, f.hasTimeout = timeout, hasTimeout
-	if old != nil {
-		if err = old.Close(); err != nil {
-			f.retiredParams = append(f.retiredParams, old)
+	enginePublished := false
+	defer func() {
+		if !enginePublished {
+			resultErr = errors.Join(resultErr, engineNext.Close())
+		}
+	}()
+	if f.engineParams != nil {
+		if err = engineNext.params.Append(&engineNext.value, &f.engineParams.value); err != nil {
 			return err
 		}
 	}
-	return nil
+	if err = engineNext.params.Append(&engineNext.value, &parameters.value); err != nil {
+		return err
+	}
+	if err = f.command.SetFixedpointParameters(&engineNext.value); err != nil {
+		return err
+	}
+	old, oldEngine := f.params, f.engineParams
+	f.params, f.engineParams = next, engineNext
+	published, enginePublished = true, true
+	f.timeout, f.hasTimeout = timeout, hasTimeout
+	for _, prior := range []*ParameterSet{old, oldEngine} {
+		if prior != nil {
+			if closeErr := prior.Close(); closeErr != nil {
+				f.retiredParams = append(f.retiredParams, prior)
+				resultErr = errors.Join(resultErr, closeErr)
+			}
+		}
+	}
+	return resultErr
 }
