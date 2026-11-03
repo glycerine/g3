@@ -1,8 +1,7 @@
 package transforms
 
-// Source: src/muz/transforms/dl_mk_coi_filter.cpp and .h. This file ports the
-// retained rule-pruning core; fixedpoint-context model conversion remains with
-// the future context integration.
+// Source: src/muz/transforms/dl_mk_coi_filter.cpp and .h. Model-converter
+// definitions transfer to the consuming fixedpoint query in source pass order.
 
 import (
 	"errors"
@@ -45,12 +44,16 @@ func newConeResult(source *base.RuleSet) (*base.RuleSet, error) {
 	if err != nil {
 		return nil, err
 	}
+	astManager, err := manager.ASTManager()
+	if err != nil {
+		return nil, err
+	}
 	result, err := base.NewRuleSet(manager)
 	if err != nil {
 		return nil, err
 	}
 	if err = result.InheritPredicates(source); err != nil {
-		return nil, errors.Join(err, result.Close())
+		return nil, closeConeConstruction(astManager, err, nil, []*base.RuleSet{result}, nil)
 	}
 	return result, nil
 }
@@ -113,7 +116,15 @@ func coneHeadDefinition(manager *ast.ASTManager, heads []ast.ASTHandle) (ast.AST
 	return manager.NewRef(formula)
 }
 
-func topDownCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, step ConeModelStep, resultErr error) {
+func topDownCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, _ ConeModelStep, resultErr error) {
+	rules, err := source.RuleManager()
+	if err != nil {
+		return nil, nil, err
+	}
+	manager, err := rules.ASTManager()
+	if err != nil {
+		return nil, nil, err
+	}
 	reachable, err := dataflow.TopDown(source)
 	if err != nil {
 		return nil, nil, err
@@ -123,9 +134,11 @@ func topDownCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, step
 		return nil, nil, err
 	}
 	keepResult := false
+	var step ConeModelStep
+	var current *base.Rule
 	defer func() {
 		if !keepResult || resultErr != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+			resultErr = closeConeConstruction(manager, resultErr, []*base.Rule{current}, []*base.RuleSet{result}, []ConeModelStep{step})
 		}
 	}()
 	count, err := source.Len()
@@ -135,12 +148,12 @@ func topDownCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, step
 	kept := 0
 	pruned := make(map[ast.ASTHandle][]ast.ASTHandle)
 	var prunedOrder []ast.ASTHandle
-	var manager *ast.ASTManager
 	for i := 0; i < count; i++ {
 		rule, e := source.Rule(i)
 		if e != nil {
 			return nil, nil, e
 		}
+		current = rule
 		head, e := rule.HeadDeclaration()
 		if e == nil {
 			if reachable.IsReachable(head) {
@@ -152,9 +165,6 @@ func topDownCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, step
 				var application ast.ASTHandle
 				application, e = rule.Head()
 				if e == nil {
-					manager, e = rule.ASTManager()
-				}
-				if e == nil {
 					if _, found := pruned[head]; !found {
 						prunedOrder = append(prunedOrder, head)
 					}
@@ -164,6 +174,8 @@ func topDownCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, step
 		}
 		if cleanup := rule.Close(); cleanup != nil {
 			e = errors.Join(e, cleanup)
+		} else {
+			current = nil
 		}
 		if e != nil {
 			return nil, nil, e
@@ -180,7 +192,7 @@ func topDownCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, step
 			heads := pruned[declaration]
 			formula, makeErr := coneHeadDefinition(manager, heads)
 			if makeErr != nil {
-				return nil, nil, errors.Join(makeErr, closeConeModelSteps([]ConeModelStep{step}))
+				return nil, nil, makeErr
 			}
 			step = append(step, ConeModelDefinition{Declaration: declaration, Formula: formula, manager: manager})
 		}
@@ -189,42 +201,49 @@ func topDownCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, step
 	return result, step, nil
 }
 
-func filteredRule(manager *base.RuleManager, rule *base.Rule, reachable *dataflow.Reachability) (*base.Rule, bool, error) {
-	positive, err := rule.PositiveTailSize()
-	if err != nil {
-		return nil, false, err
-	}
+type coneRuleFilter struct {
+	replacement   *base.Rule
+	keep, bailout bool
+	unreachable   []ast.ASTHandle
+}
+
+func filteredRule(manager *base.RuleManager, rule *base.Rule, reachable *dataflow.Reachability, relations *rel.RelationManager) (result coneRuleFilter, resultErr error) {
 	uninterpreted, err := rule.UninterpretedTailSize()
 	if err != nil {
-		return nil, false, err
+		return result, err
 	}
 	tailSize, err := rule.TailSize()
 	if err != nil {
-		return nil, false, err
+		return result, err
 	}
 	removed := false
-	for i := 0; i < positive; i++ {
-		declaration, e := rule.TailDeclaration(i)
-		if e != nil {
-			return nil, false, e
-		}
-		if !reachable.IsReachable(declaration) {
-			return nil, false, nil
-		}
-	}
 	tail := make([]ast.ASTHandle, 0, tailSize)
 	negated := make([]bool, 0, tailSize)
 	for i := 0; i < tailSize; i++ {
 		expression, negative, e := rule.Tail(i)
 		if e != nil {
-			return nil, false, e
+			return result, e
 		}
-		if i < uninterpreted && negative {
+		if i < uninterpreted {
 			declaration, x := rule.TailDeclaration(i)
 			if x != nil {
-				return nil, false, x
+				return result, x
+			}
+			if relations != nil {
+				materialized, x := relations.HasFacts(declaration)
+				if x != nil {
+					return result, x
+				}
+				if materialized {
+					result.bailout = true
+					return result, nil
+				}
 			}
 			if !reachable.IsReachable(declaration) {
+				result.unreachable = append(result.unreachable, declaration)
+				if !negative {
+					return result, nil
+				}
 				removed = true
 				continue
 			}
@@ -232,22 +251,19 @@ func filteredRule(manager *base.RuleManager, rule *base.Rule, reachable *dataflo
 		tail = append(tail, expression)
 		negated = append(negated, negative)
 	}
+	result.keep = true
 	if !removed {
-		return nil, true, nil
+		return result, nil
 	}
 	head, err := rule.Head()
 	if err != nil {
-		return nil, false, err
+		return result, err
 	}
-	name, err := rule.Name()
-	if err != nil {
-		return nil, false, err
-	}
-	replacement, err := manager.NewRule(head, tail, negated, name)
-	return replacement, true, err
+	result.replacement, err = manager.NewUnnormalizedRule(head, tail, negated, "")
+	return result, err
 }
 
-func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.RelationManager) (_ *base.RuleSet, step ConeModelStep, resultErr error) {
+func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.RelationManager) (_ *base.RuleSet, _ ConeModelStep, resultErr error) {
 	reachable, err := dataflow.BottomUp(source)
 	if err != nil {
 		return nil, nil, err
@@ -256,14 +272,20 @@ func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.Relati
 	if err != nil {
 		return nil, nil, err
 	}
+	astManager, err := manager.ASTManager()
+	if err != nil {
+		return nil, nil, err
+	}
 	result, err := newConeResult(source)
 	if err != nil {
 		return nil, nil, err
 	}
 	keepResult := false
+	var step ConeModelStep
+	var current, replacement *base.Rule
 	defer func() {
 		if !keepResult || resultErr != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+			resultErr = closeConeConstruction(astManager, resultErr, []*base.Rule{current, replacement}, []*base.RuleSet{result}, []ConeModelStep{step})
 		}
 	}()
 	count, err := source.Len()
@@ -273,7 +295,6 @@ func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.Relati
 	kept := 0
 	declarations := make(map[ast.ASTHandle]bool)
 	var unreachableTailOrder []ast.ASTHandle
-	var astManager *ast.ASTManager
 	remember := func(declaration ast.ASTHandle) {
 		if !declarations[declaration] {
 			declarations[declaration] = true
@@ -285,41 +306,21 @@ func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.Relati
 		if e != nil {
 			return nil, nil, e
 		}
-		if relations != nil {
-			var tails int
-			tails, e = rule.UninterpretedTailSize()
-			for j := 0; e == nil && j < tails; j++ {
-				var declaration ast.ASTHandle
-				declaration, e = rule.TailDeclaration(j)
-				if e != nil {
-					break
-				}
-				var materialized bool
-				materialized, e = relations.HasFacts(declaration)
-				if e == nil && materialized {
-					return nil, nil, nil
-				}
-			}
-			if e != nil {
-				return nil, nil, errors.Join(e, rule.Close())
-			}
+		current = rule
+		filtered, e := filteredRule(manager, rule, reachable, relations)
+		replacement = filtered.replacement
+		if e != nil {
+			return nil, nil, e
 		}
-		replacement, retain, e := filteredRule(manager, rule, reachable)
+		if filtered.bailout {
+			return nil, nil, nil
+		}
 		if captureModel && e == nil {
-			astManager, e = rule.ASTManager()
-			if e == nil {
-				var tails int
-				tails, e = rule.UninterpretedTailSize()
-				for j := 0; e == nil && j < tails; j++ {
-					var declaration ast.ASTHandle
-					declaration, e = rule.TailDeclaration(j)
-					if e == nil && !reachable.IsReachable(declaration) {
-						remember(declaration)
-					}
-				}
+			for _, declaration := range filtered.unreachable {
+				remember(declaration)
 			}
 		}
-		if e == nil && retain {
+		if e == nil && filtered.keep {
 			candidate := rule
 			if replacement != nil {
 				candidate = replacement
@@ -330,9 +331,17 @@ func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.Relati
 			}
 		}
 		if replacement != nil {
-			e = errors.Join(e, replacement.Close())
+			if cleanup := replacement.Close(); cleanup != nil {
+				e = errors.Join(e, cleanup)
+			} else {
+				replacement = nil
+			}
 		}
-		e = errors.Join(e, rule.Close())
+		if cleanup := rule.Close(); cleanup != nil {
+			e = errors.Join(e, cleanup)
+		} else {
+			current = nil
+		}
 		if e != nil {
 			return nil, nil, e
 		}
@@ -367,7 +376,7 @@ func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.Relati
 		for _, declaration := range declarationOrder {
 			formula, refErr := astManager.NewRef(falsity)
 			if refErr != nil {
-				return nil, nil, errors.Join(refErr, closeConeModelSteps([]ConeModelStep{step}))
+				return nil, nil, refErr
 			}
 			step = append(step, ConeModelDefinition{Declaration: declaration, Formula: formula, manager: astManager})
 		}
@@ -391,14 +400,24 @@ func ConeOfInfluenceWithRelations(source *base.RuleSet, relations *rel.RelationM
 	return result, err
 }
 
-func coneOfInfluence(source *base.RuleSet, captureModel bool, relations *rel.RelationManager) (_ *base.RuleSet, steps []ConeModelStep, resultErr error) {
+func coneOfInfluence(source *base.RuleSet, captureModel bool, relations *rel.RelationManager) (_ *base.RuleSet, _ []ConeModelStep, resultErr error) {
+	rules, err := source.RuleManager()
+	if err != nil {
+		return nil, nil, err
+	}
+	manager, err := rules.ASTManager()
+	if err != nil {
+		return nil, nil, err
+	}
+	var steps []ConeModelStep
+	var top, bottom *base.RuleSet
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, closeConeModelSteps(steps))
-			steps = nil
+			resultErr = closeConeConstruction(manager, resultErr, nil, []*base.RuleSet{top, bottom}, steps)
 		}
 	}()
-	top, topStep, err := topDownCone(source, captureModel)
+	var topStep, bottomStep ConeModelStep
+	top, topStep, err = topDownCone(source, captureModel)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -409,11 +428,8 @@ func coneOfInfluence(source *base.RuleSet, captureModel bool, relations *rel.Rel
 	if top != nil {
 		basis = top
 	}
-	bottom, bottomStep, err := bottomUpCone(basis, captureModel, relations)
+	bottom, bottomStep, err = bottomUpCone(basis, captureModel, relations)
 	if err != nil {
-		if top != nil {
-			err = errors.Join(err, top.Close())
-		}
 		return nil, nil, err
 	}
 	if len(bottomStep) != 0 {
@@ -423,8 +439,9 @@ func coneOfInfluence(source *base.RuleSet, captureModel bool, relations *rel.Rel
 		if top != nil {
 			err = top.Close()
 			if err != nil {
-				return nil, nil, errors.Join(err, bottom.Close())
+				return nil, nil, err
 			}
+			top = nil
 		}
 		return bottom, steps, nil
 	}
