@@ -66,9 +66,10 @@ func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.AST
 			break
 		}
 	}
-	for i := len(formulas) - 1; i >= 0; i-- {
-		err = errors.Join(err, c.manager.DelRef(&formulas[i]))
-	}
+	// qlinear::check owns the complete compiled formula vector until it has
+	// been asserted. Preserve the reverse cleanup frontier when native AST
+	// destruction refuses instead of losing the remaining formula roots.
+	err = disposeASTRefs(c.manager, formulas, err)
 	if err != nil {
 		return lbool.Undef, nil, err
 	}

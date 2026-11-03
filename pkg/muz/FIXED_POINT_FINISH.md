@@ -359,6 +359,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/bmc/dl_bmc_engine.cpp` (partial), `src/muz/bmc/dl_bmc_engine.h` (partial)
   - [x] Linear trace/proof allocation-frontier ownership and late scoped-proof/normalizer cleanup publication ordering.
   - [x] Nonlinear two-branch trace/proof allocation-frontier ownership through every reachable failure and successful retry.
+  - [x] Preserve the quantified-linear compiled formula vector through reverse native cleanup refusal before result publication.
   - [ ] Nonlinear/QBMC late-cleanup audits and broader source/ownership closure.
 
 ### clp
@@ -504,6 +505,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Quantified-linear BMC now retires its compiled formula vector through the typed reverse cleanup frontier. Native AST destruction refusal preserves every remaining root and suppresses result publication until cleanup succeeds; nonlinear/QBMC late-cleanup auditing remains open.
+  Validation: `go -C pkg test ./muz/bmc -run '^(TestBMCQuantifiedLinearSearchAllocationScopeCleanup|TestBMCQuantifiedLinearSearchPreservesSolverScope|TestQuantifiedLinearCleanupPreservesRefsWhileManagerExecutes)$' -count=3` passed. Commit title: `Preserve quantified BMC formulas through cleanup refusal`.
 
 - 2026-11-02 — Relation-level explanations now compose the outer whole-formula checker with the inner primary/check-table pair through construction, facts, joins, filters, negation, union/delta and typed bytecode. Recursive heterogeneous MagicSets inherit all checker layers for proof-bearing fresh declarations, proof-free auxiliaries stay ordinary finite registers, and the public regression validates every stored fresh product rather than only the final answer. Other checker combinations remain open.
   Validation: `go -C pkg test ./muz/rel -run '^(TestRelationExplanationRegisterInstructionMovesProofFreeFiniteAuxiliary|TestFormulaCheckedFinitePair|TestRelationExplanationNestedChecker|TestNestedCheckerLift|TestRelationExplanationFormulaChecked)' -count=3` and `go -C pkg test ./muz/fp -run '^TestDatalogRelationExplanationNestedCheckerMagicHeterogeneous$' -count=3` passed. Commit title: `Compose nested checkers with relation explanations`.
