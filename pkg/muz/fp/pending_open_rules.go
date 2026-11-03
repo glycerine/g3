@@ -7,6 +7,7 @@ package fp
 import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func (e *PropositionalEngine) normalizePendingOpenRules() error {
@@ -116,6 +117,13 @@ func (e *PropositionalEngine) normalizePendingRules(flush bool) (resultErr error
 		if err = e.addFormula(replacement, formula, raw.name); err != nil {
 			return err
 		}
+		// HNF deliberately returns its completed prefix when canceled. Do
+		// not publish that partial program or advance the pending boundary.
+		// Observing the limit must not itself consume another resource step.
+		limit := e.manager.ResourceLimit()
+		if !limit.IncOffset(0) {
+			return z3exception.NewDefaultException(limit.CancelMessage())
+		}
 		next, err = replacement.Len()
 		if err != nil {
 			return err
@@ -137,14 +145,17 @@ func (e *PropositionalEngine) normalizePendingRules(flush bool) (resultErr error
 	if err = replacement.InheritPredicates(e.set); err != nil {
 		return err
 	}
-	if err = e.rebindArithmeticRules(replacement); err != nil {
+	if err = e.rebindArithmeticRules(e.set); err != nil {
 		return err
 	}
 	if err = a.closeRules(); err != nil {
 		return err
 	}
-	prior := e.set
-	e.set = replacement
+	// Source context::flush_add_rules keeps the persistent m_rule_set
+	// object. Arithmetic stores and query scopes also borrow that owner.
+	if err = e.set.ExchangeContents(replacement); err != nil {
+		return err
+	}
 	e.rawRules = remaining
 	if flush {
 		// A query flush advances the source pending head but keeps the
@@ -153,9 +164,8 @@ func (e *PropositionalEngine) normalizePendingRules(flush bool) (resultErr error
 	} else {
 		e.retiredRawRules = append(e.retiredRawRules, promoted...)
 	}
-	// The replacement is now persistent; this scope instead owns the old
-	// set until its last reference releases have completed.
-	a.sets[0] = prior
+	// The temporary replacement now owns the old contents until their last
+	// reference releases have completed; the persistent set keeps its identity.
 	e.advanceRuleRevision()
 	return e.cleanupRetiredRawRules()
 }
