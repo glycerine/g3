@@ -126,11 +126,13 @@ func (s *tabSearch) cleanupClauses() error {
 	return nil
 }
 func (s *tabSearch) isTautology(c *Clause) (tautology bool, err error) {
+	attempt := &tautologyCheckAttempt{manager: s.manager, solver: s.querySolver}
+	defer func() { tautology, err = finishTautologyCheck(attempt, tautology, err) }()
 	formula, err := c.Formula()
 	if err != nil {
 		return false, err
 	}
-	defer func() { err = errors.Join(err, s.manager.DelRef(&formula)) }()
+	attempt.formula = formula
 	h, err := s.manager.RefGet(formula)
 	if err != nil {
 		return false, err
@@ -142,10 +144,16 @@ func (s *tabSearch) isTautology(c *Clause) (tautology bool, err error) {
 	if err = s.manager.SetRef(formula, negated); err != nil {
 		return false, err
 	}
+	attempt.target, err = s.querySolver.ScopeLevel()
+	if err != nil {
+		return false, err
+	}
+	// Push may publish its scope before reporting a cleanup refusal. Mark the
+	// attempt first so the finalizer reconciles the observed solver depth.
+	attempt.pushed = true
 	if err = s.querySolver.Push(); err != nil {
 		return false, err
 	}
-	defer func() { err = errors.Join(err, s.querySolver.Pop(1)) }()
 	if err = s.querySolver.Assert(negated); err != nil {
 		return false, err
 	}
