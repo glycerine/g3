@@ -18,7 +18,11 @@ func TestExprSafeReplaceAllocationFailureOwnsApplicationsAndShifter(t *testing.T
 	for _, quantifier := range []bool{false, true} {
 		t.Run(fmt.Sprintf("quantifier=%t", quantifier), func(t *testing.T) {
 			failures, completed := 0, false
-			for allowance := int64(0); allowance < 256 && !completed; allowance++ {
+			// Debug builds allocate each rebuilt application directly instead
+			// of reusing pooled storage. Keep every failure ordinal for the
+			// same 512-wide, reference-page-crossing fixture in both modes.
+			const allocationLimit = 2048
+			for allowance := int64(0); allowance < allocationLimit && !completed; allowance++ {
 				if !t.Run(fmt.Sprint(allowance), func(t *testing.T) {
 					m := astTestManager(t)
 					boolean, err := m.MkBoolSort()
@@ -112,6 +116,7 @@ func TestExprSafeReplaceAllocationFailureOwnsApplicationsAndShifter(t *testing.T
 						}
 					} else {
 						completed = true
+						t.Logf("first complete replacement after %d allocations", allowance)
 						actual, err := m.RefGet(out)
 						astTestMust(t, err)
 						check(actual, true)
