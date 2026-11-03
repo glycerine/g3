@@ -276,6 +276,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Preserve cloned lower facts during constrained fast completion under the compiled source guard; keep model-derived underapproximation computation available for its legitimate unconstrained source path and verify the real SAT counterexample graph/model.
   - [x] Acquire the next history proposer before transferring the previous counterexample replay guide, so recoverable history failure leaves the active engine unchanged and retry transfers both owners exactly once.
   - [x] Restore an unconsumed replay guide from a failed new solve, discard only its partial counterexample, and return the guide to the previous active engine before reaping the failed run; successful solve marks it consumed.
+  - [x] Preflight level-pop expansion ownership and retry native edge/node deletion after one graph pop without committing maps, leaves or stack twice.
 - [ ] Audit interpolation learning, generalization, proof cores, underapproximation, Gaussian elimination and integer/array projection.
 - [ ] Preserve independent cleanup/resource errors through recovery and restart paths; extend actual-path failure campaigns where coverage is missing.
 - [ ] Close fixedpoint registration, preprocessing/model conversion, quantified witness reconstruction, proofs and certificate export.
@@ -638,6 +639,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Nonlinear BMC raw query and trace construction now drains nested AST roots, recursive rule groups and outer query/public proof owners in dependency order. Refused native cleanup preserves every remaining rule/reference, retries newest-first without reversing the frontier and suppresses partial traces or proofs; QBMC and wider nonlinear search teardown remain open.
   Validation: `go -C pkg test ./muz/bmc -run '^(TestBMCNonlinearTraceAndProofAllocationFrontiers|TestBMCNonlinearTraceVisitsModelSelectedRules|TestBMCNonlinearQueryAndAppliedVariablesAllocationFrontiers|TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes)$' -count=3` passed. Commit title: `Preserve nonlinear BMC query cleanup owners`.
+
+- 2026-11-02 — Duality derivation level pops now preflight expansion edges, updated children and exact mapping multiplicity before mutating solver state. After one graph pop, edge and node deletion frontiers retry phase-aware without a second pop, and node maps, leaves and stack commit only after cleanup succeeds; later backtracking ownership audits remain open.
+  Validation: `go -C pkg test ./duality -run '^(TestDualityPopLevelRefusesInvalidOwnershipBeforeSolverMutation|Test.*Backtrack|Test.*Restart|Test.*ProofCore|Test.*Annotation.*Update)' -count=3` passed. Commit title: `Make Duality level pops retryable`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.

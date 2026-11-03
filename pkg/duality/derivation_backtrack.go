@@ -9,6 +9,14 @@ var ErrUpdatedExpansionChild = errors.New("help!")
 type derivationLevel struct {
 	level      int
 	expansions []*Node
+	cleanup    []derivationExpansionCleanup
+	popped     bool
+}
+
+type derivationExpansionCleanup struct {
+	parent   *Node
+	edge     *Edge
+	children []*Node
 }
 
 // BacktrackingDerivation tracks the source slow-search expansion levels over
@@ -98,32 +106,73 @@ func (d *BacktrackingDerivation) PopLevel() error {
 	if d == nil || len(d.stack) < 2 {
 		return ErrWrapperOwner
 	}
-	expansions := d.stack[len(d.stack)-1].expansions
-	if err := d.tree.Pop(1); err != nil {
-		return err
-	}
-	remove := make(map[*Node]bool)
-	for _, node := range expansions {
-		if node.Outgoing == nil {
-			return ErrWrapperOwner
+	level := &d.stack[len(d.stack)-1]
+	if level.cleanup == nil {
+		required := make(map[*Node]int)
+		updated := make(map[*Node]bool, len(d.updatedNodes))
+		for _, node := range d.updatedNodes {
+			updated[node] = true
 		}
-		for _, child := range node.Outgoing.Children {
-			remove[child] = true
-			if err := d.UnmapNode(child); err != nil {
+		for _, node := range level.expansions {
+			if node == nil || node.Outgoing == nil {
+				return ErrWrapperOwner
+			}
+			for _, child := range node.Outgoing.Children {
+				if updated[child] {
+					return ErrUpdatedExpansionChild
+				}
+				required[child]++
+			}
+		}
+		for child, count := range required {
+			available := 0
+			for _, candidate := range d.nodeMap[child.Map] {
+				if candidate == child {
+					available++
+				}
+			}
+			if available < count {
+				return ErrUnmapNode
+			}
+		}
+		for _, node := range level.expansions {
+			level.cleanup = append(level.cleanup, derivationExpansionCleanup{
+				parent: node, edge: node.Outgoing, children: append([]*Node(nil), node.Outgoing.Children...),
+			})
+		}
+	}
+	if !level.popped {
+		if err := d.tree.Pop(1); err != nil {
+			return err
+		}
+		level.popped = true
+	}
+	for _, item := range level.cleanup {
+		if !item.edge.closed {
+			if err := d.tree.DeleteEdge(item.edge); err != nil {
 				return err
 			}
-			for _, updated := range d.updatedNodes {
-				if updated == child {
-					return ErrUpdatedExpansionChild
+		}
+		for _, child := range item.children {
+			if !child.closed {
+				if err := d.tree.DeleteNode(child); err != nil {
+					return err
 				}
 			}
 		}
 	}
-	d.RemoveLeaves(remove)
-	for _, node := range expansions {
-		if err := d.RemoveExpansion(node); err != nil {
-			return err
+	remove := make(map[*Node]bool)
+	for _, item := range level.cleanup {
+		for _, child := range item.children {
+			remove[child] = true
+			if err := d.UnmapNode(child); err != nil {
+				return err
+			}
 		}
+	}
+	d.RemoveLeaves(remove)
+	for _, item := range level.cleanup {
+		d.leaves = append(d.leaves, item.parent)
 	}
 	d.stack = d.stack[:len(d.stack)-1]
 	return nil
