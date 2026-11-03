@@ -513,6 +513,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Activate concrete typed UDoc storage for source-capable bit-vector and nullary predicates, including facts, positive recursive joins/projections, typed formulas, query clones and source fallback selection.
   - [x] Compile bound interpreted tails as one rooted conjunction after positive joins, remap rule variables to compacted UDoc columns and preserve failed guard cleanup in the query context.
   - [x] Fuse interpreted filtering with projection over typed UDoc relations, including source `is_var_range` equality extraction for finite-sort variables while keeping the ordinary finite guard language narrow.
+  - [x] Add full finite columns for condition-only variables and dispatch the fused guard/project operation from public rule execution when body variables are absent from the head.
   - [ ] Add interpreted/negative rules, mixed representation composition, model/finite enumeration and remaining UDoc method/ownership parity.
 
 ### spacer
@@ -569,6 +570,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Public UDoc positive rules now compile bound interpreted tails after their positive joins. All conditions remain one source conjunction, sparse rule-variable indices remap to compacted typed columns, contradictions filter rows before head assembly, unbound variables reject without stale answers and failed guard roots/substitution stay in the context cleanup frontier; negative and condition-only variables remain open.
   Validation: `go -C pkg test ./muz/fp -run '^Test(DatalogUDoc|UDocPositive)' -count=3` passed. Commit title: `Filter UDoc rules with bound interpreted tails`.
+
+- 2026-11-02 — Public UDoc rule execution now adds source full-domain columns for finite variables that occur only in interpreted conditions and invokes fused filtering/projection when body columns are absent from the head. Repeated tail variables, compacted joins, finite equality ranges, head constants/repetition/permutation and owning answers are covered; unsupported infinite condition variables and ordinary no-projection finite guards still reject explicitly.
+  Validation: `go -C pkg test ./muz/fp -run '^(TestDatalogUDoc|TestUDocPositive)' -count=3` passed. Commit title: `Fuse UDoc guards with public projection`.
 
 - 2026-11-02 — Ordinary reachable PDR certificate export now transfers the Answer AST reference immediately into the typed validation attempt. `RefGet`, printer construction, write failure and native release refusal all preserve retry custody and publish no partial answer; the Boogie proof/service/proof-mode path remains open.
   Validation: `go -C pkg test ./muz/pdr -run '^(TestContextDisplayCertificate|TestPDRValidationPreservesFreshSolverAndRootsOnNativeCleanupRefusal)' -count=3` passed. Commit title: `Preserve reachable PDR certificate answers`.

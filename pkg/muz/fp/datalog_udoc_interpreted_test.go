@@ -130,15 +130,17 @@ func TestDatalogUDocInterpretedJoinColumnsAndContradiction(t *testing.T) {
 	if result != lbool.False {
 		t.Fatal("conjunctive UDoc guard contradiction", result)
 	}
-	// A variable absent from every positive relation remains an explicit
-	// unsupported condition; a failed query must not expose the prior answer.
-	unbound, err := m.MkVar(7, wide)
+	// Unsupported infinite-domain condition variables still reject explicitly;
+	// supported finite witnesses are covered by the condition-column tests.
+	family, err := m.RegisterArithmeticPlugin()
 	must(err)
-	lowBit, err := m.MkBitVectorExtract(0, 0, unbound)
+	integer, err := m.MkFamilySort(family, 1, nil)
 	must(err)
-	oneBit, err := m.BitVectorNumeralUnsigned(1, 1)
+	unbound, err := m.MkVar(7, integer)
 	must(err)
-	unboundEq, err := m.MkEq(lowBit, oneBit)
+	other, err := m.MkVar(8, integer)
+	must(err)
+	unboundEq, err := m.MkArithmeticLT(unbound, other)
 	must(err)
 	badBody, err := m.MkAnd(pa, unboundEq)
 	must(err)

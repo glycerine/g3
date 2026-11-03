@@ -113,6 +113,7 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 	}()
 	var workingSorts []ast.ASTHandle
 	variables := make(map[uint32]uint32)
+	columnVariables := make(map[uint32]uint32)
 	for tailIndex := 0; tailIndex < positive; tailIndex++ {
 		tail, negated, cause := rule.Tail(tailIndex)
 		if cause != nil || negated {
@@ -138,6 +139,7 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 			return false, cause
 		}
 		local := make(map[uint32]uint32)
+		localColumns := make(map[uint32]uint32)
 		arguments, cause := c.manager.GetNumArgs(tail)
 		if cause != nil || int(arguments) != len(next.Sorts()) {
 			return false, errors.Join(cause, ErrUDocDatalogFragment)
@@ -161,6 +163,7 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 			if getErr != nil {
 				return false, getErr
 			}
+			localColumns[column] = variable
 			if prior, found := local[variable]; found {
 				if getErr = next.FilterIdentical([]uint32{prior, column}); getErr != nil {
 					return false, getErr
@@ -174,6 +177,9 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 			workingSorts = next.Sorts()
 			for variable, column := range local {
 				variables[variable] = column
+			}
+			for column, variable := range localColumns {
+				columnVariables[column] = variable
 			}
 			continue
 		}
@@ -224,11 +230,37 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 				variables[variable] = offset + column - shift
 			}
 		}
+		for column, variable := range localColumns {
+			if removedLocal[column] {
+				continue
+			}
+			var shift uint32
+			for removedColumn := range removedLocal {
+				if removedColumn < column {
+					shift++
+				}
+			}
+			columnVariables[offset+column-shift] = variable
+		}
 	}
 
-	if err = c.filterInterpretedTails(working, rule, uninterpreted, tails, variables); err != nil {
+	if err = c.addUDocConditionColumns(&working, rule, uninterpreted, tails, variables); err != nil {
 		return false, err
 	}
+	for variable, column := range variables {
+		columnVariables[column] = variable
+	}
+	filtered, err := c.filterInterpretedTailsAndProject(working, rule, head, uninterpreted, tails, variables, columnVariables)
+	if err != nil {
+		return false, err
+	}
+	if filtered != working {
+		if err = working.Close(); err != nil {
+			return false, errors.Join(err, filtered.Close())
+		}
+		working = filtered
+	}
+	workingSorts = working.Sorts()
 
 	headSorts := c.result[headDeclaration].Sorts()
 	count, err := c.manager.GetNumArgs(head)
