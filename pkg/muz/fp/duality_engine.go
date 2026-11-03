@@ -46,14 +46,23 @@ func (e *PropositionalEngine) queryDuality(query ast.ASTHandle) (status lbool.LB
 	if e.params == nil || e.globals == nil {
 		return lbool.Undef, ErrPropositionalEngine
 	}
-	if err := e.validateFragment(); err != nil {
-		return lbool.Undef, err
-	}
 	view, err := e.fixedpointParamView()
 	if err != nil {
 		return lbool.Undef, err
 	}
 	defer func() { result = errors.Join(result, view.Close()) }()
+	quantifyArrays, err := view.Bool("xform.quantify_arrays", false)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if quantifyArrays {
+		// Source context::query flushes before check_rules and backend
+		// construction. A rejected rule still crosses that display boundary.
+		e.flushRawDisplayRules()
+	}
+	if err := e.validateFragment(); err != nil {
+		return lbool.Undef, err
+	}
 	mbqi, err := view.Bool("duality.mbqi", true)
 	if err != nil {
 		return lbool.Undef, err
@@ -103,13 +112,8 @@ func (e *PropositionalEngine) queryDuality(query ast.ASTHandle) (status lbool.LB
 	if err := e.duality.SetOptions(options); err != nil {
 		return lbool.Undef, err
 	}
-	quantifyArrays, err := view.Bool("xform.quantify_arrays", false)
-	if err != nil {
-		return lbool.Undef, err
-	}
 	var prepared *duality.PreparedQuery
 	if quantifyArrays {
-		e.flushRawDisplayRules()
 		prepared, err = e.prepareDualityTransformedQuery(query, bound)
 		if err != nil {
 			return lbool.Undef, err
