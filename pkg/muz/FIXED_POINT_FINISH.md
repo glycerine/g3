@@ -319,6 +319,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 - [ ] Audit explanations, similarity compression, relation-manager dispatch, external relations and checking wrappers against actual consumers.
 - [ ] Audit remaining transforms, dataflow and DDNF consumers, including interactions with engine-specific preprocessing.
   - [x] Make cone-of-influence fact detection representation-neutral through RelationManager storage, including per-fact and whole-relation explanation products.
+  - [x] Make simple-join costing representation-neutral through relation row estimates, including exact per-fact explanation counts and conservative whole-relation product estimates.
 
 ## 7. Acceptance gates
 
@@ -536,6 +537,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Simple-join costing now asks the relation manager for the stored representation's row estimate instead of requiring a finite table. Per-fact explanation products contribute their exact outer count, whole-relation products use the source conservative maximum and finite/lazy estimates stay concrete; wider transform costing audits remain open.
+  Validation: `go -C pkg test ./muz/transforms -run '^(TestSimpleJoin|TestSimpleJoins|Test.*Explanation.*Cost)' -count=3` passed. Commit title: `Cost simple joins across relation representations`.
 
 - 2026-11-02 — Checked LazySparse union/delta now delegates primary and checker updates to their concrete implementations in source order, so Lazy storage uses its forced-union lifecycle. Source closure, cumulative deltas and concrete kinds are preserved, target/delta are verified afterward and preexisting divergence rejects before mutation; other checked-Lazy operations remain open.
   Validation: `go -C pkg test ./muz/rel -run '^(TestFiniteCheckedPair|TestCheckedTableUnion|TestChecked.*Union)' -count=3` passed. Commit title: `Union checked lazy sparse pairs`.
