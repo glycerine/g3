@@ -57,7 +57,13 @@ func (m *RelationManager) NewDefaultFiniteTable(signature Signature) (FiniteTabl
 		return nil, err
 	}
 	if m.checkedFinite != nil {
-		return m.checkedFinite.New(signature)
+		if m.checkedFinite.CanHandleSignature(signature) {
+			return m.checkedFinite.New(signature)
+		}
+		// The source checked favourite rejects a signature if either wrapped
+		// plugin rejects it, then registered-plugin selection falls through to
+		// the first capable implementation. Hash is that fallback for nullary.
+		return NewHashTable(signature), nil
 	}
 	if signature.Len() != 0 {
 		switch m.defaultFinite {

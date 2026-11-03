@@ -28,10 +28,10 @@ func NewFiniteExplanationProduct(manager *RelationManager, finiteSorts []ast.AST
 }
 
 func newFiniteExplanationProduct(manager *RelationManager, finiteSorts []ast.ASTHandle, explanationColumns int) (*FiniteExplanationProduct, error) {
-	return newFiniteExplanationProductWithFactory(manager, finiteSorts, explanationColumns, nil)
+	return newFiniteExplanationProductWithIndex(manager, finiteSorts, explanationColumns, nil)
 }
 
-func newFiniteExplanationProductWithFactory(manager *RelationManager, finiteSorts []ast.ASTHandle, explanationColumns int, factory *FiniteCheckedFactory) (*FiniteExplanationProduct, error) {
+func newFiniteExplanationProductWithIndex(manager *RelationManager, finiteSorts []ast.ASTHandle, explanationColumns int, template *CheckedExplanationIndex) (*FiniteExplanationProduct, error) {
 	if explanationColumns < 0 {
 		return nil, ast.ErrASTDomain
 	}
@@ -52,8 +52,8 @@ func newFiniteExplanationProductWithFactory(manager *RelationManager, finiteSort
 		return nil, err
 	}
 	var table ExplanationIndexTable
-	if factory != nil {
-		table, err = factory.NewExplanationIndex(signature, 1)
+	if template != nil {
+		table, err = template.NewLike(signature, 1)
 	} else {
 		table, err = manager.NewExplanationIndexTable(signature, 1)
 	}

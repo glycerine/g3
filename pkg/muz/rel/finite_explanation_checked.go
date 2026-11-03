@@ -20,16 +20,12 @@ func (p *FiniteExplanationProduct) CheckedConcreteKinds() (primary, checker stri
 // after the manager restores its query-scoped factory. Plain products still
 // follow an installed factory when they enter a checked query.
 func (p *FiniteExplanationProduct) newProduct(sorts []ast.ASTHandle, explanations int) (*FiniteExplanationProduct, error) {
-	primary, checker, checked, err := p.CheckedConcreteKinds()
-	if err != nil {
+	if err := p.open(); err != nil {
 		return nil, err
 	}
+	index, checked := p.table.(*CheckedExplanationIndex)
 	if !checked {
 		return newFiniteExplanationProduct(p.manager, sorts, explanations)
 	}
-	factory, err := NewFiniteCheckedFactory(primary, checker)
-	if err != nil {
-		return nil, err
-	}
-	return newFiniteExplanationProductWithFactory(p.manager, sorts, explanations, factory)
+	return newFiniteExplanationProductWithIndex(p.manager, sorts, explanations, index)
 }

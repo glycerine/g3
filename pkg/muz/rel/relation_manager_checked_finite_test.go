@@ -50,12 +50,13 @@ func TestRelationManagerCheckedFactoryPrecedesLazyDefaultForTemporaries(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	pair = table.(*FiniteCheckedPair)
-	primary, checker, err = pair.ConcreteKinds()
-	if err != nil || primary != "hashtable" || checker != "hashtable" {
-		t.Fatal("checked nullary fallback", primary, checker, err)
+	if _, checked := table.(*FiniteCheckedPair); checked {
+		t.Fatal("source nullary fallback remained checked")
 	}
-	if err = pair.Close(); err != nil {
+	if _, hash := table.(*HashTable); !hash {
+		t.Fatalf("nullary fallback type %T, want hash", table)
+	}
+	if err = table.Close(); err != nil {
 		t.Fatal(err)
 	}
 	context, err := NewExecutionContextWithRelations(f.relations, nil)

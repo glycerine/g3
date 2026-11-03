@@ -280,10 +280,16 @@ func TestFiniteCheckedFactoryCreatesCheckedCompilerTemporaries(t *testing.T) {
 		must(t, table.Close())
 
 		nullary, err := factory.New(Signature{})
+		if tc.primary != "hashtable" || tc.checker != "hashtable" {
+			if !errors.Is(err, ErrCheckTable) || nullary != nil {
+				t.Fatal("unsupported checked nullary", nullary, err)
+			}
+			continue
+		}
 		must(t, err)
 		primary, checker, err = nullary.ConcreteKinds()
 		if err != nil || primary != "hashtable" || checker != "hashtable" {
-			t.Fatal("factory nullary fallback", primary, checker, err)
+			t.Fatal("checked hash nullary", primary, checker, err)
 		}
 		must(t, nullary.Close())
 	}

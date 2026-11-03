@@ -23,34 +23,90 @@ type FiniteCheckedPair struct {
 type FiniteCheckedFactory struct {
 	primaryKind string
 	checkerKind string
+	lazy        *LazySparseFiniteFactory
 }
 
 func NewFiniteCheckedFactory(primaryKind, checkerKind string) (*FiniteCheckedFactory, error) {
+	return NewFiniteCheckedFactoryWithLazy(primaryKind, checkerKind, nil)
+}
+
+// NewFiniteCheckedFactoryWithLazy binds the context-owned lazy_sparse plugin
+// used by either concrete side. The factory borrows lazy and never closes it.
+func NewFiniteCheckedFactoryWithLazy(primaryKind, checkerKind string, lazy *LazySparseFiniteFactory) (*FiniteCheckedFactory, error) {
 	valid := func(kind string) bool {
-		return kind == "hashtable" || kind == "tr_hashtable" || kind == "sparse" || kind == "tr_sparse"
+		switch kind {
+		case "hashtable", "tr_hashtable", "sparse", "tr_sparse":
+			return true
+		case "lazy_sparse", "tr_lazy_sparse":
+			return lazy != nil && lazy.open() == nil
+		default:
+			return false
+		}
 	}
 	if !valid(primaryKind) || !valid(checkerKind) {
 		return nil, ErrCheckTable
 	}
-	return &FiniteCheckedFactory{primaryKind: primaryKind, checkerKind: checkerKind}, nil
+	return &FiniteCheckedFactory{primaryKind: primaryKind, checkerKind: checkerKind, lazy: lazy}, nil
 }
 
-func checkedFactoryTable(kind string, signature Signature) (FiniteTable, error) {
-	if signature.Len() == 0 && (kind == "sparse" || kind == "tr_sparse") {
-		return NewHashTable(signature), nil
+func checkedKindHandles(kind string, signature Signature) bool {
+	switch kind {
+	case "hashtable", "tr_hashtable":
+		return true
+	case "sparse", "tr_sparse", "lazy_sparse", "tr_lazy_sparse":
+		return signature.Len() != 0
+	default:
+		return false
 	}
-	return newFiniteTableKind(kind, signature)
+}
+
+// CanHandleSignature mirrors check_table_plugin::can_handle_signature: both
+// selected concrete plugins must accept the signature.
+func (f *FiniteCheckedFactory) CanHandleSignature(signature Signature) bool {
+	return f != nil && checkedKindHandles(f.primaryKind, signature) && checkedKindHandles(f.checkerKind, signature)
+}
+
+// AllowsUncheckedNullaryFallback reports whether source plugin selection must
+// bypass this checked favourite for the empty signature.
+func (f *FiniteCheckedFactory) AllowsUncheckedNullaryFallback() bool {
+	if f == nil {
+		return false
+	}
+	signature, err := NewSignature(nil)
+	return err == nil && !f.CanHandleSignature(signature)
+}
+
+func (f *FiniteCheckedFactory) table(kind string, signature Signature, functional int) (FiniteTable, error) {
+	if !checkedKindHandles(kind, signature) {
+		return nil, ErrCheckTable
+	}
+	switch kind {
+	case "hashtable", "tr_hashtable":
+		return NewHashTable(signature), nil
+	case "sparse", "tr_sparse":
+		return NewSparseTable(signature, functional)
+	case "lazy_sparse", "tr_lazy_sparse":
+		if f.lazy == nil {
+			return nil, ErrCheckTable
+		}
+		if functional == 0 {
+			return f.lazy.New(signature)
+		}
+		return f.lazy.NewFunctional(signature, functional)
+	default:
+		return nil, fmt.Errorf("%w: finite checker plugin %s", ErrTable, kind)
+	}
 }
 
 func (f *FiniteCheckedFactory) New(signature Signature) (*FiniteCheckedPair, error) {
-	if f == nil {
+	if !f.CanHandleSignature(signature) {
 		return nil, ErrCheckTable
 	}
-	primary, err := checkedFactoryTable(f.primaryKind, signature)
+	primary, err := f.table(f.primaryKind, signature, 0)
 	if err != nil {
 		return nil, err
 	}
-	checker, err := checkedFactoryTable(f.checkerKind, signature)
+	checker, err := f.table(f.checkerKind, signature, 0)
 	if err != nil {
 		return nil, errors.Join(err, primary.Close())
 	}
@@ -93,7 +149,7 @@ func newFiniteTableKind(kind string, signature Signature) (FiniteTable, error) {
 }
 
 func newFiniteTableLike(template FiniteTable, signature Signature) (FiniteTable, error) {
-	switch template.(type) {
+	switch concrete := template.(type) {
 	case *HashTable:
 		return NewHashTable(signature), nil
 	case *SparseTable:
@@ -101,6 +157,8 @@ func newFiniteTableLike(template FiniteTable, signature Signature) (FiniteTable,
 			return NewHashTable(signature), nil
 		}
 		return NewSparseTable(signature, 0)
+	case *LazySparseTable:
+		return lazySparseInstructionResult(concrete, signature, 0)
 	default:
 		return nil, fmt.Errorf("%w: unsupported checked component %T", ErrCheckTable, template)
 	}
@@ -153,6 +211,44 @@ func NewFiniteCheckedPair(source FiniteTable, checkerKind string) (_ *FiniteChec
 		}
 	}
 	if err = result.verify("construction"); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// NewFiniteCheckedPairFromFactory clones source as the primary implementation
+// and constructs the configured checker, including lazy_sparse, through the
+// context-bound factory. A signature rejected by the configured checked
+// favourite must be handled by the relation manager's ordinary fallback.
+func NewFiniteCheckedPairFromFactory(source FiniteTable, factory *FiniteCheckedFactory) (_ *FiniteCheckedPair, resultErr error) {
+	if source == nil || factory == nil {
+		return nil, ErrCheckTable
+	}
+	signature, err := source.Signature()
+	if err != nil {
+		return nil, err
+	}
+	if !factory.CanHandleSignature(signature) {
+		return nil, ErrCheckTable
+	}
+	primary, err := source.CloneFinite()
+	if err != nil {
+		return nil, err
+	}
+	checker, err := factory.table(factory.checkerKind, signature, 0)
+	if err != nil {
+		return nil, errors.Join(err, primary.Close())
+	}
+	result := &FiniteCheckedPair{primary: primary, checker: checker}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+		}
+	}()
+	if err = copyFiniteFacts(checker, source); err != nil {
+		return nil, err
+	}
+	if err = result.verify("seed"); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -612,6 +708,8 @@ func (p *FiniteCheckedPair) ConcreteKinds() (primary, checker string, err error)
 			return "hashtable"
 		case *SparseTable:
 			return "sparse"
+		case *LazySparseTable:
+			return "lazy_sparse"
 		default:
 			return fmt.Sprintf("%T", table)
 		}

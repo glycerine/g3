@@ -40,39 +40,68 @@ type CheckedExplanationIndex struct {
 
 var _ ExplanationIndexTable = (*CheckedExplanationIndex)(nil)
 
-func newExplanationIndexConcrete(kind string, signature Signature, functional int) (FiniteTable, error) {
-	if functional != 1 || signature.Len() < functional {
+func newCheckedExplanationIndex(factory *FiniteCheckedFactory, signature Signature, functional int) (_ *CheckedExplanationIndex, resultErr error) {
+	if factory == nil || functional != 1 || signature.Len() < functional || !factory.CanHandleSignature(signature) {
 		return nil, ErrCheckTable
 	}
-	switch kind {
-	case "hashtable", "tr_hashtable":
-		return NewHashTable(signature), nil
-	case "sparse", "tr_sparse":
-		return NewSparseTable(signature, functional)
-	default:
-		return nil, fmt.Errorf("%w: explanation index plugin %s", ErrCheckTable, kind)
-	}
-}
-
-func newCheckedExplanationIndex(primaryKind, checkerKind string, signature Signature, functional int) (_ *CheckedExplanationIndex, resultErr error) {
-	primary, err := newExplanationIndexConcrete(primaryKind, signature, functional)
+	primary, err := factory.table(factory.primaryKind, signature, functional)
 	if err != nil {
 		return nil, err
 	}
-	checker, err := newExplanationIndexConcrete(checkerKind, signature, functional)
+	checker, err := factory.table(factory.checkerKind, signature, functional)
 	if err != nil {
 		return nil, errors.Join(err, primary.Close())
 	}
+	return adoptCheckedExplanationIndex(primary, checker, functional)
+}
+
+func adoptCheckedExplanationIndex(primary, checker FiniteTable, functional int) (_ *CheckedExplanationIndex, resultErr error) {
 	result := &CheckedExplanationIndex{primary: primary, checker: checker, functional: functional}
 	defer func() {
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, result.Close())
 		}
 	}()
-	if err = result.verify("construction"); err != nil {
+	if err := result.verify("construction"); err != nil {
 		return nil, err
 	}
 	return result, nil
+}
+
+func newExplanationIndexLike(template FiniteTable, signature Signature, functional int) (FiniteTable, error) {
+	if functional != 1 || signature.Len() < functional {
+		return nil, ErrCheckTable
+	}
+	switch concrete := template.(type) {
+	case *HashTable:
+		return NewHashTable(signature), nil
+	case *SparseTable:
+		return NewSparseTable(signature, functional)
+	case *LazySparseTable:
+		if err := concrete.open(); err != nil {
+			return nil, err
+		}
+		return concrete.engine.New(signature, functional)
+	default:
+		return nil, ErrCheckTable
+	}
+}
+
+// NewLike creates an empty checked functional index using the same two
+// concrete plugins. Lazy sides borrow their existing context engine.
+func (t *CheckedExplanationIndex) NewLike(signature Signature, functional int) (_ *CheckedExplanationIndex, resultErr error) {
+	if err := t.open(); err != nil {
+		return nil, err
+	}
+	primary, err := newExplanationIndexLike(t.primary, signature, functional)
+	if err != nil {
+		return nil, err
+	}
+	checker, err := newExplanationIndexLike(t.checker, signature, functional)
+	if err != nil {
+		return nil, errors.Join(err, primary.Close())
+	}
+	return adoptCheckedExplanationIndex(primary, checker, functional)
 }
 
 // NewExplanationIndex constructs the source check_table pair for the one
@@ -81,7 +110,7 @@ func (f *FiniteCheckedFactory) NewExplanationIndex(signature Signature, function
 	if f == nil {
 		return nil, ErrCheckTable
 	}
-	return newCheckedExplanationIndex(f.primaryKind, f.checkerKind, signature, functional)
+	return newCheckedExplanationIndex(f, signature, functional)
 }
 
 // NewExplanationIndexTable follows the manager's current favourite table,
@@ -167,8 +196,11 @@ func (t *CheckedExplanationIndex) Facts() ([]Fact, error) {
 }
 
 func explanationIndexFetch(table FiniteTable, fact Fact, functional int) (bool, error) {
-	if sparse, ok := table.(*SparseTable); ok {
-		return sparse.FetchFact(fact)
+	switch concrete := table.(type) {
+	case *SparseTable:
+		return concrete.FetchFact(fact)
+	case *LazySparseTable:
+		return concrete.FetchFact(fact)
 	}
 	signature, err := table.Signature()
 	if err != nil || len(fact) != signature.Len() || functional <= 0 || functional > signature.Len() {
@@ -256,8 +288,11 @@ func validateExplanationIndexFact(table FiniteTable, fact Fact) error {
 }
 
 func explanationIndexEnsure(table FiniteTable, fact Fact, functional int) error {
-	if sparse, ok := table.(*SparseTable); ok {
-		return sparse.EnsureFact(fact)
+	switch concrete := table.(type) {
+	case *SparseTable:
+		return concrete.EnsureFact(fact)
+	case *LazySparseTable:
+		return concrete.EnsureFact(fact)
 	}
 	current := append(Fact(nil), fact...)
 	found, err := explanationIndexFetch(table, current, functional)
@@ -309,6 +344,8 @@ func explanationIndexRemove(table FiniteTable, fact Fact) (bool, error) {
 	case *HashTable:
 		return concrete.Remove(fact)
 	case *SparseTable:
+		return concrete.Remove(fact)
+	case *LazySparseTable:
 		return concrete.Remove(fact)
 	default:
 		return false, ErrCheckTable
@@ -363,6 +400,8 @@ func explanationIndexSizeRows(table FiniteTable) (uint32, error) {
 		return concrete.SizeEstimateRows()
 	case *SparseTable:
 		return concrete.SizeEstimateRows()
+	case *LazySparseTable:
+		return concrete.SizeEstimateRows()
 	default:
 		return 0, ErrCheckTable
 	}
@@ -373,6 +412,8 @@ func explanationIndexSizeBytes(table FiniteTable) (uint32, error) {
 	case *HashTable:
 		return concrete.SizeEstimateBytes()
 	case *SparseTable:
+		return concrete.SizeEstimateBytes()
+	case *LazySparseTable:
 		return concrete.SizeEstimateBytes()
 	default:
 		return 0, ErrCheckTable
@@ -402,6 +443,8 @@ func (t *CheckedExplanationIndex) Display(out io.Writer) error {
 		return concrete.Display(out)
 	case *SparseTable:
 		return concrete.Display(out)
+	case *LazySparseTable:
+		return concrete.Display(out)
 	default:
 		return ErrCheckTable
 	}
@@ -417,6 +460,8 @@ func (t *CheckedExplanationIndex) ConcreteKinds() (primary, checker string, err 
 			return "hashtable"
 		case *SparseTable:
 			return "sparse"
+		case *LazySparseTable:
+			return "lazy_sparse"
 		default:
 			return fmt.Sprintf("%T", table)
 		}

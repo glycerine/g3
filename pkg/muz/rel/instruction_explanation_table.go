@@ -215,7 +215,10 @@ func (i *tableInstruction) unionProjectedExplanationIntoTable(context *Execution
 		if err != nil {
 			return false, err
 		}
-		target = NewHashTable(signature)
+		target, err = source.manager.NewDefaultFiniteTable(signature)
+		if err != nil {
+			return false, err
+		}
 		if err = context.SetFiniteRegister(i.second, target); err != nil {
 			return false, errors.Join(err, target.Close())
 		}
