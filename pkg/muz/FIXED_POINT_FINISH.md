@@ -405,6 +405,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Retire each quantified-linear proof step before publishing its successor, preserving old and new rule/proof owners behind one retryable cleanup frontier.
   - [x] Preserve quantified-linear model-index and rule-selector evaluation references through typed native cleanup retry.
   - [x] Preserve quantified-linear grouped rule owners and drain their nested receipts before indexed compiler/result roots during failed compilation teardown.
+  - [x] Publish quantified-linear traces only after evaluator/indexed/group cleanup completes; preserve the selected rule and completed steps behind one child-first retry owner, with six native refusal stages and exact allocation accounting.
   - [ ] Nonlinear/QBMC late-cleanup audits and broader source/ownership closure.
 
 ### clp
@@ -430,6 +431,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/duality/duality_dl_interface.cpp` (partial), `src/muz/duality/duality_dl_interface.h` (partial)
   - [x] Safe-result `display_certificate` fixedpoint-model output, reachable derivation separation, temporary model ownership, writer-failure cleanup, and retry.
   - [x] Cleanup-pending query lifecycle blocks result/query access and preserves concrete runs after refused native child cleanup until retry.
+  - [x] Own both background-theory solver scopes before attempting Push, restore original caller depths before result publication and resume failed Push/Pop/Close cleanup without reusing a borrowed solver too early.
   - [ ] Wider exceptional backend lifecycle audit and remaining interface closure.
 
 ### fp
@@ -439,6 +441,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Constant-left equality/ordering infix bodies, source greater-than reversal, finite/numeric constants, quoted integer construction and constant-only rejection.
   - [x] Column-one comment newline handling, negative numeral token classification and finite-domain ordering through `DatalogOpLT`.
   - [x] Require the source parent newline after a domain include while preserving the child include's earlier mutation when that parent token is invalid.
+  - [x] Canonicalize uint64 predicate numerals (including signed zero), preserve literal spelling in infix constants, and distinguish quoted constants from previously typed variable identifiers in both parser frontends.
 - [ ] `src/muz/fp/dl_cmds.cpp` (partial), `src/muz/fp/dl_cmds.h` (partial)
   - [x] `dl_query_cmd::set_next_arg` rejects non-uninterpreted and unregistered ordinary Boolean functions before parameters/backend execution.
 - [ ] `src/muz/fp/dl_register_engine.cpp` (partial), `src/muz/fp/dl_register_engine.h` (partial)
@@ -486,6 +489,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Emit fused interpreted filtering/projection for absent-head body columns over admitted Hash/Sparse/LazySparse/FiniteCheckedPair bytecode, preserving pre-projection guard bindings, full column sorts, independent source ownership, survivor remapping and fused operation counters.
   - [x] Fuse finite joins with source dead-column projection, preserving head multiplicities, later guards/negative tails and survivor renumbering across Hash/Sparse/LazySparse/checked backends.
   - [x] Initialize recursive predicates from lower-stratum rules before recursive evaluation and clone the complete initial relations into loop deltas, preserving own-seed insertion order, preloaded facts and empty cycles.
+  - [x] Honor finite `datalog.all_or_nothing_deltas` by evaluating each ordered recursive-loop rule once against full relations; preserve default semi-naive scheduling and local-over-module option precedence.
   - [x] Execute one aligned positive exact bound/interval tail with one compiler conjunction, unused-column projection, head reordering, fixpoint union and cancellation.
   - [x] Combine requested bound/interval outputs by source nonempty disjunction, returning false only when every output relation is empty.
   - [ ] Complete source-live abstract/product/widening dispatch and compiler ownership audits; explicit interval activation and exact checked bytecode do not close source-default bound or mixed-product compilation.
@@ -504,6 +508,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Union and widen aligned external/interval products with a fresh per-component delta followed by ordinary accumulation into the caller delta, preserving preexisting rows and source operation order under refusal.
   - [x] Join aligned external/interval products componentwise with exact schema/kind preflight, callback column order, interval equality constraints and independent result ownership.
   - [x] Match external/interval product join components by family across either permutation and execute the exact acyclic rule `H(x,y) :- P(x), Q(y)` through LOAD/JOIN/UNION/STORE, with callback-free invalid-shape refusal and no-replay cleanup continuations.
+  - [x] Extend the one-rule positive external/interval consumer to shared keys, distinct projected/reordered heads and nullary outputs, normalized tail order, empty intersections and DEALLOC-before-STORE cleanup. Longer head cycles use adjacent transpositions because upstream external signatures and AST/vector rename declarations rotate opposite ways; this is a documented corrective decomposition, not literal single-callback parity.
   - [x] Display mixed external/interval products with the source header and component order, propagating writer failures without mutating either component.
   - [x] Preserve external UNION/WIDEN assignment application roots behind nested callback cleanup receipts, retrying child-first without revisiting consumed slots.
   - [ ] Mixed external products and remaining exceptional working/delta ownership.
@@ -532,6 +537,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/dl_mk_similarity_compressor.cpp` (partial), `src/muz/rel/dl_mk_similarity_compressor.h` (partial)
   - [x] Preserve rewritten rules and temporary AST roots through native cleanup refusal with nested child-first retry and no partial transformation publication.
   - [x] Execute similarity compression for interval-only arithmetic programs with query-local auxiliary interval facts, strict threshold/output guards, source rule order on no-op and owning evaluator snapshots.
+  - [x] Execute similarity compression for explicit/default bound programs with query-local concrete bound auxiliary facts, strict threshold/output guards, original-predicate-only results and cleanup refusal recovery without stale publication.
 - [ ] `src/muz/rel/dl_product_relation.cpp` (partial), `src/muz/rel/dl_product_relation.h` (partial)
   - [x] Display stored relation-level explanation products through source product/sieve/table formatting, including nested checked finite diagnostics, proof symbols, writer failures and unchanged owner/query state.
 - [ ] `src/muz/rel/dl_relation_manager.h` (partial)
@@ -598,6 +604,10 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-03 — Integrated the next independent parallel batches after source review and native focused tests. `8b204f6ae` makes QBMC trace publication transactional; `6987d1949` matches Datalog numeric/quoted token identity in both frontends; `399722407` prevents Duality localization from consuming an incomplete edge-map prefix; `d9385beef` owns Duality background scopes through failed Push/Pop/Close. Root focused BMC, graph, parser and wrapper checks passed (0.413s/0.013s/0.051s/0.101s/0.415s); pre-fix oracles reproduced parser, graph and scope defects. `91a84c655` and `ed0605e0a` preserve macro-manager and candidate roots through consumed/unconsumed cleanup failures, with native callback/accounting regressions and zero-budget disposal.
+  - `31fe6c018` preserves source two-tail join multiplicities, earliest-copy projection, local/cross-tail equality and coarse bound/interval behavior. `c6636f5de` activates source bound similarity compression. `4cf6504d2` executes shared-key external/interval joins and projected heads, using explicit transposition decomposition for the upstream rename-direction inconsistency. Root combined abstract/compiler/similarity checks passed for fp (0.367s) and rel (0.173s). Three-plus bound/interval tails and existing whole-cycle versus swap-chain head coarsening remain open; external multiple-rule/recursive/constant/guard/negative shapes remain separate.
+  - `e6bfe09c7` implements finite all-or-nothing deltas with direct bytecode/backing oracles, exact loop operation counts and public default/local/module precedence. `927596537` reserves slice proof owners before constructing hyper-resolution nodes and strengthens all original-leaf reference checks; all native slice tests passed (11.455s). The exploratory pre-fix pressure sweep did not reproduce a leak, so this is construction-order correction and stronger ownership evidence, not a claimed reproduced defect. Full slice cleanup transport/model/diagnostic audits remain open.
 
 - 2026-11-03 — Resumed the full goal at the user's request and filled available worker capacity with independent implementation and source-review lanes. Functional lanes cover bound/external product rules, finite compiler recursion/options, query transformation stages, real UDoc checking/mixed consumers, bound similarity compression and parser identity semantics. Engine lanes cover QBMC trace publication, Duality graph/wrapper recovery and slice proof construction. A live SMT scope dependency is split across kernel, internalizer, learned clauses, macro and quantifier owners so a completed sibling is never replayed after a later cleanup refusal. Shared files have one owner; complete helper definitions before callers, preserve existing source guards and test strength, use focused native tests, and integrate passing slices promptly. The broad run remains canceled and checked/debug runs remain with the user outside explicitly requested regression fixes.
   - `700bcda99` seeds recursive finite loops in source phases; sixteen backing/seed cases include eight pre-fix ordering failures. Root finite compiler tests passed in 0.107s and independent source review approved.
