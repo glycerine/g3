@@ -9,6 +9,7 @@ import (
 )
 
 func (e *Edge) clearMaps() error {
+	e.mapsReady = false
 	for key, ref := range e.varMap {
 		err := e.Owner.context.manager.DelRef(&ref)
 		if ref == (ast.ASTRef{}) {
@@ -33,6 +34,10 @@ func (g *RPFP) SetEdgeMaps(edge *Edge) (result error) {
 	if edge == nil || edge.Owner != g || edge.closed {
 		return ErrWrapperOwner
 	}
+	// A prefix remains owned by the edge if construction or cleanup fails,
+	// but Localize must rebuild it before consuming any parameter mapping.
+	// This defer runs after the timer and temporary-expression cleanup.
+	defer func() { edge.mapsReady = result == nil }()
 	timer, err := startProfile(g.context, "SetEdgeMaps")
 	if err != nil {
 		return err

@@ -24,7 +24,7 @@ func (g *RPFP) Localize(edge *Edge, term *Expr) (out *Expr, result error) {
 		return nil, err
 	}
 	defer func() { result = errors.Join(result, timer.Close()) }()
-	if len(edge.F.individualParams) > 0 && len(edge.varMap) == 0 {
+	if len(edge.F.individualParams) > 0 && !edge.mapsReady {
 		if err := g.SetEdgeMaps(edge); err != nil {
 			return nil, err
 		}

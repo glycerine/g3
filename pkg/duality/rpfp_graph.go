@@ -57,6 +57,7 @@ type Edge struct {
 	constraints      []ast.ASTRef
 	relMap           map[ast.ASTHandle]int
 	varMap           map[ast.ASTHandle]ast.ASTRef
+	mapsReady        bool
 	F                *Transformer
 	Parent           *Node
 	Children         []*Node
