@@ -253,23 +253,57 @@ func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, p
 		return false, errors.Join(err, ErrBoundIntervalDatalogFragment)
 	}
 	desired := make([]uint32, headCount)
-	seen := make(map[uint32]bool, headCount)
+	usedColumns := make(map[uint32]bool, headCount)
+	headSorts := a.entries[headDeclaration].sorts
 	for i := uint32(0); i < headCount; i++ {
 		argument, cause := a.manager.GetArg(head, i)
 		if cause != nil {
 			return false, cause
 		}
 		kind, cause := a.manager.GetKind(argument)
-		if cause != nil || kind != ast.ASTVar {
-			return false, errors.Join(cause, ErrBoundIntervalDatalogFragment)
+		if cause != nil {
+			return false, cause
 		}
-		variable, cause := a.manager.GetVarIndex(argument)
-		column, found := variables[variable]
-		if cause != nil || !found || seen[column] {
-			return false, errors.Join(cause, ErrBoundIntervalDatalogFragment)
+		var column uint32
+		if kind == ast.ASTVar {
+			variable, variableErr := a.manager.GetVarIndex(argument)
+			if variableErr != nil {
+				return false, variableErr
+			}
+			var found bool
+			column, found = variables[variable]
+			if !found {
+				column = uint32(len(workingSorts))
+				working, cause = working.AppendFullColumn(a.manager, workingSorts, headSorts[i])
+				if cause != nil {
+					return false, cause
+				}
+				workingSorts = append(workingSorts, headSorts[i])
+				variables[variable] = column
+			}
+		} else {
+			valueSort, sortErr := a.manager.GetSort(argument)
+			_, _, numeral, numeralErr := a.manager.ArithmeticNumeralText(argument)
+			cause = errors.Join(sortErr, numeralErr)
+			if cause != nil || !numeral || valueSort != headSorts[i] {
+				return false, errors.Join(cause, ErrBoundIntervalDatalogFragment)
+			}
+			column = uint32(len(workingSorts))
+			working, cause = working.AppendConstantColumn(a.manager, workingSorts, headSorts[i], argument)
+			if cause != nil {
+				return false, cause
+			}
+			workingSorts = append(workingSorts, headSorts[i])
 		}
-		seen[column] = true
-		desired[i] = column
+		if usedColumns[column] {
+			working, cause = working.DuplicateColumn(a.manager, workingSorts, column)
+			if cause != nil {
+				return false, cause
+			}
+			workingSorts = append(workingSorts, workingSorts[column])
+			column = uint32(len(workingSorts) - 1)
+		}
+		usedColumns[column], desired[i] = true, column
 	}
 	selected := append([]uint32(nil), desired...)
 	sort.Slice(selected, func(i, j int) bool { return selected[i] < selected[j] })
