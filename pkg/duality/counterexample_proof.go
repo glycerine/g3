@@ -28,15 +28,42 @@ func (c *Counterexample) Proof(factory solver.Factory, background ...*Expr) (out
 	if err := c.tree.cleanupProofWitnesses(); err != nil {
 		return out, err
 	}
+	pendingStart := len(c.tree.pendingProofWitnesses)
 	m := c.tree.context.manager
 	scope, err := ast.NewScopedProof(m)
 	if err != nil {
 		return out, err
 	}
+	call := &proofWitnessCall{manager: m, proofScope: scope}
 	defer func() {
-		result = errors.Join(result, scope.Close())
-		if result != nil && out != (ast.ASTRef{}) {
-			result = errors.Join(result, m.DelRef(&out))
+		pending := false
+		if cleanup := call.close(); cleanup != nil {
+			pending = true
+			result = errors.Join(result, cleanup)
+			// Proof mode must be restored before releasing a proof produced
+			// under that mode. Move the output behind the same retry owner.
+			if out != (ast.ASTRef{}) {
+				call.refs = append(call.refs, out)
+				out = ast.ASTRef{}
+			}
+		} else if result != nil && out != (ast.ASTRef{}) {
+			cleanup := m.DelRef(&out)
+			result = errors.Join(result, cleanup)
+			if out != (ast.ASTRef{}) {
+				call.refs = append(call.refs, out)
+				out = ast.ASTRef{}
+				pending = true
+			}
+		}
+		if pending {
+			// Recursive extraction defers run first and may already have queued
+			// proof refs created under this scope. A refused proof-mode restore
+			// must remain ahead of all of those newly queued owners.
+			if call.proofScope != nil {
+				c.tree.insertPendingProofWitness(pendingStart, call)
+			} else {
+				c.tree.pendingProofWitnesses = append(c.tree.pendingProofWitnesses, call)
+			}
 		}
 	}()
 	return c.tree.extractCounterexampleProof(c.root, make(map[*Node]bool), factory, background...)
@@ -53,22 +80,29 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 	active[node] = true
 	defer delete(active, node)
 	m := g.context.manager
-	var refs []ast.ASTRef
-	var terms []*Expr
+	call := &proofWitnessCall{manager: m}
 	defer func() {
-		for _, term := range terms {
-			result = errors.Join(result, term.Close())
-		}
-		for i := range refs {
-			result = errors.Join(result, m.DelRef(&refs[i]))
+		pending := false
+		if err := call.close(); err != nil {
+			pending = true
+			result = errors.Join(result, err)
 		}
 		if result != nil && out != (ast.ASTRef{}) {
-			result = errors.Join(result, m.DelRef(&out))
+			cleanup := m.DelRef(&out)
+			result = errors.Join(result, cleanup)
+			if out != (ast.ASTRef{}) {
+				call.refs = append(call.refs, out)
+				out = ast.ASTRef{}
+				pending = true
+			}
+		}
+		if pending {
+			g.pendingProofWitnesses = append(g.pendingProofWitnesses, call)
 		}
 	}()
 	hold := func(term *Expr, err error) (*Expr, error) {
 		if term != nil {
-			terms = append(terms, term)
+			call.terms = append(call.terms, term)
 		}
 		return term, err
 	}
@@ -88,7 +122,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 	if err != nil {
 		return out, err
 	}
-	refs = append(refs, ref)
+	call.refs = append(call.refs, ref)
 	premises := []ast.ASTHandle{asserted}
 	substitutions := [][]ast.ASTHandle{nil}
 	quantified := clause
@@ -133,7 +167,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 		if err != nil {
 			return out, err
 		}
-		refs = append(refs, proof)
+		call.refs = append(call.refs, proof)
 		h, err := m.RefGet(proof)
 		if err != nil {
 			return out, err
@@ -183,7 +217,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 	if err != nil {
 		return out, err
 	}
-	refs = append(refs, conclusionRef)
+	call.refs = append(call.refs, conclusionRef)
 	if len(substitutions[0]) > 0 {
 		witnessBackground := background
 		if edge.Map.quantifiedTheory {
@@ -212,7 +246,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 		if err != nil {
 			return out, fmt.Errorf("proof witness source edge %d exceptional=%v: %w", edge.Map.Number, edge.Map.quantifiedTheory, err)
 		}
-		refs = append(refs, values...)
+		call.refs = append(call.refs, values...)
 		for i, value := range values {
 			substitutions[0][i], err = m.RefGet(value)
 			if err != nil {
@@ -224,17 +258,16 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 	{
 		instantiated := clause
 		if len(substitutions[0]) > 0 {
-			sub, err := rewriter.NewVarSubstitution(m, false)
+			call.substitution, err = rewriter.NewVarSubstitution(m, false)
 			if err != nil {
 				return out, err
 			}
-			defer func() { result = errors.Join(result, sub.Close()) }()
 			ref, err := m.NewRef(ast.ASTHandle{})
 			if err != nil {
 				return out, err
 			}
-			refs = append(refs, ref)
-			if err := sub.Substitute(clause, substitutions[0], ref); err != nil {
+			call.refs = append(call.refs, ref)
+			if err := call.substitution.Substitute(clause, substitutions[0], ref); err != nil {
 				return out, err
 			}
 			instantiated, err = m.RefGet(ref)
@@ -242,7 +275,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 				return out, err
 			}
 		}
-		backgroundProofs, err := g.backgroundLiteralProofs(background, &refs)
+		backgroundProofs, err := g.backgroundLiteralProofs(background, &call.refs)
 		if err != nil {
 			return out, err
 		}
@@ -341,7 +374,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 							if !found {
 								return out, ErrWrapperOwner
 							}
-							lemma, err = g.proveQuantifiedHornLiteral(factory, sourceGraph, currentIndex, atom, &refs)
+							lemma, err = g.proveQuantifiedHornLiteral(factory, sourceGraph, currentIndex, atom, &call.refs)
 							if err != nil {
 								return out, err
 							}
@@ -359,7 +392,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 							return out, err
 						}
 						if lemma != (ast.ASTRef{}) {
-							refs = append(refs, lemma)
+							call.refs = append(call.refs, lemma)
 							h, err := m.RefGet(lemma)
 							if err != nil {
 								return out, err
