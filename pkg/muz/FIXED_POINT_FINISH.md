@@ -446,6 +446,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Construct a concrete outer formula checker around an inner primary/check-table finite pair with typed operations, lazy estimates and retryable failure ownership.
   - [x] Apply interpreted filters to checked LazySparse pairs through the deferred compiled guard on both sides, rejecting nullary capability and detecting one-sided divergence.
   - [x] Execute checked LazySparse union/delta through each concrete primary/checker implementation in source order, preserving Lazy forcing, cumulative deltas and post-update extensional verification.
+  - [x] Execute fused interpreted filtering and projection checker-first over independent concrete clones, preserving Lazy ownership and verifying the projected pair before publication.
 - [ ] `src/muz/rel/dl_base.cpp` (partial), `src/muz/rel/dl_base.h` (partial)
 - [ ] `src/muz/rel/dl_bound_relation.cpp` (partial), `src/muz/rel/dl_bound_relation.h` (partial)
   - [x] Concrete Int/Real/nullary plugin capability, empty/full construction, and typed join dispatch.
@@ -655,6 +656,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Exact bound/interval products now expose the source default join-then-project composition. Cross-order aligned components preserve the left representation order and endpoint mapping, empty inputs propagate, source operands remain independent and invalid join/projection mappings reject atomically; this is fallback composition rather than a new optimized kernel.
   Validation: `go -C pkg test ./muz/rel -run '^TestIntervalBoundProductJoinProject' -count=5` passed. Commit title: `Compose bound interval joins with projection`.
+
+- 2026-11-02 — Checked finite pairs now execute the source fused interpreted-filter-and-project operation checker-first, then primary, over independent clones and verify equality before publication. LazySparse projections preserve their own deferred/nullary owners after the input closes, and mismatched inputs reject before transformation; compiler activation remains separate.
+  Validation: `go -C pkg test ./muz/rel -run '^(TestFiniteCheckedPairLazyInterpreted|TestCheckTableInterpreted|TestCheckedTable)' -count=5` passed. Commit title: `Fuse checked relation filtering with projection`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
