@@ -14,7 +14,11 @@ import (
 // the final disjunction while constructing the answer to the published query.
 func TestExpressionAnswerAllocationFailureKeepsPublishedQuery(t *testing.T) {
 	failures, completed := 0, false
-	for allowance := int64(0); allowance < 256 && !completed; allowance++ {
+	successfulAllowance := int64(-1)
+	// Debug AST storage uses direct blocks, so the 512 fresh row equalities
+	// need more reservations than the pooled native allocator. Exercise every
+	// allowance through completion in both profiles, including the original 0–255.
+	for allowance := int64(0); allowance <= 1024 && !completed; allowance++ {
 		if !t.Run(fmt.Sprint(allowance), func(t *testing.T) {
 			f := newQueryVariablesOwnershipFixture(t)
 			fragmentMust(t, f.e.SelectEngine("datalog"))
@@ -82,6 +86,7 @@ func TestExpressionAnswerAllocationFailureKeepsPublishedQuery(t *testing.T) {
 				}
 			} else {
 				completed = true
+				successfulAllowance = allowance
 				fragmentMust(t, f.m.DelRef(&answer))
 			}
 			checkUnchanged()
@@ -134,4 +139,5 @@ func TestExpressionAnswerAllocationFailureKeepsPublishedQuery(t *testing.T) {
 	if failures == 0 || !completed {
 		t.Fatal("missing answer allocation failure/completion frontier", failures, completed)
 	}
+	t.Log("successful tested allocation allowance", successfulAllowance, "injected failures", failures)
 }
