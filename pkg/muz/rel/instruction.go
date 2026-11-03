@@ -213,7 +213,11 @@ func (c *ExecutionContext) SetRegisterAnnotation(index uint32, value string) err
 }
 
 func (c *ExecutionContext) ShouldTerminate() bool {
-	if c == nil || c.closed || c.terminate != nil && c.terminate() || c.timeLimit != 0 && time.Since(c.started) > c.timeLimit {
+	if c == nil || c.closed || c.terminate != nil && c.terminate() {
+		return true
+	}
+	// Source compares the limit with integer-truncated elapsed milliseconds.
+	if c.timeLimit != 0 && time.Since(c.started)/time.Millisecond > c.timeLimit/time.Millisecond {
 		return true
 	}
 	if c.memory != nil {

@@ -5,7 +5,7 @@ import "errors"
 // Compile only scopes whose actual manager owners and temporary constructors
 // carry the selected concrete checked pair. Formula relation checking keeps
 // its existing interpreted evaluator.
-func (e *PropositionalEngine) saturateDatalogQuery(check *datalogCheckRelationScope) (resultErr error) {
+func (e *PropositionalEngine) saturateDatalogQuery(check *datalogCheckRelationScope, round *datalogRestartRound) (resultErr error) {
 	compile := check == nil
 	if check != nil {
 		owner, supported, err := check.beginCompiled()
@@ -22,7 +22,7 @@ func (e *PropositionalEngine) saturateDatalogQuery(check *datalogCheckRelationSc
 		return e.saturate()
 	}
 	var err error
-	e.compiled, err = e.tryCompiledSaturation()
+	e.compiled, err = e.tryCompiledSaturation(round)
 	if err == nil && !e.compiled {
 		err = e.saturate()
 	}

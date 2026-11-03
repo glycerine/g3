@@ -1937,7 +1937,7 @@ func (e *PropositionalEngine) saturate() error {
 	return nil
 }
 
-func (e *PropositionalEngine) tryCompiledSaturation() (used bool, resultErr error) {
+func (e *PropositionalEngine) tryCompiledSaturation(round *datalogRestartRound) (used bool, resultErr error) {
 	options := rel.FiniteCompilerOptions{}
 	if e.params != nil && e.globals != nil {
 		parameters, err := e.fixedpointParamView()
@@ -1957,33 +1957,34 @@ func (e *PropositionalEngine) tryCompiledSaturation() (used bool, resultErr erro
 	if err != nil {
 		return false, err
 	}
-	context, err := rel.NewExecutionContextWithRelations(e.relations, nil)
+	var canceled bool
+	var cancellationErr error
+	context, err := rel.NewExecutionContextWithRelations(e.relations, func() bool {
+		if !canceled && cancellationErr == nil {
+			canceled, cancellationErr = e.manager.Canceled()
+		}
+		return canceled || cancellationErr != nil
+	})
 	if err != nil {
 		return true, errors.Join(err, execution.Close(), termination.Close())
 	}
 	defer func() {
 		resultErr = errors.Join(resultErr, execution.Close(), termination.Close(), context.Close())
 	}()
-	complete, err := execution.Perform(context)
+	complete, terminated, err := performDatalogRestartRound(execution, termination, context, round)
 	if err != nil {
-		return true, err
-	}
-	terminated, terminationErr := termination.Perform(context)
-	if terminationErr != nil {
-		return true, terminationErr
-	}
-	if !complete || !terminated {
-		return true, ErrPropositionalEngine
-	}
-	if err = execution.ProcessAllCosts(); err != nil {
 		return true, err
 	}
 	e.datalogStats.Reset()
 	if err = execution.CollectStatistics(&e.datalogStats); err != nil {
 		return true, err
 	}
-	if err = context.CollectStatistics(&e.datalogStats); err != nil {
-		return true, err
+	if round != nil {
+		e.datalogStats.Copy(round.statistics)
+	} else {
+		if err = context.CollectStatistics(&e.datalogStats); err != nil {
+			return true, err
+		}
 	}
 	for declaration, state := range e.predicates {
 		table, found, x := e.relations.TryGetFiniteRelation(declaration)
@@ -1993,6 +1994,27 @@ func (e *PropositionalEngine) tryCompiledSaturation() (used bool, resultErr erro
 		if found {
 			state.table = table
 		}
+	}
+	if cancellationErr != nil {
+		return true, cancellationErr
+	}
+	if canceled {
+		return true, z3exception.NewDefaultException(e.manager.ResourceLimit().CancelMessage())
+	}
+	if !complete || !terminated {
+		if numerals := e.manager.NumeralService(); numerals != nil && numerals.RuntimeOwner() != nil {
+			above, err := numerals.RuntimeOwner().AboveWatermark()
+			if err != nil {
+				return true, err
+			}
+			if above {
+				return true, z3exception.NewDefaultException("max. memory exceeded")
+			}
+		}
+		if !terminated || round == nil || round.timeout == 0 {
+			return true, ErrPropositionalEngine
+		}
+		round.interrupted = true
 	}
 	return true, nil
 }
@@ -2268,6 +2290,10 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 			return lbool.FromBool(nonempty), nil
 		}
 	}
+	return e.queryFiniteDatalogWithRestarts(declarations)
+}
+
+func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHandle, round *datalogRestartRound) (status lbool.LBool, resultErr error) {
 	queryScope, err := e.beginDatalogQueryScope(declarations)
 	if err != nil {
 		return lbool.Undef, err
@@ -2296,8 +2322,10 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	}
 	// Clear old query marks before transformations can publish saturated
 	// auxiliary relations for this query.
-	if err = e.relations.ResetSaturatedMarks(); err != nil {
-		return lbool.Undef, err
+	if !round.restarting {
+		if err = e.relations.ResetSaturatedMarks(); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	bitBlast := &datalogBitBlastQuery{engine: e}
 	if err = e.normalizeSimpleJoins(bitBlast); err != nil {
@@ -2336,8 +2364,10 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	// rel_context::query resets negation-dependent tables before choosing and
 	// running the relational saturation implementation. Keep this outside the
 	// direct evaluator so compiled and interpreted execution see the same state.
-	if err = e.resetNegationDependentTables(); err != nil {
-		return lbool.Undef, err
+	if !round.restarting {
+		if err = e.resetNegationDependentTables(); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	checkScope, err := e.beginDatalogCheckRelation()
 	if err != nil {
@@ -2351,7 +2381,7 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 		}()
 	}
 	started := time.Now()
-	err = e.saturateDatalogQuery(checkScope)
+	err = e.saturateDatalogQuery(checkScope, round)
 	e.datalogElapsed += time.Since(started).Seconds()
 	if err != nil {
 		return lbool.Undef, err
@@ -2364,6 +2394,9 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	}
 	if canceled {
 		return lbool.Undef, z3exception.NewDefaultException(e.manager.ResourceLimit().CancelMessage())
+	}
+	if round.interrupted {
+		return lbool.Undef, nil
 	}
 	if len(bitBlast.columns) != 0 {
 		// Publish checker shadows before rebuilding original BV tables; a
