@@ -13,6 +13,10 @@ import (
 // Source mk_rule_inliner::count_pred_occurrences protects every nonempty
 // extensional relation in addition to the rule set's output predicates.
 func (e *PropositionalEngine) datalogInliner(context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (*transforms.RuleInlinerPlugin, error) {
+	normalization, err := e.ruleNormalizationParams()
+	if err != nil {
+		return nil, err
+	}
 	eager, linear, branching := true, true, false
 	if e.params != nil && e.globals != nil {
 		view, err := e.fixedpointParamView()
@@ -42,6 +46,7 @@ func (e *PropositionalEngine) datalogInliner(context *uparams.ParamsContext, glo
 		}
 	}
 	plugin := transforms.NewRuleInlinerPluginWithServices(e.manager, e.rules, nil, eager, linear, context, globals, 0)
+	plugin.SetNormalizationParams(normalization)
 	plugin.SetLinearBranching(branching)
 	if err := plugin.PreserveFacts(protected); err != nil {
 		return nil, errors.Join(err, plugin.Close())

@@ -190,6 +190,9 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 								return value, e
 							}
 							normalizer := NewRuleInlinerPluginWithServices(m, c.rules, nil, false, false, c.normalizationParams, c.normalizationGlobals, 100)
+							if c.normalization != nil {
+								normalizer.SetNormalizationParams(*c.normalization)
+							}
 							value.rule, cause = normalizer.NormalizeResolvedRule(original.rule)
 							if cause != nil {
 								cause = fmt.Errorf("normalizing original: %w", cause)

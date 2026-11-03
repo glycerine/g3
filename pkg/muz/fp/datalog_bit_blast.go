@@ -52,10 +52,15 @@ func (q *datalogBitBlastQuery) register(transformer *base.RuleTransformer, conte
 	if !enabled {
 		return nil
 	}
+	normalization, err := e.ruleNormalizationParams()
+	if err != nil {
+		return err
+	}
 	planner, err := transforms.NewBitBlastPlugin(e.manager, e.rules, context, globals, 22000)
 	if err != nil {
 		return err
 	}
+	planner.SetNormalizationParams(normalization)
 	if err = transformer.Register(planner); err != nil {
 		return errors.Join(err, planner.Close())
 	}
@@ -64,6 +69,7 @@ func (q *datalogBitBlastQuery) register(transformer *base.RuleTransformer, conte
 	if err != nil {
 		return err
 	}
+	simplifier.SetNormalizationParams(normalization)
 	if err = transformer.Register(simplifier); err != nil {
 		return errors.Join(err, simplifier.Close())
 	}

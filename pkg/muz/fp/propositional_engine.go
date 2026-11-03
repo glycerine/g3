@@ -1062,10 +1062,15 @@ func (e *PropositionalEngine) normalizeSimpleJoins(bitBlast *datalogBitBlastQuer
 	if err != nil {
 		return err
 	}
+	normalization, err := e.ruleNormalizationParams()
+	if err != nil {
+		return err
+	}
 	simplifier, err := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, context, globals, 0)
 	if err != nil {
 		return err
 	}
+	simplifier.SetNormalizationParams(normalization)
 	inliner, err := e.datalogInliner(context, globals)
 	if err != nil {
 		return errors.Join(err, simplifier.Close())

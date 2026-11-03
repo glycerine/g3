@@ -10,8 +10,9 @@ import (
 )
 
 // QuantifiedLinearProof constructs the unconverted proof for the selected
-// rule trace. The caller owns the returned proof reference.
-func (c *Compiler) QuantifiedLinearProof(rules *base.RuleSet, query ast.ASTHandle, width uint32, md *model.ModelCore, services model.ModelEvaluatorConfig) (result ast.ASTRef, resultErr error) {
+// rule trace. The caller owns the returned proof reference. An optional
+// normalization value supplies the query-local rule policies.
+func (c *Compiler) QuantifiedLinearProof(rules *base.RuleSet, query ast.ASTHandle, width uint32, md *model.ModelCore, services model.ModelEvaluatorConfig, normalization ...transforms.RuleNormalizationParams) (result ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || rules == nil || md == nil || md.Manager() != c.manager || services.Context == nil || services.Globals == nil {
 		return result, ast.ErrASTHandle
 	}
@@ -33,6 +34,9 @@ func (c *Compiler) QuantifiedLinearProof(rules *base.RuleSet, query ast.ASTHandl
 	}
 	normalizer := transforms.NewRuleInlinerPluginWithServices(m, rm, nil, true, true, services.Context, services.Globals, 0)
 	owner.normalizer = normalizer
+	if len(normalization) != 0 {
+		normalizer.SetNormalizationParams(normalization[0])
+	}
 	steps, err := c.quantifiedLinearSteps(rules, query, width, md, services)
 	owner.steps = steps
 	if err != nil {

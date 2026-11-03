@@ -17,7 +17,8 @@ import (
 // LinearProof constructs the unconverted hyper-resolution proof for a winning
 // linear model, before transformation proof conversion. The caller owns the
 // returned proof reference. The rule set must be the one used for the model.
-func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level uint32, md *model.ModelCore, services model.ModelEvaluatorConfig) (result ast.ASTRef, resultErr error) {
+// An optional normalization value supplies the query-local rule policies.
+func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level uint32, md *model.ModelCore, services model.ModelEvaluatorConfig, normalization ...transforms.RuleNormalizationParams) (result ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || rules == nil || md == nil || md.Manager() != c.manager {
 		return result, ast.ErrASTHandle
 	}
@@ -42,6 +43,9 @@ func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level u
 	}
 	normalizer := transforms.NewRuleInlinerPluginWithServices(m, rm, nil, true, true, services.Context, services.Globals, 0)
 	owner.normalizer = normalizer
+	if len(normalization) != 0 {
+		normalizer.SetNormalizationParams(normalization[0])
+	}
 	predicate := query
 	for {
 		canceled, err := m.Canceled()

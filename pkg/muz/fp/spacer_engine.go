@@ -64,6 +64,10 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		}
 		return nil, err
 	}
+	normalization, err := e.ruleNormalizationParams()
+	if err != nil {
+		return nil, err
+	}
 	transformer := base.NewRuleTransformer()
 	initialCone := transforms.NewConePluginWithRelations(e.relations, 0)
 	if err = transformer.Register(initialCone); err != nil {
@@ -73,6 +77,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	if makeErr != nil {
 		return nil, errors.Join(makeErr, transformer.Close())
 	}
+	firstSimplifier.SetNormalizationParams(normalization)
 	if err = transformer.Register(firstSimplifier); err != nil {
 		return nil, errors.Join(err, firstSimplifier.Close(), transformer.Close())
 	}
@@ -175,6 +180,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	var subsumers []*transforms.SubsumptionCheckerPlugin
 	newInliner := func(priority uint32) *transforms.RuleInlinerPlugin {
 		plugin := transforms.NewRuleInlinerPluginWithServices(e.manager, e.rules, []ast.ASTHandle{query}, inlineEager, inlineLinear, e.params, e.globals, priority)
+		plugin.SetNormalizationParams(normalization)
 		plugin.SetLinearBranching(inlineBranching)
 		inliners = append(inliners, plugin)
 		return plugin
@@ -231,6 +237,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		if makeErr != nil {
 			return nil, errors.Join(makeErr, transformer.Close())
 		}
+		blast.SetNormalizationParams(normalization)
 		if err = transformer.Register(blast); err != nil {
 			return nil, errors.Join(err, blast.Close(), transformer.Close())
 		}
@@ -253,6 +260,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		if err != nil {
 			return nil, errors.Join(err, transformer.Close())
 		}
+		bitBlaster.SetNormalizationParams(normalization)
 		if err = transformer.Register(bitBlaster); err != nil {
 			return nil, errors.Join(err, bitBlaster.Close(), transformer.Close())
 		}
@@ -274,6 +282,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	if makeErr != nil {
 		return nil, errors.Join(makeErr, transformer.Close())
 	}
+	secondSimplifier.SetNormalizationParams(normalization)
 	if err = transformer.Register(secondSimplifier); err != nil {
 		return nil, errors.Join(err, secondSimplifier.Close(), transformer.Close())
 	}
@@ -293,6 +302,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	if makeErr != nil {
 		return nil, errors.Join(makeErr, transformer.Close())
 	}
+	thirdSimplifier.SetNormalizationParams(normalization)
 	if err = transformer.Register(thirdSimplifier); err != nil {
 		return nil, errors.Join(err, thirdSimplifier.Close(), transformer.Close())
 	}
@@ -447,6 +457,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 				sliceProof = plugin.TakeProofConverter()
 				if sliceProof != nil {
 					err = errors.Join(err, sliceProof.SetNormalizationServices(e.params, e.globals))
+					sliceProof.SetNormalizationParams(normalization)
 				}
 			}
 		}
@@ -470,6 +481,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	for round := uint32(0); unfoldStage && round < unfoldRounds; round++ {
 		unfolder := base.NewRuleTransformer()
 		plugin := transforms.NewRuleUnfoldPlugin(e.manager, e.rules, e.params, e.globals, 100)
+		plugin.SetNormalizationParams(normalization)
 		if err = unfolder.Register(plugin); err != nil {
 			return nil, errors.Join(err, plugin.Close(), unfolder.Close())
 		}

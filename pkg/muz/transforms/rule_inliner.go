@@ -17,22 +17,23 @@ import (
 )
 
 type RuleInlinerPlugin struct {
-	manager    *ast.ASTManager
-	rules      *base.RuleManager
-	protected  map[ast.ASTHandle]bool
-	facts      map[ast.ASTHandle]bool
-	priority   uint32
-	eager      bool
-	linear     bool
-	branching  bool
-	params     *uparams.ParamsContext
-	globals    *uparams.GlobalParamsService
-	simplifier *InterpTailSimplifierPlugin
-	lite       *qe.Lite
-	cooperate  *cooperate.Cooperation
-	modelRules []InlineModelRule
-	closed     bool
-	closing    bool
+	manager       *ast.ASTManager
+	rules         *base.RuleManager
+	protected     map[ast.ASTHandle]bool
+	facts         map[ast.ASTHandle]bool
+	priority      uint32
+	eager         bool
+	linear        bool
+	branching     bool
+	params        *uparams.ParamsContext
+	globals       *uparams.GlobalParamsService
+	normalization *RuleNormalizationParams
+	simplifier    *InterpTailSimplifierPlugin
+	lite          *qe.Lite
+	cooperate     *cooperate.Cooperation
+	modelRules    []InlineModelRule
+	closed        bool
+	closing       bool
 }
 
 // InlineModelRule owns one removed Horn clause for later model reconstruction.
@@ -383,15 +384,19 @@ func (p *RuleInlinerPlugin) normalizeResolvedRule(resolved *base.Rule) (_ *base.
 			return nil, errors.Join(err, resolved.Close())
 		}
 	}
-	fixedpoint, err := p.globals.SourceGetModuleName("fixedpoint")
-	if err != nil {
-		return nil, errors.Join(err, resolved.Close())
-	}
-	fixName := "xform.fix_unbound_vars"
-	fix, getErr := p.params.GetBoolName(&fixedpoint, &fixName, false)
-	err = errors.Join(getErr, p.params.Del(&fixedpoint))
-	if err != nil {
-		return nil, errors.Join(err, resolved.Close())
+	fix := false
+	if p.normalization != nil {
+		fix = p.normalization.FixUnboundVariables
+	} else {
+		fixedpoint, cause := p.globals.SourceGetModuleName("fixedpoint")
+		if cause != nil {
+			return nil, errors.Join(cause, resolved.Close())
+		}
+		fixName := "xform.fix_unbound_vars"
+		fix, cause = p.params.GetBoolName(&fixedpoint, &fixName, false)
+		if cause = errors.Join(cause, p.params.Del(&fixedpoint)); cause != nil {
+			return nil, errors.Join(cause, resolved.Close())
+		}
 	}
 	corrected, _, err := p.rules.FixUnboundVariables(resolved, p.lite, fix)
 	if err != nil {
@@ -405,6 +410,9 @@ func (p *RuleInlinerPlugin) normalizeResolvedRule(resolved *base.Rule) (_ *base.
 		p.simplifier, err = NewInterpTailSimplifierPlugin(p.manager, p.rules, p.params, p.globals, p.priority)
 		if err != nil {
 			return nil, errors.Join(err, resolved.Close())
+		}
+		if p.normalization != nil {
+			p.simplifier.SetNormalizationParams(*p.normalization)
 		}
 	}
 	replacement, dropped, changed, err := p.simplifier.transformRule(resolved)

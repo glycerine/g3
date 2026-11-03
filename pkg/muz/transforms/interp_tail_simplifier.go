@@ -15,12 +15,15 @@ import (
 )
 
 type InterpTailSimplifierPlugin struct {
-	manager  *ast.ASTManager
-	rules    *base.RuleManager
-	rewriter *astrewriter.TheoryRewriter
-	priority uint32
-	closed   bool
-	closing  bool
+	manager       *ast.ASTManager
+	rules         *base.RuleManager
+	rewriter      *astrewriter.TheoryRewriter
+	params        *uparams.ParamsContext
+	globals       *uparams.GlobalParamsService
+	normalization *RuleNormalizationParams
+	priority      uint32
+	closed        bool
+	closing       bool
 }
 
 func NewInterpTailSimplifierPlugin(manager *ast.ASTManager, rules *base.RuleManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (*InterpTailSimplifierPlugin, error) {
@@ -34,7 +37,7 @@ func NewInterpTailSimplifierPlugin(manager *ast.ASTManager, rules *base.RuleMana
 		}
 		return nil, err
 	}
-	return &InterpTailSimplifierPlugin{manager: manager, rules: rules, rewriter: rewriter, priority: priority}, nil
+	return &InterpTailSimplifierPlugin{manager: manager, rules: rules, rewriter: rewriter, params: context, globals: globals, priority: priority}, nil
 }
 
 func (p *InterpTailSimplifierPlugin) Priority() uint32            { return p.priority }
@@ -160,6 +163,10 @@ func (p *InterpTailSimplifierPlugin) simplifyRule(rule *base.Rule) (_ *base.Rule
 }
 
 func (p *InterpTailSimplifierPlugin) propagate(rule *base.Rule) (_ *base.Rule, changed bool, resultErr error) {
+	enabled, err := p.variableEquivalencePropagation()
+	if err != nil || !enabled {
+		return nil, false, err
+	}
 	uninterpreted, err := rule.UninterpretedTailSize()
 	if err != nil {
 		return nil, false, err

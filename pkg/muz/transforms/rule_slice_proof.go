@@ -29,6 +29,7 @@ type SliceProofConverter struct {
 	closed               bool
 	normalizationParams  *uparams.ParamsContext
 	normalizationGlobals *uparams.GlobalParamsService
+	normalization        *RuleNormalizationParams
 }
 
 type slicePredicateOrigin struct {
@@ -160,6 +161,7 @@ func (c *SliceProofConverter) Close() error {
 	c.predicates = nil
 	c.normalizationParams = nil
 	c.normalizationGlobals = nil
+	c.normalization = nil
 	c.closed = true
 	return nil
 }
@@ -173,4 +175,10 @@ func (c *SliceProofConverter) SetNormalizationServices(context *uparams.ParamsCo
 	c.normalizationParams = context
 	c.normalizationGlobals = globals
 	return nil
+}
+
+// SetNormalizationParams copies the query's rule-normalization switches for
+// proof reconstruction after its parameter view has closed.
+func (c *SliceProofConverter) SetNormalizationParams(params RuleNormalizationParams) {
+	c.normalization = &params
 }

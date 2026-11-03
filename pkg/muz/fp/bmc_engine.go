@@ -296,6 +296,13 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 		return lbool.Undef, ast.ErrASTHandle
 	}
 	defer func() { resultErr = errors.Join(resultErr, md.DecRef()) }()
+	var normalization transforms.RuleNormalizationParams
+	if linear {
+		normalization, err = e.ruleNormalizationParams()
+		if err != nil {
+			return lbool.Undef, err
+		}
+	}
 	if quantified {
 		cooperation, e2 := cooperate.NewCooperation(e.manager.Budget())
 		if e2 != nil {
@@ -305,13 +312,13 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 		services := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals, Memory: e.manager.NumeralService().RuntimeOwner(), Cooperation: cooperation}
 		e.bmcTrace, err = compiler.QuantifiedLinearTrace(rules, declaration, level, md, services)
 		if err == nil {
-			e.bmcProof, err = compiler.QuantifiedLinearProof(rules, declaration, level, md, services)
+			e.bmcProof, err = compiler.QuantifiedLinearProof(rules, declaration, level, md, services, normalization)
 		}
 	} else if linear {
 		e.bmcTrace, err = compiler.LinearTrace(rules, declaration, level, md)
 		if err == nil {
 			services := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals}
-			e.bmcProof, err = compiler.LinearProof(rules, declaration, level, md, services)
+			e.bmcProof, err = compiler.LinearProof(rules, declaration, level, md, services, normalization)
 		}
 	} else {
 		cooperation, e2 := cooperate.NewCooperation(e.manager.Budget())
