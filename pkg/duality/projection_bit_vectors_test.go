@@ -73,13 +73,33 @@ func TestProjectFormulaBitVectorDefinitionsAndModularConstraints(t *testing.T) {
 		{"cyclic-increment", nil, eq(x, add(x, one)), wrap(m.MkFalse()), nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			mustSub := func(err error) {
+				t.Helper()
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			rawSub := func(e *Expr) ast.ASTHandle {
+				t.Helper()
+				h, err := e.Raw()
+				mustSub(err)
+				return h
+			}
+			wrapSub := func(h ast.ASTHandle, err error) *Expr {
+				t.Helper()
+				mustSub(err)
+				e, err := NewExpr(ctx, h)
+				mustSub(err)
+				owned = append(owned, e)
+				return e
+			}
 			projected, err := graph.ProjectFormula(tc.keep, tc.formula, simplifier)
-			must(err)
-			defer func() { must(projected.Close()) }()
-			h := raw(projected)
+			mustSub(err)
+			defer func() { mustSub(projected.Close()) }()
+			h := rawSub(projected)
 			absent := make(map[ast.ASTHandle]bool)
 			for _, e := range tc.eliminated {
-				absent[raw(e)] = true
+				absent[rawSub(e)] = true
 			}
 			todo := []ast.ASTHandle{h}
 			seen := make(map[ast.ASTHandle]bool)
@@ -94,24 +114,24 @@ func TestProjectFormulaBitVectorDefinitionsAndModularConstraints(t *testing.T) {
 					t.Fatal("eliminated bit-vector survived projection")
 				}
 				kind, e := m.GetKind(n)
-				must(e)
+				mustSub(e)
 				if kind == ast.ASTApp {
 					arity, e := m.GetNumArgs(n)
-					must(e)
+					mustSub(e)
 					for k := uint32(0); k < arity; k++ {
 						child, e := m.GetArg(n, k)
-						must(e)
+						mustSub(e)
 						todo = append(todo, child)
 					}
 				}
 			}
-			same := wrap(m.MkIff(h, raw(tc.want)))
-			neg := wrap(m.MkNot(raw(same)))
-			must(native.Push())
-			must(native.Assert(raw(neg)))
+			same := wrapSub(m.MkIff(h, rawSub(tc.want)))
+			neg := wrapSub(m.MkNot(rawSub(same)))
+			mustSub(native.Push())
+			defer func() { mustSub(native.Pop(1)) }()
+			mustSub(native.Assert(rawSub(neg)))
 			status, err := native.CheckSat(nil)
-			must(err)
-			must(native.Pop(1))
+			mustSub(err)
 			if status != lbool.False {
 				t.Fatal("bit-vector projection differs from independently derived modular formula", status)
 			}

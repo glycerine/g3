@@ -291,6 +291,20 @@ func TestSMTInternalizerBuildsTheoryAxiomProofs(t *testing.T) {
 		t.Fatal("theory axiom clause fact", fact, want)
 	}
 
+	falseReducedExpression, falseReduced := makeLiteral("theory-axiom-false-reduced")
+	astTestMust(t, state.addTheoryAxiom(family, []SMTLiteral{SMTFalseLiteral, SMTFalseLiteral, falseReduced}))
+	falseReducedJustification, ok := state.booleanData[falseReduced.Var()].Justification().Justification()
+	if !ok {
+		t.Fatal("false-reduced theory axiom lost its justification")
+	}
+	falseReducedProof, err := builder.objectProof(falseReducedJustification)
+	astTestMust(t, err)
+	falseReducedFact, err := m.GetProofFact(falseReducedProof)
+	astTestMust(t, err)
+	if falseReducedFact != falseReducedExpression {
+		t.Fatal("false-reduced theory axiom fact", falseReducedFact, falseReducedExpression)
+	}
+
 	_, c := makeLiteral("theory-axiom-c")
 	dExpression, d := makeLiteral("theory-axiom-d")
 	astTestMust(t, state.PushScope())

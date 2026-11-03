@@ -131,9 +131,7 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 			return nil
 		}
 		if literal == SMTFalseLiteral {
-			if !proof.IsNull() {
-				removedFalse = append(removedFalse, SMTTrueLiteral)
-			}
+			removedFalse = append(removedFalse, SMTTrueLiteral)
 			continue
 		}
 		if _, found := seen[literal.Negated()]; found {
