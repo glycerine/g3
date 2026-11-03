@@ -15,6 +15,7 @@ type contextRulePlan struct {
 	buckets    map[ast.ASTHandle][]*base.Rule
 	forms      []ast.ASTHandle
 	nonBoolean bool
+	arithmetic contextArithmeticPlan
 }
 
 func (c *Context) planRules(set *base.RuleSet) (_ *contextRulePlan, resultErr error) {
@@ -72,6 +73,10 @@ func (c *Context) planRules(set *base.RuleSet) (_ *contextRulePlan, resultErr er
 		}
 	}
 	plan.nonBoolean, err = c.expressionsUseNonBooleanSort(plan.forms)
+	if err != nil {
+		return nil, err
+	}
+	plan.arithmetic, err = c.planArithmetic(plan.forms, plan.nonBoolean)
 	if err != nil {
 		return nil, err
 	}

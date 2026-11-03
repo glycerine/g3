@@ -593,28 +593,12 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 	}
 	c.farkasActive = c.useFarkas && nonBoolean
 	c.proofActive = nonBoolean || c.useConvexClosure || c.useConvexInterior
-	if nonBoolean {
-		selectMode := c.useUTVPI && !c.useConvexClosure && !c.useConvexInterior
-		mode := smtcore.SMTArithmeticSimplex
-		eq2ineq := false
-		if selectMode {
-			difference, x := IsDifferenceLogic(c.manager, forms)
-			if x != nil {
-				return x
-			}
-			if difference {
-				mode, eq2ineq = smtcore.SMTArithmeticDifferenceLogic, true
-			} else {
-				utvpi, y := IsUTVPILogic(c.manager, forms)
-				if y != nil {
-					return y
-				}
-				if utvpi {
-					mode, eq2ineq = smtcore.SMTArithmeticUTVPI, true
-				}
-			}
-		}
-		if err = c.owner.contexts.configureArithmetic(selectMode, mode, eq2ineq); err != nil {
+	arithmetic, err := c.planArithmetic(forms, nonBoolean)
+	if err != nil {
+		return err
+	}
+	if arithmetic.enabled {
+		if err = c.owner.contexts.configureArithmetic(arithmetic.selectMode, arithmetic.mode, arithmetic.eq2ineq); err != nil {
 			return err
 		}
 	}

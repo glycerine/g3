@@ -27,7 +27,7 @@ func (c *Context) CanUpdateRules(set *base.RuleSet) (compatible bool, resultErr 
 	}
 	defer func() { resultErr = errors.Join(resultErr, plan.close()) }()
 	requiredProof := plan.nonBoolean || c.useConvexClosure || c.useConvexInterior
-	return requiredProof == c.proofActive, nil
+	return requiredProof == c.proofActive && c.arithmeticPlanCompatible(plan.arithmetic), nil
 }
 
 // UpdateRules rebuilds the executable rule transformers and inherits all
@@ -45,7 +45,7 @@ func (c *Context) UpdateRules(set *base.RuleSet) (resultErr error) {
 	}
 	defer func() { resultErr = errors.Join(resultErr, plan.close()) }()
 	requiredProof := plan.nonBoolean || c.useConvexClosure || c.useConvexInterior
-	if requiredProof != c.proofActive {
+	if requiredProof != c.proofActive || !c.arithmeticPlanCompatible(plan.arithmetic) {
 		return ast.ErrASTDomain
 	}
 	restoreProofMode, err := c.enterPDRProofMode()
