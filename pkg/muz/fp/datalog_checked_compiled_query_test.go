@@ -12,6 +12,11 @@ func TestDatalogCheckedCompiledConstructorsAndMixedTargets(t *testing.T) {
 	e, m := f.engine, f.manager
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
 	must(e.SelectEngine("datalog"))
+	// Exercise physical constructors and joins; default inlining can replace
+	// these intermediate relations with their definitions.
+	for _, key := range []string{"fixedpoint.xform.inline_eager", "fixedpoint.xform.inline_linear"} {
+		must(e.globals.SourceSetName(key, "false"))
+	}
 	for key, value := range map[string]string{"default_table": "hashtable", "default_table_checked": "true", "default_table_checker": "sparse", "unbound_compressor": "false"} {
 		must(e.globals.SourceSetName("fixedpoint.datalog."+key, value))
 	}
@@ -47,6 +52,15 @@ func TestDatalogCheckedCompiledConstructorsAndMixedTargets(t *testing.T) {
 		must(err)
 		if status != lbool.True || !e.compiled {
 			t.Fatal("checked query failed compiled execution", status, e.compiled)
+		}
+		joins := uint32(0)
+		for i := 0; i < e.datalogStats.Size(); i++ {
+			if e.datalogStats.Key(i) == "dl.joins" || e.datalogStats.Key(i) == "dl.join_project" {
+				joins += e.datalogStats.UintValue(i)
+			}
+		}
+		if joins == 0 {
+			t.Fatal("checked constructor fixture did not execute its join")
 		}
 		for _, spec := range []struct {
 			d     ast.ASTHandle

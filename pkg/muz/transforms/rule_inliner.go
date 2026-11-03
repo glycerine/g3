@@ -20,6 +20,7 @@ type RuleInlinerPlugin struct {
 	manager    *ast.ASTManager
 	rules      *base.RuleManager
 	protected  map[ast.ASTHandle]bool
+	facts      map[ast.ASTHandle]bool
 	priority   uint32
 	eager      bool
 	linear     bool
@@ -82,6 +83,23 @@ func (p *RuleInlinerPlugin) Priority() uint32            { return p.priority }
 func (p *RuleInlinerPlugin) CanDestratifyNegation() bool { return false }
 func (p *RuleInlinerPlugin) Cancel()                     {}
 
+// PreserveFacts supplies the relational context's nonempty predicates. They
+// cannot be removed or rewritten using rule definitions alone; output-only
+// protection does not impose the latter restriction on oriented rewriting.
+func (p *RuleInlinerPlugin) PreserveFacts(declarations []ast.ASTHandle) error {
+	if p == nil || p.closed || p.closing {
+		return base.ErrRuleTransformerOwner
+	}
+	if p.facts == nil {
+		p.facts = make(map[ast.ASTHandle]bool)
+	}
+	for _, declaration := range declarations {
+		p.facts[declaration] = true
+		p.protected[declaration] = true
+	}
+	return nil
+}
+
 func closeRules(rules []*base.Rule) (result error) {
 	for i := len(rules) - 1; i >= 0; i-- {
 		result = errors.Join(result, rules[i].Close())
@@ -89,7 +107,13 @@ func closeRules(rules []*base.Rule) (result error) {
 	return result
 }
 
-func (p *RuleInlinerPlugin) captureModelRule(rule *base.Rule) (resultErr error) {
+func (p *RuleInlinerPlugin) captureModelRule(rule *base.Rule) error {
+	return p.captureDeletedModelRule(rule, false)
+}
+
+// Source dl_util.cpp::del_rule uses false as the body for an unreachable
+// deletion, including inline_linear's removed definition.
+func (p *RuleInlinerPlugin) captureDeletedModelRule(rule *base.Rule, unreachable bool) (resultErr error) {
 	head, err := rule.Head()
 	if err != nil {
 		return err
@@ -108,6 +132,9 @@ func (p *RuleInlinerPlugin) captureModelRule(rule *base.Rule) (resultErr error) 
 	if err != nil {
 		return err
 	}
+	if unreachable {
+		count = 0
+	}
 	conjuncts := make([]ast.ASTHandle, 0, count)
 	for index := 0; index < count; index++ {
 		tail, negative, getErr := rule.Tail(index)
@@ -122,7 +149,12 @@ func (p *RuleInlinerPlugin) captureModelRule(rule *base.Rule) (resultErr error) 
 		}
 		conjuncts = append(conjuncts, tail)
 	}
-	body, err := p.manager.MkAndArray(conjuncts)
+	var body ast.ASTHandle
+	if unreachable {
+		body, err = p.manager.MkFalse()
+	} else {
+		body, err = p.manager.MkAndArray(conjuncts)
+	}
 	if err != nil {
 		return err
 	}
@@ -842,7 +874,7 @@ func (p *RuleInlinerPlugin) orientedEagerRule(rule *base.Rule, rules *base.RuleS
 		if getErr != nil {
 			return nil, false, getErr
 		}
-		if declaration == head {
+		if declaration == head || p.facts[declaration] {
 			continue
 		}
 		definitions, getErr := rules.PredicateRules(declaration)
@@ -1273,6 +1305,11 @@ func (p *RuleInlinerPlugin) inlineLinear(source *base.RuleSet) (_ *base.RuleSet,
 				}
 				break
 			}
+			// Source inline_linear records the removed definition with
+			// del_rule(m_mc, *r2, true) before discarding its rule owner.
+			if getErr = p.captureDeletedModelRule(rules[candidateIndex], true); getErr != nil {
+				return nil, errors.Join(getErr, replacement.Close())
+			}
 			if getErr = current.Close(); getErr != nil {
 				return nil, errors.Join(getErr, replacement.Close())
 			}
@@ -1347,6 +1384,7 @@ func (p *RuleInlinerPlugin) Close() error {
 		p.cooperate = nil
 	}
 	p.protected = nil
+	p.facts = nil
 	p.params = nil
 	p.globals = nil
 	p.closed = true

@@ -38,6 +38,11 @@ func TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries(t *testing.T)
 	f := newDirectFactFixture(t)
 	e, m := f.engine, f.manager
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
+	// This fixture checks publication of materialized intermediate tables.
+	// Keep their defining rules instead of substituting them into the query.
+	for _, key := range []string{"fixedpoint.xform.inline_eager", "fixedpoint.xform.inline_linear"} {
+		must(e.globals.SourceSetName(key, "false"))
+	}
 	must(e.Push())
 	must(e.Pop())
 	must(e.Push())

@@ -1008,6 +1008,7 @@ func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
 	transformer := owners.transformer
 	conversionBase := len(e.datalogConversions)
 	var coneSteps []transforms.ConeModelStep
+	var inlineRules []transforms.InlineModelRule
 	defer func() {
 		e.datalogTransformCleanup = owners
 		resultErr = errors.Join(resultErr, e.clearDatalogTransformCleanup())
@@ -1025,42 +1026,36 @@ func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
 				e.datalogConversions = append(e.datalogConversions, hornModelConversion{kind: hornConvertCone, cone: step})
 			}
 		}
+		cleanupErr = transforms.CloseInlineModelRules(inlineRules)
+		resultErr = errors.Join(resultErr, cleanupErr)
+		if cleanupErr != nil {
+			e.datalogConversions = append(e.datalogConversions, hornModelConversion{kind: hornConvertInline, inline: inlineRules})
+		}
 	}()
-	context, globals := e.params, e.globals
-	if context == nil && globals == nil {
-		var err error
-		owners.context, err = uparams.NewParamsContext(e.manager.Symbols, e.manager.NumeralService(), uparams.ParamsConfig{Budget: e.manager.Budget()})
-		if err != nil {
-			return err
-		}
-		owners.catalog, err = uparams.NewGlobalParamsCatalog(e.manager.Symbols, uparams.GlobalParamsCatalogConfig{Budget: e.manager.Budget()})
-		if err != nil {
-			return err
-		}
-		owners.globals, err = uparams.NewGlobalParamsService(e.manager.Symbols, owners.context, uparams.GlobalParamsConfig{
-			Budget: e.manager.Budget(), Catalog: owners.catalog,
-		})
-		if err != nil {
-			return err
-		}
-		if err := owners.globals.InitializeSource(); err != nil {
-			return err
-		}
-		context, globals = owners.context, owners.globals
+	context, globals, err := owners.services(e)
+	if err != nil {
+		return err
 	}
 	simplifier, err := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, context, globals, 0)
 	if err != nil {
 		return err
+	}
+	inliner, err := e.datalogInliner(context, globals)
+	if err != nil {
+		return errors.Join(err, simplifier.Close())
 	}
 	cone := transforms.NewConePluginWithRelations(e.relations, 0)
 	negative := transforms.NewSeparateNegatedTailsPlugin(e.manager, e.rules, 0)
 	filter := transforms.NewFilterRulesPlugin(e.manager, e.rules, 0)
 	plugin := transforms.NewSimpleJoinsPlugin(e.manager, e.rules, 0, e.relations)
 	if err := transformer.Register(cone); err != nil {
-		return errors.Join(err, cone.Close(), simplifier.Close(), negative.Close(), filter.Close(), plugin.Close())
+		return errors.Join(err, cone.Close(), simplifier.Close(), inliner.Close(), negative.Close(), filter.Close(), plugin.Close())
 	}
 	if err := transformer.Register(simplifier); err != nil {
-		return errors.Join(err, simplifier.Close(), negative.Close(), filter.Close(), plugin.Close())
+		return errors.Join(err, simplifier.Close(), inliner.Close(), negative.Close(), filter.Close(), plugin.Close())
+	}
+	if err := transformer.Register(inliner); err != nil {
+		return errors.Join(err, inliner.Close(), negative.Close(), filter.Close(), plugin.Close())
 	}
 	if err := transformer.Register(negative); err != nil {
 		return errors.Join(err, negative.Close(), filter.Close(), plugin.Close())
@@ -1076,6 +1071,10 @@ func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
 		return err
 	}
 	coneSteps, err = cone.TakeModelSteps()
+	if err != nil {
+		return err
+	}
+	inlineRules, err = inliner.TakeModelRules()
 	if err != nil {
 		return err
 	}
@@ -1096,6 +1095,10 @@ func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
 		e.datalogConversions = append(e.datalogConversions, hornModelConversion{kind: hornConvertCone, cone: step})
 	}
 	coneSteps = nil
+	if len(inlineRules) != 0 {
+		e.datalogConversions = append(e.datalogConversions, hornModelConversion{kind: hornConvertInline, inline: inlineRules})
+		inlineRules = nil
+	}
 	e.revision++
 	return nil
 }

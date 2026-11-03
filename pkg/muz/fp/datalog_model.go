@@ -98,5 +98,5 @@ func (e *PropositionalEngine) datalogModel(omitted ast.ASTHandle) (result *model
 		registered = true
 		interpretation = nil
 	}
-	return e.expandHornModel(result, e.datalogConversions)
+	return e.expandDatalogModel(result)
 }
