@@ -140,6 +140,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
       - [x] Invalidate result/property snapshots before parameter or engine mutation disposes a query owner; verify refusal preserves owners and successful retries apply requested changes.
       - [ ] Extend independent cleanup-error continuation audits beyond the exercised allocation-refusal path, including partially completed statistics collection and direct constructor-context mutation cleanup.
 - [ ] Verify parameter defaults, aliases, updates and engine selection against `fixedpoint_params.hpp` and engine registration.
+  - [x] Compare all 123 source catalog defaults with Go, and honor profile-output and profile-timeout options in PDR/QPDR rule diagnostics. Local/global precedence and source display boundaries pass focused tests; other live parameter consumers remain open.
   - [x] Preserve fixedpoint local/module parameter snapshot decrement receipts across native numerical cleanup refusal and resume the exact owner on Close retry.
   - [x] Scan actual normalized rules before pending raw inputs during automatic engine selection, matching dl_context.cpp:840–859; remove stale ingestion-order classifications and preserve update/display/scope priority.
   - [x] Cache the first configured engine choice across later parameter updates, while preserving explicit Go engine overrides; apply owning API parameters before pre-query fact ingestion.
@@ -2135,3 +2136,4 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Matched source engine construction before expression-query preparation for PDR/QPDR/Spacer. Failed flush, failed constructor, preparation failure, scope rollback and successful context-transfer retries pass in native and three-tag focused tests.
 - 2026-11-03 — Preserved a pending fixedpoint background replacement through native cleanup refusal. Public retry, query, parameter, statistics and Close recovery pass, as do reference-allocation and exact ownership checks.
 - 2026-11-03 — Matched source initial trace-rule selection using the existing PDR witness model. Direct and public expression-query Answer/Proof tests verify no extra solver check or model replacement, including allocation failure and retry.
+- 2026-11-03 — Matched PDR/QPDR rule diagnostics to the profile-output and profile-timeout parameters, including local overrides. All 123 source catalog defaults match the Go catalog; focused native and three-tag parameter tests pass.

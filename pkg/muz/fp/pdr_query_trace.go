@@ -22,7 +22,7 @@ func (e *PropositionalEngine) tracePDRFreshRule(index int) error {
 			defer func() { resultErr = errors.Join(resultErr, rule.Close()) }()
 			writer := pdrTraceOperandWriter{out: out}
 			_, _ = io.WriteString(writer, "Fresh rule ")
-			return e.rules.WriteRuleDisplay(writer, rule)
+			return e.writeRuleDisplay(writer, rule)
 		})
 	if tags.IsStreamFailure(err) {
 		return nil
@@ -52,7 +52,7 @@ func (e *PropositionalEngine) tracePDRTransformedRules(rules *base.RuleSet) erro
 		func() bool { return true }, func(out io.Writer) (resultErr error) {
 			writer := pdrTraceOperandWriter{out: out}
 			_, _ = io.WriteString(writer, "rules:\n")
-			if err := rules.WriteDisplay(writer); err != nil {
+			if err := e.writeRuleSetDisplay(writer, rules); err != nil {
 				return err
 			}
 			config, err := e.contextSMT2Config(nil, nil)
@@ -149,7 +149,7 @@ func (e *PropositionalEngine) tracePDRInput(declaration ast.ASTHandle) error {
 			if err = shadow.SetOutputPredicate(declaration); err != nil {
 				return err
 			}
-			return shadow.WriteDisplay(writer)
+			return e.writeRuleSetDisplay(writer, shadow)
 		})
 	if tags.IsStreamFailure(err) {
 		return nil

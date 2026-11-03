@@ -19,7 +19,7 @@ func (w pdrVerboseRuleWriter) Write(body []byte) (int, error) {
 	return len(body), nil
 }
 
-func writePDRQueryRules(rules *base.RuleSet) error {
+func (e *PropositionalEngine) writePDRQueryRules(rules *base.RuleSet) error {
 	enabled, err := diagnostic.ProcessVerboseEnabled(2)
 	if err != nil || !enabled {
 		return err
@@ -32,7 +32,7 @@ func writePDRQueryRules(rules *base.RuleSet) error {
 	if err != nil {
 		return err
 	}
-	return rules.WriteDisplay(pdrVerboseRuleWriter{stream: stream})
+	return e.writeRuleSetDisplay(pdrVerboseRuleWriter{stream: stream}, rules)
 }
 
 // The source model printer is reached only when the transformed program is

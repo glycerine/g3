@@ -284,7 +284,7 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	if err = e.tracePDRTransformedRules(prepared); err != nil {
 		return lbool.Undef, errors.Join(err, closeContext())
 	}
-	if err = writePDRQueryRules(prepared); err != nil {
+	if err = e.writePDRQueryRules(prepared); err != nil {
 		return lbool.Undef, errors.Join(err, closeContext())
 	}
 	snapshot, err := snapshotHornRules(prepared)
