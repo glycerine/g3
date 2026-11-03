@@ -92,18 +92,19 @@ func (c *Compiler) linearProofStep(rm *base.RuleManager, rule *base.Rule, index,
 	if err != nil {
 		return nil, ast.ASTRef{}, err
 	}
-	return c.linearProofStepWithBindings(rm, rule, bindings, previous, previousProof, normalizer, ast.ASTProofPosition{First: 1, Second: 0})
+	return c.linearProofStepWithBindings(rm, rule, bindings, previous, previousProof, normalizer, ast.ASTProofPosition{First: 1, Second: 0}, false)
 }
 
 // linearProofStepWithBindings takes ownership of all supplied references.
-func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.Rule, bindingRefs []ast.ASTRef, previous *base.Rule, previousProof ast.ASTRef, normalizer *transforms.RuleInlinerPlugin, position ast.ASTProofPosition) (next *base.Rule, proofRef ast.ASTRef, resultErr error) {
+func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.Rule, bindingRefs []ast.ASTRef, previous *base.Rule, previousProof ast.ASTRef, normalizer *transforms.RuleInlinerPlugin, position ast.ASTProofPosition, sourceQuantified bool) (next *base.Rule, proofRef ast.ASTRef, resultErr error) {
 	m := c.manager
 	refs := append([]ast.ASTRef(nil), bindingRefs...)
 	var temporaryRules []*base.Rule
 	var unifier *transforms.RuleUnifier
+	var proofScope *ast.ScopedProofMode
 	var sub *rewriter.VarSubstitution
 	defer func() {
-		owner := &linearProofStepOwner{manager: m, refs: refs, temps: temporaryRules, sub: sub, unifier: unifier, next: next, proof: proofRef}
+		owner := &linearProofStepOwner{manager: m, scope: proofScope, refs: refs, temps: temporaryRules, sub: sub, unifier: unifier, next: next, proof: proofRef}
 		resultErr = owner.dispose(resultErr)
 		if resultErr != nil {
 			next = nil
@@ -125,33 +126,9 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 		return nil, proofRef, err
 	}
 	temporaryRules = append(temporaryRules, instantiated)
-	proof, found, err := rule.Proof()
-	if err != nil {
-		return nil, proofRef, err
-	}
-	if !found {
-		formula, err := rule.ToFormula()
-		if err != nil {
-			return nil, proofRef, err
-		}
-		refs = append(refs, formula)
-		value, err := m.RefGet(formula)
-		if err != nil {
-			return nil, proofRef, err
-		}
-		proof, err = m.MkProofAsserted(value)
-		if err != nil {
-			return nil, proofRef, err
-		}
-	}
-	pinned, err := m.NewRef(proof)
-	if err != nil {
-		return nil, proofRef, err
-	}
-	refs = append(refs, pinned)
-	premises := []ast.ASTHandle{proof}
+	var prior ast.ASTHandle
 	var positions []ast.ASTProofPosition
-	substitutions := [][]ast.ASTHandle{bindings}
+	var substitutions [][]ast.ASTHandle
 	if previous == nil {
 		next, err = instantiated.Retain()
 	} else {
@@ -210,8 +187,14 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 			}
 		}
 		var renaming []ast.ASTRef
-		next, renaming, err = unifier.ResolveRawWithRenaming(rm, previous, 0, instantiated)
-		refs = append(refs, renaming...)
+		if sourceQuantified {
+			// qlinear::get_model applies the unifier without composing the
+			// resulting rule's variable normalization into its substitutions.
+			next, err = unifier.ResolveRaw(rm, previous, 0, instantiated)
+		} else {
+			next, renaming, err = unifier.ResolveRawWithRenaming(rm, previous, 0, instantiated)
+			refs = append(refs, renaming...)
+		}
 		if err != nil {
 			return nil, proofRef, err
 		}
@@ -247,20 +230,15 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 				}
 			}
 		}
-		prior, e := m.RefGet(previousProof)
+		prior, e = m.RefGet(previousProof)
 		if e != nil {
 			return next, proofRef, e
 		}
-		premises = []ast.ASTHandle{prior, proof}
 		positions = []ast.ASTProofPosition{position}
 		substitutions = [][]ast.ASTHandle{first, bindings}
 	}
 	if err != nil {
 		return nil, proofRef, err
-	}
-	if previous == nil && len(bindings) == 0 {
-		proofRef, err = m.NewRef(proof)
-		return next, proofRef, err
 	}
 	if previous != nil {
 		normalized, e := normalizer.NormalizeResolvedRule(next)
@@ -278,7 +256,54 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 			return nil, proofRef, ast.ErrASTDomain
 		}
 	}
-	formula, err := next.ToFormula()
+	if sourceQuantified {
+		proofScope, err = ast.NewScopedProof(m)
+		if err != nil {
+			return next, proofRef, err
+		}
+	}
+	proof, found, err := rule.Proof()
+	if err != nil {
+		return nil, proofRef, err
+	}
+	if !found {
+		formula, err := rule.ToFormula()
+		if err != nil {
+			return nil, proofRef, err
+		}
+		refs = append(refs, formula)
+		value, err := m.RefGet(formula)
+		if err != nil {
+			return nil, proofRef, err
+		}
+		proof, err = m.MkProofAsserted(value)
+		if err != nil {
+			return nil, proofRef, err
+		}
+	}
+	pinned, err := m.NewRef(proof)
+	if err != nil {
+		return nil, proofRef, err
+	}
+	refs = append(refs, pinned)
+	premises := []ast.ASTHandle{proof}
+	if previous == nil {
+		substitutions = [][]ast.ASTHandle{bindings}
+	}
+	if previous != nil {
+		premises = []ast.ASTHandle{prior, proof}
+	}
+	if previous == nil && len(bindings) == 0 {
+		proofRef, err = m.NewRef(proof)
+		return next, proofRef, err
+	}
+	conclusionRule := next
+	if sourceQuantified && previous == nil {
+		// Source qlinear uses the uninstantiated input rule as its first
+		// hyper-resolution conclusion, while keeping r2 instantiated.
+		conclusionRule = rule
+	}
+	formula, err := conclusionRule.ToFormula()
 	if err != nil {
 		return next, proofRef, err
 	}

@@ -81,8 +81,13 @@ func TestLinearProofStepCleanupPreservesAllOwnersAcrossNativeRefusal(t *testing.
 	must(err)
 	proof, err := manager.NewRef(head)
 	must(err)
+	beforeMode, err := manager.ProofMode()
+	must(err)
+	scope, err := ast.NewScopedProof(manager)
+	must(err)
 	owner = &linearProofStepOwner{
 		manager: manager,
+		scope:   scope,
 		refs:    []ast.ASTRef{ref},
 		temps:   []*base.Rule{temporary},
 		sub:     sub,
@@ -107,7 +112,17 @@ func TestLinearProofStepCleanupPreservesAllOwnersAcrossNativeRefusal(t *testing.
 	if !errors.As(failure, &cleanup) {
 		t.Fatal("linear proof-step cleanup lost concrete retry owner", failure)
 	}
+	pendingMode, err := manager.ProofMode()
+	must(err)
+	if pendingMode != ast.ASTProofEnabled || owner.scope == nil {
+		t.Fatal("pending cleanup lost its active proof scope")
+	}
 	must(cleanup.Cleanup())
+	afterMode, err := manager.ProofMode()
+	must(err)
+	if afterMode != beforeMode || owner.scope != nil {
+		t.Fatal("cleanup failed to restore proof mode", beforeMode, afterMode)
+	}
 	if cleanup.Error() == "" || !errors.Is(cleanup.Unwrap(), ast.ErrASTPending) {
 		t.Fatal("linear proof-step cleanup lost stable refusal cause")
 	}

@@ -73,14 +73,13 @@ checks remain in `pkg/muz/fp/bmc_numeric_proof_test.go` with the reason.
    test has been commented out by request; other proof tests also fail when
    the solver selects a source-valid positive-level fact.
 
-9. **Proof resolution and normalization.** C++ applies the rule unifier and
-   builds a hyper-resolution proof for the resulting formula directly
-   (`src/muz/bmc/dl_bmc_engine.cpp:303–327`). Go resolves a raw rule, composes
-   its variable-bank renaming into the premise substitutions, proves that raw
-   resolvent and then normalizes the rule with explicit proof steps
-   (`pkg/muz/bmc/linear_proof.go:212–245,265–285`). This can change proof
-   structure and normalization behavior after selection. It is not evidence
-   for the earlier missing-selector error.
+9. **FIXED — Proof resolution and normalization.** QBMC now follows the
+   C++ proof sequence: normalize before hyper-resolution, use the original
+   first-rule conclusion and source resolution position, and omit the extra
+   variable-bank substitution composition. Proof mode starts after
+   substitution and unification and is restored after retryable cleanup.
+   Focused source-conclusion and native cleanup tests pass; source-compatible
+   proof failures remain in the existing integration tests.
 
 ## Next evidence to capture
 
@@ -102,6 +101,4 @@ model against all source constraints. Source termination has been restored by
 request; the recursive proof case is commented out and other proof tests can
 fail on positive-level facts. No extra encoding constraint was added.
 The bundled Z3 4.7.1 also fails its rule-unifier verification on the recursive
-and linear fixtures. Item 9 remains open pending resolution of these source
-inconsistencies and proof-normalization dependencies. Go enters proof mode
-before the whole proof step; C++ does so after substitution and unification.
+and linear fixtures. The remaining item 5 concerns source failure and assertion continuation.

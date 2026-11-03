@@ -3,12 +3,10 @@ package bmc
 // Source: src/muz/bmc/dl_bmc_engine.cpp, qlinear::get_model proof assembly.
 
 import (
-	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/transforms"
-	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 // QuantifiedLinearProof constructs the unconverted proof for the selected
@@ -56,26 +54,8 @@ func (c *Compiler) QuantifiedLinearTraceAndProof(rules *base.RuleSet, query ast.
 		if cause != nil {
 			return cause
 		}
-		scope, scopeErr := ast.NewScopedProof(m)
-		owner.scope = scope
-		if scopeErr != nil {
-			return disposeASTRefs(m, bindings, scopeErr)
-		}
-		defer func() {
-			var pending memory.ConstructionFailure
-			if errors.As(visitErr, &pending) {
-				return
-			}
-			if owner.scope != nil {
-				closeErr := owner.scope.Close()
-				if closeErr == nil {
-					owner.scope = nil
-				}
-				visitErr = errors.Join(visitErr, closeErr)
-			}
-		}()
-		position := ast.ASTProofPosition{First: 1, Second: 0}
-		next, proof, cause := c.linearProofStepWithBindings(rm, step.rule, bindings, previous, result, normalizer, position)
+		position := ast.ASTProofPosition{First: 0, Second: 1}
+		next, proof, cause := c.linearProofStepWithBindings(rm, step.rule, bindings, previous, result, normalizer, position, true)
 		if cause != nil {
 			_, _, cause = advanceQuantifiedLinearProofStep(m, nil, next, ast.ASTRef{}, proof, cause)
 			return cause
@@ -111,11 +91,6 @@ func (c *Compiler) quantifiedLinearProofSteps(rules *base.RuleSet, width uint32,
 	if err != nil {
 		return result, err
 	}
-	scope, err := ast.NewScopedProof(m)
-	owner.scope = scope
-	if err != nil {
-		return result, err
-	}
 	normalizer := transforms.NewRuleInlinerPluginWithServices(m, rm, nil, true, true, services.Context, services.Globals, 0)
 	owner.normalizer = normalizer
 	if len(normalization) != 0 {
@@ -126,10 +101,9 @@ func (c *Compiler) quantifiedLinearProofSteps(rules *base.RuleSet, width uint32,
 		if cause != nil {
 			return result, cause
 		}
-		// The accumulated rule's first body atom resolves with the next
-		// rule's head: body position one and head position zero.
-		position := ast.ASTProofPosition{First: 1, Second: 0}
-		next, proof, cause := c.linearProofStepWithBindings(rm, step.rule, bindings, previous, result, normalizer, position)
+		// qlinear::get_model records the source's (0, 1) position pair.
+		position := ast.ASTProofPosition{First: 0, Second: 1}
+		next, proof, cause := c.linearProofStepWithBindings(rm, step.rule, bindings, previous, result, normalizer, position, true)
 		if cause != nil {
 			_, _, cause = advanceQuantifiedLinearProofStep(m, nil, next, ast.ASTRef{}, proof, cause)
 			return result, cause

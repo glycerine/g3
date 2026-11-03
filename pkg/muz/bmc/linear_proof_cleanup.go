@@ -16,6 +16,7 @@ import (
 
 type linearProofStepOwner struct {
 	manager *ast.ASTManager
+	scope   *ast.ScopedProofMode
 	nested  memory.ConstructionFailure
 	refs    []ast.ASTRef
 	temps   []*base.Rule
@@ -55,6 +56,12 @@ func (o *linearProofStepOwner) closeLocals() error {
 			return err
 		}
 		o.nested = nil
+	}
+	if o.scope != nil {
+		if err := o.scope.Close(); err != nil {
+			return err
+		}
+		o.scope = nil
 	}
 	// Match the source lifetime nesting: the variable substitution was
 	// constructed after the unifier, so it is destroyed first.
