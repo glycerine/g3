@@ -60,6 +60,28 @@ func (e *PropositionalEngine) normalizeInlineModelRule(rule transforms.InlineMod
 		return declaration, result, err
 	}
 
+	// Source mk_horn owns the formal variables, substitution bindings,
+	// conjunction and result throughout normalization. Keep those concrete
+	// scopes alive even when constructing the substitution engine fails.
+	attempt := &contextFormulaAttempt{manager: e.manager}
+	defer func() {
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			attempt.references = append(attempt.references, result)
+			result = ast.ASTRef{}
+		}
+		resultErr = attempt.finish(resultErr)
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			attempt.references = append(attempt.references, result)
+			result = ast.ASTRef{}
+		}
+	}()
+	reserve := func() (ast.ASTRef, error) {
+		ref, err := e.manager.NewRef(ast.ASTHandle{})
+		if ref != (ast.ASTRef{}) {
+			attempt.references = append(attempt.references, ref)
+		}
+		return ref, err
+	}
 	conjuncts := []ast.ASTHandle{body}
 	bindings := make([]ast.ASTHandle, freeCount)
 	for index := uint32(0); index < arity; index++ {
@@ -71,7 +93,14 @@ func (e *PropositionalEngine) normalizeInlineModelRule(rule transforms.InlineMod
 		if getErr != nil {
 			return ast.ASTHandle{}, result, getErr
 		}
+		owned, getErr := reserve()
+		if getErr != nil {
+			return ast.ASTHandle{}, result, getErr
+		}
 		formal, getErr := e.manager.MkVar(freeCount+index, sort)
+		if !formal.IsNull() {
+			getErr = errors.Join(getErr, e.manager.SetRef(owned, formal))
+		}
 		if getErr != nil {
 			return ast.ASTHandle{}, result, getErr
 		}
@@ -93,34 +122,50 @@ func (e *PropositionalEngine) normalizeInlineModelRule(rule transforms.InlineMod
 			}
 			argument = bindings[variable]
 		}
+		owned, getErr = reserve()
+		if getErr != nil {
+			return ast.ASTHandle{}, result, getErr
+		}
 		equality, getErr := e.manager.MkEq(formal, argument)
+		if !equality.IsNull() {
+			getErr = errors.Join(getErr, e.manager.SetRef(owned, equality))
+		}
 		if getErr != nil {
 			return ast.ASTHandle{}, result, getErr
 		}
 		conjuncts = append(conjuncts, equality)
 	}
+	owned, err := reserve()
+	if err != nil {
+		return ast.ASTHandle{}, result, err
+	}
 	formula, err := e.manager.MkAndArray(conjuncts)
+	if !formula.IsNull() {
+		err = errors.Join(err, e.manager.SetRef(owned, formula))
+	}
 	if err != nil {
 		return ast.ASTHandle{}, result, err
 	}
 	if len(bindings) != 0 {
-		substitute, makeErr := astrewriter.NewVarSubstitution(e.manager, false)
+		attempt.substitution, err = astrewriter.NewVarSubstitution(e.manager, false)
+		if err != nil {
+			return ast.ASTHandle{}, result, err
+		}
+		rewritten, makeErr := reserve()
 		if makeErr != nil {
 			return ast.ASTHandle{}, result, makeErr
 		}
-		defer func() { resultErr = errors.Join(resultErr, substitute.Close()) }()
-		rewritten, makeErr := e.manager.NewRef(ast.ASTHandle{})
-		if makeErr != nil {
+		if makeErr = attempt.substitution.Substitute(formula, bindings, rewritten); makeErr != nil {
 			return ast.ASTHandle{}, result, makeErr
-		}
-		if makeErr = substitute.Substitute(formula, bindings, rewritten); makeErr != nil {
-			return ast.ASTHandle{}, result, errors.Join(makeErr, e.manager.DelRef(&rewritten))
 		}
 		formula, makeErr = e.manager.RefGet(rewritten)
 		if makeErr != nil {
-			return ast.ASTHandle{}, result, errors.Join(makeErr, e.manager.DelRef(&rewritten))
+			return ast.ASTHandle{}, result, makeErr
 		}
-		defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&rewritten)) }()
+	}
+	result, err = e.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTHandle{}, result, err
 	}
 	if freeCount != 0 {
 		if err = free.Reverse(); err != nil {
@@ -132,11 +177,10 @@ func (e *PropositionalEngine) normalizeInlineModelRule(rule transforms.InlineMod
 			names[len(names)-i-1] = usymbol.Numerical(uint32(i))
 		}
 		formula, err = e.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: false, Sorts: sorts, Names: names, Body: formula})
-		if err != nil {
-			return ast.ASTHandle{}, result, err
-		}
 	}
-	result, err = e.manager.NewRef(formula)
+	if !formula.IsNull() {
+		err = errors.Join(err, e.manager.SetRef(result, formula))
+	}
 	return declaration, result, err
 }
 
@@ -317,6 +361,13 @@ func (e *PropositionalEngine) applyHornInlineModelRules(destination *model.Model
 			rewritten, rewriteErr := e.manager.NewRef(ast.ASTHandle{})
 			if rewriteErr == nil {
 				rewriteErr = e.guard.Rewrite(value, rewritten)
+				if rewriteErr != nil {
+					// Source's converter member keeps an interrupted traversal.
+					// The Go error-return boundary permits a new model export, so
+					// discard that attempt before returning to the caller. The
+					// engine continues to own the guard if resetting is refused.
+					rewriteErr = errors.Join(rewriteErr, e.guard.Reset())
+				}
 			}
 			if rewriteErr == nil {
 				value, rewriteErr = e.manager.RefGet(rewritten)
