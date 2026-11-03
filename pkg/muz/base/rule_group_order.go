@@ -8,6 +8,20 @@ type ruleGroupBucket struct {
 	hash      uint32
 }
 
+// resetGroups follows core_hashtable::reset, preserving capacity unless the
+// source's sparse-table condition shrinks it by one power of two.
+func (s *RuleSet) resetGroups() {
+	if s.groupCount == 0 {
+		return
+	}
+	capacity := len(s.groupBuckets)
+	if capacity > 16 && (capacity-s.groupCount)*4 > capacity*3 {
+		capacity /= 2
+	}
+	s.groupBuckets = make([]ruleGroupBucket, capacity)
+	s.groupCount = 0
+}
+
 // insertGroup mirrors the source's concrete predicate-group table. Entries
 // remain after deleting the last rule, as they do in rule_set::del_rule.
 func (s *RuleSet) insertGroup(predicate ast.ASTHandle, hash uint32) {

@@ -723,8 +723,7 @@ func (s *RuleSet) resetContents() error {
 	s.rules = nil
 	s.byHead = make(map[ast.ASTHandle][]*Rule)
 	s.headOrder = nil
-	s.groupBuckets = nil
-	s.groupCount = 0
+	s.resetGroups()
 	s.dependencies = nil
 	s.strata = nil
 	s.outputs = make(map[ast.ASTHandle]ast.ASTRef)
