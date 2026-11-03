@@ -466,6 +466,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Formula reconstruction and concrete interpreted filtering with source ignored-column approximation.
   - [x] Row/byte estimates forward exact inner storage without materializing ignored full domains.
   - [x] Mixed sieve/table joins and unions preserve layout guards, independent owners and cumulative deltas.
+  - [x] Construct full and empty-like sieves with concrete selected-column layout, and cover both ordinary/sieve mixed-delta union directions with changed-only cumulative deltas.
 - [ ] `src/muz/rel/dl_sparse_table.cpp` (partial), `src/muz/rel/dl_sparse_table.h` (partial)
   - [x] Concrete empty query and zero-key functional complement consumption.
   - [x] Direct supported join/negation operations dispatch through indexed plans; functional-key and zero-column fallbacks remain explicit.
@@ -508,6 +509,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Concrete sieves now build full selected-column products and independent empty instances while preserving ignored-column layout and nullary identity. Both source mixed-delta union directions between all-inner sieves and ordinary tables enforce exact signatures/layout and record only newly changed rows across repeated unions; wider sieve auditing remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^TestSieve' -count=3` passed. Commit title: `Complete sieve full and mixed delta operations`.
 
 - 2026-11-02 — Sparse functional tables now fetch an owned stored suffix from the nonfunctional key, including the source zero-column key. Finite sparse products use that key-only lookup for add, membership and union, so multiple inner facts share one nullary outer index row without dummy full-row probes; other sparse fallbacks remain open.
   Validation: `go -C pkg test ./muz/rel -run '^(TestSparseFunctionalZeroKeyFetchDrivesFiniteProductConsumer|TestFiniteSparseProduct)' -count=3` passed. Commit title: `Fetch sparse functional rows by key`.
