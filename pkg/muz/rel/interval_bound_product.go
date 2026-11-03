@@ -89,14 +89,30 @@ func (p *IntervalBoundProduct) Union(source, delta *IntervalBoundProduct, widen 
 }
 
 func (p *IntervalBoundProduct) FilterInterpreted(m *ast.ASTManager, condition ast.ASTHandle) error {
-	if p == nil || p.interval == nil || p.bound == nil {
+	if p == nil || m == nil || !intervalBoundProductKinds(p.kinds) {
 		return ast.ErrASTDomain
 	}
-	if err := p.interval.FilterInterpreted(m, condition); err != nil {
-		return err
+	for _, kind := range p.kinds {
+		switch kind {
+		case "interval_relation":
+			if p.interval == nil {
+				return ast.ErrASTDomain
+			}
+			if err := p.interval.FilterInterpreted(m, condition); err != nil {
+				return err
+			}
+		case "bound_relation":
+			if p.bound == nil {
+				return ast.ErrASTDomain
+			}
+			if _, err := p.bound.FilterInterpreted(m, condition); err != nil {
+				return err
+			}
+		default:
+			return ast.ErrASTDomain
+		}
 	}
-	_, err := p.bound.FilterInterpreted(m, condition)
-	return err
+	return nil
 }
 
 func (p *IntervalBoundProduct) FilterEqual(column uint32, value *big.Rat) error {
