@@ -6,10 +6,14 @@ package fp
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func (e *PropositionalEngine) ensureSparseIntervalDatalog() (bool, error) {
+	if err := e.cacheDatalogRelationFavourite(); err != nil {
+		return false, err
+	}
 	selected := false
 	for _, state := range e.predicates {
 		selected = selected || isSparseIntervalRepresentation(state.requestedRepresentations)
@@ -17,19 +21,33 @@ func (e *PropositionalEngine) ensureSparseIntervalDatalog() (bool, error) {
 	if !selected {
 		return false, nil
 	}
-	originals := make([]ast.ASTHandle, 0, len(e.predicateOrder))
+	originals := make([]sparseIntervalOriginal, 0, len(e.predicateOrder))
+	declarations := make([]ast.ASTHandle, 0, len(e.predicateOrder))
 	for _, declaration := range e.predicateOrder {
 		state := e.predicates[declaration]
-		if state.external != nil || state.explicitFiniteRepresentation {
-			return true, ErrSparseIntervalDatalogFragment
-		}
 		if e.auxiliary[declaration] {
 			continue
 		}
-		if !isSparseIntervalRepresentation(state.requestedRepresentations) {
+		if state.external != nil {
 			return true, ErrSparseIntervalDatalogFragment
 		}
-		originals = append(originals, declaration)
+		class := sparseIntervalPredicateClass(0)
+		switch {
+		case isSparseIntervalRepresentation(state.requestedRepresentations):
+			class = sparseIntervalMixedOriginal
+		case len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "tr_sparse":
+			class = sparseIntervalFiniteOriginal
+		case len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "interval_relation":
+			class = sparseIntervalArithmeticOriginal
+		case len(state.requestedRepresentations) == 0 && state.table != nil && len(state.sorts) != 0 && e.datalogDefaultTable == "sparse":
+			class = sparseIntervalFiniteOriginal
+		case len(state.requestedRepresentations) == 0 && e.datalogRelationFavourite == "interval_relation" && rel.CanHandleIntervalSorts(e.manager, state.sorts):
+			class = sparseIntervalArithmeticOriginal
+		default:
+			return true, ErrSparseIntervalDatalogFragment
+		}
+		originals = append(originals, sparseIntervalOriginal{declaration: declaration, class: class})
+		declarations = append(declarations, declaration)
 	}
 	if len(originals) == 0 {
 		return true, ErrSparseIntervalDatalogFragment
@@ -55,7 +73,7 @@ func (e *PropositionalEngine) ensureSparseIntervalDatalog() (bool, error) {
 		}
 	}
 	if e.sparseIntervalDatalog == nil {
-		owner, supported, err := newSparseIntervalDatalogActivation(e.manager, e.set, e.guard, originals)
+		owner, supported, err := newClassifiedSparseIntervalDatalogActivation(e.manager, e.set, e.guard, originals)
 		if err != nil {
 			return true, err
 		}
@@ -64,21 +82,19 @@ func (e *PropositionalEngine) ensureSparseIntervalDatalog() (bool, error) {
 		}
 		e.sparseIntervalDatalog = owner
 	}
-	// Preserve previously installed auxiliaries while registering new original
-	// predicates through the strict mixed-signature path.
-	strict := append([]ast.ASTHandle(nil), originals...)
-	seen := make(map[ast.ASTHandle]bool, len(strict))
-	for _, d := range strict {
-		seen[d] = true
-	}
-	for _, d := range e.sparseIntervalDatalog.predicates {
-		if !seen[d] {
-			strict = append(strict, d)
-			seen[d] = true
-		}
-	}
-	if err := e.sparseIntervalDatalog.syncPredicates(strict); err != nil {
+	if err := e.sparseIntervalDatalog.syncOriginals(originals); err != nil {
 		return true, err
+	}
+	if err := e.migrateSparseIntervalFiniteSeeds(e.sparseIntervalDatalog, declarations); err != nil {
+		return true, err
+	}
+	if e.intervalDatalog != nil {
+		if err := e.migrateSparseIntervalArithmeticSeeds(e.sparseIntervalDatalog, e.intervalDatalog, declarations); err != nil {
+			return true, err
+		}
+		if err := e.closeIntervalDatalog(); err != nil {
+			return true, err
+		}
 	}
 	// Original predicates were checked above; only the engine's generated
 	// auxiliaries may use a projected pure-component or empty signature.
@@ -100,7 +116,11 @@ func (e *PropositionalEngine) querySparseIntervalDatalog(declarations []ast.ASTH
 	}
 	e.compiled = false
 	e.datalogStats.Reset()
-	return e.sparseIntervalDatalog.query(declarations, widen)
+	status, err := e.sparseIntervalDatalog.query(declarations, widen)
+	if err == nil {
+		err = e.publishSparseIntervalFiniteRelations(e)
+	}
+	return status, err
 }
 
 func (e *PropositionalEngine) closeSparseIntervalDatalog() error {

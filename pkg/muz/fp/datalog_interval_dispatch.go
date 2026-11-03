@@ -37,8 +37,21 @@ func (e *PropositionalEngine) ensureIntervalDatalog() (bool, error) {
 	if err := e.cacheDatalogRelationFavourite(); err != nil {
 		return false, err
 	}
-	if e.datalogRelationFavourite != "interval_relation" || len(e.predicateOrder) == 0 {
+	requested := false
+	for _, state := range e.predicates {
+		requested = requested || len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "interval_relation"
+	}
+	if (!requested && e.datalogRelationFavourite != "interval_relation") || len(e.predicateOrder) == 0 {
 		return false, nil
+	}
+	// Without an interval favourite, every original must request this kind;
+	// generated query heads inherit the selected relation.
+	if requested && e.datalogRelationFavourite != "interval_relation" {
+		for d, state := range e.predicates {
+			if !e.auxiliary[d] && (len(state.requestedRepresentations) != 1 || state.requestedRepresentations[0] != "interval_relation") {
+				return true, ErrIntervalDatalogFragment
+			}
+		}
 	}
 	for _, state := range e.predicates {
 		if state.explicitFiniteRepresentation || state.external != nil {

@@ -123,3 +123,43 @@ func TestSparseIntervalOriginalJoinCompletesMissingComponents(t *testing.T) {
 		t.Fatal("heterogeneous join mutated arithmetic source", found, cause)
 	}
 }
+
+func TestSparseIntervalArithmeticOriginalImportsOwnedSeedAndValidatesSorts(t *testing.T) {
+	f, integer, numeral := intervalSieveFixture(t)
+	relations, err := NewRelationManager(f.ast)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, relations.Close()) })
+	seed := NewIntervalEmpty(1)
+	two, four, ten := numeral("2"), numeral("4"), numeral("10")
+	astTestMust(t, seed.AddFactExpressions(f.ast, []ast.ASTHandle{integer}, []ast.ASTHandle{two}))
+	astTestMust(t, seed.AddFactExpressions(f.ast, []ast.ASTHandle{integer}, []ast.ASTHandle{four}))
+	product, err := NewSparseIntervalArithmeticOriginalFrom(relations, []ast.ASTHandle{integer}, seed)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, product.Close()) })
+	if err = product.MatchesSorts([]ast.ASTHandle{integer}); err != nil {
+		t.Fatal("imported product rejected its exact signature", err)
+	}
+	if err = product.MatchesSorts([]ast.ASTHandle{f.boolean}); err == nil {
+		t.Fatal("imported product accepted a different signature")
+	}
+	if !product.OwnedBy(relations) {
+		t.Fatal("imported product rejected its exact relation-manager owner")
+	}
+	foreign, err := NewRelationManager(f.ast)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, foreign.Close()) })
+	if product.OwnedBy(foreign) {
+		t.Fatal("product accepted a different relation manager over the same AST manager")
+	}
+	three := numeral("3")
+	if found, cause := product.ContainsFact([]ast.ASTHandle{three}); cause != nil || !found {
+		t.Fatal("imported interval seed lost its hull", found, cause)
+	}
+	astTestMust(t, seed.FilterEqualExpression(f.ast, 0, ten))
+	if found, cause := product.ContainsFact([]ast.ASTHandle{three}); cause != nil || !found {
+		t.Fatal("imported interval seed borrowed later source mutation", found, cause)
+	}
+	if invalid, cause := NewSparseIntervalArithmeticOriginalFrom(relations, []ast.ASTHandle{integer, integer}, seed); cause == nil || invalid != nil {
+		t.Fatal("seed import accepted mismatched arity", invalid, cause)
+	}
+}

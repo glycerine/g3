@@ -193,7 +193,11 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if clone.backend == "datalog" {
 		if selected, cause := clone.ensureSparseIntervalDatalog(); cause != nil {
 			return lbool.Undef, cause
-		} else if !selected {
+		} else if selected {
+			if err = clone.inheritSparseIntervalQueryKind(query, declaration); err != nil {
+				return lbool.Undef, err
+			}
+		} else {
 			if _, err = clone.ensureIntervalDatalog(); err != nil {
 				return lbool.Undef, err
 			}

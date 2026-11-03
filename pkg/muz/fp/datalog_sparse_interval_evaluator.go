@@ -24,15 +24,16 @@ type SparseIntervalDatalogEvaluator struct {
 	guard        *astrewriter.TheoryRewriter // borrowed from the owning engine
 	sorts        map[ast.ASTHandle][]ast.ASTHandle
 	products     map[ast.ASTHandle]*rel.SparseIntervalSieveProduct
+	classes      map[ast.ASTHandle]sparseIntervalPredicateClass
 	declarations []ast.ASTRef
 	closed       bool
 }
 
-func NewSparseIntervalDatalogEvaluator(manager *ast.ASTManager, relations *rel.RelationManager, rules *base.RuleSet, guard *astrewriter.TheoryRewriter, declarations []ast.ASTHandle, seeds map[ast.ASTHandle]*rel.SparseIntervalSieveProduct) (_ *SparseIntervalDatalogEvaluator, resultErr error) {
+func NewSparseIntervalDatalogEvaluator(manager *ast.ASTManager, relations *rel.RelationManager, rules *base.RuleSet, guard *astrewriter.TheoryRewriter, declarations []ast.ASTHandle, seeds map[ast.ASTHandle]*rel.SparseIntervalSieveProduct, classes map[ast.ASTHandle]sparseIntervalPredicateClass) (_ *SparseIntervalDatalogEvaluator, resultErr error) {
 	if manager == nil || relations == nil || rules == nil || guard == nil {
 		return nil, ErrSparseIntervalDatalogFragment
 	}
-	e := &SparseIntervalDatalogEvaluator{manager: manager, relations: relations, rules: rules, guard: guard, sorts: make(map[ast.ASTHandle][]ast.ASTHandle, len(declarations)), products: make(map[ast.ASTHandle]*rel.SparseIntervalSieveProduct, len(declarations))}
+	e := &SparseIntervalDatalogEvaluator{manager: manager, relations: relations, rules: rules, guard: guard, sorts: make(map[ast.ASTHandle][]ast.ASTHandle, len(declarations)), products: make(map[ast.ASTHandle]*rel.SparseIntervalSieveProduct, len(declarations)), classes: make(map[ast.ASTHandle]sparseIntervalPredicateClass, len(declarations))}
 	defer func() {
 		if resultErr != nil {
 			resultErr = finishSparseIntervalEvaluatorConstruction(resultErr, e)
@@ -71,6 +72,7 @@ func NewSparseIntervalDatalogEvaluator(manager *ast.ASTManager, relations *rel.R
 		}
 		e.sorts[declaration] = sorts
 		e.products[declaration] = product
+		e.classes[declaration] = classes[declaration]
 		root, err := manager.NewRef(declaration)
 		if err != nil {
 			return nil, err
@@ -86,7 +88,7 @@ func NewSparseIntervalDatalogEvaluator(manager *ast.ASTManager, relations *rel.R
 }
 
 func (e *SparseIntervalDatalogEvaluator) open() error {
-	if e == nil || e.closed || e.manager == nil || e.relations == nil || e.rules == nil || e.guard == nil || e.sorts == nil || e.products == nil {
+	if e == nil || e.closed || e.manager == nil || e.relations == nil || e.rules == nil || e.guard == nil || e.sorts == nil || e.products == nil || e.classes == nil {
 		return ErrSparseIntervalDatalogFragment
 	}
 	return nil
@@ -144,7 +146,10 @@ func (e *SparseIntervalDatalogEvaluator) applyFactRule(rule *base.Rule) (resultE
 			return err
 		}
 	}
-	return e.products[declaration].AddFact(values)
+	if err = e.products[declaration].AddFact(values); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *SparseIntervalDatalogEvaluator) Query(declarations []ast.ASTHandle) (lbool.LBool, error) {
@@ -154,6 +159,7 @@ func (e *SparseIntervalDatalogEvaluator) Query(declarations []ast.ASTHandle) (lb
 	if len(declarations) == 0 {
 		return lbool.True, nil
 	}
+	precise := false
 	for _, declaration := range declarations {
 		product := e.products[declaration]
 		if product == nil {
@@ -164,10 +170,14 @@ func (e *SparseIntervalDatalogEvaluator) Query(declarations []ast.ASTHandle) (lb
 			return lbool.Undef, err
 		}
 		if !empty {
-			// Independent product components are an over-approximation, so a
-			// nonempty abstract relation is not a concrete satisfiability proof.
-			return lbool.Undef, nil
+			if e.classes[declaration] != sparseIntervalFiniteOriginal && e.classes[declaration] != sparseIntervalFiniteAuxiliary {
+				return lbool.Undef, nil
+			}
+			precise = true
 		}
+	}
+	if precise {
+		return lbool.True, nil
 	}
 	return lbool.False, nil
 }
@@ -212,6 +222,6 @@ func (e *SparseIntervalDatalogEvaluator) Close() (result error) {
 		return result
 	}
 	e.closed = true
-	e.manager, e.relations, e.rules, e.guard, e.sorts, e.products, e.declarations = nil, nil, nil, nil, nil, nil, nil
+	e.manager, e.relations, e.rules, e.guard, e.sorts, e.products, e.classes, e.declarations = nil, nil, nil, nil, nil, nil, nil, nil
 	return nil
 }

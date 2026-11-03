@@ -329,6 +329,9 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 	if e.queried {
 		return fmt.Errorf("muz/fp: predicate representation must be selected before querying")
 	}
+	if len(kinds) == 1 && kinds[0] == "interval_relation" {
+		return e.selectIntervalRepresentation(declaration, kinds)
+	}
 	if isSparseIntervalRepresentation(kinds) {
 		return e.selectSparseIntervalRepresentation(declaration, kinds)
 	}
@@ -556,7 +559,7 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 		if selected, err := e.ensureSparseIntervalDatalog(); err != nil {
 			return err
 		} else if selected {
-			if err = e.sparseIntervalDatalog.addFact(declaration, values); err != nil {
+			if err = e.addSparseIntervalFact(declaration, values); err != nil {
 				return err
 			}
 			e.invalidateQueryForMutation()

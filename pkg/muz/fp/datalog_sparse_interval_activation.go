@@ -13,20 +13,33 @@ import (
 // sparseIntervalDatalogActivation owns seed storage and replaces its
 // evaluator snapshot for each query. Engine selection remains in the caller.
 type sparseIntervalDatalogActivation struct {
-	manager    *ast.ASTManager
-	rules      *base.RuleSet
-	guard      *astrewriter.TheoryRewriter // borrowed
-	store      *SparseIntervalDatalogStore
-	evaluator  *SparseIntervalDatalogEvaluator
-	predicates []ast.ASTHandle
-	closed     bool
+	manager            *ast.ASTManager
+	rules              *base.RuleSet
+	guard              *astrewriter.TheoryRewriter // borrowed
+	store              *SparseIntervalDatalogStore
+	evaluator          *SparseIntervalDatalogEvaluator
+	predicates         []ast.ASTHandle
+	migratedFinite     map[ast.ASTHandle]bool
+	migratedArithmetic map[ast.ASTHandle]bool
+	closed             bool
 }
 
 func newSparseIntervalDatalogActivation(manager *ast.ASTManager, rules *base.RuleSet, guard *astrewriter.TheoryRewriter, declarations []ast.ASTHandle) (_ *sparseIntervalDatalogActivation, selected bool, resultErr error) {
-	if manager == nil || rules == nil || guard == nil || len(declarations) == 0 {
+	originals := make([]sparseIntervalOriginal, len(declarations))
+	for i, declaration := range declarations {
+		originals[i] = sparseIntervalOriginal{declaration: declaration, class: sparseIntervalMixedOriginal}
+	}
+	return newClassifiedSparseIntervalDatalogActivation(manager, rules, guard, originals)
+}
+
+func newClassifiedSparseIntervalDatalogActivation(manager *ast.ASTManager, rules *base.RuleSet, guard *astrewriter.TheoryRewriter, originals []sparseIntervalOriginal) (_ *sparseIntervalDatalogActivation, selected bool, resultErr error) {
+	if manager == nil || rules == nil || guard == nil || len(originals) == 0 {
 		return nil, false, nil
 	}
-	a := &sparseIntervalDatalogActivation{manager: manager, rules: rules, guard: guard, predicates: append([]ast.ASTHandle(nil), declarations...)}
+	a := &sparseIntervalDatalogActivation{manager: manager, rules: rules, guard: guard, predicates: make([]ast.ASTHandle, len(originals)), migratedFinite: make(map[ast.ASTHandle]bool), migratedArithmetic: make(map[ast.ASTHandle]bool)}
+	for i := range originals {
+		a.predicates[i] = originals[i].declaration
+	}
 	defer func() {
 		if resultErr != nil {
 			resultErr = finishSparseIntervalActivationConstruction(resultErr, a)
@@ -37,13 +50,14 @@ func newSparseIntervalDatalogActivation(manager *ast.ASTManager, rules *base.Rul
 	if err != nil {
 		return nil, true, err
 	}
-	seen := make(map[ast.ASTHandle]bool, len(declarations))
-	for _, declaration := range declarations {
+	seen := make(map[ast.ASTHandle]bool, len(originals))
+	for _, original := range originals {
+		declaration := original.declaration
 		if seen[declaration] {
 			return nil, true, ErrSparseIntervalDatalogFragment
 		}
 		seen[declaration] = true
-		if err = a.store.Register(declaration); err != nil {
+		if err = a.store.RegisterOriginal(declaration, original.class); err != nil {
 			if errors.Is(err, rel.ErrSparseIntervalProduct) || errors.Is(err, ErrSparseIntervalDatalogFragment) {
 				cleanup := finishSparseIntervalActivationConstruction(nil, a)
 				a = nil
@@ -83,14 +97,152 @@ func (a *sparseIntervalDatalogActivation) addFact(declaration ast.ASTHandle, val
 	return a.store.AddFact(declaration, values)
 }
 
+// cloneSeed returns an owned copy for failure-atomic fact insertion.
+func (a *sparseIntervalDatalogActivation) cloneSeed(declaration ast.ASTHandle) (*rel.SparseIntervalSieveProduct, error) {
+	if err := a.open(); err != nil {
+		return nil, err
+	}
+	entry := a.store.entries[declaration]
+	if entry == nil {
+		return nil, ErrSparseIntervalDatalogFragment
+	}
+	return entry.relation.Clone()
+}
+
+// arithmeticSeedReplacement constructs an owned arithmetic-original product
+// from a borrowed interval snapshot without enumerating it.
+func (a *sparseIntervalDatalogActivation) arithmeticSeedReplacement(declaration ast.ASTHandle, seed *rel.IntervalRelation) (*rel.SparseIntervalSieveProduct, error) {
+	if err := a.open(); err != nil {
+		return nil, err
+	}
+	entry := a.store.entries[declaration]
+	if entry == nil || entry.class != sparseIntervalArithmeticOriginal {
+		return nil, ErrSparseIntervalDatalogFragment
+	}
+	return rel.NewSparseIntervalArithmeticOriginalFrom(a.store.relations, entry.sorts, seed)
+}
+
+// exchangeSeed transfers replacement into the store and the prior seed to the
+// caller. It performs no closes, and on failure replacement remains owned by
+// the caller and store state is unchanged.
+func (a *sparseIntervalDatalogActivation) exchangeSeed(declaration ast.ASTHandle, replacement *rel.SparseIntervalSieveProduct) (*rel.SparseIntervalSieveProduct, error) {
+	if err := a.open(); err != nil {
+		return nil, err
+	}
+	entry := a.store.entries[declaration]
+	if entry == nil || replacement == nil {
+		return nil, ErrSparseIntervalDatalogFragment
+	}
+	if !replacement.OwnedBy(a.store.relations) {
+		return nil, ErrSparseIntervalDatalogFragment
+	}
+	if err := replacement.MatchesSorts(entry.sorts); err != nil {
+		return nil, errors.Join(err, ErrSparseIntervalDatalogFragment)
+	}
+	if err := a.discardEvaluator(); err != nil {
+		return nil, err
+	}
+	prior := entry.relation
+	entry.relation = replacement
+	return prior, nil
+}
+
 func (a *sparseIntervalDatalogActivation) syncPredicates(declarations []ast.ASTHandle) error {
-	return a.sync(declarations, false)
+	originals := make([]sparseIntervalOriginal, len(declarations))
+	for i, declaration := range declarations {
+		originals[i] = sparseIntervalOriginal{declaration: declaration, class: sparseIntervalMixedOriginal}
+	}
+	return a.syncOriginals(originals)
+}
+
+// syncOriginals transactionally extends original predicates while preserving
+// each declaration's sparse, interval, or mixed concrete representation.
+func (a *sparseIntervalDatalogActivation) syncOriginals(originals []sparseIntervalOriginal) error {
+	if err := a.open(); err != nil {
+		return err
+	}
+	current := make(map[ast.ASTHandle]sparseIntervalPredicateClass, len(originals))
+	for _, original := range originals {
+		if original.declaration.IsNull() || current[original.declaration] != 0 || original.class == sparseIntervalGeneratedAuxiliary || original.class == sparseIntervalFiniteAuxiliary {
+			return ErrSparseIntervalDatalogFragment
+		}
+		current[original.declaration] = original.class
+	}
+	for declaration, entry := range a.store.entries {
+		if !entry.auxiliary && current[declaration] != entry.class {
+			return ErrSparseIntervalDatalogFragment
+		}
+	}
+	type stagedOriginal struct {
+		declaration ast.ASTHandle
+		entry       *sparseIntervalDatalogStoreEntry
+	}
+	staged := make([]stagedOriginal, 0, len(originals))
+	for _, original := range originals {
+		if a.store.entries[original.declaration] != nil {
+			continue
+		}
+		entry, err := a.store.prepareRegistration(original.declaration, original.class)
+		if err != nil {
+			owners := make([]*sparseIntervalDatalogStoreEntry, len(staged))
+			for i := range staged {
+				owners[i] = staged[i].entry
+			}
+			return finishSparseIntervalEntriesConstruction(errors.Join(err, ErrSparseIntervalDatalogFragment), a.manager, owners...)
+		}
+		staged = append(staged, stagedOriginal{declaration: original.declaration, entry: entry})
+	}
+	if err := a.discardEvaluator(); err != nil {
+		owners := make([]*sparseIntervalDatalogStoreEntry, len(staged))
+		for i := range staged {
+			owners[i] = staged[i].entry
+		}
+		return finishSparseIntervalEntriesConstruction(err, a.manager, owners...)
+	}
+	for _, original := range staged {
+		a.store.entries[original.declaration] = original.entry
+		a.store.order = append(a.store.order, original.declaration)
+		a.predicates = append(a.predicates, original.declaration)
+	}
+	return nil
 }
 
 // syncAuxiliaryPredicates admits generated pure finite, pure arithmetic, and
 // nullary predicates without widening original-program backend selection.
 func (a *sparseIntervalDatalogActivation) syncAuxiliaryPredicates(declarations []ast.ASTHandle) error {
 	return a.sync(declarations, true)
+}
+
+// markFiniteAuxiliary records a generated query head whose concrete producer
+// is finite and precise. It remains an auxiliary and is not publishable as an
+// original finite predicate snapshot.
+func (a *sparseIntervalDatalogActivation) markFiniteAuxiliary(declaration ast.ASTHandle) error {
+	if err := a.open(); err != nil {
+		return err
+	}
+	entry := a.store.entries[declaration]
+	if entry == nil || !entry.auxiliary {
+		return ErrSparseIntervalDatalogFragment
+	}
+	for _, sort := range entry.sorts {
+		if rel.CanHandleIntervalSorts(a.manager, []ast.ASTHandle{sort}) {
+			// A requested sparse producer does not make an arithmetic query
+			// head exact. Source plugin selection simply falls through to the
+			// generated product representation, which remains approximate.
+			return nil
+		}
+	}
+	if entry.class == sparseIntervalFiniteAuxiliary {
+		return nil
+	}
+	if entry.class != sparseIntervalGeneratedAuxiliary {
+		return ErrSparseIntervalDatalogFragment
+	}
+	if err := a.discardEvaluator(); err != nil {
+		return err
+	}
+	entry.class = sparseIntervalFiniteAuxiliary
+	return nil
 }
 
 func (a *sparseIntervalDatalogActivation) sync(declarations []ast.ASTHandle, auxiliary bool) error {
@@ -114,11 +266,15 @@ func (a *sparseIntervalDatalogActivation) sync(declarations []ast.ASTHandle, aux
 		entry       *sparseIntervalDatalogStoreEntry
 	}
 	staged := make([]stagedRegistration, 0, len(declarations)-len(a.predicates))
+	class := sparseIntervalMixedOriginal
+	if auxiliary {
+		class = sparseIntervalGeneratedAuxiliary
+	}
 	for _, declaration := range declarations {
 		if a.store.entries[declaration] != nil {
 			continue
 		}
-		entry, err := a.store.prepareRegistration(declaration, auxiliary)
+		entry, err := a.store.prepareRegistration(declaration, class)
 		if err != nil {
 			owners := make([]*sparseIntervalDatalogStoreEntry, len(staged))
 			for i := range staged {
@@ -150,7 +306,13 @@ func (a *sparseIntervalDatalogActivation) clone(rules *base.RuleSet, guard *astr
 		}
 		return nil, err
 	}
-	copyActivation := &sparseIntervalDatalogActivation{manager: a.manager, rules: rules, guard: guard, predicates: append([]ast.ASTHandle(nil), a.predicates...)}
+	copyActivation := &sparseIntervalDatalogActivation{manager: a.manager, rules: rules, guard: guard, predicates: append([]ast.ASTHandle(nil), a.predicates...), migratedFinite: make(map[ast.ASTHandle]bool, len(a.migratedFinite)), migratedArithmetic: make(map[ast.ASTHandle]bool, len(a.migratedArithmetic))}
+	for declaration, migrated := range a.migratedFinite {
+		copyActivation.migratedFinite[declaration] = migrated
+	}
+	for declaration, migrated := range a.migratedArithmetic {
+		copyActivation.migratedArithmetic[declaration] = migrated
+	}
 	defer func() {
 		if resultErr != nil {
 			resultErr = finishSparseIntervalActivationConstruction(resultErr, copyActivation)
@@ -163,11 +325,10 @@ func (a *sparseIntervalDatalogActivation) clone(rules *base.RuleSet, guard *astr
 	}
 	for _, declaration := range a.store.order {
 		source := a.store.entries[declaration]
-		if source.auxiliary {
-			err = copyActivation.store.RegisterAuxiliary(declaration)
-		} else {
-			err = copyActivation.store.Register(declaration)
-		}
+		// Preserve the concrete auxiliary precision class as well as the
+		// original representation class. RegisterAuxiliary alone would turn a
+		// precise finite query head back into an approximate generated product.
+		err = copyActivation.store.register(declaration, source.class)
 		if err != nil {
 			return nil, err
 		}
@@ -222,6 +383,27 @@ func (a *sparseIntervalDatalogActivation) relationFormula(declaration ast.ASTHan
 	return a.evaluator.RelationFormula(declaration)
 }
 
+// finiteSnapshot publishes an owned exact table only for a sparse original.
+// Mixed products and arithmetic relations remain non-enumerable.
+func (a *sparseIntervalDatalogActivation) finiteSnapshot(declaration ast.ASTHandle) (*rel.SparseTable, bool, error) {
+	if err := a.open(); err != nil || a.evaluator == nil {
+		if err == nil {
+			err = ErrSparseIntervalDatalogFragment
+		}
+		return nil, false, err
+	}
+	entry := a.store.entries[declaration]
+	if entry == nil || entry.class != sparseIntervalFiniteOriginal {
+		return nil, false, nil
+	}
+	product := a.evaluator.products[declaration]
+	if product == nil {
+		return nil, false, ErrSparseIntervalDatalogFragment
+	}
+	table, err := product.FiniteSnapshot()
+	return table, err == nil, err
+}
+
 func (a *sparseIntervalDatalogActivation) reset() error {
 	if err := a.open(); err != nil {
 		return err
@@ -244,6 +426,6 @@ func (a *sparseIntervalDatalogActivation) close() (result error) {
 		return result
 	}
 	a.closed = true
-	a.manager, a.rules, a.guard, a.store, a.predicates = nil, nil, nil, nil, nil
+	a.manager, a.rules, a.guard, a.store, a.predicates, a.migratedFinite, a.migratedArithmetic = nil, nil, nil, nil, nil, nil, nil
 	return nil
 }

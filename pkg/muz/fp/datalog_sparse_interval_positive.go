@@ -333,6 +333,10 @@ func (e *SparseIntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, w
 			current[position], current[destination] = current[destination], current[position]
 		}
 	}
+	empty, err := working.Empty()
+	if err != nil || empty {
+		return false, err
+	}
 	return e.products[headDeclaration].Union(working, widen)
 }
 
