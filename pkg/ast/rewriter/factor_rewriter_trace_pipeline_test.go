@@ -4,7 +4,6 @@ package rewriter
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -36,20 +35,33 @@ func TestFactorRewriterSourceTracePipeline(t *testing.T) {
 		}
 		return
 	}
-	got := output.String()
-	for _, site := range []string{
-		"[factor_rewriter] mk_adds src/ast/rewriter/factor_rewriter.cpp:166",
-		"[factor_rewriter] mk_adds src/ast/rewriter/factor_rewriter.cpp:198",
-		"[factor_rewriter] mk_muls src/ast/rewriter/factor_rewriter.cpp:219",
-		"[factor_rewriter] extract_factors src/ast/rewriter/factor_rewriter.cpp:332",
-		"[factor_rewriter] mk_le src/ast/rewriter/factor_rewriter.cpp:90",
-		"trace-factor-x", "trace-factor-y", "trace-factor-z", " <= ",
-	} {
-		if !strings.Contains(got, site) {
-			t.Fatalf("missing source trace %q in %q", site, got)
-		}
-	}
-	if strings.Count(got, "factor_rewriter.cpp:166") < 4 {
-		t.Fatal("missing ordered add visits", got)
+	// mk_adds visits each product once; only mk_muls expands its factors.
+	// Check the full ordered pipeline, including source spaces and the
+	// default SMT2 pretty-printer's let bindings and line breaks.
+	const want = "-------- [factor_rewriter] mk_adds src/ast/rewriter/factor_rewriter.cpp:166 ---------\n" +
+		"0 (* trace-factor-x trace-factor-y)\n" +
+		"------------------------------------------------\n" +
+		"-------- [factor_rewriter] mk_adds src/ast/rewriter/factor_rewriter.cpp:166 ---------\n" +
+		"1 (* trace-factor-x trace-factor-z)\n" +
+		"------------------------------------------------\n" +
+		"-------- [factor_rewriter] mk_adds src/ast/rewriter/factor_rewriter.cpp:198 ---------\n" +
+		"+(* trace-factor-x trace-factor-y) -(* trace-factor-x trace-factor-z) \n" +
+		"------------------------------------------------\n" +
+		"-------- [factor_rewriter] mk_muls src/ast/rewriter/factor_rewriter.cpp:219 ---------\n" +
+		"trace-factor-x trace-factor-y \ntrace-factor-x trace-factor-z \n\n" +
+		"------------------------------------------------\n" +
+		"-------- [factor_rewriter] extract_factors src/ast/rewriter/factor_rewriter.cpp:332 ---------\n" +
+		"trace-factor-x (+ trace-factor-y (- trace-factor-z)) \n" +
+		"------------------------------------------------\n" +
+		"-------- [factor_rewriter] mk_le src/ast/rewriter/factor_rewriter.cpp:90 ---------\n" +
+		"(* trace-factor-x trace-factor-y) <= (* trace-factor-x trace-factor-z)\n" +
+		"(let ((a!1 (and (< (+ trace-factor-y (- trace-factor-z)) 0)\n" +
+		"                (< 0 trace-factor-x)))\n" +
+		"      (a!2 (and (< 0 (+ trace-factor-y (- trace-factor-z)))\n" +
+		"                (< trace-factor-x 0))))\n" +
+		"  (or (= 0 trace-factor-x) (= 0 (+ trace-factor-y (- trace-factor-z))) a!1 a!2))\n" +
+		"------------------------------------------------\n"
+	if got := output.String(); got != want {
+		t.Fatalf("source factor trace:\ngot:\n%swant:\n%s", got, want)
 	}
 }

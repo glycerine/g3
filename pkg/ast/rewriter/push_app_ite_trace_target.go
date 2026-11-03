@@ -11,11 +11,7 @@ import (
 
 func (c *PushAppITEConfiguration) traceTarget(decl ast.ASTHandle, args ast.AppArguments) error {
 	return c.emitPushITETrace("is_target", 51, func(w io.Writer, globals *uparams.GlobalParamsService) error {
-		flag := "0"
-		if c.conservative {
-			flag = "1"
-		}
-		if _, err := io.WriteString(w, "found target for push app ite:\nconservative "+flag+"\n"); err != nil {
+		if _, err := io.WriteString(w, "found target for push app ite:\n"); err != nil {
 			return err
 		}
 		if err := c.writePushITEDeclName(w, decl); err != nil {

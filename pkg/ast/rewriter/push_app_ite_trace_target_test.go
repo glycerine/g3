@@ -30,12 +30,11 @@ func TestPushAppITESourceTargetTrace(t *testing.T) {
 		return
 	}
 	trace := output.String()
-	for _, want := range []string{
-		"push_app_ite.cpp:51", "found target for push app ite:\n",
-		"conservative 1\n", "push-ite-f (ite push-ite-c1 push-ite-x1 push-ite-y1) push-ite-x2\n",
-	} {
-		if !strings.Contains(trace, want) {
-			t.Fatalf("missing target trace %q in %q", want, trace)
-		}
+	const target = "-------- [push_app_ite] is_target src/ast/rewriter/push_app_ite.cpp:51 ---------\n" +
+		"found target for push app ite:\n" +
+		"push-ite-f (ite push-ite-c1 push-ite-x1 push-ite-y1) push-ite-x2\n" +
+		"------------------------------------------------\n"
+	if !strings.HasPrefix(trace, target) || strings.Count(trace, "push_app_ite.cpp:51") != 1 {
+		t.Fatalf("source target trace: got %q, want prefix %q", trace, target)
 	}
 }
