@@ -193,6 +193,7 @@ type VirtualSolver struct {
 	dumpBenchmarks  bool
 	dumpCounter     uint32
 	closing         bool
+	guardDisabled   bool
 	closed          bool
 }
 
@@ -518,23 +519,35 @@ func (s *VirtualSolver) Close() (result error) {
 		}
 		s.pushed = false
 	}
-	predicate, err := s.factory.manager.RefGet(s.predicate)
-	if err == nil {
-		var negated ast.ASTHandle
-		negated, err = s.factory.manager.MkNot(predicate)
+	if !s.guardDisabled {
+		predicate, err := s.factory.manager.RefGet(s.predicate)
 		if err == nil {
-			err = s.Solver.Assert(negated)
+			var negated ast.ASTHandle
+			negated, err = s.factory.manager.MkNot(predicate)
+			if err == nil {
+				err = s.Solver.Assert(negated)
+			}
 		}
-	}
-	// Keep the guard and assertions owned by the factory if disabling the
-	// view refuses allocation. Its manager can resume this requested close.
-	if err != nil {
-		return err
+		// Keep the guard and assertions owned by the factory if disabling the
+		// view refuses allocation. Its manager can resume this requested close.
+		if err != nil {
+			return err
+		}
+		// The source destructor disables the guard once before member cleanup.
+		// A later native release may consume a reference and still fail.
+		s.guardDisabled = true
 	}
 	for index := len(s.assertions) - 1; index >= 0; index-- {
-		result = errors.Join(result, s.factory.manager.DelRef(&s.assertions[index]))
+		if s.assertions[index] != (ast.ASTRef{}) {
+			result = errors.Join(result, s.factory.manager.DelRef(&s.assertions[index]))
+		}
 	}
-	result = errors.Join(result, s.factory.manager.DelRef(&s.proof), s.factory.manager.DelRef(&s.predicate))
+	if s.proof != (ast.ASTRef{}) {
+		result = errors.Join(result, s.factory.manager.DelRef(&s.proof))
+	}
+	if s.predicate != (ast.ASTRef{}) {
+		result = errors.Join(result, s.factory.manager.DelRef(&s.predicate))
+	}
 	if result == nil {
 		s.assertions = nil
 		s.scopeAssertions = nil

@@ -126,6 +126,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
       - [x] Instrument and archive all six source context timing scopes with source reset lifetimes and deterministic coverage.
       - [x] Preserve the last generalizer counters/timer across preparation failures; replace them at the next rule-installation attempt, including failed installation.
       - [x] Preserve failed previous-query disposal owners, skip completed reference releases on retry, and verify recovery with zero final budget usage.
+      - [x] Resume Spacer virtual-solver cleanup after a consumed native release without disabling its guard twice or rereading released references. Public clone cleanup tests cover five recovery routes and exact statistics; direct solver tests verify the guard and zero final budget.
       - [x] Scan every allocation allowance through first success with no pre-query engine context; verify failed result rejection, retry and zero-budget disposal.
       - [x] Own temporary clones whose cleanup cannot finish; cache their statistics, reject result publication, and resume through cleanup/reset/parameter/query/close entry points.
       - [x] Invalidate direct predicate/multi-predicate/from-level result snapshots when previous-query cleanup fails, while preserving cleanup owners for retry.
@@ -2115,3 +2116,4 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Preserved a projected PDR child equality across renaming allocation failure. The old implementation reproduces an orphaned AST node; focused projection tests and the same-context public solve retry pass.
 - 2026-11-03 — Preserved both PDR node-model owners when releasing the previous model fails, publishing the replacement only after the release succeeds. Solved-model native refusal, retry and ordinary replacement tests pass; an end-to-end backtracking trigger remains unproven.
 - 2026-11-03 — Refreshed manifest evidence for 28 units through `8da2b9286`, preserving prior status and audit metadata. Independent reviews and `go -C pkg run ./cmd/portcheck` pass; newer fixes are outside this checkpoint.
+- 2026-11-03 — Made Spacer virtual-solver teardown remember its completed guard-disable phase and skip consumed references after native cleanup refusal. Public clone disposal, reset, parameter, query and close recovery pass with exact statistics; direct tests verify the guard is disabled once.
