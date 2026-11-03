@@ -478,6 +478,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Row/byte estimates forward exact inner storage without materializing ignored full domains.
   - [x] Mixed sieve/table joins and unions preserve layout guards, independent owners and cumulative deltas.
   - [x] Construct full and empty-like sieves with concrete selected-column layout, and cover both ordinary/sieve mixed-delta union directions with changed-only cumulative deltas.
+  - [x] Convert independently between ordinary tables and all-inner sieves for mixed-operation/publication transitions, preserving nullary identity and refusing partial ignored-column layouts.
 - [ ] `src/muz/rel/dl_sparse_table.cpp` (partial), `src/muz/rel/dl_sparse_table.h` (partial)
   - [x] Concrete empty query and zero-key functional complement consumption.
   - [x] Direct supported join/negation operations dispatch through indexed plans; functional-key and zero-column fallbacks remain explicit.
@@ -522,6 +523,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Added independent ordinary-table↔all-inner-sieve conversions for concrete mixed-operation and publication transitions. Exact signatures and nullary identity are preserved, clones survive source close/reset, and partial ignored-column layouts reject instead of unsafely enumerating missing coordinates; broader sieve dispatch remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^TestSieveTableConversion' -count=3` passed. Commit title: `Convert between tables and full sieves`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
