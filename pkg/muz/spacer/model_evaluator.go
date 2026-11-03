@@ -14,10 +14,11 @@ import (
 // evaluator reachable when its cleanup is refused. This is the concrete Go
 // owner corresponding to model_evaluator_util's m_mev pointer during reset.
 type spacerModelEvaluatorConstructionFailure struct {
-	evaluator  *model.ModelEvaluator
-	runtime    *memory.Runtime
-	cause      error
-	cleanupErr error
+	evaluator         *model.ModelEvaluator
+	runtime           *memory.Runtime
+	cause, cleanupErr error
+	reported          error
+	reportText        string
 }
 
 // spacerModelValueOwner keeps EvaluateValue's owning result reachable until
@@ -72,10 +73,10 @@ func finishSpacerModelValue(owner *spacerModelValueOwner, cause error) error {
 }
 
 func (f *spacerModelEvaluatorConstructionFailure) Error() string {
-	return errors.Join(f.cause, f.cleanupErr).Error()
+	return f.reportText
 }
 func (f *spacerModelEvaluatorConstructionFailure) Unwrap() error {
-	return errors.Join(f.cause, f.cleanupErr)
+	return f.reported
 }
 func (f *spacerModelEvaluatorConstructionFailure) Cleanup() error {
 	if f.evaluator == nil {
@@ -97,8 +98,10 @@ func closeFailedSpacerModelEvaluator(evaluator *model.ModelEvaluator, config mod
 		return nil, cause
 	}
 	if cleanup := evaluator.Close(); cleanup != nil {
+		reported := errors.Join(cause, cleanup)
 		return nil, &spacerModelEvaluatorConstructionFailure{
 			evaluator: evaluator, runtime: config.Memory, cause: cause, cleanupErr: cleanup,
+			reported: reported, reportText: reported.Error(),
 		}
 	}
 	return nil, cause

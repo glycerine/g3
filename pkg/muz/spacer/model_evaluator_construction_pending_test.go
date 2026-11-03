@@ -106,11 +106,18 @@ func TestSpacerModelEvaluatorFailedConstructionPreservesRefusedOwner(t *testing.
 	if !errors.As(failure, &cleanup) || cleanup.RuntimeOwner() != runtime || cleanup.CleanupCause() == nil {
 		t.Fatal("missing evaluator cleanup receipt", failure)
 	}
+	origin, exposed, message := cleanup.OriginalCause(), errors.Unwrap(cleanup), cleanup.Error()
+	if origin != errSpacerEvaluatorConstruction || exposed == nil || message == "" {
+		t.Fatal("evaluator cleanup receipt lost stable construction failure", origin, exposed, message)
+	}
 	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
 	must(cleanup.Cleanup())
 	must(cleanup.Cleanup())
 	if cleanup.CleanupCause() != nil {
 		t.Fatal("evaluator cleanup retry remained pending", cleanup.CleanupCause())
+	}
+	if cleanup.OriginalCause() != origin || errors.Unwrap(cleanup) != exposed || cleanup.Error() != message {
+		t.Fatal("evaluator cleanup retry changed stable receipt identity")
 	}
 	evaluator, failure = nil, nil
 }

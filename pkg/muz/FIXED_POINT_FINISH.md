@@ -196,6 +196,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Verify model-evaluator typed-exception TRACE writer refusal remains a caught unknown with no leaked evaluator roots and fresh-evaluator recovery.
   - [ ] Complete independent wrapper construction/cleanup failures before closing the entire value-consumer audit.
     - [x] Keep `simplify_bounds_new` cleanup receipt presentation and semantic origin stable while retry advances only the remaining input-reference frontier.
+    - [x] Keep failed model-evaluator construction receipts' reported identity and semantic origin stable while native cleanup advances independently through retry.
   - [x] Verify implicant vector selection under a partial model: source flatten-and displacement order, true/unknown filtering, shared-literal deduplication, false-vector collapse, unknown/empty inputs, no model completion and temporary-reference cleanup.
   - [x] Verify seventeen Boolean implicant policy cases against source first-match/LIFO rules, equality guards and implication preference; independently check cube-implies-formula UNSAT and compatibility with the supplied assignment SAT, with unchanged temporary reference counts.
   - [x] Verify ten arithmetic literal-policy cases across Int/Real equality, disequality and binary distinct: both strict orientations, negative/normalized/large rational values, source repeated-value equality order, independent implication/model compatibility and temporary-reference cleanup.
@@ -626,6 +627,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Legacy partial-equality construction now transfers its operand, index and declaration roots plus any nested failure into a stable rollback receipt when native cleanup refuses. The receipt preserves concrete owner identity, operation and cleanup causes, advances only the remaining frontier and retries idempotently; wider parent-continuation and rewrite cleanup remains open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyPartialEqualityConstructionRollbackPreservesNativeRefusal|TestLegacyPartialEquality|TestLegacy.*Partial.*Construction)' -count=3` passed. Commit title: `Preserve partial equality construction cleanup`.
+
+- 2026-11-02 — Failed Spacer model-evaluator construction now freezes its reported error text, unwrap identity and semantic origin while cleanup retries advance the partially initialized evaluator owner. Native refusal remains independently observable through `CleanupCause`, and idempotent completion cannot rewrite the original receipt; wider evaluator-wrapper cleanup remains open.
+  Validation: `go -C pkg test ./muz/spacer -run '^(TestSpacerModelEvaluatorFailedConstructionPreservesRefusedOwner|TestSpacerModelEvaluator.*|TestModelEvaluator.*)' -count=3` passed. Commit title: `Stabilize Spacer evaluator construction receipts`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
