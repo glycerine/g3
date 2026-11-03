@@ -96,6 +96,7 @@ type PropositionalEngine struct {
 	unboundCooperation  *cooperate.Cooperation
 	unboundLite         *qe.Lite
 	background          ast.ASTRef
+	pendingBackground   ast.ASTRef
 	params              *uparams.ParamsContext
 	globals             *uparams.GlobalParamsService
 	backend             string
@@ -269,7 +270,10 @@ func (e *PropositionalEngine) openState() error {
 	if e == nil || e.closed || e.closing || e.manager == nil || e.rules == nil || e.set == nil || e.binder == nil || e.relations == nil {
 		return ErrPropositionalEngine
 	}
-	return e.resumePendingRuleUpdate()
+	if err := e.resumePendingRuleUpdate(); err != nil {
+		return err
+	}
+	return e.resumePendingBackground()
 }
 
 func (e *PropositionalEngine) RegisterPredicate(declaration ast.ASTHandle) error {
@@ -482,9 +486,28 @@ func (e *PropositionalEngine) SetBackground(background ast.ASTHandle) error {
 	if current == background {
 		return nil
 	}
-	if err = e.manager.SetRef(e.background, background); err != nil {
+	replacement, err := e.manager.NewRef(background)
+	if err != nil {
 		return err
 	}
+	// Source expr_ref assignment acquires the incoming value before releasing
+	// the old one. Keep both concrete owners if native destruction is refused.
+	e.pendingBackground = replacement
+	e.invalidateQueryForMutation()
+	return e.resumePendingBackground()
+}
+
+func (e *PropositionalEngine) resumePendingBackground() error {
+	if e.pendingBackground == (ast.ASTRef{}) {
+		return nil
+	}
+	if e.background != (ast.ASTRef{}) {
+		if err := e.manager.DelRef(&e.background); err != nil {
+			return err
+		}
+	}
+	e.background = e.pendingBackground
+	e.pendingBackground = ast.ASTRef{}
 	e.revision++
 	return nil
 }
@@ -2988,6 +3011,9 @@ func (e *PropositionalEngine) Close() (result error) {
 		}
 	}
 	if err := e.resumePendingRuleUpdate(); err != nil {
+		return err
+	}
+	if err := e.resumePendingBackground(); err != nil {
 		return err
 	}
 	if e.popPhase != contextPopNone {
