@@ -14,6 +14,36 @@ import (
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
+func ensureIntervalConditionVariables(manager *ast.ASTManager, condition ast.ASTHandle, variables map[uint32]uint32, relation *rel.IntervalRelation, sorts []ast.ASTHandle) (*rel.IntervalRelation, []ast.ASTHandle, error) {
+	if variables == nil {
+		return nil, nil, ErrIntervalDatalogFragment
+	}
+	used, err := ast.NewASTUsedVars(manager)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err = used.Collect(condition); err != nil {
+		return nil, nil, err
+	}
+	for variable := uint32(0); variable < used.MaxFoundVarIndexPlusOne(); variable++ {
+		sortHandle := used.Contains(variable)
+		if sortHandle.IsNull() {
+			continue
+		}
+		if _, found := variables[variable]; found {
+			continue
+		}
+		column := uint32(len(sorts))
+		relation, err = relation.AppendFullColumn(manager, sorts, sortHandle)
+		if err != nil {
+			return nil, nil, err
+		}
+		sorts = append(sorts, sortHandle)
+		variables[variable] = column
+	}
+	return relation, sorts, nil
+}
+
 func (e *IntervalDatalogEvaluator) ruleHead(rule *base.Rule) (head ast.ASTHandle, formula ast.ASTRef, resultErr error) {
 	formula, err := rule.ToFormula()
 	if err != nil {
@@ -202,10 +232,21 @@ func (e *IntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, widen b
 	if err != nil {
 		return false, err
 	}
+	conditionCount := tailSize - uninterpreted
 	for i := uninterpreted; i < tailSize; i++ {
 		condition, conditionNegated, cause := rule.Tail(i)
 		if cause != nil || conditionNegated {
 			return false, errors.Join(cause, ErrIntervalDatalogFragment)
+		}
+		// This audited slice materializes interpreted-only variables for the
+		// source compiler's single-condition, one-or-two-positive-tail lowering.
+		// Wider rule shapes retain their existing requirement that every
+		// interpreted variable be bound by a predicate tail.
+		if conditionCount == 1 && positive <= 2 {
+			working, workingSorts, cause = ensureIntervalConditionVariables(e.manager, condition, variables, working, workingSorts)
+			if cause != nil {
+				return false, cause
+			}
 		}
 		mapped, cause := e.remapIntervalCondition(condition, variables, workingSorts)
 		if cause != nil {

@@ -16,6 +16,36 @@ import (
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
+func ensureBoundIntervalConditionVariables(manager *ast.ASTManager, condition ast.ASTHandle, variables map[uint32]uint32, product *rel.IntervalBoundProduct, sorts []ast.ASTHandle) (*rel.IntervalBoundProduct, []ast.ASTHandle, error) {
+	if variables == nil {
+		return nil, nil, ErrBoundIntervalDatalogFragment
+	}
+	used, err := ast.NewASTUsedVars(manager)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err = used.Collect(condition); err != nil {
+		return nil, nil, err
+	}
+	for variable := uint32(0); variable < used.MaxFoundVarIndexPlusOne(); variable++ {
+		sortHandle := used.Contains(variable)
+		if sortHandle.IsNull() {
+			continue
+		}
+		if _, found := variables[variable]; found {
+			continue
+		}
+		column := uint32(len(sorts))
+		product, err = product.AppendFullColumn(manager, sorts, sortHandle)
+		if err != nil {
+			return nil, nil, err
+		}
+		sorts = append(sorts, sortHandle)
+		variables[variable] = column
+	}
+	return product, sorts, nil
+}
+
 func (a *boundIntervalDatalogActivation) remapBoundIntervalCondition(condition ast.ASTHandle, variables map[uint32]uint32, sorts []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	used, err := ast.NewASTUsedVars(a.manager)
 	if err != nil {
@@ -257,6 +287,10 @@ func (a *boundIntervalDatalogActivation) evaluatePositiveRule(rule *base.Rule, p
 		raw, conditionNegated, cause := rule.Tail(uninterpreted)
 		if cause != nil || conditionNegated {
 			return false, errors.Join(cause, ErrBoundIntervalDatalogFragment)
+		}
+		working, workingSorts, cause = ensureBoundIntervalConditionVariables(a.manager, raw, variables, working, workingSorts)
+		if cause != nil {
+			return false, cause
 		}
 		condition, cause = a.remapBoundIntervalCondition(raw, variables, workingSorts)
 		if cause != nil {
