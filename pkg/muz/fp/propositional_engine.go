@@ -2702,70 +2702,7 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 		}
 		return answer, ErrPropositionalEngine
 	}
-	facts, err := state.table.Facts()
-	if err != nil {
-		return answer, err
-	}
-	temporaries := make([]ast.ASTRef, 0)
-	defer func() {
-		for i := len(temporaries) - 1; i >= 0; i-- {
-			result = errors.Join(result, e.manager.DelRef(&temporaries[i]))
-		}
-		if result != nil && answer != (ast.ASTRef{}) {
-			result = errors.Join(result, e.manager.DelRef(&answer))
-			answer = ast.ASTRef{}
-		}
-	}()
-	retain := func(handle ast.ASTHandle) (ast.ASTHandle, error) {
-		reference, x := e.manager.NewRef(handle)
-		if x != nil {
-			return ast.ASTHandle{}, x
-		}
-		temporaries = append(temporaries, reference)
-		return handle, nil
-	}
-	rows := make([]ast.ASTHandle, 0, len(facts))
-	for _, fact := range facts {
-		values, x := e.relations.DecodeFact(state.sorts, fact)
-		if x != nil {
-			return answer, x
-		}
-		temporaries = append(temporaries, values...)
-		equalities := make([]ast.ASTHandle, len(fact))
-		for i := range fact {
-			variable, y := e.manager.MkVar(uint32(i), state.sorts[i])
-			if y != nil {
-				return answer, y
-			}
-			if _, y = retain(variable); y != nil {
-				return answer, y
-			}
-			value, y := e.manager.RefGet(values[i])
-			if y != nil {
-				return answer, y
-			}
-			equalities[i], y = e.manager.MkEq(variable, value)
-			if y != nil {
-				return answer, y
-			}
-			if _, y = retain(equalities[i]); y != nil {
-				return answer, y
-			}
-		}
-		row, x := e.manager.MkAndArray(equalities)
-		if x != nil {
-			return answer, x
-		}
-		if row, x = retain(row); x != nil {
-			return answer, x
-		}
-		rows = append(rows, row)
-	}
-	formula, err := e.manager.MkOrArray(rows)
-	if err != nil {
-		return answer, err
-	}
-	return e.manager.NewRef(formula)
+	return e.finiteRelationAnswer(state)
 }
 
 // Proof returns the selected engine's owning fixedpoint proof. PDR and
