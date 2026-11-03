@@ -691,7 +691,7 @@ func (k *SMTKernel) Assert(formula, proof ast.ASTHandle) (err error) {
 	k.nraInputs = append(k.nraInputs, ref)
 	return nil
 }
-func (k *SMTKernel) assertFormulaCore(formula, proof ast.ASTHandle) error {
+func (k *SMTKernel) assertFormulaCore(formula, proof ast.ASTHandle) (resultErr error) {
 	if err := k.open(); err != nil {
 		return err
 	}
@@ -729,16 +729,16 @@ func (k *SMTKernel) assertFormulaCore(formula, proof ast.ASTHandle) error {
 	// The source owns expr_ref/proof_ref inputs before changing rewriter
 	// parameters and flushing caches. Keep borrowed inputs alive across that
 	// flush even when the previous rewriter cache supplied their last pin.
-	input, err := k.manager.NewRef(formula)
+	scope := &smtAssertionScope{manager: k.manager}
+	defer func() { resultErr = scope.finish(resultErr) }()
+	scope.inputs[0], err = k.manager.NewRef(formula)
 	if err != nil {
 		return err
 	}
-	defer k.manager.DelRef(&input)
-	inputProof, err := k.manager.NewRef(proof)
+	scope.inputs[1], err = k.manager.NewRef(proof)
 	if err != nil {
 		return err
 	}
-	defer k.manager.DelRef(&inputProof)
 	if k.assertedFormulasInconsistent() {
 		return nil
 	}
@@ -755,18 +755,17 @@ func (k *SMTKernel) assertFormulaCore(formula, proof ast.ASTHandle) error {
 		return err
 	}
 	formula, proof, err = k.preprocessAssertion(formula, proof)
+	if k.preprocess && k.preprocessor != nil {
+		// The preprocessing call can return owning results together with a
+		// cleanup error. Adopt them before examining that error or tracing.
+		scope.rewritten = [2]ast.ASTHandle{formula, proof}
+	}
 	if err != nil {
 		return err
 	}
 	if k.preprocess {
 		if err = k.traceAssertedExpression("assert_expr_bug", "assert_expr", 160, "after...\n", formula); err != nil {
 			return err
-		}
-	}
-	if k.preprocess {
-		defer k.manager.DecRef(formula)
-		if !proof.IsNull() {
-			defer k.manager.DecRef(proof)
 		}
 	}
 	k.assertedHasQuantifiers = k.assertedHasQuantifiers || hasQuantifiers
