@@ -341,11 +341,18 @@ func (m *RelationManager) DecodeValue(sort ast.ASTHandle, value Element) (ast.AS
 	if uint64(value) >= domain {
 		return ast.ASTRef{}, fmt.Errorf("%w: table element outside relation sort", ErrTable)
 	}
-	expression, err := m.manager.MkDatalogNumeral(uint64(value), sort)
+	// Reserve the owner before constructing the numeral. A following failed
+	// reference allocation would otherwise leave a live unowned AST node.
+	reference, err := m.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	return m.manager.NewRef(expression)
+	expression, cause := m.manager.MkDatalogNumeral(uint64(value), sort)
+	cause = errors.Join(cause, m.manager.SetRef(reference, expression))
+	if cause != nil {
+		return ast.ASTRef{}, finishDecodedFact(m.manager, []ast.ASTRef{reference}, cause)
+	}
+	return reference, nil
 }
 
 // DecodeFact returns one owning reference per element. On failure it releases
