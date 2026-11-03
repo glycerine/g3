@@ -46,17 +46,17 @@ func (p *legacyArrayProjection) projectFormula(md *model.ModelCore, variables []
 	}
 	result = &legacyArrayProjectionResult{manager: p.syntax.manager}
 	ownedResult := result
+	current, err := p.syntax.manager.NewRef(formula)
+	if err != nil {
+		_ = ownedResult.Close()
+		return nil, err
+	}
 	defer func() {
+		resultErr = finishLegacyArrayFormula(p.syntax.manager, current, ownedResult, resultErr)
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, ownedResult.Close())
 			result = nil
 		}
 	}()
-	current, err := p.syntax.manager.NewRef(formula)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, p.syntax.manager.DelRef(&current)) }()
 	remaining := make([]ast.ASTHandle, 0, len(variables))
 	for _, variable := range variables {
 		currentHandle, err := p.syntax.manager.RefGet(current)

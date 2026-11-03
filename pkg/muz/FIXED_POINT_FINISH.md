@@ -248,6 +248,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
     - [x] Preserve projectSelects construction owners across explicit nil error returns; densely scan standalone select and composed whole-array paths for 8/64 distinct model classes with live-reference accounting after service disposal, retry, array elimination and model truth.
     - [x] Preserve projectStoreEquality's own partially built result across nil error returns; verify an eight-store transfer campaign with distinct model-separated indices, 16 output variables, live-reference accounting after service disposal and source-lifetime retry. Propagate errors from explicit no-elimination cleanup and retire its owner only on success.
     - [x] Preserve whole-array coordinator ownership after copying store auxiliaries; densely scan an eight-store composed transfer case, verify sixteen variables, no failed publication, source-lifetime retry, model truth and input-only live-reference accounting.
+    - [x] Finalize whole-array projection's lexical current reference and unpublished result through one retry owner, including earlier nested construction failures and late native current-release refusal.
     - [x] Audit named-result overwrite risk across array construction entry points: captured owners protect factorPartialSelects/projectSelects/projectStoreEquality/projectFormula; findEqualities/newLegacyPartialEquality/Expand keep local result owners; direct equality/select reduction/polarity replacement publish their named objects only at their successful terminal return.
     - [ ] Audit local final-reference ownership when rewrite success is followed by failed temporary cleanup (direct equality and polarity replacement), plus independent parent-continuation failures, construction-cleanup refusal and post-admission numerical release failures.
       - [x] Preserve the projection theory rewriter's final owning AST reference after its rewritten result has been copied but local native cleanup refuses, with stable retry ownership and idempotent release.
@@ -515,6 +516,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Whole-array legacy projection now finalizes its lexical `current` AST reference and unpublished result through one retryable owner. Earlier nested construction receipts drain first, late native current-release refusal preserves both concrete owners, and no partial result publishes before idempotent cleanup; other parent-continuation paths remain open.
+  Validation: `go -C pkg test ./qe -run '^(TestLegacyWholeArrayFinalizationPreservesCurrentAndResultOnNativeRefusal|TestLegacyWholeArray|TestLegacyArray.*Pending)' -count=2` passed. Commit title: `Preserve whole array projection finalization owners`.
 
 - 2026-11-02 — Legacy Spacer projection now preserves the theory rewriter's final AST owner when the rewritten formula has been copied into `current` but local native cleanup refuses. The published formula remains valid, the extra reference has typed retry custody and idempotent release, and receipt presentation remains stable; other direct/polarity final-reference paths remain open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyProjectionRewriteFinalReferenceSurvivesNativeCleanupRefusal|TestLegacyProjection.*Rewrite|TestLegacyProjection.*Pending)' -count=3` passed. Commit title: `Preserve projection rewrite owners through cleanup refusal`.
