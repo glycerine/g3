@@ -19,6 +19,7 @@ var ErrSolverUnknown = errors.New("undef")
 type Solver interface {
 	Push() error
 	Pop(uint32) error
+	ScopeLevel() (uint32, error)
 	Assert(ast.ASTHandle) error
 	CheckSat([]ast.ASTHandle) (lbool.LBool, error)
 }

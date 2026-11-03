@@ -27,13 +27,9 @@ func (e *Engine) search(goals []ast.ASTHandle, depth uint32, index int) (status 
 	defer func() { resultErr = errors.Join(resultErr, closeRules(rules)) }()
 	status = lbool.False
 	for _, rule := range rules {
-		if err = e.solver.Push(); err != nil {
-			return status, err
-		}
-		candidate, x := e.tryRule(rule, goals, depth, index)
-		pop := e.solver.Pop(1)
-		if x != nil || pop != nil {
-			return status, errors.Join(x, pop)
+		candidate, x := e.tryScopedRule(rule, goals, depth, index)
+		if x != nil {
+			return lbool.Undef, x
 		}
 		switch candidate {
 		case lbool.True:

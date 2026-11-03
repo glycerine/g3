@@ -1,16 +1,16 @@
 package clp
 
 import (
-	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func (e *Engine) tryRule(rule *base.Rule, goals []ast.ASTHandle, depth uint32, index int) (result lbool.LBool, resultErr error) {
-	environment := &groundEnvironment{manager: e.manager}
-	owner := &ruleAttemptOwner{manager: e.manager, environment: environment}
-	defer func() { resultErr = errors.Join(resultErr, owner.dispose()) }()
+func (e *Engine) tryRule(rule *base.Rule, goals []ast.ASTHandle, depth uint32, index int, owner *ruleAttemptOwner) (result lbool.LBool, resultErr error) {
+	if owner == nil || owner.environment == nil {
+		return lbool.Undef, ErrCLP
+	}
+	environment := owner.environment
 	head, err := rule.Head()
 	if err != nil {
 		return lbool.Undef, err

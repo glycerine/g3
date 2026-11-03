@@ -1,6 +1,8 @@
 package clp
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/memory"
 )
@@ -8,16 +10,17 @@ import (
 type clpRefOwner struct {
 	manager *ast.ASTManager
 	refs    []ast.ASTRef
+	nested  memory.ConstructionFailure
 }
 
 type clpRefCleanupFailure struct {
-	cause      error
-	cleanupErr error
-	owner      *clpRefOwner
+	cause, cleanupErr, exposed error
+	message                    string
+	owner                      *clpRefOwner
 }
 
-func (f *clpRefCleanupFailure) Error() string { return f.cause.Error() }
-func (f *clpRefCleanupFailure) Unwrap() error { return f.cause }
+func (f *clpRefCleanupFailure) Error() string { return f.message }
+func (f *clpRefCleanupFailure) Unwrap() error { return f.exposed }
 func (f *clpRefCleanupFailure) Cleanup() error {
 	f.cleanupErr = f.owner.close()
 	return f.cleanupErr
@@ -33,6 +36,12 @@ func (o *clpRefOwner) take(ref ast.ASTRef) {
 }
 
 func (o *clpRefOwner) close() error {
+	if o.nested != nil {
+		if err := o.nested.Cleanup(); err != nil {
+			return err
+		}
+		o.nested = nil
+	}
 	for i := len(o.refs) - 1; i >= 0; i-- {
 		if o.refs[i] == (ast.ASTRef{}) {
 			continue
@@ -46,8 +55,28 @@ func (o *clpRefOwner) close() error {
 }
 
 func (o *clpRefOwner) dispose() error {
-	if err := o.close(); err != nil {
-		return &clpRefCleanupFailure{cause: err, cleanupErr: err, owner: o}
-	}
-	return nil
+	return o.finish(nil)
 }
+
+func (o *clpRefOwner) finish(cause error) error {
+	if cause != nil {
+		var nested memory.ConstructionFailure
+		if errors.As(cause, &nested) {
+			o.nested = nested
+		}
+	}
+	cleanup := o.close()
+	if cleanup == nil {
+		return cause
+	}
+	if cause == nil {
+		cause = cleanup
+	}
+	exposed := errors.Join(cause, cleanup)
+	return &clpRefCleanupFailure{
+		cause: cause, cleanupErr: cleanup, exposed: exposed,
+		message: exposed.Error(), owner: o,
+	}
+}
+
+var _ memory.ConstructionFailure = (*clpRefCleanupFailure)(nil)

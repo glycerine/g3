@@ -1,6 +1,8 @@
 package fp
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/clp"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -16,16 +18,17 @@ type clpBackendAttempt struct {
 	localReady   bool
 	backend      *smtcore.SMTSolver
 	engine       *clp.Engine
+	nested       memory.ConstructionFailure
 }
 
 type clpBackendCleanupFailure struct {
-	cause      error
-	cleanupErr error
-	attempt    *clpBackendAttempt
+	cause, cleanupErr, exposed error
+	message                    string
+	attempt                    *clpBackendAttempt
 }
 
-func (f *clpBackendCleanupFailure) Error() string { return f.cause.Error() }
-func (f *clpBackendCleanupFailure) Unwrap() error { return f.cause }
+func (f *clpBackendCleanupFailure) Error() string { return f.message }
+func (f *clpBackendCleanupFailure) Unwrap() error { return f.exposed }
 func (f *clpBackendCleanupFailure) Cleanup() error {
 	f.cleanupErr = f.attempt.close()
 	return f.cleanupErr
@@ -37,6 +40,12 @@ func (f *clpBackendCleanupFailure) OriginalCause() error { return f.cause }
 func (f *clpBackendCleanupFailure) CleanupCause() error  { return f.cleanupErr }
 
 func (a *clpBackendAttempt) close() error {
+	if a.nested != nil {
+		if err := a.nested.Cleanup(); err != nil {
+			return err
+		}
+		a.nested = nil
+	}
 	if a.engine != nil {
 		if err := a.engine.Close(); err != nil {
 			return err
@@ -71,8 +80,28 @@ func (a *clpBackendAttempt) close() error {
 }
 
 func (a *clpBackendAttempt) dispose() error {
-	if err := a.close(); err != nil {
-		return &clpBackendCleanupFailure{cause: err, cleanupErr: err, attempt: a}
-	}
-	return nil
+	return a.finish(nil)
 }
+
+func (a *clpBackendAttempt) finish(cause error) error {
+	if cause != nil {
+		var nested memory.ConstructionFailure
+		if errors.As(cause, &nested) {
+			a.nested = nested
+		}
+	}
+	cleanup := a.close()
+	if cleanup == nil {
+		return cause
+	}
+	if cause == nil {
+		cause = cleanup
+	}
+	exposed := errors.Join(cause, cleanup)
+	return &clpBackendCleanupFailure{
+		cause: cause, cleanupErr: cleanup, exposed: exposed,
+		message: exposed.Error(), attempt: a,
+	}
+}
+
+var _ memory.ConstructionFailure = (*clpBackendCleanupFailure)(nil)

@@ -13,11 +13,30 @@ type testSolver struct {
 	checks       []lbool.LBool
 	asserted     []ast.ASTHandle
 	pushes, pops int
+	level        uint32
 	fail         error
 }
 
-func (s *testSolver) Push() error                  { s.pushes++; return s.fail }
-func (s *testSolver) Pop(uint32) error             { s.pops++; return s.fail }
+func (s *testSolver) Push() error {
+	s.pushes++
+	if s.fail != nil {
+		return s.fail
+	}
+	s.level++
+	return nil
+}
+func (s *testSolver) Pop(count uint32) error {
+	s.pops++
+	if s.fail != nil {
+		return s.fail
+	}
+	if count > s.level {
+		return ast.ErrASTDomain
+	}
+	s.level -= count
+	return nil
+}
+func (s *testSolver) ScopeLevel() (uint32, error)  { return s.level, nil }
 func (s *testSolver) Assert(h ast.ASTHandle) error { s.asserted = append(s.asserted, h); return s.fail }
 func (s *testSolver) CheckSat([]ast.ASTHandle) (lbool.LBool, error) {
 	if s.fail != nil {

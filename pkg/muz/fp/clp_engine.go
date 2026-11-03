@@ -42,7 +42,12 @@ func (e *PropositionalEngine) queryCLPPredicate(declaration ast.ASTHandle) (resu
 		return lbool.Undef, err
 	}
 	attempt := &clpBackendAttempt{manager: e.manager, preprocessed: preprocessed}
-	defer func() { resultErr = errors.Join(resultErr, attempt.dispose()) }()
+	defer func() {
+		resultErr = attempt.finish(resultErr)
+		if resultErr != nil {
+			result = lbool.Undef
+		}
+	}()
 	queryDeclaration, err := preprocessed.rules.DerivedPredicate(declaration)
 	if err != nil {
 		return lbool.Undef, err

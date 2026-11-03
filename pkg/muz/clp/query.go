@@ -1,7 +1,6 @@
 package clp
 
 import (
-	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -16,7 +15,12 @@ func (e *Engine) Query(query ast.ASTHandle) (status lbool.LBool, resultErr error
 	}
 	owner := &clpRefOwner{manager: e.manager}
 	owner.take(g)
-	defer func() { resultErr = errors.Join(resultErr, owner.dispose()) }()
+	defer func() {
+		resultErr = owner.finish(resultErr)
+		if resultErr != nil {
+			status = lbool.Undef
+		}
+	}()
 	h, err := e.manager.RefGet(owner.refs[0])
 	if err != nil {
 		return lbool.Undef, err
