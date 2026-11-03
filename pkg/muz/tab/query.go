@@ -3,8 +3,6 @@ package tab
 // Source: src/muz/tab/tab_context.cpp, tab::query and imp::get_answer.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
@@ -79,6 +77,7 @@ func queryPredicate(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theor
 	if err != nil {
 		return lbool.Undef, answer, err
 	}
+	attempt.goal = goal
 	var modelConfig *model.ModelEvaluatorConfig
 	if len(evaluator) > 1 {
 		return lbool.Undef, answer, ast.ErrASTHandle
@@ -88,8 +87,9 @@ func queryPredicate(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theor
 	}
 	search, err := newTabSearchWithSession(goal, index, rw, lite, querySolver, subsumptionSolver, strategy, session, modelConfig)
 	if err != nil {
-		return lbool.Undef, answer, errors.Join(err, goal.Close())
+		return lbool.Undef, answer, err
 	}
+	attempt.goal = nil
 	attempt.search = search
 	defer func() {
 		if stats != nil {

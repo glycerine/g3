@@ -113,6 +113,38 @@ func TestTabQueryAttemptPreservesSearchAndAnswerOnNativeCleanupRefusal(t *testin
 		t.Fatal("query cleanup retry incomplete")
 	}
 
+	goalHead, err := manager.NewRef(application)
+	must(err)
+	goalConstraint, err := manager.NewRef(truth)
+	must(err)
+	goal := &Clause{manager: manager, head: goalHead, constraint: goalConstraint}
+	goalAttempt := &tabQueryAttempt{manager: manager, goal: goal}
+	failure = nil
+	trigger = func() {
+		returned, finishErr := goalAttempt.finish(ast.ASTRef{}, errTabQueryInjected)
+		if returned != (ast.ASTRef{}) {
+			t.Fatal("failed query construction returned an answer")
+		}
+		failure = finishErr
+	}
+	body = invoke()
+	if body == nil || !errors.Is(failure, errTabQueryInjected) || !errors.Is(failure, ast.ErrASTPending) || goalAttempt.goal != goal || goal.closed {
+		t.Fatal("query construction cleanup lost pending goal", body, failure)
+	}
+	cleanup, ok = failure.(memory.ConstructionFailure)
+	if !ok {
+		t.Fatal("query construction failure is not retryable", failure)
+	}
+	goalOriginal, goalExposed, goalMessage := cleanup.OriginalCause(), errors.Unwrap(cleanup), cleanup.Error()
+	must(cleanup.Cleanup())
+	must(cleanup.Cleanup())
+	if goalAttempt.goal != nil || !goal.closed || cleanup.CleanupCause() != nil {
+		t.Fatal("query construction goal cleanup retry incomplete")
+	}
+	if cleanup.OriginalCause() != goalOriginal || errors.Unwrap(cleanup) != goalExposed || cleanup.Error() != goalMessage {
+		t.Fatal("query construction cleanup changed its receipt")
+	}
+
 	expressionAttempt := &tabExpressionAttempt{manager: manager, compacted: compacted}
 	failure = nil
 	trigger = func() {

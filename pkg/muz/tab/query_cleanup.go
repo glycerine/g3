@@ -14,6 +14,7 @@ type tabQueryAttempt struct {
 	manager    *ast.ASTManager
 	properties *base.RuleProperties
 	index      *RuleIndex
+	goal       *Clause
 	search     *tabSearch
 	answer     ast.ASTRef
 }
@@ -24,6 +25,12 @@ func (a *tabQueryAttempt) closeResources() error {
 			return err
 		}
 		a.search = nil
+	}
+	if a.goal != nil {
+		if err := a.goal.Close(); err != nil {
+			return err
+		}
+		a.goal = nil
 	}
 	if a.index != nil {
 		if err := a.index.Close(); err != nil {
@@ -55,11 +62,13 @@ func (a *tabQueryAttempt) Close() error {
 type tabQueryCleanupFailure struct {
 	cause      error
 	cleanupErr error
+	exposed    error
+	message    string
 	attempt    *tabQueryAttempt
 }
 
-func (f *tabQueryCleanupFailure) Error() string { return errors.Join(f.cause, f.cleanupErr).Error() }
-func (f *tabQueryCleanupFailure) Unwrap() error { return errors.Join(f.cause, f.cleanupErr) }
+func (f *tabQueryCleanupFailure) Error() string { return f.message }
+func (f *tabQueryCleanupFailure) Unwrap() error { return f.exposed }
 func (f *tabQueryCleanupFailure) Cleanup() error {
 	f.cleanupErr = f.attempt.Close()
 	return f.cleanupErr
@@ -89,7 +98,8 @@ func (a *tabQueryAttempt) finish(answer ast.ASTRef, cause error) (ast.ASTRef, er
 	if answer != (ast.ASTRef{}) {
 		a.answer = answer
 	}
-	return ast.ASTRef{}, &tabQueryCleanupFailure{cause: cause, cleanupErr: cleanup, attempt: a}
+	exposed := errors.Join(cause, cleanup)
+	return ast.ASTRef{}, &tabQueryCleanupFailure{cause: cause, cleanupErr: cleanup, exposed: exposed, message: exposed.Error(), attempt: a}
 }
 
 var _ memory.ConstructionFailure = (*tabQueryCleanupFailure)(nil)
