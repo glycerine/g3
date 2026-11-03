@@ -75,7 +75,7 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 		return false, err
 	}
 	tails, err := rule.TailSize()
-	if err != nil || positive != uninterpreted || positive != tails {
+	if err != nil || positive != uninterpreted || positive == 0 && tails != 0 {
 		return false, errors.Join(err, ErrUDocDatalogFragment)
 	}
 	head, err := rule.Head()
@@ -224,6 +224,10 @@ func (c *datalogUDocContext) evaluateRule(rule *base.Rule) (changed bool, result
 				variables[variable] = offset + column - shift
 			}
 		}
+	}
+
+	if err = c.filterInterpretedTails(working, rule, uninterpreted, tails, variables); err != nil {
+		return false, err
 	}
 
 	headSorts := c.result[headDeclaration].Sorts()

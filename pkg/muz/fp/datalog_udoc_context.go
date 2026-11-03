@@ -14,12 +14,13 @@ var ErrUDocDatalogFragment = errors.New("muz/fp: unsupported doc Datalog fragmen
 // The source doc plugin owns one width-indexed manager cache. Expression
 // query copies borrow that cache and independently own their relation values.
 type datalogUDocContext struct {
-	manager  *ast.ASTManager
-	factory  *rel.UDocRelationFactory
-	borrowed bool
-	seeds    map[ast.ASTHandle]*rel.TypedUDocRelation
-	result   map[ast.ASTHandle]*rel.TypedUDocRelation
-	order    []ast.ASTHandle
+	manager      *ast.ASTManager
+	factory      *rel.UDocRelationFactory
+	borrowed     bool
+	seeds        map[ast.ASTHandle]*rel.TypedUDocRelation
+	result       map[ast.ASTHandle]*rel.TypedUDocRelation
+	order        []ast.ASTHandle
+	guardCleanup []*udocGuardAttempt
 }
 
 func newDatalogUDocContext(manager *ast.ASTManager) (*datalogUDocContext, error) {
@@ -31,6 +32,9 @@ func newDatalogUDocContext(manager *ast.ASTManager) (*datalogUDocContext, error)
 }
 
 func (c *datalogUDocContext) discardResult() error {
+	if err := c.clearGuardCleanup(); err != nil {
+		return err
+	}
 	for d, r := range c.result {
 		if err := r.Close(); err != nil {
 			return err
