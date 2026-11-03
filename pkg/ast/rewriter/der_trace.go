@@ -49,6 +49,6 @@ func (d *DER) emitDERTrace(tag, function string, line int, body func(io.Writer, 
 	if globals == nil || globals.Context == nil {
 		return nil
 	}
-	return tags.EmitConditional(tag, function, "src/ast/rewriter/der.cpp", line,
-		func() bool { return true }, func(w io.Writer) error { return body(w, globals) })
+	return emitRewriterSourceTrace(tags, tag, function, "src/ast/rewriter/der.cpp", line,
+		func(w io.Writer) error { return body(w, globals) })
 }

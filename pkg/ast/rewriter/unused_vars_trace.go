@@ -18,6 +18,6 @@ func emitUnusedVarsTrace(m *ast.ASTManager, function string, line int, body func
 	if globals == nil || globals.Context == nil {
 		return nil
 	}
-	return tags.EmitConditional("elim_unused_vars", function, "src/ast/rewriter/var_subst.cpp", line,
-		func() bool { return true }, func(w io.Writer) error { return body(w, globals) })
+	return emitRewriterSourceTrace(tags, "elim_unused_vars", function, "src/ast/rewriter/var_subst.cpp", line,
+		func(w io.Writer) error { return body(w, globals) })
 }

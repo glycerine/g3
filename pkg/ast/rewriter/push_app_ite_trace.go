@@ -46,6 +46,6 @@ func (c *PushAppITEConfiguration) emitPushITETrace(function string, line int, bo
 	if globals == nil || globals.Context == nil {
 		return nil
 	}
-	return tags.EmitConditional("push_app_ite", function, "src/ast/rewriter/push_app_ite.cpp", line,
-		func() bool { return true }, func(w io.Writer) error { return body(w, globals) })
+	return emitRewriterSourceTrace(tags, "push_app_ite", function, "src/ast/rewriter/push_app_ite.cpp", line,
+		func(w io.Writer) error { return body(w, globals) })
 }

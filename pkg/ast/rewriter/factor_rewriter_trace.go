@@ -35,8 +35,8 @@ func (r *FactorRewriter) emitFactorTrace(function string, line int, body func(io
 	if g == nil || g.Context == nil {
 		return nil
 	}
-	return tags.EmitConditional("factor_rewriter", function, "src/ast/rewriter/factor_rewriter.cpp", line,
-		func() bool { return true }, func(w io.Writer) error { return body(w, g) })
+	return emitRewriterSourceTrace(tags, "factor_rewriter", function, "src/ast/rewriter/factor_rewriter.cpp", line,
+		func(w io.Writer) error { return body(w, g) })
 }
 
 func (r *FactorRewriter) writeFactorAST(w io.Writer, h ast.ASTHandle, g *uparams.GlobalParamsService) error {

@@ -35,8 +35,8 @@ func (c *MaximizeBVSharingConfiguration) emitSharingTrace(function string, line 
 	if g == nil || g.Context == nil {
 		return nil
 	}
-	return tags.EmitConditional("ac_sharing_detail", function, "src/ast/rewriter/maximize_ac_sharing.cpp", line,
-		func() bool { return true }, func(w io.Writer) error { return body(w, g) })
+	return emitRewriterSourceTrace(tags, "ac_sharing_detail", function, "src/ast/rewriter/maximize_ac_sharing.cpp", line,
+		func(w io.Writer) error { return body(w, g) })
 }
 
 func (c *MaximizeBVSharingConfiguration) writeSharingAST(w io.Writer, h ast.ASTHandle, g *uparams.GlobalParamsService) error {
