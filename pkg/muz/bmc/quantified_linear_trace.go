@@ -164,10 +164,13 @@ func (c *Compiler) quantifiedLinearStepsVisit(rules *base.RuleSet, query ast.AST
 		if e != nil {
 			return result, e
 		}
-		if tails == 0 {
+		if level == 0 {
+			if tails != 0 {
+				return result, ast.ErrASTDomain
+			}
 			return result, nil
 		}
-		if tails != 1 || level == 0 {
+		if tails != 1 {
 			return result, ast.ErrASTDomain
 		}
 		predicate, e = selected.TailDeclaration(0)

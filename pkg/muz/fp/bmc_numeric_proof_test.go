@@ -14,19 +14,38 @@ import (
 )
 
 func TestBMCNumericProofIndependentValidation(t *testing.T) {
-	for _, name := range []string{"bmc/nonlinear", "qbmc/nonlinear", "bmc/linear", "qbmc/linear", "bmc/recursive", "qbmc/recursive"} {
+	for _, name := range []string{"bmc/nonlinear", "qbmc/nonlinear", "bmc/linear", "qbmc/linear", "bmc/recursive" /*, "qbmc/recursive" */} {
 		t.Run(name, func(t *testing.T) {
 			runBMCNumericProofIndependentValidation(t, name)
 		})
 	}
 }
 
-// TestQBMCRecursiveRuleSelection isolates the intermittent level-zero rule
-// selection failure while exercising the same setup and proof checks as the
-// numeric integration test. Repeat with go test -run '^TestQBMCRecursiveRuleSelection$' -count=100.
+/*
+The qbmc/recursive case above and this standalone copy are intentionally
+disabled to match the C++ QBMC trace assumptions, at the user's direction.
+
+The program has leaf(0), leaf(x) && x < 3 -> leaf(x+1), and
+leaf(3) -> goal. The C++ qlinear compiler constrains rules with a predecessor
+to positive levels, but does not constrain facts to level zero. Its trace
+extractor nevertheless stops only at level zero and assumes every selected
+rule at a positive level has one predecessor. A Go model satisfying the C++
+encoding selected the base fact at level 5 with T=10; bundled Z3 verified all
+16 levels of that model against the source constraints. The source-shaped Go
+extractor therefore returns an AST precondition error for that model. The
+bundled Z3 4.7.1 also reported a rule-unifier verification failure on this
+fixture. The same fact-level assumption remains in the local Z3 5.3.3 source.
+
+The earlier intermittent "model has no selected quantified rule at level 0"
+is not proven to have the same cause. Do not silently restore early fact
+termination or add a fact-level constraint: either would diverge from source.
+The full test body and independent proof checks remain below, and can be
+reactivated if the source encoding/extractor inconsistency is resolved.
+
 func TestQBMCRecursiveRuleSelection(t *testing.T) {
 	runBMCNumericProofIndependentValidation(t, "qbmc/recursive")
 }
+*/
 
 func runBMCNumericProofIndependentValidation(t *testing.T, name string) {
 	m, g := newPDRLifecycleServices(t)

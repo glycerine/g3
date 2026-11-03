@@ -81,15 +81,13 @@ go test ./muz/fp -run '^TestQBMCRecursiveRuleSelection$' -count=100
    affect proof substitutions for partially interpreted models; it occurs
    after rule selection and is not established as the reported cause.
 
-8. **Termination of the selected trace.** C++ stops at level zero, asserting
-   a fact there, and otherwise assumes a single predecessor
-   (`src/muz/bmc/dl_bmc_engine.cpp:347–354`). Go stops as soon as a selected
-   rule has no uninterpreted tails, even above zero; it reports an error for a
-   non-fact at level zero or multiple tails
-   (`pkg/muz/bmc/quantified_linear_trace.go:138–152`). A fact selected at a
-   positive level can therefore lead to different trace/proof behavior. This
-   difference alone does not explain failure before a level-zero rule is
-   selected.
+8. **FIXED — Termination of the selected trace.** Go now stops at level zero
+   and requires a single predecessor at positive levels, matching the source
+   assumptions (`src/muz/bmc/dl_bmc_engine.cpp:347–354`). Go reports an AST
+   precondition error when those assumptions are violated. A focused test
+   exercises facts selected at levels zero and one. The recursive QBMC proof
+   test has been commented out by request; other proof tests also fail when
+   the solver selects a source-valid positive-level fact.
 
 9. **Proof resolution and normalization.** C++ applies the rule unifier and
    builds a hyper-resolution proof for the resulting formula directly
@@ -116,9 +114,10 @@ the independent proof checks.
 The source encoding permits facts at positive levels, but source trace
 extraction assumes every positive-level rule has a predecessor. An actual Go
 model had T=10 and reached the base fact at level 5; bundled Z3 verified that
-model against all source constraints. Enforcing source termination makes the
-existing recursive proof test fail; no extra encoding constraint was added.
+model against all source constraints. Source termination has been restored by
+request; the recursive proof case is commented out and other proof tests can
+fail on positive-level facts. No extra encoding constraint was added.
 The bundled Z3 4.7.1 also fails its rule-unifier verification on the recursive
-and linear fixtures. Items 6–9 remain open pending resolution of these source
+and linear fixtures. Items 6, 7 and 9 remain open pending resolution of these source
 inconsistencies and proof-normalization dependencies. Go enters proof mode
 before the whole proof step; C++ does so after substitution and unification.
