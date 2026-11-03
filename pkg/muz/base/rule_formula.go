@@ -109,11 +109,18 @@ func (m *RuleManager) hoistCompoundPredicate(expression ast.ASTHandle, next *uin
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
+		originalArgument := argument
+		// Source hoist_compound calls ensure_app before descending through
+		// negation, including Boolean variables produced by bit blasting.
+		argument, e = m.ensureBooleanApplication(argument, temporaries)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
 		updated, e := m.hoistCompoundPredicate(argument, next, body, temporaries)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		if updated == argument {
+		if updated == originalArgument {
 			return expression, nil
 		}
 		result, e := m.manager.MkNot(updated)
