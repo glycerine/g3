@@ -3,11 +3,7 @@ package fp
 // Source: src/muz/spacer/spacer_dl_interface.cpp query/query_from_lvl local
 // rule-set copies and src/muz/pdr/pdr_dl_interface.cpp query local rules.
 
-import (
-	"errors"
-
-	"github.com/glycerine/g3/pkg/ast"
-)
+import "errors"
 
 func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	if err := e.open(); err != nil {
@@ -93,11 +89,4 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 		return nil, errors.Join(err, e.discardQueryClone(clone))
 	}
 	return clone, nil
-}
-
-func closeASTRefs(manager *ast.ASTManager, references []ast.ASTRef) (result error) {
-	for i := len(references) - 1; i >= 0; i-- {
-		result = errors.Join(result, manager.DelRef(&references[i]))
-	}
-	return result
 }
