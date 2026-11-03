@@ -86351,8 +86351,8 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/rel/permutation_cycle.go", "pkg/muz/base/util_uint64_scan.go", "pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go", "pkg/muz/base/util_path.go", "pkg/cmd_context/wpa_discover.go", "pkg/muz/transforms/rule_inliner.go", "pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/rel/compiler.go", "pkg/muz/fp/datalog_inline_pipeline.go", "pkg/muz/fp/datalog_inline_query_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/datalog_transform_owners.go", "pkg/muz/fp/datalog_model.go"],
-      "tests": ["TestDatalogUtilitySourcePermutationCycles", "TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal", "TestFileNameWithoutExtensionMatchesDatalogSource", "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPAFileBaseMatchesDatalogExtensionRule", "TestWPADirectoryMapsRulesRelationsAndSaturation", "TestFilterRulesCachesNormalizedRepeatedArgumentFilters", "TestFilterRulesLocalRepeatedAndValueArguments", "TestRuleUnfoldCarriesHyperResolutionProof", "TestRuleUnfoldExpandsOriginalTailOnce", "TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput", "TestRuleManagerWriteSourceRuleDisplay", "TestSimpleJoinPairCostCountsRepeatedVariablePositions", "TestFiniteCompilerJoinsTwoPositiveTails", "TestDatalogInliningPreservesFactsModelsAndQueryScope"],
+      "go_targets": ["pkg/muz/rel/permutation_cycle.go", "pkg/muz/base/util_uint64_scan.go", "pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go", "pkg/muz/base/util_path.go", "pkg/cmd_context/wpa_discover.go", "pkg/muz/transforms/rule_inliner.go", "pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/rel/compiler.go", "pkg/muz/fp/datalog_inline_pipeline.go", "pkg/muz/fp/datalog_inline_query_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/datalog_transform_owners.go", "pkg/muz/fp/datalog_model.go", "pkg/muz/transforms/rule_inliner_branch_test.go"],
+      "tests": ["TestDatalogUtilitySourcePermutationCycles", "TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal", "TestFileNameWithoutExtensionMatchesDatalogSource", "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPAFileBaseMatchesDatalogExtensionRule", "TestWPADirectoryMapsRulesRelationsAndSaturation", "TestFilterRulesCachesNormalizedRepeatedArgumentFilters", "TestFilterRulesLocalRepeatedAndValueArguments", "TestRuleUnfoldCarriesHyperResolutionProof", "TestRuleUnfoldExpandsOriginalTailOnce", "TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput", "TestRuleManagerWriteSourceRuleDisplay", "TestSimpleJoinPairCostCountsRepeatedVariablePositions", "TestFiniteCompilerJoinsTwoPositiveTails", "TestDatalogInliningPreservesFactsModelsAndQueryScope", "TestRuleInlinerLinearBranchSharedAndNegativeUses"],
       "conditionals": [
         {
           "line": 23,
@@ -86487,8 +86487,8 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "try_remove_cycle_from_permutation for finite-product rename", "status": "ported", "go_target": "pkg/muz/rel/permutation_cycle.go", "tests": ["TestDatalogUtilitySourcePermutationCycles", "TestFiniteIntervalProductRename"]}, {"name": "checked decimal read/string conversion, concrete relation-row and mapping-line consumers, and uint64 formatting", "status": "ported", "go_target": "pkg/muz/base/util_uint64_scan.go", "go_targets": ["pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go"], "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal"]}, {"name": "source filename-without-extension behavior for retained Datalog relation-file lookup", "status": "ported", "go_target": "pkg/muz/base/util_path.go", "go_targets": ["pkg/cmd_context/wpa_discover.go"], "tests": ["TestFileNameWithoutExtensionMatchesDatalogSource", "TestWPAFileBaseMatchesDatalogExtensionRule"]}, {"name": "recursive WPA source-file discovery with hidden-directory exclusion and exact extension suffix matching (dl_util.cpp:554-600)", "status": "ported", "go_target": "pkg/cmd_context/wpa_discover.go", "tests": ["TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPADirectoryMapsRulesRelationsAndSaturation"]}, {"name": "predicate filter-tail construction through the retained mk_new_rule_tail algorithm", "status": "ported", "go_target": "pkg/muz/transforms/filter_rules.go", "tests": ["TestFilterRulesCachesNormalizedRepeatedArgumentFilters", "TestFilterRulesLocalRepeatedAndValueArguments"]}, {"name": "normalized rule resolution, removed-rule model capture, and proof attachment used by retained rule unfolding/inlining", "status": "ported", "go_target": "pkg/muz/transforms/rule_unfold.go", "go_targets": ["pkg/muz/transforms/rule_inliner.go", "pkg/muz/fp/datalog_inline_pipeline.go", "pkg/muz/fp/datalog_inline_query_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/datalog_transform_owners.go", "pkg/muz/fp/datalog_model.go"], "tests": ["TestRuleUnfoldCarriesHyperResolutionProof", "TestRuleUnfoldExpandsOriginalTailOnce", "TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput", "TestDatalogInliningPreservesFactsModelsAndQueryScope"],
-          "reason": "The finite-query linear-only inliner consumes source false-body model capture for an eliminated unreachable definition (dl_util.cpp:284-307), while existing eager removed-rule reconstruction remains covered."
+      "methods": [{"name": "try_remove_cycle_from_permutation for finite-product rename", "status": "ported", "go_target": "pkg/muz/rel/permutation_cycle.go", "tests": ["TestDatalogUtilitySourcePermutationCycles", "TestFiniteIntervalProductRename"]}, {"name": "checked decimal read/string conversion, concrete relation-row and mapping-line consumers, and uint64 formatting", "status": "ported", "go_target": "pkg/muz/base/util_uint64_scan.go", "go_targets": ["pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go"], "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal"]}, {"name": "source filename-without-extension behavior for retained Datalog relation-file lookup", "status": "ported", "go_target": "pkg/muz/base/util_path.go", "go_targets": ["pkg/cmd_context/wpa_discover.go"], "tests": ["TestFileNameWithoutExtensionMatchesDatalogSource", "TestWPAFileBaseMatchesDatalogExtensionRule"]}, {"name": "recursive WPA source-file discovery with hidden-directory exclusion and exact extension suffix matching (dl_util.cpp:554-600)", "status": "ported", "go_target": "pkg/cmd_context/wpa_discover.go", "tests": ["TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPADirectoryMapsRulesRelationsAndSaturation"]}, {"name": "predicate filter-tail construction through the retained mk_new_rule_tail algorithm", "status": "ported", "go_target": "pkg/muz/transforms/filter_rules.go", "tests": ["TestFilterRulesCachesNormalizedRepeatedArgumentFilters", "TestFilterRulesLocalRepeatedAndValueArguments"]}, {"name": "normalized rule resolution, removed-rule model capture, and proof attachment used by retained rule unfolding/inlining", "status": "ported", "go_target": "pkg/muz/transforms/rule_unfold.go", "go_targets": ["pkg/muz/transforms/rule_inliner.go", "pkg/muz/fp/datalog_inline_pipeline.go", "pkg/muz/fp/datalog_inline_query_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/datalog_transform_owners.go", "pkg/muz/fp/datalog_model.go", "pkg/muz/transforms/rule_inliner_branch_test.go"], "tests": ["TestRuleUnfoldCarriesHyperResolutionProof", "TestRuleUnfoldExpandsOriginalTailOnce", "TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput", "TestDatalogInliningPreservesFactsModelsAndQueryScope", "TestRuleInlinerLinearBranchSharedAndNegativeUses"],
+          "reason": "The finite-query linear-only inliner consumes source false-body model capture for an eliminated unreachable definition (dl_util.cpp:284-307), while existing eager removed-rule reconstruction remains covered. Shared-use linear contraction captures the source false model body only on last-use definition deletion; negative uses postpone deletion and its model event (dl_util.cpp:284-307)."
         }, {"name": "predicate output and variable-set helpers used by retained rule and simple-join diagnostics/planning", "status": "ported", "go_target": "pkg/muz/base/rule_display.go", "go_targets": ["pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/transforms/simple_joins_pair.go"], "tests": ["TestRuleManagerWriteSourceRuleDisplay", "TestSimpleJoinPairCostCountsRepeatedVariablePositions"]}, {"name": "variable_intersection and column projection/permutation helper instantiations used by retained finite relational compilation", "status": "ported", "go_target": "pkg/muz/rel/compiler.go", "go_targets": ["pkg/muz/rel/table.go", "pkg/muz/rel/sieve_relation.go"], "tests": ["TestFiniteCompilerJoinsTwoPositiveTails", "TestHashTableJoinProjectSelectionAndRename", "TestSieveRenameCycleMovesMaskDomainsAndRows"]}],
       "ownership": ["Retained rule transformations return owning Go Rule wrappers; trace formatting borrows the AST manager, and relation/table transformations return independently owned values."],
       "deviations": ["Helpers whose only consumers are unported or test-only C++ units remain excluded: contains_var, count_variable_arguments, display_fact, and finite-product set transforms. The retained algorithms use concrete typed Go slices/maps instead of universal adapters for C++ templates or STL containers."]
@@ -86708,11 +86708,14 @@
         "pkg/muz/fp/configured_engine_fallback_test.go",
         "pkg/util/params/gparams_collector_source_fixtures_test.go",
         "pkg/util/params/util_gparams_catalog_test.go",
-        "pkg/util/params/util_gparams_catalog_fixture_test.go"
+        "pkg/util/params/util_gparams_catalog_fixture_test.go",
+        "pkg/muz/fp/datalog_inline_pipeline.go",
+        "pkg/muz/fp/datalog_inline_branch_test.go"
       ],
       "tests": [
         "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher",
-        "TestConfiguredUnknownEngineFallsBackToSourceAutoSelection"
+        "TestConfiguredUnknownEngineFallsBackToSourceAutoSelection",
+        "TestDatalogLinearInliningBranchParametersAndFacts"
       ],
       "methods_audited": true,
       "ownership_audited": true,
@@ -86722,11 +86725,15 @@
           "status": "ported",
           "go_target": "pkg/muz/base/gparams_catalog_collectors.go",
           "go_targets": [
-            "pkg/util/params/util_gparams_catalog_test.go"
+            "pkg/util/params/util_gparams_catalog_test.go",
+            "pkg/muz/fp/datalog_inline_pipeline.go",
+            "pkg/muz/fp/datalog_inline_branch_test.go"
           ],
           "tests": [
-            "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"
-          ]
+            "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher",
+            "TestDatalogLinearInliningBranchParametersAndFacts"
+          ],
+          "reason": "The existing xform.inline_linear_branch default-false declaration (fixedpoint_params.pyg:136-137) is consumed by finite queries with module/local enablement and local override."
         }
       ],
       "ownership": [],
@@ -87248,8 +87255,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/bmc_numeric_proof_test.go", "pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_solver_profile_test.go", "pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_bind_test.go", "pkg/muz/bmc/quantified_linear_proof.go", "pkg/muz/bmc/quantified_linear_proof_cleanup.go", "pkg/muz/bmc/quantified_linear_proof_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_compile_test.go", "pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_bind_test.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_compile_test.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/nonlinear_search_test.go", "pkg/muz/bmc/nonlinear_trace.go", "pkg/muz/bmc/nonlinear_proof.go", "pkg/muz/bmc/nonlinear_trace_test.go", "pkg/muz/bmc/linear_compile.go", "pkg/muz/bmc/linear_bind.go", "pkg/muz/bmc/linear_compile_test.go", "pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/linear_trace.go", "pkg/muz/bmc/linear_proof.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_empty_cancellation_test.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go", "pkg/muz/fp/bmc_query_verbose.go", "pkg/muz/fp/bmc_query_verbose_test.go", "pkg/muz/bmc/nonlinear_selector_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_search_cleanup.go", "pkg/muz/bmc/quantified_linear_search_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_search_failure_test.go", "pkg/muz/bmc/quantified_linear_trace_cleanup.go", "pkg/muz/bmc/quantified_linear_trace_cleanup_pending_test.go"],
-      "tests": ["TestBMCNumericProofIndependentValidation", "TestBMCSolverProfilesInstallSourceParameters", "TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler", "TestBMCQuantifiedLinearBindingsUseDerivationLevel", "TestBMCQuantifiedLinearProofWithUninterpretedBinding", "TestSMT2QBMCProofWithUnconstrainedRuleVariable", "TestBMCQuantifiedLinearProofWithRuleVariables", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers", "TestBMCBindVariablesCompressesGapsAndBuildsPattern", "TestBMCNonlinearCompilationUnfoldsRulesByLevel", "TestBMCNonlinearCompilationSharesExistentialAcrossBranches", "TestBMCNonlinearCompilationPreservesRepeatedHeadVariables", "TestBMCNonlinearSearchFindsFirstReachableLevel", "TestBMCNonlinearTraceVisitsModelSelectedRules", "TestQBMCConvertsNonlinearSlicedProof", "TestQBMCConvertsSliceProofWhenResolutionMergesTails", "TestSMT2QBMCProofConvertsMergedTails", "TestSMT2QBMCNonlinearSlicedProofTrace", "TestSMT2BMCNonlinearProofTrace", "TestBMCLinearCompilationSharesRuleVariables", "TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses", "TestBMCEngineRuleTraceAndSnapshot", "TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses", "TestBMCEmptyQueryChecksCancellationBeforeFalseResult", "TestSMT2BMCEngineSearch", "TestSMT2BMCCertificate", "TestSMT2BMCRecursiveCertificate", "TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates", "TestNonlinearBMCWarningMatchesSourceDispatch", "TestLinearBMCDoesNotEmitNonlinearWarning", "TestNonlinearBMCWarningRefusalDoesNotChangeResult", "TestNonlinearSelectorCleanupPreservesRootsAndNestedReceipt", "TestQuantifiedLinearSearchCleanupPreservesScopeTermsAndModel", "TestBMCQuantifiedLinearSearchAllocationScopeCleanup", "TestQuantifiedLinearTraceCleanupPreservesOwnersAcrossNativeRefusal"],
+      "go_targets": ["pkg/muz/fp/bmc_numeric_proof_test.go", "pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_solver_profile_test.go", "pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_bind_test.go", "pkg/muz/bmc/quantified_linear_proof.go", "pkg/muz/bmc/quantified_linear_proof_cleanup.go", "pkg/muz/bmc/quantified_linear_proof_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_compile_test.go", "pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_bind_test.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_compile_test.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/nonlinear_search_test.go", "pkg/muz/bmc/nonlinear_trace.go", "pkg/muz/bmc/nonlinear_proof.go", "pkg/muz/bmc/nonlinear_trace_test.go", "pkg/muz/bmc/linear_compile.go", "pkg/muz/bmc/linear_bind.go", "pkg/muz/bmc/linear_compile_test.go", "pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/linear_trace.go", "pkg/muz/bmc/linear_proof.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_empty_cancellation_test.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go", "pkg/muz/fp/bmc_query_verbose.go", "pkg/muz/fp/bmc_query_verbose_test.go", "pkg/muz/bmc/nonlinear_selector_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_search_cleanup.go", "pkg/muz/bmc/quantified_linear_search_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_search_failure_test.go", "pkg/muz/bmc/quantified_linear_trace_cleanup.go", "pkg/muz/bmc/quantified_linear_trace_cleanup_pending_test.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/bmc_expression_statistics_test.go", "pkg/muz/fp/bmc_expression_statistics_work_test.go"],
+      "tests": ["TestBMCNumericProofIndependentValidation", "TestBMCSolverProfilesInstallSourceParameters", "TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler", "TestBMCQuantifiedLinearBindingsUseDerivationLevel", "TestBMCQuantifiedLinearProofWithUninterpretedBinding", "TestSMT2QBMCProofWithUnconstrainedRuleVariable", "TestBMCQuantifiedLinearProofWithRuleVariables", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers", "TestBMCBindVariablesCompressesGapsAndBuildsPattern", "TestBMCNonlinearCompilationUnfoldsRulesByLevel", "TestBMCNonlinearCompilationSharesExistentialAcrossBranches", "TestBMCNonlinearCompilationPreservesRepeatedHeadVariables", "TestBMCNonlinearSearchFindsFirstReachableLevel", "TestBMCNonlinearTraceVisitsModelSelectedRules", "TestQBMCConvertsNonlinearSlicedProof", "TestQBMCConvertsSliceProofWhenResolutionMergesTails", "TestSMT2QBMCProofConvertsMergedTails", "TestSMT2QBMCNonlinearSlicedProofTrace", "TestSMT2BMCNonlinearProofTrace", "TestBMCLinearCompilationSharesRuleVariables", "TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses", "TestBMCEngineRuleTraceAndSnapshot", "TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses", "TestBMCEmptyQueryChecksCancellationBeforeFalseResult", "TestSMT2BMCEngineSearch", "TestSMT2BMCCertificate", "TestSMT2BMCRecursiveCertificate", "TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates", "TestNonlinearBMCWarningMatchesSourceDispatch", "TestLinearBMCDoesNotEmitNonlinearWarning", "TestNonlinearBMCWarningRefusalDoesNotChangeResult", "TestNonlinearSelectorCleanupPreservesRootsAndNestedReceipt", "TestQuantifiedLinearSearchCleanupPreservesScopeTermsAndModel", "TestBMCQuantifiedLinearSearchAllocationScopeCleanup", "TestQuantifiedLinearTraceCleanupPreservesOwnersAcrossNativeRefusal", "TestBMCExpressionStatisticsReplacePreviousQueryAfterCancellation", "TestBMCExpressionStatisticsIncludeWorkBeforeFailure"],
       "assertions": [
         {
           "line": 138,
@@ -87377,6 +87384,20 @@
             "TestBMCQuantifiedLinearSearchPreservesSolverScope"
           ],
           "reason": "A failed trace publishes no selected rules. Nested receipts, candidate groups, evaluator and indexed terms retire before selected/partial output owners; native refusal preserves the exact frontier for stable, idempotent retry. The allocation campaign checks live-reference and byte counts at every trace prefix before successful completion while preserving caller scope and model-selected derivation order."
+        },
+        {
+          "name": "bmc::query and collect_statistics report the current expression-query attempt, including cancellation and failed solver work (dl_bmc_engine.cpp:1447-1455,1534-1539; dl_bmc_engine.h:60-66)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/fp/query_expression.go",
+            "pkg/muz/fp/bmc_expression_statistics_test.go",
+            "pkg/muz/fp/bmc_expression_statistics_work_test.go"
+          ],
+          "tests": [
+            "TestBMCExpressionStatisticsReplacePreviousQueryAfterCancellation",
+            "TestBMCExpressionStatisticsIncludeWorkBeforeFailure"
+          ],
+          "reason": "BMC/QBMC expression queries clear previous-attempt statistics before preparation and copy attempted-clone statistics even when the query fails. Early cancellation exposes zero prior checks; resource failure after solver work preserves the new nonzero check count. Repeated collection is stable, failed queries publish neither result nor answer, and unrestricted retry produces fresh statistics. This bounded statistics slice does not complete whole-engine ownership or source audits."
         }
       ],
       "ownership": ["Quantified-linear compilation owns indexed-symbol and output references through a retryable cleanup owner; refused native release preserves the concrete owner and every successfully published result until cleanup completes. Quantified-linear proof-step publication adopts newly constructed rule/proof outputs behind the same cleanup frontier when retirement of the old step refuses; selector and evaluated-index roots use the same retryable disposal path. Linear proof-step construction in pkg/muz/bmc/linear_proof_cleanup.go groups the selected rule, substitution, child proofs and unpublished result into one retryable owner and publishes only after cleanup succeeds; TestLinearProofStepCleanupPreservesAllOwnersAcrossNativeRefusal covers the live refusal path. Linear binding construction in pkg/muz/bmc/linear_bind_cleanup.go transactionally owns symbolic inputs and model-derived outputs across native refusal; TestLinearBindingCleanupPreservesInputsAndOutputsAcrossNativeRefusal covers exact retry and publication."],
@@ -87387,8 +87408,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_bind_test.go", "pkg/muz/bmc/quantified_linear_proof.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_compile_test.go", "pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_bind_test.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_compile_test.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/nonlinear_search_test.go", "pkg/muz/bmc/nonlinear_trace.go", "pkg/muz/bmc/nonlinear_proof.go", "pkg/muz/bmc/nonlinear_trace_test.go", "pkg/muz/bmc/linear_compile.go", "pkg/muz/bmc/linear_bind.go", "pkg/muz/bmc/linear_compile_test.go", "pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/linear_trace.go", "pkg/muz/bmc/linear_proof.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/parsers/smt2/bmc_engine_test.go"],
-      "tests": ["TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler", "TestBMCQuantifiedLinearBindingsUseDerivationLevel", "TestBMCQuantifiedLinearProofWithUninterpretedBinding", "TestSMT2QBMCProofWithUnconstrainedRuleVariable", "TestBMCQuantifiedLinearProofWithRuleVariables", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers", "TestBMCBindVariablesCompressesGapsAndBuildsPattern", "TestBMCNonlinearCompilationUnfoldsRulesByLevel", "TestBMCNonlinearCompilationSharesExistentialAcrossBranches", "TestBMCNonlinearCompilationPreservesRepeatedHeadVariables", "TestBMCNonlinearSearchFindsFirstReachableLevel", "TestBMCNonlinearTraceVisitsModelSelectedRules", "TestQBMCConvertsNonlinearSlicedProof", "TestQBMCConvertsSliceProofWhenResolutionMergesTails", "TestSMT2QBMCProofConvertsMergedTails", "TestSMT2QBMCNonlinearSlicedProofTrace", "TestSMT2BMCNonlinearProofTrace", "TestBMCLinearCompilationSharesRuleVariables", "TestBMCEngineRuleTraceAndSnapshot", "TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses", "TestSMT2BMCEngineSearch", "TestSMT2BMCCertificate", "TestSMT2BMCRecursiveCertificate"],
+      "go_targets": ["pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_bind_test.go", "pkg/muz/bmc/quantified_linear_proof.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_compile_test.go", "pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_bind_test.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_compile_test.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/nonlinear_search_test.go", "pkg/muz/bmc/nonlinear_trace.go", "pkg/muz/bmc/nonlinear_proof.go", "pkg/muz/bmc/nonlinear_trace_test.go", "pkg/muz/bmc/linear_compile.go", "pkg/muz/bmc/linear_bind.go", "pkg/muz/bmc/linear_compile_test.go", "pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/linear_trace.go", "pkg/muz/bmc/linear_proof.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/bmc_expression_statistics_test.go", "pkg/muz/fp/bmc_expression_statistics_work_test.go"],
+      "tests": ["TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler", "TestBMCQuantifiedLinearBindingsUseDerivationLevel", "TestBMCQuantifiedLinearProofWithUninterpretedBinding", "TestSMT2QBMCProofWithUnconstrainedRuleVariable", "TestBMCQuantifiedLinearProofWithRuleVariables", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers", "TestBMCBindVariablesCompressesGapsAndBuildsPattern", "TestBMCNonlinearCompilationUnfoldsRulesByLevel", "TestBMCNonlinearCompilationSharesExistentialAcrossBranches", "TestBMCNonlinearCompilationPreservesRepeatedHeadVariables", "TestBMCNonlinearSearchFindsFirstReachableLevel", "TestBMCNonlinearTraceVisitsModelSelectedRules", "TestQBMCConvertsNonlinearSlicedProof", "TestQBMCConvertsSliceProofWhenResolutionMergesTails", "TestSMT2QBMCProofConvertsMergedTails", "TestSMT2QBMCNonlinearSlicedProofTrace", "TestSMT2BMCNonlinearProofTrace", "TestBMCLinearCompilationSharesRuleVariables", "TestBMCEngineRuleTraceAndSnapshot", "TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses", "TestSMT2BMCEngineSearch", "TestSMT2BMCCertificate", "TestSMT2BMCRecursiveCertificate", "TestBMCExpressionStatisticsReplacePreviousQueryAfterCancellation", "TestBMCExpressionStatisticsIncludeWorkBeforeFailure"],
       "conditionals": [
         {
           "line": 20,
@@ -87401,7 +87422,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "ported", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}],
+      "methods": [{"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "ported", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]},
+        {
+          "name": "bmc::query and collect_statistics report the current expression-query attempt, including cancellation and failed solver work (dl_bmc_engine.cpp:1447-1455,1534-1539; dl_bmc_engine.h:60-66)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/fp/query_expression.go",
+            "pkg/muz/fp/bmc_expression_statistics_test.go",
+            "pkg/muz/fp/bmc_expression_statistics_work_test.go"
+          ],
+          "tests": [
+            "TestBMCExpressionStatisticsReplacePreviousQueryAfterCancellation",
+            "TestBMCExpressionStatisticsIncludeWorkBeforeFailure"
+          ],
+          "reason": "BMC/QBMC expression queries clear previous-attempt statistics before preparation and copy attempted-clone statistics even when the query fails. Early cancellation exposes zero prior checks; resource failure after solver work preserves the new nonzero check count. Repeated collection is stable, failed queries publish neither result nor answer, and unrestricted retry produces fresh statistics. This bounded statistics slice does not complete whole-engine ownership or source audits."
+        }
+      ],
       "ownership": [],
       "deviations": ["Nonlinear and quantified compilation, search, model-selected traces and hyper-resolution proofs are integrated. Nonlinear query/trace/proof assembly and quantified proof publication preserve nested owners, partial premises and result roots in dependency-ordered retryable cleanup frontiers. TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses covers staged proof outputs when old-step retirement refuses; selector roots use the same disposal path. General proof conversion for all transformations and broader interrupted-cleanup audits remain pending. Quantified bindings use the selected derivation level and raw traces bind head variables from model-evaluated arguments."]
     },
@@ -87956,7 +87992,9 @@
         "pkg/muz/duality/prepare_query_failure_test.go",
         "pkg/parsers/smt2/duality_engine_test.go",
         "pkg/muz/duality/query_scopes.go",
-        "pkg/muz/duality/query_scope_failure_test.go"
+        "pkg/muz/duality/query_scope_failure_test.go",
+        "pkg/muz/duality/certificate_cleanup.go",
+        "pkg/muz/duality/query_certificate_cleanup_test.go"
       ],
       "tests": ["TestDualityBackendProfileOutputAndWriterRetry", "TestSMT2DualityArrayQuantificationQueries", "TestSMT2DualityArrayValuedOutputQuantification", "TestRPFPAnnotationModelParameterOrderAndIndependentLifetime", "TestRPFPAnnotationModelEveryAllocationPrefix", "pkg/muz/duality/backend_test.go", "pkg/muz/duality/native_solver_test.go", "pkg/muz/duality/query_options_test.go", "pkg/muz/duality/build_graph_test.go",
         "TestQueryClauseSparseAndGroundVariables",
@@ -87967,7 +88005,8 @@
         "TestDualityInvalidateCounterexampleViewPreservesReplayTransfer",
         "TestDualityBackgroundScopeFailureAndRetry",
         "TestDualityBackgroundScopeCloseRetry",
-        "TestDualityBackgroundScopeAllocationFrontiers"
+        "TestDualityBackgroundScopeAllocationFrontiers",
+        "TestDualitySafeCertificateNativeFailurePreservesModelOwner"
       ],
       "conditionals": [
         {
@@ -88102,9 +88141,12 @@
           "status": "ported",
           "go_target": "pkg/muz/duality/query_derivation.go",
           "tests": [
-            "TestDualitySafeCertificateModelAndWriterRetry"
+            "TestDualitySafeCertificateModelAndWriterRetry",
+            "TestDualitySafeCertificateNativeFailurePreservesModelOwner"
           ],
-          "notes": "Safe results print the source fixedpoint model without entering counterexample-expression rendering; mid-stream refusal releases the temporary model and a later retry succeeds. Reachable results keep the existing derivation and filtered V2 model path, while undefined/no-result calls reject."
+          "notes": "Safe results print the source fixedpoint model without entering counterexample-expression rendering; mid-stream refusal releases the temporary model when cleanup succeeds and a later retry succeeds. Reachable results keep the existing derivation and filtered V2 model path, while undefined/no-result calls reject.",
+          "go_targets": ["pkg/muz/duality/query_derivation.go","pkg/muz/duality/certificate_cleanup.go","pkg/muz/duality/query_certificate_cleanup_test.go"],
+          "reason": "The safe certificate branch owns its temporary annotation-model snapshot through printing and destruction (duality_dl_interface.cpp:467-474). Cleanup refusal carries that snapshot and any nested construction receipt through a stable retry owner; nested cleanup precedes model destruction and completed cleanup is idempotent. Native refusal is tested at this finalizer boundary with real safe-query models, while the existing public writer regression covers mid-stream refusal, model-reference release and subsequent certificate retry. This does not claim end-to-end native refusal inside WriteCertificate."
         },
         {
           "name": "query lifecycle blocks access while cleanup is pending, invalidates borrowed counterexamples on failed queries, and keeps models distinct from reachable certificates",
@@ -88114,9 +88156,7 @@
           "reason": "Source creates a fresh per-query logic solver (duality_dl_interface.cpp:134-153,239-244,329-350); the concrete Go borrowed native/auxiliary solvers instead receive query-owned background scopes. Attempts register before Push, reconcile actual published depth and retire in reverse order. Refused Pop preserves the run and dependent graph/engine, blocks later queries and suppresses result/model/counterexample metadata; retry avoids replaying a consumed scope, restores caller depths and excludes prior background axioms. Close remains retryable and idempotent."
         }
       ],
-      "ownership": [
-        "Safe certificate rendering owns a temporary annotation-model snapshot through all writer outcomes and closes it before returning; the backend result remains independently reusable for retry."
-      ],
+      "ownership": ["Safe certificate rendering owns its temporary annotation-model snapshot until cleanup succeeds or transfers the snapshot through a retryable construction-failure receipt. The active backend result remains independently reusable."],
       "deviations": [
         "Fixedpoint engine registration, RPFP query execution, annotation/model snapshots, proof extraction and certificate reporting are implemented and integration-tested. Full source/interface/exceptional ownership closure remains partial. Query preparation, RPFP construction, solver execution, annotation model snapshots and the safe/reachable certificate split are ported; wider exceptional backend lifecycle auditing remains unfinished.",
         "The original edge-to-clause association is recorded before dead-node pruning instead of indexing the shortened edge vector afterward; this avoids attributing a surviving edge to an earlier deleted clause during proof extraction.",
@@ -93553,7 +93593,8 @@
         "pkg/muz/fp/datalog_external_interval_positive_test.go",
         "pkg/muz/fp/datalog_external_interval_dispatch_test.go",
         "pkg/muz/rel/compiler_delta_options_test.go",
-        "pkg/muz/fp/datalog_finite_delta_options_test.go"
+        "pkg/muz/fp/datalog_finite_delta_options_test.go",
+        "pkg/muz/fp/datalog_bound_interval_conjunction_test.go"
       ],
       "tests": [
         "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads",
@@ -93610,7 +93651,8 @@
         "TestExternalIntervalDatalogPositiveTransformRefusalRollback",
         "TestExternalIntervalDatalogCartesianReplacementCloseRefusalOwnsBothProducts",
         "TestFiniteCompilerAllOrNothingDeltas",
-        "TestDatalogFiniteAllOrNothingDeltaOption"
+        "TestDatalogFiniteAllOrNothingDeltaOption",
+        "TestBoundIntervalDatalogCombinesInterpretedTailsWithoutStrengthening"
       ],
       "conditionals": [
         {
@@ -94061,13 +94103,15 @@
             "pkg/muz/fp/datalog_bound_interval_positive.go",
             "pkg/muz/fp/datalog_bound_interval_tail_repeated_test.go",
             "pkg/muz/fp/datalog_bound_interval_join.go",
-            "pkg/muz/fp/datalog_bound_interval_join_repeated_test.go"
+            "pkg/muz/fp/datalog_bound_interval_join_repeated_test.go",
+            "pkg/muz/fp/datalog_bound_interval_conjunction_test.go"
           ],
           "tests": [
             "TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates",
-            "TestBoundIntervalDatalogTwoTailOccurrenceProjection"
+            "TestBoundIntervalDatalogTwoTailOccurrenceProjection",
+            "TestBoundIntervalDatalogCombinesInterpretedTailsWithoutStrengthening"
           ],
-          "reason": "The concrete bound/interval pair lowers one or two positive tails with every cross-tail occurrence pair in left-major order (dl_compiler.cpp:403-517,554-598,682-738,813-861; dl_util.h:213-238). Head multiplicities and one copy needed by later guards survive earliest-surplus projection before constant/local-equality filtering; an occurrence class spanning both tails skips redundant local equality. Both component orders, self-joins, guards, constants, source projection/rename coarsening, repeated queries, fact updates and independent seeds are covered. Negation, more than two positive tails and generic abstract dispatch remain open."
+          "reason": "The concrete bound/interval pair lowers one or two positive tails with every cross-tail occurrence pair in left-major order (dl_compiler.cpp:403-517,554-598,682-738,813-861; dl_util.h:213-238). Head multiplicities and one copy needed by later guards survive earliest-surplus projection before constant/local-equality filtering; an occurrence class spanning both tails skips redundant local equality. Both component orders, self-joins, guards, constants, source projection/rename coarsening, repeated queries, fact updates and independent seeds are covered. Negation, more than two positive tails and generic abstract dispatch remain open. Every interpreted tail is combined into one rooted conjunction before condition-only columns, substitution and filtering/projecting (dl_compiler.cpp:610-639,682-738). The bound/interval components receive the same compound condition rather than separately stronger sequential filters, preserving source abstraction precision. Both component orders, one/two positive tails, repeated columns, condition-only variables, singleton guards, empty inputs, updates and canceled-query result invalidation are covered; wider backend and ownership audits remain separate."
         }
       ],
       "ownership": [
@@ -94080,8 +94124,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/compiler.go", "pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go", "pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_head_assembly_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go", "pkg/muz/fp/datalog_interval_condition_columns_test.go", "pkg/muz/fp/datalog_bound_interval_condition_columns_test.go", "pkg/muz/rel/instruction_interpreted_project.go", "pkg/muz/rel/instruction_interpreted_project_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go", "pkg/muz/rel/compiler_join_project_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_close_test.go", "pkg/muz/fp/datalog_bound_interval_tail_repeated_test.go", "pkg/muz/rel/compiler_recursive_init_test.go", "pkg/muz/fp/datalog_bound_interval_join.go", "pkg/muz/fp/datalog_bound_interval_join_repeated_test.go", "pkg/muz/fp/datalog_external_interval_positive_test.go", "pkg/muz/fp/datalog_external_interval_dispatch_test.go", "pkg/muz/rel/compiler_delta_options_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/datalog_finite_delta_options_test.go"],
-      "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace", "TestIntervalRelationHeadAssemblyColumns", "TestDatalogConfiguredIntervalHeadAssemblyAndUpdates", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack", "TestIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestBoundIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestFilterInterpretedAndProjectInstructionKeepsSourceAndClearsEmptyInput", "TestFilterInterpretedAndProjectInstructionConcreteFiniteDispatch", "TestFiniteCompilerFusedFilterRemapsSurvivingColumns", "TestFiniteCompilerFusesInterpretedFilterAndDeadVariableProjection", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseBeforePublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry", "TestFiniteCompilerFusesJoinProjection", "TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder", "TestExternalIntervalDatalogNaryGroundRefusalsRollbackAndRetry", "TestExternalIntervalDatalogNaryJoinedCloseBeforePublicationRetry", "TestExternalIntervalDatalogNarySingletonCloseAfterPublicationRetry", "TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates", "TestFiniteCompilerInitializesRecursiveSeedsBeforeLoop", "TestBoundIntervalDatalogTwoTailOccurrenceProjection", "TestExternalIntervalDatalogPositiveJoinProjectAndHeadAssembly", "TestExternalIntervalDatalogPositiveDisjointKeysThenUpdate", "TestExternalIntervalDatalogPositiveTransformRefusalRollback", "TestExternalIntervalDatalogCartesianReplacementCloseRefusalOwnsBothProducts", "TestFiniteCompilerAllOrNothingDeltas", "TestDatalogFiniteAllOrNothingDeltaOption"],
+      "go_targets": ["pkg/muz/rel/compiler.go", "pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go", "pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_head_assembly_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go", "pkg/muz/fp/datalog_interval_condition_columns_test.go", "pkg/muz/fp/datalog_bound_interval_condition_columns_test.go", "pkg/muz/rel/instruction_interpreted_project.go", "pkg/muz/rel/instruction_interpreted_project_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go", "pkg/muz/rel/compiler_join_project_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_close_test.go", "pkg/muz/fp/datalog_bound_interval_tail_repeated_test.go", "pkg/muz/rel/compiler_recursive_init_test.go", "pkg/muz/fp/datalog_bound_interval_join.go", "pkg/muz/fp/datalog_bound_interval_join_repeated_test.go", "pkg/muz/fp/datalog_external_interval_positive_test.go", "pkg/muz/fp/datalog_external_interval_dispatch_test.go", "pkg/muz/rel/compiler_delta_options_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/datalog_finite_delta_options_test.go", "pkg/muz/fp/datalog_bound_interval_conjunction_test.go"],
+      "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace", "TestIntervalRelationHeadAssemblyColumns", "TestDatalogConfiguredIntervalHeadAssemblyAndUpdates", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack", "TestIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestBoundIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestFilterInterpretedAndProjectInstructionKeepsSourceAndClearsEmptyInput", "TestFilterInterpretedAndProjectInstructionConcreteFiniteDispatch", "TestFiniteCompilerFusedFilterRemapsSurvivingColumns", "TestFiniteCompilerFusesInterpretedFilterAndDeadVariableProjection", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseBeforePublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry", "TestFiniteCompilerFusesJoinProjection", "TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder", "TestExternalIntervalDatalogNaryGroundRefusalsRollbackAndRetry", "TestExternalIntervalDatalogNaryJoinedCloseBeforePublicationRetry", "TestExternalIntervalDatalogNarySingletonCloseAfterPublicationRetry", "TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates", "TestFiniteCompilerInitializesRecursiveSeedsBeforeLoop", "TestBoundIntervalDatalogTwoTailOccurrenceProjection", "TestExternalIntervalDatalogPositiveJoinProjectAndHeadAssembly", "TestExternalIntervalDatalogPositiveDisjointKeysThenUpdate", "TestExternalIntervalDatalogPositiveTransformRefusalRollback", "TestExternalIntervalDatalogCartesianReplacementCloseRefusalOwnsBothProducts", "TestFiniteCompilerAllOrNothingDeltas", "TestDatalogFiniteAllOrNothingDeltaOption", "TestBoundIntervalDatalogCombinesInterpretedTailsWithoutStrengthening"],
       "conditionals": [
         {
           "line": 19,
@@ -94154,13 +94198,15 @@
             "pkg/muz/fp/datalog_bound_interval_positive.go",
             "pkg/muz/fp/datalog_bound_interval_tail_repeated_test.go",
             "pkg/muz/fp/datalog_bound_interval_join.go",
-            "pkg/muz/fp/datalog_bound_interval_join_repeated_test.go"
+            "pkg/muz/fp/datalog_bound_interval_join_repeated_test.go",
+            "pkg/muz/fp/datalog_bound_interval_conjunction_test.go"
           ],
           "tests": [
             "TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates",
-            "TestBoundIntervalDatalogTwoTailOccurrenceProjection"
+            "TestBoundIntervalDatalogTwoTailOccurrenceProjection",
+            "TestBoundIntervalDatalogCombinesInterpretedTailsWithoutStrengthening"
           ],
-          "reason": "The concrete bound/interval pair lowers one or two positive tails with every cross-tail occurrence pair in left-major order (dl_compiler.cpp:403-517,554-598,682-738,813-861; dl_util.h:213-238). Head multiplicities and one copy needed by later guards survive earliest-surplus projection before constant/local-equality filtering; an occurrence class spanning both tails skips redundant local equality. Both component orders, self-joins, guards, constants, source projection/rename coarsening, repeated queries, fact updates and independent seeds are covered. Negation, more than two positive tails and generic abstract dispatch remain open."
+          "reason": "The concrete bound/interval pair lowers one or two positive tails with every cross-tail occurrence pair in left-major order (dl_compiler.cpp:403-517,554-598,682-738,813-861; dl_util.h:213-238). Head multiplicities and one copy needed by later guards survive earliest-surplus projection before constant/local-equality filtering; an occurrence class spanning both tails skips redundant local equality. Both component orders, self-joins, guards, constants, source projection/rename coarsening, repeated queries, fact updates and independent seeds are covered. Negation, more than two positive tails and generic abstract dispatch remain open. Every interpreted tail is combined into one rooted conjunction before condition-only columns, substitution and filtering/projecting (dl_compiler.cpp:610-639,682-738). The bound/interval components receive the same compound condition rather than separately stronger sequential filters, preserving source abstraction precision. Both component orders, one/two positive tails, repeated columns, condition-only variables, singleton guards, empty inputs, updates and canceled-query result invalidation are covered; wider backend and ownership audits remain separate."
         }
       ],
       "ownership": [
@@ -98911,7 +98957,9 @@
         "pkg/muz/rel/udoc_relation_typed_filter_project.go",
         "pkg/muz/rel/udoc_relation_typed_negation.go",
         "pkg/muz/rel/udoc_relation_typed_formula.go",
-        "pkg/muz/rel/udoc_relation_typed_formula_cleanup.go"
+        "pkg/muz/rel/udoc_relation_typed_formula_cleanup.go",
+        "pkg/muz/fp/datalog_bound_interval_conjunction_test.go",
+        "pkg/muz/fp/datalog_inline_branch_test.go"
       ],
       "tests": [
         "TestQueryMagicSetsRunsForSyntheticQueryPredicate",
@@ -98969,7 +99017,9 @@
         "TestDatalogDocFormulaCheckerKeepsBooleanFallbackAndNullaryDOC",
         "TestDatalogDocFormulaCheckerPreservesLegacyMixedPositiveProgram",
         "TestDatalogDocFormulaCheckerParameterClearPreservesAdoptedFacts",
-        "TestDatalogDocCheckerScopeNativeCleanupKeepsFactoryUntilNestedRootsRelease"
+        "TestDatalogDocCheckerScopeNativeCleanupKeepsFactoryUntilNestedRootsRelease",
+        "TestBoundIntervalDatalogCombinesInterpretedTailsWithoutStrengthening",
+        "TestDatalogLinearInliningBranchParametersAndFacts"
       ],
       "conditionals": [
         {
@@ -99119,7 +99169,8 @@
             "pkg/muz/transforms/separate_negated_tails.go",
             "pkg/muz/fp/datalog_inline_pipeline.go",
             "pkg/muz/fp/datalog_inline_query_test.go",
-            "pkg/muz/transforms/rule_inliner.go"
+            "pkg/muz/transforms/rule_inliner.go",
+            "pkg/muz/fp/datalog_inline_branch_test.go"
           ],
           "tests": [
             "TestDatalogQueriesRestoreFilterAndJoinScopes",
@@ -99129,9 +99180,10 @@
             "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts",
             "TestDatalogInterpretedEqualityPrecedesFiniteCompilation",
             "TestDatalogPrivateNegativeTailHasQueryLocalComplement",
-            "TestDatalogInliningPreservesFactsModelsAndQueryScope"
+            "TestDatalogInliningPreservesFactsModelsAndQueryScope",
+            "TestDatalogLinearInliningBranchParametersAndFacts"
           ],
-          "reason": "Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open. The finite query pipeline registers separate-negated-tails at source priority 21000 after interpreted-tail simplification and before filter/simple joins (rel_context.cpp:297-316). Private negative variables receive query-local lower-stratum complement predicates in creation order. Repeated compiled queries and later blocked-fact updates preserve the persistent rules/predicates and release every query-owned auxiliary. Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services."
+          "reason": "Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open. The finite query pipeline registers separate-negated-tails at source priority 21000 after interpreted-tail simplification and before filter/simple joins (rel_context.cpp:297-316). Private negative variables receive query-local lower-stratum complement predicates in creation order. Repeated compiled queries and later blocked-fact updates preserve the persistent rules/predicates and release every query-owned auxiliary. Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services. xform.inline_linear_branch keeps source default false and now reaches the finite query inliner with module/local enablement and local disable override. The public test checks extensional-fact protection, exact output tuples and later queries restoring the source program. Shared Horn preprocessing also forwards the resolved option through spacer_engine.go; this new public test covers Datalog rather than an independent Spacer/PDR branch scenario."
         },
         {
           "name": "configured interval-relation runtime executes fact and positive arithmetic rule sets in dependency-first SCC order with cloned external seeds, source widening boundaries, abstract predicate/expression queries and caller-owned relation formulas",
@@ -99164,9 +99216,9 @@
         {
           "name": "staged explicit bound_relation plus interval_relation product activation with aligned original kinds, facts, clones and abstract query formulas",
           "status": "partial",
-          "go_targets": ["pkg/muz/fp/datalog_bound_interval_activation.go", "pkg/muz/fp/datalog_bound_interval_activation_test.go", "pkg/muz/fp/datalog_bound_interval_query_status_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_positive_test.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/rel/interval_bound_product.go", "pkg/muz/rel/interval_bound_product_fact_ast.go", "pkg/muz/rel/interval_bound_product_lifecycle.go", "pkg/muz/rel/interval_bound_product_selection.go", "pkg/muz/rel/interval_bound_product_selection_test.go", "pkg/muz/fp/datalog_bound_interval_condition_columns_test.go", "pkg/muz/fp/datalog_bound_interval_tail_repeated_test.go", "pkg/muz/fp/datalog_bound_interval_join.go", "pkg/muz/fp/datalog_bound_interval_join_repeated_test.go"],
-          "tests": ["TestBoundIntervalDatalogActivationFactsCloneFormulaAndRuleBoundary", "TestBoundIntervalDatalogActivationDeclinesOtherKinds", "TestBoundIntervalDatalogPositiveFilterProjectConsumer", "TestBoundIntervalDatalogTwoPositiveJoinFilterProjectAndRepeat", "TestBoundIntervalDatalogTwoPositiveDisjointAndThreeTailBoundary", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestBoundIntervalDatalogQueryCombinesOutputNonemptiness", "TestIntervalBoundProductSelectionClonePrecisionAndOrder", "TestIntervalBoundProductASTFactInsertionIsValidatedBeforeMutation", "TestBoundIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates", "TestBoundIntervalDatalogTwoTailOccurrenceProjection"],
-          "reason": "The concrete bound/interval pair lowers one or two positive tails with every cross-tail occurrence pair in left-major order (dl_compiler.cpp:403-517,554-598,682-738,813-861; dl_util.h:213-238). Head multiplicities and one copy needed by later guards survive earliest-surplus projection before constant/local-equality filtering; an occurrence class spanning both tails skips redundant local equality. Both component orders, self-joins, guards, constants, source projection/rename coarsening, repeated queries, fact updates and independent seeds are covered. Negation, more than two positive tails and generic abstract dispatch remain open. The aligned pair keeps component order, source imprecision, independent clones, validated facts and transactional head-column assembly. Query status combines all requested output components: definitely empty is false and any abstract nonempty witness remains unknown. Condition-only variables receive full columns before guards."
+          "go_targets": ["pkg/muz/fp/datalog_bound_interval_activation.go", "pkg/muz/fp/datalog_bound_interval_activation_test.go", "pkg/muz/fp/datalog_bound_interval_query_status_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_positive_test.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/rel/interval_bound_product.go", "pkg/muz/rel/interval_bound_product_fact_ast.go", "pkg/muz/rel/interval_bound_product_lifecycle.go", "pkg/muz/rel/interval_bound_product_selection.go", "pkg/muz/rel/interval_bound_product_selection_test.go", "pkg/muz/fp/datalog_bound_interval_condition_columns_test.go", "pkg/muz/fp/datalog_bound_interval_tail_repeated_test.go", "pkg/muz/fp/datalog_bound_interval_join.go", "pkg/muz/fp/datalog_bound_interval_join_repeated_test.go", "pkg/muz/fp/datalog_bound_interval_conjunction_test.go"],
+          "tests": ["TestBoundIntervalDatalogActivationFactsCloneFormulaAndRuleBoundary", "TestBoundIntervalDatalogActivationDeclinesOtherKinds", "TestBoundIntervalDatalogPositiveFilterProjectConsumer", "TestBoundIntervalDatalogTwoPositiveJoinFilterProjectAndRepeat", "TestBoundIntervalDatalogTwoPositiveDisjointAndThreeTailBoundary", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestBoundIntervalDatalogQueryCombinesOutputNonemptiness", "TestIntervalBoundProductSelectionClonePrecisionAndOrder", "TestIntervalBoundProductASTFactInsertionIsValidatedBeforeMutation", "TestBoundIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates", "TestBoundIntervalDatalogTwoTailOccurrenceProjection", "TestBoundIntervalDatalogCombinesInterpretedTailsWithoutStrengthening"],
+          "reason": "The concrete bound/interval pair lowers one or two positive tails with every cross-tail occurrence pair in left-major order (dl_compiler.cpp:403-517,554-598,682-738,813-861; dl_util.h:213-238). Head multiplicities and one copy needed by later guards survive earliest-surplus projection before constant/local-equality filtering; an occurrence class spanning both tails skips redundant local equality. Both component orders, self-joins, guards, constants, source projection/rename coarsening, repeated queries, fact updates and independent seeds are covered. Negation, more than two positive tails and generic abstract dispatch remain open. The aligned pair keeps component order, source imprecision, independent clones, validated facts and transactional head-column assembly. Query status combines all requested output components: definitely empty is false and any abstract nonempty witness remains unknown. Condition-only variables receive full columns before guards. Every interpreted tail is combined into one rooted conjunction before condition-only columns, substitution and filtering/projecting (dl_compiler.cpp:610-639,682-738). The bound/interval components receive the same compound condition rather than separately stronger sequential filters, preserving source abstraction precision. Both component orders, one/two positive tails, repeated columns, condition-only variables, singleton guards, empty inputs, updates and canceled-query result invalidation are covered; wider backend and ownership audits remain separate."
         },
         {
           "name": "rel_context public bound-relation selection, arithmetic table-fact insertion and named-program replacement lifecycle",
@@ -99217,15 +99269,17 @@
             "pkg/muz/transforms/separate_negated_tails.go",
             "pkg/muz/fp/datalog_inline_pipeline.go",
             "pkg/muz/fp/datalog_inline_query_test.go",
-            "pkg/muz/transforms/rule_inliner.go"
+            "pkg/muz/transforms/rule_inliner.go",
+            "pkg/muz/fp/datalog_inline_branch_test.go"
           ],
           "tests": [
             "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts",
             "TestDatalogInterpretedEqualityPrecedesFiniteCompilation",
             "TestDatalogPrivateNegativeTailHasQueryLocalComplement",
-            "TestDatalogInliningPreservesFactsModelsAndQueryScope"
+            "TestDatalogInliningPreservesFactsModelsAndQueryScope",
+            "TestDatalogLinearInliningBranchParametersAndFacts"
           ],
-          "reason": "The query-local rule set restores the original program after pruning, including later disconnected-predicate queries. Cone steps transfer in order, reconstruct the original model and remain reachable across cleanup refusal. Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open. The finite query pipeline registers separate-negated-tails at source priority 21000 after interpreted-tail simplification and before filter/simple joins (rel_context.cpp:297-316). Private negative variables receive query-local lower-stratum complement predicates in creation order. Repeated compiled queries and later blocked-fact updates preserve the persistent rules/predicates and release every query-owned auxiliary. Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services."
+          "reason": "The query-local rule set restores the original program after pruning, including later disconnected-predicate queries. Cone steps transfer in order, reconstruct the original model and remain reachable across cleanup refusal. Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open. The finite query pipeline registers separate-negated-tails at source priority 21000 after interpreted-tail simplification and before filter/simple joins (rel_context.cpp:297-316). Private negative variables receive query-local lower-stratum complement predicates in creation order. Repeated compiled queries and later blocked-fact updates preserve the persistent rules/predicates and release every query-owned auxiliary. Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services. xform.inline_linear_branch keeps source default false and now reaches the finite query inliner with module/local enablement and local disable override. The public test checks extensional-fact protection, exact output tuples and later queries restoring the source program. Shared Horn preprocessing also forwards the resolved option through spacer_engine.go; this new public test covers Datalog rather than an independent Spacer/PDR branch scenario."
         }
       ],
       "ownership": [
@@ -99268,7 +99322,8 @@
         "pkg/muz/rel/similarity_interval_cleanup.go",
         "pkg/muz/fp/datalog_inline_pipeline.go",
         "pkg/muz/fp/datalog_inline_query_test.go",
-        "pkg/muz/transforms/rule_inliner.go"
+        "pkg/muz/transforms/rule_inliner.go",
+        "pkg/muz/fp/datalog_inline_branch_test.go"
       ],
       "tests": [
         "TestDatalogSimilarityLiveQuery",
@@ -99291,7 +99346,8 @@
         "TestDatalogPrivateNegativeTailHasQueryLocalComplement",
         "TestDatalogBoundSimilarityPublicQueriesAndUpdates",
         "TestBoundSimilarityQueryCleanupRefusalKeepsProgramAndInvalidatesResult",
-        "TestDatalogInliningPreservesFactsModelsAndQueryScope"
+        "TestDatalogInliningPreservesFactsModelsAndQueryScope",
+        "TestDatalogLinearInliningBranchParametersAndFacts"
       ],
       "conditionals": [
         {
@@ -99347,15 +99403,17 @@
             "pkg/muz/transforms/separate_negated_tails.go",
             "pkg/muz/fp/datalog_inline_pipeline.go",
             "pkg/muz/fp/datalog_inline_query_test.go",
-            "pkg/muz/transforms/rule_inliner.go"
+            "pkg/muz/transforms/rule_inliner.go",
+            "pkg/muz/fp/datalog_inline_branch_test.go"
           ],
           "tests": [
             "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts",
             "TestDatalogInterpretedEqualityPrecedesFiniteCompilation",
             "TestDatalogPrivateNegativeTailHasQueryLocalComplement",
-            "TestDatalogInliningPreservesFactsModelsAndQueryScope"
+            "TestDatalogInliningPreservesFactsModelsAndQueryScope",
+            "TestDatalogLinearInliningBranchParametersAndFacts"
           ],
-          "reason": "The query-local rule set restores the original program after pruning, including later disconnected-predicate queries. Cone steps transfer in order, reconstruct the original model and remain reachable across cleanup refusal. Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open. The finite query pipeline registers separate-negated-tails at source priority 21000 after interpreted-tail simplification and before filter/simple joins (rel_context.cpp:297-316). Private negative variables receive query-local lower-stratum complement predicates in creation order. Repeated compiled queries and later blocked-fact updates preserve the persistent rules/predicates and release every query-owned auxiliary. Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services."
+          "reason": "The query-local rule set restores the original program after pruning, including later disconnected-predicate queries. Cone steps transfer in order, reconstruct the original model and remain reachable across cleanup refusal. Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open. The finite query pipeline registers separate-negated-tails at source priority 21000 after interpreted-tail simplification and before filter/simple joins (rel_context.cpp:297-316). Private negative variables receive query-local lower-stratum complement predicates in creation order. Repeated compiled queries and later blocked-fact updates preserve the persistent rules/predicates and release every query-owned auxiliary. Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services. xform.inline_linear_branch keeps source default false and now reaches the finite query inliner with module/local enablement and local disable override. The public test checks extensional-fact protection, exact output tuples and later queries restoring the source program. Shared Horn preprocessing also forwards the resolved option through spacer_engine.go; this new public test covers Datalog rather than an independent Spacer/PDR branch scenario."
         }
       ],
       "ownership": [],
@@ -101193,7 +101251,8 @@
         "pkg/muz/fp/spacer_expression_reachable_test.go",
         "pkg/muz/fp/spacer_expression_cancellation_test.go",
         "pkg/muz/fp/spacer_expression_owner_failure_test.go",
-        "pkg/muz/fp/pdr_expression_fixture_test.go"
+        "pkg/muz/fp/pdr_expression_fixture_test.go",
+        "pkg/muz/fp/spacer_formula_binding_failure_test.go"
       ],
       "tests": [
         "TestFixedpointMutationCleanupFailureInvalidatesSnapshots",
@@ -101218,7 +101277,9 @@
         "TestSpacerExpressionQueryReachableSummary",
         "TestExpressionModelOriginalClausesAndLifecycle",
         "TestSpacerExpressionCancellationPreservesOwnersAndRetry",
-        "TestSpacerExpressionPrequeryOwnerFailureAndRetry"
+        "TestSpacerExpressionPrequeryOwnerFailureAndRetry",
+        "TestSlicedFormulaFailureReleasesTemporaryBindings",
+        "TestSlicedFormulaCopiedOwnersSurviveNativeCleanupRefusal"
       ],
       "assertions": [
         {
@@ -101323,7 +101384,7 @@
           "name": "reverse-ledger model, cover, and reachable reconstruction across slicing, cone filtering, subsumption, and inlining; sliced answer and ground-answer variable expansion",
           "status": "ported",
           "go_target": "pkg/muz/fp/spacer_slice_results.go",
-          "go_targets": ["pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/spacer_formula_cleanup.go", "pkg/muz/fp/spacer_formula_cleanup_test.go", "pkg/muz/fp/spacer_original_model_test.go", "pkg/muz/fp/spacer_nonlinear_model_answer_test.go"],
+          "go_targets": ["pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/spacer_formula_cleanup.go", "pkg/muz/fp/spacer_formula_cleanup_test.go", "pkg/muz/fp/spacer_original_model_test.go", "pkg/muz/fp/spacer_nonlinear_model_answer_test.go", "pkg/muz/fp/spacer_slice_results.go", "pkg/muz/fp/spacer_formula_binding_failure_test.go"],
           "notes": "Only live transformed head/tail predicates receive transformers; fresh synthetic query heads reset prior frames before new slicing. Repeated plain/sliced/inlined/composed exported models independently satisfy original numeric clauses and refute the query, including nonlinear joins of shared recursive instances whose model and answer require both numeric invariants.",
           "tests": [
             "TestSpacerEngineExpandsSlicedReachableColumns",
@@ -101332,8 +101393,10 @@
             "TestSpacerEngineReconstructsInlinedReachablePredicate",
             "TestSpacerEngineExpandsSlicedModelPredicates",
             "TestSlicedFormulaCopiedOwnersSurviveNativeCleanupRefusal",
-            "TestSpacerNonlinearSharedModelAndAnswerOriginalClauses"
-          ]
+            "TestSpacerNonlinearSharedModelAndAnswerOriginalClauses",
+            "TestSlicedFormulaFailureReleasesTemporaryBindings"
+          ],
+          "reason": "The concrete counterpart of the source substitution expr_ref_vector reserves an owning reference before constructing each fresh original-column variable (dl_mk_slice.cpp:344-355). The existing cleanup receipt drains substitution state, binding references and consumed input before result publication. Allocation frontiers balance nodes/references and preserve retry; native refusal keeps binding roots reachable. Complete compact interpretation expansion remains the Go representation choice, while source partial-function/wildcard-entry fidelity and whole-slice ownership audits remain open."
         },
         {
           "name": "sliced model interpretation expansion to original predicate declarations and columns",
@@ -106454,7 +106517,9 @@
         "pkg/muz/fp/datalog_inline_query_test.go",
         "pkg/muz/fp/propositional_engine.go",
         "pkg/muz/fp/datalog_transform_owners.go",
-        "pkg/muz/fp/datalog_model.go"
+        "pkg/muz/fp/datalog_model.go",
+        "pkg/muz/transforms/rule_inliner_branch_test.go",
+        "pkg/muz/fp/datalog_inline_branch_test.go"
       ],
       "tests": [
         "TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput",
@@ -106476,7 +106541,11 @@
         "TestSMTLibRunnerScripts/fixedpoint_spacer_nonlinear_inlining.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_spacer_nonlinear_inlining.smt2",
         "TestRuleUnfoldPropagatesAccountingToTargetRule",
-        "TestDatalogInliningPreservesFactsModelsAndQueryScope"
+        "TestDatalogInliningPreservesFactsModelsAndQueryScope",
+        "TestRuleInlinerLinearBranchSharedAndNegativeUses",
+        "TestRuleInlinerLinearBranchProtectsRecursiveOutput",
+        "TestRuleInlinerLinearCountsHeadsBeforeResolventSimplification",
+        "TestDatalogLinearInliningBranchParametersAndFacts"
       ],
       "assertions": [
         {
@@ -106603,13 +106672,16 @@
           "reason": "Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services."
         },
         {
-          "name": "inline_linear unique-head/unique-tail guarded straight-line contraction",
+          "name": "inline_linear unique-head selection, optional shared-tail expansion and last-use definition deletion",
           "status": "ported",
           "go_target": "pkg/muz/transforms/rule_inliner.go",
           "tests": [
             "TestRuleInlinerContractsUniqueLinearGroundChain",
             "TestSMTLibRunnerCPPReference/fixedpoint_spacer_nonlinear_inlining.smt2",
-            "TestDatalogInliningPreservesFactsModelsAndQueryScope"
+            "TestDatalogInliningPreservesFactsModelsAndQueryScope",
+            "TestRuleInlinerLinearBranchSharedAndNegativeUses",
+            "TestRuleInlinerLinearBranchProtectsRecursiveOutput",
+            "TestRuleInlinerLinearCountsHeadsBeforeResolventSimplification"
           ],
           "go_targets": [
             "pkg/cmd/g3/main_test.go",
@@ -106618,21 +106690,23 @@
             "pkg/muz/fp/propositional_engine.go",
             "pkg/muz/fp/datalog_transform_owners.go",
             "pkg/muz/fp/datalog_model.go",
-            "pkg/muz/transforms/rule_inliner.go"
+            "pkg/muz/transforms/rule_inliner.go",
+            "pkg/muz/transforms/rule_inliner_branch_test.go"
           ],
-          "reason": "The public linear-only consumer preserves source deletion of an unreachable definition and its false model interpretation (dl_mk_rule_inliner.cpp:796-800; dl_util.cpp:284-307), alongside the existing eager removed-clause reconstruction path."
+          "reason": "The public linear-only consumer preserves source deletion of an unreachable definition and its false model interpretation (dl_mk_rule_inliner.cpp:796-800; dl_util.cpp:284-307), alongside the existing eager removed-clause reconstruction path. The linear pass counts raw head uniqueness before resolvent simplification, optionally expands multiple matching positive-tail uses and counts all uninterpreted occurrences including negative uses (dl_mk_rule_inliner.cpp:664-669,734,753-777). A definition and its false-body model-deletion event retire only after the final matching use; remaining negative uses keep the definition and emit no deletion event (796-800). Optional branch mode follows the source without an orientation guard for unprotected recursive definitions, so such cycles can repeatedly expand. The recursive regression protects an output and does not establish termination for unprotected branch cycles."
         },
         {
-          "name": "xform.inline_eager/xform.inline_linear gating and whole-plugin refusal when any interpreted rule tail contains a quantifier",
+          "name": "xform.inline_eager/xform.inline_linear/xform.inline_linear_branch gating and whole-plugin refusal when any interpreted rule tail contains a quantifier",
           "status": "ported",
           "go_target": "pkg/muz/transforms/rule_inliner.go",
           "tests": [
             "TestRuleInlinerHonorsDisabledModes",
             "TestRuleInlinerRefusesMixedQuantifiedProgram",
-            "TestDatalogInliningPreservesFactsModelsAndQueryScope"
+            "TestDatalogInliningPreservesFactsModelsAndQueryScope",
+            "TestDatalogLinearInliningBranchParametersAndFacts"
           ],
-          "go_targets": ["pkg/muz/fp/datalog_inline_pipeline.go","pkg/muz/fp/datalog_inline_query_test.go","pkg/muz/fp/propositional_engine.go","pkg/muz/fp/datalog_transform_owners.go","pkg/muz/fp/datalog_model.go","pkg/muz/transforms/rule_inliner.go"],
-          "reason": "Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services."
+          "go_targets": ["pkg/muz/fp/datalog_inline_pipeline.go","pkg/muz/fp/datalog_inline_query_test.go","pkg/muz/fp/propositional_engine.go","pkg/muz/fp/datalog_transform_owners.go","pkg/muz/fp/datalog_model.go","pkg/muz/transforms/rule_inliner.go", "pkg/muz/fp/datalog_inline_branch_test.go", "pkg/muz/fp/spacer_engine.go"],
+          "reason": "Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services. xform.inline_linear_branch keeps source default false and now reaches the finite query inliner with module/local enablement and local disable override. The public test checks extensional-fact protection, exact output tuples and later queries restoring the source program. Shared Horn preprocessing also forwards the resolved option through spacer_engine.go; this new public test covers Datalog rather than an independent Spacer/PDR branch scenario."
         },
         {
           "name": "multi-definition multiplier planning that prevents combinatorial eager expansion",
@@ -106694,10 +106768,11 @@
           "tests": [
             "TestHornModelConversionsReplayInReverseApplicationOrder",
             "TestPDREngineExpandsSlicedModelsAndCovers",
-            "TestDatalogInliningPreservesFactsModelsAndQueryScope"
+            "TestDatalogInliningPreservesFactsModelsAndQueryScope",
+            "TestRuleInlinerLinearBranchSharedAndNegativeUses"
           ],
-          "go_targets": ["pkg/muz/fp/datalog_inline_pipeline.go","pkg/muz/fp/datalog_inline_query_test.go","pkg/muz/fp/propositional_engine.go","pkg/muz/fp/datalog_transform_owners.go","pkg/muz/fp/datalog_model.go","pkg/muz/transforms/rule_inliner.go"],
-          "reason": "The public linear-only consumer preserves source deletion of an unreachable definition and its false model interpretation (dl_mk_rule_inliner.cpp:796-800; dl_util.cpp:284-307), alongside the existing eager removed-clause reconstruction path."
+          "go_targets": ["pkg/muz/fp/datalog_inline_pipeline.go","pkg/muz/fp/datalog_inline_query_test.go","pkg/muz/fp/propositional_engine.go","pkg/muz/fp/datalog_transform_owners.go","pkg/muz/fp/datalog_model.go","pkg/muz/transforms/rule_inliner.go", "pkg/muz/transforms/rule_inliner_branch_test.go"],
+          "reason": "The public linear-only consumer preserves source deletion of an unreachable definition and its false model interpretation (dl_mk_rule_inliner.cpp:796-800; dl_util.cpp:284-307), alongside the existing eager removed-clause reconstruction path. Shared positive and negative-use evidence verifies false-body deletion capture occurs exactly once after the last matching use; a remaining negative use keeps the source definition and produces no deletion event."
         },
         {
           "name": "standalone proof-object conversion",
@@ -106720,10 +106795,7 @@
       "ownership": [
         "The Go plugin owns its protected set; every definition, work-queue rule, substitution result, and transformed RuleSet is retained until transfer or reverse-order cleanup."
       ],
-      "deviations": [
-        "The elimination planner breaks each multi-predicate SCC at one declaration like the source, but excludes singleton self-recursive predicates because direct elimination would repeatedly reproduce the same tail; the subsequent source-faithful linear pass still contracts uniquely justified finite recursive chains.",
-        "The Go linear pass uses direct concrete unifier probes in place of the source substitution-tree indexes; this changes indexing cost, not the unique-head/unique-tail decision."
-      ]
+      "deviations": ["The elimination planner breaks each multi-predicate SCC at one declaration like the source, but excludes singleton self-recursive predicates because direct elimination would repeatedly reproduce the same tail; the subsequent source-faithful linear pass still contracts uniquely justified finite recursive chains.","The Go linear pass uses direct concrete unifier probes in place of the source substitution-tree indexes; the probes preserve raw-head uniqueness and all uninterpreted-use multiplicity decisions, including optional shared expansion.", "Optional branch mode follows the source without an orientation guard for unprotected recursive definitions, so such cycles can repeatedly expand. The recursive regression protects an output and does not establish termination for unprotected branch cycles."]
     },
     {
       "path": "src/muz/transforms/dl_mk_rule_inliner.h",
@@ -106740,7 +106812,9 @@
         "pkg/muz/fp/datalog_inline_query_test.go",
         "pkg/muz/fp/propositional_engine.go",
         "pkg/muz/fp/datalog_transform_owners.go",
-        "pkg/muz/fp/datalog_model.go"
+        "pkg/muz/fp/datalog_model.go",
+        "pkg/muz/transforms/rule_inliner_branch_test.go",
+        "pkg/muz/fp/datalog_inline_branch_test.go"
       ],
       "tests": [
         "TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput",
@@ -106757,7 +106831,11 @@
         "TestRuleInlinerDropsResolvedFalseInterpretedTail",
         "TestSMTLibRunnerCPPReference/fixedpoint_spacer_inliner_resolution.smt2",
         "TestRuleUnfoldPropagatesAccountingToTargetRule",
-        "TestDatalogInliningPreservesFactsModelsAndQueryScope"
+        "TestDatalogInliningPreservesFactsModelsAndQueryScope",
+        "TestRuleInlinerLinearBranchSharedAndNegativeUses",
+        "TestRuleInlinerLinearBranchProtectsRecursiveOutput",
+        "TestRuleInlinerLinearCountsHeadsBeforeResolventSimplification",
+        "TestDatalogLinearInliningBranchParametersAndFacts"
       ],
       "conditionals": [
         {
@@ -106776,17 +106854,17 @@
           "name": "RuleInlinerPlugin construction, transformation surface, cancellation, and ownership lifecycle",
           "status": "ported",
           "go_target": "pkg/muz/transforms/rule_inliner.go",
-          "go_targets": ["pkg/muz/fp/datalog_inline_pipeline.go","pkg/muz/fp/datalog_inline_query_test.go","pkg/muz/fp/propositional_engine.go","pkg/muz/fp/datalog_transform_owners.go","pkg/muz/fp/datalog_model.go","pkg/muz/transforms/rule_inliner.go"],
-          "tests": ["TestDatalogInliningPreservesFactsModelsAndQueryScope"],
-          "reason": "Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services."
+          "go_targets": ["pkg/muz/fp/datalog_inline_pipeline.go","pkg/muz/fp/datalog_inline_query_test.go","pkg/muz/fp/propositional_engine.go","pkg/muz/fp/datalog_transform_owners.go","pkg/muz/fp/datalog_model.go","pkg/muz/transforms/rule_inliner.go", "pkg/muz/fp/datalog_inline_branch_test.go"],
+          "tests": ["TestDatalogInliningPreservesFactsModelsAndQueryScope", "TestDatalogLinearInliningBranchParametersAndFacts"],
+          "reason": "Finite Datalog queries register the inliner at source priority 35000 after interpreted-tail simplification and before negative-tail separation/filter/simple joins (rel_context.cpp:297-316; dl_mk_rule_inliner.h:181). Nonempty extensional relations remain protected in addition to outputs, including predicates that also have rules. Default/module/local eager and linear options, eager-only/linear-only modes, model reconstruction, later eliminated-predicate queries and persistent program restoration are covered. Service-free engines temporarily own model-converter services/rewriter without changing engine setup; no new native-refusal coverage is claimed for those temporary services. xform.inline_linear_branch keeps source default false and now reaches the finite query inliner with module/local enablement and local disable override. The public test checks extensional-fact protection, exact output tuples and later queries restoring the source program. Shared Horn preprocessing also forwards the resolved option through spacer_engine.go; this new public test covers Datalog rather than an independent Spacer/PDR branch scenario."
         },
         {
           "name": "inline_linear live rule-vector and unification-index specialization",
           "status": "ported",
           "go_target": "pkg/muz/transforms/rule_inliner.go",
-          "go_targets": ["pkg/muz/fp/datalog_inline_pipeline.go","pkg/muz/fp/datalog_inline_query_test.go","pkg/muz/fp/propositional_engine.go","pkg/muz/fp/datalog_transform_owners.go","pkg/muz/fp/datalog_model.go","pkg/muz/transforms/rule_inliner.go"],
-          "tests": ["TestDatalogInliningPreservesFactsModelsAndQueryScope"],
-          "reason": "The live finite-query linear-only consumer checks source false-body interpretation for a deleted unreachable definition and restores the original program for later queries."
+          "go_targets": ["pkg/muz/fp/datalog_inline_pipeline.go","pkg/muz/fp/datalog_inline_query_test.go","pkg/muz/fp/propositional_engine.go","pkg/muz/fp/datalog_transform_owners.go","pkg/muz/fp/datalog_model.go","pkg/muz/transforms/rule_inliner.go", "pkg/muz/transforms/rule_inliner_branch_test.go"],
+          "tests": ["TestDatalogInliningPreservesFactsModelsAndQueryScope", "TestRuleInlinerLinearBranchSharedAndNegativeUses", "TestRuleInlinerLinearBranchProtectsRecursiveOutput", "TestRuleInlinerLinearCountsHeadsBeforeResolventSimplification"],
+          "reason": "The live finite-query linear-only consumer checks source false-body interpretation for a deleted unreachable definition and restores the original program for later queries. The linear pass counts raw head uniqueness before resolvent simplification, optionally expands multiple matching positive-tail uses and counts all uninterpreted occurrences including negative uses (dl_mk_rule_inliner.cpp:664-669,734,753-777). A definition and its false-body model-deletion event retire only after the final matching use; remaining negative uses keep the definition and emit no deletion event (796-800). Optional branch mode follows the source without an orientation guard for unprotected recursive definitions, so such cycles can repeatedly expand. The recursive regression protects an output and does not establish termination for unprotected branch cycles."
         },
         {
           "name": "rule_unifier::apply assigns the resolved rule an owning accounting parent pointing to its target (dl_mk_rule_inliner.cpp:121)",
@@ -106804,7 +106882,7 @@
       "ownership": [
         "RuleTransformer owns and closes the concrete RuleInlinerPlugin after its transformed RuleSet has been transferred."
       ],
-      "deviations": []
+      "deviations": ["Optional branch mode follows the source without an orientation guard for unprotected recursive definitions, so such cycles can repeatedly expand. The recursive regression protects an output and does not establish termination for unprotected branch cycles."]
     },
     {
       "path": "src/muz/transforms/dl_mk_scale.cpp",
@@ -106984,7 +107062,10 @@
         "pkg/muz/fp/spacer_engine.go",
         "pkg/muz/fp/spacer_slice_results.go",
         "pkg/cmd/g3/main_test.go",
-        "pkg/muz/transforms/rule_slice_failure_test.go"
+        "pkg/muz/transforms/rule_slice_failure_test.go",
+        "pkg/muz/fp/spacer_formula_cleanup.go",
+        "pkg/muz/fp/spacer_formula_cleanup_test.go",
+        "pkg/muz/fp/spacer_formula_binding_failure_test.go"
       ],
       "tests": [
         "TestRuleSliceRemovesUnconstrainedPredicateColumns",
@@ -107024,7 +107105,9 @@
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_compound_head.smt2",
         "TestSMTLibRunnerScripts/fixedpoint_spacer_slice_columns.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_spacer_slice_columns.smt2",
-        "TestRuleSliceProofConverterReferencePressureFailureAndRetry"
+        "TestRuleSliceProofConverterReferencePressureFailureAndRetry",
+        "TestSlicedFormulaFailureReleasesTemporaryBindings",
+        "TestSlicedFormulaCopiedOwnersSurviveNativeCleanupRefusal"
       ],
       "assertions": [
         {
@@ -107097,8 +107180,12 @@
           "go_target": "pkg/muz/fp/spacer_slice_results.go",
           "tests": [
             "TestSpacerEngineExpandsSlicedReachableColumns",
-            "TestPDREngineExpandsSlicedModelsAndCovers"
-          ]
+            "TestPDREngineExpandsSlicedModelsAndCovers",
+            "TestSlicedFormulaFailureReleasesTemporaryBindings",
+            "TestSlicedFormulaCopiedOwnersSurviveNativeCleanupRefusal"
+          ],
+          "go_targets": ["pkg/muz/fp/spacer_slice_results.go","pkg/muz/fp/spacer_formula_cleanup.go","pkg/muz/fp/spacer_formula_cleanup_test.go","pkg/muz/fp/spacer_formula_binding_failure_test.go"],
+          "reason": "The concrete counterpart of the source substitution expr_ref_vector reserves an owning reference before constructing each fresh original-column variable (dl_mk_slice.cpp:344-355). The existing cleanup receipt drains substitution state, binding references and consumed input before result publication. Allocation frontiers balance nodes/references and preserve retry; native refusal keeps binding roots reachable. Complete compact interpretation expansion remains the Go representation choice, while source partial-function/wildcard-entry fidelity and whole-slice ownership audits remain open."
         },
         {
           "name": "model interpretation expansion back to original predicate declarations and columns",
@@ -107107,11 +107194,18 @@
           "tests": [
             "TestSpacerEngineExpandsSlicedModelPredicates",
             "TestPDREngineExpandsSlicedModelsAndCovers",
-            "TestSliceMixedSortModelSatisfiesOriginalClauses"
+            "TestSliceMixedSortModelSatisfiesOriginalClauses",
+            "TestSlicedFormulaFailureReleasesTemporaryBindings",
+            "TestSlicedFormulaCopiedOwnersSurviveNativeCleanupRefusal"
           ],
           "go_targets": [
-            "pkg/muz/fp/slice_mixed_model_test.go"
-          ]
+            "pkg/muz/fp/slice_mixed_model_test.go",
+            "pkg/muz/fp/spacer_slice_results.go",
+            "pkg/muz/fp/spacer_formula_cleanup.go",
+            "pkg/muz/fp/spacer_formula_cleanup_test.go",
+            "pkg/muz/fp/spacer_formula_binding_failure_test.go"
+          ],
+          "reason": "The concrete counterpart of the source substitution expr_ref_vector reserves an owning reference before constructing each fresh original-column variable (dl_mk_slice.cpp:344-355). The existing cleanup receipt drains substitution state, binding references and consumed input before result publication. Allocation frontiers balance nodes/references and preserve retry; native refusal keeps binding roots reachable. Complete compact interpretation expansion remains the Go representation choice, while source partial-function/wildcard-entry fidelity and whole-slice ownership audits remain open."
         },
         {
           "name": "slice proof conversion",
@@ -154185,7 +154279,9 @@
         "pkg/smtcore/smt_solver_scope_failure_test.go",
         "pkg/smtcore/smt_kernel_results.go",
         "pkg/smtcore/smt_univariate_nra.go",
-        "pkg/smtcore/smt_kernel_scope_failure_test.go"
+        "pkg/smtcore/smt_kernel_scope_failure_test.go",
+        "pkg/smtcore/smt_solver_objective.go",
+        "pkg/smtcore/smt_solver_close_failure_test.go"
       ],
       "tests": [
         "TestSMTBitVectorTranslationOwnersModelsAndIndependentScopes",
@@ -154228,7 +154324,8 @@
         "TestSMTSolverPendingPopResumesAfterKernelPublication",
         "TestSMTSolverCloseDoesNotReplayPartiallyConsumedKernelPop",
         "TestSMTKernelPopResumesNativeOwnerFrontiers",
-        "TestSMTKernelPendingPopRejectsNRABeforeAcquiringInputs"
+        "TestSMTKernelPendingPopRejectsNRABeforeAcquiringInputs",
+        "TestSMTSolverClosePreservesNativeCleanupOwners"
       ],
       "assertions": [
         {
@@ -154303,10 +154400,11 @@
             "TestSMTSolverPendingPopResumesAfterKernelPublication",
             "TestSMTSolverCloseDoesNotReplayPartiallyConsumedKernelPop",
             "TestSMTKernelPopResumesNativeOwnerFrontiers",
-            "TestSMTKernelPendingPopRejectsNRABeforeAcquiringInputs"
+            "TestSMTKernelPendingPopRejectsNRABeforeAcquiringInputs",
+            "TestSMTSolverClosePreservesNativeCleanupOwners"
           ],
-          "go_targets": ["pkg/smtcore/smt_solver.go","pkg/smtcore/smt_kernel.go","pkg/smtcore/smt_solver_scope_failure_test.go", "pkg/smtcore/smt_assumptions.go", "pkg/smtcore/smt_kernel_results.go", "pkg/smtcore/smt_univariate_nra.go", "pkg/smtcore/smt_kernel_scope_failure_test.go"],
-          "reason": "Source push_core/pop_core (smt_solver.cpp:118-138) preserve published scope state through native cleanup errors. The explicit Go continuation records only scopes actually published by the kernel. After kernel Pop publication, cache/result/tracked-root cleanup resumes without another Pop, unrelated operations reject while cleanup is pending and Close/DecRef may retire the owner directly. The newly covered kernel parent stages and child continuations are described below; untested child-internal failure paths remain separate. Kernel Pop and Close remember completed parent stages across internalizer/BV-sharing, macro/name/substitution/assertion/NRA retirement, scope publication and cached-result cleanup. Consumed roots advance once and later dependencies survive refused destruction; pending NRA assertions reject before acquiring inputs. The tested parent stages and concrete internalizer/quantifier continuations are covered, while untested child-internal interruption paths and broader whole-unit audits remain separate."
+          "go_targets": ["pkg/smtcore/smt_solver.go","pkg/smtcore/smt_kernel.go","pkg/smtcore/smt_solver_scope_failure_test.go", "pkg/smtcore/smt_assumptions.go", "pkg/smtcore/smt_kernel_results.go", "pkg/smtcore/smt_univariate_nra.go", "pkg/smtcore/smt_kernel_scope_failure_test.go", "pkg/smtcore/smt_solver_objective.go", "pkg/smtcore/smt_solver_close_failure_test.go"],
+          "reason": "Source push_core/pop_core (smt_solver.cpp:118-138) preserve published scope state through native cleanup errors. The explicit Go continuation records only scopes actually published by the kernel. After kernel Pop publication, cache/result/tracked-root cleanup resumes without another Pop, unrelated operations reject while cleanup is pending and Close/DecRef may retire the owner directly. The newly covered kernel parent stages and child continuations are described below; untested child-internal failure paths remain separate. Kernel Pop and Close remember completed parent stages across internalizer/BV-sharing, macro/name/substitution/assertion/NRA retirement, scope publication and cached-result cleanup. Consumed roots advance once and later dependencies survive refused destruction; pending NRA assertions reject before acquiring inputs. The tested parent stages and concrete internalizer/quantifier continuations are covered, while untested child-internal interruption paths and broader whole-unit audits remain separate. The explicit Go continuation extends source solver destruction (smt_solver.cpp:74-76): cleanup stops at the unfinished owner, preserves later kernel/parameter dependencies, rejects ordinary operations while closing and skips consumed references on retry. Eleven native-refusal cases cover consequences, result, named/tracked assertions, objectives, saved/current models including consumed-model continuations, kernel and last-reference destruction. Caller owners survive and completed cleanup is idempotent. The parameter-decrement receipt continuation is implemented and reviewed but was not separately fault-injected; broader solver/optimization ownership audits remain separate."
         },
         {
           "name": "parameter storage and update",
@@ -154474,12 +154572,15 @@
       "go_targets": [
         "pkg/smtcore/smt_solver.go",
         "pkg/smtcore/smt_sequence_lifecycle.go",
-        "pkg/smtcore/smt_sequence_lifecycle_test.go"
+        "pkg/smtcore/smt_sequence_lifecycle_test.go",
+        "pkg/smtcore/smt_solver_objective.go",
+        "pkg/smtcore/smt_solver_close_failure_test.go"
       ],
       "tests": [
         "TestSMTSolverFactoryAndUnsupportedKernelPrerequisites",
         "TestSMTSequenceTranslationPreservesConfiguredBackendAndModels",
-        "TestSMTSequenceAuxiliaryCopyKeepsInstalledBackendAndOwner"
+        "TestSMTSequenceAuxiliaryCopyKeepsInstalledBackendAndOwner",
+        "TestSMTSolverClosePreservesNativeCleanupOwners"
       ],
       "conditionals": [
         {
@@ -154499,8 +154600,11 @@
           "status": "ported",
           "go_target": "pkg/smtcore/smt_solver.go",
           "tests": [
-            "TestSMTSolverFactoryAndUnsupportedKernelPrerequisites"
-          ]
+            "TestSMTSolverFactoryAndUnsupportedKernelPrerequisites",
+            "TestSMTSolverClosePreservesNativeCleanupOwners"
+          ],
+          "go_targets": ["pkg/smtcore/smt_solver.go","pkg/smtcore/smt_solver_objective.go","pkg/smtcore/smt_solver_close_failure_test.go"],
+          "reason": "The explicit Go continuation extends source solver destruction (smt_solver.cpp:74-76): cleanup stops at the unfinished owner, preserves later kernel/parameter dependencies, rejects ordinary operations while closing and skips consumed references on retry. Eleven native-refusal cases cover consequences, result, named/tracked assertions, objectives, saved/current models including consumed-model continuations, kernel and last-reference destruction. Caller owners survive and completed cleanup is idempotent. The parameter-decrement receipt continuation is implemented and reviewed but was not separately fault-injected; broader solver/optimization ownership audits remain separate."
         },
         {
           "name": "copy_plugins retained String/Sequence cases through solver translate and model_checker auxiliary mk_fresh, preserving native installed-plugin precedence",
@@ -178376,11 +178480,14 @@
       "status": "ported",
       "go_targets": [
         "pkg/solver/check_sat_result.go",
-        "pkg/solver/check_sat_result_test.go"
+        "pkg/solver/check_sat_result_test.go",
+        "pkg/solver/check_sat_result_cleanup_test.go"
       ],
       "tests": [
         "TestSimpleCheckSatResultStatusCoreProofModelAndStatistics",
-        "TestSimpleCheckSatResultReasonsLabelsAndReferenceLifetime"
+        "TestSimpleCheckSatResultReasonsLabelsAndReferenceLifetime",
+        "TestSimpleCheckSatResultCloseResumesConsumedCorePrefix",
+        "TestSimpleCheckSatResultCloseResumesProofTail"
       ],
       "methods_audited": true,
       "ownership_audited": true,
@@ -178391,8 +178498,12 @@
           "go_target": "pkg/solver/check_sat_result.go",
           "tests": [
             "TestSimpleCheckSatResultStatusCoreProofModelAndStatistics",
-            "TestSimpleCheckSatResultReasonsLabelsAndReferenceLifetime"
-          ]
+            "TestSimpleCheckSatResultReasonsLabelsAndReferenceLifetime",
+            "TestSimpleCheckSatResultCloseResumesConsumedCorePrefix",
+            "TestSimpleCheckSatResultCloseResumesProofTail"
+          ],
+          "go_targets": ["pkg/solver/check_sat_result.go","pkg/solver/check_sat_result_cleanup_test.go"],
+          "reason": "The concrete result owner advances a consumed unsat-core reference even when release reports an error, preserves an unconsumed suffix and skips an already-consumed proof token on retry. Tests explicitly stage consumed-token states, then induce real native refusal on remaining owners and verify reference counts plus idempotent Close. This bounds the core/proof cleanup continuation without claiming every result-owner failure path."
         }
       ],
       "ownership": [
@@ -178409,11 +178520,14 @@
       "status": "ported",
       "go_targets": [
         "pkg/solver/check_sat_result.go",
-        "pkg/solver/check_sat_result_test.go"
+        "pkg/solver/check_sat_result_test.go",
+        "pkg/solver/check_sat_result_cleanup_test.go"
       ],
       "tests": [
         "TestSimpleCheckSatResultStatusCoreProofModelAndStatistics",
-        "TestSimpleCheckSatResultReasonsLabelsAndReferenceLifetime"
+        "TestSimpleCheckSatResultReasonsLabelsAndReferenceLifetime",
+        "TestSimpleCheckSatResultCloseResumesConsumedCorePrefix",
+        "TestSimpleCheckSatResultCloseResumesProofTail"
       ],
       "conditionals": [
         {
@@ -178449,8 +178563,12 @@
           "go_target": "pkg/solver/check_sat_result.go",
           "tests": [
             "TestSimpleCheckSatResultStatusCoreProofModelAndStatistics",
-            "TestSimpleCheckSatResultReasonsLabelsAndReferenceLifetime"
-          ]
+            "TestSimpleCheckSatResultReasonsLabelsAndReferenceLifetime",
+            "TestSimpleCheckSatResultCloseResumesConsumedCorePrefix",
+            "TestSimpleCheckSatResultCloseResumesProofTail"
+          ],
+          "go_targets": ["pkg/solver/check_sat_result.go","pkg/solver/check_sat_result_cleanup_test.go"],
+          "reason": "The concrete result owner advances a consumed unsat-core reference even when release reports an error, preserves an unconsumed suffix and skips an already-consumed proof token on retry. Tests explicitly stage consumed-token states, then induce real native refusal on remaining owners and verify reference counts plus idempotent Close. This bounds the core/proof cleanup continuation without claiming every result-owner failure path."
         }
       ],
       "ownership": [
