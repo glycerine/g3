@@ -417,6 +417,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Invariant/finite-frame simplification and configured pre/post propagation hooks.
   - [x] Source result validation, original-rule converted certificates, invariant checks and inductive finite-frame public model export.
   - [x] Preserve the unreachable finite-frame certificate model through combined writer failure and native cleanup refusal, with typed retry custody and successful public replay.
+  - [x] Preserve the ordinary reachable certificate's owning Answer reference through printer/write failure and native release refusal, suppressing partial publication until typed retry completes.
   - [ ] Complete exceptional ownership and the final method/conditional audit before closing these units.
 
 - [ ] `src/muz/pdr/pdr_dl_interface.cpp` (partial: query-pipeline regression repaired and tested; broader interface method audit remains open)
@@ -531,6 +532,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Ordinary reachable PDR certificate export now transfers the Answer AST reference immediately into the typed validation attempt. `RefGet`, printer construction, write failure and native release refusal all preserve retry custody and publish no partial answer; the Boogie proof/service/proof-mode path remains open.
+  Validation: `go -C pkg test ./muz/pdr -run '^(TestContextDisplayCertificate|TestPDRValidationPreservesFreshSolverAndRootsOnNativeCleanupRefusal)' -count=3` passed. Commit title: `Preserve reachable PDR certificate answers`.
 
 - 2026-11-02 — TAB subsumption grounding now stages its variable substitution, fresh-variable roots, in-flight substituted output/reduced condition and completed ground clause under one retryable owner. Failed cleanup suppresses clause publication, freezes the receipt and resumes the exact native frontier; remaining subsumption/unfold diagnostics stay open.
   Validation: `go -C pkg test ./muz/tab -run '^(TestSubsumptionSetup|Test.*Subsumption|TestGroundClauseConstructionPreservesOwnersOnNativeCleanupRefusal)' -count=3` passed. Commit title: `Preserve TAB subsumption grounding owners`.

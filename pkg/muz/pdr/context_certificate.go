@@ -69,23 +69,28 @@ func (c *Context) DisplayCertificate(out io.Writer, queryDeclaration ast.ASTHand
 			}
 			return nil
 		}
-		answer, err := c.Answer(queryDeclaration)
-		if err != nil {
-			return err
-		}
-		defer func() { result = errors.Join(result, c.manager.DelRef(&answer)) }()
-		handle, err := c.manager.RefGet(answer)
-		if err != nil {
-			return err
-		}
-		printer, err := ast.NewSimpleASTPrinterContext(c.manager, out, nil)
-		if err != nil {
-			return err
-		}
-		return printer.DisplayExpr(out, handle, 0)
+		return c.displayReachableCertificate(out, queryDeclaration)
 	default:
 		return ast.ErrASTDomain
 	}
+}
+
+func (c *Context) displayReachableCertificate(out io.Writer, queryDeclaration ast.ASTHandle) error {
+	answer, err := c.Answer(queryDeclaration)
+	if err != nil {
+		return err
+	}
+	attempt := newPDRValidationAttempt(c.manager)
+	attempt.references = append(attempt.references, answer)
+	handle, err := c.manager.RefGet(answer)
+	if err != nil {
+		return finishPDRValidation(attempt, err)
+	}
+	printer, err := ast.NewSimpleASTPrinterContext(c.manager, out, nil)
+	if err != nil {
+		return finishPDRValidation(attempt, err)
+	}
+	return finishPDRValidation(attempt, printer.DisplayExpr(out, handle, 0))
 }
 
 func (c *Context) displayUnreachableCertificate(out io.Writer, queryDeclaration ast.ASTHandle, converted bool) error {

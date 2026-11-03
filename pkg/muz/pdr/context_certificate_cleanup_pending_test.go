@@ -25,7 +25,7 @@ func (pdrCertificateCleanupFailureWriter) Write([]byte) (int, error) {
 	return 0, io.ErrClosedPipe
 }
 
-func TestContextDisplayCertificatePreservesModelOnNativeCleanupRefusal(t *testing.T) {
+func TestContextDisplayCertificatePreservesResultOwnersOnNativeCleanupRefusal(t *testing.T) {
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -135,6 +135,40 @@ func TestContextDisplayCertificatePreservesModelOnNativeCleanupRefusal(t *testin
 	if receipt.CleanupCause() != nil {
 		t.Fatal("certificate cleanup retry remained pending", receipt.CleanupCause())
 	}
+
+	// The reachable branch owns its Answer reference through the same source
+	// write-and-release boundary. Exercise that scalar owner separately because
+	// constructing Answer while an AST execution guard is active is forbidden.
+	factApplication, err := manager.MkApp(fact, nil)
+	must(err)
+	answer, err := manager.NewRef(factApplication)
+	must(err)
+	attempt = newPDRValidationAttempt(manager)
+	attempt.references = append(attempt.references, answer)
+	callback = false
+	certificateErr = nil
+	receipt = nil
+	must(numbers.SetString(&value, "18446744073709551629/18446744073709551653"))
+	must(runtime.SetMaxCount(uint64(runtime.State().GlobalCount) + 1))
+	var answerInvocation ast.ASTArithmeticNumeralInvocation
+	active = true
+	_, body = manager.ArithmeticNumeralWithInvocation(&value, false, &answerInvocation)
+	active = false
+	must(runtime.SetMaxCount(0))
+	writerFailure = errors.Is(certificateErr, io.ErrClosedPipe)
+	pending = errors.Is(certificateErr, ast.ErrASTPending)
+	hasReceipt = errors.As(certificateErr, &receipt)
+	owner = hasReceipt && receipt.RuntimeOwner() == runtime
+	if body == nil || !callback || !writerFailure || !pending || !hasReceipt || !owner || len(attempt.references) != 1 {
+		t.Fatal("reachable certificate cleanup refusal did not preserve the answer", body, callback, certificateErr, writerFailure, pending, hasReceipt, owner)
+	}
+	must(manager.CleanupArithmeticNumeralInvocation(&answerInvocation))
+	must(receipt.Cleanup())
+	must(receipt.Cleanup())
+	if receipt.CleanupCause() != nil || len(attempt.references) != 0 {
+		t.Fatal("reachable certificate answer retry remained pending", receipt.CleanupCause(), len(attempt.references))
+	}
+
 	var output bytes.Buffer
 	must(context.DisplayCertificate(&output, query, false))
 	if output.Len() == 0 {
