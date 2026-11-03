@@ -36,7 +36,9 @@ func (e *PropositionalEngine) closeSpacerForReplacement() (result error) {
 	e.spacerOriginalQuery = ast.ASTHandle{}
 	e.spacerQuery = ast.ASTHandle{}
 	if e.spacerRules != nil {
-		result = errors.Join(result, e.spacerRules.Close())
+		if err := e.spacerRules.Close(); err != nil {
+			return err
+		}
 		e.spacerRules = nil
 	}
 	return result
