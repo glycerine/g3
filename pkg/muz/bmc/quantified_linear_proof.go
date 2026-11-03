@@ -20,8 +20,9 @@ func (c *Compiler) QuantifiedLinearProof(rules *base.RuleSet, query ast.ASTHandl
 	m := c.manager
 	defer func() {
 		if resultErr != nil && result != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, m.DelRef(&result))
+			owned := result
 			result = ast.ASTRef{}
+			resultErr = disposeASTRefs(m, []ast.ASTRef{owned}, resultErr)
 		}
 	}()
 	rm, err := rules.RuleManager()
@@ -40,14 +41,17 @@ func (c *Compiler) QuantifiedLinearProof(rules *base.RuleSet, query ast.ASTHandl
 		return result, err
 	}
 	defer func() {
-		for i := len(steps) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, steps[i].rule.Close())
+		owners := make([]*base.Rule, len(steps))
+		for i := range steps {
+			owners[i] = steps[i].rule
 		}
+		resultErr = disposeRuleOwners(m, owners, resultErr)
 	}()
 	var previous *base.Rule
 	defer func() {
 		if previous != nil {
-			resultErr = errors.Join(resultErr, previous.Close())
+			resultErr = disposeRuleOwners(m, []*base.Rule{previous}, resultErr)
+			previous = nil
 		}
 	}()
 	for _, step := range steps {
@@ -60,26 +64,15 @@ func (c *Compiler) QuantifiedLinearProof(rules *base.RuleSet, query ast.ASTHandl
 		position := ast.ASTProofPosition{First: 1, Second: 0}
 		next, proof, cause := c.linearProofStepWithBindings(rm, step.rule, bindings, previous, result, normalizer, position)
 		if cause != nil {
-			if next != nil {
-				cause = errors.Join(cause, next.Close())
-			}
-			if proof != (ast.ASTRef{}) {
-				cause = errors.Join(cause, m.DelRef(&proof))
-			}
+			_, _, cause = advanceQuantifiedLinearProofStep(m, nil, next, ast.ASTRef{}, proof, cause)
 			return result, cause
 		}
-		if previous != nil {
-			if cause = previous.Close(); cause != nil {
-				return result, errors.Join(cause, next.Close(), m.DelRef(&proof))
-			}
+		oldPrevious, oldResult := previous, result
+		previous, result = nil, ast.ASTRef{}
+		previous, result, cause = advanceQuantifiedLinearProofStep(m, oldPrevious, next, oldResult, proof, nil)
+		if cause != nil {
+			return result, cause
 		}
-		previous = next
-		if result != (ast.ASTRef{}) {
-			if cause = m.DelRef(&result); cause != nil {
-				return result, errors.Join(cause, m.DelRef(&proof))
-			}
-		}
-		result = proof
 	}
 	if result == (ast.ASTRef{}) {
 		return result, ast.ErrASTDomain

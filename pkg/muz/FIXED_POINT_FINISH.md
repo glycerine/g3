@@ -386,6 +386,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Preserve the quantified-linear compiled formula vector through reverse native cleanup refusal before result publication.
   - [x] Transfer nonlinear recursive temporaries and recursive/public proof outputs into typed reverse cleanup receipts before suppressing publication on native refusal.
   - [x] Preserve nonlinear raw query roots, recursive rule groups, public trace rules and proof results through child-first nested cleanup retries.
+  - [x] Retire each quantified-linear proof step before publishing its successor, preserving old and new rule/proof owners behind one retryable cleanup frontier.
   - [ ] Nonlinear/QBMC late-cleanup audits and broader source/ownership closure.
 
 ### clp
@@ -679,6 +680,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — PDR SMT-context manager destruction now keeps guard-predicate roots reachable when native cleanup refuses and treats a completed manager close as idempotent. Retry consumes the exact pending guard and clears the manager once, while arbitrary partial solver teardown remains a lower-layer obligation.
   Validation: `go -C pkg test ./muz/pdr -run '^(TestSMTContextManagerCloseRetriesGuardPredicateRelease|TestSMTContextManager.*|Test.*ContextManager)' -count=5` passed. Commit title: `Make PDR context manager cleanup idempotent`.
+
+- 2026-11-02 — QBMC quantified-linear proof assembly now retires the prior rule/proof before publishing the next step. Native refusal suppresses visible output while nesting both new owners behind the old cleanup receipt, and outer trace/result teardown remains typed and retryable through exact reference consumption; broader QBMC search teardown remains open.
+  Validation: `go -C pkg test ./muz/bmc -run '^(TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses|TestBMCQuantifiedLinear.*|Test.*Quantified.*Proof)' -count=3` passed. Commit title: `Publish QBMC proof steps transactionally`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
