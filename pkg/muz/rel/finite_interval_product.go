@@ -179,7 +179,7 @@ func (p *FiniteIntervalProduct) AddFact(values []ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	found, err := p.table.FetchFact(key)
+	found, err := p.fetchInnerKey(key)
 	if err != nil {
 		return err
 	}
@@ -240,7 +240,7 @@ func (p *FiniteIntervalProduct) ContainsFact(values []ast.ASTHandle) (bool, erro
 		}
 		key[local] = value
 	}
-	found, err := p.table.FetchFact(key)
+	found, err := p.fetchInnerKey(key)
 	if err != nil || !found {
 		return false, err
 	}
@@ -440,7 +440,7 @@ func (p *FiniteIntervalProduct) Union(source, delta *FiniteIntervalProduct) (res
 		src := source.intervals[sourceIndex]
 		key := cloneFact(row)
 		key[len(key)-1] = 0
-		found, err := p.table.FetchFact(key)
+		found, err := p.fetchInnerKey(key)
 		if err != nil {
 			return err
 		}
@@ -540,7 +540,7 @@ func (p *FiniteIntervalProduct) Project(removed []uint32) (_ *FiniteIntervalProd
 			}
 		}
 		key = append(key, 0)
-		found, err := result.table.FetchFact(key)
+		found, err := result.fetchInnerKey(key)
 		if err != nil {
 			return nil, err
 		}

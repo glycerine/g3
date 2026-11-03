@@ -457,6 +457,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/dl_finite_product_relation.cpp` (partial), `src/muz/rel/dl_finite_product_relation.h` (partial)
   - [x] Finite/interval product display, size estimates, forced garbage collection and non-table tuple-display fallback.
   - [x] Finite/explanation product display, garbage collection and outer-table row/byte estimates.
+  - [x] Use prefix-only sparse functional-key lookup for finite/interval add, membership, union and projection collisions, including an empty outer key with one shared interval hull.
 - [ ] `src/muz/rel/dl_interval_relation.cpp` (partial), `src/muz/rel/dl_interval_relation.h` (partial)
   - [x] Plugin signature capability, n-ary identical-column filtering and formula construction allocation ownership.
   - [x] Retained finite/interval product consumer now uses the concrete interval capability predicate.
@@ -524,6 +525,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Finite/interval products now use the sparse table's prefix-only functional lookup for add, membership, union and projection collisions instead of fabricating full rows. All-interval signatures share one zero-key outer row whose stored suffix points to the complete interval hull; broader finite-product dispatch remains open.
+  Validation: `go -C pkg test ./muz/rel -run '^(TestFiniteIntervalProductFunctionalKey|TestFiniteIntervalProduct)' -count=3` passed. Commit title: `Use sparse functional keys in interval products`.
 
 - 2026-11-02 — Checked LazySparse pairs now apply interpreted conditions through the existing deferred compiled guard on checker and primary storage. Semantic filtering preserves matching rows and deliberate one-sided corruption fails closed; the source capability still rejects nullary Lazy storage, and other checked-Lazy operations remain open.
   Validation: `go -C pkg test ./muz/rel -run '^(TestFiniteCheckedPairLazyInterpretedFilterAndMismatch|TestFiniteCheckedPair.*Interpreted)' -count=3` passed. Commit title: `Filter checked lazy sparse pairs`.
