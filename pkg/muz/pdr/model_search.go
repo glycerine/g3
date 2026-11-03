@@ -15,21 +15,23 @@ import (
 var ErrModelSearchOwner = errors.New("muz/pdr: invalid or closed model search")
 
 type ModelNode struct {
-	parent      *ModelNode
-	next        *ModelNode
-	previous    *ModelNode
-	transformer *PredicateTransformer
-	state       ast.ASTHandle
-	stateRef    ast.ASTRef
-	model       *model.ModelCore
-	rule        *base.Rule
-	selected    *normalizedRule
-	children    []*ModelNode
-	level       uint32
-	original    uint32
-	depth       uint32
-	closed      bool
-	released    bool
+	parent        *ModelNode
+	next          *ModelNode
+	previous      *ModelNode
+	transformer   *PredicateTransformer
+	state         ast.ASTHandle
+	stateRef      ast.ASTRef
+	model         *model.ModelCore
+	modelConsumed bool
+	rule          *base.Rule
+	selected      *normalizedRule
+	children      []*ModelNode
+	level         uint32
+	original      uint32
+	depth         uint32
+	closed        bool
+	released      bool
+	releasing     bool
 }
 
 func NewModelNode(parent *ModelNode, state ast.ASTHandle, transformer *PredicateTransformer, level uint32) (*ModelNode, error) {
@@ -40,7 +42,7 @@ func NewModelNode(parent *ModelNode, state ast.ASTHandle, transformer *Predicate
 		return nil, err
 	}
 	if parent != nil {
-		if parent.released || parent.transformer == nil || parent.level == 0 || parent.level != level+1 || parent.transformer.owner != transformer.owner {
+		if parent.released || parent.releasing || parent.transformer == nil || parent.level == 0 || parent.level != level+1 || parent.transformer.owner != transformer.owner {
 			return nil, ast.ErrASTDomain
 		}
 	}
@@ -66,6 +68,9 @@ func (n *ModelNode) open() error {
 	if n == nil || n.released || n.transformer == nil {
 		return ErrModelSearchOwner
 	}
+	if n.releasing {
+		return ast.ErrASTPending
+	}
 	return n.transformer.open()
 }
 
@@ -89,7 +94,7 @@ func (n *ModelNode) Level() uint32         { return n.level }
 func (n *ModelNode) OriginalLevel() uint32 { return n.original }
 func (n *ModelNode) Depth() uint32         { return n.depth }
 func (n *ModelNode) IsClosed() bool        { return n != nil && n.closed }
-func (n *ModelNode) IsOpen() bool          { return n != nil && !n.closed }
+func (n *ModelNode) IsOpen() bool          { return n != nil && !n.closed && !n.releasing && !n.released }
 func (n *ModelNode) IsGoal() bool          { return n != nil && n.next != nil }
 
 func (n *ModelNode) Children() ([]*ModelNode, error) {
@@ -289,36 +294,59 @@ func (n *ModelNode) dequeue(root **ModelNode) error {
 	return nil
 }
 
-func (n *ModelNode) release() (result error) {
+func (n *ModelNode) release() error {
 	if n == nil || n.released {
 		return nil
 	}
 	if len(n.children) != 0 || n.next != nil || n.previous != nil {
 		return ast.ErrASTDomain
 	}
+	n.releasing = true
 	if n.model != nil {
-		result = errors.Join(result, n.model.DecRef())
+		// A final decrement can consume the counted reference before native
+		// storage cleanup fails. Its continuation is Close, not another DecRef.
+		if n.modelConsumed {
+			if err := n.model.Close(); err != nil {
+				return err
+			}
+		} else {
+			consumed, err := n.model.DecRefConsumed()
+			n.modelConsumed = consumed
+			if err != nil {
+				return err
+			}
+			if !consumed {
+				return ast.ErrASTPending
+			}
+		}
 		n.model = nil
+		n.modelConsumed = false
 	}
 	if n.rule != nil {
-		result = errors.Join(result, n.rule.Close())
+		if err := n.rule.Close(); err != nil {
+			return err
+		}
 		n.rule = nil
 	}
-	result = errors.Join(result, n.transformer.manager.DelRef(&n.stateRef))
-	if result == nil {
-		n.transformer = nil
-		n.parent = nil
-		n.released = true
+	if n.stateRef != (ast.ASTRef{}) {
+		if err := n.transformer.manager.DelRef(&n.stateRef); err != nil {
+			return err
+		}
 	}
-	return result
+	n.transformer = nil
+	n.parent = nil
+	n.released = true
+	return nil
 }
 
 type ModelSearch struct {
-	breadthFirst bool
-	root         *ModelNode
-	goal         *ModelNode
-	cache        []map[modelStateKey][]*ModelNode
-	closed       bool
+	breadthFirst   bool
+	root           *ModelNode
+	goal           *ModelNode
+	cache          []map[modelStateKey][]*ModelNode
+	pendingRelease []*ModelNode
+	rootRemoved    bool
+	closed         bool
 }
 
 // modelStateKey keeps obligations for distinct predicates separate even when
@@ -337,6 +365,9 @@ func NewModelSearch(breadthFirst bool) *ModelSearch {
 func (s *ModelSearch) open() error {
 	if s == nil || s.closed {
 		return ErrModelSearchOwner
+	}
+	if len(s.pendingRelease) != 0 || s.rootRemoved {
+		return ast.ErrASTPending
 	}
 	return nil
 }
@@ -426,10 +457,23 @@ func (s *ModelSearch) eraseChildren(node *ModelNode, backtrack bool) (result err
 		result = errors.Join(result, s.removeNode(current, backtrack))
 		removed = append(removed, current)
 	}
-	for index := len(removed) - 1; index >= 0; index-- {
-		result = errors.Join(result, removed[index].release())
+	// The source deletes its collected nodes in forward order. Keep that
+	// detached owner list until each destructor has finished, including a
+	// model decrement that consumed its reference before returning an error.
+	s.pendingRelease = append(s.pendingRelease, removed...)
+	return errors.Join(result, s.releasePending())
+}
+
+func (s *ModelSearch) releasePending() error {
+	for len(s.pendingRelease) != 0 {
+		if err := s.pendingRelease[0].release(); err != nil {
+			return err
+		}
+		s.pendingRelease[0] = nil
+		s.pendingRelease = s.pendingRelease[1:]
 	}
-	return result
+	s.pendingRelease = nil
+	return nil
 }
 
 func (s *ModelSearch) setLeaf(node *ModelNode) error {
@@ -446,7 +490,7 @@ func (s *ModelSearch) SetRoot(root *ModelNode) error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	if root == nil || root.released || root.parent != nil {
+	if root == nil || root.released || root.releasing || root.parent != nil {
 		return ast.ErrASTDomain
 	}
 	if err := s.Reset(); err != nil {
@@ -473,7 +517,7 @@ func (s *ModelSearch) AddLeaf(node *ModelNode) error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	if node == nil || node.released || len(node.children) != 0 {
+	if node == nil || node.released || node.releasing || len(node.children) != 0 {
 		return ast.ErrASTDomain
 	}
 	cache := s.levelCache(node)
@@ -527,7 +571,7 @@ func (s *ModelSearch) BacktrackLevel(usesLevel bool, node *ModelNode) error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	if s.root == nil || node == nil || node.released {
+	if s.root == nil || node == nil || node.released || node.releasing {
 		return ast.ErrASTDomain
 	}
 	if usesLevel && s.root.level > node.level {
@@ -598,19 +642,34 @@ func (s *ModelSearch) WellFormed() error {
 	return nil
 }
 
-func (s *ModelSearch) Reset() (result error) {
-	if err := s.open(); err != nil {
+func (s *ModelSearch) Reset() error {
+	if s == nil || s.closed {
+		return ErrModelSearchOwner
+	}
+	if err := s.releasePending(); err != nil {
 		return err
 	}
 	if s.root != nil {
-		result = errors.Join(result, s.eraseChildren(s.root, false))
-		result = errors.Join(result, s.removeNode(s.root, false))
-		result = errors.Join(result, s.root.release())
+		// Removing the root from its cache/frontier is a separate completed
+		// phase when the following destructor needs an explicit retry.
+		if !s.rootRemoved {
+			if err := s.eraseChildren(s.root, false); err != nil {
+				return err
+			}
+			if err := s.removeNode(s.root, false); err != nil {
+				return err
+			}
+			s.rootRemoved = true
+		}
+		if err := s.root.release(); err != nil {
+			return err
+		}
 		s.root = nil
+		s.rootRemoved = false
 	}
 	s.goal = nil
 	s.cache = nil
-	return result
+	return nil
 }
 
 func (s *ModelSearch) Close() error {
