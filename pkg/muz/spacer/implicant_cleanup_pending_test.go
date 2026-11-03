@@ -122,10 +122,11 @@ func TestImplicantCleanupReceiptRetriesNativeRefusal(t *testing.T) {
 		t.Fatal("success finalizer did not publish its cleanup receipt", successFinalization)
 	}
 	successOrigin := successReceipt.OriginalCause()
+	successMessage, successExposed := successReceipt.Error(), successReceipt.Unwrap()
 	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
 	must(successReceipt.Cleanup())
 	must(successReceipt.Cleanup())
-	if successReceipt.CleanupCause() != nil || successReceipt.OriginalCause() != successOrigin || !errors.Is(successReceipt, successOrigin) || successReceipt.Error() == "" || len(successScope.result) != 0 {
+	if successReceipt.CleanupCause() != nil || successReceipt.OriginalCause() != successOrigin || !errors.Is(successReceipt, successOrigin) || successReceipt.Error() != successMessage || successReceipt.Unwrap() != successExposed || len(successScope.result) != 0 {
 		t.Fatal("success-finalizer cleanup retry lost its receipt", successReceipt.CleanupCause(), successScope.result)
 	}
 	must(runtime.SetMaxCount(uint64(runtime.State().GlobalCount) + 1))
@@ -142,13 +143,14 @@ func TestImplicantCleanupReceiptRetriesNativeRefusal(t *testing.T) {
 		t.Fatal("result-stage finalization did not publish its cleanup receipt", resultFinalization)
 	}
 	origin := resultReceipt.OriginalCause()
+	message, exposed := resultReceipt.Error(), resultReceipt.Unwrap()
 	if origin == nil || resultReceipt.CleanupCause() == nil || resultFinalization.Error() == "" {
 		t.Fatal("cleanup receipt lost the result-stage refusal", resultFinalization)
 	}
 	must(manager.CleanupArithmeticNumeralInvocation(&resultInvocation))
 	must(resultReceipt.Cleanup())
 	must(resultReceipt.Cleanup())
-	if resultReceipt.CleanupCause() != nil || resultReceipt.OriginalCause() != origin || !errors.Is(resultReceipt, origin) || len(resultScope.result) != 0 || resultReceipt.Error() == "" {
+	if resultReceipt.CleanupCause() != nil || resultReceipt.OriginalCause() != origin || !errors.Is(resultReceipt, origin) || len(resultScope.result) != 0 || resultReceipt.Error() != message || resultReceipt.Unwrap() != exposed {
 		t.Fatal("result-stage cleanup retry lost its frontier", resultReceipt.CleanupCause(), resultScope.result)
 	}
 }

@@ -23,13 +23,27 @@ type implicantCleanupFailure struct {
 	runtime    *memory.Runtime
 	cause      error
 	cleanupErr error
+	reported   error
+	reportText string
 }
 
-func (f *implicantCleanupFailure) Error() string                 { return errors.Join(f.cause, f.cleanupErr).Error() }
-func (f *implicantCleanupFailure) Unwrap() error                 { return errors.Join(f.cause, f.cleanupErr) }
+func (f *implicantCleanupFailure) Error() string                 { return f.reportText }
+func (f *implicantCleanupFailure) Unwrap() error                 { return f.reported }
 func (f *implicantCleanupFailure) RuntimeOwner() *memory.Runtime { return f.runtime }
 func (f *implicantCleanupFailure) OriginalCause() error          { return f.cause }
 func (f *implicantCleanupFailure) CleanupCause() error           { return f.cleanupErr }
+
+func (f *implicantCleanupFailure) seal(cause, cleanup error) {
+	if f.reported != nil {
+		return
+	}
+	if cause == nil {
+		cause = cleanup
+	}
+	f.cause, f.cleanupErr = cause, cleanup
+	f.reported = errors.Join(cause, cleanup)
+	f.reportText = f.reported.Error()
+}
 
 func (f *implicantCleanupFailure) cleanup() error {
 	if f.evaluator != nil {
@@ -75,6 +89,9 @@ func (f *implicantCleanupFailure) cleanup() error {
 
 func (f *implicantCleanupFailure) Cleanup() error {
 	f.cleanupErr = f.cleanup()
+	if f.cleanupErr != nil {
+		f.seal(f.cause, f.cleanupErr)
+	}
 	return f.cleanupErr
 }
 
@@ -88,7 +105,7 @@ func finishImplicantSuccess(cleanup *implicantCleanupFailure, result []ast.ASTRe
 		return result, nil
 	}
 	cleanup.result = result
-	cleanup.cause = cleanup.cleanupErr
+	cleanup.seal(cleanup.cleanupErr, cleanup.cleanupErr)
 	return nil, cleanup
 }
 
@@ -118,8 +135,8 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 	}
 	cleanup := &implicantCleanupFailure{manager: manager, evaluator: evaluator, generated: generated, runtime: config.Memory}
 	if err = evaluator.SetModelCompletion(false); err != nil {
-		cleanup.cause = err
 		if cleanup.cleanupErr = cleanup.cleanup(); cleanup.cleanupErr != nil {
+			cleanup.seal(err, cleanup.cleanupErr)
 			return nil, cleanup
 		}
 		return nil, err
@@ -131,8 +148,8 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 		cleanup.generated = generated
 		if resultErr != nil {
 			cleanup.result = result
-			cleanup.cause = resultErr
 			if cleanup.cleanupErr = cleanup.cleanup(); cleanup.cleanupErr != nil {
+				cleanup.seal(resultErr, cleanup.cleanupErr)
 				output, resultErr = nil, cleanup
 				return
 			}
