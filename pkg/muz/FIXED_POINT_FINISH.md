@@ -10,6 +10,13 @@ Current delivery gate: the newly supplied `pkg/log.red` reports finite-answer al
 
 Each completed item needs source paths, implementation/test evidence and a commit in the progress log. Unchecked means incomplete or unproven. Preserve existing encodings, safeguards and test coverage. Exclude dead source only after checking live consumers. Keep commits small and frequent; use focused native tests. The user runs checked/debug tests separately. The usual periodic broad native checkpoint remains suspended by the user's explicit cancellation.
 
+## full testing tags should be checked every few hours
+
+This will exclude the very slow tests that take 30 minutes and run in about 4 minutes:
+~~~
+cd g3/pkg; go test -timeout=0 -count=1 -short -tags g3checked,g3debug,g3trace $( go list ./... | grep -v math/polynomial | grep -v util/lp |grep -v pkg/qe)
+~~~
+
 ## Active delivery priorities
 
 The user approved parallel implementation on 2026-11-02. Prioritize live solver behavior, original-rule models/proofs/witnesses, incremental updates and transformation integration over diagnostic polish. Existing diagnostic and ownership obligations remain open until verified; this ordering does not remove them or lower completion requirements.
