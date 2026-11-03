@@ -22,11 +22,16 @@ type magicTask struct {
 	adornment   magicAdornment
 }
 
+// MagicSetsFactProbe reports whether a predicate has materialized facts in a
+// relation backend that is not published through RelationManager.
+type MagicSetsFactProbe func(predicate ast.ASTHandle) (bool, error)
+
 type MagicSetsPlugin struct {
 	manager     *ast.ASTManager
 	rules       *base.RuleManager
 	goal        ast.ASTHandle
 	relations   *rel.RelationManager
+	factProbe   MagicSetsFactProbe
 	priority    uint32
 	enabled     bool
 	adorned     map[magicDescription]ast.ASTHandle
@@ -39,16 +44,23 @@ type MagicSetsPlugin struct {
 }
 
 func NewMagicSetsPlugin(manager *ast.ASTManager, rules *base.RuleManager, goal ast.ASTHandle, enabled bool, priority uint32) *MagicSetsPlugin {
-	return NewMagicSetsPluginWithRelations(manager, rules, goal, enabled, priority, nil)
+	return NewMagicSetsPluginWithFactProbe(manager, rules, goal, enabled, priority, nil, nil)
 }
 
 // NewMagicSetsPluginWithRelations also transfers already materialized facts
 // into adorned predicates, matching the source query transform.
 func NewMagicSetsPluginWithRelations(manager *ast.ASTManager, rules *base.RuleManager, goal ast.ASTHandle, enabled bool, priority uint32, relations *rel.RelationManager) *MagicSetsPlugin {
+	return NewMagicSetsPluginWithFactProbe(manager, rules, goal, enabled, priority, relations, nil)
+}
+
+// NewMagicSetsPluginWithFactProbe also consults factProbe before the relation
+// manager. A false result falls through to the relation manager so specialized
+// and manager-published relation backends can coexist.
+func NewMagicSetsPluginWithFactProbe(manager *ast.ASTManager, rules *base.RuleManager, goal ast.ASTHandle, enabled bool, priority uint32, relations *rel.RelationManager, factProbe MagicSetsFactProbe) *MagicSetsPlugin {
 	if priority == 0 {
 		priority = 10000
 	}
-	return &MagicSetsPlugin{manager: manager, rules: rules, goal: goal, enabled: enabled, priority: priority, relations: relations}
+	return &MagicSetsPlugin{manager: manager, rules: rules, goal: goal, enabled: enabled, priority: priority, relations: relations, factProbe: factProbe}
 }
 func (p *MagicSetsPlugin) Priority() uint32            { return p.priority }
 func (p *MagicSetsPlugin) CanDestratifyNegation() bool { return true }
@@ -407,6 +419,15 @@ func (p *MagicSetsPlugin) transformRule(task magicTask, rule *base.Rule, result 
 // hasTransferFacts uses the concrete stored relation, including products with
 // explanation columns, as source create_transfer_rule's generic empty check.
 func (p *MagicSetsPlugin) hasTransferFacts(predicate ast.ASTHandle) (bool, error) {
+	if p.factProbe != nil {
+		populated, err := p.factProbe(predicate)
+		if err != nil || populated {
+			return populated, err
+		}
+	}
+	if p.relations == nil {
+		return false, nil
+	}
 	whole, found, err := p.relations.TryGetRelationExplanation(predicate)
 	if err != nil {
 		return false, err
@@ -432,9 +453,6 @@ func (p *MagicSetsPlugin) hasTransferFacts(predicate ast.ASTHandle) (bool, error
 }
 
 func (p *MagicSetsPlugin) addTransferRule(task magicTask, result *base.RuleSet) error {
-	if p.relations == nil {
-		return nil
-	}
 	populated, err := p.hasTransferFacts(task.description.predicate)
 	if err != nil || !populated {
 		return err
@@ -595,5 +613,6 @@ func (p *MagicSetsPlugin) Close() error {
 	p.extensional = nil
 	p.todo = nil
 	p.fresh = nil
+	p.factProbe = nil
 	return nil
 }

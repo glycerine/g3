@@ -41,7 +41,11 @@ func (e *PropositionalEngine) applyQueryMagicSets(goal ast.ASTHandle) (resultErr
 		}
 	}
 
-	plugin := transforms.NewMagicSetsPluginWithRelations(e.manager, e.rules, goal, true, 0, e.relations)
+	var factProbe transforms.MagicSetsFactProbe
+	if e.udocDatalog != nil {
+		factProbe = e.udocDatalog.hasSeedFacts
+	}
+	plugin := transforms.NewMagicSetsPluginWithFactProbe(e.manager, e.rules, goal, true, 0, e.relations, factProbe)
 	transformer := base.NewRuleTransformer()
 	if err = transformer.Register(plugin); err != nil {
 		return errors.Join(err, transformer.Close())
@@ -61,6 +65,15 @@ func (e *PropositionalEngine) applyQueryMagicSets(goal ast.ASTHandle) (resultErr
 		}
 		e.predicates[declaration] = state
 		e.auxiliary[declaration] = true
+	}
+	if e.udocDatalog != nil {
+		// UDoc was selected before the query transform. Publish every adorned
+		// and magic predicate only after all declarations are known, matching
+		// rel_context::query's post-transform relation synchronization. New
+		// relation owners remain in the query clone for its normal rollback.
+		if err = e.udocDatalog.sync(e); err != nil {
+			return err
+		}
 	}
 	e.revision++
 	return nil

@@ -122,6 +122,17 @@ func (c *datalogUDocContext) addFact(declaration ast.ASTHandle, values []ast.AST
 	return err
 }
 
+// hasSeedFacts exposes the source relation's pre-query contents to query-local
+// transforms without moving UDoc ownership into the generic relation manager.
+func (c *datalogUDocContext) hasSeedFacts(declaration ast.ASTHandle) (bool, error) {
+	relation := c.seeds[declaration]
+	if relation == nil {
+		return false, nil
+	}
+	empty, err := relation.Empty()
+	return !empty, err
+}
+
 func (c *datalogUDocContext) snapshot() error {
 	if err := c.discardResult(); err != nil {
 		return err

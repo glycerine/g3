@@ -66,17 +66,6 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled {
 		return true, errors.Join(err, ErrUDocDatalogFragment)
 	}
-	if e.params != nil && e.globals != nil {
-		view, err := e.fixedpointParamView()
-		if err != nil {
-			return true, err
-		}
-		magic, err := view.Bool("datalog.magic_sets_for_queries", false)
-		err = errors.Join(err, view.Close())
-		if err != nil || magic {
-			return true, errors.Join(err, ErrUDocDatalogFragment)
-		}
-	}
 	e.udocDatalog = owner
 	return true, owner.sync(e)
 }
