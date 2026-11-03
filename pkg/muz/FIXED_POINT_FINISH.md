@@ -434,6 +434,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Concrete sparse checker pairing, native `tr_hashtable`/`tr_sparse` names, independent primary/checker copies and zero-arity sparse fallback.
   - [x] Construct a concrete outer formula checker around an inner primary/check-table finite pair with typed operations, lazy estimates and retryable failure ownership.
   - [x] Apply interpreted filters to checked LazySparse pairs through the deferred compiled guard on both sides, rejecting nullary capability and detecting one-sided divergence.
+  - [x] Execute checked LazySparse union/delta through each concrete primary/checker implementation in source order, preserving Lazy forcing, cumulative deltas and post-update extensional verification.
 - [ ] `src/muz/rel/dl_base.cpp` (partial), `src/muz/rel/dl_base.h` (partial)
 - [ ] `src/muz/rel/dl_bound_relation.cpp` (partial), `src/muz/rel/dl_bound_relation.h` (partial)
   - [x] Concrete Int/Real/nullary plugin capability, empty/full construction, and typed join dispatch.
@@ -535,6 +536,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Checked LazySparse union/delta now delegates primary and checker updates to their concrete implementations in source order, so Lazy storage uses its forced-union lifecycle. Source closure, cumulative deltas and concrete kinds are preserved, target/delta are verified afterward and preexisting divergence rejects before mutation; other checked-Lazy operations remain open.
+  Validation: `go -C pkg test ./muz/rel -run '^(TestFiniteCheckedPair|TestCheckedTableUnion|TestChecked.*Union)' -count=3` passed. Commit title: `Union checked lazy sparse pairs`.
 
 - 2026-11-02 — LazySparse cloning now forces the deferred root once, preserves sparse functional metadata or the nullary Hash fallback and adopts an independently mutable same-engine base owner. `CloneFinite` delegates to this source-faithful path and joins adoption cleanup failures; broader lazy lifecycle auditing remains open.
   Validation: `go -C pkg test ./muz/rel -run '^TestLazySparse(Clone|Complement|BulkRemoval|NullaryBulk)' -count=3` passed. Commit title: `Clone lazy sparse relations independently`.

@@ -672,34 +672,7 @@ func (p *FiniteCheckedPair) FilterInterpreted(manager *RelationManager, relation
 // UnionFrom executes the reached check_table union semantics and accumulates
 // only newly inserted rows in delta. Existing delta rows are preserved.
 func (p *FiniteCheckedPair) UnionFrom(source, delta *FiniteCheckedPair) error {
-	if err := p.open(); err != nil {
-		return err
-	}
-	if source == nil {
-		return ErrCheckTable
-	}
-	rows, err := source.Facts()
-	if err != nil {
-		return err
-	}
-	for _, fact := range rows {
-		added, err := p.Add(fact)
-		if err != nil {
-			return err
-		}
-		if added && delta != nil {
-			if _, err = delta.Add(fact); err != nil {
-				return err
-			}
-		}
-	}
-	if err = p.verify("union target"); err != nil {
-		return err
-	}
-	if delta != nil {
-		return delta.verify("union delta")
-	}
-	return nil
+	return p.unionFromConcrete(source, delta)
 }
 
 func (p *FiniteCheckedPair) CloneFinite() (FiniteTable, error) {
