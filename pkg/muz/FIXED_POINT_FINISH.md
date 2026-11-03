@@ -507,6 +507,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Force and complement deferred sparse or nullary storage with functional-suffix semantics, adopting an independently owned lazy result in the same engine.
   - [x] Clone deferred LazySparse storage into an independently mutable same-engine base while preserving sparse functional metadata or the nullary Hash fallback.
   - [x] Force generic lazy-table iteration for source table display, preserving concrete insertion order and propagating writer failures.
+  - [x] Expose LazySparse deferred node kinds for source fusion dispatch without forcing or replacing memoized node identity.
 - [ ] `src/muz/rel/dl_mk_explanations.cpp` (partial), `src/muz/rel/dl_mk_explanations.h` (partial)
 - [ ] `src/muz/rel/dl_mk_similarity_compressor.cpp` (partial), `src/muz/rel/dl_mk_similarity_compressor.h` (partial)
   - [x] Preserve rewritten rules and temporary AST roots through native cleanup refusal with nested child-first retry and no partial transformation publication.
@@ -727,6 +728,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Sparse functional storage now exposes key-only removal and routes reached bulk/negation consumers through the unique nonfunctional prefix. Empty keys remove nullary functional rows, complete public rows are still domain-validated before deletion and missing keys remain stable; broader sparse auditing remains open.
   Validation: the focused functional removal and sparse negation gate in `go -C pkg test ./muz/rel` passed five times in 0.019s. Commit title: `Remove sparse functional rows by key`.
+
+- 2026-11-02 — LazySparse owners now expose the source deferred node kind without forcing evaluation. Base, join and projection identity survives later memoization, functional/nullary bases remain observable and closed handles return the source base fallback; wider fusion dispatch remains separate.
+  Validation: `go -C pkg test ./muz/rel -run '^TestLazySparseKind' -count=5` passed. Commit title: `Expose lazy sparse node kinds`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
