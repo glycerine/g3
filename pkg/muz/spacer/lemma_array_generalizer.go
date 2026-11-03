@@ -139,12 +139,10 @@ func (p *PredicateTransformer) strengthenArrayEqualities(core []ast.ASTHandle) (
 	if err != nil {
 		return nil, false, err
 	}
-	var candidateRefs, outputRefs []ast.ASTRef
+	attempt := &arrayGeneralizerAttempt{manager: p.manager, core: coreRefs}
 	defer func() {
-		resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, candidateRefs))
-		resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, coreRefs))
+		resultErr = finishArrayGeneralizerAttempt(attempt, resultErr)
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, outputRefs))
 			result = nil
 		}
 	}()
@@ -167,15 +165,17 @@ func (p *PredicateTransformer) strengthenArrayEqualities(core []ast.ASTHandle) (
 			if err != nil {
 				return nil, false, err
 			}
-			candidateRefs = append(candidateRefs, ref)
+			attempt.candidates = append(attempt.candidates, ref)
 			equalities = append(equalities, equality)
 		}
 	}
-	checker, err := p.owner.Fresh(2)
+	// Source constructs this kernel from manager::fparams2(), the second
+	// solver family (Go pool index 1), not the third context pool.
+	checker, err := p.owner.Fresh(1)
 	if err != nil {
 		return nil, false, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, checker.Close()) }()
+	attempt.checker = checker
 	result = make([]ast.ASTRef, 0, len(core))
 	for _, literal := range core {
 		if err = checker.Push(); err != nil {
@@ -213,7 +213,7 @@ func (p *PredicateTransformer) strengthenArrayEqualities(core []ast.ASTHandle) (
 			return nil, false, errors.Join(err, checker.Pop(1))
 		}
 		result = append(result, ref)
-		outputRefs = result
+		attempt.output = result
 		if err = checker.Pop(1); err != nil {
 			return nil, false, err
 		}

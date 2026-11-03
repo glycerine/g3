@@ -73,6 +73,7 @@ func TestArrayEqualityGeneralizerStrengthensContradictoryLiteral(t *testing.T) {
 	if len(constants) != 2 {
 		t.Fatal("array constant collection", constants)
 	}
+	secondBefore, thirdBefore := owner.contexts[1].created, owner.contexts[2].created
 	strengthened, applicable, err := transformer.strengthenArrayEqualities([]ast.ASTHandle{disequality})
 	if err != nil {
 		t.Fatal(err)
@@ -84,6 +85,9 @@ func TestArrayEqualityGeneralizerStrengthensContradictoryLiteral(t *testing.T) {
 	}()
 	if !applicable {
 		t.Fatal("array equality strengthening was not applicable")
+	}
+	if owner.contexts[1].created != secondBefore+1 || owner.contexts[2].created != thirdBefore {
+		t.Fatal("array equality checker did not use source fparams2 pool", owner.contexts[1].created-secondBefore, owner.contexts[2].created-thirdBefore)
 	}
 	if len(strengthened) != 1 {
 		t.Fatal("array equality strengthening size", len(strengthened))
