@@ -56,6 +56,7 @@ type PredicateTransformer struct {
 	reachFacts               []*ReachFact
 	reachCaseVariables       []ast.ASTRef
 	initialReachFacts        uint32
+	context                  *Context
 	contextStats             *contextStatistics
 	contextTimers            *contextTiming
 	reachAsInitial           bool

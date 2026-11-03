@@ -411,6 +411,7 @@ func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.AST
 		if err != nil {
 			return err
 		}
+		transformer.context = c
 		transformer.contextStats = &c.stats
 		transformer.contextTimers = &c.timers
 		transformer.generalizerStats = &c.generalizerStats
@@ -554,6 +555,7 @@ func (c *Context) AddCover(level int, declaration, property ast.ASTHandle) error
 		if err != nil {
 			return err
 		}
+		transformer.context = c
 		transformer.contextStats = &c.stats
 		transformer.contextTimers = &c.timers
 		transformer.generalizerStats = &c.generalizerStats

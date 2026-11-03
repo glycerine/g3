@@ -228,6 +228,9 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 				return ExpansionResult{}, getErr
 			}
 		}
+		if err = p.assertExpansionInvariants(obligation); err != nil {
+			return ExpansionResult{}, err
+		}
 		return result, nil
 	default:
 		weakness, weaknessErr := obligation.Weakness()
