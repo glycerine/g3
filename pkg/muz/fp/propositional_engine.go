@@ -273,6 +273,12 @@ func (e *PropositionalEngine) RegisterPredicate(declaration ast.ASTHandle) error
 	if rangeSort != boolean {
 		return ErrPropositionalHorn
 	}
+	// Source context::register_predicate is idempotent. In particular, a
+	// repeated public registration must not advance the program revision and
+	// invalidate an otherwise current query result.
+	if e.predicates[declaration] != nil {
+		return nil
+	}
 	if err = e.rules.RegisterPredicate(declaration); err != nil {
 		return err
 	}
@@ -280,9 +286,7 @@ func (e *PropositionalEngine) RegisterPredicate(declaration ast.ASTHandle) error
 	if err != nil {
 		return err
 	}
-	if e.predicates[declaration] == nil {
-		e.predicateOrder = append(e.predicateOrder, declaration)
-	}
+	e.predicateOrder = append(e.predicateOrder, declaration)
 	e.predicates[declaration] = state
 	e.revision++
 	return nil
