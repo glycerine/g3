@@ -101,3 +101,11 @@ request; the recursive proof case is commented out and other proof tests can
 fail on positive-level facts. No extra encoding constraint was added.
 The bundled Z3 4.7.1 also fails its rule-unifier verification on the recursive
 and linear fixtures. Continuing beyond a failed source assertion can invoke undefined C++ behavior; Go reports an explicit error at that boundary.
+
+After these changes, a focused three-tag integration run still fails
+`TestBMCQuantifiedLinearProofWithRuleVariables`,
+`TestBMCQuantifiedLinearProofWithUninterpretedBinding`, and
+`TestBMCNumericProofIndependentValidation/qbmc/linear`. These tests remain
+enabled; the user explicitly authorized matching source despite red proofs.
+The separate `TestPDRInputTrace` regression from `pkg/log.red` passes with
+all three tags after its context-ownership accounting fix.
