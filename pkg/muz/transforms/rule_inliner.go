@@ -24,6 +24,7 @@ type RuleInlinerPlugin struct {
 	priority   uint32
 	eager      bool
 	linear     bool
+	branching  bool
 	params     *uparams.ParamsContext
 	globals    *uparams.GlobalParamsService
 	simplifier *InterpTailSimplifierPlugin
@@ -82,6 +83,10 @@ func NewRuleInlinerPluginWithModes(manager *ast.ASTManager, rules *base.RuleMana
 func (p *RuleInlinerPlugin) Priority() uint32            { return p.priority }
 func (p *RuleInlinerPlugin) CanDestratifyNegation() bool { return false }
 func (p *RuleInlinerPlugin) Cancel()                     {}
+
+// SetLinearBranching enables source linear expansion at shared body uses.
+// The defining rule stays live until its last unifying use is consumed.
+func (p *RuleInlinerPlugin) SetLinearBranching(enabled bool) { p.branching = enabled }
 
 // PreserveFacts supplies the relational context's nonempty predicates. They
 // cannot be removed or rewritten using rule definitions alone; output-only
@@ -1180,15 +1185,20 @@ func (p *RuleInlinerPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 	return result, nil
 }
 
-// inlineLinear is the source straight-line relation pass. A defining rule is
-// consumed only when its head unifies with one live tail position and that
-// tail has one live defining rule, so every successful step removes a rule
-// and cannot create an inlining cycle.
+// inlineLinear is the source straight-line relation pass, optionally expanding
+// shared definitions. A definition is consumed only at its last live use.
+// As in source, branch mode has no orientation guard for unprotected recursive
+// definitions and can repeatedly expand a cycle; protected outputs stop it.
 func (p *RuleInlinerPlugin) inlineLinear(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
 	count, err := source.Len()
 	if err != nil || count == 0 {
 		return nil, err
 	}
+	unifier, err := NewRuleUnifier(p.manager)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, unifier.Close()) }()
 	rules := make([]*base.Rule, count)
 	valid := make([]bool, count)
 	canRemove := make([]bool, count)
@@ -1227,47 +1237,34 @@ func (p *RuleInlinerPlugin) inlineLinear(source *base.RuleSet) (_ *base.RuleSet,
 				return nil, getErr
 			}
 			candidateIndex := -1
-			var replacement *base.Rule
 			for definitionIndex, definition := range rules {
 				if !valid[definitionIndex] {
 					continue
 				}
 				head, headErr := definition.HeadDeclaration()
 				if headErr != nil {
-					return nil, errors.Join(headErr, closeRuleIf(replacement))
+					return nil, headErr
 				}
 				if head != declaration {
 					continue
 				}
-				resolved, resolveErr := p.resolve(current, 0, definition)
-				if resolveErr != nil {
-					return nil, errors.Join(resolveErr, closeRuleIf(replacement))
+				unified, unifyErr := unifier.UnifyRules(current, 0, definition)
+				if unifyErr != nil {
+					return nil, unifyErr
 				}
-				if resolved == nil {
+				if !unified {
 					continue
 				}
 				if candidateIndex >= 0 {
-					if closeErr := errors.Join(resolved.Close(), replacement.Close()); closeErr != nil {
-						return nil, closeErr
-					}
-					replacement = nil
 					candidateIndex = -2
 					break
 				}
-				candidateIndex, replacement = definitionIndex, resolved
+				candidateIndex = definitionIndex
 			}
 			if candidateIndex < 0 {
-				if replacement != nil {
-					if getErr = replacement.Close(); getErr != nil {
-						return nil, getErr
-					}
-				}
 				break
 			}
 			if candidateIndex == index || !canRemove[candidateIndex] {
-				if getErr = replacement.Close(); getErr != nil {
-					return nil, getErr
-				}
 				break
 			}
 			matches := 0
@@ -1275,46 +1272,53 @@ func (p *RuleInlinerPlugin) inlineLinear(source *base.RuleSet) (_ *base.RuleSet,
 				if !valid[targetIndex] {
 					continue
 				}
-				positive, positiveErr := target.PositiveTailSize()
-				if positiveErr != nil {
-					return nil, errors.Join(positiveErr, replacement.Close())
+				// Source add_rule indexes every uninterpreted occurrence,
+				// including negative uses that must keep the definition live.
+				uninterpreted, tailErr := target.UninterpretedTailSize()
+				if tailErr != nil {
+					return nil, tailErr
 				}
-				for tailIndex := 0; tailIndex < positive; tailIndex++ {
+				for tailIndex := 0; tailIndex < uninterpreted; tailIndex++ {
 					tailDeclaration, tailErr := target.TailDeclaration(tailIndex)
 					if tailErr != nil {
-						return nil, errors.Join(tailErr, replacement.Close())
+						return nil, tailErr
 					}
 					if tailDeclaration != declaration {
 						continue
 					}
-					probe, probeErr := p.resolve(target, tailIndex, rules[candidateIndex])
+					unified, probeErr := unifier.UnifyRules(target, tailIndex, rules[candidateIndex])
 					if probeErr != nil {
-						return nil, errors.Join(probeErr, replacement.Close())
+						return nil, probeErr
 					}
-					if probe != nil {
+					if unified {
 						matches++
-						if probeErr = probe.Close(); probeErr != nil {
-							return nil, errors.Join(probeErr, replacement.Close())
-						}
 					}
 				}
 			}
-			if matches != 1 {
-				if getErr = replacement.Close(); getErr != nil {
-					return nil, getErr
-				}
+			if !p.branching && matches != 1 {
+				break
+			}
+			replacement, getErr := p.resolve(current, 0, rules[candidateIndex])
+			if getErr != nil {
+				return nil, getErr
+			}
+			if replacement == nil {
 				break
 			}
 			// Source inline_linear records the removed definition with
 			// del_rule(m_mc, *r2, true) before discarding its rule owner.
-			if getErr = p.captureDeletedModelRule(rules[candidateIndex], true); getErr != nil {
-				return nil, errors.Join(getErr, replacement.Close())
+			if matches == 1 {
+				if getErr = p.captureDeletedModelRule(rules[candidateIndex], true); getErr != nil {
+					return nil, errors.Join(getErr, replacement.Close())
+				}
 			}
 			if getErr = current.Close(); getErr != nil {
 				return nil, errors.Join(getErr, replacement.Close())
 			}
 			rules[index] = replacement
-			valid[candidateIndex] = false
+			if matches == 1 {
+				valid[candidateIndex] = false
+			}
 			canExpand[index] = canExpand[candidateIndex]
 			changed = true
 		}

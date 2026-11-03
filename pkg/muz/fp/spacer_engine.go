@@ -100,6 +100,10 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
+	inlineBranching, err := parameters.Bool("xform.inline_linear_branch", false)
+	if err != nil {
+		return nil, errors.Join(err, transformer.Close())
+	}
 	// PDR exposes relation models and inductive certificates. Preserve stages
 	// whose result converters are not retained while sharing convertible ones.
 	if !allowInlineResultTransforms {
@@ -171,6 +175,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	var subsumers []*transforms.SubsumptionCheckerPlugin
 	newInliner := func(priority uint32) *transforms.RuleInlinerPlugin {
 		plugin := transforms.NewRuleInlinerPluginWithServices(e.manager, e.rules, []ast.ASTHandle{query}, inlineEager, inlineLinear, e.params, e.globals, priority)
+		plugin.SetLinearBranching(inlineBranching)
 		inliners = append(inliners, plugin)
 		return plugin
 	}
