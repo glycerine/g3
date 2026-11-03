@@ -22,6 +22,7 @@ type ruleOwnerCleanupFailure struct {
 	reported   error
 	reportText string
 	rules      []*base.Rule
+	child      memory.ConstructionFailure
 }
 
 type astRefCleanupFailure struct {
@@ -66,6 +67,11 @@ func closeASTRefs(manager *ast.ASTManager, refs []ast.ASTRef) (result error) {
 
 func disposeASTRefs(manager *ast.ASTManager, refs []ast.ASTRef, cause error) error {
 	failure := &astRefCleanupFailure{manager: manager, refs: refs, cause: cause}
+	if cause != nil {
+		// These refs are constructed after the nested operation's roots. Drain
+		// its retry receipt before touching the dependent outer frontier.
+		errors.As(cause, &failure.child)
+	}
 	if cleanup := failure.Cleanup(); cleanup != nil {
 		reported := cleanup
 		if cause == nil {
@@ -74,9 +80,6 @@ func disposeASTRefs(manager *ast.ASTManager, refs []ast.ASTRef, cause error) err
 			failure.cause = cleanup
 		} else {
 			reported = errors.Join(cause, cleanup)
-			// A caller-local refusal must not hide a construction receipt
-			// returned by the nested operation whose roots precede these refs.
-			errors.As(cause, &failure.child)
 		}
 		failure.reported = reported
 		failure.reportText = reported.Error()
@@ -97,6 +100,12 @@ func (f *ruleOwnerCleanupFailure) Cleanup() error {
 	if f == nil {
 		return nil
 	}
+	if f.child != nil {
+		if f.cleanupErr = f.child.Cleanup(); f.cleanupErr != nil {
+			return f.cleanupErr
+		}
+		f.child = nil
+	}
 	var pending []*base.Rule
 	var cause error
 	for i := len(f.rules) - 1; i >= 0; i-- {
@@ -104,6 +113,11 @@ func (f *ruleOwnerCleanupFailure) Cleanup() error {
 			pending = append(pending, f.rules[i])
 			cause = errors.Join(cause, err)
 		}
+	}
+	// The scan above is newest-to-oldest. Store pending owners in their
+	// original order so every retry again closes newest-to-oldest.
+	for left, right := 0, len(pending)-1; left < right; left, right = left+1, right-1 {
+		pending[left], pending[right] = pending[right], pending[left]
 	}
 	f.rules = pending
 	f.cleanupErr = cause
@@ -114,14 +128,30 @@ func (f *ruleOwnerCleanupFailure) Cleanup() error {
 }
 
 func closeRuleOwners(manager *ast.ASTManager, rules []*base.Rule) error {
-	failure := &ruleOwnerCleanupFailure{manager: manager, rules: rules}
-	if err := failure.Cleanup(); err != nil {
-		failure.cause = err
-		failure.reported = err
-		failure.reportText = err.Error()
+	return disposeRuleOwners(manager, rules, nil)
+}
+
+func disposeRuleOwners(manager *ast.ASTManager, rules []*base.Rule, cause error) error {
+	failure := &ruleOwnerCleanupFailure{manager: manager, rules: rules, cause: cause}
+	if cause != nil {
+		// Rule owners may depend on AST roots held by the nested operation.
+		// Adopt that receipt before the first cleanup attempt so dependencies
+		// always drain before retained rules.
+		errors.As(cause, &failure.child)
+	}
+	if cleanup := failure.Cleanup(); cleanup != nil {
+		reported := cleanup
+		if cause == nil {
+			failure.cause = cleanup
+		} else {
+			reported = errors.Join(cause, cleanup)
+		}
+		failure.cleanupErr = cleanup
+		failure.reported = reported
+		failure.reportText = reported.Error()
 		return failure
 	}
-	return nil
+	return cause
 }
 
 func (c *Compiler) simplifyBoolean(and bool, args []ast.ASTHandle) (result ast.ASTRef, resultErr error) {

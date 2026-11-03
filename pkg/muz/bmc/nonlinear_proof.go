@@ -43,16 +43,14 @@ func (c *Compiler) NonlinearProof(rules *base.RuleSet, query ast.ASTHandle, leve
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&queryRef)) }()
+	defer func() { resultErr = disposeASTRefs(m, []ast.ASTRef{queryRef}, resultErr) }()
 	application, err := m.RefGet(queryRef)
 	if err != nil {
 		return result, err
 	}
 	var trace []*base.Rule
 	defer func() {
-		for i := len(trace) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, trace[i].Close())
-		}
+		resultErr = disposeRuleOwners(m, trace, resultErr)
 	}()
 	if err = c.traceNonlinearRule(rules, evaluator, query, application, level, &trace, &result); err != nil {
 		return result, err

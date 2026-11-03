@@ -380,6 +380,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Nonlinear two-branch trace/proof allocation-frontier ownership through every reachable failure and successful retry.
   - [x] Preserve the quantified-linear compiled formula vector through reverse native cleanup refusal before result publication.
   - [x] Transfer nonlinear recursive temporaries and recursive/public proof outputs into typed reverse cleanup receipts before suppressing publication on native refusal.
+  - [x] Preserve nonlinear raw query roots, recursive rule groups, public trace rules and proof results through child-first nested cleanup retries.
   - [ ] Nonlinear/QBMC late-cleanup audits and broader source/ownership closure.
 
 ### clp
@@ -634,6 +635,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Spacer ground-answer error cleanup now releases the output reference only after one has actually been allocated. A diagnostic writer failure therefore preserves its original cause, publishes no answer, adds no bogus invalid-handle error or reference slot and permits an unchanged successful retry; broader witness traversal cleanup remains open.
   Validation: `go -C pkg test ./muz/spacer -run '^(TestSpacerGroundAnswerClosedDiagnosticDoesNotInventReferenceError|Test.*Ground.*Answer)' -count=3` passed. Commit title: `Preserve Spacer ground answer failure causes`.
+
+- 2026-11-02 — Nonlinear BMC raw query and trace construction now drains nested AST roots, recursive rule groups and outer query/public proof owners in dependency order. Refused native cleanup preserves every remaining rule/reference, retries newest-first without reversing the frontier and suppresses partial traces or proofs; QBMC and wider nonlinear search teardown remain open.
+  Validation: `go -C pkg test ./muz/bmc -run '^(TestBMCNonlinearTraceAndProofAllocationFrontiers|TestBMCNonlinearTraceVisitsModelSelectedRules|TestBMCNonlinearQueryAndAppliedVariablesAllocationFrontiers|TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes)$' -count=3` passed. Commit title: `Preserve nonlinear BMC query cleanup owners`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.

@@ -30,10 +30,11 @@ func TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes(t *tes
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
 		callbacks++
 		before := proofRefs[0]
-		ruleFailure = closeRuleOwners(manager, []*base.Rule{owned})
 		childFailure := disposeASTRefs(manager, childRefs, nil)
-		proofFailure = disposeASTRefs(manager, proofRefs, childFailure)
-		intact = intact && errors.Is(ruleFailure, ast.ErrASTPending) && errors.Is(proofFailure, ast.ErrASTPending) && proofRefs[0] == before && childRefs[0] != (ast.ASTRef{})
+		ruleFailure = disposeRuleOwners(manager, []*base.Rule{owned}, childFailure)
+		proofFailure = disposeASTRefs(manager, proofRefs, ruleFailure)
+		_, ownerErr := owned.Head()
+		intact = intact && errors.Is(ruleFailure, ast.ErrASTPending) && errors.Is(proofFailure, ast.ErrASTPending) && proofRefs[0] == before && childRefs[0] != (ast.ASTRef{}) && ownerErr == nil
 		return f
 	}})
 	must(err)

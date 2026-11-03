@@ -20,9 +20,7 @@ func (c *Compiler) NonlinearTrace(rules *base.RuleSet, query ast.ASTHandle, leve
 	}
 	defer func() {
 		if resultErr != nil {
-			for i := len(result) - 1; i >= 0; i-- {
-				resultErr = errors.Join(resultErr, result[i].Close())
-			}
+			resultErr = disposeRuleOwners(c.manager, result, resultErr)
 			result = nil
 		}
 	}()
@@ -38,7 +36,7 @@ func (c *Compiler) NonlinearTrace(rules *base.RuleSet, query ast.ASTHandle, leve
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&queryRef)) }()
+	defer func() { resultErr = disposeASTRefs(c.manager, []ast.ASTRef{queryRef}, resultErr) }()
 	application, err := c.manager.RefGet(queryRef)
 	if err != nil {
 		return nil, err
@@ -72,9 +70,7 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 		return err
 	}
 	defer func() {
-		for i := len(group) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, group[i].Close())
-		}
+		resultErr = disposeRuleOwners(m, group, resultErr)
 	}()
 	count, err := m.GetNumArgs(application)
 	if err != nil {
