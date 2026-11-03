@@ -36,7 +36,7 @@ type Manager struct {
 	closed        bool
 }
 
-func NewManager(manager *ast.ASTManager, params *uparams.ParamsRef, maximumContexts uint32, config smtcore.SMTSolverConfig) (_ *Manager, resultErr error) {
+func NewManager(manager *ast.ASTManager, params *uparams.ParamsRef, maximumContexts uint32, config smtcore.SMTSolverConfig) (published *Manager, resultErr error) {
 	if manager == nil || config.Params == nil || config.Globals == nil {
 		return nil, ErrManagerOwner
 	}
@@ -53,16 +53,13 @@ func NewManager(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 		return nil, errors.Join(err, mux.Close())
 	}
 	result := &Manager{manager: manager, mux: mux, background: background, paramsContext: config.Params}
-	committed := false
-	defer func() {
-		if !committed {
-			resultErr = errors.Join(resultErr, result.Close())
-		}
-	}()
+	construction := &spacerManagerConstruction{manager: result, runtime: manager.NumeralService().RuntimeOwner()}
+	defer func() { published, resultErr = construction.finish(resultErr) }()
 	result.solverParams, err = spacerSolverParams(params, config)
 	if err != nil {
 		return nil, err
 	}
+	result.ownsParams = true
 	parameters, err := newFixedpointParamView(params, config.Params, config.Globals)
 	if err != nil {
 		return nil, err
@@ -72,7 +69,6 @@ func NewManager(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 	if err != nil {
 		return nil, err
 	}
-	result.ownsParams = true
 	if config.ModelEvaluator.Context == nil {
 		config.ModelEvaluator.Context = config.Params
 	}
@@ -99,14 +95,18 @@ func NewManager(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 			return nil, err
 		}
 	}
-	committed = true
 	return result, nil
 }
 
-func spacerSolverParams(source *uparams.ParamsRef, config smtcore.SMTSolverConfig) (_ uparams.ParamsRef, resultErr error) {
+func spacerSolverParams(source *uparams.ParamsRef, config smtcore.SMTSolverConfig) (published uparams.ParamsRef, resultErr error) {
 	if config.Params == nil || config.Globals == nil {
 		return uparams.ParamsRef{}, ErrManagerOwner
 	}
+	construction := &spacerSolverParamsConstruction{
+		context: config.Params, params: config.Params.EmptyValue(),
+		runtime: config.Params.NumeralsField.RuntimeOwner(),
+	}
+	defer func() { published, resultErr = construction.finish(resultErr) }()
 	parameters, err := newFixedpointParamView(source, config.Params, config.Globals)
 	if err != nil {
 		return uparams.ParamsRef{}, err
@@ -124,43 +124,33 @@ func spacerSolverParams(source *uparams.ParamsRef, config smtcore.SMTSolverConfi
 	if err != nil {
 		return uparams.ParamsRef{}, err
 	}
-	// Keep the construction owner independent of the returned value: an error
-	// returns an empty handle, while this local still owns the partial params.
-	result := config.Params.EmptyValue()
-	committed := false
-	defer func() {
-		if !committed {
-			resultErr = errors.Join(resultErr, config.Params.Del(&result))
-		}
-	}()
 	randomSeedName := "random_seed"
-	if err = config.Params.SetUIntName(&result, &randomSeedName, seed); err != nil {
+	if err = config.Params.SetUIntName(&construction.params, &randomSeedName, seed); err != nil {
 		return uparams.ParamsRef{}, err
 	}
 	if source != nil {
-		if err = config.Params.Append(&result, source); err != nil {
+		if err = config.Params.Append(&construction.params, source); err != nil {
 			return uparams.ParamsRef{}, err
 		}
 	}
-	if err = config.Params.SetUIntName(&result, &randomSeedName, seed); err != nil {
+	if err = config.Params.SetUIntName(&construction.params, &randomSeedName, seed); err != nil {
 		return uparams.ParamsRef{}, err
 	}
 	smtMBQIName := "mbqi"
-	if err = config.Params.SetBoolName(&result, &smtMBQIName, mbqi); err != nil {
+	if err = config.Params.SetBoolName(&construction.params, &smtMBQIName, mbqi); err != nil {
 		return uparams.ParamsRef{}, err
 	}
 	if !equalityPropagation {
 		propagationName := "arith.propagation_mode"
-		if err = config.Params.SetUIntName(&result, &propagationName, 0); err != nil {
+		if err = config.Params.SetUIntName(&construction.params, &propagationName, 0); err != nil {
 			return uparams.ParamsRef{}, err
 		}
 		propagateEqualitiesName := "arith.propagate_eqs"
-		if err = config.Params.SetBoolName(&result, &propagateEqualitiesName, false); err != nil {
+		if err = config.Params.SetBoolName(&construction.params, &propagateEqualitiesName, false); err != nil {
 			return uparams.ParamsRef{}, err
 		}
 	}
-	committed = true
-	return result, nil
+	return construction.params, nil
 }
 
 func (m *Manager) open() error {
