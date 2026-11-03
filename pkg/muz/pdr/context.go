@@ -454,59 +454,6 @@ func (c *Context) enterPDRProofMode() (func() error, error) {
 	}, nil
 }
 
-func (c *Context) expressionsUseNonBooleanSort(expressions []ast.ASTHandle) (bool, error) {
-	boolean, err := c.manager.MkBoolSort()
-	if err != nil {
-		return false, err
-	}
-	seen := make(map[ast.ASTHandle]bool)
-	stack := append([]ast.ASTHandle(nil), expressions...)
-	for len(stack) != 0 {
-		last := len(stack) - 1
-		expression := stack[last]
-		stack = stack[:last]
-		if seen[expression] {
-			continue
-		}
-		seen[expression] = true
-		sort, err := c.manager.GetSort(expression)
-		if err != nil {
-			return false, err
-		}
-		if sort != boolean {
-			return true, nil
-		}
-		kind, err := c.manager.GetKind(expression)
-		if err != nil {
-			return false, err
-		}
-		switch kind {
-		case ast.ASTApp:
-			count, x := c.manager.GetNumArgs(expression)
-			if x != nil {
-				return false, x
-			}
-			for i := uint32(0); i < count; i++ {
-				argument, x := c.manager.GetArg(expression, i)
-				if x != nil {
-					return false, x
-				}
-				stack = append(stack, argument)
-			}
-		case ast.ASTQuantifier:
-			body, x := c.manager.GetQuantifierBody(expression)
-			if x != nil {
-				return false, x
-			}
-			stack = append(stack, body)
-		case ast.ASTVar:
-		default:
-			return false, ast.ErrASTDomain
-		}
-	}
-	return false, nil
-}
-
 func appendDeclaration(order *[]ast.ASTHandle, seen map[ast.ASTHandle]bool, declaration ast.ASTHandle) {
 	if !seen[declaration] {
 		seen[declaration] = true
@@ -532,54 +479,12 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 	if c.initialized || set == nil {
 		return ast.ErrASTDomain
 	}
-	count, err := set.Len()
+	plan, err := c.planRules(set)
 	if err != nil {
 		return err
 	}
-	order := make([]ast.ASTHandle, 0)
-	seen := make(map[ast.ASTHandle]bool)
-	buckets := make(map[ast.ASTHandle][]*base.Rule)
-	forms := make([]ast.ASTHandle, 0)
-	defer func() { resultErr = errors.Join(resultErr, closeRuleBuckets(buckets)) }()
-	for index := 0; index < count; index++ {
-		rule, x := set.Rule(index)
-		if x != nil {
-			return x
-		}
-		head, x := rule.HeadDeclaration()
-		if x != nil {
-			return errors.Join(x, rule.Close())
-		}
-		appendDeclaration(&order, seen, head)
-		buckets[head] = append(buckets[head], rule)
-		headExpression, x := rule.Head()
-		if x != nil {
-			return x
-		}
-		forms = append(forms, headExpression)
-		uninterpreted, x := rule.UninterpretedTailSize()
-		if x != nil {
-			return x
-		}
-		for tail := 0; tail < uninterpreted; tail++ {
-			declaration, y := rule.TailDeclaration(tail)
-			if y != nil {
-				return y
-			}
-			appendDeclaration(&order, seen, declaration)
-		}
-		tailSize, x := rule.TailSize()
-		if x != nil {
-			return x
-		}
-		for tail := uninterpreted; tail < tailSize; tail++ {
-			expression, _, y := rule.Tail(tail)
-			if y != nil {
-				return y
-			}
-			forms = append(forms, expression)
-		}
-	}
+	defer func() { resultErr = errors.Join(resultErr, plan.close()) }()
+	order, buckets := plan.order, plan.buckets
 	transformers := make(map[ast.ASTHandle]*PredicateTransformer, len(order))
 	// A pre-query cover may have allocated solvers in the old proof mode.
 	// Build rule transformers from a fresh pool; the manager continues to own
@@ -587,16 +492,10 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 	c.owner.contexts.solverStart = len(c.owner.contexts.solvers)
 	c.owner.contexts.arithmetic.enabled = false
 	c.owner.contexts.arithmetic.effective = smtcore.SMTArithmeticNoSolver
-	nonBoolean, err := c.expressionsUseNonBooleanSort(forms)
-	if err != nil {
-		return err
-	}
+	nonBoolean := plan.nonBoolean
 	c.farkasActive = c.useFarkas && nonBoolean
 	c.proofActive = nonBoolean || c.useConvexClosure || c.useConvexInterior
-	arithmetic, err := c.planArithmetic(forms, nonBoolean)
-	if err != nil {
-		return err
-	}
+	arithmetic := plan.arithmetic
 	if arithmetic.enabled {
 		if err = c.owner.contexts.configureArithmetic(arithmetic.selectMode, arithmetic.mode, arithmetic.eq2ineq); err != nil {
 			return err

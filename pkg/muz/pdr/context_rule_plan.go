@@ -27,6 +27,10 @@ func (c *Context) planRules(set *base.RuleSet) (_ *contextRulePlan, resultErr er
 		return nil, err
 	}
 	plan := &contextRulePlan{buckets: make(map[ast.ASTHandle][]*base.Rule)}
+	classifier, err := newContextRuleClassifier(c.manager)
+	if err != nil {
+		return nil, err
+	}
 	seen := make(map[ast.ASTHandle]bool)
 	defer func() {
 		if resultErr != nil {
@@ -49,6 +53,9 @@ func (c *Context) planRules(set *base.RuleSet) (_ *contextRulePlan, resultErr er
 			return nil, x
 		}
 		plan.forms = append(plan.forms, expression)
+		if x = classifier.predicate(expression); x != nil {
+			return nil, x
+		}
 		uninterpreted, x := rule.UninterpretedTailSize()
 		if x != nil {
 			return nil, x
@@ -59,6 +66,13 @@ func (c *Context) planRules(set *base.RuleSet) (_ *contextRulePlan, resultErr er
 				return nil, y
 			}
 			appendDeclaration(&plan.order, seen, declaration)
+			application, _, y := rule.Tail(tail)
+			if y != nil {
+				return nil, y
+			}
+			if y = classifier.predicate(application); y != nil {
+				return nil, y
+			}
 		}
 		tailSize, x := rule.TailSize()
 		if x != nil {
@@ -70,13 +84,13 @@ func (c *Context) planRules(set *base.RuleSet) (_ *contextRulePlan, resultErr er
 				return nil, y
 			}
 			plan.forms = append(plan.forms, constraint)
+			if y = classifier.expression(constraint); y != nil {
+				return nil, y
+			}
 		}
 	}
-	plan.nonBoolean, err = c.expressionsUseNonBooleanSort(plan.forms)
-	if err != nil {
-		return nil, err
-	}
-	plan.arithmetic, err = c.planArithmetic(plan.forms, plan.nonBoolean)
+	plan.nonBoolean = classifier.nonBoolean
+	plan.arithmetic, err = c.planArithmetic(plan.forms, classifier.nonBoolean, classifier.hasArithmetic)
 	if err != nil {
 		return nil, err
 	}

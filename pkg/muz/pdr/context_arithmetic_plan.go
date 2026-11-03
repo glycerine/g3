@@ -15,7 +15,7 @@ type contextArithmeticPlan struct {
 	eq2ineq    bool
 }
 
-func (c *Context) planArithmetic(forms []ast.ASTHandle, nonBoolean bool) (contextArithmeticPlan, error) {
+func (c *Context) planArithmetic(forms []ast.ASTHandle, nonBoolean, hasArithmetic bool) (contextArithmeticPlan, error) {
 	plan := contextArithmeticPlan{
 		enabled: nonBoolean,
 		mode:    smtcore.SMTArithmeticSimplex,
@@ -24,7 +24,7 @@ func (c *Context) planArithmetic(forms []ast.ASTHandle, nonBoolean bool) (contex
 		return plan, nil
 	}
 	plan.selectMode = c.useUTVPI && !c.useConvexClosure && !c.useConvexInterior
-	if !plan.selectMode {
+	if !plan.selectMode || !hasArithmetic {
 		return plan, nil
 	}
 	difference, err := IsDifferenceLogic(c.manager, forms)
