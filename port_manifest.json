@@ -85585,9 +85585,14 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/fp/query_expression.go", "pkg/muz/fp/query_variables.go", "pkg/muz/fp/query_variables_test.go", "pkg/muz/fp/query_expression_free_var_test.go", "pkg/muz/bmc/quantified_linear_bind_test.go",
-        "pkg/qe/simplify_quantifier_rewriter.go","pkg/muz/base/rule.go", "pkg/muz/base/rule_substitute.go", "pkg/muz/base/rule_substitute_test.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_proof.go", "pkg/muz/base/rule_formula_test.go", "pkg/muz/base/hnf_proof.go", "pkg/muz/base/hnf_proof_test.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_test.go", "pkg/muz/fp/rule_ingest.go", "pkg/muz/fp/rule_ingest_unbound_test.go", "pkg/muz/dataflow/reachability_test.go"],
+        "pkg/qe/simplify_quantifier_rewriter.go","pkg/muz/base/rule.go", "pkg/muz/base/rule_substitute.go", "pkg/muz/base/rule_substitute_test.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_proof.go", "pkg/muz/base/rule_formula_test.go", "pkg/muz/base/hnf_proof.go", "pkg/muz/base/hnf_proof_test.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_test.go", "pkg/muz/fp/rule_ingest.go", "pkg/muz/fp/rule_ingest_unbound_test.go", "pkg/muz/dataflow/reachability_test.go",
+        "pkg/muz/base/rule_unnormalized.go",
+        "pkg/muz/transforms/coi_bottom_up_source_test.go"
+      ],
       "tests": ["TestQueryExpressionHoistsExistentialVariablesIntoHead", "TestFixedpointQueryExpressionExistential", "TestFixedpointQueryExpressionNestedExistential", "TestFixedpointQueryExpressionExistentialWithSparseFreeVariable", "TestCompactQueryVariablesPreservesSortsAndBoundVariables", "TestFixedpointQueryExpressionCompactsVariableGaps", "TestBMCQuantifiedLinearProofWithRuleVariables",
-        "TestRuleManagerFixUnboundSimplifiesIntegerEquation","TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleSubstitutionPreservesVariableIndices", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerBuildsHornRuleAndCarriesFormulaProof", "TestRuleManagerFormulaProofNoOpPreservesEnabledProofMode", "TestRuleManagerAddsProofForAlreadyHornFormula", "TestRuleManagerRejectsMismatchedHNFProofWithoutPublishing", "TestRuleManagerRemovesLabelsAndPreservesHNFProofs", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit", "TestRuleManagerAddsProofsForHNFDefinitionIntroduction", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestRuleManagerGroupsMultipleResidualTailsUnderOneExistential", "TestRuleManagerAddFormulaAppliesUnboundVariableReductionAndFix", "TestPropositionalEngineRuleIngestionHonorsUnboundVariableParameter", "TestHornNormalizerPreservesAlreadyHornUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestRuleManagerAddFormulaRemovesNestedLabels", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
+        "TestRuleManagerFixUnboundSimplifiesIntegerEquation","TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleSubstitutionPreservesVariableIndices", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerBuildsHornRuleAndCarriesFormulaProof", "TestRuleManagerFormulaProofNoOpPreservesEnabledProofMode", "TestRuleManagerAddsProofForAlreadyHornFormula", "TestRuleManagerRejectsMismatchedHNFProofWithoutPublishing", "TestRuleManagerRemovesLabelsAndPreservesHNFProofs", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit", "TestRuleManagerAddsProofsForHNFDefinitionIntroduction", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestRuleManagerGroupsMultipleResidualTailsUnderOneExistential", "TestRuleManagerAddFormulaAppliesUnboundVariableReductionAndFix", "TestPropositionalEngineRuleIngestionHonorsUnboundVariableParameter", "TestHornNormalizerPreservesAlreadyHornUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestRuleManagerAddFormulaRemovesNestedLabels", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures",
+        "TestConeBottomUpReplacementClearsNameAndPreservesVariableSlots"
+      ],
       "assertions": [
         {
           "line": 64,
@@ -85652,8 +85657,9 @@
           "name": "rule_manager::mk concrete head/tail construction and native positive-predicate, negative-predicate, interpreted-tail layout; rule::norm_vars sparse de-Bruijn compaction; to_formula with source binder-sort reversal and collision-free names; check_valid_head; rule ownership, proof ownership and rewrite transfer, tail queries, negation and dependency lookup (dl_rule.cpp:467-607,792-801,833-901,878-885,939-1011)",
           "status": "partial",
           "go_target": "pkg/muz/base/rule.go",
-          "go_targets": ["pkg/muz/dataflow/reachability_test.go"],
-          "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState"]
+          "go_targets": ["pkg/muz/dataflow/reachability_test.go", "pkg/muz/base/rule_unnormalized.go", "pkg/muz/transforms/coi_bottom_up_source_test.go"],
+          "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestConeBottomUpReplacementClearsNameAndPreservesVariableSlots"],
+          "reason": "The live cone-pruning replacement consumer uses rule_manager::mk with symbol::null and normalize=false (dl_rule.cpp:467-534; dl_rule.h:212-213; dl_mk_coi_filter.cpp:86-87), preserving sparse variable slots while clearing the removed-tail rule name. Other construction and ownership obligations keep their existing partial scope."
         },
         {
           "name": "rule::set_proof ownership and rule_manager::mk_rule_rewrite_proof transfer via rewrite and modus ponens (dl_rule.cpp:792-801,878-885)",
@@ -85725,8 +85731,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_substitute.go", "pkg/muz/base/rule_substitute_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/dataflow/reachability_test.go"],
-      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleSubstitutionPreservesVariableIndices", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestRuleManagerGroupsMultipleResidualTailsUnderOneExistential", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
+      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_substitute.go", "pkg/muz/base/rule_substitute_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/dataflow/reachability_test.go", "pkg/muz/base/rule_unnormalized.go", "pkg/muz/transforms/coi_bottom_up_source_test.go"],
+      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleSubstitutionPreservesVariableIndices", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestRuleManagerGroupsMultipleResidualTailsUnderOneExistential", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures", "TestConeBottomUpReplacementClearsNameAndPreservesVariableSlots"],
       "conditionals": [
         {
           "line": 20,
@@ -85766,8 +85772,9 @@
           "name": "Concrete rule and rule_manager retained representation, registered predicates, head/tail/name accessors, native tail partitions, variable normalization, formula conversion, and explicit shared Go ownership; general substitution, proof traces, HNF/query construction, and quantifier analysis remain open",
           "status": "partial",
           "go_target": "pkg/muz/base/rule.go",
-          "go_targets": ["pkg/muz/dataflow/reachability_test.go"],
-          "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestReachabilityRunsFromIngestedHornProgram"]
+          "go_targets": ["pkg/muz/dataflow/reachability_test.go", "pkg/muz/base/rule_unnormalized.go", "pkg/muz/transforms/coi_bottom_up_source_test.go"],
+          "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestReachabilityRunsFromIngestedHornProgram", "TestConeBottomUpReplacementClearsNameAndPreservesVariableSlots"],
+          "reason": "The live cone-pruning replacement consumer uses rule_manager::mk with symbol::null and normalize=false (dl_rule.cpp:467-534; dl_rule.h:212-213; dl_mk_coi_filter.cpp:86-87), preserving sparse variable slots while clearing the removed-tail rule name. Other construction and ownership obligations keep their existing partial scope."
         },
         {
           "name": "rule_manager::display_smt2 quantified rule-formula output declaration (dl_rule.h:265)",
@@ -87089,8 +87096,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/bmc_numeric_proof_test.go", "pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_solver_profile_test.go", "pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_bind_test.go", "pkg/muz/bmc/quantified_linear_proof.go", "pkg/muz/bmc/quantified_linear_proof_cleanup.go", "pkg/muz/bmc/quantified_linear_proof_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_compile_test.go", "pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_bind_test.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_compile_test.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/nonlinear_search_test.go", "pkg/muz/bmc/nonlinear_trace.go", "pkg/muz/bmc/nonlinear_proof.go", "pkg/muz/bmc/nonlinear_trace_test.go", "pkg/muz/bmc/linear_compile.go", "pkg/muz/bmc/linear_bind.go", "pkg/muz/bmc/linear_compile_test.go", "pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/linear_trace.go", "pkg/muz/bmc/linear_proof.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_empty_cancellation_test.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go", "pkg/muz/fp/bmc_query_verbose.go", "pkg/muz/fp/bmc_query_verbose_test.go", "pkg/muz/bmc/nonlinear_selector_cleanup_pending_test.go"],
-      "tests": ["TestBMCNumericProofIndependentValidation", "TestBMCSolverProfilesInstallSourceParameters", "TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler", "TestBMCQuantifiedLinearBindingsUseDerivationLevel", "TestBMCQuantifiedLinearProofWithUninterpretedBinding", "TestSMT2QBMCProofWithUnconstrainedRuleVariable", "TestBMCQuantifiedLinearProofWithRuleVariables", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers", "TestBMCBindVariablesCompressesGapsAndBuildsPattern", "TestBMCNonlinearCompilationUnfoldsRulesByLevel", "TestBMCNonlinearCompilationSharesExistentialAcrossBranches", "TestBMCNonlinearCompilationPreservesRepeatedHeadVariables", "TestBMCNonlinearSearchFindsFirstReachableLevel", "TestBMCNonlinearTraceVisitsModelSelectedRules", "TestQBMCConvertsNonlinearSlicedProof", "TestQBMCConvertsSliceProofWhenResolutionMergesTails", "TestSMT2QBMCProofConvertsMergedTails", "TestSMT2QBMCNonlinearSlicedProofTrace", "TestSMT2BMCNonlinearProofTrace", "TestBMCLinearCompilationSharesRuleVariables", "TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses", "TestBMCEngineRuleTraceAndSnapshot", "TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses", "TestBMCEmptyQueryChecksCancellationBeforeFalseResult", "TestSMT2BMCEngineSearch", "TestSMT2BMCCertificate", "TestSMT2BMCRecursiveCertificate", "TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates", "TestNonlinearBMCWarningMatchesSourceDispatch", "TestLinearBMCDoesNotEmitNonlinearWarning", "TestNonlinearBMCWarningRefusalDoesNotChangeResult", "TestNonlinearSelectorCleanupPreservesRootsAndNestedReceipt"],
+      "go_targets": ["pkg/muz/fp/bmc_numeric_proof_test.go", "pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_solver_profile_test.go", "pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_bind_test.go", "pkg/muz/bmc/quantified_linear_proof.go", "pkg/muz/bmc/quantified_linear_proof_cleanup.go", "pkg/muz/bmc/quantified_linear_proof_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_compile_test.go", "pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_bind_test.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_compile_test.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/nonlinear_search_test.go", "pkg/muz/bmc/nonlinear_trace.go", "pkg/muz/bmc/nonlinear_proof.go", "pkg/muz/bmc/nonlinear_trace_test.go", "pkg/muz/bmc/linear_compile.go", "pkg/muz/bmc/linear_bind.go", "pkg/muz/bmc/linear_compile_test.go", "pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/linear_trace.go", "pkg/muz/bmc/linear_proof.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/bmc_empty_cancellation_test.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go", "pkg/muz/fp/bmc_query_verbose.go", "pkg/muz/fp/bmc_query_verbose_test.go", "pkg/muz/bmc/nonlinear_selector_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_search_cleanup.go", "pkg/muz/bmc/quantified_linear_search_cleanup_pending_test.go", "pkg/muz/bmc/quantified_linear_search_failure_test.go"],
+      "tests": ["TestBMCNumericProofIndependentValidation", "TestBMCSolverProfilesInstallSourceParameters", "TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler", "TestBMCQuantifiedLinearBindingsUseDerivationLevel", "TestBMCQuantifiedLinearProofWithUninterpretedBinding", "TestSMT2QBMCProofWithUnconstrainedRuleVariable", "TestBMCQuantifiedLinearProofWithRuleVariables", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers", "TestBMCBindVariablesCompressesGapsAndBuildsPattern", "TestBMCNonlinearCompilationUnfoldsRulesByLevel", "TestBMCNonlinearCompilationSharesExistentialAcrossBranches", "TestBMCNonlinearCompilationPreservesRepeatedHeadVariables", "TestBMCNonlinearSearchFindsFirstReachableLevel", "TestBMCNonlinearTraceVisitsModelSelectedRules", "TestQBMCConvertsNonlinearSlicedProof", "TestQBMCConvertsSliceProofWhenResolutionMergesTails", "TestSMT2QBMCProofConvertsMergedTails", "TestSMT2QBMCNonlinearSlicedProofTrace", "TestSMT2BMCNonlinearProofTrace", "TestBMCLinearCompilationSharesRuleVariables", "TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses", "TestBMCEngineRuleTraceAndSnapshot", "TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses", "TestBMCEmptyQueryChecksCancellationBeforeFalseResult", "TestSMT2BMCEngineSearch", "TestSMT2BMCCertificate", "TestSMT2BMCRecursiveCertificate", "TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates", "TestNonlinearBMCWarningMatchesSourceDispatch", "TestLinearBMCDoesNotEmitNonlinearWarning", "TestNonlinearBMCWarningRefusalDoesNotChangeResult", "TestNonlinearSelectorCleanupPreservesRootsAndNestedReceipt", "TestQuantifiedLinearSearchCleanupPreservesScopeTermsAndModel", "TestBMCQuantifiedLinearSearchAllocationScopeCleanup"],
       "assertions": [
         {
           "line": 138,
@@ -87191,7 +87198,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "numeric linear/qlinear resolution proof substitutions, compacted variable mapping and proof-preserving normalization", "status": "ported", "go_targets": ["pkg/muz/bmc/linear_proof.go", "pkg/muz/transforms/rule_inliner.go", "pkg/muz/fp/bmc_numeric_proof_test.go"], "tests": ["TestBMCNumericProofIndependentValidation"], "reason": "Six public BMC/QBMC linear/nonlinear/recursive cases independently check the query conclusion, structural proof, every logical side condition and asserted leaf provenance. Broader source/ownership audit remains partial."}, {"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "ported", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}, {"name": "linear BMC constructs a model-selected proof when proof tracing is enabled", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go"], "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate"]}, {"name": "nonlinear BMC prepares rule proofs for subsequent answers and certificates without a global proof option", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_requested_proof_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/api/api_fixedpoint_expression_answer_test.go"], "tests": ["TestBMCRequestedNonlinearProofWithoutGlobalTracing", "TestSMT2BMCNonlinearCertificateWithoutProofOption", "TestAPIFixedpointNonlinearBMCAnswersWithoutProofOption"]}, {"name": "BMC query preprocessing applies default transformations and optional slicing without Spacer unfold/coalesce stages", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go"], "tests": ["TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates"]}, {"name": "nonlinear query/binding construction and quantified-tail execution preserve allocation-frontier ownership", "status": "ported", "go_targets": ["pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_quantified_test.go", "pkg/muz/bmc/nonlinear_query_failure_test.go"], "tests": ["TestBMCNonlinearCompilationExecutesQuantifiedPredicateTail", "TestBMCNonlinearQueryAndAppliedVariablesAllocationFrontiers"]}, {"name": "linear and nonlinear search check cancellation before level compilation and preserve formula/query/guard and nested construction owners across refused cleanup", "status": "ported", "go_targets": ["pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/linear_cleanup_pending_test.go", "pkg/muz/bmc/linear_search_cancel_test.go"], "tests": ["TestBMCLinearSearchCancellationPrecedesLevelCompilation", "TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes"]}, {"name": "quantified linear search restores solver scopes and construction owners at every allocation boundary and checkpoints cancellation after per-width compilation before query publication", "status": "ported", "go_targets": ["pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_search_failure_test.go", "pkg/muz/bmc/quantified_linear_compile_test.go"], "tests": ["TestBMCQuantifiedLinearSearchAllocationScopeCleanup", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers"]}, {"name": "quantified-linear indexed-symbol and output cleanup preserves every result across refused native release", "status": "ported", "go_targets": ["pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_cleanup_pending_test.go"], "tests": ["TestQuantifiedLinearCleanupPreservesRefsWhileManagerExecutes"]}, {"name": "BMC and QBMC query checkpoint cancellation after transformed query installation and before an empty rule group returns false", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_empty_cancellation_test.go"], "tests": ["TestBMCEmptyQueryChecksCancellationBeforeFalseResult"], "reason": "Predicate and expression entry points publish neither a result nor query owners on cancellation, then recover on retry and replace the prior query clone on repetition."}, {"name": "bmc::query nonlinear dispatch emits the source inefficiency warning after proof-preparation retry (dl_bmc_engine.cpp:1499-1502)", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_query_verbose.go", "pkg/muz/fp/bmc_query_verbose_test.go"], "tests": ["TestNonlinearBMCWarningMatchesSourceDispatch", "TestLinearBMCDoesNotEmitNonlinearWarning", "TestNonlinearBMCWarningRefusalDoesNotChangeResult"], "reason": "The zero-verbosity threshold warns only for nonlinear dispatch after proof preparation; diagnostic write refusal does not alter the solver result."},
+      "methods": [{"name": "numeric linear/qlinear resolution proof substitutions, compacted variable mapping and proof-preserving normalization", "status": "ported", "go_targets": ["pkg/muz/bmc/linear_proof.go", "pkg/muz/transforms/rule_inliner.go", "pkg/muz/fp/bmc_numeric_proof_test.go"], "tests": ["TestBMCNumericProofIndependentValidation"], "reason": "Six public BMC/QBMC linear/nonlinear/recursive cases independently check the query conclusion, structural proof, every logical side condition and asserted leaf provenance. Broader source/ownership audit remains partial."}, {"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "ported", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}, {"name": "linear BMC constructs a model-selected proof when proof tracing is enabled", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go"], "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate"]}, {"name": "nonlinear BMC prepares rule proofs for subsequent answers and certificates without a global proof option", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_requested_proof_test.go", "pkg/parsers/smt2/bmc_engine_test.go", "pkg/api/api_fixedpoint_expression_answer_test.go"], "tests": ["TestBMCRequestedNonlinearProofWithoutGlobalTracing", "TestSMT2BMCNonlinearCertificateWithoutProofOption", "TestAPIFixedpointNonlinearBMCAnswersWithoutProofOption"]}, {"name": "BMC query preprocessing applies default transformations and optional slicing without Spacer unfold/coalesce stages", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/bmc_preprocess_stages_test.go", "pkg/parsers/smt2/bmc_preprocess_boundary_test.go"], "tests": ["TestBMCPreprocessingStillSlicesUnusedColumns", "TestSMT2BMCUnfoldOptionDoesNotChangeBoundedSearch", "TestSMT2BMCSpacerOptionsPreserveCertificates"]}, {"name": "nonlinear query/binding construction and quantified-tail execution preserve allocation-frontier ownership", "status": "ported", "go_targets": ["pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_quantified_test.go", "pkg/muz/bmc/nonlinear_query_failure_test.go"], "tests": ["TestBMCNonlinearCompilationExecutesQuantifiedPredicateTail", "TestBMCNonlinearQueryAndAppliedVariablesAllocationFrontiers"]}, {"name": "linear and nonlinear search check cancellation before level compilation and preserve formula/query/guard and nested construction owners across refused cleanup", "status": "ported", "go_targets": ["pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/linear_cleanup_pending_test.go", "pkg/muz/bmc/linear_search_cancel_test.go"], "tests": ["TestBMCLinearSearchCancellationPrecedesLevelCompilation", "TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes"]}, {"name":"quantified linear search checkpoints cancellation and preserves caller scopes, quantified terms and the winning model through allocation and cleanup failures (dl_bmc_engine.cpp:51-73)","status":"ported","go_targets":["pkg/muz/bmc/quantified_linear_search.go","pkg/muz/bmc/quantified_linear_search_failure_test.go","pkg/muz/bmc/quantified_linear_compile_test.go","pkg/muz/bmc/quantified_linear_search_cleanup.go","pkg/muz/bmc/quantified_linear_search_cleanup_pending_test.go"],"tests":["TestBMCQuantifiedLinearSearchAllocationScopeCleanup","TestBMCQuantifiedLinearCompilationLevels","TestBMCQuantifiedLinearSearchPreservesSolverScope","TestBMCQuantifiedLinearCompilationAllocationFrontiers","TestQuantifiedLinearSearchCleanupPreservesScopeTermsAndModel"],"reason":"Each search attempt saves caller scope depth, drains nested construction receipts and quantified terms, then retires its one published scope before transferring a winning model. Failed cleanup returns Undef with no model; one stable receipt preserves ordinary and already-consumed model references, resumes cleanup and closes idempotently. Arbitrary interruption inside a partly completed kernel Pop remains outside this bounded search-owner slice."}, {"name": "quantified-linear indexed-symbol and output cleanup preserves every result across refused native release", "status": "ported", "go_targets": ["pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_cleanup_pending_test.go"], "tests": ["TestQuantifiedLinearCleanupPreservesRefsWhileManagerExecutes"]}, {"name": "BMC and QBMC query checkpoint cancellation after transformed query installation and before an empty rule group returns false", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_empty_cancellation_test.go"], "tests": ["TestBMCEmptyQueryChecksCancellationBeforeFalseResult"], "reason": "Predicate and expression entry points publish neither a result nor query owners on cancellation, then recover on retry and replace the prior query clone on repetition."}, {"name": "bmc::query nonlinear dispatch emits the source inefficiency warning after proof-preparation retry (dl_bmc_engine.cpp:1499-1502)", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_query_verbose.go", "pkg/muz/fp/bmc_query_verbose_test.go"], "tests": ["TestNonlinearBMCWarningMatchesSourceDispatch", "TestLinearBMCDoesNotEmitNonlinearWarning", "TestNonlinearBMCWarningRefusalDoesNotChangeResult"], "reason": "The zero-verbosity threshold warns only for nonlinear dispatch after proof preparation; diagnostic write refusal does not alter the solver result."},
         {
           "name": "nonlinear proof selector cleanup preserves unpublished roots and nested cleanup receipts through retry",
           "status": "ported",
@@ -93176,7 +93183,12 @@
         "pkg/muz/rel/instruction_interpreted_project_test.go",
         "pkg/muz/fp/datalog_external_interval_cartesian.go",
         "pkg/muz/fp/datalog_external_interval_cartesian_test.go",
-        "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go"
+        "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go",
+        "pkg/muz/rel/compiler_join_project_test.go",
+        "pkg/muz/fp/datalog_external_interval_ground_tuple.go",
+        "pkg/muz/fp/datalog_external_interval_ground_tuple_test.go",
+        "pkg/muz/fp/datalog_external_interval_ground_tuple_close_test.go",
+        "pkg/muz/fp/datalog_bound_interval_tail_repeated_test.go"
       ],
       "tests": [
         "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads",
@@ -93219,7 +93231,13 @@
         "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat",
         "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack",
         "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay",
-        "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry"
+        "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry",
+        "TestFiniteCompilerFusesJoinProjection",
+        "TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder",
+        "TestExternalIntervalDatalogNaryGroundRefusalsRollbackAndRetry",
+        "TestExternalIntervalDatalogNaryJoinedCloseBeforePublicationRetry",
+        "TestExternalIntervalDatalogNarySingletonCloseAfterPublicationRetry",
+        "TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates"
       ],
       "conditionals": [
         {
@@ -93492,11 +93510,15 @@
           "go_target": "pkg/muz/rel/compiler.go",
           "tests": [
             "TestFiniteCompilerJoinsTwoPositiveTails",
-            "TestSMT2FixedpointTwoTailJoinMatchesCPP"
+            "TestSMT2FixedpointTwoTailJoinMatchesCPP",
+            "TestFiniteCompilerFusesJoinProjection"
           ],
           "go_targets": [
-            "pkg/parsers/smt2/fixedpoint_commands_test.go"
-          ]
+            "pkg/parsers/smt2/fixedpoint_commands_test.go",
+            "pkg/muz/rel/compiler.go",
+            "pkg/muz/rel/compiler_join_project_test.go"
+          ],
+          "reason": "The finite compiler removes the earliest surplus joined occurrences while preserving each head occurrence and at least one column for every later negative or interpreted use. It remaps survivors without changing input join keys, emits JOIN when every column is needed and JOIN_PROJECT otherwise, and preserves Hash/Sparse/LazySparse/FiniteCheckedPair kinds, operand rows and exact instruction counters."
         },
         {
           "name": "ground, arbitrary positive-tail and finite-negative explanation compilation preserves tuple semantics, positive proof order and finite-prefix/explanation-suffix layout through concrete joins and anti-joins (dl_compiler.cpp:449-682,867-908; dl_mk_explanations.cpp:706-750)",
@@ -93548,18 +93570,18 @@
           "reason": "These exact typed runtimes materialize numeral constants, repeated columns and unbound head variables as full columns. Generic relation-manager instruction dispatch and other product combinations remain open."
         },
         {
-          "name": "zero-tail compilation and constant head assembly for nullary truth and one unary Int/Real arithmetic-numeral external-plus-interval rule (dl_compiler.cpp:169-217,542-548,813-861)",
+          "name": "zero-tail compilation and constant head assembly for nullary truth and one arbitrary-arity Int/Real arithmetic-numeral external-plus-interval rule (dl_compiler.cpp:169-217,327-400,542-548,813-861)",
           "status": "ported",
-          "go_targets": ["pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go"],
-          "tests": ["TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry"],
-          "reason": "The exact specialized slice builds nullary totals through Empty/Complement or unary arithmetic singletons before union and store. Additional ground rules, n-ary heads, other sorts and generic abstract relation dispatch remain open."
+          "go_targets": ["pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_close_test.go"],
+          "tests": ["TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry", "TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder", "TestExternalIntervalDatalogNaryGroundRefusalsRollbackAndRetry", "TestExternalIntervalDatalogNaryJoinedCloseBeforePublicationRetry", "TestExternalIntervalDatalogNarySingletonCloseAfterPublicationRetry"],
+          "reason": "A single zero-tail arithmetic-numeral rule constructs nullary truth or arbitrary-arity Int/Real tuples. Source-ordered head assembly caches unary singletons by sort and numeral AST, joins each column in order and keeps the complete head application rooted. Joined temporaries retire before STORE, cached singletons after publication, and native or callback refusal resumes the owned frontier without replaying committed operations. Additional ground rules, other sorts and generic abstract relation dispatch remain open."
         },
         {
           "name": "source-live generic relation-manager compilation for interval, bound and product relations, including recursive SCC widening selected by datalog.compile_with_widening (dl_compiler.cpp:104-114,1022-1185; rel_context.cpp:102-116,170,486-512)",
           "status": "partial",
-          "go_targets": ["pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_head_assembly_test.go", "pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go", "pkg/muz/fp/datalog_interval_store.go", "pkg/muz/fp/datalog_interval_query.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_positive_test.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/fp/datalog_external_interval_registers.go", "pkg/muz/fp/datalog_external_interval_registers_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go", "pkg/muz/rel/interval_bound_product.go", "pkg/muz/rel/bound_relation_union.go", "pkg/muz/fp/datalog_interval_condition_columns_test.go", "pkg/muz/fp/datalog_bound_interval_condition_columns_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go"],
-          "tests": ["TestIntervalDatalogPositiveUnaryRepeatedBoundsAndFixpoint", "TestIntervalDatalogPositiveUnaryConstantAndHeadPermutation", "TestIntervalDatalogPositiveSharedTailJoin", "TestIntervalDatalogWideningOnlyAppliesToRecursivePredicates", "TestIntervalDatalogStoreSnapshotsQueriesAndOwnership", "TestDatalogConfiguredIntervalHeadAssemblyAndUpdates", "TestIntervalRelationHeadAssemblyColumns", "TestBoundIntervalDatalogTwoPositiveJoinFilterProjectAndRepeat", "TestBoundIntervalDatalogTwoPositiveDisjointAndThreeTailBoundary", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestExternalIntervalDatalogRegistersLoadStoreAndRepeat", "TestExternalIntervalDatalogRegisterCloneRefusalPublishesNothing", "TestExternalIntervalDatalogRegisterStorePublishesBeforeRetirementRetry", "TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat", "TestExternalIntervalDatalogAlignedIdentityEmptySource", "TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly", "TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan", "TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestBoundIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry"],
-          "reason": "Specialized interval and bound/interval runtimes materialize numeral, repeated, head-only and condition-only columns. External/interval execution covers nullary totals, one unary Int/Real numeral rule, acyclic identity edges and H(x,y) :- P(x), Q(y), preserving requested left component order and retryable LOAD/JOIN/UNION/STORE ownership. Wider joins, guards, repeated or reordered Cartesian heads, cyclic external rules and generic abstract relation/product bytecode dispatch remain open."
+          "go_targets": ["pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_head_assembly_test.go", "pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go", "pkg/muz/fp/datalog_interval_store.go", "pkg/muz/fp/datalog_interval_query.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_positive_test.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/fp/datalog_external_interval_registers.go", "pkg/muz/fp/datalog_external_interval_registers_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go", "pkg/muz/rel/interval_bound_product.go", "pkg/muz/rel/bound_relation_union.go", "pkg/muz/fp/datalog_interval_condition_columns_test.go", "pkg/muz/fp/datalog_bound_interval_condition_columns_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_close_test.go", "pkg/muz/fp/datalog_bound_interval_tail_repeated_test.go"],
+          "tests": ["TestIntervalDatalogPositiveUnaryRepeatedBoundsAndFixpoint", "TestIntervalDatalogPositiveUnaryConstantAndHeadPermutation", "TestIntervalDatalogPositiveSharedTailJoin", "TestIntervalDatalogWideningOnlyAppliesToRecursivePredicates", "TestIntervalDatalogStoreSnapshotsQueriesAndOwnership", "TestDatalogConfiguredIntervalHeadAssemblyAndUpdates", "TestIntervalRelationHeadAssemblyColumns", "TestBoundIntervalDatalogTwoPositiveJoinFilterProjectAndRepeat", "TestBoundIntervalDatalogTwoPositiveDisjointAndThreeTailBoundary", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestExternalIntervalDatalogRegistersLoadStoreAndRepeat", "TestExternalIntervalDatalogRegisterCloneRefusalPublishesNothing", "TestExternalIntervalDatalogRegisterStorePublishesBeforeRetirementRetry", "TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat", "TestExternalIntervalDatalogAlignedIdentityEmptySource", "TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly", "TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan", "TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestBoundIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry", "TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder", "TestExternalIntervalDatalogNaryGroundRefusalsRollbackAndRetry", "TestExternalIntervalDatalogNaryJoinedCloseBeforePublicationRetry", "TestExternalIntervalDatalogNarySingletonCloseAfterPublicationRetry", "TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates"],
+          "reason": "Specialized interval and bound/interval runtimes materialize numeral, repeated, head-only and condition-only columns; a single positive bound/interval tail also enforces repeated-variable equality before guards and head assembly. External/interval execution covers nullary totals, one arbitrary-arity Int/Real numeral rule, acyclic identity edges and H(x,y) :- P(x), Q(y), preserving requested left component order and retryable LOAD/JOIN/UNION/STORE ownership. Wider joins, guards, repeated or reordered Cartesian heads, cyclic external rules, two-tail bound/interval repetition and generic abstract relation/product bytecode dispatch remain open."
         },
         {
           "name": "Recursive finite least-fixpoint bytecode using per-predicate current/next control deltas, semi-naive one-tail-at-a-time delta substitution, loop termination on empty deltas, and temporary ownership transfer (dl_compiler.cpp:902-1188)",
@@ -93649,6 +93671,18 @@
             "TestFiniteCompilerFusesInterpretedFilterAndDeadVariableProjection"
           ],
           "reason": "Conditions keep pre-projection variable bindings and complete relation sorts; removed columns are sorted, survivors are remapped, and the non-mutating instruction owns its result without a separate clone or projection opcode."
+        },
+        {
+          "name": "single positive bound/interval tail filters repeated-variable columns before guards and head assembly (dl_compiler.cpp:518-598,682-738,813-861)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/fp/datalog_bound_interval_positive.go",
+            "pkg/muz/fp/datalog_bound_interval_tail_repeated_test.go"
+          ],
+          "tests": [
+            "TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates"
+          ],
+          "reason": "The concrete bound/interval pair filters repeated occurrences in a single positive tail after selecting constants, preserves occurrence columns until interpreted filtering and head assembly, consumes head occurrences from the back and preserves source clone/project coarsening. Both requested component orders, guards, constants, reordered/repeated heads, empty results and later fact updates are covered; repeated variables across two positive tails remain explicitly rejected."
         }
       ],
       "ownership": [
@@ -93663,8 +93697,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/compiler.go", "pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go", "pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_head_assembly_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go", "pkg/muz/fp/datalog_interval_condition_columns_test.go", "pkg/muz/fp/datalog_bound_interval_condition_columns_test.go", "pkg/muz/rel/instruction_interpreted_project.go", "pkg/muz/rel/instruction_interpreted_project_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go"],
-      "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace", "TestIntervalRelationHeadAssemblyColumns", "TestDatalogConfiguredIntervalHeadAssemblyAndUpdates", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack", "TestIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestBoundIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestFilterInterpretedAndProjectInstructionKeepsSourceAndClearsEmptyInput", "TestFilterInterpretedAndProjectInstructionConcreteFiniteDispatch", "TestFiniteCompilerFusedFilterRemapsSurvivingColumns", "TestFiniteCompilerFusesInterpretedFilterAndDeadVariableProjection", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry"],
+      "go_targets": ["pkg/muz/rel/compiler.go", "pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go", "pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_head_assembly_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go", "pkg/muz/fp/datalog_interval_condition_columns_test.go", "pkg/muz/fp/datalog_bound_interval_condition_columns_test.go", "pkg/muz/rel/instruction_interpreted_project.go", "pkg/muz/rel/instruction_interpreted_project_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go", "pkg/muz/rel/compiler_join_project_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_close_test.go", "pkg/muz/fp/datalog_bound_interval_tail_repeated_test.go"],
+      "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace", "TestIntervalRelationHeadAssemblyColumns", "TestDatalogConfiguredIntervalHeadAssemblyAndUpdates", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack", "TestIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestBoundIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestFilterInterpretedAndProjectInstructionKeepsSourceAndClearsEmptyInput", "TestFilterInterpretedAndProjectInstructionConcreteFiniteDispatch", "TestFiniteCompilerFusedFilterRemapsSurvivingColumns", "TestFiniteCompilerFusesInterpretedFilterAndDeadVariableProjection", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry", "TestFiniteCompilerFusesJoinProjection", "TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder", "TestExternalIntervalDatalogNaryGroundRefusalsRollbackAndRetry", "TestExternalIntervalDatalogNaryJoinedCloseBeforePublicationRetry", "TestExternalIntervalDatalogNarySingletonCloseAfterPublicationRetry", "TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates"],
       "conditionals": [
         {
           "line": 19,
@@ -93688,14 +93722,16 @@
           "name": "Concrete typed finite compiler state, register/signature allocation, rule cost parentage, and execution/termination block ownership surface (dl_compiler.h:37-285)",
           "status": "ported",
           "go_target": "pkg/muz/rel/compiler.go",
-          "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace"]
+          "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace", "TestFiniteCompilerFusesJoinProjection"],
+          "go_targets": ["pkg/muz/rel/compiler.go","pkg/muz/rel/compiler_join_project_test.go"],
+          "reason": "The finite compiler removes the earliest surplus joined occurrences while preserving each head occurrence and at least one column for every later negative or interpreted use. It remaps survivors without changing input join keys, emits JOIN when every column is needed and JOIN_PROJECT otherwise, and preserves Hash/Sparse/LazySparse/FiniteCheckedPair kinds, operand rows and exact instruction counters."
         },
         {
           "name": "compiler context surface exposing source-live all_or_nothing_deltas, compile_with_widening, abstract relation signatures, instruction-observer dispatch and head-column helper declarations (dl_compiler.h:37-65,122-165,180-191)",
           "status": "partial",
-          "go_targets": ["pkg/muz/rel/compiler.go", "pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go", "pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_head_assembly_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go", "pkg/muz/fp/datalog_interval_condition_columns_test.go", "pkg/muz/fp/datalog_bound_interval_condition_columns_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go"],
-          "tests": ["TestIntervalDatalogWideningOnlyAppliesToRecursivePredicates", "TestIntervalRelationHeadAssemblyColumns", "TestDatalogConfiguredIntervalHeadAssemblyAndUpdates", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack", "TestIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestBoundIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry"],
-          "reason": "Specialized interval and bound/interval runtimes materialize numeral, repeated, head-only and condition-only columns. External/interval execution covers nullary totals, one unary Int/Real numeral rule, acyclic identity edges and H(x,y) :- P(x), Q(y), preserving requested left component order and retryable LOAD/JOIN/UNION/STORE ownership. Wider joins, guards, repeated or reordered Cartesian heads, cyclic external rules and generic abstract relation/product bytecode dispatch remain open."
+          "go_targets": ["pkg/muz/rel/compiler.go", "pkg/muz/rel/interval_relation_columns.go", "pkg/muz/rel/interval_relation_columns_test.go", "pkg/muz/fp/datalog_interval_positive.go", "pkg/muz/fp/datalog_interval_head_assembly_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go", "pkg/muz/fp/datalog_interval_condition_columns_test.go", "pkg/muz/fp/datalog_bound_interval_condition_columns_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_close_test.go", "pkg/muz/fp/datalog_bound_interval_tail_repeated_test.go"],
+          "tests": ["TestIntervalDatalogWideningOnlyAppliesToRecursivePredicates", "TestIntervalRelationHeadAssemblyColumns", "TestDatalogConfiguredIntervalHeadAssemblyAndUpdates", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack", "TestIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestBoundIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry", "TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder", "TestExternalIntervalDatalogNaryGroundRefusalsRollbackAndRetry", "TestExternalIntervalDatalogNaryJoinedCloseBeforePublicationRetry", "TestExternalIntervalDatalogNarySingletonCloseAfterPublicationRetry", "TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates"],
+          "reason": "Specialized interval and bound/interval runtimes materialize numeral, repeated, head-only and condition-only columns; a single positive bound/interval tail also enforces repeated-variable equality before guards and head assembly. External/interval execution covers nullary totals, one arbitrary-arity Int/Real numeral rule, acyclic identity edges and H(x,y) :- P(x), Q(y), preserving requested left component order and retryable LOAD/JOIN/UNION/STORE ownership. Wider joins, guards, repeated or reordered Cartesian heads, cyclic external rules, two-tail bound/interval repetition and generic abstract relation/product bytecode dispatch remain open."
         },
         {
           "name": "condition-only arithmetic variables become full columns before interpreted-tail substitution and dead-column projection (dl_compiler.cpp:610-639)",
@@ -93727,6 +93763,18 @@
             "TestFiniteCompilerFusesInterpretedFilterAndDeadVariableProjection"
           ],
           "reason": "Conditions keep pre-projection variable bindings and complete relation sorts; removed columns are sorted, survivors are remapped, and the non-mutating instruction owns its result without a separate clone or projection opcode."
+        },
+        {
+          "name": "single positive bound/interval tail filters repeated-variable columns before guards and head assembly (dl_compiler.cpp:518-598,682-738,813-861)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/fp/datalog_bound_interval_positive.go",
+            "pkg/muz/fp/datalog_bound_interval_tail_repeated_test.go"
+          ],
+          "tests": [
+            "TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates"
+          ],
+          "reason": "The concrete bound/interval pair filters repeated occurrences in a single positive tail after selecting constants, preserves occurrence columns until interpreted filtering and head assembly, consumes head occurrences from the back and preserves source clone/project coarsening. Both requested component orders, guards, constants, reordered/repeated heads, empty results and later fact updates are covered; repeated variables across two positive tails remain explicitly rejected."
         }
       ],
       "ownership": [
@@ -94894,8 +94942,8 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/rel/instruction.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_interpreted.go", "pkg/muz/rel/instruction_explanation_interpreted.go", "pkg/muz/rel/instruction_explanation_interpreted_test.go", "pkg/muz/rel/instruction_io.go", "pkg/muz/rel/instruction_explanation_io.go", "pkg/muz/rel/instruction_explanation_registers.go", "pkg/muz/rel/instruction_explanation_table.go", "pkg/muz/rel/instruction_explanation_io_test.go", "pkg/muz/rel/instruction_explanation_table_test.go", "pkg/muz/rel/instruction_loop.go", "pkg/muz/rel/instruction_saturation.go", "pkg/muz/rel/instruction_table.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/rel/instruction_interpreted_project.go", "pkg/muz/rel/instruction_interpreted_project_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go"],
-      "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestExplanationRelationInstructionsLoadCloneStoreAndReset", "TestExplanationProjectionUnionBytecodePublishesTypedAndFiniteOutputs", "TestExplanationProjectionToNullaryOutputBytecode", "TestExplanationAssignmentBytecodeMapsSparseVariablesAndPublishesHead", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRelationBindingChecksProcessWatermark", "TestExecutionContextRejectsZeroTimeout", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestFilterInterpretedAndProjectInstructionKeepsSourceAndClearsEmptyInput", "TestFilterInterpretedAndProjectInstructionConcreteFiniteDispatch", "TestFiniteCompilerFusedFilterRemapsSurvivingColumns", "TestFiniteCompilerFusesInterpretedFilterAndDeadVariableProjection", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry"],
+      "go_targets": ["pkg/muz/rel/instruction.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_interpreted.go", "pkg/muz/rel/instruction_explanation_interpreted.go", "pkg/muz/rel/instruction_explanation_interpreted_test.go", "pkg/muz/rel/instruction_io.go", "pkg/muz/rel/instruction_explanation_io.go", "pkg/muz/rel/instruction_explanation_registers.go", "pkg/muz/rel/instruction_explanation_table.go", "pkg/muz/rel/instruction_explanation_io_test.go", "pkg/muz/rel/instruction_explanation_table_test.go", "pkg/muz/rel/instruction_loop.go", "pkg/muz/rel/instruction_saturation.go", "pkg/muz/rel/instruction_table.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/rel/instruction_interpreted_project.go", "pkg/muz/rel/instruction_interpreted_project_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_close_test.go"],
+      "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestExplanationRelationInstructionsLoadCloneStoreAndReset", "TestExplanationProjectionUnionBytecodePublishesTypedAndFiniteOutputs", "TestExplanationProjectionToNullaryOutputBytecode", "TestExplanationAssignmentBytecodeMapsSparseVariablesAndPublishesHead", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRelationBindingChecksProcessWatermark", "TestExecutionContextRejectsZeroTimeout", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestFilterInterpretedAndProjectInstructionKeepsSourceAndClearsEmptyInput", "TestFilterInterpretedAndProjectInstructionConcreteFiniteDispatch", "TestFiniteCompilerFusedFilterRemapsSurvivingColumns", "TestFiniteCompilerFusesInterpretedFilterAndDeadVariableProjection", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry", "TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder", "TestExternalIntervalDatalogNaryGroundRefusalsRollbackAndRetry", "TestExternalIntervalDatalogNaryJoinedCloseBeforePublicationRetry", "TestExternalIntervalDatalogNarySingletonCloseAfterPublicationRetry"],
       "assertions": [
         {
           "name": "Concrete interpreted finite-relation filtering through tuple decoding, de-Bruijn variable binding, and the retained theory rewriter (dl_instruction.cpp:526-635)",
@@ -94926,11 +94974,11 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "typed external/interval execution registers implement LOAD, unary singleton/nullary total construction, Cartesian JOIN, UNION and transactional STORE (dl_instruction.cpp:188-241,362-429,639-748,1003-1124)",
+          "name": "typed external/interval execution registers implement LOAD, singleton/nullary construction, source-ordered ground and Cartesian JOIN, UNION, DEALLOC and transactional STORE (dl_instruction.cpp:188-241,362-429,639-748,1003-1124)",
           "status": "ported",
-          "go_targets": ["pkg/muz/fp/datalog_external_interval_registers.go", "pkg/muz/fp/datalog_external_interval_registers_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go"],
-          "tests": ["TestExternalIntervalDatalogRegistersLoadStoreAndRepeat", "TestExternalIntervalDatalogRegisterCloneRefusalPublishesNothing", "TestExternalIntervalDatalogRegisterStorePublishesBeforeRetirementRetry", "TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat", "TestExternalIntervalDatalogAlignedIdentityEmptySource", "TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly", "TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry"],
-          "reason": "LOAD clones nonempty products in first-encounter order and maps empty inputs to nil. Unary/nullary construction and exact two-unary-tail Cartesian JOIN feed UNION/STORE; empty tails skip JOIN/UNION, input owners survive refusals, and committed cleanup resumes without callback replay."
+          "go_targets": ["pkg/muz/fp/datalog_external_interval_registers.go", "pkg/muz/fp/datalog_external_interval_registers_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_close_test.go"],
+          "tests": ["TestExternalIntervalDatalogRegistersLoadStoreAndRepeat", "TestExternalIntervalDatalogRegisterCloneRefusalPublishesNothing", "TestExternalIntervalDatalogRegisterStorePublishesBeforeRetirementRetry", "TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat", "TestExternalIntervalDatalogAlignedIdentityEmptySource", "TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly", "TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry", "TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder", "TestExternalIntervalDatalogNaryGroundRefusalsRollbackAndRetry", "TestExternalIntervalDatalogNaryJoinedCloseBeforePublicationRetry", "TestExternalIntervalDatalogNarySingletonCloseAfterPublicationRetry"],
+          "reason": "LOAD clones nonempty products in first-encounter order and maps empty inputs to nil. Nullary totals, sort/value-cached singleton joins for one arbitrary-arity arithmetic ground rule and exact two-unary-tail Cartesian JOIN feed UNION/STORE. Empty Cartesian tails skip JOIN/UNION; joined ground temporaries retire before STORE and singleton caches afterward. Input owners survive refusals and committed cleanup resumes without callback replay."
         },
         {
           "name": "execution_context register ownership, annotations, reset/close, time limits, big-relation reporting, runtime/process watermark termination for relation-backed contexts, and statistics collection (dl_instruction.cpp:41-141)",
@@ -95025,8 +95073,8 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/rel/instruction.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_io.go", "pkg/muz/rel/instruction_explanation_io.go", "pkg/muz/rel/instruction_explanation_registers.go", "pkg/muz/rel/instruction_explanation_table.go", "pkg/muz/rel/instruction_explanation_table_test.go", "pkg/muz/rel/instruction_loop.go", "pkg/muz/rel/instruction_table.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/rel/instruction_interpreted_project.go", "pkg/muz/rel/instruction_interpreted_project_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go"],
-      "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestExplanationRelationInstructionsLoadCloneStoreAndReset", "TestExplanationProjectionUnionBytecodePublishesTypedAndFiniteOutputs", "TestExplanationProjectionToNullaryOutputBytecode", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRelationBindingChecksProcessWatermark", "TestExecutionContextRejectsZeroTimeout", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestFilterInterpretedAndProjectInstructionKeepsSourceAndClearsEmptyInput", "TestFilterInterpretedAndProjectInstructionConcreteFiniteDispatch", "TestFiniteCompilerFusedFilterRemapsSurvivingColumns", "TestFiniteCompilerFusesInterpretedFilterAndDeadVariableProjection", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry"],
+      "go_targets": ["pkg/muz/rel/instruction.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_io.go", "pkg/muz/rel/instruction_explanation_io.go", "pkg/muz/rel/instruction_explanation_registers.go", "pkg/muz/rel/instruction_explanation_table.go", "pkg/muz/rel/instruction_explanation_table_test.go", "pkg/muz/rel/instruction_loop.go", "pkg/muz/rel/instruction_table.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/rel/instruction_interpreted_project.go", "pkg/muz/rel/instruction_interpreted_project_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_close_test.go"],
+      "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestExplanationRelationInstructionsLoadCloneStoreAndReset", "TestExplanationProjectionUnionBytecodePublishesTypedAndFiniteOutputs", "TestExplanationProjectionToNullaryOutputBytecode", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRelationBindingChecksProcessWatermark", "TestExecutionContextRejectsZeroTimeout", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestFilterInterpretedAndProjectInstructionKeepsSourceAndClearsEmptyInput", "TestFilterInterpretedAndProjectInstructionConcreteFiniteDispatch", "TestFiniteCompilerFusedFilterRemapsSurvivingColumns", "TestFiniteCompilerFusesInterpretedFilterAndDeadVariableProjection", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry", "TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder", "TestExternalIntervalDatalogNaryGroundRefusalsRollbackAndRetry", "TestExternalIntervalDatalogNaryJoinedCloseBeforePublicationRetry", "TestExternalIntervalDatalogNarySingletonCloseAfterPublicationRetry"],
       "conditionals": [
         {
           "line": 19,
@@ -95094,9 +95142,9 @@
           "name": "Concrete finite unary-singleton, total and signature-assertion constructors plus exact external/interval unary and nullary instantiations (dl_instruction.h:296-305)",
           "status": "ported",
           "go_target": "pkg/muz/rel/instruction_construct.go",
-          "go_targets": ["pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go"],
-          "tests": ["TestFiniteRelationConstructionInstructions", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry"],
-          "reason": "The live external/interval constructor slice covers a nullary total and one zero-tail unary Int/Real numeral head; wider abstract constructors remain separately scoped."
+          "go_targets": ["pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_close_test.go"],
+          "tests": ["TestFiniteRelationConstructionInstructions", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry", "TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder", "TestExternalIntervalDatalogNaryGroundRefusalsRollbackAndRetry", "TestExternalIntervalDatalogNaryJoinedCloseBeforePublicationRetry", "TestExternalIntervalDatalogNarySingletonCloseAfterPublicationRetry"],
+          "reason": "The live external/interval constructor slice covers nullary truth and sort/value-cached unary Int/Real singletons joined in source head-column order for one arbitrary-arity ground fact. The wider generic abstract constructor surface remains separately scoped."
         },
         {
           "name": "instr_filter_interpreted_and_project non-mutating finite execution with empty-source clearing and fused statistics (dl_instruction.cpp:576-636; dl_instruction.h:278-279)",
@@ -98335,7 +98383,14 @@
         "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go",
         "pkg/muz/fp/datalog_external_interval_ground.go",
         "pkg/muz/fp/datalog_external_interval_ground_test.go",
-        "pkg/muz/fp/datalog_external_interval_ground_close_test.go"
+        "pkg/muz/fp/datalog_external_interval_ground_close_test.go",
+        "pkg/muz/fp/datalog_external_interval_ground_tuple.go",
+        "pkg/muz/fp/datalog_external_interval_ground_tuple_test.go",
+        "pkg/muz/fp/datalog_external_interval_ground_tuple_close_test.go",
+        "pkg/muz/fp/datalog_bound_interval_positive.go",
+        "pkg/muz/fp/datalog_bound_interval_tail_repeated_test.go",
+        "pkg/muz/fp/datalog_transform_owners.go",
+        "pkg/muz/fp/datalog_interp_tail_query_test.go"
       ],
       "tests": [
         "TestQueryMagicSetsRunsForSyntheticQueryPredicate",
@@ -98368,7 +98423,13 @@
         "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat",
         "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack",
         "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay",
-        "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry"
+        "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry",
+        "TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder",
+        "TestExternalIntervalDatalogNaryGroundRefusalsRollbackAndRetry",
+        "TestExternalIntervalDatalogNaryJoinedCloseBeforePublicationRetry",
+        "TestExternalIntervalDatalogNarySingletonCloseAfterPublicationRetry",
+        "TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates",
+        "TestDatalogInterpretedEqualityPrecedesFiniteCompilation"
       ],
       "conditionals": [
         {
@@ -98492,7 +98553,7 @@
           ]
         },
         {
-          "name": "rel_context scoped_query restoration around cone, filter, simple-join, unbound and similarity transformations (rel_context.cpp:58-91,232-241)",
+          "name": "rel_context scoped_query restoration around cone, interpreted-tail simplification, filter, simple-join, unbound and similarity transformations (rel_context.cpp:58-91,232-241,297-316)",
           "status": "ported",
           "go_target": "pkg/muz/fp/datalog_query_scope.go",
           "go_targets": [
@@ -98502,15 +98563,19 @@
             "pkg/muz/fp/datalog_similarity_test.go",
             "pkg/muz/fp/datalog_model.go",
             "pkg/muz/fp/query_expression.go",
-            "pkg/muz/fp/datalog_coi_query_test.go"
+            "pkg/muz/fp/datalog_coi_query_test.go",
+            "pkg/muz/fp/datalog_transform_owners.go",
+            "pkg/muz/fp/datalog_interp_tail_query_test.go"
           ],
           "tests": [
             "TestDatalogQueriesRestoreFilterAndJoinScopes",
             "TestDatalogSimilarityLiveQuery",
             "TestDatalogSimilarityQueryParameterControls",
             "TestDatalogSimilarityKeepsQueriedOutputUnmerged",
-            "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts"
-          ]
+            "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts",
+            "TestDatalogInterpretedEqualityPrecedesFiniteCompilation"
+          ],
+          "reason": "Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open."
         },
         {
           "name": "configured interval-relation runtime executes fact and positive arithmetic rule sets in dependency-first SCC order with cloned external seeds, source widening boundaries, abstract predicate/expression queries and caller-owned relation formulas",
@@ -98534,18 +98599,18 @@
           "reason": "Explicit/cached doc predicates run dependency-first stratified fixpoints, including finite negative tails and update propagation after lower strata saturate. Bound guards materialize condition-only finite columns, map joined variables and contradictions, and fuse equality filtering with removal of dead head columns without publishing an intermediate relation. Full-column lowering handles zero-positive, negative-only, constant, unbound and repeated-variable tails plus unsafe or repeated heads; whole-program preflight rejects unsupported infinite columns before even a ground prefix is published. Mixed representations and explanation/checker combinations remain guarded."
         },
         {
-          "name": "staged external/interval activation with typed registers, nullary/unary ground rules, acyclic identities and exact two-unary-tail Cartesian execution",
+          "name": "staged external/interval activation with typed registers, nullary and arbitrary-arity arithmetic ground rules, acyclic identities and exact two-unary-tail Cartesian execution",
           "status": "partial",
-          "go_targets": ["pkg/muz/fp/datalog_external_interval_activation.go", "pkg/muz/fp/datalog_external_interval_dispatch.go", "pkg/muz/fp/datalog_external_interval_dispatch_test.go", "pkg/muz/fp/datalog_external_interval_registers.go", "pkg/muz/fp/datalog_external_interval_registers_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go"],
-          "tests": ["TestExternalIntervalDatalogRegistersLoadStoreAndRepeat", "TestExternalIntervalDatalogRegisterCloneRefusalPublishesNothing", "TestExternalIntervalDatalogRegisterStorePublishesBeforeRetirementRetry", "TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat", "TestExternalIntervalDatalogAlignedIdentityEmptySource", "TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly", "TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan", "TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry"],
-          "reason": "The specialized runtime validates the whole program before callbacks, preserves both component permutations and publishes through retryable LOAD/JOIN/UNION/STORE owners. It accepts nullary totals, one unary Int/Real numeral fact rule, identity edges and H(x,y) :- P(x), Q(y). Wider joins, shared keys, guarded/repeated/reordered heads, cyclic external rules and general product/compiler dispatch remain open."
+          "go_targets": ["pkg/muz/fp/datalog_external_interval_activation.go", "pkg/muz/fp/datalog_external_interval_dispatch.go", "pkg/muz/fp/datalog_external_interval_dispatch_test.go", "pkg/muz/fp/datalog_external_interval_registers.go", "pkg/muz/fp/datalog_external_interval_registers_test.go", "pkg/muz/fp/datalog_external_interval_identity.go", "pkg/muz/fp/datalog_external_interval_identity_test.go", "pkg/muz/fp/datalog_external_interval_ground.go", "pkg/muz/fp/datalog_external_interval_ground_test.go", "pkg/muz/fp/datalog_external_interval_ground_close_test.go", "pkg/muz/rel/external_interval_product_union.go", "pkg/muz/rel/external_interval_product_union_test.go", "pkg/muz/fp/datalog_external_interval_cartesian.go", "pkg/muz/fp/datalog_external_interval_cartesian_test.go", "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_test.go", "pkg/muz/fp/datalog_external_interval_ground_tuple_close_test.go"],
+          "tests": ["TestExternalIntervalDatalogRegistersLoadStoreAndRepeat", "TestExternalIntervalDatalogRegisterCloneRefusalPublishesNothing", "TestExternalIntervalDatalogRegisterStorePublishesBeforeRetirementRetry", "TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat", "TestExternalIntervalDatalogAlignedIdentityEmptySource", "TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack", "TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly", "TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan", "TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks", "TestExternalIntervalDatalogUnaryGroundRuleAndRepeat", "TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack", "TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing", "TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks", "TestExternalIntervalDatalogGroundSingletonCloseAfterPublicationRetry", "TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat", "TestExternalIntervalDatalogCartesianEmptySourceThenUpdate", "TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback", "TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay", "TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks", "TestExternalIntervalDatalogCartesianJoinedCloseAfterPublicationRetry", "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat", "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack", "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay", "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry", "TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder", "TestExternalIntervalDatalogNaryGroundRefusalsRollbackAndRetry", "TestExternalIntervalDatalogNaryJoinedCloseBeforePublicationRetry", "TestExternalIntervalDatalogNarySingletonCloseAfterPublicationRetry"],
+          "reason": "The specialized runtime validates the whole program before callbacks, preserves both component permutations and publishes through retryable LOAD/JOIN/UNION/STORE owners. It accepts nullary totals, one arbitrary-arity Int/Real numeral fact rule with ordered singleton caching, identity edges and H(x,y) :- P(x), Q(y). Wider joins, shared keys, guarded/repeated/reordered Cartesian heads, cyclic external rules and general product/compiler dispatch remain open."
         },
         {
           "name": "staged explicit bound_relation plus interval_relation product activation with aligned original kinds, facts, clones and abstract query formulas",
           "status": "partial",
-          "go_targets": ["pkg/muz/fp/datalog_bound_interval_activation.go", "pkg/muz/fp/datalog_bound_interval_activation_test.go", "pkg/muz/fp/datalog_bound_interval_query_status_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_positive_test.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/rel/interval_bound_product.go", "pkg/muz/rel/interval_bound_product_fact_ast.go", "pkg/muz/rel/interval_bound_product_lifecycle.go", "pkg/muz/rel/interval_bound_product_selection.go", "pkg/muz/rel/interval_bound_product_selection_test.go", "pkg/muz/fp/datalog_bound_interval_condition_columns_test.go"],
-          "tests": ["TestBoundIntervalDatalogActivationFactsCloneFormulaAndRuleBoundary", "TestBoundIntervalDatalogActivationDeclinesOtherKinds", "TestBoundIntervalDatalogPositiveFilterProjectConsumer", "TestBoundIntervalDatalogTwoPositiveJoinFilterProjectAndRepeat", "TestBoundIntervalDatalogTwoPositiveDisjointAndThreeTailBoundary", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestBoundIntervalDatalogQueryCombinesOutputNonemptiness", "TestIntervalBoundProductSelectionClonePrecisionAndOrder", "TestIntervalBoundProductASTFactInsertionIsValidatedBeforeMutation", "TestBoundIntervalDatalogConditionOnlyColumnProjectionAndUpdates"],
-          "reason": "The aligned pair preserves component order, source imprecision, independent clones and validated facts. Positive rules with one or two unique-variable tails join, filter, project and reorder through SCC evaluation; head constants, repeated columns and head-only full-column materialization update both components transactionally, while more than two positive tails remain rejected. Query status combines all requested output components: definitely empty is false, any abstract nonempty witness remains unknown, and no single component may incorrectly force sat. Negation and generic mixed products remain open. Condition-only arithmetic variables receive full columns before guard substitution and head projection, preserving component order and later query updates."
+          "go_targets": ["pkg/muz/fp/datalog_bound_interval_activation.go", "pkg/muz/fp/datalog_bound_interval_activation_test.go", "pkg/muz/fp/datalog_bound_interval_query_status_test.go", "pkg/muz/fp/datalog_bound_interval_positive.go", "pkg/muz/fp/datalog_bound_interval_positive_test.go", "pkg/muz/fp/datalog_bound_interval_head_assembly_test.go", "pkg/muz/rel/interval_bound_product.go", "pkg/muz/rel/interval_bound_product_fact_ast.go", "pkg/muz/rel/interval_bound_product_lifecycle.go", "pkg/muz/rel/interval_bound_product_selection.go", "pkg/muz/rel/interval_bound_product_selection_test.go", "pkg/muz/fp/datalog_bound_interval_condition_columns_test.go", "pkg/muz/fp/datalog_bound_interval_tail_repeated_test.go"],
+          "tests": ["TestBoundIntervalDatalogActivationFactsCloneFormulaAndRuleBoundary", "TestBoundIntervalDatalogActivationDeclinesOtherKinds", "TestBoundIntervalDatalogPositiveFilterProjectConsumer", "TestBoundIntervalDatalogTwoPositiveJoinFilterProjectAndRepeat", "TestBoundIntervalDatalogTwoPositiveDisjointAndThreeTailBoundary", "TestBoundIntervalDatalogHeadAssemblyAndUpdates", "TestBoundIntervalDatalogQueryCombinesOutputNonemptiness", "TestIntervalBoundProductSelectionClonePrecisionAndOrder", "TestIntervalBoundProductASTFactInsertionIsValidatedBeforeMutation", "TestBoundIntervalDatalogConditionOnlyColumnProjectionAndUpdates", "TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates"],
+          "reason": "The aligned pair preserves component order, source imprecision, independent clones and validated facts. One positive tail supports repeated variables, constant selection, equality before guards and source-ordered head occurrence consumption; two positive tails still require unique variables within each tail. Both cases join, filter, project and reorder through SCC evaluation; head constants, repeated columns and head-only full-column materialization update both components transactionally, while more than two positive tails remain rejected. Query status combines all requested output components: definitely empty is false and any abstract nonempty witness remains unknown. Condition-only arithmetic variables receive full columns before guard substitution and head projection. Negation, two-tail repetition and generic mixed products remain open."
         },
         {
           "name": "rel_context public bound-relation selection, arithmetic table-fact insertion and named-program replacement lifecycle",
@@ -98583,24 +98648,27 @@
           "reason": "Concrete LazySparse tables are installed by the live representation selector; compiled interpreted guards stay deferred and fuse with projection. Parent and expression-query clones migrate rows into independent factories so either context can close first; mutating deferred nodes clone shared packed sources before transfer. Concrete Hash/Sparse checked pairs exchange live manager owners and compile constructors/mixed operations, while formula-checked relation scopes deliberately remain interpreted."
         },
         {
-          "name": "finite Datalog query normalization runs relation-aware cone pruning before filter/simple joins and owns its model-conversion ledger",
+          "name": "finite Datalog query normalization runs relation-aware cone pruning, interpreted-tail simplification and filter/simple joins with owned model-conversion steps",
           "status": "ported",
           "go_targets": [
             "pkg/muz/fp/propositional_engine.go",
             "pkg/muz/fp/datalog_model.go",
             "pkg/muz/fp/query_expression.go",
-            "pkg/muz/fp/datalog_coi_query_test.go"
+            "pkg/muz/fp/datalog_coi_query_test.go",
+            "pkg/muz/fp/datalog_transform_owners.go",
+            "pkg/muz/fp/datalog_interp_tail_query_test.go"
           ],
           "tests": [
-            "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts"
+            "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts",
+            "TestDatalogInterpretedEqualityPrecedesFiniteCompilation"
           ],
-          "reason": "The query-local rule set restores the original program after pruning, including later disconnected-predicate queries. Cone steps transfer in order, reconstruct the original model and remain reachable across cleanup refusal."
+          "reason": "The query-local rule set restores the original program after pruning, including later disconnected-predicate queries. Cone steps transfer in order, reconstruct the original model and remain reachable across cleanup refusal. Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open."
         }
       ],
       "ownership": [
         "The query scope owns its transformed RuleSet and every generated concrete relation; disposal restores the original program and restricts the relation manager to the pre-query predicate set, while refused native cleanup remains retryable through the construction-failure contract. Default finite selection migrates only implicit predicate owners before evaluation; explicit representations remain independently owned, and compiler temporaries are newly owned concrete finite tables. LazySparse parent and expression-query contexts own independent factories and migrate copied rows rather than sharing deferred engines, so either context can close first without invalidating the other. The staged interval store pins registered declarations and gives each evaluator cloned seed relations; relation formulas transfer one caller-owned AST reference."
       ],
-      "deviations": ["Query scoping now covers cone, filter, simple-join, unbound and similarity transformations, including query-owned cone model reconstruction. Relation-backend diversity and the remaining transform pipeline stay open."]
+      "deviations": ["Query scoping now covers cone, interpreted-tail simplification, filter, simple-join, unbound and similarity transformations, including query-owned cone model reconstruction. Relation-backend diversity and the remaining transform pipeline stay open."]
     },
     {
       "path": "src/muz/rel/rel_context.h",
@@ -98623,7 +98691,9 @@
         "pkg/muz/fp/datalog_external_interval_cartesian_close_test.go",
         "pkg/muz/fp/datalog_external_interval_ground.go",
         "pkg/muz/fp/datalog_external_interval_ground_test.go",
-        "pkg/muz/fp/datalog_external_interval_ground_close_test.go"
+        "pkg/muz/fp/datalog_external_interval_ground_close_test.go",
+        "pkg/muz/fp/datalog_transform_owners.go",
+        "pkg/muz/fp/datalog_interp_tail_query_test.go"
       ],
       "tests": [
         "TestDatalogSimilarityLiveQuery",
@@ -98641,7 +98711,8 @@
         "TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat",
         "TestExternalIntervalDatalogNullaryGroundRefusalsRollBack",
         "TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay",
-        "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry"
+        "TestExternalIntervalDatalogNullaryTotalCloseAfterPublicationRetry",
+        "TestDatalogInterpretedEqualityPrecedesFiniteCompilation"
       ],
       "conditionals": [
         {
@@ -98674,18 +98745,21 @@
           ]
         },
         {
-          "name": "finite Datalog query normalization runs relation-aware cone pruning before filter/simple joins and owns its model-conversion ledger",
+          "name": "finite Datalog query normalization runs relation-aware cone pruning, interpreted-tail simplification and filter/simple joins with owned model-conversion steps",
           "status": "ported",
           "go_targets": [
             "pkg/muz/fp/propositional_engine.go",
             "pkg/muz/fp/datalog_model.go",
             "pkg/muz/fp/query_expression.go",
-            "pkg/muz/fp/datalog_coi_query_test.go"
+            "pkg/muz/fp/datalog_coi_query_test.go",
+            "pkg/muz/fp/datalog_transform_owners.go",
+            "pkg/muz/fp/datalog_interp_tail_query_test.go"
           ],
           "tests": [
-            "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts"
+            "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts",
+            "TestDatalogInterpretedEqualityPrecedesFiniteCompilation"
           ],
-          "reason": "The query-local rule set restores the original program after pruning, including later disconnected-predicate queries. Cone steps transfer in order, reconstruct the original model and remain reachable across cleanup refusal."
+          "reason": "The query-local rule set restores the original program after pruning, including later disconnected-predicate queries. Cone steps transfer in order, reconstruct the original model and remain reachable across cleanup refusal. Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open."
         }
       ],
       "ownership": [],
@@ -104591,7 +104665,13 @@
         "pkg/muz/fp/propositional_engine.go",
         "pkg/muz/fp/datalog_model.go",
         "pkg/muz/fp/query_expression.go",
-        "pkg/muz/fp/datalog_coi_query_test.go"
+        "pkg/muz/fp/datalog_coi_query_test.go",
+        "pkg/muz/transforms/coi_bottom_up_source_test.go",
+        "pkg/muz/transforms/coi_bottom_up_count_noop_test.go",
+        "pkg/muz/base/rule_unnormalized.go",
+        "pkg/muz/transforms/coi_construction_cleanup.go",
+        "pkg/muz/transforms/coi_construction_cleanup_test.go",
+        "pkg/muz/transforms/coi_failure_test.go"
       ],
       "tests": [
         "TestConeOfInfluencePrunesOutsideAndUnfoundedRules",
@@ -104601,7 +104681,13 @@
         "TestConePreservesNestedQuantifiedPredicateDefinition",
         "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
         "TestPDREngineExpandsSlicedModelsAndCovers",
-        "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts"
+        "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts",
+        "TestConeBottomUpStopsBeforeLaterMaterializedTail",
+        "TestConeBottomUpReplacementClearsNameAndPreservesVariableSlots",
+        "TestConeBottomUpMaterializedBailoutReleasesCurrentRule",
+        "TestConeBottomUpDiscardsNegativeReplacementWhenRuleCountIsUnchanged",
+        "TestConeConstructionCleanupPreservesNestedOwnersDuringNativeRefusal",
+        "TestConeConstructionFailureReleasesModelPrefixAndRetries"
       ],
       "assertions": [
         {
@@ -104613,7 +104699,7 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "operator(), top_down and bottom_up rule pruning: output-cone filtering, positive foundedness filtering, unreachable negative-tail simplification, predicate inheritance, source count-based no-change behavior, and finalized replacement construction (dl_mk_coi_filter.cpp:24-155)",
+          "name": "operator(), top_down and bottom_up rule pruning: output-cone and positive foundedness filtering, source-ordered unreachable-tail simplification, predicate inheritance and count-based no-change behavior (dl_mk_coi_filter.cpp:28-160)",
           "status": "ported",
           "go_target": "pkg/muz/transforms/coi.go",
           "tests": [
@@ -104623,14 +104709,22 @@
             "TestConeOfInfluenceBailsOutForMaterializedExplanationRelations",
             "TestConePluginCapturesOrderedModelDefinitions",
             "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
-            "TestPDREngineExpandsSlicedModelsAndCovers"
+            "TestPDREngineExpandsSlicedModelsAndCovers",
+            "TestConeBottomUpStopsBeforeLaterMaterializedTail",
+            "TestConeBottomUpReplacementClearsNameAndPreservesVariableSlots",
+            "TestConeBottomUpMaterializedBailoutReleasesCurrentRule",
+            "TestConeBottomUpDiscardsNegativeReplacementWhenRuleCountIsUnchanged"
           ],
           "go_targets": [
             "pkg/muz/rel/relation_manager_has_facts.go",
             "pkg/muz/transforms/coi_explanation_facts_test.go",
-            "pkg/muz/fp/propositional_engine_test.go"
+            "pkg/muz/fp/propositional_engine_test.go",
+            "pkg/muz/transforms/coi.go",
+            "pkg/muz/transforms/coi_bottom_up_source_test.go",
+            "pkg/muz/transforms/coi_bottom_up_count_noop_test.go",
+            "pkg/muz/base/rule_unnormalized.go"
           ],
-          "reason": "Negative-tail pruning now asks the relation manager for materialized facts across ordinary finite and relation-explanation products. A populated explanation relation blocks the unsound unreachable-negative simplification just like an ordinary table; product observation remains borrowed."
+          "reason": "Each tail materialized-fact check occurs in source order; the first unreachable positive tail stops the scan before later materialized tails. An unreachable negative tail is removed with an unnamed, unnormalized replacement preserving variable slots. Materialized ordinary/explanation products remain borrowed and trigger the source bailout only when reached. The count-only no-change branch discards replacements and publishes no model definitions."
         },
         {
           "name": "top-down extension definitions, bottom-up unreachable=false definitions, reverse replay, and model-first inductive-certificate reconstruction",
@@ -104653,9 +104747,9 @@
         {
           "name": "bottom-up converter enumerates only dataflow fact entries actually constructed during source-ordered propagation plus explicitly scanned unreachable tails",
           "status": "ported",
-          "go_targets": ["pkg/muz/dataflow/reachability.go", "pkg/muz/dataflow/reachability_test.go", "pkg/muz/transforms/coi.go", "pkg/muz/transforms/coi_test.go"],
-          "tests": ["TestReachabilityRunsFromIngestedHornProgram", "TestConePluginCapturesOrderedModelDefinitions"],
-          "reason": "An unfounded X-to-S rule with no X seed records X as an unreachable tail but never evaluates the rule and therefore never constructs an S fact entry; the converter publishes X=false without fabricating S=false."
+          "go_targets": ["pkg/muz/dataflow/reachability.go", "pkg/muz/dataflow/reachability_test.go", "pkg/muz/transforms/coi.go", "pkg/muz/transforms/coi_test.go", "pkg/muz/transforms/coi_bottom_up_source_test.go", "pkg/muz/transforms/coi_bottom_up_count_noop_test.go", "pkg/muz/base/rule_unnormalized.go"],
+          "tests": ["TestReachabilityRunsFromIngestedHornProgram", "TestConePluginCapturesOrderedModelDefinitions", "TestConeBottomUpStopsBeforeLaterMaterializedTail", "TestConeBottomUpReplacementClearsNameAndPreservesVariableSlots", "TestConeBottomUpMaterializedBailoutReleasesCurrentRule", "TestConeBottomUpDiscardsNegativeReplacementWhenRuleCountIsUnchanged"],
+          "reason": "An unfounded X-to-S rule with no X seed records X as an unreachable tail but never evaluates the rule and therefore never constructs an S fact entry; the converter publishes X=false without fabricating S=false. Tail enumeration stops at the first unreachable positive premise, and the count-only no-change branch publishes no new model definitions."
         },
         {
           "name": "cone dependency discovery includes finalized nested predicate dependencies introduced by quantified preprocessing while preserving deterministic source traversal and pruning disconnected rules",
@@ -104676,6 +104770,20 @@
             "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts"
           ],
           "reason": "A query prunes disconnected rules without changing the archived source set; subsequent queries restore and saturate the original rules. Ordered cone definitions remain query-owned, replay through datalogModel and close through query-resource cleanup."
+        },
+        {
+          "name": "cone construction owns intermediate rules, rule sets and ordered model-definition prefixes through failed cleanup",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/transforms/coi_construction_cleanup.go",
+            "pkg/muz/transforms/coi_construction_cleanup_test.go",
+            "pkg/muz/transforms/coi_failure_test.go"
+          ],
+          "tests": [
+            "TestConeConstructionCleanupPreservesNestedOwnersDuringNativeRefusal",
+            "TestConeConstructionFailureReleasesModelPrefixAndRetries"
+          ],
+          "reason": "Construction failure publishes neither a rule set nor model definitions. Nested cleanup completes before outer rule/rule-set and model-prefix owners; stable receipts preserve source rules, retry from the same frontier and release every root on completion. Cone diagnostics and broader whole-unit audits remain open."
         }
       ],
       "ownership": [
@@ -104697,7 +104805,13 @@
         "pkg/muz/fp/propositional_engine.go",
         "pkg/muz/fp/datalog_model.go",
         "pkg/muz/fp/query_expression.go",
-        "pkg/muz/fp/datalog_coi_query_test.go"
+        "pkg/muz/fp/datalog_coi_query_test.go",
+        "pkg/muz/transforms/coi_bottom_up_source_test.go",
+        "pkg/muz/transforms/coi_bottom_up_count_noop_test.go",
+        "pkg/muz/base/rule_unnormalized.go",
+        "pkg/muz/transforms/coi_construction_cleanup.go",
+        "pkg/muz/transforms/coi_construction_cleanup_test.go",
+        "pkg/muz/transforms/coi_failure_test.go"
       ],
       "tests": [
         "TestConeOfInfluencePrunesOutsideAndUnfoundedRules",
@@ -104706,7 +104820,13 @@
         "TestConePluginCapturesOrderedModelDefinitions",
         "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
         "TestPDREngineExpandsSlicedModelsAndCovers",
-        "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts"
+        "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts",
+        "TestConeBottomUpStopsBeforeLaterMaterializedTail",
+        "TestConeBottomUpReplacementClearsNameAndPreservesVariableSlots",
+        "TestConeBottomUpMaterializedBailoutReleasesCurrentRule",
+        "TestConeBottomUpDiscardsNegativeReplacementWhenRuleCountIsUnchanged",
+        "TestConeConstructionCleanupPreservesNestedOwnersDuringNativeRefusal",
+        "TestConeConstructionFailureReleasesModelPrefixAndRetries"
       ],
       "conditionals": [
         {
@@ -104742,11 +104862,20 @@
             "TestConeOfInfluenceBailsOutWhenNegativeTailHasMaterializedFacts",
             "TestConePluginCapturesOrderedModelDefinitions",
             "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
-            "TestPDREngineExpandsSlicedModelsAndCovers"
+            "TestPDREngineExpandsSlicedModelsAndCovers",
+            "TestConeBottomUpStopsBeforeLaterMaterializedTail",
+            "TestConeBottomUpReplacementClearsNameAndPreservesVariableSlots",
+            "TestConeBottomUpMaterializedBailoutReleasesCurrentRule",
+            "TestConeBottomUpDiscardsNegativeReplacementWhenRuleCountIsUnchanged"
           ],
           "go_targets": [
-            "pkg/muz/fp/propositional_engine_test.go"
-          ]
+            "pkg/muz/fp/propositional_engine_test.go",
+            "pkg/muz/transforms/coi.go",
+            "pkg/muz/transforms/coi_bottom_up_source_test.go",
+            "pkg/muz/transforms/coi_bottom_up_count_noop_test.go",
+            "pkg/muz/base/rule_unnormalized.go"
+          ],
+          "reason": "Each tail materialized-fact check occurs in source order; the first unreachable positive tail stops the scan before later materialized tails. An unreachable negative tail is removed with an unnamed, unnormalized replacement preserving variable slots. Materialized ordinary/explanation products remain borrowed and trigger the source bailout only when reached. The count-only no-change branch discards replacements and publishes no model definitions."
         },
         {
           "name": "relation-aware cone filtering is consumed by query-local finite Datalog normalization with ordered model-step ownership",
@@ -104761,6 +104890,20 @@
             "TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts"
           ],
           "reason": "A query prunes disconnected rules without changing the archived source set; subsequent queries restore and saturate the original rules. Ordered cone definitions remain query-owned, replay through datalogModel and close through query-resource cleanup."
+        },
+        {
+          "name": "cone construction owns intermediate rules, rule sets and ordered model-definition prefixes through failed cleanup",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/transforms/coi_construction_cleanup.go",
+            "pkg/muz/transforms/coi_construction_cleanup_test.go",
+            "pkg/muz/transforms/coi_failure_test.go"
+          ],
+          "tests": [
+            "TestConeConstructionCleanupPreservesNestedOwnersDuringNativeRefusal",
+            "TestConeConstructionFailureReleasesModelPrefixAndRetries"
+          ],
+          "reason": "Construction failure publishes neither a rule set nor model definitions. Nested cleanup completes before outer rule/rule-set and model-prefix owners; stable receipts preserve source rules, retry from the same frontier and release every root on completion. Cone diagnostics and broader whole-unit audits remain open."
         }
       ],
       "ownership": [
@@ -104862,7 +105005,11 @@
         "pkg/muz/fp/spacer_symbolic_witness_test.go",
         "pkg/muz/transforms/boolean_normalizer.go",
         "pkg/muz/fp/spacer_engine.go",
-        "pkg/cmd/g3/main_test.go"
+        "pkg/cmd/g3/main_test.go",
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/muz/fp/query_expression.go",
+        "pkg/muz/fp/datalog_transform_owners.go",
+        "pkg/muz/fp/datalog_interp_tail_query_test.go"
       ],
       "tests": ["TestBMCQuantifiedLinearProofWithRuleVariables",
         "TestInterpTailSimplifierPropagatesEqualityAndRemovesTruth",
@@ -104875,7 +105022,8 @@
         "TestInterpTailSimplifierPropagatesIffPolarity",
         "TestInterpTailSimplifierRecognizesPairedClauseEquivalence",
         "TestSMTLibRunnerScripts/fixedpoint_spacer_acyclic_inlining.smt2",
-        "TestSMTLibRunnerCPPReference/fixedpoint_spacer_acyclic_inlining.smt2"
+        "TestSMTLibRunnerCPPReference/fixedpoint_spacer_acyclic_inlining.smt2",
+        "TestDatalogInterpretedEqualityPrecedesFiniteCompilation"
       ],
       "assertions": [
         {
@@ -104945,15 +105093,19 @@
         {
           "name": "simplify_expr and transform_rule theory rewriting, conjunction flattening, true removal, and false-rule elimination",
           "status": "ported",
-          "go_target": "pkg/muz/transforms/interp_tail_simplifier.go"
+          "go_target": "pkg/muz/transforms/interp_tail_simplifier.go",
+          "go_targets": ["pkg/muz/fp/propositional_engine.go","pkg/muz/fp/query_expression.go","pkg/muz/fp/datalog_transform_owners.go","pkg/muz/fp/datalog_interp_tail_query_test.go"],
+          "tests": ["TestDatalogInterpretedEqualityPrecedesFiniteCompilation"],
+          "reason": "Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open."
         },
         {
           "name": "rule_substitution and propagate_variable_equivalences for Boolean variables and flexible equality/iff terms",
           "status": "ported",
           "go_target": "pkg/muz/transforms/interp_tail_simplifier.go",
-          "go_targets": ["pkg/muz/transforms/interp_tail_arithmetic_family_test.go", "pkg/muz/fp/spacer_symbolic_witness_test.go"],
-          "tests": ["TestInterpTailSimplifierPreservesArithmeticBounds", "TestSpacerSymbolicNonlinearWitnessOriginalClauses"],
-          "notes": "Family-aware basic operator recognition prevents arithmetic comparison opcodes from seeding equality substitutions. Independent bound equivalence and symbolic nonlinear Spacer witnesses cover the soundness regression."
+          "go_targets": ["pkg/muz/transforms/interp_tail_arithmetic_family_test.go", "pkg/muz/fp/spacer_symbolic_witness_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/datalog_transform_owners.go", "pkg/muz/fp/datalog_interp_tail_query_test.go"],
+          "tests": ["TestInterpTailSimplifierPreservesArithmeticBounds", "TestSpacerSymbolicNonlinearWitnessOriginalClauses", "TestDatalogInterpretedEqualityPrecedesFiniteCompilation"],
+          "notes": "Family-aware basic operator recognition prevents arithmetic comparison opcodes from seeding equality substitutions. Independent bound equivalence and symbolic nonlinear Spacer witnesses cover the soundness regression.",
+          "reason": "Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open."
         },
         {
           "name": "normalizer_cfg sorted AND/OR duplicate normalization and paired-clause equivalence recognition",
@@ -105000,14 +105152,19 @@
       "go_targets": [
         "pkg/muz/transforms/interp_tail_simplifier.go",
         "pkg/muz/transforms/interp_tail_close_pending_test.go",
-        "pkg/muz/transforms/boolean_normalizer.go"
+        "pkg/muz/transforms/boolean_normalizer.go",
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/muz/fp/query_expression.go",
+        "pkg/muz/fp/datalog_transform_owners.go",
+        "pkg/muz/fp/datalog_interp_tail_query_test.go"
       ],
       "tests": [
         "TestInterpTailSimplifierPropagatesEqualityAndRemovesTruth",
         "TestInterpTailSimplifierDropsFalseRule",
         "TestInterpTailClosePreservesRewriterWhileManagerExecutes",
         "TestInterpTailSimplifierPropagatesIffPolarity",
-        "TestInterpTailSimplifierRecognizesPairedClauseEquivalence"
+        "TestInterpTailSimplifierRecognizesPairedClauseEquivalence",
+        "TestDatalogInterpretedEqualityPrecedesFiniteCompilation"
       ],
       "conditionals": [
         {
@@ -105025,7 +105182,10 @@
         {
           "name": "mk_interp_tail_simplifier plugin surface and rule_substitution live specialization",
           "status": "ported",
-          "go_target": "pkg/muz/transforms/interp_tail_simplifier.go"
+          "go_target": "pkg/muz/transforms/interp_tail_simplifier.go",
+          "go_targets": ["pkg/muz/fp/propositional_engine.go","pkg/muz/fp/query_expression.go","pkg/muz/fp/datalog_transform_owners.go","pkg/muz/fp/datalog_interp_tail_query_test.go"],
+          "tests": ["TestDatalogInterpretedEqualityPrecedesFiniteCompilation"],
+          "reason": "Finite Datalog query normalization runs interpreted-tail simplification at source priority 40000 after cone pruning and before filter/simple joins (rel_context.cpp:297-316). Supplied or query-local fallback parameter services enable equality propagation before compilation, avoid redundant runtime interpreted filters and preserve persistent rules/predicates through repeated queries and fact updates. Fallback services outlive their query-owned transformer and remain reachable for cleanup retry; broader transform-pipeline completion remains open."
         },
         {
           "name": "normalizer_cfg and normalizer_rw specialized Boolean normalizer declarations",
@@ -147359,7 +147519,8 @@
         "pkg/smtcore/theory_bv_test.go",
         "pkg/smtcore/smt_solver_test.go",
         "pkg/smtcore/theory_str_expression_solver.go",
-        "pkg/smtcore/theory_str_expression_solver_test.go"
+        "pkg/smtcore/theory_str_expression_solver_test.go",
+        "pkg/smtcore/smt_solver_scope_failure_test.go"
       ],
       "tests": [
         "TestSMTKernelAssertionCheckAndDecisionClause",
@@ -147397,7 +147558,9 @@
         "TestSMTStringExpressionSolverBitVectorPredicates",
         "TestSMTStringExpressionSolverAutomatonConsumer",
         "TestSMTStringExpressionSolverConstructionFailureKeepsParent",
-        "TestSMTStringExpressionSolverTheoryCloseAndConstructorGuards"
+        "TestSMTStringExpressionSolverTheoryCloseAndConstructorGuards",
+        "TestSMTSolverPendingPopResumesAfterKernelPublication",
+        "TestSMTSolverCloseDoesNotReplayPartiallyConsumedKernelPop"
       ],
       "methods_audited": true,
       "ownership_audited": true,
@@ -147411,8 +147574,12 @@
             "TestSMTKernelConflictLearningProvesBooleanUnsat",
             "TestSMTKernelFlattensNegatedDisjunctionAssertion",
             "TestSMTKernelFlattenedAssertionsOwnDerivedProofs",
-            "TestSMTKernelScopesRestoreAssertionsAndContext"
-          ]
+            "TestSMTKernelScopesRestoreAssertionsAndContext",
+            "TestSMTSolverPendingPopResumesAfterKernelPublication",
+            "TestSMTSolverCloseDoesNotReplayPartiallyConsumedKernelPop"
+          ],
+          "go_targets": ["pkg/smtcore/smt_solver.go","pkg/smtcore/smt_kernel.go","pkg/smtcore/smt_solver_scope_failure_test.go"],
+          "reason": "The kernel facade exposes its post-publication Pop cleanup tail to the concrete solver owner (smt_kernel.cpp:92-99,249-254). The explicit Go continuation records only scopes actually published by the kernel. After kernel Pop publication, cache/result/tracked-root cleanup resumes without another Pop, unrelated operations reject while cleanup is pending and Close/DecRef may retire the owner directly. Arbitrary failures inside a partially completed kernel Pop remain a separate ownership audit."
         },
         {
           "name": "propositional assumption validation and scoped checking",
@@ -147643,7 +147810,8 @@
         "pkg/smtcore/smt_setup_check_test.go",
         "pkg/cmd/g3/main_test.go",
         "pkg/smtcore/theory_str_expression_solver.go",
-        "pkg/smtcore/theory_str_expression_solver_test.go"
+        "pkg/smtcore/theory_str_expression_solver_test.go",
+        "pkg/smtcore/smt_solver_scope_failure_test.go"
       ],
       "tests": [
         "TestSMTKernelAssertionCheckAndDecisionClause",
@@ -147676,7 +147844,9 @@
         "TestSMTStringExpressionSolverBitVectorPredicates",
         "TestSMTStringExpressionSolverAutomatonConsumer",
         "TestSMTStringExpressionSolverConstructionFailureKeepsParent",
-        "TestSMTStringExpressionSolverTheoryCloseAndConstructorGuards"
+        "TestSMTStringExpressionSolverTheoryCloseAndConstructorGuards",
+        "TestSMTSolverPendingPopResumesAfterKernelPublication",
+        "TestSMTSolverCloseDoesNotReplayPartiallyConsumedKernelPop"
       ],
       "conditionals": [
         {
@@ -147700,8 +147870,12 @@
             "TestSMTKernelConflictLearningProvesBooleanUnsat",
             "TestSMTKernelFlattensNegatedDisjunctionAssertion",
             "TestSMTKernelFlattenedAssertionsOwnDerivedProofs",
-            "TestSMTKernelScopesRestoreAssertionsAndContext"
-          ]
+            "TestSMTKernelScopesRestoreAssertionsAndContext",
+            "TestSMTSolverPendingPopResumesAfterKernelPublication",
+            "TestSMTSolverCloseDoesNotReplayPartiallyConsumedKernelPop"
+          ],
+          "go_targets": ["pkg/smtcore/smt_solver.go","pkg/smtcore/smt_kernel.go","pkg/smtcore/smt_solver_scope_failure_test.go"],
+          "reason": "The kernel facade exposes its post-publication Pop cleanup tail to the concrete solver owner (smt_kernel.cpp:92-99,249-254). The explicit Go continuation records only scopes actually published by the kernel. After kernel Pop publication, cache/result/tracked-root cleanup resumes without another Pop, unrelated operations reject while cleanup is pending and Close/DecRef may retire the owner directly. Arbitrary failures inside a partially completed kernel Pop remain a separate ownership audit."
         },
         {
           "name": "propositional assumption checking",
@@ -153141,7 +153315,8 @@
         "pkg/smtcore/smt_boolean_activity.go",
         "pkg/cmd/g3/test_vectors/queue_factory_fallback_scopes.smt2",
         "pkg/cmd_context/solver_translation_config.go",
-        "pkg/api/api_simple_solver_translate_test.go"
+        "pkg/api/api_simple_solver_translate_test.go",
+        "pkg/smtcore/smt_solver_scope_failure_test.go"
       ],
       "tests": [
         "TestSMTBitVectorTranslationOwnersModelsAndIndependentScopes",
@@ -153179,7 +153354,10 @@
         "TestSMTCaseSplitFactoryWarningBeforeMutationAndAllocationRefusal",
         "TestSMTCaseSplitFactoryWarningDisabledOrRefusedStillMutates",
         "TestSMTCaseSplitFactoryDoesNotReplaceAlreadyConstructedRawContext",
-        "TestAPISimpleSolverTranslateIndependentContext"
+        "TestAPISimpleSolverTranslateIndependentContext",
+        "TestSMTSolverFailedPushReportsOnlyPublishedScopes",
+        "TestSMTSolverPendingPopResumesAfterKernelPublication",
+        "TestSMTSolverCloseDoesNotReplayPartiallyConsumedKernelPop"
       ],
       "assertions": [
         {
@@ -153249,8 +153427,13 @@
             "TestSMTSolverReasonUnknownUsesKernelFailure",
             "TestSMTSolverPublishesRelevantLabelsInInternalizationOrder",
             "TestSMTSolverTranslatesBaseKernelAndTrackedAssertions",
-            "TestSMTSolverFactoryAndUnsupportedKernelPrerequisites"
-          ]
+            "TestSMTSolverFactoryAndUnsupportedKernelPrerequisites",
+            "TestSMTSolverFailedPushReportsOnlyPublishedScopes",
+            "TestSMTSolverPendingPopResumesAfterKernelPublication",
+            "TestSMTSolverCloseDoesNotReplayPartiallyConsumedKernelPop"
+          ],
+          "go_targets": ["pkg/smtcore/smt_solver.go","pkg/smtcore/smt_kernel.go","pkg/smtcore/smt_solver_scope_failure_test.go"],
+          "reason": "Source push_core/pop_core (smt_solver.cpp:118-138) preserve published scope state through native cleanup errors. The explicit Go continuation records only scopes actually published by the kernel. After kernel Pop publication, cache/result/tracked-root cleanup resumes without another Pop, unrelated operations reject while cleanup is pending and Close/DecRef may retire the owner directly. Arbitrary failures inside a partially completed kernel Pop remain a separate ownership audit."
         },
         {
           "name": "parameter storage and update",
@@ -178062,7 +178245,8 @@
       "go_targets": [
         "pkg/solver/named_assertions.go",
         "pkg/solver/named_assertions_test.go",
-        "pkg/solver/named_assertions_owner_test.go"
+        "pkg/solver/named_assertions_owner_test.go",
+        "pkg/solver/named_assertions_scope_failure_test.go"
       ],
       "tests": [
         "TestNamedAssertionsTrackedChecksScopesAndTemporaryAssumptions",
@@ -178071,7 +178255,8 @@
         "TestNamedAssertionImplicationOwnedAcrossCoreAndErrors",
         "TestNamedAssertionNullTagBorrowsInput",
         "TestNamedAssertionStoppedLocalPrecedesMemberRetirement",
-        "TestNamedAssertionInterruptedRangeRetirementRequiresClose"
+        "TestNamedAssertionInterruptedRangeRetirementRequiresClose",
+        "TestNamedAssertionsFailedPushTracksCorePublication"
       ],
       "assertions": [
         {
@@ -178113,8 +178298,11 @@
           "status": "ported",
           "go_target": "pkg/solver/named_assertions.go",
           "tests": [
-            "TestNamedAssertionsTrackedChecksScopesAndTemporaryAssumptions"
-          ]
+            "TestNamedAssertionsTrackedChecksScopesAndTemporaryAssumptions",
+            "TestNamedAssertionsFailedPushTracksCorePublication"
+          ],
+          "go_targets": ["pkg/solver/named_assertions.go","pkg/solver/named_assertions_scope_failure_test.go"],
+          "reason": "Named scope markers preserve source append-before-core-Push order. If the concrete core reports an error before publishing a scope, the phantom local marker is removed; a scope that was published remains recorded for cleanup."
         },
         {
           "name": "Source ref_vector forward removed-range retirement for temporary check/consequence assumptions and adapter Close; reached zero tokens retained until range completion for explicit Go retry",
@@ -178158,7 +178346,8 @@
       "go_targets": [
         "pkg/solver/named_assertions.go",
         "pkg/solver/named_assertions_test.go",
-        "pkg/solver/named_assertions_owner_test.go"
+        "pkg/solver/named_assertions_owner_test.go",
+        "pkg/solver/named_assertions_scope_failure_test.go"
       ],
       "tests": [
         "TestNamedAssertionsTrackedChecksScopesAndTemporaryAssumptions",
@@ -178167,7 +178356,8 @@
         "TestNamedAssertionImplicationOwnedAcrossCoreAndErrors",
         "TestNamedAssertionNullTagBorrowsInput",
         "TestNamedAssertionStoppedLocalPrecedesMemberRetirement",
-        "TestNamedAssertionInterruptedRangeRetirementRequiresClose"
+        "TestNamedAssertionInterruptedRangeRetirementRequiresClose",
+        "TestNamedAssertionsFailedPushTracksCorePublication"
       ],
       "conditionals": [
         {
@@ -178188,8 +178378,11 @@
           "go_target": "pkg/solver/named_assertions.go",
           "tests": [
             "TestNamedAssertionsTrackedChecksScopesAndTemporaryAssumptions",
-            "TestNamedAssertionsWithAssumptionsAndInvalidTag"
-          ]
+            "TestNamedAssertionsWithAssumptionsAndInvalidTag",
+            "TestNamedAssertionsFailedPushTracksCorePublication"
+          ],
+          "go_targets": ["pkg/solver/named_assertions.go","pkg/solver/named_assertions_scope_failure_test.go"],
+          "reason": "Named scope markers preserve source append-before-core-Push order. If the concrete core reports an error before publishing a scope, the phantom local marker is removed; a scope that was published remains recorded for cleanup."
         },
         {
           "name": "Source ref_vector forward removed-range retirement for temporary check/consequence assumptions and adapter Close; reached zero tokens retained until range completion for explicit Go retry",
