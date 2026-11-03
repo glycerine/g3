@@ -30,18 +30,21 @@ func (c *Context) RulesAlongTrace() (result []*base.Rule, resultErr error) {
 	if len(roots) == 0 {
 		return nil, nil
 	}
+	attempt := &spacerTraceCleanupAttempt{manager: c.manager, facts: roots}
 	queue := []*ReachFact{roots[len(roots)-1]}
-	for index := 0; index < len(roots)-1; index++ {
-		resultErr = errors.Join(resultErr, roots[index].Close())
-	}
 	defer func() {
-		for index := len(queue) - 1; index >= 0; index-- {
-			resultErr = errors.Join(resultErr, queue[index].Close())
-		}
-		if resultErr != nil {
-			for index := len(result) - 1; index >= 0; index-- {
-				resultErr = errors.Join(resultErr, result[index].Close())
+		if resultErr == nil {
+			if cleanup := attempt.closeFacts(); cleanup == nil {
+				attempt.rules = nil // transfer successful rule owners to caller
+				return
+			} else {
+				resultErr = &spacerTraceCleanupFailure{attempt: attempt, cause: cleanup, cleanupErr: cleanup, reported: cleanup, reportText: cleanup.Error()}
+				result = nil
+				return
 			}
+		}
+		resultErr = attempt.finish(resultErr)
+		if resultErr != nil {
 			result = nil
 		}
 	}()
@@ -51,11 +54,13 @@ func (c *Context) RulesAlongTrace() (result []*base.Rule, resultErr error) {
 			return result, err
 		}
 		result = append(result, rule)
+		attempt.rules = append(attempt.rules, rule)
 		children, err := queue[current].Justifications()
 		if err != nil {
 			return result, err
 		}
 		queue = append(queue, children...)
+		attempt.facts = append(attempt.facts, children...)
 		if current == 0 && len(children) != 1 {
 			return result, errors.Join(resultErr, writeSpacerVerbose(1, "Warning: counterexample is trivial or non-existent\n"))
 		}

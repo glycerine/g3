@@ -186,6 +186,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
     - [ ] Complete trace-only exception diagnostics and independent destruction failures after AST-manager admission; native constant-probe evidence does not close those paths.
     - [x] Preserve base.Rule final-owner roots across AST execution-guard refusal and an active accounting-parent recorder; keep RuleSelection's owner/metadata attached when rule cleanup is refused.
     - [ ] Audit independent failures after individual rule AST releases have begun; pending-entry and accounting refusal tests do not close every numerical-deallocation continuation.
+      - [x] Preserve a partially destroyed ReachFact after its fact/auxiliary AST prefix has retired but its retained rule refuses cleanup, with a stable runtime receipt and exact retry frontier.
 - [ ] Close `spacer_util` model evaluation, QE/MBP, array auxiliaries, appended datatype literals and source diagnostics.
   - [x] Apply model_evaluator_util typed-exception policy to MBQI warm/variable/candidate evaluation; verify a single interrupted candidate declines elimination without error, a subsequent candidate preserves the traversal precondition, unchanged formula/reference ownership and fresh-evaluator retry.
   - [x] Print nullable MBQI evaluation outputs as source `mk_ismt2_pp` does, without formatter allocation.
@@ -218,6 +219,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Forward `get_reachable` through the active Spacer expression-query clone; independently prove the repeated-query summary, reject stale access after mutation and preserve returned ownership after disposal.
   - [x] Recheck the source presentation contract: context::get_proof is empty and display_certificate is a no-op; the interface forwards both directly. Internal rule/SMT proofs remain distinct from an exported overall Spacer proof.
   - [x] Align context::get_rules_along_trace's non-SAT branch with the source empty return and level-1 diagnostic (spacer_context.cpp:2332-2337); verify unsolved/UNDEF/UNSAT/SAT at verbosity 0/1, an unconfigured context, closed-owner rejection, SAT rule ownership and unchanged public snapshot guards.
+  - [x] Own all facts and copied rules during SAT trace traversal so semantic or cleanup failure publishes no partial trace and preserves the exact remaining cleanup frontier for retry.
   - [x] Verify ground-answer unavailable/trivial diagnostics and result ownership (spacer_context.cpp:2436 onward): unsolved/UNDEF/UNSAT/SAT at verbosity 0/1, zero/multiple root justifications, true/null fallback, exact query-wrapper trace stop and declaration/closed-owner guards. Existing nullary-root/model-completion tests remain intact.
   - [ ] Finish SAT witness and named-rule validation for uneven nonlinear/shared derivations: source traversal is queue order, despite its preorder comment; retain repeated derivation occurrences and original-rule names through conversions.
     - [x] Verify a direct-context uneven nonlinear derivation that uses the same ground integer leaf twice: exact six-occurrence ground answer, seven-rule queue order, independent SMT justification per exported step and separate returned-rule ownership after context disposal.
@@ -516,6 +518,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/transforms/dl_mk_slice.cpp` (partial)
 
 ## Progress log
+
+- 2026-11-02 — Spacer ReachFact construction and SAT trace export now keep every partially advanced fact/rule owner under stable retry receipts. Refused destruction after individual AST releases preserves the exact remaining frontier; trace traversal suppresses partial rule publication, freezes semantic/cleanup presentation and drains facts before copied rules on idempotent retry. Other post-admission destruction continuations remain open.
+  Validation: `go -C pkg test ./muz/spacer -run '^(TestReachFact|TestSpacerTrace|TestSpacer.*RulesAlongTrace)' -count=1` passed, and the focused reach/trace/depth family passed in 0.134s. Commit title: `Preserve Spacer reach facts and traces through cleanup refusal`.
 
 - 2026-11-02 — Whole-array legacy projection now finalizes its lexical `current` AST reference and unpublished result through one retryable owner. Earlier nested construction receipts drain first, late native current-release refusal preserves both concrete owners, and no partial result publishes before idempotent cleanup; other parent-continuation paths remain open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyWholeArrayFinalizationPreservesCurrentAndResultOnNativeRefusal|TestLegacyWholeArray|TestLegacyArray.*Pending)' -count=2` passed. Commit title: `Preserve whole array projection finalization owners`.

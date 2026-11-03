@@ -7,7 +7,52 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
+
+// reachFactConstructionFailure preserves a partially destroyed reach fact
+// when exceptional constructor cleanup is refused. Close advances through
+// justifications, AST roots, and the retained rule independently, so retrying
+// the same concrete owner resumes at the first unconsumed resource.
+type reachFactConstructionFailure struct {
+	owner             *ReachFact
+	runtime           *memory.Runtime
+	cause, cleanupErr error
+	reported          error
+	reportText        string
+}
+
+func (f *reachFactConstructionFailure) Error() string                 { return f.reportText }
+func (f *reachFactConstructionFailure) Unwrap() error                 { return f.reported }
+func (f *reachFactConstructionFailure) RuntimeOwner() *memory.Runtime { return f.runtime }
+func (f *reachFactConstructionFailure) OriginalCause() error          { return f.cause }
+func (f *reachFactConstructionFailure) CleanupCause() error           { return f.cleanupErr }
+func (f *reachFactConstructionFailure) Cleanup() error {
+	if f.owner == nil {
+		f.cleanupErr = nil
+		return nil
+	}
+	f.cleanupErr = f.owner.Close()
+	if f.cleanupErr == nil {
+		f.owner = nil
+	}
+	return f.cleanupErr
+}
+
+var _ memory.ConstructionFailure = (*reachFactConstructionFailure)(nil)
+
+func finishReachFactConstruction(cause error, owner *ReachFact) error {
+	if owner == nil {
+		return cause
+	}
+	runtime := owner.state.manager.NumeralService().RuntimeOwner()
+	cleanup := owner.Close()
+	if cleanup == nil {
+		return cause
+	}
+	reported := errors.Join(cause, cleanup)
+	return &reachFactConstructionFailure{owner: owner, runtime: runtime, cause: cause, cleanupErr: cleanup, reported: reported, reportText: reported.Error()}
+}
 
 type reachFactState struct {
 	manager        *ast.ASTManager
@@ -38,7 +83,7 @@ func NewReachFact(manager *ast.ASTManager, rule *base.Rule, fact ast.ASTHandle, 
 	result := &ReachFact{state: state}
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+			resultErr = finishReachFactConstruction(resultErr, result)
 		}
 	}()
 	state.fact, err = manager.NewRef(fact)

@@ -21,6 +21,7 @@ func TestReachFactClosePreservesOwnersDuringASTInvocation(t *testing.T) {
 	}
 	budget := arena.NewBudget(1 << 28)
 	var fact, shared *ReachFact
+	var construction memory.ConstructionFailure
 	var selection RuleSelection
 	active, callbacks, intact := false, 0, true
 	var closeErr error
@@ -45,6 +46,8 @@ func TestReachFactClosePreservesOwnersDuringASTInvocation(t *testing.T) {
 				closeErr = fact.Close()
 				intact = intact && errors.Is(closeErr, ast.ErrASTPending) && !fact.closed && fact.state == state && state.fact == root && len(state.auxiliaries) == aux && len(state.justifications) == justifications && state.references == refs
 			}
+			failure := finishReachFactConstruction(ast.ErrASTDomain, fact)
+			intact = intact && errors.As(failure, &construction) && errors.Is(construction.OriginalCause(), ast.ErrASTDomain) && errors.Is(construction.CleanupCause(), ast.ErrASTPending)
 		}
 		return f
 	}})
@@ -132,8 +135,22 @@ func TestReachFactClosePreservesOwnersDuringASTInvocation(t *testing.T) {
 		t.Fatal("pending close changed justification")
 	}
 	must(justifications[0].Close())
-	must(fact.Close())
-	must(fact.Close())
+	if construction == nil {
+		t.Fatal("constructor cleanup refusal did not publish an owner")
+	}
+	if construction.RuntimeOwner() != runtime {
+		t.Fatal("constructor cleanup refusal lost native runtime identity")
+	}
+	reportedText := construction.Error()
+	if !errors.Is(construction, ast.ErrASTDomain) || !errors.Is(construction, ast.ErrASTPending) {
+		t.Fatal("constructor cleanup refusal omitted joined causes", construction)
+	}
+	must(construction.Cleanup())
+	must(construction.Cleanup())
+	if construction.Error() != reportedText || !errors.Is(construction, ast.ErrASTDomain) || !errors.Is(construction, ast.ErrASTPending) || construction.CleanupCause() != nil {
+		t.Fatal("constructor cleanup refusal changed its report after retry", construction, construction.CleanupCause())
+	}
+	fact = nil
 	must(selection.Close())
 	must(selection.Close())
 }
