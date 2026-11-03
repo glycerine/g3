@@ -463,7 +463,7 @@ func TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan(t *test
 }
 
 func TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks(t *testing.T) {
-	for _, shape := range []string{"self", "constant", "reordered", "repeated", "nullary", "mutual-recursion"} {
+	for _, shape := range []string{"self", "constant", "unsafe-head", "repeated", "nullary", "mutual-recursion"} {
 		t.Run(shape, func(t *testing.T) {
 			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 			family, err := manager.RegisterArithmeticPlugin()
@@ -471,7 +471,7 @@ func TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks(
 			integer, err := manager.MkFamilySort(family, 1, nil)
 			fragmentMust(t, err)
 			sorts := []ast.ASTHandle{integer}
-			if shape == "reordered" || shape == "repeated" {
+			if shape == "unsafe-head" || shape == "repeated" {
 				sorts = []ast.ASTHandle{integer, integer}
 			}
 			if shape == "nullary" {
@@ -497,8 +497,9 @@ func TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks(
 				value, valueErr := manager.ArithmeticIntegerNumeralText("9")
 				fragmentMust(t, valueErr)
 				tailArguments[0], headArguments[0] = value, value
-			case "reordered":
-				headArguments[0], headArguments[1] = headArguments[1], headArguments[0]
+			case "unsafe-head":
+				headArguments[1], err = manager.MkVar(2, integer)
+				fragmentMust(t, err)
 			case "repeated":
 				tailArguments[1], headArguments[1] = tailArguments[0], headArguments[0]
 			}

@@ -20,6 +20,8 @@ type externalIntervalCallbackState struct {
 	joinParameters    [][]uint32
 	projectParameters [][]uint32
 	renameParameters  [][]uint32
+	filterColumns     [][]uint32
+	filterArguments   []ast.ASTHandle
 	refusalOperation  int32
 	refusalAt         int
 	refusal           error
@@ -69,6 +71,17 @@ func (s *externalIntervalCallbackState) callbacks() rel.ExternalRelationCallback
 				s.nonempty[outputs[0]] = s.nonempty[arguments[0]] || s.nonempty[arguments[1]]
 			case ast.DatalogOpStore:
 				s.nonempty[outputs[0]] = true
+			case ast.DatalogOpFilter:
+				if len(arguments) != 1 || len(outputs) != 1 {
+					return fmt.Errorf("unexpected external/interval FILTER arguments %d/%d", len(arguments), len(outputs))
+				}
+				if err = s.recordEqualityFilter(declaration); err != nil {
+					return err
+				}
+				s.filterArguments = append(s.filterArguments, arguments[0])
+				// This external component approximates equality; the interval
+				// component independently detects disjoint column bounds.
+				s.nonempty[outputs[0]] = s.nonempty[arguments[0]]
 			default:
 				return fmt.Errorf("unexpected external/interval assignment operation %d", op)
 			}
@@ -161,6 +174,53 @@ func (s *externalIntervalCallbackState) callbacks() rel.ExternalRelationCallback
 			}
 		},
 	}
+}
+
+func (s *externalIntervalCallbackState) recordEqualityFilter(declaration ast.ASTHandle) (resultErr error) {
+	parameters, err := s.manager.GetDeclParametersCopy(declaration)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		for i := range parameters {
+			resultErr = errors.Join(resultErr, s.manager.DelParameter(&parameters[i]))
+		}
+	}()
+	if len(parameters) != 1 {
+		return fmt.Errorf("unexpected FILTER parameter count %d", len(parameters))
+	}
+	condition, err := s.manager.ParameterAST(parameters[0])
+	if err != nil {
+		return err
+	}
+	decl, err := s.manager.GetDecl(condition)
+	if err != nil {
+		return err
+	}
+	kind, err := s.manager.GetDeclKind(decl)
+	if err != nil {
+		return err
+	}
+	count, err := s.manager.GetNumArgs(condition)
+	if err != nil {
+		return err
+	}
+	if kind != ast.ASTOpEq || count != 2 {
+		return fmt.Errorf("unexpected FILTER condition %d/%d", kind, count)
+	}
+	columns := make([]uint32, count)
+	for i := range columns {
+		argument, cause := s.manager.GetArg(condition, uint32(i))
+		if cause != nil {
+			return cause
+		}
+		columns[i], cause = s.manager.GetVarIndex(argument)
+		if cause != nil {
+			return cause
+		}
+	}
+	s.filterColumns = append(s.filterColumns, columns)
+	return nil
 }
 
 func newExternalIntervalDatalogFixture(t *testing.T) (*ast.ASTManager, *PropositionalEngine, *externalIntervalCallbackState) {

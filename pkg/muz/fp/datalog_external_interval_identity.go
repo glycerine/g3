@@ -14,31 +14,18 @@ import (
 )
 
 type externalIntervalDatalogIdentityRule struct {
-	head ast.ASTHandle
-	tail ast.ASTHandle
+	head      ast.ASTHandle
+	tail      ast.ASTHandle
+	transform *externalIntervalDatalogUnaryTransform
 }
 
 func sameExternalIntervalIdentityRule(left, right *externalIntervalDatalogIdentityRule) bool {
-	return left != nil && right != nil && left.head == right.head && left.tail == right.tail
-}
-
-func externalIntervalIdentitySpecsEqual(head, tail *predicateState) bool {
-	if head == nil || tail == nil || !isExternalIntervalRepresentation(head.requestedRepresentations) ||
-		!isExternalIntervalRepresentation(tail.requestedRepresentations) ||
-		len(head.sorts) == 0 || len(head.sorts) != len(tail.sorts) {
-		return false
-	}
-	for i := range head.sorts {
-		if head.sorts[i] != tail.sorts[i] {
-			return false
-		}
-	}
-	return true
+	return left != nil && right != nil && left.head == right.head && left.tail == right.tail && sameExternalIntervalUnaryTransform(left.transform, right.transform)
 }
 
 // externalIntervalIdentityRule validates the complete rule fragment without
-// invoking relation callbacks. Zero rules keeps the rule-free activation; the
-// only admitted rule is one acyclic, aligned, unique-variable identity edge.
+// invoking relation callbacks. Positive variable-only tails may filter repeated
+// columns and project or permute distinct bound head variables.
 func (e *PropositionalEngine) externalIntervalIdentityRule() (_ *externalIntervalDatalogIdentityRule, resultErr error) {
 	count, err := e.set.Len()
 	if err != nil {
@@ -59,101 +46,11 @@ func (e *PropositionalEngine) externalIntervalIdentityRule() (_ *externalInterva
 }
 
 func (e *PropositionalEngine) externalIntervalIdentityRulePlan(rule *base.Rule) (*externalIntervalDatalogIdentityRule, error) {
-	total, err := rule.TailSize()
+	head, tail, transform, err := e.externalIntervalUnaryPlan(rule)
 	if err != nil {
 		return nil, err
 	}
-	positive, err := rule.PositiveTailSize()
-	if err != nil {
-		return nil, err
-	}
-	uninterpreted, err := rule.UninterpretedTailSize()
-	if err != nil {
-		return nil, err
-	}
-	if total != 1 || positive != 1 || uninterpreted != 1 {
-		return nil, ErrExternalIntervalDatalogFragment
-	}
-	head, err := rule.Head()
-	if err != nil {
-		return nil, err
-	}
-	tail, negated, err := rule.Tail(0)
-	if err != nil {
-		return nil, err
-	}
-	if negated {
-		return nil, ErrExternalIntervalDatalogFragment
-	}
-	headDeclaration, err := e.manager.GetDecl(head)
-	if err != nil {
-		return nil, err
-	}
-	tailDeclaration, err := e.manager.GetDecl(tail)
-	if err != nil {
-		return nil, err
-	}
-	if headDeclaration == tailDeclaration || !externalIntervalIdentitySpecsEqual(e.predicates[headDeclaration], e.predicates[tailDeclaration]) {
-		return nil, ErrExternalIntervalDatalogFragment
-	}
-	headCount, err := e.manager.GetNumArgs(head)
-	if err != nil {
-		return nil, err
-	}
-	tailCount, err := e.manager.GetNumArgs(tail)
-	if err != nil {
-		return nil, err
-	}
-	headState := e.predicates[headDeclaration]
-	if headCount == 0 || headCount != tailCount || int(headCount) != len(headState.sorts) {
-		return nil, ErrExternalIntervalDatalogFragment
-	}
-	seen := make(map[uint32]bool, headCount)
-	for column := uint32(0); column < headCount; column++ {
-		tailArgument, cause := e.manager.GetArg(tail, column)
-		if cause != nil {
-			return nil, cause
-		}
-		headArgument, cause := e.manager.GetArg(head, column)
-		if cause != nil {
-			return nil, cause
-		}
-		tailKind, cause := e.manager.GetKind(tailArgument)
-		if cause != nil {
-			return nil, cause
-		}
-		headKind, cause := e.manager.GetKind(headArgument)
-		if cause != nil {
-			return nil, cause
-		}
-		if tailKind != ast.ASTVar || headKind != ast.ASTVar {
-			return nil, ErrExternalIntervalDatalogFragment
-		}
-		tailVariable, cause := e.manager.GetVarIndex(tailArgument)
-		if cause != nil {
-			return nil, cause
-		}
-		headVariable, cause := e.manager.GetVarIndex(headArgument)
-		if cause != nil {
-			return nil, cause
-		}
-		if tailVariable != headVariable || seen[tailVariable] {
-			return nil, ErrExternalIntervalDatalogFragment
-		}
-		seen[tailVariable] = true
-		tailSort, cause := e.manager.GetSort(tailArgument)
-		if cause != nil {
-			return nil, cause
-		}
-		headSort, cause := e.manager.GetSort(headArgument)
-		if cause != nil {
-			return nil, cause
-		}
-		if tailSort != headState.sorts[column] || headSort != headState.sorts[column] {
-			return nil, ErrExternalIntervalDatalogFragment
-		}
-	}
-	return &externalIntervalDatalogIdentityRule{head: headDeclaration, tail: tailDeclaration}, nil
+	return &externalIntervalDatalogIdentityRule{head: head, tail: tail, transform: transform}, nil
 }
 
 type externalIntervalDatalogIdentityContinuation struct {
@@ -253,6 +150,9 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalIdentity() (r
 			return a.executeExternalIntervalCartesian()
 		}
 		return nil
+	}
+	if a.identity.transform != nil {
+		return a.executeExternalIntervalUnary(a.identity, a.identity.transform)
 	}
 	registers, err := a.loadExternalIntervalDatalogRegisters([]ast.ASTHandle{a.identity.head, a.identity.tail})
 	if err != nil {
