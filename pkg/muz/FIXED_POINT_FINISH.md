@@ -501,6 +501,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Force single-fact removal through either concrete Sparse storage or the source nullary Hash fallback without mutating the deferred source.
   - [x] Force and complement deferred sparse or nullary storage with functional-suffix semantics, adopting an independently owned lazy result in the same engine.
   - [x] Clone deferred LazySparse storage into an independently mutable same-engine base while preserving sparse functional metadata or the nullary Hash fallback.
+  - [x] Force generic lazy-table iteration for source table display, preserving concrete insertion order and propagating writer failures.
 - [ ] `src/muz/rel/dl_mk_explanations.cpp` (partial), `src/muz/rel/dl_mk_explanations.h` (partial)
 - [ ] `src/muz/rel/dl_mk_similarity_compressor.cpp` (partial), `src/muz/rel/dl_mk_similarity_compressor.h` (partial)
   - [x] Preserve rewritten rules and temporary AST roots through native cleanup refusal with nested child-first retry and no partial transformation publication.
@@ -699,6 +700,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Interval-backed sieves now rename outer columns using the source cycle direction and derive the exact permutation of selected interval columns. Selected and ignored coordinates may cross positions, ignored values remain unconstrained, empty/source owners stay independent and invalid cycles reject before mutation; wider sieve dispatch remains open.
   Validation: `go -C pkg test ./muz/rel -run '^TestIntervalSieveRename' -count=5` passed. Commit title: `Rename interval sieve columns directly`.
+
+- 2026-11-02 — Generic lazy tables now expose source display through the forcing iterator boundary. Deferred roots stay unforced until display, concrete signature/row formatting and insertion order are preserved, the source owner remains independent and writer refusal propagates unchanged; this does not claim new registered LazySparse activation.
+  Validation: `go -C pkg test ./muz/rel -run '^(TestLazyTableDisplay|TestHashTableDisplay)' -count=5` passed. Commit title: `Display lazy tables through concrete iteration`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
