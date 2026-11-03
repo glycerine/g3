@@ -262,6 +262,22 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 		proofRef, err = m.NewRef(proof)
 		return next, proofRef, err
 	}
+	if previous != nil {
+		normalized, e := normalizer.NormalizeResolvedRule(next)
+		if e != nil {
+			return next, proofRef, fmt.Errorf("pre-normalize: %w", e)
+		}
+		if e = next.Close(); e != nil {
+			if normalized != nil {
+				temporaryRules = append(temporaryRules, normalized)
+			}
+			return next, proofRef, e
+		}
+		next = normalized
+		if next == nil {
+			return nil, proofRef, ast.ErrASTDomain
+		}
+	}
 	formula, err := next.ToFormula()
 	if err != nil {
 		return next, proofRef, err
@@ -274,34 +290,6 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 	resolvedProof, err := m.MkProofHyperResolve(premises, conclusion, positions, substitutions)
 	if err != nil {
 		return next, proofRef, err
-	}
-	if previous != nil {
-		// Prove the raw resolvent first so interpreted-tail normalization can
-		// preserve its proof through explicit rewrite/modus-ponens steps.
-		if err = next.SetProof(resolvedProof); err != nil {
-			return next, proofRef, err
-		}
-		normalized, e := normalizer.NormalizeResolvedRule(next)
-		if e != nil {
-			return next, proofRef, e
-		}
-		if e = next.Close(); e != nil {
-			if normalized != nil {
-				// Keep the unpublished normalized rule in the same retry owner as
-				// the raw resolvent whose close was refused.
-				temporaryRules = append(temporaryRules, normalized)
-			}
-			return next, proofRef, e
-		}
-		next = normalized
-		if next == nil {
-			return nil, proofRef, ast.ErrASTDomain
-		}
-		var found bool
-		resolvedProof, found, err = next.Proof()
-		if err != nil || !found {
-			return next, proofRef, errors.Join(err, ast.ErrASTDomain)
-		}
 	}
 	proofRef, err = m.NewRef(resolvedProof)
 	return next, proofRef, err

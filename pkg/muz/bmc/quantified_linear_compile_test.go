@@ -286,6 +286,41 @@ func TestBMCQuantifiedLinearSearchPreservesSolverScope(t *testing.T) {
 	if limitedErr == nil || limitedStatus != lbool.Undef || limitedWidth != 4 || limitedModel != nil {
 		t.Fatal("post-compilation quantified checkpoint was skipped", limitedStatus, limitedWidth, limitedModel, limitedErr)
 	}
+	// Source consumes the selected model before popping the width scope.
+	baseline, err := solver.ScopeLevel()
+	must(err)
+	called := false
+	statusInScope, widthInScope, scopedModel, err := compiler.SearchQuantifiedLinearInScope(set, goal, solver, func(width uint32, candidate *model.ModelCore) error {
+		called = true
+		depth, e := solver.ScopeLevel()
+		if e != nil {
+			return e
+		}
+		if depth != baseline+1 || width != 4 || candidate == nil {
+			t.Fatalf("model consumed outside winning scope: %d %d", depth, width)
+		}
+		return nil
+	})
+	must(err)
+	if !called || statusInScope != lbool.True || widthInScope != 4 || scopedModel == nil {
+		t.Fatal("missing scoped model", statusInScope, widthInScope)
+	}
+	must(scopedModel.DecRef())
+	depth, err := solver.ScopeLevel()
+	must(err)
+	if depth != baseline {
+		t.Fatal("scope not restored", depth, baseline)
+	}
+	refused := errors.New("model consumer refused")
+	_, _, failedModel, err := compiler.SearchQuantifiedLinearInScope(set, goal, solver, func(uint32, *model.ModelCore) error { return refused })
+	if !errors.Is(err, refused) || failedModel != nil {
+		t.Fatal("consumer failure lost", err)
+	}
+	depth, err = solver.ScopeLevel()
+	must(err)
+	if depth != baseline {
+		t.Fatal("failed consumer left scope", depth, baseline)
+	}
 	status, width, md, err := compiler.SearchQuantifiedLinear(set, goal, solver)
 	must(err)
 	if status != lbool.True || width != 4 || md == nil {
@@ -373,6 +408,36 @@ func TestBMCQuantifiedLinearSearchPreservesSolverScope(t *testing.T) {
 	for i := len(trace) - 1; i >= 0; i-- {
 		must(trace[i].Close())
 	}
+	priorMode, err := m.ProofMode()
+	must(err)
+	combinedTrace, combinedProof, err := compiler.QuantifiedLinearTraceAndProof(set, goal, width, md, services)
+	modeAfter, modeErr := m.ProofMode()
+	must(modeErr)
+	if modeAfter != priorMode {
+		t.Fatal("combined proof did not restore proof mode", priorMode, modeAfter)
+	}
+	must(err)
+	if len(combinedTrace) != 3 {
+		t.Fatal("combined trace length", len(combinedTrace))
+	}
+	for i, want := range []string{"step", "middle", "fact"} {
+		name, e := combinedTrace[i].Name()
+		must(e)
+		if name != want {
+			t.Fatal("combined trace", i, name, want)
+		}
+	}
+	combinedHandle, err := m.RefGet(combinedProof)
+	must(err)
+	combinedConclusion, err := m.GetProofFact(combinedHandle)
+	must(err)
+	if combinedConclusion != goalApp {
+		t.Fatal("combined proof conclusion", combinedConclusion, goalApp)
+	}
+	for i := len(combinedTrace) - 1; i >= 0; i-- {
+		must(combinedTrace[i].Close())
+	}
+	must(m.DelRef(&combinedProof))
 	proof, err := compiler.QuantifiedLinearProof(set, goal, width, md, services)
 	must(err)
 	defer func() { must(m.DelRef(&proof)) }()

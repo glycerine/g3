@@ -17,6 +17,20 @@ import (
 // A satisfiable result returns an owning model reference, which remains valid
 // after the temporary solver scope is popped and must be released by DecRef.
 func (c *Compiler) SearchQuantifiedLinear(rules *base.RuleSet, query ast.ASTHandle, solver *smtcore.SMTSolver) (status lbool.LBool, width uint32, winning *model.ModelCore, resultErr error) {
+	return c.searchQuantifiedLinear(rules, query, solver, nil)
+}
+
+// SearchQuantifiedLinearInScope evaluates the winning model before its solver
+// scope is popped, matching qlinear::check. The returned model remains owned
+// by the caller, including when the callback succeeds.
+func (c *Compiler) SearchQuantifiedLinearInScope(rules *base.RuleSet, query ast.ASTHandle, solver *smtcore.SMTSolver, consume func(uint32, *model.ModelCore) error) (lbool.LBool, uint32, *model.ModelCore, error) {
+	if consume == nil {
+		return lbool.Undef, 0, nil, ast.ErrASTHandle
+	}
+	return c.searchQuantifiedLinear(rules, query, solver, consume)
+}
+
+func (c *Compiler) searchQuantifiedLinear(rules *base.RuleSet, query ast.ASTHandle, solver *smtcore.SMTSolver, consume func(uint32, *model.ModelCore) error) (status lbool.LBool, width uint32, winning *model.ModelCore, resultErr error) {
 	if c == nil || c.manager == nil || rules == nil || solver == nil {
 		return lbool.Undef, 0, nil, ast.ErrASTHandle
 	}
@@ -31,7 +45,7 @@ func (c *Compiler) SearchQuantifiedLinear(rules *base.RuleSet, query ast.ASTHand
 		if canceled {
 			return lbool.Undef, width, nil, fmt.Errorf("bmc: %s", c.manager.ResourceLimit().CancelMessage())
 		}
-		status, winning, err = c.checkQuantifiedLinearWidth(rules, query, solver, width)
+		status, winning, err = c.checkQuantifiedLinearWidth(rules, query, solver, width, consume)
 		if err != nil || status != lbool.False {
 			return status, width, winning, err
 		}
@@ -41,7 +55,7 @@ func (c *Compiler) SearchQuantifiedLinear(rules *base.RuleSet, query ast.ASTHand
 	}
 }
 
-func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.ASTHandle, solver *smtcore.SMTSolver, width uint32) (status lbool.LBool, winning *model.ModelCore, resultErr error) {
+func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.ASTHandle, solver *smtcore.SMTSolver, width uint32, consume func(uint32, *model.ModelCore) error) (status lbool.LBool, winning *model.ModelCore, resultErr error) {
 	attempt := &quantifiedLinearSearchAttempt{manager: c.manager, solver: solver}
 	defer func() {
 		winning, resultErr = finishQuantifiedLinearSearch(attempt, resultErr)
@@ -110,6 +124,11 @@ func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.AST
 	attempt.winning, err = solver.AcquireModel()
 	if err != nil || attempt.winning == nil {
 		return lbool.Undef, nil, errors.Join(err, ast.ErrASTDomain)
+	}
+	if consume != nil {
+		if err = consume(width, attempt.winning); err != nil {
+			return lbool.Undef, nil, err
+		}
 	}
 	return status, nil, nil
 }

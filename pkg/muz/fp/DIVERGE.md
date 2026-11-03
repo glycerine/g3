@@ -22,38 +22,21 @@ go test ./muz/fp -run '^TestQBMCRecursiveRuleSelection$' -count=100
 
 ## Differences that could affect rule selection
 
-1. **Solver scope when reading the model.** C++ `qlinear::check` gets the
-   model, selects rules and builds the proof before popping the solver scope
-   (`src/muz/bmc/dl_bmc_engine.cpp:51–70,247–285`). Go acquires a counted
-   `ModelCore`, closes the attempt and pops the scope before returning from
-   `SearchQuantifiedLinear` (`pkg/muz/bmc/quantified_linear_search.go:44–51,103–114`,
-   `pkg/muz/bmc/quantified_linear_search_cleanup.go:38–68,121–129`). The facade
-   then evaluates the model (`pkg/muz/fp/bmc_engine.go:280–316`). The owner
-   reference keeps the model alive, but whether a pop changes any relevant
-   model interpretation or evaluator input has not been established. This is
-   a timing difference and a candidate, not an identified cause.
+1. **FIXED — Solver scope when reading the model.** The public QBMC path now
+   selects rules and constructs the proof while the solver scope remains
+   active, matching `src/muz/bmc/dl_bmc_engine.cpp:51–70`. The in-scope
+   consumer preserves cleanup and model ownership on error; focused native
+   and three-tag scope and recursive-proof tests pass.
 
-2. **One selection pass versus two.** C++ selects each rule, records the
-   trace and assembles the proof in one `get_model` loop
-   (`src/muz/bmc/dl_bmc_engine.cpp:269–344`). Go first calls
-   `QuantifiedLinearTrace`, then `QuantifiedLinearProof`; each calls
-   `quantifiedLinearSteps`, reevaluating `T` and the rule selectors with a new
-   evaluator (`pkg/muz/fp/bmc_engine.go:307–317`,
-   `pkg/muz/bmc/quantified_linear_trace.go:16–17,34–48`,
-   `pkg/muz/bmc/quantified_linear_proof.go:40–46`). The reported error does
-   not say which pass failed. Repeated evaluation could matter if model or
-   evaluator state changes, but no such change has been demonstrated.
+2. **FIXED — One selection pass versus two.** The public QBMC path now
+   selects each rule once and builds its proof step during the same traversal,
+   matching `src/muz/bmc/dl_bmc_engine.cpp:269–344`. Trace and proof share the
+   selected rules instead of independently evaluating the model twice.
 
-3. **Evaluator lifetime and completion.** C++ `model::eval` creates a fresh
-   evaluator for each call and explicitly sets model completion to its
-   default argument, false (`src/model/model.cpp:79–89`,
-   `src/model/model.h:45`, `src/muz/bmc/dl_bmc_engine.cpp:229–244`). Go creates
-   one evaluator per trace pass and reuses it for `T` and all selectors
-   (`pkg/muz/bmc/quantified_linear_trace.go:48–107`). Its completion setting
-   comes from the model-evaluator parameter view, whose default is also false
-   (`pkg/model/model_evaluator.go:459–468`); a nondefault completion setting
-   can therefore differ from the C++ call. Evaluator cache or state effects
-   with the default fixture are unproven.
+3. **FIXED — Evaluator lifetime and completion.** Trace and binding model
+   evaluations now use a fresh evaluator with completion explicitly disabled
+   for each term, matching `src/model/model.cpp:79–89`. Focused tests cover
+   a nondefault global completion setting and the recursive proof path.
 
 4. **FIXED — Group assertion order.** C++ compiles predicate groups by iterating its
    `decl2rules` map (`src/muz/base/dl_rule_set.h:159,270`,
@@ -127,3 +110,15 @@ pop and evaluate selectors with a fresh completion-disabled evaluator. Record
 actual group/assertion order. These comparisons can distinguish model content,
 evaluator state, and ordering hypotheses without guessing a fix or weakening
 the independent proof checks.
+
+## Integration findings
+
+The source encoding permits facts at positive levels, but source trace
+extraction assumes every positive-level rule has a predecessor. An actual Go
+model had T=10 and reached the base fact at level 5; bundled Z3 verified that
+model against all source constraints. Enforcing source termination makes the
+existing recursive proof test fail; no extra encoding constraint was added.
+The bundled Z3 4.7.1 also fails its rule-unifier verification on the recursive
+and linear fixtures. Items 6–9 remain open pending resolution of these source
+inconsistencies and proof-normalization dependencies. Go enters proof mode
+before the whole proof step; C++ does so after substitution and unification.

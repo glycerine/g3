@@ -27,11 +27,6 @@ func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, lev
 	if err != nil {
 		return nil, err
 	}
-	evaluator, err := model.NewModelEvaluator(md, services)
-	owner.evaluator = evaluator
-	if err != nil {
-		return nil, err
-	}
 	sub, err := rewriter.NewVarSubstitution(m, false)
 	owner.substitution = sub
 	if err != nil {
@@ -67,10 +62,23 @@ func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, lev
 		if cause != nil {
 			return result, cause
 		}
+		// model::eval constructs a completion-disabled evaluator for each term.
+		evaluator, cause := model.NewModelEvaluator(md, services)
+		owner.evaluator = evaluator
+		if cause != nil {
+			return result, cause
+		}
+		if cause = evaluator.SetModelCompletion(false); cause != nil {
+			return result, cause
+		}
 		result[i], cause = evaluator.EvaluateValue(term)
 		if cause != nil {
 			return result, cause
 		}
+		if cause = evaluator.Close(); cause != nil {
+			return result, cause
+		}
+		owner.evaluator = nil
 		value, cause := m.RefGet(result[i])
 		if cause != nil {
 			return result, cause

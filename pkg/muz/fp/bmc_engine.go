@@ -277,26 +277,6 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 	defer func() { resultErr = errors.Join(resultErr, compiler.Close()) }()
 	var level uint32
 	var md *model.ModelCore
-	if quantified {
-		status, level, md, err = compiler.SearchQuantifiedLinear(rules, declaration, solver)
-	} else if linear {
-		status, level, err = compiler.SearchLinear(rules, declaration, solver, depth)
-	} else {
-		status, level, err = compiler.SearchNonlinear(rules, declaration, solver)
-	}
-	if err != nil || status != lbool.True {
-		return status, err
-	}
-	if !quantified {
-		md, err = solver.AcquireModel()
-		if err != nil {
-			return lbool.Undef, err
-		}
-	}
-	if md == nil {
-		return lbool.Undef, ast.ErrASTHandle
-	}
-	defer func() { resultErr = errors.Join(resultErr, md.DecRef()) }()
 	var normalization transforms.RuleNormalizationParams
 	if linear {
 		normalization, err = e.ruleNormalizationParams()
@@ -311,10 +291,37 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 		}
 		defer func() { resultErr = errors.Join(resultErr, cooperation.Close()) }()
 		services := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals, Memory: e.manager.NumeralService().RuntimeOwner(), Cooperation: cooperation}
-		e.bmcTrace, err = compiler.QuantifiedLinearTrace(rules, declaration, level, md, services)
-		if err == nil {
-			e.bmcProof, err = compiler.QuantifiedLinearProof(rules, declaration, level, md, services, normalization)
+		status, level, md, err = compiler.SearchQuantifiedLinearInScope(rules, declaration, solver, func(width uint32, modelCore *model.ModelCore) error {
+			var cause error
+			e.bmcTrace, e.bmcProof, cause = compiler.QuantifiedLinearTraceAndProof(rules, declaration, width, modelCore, services, normalization)
+			return cause
+		})
+	} else if linear {
+		status, level, err = compiler.SearchLinear(rules, declaration, solver, depth)
+	} else {
+		status, level, err = compiler.SearchNonlinear(rules, declaration, solver)
+	}
+	if err != nil || status != lbool.True {
+		// A successful model callback can be followed by a refused solver Pop.
+		// Retire its unpublished outputs, keeping any refused owner on the
+		// engine for the ordinary cleanup continuation.
+		if quantified {
+			err = errors.Join(err, e.clearBMCTrace())
 		}
+		return status, err
+	}
+	if !quantified {
+		md, err = solver.AcquireModel()
+		if err != nil {
+			return lbool.Undef, err
+		}
+	}
+	if md == nil {
+		return lbool.Undef, ast.ErrASTHandle
+	}
+	defer func() { resultErr = errors.Join(resultErr, md.DecRef()) }()
+	if quantified {
+		// Trace and proof were constructed while the winning scope was live.
 	} else if linear {
 		e.bmcTrace, err = compiler.LinearTrace(rules, declaration, level, md)
 		if err == nil {

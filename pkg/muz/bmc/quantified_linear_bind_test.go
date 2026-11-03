@@ -75,6 +75,9 @@ func TestBMCQuantifiedLinearBindingsUseDerivationLevel(t *testing.T) {
 	must(md.Core().RegisterFunction(argument, interpretation))
 	services, err := context.ModelEvaluatorConfig()
 	must(err)
+	// C++ model::eval disables completion even when the global evaluator
+	// option requests it; an absent interpretation must stay symbolic here.
+	must(services.Globals.SourceSetName("model_evaluator.completion", "true"))
 	compiler, err := bmc.NewCompiler(m)
 	must(err)
 	defer func() { must(compiler.Close()) }()

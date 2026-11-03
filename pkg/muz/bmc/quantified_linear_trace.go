@@ -32,6 +32,10 @@ type quantifiedLinearStep struct {
 }
 
 func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandle, width uint32, md *model.ModelCore, services model.ModelEvaluatorConfig) (result []quantifiedLinearStep, resultErr error) {
+	return c.quantifiedLinearStepsVisit(rules, query, width, md, services, nil)
+}
+
+func (c *Compiler) quantifiedLinearStepsVisit(rules *base.RuleSet, query ast.ASTHandle, width uint32, md *model.ModelCore, services model.ModelEvaluatorConfig, visit func(quantifiedLinearStep) error) (result []quantifiedLinearStep, resultErr error) {
 	if c == nil || c.manager == nil || rules == nil || md == nil || md.Manager() != c.manager {
 		return nil, ast.ErrASTHandle
 	}
@@ -45,10 +49,26 @@ func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandl
 	if err != nil {
 		return nil, err
 	}
-	evaluator, err := model.NewModelEvaluator(md, services)
-	owner.evaluator = evaluator
-	if err != nil {
-		return nil, err
+	// model::eval constructs a fresh evaluator for every call and explicitly
+	// disables completion, independently of model_evaluator parameters.
+	evaluate := func(term ast.ASTHandle) (ast.ASTRef, error) {
+		evaluator, err := model.NewModelEvaluator(md, services)
+		owner.evaluator = evaluator
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		if err = evaluator.SetModelCompletion(false); err != nil {
+			return ast.ASTRef{}, err
+		}
+		ref, err := evaluator.EvaluateValue(term)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		if err = evaluator.Close(); err != nil {
+			return ast.ASTRef{}, disposeASTRefs(m, []ast.ASTRef{ref}, err)
+		}
+		owner.evaluator = nil
+		return ref, nil
 	}
 	name, err := m.Symbols.Intern("T")
 	if err != nil {
@@ -58,7 +78,7 @@ func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandl
 	if err != nil {
 		return nil, err
 	}
-	indexRef, err := evaluator.EvaluateValue(index)
+	indexRef, err := evaluate(index)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +124,7 @@ func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandl
 			}
 			if cause == nil {
 				var evaluated ast.ASTRef
-				evaluated, cause = evaluator.EvaluateValue(atom)
+				evaluated, cause = evaluate(atom)
 				if cause == nil {
 					var h ast.ASTHandle
 					h, cause = m.RefGet(evaluated)
@@ -135,6 +155,11 @@ func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandl
 		selected := owner.selected
 		owner.steps = append(owner.steps, quantifiedLinearStep{rule: selected, index: selectedIndex, level: level})
 		owner.selected = nil
+		if visit != nil {
+			if e = visit(owner.steps[len(owner.steps)-1]); e != nil {
+				return result, e
+			}
+		}
 		tails, e := selected.UninterpretedTailSize()
 		if e != nil {
 			return result, e
