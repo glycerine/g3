@@ -321,6 +321,11 @@ func (e *PropositionalEngine) clearQueryResources() error {
 			return err
 		}
 	}
+	if e.spacerDisposal != nil {
+		if err := e.closeSpacerForReplacement(); err != nil {
+			return err
+		}
+	}
 	if err := e.clearDatalogTransformCleanup(); err != nil {
 		return err
 	}

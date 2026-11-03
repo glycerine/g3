@@ -135,6 +135,7 @@ type PropositionalEngine struct {
 	tabUnfoldFail       uint32
 	tabSubsumed         uint32
 	spacer              *muzspacer.Context
+	spacerDisposal      *spacerContextDisposal
 	spacerStatistics    muzspacer.StatisticsSnapshot
 	scopes              []*base.RuleSet
 	popPhase            contextPopPhase
@@ -2074,7 +2075,7 @@ func (e *PropositionalEngine) ResetStatistics() error {
 	}
 	// A previous disposal may already have closed the query's solver. Finish
 	// archiving its saved counters before applying the source reset semantics.
-	if e.queryCloneDisposal != nil || e.pdrDisposal != nil {
+	if e.queryCloneDisposal != nil || e.pdrDisposal != nil || e.spacerDisposal != nil {
 		if err := e.clearQueryResources(); err != nil {
 			return err
 		}

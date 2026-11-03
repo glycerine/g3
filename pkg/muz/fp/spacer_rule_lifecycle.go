@@ -10,6 +10,11 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 )
 
+type spacerContextDisposal struct {
+	context    *spacer.Context
+	statistics spacer.StatisticsSnapshot
+}
+
 // Source dl_interface::updt_params constructs a new context, including all
 // statistics owners. This differs from replacing a Go expression-query clone.
 func (e *PropositionalEngine) resetSpacerForParameterUpdate() error {
@@ -22,15 +27,22 @@ func (e *PropositionalEngine) resetSpacerForParameterUpdate() error {
 
 func (e *PropositionalEngine) closeSpacerForReplacement() (result error) {
 	if e.spacer != nil {
-		archived, err := e.spacer.SnapshotStatistics()
-		if err != nil {
+		// Native destruction can stop after the solver pools have closed.
+		// Keep the exact owner and its complete statistics before that point.
+		if e.spacerDisposal == nil {
+			archived, err := e.spacer.SnapshotStatistics()
+			if err != nil {
+				return err
+			}
+			e.spacerDisposal = &spacerContextDisposal{context: e.spacer, statistics: archived}
+		}
+		pending := e.spacerDisposal
+		if err := pending.context.Close(); err != nil {
 			return err
 		}
-		if err := e.spacer.Close(); err != nil {
-			return err
-		}
-		e.spacerStatistics.Merge(archived)
+		e.spacerStatistics.Merge(pending.statistics)
 		e.spacer = nil
+		e.spacerDisposal = nil
 		e.spacerRevision = 0
 	}
 	e.spacerOriginalQuery = ast.ASTHandle{}
@@ -68,6 +80,9 @@ func (e *PropositionalEngine) spacerContext() (_ *spacer.Context, resultErr erro
 	}
 	if e.backend != "spacer" {
 		return nil, ErrPropositionalEngine
+	}
+	if e.spacerDisposal != nil {
+		return nil, ast.ErrASTPending
 	}
 	if e.spacer != nil {
 		return e.spacer, nil
