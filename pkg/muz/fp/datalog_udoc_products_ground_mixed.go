@@ -10,6 +10,48 @@ import (
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
+// Source constant registers select their relation kind before a consuming
+// rule is assembled. Ground mixed predicates therefore establish product
+// kinds independently of any later raw-DOC or product join consumer.
+func (e *PropositionalEngine) planUDocMixedGround(p *udocProductProgram, head, boolean ast.ASTHandle, docFavourite bool, known map[ast.ASTHandle][]ast.ASTHandle) (bool, error) {
+	state := e.predicates[head]
+	if state == nil || len(state.sorts) != 2 || (state.sorts[0] == boolean) == (state.sorts[1] == boolean) {
+		return false, nil
+	}
+	// A uniform favourite makes cached BV singletons choose raw DOC and
+	// Bool singletons choose the default concrete finite kind. Predicate
+	// overrides and initial ordinary facts keep their prior finite route.
+	if !docFavourite || e.datalogRelationFavourite != "doc" || state.external != nil || !e.relations.CanHandleTableSorts(state.sorts) || len(state.requestedRepresentations) != 0 || state.explicitFiniteRepresentation {
+		return false, ErrUDocDatalogFragment
+	}
+	if state.table == nil && known[head] == nil || state.table != nil && udocProductFiniteKind(state.table) != e.datalogDefaultTable {
+		return false, ErrUDocDatalogFragment
+	}
+	bitColumn := 0
+	if state.sorts[0] == boolean {
+		bitColumn = 1
+	}
+	bitVector, err := e.manager.IsBitVectorSort(state.sorts[bitColumn])
+	if err != nil {
+		return false, err
+	}
+	if !bitVector {
+		return false, ErrUDocDatalogFragment
+	}
+	if known[head] == nil && state.table != nil {
+		rows, err := state.table.Len()
+		if err != nil {
+			return false, err
+		}
+		if rows != 0 {
+			return false, ErrUDocDatalogFragment
+		}
+	}
+	p.groundProducts[head] = bitColumn
+	p.sorts[head] = append([]ast.ASTHandle(nil), state.sorts...)
+	return true, nil
+}
+
 func (c *datalogUDocContext) evaluateProductMixedGround(fact *udocProductGroundRule, bitColumn int) (resultErr error) {
 	p := c.products
 	a := p.attempt()

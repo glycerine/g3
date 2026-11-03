@@ -202,6 +202,22 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 	if err != nil {
 		return nil, err
 	}
+	for ruleIndex := range rules {
+		fact := groundRules[ruleIndex]
+		if fact == nil {
+			continue
+		}
+		if _, found := p.groundProducts[fact.head]; found {
+			continue
+		}
+		mixed, err := e.planUDocMixedGround(p, fact.head, boolean, docFavourite, known)
+		if err != nil {
+			return nil, err
+		}
+		if mixed && definitions[fact.head] != 0 {
+			return nil, ErrUDocDatalogFragment
+		}
+	}
 	isDoc := func(d ast.ASTHandle) (bool, error) {
 		state := e.predicates[d]
 		if state == nil || state.external != nil || state.explicitFiniteRepresentation || len(state.sorts) != 1 || !e.relations.CanHandleTableSorts(state.sorts) {
@@ -341,34 +357,9 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 		}
 		mixedGround := groundHeads[finite] && hasOther
 		if mixedGround {
-			// A mixed ground tuple is assembled from singletons. Requiring
-			// favourite DOC and no predicate override makes every cached BV
-			// singleton choose DOC, regardless of its first source consumer.
-			if !docFavourite || e.datalogRelationFavourite != "doc" || len(input.sorts) != 2 || len(input.requestedRepresentations) != 0 || input.explicitFiniteRepresentation {
+			if _, admitted := p.groundProducts[finite]; !admitted {
 				return nil, ErrUDocDatalogFragment
 			}
-			bitColumn := 0
-			if input.sorts[0] == boolean {
-				bitColumn = 1
-			}
-			bitVector, err := e.manager.IsBitVectorSort(input.sorts[bitColumn])
-			if err != nil {
-				return nil, err
-			}
-			if !bitVector {
-				return nil, ErrUDocDatalogFragment
-			}
-			if known[finite] == nil && input.table != nil {
-				rows, err := input.table.Len()
-				if err != nil {
-					return nil, err
-				}
-				if rows != 0 {
-					return nil, ErrUDocDatalogFragment
-				}
-			}
-			p.groundProducts[finite] = bitColumn
-			p.sorts[finite] = append([]ast.ASTHandle(nil), input.sorts...)
 		}
 		da, err := productArguments(e.manager, tails[di])
 		if err != nil {
@@ -418,7 +409,7 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 		p.finiteSorts[finite] = append([]ast.ASTHandle(nil), input.sorts...)
 		p.order = append(p.order, head)
 	}
-	if len(p.order) == 0 {
+	if len(p.order) == 0 && len(p.groundProducts) == 0 {
 		return nil, nil
 	}
 	// Only all-Bool finite tuples reduce to ordinary table unions; admitted
