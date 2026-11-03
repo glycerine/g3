@@ -1,6 +1,6 @@
 package main
 
-// g3 executes SMT-LIB scripts through the native Go SMT backend.
+// g3 executes solver input files through the native Go frontends.
 
 import (
 	"errors"
@@ -46,7 +46,7 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		return err
 	}
 	if command.Action == shell.CommandHelp {
-		_, err = fmt.Fprintln(output, "g3 Go SMT and optimization runner\nUsage: g3 [-smt2|-dimacs|-bpo|-wcnf|-log] <file> | g3 [-smt2|-dimacs|-bpo|-wcnf|-log] -in\nGlobal parameter options: name=value; -p, -pd, -pm, -pp:name")
+		_, err = fmt.Fprintln(output, "g3 Go SMT and optimization runner\nUsage: g3 [-smt2|-dimacs|-bpo|-wcnf|-log] <file> | g3 [-smt2|-dimacs|-bpo|-wcnf|-log] -in\n       g3 -dl <file-or-directory> (also selected by .dl or .datalog)\nGlobal parameter options: name=value; -p, -pd, -pm, -pp:name")
 		return err
 	}
 	if command.Action == shell.CommandVersion {
@@ -66,6 +66,17 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 	kind, err := command.ResolveInputKind()
 	if err != nil {
 		return err
+	}
+	// Source main dispatches Datalog by path; the frontend distinguishes a
+	// legacy file from a WPA directory and opens its own inputs.
+	if kind == shell.InputDatalog {
+		if !selected {
+			return fmt.Errorf("Datalog input requires a file or directory path")
+		}
+		if err = context.RefreshGlobalParameters(); err != nil {
+			return err
+		}
+		return shell.RunDatalogFrontend(context, filename, output)
 	}
 	if kind != shell.InputSMT2 && kind != shell.InputDIMACS && kind != shell.InputOPB && kind != shell.InputWCNF && kind != shell.InputZ3Log {
 		return fmt.Errorf("selected input frontend is not ported yet")

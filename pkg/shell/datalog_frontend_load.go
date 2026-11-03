@@ -15,6 +15,11 @@ func (f *DatalogFrontend) Load(path string) error {
 	if err != nil {
 		return err
 	}
+	// read_datalog constructs its context with a local Datalog engine
+	// choice, overriding a conflicting fixedpoint module engine parameter.
+	if err = f.context.SelectDatalogFrontendEngine(); err != nil {
+		return err
+	}
 	if info.IsDir() {
 		err = f.context.ParseWPADirectory(path)
 	} else {
