@@ -19,11 +19,13 @@ func (p *PredicateTransformer) AddCover(level int, property ast.ASTHandle) (resu
 	if level < -1 {
 		return ast.ErrASTDomain
 	}
+	attempt := &coverExportAttempt{manager: p.manager, runtime: p.manager.NumeralService().RuntimeOwner()}
+	defer func() { _, resultErr = attempt.finish(resultErr) }()
 	substitution, err := p.manager.NewExprSubstitution()
 	if err != nil {
 		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, p.manager.DelExprSubstitution(&substitution)) }()
+	attempt.substitution = substitution
 	for index, signature := range p.signature {
 		declaration, err := p.manager.RefGet(signature)
 		if err != nil {
@@ -55,7 +57,7 @@ func (p *PredicateTransformer) AddCover(level int, property ast.ASTHandle) (resu
 	if err != nil {
 		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, replacer.Close()) }()
+	attempt.replacer = replacer
 	if err = replacer.SetSubstitution(&substitution); err != nil {
 		return err
 	}
@@ -63,7 +65,7 @@ func (p *PredicateTransformer) AddCover(level int, property ast.ASTHandle) (resu
 	if err != nil {
 		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&converted)) }()
+	attempt.formula = converted
 	if err = replacer.Rewrite(property, converted); err != nil {
 		return err
 	}
