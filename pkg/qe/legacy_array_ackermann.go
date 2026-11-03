@@ -29,10 +29,17 @@ func (r *legacyArraySelectProjection) Close() (result error) {
 	}
 	for len(r.variables) != 0 {
 		index := len(r.variables) - 1
-		if err := r.manager.DelRef(&r.variables[index]); err != nil {
+		if r.variables[index] == (ast.ASTRef{}) {
+			r.variables = r.variables[:index]
+			continue
+		}
+		err := r.manager.DelRef(&r.variables[index])
+		if r.variables[index] == (ast.ASTRef{}) {
+			r.variables = r.variables[:index]
+		}
+		if err != nil {
 			return err
 		}
-		r.variables = r.variables[:index]
 	}
 	if r.formula != (ast.ASTRef{}) {
 		if err := r.manager.DelRef(&r.formula); err != nil {
@@ -51,7 +58,7 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 	ownedResult := result
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, ownedResult.Close())
+			resultErr = closeFailedLegacyArraySelectProjection(ownedResult, resultErr)
 			result = nil
 		}
 	}()
