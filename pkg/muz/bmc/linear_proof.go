@@ -48,7 +48,8 @@ func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level u
 	var previous *base.Rule
 	defer func() {
 		if previous != nil {
-			resultErr = errors.Join(resultErr, closeRuleOwners(m, []*base.Rule{previous}))
+			resultErr = disposeRuleOwners(m, []*base.Rule{previous}, resultErr)
+			previous = nil
 		}
 	}()
 	predicate := query
@@ -70,28 +71,17 @@ func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level u
 		if tailErr == nil && tails > 0 {
 			nextPredicate, tailErr = rule.TailDeclaration(0)
 		}
-		err = errors.Join(err, tailErr, closeRuleOwners(m, []*base.Rule{rule}))
-		if err != nil {
-			if nextRule != nil {
-				err = errors.Join(err, nextRule.Close())
-			}
-			if nextProof != (ast.ASTRef{}) {
-				err = errors.Join(err, m.DelRef(&nextProof))
-			}
-			return result, err
+		cause := disposeRuleOwners(m, []*base.Rule{rule}, errors.Join(err, tailErr))
+		if cause != nil {
+			_, _, cause = advanceQuantifiedLinearProofStep(m, nil, nextRule, ast.ASTRef{}, nextProof, cause)
+			return result, cause
 		}
-		if previous != nil {
-			if err = previous.Close(); err != nil {
-				return result, errors.Join(err, nextRule.Close(), m.DelRef(&nextProof))
-			}
+		oldPrevious, oldResult := previous, result
+		previous, result = nil, ast.ASTRef{}
+		previous, result, cause = advanceQuantifiedLinearProofStep(m, oldPrevious, nextRule, oldResult, nextProof, nil)
+		if cause != nil {
+			return result, cause
 		}
-		previous = nextRule
-		if result != (ast.ASTRef{}) {
-			if err = m.DelRef(&result); err != nil {
-				return result, errors.Join(err, m.DelRef(&nextProof))
-			}
-		}
-		result = nextProof
 		if tails == 0 {
 			return result, nil
 		}
