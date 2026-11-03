@@ -22,7 +22,7 @@ func TestPDRProofExportReferenceAllocationFailureAndRetry(t *testing.T) {
 		succeeded := false
 		for stop := int64(0); stop < 128; stop++ {
 			t.Run(fmt.Sprintf("references=%d/allowance=%d", available, stop), func(t *testing.T) {
-				failed := testPDRProofExportFailure(t, available, stop)
+				failed := testPDRProofExportFailure(t, available, stop, false)
 				if failed {
 					failures++
 				} else {
@@ -45,7 +45,36 @@ func TestPDRProofExportReferenceAllocationFailureAndRetry(t *testing.T) {
 	}
 }
 
-func testPDRProofExportFailure(t *testing.T, available int, stop int64) bool {
+func TestPDRSymbolicProofExportReferenceAllocationFailureAndRetry(t *testing.T) {
+	failures := 0
+	for available := 0; available <= 32; available++ {
+		succeeded := false
+		for stop := int64(0); stop < 128; stop++ {
+			t.Run(fmt.Sprintf("references=%d/allowance=%d", available, stop), func(t *testing.T) {
+				failed := testPDRProofExportFailure(t, available, stop, true)
+				if failed {
+					failures++
+				} else {
+					succeeded = true
+				}
+			})
+			if t.Failed() {
+				return
+			}
+			if succeeded {
+				break
+			}
+		}
+		if !succeeded {
+			t.Fatal("public proof export did not reach a successful allocation allowance", available)
+		}
+	}
+	if failures == 0 {
+		t.Fatal("public proof export did not exercise an allocation refusal")
+	}
+}
+
+func testPDRProofExportFailure(t *testing.T, available int, stop int64, symbolic bool) bool {
 	t.Helper()
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
 	var budget *arena.Budget
@@ -66,18 +95,33 @@ func testPDRProofExportFailure(t *testing.T, available int, stop int64) bool {
 	must(engine.SelectEngine("pdr"))
 	boolean, err := manager.MkBoolSort()
 	must(err)
-	declare := func(name string) (ast.ASTHandle, ast.ASTHandle) {
+	declare := func(name string, domain, arguments []ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle) {
 		symbol, cause := manager.Symbols.Intern(name)
 		must(cause)
-		declaration, cause := manager.MkFuncDecl(symbol, nil, boolean, ast.ASTFuncDeclInfo{})
+		declaration, cause := manager.MkFuncDecl(symbol, domain, boolean, ast.ASTFuncDeclInfo{})
 		must(cause)
 		must(engine.RegisterPredicate(declaration))
-		application, cause := manager.MkApp(declaration, nil)
+		application, cause := manager.MkApp(declaration, arguments)
 		must(cause)
 		return declaration, application
 	}
-	_, premise := declare("proof-export-P")
-	goal, conclusion := declare("proof-export-Q")
+	var domain, arguments []ast.ASTHandle
+	if symbolic {
+		// The two rule-variable banks require a fresh shifted variable during
+		// hyper-resolution, beyond the nullary proof-constructor frontier.
+		zero, cause := manager.ArithmeticIntegerNumeralText("0")
+		must(cause)
+		zeroOwner, cause := manager.NewRef(zero)
+		must(cause)
+		t.Cleanup(func() { must(manager.DelRef(&zeroOwner)) })
+		integer, cause := manager.GetSort(zero)
+		must(cause)
+		variable, cause := manager.MkVar(0, integer)
+		must(cause)
+		domain, arguments = []ast.ASTHandle{integer}, []ast.ASTHandle{variable}
+	}
+	_, premise := declare("proof-export-P", domain, arguments)
+	goal, conclusion := declare("proof-export-Q", nil, nil)
 	must(engine.AddRule(premise, "proof-export-fact"))
 	edge, err := manager.MkImplies(premise, conclusion)
 	must(err)

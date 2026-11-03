@@ -241,6 +241,17 @@ func (s *Substitution) Binding(index uint32) (VariableOffset, ExprOffset, error)
 	return v, r, nil
 }
 
+// reserveCacheRef records the owner before a constructor can create a fresh
+// expression. ResetCache can then release partial work after any allocation
+// failure, just as m_new_exprs and local expr_ref owners do in the source.
+func (s *Substitution) reserveCacheRef() (ast.ASTRef, error) {
+	r, err := s.manager.NewRef(ast.ASTHandle{})
+	if err == nil {
+		s.cacheRefs = append(s.cacheRefs, r)
+	}
+	return r, err
+}
+
 func (s *Substitution) keep(h ast.ASTHandle) (ast.ASTHandle, error) {
 	r, err := s.manager.NewRef(h)
 	if err == nil {
@@ -281,12 +292,12 @@ func (s *Substitution) shift(h ast.ASTHandle, amount, bound uint32, memo map[app
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			result, err = s.manager.MkVar(i, sort)
+			reference, err := s.reserveCacheRef()
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			result, err = s.keep(result)
-			if err != nil {
+			result, err = s.manager.MkVar(i, sort)
+			if err = errors.Join(err, s.manager.SetRef(reference, result)); err != nil {
 				return ast.ASTHandle{}, err
 			}
 		}
@@ -313,12 +324,12 @@ func (s *Substitution) shift(h ast.ASTHandle, amount, bound uint32, memo map[app
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			result, err = s.manager.MkApp(d, args)
+			reference, err := s.reserveCacheRef()
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			result, err = s.keep(result)
-			if err != nil {
+			result, err = s.manager.MkApp(d, args)
+			if err = errors.Join(err, s.manager.SetRef(reference, result)); err != nil {
 				return ast.ASTHandle{}, err
 			}
 		}
@@ -387,11 +398,12 @@ func (s *Substitution) shiftQuantifier(q ast.ASTHandle, amount, bound uint32, me
 	if !changed && newBody == body {
 		return q, nil
 	}
-	r, err := s.manager.UpdateQuantifierAnnotations(q, patterns, noPatterns, newBody)
+	reference, err := s.reserveCacheRef()
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return s.keep(r)
+	r, err := s.manager.UpdateQuantifierAnnotations(q, patterns, noPatterns, newBody)
+	return r, errors.Join(err, s.manager.SetRef(reference, r))
 }
 
 func (s *Substitution) apply(n, replace, replacement ExprOffset, depth uint32, deltas []uint32, active map[applyKey]bool) (ast.ASTHandle, error) {
@@ -448,12 +460,12 @@ func (s *Substitution) apply(n, replace, replacement ExprOffset, depth uint32, d
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
-			result, e = s.manager.MkVar(idx, sort)
+			reference, e := s.reserveCacheRef()
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
-			result, e = s.keep(result)
-			if e != nil {
+			result, e = s.manager.MkVar(idx, sort)
+			if e = errors.Join(e, s.manager.SetRef(reference, result)); e != nil {
 				return ast.ASTHandle{}, e
 			}
 		}
@@ -480,12 +492,12 @@ func (s *Substitution) apply(n, replace, replacement ExprOffset, depth uint32, d
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
-			result, e = s.manager.MkApp(d, args)
+			reference, e := s.reserveCacheRef()
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
-			result, e = s.keep(result)
-			if e != nil {
+			result, e = s.manager.MkApp(d, args)
+			if e = errors.Join(e, s.manager.SetRef(reference, result)); e != nil {
 				return ast.ASTHandle{}, e
 			}
 		}
@@ -567,11 +579,12 @@ func (s *Substitution) applyQuantifier(q ast.ASTHandle, offset uint32, replace, 
 	if !changed && nb == body {
 		return q, nil
 	}
-	r, e := s.manager.UpdateQuantifierAnnotations(q, ps, ns, nb)
+	reference, e := s.reserveCacheRef()
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	return s.keep(r)
+	r, e := s.manager.UpdateQuantifierAnnotations(q, ps, ns, nb)
+	return r, errors.Join(e, s.manager.SetRef(reference, r))
 }
 
 func (s *Substitution) Apply(offsets uint32, deltas []uint32, n ExprOffset, out ast.ASTRef) (result error) {
