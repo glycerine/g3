@@ -462,6 +462,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Assemble exact bound/interval product head columns for unbound, repeated and numeral terms, preserving requested component order, source-coarse bound constants and interval constraints.
   - [x] Fuse one compiler interpreted conjunction with projection over exact bound/interval products by cloning, filtering both components and projecting afterward without splitting coarse compound conditions.
   - [x] Compose the source default join/project fallback over exact bound/interval products while preserving left component order, empty propagation and operand independence.
+  - [x] Compose the source select-equal-and-project fallback over exact bound/interval products by cloning, filtering and removing the selected column.
 - [ ] `src/muz/rel/dl_check_table.cpp` (partial), `src/muz/rel/dl_check_table.h` (partial)
   - [x] Preserve cloned formula-checked table owners through native cleanup refusal with child-first nested cleanup, stable construction receipts and exact retry.
 - [ ] `src/muz/rel/dl_compiler.cpp` (partial), `src/muz/rel/dl_compiler.h` (partial)
@@ -715,6 +716,9 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Spacer reachable export now stages every per-fact rewritten root, expression substitution, simplifying replacer and copied output under one typed owner. Semantic or native cleanup failure publishes no result, preserves the exact reverse frontier and stable receipt identity, and retries without changing source simplification order; broader export cleanup remains open.
   Validation: `go -C pkg test ./muz/spacer -run '^TestSpacerReachable' -count=3` passed. Commit title: `Preserve Spacer reachable export owners`.
+
+- 2026-11-02 — Exact bound/interval products now expose the source select-equal-then-project fallback. The transformer clones before filtering, removes the selected column, preserves requested component order, source independence and empty propagation, and rejects nil/out-of-range inputs before mutation; public compiler dispatch remains separate.
+  Validation: `go -C pkg test ./muz/rel -run '^TestIntervalBoundProductSelect' -count=5` passed. Commit title: `Select and project bound interval products`.
 
 - 2026-11-02 — Legacy array `find_arr_eqs` construction now preserves all equality AST roots, store metadata and nested cleanup receipts when traversal fails and destructor admission is refused. The typed receipt freezes operation/cleanup presentation, suppresses partial publication and resumes the exact owner frontier idempotently; remaining array projection continuations stay open.
   Validation: `go -C pkg test ./qe -run '^(TestLegacyArrayEqualitiesConstructionCleanup|TestLegacyArrayEqualities|TestLegacy.*Store)' -count=3` passed. Commit title: `Preserve array equality construction owners`.
