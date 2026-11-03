@@ -7,6 +7,7 @@ package fp
 import (
 	"strings"
 
+	muzspacer "github.com/glycerine/g3/pkg/muz/spacer"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/messages"
 )
@@ -44,6 +45,49 @@ func (e *PropositionalEngine) recordResultSnapshot(result lbool.LBool, queryErr 
 	e.queryRevision = e.revision
 	e.queryEngine = kind
 	e.lastResult = result
+}
+
+func (e *PropositionalEngine) recordQueryStatusWithApproximation(result lbool.LBool, err error, approximate bool) {
+	e.recordResultSnapshot(result, err)
+	if err != nil {
+		e.lastStatus = fixedpointFailureStatus(err)
+		return
+	}
+	if result == lbool.Undef {
+		// This path represents an approximation without dispatching a backend
+		// query, so it must not inherit a bounded state from an earlier Spacer
+		// search.
+		if approximate {
+			e.lastStatus = "approximated"
+			return
+		}
+		var context *muzspacer.Context
+		if e.backend == "spacer" {
+			context = e.spacer
+			if context == nil && e.queryClone != nil && e.queryClone.backend == "spacer" {
+				context = e.queryClone.spacer
+			}
+		}
+		if context != nil {
+			bounded, boundedErr := context.Bounded()
+			if boundedErr == nil && bounded {
+				e.lastStatus = "bounded"
+				return
+			}
+		}
+		// Source context::query resets the execution status to OK before
+		// dispatch. Only relational Datalog marks an imprecise result APPROX;
+		// CLP, TAB, BMC/QBMC, DDNF and ordinary PDR/Spacer unknowns leave it
+		// unchanged. The explicit flag preserves the public multi-relation
+		// non-Datalog extension, which is intentionally approximate.
+		if e.backend == "datalog" {
+			e.lastStatus = "approximated"
+		} else {
+			e.lastStatus = "ok"
+		}
+		return
+	}
+	e.lastStatus = "ok"
 }
 
 // Parameter/engine mutation invalidates result and property snapshots before

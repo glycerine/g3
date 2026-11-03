@@ -1996,7 +1996,8 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { e.recordQueryStatus(result, resultErr) }()
+	approximate := false
+	defer func() { e.recordQueryStatusWithApproximation(result, resultErr, approximate) }()
 	// Source context::rel_query resolves the configured engine before dispatch.
 	if err := e.selectFactEngine(); err != nil {
 		return lbool.Undef, err
@@ -2012,6 +2013,7 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 	}()
 	if e.backend != "datalog" {
 		if len(declarations) != 1 {
+			approximate = true
 			return lbool.Undef, nil
 		}
 		if e.predicates[declarations[0]] == nil {
@@ -2211,30 +2213,7 @@ func (e *PropositionalEngine) QueryPredicateFromLevel(declaration ast.ASTHandle,
 }
 
 func (e *PropositionalEngine) recordQueryStatus(result lbool.LBool, err error) {
-	e.recordResultSnapshot(result, err)
-	if err != nil {
-		e.lastStatus = fixedpointFailureStatus(err)
-		return
-	}
-	if result == lbool.Undef {
-		var context *muzspacer.Context
-		if e.backend == "spacer" {
-			context = e.spacer
-			if context == nil && e.queryClone != nil && e.queryClone.backend == "spacer" {
-				context = e.queryClone.spacer
-			}
-		}
-		if context != nil {
-			bounded, boundedErr := context.Bounded()
-			if boundedErr == nil && bounded {
-				e.lastStatus = "bounded"
-				return
-			}
-		}
-		e.lastStatus = "approximated"
-		return
-	}
-	e.lastStatus = "ok"
+	e.recordQueryStatusWithApproximation(result, err, false)
 }
 
 // ReasonUnknown returns the native fixedpoint execution-status spelling for
