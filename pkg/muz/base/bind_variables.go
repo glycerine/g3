@@ -17,6 +17,7 @@ type VariableBinder struct {
 	manager    *ast.ASTManager
 	variables  []ast.ASTHandle
 	references []ast.ASTRef
+	closing    bool
 	closed     bool
 }
 
@@ -31,7 +32,7 @@ func NewVariableBinder(manager *ast.ASTManager) (*VariableBinder, error) {
 }
 
 func (b *VariableBinder) open() error {
-	if b == nil || b.closed || b.manager == nil {
+	if b == nil || b.closed || b.closing || b.manager == nil {
 		return ErrBindVariablesOwner
 	}
 	return nil
@@ -143,11 +144,26 @@ func (b *VariableBinder) Close() (result error) {
 	if b.closed {
 		return nil
 	}
-	for i := len(b.references) - 1; i >= 0; i-- {
-		result = errors.Join(result, b.manager.DelRef(&b.references[i]))
+	b.closing = true
+	for len(b.references) != 0 {
+		last := len(b.references) - 1
+		var err error
+		if b.references[last] != (ast.ASTRef{}) {
+			err = b.manager.DelRef(&b.references[last])
+		}
+		if b.references[last] == (ast.ASTRef{}) {
+			// Native destruction may consume a reference before reporting an
+			// error. Never replay that decrement when Close is retried.
+			b.references = b.references[:last]
+			b.variables = b.variables[:last]
+		}
+		if err != nil {
+			return err
+		}
 	}
 	b.references = nil
 	b.variables = nil
+	b.closing = false
 	b.closed = true
-	return result
+	return nil
 }
