@@ -331,11 +331,14 @@ func (c *Context) unsatAnswer(queryDeclaration ast.ASTHandle) (result ast.ASTRef
 		if x = pin(body); x != nil {
 			return result, x
 		}
-		body, x = c.owner.FormulaNewToOld(body, 0, false)
-		if x != nil {
-			return result, x
+		converted, x := c.owner.FormulaNewToOldRef(body, 0, false)
+		if converted != (ast.ASTRef{}) {
+			references = append(references, converted)
 		}
-		if x = pin(body); x != nil {
+		if x == nil {
+			body, x = c.manager.RefGet(converted)
+		}
+		if x != nil {
 			return result, x
 		}
 		arguments := make([]ast.ASTHandle, len(transformer.signature))

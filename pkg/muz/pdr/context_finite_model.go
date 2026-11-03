@@ -50,10 +50,14 @@ func (c *Context) finiteFrameModel(level uint32, queryDeclaration ast.ASTHandle)
 			x = pin(body)
 		}
 		if x == nil {
-			body, x = c.owner.FormulaNewToOld(body, 0, false)
-		}
-		if x == nil {
-			x = pin(body)
+			var converted ast.ASTRef
+			converted, x = c.owner.FormulaNewToOldRef(body, 0, false)
+			if converted != (ast.ASTRef{}) {
+				owner.references = append(owner.references, converted)
+			}
+			if x == nil {
+				body, x = c.manager.RefGet(converted)
+			}
 		}
 		if x != nil {
 			return result, x

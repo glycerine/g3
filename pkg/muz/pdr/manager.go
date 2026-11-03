@@ -216,6 +216,15 @@ func (m *Manager) FormulaNewToOld(formula ast.ASTHandle, old uint32, homogeneous
 	return m.mux.ConvertFormula(formula, 0, oldIndex(old), homogeneous)
 }
 
+// FormulaNewToOldRef returns a caller-owned converted formula root for
+// short-lived export paths that must not extend the multiplexer lifetime.
+func (m *Manager) FormulaNewToOldRef(formula ast.ASTHandle, old uint32, homogeneous bool) (ast.ASTRef, error) {
+	if err := m.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	return m.mux.convertFormulaRef(formula, 0, oldIndex(old), homogeneous)
+}
+
 func (m *Manager) FormulaOldToOld(formula ast.ASTHandle, source, target uint32, homogeneous bool) (ast.ASTHandle, error) {
 	if err := m.open(); err != nil {
 		return ast.ASTHandle{}, err

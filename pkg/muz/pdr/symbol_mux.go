@@ -618,7 +618,7 @@ func (c *symbolMuxRewriteConfiguration) GetSubst(term ast.ASTHandle) (ast.ASTHan
 func (m *SymbolMux) rewrite(root ast.ASTHandle, config *symbolMuxRewriteConfiguration) (result ast.ASTHandle, resultErr error) {
 	traversal, err := rewriter.NewTraversal(m.manager, config)
 	if err != nil {
-		return result, err
+		return result, finishSymbolMuxTraversalConstruction(m.manager, traversal, err)
 	}
 	defer func() { resultErr = errors.Join(resultErr, traversal.Close()) }()
 	out, err := m.manager.NewRef(ast.ASTHandle{})
@@ -650,6 +650,30 @@ func (m *SymbolMux) ConvertFormula(root ast.ASTHandle, source, target uint32, ho
 	}
 	config := &symbolMuxRewriteConfiguration{mux: m, source: source, target: target, homogeneous: homogeneous}
 	return m.rewrite(root, config)
+}
+
+// convertFormulaRef transfers the converted formula root to its caller instead
+// of adding that temporary to the multiplexer lifetime. Declarations created
+// while rewriting remain owned by the multiplexer.
+func (m *SymbolMux) convertFormulaRef(root ast.ASTHandle, source, target uint32, homogeneous bool) (ast.ASTRef, error) {
+	if err := m.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	if source == target {
+		return m.manager.NewRef(root)
+	}
+	prior := len(m.references)
+	if _, err := m.ConvertFormula(root, source, target, homogeneous); err != nil {
+		return ast.ASTRef{}, err
+	}
+	if len(m.references) <= prior {
+		return ast.ASTRef{}, ErrSymbolMuxOwner
+	}
+	last := len(m.references) - 1
+	result := m.references[last]
+	m.references[last] = ast.ASTRef{}
+	m.references = m.references[:last]
+	return result, nil
 }
 
 func (m *SymbolMux) ShiftFormula(root ast.ASTHandle, distance int32) (ast.ASTHandle, error) {
