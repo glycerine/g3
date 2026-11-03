@@ -305,8 +305,19 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 		}
 	}
 
+	var cubeRef ast.ASTRef
+	if len(rule.predecessors) != 0 {
+		cubeRef, err = c.manager.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return err
+		}
+		references = append(references, cubeRef)
+	}
 	for predecessorIndex, predecessor := range rule.predecessors {
 		cube, x := c.manager.MkAndArray(childStates[predecessorIndex])
+		if !cube.IsNull() {
+			x = errors.Join(x, c.manager.SetRef(cubeRef, cube))
+		}
 		if x != nil {
 			return x
 		}

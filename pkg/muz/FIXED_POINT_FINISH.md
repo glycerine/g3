@@ -2104,3 +2104,4 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Reconciled manifest evidence for 18 construction and cleanup fixes through `6f147cb51`. Independent reviews and portcheck pass with prior evidence, statuses and audit flags preserved; later fixes remain queued.
 - 2026-11-03 — Fixed SymbolMux index assignment when allocating multiple version slots. The former implementation panicked in a real four-predecessor projected PDR solve; direct growth and public solver regressions pass.
 - 2026-11-03 — Native `muz/pdr` and `muz/fp` short suites passed on `fd7458f7f` (61.977s/78.833s) after the multi-predecessor SymbolMux fix. Log: `/tmp/g3-pdr-growth-native-20261103.log`.
+- 2026-11-03 — Reserved a PDR projected-child conjunction owner before model-node allocation. A real 64-predecessor allocation-boundary regression and same-context public retry pass; broader model-search destruction remains open.
