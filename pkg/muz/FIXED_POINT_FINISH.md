@@ -2055,3 +2055,4 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Native fixedpoint, API and CLI short suites passed on `8685ed6e3` (70.633s/37.844s/66.608s); log `/tmp/g3-unbound-native-20261103.log`. The subsequent DDNF display correction has focused coverage.
 
 - 2026-11-03 — Matched source publication of normalized clauses when a multi-clause update is rejected. Public source-oracle, ordering, scope, owner and native refusal tests pass; partial HNF errors before normalization completes remain open.
+- 2026-11-03 — Fixed the three-tag display allocation campaign's debug-only attempt-limit failure. Native retains exhaustive 128-query coverage; debug exhausts a 22-query fixture that crosses the reference-page boundary and separately checks cold 128-query failure/completion and negation-owner boundaries. Focused native and three-tag tests pass; the earlier filtered run failed only this campaign.

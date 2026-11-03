@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 
@@ -25,6 +26,10 @@ type contextSMT2AllocationFixture struct {
 }
 
 func newContextSMT2AllocationFixture(t *testing.T, extensions bool) *contextSMT2AllocationFixture {
+	return newContextSMT2AllocationFixtureWidth(t, extensions, 128)
+}
+
+func newContextSMT2AllocationFixtureWidth(t *testing.T, extensions bool, width int) *contextSMT2AllocationFixture {
 	t.Helper()
 	budget := arena.NewBudget(1 << 28)
 	numbers, err := numeral.NewRationalService(numeral.RationalServiceConfig{Integers: numeral.IntegerConfig{
@@ -72,7 +77,6 @@ func newContextSMT2AllocationFixture(t *testing.T, extensions bool) *contextSMT2
 	ruleMust(t, err)
 	f := &contextSMT2AllocationFixture{manager: manager, formats: formats, set: set, config: base.DefaultContextSMT2Config()}
 	f.config.FixedpointExtensions = extensions
-	const width = 128
 	if !extensions {
 		for i := 0; i < width; i++ {
 			name, cause := symbols.Intern(fmt.Sprintf("allocation-query-%d", i))
@@ -114,53 +118,21 @@ func contextSMT2LiveCounts(stats ast.ASTManagerStats) [4]uint32 {
 func TestContextSMT2AllocationExactASTOwnership(t *testing.T) {
 	for _, extensions := range []bool{false, true} {
 		t.Run(fmt.Sprintf("extensions=%t", extensions), func(t *testing.T) {
+			width := 128
+			if ast.ASTSourceDebug && !extensions {
+				// Debug AST allocation bypasses the source small-object pool.
+				// Exhaust every allocation with the smallest query vector that
+				// grows the 64-slot main reference page: 44 input roots plus 22
+				// query copies and one temporary negation root. The separate
+				// debug test preserves the cold 128-query page boundaries.
+				width = 22
+			}
 			failures, completed := 0, false
 			for allowance := int64(0); allowance < 4096 && !completed; allowance++ {
 				if !t.Run(fmt.Sprint(allowance), func(t *testing.T) {
-					f := newContextSMT2AllocationFixture(t, extensions)
-					before, beforeFormat := contextSMT2LiveCounts(f.manager.Stats()), contextSMT2LiveCounts(f.formats.Stats())
-					var output bytes.Buffer
-					f.manager.Budget().FailAfter(allowance)
-					failure := f.set.WriteContextSMT2(&output, f.config)
-					f.manager.Budget().FailAfter(-1)
-					if failure != nil {
+					completed = checkContextSMT2Allocation(t, extensions, width, allowance, false)
+					if !completed {
 						failures++
-						var receipt memory.ConstructionFailure
-						if errors.As(failure, &receipt) {
-							shown, exposed := receipt.Error(), receipt.Unwrap()
-							ruleMust(t, receipt.Cleanup())
-							ruleMust(t, receipt.Cleanup())
-							if receipt.Error() != shown || receipt.Unwrap() != exposed || receipt.CleanupCause() != nil {
-								t.Fatal("context dump cleanup changed its receipt")
-							}
-						}
-						var resource memory.Failure
-						if !errors.Is(failure, arena.ErrInjectedFailure) && (!errors.As(failure, &resource) || resource.Kind != memory.FailureMemout) {
-							t.Fatal("unexpected context dump allocation failure", failure)
-						}
-					} else {
-						completed = true
-					}
-					if after := contextSMT2LiveCounts(f.manager.Stats()); after != before {
-						t.Fatal("context dump lost main AST ownership", before, after, failure)
-					}
-					if after := contextSMT2LiveCounts(f.formats.Stats()); after != beforeFormat {
-						t.Fatal("context dump lost format AST ownership", beforeFormat, after, failure)
-					}
-					output.Reset()
-					ruleMust(t, f.set.WriteContextSMT2(&output, f.config))
-					if extensions {
-						if strings.Count(output.String(), "(declare-var ") != 128 || strings.Count(output.String(), "(query q!") != 1 {
-							t.Fatal("retry missed wide declarations or fresh query bridge", output.String())
-						}
-					} else if strings.Count(output.String(), "(check-sat)") != 128 {
-						t.Fatal("retry missed plain HORN negated queries", output.String())
-					}
-					if after := contextSMT2LiveCounts(f.manager.Stats()); after != before {
-						t.Fatal("context dump retry lost main AST ownership", before, after)
-					}
-					if after := contextSMT2LiveCounts(f.formats.Stats()); after != beforeFormat {
-						t.Fatal("context dump retry lost format AST ownership", beforeFormat, after)
 					}
 				}) {
 					return
@@ -171,4 +143,78 @@ func TestContextSMT2AllocationExactASTOwnership(t *testing.T) {
 			}
 		})
 	}
+}
+
+// checkContextSMT2Allocation always uses a cold fixture and verifies the same
+// complete owner, receipt and successful-retry contract for every profile.
+func checkContextSMT2Allocation(t *testing.T, extensions bool, width int, allowance int64, atNegation bool) bool {
+	t.Helper()
+	f := newContextSMT2AllocationFixtureWidth(t, extensions, width)
+	before, beforeFormat := contextSMT2LiveCounts(f.manager.Stats()), contextSMT2LiveCounts(f.formats.Stats())
+	var output bytes.Buffer
+	var out io.Writer = &output
+	boundary := &contextSMT2NegationAllocationWriter{output: &output, budget: f.manager.Budget()}
+	if atNegation {
+		out = boundary
+	}
+	f.manager.Budget().FailAfter(allowance)
+	failure := f.set.WriteContextSMT2(out, f.config)
+	f.manager.Budget().FailAfter(-1)
+	if atNegation && (!boundary.armed || failure == nil || strings.Contains(output.String(), "(check-sat)")) {
+		t.Fatal("missed the first negated query owner allocation", boundary.armed, failure)
+	}
+	if failure != nil {
+		var receipt memory.ConstructionFailure
+		if errors.As(failure, &receipt) {
+			shown, exposed := receipt.Error(), receipt.Unwrap()
+			ruleMust(t, receipt.Cleanup())
+			ruleMust(t, receipt.Cleanup())
+			if receipt.Error() != shown || receipt.Unwrap() != exposed || receipt.CleanupCause() != nil {
+				t.Fatal("context dump cleanup changed its receipt")
+			}
+		}
+		var resource memory.Failure
+		if !errors.Is(failure, arena.ErrInjectedFailure) && (!errors.As(failure, &resource) || resource.Kind != memory.FailureMemout) {
+			t.Fatal("unexpected context dump allocation failure", failure)
+		}
+	}
+	if after := contextSMT2LiveCounts(f.manager.Stats()); after != before {
+		t.Fatal("context dump lost main AST ownership", before, after, failure)
+	}
+	if after := contextSMT2LiveCounts(f.formats.Stats()); after != beforeFormat {
+		t.Fatal("context dump lost format AST ownership", beforeFormat, after, failure)
+	}
+	output.Reset()
+	ruleMust(t, f.set.WriteContextSMT2(&output, f.config))
+	if extensions {
+		if strings.Count(output.String(), "(declare-var ") != width || strings.Count(output.String(), "(query q!") != 1 {
+			t.Fatal("retry missed wide declarations or fresh query bridge", output.String())
+		}
+	} else if strings.Count(output.String(), "(check-sat)") != width {
+		t.Fatal("retry missed plain HORN negated queries", output.String())
+	}
+	if after := contextSMT2LiveCounts(f.manager.Stats()); after != before {
+		t.Fatal("context dump retry lost main AST ownership", before, after)
+	}
+	if after := contextSMT2LiveCounts(f.formats.Stats()); after != beforeFormat {
+		t.Fatal("context dump retry lost format AST ownership", beforeFormat, after)
+	}
+	return failure == nil
+}
+
+type contextSMT2NegationAllocationWriter struct {
+	output *bytes.Buffer
+	budget *arena.Budget
+	armed  bool
+}
+
+func (w *contextSMT2NegationAllocationWriter) Write(body []byte) (int, error) {
+	n, err := w.output.Write(body)
+	if err == nil && !w.armed && string(body) == "(assert " {
+		// Source display_smt2 reserves the negated query's owner immediately
+		// after this actual stream insertion, before constructing its AST.
+		w.armed = true
+		w.budget.FailAfter(0)
+	}
+	return n, err
 }
