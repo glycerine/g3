@@ -331,11 +331,11 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule) (_ *base.Rule, res
 	if err != nil {
 		return nil, err
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return nil, err
 	}
-	return p.rules.NewRule(head, tails, negated, name)
+	return p.rules.NewRuleWithSymbol(head, tails, negated, name)
 }
 
 func (p *ArrayEqRewritePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {

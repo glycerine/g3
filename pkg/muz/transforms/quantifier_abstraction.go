@@ -437,11 +437,11 @@ func (p *QuantifierAbstractionPlugin) transformRule(source, destination *base.Ru
 			return nil, err
 		}
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return nil, err
 	}
-	return p.rules.NewRule(head, tails, negated, name)
+	return p.rules.NewRuleWithSymbol(head, tails, negated, name)
 }
 
 func (p *QuantifierAbstractionPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {

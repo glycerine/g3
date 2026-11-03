@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 type magicAdornment []bool
@@ -218,8 +219,8 @@ func (p *MagicSetsPlugin) magicLiteral(adorned ast.ASTHandle) (ast.ASTHandle, er
 	}
 	return p.manager.MkApp(magicDecl, args)
 }
-func (p *MagicSetsPlugin) addRule(result *base.RuleSet, head ast.ASTHandle, tails []ast.ASTHandle, neg []bool, name string, parent *base.Rule) error {
-	r, err := p.rules.NewRule(head, tails, neg, name)
+func (p *MagicSetsPlugin) addRule(result *base.RuleSet, head ast.ASTHandle, tails []ast.ASTHandle, neg []bool, name usymbol.Symbol, parent *base.Rule) error {
+	r, err := p.rules.NewRuleWithSymbol(head, tails, neg, name)
 	if err != nil {
 		return err
 	}
@@ -470,7 +471,7 @@ func (p *MagicSetsPlugin) transformRule(task magicTask, rule *base.Rule, result 
 		if e != nil {
 			return e
 		}
-		if e = p.addRule(result, mh, prefixTails[:i+1], prefixNeg[:i+1], "", rule); e != nil {
+		if e = p.addRule(result, mh, prefixTails[:i+1], prefixNeg[:i+1], usymbol.Symbol{}, rule); e != nil {
 			return e
 		}
 	}
@@ -486,7 +487,7 @@ func (p *MagicSetsPlugin) transformRule(task magicTask, rule *base.Rule, result 
 		tails, neg = append(tails, lit), append(neg, n)
 	}
 	tails, neg = append(tails, headMagic), append(neg, false)
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return err
 	}
@@ -561,7 +562,7 @@ func (p *MagicSetsPlugin) addTransferRule(task magicTask, result *base.RuleSet) 
 	if err != nil {
 		return err
 	}
-	return p.addRule(result, adorned, []ast.ASTHandle{original, magic}, nil, "", nil)
+	return p.addRule(result, adorned, []ast.ASTHandle{original, magic}, nil, usymbol.Symbol{}, nil)
 }
 
 func (p *MagicSetsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
@@ -671,10 +672,10 @@ func (p *MagicSetsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resu
 	if err != nil {
 		return nil, err
 	}
-	if err = p.addRule(result, magicGoal, nil, nil, "", nil); err != nil {
+	if err = p.addRule(result, magicGoal, nil, nil, usymbol.Symbol{}, nil); err != nil {
 		return nil, err
 	}
-	if err = p.addRule(result, goalHead, []ast.ASTHandle{adornedGoal}, nil, "", nil); err != nil {
+	if err = p.addRule(result, goalHead, []ast.ASTHandle{adornedGoal}, nil, usymbol.Symbol{}, nil); err != nil {
 		return nil, err
 	}
 	keep = true

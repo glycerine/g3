@@ -234,11 +234,11 @@ func (p *SeparateNegatedTailsPlugin) rewriteRule(rule *base.Rule, result *base.R
 	if err != nil {
 		return err
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return err
 	}
-	rewritten, err := p.rules.NewRule(head, tails, negated, name)
+	rewritten, err := p.rules.NewRuleWithSymbol(head, tails, negated, name)
 	if err != nil {
 		return fmt.Errorf("construct rewritten rule: %w", err)
 	}

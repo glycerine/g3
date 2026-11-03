@@ -251,11 +251,11 @@ func (p *LoopCounterPlugin) transform(source *base.RuleSet, revert bool) (_ *bas
 				getErr = argumentErr
 			}
 		}
-		name, nameErr := rule.Name()
+		name, nameErr := rule.NameSymbol()
 		getErr = errors.Join(getErr, nameErr)
 		var replacement *base.Rule
 		if getErr == nil {
-			replacement, getErr = p.rules.NewRule(head, tails, negated, name)
+			replacement, getErr = p.rules.NewRuleWithSymbol(head, tails, negated, name)
 		}
 		if getErr == nil {
 			getErr = result.Add(replacement)

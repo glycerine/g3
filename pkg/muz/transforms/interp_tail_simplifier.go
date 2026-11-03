@@ -151,11 +151,11 @@ func (p *InterpTailSimplifierPlugin) simplifyRule(rule *base.Rule) (_ *base.Rule
 	if err != nil {
 		return nil, false, false, err
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return nil, false, false, err
 	}
-	replacement, err := p.rules.NewRule(head, tails, negated, name)
+	replacement, err := p.rules.NewRuleWithSymbol(head, tails, negated, name)
 	if err != nil {
 		return nil, false, false, err
 	}
@@ -414,11 +414,11 @@ func (p *InterpTailSimplifierPlugin) propagate(rule *base.Rule) (_ *base.Rule, c
 	if err != nil {
 		return nil, false, fmt.Errorf("muz/transforms: remove duplicate simplified tails: %w", err)
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return nil, false, err
 	}
-	replacement, err := p.rules.NewRule(head, tails, negated, name)
+	replacement, err := p.rules.NewRuleWithSymbol(head, tails, negated, name)
 	if err != nil {
 		return nil, false, err
 	}

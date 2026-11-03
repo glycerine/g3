@@ -169,11 +169,11 @@ func (p *MagicSymbolicPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, 
 		if getErr == nil {
 			answerHead, getErr = pin(answerHead)
 		}
-		name, nameErr := rule.Name()
+		name, nameErr := rule.NameSymbol()
 		getErr = errors.Join(getErr, nameErr)
 		var replacement *base.Rule
 		if getErr == nil {
-			replacement, getErr = p.rules.NewRule(answerHead, tails, make([]bool, len(tails)), name)
+			replacement, getErr = p.rules.NewRuleWithSymbol(answerHead, tails, make([]bool, len(tails)), name)
 		}
 		if getErr == nil {
 			getErr = result.Add(replacement)
@@ -196,7 +196,7 @@ func (p *MagicSymbolicPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, 
 				declarationErr = result.InheritPredicate(source, old, p.answers[old])
 			}
 			if declarationErr == nil {
-				replacement, declarationErr = p.rules.NewRule(headQuery, nil, nil, name)
+				replacement, declarationErr = p.rules.NewRuleWithSymbol(headQuery, nil, nil, name)
 			}
 			if declarationErr == nil {
 				declarationErr = result.Add(replacement)
@@ -218,7 +218,7 @@ func (p *MagicSymbolicPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, 
 			}
 			prefix := total - uninterpreted + 1 + j
 			if tailErr == nil {
-				replacement, tailErr = p.rules.NewRule(queryHead, tails[:prefix], make([]bool, prefix), name)
+				replacement, tailErr = p.rules.NewRuleWithSymbol(queryHead, tails[:prefix], make([]bool, prefix), name)
 			}
 			if tailErr == nil {
 				tailErr = result.Add(replacement)

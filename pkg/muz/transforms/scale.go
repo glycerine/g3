@@ -311,10 +311,10 @@ func (p *ScalePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultEr
 				getErr = makeErr
 				tails = append(tails, positive)
 			}
-			name, nameErr := rule.Name()
+			name, nameErr := rule.NameSymbol()
 			getErr = errors.Join(getErr, nameErr)
 			if getErr == nil {
-				replacement, getErr = p.rules.NewRule(head, tails, make([]bool, len(tails)), name)
+				replacement, getErr = p.rules.NewRuleWithSymbol(head, tails, make([]bool, len(tails)), name)
 			}
 			if getErr == nil {
 				getErr = result.Add(replacement)

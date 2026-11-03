@@ -308,7 +308,7 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 			}
 			continue
 		}
-		replacement, x := p.rules.NewRule(state.head, state.tails, state.negated, state.name)
+		replacement, x := p.rules.NewRuleWithSymbol(state.head, state.tails, state.negated, state.name)
 		if x == nil {
 			x = replacement.SetAccountingParentRule(state.rule)
 		}

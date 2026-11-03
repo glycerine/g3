@@ -215,11 +215,11 @@ func (u *RuleUnifier) resolveRaw(rules *base.RuleManager, target *base.Rule, tai
 			next++
 		}
 	}
-	targetName, err := target.Name()
+	targetName, err := target.NameText()
 	if err != nil {
 		return nil, renaming, err
 	}
-	sourceName, err := source.Name()
+	sourceName, err := source.NameText()
 	if err != nil {
 		return nil, renaming, err
 	}

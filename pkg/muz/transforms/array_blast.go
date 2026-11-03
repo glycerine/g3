@@ -660,7 +660,7 @@ func (p *ArrayBlastPlugin) transformRule(rule *base.Rule) (_ *base.Rule, changed
 	} else {
 		negated = negated[:uninterpreted]
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return nil, false, err
 	}
@@ -670,7 +670,7 @@ func (p *ArrayBlastPlugin) transformRule(rule *base.Rule) (_ *base.Rule, changed
 			return nil, false, fmt.Errorf("muz/transforms: array blast tail %d is not an application: %w", index, errors.Join(kindErr, ast.ErrASTDomain))
 		}
 	}
-	replacement, err := p.rules.NewRule(head, tails, negated, name)
+	replacement, err := p.rules.NewRuleWithSymbol(head, tails, negated, name)
 	if err != nil {
 		return nil, false, err
 	}

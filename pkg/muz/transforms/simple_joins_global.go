@@ -16,7 +16,7 @@ type simpleJoinRuleState struct {
 	rule     *base.Rule
 	head     ast.ASTHandle
 	prefix   usymbol.Symbol
-	name     string
+	name     usymbol.Symbol
 	tails    []ast.ASTHandle
 	negated  []bool
 	positive int
@@ -349,7 +349,7 @@ func newSimpleJoinState(p *SimpleJoinsPlugin, rule *base.Rule) (*simpleJoinRuleS
 	if err != nil {
 		return nil, err
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return nil, err
 	}

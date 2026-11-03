@@ -363,11 +363,11 @@ func transformSubsumedRule(manager *base.RuleManager, rule *base.Rule, total map
 	if !changed {
 		return nil, true, false, nil
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return nil, false, false, err
 	}
-	replacement, err := manager.NewRule(head, tail, negated, name)
+	replacement, err := manager.NewRuleWithSymbol(head, tail, negated, name)
 	if err != nil {
 		return nil, false, false, err
 	}

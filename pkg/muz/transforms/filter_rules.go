@@ -383,11 +383,11 @@ func (p *FilterRulesPlugin) rewrite(rule *base.Rule, result *base.RuleSet) (chan
 		return false, result.Add(rule)
 	}
 	tails, negated = removeDuplicateFilterTails(tails, negated)
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return false, err
 	}
-	replacement, err := p.rules.NewRule(head, tails, negated, name)
+	replacement, err := p.rules.NewRuleWithSymbol(head, tails, negated, name)
 	if err != nil {
 		return false, err
 	}

@@ -232,10 +232,10 @@ func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resul
 				transformErr = errors.Join(getOriginalErr, getFinalErr)
 				if transformErr == nil && (simplified || final != original) {
 					var replacement *base.Rule
-					name, nameErr := rule.Name()
+					name, nameErr := rule.NameSymbol()
 					transformErr = errors.Join(transformErr, nameErr)
 					if transformErr == nil {
-						replacement, transformErr = p.rules.NewRuleFromFormula(final, name)
+						replacement, transformErr = p.rules.NewRuleFromFormulaWithSymbol(final, name)
 					}
 					if transformErr == nil {
 						_, hasProof, proofErr := rule.Proof()

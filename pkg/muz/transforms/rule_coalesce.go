@@ -316,11 +316,11 @@ func (p *RuleCoalescePlugin) merge(target, source *base.Rule) (_ *base.Rule, res
 	}
 	tails = append(tails, disjunction)
 	negated = append(negated, false)
-	name, err := target.Name()
+	name, err := target.NameSymbol()
 	if err != nil {
 		return nil, err
 	}
-	merged, err := p.rules.NewRule(head, tails, negated, name)
+	merged, err := p.rules.NewRuleWithSymbol(head, tails, negated, name)
 	if err != nil {
 		return nil, fmt.Errorf("muz/transforms: construct coalesced rule: %w", err)
 	}

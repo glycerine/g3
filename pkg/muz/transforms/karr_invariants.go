@@ -808,11 +808,11 @@ func (p *KarrInvariantsPlugin) updateRules(source *base.RuleSet, invariants map[
 			getErr = argumentErr
 		}
 		head, headErr := rule.Head()
-		name, nameErr := rule.Name()
+		name, nameErr := rule.NameSymbol()
 		getErr = errors.Join(getErr, headErr, nameErr)
 		var replacement *base.Rule
 		if getErr == nil {
-			replacement, getErr = p.rules.NewRule(head, tails, negated, name)
+			replacement, getErr = p.rules.NewRuleWithSymbol(head, tails, negated, name)
 		}
 		if getErr == nil {
 			getErr = result.Add(replacement)

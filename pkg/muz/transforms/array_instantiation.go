@@ -526,11 +526,11 @@ func (p *ArrayInstantiationPlugin) transformRule(source, destination *base.RuleS
 		}
 		tails = append(tails, equality)
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return nil, err
 	}
-	return p.rules.NewRule(newHead, tails, nil, name)
+	return p.rules.NewRuleWithSymbol(newHead, tails, nil, name)
 }
 
 func (p *ArrayInstantiationPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {

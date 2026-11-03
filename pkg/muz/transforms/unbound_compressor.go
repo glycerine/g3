@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 type compressionKey struct {
@@ -255,7 +256,7 @@ func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.R
 		retained, retainErr := rule.Retain()
 		return []*base.Rule{retained}, false, retainErr
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return nil, false, err
 	}
@@ -276,7 +277,13 @@ func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.R
 		for range variant.extra {
 			variant.neg = append(variant.neg, true)
 		}
-		replacement, makeErr := p.rules.NewRule(head, variant.tails, variant.neg, name)
+		// Source mk_decompression_rule omits a name for either tail rewrite;
+		// only pure head compression inherits the parent symbol.
+		label := name
+		if variant.decompressed || variant.negativeChange {
+			label = usymbol.Symbol{}
+		}
+		replacement, makeErr := p.rules.NewRuleWithSymbol(head, variant.tails, variant.neg, label)
 		if makeErr == nil {
 			makeErr = replacement.SetAccountingParentRule(rule)
 		}

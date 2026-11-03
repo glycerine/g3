@@ -160,11 +160,11 @@ func (c *SliceProofConverter) instantiateCompoundHead(original *base.Rule, origi
 	if err = m.SetRef(instantiatedOwner, instantiated); err != nil {
 		return nil, proof, err
 	}
-	name, err := original.Name()
+	name, err := original.NameSymbol()
 	if err != nil {
 		return nil, proof, err
 	}
-	rule, err = c.rules.NewRuleFromFormulaWithProof(normal, instantiated, name)
+	rule, err = c.rules.NewRuleFromFormulaWithProofAndSymbol(normal, instantiated, name)
 	if err != nil {
 		return nil, proof, err
 	}

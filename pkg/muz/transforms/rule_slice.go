@@ -525,11 +525,11 @@ func (p *RuleSlicePlugin) updateRule(rule *base.Rule, variables *[]uint32) (*bas
 			}
 		}
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return nil, err
 	}
-	updatedRule, err := p.rules.NewRule(head, tails, negated, name)
+	updatedRule, err := p.rules.NewRuleWithSymbol(head, tails, negated, name)
 	if err != nil {
 		return nil, err
 	}

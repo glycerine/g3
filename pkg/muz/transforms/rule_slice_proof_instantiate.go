@@ -269,11 +269,11 @@ func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalP
 			return nil, proof, err
 		}
 	}
-	name, err := temporary.Name()
+	name, err := temporary.NameSymbol()
 	if err != nil {
 		return nil, proof, err
 	}
-	rule, err = c.rules.NewRule(head, tails, negative, name)
+	rule, err = c.rules.NewRuleWithSymbol(head, tails, negative, name)
 	if err != nil {
 		return nil, proof, err
 	}

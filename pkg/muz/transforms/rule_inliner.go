@@ -1121,8 +1121,8 @@ func (p *RuleInlinerPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 			for _, definition := range definitions[declaration] {
 				resolved, resolveErr := p.resolve(current, inlineIndex, definition)
 				if resolveErr != nil {
-					currentName, _ := current.Name()
-					definitionName, _ := definition.Name()
+					currentName, _ := current.NameText()
+					definitionName, _ := definition.NameText()
 					return nil, errors.Join(fmt.Errorf("muz/transforms: inline %s with %s: %w", currentName, definitionName, resolveErr), current.Close(), closeRules(queue))
 				}
 				if resolved != nil {

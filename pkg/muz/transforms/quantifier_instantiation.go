@@ -525,11 +525,11 @@ func (p *QuantifierInstantiationPlugin) transformRule(rule *base.Rule) (_ *base.
 	if err != nil {
 		return nil, false, err
 	}
-	name, err := rule.Name()
+	name, err := rule.NameSymbol()
 	if err != nil {
 		return nil, false, err
 	}
-	replacement, err := p.rules.NewRule(head, conjuncts, nil, name)
+	replacement, err := p.rules.NewRuleWithSymbol(head, conjuncts, nil, name)
 	if err != nil {
 		return nil, false, err
 	}
