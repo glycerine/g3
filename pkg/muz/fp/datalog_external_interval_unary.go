@@ -16,6 +16,7 @@ import (
 type externalIntervalDatalogUnaryTransform struct {
 	constants       []externalIntervalDatalogUnaryConstant
 	identical       [][]uint32
+	filterRemoved   []uint32
 	removed         []uint32
 	renames         [][]uint32
 	condition       *externalIntervalUnaryCondition
@@ -62,7 +63,7 @@ func sameExternalIntervalUnaryTransform(left, right *externalIntervalDatalogUnar
 	if !sameExternalIntervalUnaryCondition(left.condition, right.condition) {
 		return false
 	}
-	if !externalIntervalColumnsEqual(left.removed, right.removed) || len(left.constants) != len(right.constants) || len(left.identical) != len(right.identical) || len(left.renames) != len(right.renames) {
+	if !externalIntervalColumnsEqual(left.filterRemoved, right.filterRemoved) || !externalIntervalColumnsEqual(left.removed, right.removed) || len(left.constants) != len(right.constants) || len(left.identical) != len(right.identical) || len(left.renames) != len(right.renames) {
 		return false
 	}
 	for i := range left.constants {
@@ -235,11 +236,6 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 		wanted[variable] = true
 	}
 	if total > 1 {
-		// This batch lowers the source in-place filter branch. A tail
-		// variable omitted from the head requires fused filter/project.
-		if len(wanted) != len(columns) {
-			return fail(ErrExternalIntervalDatalogFragment)
-		}
 		boolean, cause := e.manager.MkBoolSort()
 		if cause != nil {
 			return fail(cause)
@@ -289,6 +285,24 @@ func (e *PropositionalEngine) externalIntervalUnaryPlan(rule *base.Rule) (headDe
 			condition.bindings = append(condition.bindings, externalIntervalUnaryConditionBinding{variable: variable, column: column, sort: sorts[1][column]})
 		}
 		plan.condition = condition
+		// The fused filter removes every occurrence of variables absent
+		// from the head. Its guard still uses the original column binding;
+		// duplicate surviving columns are removed later by head assembly.
+		var filtered []uint32
+		for column, variable := range variables[1] {
+			if !wanted[variable] {
+				plan.filterRemoved = append(plan.filterRemoved, uint32(column))
+			} else {
+				filtered = append(filtered, variable)
+			}
+		}
+		if len(plan.filterRemoved) != 0 {
+			variables[1] = filtered
+			columns = make(map[uint32][]uint32)
+			for column, variable := range filtered {
+				columns[variable] = append(columns[variable], uint32(column))
+			}
+		}
 	}
 	surviving := make(map[uint32]uint32)
 	for column, variable := range variables[1] {
@@ -417,15 +431,26 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalUnary(plan *e
 		if err != nil {
 			return rollback(err)
 		}
-		if owner.temporary == nil {
-			owner.temporary, err = current.Clone()
+		if len(transform.filterRemoved) != 0 {
+			next, err := filterProjectExternalIntervalUnary(current, condition, transform.filterRemoved, registers.runtime)
 			if err != nil {
 				return rollback(err)
 			}
-			current = owner.temporary
-		}
-		if err := current.FilterInterpreted(condition); err != nil {
-			return rollback(err)
+			if err := owner.replaceTemporary(next); err != nil {
+				return rollback(err)
+			}
+			current = next
+		} else {
+			if owner.temporary == nil {
+				owner.temporary, err = current.Clone()
+				if err != nil {
+					return rollback(err)
+				}
+				current = owner.temporary
+			}
+			if err := current.FilterInterpreted(condition); err != nil {
+				return rollback(err)
+			}
 		}
 		empty, err := current.Empty()
 		if err != nil {

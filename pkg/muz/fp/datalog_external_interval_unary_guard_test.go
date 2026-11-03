@@ -318,13 +318,11 @@ func TestExternalIntervalDatalogUnaryGuardRefusalAndProgramRetry(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogUnaryGuardRejectsUnsupportedBeforeCallbacks(t *testing.T) {
-	for _, shape := range []string{"dropped-variable", "unbound-guard", "negative-tail"} {
+	for _, shape := range []string{"unbound-guard", "negative-tail"} {
 		t.Run(shape, func(t *testing.T) {
 			tail, head := []int{0}, []uint32{0}
 			guard := externalIntervalUnaryGuardSpec{op: "<", left: 0, bound: "3"}
 			switch shape {
-			case "dropped-variable":
-				tail = []int{0, 1}
 			case "unbound-guard":
 				guard.left = 1
 			}

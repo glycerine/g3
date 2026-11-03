@@ -13,6 +13,15 @@ import (
 )
 
 func TestExternalIntervalUnarySelectNativeCloneClosePreservesProjectedOwner(t *testing.T) {
+	testExternalIntervalUnaryProjectionNativeCleanup(t, false)
+}
+
+func TestExternalIntervalUnaryFilterProjectNativeCloneClosePreservesProjectedOwner(t *testing.T) {
+	testExternalIntervalUnaryProjectionNativeCleanup(t, true)
+}
+
+func testExternalIntervalUnaryProjectionNativeCleanup(t *testing.T, interpreted bool) {
+	t.Helper()
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -20,7 +29,7 @@ func TestExternalIntervalUnarySelectNativeCloneClosePreservesProjectedOwner(t *t
 		}
 	}
 	budget := arena.NewBudget(1 << 28)
-	var attempt *externalIntervalUnarySelectAttempt
+	var attempt *externalIntervalUnaryProjectionAttempt
 	var published *rel.ExternalIntervalProduct
 	var completionFailure error
 	active, fired := false, false
@@ -56,6 +65,19 @@ func TestExternalIntervalUnarySelectNativeCloneClosePreservesProjectedOwner(t *t
 		return result
 	}
 	seven, eleven, five := value("7"), value("11"), value("5")
+	condition := func(bound ast.ASTHandle) ast.ASTHandle {
+		variable, cause := manager.MkVar(0, integer)
+		must(cause)
+		variableRoot, cause := manager.NewRef(variable)
+		must(cause)
+		guard, cause := manager.MkEq(variable, bound)
+		must(cause)
+		root, cause := manager.NewRef(guard)
+		must(cause)
+		roots = append(roots, root)
+		must(manager.DelRef(&variableRoot))
+		return guard
+	}
 	relations, err := rel.NewRelationManager(manager)
 	must(err)
 	callbacks := &externalIntervalCallbackState{manager: manager, nonempty: make(map[ast.ASTHandle]bool)}
@@ -69,13 +91,17 @@ func TestExternalIntervalUnarySelectNativeCloneClosePreservesProjectedOwner(t *t
 	must(source.AddFact([]ast.ASTHandle{seven, eleven}))
 	callbacks.operations = nil
 
-	// Stage the helper's real CLONE/FILTER/PROJECT products. Native Transport
-	// invokes the exact finalizer used by selectExternalIntervalUnary, stopping
-	// specifically at clone retirement before the result can reach its caller.
-	attempt = &externalIntervalUnarySelectAttempt{runtime: runtime}
+	// Stage each helper's real CLONE/FILTER/PROJECT products. Native Transport
+	// invokes their shared finalizer, stopping specifically at clone retirement
+	// before the result can reach its caller.
+	attempt = &externalIntervalUnaryProjectionAttempt{runtime: runtime}
 	attempt.working, err = source.Clone()
 	must(err)
-	must(attempt.working.FilterEqual(0, seven))
+	if interpreted {
+		must(attempt.working.FilterInterpreted(condition(seven)))
+	} else {
+		must(attempt.working.FilterEqual(0, seven))
+	}
 	attempt.projected, err = attempt.working.Project([]uint32{0})
 	must(err)
 	working, projected := attempt.working, attempt.projected
@@ -122,7 +148,13 @@ func TestExternalIntervalUnarySelectNativeCloneClosePreservesProjectedOwner(t *t
 		empty bool
 	}{{value: seven}, {value: five, empty: true}} {
 		callbacks.operations = nil
-		result, cause := selectExternalIntervalUnary(source, 0, test.value, runtime)
+		var result *rel.ExternalIntervalProduct
+		var cause error
+		if interpreted {
+			result, cause = filterProjectExternalIntervalUnary(source, condition(test.value), []uint32{0}, runtime)
+		} else {
+			result, cause = selectExternalIntervalUnary(source, 0, test.value, runtime)
+		}
 		must(cause)
 		if result == nil {
 			t.Fatal("select helper failed to publish a completed projection")
@@ -142,6 +174,8 @@ func TestExternalIntervalUnarySelectNativeCloneClosePreservesProjectedOwner(t *t
 		}
 		must(result.Close())
 	}
+	assertExternalIntervalGroundProgramInterval(t, source, 0, "7", "7")
+	assertExternalIntervalGroundProgramInterval(t, source, 1, "11", "11")
 	must(numbers.Del(&number))
 	must(source.Close())
 	must(plugin.Close())

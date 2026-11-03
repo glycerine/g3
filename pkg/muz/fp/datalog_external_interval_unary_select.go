@@ -12,14 +12,14 @@ import (
 
 // The source scoped clone remains owned until projection succeeds. Neither
 // temporary is exposed to the caller while clone cleanup is unfinished.
-type externalIntervalUnarySelectAttempt struct {
+type externalIntervalUnaryProjectionAttempt struct {
 	working   *rel.ExternalIntervalProduct
 	projected *rel.ExternalIntervalProduct
 	nested    memory.ConstructionFailure
 	runtime   *memory.Runtime
 }
 
-func (a *externalIntervalUnarySelectAttempt) close() error {
+func (a *externalIntervalUnaryProjectionAttempt) close() error {
 	if a.nested != nil {
 		if err := a.nested.Cleanup(); err != nil {
 			return err
@@ -41,27 +41,27 @@ func (a *externalIntervalUnarySelectAttempt) close() error {
 	return nil
 }
 
-type externalIntervalUnarySelectFailure struct {
+type externalIntervalUnaryProjectionFailure struct {
 	original, cleanup, reported error
 	text                        string
-	owner                       *externalIntervalUnarySelectAttempt
+	owner                       *externalIntervalUnaryProjectionAttempt
 }
 
-var _ memory.ConstructionFailure = (*externalIntervalUnarySelectFailure)(nil)
+var _ memory.ConstructionFailure = (*externalIntervalUnaryProjectionFailure)(nil)
 
-func (f *externalIntervalUnarySelectFailure) Error() string        { return f.text }
-func (f *externalIntervalUnarySelectFailure) Unwrap() error        { return f.reported }
-func (f *externalIntervalUnarySelectFailure) OriginalCause() error { return f.original }
-func (f *externalIntervalUnarySelectFailure) CleanupCause() error  { return f.cleanup }
-func (f *externalIntervalUnarySelectFailure) RuntimeOwner() *memory.Runtime {
+func (f *externalIntervalUnaryProjectionFailure) Error() string        { return f.text }
+func (f *externalIntervalUnaryProjectionFailure) Unwrap() error        { return f.reported }
+func (f *externalIntervalUnaryProjectionFailure) OriginalCause() error { return f.original }
+func (f *externalIntervalUnaryProjectionFailure) CleanupCause() error  { return f.cleanup }
+func (f *externalIntervalUnaryProjectionFailure) RuntimeOwner() *memory.Runtime {
 	return f.owner.runtime
 }
-func (f *externalIntervalUnarySelectFailure) Cleanup() error {
+func (f *externalIntervalUnaryProjectionFailure) Cleanup() error {
 	f.cleanup = f.owner.close()
 	return f.cleanup
 }
 
-func finishExternalIntervalUnarySelectFailure(cause error, owner *externalIntervalUnarySelectAttempt) error {
+func finishExternalIntervalUnaryProjectionFailure(cause error, owner *externalIntervalUnaryProjectionAttempt) error {
 	if cause != nil {
 		errors.As(cause, &owner.nested)
 	}
@@ -74,16 +74,16 @@ func finishExternalIntervalUnarySelectFailure(cause error, owner *externalInterv
 		original = cleanup
 	}
 	reported := errors.Join(cause, cleanup)
-	return &externalIntervalUnarySelectFailure{
+	return &externalIntervalUnaryProjectionFailure{
 		original: original, cleanup: cleanup, reported: reported,
 		text: reported.Error(), owner: owner,
 	}
 }
 
-func (a *externalIntervalUnarySelectAttempt) complete() (*rel.ExternalIntervalProduct, error) {
+func (a *externalIntervalUnaryProjectionAttempt) complete() (*rel.ExternalIntervalProduct, error) {
 	if a.working != nil {
 		if err := a.working.Close(); err != nil {
-			return nil, finishExternalIntervalUnarySelectFailure(err, a)
+			return nil, finishExternalIntervalUnaryProjectionFailure(err, a)
 		}
 		a.working = nil
 	}
@@ -93,19 +93,19 @@ func (a *externalIntervalUnarySelectAttempt) complete() (*rel.ExternalIntervalPr
 }
 
 func selectExternalIntervalUnary(source *rel.ExternalIntervalProduct, column uint32, value ast.ASTHandle, runtime *memory.Runtime) (*rel.ExternalIntervalProduct, error) {
-	owner := &externalIntervalUnarySelectAttempt{runtime: runtime}
+	owner := &externalIntervalUnaryProjectionAttempt{runtime: runtime}
 	var err error
 	owner.working, err = source.Clone()
 	if err != nil {
-		return nil, finishExternalIntervalUnarySelectFailure(err, owner)
+		return nil, finishExternalIntervalUnaryProjectionFailure(err, owner)
 	}
 	if err = owner.working.FilterEqual(column, value); err != nil {
-		return nil, finishExternalIntervalUnarySelectFailure(err, owner)
+		return nil, finishExternalIntervalUnaryProjectionFailure(err, owner)
 	}
 	// The source fallback always projects, including an empty filtered clone.
 	owner.projected, err = owner.working.Project([]uint32{column})
 	if err != nil {
-		return nil, finishExternalIntervalUnarySelectFailure(err, owner)
+		return nil, finishExternalIntervalUnaryProjectionFailure(err, owner)
 	}
 	return owner.complete()
 }
