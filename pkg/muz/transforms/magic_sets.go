@@ -38,6 +38,7 @@ type MagicSetsPlugin struct {
 	adorned     map[magicDescription]ast.ASTHandle
 	patterns    map[ast.ASTHandle]magicAdornment
 	magic       map[ast.ASTHandle]ast.ASTHandle
+	freshOrigin map[ast.ASTHandle]ast.ASTHandle
 	extensional map[ast.ASTHandle]bool
 	todo        []magicTask
 	fresh       []ast.ASTHandle
@@ -68,6 +69,14 @@ func (p *MagicSetsPlugin) CanDestratifyNegation() bool { return true }
 func (p *MagicSetsPlugin) Cancel()                     {}
 func (p *MagicSetsPlugin) FreshPredicates() []ast.ASTHandle {
 	return append([]ast.ASTHandle(nil), p.fresh...)
+}
+
+// FreshPredicateOrigin returns the direct source predicate supplied to
+// context::mk_fresh_head_predicate. Magic predicates therefore point to their
+// adorned predicate, preserving the source's representation-inheritance chain.
+func (p *MagicSetsPlugin) FreshPredicateOrigin(predicate ast.ASTHandle) (ast.ASTHandle, bool) {
+	origin, found := p.freshOrigin[predicate]
+	return origin, found
 }
 
 func adornmentKey(a magicAdornment) string {
@@ -128,6 +137,7 @@ func (p *MagicSetsPlugin) freshPredicate(old ast.ASTHandle, suffix string, domai
 	if err = p.rules.RegisterPredicate(d); err != nil {
 		return ast.ASTHandle{}, err
 	}
+	p.freshOrigin[d] = old
 	p.fresh = append(p.fresh, d)
 	return d, nil
 }
@@ -577,6 +587,7 @@ func (p *MagicSetsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resu
 	p.adorned = make(map[magicDescription]ast.ASTHandle)
 	p.patterns = make(map[ast.ASTHandle]magicAdornment)
 	p.magic = make(map[ast.ASTHandle]ast.ASTHandle)
+	p.freshOrigin = make(map[ast.ASTHandle]ast.ASTHandle)
 	p.extensional = make(map[ast.ASTHandle]bool)
 	p.todo = nil
 	p.fresh = nil
@@ -677,6 +688,7 @@ func (p *MagicSetsPlugin) Close() error {
 	p.adorned = nil
 	p.patterns = nil
 	p.magic = nil
+	p.freshOrigin = nil
 	p.extensional = nil
 	p.todo = nil
 	p.fresh = nil

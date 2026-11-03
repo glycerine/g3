@@ -64,6 +64,11 @@ func (e *PropositionalEngine) applyQueryMagicSets(goal ast.ASTHandle) (resultErr
 			e.predicateOrder = append(e.predicateOrder, declaration)
 		}
 		e.predicates[declaration] = state
+		if origin, found := plugin.FreshPredicateOrigin(declaration); found {
+			if stateErr = e.inheritMagicFiniteRepresentation(declaration, origin); stateErr != nil {
+				return stateErr
+			}
+		}
 		e.auxiliary[declaration] = true
 	}
 	if e.udocDatalog != nil {
@@ -76,5 +81,37 @@ func (e *PropositionalEngine) applyQueryMagicSets(goal ast.ASTHandle) (resultErr
 		}
 	}
 	e.revision++
+	return nil
+}
+
+// inheritMagicFiniteRepresentation mirrors rel_context::inherit_predicate_kind
+// for the finite representations reached by the ordinary Go Datalog executor.
+// A requested Sparse kind remains attached to a generated nullary predicate,
+// but relation construction falls back to a compatible Hash table just as the
+// source relation manager does when the requested plugin rejects a signature.
+func (e *PropositionalEngine) inheritMagicFiniteRepresentation(declaration, origin ast.ASTHandle) error {
+	target, source := e.predicates[declaration], e.predicates[origin]
+	if target == nil || source == nil || len(source.requestedRepresentations) != 1 {
+		return nil
+	}
+	kind := source.requestedRepresentations[0]
+	switch kind {
+	case "tr_hashtable", "tr_sparse", "tr_lazy_sparse":
+	default:
+		return nil
+	}
+	target.requestedRepresentations = []string{kind}
+	target.explicitFiniteRepresentation = false
+	supported := target.table != nil
+	if kind != "tr_hashtable" {
+		supported = supported && len(target.sorts) != 0
+	}
+	if !supported {
+		return nil
+	}
+	if err := e.selectFiniteRepresentation(declaration, kind); err != nil {
+		return err
+	}
+	target.explicitFiniteRepresentation = true
 	return nil
 }
