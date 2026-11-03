@@ -15,6 +15,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 var errRetryUnslicedProof = errors.New("muz/fp: retry proof without slicing")
@@ -176,6 +177,13 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 	}
 	if err != nil {
 		return lbool.Undef, err
+	}
+	canceled, err := e.manager.Canceled()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if canceled {
+		return lbool.Undef, z3exception.NewDefaultException(e.manager.ResourceLimit().CancelMessage())
 	}
 	if len(group) == 0 {
 		return lbool.False, nil
