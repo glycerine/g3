@@ -12,14 +12,15 @@ type smtMAMPattern struct {
 }
 
 type SMTMAM struct {
-	state     *SMTInternalizerState
-	registry  *SMTQuantifierRegistry
-	patterns  []smtMAMPattern
-	known     map[smtMAMPattern]struct{}
-	shared    map[*SMTEnode]struct{}
-	scopes    []int
-	dirty     bool
-	enodePool smtMAMEnodePool
+	state      *SMTInternalizerState
+	registry   *SMTQuantifierRegistry
+	patterns   []smtMAMPattern
+	known      map[smtMAMPattern]struct{}
+	shared     map[*SMTEnode]struct{}
+	scopes     []int
+	dirty      bool
+	enodePool  smtMAMEnodePool
+	pendingPop uint32
 }
 
 func NewSMTMAM(state *SMTInternalizerState, registry *SMTQuantifierRegistry) (*SMTMAM, error) {
@@ -75,6 +76,9 @@ func (m *SMTMAM) AddPattern(quantifier, pattern ast.ASTHandle) error {
 	if m == nil || m.state == nil {
 		return ast.ErrASTHandle
 	}
+	if m.pendingPop != 0 {
+		return ast.ErrASTPending
+	}
 	isPattern, err := m.state.manager.IsPattern(pattern)
 	if err != nil || !isPattern {
 		if err != nil {
@@ -119,21 +123,30 @@ func (m *SMTMAM) PushScope() error {
 	if m == nil || m.state == nil {
 		return ast.ErrASTHandle
 	}
+	if m.pendingPop != 0 {
+		return ast.ErrASTPending
+	}
 	m.scopes = append(m.scopes, len(m.patterns))
 	return nil
 }
 
 func (m *SMTMAM) PopScopes(count uint32) error {
-	if m == nil || count == 0 || count > uint32(len(m.scopes)) {
+	if m == nil {
 		return ast.ErrASTDomain
 	}
+	if m.pendingPop != 0 && m.pendingPop != count {
+		return ast.ErrASTPending
+	}
+	if count == 0 || count > uint32(len(m.scopes)) {
+		return ast.ErrASTDomain
+	}
+	m.pendingPop = count
 	level := len(m.scopes) - int(count)
 	limit := m.scopes[level]
 	for _, entry := range m.patterns[limit:] {
 		delete(m.known, entry)
 	}
 	m.patterns = m.patterns[:limit]
-	m.scopes = m.scopes[:level]
 	m.shared = make(map[*SMTEnode]struct{})
 	for _, entry := range m.patterns {
 		count, err := m.state.manager.GetNumArgs(entry.pattern)
@@ -151,6 +164,10 @@ func (m *SMTMAM) PopScopes(count uint32) error {
 		}
 	}
 	m.dirty = true
+	// Rebuilding shared ground terms may refuse while the manager executes.
+	// Keep the original scope limit until that repeatable rebuild finishes.
+	m.scopes = m.scopes[:level]
+	m.pendingPop = 0
 	return nil
 }
 
@@ -320,6 +337,9 @@ func (m *SMTMAM) Match() error {
 	if m == nil || m.state == nil {
 		return ast.ErrASTHandle
 	}
+	if m.pendingPop != 0 {
+		return ast.ErrASTPending
+	}
 	for _, entry := range m.patterns {
 		if err := m.matchPattern(entry); err != nil {
 			return err
@@ -333,6 +353,9 @@ func (m *SMTMAM) Rematch(_ bool) error {
 	if m == nil {
 		return ast.ErrASTHandle
 	}
+	if m.pendingPop != 0 {
+		return ast.ErrASTPending
+	}
 	m.dirty = true
 	return m.Match()
 }
@@ -345,6 +368,7 @@ func (m *SMTMAM) Reset() {
 	m.known = make(map[smtMAMPattern]struct{})
 	m.shared = make(map[*SMTEnode]struct{})
 	m.scopes = nil
+	m.pendingPop = 0
 	m.enodePool.free = nil
 	m.dirty = false
 }

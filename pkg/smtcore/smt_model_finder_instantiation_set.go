@@ -168,12 +168,13 @@ func (s *smtModelFinderInstantiationSet) Remove(term ast.ASTHandle) error {
 
 func (s *smtModelFinderInstantiationSet) clearInverse() (result error) {
 	for value, ref := range s.inverseRefs {
-		copy := ref
-		if err := s.manager.DelRef(&copy); err != nil {
-			result = errors.Join(result, err)
-			continue
+		err := s.manager.DelRef(&ref)
+		if ref == (ast.ASTRef{}) {
+			delete(s.inverseRefs, value)
+		} else {
+			s.inverseRefs[value] = ref
 		}
-		delete(s.inverseRefs, value)
+		result = errors.Join(result, err)
 	}
 	if result == nil {
 		clear(s.inverse)
@@ -253,12 +254,13 @@ func (s *smtModelFinderInstantiationSet) Close() (result error) {
 	}
 	result = s.clearInverse()
 	for term, ref := range s.references {
-		copy := ref
-		if err := s.manager.DelRef(&copy); err != nil {
-			result = errors.Join(result, err)
-			continue
+		err := s.manager.DelRef(&ref)
+		if ref == (ast.ASTRef{}) {
+			delete(s.references, term)
+		} else {
+			s.references[term] = ref
 		}
-		delete(s.references, term)
+		result = errors.Join(result, err)
 	}
 	if result == nil {
 		s.closed = true

@@ -300,11 +300,13 @@ func (f *SMTModelFinder) releaseQuantifier(quantifier ast.ASTHandle) (result err
 		result = errors.Join(result, candidates.Close())
 	}
 	if flat, found := f.flat[quantifier]; found {
-		if err := f.manager.DelRef(&flat.reference); err != nil {
-			result = errors.Join(result, err)
-		} else {
+		err := f.manager.DelRef(&flat.reference)
+		if flat.reference == (ast.ASTRef{}) {
 			delete(f.flat, quantifier)
+		} else {
+			f.flat[quantifier] = flat
 		}
+		result = errors.Join(result, err)
 	}
 	if result == nil {
 		delete(f.sets, quantifier)

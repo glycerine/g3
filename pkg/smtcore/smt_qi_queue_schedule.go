@@ -178,11 +178,15 @@ func (q *SMTQIQueueSchedule) PopScopes(count uint32) error {
 func (q *SMTQIQueueSchedule) releaseInstances(limit int) error {
 	for len(q.instanceRefs) > limit {
 		index := len(q.instanceRefs) - 1
-		if err := q.manager.DelRef(&q.instanceRefs[index]); err != nil {
+		err := q.manager.DelRef(&q.instanceRefs[index])
+		// DelRef can consume its token and still report later cleanup failure.
+		if q.instanceRefs[index] == (ast.ASTRef{}) {
+			q.instanceRefs = q.instanceRefs[:index]
+			q.instances = q.instances[:index]
+		}
+		if err != nil {
 			return err
 		}
-		q.instanceRefs = q.instanceRefs[:index]
-		q.instances = q.instances[:index]
 	}
 	return nil
 }

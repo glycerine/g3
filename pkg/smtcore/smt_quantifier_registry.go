@@ -16,6 +16,8 @@ type SMTQuantifierRegistry struct {
 	numInstances uint32
 	maxInstances uint32
 	scopeLevel   uint32
+	pendingPop   uint32
+	popScheduled bool
 }
 
 func NewSMTQuantifierRegistry(manager *ast.ASTManager, schedule *SMTQIQueueSchedule, costs *SMTQICostModel, maxInstances uint32) (*SMTQuantifierRegistry, error) {
@@ -35,6 +37,9 @@ func NewSMTQuantifierRegistry(manager *ast.ASTManager, schedule *SMTQIQueueSched
 func (r *SMTQuantifierRegistry) Add(quantifier ast.ASTHandle, generation uint32) error {
 	if r == nil || r.manager == nil {
 		return ast.ErrASTHandle
+	}
+	if r.pendingPop != 0 {
+		return ast.ErrASTPending
 	}
 	if _, found := r.statistics[quantifier]; found {
 		return ast.ErrASTDomain
@@ -97,6 +102,9 @@ func (r *SMTQuantifierRegistry) AddInstance(quantifier, pattern ast.ASTHandle, b
 	if r == nil || r.manager == nil || r.fingerprints == nil || r.schedule == nil || r.costs == nil {
 		return false, ast.ErrASTHandle
 	}
+	if r.pendingPop != 0 {
+		return false, ast.ErrASTPending
+	}
 	stat, err := r.Stat(quantifier)
 	if err != nil {
 		return false, err
@@ -135,6 +143,9 @@ func (r *SMTQuantifierRegistry) InitSearch() error {
 	if r == nil || r.manager == nil {
 		return ast.ErrASTHandle
 	}
+	if r.pendingPop != 0 {
+		return ast.ErrASTPending
+	}
 	r.numInstances = 0
 	for _, quantifier := range r.quantifiers {
 		r.statistics[quantifier].ResetInstancesCurrentSearch()
@@ -145,6 +156,9 @@ func (r *SMTQuantifierRegistry) InitSearch() error {
 func (r *SMTQuantifierRegistry) PushScope() error {
 	if r == nil || r.fingerprints == nil || r.schedule == nil {
 		return ast.ErrASTHandle
+	}
+	if r.pendingPop != 0 {
+		return ast.ErrASTPending
 	}
 	if err := r.schedule.PushScope(); err != nil {
 		return err
@@ -161,16 +175,25 @@ func (r *SMTQuantifierRegistry) PopScopes(count uint32) error {
 	if r == nil || r.fingerprints == nil || r.schedule == nil {
 		return ast.ErrASTHandle
 	}
+	if r.pendingPop != 0 && r.pendingPop != count {
+		return ast.ErrASTPending
+	}
 	if count == 0 || count > r.scopeLevel {
 		return ast.ErrASTDomain
 	}
-	if err := r.schedule.PopScopes(count); err != nil {
-		return err
+	r.pendingPop = count
+	if !r.popScheduled {
+		if err := r.schedule.PopScopes(count); err != nil {
+			return err
+		}
+		r.popScheduled = true
 	}
 	if err := r.fingerprints.PopScopes(count); err != nil {
 		return err
 	}
 	r.scopeLevel -= count
+	r.pendingPop = 0
+	r.popScheduled = false
 	return nil
 }
 
@@ -186,5 +209,7 @@ func (r *SMTQuantifierRegistry) Reset() error {
 	r.quantifiers = nil
 	r.numInstances = 0
 	r.scopeLevel = 0
+	r.pendingPop = 0
+	r.popScheduled = false
 	return nil
 }

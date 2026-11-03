@@ -52,6 +52,14 @@ type SMTQuantifierManager struct {
 	mbqiID                      string
 	mbqiTrace                   bool
 	closed                      bool
+	pendingPop                  *smtQuantifierPendingPop
+}
+
+type smtQuantifierPendingPop struct {
+	count uint32
+	// A completed child scope cannot be popped again when a later owner
+	// refuses native cleanup.
+	stage uint8
 }
 
 type SMTQuantifierManagerConfig struct {
@@ -189,6 +197,16 @@ func (q *SMTQuantifierManager) SetAuxiliarySolverFactory(factory smtAuxiliarySol
 }
 
 func (q *SMTQuantifierManager) open() error {
+	if err := q.openOwner(); err != nil {
+		return err
+	}
+	if q.pendingPop != nil {
+		return ast.ErrASTPending
+	}
+	return nil
+}
+
+func (q *SMTQuantifierManager) openOwner() error {
 	if q == nil || q.state == nil || q.registry == nil || q.builder == nil || q.closed {
 		return ast.ErrASTHandle
 	}
@@ -341,22 +359,38 @@ func (q *SMTQuantifierManager) PushScope() error {
 }
 
 func (q *SMTQuantifierManager) PopScopes(count uint32) error {
-	if err := q.open(); err != nil {
+	if err := q.openOwner(); err != nil {
 		return err
+	}
+	if q.pendingPop != nil && q.pendingPop.count != count {
+		return ast.ErrASTPending
 	}
 	if count == 0 || count > uint32(len(q.activationScopes)) {
 		return ast.ErrASTDomain
 	}
 	level := len(q.activationScopes) - int(count)
 	limit := q.activationScopes[level]
-	if err := q.mam.PopScopes(count); err != nil {
-		return err
+	if q.pendingPop == nil {
+		q.pendingPop = &smtQuantifierPendingPop{count: count}
 	}
-	if err := q.lazyMAM.PopScopes(count); err != nil {
-		return err
+	pop := q.pendingPop
+	if pop.stage == 0 {
+		if err := q.mam.PopScopes(count); err != nil {
+			return err
+		}
+		pop.stage++
 	}
-	if err := q.modelFinder.PopScopes(count); err != nil {
-		return err
+	if pop.stage == 1 {
+		if err := q.lazyMAM.PopScopes(count); err != nil {
+			return err
+		}
+		pop.stage++
+	}
+	if pop.stage == 2 {
+		if err := q.modelFinder.PopScopes(count); err != nil {
+			return err
+		}
+		pop.stage++
 	}
 	for _, quantifier := range q.activationTrail[limit:] {
 		delete(q.activated, quantifier)
@@ -371,6 +405,7 @@ func (q *SMTQuantifierManager) PopScopes(count uint32) error {
 		q.lazyMatchingTrail = q.lazyMatchingTrail[:last]
 	}
 	q.lazyMatchingScopes = q.lazyMatchingScopes[:level]
+	q.pendingPop = nil
 	return nil
 }
 
@@ -687,6 +722,7 @@ func (q *SMTQuantifierManager) Close() error {
 		q.rewriter = nil
 		q.registry = nil
 		q.state = nil
+		q.pendingPop = nil
 	}
 	return err
 }
