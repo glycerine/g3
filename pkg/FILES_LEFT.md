@@ -62,7 +62,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/base/dl_context.h` — Header declarations, inline wrappers, and ownership contracts map to typed Go APIs across base, fixedpoint, relation, and API layers; the abstract interface and STL reference-vector helpers have no standalone Go adapter.
 - [x] `src/muz/base/dl_rule.cpp` — Rule construction/layout, Horn conversion and proof transfer, query lowering, substitution, normalization, unbound-variable handling, identity and reporting map across the base, fixedpoint, and QE layers; focused existing rule and HNF tests cover source behavior and ownership.
 - [x] `src/muz/base/dl_rule.h` — Rule and RuleManager declarations, inline tail/name accessors, reference ownership, hash/equality, and analysis callbacks map to concrete Go owners and queries; existing focused rule tests cover the live surface.
-- [ ] `src/muz/base/fixedpoint_params.hpp`
+- [x] `src/muz/base/fixedpoint_params.hpp` — Generated C++ output from the already-ported `.pyg` source; Go replaces its generated struct/getters with generic type-aware parameter accessors and the catalog preserves all 458 metadata rows.
 - [ ] `src/muz/bmc/dl_bmc_engine.cpp`
 - [ ] `src/muz/bmc/dl_bmc_engine.h`
 - [ ] `src/muz/dataflow/dataflow.h`

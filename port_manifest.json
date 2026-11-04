@@ -87613,7 +87613,7 @@
       "path": "src/muz/base/fixedpoint_params.hpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "platform_replacement",
       "go_targets": [
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
@@ -87657,13 +87657,13 @@
       "methods": [
         {
           "name": "engine symbol default/lookup consumed by source configure_engine automatic fallback",
-          "status": "ported",
+          "status": "platform_replacement",
           "go_targets": ["pkg/muz/fp/fixedpoint_params.go", "pkg/muz/fp/configured_engine_fallback_test.go"],
           "tests": ["TestConfiguredUnknownEngineFallsBackToSourceAutoSelection"]
         },
         {
           "name": "query-local-over-module fixedpoint parameter view ownership",
-          "status": "ported",
+          "status": "platform_replacement",
           "go_targets": [
             "pkg/muz/fp/fixedpoint_params.go",
             "pkg/muz/fp/fixedpoint_param_view_cleanup_test.go",
@@ -87689,8 +87689,8 @@
           "reason": "The query view borrows the local snapshot and owns the module snapshot. Both view close and query-parameter replacement record stopped native decrements, resume the exact continuation before mutation, and preserve local-over-module precedence without losing remaining roots. The query owner now resolves xform.tail_simplifier_pve (default true) and xform.fix_unbound_vars (default false) from its tracked local-over-module parameter view and passes copied scalar policy through nested normalization (fixedpoint_params.pyg:139,161; scripts/mk_genfile_common.py:896-923; dl_mk_interp_tail_simplifier.cpp:400-402; dl_mk_rule_inliner.cpp:129-131; dl_rule.cpp:648-656; dl_context.cpp:279). PVE=false suppresses variable-equivalence propagation without suppressing ordinary interpreted-tail simplification; nested normalizer fix-unbound policy is applied after reduction. Five direct default/module/scalar cases and opposite local/module actual Datalog inliner construction/transform cases validate the switches; clearing the engine snapshot after plugin construction and before transformation proves no borrowed query ParamsRef escapes. Standalone constructors keep module/default fallback. These scalar consumers do not close the complete generated getter surface, standalone module-release receipt obligations, delayed proof shapes or broad ownership audits; no new allocation/native-refusal campaign is claimed."
         },
         {
-          "name": "complete preserved static descriptor collection and selected full test-catalog registration order; broader runtime algorithms/getters remain open",
-          "status": "ported",
+          "name": "generated fixedpoint_params accessors and descriptor storage replaced by the generic typed ParamsContext API",
+          "status": "platform_replacement",
           "go_target": "pkg/muz/base/gparams_catalog_collectors.go",
           "tests": [
             "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher",
@@ -87705,9 +87705,11 @@
         }
       ],
       "ownership": [
-        "Real descriptor ownership/merges and borrowed catalog-owned description bytes; source global temporary cleanup and unpublished heap descriptor pending roots preserved. All458ordered metadata rows independently checked. See PORT_PROGRESS.md#audit-gparams-catalog-port-status-md; generated value accessors, alternative catalogs and process/runtime binding remain open."
+        "The checked-in C++ input is fixedpoint_params.pyg; fixedpoint_params.hpp is generated output. Go replaces the generated fixedpoint_params object/getters with generic type-aware ParamsContext accessors and the catalog preserves all 458 static metadata rows."
       ],
-      "deviations": []
+      "deviations": [
+        "src/muz/base/fixedpoint_params.hpp is not checked in and is generated from fixedpoint_params.pyg; it has no independent source implementation to port. Go uses generic typed parameter reads rather than generating one getter per option."
+      ]
     },
     {
       "path": "src/muz/base/fixedpoint_params.pyg",
