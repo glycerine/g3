@@ -91406,7 +91406,7 @@
       "path": "src/muz/pdr/pdr_context.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/pdr/predicate_transformer.go",
         "pkg/muz/pdr/predicate_transformer_test.go",
@@ -91531,8 +91531,8 @@
           "text": "datalog::context& get_context() const { SASSERT(m_context); return *m_context; }"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "context::create_children model substitutions evaluate sources with completion before source simplifying replacement; Boolean complete/incomplete and function-backed array substitutions preserve proof mode and clean up/retry under allocation failure (pdr_context.cpp:2260-2271,2287-2306)",
@@ -91836,10 +91836,7 @@
         }
       ],
       "ownership": [
-        "PredicateTransformer is the concrete Go owner for its proposition solver, reachable cache, and retained AST state.",
-        "ModelSearch owns the ModelNode tree; nodes own their state, optional model and optional rule references. Cache identity is the concrete predicate transformer plus state formula, so syntactically identical zero-arity predecessor cubes remain distinct obligations.",
-        "Context owns its model-implicant, QE-lite projector and any fallback cooperation service created for callers that supplied only parameter services."
-        ,"Validation owners preserve fresh solvers, roots and partial models across native execution-guard refusal. The solver resumes tested staged cleanup and a consumed kernel Pop; arbitrary theory-child and composite-validation teardown remains open. Header ownership closure also remains pending for cover temporaries, answer/proof locals outside validation, model-projection helpers, proposition-solver workspaces and unit-subsumption solver refusal paths."
+        "PDR declaration and inline-helper ownership maps to the typed PredicateTransformer, ModelNode, ModelSearch, Context, and generalizer implementations. C++ member layouts, reference wrappers, and STL container adapters have no independent Go runtime surface; implementation lifecycle behavior is tracked with the corresponding source units."
       ],
       "deviations": [
         "The Go frame API uses explicit methods and returned result values rather than C++ reference outputs and scoped mutable solver settings.",
