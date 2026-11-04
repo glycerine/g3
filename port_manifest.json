@@ -55186,7 +55186,7 @@
         },
         {
           "name": "Concrete config_mpf interval negation, directed addition/subtraction, infinity branches and alias-safe endpoint scratch (src/math/interval/interval_def.h:704-837)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_interval_arith.go",
           "tests": [
             "TestSubpavingMPFIntervalNegAddSubDirectedAndAlias"
@@ -80257,7 +80257,7 @@
         },
         {
           "name": "Concrete config_mpf interval negation, directed addition/subtraction, infinity branches and alias-safe endpoint scratch (src/math/interval/interval_def.h:704-837)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_interval_arith.go",
           "tests": [
             "TestSubpavingMPFIntervalNegAddSubDirectedAndAlias"
@@ -81642,7 +81642,7 @@
         },
         {
           "name": "Concrete config_mpf interval negation, directed addition/subtraction, infinity branches and alias-safe endpoint scratch (src/math/interval/interval_def.h:704-837)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_interval_arith.go",
           "tests": [
             "TestSubpavingMPFIntervalNegAddSubDirectedAndAlias"
