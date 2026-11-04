@@ -73,6 +73,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Match the bounded Karr disjunction of two equalities on one integer variable as a source interval; direct bounds, normalized query and failure-retry tests pass.
   - [x] Extend bounded Karr comparisons to source linear integer addition, subtraction, unary minus and numeral multiplication; nested expressions, operand order, actual filter rows and failure recovery are tested.
   - [x] Support bounded Karr filter-and-project rules, including nullary and permuted heads, cached-basis behavior, empty inputs and failure recovery.
+  - [x] Support multiple bounded Karr interpreted guards in source conjunction-flattening order, including projection and unsupported-conjunct retry; other Boolean guard forms remain open.
   - [ ] Resolve the previously supported unary path's multiple-duplicate-group ordering divergence: source map traversal can change Karr row and generator order, while Go currently uses first occurrence. Do not remove existing support or port source hashing.
   - [ ] Implement and verify the live configured Datalog Karr relation routes and operation semantics through their actual consumers.
   - [x] Restore the PDR manager's live pre-converter model TRACE for model export, validation and direct answers; test source ordering, disabled tracing and ownership.
@@ -133,6 +134,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Defer application-shaped illegal rule-head diagnostics until fixedpoint query, preserving pending API enumeration, display and scope removal; repeated query output matches Z3 4.7.1. Partial multi-clause publication and formatter cleanup refusal remain open.
   - [x] Normalize reachable non-application Boolean heads before the same deferred diagnostic, matching repeated C++ query output; reserve equality ownership before construction. Sparse-variable substitution now owns replacement variables across allocation failure and retry. Exceptional temporary cleanup refusal and partial multi-clause publication remain open.
   - [x] Prevent a negated interpreted-tail AST leak when reference reservation fails, with live-node and retry coverage; constructor cleanup refusal remains a separate audit.
+  - [x] Reserve HNF fresh-head and implication owners before construction; a 12-boundary allocation campaign verifies cleanup and retry. Local cleanup refusal remains open.
   - [x] Own unbound-variable substitution bindings and grouped-tail conjunctions before later allocations; real failure campaigns verify live-node cleanup and retry for both cases.
   - [x] Reserve the unbound-rule quantifier owner before construction; targeted allocation refusal and retry pass.
   - [x] Reserve the QE extracted-constant owner before creation; the fixedpoint pressure cases and focused QE tests pass. Refused cleanup of a partially extracted owner remains open.

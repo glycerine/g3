@@ -369,25 +369,27 @@ func (n *HornNormalizer) freshHead(expression ast.ASTHandle, result *HornNormali
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	declaration, err := n.manager.MkFreshFuncDecl(prefix, suffix, domain, boolean)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	declarationRef, err := n.manager.NewRef(declaration)
+	declarationRef, err := n.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	result.FreshPredicates = append(result.FreshPredicates, declarationRef)
+	declaration, err := n.manager.MkFreshFuncDecl(prefix, suffix, domain, boolean)
+	if err = errors.Join(err, n.manager.SetRef(declarationRef, declaration)); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	cached, err := n.manager.NewRef(declaration)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	n.freshPredicates = append(n.freshPredicates, cached)
-	head, err := n.manager.MkApp(declaration, arguments)
+	headRef, err := n.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = n.pin(locals, head); err != nil {
+	*locals = append(*locals, headRef)
+	head, err := n.manager.MkApp(declaration, arguments)
+	if err = errors.Join(err, n.manager.SetRef(headRef, head)); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	return head, nil
@@ -400,19 +402,23 @@ func (n *HornNormalizer) implication(body []ast.ASTHandle, head ast.ASTHandle, l
 	antecedent := body[0]
 	var err error
 	if len(body) > 1 {
-		antecedent, err = n.manager.MkAndArgs(body)
-		if err != nil {
-			return ast.ASTHandle{}, err
+		owner, e := n.manager.NewRef(ast.ASTHandle{})
+		if e != nil {
+			return ast.ASTHandle{}, e
 		}
-		if err = n.pin(locals, antecedent); err != nil {
+		*locals = append(*locals, owner)
+		antecedent, err = n.manager.MkAndArgs(body)
+		if err = errors.Join(err, n.manager.SetRef(owner, antecedent)); err != nil {
 			return ast.ASTHandle{}, err
 		}
 	}
-	formula, err := n.manager.MkImplies(antecedent, head)
+	owner, err := n.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = n.pin(locals, formula); err != nil {
+	*locals = append(*locals, owner)
+	formula, err := n.manager.MkImplies(antecedent, head)
+	if err = errors.Join(err, n.manager.SetRef(owner, formula)); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	return formula, nil
