@@ -68,7 +68,14 @@ func (c *CachedGraphAssertions) AssertEdge(edge *Edge, persist int, withChildren
 		return err
 	}
 	defer func() { result = errors.Join(result, formula.Close()) }()
-	if err = c.active.Assert(formula); err != nil {
+	timer, err := startProfile(c.graph.context, "solver add")
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
+	err = c.active.Assert(formula)
+	err = errors.Join(err, timer.Close())
+	if err != nil {
 		return err
 	}
 	if withChildren {

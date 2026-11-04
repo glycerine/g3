@@ -46,6 +46,12 @@ func TestCachedGraphScopesRetractAssumptionsWithoutRemovingGuards(t *testing.T) 
 	cached, err := NewCachedGraphAssertions(graph, scope)
 	must(err)
 	defer cached.Close()
+	profile := NewProfiler(nil)
+	ctx.activeProfiler = profile
+	defer func() { ctx.activeProfiler = nil }()
+	must(profile.TimerStart("outer"))
+	outer := profile.current
+	defer func() { must(profile.TimerStop("outer")) }()
 	check := func(want lbool.LBool) {
 		t.Helper()
 		status, core, err := cached.Check(nil, true)
@@ -59,9 +65,30 @@ func TestCachedGraphScopesRetractAssumptionsWithoutRemovingGuards(t *testing.T) 
 	}
 	must(cached.Push())
 	must(cached.AssertNode(parent))
+	if outer.children["solver add"] != nil || profile.current != outer {
+		t.Fatal("node assertion recorded edge solver timer")
+	}
 	check(lbool.True)
 	must(cached.Push())
+	// Populate the edge cache first so the failed start below is specifically
+	// the solver-add timer, rather than a formula-construction timer.
+	formulaValue, err := graph.GetEdgeFormula(edge, 0, false, false)
+	must(err)
+	must(formulaValue.Close())
+	now := profile.now
+	profile.now = nil
+	if err := cached.AssertEdge(edge, 0, false, false); err == nil {
+		t.Fatal("invalid profiler accepted")
+	}
+	profile.now = now
+	if profile.current != outer {
+		t.Fatal("failed timer start changed current scope")
+	}
+	check(lbool.True)
 	must(cached.AssertEdge(edge, 0, false, false))
+	if outer.children["solver add"] == nil || profile.current != outer {
+		t.Fatal("cached assertion missing solver add scope")
+	}
 	check(lbool.False)
 	guards, err := scope.Solver.NumAssertions()
 	must(err)
@@ -102,4 +129,16 @@ func TestCachedGraphScopesRetractAssumptionsWithoutRemovingGuards(t *testing.T) 
 	if err = cached.Pop(1); err == nil {
 		t.Fatal("base cached graph scope popped")
 	}
+	// A closed literal stack reaches the timed add and refuses it. The
+	// profiling scope must still be restored on the actual assertion error.
+	must(cached.Close())
+	must(profile.TimerStart("failed cached add"))
+	failureScope := profile.current
+	if err = cached.AssertEdge(edge, 0, false, false); err == nil {
+		t.Fatal("closed cached assertion accepted")
+	}
+	if profile.current != failureScope || failureScope.children["solver add"] == nil {
+		t.Fatal("failed cached assertion did not restore solver timer")
+	}
+	must(profile.TimerStop("failed cached add"))
 }

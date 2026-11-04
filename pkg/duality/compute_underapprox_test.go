@@ -58,7 +58,9 @@ func TestComputeUnderapproxRecursiveModelAndAllocationFailures(t *testing.T) {
 	value, err := graph.ComputeUnderapprox(parent, simplifier)
 	must(err)
 	phase := profile.top.children["UnderapproxFormula"]
-	if phase == nil || profile.current != profile.top || phase.children["RedVars"] != nil {
+	if phase == nil || profile.current != profile.top || phase.children["RedVars"] != nil ||
+		phase.children["GaussElimCheap"] != nil || phase.children["FourierMotzkinCheap"] != nil ||
+		profile.top.children["GaussElimCheap"] == nil || profile.top.children["FourierMotzkinCheap"] == nil {
 		t.Fatal("recursive underapproximation timer scopes")
 	}
 	must(value.Close())

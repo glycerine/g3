@@ -120,6 +120,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Check repeated public PDR delayed-scope assertion failures recover for a later check; actual partial-pop failure remains covered separately through the cleanup owner.
   - [x] Add the source Duality `Contains` and `Candidate` profile scopes with nested-timer and error coverage; add a PDR reachable-cache closing guard with native refusal/retry coverage. The remaining profile scopes and cache cleanup boundaries stay open in their unit audits.
   - [x] Add Duality RPFP edge-construction and solver-add profile scopes, with cached, uncached and true-edge coverage; timing outside active solve remains open.
+  - [x] Time cached graph edge assertions at the source solver-add boundary; tests cover successful and refused assertions, failed timer start and enclosing-scope restoration.
   - [x] Add the source `SubtermTruth` and `UnderapproxFormula` call-site profile scopes, checking branch selection and timer restoration on errors and allocation failures.
   - [x] Preserve Duality profiling during post-solve derivation, certificate and proof output, and time `RedVars` at its source call site.
   - [x] Share process-lifetime Duality and interpolation profilers across source-facing backend, API and SMT-LIB command paths; cross-client tests cover persistence and independently supplied profilers.
