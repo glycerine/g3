@@ -55194,7 +55194,7 @@
         },
         {
           "name": "Concrete config_mpf interval multiplication: nine sign classes, mixed extrema, infinity bounds, directed products and destination alias (src/math/interval/interval_def.h:1017-1218)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_interval_mul.go",
           "tests": [
             "TestSubpavingMPFIntervalMulNineSignClassesAndDirectedBounds"
@@ -80265,7 +80265,7 @@
         },
         {
           "name": "Concrete config_mpf interval multiplication: nine sign classes, mixed extrema, infinity bounds, directed products and destination alias (src/math/interval/interval_def.h:1017-1218)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_interval_mul.go",
           "tests": [
             "TestSubpavingMPFIntervalMulNineSignClassesAndDirectedBounds"
@@ -81650,7 +81650,7 @@
         },
         {
           "name": "Concrete config_mpf interval multiplication: nine sign classes, mixed extrema, infinity bounds, directed products and destination alias (src/math/interval/interval_def.h:1017-1218)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_interval_mul.go",
           "tests": [
             "TestSubpavingMPFIntervalMulNineSignClassesAndDirectedBounds"
