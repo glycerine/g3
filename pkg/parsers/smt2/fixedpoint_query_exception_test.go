@@ -181,6 +181,42 @@ func TestFixedpointQueryCatchesDeferredIllegalHead(t *testing.T) {
 	}
 }
 
+// extract_horn wraps a non-application head in equality with true before
+// check_valid_head, including Boolean variables and existential formulas.
+func TestFixedpointQueryCatchesNonApplicationRuleHeads(t *testing.T) {
+	for _, test := range []struct{ name, declarations, rule, head string }{
+		{"variable", "(declare-var x Bool)", "x", "(= (:var 0) true)"},
+		{"existential", "(declare-fun f (Bool) Bool)", "(exists ((x Bool)) (f x))", "(= (exists ((x Bool)) (f x)) true)"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			context, err := cmd_context.NewStandaloneContext()
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if err := context.Close(); err != nil {
+					t.Error(err)
+				}
+			})
+			context.PrintSuccess = false
+			script := `(set-option :fixedpoint.engine datalog)
+` + test.declarations + `
+(declare-rel P ())
+(rule ` + test.rule + `)
+(query P)
+(query P)`
+			var output bytes.Buffer
+			if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+				t.Fatal(err)
+			}
+			one := "(error \"query failed: Illegal head. The head predicate needs to be uninterpreted and registered (as recursive) " + test.head + "\")\nunknown\n"
+			if got := output.String(); got != one+one {
+				t.Fatalf("output = %q, want %q", got, one+one)
+			}
+		})
+	}
+}
+
 func TestFixedpointDeferredIllegalHeadRemovedByPop(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
 	if err != nil {

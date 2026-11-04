@@ -302,14 +302,27 @@ func (m *RuleManager) normalizeVariables(state *ruleState) (resultErr error) {
 		return nil
 	}
 	bindings := make([]ast.ASTHandle, count)
+	// The source substitution vector owns each fresh variable until the
+	// substitution is finished, including on allocation failure.
+	var bindingRefs []ast.ASTRef
+	defer func() {
+		for i := len(bindingRefs) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, m.manager.DelRef(&bindingRefs[i]))
+		}
+	}()
 	var next uint32
 	for i := uint32(0); i < count; i++ {
 		sort := used.Contains(i)
 		if sort.IsNull() {
 			continue
 		}
+		owner, e := m.manager.NewRef(ast.ASTHandle{})
+		if e != nil {
+			return e
+		}
+		bindingRefs = append(bindingRefs, owner)
 		bindings[i], err = m.manager.MkVar(next, sort)
-		if err != nil {
+		if err = errors.Join(err, m.manager.SetRef(owner, bindings[i])); err != nil {
 			return err
 		}
 		next++

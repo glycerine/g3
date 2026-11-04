@@ -44,11 +44,18 @@ func (m *RuleManager) ensureBooleanApplication(expression ast.ASTHandle, tempora
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	application, err := m.manager.MkEq(expression, truth)
+	root, err := m.manager.NewRef(ast.ASTHandle{})
+	if root != (ast.ASTRef{}) {
+		*temporaries = append(*temporaries, root)
+	}
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = m.pinTemporary(temporaries, application); err != nil {
+	application, err := m.manager.MkEq(expression, truth)
+	if !application.IsNull() {
+		err = errors.Join(err, m.manager.SetRef(root, application))
+	}
+	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	return application, nil
@@ -244,12 +251,13 @@ func (m *RuleManager) NewRuleFromFormulaWithSymbol(formula ast.ASTHandle, name s
 		if e != nil {
 			return nil, e
 		}
-		if !forall {
-			return nil, fmt.Errorf("muz/base: Horn rule must be universally quantified")
-		}
-		formula, err = m.manager.GetQuantifierBody(formula)
-		if err != nil {
-			return nil, err
+		// extract_horn removes only a universal prefix. Other Boolean
+		// quantifiers pass through ensure_app as (= quantifier true).
+		if forall {
+			formula, err = m.manager.GetQuantifierBody(formula)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	var head ast.ASTHandle
