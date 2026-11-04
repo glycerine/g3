@@ -17,7 +17,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/api/z3_algebraic.h` — All declared algebraic value checks, arithmetic, roots, polynomial evaluation, and comparisons are exposed through typed Go API methods with focused checks passing.
 - [x] `src/api/z3_api.h` — Not applicable: this header is the native C ABI type/enum/API-generator declaration catalog; Go uses typed package APIs and its generated replay command tables, with implementation behavior tracked in the corresponding source units.
 - [x] `src/api/z3_ast_containers.h` — AST vector and map construction, ownership, mutation, lookup, key snapshots, translation, and display are implemented in typed Go objects; focused API checks pass.
-- [ ] `src/api/z3_fixedpoint.h`
+- [x] `src/api/z3_fixedpoint.h` — Fixedpoint ownership, rules/facts/assertions, query results, frames, parameters, SMT-LIB loading/display, scopes, and external-relation callbacks are implemented in the typed Go API; focused checks pass.
 - [ ] `src/api/z3_fpa.h`
 - [ ] `src/api/z3_optimization.h`
 - [ ] `src/api/z3_polynomial.h`
