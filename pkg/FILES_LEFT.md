@@ -22,7 +22,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/api/z3_optimization.h` — Typed Go optimization objects cover assertions, soft constraints, objectives, scopes, checks, models, bounds, parameters, parsing, statistics, and display; focused optimizer checks pass.
 - [x] `src/api/z3_polynomial.h` — The polynomial subresultants API returns an owning typed Go result with indexed access and explicit close; focused API checks pass.
 - [x] `src/api/z3_private.h` — Not applicable as a C++ header: its sole project-internal rational-reference declaration is represented by the typed Go `NumeralRational` API; focused numeral checks pass.
-- [ ] `src/api/z3_rcf.h`
+- [x] `src/api/z3_rcf.h` — Real closed field constructors, roots, arithmetic, comparisons, formatting, and normalized numerator/denominator extraction are exposed by the owning Go RCF API; focused checks passed with the implementation batch.
 - [ ] `src/api/z3_spacer.h`
 - [ ] `src/ast/ast_smt2_pp.cpp`
 - [ ] `src/ast/datatype_decl_plugin.cpp`
