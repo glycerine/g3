@@ -81906,10 +81906,14 @@
         },
         {
           "name": "Concrete config_mpf root node, directed integer bound normalization, conflict detection and source-order unit assertion with non-resuming initialization (src/math/subpaving/subpaving_t_def.h:291-342,525-581,1337-1343,1773-1785)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_context_bounds.go",
           "tests": [
-            "TestArbitraryShellCoefficientSourceConversionAndCleanup"
+            "TestArbitraryShellCoefficientSourceConversionAndCleanup",
+            "TestArbitraryContextRootInitializationStagesAndConflict",
+            "TestArbitraryChildRecentBoundReplayAndPolynomialWatcher",
+            "TestArbitraryBoundTracePublicationAndConflictOrder",
+            "TestArbitraryContextSourceCandidateRelevanceAndNormalization"
           ]
         },
         {
