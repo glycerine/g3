@@ -359,6 +359,16 @@ func (c *Context) FixedpointReasonUnknown() (string, error) {
 	return engine.ReasonUnknown()
 }
 
+// ResetFixedpointCommandStatus applies the status reset from fixedpoint
+// command cleanup after the query result has been printed.
+func (c *Context) ResetFixedpointCommandStatus() error {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return err
+	}
+	return engine.ResetCommandStatus()
+}
+
 // FixedpointAnswer returns an owning formula for the most recently saturated
 // finite relation. The caller releases it through Manager.DelRef.
 func (c *Context) FixedpointAnswer(declaration ast.ASTHandle) (ast.ASTRef, error) {

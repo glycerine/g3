@@ -670,6 +670,10 @@ func TestSMT2FixedpointUnknownReasonUsesSourceStatusLines(t *testing.T) {
 			if got := output.String(); got != test.want {
 				t.Fatalf("fixedpoint status output = %q, want %q", got, test.want)
 			}
+			// dl_query_cmd prints the status before context::cleanup resets it.
+			if reason, err := context.FixedpointReasonUnknown(); err != nil || reason != "ok" {
+				t.Fatalf("status after query command cleanup = %q, %v; want ok", reason, err)
+			}
 		})
 	}
 }

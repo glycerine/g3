@@ -26,6 +26,16 @@ func fixedpointFailureStatus(cause error) string {
 	return "input error"
 }
 
+// ResetCommandStatus performs the status-reset portion of context::cleanup
+// after an SMT-LIB query command has printed its result and certificate.
+func (e *PropositionalEngine) ResetCommandStatus() error {
+	if err := e.open(); err != nil {
+		return err
+	}
+	e.lastStatus = "ok"
+	return nil
+}
+
 // recordResultSnapshot publishes a result only after its query returned. The
 // revision and engine kind prevent stale models/certificates from escaping
 // after rules, parameters, or engine selection change.

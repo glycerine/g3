@@ -848,6 +848,9 @@ func (p *commandParser) command() (bool, error) {
 					return false, y
 				}
 			}
+			if err = p.context.ResetFixedpointCommandStatus(); err != nil {
+				return false, err
+			}
 			if printStatistics {
 				stats, y := p.context.FixedpointStatistics()
 				if y != nil {
