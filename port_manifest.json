@@ -80458,7 +80458,7 @@
         },
         {
           "name": "Concrete config_hwf leaf-list links and source-order selector state",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_selector.go",
           "tests": [
             "TestHardwareSelectorsRoundRobinAndBreadthFirstSourceOrder",
