@@ -81688,10 +81688,12 @@
         },
         {
           "name": "Concrete config_mpf bound-policy numerals and retained monomial inverse-root dispatch (src/math/subpaving/subpaving_t_def.h:408-514,1641; src/math/subpaving/subpaving_mpf.h:23-43)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_context_root.go",
           "tests": [
-            "TestSubpavingMPFIntervalXnEqYRetainedCases"
+            "TestSubpavingMPFIntervalXnEqYRetainedCases",
+            "TestArbitraryContextNamedParamsSourceOrderAndDescriptions",
+            "TestArbitraryMonomialForwardInverseAndArithmetic"
           ]
         },
         {
