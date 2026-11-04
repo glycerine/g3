@@ -41,7 +41,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/cmd_context/parametric_cmd.cpp` — Live command handlers normalize keywords, validate descriptors, parse typed values, and allocate fresh per-command settings; reset, alias normalization, invalid-key/value, and eval parity tests pass. Native command-description caching and shared `m_last` state have no Go parser consumer.
 - [x] `src/cmd_context/parametric_cmd.h` — Variable-arity commands, typed boolean/integer/rational/string/symbol arguments, per-command reset, and keyword/value state are represented by direct Go parser handlers; source-unimplemented AST setters and unreachable s-expression setter need no implementation.
 - [x] `src/duality/duality.h` — The `Z3User`, RPFP/Transformer/Node/Edge, interpolation solver, solver, counterexample, and caching interfaces map to concrete typed Go APIs; inline graph ownership and transformer behavior pass the focused Duality package suite. Out-of-line method bodies remain tracked under their source units below.
-- [ ] `src/duality/duality_profiling.cpp`
+- [x] `src/duality/duality_profiling.cpp` — Nested timers, imbalanced-stop recovery, sorted totals, process-lifetime profiling, interpolation report inclusion, and elapsed-time output are implemented and covered; Go uses monotonic durations and stable lexical output ordering in place of C++ clock values and pointer-ordered map traversal.
 - [ ] `src/duality/duality_profiling.h`
 - [ ] `src/duality/duality_rpfp.cpp`
 - [ ] `src/duality/duality_solver.cpp`
