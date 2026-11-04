@@ -17,8 +17,11 @@ func (c *datalogUDocContext) saturateStratified(set *base.RuleSet) (resultErr er
 	}
 	if !finalized {
 		valid, err := set.Finalize()
-		if err != nil || !valid {
+		if err != nil {
 			return errors.Join(err, ErrUDocDatalogFragment)
+		}
+		if !valid {
+			return ErrUnstratifiedNegation
 		}
 		// Source scoped_query restores the caller's open/closed rule state.
 		defer func() { resultErr = errors.Join(resultErr, set.Reopen()) }()

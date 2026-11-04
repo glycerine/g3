@@ -144,7 +144,7 @@ func TestDatalogUDocStratifiedNegativeRulesAndUpdates(t *testing.T) {
 	check(output, 2, [][]uint32{{0, 0}, {0, 1}, {1, 1}, {2, 3}, {3, 3}})
 	add(app(negative, x), []ast.ASTHandle{app(domain, x), app(negative, x)}, []bool{false, true}, "negative-cycle")
 	_, err = e.QueryPredicate(output)
-	if !errors.Is(err, ErrUDocDatalogFragment) {
+	if !errors.Is(err, ErrUnstratifiedNegation) {
 		t.Fatal("negative cycle accepted", err)
 	}
 	if _, err = e.Answer(output); err == nil {
