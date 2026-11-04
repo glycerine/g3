@@ -58,7 +58,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/math/subpaving/subpaving_t_def.h` — All 152 manifest method rows are audited and ported across the concrete numeral configurations; ownership and source-order behavior have focused coverage.
 - [x] `src/math/subpaving/tactic/subpaving_tactic.cpp` — All numeral-engine selection, tactic lifecycle, expression internalization, SMT-LIB display, cleanup, and ownership behavior are audited against C++ and covered by focused tests.
 - [x] `src/model/model_implicant.cpp` — Array extraction, recursive extensional equality, default and store-row decisions, diagnostics, and temporary-reference cleanup match the C++ paths and pass focused model tests.
-- [ ] `src/muz/base/dl_context.cpp` — In progress: shared rule-property collection and Datalog validation order are covered; infinite-sort rejection follows Go's integer, interval, and external-relation extensions before finite-table evaluation. Remaining context, display, finite-domain, and query lifecycle rows are still partial.
+- [ ] `src/muz/base/dl_context.cpp` — In progress: shared rule-property collection, finite-sort overflow publication, predicate registration/restriction failure recovery, and Datalog validation order are covered. Infinite-sort rejection follows Go's integer, interval, and external-relation extensions before finite-table evaluation. Remaining context, display, finite-domain display, and query lifecycle rows are still partial.
 - [ ] `src/muz/base/dl_context.h`
 - [ ] `src/muz/base/dl_rule.cpp`
 - [ ] `src/muz/base/dl_rule.h`
