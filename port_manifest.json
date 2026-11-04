@@ -83300,11 +83300,13 @@
           ]
         },
         {
-          "name": "Concrete HWF engine branch constructs selected context and shell with borrowed rational manager and resource limit (src/math/subpaving/tactic/subpaving_tactic.cpp:109-120)",
-          "status": "partial",
+          "name": "Concrete HWF engine branch constructs the selected context and coefficient shell with borrowed rational manager and resource limit (src/math/subpaving/tactic/subpaving_tactic.cpp:109-120)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/hardware_engine.go",
           "tests": [
-            "TestSubpavingTacticOptionSelectionAndDescriptions"
+            "TestSubpavingTacticOptionSelectionAndDescriptions",
+            "TestSubpavingHardwareContextReadsParamsRefInSourceOrder",
+            "TestSubpavingCoreUpdateReplacesSelectedEngine"
           ]
         },
         {
