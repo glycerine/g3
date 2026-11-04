@@ -233,6 +233,12 @@ func (m *RuleManager) NewRuleFromFormula(formula ast.ASTHandle, name string) (_ 
 // NewRuleFromFormulaWithSymbol constructs an already-Horn source rule without
 // collapsing null, empty-string, or numerical labels.
 func (m *RuleManager) NewRuleFromFormulaWithSymbol(formula ast.ASTHandle, name symbol.Symbol) (_ *Rule, resultErr error) {
+	return m.newRuleFromFormulaWithSymbol(formula, name, false)
+}
+
+// HNF output may still contain predicates inside interpreted tails. Source
+// mk_horn_rule retains those tails for engine-specific rule-property checks.
+func (m *RuleManager) newRuleFromFormulaWithSymbol(formula ast.ASTHandle, name symbol.Symbol, fromHNF bool) (_ *Rule, resultErr error) {
 	if err := m.checkRuleName(name); err != nil {
 		return nil, err
 	}
@@ -340,7 +346,7 @@ func (m *RuleManager) NewRuleFromFormulaWithSymbol(formula ast.ASTHandle, name s
 		if e != nil {
 			return nil, e
 		}
-		if !predicate {
+		if !predicate && !fromHNF {
 			contains, x := m.containsRegisteredPredicate(expression)
 			if x != nil {
 				return nil, x

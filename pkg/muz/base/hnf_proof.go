@@ -127,7 +127,7 @@ func (m *RuleManager) addFormulaWithProof(set *RuleSet, formula, proof ast.ASTHa
 		if err != nil {
 			return err
 		}
-		rule, e := m.NewRuleFromFormulaWithProofAndSymbol(clause, clauseProof, name)
+		rule, e := m.newRuleFromFormulaWithProofAndSymbol(clause, clauseProof, name, true)
 		if e != nil {
 			return e
 		}

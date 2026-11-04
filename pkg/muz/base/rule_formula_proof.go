@@ -22,10 +22,14 @@ func (m *RuleManager) NewRuleFromFormulaWithProof(formula, proof ast.ASTHandle, 
 // NewRuleFromFormulaWithProofAndSymbol preserves the exact source label while
 // transferring the input proof to the normalized rule formula.
 func (m *RuleManager) NewRuleFromFormulaWithProofAndSymbol(formula, proof ast.ASTHandle, name symbol.Symbol) (result *Rule, resultErr error) {
+	return m.newRuleFromFormulaWithProofAndSymbol(formula, proof, name, false)
+}
+
+func (m *RuleManager) newRuleFromFormulaWithProofAndSymbol(formula, proof ast.ASTHandle, name symbol.Symbol, fromHNF bool) (result *Rule, resultErr error) {
 	if proof.IsNull() {
-		return m.NewRuleFromFormulaWithSymbol(formula, name)
+		return m.newRuleFromFormulaWithSymbol(formula, name, fromHNF)
 	}
-	rule, err := m.NewRuleFromFormulaWithSymbol(formula, name)
+	rule, err := m.newRuleFromFormulaWithSymbol(formula, name, fromHNF)
 	if err != nil {
 		return nil, err
 	}

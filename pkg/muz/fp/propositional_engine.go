@@ -2397,6 +2397,9 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 }
 
 func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandle) (status lbool.LBool, resultErr error) {
+	if err := e.checkDatalogEarlyRuleProperties(); err != nil {
+		return lbool.Undef, err
+	}
 	if err := e.applyDatalogDefaultFiniteTable(); err != nil {
 		return lbool.Undef, err
 	}

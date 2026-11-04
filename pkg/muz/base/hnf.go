@@ -828,7 +828,7 @@ func (m *RuleManager) addFormula(set *RuleSet, formula ast.ASTHandle, name usymb
 		if e != nil {
 			return e
 		}
-		rule, e := m.NewRuleFromFormulaWithSymbol(horn, name)
+		rule, e := m.newRuleFromFormulaWithSymbol(horn, name, true)
 		if e != nil {
 			return e
 		}

@@ -10,7 +10,7 @@ import (
 )
 
 func TestFixedpointQueryExceptionPreservesOtherFailures(t *testing.T) {
-	for _, kind := range []base.RulePropertyKind{base.RulePropertyNegativePredicate, base.RulePropertyInfiniteSort, base.RulePropertyUninterpreted, base.RulePropertyQuantifier} {
+	for _, kind := range []base.RulePropertyKind{base.RulePropertyNegativePredicate, base.RulePropertyInfiniteSort, base.RulePropertyUninterpreted, base.RulePropertyQuantifier, base.RulePropertyNested} {
 		property := &base.RulePropertyError{Kind: kind, SourceMessage: "source diagnostic"}
 		cause := fmt.Errorf("%w: validation: %w", fp.ErrPropositionalHorn, property)
 		caught := classifyFixedpointQueryException(cause)
@@ -27,7 +27,7 @@ func TestFixedpointQueryExceptionPreservesOtherFailures(t *testing.T) {
 			t.Fatalf("swallowed backend cleanup failure: %v", got)
 		}
 	}
-	if got := classifyFixedpointQueryException(&base.RulePropertyError{Kind: base.RulePropertyNested, SourceMessage: "other"}); FixedpointCaughtQueryException(got) != nil {
+	if got := classifyFixedpointQueryException(&base.RulePropertyError{Kind: base.RulePropertyExistentialTail, SourceMessage: "other"}); FixedpointCaughtQueryException(got) != nil {
 		t.Fatal("classified an unverified exception kind")
 	}
 	caught := classifyFixedpointQueryException(fp.ErrUnstratifiedNegation)

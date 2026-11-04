@@ -11,6 +11,37 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
+// Source checks these properties before transformations. The infinite-sort
+// check remains separate to preserve the integer-relation extension.
+func (e *PropositionalEngine) checkDatalogEarlyRuleProperties() (result error) {
+	proof, err := e.sourceRuleProofTrace()
+	if err != nil {
+		return err
+	}
+	properties, err := base.NewRuleProperties(e.rules)
+	if err != nil {
+		return err
+	}
+	attempt := &contextFormulaAttempt{manager: e.manager, properties: properties}
+	defer func() { result = attempt.finish(result) }()
+	if err = properties.SetGenerateProof(proof); err != nil {
+		return err
+	}
+	if err = properties.Collect(e.set); err != nil {
+		return err
+	}
+	if err = properties.CheckQuantifierFree(); err != nil {
+		return fmt.Errorf("%w: validate datalog rule fragment: %w", ErrPropositionalHorn, err)
+	}
+	if err = properties.CheckUninterpretedFree(); err != nil {
+		return fmt.Errorf("%w: validate datalog rule fragment: %w", ErrPropositionalHorn, err)
+	}
+	if err = properties.CheckNestedFree(); err != nil {
+		return fmt.Errorf("%w: validate datalog rule fragment: %w", ErrPropositionalHorn, err)
+	}
+	return nil
+}
+
 // validateRuleSetProperties applies the source check_rules ordering. Ordering
 // is observable: the first failing property is the diagnostic returned to the
 // fixedpoint caller.

@@ -380,7 +380,11 @@ func (p *RuleProperties) CheckNestedFree() error {
 		return err
 	}
 	if len(p.nested) != 0 {
-		return &RulePropertyError{Kind: RulePropertyNested, RuleName: rulePropertyName(p.nested[0])}
+		var display strings.Builder
+		if err := p.rules.WriteRuleDisplay(&display, p.nested[0]); err != nil {
+			return err
+		}
+		return &RulePropertyError{Kind: RulePropertyNested, RuleName: rulePropertyName(p.nested[0]), SourceMessage: "Rule contains nested predicates " + display.String()}
 	}
 	return nil
 }
