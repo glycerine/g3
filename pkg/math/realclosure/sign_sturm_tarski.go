@@ -164,6 +164,8 @@ func (s *realValueStore) sturmSequenceRational(first, second []*realValue, usePs
 	if err := s.sequenceReady(); err != nil {
 		return nil, err
 	}
+	restoreAuxiliary := s.withAuxiliaryValues()
+	defer restoreAuxiliary()
 	if len(first) == 0 || len(second) == 0 {
 		return nil, arena.ErrInvalidSlot
 	}

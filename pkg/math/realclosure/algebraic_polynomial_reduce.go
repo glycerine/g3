@@ -13,6 +13,13 @@ func (s *realValueStore) reduceAlgebraicPolynomial(root *algebraicRoot, numerato
 	if root == nil || root.deleted || root.owner == nil || root.owner.values != s || len(root.polynomial.coefficients) < 2 {
 		return nil, arena.ErrInvalidSlot
 	}
+	normalize, err := s.shouldNormalizeAlgebraic(root)
+	if err != nil {
+		return nil, err
+	}
+	if !normalize {
+		return s.retainRationalPolynomial(numerator)
+	}
 	if err = s.checkRationalPolynomial(numerator, true); err != nil {
 		return nil, err
 	}

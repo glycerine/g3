@@ -23,7 +23,7 @@ func (c *SMTContext) realClosureValues() (*realclosure.APIValues, error) {
 		if err != nil {
 			return nil, err
 		}
-		values, err := realclosure.NewAPIValuesWithExecution(manager.NumeralService(), manager.ResourceLimit(), config.Cooperation)
+		values, err := realclosure.NewAPIValuesWithRCFParams(manager.NumeralService(), manager.ResourceLimit(), config.Cooperation, config.Context, config.Params, config.Globals)
 		if err != nil {
 			return nil, err
 		}

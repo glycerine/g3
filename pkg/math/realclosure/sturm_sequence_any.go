@@ -8,6 +8,8 @@ func (s *realValueStore) sturmSequenceAny(first, second []*realValue, usePrem bo
 	if err := s.sequenceReady(); err != nil {
 		return nil, err
 	}
+	restoreAuxiliary := s.withAuxiliaryValues()
+	defer restoreAuxiliary()
 	if err := s.checkAnyPolynomial(first, false); err != nil {
 		return nil, err
 	}

@@ -8,6 +8,8 @@ func (s *realValueStore) squareFreeRationalPolynomial(p []*realValue, usePrem bo
 	if err = s.checkRationalPolynomial(p, false); err != nil {
 		return nil, err
 	}
+	restoreAuxiliary := s.withAuxiliaryValues()
+	defer restoreAuxiliary()
 	if len(p) <= 1 {
 		if err = s.retain(p[0]); err != nil {
 			return nil, err

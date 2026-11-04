@@ -17,6 +17,9 @@ type realValueStore struct {
 	numbers                  *numeral.RationalManager
 	intervals                *numeral.BinaryRationalManager
 	intervalRestore          *intervalRestoreFrame
+	lazyNormalization        bool
+	lazyNormalizationBound   bool
+	inAuxValues              bool
 	limit                    *control.Reslimit
 	cooperation              *cooperate.Cooperation
 	initialPrecision         uint32
@@ -43,6 +46,19 @@ func (s *realValueStore) checkpoint() error {
 		return s.cooperation.Cooperate("rcf")
 	}
 	return nil
+}
+
+func (s *realValueStore) withAuxiliaryValues() func() {
+	previous := s.inAuxValues
+	s.inAuxValues = true
+	return func() { s.inAuxValues = previous }
+}
+
+func (s *realValueStore) lazyAlgebraicNormalizationEnabled() bool {
+	if s.lazyNormalizationBound {
+		return s.lazyNormalization
+	}
+	return true
 }
 
 // realValue is a retained nonzero rational or algebraic-root function value.

@@ -2,6 +2,21 @@ package realclosure
 
 import "github.com/glycerine/g3/pkg/arena"
 
+func (s *realValueStore) shouldNormalizeAlgebraic(root *algebraicRoot) (bool, error) {
+	if !s.lazyAlgebraicNormalizationEnabled() || !s.inAuxValues {
+		return true, nil
+	}
+	if root == nil || len(root.polynomial.coefficients) == 0 {
+		return false, arena.ErrInvalidSlot
+	}
+	leading := root.polynomial.coefficients[len(root.polynomial.coefficients)-1]
+	if !s.rationalOperand(leading) || leading == nil || !leading.isRational {
+		return false, nil
+	}
+	monic, err := s.numbers.IsOne(&leading.rational)
+	return monic, err
+}
+
 // reduceAlgebraicNumerator computes rem(numerator, root.polynomial), matching
 // normalize_algebraic's eager branch. Retained roots currently have concrete
 // rational defining coefficients, so no universal lower-extension adapter is
@@ -13,6 +28,20 @@ func (s *realValueStore) reduceAlgebraicNumerator(root *algebraicRoot, numerator
 	divisor := root.polynomial.coefficients
 	if len(divisor) < 2 || divisor[len(divisor)-1] == nil {
 		return nil, arena.ErrInvalidSlot
+	}
+	normalize, err := s.shouldNormalizeAlgebraic(root)
+	if err != nil {
+		return nil, err
+	}
+	if !normalize {
+		result := append([]*realValue(nil), numerator...)
+		for i, coefficient := range result {
+			if err := s.retain(coefficient); err != nil {
+				_ = s.releaseTemporaryCoefficients(result[:i])
+				return nil, err
+			}
+		}
+		return result, nil
 	}
 	for _, coefficient := range divisor {
 		if !s.rationalOperand(coefficient) {

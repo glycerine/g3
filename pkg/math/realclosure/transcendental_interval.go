@@ -44,7 +44,7 @@ func (v *APIValues) predefinedTranscendentalInterval(pi bool) (result *BinaryInt
 // (0, 1/2^initial_precision); value arithmetic over that extension is ported
 // separately from interval creation.
 func (v *APIValues) infinitesimalInterval() (result *BinaryInterval, err error) {
-	if v == nil || v.bounds == nil || v.initialPrecision == 0 {
+	if v == nil || v.bounds == nil || v.infPrecision == 0 {
 		return nil, arena.ErrInvalidSlot
 	}
 	lower, upper := numeral.NewBinaryRational(), numeral.NewBinaryRational()
@@ -52,7 +52,7 @@ func (v *APIValues) infinitesimalInterval() (result *BinaryInterval, err error) 
 	if err = v.bounds.SetInt32(&lower, 0); err != nil {
 		return nil, err
 	}
-	if err = v.bounds.SetInt32Power(&upper, 1, v.initialPrecision); err != nil {
+	if err = v.bounds.SetInt32Power(&upper, 1, v.infPrecision); err != nil {
 		return nil, err
 	}
 	result, err = NewBinaryInterval(v.bounds)

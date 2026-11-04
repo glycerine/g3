@@ -13,18 +13,23 @@ import (
 	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/numeral"
+	"github.com/glycerine/g3/pkg/util/params"
 )
 
 // APIValues owns the root registry and binary interval manager for one API
 // context. Its rational service is borrowed and must outlive this owner.
 type APIValues struct {
-	store            realValueStore
-	bounds           *numeral.BinaryRationalManager
-	transcendentals  *interval.RationalTranscendentals
-	initialPrecision uint32
-	roots            algebraicRootOwner
-	pi, e            *realValue
-	live             int
+	store             realValueStore
+	bounds            *numeral.BinaryRationalManager
+	transcendentals   *interval.RationalTranscendentals
+	initialPrecision  uint32
+	infPrecision      uint32
+	usePrem           bool
+	cleanDenominators bool
+	lazyNormalization bool
+	roots             algebraicRootOwner
+	pi, e             *realValue
+	live              int
 }
 
 // Rational creates a value from the API's rational string syntax.
@@ -67,7 +72,7 @@ func (v *APIValues) IsolateRoots(coefficients []*APIValue) (result []*APIValue, 
 	if len(p) == 0 {
 		return nil, arena.ErrInvalidSlot
 	}
-	roots, err := v.roots.isolateAnyRoots(p, true)
+	roots, err := v.roots.isolateAnyRoots(p, v.usePrem)
 	if err != nil {
 		return nil, errors.Join(err, v.store.releaseSturmCoefficients(roots))
 	}
@@ -194,17 +199,68 @@ func NewAPIValuesWithExecution(service *numeral.RationalService, limit *control.
 		return nil, err
 	}
 	v := &APIValues{
-		bounds:           bounds,
-		transcendentals:  &interval.RationalTranscendentals{Numbers: service.Manager},
-		initialPrecision: 24,
+		bounds:            bounds,
+		transcendentals:   &interval.RationalTranscendentals{Numbers: service.Manager},
+		initialPrecision:  24,
+		infPrecision:      24,
+		usePrem:           true,
+		cleanDenominators: true,
+		lazyNormalization: true,
 	}
 	v.store.numbers = service.Manager
 	v.store.intervals = bounds
+	v.store.lazyNormalization = true
+	v.store.lazyNormalizationBound = true
 	v.store.limit = limit
 	v.store.cooperation = cooperation
 	v.roots.values, v.roots.intervals = &v.store, bounds
 	v.roots.api = v
 	return v, nil
+}
+
+// NewAPIValuesWithRCFParams binds construction-time rcf settings through the
+// source local, module, and default lookup path.
+func NewAPIValuesWithRCFParams(service *numeral.RationalService, limit *control.Reslimit, cooperation *cooperate.Cooperation, context *params.ParamsContext, local *params.ParamsRef, globals *params.GlobalParamsService) (result *APIValues, err error) {
+	result, err = NewAPIValuesWithExecution(service, limit, cooperation)
+	if err != nil {
+		return nil, err
+	}
+	configured, err := NewRCFParams(context, globals, local)
+	if err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	defer func() {
+		closeErr := configured.Close()
+		err = errors.Join(err, closeErr)
+		if closeErr != nil && result != nil {
+			err = errors.Join(err, result.Close())
+			result = nil
+		}
+	}()
+	if result.usePrem, err = configured.UsePrem(); err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	if result.cleanDenominators, err = configured.CleanDenominators(); err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	if result.initialPrecision, err = configured.InitialPrecision(); err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	result.store.initialPrecision = result.initialPrecision
+	result.store.initialPrecisionBound = true
+	if result.infPrecision, err = configured.InfPrecision(); err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	if result.store.maxPrecision, err = configured.MaxPrecision(); err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	result.store.maxPrecisionBound = true
+	if result.lazyNormalization, err = configured.LazyAlgebraicNormalization(); err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	result.store.lazyNormalization = result.lazyNormalization
+	result.store.lazyNormalizationBound = true
+	return result, nil
 }
 
 func (v *APIValues) wrap(value *realValue) *APIValue {
@@ -230,7 +286,7 @@ func (v *APIValues) Add(a, b *APIValue) (result *APIValue, err error) {
 		return nil, arena.ErrInvalidSlot
 	}
 	defer v.store.intervalRestoreDefer(&err)()
-	r, err := v.store.addRankedRetainedValues(a.value, b.value, true)
+	r, err := v.store.addRankedRetainedValues(a.value, b.value, v.usePrem)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +297,7 @@ func (v *APIValues) Sub(a, b *APIValue) (result *APIValue, err error) {
 		return nil, arena.ErrInvalidSlot
 	}
 	defer v.store.intervalRestoreDefer(&err)()
-	r, err := v.store.subtractRankedRetainedValues(a.value, b.value, true)
+	r, err := v.store.subtractRankedRetainedValues(a.value, b.value, v.usePrem)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +308,7 @@ func (v *APIValues) Mul(a, b *APIValue) (result *APIValue, err error) {
 		return nil, arena.ErrInvalidSlot
 	}
 	defer v.store.intervalRestoreDefer(&err)()
-	r, err := v.store.multiplyRankedRetainedValues(a.value, b.value, true)
+	r, err := v.store.multiplyRankedRetainedValues(a.value, b.value, v.usePrem)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +319,7 @@ func (v *APIValues) Div(a, b *APIValue) (result *APIValue, err error) {
 		return nil, arena.ErrInvalidSlot
 	}
 	defer v.store.intervalRestoreDefer(&err)()
-	r, err := v.store.divideRankedRetainedValues(a.value, b.value, true)
+	r, err := v.store.divideRankedRetainedValues(a.value, b.value, v.usePrem)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +330,7 @@ func (v *APIValues) Compare(a, b *APIValue) (comparison int, err error) {
 		return 0, arena.ErrInvalidSlot
 	}
 	defer v.store.intervalRestoreDefer(&err)()
-	return v.store.compareRankedRetainedValues(a.value, b.value, true)
+	return v.store.compareRankedRetainedValues(a.value, b.value, v.usePrem)
 }
 
 func (v *APIValues) IsZero(a *APIValue) (zero bool, err error) {
@@ -282,7 +338,7 @@ func (v *APIValues) IsZero(a *APIValue) (zero bool, err error) {
 		return false, arena.ErrInvalidSlot
 	}
 	defer v.store.intervalRestoreDefer(&err)()
-	sign, err := v.store.determineRankedRetainedValueSign(a.value, true)
+	sign, err := v.store.determineRankedRetainedValueSign(a.value, v.usePrem)
 	return sign == 0, err
 }
 
@@ -291,7 +347,7 @@ func (v *APIValues) Neg(a *APIValue) (result *APIValue, err error) {
 		return nil, arena.ErrInvalidSlot
 	}
 	defer v.store.intervalRestoreDefer(&err)()
-	r, err := v.store.negateRankedRetainedValue(a.value, true)
+	r, err := v.store.negateRankedRetainedValue(a.value, v.usePrem)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +359,7 @@ func (v *APIValues) Inv(a *APIValue) (result *APIValue, err error) {
 		return nil, arena.ErrInvalidSlot
 	}
 	defer v.store.intervalRestoreDefer(&err)()
-	r, err := v.store.inverseRankedRetainedValue(a.value, true)
+	r, err := v.store.inverseRankedRetainedValue(a.value, v.usePrem)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +371,7 @@ func (v *APIValues) Power(a *APIValue, exponent uint32) (result *APIValue, err e
 		return nil, arena.ErrInvalidSlot
 	}
 	defer v.store.intervalRestoreDefer(&err)()
-	r, err := v.store.powerRankedRetainedValue(a.value, exponent, true)
+	r, err := v.store.powerRankedRetainedValue(a.value, exponent, v.usePrem)
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +404,7 @@ func (v *APIValues) CleanDenominators(a *APIValue) (numerator, denominator *APIV
 		return nil, nil, arena.ErrInvalidSlot
 	}
 	defer v.store.intervalRestoreDefer(&err)()
-	n, d, err := v.store.cleanTowerValueIfNeeded(a.value, true)
+	n, d, err := v.store.cleanTowerValueIfNeeded(a.value, v.usePrem)
 	if err != nil {
 		return nil, nil, errors.Join(err, v.store.releaseSturmScratch(n), v.store.releaseSturmScratch(d))
 	}
