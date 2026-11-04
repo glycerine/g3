@@ -95,6 +95,7 @@ type PropositionalEngine struct {
 	guard               *astrewriter.TheoryRewriter
 	unboundCooperation  *cooperate.Cooperation
 	unboundLite         *qe.Lite
+	unboundLiteDirty    bool
 	background          ast.ASTRef
 	pendingBackground   ast.ASTRef
 	params              *uparams.ParamsContext
@@ -1056,20 +1057,7 @@ func (e *PropositionalEngine) Pop() error {
 }
 
 func (e *PropositionalEngine) validateFragment() error {
-	generateProof := e.forceProofTrace
-	if e.params != nil && e.globals != nil {
-		parameters, err := e.fixedpointParamView()
-		if err != nil {
-			return err
-		}
-		requested, cause := parameters.Bool("generate_proof_trace", false)
-		cause = errors.Join(cause, parameters.Close())
-		if cause != nil {
-			return cause
-		}
-		generateProof = generateProof || requested
-	}
-	if err := validateRuleSetProperties(e.rules, e.set, e.backend, generateProof); err != nil {
+	if err := e.checkSourceRules(); err != nil {
 		return err
 	}
 	count, err := e.set.Len()
@@ -1108,6 +1096,23 @@ func (e *PropositionalEngine) validateFragment() error {
 		}
 	}
 	return nil
+}
+
+func (e *PropositionalEngine) checkSourceRules() error {
+	generateProof := e.forceProofTrace
+	if e.params != nil && e.globals != nil {
+		parameters, err := e.fixedpointParamView()
+		if err != nil {
+			return err
+		}
+		requested, cause := parameters.Bool("generate_proof_trace", false)
+		cause = errors.Join(cause, parameters.Close())
+		if cause != nil {
+			return cause
+		}
+		generateProof = generateProof || requested
+	}
+	return validateRuleSetProperties(e.rules, e.set, e.backend, generateProof)
 }
 
 func (e *PropositionalEngine) normalizeSimpleJoins(bitBlast *datalogBitBlastQuery) (resultErr error) {
@@ -2226,6 +2231,24 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 		return lbool.Undef, ErrPropositionalHorn
 	}
 	e.queried = true
+	// context::rel_query constructs the engine before dispatch; its interface
+	// later obtains the rule set, which flushes and validates pending rules.
+	switch e.backend {
+	case "pdr", "qpdr":
+		if e.pdr == nil {
+			if _, err := e.pdrContext(); err != nil {
+				return lbool.Undef, err
+			}
+		}
+		e.engineInstantiated = true
+	case "spacer":
+		if e.spacer == nil {
+			if _, err := e.spacerContext(); err != nil {
+				return lbool.Undef, err
+			}
+		}
+		e.engineInstantiated = true
+	}
 	if e.backend != "duality" {
 		if err := e.flushPendingRules(); err != nil {
 			return lbool.Undef, err

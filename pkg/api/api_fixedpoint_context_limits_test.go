@@ -26,8 +26,15 @@ func TestSMTContextFixedpointResourceLimitAndRetry(t *testing.T) {
 				}
 				return c.QueryFixedpoint(predicate)
 			}
+			// Flush the input before limiting the query: source HNF may return an
+			// empty prefix when interrupted, permanently advancing that input.
+			status, err := query()
+			astTestMust(t, err)
+			if status != lbool.True {
+				t.Fatal("initial fixedpoint query", status)
+			}
 			astTestMust(t, c.SetUIntOption("rlimit", 1))
-			status, _ := query()
+			status, _ = query()
 			if status != lbool.Undef {
 				t.Fatal("fixedpoint query exceeded resource limit", status)
 			}
@@ -52,8 +59,14 @@ func TestSMTContextFixedpointLevelResourceLimitAndRetry(t *testing.T) {
 	predicate, err := c.DeclareRelation("context-level-limit-p", nil)
 	astTestMust(t, err)
 	astTestMust(t, c.AddFixedpointFact(predicate, nil))
+	// Publish the pending fact before testing cancellation of the level query.
+	status, err := c.QueryFixedpointFromLevel(predicate, 0)
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("initial fixedpoint level query", status)
+	}
 	astTestMust(t, c.SetUIntOption("rlimit", 1))
-	status, _ := c.QueryFixedpointFromLevel(predicate, 0)
+	status, _ = c.QueryFixedpointFromLevel(predicate, 0)
 	if status != lbool.Undef {
 		t.Fatal("fixedpoint level query exceeded resource limit", status)
 	}

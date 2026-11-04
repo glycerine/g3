@@ -149,8 +149,17 @@ func TestExpressionQueryFailedFlushAllowsPopBeforeEngineConstruction(t *testing.
 				t.Fatal("pending flush did not fail", status, cause)
 			}
 			expressionScopePhaseCleanup(t, cause)
-			if e.set != persistent || e.revision != revision || len(e.rawRules) != 1 || e.rawRules[0] != raw || e.engineInstantiated || e.queried || e.pdr != nil || e.spacer != nil || e.queryClone != nil {
+			if e.set != persistent || e.revision != revision || len(e.rawRules) != 1 || e.engineInstantiated || e.queried || e.pdr != nil || e.spacer != nil || e.queryClone != nil {
 				t.Fatal("failed flush changed the source program or instantiated a backend", cause)
+			}
+			current := e.rawRules[0]
+			if current.formula != raw.formula || current.name != raw.name || current.bound != raw.bound || !current.pending || current.first != current.end {
+				t.Fatal("failed flush changed the pending source input", current, raw)
+			}
+			count, err := e.set.Len()
+			fragmentMust(t, err)
+			if count != 0 {
+				t.Fatal("failed flush unexpectedly published a source clause", count)
 			}
 			if after := contextDisplayLiveCounts(f.m.Stats()); after != before {
 				t.Fatal("failed flush changed AST ownership", before, after)

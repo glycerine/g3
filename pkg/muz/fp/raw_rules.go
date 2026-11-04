@@ -103,8 +103,33 @@ func (e *PropositionalEngine) cleanupRetiredRawRules() error {
 
 // flushPendingRules rebuilds the pending source clauses under the current
 // context parameters before query validation and backend construction.
-func (e *PropositionalEngine) flushPendingRules() error {
-	return e.normalizePendingRules(true)
+func (e *PropositionalEngine) flushPendingRules() (resultErr error) {
+	// The source flush scope covers both rule creation and check_rules.
+	proofOwner := &pendingFlushProofOwner{manager: e.manager}
+	defer func() { resultErr = proofOwner.finish(resultErr) }()
+	enabled, err := e.pendingProofEnabled()
+	if err != nil {
+		return err
+	}
+	mode := ast.ASTProofDisabled
+	if enabled {
+		mode = ast.ASTProofEnabled
+	}
+	proofOwner.scope, err = ast.NewScopedProofMode(e.manager, mode)
+	if err != nil {
+		return err
+	}
+	if err := e.normalizePendingRules(true); err != nil {
+		return err
+	}
+	// Source flush_add_rules validates even when there are no pending inputs.
+	// Datalog needs a separate audit of representation-specific handling;
+	// source check_rules performs no property collection for DDNF.
+	switch e.backend {
+	case "pdr", "qpdr", "spacer", "bmc", "qbmc", "duality", "tab", "clp":
+		return e.checkSourceRules()
+	}
+	return nil
 }
 
 // flushRawDisplayRules records a successfully reconstructed source boundary.

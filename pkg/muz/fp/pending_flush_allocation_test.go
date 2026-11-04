@@ -54,8 +54,8 @@ func newPendingFlushAllocationFixture(t *testing.T) *contextDisplayCleanupFixtur
 	}
 	count, err := f.e.set.Len()
 	fragmentMust(t, err)
-	if count != 5 {
-		t.Fatal("closed formula did not produce the expected two eager clauses", count)
+	if count != 4 {
+		t.Fatal("closed formula did not add two eager clauses after display promotion", count)
 	}
 	return f
 }

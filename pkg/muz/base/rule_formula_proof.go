@@ -72,7 +72,25 @@ func (m *RuleManager) NewRuleFromFormulaWithProofAndSymbol(formula, proof ast.AS
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&proofOwner)) }()
-	rewrite, err := m.manager.MkProofRewrite(oldFact, newFact)
+	var rewrite ast.ASTHandle
+	kind, err := m.manager.GetKind(newFact)
+	if err != nil {
+		return nil, err
+	}
+	if kind == ast.ASTQuantifier {
+		// Source mk_horn_rule proves the quantified rule equivalent to its
+		// open Horn clause with DER, then reverses that equivalence.
+		rewrite, err = m.manager.MkProofDER(newFact, oldFact)
+		if !rewrite.IsNull() {
+			err = errors.Join(err, m.manager.SetRef(proofOwner, rewrite))
+		}
+		if err != nil {
+			return nil, err
+		}
+		rewrite, err = m.manager.MkProofSymmetry(rewrite)
+	} else {
+		rewrite, err = m.manager.MkProofRewrite(oldFact, newFact)
+	}
 	err = errors.Join(err, m.manager.SetRef(proofOwner, rewrite))
 	if err != nil {
 		return nil, err

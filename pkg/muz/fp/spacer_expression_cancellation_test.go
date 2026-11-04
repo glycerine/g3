@@ -18,6 +18,10 @@ func TestSpacerExpressionCancellationPreservesOwnersAndRetry(t *testing.T) {
 			f := newCoveredExpressionFixture(t, "spacer")
 			e, m := f.engine, f.manager
 			must := func(err error) { t.Helper(); fragmentMust(t, err) }
+			// Separate source ingestion from query preparation and solving:
+			// cancellation can make HNF return no clause while source flush
+			// still completes that input. The companion test covers it.
+			must(e.flushPendingRules())
 			owner := e.spacer
 			proofsBefore, err := m.ProofsEnabled()
 			must(err)
@@ -130,5 +134,62 @@ func TestSpacerExpressionCancellationPreservesOwnersAndRetry(t *testing.T) {
 	}
 	if !success || preparationFailures == 0 || solveFailures == 0 {
 		t.Fatal("missing cancellation/success frontiers", preparationFailures, solveFailures, success)
+	}
+}
+
+// Source flush advances its pending head after mk_rule returns, even when
+// resource cancellation makes HNF return normally without producing the fact.
+func TestSpacerExpressionCancellationDuringPendingFlush(t *testing.T) {
+	observed := false
+	for steps := uint32(0); steps < 128 && !observed; steps++ {
+		t.Run(fmt.Sprint(steps), func(t *testing.T) {
+			f := newCoveredExpressionFixture(t, "spacer")
+			e, limit := f.engine, f.manager.ResourceLimit()
+			if steps == 0 {
+				limit.IncCancel()
+			} else {
+				fragmentMust(t, limit.Push(steps))
+			}
+			_, _ = e.QueryExpression(f.query)
+			exhausted := !limit.IncOffset(0)
+			if steps == 0 {
+				limit.DecCancel()
+			} else {
+				limit.Pop()
+			}
+			count, err := e.set.Len()
+			fragmentMust(t, err)
+			if !exhausted || count != 2 || len(e.rawRules) != 3 {
+				return
+			}
+			for _, raw := range e.rawRules {
+				if raw.pending {
+					return
+				}
+			}
+			// The final input is the only fact for this query's predicate.
+			for i := 0; i < count; i++ {
+				rule, err := e.set.Rule(i)
+				fragmentMust(t, err)
+				name, err := rule.NameSymbol()
+				fragmentMust(t, err)
+				fragmentMust(t, rule.Close())
+				if name == e.rawRules[2].name {
+					t.Fatal("the allegedly empty input published its fact")
+				}
+			}
+			observed = true
+			status, err := e.QueryExpression(f.query)
+			fragmentMust(t, err)
+			if status != lbool.False {
+				t.Fatal("retry recreated a source input completed without a clause", status)
+			}
+		})
+		if t.Failed() {
+			break
+		}
+	}
+	if !observed {
+		t.Fatal("campaign did not observe pending input completion without a clause")
 	}
 }

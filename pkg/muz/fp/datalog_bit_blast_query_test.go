@@ -154,7 +154,33 @@ func TestDatalogBitBlastFiniteQueriesPreserveOriginalDomain(t *testing.T) {
 			if tc.name == "module" {
 				// Refuse work across normalization and execution boundaries,
 				// including a failed query after the mapping was installed.
+				// Keep the original formulas alive so every published clause can be
+				// checked against its source, including during a partial flush.
+				originalRaw := append([]rawRuleFormula(nil), e.rawRules...)
+				if len(originalRaw) != 2 {
+					t.Fatal("fixture raw rule count", len(originalRaw))
+				}
+				names := []string{"finite-bit-filter", "finite-bit-unreachable"}
+				originalFormulas := make([]ast.ASTRef, len(names))
+				for i := range names {
+					r, err := e.set.Rule(i)
+					must(err)
+					name, err := r.Name()
+					must(err)
+					if name != names[i] {
+						t.Fatal("fixture rule name", i, name)
+					}
+					originalFormulas[i], err = r.ToFormula()
+					must(err)
+					must(r.Close())
+				}
+				defer func() {
+					for i := range originalFormulas {
+						must(m.DelRef(&originalFormulas[i]))
+					}
+				}()
 				interrupted, completed := false, false
+				emptyFlush, partialFlush := false, false
 				for allowance := uint32(1); allowance <= 512; allowance++ {
 					revision := e.revision
 					must(m.Limit.Push(allowance))
@@ -163,8 +189,58 @@ func TestDatalogBitBlastFiniteQueriesPreserveOriginalDomain(t *testing.T) {
 					if len(e.predicates) != 3 || len(e.auxiliary) != 0 {
 						t.Fatal("failed bit-blast query left generated predicates", allowance, cause)
 					}
-					if count, err := e.set.Len(); err != nil || count != 2 {
-						t.Fatal("failed bit-blast query replaced source rules", count, err)
+					if len(e.rawRules) != len(originalRaw) {
+						t.Fatal("query changed raw rule count", allowance, len(e.rawRules))
+					}
+					for i, raw := range e.rawRules {
+						if raw.formula != originalRaw[i].formula || raw.name != originalRaw[i].name || raw.bound != originalRaw[i].bound {
+							t.Fatal("query changed a raw source rule", allowance, i)
+						}
+					}
+					count, err := e.set.Len()
+					must(err)
+					seen := make([]int, len(names))
+					previous := -1
+					for i := 0; i < count; i++ {
+						r, err := e.set.Rule(i)
+						must(err)
+						name, err := r.Name()
+						must(err)
+						index := -1
+						for j := range names {
+							if name == names[j] {
+								index = j
+								break
+							}
+						}
+						if index < 0 || index < previous {
+							t.Fatal("query changed published rule identity or order", allowance, i, name)
+						}
+						formula, err := r.ToFormula()
+						must(err)
+						got, err := m.RefGet(formula)
+						must(err)
+						want, err := m.RefGet(originalFormulas[index])
+						must(err)
+						if got != want {
+							t.Fatal("query changed published rule formula", allowance, i, name)
+						}
+						must(m.DelRef(&formula))
+						must(r.Close())
+						seen[index]++
+						previous = index
+					}
+					for i, raw := range e.rawRules {
+						if !raw.pending && seen[i] == 0 {
+							t.Fatal("flushed source rule is missing", allowance, names[i])
+						}
+					}
+					if cause != nil {
+						emptyFlush = emptyFlush || count == 0 && e.rawRules[0].pending && e.rawRules[1].pending
+						partialFlush = partialFlush || count == 1 && seen[0] == 1 && seen[1] == 0 && !e.rawRules[0].pending && e.rawRules[1].pending
+					}
+					if cause == nil && (seen[0] == 0 || seen[1] == 0) {
+						t.Fatal("successful retry lost source rules", allowance, seen)
 					}
 					for _, row := range []rel.Fact{{1}, {2}} {
 						found, err := e.predicates[p].table.Contains(row)
@@ -190,8 +266,8 @@ func TestDatalogBitBlastFiniteQueriesPreserveOriginalDomain(t *testing.T) {
 					t.Logf("resource campaign completed at allowance %d after a transformed-query interruption", allowance)
 					break
 				}
-				if !interrupted || !completed {
-					t.Fatal("resource campaign missed normalization interruption or completion", interrupted, completed)
+				if !interrupted || !completed || !emptyFlush || !partialFlush {
+					t.Fatal("resource campaign missed an interruption, completion, or flush state", interrupted, completed, emptyFlush, partialFlush)
 				}
 			}
 

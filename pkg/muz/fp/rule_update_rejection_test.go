@@ -61,8 +61,26 @@ func TestFixedpointRejectedUpdatePreservesRawArchiveAndPendingRanges(t *testing.
 	fragmentMust(t, f.e.normalizePendingRules(true))
 	count, err := persistent.Len()
 	fragmentMust(t, err)
-	if count != initialCount+4 || len(f.e.rawRules) != len(raw) {
+	// An earlier display promotion removed one pending eager placeholder;
+	// flushing adds that input's source clause in addition to the updates.
+	if count != initialCount+5 || len(f.e.rawRules) != len(raw) {
 		t.Fatal("flushing pending inputs discarded update-only clauses", count)
+	}
+	splitName, err := f.m.Symbols.Intern("split")
+	fragmentMust(t, err)
+	updates := 0
+	for i := 0; i < count; i++ {
+		rule, err := persistent.Rule(i)
+		fragmentMust(t, err)
+		name, err := rule.NameSymbol()
+		fragmentMust(t, err)
+		fragmentMust(t, rule.Close())
+		if name == splitName {
+			updates++
+		}
+	}
+	if updates != 4 {
+		t.Fatal("flush lost completed clauses from rejected updates", updates)
 	}
 	for i, original := range raw {
 		got := f.e.rawRules[i]

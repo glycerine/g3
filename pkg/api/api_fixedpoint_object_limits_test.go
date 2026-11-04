@@ -69,10 +69,17 @@ func TestAPIFixedpointQueryResourceLimitAndRetry(t *testing.T) {
 			astTestMust(t, f.fp.SetParameters(params))
 			astTestMust(t, params.Close())
 			astTestMust(t, f.fp.AddFact(f.p, nil))
+			// Source normalization can publish an empty prefix on cancellation;
+			// flush the fact first so this exercises query cancellation and retry.
+			status, err := f.fp.Query(f.p)
+			astTestMust(t, err)
+			if status != lbool.True {
+				t.Fatal("initial fixedpoint query", status)
+			}
 			astTestMust(t, f.c.SetUIntOption("rlimit", 1))
 			limit := f.m.ResourceLimit()
 			beforeDepth, beforeLimit := len(limit.Limits), limit.Limit
-			status, _ := f.fp.Query(f.p)
+			status, _ = f.fp.Query(f.p)
 			if status != lbool.Undef {
 				t.Fatal("fixedpoint query exceeded resource limit", status)
 			}

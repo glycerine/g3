@@ -53,8 +53,20 @@ func TestDualityDisplayCancellationAndWriterFailurePreserveCompletedResult(t *te
 	if failure == nil || !strings.Contains(failure.Error(), message) || canceled.Len() != 0 {
 		t.Fatal("canceled promotion did not fail before output", failure, canceled.String())
 	}
-	if e.revision != revision || len(e.rawRules) != len(raw) || e.rawRules[0] != raw[0] {
-		t.Fatal("canceled display advanced pending source phase")
+	// The Go-only eager copy is removed before source normalization begins.
+	// Cancellation must leave the original input pending without publishing a
+	// normalized clause or changing the completed query's revision.
+	if e.revision != revision || len(e.rawRules) != len(raw) {
+		t.Fatal("canceled display advanced pending source phase", revision, e.revision)
+	}
+	current := e.rawRules[0]
+	if current.formula != raw[0].formula || current.name != raw[0].name || current.bound != raw[0].bound || !current.pending || current.first != 0 || current.end != 0 {
+		t.Fatal("canceled display changed pending input", current)
+	}
+	count, err := e.set.Len()
+	fragmentMust(t, err)
+	if count != 0 {
+		t.Fatal("canceled display published a normalized rule", count)
 	}
 	checkResult()
 	writerFailure := errors.New("Duality display writer refused output")

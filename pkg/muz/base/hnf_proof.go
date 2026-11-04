@@ -115,25 +115,18 @@ func (m *RuleManager) addFormulaWithProof(set *RuleSet, formula, proof ast.ASTHa
 	if err != nil {
 		return err
 	}
-	clauses := make([]ast.ASTHandle, len(normalized.Formulas))
-	for i, ref := range normalized.Formulas {
-		clauses[i], err = m.manager.RefGet(ref)
-		if err != nil {
-			return err
-		}
-	}
-	clauseProofs := make([]ast.ASTHandle, len(normalized.Proofs))
-	for i, ref := range normalized.Proofs {
-		clauseProofs[i], err = m.manager.RefGet(ref)
-		if err != nil {
-			return err
-		}
-	}
 	if err = m.registerHornPredicates(); err != nil {
 		return err
 	}
-	for i, clause := range clauses {
-		clauseProof := clauseProofs[i]
+	for i, ref := range normalized.Formulas {
+		clause, err := m.manager.RefGet(ref)
+		if err != nil {
+			return err
+		}
+		clauseProof, err := m.manager.RefGet(normalized.Proofs[i])
+		if err != nil {
+			return err
+		}
 		rule, e := m.NewRuleFromFormulaWithProofAndSymbol(clause, clauseProof, name)
 		if e != nil {
 			return e
