@@ -578,7 +578,17 @@ func (p *RuleProperties) CheckExistentialTail() error {
 				return x
 			}
 			if found {
-				return &RulePropertyError{Kind: RulePropertyExistentialTail, RuleName: rulePropertyName(rule)}
+				property := &RulePropertyError{Kind: RulePropertyExistentialTail, RuleName: rulePropertyName(rule)}
+				// Source traverses all nested rules together before inspecting
+				// candidates; this implementation's multi-rule order differs.
+				if len(p.nested) == 1 {
+					display, err := p.rules.ruleHeadSourceDisplay(e)
+					if err != nil {
+						return err
+					}
+					property.SourceMessage = "recursive predicate " + display + " occurs nested in the body of a rule"
+				}
+				return property
 			}
 		}
 	}

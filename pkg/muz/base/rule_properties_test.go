@@ -284,6 +284,50 @@ func TestRulePropertiesExistentialTraversalDistinctionsAndReuse(t *testing.T) {
 	ruleMust(t, clean.Close())
 }
 
+func TestRulePropertiesExistentialTailDoesNotClaimMultiRuleOrdering(t *testing.T) {
+	f := newRulePropertiesFixture(t)
+	expression, err := f.manager.MkEq(f.p, f.q)
+	ruleMust(t, err)
+	root, err := f.manager.NewRef(expression)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, f.manager.DelRef(&root)) }()
+	set, err := base.NewRuleSet(f.rules)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, set.Close()) }()
+	boolean, err := f.manager.MkBoolSort()
+	ruleMust(t, err)
+	name, err := f.manager.Symbols.Intern("multi-nested-predicate")
+	ruleMust(t, err)
+	decl, err := f.manager.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
+	ruleMust(t, err)
+	ruleMust(t, f.rules.RegisterPredicate(decl))
+	third, err := f.manager.MkApp(decl, nil)
+	ruleMust(t, err)
+	other, err := f.manager.MkEq(f.q, third)
+	ruleMust(t, err)
+	otherRoot, err := f.manager.NewRef(other)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, f.manager.DelRef(&otherRoot)) }()
+	for i, head := range []ast.ASTHandle{f.p, f.q} {
+		tail := expression
+		if i == 1 {
+			tail = other
+		}
+		rule, err := f.rules.NewRule(head, []ast.ASTHandle{tail}, nil, "")
+		ruleMust(t, err)
+		ruleMust(t, set.Add(rule))
+		ruleMust(t, rule.Close())
+	}
+	properties, err := base.NewRuleProperties(f.rules)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, properties.Close()) }()
+	ruleMust(t, properties.Collect(set))
+	var property *base.RulePropertyError
+	if err := properties.CheckExistentialTail(); !errors.As(err, &property) || property.Kind != base.RulePropertyExistentialTail || property.SourceMessage != "" {
+		t.Fatalf("multi-rule diagnostic = %v", err)
+	}
+}
+
 func TestRulePropertiesFirstRuleOrderNegativeAndOwnership(t *testing.T) {
 	f := newRulePropertiesFixture(t)
 	boolean, err := f.manager.MkBoolSort()

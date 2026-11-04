@@ -74,7 +74,7 @@ func datalogTokenText(text string) string {
 }
 
 type datalogLexer struct {
-	input          []rune
+	input []rune
 	// Source char_reader marks EOF as soon as it loads the final physical
 	// line; read_string observes that state before consuming each character.
 	fileEOFAt      []bool
@@ -210,10 +210,6 @@ func (l *datalogLexer) next() datalogToken {
 		return datalogToken{kind: datalogNegation, text: "!", line: line, column: column}
 	case '=':
 		return datalogToken{kind: datalogEqual, text: "=", line: line, column: column}
-	case '<':
-		return datalogToken{kind: datalogLess, text: "<", line: line, column: column}
-	case '>':
-		return datalogToken{kind: datalogGreater, text: ">", line: line, column: column}
 	case '"':
 		var value strings.Builder
 		for l.peek() >= 0 && l.peek() != '"' && l.peek() != '\n' {
@@ -250,7 +246,7 @@ func (l *datalogLexer) next() datalogToken {
 	value.WriteString(identifierPrefix)
 	for {
 		p := l.peek()
-		if p < 0 || unicode.IsSpace(p) || strings.ContainsRune("(),:#=<>!", p) || (!l.parsingDomains && p == '.') {
+		if p < 0 || unicode.IsSpace(p) || strings.ContainsRune("(),:#=", p) || (!l.parsingDomains && p == '.') {
 			break
 		}
 		value.WriteRune(l.take())

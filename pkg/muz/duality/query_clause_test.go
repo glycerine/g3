@@ -95,3 +95,71 @@ func TestQueryClauseSparseAndGroundVariables(t *testing.T) {
 		t.Fatal("ground clause operator", op)
 	}
 }
+
+// Source: duality_dl_interface.cpp computes used_vars over the complete query
+// before binding its free variables. Inner quantifier variables do not become
+// new outer variables, and their binder depth shifts free de Bruijn indices.
+func TestQueryClauseNestedBinderAndSparseFreeVariable(t *testing.T) {
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx, err := cmd_context.NewStandaloneContext()
+	must(err)
+	defer func() { must(ctx.Close()) }()
+	m, err := ctx.Manager()
+	must(err)
+	zero, err := m.ArithmeticIntegerNumeralText("0")
+	must(err)
+	integer, err := m.GetSort(zero)
+	must(err)
+	boolean, err := m.MkBoolSort()
+	must(err)
+	name, err := m.Symbols.Intern("duality-nested-query")
+	must(err)
+	predicate, err := m.MkFuncDecl(name, []ast.ASTHandle{boolean, integer}, boolean, ast.ASTFuncDeclInfo{})
+	must(err)
+	bound, err := m.MkVar(0, boolean)
+	must(err)
+	free, err := m.MkVar(2, integer) // Outer variable 1 under one binder.
+	must(err)
+	body, err := m.MkApp(predicate, []ast.ASTHandle{bound, free})
+	must(err)
+	query, err := m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{symbol.Numerical(9)}, Body: body})
+	must(err)
+	queryRef, err := m.NewRef(query)
+	must(err)
+	defer func() { must(m.DelRef(&queryRef)) }()
+	clause, err := duality.QueryClause(m, query)
+	must(err)
+	defer func() { must(m.DelRef(&clause)) }()
+	h, err := m.RefGet(clause)
+	must(err)
+	forall, err := m.IsForall(h)
+	must(err)
+	count, err := m.GetNumDeclarations(h)
+	must(err)
+	if !forall || count != 2 {
+		t.Fatal("outer closure included an inner binder or omitted a free slot", forall, count)
+	}
+	for i, want := range []ast.ASTHandle{integer, boolean} {
+		sort, err := m.GetDeclarationSort(h, uint32(i))
+		must(err)
+		name, err := m.GetDeclarationName(h, uint32(i))
+		must(err)
+		if sort != want || name != symbol.Numerical(uint32(1-i)) {
+			t.Fatal("outer binder", i, sort, name)
+		}
+	}
+	implication, err := m.GetQuantifierBody(h)
+	must(err)
+	left, err := m.GetArg(implication, 0)
+	must(err)
+	right, err := m.GetArg(implication, 1)
+	must(err)
+	if left != query || !m.IsFalse(right) {
+		t.Fatal("nested query was altered during closure")
+	}
+}
