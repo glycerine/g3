@@ -106,7 +106,7 @@ func (s *realValueStore) signApproxAtBinaryBound(coefficients []*realValue, boun
 			return 0, e
 		}
 		if coefficient.lowerInf || coefficient.upperInf {
-			return s.exactSignAtBinaryBound(coefficients, bounds, bound, true)
+			return s.exactSignAtBinaryBound(coefficients, bounds, bound, s.usePseudoRemainder())
 		}
 	}
 	// Source find_biggest_interval_magnitude chooses the initial precision.
@@ -144,12 +144,12 @@ func (s *realValueStore) signApproxAtBinaryBound(coefficients []*realValue, boun
 				return 0, e
 			}
 			if !refined {
-				return s.exactSignAtBinaryBound(coefficients, bounds, bound, true)
+				return s.exactSignAtBinaryBound(coefficients, bounds, bound, s.usePseudoRemainder())
 			}
 		}
 		if sign, decided, e := evaluate(); e != nil || decided {
 			return sign, e
 		}
 	}
-	return s.exactSignAtBinaryBound(coefficients, bounds, bound, true)
+	return s.exactSignAtBinaryBound(coefficients, bounds, bound, s.usePseudoRemainder())
 }

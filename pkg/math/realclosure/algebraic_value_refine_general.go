@@ -8,7 +8,7 @@ func (s *realValueStore) refineAlgebraicPolynomialValue(value *realValue, precis
 	if value == nil || value.isRational || value.root == nil || value.functionInterval == nil {
 		return false, arena.ErrInvalidSlot
 	}
-	for workPrecision := precision; workPrecision <= s.intervalMaxPrecision(); workPrecision++ {
+	for workPrecision := precision; ; workPrecision++ {
 		refinedCoefficients, err := s.refineCoefficientIntervals(value.functionNumerator.coefficients, value.root.interval, workPrecision)
 		if err != nil || !refinedCoefficients {
 			return refinedCoefficients, err
@@ -24,6 +24,8 @@ func (s *realValueStore) refineAlgebraicPolynomialValue(value *realValue, precis
 		if err != nil || precise {
 			return precise, err
 		}
+		if workPrecision == ^uint32(0) {
+			return false, arena.ErrBounds
+		}
 	}
-	return false, nil
 }
