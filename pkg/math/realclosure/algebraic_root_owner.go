@@ -58,20 +58,21 @@ func (r *algebraicRoot) unregister() {
 }
 
 type algebraicRoot struct {
-	owner              *algebraicRootOwner
-	kind               realExtensionKind
-	index              int
-	name               string
-	prettyName         string
-	transcendentalStep uint32
-	refs               uint32
-	deleted            bool
-	polynomial         realPolynomial
-	interval           *BinaryInterval
-	isolating          *BinaryInterval
-	signs              *signDet
-	signIndex          int
-	infinitesimals     bool
+	owner                   *algebraicRootOwner
+	kind                    realExtensionKind
+	index                   int
+	name                    string
+	prettyName              string
+	transcendentalStep      uint32
+	refs                    uint32
+	deleted                 bool
+	polynomial              realPolynomial
+	interval                *BinaryInterval
+	isolating               *BinaryInterval
+	signs                   *signDet
+	signIndex               int
+	infinitesimals          bool
+	dependsOnInfinitesimals bool
 }
 
 // mkAlgebraic constructs the retained algebraic extension. The source
@@ -114,8 +115,16 @@ func (o *algebraicRootOwner) mkAlgebraic(coefficients []*realValue, enclosure, i
 		}
 		r.signs = signs
 	}
-	// All currently constructed coefficient values are rational; their
-	// depends-on-infinitesimals predicate is false.
+	for _, coefficient := range r.polynomial.coefficients {
+		depends, dependencyErr := o.values.dependsOnInfinitesimalsValue(coefficient)
+		if dependencyErr != nil {
+			return cleanup(dependencyErr)
+		}
+		if depends {
+			r.dependsOnInfinitesimals = true
+			break
+		}
+	}
 	return r, nil
 }
 

@@ -47,7 +47,7 @@ func (s *realValueStore) dependsOnInfinitesimalsValue(value *realValue) (bool, e
 	if value.root == nil || value.root.deleted {
 		return false, arena.ErrInvalidSlot
 	}
-	if value.root.infinitesimals {
+	if value.root.infinitesimals || value.root.dependsOnInfinitesimals {
 		return true, nil
 	}
 	for _, polynomial := range [][]*realValue{value.functionNumerator.coefficients, value.functionDenominator.coefficients} {
