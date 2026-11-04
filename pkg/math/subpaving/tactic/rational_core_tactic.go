@@ -185,7 +185,7 @@ func (t *RationalCoreTactic) ApplyWithOutput(g *goaltactic.Goal, out io.Writer) 
 		if errors.Is(err, subpaving.ErrSubpavingFailure) {
 			return nil, goaltactic.NewTacticException("failed to internalize goal into subpaving module")
 		}
-		return nil, err
+		return nil, goaltactic.WrapTacticException(err)
 	}
 	context, err := t.engine.Context()
 	if err != nil {
@@ -202,7 +202,7 @@ func (t *RationalCoreTactic) ApplyWithOutput(g *goaltactic.Goal, out io.Writer) 
 		if errors.Is(err, subpaving.ErrSubpavingFailure) {
 			return nil, goaltactic.NewTacticException("failed building subpaving tree...")
 		}
-		return nil, err
+		return nil, goaltactic.WrapTacticException(err)
 	}
 	if options.PrintNodes {
 		stream := &fastTacticOutput{out: out}

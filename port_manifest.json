@@ -83239,8 +83239,8 @@
           ]
         },
         {
-          "name": "Concrete MPQ core tactic returns borrowed goal, accumulates/reset statistics, forwards params and reconstructs converter/context on cleanup; full SMT2 display and exception transport remain open (src/math/subpaving/tactic/subpaving_tactic.cpp:193-263)",
-          "status": "partial",
+          "name": "Concrete MPQ core tactic returns borrowed goal, accumulates/reset statistics, forwards params, prints full SMT2 terms, translates source failures and reconstructs converter/context on cleanup (src/math/subpaving/tactic/subpaving_tactic.cpp:193-263)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/rational_core_tactic.go",
           "tests": [
             "TestRationalCoreTacticBorrowedGoalStatisticsAndFreshCleanup"

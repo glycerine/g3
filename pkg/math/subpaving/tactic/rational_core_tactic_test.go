@@ -125,6 +125,38 @@ func TestRationalCoreTacticBorrowedGoalStatisticsAndFreshCleanup(t *testing.T) {
 	if err := core.CollectStatistics(st); err != nil || st.Size() != 0 {
 		t.Fatal("statistics reset", err)
 	}
+	unsupportedGoal, err := goaltactic.NewGoal(m, false, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := unsupportedGoal.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	boolSort, err := m.MkBoolSort()
+	if err != nil {
+		t.Fatal(err)
+	}
+	unsupportedName, err := sy.Intern("unsupported")
+	if err != nil {
+		t.Fatal(err)
+	}
+	unsupportedAtom, err := m.MkConst(unsupportedName, boolSort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := unsupportedGoal.Assert(unsupportedAtom); err != nil {
+		t.Fatal(err)
+	}
+	if result, err := core.Apply(unsupportedGoal); result != nil {
+		t.Fatal("unsupported source atom must fail before returning the goal", result, err)
+	} else {
+		var tacticError goaltactic.TacticException
+		if !errors.As(err, &tacticError) || tacticError.Message() != "unsupported atom" {
+			t.Fatal("source tactic exception transport", err)
+		}
+	}
 	printKey := "print_nodes"
 	if err := pc.SetBoolName(&p, &printKey, true); err != nil {
 		t.Fatal(err)
