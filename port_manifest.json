@@ -77488,7 +77488,7 @@
       "path": "src/math/realclosure/realclosure.h",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/realclosure/real_value_function_construct.go",
         "pkg/math/realclosure/real_value_function_add.go",
@@ -77527,17 +77527,26 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "concrete rational/algebraic value arithmetic and manager numeral slot lifecycle and predicates",
-          "status": "partial",
+          "name": "Typed Go RCF owners implement manager construction, root/transcendental values, arithmetic, comparison, predicates, formatting, denominator extraction, numeral-slot lifecycle, and algebraic value ownership; native C++ num pointer conversions have no Go ABI consumer",
+          "status": "ported",
           "go_targets": [
+            "pkg/math/realclosure/api_values.go",
+            "pkg/api/api_rcf_rational_owner.go",
+            "pkg/api/api_rcf_rational_arithmetic.go",
+            "pkg/api/api_rcf_rational_checks.go",
+            "pkg/api/api_rcf_rational_display.go",
+            "pkg/api/api_rcf_rational_relations.go",
+            "pkg/api/api_rcf_rational_unary.go",
             "pkg/math/realclosure/real_value_function_add.go",
             "pkg/math/realclosure/real_value_function_neg.go",
             "pkg/math/realclosure/real_value_function_scale.go",
-            "pkg/math/realclosure/manager_slot_owner.go"
+            "pkg/math/realclosure/manager_slot_owner.go",
+            "pkg/math/realclosure/manager_slot_arithmetic.go",
+            "pkg/math/realclosure/manager_slot_copy.go"
           ],
           "tests": [
             "TestRealValueAlgebraicPlusRationalRetainsNumeratorAndInterval",
