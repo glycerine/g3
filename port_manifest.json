@@ -79916,8 +79916,8 @@
           ]
         },
         {
-          "name": "Concrete config_mpq variable registration, root and child views, integer bound normalization, conflict and leaf-list handling, BFS pop, source bound trail and timestamp-exhaustion publication (src/math/subpaving/subpaving_t_def.h:291-342,525-570,967-1060,1163-1167,1337-1342); source TRACE and remaining solver lifecycle remain open",
-          "status": "partial",
+          "name": "Concrete config_mpq variable registration, root and child views, integer bound normalization, conflict and leaf-list handling, breadth-first pop, source bound trail and timestamp-exhaustion publication with matching trace sites (src/math/subpaving/subpaving_t_def.h:291-342,525-570,967-1060,1163-1167,1337-1342)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/rational_context_root.go",
           "go_targets": [
             "pkg/math/subpaving/rational_node.go",
@@ -79926,24 +79926,30 @@
           ],
           "tests": [
             "TestRationalContextRootIntegerBoundsAndChildViews",
-            "TestRationalContextSourceBoundConflicts"
+        "TestRationalContextSourceBoundConflicts",
+        "TestRationalBoundTracePublicationAndConflictOrder",
+        "TestRationalBoundTraceStreamAndPrinterFailurePrefix",
+        "TestRationalSearchBreadthFirstChildrenAndDefinitionPropagation",
+        "TestRationalSearchChildCancellationLeavesSourceQueue",
+        "TestRationalAddRecentBoundsOnlyNewestDirection"
           ]
         },
         {
-          "name": "Concrete config_mpq epsilon/max-bound numeral policy and normalized candidate relevance: conflict, zero-epsilon improvement, maximum threshold, and positive-epsilon gap (src/math/subpaving/subpaving_t_def.h:473-494,1204-1317); source arithmetic-exception flag transport and remaining context parameters remain open",
-          "status": "partial",
+          "name": "Concrete config_mpq epsilon/max-bound policy, normalized candidate relevance, and ordered context parameter updates; config_mpq's exception type is empty and has no throwing arithmetic path, so the generic arithmetic-failure flag is unreachable (src/math/subpaving/subpaving_t_def.h:473-494,1204-1317)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/rational_context_policy.go",
           "go_targets": [
             "pkg/math/subpaving/rational_context_relevance.go",
             "pkg/math/subpaving/rational_context_root.go"
           ],
           "tests": [
-            "TestRationalContextDefaultRelevantBoundSourceOrder"
+            "TestRationalContextDefaultRelevantBoundSourceOrder",
+            "TestRationalContextNamedParamsSinglePassAndDefaults"
           ]
         },
         {
-          "name": "Concrete config_mpq inequality threshold ownership, unit retention, axiom marking, stable multi-atom clauses, exact three-valued inequality truth, distinct-variable watches, justified conflict-first clause propagation, insertion-order watched queue dispatch, and non-resuming source root initialization after cancellation (src/math/subpaving/subpaving_t_def.h:575-587,773-875,1345-1419,1695-1752,1773-1808); source TRACE and remaining solver lifecycle remain open",
-          "status": "partial",
+          "name": "Concrete config_mpq inequality threshold ownership, unit retention, axiom marking, stable multi-atom clauses, exact three-valued inequality truth, distinct-variable watches, conflict-first propagation, insertion-order watched dispatch, non-resuming root initialization after cancellation, and matching trace sites (src/math/subpaving/subpaving_t_def.h:575-587,773-875,1345-1419,1695-1752,1773-1808)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/rational_context_units.go",
           "go_targets": [
             "pkg/math/subpaving/rational_context_root.go",
@@ -79963,7 +79969,11 @@
             "TestRationalClauseAllFalseFirstAtomConflict",
             "TestRationalContextInitializeRootDoesNotResumeCanceledSourceInit",
             "TestRationalRootInitializationTraceRefusalAndPrinterPrefix",
-            "TestRationalRootInitializationTraceSourceOrderAndResume"
+            "TestRationalRootInitializationTraceSourceOrderAndResume",
+            "TestRationalClauseTraceSortedAfterOwnership",
+            "TestRationalClauseTraceRefusalAndPrinterFailureKeepClause",
+            "TestRationalClausePropagationTraceSourceOrder",
+            "TestRationalClausePropagationTraceRefusalAndPrinterPrefixes"
           ],
           "reason": "Source root publication precedes initial-constraint TRACE (subpaving_t_def.h:1794-1797). A variable-printer error in initial constraints or unit tracing preserves the root and exact emitted prefix; later InitializeRoot calls neither replay nor advance initialization, matching the existing-root guard at 1806-1808. An explicit unit-assertion call may publish the interrupted unit once without rerunning constraints or post-propagation tracing. Ordinary borrowed-writer refusal remains nonthrowing and permits initialization to finish. Broader trace and solver-lifecycle audits remain separate."
         },
