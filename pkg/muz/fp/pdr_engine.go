@@ -475,6 +475,11 @@ func (e *PropositionalEngine) NumLevels(declaration ast.ASTHandle) (uint32, erro
 	if err := e.selectFactEngine(); err != nil {
 		return 0, err
 	}
+	// Duality's engine_base implementation asserts for level queries; it has
+	// no PDR frames. Do not let the shared PDR fallback create a PDR context.
+	if e.backend == "duality" {
+		return 0, ErrPropositionalEngine
+	}
 	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr" || e.backend == "spacer") {
 		clone, err := e.propertyQueryClone()
 		if err != nil {
@@ -505,6 +510,10 @@ func (e *PropositionalEngine) CoverDelta(level int, declaration ast.ASTHandle) (
 	// Source context property entry points resolve the configured engine.
 	if err := e.selectFactEngine(); err != nil {
 		return ast.ASTRef{}, err
+	}
+	// The Duality implementation's get_cover_delta is an assertion stub.
+	if e.backend == "duality" {
+		return ast.ASTRef{}, ErrPropositionalEngine
 	}
 	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr" || e.backend == "spacer") {
 		clone, err := e.propertyQueryClone()
@@ -564,6 +573,10 @@ func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTH
 	// Source context property entry points resolve the configured engine.
 	if err := e.selectFactEngine(); err != nil {
 		return err
+	}
+	// The Duality implementation's add_cover is an assertion stub.
+	if e.backend == "duality" {
+		return ErrPropositionalEngine
 	}
 	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr" || e.backend == "spacer") {
 		clone, err := e.propertyQueryClone()
