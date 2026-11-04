@@ -52,8 +52,8 @@ func (p *datalogParser) parseArguments(declaration ast.ASTHandle) ([]ast.ASTHand
 		if p.token.kind == datalogRightParen {
 			break
 		}
-		if err = p.expect(datalogComma, "expected ',' or ')' in predicate arguments"); err != nil {
-			return nil, err
+		if p.token.kind == datalogComma {
+			p.advance()
 		}
 	}
 	p.advance()

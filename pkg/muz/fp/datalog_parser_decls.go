@@ -30,6 +30,9 @@ func (p *datalogParser) parseDeclaration(name usymbol.Symbol) (resultErr error) 
 	var names []usymbol.Symbol
 	if p.token.kind == datalogLeftParen {
 		p.advance()
+		if p.token.kind == datalogRightParen {
+			return p.fail("expected argument name in predicate declaration")
+		}
 		if p.token.kind != datalogRightParen {
 			for {
 				if p.token.kind != datalogIdentifier {
@@ -56,8 +59,8 @@ func (p *datalogParser) parseDeclaration(name usymbol.Symbol) (resultErr error) 
 				if p.token.kind == datalogRightParen {
 					break
 				}
-				if err = p.expect(datalogComma, "expected ',' or ')' in predicate declaration"); err != nil {
-					return err
+				if p.token.kind == datalogComma {
+					p.advance()
 				}
 			}
 		}
