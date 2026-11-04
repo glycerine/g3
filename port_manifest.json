@@ -83258,8 +83258,8 @@
           ]
         },
         {
-          "name": "Concrete MPQ inequality and clause internalization plus goal-order search for arithmetic leaves and compound terms; full source exception transport remains open (src/math/subpaving/tactic/subpaving_tactic.cpp:128-190)",
-          "status": "partial",
+          "name": "Concrete MPQ inequality and clause internalization plus goal-order search for arithmetic leaves and compound terms, with source tactic exception transport (src/math/subpaving/tactic/subpaving_tactic.cpp:128-190)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/rational_expr_converter.go",
           "tests": [
             "TestRationalExprConverterExactLeafGoalAndCleanup"
