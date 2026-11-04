@@ -441,6 +441,15 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 			}
 			proofHandle, y := t.manager.RefGet(proof)
 			if y == nil {
+				var converter tactic.ProofConverter
+				converter, y = tactic.NewStoredProofConverter(t.manager, proofHandle)
+				if y == nil && converter != nil {
+					if y = out.SetProofConverter(converter); y != nil {
+						y = errors.Join(y, converter.Close())
+					}
+				}
+			}
+			if y == nil {
 				y = goal.AssertWithProof(falsity, proofHandle, ast.ASTDependency{})
 			}
 			y = errors.Join(y, t.manager.DelRef(&proof))

@@ -90186,7 +90186,7 @@
       "path": "src/muz/fp/horn_tactic.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd_context/tactic_registry.go",
@@ -90233,8 +90233,8 @@
           "text": "SASSERT(g->is_well_sorted());"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "check_predicate Boolean connective traversal and opaque theory/predicate-argument boundaries",

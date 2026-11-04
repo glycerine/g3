@@ -65,4 +65,18 @@ func TestHornTacticDatalogUsesSourceDefaultProof(t *testing.T) {
 	if !asserted || !manager.IsTrue(fact) {
 		t.Fatal("Datalog did not publish engine_base asserted true proof", asserted, fact)
 	}
+	if result.ProofConverter == nil {
+		t.Fatal("reachable Horn result omitted its proof converter")
+	}
+	converted, err := manager.NewRef(ast.ASTHandle{})
+	fpMust(t, err)
+	defer func() { fpMust(t, manager.DelRef(&converted)) }()
+	// The converter owns the proof independently of the mutated goal and engine.
+	fpMust(t, goal.Reset())
+	fpMust(t, result.ProofConverter.Convert(manager, nil, converted))
+	got, err := manager.RefGet(converted)
+	fpMust(t, err)
+	if got != proof {
+		t.Fatal("proof converter returned a different proof", got, proof)
+	}
 }

@@ -6,6 +6,7 @@ package pdr_test
 import (
 	"testing"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/pdr"
 )
 
@@ -81,6 +82,75 @@ func TestReachableConstraintCacheHonorsBackgroundAndInit(t *testing.T) {
 		t.Fatal("background-incompatible state was reachable")
 	}
 	pdrMust(t, cache.Close())
+	pdrMust(t, contexts.Close())
+	pdrMust(t, command.Close())
+}
+
+// A failed background assertion must retire the freshly-created context so
+// its manager can close and a later cache construction can proceed.
+func TestReachableCacheConstructorRejectsFreeBackgroundAndRetries(t *testing.T) {
+	for _, maximum := range []uint32{0, 1} {
+		t.Run(map[uint32]string{0: "fresh", 1: "shared"}[maximum], func(t *testing.T) {
+			command, manager, contexts := pdrContextFixture(t, maximum)
+			boolean, err := manager.MkBoolSort()
+			pdrMust(t, err)
+			free, err := manager.MkVar(0, boolean)
+			pdrMust(t, err)
+			cache, err := pdr.NewReachableCache(manager, contexts, free, pdr.ReachableConstraintCache)
+			if err == nil || cache != nil {
+				t.Fatal("free background accepted", cache, err)
+			}
+			truth, err := manager.MkTrue()
+			pdrMust(t, err)
+			cache, err = pdr.NewReachableCache(manager, contexts, truth, pdr.ReachableConstraintCache)
+			pdrMust(t, err)
+			pdrMust(t, cache.Close())
+			pdrMust(t, contexts.Close())
+			pdrMust(t, command.Close())
+		})
+	}
+}
+
+func TestReachableConstraintCacheRetainsEarlierDisjunct(t *testing.T) {
+	command, manager, contexts := pdrContextFixture(t, 1)
+	truth, err := manager.MkTrue()
+	pdrMust(t, err)
+	cache, err := pdr.NewReachableCache(manager, contexts, truth, pdr.ReachableConstraintCache)
+	pdrMust(t, err)
+	p := pdrBool(t, manager, "reachable-chain-p")
+	q := pdrBool(t, manager, "reachable-chain-q")
+	notP, err := manager.MkNot(p)
+	pdrMust(t, err)
+	notQ, err := manager.MkNot(q)
+	pdrMust(t, err)
+	first, err := manager.MkAnd(p, notQ)
+	pdrMust(t, err)
+	second, err := manager.MkAnd(notP, q)
+	pdrMust(t, err)
+	neither, err := manager.MkAnd(notP, notQ)
+	pdrMust(t, err)
+	var references []ast.ASTRef
+	for _, cube := range []ast.ASTHandle{first, second, neither} {
+		reference, x := manager.NewRef(cube)
+		pdrMust(t, x)
+		references = append(references, reference)
+	}
+	pdrMust(t, cache.AddReachable(first))
+	pdrMust(t, cache.AddReachable(second))
+	for _, check := range []struct {
+		cube ast.ASTHandle
+		want bool
+	}{{first, true}, {second, true}, {neither, false}} {
+		found, err := cache.IsReachable(check.cube)
+		pdrMust(t, err)
+		if found != check.want {
+			t.Fatalf("chain reachability: got %v, want %v", found, check.want)
+		}
+	}
+	pdrMust(t, cache.Close())
+	for i := range references {
+		pdrMust(t, manager.DelRef(&references[i]))
+	}
 	pdrMust(t, contexts.Close())
 	pdrMust(t, command.Close())
 }
