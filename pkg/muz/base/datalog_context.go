@@ -15,25 +15,26 @@ import (
 var ErrDatalogContextOwner = errors.New("muz/base: invalid or closed datalog context")
 
 type DatalogContext struct {
-	manager        *ast.ASTManager
-	ruleManager    *RuleManager
-	rules          *RuleSet
-	binder         *VariableBinder
-	predicates     map[ast.ASTHandle]bool
-	predicateOrder []ast.ASTHandle
-	named          map[usymbol.Symbol]ast.ASTHandle
-	references     []ast.ASTRef
-	sorts          map[ast.ASTHandle]*datalogSortDomain
-	argumentNames  map[ast.ASTHandle][]usymbol.Symbol
-	scopes         []datalogContextScope
-	pendingScope   *RuleSet
-	scopeRecovery  bool
-	popCount       uint32
-	popRemaining   uint32
-	background     []ast.ASTRef
-	bindVariables  bool
-	closing        bool
-	closed         bool
+	manager            *ast.ASTManager
+	ruleManager        *RuleManager
+	rules              *RuleSet
+	binder             *VariableBinder
+	predicates         map[ast.ASTHandle]bool
+	inactivePredicates map[ast.ASTHandle]ast.ASTRef
+	predicateOrder     []ast.ASTHandle
+	named              map[usymbol.Symbol]ast.ASTHandle
+	references         []ast.ASTRef
+	sorts              map[ast.ASTHandle]*datalogSortDomain
+	argumentNames      map[ast.ASTHandle][]usymbol.Symbol
+	scopes             []datalogContextScope
+	pendingScope       *RuleSet
+	scopeRecovery      bool
+	popCount           uint32
+	popRemaining       uint32
+	background         []ast.ASTRef
+	bindVariables      bool
+	closing            bool
+	closed             bool
 }
 
 func NewDatalogContext(manager *ast.ASTManager) (_ *DatalogContext, resultErr error) {
@@ -169,6 +170,18 @@ func (c *DatalogContext) Close() (result error) {
 	}
 	if c.binder != nil {
 		if err := c.binder.Close(); err != nil {
+			return err
+		}
+	}
+	for declaration, reference := range c.inactivePredicates {
+		ref := reference
+		err := c.manager.DelRef(&ref)
+		if ref == (ast.ASTRef{}) {
+			delete(c.inactivePredicates, declaration)
+		} else {
+			c.inactivePredicates[declaration] = ref
+		}
+		if err != nil {
 			return err
 		}
 	}
