@@ -80297,7 +80297,7 @@
         },
         {
           "name": "Concrete config_hwf mutable scalar interval reset, set, invariant, containment, ordering and display (src/math/interval/interval_def.h:597-709)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval.go",
           "tests": [
             "TestSubpavingHardwareIntervalRetainedCoreAndDirectedArithmetic"
@@ -81690,7 +81690,7 @@
         },
         {
           "name": "Concrete config_hwf mutable scalar interval reset, set, invariant, containment, ordering and display (src/math/interval/interval_def.h:597-709)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval.go",
           "tests": [
             "TestSubpavingHardwareIntervalRetainedCoreAndDirectedArithmetic"
