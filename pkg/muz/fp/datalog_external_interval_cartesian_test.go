@@ -395,18 +395,25 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 				fragmentMust(t, cause)
 				fragmentMust(t, engine.AddRule(second, "external-interval-cartesian-invalid-second"))
 			}
-			if shape == "repeated-tail" {
+			if shape == "repeated-tail" || shape == "repeated-tail-column" {
 				one, cause := manager.ArithmeticIntegerNumeralText("1")
 				fragmentMust(t, cause)
 				two, cause := manager.ArithmeticIntegerNumeralText("2")
 				fragmentMust(t, cause)
 				fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{one}))
-				fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{two}))
+				if shape == "repeated-tail" {
+					fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{two}))
+				} else {
+					fragmentMust(t, engine.AddFact(q, []ast.ASTHandle{two, two}))
+				}
 				resetExternalIntervalCartesianCallbacks(callbacks)
 				status, queryErr := engine.QueryPredicate(headDeclaration)
 				fragmentMust(t, queryErr)
 				if status != lbool.Undef || operationCount(callbacks.operations, ast.DatalogOpJoin) != 1 || operationCount(callbacks.operations, ast.DatalogOpUnion) != 1 {
-					t.Fatal("same-predicate Cartesian rule did not execute", status, callbacks.operations)
+					t.Fatal("source-supported Cartesian rule did not execute", status, callbacks.operations)
+				}
+				if shape == "repeated-tail-column" && operationCount(callbacks.operations, ast.DatalogOpFilter) != 1 {
+					t.Fatal("repeated tail variable was not constrained", callbacks.operations)
 				}
 				return
 			}

@@ -23,6 +23,7 @@ type externalIntervalDatalogCartesianRule struct {
 	right         ast.ASTHandle
 	leftColumns   []uint32
 	rightColumns  []uint32
+	identical     [][]uint32
 	removed       []uint32
 	filterRemoved []uint32
 	headRemoved   []uint32
@@ -53,6 +54,7 @@ func sameExternalIntervalCartesianRule(left, right *externalIntervalDatalogCarte
 	if left == nil || right == nil || left.head != right.head || left.left != right.left || left.right != right.right ||
 		!externalIntervalColumnsEqual(left.leftColumns, right.leftColumns) ||
 		!externalIntervalColumnsEqual(left.rightColumns, right.rightColumns) ||
+		!sameExternalIntervalColumnGroups(left.identical, right.identical) ||
 		!externalIntervalColumnsEqual(left.removed, right.removed) ||
 		!externalIntervalColumnsEqual(left.filterRemoved, right.filterRemoved) ||
 		!externalIntervalColumnsEqual(left.headRemoved, right.headRemoved) || len(left.constants) != len(right.constants) ||
@@ -75,6 +77,18 @@ func sameExternalIntervalCartesianRule(left, right *externalIntervalDatalogCarte
 	}
 	for i := range left.renames {
 		if !externalIntervalColumnsEqual(left.renames[i], right.renames[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func sameExternalIntervalColumnGroups(left, right [][]uint32) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if !externalIntervalColumnsEqual(left[i], right[i]) {
 			return false
 		}
 	}
@@ -153,7 +167,8 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 		*declarations[index] = declaration
 		sorts[index] = state.sorts
 		arguments[index] = make([]externalIntervalCartesianArgument, count)
-		seen := make(map[uint32]bool)
+		seen := make(map[uint32][]uint32)
+		groupIndex := make(map[uint32]int)
 		for column := uint32(0); column < count; column++ {
 			argument, cause := c.manager.GetArg(application, column)
 			if cause != nil {
@@ -185,10 +200,31 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 			if cause != nil {
 				return nil, cause
 			}
-			if index != 0 && seen[variable] {
-				return nil, ErrExternalIntervalDatalogFragment
+			if index != 0 {
+				if prior := seen[variable]; len(prior) > 0 {
+					group, found := groupIndex[variable]
+					if !found {
+						group = len(plan.identical)
+						groupIndex[variable] = group
+						columns := append([]uint32(nil), prior...)
+						if index == 2 {
+							for i := range columns {
+								columns[i] += uint32(len(arguments[1]))
+							}
+						}
+						plan.identical = append(plan.identical, columns)
+					}
+					columnIndex := column
+					if index == 2 {
+						columnIndex += uint32(len(arguments[1]))
+					}
+					plan.identical[group] = append(plan.identical[group], columnIndex)
+				}
+				seen[variable] = append(seen[variable], column)
 			}
-			seen[variable] = true
+			if index == 0 || len(seen[variable]) == 0 {
+				seen[variable] = []uint32{column}
+			}
 			arguments[index][column].variable = variable
 		}
 	}
@@ -590,6 +626,11 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 			return rollback(cause)
 		}
 		owner.temporary = joined
+		for _, columns := range a.cartesian.identical {
+			if cause = owner.temporary.FilterIdentical(columns); cause != nil {
+				return rollback(cause)
+			}
+		}
 		if len(a.cartesian.removed) != 0 {
 			projected, cause := owner.temporary.Project(a.cartesian.removed)
 			if cause != nil {
