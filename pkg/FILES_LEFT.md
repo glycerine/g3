@@ -8,8 +8,8 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/api/api_datalog.cpp` — Relation and finite-domain sort queries plus fixedpoint lifecycle, rules, queries, results, parameters, scopes, callbacks, and SMT-LIB loading/display are implemented across `pkg/api` and `pkg/cmd_context`; C ABI handles are replaced by owning Go objects.
 - [x] `src/api/api_datalog.h` — The fixedpoint object lifetime, parameter ownership, and external-relation callback contracts are implemented with `APIFixedpoint`, owned parameter sets, and typed Go callbacks; C pointer conversions and function-pointer typedefs have no Go ABI consumer.
 - [x] `src/api/api_fpa.cpp` — Floating-point sorts, values, rounding modes, arithmetic, comparisons, predicates, conversions, and numeral inspection are implemented across `pkg/api` and `pkg/ast/fpa`; the focused floating-point API checks pass.
-- [ ] `src/api/api_log_macros.cpp`
-- [ ] `src/api/api_log_macros.h`
+- [x] `src/api/api_log_macros.cpp` — Not applicable: generated per-function C ABI logging wrappers have no Go function ABI consumer; Go exposes `Z3LogWriter` protocol records and a replayer for the command IDs.
+- [x] `src/api/api_log_macros.h` — Not applicable: this generated header declares the native C logging macros and pointer-output helpers; Go logging uses typed writer methods and does not compile or consume those macros.
 - [ ] `src/api/api_rcf.cpp`
 - [ ] `src/api/api_solver.cpp`
 - [ ] `src/api/dll/install_tactic.cpp`
