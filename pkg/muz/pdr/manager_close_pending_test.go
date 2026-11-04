@@ -27,10 +27,17 @@ func TestManagerClosePreservesCompositeOwnersDuringNativeRefusal(t *testing.T) {
 	var owner *Manager
 	var closeErr error
 	var pendingRef ast.ASTRef
+	var fixupOwner *inductiveFixupOwner
+	var fixupReceipt *inductiveFixupFailure
 	active, callback := false, false
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(source memory.Failure) error {
 		if active && !callback {
 			callback = true
+			fixupErr := fixupOwner.close()
+			if !errors.Is(fixupErr, ast.ErrASTPending) || len(fixupOwner.references) != 1 {
+				t.Fatalf("refused inductive fixup lost its reference: %v", fixupErr)
+			}
+			fixupReceipt = &inductiveFixupFailure{owner: fixupOwner, cause: errors.New("fixup failed"), cleanup: fixupErr}
 			background := owner.background
 			brwr := owner.brwr
 			mux := owner.mux
@@ -71,6 +78,11 @@ func TestManagerClosePreservesCompositeOwnersDuringNativeRefusal(t *testing.T) {
 	must(err)
 	pendingRef, err = manager.NewRef(truth)
 	must(err)
+	fixupContext, err := NewContext(manager, nil, 1, ReachableNoCache, smtcore.SMTSolverConfig{Params: parameters, Globals: globals})
+	must(err)
+	fixupRef, err := manager.NewRef(truth)
+	must(err)
+	fixupOwner = &inductiveFixupOwner{context: fixupContext, manager: manager, runtime: runtime, references: []ast.ASTRef{fixupRef}}
 	boolean, err := manager.MkBoolSort()
 	must(err)
 	prefixName, err := symbols.Intern("pending-pdr-manager")
@@ -94,6 +106,18 @@ func TestManagerClosePreservesCompositeOwnersDuringNativeRefusal(t *testing.T) {
 		t.Fatal("native guard did not refuse PDR-manager cleanup", body, callback, closeErr)
 	}
 	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
+	if fixupReceipt == nil {
+		t.Fatal("fixup cleanup refusal did not produce a receipt")
+	}
+	must(fixupContext.Close())
+	if fixupContext.manager != nil || fixupReceipt.RuntimeOwner() != runtime {
+		t.Fatal("receipt lost its owners after context close")
+	}
+	must(fixupReceipt.Cleanup())
+	must(fixupReceipt.Cleanup())
+	if len(fixupOwner.references) != 0 {
+		t.Fatal("fixup receipt did not release its retained reference")
+	}
 	must(owner.Close())
 	must(owner.Close())
 	if !owner.closed || owner.closing || owner.manager != nil || owner.brwr != nil || owner.mux != nil || owner.contexts != nil || owner.background != (ast.ASTRef{}) || len(owner.notAndPending) != 0 {

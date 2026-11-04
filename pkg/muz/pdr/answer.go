@@ -386,6 +386,17 @@ func (c *Context) unsatAnswer(queryDeclaration ast.ASTHandle) (result ast.ASTRef
 		if x != nil {
 			return result, x
 		}
+		fixed, x := c.fixupInductiveClausesRef(body)
+		if fixed != (ast.ASTRef{}) {
+			references = append(references, fixed)
+		}
+		if x != nil {
+			return result, x
+		}
+		body, x = c.manager.RefGet(fixed)
+		if x != nil {
+			return result, x
+		}
 		arguments := make([]ast.ASTHandle, len(transformer.signature))
 		for index, signature := range transformer.signature {
 			arguments[index], x = c.manager.MkApp(signature, nil)

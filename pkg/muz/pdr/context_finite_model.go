@@ -64,6 +64,17 @@ func (c *Context) finiteFrameModel(level uint32, queryDeclaration ast.ASTHandle)
 		if x != nil {
 			return result, x
 		}
+		fixed, x := c.fixupInductiveClausesRef(body)
+		if fixed != (ast.ASTRef{}) {
+			owner.references = append(owner.references, fixed)
+		}
+		if x != nil {
+			return result, x
+		}
+		body, x = c.manager.RefGet(fixed)
+		if x != nil {
+			return result, x
+		}
 		arguments := make([]ast.ASTHandle, len(transformer.signature))
 		for index := range arguments {
 			arguments[index], x = c.manager.MkApp(transformer.signature[len(arguments)-index-1], nil)

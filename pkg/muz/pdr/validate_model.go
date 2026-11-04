@@ -62,6 +62,17 @@ func (c *Context) validateUNSATResult() (resultErr error) {
 		if err = pin(body); err != nil {
 			return err
 		}
+		fixed, err := c.fixupInductiveClausesRef(body)
+		if fixed != (ast.ASTRef{}) {
+			owner.references = append(owner.references, fixed)
+		}
+		if err != nil {
+			return err
+		}
+		body, err = c.manager.RefGet(fixed)
+		if err != nil {
+			return err
+		}
 		arguments := make([]ast.ASTHandle, len(pt.signature))
 		for i := range arguments {
 			arguments[i], err = c.manager.MkApp(pt.signature[len(arguments)-i-1], nil)
