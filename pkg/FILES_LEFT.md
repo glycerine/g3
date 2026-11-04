@@ -5,7 +5,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/api/api_commands.cpp` — All 661 generated command IDs and names are registered in Go replay handlers.
 - [x] `src/api/api_context.cpp` — Go context lifecycle, AST result ownership, interruption, warning/trace controls, version reporting, and sort checks are implemented across `pkg/api` and `pkg/cmd_context`; raw C handle/error-handler and process-memory wrappers have no Go ABI consumer.
 - [x] `src/api/api_context.h` — The C++ context layout, inline accessors, and C ABI validation macros are represented by Go-owned `SMTContext`/`cmd_context.Context` state and typed API boundaries; no parallel C++ struct or macro layer has a Go consumer.
-- [ ] `src/api/api_datalog.cpp`
+- [x] `src/api/api_datalog.cpp` — Relation and finite-domain sort queries plus fixedpoint lifecycle, rules, queries, results, parameters, scopes, callbacks, and SMT-LIB loading/display are implemented across `pkg/api` and `pkg/cmd_context`; C ABI handles are replaced by owning Go objects.
 - [ ] `src/api/api_datalog.h`
 - [ ] `src/api/api_fpa.cpp`
 - [ ] `src/api/api_log_macros.cpp`
