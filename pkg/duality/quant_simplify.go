@@ -31,13 +31,6 @@ func (s *quantSimplification) op(h ast.ASTHandle) (int32, error) {
 	if kind != ast.ASTApp {
 		return -1, nil
 	}
-	family, err := m.GetFamilyID(h)
-	if err != nil {
-		return -1, err
-	}
-	if family != m.BasicFamilyID() {
-		return -1, nil
-	}
 	return m.GetDeclKind(h)
 }
 func (s *quantSimplification) simple(args []ast.ASTHandle, and bool) (ast.ASTHandle, error) {
