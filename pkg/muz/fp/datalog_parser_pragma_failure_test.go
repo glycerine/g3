@@ -11,8 +11,9 @@ import (
 )
 
 // Source parse_pred publishes argument names only after output pragmas.
-// Exhaust reference slots after admitting the sort and predicate owners, so
-// the output-predicate reference is refused at the actual pragma boundary.
+// Exhaust reference slots after admitting the sort and predicate owners.
+// Allow the finite-sort factory's single arena reservation, then the output
+// predicate's reference allocation is refused at the pragma boundary.
 func TestDatalogParserPragmaFailurePrecedesArgumentNames(t *testing.T) {
 	f := newDatalogParserFixture(t)
 	manager, err := f.context.Manager()
@@ -62,6 +63,7 @@ func TestDatalogParserPragmaFailurePrecedesArgumentNames(t *testing.T) {
 		fpMust(t, manager.DelRef(&padding[last]))
 		padding = padding[:last]
 	}
+	manager.BudgetField.FailAfter(1)
 	err = fp.ParseDatalogString(f.context, "N 2\n\nP(x:N) outputtuples\n")
 	if !errors.Is(err, arena.ErrInjectedFailure) {
 		t.Fatal("expected pragma allocation refusal", err)

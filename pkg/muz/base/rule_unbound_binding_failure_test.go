@@ -11,7 +11,7 @@ import (
 
 func TestRuleFixUnboundFailureOwnsFreshBindings(t *testing.T) {
 	failures, done := 0, false
-	for stop := int64(0); stop < 30; stop++ {
+	for stop := int64(0); stop < 256; stop++ {
 		t.Run(fmt.Sprint(stop), func(t *testing.T) {
 			f := newUnboundFixture(t)
 			m := f.manager
