@@ -47912,7 +47912,7 @@
       "path": "src/cmd_context/parametric_cmd.h",
       "component": "cmd_context",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/parsers/smt2/tactics.go",
         "pkg/parsers/smt2/apply_tactic.go",
@@ -47935,13 +47935,13 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "command-local typed parameter parsing and normalization",
-          "status": "partial",
-          "go_target": "pkg/parsers/smt2/tactics.go",
+          "name": "variable-arity command interface, typed parameter values and per-command reset",
+          "status": "ported",
+          "go_target": "pkg/parsers/smt2/parametric_command.go",
           "go_targets": [
             "pkg/parsers/smt2/tactics.go",
             "pkg/parsers/smt2/commands.go",
@@ -47956,10 +47956,10 @@
         }
       ],
       "ownership": [
-        "Parser owns each command parameter set and releases it after execution."
+        "Direct command handlers own and release parameter values; source command-owned description/parameter buffers are replaced by package-local parser settings."
       ],
       "deviations": [
-        "SMT-LIB eval now accepts the source rlimit option. Parametric command description caching and a shared keyword/argument state object remain omitted because the Go parser dispatches directly to command handlers."
+        "Sort, expression and function-declaration setters are NOT_IMPLEMENTED_YET in C++; the sexpr setter is unreachable. Shared keyword/value state and cached descriptions have no runtime Go consumer."
       ]
     },
     {
