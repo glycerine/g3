@@ -2153,3 +2153,5 @@ Current next parallel handoff after external scheduling and checked-index capabi
 - 2026-11-03 — Re-audited pending-closed display and flush phases. Completed inputs now publish individually before a later input fails; expanded allocation/cancellation tests verify prefix identity and retry. New tests cover binder, QID, skolem, weight, pattern and no-pattern display, named updates, scoped rollback and normalized identities. Native `muz/fp`, `api` and `parsers/smt2` short suites pass (84.222s/37.814s/7.752s; `/tmp/g3-pending-closed-integration-final.log`); focused three-tag tests pass. Partial publication inside one failing multi-clause input remains an open audit.
 
 All tests are green at eb1d4ea3c (HEAD -> terra) Preserve pending rule flush prefixes and annotations; even with 3 tags.
+
+All tests green at 5cb72bcd24e34fad53367da6ca36bbeecacf6a20 (back to master0.
