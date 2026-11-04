@@ -57,7 +57,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/math/subpaving/subpaving_t.h` — All live data types, inline behavior, and selected concrete configuration contracts are mapped to Go; C++ node-before-clause teardown and the dormant justification counter were audited against Go cleanup and focused ownership tests.
 - [x] `src/math/subpaving/subpaving_t_def.h` — All 152 manifest method rows are audited and ported across the concrete numeral configurations; ownership and source-order behavior have focused coverage.
 - [x] `src/math/subpaving/tactic/subpaving_tactic.cpp` — All numeral-engine selection, tactic lifecycle, expression internalization, SMT-LIB display, cleanup, and ownership behavior are audited against C++ and covered by focused tests.
-- [ ] `src/model/model_implicant.cpp`
+- [x] `src/model/model_implicant.cpp` — Array extraction, recursive extensional equality, default and store-row decisions, diagnostics, and temporary-reference cleanup match the C++ paths and pass focused model tests.
 - [ ] `src/muz/base/dl_context.cpp`
 - [ ] `src/muz/base/dl_context.h`
 - [ ] `src/muz/base/dl_rule.cpp`
