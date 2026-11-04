@@ -343,6 +343,127 @@ func (r *boundDatalogRuntime) addFactTo(target *rel.BoundRelation, sorts, values
 	return rel.VerifyBoundRelationFactAdd(r.manager, sorts, *r.formulaCheck, before, values, target)
 }
 
+func (r *boundDatalogRuntime) filterIdentical(target *rel.BoundRelation, sorts []ast.ASTHandle, columns []uint32) (resultErr error) {
+	if r.formulaCheck == nil {
+		return target.FilterIdentical(columns)
+	}
+	beforeFormula, err := target.ToFormula(r.manager, sorts)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&beforeFormula)) }()
+	before, err := r.manager.RefGet(beforeFormula)
+	if err != nil {
+		return err
+	}
+	var refs []ast.ASTRef
+	defer func() {
+		for i := len(refs) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, r.manager.DelRef(&refs[i]))
+		}
+	}()
+	equalities := make([]ast.ASTHandle, 0, len(columns)-1)
+	for _, column := range columns[1:] {
+		left, err := r.manager.MkVar(columns[0], sorts[columns[0]])
+		if err != nil {
+			return err
+		}
+		leftRef, err := r.manager.NewRef(left)
+		if err != nil {
+			return err
+		}
+		refs = append(refs, leftRef)
+		right, err := r.manager.MkVar(column, sorts[column])
+		if err != nil {
+			return err
+		}
+		rightRef, err := r.manager.NewRef(right)
+		if err != nil {
+			return err
+		}
+		refs = append(refs, rightRef)
+		equality, err := r.manager.MkEq(left, right)
+		if err != nil {
+			return err
+		}
+		equalityRef, err := r.manager.NewRef(equality)
+		if err != nil {
+			return err
+		}
+		refs = append(refs, equalityRef)
+		equalities = append(equalities, equality)
+	}
+	condition, err := r.manager.MkAndArgs(equalities)
+	if err != nil {
+		return err
+	}
+	conditionRef, err := r.manager.NewRef(condition)
+	if err != nil {
+		return err
+	}
+	refs = append(refs, conditionRef)
+	if err = target.FilterIdentical(columns); err != nil {
+		return err
+	}
+	return rel.VerifyBoundRelationFilter(r.manager, sorts, *r.formulaCheck, before, condition, target, true)
+}
+
+func (r *boundDatalogRuntime) filterEqual(target *rel.BoundRelation, sorts []ast.ASTHandle, column uint32, value ast.ASTHandle) (resultErr error) {
+	if r.formulaCheck == nil {
+		target.FilterEqual(rel.Element(0), column)
+		return nil
+	}
+	beforeFormula, err := target.ToFormula(r.manager, sorts)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&beforeFormula)) }()
+	before, err := r.manager.RefGet(beforeFormula)
+	if err != nil {
+		return err
+	}
+	variable, err := r.manager.MkVar(column, sorts[column])
+	if err != nil {
+		return err
+	}
+	variableRef, err := r.manager.NewRef(variable)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&variableRef)) }()
+	condition, err := r.manager.MkEq(variable, value)
+	if err != nil {
+		return err
+	}
+	conditionRef, err := r.manager.NewRef(condition)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&conditionRef)) }()
+	target.FilterEqual(rel.Element(0), column)
+	return rel.VerifyBoundRelationFilter(r.manager, sorts, *r.formulaCheck, before, condition, target, false)
+}
+
+func (r *boundDatalogRuntime) filterInterpreted(target *rel.BoundRelation, sorts []ast.ASTHandle, condition ast.ASTHandle) (resultErr error) {
+	if r.formulaCheck == nil {
+		_, err := target.FilterInterpreted(r.manager, condition)
+		return err
+	}
+	beforeFormula, err := target.ToFormula(r.manager, sorts)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&beforeFormula)) }()
+	before, err := r.manager.RefGet(beforeFormula)
+	if err != nil {
+		return err
+	}
+	if _, err = target.FilterInterpreted(r.manager, condition); err != nil {
+		return err
+	}
+	return rel.VerifyBoundRelationFilter(r.manager, sorts, *r.formulaCheck, before, condition, target, true)
+}
+
 func (r *boundDatalogRuntime) union(target, source *rel.BoundRelation, sorts []ast.ASTHandle, widen bool) (changed bool, resultErr error) {
 	if r.formulaCheck == nil {
 		if widen {

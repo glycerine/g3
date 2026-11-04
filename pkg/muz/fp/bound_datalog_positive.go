@@ -215,7 +215,7 @@ func (r *boundDatalogRuntime) evaluatePositiveBoundRule(rule *base.Rule, relatio
 					return false, cause
 				}
 				if prior, found := local[variable]; found {
-					if cause = tailRelation.FilterIdentical([]uint32{prior, column}); cause != nil {
+					if cause = r.filterIdentical(tailRelation, tailSorts, []uint32{prior, column}); cause != nil {
 						return false, cause
 					}
 				} else {
@@ -227,7 +227,9 @@ func (r *boundDatalogRuntime) evaluatePositiveBoundRule(rule *base.Rule, relatio
 			if cause != nil || !numeral {
 				return false, errors.Join(cause, fmt.Errorf("%w: non-numeral tail constant", ErrBoundDatalogFragment))
 			}
-			// Source bound filter_equal deliberately performs no refinement.
+			if cause = r.filterEqual(tailRelation, tailSorts, column, argument); cause != nil {
+				return false, cause
+			}
 		}
 		if working == nil {
 			working, workingSorts = tailRelation, append(workingSorts, tailSorts...)
@@ -283,7 +285,7 @@ func (r *boundDatalogRuntime) evaluatePositiveBoundRule(rule *base.Rule, relatio
 		}
 		handle, cause := r.manager.RefGet(mapped)
 		if cause == nil {
-			_, cause = working.FilterInterpreted(r.manager, handle)
+			cause = r.filterInterpreted(working, workingSorts, handle)
 		}
 		cause = errors.Join(cause, r.manager.DelRef(&mapped))
 		if cause != nil {

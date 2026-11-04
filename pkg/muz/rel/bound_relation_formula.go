@@ -233,3 +233,52 @@ func VerifyBoundRelationFactAdd(manager *ast.ASTManager, sorts []ast.ASTHandle, 
 	}
 	return VerifyRelationFormulasEquivalent(manager, config, expectedHandle, actualHandle)
 }
+
+// VerifyBoundRelationFilter mirrors check_relation_plugin::verify_filter for
+// an in-place filter that should leave old_formula AND condition.
+func VerifyBoundRelationFilter(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, before, condition ast.ASTHandle, after *BoundRelation, namedColumns bool) (resultErr error) {
+	if manager == nil || before.IsNull() || condition.IsNull() || after == nil {
+		return ErrRelationVerification
+	}
+	expected, err := manager.MkAndArgs([]ast.ASTHandle{before, condition})
+	if err != nil {
+		return err
+	}
+	expectedRef, err := manager.NewRef(expected)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&expectedRef)) }()
+	actualFormula, err := after.ToFormula(manager, sorts)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&actualFormula)) }()
+	actual, err := manager.RefGet(actualFormula)
+	if err != nil {
+		return err
+	}
+	checker := relationFormulaChecker{manager: manager, sorts: append([]ast.ASTHandle(nil), sorts...), config: config}
+	ground := func(formula ast.ASTHandle) (ast.ASTRef, error) {
+		return checker.groundWithNames(formula, namedColumns)
+	}
+	groundExpected, err := ground(expected)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&groundExpected)) }()
+	groundActual, err := ground(actual)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&groundActual)) }()
+	expectedHandle, err := manager.RefGet(groundExpected)
+	if err != nil {
+		return err
+	}
+	actualHandle, err := manager.RefGet(groundActual)
+	if err != nil {
+		return err
+	}
+	return VerifyRelationFormulasEquivalent(manager, config, expectedHandle, actualHandle)
+}
