@@ -8,7 +8,7 @@ import (
 
 // Source karr_relation::filter_interpreted accepts a binary disjunction of
 // equalities to the same variable and appends its lower and upper bounds.
-func (a *karrDatalogActivation) compileKarrDisjunction(guard ast.ASTHandle, positions map[ast.ASTHandle]uint32, out *karrGuardRule) error {
+func (a *karrDatalogActivation) compileKarrDisjunction(guard ast.ASTHandle, positions map[ast.ASTHandle]uint32, arity uint32, out *karrGuardRule) error {
 	parse := func(eq ast.ASTHandle) (ast.ASTHandle, *big.Rat, error) {
 		var none ast.ASTHandle
 		kind, err := a.manager.GetKind(eq)
@@ -82,10 +82,10 @@ func (a *karrDatalogActivation) compileKarrDisjunction(guard ast.ASTHandle, posi
 	if lo.Cmp(hi) > 0 {
 		lo, hi = hi, lo
 	}
-	out.row = make([]big.Rat, len(positions))
+	out.row = make([]big.Rat, arity)
 	out.row[positions[v]].SetInt64(1)
 	out.constant.Neg(lo)
-	out.secondRow = make([]big.Rat, len(positions))
+	out.secondRow = make([]big.Rat, arity)
 	out.secondRow[positions[v]].SetInt64(-1)
 	out.secondConstant.Set(hi)
 	return nil

@@ -76,6 +76,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Support bounded Karr filter-and-project rules, including nullary and permuted heads, cached-basis behavior, empty inputs and failure recovery.
   - [x] Support multiple bounded Karr interpreted guards in source conjunction-flattening order, including projection and unsupported-conjunct retry; other Boolean guard forms remain open.
   - [x] Support integer constants in guarded unary Karr tails with source column shifts and fixed-to-one selection; public and failure-retry tests pass.
+  - [x] Support one repeated-variable group in guarded unary Karr tails with source filtering and last-occurrence binding. Multiple groups remain unsupported in this route pending ordering.
   - [ ] Resolve the previously supported unary path's multiple-duplicate-group ordering divergence: source map traversal can change Karr row and generator order, while Go currently uses first occurrence. Do not remove existing support or port source hashing.
   - [ ] Implement and verify the live configured Datalog Karr relation routes and operation semantics through their actual consumers.
   - [x] Restore the PDR manager's live pre-converter model TRACE for model export, validation and direct answers; test source ordering, disabled tracing and ownership.
@@ -122,6 +123,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Match Datalog map-file source line boundaries, including empty input, terminal newlines, CR and embedded NUL behavior; focused parser tests cover these cases.
   - [x] Match Datalog rule-body period and EOF handling, and own parsed head, body, argument and inequality intermediates across real allocation failures and retry. Parser-local cleanup refusal remains open.
   - [x] Match optional argument commas and the source rejection of empty or trailing-comma predicate declarations, with publication and valid-input controls.
+  - [x] Match source stream EOF publication of incomplete declarations and distinguish the source file reader's synthetic newline behavior.
   - [x] Match exhausted-arity invocation parentheses rejection and its source diagnostic component, with valid controls and no publication on failure.
   - [x] Match quoted reserved tokens and C-string NUL handling, and the source file reader's synthesized line endings and quoted-string EOF behavior. Focused lexer and parser tests pass.
   - [x] Match source identifier boundaries for embedded !, < and > while preserving standalone operators.
@@ -148,6 +150,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Prevent a negated interpreted-tail AST leak when reference reservation fails, with live-node and retry coverage; constructor cleanup refusal remains a separate audit.
   - [x] Reserve HNF fresh-head and implication owners before construction; a 12-boundary allocation campaign verifies cleanup and retry. Local cleanup refusal remains open.
   - [x] Own HNF negated conjunction disjuncts before construction; four allocation boundaries verify cleanup and retry.
+  - [x] Own a nested implication's negated antecedent before construction; allocation failures and successful clause retry are covered.
   - [x] Own unbound-variable substitution bindings and grouped-tail conjunctions before later allocations; real failure campaigns verify live-node cleanup and retry for both cases.
   - [x] Reserve the unbound-rule quantifier owner before construction; targeted allocation refusal and retry pass.
   - [x] Reserve the QE extracted-constant owner before creation; the fixedpoint pressure cases and focused QE tests pass. Refused cleanup of a partially extracted owner remains open.

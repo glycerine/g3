@@ -6,9 +6,8 @@ import (
 )
 
 // compileKarrGuardCondition builds native filter rows for one conjunct.
-func (a *karrDatalogActivation) compileKarrGuardCondition(guard ast.ASTHandle, positions map[ast.ASTHandle]uint32) (karrGuardRule, error) {
+func (a *karrDatalogActivation) compileKarrGuardCondition(guard ast.ASTHandle, positions map[ast.ASTHandle]uint32, arity uint32) (karrGuardRule, error) {
 	var out karrGuardRule
-	arity := uint32(len(positions))
 	family, err := a.manager.GetFamilyID(guard)
 	if err != nil {
 		return out, err
@@ -47,7 +46,7 @@ func (a *karrDatalogActivation) compileKarrGuardCondition(guard ast.ASTHandle, p
 		return out, ErrKarrDatalogFragment
 	}
 	if !negated && family == a.manager.BasicFamilyID() && op == ast.ASTOpOr {
-		if err = a.compileKarrDisjunction(guard, positions, &out); err != nil {
+		if err = a.compileKarrDisjunction(guard, positions, arity, &out); err != nil {
 			return out, err
 		}
 		return out, nil

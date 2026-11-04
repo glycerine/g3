@@ -277,19 +277,19 @@ func TestKarrDisjunctionBoundsAndUnsupportedShapes(t *testing.T) {
 	positions := map[ast.ASTHandle]uint32{x: 0, y: 1}
 	for _, guard := range []ast.ASTHandle{makeOr(eq(x, three), eq(one, x)), makeOr(eq(one, x), eq(x, three))} {
 		var p karrGuardRule
-		must(a.compileKarrDisjunction(guard, positions, &p))
+		must(a.compileKarrDisjunction(guard, positions, 2, &p))
 		if p.row[0].Cmp(big.NewRat(1, 1)) != 0 || p.row[1].Sign() != 0 || p.constant.Cmp(big.NewRat(-1, 1)) != 0 || p.secondRow[0].Cmp(big.NewRat(-1, 1)) != 0 || p.secondConstant.Cmp(big.NewRat(3, 1)) != 0 {
 			t.Fatal("bounds", p)
 		}
 	}
 	var duplicate karrGuardRule
-	must(a.compileKarrDisjunction(makeOr(eq(x, one), eq(one, x)), positions, &duplicate))
+	must(a.compileKarrDisjunction(makeOr(eq(x, one), eq(one, x)), positions, 2, &duplicate))
 	if duplicate.constant.Cmp(big.NewRat(-1, 1)) != 0 || duplicate.secondConstant.Cmp(big.NewRat(1, 1)) != 0 {
 		t.Fatal("duplicate bound", duplicate)
 	}
 	for _, guard := range []ast.ASTHandle{makeOr(eq(x, one), eq(y, three)), makeOr(eq(x, one), eq(x, y))} {
 		var p karrGuardRule
-		if err := a.compileKarrDisjunction(guard, positions, &p); !errors.Is(err, ErrKarrDatalogFragment) {
+		if err := a.compileKarrDisjunction(guard, positions, 2, &p); !errors.Is(err, ErrKarrDatalogFragment) {
 			t.Fatal("unsupported OR", err)
 		}
 	}

@@ -34,7 +34,7 @@ func (p *datalogParser) parseDeclaration(name usymbol.Symbol) (resultErr error) 
 			return p.fail("expected argument name in predicate declaration")
 		}
 		if p.token.kind != datalogRightParen {
-			for {
+			for p.token.kind != datalogEOF {
 				if p.token.kind != datalogIdentifier {
 					return p.fail("expected argument name in predicate declaration")
 				}
@@ -64,7 +64,9 @@ func (p *datalogParser) parseDeclaration(name usymbol.Symbol) (resultErr error) 
 				}
 			}
 		}
-		p.advance()
+		if p.token.kind == datalogRightParen {
+			p.advance()
+		}
 	}
 	boolean, err := p.manager.MkBoolSort()
 	if err != nil {

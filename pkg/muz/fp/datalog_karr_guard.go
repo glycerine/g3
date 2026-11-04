@@ -12,6 +12,7 @@ import (
 type karrGuardRule struct {
 	body           ast.ASTHandle
 	inputConstants []uint32
+	identical      []uint32
 	row            []big.Rat
 	constant       big.Rat
 	equal          bool
@@ -67,6 +68,8 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 		return none, out, err
 	}
 	positions := make(map[ast.ASTHandle]uint32, arity)
+	groups := make(map[ast.ASTHandle][]uint32, arity)
+	var order []ast.ASTHandle
 	columns := make([]ast.ASTHandle, 0, arity)
 	for i := uint32(0); i < arity; i++ {
 		arg, err := a.manager.GetArg(tail, i)
@@ -89,11 +92,22 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 			out.inputConstants = append(out.inputConstants, uint32(len(columns)))
 			continue
 		}
-		if _, exists := positions[arg]; exists {
-			return none, out, ErrKarrDatalogFragment
+		if len(groups[arg]) == 0 {
+			order = append(order, arg)
 		}
-		positions[arg] = uint32(len(columns))
+		column := uint32(len(columns))
+		groups[arg] = append(groups[arg], column)
+		positions[arg] = column // interpreted bindings use the last column
 		columns = append(columns, arg)
+	}
+	for _, arg := range order {
+		if len(groups[arg]) > 1 {
+			// Multiple groups depend on the native source map's traversal order.
+			if out.identical != nil {
+				return none, out, ErrKarrDatalogFragment
+			}
+			out.identical = groups[arg]
+		}
 	}
 	// The native combined filter/project removes every tail variable absent
 	// from the head, sorting source column indices before projection.
@@ -135,7 +149,7 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 		if neg {
 			return none, out, ErrKarrDatalogFragment
 		}
-		condition, err := a.compileKarrGuardCondition(guard, positions)
+		condition, err := a.compileKarrGuardCondition(guard, positions, uint32(len(columns)))
 		if err != nil {
 			return none, out, err
 		}
@@ -167,6 +181,11 @@ func (a *karrDatalogActivation) applyGuardRule(r karrGuardRule, source *rel.Karr
 			return nil, err
 		}
 		if err = a.checkpoint(); err != nil {
+			return nil, err
+		}
+	}
+	if !result.Empty() && len(r.identical) > 0 {
+		if err := result.FilterIdentical(r.identical); err != nil {
 			return nil, err
 		}
 	}

@@ -615,11 +615,13 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 				if x != nil {
 					return result, x
 				}
-				notLeft, x := n.manager.MkNotSimplified(left)
+				owner, x := n.manager.NewRef(ast.ASTHandle{})
 				if x != nil {
 					return result, x
 				}
-				if x = n.pin(&locals, notLeft); x != nil {
+				locals = append(locals, owner)
+				notLeft, x := n.manager.MkNotSimplified(left)
+				if x = errors.Join(x, n.manager.SetRef(owner, notLeft)); x != nil {
 					return result, x
 				}
 				disjuncts = []ast.ASTHandle{notLeft, right}
