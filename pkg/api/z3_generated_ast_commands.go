@@ -34,6 +34,7 @@ func RegisterZ3GeneratedASTCommands(r *Z3Replayer) error {
 		{565, "Z3_get_interpolant", replayGetInterpolant},
 		{566, "Z3_compute_interpolant", replayComputeInterpolant},
 		{567, "Z3_interpolation_profile", replayInterpolationProfile},
+		{568, "Z3_read_interpolation_problem", replayReadInterpolationProblem},
 		{569, "Z3_check_interpolant", replayCheckInterpolant}, {570, "Z3_write_interpolation_problem", replayWriteInterpolationProblem},
 		{334, "Z3_benchmark_to_smtlib_string", replayBenchmarkString}, {335, "Z3_parse_smtlib2_string", replayParseSMT2String}, {336, "Z3_parse_smtlib2_file", replayParseSMT2File},
 		{337, "Z3_eval_smtlib2_string", replayEvaluateSMT2}, {338, "Z3_get_parser_error", replayGetParserError},

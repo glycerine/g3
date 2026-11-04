@@ -19,6 +19,7 @@ import (
 )
 
 var replayInterpolationProfileText string
+var replayInterpolationErrorText string
 
 func replayInterpolationInputs(r *Z3Replayer, owner *replayContextOwner, countPos, constraintsPos, parentsPos, theoryCountPos, theoryPos uint32) ([]ast.ASTHandle, []int, []ast.ASTHandle, error) {
 	constraints, err := replayASTArray(r, owner, countPos, constraintsPos)
@@ -106,7 +107,8 @@ func replayCheckInterpolant(r *Z3Replayer) (resultErr error) {
 	if valid {
 		return r.setStringNull(5)
 	}
-	return r.SetString(5, message)
+	replayInterpolationErrorText += message
+	return r.SetString(5, replayInterpolationErrorText)
 }
 
 func replayWriteInterpolationProblem(r *Z3Replayer) (resultErr error) {
@@ -133,6 +135,99 @@ func replayWriteInterpolationProblem(r *Z3Replayer) (resultErr error) {
 	}
 	defer func() { resultErr = errors.Join(resultErr, file.Close()) }()
 	return context.WriteInterpolationProblem(file, constraints, parents, theory)
+}
+
+func replayReadInterpolationProblem(r *Z3Replayer) (resultErr error) {
+	owner, err := replayContext(r, 0)
+	if err != nil {
+		return err
+	}
+	if _, err = r.Uint(1); err != nil {
+		return err
+	}
+	if _, err = r.ObjectArray(2); err != nil {
+		return err
+	}
+	parentSlots, err := r.ObjectArray(3)
+	if err != nil {
+		return err
+	}
+	path, err := r.String(4)
+	if err != nil {
+		return err
+	}
+	if _, err = r.String(5); err != nil {
+		return err
+	}
+	if _, err = r.Uint(6); err != nil {
+		return err
+	}
+	if _, err = r.ObjectArray(7); err != nil {
+		return err
+	}
+	context, err := replayInterpolationServices(owner)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		for i := len(context.retained) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, owner.results.manager.DelRef(&context.retained[i]))
+		}
+		resultErr = errors.Join(resultErr, closeReplayInterpolationServices(context))
+	}()
+	file, err := os.Open(path)
+	if err != nil {
+		return r.SetString(5, "SMTLIB parse error: "+err.Error())
+	}
+	problem, err := context.ReadInterpolationProblem(file, len(parentSlots) != 0)
+	closeErr := file.Close()
+	if err != nil {
+		return errors.Join(r.SetString(5, "SMTLIB parse error: "+err.Error()), closeErr)
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if err = r.SetUint64(1, uint64(len(problem.Constraints))); err != nil {
+		return err
+	}
+	if err = r.SetUint64(6, uint64(len(problem.Theory))); err != nil {
+		return err
+	}
+	previousResult := r.result
+	defer func() { r.result = previousResult }()
+	store := func(position uint32, values []ast.ASTHandle) error {
+		argument, e := r.value(position, replayObjectArray)
+		if e != nil {
+			return e
+		}
+		ids := make([]uint64, len(values))
+		for i, value := range values {
+			if e = r.storeAST(owner, value); e != nil {
+				return e
+			}
+			ids[i] = r.result
+		}
+		r.objectArrays[argument.u] = ids
+		return nil
+	}
+	if err = store(2, problem.Constraints); err != nil {
+		return err
+	}
+	if err = store(7, problem.Theory); err != nil {
+		return err
+	}
+	if len(parentSlots) != 0 {
+		argument, e := r.value(3, replayObjectArray)
+		if e != nil {
+			return e
+		}
+		parents := make([]uint64, len(problem.Parents))
+		for i, parent := range problem.Parents {
+			parents[i] = uint64(parent)
+		}
+		r.objectArrays[argument.u] = parents
+	}
+	return nil
 }
 
 func replayInterpolationProfile(r *Z3Replayer) error {
@@ -255,10 +350,10 @@ func replayComputeInterpolant(r *Z3Replayer) (resultErr error) {
 			return err
 		}
 	}
-	if err = r.SetObject(3, 0); err != nil {
+	if _, err = r.Object(3); err != nil {
 		return err
 	}
-	if err = r.SetObject(4, 0); err != nil {
+	if _, err = r.Object(4); err != nil {
 		return err
 	}
 	m := owner.results.manager
@@ -323,6 +418,12 @@ func replayComputeInterpolant(r *Z3Replayer) (resultErr error) {
 		}
 	}()
 	if err != nil {
+		return err
+	}
+	if err = r.SetObject(3, 0); err != nil {
+		return err
+	}
+	if err = r.SetObject(4, 0); err != nil {
 		return err
 	}
 	previousResult := r.result
