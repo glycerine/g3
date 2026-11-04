@@ -55252,7 +55252,7 @@
         },
         {
           "name": "Concrete config_hwf interval negation and directed add/subtract, infinity endpoints and destination alias (src/math/interval/interval_def.h:704-837)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_arith.go",
           "tests": [
             "TestSubpavingHardwareIntervalRetainedCoreAndDirectedArithmetic"
@@ -80305,7 +80305,7 @@
         },
         {
           "name": "Concrete config_hwf interval negation and directed add/subtract, infinity endpoints and destination alias (src/math/interval/interval_def.h:704-837)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_arith.go",
           "tests": [
             "TestSubpavingHardwareIntervalRetainedCoreAndDirectedArithmetic"
@@ -81698,7 +81698,7 @@
         },
         {
           "name": "Concrete config_hwf interval negation and directed add/subtract, infinity endpoints and destination alias (src/math/interval/interval_def.h:704-837)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_arith.go",
           "tests": [
             "TestSubpavingHardwareIntervalRetainedCoreAndDirectedArithmetic"
