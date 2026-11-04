@@ -71,3 +71,29 @@ func VerifyRelationFormulasEquivalent(manager *ast.ASTManager, config smtcore.SM
 	}
 	return nil
 }
+
+func verifyRelationFormulaPair(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, left, right ast.ASTHandle, named bool) (resultErr error) {
+	if manager == nil || left.IsNull() || right.IsNull() {
+		return ErrRelationVerification
+	}
+	checker := relationFormulaChecker{manager: manager, sorts: append([]ast.ASTHandle(nil), sorts...), config: config}
+	groundLeft, err := checker.groundWithNames(left, named)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&groundLeft)) }()
+	groundRight, err := checker.groundWithNames(right, named)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&groundRight)) }()
+	leftHandle, err := manager.RefGet(groundLeft)
+	if err != nil {
+		return err
+	}
+	rightHandle, err := manager.RefGet(groundRight)
+	if err != nil {
+		return err
+	}
+	return VerifyRelationFormulasEquivalent(manager, config, leftHandle, rightHandle)
+}

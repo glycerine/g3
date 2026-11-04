@@ -176,7 +176,7 @@ func (e *IntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, widen b
 					return false, cause
 				}
 				if prior, found := localVariables[variable]; found {
-					if cause = tailRelation.FilterIdenticalColumns([]uint32{prior, column}); cause != nil {
+					if cause = e.filterIdentical(tailRelation, tailSorts, []uint32{prior, column}); cause != nil {
 						return false, cause
 					}
 				} else {
@@ -188,7 +188,7 @@ func (e *IntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, widen b
 			if cause != nil || !numeral {
 				return false, errors.Join(cause, fmt.Errorf("%w: tail argument is not a variable or numeral", ErrIntervalDatalogFragment))
 			}
-			if cause = tailRelation.FilterEqualExpression(e.manager, column, argument); cause != nil {
+			if cause = e.filterEqual(tailRelation, tailSorts, column, argument); cause != nil {
 				return false, cause
 			}
 		}
@@ -217,11 +217,10 @@ func (e *IntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, widen b
 			}
 		}
 		offset := uint32(len(workingSorts))
-		working, cause = rel.JoinIntervalRelations(working, tailRelation, leftColumns, rightColumns)
+		working, workingSorts, cause = e.join(working, workingSorts, tailRelation, tailSorts, leftColumns, rightColumns)
 		if cause != nil {
 			return false, cause
 		}
-		workingSorts = append(workingSorts, tailSorts...)
 		for variable, column := range localVariables {
 			if _, shared := variables[variable]; !shared {
 				variables[variable] = offset + column
@@ -254,7 +253,7 @@ func (e *IntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, widen b
 		}
 		mappedHandle, cause := e.manager.RefGet(mapped)
 		if cause == nil {
-			cause = working.FilterInterpreted(e.manager, mappedHandle)
+			cause = e.filterInterpreted(working, workingSorts, mappedHandle)
 		}
 		cause = errors.Join(cause, e.manager.DelRef(&mapped))
 		if cause != nil {
@@ -342,7 +341,7 @@ func (e *IntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, widen b
 			remove = append(remove, column)
 		}
 	}
-	working, err = working.Project(remove)
+	working, workingSorts, err = e.project(working, workingSorts, remove)
 	if err != nil {
 		return false, err
 	}
@@ -356,14 +355,14 @@ func (e *IntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, widen b
 			return false, ErrIntervalDatalogFragment
 		}
 		if position != destination {
-			working, err = working.Rename([]uint32{uint32(position), uint32(destination)})
+			working, workingSorts, err = e.rename(working, workingSorts, []uint32{uint32(position), uint32(destination)})
 			if err != nil {
 				return false, err
 			}
 			current[position], current[destination] = current[destination], current[position]
 		}
 	}
-	return e.relations[headDeclaration].Union(working, widen)
+	return e.union(e.relations[headDeclaration], headSorts, working, widen)
 }
 
 // intervalPredicateSCCs returns dependency-first SCC order. The source

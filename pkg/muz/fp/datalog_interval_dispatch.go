@@ -7,6 +7,7 @@ package fp
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -37,16 +38,21 @@ func (e *PropositionalEngine) ensureIntervalDatalog() (bool, error) {
 	if err := e.cacheDatalogRelationFavourite(); err != nil {
 		return false, err
 	}
-	requested := false
-	for _, state := range e.predicates {
-		requested = requested || len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "interval_relation"
+	checkName, checkEnabled, err := e.datalogCheckRelationName()
+	if err != nil {
+		return false, err
 	}
-	if (!requested && e.datalogRelationFavourite != "interval_relation") || len(e.predicateOrder) == 0 {
+	checkerRequests := checkEnabled && checkName == "interval_relation"
+	representationRequested := false
+	for _, state := range e.predicates {
+		representationRequested = representationRequested || len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "interval_relation"
+	}
+	if (!checkerRequests && !representationRequested && e.datalogRelationFavourite != "interval_relation") || len(e.predicateOrder) == 0 {
 		return false, nil
 	}
 	// Without an interval favourite, every original must request this kind;
 	// generated query heads inherit the selected relation.
-	if requested && e.datalogRelationFavourite != "interval_relation" {
+	if representationRequested && e.datalogRelationFavourite != "interval_relation" {
 		for d, state := range e.predicates {
 			if !e.auxiliary[d] && (len(state.requestedRepresentations) != 1 || state.requestedRepresentations[0] != "interval_relation") {
 				return true, ErrIntervalDatalogFragment
@@ -61,8 +67,12 @@ func (e *PropositionalEngine) ensureIntervalDatalog() (bool, error) {
 	if enabled, err := e.datalogExplanationsEnabled(); err != nil || enabled {
 		return true, errors.Join(err, ErrIntervalDatalogFragment)
 	}
-	if _, enabled, err := e.datalogCheckRelationName(); err != nil || enabled {
+	if checkEnabled && checkName != "interval_relation" {
 		return true, errors.Join(err, ErrIntervalDatalogFragment)
+	}
+	var formulaCheck *smtcore.SMTSolverConfig
+	if checkEnabled {
+		formulaCheck = &smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals}
 	}
 	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled {
 		return true, errors.Join(err, ErrIntervalDatalogFragment)
@@ -79,6 +89,7 @@ func (e *PropositionalEngine) ensureIntervalDatalog() (bool, error) {
 		}
 	}
 	if e.intervalDatalog != nil {
+		e.intervalDatalog.formulaCheck = formulaCheck
 		return true, e.intervalDatalog.syncPredicates(e.predicateOrder)
 	}
 	owner, selected, err := newIntervalDatalogActivation(e.manager, e.set, e.predicateOrder)
@@ -88,6 +99,7 @@ func (e *PropositionalEngine) ensureIntervalDatalog() (bool, error) {
 	if !selected {
 		return true, ErrIntervalDatalogFragment
 	}
+	owner.formulaCheck = formulaCheck
 	e.intervalDatalog = owner
 	// Any eagerly stored nullary tuples predate activation. Copy them into the
 	// selected imprecise relation without changing their source fact meaning.

@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
+	"github.com/glycerine/g3/pkg/smtcore"
 )
 
 var ErrIntervalDatalogFragment = errors.New("muz/fp: unsupported arithmetic interval Datalog fragment")
@@ -22,6 +23,7 @@ type IntervalDatalogEvaluator struct {
 	relations    map[ast.ASTHandle]*rel.IntervalRelation
 	declarations []ast.ASTRef
 	closed       bool
+	formulaCheck *smtcore.SMTSolverConfig
 }
 
 func NewIntervalDatalogEvaluator(manager *ast.ASTManager, rules *base.RuleSet, declarations []ast.ASTHandle, seeds map[ast.ASTHandle]*rel.IntervalRelation) (_ *IntervalDatalogEvaluator, resultErr error) {
@@ -151,7 +153,26 @@ func (e *IntervalDatalogEvaluator) applyFactRule(rule *base.Rule) (resultErr err
 			return err
 		}
 	}
-	return relation.AddFactExpressions(e.manager, e.sorts[declaration], values)
+	return e.addFact(relation, e.sorts[declaration], values)
+}
+
+func (e *IntervalDatalogEvaluator) addFact(relation *rel.IntervalRelation, sorts, values []ast.ASTHandle) (resultErr error) {
+	if e.formulaCheck == nil {
+		return relation.AddFactExpressions(e.manager, sorts, values)
+	}
+	beforeFormula, err := relation.ToFormula(e.manager, sorts)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&beforeFormula)) }()
+	before, err := e.manager.RefGet(beforeFormula)
+	if err != nil {
+		return err
+	}
+	if err = relation.AddFactExpressions(e.manager, sorts, values); err != nil {
+		return err
+	}
+	return rel.VerifyIntervalRelationFactAdd(e.manager, sorts, *e.formulaCheck, before, values, relation)
 }
 
 // SaturateFacts evaluates zero-tail source rules using interval abstraction.

@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -64,13 +65,14 @@ func intervalDatalogEligible(manager *ast.ASTManager, declarations []ast.ASTHand
 // saturated evaluator snapshot. It is installed only after eligibility and
 // representation gates select the interval relation plugin.
 type intervalDatalogActivation struct {
-	manager    *ast.ASTManager
-	rules      *base.RuleSet
-	store      *IntervalDatalogStore
-	evaluator  *IntervalDatalogEvaluator
-	similarity *rel.IntervalSimilarityProgram
-	predicates []ast.ASTHandle
-	closed     bool
+	manager      *ast.ASTManager
+	rules        *base.RuleSet
+	store        *IntervalDatalogStore
+	evaluator    *IntervalDatalogEvaluator
+	similarity   *rel.IntervalSimilarityProgram
+	predicates   []ast.ASTHandle
+	closed       bool
+	formulaCheck *smtcore.SMTSolverConfig
 }
 
 func newIntervalDatalogActivation(manager *ast.ASTManager, rules *base.RuleSet, declarations []ast.ASTHandle) (_ *intervalDatalogActivation, selected bool, resultErr error) {
@@ -126,7 +128,23 @@ func (a *intervalDatalogActivation) addFact(declaration ast.ASTHandle, values []
 	if err := a.discardEvaluator(); err != nil {
 		return err
 	}
-	return a.store.AddFact(declaration, values)
+	entry := a.store.entries[declaration]
+	if entry == nil || a.formulaCheck == nil {
+		return a.store.AddFact(declaration, values)
+	}
+	beforeFormula, err := entry.relation.ToFormula(a.manager, entry.sorts)
+	if err != nil {
+		return err
+	}
+	defer a.manager.DelRef(&beforeFormula)
+	before, err := a.manager.RefGet(beforeFormula)
+	if err != nil {
+		return err
+	}
+	if err = a.store.AddFact(declaration, values); err != nil {
+		return err
+	}
+	return rel.VerifyIntervalRelationFactAdd(a.manager, entry.sorts, *a.formulaCheck, before, values, entry.relation)
 }
 
 // syncPredicates monotonically extends a selected activation to the engine's
@@ -194,6 +212,10 @@ func (a *intervalDatalogActivation) clone(rules *base.RuleSet) (_ *intervalDatal
 		}
 		copyActivation.store.entries[declaration].relation = relation
 	}
+	if a.formulaCheck != nil {
+		config := *a.formulaCheck
+		copyActivation.formulaCheck = &config
+	}
 	return copyActivation, nil
 }
 
@@ -211,6 +233,7 @@ func (a *intervalDatalogActivation) query(declarations []ast.ASTHandle, widen bo
 	if err != nil {
 		return lbool.Undef, err
 	}
+	evaluator.formulaCheck = a.formulaCheck
 	if err = evaluator.SaturatePositive(widen); err != nil {
 		return lbool.Undef, errors.Join(err, evaluator.Close())
 	}
