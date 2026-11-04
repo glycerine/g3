@@ -126,6 +126,7 @@ type Context struct {
 	RandomSeed                       uint32
 	checked                          bool
 	status                           lbool.LBool
+	progressError                    error
 	infoStatus                       lbool.LBool
 	watch                            stopwatch.Stopwatch
 	owned                            *contextServices
@@ -1150,6 +1151,7 @@ func (c *Context) CheckSat(assumptions []ast.ASTHandle) (status lbool.LBool, err
 	defer func() { err = errors.Join(err, watch.Close()) }()
 	optimizationContinuation := c.checked
 	c.checked = false
+	c.progressError = nil
 	if err := c.clearCheckSatResult(); err != nil {
 		return lbool.Undef, err
 	}
@@ -1160,6 +1162,10 @@ func (c *Context) CheckSat(assumptions []ast.ASTHandle) (status lbool.LBool, err
 		}
 	} else {
 		if err = c.clearOptimizationBoxModels(); err != nil {
+			return lbool.Undef, err
+		}
+		c.progressError = nil
+		if err = c.solver.SetProgressCallback(c); err != nil {
 			return lbool.Undef, err
 		}
 		status, err = c.solver.CheckSat(assumptions)
@@ -1183,6 +1189,9 @@ func (c *Context) CheckSat(assumptions []ast.ASTHandle) (status lbool.LBool, err
 			err = nil
 		}
 		c.status, c.checked = status, true
+		if c.progressError != nil {
+			return status, c.progressError
+		}
 	}
 	if status == lbool.True {
 		if err = c.completeModel(); err != nil {

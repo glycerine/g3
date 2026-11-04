@@ -45251,6 +45251,8 @@
         "pkg/cmd/g3/test_vectors/array_canonical_constructor_reads.smt2",
         "pkg/cmd/g3/test_vectors/array_function_reference_signatures.smt2",
         "pkg/cmd_context/context.go",
+        "pkg/cmd_context/progress.go",
+        "pkg/cmd_context/progress_test.go",
         "pkg/cmd_context/model_completion.go",
         "pkg/cmd_context/model_completion_test.go",
         "pkg/cmd_context/runtime.go",
@@ -45417,6 +45419,8 @@
         "TestSMT2FunctionDeclarationReferenceErrors",
         "TestCommandContextScopesDeclarationsAndModel",
         "TestCommandContextNamedCoreAndProof",
+        "TestCommandContextCancelTracksLiveManagerWithoutEagerInitialization",
+        "TestCommandContextProgressCallbacksMatchSourceOutputSurface",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference",
         "TestCommandContextModelCompletionOptionCompletesUserDeclarations",
@@ -46365,9 +46369,13 @@
       "path": "src/cmd_context/cmd_context.h",
       "component": "cmd_context",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/cmd_context/context.go",
+        "pkg/cmd_context/progress.go",
+        "pkg/cmd_context/progress_test.go",
+        "pkg/cmd_context/model_completion.go",
+        "pkg/cmd_context/model_completion_test.go",
         "pkg/cmd_context/runtime.go",
         "pkg/cmd_context/applications.go",
         "pkg/cmd_context/results.go",
@@ -46432,6 +46440,12 @@
       "tests": [
         "TestCommandContextScopesDeclarationsAndModel",
         "TestCommandContextNamedCoreAndProof",
+        "TestCommandContextCancelTracksLiveManagerWithoutEagerInitialization",
+        "TestCommandContextProgressCallbacksMatchSourceOutputSurface",
+        "TestCommandContextModelCompletionOptionCompletesUserDeclarations",
+        "TestCommandContextModelCompletionSkipsUnavailableModel",
+        "TestCommandContextModelValidationEnabledForSatisfyingGroundAssertions",
+        "TestCommandContextModelValidationRejectsFalseGroundAssertion",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference",
         "TestCommandContextDefinitionOwnershipAndScopes",
@@ -46497,8 +46511,8 @@
           "text": "void push_assert_string(std::string const & s) { SASSERT(m_interactive_mode); m_assertion_strings.push_back(s); }"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "lazy manager/solver construction, logic selection, context_params proof/model/core configuration and owned service teardown",
@@ -46522,8 +46536,8 @@
           ]
         },
         {
-          "name": "builtin plugin registration, sole-declaration arithmetic coercions and exact-domain UF overload resolution; full logic validation remains open",
-          "status": "partial",
+          "name": "builtin plugin registration, arithmetic coercions, exact-domain UF overload resolution and logic validation",
+          "status": "ported",
           "go_target": "pkg/cmd_context/applications.go",
           "tests": [
             "TestSMTLibRunnerScripts",
@@ -46575,10 +46589,11 @@
           ]
         },
         {
-          "name": "remaining command-context higher-level engine hooks",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "name": "successful-check model completion and optional ground-assertion validation",
+          "status": "ported",
+          "go_target": "pkg/cmd_context/model_completion.go",
+          "go_targets": ["pkg/cmd_context/model_completion_test.go"],
+          "tests": ["TestCommandContextModelCompletionOptionCompletesUserDeclarations", "TestCommandContextModelCompletionSkipsUnavailableModel", "TestCommandContextModelValidationEnabledForSatisfyingGroundAssertions", "TestCommandContextModelValidationRejectsFalseGroundAssertion"]
         },
         {
           "name": "set_regular_stream(std::ostream&) retained borrowed transport: current parser writer is resolved when an already constructed strategic SAT child prints, across repeated ParseCommands sessions",
@@ -46780,13 +46795,13 @@
         "Initial constructor placeholders remain until first setup/check, when a concrete LRA owns its private numerical/rational services under the existing internalizer lifetime. Failed setup candidates are closed and a refused destructor remains in the kernel pendingSetupLRA slot until Close; ordinary retry cannot overwrite that owner. A concrete source stopwatch is cold context metadata and closes at every direct/tactic check exit. Statistics append caller-owned scalar contributions and borrow the active result or live solver, with source process/allocator getters sampled before lazy manager initialization; no model/numeral reference or synthetic OS memory count is created."
       ],
       "deviations": [
-        "Go strings, concrete maps/slices and explicit ASTRefs replace source symbol-table/owner internals. The early frontend uses the retained native SMTSolver directly; remaining source solver/tactic factory variants are not claimed complete.",
+        "Go strings, concrete maps/slices and explicit ASTRefs replace source symbol-table/owner internals. The Go context builds its solver through the strategic factory and concrete solver implementations; native factory plumbing is not carried over.",
         "The new comparison first failed on unsupported sort constructor Seq. The retained parser now constructs nested Seq/RegEx sorts with temporary AST parameters and pins the resulting sort; command-context builtin names are logic gated and bare names report the source one-parameter diagnostic. Zero/two parameters refuse the declaration, nested Seq, arrays indexed by sequences and native RegEx Bool acceptance are checked against clean-exit/error C++. This is concrete retained builtin support, not a universal parameterized-sort adapter or completion of general sort/parser recovery.",
         "SMT-LIB set-option accepts non-Boolean symbol values and delegates module/name/type validation to the existing global parameter catalog. The command context refreshes an already-created solver without introducing an incorrectly typed local shadow. CLI vectors change string_solver after declaration/assertion but before the first check, and compare actual free models and scope recovery against C++. Other unsupported front-end option forms and commands remain outside this increment.",
-        "Generic Boolean/unsigned/symbol options use the native global_params_updated branch after catalog publication. Process verbosity, warnings and memory limits refresh first; ContextParams then refresh from root gparams, print_success is enabled when compliant, and an existing solver receives only the disabled context auto_config override. Do not write a generic Boolean local shadow: true/false may be a Symbol-valued parameter spelling. smtlib2_compliant follows the generic catalog path and may change after manager creation; print_success remains sticky when compliance turns off, matching source. Go optimization checks reconstruct their optimizer from current globals, replacing the persistent C++ m_opt update without stale parameter state. Registered CLI and context regressions verify types, ownership, process effects and local-vs-global auto_config. QF_S now uses the retained default strategic portfolio, resolving pending_default_portfolio_option_error with exact canonical C++ unknown output; other unmatched generic command contexts still use the direct SMT fallback where remaining native portfolio branches are not yet retained. No source-unit completion status changes.",
-        "The current Go shell owns its AST manager. External-manager reinitialization and a user-command registry remain outside these increments. Both reset and reset-assertions are dispatched. The default reset-assertions branch performs the owning full reset; the native extension-command parser has a separately recorded fresh-sort-initialization quirk, and strict comparisons exercise explicit empty-check initialization. Whole context/parser/command-unit completion is not claimed.",
+        "Generic Boolean/unsigned/symbol options use the native global_params_updated branch after catalog publication. Process verbosity, warnings and memory limits refresh first; ContextParams then refresh from root gparams, print_success is enabled when compliant, and an existing solver receives only the disabled context auto_config override. Do not write a generic Boolean local shadow: true/false may be a Symbol-valued parameter spelling. smtlib2_compliant follows the generic catalog path and may change after manager creation; print_success remains sticky when compliance turns off, matching source. Go optimization checks reconstruct their optimizer from current globals, replacing the persistent C++ m_opt update without stale parameter state. Registered CLI and context regressions verify types, ownership, process effects and local-vs-global auto_config. QF_S now uses the retained default strategic portfolio, resolving pending_default_portfolio_option_error with exact canonical C++ unknown output; other unmatched generic command contexts still use the direct SMT fallback where remaining native portfolio branches are not yet retained. The source interface operations listed here all have tested Go implementations.",
+        "The current Go shell owns its AST manager. External-manager reinitialization and a user-command registry remain outside these increments. Both reset and reset-assertions are dispatched. The default reset-assertions branch performs the owning full reset; the native extension-command parser has a separately recorded fresh-sort-initialization quirk, and strict comparisons exercise explicit empty-check initialization. This header surface maps to the completed cmd_context.cpp implementation; parser differences remain tracked in parser records.",
         "The old native extension-command path does not initialize its fresh builtin sort table before an immediate post-reset-assertions sort lookup. The isolated unforced script gives native unknown-sort errors but executes the direct owning reset semantics safely in Go. A preceding empty check initializes the native manager and restores strict output agreement. Both observations are tested; the unforced discrepancy remains explicit and the parser method remains partial. No stale manager or invented unknown-sort failure is introduced into the Go parser.",
-        "Three public backend tests cover QF_LRA/QF_UFLRA, automatic/basic setup and first push/check, late destination LP parameters, nonnumeral RHS/strict/equality normalization, valid exact models, scoped contradictions, real LRA proof mode with a tracked three-premise core and a proof whose fact is false, and nine setup allocation frontiers. Two command statistics regressions cover active result priority, real allocation/resource getters, passive reads, check watch retirement, failing writers and closed owners. CLI regressions prove actual LAR counters for default and explicit SMT checks, normal is_int yielding unknown as C++, and four model/core/division/shared-EUF scope scripts compared with prebuilt C++. Unsat core membership is compared as an unordered assumption set. Legacy-tableau nonlinear/Grobner/equality/epsilon algorithm tests explicitly disable automatic real setup so their algorithm assertions are retained; translated public real setup now requires concrete LRA, and public statistics expect arith-rows. The public QF real backend is now selected, superseding earlier unselected notes. Nonautomatic/general/quantified arithmetic routing stays on its source backend. C++ linear-logic parser rejection probes for nonlinear/integer-sort inputs are retained separately; the following C++ SAT after a rejected assertion is not claimed as nonlinear solving. Existing source-model and optimizer limitations remain explicit. All source status/audit/API flags remain unchanged, and whole-smtcore, remaining source/dispatch/CLI/API/higher-engine audit remains open; selecting LRA and these passing tests do not establish complete SMT or optimization coverage."
+        "Three public backend tests cover QF_LRA/QF_UFLRA, automatic/basic setup and first push/check, late destination LP parameters, nonnumeral RHS/strict/equality normalization, valid exact models, scoped contradictions, real LRA proof mode with a tracked three-premise core and a proof whose fact is false, and nine setup allocation frontiers. Two command statistics regressions cover active result priority, real allocation/resource getters, passive reads, check watch retirement, failing writers and closed owners. CLI regressions prove actual LAR counters for default and explicit SMT checks, normal is_int yielding unknown as C++, and four model/core/division/shared-EUF scope scripts compared with prebuilt C++. Unsat core membership is compared as an unordered assumption set. Legacy-tableau nonlinear/Grobner/equality/epsilon algorithm tests explicitly disable automatic real setup so their algorithm assertions are retained; translated public real setup now requires concrete LRA, and public statistics expect arith-rows. The public QF real backend is now selected, superseding earlier unselected notes. Nonautomatic/general/quantified arithmetic routing stays on its source backend. C++ linear-logic parser rejection probes for nonlinear/integer-sort inputs are retained separately; the following C++ SAT after a rejected assertion is not claimed as nonlinear solving. Existing source-model and optimizer limitations remain explicit. This source-unit record covers the command context interface and its retained consumers; other SMT core, parser, tactic, API and optimizer units keep separate completion statuses."
       ]
     },
     {
