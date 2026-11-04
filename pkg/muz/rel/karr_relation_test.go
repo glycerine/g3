@@ -137,3 +137,30 @@ func TestKarrGuards(t *testing.T) {
 		t.Fatalf("Rename cycle error = %v", err)
 	}
 }
+
+func TestKarrRenameCyclePreservesLargeRationalRows(t *testing.T) {
+	source := NewKarrFull(3, nil)
+	large := new(big.Int).Lsh(big.NewInt(1), 140)
+	row := []big.Rat{*new(big.Rat).SetInt(large), *big.NewRat(2, 1), *big.NewRat(3, 1)}
+	if err := source.AddConstraint(row, big.NewRat(0, 1), true); err != nil {
+		t.Fatal(err)
+	}
+	result, err := source.Rename([]uint32{0, 2, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	matrix, err := result.Inequalities()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if matrix.A[0][0].Cmp(big.NewRat(3, 1)) != 0 || matrix.A[0][1].Cmp(new(big.Rat).SetInt(large)) != 0 || matrix.A[0][2].Cmp(big.NewRat(2, 1)) != 0 {
+		t.Fatal("cycle corrupted coefficients", matrix)
+	}
+	original, err := source.Inequalities()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if original.A[0][0].Cmp(new(big.Rat).SetInt(large)) != 0 {
+		t.Fatal("rename mutated source", original)
+	}
+}

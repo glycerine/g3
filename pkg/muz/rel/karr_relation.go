@@ -387,7 +387,8 @@ func (r *KarrRelation) Rename(cycle []uint32) (*KarrRelation, error) {
 	result := r.Clone()
 	rename := func(matrix *KarrMatrix) {
 		for i := range matrix.A {
-			temporary := matrix.A[i][cycle[0]]
+			var temporary big.Rat
+			temporary.Set(&matrix.A[i][cycle[0]])
 			for j := 0; j+1 < len(cycle); j++ {
 				matrix.A[i][cycle[j]].Set(&matrix.A[i][cycle[j+1]])
 			}

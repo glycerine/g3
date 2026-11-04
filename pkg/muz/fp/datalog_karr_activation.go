@@ -1,6 +1,6 @@
 package fp
 
-// Concrete acyclic identity-rule consumer of src/muz/rel/karr_relation.cpp.
+// Concrete acyclic unary-rule consumer of src/muz/rel/karr_relation.cpp.
 // It intentionally rejects shapes requiring the general relational compiler.
 import (
 	"errors"
@@ -164,7 +164,7 @@ func (a *karrDatalogActivation) reset() error {
 	return nil
 }
 
-// query uses a dependency walk to evaluate source identity-copy rules in
+// query uses a dependency walk to evaluate source unary projection rules in
 // topological order, publishing a snapshot only on success.
 func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool, error) {
 	if a == nil || a.closed {
@@ -174,7 +174,7 @@ func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool
 	if err := a.checkpoint(); err != nil {
 		return lbool.Undef, err
 	}
-	edges := make(map[ast.ASTHandle][]ast.ASTHandle)
+	edges := make(map[ast.ASTHandle][]karrUnaryRule)
 	count, err := a.rules.Len()
 	if err != nil {
 		return lbool.Undef, err
@@ -184,12 +184,12 @@ func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool
 		if err != nil {
 			return lbool.Undef, err
 		}
-		head, body, err := a.identityRule(rule)
+		head, compiled, err := a.compileUnaryRule(rule)
 		err = errors.Join(err, rule.Close())
 		if err != nil {
 			return lbool.Undef, err
 		}
-		edges[head] = append(edges[head], body)
+		edges[head] = append(edges[head], compiled)
 	}
 	snapshot := make(map[ast.ASTHandle]*rel.KarrRelation, len(a.seeds))
 	for d, r := range a.seeds {
@@ -212,11 +212,18 @@ func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool
 			return ErrKarrDatalogFragment
 		}
 		marks[d] = 1
-		for _, src := range edges[d] {
-			if err := visit(src); err != nil {
+		for _, rule := range edges[d] {
+			if err := visit(rule.body); err != nil {
 				return err
 			}
-			if _, err := target.Union(snapshot[src]); err != nil {
+			candidate, err := rule.apply(snapshot[rule.body])
+			if err != nil {
+				return err
+			}
+			if err := a.checkpoint(); err != nil {
+				return err
+			}
+			if _, err := target.Union(candidate); err != nil {
 				return err
 			}
 			if err := a.checkpoint(); err != nil {
@@ -249,85 +256,4 @@ func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool
 	}
 	a.results = snapshot
 	return status, nil
-}
-
-func (a *karrDatalogActivation) identityRule(rule *base.Rule) (ast.ASTHandle, ast.ASTHandle, error) {
-	var none ast.ASTHandle
-	n, err := rule.TailSize()
-	if err != nil {
-		return none, none, err
-	}
-	if n != 1 {
-		return none, none, ErrKarrDatalogFragment
-	}
-	n, err = rule.UninterpretedTailSize()
-	if err != nil {
-		return none, none, err
-	}
-	if n != 1 {
-		return none, none, ErrKarrDatalogFragment
-	}
-	h, err := rule.Head()
-	if err != nil {
-		return none, none, err
-	}
-	b, neg, err := rule.Tail(0)
-	if err != nil {
-		return none, none, err
-	}
-	if neg {
-		return none, none, ErrKarrDatalogFragment
-	}
-	hd, err := a.manager.GetDecl(h)
-	if err != nil {
-		return none, none, err
-	}
-	bd, err := a.manager.GetDecl(b)
-	if err != nil {
-		return none, none, err
-	}
-	if a.seeds[hd] == nil || a.seeds[bd] == nil {
-		return none, none, ErrKarrDatalogFragment
-	}
-	arity, err := a.manager.GetNumArgs(h)
-	if err != nil {
-		return none, none, err
-	}
-	other, err := a.manager.GetNumArgs(b)
-	if err != nil {
-		return none, none, err
-	}
-	if arity != other {
-		return none, none, ErrKarrDatalogFragment
-	}
-	seen := make(map[uint32]bool)
-	for i := uint32(0); i < arity; i++ {
-		x, err := a.manager.GetArg(h, i)
-		if err != nil {
-			return none, none, err
-		}
-		y, err := a.manager.GetArg(b, i)
-		if err != nil {
-			return none, none, err
-		}
-		if x != y {
-			return none, none, ErrKarrDatalogFragment
-		}
-		kind, err := a.manager.GetKind(x)
-		if err != nil {
-			return none, none, err
-		}
-		if kind != ast.ASTVar {
-			return none, none, ErrKarrDatalogFragment
-		}
-		index, err := a.manager.GetVarIndex(x)
-		if err != nil {
-			return none, none, err
-		}
-		if seen[index] {
-			return none, none, ErrKarrDatalogFragment
-		}
-		seen[index] = true
-	}
-	return hd, bd, nil
 }

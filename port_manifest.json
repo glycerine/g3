@@ -101841,7 +101841,7 @@
         }
       ],
       "ownership": ["KarrRelation owns both lazy matrix representations and deep-copies rows at every public boundary. Concrete operations return independent relation owners."],
-      "deviations": ["Go exposes concrete Karr operations for invariant discovery and a bounded configured Datalog route for integer/nullary facts and acyclic identity rules, with approximate answers, cancellation and explicit overflow. Source general join, projection, negation, recursion and other dispatch remain partial. The source filter_equal fixed -1 constant remains tested."]
+      "deviations": ["Go exposes concrete Karr operations for invariant discovery and a bounded configured Datalog route for integer/nullary facts and acyclic unary distinct-variable projection/permutation rules, with approximate answers, cancellation and explicit overflow. Source general join, projection, negation, recursion and other dispatch remain partial. The source filter_equal fixed -1 constant remains tested."]
     },
     {
       "path": "src/muz/rel/karr_relation.h",
@@ -101876,7 +101876,7 @@
         }
       ],
       "ownership": ["The concrete Go owner replaces relation_base allocation and plugin downcasts for the only retained Karr consumer."],
-      "deviations": ["No universal relation adapter is added; the invariant consumer and bounded integer/nullary identity Datalog route use typed Karr operations. Broader source-configured Datalog operation dispatch remains open."]
+      "deviations": ["No universal relation adapter is added; the invariant consumer and bounded integer/nullary unary projection/permutation Datalog route use typed Karr operations. Broader source-configured Datalog operation dispatch remains open."]
     },
     {
       "path": "src/muz/rel/rel_context.cpp",
