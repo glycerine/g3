@@ -85,8 +85,10 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Match Horn query construction and model filtering: use a sole verification query directly, synthesize and filter zero/multiple verification queries and all simplify queries, and bind synthetic rules independently of `xform.fix_unbound_vars`.
   - [x] Audit the Spacer matrix unit in [SPACER_UNIT_AUDIT.md](SPACER_UNIT_AUDIT.md), with copy-ownership, signed-pivot and seeded multirow Farkas core oracles. Correct the exposed equality/inequality operator-family collision; proof marking and full interpolation remain open.
   - [x] Audit the concrete dataflow/reachability consumer in [DATAFLOW_UNIT_AUDIT.md](DATAFLOW_UNIT_AUDIT.md), including unreachable constructed facts and outputs without rules; nested-dependency source fidelity remains under review.
-  - [ ] Establish whether the source quantifier-abstraction pipeline can leave a nested predicate for cone pruning. The Go analysis conservatively follows that dependency; a source-derived intermediate demonstrates possible semantic loss from pruning, but a public C++ query failure remains unproven.
+  - [x] Verify that the source quantifier-abstraction pipeline can leave a nested predicate through cone pruning; a Z3 4.7.1 query later returns unknown on a nested-predicate check. Go conservatively follows the dependency; a wrong source SAT/UNSAT answer remains unproven.
+  - [ ] Resolve the remaining source-fidelity and soundness tradeoff for nested predicate dependencies in cone pruning, including public-query behavior.
   - [x] Verify compound Horn head/negative-body hoisting order and proof conclusion, first-true linear BMC rule selection, and Spacer ITE implicant branch selection against the source paths.
+  - [x] Verify Spacer projection's empty-variable and ground-substitution gates and the model-selected unequal-index array guard.
   - [x] Verify PDR/QPDR coalescing is gated by positive unfold rounds and precedes unfolding, across zero, one and two rounds.
   - [x] Match TAB's source `basic-weight` fallthrough to weight selection, and test its cached-selection behavior. Verify DDNF reparenting/mark traversal, CLP search result ordering and relational compiler projection selection against their source paths.
   - [x] Verify Duality tree interpolation includes each node's extra constraints and restores the temporary solver scope; other interpolation branches and exceptional cleanup remain under audit.
@@ -96,12 +98,14 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Exercise scale's zero, one and other numeral branches, fresh equality guards, nested Boolean/arithmetic rewriting and opaque multiplication against source-shaped formulas; other scale branches and consumers remain open.
   - [x] Verify scale's per-rule cache reset, sigma indices, predicate reuse, rule names and the source's all-false tail-negation flags across multiple rules.
   - [x] Verify Spacer scale models against original clauses and queries, including slicing/inlining composition; preserve upstream predicate origins through unchanged slice outputs. Other engines remain open.
+  - [x] Verify PDR/QPDR scaled models against original clauses, and BMC/QBMC scaled queries and their source empty-model contract; CLP, Horn and Duality scale consumers remain open.
   - [x] Verify Farkas sign and consequence semantics for integer and real strict/non-strict bounds, negations and equalities, using independently evaluated boundary points.
   - [x] Check repeated public PDR delayed-scope assertion failures recover for a later check; actual partial-pop failure remains covered separately through the cleanup owner.
   - [x] Add the source Duality `Contains` and `Candidate` profile scopes with nested-timer and error coverage; add a PDR reachable-cache closing guard with native refusal/retry coverage. The remaining profile scopes and cache cleanup boundaries stay open in their unit audits.
   - [x] Add Duality RPFP edge-construction and solver-add profile scopes, with cached, uncached and true-edge coverage; timing outside active solve remains open.
   - [x] Add the source `SubtermTruth` and `UnderapproxFormula` call-site profile scopes, checking branch selection and timer restoration on errors and allocation failures.
   - [x] Preserve Duality profiling during post-solve derivation, certificate and proof output, and time `RedVars` at its source call site; process-global lifetime remains an open difference.
+  - [x] Stop Duality's `SolveMain` timer before quantified-counterexample validation, matching the source timing boundary.
   - [x] Verify PDR reachable-cache construction failure/retry and preservation of earlier constraint disjuncts; connector-publication failure injection remains open.
   - [x] Verify a rejected constraint-cache insertion preserves prior alternatives and references and permits retry; the later connector-publication failure boundary remains unproven.
   - [x] Resume a failed PDR reachable-cache lookup pop before subsequent cache work or close; a native consumed-release failure covers retry, scope level and counter behavior.

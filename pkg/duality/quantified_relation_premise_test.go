@@ -51,10 +51,10 @@ func TestDualityQuantifiedRelationPremiseIsTheoryObligation(t *testing.T) {
 	seedDecl := declare("quantified-premise-Seed", nil)
 	midDecl := declare("quantified-premise-Mid", nil)
 	pDecl := declare("quantified-premise-P", []ast.ASTHandle{integer, integer})
-	goalDecl := declare("quantified-premise-Goal", nil)
+	goalDecl := declare("quantified-premise-Goal", []ast.ASTHandle{integer})
 	seed := raw(wrap(m.MkApp(seedDecl, nil)))
 	mid := raw(wrap(m.MkApp(midDecl, nil)))
-	goal := raw(wrap(m.MkApp(goalDecl, nil)))
+	goal := raw(wrap(m.MkApp(goalDecl, []ast.ASTHandle{seven})))
 	variable := raw(wrap(m.MkVar(0, integer)))
 	pv := raw(wrap(m.MkApp(pDecl, []ast.ASTHandle{variable, seven})))
 	binder, err := m.Symbols.Intern("quantified-premise-index")
@@ -101,13 +101,17 @@ func TestDualityQuantifiedRelationPremiseIsTheoryObligation(t *testing.T) {
 	if goalEdge == nil || len(goalEdge.Children) != 0 || len(goalEdge.F.relationParams) != 0 {
 		t.Fatal("quantified predicate was represented as a point-instance child")
 	}
-	engine, err := NewEngine(graph, EngineConfig{Native: native, Auxiliary: auxiliary, Factory: factory, Evaluator: evaluator, Simplifier: simplifier, Quantifiers: quantifiers})
+	profile := NewProfiler(nil)
+	engine, err := NewEngine(graph, EngineConfig{Native: native, Auxiliary: auxiliary, Factory: factory, Evaluator: evaluator, Simplifier: simplifier, Quantifiers: quantifiers, Profiler: profile})
 	must(err)
 	defer engine.Close()
 	safe, err := engine.Solve()
 	must(err)
 	if safe || engine.GetCounterexample().Root() == nil {
 		t.Fatal("reachable quantified child was not derived", safe)
+	}
+	if profile.top.children["SolveMain"] == nil || profile.top.children["Localize"] == nil || profile.current != profile.top {
+		t.Fatal("quantified validation must run after SolveMain timer", profile.top.children)
 	}
 	proof, err := engine.GetCounterexample().Proof(factory)
 	must(err)

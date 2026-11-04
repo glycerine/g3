@@ -21,3 +21,21 @@ Source engine borrows the rules, context, declarations and rule pointers; it own
 ## Evidence and remaining limits
 
 `TestReachabilityRunsFromIngestedHornProgram` covers closed-set enforcement, multi-round propagation, disconnected rules, negative-tail seed and top-down propagation, an unreachable head whose fact was constructed by a partial positive match, and an output without rules. `TestConeOfInfluencePrunesOutsideAndUnfoundedRules`, `TestConePluginCapturesOrderedModelDefinitions`, the `coi_bottom_up_source_test.go` tests and `TestConePreservesNestedQuantifiedPredicateDefinition` cover the corresponding transform consumers and their model/cleanup behavior. These checks do not prove all transform proof, model or exceptional lifecycle behavior; those remain in the transform audit. They also do not establish source hash-container iteration order, which the Go code does not reproduce.
+
+A local C++ comparison used `z3 -v:10` (the available executable reports Z3 4.7.1) on a Spacer query with `P : (Array Bool Bool) -> Bool`, rules `P(a)` and `P(a) => Goal`, and `xform.quantify_arrays=true`. With `xform.instantiate_quantifiers` either false or true, the executable reported abstraction, a no-op quantifier-instantiation pass and no-op inliner, then a post-abstraction cone pass changing five rules to four. The query subsequently returned `unknown` with a nested-predicate rejection containing `P(i, select(a,i))`. This establishes that a nested occurrence can survive through cone in that C++ run; verbose output does not identify the rule removed by cone, and the rejected query does not establish an incorrect SAT/UNSAT result. The locally installed executable is comparison evidence, not a dependency of the Go tests. Both options default to false, so the abstraction requires explicit enabling; the quantifier-instantiation plugin is registered in source but checks its separate option before acting. The Go `TestQuantifierAbstractionExpandsInternalArrayPredicate` exercises abstraction, default-enabled inlining, and cone filtering with instantiation disabled, and verifies the abstracted definition remains reachable and retained. This selected pass sequence does not reproduce every intervening default pipeline plugin or prove the public Go query outcome.
+
+The comparison input and command were:
+
+```smt2
+(set-option :fixedpoint.engine spacer)
+(set-option :fixedpoint.xform.quantify_arrays true)
+(set-option :fixedpoint.xform.instantiate_quantifiers false)
+(declare-rel P ((Array Bool Bool)))
+(declare-rel Goal ())
+(declare-var a (Array Bool Bool))
+(rule (P a))
+(rule (=> (P a) Goal))
+(query Goal)
+```
+
+Run `z3 -v:10 /tmp/g3-dataflow-array.smt2`; repeat with `xform.instantiate_quantifiers` set to `true` for the second comparison.

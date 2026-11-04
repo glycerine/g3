@@ -294,13 +294,12 @@ func (e *Engine) Solve() (satisfied bool, result error) {
 	if err = search.CreateInitialUnwinding(); err != nil {
 		return false, err
 	}
-	if e.config.Profiler != nil {
-		if err := e.config.Profiler.TimerStart("SolveMain"); err != nil {
-			return false, err
-		}
-		defer func() { result = errors.Join(result, e.config.Profiler.TimerStop("SolveMain")) }()
+	timer, err := startProfile(e.source.context, "SolveMain")
+	if err != nil {
+		return false, err
 	}
 	safe, err := search.SolveMain()
+	err = errors.Join(err, timer.Close())
 	if err != nil {
 		return false, err
 	}

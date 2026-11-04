@@ -105,6 +105,47 @@ func TestSpacerNativeProjectionUsesSharedStages(t *testing.T) {
 			t.Fatal("empty child projection changed its formula or variables", h, remaining)
 		}
 	})
+	t.Run("array-reduction-unequal-indices", func(t *testing.T) {
+		// array_select_reducer takes the model's unequal-index branch and
+		// retains its guard, even when neither array is projected.
+		baseOnes := own(m.MkConstArray(arraySort, one))
+		otherArray := constant("native-projection-other-array", arraySort, baseOnes)
+		otherIndex := constant("native-projection-other-index", integer, one)
+		otherStore := own(m.MkFamilyApp(arrays, ast.ASTArrayOpStore, nil, []ast.ASTHandle{otherArray, i, one}))
+		otherSelect := own(m.MkFamilyApp(arrays, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{otherStore, otherIndex}))
+		input := own(m.MkEq(otherSelect, one))
+		result, remaining, err := d.project(false, true, md.Core(), nil, input)
+		must(err)
+		defer func() { must(m.DelRef(&result)); must(releaseNormalizeRefs(m, remaining)) }()
+		h, err := m.RefGet(result)
+		must(err)
+		occurs, err := m.OccursExpr(otherStore, h)
+		must(err)
+		if occurs || len(remaining) != 0 {
+			t.Fatal("array reduction retained store or projection variables", occurs, remaining)
+		}
+		decl, err := m.GetDecl(otherIndex)
+		must(err)
+		config := owner.contexts[0].config.ModelEvaluator
+		for _, equal := range []bool{false, true} {
+			value := one
+			if equal {
+				value = zero
+			}
+			must(md.Core().RegisterConstant(decl, value))
+			evaluator, err := model.NewModelEvaluator(md.Core(), config)
+			must(err)
+			evaluated, err := evaluator.EvaluateValue(h)
+			must(err)
+			actual, err := m.RefGet(evaluated)
+			must(err)
+			if (!equal && !m.IsTrue(actual)) || (equal && !m.IsFalse(actual)) {
+				t.Fatal("unequal-index projection lost its model-selected guard", equal, actual)
+			}
+			must(m.DelRef(&evaluated))
+			must(evaluator.Close())
+		}
+	})
 	t.Run("child-ground-controls-fallback-substitution", func(t *testing.T) {
 		// create_next_child passes !ground as qe_project's dont_sub.
 		owner.useNativeMBP = false

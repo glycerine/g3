@@ -120,6 +120,56 @@ func TestQuantifierAbstractionExpandsInternalArrayPredicate(t *testing.T) {
 	if !reachable.IsReachable(fresh) {
 		t.Fatal("cone analysis lost the abstracted predicate definition")
 	}
+
+	// Quantifier instantiation is disabled by default. Run the next default
+	// source pass, inlining, then inspect the actual rule entering cone.
+	inliner := base.NewRuleTransformer()
+	coneMust(t, inliner.Register(transforms.NewRuleInlinerPlugin(manager, rules, []ast.ASTHandle{goalDecl}, 35000)))
+	t.Cleanup(func() { coneMust(t, inliner.Close()) })
+	_, err = inliner.Apply(set)
+	coneMust(t, err)
+	dependencies, err := set.Dependencies(goalDecl)
+	coneMust(t, err)
+	foundFresh := false
+	for _, dependency := range dependencies {
+		foundFresh = foundFresh || dependency == fresh
+	}
+	if !foundFresh {
+		t.Fatal("default inlining removed the quantified dependency before cone", dependencies)
+	}
+	reachable, err = dataflow.TopDown(set)
+	coneMust(t, err)
+	if !reachable.IsReachable(fresh) {
+		t.Fatal("cone analysis lost the dependency surviving default inlining")
+	}
+	goalRules, err := set.PredicateRules(goalDecl)
+	coneMust(t, err)
+	if len(goalRules) != 1 {
+		t.Fatal("unexpected goal rules after inlining", len(goalRules))
+	}
+	uninterpreted, err := goalRules[0].UninterpretedTailSize()
+	coneMust(t, err)
+	coneMust(t, goalRules[0].Close())
+	if uninterpreted != 0 {
+		t.Fatal("abstracted predicate was not nested in an interpreted tail", uninterpreted)
+	}
+	cone := transforms.NewConePlugin(34990)
+	t.Cleanup(func() { coneMust(t, cone.Close()) })
+	filtered, err := cone.Transform(set)
+	coneMust(t, err)
+	basis := set
+	if filtered != nil {
+		t.Cleanup(func() { coneMust(t, filtered.Close()) })
+		basis = filtered
+	}
+	definitions, err := basis.PredicateRules(fresh)
+	coneMust(t, err)
+	if len(definitions) == 0 {
+		t.Fatal("cone pass removed the abstracted predicate definition")
+	}
+	for _, definition := range definitions {
+		coneMust(t, definition.Close())
+	}
 }
 
 func TestQuantifierAbstractionRefusesNegationAndRulesWithoutArrays(t *testing.T) {
