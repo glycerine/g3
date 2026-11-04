@@ -80441,10 +80441,11 @@
         },
         {
           "name": "Concrete config_hwf unqueued child decision bounds and replay timestamps reached by splitter",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_bounds.go",
           "tests": [
-            "TestHardwareChildRecentBoundReplayAndPolynomialWatcher"
+            "TestHardwareChildRecentBoundReplayAndPolynomialWatcher",
+            "TestHardwareMidpointSplitterRetainedBranchesAndRefusal"
           ]
         },
         {
