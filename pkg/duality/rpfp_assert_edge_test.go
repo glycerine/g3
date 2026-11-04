@@ -52,6 +52,13 @@ func TestRPFPEdgeAssertionsPersistenceAndUnderapproximation(t *testing.T) {
 					t.Fatal("missing edge timer", name)
 				}
 			}
+			reduced := profile.top.children["ReducedDualEdge"]
+			if reduced.children["RedVars"] == nil || reduced.children["SetEdgeMaps"] == nil || reduced.children["Localize"] == nil {
+				t.Fatal("missing reduced-edge timers", reduced.children)
+			}
+			if reduced.children["SetEdgeMaps"].children["RedVars"] != nil {
+				t.Fatal("SetEdgeMaps must not time its RedVars call")
+			}
 			if profile.current != profile.top {
 				t.Fatal("edge timer did not restore current")
 			}

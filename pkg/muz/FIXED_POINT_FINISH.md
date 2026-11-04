@@ -93,6 +93,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Add the source Duality `Contains` and `Candidate` profile scopes with nested-timer and error coverage; add a PDR reachable-cache closing guard with native refusal/retry coverage. The remaining profile scopes and cache cleanup boundaries stay open in their unit audits.
   - [x] Add Duality RPFP edge-construction and solver-add profile scopes, with cached, uncached and true-edge coverage; timing outside active solve remains open.
   - [x] Add the source `SubtermTruth` and `UnderapproxFormula` call-site profile scopes, checking branch selection and timer restoration on errors and allocation failures.
+  - [x] Preserve Duality profiling during post-solve derivation, certificate and proof output, and time `RedVars` at its source call site; process-global lifetime remains an open difference.
   - [x] Verify PDR reachable-cache construction failure/retry and preservation of earlier constraint disjuncts; connector-publication failure injection remains open.
   - [x] Verify a rejected constraint-cache insertion preserves prior alternatives and references and permits retry; the later connector-publication failure boundary remains unproven.
   - [ ] Resolve the live profiling, PDR reachable-cache cleanup and scale-transform gaps documented in [DUALITY_UNIT_AUDIT.md](DUALITY_UNIT_AUDIT.md), [PDR_UNIT_AUDIT.md](PDR_UNIT_AUDIT.md) and [TRANSFORM_UNIT_AUDIT.md](TRANSFORM_UNIT_AUDIT.md). Their C++ units are classified partial pending the documented work.

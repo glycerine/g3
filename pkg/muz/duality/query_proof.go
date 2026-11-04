@@ -26,7 +26,12 @@ func (e *QueryEngine) GetProof() (ast.ASTRef, error) {
 	}
 	background := append([]*graph.Expr(nil), e.config.Theory...)
 	background = append(background, e.active.background...)
-	proof, err := e.active.engine.GetCounterexample().Proof(e.config.Factory, background...)
+	var proof ast.ASTRef
+	err := e.context.WithProfiler(e.config.Profiler, func() error {
+		var err error
+		proof, err = e.active.engine.GetCounterexample().Proof(e.config.Factory, background...)
+		return err
+	})
 	if err != nil {
 		return ast.ASTRef{}, err
 	}

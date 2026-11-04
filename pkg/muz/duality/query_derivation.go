@@ -19,7 +19,9 @@ func (b *Backend) WriteDerivation(out io.Writer, writeExpr func(io.Writer, ast.A
 	if len(e.active.background) > 0 || len(e.config.Theory) > 0 {
 		return graph.ErrProofWitness
 	}
-	return e.active.engine.GetCounterexample().WriteDerivation(out, writeExpr, e.config.Factory)
+	return e.context.WithProfiler(e.config.Profiler, func() error {
+		return e.active.engine.GetCounterexample().WriteDerivation(out, writeExpr, e.config.Factory)
+	})
 }
 
 // WriteCertificate prints the source fixedpoint model for a safe result, or
@@ -50,5 +52,7 @@ func (b *Backend) WriteCertificate(out io.Writer, writeExpr func(io.Writer, ast.
 	}
 	background := append([]*graph.Expr(nil), e.config.Theory...)
 	background = append(background, e.active.background...)
-	return e.active.engine.GetCounterexample().WriteCertificate(out, writeExpr, e.config.Factory, e.config.Evaluator.Context, e.config.Evaluator.Globals, background...)
+	return e.context.WithProfiler(e.config.Profiler, func() error {
+		return e.active.engine.GetCounterexample().WriteCertificate(out, writeExpr, e.config.Factory, e.config.Evaluator.Context, e.config.Evaluator.Globals, background...)
+	})
 }

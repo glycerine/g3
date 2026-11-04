@@ -183,8 +183,19 @@ func (g *RPFP) ReducedDualEdge(edge *Edge) (_ *Expr, result error) {
 	if err := g.SetEdgeMaps(edge); err != nil {
 		return nil, err
 	}
-	b, vars, err := g.RedVars(edge.Parent)
+	timer, err := startProfile(g.context, "RedVars")
 	if err != nil {
+		return nil, err
+	}
+	b, vars, err := g.RedVars(edge.Parent)
+	err = errors.Join(err, timer.Close())
+	if err != nil {
+		if b != nil {
+			err = errors.Join(err, b.Close())
+		}
+		for _, v := range vars {
+			err = errors.Join(err, v.Close())
+		}
 		return nil, err
 	}
 	defer func() {

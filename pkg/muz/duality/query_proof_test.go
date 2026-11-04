@@ -129,14 +129,28 @@ func TestDualityProofQuantifiedNonlinearAndRepeatedPremises(t *testing.T) {
 	prepared, err := duality.PrepareQuery(m, rules, []uint32{math.MaxUint32, math.MaxUint32, math.MaxUint32}, query, []ast.ASTHandle{p, goal, dead}, math.MaxUint32)
 	must(err)
 	defer prepared.Close()
+	var profile bytes.Buffer
+	must(backend.SetProfileOutput(&profile))
+	options := duality.DefaultQueryOptions()
+	options.Profile = true
+	must(backend.SetOptions(options))
 	status, err := backend.Query(prepared)
 	must(err)
-	must(prepared.Close())
 	if status != lbool.True {
 		t.Fatal("independently reachable Boolean Horn query", status)
 	}
+	if strings.Contains(profile.String(), "\n  Localize...") {
+		t.Fatal("unexpected root-level Localize before derivation", profile.String())
+	}
 	var derivation bytes.Buffer
 	must(backend.WriteDerivation(&derivation, owner.WriteExpression))
+	profile.Reset()
+	status, err = backend.Query(prepared)
+	must(err)
+	must(prepared.Close())
+	if status != lbool.True || !strings.Contains(profile.String(), "\n  Localize...") {
+		t.Fatal("later profile lacks root-level derivation Localize timer", status, profile.String())
+	}
 	if !strings.HasPrefix(derivation.String(), "(derivation\n(step s!") || !strings.Contains(derivation.String(), "(subst") || !strings.Contains(derivation.String(), "(ref ") {
 		t.Fatal(derivation.String())
 	}
