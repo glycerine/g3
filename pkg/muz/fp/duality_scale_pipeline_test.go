@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/proofs"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -108,8 +110,33 @@ func TestDualityScaleRealQueries(t *testing.T) {
 				}
 				// The next query replaces the backend result, but previously
 				// returned proof and model owners remain valid.
-				_, err = m.RefGet(firstProof)
+				proofTerm, err := m.RefGet(firstProof)
 				fragmentMust(t, err)
+				checker, err := proofs.NewChecker(m)
+				fragmentMust(t, err)
+				valid, side, err := checker.Check(proofTerm)
+				fragmentMust(t, err)
+				defer func() { fragmentMust(t, checker.ReleaseSideConditions(side)) }()
+				closed, err := proofs.IsClosed(m, proofTerm)
+				fragmentMust(t, err)
+				if !valid || !closed {
+					t.Fatal("refutation proof is invalid or has open hypotheses")
+				}
+				solver, err := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
+				fragmentMust(t, err)
+				defer func() { fragmentMust(t, solver.Close()) }()
+				for _, condition := range side {
+					fragmentMust(t, solver.Push())
+					negated, err := m.MkNot(condition)
+					fragmentMust(t, err)
+					fragmentMust(t, solver.Assert(negated))
+					status, err := solver.CheckSat(nil)
+					fragmentMust(t, err)
+					fragmentMust(t, solver.Pop(1))
+					if status != lbool.False {
+						t.Fatal("refutation proof side condition is not valid", status)
+					}
+				}
 				_, err = safeModel.Core().HasInterpretation(predicate)
 				fragmentMust(t, err)
 				if arrays {

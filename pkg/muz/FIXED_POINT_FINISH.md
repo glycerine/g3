@@ -69,6 +69,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Match source empty-basis propagation through Datalog projection and union, including source-first failure order, unconditional union cache invalidation and lazy empty discovery. Direct relation and public unary/binary query tests pass; generic non-Datalog consumers remain separate.
   - [x] Support unbound integer head variables in acyclic unary and binary Karr rules, including repeated variables and source assembly order; public, cancellation and overflow-retry tests pass.
   - [x] Support bounded unary Karr integer comparison guards with source comparison and cached-basis behavior; all five operators, operand order, query ownership, cancellation and overflow retry are tested. Other guard shapes remain open.
+  - [x] Extend those Karr guards to negated integer inequalities, covering all four complements, swapped operands and failure recovery.
   - [ ] Resolve the previously supported unary path's multiple-duplicate-group ordering divergence: source map traversal can change Karr row and generator order, while Go currently uses first occurrence. Do not remove existing support or port source hashing.
   - [ ] Implement and verify the live configured Datalog Karr relation routes and operation semantics through their actual consumers.
   - [x] Restore the PDR manager's live pre-converter model TRACE for model export, validation and direct answers; test source ordering, disabled tracing and ownership.
@@ -140,6 +141,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Verify PDR/QPDR scaled models against original clauses, BMC/QBMC scaled queries and their source empty-model contract, and CLP enabled/disabled scale queries, answers, certificates and empty-model ownership; Horn and Duality scale consumers remain open.
   - [x] Verify Duality real-valued expression queries across scale and quantify-arrays options, including transformed predicate arity and retry; proof and model-converter coverage remains open.
   - [x] Verify those Duality query proof and model result contracts and ownership across later queries; transformed model reconstruction remains open.
+  - [x] Independently verify Duality scale-query proof closure and discharge each checker side condition through the solver; asserted-leaf provenance and transformed model reconstruction remain open.
   - [x] Verify Spacer propagation continues to a later predicate after an earlier predicate fails to propagate; the test checks resulting frames and convergence at the context boundary.
   - [x] Verify Farkas sign and consequence semantics for integer and real strict/non-strict bounds, negations and equalities, using independently evaluated boundary points.
   - [x] Check repeated public PDR delayed-scope assertion failures recover for a later check; actual partial-pop failure remains covered separately through the cleanup owner.
