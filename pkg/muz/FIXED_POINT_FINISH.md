@@ -70,6 +70,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Support unbound integer head variables in acyclic unary and binary Karr rules, including repeated variables and source assembly order; public, cancellation and overflow-retry tests pass.
   - [x] Support bounded unary Karr integer comparison guards with source comparison and cached-basis behavior; all five operators, operand order, query ownership, cancellation and overflow retry are tested. Other guard shapes remain open.
   - [x] Extend those Karr guards to negated integer inequalities, covering all four complements, swapped operands and failure recovery.
+  - [x] Match the bounded Karr disjunction of two equalities on one integer variable as a source interval; direct bounds, normalized query and failure-retry tests pass.
   - [ ] Resolve the previously supported unary path's multiple-duplicate-group ordering divergence: source map traversal can change Karr row and generator order, while Go currently uses first occurrence. Do not remove existing support or port source hashing.
   - [ ] Implement and verify the live configured Datalog Karr relation routes and operation semantics through their actual consumers.
   - [x] Restore the PDR manager's live pre-converter model TRACE for model export, validation and direct answers; test source ordering, disabled tracing and ownership.

@@ -12,11 +12,13 @@ import (
 )
 
 type karrGuardRule struct {
-	body     ast.ASTHandle
-	row      []big.Rat
-	constant big.Rat
-	equal    bool
-	head     karrHeadPlan
+	body           ast.ASTHandle
+	row            []big.Rat
+	constant       big.Rat
+	equal          bool
+	secondRow      []big.Rat
+	secondConstant big.Rat
+	head           karrHeadPlan
 }
 
 func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle, karrGuardRule, error) {
@@ -145,6 +147,16 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 	if guardArity != 2 {
 		return none, out, ErrKarrDatalogFragment
 	}
+	if !negated && family == a.manager.BasicFamilyID() && op == ast.ASTOpOr {
+		if err = a.compileKarrDisjunction(guard, positions, &out); err != nil {
+			return none, out, err
+		}
+		out.head, err = a.compileKarrHead(head, columns)
+		if err != nil {
+			return none, out, err
+		}
+		return hd, out, nil
+	}
 	leftMul, rightMul := int64(1), int64(-1)
 	if !negated && family == a.manager.BasicFamilyID() && op == ast.ASTOpEq {
 		out.equal = true
@@ -221,6 +233,11 @@ func (a *karrDatalogActivation) applyGuardRule(r karrGuardRule, source *rel.Karr
 	result := source.Clone()
 	if err := rel.KarrSourceFilterConstraint(result, r.row, &r.constant, r.equal); err != nil {
 		return nil, err
+	}
+	if r.secondRow != nil {
+		if err := rel.KarrSourceFilterConstraint(result, r.secondRow, &r.secondConstant, false); err != nil {
+			return nil, err
+		}
 	}
 	if err := a.checkpoint(); err != nil {
 		return nil, err
