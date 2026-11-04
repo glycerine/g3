@@ -20,7 +20,7 @@ func (s *realValueStore) derivativeAnyPolynomial(p []*realValue, usePrem bool) (
 		if e != nil {
 			return nil, e
 		}
-		result[i-1], e = s.multiplyAnyCanonicalValues(p[i], factor, usePrem)
+		result[i-1], e = s.multiplyAnyCanonicalValues(factor, p[i], usePrem)
 		e = errors.Join(e, s.releaseSturmScratch(factor))
 		if e != nil {
 			return nil, e

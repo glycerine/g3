@@ -77338,12 +77338,14 @@
           ]
         },
         {
-          "name": "Rational-coefficient derivative for Sturm-Tarski sequence input with nil zero coefficients and source trailing-size adjustment (realclosure.cpp:3590-3606); nonrational value arithmetic and bounded Sturm paths remain open",
-          "status": "partial",
+          "name": "Value-polynomial derivative for Sturm-Tarski sequence input, preserving source coefficient multiplication order, nil zero coefficients and trailing-size adjustment (realclosure.cpp:3590-3606)",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/sign_polynomial_derivative.go",
           "tests": [
             "TestRealClosureRationalDerivativeKeepsCoefficientOwnership",
-            "TestRealClosureRationalPolynomialProducerReservationPrefixes"
+            "TestRealClosureRationalPolynomialProducerReservationPrefixes",
+            "TestAnyPolynomialDerivativeAndMonicNormalization",
+            "TestAnySturmSequenceAlgebraicCoefficients"
           ]
         },
         {
