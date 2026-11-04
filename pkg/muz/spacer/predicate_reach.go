@@ -104,6 +104,13 @@ func (p *PredicateTransformer) AddReachFact(fact *ReachFact) (_ bool, resultErr 
 	if err != nil {
 		return false, err
 	}
+	initial, err := fact.IsInitial()
+	if err != nil {
+		return false, err
+	}
+	if err = p.traceAddReachFact(value, initial); err != nil {
+		return false, err
+	}
 	for _, prior := range p.reachFacts {
 		priorValue, getErr := prior.Fact()
 		if getErr != nil {
@@ -112,10 +119,6 @@ func (p *PredicateTransformer) AddReachFact(fact *ReachFact) (_ bool, resultErr 
 		if priorValue == value {
 			return false, nil
 		}
-	}
-	initial, err := fact.IsInitial()
-	if err != nil {
-		return false, err
 	}
 	if initial && len(p.reachFacts) != 0 {
 		lastInitial, lastErr := p.reachFacts[len(p.reachFacts)-1].IsInitial()
