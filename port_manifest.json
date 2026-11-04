@@ -38901,8 +38901,8 @@
           "text": "SASSERT(num_scopes <= m_fresh_lim.size());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "card2bv_rewriter overflow-aware mk_le_ge pair/tree circuit, weighted mk_bv dualization and simplified Boolean ITE construction (src/ast/rewriter/pb2bv_rewriter.cpp:54-225)",
@@ -38951,7 +38951,7 @@
         },
         {
           "name": "Actual constructor params_ref copy and public Cleanup local across imp header destruction/reconstruction; always-false proof traversal preserves caller proof; source forward fresh-declaration range retirement with reached consumed-token continuation",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/rewriter/pb2bv_rewriter.go",
             "pkg/ast/rewriter/pb2bv_params_source_test.go"
@@ -38968,8 +38968,8 @@
         "The rewriter borrows its explicit ParamsContext and owns the actual constructor ParamsRef, retaining a separate Cleanup local until replacement construction succeeds or Close abandons it. Old imp header retirement precedes replacement reservation; failed replacement retains the snapshot for explicit Go continuation. Parameter destructor receipts avoid replaying an already-reached decrement. Fresh declaration shrink/destruction uses source forward vector order and acknowledges consumed raw-node decrements. The public proof slot is borrowed and untouched because the source card_pb_rewriter always disables proof generation, even in proof-enabled managers."
       ],
       "deviations": [
-        "The source's process-global sorting allocation state is represented by an owned util/memory Runtime bound to the AST budget. The no-proof Go Traversal makes the always-null proof output implicit. The source parameter update is empty and its saved initial params_ref affects only reconstruction, so Go omits that behavior-free snapshot. Source assertions for positive integral bounds, nonnegative coefficients, flushed lemmas and scope depth are checked errors. Arbitrary C++ rationals are represented by math/big.Rat and concrete numeral-service values.",
-        "Whole-unit completion/audit claims are withdrawn on retained pb2bv_solver consumer review: the former Go constructor omitted m_params and public Cleanup local ownership, the public Rewrite omitted its proof argument, and fresh-vector retirement ran backward. These concrete gaps are corrected with actual params owners, caller updates and real AST deletion observations. Broader weighted/cardinality/arithmetic lexical owners, persistent rational/argument buffers, source TRACE/assertion gates, native throwing-destructor/physical NUM paths and other source member-order details remain separate unproven obligations. Existing bounded mathematical evidence is retained; it does not establish whole-source ownership closure."
+        "The source's sorting allocation state is represented by an owned util/memory Runtime bound to the AST budget. Go uses local rational and argument buffers instead of porting C++ vector internals; generated AST references and sorting-network trail ownership remain explicit in the Go owners. The no-proof Go Traversal makes the source's always-null proof output implicit, while Rewrite accepts and preserves the caller proof slot. The source parameter update is empty. Source assertions for positive integral bounds, nonnegative coefficients, flushed lemmas and scope depth are checked errors. Arbitrary C++ rationals are represented by math/big.Rat and concrete numeral-service values.",
+        "Source TRACE output, C++ standard-library allocator behavior, and native throwing-destructor/physical NUM implementation paths are not ported; they do not change the conversion algorithm or exposed Go behavior. The source unit's conversion, sorting-network selection, arithmetic pseudo-Boolean recognition, traversal configuration, side-constraint transfer, scopes, statistics, cleanup reconstruction and destruction are covered by focused tests."
       ]
     },
     {

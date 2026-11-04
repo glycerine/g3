@@ -31,7 +31,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/ast/for_each_expr.h` — Counter/skolem traversal and each retained consumer’s concrete postorder walk are covered; AST, model-finder, reduce-args, dt2bv, arithmetic, ackermannization, and UFBV focused checks pass. Unused generic template adapters are inapplicable.
 - [x] `src/ast/rewriter/enum2bv_rewriter.cpp` — Enum conversion, quantifier bounds, proof composition, parameters, scope cleanup, and caller-owned flushed constraints are covered; focused rewriter, dt2bv, and enum2bv solver tests pass.
 - [x] `src/ast/rewriter/enum2bv_rewriter.h` — Every retained public operation has a concrete Go method with explicit ownership; the rewriter, dt2bv tactic, and enum2bv solver API tests pass.
-- [ ] `src/ast/rewriter/pb2bv_rewriter.cpp`
+- [x] `src/ast/rewriter/pb2bv_rewriter.cpp` — Weighted and cardinality conversion, arithmetic recognition, traversal, sorting-network clauses, scopes, proof preservation, cleanup, and ownership are covered by focused tests.
 - [ ] `src/ast/rewriter/pb2bv_rewriter.h`
 - [ ] `src/cmd_context/cmd_context.cpp`
 - [ ] `src/cmd_context/cmd_context.h`
