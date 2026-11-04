@@ -395,6 +395,21 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 				fragmentMust(t, cause)
 				fragmentMust(t, engine.AddRule(second, "external-interval-cartesian-invalid-second"))
 			}
+			if shape == "repeated-tail" {
+				one, cause := manager.ArithmeticIntegerNumeralText("1")
+				fragmentMust(t, cause)
+				two, cause := manager.ArithmeticIntegerNumeralText("2")
+				fragmentMust(t, cause)
+				fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{one}))
+				fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{two}))
+				resetExternalIntervalCartesianCallbacks(callbacks)
+				status, queryErr := engine.QueryPredicate(headDeclaration)
+				fragmentMust(t, queryErr)
+				if status != lbool.Undef || operationCount(callbacks.operations, ast.DatalogOpJoin) != 1 || operationCount(callbacks.operations, ast.DatalogOpUnion) != 1 {
+					t.Fatal("same-predicate Cartesian rule did not execute", status, callbacks.operations)
+				}
+				return
+			}
 
 			status, queryErr := engine.QueryPredicate(headDeclaration)
 			if status != lbool.Undef || !errors.Is(queryErr, ErrExternalIntervalDatalogFragment) || engine.externalIntervalDatalog != nil || len(callbacks.operations) != 0 {

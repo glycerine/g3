@@ -192,7 +192,7 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 			arguments[index][column].variable = variable
 		}
 	}
-	if plan.head == plan.left || plan.head == plan.right || plan.left == plan.right {
+	if plan.head == plan.left || plan.head == plan.right {
 		return nil, ErrExternalIntervalDatalogFragment
 	}
 	leftArguments, rightArguments := arguments[1], arguments[2]
