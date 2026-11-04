@@ -130,7 +130,7 @@ func (g *RPFP) labelsForFormula(root ast.ASTHandle) (labels []usymbol.Symbol, re
 					all := (op == ast.ASTOpAnd && truth) || (op != ast.ASTOpAnd && !truth)
 					childTruth := truth != negated
 					if !all {
-						b, err := g.subtermTruth(memo, a)
+						b, err := g.timedSubtermTruth(memo, a)
 						if err != nil {
 							return err
 						}

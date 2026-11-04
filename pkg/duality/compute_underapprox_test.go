@@ -53,8 +53,14 @@ func TestComputeUnderapproxRecursiveModelAndAllocationFailures(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal(status)
 	}
+	profile := NewProfiler(nil)
+	ctx.activeProfiler = profile
 	value, err := graph.ComputeUnderapprox(parent, simplifier)
 	must(err)
+	phase := profile.top.children["UnderapproxFormula"]
+	if phase == nil || profile.current != profile.top || phase.children["RedVars"] != nil {
+		t.Fatal("recursive underapproximation timer scopes")
+	}
 	must(value.Close())
 	full, err := child.Underapprox.IsFull()
 	must(err)
@@ -72,6 +78,9 @@ func TestComputeUnderapproxRecursiveModelAndAllocationFailures(t *testing.T) {
 		m.Budget().FailAfter(n)
 		value, failure := graph.ComputeUnderapprox(parent, simplifier)
 		m.Budget().FailAfter(-1)
+		if profile.current != profile.top {
+			t.Fatal("underapproximation timer left active after allocation failure", n)
+		}
 		if failure == nil {
 			must(value.Close())
 			complete = true

@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/muz/dataflow"
 	"github.com/glycerine/g3/pkg/muz/transforms"
 )
 
@@ -111,6 +112,13 @@ func TestQuantifierAbstractionExpandsInternalArrayPredicate(t *testing.T) {
 	}
 	if !foundFreshHead || !foundQuantifiedTail {
 		t.Fatal("missing transformed head or quantified tail", foundFreshHead, foundQuantifiedTail)
+	}
+	// Abstraction makes the formerly direct dependency occur inside a
+	// quantified interpreted tail. Cone analysis must preserve its definition.
+	reachable, err := dataflow.TopDown(set)
+	coneMust(t, err)
+	if !reachable.IsReachable(fresh) {
+		t.Fatal("cone analysis lost the abstracted predicate definition")
 	}
 }
 

@@ -2,6 +2,7 @@ package duality
 
 import (
 	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -176,7 +177,7 @@ func (s *implicantState) reduce(h ast.ASTHandle, positive bool) (result error) {
 						return err
 					}
 					if !all {
-						value, err := s.graph.subtermTruth(s.truth, child)
+						value, err := s.graph.timedSubtermTruth(s.truth, child)
 						if err != nil {
 							return err
 						}
@@ -242,7 +243,7 @@ func (s *implicantState) resolve(h ast.ASTHandle) (ast.ASTHandle, error) {
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			value, err := s.graph.subtermTruth(s.truth, cond)
+			value, err := s.graph.timedSubtermTruth(s.truth, cond)
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
@@ -339,10 +340,18 @@ func (g *RPFP) FixCurrentState(edge *Edge) (result error) {
 		}
 		controls = append(controls, control)
 	}
+	timer, err := startProfile(g.context, "UnderapproxFormula")
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	decision, err := g.UnderapproxFormula(formula, controls)
 	if err != nil {
 		return err
 	}
 	defer func() { result = errors.Join(result, decision.Close()) }()
+	if err = timer.Close(); err != nil {
+		return err
+	}
 	return g.ConstrainEdgeLocalized(edge, decision)
 }

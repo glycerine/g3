@@ -25,6 +25,18 @@ func (g *RPFP) SubtermTruth(term *Expr) (int, error) {
 	}
 	return g.subtermTruth(make(map[ast.ASTHandle]int), h)
 }
+
+// timedSubtermTruth is used at the source's explicitly timed call sites;
+// recursive and other calls to subtermTruth are intentionally untimed.
+func (g *RPFP) timedSubtermTruth(memo map[ast.ASTHandle]int, h ast.ASTHandle) (_ int, result error) {
+	timer, err := startProfile(g.context, "SubtermTruth")
+	if err != nil {
+		return 2, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
+	return g.subtermTruth(memo, h)
+}
+
 func (g *RPFP) subtermTruth(memo map[ast.ASTHandle]int, h ast.ASTHandle) (out int, result error) {
 	if value, found := memo[h]; found {
 		return value, nil

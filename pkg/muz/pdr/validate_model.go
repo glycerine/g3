@@ -101,6 +101,9 @@ func (c *Context) validateUNSATResult() (resultErr error) {
 			owner.interpretations = owner.interpretations[:len(owner.interpretations)-1]
 		}
 	}
+	if err = c.traceInductiveModel(md); err != nil {
+		return err
+	}
 	return c.validateInductiveModel(md)
 }
 

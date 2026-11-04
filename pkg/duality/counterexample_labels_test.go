@@ -6,6 +6,7 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestCounterexampleLabelsBranchOrderPolarityAndSharing(t *testing.T) {
@@ -64,24 +65,37 @@ func TestCounterexampleLabelsBranchOrderPolarityAndSharing(t *testing.T) {
 	imp := keep(m.MkImplies(negative, a))
 	iff := keep(m.MkIff(no, negative))
 	for _, tc := range []struct {
-		name string
-		h    ast.ASTHandle
-		want []usymbol.Symbol
+		name  string
+		h     ast.ASTHandle
+		want  []usymbol.Symbol
+		timed int
 	}{
-		{"conjunction", and, []usymbol.Symbol{first, second}},
-		{"first disjunct", or, []usymbol.Symbol{first}},
-		{"shared once", shared, []usymbol.Symbol{first}},
-		{"negative label", not, []usymbol.Symbol{second}},
-		{"implication consequent first", imp, []usymbol.Symbol{first}},
-		{"equivalence polarity", iff, []usymbol.Symbol{second}},
+		{"conjunction", and, []usymbol.Symbol{first, second}, 0},
+		{"first disjunct", or, []usymbol.Symbol{first}, 1},
+		{"shared once", shared, []usymbol.Symbol{first}, 0},
+		{"negative label", not, []usymbol.Symbol{second}, 0},
+		{"implication consequent first", imp, []usymbol.Symbol{first}, 1},
+		{"equivalence polarity", iff, []usymbol.Symbol{second}, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			profile := NewProfiler(nil)
+			var tick int64
+			profile.now = func() time.Time { tick++; return time.Unix(tick, 0) }
+			ctx.activeProfiler = profile
+			defer func() { ctx.activeProfiler = nil }()
 			got, err := g.labelsForFormula(tc.h)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("labels %v want %v", got, tc.want)
+			}
+			child := profile.top.children["SubtermTruth"]
+			if tc.timed == 0 && child != nil || tc.timed != 0 && (child == nil || child.elapsed != time.Duration(tc.timed)*time.Second) {
+				t.Fatalf("SubtermTruth scope: got %v, want %d samples", child, tc.timed)
+			}
+			if profile.current != profile.top {
+				t.Fatal("timer scope not restored")
 			}
 		})
 	}

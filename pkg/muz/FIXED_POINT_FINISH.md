@@ -60,7 +60,8 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Reclassify `dl_instruction.cpp/.h` and `dl_relation_manager.cpp` as partial: source execution reaches registered abstract/product plugin dispatch while Go implements bounded concrete consumers; preserve their existing method records and tested functionality.
   - [x] Correct the Karr inventory: source Datalog can register and select `karr_relation`; the Go invariant transform's concrete Karr operations do not establish that public Datalog route. Keep both Karr units partial without adding a universal adapter.
   - [ ] Implement and verify the live configured Datalog Karr relation routes and operation semantics through their actual consumers.
-  - [ ] Complete the PDR manager's live pre-converter model TRACE and ownership audit; the separate rule-manager diagnostic display has no source caller.
+  - [x] Restore the PDR manager's live pre-converter model TRACE for model export, validation and direct answers; test source ordering, disabled tracing and ownership.
+  - [ ] Complete the PDR manager ownership and remaining diagnostic audit; the separate rule-manager diagnostic display has no source caller.
   - [x] Classify the Duality CMake component as a Go package-discovery replacement without promoting its implementation; narrow the Duality interface claim to its tested paths. Correct stale PDR solver-cleanup descriptions and record the deliberate QBMC fixes relative to the bundled C++ source.
   - [x] Match the source model-evaluator exception fallback for QBMC variable bindings, preserving the separately approved corrected derivation-level behavior; a real evaluator exception and allocation-failure retry are covered.
   - [x] Preserve a failed PDR delayed-scope cleanup for retry during solver close; a native partial-pop test covers owner retention and pending-operation refusal, while end-to-end injection into a real check remains unproven.
@@ -78,6 +79,8 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Publish the source proof converter for reachable proof-enabled Horn tactic results and verify its proof survives goal reset.
   - [ ] Reconcile Horn verification query construction and model filtering: source uses a sole query directly and filters a synthetic query for zero or multiple queries; the current Go verification path always synthesizes a query.
   - [x] Audit the Spacer matrix unit in [SPACER_UNIT_AUDIT.md](SPACER_UNIT_AUDIT.md), with copy-ownership, signed-pivot and seeded multirow Farkas core oracles. Correct the exposed equality/inequality operator-family collision; proof marking and full interpolation remain open.
+  - [x] Audit the concrete dataflow/reachability consumer in [DATAFLOW_UNIT_AUDIT.md](DATAFLOW_UNIT_AUDIT.md), including unreachable constructed facts and outputs without rules; nested-dependency source fidelity remains under review.
+  - [x] Verify compound Horn head/negative-body hoisting order and proof conclusion, first-true linear BMC rule selection, and Spacer ITE implicant branch selection against the source paths.
   - [x] Audit TBV consumers and bound the live-wrapper ledger, with deallocation, refusal/retry, stale-owner, reset and close coverage; [REL_UNIT_AUDIT.md](REL_UNIT_AUDIT.md) records the source mapping and limits.
   - [x] Check the complete single-bit TBV truth tables, both containment modes and source complement ordering, including undefined bits.
   - [x] Preserve scale-transform temporary owners across cleanup refusal and publish its predicate mapping after successful construction; staged native-callback and mixed-sort failure tests cover the bounded recovery paths.
@@ -86,6 +89,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Check repeated public PDR delayed-scope assertion failures recover for a later check; actual partial-pop failure remains covered separately through the cleanup owner.
   - [x] Add the source Duality `Contains` and `Candidate` profile scopes with nested-timer and error coverage; add a PDR reachable-cache closing guard with native refusal/retry coverage. The remaining profile scopes and cache cleanup boundaries stay open in their unit audits.
   - [x] Add Duality RPFP edge-construction and solver-add profile scopes, with cached, uncached and true-edge coverage; timing outside active solve remains open.
+  - [x] Add the source `SubtermTruth` and `UnderapproxFormula` call-site profile scopes, checking branch selection and timer restoration on errors and allocation failures.
   - [x] Verify PDR reachable-cache construction failure/retry and preservation of earlier constraint disjuncts; connector-publication failure injection remains open.
   - [ ] Resolve the live profiling, PDR reachable-cache cleanup and scale-transform gaps documented in [DUALITY_UNIT_AUDIT.md](DUALITY_UNIT_AUDIT.md), [PDR_UNIT_AUDIT.md](PDR_UNIT_AUDIT.md) and [TRANSFORM_UNIT_AUDIT.md](TRANSFORM_UNIT_AUDIT.md). Their C++ units are classified partial pending the documented work.
   - [x] Correct the stale whole-unit completion claims for `dl_compiler.cpp/.h`: completed finite/explanation methods remain recorded, while live abstract/product/widening dispatch makes both units partial until their broader consumers are integrated and audited.

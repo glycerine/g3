@@ -79,7 +79,12 @@ func TestRPFPFixCurrentStateDoesNotFreezeUnderapproximationControls(t *testing.T
 		t.Fatal(status)
 	}
 	must(native.Pop(1))
+	profile := NewProfiler(nil)
+	ctx.activeProfiler = profile
 	must(g.FixCurrentState(edge))
+	if profile.top.children["UnderapproxFormula"] == nil || profile.current != profile.top {
+		t.Fatal("fixed-state underapproximation timer not restored")
+	}
 	status, err = g.Check(parent, []*Node{child}, nil)
 	must(err)
 	if status != lbool.True {

@@ -6,6 +6,7 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	"math/big"
 	"testing"
+	"time"
 )
 
 func TestRPFPSubtermTruthNativeBooleanConnectives(t *testing.T) {
@@ -75,4 +76,35 @@ func TestRPFPSubtermTruthNativeBooleanConnectives(t *testing.T) {
 	must(err)
 	h, err = m.MkLabel(true, []usymbol.Symbol{labelName}, ph)
 	check(h, err, 1)
+}
+
+func TestTimedSubtermTruthRestoresScopeOnError(t *testing.T) {
+	ctx, _, _ := dualityNativeSolverFixture(t)
+	g, err := NewRPFP(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	profile := NewProfiler(nil)
+	var tick int64
+	profile.now = func() time.Time { tick++; return time.Unix(tick, 0) }
+	ctx.activeProfiler = profile
+	defer func() { ctx.activeProfiler = nil }()
+	if err := profile.TimerStart("outer"); err != nil {
+		t.Fatal(err)
+	}
+	outer := profile.current
+	if _, err := g.timedSubtermTruth(make(map[ast.ASTHandle]int), ast.ASTHandle{}); err == nil {
+		t.Fatal("invalid subterm accepted")
+	}
+	if profile.current != outer || outer.children["SubtermTruth"].elapsed != time.Second {
+		t.Fatal("failed subterm evaluation did not close its timer")
+	}
+	profile.now = nil
+	if _, err := g.timedSubtermTruth(make(map[ast.ASTHandle]int), ast.ASTHandle{}); err == nil {
+		t.Fatal("timer start failure ignored")
+	}
+	if profile.current != outer {
+		t.Fatal("failed timer start changed scope")
+	}
 }

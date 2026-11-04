@@ -37,7 +37,7 @@ func TestReachabilityRunsFromIngestedHornProgram(t *testing.T) {
 	reachMust(t, err)
 	declarations := make(map[string]ast.ASTHandle)
 	applications := make(map[string]ast.ASTHandle)
-	for _, name := range []string{"P", "Q", "R", "U", "V", "N", "M"} {
+	for _, name := range []string{"P", "Q", "R", "U", "V", "N", "M", "S", "Z"} {
 		symbol, e := manager.Symbols.Intern("reach-" + name)
 		reachMust(t, e)
 		declarations[name], e = manager.MkFuncDecl(symbol, nil, boolean, ast.ASTFuncDeclInfo{})
@@ -64,8 +64,14 @@ func TestReachabilityRunsFromIngestedHornProgram(t *testing.T) {
 	negative, err := manager.MkImplies(notN, applications["M"])
 	reachMust(t, err)
 	add(negative, "not-N-M")
+	both, err := manager.MkAndArray([]ast.ASTHandle{applications["P"], applications["U"]})
+	reachMust(t, err)
+	partial, err := manager.MkImplies(both, applications["S"])
+	reachMust(t, err)
+	add(partial, "partial-S")
 	reachMust(t, set.SetOutputPredicate(declarations["R"]))
 	reachMust(t, set.SetOutputPredicate(declarations["M"]))
+	reachMust(t, set.SetOutputPredicate(declarations["Z"]))
 	if _, err = dataflow.BottomUp(set); !errors.Is(err, dataflow.ErrReachabilityRules) {
 		t.Fatal("open rule set accepted by dataflow", err)
 	}
@@ -95,8 +101,11 @@ func TestReachabilityRunsFromIngestedHornProgram(t *testing.T) {
 	if !top.IsReachable(declarations["M"]) || !top.IsReachable(declarations["N"]) {
 		t.Fatal("top-down negative-tail reachability does not match source")
 	}
+	if bottom.IsReachable(declarations["S"]) || top.IsReachable(declarations["Z"]) {
+		t.Fatal("partially supported head or output without rules marked reachable")
+	}
 	knownOrder := bottom.KnownDeclarations()
-	wantKnownOrder := []ast.ASTHandle{declarations["P"], declarations["M"], declarations["Q"], declarations["R"]}
+	wantKnownOrder := []ast.ASTHandle{declarations["P"], declarations["M"], declarations["Q"], declarations["S"], declarations["R"]}
 	if len(knownOrder) != len(wantKnownOrder) {
 		t.Fatal("source fact database order", knownOrder)
 	}
@@ -107,12 +116,12 @@ func TestReachabilityRunsFromIngestedHornProgram(t *testing.T) {
 		}
 		known[declaration] = true
 	}
-	for _, name := range []string{"P", "Q", "R", "M"} {
+	for _, name := range []string{"P", "Q", "R", "M", "S"} {
 		if !known[declarations[name]] {
 			t.Fatal("source fact database entry omitted", name)
 		}
 	}
-	for _, name := range []string{"U", "V", "N"} {
+	for _, name := range []string{"U", "V", "N", "Z"} {
 		if known[declarations[name]] {
 			t.Fatal("unevaluated declaration received a source fact entry", name)
 		}

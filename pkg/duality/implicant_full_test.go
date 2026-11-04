@@ -46,8 +46,13 @@ func TestDualityFullImplicantAllBranchesAndSourceAtomOrder(t *testing.T) {
 	implies := wrap(m.MkImplies(qh, ph))
 	iff := wrap(m.MkIff(ph, qh))
 	formula := wrap(m.MkAndArgs([]ast.ASTHandle{raw(disjunction), raw(nq), raw(implies), raw(iff), ph}))
+	profile := NewProfiler(nil)
+	ctx.activeProfiler = profile
 	out, err := g.UnderapproxFullFormula(formula, true)
 	must(err)
+	if profile.top.children["UnderapproxFormula"] == nil || profile.current != profile.top {
+		t.Fatal("full underapproximation timer not restored")
+	}
 	defer out.Close()
 	count, err := m.GetNumArgs(raw(out))
 	must(err)
@@ -62,8 +67,13 @@ func TestDualityFullImplicantAllBranchesAndSourceAtomOrder(t *testing.T) {
 		t.Fatal("all-branch cube order/polarity changed")
 	}
 	// Full extraction includes q's false value, unlike satisfying-branch extraction.
+	profile = NewProfiler(nil)
+	ctx.activeProfiler = profile
 	branch, err := g.UnderapproxFormula(disjunction, nil)
 	must(err)
+	if profile.top.children["UnderapproxFormula"] != nil || profile.current != profile.top {
+		t.Fatal("direct implicant incorrectly recorded outer timer")
+	}
 	defer branch.Close()
 	if raw(branch) != ph {
 		t.Fatal("satisfying-branch reference changed")

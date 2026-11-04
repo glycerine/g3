@@ -2,6 +2,7 @@ package duality
 
 import (
 	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -164,7 +165,15 @@ func (g *RPFP) UnderapproxFullFormula(formula *Expr, extensional bool) (out *Exp
 		done[h] = true
 		return nil
 	}
+	timer, err := startProfile(g.context, "UnderapproxFormula")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	if err = visit(root); err != nil {
+		return nil, err
+	}
+	if err = timer.Close(); err != nil {
 		return nil, err
 	}
 	var combined ast.ASTHandle

@@ -3,6 +3,7 @@ package duality
 // Source: duality_rpfp.cpp, RPFP::ComputeUnderapprox.
 import (
 	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/interp"
 )
@@ -81,6 +82,11 @@ func (g *RPFP) computeUnderapprox(node *Node, simplifier *interp.Manager, active
 	}
 	terms = append(terms, activation)
 	terms = append(terms, variables...)
+	timer, err := startProfile(g.context, "UnderapproxFormula")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	dual := node.Outgoing.dual
 	var dualTerm *Expr
 	if dual == (ast.ASTRef{}) {
@@ -108,6 +114,9 @@ func (g *RPFP) computeUnderapprox(node *Node, simplifier *interp.Manager, active
 		return nil, err
 	}
 	terms = append(terms, edge)
+	if err = timer.Close(); err != nil {
+		return nil, err
+	}
 	args := make([]ast.ASTHandle, 0, len(node.Outgoing.Children)+1)
 	for i := range node.Outgoing.Children {
 		h, err := terms[i].Raw()

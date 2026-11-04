@@ -328,6 +328,18 @@ func traceHasNonlinearRule(root *ModelNode) (bool, error) {
 }
 
 func (c *Context) unsatAnswer(queryDeclaration ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	// The direct expression path normally avoids constructing a model; source
+	// to_expr constructs one and traces it before model-to-expression conversion.
+	if c.manager.BorrowSourceTraceTags().ShouldTrace("pdr") {
+		md, err := c.finiteFrameModel(c.inductive, queryDeclaration)
+		if err != nil {
+			return result, err
+		}
+		owner := &pdrModelExportOwner{manager: c.manager, model: md}
+		if err = owner.dispose(nil); err != nil {
+			return result, err
+		}
+	}
 	references := make([]ast.ASTRef, 0)
 	defer func() {
 		for index := len(references) - 1; index >= 0; index-- {

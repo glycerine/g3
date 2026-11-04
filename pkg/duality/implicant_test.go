@@ -5,6 +5,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"math/big"
 	"testing"
+	"time"
 )
 
 func TestRPFPImplicantSourceOrderPolarityAndITE(t *testing.T) {
@@ -63,7 +64,16 @@ func TestRPFPImplicantSourceOrderPolarityAndITE(t *testing.T) {
 			t.Fatal("unexpected source literal selection", got, want)
 		}
 	}
+	profile := NewProfiler(nil)
+	var tick int64
+	profile.now = func() time.Time { tick++; return time.Unix(tick, 0) }
+	ctx.activeProfiler = profile
 	same(extract(pin(m.MkOr(ph, qh)), nil), ph)
+	child := profile.top.children["SubtermTruth"]
+	if child == nil || child.elapsed != time.Second || profile.current != profile.top {
+		t.Fatal("disjunction should time one selected subterm")
+	}
+	ctx.activeProfiler = nil
 	same(extract(pin(m.MkImplies(ph, qh)), nil), qh)
 	same(extract(pin(m.MkIff(ph, qh)), nil), qh)
 	duplicate := pin(m.MkAnd(ph, ph))
@@ -81,7 +91,16 @@ func TestRPFPImplicantSourceOrderPolarityAndITE(t *testing.T) {
 	two := pin(m.ArithmeticNumeralRat(big.NewRat(2, 1), true))
 	ite := pin(m.MkIte(ph, one, two))
 	atom := pin(m.MkEq(ite, one))
+	profile = NewProfiler(nil)
+	tick = 0
+	profile.now = func() time.Time { tick++; return time.Unix(tick, 0) }
+	ctx.activeProfiler = profile
 	out := extract(atom, nil)
+	child = profile.top.children["SubtermTruth"]
+	if child == nil || child.elapsed != time.Second || profile.current != profile.top {
+		t.Fatal("ITE should time one condition")
+	}
+	ctx.activeProfiler = nil
 	raw, err := out.Raw()
 	must(err)
 	n, err := m.GetNumArgs(raw)

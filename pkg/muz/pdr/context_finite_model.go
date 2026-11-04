@@ -105,6 +105,9 @@ func (c *Context) finiteFrameModel(level uint32, queryDeclaration ast.ASTHandle)
 			return result, x
 		}
 	}
+	if err = c.traceInductiveModel(result); err != nil {
+		return result, err
+	}
 	if err = owner.releaseTemporaries(); err != nil {
 		return result, err
 	}
