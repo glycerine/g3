@@ -6,18 +6,69 @@ import "errors"
 
 // signedRemainderAny computes -(left mod right) over the retained value field.
 func (s *realValueStore) signedRemainderAny(left, right []*realValue, usePrem bool) (result []*realValue, err error) {
-	quotient, remainder, err := s.divideAnyPolynomials(left, right, usePrem)
+	if err = s.checkAnyPolynomial(left, true); err != nil {
+		return nil, err
+	}
+	if err = s.checkAnyPolynomial(right, false); err != nil {
+		return nil, err
+	}
+	if len(right) == 1 {
+		return nil, nil
+	}
+	result, err = s.retainRationalPolynomial(left)
 	if err != nil {
 		return nil, err
 	}
-	if err = s.releaseSturmCoefficients(quotient); err != nil {
-		return nil, errors.Join(err, s.releaseSturmCoefficients(remainder))
+	fail := func(cause error) ([]*realValue, error) {
+		return nil, errors.Join(cause, s.releaseSturmCoefficients(result))
 	}
-	result, err = s.negateAnyPolynomial(remainder)
-	err = errors.Join(err, s.releaseSturmCoefficients(remainder))
+	for len(result) >= len(right) {
+		if err = s.checkpoint(); err != nil {
+			return fail(err)
+		}
+		shift := len(result) - len(right)
+		ratio, e := s.divideRetainedValues(result[len(result)-1], right[len(right)-1])
+		if e != nil {
+			return fail(e)
+		}
+		for i := 0; i+1 < len(right); i++ {
+			product, x := s.multiplyAnyCanonicalValues(ratio, right[i], usePrem)
+			if x != nil {
+				_ = s.releaseSturmScratch(ratio)
+				return fail(x)
+			}
+			index := shift + i
+			updated, x := s.subtractAnyCanonicalValues(result[index], product, usePrem)
+			x = errors.Join(x, s.releaseSturmScratch(product))
+			if x != nil {
+				_ = s.releaseSturmScratch(updated)
+				_ = s.releaseSturmScratch(ratio)
+				return fail(x)
+			}
+			if x = s.releaseSturmScratch(result[index]); x != nil {
+				result[index] = nil
+				_ = s.releaseSturmScratch(updated)
+				_ = s.releaseSturmScratch(ratio)
+				return fail(x)
+			}
+			result[index] = updated
+		}
+		if err = s.releaseSturmScratch(ratio); err != nil {
+			return fail(err)
+		}
+		if err = s.releaseSturmScratch(result[len(result)-1]); err != nil {
+			result[len(result)-1] = nil
+			return fail(err)
+		}
+		result = trimAnyPolynomial(result[:len(result)-1])
+	}
+	negated, err := s.negateAnyPolynomial(result)
 	if err != nil {
-		_ = s.releaseSturmCoefficients(result)
+		return fail(err)
+	}
+	if err = s.releaseSturmCoefficients(result); err != nil {
+		_ = s.releaseSturmCoefficients(negated)
 		return nil, err
 	}
-	return result, nil
+	return negated, nil
 }

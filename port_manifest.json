@@ -77316,12 +77316,14 @@
           ]
         },
         {
-          "name": "Rational-coefficient rem/srem field division, high-term elimination and signed remainder for the retained use_prem=false Sturm path (realclosure.cpp:2879-2913,2991-3030); default pseudo-remainder and nonrational values are recorded separately",
-          "status": "partial",
+          "name": "Field rem/srem division, high-term elimination and signed remainder for rational and algebraic coefficients under the retained use_prem=false Sturm path (realclosure.cpp:2879-2913,2991-3030)",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/sign_polynomial_div.go",
           "tests": [
             "TestRealClosureRationalDerivativeKeepsCoefficientOwnership",
-            "TestRealClosureRationalPolynomialProducerReservationPrefixes"
+            "TestRealClosureRationalPolynomialProducerReservationPrefixes",
+            "TestAnySturmSignedRemainder",
+            "TestTowerSturmSequenceSpansLowerExtensions"
           ]
         },
         {
