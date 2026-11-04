@@ -105,6 +105,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [ ] Resolve the remaining source-fidelity and soundness tradeoff for nested predicate dependencies in cone pruning, including public-query behavior.
   - [x] Verify compound Horn head/negative-body hoisting order and proof conclusion, including proof-specific allocation failures, intermediate cleanup and retry; verify first-true linear BMC rule selection and Spacer ITE implicant branch selection against the source paths.
   - [x] Verify Spacer projection's empty-variable and ground-substitution gates and the model-selected unequal-index array guard. Origin-summary selection covers either of two reach facts, their selected auxiliary and reference restoration.
+  - [x] Verify reach-fact projection and justification ownership with two selected predecessor facts, distinct origin indices, projected auxiliaries and both implicant modes.
   - [x] Verify PDR/QPDR coalescing is gated by positive unfold rounds and precedes unfolding, across zero, one and two rounds.
   - [x] Match TAB's source `basic-weight` fallthrough to weight selection, and test its cached-selection behavior. Verify DDNF reparenting/mark traversal, CLP search result ordering and relational compiler projection selection against their source paths.
   - [x] Verify Duality tree interpolation includes each node's extra constraints and restores the temporary solver scope; other interpolation branches and exceptional cleanup remain under audit.
