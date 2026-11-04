@@ -19,6 +19,6 @@ func (s *realValueStore) countMultiRootPolynomialSigns(root *algebraicRoot, q []
 	if err != nil {
 		return multiRootSignCounts{}, err
 	}
-	equal, positive, negative, useSquare, square, err := s.countSignsAtZerosRationalOwned(root.polynomial.coefficients, q, root.isolating, numRoots, usePrem)
+	equal, positive, negative, useSquare, square, err := s.countSignsAtZerosAnyOwned(root.polynomial.coefficients, q, root.isolating, numRoots, usePrem)
 	return multiRootSignCounts{equal: equal, positive: positive, negative: negative, useSquare: useSquare, square: square}, err
 }

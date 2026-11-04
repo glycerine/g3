@@ -23,23 +23,23 @@ func (s *realValueStore) expandCompletedSignQueries(root *algebraicRoot, q, q2 [
 	queries = make([]int, 0, len(root.signs.prs)*step)
 	for i, row := range root.signs.prs {
 		queries = append(queries, root.signs.tarski[i])
-		product, e := s.multiplyRationalPolynomials(row.coefficients, q)
+		product, e := s.multiplyAnyPolynomials(row.coefficients, q, usePrem)
 		if e != nil {
 			return nil, nil, errors.Join(e, s.releaseMultiRootProducts(owned))
 		}
 		owned = append(owned, product)
-		query, e := s.tarskiBinaryIntervalRational(root.polynomial.coefficients, product, root.isolating, usePrem)
+		query, e := s.tarskiBinaryIntervalAny(root.polynomial.coefficients, product, root.isolating, usePrem)
 		if e != nil {
 			return nil, nil, errors.Join(e, s.releaseMultiRootProducts(owned))
 		}
 		queries = append(queries, query)
 		if useSquare {
-			product, e = s.multiplyRationalPolynomials(row.coefficients, q2)
+			product, e = s.multiplyAnyPolynomials(row.coefficients, q2, usePrem)
 			if e != nil {
 				return nil, nil, errors.Join(e, s.releaseMultiRootProducts(owned))
 			}
 			owned = append(owned, product)
-			query, e = s.tarskiBinaryIntervalRational(root.polynomial.coefficients, product, root.isolating, usePrem)
+			query, e = s.tarskiBinaryIntervalAny(root.polynomial.coefficients, product, root.isolating, usePrem)
 			if e != nil {
 				return nil, nil, errors.Join(e, s.releaseMultiRootProducts(owned))
 			}
