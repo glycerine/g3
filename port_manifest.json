@@ -80235,7 +80235,7 @@
         },
         {
           "name": "Concrete config_mpff source-order root unit assertion, definition sweep, queue drain and non-resuming cancellation state; shared clause/inequality teardown (src/math/subpaving/subpaving_t_def.h:845-861,1092-1111,1753-1808)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_context_init.go",
           "go_targets": [
             "pkg/math/subpaving/fast_context.go",
@@ -81620,7 +81620,7 @@
         },
         {
           "name": "Concrete config_mpff source-order root unit assertion, definition sweep, queue drain and non-resuming cancellation state; shared clause/inequality teardown (src/math/subpaving/subpaving_t_def.h:845-861,1092-1111,1753-1808)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_context_init.go",
           "go_targets": [
             "pkg/math/subpaving/fast_context.go",
