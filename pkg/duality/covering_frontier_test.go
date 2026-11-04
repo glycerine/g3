@@ -1,6 +1,10 @@
 package duality
 
-import "testing"
+import (
+	"errors"
+	"testing"
+	"time"
+)
 
 func TestCoveringDescendantClosureAndCandidateFiltering(t *testing.T) {
 	ctx, _, aux := dualityNativeSolverFixture(t)
@@ -37,6 +41,15 @@ func TestCoveringDescendantClosureAndCandidateFiltering(t *testing.T) {
 	must(err)
 	covering, err := NewCovering(graph, aux)
 	must(err)
+	profile := NewProfiler(nil)
+	var ticks int
+	profile.now = func() time.Time {
+		ticks++
+		return time.Unix(int64(ticks), 0)
+	}
+	ctx.activeProfiler = profile
+	defer func() { ctx.activeProfiler = nil }()
+	must(profile.TimerStart("outer"))
 	closed, err := covering.CloseDescendants(root)
 	must(err)
 	if !closed || covering.coveredBy[leaf] != leaf || covering.coveredBy[root] != nil {
@@ -73,6 +86,35 @@ func TestCoveringDescendantClosureAndCandidateFiltering(t *testing.T) {
 	must(err)
 	if !contains {
 		t.Fatal("invalidation did not reopen ancestor frontier")
+	}
+	contains, err = covering.Contains(nil)
+	if !contains || !errors.Is(err, ErrWrapperOwner) {
+		t.Fatalf("invalid membership: got %v, %v", contains, err)
+	}
+	candidate, err = covering.Candidate(nil)
+	if candidate || !errors.Is(err, ErrWrapperOwner) {
+		t.Fatalf("invalid candidate: got %v, %v", candidate, err)
+	}
+	outer := profile.top.children["outer"]
+	if profile.current != outer {
+		t.Fatal("covering timer did not restore outer scope")
+	}
+	for _, name := range []string{"Contains", "Candidate"} {
+		child := outer.children[name]
+		if child == nil || child.elapsed != 4*time.Second {
+			t.Fatalf("%s timer: got %v, want four one-second samples", name, child)
+		}
+	}
+	must(profile.TimerStop("outer"))
+	profile.now = nil
+	if _, err = covering.Contains(earlier); err == nil {
+		t.Fatal("Contains ignored profiler start failure")
+	}
+	if _, err = covering.Candidate(earlier); err == nil {
+		t.Fatal("Candidate ignored profiler start failure")
+	}
+	if profile.current != profile.top {
+		t.Fatal("failed timer start changed current scope")
 	}
 }
 func TestAnnotationUpdateInvalidatesBoundSourceCovering(t *testing.T) {

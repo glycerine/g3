@@ -36,11 +36,36 @@ func (c *Covering) CloseDescendants(node *Node) (_ bool, result error) {
 	}
 	return visit(node)
 }
-func (c *Covering) Contains(node *Node) (bool, error) {
+func (c *Covering) Contains(node *Node) (_ bool, result error) {
+	if c == nil {
+		covered, err := c.IsCovered(node)
+		return !covered, err
+	}
+	var context *Context
+	if c.graph != nil {
+		context = c.graph.context
+	}
+	timer, err := startProfile(context, "Contains")
+	if err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	covered, err := c.IsCovered(node)
 	return !covered, err
 }
-func (c *Covering) Candidate(node *Node) (bool, error) {
+func (c *Covering) Candidate(node *Node) (_ bool, result error) {
+	if c == nil {
+		return false, ErrWrapperOwner
+	}
+	var context *Context
+	if c.graph != nil {
+		context = c.graph.context
+	}
+	timer, err := startProfile(context, "Candidate")
+	if err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	covered, err := c.IsCovered(node)
 	if err != nil {
 		return false, err

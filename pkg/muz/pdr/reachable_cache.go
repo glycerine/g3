@@ -33,6 +33,7 @@ type ReachableCache struct {
 	connector ast.ASTRef
 	cache     map[ast.ASTHandle]ast.ASTRef
 	stats     ReachableCacheStatistics
+	closing   bool
 	closed    bool
 }
 
@@ -55,7 +56,7 @@ func NewReachableCache(manager *ast.ASTManager, contexts *SMTContextManager, bac
 }
 
 func (c *ReachableCache) open() error {
-	if c == nil || c.closed || c.manager == nil {
+	if c == nil || c.closing || c.closed || c.manager == nil {
 		return ErrSMTContextOwner
 	}
 	return nil
@@ -224,6 +225,7 @@ func (c *ReachableCache) Close() (result error) {
 	if c.manager == nil {
 		return ErrSMTContextOwner
 	}
+	c.closing = true
 	if c.context != nil {
 		result = errors.Join(result, c.context.Close())
 	}

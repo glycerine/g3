@@ -71,6 +71,17 @@ func TestReachableHashCacheClosePreservesUnconsumedRoots(t *testing.T) {
 	if body == nil || !callback || !errors.Is(closeErr, ast.ErrASTPending) || len(cache.cache) != 1 {
 		t.Fatal("native guard did not preserve reachable-cache cleanup", body, callback, closeErr)
 	}
+	// Cleanup has started even though its reference release was refused. No
+	// operation may observe or modify a cache whose owners may be partly gone.
+	if err := cache.AddReachable(cube); !errors.Is(err, ErrSMTContextOwner) {
+		t.Fatalf("partially closed cache accepted an insertion: %v", err)
+	}
+	if _, err := cache.IsReachable(cube); !errors.Is(err, ErrSMTContextOwner) {
+		t.Fatalf("partially closed cache accepted a lookup: %v", err)
+	}
+	if _, err := cache.Statistics(); !errors.Is(err, ErrSMTContextOwner) {
+		t.Fatalf("partially closed cache exposed statistics: %v", err)
+	}
 	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
 	must(cache.Close())
 	must(cache.Close())
