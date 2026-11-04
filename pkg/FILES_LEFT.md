@@ -63,8 +63,8 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/base/dl_rule.cpp` — Rule construction/layout, Horn conversion and proof transfer, query lowering, substitution, normalization, unbound-variable handling, identity and reporting map across the base, fixedpoint, and QE layers; focused existing rule and HNF tests cover source behavior and ownership.
 - [x] `src/muz/base/dl_rule.h` — Rule and RuleManager declarations, inline tail/name accessors, reference ownership, hash/equality, and analysis callbacks map to concrete Go owners and queries; existing focused rule tests cover the live surface.
 - [x] `src/muz/base/fixedpoint_params.hpp` — Generated C++ output from the already-ported `.pyg` source; Go replaces its generated struct/getters with generic type-aware parameter accessors and the catalog preserves all 458 metadata rows.
-- [ ] `src/muz/bmc/dl_bmc_engine.cpp`
-- [ ] `src/muz/bmc/dl_bmc_engine.h`
+- [x] `src/muz/bmc/dl_bmc_engine.cpp` — Linear, nonlinear, and quantified-linear compilation/search/proof/trace behavior maps to `pkg/muz/bmc` and `pkg/muz/fp`; focused BMC/QBMC tests pass, including the corrected fact-level regression.
+- [x] `src/muz/bmc/dl_bmc_engine.h` — The declaration-only BMC engine surface is implemented by `PropositionalEngine` and the `pkg/muz/bmc` helpers, including query, answer, certificate, statistics, reset, and trace operations; existing focused BMC/QBMC tests pass.
 - [ ] `src/muz/dataflow/dataflow.h`
 - [ ] `src/muz/duality/duality_dl_interface.cpp`
 - [ ] `src/muz/duality/duality_dl_interface.h`
