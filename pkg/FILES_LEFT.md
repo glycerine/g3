@@ -45,7 +45,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/duality/duality_profiling.h` — All four declared operations map to tested `Profiler` methods, with process-lifetime owners for source-facing callers and explicit independent profiler owners for Go callers.
 - [x] `src/duality/duality_rpfp.cpp` — All live RPFP methods are implemented with focused Go coverage; the disabled global node-clone path and inactive compile-time branches are documented as inapplicable.
 - [x] `src/duality/duality_solver.cpp` — All active solver, search, learning, covering, counterexample, reporting, and profiling paths are ported; source switches and graph/solver ownership are audited, and the focused Duality suite passes.
-- [ ] `src/duality/duality_wrapper.cpp`
+- [x] `src/duality/duality_wrapper.cpp` — Live expression construction, qe-lite, interpolation, decision statistics, and native solver setup map to owning Go APIs; focused Duality wrapper tests pass. Disabled debug/interpolation branches have no live Go consumer.
 - [ ] `src/duality/duality_wrapper.h`
 - [ ] `src/math/interval/interval.h`
 - [ ] `src/math/interval/interval_def.h`
