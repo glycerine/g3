@@ -82,6 +82,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Restore the PDR manager's live pre-converter model TRACE for model export, validation and direct answers; test source ordering, disabled tracing and ownership.
   - [x] Restore the live PDR initialization trace at its source boundary; g3trace tests cover ordering, disabled evaluation, stream refusal and formatting failure.
   - [x] Restore PDR interpreted-tail and normalized-rule traces, with source ordering, distinct grounded expressions, lazy gating and owned flattened tails.
+  - [x] Match PDR term-ITE normalization order by omitting the extra post-blast rewrite; a full initialization test distinguishes the stored source-shaped transition. Scoped proof-mode parity remains open.
   - [x] Match the PDR manager Boolean rewriter for negated conjunctions, preserving the borrowed API and solver-owned results. Tests cover simplification, nil global parameters, allocation failure, release retry and reentrant deletion callbacks; end-to-end AddProperty cleanup refusal remains open.
   - [x] Match source Boolean conjunction rewriting in PDR cover export, with duplicate/complement and refused cleanup coverage; the separate Formulas consumer remains open.
   - [x] Match Boolean conjunction rewriting for PDR Formulas and migrate live consumers to scoped references, preserving the borrowed API. The complete native short PDR package passes; direct caller cleanup refusal remains open.

@@ -454,10 +454,6 @@ func (b *predicateRuleBuilder) normalizeRule(source *base.Rule) (result *normali
 		if err != nil {
 			return nil, err
 		}
-		result.transition, err = b.rewrite(result.transition)
-		if err != nil {
-			return nil, err
-		}
 	}
 	if err = b.traceRuleExpressions(616, result.transition); err != nil {
 		return nil, err
