@@ -97,6 +97,18 @@ func (s *realValueStore) signApproxAtBinaryBound(coefficients []*realValue, boun
 	if sign, decided, e := evaluate(); e != nil || decided {
 		return sign, e
 	}
+	for _, value := range coefficients {
+		if value == nil {
+			continue
+		}
+		coefficient, e := coefficientInterval(value)
+		if e != nil {
+			return 0, e
+		}
+		if coefficient.lowerInf || coefficient.upperInf {
+			return s.exactSignAtBinaryBound(coefficients, bounds, bound, true)
+		}
+	}
 	// Source find_biggest_interval_magnitude chooses the initial precision.
 	biggest := int32(-1 << 31)
 	for _, value := range coefficients {
