@@ -83342,8 +83342,8 @@
           ]
         },
         {
-          "name": "Concrete MPFX goal inequality, clause and internalize-then-search route (subpaving_tactic.cpp:128-190)",
-          "status": "partial",
+          "name": "Concrete MPFX inequality and clause internalization in source order before context search (subpaving_tactic.cpp:128-190)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/fixed_goal_internalize.go",
           "tests": [
             "TestFixedExprConverterTermsAndClause"
