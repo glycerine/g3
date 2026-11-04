@@ -80177,7 +80177,7 @@
         },
         {
           "name": "Concrete config_mpff polynomial terms, copied coefficient ownership and watcher registration (src/math/subpaving/subpaving_t.h:319-370,457-539)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_polynomial.go",
           "tests": [
             "TestSubpavingFastPolynomialForwardReverseAndOwnedCoefficients",
