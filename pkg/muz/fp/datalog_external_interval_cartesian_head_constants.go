@@ -32,15 +32,19 @@ func (c *externalIntervalDatalogCartesianContinuation) closeProducts() error {
 }
 
 func (r *externalIntervalDatalogRegisters) initializeCartesianHeadConstants(plan *externalIntervalDatalogCartesianRule) error {
-	for _, addition := range plan.headAssemblyAdditions() {
+	return r.initializeHeadAssembly(plan.head, plan.headAssemblyAdditions(), plan.headConstants, plan.headUnbound)
+}
+
+func (r *externalIntervalDatalogRegisters) initializeHeadAssembly(head ast.ASTHandle, additions []externalIntervalCartesianHeadAddition, constants []externalIntervalCartesianHeadConstant, unbound []externalIntervalCartesianHeadVariable) error {
+	for _, addition := range additions {
 		if addition.total {
-			variable := plan.headUnbound[addition.index]
-			if _, err := r.totalRelation(plan.head, variable.sort); err != nil {
+			variable := unbound[addition.index]
+			if _, err := r.totalRelation(head, variable.sort); err != nil {
 				return err
 			}
 		} else {
-			constant := plan.headConstants[addition.index]
-			if _, err := r.unarySingleton(plan.head, constant.sort, constant.value); err != nil {
+			constant := constants[addition.index]
+			if _, err := r.unarySingleton(head, constant.sort, constant.value); err != nil {
 				return err
 			}
 		}

@@ -15,6 +15,10 @@ import (
 
 type externalIntervalDatalogUnaryTransform struct {
 	constants       []externalIntervalDatalogUnaryConstant
+	headConstants   []externalIntervalCartesianHeadConstant
+	headUnbound     []externalIntervalCartesianHeadVariable
+	headAdditions   []externalIntervalCartesianHeadAddition
+	duplicates      []uint32
 	identical       [][]uint32
 	filterRemoved   []uint32
 	removed         []uint32
@@ -22,6 +26,8 @@ type externalIntervalDatalogUnaryTransform struct {
 	condition       *externalIntervalUnaryCondition
 	application     ast.ASTHandle
 	applicationRoot ast.ASTRef
+	headApplication ast.ASTHandle
+	headRoot        ast.ASTRef
 }
 
 type externalIntervalDatalogUnaryConstant struct {
@@ -40,6 +46,13 @@ func (p *externalIntervalDatalogIdentityRule) pin(manager *ast.ASTManager) error
 		}
 		p.transform.applicationRoot = root
 	}
+	if len(p.transform.headConstants) != 0 && p.transform.headRoot == (ast.ASTRef{}) {
+		root, err := manager.NewRef(p.transform.headApplication)
+		if err != nil {
+			return err
+		}
+		p.transform.headRoot = root
+	}
 	return p.transform.condition.prepare(manager)
 }
 
@@ -51,9 +64,16 @@ func (p *externalIntervalDatalogIdentityRule) close(manager *ast.ASTManager) err
 		return err
 	}
 	if p.transform.applicationRoot == (ast.ASTRef{}) {
-		return nil
+		if p.transform.headRoot == (ast.ASTRef{}) {
+			return nil
+		}
+	} else if err := manager.DelRef(&p.transform.applicationRoot); err != nil {
+		return err
 	}
-	return manager.DelRef(&p.transform.applicationRoot)
+	if p.transform.headRoot != (ast.ASTRef{}) {
+		return manager.DelRef(&p.transform.headRoot)
+	}
+	return nil
 }
 
 func sameExternalIntervalUnaryTransform(left, right *externalIntervalDatalogUnaryTransform) bool {
@@ -63,11 +83,26 @@ func sameExternalIntervalUnaryTransform(left, right *externalIntervalDatalogUnar
 	if !sameExternalIntervalUnaryCondition(left.condition, right.condition) {
 		return false
 	}
-	if !externalIntervalColumnsEqual(left.filterRemoved, right.filterRemoved) || !externalIntervalColumnsEqual(left.removed, right.removed) || len(left.constants) != len(right.constants) || len(left.identical) != len(right.identical) || len(left.renames) != len(right.renames) {
+	if left.headApplication != right.headApplication || !externalIntervalColumnsEqual(left.filterRemoved, right.filterRemoved) || !externalIntervalColumnsEqual(left.removed, right.removed) || len(left.constants) != len(right.constants) || len(left.headConstants) != len(right.headConstants) || len(left.headUnbound) != len(right.headUnbound) || len(left.headAdditions) != len(right.headAdditions) || !externalIntervalColumnsEqual(left.duplicates, right.duplicates) || len(left.identical) != len(right.identical) || len(left.renames) != len(right.renames) {
 		return false
 	}
 	for i := range left.constants {
 		if left.constants[i] != right.constants[i] {
+			return false
+		}
+	}
+	for i := range left.headConstants {
+		if left.headConstants[i].sort != right.headConstants[i].sort || left.headConstants[i].value != right.headConstants[i].value {
+			return false
+		}
+	}
+	for i := range left.headUnbound {
+		if left.headUnbound[i] != right.headUnbound[i] {
+			return false
+		}
+	}
+	for i := range left.headAdditions {
+		if left.headAdditions[i] != right.headAdditions[i] {
 			return false
 		}
 	}
@@ -141,6 +176,8 @@ func (c *externalIntervalDatalogCompiler) externalIntervalUnaryPlan(rule *base.R
 	variables := make([][]uint32, 2)
 	sorts := make([][]ast.ASTHandle, 2)
 	plan := &externalIntervalDatalogUnaryTransform{}
+	headArguments := []externalIntervalCartesianArgument(nil)
+	headSorts := []ast.ASTHandle(nil)
 	for index, application := range []ast.ASTHandle{head, tail} {
 		declaration, cause := c.manager.GetDecl(application)
 		if cause != nil {
@@ -154,15 +191,17 @@ func (c *externalIntervalDatalogCompiler) externalIntervalUnaryPlan(rule *base.R
 		if cause != nil {
 			return fail(cause)
 		}
-		if int(count) != len(state.sorts) || index == 1 && count == 0 {
+		if int(count) != len(state.sorts) {
 			return fail(ErrExternalIntervalDatalogFragment)
 		}
 		if index == 0 {
 			headDecl = declaration
+			headArguments = make([]externalIntervalCartesianArgument, count)
+			headSorts = append([]ast.ASTHandle(nil), state.sorts...)
+			plan.headApplication = head
 		} else {
 			tailDecl = declaration
 		}
-		seen := make(map[uint32]bool)
 		for column := uint32(0); column < count; column++ {
 			argument, cause := c.manager.GetArg(application, column)
 			if cause != nil {
@@ -180,9 +219,6 @@ func (c *externalIntervalDatalogCompiler) externalIntervalUnaryPlan(rule *base.R
 				return fail(ErrExternalIntervalDatalogFragment)
 			}
 			if kind != ast.ASTVar {
-				if index != 1 {
-					return fail(ErrExternalIntervalDatalogFragment)
-				}
 				_, _, numeral, cause := c.manager.ArithmeticNumeralText(argument)
 				if cause != nil {
 					return fail(cause)
@@ -190,22 +226,26 @@ func (c *externalIntervalDatalogCompiler) externalIntervalUnaryPlan(rule *base.R
 				if !numeral {
 					return fail(ErrExternalIntervalDatalogFragment)
 				}
-				// Earlier constants have already been projected away; the
-				// source instruction selects at the number of prior variables.
-				plan.constants = append(plan.constants, externalIntervalDatalogUnaryConstant{column: uint32(len(variables[index])), value: argument})
-				plan.application = tail
+				if index == 0 {
+					headArguments[column].numeral = argument
+				} else {
+					// Earlier constants have already been projected away; the
+					// source instruction selects at the number of prior variables.
+					plan.constants = append(plan.constants, externalIntervalDatalogUnaryConstant{column: uint32(len(variables[index])), value: argument})
+					plan.application = tail
+				}
 				continue
 			}
 			variable, cause := c.manager.GetVarIndex(argument)
 			if cause != nil {
 				return fail(cause)
 			}
-			if index == 0 && seen[variable] {
-				return fail(ErrExternalIntervalDatalogFragment)
+			if index == 0 {
+				headArguments[column].variable = variable
+			} else {
+				variables[index] = append(variables[index], variable)
+				sorts[index] = append(sorts[index], sort)
 			}
-			seen[variable] = true
-			variables[index] = append(variables[index], variable)
-			sorts[index] = append(sorts[index], sort)
 		}
 	}
 	columns := make(map[uint32][]uint32)
@@ -229,9 +269,21 @@ func (c *externalIntervalDatalogCompiler) externalIntervalUnaryPlan(rule *base.R
 		}
 	}
 	wanted := make(map[uint32]bool)
-	for column, variable := range variables[0] {
+	unsafeSorts := make(map[uint32]ast.ASTHandle)
+	for column, argument := range headArguments {
+		if !argument.numeral.IsNull() {
+			continue
+		}
+		variable := argument.variable
 		group := columns[variable]
-		if len(group) == 0 || sorts[1][group[len(group)-1]] != sorts[0][column] {
+		if len(group) == 0 {
+			if sort, exists := unsafeSorts[variable]; exists && sort != headSorts[column] {
+				return fail(ErrExternalIntervalDatalogFragment)
+			}
+			unsafeSorts[variable] = headSorts[column]
+			continue
+		}
+		if sorts[1][group[len(group)-1]] != headSorts[column] {
 			return fail(ErrExternalIntervalDatalogFragment)
 		}
 		wanted[variable] = true
@@ -314,9 +366,48 @@ func (c *externalIntervalDatalogCompiler) externalIntervalUnaryPlan(rule *base.R
 			surviving[variable] = uint32(len(surviving))
 		}
 	}
-	permutation := make([]uint32, len(variables[0]))
-	for column, variable := range variables[0] {
-		permutation[column] = surviving[variable]
+	headSources := make([]uint32, len(headArguments))
+	width := uint32(len(surviving))
+	unsafeSources := make(map[uint32]uint32, len(unsafeSorts))
+	for column, argument := range headArguments {
+		if !argument.numeral.IsNull() {
+			index := len(plan.headConstants)
+			plan.headConstants = append(plan.headConstants, externalIntervalCartesianHeadConstant{sort: headSorts[column], value: argument.numeral})
+			plan.headAdditions = append(plan.headAdditions, externalIntervalCartesianHeadAddition{index: index})
+			headSources[column] = width
+			width++
+			continue
+		}
+		if _, found := columns[argument.variable]; found {
+			headSources[column] = surviving[argument.variable]
+			continue
+		}
+		if source, found := unsafeSources[argument.variable]; found {
+			headSources[column] = source
+			continue
+		}
+		sort := unsafeSorts[argument.variable]
+		if sort.IsNull() {
+			return fail(ErrExternalIntervalDatalogFragment)
+		}
+		index := len(plan.headUnbound)
+		plan.headUnbound = append(plan.headUnbound, externalIntervalCartesianHeadVariable{sort: sort})
+		plan.headAdditions = append(plan.headAdditions, externalIntervalCartesianHeadAddition{total: true, index: index})
+		unsafeSources[argument.variable] = width
+		headSources[column] = width
+		width++
+	}
+	permutation := make([]uint32, len(headArguments))
+	usedSources := make(map[uint32]bool)
+	for column, source := range headSources {
+		if usedSources[source] {
+			plan.duplicates = append(plan.duplicates, source)
+			permutation[column] = width
+			width++
+		} else {
+			usedSources[source] = true
+			permutation[column] = source
+		}
 	}
 	for column := range permutation {
 		if permutation[column] == uint32(column) {
@@ -339,7 +430,7 @@ func (c *externalIntervalDatalogCompiler) externalIntervalUnaryPlan(rule *base.R
 			plan.renames = append(plan.renames, []uint32{cycle[i], cycle[i+1]})
 		}
 	}
-	if len(plan.constants)+len(plan.identical)+len(plan.removed)+len(plan.renames) != 0 || plan.condition != nil {
+	if len(plan.constants)+len(plan.headConstants)+len(plan.headUnbound)+len(plan.duplicates)+len(plan.identical)+len(plan.removed)+len(plan.renames) != 0 || plan.condition != nil {
 		transform = plan
 	}
 	return headDecl, tailDecl, transform, nil
@@ -380,12 +471,24 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalUnary(plan *e
 		}
 		return nil
 	}
+	finishEmpty := func() error {
+		if len(transform.headAdditions) == 0 {
+			return finish()
+		}
+		if err := owner.closeProducts(); err != nil {
+			return rollback(err)
+		}
+		if err := registers.initializeHeadAssembly(plan.head, transform.headAdditions, transform.headConstants, transform.headUnbound); err != nil {
+			return rollback(err)
+		}
+		return finish()
+	}
 	current, err := registers.relation(plan.tail)
 	if err != nil {
 		return rollback(err)
 	}
 	if current == nil {
-		return finish()
+		return finishEmpty()
 	}
 	for _, constant := range transform.constants {
 		next, err := selectExternalIntervalUnary(current, constant.column, constant.value, registers.runtime)
@@ -403,7 +506,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalUnary(plan *e
 			return rollback(err)
 		}
 		if empty {
-			return finish()
+			return finishEmpty()
 		}
 	}
 	if len(transform.identical) != 0 {
@@ -423,7 +526,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalUnary(plan *e
 				return rollback(err)
 			}
 			if empty {
-				return finish()
+				return finishEmpty()
 			}
 		}
 	}
@@ -458,7 +561,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalUnary(plan *e
 			return rollback(err)
 		}
 		if empty {
-			return finish()
+			return finishEmpty()
 		}
 	}
 	if len(transform.removed) != 0 {
@@ -470,6 +573,49 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalUnary(plan *e
 			return rollback(err)
 		}
 		current = next
+	}
+	if len(transform.headAdditions) != 0 {
+		if owner.temporary == nil {
+			owner.temporary, err = current.Clone()
+			if err != nil {
+				return rollback(err)
+			}
+			current = owner.temporary
+		}
+		for _, addition := range transform.headAdditions {
+			var empty bool
+			if addition.total {
+				empty, err = owner.appendHeadTotal(plan.head, transform.headUnbound[addition.index])
+			} else {
+				empty, err = owner.appendHeadConstant(plan.head, transform.headConstants[addition.index])
+			}
+			if err != nil {
+				return rollback(err)
+			}
+			current = owner.temporary
+			if empty {
+				return finishEmpty()
+			}
+		}
+	}
+	if len(transform.duplicates) != 0 {
+		if owner.temporary == nil {
+			owner.temporary, err = current.Clone()
+			if err != nil {
+				return rollback(err)
+			}
+			current = owner.temporary
+		}
+		for _, column := range transform.duplicates {
+			empty, cause := owner.duplicateColumn(column)
+			if cause != nil {
+				return rollback(cause)
+			}
+			current = owner.temporary
+			if empty {
+				return finishEmpty()
+			}
+		}
 	}
 	for _, cycle := range transform.renames {
 		next, err := current.Rename(cycle)

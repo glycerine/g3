@@ -515,6 +515,35 @@ func TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks(
 				fragmentMust(t, ruleErr)
 				fragmentMust(t, engine.AddRule(second, "external-interval-invalid-second"))
 			}
+			if shape == "constant-head" || shape == "unsafe-head" || shape == "repeated" || shape == "nullary" {
+				one, valueErr := manager.ArithmeticIntegerNumeralText("1")
+				fragmentMust(t, valueErr)
+				facts := []ast.ASTHandle{one}
+				if len(sorts) == 0 {
+					facts = nil
+				} else if len(sorts) == 2 {
+					two, cause := manager.ArithmeticIntegerNumeralText("2")
+					fragmentMust(t, cause)
+					facts = []ast.ASTHandle{one, two}
+					if shape == "repeated" {
+						facts[1] = one
+					}
+				}
+				fragmentMust(t, engine.AddFact(p, facts))
+				resetExternalIntervalCartesianCallbacks(callbacks)
+				status, queryErr := engine.QueryPredicate(q)
+				fragmentMust(t, queryErr)
+				if status != lbool.Undef || operationCount(callbacks.operations, ast.DatalogOpUnion) == 0 {
+					t.Fatal("source-supported unary head assembly did not execute", status, callbacks.operations)
+				}
+				if shape == "unsafe-head" && (operationCount(callbacks.operations, ast.DatalogOpComplement) == 0 || operationCount(callbacks.operations, ast.DatalogOpJoin) == 0) {
+					t.Fatal("unsafe unary head did not use a total relation", callbacks.operations)
+				}
+				if shape == "repeated" && operationCount(callbacks.operations, ast.DatalogOpJoin) == 0 {
+					t.Fatal("repeated unary head variable was not duplicated", callbacks.operations)
+				}
+				return
+			}
 			if shape == "self" || shape == "mutual-recursion" {
 				// Each identity is supported on its own, and the complete
 				// program exercises the recursive delta scheduler.

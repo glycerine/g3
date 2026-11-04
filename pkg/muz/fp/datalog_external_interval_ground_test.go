@@ -427,6 +427,7 @@ func TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks(t *testi
 			one, err := manager.ArithmeticIntegerNumeralText("1")
 			fragmentMust(t, err)
 			arguments := []ast.ASTHandle{one}
+			var bodyPredicate ast.ASTHandle
 			if shape == "nullary-body" {
 				arguments = nil
 			}
@@ -453,8 +454,8 @@ func TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks(t *testi
 				} else {
 					pSorts = nil
 				}
-				p := declareExternalIntervalPredicate(t, manager, engine, "external-interval-ground-invalid-p", pSorts, kinds)
-				tail, tailErr := manager.MkApp(p, tailArguments)
+				bodyPredicate = declareExternalIntervalPredicate(t, manager, engine, "external-interval-ground-invalid-p", pSorts, kinds)
+				tail, tailErr := manager.MkApp(bodyPredicate, tailArguments)
 				fragmentMust(t, tailErr)
 				formula, err = manager.MkImplies(tail, head)
 				fragmentMust(t, err)
@@ -469,6 +470,20 @@ func TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks(t *testi
 				second, secondErr := manager.MkApp(r, []ast.ASTHandle{variable})
 				fragmentMust(t, secondErr)
 				fragmentMust(t, engine.AddRule(second, "external-interval-ground-invalid-second"))
+			}
+			if shape == "body" || shape == "nullary-body" {
+				var fact []ast.ASTHandle
+				if shape == "body" {
+					fact = []ast.ASTHandle{one}
+				}
+				fragmentMust(t, engine.AddFact(bodyPredicate, fact))
+				resetExternalIntervalCartesianCallbacks(callbacks)
+				status, queryErr := engine.QueryPredicate(q)
+				fragmentMust(t, queryErr)
+				if status != lbool.Undef || operationCount(callbacks.operations, ast.DatalogOpUnion) == 0 {
+					t.Fatal("source-supported one-tail constant/nullary head did not execute", status, callbacks.operations)
+				}
+				return
 			}
 
 			status, queryErr := engine.QueryPredicate(q)
