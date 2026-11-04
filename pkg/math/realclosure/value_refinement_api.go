@@ -43,6 +43,9 @@ func (s *realValueStore) refineValueInterval(value *realValue, bounds *numeral.B
 	if value.root != nil && value.root.kind == realExtensionTranscendental {
 		return s.refineTranscendentalPolynomialValue(value, precision)
 	}
+	if value.root != nil && value.root.kind == realExtensionInfinitesimal {
+		return false, nil
+	}
 	return s.refineSturmAlgebraicInterval(value, precision)
 }
 

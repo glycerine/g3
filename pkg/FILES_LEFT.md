@@ -2,7 +2,7 @@
 
 Source files classified as partial in `port_manifest.json` when this list was created. Check a file after its applicable live behavior is implemented in Go and existing fast checks pass, or when it is verified inapplicable to the Go port; inapplicable entries explain why.
 
-- [ ] `src/api/api_commands.cpp`
+- [x] `src/api/api_commands.cpp` — All 661 generated command IDs and names are registered in Go replay handlers.
 - [ ] `src/api/api_context.cpp`
 - [ ] `src/api/api_context.h`
 - [ ] `src/api/api_datalog.cpp`

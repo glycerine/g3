@@ -1,8 +1,7 @@
 package api
 
 // Source: src/api/api_rcf.cpp:36-107. This unit owns rational and algebraic
-// values plus the named pi/e transcendental extensions. Infinitesimals remain
-// gated on their real-closure value kind.
+// values, named pi/e extensions, and positive infinitesimals.
 
 import (
 	"errors"
@@ -116,6 +115,23 @@ func (c *SMTContext) RCFE() (*RCFNumber, error) {
 		return nil, err
 	}
 	value, err := values.E()
+	return c.wrapRealRCF(manager.NumeralService(), value, err)
+}
+
+// RCFInfinitesimal returns a fresh positive infinitesimal extension.
+func (c *SMTContext) RCFInfinitesimal() (*RCFNumber, error) {
+	if err := c.open(); err != nil {
+		return nil, err
+	}
+	manager, err := c.Manager()
+	if err != nil {
+		return nil, err
+	}
+	values, err := c.realClosureValues()
+	if err != nil {
+		return nil, err
+	}
+	value, err := values.Infinitesimal()
 	return c.wrapRealRCF(manager.NumeralService(), value, err)
 }
 

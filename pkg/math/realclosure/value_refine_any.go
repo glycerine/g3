@@ -24,6 +24,9 @@ func (s *realValueStore) refineAnyRetainedInterval(value *realValue, bounds *num
 	if value.root != nil && value.root.kind == realExtensionTranscendental {
 		return s.refineTranscendentalPolynomialValue(value, precision)
 	}
+	if value.root != nil && value.root.kind == realExtensionInfinitesimal {
+		return false, nil
+	}
 	if value.root.owner.intervals != bounds {
 		return false, arena.ErrInvalidSlot
 	}

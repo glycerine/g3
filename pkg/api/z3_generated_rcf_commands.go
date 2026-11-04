@@ -35,7 +35,7 @@ func registerZ3GeneratedRCFCommands(r *Z3Replayer) error {
 		name string
 	}{
 		{488, "Z3_rcf_del"}, {489, "Z3_rcf_mk_rational"}, {490, "Z3_rcf_mk_small_int"},
-		{491, "Z3_rcf_mk_pi"}, {492, "Z3_rcf_mk_e"},
+		{491, "Z3_rcf_mk_pi"}, {492, "Z3_rcf_mk_e"}, {493, "Z3_rcf_mk_infinitesimal"},
 		{494, "Z3_rcf_mk_roots"},
 		{495, "Z3_rcf_add"}, {496, "Z3_rcf_sub"}, {497, "Z3_rcf_mul"}, {498, "Z3_rcf_div"}, {499, "Z3_rcf_neg"}, {500, "Z3_rcf_inv"}, {501, "Z3_rcf_power"},
 		{502, "Z3_rcf_lt"}, {503, "Z3_rcf_gt"}, {504, "Z3_rcf_le"}, {505, "Z3_rcf_ge"}, {506, "Z3_rcf_eq"}, {507, "Z3_rcf_neq"},
@@ -144,6 +144,13 @@ func replayRCFCommand(r *Z3Replayer, id uint32) (err error) {
 		}
 		if err != nil {
 			return err
+		}
+		return replayStoreRCF(r, owner, value)
+	}
+	if id == 493 {
+		value, e := owner.context.RCFInfinitesimal()
+		if e != nil {
+			return e
 		}
 		return replayStoreRCF(r, owner, value)
 	}

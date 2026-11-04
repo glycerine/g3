@@ -6,6 +6,7 @@ package realclosure
 import (
 	"errors"
 	"io"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/math/interval"
@@ -79,6 +80,45 @@ func (v *APIValues) Pi() (*APIValue, error) { return v.transcendentalConstant(tr
 
 // E returns the context's cached transcendental Euler constant.
 func (v *APIValues) E() (*APIValue, error) { return v.transcendentalConstant(false) }
+
+// Infinitesimal creates a fresh positive infinitesimal extension.
+func (v *APIValues) Infinitesimal() (*APIValue, error) {
+	if v == nil || v.bounds == nil {
+		return nil, arena.ErrInvalidSlot
+	}
+	for len(v.roots.infinitesimals) > 0 && v.roots.infinitesimals[len(v.roots.infinitesimals)-1] == nil {
+		v.roots.infinitesimals = v.roots.infinitesimals[:len(v.roots.infinitesimals)-1]
+	}
+	index := len(v.roots.infinitesimals) + 1
+	enclosure, err := v.infinitesimalInterval()
+	if err != nil {
+		return nil, err
+	}
+	name := "eps!" + strconv.Itoa(index)
+	prettyName := "&epsilon;<sub>" + strconv.Itoa(index) + "</sub>"
+	root, err := v.roots.mkInfinitesimal(name, prettyName, enclosure)
+	if err != nil {
+		return nil, errors.Join(err, enclosure.Close())
+	}
+	one, err := v.store.newRational(1, 1)
+	if err != nil {
+		return nil, errors.Join(err, root.discardUnpublished())
+	}
+	value, valueErr := v.store.newAlgebraicValue(root, one)
+	cleanupErr := v.store.release(one)
+	if valueErr != nil || cleanupErr != nil {
+		if valueErr == nil {
+			valueErr = v.store.release(value)
+		} else {
+			valueErr = errors.Join(valueErr, root.discardUnpublished())
+		}
+		if cleanupErr != nil {
+			cleanupErr = errors.Join(cleanupErr, v.store.release(one))
+		}
+		return nil, errors.Join(valueErr, cleanupErr)
+	}
+	return v.wrap(value), nil
+}
 
 func (v *APIValues) transcendentalConstant(pi bool) (*APIValue, error) {
 	if v == nil || v.bounds == nil || v.transcendentals == nil {

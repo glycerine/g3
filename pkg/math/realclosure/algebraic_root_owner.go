@@ -130,6 +130,17 @@ func (o *algebraicRootOwner) mkTranscendental(name, prettyName string, enclosure
 	return r, nil
 }
 
+func (o *algebraicRootOwner) mkInfinitesimal(name, prettyName string, enclosure *BinaryInterval) (*algebraicRoot, error) {
+	if o == nil || o.values == nil || o.intervals == nil || enclosure == nil || enclosure.numbers != o.intervals || name == "" {
+		return nil, arena.ErrInvalidSlot
+	}
+	r := &algebraicRoot{owner: o, kind: realExtensionInfinitesimal, name: name, prettyName: prettyName, interval: enclosure, infinitesimals: true}
+	if err := o.registerExtension(r, realExtensionInfinitesimal); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 func (r *algebraicRoot) retain() error {
 	if !r.isRegistered() || r.refs == ^uint32(0) {
 		return arena.ErrInvalidSlot
