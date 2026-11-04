@@ -81,3 +81,37 @@ func TestSMTContextFixedpointAutoConfigRejectsPDRUninterpretedSymbols(t *testing
 		t.Fatal("PDR uninterpreted-symbol rule guard", err)
 	}
 }
+
+func TestSMTContextFixedpointSpacerRejectsUninterpretedSymbols(t *testing.T) {
+	context, err := NewSMTContext()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, context.Close()) })
+	astTestMust(t, context.SetFixedpointEngine("spacer"))
+	manager, err := context.Manager()
+	astTestMust(t, err)
+	arithmetic, err := manager.ArithmeticFamilyID()
+	astTestMust(t, err)
+	integer, err := manager.MkFamilySort(arithmetic, 1, nil)
+	astTestMust(t, err)
+	zero, err := manager.ArithmeticIntegerNumeralText("0")
+	astTestMust(t, err)
+	predicate, err := context.DeclareRelation("api-spacer-infinite-uf-P", []ast.ASTHandle{integer})
+	astTestMust(t, err)
+	functionName, err := manager.Symbols.Intern("api-spacer-infinite-uf-f")
+	astTestMust(t, err)
+	function, err := manager.MkFuncDecl(functionName, []ast.ASTHandle{integer}, integer, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	image, err := manager.MkApp(function, []ast.ASTHandle{zero})
+	astTestMust(t, err)
+	baseFact, err := manager.MkApp(predicate, []ast.ASTHandle{zero})
+	astTestMust(t, err)
+	step, err := manager.MkApp(predicate, []ast.ASTHandle{image})
+	astTestMust(t, err)
+	rule, err := manager.MkImplies(baseFact, step)
+	astTestMust(t, err)
+	astTestMust(t, context.AddFixedpointRule(rule, "api-spacer-infinite-uf-step"))
+
+	if _, err = context.QueryFixedpoint(predicate); err == nil || !strings.Contains(err.Error(), "uninterpreted symbols in PDR rules are unsupported") || !strings.Contains(err.Error(), "api-spacer-infinite-uf-f") {
+		t.Fatal("Spacer source uninterpreted-symbol guard", err)
+	}
+}
