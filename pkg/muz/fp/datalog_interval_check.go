@@ -19,6 +19,61 @@ func (e *IntervalDatalogEvaluator) relationFormula(relation *rel.IntervalRelatio
 	return formula, handle, nil
 }
 
+func (e *IntervalDatalogEvaluator) newRelation(sorts []ast.ASTHandle, full bool) (*rel.IntervalRelation, error) {
+	var relation *rel.IntervalRelation
+	if full {
+		relation = rel.NewIntervalFull(uint32(len(sorts)))
+	} else {
+		relation = rel.NewIntervalEmpty(uint32(len(sorts)))
+	}
+	if e.formulaCheck != nil {
+		if err := rel.VerifyIntervalRelationConstant(e.manager, sorts, *e.formulaCheck, relation, full); err != nil {
+			return nil, err
+		}
+	}
+	return relation, nil
+}
+
+func (e *IntervalDatalogEvaluator) appendFullColumn(relation *rel.IntervalRelation, sorts []ast.ASTHandle, sort ast.ASTHandle) (*rel.IntervalRelation, []ast.ASTHandle, error) {
+	full, err := e.newRelation([]ast.ASTHandle{sort}, true)
+	if err != nil {
+		return nil, nil, err
+	}
+	return e.join(relation, sorts, full, []ast.ASTHandle{sort}, nil, nil)
+}
+
+func (e *IntervalDatalogEvaluator) appendConstantColumn(relation *rel.IntervalRelation, sorts []ast.ASTHandle, sort, value ast.ASTHandle) (*rel.IntervalRelation, []ast.ASTHandle, error) {
+	singleton, err := e.newRelation([]ast.ASTHandle{sort}, false)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err = e.addFact(singleton, []ast.ASTHandle{sort}, []ast.ASTHandle{value}); err != nil {
+		return nil, nil, err
+	}
+	return e.join(relation, sorts, singleton, []ast.ASTHandle{sort}, nil, nil)
+}
+
+func (e *IntervalDatalogEvaluator) duplicateColumn(relation *rel.IntervalRelation, sorts []ast.ASTHandle, column uint32) (*rel.IntervalRelation, []ast.ASTHandle, error) {
+	if uint64(column) >= uint64(len(sorts)) {
+		return nil, nil, ast.ErrASTDomain
+	}
+	remove := make([]uint32, 0, len(sorts)-1)
+	for i := range sorts {
+		if uint32(i) != column {
+			remove = append(remove, uint32(i))
+		}
+	}
+	single, singleSorts, err := e.project(relation, sorts, remove)
+	if err != nil {
+		return nil, nil, err
+	}
+	duplicate, resultSorts, err := e.join(relation, sorts, single, singleSorts, []uint32{column}, []uint32{0})
+	if err != nil {
+		return nil, nil, err
+	}
+	return duplicate, resultSorts, nil
+}
+
 func (e *IntervalDatalogEvaluator) filterIdentical(relation *rel.IntervalRelation, sorts []ast.ASTHandle, columns []uint32) (resultErr error) {
 	if e.formulaCheck == nil {
 		return relation.FilterIdenticalColumns(columns)
@@ -211,4 +266,14 @@ func (e *IntervalDatalogEvaluator) union(target *rel.IntervalRelation, sorts []a
 		return changed, err
 	}
 	return changed, rel.VerifyIntervalRelationUnion(e.manager, sorts, *e.formulaCheck, before, source, target)
+}
+
+func (e *IntervalDatalogEvaluator) empty(relation *rel.IntervalRelation, sorts []ast.ASTHandle) (bool, error) {
+	empty := relation.Empty()
+	if empty && e.formulaCheck != nil {
+		if err := rel.VerifyIntervalRelationEmpty(e.manager, sorts, *e.formulaCheck, relation); err != nil {
+			return false, err
+		}
+	}
+	return empty, nil
 }

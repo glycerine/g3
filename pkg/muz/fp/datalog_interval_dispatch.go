@@ -100,6 +100,9 @@ func (e *PropositionalEngine) ensureIntervalDatalog() (bool, error) {
 		return true, ErrIntervalDatalogFragment
 	}
 	owner.formulaCheck = formulaCheck
+	if err = owner.verifyEmptySeeds(); err != nil {
+		return true, errors.Join(err, owner.close())
+	}
 	e.intervalDatalog = owner
 	// Any eagerly stored nullary tuples predate activation. Copy them into the
 	// selected imprecise relation without changing their source fact meaning.

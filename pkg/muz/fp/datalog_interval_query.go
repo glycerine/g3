@@ -25,7 +25,11 @@ func (e *IntervalDatalogEvaluator) Query(declarations []ast.ASTHandle) (lbool.LB
 	}
 	for _, declaration := range declarations {
 		relation := e.relations[declaration]
-		if !relation.Empty() {
+		empty, err := e.empty(relation, e.sorts[declaration])
+		if err != nil {
+			return lbool.Undef, err
+		}
+		if !empty {
 			return lbool.Undef, nil
 		}
 	}

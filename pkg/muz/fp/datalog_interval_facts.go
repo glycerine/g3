@@ -153,7 +153,10 @@ func (e *IntervalDatalogEvaluator) applyFactRule(rule *base.Rule) (resultErr err
 			return err
 		}
 	}
-	return e.addFact(relation, e.sorts[declaration], values)
+	if err = e.addFact(relation, e.sorts[declaration], values); err != nil {
+		return fmt.Errorf("interval add_fact: %w", err)
+	}
+	return nil
 }
 
 func (e *IntervalDatalogEvaluator) addFact(relation *rel.IntervalRelation, sorts, values []ast.ASTHandle) (resultErr error) {
@@ -219,7 +222,16 @@ func (e *IntervalDatalogEvaluator) Relation(declaration ast.ASTHandle) (*rel.Int
 	if r == nil {
 		return nil, ErrIntervalDatalogFragment
 	}
-	return r.Clone()
+	clone, err := r.Clone()
+	if err != nil {
+		return nil, err
+	}
+	if e.formulaCheck != nil {
+		if err = rel.VerifyIntervalRelationClone(e.manager, e.sorts[declaration], *e.formulaCheck, r, clone); err != nil {
+			return nil, err
+		}
+	}
+	return clone, nil
 }
 
 func (e *IntervalDatalogEvaluator) Close() (result error) {

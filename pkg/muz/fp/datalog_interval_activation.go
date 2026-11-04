@@ -105,6 +105,18 @@ func (a *intervalDatalogActivation) open() error {
 	return nil
 }
 
+func (a *intervalDatalogActivation) verifyEmptySeeds() error {
+	if a.formulaCheck == nil {
+		return nil
+	}
+	for _, entry := range a.store.entries {
+		if err := rel.VerifyIntervalRelationConstant(a.manager, entry.sorts, *a.formulaCheck, entry.relation, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (a *intervalDatalogActivation) discardEvaluator() error {
 	if a.evaluator != nil {
 		if err := a.evaluator.Close(); err != nil {
@@ -182,6 +194,12 @@ func (a *intervalDatalogActivation) syncPredicates(declarations []ast.ASTHandle)
 		if err = a.store.Register(declaration); err != nil {
 			return err
 		}
+		if a.formulaCheck != nil {
+			entry := a.store.entries[declaration]
+			if err = rel.VerifyIntervalRelationConstant(a.manager, entry.sorts, *a.formulaCheck, entry.relation, false); err != nil {
+				return err
+			}
+		}
 		a.predicates = append(a.predicates, declaration)
 	}
 	return nil
@@ -211,6 +229,11 @@ func (a *intervalDatalogActivation) clone(rules *base.RuleSet) (_ *intervalDatal
 			return nil, err
 		}
 		copyActivation.store.entries[declaration].relation = relation
+		if a.formulaCheck != nil {
+			if err = rel.VerifyIntervalRelationClone(a.manager, entry.sorts, *a.formulaCheck, entry.relation, relation); err != nil {
+				return nil, err
+			}
+		}
 	}
 	if a.formulaCheck != nil {
 		config := *a.formulaCheck
@@ -234,6 +257,13 @@ func (a *intervalDatalogActivation) query(declarations []ast.ASTHandle, widen bo
 		return lbool.Undef, err
 	}
 	evaluator.formulaCheck = a.formulaCheck
+	if a.formulaCheck != nil {
+		for declaration, entry := range a.store.entries {
+			if err = rel.VerifyIntervalRelationClone(a.manager, entry.sorts, *a.formulaCheck, entry.relation, evaluator.relations[declaration]); err != nil {
+				return lbool.Undef, errors.Join(err, evaluator.Close())
+			}
+		}
+	}
 	if err = evaluator.SaturatePositive(widen); err != nil {
 		return lbool.Undef, errors.Join(err, evaluator.Close())
 	}
@@ -268,7 +298,10 @@ func (a *intervalDatalogActivation) reset() error {
 	if err := a.discardEvaluator(); err != nil {
 		return err
 	}
-	return a.store.Reset()
+	if err := a.store.Reset(); err != nil {
+		return err
+	}
+	return a.verifyEmptySeeds()
 }
 
 func (a *intervalDatalogActivation) close() (result error) {

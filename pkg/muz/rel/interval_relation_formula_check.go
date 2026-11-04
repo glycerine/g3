@@ -23,6 +23,63 @@ func verifyIntervalRelationExpected(manager *ast.ASTManager, sorts []ast.ASTHand
 	return verifyRelationFormulaPair(manager, sorts, config, expected, actualHandle, named)
 }
 
+func VerifyIntervalRelationConstant(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, relation *IntervalRelation, full bool) error {
+	if manager == nil || relation == nil {
+		return ErrRelationVerification
+	}
+	var expected ast.ASTHandle
+	var err error
+	if full {
+		expected, err = manager.MkTrue()
+	} else {
+		expected, err = manager.MkFalse()
+	}
+	if err != nil {
+		return err
+	}
+	ref, err := manager.NewRef(expected)
+	if err != nil {
+		return err
+	}
+	defer manager.DelRef(&ref)
+	return verifyIntervalRelationExpected(manager, sorts, config, expected, relation, false)
+}
+
+func VerifyIntervalRelationClone(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, source, clone *IntervalRelation) (resultErr error) {
+	if manager == nil || source == nil || clone == nil {
+		return ErrRelationVerification
+	}
+	sourceFormula, err := source.ToFormula(manager, sorts)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&sourceFormula)) }()
+	sourceHandle, err := manager.RefGet(sourceFormula)
+	if err != nil {
+		return err
+	}
+	return verifyIntervalRelationExpected(manager, sorts, config, sourceHandle, clone, false)
+}
+
+func VerifyIntervalRelationEmpty(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, relation *IntervalRelation) error {
+	if manager == nil || relation == nil {
+		return ErrRelationVerification
+	}
+	if !relation.Empty() {
+		return nil
+	}
+	expected, err := manager.MkFalse()
+	if err != nil {
+		return err
+	}
+	ref, err := manager.NewRef(expected)
+	if err != nil {
+		return err
+	}
+	defer manager.DelRef(&ref)
+	return verifyIntervalRelationExpected(manager, sorts, config, expected, relation, false)
+}
+
 // VerifyIntervalRelationFactAdd checks the source check_relation::add_fact
 // postcondition against the interval relation's concrete formula.
 func VerifyIntervalRelationFactAdd(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, before ast.ASTHandle, values []ast.ASTHandle, after *IntervalRelation) (resultErr error) {

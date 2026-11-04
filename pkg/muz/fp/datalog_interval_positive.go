@@ -14,7 +14,8 @@ import (
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
-func ensureIntervalConditionVariables(manager *ast.ASTManager, condition ast.ASTHandle, variables map[uint32]uint32, relation *rel.IntervalRelation, sorts []ast.ASTHandle) (*rel.IntervalRelation, []ast.ASTHandle, error) {
+func ensureIntervalConditionVariables(e *IntervalDatalogEvaluator, condition ast.ASTHandle, variables map[uint32]uint32, relation *rel.IntervalRelation, sorts []ast.ASTHandle) (*rel.IntervalRelation, []ast.ASTHandle, error) {
+	manager := e.manager
 	if variables == nil {
 		return nil, nil, ErrIntervalDatalogFragment
 	}
@@ -34,11 +35,10 @@ func ensureIntervalConditionVariables(manager *ast.ASTManager, condition ast.AST
 			continue
 		}
 		column := uint32(len(sorts))
-		relation, err = relation.AppendFullColumn(manager, sorts, sortHandle)
+		relation, sorts, err = e.appendFullColumn(relation, sorts, sortHandle)
 		if err != nil {
 			return nil, nil, err
 		}
-		sorts = append(sorts, sortHandle)
 		variables[variable] = column
 	}
 	return relation, sorts, nil
@@ -242,7 +242,7 @@ func (e *IntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, widen b
 		// Wider rule shapes retain their existing requirement that every
 		// interpreted variable be bound by a predicate tail.
 		if conditionCount == 1 && positive <= 2 {
-			working, workingSorts, cause = ensureIntervalConditionVariables(e.manager, condition, variables, working, workingSorts)
+			working, workingSorts, cause = ensureIntervalConditionVariables(e, condition, variables, working, workingSorts)
 			if cause != nil {
 				return false, cause
 			}
@@ -300,11 +300,10 @@ func (e *IntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, widen b
 			column, found = variables[variable]
 			if !found {
 				column = uint32(len(workingSorts))
-				working, cause = working.AppendFullColumn(e.manager, workingSorts, headSorts[i])
+				working, workingSorts, cause = e.appendFullColumn(working, workingSorts, headSorts[i])
 				if cause != nil {
 					return false, cause
 				}
-				workingSorts = append(workingSorts, headSorts[i])
 				variables[variable] = column
 			}
 		} else {
@@ -315,18 +314,16 @@ func (e *IntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, widen b
 				return false, errors.Join(cause, fmt.Errorf("%w: non-numeral or ill-sorted head constant", ErrIntervalDatalogFragment))
 			}
 			column = uint32(len(workingSorts))
-			working, cause = working.AppendConstantColumn(e.manager, workingSorts, headSorts[i], argument)
+			working, workingSorts, cause = e.appendConstantColumn(working, workingSorts, headSorts[i], argument)
 			if cause != nil {
 				return false, cause
 			}
-			workingSorts = append(workingSorts, headSorts[i])
 		}
 		if usedColumns[column] {
-			working, cause = working.DuplicateColumn(e.manager, workingSorts, column)
+			working, workingSorts, cause = e.duplicateColumn(working, workingSorts, column)
 			if cause != nil {
 				return false, cause
 			}
-			workingSorts = append(workingSorts, workingSorts[column])
 			column = uint32(len(workingSorts) - 1)
 		}
 		usedColumns[column], desired[i] = true, column
