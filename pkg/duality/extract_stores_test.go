@@ -137,3 +137,75 @@ func TestDualityExtractStoresPersistentNamesAndOnePassUndo(t *testing.T) {
 		t.Fatal("closed store cache accepted extraction")
 	}
 }
+
+func TestDualityExtractStoresAllocationFailureRetry(t *testing.T) {
+	ctx, m, _ := dualityNativeSolverFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	wrap := func(h ast.ASTHandle, err error) *Expr {
+		t.Helper()
+		must(err)
+		v, e := NewExpr(ctx, h)
+		must(e)
+		closeExpr(t, v)
+		return v
+	}
+	raw := func(v *Expr) ast.ASTHandle { t.Helper(); h, err := v.Raw(); must(err); return h }
+	zero := wrap(m.ArithmeticNumeralRat(big.NewRat(0, 1), true))
+	one := wrap(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
+	two := wrap(m.ArithmeticNumeralRat(big.NewRat(2, 1), true))
+	integer, err := m.GetSort(raw(zero))
+	must(err)
+	arraySort, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{integer}), integer)
+	must(err)
+	sortRef, err := m.NewRef(arraySort)
+	must(err)
+	defer func() { must(m.DelRef(&sortRef)) }()
+	base := wrap(m.MkConstArray(arraySort, raw(zero)))
+	family, err := m.ArrayFamilyID()
+	must(err)
+	store := func(array, index, value *Expr) *Expr {
+		return wrap(m.MkFamilyApp(family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{raw(array), raw(index), raw(value)}))
+	}
+	inner := store(base, one, one)
+	outer := store(inner, two, two)
+	baseline := m.Stats().LiveReferences
+	complete := false
+	for allowance := int64(0); allowance < 256; allowance++ {
+		extraction, err := NewStoreExtraction(ctx)
+		must(err)
+		m.Budget().FailAfter(allowance)
+		named, failure := extraction.Extract(outer)
+		m.Budget().FailAfter(-1)
+		if failure == nil {
+			must(named.Close())
+			complete = true
+		} else {
+			if named != nil {
+				t.Fatal("partial extracted expression", allowance, failure)
+			}
+			// Source memo entries and generated names survive the failed attempt;
+			// a subsequent extraction must complete using that same cache.
+			named, err = extraction.Extract(outer)
+			must(err)
+			if len(extraction.constraints) != 2 {
+				t.Fatal("retry lost child-first store definitions", allowance, len(extraction.constraints))
+			}
+			must(named.Close())
+		}
+		must(extraction.Close())
+		if got := m.Stats().LiveReferences; got != baseline {
+			t.Fatal("failed/retried extraction leaked owned references", allowance, got, baseline)
+		}
+		if complete {
+			break
+		}
+	}
+	if !complete {
+		t.Fatal("allocation campaign did not reach successful extraction")
+	}
+}
