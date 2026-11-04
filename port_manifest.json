@@ -82280,7 +82280,7 @@
         },
         {
           "name": "Concrete config_hwf breadth-first leaf selector and default round-robin variable selector (src/math/subpaving/subpaving_t_def.h:24-101,344-359)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_selector.go",
           "tests": [
             "TestHardwareSelectorsRoundRobinAndBreadthFirstSourceOrder",
