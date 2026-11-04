@@ -32,6 +32,7 @@ func (s *stratifiedCaseBindingSolver) CheckSat(args []ast.ASTHandle) (lbool.LBoo
 func TestDualityStratifiedInliningNativeForwardCycleAndCounterexample(t *testing.T) {
 	for _, mode := range []string{"forward", "cycle", "counterexample", "underapprox"} {
 		t.Run(mode, func(t *testing.T) {
+			setCaseInterpolationFaultSchedule(t, 6, 16)
 			ctx, m, native, globals := dualityNativeSolverServicesFixture(t)
 			must := func(err error) {
 				t.Helper()
@@ -110,7 +111,7 @@ func TestDualityStratifiedInliningNativeForwardCycleAndCounterexample(t *testing
 			defer local.Close()
 			cex := NewCounterexample()
 			defer cex.Close()
-			cases := &CaseInterpolator{Graph: source, badCount: 6, badLimit: 16}
+			cases := &CaseInterpolator{Graph: source}
 			observed := &stratifiedCaseBindingSolver{Solver: native, cases: cases, original: source, graphs: make(map[*RPFP]int)}
 			s := &UnwindingSearch{Unwinding: u, Native: observed, Evaluator: derivationEvaluatorFixture(t, ctx, globals), Local: local, Auxiliary: aux, Simplifier: manager, Cases: cases, Counterexample: cex, UseUnderapprox: mode == "underapprox"}
 			must(native.Push())
@@ -182,7 +183,7 @@ func TestDualityStratifiedInliningNativeForwardCycleAndCounterexample(t *testing
 			if mode == "underapprox" {
 				expectedQueries = 2
 			}
-			if observed.bad || len(observed.graphs) != expectedQueries || cases.Graph != source || cases.badCount != 6 || cases.badLimit != 16 {
+			if observed.bad || len(observed.graphs) != expectedQueries || cases.Graph != source || caseInterpolationFaultSchedule.count != 6 || caseInterpolationFaultSchedule.limit != 16 {
 				t.Fatal("fresh query case bindings/failure schedule", observed.bad, len(observed.graphs), expectedQueries)
 			}
 			if !wantSatisfied && (cex.Tree() == nil || cex.Root() == nil || cex.Tree().closed) {

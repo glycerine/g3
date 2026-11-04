@@ -13,17 +13,18 @@ var ErrCaseInterpolationBad = errors.New("duality case interpolation: Bad")
 var ErrCaseInterpolationReallyBad = errors.New("duality case interpolation: ReallyBad")
 
 // CaseInterpolator borrows the search's graph, services and background theory.
-// Its source TEST_BAD schedule persists across calls on this engine instance.
+// Its source TEST_BAD schedule is process-global.
 // Source: duality_rpfp.cpp:2967-3131.
 type CaseInterpolator struct {
-	Graph              *RPFP
-	Auxiliary          solver.Solver
-	Extensional        bool
-	Simplifier         *interp.Manager
-	Quantifiers        *qe.Lite
-	Theory             []*Expr
-	badCount, badLimit int
+	Graph       *RPFP
+	Auxiliary   solver.Solver
+	Extensional bool
+	Simplifier  *interp.Manager
+	Quantifiers *qe.Lite
+	Theory      []*Expr
 }
+
+var caseInterpolationFaultSchedule = struct{ count, limit int }{limit: 1}
 
 func popCaseGraphScope(graph *RPFP, active *bool) error {
 	if active == nil {
@@ -62,9 +63,6 @@ func (c *CaseInterpolator) Interpolate(root, node *Node, config *interp.RunConfi
 	}
 	if serviceManager != m {
 		return ErrContextMismatch
-	}
-	if c.badLimit == 0 {
-		c.badLimit = 1
 	}
 	aux, err := NewImplicantSolver(g, c.Auxiliary, c.Extensional)
 	if err != nil {
@@ -285,13 +283,13 @@ func (c *CaseInterpolator) Interpolate(root, node *Node, config *interp.RunConfi
 				return err
 			}
 		}
-		// Preserve the active source TEST_BAD schedule without process globals.
-		if c.badCount >= c.badLimit {
-			c.badCount = 0
-			c.badLimit *= 2
+		// Preserve the active source TEST_BAD fault schedule.
+		if caseInterpolationFaultSchedule.count >= caseInterpolationFaultSchedule.limit {
+			caseInterpolationFaultSchedule.count = 0
+			caseInterpolationFaultSchedule.limit *= 2
 			return ErrCaseInterpolationBad
 		}
-		c.badCount++
+		caseInterpolationFaultSchedule.count++
 		empty, err := node.Annotation.IsEmpty()
 		if err != nil {
 			return err

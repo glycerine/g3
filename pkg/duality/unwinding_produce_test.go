@@ -9,6 +9,7 @@ import (
 func TestDualityCandidateProductionNativePendingAndPostponedOrder(t *testing.T) {
 	for _, mode := range []string{"pending", "global"} {
 		t.Run(mode, func(t *testing.T) {
+			setCaseInterpolationFaultSchedule(t, 4, 8)
 			ctx, m, native, globals := dualityNativeSolverServicesFixture(t)
 			must := func(err error) {
 				t.Helper()
@@ -98,7 +99,7 @@ func TestDualityCandidateProductionNativePendingAndPostponedOrder(t *testing.T) 
 			defer global.Close()
 			cex := NewCounterexample()
 			defer cex.Close()
-			cases := &CaseInterpolator{Graph: source, badCount: 4, badLimit: 8}
+			cases := &CaseInterpolator{Graph: source}
 			s := &UnwindingSearch{Unwinding: u, Native: native, Evaluator: derivationEvaluatorFixture(t, ctx, globals), Local: local, Global: global, Auxiliary: aux, Simplifier: manager, Counterexample: cex, Cases: cases}
 			must(native.Push())
 			caller, err := ctx.BoolConst("produce-caller")
@@ -169,7 +170,7 @@ func TestDualityCandidateProductionNativePendingAndPostponedOrder(t *testing.T) 
 			if _, ok := u.NextCandidate(); ok {
 				t.Fatal("unexpected extra candidate")
 			}
-			if cases.Graph != source || cases.badCount != 4 || cases.badLimit != 8 {
+			if cases.Graph != source || caseInterpolationFaultSchedule.count != 4 || caseInterpolationFaultSchedule.limit != 8 {
 				t.Fatal("query lifecycle lost borrowed case graph or engine failure schedule")
 			}
 			depth, err := native.ScopeLevel()

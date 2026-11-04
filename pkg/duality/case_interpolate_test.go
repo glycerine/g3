@@ -9,7 +9,15 @@ import (
 	"testing"
 )
 
+func setCaseInterpolationFaultSchedule(t *testing.T, count, limit int) {
+	t.Helper()
+	previous := caseInterpolationFaultSchedule
+	caseInterpolationFaultSchedule = struct{ count, limit int }{count, limit}
+	t.Cleanup(func() { caseInterpolationFaultSchedule = previous })
+}
+
 func TestDualityCaseInterpolationNativeLearningFaultAndRetry(t *testing.T) {
+	setCaseInterpolationFaultSchedule(t, 0, 1)
 	ctx, m, main, globals := dualityNativeSolverServicesFixture(t)
 	must := func(err error) {
 		t.Helper()
@@ -84,7 +92,6 @@ func TestDualityCaseInterpolationNativeLearningFaultAndRetry(t *testing.T) {
 	}
 	baseline, err := main.NumAssertions()
 	must(err)
-	runner := &CaseInterpolator{Graph: g, Auxiliary: auxiliary, Extensional: true, Simplifier: simplifier, Quantifiers: quantifiers}
 	original, err := NewRPFPWithVocabulary(g.vocabulary)
 	must(err)
 	defer original.Close()
@@ -94,6 +101,7 @@ func TestDualityCaseInterpolationNativeLearningFaultAndRetry(t *testing.T) {
 	search, err := NewBacktrackingDerivation(base)
 	must(err)
 	for attempt := 0; attempt < 3; attempt++ {
+		runner := &CaseInterpolator{Graph: g, Auxiliary: auxiliary, Extensional: true, Simplifier: simplifier, Quantifiers: quantifiers}
 		err := search.SimplifyNode(child, runner, nil)
 		if attempt == 1 {
 			if !errors.Is(err, ErrCaseInterpolationBad) {
@@ -122,8 +130,8 @@ func TestDualityCaseInterpolationNativeLearningFaultAndRetry(t *testing.T) {
 			t.Fatal("case proof assumptions not installed")
 		}
 	}
-	if runner.badLimit != 2 || runner.badCount != 1 {
-		t.Fatal("fault schedule did not survive retry", runner.badLimit, runner.badCount)
+	if caseInterpolationFaultSchedule.limit != 2 || caseInterpolationFaultSchedule.count != 1 {
+		t.Fatal("fault schedule did not survive new runner", caseInterpolationFaultSchedule)
 	}
 	full, err := parent.Annotation.IsFull()
 	must(err)
@@ -145,6 +153,7 @@ func TestDualityCaseInterpolationEmptyEdgeAndConsistentContext(t *testing.T) {
 			name = "empty-edge"
 		}
 		t.Run(name, func(t *testing.T) {
+			setCaseInterpolationFaultSchedule(t, 0, 1)
 			ctx, m, main, globals := dualityNativeSolverServicesFixture(t)
 			must := func(err error) {
 				t.Helper()
@@ -198,7 +207,7 @@ func TestDualityCaseInterpolationEmptyEdgeAndConsistentContext(t *testing.T) {
 			err = runner.Interpolate(node, node, nil)
 			if empty {
 				must(err)
-				if len(g.proofCore) == 0 || runner.badCount != 0 {
+				if len(g.proofCore) == 0 || caseInterpolationFaultSchedule.count != 0 {
 					t.Fatal("empty edge ran a learning case or lost proof seed")
 				}
 			} else if !errors.Is(err, ErrCaseInterpolationReallyBad) {

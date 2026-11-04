@@ -10,6 +10,7 @@ import (
 )
 
 func TestDualityCaseInterpolationUsesBackgroundTheory(t *testing.T) {
+	setCaseInterpolationFaultSchedule(t, 0, 2)
 	ctx, m, main, globals := dualityNativeSolverServicesFixture(t)
 	must := func(err error) {
 		t.Helper()
