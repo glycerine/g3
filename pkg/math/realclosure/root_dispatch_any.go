@@ -11,6 +11,10 @@ func (o *algebraicRootOwner) isolateAnyRoots(p []*realValue, usePrem bool) ([]*r
 	if err := o.values.checkAnyPolynomial(p, false); err != nil {
 		return nil, err
 	}
+	// The source returns before denominator cleaning for a nonzero constant.
+	if len(p) == 1 {
+		return nil, nil
+	}
 	first := 0
 	for first < len(p) && p[first] == nil {
 		first++
