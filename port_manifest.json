@@ -94425,7 +94425,7 @@
         },
         {
           "name": "concrete nested check_relation over the live check_table finite pair",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/muz/rel/formula_checked_finite_pair.go",
             "pkg/muz/rel/formula_checked_finite_pair_operations.go",
@@ -94453,7 +94453,7 @@
             "TestDatalogExplanationNestedCheckerRequiresInnerPair",
             "TestDatalogExplanationNestedCheckerScopesExposeBothLayers"
           ],
-          "reason": "The concrete source composition checks the selected primary/checker table pair and an independent whole-relation formula across typed operations. Relation-level explanations and fresh magic predicates now construct and dispatch this nested pair through both checker scopes, preserving heterogeneous finite representations and proof rows. Construction transfers the inner pair only after both layers verify; failure and native cleanup refusal preserve a retryable owner frontier. Ordinary non-explanation saturation still rejects this nested selection, and arbitrary relation-family wrapping remains open."
+          "reason": "The concrete source composition checks the selected primary/checker table pair and an independent whole-relation formula across typed operations. Ordinary Datalog now applies this nested checker when check_relation selects the configured check_table plugin; relation-level explanations and fresh magic predicates use the same nested pair while preserving proof rows. Construction transfers the inner pair only after both layers verify, and query cleanup owns both layers. Remaining partial scope is arbitrary relation-family wrapping and the mixed finite-sieve integrations recorded on this unit."
         },
         {
           "name": "concrete check_relation(doc) composition with independently owned symbolic verification and native construction cleanup",
@@ -94649,7 +94649,7 @@
         },
         {
           "name": "concrete nested check_relation over the live check_table finite pair",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/muz/rel/formula_checked_finite_pair.go",
             "pkg/muz/rel/formula_checked_finite_pair_operations.go",
@@ -94677,7 +94677,7 @@
             "TestDatalogExplanationNestedCheckerRequiresInnerPair",
             "TestDatalogExplanationNestedCheckerScopesExposeBothLayers"
           ],
-          "reason": "The concrete source composition checks the selected primary/checker table pair and an independent whole-relation formula across typed operations. Relation-level explanations and fresh magic predicates now construct and dispatch this nested pair through both checker scopes, preserving heterogeneous finite representations and proof rows. Construction transfers the inner pair only after both layers verify; failure and native cleanup refusal preserve a retryable owner frontier. Ordinary non-explanation saturation still rejects this nested selection, and arbitrary relation-family wrapping remains open."
+          "reason": "The concrete source composition checks the selected primary/checker table pair and an independent whole-relation formula across typed operations. Ordinary Datalog now applies this nested checker when check_relation selects the configured check_table plugin; relation-level explanations and fresh magic predicates use the same nested pair while preserving proof rows. Construction transfers the inner pair only after both layers verify, and query cleanup owns both layers. Remaining partial scope is arbitrary relation-family wrapping and the mixed finite-sieve integrations recorded on this unit."
         },
         {
           "name": "concrete check_relation(doc) composition with independently owned symbolic verification and native construction cleanup",

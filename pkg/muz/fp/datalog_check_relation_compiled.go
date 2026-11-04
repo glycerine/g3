@@ -48,7 +48,7 @@ func (s *datalogCheckRelationScope) beginCompiled() (_ *datalogCompiledCheckScop
 		return nil, false, nil
 	}
 	for i := range s.entries {
-		if s.entries[i].pair == nil || s.entries[i].checked != nil || s.entries[i].sparse != nil {
+		if s.entries[i].pair == nil || s.entries[i].nested != nil || s.entries[i].checked != nil || s.entries[i].sparse != nil {
 			return nil, false, nil
 		}
 	}

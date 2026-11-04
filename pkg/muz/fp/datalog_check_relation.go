@@ -22,6 +22,7 @@ type datalogCheckedPredicate struct {
 	checked     *rel.FormulaCheckedTable
 	sparse      *rel.CheckedRelation
 	pair        *rel.FiniteCheckedPair
+	nested      *rel.FormulaCheckedFinitePair
 	publish     rel.FiniteTable
 	doc         *rel.UDocNullaryTable
 }
@@ -207,6 +208,8 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 	if err != nil {
 		return nil, err
 	}
+	tableCheck := false
+	var checkedFactory *rel.FiniteCheckedFactory
 	if enabled && name == "doc" {
 		// The UDoc query path has already selected every source-capable doc
 		// program. Signatures rejected by doc (for example Bool) fall through
@@ -224,16 +227,35 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 		// programs before this finite fallback is reached.
 		name = "hashtable"
 	}
-	if enabled && name == "check" {
-		// The nested table-relation selector is activated by the relation-level
-		// explanation pipeline, which can preserve both checker layers. The
-		// ordinary finite saturation scope has no product boundary for its outer
-		// formula and must not silently substitute the Hash-only checker.
-		return nil, rel.ErrCompilerUnsupported
+	nestedCheck := enabled && name == "check"
+	if nestedCheck {
+		// relation_manager installs check_table only when a concrete default
+		// table checker is configured. The source check_relation plugin then
+		// wraps that table relation, so preserve both checking layers here.
+		checker, available, err := e.datalogDefaultTableCheck()
+		if err != nil {
+			return nil, err
+		}
+		if !available {
+			return nil, rel.ErrCompilerUnsupported
+		}
+		primary, err := e.datalogDefaultCheckedPrimary()
+		if err != nil {
+			return nil, err
+		}
+		if (primary == "lazy_sparse" || checker == "lazy_sparse") && e.lazyFinite == nil {
+			e.lazyFinite = rel.NewLazySparseFiniteFactory()
+			if err = e.relations.SetLazySparseFiniteFactory(e.lazyFinite); err != nil {
+				return nil, err
+			}
+		}
+		checkedFactory, err = rel.NewFiniteCheckedFactoryWithLazy(primary, checker, e.lazyFinite)
+		if err != nil {
+			return nil, err
+		}
+		tableCheck = true
 	}
-	tableCheck := false
-	var checkedFactory *rel.FiniteCheckedFactory
-	if !enabled {
+	if !tableCheck && !enabled {
 		name, enabled, err = e.datalogDefaultTableCheck()
 		if err != nil || !enabled {
 			return nil, err
@@ -267,6 +289,11 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 			continue
 		}
 		if tableCheck {
+			// A source-requested relation kind bypasses the favourite relation
+			// plugin, including check_relation(check_table(...)).
+			if nestedCheck && len(state.requestedRepresentations) != 0 {
+				continue
+			}
 			signature, err := state.table.Signature()
 			if err != nil {
 				return nil, err
@@ -282,8 +309,18 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 				return nil, err
 			}
 			entry := datalogCheckedPredicate{declaration: declaration, state: state, original: state.table, pair: pair}
-			scope.entries = append(scope.entries, entry)
-			state.table = pair
+			if nestedCheck {
+				scope.entries = append(scope.entries, entry)
+				nested, x := rel.NewFormulaCheckedFinitePair(e.relations, state.sorts, pair, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
+				if x != nil {
+					return nil, x
+				}
+				scope.entries[len(scope.entries)-1].nested = nested
+				state.table = nested
+			} else {
+				state.table = pair
+				scope.entries = append(scope.entries, entry)
+			}
 			continue
 		}
 		if name == "sparse" {
@@ -340,7 +377,7 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 func (s *datalogCheckRelationScope) restoreStates() {
 	for i := range s.entries {
 		entry := &s.entries[i]
-		if entry.state != nil && (entry.state.checked == entry.checked && entry.checked != nil || entry.state.sparse == entry.sparse && entry.sparse != nil || entry.pair != nil && entry.state.table == entry.pair || entry.doc != nil && entry.state.table == entry.doc) {
+		if entry.state != nil && (entry.state.checked == entry.checked && entry.checked != nil || entry.state.sparse == entry.sparse && entry.sparse != nil || entry.pair != nil && entry.state.table == entry.pair || entry.nested != nil && entry.state.table == entry.nested || entry.doc != nil && entry.state.table == entry.doc) {
 			entry.state.table, entry.state.checked, entry.state.sparse = entry.original, nil, nil
 		}
 	}
@@ -362,6 +399,8 @@ func (s *datalogCheckRelationScope) complete(publish bool) (result error) {
 			var err error
 			if entry.doc != nil {
 				facts, err = entry.doc.Facts()
+			} else if entry.nested != nil {
+				facts, err = entry.nested.Facts()
 			} else if entry.pair != nil {
 				facts, err = entry.pair.Facts()
 			} else {
@@ -444,6 +483,14 @@ func (s *datalogCheckRelationScope) dispose() (result error) {
 			}
 			entry.sparse = nil
 			entry.shadow = nil
+		}
+		if entry.nested != nil {
+			if err := entry.nested.Close(); err != nil {
+				result = errors.Join(result, err)
+				continue
+			}
+			entry.nested = nil
+			entry.pair = nil
 		}
 		if entry.pair != nil {
 			if err := entry.pair.Close(); err != nil {
