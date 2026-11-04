@@ -50,7 +50,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/math/interval/interval.h` — Concrete rational interval state, dependency flags, endpoint predicates, scoped numeral ownership, hardware root declarations, and transcendental interfaces map to typed Go owners; interval package tests pass.
 - [x] `src/math/interval/interval_def.h` — Active interval arithmetic, dependency propagation, roots, reciprocal/division, and rational transcendental routines map to concrete Go owners; focused interval and subpaving tests pass.
 - [x] `src/math/polynomial/polynomial.cpp` — All live manager methods map to Go implementations, with existing tests for every live manifest entry; dormant callbacks/helpers are unused, and Go-native storage replacements preserve the active operations.
-- [ ] `src/math/polynomial/polynomial.h`
+- [x] `src/math/polynomial/polynomial.h` — All retained declarations map to concrete typed Go APIs; the two reference-only entries have no live Go consumer, and the existing polynomial package suite passes.
 - [ ] `src/math/realclosure/realclosure.cpp`
 - [ ] `src/math/realclosure/realclosure.h`
 - [x] `src/math/subpaving/subpaving_mpfx.cpp` — Not applicable: this file only forces a C++ template instantiation; the Go fixed-point context is concrete. The template implementation is tracked separately.
