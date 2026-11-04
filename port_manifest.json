@@ -82220,10 +82220,13 @@
         },
         {
           "name": "Concrete config_hwf node-bound interval view reached by polynomial and monomial propagation (src/math/subpaving/subpaving_t_def.h:1419-1435,1548-1634)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval.go",
           "tests": [
-            "TestHardwareIntervalConstantNodeViewAndMutationGuards"
+            "TestHardwareIntervalConstantNodeViewAndMutationGuards",
+            "TestHardwarePolynomialForwardInverseAndUnboundedSelection",
+            "TestHardwareMonomialDefinitionForwardAndZero",
+            "TestHardwareMonomialReverseCubicAndSourceProduct"
           ]
         },
         {
