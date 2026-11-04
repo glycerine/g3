@@ -13,7 +13,7 @@ import (
 // certificates match the supported Craig interpolation rules.
 // Source: duality_wrapper.cpp solver constructor; dl_interface::query proof scope.
 func NewNativeSolver(context *graph.Context, params *uparams.ParamsContext, factory solver.Factory, mbqi bool) (out solver.Solver, result error) {
-	if params == nil || factory == nil {
+	if context == nil || params == nil || factory == nil {
 		return nil, graph.ErrWrapperOwner
 	}
 	m, err := context.Manager()

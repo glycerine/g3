@@ -66,6 +66,9 @@ func (r *queryRun) close() error {
 }
 
 func NewQueryEngine(context *graph.Context, config graph.EngineConfig) (*QueryEngine, error) {
+	if context == nil {
+		return nil, graph.ErrWrapperOwner
+	}
 	if _, err := context.Manager(); err != nil {
 		return nil, err
 	}
