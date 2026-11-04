@@ -308,7 +308,8 @@ func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef
 	if level != nil {
 		return engine.QueryPredicateFromLevel(query, *level)
 	}
-	return engine.QueryPredicate(query)
+	result, err = engine.QueryPredicate(query)
+	return result, classifyFixedpointQueryException(err)
 }
 
 // QueryFixedpointRelations reports whether at least one requested relation is

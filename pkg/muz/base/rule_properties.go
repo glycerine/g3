@@ -5,6 +5,7 @@ package base
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -26,6 +27,9 @@ type RulePropertyError struct {
 	Kind     RulePropertyKind
 	RuleName string
 	Symbol   string
+	// SourceMessage preserves the source diagnostic while the offending rule
+	// is still owned by the property collector.
+	SourceMessage string
 }
 
 func (e *RulePropertyError) Error() string {
@@ -388,7 +392,11 @@ func (p *RuleProperties) CheckNegativePredicates() error {
 		return err
 	}
 	if p.negative != nil {
-		return &RulePropertyError{Kind: RulePropertyNegativePredicate, RuleName: rulePropertyName(p.negative)}
+		var display strings.Builder
+		if err := p.rules.WriteRuleDisplay(&display, p.negative); err != nil {
+			return err
+		}
+		return &RulePropertyError{Kind: RulePropertyNegativePredicate, RuleName: rulePropertyName(p.negative), SourceMessage: "Rule contains negative predicate " + display.String()}
 	}
 	return nil
 }

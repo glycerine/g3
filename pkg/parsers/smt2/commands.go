@@ -775,8 +775,14 @@ func (p *commandParser) command() (bool, error) {
 		}
 		started := time.Now()
 		status, printAnswer, printStatistics, printCertificate, err := p.fixedpointQuery(declaration)
+		queryException := cmd_context.FixedpointCaughtQueryException(err)
 		if err != nil {
-			return false, err
+			if queryException == nil {
+				return false, err
+			}
+			if _, err = fmt.Fprintf(p.out, "(error \"query failed: %s\")\n", queryException.Message); err != nil {
+				return false, err
+			}
 		}
 		if p.queryCollector != nil {
 			if err = p.queryCollector.add(p, declaration); err != nil {
@@ -791,7 +797,7 @@ func (p *commandParser) command() (bool, error) {
 				text = "sat"
 			} else if status == lbool.False {
 				text = "unsat"
-			} else {
+			} else if queryException == nil {
 				var reasonErr error
 				reason, reasonErr = p.context.FixedpointReasonUnknown()
 				if reasonErr != nil {
