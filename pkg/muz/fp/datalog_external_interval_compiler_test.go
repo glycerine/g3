@@ -142,10 +142,13 @@ func TestExternalIntervalCompilerUsesIsolatedFilterMetadata(t *testing.T) {
 			delete(compiler.queryAuxiliary, filter)
 			_, err = compiler.externalIntervalProgramPlan()
 			fragmentMust(t, err)
-			// The persistent wrapper still sees the original unsupported
-			// repeated binary tail; local metadata does not activate a port.
-			if _, _, _, err = engine.externalIntervalRulePlans(); !errors.Is(err, ErrExternalIntervalDatalogFragment) {
-				t.Fatal("compiler extraction changed the existing engine boundary", err)
+			// The persistent binary compiler now handles repeated columns
+			// directly, without publishing the transform helper into engine state.
+			_, _, originalPlan, err := engine.externalIntervalRulePlans()
+			if err != nil || originalPlan == nil || originalPlan.head != h || originalPlan.left != p || originalPlan.right != q ||
+				!externalIntervalColumnsEqual(originalPlan.leftColumns, []uint32{0, 1}) ||
+				!externalIntervalColumnsEqual(originalPlan.rightColumns, []uint32{0, 0}) {
+				t.Fatal("persistent compiler did not preserve the source repeated-tail join", originalPlan, err)
 			}
 			registered, err := engine.rules.IsRegisteredPredicate(filter)
 			fragmentMust(t, err)

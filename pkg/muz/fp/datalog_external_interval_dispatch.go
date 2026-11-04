@@ -63,6 +63,27 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (_ bool, resultErr
 	if e.external == nil || len(predicates) == 0 {
 		return true, ErrExternalIntervalDatalogFragment
 	}
+	needsNormalization, err := externalIntervalNeedsJoinNormalization(e.set)
+	if err != nil {
+		return true, err
+	}
+	if needsNormalization {
+		if e.externalIntervalDatalog != nil {
+			if err = e.externalIntervalDatalog.prepareExternalIntervalNormalization(); err != nil {
+				return true, err
+			}
+			if err = e.externalIntervalDatalog.syncPredicates(predicates); err != nil {
+				return true, err
+			}
+			return true, nil
+		}
+		owner, cause := newExternalIntervalDatalogActivation(e.manager, e.external, predicates)
+		if cause != nil {
+			return true, cause
+		}
+		e.externalIntervalDatalog = owner
+		return true, nil
+	}
 	program, err := e.externalIntervalProgramPlan()
 	if err != nil {
 		return true, err
@@ -140,7 +161,20 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (_ bool, resultErr
 func (e *PropositionalEngine) queryExternalIntervalDatalog(declarations []ast.ASTHandle) (lbool.LBool, error) {
 	e.compiled = false
 	e.datalogStats.Reset()
-	var err error
+	needsNormalization, err := externalIntervalNeedsJoinNormalization(e.set)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if needsNormalization {
+		if e.externalIntervalDatalog == nil {
+			return lbool.Undef, ErrExternalIntervalDatalogFragment
+		}
+		scope, cause := prepareExternalIntervalDatalogNormalization(e.externalIntervalDatalog, e.set, declarations)
+		if cause != nil {
+			return lbool.Undef, cause
+		}
+		return scope.query(declarations)
+	}
 	if e.externalIntervalDatalog.program != nil {
 		err = e.externalIntervalDatalog.executeExternalIntervalProgram()
 	} else {

@@ -183,6 +183,33 @@ func (a *externalIntervalDatalogActivation) closeExternalIntervalProgramPlans() 
 	return nil
 }
 
+// prepareExternalIntervalNormalization retires a previously installed binary
+// program while preserving the source relation entries it updated. A partial
+// prior execution must finish through its normal continuation before its plan
+// is released.
+func (a *externalIntervalDatalogActivation) prepareExternalIntervalNormalization() error {
+	if err := a.open(); err != nil {
+		return err
+	}
+	if a.program == nil {
+		return nil
+	}
+	if a.program.registers != nil || a.program.storing || a.pending != nil {
+		if err := a.executeExternalIntervalProgram(); err != nil {
+			return err
+		}
+	}
+	if err := a.discardExternalIntervalProgramExecution(); err != nil {
+		return err
+	}
+	if err := a.closeExternalIntervalProgramPlans(); err != nil {
+		return err
+	}
+	a.program = nil
+	a.identity, a.ground, a.cartesian = nil, nil, nil
+	return nil
+}
+
 func (a *externalIntervalDatalogActivation) clearExternalIntervalProgramExecution() {
 	a.program.registers = nil
 	a.program.next = 0

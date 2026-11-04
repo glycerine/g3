@@ -293,7 +293,7 @@ func TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay(t *testin
 	}
 }
 
-func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *testing.T) {
+func TestExternalIntervalDatalogCartesianPreflightsShapesBeforeCallbacks(t *testing.T) {
 	shapes := []string{
 		"compound-head", "repeated-tail",
 		"negative", "unbound-guard", "cycle", "unsafe-head", "nullary-tail",
@@ -334,6 +334,7 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 			}
 			leftApplication := app(p, x)
 			var rightApplication ast.ASTHandle
+			var thirdTail ast.ASTHandle
 			switch shape {
 			case "nullary-tail":
 				rightApplication = app(q)
@@ -359,8 +360,8 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 				fragmentMust(t, err)
 			}
 			if shape == "third-tail" {
-				r := declareExternalIntervalPredicate(t, manager, engine, "external-interval-cartesian-invalid-r", []ast.ASTHandle{integer}, kinds)
-				body, err = manager.MkAnd(body, app(r, z))
+				thirdTail = declareExternalIntervalPredicate(t, manager, engine, "external-interval-cartesian-invalid-r", []ast.ASTHandle{integer}, kinds)
+				body, err = manager.MkAnd(body, app(thirdTail, z))
 				fragmentMust(t, err)
 			}
 
@@ -414,6 +415,24 @@ func TestExternalIntervalDatalogCartesianRejectsInvalidShapesBeforeCallbacks(t *
 				}
 				if shape == "repeated-tail-column" && operationCount(callbacks.operations, ast.DatalogOpFilter) != 1 {
 					t.Fatal("repeated tail variable was not constrained", callbacks.operations)
+				}
+				return
+			}
+			if shape == "third-tail" {
+				one, cause := manager.ArithmeticIntegerNumeralText("1")
+				fragmentMust(t, cause)
+				two, cause := manager.ArithmeticIntegerNumeralText("2")
+				fragmentMust(t, cause)
+				three, cause := manager.ArithmeticIntegerNumeralText("3")
+				fragmentMust(t, cause)
+				fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{one}))
+				fragmentMust(t, engine.AddFact(q, []ast.ASTHandle{two}))
+				fragmentMust(t, engine.AddFact(thirdTail, []ast.ASTHandle{three}))
+				resetExternalIntervalCartesianCallbacks(callbacks)
+				status, queryErr := engine.QueryPredicate(headDeclaration)
+				fragmentMust(t, queryErr)
+				if status != lbool.Undef || operationCount(callbacks.operations, ast.DatalogOpJoin) < 2 || operationCount(callbacks.operations, ast.DatalogOpUnion) < 2 {
+					t.Fatal("normalized three-tail rule did not execute", status, callbacks.operations)
 				}
 				return
 			}
