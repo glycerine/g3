@@ -208,7 +208,7 @@ func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool
 				if err == nil {
 					edges[head] = append(edges[head], compiledRule{guard: &compiled})
 				}
-			} else if err == nil && tailSize == 2 {
+			} else if err == nil && uninterpreted == 2 {
 				var compiled karrBinaryRule
 				head, compiled, err = a.compileBinaryRule(rule)
 				if err == nil {
