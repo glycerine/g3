@@ -82242,10 +82242,12 @@
         },
         {
           "name": "Concrete config_hwf polynomial forward and inverse interval propagation with source single-unbounded-variable selection (src/math/subpaving/subpaving_t_def.h:1408-1496)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_polynomial.go",
           "tests": [
-            "TestHardwarePolynomialForwardInverseAndUnboundedSelection"
+            "TestHardwarePolynomialForwardInverseAndUnboundedSelection",
+            "TestHardwarePolynomialPropagationSourceTraceOrder",
+            "TestHardwarePolynomialPropagationTraceRefusalAndPrinterPrefix"
           ]
         },
         {
