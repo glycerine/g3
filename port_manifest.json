@@ -80156,7 +80156,7 @@
         },
         {
           "name": "Concrete config_mpff node bounds and live constant node/variable interval views (src/math/subpaving/subpaving_t.h:146-316)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_node.go",
           "go_targets": [
             "pkg/math/subpaving/fast_interval.go"

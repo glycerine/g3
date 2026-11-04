@@ -157,10 +157,53 @@ func TestSubpavingFastConstantIntervalSelfAssignment(t *testing.T) {
 			t.Error(err)
 		}
 	})
+	lower, err := numeral.NewScopedFastFloat(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	upper, err := numeral.NewScopedFastFloat(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := upper.Close(); err != nil {
+			t.Error(err)
+		}
+		if err := lower.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	lo, err := lower.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hi, err := upper.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.SetInt32(lo, -1); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.SetInt32(hi, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := view.SetFinite(lo, hi, true, false); err != nil {
+		t.Fatal(err)
+	}
 	if err := view.SetConstant(root, 0); err != nil {
 		t.Fatal(err)
 	}
 	if err := view.SetFrom(view); err != nil {
 		t.Fatalf("constant self-assignment must be a no-op: %v", err)
+	}
+	if err := view.SetMutable(); err != nil {
+		t.Fatal(err)
+	}
+	var shown bytes.Buffer
+	if err := view.Display(&shown); err != nil {
+		t.Fatal(err)
+	}
+	if shown.String() != "(-1, 2]" {
+		t.Fatalf("detaching constant view did not restore scratch interval: %q", shown.String())
 	}
 }
