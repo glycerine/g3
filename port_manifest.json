@@ -47566,7 +47566,7 @@
       "path": "src/cmd_context/extra_cmds/dbg_cmds.h",
       "component": "cmd_context",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/cmd_context/debug_expressions.go",
         "pkg/cmd_context/context.go",
@@ -47575,6 +47575,8 @@
         "pkg/parsers/smt2/debug_commands_test.go",
         "pkg/ast/rewriter/bool_rewriter_public.go",
         "pkg/cmd_context/results.go",
+        "pkg/cmd_context/debug_dimacs.go",
+        "pkg/cmd_context/debug_dimacs_test.go",
         "pkg/ast/ast_expr_id_debug.go",
         "pkg/ast/ast_expr_id_debug_test.go",
         "pkg/cmd_context/debug_translation.go"
@@ -47593,7 +47595,9 @@
         "TestDebugParameterCopyAndTheoryRewrite",
         "TestDebugSetNextID",
         "TestSetNextExprIDAvoidsExistingASTIDs",
-        "TestDebugTranslateExpression"
+        "TestDebugTranslateExpression",
+        "TestDebugSExprDisplay",
+        "TestCommandContextDisplayDIMACSRestoresGlobalOption"
       ],
       "conditionals": [
         {
@@ -47605,12 +47609,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "named expression storage and debug set, quantifier body, print, shift, substitution, shared count and size commands",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugExpressionCommands",
@@ -47621,7 +47625,7 @@
         },
         {
           "name": "quantifier and nested quantifier instantiation",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugInstantiateQuantifiers"
@@ -47629,7 +47633,7 @@
         },
         {
           "name": "eliminate unused quantifier variables",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugEliminateUnusedVariables"
@@ -47637,7 +47641,7 @@
         },
         {
           "name": "recursive Boolean rewrites and conjunction elimination",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugBooleanRewriters"
@@ -47645,7 +47649,7 @@
         },
         {
           "name": "used variables and shared-expression display",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugUsedVariables",
@@ -47654,7 +47658,7 @@
         },
         {
           "name": "AST ordering and some-value debug commands",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugOrderingAndSomeValue"
@@ -47662,7 +47666,7 @@
         },
         {
           "name": "parameter copy diagnostic and theory rewriting",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugParameterCopyAndTheoryRewrite"
@@ -47670,7 +47674,7 @@
         },
         {
           "name": "debug AST ID selection",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/ast/ast_expr_id_debug.go",
           "tests": [
             "TestSetNextExprIDAvoidsExistingASTIDs"
@@ -47678,7 +47682,7 @@
         },
         {
           "name": "debug set next ID command",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugSetNextID"
@@ -47686,7 +47690,7 @@
         },
         {
           "name": "debug AST translation across managers",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugTranslateExpression"
@@ -47697,7 +47701,7 @@
         "Context owns stored AST references through replacement, reset and close."
       ],
       "deviations": [
-        "Other debug commands and generic object reference kinds are pending; failure-frontier audit is incomplete."
+        "The C++ header only declares install_dbg_cmds; Go registers live debug command names in the SMT2 dispatcher and implements their typed handlers directly. C++ include guards and command-object vtables have no Go counterpart."
       ]
     },
     {
