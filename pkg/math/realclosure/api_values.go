@@ -8,16 +8,18 @@ import (
 	"io"
 
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/math/interval"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // APIValues owns the root registry and binary interval manager for one API
 // context. Its rational service is borrowed and must outlive this owner.
 type APIValues struct {
-	store  realValueStore
-	bounds *numeral.BinaryRationalManager
-	roots  algebraicRootOwner
-	live   int
+	store           realValueStore
+	bounds          *numeral.BinaryRationalManager
+	transcendentals *interval.RationalTranscendentals
+	roots           algebraicRootOwner
+	live            int
 }
 
 // Rational creates a value from the API's rational string syntax.
@@ -85,7 +87,10 @@ func NewAPIValues(service *numeral.RationalService) (*APIValues, error) {
 	if err != nil {
 		return nil, err
 	}
-	v := &APIValues{bounds: bounds}
+	v := &APIValues{
+		bounds:          bounds,
+		transcendentals: &interval.RationalTranscendentals{Numbers: service.Manager},
+	}
 	v.store.numbers = service.Manager
 	v.roots.values, v.roots.intervals = &v.store, bounds
 	return v, nil
@@ -213,6 +218,12 @@ func (v *APIValues) DisplayDecimal(w io.Writer, a *APIValue, precision uint32) e
 func (v *APIValues) Close() error {
 	if v == nil || v.bounds == nil || v.live != 0 {
 		return arena.ErrInvalidSlot
+	}
+	if v.transcendentals != nil {
+		if err := v.transcendentals.Close(); err != nil {
+			return err
+		}
+		v.transcendentals = nil
 	}
 	if err := v.bounds.CloseChecked(); err != nil {
 		return err

@@ -1,7 +1,8 @@
 package api
 
-// Source: generated api_commands.cpp and src/api/api_rcf.cpp. Only rational
-// values are supported until the real-closure extensions are implemented.
+// Source: generated api_commands.cpp and src/api/api_rcf.cpp. Rational and
+// algebraic values are supported. Transcendental and infinitesimal extensions
+// remain unimplemented in the real-closure value engine.
 
 import (
 	"errors"
