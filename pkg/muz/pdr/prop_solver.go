@@ -34,6 +34,7 @@ type PropSolver struct {
 	manager        *ast.ASTManager
 	contexts       *SMTContextManager
 	context        *SMTContext
+	delayScope     *SMTDelayScope
 	name           string
 	levelPositive  []ast.ASTHandle
 	levelNegative  []ast.ASTHandle
@@ -84,7 +85,29 @@ func (p *PropSolver) open() error {
 	if p == nil || p.closed || p.manager == nil || p.context == nil {
 		return ErrPropSolverOwner
 	}
+	if p.delayScope != nil {
+		return ast.ErrASTPending
+	}
 	return p.context.open()
+}
+
+func (p *PropSolver) finishDelay() error {
+	if p.delayScope == nil {
+		return nil
+	}
+	if err := p.delayScope.Close(); err != nil {
+		return err
+	}
+	p.delayScope = nil
+	return nil
+}
+
+func (p *PropSolver) closeDelay(scope *SMTDelayScope) error {
+	if err := scope.Close(); err != nil {
+		p.delayScope = scope
+		return err
+	}
+	return nil
 }
 
 // SetUseFarkas selects proof-derived arithmetic cores when proof production is
@@ -892,7 +915,7 @@ func (p *PropSolver) check(atoms []ast.ASTHandle, formula ast.ASTHandle, level *
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, scope.Close()) }()
+	defer func() { resultErr = errors.Join(resultErr, p.closeDelay(scope)) }()
 	safe, err := p.makeSafeAssumptions(atoms)
 	if err != nil {
 		return result, err
@@ -1035,6 +1058,9 @@ func (p *PropSolver) Close() (result error) {
 		return ErrPropSolverOwner
 	}
 	p.closing = true
+	if result = p.finishDelay(); result != nil {
+		return result
+	}
 	if p.context != nil {
 		if result = p.context.Close(); result != nil {
 			return result

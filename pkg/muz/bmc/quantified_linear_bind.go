@@ -3,6 +3,7 @@ package bmc
 // Source: src/muz/bmc/dl_bmc_engine.cpp, qlinear::get_model substitutions.
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -12,8 +13,8 @@ import (
 )
 
 // QuantifiedLinearModelBindings evaluates a rule's indexed variable bindings
-// at the selected derivation level, matching qlinear::get_model. The rule
-// ordinal still identifies the rule-specific indexed variables.
+// at the selected derivation level, matching the corrected qlinear::get_model.
+// The rule ordinal still identifies the rule-specific indexed variables.
 // The caller owns each nonempty reference.
 func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, level, width uint32, md *model.ModelCore, services model.ModelEvaluatorConfig) (result []ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || rule == nil || md == nil || md.Manager() != c.manager {
@@ -74,13 +75,34 @@ func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, lev
 			return result, cause
 		}
 		result[i], cause = evaluator.EvaluateValue(term)
-		if cause != nil {
+		if cause != nil && !quantifiedLinearEvalException(cause) {
 			return result, cause
 		}
-		if cause = evaluator.Close(); cause != nil {
-			return result, cause
+		evalFailed := cause != nil
+		if cleanup := evaluator.Close(); cleanup != nil {
+			return result, cleanup
 		}
 		owner.evaluator = nil
+		if evalFailed {
+			// model::eval leaves its result null for a model evaluator
+			// exception; qlinear::get_model replaces that result with the
+			// original variable, preserving its index and sort.
+			sort, cause := m.GetSort(binding)
+			if cause != nil {
+				return result, cause
+			}
+			result[i], cause = m.NewRef(ast.ASTHandle{})
+			if cause != nil {
+				return result, cause
+			}
+			variable, cause := m.MkVar(uint32(i), sort)
+			if !variable.IsNull() {
+				cause = errors.Join(cause, m.SetRef(result[i], variable))
+			}
+			if cause != nil {
+				return result, cause
+			}
+		}
 	}
 	return result, nil
 }
