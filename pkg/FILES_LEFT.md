@@ -70,8 +70,8 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/duality/duality_dl_interface.h` — The engine interface declarations map to the audited Duality `Backend` and `QueryEngine` operations; the private `dd()` accessor has no external consumer and C++ header guards/includes have no runtime port surface.
 - [x] `src/muz/fp/datalog_parser.cpp` — File and stream lexing, declarations/rules, includes, map files, WPA directory ingestion, source numeric and symbol constants, tuple loading, and retryable temporary-reference cleanup map to the Go parser, `cmd_context`, and base utilities; focused fixedpoint, WPA, shell, CLI, and portcheck tests pass.
 - [x] `src/muz/fp/datalog_parser.h` — The file/string parser factories map to `ParseDatalogFile`/`ParseDatalogString`, and the WPA directory interface maps to `Context.ParseWPADirectory`; C++ virtual dispatch, destructor, and include guards have no separate Go runtime surface.
-- [ ] `src/muz/fp/dl_cmds.cpp`
-- [ ] `src/muz/fp/dl_cmds.h`
+- [x] `src/muz/fp/dl_cmds.cpp` — Relation/variable/rule/query commands, query-local parameters and background assertions, result/status/certificate/statistics output, fixedpoint scopes, and collected API commands map across `cmd_context`, SMT2, and API; collector and answer cleanup preserve retry ownership, and focused SMT2/API/CLI tests pass.
+- [x] `src/muz/fp/dl_cmds.h` — Command installation and collected rule/query/relation surfaces map to the Go SMT2 command parser, `FixedpointProgram`, and `cmd_context` operations; C++ declarations and vector wrappers have no separate runtime adapter.
 - [ ] `src/muz/fp/horn_tactic.cpp`
 - [ ] `src/muz/pdr/pdr_context.cpp`
 - [ ] `src/muz/pdr/pdr_context.h`
