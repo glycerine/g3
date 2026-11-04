@@ -80374,7 +80374,7 @@
         },
         {
           "name": "Concrete config_hwf context named params_ref update through epsilon, maximum bound, depth/node/memory limits and root precision (src/math/subpaving/subpaving_t_def.h:473-501)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_params.go",
           "tests": [
             "TestSubpavingHardwareContextReadsParamsRefInSourceOrder"
@@ -81770,7 +81770,7 @@
         },
         {
           "name": "Concrete config_hwf context named params_ref update through epsilon, maximum bound, depth/node/memory limits and root precision (src/math/subpaving/subpaving_t_def.h:473-501)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_params.go",
           "tests": [
             "TestSubpavingHardwareContextReadsParamsRefInSourceOrder"
