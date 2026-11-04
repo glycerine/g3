@@ -128,9 +128,11 @@ func (e *PropositionalEngine) datalogCheckRelationName() (name string, enabled b
 		name = "hashtable"
 	case "tr_sparse":
 		name = "sparse"
+	case "tr_lazy_sparse":
+		name = "lazy_sparse"
 	}
 	// doc selects the actual UDoc checking factory before finite execution.
-	if name != "hashtable" && name != "sparse" && name != "doc" && name != "check" {
+	if name != "hashtable" && name != "sparse" && name != "lazy_sparse" && name != "doc" && name != "check" {
 		return "", false, fmt.Errorf("muz/fp: relation plugin %s is not available for datalog.check_relation", name)
 	}
 	return name, true, nil
@@ -226,20 +228,28 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 		name = "hashtable"
 	}
 	nestedCheck := enabled && name == "check"
-	if nestedCheck {
+	lazyBackingCheck := enabled && name == "lazy_sparse"
+	if nestedCheck || lazyBackingCheck {
 		// relation_manager installs check_table only when a concrete default
 		// table checker is configured. The source check_relation plugin then
-		// wraps that table relation, so preserve both checking layers here.
-		checker, available, err := e.datalogDefaultTableCheck()
-		if err != nil {
-			return nil, err
-		}
-		if !available {
-			return nil, rel.ErrCompilerUnsupported
-		}
-		primary, err := e.datalogDefaultCheckedPrimary()
-		if err != nil {
-			return nil, err
+		// wraps that relation; preserve both checking layers here. A direct
+		// lazy-sparse backing uses the same concrete lazy plugin on both sides
+		// of the finite checker while the outer formula checker verifies its
+		// relational semantics.
+		primary, checker := "lazy_sparse", "lazy_sparse"
+		if nestedCheck {
+			var available bool
+			checker, available, err = e.datalogDefaultTableCheck()
+			if err != nil {
+				return nil, err
+			}
+			if !available {
+				return nil, rel.ErrCompilerUnsupported
+			}
+			primary, err = e.datalogDefaultCheckedPrimary()
+			if err != nil {
+				return nil, err
+			}
 		}
 		if (primary == "lazy_sparse" || checker == "lazy_sparse") && e.lazyFinite == nil {
 			e.lazyFinite = rel.NewLazySparseFiniteFactory()
@@ -289,7 +299,7 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 		if tableCheck {
 			// A source-requested relation kind bypasses the favourite relation
 			// plugin, including check_relation(check_table(...)).
-			if nestedCheck && len(state.requestedRepresentations) != 0 {
+			if (nestedCheck || lazyBackingCheck) && len(state.requestedRepresentations) != 0 {
 				continue
 			}
 			signature, err := state.table.Signature()
@@ -302,12 +312,33 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 			if !checkedFactory.CanHandleSignature(signature) {
 				continue
 			}
-			pair, err := rel.NewFiniteCheckedPairFromFactory(state.table, checkedFactory)
+			var pair *rel.FiniteCheckedPair
+			if lazyBackingCheck {
+				pair, err = checkedFactory.New(signature)
+				if err == nil {
+					var facts []rel.Fact
+					facts, err = state.table.Facts()
+					for _, fact := range facts {
+						if err != nil {
+							break
+						}
+						_, err = pair.Add(fact)
+						if err != nil {
+							break
+						}
+					}
+				}
+				if err != nil && pair != nil {
+					err = errors.Join(err, pair.Close())
+				}
+			} else {
+				pair, err = rel.NewFiniteCheckedPairFromFactory(state.table, checkedFactory)
+			}
 			if err != nil {
 				return nil, err
 			}
 			entry := datalogCheckedPredicate{declaration: declaration, state: state, original: state.table, pair: pair}
-			if nestedCheck {
+			if nestedCheck || lazyBackingCheck {
 				scope.entries = append(scope.entries, entry)
 				nested, x := rel.NewFormulaCheckedFinitePair(e.relations, state.sorts, pair, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
 				if x != nil {
@@ -321,13 +352,14 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 			}
 			continue
 		}
-		if name == "sparse" {
+		if name == "sparse" || name == "lazy_sparse" {
 			signature, err := state.table.Signature()
 			if err != nil {
 				return nil, err
 			}
-			// sparse_table_plugin cannot handle the empty signature; source
-			// relation selection falls back instead of wrapping that predicate.
+			// sparse_table_plugin cannot handle the empty signature; its lazy
+			// wrapper inherits the same signature restriction. Source relation
+			// selection falls back instead of wrapping that predicate.
 			if signature.Len() == 0 {
 				continue
 			}
