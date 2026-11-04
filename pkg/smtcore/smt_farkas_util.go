@@ -196,6 +196,16 @@ func (f *SMTFarkasUtil) fixSign(positive bool, constraint ast.ASTHandle) (ast.AS
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	family, err := f.manager.GetFamilyID(constraint)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if family == f.manager.BasicFamilyID() {
+		if positive {
+			return constraint, nil
+		}
+		return ast.ASTHandle{}, ast.ErrASTDomain
+	}
 	if integer && positive && (op == smtArithOpLT || op == smtArithOpGT) {
 		if op == smtArithOpGT {
 			left, right = right, left
@@ -355,7 +365,11 @@ func (f *SMTFarkasUtil) extractConsequence(low, high int, out ast.ASTRef) (err e
 		if err != nil {
 			return err
 		}
-		if op != ast.ASTOpEq {
+		family, err := f.manager.GetFamilyID(f.inequalities[index])
+		if err != nil {
+			return err
+		}
+		if family != f.manager.BasicFamilyID() {
 			equalityOnly = false
 		}
 		if op == smtArithOpLT || op == smtArithOpGT {
