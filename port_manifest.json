@@ -80147,7 +80147,7 @@
         },
         {
           "name": "Concrete config_mpff mutable interval endpoints and manager forwarding in context_t interval_config (src/math/subpaving/subpaving_t.h:239-316)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_interval.go",
           "tests": [
             "TestSubpavingFastMutableIntervalRetainedCore",
