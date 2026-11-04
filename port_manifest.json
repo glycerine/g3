@@ -77327,12 +77327,14 @@
           ]
         },
         {
-          "name": "count_signs_at_zeros_core source Tarski q/q\u00b2 branch ordering and zero/positive/negative cardinality calculation, feeding rational sign determination (realclosure.cpp:1613-1660); bounded and nonrational Tarski-query producers remain open",
-          "status": "partial",
+          "name": "count_signs_at_zeros_core Tarski q/q\u00b2 branch ordering and zero/positive/negative cardinality calculation with bounded rational and algebraic Tarski-query producers (realclosure.cpp:1613-1660)",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/sign_tarski_counts.go",
           "tests": [
             "TestRealClosureSourceTarskiSignCountBranches",
-            "TestSignDeterminationRationalProductsAndThreeWayExpansion"
+            "TestSignDeterminationRationalProductsAndThreeWayExpansion",
+            "TestRealClosureBoundedRationalSignCountProducer",
+            "TestMultiRootPolynomialSignCounts"
           ]
         },
         {
