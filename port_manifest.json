@@ -82252,10 +82252,14 @@
         },
         {
           "name": "Concrete config_hwf root definition order and timestamp-gated polynomial watcher queue (src/math/subpaving/subpaving_t_def.h:1683-1802)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_propagate.go",
           "tests": [
-            "TestHardwareContextRootDefinitionOrderAndQueuedWatchers"
+            "TestHardwareContextRootDefinitionOrderAndQueuedWatchers",
+            "TestHardwareChildRecentBoundReplayAndPolynomialWatcher",
+            "TestHardwareQueuedBoundPropagationTraceAndConsumedPrefix",
+            "TestHardwareMayPropagateDefinitionSkippedTimestampTrace",
+            "TestHardwareRootInitializationTraceSourceOrderAndResume"
           ]
         },
         {
