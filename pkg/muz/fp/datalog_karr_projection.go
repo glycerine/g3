@@ -3,6 +3,8 @@ package fp
 // Source: dl_compiler.cpp unary tail selection, identical filters, projection
 // and head renaming, executed using the concrete Karr relation operations.
 import (
+	"math/big"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
@@ -12,8 +14,14 @@ type karrUnaryRule struct {
 	body      ast.ASTHandle
 	constants []uint32
 	identical [][]uint32
-	removed   []uint32
-	cycles    [][]uint32
+	karrHeadPlan
+}
+
+type karrHeadPlan struct {
+	removed       []uint32
+	headConstants []*big.Rat
+	duplicates    []uint32
+	cycles        [][]uint32
 }
 
 func (r karrUnaryRule) apply(source *rel.KarrRelation) (*rel.KarrRelation, error) {
@@ -42,8 +50,44 @@ func (r karrUnaryRule) apply(source *rel.KarrRelation) (*rel.KarrRelation, error
 			}
 		}
 	}
+	return r.karrHeadPlan.apply(result)
+}
+
+// apply follows make_assembling_code: remove, add constants, duplicate, rename.
+func (r karrHeadPlan) apply(source *rel.KarrRelation) (*rel.KarrRelation, error) {
+	result := source
+	var err error
 	if len(r.removed) != 0 {
 		result, err = result.Project(r.removed)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for _, value := range r.headConstants {
+		singleton := rel.NewKarrEmpty(1, nil)
+		if err = singleton.AddFact([]*big.Rat{value}); err != nil {
+			return nil, err
+		}
+		result, err = rel.KarrJoin(result, singleton, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for _, column := range r.duplicates {
+		single := result
+		if result.Dimension() != 1 {
+			var remove []uint32
+			for i := uint32(0); i < result.Dimension(); i++ {
+				if i != column {
+					remove = append(remove, i)
+				}
+			}
+			single, err = result.Project(remove)
+			if err != nil {
+				return nil, err
+			}
+		}
+		result, err = rel.KarrJoin(result, single, []uint32{column}, []uint32{0})
 		if err != nil {
 			return nil, err
 		}
@@ -96,22 +140,16 @@ func (a *karrDatalogActivation) compileUnaryRule(rule *base.Rule) (ast.ASTHandle
 	if a.seeds[hd] == nil || a.seeds[out.body] == nil {
 		return none, out, ErrKarrDatalogFragment
 	}
-	headArity, err := a.manager.GetNumArgs(head)
-	if err != nil {
-		return none, out, err
-	}
 	tailArity, err := a.manager.GetNumArgs(tail)
 	if err != nil {
 		return none, out, err
-	}
-	if headArity > tailArity {
-		return none, out, ErrKarrDatalogFragment
 	}
 	// Constants are selected and projected in left-to-right order. Repeated
 	// variable columns refer to the shortened signature after those removals.
 	positions := make(map[ast.ASTHandle][]uint32, tailArity)
 	order := make([]ast.ASTHandle, 0, tailArity)
 	var column uint32
+	columns := make([]ast.ASTHandle, 0, tailArity)
 	for i := uint32(0); i < tailArity; i++ {
 		arg, err := a.manager.GetArg(tail, i)
 		if err != nil {
@@ -126,6 +164,7 @@ func (a *karrDatalogActivation) compileUnaryRule(rule *base.Rule) (ast.ASTHandle
 				order = append(order, arg)
 			}
 			positions[arg] = append(positions[arg], column)
+			columns = append(columns, arg)
 			column++
 			continue
 		}
@@ -143,23 +182,62 @@ func (a *karrDatalogActivation) compileUnaryRule(rule *base.Rule) (ast.ASTHandle
 			out.identical = append(out.identical, positions[arg])
 		}
 	}
-	if headArity > column {
-		return none, out, ErrKarrDatalogFragment
+	out.karrHeadPlan, err = a.compileKarrHead(head, columns)
+	if err != nil {
+		return none, out, err
 	}
+	return hd, out, nil
+}
+
+// compileKarrHead receives the relation columns after tail filtering and
+// projection. Only variable expressions bind head variables; constants are
+// assembled through singleton relations even when a tail contains that value.
+func (a *karrDatalogActivation) compileKarrHead(head ast.ASTHandle, columns []ast.ASTHandle) (karrHeadPlan, error) {
+	var out karrHeadPlan
+	headArity, err := a.manager.GetNumArgs(head)
+	if err != nil {
+		return out, err
+	}
+	positions := make(map[ast.ASTHandle][]uint32, len(columns))
+	for i, arg := range columns {
+		kind, err := a.manager.GetKind(arg)
+		if err != nil {
+			return out, err
+		}
+		if kind == ast.ASTVar {
+			positions[arg] = append(positions[arg], uint32(i))
+		}
+	}
+	column := uint32(len(columns))
 	selected := make([]uint32, headArity)
 	used := make([]bool, column)
-	headVars := make(map[ast.ASTHandle]bool, headArity)
+	constantHeads := make([]int, headArity)
+	for i := range constantHeads {
+		constantHeads[i] = -1
+	}
 	for i := uint32(0); i < headArity; i++ {
 		arg, err := a.manager.GetArg(head, i)
 		if err != nil {
-			return none, out, err
+			return out, err
 		}
 		indexes := positions[arg]
-		if len(indexes) == 0 || headVars[arg] {
-			return none, out, ErrKarrDatalogFragment
+		if len(indexes) == 0 {
+			text, _, matched, err := a.manager.ArithmeticNumeralText(arg)
+			if err != nil {
+				return out, err
+			}
+			value, ok := new(big.Rat).SetString(text)
+			if !matched || !ok {
+				return out, ErrKarrDatalogFragment
+			}
+			constantHeads[i] = len(out.headConstants)
+			out.headConstants = append(out.headConstants, value)
+			continue
 		}
-		headVars[arg] = true
 		position := indexes[len(indexes)-1]
+		if len(indexes) > 1 {
+			positions[arg] = indexes[:len(indexes)-1]
+		}
 		used[position] = true
 		selected[i] = position
 	}
@@ -177,7 +255,22 @@ func (a *karrDatalogActivation) compileUnaryRule(rule *base.Rule) (ast.ASTHandle
 	}
 	permutation := make([]uint32, headArity)
 	for i, position := range selected {
-		permutation[i] = projected[position]
+		if constantHeads[i] >= 0 {
+			permutation[i] = next + uint32(constantHeads[i])
+		} else {
+			permutation[i] = projected[position]
+		}
+	}
+	next += uint32(len(out.headConstants))
+	usedHead := make(map[uint32]bool)
+	for i, position := range permutation {
+		if usedHead[position] {
+			out.duplicates = append(out.duplicates, position)
+			permutation[i] = next
+			next++
+		} else {
+			usedHead[position] = true
+		}
 	}
 	visited := make([]bool, headArity)
 	for i := uint32(0); i < headArity; i++ {
@@ -193,5 +286,5 @@ func (a *karrDatalogActivation) compileUnaryRule(rule *base.Rule) (ast.ASTHandle
 			out.cycles = append(out.cycles, cycle)
 		}
 	}
-	return hd, out, nil
+	return out, nil
 }

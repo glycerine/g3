@@ -40,7 +40,11 @@ func TestDatalogKarrProjectionPermutationPublic(t *testing.T) {
 		return d
 	}
 	p, rotated, projected, unit := decl("karr-projection-p", 3), decl("karr-projection-rotate", 3), decl("karr-projection-pair", 2), decl("karr-projection-unit", 0)
+	assembled := decl("karr-projection-assembled", 5)
+	repeatedBody := decl("karr-projection-repeated-body", 2)
+	repeatedHead := decl("karr-projection-repeated-head", 3)
 	must(e.AddTableFact(p, []uint32{1, 2, 3}))
+	must(e.AddTableFact(repeatedBody, []uint32{4, 4}))
 	vars := make([]ast.ASTHandle, 3)
 	for i := range vars {
 		vars[i], err = m.MkVar(uint32(i), integer)
@@ -59,6 +63,16 @@ func TestDatalogKarrProjectionPermutationPublic(t *testing.T) {
 	addRule(rotated, []ast.ASTHandle{vars[2], vars[0], vars[1]})
 	query := addRule(projected, []ast.ASTHandle{vars[2], vars[0]})
 	addRule(unit, nil)
+	seven, err := m.ArithmeticIntegerNumeralText("7")
+	must(err)
+	assembledQuery := addRule(assembled, []ast.ASTHandle{vars[2], seven, vars[0], vars[2], seven})
+	repeatedTail, err := m.MkApp(repeatedBody, []ast.ASTHandle{vars[0], vars[0]})
+	must(err)
+	repeatedResult, err := m.MkApp(repeatedHead, []ast.ASTHandle{vars[0], vars[0], vars[0]})
+	must(err)
+	repeatedRule, err := m.MkImplies(repeatedTail, repeatedResult)
+	must(err)
+	must(e.AddRule(repeatedRule, ""))
 	substitution, err := astrewriter.NewVarSubstitution(m, false)
 	must(err)
 	defer func() { must(substitution.Close()) }()
@@ -99,7 +113,18 @@ func TestDatalogKarrProjectionPermutationPublic(t *testing.T) {
 	check(projected, []string{"3", "1"}, true)
 	check(projected, []string{"1", "3"}, false)
 	check(unit, nil, true)
-	status, err := e.QueryExpression(query)
+	check(assembled, []string{"3", "7", "1", "3", "7"}, true)
+	check(assembled, []string{"3", "7", "1", "2", "7"}, false)
+	check(assembled, []string{"3", "8", "1", "3", "7"}, false)
+	check(assembled, []string{"3", "7", "1", "3", "8"}, false)
+	check(repeatedHead, []string{"4", "4", "4"}, true)
+	check(repeatedHead, []string{"4", "4", "5"}, false)
+	status, err := e.QueryExpression(assembledQuery)
+	must(err)
+	if status != lbool.Undef || e.queryClone == nil || e.queryClone.karrDatalog == e.karrDatalog {
+		t.Fatal("assembled query clone", status)
+	}
+	status, err = e.QueryExpression(query)
 	must(err)
 	if status != lbool.Undef || e.queryClone == nil || e.queryClone.karrDatalog == e.karrDatalog {
 		t.Fatal("query clone", status)
@@ -120,7 +145,7 @@ func TestDatalogKarrProjectionPermutationPublic(t *testing.T) {
 	check(projected, []string{"3", "1"}, true)
 }
 
-func TestDatalogKarrProjectionRejectsRepeatedHead(t *testing.T) {
+func TestDatalogKarrProjectionRepeatedHead(t *testing.T) {
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	fragmentMust(t, err)
@@ -160,8 +185,8 @@ func TestDatalogKarrProjectionRejectsRepeatedHead(t *testing.T) {
 	must(e.AddRule(rule, ""))
 	for i := 0; i < 2; i++ {
 		status, err := e.QueryPredicate(q)
-		if status != lbool.Undef || !errors.Is(err, ErrKarrDatalogFragment) || e.karrDatalog.results != nil {
-			t.Fatal("repeated head must refuse", status, err)
+		if status != lbool.Undef || err != nil || e.karrDatalog.results == nil {
+			t.Fatal("repeated head query", status, err)
 		}
 	}
 }
@@ -256,4 +281,37 @@ func TestKarrDatalogProjectionCancellationDuringDualization(t *testing.T) {
 		t.Fatal("overflow retry", status)
 	}
 
+}
+
+func TestKarrRepeatedHeadDuplicationFailureRetry(t *testing.T) {
+	source := rel.NewKarrEmpty(2, nil)
+	fragmentMust(t, source.AddFact([]*big.Rat{big.NewRat(2, 1), big.NewRat(3, 1)}))
+	rule := karrHeadPlan{duplicates: []uint32{1}}
+	result, err := rule.apply(source)
+	fragmentMust(t, err)
+	if result.Dimension() != 3 || source.Dimension() != 2 || source.Empty() {
+		t.Fatal("retry changed source or result", result.Dimension(), source.Dimension())
+	}
+	matrix, err := result.Inequalities()
+	fragmentMust(t, err)
+	for i, row := range matrix.A {
+		value := new(big.Rat).Set(&matrix.B[i])
+		for j, x := range []int64{2, 3, 3} {
+			value.Add(value, new(big.Rat).Mul(&row[j], big.NewRat(x, 1)))
+		}
+		if matrix.Eq[i] && value.Sign() != 0 || !matrix.Eq[i] && value.Sign() < 0 {
+			t.Fatal("retry lost fact", matrix)
+		}
+	}
+	large := new(big.Rat).SetInt(new(big.Int).Lsh(big.NewInt(1), 63))
+	oversized := rel.NewKarrEmpty(2, nil)
+	fragmentMust(t, oversized.AddFact([]*big.Rat{large, big.NewRat(3, 1)}))
+	if result, err := rule.apply(oversized); result != nil || !errors.Is(err, hilbert.ErrOverflow) {
+		t.Fatal("duplication overflow", result, err)
+	}
+	result, err = rule.apply(source)
+	fragmentMust(t, err)
+	if result.Empty() {
+		t.Fatal("retry after overflow")
+	}
 }

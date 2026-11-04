@@ -148,7 +148,7 @@ func TestDatalogKarrPublicFactAndIdentity(t *testing.T) {
 
 }
 
-func TestDatalogKarrSelectionAndUnsupportedRule(t *testing.T) {
+func TestDatalogKarrSelectionAndGroundRule(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		t.Run(map[bool]string{false: "disabled", true: "enabled"}[enabled], func(t *testing.T) {
 			m, g := newPDRLifecycleServices(t)
@@ -187,13 +187,11 @@ func TestDatalogKarrSelectionAndUnsupportedRule(t *testing.T) {
 			must(err)
 			fact, err := m.MkApp(p, []ast.ASTHandle{one})
 			must(err)
-			must(e.AddRule(fact, "ground-unsupported"))
+			must(e.AddRule(fact, "ground"))
 			status, err = e.QueryPredicate(p)
-			if status != lbool.Undef || !errors.Is(err, ErrKarrDatalogFragment) {
-				t.Fatal("unsupported ground rule", status, err)
-			}
-			if e.karrDatalog.results != nil {
-				t.Fatal("failed query published results")
+			must(err)
+			if status != lbool.Undef || e.karrDatalog.results == nil {
+				t.Fatal("ground rule", status, err)
 			}
 		})
 	}

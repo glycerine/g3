@@ -1,6 +1,6 @@
 package fp
 
-// Concrete acyclic unary-rule consumer of src/muz/rel/karr_relation.cpp.
+// Concrete acyclic rule consumer of src/muz/rel/karr_relation.cpp.
 // It intentionally rejects shapes requiring the general relational compiler.
 import (
 	"errors"
@@ -164,8 +164,8 @@ func (a *karrDatalogActivation) reset() error {
 	return nil
 }
 
-// query uses a dependency walk to evaluate source unary projection rules in
-// topological order, publishing a snapshot only on success.
+// query evaluates supported rules in dependency order, publishing a snapshot
+// only on success.
 func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool, error) {
 	if a == nil || a.closed {
 		return lbool.Undef, ErrKarrDatalogFragment
@@ -174,7 +174,12 @@ func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool
 	if err := a.checkpoint(); err != nil {
 		return lbool.Undef, err
 	}
-	edges := make(map[ast.ASTHandle][]karrUnaryRule)
+	type compiledRule struct {
+		ground *karrGroundRule
+		unary  *karrUnaryRule
+		binary *karrBinaryRule
+	}
+	edges := make(map[ast.ASTHandle][]compiledRule)
 	count, err := a.rules.Len()
 	if err != nil {
 		return lbool.Undef, err
@@ -184,12 +189,33 @@ func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool
 		if err != nil {
 			return lbool.Undef, err
 		}
-		head, compiled, err := a.compileUnaryRule(rule)
+		tailSize, err := rule.TailSize()
+		if err == nil && tailSize == 0 {
+			var head ast.ASTHandle
+			var compiled karrGroundRule
+			head, compiled, err = a.compileGroundRule(rule)
+			if err == nil {
+				edges[head] = append(edges[head], compiledRule{ground: &compiled})
+			}
+		} else if err == nil && tailSize == 2 {
+			var head ast.ASTHandle
+			var compiled karrBinaryRule
+			head, compiled, err = a.compileBinaryRule(rule)
+			if err == nil {
+				edges[head] = append(edges[head], compiledRule{binary: &compiled})
+			}
+		} else if err == nil {
+			var head ast.ASTHandle
+			var compiled karrUnaryRule
+			head, compiled, err = a.compileUnaryRule(rule)
+			if err == nil {
+				edges[head] = append(edges[head], compiledRule{unary: &compiled})
+			}
+		}
 		err = errors.Join(err, rule.Close())
 		if err != nil {
 			return lbool.Undef, err
 		}
-		edges[head] = append(edges[head], compiled)
 	}
 	snapshot := make(map[ast.ASTHandle]*rel.KarrRelation, len(a.seeds))
 	for d, r := range a.seeds {
@@ -213,10 +239,24 @@ func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool
 		}
 		marks[d] = 1
 		for _, rule := range edges[d] {
-			if err := visit(rule.body); err != nil {
-				return err
+			var candidate *rel.KarrRelation
+			var err error
+			if rule.ground != nil {
+				candidate, err = rule.ground.apply(func() bool { return a.checkpoint() == nil })
+			} else if rule.binary != nil {
+				if err := visit(rule.binary.left); err != nil {
+					return err
+				}
+				if err := visit(rule.binary.right); err != nil {
+					return err
+				}
+				candidate, err = a.applyBinaryRule(*rule.binary, snapshot[rule.binary.left], snapshot[rule.binary.right])
+			} else {
+				if err := visit(rule.unary.body); err != nil {
+					return err
+				}
+				candidate, err = rule.unary.apply(snapshot[rule.unary.body])
 			}
-			candidate, err := rule.apply(snapshot[rule.body])
 			if err != nil {
 				return err
 			}
