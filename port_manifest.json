@@ -81567,12 +81567,13 @@
         },
         {
           "name": "Concrete config_mpff polynomial watcher queue, initial definition sweep, recent child bounds, and source queue-empty assertion after canceled search propagation (src/math/subpaving/subpaving_t_def.h:1664-1802)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_context_propagate.go",
           "tests": [
             "TestSubpavingFastContextQueuedPolynomialWatchers",
             "TestSubpavingFastContextQueueCancelAndRecentChild",
-            "TestSubpavingFastContextInitialPolynomialSweep"
+            "TestSubpavingFastContextInitialPolynomialSweep",
+            "TestFastSearchBreadthFirstCancellationAndOwnedChildren"
           ]
         },
         {
