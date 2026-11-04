@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/qe"
@@ -23,46 +24,48 @@ var ErrContextOwner = errors.New("muz/pdr: invalid or closed context")
 // Context owns the PDR manager and the predicate transformers for one Horn
 // rule set. The conflict/search loop is layered on this initialized program.
 type Context struct {
-	manager            *ast.ASTManager
-	owner              *Manager
-	cacheMode          ReachableCacheMode
-	transformers       map[ast.ASTHandle]*PredicateTransformer
-	auxiliary          map[ast.ASTHandle]bool
-	order              []ast.ASTHandle
-	search             *ModelSearch
-	implicant          *model.ModelImplicant
-	lite               *qe.Lite
-	cooperation        *cooperate.Cooperation
-	ownedCoop          bool
-	lastResult         lbool.LBool
-	unknownResult      bool // a successful unknown solve, not an operational failure
-	query              *PredicateTransformer
-	queryDecl          ast.ASTHandle
-	expanded           uint32
-	inductive          uint32
-	nodes              uint32
-	maxDepth           uint32
-	useFarkas          bool
-	farkasActive       bool
-	proofActive        bool
-	useModel           bool
-	useInductive       bool
-	useMultiCore       bool
-	useArithInductive  bool
-	useInduction       bool
-	useConvexClosure   bool
-	useConvexInterior  bool
-	useUTVPI           bool
-	flexibleTrace      bool
-	fullTraceAnswer    bool
-	generateProofTrace bool
-	printBoogieCert    bool
-	certificateModel   CertificateModelConverter
-	validateResult     bool
-	simplifyPre        bool
-	simplifyPost       bool
-	initialized        bool
-	closed             bool
+	manager               *ast.ASTManager
+	owner                 *Manager
+	cacheMode             ReachableCacheMode
+	transformers          map[ast.ASTHandle]*PredicateTransformer
+	auxiliary             map[ast.ASTHandle]bool
+	order                 []ast.ASTHandle
+	search                *ModelSearch
+	implicant             *model.ModelImplicant
+	lite                  *qe.Lite
+	projectionTheory      *rewriter.TheoryRewriter
+	projectionTheoryReady bool
+	cooperation           *cooperate.Cooperation
+	ownedCoop             bool
+	lastResult            lbool.LBool
+	unknownResult         bool // a successful unknown solve, not an operational failure
+	query                 *PredicateTransformer
+	queryDecl             ast.ASTHandle
+	expanded              uint32
+	inductive             uint32
+	nodes                 uint32
+	maxDepth              uint32
+	useFarkas             bool
+	farkasActive          bool
+	proofActive           bool
+	useModel              bool
+	useInductive          bool
+	useMultiCore          bool
+	useArithInductive     bool
+	useInduction          bool
+	useConvexClosure      bool
+	useConvexInterior     bool
+	useUTVPI              bool
+	flexibleTrace         bool
+	fullTraceAnswer       bool
+	generateProofTrace    bool
+	printBoogieCert       bool
+	certificateModel      CertificateModelConverter
+	validateResult        bool
+	simplifyPre           bool
+	simplifyPost          bool
+	initialized           bool
+	closed                bool
 }
 
 // CertificateModelConverter consumes a normalized finite-frame model and
@@ -142,6 +145,11 @@ func NewContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 	}
 	if config.Globals == nil {
 		return result, nil
+	}
+	// Source dl_context constructs its default theory rewriter eagerly, so
+	// capture global options at context construction rather than first use.
+	if err = result.ensureProjectionTheory(); err != nil {
+		return fail(err)
 	}
 	result.cooperation = config.ModelEvaluator.Cooperation
 	if result.cooperation == nil {
@@ -785,6 +793,13 @@ func (c *Context) Close() (result error) {
 			return err
 		}
 		c.lite = nil
+	}
+	if c.projectionTheory != nil {
+		if err := c.projectionTheory.Close(); err != nil {
+			return err
+		}
+		c.projectionTheory = nil
+		c.projectionTheoryReady = false
 	}
 	for index := len(c.order) - 1; index >= 0; index-- {
 		declaration := c.order[index]

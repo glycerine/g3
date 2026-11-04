@@ -166,62 +166,42 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 			forms = append(forms, formula)
 		}
 	}
-	if c.lite != nil && len(eliminated) != 0 {
-		formulaRef, x := c.owner.AndRef(forms)
+	variableRefs := make([]ast.ASTRef, 0, len(eliminated))
+	defer func() {
+		for index := len(variableRefs) - 1; index >= 0; index-- {
+			resultErr = errors.Join(resultErr, c.owner.releaseNotAndRef(&variableRefs[index]))
+		}
+	}()
+	for _, variable := range eliminated {
+		ref, x := c.manager.NewRef(variable)
 		if x != nil {
 			return x
 		}
-		references = append(references, formulaRef)
-		formula, x := c.manager.RefGet(formulaRef)
+		variableRefs = append(variableRefs, ref)
+	}
+	formulaRef, err := c.normalizeProjectedPhi(forms, &variableRefs, modelCore.DerivedModel())
+	if err != nil {
+		return err
+	}
+	references = append(references, formulaRef)
+	eliminated = eliminated[:0]
+	for _, reference := range variableRefs {
+		variable, x := c.manager.RefGet(reference)
 		if x != nil {
 			return x
 		}
-		variableRefs := make([]ast.ASTRef, 0, len(eliminated))
-		defer func() {
-			for index := len(variableRefs) - 1; index >= 0; index-- {
-				resultErr = errors.Join(resultErr, c.owner.releaseNotAndRef(&variableRefs[index]))
-			}
-		}()
-		for _, variable := range eliminated {
-			reference, y := c.manager.NewRef(variable)
-			if y != nil {
-				return y
-			}
-			variableRefs = append(variableRefs, reference)
-		}
-		if x = c.lite.EliminateConstants(&variableRefs, formulaRef); x != nil {
-			return fmt.Errorf("muz/pdr: QE-lite projection: %w", x)
-		}
-		eliminated = eliminated[:0]
-		for _, reference := range variableRefs {
-			variable, y := c.manager.RefGet(reference)
-			if y != nil {
-				return y
-			}
-			eliminated = append(eliminated, variable)
-		}
-		formula, x = c.manager.RefGet(formulaRef)
-		if x != nil {
-			return x
-		}
-		if derived := modelCore.DerivedModel(); !c.useModel && c.implicant != nil && derived != nil {
-			reduced, y := c.reduceDisequalities(derived, 3, formula)
-			if y != nil {
-				return fmt.Errorf("muz/pdr: disequality reduction: %w", y)
-			}
-			references = append(references, reduced)
-			formula, y = c.manager.RefGet(reduced)
-			if y != nil {
-				return y
-			}
-		}
-		forms, x = c.manager.FlattenAnd([]ast.ASTHandle{formula})
-		if x != nil {
-			return x
-		}
-		if x = pinForms(forms); x != nil {
-			return x
-		}
+		eliminated = append(eliminated, variable)
+	}
+	formula, err := c.manager.RefGet(formulaRef)
+	if err != nil {
+		return err
+	}
+	forms, err = c.manager.FlattenAnd([]ast.ASTHandle{formula})
+	if err != nil {
+		return err
+	}
+	if err = pinForms(forms); err != nil {
+		return err
 	}
 	projected := make([]ast.ASTHandle, 0, len(forms))
 	for _, formula := range forms {
@@ -361,4 +341,81 @@ func (c *Context) addProjectedChild(node *ModelNode, predecessor *PredicateTrans
 		c.maxDepth = child.depth
 	}
 	return c.search.AddLeaf(child)
+}
+
+// normalizeProjectedPhi follows create_children: Boolean conjunction, QE,
+// optional disequality reduction, then the fixedpoint theory rewriter.
+func (c *Context) normalizeProjectedPhi(forms []ast.ASTHandle, vars *[]ast.ASTRef, md *model.Model) (result ast.ASTRef, resultErr error) {
+	result, resultErr = c.owner.AndRef(forms)
+	if resultErr != nil {
+		return result, resultErr
+	}
+	defer func() {
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, c.owner.releaseNotAndRef(&result))
+		}
+	}()
+	if c.lite != nil {
+		if resultErr = c.lite.EliminateConstants(vars, result); resultErr != nil {
+			return result, fmt.Errorf("muz/pdr: QE-lite projection: %w", resultErr)
+		}
+	}
+	if !c.useModel && c.implicant != nil && md != nil {
+		formula, err := c.manager.RefGet(result)
+		if err != nil {
+			return result, err
+		}
+		reduced, err := c.reduceDisequalities(md, 3, formula)
+		if err != nil {
+			return result, fmt.Errorf("muz/pdr: disequality reduction: %w", err)
+		}
+		formula, err = c.manager.RefGet(reduced)
+		if err == nil {
+			err = c.manager.SetRef(result, formula)
+		}
+		err = errors.Join(err, c.owner.releaseNotAndRef(&reduced))
+		if err != nil {
+			return result, err
+		}
+	}
+	// Nil-Globals contexts are a supported partial Go configuration and have
+	// no parameter service from which to construct the source rewriter.
+	if err := c.ensureProjectionTheory(); err != nil {
+		return result, err
+	}
+	if c.projectionTheory == nil {
+		return result, nil
+	}
+	formula, err := c.manager.RefGet(result)
+	if err != nil {
+		return result, err
+	}
+	if err = c.projectionTheory.Rewrite(formula, result); err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+// ensureProjectionTheory also permits retry after a partially constructed
+// rewriter refused cleanup during an earlier attempt.
+func (c *Context) ensureProjectionTheory() error {
+	config := c.owner.contexts.config
+	if config.Globals == nil {
+		return nil
+	}
+	if c.projectionTheory != nil && !c.projectionTheoryReady {
+		if err := c.projectionTheory.Close(); err != nil {
+			return err
+		}
+		c.projectionTheory = nil
+	}
+	if c.projectionTheory == nil {
+		var err error
+		c.projectionTheory, err = rewriter.NewTheoryRewriter(c.manager, config.Params, config.Globals, nil)
+		if err != nil {
+			return err
+		}
+		c.projectionTheoryReady = true
+	}
+	return nil
 }
