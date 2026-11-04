@@ -271,4 +271,4 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [ ] `src/util/trace.h`
 - [ ] `src/util/util.cpp`
 - [ ] `src/util/util.h`
-- [ ] `src/util/vector.h`
+
