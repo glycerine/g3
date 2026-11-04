@@ -84,6 +84,32 @@ func exprPolynomialFixture(t *testing.T) (*ASTManager, *polynomial.MultivariateP
 	return m, pm
 }
 
+func exprPolynomialFixtureSeparateASTBudget(t *testing.T) (*ASTManager, *polynomial.MultivariatePolynomialManager) {
+	t.Helper()
+	sy, q, _ := astTestOwners(t)
+	// Keep AST reference-page refusals independent from the polynomial and
+	// numeral allocation paths, so this campaign exercises the converter's
+	// cached-domain owner rather than an interrupted polynomial primitive.
+	m, err := NewASTManager(ASTManagerConfig{Symbols: sy, Numerals: q, Budget: arena.NewBudget(1 << 24)})
+	astTestMust(t, err)
+	allocator, err := umemory.NewSmallAllocator(umemory.SmallAllocatorConfig{Runtime: q.Manager.Integers().RuntimeOwner()})
+	astTestMust(t, err)
+	pm, err := polynomial.NewMultivariatePolynomialManager(polynomial.MultivariatePolynomialManagerConfig{
+		Core: polynomial.MultivariatePolynomialConfig{
+			Integer: q.Manager.Integers(), Rationals: q.Manager,
+			Checkpoint: func() bool { return true }, Cooperation: func() error { return nil },
+		},
+		Allocator: allocator,
+	})
+	astTestMust(t, err)
+	t.Cleanup(func() {
+		astTestMust(t, m.Close())
+		astTestMust(t, pm.CloseChecked())
+		astTestMust(t, allocator.Close())
+	})
+	return m, pm
+}
+
 func exprPolynomialNumeral(t *testing.T, m *ASTManager, text string, integer bool) ASTHandle {
 	t.Helper()
 	v, err := m.numerals.NewValue()
@@ -327,6 +353,68 @@ func TestExpr2PolynomialSourceOperatorBranchesAndAtomicInvalidPower(t *testing.T
 	defer func() { astTestMust(t, indexed.Close()) }()
 	if _, _, matched, err = indexed.ToPolynomial(largePower); err != ErrExprNotPolynomial || !matched {
 		t.Fatal("indexed mode must reject an out-of-range exponent as non-polynomial", matched, err)
+	}
+}
+
+func TestExpr2PolynomialInterruptedConversionRetryReleasesOwners(t *testing.T) {
+	completed := false
+	for stop := int64(0); stop < 128 && !completed; stop++ {
+		t.Run(fmt.Sprint(stop), func(t *testing.T) {
+			m, pm := exprPolynomialFixtureSeparateASTBudget(t)
+			family, err := m.RegisterArithmeticPlugin()
+			astTestMust(t, err)
+			real := m.external(m.arithmeticPlugin.fields[0])
+			x, err := m.MkConst(astTestSymbol(t, m, "interrupted-expr-poly-x"), real)
+			astTestMust(t, err)
+			astTestPin(t, m, x)
+			half := exprPolynomialNumeral(t, m, "1/2", false)
+			shared, err := m.MkFamilyApp(family, 6, nil, []ASTHandle{x, half})
+			astTestMust(t, err)
+			astTestPin(t, m, shared)
+			root, err := m.MkFamilyApp(family, 9, nil, []ASTHandle{shared, shared})
+			astTestMust(t, err)
+			astTestPin(t, m, root)
+			extra, err := m.NewRef(root)
+			astTestMust(t, err)
+			t.Cleanup(func() { astTestMust(t, m.DelRef(&extra)) })
+			before := m.Stats().LiveReferences
+			converter, err := NewExpr2Polynomial(Expr2PolynomialConfig{AST: m, Polynomial: pm})
+			astTestMust(t, err)
+			t.Cleanup(func() { astTestMust(t, converter.Close()) })
+
+			m.Budget().FailAfter(stop)
+			p, d, matched, err := converter.ToPolynomial(root)
+			m.Budget().FailAfter(-1)
+			if err == nil {
+				if !matched || p == nil || d == nil {
+					t.Fatal("completed conversion returned no polynomial", matched, p, d)
+				}
+				astTestMust(t, p.Close())
+				astTestMust(t, d.Close())
+				completed = true
+			} else {
+				if !errors.Is(err, arena.ErrInjectedFailure) {
+					t.Fatal("unexpected interrupted conversion error", err)
+				}
+				if p != nil || d != nil || !matched {
+					t.Fatal("failed conversion exposed a partial result", matched, p, d)
+				}
+				p, d, matched, err = converter.ToPolynomial(root)
+				astTestMust(t, err)
+				if !matched || p == nil || d == nil {
+					t.Fatal("retry conversion returned no polynomial", matched, p, d)
+				}
+				astTestMust(t, p.Close())
+				astTestMust(t, d.Close())
+			}
+			astTestMust(t, converter.Close())
+			if got := m.Stats().LiveReferences; got != before {
+				t.Fatalf("interrupted conversion retained AST cache owners: got %d, want %d", got, before)
+			}
+		})
+	}
+	if !completed {
+		t.Fatal("conversion allocation sweep did not reach success")
 	}
 }
 

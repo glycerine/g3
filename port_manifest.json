@@ -21008,7 +21008,7 @@
       "path": "src/ast/expr2polynomial.cpp",
       "component": "ast",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/tactic/nlsat_smt/nl_purify_failure_test.go",
         "pkg/ast/ast_expr2polynomial.go",
         "pkg/ast/ast_expr2polynomial_test.go",
@@ -21019,6 +21019,7 @@
         "TestExpr2PolynomialForwardRefusalCancelAndVarIndexMode",
         "TestExpr2PolynomialSourceOperatorBranchesAndAtomicInvalidPower",
         "TestExpr2PolynomialSourceFrameTraceOrder",
+        "TestExpr2PolynomialInterruptedConversionRetryReleasesOwners",
         "TestPolynomialExprTranslationBorrowedBindings"
       ],
       "assertions": [
@@ -21112,7 +21113,7 @@
         }
       ],
       "methods_audited": true,
-      "ownership_audited": false,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "imp/default owner construction, borrowed AST/polynomial accessors, concrete variable allocation/kind policy, cancellation and destruction (cpp37-109,466-518)",
@@ -21136,7 +21137,8 @@
           "name": "to_polynomial frame TRACE at cpp372 after checkpoint and before child traversal",
           "status": "ported",
           "go_target": "pkg/ast/ast_expr2polynomial.go",
-          "tests": ["TestExpr2PolynomialSourceFrameTraceOrder"]
+          "tests": ["TestExpr2PolynomialSourceFrameTraceOrder",
+        "TestExpr2PolynomialInterruptedConversionRetryReleasesOwners"]
         },
         {
           "name": "is_int_poly and to_expr coefficient, variable/coercion, power/repeated-factor, product, sum and zero reconstruction (cpp391-453)",
@@ -21159,7 +21161,8 @@
         "Expr2Polynomial borrows the AST and polynomial managers and an optional external Expr2Var. The default form owns and closes its concrete Expr2Var. Variable-to-expression entries and cached domains own ASTRefs; cached numerator polynomials and denominator integers own independent references.",
         "ToPolynomial transfers an owning PolynomialRef and ScopedInt denominator to the caller. ToExpr transfers one owning ASTRef. Iterative frame arguments own temporary polynomial/integer pairs until their parent operation publishes or failure cleanup completes."
       ],
-      "deviations": ["Interrupted polynomial compilation and solver search still have unresolved cleanup and ownership paths.",
+      "deviations": [
+        "The Go converter returns owning PolynomialRef, ScopedInt, and ASTRef results and reports typed construction failures. Its owner cleanup releases cached expression references; retained NLSAT callers clean their owning solver state before retry. The converter-specific failure-prefix test verifies cache-reference release and same-owner retry after AST allocation refusal.",
         "Native slices and maps replace source vectors and obj_map. The abstract C++ mk_var/is_int virtual pair is a concrete typed ExprPolynomialVariables interface for the retained nlsat specialization; the default path directly uses the polynomial manager and its bool slice policy.",
         "Go returns typed errors for source assertions and exceptions and returns owning result objects rather than mutating caller-created reference wrappers. Standard-library string parsing transports exact numerals between the independent AST and polynomial numeral owners."
       ]
