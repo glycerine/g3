@@ -39,6 +39,10 @@ var apiDefaultProcess *defaultProcess
 // public API call. A previously initialized external process is used by the
 // API directly and never becomes owned by this default process.
 func InitializeDefaultProcess() error {
+	return initializeDefaultProcess(math.MaxUint32)
+}
+
+func initializeDefaultProcess(maxSize uint64) error {
 	if apiDefaultProcess != nil {
 		return nil
 	}
@@ -95,13 +99,22 @@ func InitializeDefaultProcess() error {
 		Params:  params.ParamsConfig{Budget: d.budget, PageEntries: 1, Text: arena.VectorConfig{PageSize: 16, Descriptors: arena.Config{PageSize: 2, Budget: d.budget}}},
 		Catalog: params.GlobalParamsCatalogConfig{Budget: d.budget, Descriptions: arena.BytesRegionConfig{PageSize: 64, Descriptors: arena.Config{PageSize: 2, Budget: d.budget}}, Text: arena.VectorConfig{PageSize: 64, Descriptors: arena.Config{PageSize: 2, Budget: d.budget}}},
 		Globals: params.GlobalParamsConfig{Budget: d.budget, DescriptorPageSize: 2, DescriptorWordsPageSize: 16}}
-	d.ready, err = InitializeGenerated(cfg, math.MaxUint32)
+	d.ready, err = InitializeGenerated(cfg, maxSize)
 	if err != nil {
 		return fail(err)
 	}
 	d.complete = true
 	apiDefaultProcess = d
 	return nil
+}
+
+// ResetDefaultProcess applies the source memory reset lifecycle to the owned
+// process and initializes a fresh cohort with the requested heap limit.
+func ResetDefaultProcess() error {
+	if err := FinalizeDefaultProcess(); err != nil {
+		return err
+	}
+	return initializeDefaultProcess(0)
 }
 
 // FinalizeDefaultProcess releases only the process constructed by
