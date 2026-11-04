@@ -66,3 +66,35 @@ func (s *realValueStore) derivativeSequenceRational(p []*realValue) (rows []real
 	}
 	return rows, nil
 }
+
+func (s *realValueStore) derivativeSequenceAny(p []*realValue, usePrem bool) (rows []realPolynomial, err error) {
+	if err = s.sequenceReady(); err != nil {
+		return nil, err
+	}
+	if len(p) < 3 || p[0] == nil || p[len(p)-1] == nil {
+		return nil, arena.ErrInvalidSlot
+	}
+	if err = s.checkAnyPolynomial(p, false); err != nil {
+		return nil, err
+	}
+	current := p
+	for i := 0; i < len(p)-1; i++ {
+		coefficients, bodyErr := s.derivativeAnyPolynomial(current, usePrem)
+		if bodyErr != nil {
+			cleanupErr := s.closePolynomialSequenceAfterTemporaries(rows)
+			return nil, errors.Join(bodyErr, cleanupErr)
+		}
+		var row realPolynomial
+		bodyErr = s.setPolynomial(&row, coefficients)
+		if bodyErr == nil {
+			rows = append(rows, row)
+			current = rows[len(rows)-1].coefficients
+		}
+		releaseErr := s.releaseSturmCoefficients(coefficients)
+		if bodyErr != nil || releaseErr != nil {
+			cleanupErr := s.closePolynomialSequenceAfterTemporaries(rows)
+			return nil, errors.Join(bodyErr, releaseErr, cleanupErr)
+		}
+	}
+	return rows, nil
+}

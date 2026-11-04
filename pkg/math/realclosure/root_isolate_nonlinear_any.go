@@ -56,14 +56,26 @@ func (o *algebraicRootOwner) isolateNonlinearSquareFreeAnyRoots(p []*realValue, 
 		return nil, err
 	}
 	if negativeCount > 0 {
-		part, childErr := o.bisectAnyRoots(p, negative, negativeHalf, negativeCount, usePrem)
+		var part []*realValue
+		var childErr error
+		if negativeCount > 1 && !hasNegLower {
+			part, childErr = o.isolateAnyRootsBySigns(p, negativeCount, negativeHalf, negativeHalf, usePrem)
+		} else {
+			part, childErr = o.bisectAnyRoots(p, negative, negativeHalf, negativeCount, usePrem)
+		}
 		roots = append(roots, part...)
 		if childErr != nil {
 			return roots, childErr
 		}
 	}
 	if positiveCount > 0 {
-		part, childErr := o.bisectAnyRoots(p, positive, positiveHalf, positiveCount, usePrem)
+		var part []*realValue
+		var childErr error
+		if positiveCount > 1 && !hasPosUpper {
+			part, childErr = o.isolateAnyRootsBySigns(p, positiveCount, positiveHalf, positiveHalf, usePrem)
+		} else {
+			part, childErr = o.bisectAnyRoots(p, positive, positiveHalf, positiveCount, usePrem)
+		}
 		roots = append(roots, part...)
 		if childErr != nil {
 			return roots, childErr
