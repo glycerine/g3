@@ -314,11 +314,13 @@ func (n *HornNormalizer) bind(prefix hornPrefix, body ast.ASTHandle, locals *[]a
 	if len(prefix.sorts) == 0 {
 		return body, nil
 	}
-	result, err := n.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: prefix.sorts, Names: prefix.names, Body: body})
+	owner, err := n.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = n.pin(locals, result); err != nil {
+	*locals = append(*locals, owner)
+	result, err := n.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: prefix.sorts, Names: prefix.names, Body: body})
+	if err = errors.Join(err, n.manager.SetRef(owner, result)); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	return result, nil
