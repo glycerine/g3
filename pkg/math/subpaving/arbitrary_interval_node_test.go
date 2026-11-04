@@ -22,6 +22,9 @@ func TestArbitraryIntervalLiveRootBoundViewAndOwnedCopy(t *testing.T) {
 			t.Error(err)
 		}
 	})
+	if err := v.SetFinite(&f.four, &f.five, true, false); err != nil {
+		t.Fatal(err)
+	}
 	if err := v.SetConstant(root, uint32(len(f.context.variables))); !errors.Is(err, arena.ErrInvalidSlot) {
 		t.Fatalf("unknown root variable: %v", err)
 	}
@@ -80,6 +83,18 @@ func TestArbitraryIntervalLiveRootBoundViewAndOwnedCopy(t *testing.T) {
 	}
 	if err := v.SetMutable(); err != nil {
 		t.Fatal(err)
+	}
+	lo, hi, err = v.endpoints()
+	if err != nil || v.lowerInf || v.upperInf || !v.lowerOpen || v.upperOpen {
+		t.Fatalf("detached arbitrary view flags: %v, %v, %v, %v", v.lowerInf, v.upperInf, v.lowerOpen, err)
+	}
+	equal, err = f.numbers.Equal(lo, &f.four)
+	if err != nil || !equal {
+		t.Fatalf("detached arbitrary lower scratch value: %v, %v", equal, err)
+	}
+	equal, err = f.numbers.Equal(hi, &f.five)
+	if err != nil || !equal {
+		t.Fatalf("detached arbitrary upper scratch value: %v, %v", equal, err)
 	}
 	if err := v.SetFinite(&f.four, &f.five, false, false); err != nil {
 		t.Fatal(err)

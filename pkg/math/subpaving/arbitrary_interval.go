@@ -21,6 +21,11 @@ type ArbitraryInterval struct {
 	constantVariable     uint32
 	lowerInf, upperInf   bool
 	lowerOpen, upperOpen bool
+	mutableSnapshot      bool
+	savedLowerInf        bool
+	savedUpperInf        bool
+	savedLowerOpen       bool
+	savedUpperOpen       bool
 	closed               bool
 }
 
@@ -78,6 +83,11 @@ func (v *ArbitraryInterval) SetConstant(node *ArbitraryNode, variable uint32) er
 	if _, _, err := node.Bounds(variable); err != nil {
 		return err
 	}
+	if v.constantNode == nil {
+		v.mutableSnapshot = true
+		v.savedLowerInf, v.savedUpperInf = v.lowerInf, v.upperInf
+		v.savedLowerOpen, v.savedUpperOpen = v.lowerOpen, v.upperOpen
+	}
 	v.constantNode, v.constantVariable = node, variable
 	_, _, err := v.endpoints()
 	return err
@@ -89,9 +99,15 @@ func (v *ArbitraryInterval) SetMutable() error {
 	if _, _, err := v.endpoints(); err != nil {
 		return err
 	}
+	if v.constantNode == nil {
+		return nil
+	}
 	v.constantNode = nil
-	v.lowerInf, v.upperInf = true, true
-	v.lowerOpen, v.upperOpen = true, true
+	if v.mutableSnapshot {
+		v.lowerInf, v.upperInf = v.savedLowerInf, v.savedUpperInf
+		v.lowerOpen, v.upperOpen = v.savedLowerOpen, v.savedUpperOpen
+	}
+	v.mutableSnapshot = false
 	return nil
 }
 

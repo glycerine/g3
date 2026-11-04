@@ -20,6 +20,10 @@ func TestSubpavingFixedNodeConstantIntervalViews(t *testing.T) {
 	must(err)
 	value, err := m.New()
 	must(err)
+	scratchLower, err := m.New()
+	must(err)
+	scratchUpper, err := m.New()
+	must(err)
 	root, err := NewFixedNode(m, 2, nil)
 	must(err)
 	view, err := NewFixedInterval(m)
@@ -28,6 +32,9 @@ func TestSubpavingFixedNodeConstantIntervalViews(t *testing.T) {
 	must(err)
 	result, err := NewFixedInterval(m)
 	must(err)
+	must(m.SetInt64(scratchLower, -5))
+	must(m.SetInt64(scratchUpper, 6))
+	must(view.SetFinite(scratchLower, scratchUpper, true, false))
 	show := func(v *FixedInterval) string {
 		t.Helper()
 		var out bytes.Buffer
@@ -100,11 +107,17 @@ func TestSubpavingFixedNodeConstantIntervalViews(t *testing.T) {
 	if err := childView.Display(&out); !errors.Is(err, arena.ErrClosed) {
 		t.Fatalf("closed-node view error = %v", err)
 	}
+	must(view.SetMutable())
+	if got := show(view); got != "(-5, 6]" {
+		t.Fatalf("detached scratch interval = %q", got)
+	}
 	must(root.Close())
 	must(view.Close())
 	must(childView.Close())
 	must(other.Close())
 	must(result.Close())
 	must(value.Close())
+	must(scratchUpper.Close())
+	must(scratchLower.Close())
 	must(m.Close())
 }

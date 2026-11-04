@@ -23,6 +23,11 @@ type FixedInterval struct {
 	constantVariable       uint32
 	lowerInf, upperInf     bool
 	lowerOpen, upperOpen   bool
+	mutableSnapshot        bool
+	savedLowerInf          bool
+	savedUpperInf          bool
+	savedLowerOpen         bool
+	savedUpperOpen         bool
 	closed                 bool
 }
 
@@ -84,8 +89,32 @@ func (v *FixedInterval) SetConstant(node *FixedNode, variable uint32) error {
 	if _, err := node.bound(variable, true); err != nil {
 		return err
 	}
+	if v.constantNode == nil {
+		v.mutableSnapshot = true
+		v.savedLowerInf, v.savedUpperInf = v.lowerInf, v.upperInf
+		v.savedLowerOpen, v.savedUpperOpen = v.lowerOpen, v.upperOpen
+	}
 	v.constantNode, v.constantVariable = node, variable
 	return v.open()
+}
+
+// SetMutable returns to the scratch endpoints and flags hidden by a live
+// node view, matching the source interval's flag-only set_mutable operation.
+func (v *FixedInterval) SetMutable() error {
+	if err := v.open(); err != nil {
+		return err
+	}
+	if v.constantNode == nil {
+		return nil
+	}
+	v.constantNode = nil
+	v.lower, v.upper = v.ownedLower, v.ownedUpper
+	if v.mutableSnapshot {
+		v.lowerInf, v.upperInf = v.savedLowerInf, v.savedUpperInf
+		v.lowerOpen, v.upperOpen = v.savedLowerOpen, v.savedUpperOpen
+	}
+	v.mutableSnapshot = false
+	return nil
 }
 
 func (v *FixedInterval) mutable() error {

@@ -53,6 +53,9 @@ func TestRationalIntervalLiveNodeBoundsAndOwnedCopy(t *testing.T) {
 			t.Error("retained rational node budget", budget.Used())
 		}
 	})
+	must(m.SetInt32(&lo, -7))
+	must(m.SetInt32(&hi, 9))
+	must(view.SetFinite(&lo, &hi, true, false))
 	if err := view.SetConstant(root, 1); !errors.Is(err, arena.ErrInvalidSlot) {
 		t.Fatalf("out-of-range variable: %v", err)
 	}
@@ -249,6 +252,11 @@ func TestRationalIntervalLiveNodeBoundsAndOwnedCopy(t *testing.T) {
 	must(childView.Close())
 	must(child.Close())
 	must(view.SetMutable())
+	shown.Reset()
+	must(view.Display(&shown))
+	if shown.String() != "(-7, 9]" {
+		t.Fatalf("detached rational view lost scratch interval: %q", shown.String())
+	}
 	must(m.SetInt32(&lo, 0))
 	must(view.SetFinite(&lo, &hi, false, false))
 	if err := root.Close(); err != nil {

@@ -21,6 +21,11 @@ type HardwareInterval struct {
 	constantVariable     uint32
 	lowerInf, upperInf   bool
 	lowerOpen, upperOpen bool
+	mutableSnapshot      bool
+	savedLowerInf        bool
+	savedUpperInf        bool
+	savedLowerOpen       bool
+	savedUpperOpen       bool
 	closed               bool
 }
 
@@ -76,9 +81,32 @@ func (v *HardwareInterval) SetConstant(node *HardwareNode, variable uint32) erro
 	if _, err := node.bound(variable, false); err != nil {
 		return err
 	}
+	if v.constantNode == nil {
+		v.mutableSnapshot = true
+		v.savedLowerInf, v.savedUpperInf = v.lowerInf, v.upperInf
+		v.savedLowerOpen, v.savedUpperOpen = v.lowerOpen, v.upperOpen
+	}
 	v.constantNode, v.constantVariable = node, variable
 	_, _, err := v.endpoints()
 	return err
+}
+
+// SetMutable restores the scratch interval state hidden by a constant view,
+// matching interval::set_mutable's flag-only transition.
+func (v *HardwareInterval) SetMutable() error {
+	if _, _, err := v.endpoints(); err != nil {
+		return err
+	}
+	if v.constantNode == nil {
+		return nil
+	}
+	v.constantNode = nil
+	if v.mutableSnapshot {
+		v.lowerInf, v.upperInf = v.savedLowerInf, v.savedUpperInf
+		v.lowerOpen, v.upperOpen = v.savedLowerOpen, v.savedUpperOpen
+	}
+	v.mutableSnapshot = false
+	return nil
 }
 
 func (v *HardwareInterval) mutable() error {

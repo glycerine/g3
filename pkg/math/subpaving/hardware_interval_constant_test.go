@@ -44,6 +44,16 @@ func TestHardwareIntervalConstantNodeViewAndMutationGuards(t *testing.T) {
 			t.Error(err)
 		}
 	}()
+	var scratchLower, scratchUpper numeral.HardwareFloat
+	if err := m.SetInt32(&scratchLower, -3); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.SetInt32(&scratchUpper, 4); err != nil {
+		t.Fatal(err)
+	}
+	if err := view.SetFinite(&scratchLower, &scratchUpper, true, false); err != nil {
+		t.Fatal(err)
+	}
 	if err := view.SetConstant(root, x); err != nil {
 		t.Fatal(err)
 	}
@@ -100,6 +110,16 @@ func TestHardwareIntervalConstantNodeViewAndMutationGuards(t *testing.T) {
 	}
 	if m.ToFloat64(&root.lower[x].value) != 2 || m.ToFloat64(&root.upper[x].value) != 3 {
 		t.Fatal("constant view mutation damaged node bounds")
+	}
+	if err := view.SetMutable(); err != nil {
+		t.Fatal(err)
+	}
+	scratchLo, scratchHi, err := view.endpoints()
+	if err != nil || m.ToFloat64(scratchLo) != -3 || m.ToFloat64(scratchHi) != 4 || !view.lowerOpen || view.upperOpen {
+		t.Fatalf("detached hardware scratch state: %v %v %v %v", err, m.ToFloat64(scratchLo), m.ToFloat64(scratchHi), view.lowerOpen)
+	}
+	if err := view.SetConstant(root, x); err != nil {
+		t.Fatal(err)
 	}
 	if err := c.Close(); err != nil {
 		t.Fatal(err)
