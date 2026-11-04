@@ -10,7 +10,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/api/api_fpa.cpp` — Floating-point sorts, values, rounding modes, arithmetic, comparisons, predicates, conversions, and numeral inspection are implemented across `pkg/api` and `pkg/ast/fpa`; the focused floating-point API checks pass.
 - [x] `src/api/api_log_macros.cpp` — Not applicable: generated per-function C ABI logging wrappers have no Go function ABI consumer; Go exposes `Z3LogWriter` protocol records and a replayer for the command IDs.
 - [x] `src/api/api_log_macros.h` — Not applicable: this generated header declares the native C logging macros and pointer-output helpers; Go logging uses typed writer methods and does not compile or consume those macros.
-- [ ] `src/api/api_rcf.cpp`
+- [x] `src/api/api_rcf.cpp` — Go implements the RCF constructors, root isolation, arithmetic, comparisons, display, and numerator/denominator extraction; transcendental rational functions now preserve and normalize their numerator/denominator polynomials like C++.
 - [ ] `src/api/api_solver.cpp`
 - [ ] `src/api/dll/install_tactic.cpp`
 - [x] `src/api/z3.h` — Not applicable: C/C++ umbrella header; Go consumers import the `api` package. Individual API files remain listed separately.

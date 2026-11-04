@@ -46,23 +46,48 @@ func (s *realValueStore) refineTranscendentalPolynomialValue(value *realValue, p
 	if precision == 0 {
 		precision = 1
 	}
+	numeratorInterval, err := NewBinaryInterval(value.functionInterval.numbers)
+	if err != nil {
+		return false, err
+	}
+	defer numeratorInterval.Close()
+	var denominatorInterval *BinaryInterval
+	if len(value.functionDenominator.coefficients) != 0 && !s.rankedDenominatorIsOne(value.functionDenominator.coefficients) {
+		denominatorInterval, err = NewBinaryInterval(value.functionInterval.numbers)
+		if err != nil {
+			return false, err
+		}
+		defer denominatorInterval.Close()
+	}
 	for workPrecision := precision; ; workPrecision++ {
-		for _, coefficient := range value.functionNumerator.coefficients {
-			if coefficient == nil {
-				continue
-			}
-			refined, err := s.refineAnyRetainedInterval(coefficient, value.functionInterval.numbers, workPrecision)
-			if err != nil {
-				return false, err
-			}
-			if !refined {
-				return false, arena.ErrBounds
+		for _, polynomial := range [][]*realValue{value.functionNumerator.coefficients, value.functionDenominator.coefficients} {
+			for _, coefficient := range polynomial {
+				if coefficient == nil {
+					continue
+				}
+				refined, err := s.refineAnyRetainedInterval(coefficient, value.functionInterval.numbers, workPrecision)
+				if err != nil {
+					return false, err
+				}
+				if !refined {
+					return false, arena.ErrBounds
+				}
 			}
 		}
 		if err := s.refineTranscendentalRoot(value.root, workPrecision); err != nil {
 			return false, err
 		}
-		if err := s.evaluateRankedPolynomialInterval(value.functionNumerator.coefficients, value.root.interval, value.functionInterval); err != nil {
+		if err := s.evaluateRankedPolynomialInterval(value.functionNumerator.coefficients, value.root.interval, numeratorInterval); err != nil {
+			return false, err
+		}
+		if denominatorInterval != nil {
+			if err := s.evaluateRankedPolynomialInterval(value.functionDenominator.coefficients, value.root.interval, denominatorInterval); err != nil {
+				return false, err
+			}
+			if err := value.functionInterval.Div(numeratorInterval, denominatorInterval, workPrecision); err != nil {
+				return false, err
+			}
+		} else if err := value.functionInterval.SetFrom(numeratorInterval); err != nil {
 			return false, err
 		}
 		precise, err := binaryIntervalPrecise(value.functionInterval, precision)

@@ -30,15 +30,16 @@ type realValueStore struct {
 // A nil pointer is the source representation of zero. The creator initially
 // owns one reference, which can be transferred to a polynomial or numeral.
 type realValue struct {
-	store             *realValueStore
-	rational          numeral.Rational
-	rationalInterval  *BinaryInterval
-	functionNumerator realPolynomial
-	functionInterval  *BinaryInterval
-	root              *algebraicRoot
-	refs              uint32
-	isRational        bool
-	deleted           bool
+	store               *realValueStore
+	rational            numeral.Rational
+	rationalInterval    *BinaryInterval
+	functionNumerator   realPolynomial
+	functionDenominator realPolynomial
+	functionInterval    *BinaryInterval
+	root                *algebraicRoot
+	refs                uint32
+	isRational          bool
+	deleted             bool
 }
 
 func (s *realValueStore) newRational(numerator int64, denominator uint64) (*realValue, error) {
@@ -96,6 +97,9 @@ func (s *realValueStore) release(v *realValue) error {
 			v.functionInterval = nil
 		}
 		if err := s.resetPolynomial(&v.functionNumerator); err != nil {
+			return err
+		}
+		if err := s.resetPolynomial(&v.functionDenominator); err != nil {
 			return err
 		}
 		if err := v.root.release(); err != nil {

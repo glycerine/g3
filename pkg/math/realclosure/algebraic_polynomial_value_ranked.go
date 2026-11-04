@@ -9,15 +9,37 @@ import (
 )
 
 func (s *realValueStore) newRankedAlgebraicPolynomialValue(root *algebraicRoot, numerator []*realValue, approximation *BinaryInterval) (value *realValue, err error) {
+	var denominator []*realValue
+	var one *realValue
+	if root != nil && root.kind != realExtensionAlgebraic {
+		one, err = s.newRational(1, 1)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { err = errors.Join(err, s.releaseSturmScratch(one)) }()
+		denominator = []*realValue{one}
+	}
+	return s.newRankedRationalFunctionValue(root, numerator, denominator, approximation)
+}
+
+func (s *realValueStore) newRankedRationalFunctionValue(root *algebraicRoot, numerator, denominator []*realValue, approximation *BinaryInterval) (value *realValue, err error) {
 	if s == nil || root == nil || !root.isRegistered() || root.owner.values != s || approximation == nil || approximation.numbers != root.owner.intervals || len(numerator) == 0 || (root.kind == realExtensionAlgebraic && len(numerator) >= len(root.polynomial.coefficients)) || numerator[len(numerator)-1] == nil {
 		return nil, arena.ErrInvalidSlot
 	}
-	for _, coefficient := range numerator {
-		if coefficient == nil {
-			continue
-		}
-		if !s.valueHasLowerExtensionRank(coefficient, root) {
-			return nil, arena.ErrInvalidSlot
+	if root.kind == realExtensionAlgebraic && len(denominator) != 0 {
+		return nil, arena.ErrInvalidSlot
+	}
+	if root.kind != realExtensionAlgebraic && (len(denominator) == 0 || denominator[len(denominator)-1] == nil) {
+		return nil, arena.ErrInvalidSlot
+	}
+	for _, polynomial := range [][]*realValue{numerator, denominator} {
+		for _, coefficient := range polynomial {
+			if coefficient == nil {
+				continue
+			}
+			if !s.valueHasLowerExtensionRank(coefficient, root) {
+				return nil, arena.ErrInvalidSlot
+			}
 		}
 	}
 	if err = root.retain(); err != nil {
@@ -29,12 +51,17 @@ func (s *realValueStore) newRankedAlgebraicPolynomialValue(root *algebraicRoot, 
 			if value.functionInterval != nil {
 				err = errors.Join(err, value.functionInterval.Close())
 			}
-			err = errors.Join(err, s.resetPolynomial(&value.functionNumerator), root.release())
+			err = errors.Join(err, s.resetPolynomial(&value.functionNumerator), s.resetPolynomial(&value.functionDenominator), root.release())
 			value = nil
 		}
 	}()
 	if err = s.setPolynomial(&value.functionNumerator, numerator); err != nil {
 		return nil, err
+	}
+	if len(denominator) != 0 {
+		if err = s.setPolynomial(&value.functionDenominator, denominator); err != nil {
+			return nil, err
+		}
 	}
 	value.functionInterval, err = NewBinaryInterval(root.owner.intervals)
 	if err != nil {

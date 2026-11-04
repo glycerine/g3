@@ -2,7 +2,11 @@ package realclosure
 
 // Source: src/math/realclosure/realclosure.cpp:4460-4766.
 
-import "github.com/glycerine/g3/pkg/arena"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/arena"
+)
 
 func (s *realValueStore) determineRankedRetainedValueSign(value *realValue, usePrem bool) (int32, error) {
 	if value == nil || value.isRational {
@@ -17,6 +21,21 @@ func (s *realValueStore) determineRankedRetainedValueSign(value *realValue, useP
 	}
 	if !contains {
 		return s.signValue(value)
+	}
+	if value.root.kind != realExtensionAlgebraic && len(value.functionDenominator.coefficients) != 0 && !s.rankedDenominatorIsOne(value.functionDenominator.coefficients) {
+		numeratorSign, err := s.determineRankedPolynomialSign(value.root, value.functionNumerator.coefficients, usePrem)
+		if err != nil || numeratorSign == 0 {
+			return numeratorSign, err
+		}
+		denominatorSign, err := s.determineRankedPolynomialSign(value.root, value.functionDenominator.coefficients, usePrem)
+		if err != nil || denominatorSign == 0 {
+			return 0, err
+		}
+		sign := numeratorSign * denominatorSign
+		if err = restrictBinaryIntervalToSign(value.functionInterval, sign); err != nil {
+			return 0, err
+		}
+		return sign, nil
 	}
 	if value.root.kind == realExtensionTranscendental {
 		for precision := uint32(1); ; precision++ {
@@ -62,4 +81,13 @@ func (s *realValueStore) determineRankedRetainedValueSign(value *realValue, useP
 		return 0, err
 	}
 	return result, nil
+}
+
+func (s *realValueStore) determineRankedPolynomialSign(root *algebraicRoot, coefficients []*realValue, usePrem bool) (sign int32, err error) {
+	value, err := s.publishRankedPolynomialValue(root, coefficients, usePrem)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { err = errors.Join(err, s.releaseSturmScratch(value)) }()
+	return s.determineRankedRetainedValueSign(value, usePrem)
 }

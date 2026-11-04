@@ -26,7 +26,11 @@ func (s *realValueStore) structurallyEqualValues(a, b *realValue) (bool, error) 
 	if a.root != b.root {
 		return false, nil
 	}
-	return s.structurallyEqualPolynomials(a.functionNumerator.coefficients, b.functionNumerator.coefficients)
+	numeratorsEqual, err := s.structurallyEqualPolynomials(a.functionNumerator.coefficients, b.functionNumerator.coefficients)
+	if err != nil || !numeratorsEqual {
+		return numeratorsEqual, err
+	}
+	return s.structurallyEqualPolynomials(a.functionDenominator.coefficients, b.functionDenominator.coefficients)
 }
 
 func (s *realValueStore) structurallyEqualPolynomials(a, b []*realValue) (bool, error) {

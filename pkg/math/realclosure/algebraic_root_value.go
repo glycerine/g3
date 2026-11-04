@@ -27,15 +27,24 @@ func (s *realValueStore) newAlgebraicValue(root *algebraicRoot, one *realValue) 
 		_ = root.release()
 		return nil, err
 	}
+	if root.kind != realExtensionAlgebraic {
+		if err := s.setPolynomial(&v.functionDenominator, []*realValue{one}); err != nil {
+			_ = s.resetPolynomial(&v.functionNumerator)
+			_ = root.release()
+			return nil, err
+		}
+	}
 	v.functionInterval, err = NewBinaryInterval(root.owner.intervals)
 	if err != nil {
 		_ = s.resetPolynomial(&v.functionNumerator)
+		_ = s.resetPolynomial(&v.functionDenominator)
 		_ = root.release()
 		return nil, err
 	}
 	if err := v.functionInterval.SetFrom(root.interval); err != nil {
 		_ = v.functionInterval.Close()
 		_ = s.resetPolynomial(&v.functionNumerator)
+		_ = s.resetPolynomial(&v.functionDenominator)
 		_ = root.release()
 		return nil, err
 	}

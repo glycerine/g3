@@ -14,6 +14,12 @@ func (s *realValueStore) hasCleanTowerDenominator(value *realValue) (bool, error
 	if value.isRational {
 		return s.numbers.IsInt(&value.rational)
 	}
+	if value.root == nil || value.root.deleted {
+		return false, arena.ErrInvalidSlot
+	}
+	if value.root.kind != realExtensionAlgebraic && len(value.functionDenominator.coefficients) != 0 && !s.rankedDenominatorIsOne(value.functionDenominator.coefficients) {
+		return false, nil
+	}
 	for _, coefficient := range value.functionNumerator.coefficients {
 		clean, err := s.hasCleanTowerDenominator(coefficient)
 		if err != nil || !clean {

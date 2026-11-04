@@ -16,6 +16,34 @@ func (s *realValueStore) inverseRankedRetainedValue(value *realValue, usePrem bo
 		return s.inverseRetainedValue(value)
 	}
 	root := value.root
+	if root == nil || !root.isRegistered() {
+		return nil, arena.ErrInvalidSlot
+	}
+	if root.kind != realExtensionAlgebraic {
+		if len(value.functionDenominator.coefficients) == 0 {
+			return nil, arena.ErrInvalidSlot
+		}
+		approximation, e := NewBinaryInterval(root.owner.intervals)
+		if e != nil {
+			return nil, e
+		}
+		defer func() { err = errors.Join(err, approximation.Close()) }()
+		if err = approximation.Inv(value.functionInterval, s.rationalInitialPrecision()); err != nil {
+			return nil, err
+		}
+		numerator, denominator, e := s.normalizeRankedFraction(value.functionDenominator.coefficients, value.functionNumerator.coefficients, usePrem)
+		if e != nil {
+			return nil, e
+		}
+		defer func() {
+			err = errors.Join(err, s.releaseSturmCoefficients(numerator), s.releaseSturmCoefficients(denominator))
+		}()
+		result, err = s.newRankedRationalFunctionValue(root, numerator, denominator, approximation)
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
+	}
 	normalized, err := s.reduceRankedAlgebraicPolynomial(root, value.functionNumerator.coefficients, usePrem)
 	if err != nil {
 		return nil, err

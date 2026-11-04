@@ -32,7 +32,10 @@ func (s *realValueStore) collectRankedAlgebraicRoots(value *realValue) ([]*algeb
 				return err
 			}
 		}
-		return markPolynomial(current.functionNumerator.coefficients)
+		if err := markPolynomial(current.functionNumerator.coefficients); err != nil {
+			return err
+		}
+		return markPolynomial(current.functionDenominator.coefficients)
 	}
 	if err := markValue(value); err != nil {
 		return nil, err

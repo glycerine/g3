@@ -2,7 +2,11 @@ package realclosure
 
 // Source: src/math/realclosure/realclosure.cpp:5163-5318.
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/arena"
+)
 
 func (s *realValueStore) multiplyRankedRetainedValues(left, right *realValue, usePrem bool) (result *realValue, err error) {
 	comparison, err := s.compareRetainedValueRanks(left, right)
@@ -55,7 +59,29 @@ func (s *realValueStore) multiplyRankedRetainedValues(left, right *realValue, us
 	if len(reduced) == 0 {
 		return nil, nil
 	}
-	if len(reduced) == 1 {
+	var denominator []*realValue
+	ownedDenominator := false
+	if root.kind != realExtensionAlgebraic {
+		if comparison == 0 {
+			denominator, err = s.multiplyRankedPolynomials(left.functionDenominator.coefficients, right.functionDenominator.coefficients, usePrem)
+			if err != nil {
+				return nil, err
+			}
+			ownedDenominator = true
+		} else {
+			denominator = higher.functionDenominator.coefficients
+		}
+		if len(denominator) == 0 {
+			if ownedDenominator {
+				_ = s.releaseSturmCoefficients(denominator)
+			}
+			return nil, arena.ErrInvalidSlot
+		}
+	}
+	if ownedDenominator {
+		defer func() { err = errors.Join(err, s.releaseSturmCoefficients(denominator)) }()
+	}
+	if len(reduced) == 1 && (root.kind == realExtensionAlgebraic || s.rankedDenominatorIsOne(denominator)) {
 		result = reduced[0]
 		reduced[0] = nil
 		return result, nil
@@ -76,7 +102,18 @@ func (s *realValueStore) multiplyRankedRetainedValues(left, right *realValue, us
 	if err = approximation.Mul(leftInterval, rightInterval); err != nil {
 		return nil, err
 	}
-	result, err = s.newRankedAlgebraicPolynomialValue(root, reduced, approximation)
+	if root.kind == realExtensionAlgebraic {
+		result, err = s.newRankedAlgebraicPolynomialValue(root, reduced, approximation)
+	} else {
+		var normalizedNumerator, normalizedDenominator []*realValue
+		normalizedNumerator, normalizedDenominator, err = s.normalizeRankedFraction(reduced, denominator, usePrem)
+		if err == nil {
+			defer func() {
+				err = errors.Join(err, s.releaseSturmCoefficients(normalizedNumerator), s.releaseSturmCoefficients(normalizedDenominator))
+			}()
+			result, err = s.newRankedRationalFunctionValue(root, normalizedNumerator, normalizedDenominator, approximation)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

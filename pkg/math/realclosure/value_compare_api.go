@@ -28,7 +28,7 @@ func (s *realValueStore) compareValues(a, b *realValue, bounds *numeral.BinaryRa
 	if a.isRational && b.isRational {
 		return s.numbers.Compare(&a.rational, &b.rational)
 	}
-	if !a.isRational && !b.isRational && a.root == b.root && len(a.functionNumerator.coefficients) == 2 && len(b.functionNumerator.coefficients) == 2 {
+	if !a.isRational && !b.isRational && a.root == b.root && len(a.functionNumerator.coefficients) == 2 && len(b.functionNumerator.coefficients) == 2 && s.rankedDenominatorIsOne(a.functionDenominator.coefficients) && s.rankedDenominatorIsOne(b.functionDenominator.coefficients) {
 		return 0, nil
 	}
 	if bounds == nil {
