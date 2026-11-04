@@ -80399,7 +80399,7 @@
         },
         {
           "name": "Concrete config_hwf bound records and context queue reached by root unit assertions (src/math/subpaving/subpaving_t.h:146-162)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_bounds.go",
           "tests": [
             "TestHardwareContextIntegerBoundsAndOpenConflicts",
