@@ -2,6 +2,8 @@ package api
 
 // Source: generated src/api/api_commands.cpp, process and version commands.
 
+import "github.com/glycerine/g3/pkg/util/process"
+
 // RegisterZ3GeneratedProcessCommands installs the implemented process-wide
 // warning, version and trace replay handlers.
 func RegisterZ3GeneratedProcessCommands(r *Z3Replayer) error {
@@ -18,6 +20,7 @@ func RegisterZ3GeneratedProcessCommands(r *Z3Replayer) error {
 		{343, "Z3_get_full_version", replayGetFullVersion},
 		{344, "Z3_enable_trace", replayEnableTrace},
 		{345, "Z3_disable_trace", replayDisableTrace},
+		{347, "Z3_finalize_memory", replayFinalizeMemory},
 		{446, "Z3_get_estimated_alloc_size", replayEstimatedAllocSize},
 	}
 	for _, entry := range entries {
@@ -27,6 +30,7 @@ func RegisterZ3GeneratedProcessCommands(r *Z3Replayer) error {
 	}
 	return nil
 }
+func replayFinalizeMemory(*Z3Replayer) error { return process.FinalizeCurrentGenerated() }
 func replayToggleWarnings(r *Z3Replayer) error {
 	enabled, err := r.Bool(0)
 	if err != nil {

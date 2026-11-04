@@ -13,6 +13,16 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
+// FinalizeCurrentGenerated runs the source finalizer for the current process
+// cohort. The caller that initialized it continues to own its Go resources.
+func FinalizeCurrentGenerated() error {
+	v := currentGenerated
+	if v == nil || v.closed {
+		return nil
+	}
+	return FinalizeGenerated(v.process, v.debug, v.Globals, v.rational, v.symbols, v.Trace)
+}
+
 // FinalizeGenerated runs the six concrete source finalizers in generated
 // order. All services are borrowed and remain owned by the caller. An error
 // stops at the exact child; the memory guard remains finalizing, matching the
