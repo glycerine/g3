@@ -81527,7 +81527,7 @@
         },
         {
           "name": "Concrete config_mpff node bound publication and parent/child copied bound views (src/math/subpaving/subpaving_t_def.h:296-348)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_node.go",
           "tests": [
             "TestSubpavingFastNodeConstantIntervalViews"
@@ -81535,7 +81535,7 @@
         },
         {
           "name": "Concrete config_mpff node zero, upper-zero and conflicting-bound predicates (src/math/subpaving/subpaving_t_def.h:1321-1343)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_node_predicates.go",
           "tests": [
             "TestSubpavingFastNodeBoundPredicates"
