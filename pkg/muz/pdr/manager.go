@@ -294,7 +294,12 @@ func (m *Manager) ModelIntoCube(expressions []ast.ASTHandle) (ast.ASTHandle, err
 	if err := m.open(); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return m.manager.MkAndArray(expressions)
+	result, err := m.AndRef(expressions)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	m.notAndBorrowed = append(m.notAndBorrowed, result)
+	return m.manager.RefGet(result)
 }
 
 func (m *Manager) CoreIntoCube(expressions []ast.ASTHandle) (ast.ASTHandle, error) {
@@ -305,11 +310,38 @@ func (m *Manager) CubeIntoLemma(cube ast.ASTHandle) (ast.ASTHandle, error) {
 	if err := m.open(); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return m.manager.MkNotSimplified(cube)
+	return m.booleanNot(cube)
 }
 
 func (m *Manager) LemmaIntoCube(lemma ast.ASTHandle) (ast.ASTHandle, error) {
-	return m.CubeIntoLemma(lemma)
+	if err := m.open(); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return m.booleanNot(lemma)
+}
+
+// booleanNot applies the manager's source Boolean rewriter and keeps the
+// result alive for the borrowed-handle conversion methods.
+func (m *Manager) booleanNot(expression ast.ASTHandle) (ast.ASTHandle, error) {
+	result, err := m.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		if result != (ast.ASTRef{}) {
+			if cleanup := m.releaseNotAndRef(&result); cleanup != nil {
+				err = errors.Join(err, cleanup)
+			}
+		}
+		return ast.ASTHandle{}, err
+	}
+	if m.brwr != nil {
+		err = m.brwr.MkNot(expression, result)
+	} else {
+		err = rewriter.SimplifyBooleanGateDefault(m.manager, ast.ASTOpNot, []ast.ASTHandle{expression}, result)
+	}
+	if err != nil {
+		return ast.ASTHandle{}, errors.Join(err, m.releaseNotAndRef(&result))
+	}
+	m.notAndBorrowed = append(m.notAndBorrowed, result)
+	return m.manager.RefGet(result)
 }
 
 // releaseNotAndPending keeps any reference whose destruction could not finish
