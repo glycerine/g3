@@ -24,48 +24,49 @@ var ErrContextOwner = errors.New("muz/pdr: invalid or closed context")
 // Context owns the PDR manager and the predicate transformers for one Horn
 // rule set. The conflict/search loop is layered on this initialized program.
 type Context struct {
-	manager               *ast.ASTManager
-	owner                 *Manager
-	cacheMode             ReachableCacheMode
-	transformers          map[ast.ASTHandle]*PredicateTransformer
-	auxiliary             map[ast.ASTHandle]bool
-	order                 []ast.ASTHandle
-	search                *ModelSearch
-	implicant             *model.ModelImplicant
-	lite                  *qe.Lite
-	projectionTheory      *rewriter.TheoryRewriter
-	projectionTheoryReady bool
-	cooperation           *cooperate.Cooperation
-	ownedCoop             bool
-	lastResult            lbool.LBool
-	unknownResult         bool // a successful unknown solve, not an operational failure
-	query                 *PredicateTransformer
-	queryDecl             ast.ASTHandle
-	expanded              uint32
-	inductive             uint32
-	nodes                 uint32
-	maxDepth              uint32
-	useFarkas             bool
-	farkasActive          bool
-	proofActive           bool
-	useModel              bool
-	useInductive          bool
-	useMultiCore          bool
-	useArithInductive     bool
-	useInduction          bool
-	useConvexClosure      bool
-	useConvexInterior     bool
-	useUTVPI              bool
-	flexibleTrace         bool
-	fullTraceAnswer       bool
-	generateProofTrace    bool
-	printBoogieCert       bool
-	certificateModel      CertificateModelConverter
-	validateResult        bool
-	simplifyPre           bool
-	simplifyPost          bool
-	initialized           bool
-	closed                bool
+	manager                  *ast.ASTManager
+	owner                    *Manager
+	cacheMode                ReachableCacheMode
+	transformers             map[ast.ASTHandle]*PredicateTransformer
+	auxiliary                map[ast.ASTHandle]bool
+	order                    []ast.ASTHandle
+	search                   *ModelSearch
+	implicant                *model.ModelImplicant
+	lite                     *qe.Lite
+	projectionTheory         *rewriter.TheoryRewriter
+	projectionTheoryReady    bool
+	projectionTheoryBorrowed bool
+	cooperation              *cooperate.Cooperation
+	ownedCoop                bool
+	lastResult               lbool.LBool
+	unknownResult            bool // a successful unknown solve, not an operational failure
+	query                    *PredicateTransformer
+	queryDecl                ast.ASTHandle
+	expanded                 uint32
+	inductive                uint32
+	nodes                    uint32
+	maxDepth                 uint32
+	useFarkas                bool
+	farkasActive             bool
+	proofActive              bool
+	useModel                 bool
+	useInductive             bool
+	useMultiCore             bool
+	useArithInductive        bool
+	useInduction             bool
+	useConvexClosure         bool
+	useConvexInterior        bool
+	useUTVPI                 bool
+	flexibleTrace            bool
+	fullTraceAnswer          bool
+	generateProofTrace       bool
+	printBoogieCert          bool
+	certificateModel         CertificateModelConverter
+	validateResult           bool
+	simplifyPre              bool
+	simplifyPost             bool
+	initialized              bool
+	closed                   bool
 }
 
 // CertificateModelConverter consumes a normalized finite-frame model and
@@ -128,6 +129,22 @@ func (c *Context) SetFrameSimplification(before, after bool) error {
 }
 
 func NewContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumContexts uint32, cacheMode ReachableCacheMode, config smtcore.SMTSolverConfig) (*Context, error) {
+	return newContext(manager, params, maximumContexts, cacheMode, config, nil)
+}
+
+// NewContextWithTheory borrows the fixedpoint context's existing source
+// rewriter. The caller must keep it open until the PDR context is closed.
+func NewContextWithTheory(manager *ast.ASTManager, params *uparams.ParamsRef, maximumContexts uint32, cacheMode ReachableCacheMode, config smtcore.SMTSolverConfig, theory *rewriter.TheoryRewriter) (*Context, error) {
+	if theory == nil || theory.Manager() != manager {
+		return nil, ErrContextOwner
+	}
+	if _, err := theory.NumSteps(); err != nil {
+		return nil, err
+	}
+	return newContext(manager, params, maximumContexts, cacheMode, config, theory)
+}
+
+func newContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumContexts uint32, cacheMode ReachableCacheMode, config smtcore.SMTSolverConfig, theory *rewriter.TheoryRewriter) (*Context, error) {
 	if manager == nil || cacheMode > ReachableConstraintCache {
 		return nil, ErrContextOwner
 	}
@@ -136,6 +153,11 @@ func NewContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 		return nil, err
 	}
 	result := &Context{manager: manager, owner: owner, cacheMode: cacheMode, search: NewModelSearch(true), lastResult: lbool.Undef, useInductive: true, useUTVPI: true, auxiliary: make(map[ast.ASTHandle]bool)}
+	if theory != nil {
+		result.projectionTheory = theory
+		result.projectionTheoryReady = true
+		result.projectionTheoryBorrowed = true
+	}
 	fail := func(cause error) (*Context, error) {
 		cleanup := result.Close()
 		if cleanup != nil {
@@ -795,11 +817,14 @@ func (c *Context) Close() (result error) {
 		c.lite = nil
 	}
 	if c.projectionTheory != nil {
-		if err := c.projectionTheory.Close(); err != nil {
-			return err
+		if !c.projectionTheoryBorrowed {
+			if err := c.projectionTheory.Close(); err != nil {
+				return err
+			}
 		}
 		c.projectionTheory = nil
 		c.projectionTheoryReady = false
+		c.projectionTheoryBorrowed = false
 	}
 	for index := len(c.order) - 1; index >= 0; index-- {
 		declaration := c.order[index]

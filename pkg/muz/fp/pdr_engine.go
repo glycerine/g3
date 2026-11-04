@@ -749,9 +749,13 @@ func (e *PropositionalEngine) newConfiguredPDRContext(parameters *fixedpointPara
 	if cacheMode > pdr.ReachableConstraintCache {
 		return nil, fmt.Errorf("muz/fp: invalid pdr.cache_mode %d", cacheValue)
 	}
-	context, err := pdr.NewContext(e.manager, parameters.local, maximumContexts, cacheMode, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
+	theory := e.pdrTheory
+	if theory == nil {
+		theory = e.guard
+	}
+	context, err := pdr.NewContextWithTheory(e.manager, parameters.local, maximumContexts, cacheMode, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals}, theory)
 	if err != nil {
-		return nil, err
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	if err = context.SetCertificateModelConverter(pdrCertificateModelConverter{engine: e}); err != nil {
 		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)

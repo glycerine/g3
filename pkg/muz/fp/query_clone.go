@@ -25,6 +25,12 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	if err != nil {
 		return nil, err
 	}
+	// PDR queries on a temporary rule-set clone still borrow the original
+	// fixedpoint context's already configured source rewriter.
+	clone.pdrTheory = e.pdrTheory
+	if clone.pdrTheory == nil {
+		clone.pdrTheory = e.guard
+	}
 	clone.backend = e.backend
 	clone.engineSelectionSet = e.engineSelectionSet
 	if e.backend == EngineTab.String() && e.tabSession != nil {

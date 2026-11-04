@@ -93,6 +93,7 @@ type PropositionalEngine struct {
 	relations           *rel.RelationManager
 	external            *rel.ExternalRelationPlugin
 	guard               *astrewriter.TheoryRewriter
+	pdrTheory           *astrewriter.TheoryRewriter // borrowed original fixedpoint rewriter in query clones
 	unboundCooperation  *cooperate.Cooperation
 	unboundLite         *qe.Lite
 	unboundLiteDirty    bool
@@ -1152,20 +1153,28 @@ func (e *PropositionalEngine) validateFragment() error {
 }
 
 func (e *PropositionalEngine) checkSourceRules() error {
+	generateProof, err := e.sourceRuleProofTrace()
+	if err != nil {
+		return err
+	}
+	return validateRuleSetProperties(e.rules, e.set, e.backend, generateProof)
+}
+
+func (e *PropositionalEngine) sourceRuleProofTrace() (bool, error) {
 	generateProof := e.forceProofTrace
 	if e.params != nil && e.globals != nil {
 		parameters, err := e.fixedpointParamView()
 		if err != nil {
-			return err
+			return false, err
 		}
 		requested, cause := parameters.Bool("generate_proof_trace", false)
 		cause = errors.Join(cause, parameters.Close())
 		if cause != nil {
-			return cause
+			return false, cause
 		}
 		generateProof = generateProof || requested
 	}
-	return validateRuleSetProperties(e.rules, e.set, e.backend, generateProof)
+	return generateProof, nil
 }
 
 func (e *PropositionalEngine) normalizeSimpleJoins(bitBlast *datalogBitBlastQuery) (resultErr error) {
