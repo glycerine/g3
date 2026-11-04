@@ -47881,13 +47881,13 @@
         "TestParametricCommandRejectsInvalidKeywordAndValue",
         "TestSMT2EvalCommandMatchesCPP"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "command-local typed parameter parsing and normalization",
-          "status": "partial",
-          "go_target": "pkg/parsers/smt2/tactics.go",
+          "name": "command-local typed parameter parsing, keyword normalization, validation and reset",
+          "status": "ported",
+          "go_target": "pkg/parsers/smt2/parametric_command.go",
           "go_targets": [
             "pkg/parsers/smt2/tactics.go",
             "pkg/parsers/smt2/commands.go",
@@ -47902,10 +47902,10 @@
         }
       ],
       "ownership": [
-        "Parser owns each command parameter set and releases it after execution."
+        "Each direct command handler creates and releases a fresh typed ParamsRef for command-local values; command-specific AST, tactic and solver owners remain with their existing handlers."
       ],
       "deviations": [
-        "SMT-LIB eval now accepts the source rlimit option. Parametric command description caching and a shared keyword/argument state object remain omitted because the Go parser dispatches directly to command handlers."
+        "Native command-description caching and the shared m_last keyword/value state are not represented because the Go parser dispatches directly to typed command handlers; these structures have no runtime Go consumer."
       ]
     },
     {

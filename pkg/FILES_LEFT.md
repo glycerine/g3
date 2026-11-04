@@ -38,7 +38,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/cmd_context/extra_cmds/dbg_cmds.cpp` — All live debug commands, including s-expression display and scoped DIMACS output, have Go implementations with focused parser/context tests.
 - [x] `src/cmd_context/extra_cmds/dbg_cmds.h` — Its `install_dbg_cmds` declaration maps to the parser dispatcher, whose complete command set has focused tests.
 - [x] `src/cmd_context/interpolant_cmds.cpp` — Formula-tree construction, proof and fresh-solver execution, source-compatible interpolant simplification/display, global checker diagnostics, and profiling are implemented with focused parser, interpolation, and script-suite coverage; command-local `som`/`flat` keywords are inapplicable because the C++ command declares no parameter descriptors.
-- [ ] `src/cmd_context/parametric_cmd.cpp`
+- [x] `src/cmd_context/parametric_cmd.cpp` — Live command handlers normalize keywords, validate descriptors, parse typed values, and allocate fresh per-command settings; reset, alias normalization, invalid-key/value, and eval parity tests pass. Native command-description caching and shared `m_last` state have no Go parser consumer.
 - [ ] `src/cmd_context/parametric_cmd.h`
 - [ ] `src/duality/duality.h`
 - [ ] `src/duality/duality_profiling.cpp`
