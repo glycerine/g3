@@ -77368,8 +77368,8 @@
           ]
         },
         {
-          "name": "Concrete algebraic extension registration, polynomial and interval copy, shared sign_det retention, rational-function numerator x and extension lifetime through add_root (realclosure.cpp:825-856,1244-1275,1808-1835); full root isolation and other extension/value variants remain open",
-          "status": "partial",
+          "name": "Algebraic extension registration, polynomial and interval ownership, sign_det retention, root isolation, rational-function numerator x, and algebraic, transcendental, and infinitesimal extension lifetimes (realclosure.cpp:825-856,1244-1275,1808-1835,2282-2434)",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/algebraic_root_owner.go",
           "go_targets": [
             "pkg/math/realclosure/algebraic_root_value.go"
@@ -77379,16 +77379,16 @@
           ]
         },
         {
-          "name": "Concrete sign_det matrix/sign-condition transfer, prs/qs polynomial copy, Tarski array publication, shared-root reference count and source-order deletion (realclosure.cpp:788-824,1780-1807); full root-isolation input remains open",
-          "status": "partial",
+          "name": "sign_det matrix/sign-condition transfer, prs/qs polynomial copy, Tarski array publication, shared-root reference count, root publication, and source-order deletion (realclosure.cpp:788-824,1780-1807,1943-2110)",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/sign_det_owner.go",
           "tests": [
             "TestSignDetSourceArrayPublicationAndSharedRootLifetime"
           ]
         },
         {
-          "name": "Concrete rational-value reference and polynomial coefficient ownership through sign-determination prs/qs row publication and cleanup (realclosure.cpp:752-808,864-889,1120-1127,1780-1804,2050-2093); rational-function and Tarski polynomial producers remain open",
-          "status": "partial",
+          "name": "Rational-value references and polynomial coefficient ownership through sign-determination prs/qs row production, bounded rational/algebraic Tarski queries, and cleanup (realclosure.cpp:752-808,864-889,1120-1127,1613-1741,1780-1804,2050-2093)",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/sign_determination_polynomials.go",
           "go_targets": [
             "pkg/math/realclosure/sign_polynomial.go"
@@ -77399,8 +77399,8 @@
           ]
         },
         {
-          "name": "Sign-determination retained cardinality-group discriminator, sign-condition chains and matrix/column/Tarski state transition (realclosure.cpp:1743-1775,1967-1978,2018-2090); polynomial value sequence and root owner remain open",
-          "status": "partial",
+          "name": "Sign-determination cardinality groups, sign-condition chains, matrix/column/Tarski transition, derivative sequence, and algebraic root isolation (realclosure.cpp:1743-1775,1943-2110)",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/sign_determination.go",
           "tests": [
             "TestSignDeterminationRetainedColumnTransition",
@@ -77409,7 +77409,7 @@
         },
         {
           "name": "Sign-determination integer cardinality solve, ascending column filter, and original-priority independent-row selection (realclosure.cpp:2034-2083)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/sign_matrix_solve.go",
           "tests": [
             "TestSignMatrixSourceIntegerSolutions",

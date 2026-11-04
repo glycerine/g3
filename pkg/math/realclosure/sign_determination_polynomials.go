@@ -22,8 +22,8 @@ func (s *signDetermination) attachInitialPolynomial(store *realValueStore, one *
 
 // advanceWithPolynomials adds the source's polynomial rows and q alongside
 // the matrix transition. expandedPrs is the concrete result of multiplying
-// each previous row by 1, q, and when needed q²; that multiplication and the
-// Tarski-query calculation are still owned by the unfinished value port.
+// each previous row by 1, q, and when needed q²; bounded query producers feed
+// their Tarski results into the same transition.
 func (s *signDetermination) advanceWithPolynomials(equal, positive, negative int, q []*realValue, expandedTarski []int, expandedPrs [][]*realValue) (bool, bool, error) {
 	if s == nil || s.store == nil || len(s.prs) != s.matrix.rows {
 		return false, false, arena.ErrInvalidSlot

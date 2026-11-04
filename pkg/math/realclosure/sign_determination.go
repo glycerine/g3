@@ -12,9 +12,8 @@ type signCondition struct {
 	deleted    bool
 }
 
-// signDetermination holds the concrete matrix, Tarski results, and columns
-// of the real-closure root-discrimination algorithm. Polynomial coefficients
-// and their value ownership will join this state with the value port.
+// signDetermination holds the concrete matrix, Tarski results, polynomial
+// rows, and sign-condition columns for root discrimination.
 type signDetermination struct {
 	matrix      signMatrix
 	tarski      []int
