@@ -11,6 +11,9 @@ func (c *DatalogContext) RegisterPredicate(declaration ast.ASTHandle, named bool
 	if err := c.open(); err != nil {
 		return err
 	}
+	if c.predicates[declaration] {
+		return nil
+	}
 	var name usymbol.Symbol
 	if named {
 		var err error
@@ -21,12 +24,6 @@ func (c *DatalogContext) RegisterPredicate(declaration ast.ASTHandle, named bool
 		if old, exists := c.named[name]; exists && old != declaration {
 			return fmt.Errorf("muz/base: predicate name is already registered")
 		}
-	}
-	if c.predicates[declaration] {
-		if named {
-			c.named[name] = declaration
-		}
-		return nil
 	}
 	if err := c.ruleManager.RegisterPredicate(declaration); err != nil {
 		return err
@@ -66,6 +63,20 @@ func (c *DatalogContext) RestrictPredicates(keep map[ast.ASTHandle]bool) error {
 	if err := c.open(); err != nil {
 		return err
 	}
+	// Prepare restored declarations before changing membership, so an invalid
+	// declaration or a refused reference cannot leave a partially restored set.
+	var restored []ast.ASTHandle
+	for d, present := range keep {
+		if present && !c.predicates[d] {
+			if err := c.ruleManager.RegisterPredicate(d); err != nil {
+				return err
+			}
+			if err := c.retain(d); err != nil {
+				return err
+			}
+			restored = append(restored, d)
+		}
+	}
 	order := c.predicateOrder[:0]
 	for _, d := range c.predicateOrder {
 		if keep[d] {
@@ -73,15 +84,15 @@ func (c *DatalogContext) RestrictPredicates(keep map[ast.ASTHandle]bool) error {
 			continue
 		}
 		delete(c.predicates, d)
-		name, err := c.manager.GetASTName(d)
-		if err != nil {
-			return err
-		}
-		if c.named[name] == d {
-			delete(c.named, name)
-		}
 	}
 	c.predicateOrder = order
+	// Scoped queries restore a previously saved set, which can contain
+	// declarations no longer in the current membership set. The name table
+	// is independent and remains unchanged by this operation.
+	for _, d := range restored {
+		c.predicates[d] = true
+		c.predicateOrder = append(c.predicateOrder, d)
+	}
 	return nil
 }
 
