@@ -189,24 +189,16 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 		}
 	}
 	out.row = make([]big.Rat, arity)
+	arithmetic, err := a.manager.RegisterArithmeticPlugin()
+	if err != nil {
+		return none, out, err
+	}
+	integer, err := a.manager.MkFamilySort(arithmetic, 1, nil)
+	if err != nil {
+		return none, out, err
+	}
 	add := func(expr ast.ASTHandle, factor int64) error {
-		if index, ok := positions[expr]; ok {
-			out.row[index].Add(&out.row[index], big.NewRat(factor, 1))
-			return nil
-		}
-		text, _, matched, err := a.manager.ArithmeticNumeralText(expr)
-		if err != nil {
-			return err
-		}
-		if !matched {
-			return ErrKarrDatalogFragment
-		}
-		number, ok := new(big.Rat).SetString(text)
-		if !ok || !number.IsInt() {
-			return ErrKarrDatalogFragment
-		}
-		out.constant.Add(&out.constant, new(big.Rat).Mul(number, big.NewRat(factor, 1)))
-		return nil
+		return a.addKarrLinear(expr, big.NewRat(factor, 1), positions, out.row, &out.constant, integer, arithmetic)
 	}
 	left, err := a.manager.GetArg(guard, 0)
 	if err != nil {
