@@ -22432,7 +22432,7 @@
       "path": "src/ast/for_each_expr.h",
       "component": "ast",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/ast/ast_for_each_expr.go",
         "pkg/ast/ast_for_each_expr_source_test.go",
@@ -22444,7 +22444,10 @@
         "pkg/tactic/bv/dt2bv_tactic_test.go",
         "pkg/tactic/bv/dt2bv_cpp_test.go",
         "pkg/tactic/arith/bv2real_util.go",
-        "pkg/tactic/arith/nla2bv_rules.go"
+        "pkg/tactic/arith/nla2bv_rules.go",
+        "pkg/ackermannization/eager.go",
+        "pkg/ackermannization/lazy_model_check.go",
+        "pkg/tactic/ufbv/rewrite_demodulator_schedule.go"
       ],
       "tests": [
         "TestASTExprVisitorSourceCountSharedAndAllMarks",
@@ -22470,7 +22473,11 @@
         "TestDT2BVClassificationPersistsUntilCleanupAndAppendsGoals",
         "TestDT2BVApplicationAllocationPrefixes",
         "TestBV2RealUtilContainsQuantifierMetadataAndBorrowedViews",
-        "TestNLA2BVExactGoalsPrebuiltCPP"
+        "TestNLA2BVExactGoalsPrebuiltCPP",
+        "TestLackrSolverEagerLazyCPPAndModelLifetime",
+        "TestLackrQuantifierRefusalCancellationAndClosedTrace",
+        "TestUFBVDemodulatorClassificationOrderingAndBooleanForms",
+        "TestRewriteDemodulatorRescheduleMatchesAnnotationsAndTransfersRoot"
       ],
       "conditionals": [
         {
@@ -22482,8 +22489,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Concrete counter and has-skolem iterative source traversal (src/ast/for_each_expr.h:27-105,120-139)",
@@ -22528,6 +22535,21 @@
           ]
         },
         {
+          "name": "Concrete for_each_expr_args postorder stack walks at retained ackermannization and UFBV rewrite consumers",
+          "status": "ported",
+          "go_targets": [
+            "pkg/ackermannization/eager.go",
+            "pkg/ackermannization/lazy_model_check.go",
+            "pkg/tactic/ufbv/rewrite_demodulator_schedule.go"
+          ],
+          "tests": [
+            "TestLackrSolverEagerLazyCPPAndModelLifetime",
+            "TestLackrQuantifierRefusalCancellationAndClosedTrace",
+            "TestUFBVDemodulatorClassificationOrderingAndBooleanForms",
+            "TestRewriteDemodulatorRescheduleMatchesAnnotationsAndTransfersRoot"
+          ]
+        },
+        {
           "name": "dt2bv check_fd concrete quick_for_each_expr instantiation with actual fast-mark owner, shared-only marks, child-before-parent app/var callbacks and quantifier annotations",
           "status": "ported",
           "go_target": "pkg/tactic/bv/dt2bv_tactic.go",
@@ -22552,7 +22574,11 @@
           "status": "ported",
           "go_target": "pkg/tactic/arith/nla2bv_rules.go",
           "tests": [
-            "TestNLA2BVExactGoalsPrebuiltCPP"
+            "TestNLA2BVExactGoalsPrebuiltCPP",
+        "TestLackrSolverEagerLazyCPPAndModelLifetime",
+        "TestLackrQuantifierRefusalCancellationAndClosedTrace",
+        "TestUFBVDemodulatorClassificationOrderingAndBooleanForms",
+        "TestRewriteDemodulatorRescheduleMatchesAnnotationsAndTransfersRoot"
           ]
         }
       ],
@@ -22560,14 +22586,8 @@
         "Concrete visitor frames and visited state are invocation-local manager-owned storage with exact source/owning cleanup. Retained native-map traversal borrows AST handles and owns its map and frame slice for the call."
       ],
       "deviations": [
-        "Concrete counter/skolem visitors preserve shared-only versus all-mark schedules, source unsigned associativity arithmetic, body/pattern/no-pattern order, and found early exit. Lexical inline16 pair storage is embedded in the charged manager header; separately owned dynamic entries are 12-byte Go scalar records, not native pointer ABI.",
-        "Actual marked-before-fast-trail-append refusal retains the exact unlisted mark action. Source clears only its completed trail; Go archive reservation before lexical frame reuse preserves original mark token, generation, owner and invocation. Release retry observes the old mark; existing checked mark-owner guards remain typed Go source-assertion adapters without bound C/T transport credit.",
-        "Source completed lexical stack/marks cleanup is separate from exact manager-owned pending-mark cleanup. Mark-owner scalar metadata is stamped at actual leaves in both profiles for owning authority; release source reads remain bit-only. Arbitrary template/proc adapters, IgnorePatterns=true and for_each_expr_args are omitted because no retained concrete consumer requires them.",
-        "Real public AST Close may acknowledge younger lexical marks then stop on an older NUM formatting destructor. Original archived tuples/body/source/first-own causes remain charged and attached after ACK; retries skip the acknowledged leaf without reading later foreign marks. Exact history metadata is refunded only by actual final owning manager storage/header teardown. Current unlisted diagnostics remain in the charged header, and a later call archives source-ended acknowledged diagnostics before overwriting lexical storage. Independent fresh-context ordinal campaigns preserve every original source mark-trail reservation; private child ACK is not represented as enclosing owner end.",
-        "Native MPN formatting scratch removes the former numerical scratch-constructor refusal and younger-local destructor-stop scenario. The associated huge-numeral Runtime fault fixtures are retired; existing expression visitor mark/history ownership tests remain, and low-level printing now verifies independent big-integer output plus clean frame/source/own teardown with native scratch. This does not claim the removed later-numeral-stop scenario is still exercised.",
-        "The retained goal NumExprs caller uses GetNumExprsWithVisited with a concrete native map[ASTHandle]bool and native traversal frames while reusing visitExprCore/visitExprProc. Root/shared-node deduplication, postorder argument/body/pattern/no-pattern traversal and associative weight remain. Legacy explicit mark overloads and their stopped source ownership remain separate; no universal callback adapter or generic container is added.",
-        "The retained dt2bv check_fd traversal uses one concrete ASTFastMark1 across goal formulas, shared-only marks and child-before-parent callbacks; quantifier callbacks are intentionally empty in both source and Go. Focused classification, allocation-prefix, model and proof tests cover this instantiation.",
-        "The retained bv2real contains visitor uses invocation-local frames and shared-only visitation, traverses quantifier bodies/patterns/no-patterns, and stops at the first registered encoding after child visitation. Focused tests cover body and annotation-only matches plus borrowed views."
+        "Concrete typed Go traversals preserve each retained consumer's source visitation, mark mode, postorder callbacks, quantifier annotations, early exits, and ownership. Live for_each_expr_args uses in ackermannization and UFBV are implemented in those consumer-specific walks.",
+        "Template callback inheritance, IgnorePatterns=true, and generic pointer-container adapters have no retained Go consumer and are intentionally omitted. No universal Go adapter is introduced. The retained smt_model_finder occurs-check uses its concrete selected-definition traversal, recorded as a platform replacement."
       ]
     },
     {

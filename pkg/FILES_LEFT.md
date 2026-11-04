@@ -28,7 +28,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/ast/datatype_decl_plugin.cpp`
 - [x] `src/ast/datatype_decl_plugin.h` — Concrete `ASTManager` and `DatatypeUtil` APIs cover the retained datatype declarations, utility interface, plugin lifecycle, and ownership behavior; AST, rewriter, and datatype restart focused checks pass.
 - [x] `src/ast/expr2polynomial.cpp` — Iterative arithmetic conversion, shared-node caching, exact rational denominators, reverse reconstruction, cancellation, and cache ownership are covered; converter allocation-prefix retry and NLSAT cleanup/retry checks pass.
-- [ ] `src/ast/for_each_expr.h`
+- [x] `src/ast/for_each_expr.h` — Counter/skolem traversal and each retained consumer’s concrete postorder walk are covered; AST, model-finder, reduce-args, dt2bv, arithmetic, ackermannization, and UFBV focused checks pass. Unused generic template adapters are inapplicable.
 - [ ] `src/ast/rewriter/enum2bv_rewriter.cpp`
 - [ ] `src/ast/rewriter/enum2bv_rewriter.h`
 - [ ] `src/ast/rewriter/pb2bv_rewriter.cpp`
