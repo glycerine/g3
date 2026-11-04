@@ -1,6 +1,10 @@
 package duality
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"os"
+)
 
 // ProveConjecture strengthens a node's bound and keeps it if proved. On an
 // ordinary counterexample it optionally expands an expensive underapproximate
@@ -46,6 +50,7 @@ func (u *Unwinding) ProveConjecture(node *Node, conjecture *Transformer, search 
 		return proved, err
 	}
 	if useUnderapprox && u.lastDecisions > 500 {
+		_, _ = fmt.Fprintln(os.Stdout, "making an underapprox")
 		working := search.Search.tree
 		if _, err = u.ExpandNodeFromCoverFail(node, counterexample, working.solver, working.evaluatorConfig, search.Simplifier); err != nil {
 			return false, err

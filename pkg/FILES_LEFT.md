@@ -44,7 +44,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/duality/duality_profiling.cpp` — Nested timers, imbalanced-stop recovery, sorted totals, process-lifetime profiling, interpolation report inclusion, and elapsed-time output are implemented and covered; Go uses monotonic durations and stable lexical output ordering in place of C++ clock values and pointer-ordered map traversal.
 - [x] `src/duality/duality_profiling.h` — All four declared operations map to tested `Profiler` methods, with process-lifetime owners for source-facing callers and explicit independent profiler owners for Go callers.
 - [x] `src/duality/duality_rpfp.cpp` — All live RPFP methods are implemented with focused Go coverage; the disabled global node-clone path and inactive compile-time branches are documented as inapplicable.
-- [ ] `src/duality/duality_solver.cpp`
+- [x] `src/duality/duality_solver.cpp` — All active solver, search, learning, covering, counterexample, reporting, and profiling paths are ported; source switches and graph/solver ownership are audited, and the focused Duality suite passes.
 - [ ] `src/duality/duality_wrapper.cpp`
 - [ ] `src/duality/duality_wrapper.h`
 - [ ] `src/math/interval/interval.h`

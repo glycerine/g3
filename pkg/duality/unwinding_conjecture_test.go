@@ -6,8 +6,34 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"io"
+	"os"
 	"testing"
 )
+
+func captureDualityStdout(t *testing.T, run func()) string {
+	t.Helper()
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous := os.Stdout
+	os.Stdout = writer
+	defer func() { os.Stdout = previous }()
+	run()
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = previous
+	output, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return string(output)
+}
 
 // Only statistics are controlled: assertions, proofs, models and scopes still
 // execute in the real native solver. This makes the 500/501 policy deterministic.
@@ -170,7 +196,18 @@ func TestDualityProveConjectureNativeBoundsOwnershipAndDecisionThreshold(t *test
 			must(err)
 			baseline, err := native.NumAssertions()
 			must(err)
-			proved, err := u.ProveConjecture(node, conjecture, search, cex, output, threshold)
+			var proved bool
+			diagnostic := ""
+			if mode == "threshold501" {
+				diagnostic = captureDualityStdout(t, func() {
+					proved, err = u.ProveConjecture(node, conjecture, search, cex, output, threshold)
+				})
+			} else {
+				proved, err = u.ProveConjecture(node, conjecture, search, cex, output, threshold)
+			}
+			if mode == "threshold501" && diagnostic != "making an underapprox\n" {
+				t.Fatal("source threshold diagnostic", diagnostic)
+			}
 			if profile.current != profile.top || profile.top.children["ProveConjecture"] == nil {
 				t.Fatal("conjecture timer scope", mode)
 			}
