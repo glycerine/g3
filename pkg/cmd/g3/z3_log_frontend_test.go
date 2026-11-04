@@ -41,7 +41,9 @@ func TestZ3LogFrontendCLIInputAndFile(t *testing.T) {
 
 func TestZ3LogFrontendReportsUnavailableCommands(t *testing.T) {
 	var out, diagnostics bytes.Buffer
-	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader("R\nC 491\n"), &out, &diagnostics); err != nil {
+	// ID 491 is Z3_rcf_mk_pi and is now registered by the RCF replay port.
+	// Use an out-of-range ID so this continues to exercise the unknown-command path.
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader("R\nC 65535\n"), &out, &diagnostics); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(diagnostics.String(), "invalid command") || !strings.Contains(out.String(), "max. heap size:") {
