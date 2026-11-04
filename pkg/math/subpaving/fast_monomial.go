@@ -28,7 +28,7 @@ func (c *FastContext) DefineMonomial(powers []FastPower) (uint32, error) {
 	if err := c.open(); err != nil {
 		return 0, err
 	}
-	if len(powers) == 0 || len(c.isInt) >= math.MaxUint32 || (c.rootInitStarted || c.root.children != 0) {
+	if len(powers) == 0 || len(c.isInt) >= math.MaxUint32 || (c.rootInitStarted || (c.root != nil && c.root.children != 0)) {
 		return 0, arena.ErrInvalidSlot
 	}
 	merged := append([]FastPower(nil), powers...)
@@ -57,8 +57,10 @@ func (c *FastContext) DefineMonomial(powers []FastPower) (uint32, error) {
 	c.isInt = append(c.isInt, integer)
 	c.watchers = append(c.watchers, nil)
 	c.watchOrder = append(c.watchOrder, nil)
-	c.root.lower = append(c.root.lower, nil)
-	c.root.upper = append(c.root.upper, nil)
+	if c.root != nil {
+		c.root.lower = append(c.root.lower, nil)
+		c.root.upper = append(c.root.upper, nil)
+	}
 	c.monomials[x] = &FastMonomial{powers: merged}
 	for _, power := range merged {
 		c.watchers[power.Variable] = append(c.watchers[power.Variable], x)

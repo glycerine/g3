@@ -81543,14 +81543,16 @@
         },
         {
           "name": "Concrete config_mpff context parameter numerals, root/child ownership, integer bound normalization, relevance and publication (src/math/subpaving/subpaving_t_def.h:408-589,1176-1315)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_context.go",
           "go_targets": [
             "pkg/math/subpaving/fast_context_bounds.go"
           ],
           "tests": [
             "TestSubpavingFastContextBoundFlowAndRelevance",
-            "TestSubpavingFastContextIntegerNormalizationAndCandidate"
+            "TestSubpavingFastContextIntegerNormalizationAndCandidate",
+            "TestFastContextNamedParamsSinglePassAndStoppedPrefix",
+            "TestSubpavingFastNodeConstantIntervalViews"
           ]
         },
         {
@@ -82659,8 +82661,8 @@
         "Root close precedes source-order unit then problem-clause then lemma reference release; shared inequality values close at their last reference, and remaining unreferenced context-owned values close before context numerals. Idempotent release progress preserves cleanup retries."
       ],
       "deviations": [
-        "The config_mpff tactic variable registration now grows source-order type/watch slots and the Go root bound arrays before initialization. The config_mpff root unit/definition/queue initialization and shared clause teardown are concrete. Selected bound justification tags are ported; node search/splitting, complete explanation ownership and the full solver lifecycle remain open.",
-        "The config_mpff six named parameter updates now retain source order, defaults, partial numeric mutation and a closable refused owner. The Go context allocates its root before this pass; complete constructor allocation order, node search/splitting and full solver lifecycle remain open.",
+        "The config_mpff tactic variable registration now grows source-order type/watch slots before initialization; root creation then sizes its bound arrays from those slots, matching C++ mk_var-before-init order. Root unit/definition/queue initialization and shared clause teardown are concrete. Selected bound justification tags are ported; the full tactic result/simplify lifecycle remains open.",
+        "The config_mpff six named parameter updates preserve source order, defaults, partial numeric mutation and a closable refused owner. Named-parameter construction leaves the root absent until Root or InitializeRoot, matching C++ parameter-before-root initialization; full tactic result/simplify lifecycle remains open.",
         "The config_mpff context now displays definitions, units and clauses through the source MPFF to_rational_string spelling, which delegates to the ordinary String formatter. Borrowed variable display and shell forwarding are concrete; search remains open.",
         "The config_mpff context now records child creation order, displays consistent leaves with inherited bounds and exact MPFF numeral text, and omits conflicting leaves. Search, splitting and statistics remain open.",
         "The config_mpff round-robin variable selector and midpoint splitter now use concrete FastFloat arithmetic. Integer-bound normalization, directed unbounded splits and adjacent-value refusal preserve source order; the enclosing search queue, depth/node budgets and full tactic lifecycle remain open.",

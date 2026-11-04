@@ -59,6 +59,9 @@ func TestFastContextNamedParamsSinglePassAndStoppedPrefix(t *testing.T) {
 	if err != nil {
 		t.Fatal("single pass", err)
 	}
+	if c.root != nil {
+		t.Fatal("source context constructor allocated root before initialization")
+	}
 	t.Cleanup(func() {
 		if e := c.Close(); e != nil {
 			t.Error(e)
@@ -99,6 +102,9 @@ func TestFastContextNamedParamsSinglePassAndStoppedPrefix(t *testing.T) {
 	if err == nil || partial == nil {
 		t.Fatal("refused owner", partial, err)
 	}
+	if partial.root != nil {
+		t.Fatal("refused constructor allocated root before parameter pass completed")
+	}
 	t.Cleanup(func() {
 		if e := partial.Close(); e != nil {
 			t.Error(e)
@@ -128,4 +134,7 @@ func TestFastContextNamedParamsSinglePassAndStoppedPrefix(t *testing.T) {
 	}
 	check(c.maxBound, 1, 1)
 	check(c.rootPrecision, 1, 1)
+	if err := c.InitializeRoot(); err != nil || c.root == nil || c.initStage != 3 {
+		t.Fatal("source root allocation during initialization", c.root, c.initStage, err)
+	}
 }

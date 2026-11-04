@@ -10,6 +10,9 @@ func (c *FastContext) InitializeRoot() error {
 	if err := c.open(); err != nil {
 		return err
 	}
+	if err := c.ensureRoot(); err != nil {
+		return err
+	}
 	// C++ sets m_root before asserting units. A source checkpoint cancellation
 	// leaves that root in place, so a later operator() does not resume init().
 	if c.rootInitStarted {

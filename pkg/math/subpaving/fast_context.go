@@ -131,14 +131,27 @@ func newFastContextOwner(m *numeral.FastFloatManager, limit *control.Reslimit, i
 	if c.rootPrecision, err = c.owned[3].Get(); err != nil {
 		return nil, err
 	}
-	if c.root, err = NewFastNode(m, uint32(len(isInt)), nil); err != nil {
-		return nil, err
-	}
-	c.root.context = c
-	c.nodes = []*FastNode{c.root}
-	c.leafQueue = []*FastNode{c.root}
-	c.root.queuedLeaf = true
 	return c, nil
+}
+
+// ensureRoot models context_t::mk_node(nullptr), which C++ calls from init
+// after construction and parameter updates. Both Go constructors leave the
+// root absent until Root or InitializeRoot is requested.
+func (c *FastContext) ensureRoot() error {
+	if c.root != nil {
+		return nil
+	}
+	root, err := NewFastNode(c.numbers, uint32(len(c.isInt)), nil)
+	if err != nil {
+		return err
+	}
+	root.context = c
+	root.id = 0
+	root.queuedLeaf = true
+	c.root = root
+	c.nodes = []*FastNode{root}
+	c.leafQueue = []*FastNode{root}
+	return nil
 }
 
 func (c *FastContext) updateEpsilon(v uint32) error {
@@ -183,7 +196,7 @@ func (c *FastContext) updateRootPrecision(v uint32) error {
 }
 
 func (c *FastContext) open() error {
-	if c == nil || c.self != c || c.numbers == nil || c.root == nil {
+	if c == nil || c.self != c || c.numbers == nil {
 		return arena.ErrInvalidSlot
 	}
 	if c.closed {
@@ -193,21 +206,23 @@ func (c *FastContext) open() error {
 }
 
 // NewVariable follows context_t<config_mpff>::mk_var before root
-// initialization. The Go root node is allocated with the context, so its
-// bound slots grow alongside the source variable and watch arrays.
+// initialization. The root remains absent while source variable and watch
+// arrays are populated.
 func (c *FastContext) NewVariable(integer bool) (uint32, error) {
 	if err := c.open(); err != nil {
 		return 0, err
 	}
-	if len(c.isInt) >= math.MaxUint32 || c.rootInitStarted || c.initStage != 0 || c.root.children != 0 || c.root.trail != nil {
+	if len(c.isInt) >= math.MaxUint32 || c.rootInitStarted || c.initStage != 0 || (c.root != nil && (c.root.children != 0 || c.root.trail != nil)) {
 		return 0, arena.ErrInvalidSlot
 	}
 	x := uint32(len(c.isInt))
 	c.isInt = append(c.isInt, integer)
 	c.watchers = append(c.watchers, nil)
 	c.watchOrder = append(c.watchOrder, nil)
-	c.root.lower = append(c.root.lower, nil)
-	c.root.upper = append(c.root.upper, nil)
+	if c.root != nil {
+		c.root.lower = append(c.root.lower, nil)
+		c.root.upper = append(c.root.upper, nil)
+	}
 	return x, nil
 }
 
@@ -222,6 +237,9 @@ func (c *FastContext) closeNumerals() (err error) {
 
 func (c *FastContext) Root() (*FastNode, error) {
 	if err := c.open(); err != nil {
+		return nil, err
+	}
+	if err := c.ensureRoot(); err != nil {
 		return nil, err
 	}
 	return c.root, nil
@@ -259,9 +277,6 @@ func (c *FastContext) Close() error {
 	if c.closed {
 		return nil
 	}
-	if c.root == nil {
-		return arena.ErrInvalidSlot
-	}
 	for len(c.searchOwned) != 0 {
 		i := len(c.searchOwned) - 1
 		if err := c.searchOwned[i].Close(); err != nil {
@@ -270,8 +285,10 @@ func (c *FastContext) Close() error {
 		c.searchOwned[i] = nil
 		c.searchOwned = c.searchOwned[:i]
 	}
-	if err := c.root.Close(); err != nil {
-		return err
+	if c.root != nil {
+		if err := c.root.Close(); err != nil {
+			return err
+		}
 	}
 	for i := range c.unitClauses {
 		if err := c.releaseUnit(i); err != nil {

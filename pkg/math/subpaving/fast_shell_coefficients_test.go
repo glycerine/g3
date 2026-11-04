@@ -34,11 +34,8 @@ func TestFastShellExactCoefficientsAndDirectedInequalities(t *testing.T) {
 		t.Fatal(err)
 	}
 	stats := statistics.New()
-	if err := w.CollectStatistics(stats); err != nil || stats.Size() != 1 || stats.Key(0) != "nodes" || stats.UintValue(0) != 1 {
-		t.Fatal("shell statistics forwarding", err)
-	}
-	if err := w.ResetStatistics(); err != nil {
-		t.Fatal("shell statistics reset", err)
+	if err := w.CollectStatistics(stats); err != nil || stats.Size() != 0 {
+		t.Fatal("source shell starts before root creation", err)
 	}
 	var one, three, big, read numeral.Int
 	q, lowerValue, upperValue := numeral.NewRational(), numeral.NewRational(), numeral.NewRational()
@@ -163,6 +160,19 @@ func TestFastShellExactCoefficientsAndDirectedInequalities(t *testing.T) {
 	}
 	if err := w.SetVariableDisplay(nil); err != nil {
 		t.Fatal(err)
+	}
+	if err := c.InitializeRoot(); err != nil {
+		t.Fatal("root initialization", err)
+	}
+	if err := w.ResetStatistics(); err != nil {
+		t.Fatal("shell statistics reset", err)
+	}
+	stats.Reset()
+	if err := w.CollectStatistics(stats); err != nil || stats.Size() != 1 || stats.Key(0) != "nodes" || stats.UintValue(0) != 1 {
+		t.Fatal("shell statistics forwarding", err)
+	}
+	if err := w.ResetStatistics(); err != nil {
+		t.Fatal("shell statistics reset", err)
 	}
 	c.maxDepth = 0
 	if err := w.Search(); err != nil {
