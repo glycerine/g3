@@ -1,5 +1,7 @@
 package ast
 
+import "errors"
+
 func (m *ASTManager) proofParentsFact(k int32, ps []ASTHandle, f ASTHandle) (ASTHandle, error) {
 	var args []ASTHandle
 	args = append(args, ps...)
@@ -181,7 +183,7 @@ func (m *ASTManager) MkProofOEqQuantIntro(a, b, p ASTHandle) (ASTHandle, error) 
 	defer m.mu.Unlock()
 	return m.proofQuantIntro(a, b, p, true)
 }
-func (m *ASTManager) proofGuardedRelation(k int32, a, b ASTHandle, oeq bool) (ASTHandle, error) {
+func (m *ASTManager) proofGuardedRelation(k int32, a, b ASTHandle, oeq bool) (_ ASTHandle, resultErr error) {
 	if m.proofMode == ASTProofDisabled {
 		return ASTHandle{}, nil
 	}
@@ -195,6 +197,14 @@ func (m *ASTManager) proofGuardedRelation(k int32, a, b ASTHandle, oeq bool) (AS
 	if e != nil {
 		return ASTHandle{}, e
 	}
+	node, e := m.internal(f)
+	if e != nil {
+		return ASTHandle{}, e
+	}
+	if e = m.incNode(node); e != nil {
+		return ASTHandle{}, e
+	}
+	defer func() { _, e := m.decNode(node); resultErr = errors.Join(resultErr, e) }()
 	return m.proofMake(k, f)
 }
 func (m *ASTManager) MkProofPullQuant(a, q ASTHandle) (ASTHandle, error) {

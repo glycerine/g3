@@ -121,7 +121,7 @@ func (m *ASTManager) MkProofOEqRewrite(a, b ASTHandle) (ASTHandle, error) {
 	defer m.mu.Unlock()
 	return m.proofRewrite(a, b, true)
 }
-func (m *ASTManager) proofSymmetry(p ASTHandle) (ASTHandle, error) {
+func (m *ASTManager) proofSymmetry(p ASTHandle) (_ ASTHandle, resultErr error) {
 	if p.IsNull() {
 		return p, nil
 	}
@@ -160,6 +160,10 @@ func (m *ASTManager) proofSymmetry(p ASTHandle) (ASTHandle, error) {
 	if e != nil {
 		return ASTHandle{}, e
 	}
+	if e = m.incNode(out); e != nil {
+		return ASTHandle{}, e
+	}
+	defer func() { _, e := m.decNode(out); resultErr = errors.Join(resultErr, e) }()
 	return m.proofMake(ASTPrSymmetry, p, m.external(out))
 }
 func (m *ASTManager) MkProofSymmetry(p ASTHandle) (ASTHandle, error) {
