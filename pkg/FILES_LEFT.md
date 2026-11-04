@@ -60,8 +60,8 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/model/model_implicant.cpp` — Array extraction, recursive extensional equality, default and store-row decisions, diagnostics, and temporary-reference cleanup match the C++ paths and pass focused model tests.
 - [x] `src/muz/base/dl_context.cpp` — Context/rule lifecycle, finite-domain operations, engine selection and dispatch, query/results, typed traces, SMT-LIB display, and parameter consumers are implemented across `pkg/muz/base`, `pkg/muz/fp`, and `pkg/cmd_context`; existing focused source-parity and ownership tests pass. `result_contains_fact` has no retained caller, `apply_default_transformation` is empty, and the C++ test entry has no active test body.
 - [x] `src/muz/base/dl_context.h` — Header declarations, inline wrappers, and ownership contracts map to typed Go APIs across base, fixedpoint, relation, and API layers; the abstract interface and STL reference-vector helpers have no standalone Go adapter.
-- [ ] `src/muz/base/dl_rule.cpp`
-- [ ] `src/muz/base/dl_rule.h`
+- [x] `src/muz/base/dl_rule.cpp` — Rule construction/layout, Horn conversion and proof transfer, query lowering, substitution, normalization, unbound-variable handling, identity and reporting map across the base, fixedpoint, and QE layers; focused existing rule and HNF tests cover source behavior and ownership.
+- [x] `src/muz/base/dl_rule.h` — Rule and RuleManager declarations, inline tail/name accessors, reference ownership, hash/equality, and analysis callbacks map to concrete Go owners and queries; existing focused rule tests cover the live surface.
 - [ ] `src/muz/base/fixedpoint_params.hpp`
 - [ ] `src/muz/bmc/dl_bmc_engine.cpp`
 - [ ] `src/muz/bmc/dl_bmc_engine.h`
