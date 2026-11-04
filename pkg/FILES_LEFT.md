@@ -26,7 +26,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/api/z3_spacer.h` — Spacer query/trace/invariant/reachability operations and its QE model-project, extrapolation, and QE-lite APIs have typed Go implementations; focused fixedpoint and QE checks pass.
 - [x] `src/ast/ast_smt2_pp.cpp` — The SMT-LIB printer's declaration/sort/literal formatting, iterative expression traversal, alias and quantifier scopes, let grouping, and profile parameters are implemented across `pkg/ast`; all focused `TestASTSMT2` checks pass.
 - [x] `src/ast/datatype_decl_plugin.cpp`
-- [ ] `src/ast/datatype_decl_plugin.h`
+- [x] `src/ast/datatype_decl_plugin.h` — Concrete `ASTManager` and `DatatypeUtil` APIs cover the retained datatype declarations, utility interface, plugin lifecycle, and ownership behavior; AST, rewriter, and datatype restart focused checks pass.
 - [ ] `src/ast/expr2polynomial.cpp`
 - [ ] `src/ast/for_each_expr.h`
 - [ ] `src/ast/rewriter/enum2bv_rewriter.cpp`
