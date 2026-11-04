@@ -76,6 +76,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [ ] Resolve the previously supported unary path's multiple-duplicate-group ordering divergence: source map traversal can change Karr row and generator order, while Go currently uses first occurrence. Do not remove existing support or port source hashing.
   - [ ] Implement and verify the live configured Datalog Karr relation routes and operation semantics through their actual consumers.
   - [x] Restore the PDR manager's live pre-converter model TRACE for model export, validation and direct answers; test source ordering, disabled tracing and ownership.
+  - [x] Restore the live PDR initialization trace at its source boundary; g3trace tests cover ordering, disabled evaluation, stream refusal and formatting failure.
   - [x] Match the PDR manager Boolean rewriter for negated conjunctions, preserving the borrowed API and solver-owned results. Tests cover simplification, nil global parameters, allocation failure, release retry and reentrant deletion callbacks; end-to-end AddProperty cleanup refusal remains open.
   - [x] Match source Boolean conjunction rewriting in PDR cover export, with duplicate/complement and refused cleanup coverage; the separate Formulas consumer remains open.
   - [x] Match Boolean conjunction rewriting for PDR Formulas and migrate live consumers to scoped references, preserving the borrowed API. The complete native short PDR package passes; direct caller cleanup refusal remains open.
@@ -128,6 +129,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Normalize reachable non-application Boolean heads before the same deferred diagnostic, matching repeated C++ query output; reserve equality ownership before construction. Sparse-variable substitution now owns replacement variables across allocation failure and retry. Exceptional temporary cleanup refusal and partial multi-clause publication remain open.
   - [x] Prevent a negated interpreted-tail AST leak when reference reservation fails, with live-node and retry coverage; constructor cleanup refusal remains a separate audit.
   - [x] Own unbound-variable substitution bindings and grouped-tail conjunctions before later allocations; real failure campaigns verify live-node cleanup and retry for both cases.
+  - [x] Reserve the unbound-rule quantifier owner before construction; targeted allocation refusal and retry pass. A separate pressure case in QE simplification remains open.
   - [x] Reserve the asserted-proof owner before proof construction; a real reference-allocation failure and retry verify no fresh proof node leaks. Temporary-owner cleanup refusal remains open.
   - [x] Keep rewrite and modus-ponens proof intermediates owned through rule publication; real reference-allocation failures at reservation and publication check cleanup and retry.
 - [ ] Verify previously marked ported units against their actual consumers and proof/ownership requirements; status labels alone are insufficient.
@@ -170,6 +172,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Preserve Duality profiling during post-solve derivation, certificate and proof output, and time `RedVars` at its source call site.
   - [x] Share process-lifetime Duality and interpolation profilers across source-facing backend, API and SMT-LIB command paths; cross-client tests cover persistence and independently supplied profilers.
   - [x] Match source projection timer call sites and lexical ordering of interpolation totals; focused tests cover sibling scopes, duplicate labels, direct helper calls and allocation-failure timer restoration. Other profiling and exception-path differences remain open.
+  - [x] Pair an explicitly supplied Duality profiler with its interpolation owner when no separate interpolation profiler is supplied; actual interpolation and explicit override tests pass.
   - [x] Stop Duality's `SolveMain` timer before quantified-counterexample validation, matching the source timing boundary.
   - [x] Verify PDR reachable-cache construction failure/retry and preservation of earlier constraint disjuncts; connector-publication failure injection remains open.
   - [x] Verify a rejected constraint-cache insertion preserves prior alternatives and references and permits retry; the later connector-publication failure boundary remains unproven.

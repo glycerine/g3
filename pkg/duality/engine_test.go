@@ -1,9 +1,11 @@
 package duality
 
 import (
+	"bytes"
 	"errors"
 	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"strings"
 	"testing"
 )
 
@@ -67,6 +69,18 @@ func TestDualityEngineNativeLifecycleRepeatedSolveAndHistoryTransfer(t *testing.
 			engine, err := NewEngine(source, config)
 			must(err)
 			defer engine.Close()
+			if engine.config.Interpolation.Profiler != profile.interpolation {
+				t.Fatal("engine did not use its profiler's interpolation owner")
+			}
+			other := interp.NewProfiler()
+			config.Interpolation = &interp.RunConfig{Profiler: other}
+			alternate, err := NewEngine(source, config)
+			must(err)
+			if alternate.config.Interpolation.Profiler != other || config.Interpolation.SolverFactory != nil {
+				t.Fatal("explicit interpolation configuration was changed")
+			}
+			must(alternate.Close())
+			config.Interpolation = nil
 			copied := *engine
 			if err = copied.Close(); !errors.Is(err, ErrWrapperOwner) {
 				t.Fatal("copied owning engine accepted", err)
@@ -83,6 +97,39 @@ func TestDualityEngineNativeLifecycleRepeatedSolveAndHistoryTransfer(t *testing.
 			must(native.Assert(raw))
 			_, err = native.CheckSat(nil)
 			must(err)
+			// Exercise the actual interpolation service through the engine's
+			// normalized config; this fixture's solve can bypass interpolation.
+			p, err := ctx.BoolConst("engine-profile-interpolation")
+			must(err)
+			closeExpr(t, p)
+			notP, err := p.Not()
+			must(err)
+			closeExpr(t, notP)
+			truth, err := ctx.BoolVal(true)
+			must(err)
+			closeExpr(t, truth)
+			left, err := NewTermTree(p, nil)
+			must(err)
+			right, err := NewTermTree(notP, nil)
+			must(err)
+			tree, err := NewTermTree(truth, []*TermTree{left, right})
+			must(err)
+			defer tree.Close()
+			interpolatingGraph, err := NewRPFP(ctx)
+			must(err)
+			defer interpolatingGraph.Close()
+			must(interpolatingGraph.BindSolver(native))
+			_, interpolant, err := interpolatingGraph.InterpolateTree(manager, tree, nil, false, engine.config.Interpolation)
+			must(err)
+			if interpolant == nil {
+				t.Fatal("fixture did not interpolate")
+			}
+			must(interpolant.Close())
+			var report bytes.Buffer
+			must(profile.interpolation.Print(&report))
+			if !strings.Contains(report.String(), "Proof interpolation") {
+				t.Fatal("interpolation missing from the reported profiler", report.String())
+			}
 			baseline, err := native.NumAssertions()
 			must(err)
 			var previousGraph, previousCex *RPFP

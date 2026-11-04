@@ -79,6 +79,11 @@ func NewEngine(source *RPFP, config EngineConfig) (out *Engine, result error) {
 	if config.Interpolation != nil {
 		run = *config.Interpolation
 	}
+	// The Duality report appends this profiler's interpolation tree. Supply
+	// the same owner to interpolation unless the caller chose another one.
+	if run.Profiler == nil && config.Profiler != nil {
+		run.Profiler = config.Profiler.interpolation
+	}
 	if run.SolverFactory == nil {
 		run.SolverFactory = config.Factory
 	}

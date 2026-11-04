@@ -204,6 +204,9 @@ func (p *PredicateTransformer) InitializeSystem(initialState, transition ast.AST
 	if err = p.solver.AddLevelFormula(initialState, 0); err != nil {
 		return errors.Join(err, p.manager.DelRef(&transitionRef), p.manager.DelRef(&initialRef))
 	}
+	if err = p.traceInitialSystem(initialState, transition); err != nil {
+		return errors.Join(err, p.owner.releaseNotAndRef(&transitionRef), p.owner.releaseNotAndRef(&initialRef))
+	}
 	if err = p.reachable.AddInit(initialState); err != nil {
 		return errors.Join(err, p.manager.DelRef(&transitionRef), p.manager.DelRef(&initialRef))
 	}

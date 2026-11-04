@@ -314,15 +314,15 @@ func (m *RuleManager) FixUnboundVariables(rule *Rule, lite *qe.Lite, enabled boo
 	for index := range names {
 		names[len(names)-1-index] = usymbol.Numerical(uint32(index))
 	}
-	fixed, err := m.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: false, Sorts: quantifierSorts, Names: names, Body: body})
-	if err != nil {
-		return nil, false, err
-	}
-	fixedRef, err := m.manager.NewRef(fixed)
+	fixedRef, err := m.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return nil, false, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&fixedRef)) }()
+	fixed, err := m.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: false, Sorts: quantifierSorts, Names: names, Body: body})
+	if err = errors.Join(err, m.manager.SetRef(fixedRef, fixed)); err != nil {
+		return nil, false, err
+	}
 	simplified, err := qe.SimplifyQuantifiers(m.manager, fixed)
 	if err != nil {
 		return nil, false, err
