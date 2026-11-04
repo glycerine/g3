@@ -6,7 +6,7 @@ import (
 )
 
 func TestCachedPropagationChecksFactsAndPreservesSourceFailedTrialState(t *testing.T) {
-	ctx, _, _, globals := dualityNativeSolverServicesFixture(t)
+	ctx, m, _, globals := dualityNativeSolverServicesFixture(t)
 	profile := NewProfiler(nil)
 	ctx.activeProfiler = profile
 	defer func() {
@@ -73,11 +73,21 @@ func TestCachedPropagationChecksFactsAndPreservesSourceFailedTrialState(t *testi
 	cached, err := NewCachedGraphAssertions(graph, scope)
 	must(err)
 	defer cached.Close()
+	m.Budget().FailAfter(0)
+	_, failure := cached.PropagateCache(edge)
+	m.Budget().FailAfter(-1)
+	if failure == nil {
+		t.Fatal("propagation ignored the injected allocation failure")
+	}
+	if profile.current != profile.top {
+		t.Fatal("failed propagation left a profile scope active")
+	}
 	changed, err := cached.PropagateCache(edge)
 	must(err)
 	if !changed {
 		t.Fatal("entailed child fact not propagated")
 	}
+	baseline := m.Stats().LiveReferences
 	got, err := parent.Annotation.Formula()
 	must(err)
 	h, err := got.Raw()
@@ -94,6 +104,9 @@ func TestCachedPropagationChecksFactsAndPreservesSourceFailedTrialState(t *testi
 	must(err)
 	if changed {
 		t.Fatal("unproved remaining candidate accepted")
+	}
+	if got := m.Stats().LiveReferences; got != baseline {
+		t.Fatal("repeated propagation leaked temporary references", got, baseline)
 	}
 	got, err = parent.Annotation.Formula()
 	must(err)
