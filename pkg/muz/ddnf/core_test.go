@@ -327,3 +327,49 @@ func TestDDNFCoreValidationAndClose(t *testing.T) {
 		t.Fatal("closed insertion", err)
 	}
 }
+
+// Source: ddnf_mgr::insert, well_formed, and accumulate in
+// src/muz/ddnf/ddnf.cpp. Reparenting preserves child order, while the
+// accumulation worklist visits the last child first and shares marks with
+// well_formed.
+func TestDDNFCoreSourceReparentingAndAccumulationMarks(t *testing.T) {
+	core := testCore(t, 2)
+	var vectors []*rel.TBV
+	for _, pattern := range []string{"00", "01", "10", "0x"} {
+		vector := testPattern(t, core, pattern)
+		vectors = append(vectors, vector)
+		if _, err := core.Insert(vector); err != nil {
+			t.Fatal(pattern, err)
+		}
+	}
+	display, err := core.Display()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = "node[0: xx 3 4]\nnode[1: 00]\nnode[2: 01]\nnode[3: 10]\nnode[4: 0x 1 2]\n"
+	if display != want {
+		t.Fatalf("reparented graph\n got %q\nwant %q", display, want)
+	}
+	core.ResetAccumulate()
+	labels, err := core.Accumulate(core.root.vector, []uint32{99})
+	if err != nil || fmt.Sprint(labels) != "[99 0 4 2 1 3]" {
+		t.Fatal("source stack traversal", labels, err)
+	}
+	labels, err = core.Accumulate(vectors[3], labels)
+	if err != nil || fmt.Sprint(labels) != "[99 0 4 2 1 3]" {
+		t.Fatal("shared marks", labels, err)
+	}
+	core.ResetAccumulate()
+	labels, err = core.Accumulate(vectors[3], nil)
+	if err != nil || fmt.Sprint(labels) != "[4 2 1]" {
+		t.Fatal("reset marks", labels, err)
+	}
+	well, err := core.WellFormed()
+	if err != nil || !well {
+		t.Fatal("well formed", well, err)
+	}
+	labels, err = core.Accumulate(core.root.vector, nil)
+	if err != nil || len(labels) != 0 {
+		t.Fatal("well_formed marks traversal", labels, err)
+	}
+}

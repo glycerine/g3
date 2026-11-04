@@ -155,3 +155,44 @@ func TestTabSelectionNaturalDecayAndRolloverPreserveCachedChoices(t *testing.T) 
 		t.Fatal("selection cache disposal changed AST ownership", baseline, after)
 	}
 }
+
+// Source set_strategy assigns BASIC_WEIGHT_SELECT, then its separate
+// first/var-use if-else chain overwrites that assignment with WEIGHT_SELECT.
+func TestTabBasicWeightUsesSourceWeightAging(t *testing.T) {
+	f := newTabDiagnosticsFixture(t)
+	m := f.ctx.manager
+	own := func(h ast.ASTHandle, err error) ast.ASTHandle {
+		tabDiagnosticsMust(t, err)
+		ref, err := m.NewRef(h)
+		tabDiagnosticsMust(t, err)
+		t.Cleanup(func() { tabDiagnosticsMust(t, m.DelRef(&ref)) })
+		return h
+	}
+	boolean := own(m.MkBoolSort())
+	atom := func(text string) ast.ASTHandle {
+		name, err := m.Symbols.Intern(text)
+		tabDiagnosticsMust(t, err)
+		decl := own(m.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{}))
+		return own(m.MkApp(decl, nil))
+	}
+	old, fresh := atom("basic-weight-old"), atom("basic-weight-fresh")
+	truth, falsehood := own(m.MkTrue()), own(m.MkFalse())
+	driver, err := NewClause(m, f.rw, falsehood, []ast.ASTHandle{old}, truth)
+	tabDiagnosticsMust(t, err)
+	defer func() { tabDiagnosticsMust(t, driver.Close()) }()
+	choice, err := NewClause(m, f.rw, falsehood, []ast.ASTHandle{fresh, old}, truth)
+	tabDiagnosticsMust(t, err)
+	defer func() { tabDiagnosticsMust(t, choice.Close()) }()
+	sel, err := newPredicateSelection(m, "basic-weight")
+	tabDiagnosticsMust(t, err)
+	defer func() { tabDiagnosticsMust(t, sel.Close()) }()
+	for i := 0; i < 19; i++ {
+		_, err = sel.Select(driver)
+		tabDiagnosticsMust(t, err)
+	}
+	got, err := sel.Select(choice)
+	tabDiagnosticsMust(t, err)
+	if got != 1 {
+		t.Fatalf("basic-weight selected %d; source cached weight selects old predicate 1", got)
+	}
+}
