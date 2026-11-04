@@ -80167,7 +80167,7 @@
         },
         {
           "name": "Concrete config_mpff context-owned bound-policy numerals and root/child node linkage (src/math/subpaving/subpaving_t.h:146-237,457-539)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_context.go",
           "tests": [
             "TestSubpavingFastContextBoundFlowAndRelevance",
