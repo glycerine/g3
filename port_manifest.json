@@ -82193,7 +82193,7 @@
         },
         {
           "name": "Concrete config_hwf root/child node storage and bound push (src/math/subpaving/subpaving_t_def.h:296-348,878-891)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_node.go",
           "tests": [
             "TestHardwareNodeRetainedBoundViewsAndChildTrail"
