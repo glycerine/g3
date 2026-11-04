@@ -75818,7 +75818,7 @@
       "path": "src/math/realclosure/realclosure.cpp",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/interval/binary_extended.go",
         "pkg/math/interval/binary_extended_test.go",
@@ -75993,6 +75993,7 @@
         "pkg/math/realclosure/algebraic_polynomial_value_ranked.go",
         "pkg/math/realclosure/algebraic_polynomial_reduce_ranked.go",
         "pkg/math/realclosure/value_sign_ranked.go",
+        "pkg/math/realclosure/infinitesimal_refine.go",
         "pkg/math/realclosure/value_canonical_ranked.go",
         "pkg/math/realclosure/value_negate_ranked.go",
         "pkg/math/realclosure/value_add_ranked.go",
@@ -77255,8 +77256,8 @@
           "text": "save_interval_ctx(manager const * _this):m(_this->m_imp) { SASSERT (m); }"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Default use_prem=true signed pseudo-remainder, odd-step negative-leading sign rule, and sequence integer-content normalization for rational and algebraic coefficients (realclosure.cpp:2917-2988,3020-3043,3401-3420)",
@@ -77295,8 +77296,8 @@
           ]
         },
         {
-          "name": "Rational-coefficient exact Horner sign evaluation and finite/infinite binary interval endpoint sign variations, algebraic constant/zero-bound signs, and mixed rational/algebraic nonzero-bound interval Horner evaluation with actual global rcf module reference acquisition/release, local/module/default initial_precision and max_precision getters, configurable interval-refinement loop bound, persistent per-value rational interval caching and release, rational-coefficient refinement, finite single-root algebraic numerator-x bisection and exact singleton-zero result (realclosure.cpp:559-578,736-745,761-766,900-907,2452-2462,2515-2545,3712-3770,3773-3920,4073-4093,4247-4311); multi-root/nonrational algebraic refinement, general exact fallback at the bound, other source options and checkpoint transport remain open",
-          "status": "partial",
+          "name": "Rational and algebraic sign evaluation at finite/infinite binary bounds, interval refinement, exact Horner fallback, cached rational intervals, source precision/options, module parameter ownership, and checkpoint transport (realclosure.cpp:559-578,736-745,761-766,900-907,2452-2462,2515-2545,3712-3770,3773-3920,4073-4311)",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/sign_sturm_tarski_interval.go",
           "go_targets": [
             "pkg/math/realclosure/sign_sturm_tarski_approx.go",
@@ -77314,6 +77315,12 @@
             "TestRealClosureRationalIntervalReadsInitialPrecision",
             "TestRealClosureInitialPrecisionAcquiresGlobalModuleRef"
           ]
+        },
+        {
+          "name": "Infinitesimal rational-function sign determination and interval refinement, including configured initial/infinity precision, leading coefficient signs, perturbation of closed coefficient bounds, and non-refinable unbounded magnitudes (realclosure.cpp:4170-4235,4445-4518)",
+          "status": "ported",
+          "go_target": "pkg/math/realclosure/infinitesimal_refine.go",
+          "tests": []
         },
         {
           "name": "Field rem/srem division, high-term elimination and signed remainder for rational and algebraic coefficients under the retained use_prem=false Sturm path (realclosure.cpp:2879-2913,2991-3030)",
@@ -77427,7 +77434,7 @@
         },
         {
           "name": "Selected real-closure mpbq interval-manager numeral operations with source division precision and rounding state (src/math/realclosure/realclosure.cpp:54-135)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/interval/binary_extended.go",
           "tests": [
             "TestRealClosureBinaryExtendedNumeralBranches"
@@ -77435,7 +77442,7 @@
         },
         {
           "name": "Concrete mpbq_config interval endpoint owner and retained reset/set/sign/contains/neg/add/before/display consumer paths (src/math/realclosure/realclosure.cpp:54-135; src/math/interval/interval_def.h:597-837)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/binary_interval.go",
           "tests": [
             "TestRealClosureBinaryIntervalRetainedCore"
@@ -77443,7 +77450,7 @@
         },
         {
           "name": "Concrete mpbq_config interval multiplication: nine sign-class branches, zero singleton, infinity bounds, mixed extrema ties and aliased destination (src/math/interval/interval_def.h:1019-1218)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/binary_interval_mul.go",
           "tests": [
             "TestRealClosureBinaryIntervalRetainedCore"
@@ -77451,7 +77458,7 @@
         },
         {
           "name": "Concrete mpbq_config interval reciprocal with directed precision, open zero/infinite bounds, alias and owned scratch (src/math/interval/interval_def.h:1516-1587)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/binary_interval_inv.go",
           "tests": [
             "TestRealClosureBinaryIntervalRetainedCore"
@@ -77459,7 +77466,7 @@
         },
         {
           "name": "Concrete mpbq_config interval division with directed precision, open zero/infinite bounds, alias and owned scratch (src/math/interval/interval_def.h:1663-1849)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/binary_interval_div.go",
           "tests": [
             "TestRealClosureBinaryIntervalRetainedCore"
@@ -82637,8 +82644,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "concrete variable/null sentinel, power records/sorting, default variable display and shared message-free exception (subpaving_types.h:24-48)",
