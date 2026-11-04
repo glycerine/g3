@@ -211,6 +211,7 @@ func NewAPIValuesWithExecution(service *numeral.RationalService, limit *control.
 	v.store.intervals = bounds
 	v.store.lazyNormalization = true
 	v.store.lazyNormalizationBound = true
+	v.store.usePrem, v.store.usePremBound = true, true
 	v.store.limit = limit
 	v.store.cooperation = cooperation
 	v.roots.values, v.roots.intervals = &v.store, bounds
@@ -255,11 +256,14 @@ func NewAPIValuesWithRCFParams(service *numeral.RationalService, limit *control.
 		return nil, errors.Join(err, result.Close())
 	}
 	result.store.maxPrecisionBound = true
+	result.store.usePrem, result.store.usePremBound = result.usePrem, true
 	if result.lazyNormalization, err = configured.LazyAlgebraicNormalization(); err != nil {
 		return nil, errors.Join(err, result.Close())
 	}
 	result.store.lazyNormalization = result.lazyNormalization
 	result.store.lazyNormalizationBound = true
+	result.store.infPrecision = result.infPrecision
+	result.store.infPrecisionBound = true
 	return result, nil
 }
 

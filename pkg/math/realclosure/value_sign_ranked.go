@@ -55,16 +55,7 @@ func (s *realValueStore) determineRankedRetainedValueSign(value *realValue, useP
 		}
 	}
 	if value.root.kind == realExtensionInfinitesimal {
-		for _, coefficient := range value.functionNumerator.coefficients {
-			if coefficient == nil {
-				continue
-			}
-			sign, err := s.determineRankedRetainedValueSign(coefficient, usePrem)
-			if err != nil || sign != 0 {
-				return sign, err
-			}
-		}
-		return 0, nil
+		return s.determineInfinitesimalValueSign(value, usePrem)
 	}
 	if value.root.signs != nil {
 		return s.determineAnyRetainedValueSign(value, usePrem)

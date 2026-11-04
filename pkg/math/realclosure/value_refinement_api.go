@@ -47,7 +47,7 @@ func (s *realValueStore) refineValueInterval(value *realValue, bounds *numeral.B
 		return s.refineTranscendentalPolynomialValue(value, precision)
 	}
 	if value.root != nil && value.root.kind == realExtensionInfinitesimal {
-		return false, nil
+		return s.refineInfinitesimalPolynomialValue(value, precision, s.usePseudoRemainder())
 	}
 	return s.refineSturmAlgebraicInterval(value, precision)
 }

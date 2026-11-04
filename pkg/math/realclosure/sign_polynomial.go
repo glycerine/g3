@@ -20,6 +20,10 @@ type realValueStore struct {
 	lazyNormalization        bool
 	lazyNormalizationBound   bool
 	inAuxValues              bool
+	infPrecision             uint32
+	infPrecisionBound        bool
+	usePrem                  bool
+	usePremBound             bool
 	limit                    *control.Reslimit
 	cooperation              *cooperate.Cooperation
 	initialPrecision         uint32
@@ -59,6 +63,10 @@ func (s *realValueStore) lazyAlgebraicNormalizationEnabled() bool {
 		return s.lazyNormalization
 	}
 	return true
+}
+
+func (s *realValueStore) usePseudoRemainder() bool {
+	return !s.usePremBound || s.usePrem
 }
 
 // realValue is a retained nonzero rational or algebraic-root function value.
