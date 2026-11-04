@@ -467,15 +467,25 @@ func TestSMT2FixedpointRejectsUnstratifiedNegation(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+	context.PrintSuccess = false
 	script := `(declare-rel P ())
 (declare-rel Q ())
 (rule (=> (not P) Q))
 (rule (=> (not Q) P))
 (query P)
+(query Q)
 `
-	err = smt2.ParseCommands(context, strings.NewReader(script), &bytes.Buffer{})
-	if err == nil || !strings.Contains(err.Error(), "negation is not stratified") {
-		t.Fatal("unstratified negation accepted", err)
+	var output bytes.Buffer
+	if err = smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	const one = "(error \"query failed: Negation is not stratified!\")\nunknown\n"
+	if got := output.String(); got != one+one {
+		t.Fatalf("unstratified query output = %q, want %q", got, one+one)
+	}
+	reason, err := context.FixedpointReasonUnknown()
+	if err != nil || reason != "ok" {
+		t.Fatalf("status after cleanup = %q, %v", reason, err)
 	}
 }
 
