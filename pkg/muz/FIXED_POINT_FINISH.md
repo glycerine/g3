@@ -57,6 +57,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 
 - [x] Enumerate every current partial or unclassified muz unit below from `port_manifest.json`.
 - [x] Establish a native full-suite baseline: `go -C pkg test ./... -short -timeout=0` exited 0; log `/tmp/g3-native-port-audit.log`. This run began before the latest changes; those received focused checks separately.
+- [x] Run a native short-suite checkpoint of committed snapshot `d102255ca` in isolation: all packages except `parsers/smt2` passed; its sole stale unstratified-negation expectation was corrected in `39afd4250`, after which the complete native parser package passed. Log: `/tmp/g3-native-checkpoint-d102255ca.log`. Later commits have focused validation, not a new full-suite run.
 - [ ] Reconcile stale manifest descriptions with current code, especially Duality; preserve partial status until independently justified.
   - [x] Correct six obsolete context/rule-set descriptions of pending normalization: completed clauses publish directly, failed multi-clause inputs can leave a prefix, and canceled normalization may finish an input without clauses. The focused publication, retry and cancellation campaigns cover these source phases.
   - [x] Reclassify `dl_instruction.cpp/.h` and `dl_relation_manager.cpp` as partial: source execution reaches registered abstract/product plugin dispatch while Go implements bounded concrete consumers; preserve their existing method records and tested functionality.
