@@ -80390,10 +80390,11 @@
         },
         {
           "name": "Concrete config_hwf bound and node records with copied parent views and trail (src/math/subpaving/subpaving_t.h:146-237)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_node.go",
           "tests": [
-            "TestHardwareNodeRetainedBoundViewsAndChildTrail"
+            "TestHardwareNodeRetainedBoundViewsAndChildTrail",
+            "TestHardwareIntervalConstantNodeViewAndMutationGuards"
           ]
         },
         {
