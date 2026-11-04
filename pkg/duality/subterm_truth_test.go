@@ -108,3 +108,73 @@ func TestTimedSubtermTruthRestoresScopeOnError(t *testing.T) {
 		t.Fatal("failed timer start changed scope")
 	}
 }
+
+func TestSubtermTruthAllocationFailureRetry(t *testing.T) {
+	ctx, m, native, globals := dualityNativeSolverServicesFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	g, err := NewRPFP(ctx)
+	must(err)
+	defer func() { must(g.Close()) }()
+	must(g.BindSolver(native))
+	must(g.BindModelEvaluator(derivationEvaluatorFixture(t, ctx, globals)))
+	p, err := ctx.BoolConst("subterm-retry-p")
+	must(err)
+	closeExpr(t, p)
+	q, err := ctx.BoolConst("subterm-retry-q")
+	must(err)
+	closeExpr(t, q)
+	ph, err := p.Raw()
+	must(err)
+	qh, err := q.Raw()
+	must(err)
+	nq, err := m.MkNot(qh)
+	must(err)
+	notQ, err := NewExpr(ctx, nq)
+	must(err)
+	defer func() { must(notQ.Close()) }()
+	formulaHandle, err := m.MkAnd(ph, nq)
+	must(err)
+	formula, err := NewExpr(ctx, formulaHandle)
+	must(err)
+	defer func() { must(formula.Close()) }()
+	must(native.Assert(ph))
+	must(native.Assert(nq))
+	status, err := g.Check(nil, nil, nil)
+	must(err)
+	if status != lbool.True {
+		t.Fatal("model setup failed", status)
+	}
+	baseline := m.Stats().LiveReferences
+	complete := false
+	for allowance := int64(0); allowance < 128; allowance++ {
+		m.Budget().FailAfter(allowance)
+		value, failure := g.SubtermTruth(formula)
+		m.Budget().FailAfter(-1)
+		if failure == nil {
+			if value != 1 {
+				t.Fatal("unexpected truth value", value)
+			}
+			complete = true
+		} else {
+			retry, retryErr := g.SubtermTruth(formula)
+			must(retryErr)
+			if retry != 1 {
+				t.Fatal("retry changed truth value", retry)
+			}
+		}
+		if got := m.Stats().LiveReferences; got != baseline {
+			t.Fatal("subterm truth leaked temporary references", allowance, got, baseline)
+		}
+		if complete {
+			break
+		}
+	}
+	if !complete {
+		t.Fatal("allocation campaign did not reach successful truth evaluation")
+	}
+}
