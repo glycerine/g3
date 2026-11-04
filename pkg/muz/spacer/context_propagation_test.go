@@ -33,6 +33,45 @@ func TestSpacerPropagationRecordsActualConvergenceLevel(t *testing.T) {
 	}
 }
 
+func TestSpacerPropagationContinuesAfterPredicateFails(t *testing.T) {
+	f := newContextAnswerFixture(t, false)
+	c, m := f.context, f.context.manager
+	falsehood, err := m.MkFalse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The first predicate has a fact, so false is not inductive. The second
+	// has no initial or transition states, so false is inductive for it.
+	second, err := NewPredicateTransformer(c.owner, "propagate-empty", falsehood, falsehood, c.config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.transformers[f.other] = second
+	c.order = append(c.order, f.other)
+	first := c.transformers[f.query]
+	for _, pt := range []*PredicateTransformer{first, second} {
+		if added, err := pt.AddLemma(falsehood, 0); err != nil || !added {
+			t.Fatal("add level-zero lemma", added, err)
+		}
+	}
+	c.inductive = 7
+	converged, err := c.propagate(0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if converged || c.inductive != 7 {
+		t.Fatal("failed predicate must prevent convergence at level zero", converged, c.inductive)
+	}
+	firstZero, err := first.frames.FrameLemmas(0)
+	if err != nil || len(firstZero) != 1 || !m.IsFalse(firstZero[0]) {
+		t.Fatal("fact predicate's false lemma must stay at level zero", firstZero, err)
+	}
+	secondInfinity, err := second.frames.FrameLemmas(InfinityLevel)
+	if err != nil || len(secondInfinity) != 1 || !m.IsFalse(secondInfinity[0]) {
+		t.Fatal("later predicate's inductive lemma must still propagate", secondInfinity, err)
+	}
+}
+
 func TestSpacerPropagationSimplifiesAfterConvergenceAboveQueryBound(t *testing.T) {
 	f := newContextAnswerFixture(t, true)
 	c, m := f.context, f.context.manager

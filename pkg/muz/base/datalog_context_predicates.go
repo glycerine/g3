@@ -1,8 +1,6 @@
 package base
 
 import (
-	"fmt"
-
 	"github.com/glycerine/g3/pkg/ast"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -20,9 +18,6 @@ func (c *DatalogContext) RegisterPredicate(declaration ast.ASTHandle, named bool
 		name, err = c.manager.GetASTName(declaration)
 		if err != nil {
 			return err
-		}
-		if old, exists := c.named[name]; exists && old != declaration {
-			return fmt.Errorf("muz/base: predicate name is already registered")
 		}
 	}
 	if err := c.ruleManager.RegisterPredicate(declaration); err != nil {

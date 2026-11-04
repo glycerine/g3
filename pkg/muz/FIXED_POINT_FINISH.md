@@ -77,6 +77,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Map the fixedpoint command interface and consumers in [FP_UNIT_AUDIT.md](FP_UNIT_AUDIT.md); retain its parsing, exception and cleanup gaps as open obligations.
   - [x] Match `dl_rule_cmd` trailing-symbol parsing: each symbol after the optional recursion bound replaces the rule name. Execution and collection tests cover empty names and rejection without publishing a malformed rule.
   - [x] Match base context predicate restriction and registration: scoped membership restoration preserves name lookup, and re-registering an unnamed existing predicate does not add a name.
+  - [x] Match named predicate replacement for distinct declarations sharing a symbol; cover membership, restriction, owner counts, allocation refusal and retry.
   - [x] Restore base Datalog context rule-set snapshots across nested scopes, including replaced/removed rules and outputs. Failed restoration blocks context and previously borrowed rule-set operations until retry or close; focused allocation-failure and snapshot ownership tests pass. Synchronous callback injection remains unproven.
   - [x] Reset fixedpoint query status after successful SMT-LIB command output at the source cleanup boundary; backend cleanup and exception/error-output paths remain open.
   - [x] Match the source command's negative-predicate exception output and continuation for the typed rule-property failure, while preserving unrelated joined cleanup errors; other exception classes remain open.
@@ -101,7 +102,8 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Exercise scale's zero, one and other numeral branches, fresh equality guards, nested Boolean/arithmetic rewriting and opaque multiplication against source-shaped formulas; other scale branches and consumers remain open.
   - [x] Verify scale's per-rule cache reset, sigma indices, predicate reuse, rule names and the source's all-false tail-negation flags across multiple rules.
   - [x] Verify Spacer scale models against original clauses and queries, including slicing/inlining composition; preserve upstream predicate origins through unchanged slice outputs. Other engines remain open.
-  - [x] Verify PDR/QPDR scaled models against original clauses, and BMC/QBMC scaled queries and their source empty-model contract; CLP, Horn and Duality scale consumers remain open.
+  - [x] Verify PDR/QPDR scaled models against original clauses, BMC/QBMC scaled queries and their source empty-model contract, and CLP enabled/disabled scale queries, answers, certificates and empty-model ownership; Horn and Duality scale consumers remain open.
+  - [x] Verify Spacer propagation continues to a later predicate after an earlier predicate fails to propagate; the test checks resulting frames and convergence at the context boundary.
   - [x] Verify Farkas sign and consequence semantics for integer and real strict/non-strict bounds, negations and equalities, using independently evaluated boundary points.
   - [x] Check repeated public PDR delayed-scope assertion failures recover for a later check; actual partial-pop failure remains covered separately through the cleanup owner.
   - [x] Add the source Duality `Contains` and `Candidate` profile scopes with nested-timer and error coverage; add a PDR reachable-cache closing guard with native refusal/retry coverage. The remaining profile scopes and cache cleanup boundaries stay open in their unit audits.
