@@ -82231,10 +82231,13 @@
         },
         {
           "name": "Concrete config_hwf conflict-first, maximum-bound, zero-epsilon and epsilon-gap candidate relevance with arithmetic-failure refusal (src/math/subpaving/subpaving_t_def.h:1200-1317)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_relevance.go",
           "tests": [
-            "TestHardwareContextRelevantNewBoundSourceBranches"
+            "TestHardwareContextRelevantNewBoundSourceBranches",
+            "TestHardwareRelevanceTraceConflictThresholdAndImprovementBranches",
+            "TestHardwareRelevanceTraceRefusalAndPrinterPrefix",
+            "TestHardwareRelevanceTraceEpsilonGapRecords"
           ]
         },
         {
