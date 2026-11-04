@@ -53,7 +53,7 @@ func (r karrUnaryRule) apply(source *rel.KarrRelation) (*rel.KarrRelation, error
 	return r.karrHeadPlan.apply(result)
 }
 
-// apply follows make_assembling_code: remove, add constants, duplicate, rename.
+// apply follows make_assembling_code: remove, add columns, duplicate, rename.
 func (r karrHeadPlan) apply(source *rel.KarrRelation) (*rel.KarrRelation, error) {
 	result := source
 	var err error
@@ -64,9 +64,12 @@ func (r karrHeadPlan) apply(source *rel.KarrRelation) (*rel.KarrRelation, error)
 		}
 	}
 	for _, value := range r.headConstants {
-		singleton := rel.NewKarrEmpty(1, nil)
-		if err = singleton.AddFact([]*big.Rat{value}); err != nil {
-			return nil, err
+		singleton := rel.NewKarrFull(1, nil)
+		if value != nil {
+			singleton = rel.NewKarrEmpty(1, nil)
+			if err = singleton.AddFact([]*big.Rat{value}); err != nil {
+				return nil, err
+			}
 		}
 		result, err = rel.KarrJoin(result, singleton, nil, nil)
 		if err != nil {
@@ -211,6 +214,9 @@ func (a *karrDatalogActivation) compileKarrHead(head ast.ASTHandle, columns []as
 	column := uint32(len(columns))
 	selected := make([]uint32, headArity)
 	used := make([]bool, column)
+	// Entries in headConstants are added in head order; nil is a full
+	// relation for an unbound variable. The map is used only for lookup.
+	unbound := make(map[ast.ASTHandle]int)
 	constantHeads := make([]int, headArity)
 	for i := range constantHeads {
 		constantHeads[i] = -1
@@ -222,6 +228,20 @@ func (a *karrDatalogActivation) compileKarrHead(head ast.ASTHandle, columns []as
 		}
 		indexes := positions[arg]
 		if len(indexes) == 0 {
+			kind, err := a.manager.GetKind(arg)
+			if err != nil {
+				return out, err
+			}
+			if kind == ast.ASTVar {
+				index, ok := unbound[arg]
+				if !ok {
+					index = len(out.headConstants)
+					unbound[arg] = index
+					out.headConstants = append(out.headConstants, nil)
+				}
+				constantHeads[i] = index
+				continue
+			}
 			text, _, matched, err := a.manager.ArithmeticNumeralText(arg)
 			if err != nil {
 				return out, err
