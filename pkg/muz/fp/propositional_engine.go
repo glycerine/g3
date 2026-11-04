@@ -2222,6 +2222,11 @@ func (e *PropositionalEngine) ResetStatistics() error {
 	if err := e.open(); err != nil {
 		return err
 	}
+	// dl_interface::reset_statistics is empty for Duality. Keep the shared
+	// reset path from draining query resources owned by another engine.
+	if e.backend == "duality" {
+		return nil
+	}
 	// A previous disposal may already have closed the query's solver. Finish
 	// archiving its saved counters before applying the source reset semantics.
 	if e.queryCloneDisposal != nil || e.pdrDisposal != nil || e.spacerDisposal != nil {
