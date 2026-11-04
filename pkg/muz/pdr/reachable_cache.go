@@ -27,14 +27,15 @@ type ReachableCacheStatistics struct {
 }
 
 type ReachableCache struct {
-	manager   *ast.ASTManager
-	context   *SMTContext
-	mode      ReachableCacheMode
-	connector ast.ASTRef
-	cache     map[ast.ASTHandle]ast.ASTRef
-	stats     ReachableCacheStatistics
-	closing   bool
-	closed    bool
+	manager    *ast.ASTManager
+	context    *SMTContext
+	mode       ReachableCacheMode
+	connector  ast.ASTRef
+	cache      map[ast.ASTHandle]ast.ASTRef
+	stats      ReachableCacheStatistics
+	pendingPop bool
+	closing    bool
+	closed     bool
 }
 
 func NewReachableCache(manager *ast.ASTManager, contexts *SMTContextManager, background ast.ASTHandle, mode ReachableCacheMode) (*ReachableCache, error) {
@@ -59,6 +60,19 @@ func (c *ReachableCache) open() error {
 	if c == nil || c.closing || c.closed || c.manager == nil {
 		return ErrSMTContextOwner
 	}
+	return c.finishPop()
+}
+
+// A failed deferred lookup pop remains owned by this cache until the solver
+// completes its continuation. No subsequent cache work may cross that scope.
+func (c *ReachableCache) finishPop() error {
+	if !c.pendingPop {
+		return nil
+	}
+	if err := c.context.Pop(); err != nil {
+		return err
+	}
+	c.pendingPop = false
 	return nil
 }
 
@@ -167,7 +181,8 @@ func (c *ReachableCache) IsReachable(cube ast.ASTHandle) (found bool, resultErr 
 		if err = c.context.Push(); err != nil {
 			return false, err
 		}
-		defer func() { resultErr = errors.Join(resultErr, c.context.Pop()) }()
+		c.pendingPop = true
+		defer func() { resultErr = errors.Join(resultErr, c.finishPop()) }()
 		if err = c.context.Assert(cube); err != nil {
 			return false, err
 		}
@@ -226,6 +241,9 @@ func (c *ReachableCache) Close() (result error) {
 		return ErrSMTContextOwner
 	}
 	c.closing = true
+	if err := c.finishPop(); err != nil {
+		return err
+	}
 	if c.context != nil {
 		result = errors.Join(result, c.context.Close())
 	}

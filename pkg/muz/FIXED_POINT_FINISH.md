@@ -103,6 +103,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Preserve Duality profiling during post-solve derivation, certificate and proof output, and time `RedVars` at its source call site; process-global lifetime remains an open difference.
   - [x] Verify PDR reachable-cache construction failure/retry and preservation of earlier constraint disjuncts; connector-publication failure injection remains open.
   - [x] Verify a rejected constraint-cache insertion preserves prior alternatives and references and permits retry; the later connector-publication failure boundary remains unproven.
+  - [x] Resume a failed PDR reachable-cache lookup pop before subsequent cache work or close; a native consumed-release failure covers retry, scope level and counter behavior.
   - [ ] Resolve the live profiling, PDR reachable-cache cleanup and scale-transform gaps documented in [DUALITY_UNIT_AUDIT.md](DUALITY_UNIT_AUDIT.md), [PDR_UNIT_AUDIT.md](PDR_UNIT_AUDIT.md) and [TRANSFORM_UNIT_AUDIT.md](TRANSFORM_UNIT_AUDIT.md). Their C++ units are classified partial pending the documented work.
   - [x] Correct the stale whole-unit completion claims for `dl_compiler.cpp/.h`: completed finite/explanation methods remain recorded, while live abstract/product/widening dispatch makes both units partial until their broader consumers are integrated and audited.
 - [x] Classify remaining CMake/README entries through their actual Go build/documentation replacements.
