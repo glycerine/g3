@@ -87,6 +87,9 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 		return true, ErrBoundDatalogFragment
 	}
 	owner.formulaCheck = formulaCheck
+	if err = owner.verifySeedRelations(); err != nil {
+		return true, errors.Join(err, owner.close())
+	}
 	e.boundDatalog = owner
 	for _, d := range e.predicateOrder {
 		state := e.predicates[d]

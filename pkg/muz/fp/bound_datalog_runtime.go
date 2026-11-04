@@ -230,9 +230,13 @@ func (r *boundDatalogRuntime) syncPredicates(declarations []ast.ASTHandle) (resu
 		roots = append(roots, root)
 	}
 	for i, item := range additions {
+		seed, err := r.newRelation(item.sorts, false)
+		if err != nil {
+			return err
+		}
 		r.entries[item.declaration] = &boundDatalogEntry{
 			sorts: item.sorts,
-			seed:  rel.NewBoundRelation(uint32(len(item.sorts)), true),
+			seed:  seed,
 			root:  roots[i],
 		}
 		r.order = append(r.order, item.declaration)
@@ -268,6 +272,11 @@ func (r *boundDatalogRuntime) clone(rules *base.RuleSet) (_ *boundDatalogRuntime
 	}()
 	for declaration, entry := range r.entries {
 		copyRuntime.entries[declaration].seed = entry.seed.Clone()
+		if copyRuntime.formulaCheck != nil {
+			if err := rel.VerifyBoundRelationClone(r.manager, entry.sorts, *copyRuntime.formulaCheck, entry.seed, copyRuntime.entries[declaration].seed); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return copyRuntime, nil
 }
@@ -275,6 +284,29 @@ func (r *boundDatalogRuntime) clone(rules *base.RuleSet) (_ *boundDatalogRuntime
 func (r *boundDatalogRuntime) open() error {
 	if r == nil || r.closed || r.manager == nil || r.rules == nil || r.entries == nil {
 		return ErrBoundDatalogFragment
+	}
+	return nil
+}
+
+func (r *boundDatalogRuntime) newRelation(sorts []ast.ASTHandle, full bool) (*rel.BoundRelation, error) {
+	relation := rel.NewBoundRelation(uint32(len(sorts)), !full)
+	if r.formulaCheck != nil {
+		if err := rel.VerifyBoundRelationConstant(r.manager, sorts, *r.formulaCheck, relation, full); err != nil {
+			return nil, err
+		}
+	}
+	return relation, nil
+}
+
+func (r *boundDatalogRuntime) verifySeedRelations() error {
+	if r.formulaCheck == nil {
+		return nil
+	}
+	for _, declaration := range r.order {
+		entry := r.entries[declaration]
+		if err := rel.VerifyBoundRelationConstant(r.manager, entry.sorts, *r.formulaCheck, entry.seed, false); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -464,6 +496,81 @@ func (r *boundDatalogRuntime) filterInterpreted(target *rel.BoundRelation, sorts
 	return rel.VerifyBoundRelationFilter(r.manager, sorts, *r.formulaCheck, before, condition, target, true)
 }
 
+func (r *boundDatalogRuntime) join(left *rel.BoundRelation, leftSorts []ast.ASTHandle, right *rel.BoundRelation, rightSorts []ast.ASTHandle, leftColumns, rightColumns []uint32) (*rel.BoundRelation, error) {
+	joined, err := rel.JoinBoundRelations(left, right, leftColumns, rightColumns)
+	if err != nil || r.formulaCheck == nil {
+		return joined, err
+	}
+	if err = rel.VerifyBoundRelationJoin(r.manager, leftSorts, rightSorts, *r.formulaCheck, left, right, leftColumns, rightColumns, joined); err != nil {
+		return nil, err
+	}
+	return joined, nil
+}
+
+func (r *boundDatalogRuntime) project(source *rel.BoundRelation, sorts []ast.ASTHandle, removed []uint32) (*rel.BoundRelation, []ast.ASTHandle, error) {
+	projected, err := source.Project(removed)
+	if err != nil {
+		return nil, nil, err
+	}
+	resultSorts := make([]ast.ASTHandle, 0, len(sorts)-len(removed))
+	removedIndex := 0
+	for i, sort := range sorts {
+		if removedIndex < len(removed) && removed[removedIndex] == uint32(i) {
+			removedIndex++
+			continue
+		}
+		resultSorts = append(resultSorts, sort)
+	}
+	if r.formulaCheck == nil {
+		return projected, resultSorts, nil
+	}
+	formula, err := source.ToFormula(r.manager, sorts)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer r.manager.DelRef(&formula)
+	handle, err := r.manager.RefGet(formula)
+	if err != nil {
+		return nil, nil, err
+	}
+	removedInts := make([]int, len(removed))
+	for i, column := range removed {
+		removedInts[i] = int(column)
+	}
+	if err = rel.VerifyBoundRelationProject(r.manager, sorts, resultSorts, *r.formulaCheck, handle, removedInts, projected); err != nil {
+		return nil, nil, err
+	}
+	return projected, resultSorts, nil
+}
+
+func (r *boundDatalogRuntime) rename(source *rel.BoundRelation, sorts []ast.ASTHandle, cycle []uint32) (*rel.BoundRelation, []ast.ASTHandle, error) {
+	renamed, err := source.Rename(cycle)
+	if err != nil {
+		return nil, nil, err
+	}
+	resultSorts := append([]ast.ASTHandle(nil), sorts...)
+	for i, column := range cycle {
+		destination := cycle[(i+1)%len(cycle)]
+		resultSorts[destination] = sorts[column]
+	}
+	if r.formulaCheck == nil {
+		return renamed, resultSorts, nil
+	}
+	formula, err := source.ToFormula(r.manager, sorts)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer r.manager.DelRef(&formula)
+	handle, err := r.manager.RefGet(formula)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err = rel.VerifyBoundRelationRename(r.manager, sorts, resultSorts, *r.formulaCheck, handle, cycle, renamed); err != nil {
+		return nil, nil, err
+	}
+	return renamed, resultSorts, nil
+}
+
 func (r *boundDatalogRuntime) union(target, source *rel.BoundRelation, sorts []ast.ASTHandle, widen bool) (changed bool, resultErr error) {
 	if r.formulaCheck == nil {
 		if widen {
@@ -547,7 +654,11 @@ func (r *boundDatalogRuntime) reset() error {
 		return err
 	}
 	for _, entry := range r.entries {
-		entry.seed = rel.NewBoundRelation(uint32(len(entry.sorts)), true)
+		seed, err := r.newRelation(entry.sorts, false)
+		if err != nil {
+			return err
+		}
+		entry.seed = seed
 	}
 	r.evaluated = nil
 	return nil
