@@ -49324,9 +49324,9 @@
       "path": "src/duality/duality.h",
       "component": "duality",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/duality/counterexample.go", "pkg/duality/rpfp_subset.go", "pkg/duality/rpfp_subset_test.go", "pkg/duality/rpfp_transformer.go", "pkg/duality/rpfp_substitution.go", "pkg/duality/rpfp_transformer_test.go", "pkg/duality/rpfp_graph.go", "pkg/duality/rpfp_graph_test.go", "pkg/duality/rpfp_edge_maps.go", "pkg/duality/rpfp_localize.go", "pkg/duality/rpfp_edge_maps_failure_test.go"],
-      "tests": ["pkg/duality/counterexample_test.go", "TestTransformerSubsetAlignsParametersAndPreservesSolverScopes", "TestRPFPTransformerOwnershipAndBooleanState", "TestRPFPTransformerParameterSubstitution", "TestRPFPGraphOwnershipCloningAndRepeatedChildren", "TestRPFPGraphParameterizedNodeAndForeignOwners", "TestRPFPLocalizeRebuildsInterruptedEdgeMaps"],
+      "status": "ported",
+      "go_targets": ["pkg/duality/counterexample.go", "pkg/duality/rpfp_subset.go", "pkg/duality/rpfp_subset_test.go", "pkg/duality/rpfp_transformer.go", "pkg/duality/rpfp_substitution.go", "pkg/duality/rpfp_transformer_test.go", "pkg/duality/rpfp_graph.go", "pkg/duality/rpfp_graph_test.go", "pkg/duality/interpolation_solver.go", "pkg/duality/interpolation_distinct.go", "pkg/duality/interpolation_distinct_test.go", "pkg/duality/cached_graph.go", "pkg/duality/cached_graph_scopes.go"],
+      "tests": ["TestDualityCounterexampleExclusiveGraphOwnershipAndSwap", "TestTransformerSubsetAlignsParametersAndPreservesSolverScopes", "TestRPFPTransformerOwnershipAndBooleanState", "TestRPFPTransformerParameterSubstitution", "TestRPFPGraphOwnershipCloningAndRepeatedChildren", "TestRPFPGraphParameterizedNodeAndForeignOwners", "TestDualityNativeTreeInterpolation", "TestInterpolationAxiomLargeDistinctLegacySolverWorkaround", "TestCachedGraphAssertionsPreserveLiteralVectorSourceSemantics", "TestCachedGraphScopesRetractAssumptionsWithoutRemovingGuards"],
       "conditionals": [
         {
           "line": 259,
@@ -49401,12 +49401,17 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
-        {"name": "VariableProjector::ProjectFormula profiles GaussElimCheap and FourierMotzkinCheap at their source call sites (duality_rpfp.cpp:2371-2379)", "status": "partial", "go_targets": ["pkg/duality/project_formula.go", "pkg/duality/gauss_elim.go", "pkg/duality/fourier_motzkin.go", "pkg/duality/projection_bounds_test.go"], "tests": ["TestProjectFormulaCombinesEqualityAndInequalityProjection"], "reason": "ProjectFormula creates sibling timer scopes around each helper, while direct helper calls do not create those scopes; the test checks restoration after allocation failures. Other profiling and exceptional paths remain open."},{"name": "Duality::Counterexample graph/root ownership, set/clear/swap/destruction", "status": "ported", "go_target": "pkg/duality/counterexample.go", "reason": "Exclusive graph ownership moves on set/swap and closes on clear/Close; Go copies and same-owned-graph reassignment are rejected, and clearing nulls the released root pointer. Tests cover replacement, swaps, clear/reuse and owner lifetime guards.", "tests": ["TestDualityCounterexampleExclusiveGraphOwnershipAndSwap"]},{"name": "Transformer SubsetEq parameter alignment and scoped auxiliary-solver implication check", "status": "ported", "go_target": "pkg/duality/rpfp_subset.go", "tests": ["TestTransformerSubsetAlignsParametersAndPreservesSolverScopes"]},{"name":"CreateNode, CloneNode, DeleteNode, CreateEdge, DeleteEdge and CreateLowerBoundEdge graph primitives (duality.h:481-616)","status":"ported","go_target":"pkg/duality/rpfp_graph.go","tests":["TestRPFPGraphOwnershipCloningAndRepeatedChildren","TestRPFPGraphParameterizedNodeAndForeignOwners"]}],
-      "ownership": [],
-      "deviations": ["RPFP graph/transformer interfaces, graph constraints, dual formulas, interpolation operations and solver integration have concrete Go implementations with native tests. Whole-interface method and ownership closure remains partial; current implementation targets include pkg/duality/rpfp_graph.go, rpfp_check.go, rpfp_solve.go and engine.go."]
+        {"name":"Z3User formula, substitution, literal, quantifier and expression helper declarations","status":"ported","go_targets":["pkg/duality/conjuncts.go","pkg/duality/literal.go","pkg/duality/quant_simplify.go","pkg/duality/remove_redundancy.go","pkg/duality/ineq_to_eq.go","pkg/duality/adjust_quantifiers.go","pkg/duality/extract_stores.go"],"tests":["TestCollectConjunctsSourcePolarityConstantsAndMultiplicity","TestDualityLiteralClassificationAndBodyOnlyMaxIndex","TestDualityIneqToEqAdjacencyShapeAndNativeEquivalence","TestDualityExtractStoresPersistentNamesAndOnePassUndo"]},
+        {"name":"RPFP, Transformer, Node and Edge declarations and inline graph/transformer behavior","status":"ported","go_targets":["pkg/duality/rpfp_graph.go","pkg/duality/rpfp_transformer.go","pkg/duality/rpfp_subset.go"],"tests":["TestRPFPGraphOwnershipCloningAndRepeatedChildren","TestRPFPGraphParameterizedNodeAndForeignOwners","TestRPFPTransformerOwnershipAndBooleanState","TestRPFPTransformerParameterSubstitution","TestTransformerSubsetAlignsParametersAndPreservesSolverScopes"]},
+        {"name":"LogicSolver and iZ3LogicSolver interpolation interfaces","status":"ported","go_targets":["pkg/duality/interpolation_solver.go","pkg/duality/interpolation_tree.go"],"tests":["TestDualityNativeTreeInterpolation","TestInterpolationTreePartitionOrderAndReconstruction"]},
+        {"name":"iZ3LogicSolver large-distinct interpolation-axiom rewrite","status":"ported","go_target":"pkg/duality/interpolation_distinct.go","tests":["TestInterpolationAxiomLargeDistinctLegacySolverWorkaround"]},
+        {"name":"Solver interface and Counterexample graph/root ownership","status":"ported","go_targets":["pkg/duality/engine.go","pkg/duality/counterexample.go"],"tests":["TestDualityCounterexampleExclusiveGraphOwnershipAndSwap","TestDualityEngineNativeLifecycleRepeatedSolveAndHistoryTransfer"]},
+        {"name":"RPFP_caching interface and scoped cached assertions","status":"ported","go_targets":["pkg/duality/cached_graph.go","pkg/duality/cached_graph_scopes.go"],"tests":["TestCachedGraphAssertionsPreserveLiteralVectorSourceSemantics","TestCachedGraphScopesRetractAssumptionsWithoutRemovingGuards"]}],
+      "ownership": ["Concrete Go wrappers and graph records replace C++ inheritance and raw pointers. Node/edge links, cloned graph ownership, transformer formulas, transferred counterexamples, and cached assertion scopes have explicit tests."],
+      "deviations": ["This entry covers the interface declarations and inline behavior in duality.h. Out-of-line method bodies remain tracked under their corresponding C++ source units later in FILES_LEFT.md. Go uses concrete package APIs instead of mirroring STL containers, class inheritance or raw pointer layouts."]
     },
     {
       "path": "src/duality/duality_profiling.cpp",

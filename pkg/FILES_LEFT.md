@@ -40,7 +40,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/cmd_context/interpolant_cmds.cpp` — Formula-tree construction, proof and fresh-solver execution, source-compatible interpolant simplification/display, global checker diagnostics, and profiling are implemented with focused parser, interpolation, and script-suite coverage; command-local `som`/`flat` keywords are inapplicable because the C++ command declares no parameter descriptors.
 - [x] `src/cmd_context/parametric_cmd.cpp` — Live command handlers normalize keywords, validate descriptors, parse typed values, and allocate fresh per-command settings; reset, alias normalization, invalid-key/value, and eval parity tests pass. Native command-description caching and shared `m_last` state have no Go parser consumer.
 - [x] `src/cmd_context/parametric_cmd.h` — Variable-arity commands, typed boolean/integer/rational/string/symbol arguments, per-command reset, and keyword/value state are represented by direct Go parser handlers; source-unimplemented AST setters and unreachable s-expression setter need no implementation.
-- [ ] `src/duality/duality.h`
+- [x] `src/duality/duality.h` — The `Z3User`, RPFP/Transformer/Node/Edge, interpolation solver, solver, counterexample, and caching interfaces map to concrete typed Go APIs; inline graph ownership and transformer behavior pass the focused Duality package suite. Out-of-line method bodies remain tracked under their source units below.
 - [ ] `src/duality/duality_profiling.cpp`
 - [ ] `src/duality/duality_profiling.h`
 - [ ] `src/duality/duality_rpfp.cpp`
