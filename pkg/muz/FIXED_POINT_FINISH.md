@@ -79,6 +79,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Reconcile evidence for 18 further fixedpoint construction and cleanup batches through `8da2b9286`; independent review and portcheck preserve existing statuses and audits. Later changes and the remaining source inventory stay open.
   - [x] Reconcile manifest evidence for predicate-name replacement, nested scope restoration, CLP scaling and Spacer propagation; portcheck passes without promoting unit or ownership status.
   - [x] Reconcile the subsequent Karr, query-exception, PDR manager, Datalog close and profiler batches with source-scoped partial manifest records; portcheck passes and whole-unit audits remain open.
+  - [x] Record the later ground Karr, deferred-head, multi-pop, PDR cover, cached profiling and Spacer evidence in the manifest without changing unit status; portcheck passes.
   - [x] Correct Duality solver and fixedpoint-interface descriptions for the active stratified path, and link existing replay, background, construction and proof evidence. Independent review and portcheck pass; partial status and the wider inventory audit remain open.
 - [ ] Inspect every source conditional, function and live consumer for each partial unit; turn each remaining obligation into an explicit implementation or audit item.
   - [x] Map the Duality profiling unit and live consumers in [DUALITY_UNIT_AUDIT.md](DUALITY_UNIT_AUDIT.md); leave remaining timer scopes and report fidelity open.
