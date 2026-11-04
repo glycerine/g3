@@ -1,7 +1,6 @@
 package base_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/muz/base"
@@ -30,13 +29,13 @@ func TestDatalogContextFiniteSortDomains(t *testing.T) {
 	if n, e := c.SymbolNumber(b, left); e != nil || n != 0 {
 		t.Fatalf("repeat number = %d,%v", n, e)
 	}
-	if _, e := c.SymbolNumber(b, extra); e == nil || !strings.Contains(e.Error(), "exhausted") {
+	if _, e := c.SymbolNumber(b, extra); e == nil || e.Error() != "sort Bool contains more constants than its declared size 2" {
 		t.Fatalf("finite overflow = %v", e)
 	}
 	if text, e := c.FormatConstant(b, 1); e != nil || text != "right" {
 		t.Fatalf("constant text = %q,%v", text, e)
 	}
-	if count, e := c.ConstantCount(b); e != nil || count != 2 {
+	if count, e := c.ConstantCount(b); e != nil || count != 3 {
 		t.Fatalf("constant count = %d,%v", count, e)
 	}
 }

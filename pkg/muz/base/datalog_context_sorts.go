@@ -64,9 +64,17 @@ func (c *DatalogContext) sortDomain(sort ast.ASTHandle, kind DatalogSortKind) (*
 	}
 	return d, nil
 }
-func checkDomainLimit(d *datalogSortDomain, n int) error {
-	if d.finite && uint64(n) >= d.limit {
-		return fmt.Errorf("muz/base: finite sort domain exhausted")
+func (c *DatalogContext) checkDomainLimit(sort ast.ASTHandle, d *datalogSortDomain, n uint64) error {
+	if d.finite && n >= d.limit {
+		name, err := c.manager.GetASTName(sort)
+		if err != nil {
+			return err
+		}
+		text, err := c.manager.Symbols.Display(name)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("sort %s contains more constants than its declared size %d", text, d.limit)
 	}
 	return nil
 }
@@ -76,15 +84,15 @@ func (c *DatalogContext) SymbolNumber(sort ast.ASTHandle, value usymbol.Symbol) 
 	if err != nil {
 		return 0, err
 	}
-	if n, ok := d.symbols[value]; ok {
-		return n, nil
+	n, ok := d.symbols[value]
+	if !ok {
+		n = uint64(len(d.symbolOrder))
+		d.symbols[value] = n
+		d.symbolOrder = append(d.symbolOrder, value)
 	}
-	if err = checkDomainLimit(d, len(d.symbolOrder)); err != nil {
+	if err = c.checkDomainLimit(sort, d, n); err != nil {
 		return 0, err
 	}
-	n := uint64(len(d.symbolOrder))
-	d.symbols[value] = n
-	d.symbolOrder = append(d.symbolOrder, value)
 	return n, nil
 }
 func (c *DatalogContext) Uint64Number(sort ast.ASTHandle, value uint64) (uint64, error) {
@@ -92,15 +100,15 @@ func (c *DatalogContext) Uint64Number(sort ast.ASTHandle, value uint64) (uint64,
 	if err != nil {
 		return 0, err
 	}
-	if n, ok := d.uints[value]; ok {
-		return n, nil
+	n, ok := d.uints[value]
+	if !ok {
+		n = uint64(len(d.uintOrder))
+		d.uints[value] = n
+		d.uintOrder = append(d.uintOrder, value)
 	}
-	if err = checkDomainLimit(d, len(d.uintOrder)); err != nil {
+	if err = c.checkDomainLimit(sort, d, n); err != nil {
 		return 0, err
 	}
-	n := uint64(len(d.uintOrder))
-	d.uints[value] = n
-	d.uintOrder = append(d.uintOrder, value)
 	return n, nil
 }
 func (c *DatalogContext) ConstantCount(sort ast.ASTHandle) (uint64, error) {
