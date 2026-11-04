@@ -93401,7 +93401,7 @@
       "path": "src/muz/pdr/pdr_reachable_cache.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/pdr/reachable_cache.go",
         "pkg/muz/pdr/reachable_cache_test.go",
@@ -93414,8 +93414,8 @@
         "TestReachableConstraintCacheHonorsBackgroundAndInit",
         "TestPDRTransferredContextAssertionCleanupFailureAndRetry"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "reachable_cache construction, disjunction-chain insertion, init/reachable insertion, reachability checks, and statistics",
@@ -93428,7 +93428,7 @@
             "TestReachableHashCacheClosePreservesUnconsumedRoots",
             "TestPDRTransferredContextAssertionCleanupFailureAndRetry"
           ],
-          "reason": "Hash-cache Close advances through owned expression roots incrementally; native refusal preserves the exact unconsumed suffix and repeated retry releases each root once. The actual constraint-cache assertion consumer (pdr_reachable_cache.cpp:89-100) transports lexical assertion cleanup from a transferred context. After successful public expression-query setup, a warmed cache assertion with metadata-and-false consumes a physical large-rational allocation then reports native cleanup failure. Its stable receipt drains twice, a true cached constraint recovers on the same context, a subsequent query replaces that context and final budget is zero. Injection is into the live cache operation, not the complete public query or a statistics campaign."
+          "reason": "The C++ cache modes, disjunction chain, lookup scope, and statistics are implemented in ReachableCache. The inline init operation updates the connector even when no solver exists; Go now follows that behavior while conditionally asserting into the constraint solver. Explicit cleanup preserves connector/cache roots and retries failed context pops."
         }
       ],
       "ownership": [
@@ -93440,7 +93440,7 @@
       "path": "src/muz/pdr/pdr_reachable_cache.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/pdr/reachable_cache.go",
         "pkg/muz/pdr/reachable_cache_test.go",
@@ -93463,8 +93463,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "ReachableCacheMode, ReachableCacheStatistics, and ReachableCache retained interface",
@@ -93472,7 +93472,7 @@
           "go_target": "pkg/muz/pdr/reachable_cache.go",
           "go_targets": ["pkg/muz/pdr/reachable_cache_close_pending_test.go", "pkg/muz/fp/pdr_transferred_assertion_cleanup_test.go", "pkg/smtcore/smt_assertion_cleanup.go", "pkg/smtcore/smt_kernel.go"],
           "tests": ["TestReachableCacheModes", "TestReachableHashCacheClosePreservesUnconsumedRoots", "TestPDRTransferredContextAssertionCleanupFailureAndRetry"],
-          "reason": "The actual constraint-cache assertion consumer (pdr_reachable_cache.cpp:89-100) transports lexical assertion cleanup from a transferred context. After successful public expression-query setup, a warmed cache assertion with metadata-and-false consumes a physical large-rational allocation then reports native cleanup failure. Its stable receipt drains twice, a true cached constraint recovers on the same context, a subsequent query replaces that context and final budget is zero. Injection is into the live cache operation, not the complete public query or a statistics campaign."
+          "reason": "The inline add_init and public cache surface map to typed ReachableCache methods. C++ scoped-pointer and reference-vector ownership uses explicit Go context/reference owners with retryable cleanup; cache modes and lifecycle are covered by existing focused checks."
         }
       ],
       "ownership": [

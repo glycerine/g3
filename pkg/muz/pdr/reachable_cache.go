@@ -111,8 +111,10 @@ func (c *ReachableCache) addDisjunctedFormula(formula ast.ASTHandle) (resultErr 
 	if err != nil {
 		return err
 	}
-	if err = c.context.Assert(extended); err != nil {
-		return err
+	if c.context != nil {
+		if err = c.context.Assert(extended); err != nil {
+			return err
+		}
 	}
 	if c.connector != (ast.ASTRef{}) {
 		if err = c.manager.DelRef(&c.connector); err != nil {
@@ -127,9 +129,6 @@ func (c *ReachableCache) addDisjunctedFormula(formula ast.ASTHandle) (resultErr 
 func (c *ReachableCache) AddInit(formula ast.ASTHandle) error {
 	if err := c.open(); err != nil {
 		return err
-	}
-	if c.mode != ReachableConstraintCache {
-		return nil
 	}
 	return c.addDisjunctedFormula(formula)
 }
