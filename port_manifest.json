@@ -49377,8 +49377,8 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [{"name":"timer_start, timer_stop, print_profile and show_time","status":"ported","go_target":"pkg/duality/profiling.go","tests":["TestProfilerNestedTotalsAndInterpolation","TestProfilerImbalancedStopRecoversLikeSource","TestProfilerSortedOutputShowTimeAndWriterFailure"]}],
-      "ownership": ["Profiler explicitly owns the nested timer tree and interpolation profiler that the source stores in process globals."],
-      "deviations": ["Portable monotonic elapsed time and per-profiler ownership replace source stopwatch sampling and its process-global timer tree; report consumer and lifetime parity remain partial. Child reports are sorted lexically because source pointer-address ordering is not semantic or portable."]
+      "ownership": ["Default source-facing callers share process-lifetime Duality and interpolation timer owners; explicitly constructed profilers can be independent."],
+      "deviations": ["Source-facing Duality, API and SMT-LIB defaults share process-lifetime timer owners; explicitly supplied Go profilers remain independent. Portable timing and broader report-consumer parity remain partial. Child reports are sorted lexically because source pointer-address ordering is not semantic or portable."]
     },
     {
       "path": "src/duality/duality_profiling.h",
@@ -49400,8 +49400,8 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [{"name":"Duality profiling public timer/report surface","status":"ported","go_target":"pkg/duality/profiling.go","tests":["TestProfilerNestedTotalsAndInterpolation","TestProfilerImbalancedStopRecoversLikeSource","TestProfilerSortedOutputShowTimeAndWriterFailure"]}],
-      "ownership": ["Profiler explicitly owns the nested timer tree and interpolation profiler."],
-      "deviations": ["Portable monotonic elapsed time and per-profiler ownership replace source stopwatch sampling and its process-global timer tree; report consumer and lifetime parity remain partial."]
+      "ownership": ["Default source-facing callers share process-lifetime Duality and interpolation timer owners; explicitly constructed profilers can be independent."],
+      "deviations": ["Source-facing Duality, API and SMT-LIB defaults share process-lifetime timer owners; explicitly supplied Go profilers remain independent. Portable timing and broader report-consumer parity remain partial."]
     },
     {
       "path": "src/duality/duality_rpfp.cpp",

@@ -74,9 +74,10 @@ func NewQueryEngine(context *graph.Context, config graph.EngineConfig) (*QueryEn
 			run = *config.Interpolation
 		}
 		if run.Profiler == nil {
-			run.Profiler = interp.NewProfiler()
+			config.Profiler, run.Profiler = graph.ProcessProfilers()
+		} else {
+			config.Profiler = graph.NewProfiler(run.Profiler)
 		}
-		config.Profiler = graph.NewProfiler(run.Profiler)
 		config.Interpolation = &run
 	}
 	e := &QueryEngine{context: context, config: config, status: lbool.Undef, options: DefaultQueryOptions()}

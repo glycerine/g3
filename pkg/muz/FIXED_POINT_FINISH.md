@@ -74,7 +74,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Reconcile evidence for 18 further fixedpoint construction and cleanup batches through `8da2b9286`; independent review and portcheck preserve existing statuses and audits. Later changes and the remaining source inventory stay open.
   - [x] Correct Duality solver and fixedpoint-interface descriptions for the active stratified path, and link existing replay, background, construction and proof evidence. Independent review and portcheck pass; partial status and the wider inventory audit remain open.
 - [ ] Inspect every source conditional, function and live consumer for each partial unit; turn each remaining obligation into an explicit implementation or audit item.
-  - [x] Map the Duality profiling unit and live consumers in [DUALITY_UNIT_AUDIT.md](DUALITY_UNIT_AUDIT.md); leave missing timer scopes, global lifetime and report fidelity open.
+  - [x] Map the Duality profiling unit and live consumers in [DUALITY_UNIT_AUDIT.md](DUALITY_UNIT_AUDIT.md); leave remaining timer scopes and report fidelity open.
   - [x] Map the fixedpoint command interface and consumers in [FP_UNIT_AUDIT.md](FP_UNIT_AUDIT.md); retain its parsing, exception and cleanup gaps as open obligations.
   - [x] Match `dl_rule_cmd` trailing-symbol parsing: each symbol after the optional recursion bound replaces the rule name. Execution and collection tests cover empty names and rejection without publishing a malformed rule.
   - [x] Match base context predicate restriction and registration: scoped membership restoration preserves name lookup, and re-registering an unnamed existing predicate does not add a name.
@@ -111,7 +111,8 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Add the source Duality `Contains` and `Candidate` profile scopes with nested-timer and error coverage; add a PDR reachable-cache closing guard with native refusal/retry coverage. The remaining profile scopes and cache cleanup boundaries stay open in their unit audits.
   - [x] Add Duality RPFP edge-construction and solver-add profile scopes, with cached, uncached and true-edge coverage; timing outside active solve remains open.
   - [x] Add the source `SubtermTruth` and `UnderapproxFormula` call-site profile scopes, checking branch selection and timer restoration on errors and allocation failures.
-  - [x] Preserve Duality profiling during post-solve derivation, certificate and proof output, and time `RedVars` at its source call site; process-global lifetime remains an open difference.
+  - [x] Preserve Duality profiling during post-solve derivation, certificate and proof output, and time `RedVars` at its source call site.
+  - [x] Share process-lifetime Duality and interpolation profilers across source-facing backend, API and SMT-LIB command paths; cross-client tests cover persistence and independently supplied profilers.
   - [x] Stop Duality's `SolveMain` timer before quantified-counterexample validation, matching the source timing boundary.
   - [x] Verify PDR reachable-cache construction failure/retry and preservation of earlier constraint disjuncts; connector-publication failure injection remains open.
   - [x] Verify a rejected constraint-cache insertion preserves prior alternatives and references and permits retry; the later connector-publication failure boundary remains unproven.

@@ -411,3 +411,87 @@ func TestDualityBackendProfileOutputAndWriterRetry(t *testing.T) {
 type dualityProfileRefusingWriter struct{}
 
 func (dualityProfileRefusingWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+func TestDualityBackendProfilesSurviveBackendClose(t *testing.T) {
+	profile, interpolation := graph.ProcessProfilers()
+	run := func(first bool) string {
+		t.Helper()
+		owner, err := cmd_context.NewStandaloneContext()
+		if err != nil {
+			t.Fatal(err)
+		}
+		m, err := owner.Manager()
+		if err != nil {
+			t.Fatal(err)
+		}
+		config, err := owner.SolverTranslationConfig()
+		if err != nil {
+			t.Fatal(err)
+		}
+		backend, err := duality.NewBackend(m, config, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		query, err := m.MkFalse()
+		if err != nil {
+			t.Fatal(err)
+		}
+		prepared, err := duality.PrepareQuery(m, nil, nil, query, nil, math.MaxUint32)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if first {
+			if err := profile.TimerStart("cross-backend-graph"); err != nil {
+				t.Fatal(err)
+			}
+			if err := profile.TimerStop("cross-backend-graph"); err != nil {
+				t.Fatal(err)
+			}
+			if err := interpolation.TimerStart("cross-backend-interpolation"); err != nil {
+				t.Fatal(err)
+			}
+			if err := interpolation.TimerStop("cross-backend-interpolation"); err != nil {
+				t.Fatal(err)
+			}
+		}
+		options := duality.DefaultQueryOptions()
+		options.Profile = true
+		if err := backend.SetOptions(options); err != nil {
+			t.Fatal(err)
+		}
+		if !first {
+			if err := backend.SetProfileOutput(dualityProfileRefusingWriter{}); err != nil {
+				t.Fatal(err)
+			}
+			status, err := backend.Query(prepared)
+			if status != lbool.Undef || !errors.Is(err, io.ErrClosedPipe) {
+				t.Fatal(status, err)
+			}
+		}
+		var output bytes.Buffer
+		if err := backend.SetProfileOutput(&output); err != nil {
+			t.Fatal(err)
+		}
+		status, err := backend.Query(prepared)
+		if err != nil || status != lbool.False {
+			t.Fatal(status, err)
+		}
+		if err := prepared.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if err := backend.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if err := owner.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return output.String()
+	}
+	run(true)
+	output := run(false)
+	for _, label := range []string{"cross-backend-graph", "cross-backend-interpolation", "SolveMain"} {
+		if !strings.Contains(output, label) {
+			t.Fatalf("second backend profile missing %q:\n%s", label, output)
+		}
+	}
+}

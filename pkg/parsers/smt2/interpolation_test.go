@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/cmd_context"
+	graph "github.com/glycerine/g3/pkg/duality"
+	"github.com/glycerine/g3/pkg/interp"
 )
 
 func interpolationReference(t *testing.T, script string) string {
@@ -36,6 +38,16 @@ func interpolationReference(t *testing.T, script string) string {
 }
 
 func TestSMT2ComputeAndGetInterpolantUseNativeBackend(t *testing.T) {
+	marker := "command-interpolation-" + t.TempDir()
+	profiler := interp.ProcessProfiler()
+	if err := profiler.TimerStart(marker); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := profiler.TimerStop(marker); err != nil {
+			t.Error(err)
+		}
+	}()
 	context, err := cmd_context.NewStandaloneContext()
 	if err != nil {
 		t.Fatal(err)
@@ -59,6 +71,31 @@ func TestSMT2ComputeAndGetInterpolantUseNativeBackend(t *testing.T) {
 	if output.String() != want {
 		t.Fatal("interpolation output", output.String(), "want", want)
 	}
+	profile, _ := graph.ProcessProfilers()
+	var report bytes.Buffer
+	if err := profile.Print(&report); err != nil {
+		t.Fatal(err)
+	}
+	if !interpolationScopeHasSolving(report.String(), marker) {
+		t.Fatal("Duality report lacks command interpolation scope", report.String())
+	}
+}
+
+func interpolationScopeHasSolving(report, marker string) bool {
+	inside := false
+	for _, line := range strings.Split(report, "\n") {
+		if !inside {
+			inside = strings.HasPrefix(line, "  "+marker)
+			continue
+		}
+		if !strings.HasPrefix(line, "    ") {
+			return false
+		}
+		if strings.HasPrefix(line, "    solving...") {
+			return true
+		}
+	}
+	return false
 }
 
 func TestSMT2InterpolantCommandGuards(t *testing.T) {

@@ -18,9 +18,8 @@ type profileNode struct {
 	order    []string
 }
 
-// Profiler is the source nested interpolation timer tree as an explicit owner.
-// The retained interpolation and command contexts can each own one without a
-// process-global mutable map.
+// Profiler owns a nested interpolation timer tree. NewProfiler creates an
+// independent tree; source-facing clients use the process-lifetime tree below.
 type Profiler struct {
 	top, current *profileNode
 	now          func() time.Time
@@ -32,6 +31,13 @@ func NewProfiler() *Profiler {
 	now := time.Now
 	return &Profiler{top: top, current: top, now: now, origin: now()}
 }
+
+// ProcessProfiler returns the source-facing process-lifetime interpolation
+// timer owner. Like the source profiler, it assumes single-goroutine use.
+func ProcessProfiler() *Profiler { return processProfiler }
+
+var processProfiler = NewProfiler()
+
 func (p *Profiler) TimerStart(name string) error {
 	if p == nil || p.top == nil || p.current == nil || name == "" {
 		return NewError("invalid interpolation profiler")

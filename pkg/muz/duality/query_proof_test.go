@@ -134,13 +134,43 @@ func TestDualityProofQuantifiedNonlinearAndRepeatedPremises(t *testing.T) {
 	options := duality.DefaultQueryOptions()
 	options.Profile = true
 	must(backend.SetOptions(options))
+	// A unique parent isolates this check from timers retained by earlier
+	// backends, including earlier repetitions of this test in the same process.
+	marker := "derivation-scope-" + t.TempDir()
+	processProfile, _ := graph.ProcessProfilers()
+	must(processProfile.TimerStart(marker))
+	defer func() {
+		if err := processProfile.TimerStop(marker); err != nil {
+			t.Error(err)
+		}
+	}()
+	containsScopedLocalize := func(report string) bool {
+		t.Helper()
+		inside := false
+		for _, line := range strings.Split(report, "\n") {
+			if !inside {
+				inside = strings.HasPrefix(line, "  "+marker)
+				continue
+			}
+			if !strings.HasPrefix(line, "    ") {
+				return false
+			}
+			if strings.HasPrefix(line, "    Localize...") {
+				return true
+			}
+		}
+		if !inside {
+			t.Fatal("profile missing isolated derivation scope", report)
+		}
+		return false
+	}
 	status, err := backend.Query(prepared)
 	must(err)
 	if status != lbool.True {
 		t.Fatal("independently reachable Boolean Horn query", status)
 	}
-	if strings.Contains(profile.String(), "\n  Localize...") {
-		t.Fatal("unexpected root-level Localize before derivation", profile.String())
+	if containsScopedLocalize(profile.String()) {
+		t.Fatal("unexpected scoped Localize before derivation", profile.String())
 	}
 	var derivation bytes.Buffer
 	must(backend.WriteDerivation(&derivation, owner.WriteExpression))
@@ -148,8 +178,8 @@ func TestDualityProofQuantifiedNonlinearAndRepeatedPremises(t *testing.T) {
 	status, err = backend.Query(prepared)
 	must(err)
 	must(prepared.Close())
-	if status != lbool.True || !strings.Contains(profile.String(), "\n  Localize...") {
-		t.Fatal("later profile lacks root-level derivation Localize timer", status, profile.String())
+	if status != lbool.True || !containsScopedLocalize(profile.String()) {
+		t.Fatal("later profile lacks scoped derivation Localize timer", status, profile.String())
 	}
 	if !strings.HasPrefix(derivation.String(), "(derivation\n(step s!") || !strings.Contains(derivation.String(), "(subst") || !strings.Contains(derivation.String(), "(ref ") {
 		t.Fatal(derivation.String())

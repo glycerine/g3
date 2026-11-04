@@ -7,11 +7,74 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	graph "github.com/glycerine/g3/pkg/duality"
 	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
+
+func TestInterpolationProfileSharedWithDualityAfterContextClose(t *testing.T) {
+	marker := "api-interpolation-" + t.TempDir()
+	p := interp.ProcessProfiler()
+	if err := p.TimerStart(marker); err != nil {
+		t.Fatal(err)
+	}
+	t.Run("interpolate", func(t *testing.T) {
+		f := newInterpolationFixture(t)
+		boolean := f.pin(f.w.BoolType())
+		p := f.variable("shared-profile-p", boolean)
+		marked := f.pin(f.c.MkInterpolant(p))
+		pattern := f.make(interp.OperatorAnd, marked, f.make(interp.OperatorNot, p))
+		results, err := f.c.ComputeInterpolant(pattern)
+		if err != nil || len(results) != 1 {
+			t.Fatal(results, err)
+		}
+	})
+	if err := p.TimerStop(marker); err != nil {
+		t.Fatal(err)
+	}
+	profile, _ := graph.ProcessProfilers()
+	var report bytes.Buffer
+	if err := profile.Print(&report); err != nil {
+		t.Fatal(err)
+	}
+	if !interpolationScopeHasSolving(report.String(), marker) {
+		t.Fatal("Duality report lacks API interpolation scope", report.String())
+	}
+
+	// The reverse direction also holds for a context created after a sample.
+	_, dualityInterpolation := graph.ProcessProfilers()
+	reverseMarker := "duality-interpolation-" + t.TempDir()
+	if err := dualityInterpolation.TimerStart(reverseMarker); err != nil {
+		t.Fatal(err)
+	}
+	if err := dualityInterpolation.TimerStop(reverseMarker); err != nil {
+		t.Fatal(err)
+	}
+	fresh := newInterpolationFixture(t)
+	apiReport, err := fresh.c.InterpolationProfile()
+	if err != nil || !strings.Contains(apiReport, "  "+reverseMarker) {
+		t.Fatal("fresh API context lacks earlier Duality interpolation sample", apiReport, err)
+	}
+}
+
+func interpolationScopeHasSolving(report, marker string) bool {
+	inside := false
+	for _, line := range strings.Split(report, "\n") {
+		if !inside {
+			inside = strings.HasPrefix(line, "  "+marker)
+			continue
+		}
+		if !strings.HasPrefix(line, "    ") {
+			return false
+		}
+		if strings.HasPrefix(line, "    solving...") {
+			return true
+		}
+	}
+	return false
+}
 
 type interpolationFixture struct {
 	t *testing.T

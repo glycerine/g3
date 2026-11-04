@@ -113,7 +113,7 @@ func NewInterpolationContext() (result *InterpolationContext, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
-	c.profiler = interp.NewProfiler()
+	c.profiler = interp.ProcessProfiler()
 	c.evaluator = model.ModelEvaluatorConfig{Context: c.parameters, Globals: c.globals, Memory: c.numerals.RuntimeOwner(), Cooperation: c.cooperation}
 	c.factory, err = smtcore.NewSMTSolverFactory(smtcore.SMTSolverConfig{Params: c.parameters, Globals: c.globals, ModelEvaluator: c.evaluator})
 	if err != nil {
@@ -298,8 +298,8 @@ func (c *InterpolationContext) InterpolantsFromProof(proof, pattern ast.ASTHandl
 	return result, nil
 }
 
-// InterpolationProfile returns the source interpolation timer report for the
-// solve and proof phases run by this context.
+// InterpolationProfile returns the process-lifetime source interpolation timer
+// report, including solve and proof phases from other interpolation clients.
 func (c *InterpolationContext) InterpolationProfile() (string, error) {
 	if err := c.open(); err != nil {
 		return "", err

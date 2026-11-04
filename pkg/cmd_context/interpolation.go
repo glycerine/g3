@@ -28,7 +28,7 @@ func (c *Context) interpolationRunConfig() (*interp.RunConfig, solver.Factory, e
 	if err != nil {
 		return nil, nil, err
 	}
-	config := &interp.RunConfig{SolverFactory: factory, EvaluatorFactory: func(md *model.ModelCore) (solver.ConsequenceEvaluator, error) {
+	config := &interp.RunConfig{Profiler: interp.ProcessProfiler(), SolverFactory: factory, EvaluatorFactory: func(md *model.ModelCore) (solver.ConsequenceEvaluator, error) {
 		return model.NewModelEvaluator(md, c.config.ModelEvaluator)
 	}}
 	return config, factory, nil

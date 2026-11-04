@@ -52,6 +52,17 @@ func NewProfiler(interpolation *interp.Profiler) *Profiler {
 	}
 }
 
+// ProcessProfilers returns the process-lifetime timer owners used by the
+// fixedpoint Duality backend. The source retains both timer trees globally;
+// callers that need an independent profiler can still use NewProfiler.
+// Like the source timers, these owners assume single-goroutine use.
+func ProcessProfilers() (*Profiler, *interp.Profiler) {
+	return processProfiler, processInterpolationProfiler
+}
+
+var processInterpolationProfiler = interp.ProcessProfiler()
+var processProfiler = NewProfiler(processInterpolationProfiler)
+
 // TimerStart enters a named child timer. Reusing a child retains its accumulated
 // time and replaces only its start time, as in the source map entry.
 func (p *Profiler) TimerStart(name string) error {

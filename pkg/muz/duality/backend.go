@@ -67,8 +67,7 @@ func NewBackend(manager *ast.ASTManager, config smtcore.SMTSolverConfig, mbqi bo
 	if err != nil {
 		return nil, err
 	}
-	interpolationProfile := interp.NewProfiler()
-	profile := graph.NewProfiler(interpolationProfile)
+	profile, interpolationProfile := graph.ProcessProfilers()
 	b.queries, err = NewQueryEngine(b.context, graph.EngineConfig{
 		Native: b.native, Auxiliary: b.auxiliary, Factory: b.factory, Evaluator: config.ModelEvaluator,
 		Profiler: profile, Interpolation: &interp.RunConfig{Profiler: interpolationProfile},
