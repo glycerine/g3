@@ -284,7 +284,7 @@ func TestRulePropertiesExistentialTraversalDistinctionsAndReuse(t *testing.T) {
 	ruleMust(t, clean.Close())
 }
 
-func TestRulePropertiesExistentialTailDoesNotClaimMultiRuleOrdering(t *testing.T) {
+func TestRulePropertiesExistentialTailUsesSharedMultiRuleWorklist(t *testing.T) {
 	f := newRulePropertiesFixture(t)
 	expression, err := f.manager.MkEq(f.p, f.q)
 	ruleMust(t, err)
@@ -323,7 +323,8 @@ func TestRulePropertiesExistentialTailDoesNotClaimMultiRuleOrdering(t *testing.T
 	defer func() { ruleMust(t, properties.Close()) }()
 	ruleMust(t, properties.Collect(set))
 	var property *base.RulePropertyError
-	if err := properties.CheckExistentialTail(); !errors.As(err, &property) || property.Kind != base.RulePropertyExistentialTail || property.SourceMessage != "" {
+	want := "recursive predicate (= properties-Q multi-nested-predicate) occurs nested in the body of a rule"
+	if err := properties.CheckExistentialTail(); !errors.As(err, &property) || property.Kind != base.RulePropertyExistentialTail || property.SourceMessage != want {
 		t.Fatalf("multi-rule diagnostic = %v", err)
 	}
 }

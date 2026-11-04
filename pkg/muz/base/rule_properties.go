@@ -467,7 +467,13 @@ func (p *RuleProperties) CheckExistentialTail() error {
 	if err := p.open(); err != nil {
 		return err
 	}
-	visited := make(map[ast.ASTHandle]bool)
+	// Source appends all interpreted tails before consuming the shared LIFO
+	// worklist, then checks its candidate expressions in insertion order.
+	type candidate struct {
+		expr ast.ASTHandle
+		rule *Rule
+	}
+	var todo, toCheck []candidate
 	for _, rule := range p.nested {
 		uninterpreted, err := rule.UninterpretedTailSize()
 		if err != nil {
@@ -477,119 +483,113 @@ func (p *RuleProperties) CheckExistentialTail() error {
 		if err != nil {
 			return err
 		}
-		todo := make([]ast.ASTHandle, 0, tails-uninterpreted)
 		for i := uninterpreted; i < tails; i++ {
-			tail, _, x := rule.Tail(i)
-			if x != nil {
-				return x
+			tail, _, err := rule.Tail(i)
+			if err != nil {
+				return err
 			}
-			todo = append(todo, tail)
+			todo = append(todo, candidate{tail, rule})
 		}
-		toCheck := make([]ast.ASTHandle, 0)
-		for len(todo) != 0 {
-			i := len(todo) - 1
-			e := todo[i]
-			todo = todo[:i]
-			if visited[e] {
-				continue
-			}
-			visited[e] = true
-			kind, x := p.manager.GetKind(e)
-			if x != nil {
-				return x
-			}
-			if kind == ast.ASTQuantifier {
-				body, x := p.manager.GetQuantifierBody(e)
-				if x != nil {
-					return x
-				}
-				toCheck = append(toCheck, body)
-				continue
-			}
-			if kind != ast.ASTApp {
-				toCheck = append(toCheck, e)
-				continue
-			}
-			predicate, x := p.rules.isPredicate(e)
-			if x != nil {
-				return x
-			}
-			if predicate {
-				continue
-			}
-			op, x := p.manager.GetDeclKind(e)
-			if x != nil {
-				return x
-			}
-			n, x := p.manager.GetNumArgs(e)
-			if x != nil {
-				return x
-			}
-			switch op {
-			case ast.ASTOpAnd, ast.ASTOpOr:
-				for j := uint32(0); j < n; j++ {
-					child, y := p.manager.GetArg(e, j)
-					if y != nil {
-						return y
-					}
-					todo = append(todo, child)
-				}
-			case ast.ASTOpImplies:
-				if n != 2 {
-					return fmt.Errorf("%w: malformed implication", ErrRuleProperties)
-				}
-				left, y := p.manager.GetArg(e, 0)
-				if y != nil {
-					return y
-				}
-				right, y := p.manager.GetArg(e, 1)
-				if y != nil {
-					return y
-				}
-				toCheck = append(toCheck, left)
-				todo = append(todo, right)
-			case ast.ASTOpEq, ast.ASTOpIff:
-				if n != 2 {
-					toCheck = append(toCheck, e)
-					continue
-				}
-				left, y := p.manager.GetArg(e, 0)
-				if y != nil {
-					return y
-				}
-				right, y := p.manager.GetArg(e, 1)
-				if y != nil {
-					return y
-				}
-				if p.manager.IsTrue(left) {
-					todo = append(todo, right)
-				} else if p.manager.IsTrue(right) {
-					todo = append(todo, left)
-				} else {
-					toCheck = append(toCheck, e)
-				}
-			default:
-				toCheck = append(toCheck, e)
-			}
+	}
+	visited := make(map[ast.ASTHandle]bool)
+	for len(todo) != 0 {
+		i := len(todo) - 1
+		item := todo[i]
+		todo = todo[:i]
+		e := item.expr
+		if visited[e] {
+			continue
 		}
-		for _, e := range toCheck {
-			found, x := p.containsPredicate(e)
-			if x != nil {
-				return x
+		visited[e] = true
+		kind, err := p.manager.GetKind(e)
+		if err != nil {
+			return err
+		}
+		if kind == ast.ASTQuantifier {
+			body, err := p.manager.GetQuantifierBody(e)
+			if err != nil {
+				return err
 			}
-			if found {
-				property := &RulePropertyError{Kind: RulePropertyExistentialTail, RuleName: rulePropertyName(rule)}
-				// Source traverses all nested rules together before inspecting
-				// candidates; this implementation's multi-rule order differs.
-				if len(p.nested) == 1 {
-					display, err := p.rules.ruleHeadSourceDisplay(e)
-					if err != nil {
-						return err
-					}
-					property.SourceMessage = "recursive predicate " + display + " occurs nested in the body of a rule"
+			toCheck = append(toCheck, candidate{body, item.rule})
+			continue
+		}
+		if kind != ast.ASTApp {
+			toCheck = append(toCheck, item)
+			continue
+		}
+		predicate, err := p.rules.isPredicate(e)
+		if err != nil {
+			return err
+		}
+		if predicate {
+			continue
+		}
+		op, err := p.manager.GetDeclKind(e)
+		if err != nil {
+			return err
+		}
+		n, err := p.manager.GetNumArgs(e)
+		if err != nil {
+			return err
+		}
+		switch op {
+		case ast.ASTOpAnd, ast.ASTOpOr:
+			for j := uint32(0); j < n; j++ {
+				child, err := p.manager.GetArg(e, j)
+				if err != nil {
+					return err
 				}
-				return property
+				todo = append(todo, candidate{child, item.rule})
 			}
+		case ast.ASTOpImplies:
+			if n != 2 {
+				return fmt.Errorf("%w: malformed implication", ErrRuleProperties)
+			}
+			left, err := p.manager.GetArg(e, 0)
+			if err != nil {
+				return err
+			}
+			right, err := p.manager.GetArg(e, 1)
+			if err != nil {
+				return err
+			}
+			toCheck = append(toCheck, candidate{left, item.rule})
+			todo = append(todo, candidate{right, item.rule})
+		case ast.ASTOpEq, ast.ASTOpIff:
+			if n != 2 {
+				toCheck = append(toCheck, item)
+				continue
+			}
+			left, err := p.manager.GetArg(e, 0)
+			if err != nil {
+				return err
+			}
+			right, err := p.manager.GetArg(e, 1)
+			if err != nil {
+				return err
+			}
+			if p.manager.IsTrue(left) {
+				todo = append(todo, candidate{right, item.rule})
+			} else if p.manager.IsTrue(right) {
+				todo = append(todo, candidate{left, item.rule})
+			} else {
+				toCheck = append(toCheck, item)
+			}
+		default:
+			toCheck = append(toCheck, item)
+		}
+	}
+	for _, item := range toCheck {
+		found, err := p.containsPredicate(item.expr)
+		if err != nil {
+			return err
+		}
+		if found {
+			display, err := p.rules.ruleHeadSourceDisplay(item.expr)
+			if err != nil {
+				return err
+			}
+			return &RulePropertyError{Kind: RulePropertyExistentialTail, RuleName: rulePropertyName(item.rule), SourceMessage: "recursive predicate " + display + " occurs nested in the body of a rule"}
 		}
 	}
 	return nil
