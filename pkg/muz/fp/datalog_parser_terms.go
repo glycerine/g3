@@ -11,11 +11,44 @@ import (
 )
 
 func (p *datalogParser) closeArguments() (result error) {
+	remaining := make([]ast.ASTRef, 0, len(p.argumentRefs))
 	for i := len(p.argumentRefs) - 1; i >= 0; i-- {
 		result = errors.Join(result, p.manager.DelRef(&p.argumentRefs[i]))
+		if p.argumentRefs[i] != (ast.ASTRef{}) {
+			remaining = append(remaining, p.argumentRefs[i])
+		}
 	}
-	p.argumentRefs = nil
+	for left, right := 0, len(remaining)-1; left < right; left, right = left+1, right-1 {
+		remaining[left], remaining[right] = remaining[right], remaining[left]
+	}
+	p.argumentRefs = remaining
 	return result
+}
+
+func (p *datalogParser) newArgumentRef() (ast.ASTRef, error) {
+	reference, err := p.manager.NewRef(ast.ASTHandle{})
+	if err == nil {
+		p.argumentRefs = append(p.argumentRefs, reference)
+	}
+	return reference, err
+}
+
+func (p *datalogParser) releaseArgumentRef(reference *ast.ASTRef) error {
+	if reference == nil {
+		return ast.ErrASTHandle
+	}
+	original := *reference
+	err := p.manager.DelRef(reference)
+	if *reference == (ast.ASTRef{}) {
+		for i := range p.argumentRefs {
+			if p.argumentRefs[i] == original {
+				copy(p.argumentRefs[i:], p.argumentRefs[i+1:])
+				p.argumentRefs = p.argumentRefs[:len(p.argumentRefs)-1]
+				break
+			}
+		}
+	}
+	return err
 }
 
 func (p *datalogParser) parseArguments(declaration ast.ASTHandle) ([]ast.ASTHandle, error) {
@@ -93,11 +126,10 @@ func (p *datalogParser) parseArgument(sort ast.ASTHandle) (ast.ASTHandle, error)
 // owning slot before constructing the expression, then keep it through the
 // complete rule so variables remain available to subsequent occurrences.
 func (p *datalogParser) ownedArgument(token datalogToken, sort ast.ASTHandle, createVariable bool) (ast.ASTHandle, error) {
-	reference, err := p.manager.NewRef(ast.ASTHandle{})
+	reference, err := p.newArgumentRef()
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	p.argumentRefs = append(p.argumentRefs, reference)
 	argument, err := p.argumentFromToken(token, sort, createVariable)
 	if err != nil {
 		return ast.ASTHandle{}, err

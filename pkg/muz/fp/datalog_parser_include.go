@@ -37,6 +37,11 @@ func (p *datalogParser) parseInclude(domains bool) error {
 		return err
 	}
 	child := *p
+	// Includes run between declarations/rules. Keep any failed child cleanup
+	// roots separate so the child can transfer only its own outstanding refs
+	// back to the parent on every return path.
+	child.argumentRefs = nil
+	defer func() { p.argumentRefs = append(p.argumentRefs, child.argumentRefs...) }()
 	child.lexer = lexer
 	child.path = path
 	child.dir = p.includePath(".")

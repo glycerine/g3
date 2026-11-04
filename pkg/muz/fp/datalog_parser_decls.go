@@ -97,11 +97,10 @@ func (p *datalogParser) parseDeclaration(name usymbol.Symbol) (resultErr error) 
 		p.nextVar = 0
 		args := make([]ast.ASTHandle, len(domain))
 		for i, sort := range domain {
-			reference, cause := p.manager.NewRef(ast.ASTHandle{})
+			reference, cause := p.newArgumentRef()
 			if cause != nil {
 				return cause
 			}
-			p.argumentRefs = append(p.argumentRefs, reference)
 			args[i], err = p.manager.MkVar(p.nextVar, sort)
 			if err != nil {
 				return err
@@ -110,11 +109,11 @@ func (p *datalogParser) parseDeclaration(name usymbol.Symbol) (resultErr error) 
 				return err
 			}
 		}
-		headRef, err := p.manager.NewRef(ast.ASTHandle{})
+		headRef, err := p.newArgumentRef()
 		if err != nil {
 			return err
 		}
-		defer func() { resultErr = joinErrors(resultErr, p.manager.DelRef(&headRef)) }()
+		defer func() { resultErr = joinErrors(resultErr, p.releaseArgumentRef(&headRef)) }()
 		head, err := p.manager.MkApp(declaration, args)
 		if err != nil {
 			return err

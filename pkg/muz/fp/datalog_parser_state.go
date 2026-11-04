@@ -43,7 +43,12 @@ func parseDatalog(context *base.DatalogContext, input io.Reader, path, dir strin
 	}
 	p := &datalogParser{context: context, manager: manager, lexer: lexer, path: path, dir: dir, sorts: make(map[string]ast.ASTHandle), vars: make(map[string]ast.ASTHandle)}
 	p.advance()
-	return p.parseProgram()
+	parseErr := p.parseProgram()
+	cleanupErr := p.closeArguments()
+	if len(p.argumentRefs) != 0 {
+		return &datalogParserCleanupFailure{parser: p, cause: parseErr, cleanupErr: cleanupErr}
+	}
+	return joinErrors(parseErr, cleanupErr)
 }
 
 func (p *datalogParser) advance() { p.token = p.lexer.next() }

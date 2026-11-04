@@ -14,11 +14,11 @@ func (p *datalogParser) parseRule(name string, declaration ast.ASTHandle) (resul
 	if err != nil {
 		return err
 	}
-	headRef, err := p.manager.NewRef(ast.ASTHandle{})
+	headRef, err := p.newArgumentRef()
 	if err != nil {
 		return err
 	}
-	defer func() { resultErr = joinErrors(resultErr, p.manager.DelRef(&headRef)) }()
+	defer func() { resultErr = joinErrors(resultErr, p.releaseArgumentRef(&headRef)) }()
 	head, err := p.manager.MkApp(declaration, arguments)
 	if err != nil {
 		return err
@@ -42,7 +42,7 @@ func (p *datalogParser) parseRuleBody(head ast.ASTHandle) (resultErr error) {
 	var tailRefs []ast.ASTRef
 	defer func() {
 		for i := len(tailRefs) - 1; i >= 0; i-- {
-			resultErr = joinErrors(resultErr, p.manager.DelRef(&tailRefs[i]))
+			resultErr = joinErrors(resultErr, p.releaseArgumentRef(&tailRefs[i]))
 		}
 	}()
 	for {
@@ -61,7 +61,7 @@ func (p *datalogParser) parseRuleBody(head ast.ASTHandle) (resultErr error) {
 			negative = true
 			p.advance()
 		}
-		reference, err := p.manager.NewRef(ast.ASTHandle{})
+		reference, err := p.newArgumentRef()
 		if err != nil {
 			return err
 		}
@@ -152,11 +152,10 @@ func (p *datalogParser) parseInfix(first datalogToken) (ast.ASTHandle, error) {
 	case datalogEqual:
 		return p.manager.MkEq(left, right)
 	case datalogNotEqual:
-		reference, e := p.manager.NewRef(ast.ASTHandle{})
+		reference, e := p.newArgumentRef()
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		p.argumentRefs = append(p.argumentRefs, reference)
 		equal, e := p.manager.MkEq(left, right)
 		if e != nil {
 			return ast.ASTHandle{}, e

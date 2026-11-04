@@ -68,7 +68,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/dataflow/dataflow.h` — The live `reachability_info` instantiation’s bottom-up and top-down propagation, dependency lookup, and fact queries map to `pkg/muz/dataflow`; unused generic template methods have no retained consumers. Existing reachability and COI tests pass.
 - [x] `src/muz/duality/duality_dl_interface.cpp` — Query construction and reuse, transformed-rule selection, solver options/results, counterexamples, annotation models, proof extraction, certificates, unsupported interface stubs, and cleanup map to the Go fixedpoint/Duality owners; source/result/ownership audits and focused Duality, fixedpoint, and SMT-LIB tests pass.
 - [x] `src/muz/duality/duality_dl_interface.h` — The engine interface declarations map to the audited Duality `Backend` and `QueryEngine` operations; the private `dd()` accessor has no external consumer and C++ header guards/includes have no runtime port surface.
-- [ ] `src/muz/fp/datalog_parser.cpp`
+- [x] `src/muz/fp/datalog_parser.cpp` — File and stream lexing, declarations/rules, includes, map files, WPA directory ingestion, source numeric and symbol constants, tuple loading, and retryable temporary-reference cleanup map to the Go parser, `cmd_context`, and base utilities; focused fixedpoint, WPA, shell, CLI, and portcheck tests pass.
 - [ ] `src/muz/fp/datalog_parser.h`
 - [ ] `src/muz/fp/dl_cmds.cpp`
 - [ ] `src/muz/fp/dl_cmds.h`
