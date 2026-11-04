@@ -47,6 +47,10 @@ func (r *BoundRelation) Clone() *BoundRelation {
 
 func (r *BoundRelation) Empty() bool { return r == nil || r.empty }
 
+// IsPrecise mirrors bound_relation::is_precise; bound relations are always
+// abstractions, even when their current formula happens to be exact.
+func (r *BoundRelation) IsPrecise() bool { return false }
+
 // AddFact joins the source's unconstrained abstraction of a concrete fact.
 // Its bound-relation equal-value filter does not add constraints.
 func (r *BoundRelation) AddFact(fact []ast.ASTHandle) error {
