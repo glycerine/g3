@@ -425,12 +425,27 @@ func (r *boundDatalogRuntime) saturatePositive(widen bool) error {
 		}
 		if tails == 0 {
 			declaration, cause := rule.HeadDeclaration()
-			cause = errors.Join(cause, rule.Close())
+			head, headErr := rule.Head()
+			var values []ast.ASTHandle
+			if headErr == nil {
+				var arity uint32
+				arity, headErr = r.manager.GetNumArgs(head)
+				if headErr == nil {
+					values = make([]ast.ASTHandle, arity)
+					for j := range values {
+						values[j], headErr = r.manager.GetArg(head, uint32(j))
+						if headErr != nil {
+							break
+						}
+					}
+				}
+			}
+			cause = errors.Join(cause, headErr, rule.Close())
 			entry := r.entries[declaration]
-			if cause != nil || entry == nil {
+			if cause != nil || entry == nil || len(values) != len(entry.sorts) {
 				return errors.Join(cause, ErrBoundDatalogFragment)
 			}
-			if cause = next[declaration].AddFact(make([]ast.ASTHandle, len(entry.sorts))); cause != nil {
+			if cause = r.addFactTo(next[declaration], entry.sorts, values); cause != nil {
 				return cause
 			}
 		} else if cause = rule.Close(); cause != nil {

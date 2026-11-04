@@ -317,11 +317,30 @@ func (r *boundDatalogRuntime) addFact(declaration ast.ASTHandle, values []ast.AS
 			return ast.ErrASTDomain
 		}
 	}
-	if err := entry.seed.AddFact(values); err != nil {
+	if err := r.addFactTo(entry.seed, entry.sorts, values); err != nil {
 		return err
 	}
 	r.evaluated = nil
 	return nil
+}
+
+func (r *boundDatalogRuntime) addFactTo(target *rel.BoundRelation, sorts, values []ast.ASTHandle) (resultErr error) {
+	if r.formulaCheck == nil {
+		return target.AddFact(values)
+	}
+	beforeFormula, err := target.ToFormula(r.manager, sorts)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&beforeFormula)) }()
+	before, err := r.manager.RefGet(beforeFormula)
+	if err != nil {
+		return err
+	}
+	if err = target.AddFact(values); err != nil {
+		return err
+	}
+	return rel.VerifyBoundRelationFactAdd(r.manager, sorts, *r.formulaCheck, before, values, target)
 }
 
 func (r *boundDatalogRuntime) union(target, source *rel.BoundRelation, sorts []ast.ASTHandle, widen bool) (changed bool, resultErr error) {

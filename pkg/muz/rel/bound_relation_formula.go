@@ -147,3 +147,89 @@ func VerifyBoundRelationUnion(manager *ast.ASTManager, sorts []ast.ASTHandle, co
 	}
 	return VerifyRelationFormulasEquivalent(manager, config, expectedGround, actualGround)
 }
+
+// VerifyBoundRelationFactAdd mirrors check_relation::add_fact: the expected
+// post-state is the prior formula disjoined with the concrete tuple equation.
+func VerifyBoundRelationFactAdd(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, before ast.ASTHandle, values []ast.ASTHandle, after *BoundRelation) (resultErr error) {
+	if manager == nil || before.IsNull() || after == nil || len(sorts) != len(values) {
+		return ErrRelationVerification
+	}
+	vars := make([]ast.ASTHandle, len(sorts))
+	var roots []ast.ASTRef
+	defer func() {
+		for i := len(roots) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, manager.DelRef(&roots[i]))
+		}
+	}()
+	for i, sort := range sorts {
+		v, err := manager.MkVar(uint32(i), sort)
+		if err != nil {
+			return err
+		}
+		ref, err := manager.NewRef(v)
+		if err != nil {
+			return err
+		}
+		roots = append(roots, ref)
+		vars[i] = v
+	}
+	equalities := make([]ast.ASTHandle, len(values))
+	for i, value := range values {
+		eq, err := manager.MkEq(vars[i], value)
+		if err != nil {
+			return err
+		}
+		ref, err := manager.NewRef(eq)
+		if err != nil {
+			return err
+		}
+		roots = append(roots, ref)
+		equalities[i] = eq
+	}
+	fact, err := manager.MkAndArgs(equalities)
+	if err != nil {
+		return err
+	}
+	factRef, err := manager.NewRef(fact)
+	if err != nil {
+		return err
+	}
+	roots = append(roots, factRef)
+	expected, err := manager.MkOrArgs([]ast.ASTHandle{before, fact})
+	if err != nil {
+		return err
+	}
+	expectedRef, err := manager.NewRef(expected)
+	if err != nil {
+		return err
+	}
+	roots = append(roots, expectedRef)
+	actualFormula, err := after.ToFormula(manager, sorts)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&actualFormula)) }()
+	actual, err := manager.RefGet(actualFormula)
+	if err != nil {
+		return err
+	}
+	expectedGround, err := GroundRelationFormula(manager, sorts, expected)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&expectedGround)) }()
+	actualGround, err := GroundRelationFormula(manager, sorts, actual)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&actualGround)) }()
+	expectedHandle, err := manager.RefGet(expectedGround)
+	if err != nil {
+		return err
+	}
+	actualHandle, err := manager.RefGet(actualGround)
+	if err != nil {
+		return err
+	}
+	return VerifyRelationFormulasEquivalent(manager, config, expectedHandle, actualHandle)
+}
