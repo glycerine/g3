@@ -134,7 +134,11 @@ func (r *KarrRelation) ensureInequalities() error {
 	if !r.basisValid {
 		return ErrKarrDimension
 	}
-	r.inequalities = r.dualizeHomogeneous(r.basis)
+	inequalities, err := r.dualizeHomogeneous(r.basis)
+	if err != nil {
+		return err
+	}
+	r.inequalities = inequalities
 	r.inequalitiesValid = true
 	return nil
 }
@@ -167,7 +171,10 @@ func (r *KarrRelation) ensureBasis() error {
 		r.basisValid = true
 		return nil
 	}
-	basis, satisfiable := r.dualizeInequalities(r.inequalities)
+	basis, satisfiable, err := r.dualizeInequalities(r.inequalities)
+	if err != nil {
+		return err
+	}
 	if !satisfiable {
 		r.empty = true
 		r.basis = KarrMatrix{}
@@ -178,7 +185,7 @@ func (r *KarrRelation) ensureBasis() error {
 	return nil
 }
 
-func (r *KarrRelation) dualizeInequalities(source KarrMatrix) (KarrMatrix, bool) {
+func (r *KarrRelation) dualizeInequalities(source KarrMatrix) (KarrMatrix, bool, error) {
 	basis := hilbert.New(r.checkpoint)
 	for i := range source.A {
 		bound := new(big.Rat).Neg(&source.B[i])
@@ -189,25 +196,28 @@ func (r *KarrRelation) dualizeInequalities(source KarrMatrix) (KarrMatrix, bool)
 			err = basis.AddGE(source.A[i], bound)
 		}
 		if err != nil {
-			return KarrMatrix{}, true
+			return KarrMatrix{}, true, err
 		}
 	}
 	for i := uint32(0); i < r.dimension; i++ {
 		basis.SetIsInt(i)
 	}
 	result, err := basis.Saturate()
-	if err != nil || result == lbool.Undef {
-		return KarrMatrix{}, true
+	if err != nil {
+		return KarrMatrix{}, true, err
+	}
+	if result == lbool.Undef {
+		return KarrMatrix{}, true, nil
 	}
 	if result == lbool.False {
-		return KarrMatrix{}, false
+		return KarrMatrix{}, false, nil
 	}
 	var destination KarrMatrix
 	firstInitial := true
 	for i := uint32(0); i < basis.BasisSize(); i++ {
 		solution, initial, solutionErr := basis.BasisSolution(i)
 		if solutionErr != nil {
-			return KarrMatrix{}, true
+			return KarrMatrix{}, true, solutionErr
 		}
 		if initial && firstInitial {
 			destination.append(solution, big.NewRat(1, 1), true)
@@ -216,12 +226,12 @@ func (r *KarrRelation) dualizeInequalities(source KarrMatrix) (KarrMatrix, bool)
 			destination.append(solution, nil, true)
 		}
 	}
-	return destination, true
+	return destination, true, nil
 }
 
-func (r *KarrRelation) dualizeHomogeneous(source KarrMatrix) KarrMatrix {
+func (r *KarrRelation) dualizeHomogeneous(source KarrMatrix) (KarrMatrix, error) {
 	if source.Len() == 0 {
-		return KarrMatrix{}
+		return KarrMatrix{}, nil
 	}
 	basis := hilbert.New(r.checkpoint)
 	for i := range source.A {
@@ -234,21 +244,24 @@ func (r *KarrRelation) dualizeHomogeneous(source KarrMatrix) KarrMatrix {
 			err = basis.AddGE(row, nil)
 		}
 		if err != nil {
-			return KarrMatrix{}
+			return KarrMatrix{}, err
 		}
 	}
 	for i := uint32(0); i <= r.dimension; i++ {
 		basis.SetIsInt(i)
 	}
 	result, err := basis.Saturate()
-	if err != nil || result != lbool.True {
-		return KarrMatrix{}
+	if err != nil {
+		return KarrMatrix{}, err
+	}
+	if result != lbool.True {
+		return KarrMatrix{}, nil
 	}
 	var destination KarrMatrix
 	for i := uint32(0); i < basis.BasisSize(); i++ {
 		solution, initial, solutionErr := basis.BasisSolution(i)
 		if solutionErr != nil {
-			return KarrMatrix{}
+			return KarrMatrix{}, solutionErr
 		}
 		if initial || len(solution) == 0 {
 			continue
@@ -256,7 +269,7 @@ func (r *KarrRelation) dualizeHomogeneous(source KarrMatrix) KarrMatrix {
 		constant := solution[len(solution)-1]
 		destination.append(solution[:len(solution)-1], &constant, true)
 	}
-	return destination
+	return destination, nil
 }
 
 func (r *KarrRelation) Inequalities() (KarrMatrix, error) {

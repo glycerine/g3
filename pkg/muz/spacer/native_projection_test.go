@@ -93,6 +93,50 @@ func TestSpacerNativeProjectionUsesSharedStages(t *testing.T) {
 			t.Fatal("native arithmetic mode skipped the shared array reduction stage")
 		}
 	})
+	t.Run("child-skips-empty-projection", func(t *testing.T) {
+		// create_next_child guards both projection calls with !vars.empty().
+		// The unguarded driver above reduces this select even without variables.
+		result, remaining, err := d.projectIfNonempty(false, md.Core(), nil, formula)
+		must(err)
+		defer func() { must(m.DelRef(&result)); must(releaseNormalizeRefs(m, remaining)) }()
+		h, err := m.RefGet(result)
+		must(err)
+		if h != formula || len(remaining) != 0 {
+			t.Fatal("empty child projection changed its formula or variables", h, remaining)
+		}
+	})
+	t.Run("child-ground-controls-fallback-substitution", func(t *testing.T) {
+		// create_next_child passes !ground as qe_project's dont_sub.
+		owner.useNativeMBP = false
+		defer func() { owner.useNativeMBP = true }()
+		two := own(m.ArithmeticIntegerNumeralText("2"))
+		x := constant("child-projection-x", integer, two)
+		square := own(m.MkArithmeticMul(x, x))
+		nonlinear := own(m.MkArithmeticGT(square, zero))
+		for _, ground := range []bool{false, true} {
+			result, remaining, err := d.projectIfNonempty(ground, md.Core(), []ast.ASTHandle{x}, nonlinear)
+			must(err)
+			h, err := m.RefGet(result)
+			must(err)
+			occurs, err := m.OccursExpr(x, h)
+			must(err)
+			if ground {
+				if len(remaining) != 0 || occurs || !m.IsTrue(h) {
+					t.Fatal("ground projection did not substitute the model value", remaining, occurs)
+				}
+			} else if len(remaining) != 1 || !occurs {
+				t.Fatal("non-ground projection lost its existential", remaining, occurs)
+			} else {
+				v, err := m.RefGet(remaining[0])
+				must(err)
+				if v != x {
+					t.Fatal("non-ground projection retained the wrong existential", v)
+				}
+			}
+			must(m.DelRef(&result))
+			must(releaseNormalizeRefs(m, remaining))
+		}
+	})
 	t.Run("repeat-lite-for-boolean-array-auxiliary", func(t *testing.T) {
 		falsity := own(m.MkFalse())
 		boolArraySort := own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{integer}), boolean))

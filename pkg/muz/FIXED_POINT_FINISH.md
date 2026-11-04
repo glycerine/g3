@@ -59,6 +59,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Correct six obsolete context/rule-set descriptions of pending normalization: completed clauses publish directly, failed multi-clause inputs can leave a prefix, and canceled normalization may finish an input without clauses. The focused publication, retry and cancellation campaigns cover these source phases.
   - [x] Reclassify `dl_instruction.cpp/.h` and `dl_relation_manager.cpp` as partial: source execution reaches registered abstract/product plugin dispatch while Go implements bounded concrete consumers; preserve their existing method records and tested functionality.
   - [x] Correct the Karr inventory: source Datalog can register and select `karr_relation`; the Go invariant transform's concrete Karr operations do not establish that public Datalog route. Keep both Karr units partial without adding a universal adapter.
+  - [x] Add a bounded concrete Karr Datalog route for integer/nullary direct facts and acyclic identity forwarding, including predicate and identity-expression queries, approximate relation answers, snapshots, cancellation, arithmetic-owner conflicts and retry. Unsupported shapes return an explicit error; Go Hilbert integer overflow is reported instead of publishing a wrong relation.
   - [ ] Implement and verify the live configured Datalog Karr relation routes and operation semantics through their actual consumers.
   - [x] Restore the PDR manager's live pre-converter model TRACE for model export, validation and direct answers; test source ordering, disabled tracing and ownership.
   - [ ] Complete the PDR manager ownership and remaining diagnostic audit; the separate rule-manager diagnostic display has no source caller.
@@ -72,6 +73,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Map the Duality profiling unit and live consumers in [DUALITY_UNIT_AUDIT.md](DUALITY_UNIT_AUDIT.md); leave missing timer scopes, global lifetime and report fidelity open.
   - [x] Map the fixedpoint command interface and consumers in [FP_UNIT_AUDIT.md](FP_UNIT_AUDIT.md); retain its parsing, exception and cleanup gaps as open obligations.
   - [x] Match `dl_rule_cmd` trailing-symbol parsing: each symbol after the optional recursion bound replaces the rule name. Execution and collection tests cover empty names and rejection without publishing a malformed rule.
+  - [x] Match base context predicate restriction and registration: scoped membership restoration preserves name lookup, and re-registering an unnamed existing predicate does not add a name.
   - [x] Reset fixedpoint query status after successful SMT-LIB command output at the source cleanup boundary; backend cleanup and exception/error-output paths remain open.
 - [ ] Verify previously marked ported units against their actual consumers and proof/ownership requirements; status labels alone are insufficient.
   - [x] Audit `dl_costs.cpp/.h` and fix stopwatch sample rounding; [BASE_UNIT_AUDIT.md](BASE_UNIT_AUDIT.md) records the mapped consumers and remaining profile-attribution evidence.
@@ -83,12 +85,14 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Audit the concrete dataflow/reachability consumer in [DATAFLOW_UNIT_AUDIT.md](DATAFLOW_UNIT_AUDIT.md), including unreachable constructed facts and outputs without rules; nested-dependency source fidelity remains under review.
   - [ ] Establish whether the source quantifier-abstraction pipeline can leave a nested predicate for cone pruning. The Go analysis conservatively follows that dependency; a source-derived intermediate demonstrates possible semantic loss from pruning, but a public C++ query failure remains unproven.
   - [x] Verify compound Horn head/negative-body hoisting order and proof conclusion, first-true linear BMC rule selection, and Spacer ITE implicant branch selection against the source paths.
+  - [x] Verify PDR/QPDR coalescing is gated by positive unfold rounds and precedes unfolding, across zero, one and two rounds.
   - [x] Match TAB's source `basic-weight` fallthrough to weight selection, and test its cached-selection behavior. Verify DDNF reparenting/mark traversal, CLP search result ordering and relational compiler projection selection against their source paths.
   - [x] Verify Duality tree interpolation includes each node's extra constraints and restores the temporary solver scope; other interpolation branches and exceptional cleanup remain under audit.
   - [x] Audit TBV consumers and bound the live-wrapper ledger, with deallocation, refusal/retry, stale-owner, reset and close coverage; [REL_UNIT_AUDIT.md](REL_UNIT_AUDIT.md) records the source mapping and limits.
   - [x] Check the complete single-bit TBV truth tables, both containment modes and source complement ordering, including undefined bits.
   - [x] Preserve scale-transform temporary owners across cleanup refusal and publish its predicate mapping after successful construction; staged native-callback and mixed-sort failure tests cover the bounded recovery paths.
   - [x] Exercise scale's zero, one and other numeral branches, fresh equality guards, nested Boolean/arithmetic rewriting and opaque multiplication against source-shaped formulas; other scale branches and consumers remain open.
+  - [x] Verify scale's per-rule cache reset, sigma indices, predicate reuse, rule names and the source's all-false tail-negation flags across multiple rules.
   - [x] Verify Spacer scale models against original clauses and queries, including slicing/inlining composition; preserve upstream predicate origins through unchanged slice outputs. Other engines remain open.
   - [x] Verify Farkas sign and consequence semantics for integer and real strict/non-strict bounds, negations and equalities, using independently evaluated boundary points.
   - [x] Check repeated public PDR delayed-scope assertion failures recover for a later check; actual partial-pop failure remains covered separately through the cleanup owner.

@@ -28,7 +28,7 @@ func (e *PropositionalEngine) RelationsAnswer() (answer ast.ASTRef, resultErr er
 		}
 		return e.manager.NewRef(h)
 	}
-	if e.lastResult != lbool.True {
+	if e.lastResult != lbool.True && !(e.lastResult == lbool.Undef && e.karrDatalog != nil && e.karrDatalog.results != nil) {
 		return answer, ErrPropositionalEngine
 	}
 	refs := make([]ast.ASTRef, 0, len(e.queryRelations))
@@ -54,9 +54,13 @@ func (e *PropositionalEngine) RelationsAnswer() (answer ast.ASTRef, resultErr er
 		}
 		values = append(values, h)
 	}
-	h, err := e.manager.MkAndArray(values)
+	answer, err := e.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return answer, err
 	}
-	return e.manager.NewRef(h)
+	h, err := e.manager.MkAndArray(values)
+	if !h.IsNull() {
+		err = errors.Join(err, e.manager.SetRef(answer, h))
+	}
+	return answer, err
 }

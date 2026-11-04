@@ -252,14 +252,21 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err = clone.AddRule(rule, ""); err != nil {
 		return lbool.Undef, err
 	}
-	boundIntervalSelected := false
+	karrSelected := false
 	if clone.backend == "datalog" {
+		karrSelected, err = clone.ensureKarrDatalog()
+		if err != nil {
+			return lbool.Undef, err
+		}
+	}
+	boundIntervalSelected := false
+	if clone.backend == "datalog" && !karrSelected {
 		boundIntervalSelected, err = clone.ensureBoundIntervalDatalog()
 		if err != nil {
 			return lbool.Undef, err
 		}
 	}
-	if clone.backend == "datalog" && !boundIntervalSelected {
+	if clone.backend == "datalog" && !karrSelected && !boundIntervalSelected {
 		if _, cause := clone.ensureUDocDatalog(); cause != nil {
 			return lbool.Undef, cause
 		}

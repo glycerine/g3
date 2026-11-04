@@ -70,6 +70,12 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 			return nil, errors.Join(err, e.discardQueryClone(clone))
 		}
 	}
+	if e.karrDatalog != nil {
+		clone.karrDatalog, err = e.karrDatalog.clone(clone.set)
+		if err != nil {
+			return nil, errors.Join(err, e.discardQueryClone(clone))
+		}
+	}
 	if e.intervalDatalog != nil {
 		clone.intervalDatalog, err = e.intervalDatalog.clone(clone.set)
 		if err != nil {

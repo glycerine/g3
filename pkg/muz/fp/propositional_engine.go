@@ -197,6 +197,7 @@ type PropositionalEngine struct {
 	externalIntervalDatalog  *externalIntervalDatalogActivation
 	udocDatalog              *datalogUDocContext
 	intervalDatalog          *intervalDatalogActivation
+	karrDatalog              *karrDatalogActivation
 	boundDatalog             *boundDatalogRuntime
 	boundIntervalDatalog     *boundIntervalDatalogActivation
 	arithmeticFactCleanup    []*arithmeticTableFactAttempt
@@ -366,6 +367,29 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		if entry := e.boundIntervalDatalog.entries[declaration]; entry != nil && !boundIntervalKindsEqual(entry.kinds, kinds) {
 			return ErrBoundIntervalDatalogFragment
 		}
+	}
+	if e.karrDatalog != nil && (len(kinds) != 1 || kinds[0] != "karr_relation") {
+		return ErrKarrDatalogFragment
+	}
+	if len(kinds) == 1 && kinds[0] == "karr_relation" {
+		if e.udocDatalog != nil || e.sparseIntervalDatalog != nil || e.intervalDatalog != nil || e.boundDatalog != nil || e.boundIntervalDatalog != nil || e.externalIntervalDatalog != nil {
+			return ErrKarrDatalogFragment
+		}
+		if state.external != nil || state.explicitFiniteRepresentation {
+			return ErrKarrDatalogFragment
+		}
+		if state.table != nil {
+			n, err := state.table.Len()
+			if err != nil {
+				return err
+			}
+			if n != 0 {
+				return ErrKarrDatalogFragment
+			}
+		}
+		state.requestedRepresentations = append([]string(nil), kinds...)
+		e.revision++
+		return nil
 	}
 	if isBoundIntervalRepresentation(kinds) {
 		return e.selectBoundIntervalRepresentation(declaration, kinds)
@@ -638,6 +662,17 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 			return err
 		}
 		e.engineInstantiated = true
+		if selected, err := e.ensureKarrDatalog(); err != nil {
+			return err
+		} else if selected {
+			if err = e.karrDatalog.addFact(declaration, values); err != nil {
+				return err
+			}
+			e.invalidateQueryForMutation()
+			e.advanceRuleRevision()
+			e.compiled = false
+			return nil
+		}
 		if selected, err := e.ensureBoundIntervalDatalog(); err != nil {
 			return err
 		} else if selected {
@@ -754,6 +789,11 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 			return err
 		}
 		e.engineInstantiated = true
+		if selected, err := e.ensureKarrDatalog(); err != nil {
+			return err
+		} else if selected {
+			return e.addArithmeticTableFact(declaration, values)
+		}
 		if selected, err := e.ensureBoundIntervalDatalog(); err != nil {
 			return err
 		} else if selected {
@@ -2341,6 +2381,11 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if _, err := e.ensureDefaultExternalDatalog(); err != nil {
 		return lbool.Undef, err
 	}
+	if selected, err := e.ensureKarrDatalog(); err != nil {
+		return lbool.Undef, err
+	} else if selected {
+		return e.queryKarrDatalog(declarations)
+	}
 	if selected, err := e.ensureBoundIntervalDatalog(); err != nil {
 		return lbool.Undef, err
 	} else if selected {
@@ -2627,6 +2672,9 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 	}
 	if err = e.requireResultSnapshot(kind); err != nil {
 		return answer, err
+	}
+	if kind == EngineDatalog && (e.karrDatalog != nil || e.queryClone != nil && e.queryClone.karrDatalog != nil) {
+		return e.karrDatalogAnswer(declaration)
 	}
 	if kind == EngineDatalog && (e.udocDatalog != nil || e.queryClone != nil && e.queryClone.udocDatalog != nil) {
 		return e.udocAnswer(declaration)
@@ -3067,6 +3115,12 @@ func (e *PropositionalEngine) Close() (result error) {
 	}
 	if err := e.closeSparseIntervalDatalog(); err != nil {
 		return errors.Join(result, err)
+	}
+	if e.karrDatalog != nil {
+		if err := e.karrDatalog.close(); err != nil {
+			return errors.Join(result, err)
+		}
+		e.karrDatalog = nil
 	}
 	if err := e.closeIntervalDatalog(); err != nil {
 		return errors.Join(result, err)
