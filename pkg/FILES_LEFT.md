@@ -13,7 +13,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [ ] `src/api/api_rcf.cpp`
 - [ ] `src/api/api_solver.cpp`
 - [ ] `src/api/dll/install_tactic.cpp`
-- [ ] `src/api/z3.h`
+- [x] `src/api/z3.h` — Not applicable: C/C++ umbrella header; Go consumers import the `api` package. Individual API files remain listed separately.
 - [ ] `src/api/z3_algebraic.h`
 - [ ] `src/api/z3_api.h`
 - [ ] `src/api/z3_ast_containers.h`
@@ -194,8 +194,8 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [ ] `src/shell/opt_frontend.h`
 - [ ] `src/shell/smtlib_frontend.cpp`
 - [ ] `src/shell/smtlib_frontend.h`
-- [ ] `src/shell/z3_log_frontend.cpp`
-- [ ] `src/shell/z3_log_frontend.h`
+- [x] `src/shell/z3_log_frontend.cpp` — CLI input selection and replay reporting are implemented in `pkg/cmd/g3` and `pkg/api`; generated replay commands are separate source units.
+- [x] `src/shell/z3_log_frontend.h` — Not applicable: this header only declares the C++ replay entry point, which is implemented by the Go frontend.
 - [ ] `src/tactic/aig/aig.cpp`
 - [ ] `src/tactic/aig/aig.h`
 - [ ] `src/tactic/arith/eq2bv_tactic.cpp`

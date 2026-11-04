@@ -984,23 +984,23 @@ func (p *commandParser) command() (bool, error) {
 		}
 		options := cmd_context.EvaluationOptions{Timeout: ^uint32(0)}
 		for p.token != RightParenToken {
-			if p.token != KeywordToken {
-				return false, fmt.Errorf("invalid keyword argument")
+			keyword, e := p.parametricKeyword()
+			if e != nil {
+				return false, e
 			}
-			keyword := p.scanner.ID()
 			if err = p.advance(); err != nil {
 				return false, err
 			}
 			switch keyword {
-			case ":completion", ":cache", ":array_equalities", ":array-equalities":
+			case "completion", "cache", "array_equalities":
 				if p.token != SymbolToken || p.scanner.ID() != "true" && p.scanner.ID() != "false" {
 					return false, fmt.Errorf("invalid parameter value, true or false expected")
 				}
 				value := p.scanner.ID() == "true"
 				switch keyword {
-				case ":completion":
+				case "completion":
 					options.Completion = &value
-				case ":cache":
+				case "cache":
 					options.Cache = &value
 				default:
 					options.ArrayEqualities = &value
@@ -1008,19 +1008,19 @@ func (p *commandParser) command() (bool, error) {
 				if err = p.advance(); err != nil {
 					return false, err
 				}
-			case ":max_memory", ":max-memory", ":max_steps", ":max-steps", ":timeout", ":rlimit", ":model_index", ":model-index":
+			case "max_memory", "max_steps", "timeout", "rlimit", "model_index":
 				value, e := p.unsigned()
 				if e != nil {
 					return false, e
 				}
 				switch keyword {
-				case ":max_memory", ":max-memory":
+				case "max_memory":
 					options.MaxMemory = &value
-				case ":max_steps", ":max-steps":
+				case "max_steps":
 					options.MaxSteps = &value
-				case ":timeout":
+				case "timeout":
 					options.Timeout = value
-				case ":rlimit":
+				case "rlimit":
 					options.RLimit = value
 				default:
 					options.ModelIndex = value

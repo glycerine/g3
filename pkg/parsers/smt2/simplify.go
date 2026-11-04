@@ -43,11 +43,10 @@ func (p *commandParser) simplifyCommand() (resultErr error) {
 	printProof := false
 	printStatistics := false
 	for p.token != RightParenToken && p.token != EOFToken {
-		if p.token != KeywordToken {
-			return fmt.Errorf("invalid simplify command, keyword expected")
+		key, e := p.parametricKeyword()
+		if e != nil {
+			return e
 		}
-		rawKey := p.scanner.ID()
-		key := uparams.NormParamName(&rawKey)
 		if err = p.advance(); err != nil {
 			return err
 		}

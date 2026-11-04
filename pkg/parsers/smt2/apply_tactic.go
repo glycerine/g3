@@ -42,8 +42,10 @@ func (p *commandParser) applyTactic(execute bool) (err error) {
 	}
 	defer func() { err = errors.Join(err, c.Del(&options)) }()
 	for p.token == KeywordToken {
-		rawKey := p.scanner.ID()
-		key := uparams.NormParamName(&rawKey)
+		key, e := p.parametricKeyword()
+		if e != nil {
+			return e
+		}
 		kind, found := applyTacticParameterKinds[key]
 		if !found {
 			return fmt.Errorf("invalid keyword argument")

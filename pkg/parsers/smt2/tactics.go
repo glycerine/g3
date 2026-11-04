@@ -338,8 +338,10 @@ func (p *commandParser) checkSatUsing(execute bool) (err error) {
 	}
 	defer func() { err = errors.Join(err, c.Del(&options)) }()
 	for p.token == KeywordToken {
-		key := strings.TrimPrefix(p.scanner.ID(), ":")
-		key = uparams.NormParamName(&key)
+		key, e := p.parametricKeyword()
+		if e != nil {
+			return e
+		}
 		if key != "timeout" {
 			return fmt.Errorf("unsupported check-sat-using option %s", key)
 		}
