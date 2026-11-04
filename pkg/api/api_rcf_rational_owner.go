@@ -7,8 +7,27 @@ package api
 import (
 	"errors"
 
+	"github.com/glycerine/g3/pkg/math/realclosure"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
+
+func (c *SMTContext) realClosureValues() (*realclosure.APIValues, error) {
+	if err := c.open(); err != nil {
+		return nil, err
+	}
+	if c.realClosure == nil {
+		manager, err := c.Manager()
+		if err != nil {
+			return nil, err
+		}
+		values, err := realclosure.NewAPIValues(manager.NumeralService())
+		if err != nil {
+			return nil, err
+		}
+		c.realClosure = values
+	}
+	return c.realClosure, nil
+}
 
 var ErrRCFNumberOwner = errors.New("api: invalid, foreign, or closed RCF number")
 var ErrRCFDivisionByZero = errors.New("api: RCF division by zero")
@@ -19,6 +38,7 @@ type RCFNumber struct {
 	context *smtContextState
 	service *unumeral.RationalService
 	value   unumeral.OwnedRational
+	real    *realclosure.APIValue
 	closed  bool
 }
 
@@ -65,6 +85,51 @@ func (c *SMTContext) RCFSmallInt(value int32) (*RCFNumber, error) {
 	return c.RCFRational(stringInt32(value))
 }
 
+// RCFRoots returns the distinct real roots in the source manager's order.
+func (c *SMTContext) RCFRoots(coefficients []*RCFNumber) ([]*RCFNumber, error) {
+	if len(coefficients) == 0 {
+		return nil, ErrRCFNumberOwner
+	}
+	service, err := c.checkRCF(coefficients...)
+	if err != nil {
+		return nil, err
+	}
+	values, err := c.realClosureValues()
+	if err != nil {
+		return nil, err
+	}
+	inputs := make([]*realclosure.APIValue, len(coefficients))
+	owned := make([]*realclosure.APIValue, 0, len(coefficients))
+	for i, coefficient := range coefficients {
+		v, temporary, e := c.realRCF(coefficient)
+		if e != nil {
+			for _, x := range owned {
+				_ = x.Close()
+			}
+			return nil, e
+		}
+		inputs[i] = v
+		if temporary {
+			owned = append(owned, v)
+		}
+	}
+	roots, err := values.IsolateRoots(inputs)
+	for _, x := range owned {
+		err = errors.Join(err, x.Close())
+	}
+	if err != nil {
+		for _, root := range roots {
+			err = errors.Join(err, root.Close())
+		}
+		return nil, err
+	}
+	result := make([]*RCFNumber, len(roots))
+	for i, root := range roots {
+		result[i] = &RCFNumber{context: c.smtContextState, service: service, real: root}
+	}
+	return result, nil
+}
+
 func stringInt32(value int32) string {
 	if value == 0 {
 		return "0"
@@ -99,7 +164,12 @@ func (n *RCFNumber) Close() error {
 	if err := n.open(); err != nil {
 		return err
 	}
-	err := n.service.CleanupValue(&n.value)
+	var err error
+	if n.real != nil {
+		err = n.real.Close()
+	} else {
+		err = n.service.CleanupValue(&n.value)
+	}
 	if err == nil {
 		n.closed = true
 		n.service = nil

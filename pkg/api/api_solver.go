@@ -14,6 +14,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine" // generated parameter collectors
+	"github.com/glycerine/g3/pkg/math/realclosure"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/parsers/smt2"
 	"github.com/glycerine/g3/pkg/util/control"
@@ -37,6 +38,7 @@ type smtContextState struct {
 	interruptScope *smtContextInterruptScope
 	polyLimit      control.Reslimit
 	polynomial     *apiPolynomialManager
+	realClosure    *realclosure.APIValues
 	closed         bool
 }
 
@@ -430,6 +432,12 @@ func (c *SMTContext) ResetAssertions() error {
 func (c *SMTContext) Close() error {
 	if c == nil || c.smtContextState == nil || c.closed {
 		return nil
+	}
+	if c.realClosure != nil {
+		if err := c.realClosure.Close(); err != nil {
+			return err
+		}
+		c.realClosure = nil
 	}
 	if err := c.polynomial.close(); err != nil {
 		return err

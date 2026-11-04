@@ -2,7 +2,42 @@ package api
 
 // Source: src/api/api_rcf.cpp:36-44,140-267.
 
-import unumeral "github.com/glycerine/g3/pkg/util/numeral"
+import (
+	"errors"
+	"github.com/glycerine/g3/pkg/math/realclosure"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
+)
+
+// realRCF borrows an algebraic value or makes a temporary value for a
+// rational operand. The caller closes temporary values after the operation.
+func (c *SMTContext) realRCF(value *RCFNumber) (*realclosure.APIValue, bool, error) {
+	if _, err := c.checkRCF(value); err != nil {
+		return nil, false, err
+	}
+	if value.real != nil {
+		return value.real, false, nil
+	}
+	values, err := c.realClosureValues()
+	if err != nil {
+		return nil, false, err
+	}
+	text, err := value.service.String(&value.value)
+	if err != nil {
+		return nil, false, err
+	}
+	converted, err := values.Rational(text)
+	return converted, err == nil, err
+}
+
+func (c *SMTContext) wrapRealRCF(service *unumeral.RationalService, value *realclosure.APIValue, err error) (*RCFNumber, error) {
+	if err != nil {
+		return nil, err
+	}
+	if err = c.open(); err != nil {
+		return nil, errors.Join(err, value.Close())
+	}
+	return &RCFNumber{context: c.smtContextState, service: service, real: value}, nil
+}
 
 func (c *SMTContext) checkRCF(values ...*RCFNumber) (*unumeral.RationalService, error) {
 	if err := c.open(); err != nil {

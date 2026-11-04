@@ -34,6 +34,7 @@ func registerZ3GeneratedRCFCommands(r *Z3Replayer) error {
 		name string
 	}{
 		{488, "Z3_rcf_del"}, {489, "Z3_rcf_mk_rational"}, {490, "Z3_rcf_mk_small_int"},
+		{494, "Z3_rcf_mk_roots"},
 		{495, "Z3_rcf_add"}, {496, "Z3_rcf_sub"}, {497, "Z3_rcf_mul"}, {498, "Z3_rcf_div"}, {499, "Z3_rcf_neg"}, {500, "Z3_rcf_inv"}, {501, "Z3_rcf_power"},
 		{502, "Z3_rcf_lt"}, {503, "Z3_rcf_gt"}, {504, "Z3_rcf_le"}, {505, "Z3_rcf_ge"}, {506, "Z3_rcf_eq"}, {507, "Z3_rcf_neq"},
 		{508, "Z3_rcf_num_to_string"}, {509, "Z3_rcf_num_to_decimal_string"}, {510, "Z3_rcf_get_numerator_denominator"},
@@ -131,6 +132,62 @@ func replayRCFCommand(r *Z3Replayer, id uint32) (err error) {
 	owner, err := replayContext(r, 0)
 	if err != nil {
 		return err
+	}
+	if id == 494 {
+		count, e := r.Uint(1)
+		if e != nil {
+			return e
+		}
+		ids, e := r.ObjectArray(2)
+		if e != nil {
+			return e
+		}
+		outputs, e := r.ObjectArray(3)
+		if e != nil {
+			return e
+		}
+		if uint32(len(ids)) < count || uint32(len(outputs)) < count {
+			return ErrZ3ReplayReference
+		}
+		ids = ids[:count]
+		coefficients := make([]*RCFNumber, len(ids))
+		var zeroTemporaries []*RCFNumber
+		for i, object := range ids {
+			if object == 0 {
+				coefficients[i], e = owner.context.RCFSmallInt(0)
+				if e != nil {
+					for _, z := range zeroTemporaries {
+						e = errors.Join(e, z.Close())
+					}
+					return e
+				}
+				zeroTemporaries = append(zeroTemporaries, coefficients[i])
+				continue
+			}
+			n := r.rcfNumbers[object]
+			if n == nil || n.owner != owner || n.refs == 0 {
+				return ErrZ3ReplayReference
+			}
+			coefficients[i] = n.value
+		}
+		roots, e := owner.context.RCFRoots(coefficients)
+		for _, z := range zeroTemporaries {
+			e = errors.Join(e, z.Close())
+		}
+		if e != nil {
+			return e
+		}
+		result := make([]uint64, len(roots))
+		for i, root := range roots {
+			if e = replayStoreRCF(r, owner, root); e != nil {
+				for _, remaining := range roots[i+1:] {
+					e = errors.Join(e, remaining.Close())
+				}
+				return e
+			}
+			result[i] = r.result
+		}
+		return r.SetObjectArray(3, result)
 	}
 	if id == 489 || id == 490 {
 		var value *RCFNumber

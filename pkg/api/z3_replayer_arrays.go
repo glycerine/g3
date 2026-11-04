@@ -78,3 +78,15 @@ func (r *Z3Replayer) ObjectArray(p uint32) ([]uint64, error) {
 	}
 	return r.objectArrays[v.u], nil
 }
+
+func (r *Z3Replayer) SetObjectArray(p uint32, values []uint64) error {
+	v, err := r.value(p, replayObjectArray)
+	if err != nil {
+		return err
+	}
+	if len(r.objectArrays[v.u]) < len(values) {
+		return ErrZ3ReplayReference
+	}
+	copy(r.objectArrays[v.u], values)
+	return nil
+}

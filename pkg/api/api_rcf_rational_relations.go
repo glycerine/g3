@@ -7,6 +7,23 @@ func (c *SMTContext) rcfCompare(a, b *RCFNumber) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	if a.real != nil || b.real != nil {
+		left, tl, e := c.realRCF(a)
+		if e != nil {
+			return 0, e
+		}
+		if tl {
+			defer left.Close()
+		}
+		right, tr, e := c.realRCF(b)
+		if e != nil {
+			return 0, e
+		}
+		if tr {
+			defer right.Close()
+		}
+		return c.realClosure.Compare(left, right)
+	}
 	less, err := service.Less(&a.value, &b.value)
 	if err != nil || less {
 		if less {
