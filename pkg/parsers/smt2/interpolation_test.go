@@ -122,6 +122,37 @@ func TestSMT2InterpolantCommandGuards(t *testing.T) {
 	}
 }
 
+func TestSMT2InterpolationGlobalCheckAndProfileOptions(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	globals, err := context.GlobalParameters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = globals.SourceSetName("interp.check", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if err = globals.SourceSetName("interp.profile", "true"); err != nil {
+		t.Fatal(err)
+	}
+	script := `(set-option :produce-interpolants true)(declare-const p Bool)
+(assert p)(assert (not p))(check-sat)(get-interpolant p (not p))`
+	var output bytes.Buffer
+	if err = ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err, output.String())
+	}
+	if !strings.Contains(output.String(), "(interpolants\n p)\ncorrect\n") || !strings.Contains(output.String(), "TOTAL") {
+		t.Fatal("global interpolation check/profile options were not applied", output.String())
+	}
+}
+
 func TestSMT2InterpolationReplayScriptMatchesCPP(t *testing.T) {
 	script := `(set-option :produce-interpolants true)
 (declare-fun replay-p () Bool)

@@ -47801,6 +47801,7 @@
       "tests": [
         "TestSMT2ComputeAndGetInterpolantUseNativeBackend",
         "TestSMT2InterpolantCommandGuards",
+        "TestSMT2InterpolationGlobalCheckAndProfileOptions",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference"
       ],
@@ -47814,28 +47815,22 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
-          "name": "make_tree plus get-interpolant and compute-interpolant command registration, proof/fresh-solver execution, SAT/UNSAT status and interpolant display",
+          "name": "make_tree plus get-interpolant and compute-interpolant registration, proof/fresh-solver execution, status, theory-rewritten display, global checking and profiling",
           "status": "ported",
           "go_target": "pkg/cmd_context/interpolation.go",
           "go_targets": ["pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/interpolation_test.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/interpolation_commands.smt2"],
-          "tests": ["TestSMT2ComputeAndGetInterpolantUseNativeBackend", "TestSMT2InterpolantCommandGuards", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
-        },
-        {
-          "name": "parametric som/flat simplification, check/check-option diagnostics and profiling output",
-          "status": "reference_only",
-          "go_target": null,
-          "tests": []
+          "tests": ["TestSMT2ComputeAndGetInterpolantUseNativeBackend", "TestSMT2InterpolantCommandGuards", "TestSMT2InterpolationGlobalCheckAndProfileOptions", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         }
       ],
       "ownership": [
         "Each command owns a short-lived interpolation manager and solver factory over the command context manager. Fresh compute solvers, optional models and every returned ASTRef close in reverse order; get-interpolant borrows the retained proof and assertion roots only during interpolation. Parser command roots retain every intermediate marker tree until command cleanup."
       ],
       "deviations": [
-        "The retained command path uses the concrete Go interpolation engine and source proof solver. The currently exposed commands accept formula arguments without interpolation-specific parametric options; simplification/check/profile modes remain reference-only."
+        "The C++ command declares no command-local parameter descriptors, so its som/flat keywords are not accepted by the live command interface. The Go command applies the default theory rewriter and honors the global interp.check and interp.profile settings."
       ]
     },
     {
