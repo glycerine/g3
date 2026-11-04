@@ -7,7 +7,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/api/api_context.h` — The C++ context layout, inline accessors, and C ABI validation macros are represented by Go-owned `SMTContext`/`cmd_context.Context` state and typed API boundaries; no parallel C++ struct or macro layer has a Go consumer.
 - [x] `src/api/api_datalog.cpp` — Relation and finite-domain sort queries plus fixedpoint lifecycle, rules, queries, results, parameters, scopes, callbacks, and SMT-LIB loading/display are implemented across `pkg/api` and `pkg/cmd_context`; C ABI handles are replaced by owning Go objects.
 - [x] `src/api/api_datalog.h` — The fixedpoint object lifetime, parameter ownership, and external-relation callback contracts are implemented with `APIFixedpoint`, owned parameter sets, and typed Go callbacks; C pointer conversions and function-pointer typedefs have no Go ABI consumer.
-- [ ] `src/api/api_fpa.cpp`
+- [x] `src/api/api_fpa.cpp` — Floating-point sorts, values, rounding modes, arithmetic, comparisons, predicates, conversions, and numeral inspection are implemented across `pkg/api` and `pkg/ast/fpa`; the focused floating-point API checks pass.
 - [ ] `src/api/api_log_macros.cpp`
 - [ ] `src/api/api_log_macros.h`
 - [ ] `src/api/api_rcf.cpp`
