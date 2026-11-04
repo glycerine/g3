@@ -83399,8 +83399,8 @@
           ]
         },
         {
-          "name": "MPFF tactic internalize and search catches for shared subpaving::exception; real inexact-coefficient goal exercises internalize, tactic-level split failure remains to verify (subpaving_tactic.cpp:180-200)",
-          "status": "partial",
+          "name": "MPFF tactic translates shared subpaving exceptions from goal internalization and search into the source tactic messages (subpaving_tactic.cpp:180-200)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/fast_core_tactic.go",
           "tests": [
             "TestFastCoreTacticReturnsBorrowedGoalAndCollectsSearchStats"
