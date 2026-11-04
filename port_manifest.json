@@ -80432,10 +80432,11 @@
         },
         {
           "name": "Concrete config_hwf bound queue head, definition visits and non-resuming source root initialization state",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_propagate.go",
           "tests": [
-            "TestHardwareContextRootDefinitionOrderAndQueuedWatchers"
+            "TestHardwareContextRootDefinitionOrderAndQueuedWatchers",
+            "TestHardwareRootInitializationTraceSourceOrderAndResume"
           ]
         },
         {
