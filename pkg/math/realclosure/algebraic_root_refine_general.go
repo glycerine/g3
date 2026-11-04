@@ -18,6 +18,9 @@ func (s *realValueStore) refineSingleAlgebraicRoot(root *algebraicRoot, precisio
 	defer func() { err = errors.Join(err, s.releaseSturmBinary(bounds, &mid)) }()
 	var lowerSign int32
 	for {
+		if err = s.checkpoint(); err != nil {
+			return false, err
+		}
 		width := numeral.NewBinaryRational()
 		e := bounds.Sub(&root.interval.upper, &root.interval.lower, &width)
 		if e != nil {

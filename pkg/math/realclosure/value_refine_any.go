@@ -8,6 +8,9 @@ import (
 )
 
 func (s *realValueStore) refineAnyRetainedInterval(value *realValue, bounds *numeral.BinaryRationalManager, precision uint32) (bool, error) {
+	if err := s.checkpoint(); err != nil {
+		return false, err
+	}
 	if value == nil {
 		return true, nil
 	}

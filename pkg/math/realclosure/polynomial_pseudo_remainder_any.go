@@ -31,6 +31,9 @@ func (s *realValueStore) signedPseudoRemainderAny(left, right []*realValue, useP
 	leading := right[len(right)-1]
 	steps := 0
 	for len(result) >= len(right) {
+		if err = s.checkpoint(); err != nil {
+			return fail(err)
+		}
 		steps++
 		shift := len(result) - len(right)
 		high := result[len(result)-1]

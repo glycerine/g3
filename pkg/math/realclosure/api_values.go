@@ -10,6 +10,8 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/math/interval"
+	"github.com/glycerine/g3/pkg/util/control"
+	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
@@ -177,6 +179,12 @@ type APIValue struct {
 }
 
 func NewAPIValues(service *numeral.RationalService) (*APIValues, error) {
+	return NewAPIValuesWithExecution(service, nil, nil)
+}
+
+// NewAPIValuesWithExecution binds the source manager's resource and
+// cooperation services to root refinement and polynomial arithmetic.
+func NewAPIValuesWithExecution(service *numeral.RationalService, limit *control.Reslimit, cooperation *cooperate.Cooperation) (*APIValues, error) {
 	if service == nil || service.Manager == nil {
 		return nil, arena.ErrConfig
 	}
@@ -190,6 +198,8 @@ func NewAPIValues(service *numeral.RationalService) (*APIValues, error) {
 		initialPrecision: 24,
 	}
 	v.store.numbers = service.Manager
+	v.store.limit = limit
+	v.store.cooperation = cooperation
 	v.roots.values, v.roots.intervals = &v.store, bounds
 	v.roots.api = v
 	return v, nil

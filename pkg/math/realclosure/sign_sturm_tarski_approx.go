@@ -117,6 +117,9 @@ func (s *realValueStore) signApproxAtBinaryBound(coefficients []*realValue, boun
 		precision = uint32(-int64(biggest))
 	}
 	for ; precision <= s.intervalMaxPrecision(); precision++ {
+		if err = s.checkpoint(); err != nil {
+			return 0, err
+		}
 		for _, value := range coefficients {
 			if value == nil {
 				continue

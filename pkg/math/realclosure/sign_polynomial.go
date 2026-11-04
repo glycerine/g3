@@ -5,14 +5,18 @@ package realclosure
 
 import (
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/control"
+	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/params"
 )
 
-// realValueStore owns the retained rational and algebraic-root value variants.
-// Other rational-function and extension cases remain to be ported.
+// realValueStore owns the concrete rational, rational-function, and extension
+// value variants used by real-closure operations.
 type realValueStore struct {
 	numbers                  *numeral.RationalManager
+	limit                    *control.Reslimit
+	cooperation              *cooperate.Cooperation
 	initialPrecision         uint32
 	initialPrecisionBound    bool
 	maxPrecision             uint32
@@ -24,6 +28,19 @@ type realValueStore struct {
 	pendingSturmIntegers     []numeral.Int
 	pendingSturmBinaries     []sturmBinaryTemp
 	pendingSturmIntervals    []*BinaryInterval
+}
+
+func (s *realValueStore) checkpoint() error {
+	if s == nil {
+		return arena.ErrInvalidSlot
+	}
+	if s.limit != nil && !s.limit.Inc() {
+		return ErrRealClosureCanceled
+	}
+	if s.cooperation != nil {
+		return s.cooperation.Cooperate("rcf")
+	}
+	return nil
 }
 
 // realValue is a retained nonzero rational or algebraic-root function value.

@@ -19,7 +19,11 @@ func (c *SMTContext) realClosureValues() (*realclosure.APIValues, error) {
 		if err != nil {
 			return nil, err
 		}
-		values, err := realclosure.NewAPIValues(manager.NumeralService())
+		config, err := c.command.ModelEvaluatorConfig()
+		if err != nil {
+			return nil, err
+		}
+		values, err := realclosure.NewAPIValuesWithExecution(manager.NumeralService(), manager.ResourceLimit(), config.Cooperation)
 		if err != nil {
 			return nil, err
 		}

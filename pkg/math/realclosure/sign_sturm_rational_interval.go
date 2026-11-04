@@ -188,8 +188,9 @@ func (s *realValueStore) rationalApproxInterval(value *realValue, bounds *numera
 		if !refine {
 			return interval, nil
 		}
-		// Source checkpoint before each paired refinement still needs its
-		// enclosing real-closure resource/cooperation owner.
+		if err = s.checkpoint(); err != nil {
+			return nil, err
+		}
 		if err = bounds.RefineLower(s.numbers, &value.rational, &lower, &upper); err != nil {
 			return nil, err
 		}

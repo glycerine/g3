@@ -22,6 +22,9 @@ func (s *realValueStore) divideRankedPolynomials(left, right []*realValue, usePr
 		return nil, nil, errors.Join(cause, s.releaseSturmCoefficients(quotient), s.releaseSturmCoefficients(remainder))
 	}
 	for len(remainder) >= len(right) {
+		if err = s.checkpoint(); err != nil {
+			return fail(err)
+		}
 		shift := len(remainder) - len(right)
 		ratio, e := s.divideRankedRetainedValues(remainder[len(remainder)-1], right[len(right)-1], usePrem)
 		if e != nil {

@@ -16,6 +16,9 @@ func (s *realValueStore) multiplyAnyPolynomials(left, right []*realValue, usePre
 		}
 	}()
 	for i, a := range left {
+		if err = s.checkpoint(); err != nil {
+			return nil, err
+		}
 		if a == nil {
 			continue
 		}

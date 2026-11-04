@@ -105,6 +105,10 @@ func (s *realValueStore) signedRemainderRational(left, right []*realValue) ([]*r
 		}
 	}
 	for len(result) >= len(right) {
+		if err := s.checkpoint(); err != nil {
+			_ = s.releaseSturmCoefficients(result)
+			return nil, err
+		}
 		shift := len(result) - len(right)
 		ratio, err := s.divideRationals(result[len(result)-1], right[len(right)-1])
 		if err != nil {

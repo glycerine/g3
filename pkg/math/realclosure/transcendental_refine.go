@@ -17,6 +17,9 @@ func (s *realValueStore) refineTranscendentalRoot(root *algebraicRoot, _ uint32)
 	if api.transcendentals == nil || api.initialPrecision == 0 || (root.name != "pi" && root.name != "e") {
 		return arena.ErrInvalidSlot
 	}
+	if err := s.checkpoint(); err != nil {
+		return err
+	}
 	root.transcendentalStep++
 	rational, err := interval.NewRationalInterval(s.numbers)
 	if err != nil {
@@ -60,6 +63,9 @@ func (s *realValueStore) refineTranscendentalPolynomialValue(value *realValue, p
 		defer denominatorInterval.Close()
 	}
 	for workPrecision := precision; ; workPrecision++ {
+		if err = s.checkpoint(); err != nil {
+			return false, err
+		}
 		for _, polynomial := range [][]*realValue{value.functionNumerator.coefficients, value.functionDenominator.coefficients} {
 			for _, coefficient := range polynomial {
 				if coefficient == nil {

@@ -51,6 +51,9 @@ func (s *realValueStore) refineSturmAlgebraicInterval(value *realValue, precisio
 		if precise {
 			return true, value.functionInterval.SetFrom(root.interval)
 		}
+		if e = s.checkpoint(); e != nil {
+			return false, e
+		}
 		equal, e := bounds.Equal(&root.interval.lower, &root.interval.upper)
 		if e != nil || equal {
 			return false, e

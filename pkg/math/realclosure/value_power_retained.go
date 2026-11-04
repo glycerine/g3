@@ -19,6 +19,10 @@ func (s *realValueStore) powerRetainedValue(value *realValue, exponent uint32) (
 	}
 	defer func() { err = errors.Join(err, s.releaseSturmScratch(base)) }()
 	for exponent != 0 {
+		if err = s.checkpoint(); err != nil {
+			_ = s.releaseSturmScratch(result)
+			return nil, err
+		}
 		if exponent&1 != 0 {
 			next, e := s.multiplyRetainedValues(result, base)
 			if e != nil {

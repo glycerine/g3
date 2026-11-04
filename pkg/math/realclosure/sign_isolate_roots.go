@@ -51,6 +51,9 @@ func (o *algebraicRootOwner) isolateRationalRootsBySigns(p []*realValue, numRoot
 	allOne := false
 	for i := len(derivatives); i > 0; {
 		i--
+		if err = o.values.checkpoint(); err != nil {
+			return roots, err
+		}
 		_, allOne, err = state.advanceBoundedRational(p, derivatives[i].coefficients, isolating, usePrem)
 		if err != nil {
 			return roots, err

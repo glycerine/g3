@@ -43,6 +43,10 @@ func (s *realValueStore) signedPseudoRemainderRational(left, right []*realValue)
 	}
 	steps := 0
 	for len(result) >= len(right) {
+		if err := s.checkpoint(); err != nil {
+			_ = s.releaseSturmCoefficients(result)
+			return nil, err
+		}
 		steps++
 		shift := len(result) - len(right)
 		high := result[len(result)-1]

@@ -16,6 +16,10 @@ func (s *realValueStore) powerRankedRetainedValue(value *realValue, exponent uin
 	}
 	defer func() { err = errors.Join(err, s.releaseSturmScratch(base)) }()
 	for exponent != 0 {
+		if err = s.checkpoint(); err != nil {
+			_ = s.releaseSturmScratch(result)
+			return nil, err
+		}
 		if exponent&1 != 0 {
 			next, e := s.multiplyRankedRetainedValues(result, base, usePrem)
 			if e != nil {
