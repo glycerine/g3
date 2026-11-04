@@ -55260,7 +55260,7 @@
         },
         {
           "name": "Concrete config_hwf interval scalar multiply/divide: zero reset, sign reversal, directed reciprocal and destination alias (src/math/interval/interval_def.h:839-925)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_scalar.go",
           "tests": [
             "TestSubpavingHardwareIntervalScalarMulDivDirectedAndAlias"
@@ -80313,7 +80313,7 @@
         },
         {
           "name": "Concrete config_hwf interval scalar multiply/divide: zero reset, sign reversal, directed reciprocal and destination alias (src/math/interval/interval_def.h:839-925)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_scalar.go",
           "tests": [
             "TestSubpavingHardwareIntervalScalarMulDivDirectedAndAlias"
@@ -81706,7 +81706,7 @@
         },
         {
           "name": "Concrete config_hwf interval scalar multiply/divide: zero reset, sign reversal, directed reciprocal and destination alias (src/math/interval/interval_def.h:839-925)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_scalar.go",
           "tests": [
             "TestSubpavingHardwareIntervalScalarMulDivDirectedAndAlias"
