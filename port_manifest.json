@@ -80130,8 +80130,8 @@
           ]
         },
         {
-          "name": "Concrete config_mpq context-owned default nth-root precision 1/8192, zero-parameter fallback, canceled root dispatch and interval inverse image for retained monomial propagation (src/math/subpaving/subpaving_t_def.h:499-503,1641; src/math/interval/interval_def.h:1390-1478); root TRACE and full memory-checkpoint transport remain open",
-          "status": "partial",
+          "name": "Concrete config_mpq context-owned default nth-root precision 1/8192, zero-parameter fallback, canceled root dispatch, inverse image, interval root TRACE records, and source memory checkpoints at queued propagation and Newton iterations (src/math/subpaving/subpaving_t_def.h:499-503,1641; src/math/interval/interval_def.h:65,1390-1478)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/rational_context_root_precision.go",
           "go_targets": [
             "pkg/math/interval/rational_root.go",
@@ -80140,7 +80140,9 @@
           "tests": [
             "TestRationalRootNewtonCertifiedBoundsAndCancellation",
             "TestSubpavingRationalIntervalXnEqYSourceBranches",
-            "TestRationalContextInverseRootPrecisionAndCanceledDispatch"
+            "TestRationalContextInverseRootPrecisionAndCanceledDispatch",
+            "TestSubpavingRationalIntervalXnEqYSourceBranches",
+            "TestSubpavingRationalIntervalRootRetainedTraceSites"
           ]
         },
         {
