@@ -83,15 +83,11 @@ func (c *Context) RemoveRedundancy(formula *Expr) (out *Expr, result error) {
 				return err
 			}
 			if kind == ast.ASTApp && positive == and {
-				family, err := m.GetFamilyID(h)
-				if err != nil {
-					return err
-				}
 				op, err := m.GetDeclKind(h)
 				if err != nil {
 					return err
 				}
-				if family == m.BasicFamilyID() && op == ast.ASTOpEq {
+				if op == ast.ASTOpEq {
 					lhs, err := m.GetArg(h, 0)
 					if err != nil {
 						return err
@@ -180,15 +176,11 @@ func (c *Context) RemoveRedundancy(formula *Expr) (out *Expr, result error) {
 					return nil, err
 				}
 			}
-			family, err := m.GetFamilyID(h)
-			if err != nil {
-				return nil, err
-			}
 			op, err := m.GetDeclKind(h)
 			if err != nil {
 				return nil, err
 			}
-			if family == m.BasicFamilyID() && (op == ast.ASTOpAnd || op == ast.ASTOpOr) {
+			if op == ast.ASTOpAnd || op == ast.ASTOpOr {
 				if err = reduce(args, op == ast.ASTOpAnd); err != nil {
 					return nil, err
 				}
@@ -204,7 +196,7 @@ func (c *Context) RemoveRedundancy(formula *Expr) (out *Expr, result error) {
 						return nil, err
 					}
 				}
-				if family == m.BasicFamilyID() && op == ast.ASTOpEq {
+				if op == ast.ASTOpEq {
 					left, err := m.GetASTID(handles[0])
 					if err != nil {
 						return nil, err

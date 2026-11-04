@@ -184,3 +184,77 @@ func TestDualityRemoveRedundancyNumeralEqualityAndQuantifiedFact(t *testing.T) {
 		t.Fatal("equality AST-id order not canonicalized")
 	}
 }
+
+func TestDualityRemoveRedundancyAllocationFailureRetry(t *testing.T) {
+	ctx, m, _ := dualityNativeSolverFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	wrap := func(h ast.ASTHandle, err error) *Expr {
+		t.Helper()
+		must(err)
+		v, e := NewExpr(ctx, h)
+		must(e)
+		closeExpr(t, v)
+		return v
+	}
+	raw := func(v *Expr) ast.ASTHandle { t.Helper(); h, err := v.Raw(); must(err); return h }
+	one := wrap(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
+	integer, err := m.GetSort(raw(one))
+	must(err)
+	name, err := m.Symbols.Intern("redundancy-retry-x")
+	must(err)
+	x := wrap(m.MkConst(name, integer))
+	truth := wrap(m.MkTrue())
+	boolean, err := m.GetSort(raw(truth))
+	must(err)
+	predicate, err := m.Symbols.Intern("redundancy-retry-p")
+	must(err)
+	decl, err := m.MkFuncDecl(predicate, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	must(err)
+	declRef, err := m.NewRef(decl)
+	must(err)
+	defer func() { must(m.DelRef(&declRef)) }()
+	fx := wrap(m.MkApp(decl, []ast.ASTHandle{raw(x)}))
+	equality := wrap(m.MkEq(raw(x), raw(one)))
+	input := wrap(m.MkAnd(raw(equality), raw(fx)))
+	want, err := ctx.RemoveRedundancy(input)
+	must(err)
+	defer want.Close()
+	baseline := m.Stats().LiveReferences
+	complete := false
+	for allowance := int64(0); allowance < 256; allowance++ {
+		m.Budget().FailAfter(allowance)
+		out, failure := ctx.RemoveRedundancy(input)
+		m.Budget().FailAfter(-1)
+		if failure == nil {
+			if raw(out) != raw(want) {
+				t.Fatal("redundancy result changed", allowance)
+			}
+			must(out.Close())
+			complete = true
+		} else {
+			if out != nil {
+				t.Fatal("partial redundancy result", allowance, failure)
+			}
+			retry, err := ctx.RemoveRedundancy(input)
+			must(err)
+			if raw(retry) != raw(want) {
+				t.Fatal("retry changed redundancy result", allowance)
+			}
+			must(retry.Close())
+		}
+		if got := m.Stats().LiveReferences; got != baseline {
+			t.Fatal("redundancy failure/retry leaked references", allowance, got, baseline)
+		}
+		if complete {
+			break
+		}
+	}
+	if !complete {
+		t.Fatal("allocation campaign did not reach successful redundancy pass")
+	}
+}
