@@ -8,7 +8,7 @@ import (
 )
 
 func TestCachedGraphScopesRetractAssumptionsWithoutRemovingGuards(t *testing.T) {
-	ctx, _, _, globals := dualityNativeSolverServicesFixture(t)
+	ctx, m, _, globals := dualityNativeSolverServicesFixture(t)
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -71,6 +71,18 @@ func TestCachedGraphScopesRetractAssumptionsWithoutRemovingGuards(t *testing.T) 
 	check(lbool.True)
 	must(cached.Push())
 	check(lbool.True)
+	m.Budget().FailAfter(0)
+	failure := cached.AssertEdge(edge, 0, false, false)
+	m.Budget().FailAfter(-1)
+	if failure == nil {
+		t.Fatal("cached edge assertion ignored the injected allocation failure")
+	}
+	if profile.current != outer {
+		t.Fatal("failed cached edge assertion changed timer scope")
+	}
+	must(cached.Pop(1))
+	check(lbool.True)
+	must(cached.Push())
 	must(cached.AssertEdge(edge, 0, false, false))
 	if outer.children["solver add"] != nil || profile.current != outer {
 		t.Fatal("cached assertion added a base solver timer")
