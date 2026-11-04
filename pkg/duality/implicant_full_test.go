@@ -158,3 +158,72 @@ func TestDualityFullImplicantArrayEqualityFiltering(t *testing.T) {
 		must(omitted.Close())
 	}
 }
+
+func TestDualityFullImplicantAllocationFailureCleanup(t *testing.T) {
+	ctx, m, native, globals := dualityNativeSolverServicesFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	g, err := NewRPFP(ctx)
+	must(err)
+	defer func() { must(g.Close()) }()
+	must(g.BindSolver(native))
+	must(g.BindModelEvaluator(derivationEvaluatorFixture(t, ctx, globals)))
+	wrap := func(h ast.ASTHandle, err error) *Expr {
+		t.Helper()
+		must(err)
+		v, e := NewExpr(ctx, h)
+		must(e)
+		closeExpr(t, v)
+		return v
+	}
+	raw := func(v *Expr) ast.ASTHandle { t.Helper(); h, err := v.Raw(); must(err); return h }
+	p, err := ctx.BoolConst("full-implicant-failure-p")
+	must(err)
+	closeExpr(t, p)
+	q, err := ctx.BoolConst("full-implicant-failure-q")
+	must(err)
+	closeExpr(t, q)
+	nq := wrap(m.MkNot(raw(q)))
+	formula := wrap(m.MkAndArgs([]ast.ASTHandle{raw(p), raw(nq)}))
+	status, err := g.CheckUpdateModel(nil, []*Expr{p, nq})
+	must(err)
+	if status != lbool.True {
+		t.Fatal("model setup failed", status)
+	}
+	profile := NewProfiler(nil)
+	ctx.activeProfiler = profile
+	baseline := m.Stats().LiveReferences
+	complete := false
+	for allowance := int64(0); allowance < 256; allowance++ {
+		m.Budget().FailAfter(allowance)
+		out, failure := g.UnderapproxFullFormula(formula, true)
+		m.Budget().FailAfter(-1)
+		if failure == nil {
+			must(out.Close())
+			complete = true
+		} else {
+			if out != nil {
+				t.Fatal("partial full implicant", allowance, failure)
+			}
+			retry, err := g.UnderapproxFullFormula(formula, true)
+			must(err)
+			must(retry.Close())
+		}
+		if profile.current != profile.top {
+			t.Fatal("full implicant timer not restored after allocation failure", allowance)
+		}
+		if got := m.Stats().LiveReferences; got != baseline {
+			t.Fatal("full implicant leaked temporary references", allowance, got, baseline)
+		}
+		if complete {
+			break
+		}
+	}
+	if !complete {
+		t.Fatal("allocation campaign did not reach successful full implicant")
+	}
+}

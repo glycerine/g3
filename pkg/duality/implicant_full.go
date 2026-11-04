@@ -74,35 +74,29 @@ func (g *RPFP) UnderapproxFullFormula(formula *Expr, extensional bool) (out *Exp
 		}
 		equality := false
 		if kind == ast.ASTApp {
-			family, err := m.GetFamilyID(h)
-			if err != nil {
-				return err
-			}
 			op, err := m.GetDeclKind(h)
 			if err != nil {
 				return err
 			}
-			if family == m.BasicFamilyID() {
-				switch op {
-				case ast.ASTOpImplies, ast.ASTOpIff, ast.ASTOpAnd, ast.ASTOpOr, ast.ASTOpNot:
-					count, err := m.GetNumArgs(h)
+			switch op {
+			case ast.ASTOpImplies, ast.ASTOpIff, ast.ASTOpAnd, ast.ASTOpOr, ast.ASTOpNot:
+				count, err := m.GetNumArgs(h)
+				if err != nil {
+					return err
+				}
+				for i := uint32(0); i < count; i++ {
+					child, err := m.GetArg(h, i)
 					if err != nil {
 						return err
 					}
-					for i := uint32(0); i < count; i++ {
-						child, err := m.GetArg(h, i)
-						if err != nil {
-							return err
-						}
-						if err = visit(child); err != nil {
-							return err
-						}
+					if err = visit(child); err != nil {
+						return err
 					}
-					done[h] = true
-					return nil
-				case ast.ASTOpEq:
-					equality = true
 				}
+				done[h] = true
+				return nil
+			case ast.ASTOpEq:
+				equality = true
 			}
 		}
 		value, err := g.subtermTruth(truth, h)
