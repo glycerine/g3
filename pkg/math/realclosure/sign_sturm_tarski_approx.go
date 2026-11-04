@@ -50,6 +50,9 @@ func (s *realValueStore) signApproxAtBinaryBound(coefficients []*realValue, boun
 			return 0, false, e
 		}
 		for i := len(coefficients) - 2; i >= 0; i-- {
+			if e = s.checkpoint(); e != nil {
+				return 0, false, e
+			}
 			if coefficients[i] != nil {
 				coefficient, e := coefficientInterval(coefficients[i])
 				if e != nil {
