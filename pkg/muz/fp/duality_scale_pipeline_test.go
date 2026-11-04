@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -59,7 +60,17 @@ func TestDualityScaleRealQueries(t *testing.T) {
 				fact := own(m.MkApp(predicate, []ast.ASTHandle{one}))
 				absent := own(m.MkApp(predicate, []ast.ASTHandle{two}))
 				fragmentMust(t, e.AddRule(fact, "scale-fact"))
-				for _, query := range []struct {
+				var firstProof ast.ASTRef
+				var safeModel *model.Model
+				defer func() {
+					if firstProof != (ast.ASTRef{}) {
+						fragmentMust(t, m.DelRef(&firstProof))
+					}
+					if safeModel != nil {
+						fragmentMust(t, safeModel.Close())
+					}
+				}()
+				for index, query := range []struct {
 					term ast.ASTHandle
 					want lbool.LBool
 				}{{fact, lbool.True}, {absent, lbool.False}, {fact, lbool.True}} {
@@ -68,7 +79,39 @@ func TestDualityScaleRealQueries(t *testing.T) {
 					if status != query.want {
 						t.Fatalf("query status = %v, want %v", status, query.want)
 					}
+					proof, err := e.Proof(predicate)
+					fragmentMust(t, err)
+					proofTerm, err := m.RefGet(proof)
+					fragmentMust(t, err)
+					if query.want == lbool.True {
+						if proofTerm.IsNull() {
+							t.Fatal("reachable query returned no proof")
+						}
+						conclusion, err := m.GetProofFact(proofTerm)
+						fragmentMust(t, err)
+						if !m.IsFalse(conclusion) {
+							t.Fatal("query proof does not conclude false")
+						}
+						if index == 0 {
+							firstProof = proof
+						} else {
+							fragmentMust(t, m.DelRef(&proof))
+						}
+					} else {
+						if !proofTerm.IsNull() {
+							t.Fatal("safe query returned a refutation proof")
+						}
+						fragmentMust(t, m.DelRef(&proof))
+						safeModel, err = e.Model(predicate)
+						fragmentMust(t, err)
+					}
 				}
+				// The next query replaces the backend result, but previously
+				// returned proof and model owners remain valid.
+				_, err = m.RefGet(firstProof)
+				fragmentMust(t, err)
+				_, err = safeModel.Core().HasInterpretation(predicate)
+				fragmentMust(t, err)
 				if arrays {
 					// Check the same default transform pipeline used by the Duality
 					// query branch; status alone cannot show that scaling ran.

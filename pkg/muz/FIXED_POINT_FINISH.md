@@ -124,6 +124,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Verify compound Horn head/negative-body hoisting order and proof conclusion, including proof-specific allocation failures, intermediate cleanup and retry; verify first-true linear BMC rule selection and Spacer ITE implicant branch selection against the source paths.
   - [x] Verify Spacer projection's empty-variable and ground-substitution gates and the model-selected unequal-index array guard. Origin-summary selection covers either of two reach facts, their selected auxiliary and reference restoration.
   - [x] Verify reach-fact projection and justification ownership with two selected predecessor facts, distinct origin indices, projected auxiliaries and both implicant modes.
+  - [x] Verify rule-local reach-fact auxiliary elimination and retention with implicant selection both enabled and disabled.
   - [x] Verify PDR/QPDR coalescing is gated by positive unfold rounds and precedes unfolding, across zero, one and two rounds.
   - [x] Match TAB's source `basic-weight` fallthrough to weight selection, and test its cached-selection behavior. Verify DDNF reparenting/mark traversal, CLP search result ordering and relational compiler projection selection against their source paths.
   - [x] Verify Duality tree interpolation includes each node's extra constraints and restores the temporary solver scope; other interpolation branches and exceptional cleanup remain under audit.
@@ -135,6 +136,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Verify Spacer scale models against original clauses and queries, including slicing/inlining composition; preserve upstream predicate origins through unchanged slice outputs. Other engines remain open.
   - [x] Verify PDR/QPDR scaled models against original clauses, BMC/QBMC scaled queries and their source empty-model contract, and CLP enabled/disabled scale queries, answers, certificates and empty-model ownership; Horn and Duality scale consumers remain open.
   - [x] Verify Duality real-valued expression queries across scale and quantify-arrays options, including transformed predicate arity and retry; proof and model-converter coverage remains open.
+  - [x] Verify those Duality query proof and model result contracts and ownership across later queries; transformed model reconstruction remains open.
   - [x] Verify Spacer propagation continues to a later predicate after an earlier predicate fails to propagate; the test checks resulting frames and convergence at the context boundary.
   - [x] Verify Farkas sign and consequence semantics for integer and real strict/non-strict bounds, negations and equalities, using independently evaluated boundary points.
   - [x] Check repeated public PDR delayed-scope assertion failures recover for a later check; actual partial-pop failure remains covered separately through the cleanup owner.
