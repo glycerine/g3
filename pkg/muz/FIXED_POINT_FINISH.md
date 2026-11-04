@@ -76,7 +76,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Match source Boolean conjunction rewriting in PDR cover export, with duplicate/complement and refused cleanup coverage; the separate Formulas consumer remains open.
   - [x] Match Boolean conjunction rewriting for PDR Formulas and migrate live consumers to scoped references, preserving the borrowed API. The complete native short PDR package passes; direct caller cleanup refusal remains open.
   - [x] Match the PDR inductiveness check's rewritten conjunctions and raw negation, keeping input and returned-core terms owned through solver reuse. Native cleanup refusal in this specific caller remains open.
-  - [x] Rewrite the reached PDR projected-child conjunctions with owned Boolean results and retryable temporary cleanup. Direct child tests cover duplicate/complement simplification; zero-elimination and unavailable-QE normalization remain open.
+  - [x] Rewrite the reached PDR projected-child conjunctions with owned Boolean results and retryable temporary cleanup. Direct child tests cover duplicate/complement simplification.
   - [x] Normalize PDR projected Phi with zero eliminated variables and without QE-lite, then apply disequality and theory rewriting in source order. Configured contexts construct their theory rewriter eagerly; source context snapshot timing, nil-Globals compatibility and actual NewContext constructor failure remain open.
   - [ ] Complete the PDR manager ownership and remaining diagnostic audit; the separate rule-manager diagnostic display has no source caller.
   - [x] Classify the Duality CMake component as a Go package-discovery replacement without promoting its implementation; narrow the Duality interface claim to its tested paths. Correct stale PDR solver-cleanup descriptions and record the deliberate QBMC fixes relative to the bundled C++ source.
@@ -88,6 +88,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Reconcile the subsequent Karr, query-exception, PDR manager, Datalog close and profiler batches with source-scoped partial manifest records; portcheck passes and whole-unit audits remain open.
   - [x] Record the later ground Karr, deferred-head, multi-pop, PDR cover, cached profiling and Spacer evidence in the manifest without changing unit status; portcheck passes.
   - [x] Record subsequent Karr head, Duality scale, projected-child, quantified-tail, proof and finite-domain evidence; portcheck passes with existing unit status unchanged.
+  - [x] Reconcile later DOC, map reader, proof, Karr guard, Spacer and PDR projection evidence; portcheck passes with remaining source and ownership gaps explicit.
   - [x] Correct Duality solver and fixedpoint-interface descriptions for the active stratified path, and link existing replay, background, construction and proof evidence. Independent review and portcheck pass; partial status and the wider inventory audit remain open.
 - [ ] Inspect every source conditional, function and live consumer for each partial unit; turn each remaining obligation into an explicit implementation or audit item.
   - [x] Map the Duality profiling unit and live consumers in [DUALITY_UNIT_AUDIT.md](DUALITY_UNIT_AUDIT.md); leave remaining timer scopes and report fidelity open.
