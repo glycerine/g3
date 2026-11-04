@@ -109,6 +109,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Record the later cleanup, derivation, PDR ground-check, parser separator and Karr linear-guard tests in the manifest; unit statuses remain unchanged.
   - [x] Record guarded projection, nested preflight, QE ownership, PDR trace, profiler pairing and file lexer evidence; portcheck passes without promoting partial units.
   - [x] Reconcile the later existential-tail, HNF, Karr and PDR evidence and record the native checkpoint result without claiming a passing full run.
+  - [x] Record subsequent HNF, parser, Karr, Duality, Spacer and PDR trace batches with existing partial statuses; portcheck passes.
   - [x] Correct Duality solver and fixedpoint-interface descriptions for the active stratified path, and link existing replay, background, construction and proof evidence. Independent review and portcheck pass; partial status and the wider inventory audit remain open.
 - [ ] Inspect every source conditional, function and live consumer for each partial unit; turn each remaining obligation into an explicit implementation or audit item.
   - [x] Map the Duality profiling unit and live consumers in [DUALITY_UNIT_AUDIT.md](DUALITY_UNIT_AUDIT.md); leave remaining timer scopes and report fidelity open.

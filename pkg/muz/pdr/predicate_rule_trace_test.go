@@ -4,10 +4,12 @@ package pdr
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"strings"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -17,25 +19,32 @@ import (
 
 type ruleTraceWriter struct {
 	bytes.Buffer
-	refuse bool
+	refuse         bool
+	failAllocation bool
+	manager        *ast.ASTManager
 }
 
 func (w *ruleTraceWriter) Write(p []byte) (int, error) {
 	if w.refuse {
+		if w.failAllocation {
+			w.failAllocation = false
+			w.manager.Budget().FailAfter(0)
+		}
 		return 0, io.ErrClosedPipe
 	}
 	return w.Buffer.Write(p)
 }
 
 func TestPDRRuleTraceOrderGatingAndNonGroundFailure(t *testing.T) {
-	for _, mode := range []string{"disabled", "enabled", "refused", "nonground", "variable", "flatten"} {
+	for _, mode := range []string{"disabled", "enabled", "refused", "refused-allocate", "nonground", "variable", "flatten"} {
 		t.Run(mode, func(t *testing.T) {
 			baseManager, spare, old, _, closeBase := closureFixture(t)
 			globals := spare.contexts.config.Globals
-			writer := &ruleTraceWriter{refuse: mode == "refused"}
+			writer := &ruleTraceWriter{refuse: mode == "refused" || mode == "refused-allocate", failAllocation: mode == "refused-allocate"}
 			tags := diagnostic.NewTraceTagsWithWriter(writer)
 			m, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: baseManager.Symbols, Numerals: baseManager.NumeralService(), Budget: baseManager.Budget(), TraceTags: tags, Params: globals.Context, Globals: globals})
 			closureMust(t, err)
+			writer.manager = m
 			closureMust(t, m.RegisterDeclarationPlugins())
 			owner, err := NewManager(m, nil, 2, smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
 			closureMust(t, err)
@@ -98,7 +107,12 @@ func TestPDRRuleTraceOrderGatingAndNonGroundFailure(t *testing.T) {
 				tags.Enable("pdr")
 			}
 			initErr := transformer.InitializeRules(map[ast.ASTHandle]*PredicateTransformer{head: transformer}, []*base.Rule{rule})
-			if mode == "nonground" {
+			m.Budget().FailAfter(-1)
+			if mode == "refused-allocate" {
+				if !errors.Is(initErr, arena.ErrInjectedFailure) {
+					t.Fatal("trace did not evaluate the first expression after output refusal", initErr)
+				}
+			} else if mode == "nonground" {
 				if initErr == nil || !strings.Contains(initErr.Error(), "PDR cannot solve non-ground tails:") {
 					t.Fatal("missing non-ground rejection", initErr)
 				}
