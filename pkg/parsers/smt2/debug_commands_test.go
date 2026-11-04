@@ -198,3 +198,13 @@ func TestDebugTranslateExpression(t *testing.T) {
 		t.Fatalf("debug translation %q, want %q", out, want)
 	}
 }
+
+func TestDebugSExprDisplay(t *testing.T) {
+	out, err := runApplyTacticScript(t, `(dbg-sexpr (alpha :beta "quoted" (nested 3)))`)
+	if err != nil {
+		t.Fatal(err, out)
+	}
+	if want := `(alpha :beta "quoted" (nested 3))` + "\n"; out != want {
+		t.Fatalf("debug s-expression output %q, want %q", out, want)
+	}
+}

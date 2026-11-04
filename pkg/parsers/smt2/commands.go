@@ -285,7 +285,7 @@ func (p *commandParser) command() (bool, error) {
 	}
 	success := true
 	switch name {
-	case "dbg-set", "dbg-get-qbody", "dbg-pp-var", "dbg-size", "dbg-shift-vars", "dbg-num-shared", "dbg-pp-shared", "dbg-subst", "dbg-instantiate", "dbg-instantiate-nested", "dbg-elim-unused-vars", "dbg-bool-rewriter", "dbg-bool-flat-rewriter", "dbg-elim-and", "dbg-used-vars", "dbg-lt", "dbg-some-value", "dbg-params", "dbg-set-next-id", "dbg-translator":
+	case "dbg-set", "dbg-get-qbody", "dbg-pp-var", "dbg-size", "dbg-shift-vars", "dbg-num-shared", "dbg-pp-shared", "dbg-subst", "dbg-instantiate", "dbg-instantiate-nested", "dbg-elim-unused-vars", "dbg-bool-rewriter", "dbg-bool-flat-rewriter", "dbg-elim-and", "dbg-used-vars", "dbg-lt", "dbg-some-value", "dbg-params", "dbg-set-next-id", "dbg-translator", "dbg-sexpr", "display-dimacs":
 		if err = p.debugCommand(name); err != nil {
 			return false, err
 		}

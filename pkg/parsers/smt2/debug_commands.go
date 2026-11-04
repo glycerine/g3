@@ -5,6 +5,8 @@ package smt2
 import (
 	"errors"
 	"fmt"
+	"math/big"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -12,6 +14,21 @@ import (
 
 func (p *commandParser) debugCommand(name string) (resultErr error) {
 	switch name {
+	case "dbg-sexpr":
+		text, err := p.debugSExpr()
+		if err != nil {
+			return err
+		}
+		if err = p.requireEnd(); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(p.out, text)
+		return err
+	case "display-dimacs":
+		if err := p.requireEnd(); err != nil {
+			return err
+		}
+		return p.context.DisplayDIMACS()
 	case "dbg-translator":
 		expression, _, err := p.expression()
 		if err != nil {
@@ -564,4 +581,72 @@ func (p *commandParser) debugCommand(name string) (resultErr error) {
 		return err
 	}
 	return fmt.Errorf("unknown debug command %s", name)
+}
+
+func (p *commandParser) debugSExpr() (string, error) {
+	if p.token == EOFToken || p.token == RightParenToken {
+		return "", fmt.Errorf("s-expression expected")
+	}
+	if p.token == LeftParenToken {
+		if err := p.advance(); err != nil {
+			return "", err
+		}
+		var elements []string
+		for p.token != RightParenToken {
+			if p.token == EOFToken {
+				return "", fmt.Errorf("unexpected end of s-expression")
+			}
+			element, err := p.debugSExpr()
+			if err != nil {
+				return "", err
+			}
+			elements = append(elements, element)
+		}
+		if err := p.advance(); err != nil {
+			return "", err
+		}
+		return "(" + strings.Join(elements, " ") + ")", nil
+	}
+	var text string
+	switch p.token {
+	case StringToken:
+		text = `"` + strings.ReplaceAll(p.scanner.String(), `"`, `""`) + `"`
+	case KeywordToken, SymbolToken:
+		text = p.scanner.ID()
+	case IntegerToken:
+		text = p.scanner.Number().Num().String()
+	case DecimalToken:
+		value := p.scanner.Number()
+		scale := decimalScale(value.Denom())
+		text = value.FloatString(scale)
+	case BitVectorToken:
+		text = fmt.Sprintf("(_ bv%s %d)", p.scanner.Number().Num().String(), p.scanner.BitVectorSize())
+	default:
+		return "", fmt.Errorf("s-expression atom expected")
+	}
+	if err := p.advance(); err != nil {
+		return "", err
+	}
+	return text, nil
+}
+
+func decimalScale(denominator *big.Int) int {
+	remaining := new(big.Int).Set(denominator)
+	two, five := big.NewInt(2), big.NewInt(5)
+	var twos, fives int
+	for new(big.Int).Mod(remaining, two).Sign() == 0 {
+		remaining.Div(remaining, two)
+		twos++
+	}
+	for new(big.Int).Mod(remaining, five).Sign() == 0 {
+		remaining.Div(remaining, five)
+		fives++
+	}
+	if remaining.Cmp(big.NewInt(1)) != 0 {
+		return 0
+	}
+	if twos > fives {
+		return twos
+	}
+	return fives
 }

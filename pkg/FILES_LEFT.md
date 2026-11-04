@@ -35,7 +35,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/ast/rewriter/pb2bv_rewriter.h` — Public methods map to checked Go operations with tested constructor, cleanup, proof-slot, scope, transfer, statistics, and destruction behavior.
 - [x] `src/cmd_context/cmd_context.cpp` — Command context declarations, scopes, result publication, logic checks, solver dispatch, resets, statistics, model completion, validation, cancellation, and progress callbacks have focused coverage.
 - [x] `src/cmd_context/cmd_context.h` — The public context surface maps to tested Go methods for configuration, solver/results, model lifecycle, declaration/scope ownership, output, reset, and statistics.
-- [ ] `src/cmd_context/extra_cmds/dbg_cmds.cpp`
+- [x] `src/cmd_context/extra_cmds/dbg_cmds.cpp` — All live debug commands, including s-expression display and scoped DIMACS output, have Go implementations with focused parser/context tests.
 - [ ] `src/cmd_context/extra_cmds/dbg_cmds.h`
 - [ ] `src/cmd_context/interpolant_cmds.cpp`
 - [ ] `src/cmd_context/parametric_cmd.cpp`
