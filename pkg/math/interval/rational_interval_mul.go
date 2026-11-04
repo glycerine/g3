@@ -122,6 +122,7 @@ func (v *RationalInterval) Mul(a, b *RationalInterval) (err error) {
 	if zero {
 		return v.SetFrom(b)
 	}
+	callID := nextIntervalBugMulCallID()
 	ac, err := a.signClass()
 	if err != nil {
 		return err
@@ -140,6 +141,7 @@ func (v *RationalInterval) Mul(a, b *RationalInterval) (err error) {
 	computed := false
 	switch {
 	case ac == 'N' && bc == 'N':
+		v.traceMulCase(callID, "(N, N)", 1044, a, b, true)
 		le, re, ue, ve = au, bu, al, bl
 		az, x := a.closedZeroAtUpper()
 		if x != nil {
@@ -152,10 +154,12 @@ func (v *RationalInterval) Mul(a, b *RationalInterval) (err error) {
 		lo = !(az || bz) && (au.open || bu.open)
 		uo = al.open || bl.open
 	case ac == 'N' && bc == 'M':
+		v.traceMulCase(callID, "(N, M)", 1064, a, b, false)
 		le, re, ue, ve = al, bu, al, bl
 		lo = al.open || bu.open
 		uo = al.open || bl.open
 	case ac == 'N' && bc == 'P':
+		v.traceMulCase(callID, "(N, P)", 1077, a, b, false)
 		le, re, ue, ve = al, bu, au, bl
 		az, x := a.closedZeroAtUpper()
 		if x != nil {
@@ -168,14 +172,17 @@ func (v *RationalInterval) Mul(a, b *RationalInterval) (err error) {
 		lo = al.open || bu.open
 		uo = !(az || bz) && (au.open || bl.open)
 	case ac == 'M' && bc == 'N':
+		v.traceMulCase(callID, "(M, N)", 1094, a, b, false)
 		le, re, ue, ve = au, bl, al, bl
 		lo = au.open || bl.open
 		uo = al.open || bl.open
 	case ac == 'M' && bc == 'P':
+		v.traceMulCase(callID, "(M, P)", 1148, a, b, false)
 		le, re, ue, ve = al, bu, au, bu
 		lo = al.open || bu.open
 		uo = au.open || bu.open
 	case ac == 'P' && bc == 'N':
+		v.traceMulCase(callID, "(P, N)", 1165, a, b, false)
 		le, re, ue, ve = au, bl, al, bu
 		az, x := a.closedZeroAtLower()
 		if x != nil {
@@ -188,10 +195,12 @@ func (v *RationalInterval) Mul(a, b *RationalInterval) (err error) {
 		lo = au.open || bl.open
 		uo = !(az || bz) && (al.open || bu.open)
 	case ac == 'P' && bc == 'M':
+		v.traceMulCase(callID, "(P, M)", 1179, a, b, false)
 		le, re, ue, ve = au, bl, au, bu
 		lo = au.open || bl.open
 		uo = au.open || bu.open
 	case ac == 'P' && bc == 'P':
+		v.traceMulCase(callID, "(P, P)", 1193, a, b, false)
 		le, re, ue, ve = al, bl, au, bu
 		az, x := a.closedZeroAtLower()
 		if x != nil {
@@ -287,5 +296,9 @@ func (v *RationalInterval) Mul(a, b *RationalInterval) (err error) {
 	}
 	v.lowerInf, v.upperInf = le.kind == MinusInfinity, ue.kind == PlusInfinity
 	v.lowerOpen, v.upperOpen = lo, uo
-	return v.CheckInvariant()
+	if err = v.CheckInvariant(); err != nil {
+		return err
+	}
+	v.traceIntervalResult("mul", 1210, v)
+	return nil
 }

@@ -26,11 +26,13 @@ func (v *RationalInterval) Div(num, den *RationalInterval) (err error) {
 	if contains {
 		return ErrExtendedDomain
 	}
+	callID := nextIntervalBugDivCallID()
 	zero, err := num.isSingletonZero()
 	if err != nil {
 		return err
 	}
 	if zero {
+		v.traceBinaryIntervalCall("div", 1671, "div", callID, num, den, false)
 		if err = v.numbers.Reset(&v.lower); err != nil {
 			return err
 		}
@@ -38,6 +40,7 @@ func (v *RationalInterval) Div(num, den *RationalInterval) (err error) {
 			return err
 		}
 		v.lowerInf, v.upperInf, v.lowerOpen, v.upperOpen = false, false, false, false
+		v.traceIntervalResult("div", 1843, v)
 		return nil
 	}
 	nc, err := num.signClass()
@@ -66,6 +69,7 @@ func (v *RationalInterval) Div(num, den *RationalInterval) (err error) {
 	if !dn && !dp {
 		return ErrExtendedDomain
 	}
+	v.traceBinaryIntervalCall("div", 1696, "div", callID, num, den, true)
 	a, b := num.endpoints()
 	c, d := den.endpoints()
 	lower, upper := numeral.NewRational(), numeral.NewRational()
@@ -77,6 +81,7 @@ func (v *RationalInterval) Div(num, den *RationalInterval) (err error) {
 	if dn {
 		switch nc {
 		case 'N':
+			v.traceIntervalBranch("div", 1707, "(N, N)", callID)
 			le, ld, ue, ud = b, c, a, d
 			n0, x := num.closedZeroAtUpper()
 			if x != nil {
@@ -86,11 +91,13 @@ func (v *RationalInterval) Div(num, den *RationalInterval) (err error) {
 			uo = a.open || d.open
 			infUpper = upperZero
 		case 'M':
+			v.traceIntervalBranch("div", 1750, "(M, N)", callID)
 			le, ld, ue, ud = b, d, a, d
 			lo = b.open || d.open
 			uo = a.open || d.open
 			infLower, infUpper = upperZero, upperZero
 		default: // P / N1
+			v.traceIntervalBranch("div", 1798, "(P, N)", callID)
 			le, ld, ue, ud = b, d, a, c
 			p0, x := num.closedZeroAtLower()
 			if x != nil {
@@ -103,6 +110,7 @@ func (v *RationalInterval) Div(num, den *RationalInterval) (err error) {
 	} else {
 		switch nc {
 		case 'N':
+			v.traceIntervalBranch("div", 1727, "(N, P)", callID)
 			le, ld, ue, ud = a, c, b, d
 			n0, x := num.closedZeroAtUpper()
 			if x != nil {
@@ -112,11 +120,13 @@ func (v *RationalInterval) Div(num, den *RationalInterval) (err error) {
 			uo = !n0 && (b.open || d.open)
 			infLower = lowerZero
 		case 'M':
+			v.traceIntervalBranch("div", 1773, "(M, P)", callID)
 			le, ld, ue, ud = a, c, b, c
 			lo = a.open || c.open
 			uo = b.open || c.open
 			infLower, infUpper = lowerZero, lowerZero
 		default: // P / P1
+			v.traceIntervalBranch("div", 1819, "(P, P)", callID)
 			le, ld, ue, ud = a, d, b, c
 			p0, x := num.closedZeroAtLower()
 			if x != nil {
@@ -143,6 +153,9 @@ func (v *RationalInterval) Div(num, den *RationalInterval) (err error) {
 			return err
 		}
 	}
+	if dn && nc == 'M' && !upperZero {
+		v.traceIntervalKinds("div", 1766, lk, uk)
+	}
 	if err = v.numbers.Swap(&v.lower, &lower); err != nil {
 		return err
 	}
@@ -151,5 +164,9 @@ func (v *RationalInterval) Div(num, den *RationalInterval) (err error) {
 	}
 	v.lowerInf, v.upperInf = lk == MinusInfinity, uk == PlusInfinity
 	v.lowerOpen, v.upperOpen = lo, uo
-	return v.CheckInvariant()
+	if err = v.CheckInvariant(); err != nil {
+		return err
+	}
+	v.traceIntervalResult("div", 1843, v)
+	return nil
 }

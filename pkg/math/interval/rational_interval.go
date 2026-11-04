@@ -11,6 +11,7 @@ import (
 	"math"
 
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
@@ -23,6 +24,7 @@ type RationalInterval struct {
 	lowerOpen, upperOpen bool
 	lowerInf, upperInf   bool
 	closed               bool
+	TraceTags            *diagnostic.TraceTags
 }
 
 func NewRationalInterval(m *numeral.RationalManager) (*RationalInterval, error) {

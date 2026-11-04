@@ -27,6 +27,8 @@ func (v *RationalInterval) Inv(src *RationalInterval) (err error) {
 	if contains {
 		return ErrExtendedDomain
 	}
+	callID := nextIntervalBugInvCallID()
+	v.traceUnaryIntervalCall("inv", 1522, "(inv)", callID, src, 0)
 	m := v.numbers
 	e := RationalExtended{Numbers: m}
 	positive, err := e.IsPos(&src.lower, src.lowerKind())
@@ -95,5 +97,9 @@ func (v *RationalInterval) Inv(src *RationalInterval) (err error) {
 	}
 	v.lowerInf, v.upperInf = li, ui
 	v.lowerOpen, v.upperOpen = lo, uo
-	return v.CheckInvariant()
+	if err = v.CheckInvariant(); err != nil {
+		return err
+	}
+	v.traceIntervalResult("inv", 1589, v)
+	return nil
 }

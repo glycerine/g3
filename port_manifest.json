@@ -80090,39 +80090,43 @@
           ]
         },
         {
-          "name": "Concrete config_mpq interval multiplication with live borrowed operands, nine sign classes, mixed extrema closed ties, zero/infinity and alias branches; source interval_bug TRACE records remain open (src/math/interval/interval_def.h:1017-1218)",
-          "status": "partial",
+          "name": "Concrete config_mpq interval multiplication with live borrowed operands, nine sign classes, mixed extrema closed ties, zero/infinity, alias branches, and source interval_bug TRACE records (src/math/interval/interval_def.h:1017-1218)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/rational_interval_mul.go",
           "tests": [
             "TestSubpavingRationalIntervalMulNineSignClassesAndTies",
-            "TestRationalIntervalLiveNodeBoundsAndOwnedCopy"
+            "TestRationalIntervalLiveNodeBoundsAndOwnedCopy",
+            "TestRationalIntervalSourceArithmeticTrace"
           ]
         },
         {
-          "name": "Concrete config_mpq interval division with live borrowed operands, six sign branches, open-zero and infinite denominators, zero numerator, denominator alias and numerator alias guard; source interval_bug TRACE records remain open (src/math/interval/interval_def.h:1672-1849)",
-          "status": "partial",
+          "name": "Concrete config_mpq interval division with live borrowed operands, six sign branches, open-zero and infinite denominators, zero numerator, denominator alias and numerator alias guard, and source interval_bug TRACE records (src/math/interval/interval_def.h:1672-1849)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/rational_interval_div.go",
           "tests": [
             "TestSubpavingRationalIntervalDivSixSignAndOpenZeroBranches",
-            "TestRationalIntervalLiveNodeBoundsAndOwnedCopy"
+            "TestRationalIntervalLiveNodeBoundsAndOwnedCopy",
+            "TestRationalIntervalSourceArithmeticTrace"
           ]
         },
         {
-          "name": "Concrete config_mpq interval powers with live borrowed operands for odd/even/zero exponents, signed and crossing-zero intervals, infinity, closed ties and aliasing; source interval_bug TRACE records remain open (src/math/interval/interval_def.h:1271-1378)",
-          "status": "partial",
+          "name": "Concrete config_mpq interval powers with live borrowed operands for odd/even/zero exponents, signed and crossing-zero intervals, infinity, closed ties, aliasing, and source interval_bug TRACE records (src/math/interval/interval_def.h:1271-1378)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/rational_interval_power.go",
           "tests": [
             "TestSubpavingRationalIntervalPowerSourceCases",
-            "TestRationalIntervalLiveNodeBoundsAndOwnedCopy"
+            "TestRationalIntervalLiveNodeBoundsAndOwnedCopy",
+            "TestRationalIntervalSourceArithmeticTrace"
           ]
         },
         {
-          "name": "Concrete config_mpq interval reciprocal with live borrowed input, positive and negative branches, open-zero infinities, infinite endpoint zeroes and aliasing; source interval_bug TRACE records remain open (src/math/interval/interval_def.h:1510-1590)",
-          "status": "partial",
+          "name": "Concrete config_mpq interval reciprocal with live borrowed input, positive and negative branches, open-zero infinities, infinite endpoint zeroes, aliasing, and source interval_bug TRACE records (src/math/interval/interval_def.h:1510-1590)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/rational_interval_inv.go",
           "tests": [
             "TestSubpavingRationalIntervalInverseSourceBranches",
-            "TestRationalIntervalLiveNodeBoundsAndOwnedCopy"
+            "TestRationalIntervalLiveNodeBoundsAndOwnedCopy",
+            "TestRationalIntervalSourceArithmeticTrace"
           ]
         },
         {

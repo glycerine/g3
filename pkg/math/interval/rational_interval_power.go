@@ -20,6 +20,7 @@ func (v *RationalInterval) Power(src *RationalInterval, n uint32) (err error) {
 	if v.numbers != src.numbers {
 		return ErrExtendedDomain
 	}
+	callID := nextIntervalBugPowerCallID()
 	if n == 1 {
 		return v.SetFrom(src)
 	}
@@ -71,6 +72,7 @@ func (v *RationalInterval) Power(src *RationalInterval, n uint32) (err error) {
 			lo, uo = uo, lo
 			li, ui = false, li
 		default:
+			v.traceUnaryIntervalCall("power", 1331, "(M)", callID, src, n)
 			// Source computes both powered extended endpoints and chooses the
 			// larger. Equal values prefer a closed endpoint.
 			left, right := numeral.NewRational(), numeral.NewRational()
@@ -140,5 +142,6 @@ func (v *RationalInterval) Power(src *RationalInterval, n uint32) (err error) {
 	}
 	v.lowerInf, v.upperInf = li, ui
 	v.lowerOpen, v.upperOpen = lo, uo
+	v.traceIntervalResult("power", 1378, v)
 	return nil
 }
