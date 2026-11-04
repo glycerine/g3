@@ -59,7 +59,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/math/subpaving/tactic/subpaving_tactic.cpp` — All numeral-engine selection, tactic lifecycle, expression internalization, SMT-LIB display, cleanup, and ownership behavior are audited against C++ and covered by focused tests.
 - [x] `src/model/model_implicant.cpp` — Array extraction, recursive extensional equality, default and store-row decisions, diagnostics, and temporary-reference cleanup match the C++ paths and pass focused model tests.
 - [x] `src/muz/base/dl_context.cpp` — Context/rule lifecycle, finite-domain operations, engine selection and dispatch, query/results, typed traces, SMT-LIB display, and parameter consumers are implemented across `pkg/muz/base`, `pkg/muz/fp`, and `pkg/cmd_context`; existing focused source-parity and ownership tests pass. `result_contains_fact` has no retained caller, `apply_default_transformation` is empty, and the C++ test entry has no active test body.
-- [ ] `src/muz/base/dl_context.h`
+- [x] `src/muz/base/dl_context.h` — Header declarations, inline wrappers, and ownership contracts map to typed Go APIs across base, fixedpoint, relation, and API layers; the abstract interface and STL reference-vector helpers have no standalone Go adapter.
 - [ ] `src/muz/base/dl_rule.cpp`
 - [ ] `src/muz/base/dl_rule.h`
 - [ ] `src/muz/base/fixedpoint_params.hpp`
