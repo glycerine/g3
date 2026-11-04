@@ -317,6 +317,20 @@ func (v *APIValues) DisplayDecimal(w io.Writer, a *APIValue, precision uint32) e
 	return v.store.displayValueDecimal(w, a.value, v.bounds, precision)
 }
 
+// CleanDenominators returns owned numerator and denominator values whose
+// quotient equals a. It follows manager::clean_denominators, including its
+// recursive coefficient normalization for real-closure extensions.
+func (v *APIValues) CleanDenominators(a *APIValue) (numerator, denominator *APIValue, err error) {
+	if !v.valid(a) {
+		return nil, nil, arena.ErrInvalidSlot
+	}
+	n, d, err := v.store.cleanTowerValueIfNeeded(a.value, true)
+	if err != nil {
+		return nil, nil, errors.Join(err, v.store.releaseSturmScratch(n), v.store.releaseSturmScratch(d))
+	}
+	return v.wrap(n), v.wrap(d), nil
+}
+
 func (v *APIValues) Close() error {
 	if v == nil || v.bounds == nil || v.live != 0 {
 		return arena.ErrInvalidSlot
