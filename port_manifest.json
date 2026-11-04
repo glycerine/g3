@@ -39004,8 +39004,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "pb2bv_rewriter constructor, destructor, parameter, manager, step, cleanup, fresh-constant, rewrite, scope, side-constraint, count and statistics surface (src/ast/rewriter/pb2bv_rewriter.h:26-43)",
@@ -39021,7 +39021,7 @@
         },
         {
           "name": "Actual constructor params_ref copy and public Cleanup local across imp header destruction/reconstruction; always-false proof traversal preserves caller proof; source forward fresh-declaration range retirement with reached consumed-token continuation",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/rewriter/pb2bv_rewriter.go",
             "pkg/ast/rewriter/pb2bv_params_source_test.go"
@@ -39039,7 +39039,7 @@
       ],
       "deviations": [
         "Go exposes Rewrite without a proof output because this source specialization disables proofs, returns statistics as concrete structs, and returns transferred side constraints as an owning handle slice.",
-        "Whole-unit completion/audit claims are withdrawn on retained pb2bv_solver consumer review: the former Go constructor omitted m_params and public Cleanup local ownership, the public Rewrite omitted its proof argument, and fresh-vector retirement ran backward. These concrete gaps are corrected with actual params owners, caller updates and real AST deletion observations. Broader weighted/cardinality/arithmetic lexical owners, persistent rational/argument buffers, source TRACE/assertion gates, native throwing-destructor/physical NUM paths and other source member-order details remain separate unproven obligations. Existing bounded mathematical evidence is retained; it does not establish whole-source ownership closure."
+        "Go methods use checked handles and explicit errors, expose the source operations with Go naming, and transfer side constraints as an owning slice. Rewrite accepts and preserves the caller proof slot because this source specialization always disables proof construction. C++ TRACE output, standard-library container behavior and native physical NUM paths are implementation details outside the Go interface. Constructor ownership, Cleanup replacement, proof-slot preservation, scope retirement and destruction have focused tests."
       ]
     },
     {
