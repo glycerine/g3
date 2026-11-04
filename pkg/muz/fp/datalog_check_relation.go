@@ -20,7 +20,6 @@ type datalogCheckedPredicate struct {
 	original    rel.FiniteTable
 	shadow      *rel.HashTable
 	checked     *rel.FormulaCheckedTable
-	sparse      *rel.CheckedRelation
 	pair        *rel.FiniteCheckedPair
 	nested      *rel.FormulaCheckedFinitePair
 	publish     rel.FiniteTable
@@ -131,7 +130,6 @@ func (e *PropositionalEngine) datalogCheckRelationName() (name string, enabled b
 		name = "sparse"
 	}
 	// doc selects the actual UDoc checking factory before finite execution.
-	// Sparse is checked by the concrete paired sparse table.
 	if name != "hashtable" && name != "sparse" && name != "doc" && name != "check" {
 		return "", false, fmt.Errorf("muz/fp: relation plugin %s is not available for datalog.check_relation", name)
 	}
@@ -333,26 +331,6 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 			if signature.Len() == 0 {
 				continue
 			}
-			snapshot, err := finiteHashSnapshot(state.table)
-			if err != nil {
-				return nil, err
-			}
-			checked, err := rel.NewCheckedRelationFromTable(snapshot)
-			closeErr := snapshot.Close()
-			if err != nil {
-				return nil, errors.Join(err, closeErr)
-			}
-			if closeErr != nil {
-				return nil, errors.Join(closeErr, checked.Close())
-			}
-			shadow, err := checked.Primary()
-			if err != nil {
-				return nil, errors.Join(err, checked.Close())
-			}
-			entry := datalogCheckedPredicate{declaration: declaration, state: state, original: state.table, shadow: shadow, sparse: checked}
-			scope.entries = append(scope.entries, entry)
-			state.table, state.sparse = shadow, checked
-			continue
 		}
 		shadow, err := finiteHashSnapshot(state.table)
 		if err != nil {
@@ -377,7 +355,7 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 func (s *datalogCheckRelationScope) restoreStates() {
 	for i := range s.entries {
 		entry := &s.entries[i]
-		if entry.state != nil && (entry.state.checked == entry.checked && entry.checked != nil || entry.state.sparse == entry.sparse && entry.sparse != nil || entry.pair != nil && entry.state.table == entry.pair || entry.nested != nil && entry.state.table == entry.nested || entry.doc != nil && entry.state.table == entry.doc) {
+		if entry.state != nil && (entry.state.checked == entry.checked && entry.checked != nil || entry.pair != nil && entry.state.table == entry.pair || entry.nested != nil && entry.state.table == entry.nested || entry.doc != nil && entry.state.table == entry.doc) {
 			entry.state.table, entry.state.checked, entry.state.sparse = entry.original, nil, nil
 		}
 	}
@@ -474,14 +452,6 @@ func (s *datalogCheckRelationScope) dispose() (result error) {
 				continue
 			}
 			entry.checked = nil
-			entry.shadow = nil
-		}
-		if entry.sparse != nil {
-			if err := entry.sparse.Close(); err != nil {
-				result = errors.Join(result, err)
-				continue
-			}
-			entry.sparse = nil
 			entry.shadow = nil
 		}
 		if entry.nested != nil {

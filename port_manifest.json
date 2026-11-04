@@ -94320,12 +94320,13 @@
           "status": "ported",
           "go_target": "pkg/muz/rel/formula_checked_table.go",
           "tests": [
+            "TestDatalogCheckRelationSparseBackend",
             "TestFormulaCheckedTableFactsAndReset",
             "TestFormulaCheckedUDocFactsCloneResetAndCorruption",
             "TestFormulaCheckedUDocCloseAfterFactoryRetirementReleasesOracle"
           ],
           "go_targets": ["pkg/muz/rel/relation_formula_checker.go","pkg/muz/rel/udoc_formula_checker.go","pkg/muz/rel/udoc_formula_checker_transform.go","pkg/muz/rel/udoc_formula_checker_test.go","pkg/muz/rel/udoc_relation_factory.go","pkg/muz/rel/udoc_relation_typed.go","pkg/muz/rel/udoc_relation_typed_operations.go","pkg/muz/rel/udoc_relation_typed_filter_project.go","pkg/muz/rel/udoc_relation_typed_negation.go","pkg/muz/rel/udoc_relation_typed_formula.go","pkg/muz/rel/udoc_relation_typed_formula_cleanup.go"],
-          "reason": "The concrete symbolic check_relation(doc) consumer additionally checks this operation against actual DOC storage; arbitrary relation-family wrapping remains open."
+          "reason": "The check_relation=tr_sparse execution now uses the same source formula checker as hashtable, while sparse nullary signatures fall through as in source. UDoc operations use the independently constructed symbolic formula checker. Arbitrary non-finite relation-plugin consumers remain outside the completed Go scope."
         },
         {
           "name": "SMT-verified equal, identical and interpreted filters",
