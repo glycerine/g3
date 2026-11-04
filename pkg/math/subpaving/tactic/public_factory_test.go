@@ -105,6 +105,73 @@ func TestSubpavingCoreFactoryAllConcreteEngines(t *testing.T) {
 	}
 }
 
+func TestSubpavingCoreUpdateReplacesSelectedEngine(t *testing.T) {
+	m, c, _ := publicFactoryFixture(t)
+	p, err := c.NewValue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Del(&p); err != nil {
+			t.Error(err)
+		}
+	})
+	core, err := NewSubpavingCoreTactic(m, c, &p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := core.IncRef(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := core.DecRef(); err != nil {
+			t.Error(err)
+		}
+	})
+	selected, ok := core.(*selectedSubpavingTactic)
+	if !ok || selected.engine != EngineMPQ {
+		t.Fatal("source default selection", selected, ok)
+	}
+	for _, entry := range []struct {
+		name string
+		kind EngineKind
+		want any
+	}{
+		{"mpff", EngineMPFF, (*fastTacticAdapter)(nil)},
+		{"hwf", EngineHWF, (*hardwareTacticAdapter)(nil)},
+		{"mpq", EngineMPQ, (*rationalTacticAdapter)(nil)},
+	} {
+		value, err := c.SymbolsField.Intern(entry.name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		key := "numeral"
+		if err := c.SetSymbolName(&p, &key, value); err != nil {
+			t.Fatal(err)
+		}
+		if err := core.UpdateParams(&p); err != nil {
+			t.Fatal(err)
+		}
+		if selected.engine != entry.kind {
+			t.Fatalf("selected engine %s: got %d want %d", entry.name, selected.engine, entry.kind)
+		}
+		switch entry.want.(type) {
+		case *fastTacticAdapter:
+			if _, ok := selected.inner.(*fastTacticAdapter); !ok {
+				t.Fatalf("%s replacement type %T", entry.name, selected.inner)
+			}
+		case *hardwareTacticAdapter:
+			if _, ok := selected.inner.(*hardwareTacticAdapter); !ok {
+				t.Fatalf("%s replacement type %T", entry.name, selected.inner)
+			}
+		case *rationalTacticAdapter:
+			if _, ok := selected.inner.(*rationalTacticAdapter); !ok {
+				t.Fatalf("%s replacement type %T", entry.name, selected.inner)
+			}
+		}
+	}
+}
+
 func TestSubpavingPublicFactoryOwnsSimplifyComposition(t *testing.T) {
 	m, c, g := publicFactoryFixture(t)
 	created, err := NewSubpavingTactic(m, c, g, nil)

@@ -12,7 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/params"
 )
 
-// NewSubpavingCoreTactic constructs exactly one concrete numeral branch.
+// NewSubpavingCoreTactic constructs the source selector around its initial concrete numeral branch.
 func NewSubpavingCoreTactic(m *ast.ASTManager, c *params.ParamsContext, p *params.ParamsRef) (goaltactic.Tactic, error) {
 	if m == nil || c == nil {
 		return nil, params.ErrParamsOwner
@@ -25,7 +25,11 @@ func NewSubpavingCoreTactic(m *ast.ASTManager, c *params.ParamsContext, p *param
 	if err != nil {
 		return nil, err
 	}
-	switch options.Engine {
+	return newSelectedSubpavingTactic(m, c, p, options.Engine)
+}
+
+func newConcreteSubpavingTactic(m *ast.ASTManager, c *params.ParamsContext, p *params.ParamsRef, engine EngineKind) (goaltactic.Tactic, error) {
+	switch engine {
 	case EngineMPQ:
 		core, err := NewRationalCoreTacticOwned(m, c, p)
 		if err != nil {

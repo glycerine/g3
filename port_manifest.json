@@ -83290,11 +83290,13 @@
           ]
         },
         {
-          "name": "Selected-engine context replacement, expression converter, goal processing and tactic lifetime (src/math/subpaving/tactic/subpaving_tactic.cpp:109-259)",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/tactic/goal_internalize.go",
+          "name": "Selected-engine context and converter replacement, goal processing, parameter snapshot and tactic lifetime (src/math/subpaving/tactic/subpaving_tactic.cpp:109-259)",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/selected_tactic_adapter.go",
           "tests": [
-            "TestHardwareExprConverterTerms"
+            "TestSubpavingCoreFactoryAllConcreteEngines",
+            "TestSubpavingCoreUpdateReplacesSelectedEngine",
+            "TestSubpavingPublicFactoryOwnsSimplifyComposition"
           ]
         },
         {
