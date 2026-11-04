@@ -25,7 +25,13 @@ func (s *realValueStore) displayAlgebraicValueDecimal(w io.Writer, value *realVa
 		refined = false
 	}
 	if !refined {
-		sign, signErr := s.determineAnyRetainedValueSign(value, true)
+		var sign int32
+		var signErr error
+		if value.root != nil && value.root.kind == realExtensionTranscendental {
+			sign, signErr = s.determineRankedRetainedValueSign(value, true)
+		} else {
+			sign, signErr = s.determineAnyRetainedValueSign(value, true)
+		}
 		if signErr != nil {
 			return signErr
 		}

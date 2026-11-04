@@ -2,7 +2,10 @@ package realclosure
 
 // Source: src/math/realclosure/realclosure.cpp:4867-5055.
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 func (s *realValueStore) addRankedRetainedValues(left, right *realValue, usePrem bool) (result *realValue, err error) {
 	comparison, err := s.compareRetainedValueRanks(left, right)
@@ -83,5 +86,9 @@ func (s *realValueStore) addRankedRetainedValues(left, right *realValue, usePrem
 	if err != nil {
 		return nil, err
 	}
-	return s.canonicalizeRankedRetainedResult(result, usePrem)
+	result, err = s.canonicalizeRankedRetainedResult(result, usePrem)
+	if err != nil {
+		return result, fmt.Errorf("realclosure: canonicalize extension sum: %w", err)
+	}
+	return result, nil
 }

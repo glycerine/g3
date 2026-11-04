@@ -11,7 +11,7 @@ func (s *realValueStore) retainedValueRank(value *realValue) (int, error) {
 		}
 		return -1, nil
 	}
-	if value.store != s || value.deleted || value.refs == 0 || value.root == nil || value.root.deleted {
+	if value.store != s || value.deleted || value.refs == 0 || value.root == nil || !value.root.isRegistered() {
 		return 0, arena.ErrInvalidSlot
 	}
 	return value.root.index, nil

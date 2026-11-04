@@ -10,9 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-// piInterval creates the source's first binary enclosure for pi. The cached
-// transcendental extension is added separately when its rational-function
-// representation is ported.
+// piInterval creates the source's first binary enclosure for pi.
 func (v *APIValues) piInterval() (result *BinaryInterval, err error) {
 	return v.predefinedTranscendentalInterval(true)
 }
@@ -156,6 +154,13 @@ func (v *APIValues) rationalIntervalToBinary(source *interval.RationalInterval, 
 	lower, upper, lowerOpen, upperOpen, err := source.BorrowFiniteBounds()
 	if err != nil {
 		return nil, err
+	}
+	mag, err := source.Magnitude()
+	if err != nil {
+		return nil, err
+	}
+	if mag < 0 && uint32(-int64(mag)) < 1<<16 {
+		precision = uint32(-int64(mag)) + 8
 	}
 	lo, err := v.rationalPointInterval(lower, precision)
 	if err != nil {

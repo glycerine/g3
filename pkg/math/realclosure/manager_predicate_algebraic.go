@@ -11,19 +11,25 @@ func (s *realValueStore) queryValueIsAlgebraic(value *realValue) (bool, error) {
 	if s == nil || value.store != s || value.deleted || value.refs == 0 {
 		return false, arena.ErrInvalidSlot
 	}
-	return !value.isRational && value.root != nil && !value.root.deleted, nil
+	return !value.isRational && value.root != nil && value.root.isRegistered() && value.root.kind == realExtensionAlgebraic, nil
 }
 
 func (s *realValueStore) queryValueIsInfinitesimal(value *realValue) (bool, error) {
 	if _, err := s.queryValueIsRational(value); err != nil {
 		return false, err
 	}
-	return false, nil
+	if value == nil || value.isRational {
+		return false, nil
+	}
+	return value.root != nil && value.root.isRegistered() && value.root.kind == realExtensionInfinitesimal, nil
 }
 
 func (s *realValueStore) queryValueIsTranscendental(value *realValue) (bool, error) {
 	if _, err := s.queryValueIsRational(value); err != nil {
 		return false, err
 	}
-	return false, nil
+	if value == nil || value.isRational {
+		return false, nil
+	}
+	return value.root != nil && value.root.isRegistered() && value.root.kind == realExtensionTranscendental, nil
 }

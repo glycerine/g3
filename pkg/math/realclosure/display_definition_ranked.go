@@ -9,7 +9,7 @@ import (
 )
 
 func (s *realValueStore) displayRankedAlgebraicDefinition(w io.Writer, root *algebraicRoot, compact, pretty bool) error {
-	if root == nil || root.deleted || root.owner == nil || root.owner.values != s || root.isolating == nil {
+	if root == nil || root.kind != realExtensionAlgebraic || !root.isRegistered() || root.owner.values != s || root.isolating == nil {
 		return arena.ErrInvalidSlot
 	}
 	if err := writeRealClosureString(w, "root("); err != nil {

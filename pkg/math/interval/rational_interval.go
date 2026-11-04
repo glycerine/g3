@@ -8,6 +8,7 @@ package interval
 import (
 	"errors"
 	"io"
+	"math"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/numeral"
@@ -101,6 +102,40 @@ func (v *RationalInterval) BorrowFiniteBounds() (lower, upper *numeral.Rational,
 		return nil, nil, false, false, ErrExtendedDomain
 	}
 	return &v.lower, &v.upper, v.lowerOpen, v.upperOpen, nil
+}
+
+// Magnitude mirrors real-closure's rational interval magnitude estimate.
+func (v *RationalInterval) Magnitude() (int32, error) {
+	if err := v.open(); err != nil {
+		return 0, err
+	}
+	if v.lowerInf || v.upperInf {
+		return 0, ErrExtendedDomain
+	}
+	width := numeral.NewRational()
+	if err := v.numbers.Sub(&v.upper, &v.lower, &width); err != nil {
+		return 0, errors.Join(err, v.numbers.Del(&width))
+	}
+	zero, err := v.numbers.IsZero(&width)
+	if err != nil {
+		return 0, errors.Join(err, v.numbers.Del(&width))
+	}
+	if zero {
+		return math.MinInt32, v.numbers.Del(&width)
+	}
+	numerator, err := v.numbers.Z.Log2(&width.Num)
+	if err != nil {
+		return 0, errors.Join(err, v.numbers.Del(&width))
+	}
+	denominator, err := v.numbers.Z.Log2(&width.Den)
+	if err != nil {
+		return 0, errors.Join(err, v.numbers.Del(&width))
+	}
+	result := int64(numerator) + 1 - int64(denominator)
+	if result < math.MinInt32 || result > math.MaxInt32 {
+		return 0, errors.Join(arena.ErrBounds, v.numbers.Del(&width))
+	}
+	return int32(result), v.numbers.Del(&width)
 }
 
 func (v *RationalInterval) Reset() error {

@@ -9,7 +9,7 @@ import "github.com/glycerine/g3/pkg/arena"
 // algebraic extension: numerator x, implicit denominator one, and the
 // extension's current approximation interval.
 func (s *realValueStore) newAlgebraicValue(root *algebraicRoot, one *realValue) (*realValue, error) {
-	if s == nil || root == nil || root.owner == nil || root.owner.values != s || root.deleted || one == nil || one.store != s || one.deleted || !one.isRational {
+	if s == nil || root == nil || root.owner == nil || root.owner.values != s || !root.isRegistered() || one == nil || one.store != s || one.deleted || !one.isRational {
 		return nil, arena.ErrInvalidSlot
 	}
 	isOne, err := s.numbers.IsOne(&one.rational)

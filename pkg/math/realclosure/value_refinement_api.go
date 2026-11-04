@@ -1,8 +1,8 @@
 package realclosure
 
 // Source: src/math/realclosure/realclosure.cpp:4313-4344 and manager interval
-// query wrappers. This is the retained rational and single-root algebraic
-// dispatch; transcendental and infinitesimal extension kinds are not live.
+// query wrappers. This dispatch handles rational, single-root algebraic, and
+// named pi/e transcendental values. Infinitesimal extension values remain open.
 
 import (
 	"errors"
@@ -39,6 +39,9 @@ func (s *realValueStore) refineValueInterval(value *realValue, bounds *numeral.B
 	}
 	if value.isRational {
 		return true, s.refineSturmRationalInterval(value, interval, precision)
+	}
+	if value.root != nil && value.root.kind == realExtensionTranscendental {
+		return s.refineTranscendentalPolynomialValue(value, precision)
 	}
 	return s.refineSturmAlgebraicInterval(value, precision)
 }

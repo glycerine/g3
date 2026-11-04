@@ -18,6 +18,23 @@ func (s *realValueStore) determineRankedRetainedValueSign(value *realValue, useP
 	if !contains {
 		return s.signValue(value)
 	}
+	if value.root.kind == realExtensionTranscendental {
+		for precision := uint32(1); ; precision++ {
+			if _, err := s.refineTranscendentalPolynomialValue(value, precision); err != nil {
+				return 0, err
+			}
+			contains, err = value.functionInterval.ContainsZero()
+			if err != nil {
+				return 0, err
+			}
+			if !contains {
+				return s.signValue(value)
+			}
+			if precision == ^uint32(0) {
+				return 0, arena.ErrBounds
+			}
+		}
+	}
 	if value.root.signs != nil {
 		return s.determineAnyRetainedValueSign(value, usePrem)
 	}

@@ -18,28 +18,60 @@ const (
 	realExtensionInfinitesimal
 )
 
-// algebraicRootOwner is the concrete algebraic-extension registry. Indices
-// remain stable after an extension is deleted, matching m_extensions.
+// algebraicRootOwner holds each source extension-kind registry. Indices remain
+// stable after an extension is deleted, matching m_extensions.
 type algebraicRootOwner struct {
-	values    *realValueStore
-	intervals *numeral.BinaryRationalManager
-	roots     []*algebraicRoot
+	values          *realValueStore
+	intervals       *numeral.BinaryRationalManager
+	api             *APIValues
+	roots           []*algebraicRoot
+	transcendentals []*algebraicRoot
+	infinitesimals  []*algebraicRoot
+}
+
+func (o *algebraicRootOwner) registry(kind realExtensionKind) *[]*algebraicRoot {
+	if o == nil {
+		return nil
+	}
+	switch kind {
+	case realExtensionTranscendental:
+		return &o.transcendentals
+	case realExtensionInfinitesimal:
+		return &o.infinitesimals
+	default:
+		return &o.roots
+	}
+}
+
+func (r *algebraicRoot) isRegistered() bool {
+	if r == nil || r.deleted || r.owner == nil || r.index < 0 {
+		return false
+	}
+	registry := r.owner.registry(r.kind)
+	return registry != nil && r.index < len(*registry) && (*registry)[r.index] == r
+}
+
+func (r *algebraicRoot) unregister() {
+	if registry := r.owner.registry(r.kind); registry != nil && r.index >= 0 && r.index < len(*registry) && (*registry)[r.index] == r {
+		(*registry)[r.index] = nil
+	}
 }
 
 type algebraicRoot struct {
-	owner          *algebraicRootOwner
-	kind           realExtensionKind
-	index          int
-	name           string
-	prettyName     string
-	refs           uint32
-	deleted        bool
-	polynomial     realPolynomial
-	interval       *BinaryInterval
-	isolating      *BinaryInterval
-	signs          *signDet
-	signIndex      int
-	infinitesimals bool
+	owner              *algebraicRootOwner
+	kind               realExtensionKind
+	index              int
+	name               string
+	prettyName         string
+	transcendentalStep uint32
+	refs               uint32
+	deleted            bool
+	polynomial         realPolynomial
+	interval           *BinaryInterval
+	isolating          *BinaryInterval
+	signs              *signDet
+	signIndex          int
+	infinitesimals     bool
 }
 
 // mkAlgebraic constructs the retained algebraic extension. The source
@@ -87,8 +119,19 @@ func (o *algebraicRootOwner) mkAlgebraic(coefficients []*realValue, enclosure, i
 	return r, nil
 }
 
+func (o *algebraicRootOwner) mkTranscendental(name, prettyName string, enclosure *BinaryInterval) (*algebraicRoot, error) {
+	if o == nil || o.values == nil || o.intervals == nil || enclosure == nil || enclosure.numbers != o.intervals || name == "" {
+		return nil, arena.ErrInvalidSlot
+	}
+	r := &algebraicRoot{owner: o, kind: realExtensionTranscendental, name: name, prettyName: prettyName, interval: enclosure, transcendentalStep: 1}
+	if err := o.registerExtension(r, realExtensionTranscendental); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 func (r *algebraicRoot) retain() error {
-	if r == nil || r.deleted || r.owner == nil || r.owner.roots[r.index] != r || r.refs == ^uint32(0) {
+	if !r.isRegistered() || r.refs == ^uint32(0) {
 		return arena.ErrInvalidSlot
 	}
 	r.refs++
@@ -96,7 +139,7 @@ func (r *algebraicRoot) retain() error {
 }
 
 func (r *algebraicRoot) release() error {
-	if r == nil || r.deleted || r.owner == nil || r.owner.roots[r.index] != r || r.refs == 0 {
+	if !r.isRegistered() || r.refs == 0 {
 		return arena.ErrInvalidSlot
 	}
 	if r.refs > 1 {
@@ -108,7 +151,7 @@ func (r *algebraicRoot) release() error {
 	}
 	r.refs = 0
 	r.deleted = true
-	r.owner.roots[r.index] = nil
+	r.unregister()
 	return nil
 }
 
@@ -116,14 +159,14 @@ func (r *algebraicRoot) release() error {
 // add_root's rational-function publication. It is used only when the latter
 // fails before taking the root's first reference.
 func (r *algebraicRoot) discardUnpublished() error {
-	if r == nil || r.deleted || r.owner == nil || r.index < 0 || r.index >= len(r.owner.roots) || r.owner.roots[r.index] != r || r.refs != 0 {
+	if !r.isRegistered() || r.refs != 0 {
 		return arena.ErrInvalidSlot
 	}
 	if err := r.destroy(); err != nil {
 		return err
 	}
 	r.deleted = true
-	r.owner.roots[r.index] = nil
+	r.unregister()
 	return nil
 }
 
@@ -155,7 +198,7 @@ func (r *algebraicRoot) destroy() error {
 }
 
 func (r *algebraicRoot) numRootsInsideInterval() (int, error) {
-	if r == nil || r.deleted || r.owner == nil || r.owner.roots[r.index] != r {
+	if !r.isRegistered() || r.kind != realExtensionAlgebraic {
 		return 0, arena.ErrInvalidSlot
 	}
 	if r.signs == nil {

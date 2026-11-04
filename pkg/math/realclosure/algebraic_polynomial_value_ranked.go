@@ -9,15 +9,14 @@ import (
 )
 
 func (s *realValueStore) newRankedAlgebraicPolynomialValue(root *algebraicRoot, numerator []*realValue, approximation *BinaryInterval) (value *realValue, err error) {
-	if s == nil || root == nil || root.deleted || root.owner == nil || root.owner.values != s || approximation == nil || approximation.numbers != root.owner.intervals || len(numerator) == 0 || len(numerator) >= len(root.polynomial.coefficients) || numerator[len(numerator)-1] == nil {
+	if s == nil || root == nil || !root.isRegistered() || root.owner.values != s || approximation == nil || approximation.numbers != root.owner.intervals || len(numerator) == 0 || (root.kind == realExtensionAlgebraic && len(numerator) >= len(root.polynomial.coefficients)) || numerator[len(numerator)-1] == nil {
 		return nil, arena.ErrInvalidSlot
 	}
 	for _, coefficient := range numerator {
 		if coefficient == nil {
 			continue
 		}
-		rank, e := s.retainedValueRank(coefficient)
-		if e != nil || rank >= root.index {
+		if !s.valueHasLowerExtensionRank(coefficient, root) {
 			return nil, arena.ErrInvalidSlot
 		}
 	}
@@ -43,4 +42,18 @@ func (s *realValueStore) newRankedAlgebraicPolynomialValue(root *algebraicRoot, 
 	}
 	err = value.functionInterval.SetFrom(approximation)
 	return value, err
+}
+
+func (s *realValueStore) valueHasLowerExtensionRank(value *realValue, root *algebraicRoot) bool {
+	if value == nil {
+		return true
+	}
+	if _, err := s.retainedValueRank(value); err != nil {
+		return false
+	}
+	if value.isRational {
+		return true
+	}
+	left, right := sourceExtensionRank(value.root.kind), sourceExtensionRank(root.kind)
+	return left < right || left == right && value.root.index < root.index
 }

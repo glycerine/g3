@@ -6,13 +6,16 @@ package realclosure
 import "github.com/glycerine/g3/pkg/arena"
 
 func (r *algebraicRoot) registryIndex() (int, error) {
-	if r == nil || r.deleted || r.owner == nil || r.index < 0 || r.index >= len(r.owner.roots) || r.owner.roots[r.index] != r {
+	if !r.isRegistered() {
 		return 0, arena.ErrInvalidSlot
 	}
 	return r.index, nil
 }
 
 func (r *algebraicRoot) definingDegree() (int, error) {
+	if r == nil || r.kind != realExtensionAlgebraic {
+		return 0, arena.ErrInvalidSlot
+	}
 	if _, err := r.registryIndex(); err != nil {
 		return 0, err
 	}
@@ -20,6 +23,9 @@ func (r *algebraicRoot) definingDegree() (int, error) {
 }
 
 func (r *algebraicRoot) signConditionIndex() (int, bool, error) {
+	if r == nil || r.kind != realExtensionAlgebraic {
+		return 0, false, arena.ErrInvalidSlot
+	}
 	if _, err := r.registryIndex(); err != nil {
 		return 0, false, err
 	}

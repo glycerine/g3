@@ -35,6 +35,7 @@ func registerZ3GeneratedRCFCommands(r *Z3Replayer) error {
 		name string
 	}{
 		{488, "Z3_rcf_del"}, {489, "Z3_rcf_mk_rational"}, {490, "Z3_rcf_mk_small_int"},
+		{491, "Z3_rcf_mk_pi"}, {492, "Z3_rcf_mk_e"},
 		{494, "Z3_rcf_mk_roots"},
 		{495, "Z3_rcf_add"}, {496, "Z3_rcf_sub"}, {497, "Z3_rcf_mul"}, {498, "Z3_rcf_div"}, {499, "Z3_rcf_neg"}, {500, "Z3_rcf_inv"}, {501, "Z3_rcf_power"},
 		{502, "Z3_rcf_lt"}, {503, "Z3_rcf_gt"}, {504, "Z3_rcf_le"}, {505, "Z3_rcf_ge"}, {506, "Z3_rcf_eq"}, {507, "Z3_rcf_neq"},
@@ -87,7 +88,7 @@ func replayRetainRCF(r *Z3Replayer, owner *replayContextOwner, position uint32) 
 }
 
 func replayStoreRCF(r *Z3Replayer, owner *replayContextOwner, value *RCFNumber) error {
-	zero, err := value.service.IsZero(&value.value)
+	zero, err := owner.context.RCFIsZero(value)
 	if err != nil {
 		return errors.Join(err, value.Close())
 	}
@@ -133,6 +134,18 @@ func replayRCFCommand(r *Z3Replayer, id uint32) (err error) {
 	owner, err := replayContext(r, 0)
 	if err != nil {
 		return err
+	}
+	if id == 491 || id == 492 {
+		var value *RCFNumber
+		if id == 491 {
+			value, err = owner.context.RCFPi()
+		} else {
+			value, err = owner.context.RCFE()
+		}
+		if err != nil {
+			return err
+		}
+		return replayStoreRCF(r, owner, value)
 	}
 	if id == 494 {
 		count, e := r.Uint(1)

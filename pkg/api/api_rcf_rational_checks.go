@@ -60,6 +60,18 @@ func (c *SMTContext) checkRCF(values ...*RCFNumber) (*unumeral.RationalService, 
 	return service, nil
 }
 
+// RCFIsZero follows the source numeral-zero query for rational and extension
+// values alike.
+func (c *SMTContext) RCFIsZero(value *RCFNumber) (bool, error) {
+	if _, err := c.checkRCF(value); err != nil {
+		return false, err
+	}
+	if value.real != nil {
+		return c.realClosure.IsZero(value.real)
+	}
+	return value.service.IsZero(&value.value)
+}
+
 func (c *SMTContext) wrapRCF(service *unumeral.RationalService, value unumeral.OwnedRational, operationErr error) (*RCFNumber, error) {
 	if operationErr != nil {
 		return nil, operationErr

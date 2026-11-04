@@ -5,6 +5,14 @@ package realclosure
 import "strconv"
 
 func rankedRootName(root *algebraicRoot, pretty bool) string {
+	if root.kind != realExtensionAlgebraic {
+		if pretty && root.prettyName != "" {
+			return root.prettyName
+		}
+		if root.name != "" {
+			return root.name
+		}
+	}
 	if pretty {
 		return "&alpha;<sub>" + strconv.Itoa(root.index) + "</sub>"
 	}

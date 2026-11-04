@@ -20,6 +20,7 @@ type APIValues struct {
 	transcendentals  *interval.RationalTranscendentals
 	initialPrecision uint32
 	roots            algebraicRootOwner
+	pi, e            *realValue
 	live             int
 }
 
@@ -73,6 +74,61 @@ func (v *APIValues) IsolateRoots(coefficients []*APIValue) ([]*APIValue, error) 
 	return result, nil
 }
 
+// Pi returns the context's cached transcendental pi value.
+func (v *APIValues) Pi() (*APIValue, error) { return v.transcendentalConstant(true) }
+
+// E returns the context's cached transcendental Euler constant.
+func (v *APIValues) E() (*APIValue, error) { return v.transcendentalConstant(false) }
+
+func (v *APIValues) transcendentalConstant(pi bool) (*APIValue, error) {
+	if v == nil || v.bounds == nil || v.transcendentals == nil {
+		return nil, arena.ErrInvalidSlot
+	}
+	cached := &v.e
+	name, prettyName := "e", "e"
+	if pi {
+		cached, name, prettyName = &v.pi, "pi", "&pi;"
+	}
+	if *cached == nil {
+		var enclosure *BinaryInterval
+		var err error
+		if pi {
+			enclosure, err = v.piInterval()
+		} else {
+			enclosure, err = v.eInterval()
+		}
+		if err != nil {
+			return nil, err
+		}
+		root, err := v.roots.mkTranscendental(name, prettyName, enclosure)
+		if err != nil {
+			return nil, errors.Join(err, enclosure.Close())
+		}
+		one, err := v.store.newRational(1, 1)
+		if err != nil {
+			return nil, errors.Join(err, root.discardUnpublished())
+		}
+		value, valueErr := v.store.newAlgebraicValue(root, one)
+		cleanupErr := v.store.release(one)
+		if valueErr != nil || cleanupErr != nil {
+			if valueErr == nil {
+				valueErr = v.store.release(value)
+			} else {
+				valueErr = errors.Join(valueErr, root.discardUnpublished())
+			}
+			if cleanupErr != nil {
+				cleanupErr = errors.Join(cleanupErr, v.store.release(one))
+			}
+			return nil, errors.Join(valueErr, cleanupErr)
+		}
+		*cached = value
+	}
+	if err := v.store.retain(*cached); err != nil {
+		return nil, err
+	}
+	return v.wrap(*cached), nil
+}
+
 // APIValue owns one real-closure numeral, including the nil representation of
 // zero. Values must be closed before their APIValues owner.
 type APIValue struct {
@@ -95,6 +151,7 @@ func NewAPIValues(service *numeral.RationalService) (*APIValues, error) {
 	}
 	v.store.numbers = service.Manager
 	v.roots.values, v.roots.intervals = &v.store, bounds
+	v.roots.api = v
 	return v, nil
 }
 
@@ -207,6 +264,9 @@ func (v *APIValues) Display(w io.Writer, a *APIValue, compact, pretty bool) erro
 	if !v.valid(a) {
 		return arena.ErrInvalidSlot
 	}
+	if !a.value.isRational && a.value.root.kind != realExtensionAlgebraic {
+		return v.store.displayRankedExpression(w, a.value, compact, pretty)
+	}
 	return v.store.displayValue(w, a.value, compact, pretty)
 }
 
@@ -220,6 +280,14 @@ func (v *APIValues) DisplayDecimal(w io.Writer, a *APIValue, precision uint32) e
 func (v *APIValues) Close() error {
 	if v == nil || v.bounds == nil || v.live != 0 {
 		return arena.ErrInvalidSlot
+	}
+	for _, cached := range []**realValue{&v.pi, &v.e} {
+		if *cached != nil {
+			if err := v.store.release(*cached); err != nil {
+				return err
+			}
+			*cached = nil
+		}
 	}
 	if v.transcendentals != nil {
 		if err := v.transcendentals.Close(); err != nil {

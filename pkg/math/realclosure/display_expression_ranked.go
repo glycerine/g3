@@ -22,6 +22,9 @@ func (s *realValueStore) displayRankedExpression(w io.Writer, value *realValue, 
 		return s.numbers.DisplayTo(w, &value.rational)
 	}
 	return s.displayRankedPolynomial(w, value.functionNumerator.coefficients, func() error {
+		if value.root.kind != realExtensionAlgebraic {
+			return writeRealClosureString(w, rankedRootName(value.root, pretty))
+		}
 		if compact {
 			return writeRealClosureString(w, rankedRootName(value.root, pretty))
 		}

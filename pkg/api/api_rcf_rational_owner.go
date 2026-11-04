@@ -1,8 +1,8 @@
 package api
 
-// Source: src/api/api_rcf.cpp:36-75. This unit is the dependency-closed
-// rational specialization; transcendental and infinitesimal extensions remain
-// gated on their realclosure value kinds.
+// Source: src/api/api_rcf.cpp:36-107. This unit owns rational and algebraic
+// values plus the named pi/e transcendental extensions. Infinitesimals remain
+// gated on their real-closure value kind.
 
 import (
 	"errors"
@@ -83,6 +83,40 @@ func (c *SMTContext) RCFRational(text string) (result *RCFNumber, resultErr erro
 
 func (c *SMTContext) RCFSmallInt(value int32) (*RCFNumber, error) {
 	return c.RCFRational(stringInt32(value))
+}
+
+// RCFPi returns the context's cached real-closure pi value.
+func (c *SMTContext) RCFPi() (*RCFNumber, error) {
+	if err := c.open(); err != nil {
+		return nil, err
+	}
+	manager, err := c.Manager()
+	if err != nil {
+		return nil, err
+	}
+	values, err := c.realClosureValues()
+	if err != nil {
+		return nil, err
+	}
+	value, err := values.Pi()
+	return c.wrapRealRCF(manager.NumeralService(), value, err)
+}
+
+// RCFE returns the context's cached real-closure Euler constant.
+func (c *SMTContext) RCFE() (*RCFNumber, error) {
+	if err := c.open(); err != nil {
+		return nil, err
+	}
+	manager, err := c.Manager()
+	if err != nil {
+		return nil, err
+	}
+	values, err := c.realClosureValues()
+	if err != nil {
+		return nil, err
+	}
+	value, err := values.E()
+	return c.wrapRealRCF(manager.NumeralService(), value, err)
 }
 
 // RCFRoots returns the distinct real roots in the source manager's order.

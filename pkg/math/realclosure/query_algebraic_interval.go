@@ -21,6 +21,9 @@ func (s *realValueStore) queryAlgebraicInterval(value *realValue) (result algebr
 	if value == nil || value.isRational {
 		return result, false, nil
 	}
+	if value.root != nil && value.root.kind != realExtensionAlgebraic {
+		return result, false, nil
+	}
 	if s == nil || value.store != s || value.deleted || value.refs == 0 || value.root == nil || value.root.isolating == nil {
 		return result, false, arena.ErrInvalidSlot
 	}
