@@ -53,6 +53,9 @@ func TestCachedAssumptionScopesAndFilteredCores(t *testing.T) {
 	other, err := scope.Assumptions.GetAssumptionLits(unrelated, nil)
 	must(err)
 	defer other[0].Close()
+	fresh, err := ctx.BoolConst("stack-fresh-failure-probe")
+	must(err)
+	closeExpr(t, fresh)
 	status, core, err := scope.CheckCore([]*Expr{pos[0], neg[0]})
 	must(err)
 	if status != lbool.False || len(core) != 2 {
@@ -87,6 +90,24 @@ func TestCachedAssumptionScopesAndFilteredCores(t *testing.T) {
 		t.Fatal("transient assumptions changed active stack")
 	}
 	must(stack.Push())
+	m.Budget().FailAfter(0)
+	assertionFailure := stack.Assert(fresh)
+	m.Budget().FailAfter(-1)
+	if assertionFailure == nil {
+		t.Fatal("cached assumption assertion ignored the injected allocation failure")
+	}
+	if len(stack.literals) != 1 {
+		t.Fatal("failed cached assumption assertion changed the active stack")
+	}
+	must(stack.Assert(fresh))
+	if len(stack.literals) != 2 {
+		t.Fatal("cached assumption retry did not publish its literal")
+	}
+	must(stack.Pop(1))
+	if len(stack.literals) != 1 {
+		t.Fatal("cached assumption pop changed the outer stack")
+	}
+	must(stack.Push())
 	must(stack.Assert(negative))
 	status, core, err = stack.Check(nil, true)
 	must(err)
@@ -109,7 +130,7 @@ func TestCachedAssumptionScopesAndFilteredCores(t *testing.T) {
 	must(err)
 	depth, err := scope.Solver.ScopeLevel()
 	must(err)
-	if count != 3 || depth != 0 {
+	if count != 4 || depth != 0 {
 		t.Fatal("cached scopes changed guard solver", count, depth)
 	}
 	if err = stack.Pop(1); err == nil {
@@ -119,5 +140,4 @@ func TestCachedAssumptionScopesAndFilteredCores(t *testing.T) {
 	if before != 0 {
 		t.Fatal("assumption stack not empty")
 	}
-	_ = m
 }
