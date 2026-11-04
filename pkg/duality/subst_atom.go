@@ -38,6 +38,18 @@ func (c *Context) SubstAtom(formula, atom, value *Expr) (out *Expr, result error
 	if err != nil {
 		return nil, err
 	}
+	isNot := func(h ast.ASTHandle) (bool, ast.ASTHandle, error) {
+		kind, err := m.GetKind(h)
+		if err != nil || kind != ast.ASTApp {
+			return false, ast.ASTHandle{}, err
+		}
+		op, err := m.GetDeclKind(h)
+		if err != nil || op != ast.ASTOpNot {
+			return false, ast.ASTHandle{}, err
+		}
+		child, err := m.GetArg(h, 0)
+		return true, child, err
+	}
 	memo := make(map[ast.ASTHandle]*Expr)
 	var pins []*Expr
 	defer func() {
@@ -71,15 +83,11 @@ func (c *Context) SubstAtom(formula, atom, value *Expr) (out *Expr, result error
 		}
 		var next *Expr
 		if kind == ast.ASTApp {
-			family, err := m.GetFamilyID(h)
-			if err != nil {
-				return nil, err
-			}
 			op, err := m.GetDeclKind(h)
 			if err != nil {
 				return nil, err
 			}
-			if family == m.BasicFamilyID() && (op == ast.ASTOpAnd || op == ast.ASTOpOr) {
+			if op == ast.ASTOpAnd || op == ast.ASTOpOr {
 				n, err := m.GetNumArgs(h)
 				if err != nil {
 					return nil, err
@@ -131,13 +139,13 @@ func (c *Context) SubstAtom(formula, atom, value *Expr) (out *Expr, result error
 			if h == target {
 				raw = replacement
 			} else {
-				negated, child, err := m.IsNot(h)
+				negated, child, err := isNot(h)
 				if err != nil {
 					return nil, err
 				}
 				if negated && child == target {
 					// Source Negate removes one not or flips Boolean constants.
-					neg, inner, err := m.IsNot(replacement)
+					neg, inner, err := isNot(replacement)
 					if err != nil {
 						return nil, err
 					}
