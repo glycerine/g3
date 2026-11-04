@@ -5,6 +5,7 @@ package realclosure
 import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/numeral"
+	"math"
 )
 
 func (s *realValueStore) refineAnyRetainedInterval(value *realValue, bounds *numeral.BinaryRationalManager, precision uint32) (bool, error) {
@@ -17,11 +18,18 @@ func (s *realValueStore) refineAnyRetainedInterval(value *realValue, bounds *num
 	if value.store != s || value.deleted || value.refs == 0 || bounds == nil {
 		return false, arena.ErrInvalidSlot
 	}
+	interval, err := s.valueInterval(value, bounds)
+	if err != nil {
+		return false, err
+	}
+	magnitude, err := s.sturmIntervalMagnitude(interval)
+	if err != nil {
+		return false, err
+	}
+	if magnitude == math.MinInt32 || magnitude < 0 && uint32(-magnitude) > precision {
+		return true, nil
+	}
 	if value.isRational {
-		interval, err := s.cachedRationalApproxInterval(value, bounds)
-		if err != nil {
-			return false, err
-		}
 		return true, s.refineSturmRationalInterval(value, interval, precision)
 	}
 	if value.root != nil && value.root.kind == realExtensionTranscendental {
