@@ -133,6 +133,9 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 			return lbool.Undef, err
 		}
 	}
+	if prepared == nil {
+		return lbool.Undef, graph.ErrWrapperOwner
+	}
 	// A previous attempt may still own a refused background-scope Pop.
 	// Drain it before either borrowed solver is used by another query.
 	if err := e.reap(); err != nil {
