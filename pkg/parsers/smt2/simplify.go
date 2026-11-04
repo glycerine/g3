@@ -47,6 +47,24 @@ func (p *commandParser) simplifyCommand() (resultErr error) {
 		if e != nil {
 			return e
 		}
+		kind := uparams.ParamInvalid
+		if key != "timeout" && key != "print" && key != "print_proofs" && key != "print_statistics" {
+			symbol, e := m.Symbols.Intern(key)
+			if e != nil {
+				return e
+			}
+			kind, e = descriptions.KindInModule(&symbol)
+			if e != nil {
+				return e
+			}
+			if kind == uparams.ParamInvalid {
+				return fmt.Errorf("invalid keyword argument")
+			}
+			key, e = m.Symbols.String(symbol)
+			if e != nil {
+				return e
+			}
+		}
 		if err = p.advance(); err != nil {
 			return err
 		}
@@ -75,21 +93,6 @@ func (p *commandParser) simplifyCommand() (resultErr error) {
 				return err
 			}
 			continue
-		}
-		symbol, e := m.Symbols.Intern(key)
-		if e != nil {
-			return e
-		}
-		kind, e := descriptions.KindInModule(&symbol)
-		if e != nil {
-			return e
-		}
-		if kind == uparams.ParamInvalid {
-			return fmt.Errorf("invalid simplify command, unknown parameter %s", key)
-		}
-		key, e = m.Symbols.String(symbol)
-		if e != nil {
-			return e
 		}
 		if err = p.tacticParameter(globals.Context, &settings, key, kind); err != nil {
 			return err

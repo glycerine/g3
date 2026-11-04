@@ -1192,8 +1192,13 @@ func (p *commandParser) command() (bool, error) {
 		}
 		params := polynomial.DefaultUPolynomialFactorParams()
 		for p.token == KeywordToken {
-			rawKey := p.scanner.ID()
-			key := uparams.NormParamName(&rawKey)
+			key, e := p.parametricKeyword()
+			if e != nil {
+				return false, e
+			}
+			if key != "max_prime" && key != "num_primes" && key != "max_search_size" {
+				return false, fmt.Errorf("invalid keyword argument")
+			}
 			if err = p.advance(); err != nil {
 				return false, err
 			}
@@ -1212,8 +1217,6 @@ func (p *commandParser) command() (bool, error) {
 				params.PrimeTrials = value
 			case "max_search_size":
 				params.MaxSearchSize = value
-			default:
-				return false, fmt.Errorf("unknown polynomial factor parameter %s", key)
 			}
 			if err = p.advance(); err != nil {
 				return false, err

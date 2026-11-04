@@ -71,7 +71,7 @@ func TestSMT2SimplifyCommandRejectsUnknownParameterBeforeOutput(t *testing.T) {
 	})
 	var output bytes.Buffer
 	err = ParseCommands(context, strings.NewReader(`(simplify (+ 1 2) :not-a-parameter true)`), &output)
-	if err == nil || !strings.Contains(err.Error(), "unknown parameter") || output.Len() != 0 {
+	if err == nil || !strings.Contains(err.Error(), "invalid keyword argument") || output.Len() != 0 {
 		t.Fatal("simplify parameter refusal", err, output.String())
 	}
 }
