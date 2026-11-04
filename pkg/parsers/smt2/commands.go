@@ -841,7 +841,11 @@ func (p *commandParser) command() (bool, error) {
 				if y == nil {
 					_, y = fmt.Fprintln(p.out)
 				}
-				if y = errors.Join(y, manager.DelRef(&answer)); y != nil {
+				cleanupErr := manager.DelRef(&answer)
+				if answer != (ast.ASTRef{}) {
+					return false, &fixedpointAnswerCleanupFailure{manager: manager, reference: answer, cause: y, cleanupErr: cleanupErr}
+				}
+				if y = errors.Join(y, cleanupErr); y != nil {
 					return false, y
 				}
 			}
