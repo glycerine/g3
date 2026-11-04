@@ -8,11 +8,39 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
+
+// A non-Boolean temporary formula reaches the solver after the delayed push
+// and is rejected by the native assertion. The public check must still pop.
+func TestPropSolverCheckFailureRollsBackDelayedPush(t *testing.T) {
+	manager, context, _ := classifierContextFixture(t)
+	truth, err := manager.MkTrue()
+	closureMust(t, err)
+	solver, err := NewPropSolver(manager, context.owner.contexts, truth, "delay-assert-error")
+	closureMust(t, err)
+	t.Cleanup(func() { closureMust(t, solver.Close()) })
+	integer, err := manager.ArithmeticIntegerNumeralText("1")
+	closureMust(t, err)
+	for attempt := 0; attempt < 2; attempt++ {
+		_, err = solver.CheckAssumptionsAndFormula(nil, integer, false, false)
+		if !errors.Is(err, ast.ErrASTDomain) {
+			t.Fatal("expected assertion domain failure", err)
+		}
+		if solver.context.delayed || solver.context.pushed || solver.delayScope != nil {
+			t.Fatal("failed check retained its delayed scope")
+		}
+		result, err := solver.CheckAssumptions(nil, false, false)
+		closureMust(t, err)
+		if result.Status != lbool.True {
+			t.Fatal("failed check corrupted the next check", result.Status)
+		}
+	}
+}
 
 // A deferred scope pop can fail after its native cleanup has begun. The
 // propositional solver must retain ownership until Close can resume it.

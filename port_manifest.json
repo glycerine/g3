@@ -92719,7 +92719,7 @@
       "path": "src/muz/pdr/pdr_manager.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/pdr/manager.go",
         "pkg/muz/pdr/manager_test.go",
@@ -92757,8 +92757,8 @@
           "text": "SASSERT(res);"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "manager construction, zero-arity state creation, state/formula conversions, cube/lemma operations, atom recognition, implication checks and SMT context/statistics integration (pdr_manager.cpp:159-287)",
@@ -92830,7 +92830,7 @@
       "path": "src/muz/pdr/pdr_manager.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/pdr/manager.go",
         "pkg/muz/pdr/manager_test.go",
@@ -92869,8 +92869,8 @@
           "text": "SASSERT(o_index(0)==1);"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "retained manager state-symbol, formula conversion, classification, Boolean, SMT context and statistics surface",
@@ -101783,7 +101783,7 @@
       "path": "src/muz/rel/karr_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/rel/karr_relation.go", "pkg/muz/rel/karr_relation_test.go", "pkg/muz/transforms/karr_invariants.go"],
       "tests": ["TestKarrFactUnionAndDualization", "TestKarrJoinProjectAndRename", "TestKarrFiltersAndSourceEqualQuirk", "TestKarrGuards", "TestKarrInvariantsAnnotatesAffineRecurrence"],
       "assertions": [
@@ -101824,8 +101824,8 @@
           "text": "SASSERT(is_sat == l_true);"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "concrete relation construction, fact insertion, clone, join, projection, rename, union, identical/equal filters and Hilbert dualization",
@@ -101841,13 +101841,13 @@
         }
       ],
       "ownership": ["KarrRelation owns both lazy matrix representations and deep-copies rows at every public boundary. Concrete operations return independent relation owners."],
-      "deviations": ["Go exposes the live concrete Karr relation directly instead of recreating the unused generic C++ relation-plugin callback hierarchy. The source filter_equal fixed -1 constant is intentionally retained and tested."]
+      "deviations": ["Go exposes concrete Karr operations for the invariant transform. Source also registers the Karr plugin for configured Datalog and dispatches its callbacks; the corresponding concrete public Datalog routes and semantics remain unaudited. The source filter_equal fixed -1 constant remains tested."]
     },
     {
       "path": "src/muz/rel/karr_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/rel/karr_relation.go", "pkg/muz/rel/karr_relation_test.go", "pkg/muz/transforms/karr_invariants.go"],
       "tests": ["TestKarrFactUnionAndDualization", "TestKarrJoinProjectAndRename", "TestKarrFiltersAndSourceEqualQuirk", "TestKarrGuards", "TestKarrInvariantsAnnotatesAffineRecurrence"],
       "conditionals": [
@@ -101860,8 +101860,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "live concrete Karr relation and operation surface used by invariant discovery",
@@ -101876,7 +101876,7 @@
         }
       ],
       "ownership": ["The concrete Go owner replaces relation_base allocation and plugin downcasts for the only retained Karr consumer."],
-      "deviations": ["No universal relation adapter is added; the retained Horn saturation consumer uses typed KarrRelation operations."]
+      "deviations": ["No universal relation adapter is added; the Horn invariant consumer uses typed KarrRelation operations, while source-configured Datalog Karr operation dispatch remains open."]
     },
     {
       "path": "src/muz/rel/rel_context.cpp",
