@@ -14,6 +14,7 @@ import (
 
 type contextFormulaAttempt struct {
 	manager      *ast.ASTManager
+	properties   *base.RuleProperties
 	sets         []*base.RuleSet
 	rules        []*base.Rule
 	references   []ast.ASTRef
@@ -40,6 +41,12 @@ func (a *contextFormulaAttempt) close() error {
 			return err
 		}
 		a.nested = nil
+	}
+	if a.properties != nil {
+		if err := a.properties.Close(); err != nil {
+			return err
+		}
+		a.properties = nil
 	}
 	if a.substitution != nil {
 		if err := a.substitution.Close(); err != nil {

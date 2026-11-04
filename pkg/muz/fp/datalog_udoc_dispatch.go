@@ -2,8 +2,10 @@ package fp
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -167,8 +169,36 @@ func (e *PropositionalEngine) queryUDocDatalog(declarations []ast.ASTHandle) (lb
 	if err := e.prepareUDocQuery(); err != nil {
 		return lbool.Undef, err
 	}
+	if err := e.checkUDocQuantifiers(); err != nil {
+		return lbool.Undef, err
+	}
 	if err := e.udocDatalog.saturate(e.set); err != nil {
 		return lbool.Undef, err
 	}
 	return e.finishUDocQuery(declarations)
+}
+
+// Quantifiers are checked first by source check_rules. Keep this distinct from
+// the source infinite-sort check because UDoc supports integer relations.
+func (e *PropositionalEngine) checkUDocQuantifiers() (result error) {
+	proof, err := e.sourceRuleProofTrace()
+	if err != nil {
+		return err
+	}
+	properties, err := base.NewRuleProperties(e.rules)
+	if err != nil {
+		return err
+	}
+	attempt := &contextFormulaAttempt{manager: e.manager, properties: properties}
+	defer func() { result = attempt.finish(result) }()
+	if err = properties.SetGenerateProof(proof); err != nil {
+		return err
+	}
+	if err = properties.Collect(e.set); err != nil {
+		return err
+	}
+	if err = properties.CheckQuantifierFree(); err != nil {
+		return fmt.Errorf("%w: validate datalog rule fragment: %w", ErrPropositionalHorn, err)
+	}
+	return nil
 }
