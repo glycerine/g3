@@ -55276,7 +55276,7 @@
         },
         {
           "name": "Concrete config_hwf interval multiplication: nine sign classes, mixed extrema ties, infinity, zero and directed bounds (src/math/interval/interval_def.h:1017-1218)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_mul.go",
           "tests": [
             "TestSubpavingHardwareIntervalMulNineSignClassesAndDirectedBounds"
@@ -80329,7 +80329,7 @@
         },
         {
           "name": "Concrete config_hwf interval multiplication: nine sign classes, mixed extrema ties, infinity, zero and directed bounds (src/math/interval/interval_def.h:1017-1218)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_mul.go",
           "tests": [
             "TestSubpavingHardwareIntervalMulNineSignClassesAndDirectedBounds"
@@ -81722,7 +81722,7 @@
         },
         {
           "name": "Concrete config_hwf interval multiplication: nine sign classes, mixed extrema ties, infinity, zero and directed bounds (src/math/interval/interval_def.h:1017-1218)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_mul.go",
           "tests": [
             "TestSubpavingHardwareIntervalMulNineSignClassesAndDirectedBounds"
