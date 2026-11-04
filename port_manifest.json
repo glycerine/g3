@@ -85759,7 +85759,7 @@
       "path": "src/muz/base/dl_context.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/fp/context_formula_rules.go",
         "pkg/muz/fp/context_formula_rules_test.go",
@@ -86099,8 +86099,8 @@
           "text": "SASSERT(vars.size() == max_var);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {"name": "shared Datalog quantifier, uninterpreted and nested-predicate preflight", "status": "ported", "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_proof.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_proof.go", "pkg/muz/base/rule_properties.go", "pkg/muz/fp/rule_fragment.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/rule_fragment_test.go", "pkg/parsers/smt2/fixedpoint_nested_exception_test.go"], "tests": ["TestFixedpointNestedPredicateExceptionAcrossQueries", "TestFixedpointRulePropertiesFollowEngineLifetime", "TestDatalogRejectsUnsupportedInfinitePredicateSorts", "TestDatalogBoundIntervalPublicQueriesAndOwnership", "TestIntervalDatalogPositiveUnaryRepeatedBoundsAndFixpoint", "TestDatalogKarrBinaryRulePublic", "TestDatalogQueriesRestoreFilterAndJoinScopes"], "reason": "The shared Datalog checks run in C++ source order before transformations: quantifier-free, uninterpreted-free, then nested-free. The RuleProperties owner follows context lifetime and is reused. Go integer, interval, and external-relation Datalog backends are supported extensions, so infinite-sort rejection runs after those backends decline a program and before finite-table evaluation; the unsupported infinite-sort and supported extension paths have focused coverage."},
         {"name": "finite-domain symbol and integer overflow publication and diagnostic (dl_context.cpp:65-135)", "status": "ported", "go_targets": ["pkg/muz/base/datalog_context_sorts.go", "pkg/muz/base/datalog_context_sorts_test.go", "pkg/muz/base/datalog_context_sort_overflow_source_test.go", "pkg/muz/fp/datalog_parser_domain_overflow_test.go"], "tests": ["TestDatalogContextFiniteSortOverflowRetainsElement", "TestDatalogParserRetainsOverflowingDomainConstant"], "reason": "A newly inserted symbol or integer retains its assigned ordinal even when it exceeds the finite domain; repeated lookup returns the same source diagnostic and the Datalog parser exposes the published element. Symbol and uint64 domains both preserve insertion order, publish over-limit values before returning the source diagnostic, return the same error on repeat lookup, and retain count and formatting visibility."},
@@ -86342,7 +86342,9 @@
         "Finite model materialization copies saturated table rows into a caller-owned Model. Function graphs retain decoded row values before the temporary DecodeFact references are released, and model registration transfers graph ownership."
       ],
       "deviations": [
-        "Finite Datalog tuple answers, configured dispatch for all ten source engines and automatic engine selection, and concrete arithmetic/abstract/product backends have Go implementations. PDR/Spacer consume command assertions as background constraints and reconstruct existential answers and recursive-SCC state traces; implemented model, proof, certificate and transformation consumers are mapped by individual records. The source context-display audit covers formula/query partitioning, pending phases, print options, declarations, typed labels, live callers and tested cleanup. Shared context/rule lifecycle, backend-specific parameter semantics, explicitly untested native-finalizer boundaries and broader derived algorithm/transform/proof/model audits remain open; staged Go construction remains an explicit adaptation."
+        "context::result_contains_fact has no source call site outside its declaration/definition and the rel_context override; the retained Go consumers query relations directly, so no adapter is needed.",
+        "context::apply_default_transformation is empty. Go keeps its integer, interval, and external-relation Datalog extensions and delays the source infinite-sort guard until those specialized backends decline a program.",
+        "Go uses explicit typed owners and retryable cleanup for context lifetimes. The C++ src/test/dl_context.cpp entry returns immediately, and its substantive examples are disabled under #if 0, so there is no active C++ unit test to port. Derived backend algorithms remain tracked in their own source units."
       ]
     },
     {
