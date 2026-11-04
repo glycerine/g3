@@ -138,6 +138,32 @@ func (t *externalIntervalDatalogGroundTuple) rename(cycle []uint32) error {
 	return nil
 }
 
+func (t *externalIntervalDatalogGroundTuple) filterInterpreted(condition ast.ASTHandle) error {
+	if t.current == nil || t.auxiliary != nil {
+		return ErrExternalIntervalDatalogFragment
+	}
+	clone, err := t.current.Clone()
+	if err != nil {
+		return err
+	}
+	t.auxiliary = clone
+	if err = clone.FilterInterpreted(condition); err != nil {
+		return err
+	}
+	if t.retiring != nil {
+		return ErrExternalIntervalDatalogFragment
+	}
+	t.retiring, t.joined, t.current = t.joined, clone, clone
+	t.auxiliary = nil
+	if t.retiring != nil {
+		if err = t.retiring.Close(); err != nil {
+			return err
+		}
+		t.retiring = nil
+	}
+	return nil
+}
+
 func (t *externalIntervalDatalogGroundTuple) assembleCached(registers *externalIntervalDatalogRegisters, head ast.ASTHandle, sorts, values []ast.ASTHandle) error {
 	t.registers, t.head = registers, head
 	return t.assemble(registers.activation.plugin, registers.activation.entries[head].kinds, sorts, values)

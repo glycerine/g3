@@ -262,12 +262,8 @@ func (a *externalIntervalDatalogActivation) pinExternalIntervalProgramPlans() er
 		if err := rule.cartesian.pin(a.manager); err != nil {
 			return err
 		}
-		if rule.ground != nil && rule.ground.applicationRoot == (ast.ASTRef{}) {
-			root, err := a.manager.NewRef(rule.ground.application)
-			if err != nil {
-				return err
-			}
-			rule.ground.applicationRoot = root
+		if err := rule.ground.pin(a.manager); err != nil {
+			return err
 		}
 	}
 	return nil

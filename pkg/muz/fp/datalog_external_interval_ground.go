@@ -23,18 +23,40 @@ type externalIntervalDatalogGroundRule struct {
 	headAdditions   []externalIntervalCartesianHeadAddition
 	duplicates      []uint32
 	renames         [][]uint32
+	guardRemoved    []uint32
+	condition       *externalIntervalUnaryCondition
 	applicationRoot ast.ASTRef
 }
 
 func (r *externalIntervalDatalogGroundRule) close(manager *ast.ASTManager) error {
-	if r == nil || r.applicationRoot == (ast.ASTRef{}) {
+	if r == nil {
 		return nil
 	}
-	return manager.DelRef(&r.applicationRoot)
+	if err := r.condition.close(manager); err != nil {
+		return err
+	}
+	if r.applicationRoot != (ast.ASTRef{}) {
+		return manager.DelRef(&r.applicationRoot)
+	}
+	return nil
+}
+
+func (r *externalIntervalDatalogGroundRule) pin(manager *ast.ASTManager) error {
+	if r == nil {
+		return nil
+	}
+	if r.applicationRoot == (ast.ASTRef{}) {
+		root, err := manager.NewRef(r.application)
+		if err != nil {
+			return err
+		}
+		r.applicationRoot = root
+	}
+	return r.condition.prepare(manager)
 }
 
 func sameExternalIntervalGroundRule(left, right *externalIntervalDatalogGroundRule) bool {
-	if left == nil || right == nil || left.head != right.head || len(left.values) != len(right.values) || len(left.headConstants) != len(right.headConstants) || len(left.headUnbound) != len(right.headUnbound) || len(left.headAdditions) != len(right.headAdditions) || !externalIntervalColumnsEqual(left.duplicates, right.duplicates) || len(left.renames) != len(right.renames) {
+	if left == nil || right == nil || left.head != right.head || len(left.values) != len(right.values) || len(left.headConstants) != len(right.headConstants) || len(left.headUnbound) != len(right.headUnbound) || len(left.headAdditions) != len(right.headAdditions) || !externalIntervalColumnsEqual(left.duplicates, right.duplicates) || !externalIntervalColumnsEqual(left.guardRemoved, right.guardRemoved) || !sameExternalIntervalUnaryCondition(left.condition, right.condition) || len(left.renames) != len(right.renames) {
 		return false
 	}
 	for i, value := range left.values {
@@ -81,6 +103,10 @@ func (c *externalIntervalDatalogCompiler) externalIntervalGroundRule(rule *base.
 	}
 	if positive != 0 || uninterpreted != 0 {
 		return nil, ErrExternalIntervalDatalogFragment
+	}
+	tailSize, err := rule.TailSize()
+	if err != nil {
+		return nil, err
 	}
 	head, err := rule.Head()
 	if err != nil {
@@ -153,6 +179,55 @@ func (c *externalIntervalDatalogCompiler) externalIntervalGroundRule(rule *base.
 		headSources[i] = width
 		width++
 	}
+	if tailSize != 0 {
+		boolean, cause := c.manager.MkBoolSort()
+		if cause != nil {
+			return nil, cause
+		}
+		used, cause := ast.NewASTUsedVars(c.manager)
+		if cause != nil {
+			return nil, cause
+		}
+		condition := &externalIntervalUnaryCondition{}
+		for index := uninterpreted; index < tailSize; index++ {
+			guard, negated, cause := rule.Tail(index)
+			if cause != nil {
+				return nil, cause
+			}
+			kind, cause := c.manager.GetKind(guard)
+			if cause != nil {
+				return nil, cause
+			}
+			sort, cause := c.manager.GetSort(guard)
+			if cause != nil {
+				return nil, cause
+			}
+			if negated || kind != ast.ASTApp || sort != boolean {
+				return nil, ErrExternalIntervalDatalogFragment
+			}
+			if cause = used.Collect(guard); cause != nil {
+				return nil, cause
+			}
+			condition.source = append(condition.source, guard)
+		}
+		for variable := uint32(0); variable < used.MaxFoundVarIndexPlusOne(); variable++ {
+			sort := used.Contains(variable)
+			if sort.IsNull() {
+				continue
+			}
+			column, found := variableSources[variable]
+			if !found {
+				index := len(plan.headUnbound)
+				plan.headUnbound = append(plan.headUnbound, externalIntervalCartesianHeadVariable{sort: sort})
+				plan.headAdditions = append(plan.headAdditions, externalIntervalCartesianHeadAddition{total: true, index: index})
+				column = width
+				width++
+				plan.guardRemoved = append(plan.guardRemoved, column)
+			}
+			condition.bindings = append(condition.bindings, externalIntervalUnaryConditionBinding{variable: variable, column: column, sort: sort})
+		}
+		plan.condition = condition
+	}
 	plan.values = values
 	permutation := make([]uint32, len(headSources))
 	usedSources := make(map[uint32]bool)
@@ -212,17 +287,13 @@ func (c *externalIntervalDatalogCompiler) externalIntervalRulePlans() (_ *extern
 		return nil, nil, nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, rule.Close()) }()
-	total, err := rule.TailSize()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	if total == 0 {
-		ground, cause := c.externalIntervalGroundRule(rule)
-		return nil, ground, nil, cause
-	}
 	positive, err := rule.PositiveTailSize()
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	if positive == 0 {
+		ground, cause := c.externalIntervalGroundRule(rule)
+		return nil, ground, nil, cause
 	}
 	if positive == 1 {
 		identity, cause := c.externalIntervalIdentityRulePlan(rule)
@@ -275,12 +346,8 @@ func (a *externalIntervalDatalogActivation) installExternalIntervalRulePlans(ide
 		a.cartesian != nil && (identity != nil || ground != nil) {
 		return ErrExternalIntervalDatalogFragment
 	}
-	if ground != nil && ground.applicationRoot == (ast.ASTRef{}) {
-		root, err := a.manager.NewRef(ground.application)
-		if err != nil {
-			return err
-		}
-		ground.applicationRoot = root
+	if err := ground.pin(a.manager); err != nil {
+		return err
 	}
 	if identity == nil {
 		if err := a.identity.close(a.manager); err != nil {
@@ -438,11 +505,40 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 	}
 	var temporary *rel.ExternalIntervalProduct
 	var selected bool
-	if len(a.ground.headUnbound) != 0 {
+	if len(a.ground.headUnbound) != 0 || a.ground.condition != nil {
 		owner.tuple = &externalIntervalDatalogGroundTuple{}
 		err = owner.tuple.assembleHead(registers, a.ground.head, a.ground.headConstants, a.ground.headUnbound, a.ground.headAdditions)
 		if err != nil {
 			return rollback(fmt.Errorf("assemble zero-tail variable head: %w", err))
+		}
+		if a.ground.condition != nil {
+			if owner.tuple.current == nil {
+				owner.tuple.current, err = registers.nullaryTotal(a.ground.head)
+				if err != nil {
+					return rollback(err)
+				}
+			}
+			condition, cause := a.ground.condition.handle(a.manager)
+			if cause != nil {
+				return rollback(cause)
+			}
+			if len(a.ground.guardRemoved) != 0 {
+				projected, cause := filterProjectExternalIntervalUnary(owner.tuple.current, condition, a.ground.guardRemoved, registers.runtime)
+				if projected != nil {
+					owner.tuple.retiring, owner.tuple.joined, owner.tuple.current = owner.tuple.joined, projected, projected
+				}
+				if cause != nil {
+					return rollback(cause)
+				}
+				if owner.tuple.retiring != nil {
+					if cause = owner.tuple.retiring.Close(); cause != nil {
+						return rollback(cause)
+					}
+					owner.tuple.retiring = nil
+				}
+			} else if err = owner.tuple.filterInterpreted(condition); err != nil {
+				return rollback(err)
+			}
 		}
 		for _, column := range a.ground.duplicates {
 			if err = owner.tuple.duplicateColumn(column); err != nil {
@@ -489,7 +585,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 	if owner.tuple == nil && a.program == nil {
 		owner.temporary = temporary
 	}
-	if len(a.ground.headUnbound) == 0 && len(a.ground.values) == 1 && a.program == nil {
+	if len(a.ground.headUnbound) == 0 && a.ground.condition == nil && len(a.ground.values) == 1 && a.program == nil {
 		if err = temporary.AddFact(a.ground.values); err != nil {
 			return rollback(err)
 		}
