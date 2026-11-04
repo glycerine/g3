@@ -371,6 +371,9 @@ func transformSubsumedRule(manager *base.RuleManager, rule *base.Rule, total map
 	if err != nil {
 		return nil, false, false, err
 	}
+	if err = replacement.SetAccountingParentRule(rule); err != nil {
+		return nil, false, false, errors.Join(err, replacement.Close())
+	}
 	if err = manager.MkRuleRewriteProof(rule, replacement); err != nil {
 		return nil, false, false, errors.Join(err, replacement.Close())
 	}

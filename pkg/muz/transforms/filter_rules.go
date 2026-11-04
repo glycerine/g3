@@ -170,7 +170,7 @@ func sameFilterArguments(left, right []ast.ASTHandle) bool {
 	return true
 }
 
-func (p *FilterRulesPlugin) makeFilter(application ast.ASTHandle, nonLocal map[uint32]bool, result *base.RuleSet) (_ ast.ASTHandle, resultErr error) {
+func (p *FilterRulesPlugin) makeFilter(application ast.ASTHandle, nonLocal map[uint32]bool, result *base.RuleSet, parent *base.Rule) (_ ast.ASTHandle, resultErr error) {
 	count, err := p.manager.GetNumArgs(application)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -273,6 +273,9 @@ func (p *FilterRulesPlugin) makeFilter(application ast.ASTHandle, nonLocal map[u
 		return ast.ASTHandle{}, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, definition.Close()) }()
+	if err = definition.SetAccountingParentRule(parent); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	if err = result.Add(definition); err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -341,7 +344,7 @@ func (p *FilterRulesPlugin) rewrite(rule *base.Rule, result *base.RuleSet) (chan
 			if collectErr != nil {
 				return false, collectErr
 			}
-			filterDeclaration, makeErr := p.makeFilter(tail, nonLocal, result)
+			filterDeclaration, makeErr := p.makeFilter(tail, nonLocal, result, rule)
 			if makeErr != nil {
 				return false, makeErr
 			}
@@ -392,6 +395,9 @@ func (p *FilterRulesPlugin) rewrite(rule *base.Rule, result *base.RuleSet) (chan
 		return false, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, replacement.Close()) }()
+	if err = replacement.SetAccountingParentRule(rule); err != nil {
+		return false, err
+	}
 	return true, result.Add(replacement)
 }
 

@@ -159,6 +159,9 @@ func (p *InterpTailSimplifierPlugin) simplifyRule(rule *base.Rule) (_ *base.Rule
 	if err != nil {
 		return nil, false, false, err
 	}
+	if err = replacement.SetAccountingParentRule(rule); err != nil {
+		return nil, false, false, errors.Join(err, replacement.Close())
+	}
 	return replacement, false, true, nil
 }
 
@@ -421,6 +424,9 @@ func (p *InterpTailSimplifierPlugin) propagate(rule *base.Rule) (_ *base.Rule, c
 	replacement, err := p.rules.NewRuleWithSymbol(head, tails, negated, name)
 	if err != nil {
 		return nil, false, err
+	}
+	if err = replacement.SetAccountingParentRule(rule); err != nil {
+		return nil, false, errors.Join(err, replacement.Close())
 	}
 	return replacement, true, nil
 }

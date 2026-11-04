@@ -306,6 +306,12 @@ func TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput(t *testing.T) {
 	f.add(t, f.applications["P"], "fact-P")
 	f.edge(t, "P", "Q")
 	f.edge(t, "Q", "Goal")
+	originals, err := f.set.PredicateRules(f.declarations["Goal"])
+	coneMust(t, err)
+	if len(originals) != 1 {
+		t.Fatal("expected original goal rule", len(originals))
+	}
+	t.Cleanup(func() { coneMust(t, originals[0].Close()) })
 	coneMust(t, f.set.SetOutputPredicate(f.declarations["Goal"]))
 	valid, err := f.set.Finalize()
 	coneMust(t, err)
@@ -335,6 +341,7 @@ func TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput(t *testing.T) {
 	rule, err := f.set.Rule(0)
 	coneMust(t, err)
 	defer func() { coneMust(t, rule.Close()) }()
+	checkTransformAccounting(t, rule, originals[0], base.Costs{Milliseconds: 7, Instructions: 3})
 	head, err := rule.HeadDeclaration()
 	coneMust(t, err)
 	tails, err := rule.TailSize()

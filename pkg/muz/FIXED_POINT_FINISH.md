@@ -70,6 +70,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Match `dl_rule_cmd` trailing-symbol parsing: each symbol after the optional recursion bound replaces the rule name. Execution and collection tests cover empty names and rejection without publishing a malformed rule.
 - [ ] Verify previously marked ported units against their actual consumers and proof/ownership requirements; status labels alone are insufficient.
   - [x] Audit `dl_costs.cpp/.h` and fix stopwatch sample rounding; [BASE_UNIT_AUDIT.md](BASE_UNIT_AUDIT.md) records the mapped consumers and remaining profile-attribution evidence.
+  - [x] Match source-rule cost attribution for interpreted-tail simplification, subsumption and filter construction; verify the inliner through its existing unifier and check shared-filter attribution.
   - [x] Audit the Horn factory header in [HORN_FACTORY_AUDIT.md](HORN_FACTORY_AUDIT.md) and correct the live simplify factory's stale reference-only method record; broader tactic cleanup remains separate.
   - [x] Audit the Spacer matrix unit in [SPACER_UNIT_AUDIT.md](SPACER_UNIT_AUDIT.md), with copy-ownership and signed-pivot regressions; a multirow Farkas proof oracle remains open.
   - [x] Audit TBV consumers and bound the live-wrapper ledger, with deallocation, refusal/retry, stale-owner, reset and close coverage; [REL_UNIT_AUDIT.md](REL_UNIT_AUDIT.md) records the source mapping and limits.

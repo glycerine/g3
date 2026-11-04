@@ -27,6 +27,7 @@ func TestFilterRulesCachesNormalizedRepeatedArgumentFilters(t *testing.T) {
 	coneMust(t, err)
 	qxx, err := f.manager.MkApp(qDecl, []ast.ASTHandle{x, x})
 	coneMust(t, err)
+	originals := make(map[ast.ASTHandle]*base.Rule)
 	for _, specification := range []struct {
 		declaration ast.ASTHandle
 		name        string
@@ -35,10 +36,17 @@ func TestFilterRulesCachesNormalizedRepeatedArgumentFilters(t *testing.T) {
 		coneMust(t, makeErr)
 		rule, makeErr := f.rules.NewRule(head, []ast.ASTHandle{qxx}, nil, specification.name)
 		coneMust(t, makeErr)
+		originals[specification.declaration], makeErr = rule.Retain()
+		coneMust(t, makeErr)
 		coneMust(t, f.set.Add(rule))
 		coneMust(t, rule.Close())
 		coneMust(t, f.set.SetOutputPredicate(specification.declaration))
 	}
+	t.Cleanup(func() {
+		for _, original := range originals {
+			coneMust(t, original.Close())
+		}
+	})
 	valid, err := f.set.Finalize()
 	coneMust(t, err)
 	if !valid {
@@ -66,6 +74,7 @@ func TestFilterRulesCachesNormalizedRepeatedArgumentFilters(t *testing.T) {
 		coneMust(t, getErr)
 		headDeclaration, getErr := rule.HeadDeclaration()
 		if getErr == nil && (headDeclaration == pDecl || headDeclaration == rDecl) {
+			checkTransformAccounting(t, rule, originals[headDeclaration], base.Costs{Milliseconds: 7, Instructions: 3})
 			parents++
 			var tailDeclaration ast.ASTHandle
 			tailDeclaration, getErr = rule.TailDeclaration(0)
@@ -77,6 +86,7 @@ func TestFilterRulesCachesNormalizedRepeatedArgumentFilters(t *testing.T) {
 				}
 			}
 		} else if getErr == nil {
+			checkTransformAccounting(t, rule, originals[pDecl], base.Costs{Milliseconds: 7, Instructions: 3})
 			definitions++
 			filter = headDeclaration
 			var tailDeclaration ast.ASTHandle
