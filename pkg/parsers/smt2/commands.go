@@ -601,6 +601,22 @@ func (p *commandParser) command() (bool, error) {
 				return false, err
 			}
 		}
+		// dl_rule_cmd expects symbols for every argument after the bound;
+		// each one replaces the previous name.
+		for p.token != RightParenToken {
+			text, err := p.symbol()
+			if err != nil {
+				return false, err
+			}
+			manager, err := p.astManager()
+			if err != nil {
+				return false, err
+			}
+			name, err = manager.Symbols.Intern(text)
+			if err != nil {
+				return false, err
+			}
+		}
 		if err = p.requireEnd(); err != nil {
 			return false, err
 		}

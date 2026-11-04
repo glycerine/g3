@@ -67,6 +67,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 - [ ] Inspect every source conditional, function and live consumer for each partial unit; turn each remaining obligation into an explicit implementation or audit item.
   - [x] Map the Duality profiling unit and live consumers in [DUALITY_UNIT_AUDIT.md](DUALITY_UNIT_AUDIT.md); leave missing timer scopes, global lifetime and report fidelity open.
   - [x] Map the fixedpoint command interface and consumers in [FP_UNIT_AUDIT.md](FP_UNIT_AUDIT.md); retain its parsing, exception and cleanup gaps as open obligations.
+  - [x] Match `dl_rule_cmd` trailing-symbol parsing: each symbol after the optional recursion bound replaces the rule name. Execution and collection tests cover empty names and rejection without publishing a malformed rule.
 - [ ] Verify previously marked ported units against their actual consumers and proof/ownership requirements; status labels alone are insufficient.
   - [x] Audit `dl_costs.cpp/.h` and fix stopwatch sample rounding; [BASE_UNIT_AUDIT.md](BASE_UNIT_AUDIT.md) records the mapped consumers and remaining profile-attribution evidence.
   - [x] Audit the Horn factory header in [HORN_FACTORY_AUDIT.md](HORN_FACTORY_AUDIT.md) and correct the live simplify factory's stale reference-only method record; broader tactic cleanup remains separate.

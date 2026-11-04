@@ -125,3 +125,60 @@ func TestFixedpointParserRuleNameRejectsNumeralToken(t *testing.T) {
 		t.Fatal("invalid rule name published a partial command", len(refs), names)
 	}
 }
+
+func TestFixedpointRuleExtraSymbolsReplaceName(t *testing.T) {
+	for _, collect := range []bool{false, true} {
+		t.Run(map[bool]string{false: "execute", true: "collect"}[collect], func(t *testing.T) {
+			c, m := fixedpointSymbolFixture(t)
+			script := `(declare-rel P ()) (rule P first 7 middle ||) (rule P initial 0 final)`
+			var names []symbol.Symbol
+			if collect {
+				program, err := smt2.ParseFixedpointProgram(c, strings.NewReader(script))
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer releaseFixedpointSymbolRefs(t, m, program.Rules)
+				defer releaseFixedpointSymbolRefs(t, m, program.Queries)
+				defer releaseFixedpointSymbolRefs(t, m, program.Relations)
+				names = program.NameSymbols
+			} else {
+				if err := smt2.ParseCommands(c, strings.NewReader(script), &bytes.Buffer{}); err != nil {
+					t.Fatal(err)
+				}
+				refs, got, err := c.FixedpointNamedRulesWithSymbols()
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer releaseFixedpointSymbolRefs(t, m, refs)
+				names = got
+			}
+			empty, err := m.Symbols.Intern("")
+			if err != nil {
+				t.Fatal(err)
+			}
+			final, err := m.Symbols.Intern("final")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(names, []symbol.Symbol{empty, final}) {
+				t.Fatal("last symbol did not replace rule name", names)
+			}
+		})
+	}
+}
+
+func TestFixedpointRuleExtraArgumentRequiresSymbol(t *testing.T) {
+	c, m := fixedpointSymbolFixture(t)
+	err := smt2.ParseCommands(c, strings.NewReader(`(declare-rel P ()) (rule P first 0 replacement 42)`), &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "symbol expected") {
+		t.Fatal("extra numeral accepted as a rule name", err)
+	}
+	refs, names, err := c.FixedpointNamedRulesWithSymbols()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer releaseFixedpointSymbolRefs(t, m, refs)
+	if len(refs) != 0 || len(names) != 0 {
+		t.Fatal("invalid rule was published", len(refs), names)
+	}
+}
