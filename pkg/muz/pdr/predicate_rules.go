@@ -410,6 +410,15 @@ func (b *predicateRuleBuilder) normalizeRule(source *base.Rule) (*normalizedRule
 			return nil, x
 		}
 		conjunction = append(conjunction, ground)
+		// Source checks each substituted tail before the manager rewriter can
+		// fold away a quantified or otherwise non-ground expression.
+		isGround, x := b.transformer.manager.IsGround(ground)
+		if x != nil {
+			return nil, x
+		}
+		if !isGround {
+			return nil, b.nonGroundTailError(ground)
+		}
 	}
 	formula, err := b.transformer.manager.MkAndArray(conjunction)
 	if err != nil {
@@ -552,7 +561,7 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 			resultErr = errors.Join(resultErr, builder.rules[index].rule.Close())
 		}
 		for index := len(builder.references) - 1; index >= 0; index-- {
-			resultErr = errors.Join(resultErr, p.manager.DelRef(&builder.references[index]))
+			resultErr = errors.Join(resultErr, p.owner.releaseNotAndRef(&builder.references[index]))
 		}
 	}()
 	for _, rule := range rules {

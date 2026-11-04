@@ -5,6 +5,7 @@ package pdr
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -119,6 +120,24 @@ func TestContextClassifierMatchesSourceArgumentAndTheoryBranches(t *testing.T) {
 			set, goal := classifierRuleSet(t, manager, rules, test.shape)
 			before, err := manager.ProofMode()
 			closureMust(t, err)
+			if test.shape == "quantified-boolean" {
+				plan, x := context.planRules(set)
+				closureMust(t, x)
+				if !plan.nonBoolean {
+					t.Fatal("classifier omitted quantified expression")
+				}
+				closureMust(t, plan.close())
+				x = context.Initialize(set)
+				if x == nil || !strings.Contains(x.Error(), "PDR cannot solve non-ground tails:") {
+					t.Fatal("PDR did not reject the non-ground quantified tail", x)
+				}
+				after, x := manager.ProofMode()
+				closureMust(t, x)
+				if after != before {
+					t.Fatal("failed initialization leaked proof mode")
+				}
+				return
+			}
 			closureMust(t, context.Initialize(set))
 			if context.proofActive != test.nonBoolean || context.farkasActive != test.nonBoolean || context.owner.contexts.arithmetic.enabled != test.nonBoolean {
 				t.Fatal("source classifier selected different solver policy", context.proofActive, context.farkasActive, context.owner.contexts.arithmetic.enabled)
@@ -161,15 +180,19 @@ func TestContextClassifierUpdateCompatibilityMatchesInitialization(t *testing.T)
 				t.Fatal("rejected classifier update damaged prior program", status, err)
 			}
 			closureMust(t, context.Reset())
+			if shape == "quantified-boolean" {
+				err := context.Initialize(replacement)
+				if err == nil || !strings.Contains(err.Error(), "PDR cannot solve non-ground tails:") {
+					t.Fatal("quantified non-ground replacement was accepted", err)
+				}
+				return
+			}
 			closureMust(t, context.Initialize(replacement))
 			if compatible, err := context.CanUpdateRules(replacement); err != nil || !compatible {
 				t.Fatal("same classifier rejected in-place update", compatible, err)
 			}
 			closureMust(t, context.UpdateRules(replacement))
 			want := lbool.False
-			if shape == "quantified-boolean" {
-				want = lbool.True
-			}
 			if status, err := context.Solve(replacementGoal); err != nil || status != want {
 				t.Fatal("updated classified program solve", status, err)
 			}
