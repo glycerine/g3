@@ -80544,10 +80544,11 @@
         },
         {
           "name": "Concrete config_mpf variable registration and context-owned directed inequality prefix",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_context_root.go",
           "tests": [
-            "TestArbitraryShellCoefficientSourceConversionAndCleanup"
+            "TestArbitraryShellCoefficientSourceConversionAndCleanup",
+            "TestArbitraryContextRootInitializationStagesAndConflict"
           ]
         },
         {
@@ -82367,10 +82368,11 @@
         },
         {
           "name": "Concrete config_mpf variable registration and context-owned directed inequality prefix",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_context_root.go",
           "tests": [
-            "TestArbitraryShellCoefficientSourceConversionAndCleanup"
+            "TestArbitraryShellCoefficientSourceConversionAndCleanup",
+            "TestArbitraryContextRootInitializationStagesAndConflict"
           ]
         },
         {
