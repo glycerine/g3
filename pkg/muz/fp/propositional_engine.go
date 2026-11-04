@@ -89,6 +89,7 @@ type PropositionalEngine struct {
 	manager             *ast.ASTManager
 	rules               *base.RuleManager
 	set                 *base.RuleSet
+	ruleProperties      *base.RuleProperties
 	binder              *base.VariableBinder
 	relations           *rel.RelationManager
 	external            *rel.ExternalRelationPlugin
@@ -237,24 +238,28 @@ func NewPropositionalEngine(manager *ast.ASTManager) (*PropositionalEngine, erro
 	if err != nil {
 		return nil, errors.Join(err, rules.Close())
 	}
-	binder, err := base.NewVariableBinder(manager)
+	ruleProperties, err := base.NewRuleProperties(rules)
 	if err != nil {
 		return nil, errors.Join(err, set.Close(), rules.Close())
 	}
+	binder, err := base.NewVariableBinder(manager)
+	if err != nil {
+		return nil, errors.Join(err, ruleProperties.Close(), set.Close(), rules.Close())
+	}
 	relations, err := rel.NewRelationManager(manager)
 	if err != nil {
-		return nil, errors.Join(err, binder.Close(), set.Close(), rules.Close())
+		return nil, errors.Join(err, binder.Close(), ruleProperties.Close(), set.Close(), rules.Close())
 	}
 	truth, err := manager.MkTrue()
 	if err != nil {
-		return nil, errors.Join(err, relations.Close(), binder.Close(), set.Close(), rules.Close())
+		return nil, errors.Join(err, relations.Close(), binder.Close(), ruleProperties.Close(), set.Close(), rules.Close())
 	}
 	background, err := manager.NewRef(truth)
 	if err != nil {
-		return nil, errors.Join(err, relations.Close(), binder.Close(), set.Close(), rules.Close())
+		return nil, errors.Join(err, relations.Close(), binder.Close(), ruleProperties.Close(), set.Close(), rules.Close())
 	}
 	return &PropositionalEngine{
-		manager: manager, rules: rules, set: set, binder: binder, relations: relations,
+		manager: manager, rules: rules, set: set, ruleProperties: ruleProperties, binder: binder, relations: relations,
 		background: background, predicates: make(map[ast.ASTHandle]*predicateState), auxiliary: make(map[ast.ASTHandle]bool), backend: "datalog", revision: 1, lastStatus: "ok",
 	}, nil
 }
@@ -1157,7 +1162,11 @@ func (e *PropositionalEngine) checkSourceRules() error {
 	if err != nil {
 		return err
 	}
-	return validateRuleSetProperties(e.rules, e.set, e.backend, generateProof)
+	properties, err := e.rulePropertyOwner()
+	if err != nil {
+		return err
+	}
+	return validateRuleSetProperties(properties, e.set, e.backend, generateProof)
 }
 
 func (e *PropositionalEngine) sourceRuleProofTrace() (bool, error) {
@@ -3244,6 +3253,12 @@ func (e *PropositionalEngine) Close() (result error) {
 	result = errors.Join(result, trailErr)
 	if trailErr == nil {
 		e.ddnf = ddnfEngineState{}
+	}
+	if e.ruleProperties != nil {
+		if err := e.ruleProperties.Close(); err != nil {
+			return errors.Join(result, err)
+		}
+		e.ruleProperties = nil
 	}
 	if e.set != nil {
 		result = errors.Join(result, e.set.Close())

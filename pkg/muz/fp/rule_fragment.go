@@ -18,12 +18,10 @@ func (e *PropositionalEngine) checkDatalogEarlyRuleProperties() (result error) {
 	if err != nil {
 		return err
 	}
-	properties, err := base.NewRuleProperties(e.rules)
+	properties, err := e.rulePropertyOwner()
 	if err != nil {
 		return err
 	}
-	attempt := &contextFormulaAttempt{manager: e.manager, properties: properties}
-	defer func() { result = attempt.finish(result) }()
 	if err = properties.SetGenerateProof(proof); err != nil {
 		return err
 	}
@@ -42,10 +40,24 @@ func (e *PropositionalEngine) checkDatalogEarlyRuleProperties() (result error) {
 	return nil
 }
 
+func (e *PropositionalEngine) rulePropertyOwner() (*base.RuleProperties, error) {
+	if e == nil || e.rules == nil {
+		return nil, ErrPropositionalHorn
+	}
+	if e.ruleProperties == nil {
+		properties, err := base.NewRuleProperties(e.rules)
+		if err != nil {
+			return nil, err
+		}
+		e.ruleProperties = properties
+	}
+	return e.ruleProperties, nil
+}
+
 // validateRuleSetProperties applies the source check_rules ordering. Ordering
 // is observable: the first failing property is the diagnostic returned to the
 // fixedpoint caller.
-func validateRuleSetProperties(rules *base.RuleManager, set *base.RuleSet, backend string, generateProof bool) (resultErr error) {
+func validateRuleSetProperties(properties *base.RuleProperties, set *base.RuleSet, backend string, generateProof bool) error {
 	kind, err := parseEngineKind(backend)
 	if err != nil || !kind.Retained() {
 		if err == nil {
@@ -53,15 +65,9 @@ func validateRuleSetProperties(rules *base.RuleManager, set *base.RuleSet, backe
 		}
 		return fmt.Errorf("%w: %w", ErrPropositionalHorn, err)
 	}
-	properties, err := base.NewRuleProperties(rules)
-	if err != nil {
-		return fmt.Errorf("%w: %w", ErrPropositionalHorn, err)
+	if properties == nil {
+		return ErrPropositionalHorn
 	}
-	defer func() {
-		if closeErr := properties.Close(); closeErr != nil {
-			resultErr = errors.Join(resultErr, fmt.Errorf("%w: close rule properties: %w", ErrPropositionalHorn, closeErr))
-		}
-	}()
 	if err = properties.SetGenerateProof(generateProof); err != nil {
 		return fmt.Errorf("%w: %w", ErrPropositionalHorn, err)
 	}

@@ -111,6 +111,48 @@ func TestFixedpointRulePropertyValidationWiring(t *testing.T) {
 	}
 }
 
+func TestFixedpointRulePropertiesFollowEngineLifetime(t *testing.T) {
+	engine, manager := newFragmentTestEngine(t, "datalog")
+	properties := engine.ruleProperties
+	if properties == nil {
+		t.Fatal("context did not construct its rule-property owner")
+	}
+	boolean, err := manager.MkBoolSort()
+	fragmentMust(t, err)
+	name, err := manager.Symbols.Intern("persistent-rule-property")
+	fragmentMust(t, err)
+	predicate, err := manager.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
+	fragmentMust(t, err)
+	fragmentMust(t, engine.RegisterPredicate(predicate))
+	fact, err := manager.MkApp(predicate, nil)
+	fragmentMust(t, err)
+	rule, err := engine.rules.NewRule(fact, nil, nil, "persistent-rule-property")
+	fragmentMust(t, err)
+	fragmentMust(t, engine.set.Add(rule))
+	fragmentMust(t, rule.Close())
+
+	for pass := 0; pass < 2; pass++ {
+		if err = engine.checkDatalogEarlyRuleProperties(); err != nil {
+			t.Fatal("source rule preflight", pass, err)
+		}
+		if err = engine.checkSourceRules(); err != nil {
+			t.Fatal("source context validation", pass, err)
+		}
+		if engine.ruleProperties != properties {
+			t.Fatal("query replaced context-owned rule properties")
+		}
+		if err = properties.SetGenerateProof(false); err != nil {
+			t.Fatal("query destroyed context-owned rule properties", pass, err)
+		}
+	}
+	if err = engine.Close(); err != nil {
+		t.Fatal("context close", err)
+	}
+	if err = properties.SetGenerateProof(false); err == nil {
+		t.Fatal("context close left rule-property owner open")
+	}
+}
+
 func TestQPDRAllowsExistentialRuleTail(t *testing.T) {
 	for _, backend := range []string{"pdr", "qpdr", "qbmc"} {
 		t.Run(backend, func(t *testing.T) {
