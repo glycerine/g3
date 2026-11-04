@@ -40,7 +40,7 @@ func (c *Context) substituteModelValues(modelCore *model.ModelCore, expression a
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&valueRef)) }()
+	defer func() { resultErr = errors.Join(resultErr, c.owner.releaseNotAndRef(&valueRef)) }()
 	seen := make(map[ast.ASTHandle]bool, len(sources))
 	for _, source := range sources {
 		if seen[source] {
@@ -128,9 +128,23 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 	references := make([]ast.ASTRef, 0, len(forms))
 	defer func() {
 		for index := len(references) - 1; index >= 0; index-- {
-			resultErr = errors.Join(resultErr, c.manager.DelRef(&references[index]))
+			resultErr = errors.Join(resultErr, c.owner.releaseNotAndRef(&references[index]))
 		}
 	}()
+	// flatten_and owns every entry, including newly constructed negations.
+	pinForms := func(forms []ast.ASTHandle) error {
+		for _, form := range forms {
+			ref, err := c.manager.NewRef(form)
+			if err != nil {
+				return err
+			}
+			references = append(references, ref)
+		}
+		return nil
+	}
+	if err = pinForms(forms); err != nil {
+		return err
+	}
 	if derived := modelCore.DerivedModel(); c.implicant != nil && derived != nil {
 		var minimized []ast.ASTRef
 		var x error
@@ -153,19 +167,19 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 		}
 	}
 	if c.lite != nil && len(eliminated) != 0 {
-		formula, x := c.manager.MkAndArray(forms)
-		if x != nil {
-			return x
-		}
-		formulaRef, x := c.manager.NewRef(formula)
+		formulaRef, x := c.owner.AndRef(forms)
 		if x != nil {
 			return x
 		}
 		references = append(references, formulaRef)
+		formula, x := c.manager.RefGet(formulaRef)
+		if x != nil {
+			return x
+		}
 		variableRefs := make([]ast.ASTRef, 0, len(eliminated))
 		defer func() {
 			for index := len(variableRefs) - 1; index >= 0; index-- {
-				resultErr = errors.Join(resultErr, c.manager.DelRef(&variableRefs[index]))
+				resultErr = errors.Join(resultErr, c.owner.releaseNotAndRef(&variableRefs[index]))
 			}
 		}()
 		for _, variable := range eliminated {
@@ -205,6 +219,9 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 		if x != nil {
 			return x
 		}
+		if x = pinForms(forms); x != nil {
+			return x
+		}
 	}
 	projected := make([]ast.ASTHandle, 0, len(forms))
 	for _, formula := range forms {
@@ -223,13 +240,16 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 	if err != nil {
 		return err
 	}
+	if err = pinForms(projected); err != nil {
+		return err
+	}
 
 	childStates := make([][]ast.ASTHandle, len(rule.predecessors))
 	valueRef, err := c.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&valueRef)) }()
+	defer func() { resultErr = errors.Join(resultErr, c.owner.releaseNotAndRef(&valueRef)) }()
 	retainChild := func(index uint32, formula ast.ASTHandle) error {
 		if index >= uint32(len(childStates)) {
 			return ast.ErrASTDomain
@@ -313,33 +333,32 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 		}
 	}
 
-	var cubeRef ast.ASTRef
-	if len(rule.predecessors) != 0 {
-		cubeRef, err = c.manager.NewRef(ast.ASTHandle{})
-		if err != nil {
-			return err
-		}
-		references = append(references, cubeRef)
-	}
 	for predecessorIndex, predecessor := range rule.predecessors {
-		cube, x := c.manager.MkAndArray(childStates[predecessorIndex])
-		if !cube.IsNull() {
-			x = errors.Join(x, c.manager.SetRef(cubeRef, cube))
-		}
-		if x != nil {
-			return x
-		}
-		child, x := NewModelNode(node, cube, predecessor, node.level-1)
-		if x != nil {
-			return fmt.Errorf("muz/pdr: projected model-node construction: %w", x)
-		}
-		c.nodes++
-		if child.depth > c.maxDepth {
-			c.maxDepth = child.depth
-		}
-		if x = c.search.AddLeaf(child); x != nil {
-			return x
+		if err = c.addProjectedChild(node, predecessor, childStates[predecessorIndex]); err != nil {
+			return err
 		}
 	}
 	return node.CheckPreClosed()
+}
+
+// addProjectedChild owns the rewritten cube until the model node retains it.
+func (c *Context) addProjectedChild(node *ModelNode, predecessor *PredicateTransformer, states []ast.ASTHandle) (resultErr error) {
+	cubeRef, err := c.owner.AndRef(states)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, c.owner.releaseNotAndRef(&cubeRef)) }()
+	cube, err := c.manager.RefGet(cubeRef)
+	if err != nil {
+		return err
+	}
+	child, err := NewModelNode(node, cube, predecessor, node.level-1)
+	if err != nil {
+		return fmt.Errorf("muz/pdr: projected model-node construction: %w", err)
+	}
+	c.nodes++
+	if child.depth > c.maxDepth {
+		c.maxDepth = child.depth
+	}
+	return c.search.AddLeaf(child)
 }
