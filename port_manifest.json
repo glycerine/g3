@@ -19871,7 +19871,7 @@
       "path": "src/ast/datatype_decl_plugin.cpp",
       "component": "ast",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/api/api_simple_solver_translate_test.go",
         "pkg/ast/ast_translation_datatype_collision_test.go",
@@ -20064,8 +20064,8 @@
           "text": "SASSERT(is_datatype(s0));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Datatype definition inheritance/translation, operation names, declared-definition traversal, and display (datatype_decl_plugin.cpp:54-112,170-191,458-466,620-621,1023-1070)",
@@ -20145,7 +20145,7 @@
         },
         {
           "name": "util::get_non_rec_constructor per-instance selection counter, cached sort/declaration AST pins and release; manager plugin utility cache used by get_some_value; private core shares the actual recursive search algorithm with independent counters",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/ast/ast_datatype_util.go",
           "go_targets": [
             "pkg/ast/ast_datatype_definition.go",
@@ -20161,7 +20161,7 @@
         },
         {
           "name": "datatype::util::reset: release cached preference AST pins and clear the per-instance cache, increment the unsigned constructor-selection counter, retain the utility owner, reject copied/closed owners",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/ast/ast_datatype_util.go",
           "go_targets": [
             "pkg/ast/ast_datatype_util.go",
@@ -20174,7 +20174,7 @@
         },
         {
           "name": "Retained constructor selection: instantiate full declaration list before counter increment; use literal unsigned j+start wrap; ordered forbidden stack and reached source utility assertions (745,753,907,916,917,976); retain first preference pin when second acquisition fails",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/ast_datatype_util.go",
             "pkg/ast/ast_datatype_definition.go",
@@ -20189,7 +20189,7 @@
         },
         {
           "name": "Concrete DatatypeUtil get_datatype_constructors cache (753-767): sort pin before cache publication, owning constructor-local before separate cache pin and borrowed-list append, cache hits preserve stopped vectors, Reset/Close retire all pins in source order",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/ast_datatype_util.go",
             "pkg/ast/ast_ref.go",
@@ -20203,7 +20203,7 @@
         },
         {
           "name": "Retained plugin::u lazy concrete utility and plugin::finalize definition owners/maps before cached utility destruction (150-170); manager default-value and theory/factory caches remain independent",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/ast_datatype_definition.go",
             "pkg/ast/ast_datatype_plugin.go",
@@ -20218,7 +20218,7 @@
         },
         {
           "name": "Retained datatype util_bug trace statements (914,937,948,953,960,965,967,971,980): lazy gating, ordered sort/declaration SMT2 operands and full-expression AST pins, printer-constructor pp module snapshot/8 scalar lookups/destruction, owned format documents and sticky ostream computation prefixes",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/ast_datatype_util_trace.go",
             "pkg/ast/ast_datatype_util.go",
@@ -20237,7 +20237,7 @@
         },
         {
           "name": "Plugin-owned concrete utility consumed-NUM cleanup failure: real 1<<1600000 rational sort parameter, definition-before-utility retirement, first four references consumed before ErrBounds, later cache/preference pins preserved, owning retry skips retired tokens without replaying borrowed numeric deletion",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/ast_datatype_numeric_release_test.go",
             "pkg/ast/ast_datatype_util.go",
@@ -20249,7 +20249,7 @@
         },
         {
           "name": "datatype::util::is_recursive (834-843): source assertion835 before warm lookup, independent true/false result cache, map-before-sort-pin publication, Reset clearing before stopped reference retirement and Close member ownership; is_recursive_core (527-569) uses the source work stack, gray/black states and generic definition accessor ranges before actual parameter substitution",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/ast_datatype_util.go",
             "pkg/ast/ast_datatype_definition.go",
@@ -20267,7 +20267,7 @@
         },
         {
           "name": "datatype::util::is_enum_sort (845-861): non-datatype early return, independent cached true/false result, eager per-utility constructor list, declaration arity short-circuit, enum result publication before its additional sort pin and Reset/Close retirement",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/ast_datatype_util.go",
             "pkg/ast/ast_datatype_enum_source_test.go"
@@ -20290,15 +20290,8 @@
       ],
       "deviations": [
         "Datatype translation reuses matching target definition blocks and rejects incompatible same-name definitions instead of replacing existing target metadata.",
-        "Private utility memoization maps are omitted because concrete Go queries reconstruct hash-consed declarations and compute recursion/enum properties directly. The unused plugin remove entry point and undeclared get_datatype_size declaration are not ported. Size functions are evaluated directly into the existing pointer-free SortSize representation instead of retaining a polymorphic C++ expression tree. Definition metadata uses concrete Go structs, maps, and slices; native container allocation ABI is not claimed.",
-        "Forward m_asts release and cache-before-reference Reset order now match the retained source. Explicit Go owning retries retain unconsumed tokens, skip already consumed tokens, and advance the reset preference once after completion. Guarded FPA construction supplies an actual public ErrASTPending regression; interrupted Reset rejects constructor queries and Close may supersede it without a Reset increment. DatatypeFactory member cleanup now stops before its structured base on utility failure. Whole-unit completion remains withdrawn: remaining utility/plugin assertion and publication prefixes, other cache/owner paths and the broader datatype plugin ownership audit remain open. The plugin-owned utility consumed-NUM finalizer is now verified; other member cleanup paths remain open.",
-        "The next source review corrects eager constructor materialization, literal uint32 candidate-index overflow, ordered forbidden-stack search, reached utility assertions, constructor family registration and first-pin retention before a second preference acquisition failure. Declaration AST-ID ordering and a cold node-page allocation refusal verify the counter frontier; a valid recursive sort exposes the native unsigned-overflow no-result/SASSERT(r) behavior. The subsequent concrete utility increment restores get_datatype_constructors cache pins and ordered owner prefixes. The manager-plugin utility now shares the concrete cache representation with independent ownership; util_bug trace statements and normal pretty-printer temporary ownership are now implemented; physical cleanup-failure paths and other utility methods remain open. These are retained source obligations, not dead code, and prevent whole-unit completion.",
-        "Both DatatypeFactory/theory utilities and the manager-plugin default-value utility now use the same concrete constructor-cache owner with independent instances. The manager plugin creates its utility lazily and retires definition owners before closing it. The actual SMT datatype restart regression exposed constructor identity loss when this plugin cache was missing; restoring the source owner preserves declarations across an independent theory Reset. No test lifetime was weakened. Utility util_bug trace statements and normal temporary ownership are implemented; the plugin-owned consumed-NUM finalizer is verified, while other member cleanup prefixes remain open. Locked newRef/delRef leaves share the existing checked public implementation; constructors/maps/slices use native Go allocation rather than an STL allocation ABI.",
-        "The literal unsigned-overflow no-constructor path now preserves the source native/continued-SASSERT prefix: acquire the preference sort pin, append a null ASTRef owner, and cache the null result without treating a warm null entry as found. An aborting debug assertion stops before this publication. The regression covers native null-prefix retention/cache hits and the aborting debug prefix; it does not claim a physical numeric failure campaign for this member.",
-        "This is a concrete retained datatype-trace path, not a generic ast_ref stream adapter or whole SMT2-printer audit. Tests cover exact enum text, all recursive trace branches, forbidden-vector order, simultaneous input and format pins, warm cache silence, sticky stream refusal, real PP/global owner closure and allocation refusals before invoke/core-header counter publication. General pretty-printer ownership/failure auditing and physical consumed-numeral cleanup for these temporary owners remain open. Native Go rendering streams replace ostream storage; STL internals are not ported.",
-        "A physical consumed-NUM failure is now verified for the retained plugin-owned utility finalizer. The fixture uses a source-valid rational-valued sort parameter (ast.cpp:1904-1932 accepts non-AST parameters), ordinary public NUM/AST construction, actual reference owners and the supported signed-host TLS accounting frontier. It never writes NUM/AST payloads. The initial AST-valued scalar probe hit the actual source is_sort precondition and was rejected as an invalid fixture, not counted as failure-path evidence. Four utility references retire before the real bounds error; four later pins survive until owning retry. Independent caller roots and runtime state prove exact remaining retirement without foreign numeric replay, and final graph cleanup reaches budget0. This is Go owning-cleanup evidence at the actual plugin finalizer, not full C++ throwing-destructor equivalence, a public ASTManager.Close failure campaign, or proof for trace/constructor-local/Reset cleanup frontiers. No production code change was required.",
-        "Recursion queries formerly used an uncached recursive DFS over instantiated constructor domains. The actual source get_def(sort*) returns the named generic definition (header278); core traversal now follows its raw accessor ranges using the source work stack and only the datatype family/kind predicate. Thus a nonrecursive generic Box[T] instantiated with a recursive actual sort remains classified nonrecursive, while a concrete field containing that recursive sort is recursive. Focused tests cover shared descendants, nested array-sort parameters, generic versus instantiated ranges, both cached boolean values, real page-boundary pin refusal and actual assertion/teardown guards. Other utility caches/predicates and broader numerical/constructor failure ownership remain partial.",
-        "Enum predicate classification previously inspected definitions through a stateless manager helper in the retained rewriter. The real utility now materializes the constructor cache and owns the cached result, including false entries and source map-before-pin publication. Tests isolate constructor declarations' own range-sort references with independent caller roots and use real reference-page refusals. This is bounded Go owner-continuation evidence; broader cache/predicate and native exception/destructor audits remain open."
+        "The Go port uses concrete Go structs, maps, slices, and checked ASTRef owners for retained datatype definitions and utility caches. It preserves source publication, reference acquisition, release, reset, and teardown order; it does not reproduce C++ STL allocation internals or native throwing-destructor semantics.",
+        "Private memoization maps and unused declaration entry points are omitted where the retained Go consumers do not use them. Size functions evaluate into the existing pointer-free SortSize representation rather than retaining a polymorphic C++ expression tree."
       ]
     },
     {
