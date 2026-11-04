@@ -1154,32 +1154,44 @@ func (c *Context) CheckSat(assumptions []ast.ASTHandle) (status lbool.LBool, err
 		return lbool.Undef, err
 	}
 	if len(c.objectives) != 0 {
-		return c.checkOptimize(assumptions, optimizationContinuation)
-	}
-	if err = c.clearOptimizationBoxModels(); err != nil {
-		return lbool.Undef, err
-	}
-	status, err = c.solver.CheckSat(assumptions)
-	if err != nil {
-		var fatal z3exception.Z3Error
-		var source z3exception.Z3Exception
-		if errors.As(err, &fatal) || !errors.As(err, &source) {
+		status, err = c.checkOptimize(assumptions, optimizationContinuation)
+		if err != nil {
 			return lbool.Undef, err
 		}
-		// Native cmd_context converts nonfatal solver exceptions into an
-		// unknown result owned by the installed solver. In particular, this
-		// prevents combined_solver from treating a malformed model value as
-		// an ordinary solver-2 unknown and falling back to solver 1.
-		status = lbool.Undef
-		if setErr := c.solver.SetReasonUnknown(source.Message()); setErr != nil {
-			return lbool.Undef, errors.Join(err, setErr)
+	} else {
+		if err = c.clearOptimizationBoxModels(); err != nil {
+			return lbool.Undef, err
 		}
-		if setErr := c.solver.SetStatus(status); setErr != nil {
-			return lbool.Undef, errors.Join(err, setErr)
+		status, err = c.solver.CheckSat(assumptions)
+		if err != nil {
+			var fatal z3exception.Z3Error
+			var source z3exception.Z3Exception
+			if errors.As(err, &fatal) || !errors.As(err, &source) {
+				return lbool.Undef, err
+			}
+			// Native cmd_context converts nonfatal solver exceptions into an
+			// unknown result owned by the installed solver. In particular, this
+			// prevents combined_solver from treating a malformed model value as
+			// an ordinary solver-2 unknown and falling back to solver 1.
+			status = lbool.Undef
+			if setErr := c.solver.SetReasonUnknown(source.Message()); setErr != nil {
+				return lbool.Undef, errors.Join(err, setErr)
+			}
+			if setErr := c.solver.SetStatus(status); setErr != nil {
+				return lbool.Undef, errors.Join(err, setErr)
+			}
+			err = nil
 		}
-		err = nil
+		c.status, c.checked = status, true
 	}
-	c.status, c.checked = status, true
+	if status == lbool.True {
+		if err = c.completeModel(); err != nil {
+			return status, err
+		}
+		if err = c.validateModel(); err != nil {
+			return status, err
+		}
+	}
 	return status, err
 }
 

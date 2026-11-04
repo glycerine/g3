@@ -33,7 +33,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/ast/rewriter/enum2bv_rewriter.h` — Every retained public operation has a concrete Go method with explicit ownership; the rewriter, dt2bv tactic, and enum2bv solver API tests pass.
 - [x] `src/ast/rewriter/pb2bv_rewriter.cpp` — Weighted and cardinality conversion, arithmetic recognition, traversal, sorting-network clauses, scopes, proof preservation, cleanup, and ownership are covered by focused tests.
 - [x] `src/ast/rewriter/pb2bv_rewriter.h` — Public methods map to checked Go operations with tested constructor, cleanup, proof-slot, scope, transfer, statistics, and destruction behavior.
-- [ ] `src/cmd_context/cmd_context.cpp`
+- [x] `src/cmd_context/cmd_context.cpp` — Command context declarations, scopes, result publication, logic checks, solver dispatch, resets, statistics, model completion, and validation have focused context/parser coverage.
 - [ ] `src/cmd_context/cmd_context.h`
 - [ ] `src/cmd_context/extra_cmds/dbg_cmds.cpp`
 - [ ] `src/cmd_context/extra_cmds/dbg_cmds.h`

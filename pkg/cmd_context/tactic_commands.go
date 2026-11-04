@@ -540,5 +540,10 @@ func (c *Context) CheckSatUsing(selected tactic.Tactic, options *uparams.ParamsR
 		stats.UpdateDouble(statistics.Key(key), value)
 	}
 	c.status, c.checked = status, true
+	if status == lbool.True {
+		if err = c.validateModel(); err != nil {
+			return status, err
+		}
+	}
 	return status, nil
 }
