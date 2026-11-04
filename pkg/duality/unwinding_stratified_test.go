@@ -124,8 +124,17 @@ func TestDualityStratifiedInliningNativeForwardCycleAndCounterexample(t *testing
 			must(err)
 			baseline, err := native.NumAssertions()
 			must(err)
+			profile := NewProfiler(nil)
+			ctx.activeProfiler = profile
+			defer func() { ctx.activeProfiler = nil }()
+			must(profile.TimerStart("SolveMain"))
+			outer := profile.current
 			satisfied, err := s.DoStratifiedInlining()
 			must(err)
+			if profile.current != outer || outer.children["StratifiedInlining"] != nil || outer.children["Extend"] == nil {
+				t.Fatal("active stratified branch timer scopes", outer.children)
+			}
+			must(profile.TimerStop("SolveMain"))
 			wantSatisfied := mode == "forward" || mode == "cycle"
 			if satisfied != wantSatisfied || !u.stratifiedDone {
 				t.Fatal("stratified result/attempt flag", satisfied, mode)

@@ -47,11 +47,6 @@ func (s *UnwindingSearch) DoStratifiedInlining() (satisfied bool, result error) 
 	if u.stratifiedDone {
 		return true, nil
 	}
-	timer, err := startProfile(u.graph.context, "StratifiedInlining")
-	if err != nil {
-		return false, err
-	}
-	defer func() { result = errors.Join(result, timer.Close()) }()
 	u.stratifiedDone = true
 	if err := u.DoTopoSort(); err != nil {
 		return false, err

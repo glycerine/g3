@@ -148,8 +148,8 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 						}
 					}
 				}
-				if round == 1 && !strings.Contains(profileOutput.String(), "StratifiedInlining") {
-					t.Fatal("missing stratified timer", profileOutput.String())
+				if round == 1 && (strings.Contains(profileOutput.String(), "StratifiedInlining") || !strings.Contains(profileOutput.String(), "\n    Extend")) {
+					t.Fatal("incorrect stratified timer nesting", profileOutput.String())
 				}
 				report, err := os.ReadFile(options.ConjectureFile)
 				must(err)
