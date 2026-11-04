@@ -50680,7 +50680,7 @@
       "path": "src/duality/duality_wrapper.h",
       "component": "duality",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/duality/term_tree.go", "pkg/duality/rpfp_tree_test.go", "pkg/duality/wrapper_config.go", "pkg/duality/wrapper_config_test.go", "pkg/ast/ast_family_public.go", "pkg/ast/ast_family_public_test.go", "pkg/duality/wrapper_owner.go", "pkg/duality/wrapper_owner_test.go", "pkg/duality/wrapper_ast.go", "pkg/duality/wrapper_expr.go", "pkg/duality/wrapper_ast_test.go", "pkg/muz/duality/native_solver.go", "pkg/muz/duality/constructor_cleanup.go", "pkg/muz/duality/constructor_cleanup_test.go", "pkg/muz/duality/native_solver_test.go"],
       "tests": ["TestRPFPGoalTreeAndInterpolationDecode", "TestConfigSettersAndSignedUintConversion", "TestConfigCloneSharesThenDetaches", "TestConfigOwnerAndLifetimeGuards", "TestWrapperKindsRetainSourceOrdinals", "TestASTEnsureFamilyIDSourceSemantics", "TestASTEnsureFamilyIDCStringAndLifetime", "TestContextFamilyOrderAndConfigCopy", "TestContextConstructorFailureReleasesConfigCopy", "TestContextBorrowsManagerAndRejectsShallowCopy", "TestObjectCopyAndContextChecks", "TestSymbolNamesSignedNumbersAndAssignment", "TestSymbolWriterFailureForeignOwnerAndClosedContext", "TestWrapperASTReferenceCopyAssignmentAndClose", "TestWrapperASTNullAndCrossContextAssignment", "TestWrapperBooleanSortDeclarationAndExpression", "TestWrapperBooleanOperatorsAndContextGuards", "TestDualityConstructorNativeFailureKeepsOwners", "TestDualityNativeSolverSettingsAndProofModeRestoration"],
       "conditionals": [
@@ -50755,10 +50755,10 @@
           "text": "SASSERT(0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
-        {"name": "TermTree cleanup continuation after consumed term release", "status": "partial", "go_targets": ["pkg/duality/term_tree.go", "pkg/duality/term_tree_consumed_test.go"], "tests": ["TestTermTreeCloseAfterConsumedRelease"], "reason": "Consumed-with-error main and extra term releases retain remaining tree owners, guard children during partial close and permit retry. Wider tree and interpolation cleanup remain open."},{"name": "TermTree owning terms and children with postorder numbering", "status": "ported", "go_target": "pkg/duality/term_tree.go", "tests": ["TestRPFPGoalTreeAndInterpolationDecode"]},
+        {"name":"TermTree cleanup continuation after consumed term release","status":"ported","go_targets":["pkg/duality/term_tree.go","pkg/duality/term_tree_consumed_test.go"],"tests":["TestTermTreeCloseAfterConsumedRelease"],"reason":"On cleanup errors, preserves children and term wrappers that still own live references, removes wrappers whose native release was consumed, prevents mutation during cleanup, and resumes safely on retry. Tests cover main-term and extra-term failure across nested children, normal recursive destruction, and the interpolation tree consumers."},{"name": "TermTree owning terms and children with postorder numbering", "status": "ported", "go_target": "pkg/duality/term_tree.go", "tests": ["TestRPFPGoalTreeAndInterpolationDecode"]},
         {
           "name": "solver constructor concrete fixedpoint instantiation preserves unpublished owners and restores proof mode before transfer (duality_wrapper.cpp:40-58; duality_wrapper.h:844-850)",
           "status": "ported",
@@ -50775,8 +50775,8 @@
           "reason": "The concrete proof/model/core-producing fixedpoint constructor owns its native solver, local settings and enclosing proof scope until cleanup and proof-mode restoration finish (duality_wrapper.cpp:40-58; duality_wrapper.h:844-850). On failure, nested cleanup and the failed child drain before settings and proof restoration. A normal-return proof-restoration refusal also suppresses solver publication. Cleanup preserves causes and runtime identity, finishes idempotently, and leaves borrowed services usable for a later constructor and query. The new regression exercises actual finalizers and real constructed owners inside an active native AST guard after normal construction, covering body failure, proof-restoration refusal and nested backend cleanup; it does not inject failures through the public constructors themselves. Local settings contain only bool/string/uint values, so no unreachable ParamNumeral decrement-receipt path or generic parameter-cleanup coverage is claimed."
         }
       ],
-      "ownership": [],
-      "deviations": []
+      "ownership": ["Expression wrappers own AST references; TermTree owns its term/extra-term references and recursively owns child trees; the interpolating solver owns its native solver while borrowing context/services. Cleanup refusal leaves live owners reachable for retry, and successful interpolation output ownership transfers to the caller."],
+      "deviations": ["The generic AST vector templates and legacy/interpolation debug alternatives are inside #if 0 and have no Go consumer. Windows include guards/pragmas are platform-only; live wrapper declarations are represented by typed Go owners and operations."]
     },
     {
       "path": "src/interp/CMakeLists.txt",
