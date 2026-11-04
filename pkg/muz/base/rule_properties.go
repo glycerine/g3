@@ -382,7 +382,11 @@ func (p *RuleProperties) CheckInfiniteSorts() error {
 		return err
 	}
 	if p.infinite != nil {
-		return &RulePropertyError{Kind: RulePropertyInfiniteSort, RuleName: rulePropertyName(p.infinite)}
+		var display strings.Builder
+		if err := p.rules.WriteRuleDisplay(&display, p.infinite); err != nil {
+			return err
+		}
+		return &RulePropertyError{Kind: RulePropertyInfiniteSort, RuleName: rulePropertyName(p.infinite), SourceMessage: "Rule contains infinite sorts in rule " + display.String()}
 	}
 	return nil
 }

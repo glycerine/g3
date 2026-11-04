@@ -81,6 +81,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Restore base Datalog context rule-set snapshots across nested scopes, including replaced/removed rules and outputs. Failed restoration blocks context and previously borrowed rule-set operations until retry or close; focused allocation-failure and snapshot ownership tests pass. Synchronous callback injection remains unproven.
   - [x] Reset fixedpoint query status after successful SMT-LIB command output at the source cleanup boundary; backend cleanup and exception/error-output paths remain open.
   - [x] Match the source command's negative-predicate exception output and continuation for the typed rule-property failure, while preserving unrelated joined cleanup errors; other exception classes remain open.
+  - [x] Match the ordinary Datalog infinite-sort property exception and continuation, preserving the separately supported integer-relation extension and unrelated cleanup errors.
 - [ ] Verify previously marked ported units against their actual consumers and proof/ownership requirements; status labels alone are insufficient.
   - [x] Audit `dl_costs.cpp/.h` and fix stopwatch sample rounding; [BASE_UNIT_AUDIT.md](BASE_UNIT_AUDIT.md) records the mapped consumers and remaining profile-attribution evidence.
   - [x] Match source-rule cost attribution for interpreted-tail simplification, subsumption and filter construction; verify the inliner through its existing unifier and check shared-filter attribution.
