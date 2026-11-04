@@ -70,24 +70,10 @@ func TestCachedGraphScopesRetractAssumptionsWithoutRemovingGuards(t *testing.T) 
 	}
 	check(lbool.True)
 	must(cached.Push())
-	// Populate the edge cache first so the failed start below is specifically
-	// the solver-add timer, rather than a formula-construction timer.
-	formulaValue, err := graph.GetEdgeFormula(edge, 0, false, false)
-	must(err)
-	must(formulaValue.Close())
-	now := profile.now
-	profile.now = nil
-	if err := cached.AssertEdge(edge, 0, false, false); err == nil {
-		t.Fatal("invalid profiler accepted")
-	}
-	profile.now = now
-	if profile.current != outer {
-		t.Fatal("failed timer start changed current scope")
-	}
 	check(lbool.True)
 	must(cached.AssertEdge(edge, 0, false, false))
-	if outer.children["solver add"] == nil || profile.current != outer {
-		t.Fatal("cached assertion missing solver add scope")
+	if outer.children["solver add"] != nil || profile.current != outer {
+		t.Fatal("cached assertion added a base solver timer")
 	}
 	check(lbool.False)
 	guards, err := scope.Solver.NumAssertions()
@@ -129,16 +115,16 @@ func TestCachedGraphScopesRetractAssumptionsWithoutRemovingGuards(t *testing.T) 
 	if err = cached.Pop(1); err == nil {
 		t.Fatal("base cached graph scope popped")
 	}
-	// A closed literal stack reaches the timed add and refuses it. The
-	// profiling scope must still be restored on the actual assertion error.
+	// A closed literal stack rejects the cached assertion without creating a
+	// base solver timer scope.
 	must(cached.Close())
 	must(profile.TimerStart("failed cached add"))
 	failureScope := profile.current
 	if err = cached.AssertEdge(edge, 0, false, false); err == nil {
 		t.Fatal("closed cached assertion accepted")
 	}
-	if profile.current != failureScope || failureScope.children["solver add"] == nil {
-		t.Fatal("failed cached assertion did not restore solver timer")
+	if profile.current != failureScope || failureScope.children["solver add"] != nil {
+		t.Fatal("cached assertion changed base solver timer scope")
 	}
 	must(profile.TimerStop("failed cached add"))
 }
