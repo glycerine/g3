@@ -109,16 +109,6 @@ func (t *HornTactic) simplifyGoal(goal *tactic.Goal, out *tactic.TacticResult, e
 			return x
 		}
 	}
-	filter, err := tactic.NewFilterModel(t.manager)
-	if err != nil {
-		return err
-	}
-	if err = filter.Insert(queryDeclaration); err != nil {
-		return errors.Join(err, filter.Close())
-	}
-	if err = out.SetModelConverter(filter); err != nil {
-		return errors.Join(err, filter.Close())
-	}
 	if t.progress != nil {
 		t.progress(1)
 	}

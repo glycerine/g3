@@ -88537,7 +88537,7 @@
       "path": "src/muz/dataflow/dataflow.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/dataflow/reachability.go", "pkg/muz/base/rule.go"],
       "tests": ["TestReachabilityRunsFromIngestedHornProgram"],
       "conditionals": [
@@ -88550,8 +88550,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "Concrete reachability dataflow_engine instantiation: bottom-up and top-down initialization, alternating worklists, rule dependency indexes, propagation, and fact lookup (dataflow.h:49-180)",
@@ -88564,7 +88564,7 @@
         "Each analysis snapshots borrowed predicate declarations while the finalized RuleSet is open and closes every temporary retained Rule immediately; the completed Boolean result owns no AST references."
       ],
       "deviations": [
-        "Only the live reachability instantiation is ported as a concrete Go implementation. The unused universal C++ Fact template and its join/intersect/debug surfaces are intentionally not reproduced."
+        "Only the live reachability instantiation is implemented concretely; unused universal template interfaces are omitted. Go top-down traversal conservatively follows nested predicates in interpreted/quantified tails, unlike source; a quantifier-abstraction intermediate shows possible pruning unsoundness, but public source reachability remains unproven."
       ]
     },
     {

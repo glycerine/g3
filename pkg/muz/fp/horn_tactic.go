@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -180,6 +181,44 @@ func (t *HornTactic) stripForall(formula ast.ASTHandle) (ast.ASTHandle, error) {
 			return formula, err
 		}
 	}
+}
+
+// bindQueryRule mirrors imp::bind_variables independently of the context's
+// fix_unbound_vars option, including default Boolean sorts for index gaps.
+func (t *HornTactic) bindQueryRule(rule ast.ASTHandle, temporaries *[]ast.ASTRef) (ast.ASTHandle, error) {
+	free, err := rewriter.NewExprFreeVars(t.manager)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if err = free.Collect(rule); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if free.Empty() {
+		return rule, nil
+	}
+	boolean, err := t.manager.MkBoolSort()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if err = free.SetDefaultSort(boolean); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if err = free.Reverse(); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	sorts := free.Sorts()
+	names := make([]usymbol.Symbol, len(sorts))
+	for i := range names {
+		names[i] = usymbol.Numerical(uint32(len(names) - i - 1))
+	}
+	bound, err := t.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: rule})
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if err = t.pin(temporaries, bound); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return bound, nil
 }
 
 func (t *HornTactic) isImplication(formula ast.ASTHandle) (bool, error) {
@@ -385,46 +424,70 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 			queries = append(queries, normalized)
 		}
 	}
-	boolean, err := t.manager.MkBoolSort()
-	if err != nil {
-		return err
-	}
-	query, err := t.manager.MkFreshConst("query", boolean)
-	if err != nil {
-		return err
-	}
-	if err = t.pin(&temporaries, query); err != nil {
-		return err
-	}
-	declaration, yes, err := t.predicate(query)
-	if err != nil || !yes {
-		return errors.Join(err, tactic.NewTacticException("fresh Horn query is not a predicate"))
-	}
-	if err = engine.RegisterPredicate(declaration); err != nil {
-		return err
-	}
-	for _, body := range queries {
-		rule, x := t.manager.MkImplies(body, query)
+	var query, declaration ast.ASTHandle
+	if len(queries) == 1 && !t.simplify {
+		query = queries[0]
+	} else {
+		boolean, x := t.manager.MkBoolSort()
 		if x != nil {
 			return x
 		}
-		if x = t.pin(&temporaries, rule); x != nil {
+		query, x = t.manager.MkFreshConst("query", boolean)
+		if x != nil {
 			return x
 		}
-		if x = engine.AddRule(rule, "horn-query"); x != nil {
+		if x = t.pin(&temporaries, query); x != nil {
 			return x
+		}
+		var yes bool
+		declaration, yes, x = t.predicate(query)
+		if x != nil || !yes {
+			return errors.Join(x, tactic.NewTacticException("fresh Horn query is not a predicate"))
+		}
+		if x = engine.RegisterPredicate(declaration); x != nil {
+			return x
+		}
+		for _, body := range queries {
+			rule, y := t.manager.MkImplies(body, query)
+			if y != nil {
+				return y
+			}
+			if y = t.pin(&temporaries, rule); y != nil {
+				return y
+			}
+			rule, y = t.bindQueryRule(rule, &temporaries)
+			if y != nil {
+				return y
+			}
+			if y = engine.AddRule(rule, "horn-query"); y != nil {
+				return y
+			}
+		}
+		filter, x := tactic.NewFilterModel(t.manager)
+		if x != nil {
+			return x
+		}
+		if x = filter.Insert(declaration); x != nil {
+			return errors.Join(x, filter.Close())
+		}
+		if x = out.SetModelConverter(filter); x != nil {
+			return errors.Join(x, filter.Close())
 		}
 	}
 	if t.simplify {
 		return t.simplifyGoal(goal, out, engine, query, declaration)
 	}
-	// The source fixedpoint context selects an engine from the Horn rules.
+	// The backend receives the expression and constructs its own query rule.
 	if err = engine.SelectEngine("auto-config"); err != nil {
 		return err
 	}
-	status, err := engine.QueryPredicate(declaration)
+	status, err := engine.QueryExpression(query)
 	if err != nil {
 		return err
+	}
+	resultEngine, resultDeclaration := engine, declaration
+	if engine.queryClone != nil {
+		resultEngine, resultDeclaration = engine.queryClone, engine.queryClonePredicate
 	}
 	if err = goal.IncDepth(); err != nil {
 		return err
@@ -435,7 +498,7 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 			return x
 		}
 		if proofsEnabled {
-			proof, y := engine.Proof(declaration)
+			proof, y := resultEngine.Proof(resultDeclaration)
 			if y != nil {
 				return y
 			}
@@ -461,7 +524,7 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 		}
 	} else if status == lbool.False {
 		if modelsEnabled {
-			inductive, x := engine.Model(declaration)
+			inductive, x := resultEngine.Model(resultDeclaration)
 			if x != nil {
 				return x
 			}
@@ -472,8 +535,12 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 			// NewStoredModel establishes the model's sole counted reference.
 			// The raw zero-reference result is now owned by the converter and
 			// must not be closed directly.
-			if x = out.SetModelConverter(converter); x != nil {
-				return errors.Join(x, converter.Close())
+			combined, y := tactic.ConcatModels(t.manager.Budget(), out.ModelConverter, converter)
+			if y != nil {
+				return errors.Join(y, converter.Close())
+			}
+			if x = out.SetModelConverter(combined); x != nil {
+				return errors.Join(x, combined.Close())
 			}
 		}
 		if err = goal.Reset(); err != nil {
