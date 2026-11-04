@@ -6,6 +6,8 @@ Last updated: 2026-11-03. The user resumed the full MUZ goal after deleting the 
 
 Current delivery gate is green: full native short fixedpoint, transforms, TAB and SMT-LIB parser checks pass after the wider-body, repeated-head, parameter and interface batches (67.888s/12.717s/0.145s/7.677s). The final DOC product-join dependency passes its focused relation family (1.295s). Earlier regression and ownership repairs remain committed. Continue dependency-frontier batches with frequent commits; leave the user regression log untouched. The user added the filtered full three-tag command below in `cfa65b1ef`; run it every few hours. This new schedule supersedes the earlier suspension for that filtered gate; do not restart the previously canceled unfiltered run.
 
+The filtered three-tag gate below passed on code revision `c8fcb1a4a` on 2026-11-03; its output is `/tmp/g3-filtered-three-tag-stable.log`. The earlier attempt hit an in-flight helper compilation error and was rerun after the tree was stable. The excluded package groups remain outside this result.
+
 ## How to follow progress
 
 Each completed item needs source paths, implementation/test evidence and a commit in the progress log. Unchecked means incomplete or unproven. Preserve existing encodings, safeguards and test coverage. Exclude dead source only after checking live consumers. Keep commits small and frequent; use focused native tests. Use the user's filtered three-tag command below for periodic integration, excluding the three slow package groups. Keep the canceled unfiltered run stopped.
