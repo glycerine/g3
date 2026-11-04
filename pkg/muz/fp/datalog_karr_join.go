@@ -17,6 +17,7 @@ type karrJoinPlan struct {
 	removed                   []uint32
 	expressions               []ast.ASTHandle
 	constants                 []karrJoinConstant
+	constantValues            []ast.ASTHandle
 	identical                 [][]uint32
 }
 type karrJoinArgument struct {
@@ -129,6 +130,7 @@ func (a *karrDatalogActivation) compileKarrJoin(head, left, right ast.ASTHandle)
 	for i, x := range kept {
 		if !x.variable {
 			p.constants = append(p.constants, karrJoinConstant{uint32(i), x.integer})
+			p.constantValues = append(p.constantValues, x.expr)
 			continue
 		}
 		if len(groups[x.index]) == 0 {
@@ -160,9 +162,18 @@ func (p karrJoinPlan) apply(left, right *rel.KarrRelation) (*rel.KarrRelation, e
 	if result.Empty() {
 		return result, nil
 	}
-	for _, c := range p.constants {
+	for i, c := range p.constants {
+		before := result.Clone()
 		if err = result.FilterEqual(c.column, c.integer); err != nil {
 			return nil, err
+		}
+		if checker := result.FormulaChecker(); checker != nil {
+			if i >= len(p.constantValues) {
+				return nil, ErrKarrDatalogFragment
+			}
+			if err = checker.VerifyFilterEqual(before, c.column, p.constantValues[i], result); err != nil {
+				return nil, err
+			}
 		}
 	}
 	for _, group := range p.identical {

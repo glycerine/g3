@@ -3,6 +3,7 @@ package fp
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"math/big"
 )
@@ -11,7 +12,11 @@ func (e *PropositionalEngine) ensureKarrDatalog() (bool, error) {
 	if err := e.cacheDatalogRelationFavourite(); err != nil {
 		return false, err
 	}
-	selected := e.datalogRelationFavourite == "karr_relation" || e.karrDatalog != nil
+	checkName, checkOn, checkErr := e.datalogCheckRelationName()
+	if checkErr != nil {
+		return false, checkErr
+	}
+	selected := e.datalogRelationFavourite == "karr_relation" || (checkOn && checkName == "karr_relation") || e.karrDatalog != nil
 	for _, state := range e.predicates {
 		for _, name := range state.requestedRepresentations {
 			selected = selected || name == "karr_relation"
@@ -39,7 +44,8 @@ func (e *PropositionalEngine) ensureKarrDatalog() (bool, error) {
 		return true, ErrKarrDatalogFragment
 	}
 	for declaration, state := range e.predicates {
-		if e.datalogRelationFavourite != "karr_relation" && !e.auxiliary[declaration] && (len(state.requestedRepresentations) != 1 || state.requestedRepresentations[0] != "karr_relation") {
+		karrSelectedByChecker := checkOn && checkName == "karr_relation"
+		if e.datalogRelationFavourite != "karr_relation" && !karrSelectedByChecker && !e.auxiliary[declaration] && (len(state.requestedRepresentations) != 1 || state.requestedRepresentations[0] != "karr_relation") {
 			return true, ErrKarrDatalogFragment
 		}
 		if state.external != nil || state.explicitFiniteRepresentation {
@@ -61,16 +67,24 @@ func (e *PropositionalEngine) ensureKarrDatalog() (bool, error) {
 	if on, err := e.datalogExplanationsEnabled(); err != nil || on {
 		return true, errors.Join(err, ErrKarrDatalogFragment)
 	}
-	if _, on, err := e.datalogCheckRelationName(); err != nil || on {
-		return true, errors.Join(err, ErrKarrDatalogFragment)
+	if checkOn && checkName != "karr_relation" {
+		return true, ErrKarrDatalogFragment
 	}
 	if _, on, err := e.datalogDefaultTableCheck(); err != nil || on {
 		return true, errors.Join(err, ErrKarrDatalogFragment)
 	}
+	var formulaCheck *smtcore.SMTSolverConfig
+	if checkOn {
+		config := smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals}
+		formulaCheck = &config
+	}
 	if e.karrDatalog != nil {
+		if (e.karrDatalog.formulaChecker != nil) != checkOn {
+			return true, ErrKarrDatalogFragment
+		}
 		return true, e.karrDatalog.syncPredicates(e.predicateOrder)
 	}
-	owner, err := newKarrDatalogActivation(e.manager, e.set, e.predicateOrder)
+	owner, err := newKarrDatalogActivation(e.manager, e.set, e.predicateOrder, formulaCheck)
 	if err != nil {
 		return true, err
 	}

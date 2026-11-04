@@ -11,7 +11,10 @@ import (
 
 type karrGuardRule struct {
 	body           ast.ASTHandle
+	condition      ast.ASTHandle
+	positions      map[ast.ASTHandle]uint32
 	inputConstants []uint32
+	inputValues    []ast.ASTHandle
 	identical      []uint32
 	row            []big.Rat
 	constant       big.Rat
@@ -90,6 +93,7 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 			}
 			// Earlier constants have already been removed from the signature.
 			out.inputConstants = append(out.inputConstants, uint32(len(columns)))
+			out.inputValues = append(out.inputValues, arg)
 			continue
 		}
 		if len(groups[arg]) == 0 {
@@ -154,6 +158,7 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 			return none, out, err
 		}
 		if i == 1 {
+			out.condition, out.positions = condition.condition, condition.positions
 			out.row, out.constant, out.equal = condition.row, condition.constant, condition.equal
 			out.secondRow, out.secondConstant = condition.secondRow, condition.secondConstant
 		} else {
@@ -169,10 +174,19 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 
 func (a *karrDatalogActivation) applyGuardRule(r karrGuardRule, source *rel.KarrRelation) (*rel.KarrRelation, error) {
 	result := source.Clone()
-	for _, column := range r.inputConstants {
+	for i, column := range r.inputConstants {
 		if !result.Empty() {
+			before := result.Clone()
 			if err := result.FilterEqual(column, true); err != nil {
 				return nil, err
+			}
+			if checker := result.FormulaChecker(); checker != nil {
+				if i >= len(r.inputValues) {
+					return nil, ErrKarrDatalogFragment
+				}
+				if err := checker.VerifyFilterEqual(before, column, r.inputValues[i], result); err != nil {
+					return nil, err
+				}
 			}
 		}
 		var err error
@@ -190,11 +204,26 @@ func (a *karrDatalogActivation) applyGuardRule(r karrGuardRule, source *rel.Karr
 		}
 	}
 	apply := func(condition karrGuardRule) error {
+		before := result.Clone()
 		if err := rel.KarrSourceFilterConstraint(result, condition.row, &condition.constant, condition.equal); err != nil {
 			return err
 		}
 		if condition.secondRow != nil {
 			if err := rel.KarrSourceFilterConstraint(result, condition.secondRow, &condition.secondConstant, false); err != nil {
+				return err
+			}
+		}
+		if checker := result.FormulaChecker(); checker != nil {
+			translated, err := a.relationFilterCondition(condition.condition, condition.positions)
+			if err != nil {
+				return err
+			}
+			defer a.manager.DelRef(&translated)
+			translatedHandle, err := a.manager.RefGet(translated)
+			if err != nil {
+				return err
+			}
+			if err = checker.VerifyFilter(before, translatedHandle, result); err != nil {
 				return err
 			}
 		}

@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
@@ -16,18 +17,29 @@ import (
 var ErrKarrDatalogFragment = errors.New("muz/fp: unsupported Karr Datalog fragment")
 
 type karrDatalogActivation struct {
-	manager *ast.ASTManager
-	rules   *base.RuleSet
-	seeds   map[ast.ASTHandle]*rel.KarrRelation
-	results map[ast.ASTHandle]*rel.KarrRelation
-	closed  bool
+	manager        *ast.ASTManager
+	rules          *base.RuleSet
+	seeds          map[ast.ASTHandle]*rel.KarrRelation
+	results        map[ast.ASTHandle]*rel.KarrRelation
+	formulaChecker *rel.KarrRelationFormulaChecker
+	formulaConfig  *smtcore.SMTSolverConfig
+	closed         bool
 }
 
-func newKarrDatalogActivation(manager *ast.ASTManager, rules *base.RuleSet, declarations []ast.ASTHandle) (*karrDatalogActivation, error) {
+func newKarrDatalogActivation(manager *ast.ASTManager, rules *base.RuleSet, declarations []ast.ASTHandle, checks ...*smtcore.SMTSolverConfig) (*karrDatalogActivation, error) {
 	if manager == nil || rules == nil {
 		return nil, ErrKarrDatalogFragment
 	}
 	a := &karrDatalogActivation{manager: manager, rules: rules, seeds: make(map[ast.ASTHandle]*rel.KarrRelation)}
+	if len(checks) > 0 && checks[0] != nil {
+		config := *checks[0]
+		checker, err := rel.NewKarrRelationFormulaChecker(manager, config)
+		if err != nil {
+			return nil, err
+		}
+		a.formulaChecker = checker
+		a.formulaConfig = &config
+	}
 	if err := a.syncPredicates(declarations); err != nil {
 		return nil, err
 	}
@@ -64,6 +76,7 @@ func (a *karrDatalogActivation) syncPredicates(declarations []ast.ASTHandle) err
 		return err
 	}
 	pending := make(map[ast.ASTHandle]*rel.KarrRelation)
+	pendingSorts := make(map[ast.ASTHandle][]ast.ASTHandle)
 	for _, d := range declarations {
 		if seen[d] {
 			return ErrKarrDatalogFragment
@@ -88,9 +101,15 @@ func (a *karrDatalogActivation) syncPredicates(declarations []ast.ASTHandle) err
 			if s != integer {
 				return ErrKarrDatalogFragment
 			}
+			pendingSorts[d] = append(pendingSorts[d], s)
 		}
 		if a.seeds[d] == nil {
-			pending[d] = rel.NewKarrEmpty(arity, func() bool { return a.checkpoint() == nil })
+			pending[d] = rel.NewKarrEmpty(arity, func() bool { return a.checkpoint() == nil }, a.formulaChecker)
+			if a.formulaChecker != nil {
+				if err := rel.VerifyKarrRelationConstant(a.manager, pendingSorts[d], *a.formulaConfig, pending[d], false); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	for d := range a.seeds {
@@ -129,6 +148,24 @@ func (a *karrDatalogActivation) addFact(d ast.ASTHandle, values []ast.ASTHandle)
 	if err := candidate.AddFact(nums); err != nil {
 		return err
 	}
+	if a.formulaChecker != nil {
+		sorts, err := a.relationSorts(d)
+		if err != nil {
+			return err
+		}
+		before, err := a.seeds[d].ToFormula(a.manager, sorts)
+		if err != nil {
+			return err
+		}
+		defer a.manager.DelRef(&before)
+		beforeHandle, err := a.manager.RefGet(before)
+		if err != nil {
+			return err
+		}
+		if err = rel.VerifyKarrRelationFactAdd(a.manager, sorts, *a.formulaConfig, beforeHandle, values, candidate); err != nil {
+			return err
+		}
+	}
 	a.seeds[d] = candidate
 	a.results = nil
 	return nil
@@ -138,7 +175,11 @@ func (a *karrDatalogActivation) clone(rules *base.RuleSet) (*karrDatalogActivati
 	if a == nil || a.closed || rules == nil {
 		return nil, ErrKarrDatalogFragment
 	}
-	b := &karrDatalogActivation{manager: a.manager, rules: rules, seeds: make(map[ast.ASTHandle]*rel.KarrRelation, len(a.seeds))}
+	b := &karrDatalogActivation{manager: a.manager, rules: rules, seeds: make(map[ast.ASTHandle]*rel.KarrRelation, len(a.seeds)), formulaChecker: a.formulaChecker}
+	if a.formulaConfig != nil {
+		config := *a.formulaConfig
+		b.formulaConfig = &config
+	}
 	for d, r := range a.seeds {
 		b.seeds[d] = r.Clone()
 	}
@@ -158,10 +199,35 @@ func (a *karrDatalogActivation) reset() error {
 		return ErrKarrDatalogFragment
 	}
 	for d, r := range a.seeds {
-		a.seeds[d] = rel.NewKarrEmpty(r.Dimension(), func() bool { return a.checkpoint() == nil })
+		empty := rel.NewKarrEmpty(r.Dimension(), func() bool { return a.checkpoint() == nil }, a.formulaChecker)
+		if a.formulaChecker != nil {
+			sorts, err := a.relationSorts(d)
+			if err != nil {
+				return err
+			}
+			if err = rel.VerifyKarrRelationConstant(a.manager, sorts, *a.formulaConfig, empty, false); err != nil {
+				return err
+			}
+		}
+		a.seeds[d] = empty
 	}
 	a.results = nil
 	return nil
+}
+
+func (a *karrDatalogActivation) relationSorts(declaration ast.ASTHandle) ([]ast.ASTHandle, error) {
+	arity, err := a.manager.GetArity(declaration)
+	if err != nil {
+		return nil, err
+	}
+	sorts := make([]ast.ASTHandle, arity)
+	for i := range sorts {
+		sorts[i], err = a.manager.GetDomain(declaration, uint32(i))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return sorts, nil
 }
 
 // query evaluates supported rules in dependency order, publishing a snapshot

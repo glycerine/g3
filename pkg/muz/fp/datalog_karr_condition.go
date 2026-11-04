@@ -1,13 +1,19 @@
 package fp
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"math/big"
 )
 
 // compileKarrGuardCondition builds native filter rows for one conjunct.
 func (a *karrDatalogActivation) compileKarrGuardCondition(guard ast.ASTHandle, positions map[ast.ASTHandle]uint32, arity uint32) (karrGuardRule, error) {
 	var out karrGuardRule
+	out.condition = guard
+	out.positions = cloneKarrPositions(positions)
 	family, err := a.manager.GetFamilyID(guard)
 	if err != nil {
 		return out, err
@@ -109,4 +115,120 @@ func (a *karrDatalogActivation) compileKarrGuardCondition(guard ast.ASTHandle, p
 		return out, err
 	}
 	return out, nil
+}
+
+func cloneKarrPositions(source map[ast.ASTHandle]uint32) map[ast.ASTHandle]uint32 {
+	result := make(map[ast.ASTHandle]uint32, len(source))
+	for variable, column := range source {
+		result[variable] = column
+	}
+	return result
+}
+
+func (a *karrDatalogActivation) relationFilterCondition(condition ast.ASTHandle, positions map[ast.ASTHandle]uint32) (result ast.ASTRef, resultErr error) {
+	if condition.IsNull() {
+		return result, ErrKarrDatalogFragment
+	}
+	if len(positions) == 0 {
+		return result, fmt.Errorf("%w: filter has no relation variables", ErrKarrDatalogFragment)
+	}
+	family, err := a.manager.RegisterArithmeticPlugin()
+	if err != nil {
+		return result, err
+	}
+	integer, err := a.manager.MkFamilySort(family, 1, nil)
+	if err != nil {
+		return result, err
+	}
+	vars := make(map[uint32]uint32, len(positions))
+	for variable, column := range positions {
+		index, err := a.manager.GetVarIndex(variable)
+		if err != nil {
+			return result, err
+		}
+		vars[index] = column
+	}
+	var maxIndex uint32
+	seenVar := make(map[ast.ASTHandle]bool)
+	stack := []ast.ASTHandle{condition}
+	for len(stack) > 0 {
+		h := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if seenVar[h] {
+			continue
+		}
+		seenVar[h] = true
+		kind, err := a.manager.GetKind(h)
+		if err != nil {
+			return result, err
+		}
+		if kind == ast.ASTVar {
+			index, err := a.manager.GetVarIndex(h)
+			if err != nil {
+				return result, err
+			}
+			_, ok := vars[index]
+			if !ok {
+				return result, fmt.Errorf("%w: filter variable %d has no relation column", ErrKarrDatalogFragment, index)
+			}
+			if index > maxIndex {
+				maxIndex = index
+			}
+			continue
+		}
+		if kind != ast.ASTApp {
+			continue
+		}
+		count, err := a.manager.GetNumArgs(h)
+		if err != nil {
+			return result, err
+		}
+		for i := uint32(0); i < count; i++ {
+			child, err := a.manager.GetArg(h, i)
+			if err != nil {
+				return result, err
+			}
+			stack = append(stack, child)
+		}
+	}
+	bindings := make([]ast.ASTHandle, maxIndex+1)
+	var refs []ast.ASTRef
+	defer func() {
+		for i := len(refs) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, a.manager.DelRef(&refs[i]))
+		}
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, a.manager.DelRef(&result))
+			result = ast.ASTRef{}
+		}
+	}()
+	for i := range bindings {
+		column, ok := vars[uint32(i)]
+		if !ok {
+			return result, fmt.Errorf("%w: filter variable %d has no substitution", ErrKarrDatalogFragment, i)
+		}
+		binding, err := a.manager.MkVar(column, integer)
+		if err != nil {
+			return result, err
+		}
+		ref, err := a.manager.NewRef(binding)
+		if err != nil {
+			return result, err
+		}
+		refs = append(refs, ref)
+		bindings[i] = binding
+	}
+	substitution, err := rewriter.NewVarSubstitution(a.manager, false)
+	if substitution != nil {
+		defer func() { resultErr = errors.Join(resultErr, substitution.Close()) }()
+	}
+	if err != nil {
+		return result, err
+	}
+	result, err = a.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return result, err
+	}
+	resultErr = substitution.Substitute(condition, bindings, result)
+	return result, resultErr
 }

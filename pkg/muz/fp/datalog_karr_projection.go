@@ -11,9 +11,10 @@ import (
 )
 
 type karrUnaryRule struct {
-	body      ast.ASTHandle
-	constants []uint32
-	identical [][]uint32
+	body           ast.ASTHandle
+	constants      []uint32
+	constantValues []ast.ASTHandle
+	identical      [][]uint32
 	karrHeadPlan
 }
 
@@ -32,10 +33,19 @@ func (r karrUnaryRule) apply(source *rel.KarrRelation) (*rel.KarrRelation, error
 	if len(r.constants) != 0 || len(r.identical) != 0 {
 		result = source.Clone()
 	}
-	for _, column := range r.constants {
+	for i, column := range r.constants {
 		if !result.Empty() {
+			before := result.Clone()
 			if err = result.FilterEqual(column, true); err != nil {
 				return nil, err
+			}
+			if checker := result.FormulaChecker(); checker != nil {
+				if i >= len(r.constantValues) {
+					return nil, ErrKarrDatalogFragment
+				}
+				if err = checker.VerifyFilterEqual(before, column, r.constantValues[i], result); err != nil {
+					return nil, err
+				}
 			}
 		}
 		result, err = rel.KarrSourceProject(result, []uint32{column})
@@ -179,6 +189,7 @@ func (a *karrDatalogActivation) compileUnaryRule(rule *base.Rule) (ast.ASTHandle
 			return none, out, ErrKarrDatalogFragment
 		}
 		out.constants = append(out.constants, column)
+		out.constantValues = append(out.constantValues, arg)
 	}
 	for _, arg := range order {
 		if len(positions[arg]) > 1 {

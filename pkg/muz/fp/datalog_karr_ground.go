@@ -12,8 +12,10 @@ import (
 
 type karrGroundRule struct {
 	// A nil value denotes a full one-column relation for an unbound variable.
-	values []*big.Rat
-	head   karrHeadPlan
+	values         []*big.Rat
+	astValues      []ast.ASTHandle
+	head           karrHeadPlan
+	formulaChecker *rel.KarrRelationFormulaChecker
 }
 
 func (a *karrDatalogActivation) compileGroundRule(rule *base.Rule) (ast.ASTHandle, karrGroundRule, error) {
@@ -37,6 +39,7 @@ func (a *karrDatalogActivation) compileGroundRule(rule *base.Rule) (ast.ASTHandl
 	if a.seeds[decl] == nil {
 		return none, out, ErrKarrDatalogFragment
 	}
+	out.formulaChecker = a.formulaChecker
 	arity, err := a.manager.GetNumArgs(head)
 	if err != nil {
 		return none, out, err
@@ -59,6 +62,7 @@ func (a *karrDatalogActivation) compileGroundRule(rule *base.Rule) (ast.ASTHandl
 				selected[i] = uint32(len(out.values))
 				positions[arg] = selected[i]
 				out.values = append(out.values, nil)
+				out.astValues = append(out.astValues, ast.ASTHandle{})
 			}
 			continue
 		}
@@ -75,6 +79,7 @@ func (a *karrDatalogActivation) compileGroundRule(rule *base.Rule) (ast.ASTHandl
 		}
 		selected[i] = uint32(len(out.values))
 		out.values = append(out.values, num)
+		out.astValues = append(out.astValues, arg)
 	}
 	used := make(map[uint32]bool)
 	next := uint32(len(out.values))
@@ -106,15 +111,26 @@ func (a *karrDatalogActivation) compileGroundRule(rule *base.Rule) (ast.ASTHandl
 
 func (r karrGroundRule) apply(checkpoint func() bool) (*rel.KarrRelation, error) {
 	if len(r.values) == 0 {
-		return rel.NewKarrFull(0, checkpoint), nil
+		result := rel.NewKarrFull(0, checkpoint, r.formulaChecker)
+		if r.formulaChecker != nil {
+			if err := r.formulaChecker.VerifyConstant(result, true); err != nil {
+				return nil, err
+			}
+		}
+		return result, nil
 	}
 	var result *rel.KarrRelation
-	for _, value := range r.values {
-		singleton := rel.NewKarrFull(1, checkpoint)
+	for i, value := range r.values {
+		singleton := rel.NewKarrFull(1, checkpoint, r.formulaChecker)
 		if value != nil {
-			singleton = rel.NewKarrEmpty(1, checkpoint)
+			singleton = rel.NewKarrEmpty(1, checkpoint, r.formulaChecker)
 			if err := singleton.AddFact([]*big.Rat{value}); err != nil {
 				return nil, err
+			}
+			if r.formulaChecker != nil && i < len(r.astValues) && !r.astValues[i].IsNull() {
+				if err := r.formulaChecker.VerifyFactAdd([]ast.ASTHandle{r.astValues[i]}, singleton); err != nil {
+					return nil, err
+				}
 			}
 		}
 		if result == nil {

@@ -132,7 +132,7 @@ func (e *PropositionalEngine) datalogCheckRelationName() (name string, enabled b
 		name = "lazy_sparse"
 	}
 	// doc selects the actual UDoc checking factory before finite execution.
-	if name != "hashtable" && name != "sparse" && name != "lazy_sparse" && name != "bound_relation" && name != "interval_relation" && name != "doc" && name != "check" {
+	if name != "hashtable" && name != "sparse" && name != "lazy_sparse" && name != "bound_relation" && name != "interval_relation" && name != "karr_relation" && name != "doc" && name != "check" {
 		return "", false, fmt.Errorf("muz/fp: relation plugin %s is not available for datalog.check_relation", name)
 	}
 	return name, true, nil
