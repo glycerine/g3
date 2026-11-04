@@ -18,6 +18,7 @@ type karrGuardRule struct {
 	equal          bool
 	secondRow      []big.Rat
 	secondConstant big.Rat
+	projection     []uint32
 	head           karrHeadPlan
 }
 
@@ -91,8 +92,8 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 		positions[arg] = i
 		columns[i] = arg
 	}
-	// Variables absent from the head trigger the native combined filter/project
-	// instruction, which this bounded route does not yet consume.
+	// The native combined filter/project removes every tail variable absent
+	// from the head, sorting source column indices before projection.
 	used := make(map[ast.ASTHandle]bool)
 	n, err := a.manager.GetNumArgs(head)
 	if err != nil {
@@ -105,9 +106,12 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 		}
 		used[arg] = true
 	}
-	for arg := range positions {
-		if !used[arg] {
-			return none, out, ErrKarrDatalogFragment
+	kept := make([]ast.ASTHandle, 0, len(columns))
+	for i, arg := range columns {
+		if used[arg] {
+			kept = append(kept, arg)
+		} else {
+			out.projection = append(out.projection, uint32(i))
 		}
 	}
 	family, err := a.manager.GetFamilyID(guard)
@@ -151,7 +155,7 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 		if err = a.compileKarrDisjunction(guard, positions, &out); err != nil {
 			return none, out, err
 		}
-		out.head, err = a.compileKarrHead(head, columns)
+		out.head, err = a.compileKarrHead(head, kept)
 		if err != nil {
 			return none, out, err
 		}
@@ -214,7 +218,7 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 	if err = add(right, rightMul); err != nil {
 		return none, out, err
 	}
-	out.head, err = a.compileKarrHead(head, columns)
+	out.head, err = a.compileKarrHead(head, kept)
 	if err != nil {
 		return none, out, err
 	}
@@ -233,6 +237,16 @@ func (a *karrDatalogActivation) applyGuardRule(r karrGuardRule, source *rel.Karr
 	}
 	if err := a.checkpoint(); err != nil {
 		return nil, err
+	}
+	if len(r.projection) > 0 {
+		var err error
+		result, err = rel.KarrSourceProject(result, r.projection)
+		if err != nil {
+			return nil, err
+		}
+		if err = a.checkpoint(); err != nil {
+			return nil, err
+		}
 	}
 	result, err := r.head.apply(result)
 	if err != nil {
