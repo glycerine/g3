@@ -227,6 +227,10 @@ func TestFixedExprConverterTermsAndClause(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var shownSum bytes.Buffer
+	if err := converter.displayMappedVariable(&shownSum, sum, sy); err != nil || shownSum.String() != "(+ x y 1)" {
+		t.Fatal("source SMT2 display for interpreted fixed-point term", shownSum.String(), err)
+	}
 	if err := m.IncRef(sum); err != nil {
 		t.Fatal(err)
 	}

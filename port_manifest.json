@@ -83378,15 +83378,16 @@
           ]
         },
         {
-          "name": "Concrete MPFX core tactic apply: borrowed goal result, selected search, statistics, parameter snapshot, fresh cleanup and named-variable print_nodes output (subpaving_tactic.cpp:32-49,193-268)",
-          "status": "partial",
+          "name": "Concrete MPFX core tactic apply returns the borrowed goal, searches the selected context, accumulates statistics, snapshots parameters, rebuilds on cleanup and emits SMT2 print_nodes output (subpaving_tactic.cpp:32-49,193-268)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/fixed_core_tactic.go",
           "go_targets": [
             "pkg/math/subpaving/tactic/fixed_variable_display.go"
           ],
           "tests": [
             "TestFixedCoreTacticBorrowedGoalPrintStatisticsAndCleanup",
-            "TestFixedCoreTacticRationalProcessBindingAndRefusedOwners"
+            "TestFixedCoreTacticRationalProcessBindingAndRefusedOwners",
+            "TestFixedExprConverterTermsAndClause"
           ]
         },
         {
