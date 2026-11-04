@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -20,36 +21,48 @@ var ErrManagerOwner = errors.New("muz/pdr: invalid or closed manager")
 // contexts. State declarations are the zero-arity declarations supported by
 // the retained native PDR engine.
 type Manager struct {
-	manager    *ast.ASTManager
-	mux        *SymbolMux
-	contexts   *SMTContextManager
-	background ast.ASTRef
-	oldZero    []ast.ASTHandle
-	closing    bool
-	closed     bool
+	manager        *ast.ASTManager
+	brwr           *rewriter.BoolRewriter
+	mux            *SymbolMux
+	contexts       *SMTContextManager
+	background     ast.ASTRef
+	oldZero        []ast.ASTHandle
+	notAndPending  []ast.ASTRef
+	notAndDeferred []ast.ASTRef
+	notAndBorrowed []ast.ASTRef
+	notAndActive   bool
+	closing        bool
+	closed         bool
 }
 
 func NewManager(manager *ast.ASTManager, params *uparams.ParamsRef, maximumContexts uint32, config smtcore.SMTSolverConfig) (_ *Manager, resultErr error) {
 	if manager == nil || config.Params == nil {
 		return nil, ErrManagerOwner
 	}
+	var brwr *rewriter.BoolRewriter
+	var err error
+	if config.Globals != nil {
+		brwr, err = rewriter.NewBoolRewriter(manager, config.Params, config.Globals, nil)
+		if err != nil {
+			if brwr != nil {
+				err = errors.Join(err, brwr.Close())
+			}
+			return nil, err
+		}
+	}
+	committed := false
+	defer func() {
+		if !committed && brwr != nil {
+			resultErr = errors.Join(resultErr, brwr.Close())
+		}
+	}()
 	mux, err := NewSymbolMux(manager)
 	if err != nil {
 		return nil, err
 	}
-	committed := false
 	defer func() {
 		if !committed {
 			resultErr = errors.Join(resultErr, mux.Close())
-		}
-	}()
-	contexts, err := NewSMTContextManager(manager, params, maximumContexts, config)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if !committed {
-			resultErr = errors.Join(resultErr, contexts.Close())
 		}
 	}()
 	truth, err := manager.MkTrue()
@@ -60,7 +73,16 @@ func NewManager(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 	if err != nil {
 		return nil, err
 	}
-	result := &Manager{manager: manager, mux: mux, contexts: contexts, background: background}
+	defer func() {
+		if !committed {
+			resultErr = errors.Join(resultErr, manager.DelRef(&background))
+		}
+	}()
+	contexts, err := NewSMTContextManager(manager, params, maximumContexts, config)
+	if err != nil {
+		return nil, err
+	}
+	result := &Manager{manager: manager, brwr: brwr, mux: mux, contexts: contexts, background: background}
 	committed = true
 	return result, nil
 }
@@ -290,21 +312,129 @@ func (m *Manager) LemmaIntoCube(lemma ast.ASTHandle) (ast.ASTHandle, error) {
 	return m.CubeIntoLemma(lemma)
 }
 
-func (m *Manager) NotAnd(expressions []ast.ASTHandle) (ast.ASTHandle, error) {
+// releaseNotAndPending keeps any reference whose destruction could not finish
+// so a later operation or Close can resume it.
+func (m *Manager) releaseNotAndPending() error {
+	for len(m.notAndPending) != 0 {
+		i := len(m.notAndPending) - 1
+		err := m.manager.DelRef(&m.notAndPending[i])
+		if m.notAndPending[i] == (ast.ASTRef{}) {
+			m.notAndPending = m.notAndPending[:i]
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// releaseNotAndRef transfers a lexical result back to the manager before its
+// potentially interruptible destruction.
+func (m *Manager) releaseNotAndRef(ref *ast.ASTRef) error {
+	if m.notAndActive {
+		m.notAndDeferred = append(m.notAndDeferred, *ref)
+		*ref = ast.ASTRef{}
+		return ast.ErrASTPending
+	}
+	m.notAndPending = append(m.notAndPending, *ref)
+	*ref = ast.ASTRef{}
+	m.notAndActive = true
+	defer m.finishNotAndActive()
+	return m.releaseNotAndPending()
+}
+
+// finishNotAndActive publishes callback-transferred refs only after the
+// current DelRef no longer holds a pointer into the pending slice.
+func (m *Manager) finishNotAndActive() {
+	m.notAndActive = false
+	m.notAndPending = append(m.notAndPending, m.notAndDeferred...)
+	m.notAndDeferred = nil
+}
+
+// NotAndRef returns the source bool_rewriter's negated conjunction as an
+// owning reference. The caller must release it after the consumer retains it.
+func (m *Manager) NotAndRef(expressions []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	if err := m.open(); err != nil {
-		return ast.ASTHandle{}, err
+		return result, err
+	}
+	if m.notAndActive {
+		return result, ast.ErrASTPending
+	}
+	m.notAndActive = true
+	defer m.finishNotAndActive()
+	if err := m.releaseNotAndPending(); err != nil {
+		return result, err
 	}
 	flat, err := m.manager.FlattenAnd(append([]ast.ASTHandle(nil), expressions...))
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return result, err
 	}
-	for index := range flat {
-		flat[index], err = m.manager.MkNotSimplified(flat[index])
+	// The source flat vector owns each expression. Reserve slot zero for the
+	// result so reverse cleanup can release all operands before publishing it.
+	out, err := m.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return result, err
+	}
+	m.notAndPending = append(m.notAndPending, out)
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, m.releaseNotAndPending())
+		}
+	}()
+	for _, expression := range flat {
+		ref, x := m.manager.NewRef(expression)
+		if x != nil {
+			return result, x
+		}
+		m.notAndPending = append(m.notAndPending, ref)
+	}
+	for i := range flat {
+		ref := m.notAndPending[i+1]
+		if m.brwr != nil {
+			err = m.brwr.MkNot(flat[i], ref)
+		} else {
+			err = rewriter.SimplifyBooleanGateDefault(m.manager, ast.ASTOpNot, flat[i:i+1], ref)
+		}
 		if err != nil {
-			return ast.ASTHandle{}, err
+			return result, err
+		}
+		flat[i], err = m.manager.RefGet(ref)
+		if err != nil {
+			return result, err
 		}
 	}
-	return m.manager.MkOrArray(flat)
+	if m.brwr != nil {
+		err = m.brwr.MkOr(flat, out)
+	} else {
+		err = rewriter.SimplifyBooleanGateDefault(m.manager, ast.ASTOpOr, flat, out)
+	}
+	if err != nil {
+		return result, err
+	}
+	for len(m.notAndPending) > 1 {
+		i := len(m.notAndPending) - 1
+		err = m.manager.DelRef(&m.notAndPending[i])
+		if m.notAndPending[i] == (ast.ASTRef{}) {
+			m.notAndPending = m.notAndPending[:i]
+		}
+		if err != nil {
+			return result, err
+		}
+	}
+	result = m.notAndPending[0]
+	m.notAndPending = m.notAndPending[:0]
+	return result, nil
+}
+
+// NotAnd retains its borrowed result for the manager lifetime, as the
+// multiplexer does for its borrowed conversion results.
+func (m *Manager) NotAnd(expressions []ast.ASTHandle) (ast.ASTHandle, error) {
+	ref, err := m.NotAndRef(expressions)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	m.notAndBorrowed = append(m.notAndBorrowed, ref)
+	return m.manager.RefGet(ref)
 }
 
 func (m *Manager) GetOr(expression ast.ASTHandle) ([]ast.ASTHandle, error) {
@@ -458,21 +588,63 @@ func (m *Manager) Close() (result error) {
 	if m.manager == nil {
 		return ErrManagerOwner
 	}
+	if m.notAndActive {
+		return ast.ErrASTPending
+	}
 	m.closing = true
+	m.notAndActive = true
+	defer m.finishNotAndActive()
+	if result = m.releaseNotAndPending(); result != nil {
+		return result
+	}
+	if len(m.notAndDeferred) != 0 {
+		return ast.ErrASTPending
+	}
+	for len(m.notAndBorrowed) != 0 {
+		i := len(m.notAndBorrowed) - 1
+		result = m.manager.DelRef(&m.notAndBorrowed[i])
+		if m.notAndBorrowed[i] == (ast.ASTRef{}) {
+			m.notAndBorrowed = m.notAndBorrowed[:i]
+		}
+		if result != nil {
+			return result
+		}
+		if len(m.notAndDeferred) != 0 {
+			return ast.ErrASTPending
+		}
+	}
 	if result = m.contexts.Close(); result != nil {
 		return result
 	}
+	if len(m.notAndDeferred) != 0 {
+		return ast.ErrASTPending
+	}
 	// Source member destruction is reverse declaration order: contexts, the
-	// background expr_ref, then sym_mux. Stop at each refused owner so later
+	// background expr_ref, sym_mux, then bool_rewriter. Stop at each refused owner so later
 	// siblings remain untouched and retry resumes at the same boundary.
 	if m.background != (ast.ASTRef{}) {
 		if result = m.manager.DelRef(&m.background); result != nil {
 			return result
 		}
 	}
+	if len(m.notAndDeferred) != 0 {
+		return ast.ErrASTPending
+	}
 	if result = m.mux.Close(); result != nil {
 		return result
 	}
+	if len(m.notAndDeferred) != 0 {
+		return ast.ErrASTPending
+	}
+	if m.brwr != nil {
+		if result = m.brwr.Close(); result != nil {
+			return result
+		}
+	}
+	if len(m.notAndDeferred) != 0 {
+		return ast.ErrASTPending
+	}
+	m.brwr = nil
 	m.manager = nil
 	m.mux = nil
 	m.contexts = nil

@@ -26,18 +26,23 @@ func TestManagerClosePreservesCompositeOwnersDuringNativeRefusal(t *testing.T) {
 	budget := arena.NewBudget(1 << 28)
 	var owner *Manager
 	var closeErr error
+	var pendingRef ast.ASTRef
 	active, callback := false, false
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(source memory.Failure) error {
 		if active && !callback {
 			callback = true
 			background := owner.background
+			brwr := owner.brwr
 			mux := owner.mux
 			contexts := owner.contexts
 			muxRoots := len(mux.references)
 			muxLast := mux.references[muxRoots-1]
 			closeErr = owner.Close()
-			if !errors.Is(closeErr, ast.ErrASTPending) || !owner.closing || owner.closed || owner.manager == nil || owner.mux != mux || owner.contexts != contexts || !contexts.closed || owner.background != background || mux.closing || mux.closed || len(mux.references) != muxRoots || mux.references[muxRoots-1] != muxLast {
+			if !errors.Is(closeErr, ast.ErrASTPending) || !owner.closing || owner.closed || owner.manager == nil || owner.brwr != brwr || owner.mux != mux || owner.contexts != contexts || !contexts.closed || owner.background != background || mux.closing || mux.closed || len(mux.references) != muxRoots || mux.references[muxRoots-1] != muxLast {
 				t.Fatalf("refused PDR-manager cleanup lost a composite owner: %v", closeErr)
+			}
+			if err := owner.releaseNotAndRef(&pendingRef); !errors.Is(err, ast.ErrASTPending) || pendingRef != (ast.ASTRef{}) || len(owner.notAndPending) != 1 {
+				t.Fatalf("refused lemma cleanup lost its owner: %v", err)
 			}
 			if _, err := owner.Background(); !errors.Is(err, ast.ErrASTPending) {
 				t.Fatalf("closing PDR manager accepted use: %v", err)
@@ -61,6 +66,10 @@ func TestManagerClosePreservesCompositeOwnersDuringNativeRefusal(t *testing.T) {
 	must(err)
 	must(globals.InitializeSource())
 	owner, err = NewManager(manager, nil, 1, smtcore.SMTSolverConfig{Params: parameters, Globals: globals})
+	must(err)
+	truth, err := manager.MkTrue()
+	must(err)
+	pendingRef, err = manager.NewRef(truth)
 	must(err)
 	boolean, err := manager.MkBoolSort()
 	must(err)
@@ -87,7 +96,7 @@ func TestManagerClosePreservesCompositeOwnersDuringNativeRefusal(t *testing.T) {
 	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
 	must(owner.Close())
 	must(owner.Close())
-	if !owner.closed || owner.closing || owner.manager != nil || owner.mux != nil || owner.contexts != nil || owner.background != (ast.ASTRef{}) {
+	if !owner.closed || owner.closing || owner.manager != nil || owner.brwr != nil || owner.mux != nil || owner.contexts != nil || owner.background != (ast.ASTRef{}) || len(owner.notAndPending) != 0 {
 		t.Fatal("PDR-manager cleanup retry did not finish")
 	}
 

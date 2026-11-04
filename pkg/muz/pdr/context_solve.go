@@ -80,9 +80,13 @@ func (c *Context) expandNode(node *ModelNode) (resultStatus lbool.LBool, resultE
 		defer func() { resultErr = errors.Join(resultErr, closeGeneralizedCores(c.manager, cores)) }()
 		foundInvariant := false
 		for _, core := range cores {
-			lemma, makeErr := c.owner.NotAnd(core.literals)
+			lemmaRef, makeErr := c.owner.NotAndRef(core.literals)
 			if makeErr != nil {
 				return lbool.Undef, fmt.Errorf("muz/pdr: core negation: %w", makeErr)
+			}
+			lemma, makeErr := c.manager.RefGet(lemmaRef)
+			if makeErr != nil {
+				return lbool.Undef, errors.Join(makeErr, c.owner.releaseNotAndRef(&lemmaRef))
 			}
 			level := InfinityLevel
 			if core.usesLevel {
@@ -90,7 +94,9 @@ func (c *Context) expandNode(node *ModelNode) (resultStatus lbool.LBool, resultE
 			} else {
 				foundInvariant = true
 			}
-			if _, makeErr = node.transformer.AddProperty(lemma, level); makeErr != nil {
+			_, makeErr = node.transformer.AddProperty(lemma, level)
+			makeErr = errors.Join(makeErr, c.owner.releaseNotAndRef(&lemmaRef))
+			if makeErr != nil {
 				return lbool.Undef, fmt.Errorf("muz/pdr: blocking property: %w", makeErr)
 			}
 		}

@@ -128,7 +128,9 @@ func TestManagerBooleanBackgroundSolverAndImplicationIntegration(t *testing.T) {
 	if len(disjuncts) != 2 {
 		t.Fatal("cube negation did not distribute over conjunction", disjuncts)
 	}
-	notAnd, err := owner.NotAnd([]ast.ASTHandle{conjunction})
+	notAndRef, err := owner.NotAndRef([]ast.ASTHandle{conjunction})
+	pdrMust(t, err)
+	notAnd, err := manager.RefGet(notAndRef)
 	pdrMust(t, err)
 	disjuncts, err = owner.GetOr(notAnd)
 	pdrMust(t, err)
@@ -136,6 +138,7 @@ func TestManagerBooleanBackgroundSolverAndImplicationIntegration(t *testing.T) {
 		t.Fatal("not-and did not flatten its conjunction", disjuncts)
 	}
 
+	pdrMust(t, manager.DelRef(&notAndRef))
 	if err = owner.Close(); !errors.Is(err, pdr.ErrSMTContextOwner) {
 		t.Fatal("manager closed with an active proposition solver", err)
 	}
