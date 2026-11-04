@@ -55369,10 +55369,11 @@
         },
         {
           "name": "Concrete config_hwf Newton nth-root scalar enclosure (src/math/interval/interval_def.h:175-380)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/interval/hardware_root.go",
           "tests": [
-            "TestHardwareRootRetainedNewtonCertifiedBoundsAndCancellation"
+            "TestHardwareRootRetainedNewtonCertifiedBoundsAndCancellation",
+            "TestHardwareRootRetainedTraceSitesSourceOrder"
           ]
         },
         {
@@ -80345,10 +80346,11 @@
         },
         {
           "name": "Concrete config_hwf Newton nth-root scalar enclosure (src/math/interval/interval_def.h:175-380)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/interval/hardware_root.go",
           "tests": [
-            "TestHardwareRootRetainedNewtonCertifiedBoundsAndCancellation"
+            "TestHardwareRootRetainedNewtonCertifiedBoundsAndCancellation",
+            "TestHardwareRootRetainedTraceSitesSourceOrder"
           ]
         },
         {
@@ -81738,10 +81740,11 @@
         },
         {
           "name": "Concrete config_hwf Newton nth-root scalar enclosure (src/math/interval/interval_def.h:175-380)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/interval/hardware_root.go",
           "tests": [
-            "TestHardwareRootRetainedNewtonCertifiedBoundsAndCancellation"
+            "TestHardwareRootRetainedNewtonCertifiedBoundsAndCancellation",
+            "TestHardwareRootRetainedTraceSitesSourceOrder"
           ]
         },
         {
