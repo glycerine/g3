@@ -81789,12 +81789,14 @@
         },
         {
           "name": "Concrete config_mpf queued bound checkpoint, clause and definition watcher timestamp dispatch, generated-bound drainage and arithmetic-exception recording (src/math/subpaving/subpaving_t_def.h:1694-1750)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_context_propagate.go",
           "tests": [
             "TestArbitraryClauseQueuedWatchOrderAndCancellation",
             "TestArbitraryPolynomialForwardInverseAndQueue",
-            "TestArbitraryMonomialForwardInverseAndArithmetic"
+            "TestArbitraryMonomialForwardInverseAndArithmetic",
+            "TestArbitraryChildRecentBoundReplayAndPolynomialWatcher",
+            "TestArbitraryQueuedBoundPropagationTraceAndConsumedPrefix"
           ]
         },
         {
