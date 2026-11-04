@@ -154,3 +154,63 @@ func TestReachableConstraintCacheRetainsEarlierDisjunct(t *testing.T) {
 	pdrMust(t, contexts.Close())
 	pdrMust(t, command.Close())
 }
+
+// A rejected assertion must retain the previous connector and release the
+// candidate connector so a later insertion can proceed.
+func TestReachableConstraintCacheRejectedInsertionCanRetry(t *testing.T) {
+	command, manager, contexts := pdrContextFixture(t, 0)
+	truth, err := manager.MkTrue()
+	pdrMust(t, err)
+	cache, err := pdr.NewReachableCache(manager, contexts, truth, pdr.ReachableConstraintCache)
+	pdrMust(t, err)
+	p := pdrBool(t, manager, "reachable-retry-p")
+	notP, err := manager.MkNot(p)
+	pdrMust(t, err)
+	boolean, err := manager.MkBoolSort()
+	pdrMust(t, err)
+	free, err := manager.MkVar(0, boolean)
+	pdrMust(t, err)
+	var roots []ast.ASTRef
+	for _, h := range []ast.ASTHandle{p, notP, free} {
+		r, err := manager.NewRef(h)
+		pdrMust(t, err)
+		roots = append(roots, r)
+	}
+	pdrMust(t, cache.AddReachable(p))
+	before := manager.Stats().LiveReferences
+	if err := cache.AddReachable(free); err == nil {
+		t.Fatal("free-variable assertion accepted")
+	}
+	if got := manager.Stats().LiveReferences; got != before {
+		t.Fatalf("rejected insertion changed live reference owners: %d -> %d", before, got)
+	}
+	for _, check := range []struct {
+		h    ast.ASTHandle
+		want bool
+	}{{p, true}, {notP, false}} {
+		found, err := cache.IsReachable(check.h)
+		pdrMust(t, err)
+		if found != check.want {
+			t.Fatalf("after rejection: got %v, want %v", found, check.want)
+		}
+	}
+	pdrMust(t, cache.AddReachable(notP))
+	for _, h := range []ast.ASTHandle{p, notP} {
+		found, err := cache.IsReachable(h)
+		pdrMust(t, err)
+		if !found {
+			t.Fatal("successful retry lost a disjunct")
+		}
+	}
+	stats, err := cache.Statistics()
+	pdrMust(t, err)
+	if stats.Inserts != 3 {
+		t.Fatalf("insertion count after rejected insertion: %d", stats.Inserts)
+	}
+	pdrMust(t, cache.Close())
+	for i := range roots {
+		pdrMust(t, manager.DelRef(&roots[i]))
+	}
+	pdrMust(t, contexts.Close())
+	pdrMust(t, command.Close())
+}

@@ -72,6 +72,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Map the Duality profiling unit and live consumers in [DUALITY_UNIT_AUDIT.md](DUALITY_UNIT_AUDIT.md); leave missing timer scopes, global lifetime and report fidelity open.
   - [x] Map the fixedpoint command interface and consumers in [FP_UNIT_AUDIT.md](FP_UNIT_AUDIT.md); retain its parsing, exception and cleanup gaps as open obligations.
   - [x] Match `dl_rule_cmd` trailing-symbol parsing: each symbol after the optional recursion bound replaces the rule name. Execution and collection tests cover empty names and rejection without publishing a malformed rule.
+  - [x] Reset fixedpoint query status after successful SMT-LIB command output at the source cleanup boundary; backend cleanup and exception/error-output paths remain open.
 - [ ] Verify previously marked ported units against their actual consumers and proof/ownership requirements; status labels alone are insufficient.
   - [x] Audit `dl_costs.cpp/.h` and fix stopwatch sample rounding; [BASE_UNIT_AUDIT.md](BASE_UNIT_AUDIT.md) records the mapped consumers and remaining profile-attribution evidence.
   - [x] Match source-rule cost attribution for interpreted-tail simplification, subsumption and filter construction; verify the inliner through its existing unifier and check shared-filter attribution.
@@ -82,6 +83,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Audit the concrete dataflow/reachability consumer in [DATAFLOW_UNIT_AUDIT.md](DATAFLOW_UNIT_AUDIT.md), including unreachable constructed facts and outputs without rules; nested-dependency source fidelity remains under review.
   - [ ] Establish whether the source quantifier-abstraction pipeline can leave a nested predicate for cone pruning. The Go analysis conservatively follows that dependency; a source-derived intermediate demonstrates possible semantic loss from pruning, but a public C++ query failure remains unproven.
   - [x] Verify compound Horn head/negative-body hoisting order and proof conclusion, first-true linear BMC rule selection, and Spacer ITE implicant branch selection against the source paths.
+  - [x] Verify Duality tree interpolation includes each node's extra constraints and restores the temporary solver scope; other interpolation branches and exceptional cleanup remain under audit.
   - [x] Audit TBV consumers and bound the live-wrapper ledger, with deallocation, refusal/retry, stale-owner, reset and close coverage; [REL_UNIT_AUDIT.md](REL_UNIT_AUDIT.md) records the source mapping and limits.
   - [x] Check the complete single-bit TBV truth tables, both containment modes and source complement ordering, including undefined bits.
   - [x] Preserve scale-transform temporary owners across cleanup refusal and publish its predicate mapping after successful construction; staged native-callback and mixed-sort failure tests cover the bounded recovery paths.
@@ -92,6 +94,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Add Duality RPFP edge-construction and solver-add profile scopes, with cached, uncached and true-edge coverage; timing outside active solve remains open.
   - [x] Add the source `SubtermTruth` and `UnderapproxFormula` call-site profile scopes, checking branch selection and timer restoration on errors and allocation failures.
   - [x] Verify PDR reachable-cache construction failure/retry and preservation of earlier constraint disjuncts; connector-publication failure injection remains open.
+  - [x] Verify a rejected constraint-cache insertion preserves prior alternatives and references and permits retry; the later connector-publication failure boundary remains unproven.
   - [ ] Resolve the live profiling, PDR reachable-cache cleanup and scale-transform gaps documented in [DUALITY_UNIT_AUDIT.md](DUALITY_UNIT_AUDIT.md), [PDR_UNIT_AUDIT.md](PDR_UNIT_AUDIT.md) and [TRANSFORM_UNIT_AUDIT.md](TRANSFORM_UNIT_AUDIT.md). Their C++ units are classified partial pending the documented work.
   - [x] Correct the stale whole-unit completion claims for `dl_compiler.cpp/.h`: completed finite/explanation methods remain recorded, while live abstract/product/widening dispatch makes both units partial until their broader consumers are integrated and audited.
 - [x] Classify remaining CMake/README entries through their actual Go build/documentation replacements.

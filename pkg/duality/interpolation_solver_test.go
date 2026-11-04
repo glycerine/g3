@@ -187,3 +187,62 @@ func TestDualityGraphSolveLearnsAnnotation(t *testing.T) {
 	}
 	must(g.Pop(1))
 }
+
+// The source linearizes a node's main term followed by all of its extra terms,
+// and asserts every partition term in a temporary scope in nonincremental mode.
+func TestDualityTreeInterpolationAssertsExtraTerms(t *testing.T) {
+	ctx, m, s, globals := dualityNativeSolverServicesFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	manager, err := interp.NewManagerWithParams(m, ctx.config.params, globals)
+	must(err)
+	defer manager.Close()
+	p, err := ctx.BoolConst("interpolate-extra-p")
+	must(err)
+	closeExpr(t, p)
+	notP, err := p.Not()
+	must(err)
+	closeExpr(t, notP)
+	truth, err := ctx.BoolVal(true)
+	must(err)
+	closeExpr(t, truth)
+	leaf, err := NewTermTree(p, nil)
+	must(err)
+	must(leaf.AddTerm(notP))
+	tree, err := NewTermTree(truth, []*TermTree{leaf})
+	must(err)
+	defer tree.Close()
+	g, err := NewRPFP(ctx)
+	must(err)
+	defer func() { must(g.Close()) }()
+	must(g.BindSolver(s))
+
+	status, answer, err := g.InterpolateTree(manager, tree, nil, false, nil)
+	must(err)
+	if status != lbool.False || answer == nil || len(answer.children) != 1 {
+		t.Fatalf("extra constraint did not make tree unsatisfiable: %v", status)
+	}
+	defer answer.Close()
+	// The empty outside partition is true, so the leaf interpolant must be false.
+	h, err := answer.children[0].term.Raw()
+	must(err)
+	must(s.Push())
+	must(s.Assert(h))
+	status, err = s.CheckSat(nil)
+	must(err)
+	if status != lbool.False {
+		t.Fatalf("leaf interpolant is satisfiable: %v", status)
+	}
+	must(s.Pop(1))
+	level, err := s.ScopeLevel()
+	must(err)
+	count, err := s.NumAssertions()
+	must(err)
+	if level != 0 || count != 0 {
+		t.Fatalf("temporary assertions remain: scope=%d assertions=%d", level, count)
+	}
+}
