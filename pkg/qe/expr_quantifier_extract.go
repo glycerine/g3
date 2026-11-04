@@ -44,15 +44,17 @@ func extractExprQuantifier(m *ast.ASTManager, quantifier ast.ASTHandle) (result 
 		if e != nil {
 			return result, e
 		}
-		fresh, e := m.MkFreshConst("x", sort)
-		if e != nil {
-			return result, e
-		}
-		ref, e := m.NewRef(fresh)
+		// Own the reference slot before creating the fresh declaration and
+		// constant: allocating the slot afterwards can fail and strand both.
+		ref, e := m.NewRef(ast.ASTHandle{})
 		if e != nil {
 			return result, e
 		}
 		result.variables = append(result.variables, ref)
+		fresh, e := m.MkFreshConst("x", sort)
+		if e = errors.Join(e, m.SetRef(ref, fresh)); e != nil {
+			return result, e
+		}
 		args = append(args, fresh)
 	}
 	tmp, err := m.NewRef(ast.ASTHandle{})

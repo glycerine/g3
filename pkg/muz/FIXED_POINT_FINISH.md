@@ -130,7 +130,8 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Normalize reachable non-application Boolean heads before the same deferred diagnostic, matching repeated C++ query output; reserve equality ownership before construction. Sparse-variable substitution now owns replacement variables across allocation failure and retry. Exceptional temporary cleanup refusal and partial multi-clause publication remain open.
   - [x] Prevent a negated interpreted-tail AST leak when reference reservation fails, with live-node and retry coverage; constructor cleanup refusal remains a separate audit.
   - [x] Own unbound-variable substitution bindings and grouped-tail conjunctions before later allocations; real failure campaigns verify live-node cleanup and retry for both cases.
-  - [x] Reserve the unbound-rule quantifier owner before construction; targeted allocation refusal and retry pass. A separate pressure case in QE simplification remains open.
+  - [x] Reserve the unbound-rule quantifier owner before construction; targeted allocation refusal and retry pass.
+  - [x] Reserve the QE extracted-constant owner before creation; the fixedpoint pressure cases and focused QE tests pass. Refused cleanup of a partially extracted owner remains open.
   - [x] Reserve the asserted-proof owner before proof construction; a real reference-allocation failure and retry verify no fresh proof node leaks. Temporary-owner cleanup refusal remains open.
   - [x] Keep rewrite and modus-ponens proof intermediates owned through rule publication; real reference-allocation failures at reservation and publication check cleanup and retry.
 - [ ] Verify previously marked ported units against their actual consumers and proof/ownership requirements; status labels alone are insufficient.
