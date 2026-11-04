@@ -263,14 +263,7 @@ func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool
 			if err := a.checkpoint(); err != nil {
 				return err
 			}
-			if rule.ground != nil && rule.ground.unbound {
-				// union invokes get_basis on the source candidate.
-				candidate.PrepareSourceEmptyBasis()
-				if err := a.checkpoint(); err != nil {
-					return err
-				}
-			}
-			if _, err := target.Union(candidate); err != nil {
+			if _, err := rel.KarrSourceUnion(target, candidate); err != nil {
 				return err
 			}
 			if err := a.checkpoint(); err != nil {

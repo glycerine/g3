@@ -152,7 +152,7 @@ func (p karrJoinPlan) apply(left, right *rel.KarrRelation) (*rel.KarrRelation, e
 		return nil, err
 	}
 	if len(p.removed) > 0 {
-		result, err = result.Project(p.removed)
+		result, err = rel.KarrSourceProject(result, p.removed)
 		if err != nil {
 			return nil, err
 		}

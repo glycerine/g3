@@ -229,10 +229,10 @@ func TestDatalogKarrWhollyUnboundNativeBasisAndRepeatedVariables(t *testing.T) {
 	if matrix.Len() != 0 {
 		t.Fatal("native full relation basis must be empty", matrix)
 	}
-	seededIneq, err := e.karrDatalog.results[seeded].Inequalities()
+	seededBasis, err := e.karrDatalog.results[seeded].Basis()
 	must(err)
-	if seededIneq.Len() != 2 {
-		t.Fatal("native union of empty basis must preserve seed", seededIneq)
+	if seededBasis.Len() != 1 {
+		t.Fatal("native union of empty basis must preserve seed", seededBasis)
 	}
 	repeatedIneq, err := e.karrDatalog.results[repeated].Inequalities()
 	must(err)

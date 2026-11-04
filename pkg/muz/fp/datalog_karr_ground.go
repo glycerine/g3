@@ -12,9 +12,8 @@ import (
 
 type karrGroundRule struct {
 	// A nil value denotes a full one-column relation for an unbound variable.
-	values  []*big.Rat
-	head    karrHeadPlan
-	unbound bool
+	values []*big.Rat
+	head   karrHeadPlan
 }
 
 func (a *karrDatalogActivation) compileGroundRule(rule *base.Rule) (ast.ASTHandle, karrGroundRule, error) {
@@ -54,7 +53,6 @@ func (a *karrDatalogActivation) compileGroundRule(rule *base.Rule) (ast.ASTHandl
 			return none, out, err
 		}
 		if kind == ast.ASTVar {
-			out.unbound = true
 			if column, ok := positions[arg]; ok {
 				selected[i] = column
 			} else {
@@ -128,10 +126,6 @@ func (r karrGroundRule) apply(checkpoint func() bool) (*rel.KarrRelation, error)
 		if err != nil {
 			return nil, err
 		}
-	}
-	if r.unbound && len(r.head.duplicates) > 0 && result.Dimension() > 1 {
-		// make_duplicate_column projects before joining the duplicate.
-		result.PrepareSourceEmptyBasis()
 	}
 	return r.head.apply(result)
 }

@@ -38,7 +38,7 @@ func (r karrUnaryRule) apply(source *rel.KarrRelation) (*rel.KarrRelation, error
 				return nil, err
 			}
 		}
-		result, err = result.Project([]uint32{column})
+		result, err = rel.KarrSourceProject(result, []uint32{column})
 		if err != nil {
 			return nil, err
 		}
@@ -58,7 +58,7 @@ func (r karrHeadPlan) apply(source *rel.KarrRelation) (*rel.KarrRelation, error)
 	result := source
 	var err error
 	if len(r.removed) != 0 {
-		result, err = result.Project(r.removed)
+		result, err = rel.KarrSourceProject(result, r.removed)
 		if err != nil {
 			return nil, err
 		}
@@ -82,7 +82,7 @@ func (r karrHeadPlan) apply(source *rel.KarrRelation) (*rel.KarrRelation, error)
 					remove = append(remove, i)
 				}
 			}
-			single, err = result.Project(remove)
+			single, err = rel.KarrSourceProject(result, remove)
 			if err != nil {
 				return nil, err
 			}
