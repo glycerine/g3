@@ -72,7 +72,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/fp/datalog_parser.h` — The file/string parser factories map to `ParseDatalogFile`/`ParseDatalogString`, and the WPA directory interface maps to `Context.ParseWPADirectory`; C++ virtual dispatch, destructor, and include guards have no separate Go runtime surface.
 - [x] `src/muz/fp/dl_cmds.cpp` — Relation/variable/rule/query commands, query-local parameters and background assertions, result/status/certificate/statistics output, fixedpoint scopes, and collected API commands map across `cmd_context`, SMT2, and API; collector and answer cleanup preserve retry ownership, and focused SMT2/API/CLI tests pass.
 - [x] `src/muz/fp/dl_cmds.h` — Command installation and collected rule/query/relation surfaces map to the Go SMT2 command parser, `FixedpointProgram`, and `cmd_context` operations; C++ declarations and vector wrappers have no separate runtime adapter.
-- [ ] `src/muz/fp/horn_tactic.cpp`
+- [x] `src/muz/fp/horn_tactic.cpp` — Horn normalization/classification, relation registration, query synthesis/binding, finite and infinite verification, proof/model conversion, `horn-simplify` rewriting/slicing, parameter/translation/lifecycle/statistics hooks map to `pkg/muz/fp` and tactic integration; focused Horn, tactic, portfolio, and CLI tests pass.
 - [ ] `src/muz/pdr/pdr_context.cpp`
 - [ ] `src/muz/pdr/pdr_context.h`
 - [ ] `src/muz/pdr/pdr_dl_interface.cpp`
