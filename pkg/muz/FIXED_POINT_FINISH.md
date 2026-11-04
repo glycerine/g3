@@ -94,6 +94,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Record subsequent Karr head, Duality scale, projected-child, quantified-tail, proof and finite-domain evidence; portcheck passes with existing unit status unchanged.
   - [x] Reconcile later DOC, map reader, proof, Karr guard, Spacer and PDR projection evidence; portcheck passes with remaining source and ownership gaps explicit.
   - [x] Record negated Karr guards, DOC quantified preflight, unbound-rule ownership, shared PDR rewriting and later proof evidence; portcheck passes without changing unit status.
+  - [x] Reconcile DOC symbol preflight, Duality cleanup, Datalog parsing and Karr disjunction evidence; portcheck passes with partial statuses unchanged.
   - [x] Correct Duality solver and fixedpoint-interface descriptions for the active stratified path, and link existing replay, background, construction and proof evidence. Independent review and portcheck pass; partial status and the wider inventory audit remain open.
 - [ ] Inspect every source conditional, function and live consumer for each partial unit; turn each remaining obligation into an explicit implementation or audit item.
   - [x] Map the Duality profiling unit and live consumers in [DUALITY_UNIT_AUDIT.md](DUALITY_UNIT_AUDIT.md); leave remaining timer scopes and report fidelity open.
