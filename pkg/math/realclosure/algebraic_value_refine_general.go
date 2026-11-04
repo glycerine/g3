@@ -9,8 +9,9 @@ func (s *realValueStore) refineAlgebraicPolynomialValue(value *realValue, precis
 		return false, arena.ErrInvalidSlot
 	}
 	for workPrecision := precision; workPrecision <= s.intervalMaxPrecision(); workPrecision++ {
-		if err := s.refineRationalCoefficientIntervals(value.functionNumerator.coefficients, value.root.interval, workPrecision); err != nil {
-			return false, err
+		refinedCoefficients, err := s.refineCoefficientIntervals(value.functionNumerator.coefficients, value.root.interval, workPrecision)
+		if err != nil || !refinedCoefficients {
+			return refinedCoefficients, err
 		}
 		refined, err := s.refineSingleAlgebraicRoot(value.root, workPrecision)
 		if err != nil || !refined {

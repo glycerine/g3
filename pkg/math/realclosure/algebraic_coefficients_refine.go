@@ -25,3 +25,22 @@ func (s *realValueStore) refineRationalCoefficientIntervals(coefficients []*real
 	}
 	return nil
 }
+
+// refineCoefficientIntervals follows refine_coeffs_interval: every present
+// coefficient is refined through the same value dispatcher used by the C++
+// manager, including algebraic and transcendental coefficients.
+func (s *realValueStore) refineCoefficientIntervals(coefficients []*realValue, bounds *BinaryInterval, precision uint32) (bool, error) {
+	if bounds == nil || bounds.numbers == nil {
+		return false, arena.ErrInvalidSlot
+	}
+	for _, coefficient := range coefficients {
+		if coefficient == nil {
+			continue
+		}
+		refined, err := s.refineAnyRetainedInterval(coefficient, bounds.numbers, precision)
+		if err != nil || !refined {
+			return refined, err
+		}
+	}
+	return true, nil
+}
