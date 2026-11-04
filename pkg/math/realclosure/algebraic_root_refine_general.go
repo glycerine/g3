@@ -10,8 +10,11 @@ import (
 )
 
 func (s *realValueStore) refineSingleAlgebraicRoot(root *algebraicRoot, precision uint32) (refined bool, err error) {
-	if root == nil || root.deleted || root.owner == nil || root.owner.values != s || root.interval == nil || root.signs != nil || root.interval.lowerInf || root.interval.upperInf {
+	if s == nil || root == nil || root.deleted || root.owner == nil || root.owner.values != s || root.interval == nil {
 		return false, arena.ErrInvalidSlot
+	}
+	if root.signs != nil || root.interval.lowerInf || root.interval.upperInf {
+		return false, nil
 	}
 	bounds := root.owner.intervals
 	mid := numeral.NewBinaryRational()

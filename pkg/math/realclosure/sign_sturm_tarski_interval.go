@@ -69,14 +69,14 @@ func (s *realValueStore) signAtBinaryBound(coefficients []*realValue, bounds *nu
 		return 0, arena.ErrInvalidSlot
 	}
 	if len(coefficients) == 1 {
-		return s.signValue(coefficients[0])
+		return s.determineRankedRetainedValueSign(coefficients[0], true)
 	}
 	zero, err := bounds.IsZero(bound)
 	if err != nil {
 		return 0, err
 	}
 	if zero {
-		return s.signValue(coefficients[0])
+		return s.determineRankedRetainedValueSign(coefficients[0], true)
 	}
 	hasAlgebraic := false
 	for _, value := range coefficients {

@@ -14,5 +14,5 @@ func (s *realValueStore) exactSignAtBinaryBound(coefficients []*realValue, bound
 		return 0, err
 	}
 	defer func() { err = errors.Join(err, s.releaseSturmScratch(value)) }()
-	return s.determineAnyRetainedValueSign(value, usePrem)
+	return s.determineRankedRetainedValueSign(value, usePrem)
 }
