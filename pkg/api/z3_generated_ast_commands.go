@@ -31,6 +31,7 @@ func RegisterZ3GeneratedASTCommands(r *Z3Replayer) error {
 		{131, "Z3_mk_store_n", replayStoreN}, {132, "Z3_mk_const_array", replayConstArray}, {133, "Z3_mk_map", replayArrayMap}, {134, "Z3_mk_array_default", replayArrayDefault}, {135, "Z3_mk_as_array", replayAsArray},
 		{151, "Z3_mk_unsigned_int", replayUIntNumeral}, {152, "Z3_mk_int64", replayInt64Numeral}, {153, "Z3_mk_unsigned_int64", replayUInt64Numeral}, {154, "Z3_mk_bv_numeral", replayBitVectorBoolNumeral},
 		{563, "Z3_mk_interpolant", replayMkInterpolant}, {564, "Z3_mk_interpolation_context", replayMkInterpolationContext},
+		{567, "Z3_interpolation_profile", replayInterpolationProfile},
 		{334, "Z3_benchmark_to_smtlib_string", replayBenchmarkString}, {335, "Z3_parse_smtlib2_string", replayParseSMT2String}, {336, "Z3_parse_smtlib2_file", replayParseSMT2File},
 		{337, "Z3_eval_smtlib2_string", replayEvaluateSMT2}, {338, "Z3_get_parser_error", replayGetParserError},
 		{339, "Z3_get_error_code", replayGetErrorCode}, {340, "Z3_set_error", replaySetErrorCode}, {341, "Z3_get_error_msg", replayErrorMessage},

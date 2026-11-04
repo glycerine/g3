@@ -2,7 +2,26 @@ package api
 
 // Source: generated api_commands.cpp and src/api/api_interp.cpp.
 
-import "errors"
+import (
+	"bytes"
+	"errors"
+
+	"github.com/glycerine/g3/pkg/interp"
+)
+
+var replayInterpolationProfileText string
+
+func replayInterpolationProfile(r *Z3Replayer) error {
+	if _, err := r.Object(0); err != nil {
+		return err
+	}
+	var output bytes.Buffer
+	if err := interp.ProcessProfiler().Print(&output); err != nil {
+		return err
+	}
+	replayInterpolationProfileText = output.String()
+	return nil
+}
 
 func replayMkInterpolant(r *Z3Replayer) error {
 	owner, err := replayContext(r, 0)

@@ -21,7 +21,7 @@ func registerZ3GeneratedInspectionCommands(r *Z3Replayer) error {
 		{242, "Z3_get_decl_ast_parameter"}, {243, "Z3_get_decl_func_decl_parameter"},
 		{244, "Z3_get_decl_rational_parameter"},
 		{245, "Z3_app_to_ast"}, {246, "Z3_get_app_decl"}, {247, "Z3_get_app_num_args"},
-		{248, "Z3_get_app_arg"}, {249, "Z3_is_eq_ast"}, {250, "Z3_get_ast_id"},
+		{248, "Z3_get_app_arg"}, {249, "Z3_is_eq_ast"}, {250, "Z3_get_ast_id"}, {251, "Z3_get_ast_hash"},
 		{252, "Z3_get_sort"}, {253, "Z3_is_well_sorted"}, {254, "Z3_get_bool_value"},
 		{255, "Z3_get_ast_kind"}, {256, "Z3_is_app"}, {259, "Z3_to_app"}, {260, "Z3_to_func_decl"},
 	}
@@ -145,6 +145,8 @@ func replayASTInspection(r *Z3Replayer, id uint32) error {
 		}
 	case 250:
 		_, err = owner.context.ASTID(value.handle)
+	case 251:
+		_, err = owner.context.ASTHash(value.handle)
 	case 252:
 		result, err = owner.context.SortOf(value.handle)
 	case 253:
