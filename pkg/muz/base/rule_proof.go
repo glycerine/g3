@@ -112,12 +112,19 @@ func (m *RuleManager) MkRuleRewriteProof(oldRule, newRule *Rule) (resultErr erro
 	if err != nil {
 		return err
 	}
-	rewriteProof, err := m.manager.MkProofRewrite(oldFact, newFact)
+	// Retain the rewrite across modus ponens, then retain the resulting proof
+	// until the rule acquires its own reference.
+	owner, err := m.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return err
 	}
+	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&owner)) }()
+	rewriteProof, err := m.manager.MkProofRewrite(oldFact, newFact)
+	if err = errors.Join(err, m.manager.SetRef(owner, rewriteProof)); err != nil {
+		return err
+	}
 	proof, err := m.manager.MkProofModusPonens(oldProof, rewriteProof)
-	if err != nil {
+	if err = errors.Join(err, m.manager.SetRef(owner, proof)); err != nil {
 		return err
 	}
 	return newRule.SetProof(proof)

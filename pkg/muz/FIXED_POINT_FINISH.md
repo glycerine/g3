@@ -107,6 +107,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Normalize reachable non-application Boolean heads before the same deferred diagnostic, matching repeated C++ query output; reserve equality ownership before construction. Sparse-variable substitution now owns replacement variables across allocation failure and retry. Exceptional temporary cleanup refusal and partial multi-clause publication remain open.
   - [x] Prevent a negated interpreted-tail AST leak when reference reservation fails, with live-node and retry coverage; constructor cleanup refusal remains a separate audit.
   - [x] Reserve the asserted-proof owner before proof construction; a real reference-allocation failure and retry verify no fresh proof node leaks. Temporary-owner cleanup refusal remains open.
+  - [x] Keep rewrite and modus-ponens proof intermediates owned through rule publication; real reference-allocation failures at reservation and publication check cleanup and retry.
 - [ ] Verify previously marked ported units against their actual consumers and proof/ownership requirements; status labels alone are insufficient.
   - [x] Audit `dl_costs.cpp/.h` and fix stopwatch sample rounding; [BASE_UNIT_AUDIT.md](BASE_UNIT_AUDIT.md) records the mapped consumers and remaining profile-attribution evidence.
   - [x] Match source-rule cost attribution for interpreted-tail simplification, subsumption and filter construction; verify the inliner through its existing unifier and check shared-filter attribution.
