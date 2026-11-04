@@ -47,7 +47,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/duality/duality_solver.cpp` — All active solver, search, learning, covering, counterexample, reporting, and profiling paths are ported; source switches and graph/solver ownership are audited, and the focused Duality suite passes.
 - [x] `src/duality/duality_wrapper.cpp` — Live expression construction, qe-lite, interpolation, decision statistics, and native solver setup map to owning Go APIs; focused Duality wrapper tests pass. Disabled debug/interpolation branches have no live Go consumer.
 - [x] `src/duality/duality_wrapper.h` — Typed Go owners cover live wrapper declarations, TermTree construction/numbering/recursive cleanup, and interpolating solver lifecycle; consumed-release retry and tree/interpolation tests pass. Disabled AST-vector templates and debug alternatives have no Go consumer.
-- [ ] `src/math/interval/interval.h`
+- [x] `src/math/interval/interval.h` — Concrete rational interval state, dependency flags, endpoint predicates, scoped numeral ownership, hardware root declarations, and transcendental interfaces map to typed Go owners; interval package tests pass.
 - [ ] `src/math/interval/interval_def.h`
 - [ ] `src/math/polynomial/polynomial.cpp`
 - [ ] `src/math/polynomial/polynomial.h`
