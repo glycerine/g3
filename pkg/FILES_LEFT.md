@@ -75,7 +75,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/fp/horn_tactic.cpp` — Horn normalization/classification, relation registration, query synthesis/binding, finite and infinite verification, proof/model conversion, `horn-simplify` rewriting/slicing, parameter/translation/lifecycle/statistics hooks map to `pkg/muz/fp` and tactic integration; focused Horn, tactic, portfolio, and CLI tests pass.
 - [x] `src/muz/pdr/pdr_context.cpp` — Predicate transformer initialization, frame formulas, induction checks, model projection, proof traces, and unbounded PDR search map to `pkg/muz/pdr`; temporary rewriter cleanup now completes before initialization is published, and the full PDR package suite passes.
 - [x] `src/muz/pdr/pdr_context.h` — Predicate transformer, model node/search, generalizer, and context declarations plus inline accessors map to typed `pkg/muz/pdr` owners; C++ member layouts, reference wrappers, and STL containers have no separate Go runtime surface, and the PDR package checks pass.
-- [ ] `src/muz/pdr/pdr_dl_interface.cpp`
+- [x] `src/muz/pdr/pdr_dl_interface.cpp` — PDR preprocessing, source-rule reset/reuse, transformed rule installation, trace checkpoints, query results, covers, models, proofs, and statistics map to `pkg/muz/fp` and `pkg/muz/pdr`; existing PDR, SMT2, and CLI checks pass. Empty-program model printing follows the checked-in C++ branch despite differing output from the installed 4.7.1 executable.
 - [ ] `src/muz/pdr/pdr_manager.cpp`
 - [ ] `src/muz/pdr/pdr_manager.h`
 - [ ] `src/muz/pdr/pdr_reachable_cache.cpp`

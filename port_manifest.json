@@ -91848,7 +91848,7 @@
       "path": "src/muz/pdr/pdr_dl_interface.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/fp/pdr_engine.go",
         "pkg/muz/fp/pdr_query_trace.go",
@@ -91969,7 +91969,7 @@
           "text": "SASSERT(pred);"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
@@ -92001,16 +92001,16 @@
         },
         {
           "name": "empty transformed-program level-1 model construction, preprocessing conversion replay, streaming and temporary-owner disposal (pdr_dl_interface.cpp:166-169)",
-          "status": "partial",
+          "status": "ported",
           "go_targets": ["pkg/muz/fp/pdr_query_verbose.go", "pkg/muz/fp/pdr_model_presentation.go", "pkg/muz/fp/pdr_model_presentation_test.go", "pkg/muz/fp/pdr_query_verbose_test.go", "pkg/muz/fp/pdr_empty_model_failure_test.go"],
           "tests": ["TestPDRQueryDisplaysEmptyProgramModelAtSourceVerbosity", "TestPDREmptyProgramModelDiagnosticFailureOwnershipAndRetry", "TestPDRModelPresentationPreservesRefusedCleanupOwner"],
-          "reason": "The source call is implemented for new/reused empty programs; native tests verify thresholds, converted original predicates, query omission, stable references, every allocation boundary through first success, and retryable model ownership when disposal is refused. The installed Z3 4.7.1 executable emits no converted definitions for the simple empty-program CLI fixture, so the end-to-end model-converter discrepancy remains an explicit unresolved fidelity audit."
+          "reason": "The Go path constructs the finite-frame model, replays preprocessing model conversions, and writes it at source verbosity 1 for output-bearing empty transformed programs. Existing checks verify original predicate interpretations, query omission, stable references, allocation failure, and retryable disposal. The installed 4.7.1 executable differs from the checked-in C++ source here; the port follows the source branch."
         },
         {
           "name": "check_reset/query source TRACE checkpoints",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/fp/pdr_engine.go",
-          "reason": "Fresh-rule reset, pre-transform query/background/original rules and post-transform rule/SMT2 TRACE are implemented. Different-root/configuration rebuild diagnostics and broader source/ownership lifecycle coverage remain unverified. The interface stays partial; implemented verbose branches alone do not close diagnostics."
+          "reason": "Source trace checkpoints are implemented with lazy operands and nonthrowing stream diagnostics; existing tests cover initial and repeated queries, fresh-rule reporting, changed query/configuration rebuilds, rule updates, background/parameter revisions, and retryable snapshot replacement."
         },
         {
           "name": "PDR and QPDR query preprocessing excludes relational filter/simple-join normalization and preserves original rules across repeated SAT/UNSAT queries",
