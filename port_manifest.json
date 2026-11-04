@@ -55284,7 +55284,7 @@
         },
         {
           "name": "Concrete config_hwf interval division: six sign branches, open-zero denominators, directed bounds and source alias restriction (src/math/interval/interval_def.h:1663-1849)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_div.go",
           "tests": [
             "TestSubpavingHardwareIntervalDivSignBranchesAndDirectedBounds"
@@ -80337,7 +80337,7 @@
         },
         {
           "name": "Concrete config_hwf interval division: six sign branches, open-zero denominators, directed bounds and source alias restriction (src/math/interval/interval_def.h:1663-1849)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_div.go",
           "tests": [
             "TestSubpavingHardwareIntervalDivSignBranchesAndDirectedBounds"
@@ -81730,7 +81730,7 @@
         },
         {
           "name": "Concrete config_hwf interval division: six sign branches, open-zero denominators, directed bounds and source alias restriction (src/math/interval/interval_def.h:1663-1849)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_div.go",
           "tests": [
             "TestSubpavingHardwareIntervalDivSignBranchesAndDirectedBounds"
