@@ -54,7 +54,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/math/realclosure/realclosure.cpp` — Rational, algebraic, transcendental, and infinitesimal value signs/refinement, exact binary-bound fallback, source-configured precision/options, sign determination, and concrete binary interval arithmetic are implemented; ownership handling and the focused realclosure, interval, and API package suites pass.
 - [x] `src/math/realclosure/realclosure.h` — The live manager and numeral interface maps to typed `APIValues`/`RCFNumber` operations with tested algebraic arithmetic and slot ownership; raw C++ value-pointer conversions have no Go ABI consumer.
 - [x] `src/math/subpaving/subpaving_mpfx.cpp` — Not applicable: this file only forces a C++ template instantiation; the Go fixed-point context is concrete. The template implementation is tracked separately.
-- [ ] `src/math/subpaving/subpaving_t.h`
+- [x] `src/math/subpaving/subpaving_t.h` — All live data types, inline behavior, and selected concrete configuration contracts are mapped to Go; C++ node-before-clause teardown and the dormant justification counter were audited against Go cleanup and focused ownership tests.
 - [ ] `src/math/subpaving/subpaving_t_def.h`
 - [ ] `src/math/subpaving/tactic/subpaving_tactic.cpp`
 - [ ] `src/model/model_implicant.cpp`

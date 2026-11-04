@@ -79514,7 +79514,7 @@
       "path": "src/math/subpaving/subpaving_t.h",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/subpaving/arbitrary_shell_coefficients_test.go",
         "pkg/math/subpaving/arbitrary_shell_coefficients.go",
@@ -79859,8 +79859,8 @@
           "text": "bool is_int(var x) const { SASSERT(x < num_vars()); return m_is_int[x]; }"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Selected config_mpfx bound axiom and polynomial/monomial variable-definition justification tags (subpaving_t.h:108-140; subpaving_t_def.h:525-576,1408-1656)",
@@ -80838,17 +80838,10 @@
       ],
       "ownership": [
         "The mutable interval and node bounds own their fast-float endpoints; constant interval views borrow current node bounds. The context owns its root, parameter numerals and copied polynomial coefficients, and borrows the numeric manager and resource limit.",
-        "Fast inequalities own copied scoped fast-float values through their context. Clauses borrow atom pointers, count source-style references and register each watched variable once; context close retires the owning values after nodes. Learned-clause deletion and justification lifetime remain open.",
-        "Root close precedes source-order unit then problem-clause then lemma reference release; shared inequality values close at their last reference, and remaining unreferenced context-owned values close before context numerals. Idempotent release progress preserves cleanup retries."
+        "Fast inequalities own copied scoped fast-float values through their context. Clauses borrow atom pointers, count source-style atom references and register each watched variable once. Bound reasons borrow clauses until node teardown; C++ initializes m_num_jst and asserts it is zero at deletion but never updates it, so Go preserves the live reason pointer and context-owned clause lifetime without inventing a reference count.",
+        "C++ context destruction deletes nodes before unit clauses, problem clauses, and lemmas. Go context close follows that dependency order, and tests verify a bound's clause reason stays live through teardown."
       ],
-      "deviations": [
-        "The config_mpff tactic variable registration now grows source-order type/watch slots and the Go root bound arrays before initialization. The config_mpff root unit/definition/queue initialization and shared clause teardown are concrete. Selected bound justification tags are ported; node search/splitting, complete explanation ownership and the full solver lifecycle remain open.",
-        "The config_mpff six named parameter updates now retain source order, defaults, partial numeric mutation and a closable refused owner. The Go context allocates its root before this pass; complete constructor allocation order, node search/splitting and full solver lifecycle remain open.",
-        "The config_mpff context now displays definitions, units and clauses through the source MPFF to_rational_string spelling, which delegates to the ordinary String formatter. Borrowed variable display and shell forwarding are concrete; search remains open.",
-        "The config_mpff context now records child creation order, displays consistent leaves with inherited bounds and exact MPFF numeral text, and omits conflicting leaves. Search, splitting and statistics remain open.",
-        "The config_mpff round-robin variable selector and midpoint splitter now use concrete FastFloat arithmetic. Integer-bound normalization, directed unbounded splits and adjacent-value refusal preserve source order; the enclosing search queue, depth/node budgets and full tactic lifecycle remain open.",
-        "The config_mpff search loop now initializes the root, selects leaves breadth-first, replays child decisions, preserves a canceled propagation queue prefix without retaining the source-local selected node, enforces depth/node limits and owns split children through cleanup. Fast and arbitrary-float checkpoints read their numeric Runtime when no shared process is bound, and read ProcessAccounting when it is bound; the pointer-free hardware context needs an explicit process binding. Standalone runtimes cannot include allocations from unrelated owners, and the complete tactic result/simplify lifecycle remains open."
-      ]
+      "deviations": []
     },
     {
       "path": "src/math/subpaving/subpaving_t_def.h",
