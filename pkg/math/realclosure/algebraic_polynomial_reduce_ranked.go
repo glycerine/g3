@@ -9,7 +9,13 @@ import (
 )
 
 func (s *realValueStore) reduceRankedAlgebraicPolynomial(root *algebraicRoot, numerator []*realValue, usePrem bool) (result []*realValue, err error) {
-	if root == nil || root.deleted || root.owner == nil || root.owner.values != s || len(root.polynomial.coefficients) < 2 {
+	if root == nil || root.deleted || root.owner == nil || root.owner.values != s {
+		return nil, arena.ErrInvalidSlot
+	}
+	if root.kind != realExtensionAlgebraic {
+		return s.retainRationalPolynomial(numerator)
+	}
+	if len(root.polynomial.coefficients) < 2 {
 		return nil, arena.ErrInvalidSlot
 	}
 	if len(numerator) < len(root.polynomial.coefficients) {

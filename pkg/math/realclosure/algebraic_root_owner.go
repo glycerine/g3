@@ -8,6 +8,16 @@ import (
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
+type realExtensionKind uint8
+
+const (
+	// Keep the zero value algebraic because existing algebraic fixtures and
+	// constructors use zero-initialized extension records.
+	realExtensionAlgebraic realExtensionKind = iota
+	realExtensionTranscendental
+	realExtensionInfinitesimal
+)
+
 // algebraicRootOwner is the concrete algebraic-extension registry. Indices
 // remain stable after an extension is deleted, matching m_extensions.
 type algebraicRootOwner struct {
@@ -18,7 +28,10 @@ type algebraicRootOwner struct {
 
 type algebraicRoot struct {
 	owner          *algebraicRootOwner
+	kind           realExtensionKind
 	index          int
+	name           string
+	prettyName     string
 	refs           uint32
 	deleted        bool
 	polynomial     realPolynomial
@@ -36,7 +49,7 @@ func (o *algebraicRootOwner) mkAlgebraic(coefficients []*realValue, enclosure, i
 	if o == nil || o.values == nil || o.intervals == nil || enclosure == nil || isolating == nil || (signs != nil && (signs.store != o.values || signs.deleted || signIndex < 0 || signIndex >= len(signs.conditions))) || (signs == nil && signIndex != -1) {
 		return nil, arena.ErrInvalidSlot
 	}
-	r := &algebraicRoot{owner: o, signIndex: signIndex}
+	r := &algebraicRoot{owner: o, kind: realExtensionAlgebraic, signIndex: signIndex}
 	if err := o.registerAlgebraicRoot(r); err != nil {
 		return nil, err
 	}

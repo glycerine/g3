@@ -29,6 +29,14 @@ func (s *realValueStore) compareRetainedValueRanks(left, right *realValue) (int,
 	if left != nil && right != nil && !left.isRational && !right.isRational && left.root.owner != right.root.owner {
 		return 0, arena.ErrInvalidSlot
 	}
+	if left != nil && right != nil && !left.isRational && !right.isRational && left.root.kind != right.root.kind {
+		leftKind := sourceExtensionRank(left.root.kind)
+		rightKind := sourceExtensionRank(right.root.kind)
+		if leftKind < rightKind {
+			return -1, nil
+		}
+		return 1, nil
+	}
 	if leftRank < rightRank {
 		return -1, nil
 	}
@@ -36,4 +44,17 @@ func (s *realValueStore) compareRetainedValueRanks(left, right *realValue) (int,
 		return 1, nil
 	}
 	return 0, nil
+}
+
+// sourceExtensionRank mirrors extension::kind in realclosure.cpp, whose
+// ordering is transcendental, infinitesimal, then algebraic.
+func sourceExtensionRank(kind realExtensionKind) uint8 {
+	switch kind {
+	case realExtensionTranscendental:
+		return 0
+	case realExtensionInfinitesimal:
+		return 1
+	default:
+		return 2
+	}
 }
