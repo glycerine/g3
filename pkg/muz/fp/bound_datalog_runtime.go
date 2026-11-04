@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/memory"
 )
@@ -36,6 +37,7 @@ type boundDatalogRuntime struct {
 	similarityCleanup memory.ConstructionFailure
 	pending           []ast.ASTRef
 	closed            bool
+	formulaCheck      *smtcore.SMTSolverConfig
 }
 
 type boundDatalogDeclaration struct {
@@ -255,6 +257,10 @@ func (r *boundDatalogRuntime) clone(rules *base.RuleSet) (_ *boundDatalogRuntime
 	if err != nil {
 		return nil, err
 	}
+	if r.formulaCheck != nil {
+		config := *r.formulaCheck
+		copyRuntime.formulaCheck = &config
+	}
 	defer func() {
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, copyRuntime.close())
@@ -316,6 +322,33 @@ func (r *boundDatalogRuntime) addFact(declaration ast.ASTHandle, values []ast.AS
 	}
 	r.evaluated = nil
 	return nil
+}
+
+func (r *boundDatalogRuntime) union(target, source *rel.BoundRelation, sorts []ast.ASTHandle, widen bool) (changed bool, resultErr error) {
+	if r.formulaCheck == nil {
+		if widen {
+			return target.Widen(source)
+		}
+		return target.Union(source)
+	}
+	beforeFormula, err := target.ToFormula(r.manager, sorts)
+	if err != nil {
+		return false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&beforeFormula)) }()
+	before, err := r.manager.RefGet(beforeFormula)
+	if err != nil {
+		return false, err
+	}
+	if widen {
+		changed, err = target.Widen(source)
+	} else {
+		changed, err = target.Union(source)
+	}
+	if err != nil {
+		return changed, err
+	}
+	return changed, errors.Join(err, rel.VerifyBoundRelationUnion(r.manager, sorts, *r.formulaCheck, before, source, target))
 }
 
 func (r *boundDatalogRuntime) query(declarations []ast.ASTHandle) (lbool.LBool, error) {

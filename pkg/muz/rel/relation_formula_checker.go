@@ -17,6 +17,16 @@ type relationFormulaChecker struct {
 	config  smtcore.SMTSolverConfig
 }
 
+// GroundRelationFormula substitutes the source plugin checker's x0, x1, ...
+// column constants for relation variables and returns an owned AST ref.
+func GroundRelationFormula(manager *ast.ASTManager, sorts []ast.ASTHandle, formula ast.ASTHandle) (ast.ASTRef, error) {
+	if manager == nil || formula.IsNull() {
+		return ast.ASTRef{}, ErrRelationVerification
+	}
+	checker := &relationFormulaChecker{manager: manager, sorts: append([]ast.ASTHandle(nil), sorts...)}
+	return checker.groundWithNames(formula, true)
+}
+
 // VerifyRelationFormulasEquivalent mirrors check_relation_plugin::check_equiv
 // for formulas already grounded over the relation's named columns. Source
 // treats unknown as inconclusive and rejects only a satisfiable difference.

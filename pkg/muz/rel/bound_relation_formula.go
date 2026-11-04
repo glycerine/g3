@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/smtcore"
 )
 
 // ToFormula builds the source conjunction over column variables. The returned
@@ -88,4 +89,61 @@ func (r *BoundRelation) ToFormula(m *ast.ASTManager, sorts []ast.ASTHandle) (res
 	owned = true
 	resultErr = rewriter.SimplifyBooleanGateDefault(m, ast.ASTOpAnd, conjuncts, result)
 	return result, resultErr
+}
+
+// VerifyBoundRelationUnion mirrors check_relation_plugin::verify_union for
+// the bound relation backing. The union is exact only when the bound plugin's
+// post-state formula is equivalent to the disjunction of its old state and
+// the source relation.
+func VerifyBoundRelationUnion(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, before ast.ASTHandle, source, after *BoundRelation) (resultErr error) {
+	if manager == nil || before.IsNull() || source == nil || after == nil {
+		return ErrRelationVerification
+	}
+	sourceFormula, err := source.ToFormula(manager, sorts)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&sourceFormula)) }()
+	actualFormula, err := after.ToFormula(manager, sorts)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&actualFormula)) }()
+	old := before
+	added, err := manager.RefGet(sourceFormula)
+	if err != nil {
+		return err
+	}
+	expected, err := manager.MkOrArgs([]ast.ASTHandle{old, added})
+	if err != nil {
+		return err
+	}
+	expectedRef, err := manager.NewRef(expected)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&expectedRef)) }()
+	actual, err := manager.RefGet(actualFormula)
+	if err != nil {
+		return err
+	}
+	groundExpected, err := GroundRelationFormula(manager, sorts, expected)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&groundExpected)) }()
+	groundActual, err := GroundRelationFormula(manager, sorts, actual)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&groundActual)) }()
+	expectedGround, err := manager.RefGet(groundExpected)
+	if err != nil {
+		return err
+	}
+	actualGround, err := manager.RefGet(groundActual)
+	if err != nil {
+		return err
+	}
+	return VerifyRelationFormulasEquivalent(manager, config, expectedGround, actualGround)
 }

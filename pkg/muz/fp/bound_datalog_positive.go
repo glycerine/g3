@@ -387,9 +387,9 @@ func (r *boundDatalogRuntime) evaluatePositiveBoundRule(rule *base.Rule, relatio
 		}
 	}
 	if widen {
-		return relations[headDeclaration].Widen(working)
+		return r.union(relations[headDeclaration], working, headSorts, true)
 	}
-	return relations[headDeclaration].Union(working)
+	return r.union(relations[headDeclaration], working, headSorts, false)
 }
 
 // saturatePositive uses a global fixpoint. This is source-equivalent for the

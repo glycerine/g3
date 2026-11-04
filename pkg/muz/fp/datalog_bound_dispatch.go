@@ -8,6 +8,7 @@ import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/rel"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -52,8 +53,13 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 	if enabled, err := e.datalogExplanationsEnabled(); err != nil || enabled {
 		return true, errors.Join(err, ErrBoundDatalogFragment)
 	}
-	if _, enabled, err := e.datalogCheckRelationName(); err != nil || enabled {
+	checkName, checkEnabled, err := e.datalogCheckRelationName()
+	if err != nil || checkEnabled && checkName != "bound_relation" {
 		return true, errors.Join(err, ErrBoundDatalogFragment)
+	}
+	var formulaCheck *smtcore.SMTSolverConfig
+	if checkEnabled {
+		formulaCheck = &smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals}
 	}
 	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled {
 		return true, errors.Join(err, ErrBoundDatalogFragment)
@@ -70,6 +76,7 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 		}
 	}
 	if e.boundDatalog != nil {
+		e.boundDatalog.formulaCheck = formulaCheck
 		return true, e.boundDatalog.syncPredicates(e.predicateOrder)
 	}
 	owner, selected, err := newBoundDatalogActivation(e.manager, e.set, e.predicateOrder)
@@ -79,6 +86,7 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 	if !selected {
 		return true, ErrBoundDatalogFragment
 	}
+	owner.formulaCheck = formulaCheck
 	e.boundDatalog = owner
 	for _, d := range e.predicateOrder {
 		state := e.predicates[d]

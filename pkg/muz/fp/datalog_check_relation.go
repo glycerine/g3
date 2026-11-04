@@ -132,7 +132,7 @@ func (e *PropositionalEngine) datalogCheckRelationName() (name string, enabled b
 		name = "lazy_sparse"
 	}
 	// doc selects the actual UDoc checking factory before finite execution.
-	if name != "hashtable" && name != "sparse" && name != "lazy_sparse" && name != "doc" && name != "check" {
+	if name != "hashtable" && name != "sparse" && name != "lazy_sparse" && name != "bound_relation" && name != "doc" && name != "check" {
 		return "", false, fmt.Errorf("muz/fp: relation plugin %s is not available for datalog.check_relation", name)
 	}
 	return name, true, nil
@@ -207,6 +207,12 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 	name, enabled, err := e.datalogCheckRelationName()
 	if err != nil {
 		return nil, err
+	}
+	if enabled && name == "bound_relation" {
+		// bound_relation can handle only arithmetic signatures. Those programs
+		// are dispatched to the bound runtime, which performs operation checks;
+		// finite signatures fall through to their ordinary table plugin.
+		return nil, nil
 	}
 	tableCheck := false
 	var checkedFactory *rel.FiniteCheckedFactory
