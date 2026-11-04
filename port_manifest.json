@@ -80204,7 +80204,7 @@
         },
         {
           "name": "Concrete config_mpff inequality owned values, stable clauses, three-valued evaluation, unique variable watchers, unit assertions and conflict-first propagation (src/math/subpaving/subpaving_t_def.h:802-880,1349-1405,1709-1729,1774-1786)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_clause.go",
           "go_targets": [
             "pkg/math/subpaving/fast_context_propagate.go"
@@ -81589,7 +81589,7 @@
         },
         {
           "name": "Concrete config_mpff inequality owned values, stable clauses, three-valued evaluation, unique variable watchers, unit assertions and conflict-first propagation (src/math/subpaving/subpaving_t_def.h:802-880,1349-1405,1709-1729,1774-1786)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_clause.go",
           "go_targets": [
             "pkg/math/subpaving/fast_context_propagate.go"
