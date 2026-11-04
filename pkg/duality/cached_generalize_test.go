@@ -6,7 +6,7 @@ import (
 )
 
 func TestCachedGeneralizationRebuildsAnnotationFromReducedCore(t *testing.T) {
-	ctx, _, _, globals := dualityNativeSolverServicesFixture(t)
+	ctx, m, _, globals := dualityNativeSolverServicesFixture(t)
 	profile := NewProfiler(nil)
 	ctx.activeProfiler = profile
 	defer func() {
@@ -64,7 +64,21 @@ func TestCachedGeneralizationRebuildsAnnotationFromReducedCore(t *testing.T) {
 	cached, err := NewCachedGraphAssertions(graph, scope)
 	must(err)
 	defer cached.Close()
+	m.Budget().FailAfter(0)
+	failure := cached.GeneralizeCache(edge, nil)
+	m.Budget().FailAfter(-1)
+	if failure == nil {
+		t.Fatal("generalization ignored the injected allocation failure")
+	}
+	if profile.current != profile.top {
+		t.Fatal("failed generalization left a profile scope active")
+	}
 	must(cached.GeneralizeCache(edge, nil))
+	baseline := m.Stats().LiveReferences
+	must(cached.GeneralizeCache(edge, nil))
+	if got := m.Stats().LiveReferences; got != baseline {
+		t.Fatal("repeated generalization leaked temporary references", got, baseline)
+	}
 	formula, err := node.Annotation.Formula()
 	must(err)
 	h, err := formula.Raw()
