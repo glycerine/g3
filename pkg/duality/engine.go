@@ -32,23 +32,23 @@ type EngineConfig struct {
 // checkers/heuristic. The source graph and configured services stay borrowed.
 // Source: duality_solver.cpp:324-377,421-433, active lifecycle switches.
 type Engine struct {
-	conjectureFile  *os.File
-	self            *Engine
-	source          *RPFP
-	config          EngineConfig
-	options         SolverOptions
-	graph           *RPFP
-	unwinding       *Unwinding
-	counterexample  *Counterexample
-	local, global   *LocalEdgeChecker
-	heuristic       *ExpansionHeuristic
-	proposers       []*HistoryProposer
-	theory          []*Expr
-	cases           *CaseInterpolator
-	quantifiers     *qe.Lite
-	ownsQuantifiers bool
-	learnedReplay   bool
-	running, closed bool
+	conjectureFile           *os.File
+	self                     *Engine
+	source                   *RPFP
+	config                   EngineConfig
+	options                  SolverOptions
+	graph                    *RPFP
+	unwinding                *Unwinding
+	counterexample           *Counterexample
+	local, global            *LocalEdgeChecker
+	heuristic                *ExpansionHeuristic
+	proposers                []*HistoryProposer
+	theory                   []*Expr
+	cases                    *CaseInterpolator
+	quantifiers              *qe.Lite
+	ownsQuantifiers          bool
+	learnedReplay            bool
+	running, closing, closed bool
 }
 
 func NewEngine(source *RPFP, config EngineConfig) (out *Engine, result error) {
@@ -122,7 +122,7 @@ func NewEngine(source *RPFP, config EngineConfig) (out *Engine, result error) {
 	return e, nil
 }
 func (e *Engine) open() error {
-	if e == nil || e.self != e || e.closed || e.running {
+	if e == nil || e.self != e || e.closing || e.closed || e.running {
 		return ErrWrapperOwner
 	}
 	return e.source.open()
@@ -131,7 +131,7 @@ func (e *Engine) SetOption(name, value string) bool {
 	return e.open() == nil && e.options.SetOption(name, value)
 }
 func (e *Engine) GetCounterexample() *Counterexample {
-	if e == nil || e.self != e || e.closed {
+	if e == nil || e.self != e || e.closing || e.closed {
 		return nil
 	}
 	return e.counterexample
@@ -154,13 +154,13 @@ func (e *Engine) InvalidateCounterexampleView() error {
 	return nil
 }
 func (e *Engine) UnwindingGraph() *RPFP {
-	if e == nil || e.self != e || e.closed {
+	if e == nil || e.self != e || e.closing || e.closed {
 		return nil
 	}
 	return e.graph
 }
 func (e *Engine) IsResultRecursionBounded() bool {
-	return e != nil && e.self == e && !e.closed && e.unwinding.IsResultRecursionBounded()
+	return e != nil && e.self == e && !e.closing && !e.closed && e.unwinding.IsResultRecursionBounded()
 }
 
 func (e *Engine) closeRunServices() error {
@@ -375,6 +375,7 @@ func (e *Engine) Close() error {
 	if e.closed {
 		return nil
 	}
+	e.closing = true
 	if err := e.closeRunServices(); err != nil {
 		return err
 	}
@@ -399,10 +400,14 @@ func (e *Engine) Close() error {
 	}
 	for len(e.theory) > 0 {
 		i := len(e.theory) - 1
-		if err := e.theory[i].Close(); err != nil {
+		err := e.theory[i].Close()
+		if e.theory[i].Closed() {
+			e.theory[i] = nil
+			e.theory = e.theory[:i]
+		}
+		if err != nil {
 			return err
 		}
-		e.theory = e.theory[:i]
 	}
 	e.closed = true
 	return nil
