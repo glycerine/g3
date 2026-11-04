@@ -83350,14 +83350,15 @@
           ]
         },
         {
-          "name": "Concrete MPFF core tactic apply: retained goal, statistics, parameters, fresh cleanup and named-variable print_nodes output (src/math/subpaving/tactic/subpaving_tactic.cpp:32-49,193-268)",
-          "status": "partial",
+          "name": "Concrete MPFF core tactic apply returns its borrowed goal, accumulates statistics, forwards parameters, rebuilds fresh state on cleanup and emits SMT2 print_nodes output (src/math/subpaving/tactic/subpaving_tactic.cpp:32-49,193-268)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/fast_core_tactic.go",
           "go_targets": [
             "pkg/math/subpaving/tactic/fast_variable_display.go"
           ],
           "tests": [
-            "TestFastCoreTacticReturnsBorrowedGoalAndCollectsSearchStats"
+            "TestFastCoreTacticReturnsBorrowedGoalAndCollectsSearchStats",
+            "TestFastExprConverterTermsAndClause"
           ]
         },
         {
