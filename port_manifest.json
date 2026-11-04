@@ -83334,8 +83334,8 @@
           ]
         },
         {
-          "name": "Concrete MPFF goal internalize-then-search route (src/math/subpaving/tactic/subpaving_tactic.cpp:128-190)",
-          "status": "partial",
+          "name": "Concrete MPFF goal formulas internalize in source order before context search (src/math/subpaving/tactic/subpaving_tactic.cpp:128-190)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/fast_goal_internalize.go",
           "tests": [
             "TestFastExprConverterTermsAndClause"
