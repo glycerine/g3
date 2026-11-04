@@ -1,0 +1,201 @@
+package fp
+
+// Concrete retained portion of dl_compiler.cpp's interpreted filter path and
+// karr_relation.cpp filter_interpreted: one comparison over bound integer
+// variables and numerals, without the fused filter-and-project operation.
+import (
+	"math/big"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/muz/rel"
+)
+
+type karrGuardRule struct {
+	body     ast.ASTHandle
+	row      []big.Rat
+	constant big.Rat
+	equal    bool
+	head     karrHeadPlan
+}
+
+func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle, karrGuardRule, error) {
+	var none ast.ASTHandle
+	var out karrGuardRule
+	count, err := rule.TailSize()
+	if err != nil {
+		return none, out, err
+	}
+	if count != 2 {
+		return none, out, ErrKarrDatalogFragment
+	}
+	count, err = rule.UninterpretedTailSize()
+	if err != nil {
+		return none, out, err
+	}
+	if count != 1 {
+		return none, out, ErrKarrDatalogFragment
+	}
+	head, err := rule.Head()
+	if err != nil {
+		return none, out, err
+	}
+	tail, neg, err := rule.Tail(0)
+	if err != nil {
+		return none, out, err
+	}
+	if neg {
+		return none, out, ErrKarrDatalogFragment
+	}
+	guard, neg, err := rule.Tail(1)
+	if err != nil {
+		return none, out, err
+	}
+	if neg {
+		return none, out, ErrKarrDatalogFragment
+	}
+	hd, err := a.manager.GetDecl(head)
+	if err != nil {
+		return none, out, err
+	}
+	out.body, err = a.manager.GetDecl(tail)
+	if err != nil {
+		return none, out, err
+	}
+	if a.seeds[hd] == nil || a.seeds[out.body] == nil {
+		return none, out, ErrKarrDatalogFragment
+	}
+	arity, err := a.manager.GetNumArgs(tail)
+	if err != nil {
+		return none, out, err
+	}
+	positions := make(map[ast.ASTHandle]uint32, arity)
+	columns := make([]ast.ASTHandle, arity)
+	for i := uint32(0); i < arity; i++ {
+		arg, err := a.manager.GetArg(tail, i)
+		if err != nil {
+			return none, out, err
+		}
+		kind, err := a.manager.GetKind(arg)
+		if err != nil {
+			return none, out, err
+		}
+		if kind != ast.ASTVar {
+			return none, out, ErrKarrDatalogFragment
+		}
+		if _, exists := positions[arg]; exists {
+			return none, out, ErrKarrDatalogFragment
+		}
+		positions[arg] = i
+		columns[i] = arg
+	}
+	// Variables absent from the head trigger the native combined filter/project
+	// instruction, which this bounded route does not yet consume.
+	used := make(map[ast.ASTHandle]bool)
+	n, err := a.manager.GetNumArgs(head)
+	if err != nil {
+		return none, out, err
+	}
+	for i := uint32(0); i < n; i++ {
+		arg, err := a.manager.GetArg(head, i)
+		if err != nil {
+			return none, out, err
+		}
+		used[arg] = true
+	}
+	for arg := range positions {
+		if !used[arg] {
+			return none, out, ErrKarrDatalogFragment
+		}
+	}
+	family, err := a.manager.GetFamilyID(guard)
+	if err != nil {
+		return none, out, err
+	}
+	op, err := a.manager.GetDeclKind(guard)
+	if err != nil {
+		return none, out, err
+	}
+	guardArity, err := a.manager.GetNumArgs(guard)
+	if err != nil {
+		return none, out, err
+	}
+	if guardArity != 2 {
+		return none, out, ErrKarrDatalogFragment
+	}
+	leftMul, rightMul := int64(1), int64(-1)
+	if family == a.manager.BasicFamilyID() && op == ast.ASTOpEq {
+		out.equal = true
+	} else {
+		arith, err := a.manager.RegisterArithmeticPlugin()
+		if err != nil {
+			return none, out, err
+		}
+		if family != arith || op < 2 || op > 5 {
+			return none, out, ErrKarrDatalogFragment
+		}
+		if op == 2 || op == 4 {
+			leftMul, rightMul = -1, 1
+		}
+		if op == 4 || op == 5 {
+			out.constant.SetInt64(-1)
+		}
+	}
+	out.row = make([]big.Rat, arity)
+	add := func(expr ast.ASTHandle, factor int64) error {
+		if index, ok := positions[expr]; ok {
+			out.row[index].Add(&out.row[index], big.NewRat(factor, 1))
+			return nil
+		}
+		text, _, matched, err := a.manager.ArithmeticNumeralText(expr)
+		if err != nil {
+			return err
+		}
+		if !matched {
+			return ErrKarrDatalogFragment
+		}
+		number, ok := new(big.Rat).SetString(text)
+		if !ok || !number.IsInt() {
+			return ErrKarrDatalogFragment
+		}
+		out.constant.Add(&out.constant, new(big.Rat).Mul(number, big.NewRat(factor, 1)))
+		return nil
+	}
+	left, err := a.manager.GetArg(guard, 0)
+	if err != nil {
+		return none, out, err
+	}
+	right, err := a.manager.GetArg(guard, 1)
+	if err != nil {
+		return none, out, err
+	}
+	if err = add(left, leftMul); err != nil {
+		return none, out, err
+	}
+	if err = add(right, rightMul); err != nil {
+		return none, out, err
+	}
+	out.head, err = a.compileKarrHead(head, columns)
+	if err != nil {
+		return none, out, err
+	}
+	return hd, out, nil
+}
+
+func (a *karrDatalogActivation) applyGuardRule(r karrGuardRule, source *rel.KarrRelation) (*rel.KarrRelation, error) {
+	result := source.Clone()
+	if err := rel.KarrSourceFilterConstraint(result, r.row, &r.constant, r.equal); err != nil {
+		return nil, err
+	}
+	if err := a.checkpoint(); err != nil {
+		return nil, err
+	}
+	result, err := r.head.apply(result)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.checkpoint(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}

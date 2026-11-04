@@ -178,6 +178,7 @@ func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool
 		ground *karrGroundRule
 		unary  *karrUnaryRule
 		binary *karrBinaryRule
+		guard  *karrGuardRule
 	}
 	edges := make(map[ast.ASTHandle][]compiledRule)
 	count, err := a.rules.Len()
@@ -199,10 +200,20 @@ func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool
 			}
 		} else if err == nil && tailSize == 2 {
 			var head ast.ASTHandle
-			var compiled karrBinaryRule
-			head, compiled, err = a.compileBinaryRule(rule)
-			if err == nil {
-				edges[head] = append(edges[head], compiledRule{binary: &compiled})
+			var uninterpreted int
+			uninterpreted, err = rule.UninterpretedTailSize()
+			if err == nil && uninterpreted == 1 {
+				var compiled karrGuardRule
+				head, compiled, err = a.compileGuardRule(rule)
+				if err == nil {
+					edges[head] = append(edges[head], compiledRule{guard: &compiled})
+				}
+			} else if err == nil {
+				var compiled karrBinaryRule
+				head, compiled, err = a.compileBinaryRule(rule)
+				if err == nil {
+					edges[head] = append(edges[head], compiledRule{binary: &compiled})
+				}
 			}
 		} else if err == nil {
 			var head ast.ASTHandle
@@ -243,6 +254,11 @@ func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool
 			var err error
 			if rule.ground != nil {
 				candidate, err = rule.ground.apply(func() bool { return a.checkpoint() == nil })
+			} else if rule.guard != nil {
+				if err := visit(rule.guard.body); err != nil {
+					return err
+				}
+				candidate, err = a.applyGuardRule(*rule.guard, snapshot[rule.guard.body])
 			} else if rule.binary != nil {
 				if err := visit(rule.binary.left); err != nil {
 					return err
