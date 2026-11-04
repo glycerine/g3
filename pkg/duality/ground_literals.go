@@ -51,15 +51,11 @@ func GetGroundLitsUnderQuants(formula *Expr) (out []*Expr, result error) {
 					return nil
 				}
 			}
-			family, err := m.GetFamilyID(h)
-			if err != nil {
-				return err
-			}
 			op, err := m.GetDeclKind(h)
 			if err != nil {
 				return err
 			}
-			if family == m.BasicFamilyID() && (op == ast.ASTOpAnd || op == ast.ASTOpOr || op == ast.ASTOpImplies || op == ast.ASTOpIff) {
+			if op == ast.ASTOpAnd || op == ast.ASTOpOr || op == ast.ASTOpImplies || op == ast.ASTOpIff {
 				count, err := m.GetNumArgs(h)
 				if err != nil {
 					return err
