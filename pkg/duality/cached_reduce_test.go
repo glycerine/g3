@@ -8,7 +8,7 @@ import (
 )
 
 func TestCachedGreedyReductionDuplicatesTheoryFallbackAndFailure(t *testing.T) {
-	ctx, _, _, globals := dualityNativeSolverServicesFixture(t)
+	ctx, m, _, globals := dualityNativeSolverServicesFixture(t)
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -56,6 +56,12 @@ func TestCachedGreedyReductionDuplicatesTheoryFallbackAndFailure(t *testing.T) {
 	}
 	assumptions := []*Expr{clone(neg[0])}
 	core := []*Expr{clone(positive[0]), clone(positive[0])}
+	m.Budget().FailAfter(0)
+	reductionFailure := scope.GreedyReduceCache(&assumptions, &core, nil)
+	m.Budget().FailAfter(-1)
+	if reductionFailure == nil {
+		t.Fatal("greedy reduction ignored the injected allocation failure")
+	}
 	must(scope.GreedyReduceCache(&assumptions, &core, nil))
 	if len(assumptions) != 1 || len(core) != 1 {
 		t.Fatal("duplicate core not reduced", len(core))
