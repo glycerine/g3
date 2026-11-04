@@ -95,6 +95,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Resume Duality prepared-query cleanup after consumed-with-error background or clause releases; native failure tests cover retry and partial-close guards.
   - [x] Verify the complementary unconsumed background and clause release refusals preserve prepared-query owners and permit retry.
   - [x] Resume Duality query-run background cleanup after a consumed-with-error expression release; a native accounting failure checks owner preservation and retry.
+  - [x] Resume Duality TermTree cleanup after consumed main or extra term releases, guarding owned children during partial close; direct native failure and retry tests pass.
   - [x] Match the source model-evaluator exception fallback for QBMC variable bindings, preserving the separately approved corrected derivation-level behavior; a real evaluator exception and allocation-failure retry are covered.
   - [x] Preserve a failed PDR delayed-scope cleanup for retry during solver close; a native partial-pop test covers owner retention and pending-operation refusal, while end-to-end injection into a real check remains unproven.
   - [x] Repair manifest evidence links to existing tests at unit and method scope; restore the broad portcheck gate without changing test declarations, validator rules or audited statuses. This verifies evidence availability, not semantic completion.
@@ -142,6 +143,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Match multi-rule existential-tail selection using the source shared worklist; property and repeated-query fixtures verify source order. Duality and public-query formatter cleanup refusal remain open.
   - [x] Match the Datalog quantified-tail query diagnostic and continuation for an interpreted existential, checked against Z3 4.7.1. Diagnostic selection among multiple offending rules remains open.
   - [x] Defer application-shaped illegal rule-head diagnostics until fixedpoint query, preserving pending API enumeration, display and scope removal; repeated query output matches Z3 4.7.1. Partial multi-clause publication and formatter cleanup refusal remain open.
+  - [x] Match Duality raw versus transformed rule checking: raw queries skip property checks, while quantified-array queries apply them. Raw output matches Z3 4.7.1; its transformed executable crashed after the first diagnostic.
   - [x] Normalize reachable non-application Boolean heads before the same deferred diagnostic, matching repeated C++ query output; reserve equality ownership before construction. Sparse-variable substitution now owns replacement variables across allocation failure and retry. Exceptional temporary cleanup refusal and partial multi-clause publication remain open.
   - [x] Prevent a negated interpreted-tail AST leak when reference reservation fails, with live-node and retry coverage; constructor cleanup refusal remains a separate audit.
   - [x] Reserve HNF fresh-head and implication owners before construction; a 12-boundary allocation campaign verifies cleanup and retry. Local cleanup refusal remains open.

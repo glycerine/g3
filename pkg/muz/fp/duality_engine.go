@@ -61,9 +61,9 @@ func (e *PropositionalEngine) queryDuality(query ast.ASTHandle) (status lbool.LB
 		if err := e.flushPendingRules(); err != nil {
 			return lbool.Undef, err
 		}
-	}
-	if err := e.validateFragment(); err != nil {
-		return lbool.Undef, err
+		if err := e.validateFragment(); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	mbqi, err := view.Bool("duality.mbqi", true)
 	if err != nil {

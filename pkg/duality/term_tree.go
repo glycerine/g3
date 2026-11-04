@@ -9,6 +9,7 @@ type TermTree struct {
 	terms    []*Expr
 	children []*TermTree
 	number   int
+	closing  bool
 	closed   bool
 }
 
@@ -20,7 +21,7 @@ func NewTermTree(term *Expr, children []*TermTree) (*TermTree, error) {
 	return &TermTree{term: copy, children: append([]*TermTree(nil), children...)}, nil
 }
 func (t *TermTree) open() error {
-	if t == nil || t.closed {
+	if t == nil || t.closing || t.closed {
 		return ErrWrapperOwner
 	}
 	return t.term.open()
@@ -67,13 +68,20 @@ func (t *TermTree) Number(from int) int {
 }
 func (t *TermTree) GetNumber() int       { return t.number }
 func (t *TermTree) SetNumber(number int) { t.number = number }
+
+// SetChildren transfers child ownership while the tree is open. Once cleanup
+// starts, it leaves the existing children and the caller's inputs unchanged.
 func (t *TermTree) SetChildren(children []*TermTree) {
+	if t == nil || t.closing || t.closed {
+		return
+	}
 	t.children = append([]*TermTree(nil), children...)
 }
 func (t *TermTree) Close() error {
 	if t == nil || t.closed {
 		return nil
 	}
+	t.closing = true
 	for len(t.children) > 0 {
 		n := len(t.children) - 1
 		if err := t.children[n].Close(); err != nil {
@@ -83,16 +91,23 @@ func (t *TermTree) Close() error {
 	}
 	for len(t.terms) > 0 {
 		n := len(t.terms) - 1
-		if err := t.terms[n].Close(); err != nil {
+		err := t.terms[n].Close()
+		if t.terms[n].Closed() {
+			t.terms[n] = nil
+			t.terms = t.terms[:n]
+		}
+		if err != nil {
 			return err
 		}
-		t.terms = t.terms[:n]
 	}
 	if t.term != nil {
-		if err := t.term.Close(); err != nil {
+		err := t.term.Close()
+		if t.term.Closed() {
+			t.term = nil
+		}
+		if err != nil {
 			return err
 		}
-		t.term = nil
 	}
 	t.closed = true
 	return nil
