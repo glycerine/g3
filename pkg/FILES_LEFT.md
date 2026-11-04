@@ -20,7 +20,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/api/z3_fixedpoint.h` — Fixedpoint ownership, rules/facts/assertions, query results, frames, parameters, SMT-LIB loading/display, scopes, and external-relation callbacks are implemented in the typed Go API; focused checks pass.
 - [x] `src/api/z3_fpa.h` — Floating-point constructors, arithmetic, predicates, comparisons, conversions, sort inspection, and numeral parts are exposed through Go AST/API methods; focused API and FPA package checks pass.
 - [x] `src/api/z3_optimization.h` — Typed Go optimization objects cover assertions, soft constraints, objectives, scopes, checks, models, bounds, parameters, parsing, statistics, and display; focused optimizer checks pass.
-- [ ] `src/api/z3_polynomial.h`
+- [x] `src/api/z3_polynomial.h` — The polynomial subresultants API returns an owning typed Go result with indexed access and explicit close; focused API checks pass.
 - [ ] `src/api/z3_private.h`
 - [ ] `src/api/z3_rcf.h`
 - [ ] `src/api/z3_spacer.h`
