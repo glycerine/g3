@@ -271,7 +271,7 @@ func (t *FastCoreTactic) ApplyWithOutput(g *goaltactic.Goal, out io.Writer) (res
 		if err := shell.DisplayConstraints(stream, true); err != nil {
 			return nil, err
 		}
-		if err := fastWriteDisplay(stream, "bounds at leaves: \n"); err != nil {
+		if err := subpavingWriteDisplay(stream, "bounds at leaves: \n"); err != nil {
 			return nil, err
 		}
 		if err := shell.DisplayBounds(stream); err != nil {

@@ -24,6 +24,23 @@ func pinExprMapping(m *ast.ASTManager, entries []ast.ExprVarBinding) ([]ast.ASTH
 	return pins, nil
 }
 
+func releaseExprPins(m *ast.ASTManager, pins *[]ast.ASTHandle) error {
+	for i, h := range *pins {
+		if h.IsNull() {
+			continue
+		}
+		consumed, err := m.DecRefConsumed(h)
+		if consumed {
+			(*pins)[i] = ast.ASTHandle{}
+		}
+		if err != nil {
+			return err
+		}
+	}
+	*pins = nil
+	return nil
+}
+
 // Manager returns the borrowed AST manager.
 func (c *HardwareExprConverter) Manager() (*ast.ASTManager, error) {
 	if err := c.check(); err != nil {

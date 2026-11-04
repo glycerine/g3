@@ -83122,8 +83122,11 @@
       "path": "src/math/subpaving/tactic/subpaving_tactic.cpp",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
+        "pkg/math/subpaving/tactic/selected_tactic_adapter.go",
+        "pkg/math/subpaving/tactic/smt2_expression_display.go",
+        "pkg/math/subpaving/tactic/expr_mapping.go",
         "pkg/math/subpaving/tactic/options.go",
         "pkg/math/subpaving/tactic/options_test.go",
         "pkg/math/subpaving/tactic/hardware_engine.go",
@@ -83193,8 +83196,8 @@
         "TestHardwareCoreTacticBorrowedGoalStatisticsAndFreshCleanup",
         "TestCommandContextRegistersRetainedSubpavingTactic"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "selected successful MPFF tactic imp borrows the AST raw Runtime for rational and fast-float members and destroys MPFF before rational",
@@ -83231,11 +83234,20 @@
           "go_targets": [
             "pkg/math/subpaving/tactic/rational_core_tactic.go",
             "pkg/math/subpaving/tactic/smt2_expression_display.go",
-            "pkg/math/subpaving/tactic/rational_expr_converter_test.go"
+            "pkg/math/subpaving/tactic/expr_mapping.go",
+            "pkg/math/subpaving/tactic/rational_expr_converter_test.go",
+            "pkg/math/subpaving/tactic/arbitrary_expr_converter_test.go",
+            "pkg/math/subpaving/tactic/expr_converter_test.go",
+            "pkg/math/subpaving/tactic/fast_expr_converter_test.go",
+            "pkg/math/subpaving/tactic/fixed_expr_converter_test.go"
           ],
           "tests": [
             "TestRationalExprConverterExactLeafGoalAndCleanup",
-            "TestRationalCoreTacticBorrowedGoalStatisticsAndFreshCleanup"
+            "TestRationalCoreTacticBorrowedGoalStatisticsAndFreshCleanup",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestHardwareExprConverterTerms",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause"
           ]
         },
         {
@@ -83416,14 +83428,10 @@
           ]
         }
       ],
-      "ownership": [],
-      "deviations": [
-        "The HWF and MPF branches construct concrete contexts and expression converters, internalize <=/>= literals with numeral right sides, unwrap nested negations, scale bounds by exact numerator/denominator, and add clauses in source order. The MPF converter borrows a rational manager and uses the selected owning MPF shell. A simple MPF integer-bound goal exercises internalize-then-search and displays its bound. The compound x^2 case preserves the source f2n refusal: unbounded even-power interval propagation resets its finite lower endpoint to zero, and the next interval::set calls f2n::set, whose is_regular check rejects formatted zero. MPQ/MPFX engine construction, AST variable display, optional print_nodes output, full public tactic ownership, simplify pipeline and factory remain open.",
-        "The selected MPFF engine constructs and owns its concrete context/shell, borrowing numeral and rational managers. Search, leaf-bound display and core goal-result ownership are now reached; public simplify composition remains open.",
-        "The selected MPFF engine has concrete expression and clause internalization, including nested negation and ordered disjunction, followed by search and the core tactic's retained goal result.",
-        "The MPFF tactic route internalizes a goal and searches its selected context. The core tactic owns that engine, converter and shared parameter snapshot, returns the original borrowed goal, accumulates and resets statistics, forwards same-engine updates and reconstructs a fresh context on cleanup. Its print_nodes path captures inverse expr2var mappings, prints named constants and uninterpreted arithmetic applications with recursively printed named/numeral arguments, exact SMT2 quoting and compact rational forms, generated k!N labels, and source constraints/header/leaf bounds. Other interpreted expression forms and pretty-printer width/alias behavior, other numeral-engine switching, public simplify composition and process-global memory checkpoint remain open.",
-        "The concrete MPFF core print_nodes boundary treats a borrowed Go writer's short write or error as a nonthrowing source std::cout failure. The reached prefix remains, later print insertions are skipped, and statistics and the borrowed goal result still publish. Direct Go display APIs continue reporting their own writer errors."
-      ]
+      "ownership": [
+        "The selected tactic owns its parameter snapshot and selected concrete engine adapter; engine changes replace the adapter and translation constructs an independent tactic for the destination AST manager. Each concrete context/converter owns its numerical resources and retained AST references, while the manager, goal, parameter services, and output writer are borrowed. Inverse-display AST references live for one published display procedure and are released when it is replaced or the converter closes."
+      ],
+      "deviations": []
     },
     {
       "path": "src/math/subpaving/tactic/subpaving_tactic.h",

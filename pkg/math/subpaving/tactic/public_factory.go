@@ -33,30 +33,45 @@ func newConcreteSubpavingTactic(m *ast.ASTManager, c *params.ParamsContext, p *p
 	case EngineMPQ:
 		core, err := NewRationalCoreTacticOwned(m, c, p)
 		if err != nil {
+			if core != nil {
+				err = errors.Join(err, core.Close())
+			}
 			return nil, err
 		}
 		return newRationalTacticAdapter(core)
 	case EngineMPF:
 		core, err := NewArbitraryCoreTacticOwned(m, c, p)
 		if err != nil {
+			if core != nil {
+				err = errors.Join(err, core.Close())
+			}
 			return nil, err
 		}
 		return newArbitraryTacticAdapter(core)
 	case EngineHWF:
 		core, err := NewHardwareCoreTacticOwned(m, c, p)
 		if err != nil {
+			if core != nil {
+				err = errors.Join(err, core.Close())
+			}
 			return nil, err
 		}
 		return newHardwareTacticAdapter(core)
 	case EngineMPFF:
 		core, err := NewFastCoreTacticOwned(m, c, p)
 		if err != nil {
+			if core != nil {
+				err = errors.Join(err, core.Close())
+			}
 			return nil, err
 		}
 		return newFastTacticAdapter(core)
 	case EngineMPFX:
 		core, err := NewFixedCoreTacticOwned(m, c, p)
 		if err != nil {
+			if core != nil {
+				err = errors.Join(err, core.Close())
+			}
 			return nil, err
 		}
 		return newFixedTacticAdapter(core)

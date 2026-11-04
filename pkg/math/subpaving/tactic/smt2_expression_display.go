@@ -8,8 +8,19 @@ import (
 	"github.com/glycerine/g3/pkg/util/text"
 )
 
-// writeSubpavingSMT2Expression uses the AST manager's SMT-LIB2 printer for
-// mapped terms that are not plain variables, numerals, or uninterpreted apps.
+func subpavingWriteDisplay(out io.Writer, text string) error {
+	n, err := io.WriteString(out, text)
+	if err != nil {
+		return err
+	}
+	if n != len(text) {
+		return io.ErrShortWrite
+	}
+	return nil
+}
+
+// writeSubpavingSMT2Expression follows the source mk_ismt2_pp route for every
+// expression in the inverse variable map.
 func writeSubpavingSMT2Expression(out io.Writer, manager *ast.ASTManager, expression ast.ASTHandle) (result error) {
 	format, err := manager.SMT2PPExprTree(expression, nil)
 	if err != nil {

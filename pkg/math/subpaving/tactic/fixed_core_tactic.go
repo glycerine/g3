@@ -273,7 +273,7 @@ func (t *FixedCoreTactic) ApplyWithOutput(g *goaltactic.Goal, out io.Writer) (re
 		if err := shell.DisplayConstraints(stream, true); err != nil {
 			return nil, err
 		}
-		if err := fixedWriteDisplay(stream, "bounds at leaves: \n"); err != nil {
+		if err := subpavingWriteDisplay(stream, "bounds at leaves: \n"); err != nil {
 			return nil, err
 		}
 		if err := shell.DisplayBounds(stream); err != nil {

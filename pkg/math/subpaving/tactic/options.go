@@ -7,8 +7,8 @@ import (
 	"github.com/glycerine/g3/pkg/util/params"
 )
 
-// EngineKind follows the source's five concrete numeral choices. Goal
-// processing and the other numeral-engine constructors remain separate work.
+// EngineKind follows the source's five concrete numeral choices. The selected
+// tactic adapter rebuilds the concrete branch when the source numeral option changes.
 type EngineKind uint8
 
 const (

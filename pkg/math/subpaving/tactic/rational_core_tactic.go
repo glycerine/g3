@@ -1,7 +1,7 @@
 package tactic
 
 // Source: src/math/subpaving/tactic/subpaving_tactic.cpp:193-263,
-// concrete MPQ core tactic with print_nodes disabled.
+// concrete MPQ core tactic with source print_nodes support.
 
 import (
 	"errors"
@@ -209,7 +209,7 @@ func (t *RationalCoreTactic) ApplyWithOutput(g *goaltactic.Goal, out io.Writer) 
 		if err := context.DisplayConstraints(stream, false); err != nil {
 			return nil, err
 		}
-		if err := fastWriteDisplay(stream, "bounds at leaves: \n"); err != nil {
+		if err := subpavingWriteDisplay(stream, "bounds at leaves: \n"); err != nil {
 			return nil, err
 		}
 		if err := context.DisplayBounds(stream); err != nil {

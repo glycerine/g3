@@ -28,6 +28,7 @@ type FastExprConverter struct {
 	mapping                              *ast.Expr2Var
 	ownsMapping                          bool
 	order                                []ast.ASTHandle
+	displayOrder                         []ast.ASTHandle
 	cache                                map[ast.ASTHandle]cachedTerm
 	cachedOrder                          []ast.ASTHandle
 	cachedNumerators, cachedDenominators *numeral.ScopedIntVector
@@ -642,6 +643,9 @@ func (c *FastExprConverter) Close() error {
 		if err := c.mapping.Close(); err != nil {
 			return err
 		}
+	}
+	if err := releaseExprPins(c.ast, &c.displayOrder); err != nil {
+		return err
 	}
 	for i, h := range c.order {
 		if h.IsNull() {

@@ -218,6 +218,24 @@ func TestFastExprConverterTermsAndClause(t *testing.T) {
 			t.Fatal("reverse entries survived converter close", refs, baseline, err)
 		}
 	})
+	baseRefs, err := m.GetRefCount(x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := converter.VariableDisplay(sy); err != nil {
+		t.Fatal(err)
+	}
+	firstDisplayRefs, err := m.GetRefCount(x)
+	if err != nil || firstDisplayRefs != baseRefs+1 {
+		t.Fatal("display procedure owns one inverse-map reference", baseRefs, firstDisplayRefs, err)
+	}
+	if _, err := converter.VariableDisplay(sy); err != nil {
+		t.Fatal(err)
+	}
+	secondDisplayRefs, err := m.GetRefCount(x)
+	if err != nil || secondDisplayRefs != firstDisplayRefs {
+		t.Fatal("replacing display procedure releases its old inverse-map references", firstDisplayRefs, secondDisplayRefs, err)
+	}
 	if err := q.SetString(&value, "1"); err != nil {
 		t.Fatal(err)
 	}

@@ -17,8 +17,8 @@ import (
 var ErrHardwareEngineSelection = errors.New("subpaving tactic: selected numeral engine is not hardware float")
 
 // HardwareEngine owns the selected HWF context. Its rational manager and
-// resource limit belong to the caller. Expression conversion and goal
-// processing will use this owner when their source paths are ported.
+// resource limit belong to the caller; the concrete tactic owns this context
+// alongside its expression converter.
 type HardwareEngine struct {
 	self    *HardwareEngine
 	context *subpaving.HardwareContext
