@@ -891,12 +891,15 @@ func TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP(t *testing.T) {
 `
 			var output bytes.Buffer
 			err = smt2.ParseCommands(context, strings.NewReader(script), &output)
-			if err == nil || !strings.Contains(err.Error(), "uninterpreted symbols in PDR rules are unsupported") || output.Len() != 0 {
+			if err != nil {
 				t.Fatal("Go PDR uninterpreted-rule guard", err, output.String())
 			}
 			cpp := fixedpointSpacerReference(t, script)
 			if !strings.Contains(cpp, "Uninterpreted '"+test.symbol+"'") || !strings.HasSuffix(cpp, "unknown\n") {
 				t.Fatal("C++ PDR uninterpreted-rule guard", cpp)
+			}
+			if output.String() != cpp {
+				t.Fatalf("Go PDR uninterpreted-rule output = %q, C++ = %q", output.String(), cpp)
 			}
 		})
 	}

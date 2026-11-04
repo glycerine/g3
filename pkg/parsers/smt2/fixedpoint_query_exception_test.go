@@ -81,6 +81,44 @@ func TestFixedpointQueryCatchesInfiniteSortException(t *testing.T) {
 	}
 }
 
+func TestFixedpointQueryCatchesUninterpretedExceptionAcrossQueries(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	context.PrintSuccess = false
+	const script = `(set-option :fixedpoint.engine pdr)
+(set-option :fixedpoint.xform.inline_eager false)
+(set-option :fixedpoint.xform.inline_linear false)
+(set-option :fixedpoint.xform.slice false)
+(declare-fun f (Int) Int)
+(declare-rel P (Int))
+(declare-rel Goal ())
+(declare-var x Int)
+(rule (P 0))
+(rule (=> (and (P x) (= (f x) 1)) (P (+ x 1))))
+(rule (=> (P 1) Goal))
+(query Goal)
+(query P)`
+	var output bytes.Buffer
+	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	one := "(error \"query failed: Uninterpreted 'f' in <null>:\nP(#1) :- \n P(#0),\n (= (:var 1) (+ (:var 0) 1)),\n (= (f (:var 0)) 1).\n\")\nunknown\n"
+	if got := output.String(); got != one+one {
+		t.Fatalf("output = %q, want %q", got, one+one)
+	}
+	reason, err := context.FixedpointReasonUnknown()
+	if err != nil || reason != "ok" {
+		t.Fatalf("status after cleanup = %q, %v", reason, err)
+	}
+}
+
 // Integer relations use the retained Datalog relation extension instead of
 // the ordinary finite engine's infinite-sort exception path.
 func TestFixedpointQueryIntegerRelationExtensionIsNotCaught(t *testing.T) {

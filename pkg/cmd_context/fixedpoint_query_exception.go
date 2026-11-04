@@ -26,7 +26,7 @@ func classifyFixedpointQueryException(err error) error {
 			return true
 		}
 		if p, ok := e.(*base.RulePropertyError); ok {
-			if property != nil || (p.Kind != base.RulePropertyNegativePredicate && p.Kind != base.RulePropertyInfiniteSort) || p.SourceMessage == "" {
+			if property != nil || (p.Kind != base.RulePropertyNegativePredicate && p.Kind != base.RulePropertyInfiniteSort && p.Kind != base.RulePropertyUninterpreted) || p.SourceMessage == "" {
 				return false
 			}
 			property = p

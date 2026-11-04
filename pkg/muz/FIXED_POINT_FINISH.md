@@ -83,6 +83,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Reset fixedpoint query status after successful SMT-LIB command output at the source cleanup boundary; backend cleanup and exception/error-output paths remain open.
   - [x] Match the source command's negative-predicate exception output and continuation for the typed rule-property failure, while preserving unrelated joined cleanup errors; other exception classes remain open.
   - [x] Match the ordinary Datalog infinite-sort property exception and continuation, preserving the separately supported integer-relation extension and unrelated cleanup errors.
+  - [x] Match the source uninterpreted-symbol rule exception for fixedpoint predicate queries, including exact diagnostics and continuation; unrelated cleanup errors remain visible. Function and constant cases were checked against Z3 4.7.1.
 - [ ] Verify previously marked ported units against their actual consumers and proof/ownership requirements; status labels alone are insufficient.
   - [x] Audit `dl_costs.cpp/.h` and fix stopwatch sample rounding; [BASE_UNIT_AUDIT.md](BASE_UNIT_AUDIT.md) records the mapped consumers and remaining profile-attribution evidence.
   - [x] Match source-rule cost attribution for interpreted-tail simplification, subsumption and filter construction; verify the inliner through its existing unifier and check shared-filter attribution.

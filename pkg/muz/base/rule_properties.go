@@ -364,7 +364,11 @@ func (p *RuleProperties) CheckUninterpretedFree() error {
 	if symbol, err := p.manager.GetASTName(p.uninterpDecl); err == nil {
 		name, _ = p.manager.Symbols.Display(symbol)
 	}
-	return &RulePropertyError{Kind: RulePropertyUninterpreted, RuleName: rulePropertyName(p.uninterpreted), Symbol: name}
+	var display strings.Builder
+	if err := p.rules.WriteRuleDisplay(&display, p.uninterpreted); err != nil {
+		return err
+	}
+	return &RulePropertyError{Kind: RulePropertyUninterpreted, RuleName: rulePropertyName(p.uninterpreted), Symbol: name, SourceMessage: "Uninterpreted '" + name + "' in " + display.String()}
 }
 
 func (p *RuleProperties) CheckNestedFree() error {
