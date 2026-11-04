@@ -77259,12 +77259,14 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "Default use_prem=true rational signed pseudo-remainder, odd-step negative-leading sign rule and integral-content normalization (realclosure.cpp:2917-2988,3020-3043,3401-3420); nonrational values remain open",
-          "status": "partial",
+          "name": "Default use_prem=true signed pseudo-remainder, odd-step negative-leading sign rule, and sequence integer-content normalization for rational and algebraic coefficients (realclosure.cpp:2917-2988,3020-3043,3401-3420)",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/sign_polynomial_prem.go",
           "tests": [
             "TestRealClosureRationalDerivativeKeepsCoefficientOwnership",
-            "TestRealClosureRationalPolynomialProducerReservationPrefixes"
+            "TestRealClosureRationalPolynomialProducerReservationPrefixes",
+            "TestAnySturmSignedPseudoRemainder",
+            "TestAlgebraicSignedPseudoRemainderNormalizesNestedIntegerContent"
           ]
         },
         {
