@@ -95638,7 +95638,8 @@
         "pkg/muz/fp/datalog_external_interval_cartesian_head_constants.go",
         "pkg/muz/fp/external_interval_cartesian_head_constants_test.go",
         "pkg/muz/fp/datalog_external_interval_compiler.go",
-        "pkg/muz/fp/datalog_external_interval_compiler_test.go"
+        "pkg/muz/fp/datalog_external_interval_compiler_test.go",
+        "pkg/muz/fp/datalog_external_interval_recursive_program_test.go"
       ],
       "tests": [
         "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads",
@@ -95785,7 +95786,9 @@
         "TestExternalIntervalDatalogCartesianHeadConstantsEmptyFirstUseSharedCache",
         "TestExternalIntervalDatalogCartesianHeadConstantsProgramRefusalAndRetry",
         "TestExternalIntervalDatalogCartesianHeadConstantPinningRetryAndReuse",
-        "TestExternalIntervalCompilerUsesIsolatedFilterMetadata"
+        "TestExternalIntervalCompilerUsesIsolatedFilterMetadata",
+        "TestExternalIntervalRecursiveProgramSeedsDeltaRoundsAndWidening",
+        "TestExternalIntervalRecursiveProgramConsumesDeltasAcrossRounds"
       ],
       "conditionals": [
         {
