@@ -80450,7 +80450,7 @@
         },
         {
           "name": "Concrete config_hwf node-splitter child creation and decided-bound publication (src/math/subpaving/subpaving_t.h:434-450)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_split.go",
           "tests": [
             "TestHardwareMidpointSplitterRetainedBranchesAndRefusal"
