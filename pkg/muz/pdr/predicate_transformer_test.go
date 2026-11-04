@@ -177,6 +177,37 @@ func TestPredicateTransformerCheckInductiveReturnsSubsetCore(t *testing.T) {
 	if !inductive || !assumesLevel || len(core) != 1 || core[0] != p {
 		t.Fatal("inductive subset core", inductive, assumesLevel, core)
 	}
+	if _, err = manager.GetKind(core[0]); err != nil {
+		t.Fatal("returned borrowed core lost its input lifetime", err)
+	}
+	pdrMust(t, transformer.Close())
+	pdrMust(t, owner.Close())
+	pdrMust(t, command.Close())
+}
+
+func TestPredicateTransformerInductiveCoreKeepsUnrootedInputUntilNextCheck(t *testing.T) {
+	command, manager, owner := pdrManagerFixture(t, 1)
+	boolean, err := manager.MkBoolSort()
+	pdrMust(t, err)
+	head := pdrFunction(t, manager, "inductive_unrooted_core", nil, boolean)
+	transformer, err := pdr.NewPredicateTransformer(owner, head, pdr.ReachableNoCache)
+	pdrMust(t, err)
+	p := pdrBool(t, manager, "inductive_unrooted_p")
+	truth, err := manager.MkTrue()
+	pdrMust(t, err)
+	pdrMust(t, transformer.InitializeSystem(p, truth))
+	notP, err := manager.MkNot(p)
+	pdrMust(t, err)
+	inductive, _, core, err := transformer.CheckInductive(0, []ast.ASTHandle{notP})
+	pdrMust(t, err)
+	if !inductive || len(core) != 1 || core[0] != notP {
+		t.Fatal("unexpected core", core)
+	}
+	isNot, inner, err := manager.IsNot(core[0])
+	pdrMust(t, err)
+	if !isNot || inner != p {
+		t.Fatal("core input was not retained", core[0])
+	}
 	pdrMust(t, transformer.Close())
 	pdrMust(t, owner.Close())
 	pdrMust(t, command.Close())

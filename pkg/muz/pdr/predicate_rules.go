@@ -783,29 +783,74 @@ func (p *PredicateTransformer) IsInvariant(level uint32, property ast.ASTHandle,
 	return result.Status == lbool.False, result.AssumesLevel, result.Core, err
 }
 
+// inductiveAssumptionsRef builds the source check_inductive formula. Its
+// output owns the conjunction after temporary state roots are released.
+func (p *PredicateTransformer) inductiveAssumptionsRef(literals []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	var roots []ast.ASTRef
+	defer func() {
+		for i := len(roots) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, p.owner.releaseNotAndRef(&roots[i]))
+		}
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, p.owner.releaseNotAndRef(&result))
+		}
+	}()
+	cube, err := p.owner.AndRef(literals)
+	if err != nil {
+		return result, err
+	}
+	roots = append(roots, cube)
+	states, err := p.manager.RefGet(cube)
+	if err != nil {
+		return result, err
+	}
+	states, err = p.manager.MkNot(states)
+	if err != nil {
+		return result, err
+	}
+	negated, err := p.manager.NewRef(states)
+	if err != nil {
+		return result, err
+	}
+	roots = append(roots, negated)
+	assumptions, err := p.makeAssumptions(p.head, states)
+	if err != nil {
+		return result, err
+	}
+	return p.owner.AndRef(assumptions)
+}
+
 // CheckInductive tests whether the conjunction of literals is inductive at a
 // frame. On success it returns the subset core selected by the SMT solver.
 // Returned handles remain valid until the next check on this transformer.
-func (p *PredicateTransformer) CheckInductive(level uint32, literals []ast.ASTHandle) (bool, bool, []ast.ASTHandle, error) {
+func (p *PredicateTransformer) CheckInductive(level uint32, literals []ast.ASTHandle) (inductive bool, assumesLevel bool, core []ast.ASTHandle, resultErr error) {
 	if err := p.open(); err != nil {
 		return false, false, nil, err
 	}
 	if level == InfinityLevel {
 		return false, false, nil, ast.ErrASTDomain
 	}
-	states, err := p.manager.MkAndArray(literals)
+	// The native expr_ref_vector keeps every input literal alive throughout
+	// formula construction and the subsequent solver check.
+	var literalRefs []ast.ASTRef
+	defer func() {
+		for i := len(literalRefs) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, p.owner.releaseNotAndRef(&literalRefs[i]))
+		}
+	}()
+	for _, literal := range literals {
+		ref, err := p.manager.NewRef(literal)
+		if err != nil {
+			return false, false, nil, err
+		}
+		literalRefs = append(literalRefs, ref)
+	}
+	ref, err := p.inductiveAssumptionsRef(literals)
 	if err != nil {
 		return false, false, nil, err
 	}
-	states, err = p.manager.MkNotSimplified(states)
-	if err != nil {
-		return false, false, nil, err
-	}
-	assumptions, err := p.makeAssumptions(p.head, states)
-	if err != nil {
-		return false, false, nil, err
-	}
-	formula, err := p.manager.MkAndArray(assumptions)
+	defer func() { resultErr = errors.Join(resultErr, p.owner.releaseNotAndRef(&ref)) }()
+	formula, err := p.manager.RefGet(ref)
 	if err != nil {
 		return false, false, nil, err
 	}
@@ -813,6 +858,12 @@ func (p *PredicateTransformer) CheckInductive(level uint32, literals []ast.ASTHa
 		return false, false, nil, err
 	}
 	result, err := p.solver.CheckAtLevelAndFormula(level, literals, formula, true, false)
+	if err == nil && result.Status == lbool.False {
+		// The solver's core borrows input terms. Keep them alive until the
+		// next check clears coreReferences, as this method promises callers.
+		p.solver.coreReferences = append(p.solver.coreReferences, literalRefs...)
+		literalRefs = nil
+	}
 	return result.Status == lbool.False, result.AssumesLevel, result.Core, err
 }
 
