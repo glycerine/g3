@@ -2,9 +2,10 @@ package duality
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
-	"testing"
 )
 
 func TestRPFPEdgeAssertionsPersistenceAndUnderapproximation(t *testing.T) {
@@ -43,7 +44,17 @@ func TestRPFPEdgeAssertionsPersistenceAndUnderapproximation(t *testing.T) {
 			must(g.Push())
 			must(g.AssertNode(parent))
 			must(g.Push())
+			profile := NewProfiler(nil)
+			ctx.activeProfiler = profile
 			must(g.AssertEdge(edge, persist, false, true))
+			for _, name := range []string{"ReducedDualEdge", "getting children", "Persisting", "solver add"} {
+				if profile.top.children[name] == nil {
+					t.Fatal("missing edge timer", name)
+				}
+			}
+			if profile.current != profile.top {
+				t.Fatal("edge timer did not restore current")
+			}
 			flag, err := g.UnderapproxFlag(child)
 			must(err)
 			defer flag.Close()
@@ -61,9 +72,18 @@ func TestRPFPEdgeAssertionsPersistenceAndUnderapproximation(t *testing.T) {
 			check([]ast.ASTHandle{fh}, lbool.False)
 			cached := edge.dual
 			// Cached formula construction ignores later flags, matching source.
+			profile = NewProfiler(nil)
+			ctx.activeProfiler = profile
 			again, err := g.GetEdgeFormula(edge, 0, true, false)
 			must(err)
 			must(again.Close())
+			if len(profile.top.children) != 0 {
+				t.Fatal("cached formula recorded construction timers", profile.top.children)
+			}
+			must(g.AssertEdge(edge, 0, false, false))
+			if len(profile.top.children) != 1 || profile.top.children["solver add"] == nil || profile.current != profile.top {
+				t.Fatal("cached assertion timer scopes", profile.top.children)
+			}
 			if edge.dual != cached {
 				t.Fatal("cached formula replaced")
 			}
@@ -100,11 +120,16 @@ func TestRPFPEdgeAssertionsPersistenceAndUnderapproximation(t *testing.T) {
 			must(err)
 			count, err := s.NumAssertions()
 			must(err)
+			profile = NewProfiler(nil)
+			ctx.activeProfiler = profile
 			must(g.AssertEdge(lower, 0, false, true))
 			after, err := s.NumAssertions()
 			must(err)
 			if count != after || lower.dual != (ast.ASTRef{}) {
 				t.Fatal("true edge was asserted")
+			}
+			if len(profile.top.children) != 0 || profile.current != profile.top {
+				t.Fatal("true edge recorded timers", profile.top.children)
 			}
 
 		})

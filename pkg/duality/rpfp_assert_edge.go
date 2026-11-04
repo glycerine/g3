@@ -3,6 +3,7 @@ package duality
 // Source: duality_rpfp.cpp:917-975.
 import (
 	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -20,11 +21,24 @@ func (g *RPFP) GetEdgeFormula(edge *Edge, persist int, withChildren, underapprox
 		}
 		return NewExpr(g.context, h)
 	}
+	reducedTimer, err := startProfile(g.context, "ReducedDualEdge")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { result = errors.Join(result, reducedTimer.Close()) }()
 	formula, err := g.ReducedDualEdge(edge)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { result = errors.Join(result, formula.Close()) }()
+	if err = reducedTimer.Close(); err != nil {
+		return nil, err
+	}
+	childrenTimer, err := startProfile(g.context, "getting children")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { result = errors.Join(result, childrenTimer.Close()) }()
 	if underapprox {
 		var pins []*Expr
 		defer func() {
@@ -84,12 +98,23 @@ func (g *RPFP) GetEdgeFormula(edge *Edge, persist int, withChildren, underapprox
 			return nil, err
 		}
 	}
+	if err = childrenTimer.Close(); err != nil {
+		return nil, err
+	}
+	persistTimer, err := startProfile(g.context, "Persisting")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { result = errors.Join(result, persistTimer.Close()) }()
 	if persist < 0 {
 		persist = 0
 	}
 	if persist < len(g.scopes) {
 		idx := len(g.scopes) - 1 - persist
 		g.scopes[idx].edges = append(g.scopes[idx].edges, edge)
+	}
+	if err = persistTimer.Close(); err != nil {
+		return nil, err
 	}
 	h, err := g.context.manager.RefGet(edge.dual)
 	if err != nil {
@@ -120,7 +145,15 @@ func (g *RPFP) AssertEdge(edge *Edge, persist int, withChildren, underapprox boo
 	if err != nil {
 		return err
 	}
+	assertTimer, err := startProfile(g.context, "solver add")
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, assertTimer.Close()) }()
 	if err = g.solver.Assert(h); err != nil {
+		return err
+	}
+	if err = assertTimer.Close(); err != nil {
 		return err
 	}
 	if withChildren {
