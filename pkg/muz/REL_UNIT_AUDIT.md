@@ -27,4 +27,6 @@ Scope: `src/muz/rel/tbv.h` and `src/muz/rel/tbv.cpp`, marked ported in `port_man
 
 ## Verification
 
+`TestTBVSourceSingleBitTruthTables` checks all four source bit states for conjunction, disjunction and both containment modes; `TestTBVSourceComplementOrderAndUnknownBits` checks order, undefined-bit handling and input preservation.
+
 `cd pkg && go test ./muz/rel ./muz/ddnf -run 'TestTBV|TestDoc|TestDDNF' -count=1 -timeout=180s` passed (rel 0.011s, ddnf 0.047s). The same focused command was rerun after the ledger fix, including the new TBV tests. No full native suite was run for this audit.
