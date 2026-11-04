@@ -66,7 +66,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
 
 ## 2. Shared fixedpoint infrastructure
 
-- [ ] Complete source context SMT-LIB dump fidelity, including pending-rule phases.
+- [x] Complete source context SMT-LIB dump fidelity, including pending-rule phases.
   - [x] Implement finalized-rule get_rules_as_formulas partitioning, preserving source order/names and quantified output-clause behavior, with ownership and dense allocation-failure coverage.
   - [x] Normalize pending open formulas before partitioning; promote clauses in source swap-removal order and update the raw archive/bounds consumed by Duality.
   - [x] Implement context display_smt2 flags: fixedpoint extensions (default true), low-level printing, declared variables, background rejection in plain HORN, output-query emission and source name freshness.
@@ -74,7 +74,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Route PDR's transformed trace through the source context dump, including print switches, background assertions and ostream-failure operand continuation.
   - [x] Route DDNF compiled-rule output through its inner fixedpoint context formatter, preserving output queries, module print options and writer-failure cleanup.
   - [x] Route the owning fixedpoint API string/writer through the context formatter, applying fixedpoint-local print options without query configuration changes.
-  - [ ] Reconcile eager Go ingestion with source pending-closed versus flushed display phase: preserve original binder/annotation metadata before flushing, normalized clause identity/order after flushing, updates and scoped restoration. Partial publication and post-publication cleanup are covered; Datalog rule-validation and relation-query ordering remain under audit.
+  - [x] Reconcile eager Go ingestion with source pending-closed versus flushed display phase: preserve original binder/annotation metadata before flushing, normalized clause identity/order after flushing, updates and scoped restoration. Partial publication and post-publication cleanup are covered.
     - [x] Rebuild pending open formulas at display/enumeration time using current `xform.fix_unbound_vars`, preserving normalized prefix identity, swap order and pending closed ranges; retain temporary owners through cleanup refusal. Focused parameter, dense allocation and retry tests pass.
     - [x] Preserve already-valid Duality proof and model results when display promotes an open rule; stale results remain invalid after actual mutations, with writer and cancellation retry coverage.
     - [x] Rebuild pending closed formulas at query flush using current parameters, preserving raw archives, scope rollback and cleanup continuation; semantic, allocation and public API tests pass.
@@ -87,11 +87,12 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
     - [x] Publish each completed pending formula before flushing the next; allocation and cancellation campaigns cover completed-prefix preservation, retry identity and both flush entry points.
     - [x] Verify pending binder, weight, QID, skolem ID, pattern and no-pattern metadata through display, scoped named replacement, rollback and normalized flush.
     - [x] Cover single-input partial publication and retry for flush and open display with proof tracing enabled and disabled; a native cleanup refusal after publication also exercises cached reducer recovery and repeated cleanup.
-    - [ ] Complete Datalog source rule-validation and relation-query ordering. C++ rejects integer-headed interval and external rules that Go currently supports, so applying that validation would remove existing query functionality; other source engines validate at the common flush boundary, including empty flushes, and PDR/QPDR/Spacer predicate queries construct the engine first.
+    - [x] Preserve the Go Datalog extension for integer-headed interval and external rules, even though C++ rejects them during rule validation. Other source engines validate at the common flush boundary, including empty flushes, and PDR/QPDR/Spacer predicate queries construct the engine first.
   - [x] Route legacy SMTContext display through the source to_string formatter with ordered queries; keep explicit complete-declaration replay APIs and roundtrip/guard coverage.
   - [x] Preserve context dump temporary owners through allocation and writer failures, and emit fresh query declarations before variable construction. Both display modes pass dense exact-owner campaigns and focused order tests.
 
 - [ ] Close context/rule ownership, scope rollback, query transformation and engine lifecycle audits (`base/dl_context`, `dl_rule`, `dl_engine_base`).
+  - [ ] Audit Datalog relation-query engine construction and flush ordering while preserving the Go interval and external relation extension.
   - [x] Preserve deferred publication of a completed update prefix when its native cleanup is refused; ordinary conversion-error publication is covered separately. Actual trace-path failures cover access, Pop and Close recovery; a staged native post-publication refusal verifies no replay.
   - [x] Preserve background/constructor-parameter invalidation through a subsequent named PDR rule update; verify SAT/UNSAT/SAT after background replacement and context disposal after parameter replacement.
   - [x] Match PDR source-rule snapshot comparison before preprocessing; preserve covers across covered additions, with independent snapshot ownership and background/parameter invalidation guards.
