@@ -36991,7 +36991,7 @@
       "path": "src/ast/rewriter/enum2bv_rewriter.h",
       "component": "ast",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/ast/rewriter/enum2bv_rewriter.go",
         "pkg/ast/rewriter/enum2bv_rewriter_test.go",
@@ -37005,7 +37005,9 @@
         "pkg/ast/rewriter/enum2bv_error_source_test.go",
         "pkg/ast/rewriter/enum2bv_proof_test.go",
         "pkg/ast/rewriter/enum2bv_params_test.go",
-        "pkg/ast/rewriter/enum2bv_completion_audit_test.go"
+        "pkg/ast/rewriter/enum2bv_completion_audit_test.go",
+        "pkg/tactic/bv/dt2bv_tactic.go",
+        "pkg/tactic/portfolio/enum2bv_solver.go"
       ],
       "tests": [
         "TestEnum2BVConstantsRecognizersMappingsBoundsAndScopes",
@@ -37037,7 +37039,17 @@
         "TestEnum2BVParametersSharedCopyAndCleanupRetention",
         "TestEnum2BVParametersReplacementFailurePrefixes",
         "TestEnum2BVSingletonFreshAndCachedArgumentSourceBehavior",
-        "TestEnum2BVMixedQuantifierSingletonBoundsAndBinderOrder"
+        "TestEnum2BVMixedQuantifierSingletonBoundsAndBinderOrder",
+        "TestDT2BVGoalsCPP",
+        "TestDT2BVSMTLIBModelsAndCoresCPP",
+        "TestDT2BVModelReconstructionProofsAndDependencies",
+        "TestDT2BVClassificationPersistsUntilCleanupAndAppendsGoals",
+        "TestDT2BVApplicationAllocationPrefixes",
+        "TestEnum2BVSolverIncrementalModelsAndScopes",
+        "TestEnum2BVSolverTrackedAssumptionsAndCores",
+        "TestEnum2BVSolverConsequencesTranslateAndInternalize",
+        "TestEnum2BVSolverScopeErrorPrefixes",
+        "TestEnum2BVSolverConstructorAndParameterPrefixes"
       ],
       "conditionals": [
         {
@@ -37054,7 +37066,7 @@
       "methods": [
         {
           "name": "Retained enum2bv public operations with concrete caller-owned bound outputs; source parameter and exceptional interface audit remains open",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/ast/rewriter/enum2bv_rewriter.go",
           "tests": [
             "TestEnum2BVConstantsRecognizersMappingsBoundsAndScopes",
@@ -37063,7 +37075,7 @@
         },
         {
           "name": "Independent imp and rw_cfg datatype utility owners; source enum cache before every external sort-predicate call; configuration constructor cache on translation; cfg-before-traversal and reverse-member/forward-vector normal retirement; public Cleanup destroys/reconstructs owners with retained Go cleanup on refusal",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/rewriter/enum2bv_rewriter.go",
             "pkg/ast/rewriter/enum2bv_source_owners_test.go"
@@ -37077,7 +37089,7 @@
         },
         {
           "name": "Caller-owned flush_side_constraints append-before-reset output protocol, preserving acquired output prefix on append failure; normal Pop retires const/definition/BV vectors in source group order",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/rewriter/enum2bv_rewriter.go",
             "pkg/ast/rewriter/enum2bv_rewriter_test.go",
@@ -37091,7 +37103,7 @@
         },
         {
           "name": "Concrete reduce_app a0/a1 and _args, reduce_args tmp, reduce_arg caller result and f_def owners: initially null locals acquire slots on first assignment, ordered SetRef publication, vector pins before next predicate, lexical destruction in source order and retained inner-before-outer cleanup before members",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/rewriter/enum2bv_rewriter.go",
             "pkg/ast/rewriter/enum2bv_expr_scope.go",
@@ -37107,7 +37119,7 @@
         },
         {
           "name": "Fresh constant conversion publishes result before bounds/definition, owns successive f_def expressions, publishes def/BV/reverse maps before const/BV/definition pin vectors, retains acquired pin prefixes without rollback and advances translated only after definition cleanup; source SASSERT103 consults actual process debug owner",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/rewriter/enum2bv_rewriter.go",
             "pkg/ast/rewriter/enum2bv_expr_scope.go",
@@ -37120,7 +37132,7 @@
         },
         {
           "name": "reduce_quantifier concrete bounds/new_body_ref owners, source member m_sorts reset and partial prefix, pin-before-next-predicate, existential body append before conjunction, body replacement and body-before-forward-bounds destruction; unused tmp stays null without a Go reference reservation",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/rewriter/enum2bv_rewriter.go",
             "pkg/ast/rewriter/enum2bv_quantifier_scope.go",
@@ -37136,7 +37148,7 @@
         },
         {
           "name": "Quantifier result publication before explicit proof-null assignment, preserved declaration names/weight/qid/skid, non-enum early-return output preservation, stopped quantifier cleanup before configuration members and explicit Go owning retry",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/rewriter/enum2bv_rewriter.go",
             "pkg/ast/rewriter/enum2bv_quantifier_scope.go",
@@ -37149,7 +37161,7 @@
         },
         {
           "name": "Concrete enum2bv throw_non_fd mk_pp expression operand: exact offending argument text, actual eight-field pp constructor snapshot, borrowed expression, owned format_ref and rendering stream; constructor helpers retire before document construction and document retires before exception creation",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/rewriter/enum2bv_error_printer.go",
             "pkg/ast/rewriter/enum2bv_error_source_test.go"
@@ -37175,7 +37187,7 @@
         },
         {
           "name": "Source constructor captures proof mode; native no-proof path preserves caller proof; existing proof traversal composes application congruence and quantifier introduction instead of synthesizing a flat root rewrite",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/rewriter/enum2bv_rewriter.go",
             "pkg/ast/rewriter/enum2bv_proof_test.go"
@@ -37188,7 +37200,7 @@
         },
         {
           "name": "Source constructor retains params_ref copy; public Cleanup owns a local copy across imp destruction/reconstruction and replacement allocation refusal; member params die after bounds; source parameter update remains empty",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/ast/rewriter/enum2bv_rewriter.go",
             "pkg/ast/rewriter/enum2bv_params_test.go"
@@ -37211,12 +37223,9 @@
         "The rewriter borrows the caller ParamsContext and acquires an actual ParamsRef using NewValue/Assign before utility construction. Public Cleanup keeps a separate temporary across old member/header retirement and new construction, retaining it after replacement refusal for explicit Go Close/Cleanup continuation. Parameter members retire after bounds; the cleanup temporary retires after replacement success or abandoned imp destruction. DelTracked receipts continue an already-reached last-reference destruction rather than repeating its decrement. Constructor/refusal and replacement-prefix tests use real nonempty parameter backing. Whole native exceptional/consumed-NUM destruction remains separately unproven."
       ],
       "deviations": [
-        "Whole-unit ported/audited claims are withdrawn on concrete retained C++ evidence. Previously missing enum utility members/caches, source destruction/reconstruction, vector group order and caller-owned side-constraint output are corrected in this bounded increment. Retained C++ consumers are dt2bv_tactic and enum2bv_solver; their complete Go integrations remain separate work. Broader quantifier/application native destructor exception prefixes, source input params_ref ownership and full native exceptional destruction are not established by existing algorithm tests or these normal owner/prefix checks. Initial guard tests that reentered during ordinary sort registration timed out and are rejected setup, not passing failure evidence; the final regression uses the actual numerical mutation guard.",
-        "Application and argument conversion previously returned raw handles, lacked local f_def ownership, published maps after vector pins and rolled back acquired registration pins. Concrete lexical owners and ordered publication now match the retained source paths, with initially null locals avoiding artificial reference reservations on ordinary non-enum applications. Physical allocation census verifies definition retirement and a later mapping-vector refusal with the actual result/map/owning prefixes. Reference-page frontiers differ across build profiles, so the portable definition-cleanup assertion uses the publication refusal reachable in all profiles. Equality/distinct tests observe prior scalar/tmp/vector pins through the actual external sort predicate, then prove retirement on predicate failure. An actual numerical mutation guard verifies unconsumed lexical cleanup and member barriers. Whole units remain partial for quantifier locals, pretty-print errors, params_ref and general native exception/NUM destruction auditing.",
-        "The quantifier reduction formerly used borrowed bounds/body handles, a call-local sort array and ignored result_pr. Concrete owners and source buffer/proof ordering are now implemented. Real external predicate observation verifies bound ownership before the next binder. A no-bounds reference-page census distinguishes acquired/retired body ownership from quantifier-payload-only allocation failures; a generic injected error alone was insufficient, and canonical native construction may complete without another refusal. Actual deletion traces verify body-before-forward-bounds retirement, and the numerical mutation guard verifies unconsumed owner retention/member barriers and retry. Universal/existential metadata and real proof slots are tested; no-finite-sort calls preserve outputs without reference reservation. Full native C++ vector allocation/throwing-destructor and physical NUM cleanup remain separate unsupported/unverified obligations; params_ref and proof-engine audit are still open. Whole units remain partial.",
-        "All reached throw_non_fd calls now include the source expression, using actual process PP module values rather than defaults or a cached/fallback diagnostic, and preserve the concrete rewriter_exception identity/no-error-code default-exception hierarchy for typed tactic catches. check_for_fd names its offending argument rather than the enclosing application. Source Pop assertions are compiled/gated through the real debug owner and report exact sites243/245 with the actual T-action DefaultException transport. Native Pop0 can reset traversal with nonempty bounds as the erased source macro permits; invalid positive scope subtraction is still rejected before unsafe indexing (native C++ would leave its defined precondition). Existing blanket bounds rejection was stronger than the source. Remaining params_ref input, proof-engine composition, general exception transport and consumed-NUM destruction keep whole units partial.",
-        "The former root-level proof synthesis and per-call proof-mode query are removed. Source rw construction captures manager proof mode, including reconstruction by Cleanup. The existing proof engine now composes child rewrite premises into application congruence and introduces a rewritten quantifier body when its binder sorts are unchanged; no-proof traversal leaves the caller proof untouched even after manager mode changes. Three regressions reject the previous implementation behaviorally. This does not audit every proof-engine exception/ownership frontier or claim stronger proofs for the source enum-binder conversion, whose configuration explicitly returns a null proof. Source params_ref input ownership, retained tactic/solver integrations and general exceptional destruction remain open.",
-        "The constructor now requires the actual ParamsContext and ParamsRef. Existing Go consumers are tests and have been updated to supply matching explicit owners; no optional compatibility constructor or internal production fallback is retained. Constructor parameter copying now uses the source shared backing and copy-on-write mutation behavior. UpdateParams takes but does not inspect or replace its argument, as in source. The Cleanup temporary and interrupted replacement ownership are implemented, including tracked decrement continuation; this does not establish every native throwing-destructor/physical NUM path or complete retained dt2bv/enum2bv_solver integration."
+        "Go exposes the rewriter surface through concrete methods returning explicit errors and owning ASTRefs rather than C++ overloads, raw expression/proof reference wrappers, or mutable obj_map references.",
+        "The Go type owns two independent DatatypeUtil instances and uses checked ASTRefs plus retryable explicit teardown. It preserves source-visible scope, output, proof, parameter, and member-retirement behavior without claiming C++ STL allocation or throwing-destructor internals.",
+        "The retained dt2bv and enum2bv solver consumers instantiate this API directly and have focused integration tests."
       ]
     },
     {
