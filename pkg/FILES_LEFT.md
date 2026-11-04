@@ -66,7 +66,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/bmc/dl_bmc_engine.cpp` — Linear, nonlinear, and quantified-linear compilation/search/proof/trace behavior maps to `pkg/muz/bmc` and `pkg/muz/fp`; focused BMC/QBMC tests pass, including the corrected fact-level regression.
 - [x] `src/muz/bmc/dl_bmc_engine.h` — The declaration-only BMC engine surface is implemented by `PropositionalEngine` and the `pkg/muz/bmc` helpers, including query, answer, certificate, statistics, reset, and trace operations; existing focused BMC/QBMC tests pass.
 - [x] `src/muz/dataflow/dataflow.h` — The live `reachability_info` instantiation’s bottom-up and top-down propagation, dependency lookup, and fact queries map to `pkg/muz/dataflow`; unused generic template methods have no retained consumers. Existing reachability and COI tests pass.
-- [ ] `src/muz/duality/duality_dl_interface.cpp` — Query, result, model, proof, and certificate paths are mapped; unsupported level/cover calls no longer fall through to PDR, and the empty statistics reset remains a no-op. Wider backend lifecycle and ownership audit remains open.
+- [x] `src/muz/duality/duality_dl_interface.cpp` — Query construction and reuse, transformed-rule selection, solver options/results, counterexamples, annotation models, proof extraction, certificates, unsupported interface stubs, and cleanup map to the Go fixedpoint/Duality owners; source/result/ownership audits and focused Duality, fixedpoint, and SMT-LIB tests pass.
 - [ ] `src/muz/duality/duality_dl_interface.h`
 - [ ] `src/muz/fp/datalog_parser.cpp`
 - [ ] `src/muz/fp/datalog_parser.h`
