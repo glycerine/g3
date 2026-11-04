@@ -80365,10 +80365,11 @@
         },
         {
           "name": "Concrete config_hwf context bound-policy numerals, source-order parameter updates, depth/node/memory limits and root inverse-image dispatch (src/math/subpaving/subpaving_t_def.h:408-514,1641)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_root.go",
           "tests": [
-            "TestSubpavingHardwareContextBoundPolicyAndRootDispatch"
+            "TestSubpavingHardwareContextBoundPolicyAndRootDispatch",
+            "TestSubpavingHardwareContextReadsParamsRefInSourceOrder"
           ]
         },
         {
@@ -81760,10 +81761,11 @@
         },
         {
           "name": "Concrete config_hwf context bound-policy numerals, source-order parameter updates, depth/node/memory limits and root inverse-image dispatch (src/math/subpaving/subpaving_t_def.h:408-514,1641)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_root.go",
           "tests": [
-            "TestSubpavingHardwareContextBoundPolicyAndRootDispatch"
+            "TestSubpavingHardwareContextBoundPolicyAndRootDispatch",
+            "TestSubpavingHardwareContextReadsParamsRefInSourceOrder"
           ]
         },
         {
