@@ -81552,12 +81552,13 @@
             "TestSubpavingFastContextBoundFlowAndRelevance",
             "TestSubpavingFastContextIntegerNormalizationAndCandidate",
             "TestFastContextNamedParamsSinglePassAndStoppedPrefix",
-            "TestSubpavingFastNodeConstantIntervalViews"
+            "TestSubpavingFastNodeConstantIntervalViews",
+            "TestFastContextTacticVariableGrowthBeforeRoot"
           ]
         },
         {
           "name": "Concrete config_mpff polynomial definition and forward/reverse bound propagation through interval arithmetic (src/math/subpaving/subpaving_t_def.h:669-768,1408-1496)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_polynomial.go",
           "tests": [
             "TestSubpavingFastPolynomialForwardReverseAndOwnedCoefficients",
