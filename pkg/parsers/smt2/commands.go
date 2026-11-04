@@ -270,7 +270,7 @@ func (p *commandParser) fixedpointQuery(declaration ast.ASTHandle) (status lbool
 	if err != nil || p.ignoreChecks {
 		return lbool.Undef, printAnswer, printStatistics, printCertificate, err
 	}
-	status, err = p.context.QueryFixedpointWithParams(declaration, &options)
+	status, err = p.context.QueryFixedpointCommandWithParams(declaration, &options)
 	return status, printAnswer, printStatistics, printCertificate, err
 }
 

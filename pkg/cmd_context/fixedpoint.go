@@ -213,7 +213,7 @@ func (c *Context) SetFixedpointParameters(params *uparams.ParamsRef) error {
 	return engine.SetQueryParameters(params)
 }
 
-func (c *Context) prepareFixedpointQuery(params *uparams.ParamsRef) (*muzfp.PropositionalEngine, error) {
+func (c *Context) prepareFixedpointQuery(params *uparams.ParamsRef, includeCurrentAssertions bool) (*muzfp.PropositionalEngine, error) {
 	engine, err := c.fixedpointContext()
 	if err != nil {
 		return nil, err
@@ -221,9 +221,12 @@ func (c *Context) prepareFixedpointQuery(params *uparams.ParamsRef) (*muzfp.Prop
 	if err = engine.PrepareQueryParameters(params); err != nil {
 		return nil, err
 	}
-	assertions, err := c.Assertions()
-	if err != nil {
-		return nil, err
+	var assertions []ast.ASTHandle
+	if includeCurrentAssertions {
+		assertions, err = c.Assertions()
+		if err != nil {
+			return nil, err
+		}
 	}
 	manager, err := c.Manager()
 	if err != nil {
@@ -276,21 +279,36 @@ func (c *Context) FixedpointPredicates() ([]ast.ASTHandle, error) {
 // QueryFixedpointWithParams applies query-local fixedpoint settings before
 // module settings and bounds the query with the effective fixedpoint timeout.
 func (c *Context) QueryFixedpointWithParams(declaration ast.ASTHandle, params *uparams.ParamsRef) (result lbool.LBool, resultErr error) {
-	return c.queryFixedpoint(declaration, params, false, nil)
+	return c.queryFixedpoint(declaration, params, false, nil, true)
+}
+
+// QueryFixedpointCommandWithParams executes dl_query_cmd: each current SMT
+// assertion is appended to the fixedpoint background before parameters update.
+func (c *Context) QueryFixedpointCommandWithParams(declaration ast.ASTHandle, params *uparams.ParamsRef) (lbool.LBool, error) {
+	assertions, err := c.Assertions()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	for _, assertion := range assertions {
+		if err := c.AssertFixedpoint(assertion); err != nil {
+			return lbool.Undef, err
+		}
+	}
+	return c.queryFixedpoint(declaration, params, false, nil, false)
 }
 
 // QueryFixedpointExpression evaluates a Boolean query with the configured timeout.
 func (c *Context) QueryFixedpointExpression(query ast.ASTHandle) (lbool.LBool, error) {
-	return c.queryFixedpoint(query, nil, true, nil)
+	return c.queryFixedpoint(query, nil, true, nil, true)
 }
 
 // QueryFixedpointExpressionWithParams applies fixedpoint-local settings to a Boolean query.
 func (c *Context) QueryFixedpointExpressionWithParams(query ast.ASTHandle, params *uparams.ParamsRef) (lbool.LBool, error) {
-	return c.queryFixedpoint(query, params, true, nil)
+	return c.queryFixedpoint(query, params, true, nil, true)
 }
 
-func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef, expression bool, level *uint32) (result lbool.LBool, resultErr error) {
-	engine, err := c.prepareFixedpointQuery(params)
+func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef, expression bool, level *uint32, includeCurrentAssertions bool) (result lbool.LBool, resultErr error) {
+	engine, err := c.prepareFixedpointQuery(params, includeCurrentAssertions)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -321,7 +339,7 @@ func (c *Context) QueryFixedpointRelations(declarations []ast.ASTHandle) (lbool.
 
 // QueryFixedpointRelationsWithParams applies fixedpoint-local relation-query settings.
 func (c *Context) QueryFixedpointRelationsWithParams(declarations []ast.ASTHandle, params *uparams.ParamsRef) (result lbool.LBool, resultErr error) {
-	engine, err := c.prepareFixedpointQuery(params)
+	engine, err := c.prepareFixedpointQuery(params, true)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -341,13 +359,13 @@ func (c *Context) QueryFixedpointFromLevel(declaration ast.ASTHandle, level uint
 
 // QueryFixedpointFromLevelWithParams runs a bounded Spacer query with local settings.
 func (c *Context) QueryFixedpointFromLevelWithParams(declaration ast.ASTHandle, level uint32, params *uparams.ParamsRef) (lbool.LBool, error) {
-	return c.queryFixedpoint(declaration, params, false, &level)
+	return c.queryFixedpoint(declaration, params, false, &level, true)
 }
 
 // QueryFixedpointExpressionFromLevelWithParams runs a general Spacer query
 // beginning at the requested proof level with fixedpoint-local settings.
 func (c *Context) QueryFixedpointExpressionFromLevelWithParams(query ast.ASTHandle, level uint32, params *uparams.ParamsRef) (lbool.LBool, error) {
-	return c.queryFixedpoint(query, params, true, &level)
+	return c.queryFixedpoint(query, params, true, &level, true)
 }
 
 // FixedpointReasonUnknown returns the execution status of the latest
