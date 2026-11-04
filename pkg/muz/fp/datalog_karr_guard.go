@@ -11,6 +11,7 @@ import (
 
 type karrGuardRule struct {
 	body           ast.ASTHandle
+	inputConstants []uint32
 	row            []big.Rat
 	constant       big.Rat
 	equal          bool
@@ -66,7 +67,7 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 		return none, out, err
 	}
 	positions := make(map[ast.ASTHandle]uint32, arity)
-	columns := make([]ast.ASTHandle, arity)
+	columns := make([]ast.ASTHandle, 0, arity)
 	for i := uint32(0); i < arity; i++ {
 		arg, err := a.manager.GetArg(tail, i)
 		if err != nil {
@@ -77,13 +78,22 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 			return none, out, err
 		}
 		if kind != ast.ASTVar {
-			return none, out, ErrKarrDatalogFragment
+			_, _, matched, err := a.manager.ArithmeticNumeralText(arg)
+			if err != nil {
+				return none, out, err
+			}
+			if !matched {
+				return none, out, ErrKarrDatalogFragment
+			}
+			// Earlier constants have already been removed from the signature.
+			out.inputConstants = append(out.inputConstants, uint32(len(columns)))
+			continue
 		}
 		if _, exists := positions[arg]; exists {
 			return none, out, ErrKarrDatalogFragment
 		}
-		positions[arg] = i
-		columns[i] = arg
+		positions[arg] = uint32(len(columns))
+		columns = append(columns, arg)
 	}
 	// The native combined filter/project removes every tail variable absent
 	// from the head, sorting source column indices before projection.
@@ -145,6 +155,21 @@ func (a *karrDatalogActivation) compileGuardRule(rule *base.Rule) (ast.ASTHandle
 
 func (a *karrDatalogActivation) applyGuardRule(r karrGuardRule, source *rel.KarrRelation) (*rel.KarrRelation, error) {
 	result := source.Clone()
+	for _, column := range r.inputConstants {
+		if !result.Empty() {
+			if err := result.FilterEqual(column, true); err != nil {
+				return nil, err
+			}
+		}
+		var err error
+		result, err = rel.KarrSourceProject(result, []uint32{column})
+		if err != nil {
+			return nil, err
+		}
+		if err = a.checkpoint(); err != nil {
+			return nil, err
+		}
+	}
 	apply := func(condition karrGuardRule) error {
 		if err := rel.KarrSourceFilterConstraint(result, condition.row, &condition.constant, condition.equal); err != nil {
 			return err

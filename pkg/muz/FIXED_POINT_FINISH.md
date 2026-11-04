@@ -75,6 +75,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Extend bounded Karr comparisons to source linear integer addition, subtraction, unary minus and numeral multiplication; nested expressions, operand order, actual filter rows and failure recovery are tested.
   - [x] Support bounded Karr filter-and-project rules, including nullary and permuted heads, cached-basis behavior, empty inputs and failure recovery.
   - [x] Support multiple bounded Karr interpreted guards in source conjunction-flattening order, including projection and unsupported-conjunct retry; other Boolean guard forms remain open.
+  - [x] Support integer constants in guarded unary Karr tails with source column shifts and fixed-to-one selection; public and failure-retry tests pass.
   - [ ] Resolve the previously supported unary path's multiple-duplicate-group ordering divergence: source map traversal can change Karr row and generator order, while Go currently uses first occurrence. Do not remove existing support or port source hashing.
   - [ ] Implement and verify the live configured Datalog Karr relation routes and operation semantics through their actual consumers.
   - [x] Restore the PDR manager's live pre-converter model TRACE for model export, validation and direct answers; test source ordering, disabled tracing and ownership.
@@ -164,6 +165,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Verify a missing later predecessor releases earlier selections and permits a repaired-model retry; this tests Go handling of a source assertion invariant.
   - [x] Verify a failed later Spacer derivation summary leaves its active state unchanged and can be repaired and retried.
   - [x] Verify selected reach-fact auxiliary renaming and projection during Spacer derivation advancement.
+  - [x] Verify actual Spacer must-reach selection and solver reuse for opposing facts with both reach-as-initial settings.
   - [x] Verify PDR/QPDR coalescing is gated by positive unfold rounds and precedes unfolding, across zero, one and two rounds.
   - [x] Match TAB's source `basic-weight` fallthrough to weight selection, and test its cached-selection behavior. Verify DDNF reparenting/mark traversal, CLP search result ordering and relational compiler projection selection against their source paths.
   - [x] Verify Duality tree interpolation includes each node's extra constraints and restores the temporary solver scope; other interpolation branches and exceptional cleanup remain under audit.
