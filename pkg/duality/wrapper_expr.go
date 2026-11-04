@@ -47,6 +47,12 @@ func (e *Expr) Close() error {
 	return e.value.Close()
 }
 
+// Closed reports whether Close consumed this expression's owning reference,
+// including when the underlying release also returned an error.
+func (e *Expr) Closed() bool {
+	return e != nil && e.value != nil && e.value.closed
+}
+
 func (e *Expr) Clone() (*Expr, error) {
 	if err := e.open(); err != nil {
 		return nil, err

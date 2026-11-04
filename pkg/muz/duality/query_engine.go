@@ -53,10 +53,14 @@ func (r *queryRun) close() error {
 	}
 	for len(r.background) > 0 {
 		i := len(r.background) - 1
-		if err := r.background[i].Close(); err != nil {
+		err := r.background[i].Close()
+		if r.background[i].Closed() {
+			r.background[i] = nil
+			r.background = r.background[:i]
+		}
+		if err != nil {
 			return err
 		}
-		r.background = r.background[:i]
 	}
 	return nil
 }
