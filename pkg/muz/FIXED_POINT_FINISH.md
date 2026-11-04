@@ -84,6 +84,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [ ] Complete the PDR manager ownership and remaining diagnostic audit; the separate rule-manager diagnostic display has no source caller.
   - [x] Classify the Duality CMake component as a Go package-discovery replacement without promoting its implementation; narrow the Duality interface claim to its tested paths. Correct stale PDR solver-cleanup descriptions and record the deliberate QBMC fixes relative to the bundled C++ source.
   - [x] Resume Duality prepared-query cleanup after consumed-with-error background or clause releases; native failure tests cover retry and partial-close guards.
+  - [x] Verify the complementary unconsumed background and clause release refusals preserve prepared-query owners and permit retry.
   - [x] Match the source model-evaluator exception fallback for QBMC variable bindings, preserving the separately approved corrected derivation-level behavior; a real evaluator exception and allocation-failure retry are covered.
   - [x] Preserve a failed PDR delayed-scope cleanup for retry during solver close; a native partial-pop test covers owner retention and pending-operation refusal, while end-to-end injection into a real check remains unproven.
   - [x] Repair manifest evidence links to existing tests at unit and method scope; restore the broad portcheck gate without changing test declarations, validator rules or audited statuses. This verifies evidence availability, not semantic completion.
@@ -139,6 +140,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Verify reach-fact projection and justification ownership with two selected predecessor facts, distinct origin indices, projected auxiliaries and both implicant modes.
   - [x] Verify rule-local reach-fact auxiliary elimination and retention with implicant selection both enabled and disabled.
   - [x] Verify a missing later predecessor releases earlier selections and permits a repaired-model retry; this tests Go handling of a source assertion invariant.
+  - [x] Verify a failed later Spacer derivation summary leaves its active state unchanged and can be repaired and retried.
   - [x] Verify PDR/QPDR coalescing is gated by positive unfold rounds and precedes unfolding, across zero, one and two rounds.
   - [x] Match TAB's source `basic-weight` fallthrough to weight selection, and test its cached-selection behavior. Verify DDNF reparenting/mark traversal, CLP search result ordering and relational compiler projection selection against their source paths.
   - [x] Verify Duality tree interpolation includes each node's extra constraints and restores the temporary solver scope; other interpolation branches and exceptional cleanup remain under audit.
