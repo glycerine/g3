@@ -14,6 +14,12 @@ func (o *algebraicRootOwner) isolateRationalRoots(p []*realValue, usePrem bool) 
 	if o == nil || o.values == nil || len(p) == 0 || p[len(p)-1] == nil {
 		return nil, arena.ErrInvalidSlot
 	}
+	if len(p) == 1 {
+		if err := o.values.checkRationalPolynomial(p, false); err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
 	first := 0
 	for first < len(p) && p[first] == nil {
 		first++

@@ -11,6 +11,9 @@ func (o *algebraicRootOwner) isolateTowerRoots(p []*realValue, usePrem bool) ([]
 	if err := o.values.checkAnyPolynomial(p, false); err != nil {
 		return nil, err
 	}
+	if len(p) == 1 {
+		return nil, nil
+	}
 	first := 0
 	for first < len(p) && p[first] == nil {
 		first++
