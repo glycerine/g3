@@ -1,0 +1,76 @@
+package base_test
+
+import (
+	"errors"
+	"fmt"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/ast"
+)
+
+func TestRuleFixUnboundFailureOwnsFreshBindings(t *testing.T) {
+	failures, done := 0, false
+	for stop := int64(0); stop < 30; stop++ {
+		t.Run(fmt.Sprint(stop), func(t *testing.T) {
+			f := newUnboundFixture(t)
+			m := f.manager
+			boolean, err := m.MkBoolSort()
+			ruleMust(t, err)
+			x, err := m.MkVar(0, boolean)
+			ruleMust(t, err)
+			y, err := m.MkVar(1, boolean)
+			ruleMust(t, err)
+			z, err := m.MkVar(2, boolean)
+			ruleMust(t, err)
+			head := f.predicate(t, "unbound-binding-head", []ast.ASTHandle{boolean, boolean}, []ast.ASTHandle{y, z})
+			name, err := m.Symbols.Intern("unbound-binding-opaque")
+			ruleMust(t, err)
+			decl, err := m.MkFuncDecl(name, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
+			ruleMust(t, err)
+			tail, err := m.MkApp(decl, []ast.ASTHandle{x})
+			ruleMust(t, err)
+			rule, err := f.rules.NewRule(head, []ast.ASTHandle{tail}, nil, "unbound-binding")
+			ruleMust(t, err)
+			defer func() { ruleMust(t, rule.Close()) }()
+			for i := 0; i < 2; i++ {
+				r, _, err := f.rules.ReduceUnboundVariables(rule, f.lite)
+				ruleMust(t, err)
+				ruleMust(t, r.Close())
+			}
+			before := m.Stats()
+			m.Budget().FailAfter(stop)
+			fixed, _, cause := f.rules.FixUnboundVariables(rule, f.lite, true)
+			m.Budget().FailAfter(-1)
+			if cause != nil {
+				if fixed != nil || !errors.Is(cause, arena.ErrInjectedFailure) {
+					t.Fatal(fixed, cause)
+				}
+				failures++
+			} else {
+				done = true
+				ruleMust(t, fixed.Close())
+			}
+			// QE may release a warmed cache reference on failure, so compare for
+			// increases rather than requiring an identical cache population.
+			after := m.Stats()
+			if after.LiveNodes > before.LiveNodes || after.LiveReferences > before.LiveReferences {
+				t.Fatal("failed fix left AST roots", before, after, cause)
+			}
+			if cause != nil {
+				fixed, changed, err := f.rules.FixUnboundVariables(rule, f.lite, true)
+				ruleMust(t, err)
+				if !changed {
+					t.Fatal("retry did not bind the unbound variable")
+				}
+				ruleMust(t, fixed.Close())
+			}
+		})
+		if done {
+			break
+		}
+	}
+	if failures == 0 || !done {
+		t.Fatal("campaign incomplete", failures, done)
+	}
+}

@@ -253,12 +253,23 @@ func (m *RuleManager) FixUnboundVariables(rule *Rule, lite *qe.Lite, enabled boo
 		keep = true
 		return current, reduced, nil
 	}
-	body, err := m.manager.MkAndArray(grouped)
+	// The source unbound_tail expr_ref owns the conjunction before any
+	// substitution bindings or rewriter state are allocated.
+	bodyRef, err := m.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
+		return nil, false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&bodyRef)) }()
+	body, err := m.manager.MkAndArray(grouped)
+	if err = errors.Join(err, m.manager.SetRef(bodyRef, body)); err != nil {
 		return nil, false, err
 	}
 	qcount := uint32(len(unbound))
 	arguments := make([]ast.ASTHandle, all.MaxFoundVarIndexPlusOne())
+	// Source keeps the replacement variables in an expr_ref_vector through
+	// substitution, including when constructing the rewriter fails.
+	var argumentRefs []ast.ASTRef
+	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(m.manager, argumentRefs)) }()
 	quantifierSorts := make([]ast.ASTHandle, 0, qcount)
 	qindex := uint32(0)
 	for variable := uint32(0); variable < all.MaxFoundVarIndexPlusOne(); variable++ {
@@ -272,8 +283,13 @@ func (m *RuleManager) FixUnboundVariables(rule *Rule, lite *qe.Lite, enabled boo
 			qindex++
 			quantifierSorts = append(quantifierSorts, sort)
 		}
+		owner, e := m.manager.NewRef(ast.ASTHandle{})
+		if e != nil {
+			return nil, false, e
+		}
+		argumentRefs = append(argumentRefs, owner)
 		arguments[variable], err = m.manager.MkVar(newIndex, sort)
-		if err != nil {
+		if err = errors.Join(err, m.manager.SetRef(owner, arguments[variable])); err != nil {
 			return nil, false, err
 		}
 	}
@@ -284,11 +300,6 @@ func (m *RuleManager) FixUnboundVariables(rule *Rule, lite *qe.Lite, enabled boo
 	if err != nil {
 		return nil, false, err
 	}
-	bodyRef, err := m.manager.NewRef(body)
-	if err != nil {
-		return nil, false, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&bodyRef)) }()
 	if err = substitution.Substitute(body, arguments, bodyRef); err != nil {
 		return nil, false, err
 	}
