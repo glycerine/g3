@@ -28,6 +28,8 @@ type DatalogContext struct {
 	scopes         []datalogContextScope
 	pendingScope   *RuleSet
 	scopeRecovery  bool
+	popCount       uint32
+	popRemaining   uint32
 	background     []ast.ASTRef
 	bindVariables  bool
 	closing        bool

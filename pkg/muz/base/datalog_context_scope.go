@@ -39,13 +39,20 @@ func (c *DatalogContext) Pop(count uint32) error {
 	}
 	c.scopeRecovery = true
 	defer func() { c.scopeRecovery = false }()
+	if c.popCount != 0 && count != c.popCount {
+		return ErrDatalogContextOwner
+	}
 	if err := c.openForScopeCleanup(); err != nil {
 		return err
 	}
-	if uint64(count) > uint64(len(c.scopes)) {
-		return fmt.Errorf("muz/base: datalog scope underflow")
+	if c.popCount == 0 {
+		if uint64(count) > uint64(len(c.scopes)) {
+			return fmt.Errorf("muz/base: datalog scope underflow")
+		}
+		c.popCount = count
+		c.popRemaining = count
 	}
-	for ; count > 0; count-- {
+	for c.popRemaining > 0 {
 		last := len(c.scopes) - 1
 		target := &c.scopes[last]
 		target.popping = true
@@ -82,6 +89,8 @@ func (c *DatalogContext) Pop(count uint32) error {
 			return err
 		}
 		c.scopes = c.scopes[:last]
+		c.popRemaining--
 	}
+	c.popCount = 0
 	return nil
 }
