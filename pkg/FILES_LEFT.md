@@ -15,7 +15,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/api/dll/install_tactic.cpp` — This generated C++ registration unit's complete 106 tactic and 42 probe names, metadata, and source order match the Go registries and concrete factories.
 - [x] `src/api/z3.h` — Not applicable: C/C++ umbrella header; Go consumers import the `api` package. Individual API files remain listed separately.
 - [x] `src/api/z3_algebraic.h` — All declared algebraic value checks, arithmetic, roots, polynomial evaluation, and comparisons are exposed through typed Go API methods with focused checks passing.
-- [ ] `src/api/z3_api.h`
+- [x] `src/api/z3_api.h` — Not applicable: this header is the native C ABI type/enum/API-generator declaration catalog; Go uses typed package APIs and its generated replay command tables, with implementation behavior tracked in the corresponding source units.
 - [ ] `src/api/z3_ast_containers.h`
 - [ ] `src/api/z3_fixedpoint.h`
 - [ ] `src/api/z3_fpa.h`
