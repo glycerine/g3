@@ -1,8 +1,12 @@
 package duality
 
 import (
+	"errors"
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 	"testing"
 )
 
@@ -119,5 +123,27 @@ func TestEdgeSolverPoolFirstCreationFlagsAxiomsAndCacheIsolation(t *testing.T) {
 	must(pool.Close())
 	if _, err = pool.SolverForEdge(ae, false, false, nil); err == nil {
 		t.Fatal("closed pool accepted lookup")
+	}
+	failure := errors.New("injected edge solver construction failure")
+	calls := 0
+	retryFactory := solver.FactoryFunc(func(manager *ast.ASTManager, params *uparams.ParamsRef, proofs, models, cores bool, logic string) (solver.Solver, error) {
+		calls++
+		if calls == 1 {
+			return nil, failure
+		}
+		return factory.New(manager, params, proofs, models, cores, logic)
+	})
+	retryPool, err := NewEdgeSolverPool(ctx, retryFactory)
+	must(err)
+	defer retryPool.Close()
+	retryEdge, err := graph.CreateLowerBoundEdge(a)
+	must(err)
+	if _, err = retryPool.SolverForEdge(retryEdge, false, false, nil); !errors.Is(err, failure) {
+		t.Fatal("solver construction failure was not returned", err)
+	}
+	retried, err := retryPool.SolverForEdge(retryEdge, true, false, nil)
+	must(err)
+	if retried == nil || calls != 2 {
+		t.Fatal("failed edge solver construction was not retryable", calls)
 	}
 }
