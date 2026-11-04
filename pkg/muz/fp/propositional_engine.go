@@ -2467,6 +2467,17 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if hasExternal {
 		return e.queryExternalDatalogPredicates(declarations, count)
 	}
+	// The source Datalog backend rejects infinite sorts during check_rules.
+	// Go has additional integer, interval, and external-relation backends, so
+	// let those source extensions claim their supported programs first. Apply
+	// the source restriction before finite-table evaluation.
+	properties, err := e.rulePropertyOwner()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if err = properties.CheckInfiniteSorts(); err != nil {
+		return lbool.Undef, fmt.Errorf("%w: validate datalog rule fragment: %w", ErrPropositionalHorn, err)
+	}
 	if count == 0 && len(declarations) > 0 {
 		hasInfinite, nonempty := false, false
 		for _, declaration := range declarations {
