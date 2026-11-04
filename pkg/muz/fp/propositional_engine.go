@@ -2477,7 +2477,7 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 			return lbool.Undef, x
 		}
 		if !valid {
-			return lbool.Undef, fmt.Errorf("muz/fp: negation is not stratified")
+			return lbool.Undef, ErrUnstratifiedNegation
 		}
 	}
 	if e.datalogExplanationQuery {

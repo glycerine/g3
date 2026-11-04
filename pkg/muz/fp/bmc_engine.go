@@ -182,7 +182,7 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 			return lbool.Undef, err
 		}
 		if !valid {
-			return lbool.Undef, fmt.Errorf("muz/fp: negation is not stratified")
+			return lbool.Undef, ErrUnstratifiedNegation
 		}
 	}
 	view, err := e.fixedpointParamView()

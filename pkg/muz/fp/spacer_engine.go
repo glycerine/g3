@@ -582,7 +582,7 @@ func (e *PropositionalEngine) querySpacerAtLevel(declaration ast.ASTHandle, from
 			return lbool.Undef, x
 		}
 		if !valid {
-			return lbool.Undef, fmt.Errorf("muz/fp: negation is not stratified")
+			return lbool.Undef, ErrUnstratifiedNegation
 		}
 	}
 	// Spacer uses apply_default_transformation, not rel_context's filter/

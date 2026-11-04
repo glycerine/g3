@@ -233,7 +233,7 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 			return lbool.Undef, x
 		}
 		if !valid {
-			return lbool.Undef, fmt.Errorf("muz/fp: negation is not stratified")
+			return lbool.Undef, ErrUnstratifiedNegation
 		}
 	}
 	// Match pdr_dl_interface's default Horn transformations. Relational

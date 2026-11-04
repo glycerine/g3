@@ -30,4 +30,16 @@ func TestFixedpointQueryExceptionPreservesOtherFailures(t *testing.T) {
 	if got := classifyFixedpointQueryException(&base.RulePropertyError{Kind: base.RulePropertyNested, SourceMessage: "other"}); FixedpointCaughtQueryException(got) != nil {
 		t.Fatal("classified an unverified exception kind")
 	}
+	caught := classifyFixedpointQueryException(fp.ErrUnstratifiedNegation)
+	if exception := FixedpointCaughtQueryException(caught); exception == nil || exception.Message != "Negation is not stratified!" || !errors.Is(exception, fp.ErrUnstratifiedNegation) {
+		t.Fatalf("unstratified exception = %v", caught)
+	}
+	cleanup := errors.New("cleanup failure")
+	joined := errors.Join(fp.ErrUnstratifiedNegation, cleanup)
+	if got := classifyFixedpointQueryException(joined); got != joined {
+		t.Fatalf("swallowed backend cleanup failure: %v", got)
+	}
+	if got := FixedpointCaughtQueryException(errors.Join(caught, cleanup)); got != nil {
+		t.Fatalf("swallowed timeout cleanup failure: %v", got)
+	}
 }

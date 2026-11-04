@@ -19,17 +19,24 @@ func (e *FixedpointQueryException) Unwrap() error { return e.Cause }
 // classifyFixedpointQueryException accepts only a known source exception and
 // the Go fragment marker. A joined cleanup failure must remain an error.
 func classifyFixedpointQueryException(err error) error {
-	var property *base.RulePropertyError
+	message := ""
 	var visit func(error) bool
 	visit = func(e error) bool {
 		if e == nil || e == fp.ErrPropositionalHorn {
 			return true
 		}
 		if p, ok := e.(*base.RulePropertyError); ok {
-			if property != nil || (p.Kind != base.RulePropertyNegativePredicate && p.Kind != base.RulePropertyInfiniteSort && p.Kind != base.RulePropertyUninterpreted) || p.SourceMessage == "" {
+			if message != "" || (p.Kind != base.RulePropertyNegativePredicate && p.Kind != base.RulePropertyInfiniteSort && p.Kind != base.RulePropertyUninterpreted) || p.SourceMessage == "" {
 				return false
 			}
-			property = p
+			message = p.SourceMessage
+			return true
+		}
+		if e == fp.ErrUnstratifiedNegation {
+			if message != "" {
+				return false
+			}
+			message = "Negation is not stratified!"
 			return true
 		}
 		if multi, ok := e.(interface{ Unwrap() []error }); ok {
@@ -45,8 +52,8 @@ func classifyFixedpointQueryException(err error) error {
 		}
 		return false
 	}
-	if visit(err) && property != nil {
-		return &FixedpointQueryException{Message: property.SourceMessage, Cause: err}
+	if visit(err) && message != "" {
+		return &FixedpointQueryException{Message: message, Cause: err}
 	}
 	return err
 }
