@@ -15,6 +15,8 @@ import (
 // value variants used by real-closure operations.
 type realValueStore struct {
 	numbers                  *numeral.RationalManager
+	intervals                *numeral.BinaryRationalManager
+	intervalRestore          *intervalRestoreFrame
 	limit                    *control.Reslimit
 	cooperation              *cooperate.Cooperation
 	initialPrecision         uint32

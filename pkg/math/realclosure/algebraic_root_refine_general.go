@@ -13,6 +13,9 @@ func (s *realValueStore) refineSingleAlgebraicRoot(root *algebraicRoot, precisio
 	if s == nil || root == nil || root.deleted || root.owner == nil || root.owner.values != s || root.interval == nil {
 		return false, arena.ErrInvalidSlot
 	}
+	if err = s.saveExtensionIntervalIfTooSmall(root, precision); err != nil {
+		return false, err
+	}
 	if root.signs != nil || root.interval.lowerInf || root.interval.upperInf {
 		return false, nil
 	}

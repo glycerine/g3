@@ -140,6 +140,9 @@ func (s *realValueStore) signApproxAtBinaryBound(coefficients []*realValue, boun
 				continue
 			}
 			if value.isRational {
+				if e := s.saveIntervalIfTooSmall(value, precision); e != nil {
+					return 0, e
+				}
 				coefficient, e := coefficientInterval(value)
 				if e != nil {
 					return 0, e
@@ -148,6 +151,9 @@ func (s *realValueStore) signApproxAtBinaryBound(coefficients []*realValue, boun
 					return 0, e
 				}
 			} else {
+				if e := s.saveIntervalIfTooSmall(value, precision); e != nil {
+					return 0, e
+				}
 				refined, e := s.refineSturmAlgebraicInterval(value, precision)
 				if e != nil {
 					return 0, e

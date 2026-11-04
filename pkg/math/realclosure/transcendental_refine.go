@@ -9,13 +9,16 @@ import (
 	"github.com/glycerine/g3/pkg/math/interval"
 )
 
-func (s *realValueStore) refineTranscendentalRoot(root *algebraicRoot, _ uint32) (err error) {
+func (s *realValueStore) refineTranscendentalRoot(root *algebraicRoot, precision uint32) (err error) {
 	if s == nil || root == nil || root.kind != realExtensionTranscendental || !root.isRegistered() || root.interval == nil || root.owner.api == nil || root.transcendentalStep == ^uint32(0) {
 		return arena.ErrInvalidSlot
 	}
 	api := root.owner.api
 	if api.transcendentals == nil || api.initialPrecision == 0 || (root.name != "pi" && root.name != "e") {
 		return arena.ErrInvalidSlot
+	}
+	if err := s.saveExtensionIntervalIfTooSmall(root, precision); err != nil {
+		return err
 	}
 	if err := s.checkpoint(); err != nil {
 		return err

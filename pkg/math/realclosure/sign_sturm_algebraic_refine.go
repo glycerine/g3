@@ -21,6 +21,9 @@ func (s *realValueStore) refineSturmAlgebraicInterval(value *realValue, precisio
 	if root.deleted || root.owner == nil || root.owner.values != s || root.interval == nil || root.owner.intervals != value.functionInterval.numbers {
 		return false, arena.ErrInvalidSlot
 	}
+	if err = s.saveExtensionIntervalIfTooSmall(root, precision); err != nil {
+		return false, err
+	}
 	if root.signs != nil || root.interval.lowerInf || root.interval.upperInf {
 		return false, nil
 	}

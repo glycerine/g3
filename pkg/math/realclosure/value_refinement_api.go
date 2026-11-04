@@ -37,6 +37,9 @@ func (s *realValueStore) refineValueInterval(value *realValue, bounds *numeral.B
 	if magnitude == math.MinInt32 || magnitude < 0 && uint32(-magnitude) > precision {
 		return true, nil
 	}
+	if err = s.saveIntervalIfTooSmall(value, precision); err != nil {
+		return false, err
+	}
 	if value.isRational {
 		return true, s.refineSturmRationalInterval(value, interval, precision)
 	}

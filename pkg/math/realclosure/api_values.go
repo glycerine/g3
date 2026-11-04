@@ -49,10 +49,11 @@ func (v *APIValues) Rational(text string) (*APIValue, error) {
 
 // IsolateRoots takes coefficients in ascending degree order and returns the
 // source's root order. Each result owns one reference, including zero.
-func (v *APIValues) IsolateRoots(coefficients []*APIValue) ([]*APIValue, error) {
+func (v *APIValues) IsolateRoots(coefficients []*APIValue) (result []*APIValue, err error) {
 	if v == nil || v.bounds == nil || len(coefficients) == 0 {
 		return nil, arena.ErrInvalidSlot
 	}
+	defer v.store.intervalRestoreDefer(&err)()
 	p := make([]*realValue, len(coefficients))
 	for i, coefficient := range coefficients {
 		if coefficient == nil || coefficient.owner != v {
@@ -70,7 +71,7 @@ func (v *APIValues) IsolateRoots(coefficients []*APIValue) ([]*APIValue, error) 
 	if err != nil {
 		return nil, errors.Join(err, v.store.releaseSturmCoefficients(roots))
 	}
-	result := make([]*APIValue, len(roots))
+	result = make([]*APIValue, len(roots))
 	for i, root := range roots {
 		result[i] = v.wrap(root)
 	}
@@ -198,6 +199,7 @@ func NewAPIValuesWithExecution(service *numeral.RationalService, limit *control.
 		initialPrecision: 24,
 	}
 	v.store.numbers = service.Manager
+	v.store.intervals = bounds
 	v.store.limit = limit
 	v.store.cooperation = cooperation
 	v.roots.values, v.roots.intervals = &v.store, bounds
@@ -223,65 +225,72 @@ func (v *APIValues) valid(values ...*APIValue) bool {
 }
 
 // Add, Sub, Mul and Div return owning values in the same real-closure context.
-func (v *APIValues) Add(a, b *APIValue) (*APIValue, error) {
+func (v *APIValues) Add(a, b *APIValue) (result *APIValue, err error) {
 	if !v.valid(a, b) {
 		return nil, arena.ErrInvalidSlot
 	}
+	defer v.store.intervalRestoreDefer(&err)()
 	r, err := v.store.addRankedRetainedValues(a.value, b.value, true)
 	if err != nil {
 		return nil, err
 	}
 	return v.wrap(r), nil
 }
-func (v *APIValues) Sub(a, b *APIValue) (*APIValue, error) {
+func (v *APIValues) Sub(a, b *APIValue) (result *APIValue, err error) {
 	if !v.valid(a, b) {
 		return nil, arena.ErrInvalidSlot
 	}
+	defer v.store.intervalRestoreDefer(&err)()
 	r, err := v.store.subtractRankedRetainedValues(a.value, b.value, true)
 	if err != nil {
 		return nil, err
 	}
 	return v.wrap(r), nil
 }
-func (v *APIValues) Mul(a, b *APIValue) (*APIValue, error) {
+func (v *APIValues) Mul(a, b *APIValue) (result *APIValue, err error) {
 	if !v.valid(a, b) {
 		return nil, arena.ErrInvalidSlot
 	}
+	defer v.store.intervalRestoreDefer(&err)()
 	r, err := v.store.multiplyRankedRetainedValues(a.value, b.value, true)
 	if err != nil {
 		return nil, err
 	}
 	return v.wrap(r), nil
 }
-func (v *APIValues) Div(a, b *APIValue) (*APIValue, error) {
+func (v *APIValues) Div(a, b *APIValue) (result *APIValue, err error) {
 	if !v.valid(a, b) {
 		return nil, arena.ErrInvalidSlot
 	}
+	defer v.store.intervalRestoreDefer(&err)()
 	r, err := v.store.divideRankedRetainedValues(a.value, b.value, true)
 	if err != nil {
 		return nil, err
 	}
 	return v.wrap(r), nil
 }
-func (v *APIValues) Compare(a, b *APIValue) (int, error) {
+func (v *APIValues) Compare(a, b *APIValue) (comparison int, err error) {
 	if !v.valid(a, b) {
 		return 0, arena.ErrInvalidSlot
 	}
+	defer v.store.intervalRestoreDefer(&err)()
 	return v.store.compareRankedRetainedValues(a.value, b.value, true)
 }
 
-func (v *APIValues) IsZero(a *APIValue) (bool, error) {
+func (v *APIValues) IsZero(a *APIValue) (zero bool, err error) {
 	if !v.valid(a) {
 		return false, arena.ErrInvalidSlot
 	}
+	defer v.store.intervalRestoreDefer(&err)()
 	sign, err := v.store.determineRankedRetainedValueSign(a.value, true)
 	return sign == 0, err
 }
 
-func (v *APIValues) Neg(a *APIValue) (*APIValue, error) {
+func (v *APIValues) Neg(a *APIValue) (result *APIValue, err error) {
 	if !v.valid(a) {
 		return nil, arena.ErrInvalidSlot
 	}
+	defer v.store.intervalRestoreDefer(&err)()
 	r, err := v.store.negateRankedRetainedValue(a.value, true)
 	if err != nil {
 		return nil, err
@@ -289,10 +298,11 @@ func (v *APIValues) Neg(a *APIValue) (*APIValue, error) {
 	return v.wrap(r), nil
 }
 
-func (v *APIValues) Inv(a *APIValue) (*APIValue, error) {
+func (v *APIValues) Inv(a *APIValue) (result *APIValue, err error) {
 	if !v.valid(a) {
 		return nil, arena.ErrInvalidSlot
 	}
+	defer v.store.intervalRestoreDefer(&err)()
 	r, err := v.store.inverseRankedRetainedValue(a.value, true)
 	if err != nil {
 		return nil, err
@@ -300,30 +310,33 @@ func (v *APIValues) Inv(a *APIValue) (*APIValue, error) {
 	return v.wrap(r), nil
 }
 
-func (v *APIValues) Power(a *APIValue, exponent uint32) (*APIValue, error) {
+func (v *APIValues) Power(a *APIValue, exponent uint32) (result *APIValue, err error) {
 	if !v.valid(a) {
 		return nil, arena.ErrInvalidSlot
 	}
+	defer v.store.intervalRestoreDefer(&err)()
 	r, err := v.store.powerRankedRetainedValue(a.value, exponent, true)
 	if err != nil {
 		return nil, err
 	}
 	return v.wrap(r), nil
 }
-func (v *APIValues) Display(w io.Writer, a *APIValue, compact, pretty bool) error {
+func (v *APIValues) Display(w io.Writer, a *APIValue, compact, pretty bool) (err error) {
 	if !v.valid(a) {
 		return arena.ErrInvalidSlot
 	}
+	defer v.store.intervalRestoreDefer(&err)()
 	if !a.value.isRational && a.value.root.kind != realExtensionAlgebraic {
 		return v.store.displayRankedExpression(w, a.value, compact, pretty)
 	}
 	return v.store.displayValue(w, a.value, compact, pretty)
 }
 
-func (v *APIValues) DisplayDecimal(w io.Writer, a *APIValue, precision uint32) error {
+func (v *APIValues) DisplayDecimal(w io.Writer, a *APIValue, precision uint32) (err error) {
 	if !v.valid(a) {
 		return arena.ErrInvalidSlot
 	}
+	defer v.store.intervalRestoreDefer(&err)()
 	return v.store.displayValueDecimal(w, a.value, v.bounds, precision)
 }
 
@@ -334,6 +347,7 @@ func (v *APIValues) CleanDenominators(a *APIValue) (numerator, denominator *APIV
 	if !v.valid(a) {
 		return nil, nil, arena.ErrInvalidSlot
 	}
+	defer v.store.intervalRestoreDefer(&err)()
 	n, d, err := v.store.cleanTowerValueIfNeeded(a.value, true)
 	if err != nil {
 		return nil, nil, errors.Join(err, v.store.releaseSturmScratch(n), v.store.releaseSturmScratch(d))
