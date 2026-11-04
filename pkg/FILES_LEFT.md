@@ -65,7 +65,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/base/fixedpoint_params.hpp` — Generated C++ output from the already-ported `.pyg` source; Go replaces its generated struct/getters with generic type-aware parameter accessors and the catalog preserves all 458 metadata rows.
 - [x] `src/muz/bmc/dl_bmc_engine.cpp` — Linear, nonlinear, and quantified-linear compilation/search/proof/trace behavior maps to `pkg/muz/bmc` and `pkg/muz/fp`; focused BMC/QBMC tests pass, including the corrected fact-level regression.
 - [x] `src/muz/bmc/dl_bmc_engine.h` — The declaration-only BMC engine surface is implemented by `PropositionalEngine` and the `pkg/muz/bmc` helpers, including query, answer, certificate, statistics, reset, and trace operations; existing focused BMC/QBMC tests pass.
-- [ ] `src/muz/dataflow/dataflow.h`
+- [x] `src/muz/dataflow/dataflow.h` — The live `reachability_info` instantiation’s bottom-up and top-down propagation, dependency lookup, and fact queries map to `pkg/muz/dataflow`; unused generic template methods have no retained consumers. Existing reachability and COI tests pass.
 - [ ] `src/muz/duality/duality_dl_interface.cpp`
 - [ ] `src/muz/duality/duality_dl_interface.h`
 - [ ] `src/muz/fp/datalog_parser.cpp`
