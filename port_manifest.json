@@ -82183,10 +82183,12 @@
         },
         {
           "name": "Concrete config_hwf mk_var, mk_sum, and mk_ineq construction with sorted duplicate coefficient swaps (src/math/subpaving/subpaving_t_def.h:666-687,741-780)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_constraints.go",
           "tests": [
-            "TestSubpavingHardwareShellCoefficientAndInequalityConversion"
+            "TestSubpavingHardwareShellCoefficientAndInequalityConversion",
+            "TestHardwarePolynomialSourceIntegerTraceAndPublication",
+            "TestHardwarePolynomialTraceStreamRefusalKeepsDefinition"
           ]
         },
         {
