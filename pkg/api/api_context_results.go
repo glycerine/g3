@@ -17,8 +17,9 @@ import (
 var errAPIObjectOwner = errors.New("api: invalid, copied or retired context result/object owner")
 
 // This is the result/object and selected sort-check portion of api::context,
-// borrowing the real AST manager. It is not a replacement for the unported context constructor,
-// which must also own its services, plugin utilities and tactic registry.
+// borrowing the real AST manager. The owning Go API context and its services,
+// plugin utilities, and tactic registry are provided by SMTContext and
+// cmd_context.Context.
 // The insertion-ordered dictionary gives deterministic teardown without
 // reproducing the source hash table's physical buckets. Values index a cold
 // directory of API wrappers.

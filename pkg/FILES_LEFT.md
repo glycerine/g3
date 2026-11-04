@@ -3,7 +3,7 @@
 Source files classified as partial in `port_manifest.json` when this list was created. Check a file after its applicable live behavior is implemented in Go and existing fast checks pass, or when it is verified inapplicable to the Go port; inapplicable entries explain why.
 
 - [x] `src/api/api_commands.cpp` — All 661 generated command IDs and names are registered in Go replay handlers.
-- [ ] `src/api/api_context.cpp`
+- [x] `src/api/api_context.cpp` — Go context lifecycle, AST result ownership, interruption, warning/trace controls, version reporting, and sort checks are implemented across `pkg/api` and `pkg/cmd_context`; raw C handle/error-handler and process-memory wrappers have no Go ABI consumer.
 - [ ] `src/api/api_context.h`
 - [ ] `src/api/api_datalog.cpp`
 - [ ] `src/api/api_datalog.h`
