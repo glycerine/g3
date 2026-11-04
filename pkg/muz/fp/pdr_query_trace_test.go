@@ -94,7 +94,10 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 				expected = "-------- [pdr] check_reset src/muz/pdr/pdr_dl_interface.cpp:68 ---------\nFresh rule first-fresh:\nfresh-trace-Q().\n------------------------------------------------\n"
 			}
 			if mode == "enabled" {
-				queryTrace = "-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:92 ---------\nquery: fresh-trace-P\nrules:\n; rule count: 3\n; predicate count: 3\n; output: fresh-trace-P\nold-fact:\nfresh-trace-P().\nfirst-fresh:\nfresh-trace-Q().\nlater-fresh:\nfresh-trace-R().\n------------------------------------------------\n" + strings.Replace(postQueryTrace, "fresh-trace-P!0", "fresh-trace-P!2", 1)
+				// Each initialization allocates the transition tag, the level-zero
+				// guard, and the reachable-cache disjunction connector in that order.
+				// The latter is allocated even when the cache mode does not query it.
+				queryTrace = "-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:92 ---------\nquery: fresh-trace-P\nrules:\n; rule count: 3\n; predicate count: 3\n; output: fresh-trace-P\nold-fact:\nfresh-trace-P().\nfirst-fresh:\nfresh-trace-Q().\nlater-fresh:\nfresh-trace-R().\n------------------------------------------------\n" + strings.Replace(postQueryTrace, "fresh-trace-P!0", "fresh-trace-P!3", 1)
 			}
 			expected += queryTrace
 			if got := output.String(); got != expected {
@@ -107,7 +110,7 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("repeat status", status)
 			}
-			if output.String() != strings.Replace(queryTrace, "fresh-trace-P!2", "fresh-trace-P!4", 1) || m.Stats().LiveReferences != before {
+			if output.String() != strings.Replace(queryTrace, "fresh-trace-P!3", "fresh-trace-P!6", 1) || m.Stats().LiveReferences != before {
 				t.Fatal("repeat emitted trace or changed ownership", output.String())
 			}
 		})
