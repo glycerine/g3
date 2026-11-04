@@ -77,7 +77,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/pdr/pdr_context.h` — Predicate transformer, model node/search, generalizer, and context declarations plus inline accessors map to typed `pkg/muz/pdr` owners; C++ member layouts, reference wrappers, and STL containers have no separate Go runtime surface, and the PDR package checks pass.
 - [x] `src/muz/pdr/pdr_dl_interface.cpp` — PDR preprocessing, source-rule reset/reuse, transformed rule installation, trace checkpoints, query results, covers, models, proofs, and statistics map to `pkg/muz/fp` and `pkg/muz/pdr`; existing PDR, SMT2, and CLI checks pass. Empty-program model printing follows the checked-in C++ branch despite differing output from the installed 4.7.1 executable.
 - [x] `src/muz/pdr/pdr_manager.cpp` — PDR state-symbol mapping, Boolean cube/lemma construction, inductive clause normalization, model conversion, and implication checks map to `pkg/muz/pdr`; model/core conjunctions and negations now use the source Boolean rewriter, and focused PDR manager checks pass.
-- [ ] `src/muz/pdr/pdr_manager.h`
+- [x] `src/muz/pdr/pdr_manager.h` — State-version conversion/classification, formula shifting, filtering/partitioning, model output, and solver/statistics accessors map to `Manager` and `SymbolMux`; the unused unique-number helper has no retained caller, and existing PDR manager/symbol-mux checks pass.
 - [ ] `src/muz/pdr/pdr_reachable_cache.cpp`
 - [ ] `src/muz/pdr/pdr_reachable_cache.h`
 - [ ] `src/muz/rel/check_relation.cpp`
