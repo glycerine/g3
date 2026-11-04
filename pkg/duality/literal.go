@@ -117,16 +117,22 @@ func IsLiteral(term *Expr) (*Expr, bool, error) {
 		if err != nil {
 			return nil, false, err
 		}
-		switch op {
-		case ast.ASTOpNot:
-			h, err = m.GetArg(h, 0)
-			if err != nil {
-				return nil, false, err
+		family, err := m.GetFamilyID(h)
+		if err != nil {
+			return nil, false, err
+		}
+		if family == m.BasicFamilyID() {
+			switch op {
+			case ast.ASTOpNot:
+				h, err = m.GetArg(h, 0)
+				if err != nil {
+					return nil, false, err
+				}
+				polarity = !polarity
+				continue
+			case ast.ASTOpAnd, ast.ASTOpOr, ast.ASTOpIff, ast.ASTOpImplies:
+				return nil, false, nil
 			}
-			polarity = !polarity
-			continue
-		case ast.ASTOpAnd, ast.ASTOpOr, ast.ASTOpIff, ast.ASTOpImplies:
-			return nil, false, nil
 		}
 		atom, err := NewExpr(c, h)
 		return atom, polarity, err
