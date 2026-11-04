@@ -26,7 +26,7 @@ func (c *RationalExprConverter) displayMappedVariable(w io.Writer, h ast.ASTHand
 		return fastWriteDisplay(w, "(:var "+strconv.FormatUint(uint64(index), 10)+")")
 	}
 	if kind != ast.ASTApp {
-		return ErrRationalCorePrintNodes
+		return writeSubpavingSMT2Expression(w, c.ast, h)
 	}
 	value, integer, numeral, err := c.ast.ArithmeticNumeralText(h)
 	if err != nil {
@@ -40,7 +40,7 @@ func (c *RationalExprConverter) displayMappedVariable(w io.Writer, h ast.ASTHand
 		return err
 	}
 	if family != ast.NullFamilyID {
-		return ErrRationalCorePrintNodes
+		return writeSubpavingSMT2Expression(w, c.ast, h)
 	}
 	count, err := c.ast.GetNumArgs(h)
 	if err != nil {

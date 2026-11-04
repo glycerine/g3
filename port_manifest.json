@@ -83225,11 +83225,13 @@
           ]
         },
         {
-          "name": "Concrete MPQ print_nodes emits mapped SMT2 variable names, generated definition names, constraints, header and leaf bounds through a nonthrowing borrowed writer; wider interpreted expression display remains open (src/math/subpaving/tactic/subpaving_tactic.cpp:32-49,193-205)",
-          "status": "partial",
+          "name": "Concrete MPQ print_nodes emits mapped terms through SMT2 display, generated definition names, constraints, header and leaf bounds through a nonthrowing borrowed writer (src/math/subpaving/tactic/subpaving_tactic.cpp:32-49,193-205)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/rational_variable_display.go",
           "go_targets": [
-            "pkg/math/subpaving/tactic/rational_core_tactic.go"
+            "pkg/math/subpaving/tactic/rational_core_tactic.go",
+            "pkg/math/subpaving/tactic/smt2_expression_display.go",
+            "pkg/math/subpaving/tactic/rational_expr_converter_test.go"
           ],
           "tests": [
             "TestRationalExprConverterExactLeafGoalAndCleanup",

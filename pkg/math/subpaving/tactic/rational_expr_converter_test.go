@@ -231,6 +231,10 @@ func TestRationalExprConverterExactLeafGoalAndCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var displayedSum bytes.Buffer
+	if err := converter.displayMappedVariable(&displayedSum, sum, sy); err != nil || displayedSum.String() != "(+ x (/ 1.0 2.0))" {
+		t.Fatal("source SMT2 display for interpreted arithmetic variable", displayedSum.String(), err)
+	}
 	for i := 0; i < 2; i++ {
 		if err := m.IncRef(sum); err != nil {
 			t.Fatal(err)
