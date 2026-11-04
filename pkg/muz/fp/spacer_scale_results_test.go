@@ -87,4 +87,54 @@ func TestSpacerScaleReconstructsOriginalPredicateModel(t *testing.T) {
 	if got != want {
 		t.Fatalf("reconstructed body %v, want %v", got, want)
 	}
+
+	// A nullary original becomes a unary scaled predicate. The C++
+	// converter registers a zero-arity function interpretation for it,
+	// violating model_core's arity assertion. Go deliberately registers an
+	// evaluable constant after substituting sigma = 1.
+	nullaryName, err := manager.Symbols.Intern("scale-model-nullary")
+	quantifierResultMust(t, err)
+	nullary, err := manager.MkFuncDecl(nullaryName, nil, boolean, ast.ASTFuncDeclInfo{})
+	quantifierResultMust(t, err)
+	nullaryRef, err := manager.NewRef(nullary)
+	quantifierResultMust(t, err)
+	t.Cleanup(func() { quantifierResultMust(t, manager.DelRef(&nullaryRef)) })
+	scaledName, err := manager.Symbols.Intern("scale-model-nullary-scaled")
+	quantifierResultMust(t, err)
+	scaled, err := manager.MkFuncDecl(scaledName, []ast.ASTHandle{realSort}, boolean, ast.ASTFuncDeclInfo{})
+	quantifierResultMust(t, err)
+	scaledRef, err := manager.NewRef(scaled)
+	quantifierResultMust(t, err)
+	t.Cleanup(func() { quantifierResultMust(t, manager.DelRef(&scaledRef)) })
+	nullaryModel, err := model.NewModel(manager)
+	quantifierResultMust(t, err)
+	nullaryInterpretation, err := model.NewFunctionInterpretation(manager, 1)
+	quantifierResultMust(t, err)
+	scaleVariable, err := manager.MkVar(0, realSort)
+	quantifierResultMust(t, err)
+	nullaryBody, err := manager.MkFamilyApp(arithmetic, 5, nil, []ast.ASTHandle{scaleVariable, zeroForScaleTest(t, manager)})
+	quantifierResultMust(t, err)
+	quantifierResultMust(t, nullaryInterpretation.SetElse(nullaryBody))
+	quantifierResultMust(t, nullaryModel.Core().RegisterFunction(scaled, nullaryInterpretation))
+	engine.spacerScaled = map[ast.ASTHandle]ast.ASTHandle{nullary: scaled}
+	nullaryExpanded, err := engine.expandSpacerModel(nullaryModel)
+	quantifierResultMust(t, err)
+	t.Cleanup(func() { quantifierResultMust(t, nullaryExpanded.Close()) })
+	nullaryValue, err := nullaryExpanded.Core().ConstantInterpretation(nullary)
+	quantifierResultMust(t, err)
+	wantNullary, err := manager.MkFamilyApp(arithmetic, 5, nil, []ast.ASTHandle{one, zeroForScaleTest(t, manager)})
+	quantifierResultMust(t, err)
+	if nullaryValue != wantNullary {
+		t.Fatalf("nullary reconstructed value %v, want %v", nullaryValue, wantNullary)
+	}
+	if present, err := nullaryExpanded.Core().HasInterpretation(scaled); err != nil || present {
+		t.Fatalf("scaled predicate remains in model: %v, %v", present, err)
+	}
+}
+
+func zeroForScaleTest(t *testing.T, manager *ast.ASTManager) ast.ASTHandle {
+	t.Helper()
+	zero, err := manager.ArithmeticRealNumeralText("0")
+	quantifierResultMust(t, err)
+	return zero
 }

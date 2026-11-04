@@ -219,7 +219,8 @@ func (r *CostRecorder) Start(object *AccountedObject) error {
 			return ErrCosts
 		}
 		r.object.current.Instructions++
-		r.object.current.Milliseconds += uint32(delta / time.Millisecond)
+		// The source stopwatch truncates each sample before computing the delta.
+		r.object.current.Milliseconds += uint32(current/time.Millisecond - r.lastTime/time.Millisecond)
 		r.object.beingRecorded = false
 	}
 	if object != nil {

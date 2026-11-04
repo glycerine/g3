@@ -47,7 +47,23 @@ func TestCostRecorderSwitchesObjectsAndChargesWholeMilliseconds(t *testing.T) {
 	if first.beingRecorded || second.beingRecorded {
 		t.Fatal("recorder left object active")
 	}
-	if first.current != (Costs{Milliseconds: 2, Instructions: 1}) || second.current != (Costs{Milliseconds: 4, Instructions: 1}) {
+	if first.current != (Costs{Milliseconds: 2, Instructions: 1}) || second.current != (Costs{Milliseconds: 5, Instructions: 1}) {
 		t.Fatal("recorded costs", first.current, second.current)
+	}
+}
+
+func TestCostRecorderTruncatesEachSampleBeforeSubtraction(t *testing.T) {
+	now := 1900 * time.Microsecond
+	recorder := newCostRecorder(func() time.Duration { return now })
+	object := &AccountedObject{}
+	if err := recorder.Start(object); err != nil {
+		t.Fatal(err)
+	}
+	now = 2100 * time.Microsecond
+	if err := recorder.Finish(); err != nil {
+		t.Fatal(err)
+	}
+	if object.current != (Costs{Milliseconds: 1, Instructions: 1}) {
+		t.Fatal("fractional boundary cost", object.current)
 	}
 }

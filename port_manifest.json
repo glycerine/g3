@@ -49247,8 +49247,8 @@
       "path": "src/duality/CMakeLists.txt",
       "component": "duality",
       "role": "build_specification",
-      "status": "unported",
-      "go_targets": [],
+      "status": "platform_replacement",
+      "go_targets": ["pkg/go.mod", "pkg/duality/engine.go", "pkg/duality/rpfp_graph.go", "pkg/muz/duality/query_engine.go"],
       "tests": [],
       "registrations": [
         {
@@ -49256,11 +49256,11 @@
           "text": "z3_add_component(duality"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Go package discovery and imports replace this CMake component registration; this build classification does not establish implementation completeness."]
     },
     {
       "path": "src/duality/duality.h",
@@ -49353,7 +49353,7 @@
       "path": "src/duality/duality_profiling.cpp",
       "component": "duality",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/duality/profiling.go", "pkg/duality/profiling_test.go"],
       "tests": ["TestProfilerNestedTotalsAndInterpolation", "TestProfilerImbalancedStopRecoversLikeSource", "TestProfilerSortedOutputShowTimeAndWriterFailure"],
       "conditionals": [
@@ -49374,17 +49374,17 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [{"name":"timer_start, timer_stop, print_profile and show_time","status":"ported","go_target":"pkg/duality/profiling.go","tests":["TestProfilerNestedTotalsAndInterpolation","TestProfilerImbalancedStopRecoversLikeSource","TestProfilerSortedOutputShowTimeAndWriterFailure"]}],
       "ownership": ["Profiler explicitly owns the nested timer tree and interpolation profiler that the source stores in process globals."],
-      "deviations": ["Portable monotonic elapsed time replaces process clock diagnostics. Child reports are sorted lexically because source pointer-address ordering is not semantic or portable."]
+      "deviations": ["Portable monotonic elapsed time and per-profiler ownership replace source stopwatch sampling and its process-global timer tree; report consumer and lifetime parity remain partial. Child reports are sorted lexically because source pointer-address ordering is not semantic or portable."]
     },
     {
       "path": "src/duality/duality_profiling.h",
       "component": "duality",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/duality/profiling.go", "pkg/duality/profiling_test.go"],
       "tests": ["TestProfilerNestedTotalsAndInterpolation", "TestProfilerImbalancedStopRecoversLikeSource", "TestProfilerSortedOutputShowTimeAndWriterFailure"],
       "conditionals": [
@@ -49397,11 +49397,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [{"name":"Duality profiling public timer/report surface","status":"ported","go_target":"pkg/duality/profiling.go","tests":["TestProfilerNestedTotalsAndInterpolation","TestProfilerImbalancedStopRecoversLikeSource","TestProfilerSortedOutputShowTimeAndWriterFailure"]}],
       "ownership": ["Profiler explicitly owns the nested timer tree and interpolation profiler."],
-      "deviations": ["Portable monotonic elapsed time replaces process clock diagnostics."]
+      "deviations": ["Portable monotonic elapsed time and per-profiler ownership replace source stopwatch sampling and its process-global timer tree; report consumer and lifetime parity remain partial."]
     },
     {
       "path": "src/duality/duality_rpfp.cpp",
@@ -88295,7 +88295,7 @@
         {"name": "bmc::get_rules_along_trace typed name/formula export (dl_bmc_engine.cpp:1546-1548)", "status": "partial", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/fp/spacer_trace_names_test.go"], "tests": ["TestBMCEngineRuleTraceAndSnapshot", "TestSpacerExpressionQueryTraceNamesFollowInlining"], "reason": "Concrete BMC/QBMC trace export evidence does not broaden the search or proof-construction claims. Typed trace extraction follows dl_context.cpp:959-984 and symbol.cpp:88-100: RulesAlongTraceWithSymbols preserves exact null, present-empty, numerical and textual rule names, while the string view uses source rendering (<null>, empty text and k!N). BMC/QBMC and the active Spacer expression clone retain rule/formula order; inlined names remain source-composed text. Partial formula-owner failures use the existing contextFormulaAttempt and suppress publication. These existing trace tests add symbol-rendering assertions, not a new allocation/native-cleanup frontier; NamedRules retains its separate legacy null-to-empty contract."}
       ],
       "ownership": ["Quantified-linear compilation owns indexed-symbol and output references through a retryable cleanup owner; refused native release preserves the concrete owner and every successfully published result until cleanup completes. Quantified-linear proof-step publication adopts newly constructed rule/proof outputs behind the same cleanup frontier when retirement of the old step refuses; selector and evaluated-index roots use the same retryable disposal path. Linear proof-step construction in pkg/muz/bmc/linear_proof_cleanup.go groups the selected rule, substitution, child proofs and unpublished result into one retryable owner and publishes only after cleanup succeeds; TestLinearProofStepCleanupPreservesAllOwnersAcrossNativeRefusal covers the live refusal path. Linear binding construction in pkg/muz/bmc/linear_bind_cleanup.go transactionally owns symbolic inputs and model-derived outputs across native refusal; TestLinearBindingCleanupPreservesInputsAndOutputsAcrossNativeRefusal covers exact retry and publication."],
-      "deviations": ["Nonlinear and quantified compilation, search, model-selected traces and hyper-resolution proofs are integrated. Nonlinear query, trace and proof assembly transfer nested rule, query, premise and result owners into dependency-ordered retryable cleanup frontiers before native release; TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes exercises the shared refusal path. Quantified-linear proof publication stages new rule/proof outputs behind retirement of the previous step; TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses covers refused retirement, and selector roots share the retryable disposal path. Solver profiles set compact=true for all three engines; only quantified-linear enables MBQI. Source dispatch never constructs nonlinear_dt. General proof conversion for all transformations, remaining level/model/TRACE diagnostic parity and linear-helper cleanup paths remain pending. Quantified bindings use the selected derivation level and raw traces bind head variables from model-evaluated arguments."]
+      "deviations": ["Nonlinear and quantified compilation, search, model-selected traces and hyper-resolution proofs are integrated. Nonlinear query, trace and proof assembly transfer nested rule, query, premise and result owners into dependency-ordered retryable cleanup frontiers before native release; TestLinearCleanupPreservesSoleRuleAndProofOwnersWhileManagerExecutes exercises the shared refusal path. Quantified-linear proof publication stages new rule/proof outputs behind retirement of the previous step; TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses covers refused retirement, and selector roots share the retryable disposal path. Solver profiles set compact=true for all three engines; only quantified-linear enables MBQI. Source dispatch never constructs nonlinear_dt. General proof conversion for all transformations, remaining level/model/TRACE diagnostic parity and linear-helper cleanup paths remain pending. QBMC intentionally follows corrected upstream behavior: quantified bindings use the selected derivation level, proof pivots use (1,0), and a selected fact ends reconstruction at any level; the checked-in C++ uses the rule ordinal, (0,1), and level-zero termination. Nonlinear traversal and proof construction derive head-variable bindings from model-evaluated arguments; exported traces retain selected rules."]
     },
     {
       "path": "src/muz/bmc/dl_bmc_engine.h",
@@ -88333,7 +88333,7 @@
         }
       ],
       "ownership": [],
-      "deviations": ["Nonlinear and quantified compilation, search, model-selected traces and hyper-resolution proofs are integrated. Nonlinear query/trace/proof assembly and quantified proof publication preserve nested owners, partial premises and result roots in dependency-ordered retryable cleanup frontiers. TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses covers staged proof outputs when old-step retirement refuses; selector roots use the same disposal path. General proof conversion for all transformations and broader interrupted-cleanup audits remain pending. Quantified bindings use the selected derivation level and raw traces bind head variables from model-evaluated arguments."]
+      "deviations": ["Nonlinear and quantified compilation, search, model-selected traces and hyper-resolution proofs are integrated. Nonlinear query/trace/proof assembly and quantified proof publication preserve nested owners, partial premises and result roots in dependency-ordered retryable cleanup frontiers. TestQuantifiedLinearProofTransitionPreservesNewOutputsWhileRetirementRefuses covers staged proof outputs when old-step retirement refuses; selector roots use the same disposal path. General proof conversion for all transformations and broader interrupted-cleanup audits remain pending. QBMC intentionally follows corrected upstream behavior: quantified bindings use the selected derivation level, proof pivots use (1,0), and a selected fact ends reconstruction at any level; the checked-in C++ uses the rule ordinal, (0,1), and level-zero termination. Nonlinear traversal and proof construction derive head-variable bindings from model-evaluated arguments; exported traces retain selected rules."]
     },
     {
       "path": "src/muz/clp/CMakeLists.txt",
@@ -89086,7 +89086,7 @@
       ],
       "ownership": ["Safe certificate rendering owns its temporary annotation-model snapshot until cleanup succeeds or transfers the snapshot through a retryable construction-failure receipt. The active backend result remains independently reusable."],
       "deviations": [
-        "Fixedpoint engine registration, RPFP query execution, annotation/model snapshots, proof extraction and certificate reporting are implemented and integration-tested. Full source/interface/exceptional ownership closure remains partial. Query preparation, RPFP construction, solver execution, annotation model snapshots and the safe/reachable certificate split are ported; wider exceptional backend lifecycle auditing remains unfinished.",
+        "Fixedpoint engine registration, RPFP query execution, annotation/model snapshots, proof extraction and certificate reporting are implemented and integration-tested. Full source/interface/exceptional ownership closure remains partial. Query preparation, annotation model snapshots and the safe/reachable certificate split have implemented and tested paths; RPFP construction and solver execution have implemented paths, while broader lifecycle and ownership audits remain partial.",
         "The original edge-to-clause association is recorded before dead-node pruning instead of indexing the shortened edge vector afterward; this avoids attributing a surviving edge to an earlier deleted clause during proof extraction.",
         "Proof export uses the original clause head, including false instead of synthetic @Fail; binder substitutions follow de Bruijn indexing, predicate literal positions include intervening theory atoms, and repeated occurrences of a shared relation application receive repeated resolution premises. These corrections are checked by independent logical side-condition validation.",
         "Proof export reconstructs quantified witnesses with the native solver factory when QE-lite has projected original variables out of the counterexample model; taking default model values as in the source can produce an invalid original-clause instance.",
@@ -90344,15 +90344,17 @@
         },
         {
           "name": "mk_horn_simplify_tactic",
-          "status": "reference_only",
-          "reason": "The source ADD_TACTIC registration has a live Go command/API consumer: cmd_context named-tactic dispatch invokes NewHornSimplifyTactic, with transformed-goal, default-pipeline and optional-slice regressions. The existing reference_only classification is preserved in this prose-only reconciliation pending its separate method/interface audit."
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/horn_tactic_simplify.go", "pkg/muz/fp/horn_tactic_simplify_test.go", "pkg/cmd_context/tactic_commands.go", "pkg/api/api_tactic_horn_alias_test.go"],
+          "tests": ["TestAPIHornSimplifyNamedFactory", "TestHornSimplifyProducesTransformedGoalAndFiltersQuery", "TestHornSimplifyAppliesDefaultInlining"],
+          "reason": "The live source ADD_TACTIC registration reaches the Go named factory and shared tactic ownership protocol. This records the factory boundary; transformation, proof, model and exceptional-cleanup closure remain separate."
         }
       ],
       "ownership": [
         "NewHornTactic returns the concrete Go tactic and participates in the shared tactic reference-count protocol."
       ],
       "deviations": [
-        "The verification factory supports finite Datalog and infinite PDR selection. The source-registered horn-simplify factory is implemented and consumed by command/API named-tactic dispatch; its method classification and broader interface/ownership closure require separate reconciliation."
+        "The verification factory supports finite Datalog and infinite PDR selection. The source-registered horn-simplify factory is implemented and consumed by command/API named-tactic dispatch; broader implementation and exceptional-cleanup closure require separate audit."
       ]
     },
     {
@@ -91144,7 +91146,7 @@
         "PredicateTransformer owns its head/system/property AST references, PropSolver, and ReachableCache. It closes both context consumers before releasing AST pins; returned signatures, formulas, and cores borrow AST handles while requested models retain explicit ownership.",
         "ModelSearch owns its root and complete descendant tree. ModelNode owns one state AST reference plus optional retained model and rule references; reset releases descendants bottom-up after removing frontier/cache links.",
         "Context Reset closes retired Go solver pools and archives their cumulative statistics because solver proof/arithmetic setup is immutable after search; repeated resets release all obsolete kernel/predicate storage. Context owns the reusable model-implicant and QE-lite projector and, when the caller supplies no cooperation service, a private cooperation owner. These close before transformers and the shared PDR manager."
-        ,"Result-validation construction groups fresh solver, proof/formula roots, model interpretations and partial model owners in retryable receipts across native cleanup refusal. This covers refusal at the AST execution-guard boundary; arbitrary internally partial SMTSolver.Close failures cannot currently be resumed by the public solver API. Ownership audit remains open for AddCover temporary references, answer/proof locals outside validation, model-projection substitution/replacer owners, PropSolver workspaces and UnitSubsumptionKeep solver cleanup refusal."
+        ,"Result-validation construction groups fresh solver, proof/formula roots, model interpretations and partial model owners in retryable receipts across native cleanup refusal. This covers refusal at the AST execution-guard boundary. The solver now resumes tested staged cleanup and a consumed kernel Pop; arbitrary theory-child and composite-validation teardown remains under audit. Ownership audit remains open for AddCover temporary references, answer/proof locals outside validation, model-projection substitution/replacer owners, PropSolver workspaces and UnitSubsumptionKeep solver cleanup refusal."
       ],
       "deviations": [
         "InitializeSystem remains available for independently testing the frame engine; InitializeRules provides the retained native rule-to-transition path. Typed results replace mutable model/core output pointers.",
@@ -91590,7 +91592,7 @@
         "PredicateTransformer is the concrete Go owner for its proposition solver, reachable cache, and retained AST state.",
         "ModelSearch owns the ModelNode tree; nodes own their state, optional model and optional rule references. Cache identity is the concrete predicate transformer plus state formula, so syntactically identical zero-arity predecessor cubes remain distinct obligations.",
         "Context owns its model-implicant, QE-lite projector and any fallback cooperation service created for callers that supplied only parameter services."
-        ,"Validation owners preserve fresh solvers, roots and partial models across native execution-guard refusal. Arbitrary internally partial SMTSolver.Close failures remain non-resumable; header ownership closure also remains pending for cover temporaries, answer/proof locals outside validation, model-projection helpers, proposition-solver workspaces and unit-subsumption solver refusal paths."
+        ,"Validation owners preserve fresh solvers, roots and partial models across native execution-guard refusal. The solver resumes tested staged cleanup and a consumed kernel Pop; arbitrary theory-child and composite-validation teardown remains open. Header ownership closure also remains pending for cover temporaries, answer/proof locals outside validation, model-projection helpers, proposition-solver workspaces and unit-subsumption solver refusal paths."
       ],
       "deviations": [
         "The Go frame API uses explicit methods and returned result values rather than C++ reference outputs and scoped mutable solver settings.",
@@ -93147,7 +93149,7 @@
       "path": "src/muz/pdr/pdr_reachable_cache.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/pdr/reachable_cache.go",
         "pkg/muz/pdr/reachable_cache_test.go",
@@ -93160,8 +93162,8 @@
         "TestReachableConstraintCacheHonorsBackgroundAndInit",
         "TestPDRTransferredContextAssertionCleanupFailureAndRetry"
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "reachable_cache construction, disjunction-chain insertion, init/reachable insertion, reachability checks, and statistics",
@@ -93186,7 +93188,7 @@
       "path": "src/muz/pdr/pdr_reachable_cache.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/pdr/reachable_cache.go",
         "pkg/muz/pdr/reachable_cache_test.go",
@@ -93209,8 +93211,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "ReachableCacheMode, ReachableCacheStatistics, and ReachableCache retained interface",
@@ -102897,7 +102899,7 @@
       "path": "src/muz/rel/tbv.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/rel/tbv.go", "pkg/muz/rel/tbv_test.go"],
       "tests": ["TestTBVSourceEncodingRangesAndSetOperations", "TestTBVSourceParsingPermutationComplementAndProjection", "TestTBVFormulaAndLifetimeBoundaries", "TestTBVZeroWidthAndBounds"],
       "assertions": [
@@ -102926,17 +102928,17 @@
           "text": "SASSERT(lo <= hi && hi < num_tbits());"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [{"name":"complete concrete ternary bit-vector manager implementation, parsing, projection, set algebra, hashing, display and AST formulas","status":"ported","go_target":"pkg/muz/rel/tbv.go","tests":["TestTBVSourceEncodingRangesAndSetOperations","TestTBVSourceParsingPermutationComplementAndProjection","TestTBVFormulaAndLifetimeBoundaries","TestTBVZeroWidthAndBounds"]}],
       "ownership": ["TBVManager owns fixed-width storage and tracks concrete TBV allocations; vectors retain their physical owner for cross-manager projection and must be deallocated or invalidated by manager reset/close."],
-      "deviations": ["The dead debug_alloc switch and generic tbv_ref RAII template are omitted; retained callers use concrete TBV values and explicit Deallocate."]
+      "deviations": ["The dead debug_alloc switch is omitted. Source tbv_ref is a concrete RAII owner used by DOC; Go consumers use explicit Deallocate. Wrapper-ledger lifetime and bounded storage remain under audit."]
     },
     {
       "path": "src/muz/rel/tbv.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/rel/tbv.go", "pkg/muz/rel/tbv_test.go"],
       "tests": ["TestTBVSourceEncodingRangesAndSetOperations", "TestTBVSourceParsingPermutationComplementAndProjection", "TestTBVFormulaAndLifetimeBoundaries", "TestTBVZeroWidthAndBounds"],
       "conditionals": [
@@ -102949,11 +102951,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [{"name":"TBit encoding and complete retained TBV/TBVManager public surface","status":"ported","go_target":"pkg/muz/rel/tbv.go","tests":["TestTBVSourceEncodingRangesAndSetOperations","TestTBVSourceParsingPermutationComplementAndProjection","TestTBVFormulaAndLifetimeBoundaries","TestTBVZeroWidthAndBounds"]}],
       "ownership": ["Concrete manager-local fixed-bitset ownership replaces source allocation macros without a generic wrapper."],
-      "deviations": ["The uninstantiated generic tbv_ref RAII helper is not ported; retained concrete callers explicitly deallocate vectors."]
+      "deviations": ["Source tbv_ref is a concrete RAII owner used by DOC; Go consumers explicitly deallocate vectors. Wrapper-ledger lifetime and bounded storage remain under audit."]
     },
     {
       "path": "src/muz/rel/udoc_relation.cpp",
@@ -110951,7 +110953,7 @@
       "path": "src/muz/transforms/dl_mk_scale.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/transforms/scale.go",
         "pkg/muz/fp/spacer_scale_results.go",
@@ -110977,8 +110979,8 @@
           "text": "SASSERT(is_app(r));"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "homogeneous predicate scaling, numeral equalities, linear constraint scaling, positivity guard, and model conversion",
@@ -111015,7 +111017,7 @@
       "path": "src/muz/transforms/dl_mk_scale.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/transforms/scale.go",
         "pkg/muz/transforms/rule_name_aux_symbol_test.go"
@@ -111034,8 +111036,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "scale_model_converter declaration plus mk_scale construction/destruction, linearize/mk_pred/mk_constraint, and transform surface",

@@ -35,6 +35,7 @@ type TBV struct {
 	owner *TBVManager
 	ref   bitset.FixedRef
 	live  bool
+	index int // position in the owner's live-vector ledger
 }
 
 // TBVManager owns fixed-width ternary vectors. Callers must deallocate vectors
@@ -74,7 +75,7 @@ func (m *TBVManager) checkOwner(vector *TBV) error {
 	if m == nil || m.closed || m.bits == nil {
 		return arena.ErrClosed
 	}
-	if vector == nil || !vector.live || vector.owner != m {
+	if vector == nil || !vector.live || vector.owner != m || vector.index < 0 || vector.index >= len(m.allocated) || m.allocated[vector.index] != vector {
 		return ErrTBV
 	}
 	return nil
@@ -95,7 +96,7 @@ func (m *TBVManager) Allocate() (*TBV, error) {
 	if err != nil {
 		return nil, err
 	}
-	result := &TBV{owner: m, ref: ref, live: true}
+	result := &TBV{owner: m, ref: ref, live: true, index: len(m.allocated)}
 	m.allocated = append(m.allocated, result)
 	return result, nil
 }
@@ -248,6 +249,12 @@ func (m *TBVManager) Deallocate(vector *TBV) error {
 			return err
 		}
 	}
+	last := len(m.allocated) - 1
+	moved := m.allocated[last]
+	m.allocated[vector.index] = moved
+	moved.index = vector.index
+	m.allocated[last] = nil
+	m.allocated = m.allocated[:last]
 	vector.live = false
 	return nil
 }

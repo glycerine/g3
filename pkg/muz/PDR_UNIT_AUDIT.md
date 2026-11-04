@@ -1,0 +1,27 @@
+# PDR reachable-cache unit audit
+
+Scope: `src/muz/pdr/pdr_reachable_cache.h` and `pdr_reachable_cache.cpp`, compared with `pkg/muz/pdr/reachable_cache.go`. The manifest previously labeled both source files ported with ownership audited. This is a unit audit, not a whole PDR audit; normal behavior is mapped, but exceptional ownership is not yet fully established.
+
+## Live consumers
+
+`pred_transformer` owns one cache (`pdr_context.h:85`, constructor in `pdr_context.cpp:84`). Initialization adds the initial-state formula (`:523`); a closed model node inserts its state (`:715`, `:747`); `context::expand_node` consults the cache before expanding (`:2059`). Transformer statistics collection and reset include the cache (`:109`, `:120`). Go's `PredicateTransformer` constructs and closes the cache, installs its initial formula, and forwards close-state, cache lookup, and statistics operations (`predicate_transformer.go:99,207,525,532,619,632,647`). `ModelNode.SetClosed` and `Context.expandNode` are the corresponding search consumers (`model_search.go:204`, `context_solve.go:39`). These are retained solver paths, not unused template instantiations.
+
+## Source behavior and evidence
+
+- Construction: only constraint mode creates a fresh SMT context and asserts the PDR background. Go does this in `NewReachableCache`; transformer construction passes its manager's background. `TestReachableConstraintCacheHonorsBackgroundAndInit` checks the background and initial formula.
+- Disjunction chain: each inserted constraint asserts `(old_connector OR NOT new_connector OR formula)`, omitting the old connector for the first formula. A reachability check assumes the latest connector and temporarily asserts the candidate; only SAT is a hit. Go's `addDisjunctedFormula` and `IsReachable` implement that chain and scoped check. `TestReachableCacheModes` checks an empty cache, incompatible candidates and successive insertions. `TestPDRTransferredContextAssertionCleanupFailureAndRetry` exercises a native assertion-cleanup failure in the live constraint-cache operation after public context transfer; it does not establish all insertion/cleanup boundaries.
+- Hash mode stores expression identity and keeps expressions alive; duplicate insertions increment insert count. No-cache lookups return false without incrementing misses. Constraint and hash misses/hits and insert counters have the same source update points on successful paths. Go uses a map of owned refs rather than the source set plus ref-vector, retaining one ref per distinct handle rather than one per insertion; this preserves set membership and expression liveness, but differs in intermediate reference counts. `TestReachableCacheModes` covers ordinary mode behavior and statistics reset; duplicate inserts, no-cache counters, statistics export names and solver-unknown-as-miss lack targeted assertions.
+- Source `add_init` creates a connector even in non-constraint modes, but no consumer observes it or asserts it there. Go skips that work outside constraint mode; observable normal cache behavior is unchanged, while allocation/error behavior is different.
+- Go replaces source scoped ownership with explicit `Close`. `TestReachableHashCacheClosePreservesUnconsumedRoots` forces a refused AST release, retries twice, and checks zero final budget. `TestPredicateTransformerRejectsUseDuringRefusedCleanup` covers its enclosing transformer. The cache itself currently has no closing flag, so direct operations after a partially successful `Close` have not been established safe.
+
+## Open exceptional ownership questions
+
+1. In `addDisjunctedFormula`, the new assertion is installed before the old connector is released and the new connector published. A refused or consumed-with-error old-reference release can leave assertion and connector publication at different stages. The deferred cleanup of the new connector also joins its release error without retaining an unconsumed local reference. These are code-inspection risks, not demonstrated failures; exercise real native refusal/receipt at these boundaries, verify old and new reachable alternatives and exact owner counts, then repair or establish why the boundaries cannot occur.
+2. The constraint lookup defers `Pop` and transports its error, but cache-level continuation after an independent pop failure is not covered by the transferred assertion-cleanup test. Verify retry via the owning solver wrappers, preserving scopes and result/counter behavior.
+3. `Close` can close the SMT context before a connector release fails, yet `open` checks only `closed` and manager presence. Verify and, if necessary, reject direct cache reuse while cleanup is pending. Also test constraint-cache constructor failure with a refused cleanup; joining `context.Close` into the returned error alone does not preserve a caller-accessible owner if cleanup remains pending.
+
+These questions prevent treating the manifest's ownership-audited flag as independent proof of complete exceptional lifecycle coverage. No manifest or checklist status was changed in this audit.
+
+## Focused verification
+
+From `pkg/`: `go test ./muz/pdr -run 'TestReachableCacheModes|TestReachableConstraintCacheHonorsBackgroundAndInit|TestReachableHashCacheClosePreservesUnconsumedRoots|TestPredicateTransformer|TestModelSearch' -count=1` passed. `go test ./muz/fp -run '^TestPDRTransferredContextAssertionCleanupFailureAndRetry$' -count=1` checked the cross-package cleanup consumer.
