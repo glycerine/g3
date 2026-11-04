@@ -80847,7 +80847,7 @@
       "path": "src/math/subpaving/subpaving_t_def.h",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/subpaving/arbitrary_shell_coefficients_test.go",
         "pkg/math/subpaving/arbitrary_display.go",
@@ -81467,8 +81467,8 @@
           "text": "SASSERT(check_leaf_dlist());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Concrete config_mpq source-order definition, inequality, clause and consistent leaf-bound display with borrowed variable printer (src/math/subpaving/subpaving_t_def.h:254-282,376-416,636-650,1135-1155,1848-1861)",
@@ -82361,14 +82361,14 @@
         },
         {
           "name": "Concrete HWF context constructor applies one source-order updt_params pass (src/math/subpaving/subpaving_t_def.h:419-438)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_params.go",
           "tests": [
-            "TestSubpavingTacticOptionSelectionAndDescriptions"
+            "TestSubpavingHardwareContextReadsParamsRefInSourceOrder"
           ],
           "go_targets": [
-            "pkg/math/subpaving/tactic/hardware_engine.go",
-            "pkg/math/subpaving/tactic/options_test.go"
+            "pkg/math/subpaving/hardware_context_params.go",
+            "pkg/math/subpaving/hardware_context_params_test.go"
           ]
         },
         {
@@ -82689,7 +82689,7 @@
       ],
       "ownership": [
         "Each fast-float node owns the bounds it publishes; child nodes borrow inherited parent bounds until closed. The context owns its parameter numerals, root and copied polynomial coefficients, and borrows the fast-float manager and resource limit.",
-        "Fast inequalities own copied scoped fast-float values through their context. Clauses borrow atom pointers, count source-style references and register each watched variable once; context close retires the owning values after nodes. Learned-clause deletion and justification lifetime remain open.",
+        "Fast inequalities own copied scoped values through their context. Clauses borrow atom pointers and register each watched variable once; context close retires nodes before unit, problem-clause, and lemma references. C++ initializes m_num_jst to zero and has no mutation sites, so the deletion assertion stays dormant; node and shared inequality cleanup are covered by context-close ownership tests.",
         "Root close precedes source-order unit then problem-clause then lemma reference release; shared inequality values close at their last reference, and remaining unreferenced context-owned values close before context numerals. Idempotent release progress preserves cleanup retries."
       ],
       "deviations": [

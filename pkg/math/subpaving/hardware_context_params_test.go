@@ -91,6 +91,21 @@ func TestSubpavingHardwareContextReadsParamsRefInSourceOrder(t *testing.T) {
 	if c.zeroEpsilon || m.ToFloat64(&c.epsilon) != .25 || m.ToFloat64(&c.maxBound) != 100 || m.ToFloat64(&c.minusMaxBound) != -100 || m.ToFloat64(&c.rootPrecision) != 1.0/16 || c.maxDepth != 7 || c.maxNodes != 9 || c.maxMemory != 3*1024*1024 {
 		t.Fatal("named hardware context parameters")
 	}
+	constructed, err := NewHardwareContextFromParams(m, &control.Reslimit{Limit: 1000}, pc, &p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := constructed.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if constructed.root != nil || constructed.zeroEpsilon || m.ToFloat64(&constructed.epsilon) != .25 ||
+		m.ToFloat64(&constructed.maxBound) != 100 || m.ToFloat64(&constructed.minusMaxBound) != -100 ||
+		m.ToFloat64(&constructed.rootPrecision) != 1.0/16 || constructed.maxDepth != 7 ||
+		constructed.maxNodes != 9 || constructed.maxMemory != 3*1024*1024 {
+		t.Fatal("constructor must apply the source parameter pass before root initialization")
+	}
 	set("epsilon", 2)
 	set("max_bound", 1<<31)
 	if err := w.UpdateParamsRef(pc, &p); !errors.Is(err, arena.ErrBounds) {
