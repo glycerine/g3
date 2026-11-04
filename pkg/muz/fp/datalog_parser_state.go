@@ -32,7 +32,12 @@ func parseDatalog(context *base.DatalogContext, input io.Reader, path, dir strin
 	if err != nil {
 		return err
 	}
-	lexer, err := newDatalogLexer(input)
+	var lexer *datalogLexer
+	if path != "" {
+		lexer, err = newDatalogFileLexer(input)
+	} else {
+		lexer, err = newDatalogLexer(input)
+	}
 	if err != nil {
 		return err
 	}

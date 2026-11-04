@@ -38,8 +38,46 @@ type datalogToken struct {
 	line, column int
 }
 
+// Source reserved_symbols is also applied to decoded bar-quoted tokens.
+func datalogReservedToken(text string) datalogTokenKind {
+	switch text {
+	case ":-":
+		return datalogLeftArrow
+	case "_":
+		return datalogWildcard
+	case ".":
+		return datalogPeriod
+	case "!=":
+		return datalogNotEqual
+	case "=":
+		return datalogEqual
+	case "<":
+		return datalogLess
+	case ">":
+		return datalogGreater
+	case ":":
+		return datalogColon
+	case ".include":
+		return datalogInclude
+	case "!":
+		return datalogNegation
+	default:
+		return datalogIdentifier
+	}
+}
+
+func datalogTokenText(text string) string {
+	if index := strings.IndexByte(text, 0); index >= 0 {
+		return text[:index]
+	}
+	return text
+}
+
 type datalogLexer struct {
 	input          []rune
+	// Source char_reader marks EOF as soon as it loads the final physical
+	// line; read_string observes that state before consuming each character.
+	fileEOFAt      []bool
 	position       int
 	line, column   int
 	parsingDomains bool
@@ -51,6 +89,34 @@ func newDatalogLexer(input io.Reader) (*datalogLexer, error) {
 		return nil, err
 	}
 	return &datalogLexer{input: []rune(string(data)), line: 1, column: 1}, nil
+}
+
+// The source file parser uses char_reader over line_reader: every returned
+// C-string line is followed by a synthetic newline, including its final
+// empty line. The stream parser instead reads the input directly.
+func newDatalogFileLexer(input io.Reader) (*datalogLexer, error) {
+	data, err := io.ReadAll(input)
+	if err != nil {
+		return nil, err
+	}
+	var text strings.Builder
+	var eofAt []bool
+	lines := strings.Split(string(data), "\n")
+	for index, line := range lines {
+		line = datalogTokenText(line)
+		text.WriteString(line)
+		for range line {
+			eofAt = append(eofAt, index == len(lines)-1)
+		}
+		text.WriteByte('\n')
+		eofAt = append(eofAt, index == len(lines)-1)
+	}
+	lexer, err := newDatalogLexer(strings.NewReader(text.String()))
+	if err != nil {
+		return nil, err
+	}
+	lexer.fileEOFAt = eofAt
+	return lexer, nil
 }
 
 func newStringReader(input string) io.Reader { return strings.NewReader(input) }
@@ -151,23 +217,26 @@ func (l *datalogLexer) next() datalogToken {
 	case '"':
 		var value strings.Builder
 		for l.peek() >= 0 && l.peek() != '"' && l.peek() != '\n' {
+			if len(l.fileEOFAt) != 0 && l.fileEOFAt[l.position] {
+				return datalogToken{kind: datalogError, text: "unterminated string", line: line, column: column}
+			}
 			value.WriteRune(l.take())
 		}
 		if l.peek() != '"' {
 			return datalogToken{kind: datalogError, text: "unterminated string", line: line, column: column}
 		}
 		l.take()
-		return datalogToken{kind: datalogString, text: value.String(), line: line, column: column}
+		return datalogToken{kind: datalogString, text: datalogTokenText(value.String()), line: line, column: column}
 	case '|':
 		var value strings.Builder
 		for l.peek() >= 0 && l.peek() != '|' {
 			value.WriteRune(l.take())
 		}
-		if l.peek() != '|' {
-			return datalogToken{kind: datalogError, text: "unterminated quoted identifier", line: line, column: column}
+		if l.peek() == '|' {
+			l.take()
 		}
-		l.take()
-		return datalogToken{kind: datalogIdentifier, text: value.String(), line: line, column: column}
+		text := datalogTokenText(value.String())
+		return datalogToken{kind: datalogReservedToken(text), text: text, line: line, column: column}
 	}
 	if unicode.IsDigit(r) || r == '-' && unicode.IsDigit(l.peek()) {
 		var value strings.Builder
@@ -186,14 +255,6 @@ func (l *datalogLexer) next() datalogToken {
 		}
 		value.WriteRune(l.take())
 	}
-	text := value.String()
-	switch text {
-	case ".":
-		return datalogToken{kind: datalogPeriod, text: text, line: line, column: column}
-	case ".include":
-		return datalogToken{kind: datalogInclude, text: text, line: line, column: column}
-	case "_":
-		return datalogToken{kind: datalogWildcard, text: text, line: line, column: column}
-	}
-	return datalogToken{kind: datalogIdentifier, text: text, line: line, column: column}
+	text := datalogTokenText(value.String())
+	return datalogToken{kind: datalogReservedToken(text), text: text, line: line, column: column}
 }

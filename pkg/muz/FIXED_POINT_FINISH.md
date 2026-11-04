@@ -112,6 +112,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Match Datalog map-file source line boundaries, including empty input, terminal newlines, CR and embedded NUL behavior; focused parser tests cover these cases.
   - [x] Match Datalog rule-body period and EOF handling, and own parsed head, body, argument and inequality intermediates across real allocation failures and retry. Parser-local cleanup refusal remains open.
   - [x] Match optional argument commas and the source rejection of empty or trailing-comma predicate declarations, with publication and valid-input controls.
+  - [x] Match quoted reserved tokens and C-string NUL handling, and the source file reader's synthesized line endings and quoted-string EOF behavior. Focused lexer and parser tests pass.
   - [x] Match named predicate replacement for distinct declarations sharing a symbol; cover membership, restriction, owner counts, allocation refusal and retry.
   - [x] Restore base Datalog context rule-set snapshots across nested scopes, including replaced/removed rules and outputs. Failed restoration blocks context and previously borrowed rule-set operations until retry or close; focused allocation-failure and snapshot ownership tests pass. A synchronous AST deletion trace callback exercises reentrant guards and retry under actual reference-allocation refusal.
   - [x] Preserve Datalog context and borrowed rule-set owners across refused and consumed-with-error Close cleanup, block operations until retry, and preserve the existing error context. Native failure and retry tests cover the reached release boundaries.
@@ -150,6 +151,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Verify rule-local reach-fact auxiliary elimination and retention with implicant selection both enabled and disabled.
   - [x] Verify a missing later predecessor releases earlier selections and permits a repaired-model retry; this tests Go handling of a source assertion invariant.
   - [x] Verify a failed later Spacer derivation summary leaves its active state unchanged and can be repaired and retried.
+  - [x] Verify selected reach-fact auxiliary renaming and projection during Spacer derivation advancement.
   - [x] Verify PDR/QPDR coalescing is gated by positive unfold rounds and precedes unfolding, across zero, one and two rounds.
   - [x] Match TAB's source `basic-weight` fallthrough to weight selection, and test its cached-selection behavior. Verify DDNF reparenting/mark traversal, CLP search result ordering and relational compiler projection selection against their source paths.
   - [x] Verify Duality tree interpolation includes each node's extra constraints and restores the temporary solver scope; other interpolation branches and exceptional cleanup remain under audit.

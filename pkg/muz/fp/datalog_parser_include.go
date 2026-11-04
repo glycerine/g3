@@ -32,7 +32,7 @@ func (p *datalogParser) parseInclude(domains bool) error {
 	defer file.Close()
 	// Includes share the declaration and domain dictionaries but have their own
 	// lexer, matching the source's scoped lexer replacement.
-	lexer, err := newDatalogLexer(file)
+	lexer, err := newDatalogFileLexer(file)
 	if err != nil {
 		return err
 	}
