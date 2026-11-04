@@ -16,6 +16,14 @@ import (
 
 var ErrRuleOwner = errors.New("muz/base: invalid or closed rule owner")
 
+// InvalidRuleHeadError retains the source query diagnostic after rule
+// normalization releases its temporary expression.
+type InvalidRuleHeadError struct{ SourceMessage string }
+
+func (e *InvalidRuleHeadError) Error() string {
+	return "muz/base: illegal head; predicate must be registered"
+}
+
 type ruleTail struct {
 	handle    ast.ASTHandle
 	reference ast.ASTRef
@@ -118,7 +126,11 @@ func (m *RuleManager) validHead(head ast.ASTHandle) error {
 		return err
 	}
 	if !predicate {
-		return fmt.Errorf("muz/base: illegal head; predicate must be registered")
+		display, err := m.ruleHeadSourceDisplay(head)
+		if err != nil {
+			return err
+		}
+		return &InvalidRuleHeadError{SourceMessage: "Illegal head. The head predicate needs to be uninterpreted and registered (as recursive) " + display}
 	}
 	count, err := m.manager.GetNumArgs(head)
 	if err != nil {
@@ -210,20 +222,36 @@ func (m *RuleManager) newRuleWithHeadPolicy(head ast.ASTHandle, tail []ast.ASTHa
 		}
 		isNegated := negated != nil && negated[i]
 		stored := expression
+		var reference ast.ASTRef
 		if isNegated && !isPredicate {
+			// Reserve ownership before constructing the fresh negation: acquiring
+			// a reference afterwards can fail and strand the unowned AST node.
+			reference, e = m.manager.NewRef(ast.ASTHandle{})
+			if e != nil {
+				return nil, e
+			}
+			// The partially built rule owns the slot even when a later step
+			// fails, so its normal cleanup handles a retained reference.
+			r.state.tail = append(r.state.tail, ruleTail{reference: reference})
 			stored, e = m.manager.MkNot(expression)
+			e = errors.Join(e, m.manager.SetRef(reference, stored))
 			if e != nil {
 				return nil, e
 			}
 			isNegated = false
-		}
-		reference, e := m.manager.NewRef(stored)
-		if e != nil {
-			return nil, e
+		} else {
+			reference, e = m.manager.NewRef(stored)
+			if e != nil {
+				return nil, e
+			}
 		}
 		entry := ruleTail{handle: stored, reference: reference, negated: isNegated}
 		// Keep every acquired reference reachable by Close during construction.
-		r.state.tail = append(r.state.tail, entry)
+		if negated != nil && negated[i] && !isPredicate {
+			r.state.tail[len(r.state.tail)-1] = entry
+		} else {
+			r.state.tail = append(r.state.tail, entry)
+		}
 		if isPredicate {
 			uninterpreted = append(uninterpreted, entry)
 		} else {

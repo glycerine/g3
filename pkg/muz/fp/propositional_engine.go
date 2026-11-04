@@ -629,12 +629,25 @@ func (e *PropositionalEngine) AddRuleWithSymbolAndBound(formula ast.ASTHandle, n
 	if getErr == nil {
 		getErr = e.addFormula(e.set, boundFormula, name)
 	}
+	deferHead := onlyInvalidRuleHead(getErr)
 	end := first
-	if getErr == nil {
-		end, getErr = e.set.Len()
+	if getErr == nil || deferHead {
+		var lenErr error
+		end, lenErr = e.set.Len()
+		if lenErr != nil {
+			getErr = errors.Join(getErr, lenErr)
+			deferHead = false
+		}
 	}
-	added := getErr == nil
-	getErr = errors.Join(getErr, e.manager.DelRef(&bound))
+	cleanupErr := e.manager.DelRef(&bound)
+	if cleanupErr != nil {
+		deferHead = false
+	}
+	added := getErr == nil || deferHead
+	if deferHead {
+		getErr = nil
+	}
+	getErr = errors.Join(getErr, cleanupErr)
 	if added {
 		e.rawRules = append(e.rawRules, rawRuleFormula{formula: original, name: name, bound: recursionBound, pending: true, first: first, end: end})
 		keepOriginal = true

@@ -42,4 +42,13 @@ func TestFixedpointQueryExceptionPreservesOtherFailures(t *testing.T) {
 	if got := FixedpointCaughtQueryException(errors.Join(caught, cleanup)); got != nil {
 		t.Fatalf("swallowed timeout cleanup failure: %v", got)
 	}
+	head := &base.InvalidRuleHeadError{SourceMessage: "illegal head"}
+	caught = classifyFixedpointQueryException(head)
+	if exception := FixedpointCaughtQueryException(caught); exception == nil || exception.Message != head.SourceMessage {
+		t.Fatalf("invalid head exception = %v", caught)
+	}
+	joined = errors.Join(head, cleanup)
+	if got := classifyFixedpointQueryException(joined); got != joined {
+		t.Fatalf("swallowed invalid-head cleanup failure: %v", got)
+	}
 }

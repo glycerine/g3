@@ -6,8 +6,38 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
+
+// Only defer a single source head error. Resource and cleanup failures must
+// remain visible at the call that encountered them.
+func onlyInvalidRuleHead(err error) bool {
+	count := 0
+	var visit func(error) bool
+	visit = func(e error) bool {
+		if e == nil {
+			return true
+		}
+		if _, ok := e.(*base.InvalidRuleHeadError); ok {
+			count++
+			return count == 1
+		}
+		if multi, ok := e.(interface{ Unwrap() []error }); ok {
+			for _, child := range multi.Unwrap() {
+				if !visit(child) {
+					return false
+				}
+			}
+			return true
+		}
+		if single, ok := e.(interface{ Unwrap() error }); ok {
+			return visit(single.Unwrap())
+		}
+		return false
+	}
+	return visit(err) && count == 1
+}
 
 type rawRuleFormula struct {
 	formula ast.ASTRef

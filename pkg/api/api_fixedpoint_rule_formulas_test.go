@@ -1,12 +1,64 @@
 package api
 
 import (
+	"bytes"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
+
+func TestAPIFixedpointDeferredIllegalHeadEnumerationAndScopes(t *testing.T) {
+	f := newAPIFixedpointFixture(t)
+	invalid := f.pin(f.m.MkFalse())
+	astTestMust(t, f.fp.AddRule(f.pAtom, "valid"))
+	astTestMust(t, f.fp.Push())
+	astTestMust(t, f.fp.AddRule(invalid, "invalid"))
+	astTestMust(t, f.fp.AddRule(f.qAtom, "later"))
+	before := f.m.Stats().LiveReferences
+	forms, err := f.fp.Rules()
+	astTestMust(t, err)
+	if len(forms) != 3 {
+		t.Fatalf("rule count = %d", len(forms))
+	}
+	got, err := f.m.RefGet(forms[1])
+	astTestMust(t, err)
+	if got != invalid {
+		t.Fatal("pending invalid formula was not preserved")
+	}
+	for i := range forms {
+		astTestMust(t, f.m.DelRef(&forms[i]))
+	}
+	if got := f.m.Stats().LiveReferences; got != before {
+		t.Fatalf("enumeration refs = %d, want %d", got, before)
+	}
+	var output bytes.Buffer
+	astTestMust(t, f.fp.WriteSMT2(&output))
+	if !strings.Contains(output.String(), "(rule (! false :named invalid))") {
+		t.Fatalf("pending invalid rule missing from display: %q", output.String())
+	}
+	astTestMust(t, f.fp.Pop())
+	forms, err = f.fp.Rules()
+	astTestMust(t, err)
+	if len(forms) != 1 {
+		t.Fatalf("rules after pop = %d", len(forms))
+	}
+	for i := range forms {
+		astTestMust(t, f.m.DelRef(&forms[i]))
+	}
+	astTestMust(t, f.fp.AddRule(invalid, "invalid"))
+	for i := 0; i < 2; i++ {
+		_, err = f.fp.Query(f.p)
+		var head *base.InvalidRuleHeadError
+		if !errors.As(err, &head) {
+			t.Fatalf("query error = %v", err)
+		}
+	}
+}
 
 func TestAPIFixedpointRulesPreservePendingInputsAndFlushExpansion(t *testing.T) {
 	f := newAPIFixedpointFixture(t)

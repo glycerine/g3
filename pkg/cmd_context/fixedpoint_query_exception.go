@@ -32,6 +32,13 @@ func classifyFixedpointQueryException(err error) error {
 			message = p.SourceMessage
 			return true
 		}
+		if head, ok := e.(*base.InvalidRuleHeadError); ok {
+			if message != "" || head.SourceMessage == "" {
+				return false
+			}
+			message = head.SourceMessage
+			return true
+		}
 		if e == fp.ErrUnstratifiedNegation {
 			if message != "" {
 				return false

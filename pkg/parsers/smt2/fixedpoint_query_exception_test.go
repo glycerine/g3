@@ -154,6 +154,60 @@ func TestFixedpointQueryCatchesUnstratifiedNegationAcrossQueries(t *testing.T) {
 	}
 }
 
+func TestFixedpointQueryCatchesDeferredIllegalHead(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	context.PrintSuccess = false
+	const script = `(set-option :fixedpoint.engine datalog)
+(declare-rel P ())
+(rule P)
+(rule false)
+(query P)
+(query P)`
+	var output bytes.Buffer
+	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	const one = "(error \"query failed: Illegal head. The head predicate needs to be uninterpreted and registered (as recursive) false\")\nunknown\n"
+	if got := output.String(); got != one+one {
+		t.Fatalf("output = %q, want %q", got, one+one)
+	}
+}
+
+func TestFixedpointDeferredIllegalHeadRemovedByPop(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	context.PrintSuccess = false
+	const script = `(set-option :fixedpoint.engine datalog)
+(declare-rel P ())
+(rule P)
+(fixedpoint-push)
+(rule false)
+(fixedpoint-pop)
+(query P)`
+	var output bytes.Buffer
+	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	if got := output.String(); got != "sat\n" {
+		t.Fatalf("output = %q", got)
+	}
+}
+
 // These engines check the rules before their default transformation closes the
 // context, so the negative-predicate diagnostic precedes stratification.
 func TestFixedpointQueryNegativeRulePrecedesStratification(t *testing.T) {
