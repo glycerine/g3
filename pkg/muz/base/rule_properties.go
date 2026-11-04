@@ -348,7 +348,11 @@ func (p *RuleProperties) CheckQuantifierFree() error {
 		return err
 	}
 	if p.quantifier != nil {
-		return &RulePropertyError{Kind: RulePropertyQuantifier, RuleName: rulePropertyName(p.quantifier)}
+		var display strings.Builder
+		if err := p.rules.WriteRuleDisplay(&display, p.quantifier); err != nil {
+			return err
+		}
+		return &RulePropertyError{Kind: RulePropertyQuantifier, RuleName: rulePropertyName(p.quantifier), SourceMessage: "cannot process quantifier in rule " + display.String()}
 	}
 	return nil
 }

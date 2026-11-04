@@ -10,7 +10,7 @@ import (
 )
 
 func TestFixedpointQueryExceptionPreservesOtherFailures(t *testing.T) {
-	for _, kind := range []base.RulePropertyKind{base.RulePropertyNegativePredicate, base.RulePropertyInfiniteSort, base.RulePropertyUninterpreted} {
+	for _, kind := range []base.RulePropertyKind{base.RulePropertyNegativePredicate, base.RulePropertyInfiniteSort, base.RulePropertyUninterpreted, base.RulePropertyQuantifier} {
 		property := &base.RulePropertyError{Kind: kind, SourceMessage: "source diagnostic"}
 		cause := fmt.Errorf("%w: validation: %w", fp.ErrPropositionalHorn, property)
 		caught := classifyFixedpointQueryException(cause)

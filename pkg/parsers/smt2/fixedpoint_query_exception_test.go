@@ -81,6 +81,39 @@ func TestFixedpointQueryCatchesInfiniteSortException(t *testing.T) {
 	}
 }
 
+func TestFixedpointQueryCatchesQuantifierExceptionAcrossQueries(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	context.PrintSuccess = false
+	const script = `(set-option :fixedpoint.engine datalog)
+(set-option :fixedpoint.xform.inline_eager false)
+(set-option :fixedpoint.xform.inline_linear false)
+(set-option :fixedpoint.xform.slice false)
+(declare-rel P ())
+(rule (=> (not (exists ((x (_ BitVec 2))) (= x #b01))) P))
+(query P)
+(query P)`
+	var output bytes.Buffer
+	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	const one = "(error \"query failed: cannot process quantifier in rule <null>:\nP() :- \n (not (= (exists ((x (_ BitVec 2))) (= x #b01)) true)).\n\")\nunknown\n"
+	if got := output.String(); got != one+one {
+		t.Fatalf("output = %q, want %q", got, one+one)
+	}
+	reason, err := context.FixedpointReasonUnknown()
+	if err != nil || reason != "ok" {
+		t.Fatalf("status after cleanup = %q, %v", reason, err)
+	}
+}
+
 func TestFixedpointQueryCatchesUninterpretedExceptionAcrossQueries(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
 	if err != nil {

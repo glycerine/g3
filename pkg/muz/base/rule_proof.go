@@ -44,8 +44,14 @@ func (m *RuleManager) MkRuleAssertedProof(rule *Rule) (resultErr error) {
 	if err != nil {
 		return err
 	}
-	proof, err := m.manager.MkProofAsserted(fact)
+	// Keep the fresh proof owned while SetProof allocates the rule's slot.
+	owner, err := m.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&owner)) }()
+	proof, err := m.manager.MkProofAsserted(fact)
+	if err = errors.Join(err, m.manager.SetRef(owner, proof)); err != nil {
 		return err
 	}
 	return rule.SetProof(proof)
