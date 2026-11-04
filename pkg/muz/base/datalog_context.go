@@ -26,6 +26,8 @@ type DatalogContext struct {
 	sorts          map[ast.ASTHandle]*datalogSortDomain
 	argumentNames  map[ast.ASTHandle][]usymbol.Symbol
 	scopes         []datalogContextScope
+	pendingScope   *RuleSet
+	scopeRecovery  bool
 	background     []ast.ASTRef
 	bindVariables  bool
 	closed         bool
@@ -49,6 +51,7 @@ func NewDatalogContext(manager *ast.ASTManager) (_ *DatalogContext, resultErr er
 	if err != nil {
 		return nil, err
 	}
+	c.rules.contextOwner = c
 	c.binder, err = NewVariableBinder(manager)
 	if err != nil {
 		return nil, err
@@ -57,8 +60,33 @@ func NewDatalogContext(manager *ast.ASTManager) (_ *DatalogContext, resultErr er
 }
 
 func (c *DatalogContext) open() error {
+	if c != nil && c.scopeRecovery {
+		return ErrDatalogContextOwner
+	}
+	if c == nil {
+		return ErrDatalogContextOwner
+	}
+	c.scopeRecovery = true
+	err := c.openForScopeCleanup()
+	c.scopeRecovery = false
+	if err != nil {
+		return err
+	}
+	if len(c.scopes) != 0 && c.scopes[len(c.scopes)-1].popping {
+		return ErrDatalogContextOwner
+	}
+	return nil
+}
+
+func (c *DatalogContext) openForScopeCleanup() error {
 	if c == nil || c.closed || c.manager == nil {
 		return ErrDatalogContextOwner
+	}
+	if c.pendingScope != nil {
+		if err := c.pendingScope.Close(); err != nil {
+			return err
+		}
+		c.pendingScope = nil
 	}
 	return nil
 }
@@ -95,13 +123,31 @@ func (c *DatalogContext) Close() (result error) {
 	if c == nil || c.closed {
 		return nil
 	}
+	if c.scopeRecovery {
+		return ErrDatalogContextOwner
+	}
+	c.scopeRecovery = true
+	defer func() { c.scopeRecovery = false }()
+	if c.pendingScope != nil {
+		if err := c.pendingScope.Close(); err != nil {
+			return err
+		}
+		c.pendingScope = nil
+	}
+	for len(c.scopes) > 0 {
+		last := len(c.scopes) - 1
+		if err := c.scopes[last].rules.Close(); err != nil {
+			return err
+		}
+		c.scopes = c.scopes[:last]
+	}
 	c.closed = true
 	for i := len(c.background) - 1; i >= 0; i-- {
 		result = errors.Join(result, c.manager.DelRef(&c.background[i]))
 	}
 	c.background = nil
 	if c.rules != nil {
-		result = errors.Join(result, c.rules.Close())
+		result = errors.Join(result, c.rules.closeContents())
 	}
 	if c.binder != nil {
 		result = errors.Join(result, c.binder.Close())

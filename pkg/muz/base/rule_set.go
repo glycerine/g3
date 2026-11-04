@@ -23,6 +23,7 @@ type ruleDependencyEdge struct {
 // state before mutation.
 type RuleSet struct {
 	manager             *RuleManager
+	contextOwner        *DatalogContext
 	rules               []*Rule
 	byHead              map[ast.ASTHandle][]*Rule
 	headOrder           []ast.ASTHandle
@@ -57,6 +58,9 @@ func NewRuleSet(manager *RuleManager) (*RuleSet, error) {
 
 func (s *RuleSet) openForCleanup() error {
 	if s == nil || s.closed || s.manager == nil {
+		return ErrRuleSetOwner
+	}
+	if owner := s.contextOwner; owner != nil && (owner.scopeRecovery || len(owner.scopes) != 0 && owner.scopes[len(owner.scopes)-1].popping) {
 		return ErrRuleSetOwner
 	}
 	return s.manager.open()
@@ -686,6 +690,10 @@ func (s *RuleSet) resetContents() error {
 	if err := s.openForCleanup(); err != nil {
 		return err
 	}
+	return s.resetContentsUnchecked()
+}
+
+func (s *RuleSet) resetContentsUnchecked() error {
 	if _, err := s.manager.manager.ProofMode(); err != nil {
 		return err
 	}
@@ -777,7 +785,15 @@ func (s *RuleSet) Close() error {
 	if s.closed {
 		return nil
 	}
-	if err := s.resetContents(); err != nil {
+	if err := s.openForCleanup(); err != nil {
+		return err
+	}
+	return s.closeContents()
+}
+
+// closeContents is used by the owning context during guarded scope recovery.
+func (s *RuleSet) closeContents() error {
+	if err := s.resetContentsUnchecked(); err != nil {
 		return err
 	}
 	s.closed = true

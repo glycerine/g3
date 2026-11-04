@@ -14,6 +14,12 @@ func (s *RuleSet) ExchangeContents(other *RuleSet) error {
 	if err := other.open(); err != nil {
 		return err
 	}
-	*s, *other = *other, *s
+	s.exchangeContents(other)
 	return nil
+}
+
+func (s *RuleSet) exchangeContents(other *RuleSet) {
+	owner, otherOwner := s.contextOwner, other.contextOwner
+	*s, *other = *other, *s
+	s.contextOwner, other.contextOwner = owner, otherOwner
 }
