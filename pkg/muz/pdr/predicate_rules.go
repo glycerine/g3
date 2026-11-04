@@ -338,16 +338,16 @@ func (b *predicateRuleBuilder) substitute(expression ast.ASTHandle, variables []
 	return result, nil
 }
 
-func (b *predicateRuleBuilder) normalizeRule(source *base.Rule) (*normalizedRule, error) {
+func (b *predicateRuleBuilder) normalizeRule(source *base.Rule) (result *normalizedRule, resultErr error) {
 	owned, err := source.Retain()
 	if err != nil {
 		return nil, err
 	}
-	result := &normalizedRule{rule: owned}
-	committed := false
+	result = &normalizedRule{rule: owned}
 	defer func() {
-		if !committed {
-			_ = owned.Close()
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, owned.Close())
+			result = nil
 		}
 	}()
 	headDeclaration, err := owned.HeadDeclaration()
@@ -404,12 +404,29 @@ func (b *predicateRuleBuilder) normalizeRule(source *base.Rule) (*normalizedRule
 	if err != nil {
 		return nil, err
 	}
+	// Source flatten_and owns its vector, including synthesized negations.
+	var tailRefs []ast.ASTRef
+	defer func() {
+		for i := len(tailRefs) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, b.transformer.owner.releaseNotAndRef(&tailRefs[i]))
+		}
+	}()
+	for _, tail := range interpreted {
+		ref, x := b.transformer.manager.NewRef(tail)
+		if x != nil {
+			return nil, x
+		}
+		tailRefs = append(tailRefs, ref)
+	}
 	for _, formula := range interpreted {
 		ground, x := b.substitute(formula, variables)
 		if x != nil {
 			return nil, x
 		}
 		conjunction = append(conjunction, ground)
+		if x = b.traceRuleExpressions(602, formula, ground); x != nil {
+			return nil, x
+		}
 		// Source checks each substituted tail before the manager rewriter can
 		// fold away a quantified or otherwise non-ground expression.
 		isGround, x := b.transformer.manager.IsGround(ground)
@@ -442,6 +459,9 @@ func (b *predicateRuleBuilder) normalizeRule(source *base.Rule) (*normalizedRule
 			return nil, err
 		}
 	}
+	if err = b.traceRuleExpressions(616, result.transition); err != nil {
+		return nil, err
+	}
 	ground, err := b.transformer.manager.IsGround(result.transition)
 	if err != nil || !ground {
 		if err != nil {
@@ -450,7 +470,6 @@ func (b *predicateRuleBuilder) normalizeRule(source *base.Rule) (*normalizedRule
 		return nil, fmt.Errorf("muz/pdr: normalized rule transition is not ground")
 	}
 	result.instances = append(result.instances, variables...)
-	committed = true
 	return result, nil
 }
 

@@ -80,6 +80,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [ ] Implement and verify the live configured Datalog Karr relation routes and operation semantics through their actual consumers.
   - [x] Restore the PDR manager's live pre-converter model TRACE for model export, validation and direct answers; test source ordering, disabled tracing and ownership.
   - [x] Restore the live PDR initialization trace at its source boundary; g3trace tests cover ordering, disabled evaluation, stream refusal and formatting failure.
+  - [x] Restore PDR interpreted-tail and normalized-rule traces, with source ordering, distinct grounded expressions, lazy gating and owned flattened tails.
   - [x] Match the PDR manager Boolean rewriter for negated conjunctions, preserving the borrowed API and solver-owned results. Tests cover simplification, nil global parameters, allocation failure, release retry and reentrant deletion callbacks; end-to-end AddProperty cleanup refusal remains open.
   - [x] Match source Boolean conjunction rewriting in PDR cover export, with duplicate/complement and refused cleanup coverage; the separate Formulas consumer remains open.
   - [x] Match Boolean conjunction rewriting for PDR Formulas and migrate live consumers to scoped references, preserving the borrowed API. The complete native short PDR package passes; direct caller cleanup refusal remains open.
@@ -93,6 +94,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Classify the Duality CMake component as a Go package-discovery replacement without promoting its implementation; narrow the Duality interface claim to its tested paths. Correct stale PDR solver-cleanup descriptions and record the deliberate QBMC fixes relative to the bundled C++ source.
   - [x] Resume Duality prepared-query cleanup after consumed-with-error background or clause releases; native failure tests cover retry and partial-close guards.
   - [x] Verify the complementary unconsumed background and clause release refusals preserve prepared-query owners and permit retry.
+  - [x] Resume Duality query-run background cleanup after a consumed-with-error expression release; a native accounting failure checks owner preservation and retry.
   - [x] Match the source model-evaluator exception fallback for QBMC variable bindings, preserving the separately approved corrected derivation-level behavior; a real evaluator exception and allocation-failure retry are covered.
   - [x] Preserve a failed PDR delayed-scope cleanup for retry during solver close; a native partial-pop test covers owner retention and pending-operation refusal, while end-to-end injection into a real check remains unproven.
   - [x] Repair manifest evidence links to existing tests at unit and method scope; restore the broad portcheck gate without changing test declarations, validator rules or audited statuses. This verifies evidence availability, not semantic completion.

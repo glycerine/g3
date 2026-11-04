@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -66,6 +67,7 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 			}
 			postQueryTrace := queryTrace
 			if mode == "enabled" {
+				postQueryTrace += "-------- [pdr] init_rule src/muz/pdr/pdr_context.cpp:616 ---------\ntrue\n------------------------------------------------\n-------- [pdr] initialize src/muz/pdr/pdr_context.cpp:519 ---------\nInitial state: true\nTransition:    fresh-trace-P!0\n------------------------------------------------\n"
 				postQueryTrace += "-------- [pdr] solve src/muz/pdr/pdr_context.cpp:1888 ---------\nsolve\n------------------------------------------------\n"
 				queryTrace = "-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:92 ---------\nquery: fresh-trace-P\nrules:\n; rule count: 1\n; predicate count: 1\n; output: fresh-trace-P\nold-fact:\nfresh-trace-P().\n------------------------------------------------\n" + postQueryTrace
 			}
@@ -92,7 +94,7 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 				expected = "-------- [pdr] check_reset src/muz/pdr/pdr_dl_interface.cpp:68 ---------\nFresh rule first-fresh:\nfresh-trace-Q().\n------------------------------------------------\n"
 			}
 			if mode == "enabled" {
-				queryTrace = "-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:92 ---------\nquery: fresh-trace-P\nrules:\n; rule count: 3\n; predicate count: 3\n; output: fresh-trace-P\nold-fact:\nfresh-trace-P().\nfirst-fresh:\nfresh-trace-Q().\nlater-fresh:\nfresh-trace-R().\n------------------------------------------------\n" + postQueryTrace
+				queryTrace = "-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:92 ---------\nquery: fresh-trace-P\nrules:\n; rule count: 3\n; predicate count: 3\n; output: fresh-trace-P\nold-fact:\nfresh-trace-P().\nfirst-fresh:\nfresh-trace-Q().\nlater-fresh:\nfresh-trace-R().\n------------------------------------------------\n" + strings.Replace(postQueryTrace, "fresh-trace-P!0", "fresh-trace-P!2", 1)
 			}
 			expected += queryTrace
 			if got := output.String(); got != expected {
@@ -105,7 +107,7 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("repeat status", status)
 			}
-			if output.String() != queryTrace || m.Stats().LiveReferences != before {
+			if output.String() != strings.Replace(queryTrace, "fresh-trace-P!2", "fresh-trace-P!4", 1) || m.Stats().LiveReferences != before {
 				t.Fatal("repeat emitted trace or changed ownership", output.String())
 			}
 		})
