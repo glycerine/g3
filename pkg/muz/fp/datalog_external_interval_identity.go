@@ -183,16 +183,13 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalIdentity() (r
 		registers = nil
 		return finished
 	}
-	source, err := registers.relation(a.identity.tail)
+	source, err := registers.relationAt(a.identity.tail, 0)
 	if err != nil {
 		return rollback(err)
 	}
 	if source != nil {
-		target, cause := registers.ensureRelation(a.identity.head)
+		cause := registers.union(a.identity.head, source)
 		if cause != nil {
-			return rollback(cause)
-		}
-		if cause = target.Union(source, nil, false); cause != nil {
 			if rel.ExternalAssignmentCommitted(cause) {
 				var nested memory.ConstructionFailure
 				if !errors.As(cause, &nested) {

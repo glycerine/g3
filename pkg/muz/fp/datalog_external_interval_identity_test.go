@@ -511,14 +511,36 @@ func TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks(
 			fragmentMust(t, err)
 			fragmentMust(t, engine.AddRule(formula, "external-interval-invalid-"+shape))
 			if shape == "mutual-recursion" {
-				// Each identity is supported on its own, but the complete
-				// program needs recursive scheduling before either can run.
 				second, ruleErr := manager.MkImplies(head, tail)
 				fragmentMust(t, ruleErr)
 				fragmentMust(t, engine.AddRule(second, "external-interval-invalid-second"))
 			}
+			if shape == "self" || shape == "mutual-recursion" {
+				// Each identity is supported on its own, and the complete
+				// program exercises the recursive delta scheduler.
+				if _, ensureErr := engine.ensureExternalIntervalDatalog(); ensureErr != nil {
+					t.Fatalf("recursive identity ensure: %v", ensureErr)
+				}
+				one, valueErr := manager.ArithmeticIntegerNumeralText("1")
+				fragmentMust(t, valueErr)
+				fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{one}))
+				resetExternalIntervalCartesianCallbacks(callbacks)
+			}
 
-			status, queryErr := engine.QueryPredicate(q)
+			query := q
+			if shape == "self" {
+				query = p
+			}
+			status, queryErr := engine.QueryPredicate(query)
+			if shape == "self" || shape == "mutual-recursion" {
+				if queryErr != nil {
+					t.Fatalf("recursive identity query: %v", queryErr)
+				}
+				if status != lbool.Undef || engine.externalIntervalDatalog == nil || operationCount(callbacks.operations, ast.DatalogOpUnion) == 0 {
+					t.Fatal("recursive identity program did not run its delta rounds", status, callbacks.operations)
+				}
+				return
+			}
 			if status != lbool.Undef || !errors.Is(queryErr, ErrExternalIntervalDatalogFragment) || engine.externalIntervalDatalog != nil || len(callbacks.operations) != 0 {
 				t.Fatal("unsupported identity shape reached product callbacks", status, queryErr, callbacks.operations)
 			}

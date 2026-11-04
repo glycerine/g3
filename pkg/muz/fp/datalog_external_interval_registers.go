@@ -30,6 +30,12 @@ type externalIntervalDatalogRegisters struct {
 	constants  *externalIntervalDatalogConstantRegisters
 	retired    []*rel.ExternalIntervalProduct
 	retireNext int
+	auxiliary  []*rel.ExternalIntervalProduct
+	auxNext    int
+	inputDelta map[int]*rel.ExternalIntervalProduct
+	outputHead ast.ASTHandle
+	output     *rel.ExternalIntervalProduct
+	widen      bool
 	published  bool
 	deferStore bool
 	closed     bool
@@ -161,6 +167,59 @@ func (r *externalIntervalDatalogRegisters) relation(declaration ast.ASTHandle) (
 	return r.slots[index].product, nil
 }
 
+func (r *externalIntervalDatalogRegisters) relationAt(declaration ast.ASTHandle, tail int) (*rel.ExternalIntervalProduct, error) {
+	if product, found := r.inputDelta[tail]; found {
+		if _, ok := r.indices[declaration]; !ok {
+			return nil, ErrExternalIntervalDatalogFragment
+		}
+		return product, nil
+	}
+	return r.relation(declaration)
+}
+
+func (r *externalIntervalDatalogRegisters) union(head ast.ASTHandle, source *rel.ExternalIntervalProduct) error {
+	target, err := r.ensureRelation(head)
+	if err != nil {
+		return err
+	}
+	if r.outputHead == head && r.output != nil {
+		return target.Union(source, r.output, r.widen)
+	}
+	return target.Union(source, nil, false)
+}
+
+func (r *externalIntervalDatalogRegisters) emptyProduct(declaration ast.ASTHandle) (*rel.ExternalIntervalProduct, error) {
+	if err := r.open(); err != nil {
+		return nil, err
+	}
+	index, found := r.indices[declaration]
+	if !found {
+		return nil, ErrExternalIntervalDatalogFragment
+	}
+	slot := &r.slots[index]
+	product, selected, err := rel.NewSelectedExternalIntervalProduct(r.activation.plugin, slot.entry.sorts, slot.entry.kinds)
+	if err != nil {
+		return nil, err
+	}
+	if !selected || product == nil {
+		return nil, ErrExternalIntervalDatalogFragment
+	}
+	r.auxiliary = append(r.auxiliary, product)
+	return product, nil
+}
+
+func (r *externalIntervalDatalogRegisters) cloneRelation(declaration ast.ASTHandle) (*rel.ExternalIntervalProduct, error) {
+	product, err := r.ensureRelation(declaration)
+	if err != nil {
+		return nil, err
+	}
+	clone, err := product.Clone()
+	if err == nil {
+		r.auxiliary = append(r.auxiliary, clone)
+	}
+	return clone, err
+}
+
 // ensureRelation materializes the source UNION target when its loaded
 // register is nil. The fresh product uses the persistent predicate's exact
 // signature and ordered component kinds.
@@ -271,7 +330,27 @@ func (r *externalIntervalDatalogRegisters) retire() error {
 		}
 		r.retireNext--
 	}
+	if err := r.closeAuxiliary(); err != nil {
+		return err
+	}
 	return r.constants.close()
+}
+
+func (r *externalIntervalDatalogRegisters) closeAuxiliary() error {
+	if r.auxNext == 0 {
+		r.auxNext = len(r.auxiliary) - 1
+	}
+	for r.auxNext >= 0 {
+		if r.auxiliary[r.auxNext] != nil {
+			if err := r.auxiliary[r.auxNext].Close(); err != nil {
+				return err
+			}
+			r.auxiliary[r.auxNext] = nil
+		}
+		r.auxNext--
+	}
+	r.auxiliary = nil
+	return nil
 }
 
 func (r *externalIntervalDatalogRegisters) finish() {
@@ -280,6 +359,7 @@ func (r *externalIntervalDatalogRegisters) finish() {
 	r.slots = nil
 	r.indices = nil
 	r.retired = nil
+	r.auxiliary = nil
 	r.nested = nil
 	r.constants = nil
 }
@@ -289,6 +369,9 @@ func (r *externalIntervalDatalogRegisters) close() error {
 		return nil
 	}
 	if err := r.cleanupNested(); err != nil {
+		return err
+	}
+	if err := r.closeAuxiliary(); err != nil {
 		return err
 	}
 	if r.published {

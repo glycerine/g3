@@ -1,0 +1,154 @@
+package fp
+
+import (
+	"bytes"
+	"strings"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/lbool"
+)
+
+func TestExternalIntervalRecursiveProgramSeedsDeltaRoundsAndWidening(t *testing.T) {
+	for _, mode := range []struct {
+		name         string
+		widen        bool
+		allOrNothing bool
+		wantBound    string
+	}{
+		{name: "ordinary", wantBound: "1 in [0, 2]"},
+		{name: "widening", widen: true, wantBound: "1 in [0, oo)"},
+		{name: "all-or-nothing-widening", widen: true, allOrNothing: true, wantBound: "1 in [0, oo)"},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
+			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
+			family, err := manager.RegisterArithmeticPlugin()
+			fragmentMust(t, err)
+			integer, err := manager.MkFamilySort(family, 1, nil)
+			fragmentMust(t, err)
+			// The interval component is first so its exact delta emptiness
+			// controls the fixpoint rounds independently of the mock external
+			// relation's intentionally coarse empty/nonempty model.
+			kinds := []string{"interval_relation", "external_relation"}
+			p := declareExternalIntervalPredicate(t, manager, engine, "recursive-interval-P-"+mode.name, []ast.ASTHandle{integer, integer}, kinds)
+			q := declareExternalIntervalPredicate(t, manager, engine, "recursive-interval-Q-"+mode.name, []ast.ASTHandle{integer}, kinds)
+			s := declareExternalIntervalPredicate(t, manager, engine, "recursive-interval-S-"+mode.name, []ast.ASTHandle{integer}, kinds)
+			r := declareExternalIntervalPredicate(t, manager, engine, "recursive-interval-R-"+mode.name, []ast.ASTHandle{integer}, kinds)
+			numeral := func(value string) ast.ASTHandle {
+				h, cause := manager.ArithmeticIntegerNumeralText(value)
+				fragmentMust(t, cause)
+				return h
+			}
+			fragmentMust(t, engine.AddFact(q, []ast.ASTHandle{numeral("0")}))
+			fragmentMust(t, engine.AddFact(s, []ast.ASTHandle{numeral("0")}))
+			fragmentMust(t, engine.AddFact(r, []ast.ASTHandle{numeral("1")}))
+			fragmentMust(t, engine.AddFact(r, []ast.ASTHandle{numeral("2")}))
+
+			x, err := manager.MkVar(0, integer)
+			fragmentMust(t, err)
+			y, err := manager.MkVar(1, integer)
+			fragmentMust(t, err)
+			z, err := manager.MkVar(2, integer)
+			fragmentMust(t, err)
+			app := func(declaration ast.ASTHandle, args ...ast.ASTHandle) ast.ASTHandle {
+				h, cause := manager.MkApp(declaration, args)
+				fragmentMust(t, cause)
+				return h
+			}
+			seedBody, err := manager.MkAnd(app(q, x), app(s, y))
+			fragmentMust(t, err)
+			seed, err := manager.MkImplies(seedBody, app(p, x, y))
+			fragmentMust(t, err)
+			fragmentMust(t, engine.AddRule(seed, "external-interval-recursive-seed-"+mode.name))
+			loopBody, err := manager.MkAnd(app(p, x, y), app(r, z))
+			fragmentMust(t, err)
+			loop, err := manager.MkImplies(loopBody, app(p, x, z))
+			fragmentMust(t, err)
+			fragmentMust(t, engine.AddRule(loop, "external-interval-recursive-step-"+mode.name))
+			fragmentMust(t, engine.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", modeValue(mode.widen)))
+			fragmentMust(t, engine.globals.SourceSetName("fixedpoint.datalog.all_or_nothing_deltas", modeValue(mode.allOrNothing)))
+			resetExternalIntervalCartesianCallbacks(callbacks)
+
+			status, err := engine.QueryPredicate(p)
+			if err != nil || status != lbool.Undef {
+				t.Fatalf("recursive interval query status=%v err=%v", status, err)
+			}
+			updates := operationCount(callbacks.operations, ast.DatalogOpUnion) + operationCount(callbacks.operations, ast.DatalogOpWiden)
+			if operationCount(callbacks.operations, ast.DatalogOpJoin) < 2 || updates < 3 {
+				t.Fatalf("seed evaluation and delta rounds did not execute: %v", callbacks.operations)
+			}
+			seedJoin, seedUnion, deltaClone, loopJoin := -1, -1, -1, -1
+			for index, operation := range callbacks.operations {
+				switch {
+				case seedJoin < 0 && operation == ast.DatalogOpJoin:
+					seedJoin = index
+				case seedJoin >= 0 && seedUnion < 0 && (operation == ast.DatalogOpUnion || operation == ast.DatalogOpWiden):
+					seedUnion = index
+				case seedUnion >= 0 && deltaClone < 0 && operation == ast.DatalogOpClone:
+					deltaClone = index
+				case deltaClone >= 0 && operation == ast.DatalogOpJoin:
+					loopJoin = index
+				}
+			}
+			if seedJoin < 0 || seedUnion < seedJoin || deltaClone < seedUnion || loopJoin < deltaClone {
+				t.Fatalf("seed rule did not finish before recursive deltas were cloned and consumed: %v", callbacks.operations)
+			}
+			var display bytes.Buffer
+			fragmentMust(t, engine.externalIntervalDatalog.entries[p].product.Display(&display))
+			if !strings.Contains(display.String(), mode.wantBound) {
+				t.Fatalf("recursive result bounds %q; want %q", display.String(), mode.wantBound)
+			}
+		})
+	}
+}
+
+func TestExternalIntervalRecursiveProgramConsumesDeltasAcrossRounds(t *testing.T) {
+	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
+	family, err := manager.RegisterArithmeticPlugin()
+	fragmentMust(t, err)
+	integer, err := manager.MkFamilySort(family, 1, nil)
+	fragmentMust(t, err)
+	kinds := []string{"interval_relation", "external_relation"}
+	base := declareExternalIntervalPredicate(t, manager, engine, "recursive-rounds-base", []ast.ASTHandle{integer}, kinds)
+	p := declareExternalIntervalPredicate(t, manager, engine, "recursive-rounds-P", []ast.ASTHandle{integer}, kinds)
+	q := declareExternalIntervalPredicate(t, manager, engine, "recursive-rounds-Q", []ast.ASTHandle{integer}, kinds)
+	r := declareExternalIntervalPredicate(t, manager, engine, "recursive-rounds-R", []ast.ASTHandle{integer}, kinds)
+	one, err := manager.ArithmeticIntegerNumeralText("1")
+	fragmentMust(t, err)
+	fragmentMust(t, engine.AddFact(base, []ast.ASTHandle{one}))
+	addExternalIntervalIdentityRule(t, manager, engine, base, p, []ast.ASTHandle{integer}, "recursive-rounds-seed")
+	addExternalIntervalIdentityRule(t, manager, engine, p, q, []ast.ASTHandle{integer}, "recursive-rounds-P-to-Q")
+	addExternalIntervalIdentityRule(t, manager, engine, q, r, []ast.ASTHandle{integer}, "recursive-rounds-Q-to-R")
+	addExternalIntervalIdentityRule(t, manager, engine, r, p, []ast.ASTHandle{integer}, "recursive-rounds-R-to-P")
+	resetExternalIntervalCartesianCallbacks(callbacks)
+
+	status, err := engine.QueryPredicate(r)
+	if err != nil || status != lbool.Undef {
+		var displays []string
+		if engine.externalIntervalDatalog != nil {
+			for _, declaration := range []ast.ASTHandle{p, q, r} {
+				var display bytes.Buffer
+				_ = engine.externalIntervalDatalog.entries[declaration].product.Display(&display)
+				displays = append(displays, display.String())
+			}
+		}
+		t.Fatalf("recursive round query status=%v err=%v operations=%v displays=%v strata=%+v", status, err, callbacks.operations, displays, engine.externalIntervalDatalog.program.strata)
+	}
+	if unions := operationCount(callbacks.operations, ast.DatalogOpUnion); unions < 8 {
+		t.Fatalf("three-predicate cycle did not propagate through multiple delta rounds: %d unions, operations %v", unions, callbacks.operations)
+	}
+	for _, declaration := range []ast.ASTHandle{p, q, r} {
+		var display bytes.Buffer
+		fragmentMust(t, engine.externalIntervalDatalog.entries[declaration].product.Display(&display))
+		if !strings.Contains(display.String(), "0 in [1, 1]") {
+			t.Fatalf("recursive delta did not reach predicate %v: %s", declaration, display.String())
+		}
+	}
+}
+
+func modeValue(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
+}

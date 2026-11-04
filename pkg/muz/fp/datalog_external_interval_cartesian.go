@@ -228,9 +228,6 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 			arguments[index][column].variable = variable
 		}
 	}
-	if plan.head == plan.left || plan.head == plan.right {
-		return nil, ErrExternalIntervalDatalogFragment
-	}
 	leftArguments, rightArguments := arguments[1], arguments[2]
 	for first, argument := range leftArguments {
 		if !argument.numeral.IsNull() {
@@ -609,11 +606,11 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 		return finish()
 	}
 
-	left, err := registers.relation(a.cartesian.left)
+	left, err := registers.relationAt(a.cartesian.left, 0)
 	if err != nil {
 		return rollback(err)
 	}
-	right, err := registers.relation(a.cartesian.right)
+	right, err := registers.relationAt(a.cartesian.right, 1)
 	if err != nil {
 		return rollback(err)
 	}
@@ -725,11 +722,8 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 				return rollback(cause)
 			}
 		}
-		target, cause := registers.ensureRelation(a.cartesian.head)
+		cause = registers.union(a.cartesian.head, owner.temporary)
 		if cause != nil {
-			return rollback(cause)
-		}
-		if cause = target.Union(owner.temporary, nil, false); cause != nil {
 			if rel.ExternalAssignmentCommitted(cause) {
 				var nested memory.ConstructionFailure
 				if !errors.As(cause, &nested) {

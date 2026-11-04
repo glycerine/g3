@@ -71,8 +71,16 @@ func (s *externalIntervalCallbackState) callbacks() rel.ExternalRelationCallback
 			case ast.DatalogOpClone:
 				s.nonempty[outputs[0]] = s.nonempty[arguments[0]]
 				s.cloneOutputs = append(s.cloneOutputs, outputs[0])
-			case ast.DatalogOpUnion:
-				s.nonempty[outputs[0]] = s.nonempty[arguments[0]] || s.nonempty[arguments[1]]
+			case ast.DatalogOpUnion, ast.DatalogOpWiden:
+				wasNonempty := s.nonempty[arguments[0]]
+				added := s.nonempty[arguments[1]] && !wasNonempty
+				s.nonempty[outputs[0]] = wasNonempty || s.nonempty[arguments[1]]
+				if len(outputs) == 2 {
+					// The second assignment result is the source relation delta.
+					// Model only newly nonempty mock relations so recursive tests
+					// can distinguish a first insertion from a stable union.
+					s.nonempty[outputs[1]] = added
+				}
 			case ast.DatalogOpStore:
 				s.nonempty[outputs[0]] = true
 			case ast.DatalogOpFilter:

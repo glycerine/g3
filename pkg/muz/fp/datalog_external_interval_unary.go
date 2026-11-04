@@ -208,9 +208,6 @@ func (c *externalIntervalDatalogCompiler) externalIntervalUnaryPlan(rule *base.R
 			sorts[index] = append(sorts[index], sort)
 		}
 	}
-	if headDecl == tailDecl {
-		return fail(ErrExternalIntervalDatalogFragment)
-	}
 	columns := make(map[uint32][]uint32)
 	for column, variable := range variables[1] {
 		previous := columns[variable]

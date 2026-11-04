@@ -5,6 +5,7 @@ package fp
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/rel"
@@ -58,14 +59,17 @@ func (e *PropositionalEngine) externalIntervalPredicates() ([]externalIntervalDa
 func (e *PropositionalEngine) ensureExternalIntervalDatalog() (_ bool, resultErr error) {
 	predicates, selected, err := e.externalIntervalPredicates()
 	if err != nil || !selected {
-		return selected, err
+		if err != nil {
+			return selected, fmt.Errorf("external interval predicate selection: %w", err)
+		}
+		return selected, nil
 	}
 	if e.external == nil || len(predicates) == 0 {
 		return true, ErrExternalIntervalDatalogFragment
 	}
 	needsNormalization, err := externalIntervalNeedsJoinNormalization(e.set)
 	if err != nil {
-		return true, err
+		return true, fmt.Errorf("external interval normalization check: %w", err)
 	}
 	if needsNormalization {
 		if e.externalIntervalDatalog != nil {
@@ -86,7 +90,7 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (_ bool, resultErr
 	}
 	program, err := e.externalIntervalProgramPlan()
 	if err != nil {
-		return true, err
+		return true, fmt.Errorf("external interval program plan: %w", err)
 	}
 	var identity *externalIntervalDatalogIdentityRule
 	var ground *externalIntervalDatalogGroundRule
@@ -104,16 +108,16 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (_ bool, resultErr
 		}
 	}()
 	if e.udocDatalog != nil || e.sparseIntervalDatalog != nil || e.intervalDatalog != nil || e.boundDatalog != nil || e.boundIntervalDatalog != nil {
-		return true, ErrExternalIntervalDatalogFragment
+		return true, fmt.Errorf("%w: another Datalog representation is active", ErrExternalIntervalDatalogFragment)
 	}
 	if enabled, cause := e.datalogExplanationsEnabled(); cause != nil || enabled {
-		return true, errors.Join(cause, ErrExternalIntervalDatalogFragment)
+		return true, errors.Join(cause, fmt.Errorf("%w: explanation mode is active", ErrExternalIntervalDatalogFragment))
 	}
 	if _, enabled, cause := e.datalogCheckRelationName(); cause != nil || enabled {
-		return true, errors.Join(cause, ErrExternalIntervalDatalogFragment)
+		return true, errors.Join(cause, fmt.Errorf("%w: relation checking is active", ErrExternalIntervalDatalogFragment))
 	}
 	if _, enabled, cause := e.datalogDefaultTableCheck(); cause != nil || enabled {
-		return true, errors.Join(cause, ErrExternalIntervalDatalogFragment)
+		return true, errors.Join(cause, fmt.Errorf("%w: default table checking is active", ErrExternalIntervalDatalogFragment))
 	}
 	if e.params != nil && e.globals != nil {
 		view, cause := e.fixedpointParamView()
@@ -123,7 +127,7 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (_ bool, resultErr
 		magic, cause := view.Bool("datalog.magic_sets_for_queries", false)
 		cause = errors.Join(cause, view.Close())
 		if cause != nil || magic {
-			return true, errors.Join(cause, ErrExternalIntervalDatalogFragment)
+			return true, errors.Join(cause, fmt.Errorf("%w: magic set transformation is active", ErrExternalIntervalDatalogFragment))
 		}
 	}
 	if e.externalIntervalDatalog != nil {
@@ -176,6 +180,20 @@ func (e *PropositionalEngine) queryExternalIntervalDatalog(declarations []ast.AS
 		return scope.query(declarations)
 	}
 	if e.externalIntervalDatalog.program != nil {
+		program := e.externalIntervalDatalog.program
+		if len(program.strata) != 0 && e.params != nil && e.globals != nil {
+			view, cause := e.fixedpointParamView()
+			if cause != nil {
+				return lbool.Undef, cause
+			}
+			program.widen, cause = view.Bool("datalog.compile_with_widening", false)
+			if cause == nil {
+				program.allOrNothing, cause = view.Bool("datalog.all_or_nothing_deltas", false)
+			}
+			if cause = errors.Join(cause, view.Close()); cause != nil {
+				return lbool.Undef, cause
+			}
+		}
 		err = e.externalIntervalDatalog.executeExternalIntervalProgram()
 	} else {
 		err = e.externalIntervalDatalog.executeExternalIntervalIdentity()

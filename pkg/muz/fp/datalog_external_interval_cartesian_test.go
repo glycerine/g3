@@ -389,12 +389,22 @@ func TestExternalIntervalDatalogCartesianPreflightsShapesBeforeCallbacks(t *test
 			fragmentMust(t, engine.AddRule(formula, "external-interval-cartesian-invalid-"+shape))
 			if shape == "mutual-recursion" {
 				// Both joins are individually supported; the back-edge makes
-				// the complete program recursive and must fail preflight.
+				// the complete program recursive and exercises delta scheduling.
 				backBody, cause := manager.MkAnd(app(h, x, y), app(q, y))
 				fragmentMust(t, cause)
 				second, cause := manager.MkImplies(backBody, app(p, x))
 				fragmentMust(t, cause)
 				fragmentMust(t, engine.AddRule(second, "external-interval-cartesian-invalid-second"))
+			}
+			if shape == "cycle" || shape == "mutual-recursion" {
+				if _, ensureErr := engine.ensureExternalIntervalDatalog(); ensureErr != nil {
+					t.Fatalf("recursive Cartesian ensure: %v", ensureErr)
+				}
+				one, cause := manager.ArithmeticIntegerNumeralText("1")
+				fragmentMust(t, cause)
+				fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{one}))
+				fragmentMust(t, engine.AddFact(q, []ast.ASTHandle{one}))
+				resetExternalIntervalCartesianCallbacks(callbacks)
 			}
 			if shape == "repeated-tail" || shape == "repeated-tail-column" {
 				one, cause := manager.ArithmeticIntegerNumeralText("1")
@@ -433,6 +443,16 @@ func TestExternalIntervalDatalogCartesianPreflightsShapesBeforeCallbacks(t *test
 				fragmentMust(t, queryErr)
 				if status != lbool.Undef || operationCount(callbacks.operations, ast.DatalogOpJoin) < 2 || operationCount(callbacks.operations, ast.DatalogOpUnion) < 2 {
 					t.Fatal("normalized three-tail rule did not execute", status, callbacks.operations)
+				}
+				return
+			}
+			if shape == "cycle" || shape == "mutual-recursion" {
+				status, queryErr := engine.QueryPredicate(headDeclaration)
+				if queryErr != nil {
+					t.Fatalf("recursive Cartesian query: %v", queryErr)
+				}
+				if status != lbool.Undef || engine.externalIntervalDatalog == nil || operationCount(callbacks.operations, ast.DatalogOpJoin) == 0 || operationCount(callbacks.operations, ast.DatalogOpUnion) == 0 {
+					t.Fatal("recursive Cartesian program did not run its delta rounds", status, callbacks.operations)
 				}
 				return
 			}

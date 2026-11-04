@@ -5,9 +5,11 @@ package fp
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
 type externalIntervalDatalogProgramRule struct {
@@ -15,6 +17,19 @@ type externalIntervalDatalogProgramRule struct {
 	ground    *externalIntervalDatalogGroundRule
 	cartesian *externalIntervalDatalogCartesianRule
 	stratum   uint32
+}
+
+type externalIntervalDatalogProgramAction struct {
+	rule      int
+	inputTail int
+}
+
+type externalIntervalDatalogProgramStratum struct {
+	heads   []ast.ASTHandle
+	seeds   []int
+	loop    []externalIntervalDatalogProgramAction
+	allLoop []externalIntervalDatalogProgramAction
+	cyclic  bool
 }
 
 func (r externalIntervalDatalogProgramRule) declarations() []ast.ASTHandle {
@@ -31,8 +46,16 @@ type externalIntervalDatalogProgram struct {
 	rules        []externalIntervalDatalogProgramRule
 	declarations []ast.ASTHandle
 	schedule     []int
+	strata       []externalIntervalDatalogProgramStratum
 	registers    *externalIntervalDatalogRegisters
 	next         int
+	stratum      int
+	phase        uint8
+	current      map[ast.ASTHandle]*rel.ExternalIntervalProduct
+	nextDelta    map[ast.ASTHandle]*rel.ExternalIntervalProduct
+	actionNext   int
+	widen        bool
+	allOrNothing bool
 	storing      bool
 }
 
@@ -44,8 +67,29 @@ func (e *PropositionalEngine) externalIntervalProgramPlan() (*externalIntervalDa
 
 func (c *externalIntervalDatalogCompiler) externalIntervalProgramPlan() (*externalIntervalDatalogProgram, error) {
 	count, err := c.set.Len()
-	if err != nil || count < 2 {
+	if err != nil || count == 0 {
 		return nil, err
+	}
+	if count == 1 {
+		rule, err := c.set.Rule(0)
+		if err != nil {
+			return nil, err
+		}
+		head, err := rule.HeadDeclaration()
+		recursive := false
+		if err == nil {
+			tails, cause := rule.UninterpretedTailSize()
+			err = cause
+			for index := 0; err == nil && index < tails; index++ {
+				var tail ast.ASTHandle
+				tail, err = rule.TailDeclaration(index)
+				recursive = recursive || tail == head
+			}
+		}
+		err = errors.Join(err, rule.Close())
+		if err != nil || !recursive {
+			return nil, err
+		}
 	}
 	program := &externalIntervalDatalogProgram{}
 	for index := 0; index < count; index++ {
@@ -98,15 +142,6 @@ func (c *externalIntervalDatalogCompiler) externalIntervalProgramPlan() (*extern
 		if err != nil {
 			return nil, err
 		}
-		for _, tail := range declarations[1:] {
-			stratum, cause := c.set.PredicateStratum(tail)
-			if cause != nil {
-				return nil, cause
-			}
-			if stratum >= plan.stratum {
-				return nil, ErrExternalIntervalDatalogFragment
-			}
-		}
 		program.schedule = append(program.schedule, index)
 	}
 	// A nonrecursive source stratum has one head; stable sorting preserves
@@ -114,7 +149,80 @@ func (c *externalIntervalDatalogCompiler) externalIntervalProgramPlan() (*extern
 	sort.SliceStable(program.schedule, func(i, j int) bool {
 		return program.rules[program.schedule[i]].stratum < program.rules[program.schedule[j]].stratum
 	})
+	if err := c.externalIntervalProgramStrata(program); err != nil {
+		return nil, err
+	}
 	return program, nil
+}
+
+func (c *externalIntervalDatalogCompiler) externalIntervalProgramStrata(program *externalIntervalDatalogProgram) error {
+	strata, err := c.set.Strata()
+	if err != nil {
+		return err
+	}
+	byHead := make(map[ast.ASTHandle][]int)
+	for index, rule := range program.rules {
+		head := rule.declarations()[0]
+		byHead[head] = append(byHead[head], index)
+	}
+	for _, declarations := range strata {
+		heads := make([]ast.ASTHandle, 0, len(declarations))
+		for _, declaration := range declarations {
+			if len(byHead[declaration]) != 0 {
+				heads = append(heads, declaration)
+			}
+		}
+		if len(heads) == 0 {
+			continue
+		}
+		inside := make(map[ast.ASTHandle]bool, len(heads))
+		dependencies := make(map[ast.ASTHandle][]ast.ASTHandle, len(heads))
+		for _, head := range heads {
+			inside[head] = true
+			for _, index := range byHead[head] {
+				for _, tail := range program.rules[index].declarations()[1:] {
+					dependencies[head] = append(dependencies[head], tail)
+				}
+			}
+		}
+		ordered, err := rel.SourceRecursivePredicateOrder(heads, dependencies)
+		if err != nil {
+			return errors.Join(err, ErrExternalIntervalDatalogFragment)
+		}
+		stage := externalIntervalDatalogProgramStratum{heads: ordered, cyclic: len(ordered) > 1}
+		for _, head := range ordered {
+			for _, index := range byHead[head] {
+				plan := program.rules[index]
+				insideTail := false
+				for _, tail := range plan.declarations()[1:] {
+					stratum, cause := c.set.PredicateStratum(tail)
+					if cause != nil {
+						return cause
+					}
+					if stratum < plan.stratum {
+						continue
+					}
+					insideTail = true
+					stage.cyclic = true
+				}
+				if !insideTail {
+					stage.seeds = append(stage.seeds, index)
+				}
+				stage.allLoop = append(stage.allLoop, externalIntervalDatalogProgramAction{rule: index, inputTail: -1})
+				for tailIndex, tail := range plan.declarations()[1:] {
+					stratum, cause := c.set.PredicateStratum(tail)
+					if cause != nil {
+						return cause
+					}
+					if inside[tail] && stratum >= plan.stratum {
+						stage.loop = append(stage.loop, externalIntervalDatalogProgramAction{rule: index, inputTail: tailIndex})
+					}
+				}
+			}
+		}
+		program.strata = append(program.strata, stage)
+	}
+	return nil
 }
 
 func (a *externalIntervalDatalogActivation) installExternalIntervalProgram(program *externalIntervalDatalogProgram) error {
@@ -213,6 +321,13 @@ func (a *externalIntervalDatalogActivation) prepareExternalIntervalNormalization
 func (a *externalIntervalDatalogActivation) clearExternalIntervalProgramExecution() {
 	a.program.registers = nil
 	a.program.next = 0
+	a.program.stratum = 0
+	a.program.phase = 0
+	a.program.actionNext = 0
+	a.program.current = nil
+	a.program.nextDelta = nil
+	a.program.widen = false
+	a.program.allOrNothing = false
 	a.program.storing = false
 	a.identity, a.cartesian = nil, nil
 	a.ground = nil
@@ -236,6 +351,12 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalProgram() err
 	completed, err := a.resumeExternalIntervalIdentity()
 	if err != nil {
 		return err
+	}
+	if len(program.strata) != 0 {
+		if completed {
+			program.actionNext++
+		}
+		return a.executeExternalIntervalProgramStrata(program)
 	}
 	if program.storing {
 		a.clearExternalIntervalProgramExecution()
@@ -279,4 +400,138 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalProgram() err
 	}
 	a.clearExternalIntervalProgramExecution()
 	return nil
+}
+
+func (a *externalIntervalDatalogActivation) executeExternalIntervalProgramStrata(program *externalIntervalDatalogProgram) error {
+	if program.storing {
+		a.clearExternalIntervalProgramExecution()
+		return nil
+	}
+	if program.registers != nil && program.registers.closed {
+		a.clearExternalIntervalProgramExecution()
+	}
+	if program.registers == nil {
+		registers, err := a.loadExternalIntervalDatalogRegisters(program.declarations)
+		if err != nil {
+			errors.As(err, &a.pending)
+			return err
+		}
+		registers.deferStore = true
+		program.registers = registers
+		program.stratum, program.phase, program.actionNext = 0, 0, 0
+		program.current, program.nextDelta = nil, nil
+	}
+	registers := program.registers
+	for program.stratum < len(program.strata) {
+		stage := program.strata[program.stratum]
+		if program.phase == 0 {
+			for program.actionNext < len(stage.seeds) {
+				index := stage.seeds[program.actionNext]
+				if err := a.runExternalIntervalProgramAction(program, externalIntervalDatalogProgramAction{rule: index, inputTail: -1}, nil); err != nil {
+					return fmt.Errorf("external interval seed rule %d: %w", index, err)
+				}
+				program.actionNext++
+			}
+			program.actionNext = 0
+			if !stage.cyclic {
+				program.stratum++
+				continue
+			}
+			program.current = make(map[ast.ASTHandle]*rel.ExternalIntervalProduct, len(stage.heads))
+			program.nextDelta = make(map[ast.ASTHandle]*rel.ExternalIntervalProduct, len(stage.heads))
+			for _, head := range stage.heads {
+				current, err := registers.cloneRelation(head)
+				if err != nil {
+					return err
+				}
+				next, err := registers.emptyProduct(head)
+				if err != nil {
+					return err
+				}
+				program.current[head], program.nextDelta[head] = current, next
+			}
+			program.phase = 1
+		}
+		active := false
+		for _, head := range stage.heads {
+			empty, err := program.current[head].Empty()
+			if err != nil {
+				return err
+			}
+			active = active || !empty
+		}
+		if !active {
+			program.stratum++
+			program.phase = 0
+			program.current, program.nextDelta = nil, nil
+			program.actionNext = 0
+			continue
+		}
+		actions := stage.loop
+		if program.allOrNothing {
+			actions = stage.allLoop
+		}
+		for program.actionNext < len(actions) {
+			action := actions[program.actionNext]
+			var input *rel.ExternalIntervalProduct
+			if action.inputTail >= 0 {
+				declarations := program.rules[action.rule].declarations()
+				if action.inputTail+1 >= len(declarations) {
+					return fmt.Errorf("%w: recursive tail %d outside rule %d", ErrExternalIntervalDatalogFragment, action.inputTail, action.rule)
+				}
+				tail := declarations[action.inputTail+1]
+				input = program.current[tail]
+				if input == nil {
+					return fmt.Errorf("%w: missing recursive input for rule %d tail %d declaration %v", ErrExternalIntervalDatalogFragment, action.rule, action.inputTail, tail)
+				}
+			}
+			if err := a.runExternalIntervalProgramAction(program, action, input); err != nil {
+				return fmt.Errorf("external interval recursive rule %d tail %d: %w", action.rule, action.inputTail, err)
+			}
+			program.actionNext++
+		}
+		program.actionNext = 0
+		program.current, program.nextDelta = program.nextDelta, make(map[ast.ASTHandle]*rel.ExternalIntervalProduct, len(stage.heads))
+		for _, head := range stage.heads {
+			next, err := registers.emptyProduct(head)
+			if err != nil {
+				return err
+			}
+			program.nextDelta[head] = next
+		}
+	}
+	registers.inputDelta = nil
+	registers.outputHead, registers.output, registers.widen = ast.ASTHandle{}, nil, false
+	registers.deferStore = false
+	program.storing = true
+	if err := registers.store(); err != nil {
+		var failure *externalIntervalDatalogRegisterFailure
+		if errors.As(err, &failure) && failure.owner == registers {
+			a.pending = failure
+		} else {
+			a.pending = newExternalIntervalDatalogIdentityFailure(err, registers, nil)
+		}
+		a.pendingCompletesRule = false
+		return a.pending
+	}
+	a.clearExternalIntervalProgramExecution()
+	return nil
+}
+
+func (a *externalIntervalDatalogActivation) runExternalIntervalProgramAction(program *externalIntervalDatalogProgram, action externalIntervalDatalogProgramAction, input *rel.ExternalIntervalProduct) error {
+	plan := program.rules[action.rule]
+	a.identity, a.cartesian, a.ground = plan.identity, plan.cartesian, plan.ground
+	registers := program.registers
+	registers.inputDelta = nil
+	registers.outputHead, registers.output, registers.widen = ast.ASTHandle{}, nil, false
+	if program.phase == 1 {
+		head := plan.declarations()[0]
+		registers.outputHead = head
+		registers.output = program.nextDelta[head]
+		registers.widen = program.widen
+		if action.inputTail >= 0 {
+			registers.inputDelta = map[int]*rel.ExternalIntervalProduct{action.inputTail: input}
+		}
+	}
+	return a.executeExternalIntervalIdentity()
 }

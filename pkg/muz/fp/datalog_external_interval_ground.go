@@ -385,11 +385,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 			return rollback(err)
 		}
 	}
-	target, err := registers.ensureRelation(a.ground.head)
-	if err != nil {
-		return rollback(err)
-	}
-	if err = target.Union(temporary, nil, false); err != nil {
+	if err = registers.union(a.ground.head, temporary); err != nil {
 		if rel.ExternalAssignmentCommitted(err) {
 			var nested memory.ConstructionFailure
 			if !errors.As(err, &nested) {
