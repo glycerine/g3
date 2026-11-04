@@ -79,9 +79,6 @@ func (p *datalogParser) parseDeclaration(name usymbol.Symbol) (resultErr error) 
 	if err = p.context.RegisterPredicate(declaration, true); err != nil {
 		return err
 	}
-	if err = p.context.SetArgumentNames(declaration, names); err != nil {
-		return err
-	}
 	for p.token.kind == datalogIdentifier {
 		if p.token.text == "printtuples" || p.token.text == "outputtuples" {
 			if err = p.context.SetOutputPredicate(declaration); err != nil {
@@ -89,6 +86,9 @@ func (p *datalogParser) parseDeclaration(name usymbol.Symbol) (resultErr error) 
 			}
 		}
 		p.advance()
+	}
+	if err = p.context.SetArgumentNames(declaration, names); err != nil {
+		return err
 	}
 	if p.token.kind == datalogLeftArrow {
 		// parse_pred creates an application even for a new declaration, and
