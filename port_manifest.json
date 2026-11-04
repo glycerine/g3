@@ -80408,7 +80408,7 @@
         },
         {
           "name": "Concrete config_hwf interval constant node/variable view with borrowed live bounds and guarded mutable endpoints (src/math/subpaving/subpaving_t.h:239-263)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval.go",
           "tests": [
             "TestHardwareIntervalConstantNodeViewAndMutationGuards"
