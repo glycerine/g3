@@ -30,11 +30,6 @@ func (g *RPFP) GaussElimCheap(keep, literals []*Expr, simplifier *interp.Manager
 	if owner != m {
 		return nil, ErrContextMismatch
 	}
-	timer, err := startProfile(g.context, "GaussElimCheap")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { result = errors.Join(result, timer.Close()) }()
 	var refs []ast.ASTRef
 	var outputs []*Expr
 	defer func() {

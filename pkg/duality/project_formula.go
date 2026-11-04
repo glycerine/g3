@@ -37,11 +37,21 @@ func (g *RPFP) ProjectFormula(keep []*Expr, formula *Expr, simplifier *interp.Ma
 	if err != nil {
 		return nil, err
 	}
+	timer, err := startProfile(g.context, "GaussElimCheap")
+	if err != nil {
+		return nil, err
+	}
 	gaussian, err = g.GaussElimCheap(keep, literals, simplifier)
+	err = errors.Join(err, timer.Close())
+	if err != nil {
+		return nil, err
+	}
+	timer, err = startProfile(g.context, "FourierMotzkinCheap")
 	if err != nil {
 		return nil, err
 	}
 	projected, err = g.FourierMotzkinCheap(keep, gaussian, simplifier)
+	err = errors.Join(err, timer.Close())
 	if err != nil {
 		return nil, err
 	}

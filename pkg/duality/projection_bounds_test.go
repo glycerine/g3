@@ -289,8 +289,26 @@ func TestProjectFormulaCombinesEqualityAndInequalityProjection(t *testing.T) {
 	upper := wrap(m.MkFamilyApp(family, 2, nil, []ast.ASTHandle{raw(y), raw(z)}))
 	formula := wrap(m.MkAndArgs([]ast.ASTHandle{raw(eq), raw(lower), raw(upper)}))
 	expected := wrap(m.MkFamilyApp(family, 3, nil, []ast.ASTHandle{raw(z), raw(zero)}))
+	profile := NewProfiler(nil)
+	ctx.activeProfiler = profile
+	defer func() { ctx.activeProfiler = nil }()
+	must(profile.TimerStart("outer"))
+	outer := profile.current
+	for _, project := range []func([]*Expr, []*Expr, *interp.Manager) ([]*Expr, error){graph.GaussElimCheap, graph.FourierMotzkinCheap} {
+		terms, err := project([]*Expr{z}, []*Expr{eq, lower, upper}, simplifier)
+		must(err)
+		for _, term := range terms {
+			must(term.Close())
+		}
+	}
+	if len(outer.children) != 0 || profile.current != outer {
+		t.Fatal("direct projection helpers recorded call-site timers", outer.children)
+	}
 	output, err := graph.ProjectFormula([]*Expr{z}, formula, simplifier)
 	must(err)
+	if outer.children["GaussElimCheap"] == nil || outer.children["FourierMotzkinCheap"] == nil || profile.current != outer {
+		t.Fatal("projection timer scopes", outer.children)
+	}
 	defer output.Close()
 	iff := wrap(m.MkIff(raw(output), raw(expected)))
 	neg := wrap(m.MkNot(raw(iff)))
@@ -322,6 +340,9 @@ func TestProjectFormulaCombinesEqualityAndInequalityProjection(t *testing.T) {
 		if got := m.Stats().LiveReferences; got != baseline {
 			t.Fatal("projection references", n, got, baseline)
 		}
+		if profile.current != outer {
+			t.Fatal("projection timer not restored after allocation failure", n)
+		}
 		if complete {
 			break
 		}
@@ -329,6 +350,7 @@ func TestProjectFormulaCombinesEqualityAndInequalityProjection(t *testing.T) {
 	if !complete {
 		t.Fatal("projection allocation sweep never completed")
 	}
+	must(profile.TimerStop("outer"))
 }
 
 func TestFourierMotzkinKeepsProtectedAndRepeatedVariables(t *testing.T) {

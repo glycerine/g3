@@ -24,11 +24,6 @@ func (g *RPFP) FourierMotzkinCheap(keep, literals []*Expr, simplifier *interp.Ma
 	if owner != m {
 		return nil, ErrContextMismatch
 	}
-	timer, err := startProfile(g.context, "FourierMotzkinCheap")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { result = errors.Join(result, timer.Close()) }()
 	family, err := m.ArithmeticFamilyID()
 	if err != nil {
 		return nil, err

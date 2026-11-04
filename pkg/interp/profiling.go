@@ -5,6 +5,7 @@ package interp
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"time"
 )
@@ -61,7 +62,7 @@ func (p *Profiler) TimerStop(name string) error {
 	return nil
 }
 func profileSeconds(d time.Duration) string { return fmt.Sprintf("%g", d.Seconds()) }
-func (p *Profiler) printNode(w io.Writer, node *profileNode, indent int, totals map[string]time.Duration, order *[]string) error {
+func (p *Profiler) printNode(w io.Writer, node *profileNode, indent int, totals map[string]time.Duration) error {
 	prefix := strings.Repeat("  ", indent) + node.name
 	dots := 70 - 2*indent - len(node.name)
 	if dots < 0 {
@@ -71,13 +72,10 @@ func (p *Profiler) printNode(w io.Writer, node *profileNode, indent int, totals 
 		return err
 	}
 	if indent != 0 {
-		if _, found := totals[node.name]; !found {
-			*order = append(*order, node.name)
-		}
 		totals[node.name] += node.elapsed
 	}
 	for _, name := range node.order {
-		if err := p.printNode(w, node.children[name], indent+1, totals, order); err != nil {
+		if err := p.printNode(w, node.children[name], indent+1, totals); err != nil {
 			return err
 		}
 	}
@@ -92,14 +90,18 @@ func (p *Profiler) Print(w io.Writer) error {
 		p.top.elapsed += p.top.children[name].elapsed
 	}
 	totals := make(map[string]time.Duration)
-	order := []string{}
-	if err := p.printNode(w, p.top, 0, totals, &order); err != nil {
+	if err := p.printNode(w, p.top, 0, totals); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, "TOTALS:\n"); err != nil {
 		return err
 	}
-	for _, name := range order {
+	names := make([]string, 0, len(totals))
+	for name := range totals {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
 		if _, err := fmt.Fprintf(w, "%s %s\n", name, profileSeconds(totals[name])); err != nil {
 			return err
 		}

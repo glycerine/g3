@@ -114,6 +114,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Add the source `SubtermTruth` and `UnderapproxFormula` call-site profile scopes, checking branch selection and timer restoration on errors and allocation failures.
   - [x] Preserve Duality profiling during post-solve derivation, certificate and proof output, and time `RedVars` at its source call site.
   - [x] Share process-lifetime Duality and interpolation profilers across source-facing backend, API and SMT-LIB command paths; cross-client tests cover persistence and independently supplied profilers.
+  - [x] Match source projection timer call sites and lexical ordering of interpolation totals; focused tests cover sibling scopes, duplicate labels, direct helper calls and allocation-failure timer restoration. Other profiling and exception-path differences remain open.
   - [x] Stop Duality's `SolveMain` timer before quantified-counterexample validation, matching the source timing boundary.
   - [x] Verify PDR reachable-cache construction failure/retry and preservation of earlier constraint disjuncts; connector-publication failure injection remains open.
   - [x] Verify a rejected constraint-cache insertion preserves prior alternatives and references and permits retry; the later connector-publication failure boundary remains unproven.
