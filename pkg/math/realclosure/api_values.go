@@ -15,11 +15,12 @@ import (
 // APIValues owns the root registry and binary interval manager for one API
 // context. Its rational service is borrowed and must outlive this owner.
 type APIValues struct {
-	store           realValueStore
-	bounds          *numeral.BinaryRationalManager
-	transcendentals *interval.RationalTranscendentals
-	roots           algebraicRootOwner
-	live            int
+	store            realValueStore
+	bounds           *numeral.BinaryRationalManager
+	transcendentals  *interval.RationalTranscendentals
+	initialPrecision uint32
+	roots            algebraicRootOwner
+	live             int
 }
 
 // Rational creates a value from the API's rational string syntax.
@@ -88,8 +89,9 @@ func NewAPIValues(service *numeral.RationalService) (*APIValues, error) {
 		return nil, err
 	}
 	v := &APIValues{
-		bounds:          bounds,
-		transcendentals: &interval.RationalTranscendentals{Numbers: service.Manager},
+		bounds:           bounds,
+		transcendentals:  &interval.RationalTranscendentals{Numbers: service.Manager},
+		initialPrecision: 24,
 	}
 	v.store.numbers = service.Manager
 	v.roots.values, v.roots.intervals = &v.store, bounds

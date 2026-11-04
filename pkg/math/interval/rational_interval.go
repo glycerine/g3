@@ -90,6 +90,19 @@ func (v *RationalInterval) SetFinite(lower, upper *numeral.Rational, lowerOpen, 
 	return nil
 }
 
+// BorrowFiniteBounds returns the interval's finite endpoints and openness
+// flags without transferring ownership. The returned rationals remain valid
+// only while v is open and must not be deleted by the caller.
+func (v *RationalInterval) BorrowFiniteBounds() (lower, upper *numeral.Rational, lowerOpen, upperOpen bool, err error) {
+	if err = v.open(); err != nil {
+		return nil, nil, false, false, err
+	}
+	if v.lowerInf || v.upperInf {
+		return nil, nil, false, false, ErrExtendedDomain
+	}
+	return &v.lower, &v.upper, v.lowerOpen, v.upperOpen, nil
+}
+
 func (v *RationalInterval) Reset() error {
 	if err := v.open(); err != nil {
 		return err
