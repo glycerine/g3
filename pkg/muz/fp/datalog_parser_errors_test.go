@@ -10,7 +10,7 @@ import (
 
 func TestDatalogParserReportsSourceLocation(t *testing.T) {
 	f := newDatalogParserFixture(t)
-	err := fp.ParseDatalogString(f.context, "N 2\n\nP(x:N)\nP(X) :- .\n")
+	err := fp.ParseDatalogString(f.context, "N 2\n\nP(x:N)\nP(X) :- !.\n")
 	var parseError *fp.DatalogParseError
 	if !errors.As(err, &parseError) || parseError.Line != 4 || parseError.Column == 0 {
 		t.Fatal("diagnostic", err)

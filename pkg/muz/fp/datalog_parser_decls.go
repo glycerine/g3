@@ -24,7 +24,8 @@ func (p *datalogParser) parseDeclarationOrRule() error {
 	return p.parseRule(name, declaration)
 }
 
-func (p *datalogParser) parseDeclaration(name usymbol.Symbol) error {
+func (p *datalogParser) parseDeclaration(name usymbol.Symbol) (resultErr error) {
+	defer func() { resultErr = joinErrors(resultErr, p.closeArguments()) }()
 	var domain []ast.ASTHandle
 	var names []usymbol.Symbol
 	if p.token.kind == datalogLeftParen {
@@ -91,13 +92,29 @@ func (p *datalogParser) parseDeclaration(name usymbol.Symbol) error {
 		p.nextVar = 0
 		args := make([]ast.ASTHandle, len(domain))
 		for i, sort := range domain {
+			reference, cause := p.manager.NewRef(ast.ASTHandle{})
+			if cause != nil {
+				return cause
+			}
+			p.argumentRefs = append(p.argumentRefs, reference)
 			args[i], err = p.manager.MkVar(p.nextVar, sort)
 			if err != nil {
 				return err
 			}
+			if err = p.manager.SetRef(reference, args[i]); err != nil {
+				return err
+			}
 		}
+		headRef, err := p.manager.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = joinErrors(resultErr, p.manager.DelRef(&headRef)) }()
 		head, err := p.manager.MkApp(declaration, args)
 		if err != nil {
+			return err
+		}
+		if err = p.manager.SetRef(headRef, head); err != nil {
 			return err
 		}
 		return p.parseRuleBody(head)

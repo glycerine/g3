@@ -6,15 +6,24 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (p *datalogParser) parseRule(name string, declaration ast.ASTHandle) error {
+func (p *datalogParser) parseRule(name string, declaration ast.ASTHandle) (resultErr error) {
+	defer func() { resultErr = joinErrors(resultErr, p.closeArguments()) }()
 	p.vars = make(map[string]ast.ASTHandle)
 	p.nextVar = 0
 	arguments, err := p.parseArguments(declaration)
 	if err != nil {
 		return err
 	}
+	headRef, err := p.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = joinErrors(resultErr, p.manager.DelRef(&headRef)) }()
 	head, err := p.manager.MkApp(declaration, arguments)
 	if err != nil {
+		return err
+	}
+	if err = p.manager.SetRef(headRef, head); err != nil {
 		return err
 	}
 	if p.token.kind == datalogPeriod {
@@ -24,20 +33,44 @@ func (p *datalogParser) parseRule(name string, declaration ast.ASTHandle) error 
 	return p.parseRuleBody(head)
 }
 
-func (p *datalogParser) parseRuleBody(head ast.ASTHandle) error {
+func (p *datalogParser) parseRuleBody(head ast.ASTHandle) (resultErr error) {
 	if err := p.expect(datalogLeftArrow, "expected '.' or ':-' after rule head"); err != nil {
 		return err
 	}
 	var tail []ast.ASTHandle
 	var negated []bool
+	var tailRefs []ast.ASTRef
+	defer func() {
+		for i := len(tailRefs) - 1; i >= 0; i-- {
+			resultErr = joinErrors(resultErr, p.manager.DelRef(&tailRefs[i]))
+		}
+	}()
 	for {
+		// The source loop returns EOS without publishing its partial rule.
+		if p.token.kind == datalogEOF {
+			return nil
+		}
+		// Source parse_body accepts a period at the start of each iteration,
+		// including an empty body and a body ending in a comma.
+		if p.token.kind == datalogPeriod {
+			p.advance()
+			break
+		}
 		negative := false
 		if p.token.kind == datalogNegation {
 			negative = true
 			p.advance()
 		}
+		reference, err := p.manager.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return err
+		}
+		tailRefs = append(tailRefs, reference)
 		expression, err := p.parseBodyExpression()
 		if err != nil {
+			return err
+		}
+		if err = p.manager.SetRef(reference, expression); err != nil {
 			return err
 		}
 		tail = append(tail, expression)
@@ -106,11 +139,11 @@ func (p *datalogParser) parseInfix(first datalogToken) (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	left, err := p.argumentFromToken(first, sort, false)
+	left, err := p.ownedArgument(first, sort, false)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	right, err := p.argumentFromToken(second, sort, false)
+	right, err := p.ownedArgument(second, sort, false)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -119,8 +152,16 @@ func (p *datalogParser) parseInfix(first datalogToken) (ast.ASTHandle, error) {
 	case datalogEqual:
 		return p.manager.MkEq(left, right)
 	case datalogNotEqual:
+		reference, e := p.manager.NewRef(ast.ASTHandle{})
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		p.argumentRefs = append(p.argumentRefs, reference)
 		equal, e := p.manager.MkEq(left, right)
 		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if e = p.manager.SetRef(reference, equal); e != nil {
 			return ast.ASTHandle{}, e
 		}
 		return p.manager.MkNot(equal)

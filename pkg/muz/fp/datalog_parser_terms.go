@@ -3,11 +3,20 @@ package fp
 // Source: dparser::parse_arg, mk_const and mk_symbol_const.
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
+
+func (p *datalogParser) closeArguments() (result error) {
+	for i := len(p.argumentRefs) - 1; i >= 0; i-- {
+		result = errors.Join(result, p.manager.DelRef(&p.argumentRefs[i]))
+	}
+	p.argumentRefs = nil
+	return result
+}
 
 func (p *datalogParser) parseArguments(declaration ast.ASTHandle) ([]ast.ASTHandle, error) {
 	if p.token.kind != datalogLeftParen {
@@ -61,7 +70,26 @@ func (p *datalogParser) parseArguments(declaration ast.ASTHandle) ([]ast.ASTHand
 func (p *datalogParser) parseArgument(sort ast.ASTHandle) (ast.ASTHandle, error) {
 	token := p.token
 	p.advance()
-	return p.argumentFromToken(token, sort, true)
+	return p.ownedArgument(token, sort, true)
+}
+
+// Source parse_args stores each argument in an expr_ref_vector. Reserve its
+// owning slot before constructing the expression, then keep it through the
+// complete rule so variables remain available to subsequent occurrences.
+func (p *datalogParser) ownedArgument(token datalogToken, sort ast.ASTHandle, createVariable bool) (ast.ASTHandle, error) {
+	reference, err := p.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	p.argumentRefs = append(p.argumentRefs, reference)
+	argument, err := p.argumentFromToken(token, sort, createVariable)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if err = p.manager.SetRef(reference, argument); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return argument, nil
 }
 
 // argumentFromToken implements dparser::parse_arg and the constant/variable

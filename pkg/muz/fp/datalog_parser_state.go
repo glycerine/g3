@@ -12,15 +12,16 @@ import (
 )
 
 type datalogParser struct {
-	context *base.DatalogContext
-	manager *ast.ASTManager
-	lexer   *datalogLexer
-	token   datalogToken
-	path    string
-	dir     string
-	sorts   map[string]ast.ASTHandle
-	vars    map[string]ast.ASTHandle
-	nextVar uint32
+	context      *base.DatalogContext
+	manager      *ast.ASTManager
+	lexer        *datalogLexer
+	token        datalogToken
+	path         string
+	dir          string
+	sorts        map[string]ast.ASTHandle
+	vars         map[string]ast.ASTHandle
+	argumentRefs []ast.ASTRef
+	nextVar      uint32
 }
 
 func parseDatalog(context *base.DatalogContext, input io.Reader, path, dir string) error {
