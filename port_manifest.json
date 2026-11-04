@@ -82264,7 +82264,7 @@
         },
         {
           "name": "Concrete config_hwf newest-first child decision-bound replay and most-recent bound selection (src/math/subpaving/subpaving_t_def.h:1661-1681)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_propagate.go",
           "tests": [
             "TestHardwareChildRecentBoundReplayAndPolynomialWatcher"
