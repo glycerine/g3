@@ -42,6 +42,9 @@ func (c *blastTermITEConfiguration) ReduceApp(decl ast.ASTHandle, arguments ast.
 		if !ite {
 			continue
 		}
+		if err = c.traceApplication(decl, args, out); err != nil {
+			return rewriter.RewriteFailed, err
+		}
 		thenArgs := append([]ast.ASTHandle(nil), args...)
 		thenArgs[i] = thenPart
 		thenApp, err := m.MkApp(decl, thenArgs)
