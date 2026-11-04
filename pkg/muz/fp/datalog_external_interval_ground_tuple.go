@@ -22,8 +22,120 @@ type externalIntervalDatalogGroundTuple struct {
 	current    *rel.ExternalIntervalProduct
 	joined     *rel.ExternalIntervalProduct
 	retiring   *rel.ExternalIntervalProduct
+	auxiliary  *rel.ExternalIntervalProduct
 	registers  *externalIntervalDatalogRegisters
 	head       ast.ASTHandle
+}
+
+func (t *externalIntervalDatalogGroundTuple) assembleHead(registers *externalIntervalDatalogRegisters, head ast.ASTHandle, constants []externalIntervalCartesianHeadConstant, unbound []externalIntervalCartesianHeadVariable, additions []externalIntervalCartesianHeadAddition) error {
+	t.registers, t.head = registers, head
+	for _, addition := range additions {
+		var next *rel.ExternalIntervalProduct
+		var err error
+		if addition.total {
+			next, err = registers.totalRelation(head, unbound[addition.index].sort)
+		} else {
+			constant := constants[addition.index]
+			next, err = registers.unarySingleton(head, constant.sort, constant.value)
+		}
+		if err != nil {
+			return err
+		}
+		if t.current == nil {
+			t.current = next
+			continue
+		}
+		joined, cause := rel.JoinExternalIntervalProducts(t.current, next, nil, nil)
+		if joined != nil {
+			if t.retiring != nil {
+				return ErrExternalIntervalDatalogFragment
+			}
+			t.retiring, t.joined, t.current = t.joined, joined, joined
+		}
+		if cause != nil {
+			return cause
+		}
+		if t.retiring != nil {
+			if err := t.retiring.Close(); err != nil {
+				return err
+			}
+			t.retiring = nil
+		}
+	}
+	return nil
+}
+
+func (t *externalIntervalDatalogGroundTuple) duplicateColumn(column uint32) error {
+	if t.current == nil {
+		return ErrExternalIntervalDatalogFragment
+	}
+	sorts, err := t.current.Sorts()
+	if err != nil {
+		return err
+	}
+	if uint64(column) >= uint64(len(sorts)) {
+		return ast.ErrASTDomain
+	}
+	right := t.current
+	if len(sorts) != 1 {
+		removed := make([]uint32, 0, len(sorts)-1)
+		for index := range sorts {
+			if uint32(index) != column {
+				removed = append(removed, uint32(index))
+			}
+		}
+		t.auxiliary, err = t.current.Project(removed)
+		if err != nil {
+			return err
+		}
+		right = t.auxiliary
+	}
+	joined, cause := rel.JoinExternalIntervalProducts(t.current, right, []uint32{column}, []uint32{0})
+	if joined != nil {
+		if t.retiring != nil {
+			return ErrExternalIntervalDatalogFragment
+		}
+		t.retiring, t.joined, t.current = t.joined, joined, joined
+	}
+	if cause != nil {
+		return cause
+	}
+	if t.auxiliary != nil {
+		if err := t.auxiliary.Close(); err != nil {
+			return err
+		}
+		t.auxiliary = nil
+	}
+	if t.retiring != nil {
+		if err := t.retiring.Close(); err != nil {
+			return err
+		}
+		t.retiring = nil
+	}
+	return nil
+}
+
+func (t *externalIntervalDatalogGroundTuple) rename(cycle []uint32) error {
+	if t.current == nil {
+		return ErrExternalIntervalDatalogFragment
+	}
+	next, err := t.current.Rename(cycle)
+	if next != nil {
+		if t.retiring != nil {
+			return ErrExternalIntervalDatalogFragment
+		}
+		t.retiring, t.joined, t.current = t.joined, next, next
+	}
+	if err != nil {
+		return err
+	}
+	if t.retiring != nil {
+		if err := t.retiring.Close(); err != nil {
+			return err
+		}
+		t.retiring = nil
+	}
+	return nil
 }
 
 func (t *externalIntervalDatalogGroundTuple) assembleCached(registers *externalIntervalDatalogRegisters, head ast.ASTHandle, sorts, values []ast.ASTHandle) error {
@@ -91,6 +203,12 @@ func (t *externalIntervalDatalogGroundTuple) closeJoined() error {
 			return err
 		}
 		t.retiring = nil
+	}
+	if t.auxiliary != nil {
+		if err := t.auxiliary.Close(); err != nil {
+			return err
+		}
+		t.auxiliary = nil
 	}
 	t.current = nil
 	return nil

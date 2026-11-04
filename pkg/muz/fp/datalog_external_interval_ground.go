@@ -18,6 +18,11 @@ type externalIntervalDatalogGroundRule struct {
 	head            ast.ASTHandle
 	application     ast.ASTHandle
 	values          []ast.ASTHandle
+	headConstants   []externalIntervalCartesianHeadConstant
+	headUnbound     []externalIntervalCartesianHeadVariable
+	headAdditions   []externalIntervalCartesianHeadAddition
+	duplicates      []uint32
+	renames         [][]uint32
 	applicationRoot ast.ASTRef
 }
 
@@ -29,11 +34,32 @@ func (r *externalIntervalDatalogGroundRule) close(manager *ast.ASTManager) error
 }
 
 func sameExternalIntervalGroundRule(left, right *externalIntervalDatalogGroundRule) bool {
-	if left == nil || right == nil || left.head != right.head || len(left.values) != len(right.values) {
+	if left == nil || right == nil || left.head != right.head || len(left.values) != len(right.values) || len(left.headConstants) != len(right.headConstants) || len(left.headUnbound) != len(right.headUnbound) || len(left.headAdditions) != len(right.headAdditions) || !externalIntervalColumnsEqual(left.duplicates, right.duplicates) || len(left.renames) != len(right.renames) {
 		return false
 	}
 	for i, value := range left.values {
 		if value != right.values[i] {
+			return false
+		}
+	}
+	for i, constant := range left.headConstants {
+		other := right.headConstants[i]
+		if constant.sort != other.sort || constant.value != other.value {
+			return false
+		}
+	}
+	for i := range left.headUnbound {
+		if left.headUnbound[i] != right.headUnbound[i] {
+			return false
+		}
+	}
+	for i := range left.headAdditions {
+		if left.headAdditions[i] != right.headAdditions[i] {
+			return false
+		}
+	}
+	for i := range left.renames {
+		if !externalIntervalColumnsEqual(left.renames[i], right.renames[i]) {
 			return false
 		}
 	}
@@ -75,26 +101,91 @@ func (c *externalIntervalDatalogCompiler) externalIntervalGroundRule(rule *base.
 	if int(count) != len(state.sorts) {
 		return nil, ErrExternalIntervalDatalogFragment
 	}
+	plan := &externalIntervalDatalogGroundRule{head: declaration, application: head}
 	values := make([]ast.ASTHandle, count)
+	headSources := make([]uint32, count)
+	variableSources := make(map[uint32]uint32)
+	width := uint32(0)
 	for i := range values {
 		value, cause := c.manager.GetArg(head, uint32(i))
 		if cause != nil {
-			return nil, cause
+			return nil, fmt.Errorf("ground head argument %d: %w", i, cause)
 		}
 		sort, cause := c.manager.GetSort(value)
 		if cause != nil {
-			return nil, cause
+			return nil, fmt.Errorf("ground head argument %d sort: %w", i, cause)
+		}
+		kind, cause := c.manager.GetKind(value)
+		if cause != nil {
+			return nil, fmt.Errorf("ground head argument %d kind: %w", i, cause)
+		}
+		if sort != state.sorts[i] {
+			return nil, ErrExternalIntervalDatalogFragment
+		}
+		if kind == ast.ASTVar {
+			variable, cause := c.manager.GetVarIndex(value)
+			if cause != nil {
+				return nil, fmt.Errorf("ground head argument %d variable index: %w", i, cause)
+			}
+			source, found := variableSources[variable]
+			if !found {
+				index := len(plan.headUnbound)
+				plan.headUnbound = append(plan.headUnbound, externalIntervalCartesianHeadVariable{sort: state.sorts[i]})
+				plan.headAdditions = append(plan.headAdditions, externalIntervalCartesianHeadAddition{total: true, index: index})
+				source = width
+				width++
+				variableSources[variable] = source
+			}
+			headSources[i] = source
+			continue
 		}
 		_, _, numeral, cause := c.manager.ArithmeticNumeralText(value)
 		if cause != nil {
-			return nil, cause
+			return nil, fmt.Errorf("ground head argument %d numeral: %w", i, cause)
 		}
-		if !numeral || sort != state.sorts[i] {
+		if !numeral {
 			return nil, ErrExternalIntervalDatalogFragment
 		}
 		values[i] = value
+		index := len(plan.headConstants)
+		plan.headConstants = append(plan.headConstants, externalIntervalCartesianHeadConstant{sort: sort, value: value})
+		plan.headAdditions = append(plan.headAdditions, externalIntervalCartesianHeadAddition{index: index})
+		headSources[i] = width
+		width++
 	}
-	return &externalIntervalDatalogGroundRule{head: declaration, application: head, values: values}, nil
+	plan.values = values
+	permutation := make([]uint32, len(headSources))
+	usedSources := make(map[uint32]bool)
+	for column, source := range headSources {
+		if usedSources[source] {
+			plan.duplicates = append(plan.duplicates, source)
+			permutation[column] = width
+			width++
+		} else {
+			usedSources[source] = true
+			permutation[column] = source
+		}
+	}
+	for column := range permutation {
+		if permutation[column] == uint32(column) {
+			continue
+		}
+		var cycle []uint32
+		next := uint32(column)
+		for {
+			cycle = append(cycle, next)
+			previous := next
+			next = permutation[previous]
+			permutation[previous] = previous
+			if next == uint32(column) {
+				break
+			}
+		}
+		for i := 0; i+1 < len(cycle); i++ {
+			plan.renames = append(plan.renames, []uint32{cycle[i], cycle[i+1]})
+		}
+	}
+	return plan, nil
 }
 
 // externalIntervalRulePlans validates the complete retained one-rule fragment
@@ -322,7 +413,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 			a.pendingGround = nil
 			a.pendingCartesian = nil
 		}
-		return err
+		return fmt.Errorf("load zero-tail relation registers: %w", err)
 	}
 	owner := &externalIntervalDatalogGroundContinuation{
 		registers: registers,
@@ -347,7 +438,25 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 	}
 	var temporary *rel.ExternalIntervalProduct
 	var selected bool
-	if len(a.ground.values) > 1 {
+	if len(a.ground.headUnbound) != 0 {
+		owner.tuple = &externalIntervalDatalogGroundTuple{}
+		err = owner.tuple.assembleHead(registers, a.ground.head, a.ground.headConstants, a.ground.headUnbound, a.ground.headAdditions)
+		if err != nil {
+			return rollback(fmt.Errorf("assemble zero-tail variable head: %w", err))
+		}
+		for _, column := range a.ground.duplicates {
+			if err = owner.tuple.duplicateColumn(column); err != nil {
+				return rollback(err)
+			}
+		}
+		for _, cycle := range a.ground.renames {
+			if err = owner.tuple.rename(cycle); err != nil {
+				return rollback(err)
+			}
+		}
+		temporary = owner.tuple.current
+		selected = temporary != nil
+	} else if len(a.ground.values) > 1 {
 		owner.tuple = &externalIntervalDatalogGroundTuple{}
 		if a.program != nil {
 			err = owner.tuple.assembleCached(registers, a.ground.head, entry.sorts, a.ground.values)
@@ -380,12 +489,13 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 	if owner.tuple == nil && a.program == nil {
 		owner.temporary = temporary
 	}
-	if len(a.ground.values) == 1 && a.program == nil {
+	if len(a.ground.headUnbound) == 0 && len(a.ground.values) == 1 && a.program == nil {
 		if err = temporary.AddFact(a.ground.values); err != nil {
 			return rollback(err)
 		}
 	}
 	if err = registers.union(a.ground.head, temporary); err != nil {
+		err = fmt.Errorf("publish ground head: %w", err)
 		if rel.ExternalAssignmentCommitted(err) {
 			var nested memory.ConstructionFailure
 			if !errors.As(err, &nested) {
@@ -405,6 +515,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalGround() erro
 	}
 	owner.publish = true
 	if err = owner.resume(); err != nil {
+		err = fmt.Errorf("finish ground head: %w", err)
 		failure := newExternalIntervalDatalogGroundFailure(err, owner)
 		a.pending = failure
 		a.pendingCompletesRule = true

@@ -380,7 +380,7 @@ func TestExternalIntervalDatalogDirectFactsAndQueries(t *testing.T) {
 	}
 }
 
-func TestExternalIntervalDatalogRejectsUnsupportedPathsBeforeCallbacks(t *testing.T) {
+func TestExternalIntervalDatalogUnsupportedExpressionAndVariableHead(t *testing.T) {
 	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 	family, err := manager.RegisterArithmeticPlugin()
 	fragmentMust(t, err)
@@ -403,8 +403,9 @@ func TestExternalIntervalDatalogRejectsUnsupportedPathsBeforeCallbacks(t *testin
 	fragmentMust(t, err)
 	fragmentMust(t, engine.AddRule(variableHead, "unsupported-product-variable-rule"))
 	status, err = engine.QueryPredicate(p)
-	if status != lbool.Undef || !errors.Is(err, ErrExternalIntervalDatalogFragment) || engine.externalIntervalDatalog != nil || len(callbacks.operations) != 0 {
-		t.Fatal("ruleful query reached product construction", status, err, engine.externalIntervalDatalog, callbacks.operations)
+	fragmentMust(t, err)
+	if status != lbool.Undef || engine.externalIntervalDatalog == nil || operationCount(callbacks.operations, ast.DatalogOpComplement) == 0 || operationCount(callbacks.operations, ast.DatalogOpUnion) == 0 {
+		t.Fatal("zero-tail variable head did not use the selected product", status, engine.externalIntervalDatalog, callbacks.operations)
 	}
 }
 

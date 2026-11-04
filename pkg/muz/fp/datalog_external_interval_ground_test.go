@@ -407,7 +407,7 @@ func TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay(
 	}
 }
 
-func TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks(t *testing.T) {
+func TestExternalIntervalDatalogGroundAndVariableHeads(t *testing.T) {
 	for _, shape := range []string{"nonnumeral-second", "variable", "body", "nullary-body", "later-unsafe-rule"} {
 		t.Run(shape, func(t *testing.T) {
 			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
@@ -462,8 +462,8 @@ func TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks(t *testi
 			}
 			fragmentMust(t, engine.AddRule(formula, "external-interval-ground-invalid-"+shape))
 			if shape == "later-unsafe-rule" {
-				// Validate the complete program before executing its valid
-				// first ground rule or activating any relation callbacks.
+				// The later zero-tail variable head is part of the same program;
+				// compilation must assemble it from a total relation as well.
 				r := declareExternalIntervalPredicate(t, manager, engine, "external-interval-ground-invalid-r", []ast.ASTHandle{integer}, kinds)
 				variable, secondErr := manager.MkVar(0, integer)
 				fragmentMust(t, secondErr)
@@ -485,10 +485,21 @@ func TestExternalIntervalDatalogGroundRejectsUnsupportedBeforeCallbacks(t *testi
 				}
 				return
 			}
-
-			status, queryErr := engine.QueryPredicate(q)
-			if status != lbool.Undef || !errors.Is(queryErr, ErrExternalIntervalDatalogFragment) || engine.externalIntervalDatalog != nil || len(callbacks.operations) != 0 {
-				t.Fatal("unsupported ground shape reached callbacks", status, queryErr, callbacks.operations)
+			if shape == "variable" || shape == "nonnumeral-second" || shape == "later-unsafe-rule" {
+				if _, ensureErr := engine.ensureExternalIntervalDatalog(); ensureErr != nil {
+					t.Fatalf("ensure zero-tail variable head: %v", ensureErr)
+				}
+				status, queryErr := engine.QueryPredicate(q)
+				if queryErr != nil {
+					t.Fatalf("zero-tail variable query: %v; callbacks %v", queryErr, callbacks.operations)
+				}
+				if status != lbool.Undef || operationCount(callbacks.operations, ast.DatalogOpComplement) == 0 || operationCount(callbacks.operations, ast.DatalogOpUnion) == 0 {
+					t.Fatal("source-supported zero-tail variable head did not execute", status, callbacks.operations)
+				}
+				if shape == "nonnumeral-second" && operationCount(callbacks.operations, ast.DatalogOpJoin) == 0 {
+					t.Fatal("mixed constant and variable head did not join its total relation", callbacks.operations)
+				}
+				return
 			}
 		})
 	}
