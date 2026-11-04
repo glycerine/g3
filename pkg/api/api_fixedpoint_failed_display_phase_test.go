@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -49,9 +50,13 @@ func TestAPIFixedpointFailedDualityQueryPreservesSourceDisplayPhase(t *testing.T
 			}()
 			query := f.pin(f.m.MkApp(q, []ast.ASTHandle{f.pin(f.m.MkTrue())}))
 			for run := 0; run < 2; run++ {
-				_, err = f.fp.QueryExpression(query)
-				if err == nil || !strings.Contains(err.Error(), "negat") {
-					t.Fatal("negative Duality rule unexpectedly accepted", err)
+				status, queryErr := f.fp.QueryExpression(query)
+				if quantifyArrays {
+					if queryErr == nil || !strings.Contains(queryErr.Error(), "negat") {
+						t.Fatal("negative Duality rule unexpectedly accepted", queryErr)
+					}
+				} else if queryErr != nil || status != lbool.True {
+					t.Fatal("raw Duality query", status, queryErr)
 				}
 				text, err := f.fp.SMT2()
 				astTestMust(t, err)
