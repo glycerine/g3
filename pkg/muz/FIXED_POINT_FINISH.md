@@ -88,6 +88,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Check the complete single-bit TBV truth tables, both containment modes and source complement ordering, including undefined bits.
   - [x] Preserve scale-transform temporary owners across cleanup refusal and publish its predicate mapping after successful construction; staged native-callback and mixed-sort failure tests cover the bounded recovery paths.
   - [x] Exercise scale's zero, one and other numeral branches, fresh equality guards, nested Boolean/arithmetic rewriting and opaque multiplication against source-shaped formulas; other scale branches and consumers remain open.
+  - [x] Verify Spacer scale models against original clauses and queries, including slicing/inlining composition; preserve upstream predicate origins through unchanged slice outputs. Other engines remain open.
   - [x] Verify Farkas sign and consequence semantics for integer and real strict/non-strict bounds, negations and equalities, using independently evaluated boundary points.
   - [x] Check repeated public PDR delayed-scope assertion failures recover for a later check; actual partial-pop failure remains covered separately through the cleanup owner.
   - [x] Add the source Duality `Contains` and `Candidate` profile scopes with nested-timer and error coverage; add a PDR reachable-cache closing guard with native refusal/retry coverage. The remaining profile scopes and cache cleanup boundaries stay open in their unit audits.

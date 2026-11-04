@@ -635,10 +635,13 @@ func (p *RuleSlicePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resu
 			return nil, getErr
 		}
 		if len(domain) == len(slice) {
+			// Retain earlier transformations' origin mapping even when slicing
+			// leaves this predicate unchanged. Query consumers resolve the
+			// original declaration through the final rule set.
+			if getErr = result.InheritPredicate(source, declaration, declaration); getErr != nil {
+				return nil, getErr
+			}
 			if isOutput {
-				if getErr = result.SetOutputPredicate(declaration); getErr != nil {
-					return nil, getErr
-				}
 				hasUnslicedOutput = true
 			}
 			continue
