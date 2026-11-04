@@ -242,6 +242,43 @@ func (s *realValueStore) tarskiFromUnboundedSequence(rows []realPolynomial) (int
 	return lower - upper, nil
 }
 
+// tarskiFromUnboundedSequenceAny evaluates leading coefficients through the
+// source value-sign operation, including exact sign determination when an
+// algebraic coefficient's current interval still contains zero.
+func (s *realValueStore) tarskiFromUnboundedSequenceAny(rows []realPolynomial, usePrem bool) (int, error) {
+	variations := func(plus bool) (int, error) {
+		previous, count := int32(0), 0
+		for _, row := range rows {
+			if len(row.coefficients) == 0 || row.coefficients[len(row.coefficients)-1] == nil {
+				return 0, arena.ErrInvalidSlot
+			}
+			sign, err := s.determineAnyRetainedValueSign(row.coefficients[len(row.coefficients)-1], usePrem)
+			if err != nil {
+				return 0, err
+			}
+			if !plus && (len(row.coefficients)-1)%2 != 0 {
+				sign = -sign
+			}
+			if sign != 0 {
+				if previous != 0 && sign != previous {
+					count++
+				}
+				previous = sign
+			}
+		}
+		return count, nil
+	}
+	lower, err := variations(false)
+	if err != nil {
+		return 0, err
+	}
+	upper, err := variations(true)
+	if err != nil {
+		return 0, err
+	}
+	return lower - upper, nil
+}
+
 // rootCountUnboundedRational follows TaQ_1 for the whole real line.
 func (s *realValueStore) rootCountUnboundedRational(p []*realValue, usePseudo bool) (int, error) {
 	if err := s.sequenceReady(); err != nil {

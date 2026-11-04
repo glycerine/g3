@@ -7,7 +7,7 @@ func (s *realValueStore) rootCountUnboundedAny(p []*realValue, usePrem bool) (in
 	if err != nil {
 		return 0, err
 	}
-	count, queryErr := s.tarskiFromUnboundedSequence(rows)
+	count, queryErr := s.tarskiFromUnboundedSequenceAny(rows, usePrem)
 	closeErr := s.closePolynomialSequence(rows)
 	if queryErr != nil {
 		return 0, queryErr
@@ -20,7 +20,7 @@ func (s *realValueStore) tarskiUnboundedAny(p, q []*realValue, usePrem bool) (in
 	if err != nil {
 		return 0, err
 	}
-	query, queryErr := s.tarskiFromUnboundedSequence(rows)
+	query, queryErr := s.tarskiFromUnboundedSequenceAny(rows, usePrem)
 	closeErr := s.closePolynomialSequence(rows)
 	if queryErr != nil {
 		return 0, queryErr

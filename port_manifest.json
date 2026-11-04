@@ -77270,12 +77270,14 @@
           ]
         },
         {
-          "name": "Rational Sturm and Sturm-Tarski sequence generation with both remainder settings and unbounded endpoint sign variations, including retained algebraic leading-coefficient sign (realclosure.cpp:3637-3738,3930-4069); nonrational sequence generation remains open",
-          "status": "partial",
+          "name": "Sturm and Sturm-Tarski sequence generation with both remainder settings, unbounded endpoint sign variations, and exact retained algebraic leading-coefficient signs (realclosure.cpp:3637-3738,3930-4069)",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/sign_sturm_tarski.go",
           "tests": [
             "TestRealClosureRationalDerivativeKeepsCoefficientOwnership",
-            "TestRealClosureAlgebraicConstantAndZeroBoundSigns"
+            "TestRealClosureAlgebraicConstantAndZeroBoundSigns",
+            "TestAnySturmSequenceAlgebraicCoefficients",
+            "TestTowerSturmSequenceSpansLowerExtensions"
           ]
         },
         {
