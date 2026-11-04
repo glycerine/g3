@@ -80,8 +80,8 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/pdr/pdr_manager.h` — State-version conversion/classification, formula shifting, filtering/partitioning, model output, and solver/statistics accessors map to `Manager` and `SymbolMux`; the unused unique-number helper has no retained caller, and existing PDR manager/symbol-mux checks pass.
 - [x] `src/muz/pdr/pdr_reachable_cache.cpp` — Constraint, hash, and no-cache behavior, disjunction-chain insertion, reachability checks, statistics, and retryable solver/reference cleanup map to `pkg/muz/pdr`; `AddInit` now mirrors C++ by advancing the connector in every cache mode and asserting only when a constraint solver exists. Existing reachable-cache and transferred-assertion cleanup checks pass.
 - [x] `src/muz/pdr/pdr_reachable_cache.h` — The inline `add_init` and public cache surface map to typed Go methods; C++ scoped-pointer/reference-vector mechanics are represented by explicit Go ownership and close/retry paths. Existing PDR cache checks pass.
-- [ ] `src/muz/rel/check_relation.cpp`
-- [ ] `src/muz/rel/check_relation.h`
+- [ ] `src/muz/rel/check_relation.cpp` — Ordinary finite Datalog now supports the source nested `check_relation(check_table(...))` composition with retryable ownership; still auditing source-registered relation-plugin backings beyond the finite and UDoc implementations.
+- [ ] `src/muz/rel/check_relation.h` — Nested finite checker ownership and dispatch map to typed Go owners; still auditing the remaining source relation-plugin interface surface before completion.
 - [ ] `src/muz/rel/dl_base.cpp`
 - [ ] `src/muz/rel/dl_base.h`
 - [ ] `src/muz/rel/dl_bound_relation.cpp`
