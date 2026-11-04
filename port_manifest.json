@@ -82209,10 +82209,13 @@
         },
         {
           "name": "Concrete config_hwf retained unit references and non-resuming root initialization after cancellation (src/math/subpaving/subpaving_t_def.h:802-875,1773-1786)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_units.go",
           "tests": [
-            "TestHardwareContextRootUnitAssertionResumeAndConflict"
+            "TestHardwareContextRootUnitAssertionResumeAndConflict",
+            "TestHardwareRootInitializationTraceSourceOrderAndResume",
+            "TestHardwareRootInitializationTraceRefusalAndPrinterPrefix",
+            "TestHardwareClauseStableWatchersAndReferences"
           ]
         },
         {
