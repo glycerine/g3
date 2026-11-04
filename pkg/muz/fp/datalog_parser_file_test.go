@@ -27,7 +27,7 @@ func TestDatalogParserRelativeIncludeAndDomainMap(t *testing.T) {
 	fpMust(t, err)
 	sort, err := manager.GetDomain(predicates[0], 0)
 	fpMust(t, err)
-	if count, e := f.context.ConstantCount(sort); e != nil || count != 2 {
+	if count, e := f.context.ConstantCount(sort); e != nil || count != 3 {
 		t.Fatal("mapped constants", count, e)
 	}
 }

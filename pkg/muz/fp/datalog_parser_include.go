@@ -5,7 +5,9 @@ package fp
 import (
 	"bufio"
 	"errors"
+	"io"
 	"os"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -82,18 +84,24 @@ func (p *datalogParser) loadMap(sort ast.ASTHandle, name string) (resultErr erro
 		return nil
 	}
 	defer func() { resultErr = errors.Join(resultErr, file.Close()) }()
-	scanner := bufio.NewScanner(file)
-	// Source line_reader grows its buffer to the complete map entry. Avoid
-	// Scanner's unrelated 64 KiB token ceiling while retaining line semantics.
-	scanner.Buffer(make([]byte, 1024), int(^uint(0)>>1))
-	for scanner.Scan() {
-		symbol, err := p.symbol(scanner.Text())
+	reader := bufio.NewReader(file)
+	// Source line_reader returns the bytes up to '\n' verbatim, including a
+	// final empty entry when the file ends immediately after a newline.
+	for {
+		line, readErr := reader.ReadString('\n')
+		if readErr != nil && readErr != io.EOF {
+			return readErr
+		}
+		line = strings.TrimSuffix(line, "\n")
+		symbol, err := p.symbol(line)
 		if err != nil {
 			return err
 		}
 		if _, err = p.context.SymbolNumber(sort, symbol); err != nil {
 			return err
 		}
+		if readErr == io.EOF {
+			return nil
+		}
 	}
-	return scanner.Err()
 }
