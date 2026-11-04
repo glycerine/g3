@@ -29,6 +29,8 @@ type externalIntervalDatalogCartesianRule struct {
 	headRemoved   []uint32
 	constants     []externalIntervalCartesianConstant
 	headConstants []externalIntervalCartesianHeadConstant
+	headUnbound   []externalIntervalCartesianHeadVariable
+	headAdditions []externalIntervalCartesianHeadAddition
 	duplicates    []uint32
 	renames       [][]uint32
 	condition     *externalIntervalUnaryCondition
@@ -50,6 +52,24 @@ type externalIntervalCartesianHeadConstant struct {
 	root        ast.ASTRef
 }
 
+type externalIntervalCartesianHeadVariable struct{ sort ast.ASTHandle }
+
+type externalIntervalCartesianHeadAddition struct {
+	total bool
+	index int
+}
+
+func (p *externalIntervalDatalogCartesianRule) headAssemblyAdditions() []externalIntervalCartesianHeadAddition {
+	if len(p.headAdditions) != 0 || len(p.headConstants) == 0 {
+		return p.headAdditions
+	}
+	additions := make([]externalIntervalCartesianHeadAddition, len(p.headConstants))
+	for index := range additions {
+		additions[index].index = index
+	}
+	return additions
+}
+
 func sameExternalIntervalCartesianRule(left, right *externalIntervalDatalogCartesianRule) bool {
 	if left == nil || right == nil || left.head != right.head || left.left != right.left || left.right != right.right ||
 		!externalIntervalColumnsEqual(left.leftColumns, right.leftColumns) ||
@@ -58,7 +78,8 @@ func sameExternalIntervalCartesianRule(left, right *externalIntervalDatalogCarte
 		!externalIntervalColumnsEqual(left.removed, right.removed) ||
 		!externalIntervalColumnsEqual(left.filterRemoved, right.filterRemoved) ||
 		!externalIntervalColumnsEqual(left.headRemoved, right.headRemoved) || len(left.constants) != len(right.constants) ||
-		len(left.headConstants) != len(right.headConstants) ||
+		len(left.headConstants) != len(right.headConstants) || len(left.headUnbound) != len(right.headUnbound) ||
+		len(left.headAdditions) != len(right.headAdditions) ||
 		!externalIntervalColumnsEqual(left.duplicates, right.duplicates) ||
 		!sameExternalIntervalUnaryCondition(left.condition, right.condition) || len(left.renames) != len(right.renames) {
 		return false
@@ -72,6 +93,16 @@ func sameExternalIntervalCartesianRule(left, right *externalIntervalDatalogCarte
 	for i, constant := range left.headConstants {
 		other := right.headConstants[i]
 		if constant.sort != other.sort || constant.value != other.value {
+			return false
+		}
+	}
+	for i, variable := range left.headUnbound {
+		if variable.sort != right.headUnbound[i].sort {
+			return false
+		}
+	}
+	for i, addition := range left.headAdditions {
+		if addition != right.headAdditions[i] {
 			return false
 		}
 	}
@@ -255,13 +286,21 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 	}
 	wanted := make(map[uint32]bool)
 	needed := make(map[uint32]uint32)
+	unsafeSorts := make(map[uint32]ast.ASTHandle)
 	for column, argument := range arguments[0] {
 		if !argument.numeral.IsNull() {
 			continue
 		}
 		variable := argument.variable
 		source, found := last[variable]
-		if !found || joinedSorts[source] != sorts[0][column] {
+		if !found {
+			if sort, exists := unsafeSorts[variable]; exists && sort != sorts[0][column] {
+				return nil, ErrExternalIntervalDatalogFragment
+			}
+			unsafeSorts[variable] = sorts[0][column]
+			continue
+		}
+		if joinedSorts[source] != sorts[0][column] {
 			return nil, ErrExternalIntervalDatalogFragment
 		}
 		wanted[variable] = true
@@ -369,6 +408,7 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 	// Source head assembly consumes available copies from the back, keeping
 	// the last remaining column available for later explicit duplication.
 	headSources := make([]uint32, len(arguments[0]))
+	headBound := make([]bool, len(arguments[0]))
 	referenced := make(map[uint32]bool)
 	for column, argument := range arguments[0] {
 		if !argument.numeral.IsNull() {
@@ -376,10 +416,14 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 		}
 		copies := occurrences[argument.variable]
 		if len(copies) == 0 {
-			return nil, ErrExternalIntervalDatalogFragment
+			if _, unsafe := unsafeSorts[argument.variable]; !unsafe {
+				return nil, ErrExternalIntervalDatalogFragment
+			}
+			continue
 		}
 		source := copies[len(copies)-1]
 		headSources[column] = source
+		headBound[column] = true
 		referenced[source] = true
 		if len(copies) > 1 {
 			occurrences[argument.variable] = copies[:len(copies)-1]
@@ -394,15 +438,33 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 		}
 	}
 	width := uint32(len(projectedColumns))
-	// Source assembly appends every constant column before duplicating any
-	// repeated variable column, even when those head positions interleave.
+	unsafeSources := make(map[uint32]uint32, len(unsafeSorts))
+	// Source assembly appends constants and total columns in head order before
+	// duplicating repeated variables, even when those head positions interleave.
 	for column, argument := range arguments[0] {
 		if argument.numeral.IsNull() {
-			headSources[column] = projectedColumns[headSources[column]]
+			if headBound[column] {
+				headSources[column] = projectedColumns[headSources[column]]
+			} else if source, found := unsafeSources[argument.variable]; found {
+				headSources[column] = source
+			} else {
+				sort := unsafeSorts[argument.variable]
+				if sort.IsNull() {
+					return nil, ErrExternalIntervalDatalogFragment
+				}
+				index := len(plan.headUnbound)
+				plan.headUnbound = append(plan.headUnbound, externalIntervalCartesianHeadVariable{sort: sort})
+				plan.headAdditions = append(plan.headAdditions, externalIntervalCartesianHeadAddition{total: true, index: index})
+				unsafeSources[argument.variable] = width
+				headSources[column] = width
+				width++
+			}
 		} else {
+			index := len(plan.headConstants)
 			plan.headConstants = append(plan.headConstants, externalIntervalCartesianHeadConstant{
 				sort: sorts[0][column], value: argument.numeral,
 			})
+			plan.headAdditions = append(plan.headAdditions, externalIntervalCartesianHeadAddition{index: index})
 			headSources[column] = width
 			width++
 		}
@@ -591,7 +653,7 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 		return nil
 	}
 	finishEmpty := func() error {
-		if len(a.cartesian.headConstants) == 0 {
+		if len(a.cartesian.headAssemblyAdditions()) == 0 {
 			return finish()
 		}
 		// Source make_empty retires the current relation before later
@@ -695,8 +757,13 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 				return rollback(cause)
 			}
 		}
-		for _, constant := range a.cartesian.headConstants {
-			empty, cause := owner.appendHeadConstant(a.cartesian.head, constant)
+		for _, addition := range a.cartesian.headAssemblyAdditions() {
+			var empty bool
+			if addition.total {
+				empty, cause = owner.appendHeadTotal(a.cartesian.head, a.cartesian.headUnbound[addition.index])
+			} else {
+				empty, cause = owner.appendHeadConstant(a.cartesian.head, a.cartesian.headConstants[addition.index])
+			}
 			if cause != nil {
 				return rollback(cause)
 			}

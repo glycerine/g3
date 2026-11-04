@@ -446,6 +446,19 @@ func TestExternalIntervalDatalogCartesianPreflightsShapesBeforeCallbacks(t *test
 				}
 				return
 			}
+			if shape == "unsafe-head" {
+				one, cause := manager.ArithmeticIntegerNumeralText("1")
+				fragmentMust(t, cause)
+				fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{one}))
+				fragmentMust(t, engine.AddFact(q, []ast.ASTHandle{one}))
+				resetExternalIntervalCartesianCallbacks(callbacks)
+				status, queryErr := engine.QueryPredicate(headDeclaration)
+				fragmentMust(t, queryErr)
+				if status != lbool.Undef || operationCount(callbacks.operations, ast.DatalogOpComplement) == 0 || operationCount(callbacks.operations, ast.DatalogOpJoin) < 2 || operationCount(callbacks.operations, ast.DatalogOpUnion) == 0 {
+					t.Fatal("unsafe head variable did not use the source total-relation assembly", status, callbacks.operations)
+				}
+				return
+			}
 			if shape == "cycle" || shape == "mutual-recursion" {
 				status, queryErr := engine.QueryPredicate(headDeclaration)
 				if queryErr != nil {

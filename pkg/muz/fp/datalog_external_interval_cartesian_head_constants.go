@@ -32,12 +32,35 @@ func (c *externalIntervalDatalogCartesianContinuation) closeProducts() error {
 }
 
 func (r *externalIntervalDatalogRegisters) initializeCartesianHeadConstants(plan *externalIntervalDatalogCartesianRule) error {
-	for _, constant := range plan.headConstants {
-		if _, err := r.unarySingleton(plan.head, constant.sort, constant.value); err != nil {
-			return err
+	for _, addition := range plan.headAssemblyAdditions() {
+		if addition.total {
+			variable := plan.headUnbound[addition.index]
+			if _, err := r.totalRelation(plan.head, variable.sort); err != nil {
+				return err
+			}
+		} else {
+			constant := plan.headConstants[addition.index]
+			if _, err := r.unarySingleton(plan.head, constant.sort, constant.value); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+func (c *externalIntervalDatalogCartesianContinuation) appendHeadTotal(head ast.ASTHandle, variable externalIntervalCartesianHeadVariable) (bool, error) {
+	total, err := c.registers.totalRelation(head, variable.sort)
+	if err != nil {
+		return false, err
+	}
+	joined, err := rel.JoinExternalIntervalProducts(c.temporary, total, nil, nil)
+	if joined != nil {
+		err = errors.Join(err, c.replaceTemporary(joined))
+	}
+	if err != nil {
+		return false, err
+	}
+	return c.temporary.Empty()
 }
 
 func (c *externalIntervalDatalogCartesianContinuation) appendHeadConstant(head ast.ASTHandle, constant externalIntervalCartesianHeadConstant) (bool, error) {

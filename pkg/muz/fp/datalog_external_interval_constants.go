@@ -13,8 +13,14 @@ import (
 type externalIntervalDatalogConstantRegisters struct {
 	unary   map[externalIntervalGroundConstant]*rel.ExternalIntervalProduct
 	nullary map[ast.ASTHandle]*rel.ExternalIntervalProduct
+	total   map[externalIntervalDatalogTotalKey]*rel.ExternalIntervalProduct
 	owned   []*rel.ExternalIntervalProduct
 	next    int
+}
+
+type externalIntervalDatalogTotalKey struct {
+	declaration ast.ASTHandle
+	sort        ast.ASTHandle
 }
 
 func (c *externalIntervalDatalogConstantRegisters) close() error {
@@ -30,7 +36,7 @@ func (c *externalIntervalDatalogConstantRegisters) close() error {
 		}
 		c.next++
 	}
-	c.unary, c.nullary = nil, nil
+	c.unary, c.nullary, c.total = nil, nil, nil
 	return nil
 }
 
@@ -39,9 +45,35 @@ func (r *externalIntervalDatalogRegisters) constantRegisters() *externalInterval
 		r.constants = &externalIntervalDatalogConstantRegisters{
 			unary:   make(map[externalIntervalGroundConstant]*rel.ExternalIntervalProduct),
 			nullary: make(map[ast.ASTHandle]*rel.ExternalIntervalProduct),
+			total:   make(map[externalIntervalDatalogTotalKey]*rel.ExternalIntervalProduct),
 		}
 	}
 	return r.constants
+}
+
+func (r *externalIntervalDatalogRegisters) totalRelation(head, sort ast.ASTHandle) (*rel.ExternalIntervalProduct, error) {
+	if err := r.open(); err != nil {
+		return nil, err
+	}
+	entry := r.activation.entries[head]
+	if entry == nil {
+		return nil, ErrExternalIntervalDatalogFragment
+	}
+	cache := r.constantRegisters()
+	key := externalIntervalDatalogTotalKey{declaration: head, sort: sort}
+	if product := cache.total[key]; product != nil {
+		return product, nil
+	}
+	product, selected, err := rel.NewSelectedExternalIntervalTotal(r.activation.plugin, []ast.ASTHandle{sort}, entry.kinds)
+	if err != nil {
+		return nil, err
+	}
+	if !selected || product == nil {
+		return nil, ErrExternalIntervalDatalogFragment
+	}
+	cache.owned = append(cache.owned, product)
+	cache.total[key] = product
+	return product, nil
 }
 
 func (r *externalIntervalDatalogRegisters) unarySingleton(head, sort, value ast.ASTHandle) (*rel.ExternalIntervalProduct, error) {
