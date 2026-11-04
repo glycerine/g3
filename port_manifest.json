@@ -79978,8 +79978,8 @@
           "reason": "Source root publication precedes initial-constraint TRACE (subpaving_t_def.h:1794-1797). A variable-printer error in initial constraints or unit tracing preserves the root and exact emitted prefix; later InitializeRoot calls neither replay nor advance initialization, matching the existing-root guard at 1806-1808. An explicit unit-assertion call may publish the interrupted unit once without rerunning constraints or post-propagation tracing. Ordinary borrowed-writer refusal remains nonthrowing and permits initialization to finish. Broader trace and solver-lifecycle audits remain separate."
         },
         {
-          "name": "Concrete config_mpq polynomial mk_sum with variable-indexed coefficient buffer, duplicate sorting, integer classification, forward/reverse interval propagation, exact integer candidate normalization, definition watches and root sweep (src/math/subpaving/subpaving_t_def.h:668-685,741-769,1408-1496,1695-1808); source arithmetic-exception flag transport and remaining solver lifecycle remain open",
-          "status": "partial",
+          "name": "Concrete config_mpq polynomial mk_sum, indexed coefficient buffer, duplicate sorting, integer classification, forward/reverse propagation, exact candidate normalization, definition watches, root sweep and trace sites; config_mpq arithmetic exceptions are unreachable (src/math/subpaving/subpaving_t_def.h:668-685,741-769,1408-1496,1695-1808)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/rational_polynomial.go",
           "go_targets": [
             "pkg/math/subpaving/rational_polynomial_propagate.go",
@@ -79991,12 +79991,16 @@
             "TestRationalPolynomialRootForwardAndReversePropagation",
             "TestRationalPolynomialDuplicateCoefficientBufferAndWatchOrder",
             "TestRationalPolynomialQueuedClauseBoundTriggersDefinition",
-            "TestRationalPolynomialReverseIntegerCandidateNormalization"
+            "TestRationalPolynomialReverseIntegerCandidateNormalization",
+            "TestRationalPolynomialSourceIntegerTraceBeforeVariablePublication",
+            "TestRationalPolynomialTraceStreamRefusalKeepsDefinition",
+            "TestRationalPolynomialPropagationSourceTraceOrder",
+            "TestRationalPolynomialPropagationTraceRefusalAndPrinterPrefix"
           ]
         },
         {
-          "name": "Concrete config_mpq monomial sorted power merge, source integer classification, zero/upward/downward bound propagation, inverse roots, definition watches and root sweep (src/math/subpaving/subpaving_t_def.h:657-664,690-721,1500-1663,1695-1808); arithmetic-exception and search lifecycle remain open",
-          "status": "partial",
+          "name": "Concrete config_mpq monomial power merge, integer classification, zero/upward/downward propagation, inverse roots, definition watches, root sweep and trace sites; config_mpq arithmetic exceptions are unreachable (src/math/subpaving/subpaving_t_def.h:657-664,690-721,1500-1663,1695-1808)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/rational_monomial.go",
           "go_targets": [
             "pkg/math/subpaving/rational_monomial_propagate.go",
@@ -80008,12 +80012,14 @@
             "TestRationalMonomialRegistrationAndForwardBounds",
             "TestRationalMonomialReverseRootAndZeroShortcut",
             "TestRationalMonomialIntegerClassification",
-            "TestRationalMonomialQueuedClauseBoundTriggersWatch"
+            "TestRationalMonomialQueuedClauseBoundTriggersWatch",
+            "TestRationalMonomialPropagationSourceTrace",
+            "TestRationalMonomialPropagationTraceRefusalAndPrinterPrefix"
           ]
         },
         {
-          "name": "Concrete config_mpq round-robin variable selection, exact midpoint decisions, recent-bound queue and source-faithful breadth-first cancellation (src/math/subpaving/subpaving_t_def.h:24-101,185-247,349-360,1665-1682,1806-1843); TRACE remains open",
-          "status": "partial",
+          "name": "Concrete config_mpq round-robin variable selection, exact midpoint decisions, recent-bound queue, breadth-first cancellation and matching search/statistics trace sites (src/math/subpaving/subpaving_t_def.h:24-101,185-247,349-360,1665-1682,1806-1843)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/rational_search.go",
           "go_targets": [
             "pkg/math/subpaving/rational_selector.go",
@@ -80027,7 +80033,13 @@
             "TestRationalMidpointSplitterSingletonRefusalLeavesChildren",
             "TestRationalSearchBreadthFirstChildrenAndDefinitionPropagation",
             "TestRationalSearchChildCancellationLeavesSourceQueue",
-            "TestRationalAddRecentBoundsOnlyNewestDirection"
+            "TestRationalAddRecentBoundsOnlyNewestDirection",
+            "TestRationalSearchTraceSelectionPropagationSplitAndDepth",
+            "TestRationalSearchTraceNullVariable",
+            "TestRationalSearchTraceChildConflictAfterPropagation",
+            "TestRationalSearchTraceRefusalAndPrinterResume",
+            "TestRationalSearchStatisticsTraceEntryExitAndNodeLimit",
+            "TestRationalSearchStatisticsTraceStreamRefusalKeepsExit"
           ]
         },
         {
