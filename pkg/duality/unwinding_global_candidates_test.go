@@ -7,7 +7,7 @@ import (
 )
 
 func TestDualityGlobalCandidatesNativeCachedFilteringFallbackAndMarkers(t *testing.T) {
-	for _, mode := range []string{"updated", "fallback", "full-scan", "full-parent", "axioms", "repeated", "no-child"} {
+	for _, mode := range []string{"updated", "fallback", "full-scan", "full-parent", "axioms", "repeated", "no-child", "allocation-failure"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx, m, aux, globals := dualityNativeSolverServicesFixture(t)
 			must := func(err error) {
@@ -125,6 +125,20 @@ func TestDualityGlobalCandidatesNativeCachedFilteringFallbackAndMarkers(t *testi
 			baseline, err := aux.NumAssertions()
 			must(err)
 			evaluator := derivationEvaluatorFixture(t, ctx, globals)
+			profile := NewProfiler(nil)
+			ctx.activeProfiler = profile
+			defer func() { ctx.activeProfiler = nil }()
+			if mode == "allocation-failure" {
+				m.Budget().FailAfter(0)
+				failure := u.GenCandidatesFromInductionFailure(checker, evaluator, manager, false)
+				m.Budget().FailAfter(-1)
+				if failure == nil {
+					t.Fatal("induction candidate generation ignored the injected allocation failure")
+				}
+				if profile.current != profile.top || checker.graph.solver != nil || (checker.graph.scopes != nil && len(checker.graph.scopes) != 1) {
+					t.Fatal("failed induction scan left timers, solver or graph scopes active", profile.current == profile.top, checker.graph.solver != nil, len(checker.graph.scopes), checker.graph.scopes == nil)
+				}
+			}
 			must(u.GenCandidatesFromInductionFailure(checker, evaluator, manager, mode == "full-scan"))
 			wantCandidate := mode != "full-parent" && mode != "axioms" && mode != "no-child"
 			candidate, ok := u.NextCandidate()
