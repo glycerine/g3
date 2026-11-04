@@ -565,7 +565,11 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 		}
 		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, theory.Close()) }()
+	defer func() {
+		if theory != nil {
+			resultErr = errors.Join(resultErr, theory.Close())
+		}
+	}()
 	builder := &predicateRuleBuilder{transformer: p, all: transformers, theory: theory}
 	committed := false
 	defer func() {
@@ -590,6 +594,13 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 	if err != nil {
 		return err
 	}
+	// The source's temporary rewriter is destroyed before this initialization
+	// becomes visible. Keep the same publication boundary if Go cleanup refuses:
+	// a failed Close must leave InitializeRules retryable.
+	if err = theory.Close(); err != nil {
+		return err
+	}
+	theory = nil
 	if err = p.InitializeSystem(initial, transition); err != nil {
 		return err
 	}
