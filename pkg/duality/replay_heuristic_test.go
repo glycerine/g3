@@ -3,8 +3,26 @@ package duality
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"io"
+	"os"
 	"testing"
 )
+
+func captureReplayStderr(t *testing.T, run func() error) (string, error) {
+	t.Helper()
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous := os.Stderr
+	os.Stderr = writer
+	runErr := run()
+	os.Stderr = previous
+	closeErr := writer.Close()
+	data, readErr := io.ReadAll(reader)
+	readerErr := reader.Close()
+	return string(data), errors.Join(runErr, closeErr, readErr, readerErr)
+}
 
 func TestDualityReplayHeuristicNativeMatchingPriorityAndOwnership(t *testing.T) {
 	ctx, m, native, globals := dualityNativeSolverServicesFixture(t)
@@ -85,7 +103,13 @@ func TestDualityReplayHeuristicNativeMatchingPriorityAndOwnership(t *testing.T) 
 		t.Fatal("replay root was not seeded/high-priority expanded")
 	}
 	best = nil
-	must(heuristic.ChooseExpand([]*Node{unmatched, a, b, extra}, &best, true, false))
+	diagnostics, err := captureReplayStderr(t, func() error {
+		return heuristic.ChooseExpand([]*Node{unmatched, a, b, extra}, &best, true, false)
+	})
+	must(err)
+	if diagnostics != "WARNING: duality: unmatched child: replay-new-inserted\nWARNING: duality: unmatched child: replay-extra\n" {
+		t.Fatal("unmatched replay child diagnostics", diagnostics)
+	}
 	if len(best) != 1 || best[0] != a || heuristic.replay.matches[a] != oldA || heuristic.replay.matches[b] != oldB || heuristic.replay.matches[unmatched] != nil || heuristic.replay.matches[extra] != nil {
 		t.Fatal("greedy suffix/name matching or old-model activity filtering")
 	}

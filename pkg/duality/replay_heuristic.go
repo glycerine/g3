@@ -2,6 +2,8 @@ package duality
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"strings"
 )
 
@@ -33,6 +35,17 @@ func NewReplayExpansionHeuristic(graph *RPFP, previous *Counterexample) (*Expans
 }
 
 func replayNodeBaseName(node *Node) (string, error) {
+	name, err := replayNodeName(node)
+	if err != nil {
+		return "", err
+	}
+	if pos := strings.Index(name, "@@"); pos > 0 {
+		return name[:pos], nil
+	}
+	return name, nil
+}
+
+func replayNodeName(node *Node) (string, error) {
 	if node == nil || node.closed {
 		return "", ErrWrapperOwner
 	}
@@ -52,9 +65,6 @@ func replayNodeBaseName(node *Node) (string, error) {
 	text, err := symbol.String()
 	if err != nil {
 		return "", err
-	}
-	if pos := strings.Index(text, "@@"); pos > 0 {
-		return text[:pos], nil
 	}
 	return text, nil
 }
@@ -94,8 +104,11 @@ func (r *counterexampleReplay) match(node *Node) (*Node, error) {
 					continue
 				}
 			}
-			// Unmatched children do not consume an old child. Source diagnostics are
-			// separate from matching; preserve the stored nil match.
+			childName, err := replayNodeName(child)
+			if err != nil {
+				return nil, err
+			}
+			fmt.Fprintf(os.Stderr, "WARNING: duality: unmatched child: %s\n", childName)
 			r.matches[child] = nil
 		}
 	} else {
