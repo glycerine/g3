@@ -15,7 +15,13 @@ func (s *realValueStore) multiplyRankedPolynomials(left, right []*realValue, use
 			result = nil
 		}
 	}()
+	if len(left) < len(right) {
+		left, right = right, left
+	}
 	for i, a := range left {
+		if err = s.checkpoint(); err != nil {
+			return nil, err
+		}
 		for j, b := range right {
 			product, e := s.multiplyRankedRetainedValues(a, b, usePrem)
 			if e != nil {

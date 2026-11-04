@@ -18,6 +18,10 @@ func (s *realValueStore) multiplyNormalizedPolynomials(left, right []*realValue)
 		left, right = right, left
 	}
 	for i, a := range left {
+		if err := s.checkpoint(); err != nil {
+			_ = s.releaseTemporaryCoefficients(result)
+			return nil, err
+		}
 		if a == nil {
 			continue
 		}

@@ -77349,15 +77349,22 @@
           ]
         },
         {
-          "name": "Rational-coefficient polynomial convolution and retained expand_taqrs prs*1/prs*q/prs*q\u00b2 row production (realclosure.cpp:1704-1741,2753-2791); bounded Tarski-query evaluation and nonrational coefficient arithmetic remain open",
-          "status": "partial",
+          "name": "Polynomial convolution and source-ordered expand_taqrs prs*1/prs*q/prs*q\u00b2 row production with rational and algebraic coefficients, bounded Tarski queries, source operand swapping and per-row checkpoints (realclosure.cpp:1704-1741,2753-2791)",
+          "status": "ported",
           "go_target": "pkg/math/realclosure/sign_determination_rational_products.go",
           "go_targets": [
-            "pkg/math/realclosure/sign_polynomial_mul.go"
+            "pkg/math/realclosure/sign_polynomial_mul.go",
+            "pkg/math/realclosure/polynomial_multiply_any.go",
+            "pkg/math/realclosure/polynomial_multiply_ranked.go",
+            "pkg/math/realclosure/sign_determination_algebraic_products.go",
+            "pkg/math/realclosure/multi_root_sign_expand.go"
           ],
           "tests": [
             "TestSignDeterminationRationalProductsAndThreeWayExpansion",
-            "TestRealClosureRationalPolynomialProducerReservationPrefixes"
+            "TestRealClosureRationalPolynomialProducerReservationPrefixes",
+            "TestAnyPolynomialMultiplyAlgebraicFactors",
+            "TestSignDeterminationExpansionConsumesAlgebraicPolynomialProduct",
+            "TestSignDeterminationThreeWayExpansionBuildsReducedAlgebraicSquare"
           ]
         },
         {

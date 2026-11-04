@@ -94,6 +94,10 @@ func (s *realValueStore) multiplyRationalPolynomials(left, right []*realValue) (
 		left, right = right, left
 	}
 	for i, a := range left {
+		if err := s.checkpoint(); err != nil {
+			_ = s.releaseSturmCoefficients(result)
+			return nil, err
+		}
 		if a == nil {
 			continue
 		}
@@ -146,6 +150,10 @@ func (s *realValueStore) multiplyPolynomials(left, right []*realValue) ([]*realV
 		left, right = right, left
 	}
 	for i, a := range left {
+		if err := s.checkpoint(); err != nil {
+			_ = s.releaseTemporaryCoefficients(result)
+			return nil, err
+		}
 		if a == nil {
 			continue
 		}
