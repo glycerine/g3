@@ -10,7 +10,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/smtcore"
-	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -146,44 +145,7 @@ func (r *relationFormulaChecker) groundWithNames(formula ast.ASTHandle, named bo
 }
 
 func (r *relationFormulaChecker) checkEquivalent(left, right ast.ASTHandle) (resultErr error) {
-	m := r.manager
-	eq, err := m.MkEq(left, right)
-	if err != nil {
-		return err
-	}
-	eqRef, err := m.NewRef(eq)
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&eqRef)) }()
-	negated, err := m.MkNot(eq)
-	if err != nil {
-		return err
-	}
-	negatedRef, err := m.NewRef(negated)
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&negatedRef)) }()
-	solver, err := smtcore.NewSMTSolver(m, nil, "", r.config)
-	if solver != nil {
-		defer func() { resultErr = errors.Join(resultErr, solver.Close()) }()
-	}
-	if err != nil {
-		return err
-	}
-	if err = solver.Assert(negated); err != nil {
-		return err
-	}
-	status, err := solver.CheckSat(nil)
-	if err != nil {
-		return err
-	}
-	if status == lbool.True {
-		return ErrRelationVerification
-	}
-	// The source accepts unknown, while reporting a satisfiable counterexample.
-	return nil
+	return VerifyRelationFormulasEquivalent(r.manager, r.config, left, right)
 }
 
 func (r *relationFormulaChecker) factFormula(values []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
