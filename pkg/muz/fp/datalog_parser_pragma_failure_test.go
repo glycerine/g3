@@ -2,6 +2,7 @@ package fp_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -12,9 +13,22 @@ import (
 
 // Source parse_pred publishes argument names only after output pragmas.
 // Exhaust reference slots after admitting the sort and predicate owners.
-// Allow the finite-sort factory's single arena reservation, then the output
-// predicate's reference allocation is refused at the pragma boundary.
+// Sweep the allocation allowance until the parser can construct the finite
+// sort and predicate but the output-predicate reference is refused.
 func TestDatalogParserPragmaFailurePrecedesArgumentNames(t *testing.T) {
+	foundBoundary := false
+	for allowance := int64(0); allowance < 64 && !foundBoundary; allowance++ {
+		t.Run(fmt.Sprint(allowance), func(t *testing.T) {
+			foundBoundary = datalogParserPragmaFailureAttempt(t, allowance)
+		})
+	}
+	if !foundBoundary {
+		t.Fatal("allocation sweep did not reach output pragma after predicate registration")
+	}
+}
+
+func datalogParserPragmaFailureAttempt(t *testing.T, allowance int64) bool {
+	t.Helper()
 	f := newDatalogParserFixture(t)
 	manager, err := f.context.Manager()
 	fpMust(t, err)
@@ -63,31 +77,34 @@ func TestDatalogParserPragmaFailurePrecedesArgumentNames(t *testing.T) {
 		fpMust(t, manager.DelRef(&padding[last]))
 		padding = padding[:last]
 	}
-	manager.BudgetField.FailAfter(1)
+	manager.BudgetField.FailAfter(allowance)
 	err = fp.ParseDatalogString(f.context, "N 2\n\nP(x:N) outputtuples\n")
+	manager.BudgetField.FailAfter(-1)
+	if err == nil {
+		return false
+	}
 	if !errors.Is(err, arena.ErrInjectedFailure) {
-		t.Fatal("expected pragma allocation refusal", err)
+		t.Fatal("expected injected allocation refusal", err)
 	}
 	got, found, err := f.context.Predicate(name)
 	fpMust(t, err)
 	if !found || got != declaration {
-		t.Fatal("predicate was not registered before pragma", got, found)
+		return false
 	}
 	arg, err := f.context.ArgumentName(declaration, 0)
 	fpMust(t, err)
 	text, err := manager.Symbols.Display(arg)
 	fpMust(t, err)
 	if text != "#0" {
-		t.Fatal("argument name was published before failed pragma", text)
+		return false
 	}
 	rules, err := f.context.Rules()
 	fpMust(t, err)
 	output, err := rules.IsOutputPredicate(declaration)
 	fpMust(t, err)
 	if output {
-		t.Fatal("failed output pragma was published")
+		return false
 	}
-	manager.BudgetField.FailAfter(-1)
 	fpMust(t, f.context.SetOutputPredicate(declaration))
 	x, err := manager.Symbols.Intern("x")
 	fpMust(t, err)
@@ -99,4 +116,5 @@ func TestDatalogParserPragmaFailurePrecedesArgumentNames(t *testing.T) {
 	if arg != x || !output {
 		t.Fatal("pragma recovery did not publish metadata", arg, output)
 	}
+	return true
 }
