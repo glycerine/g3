@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/smtcore"
 )
 
@@ -130,15 +131,15 @@ func (r *KarrRelation) ToFormula(manager *ast.ASTManager, sorts []ast.ASTHandle)
 		}
 		conjuncts = append(conjuncts, formula)
 	}
-	formula, err := manager.MkAndArgs(conjuncts)
+	result, err = manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return result, err
 	}
-	result, err = manager.NewRef(formula)
-	if err == nil {
-		owned = true
+	owned = true
+	if err = rewriter.SimplifyBooleanGateDefault(manager, ast.ASTOpAnd, conjuncts, result); err != nil {
+		return result, err
 	}
-	return result, err
+	return result, nil
 }
 
 func VerifyKarrRelationExpected(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, expected ast.ASTHandle, actual *KarrRelation) (resultErr error) {
