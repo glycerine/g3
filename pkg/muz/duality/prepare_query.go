@@ -17,6 +17,7 @@ type PreparedQuery struct {
 	background []ast.ASTRef
 	clauses    []ast.ASTRef
 	bounds     []uint32
+	closing    bool
 }
 
 // PrepareQuery adds the closed query and missing predicate heads to rule
@@ -72,7 +73,7 @@ func (q *PreparedQuery) Clauses() ([]ast.ASTHandle, error) {
 	if q == nil || q.manager == nil {
 		return nil, ast.ErrASTHandle
 	}
-	if q.self != q {
+	if q.self != q || q.closing {
 		return nil, graph.ErrWrapperOwner
 	}
 	values := make([]ast.ASTHandle, len(q.clauses))
@@ -89,7 +90,7 @@ func (q *PreparedQuery) Bounds() ([]uint32, error) {
 	if q == nil || q.manager == nil {
 		return nil, ast.ErrASTHandle
 	}
-	if q.self != q {
+	if q.self != q || q.closing {
 		return nil, graph.ErrWrapperOwner
 	}
 	return append([]uint32(nil), q.bounds...), nil
@@ -101,19 +102,26 @@ func (q *PreparedQuery) Close() error {
 	if q.self != q {
 		return graph.ErrWrapperOwner
 	}
+	q.closing = true
 	for len(q.background) > 0 {
 		i := len(q.background) - 1
-		if err := q.manager.DelRef(&q.background[i]); err != nil {
+		err := q.manager.DelRef(&q.background[i])
+		if q.background[i] == (ast.ASTRef{}) {
+			q.background = q.background[:i]
+		}
+		if err != nil {
 			return err
 		}
-		q.background = q.background[:i]
 	}
 	for len(q.clauses) > 0 {
 		i := len(q.clauses) - 1
-		if err := q.manager.DelRef(&q.clauses[i]); err != nil {
+		err := q.manager.DelRef(&q.clauses[i])
+		if q.clauses[i] == (ast.ASTRef{}) {
+			q.clauses = q.clauses[:i]
+		}
+		if err != nil {
 			return err
 		}
-		q.clauses = q.clauses[:i]
 	}
 	q.bounds = nil
 	q.manager = nil

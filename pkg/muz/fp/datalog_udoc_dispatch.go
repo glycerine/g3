@@ -169,7 +169,7 @@ func (e *PropositionalEngine) queryUDocDatalog(declarations []ast.ASTHandle) (lb
 	if err := e.prepareUDocQuery(); err != nil {
 		return lbool.Undef, err
 	}
-	if err := e.checkUDocQuantifiers(); err != nil {
+	if err := e.checkUDocRuleProperties(); err != nil {
 		return lbool.Undef, err
 	}
 	if err := e.udocDatalog.saturate(e.set); err != nil {
@@ -178,9 +178,9 @@ func (e *PropositionalEngine) queryUDocDatalog(declarations []ast.ASTHandle) (lb
 	return e.finishUDocQuery(declarations)
 }
 
-// Quantifiers are checked first by source check_rules. Keep this distinct from
-// the source infinite-sort check because UDoc supports integer relations.
-func (e *PropositionalEngine) checkUDocQuantifiers() (result error) {
+// Source checks quantifiers, then uninterpreted functions. Keep this distinct
+// from the source infinite-sort check and the separate integer-relation path.
+func (e *PropositionalEngine) checkUDocRuleProperties() (result error) {
 	proof, err := e.sourceRuleProofTrace()
 	if err != nil {
 		return err
@@ -198,6 +198,9 @@ func (e *PropositionalEngine) checkUDocQuantifiers() (result error) {
 		return err
 	}
 	if err = properties.CheckQuantifierFree(); err != nil {
+		return fmt.Errorf("%w: validate datalog rule fragment: %w", ErrPropositionalHorn, err)
+	}
+	if err = properties.CheckUninterpretedFree(); err != nil {
 		return fmt.Errorf("%w: validate datalog rule fragment: %w", ErrPropositionalHorn, err)
 	}
 	return nil
