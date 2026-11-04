@@ -4,9 +4,9 @@ Audited on 2026-11-03 after the engine-base closure and `f07739846`. This docume
 supports completion of [dl_register_engine.h](../../src/muz/fp/dl_register_engine.h)
 and [dl_register_engine.cpp](../../src/muz/fp/dl_register_engine.cpp) only. Every
 declaration, branch, field, constructor and ownership transfer was checked against
-actual callers. Independent review found no missing factory behavior. No new
-production adapter or test was needed: the existing concrete consumers cover the
-complete factory surface.
+actual callers. Independent review found no missing factory behavior. Existing
+concrete consumers cover the factory surface; a focused reselection regression
+also checks the dispatcher's cached-owner path described below.
 
 The previous manifest description was stale: Duality is available, all ten engine
 names have concrete dispatch, and QBMC is no longer an unavailable branch. Wider
@@ -76,6 +76,11 @@ derived solver's construction/cleanup algorithm has been audited here.
   `TestEngineSwitchDoesNotRepublishPriorBackendResult`,
   `TestPDRAndQPDRSwitchInvalidatesResult`,
   `TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown`.
+- [fp/engine_registration_reselection_test.go](fp/engine_registration_reselection_test.go)
+  `TestEngineRegistrationRepeatedSelectionKeepsDualityOwner` exercises the
+  existing-engine branch of `context::ensure_engine` through the Go selector:
+  the Duality owner and published proof survive reselection and a later query
+  reuses that owner. Explicit selection itself is a Go adaptation.
 - [fp/configured_predicate_dispatch_test.go](fp/configured_predicate_dispatch_test.go),
   [fp/configured_expression_dispatch_test.go](fp/configured_expression_dispatch_test.go),
   [fp/configured_engine_fallback_test.go](fp/configured_engine_fallback_test.go):
