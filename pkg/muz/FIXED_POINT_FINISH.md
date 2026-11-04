@@ -117,6 +117,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Match Datalog map-file source line boundaries, including empty input, terminal newlines, CR and embedded NUL behavior; focused parser tests cover these cases.
   - [x] Match Datalog rule-body period and EOF handling, and own parsed head, body, argument and inequality intermediates across real allocation failures and retry. Parser-local cleanup refusal remains open.
   - [x] Match optional argument commas and the source rejection of empty or trailing-comma predicate declarations, with publication and valid-input controls.
+  - [x] Match exhausted-arity invocation parentheses rejection and its source diagnostic component, with valid controls and no publication on failure.
   - [x] Match quoted reserved tokens and C-string NUL handling, and the source file reader's synthesized line endings and quoted-string EOF behavior. Focused lexer and parser tests pass.
   - [x] Match source identifier boundaries for embedded !, < and > while preserving standalone operators.
   - [x] Match named predicate replacement for distinct declarations sharing a symbol; cover membership, restriction, owner counts, allocation refusal and retry.
@@ -140,6 +141,7 @@ Heterogeneous sparse/interval products preserve exact Hash/Sparse/nullary origin
   - [x] Normalize reachable non-application Boolean heads before the same deferred diagnostic, matching repeated C++ query output; reserve equality ownership before construction. Sparse-variable substitution now owns replacement variables across allocation failure and retry. Exceptional temporary cleanup refusal and partial multi-clause publication remain open.
   - [x] Prevent a negated interpreted-tail AST leak when reference reservation fails, with live-node and retry coverage; constructor cleanup refusal remains a separate audit.
   - [x] Reserve HNF fresh-head and implication owners before construction; a 12-boundary allocation campaign verifies cleanup and retry. Local cleanup refusal remains open.
+  - [x] Own HNF negated conjunction disjuncts before construction; four allocation boundaries verify cleanup and retry.
   - [x] Own unbound-variable substitution bindings and grouped-tail conjunctions before later allocations; real failure campaigns verify live-node cleanup and retry for both cases.
   - [x] Reserve the unbound-rule quantifier owner before construction; targeted allocation refusal and retry pass.
   - [x] Reserve the QE extracted-constant owner before creation; the fixedpoint pressure cases and focused QE tests pass. Refused cleanup of a partially extracted owner remains open.

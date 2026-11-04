@@ -642,11 +642,13 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 				}
 				for _, disjunct := range disjuncts {
 					if negate {
-						disjunct, e = n.manager.MkNot(disjunct)
-						if e != nil {
-							return result, e
+						owner, x := n.manager.NewRef(ast.ASTHandle{})
+						if x != nil {
+							return result, x
 						}
-						if e = n.pin(&locals, disjunct); e != nil {
+						locals = append(locals, owner)
+						disjunct, e = n.manager.MkNot(disjunct)
+						if e = errors.Join(e, n.manager.SetRef(owner, disjunct)); e != nil {
 							return result, e
 						}
 					}

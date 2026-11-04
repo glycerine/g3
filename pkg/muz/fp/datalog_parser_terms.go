@@ -30,6 +30,16 @@ func (p *datalogParser) parseArguments(declaration ast.ASTHandle) ([]ast.ASTHand
 		return nil, nil
 	}
 	p.advance()
+	if p.token.kind == datalogRightParen {
+		arity, err := p.manager.GetArity(declaration)
+		if err != nil {
+			return nil, err
+		}
+		if arity == 0 {
+			return nil, p.fail("too many arguments passed to predicate")
+		}
+		return nil, p.fail("expected predicate argument")
+	}
 	var arguments []ast.ASTHandle
 	for p.token.kind != datalogRightParen {
 		index := uint32(len(arguments))
@@ -54,6 +64,12 @@ func (p *datalogParser) parseArguments(declaration ast.ASTHandle) ([]ast.ASTHand
 		}
 		if p.token.kind == datalogComma {
 			p.advance()
+			if p.token.kind == datalogRightParen {
+				if uint32(len(arguments)) >= arity {
+					return nil, p.fail("too many arguments passed to predicate")
+				}
+				return nil, p.fail("expected predicate argument")
+			}
 		}
 	}
 	p.advance()
