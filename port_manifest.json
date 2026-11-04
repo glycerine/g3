@@ -5923,6 +5923,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/api/z3_generated_registry_test.go",
         "pkg/api/z3_generated_global_commands.go",
         "pkg/api/z3_generated_config_commands.go",
         "pkg/api/z3_generated_context_commands.go",
@@ -6031,6 +6032,7 @@
         "pkg/muz/fp/pdr_engine.go"
       ],
       "tests": [
+        "TestGeneratedAPICommandRegistryMatchesSource",
         "TestGeneratedGlobalReplayCommands",
         "TestGeneratedConfigReplayLifecycle",
         "TestGeneratedContextReplayCopiesConfigAndCloses",
