@@ -60,7 +60,7 @@ func (s *RuleSet) openForCleanup() error {
 	if s == nil || s.closed || s.manager == nil {
 		return ErrRuleSetOwner
 	}
-	if owner := s.contextOwner; owner != nil && (owner.scopeRecovery || len(owner.scopes) != 0 && owner.scopes[len(owner.scopes)-1].popping) {
+	if owner := s.contextOwner; owner != nil && (owner.scopeRecovery || owner.closing || len(owner.scopes) != 0 && owner.scopes[len(owner.scopes)-1].popping) {
 		return ErrRuleSetOwner
 	}
 	return s.manager.open()

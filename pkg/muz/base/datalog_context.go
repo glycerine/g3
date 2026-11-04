@@ -30,6 +30,7 @@ type DatalogContext struct {
 	scopeRecovery  bool
 	background     []ast.ASTRef
 	bindVariables  bool
+	closing        bool
 	closed         bool
 }
 
@@ -79,7 +80,7 @@ func (c *DatalogContext) open() error {
 }
 
 func (c *DatalogContext) openForScopeCleanup() error {
-	if c == nil || c.closed || c.manager == nil {
+	if c == nil || c.closed || c.closing || c.manager == nil {
 		return ErrDatalogContextOwner
 	}
 	if c.pendingScope != nil {
@@ -119,6 +120,8 @@ func (c *DatalogContext) retain(h ast.ASTHandle) error {
 	return nil
 }
 
+// Close retains its remaining owners after a release fails. Only Close may
+// resume cleanup; consumed AST references are removed before returning errors.
 func (c *DatalogContext) Close() (result error) {
 	if c == nil || c.closed {
 		return nil
@@ -128,6 +131,7 @@ func (c *DatalogContext) Close() (result error) {
 	}
 	c.scopeRecovery = true
 	defer func() { c.scopeRecovery = false }()
+	c.closing = true
 	if c.pendingScope != nil {
 		if err := c.pendingScope.Close(); err != nil {
 			return err
@@ -141,27 +145,48 @@ func (c *DatalogContext) Close() (result error) {
 		}
 		c.scopes = c.scopes[:last]
 	}
-	c.closed = true
-	for i := len(c.background) - 1; i >= 0; i-- {
-		result = errors.Join(result, c.manager.DelRef(&c.background[i]))
+	defer func() {
+		if result != nil {
+			result = fmt.Errorf("muz/base: close datalog context: %w", result)
+		}
+	}()
+	for len(c.background) > 0 {
+		last := len(c.background) - 1
+		err := c.manager.DelRef(&c.background[last])
+		if c.background[last] == (ast.ASTRef{}) {
+			c.background = c.background[:last]
+		}
+		if err != nil {
+			return err
+		}
 	}
-	c.background = nil
-	if c.rules != nil {
-		result = errors.Join(result, c.rules.closeContents())
+	if c.rules != nil && !c.rules.closed {
+		if err := c.rules.closeContents(); err != nil {
+			return err
+		}
 	}
 	if c.binder != nil {
-		result = errors.Join(result, c.binder.Close())
+		if err := c.binder.Close(); err != nil {
+			return err
+		}
 	}
 	if c.ruleManager != nil {
-		result = errors.Join(result, c.ruleManager.Close())
+		if err := c.ruleManager.Close(); err != nil {
+			return err
+		}
 	}
-	for i := len(c.references) - 1; i >= 0; i-- {
-		result = errors.Join(result, c.manager.DelRef(&c.references[i]))
+	for len(c.references) > 0 {
+		last := len(c.references) - 1
+		err := c.manager.DelRef(&c.references[last])
+		if c.references[last] == (ast.ASTRef{}) {
+			c.references = c.references[:last]
+		}
+		if err != nil {
+			return err
+		}
 	}
-	c.references = nil
 	c.manager = nil
-	if result != nil {
-		return fmt.Errorf("muz/base: close datalog context: %w", result)
-	}
+	c.closing = false
+	c.closed = true
 	return nil
 }
