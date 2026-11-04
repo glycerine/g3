@@ -46,11 +46,13 @@ func (c *Context) validateUNSATResult() (resultErr error) {
 			continue
 		}
 		pt := c.transformers[declaration]
-		body, err := pt.Formulas(c.inductive, false)
+		bodyRef, err := pt.FormulasRef(c.inductive, false)
 		if err != nil {
 			return err
 		}
-		if err = pin(body); err != nil {
+		owner.references = append(owner.references, bodyRef)
+		body, err := c.manager.RefGet(bodyRef)
+		if err != nil {
 			return err
 		}
 		body, err = c.owner.FormulaNewToOld(body, 0, false)

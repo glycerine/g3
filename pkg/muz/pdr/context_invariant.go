@@ -22,17 +22,17 @@ func (c *Context) CheckPredicateInvariant(level uint32, declaration ast.ASTHandl
 	if transformer == nil {
 		return false, ast.ErrASTDomain
 	}
-	invariant, err := transformer.Formulas(level+1, false)
-	if err != nil {
-		return false, err
-	}
 	attempt := newPDRValidationAttempt(c.manager)
 	defer func() { resultErr = finishPDRValidation(attempt, resultErr) }()
-	invariantGuard, err := c.manager.NewRef(invariant)
+	invariantGuard, err := transformer.FormulasRef(level+1, false)
 	if err != nil {
 		return false, err
 	}
 	attempt.references = append(attempt.references, invariantGuard)
+	invariant, err := c.manager.RefGet(invariantGuard)
+	if err != nil {
+		return false, err
+	}
 	if c.manager.IsTrue(invariant) {
 		return true, nil
 	}

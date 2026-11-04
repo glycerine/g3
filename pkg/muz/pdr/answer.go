@@ -343,11 +343,10 @@ func (c *Context) unsatAnswer(queryDeclaration ast.ASTHandle) (result ast.ASTRef
 	references := make([]ast.ASTRef, 0)
 	defer func() {
 		for index := len(references) - 1; index >= 0; index-- {
-			resultErr = errors.Join(resultErr, c.manager.DelRef(&references[index]))
+			resultErr = errors.Join(resultErr, c.owner.releaseNotAndRef(&references[index]))
 		}
 		if resultErr != nil && result != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, c.manager.DelRef(&result))
-			result = ast.ASTRef{}
+			resultErr = errors.Join(resultErr, c.owner.releaseNotAndRef(&result))
 		}
 	}()
 	pin := func(handle ast.ASTHandle) error {
@@ -368,11 +367,13 @@ func (c *Context) unsatAnswer(queryDeclaration ast.ASTHandle) (result ast.ASTRef
 			continue
 		}
 		transformer := c.transformers[declaration]
-		body, x := transformer.Formulas(c.inductive, false)
+		bodyRef, x := transformer.FormulasRef(c.inductive, false)
 		if x != nil {
 			return result, x
 		}
-		if x = pin(body); x != nil {
+		references = append(references, bodyRef)
+		body, x := c.manager.RefGet(bodyRef)
+		if x != nil {
 			return result, x
 		}
 		converted, x := c.owner.FormulaNewToOldRef(body, 0, false)

@@ -21,6 +21,7 @@ type inductionGeneralizerBuilder struct {
 	substitute *rewriter.VarSubstitution
 	abstract   *ast.ExprAbstractor
 	references []ast.ASTRef
+	frameRefs  []ast.ASTRef
 }
 
 func newInductionGeneralizerBuilder(transformer *PredicateTransformer) (_ *inductionGeneralizerBuilder, resultErr error) {
@@ -429,11 +430,13 @@ func (b *inductionGeneralizerBuilder) goal(transformer *PredicateTransformer, le
 			return ast.ASTHandle{}, x
 		}
 		conjunction = append(conjunction, axiom)
-		formulas, x := entry.transformer.Formulas(entry.level, true)
+		formulaRef, x := entry.transformer.FormulasRef(entry.level, true)
 		if x != nil {
 			return ast.ASTHandle{}, x
 		}
-		if x = b.pin(formulas); x != nil {
+		b.frameRefs = append(b.frameRefs, formulaRef)
+		formulas, x := b.manager.RefGet(formulaRef)
+		if x != nil {
 			return ast.ASTHandle{}, x
 		}
 		frameProperty, x := b.predicateProperty(entry.level, entry.transformer, formulas)
@@ -475,6 +478,10 @@ func (b *inductionGeneralizerBuilder) Close() (result error) {
 		result = errors.Join(result, b.substitute.Close())
 		b.substitute = nil
 	}
+	for i := len(b.frameRefs) - 1; i >= 0; i-- {
+		result = errors.Join(result, b.owner.releaseNotAndRef(&b.frameRefs[i]))
+	}
+	b.frameRefs = nil
 	result = errors.Join(result, closeASTRefs(b.manager, b.references))
 	b.references = nil
 	b.owner = nil

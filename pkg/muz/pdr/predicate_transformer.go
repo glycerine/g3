@@ -445,18 +445,19 @@ func (p *PredicateTransformer) CoverDelta(level int) (result ast.ASTRef, resultE
 	return result, nil
 }
 
-func (p *PredicateTransformer) Formulas(level uint32, addAxioms bool) (ast.ASTHandle, error) {
+// FormulasRef returns the source rewritten frame conjunction with caller ownership.
+func (p *PredicateTransformer) FormulasRef(level uint32, addAxioms bool) (ast.ASTRef, error) {
 	if err := p.open(); err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTRef{}, err
 	}
 	formulas := make([]ast.ASTHandle, 0, len(p.invariants)+2)
 	if addAxioms {
 		if !p.initialized {
-			return ast.ASTHandle{}, ast.ErrASTDomain
+			return ast.ASTRef{}, ast.ErrASTDomain
 		}
 		background, err := p.owner.Background()
 		if err != nil {
-			return ast.ASTHandle{}, err
+			return ast.ASTRef{}, err
 		}
 		formulas = append(formulas, background)
 		if level == 0 {
@@ -471,7 +472,18 @@ func (p *PredicateTransformer) Formulas(level uint32, addAxioms bool) (ast.ASTHa
 			formulas = append(formulas, p.levels[index]...)
 		}
 	}
-	return p.manager.MkAndArray(formulas)
+	return p.owner.AndRef(formulas)
+}
+
+// Formulas returns a borrowed result retained by the manager for compatibility.
+// Internal callers use FormulasRef to keep the lifetime scoped.
+func (p *PredicateTransformer) Formulas(level uint32, addAxioms bool) (ast.ASTHandle, error) {
+	ref, err := p.FormulasRef(level, addAxioms)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	p.owner.notAndBorrowed = append(p.owner.notAndBorrowed, ref)
+	return p.manager.RefGet(ref)
 }
 
 // SimplifyFormulas applies the source unit-subsumption pass independently to
@@ -587,11 +599,16 @@ func (p *PredicateTransformer) PropagateToNextLevel(sourceLevel uint32) (bool, e
 	return len(source) == 0, nil
 }
 
-func (p *PredicateTransformer) PropagateToInfinity(level uint32) error {
+func (p *PredicateTransformer) PropagateToInfinity(level uint32) (resultErr error) {
 	if level == InfinityLevel {
 		return ast.ErrASTDomain
 	}
-	formula, err := p.Formulas(level, false)
+	ref, err := p.FormulasRef(level, false)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.owner.releaseNotAndRef(&ref)) }()
+	formula, err := p.manager.RefGet(ref)
 	if err != nil {
 		return err
 	}

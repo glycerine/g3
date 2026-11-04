@@ -45,9 +45,11 @@ func (c *Context) finiteFrameModel(level uint32, queryDeclaration ast.ASTHandle)
 			continue
 		}
 		transformer := c.transformers[declaration]
-		body, x := transformer.Formulas(level, false)
+		bodyRef, x := transformer.FormulasRef(level, false)
+		var body ast.ASTHandle
 		if x == nil {
-			x = pin(body)
+			owner.references = append(owner.references, bodyRef)
+			body, x = c.manager.RefGet(bodyRef)
 		}
 		if x == nil {
 			var converted ast.ASTRef

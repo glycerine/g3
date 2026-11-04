@@ -77,15 +77,15 @@ func generalizeConvexCore(transformer *PredicateTransformer, level uint32, input
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, transformer.manager.DelRef(&originalRef)) }()
-	frame, err := transformer.Formulas(level, false)
+	frameRef, err := transformer.FormulasRef(level, false)
 	if err != nil {
 		return nil, err
 	}
-	frameRef, err := transformer.manager.NewRef(frame)
+	defer func() { resultErr = errors.Join(resultErr, transformer.owner.releaseNotAndRef(&frameRef)) }()
+	frame, err := transformer.manager.RefGet(frameRef)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, transformer.manager.DelRef(&frameRef)) }()
 	conjuncts, err := transformer.manager.FlattenAnd([]ast.ASTHandle{frame})
 	if err != nil {
 		return nil, err

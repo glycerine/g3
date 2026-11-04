@@ -661,18 +661,28 @@ func (p *PredicateTransformer) Premises(level uint32) ([]ast.ASTHandle, error) {
 	}
 	for _, rule := range p.rules {
 		for index, predecessor := range rule.predecessors {
-			formula, x := predecessor.Formulas(level, false)
+			formula, skip, x := func() (converted ast.ASTHandle, skip bool, resultErr error) {
+				ref, err := predecessor.FormulasRef(level, false)
+				if err != nil {
+					return converted, false, err
+				}
+				defer func() { resultErr = errors.Join(resultErr, p.owner.releaseNotAndRef(&ref)) }()
+				formula, err := p.manager.RefGet(ref)
+				if err != nil {
+					return converted, false, err
+				}
+				if p.manager.IsTrue(formula) {
+					return converted, true, nil
+				}
+				converted, err = p.owner.FormulaNewToOld(formula, uint32(index), true)
+				return converted, false, err
+			}()
 			if x != nil {
 				return nil, x
 			}
-			if p.manager.IsTrue(formula) {
-				continue
+			if !skip {
+				result = append(result, formula)
 			}
-			formula, x = p.owner.FormulaNewToOld(formula, uint32(index), true)
-			if x != nil {
-				return nil, x
-			}
-			result = append(result, formula)
 		}
 	}
 	return result, nil
@@ -680,7 +690,7 @@ func (p *PredicateTransformer) Premises(level uint32) ([]ast.ASTHandle, error) {
 
 // PropagationFormula builds the source PDR premise used to validate frame
 // lemmas, including tag-guarded predecessor frames.
-func (p *PredicateTransformer) PropagationFormula(level uint32) (ast.ASTHandle, error) {
+func (p *PredicateTransformer) PropagationFormula(level uint32) (result ast.ASTHandle, resultErr error) {
 	if err := p.open(); err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -688,12 +698,23 @@ func (p *PredicateTransformer) PropagationFormula(level uint32) (ast.ASTHandle, 
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
 	conjunction := make([]ast.ASTHandle, 0)
+	var formulaRefs []ast.ASTRef
+	defer func() {
+		for i := len(formulaRefs) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, p.owner.releaseNotAndRef(&formulaRefs[i]))
+		}
+	}()
 	if level == 0 {
 		conjunction = append(conjunction, p.initialState)
 	} else {
 		conjunction = append(conjunction, p.transition)
 	}
-	formulas, err := p.Formulas(level, true)
+	ref, err := p.FormulasRef(level, true)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	formulaRefs = append(formulaRefs, ref)
+	formulas, err := p.manager.RefGet(ref)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -704,7 +725,12 @@ func (p *PredicateTransformer) PropagationFormula(level uint32) (ast.ASTHandle, 
 				continue
 			}
 			for index, predecessor := range rule.predecessors {
-				formula, x := predecessor.Formulas(level-1, false)
+				ref, x := predecessor.FormulasRef(level-1, false)
+				if x != nil {
+					return ast.ASTHandle{}, x
+				}
+				formulaRefs = append(formulaRefs, ref)
+				formula, x := p.manager.RefGet(ref)
 				if x != nil {
 					return ast.ASTHandle{}, x
 				}
@@ -720,7 +746,16 @@ func (p *PredicateTransformer) PropagationFormula(level uint32) (ast.ASTHandle, 
 			}
 		}
 	}
-	return p.manager.MkAndArray(conjunction)
+	result, err = p.manager.MkAndArray(conjunction)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	resultRef, err := p.manager.NewRef(result)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	p.owner.notAndBorrowed = append(p.owner.notAndBorrowed, resultRef)
+	return result, nil
 }
 
 // IsInvariant tests a property against the current frame. The inductive form
