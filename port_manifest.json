@@ -81918,10 +81918,15 @@
         },
         {
           "name": "Concrete config_mpf ordinary watched clause and singleton axiom unit registration, stable atom sort, references and distinct-variable watchers (src/math/subpaving/subpaving_t_def.h:773-869)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_clause.go",
           "tests": [
-            "TestArbitraryShellCoefficientSourceConversionAndCleanup"
+            "TestArbitraryShellCoefficientSourceConversionAndCleanup",
+            "TestArbitraryClauseAndUnitTracePublicationOrder",
+            "TestArbitraryClauseAndUnitTraceFailureBoundaries",
+            "TestArbitraryInequalityReferenceTraceSourceOrder",
+            "TestArbitraryClauseQueuedWatchOrderAndCancellation",
+            "TestArbitraryClauseSourceTruthAndPropagation"
           ]
         },
         {
