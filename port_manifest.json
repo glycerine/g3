@@ -80382,7 +80382,7 @@
         },
         {
           "name": "Concrete config_hwf polynomial and inequality scalar records used by retained shell (src/math/subpaving/subpaving_t.h:51-67)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_constraints.go",
           "tests": [
             "TestSubpavingHardwareShellCoefficientAndInequalityConversion"
