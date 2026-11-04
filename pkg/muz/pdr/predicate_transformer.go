@@ -380,16 +380,23 @@ func (p *PredicateTransformer) CoverDelta(level int) (result ast.ASTRef, resultE
 	}
 	owner := &pdrCoverExportOwner{manager: p.manager}
 	defer owner.finish(&result, &resultErr)
-	var formula ast.ASTHandle
 	var err error
 	switch {
 	case level == -1:
-		formula, err = p.manager.MkAndArray(p.invariants)
+		owner.formula, err = p.owner.AndRef(p.invariants)
 	case level >= 0 && level < len(p.levels):
-		formula, err = p.manager.MkAndArray(p.levels[level])
+		owner.formula, err = p.owner.AndRef(p.levels[level])
 	default:
-		formula, err = p.manager.MkTrue()
+		var truth ast.ASTHandle
+		truth, err = p.manager.MkTrue()
+		if err == nil {
+			owner.formula, err = p.manager.NewRef(truth)
+		}
 	}
+	if err != nil {
+		return result, err
+	}
+	formula, err := p.manager.RefGet(owner.formula)
 	if err != nil {
 		return result, err
 	}

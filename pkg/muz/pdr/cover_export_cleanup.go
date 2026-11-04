@@ -14,6 +14,7 @@ type pdrCoverExportOwner struct {
 	substitution    ast.ASTExprSubstitution
 	hasSubstitution bool
 	replacer        *rewriter.DefaultExprReplacer
+	formula         ast.ASTRef
 	result          ast.ASTRef
 }
 
@@ -52,6 +53,11 @@ func (o *pdrCoverExportOwner) closeServices() error {
 			return err
 		}
 		o.hasSubstitution = false
+	}
+	if o.formula != (ast.ASTRef{}) {
+		if err := o.manager.DelRef(&o.formula); err != nil {
+			return err
+		}
 	}
 	return nil
 }

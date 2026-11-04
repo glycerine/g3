@@ -33,7 +33,7 @@ func TestPDRCoverExportPreservesUnpublishedResultWhenCleanupRefuses(t *testing.T
 			owner.result = ast.ASTRef{}
 			publicationErr := originalCause
 			owner.finish(&published, &publicationErr)
-			intact = published == (ast.ASTRef{}) && errors.Is(publicationErr, originalCause) && errors.Is(publicationErr, ast.ErrASTPending) && errors.As(publicationErr, &failure) && owner.hasSubstitution && owner.result != (ast.ASTRef{}) && failure.RuntimeOwner() == runtime
+			intact = published == (ast.ASTRef{}) && errors.Is(publicationErr, originalCause) && errors.Is(publicationErr, ast.ErrASTPending) && errors.As(publicationErr, &failure) && owner.hasSubstitution && owner.formula != (ast.ASTRef{}) && owner.result != (ast.ASTRef{}) && failure.RuntimeOwner() == runtime
 		}
 		return f
 	}})
@@ -69,7 +69,9 @@ func TestPDRCoverExportPreservesUnpublishedResultWhenCleanupRefuses(t *testing.T
 	must(replacer.SetSubstitution(&substitution))
 	result, err := manager.NewRef(truth)
 	must(err)
-	owner = &pdrCoverExportOwner{manager: manager, substitution: substitution, hasSubstitution: true, replacer: replacer, result: result}
+	formula, err := manager.NewRef(truth)
+	must(err)
+	owner = &pdrCoverExportOwner{manager: manager, substitution: substitution, hasSubstitution: true, replacer: replacer, formula: formula, result: result}
 	value, err := numbers.NewValue()
 	must(err)
 	defer func() { must(numbers.Del(&value)) }()
@@ -86,7 +88,7 @@ func TestPDRCoverExportPreservesUnpublishedResultWhenCleanupRefuses(t *testing.T
 	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
 	must(failure.Cleanup())
 	must(failure.Cleanup())
-	if failure.CleanupCause() != nil || owner.replacer != nil || owner.hasSubstitution || owner.result != (ast.ASTRef{}) {
+	if failure.CleanupCause() != nil || owner.replacer != nil || owner.hasSubstitution || owner.formula != (ast.ASTRef{}) || owner.result != (ast.ASTRef{}) {
 		t.Fatal("cover export cleanup retry did not finish")
 	}
 }

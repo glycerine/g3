@@ -101,6 +101,14 @@ func TestManagerNotAndLegacyAndNilGlobals(t *testing.T) {
 	p := pdrBool(t, manager, "not_and_legacy")
 	root, err := manager.NewRef(p)
 	pdrMust(t, err)
+	andRef, err := owner.AndRef([]ast.ASTHandle{p, p})
+	pdrMust(t, err)
+	andResult, err := manager.RefGet(andRef)
+	pdrMust(t, err)
+	if andResult != p {
+		t.Fatal("nil-globals conjunction was not simplified", andResult)
+	}
+	pdrMust(t, manager.DelRef(&andRef))
 	result, err := owner.NotAnd([]ast.ASTHandle{p, p})
 	pdrMust(t, err)
 	isNot, arg, err := manager.IsNot(result)

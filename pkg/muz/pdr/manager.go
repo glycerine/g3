@@ -351,6 +351,43 @@ func (m *Manager) finishNotAndActive() {
 	m.notAndDeferred = nil
 }
 
+// AndRef applies the source manager's Boolean conjunction rewriter and
+// returns an owning result reference. The caller releases it after use.
+func (m *Manager) AndRef(expressions []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	if err := m.open(); err != nil {
+		return result, err
+	}
+	if m.notAndActive {
+		return result, ast.ErrASTPending
+	}
+	m.notAndActive = true
+	defer m.finishNotAndActive()
+	if err := m.releaseNotAndPending(); err != nil {
+		return result, err
+	}
+	out, err := m.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return result, err
+	}
+	m.notAndPending = append(m.notAndPending, out)
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, m.releaseNotAndPending())
+		}
+	}()
+	if m.brwr != nil {
+		err = m.brwr.MkAnd(expressions, out)
+	} else {
+		err = rewriter.SimplifyBooleanGateDefault(m.manager, ast.ASTOpAnd, expressions, out)
+	}
+	if err != nil {
+		return result, err
+	}
+	result = m.notAndPending[0]
+	m.notAndPending = m.notAndPending[:0]
+	return result, nil
+}
+
 // NotAndRef returns the source bool_rewriter's negated conjunction as an
 // owning reference. The caller must release it after the consumer retains it.
 func (m *Manager) NotAndRef(expressions []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
