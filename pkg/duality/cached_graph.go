@@ -79,7 +79,7 @@ func (c *CachedGraphAssertions) ConstrainParentCache(parent *Edge, child *Node, 
 	defer func() { result = errors.Join(result, formula.Close()) }()
 	return c.ConstrainEdgeLocalizedCache(parent, formula, literals)
 }
-func (c *CachedGraphAssertions) ConstrainEdgeLocalizedCache(edge *Edge, term *Expr, literals *[]*Expr) error {
+func (c *CachedGraphAssertions) ConstrainEdgeLocalizedCache(edge *Edge, term *Expr, literals *[]*Expr) (result error) {
 	if c == nil || literals == nil || edge == nil || edge.Owner != c.graph || edge.closed {
 		return ErrWrapperOwner
 	}
@@ -89,6 +89,19 @@ func (c *CachedGraphAssertions) ConstrainEdgeLocalizedCache(edge *Edge, term *Ex
 	if term.value.object.context != c.graph.context {
 		return ErrContextMismatch
 	}
+	added, err := c.scope.Assumptions.GetAssumptionLits(term, nil)
+	if err != nil {
+		return err
+	}
+	var closeErr error
+	defer func() {
+		if added != nil {
+			for _, literal := range added {
+				closeErr = errors.Join(closeErr, literal.Close())
+			}
+		}
+		result = errors.Join(result, closeErr)
+	}()
 	m := c.graph.context.manager
 	owned, err := m.CopyRef(term.value.ref)
 	if err != nil {
@@ -101,11 +114,8 @@ func (c *CachedGraphAssertions) ConstrainEdgeLocalizedCache(edge *Edge, term *Ex
 	edge.constraints = append(edge.constraints, owned)
 	last := &c.graph.scopes[len(c.graph.scopes)-1]
 	last.constraints = append(last.constraints, edgeConstraint{edge, recorded})
-	added, err := c.scope.Assumptions.GetAssumptionLits(term, nil)
-	if err != nil {
-		return err
-	}
 	*literals = append(*literals, added...)
+	added = nil
 	return nil
 }
 
@@ -124,15 +134,20 @@ func (c *CachedGraphAssertions) AssertNodeCache(node *Node, literals []*Expr) (r
 		return err
 	}
 	defer func() { result = errors.Join(result, formula.Close()) }()
+	added, err := c.scope.Assumptions.GetAssumptionLits(formula, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		for _, literal := range added {
+			result = errors.Join(result, literal.Close())
+		}
+	}()
 	node.dual, err = c.graph.context.manager.CopyRef(formula.value.ref)
 	if err != nil {
 		return err
 	}
 	last := &c.graph.scopes[len(c.graph.scopes)-1]
 	last.nodes = append(last.nodes, node)
-	added, err := c.scope.Assumptions.GetAssumptionLits(formula, nil)
-	for _, literal := range added {
-		result = errors.Join(result, literal.Close())
-	}
-	return errors.Join(err, result)
+	return nil
 }

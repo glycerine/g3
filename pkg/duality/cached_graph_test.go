@@ -1,13 +1,14 @@
 package duality
 
 import (
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"testing"
 )
 
 func TestCachedGraphAssertionsPreserveLiteralVectorSourceSemantics(t *testing.T) {
-	ctx, _, _, globals := dualityNativeSolverServicesFixture(t)
+	ctx, m, _, globals := dualityNativeSolverServicesFixture(t)
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -55,6 +56,29 @@ func TestCachedGraphAssertionsPreserveLiteralVectorSourceSemantics(t *testing.T)
 	if len(literals) != 1 {
 		t.Fatal("edge formula literal missing")
 	}
+	probeNode, err := graph.CreateNode(term)
+	must(err)
+	must(probeNode.Annotation.SetEmpty())
+	probeBound, err := ctx.BoolConst("cached-node-failure-p")
+	must(err)
+	probeTransformer, err := NewTransformer(ctx, nil, nil, probeBound)
+	must(err)
+	closeExpr(t, probeBound)
+	must(probeNode.Bound.Close())
+	probeNode.Bound = probeTransformer
+	m.Budget().FailAfter(0)
+	nodeFailure := cached.AssertNodeCache(probeNode, literals)
+	m.Budget().FailAfter(-1)
+	if nodeFailure == nil {
+		t.Fatal("cached node assertion ignored the injected allocation failure")
+	}
+	if probeNode.dual != (ast.ASTRef{}) {
+		t.Fatal("failed cached node assertion published a partial node")
+	}
+	if len(literals) != 1 {
+		t.Fatal("cached node assertion changed by-value caller literals")
+	}
+	must(cached.AssertNodeCache(probeNode, literals))
 	must(cached.AssertNodeCache(parent, literals))
 	if len(literals) != 1 {
 		t.Fatal("by-value node call appended caller literals")
@@ -95,6 +119,19 @@ func TestCachedGraphAssertionsPreserveLiteralVectorSourceSemantics(t *testing.T)
 	closeVector(core)
 	if status != lbool.False {
 		t.Fatal("localized constraint literal not enforced")
+	}
+	probe, err := ctx.BoolConst("cached-localized-failure-probe")
+	must(err)
+	closeExpr(t, probe)
+	beforeConstraints := len(edge.constraints)
+	m.Budget().FailAfter(0)
+	constraintFailure := cached.ConstrainEdgeLocalizedCache(edge, probe, &literals)
+	m.Budget().FailAfter(-1)
+	if constraintFailure == nil {
+		t.Fatal("cached localized constraint ignored the injected allocation failure")
+	}
+	if len(edge.constraints) != beforeConstraints {
+		t.Fatal("failed cached localized constraint published a partial constraint")
 	}
 	child, err := graph.CreateNode(term)
 	must(err)
