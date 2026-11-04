@@ -80249,7 +80249,7 @@
         },
         {
           "name": "Concrete config_mpf mutable interval reset/set, invariant, contains-zero and source-order display (src/math/interval/interval_def.h:597-680)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_interval.go",
           "tests": [
             "TestSubpavingMPFMutableIntervalRetainedCore"
@@ -81634,7 +81634,7 @@
         },
         {
           "name": "Concrete config_mpf mutable interval reset/set, invariant, contains-zero and source-order display (src/math/interval/interval_def.h:597-680)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_interval.go",
           "tests": [
             "TestSubpavingMPFMutableIntervalRetainedCore"
