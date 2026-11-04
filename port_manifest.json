@@ -82201,7 +82201,7 @@
         },
         {
           "name": "Concrete config_hwf integer bound normalization, trail publication, timestamps and open-endpoint conflict detection (src/math/subpaving/subpaving_t_def.h:528-589,1337-1343)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_bounds.go",
           "tests": [
             "TestHardwareContextIntegerBoundsAndOpenConflicts"
