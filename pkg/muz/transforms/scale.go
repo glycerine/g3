@@ -11,11 +11,17 @@ import (
 )
 
 type ScalePlugin struct {
-	manager  *ast.ASTManager
-	rules    *base.RuleManager
-	priority uint32
-	oldToNew map[ast.ASTHandle]ast.ASTHandle
-	closed   bool
+	manager      *ast.ASTManager
+	rules        *base.RuleManager
+	priority     uint32
+	oldToNew     map[ast.ASTHandle]ast.ASTHandle
+	closed       bool
+	closing      bool
+	cleaning     bool
+	active       bool
+	pendingPins  []ast.ASTRef
+	pendingRules []*base.Rule
+	pendingSets  []*base.RuleSet
 }
 
 func NewScalePlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32) *ScalePlugin {
@@ -38,24 +44,17 @@ type scaleRuleState struct {
 	plugin   *ScalePlugin
 	sigma    uint32
 	realSort ast.ASTHandle
-	pins     []ast.ASTRef
 	eqs      []ast.ASTHandle
 	cache    map[ast.ASTHandle]ast.ASTHandle
+	fresh    map[ast.ASTHandle]ast.ASTHandle
 }
 
 func (s *scaleRuleState) pin(handle ast.ASTHandle) (ast.ASTHandle, error) {
 	reference, err := s.plugin.manager.NewRef(handle)
 	if err == nil {
-		s.pins = append(s.pins, reference)
+		s.plugin.pendingPins = append(s.plugin.pendingPins, reference)
 	}
 	return handle, err
-}
-
-func (s *scaleRuleState) release() (result error) {
-	for i := len(s.pins) - 1; i >= 0; i-- {
-		result = errors.Join(result, s.plugin.manager.DelRef(&s.pins[i]))
-	}
-	return result
 }
 
 func (s *scaleRuleState) predicate(source, destination *base.RuleSet, application ast.ASTHandle) (ast.ASTHandle, error) {
@@ -65,6 +64,9 @@ func (s *scaleRuleState) predicate(source, destination *base.RuleSet, applicatio
 		return ast.ASTHandle{}, err
 	}
 	fresh := s.plugin.oldToNew[old]
+	if fresh.IsNull() {
+		fresh = s.fresh[old]
+	}
 	if fresh.IsNull() {
 		arity, getErr := manager.GetArity(old)
 		if getErr != nil {
@@ -93,7 +95,7 @@ func (s *scaleRuleState) predicate(source, destination *base.RuleSet, applicatio
 		if getErr = s.plugin.rules.RegisterPredicate(fresh); getErr != nil {
 			return ast.ASTHandle{}, getErr
 		}
-		s.plugin.oldToNew[old] = fresh
+		s.fresh[old] = fresh
 	}
 	// Each result needs the current source metadata even when the scaled
 	// declaration was already created by an earlier transformation.
@@ -229,17 +231,23 @@ func (s *scaleRuleState) linearize(expression ast.ASTHandle) (ast.ASTHandle, err
 }
 
 func (p *ScalePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
-	if p == nil || p.closed || p.manager == nil || p.rules == nil {
+	if p == nil || p.closed || p.closing || p.cleaning || p.active || p.manager == nil || p.rules == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
+	if err := p.cleanup(); err != nil {
+		return nil, err
+	}
+	p.active = true
+	defer func() { p.active = false }()
 	result, err := base.NewRuleSet(p.rules)
 	if err != nil {
 		return nil, err
 	}
+	p.pendingSets = append(p.pendingSets, result)
 	keep := false
 	defer func() {
 		if !keep {
-			resultErr = errors.Join(resultErr, result.Close())
+			resultErr = errors.Join(resultErr, p.cleanup())
 		}
 	}()
 	count, err := source.Len()
@@ -262,12 +270,14 @@ func (p *ScalePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultEr
 	if err != nil {
 		return nil, err
 	}
+	fresh := make(map[ast.ASTHandle]ast.ASTHandle)
 	for i := 0; i < count; i++ {
 		rule, getErr := source.Rule(i)
 		if getErr != nil {
 			return nil, getErr
 		}
-		state := &scaleRuleState{plugin: p, realSort: realSort, cache: make(map[ast.ASTHandle]ast.ASTHandle)}
+		p.pendingRules = append(p.pendingRules, rule)
+		state := &scaleRuleState{plugin: p, realSort: realSort, cache: make(map[ast.ASTHandle]ast.ASTHandle), fresh: fresh}
 		state.sigma, getErr = ruleVariableCount(p.manager, rule)
 		var replacement *base.Rule
 		if getErr == nil {
@@ -316,26 +326,76 @@ func (p *ScalePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultEr
 			if getErr == nil {
 				replacement, getErr = p.rules.NewRuleWithSymbol(head, tails, make([]bool, len(tails)), name)
 			}
+			if replacement != nil {
+				p.pendingRules = append(p.pendingRules, replacement)
+			}
 			if getErr == nil {
 				getErr = result.Add(replacement)
 			}
 		}
-		getErr = errors.Join(getErr, state.release())
-		if replacement != nil {
-			getErr = errors.Join(getErr, replacement.Close())
-		}
-		getErr = errors.Join(getErr, rule.Close())
+		getErr = errors.Join(getErr, p.cleanupLocals())
 		if getErr != nil {
 			return nil, getErr
 		}
 	}
+	for old, declaration := range fresh {
+		p.oldToNew[old] = declaration
+	}
+	p.pendingSets = p.pendingSets[:len(p.pendingSets)-1]
 	keep = true
 	return result, nil
 }
 
+// Retain owners whose cleanup was refused; DelRef can report an error after
+// consuming a reference, so inspect the reference as well as the error.
+func (p *ScalePlugin) cleanupLocals() (result error) {
+	if p.cleaning {
+		return ast.ErrASTPending
+	}
+	p.cleaning = true
+	defer func() { p.cleaning = false }()
+	for i := len(p.pendingPins) - 1; i >= 0; i-- {
+		err := p.manager.DelRef(&p.pendingPins[i])
+		result = errors.Join(result, err)
+		if p.pendingPins[i] == (ast.ASTRef{}) {
+			p.pendingPins = append(p.pendingPins[:i], p.pendingPins[i+1:]...)
+		}
+	}
+	for i := len(p.pendingRules) - 1; i >= 0; i-- {
+		err := p.pendingRules[i].Close()
+		result = errors.Join(result, err)
+		if err == nil {
+			p.pendingRules = append(p.pendingRules[:i], p.pendingRules[i+1:]...)
+		}
+	}
+	return result
+}
+func (p *ScalePlugin) cleanup() (result error) {
+	if p.cleaning {
+		return ast.ErrASTPending
+	}
+	result = p.cleanupLocals()
+	p.cleaning = true
+	defer func() { p.cleaning = false }()
+	for i := len(p.pendingSets) - 1; i >= 0; i-- {
+		err := p.pendingSets[i].Close()
+		result = errors.Join(result, err)
+		if err == nil {
+			p.pendingSets = append(p.pendingSets[:i], p.pendingSets[i+1:]...)
+		}
+	}
+	return result
+}
 func (p *ScalePlugin) Close() error {
 	if p == nil || p.closed {
 		return nil
+	}
+	if p.active || p.cleaning {
+		return ast.ErrASTPending
+	}
+	p.closing = true
+	if err := p.cleanup(); err != nil {
+		return err
 	}
 	p.closed = true
 	p.oldToNew = nil

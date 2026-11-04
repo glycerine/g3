@@ -168,3 +168,46 @@ func TestScaleReusedDeclarationInheritsCurrentOutputs(t *testing.T) {
 		coneMust(t, result.Close())
 	}
 }
+
+func TestScaleFailureDoesNotPublishPartialPredicateMap(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	coneMust(t, err)
+	defer func() { coneMust(t, context.Close()) }()
+	manager, err := context.Manager()
+	coneMust(t, err)
+	rules, err := base.NewRuleManager(manager)
+	coneMust(t, err)
+	defer func() { coneMust(t, rules.Close()) }()
+	set, err := base.NewRuleSet(rules)
+	coneMust(t, err)
+	defer func() { coneMust(t, set.Close()) }()
+	boolean, err := manager.MkBoolSort()
+	coneMust(t, err)
+	two, err := manager.ArithmeticIntegerNumeralText("2")
+	coneMust(t, err)
+	integer, err := manager.GetSort(two)
+	coneMust(t, err)
+	name, err := manager.Symbols.Intern("scale-integer-failure")
+	coneMust(t, err)
+	pred, err := manager.MkFuncDecl(name, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	coneMust(t, err)
+	coneMust(t, rules.RegisterPredicate(pred))
+	head, err := manager.MkApp(pred, []ast.ASTHandle{two})
+	coneMust(t, err)
+	rule, err := rules.NewRule(head, nil, nil, "integer")
+	coneMust(t, err)
+	coneMust(t, set.Add(rule))
+	coneMust(t, rule.Close())
+	plugin := transforms.NewScalePlugin(manager, rules, 0)
+	defer func() { coneMust(t, plugin.Close()) }()
+	result, err := plugin.Transform(set)
+	if result != nil {
+		coneMust(t, result.Close())
+	}
+	if err == nil {
+		t.Fatal("expected mixed integer and real scaling failure")
+	}
+	if len(plugin.FreshPredicates()) != 0 {
+		t.Fatal("failed transform published a predicate mapping")
+	}
+}
