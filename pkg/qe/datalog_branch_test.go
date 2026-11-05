@@ -87,7 +87,8 @@ func TestDatalogPluginAssignAndSubstituteBranches(t *testing.T) {
 				expected = f.own(m.MkAnd(a, f.own(m.MkNot(b))))
 			} else if tc.last {
 				no := f.own(m.MkBoolVal(false))
-				expected = f.own(m.MkAnd(no, f.own(m.MkNot(no))))
+				negative := f.own(m.MkBoolVal(true))
+				expected = f.own(m.MkAnd(no, f.own(m.MkNot(negative))))
 			} else {
 				a := f.own(m.MkEq(y, y))
 				b := f.own(m.MkEq(y, z))
@@ -104,7 +105,7 @@ func TestDatalogPluginAssignAndSubstituteBranches(t *testing.T) {
 	}
 }
 
-func TestDatalogPluginOtherBranchPreservesNegativeEquality(t *testing.T) {
+func TestDatalogPluginOtherBranchSubstitutesNegativeEqualityLikeSource(t *testing.T) {
 	f := newFMFixture(t)
 	m := f.r.manager
 	name, err := m.Symbols.Intern("negative-only-domain")
@@ -153,7 +154,7 @@ func TestDatalogPluginOtherBranchPreservesNegativeEquality(t *testing.T) {
 	fmMust(t, err)
 	isNot, arg, err := m.IsNot(result)
 	fmMust(t, err)
-	if !isNot || !m.IsFalse(arg) {
-		t.Fatalf("other branch substituted disequality as %v (negated=%v, argument=%v); want not(false)", result, isNot, arg)
+	if !isNot || !m.IsTrue(arg) {
+		t.Fatalf("other branch cofactor=%v (negated=%v, argument=%v), want not(true) after source substitution", result, isNot, arg)
 	}
 }

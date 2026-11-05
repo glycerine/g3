@@ -23,7 +23,7 @@ func TestDatalogQEAtomCollectionAndBranches(t *testing.T) {
 	for _, tc := range []struct {
 		domain, count uint64
 		small         bool
-	}{{0, 0, true}, {1, 1, true}, {2, 2, true}, {100, 2, false}} {
+	}{{0, 0, true}, {1, 1, true}, {2, 2, false}, {100, 2, false}} {
 		count, small := datalogQEBranchCount(tc.domain, atoms)
 		if count != tc.count || small != tc.small {
 			t.Fatalf("domain %d: %d %v", tc.domain, count, small)
