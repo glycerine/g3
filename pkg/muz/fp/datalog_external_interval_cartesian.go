@@ -350,40 +350,6 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 			if kind != ast.ASTApp || sort != boolean {
 				return nil, ErrExternalIntervalDatalogFragment
 			}
-			operator, cause := c.manager.GetDeclKind(guard)
-			if cause != nil {
-				return nil, cause
-			}
-			if operator == ast.ASTOpEq {
-				count, cause := c.manager.GetNumArgs(guard)
-				if cause != nil {
-					return nil, cause
-				}
-				for column := uint32(0); column < count; column++ {
-					argument, cause := c.manager.GetArg(guard, column)
-					if cause != nil {
-						return nil, cause
-					}
-					argumentKind, cause := c.manager.GetKind(argument)
-					if cause != nil {
-						return nil, cause
-					}
-					if argumentKind == ast.ASTVar {
-						continue
-					}
-					isValue, cause := c.manager.IsValue(argument)
-					if cause != nil {
-						return nil, cause
-					}
-					_, _, numeral, cause := c.manager.ArithmeticNumeralText(argument)
-					if cause != nil {
-						return nil, cause
-					}
-					if !isValue || !numeral {
-						return nil, ErrExternalIntervalDatalogFragment
-					}
-				}
-			}
 			if cause := used.Collect(guard); cause != nil {
 				return nil, cause
 			}

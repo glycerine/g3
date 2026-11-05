@@ -228,6 +228,31 @@ func (s *externalIntervalCallbackState) recordEqualityFilter(declaration ast.AST
 	if count != 2 {
 		return fmt.Errorf("unexpected FILTER condition %d/%d", kind, count)
 	}
+	for index := uint32(0); index < count; index++ {
+		argument, cause := s.manager.GetArg(condition, index)
+		if cause != nil {
+			return cause
+		}
+		argumentKind, cause := s.manager.GetKind(argument)
+		if cause != nil {
+			return cause
+		}
+		if argumentKind == ast.ASTVar {
+			continue
+		}
+		_, _, numeral, cause := s.manager.ArithmeticNumeralText(argument)
+		if cause != nil {
+			return cause
+		}
+		if !numeral {
+			text, cause := describeExternalIntervalGuard(s.manager, condition)
+			if cause != nil {
+				return cause
+			}
+			s.guardConditions = append(s.guardConditions, text)
+			return nil
+		}
+	}
 	columns := make([]uint32, count)
 	for i := range columns {
 		argument, cause := s.manager.GetArg(condition, uint32(i))

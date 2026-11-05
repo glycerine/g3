@@ -389,6 +389,27 @@ func TestExternalIntervalDatalogCartesianPreflightsShapesBeforeCallbacks(t *test
 			formula, err := manager.MkImplies(body, headApplication)
 			fragmentMust(t, err)
 			fragmentMust(t, engine.AddRule(formula, "external-interval-cartesian-invalid-"+shape))
+			if shape == "compound-head" {
+				one, cause := manager.ArithmeticIntegerNumeralText("1")
+				fragmentMust(t, cause)
+				two, cause := manager.ArithmeticIntegerNumeralText("2")
+				fragmentMust(t, cause)
+				fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{one}))
+				fragmentMust(t, engine.AddFact(q, []ast.ASTHandle{two}))
+				resetExternalIntervalCartesianCallbacks(callbacks)
+				status, queryErr := engine.QueryPredicate(headDeclaration)
+				fragmentMust(t, queryErr)
+				if status != lbool.Undef || operationCount(callbacks.operations, ast.DatalogOpJoin) == 0 ||
+					operationCount(callbacks.operations, ast.DatalogOpFilter) == 0 || operationCount(callbacks.operations, ast.DatalogOpUnion) == 0 {
+					t.Fatal("compound head equality did not reach interpreted filtering", status, callbacks.operations)
+				}
+				var display bytes.Buffer
+				fragmentMust(t, engine.externalIntervalDatalog.entries[headDeclaration].product.Display(&display))
+				if !strings.Contains(display.String(), "0 in [1, 1]") || !strings.Contains(display.String(), "1 in [2, 2]") {
+					t.Fatal("compound head was not reconstructed from the interpreted equality", display.String())
+				}
+				return
+			}
 			if shape == "mutual-recursion" {
 				// Both joins are individually supported; the back-edge makes
 				// the complete program recursive and exercises delta scheduling.
