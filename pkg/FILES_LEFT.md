@@ -125,8 +125,8 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/spacer/spacer_context.h` — Live context, transformer, lemma, proof-obligation, derivation, reach-fact, queue and generalizer interfaces map to typed Go owners and methods across `pkg/muz/spacer`; unused constraint helpers and declaration-only source hooks have no live consumer. Existing short Spacer and fixedpoint suites pass.
 - [x] `src/muz/spacer/spacer_dl_interface.cpp` — Rule subsumption/reuse, default transformations, slicing/coalescing/unfolding, query dispatch and empty-program handling map to `querySpacerAtLevel`; cover/reachable/trace/model/statistics access and parameter reconstruction map to typed Spacer APIs. Existing short Spacer and fixedpoint integration suites pass.
 - [x] `src/muz/spacer/spacer_qe_project.cpp` — Arithmetic projection, partial array equality, array equality/store projection, select reduction and select projection map to the typed implementations in `pkg/qe`. Focused existing QE projection and Spacer suites pass; cleanup refusals preserve retryable owners throughout the Go projection flow.
-- [ ] `src/muz/spacer/spacer_util.cpp`
-- [ ] `src/muz/spacer/spacer_util.h`
+- [x] `src/muz/spacer/spacer_util.cpp` — Live evaluator, MBQI projection, implicant selection, literal expansion, bound simplification, normalization, and extended pretty-print utilities map to Go implementations in `pkg/muz/spacer` and `pkg/qe`. Focused Spacer and projection tests pass; unused duplicate classifiers, disequality reducer, ITE hoister, and expression-index helpers have no retained Spacer consumer.
+- [x] `src/muz/spacer/spacer_util.h` — Spacer infinity-level helpers, evaluator and projection interfaces, and extended pretty-printer map to the concrete Go APIs. C++ STL container aliases have no separate port, and declarations without retained consumers remain unported by design.
 - [ ] `src/muz/tab/tab_context.cpp`
 - [ ] `src/muz/tab/tab_context.h`
 - [ ] `src/muz/transforms/dl_mk_scale.cpp`
