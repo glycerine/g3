@@ -223277,7 +223277,7 @@
       "path": "src/util/buffer.h",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/ast/ast_basic_plugin_proof.go",
         "pkg/ast/ast_core_plugin_dispatch.go",
@@ -223305,7 +223305,10 @@
         "pkg/util/numeral/mpn_native_division_test.go",
         "pkg/math/polynomial/polynomial_iccp.go",
         "pkg/math/polynomial/polynomial_gcd_monomial_buffer.go",
-        "pkg/ast/ast_label.go"
+        "pkg/ast/ast_label.go",
+        "pkg/ast/rewriter/arith_polynomial.go",
+        "pkg/tactic/arith/recover_01_coeff.go",
+        "pkg/tactic/arith/fm_input_polynomial.go"
       ],
       "tests": [
         "TestASTProofDeclarationNativeDomainSliceOrderAndGrowth",
@@ -223458,8 +223461,8 @@
           "text": "SASSERT(size() == nsz);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "AST basic proof declaration ptr_buffer<sort> parent domain and trailing Bool sort use native typed Go slice",
@@ -223610,7 +223613,7 @@
         },
         {
           "name": "Native Go division workspace resize, reuse and close; original project arithmetic retained without C++ buffer allocation receipts",
-          "status": "partial",
+          "status": "platform_replacement",
           "go_target": "pkg/util/numeral/mpn_storage.go",
           "tests": [
             "TestNaturalNativeDivisionColdAndWarm",
@@ -223637,9 +223640,10 @@
           ]
         },
         {
-          "name": "Remaining concrete buffer<rational> consumers in arithmetic poly rewriter, recover_01 and Fourier-Motzkin tactics (src/ast/rewriter/arith_rewriter.cpp:1657; src/tactic/arith/recover_01_tactic.cpp:232; src/tactic/arith/fm_tactic.cpp:994)",
-          "status": "unported",
-          "tests": []
+          "name": "Concrete rational coefficient workspaces in arithmetic rewriting, recover_01 truth-table validation, and Fourier-Motzkin input parsing",
+          "status": "platform_replacement",
+          "go_targets": ["pkg/ast/rewriter/arith_polynomial.go", "pkg/tactic/arith/recover_01_coeff.go", "pkg/tactic/arith/fm_input_polynomial.go"],
+          "tests": ["TestArithRewriterPolynomialAddMulSubAndNegation", "TestArithRewriterPolynomialCancellation", "TestRecover01CoefficientsTruthTables", "TestFMInputPolynomialExtractsOrderedMonomials", "TestFMInputPolynomialRejectsDuplicateVariable"]
         },
         {
           "name": "AST label construction and recognition use native typed Go parameter and symbol slices",
@@ -223678,7 +223682,7 @@
         "Sparse interpolation and cross-manager conversion now use borrowed []Monomial locals; their actual scoped numeral cleanup, linear solver, degree filtering, target-manager monomial conversion and polynomial publication remain. Conversion retains only newly created zero-reference monomials in its native orphan slice, without custom capacity charges or allocation failures. Removed the shared inline128/spill monomial buffer, Runtime pending/free branches and codecs. The indexed factory monomial span now accepts only borrowed native handles; unused inline/raw Runtime and polynomialVector variants are deleted. Real monomial/numeric/factory failure campaigns and foreign-owner protections remain. A 4097-entry lexical conversion fixture verifies no Runtime reservations and preserves the real returned factory root through source/owning cleanup; a 129-group single-sample interpolation independently reconstructs all coefficients and monomials twice. The old TLS pointer-buffer-free stop is retired with its removed storage. No whole-unit completion credit is added.",
         "Polynomial PSC H reference storage now uses a concrete []Polynomial slice. Removed inline16 capacity emulation, Runtime payload growth/free, scalar-handle codecs, copied/pending/sourceRaw state and the unjoined INC whose only failure point was container publication. Actual INC-before-append and ascending DEC remain; a stopped real destructor retains its exact row and drain state until explicit owning cleanup. Native growth/reuse through 4097 rows succeeds with Runtime reservations disabled; an independent 129-row last-reference deletion fixture stops at row17 and verifies source retry refusal, exact owning continuation and no duplicate callback. Existing PSC mathematical identities, cancellation, actual numeric/factory refusal campaigns, lexical unwind and foreign-invocation guards remain. Three container-topology/failure tests are retired. No whole-unit completion credit is added.",
         "Native Boolean collections: AND/OR flattening, nested NOT/OR and DISTINCT scratch use []ASTHandle; positive/negative/visited membership uses local map[ASTHandle]bool instead of shared AST planes. Local-context owning old/new rows and recursive AND-as-OR argument rows use native slices with explicit INC/consumed-DEC cleanup, retained on the real rewriter if lexical destruction stops. Completed rows retire before later cleanup; Close drains retained younger rows before older owners. Alternating forward/backward passes, reversal, survivor order, source unsigned cost/entry-limit behavior, raw nested ITE construction and actual AST construction failures remain. Shared foreign marks are neither read nor changed. Removed vector/ref-buffer codecs, emulated backing growth and mark-owner/trail allocation events at these callers. Prior inline/doubling/fast-mark storage claims are superseded; no generic C++ container/STL implementation credit is added."
-      ]
+        ,"No universal Go equivalent of the C++ template is added: retained instantiations use concrete typed Go slices, maps, or owners at their actual consumers; unused template instantiations are out of scope.\n"      ]
     },
     {
       "path": "src/util/cancel_eh.h",
