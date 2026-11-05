@@ -210541,14 +210541,18 @@
       "path": "src/test/ddnf.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/ddnf/ddnf_cpp_driver_test.go"],
       "tests": ["TestDDNFSourceTwoBitInsertion", "TestDDNFSourceForwardingRefinement"],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["Both tst_ddnf1 and the forwarding/refinement workflow are exercised with an in-memory routing table. The source command-line and file-error handling remain open."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name":"read two-column routing rows and construct forwarding entries from DDNF accumulation labels","status":"ported","go_target":"pkg/muz/ddnf/ddnf_cpp_driver_test.go","tests":["TestDDNFSourceForwardingRefinement"]},
+        {"name":"refine forwarding classes by paired prior/current labels","status":"ported","go_target":"pkg/muz/ddnf/ddnf_cpp_driver_test.go","tests":["TestDDNFSourceForwardingRefinement"]},
+        {"name":"two-bit DDNF insertion, containment, node count, and well-formedness","status":"ported","go_target":"pkg/muz/ddnf/ddnf_cpp_driver_test.go","tests":["TestDDNFSourceTwoBitInsertion"]}
+      ],
+      "ownership": ["The Go driver tests allocate their DDNF core and TBVs through the package fixtures and release them through test cleanup."],
+      "deviations": ["The test runner's global routing-file argument, process exits on malformed files, and verbose/statistics printing are C++ harness behavior; Go tests exercise the DDNF algorithms directly with in-memory input and production ownership fixtures."]
     },
     {
       "path": "src/test/diff_logic.cpp",
