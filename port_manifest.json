@@ -89836,7 +89836,11 @@
         "pkg/cmd_context/fixedpoint_replay.go",
         "pkg/cmd_context/fixedpoint_rule_symbols_test.go",
         "pkg/cmd_context/fixedpoint_replay_symbols_test.go",
-        "pkg/parsers/smt2/fixedpoint_rule_symbols_test.go"
+        "pkg/parsers/smt2/fixedpoint_rule_symbols_test.go",
+        "pkg/parsers/smt2/help_commands.go",
+        "pkg/tactic/probe_registry.go",
+        "pkg/api/api_probe_registry.go",
+        "pkg/api/api_probe_registry_list.go"
       ],
       "tests": [
         "TestSMT2FixedpointEmptyProgramQueryMatchesCPP",

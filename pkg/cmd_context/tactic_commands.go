@@ -11,6 +11,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ackermannization"
 	"github.com/glycerine/g3/pkg/ast"
+	_ "github.com/glycerine/g3/pkg/math/realclosure" // Link the source rcf parameter collector used by tactic metadata.
 	subpavingtactic "github.com/glycerine/g3/pkg/math/subpaving/tactic"
 	muzfp "github.com/glycerine/g3/pkg/muz/fp"
 	nlsattactic "github.com/glycerine/g3/pkg/nlsat/tactic"

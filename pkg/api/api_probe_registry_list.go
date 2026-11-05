@@ -1,5 +1,7 @@
 package api
 
+import "github.com/glycerine/g3/pkg/tactic"
+
 // Source: src/api/api_tactic.cpp:286-322. Go returns copied slices in place
 // of the native registry's indexed borrowed strings.
 
@@ -9,11 +11,7 @@ func (c *SMTContext) ProbeDescriptors() ([]APIProbeDescriptor, error) {
 	if err := c.open(); err != nil {
 		return nil, err
 	}
-	result := make([]APIProbeDescriptor, len(apiProbeRegistrations))
-	for i := range apiProbeRegistrations {
-		result[i] = apiProbeRegistrations[i].descriptor
-	}
-	return result, nil
+	return tactic.BuiltinProbeDescriptors(), nil
 }
 
 // ProbeNames is the name-only registry view used by frontends.
