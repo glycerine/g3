@@ -125,10 +125,10 @@ func (o *BVOptimizer) setupObjective(objective ast.ASTHandle, maximize bool) err
 // the hard formula, as in sls_tracker::set_model.
 func (o *BVOptimizer) Optimize(objective ast.ASTHandle, initial *model.Model, maximize bool) (OptimizationResult, error) {
 	result := OptimizationResult{Status: lbool.Undef}
-	if err := o.setupObjective(objective, maximize); err != nil {
+	if err := o.hard.search.Initialize(o.hard.assertions); err != nil {
 		return result, err
 	}
-	if err := o.hard.search.Initialize(o.hard.assertions); err != nil {
+	if err := o.setupObjective(objective, maximize); err != nil {
 		return result, err
 	}
 	if err := o.hard.search.Reset(); err != nil {
@@ -142,49 +142,97 @@ func (o *BVOptimizer) Optimize(objective ast.ASTHandle, initial *model.Model, ma
 			return result, err
 		}
 	}
-	sat, err := o.hard.tracker.IsSAT()
+	isSat, err := o.hard.tracker.IsSAT()
 	if err != nil {
 		return result, err
 	}
-	status := lbool.Undef
-	if sat {
-		status = lbool.True
-	} else {
-		status, err = o.hard.Search()
-		if err != nil {
-			return result, err
-		}
-	}
-	if status != lbool.True {
-		return result, nil
-	}
-	hardModel, err := o.hard.tracker.GetModel()
-	if err != nil {
-		return result, err
-	}
-	defer hardModel.Close()
-	if err = o.objective.SetModel(hardModel); err != nil {
-		return result, err
-	}
-	if err = o.evaluator.UpdateAll(o.search); err != nil {
-		return result, err
+	if isSat {
+		result.Status = lbool.True
 	}
 	oldBest := numeral.NewInt(0)
 	defer o.hard.numbers.Del(&oldBest)
-	if err = o.hard.numbers.Copy(&oldBest, &o.bestScore); err != nil {
-		return result, err
-	}
-	optimum, err := o.maximizeObjective()
-	if err != nil {
-		return result, err
-	}
-	result.Status = lbool.True
-	improved, err := o.hard.numbers.Greater(&o.bestScore, &oldBest)
-	if err != nil {
-		return result, err
-	}
-	if improved {
-		result.Optimum = optimum
+	// The source outer loop uses the engine's restart counter as its loop
+	// variable. Search failures also post-increment that same counter below.
+	for o.hard.stats.Restarts = 0; o.hard.stats.Restarts < o.hard.maxRestarts; o.hard.stats.Restarts++ {
+		if err = o.hard.numbers.Copy(&oldBest, &o.bestScore); err != nil {
+			return result, err
+		}
+		searchStatus := lbool.Undef
+		if isSat {
+			searchStatus = lbool.True
+		}
+		if !isSat {
+			for {
+				if err = o.hard.checkpointNow(); err != nil {
+					return result, err
+				}
+				searchStatus, err = o.hard.Search()
+				if err != nil {
+					return result, err
+				}
+				if searchStatus == lbool.Undef {
+					if err = o.hard.search.Randomize(); err != nil {
+						return result, err
+					}
+					if err = o.hard.evaluator.UpdateAll(o.hard.search); err != nil {
+						return result, err
+					}
+				}
+				if searchStatus == lbool.True {
+					result.Status = lbool.True
+					break
+				}
+				previous := o.hard.stats.Restarts
+				o.hard.stats.Restarts++
+				if previous >= o.hard.maxRestarts {
+					break
+				}
+			}
+		}
+
+		if searchStatus == lbool.True {
+			hardModel, x := o.hard.tracker.GetModel()
+			if x != nil {
+				return result, x
+			}
+			x = o.objective.SetModel(hardModel)
+			if closeErr := hardModel.Close(); closeErr != nil {
+				x = errors.Join(x, closeErr)
+			}
+			if x == nil {
+				x = o.evaluator.UpdateAll(o.search)
+			}
+			if x != nil {
+				return result, x
+			}
+			optimum, x := o.maximizeObjective()
+			if x != nil {
+				return result, x
+			}
+			var improved bool
+			if maximize {
+				improved, err = o.hard.numbers.Greater(&o.bestScore, &oldBest)
+			} else {
+				improved, err = o.hard.numbers.Less(&o.bestScore, &oldBest)
+			}
+			if err != nil {
+				return result, err
+			}
+			if improved {
+				result.Optimum = optimum
+			}
+		}
+
+		if err = o.hard.search.Randomize(); err != nil {
+			return result, err
+		}
+		if err = o.hard.evaluator.UpdateAll(o.hard.search); err != nil {
+			return result, err
+		}
+		isSat, err = o.hard.tracker.IsSAT()
+		if err != nil {
+			return result, err
+		}
 	}
 	return result, nil
 }

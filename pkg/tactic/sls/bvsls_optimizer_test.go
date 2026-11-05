@@ -5,12 +5,14 @@ package sls
 import (
 	"testing"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel(t *testing.T) {
 	engine, _, _, _, manager, _ := slsEngineFixture(t)
+	engine.maxRestarts = 2
 	if err := manager.RegisterDeclarationPlugins(); err != nil {
 		t.Fatal(err)
 	}
@@ -62,6 +64,7 @@ func TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel(t *testing.T) {
 
 func TestBVSLSOptimizerMinimizeUsesSourceNegatedObjective(t *testing.T) {
 	engine, _, _, _, manager, _ := slsEngineFixture(t)
+	engine.maxRestarts = 1
 	if err := manager.RegisterDeclarationPlugins(); err != nil {
 		t.Fatal(err)
 	}
@@ -86,13 +89,39 @@ func TestBVSLSOptimizerMinimizeUsesSourceNegatedObjective(t *testing.T) {
 	}
 	defer optimizer.Close()
 	result, err := optimizer.Optimize(x, nil, false)
-	if err != nil || result.Status != lbool.True || result.Optimum != five {
-		t.Fatal("source represents minimization as maximizing bvneg", result, err)
+	if err != nil || result.Status != lbool.True || !result.Optimum.IsNull() {
+		t.Fatal("source minimization comparison does not publish a new optimum against the zero score", result, err)
+	}
+	family, err := manager.BitVectorUtilityFamilyID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	negated, err := manager.MkFamilyApp(family, 3, nil, []ast.ASTHandle{x})
+	if err != nil {
+		t.Fatal(err)
+	}
+	equal, err := manager.AreEqual(optimizer.objectiveExpr, negated)
+	if err != nil || !equal {
+		t.Fatal("source represents minimization by maximizing bvneg", equal, err)
+	}
+	best, err := optimizer.GetModel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer best.Close()
+	decl, err := manager.GetDecl(x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := best.Core().ConstantInterpretation(decl)
+	if err != nil || value != three {
+		t.Fatal("minimize model", value, err)
 	}
 }
 
 func TestBVSLSOptimizerUsesOnlySourceEnabledMoves(t *testing.T) {
 	engine, _, _, _, manager, numbers := slsEngineFixture(t)
+	engine.maxRestarts = 1
 	if err := manager.RegisterDeclarationPlugins(); err != nil {
 		t.Fatal(err)
 	}
