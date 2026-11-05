@@ -21,8 +21,10 @@ type Config struct {
 
 	// eliminateVariablesAsBlockSet distinguishes the tactic's explicit
 	// eliminate_variables_as_block=false setting from the source default.
-	eliminateVariablesAsBlock    bool
-	eliminateVariablesAsBlockSet bool
+	eliminateVariablesAsBlock      bool
+	eliminateVariablesAsBlockSet   bool
+	nonlinearQuantifierElimination bool
+	produceModels                  bool
 }
 
 // The enclosing TRACE owns ostream's sticky state. A failed insertion must

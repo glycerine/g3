@@ -168,9 +168,11 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 		case 2:
 			eliminated, done, e = eliminateQuantifierBoolUnits(m, q, config)
 		case 3:
-			eliminated, done, e = eliminateQuantifierArithmeticEquations(m, q, config)
-			if e == nil && !done {
-				eliminated, done, e = eliminateQuantifierArithmeticClosed(m, q, config)
+			if !config.nonlinearQuantifierElimination {
+				eliminated, done, e = eliminateQuantifierArithmeticEquations(m, q, config)
+				if e == nil && !done {
+					eliminated, done, e = eliminateQuantifierArithmeticClosed(m, q, config)
+				}
 			}
 			if e == nil && !done {
 				eliminated, done, e = eliminateQuantifierArithmeticSearch(m, q, config)

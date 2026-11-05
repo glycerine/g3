@@ -144,8 +144,14 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 	var arithPlugin *ArithmeticPlugin
 	switch searchKind {
 	case qeScalarArithmetic:
-		arithPlugin, err = NewArithmeticPlugin(context)
-		scalarPlugin = arithPlugin
+		if config.nonlinearQuantifierElimination {
+			var nonlinear *NonlinearArithmeticPlugin
+			nonlinear, err = NewNonlinearArithmeticPlugin(context, config.produceModels)
+			scalarPlugin = nonlinear
+		} else {
+			arithPlugin, err = NewArithmeticPlugin(context)
+			scalarPlugin = arithPlugin
+		}
 	case qeScalarBitVector:
 		var bitVectorPlugin *BitVectorPlugin
 		bitVectorPlugin, err = NewBitVectorPlugin(context)

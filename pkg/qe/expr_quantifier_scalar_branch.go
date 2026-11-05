@@ -19,7 +19,7 @@ func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables
 	}
 	switch plugin.(type) {
 	case *BoolPlugin, *BitVectorPlugin:
-	case *ArithmeticPlugin, *DatatypeSolverPlugin, *DatalogPlugin:
+	case *ArithmeticPlugin, *NonlinearArithmeticPlugin, *DatatypeSolverPlugin, *DatalogPlugin:
 		if solver == nil {
 			return nil, status, ast.ErrASTHandle
 		}
@@ -79,6 +79,8 @@ func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables
 			e = p.Assign(variables.entries[entry].contains, formula, &n)
 		case *ArithmeticPlugin:
 			e = p.Assign(variables.entries[entry].contains, formula, &n)
+		case *NonlinearArithmeticPlugin:
+			e = p.Assign(variables.entries[entry].contains, formula, &n)
 		case *DatatypeSolverPlugin:
 			e = p.Assign(variables.entries[entry].contains, formula, &n)
 		case *DatalogPlugin:
@@ -90,6 +92,15 @@ func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables
 		if p, ok := plugin.(*ArithmeticPlugin); ok {
 			if e = drainExprQEArithmeticOutputs(p, child, variables, solver); e != nil {
 				return nil, status, e
+			}
+		}
+		if p, ok := plugin.(*NonlinearArithmeticPlugin); ok {
+			constraints, cause := p.TakeConstraints()
+			if cause != nil {
+				return nil, status, cause
+			}
+			if cause = drainExprQEConstraints(constraints, child, solver); cause != nil {
+				return nil, status, cause
 			}
 		}
 		if datatype != nil {
@@ -140,6 +151,8 @@ func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables
 	case *BitVectorPlugin:
 		err = p.Substitute(variables.entries[entry].contains, &n, tmp, definitionArg)
 	case *ArithmeticPlugin:
+		err = p.Substitute(variables.entries[entry].contains, &n, tmp, definitionArg)
+	case *NonlinearArithmeticPlugin:
 		err = p.Substitute(variables.entries[entry].contains, &n, tmp, definitionArg)
 	case *DatatypeSolverPlugin:
 		var supported bool

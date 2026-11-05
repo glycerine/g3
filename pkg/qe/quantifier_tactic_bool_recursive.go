@@ -79,10 +79,10 @@ func rewriteQuantifierScalar(m *ast.ASTManager, expression ast.ASTHandle, config
 			return result, false, e
 		}
 		eliminated, done, e := eliminateQuantifierBoolUnits(m, q, config)
-		if e == nil && !done {
+		if e == nil && !done && !config.nonlinearQuantifierElimination {
 			eliminated, done, e = eliminateQuantifierArithmeticEquations(m, q, config)
 		}
-		if e == nil && !done {
+		if e == nil && !done && !config.nonlinearQuantifierElimination {
 			eliminated, done, e = eliminateQuantifierArithmeticClosed(m, q, config)
 		}
 		if e == nil && !done {

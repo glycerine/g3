@@ -168,6 +168,10 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 	if err := out.Prepare(t.manager); err != nil {
 		return err
 	}
+	produceModels, err := goal.ModelsEnabled()
+	if err != nil {
+		return err
+	}
 	n, err := goal.Size()
 	if err != nil {
 		return err
@@ -211,6 +215,8 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 			qeConfig := t.config
 			qeConfig.eliminateVariablesAsBlock = t.options.eliminateVariablesAsBlock
 			qeConfig.eliminateVariablesAsBlockSet = true
+			qeConfig.nonlinearQuantifierElimination = t.options.nonlinear
+			qeConfig.produceModels = produceModels
 			updates[i], complete, e = rewriteQuantifierScalar(t.manager, form, qeConfig)
 			if e != nil {
 				if onlyArithmeticBranchUnsupported(e) {
