@@ -169,7 +169,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/sat/sat_elim_eqs.h` — The solver-bound `elim_eqs` object and its `operator(roots,to_elim)`, binary-watch cleanup, clause/model-converter rewriting and debug checker map to `satElimEqs`. Its final source `solver::propagate(false)` now goes through the lifecycle wrapper for conditional invariant and missed-propagation checks; focused SCC/equivalence-elimination tests pass.
 - [x] `src/sat/sat_extension.h` — The extension callback contract, result enum and typed constraint/justification handles map to `SATExtension` and `SATExtensionCheckResult`; all source callbacks are wired through propagation, conflict analysis, assignment, search, scope, simplification and phase selection. Focused extension tests pass.
 - [x] `src/sat/sat_integrity_checker.cpp` — Clause/watch consistency, frozen counts, Boolean-array widths, eliminated-variable watches, reinit membership, clause-ID disjointness and source assertion/trace read order map to `satIntegrityChecker`. Its aggregate checker preserves the inconsistent fast path and individual SASSERT order; focused integrity-checker tests pass.
-- [ ] `src/sat/sat_integrity_checker.h`
+- [x] `src/sat/sat_integrity_checker.h` — The checker’s borrowed solver reference and public clause/vector/watch/Boolean/reinit/disjoint/operator queries map to `satIntegrityChecker` over `satSolverClauseLifecycle`, with the GC owner supplying the source frozen-count field.
 - [ ] `src/sat/sat_justification.h`
 - [ ] `src/sat/sat_model_converter.cpp`
 - [ ] `src/sat/sat_model_converter.h`
