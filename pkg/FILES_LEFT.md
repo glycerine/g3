@@ -249,7 +249,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/mpq.cpp` — Rational comparison and rounding, gcd, source parser/scientific notation, power, decimal/SMT display, root, and projections map to the concrete Go rational managers; existing focused rational and MPQ checks pass. No tests were added.
 - [x] `src/util/mpq.h` — The core rational representation, normalization, arithmetic and aliases, mixed integer operations, number theory, bitwise operations, projections, and synchronized/unsynchronized scratch paths map to `RationalManager`; existing focused rational/MPQ tests pass. No tests were added.
 - [x] `src/util/mpz.cpp` — The selected internal multiprecision integer path maps to `IntegerManager`, including sign-magnitude limb arithmetic, division, number theory, conversion, and ownership; existing focused MPZ/integer checks pass. The unused GMP implementation branch is not duplicated, and no tests were added.
-- [ ] `src/util/mpz.h`
+- [x] `src/util/mpz.h` — The `_MP_INTERNAL` sign-magnitude `mpz` representation, inline int32 values, cell ownership, reusable temporaries/arguments, constants, and manager operations map to concrete `Int`/`IntegerManager` owners; the synchronized C++ mode is owner-local in this single-goroutine port. Existing focused MPZ/integer tests pass; no tests were added.
 - [ ] `src/util/mpzzp.h`
 - [ ] `src/util/obj_hashtable.h`
 - [ ] `src/util/obj_pair_hashtable.h`
