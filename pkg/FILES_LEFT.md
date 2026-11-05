@@ -162,7 +162,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/qe/qe_sat_tactic.h` — The `mk_sat_tactic` factory declaration and `qe-sat` tactic registration map to `NewQESATTactic` and the command-context tactic factory/registry; its advertised description is covered by the registry description tests.
 - [x] `src/qe/qe_tactic.cpp` — Quantified-formula traversal, per-form checkpoints and immediate goal updates, dependency preservation with unavailable rewrite proofs cleared, success-only statistics snapshots, cancellation/cooperation, and final depth/true cleanup map to `QuantifierTactic`. Plugin state is request-local in Go, so source cleanup's reconstruction has no persistent counterpart; focused quantifier tactic lifecycle and rewrite checks pass.
 - [x] `src/qe/qe_tactic.h` — The `mk_qe_tactic` factory signature and the `qe` registration/description map to `NewQuantifierTactic` and the command-context tactic registry; factory validation and source-description checks cover the declaration's public behavior.
-- [ ] `src/sat/sat_asymm_branch.cpp`
+- [x] `src/sat/sat_asymm_branch.cpp` — Clause ordering, bounded propagation-cost search, asymmetric assignments, clause reductions to conflict/unit/binary/general clauses, source exception repair, phase restoration only on normal completion, reporting and statistics map to `satAsymmBranch` operations and continuations. Focused asymmetric branch, report and integrity tests pass; the parsed `asymm_branch.rounds` field is not read by the C++ operator either.
 - [ ] `src/sat/sat_asymm_branch.h`
 - [ ] `src/sat/sat_cleaner.cpp`
 - [ ] `src/sat/sat_cleaner.h`
