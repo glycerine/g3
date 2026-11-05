@@ -465,38 +465,58 @@ func (c *GoalCompiler) ContainsUnsupported() (bool, error) {
 	return false, nil
 }
 
-func (c *GoalCompiler) algebraicNumeral(value *polynomial.Algebraic, integer bool) (result ast.ASTHandle, err error) {
+func (c *GoalCompiler) algebraicNumeral(value *polynomial.Algebraic, integer bool) (result ast.ASTHandle, integral bool, err error) {
 	algebraic, err := c.solver.AlgebraicManager()
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, false, err
 	}
 	rational, err := algebraic.IsRational(value)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, false, err
 	}
 	if !rational {
 		if integer {
-			return ast.ASTHandle{}, ast.ErrASTDomain
+			real, cause := c.manager.ArithmeticAlgebraicNumeral(value)
+			if cause != nil {
+				return ast.ASTHandle{}, false, cause
+			}
+			result, err = c.manager.MkFamilyApp(c.arithmetic, 15, nil, []ast.ASTHandle{real})
+			return result, false, err
 		}
-		return c.manager.ArithmeticAlgebraicNumeral(value)
+		result, err = c.manager.ArithmeticAlgebraicNumeral(value)
+		return result, true, err
 	}
 	rationals, err := algebraic.RationalManager()
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, false, err
 	}
 	var q unumeral.Rational
 	defer func() { err = errors.Join(err, rationals.Del(&q)) }()
 	if err = algebraic.ToRational(value, &q); err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, false, err
+	}
+	isInteger, err := rationals.IsInt(&q)
+	if err != nil {
+		return ast.ASTHandle{}, false, err
 	}
 	text, err := rationals.String(&q)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, false, err
+	}
+	if integer && !isInteger {
+		real, cause := c.manager.ArithmeticRealNumeralText(text)
+		if cause != nil {
+			return ast.ASTHandle{}, false, cause
+		}
+		result, err = c.manager.MkFamilyApp(c.arithmetic, 15, nil, []ast.ASTHandle{real})
+		return result, false, err
 	}
 	if integer {
-		return c.manager.ArithmeticIntegerNumeralText(text)
+		result, err = c.manager.ArithmeticIntegerNumeralText(text)
+	} else {
+		result, err = c.manager.ArithmeticRealNumeralText(text)
 	}
-	return c.manager.ArithmeticRealNumeralText(text)
+	return result, true, err
 }
 
 // Model constructs the source constant-only model after a SAT check. A false
@@ -524,9 +544,10 @@ func (c *GoalCompiler) model(include map[ast.ASTHandle]bool, filtered bool) (res
 	if err != nil {
 		return nil, false, err
 	}
+	supported = true
 	createdModel := result
 	defer func() {
-		if err != nil || !supported {
+		if err != nil || (filtered && !supported) {
 			err = errors.Join(err, createdModel.Close())
 			result = nil
 		}
@@ -548,6 +569,7 @@ func (c *GoalCompiler) model(include map[ast.ASTHandle]bool, filtered bool) (res
 			return nil, false, err
 		}
 		var numeral ast.ASTHandle
+		integral := true
 		func() {
 			defer func() { err = errors.Join(err, algebraic.Del(&value)) }()
 			sort, cause := c.manager.GetSort(entry.Expr)
@@ -560,10 +582,13 @@ func (c *GoalCompiler) model(include map[ast.ASTHandle]bool, filtered bool) (res
 				err = cause
 				return
 			}
-			numeral, err = c.algebraicNumeral(&value, kind == 1)
+			numeral, integral, err = c.algebraicNumeral(&value, kind == 1)
 		}()
 		if err != nil {
 			return nil, false, err
+		}
+		if !integral {
+			supported = false
 		}
 		declaration, cause := c.manager.GetDecl(entry.Expr)
 		if cause != nil {
@@ -605,7 +630,7 @@ func (c *GoalCompiler) model(include map[ast.ASTHandle]bool, filtered bool) (res
 			return nil, false, cause
 		}
 	}
-	return result, true, nil
+	return result, supported, nil
 }
 
 // Core joins the goal dependencies attached to the solver's final conflict.

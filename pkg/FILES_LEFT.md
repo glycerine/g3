@@ -135,7 +135,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/nlsat/nlsat_explain.cpp` — Explanation assumptions, vanishing-term reduction, core normalization/simplification/minimization, cell construction, PSC/resultant/discriminant/factor projection, signed projection, maximization and solver configuration map across `pkg/nlsat/explain_*.go` and `solver_projection.go`. The root-literal hook is only called by C++ test code and debug pretty-printers have no production consumer; NLSAT and tactic short suites pass.
 - [x] `src/nlsat/nlsat_solver.cpp` — Solver construction/parameters, reset/check/check-assumptions, conflict/search integration, integer cuts, arithmetic and Boolean atom APIs, model/core access, statistics, variable permutation and SMT-LIB/Mathematica/debug displays map across `pkg/nlsat`; full NLSAT, tactic and NLQSAT consumer checks pass.
 - [x] `src/nlsat/tactic/goal2nlsat.cpp` — CNF clauses, Boolean abstraction, arithmetic conversion, factor-sign/parity handling, dependency assumptions, term-ITE rejection and inverse model/core reconstruction map to `GoalCompiler`/`GoalConverter`; factorization controls and source diagnostics are carried through. Focused NLSAT tactic tests pass.
-- [ ] `src/nlsat/tactic/nlsat_tactic.cpp`
+- [x] `src/nlsat/tactic/nlsat_tactic.cpp` — Parameter and statistics lifecycle, tactic reporting, proof-generation rejection, SAT/unknown/UNSAT goal transitions, model/core publication, and source `to_int` fallback behavior for nonintegral integer assignments map to `NLSATTactic` and `GoalCompiler`. Focused NLSAT tactic/solver and NLQSAT consumer suites pass.
 - [ ] `src/opt/maxres.cpp`
 - [ ] `src/opt/maxsmt.cpp`
 - [ ] `src/opt/maxsmt.h`

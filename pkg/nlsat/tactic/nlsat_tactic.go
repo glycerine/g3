@@ -303,6 +303,13 @@ func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResu
 	if err = result.Prepare(t.manager); err != nil {
 		return err
 	}
+	report, err := basetactic.NewTacticReport("nlsat", goal)
+	if err != nil {
+		return err
+	}
+	if report != nil {
+		defer func() { err = errors.Join(err, report.Close()) }()
+	}
 	if goal.IsDecided() {
 		return result.AddGoal(goal)
 	}
@@ -393,14 +400,14 @@ func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResu
 			if cause != nil {
 				return cause
 			}
+			modelValue, supported, cause := compiler.Model()
+			if cause != nil {
+				return cause
+			}
+			if modelValue == nil {
+				break
+			}
 			if models {
-				modelValue, supported, cause := compiler.Model()
-				if cause != nil {
-					return cause
-				}
-				if !supported {
-					break
-				}
 				var held basetactic.ModelRef
 				if cause = held.Set(modelValue.Core()); cause != nil {
 					return errors.Join(cause, modelValue.Close())
@@ -413,6 +420,11 @@ func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResu
 				if cause = result.SetModelConverter(converter); cause != nil {
 					return errors.Join(cause, converter.Close())
 				}
+			} else if cause = modelValue.Close(); cause != nil {
+				return cause
+			}
+			if !supported {
+				break
 			}
 			if err = goal.Reset(); err != nil {
 				return err
