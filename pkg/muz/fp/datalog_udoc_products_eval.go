@@ -76,6 +76,20 @@ func (p *udocProductContext) evaluate(plan *udocProductRulePlan, docs map[ast.AS
 			return err
 		}
 	}
+	for _, membership := range plan.docMemberships {
+		document := docs[membership.declaration]
+		if document == nil {
+			return ErrUDocDatalogFragment
+		}
+		next, cause := working.JoinUDocFilter(document, membership.productColumns, membership.docColumns)
+		if next != nil {
+			a.values = append(a.values, next)
+		}
+		if cause != nil {
+			return cause
+		}
+		working = next
+	}
 	empty, err := working.Empty()
 	if err != nil || empty {
 		return err
