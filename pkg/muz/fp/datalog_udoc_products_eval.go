@@ -14,7 +14,34 @@ func (p *udocProductContext) evaluate(plan *udocProductRulePlan, docs map[ast.AS
 	defer func() { resultErr = p.finish(a, resultErr) }()
 	var working *rel.UDocTableProduct
 	var err error
-	if plan.pair != nil {
+	if !plan.multiStart.IsNull() {
+		working = p.result[plan.multiStart]
+		if working == nil {
+			return nil
+		}
+		for _, input := range plan.multi {
+			empty, cause := working.Empty()
+			if cause != nil || empty {
+				return cause
+			}
+			right := p.result[input.declaration]
+			if right == nil {
+				return nil
+			}
+			empty, cause = right.Empty()
+			if cause != nil || empty {
+				return cause
+			}
+			next, cause := working.Join(right, input.leftColumns, input.rightColumns)
+			if next != nil {
+				a.values = append(a.values, next)
+			}
+			if cause != nil {
+				return cause
+			}
+			working = next
+		}
+	} else if plan.pair != nil {
 		working, err = p.evaluateProductPair(plan.pair, docs, finite)
 		if err == nil && working == nil {
 			return nil

@@ -27,6 +27,8 @@ type udocProductMembership struct {
 type udocProductRulePlan struct {
 	head, doc, finite, source ast.ASTHandle
 	pair                      *udocProductPairPlan
+	multiStart                ast.ASTHandle
+	multi                     []udocProductMultiInput
 	docFirst                  bool
 	docColumns, finiteColumns []uint32
 	filters                   []udocProductFilter
@@ -37,6 +39,11 @@ type udocProductRulePlan struct {
 	output                    []uint32
 	inputKind                 uint8 // 0 product/mixed, 1 original DOC, 2 original finite
 	ruleIndex                 int
+}
+
+type udocProductMultiInput struct {
+	declaration               ast.ASTHandle
+	leftColumns, rightColumns []uint32
 }
 
 func similarityMembershipTail(m *ast.ASTManager, rule *base.Rule, positive int, extraDocs, extraProducts map[ast.ASTHandle][]ast.ASTHandle) (int, ast.ASTHandle, error) {
@@ -247,6 +254,7 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 	groundHeads := make(map[ast.ASTHandle]bool)
 	forwardHeads := make(map[ast.ASTHandle]bool)
 	pairHeads := make(map[ast.ASTHandle]bool)
+	multiHeads := make(map[ast.ASTHandle]bool)
 	for i := 0; i < count; i++ {
 		rule, err := source.Rule(i)
 		if err != nil {
@@ -386,6 +394,25 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 				}
 			}
 			forwardHeads[head] = true
+			continue
+		}
+		if basePositive > 2 {
+			if baseTotal != basePositive {
+				return nil, ErrUDocDatalogFragment
+			}
+			for _, sort := range state.sorts {
+				if sort == boolean {
+					continue
+				}
+				bitVector, err := e.manager.IsBitVectorSort(sort)
+				if err != nil {
+					return nil, err
+				}
+				if !bitVector {
+					return nil, ErrUDocDatalogFragment
+				}
+			}
+			multiHeads[head] = true
 			continue
 		}
 		if basePositive != 2 || baseTotal != 2 {
@@ -666,6 +693,107 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 						return nil, cause
 					}
 					plan.identical = nil
+				}
+				p.rules[head], p.sorts[head] = plan, append([]ast.ASTHandle(nil), e.predicates[head].sorts...)
+				p.order = append(p.order, head)
+				advanced = true
+				continue
+			}
+			if multiHeads[head] {
+				membershipIndex, membershipTail, err := similarityMembershipTail(e.manager, rule, positive, extraDocs, extraProducts)
+				if err != nil {
+					return nil, err
+				}
+				if definitions[head] != 1 || total != positive || positive < 3 {
+					return nil, ErrUDocDatalogFragment
+				}
+				if membershipIndex >= 0 && membershipIndex != positive-1 {
+					return nil, ErrUDocDatalogFragment
+				}
+				inputCount := positive
+				if membershipIndex >= 0 {
+					inputCount--
+				}
+				plan := &udocProductRulePlan{head: head}
+				var arguments []ast.ASTHandle
+				priorVariables := make(map[ast.ASTHandle]uint32)
+				ready := true
+				for tailIndex := 0; tailIndex < inputCount; tailIndex++ {
+					tail, negated, cause := rule.Tail(tailIndex)
+					if cause != nil {
+						return nil, cause
+					}
+					if negated {
+						return nil, ErrUDocDatalogFragment
+					}
+					declaration, cause := e.manager.GetDecl(tail)
+					if cause != nil {
+						return nil, cause
+					}
+					if tailIndex == 0 {
+						plan.multiStart = declaration
+					}
+					if !p.productHead(declaration) {
+						if p.rules[declaration] != nil || p.docs[declaration] || p.finite[declaration] {
+							return nil, ErrUDocDatalogFragment
+						}
+						ready = false
+						break
+					}
+					tailArguments, cause := productArguments(e.manager, tail)
+					if cause != nil {
+						return nil, cause
+					}
+					input := udocProductMultiInput{declaration: declaration}
+					currentVariables := make(map[ast.ASTHandle]uint32)
+					for column, argument := range tailArguments {
+						kind, cause := e.manager.GetKind(argument)
+						if cause != nil {
+							return nil, cause
+						}
+						if kind != ast.ASTVar {
+							continue
+						}
+						if priorColumn, found := priorVariables[argument]; found {
+							input.leftColumns = append(input.leftColumns, priorColumn)
+							input.rightColumns = append(input.rightColumns, uint32(column))
+						}
+						if _, found := currentVariables[argument]; !found {
+							currentVariables[argument] = uint32(len(arguments) + column)
+						}
+					}
+					if tailIndex > 0 {
+						plan.multi = append(plan.multi, input)
+					}
+					for variable, column := range currentVariables {
+						if _, found := priorVariables[variable]; !found {
+							priorVariables[variable] = column
+						}
+					}
+					arguments = append(arguments, tailArguments...)
+				}
+				if !ready {
+					continue
+				}
+				if membershipIndex >= 0 {
+					declaration, cause := e.manager.GetDecl(membershipTail)
+					if cause != nil {
+						return nil, cause
+					}
+					_, productMembership := extraProducts[declaration]
+					membership, auxiliaryArguments, cause := productDocMembership(e.manager, arguments, membershipTail, declaration, productMembership)
+					if cause != nil {
+						return nil, cause
+					}
+					plan.docMemberships = append(plan.docMemberships, membership)
+					arguments = append(arguments, auxiliaryArguments...)
+				}
+				headApplication, cause := rule.Head()
+				if cause != nil {
+					return nil, cause
+				}
+				if cause = planUDocProductAssembly(e.manager, plan, arguments, headApplication, true); cause != nil {
+					return nil, cause
 				}
 				p.rules[head], p.sorts[head] = plan, append([]ast.ASTHandle(nil), e.predicates[head].sorts...)
 				p.order = append(p.order, head)
