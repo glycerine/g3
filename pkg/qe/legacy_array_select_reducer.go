@@ -148,9 +148,11 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 	conditions := make([]ast.ASTRef, 0)
 	defer func() {
 		// Source reset releases pinned rebuilds before index conditions.
-		resultErr = errors.Join(resultErr, truncateLiteVector(p.syntax.manager, &pinned, 0))
+		for index := len(pinned) - 1; index >= 0; index-- {
+			resultErr = closeFailedLegacyArrayRewrite(p.syntax.manager, pinned[index], resultErr)
+		}
 		for index := len(conditions) - 1; index >= 0; index-- {
-			resultErr = errors.Join(resultErr, p.syntax.manager.DelRef(&conditions[index]))
+			resultErr = closeFailedLegacyArrayRewrite(p.syntax.manager, conditions[index], resultErr)
 		}
 	}()
 	equalInModel := func(left, right ast.ASTHandle) (_ bool, evalErr error) {
@@ -161,12 +163,16 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 		if err != nil {
 			return false, err
 		}
-		defer func() { evalErr = errors.Join(evalErr, p.syntax.manager.DelRef(&leftValue)) }()
+		defer func() {
+			evalErr = closeFailedLegacyArrayRewrite(p.syntax.manager, leftValue, evalErr)
+		}()
 		rightValue, err := evaluator.EvaluateValue(right)
 		if err != nil {
 			return false, err
 		}
-		defer func() { evalErr = errors.Join(evalErr, p.syntax.manager.DelRef(&rightValue)) }()
+		defer func() {
+			evalErr = closeFailedLegacyArrayRewrite(p.syntax.manager, rightValue, evalErr)
+		}()
 		leftHandle, err := p.syntax.manager.RefGet(leftValue)
 		if err != nil {
 			return false, err
