@@ -259,7 +259,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/plugin_manager.h` — The live theory and model-factory registries use typed family maps plus registration-order slices, preserving duplicate checks, lookup, iteration order, and owner teardown without a generic plugin manager. Existing SMT theory-order and model-factory destruction checks pass; no tests were added.
 - [x] `src/util/rational.cpp` — Rational global initialization/finalization, shared zero/one constants, cached powers of two, and infinitesimal subsystem lifecycle map to `RationalGlobalService` and `RationalService`; existing focused global lifecycle, power-cache, and previous-power checks pass. No tests were added.
 - [x] `src/util/rational.h` — Rational values, arithmetic and aliases, comparisons, integer/floating projections, rounding, powers, gcd/root helpers, and cached constants map to concrete `Rational`/`RationalManager` operations; existing rational and MPQ tests pass with `-short`. No tests were added.
-- [ ] `src/util/ref.h`
+- [x] `src/util/ref.h` — The live intrusive `ref<T>` instances use concrete owner-bound reference types and explicit reference operations, including copy/acquire, move/detach, assignment, reset, swap, and teardown; no universal Go smart-pointer adapter is needed. Existing AST, tactic/model, and goal reference-lifecycle checks pass; no tests were added.
 - [ ] `src/util/ref_buffer.h`
 - [ ] `src/util/ref_util.h`
 - [ ] `src/util/ref_vector.h`
