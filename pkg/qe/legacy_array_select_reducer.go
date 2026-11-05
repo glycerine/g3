@@ -113,7 +113,7 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 	}
 	defer func() {
 		if resultErr != nil && result != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+			resultErr = closeFailedLegacyArrayRewrite(result.manager, result.formula, resultErr)
 			result = nil
 		}
 	}()
@@ -184,12 +184,12 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 		}
 		handle, err := p.syntax.manager.RefGet(rewritten)
 		if err != nil {
-			return errors.Join(err, p.syntax.manager.DelRef(&rewritten))
+			return closeFailedLegacyArrayRewrite(p.syntax.manager, rewritten, err)
 		}
 		if !p.syntax.manager.IsTrue(handle) {
 			conditions = append(conditions, rewritten)
 		} else {
-			err = p.syntax.manager.DelRef(&rewritten)
+			err = closeFailedLegacyArrayRewrite(p.syntax.manager, rewritten, nil)
 		}
 		return err
 	}

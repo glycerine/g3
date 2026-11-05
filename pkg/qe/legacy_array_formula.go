@@ -3,7 +3,6 @@ package qe
 // Source: src/muz/spacer/spacer_qe_project.cpp array_project.
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -72,7 +71,7 @@ func (p *legacyArrayProjection) projectFormula(md *model.ModelCore, variables []
 			if err == nil {
 				err = p.syntax.manager.SetRef(current, next)
 			}
-			err = errors.Join(err, direct.Close())
+			err = closeFailedLegacyArrayRewrite(direct.manager, direct.formula, err)
 			if err != nil {
 				return nil, err
 			}
@@ -123,7 +122,7 @@ func (p *legacyArrayProjection) projectFormula(md *model.ModelCore, variables []
 		if err == nil {
 			err = p.syntax.manager.SetRef(current, next)
 		}
-		err = errors.Join(err, polarized.Close())
+		err = closeFailedLegacyArrayRewrite(polarized.manager, polarized.formula, err)
 		if err != nil {
 			return nil, err
 		}
@@ -141,7 +140,7 @@ func (p *legacyArrayProjection) projectFormula(md *model.ModelCore, variables []
 	if err == nil {
 		err = p.syntax.manager.SetRef(current, next)
 	}
-	err = errors.Join(err, reduced.Close())
+	err = closeFailedLegacyArrayRewrite(reduced.manager, reduced.formula, err)
 	if err != nil {
 		return nil, err
 	}
