@@ -88,10 +88,9 @@ func TestSpacerScaleReconstructsOriginalPredicateModel(t *testing.T) {
 		t.Fatalf("reconstructed body %v, want %v", got, want)
 	}
 
-	// A nullary original becomes a unary scaled predicate. The C++
-	// converter registers a zero-arity function interpretation for it,
-	// violating model_core's arity assertion. Go deliberately registers an
-	// evaluable constant after substituting sigma = 1.
+	// A nullary original becomes a unary scaled predicate. The current C++
+	// converter substitutes sigma = 1 and registers the reconstructed value
+	// as a constant, matching the model's nullary lookup path.
 	nullaryName, err := manager.Symbols.Intern("scale-model-nullary")
 	quantifierResultMust(t, err)
 	nullary, err := manager.MkFuncDecl(nullaryName, nil, boolean, ast.ASTFuncDeclInfo{})
