@@ -1,4 +1,6 @@
-# Partially ported source files - mechincal port from C++ to Go.
+# DO NOT MODIFY THIS FILE FURTHER. It was completed 2026 Nov 05 as of commit c026769ef.
+
+# Ported source files - mechincal port from C++ to Go.
 
 Source files classified as partial in `port_manifest.json` when this list was created. Check a file after its applicable live behavior is implemented in Go and existing fast checks pass, or when it is verified inapplicable to the Go port; inapplicable entries explain why.
 
