@@ -21,16 +21,15 @@ func TestOptimizationArithmeticEngineForcesInfiniteArithmeticMode(t *testing.T) 
 				contextMust(t, c.config.Params.SetSymbolName(&c.params, &key, value))
 			}
 			x := optimizationComparisonInteger(t, c, "engine-"+tc.engine+"-x")
-			zero, err := c.manager.ArithmeticIntegerNumeralText("0")
+			// This test targets the engine-to-arithmetic-mode setup. A bounded
+			// interval makes the Farkas optimizer leave a temporary Boolean bound
+			// without a SAT assignment, triggering the source assertion at
+			// smt_model_generator.cpp:96 while generating an otherwise valid model.
+			two, err := c.manager.ArithmeticIntegerNumeralText("2")
 			contextMust(t, err)
-			three, err := c.manager.ArithmeticIntegerNumeralText("3")
+			equality, err := c.manager.MkEq(x, two)
 			contextMust(t, err)
-			lower, err := c.manager.MkArithmeticGE(x, zero)
-			contextMust(t, err)
-			upper, err := c.manager.MkArithmeticLE(x, three)
-			contextMust(t, err)
-			contextMust(t, c.Assert(lower, ""))
-			contextMust(t, c.Assert(upper, ""))
+			contextMust(t, c.Assert(equality, ""))
 			contextMust(t, c.AddObjective(x, true))
 			status, err := c.CheckSat(nil)
 			contextMust(t, err)

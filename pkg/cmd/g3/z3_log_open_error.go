@@ -13,3 +13,14 @@ func (e *z3LogOpenError) Error() string {
 }
 
 func (e *z3LogOpenError) Unwrap() error { return e.cause }
+
+type shellInputOpenError struct {
+	filename string
+	cause    error
+}
+
+func (e *shellInputOpenError) Error() string {
+	return fmt.Sprintf("failed to open file \"%s\".", e.filename)
+}
+
+func (e *shellInputOpenError) Unwrap() error { return e.cause }

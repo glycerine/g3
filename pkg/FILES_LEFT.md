@@ -189,7 +189,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/shell/dimacs_frontend.cpp` — DIMACS parsing, tracked-core reconstruction, model/core output, verbose status, final statistics, process timeout cancellation/statistics, and SIGINT statistics/re-raise map to `DIMACSFrontend` and `TimeoutService`; focused parser and frontend tests pass.
 - [x] `src/shell/dimacs_frontend.h` — The `read_dimacs` entry point maps to `NewDIMACSFrontend` plus `Run`, wired through both shell runner dispatch and the `g3` command path; focused DIMACS frontend tests pass.
 - [x] `src/shell/install_tactic.cpp` — This CMake-generated unit scans dependency headers for all `ADD_TACTIC`/`ADD_PROBE` registrations; the Go command-context/API registries and concrete factories cover the 106 tactics and 42 probes in source order, with registry and probe-factory checks passing.
-- [ ] `src/shell/main.cpp`
+- [x] `src/shell/main.cpp` — Command-line parsing, environment parameter refresh, memory policy setup, MPS dispatch, source diagnostics, and source exit-code mapping are wired through the Go shell and `g3` entry point; focused shell, context, and CLI suites pass.
 - [ ] `src/shell/opt_frontend.cpp`
 - [ ] `src/shell/opt_frontend.h`
 - [ ] `src/shell/smtlib_frontend.cpp`

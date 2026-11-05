@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/glycerine/g3/pkg/api"
 	"github.com/glycerine/g3/pkg/cmd_context"
@@ -16,6 +15,7 @@ import (
 	"github.com/glycerine/g3/pkg/shell"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func run(input io.Reader, output io.Writer) (result error) {
@@ -32,7 +32,7 @@ func runArguments(args []string, input io.Reader, output io.Writer) error {
 }
 
 func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnostics io.Writer) (result error) {
-	context, err := cmd_context.NewStandaloneContext()
+	context, memoryPolicy, err := cmd_context.NewStandaloneShellContext()
 	if err != nil {
 		return err
 	}
@@ -42,6 +42,9 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		return err
 	}
 	command := shell.NewCommandLine(nil, nil, globals)
+	if err = command.BeginMemoryPolicy(memoryPolicy); err != nil {
+		return err
+	}
 	if err = command.Parse(args); err != nil {
 		return err
 	}
@@ -61,12 +64,12 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 	}
 	filename, selected := command.Input.Selected()
 	if selected && command.StandardInput {
-		return fmt.Errorf("using standard input to read formula")
+		return &shell.CommandLineError{Message: "using standard input to read formula.", Cause: shell.ErrShellInputConflict}
 	}
 	if !selected && !command.StandardInput {
-		return fmt.Errorf("input file was not specified")
+		return &shell.CommandLineError{Message: "input file was not specified.", Cause: shell.ErrShellInputMissing}
 	}
-	kind, err := command.ResolveInputKind()
+	kind, err := command.ConfigureMemoryPolicyForDispatch(memoryPolicy)
 	if err != nil {
 		return err
 	}
@@ -90,7 +93,7 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 			if kind == shell.InputZ3Log {
 				return &z3LogOpenError{filename: filename, cause: err}
 			}
-			return err
+			return &shellInputOpenError{filename: filename, cause: err}
 		}
 		defer func() { result = errors.Join(result, file.Close()) }()
 		input = file
@@ -200,16 +203,31 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 
 func main() {
 	if err := runArgumentsWithDiagnostics(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
+		var commandError *shell.CommandLineError
+		if errors.As(err, &commandError) {
+			_ = shell.WriteCommandError(os.Stderr, commandError.Message)
+			os.Exit(int(z3exception.ErrorCmdLine))
+		}
 		var reportedParseError *smt2.ReportedParseError
 		if errors.As(err, &reportedParseError) {
-			os.Exit(1)
+			os.Exit(int(z3exception.ErrorParser))
 		}
 		var openError *z3LogOpenError
 		if errors.As(err, &openError) {
 			fmt.Fprintln(os.Stderr, openError.Error())
-			os.Exit(108) // ERR_OPEN_FILE in src/util/error_codes.h.
+			os.Exit(int(z3exception.ErrorOpenFile))
 		}
-		fmt.Fprintf(os.Stdout, "(error \"%s\")\n", strings.ReplaceAll(err.Error(), "\"", "\"\""))
-		os.Exit(1)
+		var inputOpenError *shellInputOpenError
+		if errors.As(err, &inputOpenError) {
+			fmt.Fprintf(os.Stderr, "ERROR: %s\n", inputOpenError.Error())
+			os.Exit(int(z3exception.ErrorOpenFile))
+		}
+		var exception z3exception.Z3Exception
+		code := z3exception.ErrorInternalFatal
+		if errors.As(err, &exception) && exception.HasErrorCode() {
+			code = exception.ErrorCode()
+		}
+		fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+		os.Exit(int(code))
 	}
 }

@@ -978,8 +978,9 @@ func sourceDebugMacroCoercionRefusal(t *testing.T, name string, err error, out *
 	if !ast.ASTSourceDebug || name != "definition_coercions.smt2" {
 		return false
 	}
-	if err == nil || err.Error() != "line 3 column 26: "+ast.ErrASTDomain.Error() || out.Len() != 0 {
-		t.Fatal("source debug macro-binding sort assertion", err, out.String())
+	wantOutput := "(error \"line 3 column 26: " + ast.ErrASTDomain.Error() + "\")\nsat\n"
+	if err == nil || err.Error() != "line 3 column 26: "+ast.ErrASTDomain.Error() || out.String() != wantOutput {
+		t.Fatalf("source debug macro-binding sort assertion err=%q output=%q", err, out.String())
 	}
 	return true
 }

@@ -151,7 +151,7 @@ func (c *CommandLine) Parse(args []string) error {
 				c.DisplayIStatistics = true
 			case "v":
 				if value == nil {
-					return ErrShellOptionArgument
+					return sourceCommandLineError(ErrShellOptionArgument, "option argument (-v:level) is missing.")
 				}
 				if err := diagnostic.SetProcessVerbosityLevel(uint32(sourceLongPrefix(*value))); err != nil {
 					return err
@@ -162,7 +162,7 @@ func (c *CommandLine) Parse(args []string) error {
 				}
 			case "T":
 				if value == nil {
-					return ErrMissingGlobalTimeout
+					return sourceCommandLineError(ErrMissingGlobalTimeout, ErrMissingGlobalTimeout.Error())
 				}
 				if c.Timer == nil {
 					return ErrShellOptionService
@@ -172,7 +172,10 @@ func (c *CommandLine) Parse(args []string) error {
 				}
 			case "t", "memory":
 				if value == nil {
-					return ErrShellOptionArgument
+					if name == "memory" {
+						return sourceCommandLineError(ErrShellOptionArgument, "option argument (-memory:val) is missing.")
+					}
+					return sourceCommandLineError(ErrShellOptionArgument, "option argument (-t:timeout) is missing.")
 				}
 				if c.Globals == nil {
 					return ErrShellOptionService
@@ -203,16 +206,16 @@ func (c *CommandLine) Parse(args []string) error {
 				return nil
 			case "pp":
 				if value == nil {
-					return ErrShellOptionArgument
+					return sourceCommandLineError(ErrShellOptionArgument, "option argument (-pp:name) is missing.")
 				}
 				c.Action, c.ActionArgument = CommandDisplayParameter, *value
 				return nil
 			case "tr":
 				if !shellTraceOptions {
-					return ErrShellCommandLine
+					return sourceCommandLineError(ErrShellCommandLine, "invalid command line option: "+arg)
 				}
 				if value == nil {
-					return ErrShellOptionArgument
+					return sourceCommandLineError(ErrShellOptionArgument, "option argument (-tr:tag) is missing.")
 				}
 				if c.Trace == nil {
 					return ErrShellOptionService
@@ -220,10 +223,10 @@ func (c *CommandLine) Parse(args []string) error {
 				c.Trace.Enable(*value)
 			case "dbg":
 				if !shellDebugOptions {
-					return ErrShellCommandLine
+					return sourceCommandLineError(ErrShellCommandLine, "invalid command line option: "+arg)
 				}
 				if value == nil {
-					return ErrShellOptionArgument
+					return sourceCommandLineError(ErrShellOptionArgument, "option argument (-dbg:tag) is missing.")
 				}
 				if c.Debug == nil {
 					return ErrShellOptionService
@@ -232,7 +235,7 @@ func (c *CommandLine) Parse(args []string) error {
 					return err
 				}
 			default:
-				return ErrShellCommandLine
+				return sourceCommandLineError(ErrShellCommandLine, "invalid command line option: "+arg)
 			}
 			continue
 		}

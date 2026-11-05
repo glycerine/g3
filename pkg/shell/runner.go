@@ -6,6 +6,8 @@ import (
 	"io"
 
 	"github.com/glycerine/g3/pkg/cmd_context"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/params"
 )
 
 // RunnerConfig contains the process-independent transports of one shell
@@ -19,18 +21,19 @@ type RunnerConfig struct {
 }
 
 type Runner struct {
-	args        []string
-	input       io.Reader
-	output      io.Writer
-	diagnostics io.Writer
-	context     *cmd_context.Context
-	command     *CommandLine
-	inputClose  io.Closer
-	owned       bool
-	running     bool
-	ran         bool
-	closed      bool
-	result      RunnerResult
+	args         []string
+	input        io.Reader
+	output       io.Writer
+	diagnostics  io.Writer
+	context      *cmd_context.Context
+	memoryPolicy *diagnostic.MemoryFatalContext
+	command      *CommandLine
+	inputClose   io.Closer
+	owned        bool
+	running      bool
+	ran          bool
+	closed       bool
+	result       RunnerResult
 }
 
 func NewRunner(c RunnerConfig) (runner *Runner, err error) {
@@ -39,7 +42,7 @@ func NewRunner(c RunnerConfig) (runner *Runner, err error) {
 	}
 	runner = &Runner{args: append([]string(nil), c.Args...), input: c.Input, output: c.Output, diagnostics: c.Diagnostics, context: c.Context}
 	if runner.context == nil {
-		runner.context, err = cmd_context.NewStandaloneContext()
+		runner.context, runner.memoryPolicy, err = cmd_context.NewStandaloneShellContext()
 		if err != nil {
 			return nil, err
 		}
@@ -65,6 +68,11 @@ func (r *Runner) Run() (result error) {
 		r.result.Completed = true
 		r.result.Error = result
 	}()
+	if r.memoryPolicy != nil {
+		if err := r.command.BeginMemoryPolicy(r.memoryPolicy); err != nil {
+			return err
+		}
+	}
 	if err := r.command.Parse(r.args); err != nil {
 		return err
 	}
@@ -72,10 +80,22 @@ func (r *Runner) Run() (result error) {
 	if r.command.Action != CommandContinue {
 		return r.command.WriteTerminalAction(r.output)
 	}
+	globals, err := r.context.GlobalParameters()
+	if err != nil {
+		return err
+	}
+	if err = params.UpdateProcessEnvParams(globals.Current); err != nil {
+		return err
+	}
 	if err := r.selectInput(); err != nil {
 		return err
 	}
-	kind, err := r.command.ResolveInputKind()
+	var kind InputKind
+	if r.memoryPolicy != nil {
+		kind, err = r.command.ConfigureMemoryPolicyForDispatch(r.memoryPolicy)
+	} else {
+		kind, err = r.command.ResolveInputKind()
+	}
 	if err != nil {
 		return err
 	}
