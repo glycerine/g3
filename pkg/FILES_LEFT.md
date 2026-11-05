@@ -266,7 +266,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/scoped_numeral.h` — The live integer, rational, and floating numeral scopes map to concrete `ScopedInt`, `ScopedRational`, floating-number owners, and typed local cleanup frames, preserving deep copy, reset/swap/arithmetic, and destructor order without a universal generic numeral layer. Existing scoped numeral ownership, operation, failure-cleanup, and floating lifetime checks pass with `-short`; no tests were added.
 - [x] `src/util/scoped_numeral_vector.h` — Live scoped integer/rational numeral vectors use concrete typed owners with source-order push, copy, resize, shrink, pop, reset, and cleanup; other retained vector consumers use their own concrete manager-specific implementations, with no universal generic layer. Existing scoped numeral vector lifecycle and interrupted-cleanup checks pass with `-short`; no tests were added.
 - [x] `src/util/scoped_ptr_vector.h` — Live scoped pointer vectors are represented by concrete Go owner slices with explicit replacement, pop, resize, reset, and close order; generic delete-procedure plumbing is unnecessary. Existing polynomial skeleton-vector and SMT string regex-stage ownership checks pass with `-short`; no tests were added.
-- [ ] `src/util/scoped_vector.h`
+- [x] `src/util/scoped_vector.h`
 - [ ] `src/util/symbol_table.h`
 - [ ] `src/util/trace.cpp`
 - [ ] `src/util/trace.h`

@@ -135,10 +135,17 @@ func (e *smtSequenceDisequation) values(manager *ast.ASTManager) (left, right as
 
 type smtSequenceDisequationQueue struct {
 	manager      *ast.ASTManager
-	disequations []smtSequenceDisequation
-	snapshots    [][]smtSequenceDisequation
+	disequations []smtSequenceDisequation // physical entries
+	index        []int
+	size         int
+	scopes       []smtSequenceDisequationScope
+	trail        []smtSequenceDisequationIndex
+	elemStart    int
 	closed       bool
 }
+
+type smtSequenceDisequationScope struct{ size, trailStart, elemStart int }
+type smtSequenceDisequationIndex struct{ source, destination int }
 
 func newSMTSequenceDisequationQueue(manager *ast.ASTManager) (*smtSequenceDisequationQueue, error) {
 	if manager == nil {
@@ -161,40 +168,30 @@ func (q *smtSequenceDisequationQueue) closeValues(values []smtSequenceDisequatio
 	return result
 }
 
-func (q *smtSequenceDisequationQueue) clone(source []smtSequenceDisequation) ([]smtSequenceDisequation, error) {
-	result := make([]smtSequenceDisequation, 0, len(source))
-	for i := range source {
-		left, right, leftCases, rightCases, literals, dependency, err := source[i].values(q.manager)
-		if err != nil {
-			_ = q.closeValues(result)
-			return nil, err
-		}
-		copy, err := newSMTSequenceDisequationCases(q.manager, left, right, leftCases, rightCases, literals, dependency)
-		if err != nil {
-			_ = q.closeValues(result)
-			return nil, err
-		}
-		result = append(result, copy)
+func (q *smtSequenceDisequationQueue) copyValue(source smtSequenceDisequation) (smtSequenceDisequation, error) {
+	left, right, leftCases, rightCases, literals, dependency, err := source.values(q.manager)
+	if err != nil {
+		return smtSequenceDisequation{}, err
 	}
-	return result, nil
+	return newSMTSequenceDisequationCases(q.manager, left, right, leftCases, rightCases, literals, dependency)
 }
 
 func (q *smtSequenceDisequationQueue) Len() int {
 	if q == nil || q.closed {
 		return 0
 	}
-	return len(q.disequations)
+	return q.size
 }
 
 func (q *smtSequenceDisequationQueue) At(index int) (left, right ast.ASTHandle, leftCases, rightCases [][]ast.ASTHandle, literals []SMTLiteral, dependency *smtSequenceDependency, err error) {
 	if err = q.open(); err != nil {
 		return
 	}
-	if index < 0 || index >= len(q.disequations) {
+	if index < 0 || index >= q.size {
 		err = ast.ErrASTDomain
 		return
 	}
-	return q.disequations[index].values(q.manager)
+	return q.disequations[q.index[index]].values(q.manager)
 }
 
 func (q *smtSequenceDisequationQueue) Push(left, right ast.ASTHandle, dependency *smtSequenceDependency) error {
@@ -206,6 +203,14 @@ func (q *smtSequenceDisequationQueue) Push(left, right ast.ASTHandle, dependency
 		return err
 	}
 	q.disequations = append(q.disequations, value)
+	logical := q.size
+	q.setIndex(logical)
+	if logical == len(q.index) {
+		q.index = append(q.index, len(q.disequations)-1)
+	} else {
+		q.index[logical] = len(q.disequations) - 1
+	}
+	q.size++
 	return nil
 }
 
@@ -213,11 +218,8 @@ func (q *smtSequenceDisequationQueue) PushScope() error {
 	if err := q.open(); err != nil {
 		return err
 	}
-	snapshot, err := q.clone(q.disequations)
-	if err != nil {
-		return err
-	}
-	q.snapshots = append(q.snapshots, snapshot)
+	q.scopes = append(q.scopes, smtSequenceDisequationScope{q.size, len(q.trail), len(q.disequations)})
+	q.elemStart = len(q.disequations)
 	return nil
 }
 
@@ -225,17 +227,24 @@ func (q *smtSequenceDisequationQueue) Set(index int, left, right ast.ASTHandle, 
 	if err := q.open(); err != nil {
 		return err
 	}
-	if index < 0 || index >= len(q.disequations) {
+	if index < 0 || index >= q.size {
 		return ast.ErrASTDomain
 	}
 	replacement, err := newSMTSequenceDisequationCases(q.manager, left, right, leftCases, rightCases, literals, dependency)
 	if err != nil {
 		return err
 	}
-	if err = q.disequations[index].close(q.manager); err != nil {
-		return errors.Join(err, replacement.close(q.manager))
+	physical := q.index[index]
+	if physical < q.elemStart {
+		q.setIndex(index)
+		q.disequations = append(q.disequations, replacement)
+		q.index[index] = len(q.disequations) - 1
+	} else {
+		if err = q.disequations[physical].close(q.manager); err != nil {
+			return errors.Join(err, replacement.close(q.manager))
+		}
+		q.disequations[physical] = replacement
 	}
-	q.disequations[index] = replacement
 	return nil
 }
 
@@ -244,16 +253,40 @@ func (q *smtSequenceDisequationQueue) EraseSwapBack(index int) error {
 	if err := q.open(); err != nil {
 		return err
 	}
-	if index < 0 || index >= len(q.disequations) {
+	if index < 0 || index >= q.size {
 		return ast.ErrASTDomain
 	}
-	if err := q.disequations[index].close(q.manager); err != nil {
-		return err
+	last := q.size - 1
+	if index != last {
+		copy, err := q.copyValue(q.disequations[q.index[last]])
+		if err != nil {
+			return err
+		}
+		physical := q.index[index]
+		if physical < q.elemStart {
+			q.setIndex(index)
+			q.disequations = append(q.disequations, copy)
+			q.index[index] = len(q.disequations) - 1
+		} else {
+			if err = q.disequations[physical].close(q.manager); err != nil {
+				return errors.Join(err, copy.close(q.manager))
+			}
+			q.disequations[physical] = copy
+		}
 	}
-	last := len(q.disequations) - 1
-	q.disequations[index] = q.disequations[last]
-	q.disequations[last] = smtSequenceDisequation{}
-	q.disequations = q.disequations[:last]
+	return q.popBack()
+}
+
+func (q *smtSequenceDisequationQueue) popBack() error {
+	logical := q.size - 1
+	physical := q.index[logical]
+	if physical == len(q.disequations)-1 && physical >= q.elemStart {
+		if err := q.disequations[physical].close(q.manager); err != nil {
+			return err
+		}
+		q.disequations = q.disequations[:physical]
+	}
+	q.size = logical
 	return nil
 }
 
@@ -261,16 +294,20 @@ func (q *smtSequenceDisequationQueue) PopScopes(count uint32) (result error) {
 	if err := q.open(); err != nil {
 		return err
 	}
-	if count == 0 || count > uint32(len(q.snapshots)) {
+	if count == 0 || count > uint32(len(q.scopes)) {
 		return ast.ErrASTDomain
 	}
-	level := len(q.snapshots) - int(count)
-	result = q.closeValues(q.disequations)
-	for i := level + 1; i < len(q.snapshots); i++ {
-		result = errors.Join(result, q.closeValues(q.snapshots[i]))
+	level := len(q.scopes) - int(count)
+	scope := q.scopes[level]
+	for i := len(q.trail) - 1; i >= scope.trailStart; i-- {
+		q.index[q.trail[i].source] = q.trail[i].destination
 	}
-	q.disequations = q.snapshots[level]
-	q.snapshots = q.snapshots[:level]
+	q.trail = q.trail[:scope.trailStart]
+	result = q.closeValues(q.disequations[scope.elemStart:])
+	q.disequations = q.disequations[:scope.elemStart]
+	q.size = scope.size
+	q.scopes = q.scopes[:level]
+	q.elemStart = scope.elemStart
 	return result
 }
 
@@ -279,12 +316,17 @@ func (q *smtSequenceDisequationQueue) Close() (result error) {
 		return err
 	}
 	result = q.closeValues(q.disequations)
-	for i := range q.snapshots {
-		result = errors.Join(result, q.closeValues(q.snapshots[i]))
-	}
 	q.disequations = nil
-	q.snapshots = nil
+	q.index = nil
+	q.scopes = nil
+	q.trail = nil
 	q.manager = nil
 	q.closed = true
 	return result
+}
+
+func (q *smtSequenceDisequationQueue) setIndex(source int) {
+	if source < len(q.index) && source < q.elemStart {
+		q.trail = append(q.trail, smtSequenceDisequationIndex{source, q.index[source]})
+	}
 }

@@ -15,10 +15,17 @@ type smtSequenceNonContains struct {
 
 type smtSequenceNonContainsQueue struct {
 	manager   *ast.ASTManager
-	values    []smtSequenceNonContains
-	snapshots [][]smtSequenceNonContains
+	values    []smtSequenceNonContains // physical entries
+	index     []int
+	size      int
+	scopes    []smtSequenceNonContainsScope
+	trail     []smtSequenceNonContainsIndex
+	elemStart int
 	closed    bool
 }
+
+type smtSequenceNonContainsScope struct{ size, trailStart, elemStart int }
+type smtSequenceNonContainsIndex struct{ source, destination int }
 
 func newSMTSequenceNonContainsQueue(manager *ast.ASTManager) (*smtSequenceNonContainsQueue, error) {
 	if manager == nil {
@@ -42,40 +49,35 @@ func (q *smtSequenceNonContainsQueue) closeValues(values []smtSequenceNonContain
 	return result
 }
 
-func (q *smtSequenceNonContainsQueue) clone(values []smtSequenceNonContains) ([]smtSequenceNonContains, error) {
-	result := make([]smtSequenceNonContains, 0, len(values))
-	for i := range values {
-		expression, err := q.manager.RefGet(values[i].expression)
-		if err != nil {
-			_ = q.closeValues(result)
-			return nil, err
-		}
-		ref, err := q.manager.NewRef(expression)
-		if err != nil {
-			_ = q.closeValues(result)
-			return nil, err
-		}
-		result = append(result, smtSequenceNonContains{expression: ref, dependency: values[i].dependency})
+func (q *smtSequenceNonContainsQueue) copyValue(value smtSequenceNonContains) (smtSequenceNonContains, error) {
+	expression, err := q.manager.RefGet(value.expression)
+	if err != nil {
+		return smtSequenceNonContains{}, err
 	}
-	return result, nil
+	ref, err := q.manager.NewRef(expression)
+	if err != nil {
+		return smtSequenceNonContains{}, err
+	}
+	return smtSequenceNonContains{expression: ref, dependency: value.dependency}, nil
 }
 
 func (q *smtSequenceNonContainsQueue) Len() int {
 	if q == nil || q.closed {
 		return 0
 	}
-	return len(q.values)
+	return q.size
 }
 
 func (q *smtSequenceNonContainsQueue) At(index int) (ast.ASTHandle, *smtSequenceDependency, error) {
 	if err := q.open(); err != nil {
 		return ast.ASTHandle{}, nil, err
 	}
-	if index < 0 || index >= len(q.values) {
+	if index < 0 || index >= q.size {
 		return ast.ASTHandle{}, nil, ast.ErrASTDomain
 	}
-	expression, err := q.manager.RefGet(q.values[index].expression)
-	return expression, q.values[index].dependency, err
+	value := q.values[q.index[index]]
+	expression, err := q.manager.RefGet(value.expression)
+	return expression, value.dependency, err
 }
 
 func (q *smtSequenceNonContainsQueue) Push(expression ast.ASTHandle, dependency *smtSequenceDependency) error {
@@ -87,6 +89,14 @@ func (q *smtSequenceNonContainsQueue) Push(expression ast.ASTHandle, dependency 
 		return err
 	}
 	q.values = append(q.values, smtSequenceNonContains{expression: ref, dependency: dependency})
+	logical := q.size
+	q.setIndex(logical)
+	if logical == len(q.index) {
+		q.index = append(q.index, len(q.values)-1)
+	} else {
+		q.index[logical] = len(q.values) - 1
+	}
+	q.size++
 	return nil
 }
 
@@ -94,11 +104,8 @@ func (q *smtSequenceNonContainsQueue) PushScope() error {
 	if err := q.open(); err != nil {
 		return err
 	}
-	snapshot, err := q.clone(q.values)
-	if err != nil {
-		return err
-	}
-	q.snapshots = append(q.snapshots, snapshot)
+	q.scopes = append(q.scopes, smtSequenceNonContainsScope{q.size, len(q.trail), len(q.values)})
+	q.elemStart = len(q.values)
 	return nil
 }
 
@@ -106,16 +113,40 @@ func (q *smtSequenceNonContainsQueue) EraseSwapBack(index int) error {
 	if err := q.open(); err != nil {
 		return err
 	}
-	if index < 0 || index >= len(q.values) {
+	if index < 0 || index >= q.size {
 		return ast.ErrASTDomain
 	}
-	if err := q.manager.DelRef(&q.values[index].expression); err != nil {
-		return err
+	last := q.size - 1
+	if index != last {
+		copy, err := q.copyValue(q.values[q.index[last]])
+		if err != nil {
+			return err
+		}
+		physical := q.index[index]
+		if physical < q.elemStart {
+			q.setIndex(index)
+			q.values = append(q.values, copy)
+			q.index[index] = len(q.values) - 1
+		} else {
+			if err = q.manager.DelRef(&q.values[physical].expression); err != nil {
+				return errors.Join(err, q.manager.DelRef(&copy.expression))
+			}
+			q.values[physical] = copy
+		}
 	}
-	last := len(q.values) - 1
-	q.values[index] = q.values[last]
-	q.values[last] = smtSequenceNonContains{}
-	q.values = q.values[:last]
+	return q.popBack()
+}
+
+func (q *smtSequenceNonContainsQueue) popBack() error {
+	logical := q.size - 1
+	physical := q.index[logical]
+	if physical == len(q.values)-1 && physical >= q.elemStart {
+		if err := q.manager.DelRef(&q.values[physical].expression); err != nil {
+			return err
+		}
+		q.values = q.values[:physical]
+	}
+	q.size = logical
 	return nil
 }
 
@@ -233,16 +264,20 @@ func (q *smtSequenceNonContainsQueue) PopScopes(count uint32) (result error) {
 	if err := q.open(); err != nil {
 		return err
 	}
-	if count == 0 || count > uint32(len(q.snapshots)) {
+	if count == 0 || count > uint32(len(q.scopes)) {
 		return ast.ErrASTDomain
 	}
-	level := len(q.snapshots) - int(count)
-	result = q.closeValues(q.values)
-	for i := level + 1; i < len(q.snapshots); i++ {
-		result = errors.Join(result, q.closeValues(q.snapshots[i]))
+	level := len(q.scopes) - int(count)
+	scope := q.scopes[level]
+	for i := len(q.trail) - 1; i >= scope.trailStart; i-- {
+		q.index[q.trail[i].source] = q.trail[i].destination
 	}
-	q.values = q.snapshots[level]
-	q.snapshots = q.snapshots[:level]
+	q.trail = q.trail[:scope.trailStart]
+	result = q.closeValues(q.values[scope.elemStart:])
+	q.values = q.values[:scope.elemStart]
+	q.size = scope.size
+	q.scopes = q.scopes[:level]
+	q.elemStart = scope.elemStart
 	return result
 }
 
@@ -251,12 +286,17 @@ func (q *smtSequenceNonContainsQueue) Close() (result error) {
 		return err
 	}
 	result = q.closeValues(q.values)
-	for i := range q.snapshots {
-		result = errors.Join(result, q.closeValues(q.snapshots[i]))
-	}
 	q.values = nil
-	q.snapshots = nil
+	q.index = nil
+	q.scopes = nil
+	q.trail = nil
 	q.manager = nil
 	q.closed = true
 	return result
+}
+
+func (q *smtSequenceNonContainsQueue) setIndex(source int) {
+	if source < len(q.index) && source < q.elemStart {
+		q.trail = append(q.trail, smtSequenceNonContainsIndex{source, q.index[source]})
+	}
 }
