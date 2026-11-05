@@ -1073,10 +1073,17 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "get-model":
-		if err = p.requireEnd(); err != nil {
-			return false, err
+		modelIndex := uint32(0)
+		for p.token != RightParenToken {
+			if p.token != IntegerToken {
+				return false, fmt.Errorf("invalid command argument, unsigned integer expected")
+			}
+			modelIndex, err = p.unsigned()
+			if err != nil {
+				return false, err
+			}
 		}
-		if err = p.context.WriteModel(p.out); err != nil {
+		if err = p.context.WriteModelAtModelIndex(p.out, modelIndex); err != nil {
 			return false, err
 		}
 		success = false
@@ -1101,10 +1108,23 @@ func (p *commandParser) command() (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		if err = p.requireEnd(); err != nil {
-			return false, err
+		modelIndex := uint32(0)
+		if p.token == KeywordToken && (p.scanner.ID() == ":model-index" || p.scanner.ID() == ":model_index") {
+			if err = p.advance(); err != nil {
+				return false, err
+			}
+			if p.token != IntegerToken {
+				return false, fmt.Errorf("integer index expected to indexed model evaluation")
+			}
+			modelIndex, err = p.unsigned()
+			if err != nil {
+				return false, err
+			}
 		}
-		if err = p.context.WriteValuesWithText(p.out, values, text); err != nil {
+		if p.token != RightParenToken {
+			return false, fmt.Errorf("invalid get-value command, ')' expected")
+		}
+		if err = p.context.WriteValuesWithTextAtModelIndex(p.out, values, text, modelIndex); err != nil {
 			return false, err
 		}
 		success = false

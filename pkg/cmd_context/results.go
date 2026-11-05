@@ -427,10 +427,18 @@ func (c *Context) WriteLabels(out io.Writer) error {
 // WriteValuesWithText evaluates parsed expressions while echoing their original
 // SMT-LIB terms. A nil text slice uses the ordinary AST expression printer.
 func (c *Context) WriteValuesWithText(out io.Writer, expressions []ast.ASTHandle, text []string) (result error) {
+	return c.WriteValuesWithTextAtModelIndex(out, expressions, text, 0)
+}
+
+// WriteValuesWithTextAtModelIndex evaluates terms in the current model for
+// index zero, or in the requested optimization box model for a nonzero index.
+// The SMT-LIB get-value command uses the same index convention as context's
+// get_box_model implementation.
+func (c *Context) WriteValuesWithTextAtModelIndex(out io.Writer, expressions []ast.ASTHandle, text []string, modelIndex uint32) (result error) {
 	if text != nil && len(text) != len(expressions) {
 		return fmt.Errorf("get-value term text count does not match expression count")
 	}
-	md, err := c.Model()
+	md, err := c.modelAtIndex(modelIndex, false)
 	if err != nil {
 		return err
 	}

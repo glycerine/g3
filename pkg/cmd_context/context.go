@@ -1278,7 +1278,13 @@ func (c *Context) Model() (*model.ModelCore, error) {
 }
 
 func (c *Context) WriteModel(out io.Writer) (result error) {
-	m, err := c.Model()
+	return c.WriteModelAtModelIndex(out, 0)
+}
+
+// WriteModelAtModelIndex matches get-model's optional box-objective index.
+// Without an optimizer, the source command falls back to the current model.
+func (c *Context) WriteModelAtModelIndex(out io.Writer, modelIndex uint32) (result error) {
+	m, err := c.modelAtIndex(modelIndex, true)
 	if err != nil {
 		return err
 	}
@@ -1291,6 +1297,30 @@ func (c *Context) WriteModel(out io.Writer) (result error) {
 	}
 	_, err = io.WriteString(out, ")\n")
 	return err
+}
+
+func (c *Context) modelAtIndex(modelIndex uint32, fallbackWithoutOptimizer bool) (*model.ModelCore, error) {
+	current, err := c.Model()
+	if err != nil || modelIndex == 0 {
+		return current, err
+	}
+	if len(c.objectives) == 0 && fallbackWithoutOptimizer {
+		return current, nil
+	}
+	if err = current.DecRef(); err != nil {
+		return nil, err
+	}
+	if uint64(modelIndex) >= uint64(len(c.optimizationBoxModels)) {
+		return nil, fmt.Errorf("index into models is out of bounds")
+	}
+	selected := c.optimizationBoxModels[modelIndex]
+	if selected == nil {
+		return nil, fmt.Errorf("model is not available")
+	}
+	if err = selected.IncRef(); err != nil {
+		return nil, err
+	}
+	return selected, nil
 }
 
 // ResetAssertions follows cmd_context::reset_assertions. With global
