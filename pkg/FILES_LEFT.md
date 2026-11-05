@@ -131,7 +131,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/tab/tab_context.h` — The public tabulation engine query, cleanup, statistics, certificate, and answer interface maps to Go's tab query/session/statistics/certificate APIs. The complete tab package suite passes.
 - [x] `src/muz/transforms/dl_mk_scale.cpp` — Predicate and constraint scaling, output metadata, homogeneous-coordinate substitution and model reconstruction match the current Z3 source, including nullary predicates; focused transform and PDR/Spacer/BMC/CLP/Duality scale tests pass. The bundled legacy `src/` copy contains an older nullary-converter bug, documented in `TRANSFORM_UNIT_AUDIT.md`.
 - [x] `src/muz/transforms/dl_mk_scale.h` — Plugin state, constructor/default priority, transform interface and scaling helpers map to `ScalePlugin` and its typed per-rule state; focused transform tests pass.
-- [ ] `src/muz/transforms/dl_mk_slice.cpp`
+- [x] `src/muz/transforms/dl_mk_slice.cpp` — Predicate-slice fixed-point analysis, rule rewriting, output/origin propagation, proof conversion and model reconstruction map to `RuleSlicePlugin`, `SliceProofConverter` and the fixedpoint result pipeline. Model reconstruction now copies partial and total function entries as well as fallbacks in source order; focused transform/proof and PDR/Spacer slice tests pass.
 - [ ] `src/nlsat/nlsat_explain.cpp`
 - [ ] `src/nlsat/nlsat_solver.cpp`
 - [ ] `src/nlsat/tactic/goal2nlsat.cpp`

@@ -121,22 +121,91 @@ func expandSlicedFunction(manager *ast.ASTManager, slices map[ast.ASTHandle][]bo
 			resultErr = errors.Join(resultErr, interpretation.Close())
 		}
 	}()
-	compact, err := source.Interpretation()
+	var temporary []ast.ASTRef
+	defer func() {
+		for i := len(temporary) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, manager.DelRef(&temporary[i]))
+		}
+	}()
+	expandTerm := func(term ast.ASTHandle) (ast.ASTHandle, error) {
+		reference, expandErr := expandSlicedHandle(manager, slices, original, term)
+		if expandErr != nil {
+			return ast.ASTHandle{}, expandErr
+		}
+		temporary = append(temporary, reference)
+		return manager.RefGet(reference)
+	}
+	partial, err := source.IsPartial()
 	if err != nil {
 		return err
 	}
-	if !compact.IsNull() {
-		expanded, expandErr := expandSlicedHandle(manager, slices, original, compact)
-		if expandErr != nil {
-			return expandErr
+	if !partial {
+		fallback, getErr := source.Else()
+		if getErr != nil {
+			return getErr
 		}
-		expandedHandle, expandErr := manager.RefGet(expanded)
-		if expandErr == nil {
-			expandErr = interpretation.SetElse(expandedHandle)
+		fallback, getErr = expandTerm(fallback)
+		if getErr != nil {
+			return getErr
 		}
-		expandErr = errors.Join(expandErr, manager.DelRef(&expanded))
-		if expandErr != nil {
-			return expandErr
+		if err = interpretation.SetElse(fallback); err != nil {
+			return err
+		}
+	}
+	// The source converter copies graph entries independently of the fallback.
+	// In particular, partial interpretations have no ITE expression to flatten,
+	// so rebuilding only Interpretation() would silently discard their entries.
+	removed := slices[original]
+	compactIndex := uint32(0)
+	for entryIndex := uint32(0); entryIndex < source.NumEntries(); entryIndex++ {
+		entry, getErr := source.Entry(entryIndex)
+		if getErr != nil {
+			return getErr
+		}
+		arguments := make([]ast.ASTHandle, 0, oldArity)
+		for column := uint32(0); column < oldArity; column++ {
+			if int(column) < len(removed) && removed[column] {
+				sort, sortErr := manager.GetDomain(original, column)
+				if sortErr != nil {
+					return sortErr
+				}
+				pin, pinErr := manager.NewRef(ast.ASTHandle{})
+				if pinErr != nil {
+					return pinErr
+				}
+				temporary = append(temporary, pin)
+				variable, varErr := manager.MkVar(column, sort)
+				if varErr != nil {
+					return varErr
+				}
+				if pinErr = manager.SetRef(pin, variable); pinErr != nil {
+					return pinErr
+				}
+				arguments = append(arguments, variable)
+				continue
+			}
+			argument, argErr := entry.Argument(compactIndex)
+			if argErr != nil {
+				return argErr
+			}
+			argument, argErr = expandTerm(argument)
+			if argErr != nil {
+				return argErr
+			}
+			arguments = append(arguments, argument)
+			compactIndex++
+		}
+		compactIndex = 0
+		value, getErr := entry.Result()
+		if getErr != nil {
+			return getErr
+		}
+		value, getErr = expandTerm(value)
+		if getErr != nil {
+			return getErr
+		}
+		if err = interpretation.InsertNewEntry(arguments, value); err != nil {
+			return err
 		}
 	}
 	if err = destination.RegisterFunction(original, interpretation); err != nil {
