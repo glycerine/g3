@@ -252,7 +252,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/mpz.h` — The `_MP_INTERNAL` sign-magnitude `mpz` representation, inline int32 values, cell ownership, reusable temporaries/arguments, constants, and manager operations map to concrete `Int`/`IntegerManager` owners; the synchronized C++ mode is owner-local in this single-goroutine port. Existing focused MPZ/integer tests pass; no tests were added.
 - [x] `src/util/mpzzp.h` — Modular integer mode, centered residue normalization, mode switching, delegated arithmetic, inverse/division, power, and integer-only roots map to `IntegerModularManager`; the source constructor’s uninitialized prime flag and modular square-root limitation are represented explicitly. Existing focused `TestIntegerModular*` tests pass; no tests were added.
 - [x] `src/util/obj_hashtable.h` — Live object-set/map instantiations use concrete owner-local Go maps keyed by their actual pointer-identity handles, with cleanup handled by each owner; the generic C++ bucket and sentinel-pointer representation has no shared Go consumer and is not duplicated as a universal adapter. Existing AST trail/context and fixedpoint transform checks pass; no tests were added.
-- [ ] `src/util/obj_pair_hashtable.h`
+- [x] `src/util/obj_pair_hashtable.h` — Live pair-set/map instantiations use concrete Go key structs containing the source object handles, preserving pointer-identity pair equality; cleanup stays with each consuming owner and no generic adapter is needed. Existing pattern inference, UFBV matching, and fixedpoint join/MagicSets checks pass; no tests were added.
 - [ ] `src/util/obj_ref.h`
 - [ ] `src/util/params.cpp`
 - [ ] `src/util/params.h`
