@@ -15,7 +15,7 @@ func (p *udocProductContext) evaluate(plan *udocProductRulePlan, docs map[ast.AS
 	var working *rel.UDocTableProduct
 	var err error
 	if plan.pair != nil {
-		working, err = p.evaluateProductPair(plan.pair, finite)
+		working, err = p.evaluateProductPair(plan.pair, docs, finite)
 		if err == nil && working == nil {
 			return nil
 		}

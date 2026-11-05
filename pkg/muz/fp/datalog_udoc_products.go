@@ -91,14 +91,15 @@ func productDocMembership(m *ast.ASTManager, arguments []ast.ASTHandle, tail ast
 }
 
 type udocProductProgram struct {
-	rules          map[ast.ASTHandle]*udocProductRulePlan
-	sorts          map[ast.ASTHandle][]ast.ASTHandle
-	finiteSorts    map[ast.ASTHandle][]ast.ASTHandle
-	docs, finite   map[ast.ASTHandle]bool
-	order          []ast.ASTHandle
-	groundFacts    []*udocProductGroundRule
-	groundProducts map[ast.ASTHandle]int  // Mixed ground input -> its BV column.
-	productSeeds   map[ast.ASTHandle]bool // Similarity auxiliaries inheriting product kind.
+	rules           map[ast.ASTHandle]*udocProductRulePlan
+	sorts           map[ast.ASTHandle][]ast.ASTHandle
+	finiteSorts     map[ast.ASTHandle][]ast.ASTHandle
+	docs, finite    map[ast.ASTHandle]bool
+	order           []ast.ASTHandle
+	groundFacts     []*udocProductGroundRule
+	groundProducts  map[ast.ASTHandle]int  // Mixed ground input -> its BV column.
+	productSeeds    map[ast.ASTHandle]bool // Similarity auxiliaries inheriting product kind.
+	docProductTails map[ast.ASTHandle]int
 }
 
 func (p *udocProductProgram) productHead(d ast.ASTHandle) bool {
@@ -266,7 +267,7 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 		}
 		definitions[head]++
 	}
-	p := &udocProductProgram{rules: make(map[ast.ASTHandle]*udocProductRulePlan), sorts: make(map[ast.ASTHandle][]ast.ASTHandle), finiteSorts: make(map[ast.ASTHandle][]ast.ASTHandle), docs: make(map[ast.ASTHandle]bool), finite: make(map[ast.ASTHandle]bool), groundProducts: make(map[ast.ASTHandle]int), productSeeds: make(map[ast.ASTHandle]bool)}
+	p := &udocProductProgram{rules: make(map[ast.ASTHandle]*udocProductRulePlan), sorts: make(map[ast.ASTHandle][]ast.ASTHandle), finiteSorts: make(map[ast.ASTHandle][]ast.ASTHandle), docs: make(map[ast.ASTHandle]bool), finite: make(map[ast.ASTHandle]bool), groundProducts: make(map[ast.ASTHandle]int), productSeeds: make(map[ast.ASTHandle]bool), docProductTails: make(map[ast.ASTHandle]int)}
 	for declaration := range extraProducts {
 		p.productSeeds[declaration] = true
 	}
@@ -446,6 +447,33 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 			di, ti = 1, 0
 		}
 		doc, finite := decls[di], decls[ti]
+		productInput := e.predicates[finite]
+		productCandidate := definitions[finite] != 0 || p.productHead(finite)
+		if productCandidate && productInput != nil && productInput.external == nil && !productInput.explicitFiniteRepresentation && len(productInput.requestedRepresentations) == 0 && e.relations.CanHandleTableSorts(productInput.sorts) {
+			hasBoolean, hasOtherSort := false, false
+			for _, sort := range productInput.sorts {
+				hasBoolean = hasBoolean || sort == boolean
+				hasOtherSort = hasOtherSort || sort != boolean
+			}
+			if hasBoolean && hasOtherSort {
+				for _, sort := range state.sorts {
+					if sort == boolean {
+						continue
+					}
+					bitVector, err := e.manager.IsBitVectorSort(sort)
+					if err != nil {
+						return nil, err
+					}
+					if !bitVector {
+						return nil, ErrUDocDatalogFragment
+					}
+				}
+				p.docs[doc] = true
+				p.docProductTails[head] = di
+				pairHeads[head] = true
+				continue
+			}
+		}
 		input := e.predicates[finite]
 		if definitions[doc] != 0 || definitions[finite] != 0 || input == nil || input.external != nil || !e.relations.CanHandleTableSorts(input.sorts) {
 			return nil, ErrUDocDatalogFragment
@@ -594,7 +622,11 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 				if definitions[head] != 1 || membershipIndex < 0 && (positive != 2 || total != 2) || membershipIndex >= 0 && (positive != 3 || total != 3 || membershipIndex != 2) {
 					return nil, ErrUDocDatalogFragment
 				}
-				plan, err := e.planUDocProductPair(p, rule)
+				docTail := -1
+				if value, found := p.docProductTails[head]; found {
+					docTail = value
+				}
+				plan, err := e.planUDocProductPair(p, rule, docTail)
 				if err != nil {
 					return nil, err
 				}

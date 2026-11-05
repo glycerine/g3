@@ -1,7 +1,8 @@
 package fp
 
 // Source: dl_compiler.cpp joins two positive tail registers before head
-// assembly. Product join matches their actual DOC and table components.
+// assembly. Product join matches their actual DOC and table components, or
+// pairs one raw DOC input with one product input.
 
 import (
 	"fmt"
@@ -14,9 +15,10 @@ import (
 type udocProductPairPlan struct {
 	left, right               ast.ASTHandle
 	leftColumns, rightColumns []uint32
+	docTail                   int
 }
 
-func (e *PropositionalEngine) planUDocProductPair(program *udocProductProgram, rule *base.Rule) (*udocProductRulePlan, error) {
+func (e *PropositionalEngine) planUDocProductPair(program *udocProductProgram, rule *base.Rule, docTail int) (*udocProductRulePlan, error) {
 	var declarations [2]ast.ASTHandle
 	var arguments [2][]ast.ASTHandle
 	ready := true
@@ -32,7 +34,11 @@ func (e *PropositionalEngine) planUDocProductPair(program *udocProductProgram, r
 		if err != nil {
 			return nil, err
 		}
-		if !program.productHead(declarations[i]) {
+		if i == docTail {
+			if !program.docs[declarations[i]] {
+				return nil, ErrUDocDatalogFragment
+			}
+		} else if !program.productHead(declarations[i]) {
 			if program.rules[declarations[i]] != nil || program.docs[declarations[i]] || program.finite[declarations[i]] {
 				return nil, ErrUDocDatalogFragment
 			}
@@ -75,7 +81,7 @@ func (e *PropositionalEngine) planUDocProductPair(program *udocProductProgram, r
 	if err != nil {
 		return nil, err
 	}
-	pair := &udocProductPairPlan{left: declarations[0], right: declarations[1]}
+	pair := &udocProductPairPlan{left: declarations[0], right: declarations[1], docTail: docTail}
 	for i, left := range arguments[0] {
 		kind, err := e.manager.GetKind(left)
 		if err != nil {
@@ -117,7 +123,39 @@ func (p *udocProductContext) productPairInput(declaration ast.ASTHandle, finite 
 	return nil, true, nil
 }
 
-func (p *udocProductContext) evaluateProductPair(pair *udocProductPairPlan, finite map[ast.ASTHandle]rel.FiniteTable) (*rel.UDocTableProduct, error) {
+func (p *udocProductContext) evaluateProductPair(pair *udocProductPairPlan, docs map[ast.ASTHandle]*rel.TypedUDocRelation, finite map[ast.ASTHandle]rel.FiniteTable) (*rel.UDocTableProduct, error) {
+	if pair.docTail == 0 {
+		document := docs[pair.left]
+		product := p.result[pair.right]
+		if document == nil || product == nil {
+			return nil, nil
+		}
+		empty, err := document.Empty()
+		if err != nil || empty {
+			return nil, err
+		}
+		empty, err = product.Empty()
+		if err != nil || empty {
+			return nil, err
+		}
+		return rel.JoinUDocProduct(document, product, pair.leftColumns, pair.rightColumns)
+	}
+	if pair.docTail == 1 {
+		product := p.result[pair.left]
+		document := docs[pair.right]
+		if document == nil || product == nil {
+			return nil, nil
+		}
+		empty, err := document.Empty()
+		if err != nil || empty {
+			return nil, err
+		}
+		empty, err = product.Empty()
+		if err != nil || empty {
+			return nil, err
+		}
+		return rel.JoinProductUDoc(product, document, pair.leftColumns, pair.rightColumns)
+	}
 	left, leftEmpty, err := p.productPairInput(pair.left, finite)
 	if err != nil {
 		return nil, err
