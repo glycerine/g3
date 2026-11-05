@@ -1,15 +1,16 @@
 package shell
 
 import (
-	"errors"
+	"io"
 	"os"
 )
 
-func (f *WCNFFrontend) RunFile(path string) (resultErr error) {
-	file, e := os.Open(path)
-	if e != nil {
-		return e
-	}
-	defer func() { resultErr = errors.Join(resultErr, file.Close()) }()
-	return f.Run(file)
+func (f *WCNFFrontend) RunFile(path string) error {
+	return f.run(func() (io.Reader, io.Closer, error) {
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, nil, &OptimizationInputOpenError{Filename: path, Cause: err}
+		}
+		return file, file, nil
+	})
 }

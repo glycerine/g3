@@ -3,6 +3,7 @@ package shell
 // Source: src/shell/main.cpp:291-367 frontend composition and dispatch.
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/glycerine/g3/pkg/cmd_context"
@@ -87,8 +88,12 @@ func (r *Runner) Run() (result error) {
 	if err = params.UpdateProcessEnvParams(globals.Current); err != nil {
 		return err
 	}
-	if err := r.selectInput(); err != nil {
-		return err
+	_, hasFile := r.command.Input.Selected()
+	if hasFile && r.command.StandardInput {
+		return fmt.Errorf("using standard input to read formula")
+	}
+	if !hasFile && !r.command.StandardInput {
+		return fmt.Errorf("input file was not specified")
 	}
 	var kind InputKind
 	if r.memoryPolicy != nil {
@@ -100,6 +105,9 @@ func (r *Runner) Run() (result error) {
 		return err
 	}
 	r.result.Kind = kind
+	if err := r.selectInput(); err != nil {
+		return err
+	}
 	if err = r.context.RefreshGlobalParameters(); err != nil {
 		return err
 	}

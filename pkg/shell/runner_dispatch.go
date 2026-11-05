@@ -36,15 +36,21 @@ func (r *Runner) dispatch(kind InputKind) (result error) {
 		defer func() { result = errors.Join(result, frontend.Close()) }()
 		return frontend.Run()
 	case InputWCNF:
-		frontend, err := NewWCNFFrontend(r.context, r.output, WCNFFrontendOptions{DisplayStatistics: r.command.DisplayStatistics})
+		frontend, err := NewWCNFFrontend(r.context, r.output, WCNFFrontendOptions{DisplayStatistics: r.command.DisplayStatistics, Timer: r.command.Timer, Diagnostics: r.diagnostics})
 		if err != nil {
 			return err
 		}
+		if _, selected := r.command.Input.Selected(); selected {
+			return frontend.RunFile(r.result.InputName)
+		}
 		return frontend.Run(r.input)
 	case InputOPB:
-		frontend, err := NewOPBFrontend(r.context, r.output, OPBFrontendOptions{DisplayStatistics: r.command.DisplayStatistics})
+		frontend, err := NewOPBFrontend(r.context, r.output, OPBFrontendOptions{DisplayStatistics: r.command.DisplayStatistics, Timer: r.command.Timer, Diagnostics: r.diagnostics})
 		if err != nil {
 			return err
+		}
+		if _, selected := r.command.Input.Selected(); selected {
+			return frontend.RunFile(r.result.InputName)
 		}
 		return frontend.Run(r.input)
 	case InputMPS:

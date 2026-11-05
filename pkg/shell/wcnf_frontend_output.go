@@ -52,3 +52,18 @@ func (f *WCNFFrontend) WriteResult() error {
 	}
 	return nil
 }
+
+func (f *WCNFFrontend) WriteProgress() error {
+	if f == nil || !f.finished || f.output == nil {
+		return ErrWCNFFrontend
+	}
+	if !f.initialized {
+		return nil
+	}
+	if f.options.DisplayStatistics {
+		if err := f.context.WriteStatisticsWithTotalTime(f.output, f.elapsed.Seconds()); err != nil {
+			return err
+		}
+	}
+	return f.context.WriteOptimizationFrontendValues(f.output)
+}

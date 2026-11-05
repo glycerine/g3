@@ -19,12 +19,15 @@ func (r *Runner) selectInput() error {
 		r.result.InputName = "stdin"
 		return nil
 	}
+	r.result.InputName = name
+	if r.result.Kind == InputOPB || r.result.Kind == InputWCNF {
+		return nil
+	}
 	file, err := os.Open(name)
 	if err != nil {
 		return fmt.Errorf("failed to open file '%s': %w", name, err)
 	}
 	r.input = file
 	r.inputClose = file
-	r.result.InputName = name
 	return nil
 }

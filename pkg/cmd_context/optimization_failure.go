@@ -21,6 +21,7 @@ func (c *Context) handleOptimizationFailure(cause error) (lbool.LBool, error) {
 	}
 	var source z3exception.Z3Exception
 	if errors.As(cause, &source) {
+		c.optimizationException = source.Message()
 		return c.publishOptimizationUnknown(source.Message())
 	}
 	return lbool.Undef, cause

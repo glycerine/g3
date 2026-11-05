@@ -48,3 +48,18 @@ func (f *OPBFrontend) WriteResult() error {
 	}
 	return nil
 }
+
+func (f *OPBFrontend) WriteProgress() error {
+	if f == nil || !f.finished || f.output == nil {
+		return ErrOPBFrontend
+	}
+	if !f.initialized {
+		return nil
+	}
+	if f.options.DisplayStatistics {
+		if err := f.context.WriteStatisticsWithTotalTime(f.output, f.elapsed.Seconds()); err != nil {
+			return err
+		}
+	}
+	return f.context.WriteOptimizationFrontendValues(f.output)
+}

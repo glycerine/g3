@@ -18,6 +18,16 @@ func (c *Context) OptimizationReasonUnknown() (string, error) {
 	return c.ReasonUnknown()
 }
 
+// OptimizationException returns an exception caught by the optimizer shell
+// boundary. Solver unknown results without a caught exception return found=false.
+func (c *Context) OptimizationException() (message string, found bool, err error) {
+	if err = c.valid(); err != nil {
+		return "", false, err
+	}
+	message = c.optimizationException
+	return message, message != "", nil
+}
+
 func (c *Context) writeOptimizationModelValidation(out io.Writer, expressions []ast.ASTHandle) (violations uint32, resultErr error) {
 	if err := c.valid(); err != nil {
 		return 0, err

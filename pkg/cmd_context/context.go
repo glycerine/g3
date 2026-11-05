@@ -113,6 +113,7 @@ type Context struct {
 	optimizationBoxValues            []opt.ObjectiveValue
 	optimizationBoxLabels            []usymbol.Symbol
 	optimizationBoxReasonUnknown     string
+	optimizationException            string
 	optimizationParetoActive         bool
 	optimizationParetoBackend        *smtcore.SMTSolver
 	optimizationParetoPurification   *paretoPurification

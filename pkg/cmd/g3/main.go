@@ -87,7 +87,7 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 	if kind != shell.InputSMT2 && kind != shell.InputDIMACS && kind != shell.InputOPB && kind != shell.InputWCNF && kind != shell.InputZ3Log && kind != shell.InputMPS {
 		return fmt.Errorf("selected input frontend is not ported yet")
 	}
-	if selected {
+	if selected && kind != shell.InputOPB && kind != shell.InputWCNF {
 		file, err := os.Open(filename)
 		if err != nil {
 			if kind == shell.InputZ3Log {
@@ -148,16 +148,22 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		return api.ReplayZ3LogStream(replayer, output, diagnostics, process, nil)
 	}
 	if kind == shell.InputOPB {
-		frontend, err := shell.NewOPBFrontend(context, output, shell.OPBFrontendOptions{DisplayStatistics: command.DisplayStatistics})
+		frontend, err := shell.NewOPBFrontend(context, output, shell.OPBFrontendOptions{DisplayStatistics: command.DisplayStatistics, Timer: command.Timer, Diagnostics: diagnostics})
 		if err != nil {
 			return err
+		}
+		if selected {
+			return frontend.RunFile(filename)
 		}
 		return frontend.Run(input)
 	}
 	if kind == shell.InputWCNF {
-		frontend, err := shell.NewWCNFFrontend(context, output, shell.WCNFFrontendOptions{DisplayStatistics: command.DisplayStatistics})
+		frontend, err := shell.NewWCNFFrontend(context, output, shell.WCNFFrontendOptions{DisplayStatistics: command.DisplayStatistics, Timer: command.Timer, Diagnostics: diagnostics})
 		if err != nil {
 			return err
+		}
+		if selected {
+			return frontend.RunFile(filename)
 		}
 		return frontend.Run(input)
 	}
@@ -215,6 +221,11 @@ func main() {
 		var openError *z3LogOpenError
 		if errors.As(err, &openError) {
 			fmt.Fprintln(os.Stderr, openError.Error())
+			os.Exit(int(z3exception.ErrorOpenFile))
+		}
+		var optimizationFileError *shell.OptimizationInputOpenError
+		if errors.As(err, &optimizationFileError) {
+			fmt.Fprintln(os.Stderr, optimizationFileError.Error())
 			os.Exit(int(z3exception.ErrorOpenFile))
 		}
 		var inputOpenError *shellInputOpenError

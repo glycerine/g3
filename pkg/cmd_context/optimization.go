@@ -580,6 +580,7 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 }
 
 func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) (status lbool.LBool, resultErr error) {
+	c.optimizationException = ""
 	execution, err := c.beginOptimizationExecution()
 	if err != nil {
 		return c.handleOptimizationFailure(err)
