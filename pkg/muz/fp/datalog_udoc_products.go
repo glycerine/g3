@@ -56,35 +56,35 @@ func similarityMembershipTail(m *ast.ASTManager, rule *base.Rule, positive int, 
 	return positive - 1, tail, nil
 }
 
-func productDocMembership(m *ast.ASTManager, arguments []ast.ASTHandle, tail ast.ASTHandle, declaration ast.ASTHandle) (udocProductMembership, error) {
+func productDocMembership(m *ast.ASTManager, arguments []ast.ASTHandle, tail ast.ASTHandle, declaration ast.ASTHandle) (udocProductMembership, []ast.ASTHandle, error) {
 	arity, err := m.GetNumArgs(tail)
 	if err != nil {
-		return udocProductMembership{}, err
+		return udocProductMembership{}, nil, err
 	}
-	membership := udocProductMembership{declaration: declaration, productColumns: make([]uint32, arity), docColumns: make([]uint32, arity)}
+	if arity != 1 {
+		return udocProductMembership{}, nil, ErrUDocDatalogFragment
+	}
+	membership := udocProductMembership{declaration: declaration, productColumns: make([]uint32, 0, arity), docColumns: make([]uint32, 0, arity)}
+	auxiliaryArguments := make([]ast.ASTHandle, arity)
 	for column := uint32(0); column < arity; column++ {
 		argument, err := m.GetArg(tail, column)
 		if err != nil {
-			return udocProductMembership{}, err
+			return udocProductMembership{}, nil, err
 		}
 		kind, err := m.GetKind(argument)
 		if err != nil || kind != ast.ASTVar {
-			return udocProductMembership{}, errors.Join(err, ErrUDocDatalogFragment)
+			return udocProductMembership{}, nil, errors.Join(err, ErrUDocDatalogFragment)
 		}
-		found := false
+		auxiliaryArguments[column] = argument
 		for productColumn, candidate := range arguments {
 			if candidate == argument {
-				membership.productColumns[column] = uint32(productColumn)
-				membership.docColumns[column] = column
-				found = true
+				membership.productColumns = append(membership.productColumns, uint32(productColumn))
+				membership.docColumns = append(membership.docColumns, column)
 				break
 			}
 		}
-		if !found {
-			return udocProductMembership{}, ErrUDocDatalogFragment
-		}
 	}
-	return membership, nil
+	return membership, auxiliaryArguments, nil
 }
 
 type udocProductProgram struct {
@@ -483,19 +483,20 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 		if err != nil {
 			return nil, err
 		}
-		if err = planUDocProductAssembly(e.manager, plan, arguments, h, false); err != nil {
-			return nil, err
-		}
 		if membershipIndex >= 0 {
 			declaration, err := e.manager.GetDecl(membershipTail)
 			if err != nil {
 				return nil, err
 			}
-			membership, err := productDocMembership(e.manager, arguments, membershipTail, declaration)
+			membership, auxiliaryArguments, err := productDocMembership(e.manager, arguments, membershipTail, declaration)
 			if err != nil {
 				return nil, err
 			}
 			plan.docMemberships = append(plan.docMemberships, membership)
+			arguments = append(arguments, auxiliaryArguments...)
+		}
+		if err = planUDocProductAssembly(e.manager, plan, arguments, h, false); err != nil {
+			return nil, err
 		}
 		p.rules[head], p.sorts[head], p.docs[doc] = plan, append([]ast.ASTHandle(nil), state.sorts...), true
 		if !mixedGround {

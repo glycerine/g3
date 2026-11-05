@@ -81,7 +81,7 @@ func (p *udocProductContext) evaluate(plan *udocProductRulePlan, docs map[ast.AS
 		if document == nil {
 			return ErrUDocDatalogFragment
 		}
-		next, cause := working.JoinUDocFilter(document, membership.productColumns, membership.docColumns)
+		next, cause := rel.JoinProductUDoc(working, document, membership.productColumns, membership.docColumns)
 		if next != nil {
 			a.values = append(a.values, next)
 		}
