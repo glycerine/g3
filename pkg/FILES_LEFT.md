@@ -254,7 +254,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/obj_hashtable.h` — Live object-set/map instantiations use concrete owner-local Go maps keyed by their actual pointer-identity handles, with cleanup handled by each owner; the generic C++ bucket and sentinel-pointer representation has no shared Go consumer and is not duplicated as a universal adapter. Existing AST trail/context and fixedpoint transform checks pass; no tests were added.
 - [x] `src/util/obj_pair_hashtable.h` — Live pair-set/map instantiations use concrete Go key structs containing the source object handles, preserving pointer-identity pair equality; cleanup stays with each consuming owner and no generic adapter is needed. Existing pattern inference, UFBV matching, and fixedpoint join/MagicSets checks pass; no tests were added.
 - [x] `src/util/obj_ref.h` — Live reference instantiations use concrete AST, S-expression, and rule owners with explicit clone/move/reset/swap/steal and cleanup operations; the template itself has no Go runtime consumer requiring a universal smart-pointer wrapper. Existing AST and S-expression reference lifecycle and interrupted-decrement checks pass; no tests were added.
-- [ ] `src/util/params.cpp`
+- [x] `src/util/params.cpp` — Parameter-name normalization, descriptors and module lookup/display, typed parameter storage and copy-on-write references, validation, global/module registration, and environment parameter routes map to concrete Go owners in `pkg/util/params`; the full package suite passes with `-short` to include long checks. No tests were added.
 - [ ] `src/util/params.h`
 - [ ] `src/util/plugin_manager.h`
 - [ ] `src/util/rational.cpp`
