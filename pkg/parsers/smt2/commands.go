@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"os"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 type commandParser struct {
 	context            *cmd_context.Context
 	scanner            *Scanner
+	filename           string
 	token              Token
 	parenDepth         int
 	cacheEnd           int
@@ -76,6 +78,10 @@ func parseCommands(context *cmd_context.Context, input io.Reader, out io.Writer,
 }
 
 func parseCommandsWithOutput(context *cmd_context.Context, input io.Reader, out io.Writer, ignoreChecks bool, collector *fixedpointQueryCollector, shell bool) (result error) {
+	return parseCommandsWithOptions(context, input, out, ignoreChecks, collector, shell, "", shell)
+}
+
+func parseCommandsWithOptions(context *cmd_context.Context, input io.Reader, out io.Writer, ignoreChecks bool, collector *fixedpointQueryCollector, shell bool, filename string, reportErrors bool) (result error) {
 	var err error
 	if shell {
 		err = context.SetShellRegularOutput(out)
@@ -108,7 +114,7 @@ func parseCommandsWithOutput(context *cmd_context.Context, input io.Reader, out 
 	if err != nil {
 		return err
 	}
-	p := &commandParser{context: context, scanner: scanner, out: context.RegularOutput(), ignoreChecks: ignoreChecks, queryCollector: collector}
+	p := &commandParser{context: context, scanner: scanner, filename: filename, out: context.RegularOutput(), ignoreChecks: ignoreChecks, queryCollector: collector}
 	p.softWeight.SetInt64(1)
 	defer func() {
 		result = errors.Join(result, p.clearCommand())
@@ -123,7 +129,7 @@ func parseCommandsWithOutput(context *cmd_context.Context, input io.Reader, out 
 	if err = p.advance(); err != nil {
 		firstParseError = parserScannerError(err, scanner)
 		report := func(cause error) error { return nil }
-		if shell {
+		if reportErrors {
 			report = func(cause error) error { return reportParserError(p, cause) }
 		}
 		if err = report(firstParseError); err != nil {
@@ -141,7 +147,7 @@ func parseCommandsWithOutput(context *cmd_context.Context, input io.Reader, out 
 				firstParseError = parseErr
 			}
 			report := func(cause error) error { return nil }
-			if shell {
+			if reportErrors {
 				report = func(cause error) error { return reportParserError(p, cause) }
 			}
 			if err = report(parseErr); err != nil {
@@ -170,14 +176,14 @@ func parseCommandsWithOutput(context *cmd_context.Context, input io.Reader, out 
 			return err
 		}
 		if exit {
-			if firstParseError != nil && shell {
+			if firstParseError != nil && reportErrors {
 				return &ReportedParseError{cause: firstParseError}
 			}
 			return firstParseError
 		}
 	}
 	if firstParseError != nil {
-		if shell {
+		if reportErrors {
 			return &ReportedParseError{cause: firstParseError}
 		}
 		return firstParseError
@@ -215,7 +221,11 @@ func reportParserError(p *commandParser, err error) error {
 	if cause != nil {
 		return cause
 	}
-	_, cause = fmt.Fprintf(p.out, "(error \"line %d column %d: %s\")\n", parseError.Line, parseError.Column, message)
+	if p.filename != "" {
+		_, cause = fmt.Fprintf(p.out, "(error \"%s: line %d column %d: %s\")\n", p.filename, parseError.Line, parseError.Column, message)
+	} else {
+		_, cause = fmt.Fprintf(p.out, "(error \"line %d column %d: %s\")\n", parseError.Line, parseError.Column, message)
+	}
 	return cause
 }
 
@@ -1189,6 +1199,30 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 		success = false
+	case "include":
+		if p.token != StringToken {
+			return false, fmt.Errorf("invalid command argument, string expected")
+		}
+		filename := p.scanner.String()
+		if err = p.advance(); err != nil {
+			return false, err
+		}
+		if err = p.requireEnd(); err != nil {
+			return false, err
+		}
+		file, openErr := os.Open(filename)
+		if openErr != nil {
+			return false, fmt.Errorf("failed to open file '%s'", filename)
+		}
+		parseErr := parseCommandsWithOptions(p.context, file, p.out, false, nil, false, filename, true)
+		closeErr := file.Close()
+		var reported *ReportedParseError
+		if errors.As(parseErr, &reported) {
+			parseErr = nil
+		}
+		if parseErr != nil || closeErr != nil {
+			return false, errors.Join(parseErr, closeErr)
+		}
 	case "get-interpolant", "compute-interpolant":
 		var targets []ast.ASTHandle
 		for p.token != RightParenToken {

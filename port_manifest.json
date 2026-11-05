@@ -143820,24 +143820,24 @@
       "path": "src/smt/smt2_extra_cmds.cpp",
       "component": "smt",
       "role": "production",
-      "status": "reference_only",
-      "go_targets": [],
+      "status": "ported",
+      "go_targets": ["pkg/parsers/smt2/commands.go"],
       "tests": [],
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
           "name": "shell-only SMT-LIB include command registration, string argument lifecycle and nested file parsing",
-          "status": "reference_only",
-          "go_target": null,
+          "status": "ported",
+          "go_target": "pkg/parsers/smt2/commands.go",
           "tests": []
         }
       ],
       "ownership": [
-        "The native command borrows its parser context and temporarily borrows the parser-owned filename string."
+        "Go opens the requested file for the nested parse and closes it after parsing; the command borrows its existing context and output transport."
       ],
       "deviations": [
-        "The only production consumer is the unretained native src/shell/smtlib_frontend.cpp command registry. The retained Go SMT solver and parser helpers do not expose a command-context frontend, so this shell extension is outside the retained source graph."
+        "The native command-object registration is replaced by a direct built-in parser branch; no general Go command registry is introduced."
       ]
     },
     {
