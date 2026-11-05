@@ -16,10 +16,18 @@ func (r *Runner) dispatch(kind InputKind) (result error) {
 	case InputDatalog:
 		return RunDatalogFrontend(r.context, r.result.InputName, r.output)
 	case InputSMT2:
-		frontend, err := NewSMTLIBFrontend(SMTLIBFrontendConfig{
-			Context: r.context, Input: r.input, Output: r.output, Diagnostics: r.diagnostics,
-			DisplayStatistics: r.command.DisplayStatistics,
-		})
+		var frontend *SMTLIBFrontend
+		if _, selected := r.command.Input.Selected(); selected {
+			frontend, err = OpenSMTLIBFrontend(r.result.InputName, SMTLIBFileFrontendConfig{
+				Context: r.context, Output: r.output, Diagnostics: r.diagnostics,
+				DisplayStatistics: r.command.DisplayStatistics, Timer: r.command.Timer,
+			})
+		} else {
+			frontend, err = NewSMTLIBFrontend(SMTLIBFrontendConfig{
+				Context: r.context, Input: r.input, Output: r.output, Diagnostics: r.diagnostics,
+				DisplayStatistics: r.command.DisplayStatistics, Timer: r.command.Timer,
+			})
+		}
 		if err != nil {
 			return err
 		}

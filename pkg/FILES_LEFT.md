@@ -191,9 +191,9 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/shell/install_tactic.cpp` — This CMake-generated unit scans dependency headers for all `ADD_TACTIC`/`ADD_PROBE` registrations; the Go command-context/API registries and concrete factories cover the 106 tactics and 42 probes in source order, with registry and probe-factory checks passing.
 - [x] `src/shell/main.cpp` — Command-line parsing, environment parameter refresh, memory policy setup, MPS dispatch, source diagnostics, and source exit-code mapping are wired through the Go shell and `g3` entry point; focused shell, context, and CLI suites pass.
 - [x] `src/shell/opt_frontend.cpp` — OPB/WCNF parsing, optimization exceptions, status/statistics/bound output, file-open diagnostics, timeout progress, and first/second interrupt handling map to the Go optimization frontends; focused shell, optimizer, context, and CLI suites pass.
-- [ ] `src/shell/opt_frontend.h`
-- [ ] `src/shell/smtlib_frontend.cpp`
-- [ ] `src/shell/smtlib_frontend.h`
+- [x] `src/shell/opt_frontend.h` — The `parse_opt(file_name, is_wcnf)` entry point is represented by typed OPB/WCNF frontend constructors with stream and file execution methods, dispatched from both `Runner` and `g3`.
+- [x] `src/shell/smtlib_frontend.cpp` — SMT-LIB command parsing, elapsed-time statistics, timeout cancellation/statistics, SIGINT cancellation/statistics/re-raise, and frontend-owned file opening with source diagnostic/exit status map to `SMTLIBFrontend` and both shell entry paths; focused shell/context/CLI tests pass in normal and checked/debug/trace modes.
+- [x] `src/shell/smtlib_frontend.h` — The live `read_smtlib2_commands` interface maps to stream and file SMT-LIB frontend constructors; the separately declared `read_smtlib_file` has no implementation or retained caller in the source tree.
 - [x] `src/shell/z3_log_frontend.cpp` — CLI input selection and replay reporting are implemented in `pkg/cmd/g3` and `pkg/api`; generated replay commands are separate source units.
 - [x] `src/shell/z3_log_frontend.h` — Not applicable: this header only declares the C++ replay entry point, which is implemented by the Go frontend.
 - [x] `src/smt/smt2_extra_cmds.cpp` — The shell-only `include` command opens and parses the named SMT-LIB file in the existing Go command context, recovers and reports nested parser errors with the source filename, then closes it; native command-object registration is replaced by a direct parser branch.

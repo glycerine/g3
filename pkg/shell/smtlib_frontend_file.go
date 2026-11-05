@@ -16,8 +16,21 @@ type SMTLIBFileFrontendConfig struct {
 	Output            io.Writer
 	Diagnostics       io.Writer
 	DisplayStatistics bool
+	Timer             *TimeoutService
 	Clock             func() (uint64, error)
 }
+
+// SMTLIBFileOpenError carries the filename needed for the native shell's
+// `(error "failed to open file '…'")` diagnostic and ERR_OPEN_FILE status.
+type SMTLIBFileOpenError struct {
+	Name  string
+	Cause error
+}
+
+func (e *SMTLIBFileOpenError) Error() string {
+	return fmt.Sprintf("failed to open file '%s': %v", e.Name, e.Cause)
+}
+func (e *SMTLIBFileOpenError) Unwrap() error { return e.Cause }
 
 // OpenSMTLIBFrontend opens name and transfers the file lifetime to the
 // returned frontend. Failed construction closes the file before returning.
@@ -27,7 +40,7 @@ func OpenSMTLIBFrontend(name string, c SMTLIBFileFrontendConfig) (f *SMTLIBFront
 	}
 	file, err := os.Open(name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open file '%s': %w", name, err)
+		return nil, &SMTLIBFileOpenError{Name: name, Cause: err}
 	}
 	defer func() {
 		if result != nil {
@@ -40,6 +53,7 @@ func OpenSMTLIBFrontend(name string, c SMTLIBFileFrontendConfig) (f *SMTLIBFront
 		Output:            c.Output,
 		Diagnostics:       c.Diagnostics,
 		DisplayStatistics: c.DisplayStatistics,
+		Timer:             c.Timer,
 		Clock:             c.Clock,
 	})
 	if err != nil {

@@ -14,7 +14,6 @@ import (
 	"github.com/glycerine/g3/pkg/parsers/smt2"
 	"github.com/glycerine/g3/pkg/shell"
 	uparams "github.com/glycerine/g3/pkg/util/params"
-	"github.com/glycerine/g3/pkg/util/stopwatch"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
@@ -24,7 +23,12 @@ func run(input io.Reader, output io.Writer) (result error) {
 		return err
 	}
 	defer func() { result = errors.Join(result, context.Close()) }()
-	return smt2.ParseShellCommands(context, input, output)
+	frontend, err := shell.NewSMTLIBFrontend(shell.SMTLIBFrontendConfig{Context: context, Input: input, Output: output})
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, frontend.Close()) }()
+	return frontend.Run()
 }
 
 func runArguments(args []string, input io.Reader, output io.Writer) error {
@@ -87,7 +91,7 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 	if kind != shell.InputSMT2 && kind != shell.InputDIMACS && kind != shell.InputOPB && kind != shell.InputWCNF && kind != shell.InputZ3Log && kind != shell.InputMPS {
 		return fmt.Errorf("selected input frontend is not ported yet")
 	}
-	if selected && kind != shell.InputOPB && kind != shell.InputWCNF {
+	if selected && kind != shell.InputSMT2 && kind != shell.InputOPB && kind != shell.InputWCNF {
 		file, err := os.Open(filename)
 		if err != nil {
 			if kind == shell.InputZ3Log {
@@ -100,6 +104,25 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 	}
 	if err = context.RefreshGlobalParameters(); err != nil {
 		return err
+	}
+	if kind == shell.InputSMT2 {
+		var frontend *shell.SMTLIBFrontend
+		if selected {
+			frontend, err = shell.OpenSMTLIBFrontend(filename, shell.SMTLIBFileFrontendConfig{
+				Context: context, Output: output, Diagnostics: diagnostics,
+				DisplayStatistics: command.DisplayStatistics, Timer: command.Timer,
+			})
+		} else {
+			frontend, err = shell.NewSMTLIBFrontend(shell.SMTLIBFrontendConfig{
+				Context: context, Input: input, Output: output, Diagnostics: diagnostics,
+				DisplayStatistics: command.DisplayStatistics, Timer: command.Timer,
+			})
+		}
+		if err != nil {
+			return err
+		}
+		defer func() { result = errors.Join(result, frontend.Close()) }()
+		return frontend.Run()
 	}
 	if kind == shell.InputZ3Log {
 		if diagnostics == nil {
@@ -183,28 +206,7 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		defer func() { result = errors.Join(result, frontend.Close()) }()
 		return frontend.Run()
 	}
-	if err = context.SetShellDiagnosticOutput(diagnostics); err != nil {
-		return err
-	}
-	total := stopwatch.New(nil)
-	if command.DisplayStatistics {
-		if err = total.Start(); err != nil {
-			return err
-		}
-	}
-	parseErr := smt2.ParseShellCommands(context, input, output)
-	if command.DisplayStatistics {
-		stopErr := total.Stop()
-		seconds, secondsErr := total.Seconds()
-		if stopErr == nil && secondsErr == nil {
-			err = context.SetStringOption("regular-output-channel", "stdout")
-			if err == nil {
-				err = context.WriteStatisticsWithTotalTime(output, seconds)
-			}
-		}
-		err = errors.Join(stopErr, secondsErr, err)
-	}
-	return errors.Join(parseErr, err)
+	return fmt.Errorf("selected input frontend %s is not ported yet", shell.InputKindName(kind))
 }
 
 func main() {
@@ -226,6 +228,11 @@ func main() {
 		var optimizationFileError *shell.OptimizationInputOpenError
 		if errors.As(err, &optimizationFileError) {
 			fmt.Fprintln(os.Stderr, optimizationFileError.Error())
+			os.Exit(int(z3exception.ErrorOpenFile))
+		}
+		var smtlibFileError *shell.SMTLIBFileOpenError
+		if errors.As(err, &smtlibFileError) {
+			fmt.Fprintf(os.Stderr, "(error \"failed to open file '%s'\")\n", smtlibFileError.Name)
 			os.Exit(int(z3exception.ErrorOpenFile))
 		}
 		var inputOpenError *shellInputOpenError

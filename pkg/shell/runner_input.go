@@ -20,7 +20,7 @@ func (r *Runner) selectInput() error {
 		return nil
 	}
 	r.result.InputName = name
-	if r.result.Kind == InputOPB || r.result.Kind == InputWCNF {
+	if r.result.Kind == InputSMT2 || r.result.Kind == InputOPB || r.result.Kind == InputWCNF {
 		return nil
 	}
 	file, err := os.Open(name)
