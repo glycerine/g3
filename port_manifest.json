@@ -220061,7 +220061,7 @@
       "path": "src/test/rcf.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/math/realclosure/rcf_cpp_driver_test.go"],
       "tests": ["TestRealClosureSourceMatrixExamples"],
       "conditionals": [
@@ -220100,11 +220100,21 @@
           "text": "ENSURE(r[i] == ex_r[i]);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["The source integer solves, tensor column selection and independent-row examples are covered. The separately printed matrix permutation is used only by this source driver; real-closure arithmetic and denominator-cleaning examples remain open."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name": "tst_solve successful and inconsistent integer systems", "status": "ported", "go_target": "pkg/math/realclosure/rcf_cpp_driver_test.go", "tests": ["TestRealClosureSourceMatrixExamples"]},
+        {"name": "tst_lin_indep three source-priority matrix examples", "status": "ported", "go_target": "pkg/math/realclosure/rcf_cpp_driver_test.go", "tests": ["TestRealClosureSourceMatrixExamples"]},
+        {"name": "tst2 tensor product and selected-column diagnostic example", "status": "ported", "go_target": "pkg/math/realclosure/rcf_cpp_driver_test.go", "tests": ["TestRealClosureSourceMatrixExamples"]},
+        {"name": "tst1/tst_denominators RCF display demonstrations and tst2 matrix permutation display", "status": "reference_only", "tests": [], "reason": "These active routines only print values and matrices and contain no correctness assertions; their underlying RCF arithmetic and denominator-cleaning behavior is covered by existing production package tests. The matrix permutation has no retained Go source consumer."},
+        {"name": "tst_rcf trace enablement and C++ stream output", "status": "reference_only", "tests": [], "reason": "Trace/display setup is test harness output; only the explicit ENSURE behavior is tracked as active source assertions."}
+      ],
+      "ownership": ["The source matrix helpers use local matrices and caller-owned integer buffers. The Go fixture uses local signMatrix values and returns copied integer solutions and selected-row indices; the existing source-driver test owns no persistent values."],
+      "deviations": [
+        "The two source solve outcomes and all three selected-row results are covered by TestRealClosureSourceMatrixExamples. The matrix display path is included there with checked tensor/column values.",
+        "RCF arithmetic and denominator-cleaning examples execute only for console display in the C++ driver; existing Go package behavior tests cover these APIs, and this file adds no further assertions to port.",
+        "The printed row permutation has no assertion and no retained Go consumer, so the C++ test-harness call is reference-only."
+      ]
     },
     {
       "path": "src/test/region.cpp",

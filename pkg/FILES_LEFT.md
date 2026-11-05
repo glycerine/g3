@@ -222,7 +222,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/test/pdr.cpp` — The seeded 100-root model-search driver preserves the C++ loop-until-frontier-empty behavior with no mutation cap under `-short`; ordinary `go test` skips this multi-million-mutation stress driver. The Go random generator matches the C++ recurrence, and cache erasure preserves the C++ vector order used when reopening duplicate states. The default PDR package suite passes; the long stress run was not awaited to completion.
 - [x] `src/test/polynomial.cpp` — The registered driver runs the eight-case PSC suite and returns immediately; existing Go tests execute its 21 coefficient/resultant assertions and check the configured source traces. All later C++ test routines are unreachable from this entry point and remain reference-only.
 - [x] `src/test/rational.cpp` — Existing Go tests cover every active arithmetic, parsing, conversion, comparison, number-theory, hash, and inspection assertion. The remaining active routines are random rational/float timing benchmarks and C++ stream/`sizeof` diagnostics without correctness assertions, so they are reference-only.
-- [ ] `src/test/rcf.cpp`
+- [x] `src/test/rcf.cpp` — The existing Go driver covers the two source integer-system outcomes, all three independent-row assertions, and tensor/selected-column values. Remaining arithmetic, denominator, matrix permutation, and trace code only emits diagnostics; RCF arithmetic and denominator behavior are already tested in the package.
 - [ ] `src/test/theory_pb.cpp`
 - [ ] `src/test/trigo.cpp`
 - [ ] `src/test/udoc_relation.cpp`
