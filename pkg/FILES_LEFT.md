@@ -173,8 +173,8 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/sat/sat_justification.h` — None, binary, ternary, clause-offset and external justification encodings, masked kind decoding, raw getters, source SASSERT getter boundaries and display spellings map to `satJustification`; the all-kinds and action-order checks pass.
 - [x] `src/sat/sat_model_converter.cpp` — Reverse-order eliminated/blocked model reconstruction, per-clause separators, undefined-variable patching, model checking, entry insertion/copy/reset, invariant checks, display, variable collection and maximum-variable queries map to `satModelConverter`; focused model reconstruction, insertion, ownership, invariant and collection tests pass.
 - [x] `src/sat/sat_model_converter.h` — Entry kinds/layout, construction/insertion overloads, model application/checking, invariant/display/copy/reset, empty, variable collection and max-variable API map to the typed `satModelConverter`; Go's stable owner/index handle is the concrete storage adapter for C++ vector entry references.
-- [ ] `src/sat/sat_mus.cpp`
-- [ ] `src/sat/sat_mus.h`
+- [x] `src/sat/sat_mus.cpp` — Linear MUS minimization, the 64-literal QX branch, recursive support/core updates, cancellation and restart handling, user-scope literals, model capture, and source output transitions map to `satSolverMUSMembers`; focused MUS algorithm, branch, lifetime, trace, verbose, fault, and warm-allocation tests pass.
+- [x] `src/sat/sat_mus.h` — The MUS owner state, active/model accessors, restart window, linear/QX helpers, scoped append, and literal-set split/intersection operations map to the solver-owned typed MUS state and `satMUSLiteralSet`; focused MUS ownership and behavior tests pass.
 - [ ] `src/sat/sat_probing.cpp`
 - [ ] `src/sat/sat_probing.h`
 - [ ] `src/sat/sat_scc.cpp`
