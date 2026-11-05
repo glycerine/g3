@@ -239,7 +239,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/heap.h` — The live integer heap and its SAT, SMT, Euclidean, simplex, and Hilbert owners use typed Go heap implementations with indexed membership, priority updates, deletion, reset, swap, and source-ordered iteration behavior. The C++ `find_le` and tree display methods have no retained heap call sites. Existing heap and consumer suites pass; no tests were added.
 - [x] `src/util/inf_eps_rational.h` — The live `inf_eps_rational<inf_rational>` instantiation is implemented by the typed `OwnedInfEpsInfRational` operations in `pkg/util/numeral`, including source comparison quirks, arithmetic, formatting, projection, and constructors; `go test ./pkg/util/numeral -run '^TestInfEpsInf' -count=1 -timeout=0` passes. No tests were added.
 - [x] `src/util/inf_int_rational.h` — The live integer-epsilon value maps to `OwnedInfIntRational`, including int32 scalar-domain checks, comparison, floor/ceil, formatting, hashing, and constructors; the existing focused `go test ./pkg/util/numeral -run '^TestInfInt' -count=1 -timeout=0` suite passes. No tests were added.
-- [ ] `src/util/inf_rational.h`
+- [x] `src/util/inf_rational.h` — The live rational-plus-infinitesimal operations map to `OwnedInfRational`, including source ordering, mixed comparisons, fused add/subtract, rounding, and component access; existing focused numeral, simplex, and SMT-core checks pass. No tests were added.
 - [ ] `src/util/map.h`
 - [ ] `src/util/memory_manager.cpp`
 - [ ] `src/util/memory_manager.h`
