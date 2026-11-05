@@ -88,7 +88,10 @@ func (p *datalogParser) loadMap(sort ast.ASTHandle, name string) (resultErr erro
 		// the acceptance behavior without writing process-global stderr.
 		return nil
 	}
-	defer func() { resultErr = errors.Join(resultErr, file.Close()) }()
+	// Source line_reader closes its FILE in the destructor and ignores fclose's
+	// result. Do not turn a late close failure into a Datalog parse failure.
+	defer file.Close()
+
 	reader := bufio.NewReader(file)
 	// Source line_reader returns the bytes up to '\n' verbatim, including a
 	// final empty entry when the file ends immediately after a newline.
