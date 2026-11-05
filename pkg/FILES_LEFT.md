@@ -232,7 +232,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/cmd_context_types.h` — The live `cmd_exception`/`stop_parser_exception` behavior maps to tested `util/cmdexception` values, and sorted-variable binding maps to the tested SMT2 local environment. The C++ command-kind enum and virtual `cmd` dispatch base have no Go consumer because command parsing uses direct typed handlers; no unused command scaffold is added.
 - [x] `src/util/container_util.h` — Set intersection/difference/union, disjoint-map merge, map-value collection, sequence equality, and rendering are implemented at their concrete fixedpoint, proof, and relation consumers instead of through a generic container adapter. Focused proof-hypothesis union, randomized relation union, and selected-column intersection/order tests pass; unused iterator and template overloads have no separate Go consumer.
 - [x] `src/util/debug.cpp` — Assertion enablement/notification, lazily initialized debug-tag membership and finalization, and host-specific debugger actions map to `pkg/util/diagnostic`; focused tag, assertion lifecycle, and debugger-action tests pass. The Linux debugger command path is build-tagged by host, while other hosts report the unsupported action.
-- [ ] `src/util/debug.h`
+- [x] `src/util/debug.h` — Assertion, conditional assertion, verification, ensure, unreachable, debug-code, and trace gates map to the `diagnostic` build profiles and source-order helpers. Focused default-profile macro/context/action tests pass; platform debugger behavior remains host-selected.
 - [ ] `src/util/dependency.h`
 - [ ] `src/util/dictionary.h`
 - [ ] `src/util/hashtable.h`
