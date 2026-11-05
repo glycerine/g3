@@ -221356,7 +221356,7 @@
       "path": "src/test/trigo.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/math/interval/trigo_cpp_driver_test.go"],
       "tests": ["TestTranscendentalSourceEPrecisions", "TestTranscendentalSourceSineCosineSamples"],
       "conditionals": [
@@ -221369,11 +221369,19 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["All 64 rational e precisions and sampled sine/cosine cases at the source precision levels use independent exact rational bounds. Sine/cosine use the first 40 of each 200-sample source pass from the selected glibc rand stream, assuming its default seed. The floating-point e and sine workloads remain open."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name": "tst_e: all 64 rational interval precision bounds", "status": "ported", "go_target": "pkg/math/interval/trigo_cpp_driver_test.go", "tests": ["TestTranscendentalSourceEPrecisions"]},
+        {"name": "tst_sine/tst_cosine: all 200 seeded samples at precision levels 3, 5, and 9", "status": "ported", "go_target": "pkg/math/interval/trigo_cpp_driver_test.go", "tests": ["TestTranscendentalSourceSineCosineSamples"]},
+        {"name": "tst_e_float/tst_float_sine output bounds and trigo-lemmas.math generation", "status": "reference_only", "tests": [], "reason": "These routines only write lemma text, contain no correctness assertions, and have no retained Go consumer for floating interval transcendental operations or the generated file."},
+        {"name": "disabled mpf bug routine and C++ stream/trace setup", "status": "reference_only", "tests": [], "reason": "The bug routine is inside #if 0; remaining trace and file output is test harness behavior."}
+      ],
+      "ownership": ["The Go transcendental fixture closes its rational interval, endpoint numerals, cached intervals, and manager. The floating C++ test-only interval manager has no Go owner or consumer."],
+      "deviations": [
+        "All 64 rational e precision values and all 200 sine/cosine samples at precision levels 3, 5, and 9 are checked against independent exact rational enclosures. The sample stream starts after the two source floating-sine passes and matches the default glibc rand sequence.",
+        "Floating interval e/sine lemma output and creation of trigo-lemmas.math are reference-only because they are unasserted diagnostics without a retained Go consumer; the disabled mpf bug routine is inactive."
+      ]
     },
     {
       "path": "src/test/udoc_relation.cpp",

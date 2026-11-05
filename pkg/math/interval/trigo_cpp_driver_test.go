@@ -57,7 +57,7 @@ func TestTranscendentalSourceSineCosineSamples(t *testing.T) {
 	}
 	for _, cosine := range []bool{false, true} {
 		for _, precision := range []uint32{3, 5, 9} {
-			for sample := 0; sample < 40; sample++ {
+			for sample := 0; sample < 200; sample++ {
 				n := int64(4 * (rng.Next() % 100000))
 				if rng.Next()%2 == 0 {
 					n = -n
@@ -121,10 +121,6 @@ func TestTranscendentalSourceSineCosineSamples(t *testing.T) {
 				if lo > 0 || hi > 0 {
 					t.Fatalf("cosine=%t k=%d x=%s bounds exclude independent Taylor enclosure", cosine, precision, x)
 				}
-			}
-			// Advance past the remaining 160 samples in this source pass.
-			for i := 0; i < 320; i++ {
-				rng.Next()
 			}
 		}
 	}
