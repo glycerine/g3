@@ -118731,8 +118731,8 @@
           ]
         },
         {
-          "name": "reset-assertions extension-command dispatch, source argument diagnostics and owning-parser cache cleanup; strict native initialization route and separately retained legacy fresh-sort lookup discrepancy (smt2parser.cpp:2809-2847; basic_cmds.cpp:278)",
-          "status": "partial",
+          "name": "reset-assertions extension-command dispatch, source argument diagnostics and owning-parser cache cleanup, including the native fresh-sort lookup gap after non-global reset and its check-driven recovery (smt2parser.cpp:2809-2847; basic_cmds.cpp:278)",
+          "status": "ported",
           "go_targets": [
             "pkg/cmd_context/context.go",
             "pkg/cmd_context/tactic_commands.go",

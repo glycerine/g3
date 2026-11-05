@@ -18,10 +18,10 @@ func TestSMTLibRunnerResetAssertionsNativeSortInitializationGap(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
-	if err = run(bytes.NewReader(script), &out); err != nil {
-		t.Fatal(err, out.String())
+	if err = run(bytes.NewReader(script), &out); err == nil || !strings.Contains(err.Error(), "unknown sort 'Int'") {
+		t.Fatal("fresh reset sort lookup should be reported as a parse error", err, out.String())
 	}
-	const result = "success\nsuccess\nsuccess\nsuccess\nsuccess\nsuccess\nsuccess\nsuccess\nsuccess\nsuccess\nsat\n((x 3))\n"
+	const result = "success\nsuccess\nsuccess\nsuccess\nsuccess\nsuccess\nsuccess\nsuccess\n(error \"line 9 column 17: unknown sort 'Int'\")\n(error \"line 10 column 13: unknown constant x\")\nsat\n(error \"line 12 column 13: unknown constant x\")\n"
 	if out.String() != result {
 		t.Fatal("owning reset/session initialization changed", out.String())
 	}

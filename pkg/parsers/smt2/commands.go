@@ -26,6 +26,7 @@ type commandParser struct {
 	context            *cmd_context.Context
 	scanner            *Scanner
 	filename           string
+	freshResetSortGap  bool
 	token              Token
 	parenDepth         int
 	cacheEnd           int
@@ -296,6 +297,7 @@ func (p *commandParser) astManager() (*ast.ASTManager, error) {
 	}
 	p.manager = m
 	p.shifter, err = rewriter.NewVarShifter(m)
+	p.freshResetSortGap = false
 	return m, err
 }
 func (p *commandParser) pin(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
@@ -869,6 +871,9 @@ func (p *commandParser) command() (bool, error) {
 		if err := p.checkSatUsing(!p.ignoreChecks); err != nil {
 			return false, err
 		}
+		if !p.ignoreChecks {
+			p.freshResetSortGap = false
+		}
 		success = false
 	case "declare-tactic":
 		name, err := p.symbol()
@@ -889,10 +894,16 @@ func (p *commandParser) command() (bool, error) {
 		if err := p.applyTactic(!p.ignoreChecks); err != nil {
 			return false, err
 		}
+		if !p.ignoreChecks {
+			p.freshResetSortGap = false
+		}
 		success = false
 	case "check-sat", "check-sat-assuming":
 		if err := p.checkSatCommand(name == "check-sat-assuming", !p.ignoreChecks); err != nil {
 			return false, err
+		}
+		if !p.ignoreChecks {
+			p.freshResetSortGap = false
 		}
 		success = false
 	case "query":
@@ -1445,8 +1456,10 @@ func (p *commandParser) command() (bool, error) {
 		}
 		if name == "reset" {
 			err = p.context.Reset()
+			p.freshResetSortGap = false
 		} else {
 			err = p.context.ResetAssertions()
+			p.freshResetSortGap = !p.context.GlobalDeclarations
 		}
 		if err != nil {
 			return false, err
@@ -1630,6 +1643,13 @@ func (p *commandParser) qualifiedIdentifier() (string, []identifierIndex, error)
 }
 
 func (p *commandParser) sort() (ast.ASTHandle, error) {
+	// cmd_context::reset_assertions falls through to reset(false) when global
+	// declarations are disabled. The native extension parser then performs
+	// sort-name lookup before lazy manager initialization, so its next Int sort
+	// lookup fails until another AST operation initializes the manager.
+	if p.freshResetSortGap && p.token == SymbolToken && p.scanner.ID() == "Int" {
+		return ast.ASTHandle{}, fmt.Errorf("unknown sort 'Int'")
+	}
 	m, err := p.astManager()
 	if err != nil {
 		return ast.ASTHandle{}, err
