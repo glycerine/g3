@@ -214,7 +214,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/test/interval.cpp` — Source-seeded arithmetic, scalar and interval root endpoint construction, and dependency-implication checks map to the existing exact-rational Go driver tests; inactive float/pi paths and C++ test-runner lemma-file emission are not active Go behavior.
 - [x] `src/test/memory.cpp` — Memory-limit exhaustion, bit-vector sort growth/recovery, and process reset map to existing Go runtime/API tests and generated-process lifecycle; the native allocation loop is Windows-only and uses deterministic Go arena refusal.
 - [x] `src/test/mpff.cpp` — The active scalar arithmetic, directed rounding, limits, powers, signed/unsigned conversion, neighbors, decimal/text output, and seeded operation matrix are covered by existing numeral tests; the test-only scoped vector specialization and process-wide C++ RNG/ostream harness have no production consumer.
-- [ ] `src/test/mpq.cpp`
+- [x] `src/test/mpq.cpp` — Its active division/inverse aliases, integer comparisons, decimal/rational parsing, decimal output, and `prev_power_of_two` fixtures map to existing numeral tests; the inactive random-string helper and C++ print/trace harness are excluded.
 - [ ] `src/test/mpz.cpp`
 - [ ] `src/test/nlsat.cpp`
 - [ ] `src/test/no_overflow.cpp`

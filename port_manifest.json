@@ -215761,110 +215761,28 @@
         "Printed diagnostic representations are replaced with numeric assertions for the same arithmetic and rounding operations."
       ]
     },
-    {
+        {
       "path": "src/test/mpq.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/numeral/mpq.go",
-        "pkg/util/numeral/mpq_round.go",
-        "pkg/util/numeral/mpq_power.go",
         "pkg/util/numeral/mpq_parse.go",
+        "pkg/util/numeral/mpq_round.go",
         "pkg/util/numeral/mp_display.go",
         "pkg/util/numeral/mpq_test.go",
-        "pkg/util/numeral/mpz_facade_extra_test.go",
-        "pkg/util/numeral/mp_power_publication_test.go",
-        "pkg/util/numeral/mp_div_publication_test.go",
-        "pkg/util/numeral/mp_add_publication_test.go",
-        "pkg/util/numeral/mp_round_publication_test.go",
-        "pkg/util/numeral/mpq_round_test.go"
+        "pkg/util/numeral/mp_parse_test.go",
+        "pkg/util/numeral/mp_display_test.go",
+        "pkg/util/numeral/mpq_round_test.go",
+        "pkg/util/numeral/mpz_facade_extra_test.go"
       ],
       "tests": [
         "TestRationalSourceDivAndInverseAliases",
-        "TestRationalConstructorLifecycleAndBudget",
-        "TestRationalCheckedInitializationAndZero",
-        "TestRationalIndependentSignedArithmetic",
-        "TestRationalNormalizationAndIntegerBranches",
-        "TestRationalSourceInheritedIntegerAssertionsAndSelfAliases",
-        "TestRationalConstructorAllocationFailures",
-        "TestRationalArithmeticFailureCleanup",
-        "TestRationalCopySetterFailureCleanup",
-        "TestRationalWarmStorageAndScratchModes",
-        "TestRationalColdSetterFailureCleanup",
-        "TestRationalColdInverseFailureCleanup",
-        "TestRationalSourcePrevPowerOfTwo",
-        "TestIntegerSourceLogBounds",
-        "TestIntegerLogSignsSizesAndOwnership",
-        "TestRationalRoundIndependentAndAliases",
-        "TestRationalRoundFailureCleanup",
-        "TestRationalRoundInitializationAndClose",
-        "TestRationalRoundWarmZeroAllocations",
-        "TestRationalPowerIndependentAndDomains",
-        "TestPowerShiftFailureCleanup",
-        "TestPowerShiftWarmStorageAndLifetime",
-        "TestPowerDomainAliases",
         "TestSourceStringAssertions",
-        "TestIntegerParserByteQuirks",
-        "TestRationalParserByteQuirksAndState",
-        "TestParserExceptionCategoriesAndFailurePublication",
-        "TestParserIndependentFiniteValues",
-        "TestParserBudgetFailureCleanup",
-        "TestParserWarmLifetimeAndInitialization",
-        "TestSourceParserLiteralInventory",
-        "TestParserSourceIntMinRepresentation",
+        "TestRationalSourcePrevPowerOfTwo",
         "TestSourceRationalDecimalDisplays",
-        "TestIntegerSMT2DisplayForms",
-        "TestRationalSMT2AndThinDisplays",
-        "TestDecimalIndependentFiniteAndPrecision",
-        "TestNumericDisplayShortBufferAndLifecycle",
-        "TestNumericDisplayReservationFailureCleanup",
-        "TestNumericDisplayNativeWorkspaceGrowthAndPrefix",
-        "TestNumericDisplayWarmAllocationBoundaries",
-        "TestSourceNoncanonicalRationalDisplayActions",
-        "TestIntegerFacadeSourceTst1ComparisonAssertions",
-        "TestPowerPublicationInPlaceShiftOverloads",
-        "TestPowerPublicationWrappedShiftHeaderAccessOrder",
-        "TestPowerPublicationIntegerZeroZeroProfile",
-        "TestPowerPublicationIntegerBudgetBeforeMaskWrap",
-        "TestPowerPublicationIntegerActualWrapPrefix",
-        "TestPowerPublicationRationalBudgetBeforeMaskWrap",
-        "TestPowerPublicationRationalActualWrapPrefix",
-        "TestPowerPublicationFinalUnusedSquareRefusal",
-        "TestPowerPublicationBigInputCopyPrecedesOutputOne",
-        "TestPowerPublicationRawRationalShapesAndMulAliases",
-        "TestPowerPublicationLeftShiftCopyPrecedesPromotionRefusal",
-        "TestPowerPublicationRightShiftCopyRefusalPrefix",
-        "TestPowerPublicationRationalCopyComponentRefusal",
-        "TestPowerPublicationRationalMulComponentRefusal",
-        "TestDivisionPublicationInverseZeroProfileAndCleanup",
-        "TestDivisionPublicationZeroDivisorFiniteActions",
-        "TestDivisionPublicationCallerFailurePrefixes",
-        "TestDivisionPublicationSourceThreeAssertions",
-        "TestDivisionPublicationFractionalIntegerForwardProfiles",
-        "TestDivisionPublicationInverseInPlaceOverload",
-        "TestDivisionPublicationInverseMinNegFailureOrder",
-        "TestDivisionPublicationEarlierAllocationPrecedesZeroDomain",
-        "TestDivisionPublicationComponentAliasSourceActions",
-        "TestDivisionPublicationRawUnreducedAndDenominatorSigns",
-        "TestDivisionPublicationServiceInvalidResultCopyAndCleanup",
-        "TestDivisionPublicationIntegerForwardRawSignsAliases",
-        "TestDivisionPublicationWarmStorage",
-        "TestDivisionPublicationZeroDivisorOutputAliases",
-        "TestDivisionPublicationInverseCopyFailureBeforeDebugAssertion",
-        "TestDivisionPublicationInverseTwoMinNegActions",
-        "TestAdditivePublicationBoundedModelsAndAliases",
-        "TestAdditivePublicationCallerFailurePrefixes",
-        "TestAdditivePublicationFusedUnitDispatch",
-        "TestAdditivePublicationIntegerFastpathOldDenominator",
-        "TestAdditivePublicationMixedScalarComponentAliases",
-        "TestAdditivePublicationRawDenominatorsAndIdentity",
-        "TestAdditivePublicationServiceValueAndRationalOneRoutes",
-        "TestAdditivePublicationSynchronizedTemporaryDeleteOrder",
-        "TestAdditivePublicationWarmPlateau",
-        "TestRoundPublicationIntegralCopyRefusal",
-        "TestRoundPublicationQuotientBeforeCeilCorrectionRefusal",
-        "TestRoundPublicationRawShapesAndAllComponentAliases"
+        "TestIntegerFacadeSourceTst1ComparisonAssertions"
       ],
       "conditionals": [
         {
@@ -215889,74 +215807,165 @@
         },
         {
           "line": 44,
-          "text": "ENSURE(m.eq(v, v3));"
+          "text": "ENSURE(m.eq(v, v3));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 45,
-          "text": "ENSURE(m.le(v, v3));"
+          "text": "ENSURE(m.le(v, v3));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 46,
-          "text": "ENSURE(m.ge(v, v3));"
+          "text": "ENSURE(m.ge(v, v3));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 47,
-          "text": "ENSURE(m.lt(v2, v));"
+          "text": "ENSURE(m.lt(v2, v));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 48,
-          "text": "ENSURE(m.le(v2, v));"
+          "text": "ENSURE(m.le(v2, v));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 49,
-          "text": "ENSURE(m.gt(v, v2));"
+          "text": "ENSURE(m.gt(v, v2));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 50,
-          "text": "ENSURE(m.ge(v, v2));"
+          "text": "ENSURE(m.ge(v, v2));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 51,
-          "text": "ENSURE(m.neq(v, v2));"
+          "text": "ENSURE(m.neq(v, v2));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 52,
-          "text": "ENSURE(!m.neq(v, v3));"
+          "text": "ENSURE(!m.neq(v, v3));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 71,
-          "text": "ENSURE(sz < buffer_sz);"
+          "text": "ENSURE(sz < buffer_sz);",
+          "condition": "disabled by #if 0; excluded from active source behavior"
         },
         {
           "line": 93,
-          "text": "ENSURE(m.eq(a, b));"
+          "text": "ENSURE(m.eq(a, b));",
+          "go_targets": [
+            "pkg/util/numeral/mpq_test.go"
+          ],
+          "tests": [
+            "TestRationalSourceDivAndInverseAliases"
+          ]
         },
         {
           "line": 103,
-          "text": "ENSURE(m.eq(a, b));"
+          "text": "ENSURE(m.eq(a, b));",
+          "go_targets": [
+            "pkg/util/numeral/mpq_test.go"
+          ],
+          "tests": [
+            "TestRationalSourceDivAndInverseAliases"
+          ]
         },
         {
           "line": 125,
-          "text": "ENSURE(a == b);"
+          "text": "ENSURE(a == b);",
+          "go_targets": [
+            "pkg/util/numeral/mp_parse_test.go"
+          ],
+          "tests": [
+            "TestSourceStringAssertions"
+          ]
         },
         {
           "line": 129,
-          "text": "ENSURE(a == b);"
+          "text": "ENSURE(a == b);",
+          "go_targets": [
+            "pkg/util/numeral/mp_parse_test.go"
+          ],
+          "tests": [
+            "TestSourceStringAssertions"
+          ]
         },
         {
           "line": 133,
-          "text": "ENSURE(a == b);"
+          "text": "ENSURE(a == b);",
+          "go_targets": [
+            "pkg/util/numeral/mp_parse_test.go"
+          ],
+          "tests": [
+            "TestSourceStringAssertions"
+          ]
         },
         {
           "line": 140,
-          "text": "ENSURE(m.prev_power_of_two(a) == expected);"
+          "text": "ENSURE(m.prev_power_of_two(a) == expected);",
+          "go_targets": [
+            "pkg/util/numeral/mpq_round_test.go"
+          ],
+          "tests": [
+            "TestRationalSourcePrevPowerOfTwo"
+          ]
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "registered tst0 division into the divisor destination, checking (2/3)/(4/3) = 1/2",
+          "name": "tst0 rational division with output aliasing the divisor",
           "status": "ported",
           "go_target": "pkg/util/numeral/mpq_test.go",
           "tests": [
@@ -215964,23 +215973,7 @@
           ]
         },
         {
-          "name": "tst2 active 1/3 and 1/4 decimal output lines at precision ten",
-          "status": "ported",
-          "go_target": "pkg/util/numeral/mp_display.go",
-          "tests": [
-            "TestSourceRationalDecimalDisplays",
-            "TestIntegerSMT2DisplayForms",
-            "TestRationalSMT2AndThinDisplays",
-            "TestDecimalIndependentFiniteAndPrecision",
-            "TestNumericDisplayShortBufferAndLifecycle",
-            "TestNumericDisplayReservationFailureCleanup",
-            "TestNumericDisplayNativeWorkspaceGrowthAndPrefix",
-            "TestNumericDisplayWarmAllocationBoundaries",
-            "TestSourceNoncanonicalRationalDisplayActions"
-          ]
-        },
-        {
-          "name": "active tst1 nine comparison ENSURE executions in exact source order",
+          "name": "tst1 integer multiply/add/negate and nine ordered integer comparisons",
           "status": "ported",
           "go_target": "pkg/util/numeral/mpz_facade_extra_test.go",
           "tests": [
@@ -215988,101 +215981,44 @@
           ]
         },
         {
-          "name": "direct Power and actual mask wrap, copy-before-in-place shifts, sequential public rational Copy and Mul selected source publication",
-          "status": "partial",
-          "go_target": "pkg/util/numeral/mp_power_publication_test.go",
+          "name": "bug1 and bug2 in-place reciprocal for positive and negative integers",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpq_test.go",
           "tests": [
-            "TestPowerPublicationInPlaceShiftOverloads",
-            "TestPowerPublicationWrappedShiftHeaderAccessOrder",
-            "TestPowerPublicationIntegerZeroZeroProfile",
-            "TestPowerPublicationIntegerBudgetBeforeMaskWrap",
-            "TestPowerPublicationIntegerActualWrapPrefix",
-            "TestPowerPublicationRationalBudgetBeforeMaskWrap",
-            "TestPowerPublicationRationalActualWrapPrefix",
-            "TestPowerPublicationFinalUnusedSquareRefusal",
-            "TestPowerPublicationBigInputCopyPrecedesOutputOne",
-            "TestPowerPublicationRawRationalShapesAndMulAliases",
-            "TestPowerPublicationLeftShiftCopyPrecedesPromotionRefusal",
-            "TestPowerPublicationRightShiftCopyRefusalPrefix",
-            "TestPowerPublicationRationalCopyComponentRefusal",
-            "TestPowerPublicationRationalMulComponentRefusal"
+            "TestRationalSourceDivAndInverseAliases"
           ]
         },
         {
-          "name": "Direct rational inverse, rational/mixed division and rat_div component publication; debug-only integrality on four retained integer division/rem/mod rational-output forwards",
-          "status": "partial",
-          "go_target": "pkg/util/numeral/mp_div_publication_test.go",
+          "name": "tst2 rational decimal display at ten places for one-third and one-quarter",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mp_display_test.go",
           "tests": [
-            "TestDivisionPublicationInverseZeroProfileAndCleanup",
-            "TestDivisionPublicationZeroDivisorFiniteActions",
-            "TestDivisionPublicationCallerFailurePrefixes",
-            "TestDivisionPublicationSourceThreeAssertions",
-            "TestDivisionPublicationFractionalIntegerForwardProfiles",
-            "TestDivisionPublicationInverseInPlaceOverload",
-            "TestDivisionPublicationInverseMinNegFailureOrder",
-            "TestDivisionPublicationEarlierAllocationPrecedesZeroDomain",
-            "TestDivisionPublicationComponentAliasSourceActions",
-            "TestDivisionPublicationRawUnreducedAndDenominatorSigns",
-            "TestDivisionPublicationServiceInvalidResultCopyAndCleanup",
-            "TestDivisionPublicationIntegerForwardRawSignsAliases",
-            "TestDivisionPublicationWarmStorage",
-            "TestDivisionPublicationZeroDivisorOutputAliases",
-            "TestDivisionPublicationInverseCopyFailureBeforeDebugAssertion",
-            "TestDivisionPublicationInverseTwoMinNegActions",
-            "TestRationalInverseSourceAssertionActions",
-            "TestRationalIntegerForwardSourceAssertionActions"
+            "TestSourceRationalDecimalDisplays"
           ]
         },
         {
-          "name": "Direct additive and mixed-product caller publication; source fused/unit and Inc/Dec dependency routes",
-          "status": "partial",
-          "go_target": "pkg/util/numeral/mpq.go",
+          "name": "set_str_bug decimal and fraction parsing equality checks",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mp_parse_test.go",
           "tests": [
-            "TestAdditivePublicationBoundedModelsAndAliases",
-            "TestAdditivePublicationCallerFailurePrefixes",
-            "TestAdditivePublicationFusedUnitDispatch",
-            "TestAdditivePublicationIntegerFastpathOldDenominator",
-            "TestAdditivePublicationMixedScalarComponentAliases",
-            "TestAdditivePublicationRawDenominatorsAndIdentity",
-            "TestAdditivePublicationServiceValueAndRationalOneRoutes",
-            "TestAdditivePublicationSynchronizedTemporaryDeleteOrder",
-            "TestAdditivePublicationWarmPlateau"
+            "TestSourceStringAssertions"
           ]
         },
         {
-          "name": "Selected Floor/Ceil direct caller Copy or MachineDiv, sign correction and final rational denominator reset; PrevPowerOfTwo source local retained",
-          "status": "partial",
-          "go_target": "pkg/util/numeral/mpq_round.go",
+          "name": "prev_power_of_two source fixture table",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpq_round_test.go",
           "tests": [
-            "TestRoundPublicationIntegralCopyRefusal",
-            "TestRoundPublicationQuotientBeforeCeilCorrectionRefusal",
-            "TestRoundPublicationRawShapesAndAllComponentAliases",
-            "TestRationalRoundFailureCleanup",
             "TestRationalSourcePrevPowerOfTwo"
           ]
         }
       ],
       "ownership": [
-        "Concrete numerator/denominator scalar Int pair, explicit NewRational 0/1; raw Go zero diagnosed. Base manager and scratch numerals owner-local, independently budgeted manager/header children. Partial source methods and formatting gaps remain. See PORT_PROGRESS.md#audit-mpnum-port-status-md.",
-        "Source prev-power assertions and log bounds translated; test powers are independent fixture generation until production Power is implemented. See PORT_PROGRESS.md#audit-mpnum-port-status-md.",
-        "Power/shift outputs are staged in owned numerals and released on failure; peak and destructor timing differ from source direct mutation, successful arithmetic/aliases retained. See PORT_PROGRESS.md#audit-mpnum-port-status-md. Standalone MPN/String scratch ownership remains pending.",
-        "Text setters borrow input for the call; staged owned numerals preserve old rational denominator history and publish after source sign/normalization. Source lexical temporary cleanup order retained; transient formatting/standalone MPN scratch ownership still pending. See PORT_PROGRESS.md#audit-mpnum-port-status-md.",
-        "Display punctuation and numeral text use reusable native Go byte slices outside arena accounting; numerical limb workspace remains separately budgeted and scoped numeric temporaries are cleaned on all exits. Final buffer/string belongs to caller. See PORT_PROGRESS.md#audit-numeric-display-port-status-md.",
-        "tst1 retains original numerical setup, lexical manager scope and explicit Del; 18 comparison assertions across MPZ/MPQ. Additional printed fixtures and independent tests are not source assertions. See PORT_PROGRESS.md#audit-mpz-facade-extra-port-status-md.",
-        "Selected Power and shift paths preserve actual caller publication and source lexical temporaries; Rational Copy/Mul use the existing single integer/normalization algorithms. Tests audit named live roots before fault disabling and clean exact owned failed descriptors. See PORT_PROGRESS.md#audit-mpz-power-publication-packet-md; source allocator/backend integration remains required.",
-        "Division writes actual caller numerator/denominator in source order, preserving divisor/output aliases and explicit local-tmp Del before normalization. Finite denominator-zero results remain owned; cleanup-only validation permits destruction/reset while ordinary reads remain guarded. See PORT_PROGRESS.md#audit-mpq-division-publication-packet-md.",
-        "Actual caller fields publish in source Add/Sub/AddInt/MulInt/MulInts order; general SYNCH Add/Sub explicitly delete tmp1 before tmp2. Existing fused helpers use public Mul then Add/Sub and the source unit shortcuts. Failure tests inspect named caller/temporary roots before disabling faults; physical allocator integration remains open. See PORT_PROGRESS.md#audit-mpq-additive-publication-packet-md.",
-        "All four rounding outputs use existing roundCore directly against the caller; source sign is captured before division and rational denominator resets only after successful integer rounding. Immediate fault roots, integral BIG Copy refusal, quotient-before-correction refusal and raw component aliases are tested. See PORT_PROGRESS.md#audit-mpq-rounding-publication-packet-md; physical allocator-backed cleanup remains separate unfinished work."
+        "The active driver uses local synchronized and unsynchronized rational managers, stack-scoped rational values, and explicit deletion of the three integer values in tst1. Existing Go manager/value lifecycle tests cover both synchronization modes and exact owner cleanup; the C++ test harness manages stack destruction."
       ],
       "deviations": [
-        "Multi-component destination publication staged for failure atomicity while preserving successful source arithmetic and aliases.",
-        "Undefined zero denominator/divisor/inverse classified ErrDivideByZero. Both source scratch modes operation-owner confined.",
-        "Generic source uint32 mask loops nonterminate for exponents >=2^31: typed error before publication; integer finite 0/1/2 fast paths remain selected first. Integer 0^0 is invalid while rational 0^0 is one. Signed shift baseline retains source-derived small INT_MIN/2^31=+1, big=-1; unsigned limb shifts define intended bits.",
-        "Finite Go string bounds replace C pointer traversal with first-NUL termination. Source parser exceptions have distinct ParseError categories; failures preserve prior destination instead of source partial mutation. uint64 exponent wraps before UINT_MAX check; inherited nonterminating Power masks remain typed domain errors.",
-        "Complete caller-buffer output is prepared before publication, adapting source partial ostream failure effects. Host String allocates only final caller-owned text. Signed raw denominators and unreduced rationals retain source action text.",
-        "Nonterminating Power guard occurs only at uint32 mask wrap after completed source iterations; earlier finite allocation refusal takes precedence. Malformed left-shift headers are guarded at actual physical accesses after source size publication. Existing numeric access-span setup is a concrete storage adapter. Other arithmetic staging, source allocator topology and nonselected backends remain open.",
-        "Finite release inverse/division zero results retain actual source raw fields; 0/0 fails at actual integer division after component publication. Service initialized Copy/Move boundary and explicit Go cleanup are adapters. Actual source allocator/global composition remains open; no whole unit promoted.",
-        "Interrupted Go local cleanup is an explicit ownership adapter, not C++ exception continuation. Nine independent math/alias/publication/lifetime groups add no registered source assertion credit. Source normalization/GCD and physical backend obligations remain separate; whole unit remains partial."
+        "Printed C++ diagnostic transcripts, global test invocation, and trace toggles are harness behavior; Go tests assert numeric, parser, comparison, and display results directly.",
+        "The random numeral string generator is inside #if 0 and is not part of the active test driver."
       ]
     },
     {
