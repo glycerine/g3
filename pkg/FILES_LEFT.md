@@ -260,7 +260,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/rational.cpp` — Rational global initialization/finalization, shared zero/one constants, cached powers of two, and infinitesimal subsystem lifecycle map to `RationalGlobalService` and `RationalService`; existing focused global lifecycle, power-cache, and previous-power checks pass. No tests were added.
 - [x] `src/util/rational.h` — Rational values, arithmetic and aliases, comparisons, integer/floating projections, rounding, powers, gcd/root helpers, and cached constants map to concrete `Rational`/`RationalManager` operations; existing rational and MPQ tests pass with `-short`. No tests were added.
 - [x] `src/util/ref.h` — The live intrusive `ref<T>` instances use concrete owner-bound reference types and explicit reference operations, including copy/acquire, move/detach, assignment, reset, swap, and teardown; no universal Go smart-pointer adapter is needed. Existing AST, tactic/model, and goal reference-lifecycle checks pass; no tests were added.
-- [ ] `src/util/ref_buffer.h`
+- [x] `src/util/ref_buffer.h` — Live managed/unmanaged reference buffers are implemented as concrete owner-local typed slices and buffers across AST, tactic, polynomial, and related consumers, preserving acquire/release order for push, replace, resize, append, reset, and finalization without a universal adapter. Existing AST expression-buffer, polynomial PSC/reference-vector, and UFBV goal-buffer checks pass with `-short`; no tests were added.
 - [ ] `src/util/ref_util.h`
 - [ ] `src/util/ref_vector.h`
 - [ ] `src/util/scoped_numeral.h`
