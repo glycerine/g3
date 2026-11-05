@@ -217,7 +217,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/test/mpq.cpp` — Its active division/inverse aliases, integer comparisons, decimal/rational parsing, decimal output, and `prev_power_of_two` fixtures map to existing numeral tests; the inactive random-string helper and C++ print/trace harness are excluded.
 - [x] `src/test/mpz.cpp` — Active arithmetic, aliases, signed roots, shifts, log bounds, scoped values, and the full 168-prime GCD comparison map to existing Go numeral tests; inactive helpers, the uncalled stress routine, and C++ trace/output harness are excluded.
 - [x] `src/test/nlsat.cpp` — Active interval, evaluator, assumption/model, projection-invariant, and quadratic-root checks map to existing Go driver and component tests; high-cost output-only general-projection combinations and C++ trace transcripts are omitted.
-- [ ] `src/test/no_overflow.cpp`
+- [x] `src/test/no_overflow.cpp` — All source add/subtract/multiply/negate/divide boundary and symbolic equivalence cases are ported; signed 16-bit multiplication proofs are explicitly skipped by default and run with `-short`, where both pass. The source test harness is Windows-only; its live assertions and solver checks are covered in Go.
 - [ ] `src/test/parray.cpp`
 - [ ] `src/test/pdr.cpp`
 - [ ] `src/test/polynomial.cpp`

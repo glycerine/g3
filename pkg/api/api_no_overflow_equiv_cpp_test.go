@@ -24,14 +24,15 @@ func TestNoOverflowSourceSymbolicEquivalences(t *testing.T) {
 			{"div-overflow", false, false, 1, true, false}, {"neg-overflow", false, false, 1, false, false},
 		} {
 			for _, signed := range []bool{true, false} {
-				// The signed 16-bit multiplication proofs exceed the focused-test budget.
-				if width == 16 && signed && (tc.name == "mul-overflow" || tc.name == "mul-underflow") {
-					continue
-				}
 				if !signed && !tc.unsigned {
 					continue
 				}
 				t.Run(fmt.Sprintf("%s/%d/signed=%t", tc.name, width, signed), func(t *testing.T) {
+					// This repository uses -short to opt into the expensive source
+					// multiplication proofs; ordinary go test leaves them skipped.
+					if !testing.Short() && width == 16 && signed && (tc.name == "mul-overflow" || tc.name == "mul-underflow") {
+						t.Skip("run the signed 16-bit multiplication proof with -short")
+					}
 					f := newSMTAPIFixture(t, "ALL", nil)
 					var s *APISimpleSolver
 					var err error
