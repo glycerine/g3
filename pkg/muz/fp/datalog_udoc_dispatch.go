@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -160,14 +161,44 @@ func (e *PropositionalEngine) finishUDocQuery(declarations []ast.ASTHandle) (lbo
 	return e.udocDatalog.status(declarations)
 }
 
-func (e *PropositionalEngine) queryUDocDatalog(declarations []ast.ASTHandle) (lbool.LBool, error) {
+func (e *PropositionalEngine) queryUDocDatalog(declarations []ast.ASTHandle) (status lbool.LBool, resultErr error) {
+	owner := e.udocDatalog
+	if owner == nil {
+		return lbool.Undef, ErrUDocDatalogFragment
+	}
+	set := e.set
+	var similarityScope *udocSimilarityQueryScope
+	if enabled, threshold, err := e.udocSimilaritySettings(); err != nil {
+		return lbool.Undef, err
+	} else if enabled && owner.products == nil {
+		outputs, err := e.set.OutputPredicates()
+		if err != nil {
+			return lbool.Undef, err
+		}
+		outputs = append(outputs, declarations...)
+		program, err := rel.NewUDocSimilarityProgram(e.manager, e.rules, owner.factory, e.set, threshold, outputs)
+		if err != nil {
+			return lbool.Undef, err
+		}
+		if program != nil {
+			similarityScope, err = installUDocSimilaritySeeds(owner, program)
+			if err != nil {
+				return lbool.Undef, errors.Join(err, program.Close())
+			}
+			set, err = program.RuleSet()
+			if err != nil {
+				return lbool.Undef, errors.Join(err, similarityScope.Close())
+			}
+			defer func() { resultErr = errors.Join(resultErr, similarityScope.Close()) }()
+		}
+	}
 	if err := e.udocDatalog.checkpoint(); err != nil {
 		return lbool.Undef, err
 	}
 	if err := e.prepareUDocQuery(); err != nil {
 		return lbool.Undef, err
 	}
-	if err := e.udocDatalog.saturate(e.set); err != nil {
+	if err := e.udocDatalog.saturate(set); err != nil {
 		return lbool.Undef, err
 	}
 	return e.finishUDocQuery(declarations)
