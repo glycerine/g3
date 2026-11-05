@@ -190,7 +190,7 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 	if err := out.Prepare(t.manager); err != nil {
 		return err
 	}
-	t.stats.Reset()
+	runStats := statistics.New()
 	produceModels, err := goal.ModelsEnabled()
 	if err != nil {
 		return err
@@ -240,7 +240,7 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 			qeConfig.eliminateVariablesAsBlockSet = true
 			qeConfig.nonlinearQuantifierElimination = t.options.nonlinear
 			qeConfig.produceModels = produceModels
-			qeConfig.qeStatistics = t.stats
+			qeConfig.qeStatistics = runStats
 			updates[i], complete, e = rewriteQuantifierScalar(t.manager, form, qeConfig)
 			if e != nil {
 				if onlyArithmeticBranchUnsupported(e) {
@@ -256,29 +256,24 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 					return e
 				}
 			}
-		}
-	}
-	for i, update := range updates {
-		inconsistent, e := goal.Inconsistent()
-		if e != nil {
-			return e
-		}
-		if inconsistent {
-			break
-		}
-		if update == (ast.ASTRef{}) {
-			continue
-		}
-		formula, e := t.manager.RefGet(update)
-		if e != nil {
-			return e
-		}
-		dependency, e := goal.Dependency(uint32(i))
-		if e != nil {
-			return e
-		}
-		if e = goal.Update(uint32(i), formula, ast.ASTHandle{}, dependency); e != nil {
-			return e
+			// qe_tactic updates each formula immediately, before checking the
+			// next goal entry. Keep that publication order so later cancellation
+			// or rewrite failures observe the same partially updated goal.
+			formula, e := t.manager.RefGet(updates[i])
+			if e != nil {
+				return e
+			}
+			dependency, e := goal.Dependency(i)
+			if e != nil {
+				return e
+			}
+			if e = goal.Update(i, formula, ast.ASTHandle{}, dependency); e != nil {
+				return e
+			}
+			resultErr = errors.Join(resultErr, t.manager.DelRef(&updates[i]))
+			if resultErr != nil {
+				return resultErr
+			}
 		}
 	}
 	if err = goal.IncDepth(); err != nil {
@@ -287,5 +282,9 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 	if err = goal.ElimTrue(); err != nil {
 		return err
 	}
-	return out.AddGoal(goal)
+	if err = out.AddGoal(goal); err != nil {
+		return err
+	}
+	t.stats = runStats
+	return nil
 }
