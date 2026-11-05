@@ -118,7 +118,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/rel/rel_context.cpp` — Query saturation/restarts, rule transformation, output and status publication, negation-dependent resets, per-predicate backend selection (including heterogeneous sparse/interval products), fact migration, plugin checks, parameter updates, statistics and display map to the fixedpoint engine and typed relation stores. Focused relation-selection, migration, query, negation, external-relation and fixedpoint tests pass.
 - [x] `src/muz/rel/rel_context.h` — The relational context interface maps to typed Go fixedpoint engine methods for relation access, formula/answer retrieval, queries, representation selection, predicate-kind inheritance, statistics, restriction, transforms, size/emptiness checks, fact updates, relation storage, and display. Focused relation-context and fixedpoint tests pass.
 - [x] `src/muz/rel/tbv.cpp` — Ternary-bit encoding, construction/parsing, range writes, projection/permutation, logic operations, well-formedness, complement, containment, hash/equality, display and formula conversion map to `TBVManager` and its concrete vector implementation. The audited retained DOC/UDoc/DDNF consumers and existing TBV/DOC/DDNF tests pass.
-- [ ] `src/muz/rel/tbv.h`
+- [x] `src/muz/rel/tbv.h` — The TBV, manager, truth-value enum, and scoped-owner interfaces map to concrete Go vector/manager APIs and explicit cleanup paths; source-only C++ friend access and RAII syntax have no separate Go runtime counterpart. TBV, DOC and DDNF focused tests pass.
 - [ ] `src/muz/rel/udoc_relation.cpp`
 - [ ] `src/muz/rel/udoc_relation.h`
 - [ ] `src/muz/spacer/spacer_context.cpp`
