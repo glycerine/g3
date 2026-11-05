@@ -115,7 +115,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/rel/dl_vector_relation.h` — The live `vector_relation` instantiations for interval and bound storage map to separate concrete Go relation types, preserving source join/project/rename equivalence classes, copy/union/delta/widen and display behavior. No generic callback or `any`-valued vector adapter was added; interval, bound and vector-operation regressions pass.
 - [x] `src/muz/rel/karr_relation.cpp` — Karr empty/full construction, join, projection, rename, union, fact/equality/identical/interpreted filtering, lazy matrix dualization, formula and display map to the concrete `KarrRelation` implementation backed by the Go Hilbert-basis package. The C++ `complement` path remains unsupported in Go as in source; Karr relation tests pass.
 - [x] `src/muz/rel/karr_relation.h` — Plugin and relation declarations map to the concrete typed Karr API and its matrix operations; the C++ virtual plugin hierarchy has no separate Go adapter. Focused Karr relation and fixedpoint tests pass.
-- [ ] `src/muz/rel/rel_context.cpp`
+- [x] `src/muz/rel/rel_context.cpp` — Query saturation/restarts, rule transformation, output and status publication, negation-dependent resets, per-predicate backend selection (including heterogeneous sparse/interval products), fact migration, plugin checks, parameter updates, statistics and display map to the fixedpoint engine and typed relation stores. Focused relation-selection, migration, query, negation, external-relation and fixedpoint tests pass.
 - [ ] `src/muz/rel/rel_context.h`
 - [ ] `src/muz/rel/tbv.cpp`
 - [ ] `src/muz/rel/tbv.h`
