@@ -235,7 +235,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/debug.h` — Assertion, conditional assertion, verification, ensure, unreachable, debug-code, and trace gates map to the `diagnostic` build profiles and source-order helpers. Focused default-profile macro/context/action tests pass; platform debugger behavior remains host-selected.
 - [x] `src/util/dependency.h` — The retained instantiations use concrete Go DAG owners: AST proof/goal dependencies, NLSAT assumptions, and scoped SMT arithmetic-bound dependencies. Focused tests cover nil/duplicate joins, shared paths, breadth-first linearization, membership, reference cleanup, and scoped reset; the C++ traits/allocator template is not duplicated as an unused generic layer.
 - [x] `src/util/dictionary.h` — This is only `map<symbol,T>`; Go consumers use typed symbol maps or `DictionaryInt32`, and insertion-order-visible registries use `insdict` v0.14.6 or a companion slice. Dictionary lookup/mutation, parameter-descriptor ordering, global-parameter merge, tactic lookup/finalization, and sorted-variable behavior pass focused tests; no wrapper type is needed.
-- [ ] `src/util/hashtable.h`
+- [x] `src/util/hashtable.h` — Every live table instantiation now has a concrete Go owner: native typed maps/slices for AST, SAT, SMT, and fixedpoint consumers, and canonical sorted state keys for symbolic-automata determinization. The remaining `uint_set` map in the C++ test only prints diagnostics; generic probing, tombstones, and bucket iteration have no Go consumer. Existing focused AST, SAT, SMT/UTVPI/sequence, relation compiler, and automata tests pass; no tests were added.
 - [ ] `src/util/heap.h`
 - [ ] `src/util/inf_eps_rational.h`
 - [ ] `src/util/inf_int_rational.h`
