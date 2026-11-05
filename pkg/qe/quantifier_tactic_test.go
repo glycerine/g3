@@ -9,7 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func TestQuantifierTacticQuantifierFreeGoalAndRefusal(t *testing.T) {
+func TestQuantifierTacticQuantifierFreeGoalAndUnsupportedQuantifier(t *testing.T) {
 	f := qsatKernelFixture(t)
 	m := f.r.manager
 	port, err := NewQuantifierTactic(m, nil, f.r.config)
@@ -49,13 +49,18 @@ func TestQuantifierTacticQuantifierFreeGoalAndRefusal(t *testing.T) {
 	quantified := f.goal(false, false)
 	fmMust(t, quantified.Assert(q))
 	second := f.result()
-	if err = port.Apply(quantified, second); err == nil {
-		t.Fatal("unfinished quantifier elimination accepted")
+	if err = port.Apply(quantified, second); err != nil {
+		t.Fatal("source QE tactic rejected an unsupported quantifier", err)
 	}
 	depth, err = quantified.Depth()
 	fmMust(t, err)
-	if depth != 0 {
-		t.Fatal("refused goal was modified")
+	if depth != 1 {
+		t.Fatal("source QE tactic did not advance the goal", depth)
+	}
+	form, err := quantified.Form(0)
+	fmMust(t, err)
+	if form != q {
+		t.Fatal("unsupported quantifier was not preserved", form)
 	}
 }
 
@@ -86,7 +91,7 @@ func TestQuantifierTacticSourceProofModeClearsUnavailableRewriteProof(t *testing
 	}
 }
 
-func TestQuantifierTacticBooleanUnitsAndAtomicRefusal(t *testing.T) {
+func TestQuantifierTacticBooleanUnitsAndUnsupportedArithmetic(t *testing.T) {
 	f := qsatKernelFixture(t)
 	m := f.r.manager
 	port, err := NewQuantifierTactic(m, nil, f.r.config)
@@ -142,16 +147,21 @@ func TestQuantifierTacticBooleanUnitsAndAtomicRefusal(t *testing.T) {
 	square := f.own(m.MkArithmeticMul(integerVar, integerVar))
 	positive := f.own(m.MkArithmeticGT(square, freeInteger))
 	unsupported := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: positive}))
-	refused := f.goal(false, false)
-	fmMust(t, refused.Assert(exists))
-	fmMust(t, refused.Assert(unsupported))
-	if err = port.Apply(refused, f.result()); err == nil {
-		t.Fatal("unsupported arithmetic quantifier was accepted")
+	mixed := f.goal(false, false)
+	fmMust(t, mixed.Assert(exists))
+	fmMust(t, mixed.Assert(unsupported))
+	if err = port.Apply(mixed, f.result()); err != nil {
+		t.Fatal("source QE tactic rejected an unsupported arithmetic quantifier", err)
 	}
-	unchanged, err := refused.Form(0)
+	eliminated, err := mixed.Form(0)
 	fmMust(t, err)
-	if unchanged != exists {
-		t.Fatal("refusal partially changed the goal")
+	if eliminated != r {
+		t.Fatal("supported Boolean quantifier did not simplify alongside an unsupported one", eliminated)
+	}
+	retained, err := mixed.Form(1)
+	fmMust(t, err)
+	if retained != unsupported {
+		t.Fatal("unsupported arithmetic quantifier was not preserved", retained)
 	}
 }
 

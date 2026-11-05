@@ -219,7 +219,12 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 				return e
 			}
 			if !complete {
-				return tactic.NewTacticException("general quantifier elimination is not implemented")
+				// qe_tactic updates every quantified formula and leaves the
+				// quantifier in place when no plugin can eliminate it.
+				updates[i], e = t.manager.NewRef(form)
+				if e != nil {
+					return e
+				}
 			}
 		}
 	}
