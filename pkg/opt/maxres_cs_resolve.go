@@ -9,12 +9,12 @@ import (
 )
 
 func (e *maxResEngine) correctionResolve(correction []ast.ASTHandle, weight *big.Rat) error {
-	clauses, err := maxResCorrectionClauses(&e.owner, correction)
+	clauses, err := maxResCorrectionClausesForEngine(e, correction)
 	if err != nil {
 		return err
 	}
 	for _, clause := range clauses {
-		proxy, err := e.freshProxy(clause, false)
+		proxy, err := e.freshProxy(clause, false, "a")
 		if err != nil {
 			return err
 		}

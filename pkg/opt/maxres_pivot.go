@@ -26,3 +26,28 @@ func (e *maxResEngine) pivotCorrection(core []ast.ASTHandle) ([]ast.ASTHandle, b
 	e.stats.Pivots++
 	return active, true
 }
+
+// pivotAfterCore mirrors process_unsat's ordering: transform the core and
+// update the lower bound first, then consult the best correction-set model.
+func (e *maxResEngine) pivotAfterCore(core []ast.ASTHandle) error {
+	if e.correctionModel == nil {
+		return nil
+	}
+	if e.correctionSize > 0 {
+		e.correctionSize--
+	}
+	if !e.config.pivotOnCorrectionSet || len(e.solver.objectives) != 1 || e.correctionSize >= len(core) {
+		return nil
+	}
+	correction, err := e.correctionSet(e.correctionModel)
+	if err != nil {
+		return err
+	}
+	e.correctionSize = len(correction)
+	e.correction = append(e.correction[:0], correction...)
+	if len(correction) >= len(core) {
+		return nil
+	}
+	e.stats.Pivots++
+	return e.processCorrection(correction)
+}

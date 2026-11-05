@@ -17,8 +17,5 @@ func (e *maxResEngine) filterCore(core []ast.ASTHandle) ([]ast.ASTHandle, error)
 		seen[expression] = struct{}{}
 		filtered = append(filtered, expression)
 	}
-	if len(filtered) == 0 {
-		return nil, errMaxResState
-	}
 	return filtered, nil
 }

@@ -8,8 +8,8 @@ func (e *maxResEngine) processSearchSAT(result *ArithmeticResult, full bool) (bo
 	if !full {
 		return false, nil
 	}
-	if e.strategy == maxResPrimalDual && len(e.correction) != 0 {
-		if err := e.processCorrection(append([]ast.ASTHandle(nil), e.correction...)); err != nil {
+	if e.strategy == maxResPrimalDual && len(e.currentCorrection) != 0 {
+		if err := e.processCorrection(append([]ast.ASTHandle(nil), e.currentCorrection...)); err != nil {
 			return false, err
 		}
 		return false, nil

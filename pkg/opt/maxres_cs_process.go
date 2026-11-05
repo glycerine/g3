@@ -5,6 +5,12 @@ package opt
 import "github.com/glycerine/g3/pkg/ast"
 
 func (e *maxResEngine) processCorrection(correction []ast.ASTHandle) error {
+	if len(correction) == 0 {
+		e.stats.CorrectionSets++
+		e.correction = nil
+		e.currentCorrection = nil
+		return e.clearCorrectionModel()
+	}
 	if !e.validCorrection(correction) {
 		return errMaxResState
 	}
@@ -26,6 +32,7 @@ func (e *maxResEngine) processCorrection(correction []ast.ASTHandle) error {
 		return err
 	}
 	e.correction = nil
+	e.currentCorrection = nil
 	e.stats.CorrectionSets++
-	return nil
+	return e.clearCorrectionModel()
 }

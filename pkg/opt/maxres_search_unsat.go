@@ -5,11 +5,6 @@ package opt
 import "github.com/glycerine/g3/pkg/util/lbool"
 
 func (e *maxResEngine) processSearchUNSAT(result *ArithmeticResult) (lbool.LBool, error) {
-	// Native always applies the core transformation and lower-bound update
-	// before considering a correction-set pivot. The prerequisite batch's
-	// standalone pivot helper selects before transformation, so do not feed it
-	// the stale pre-core candidate here.
-	e.correction = nil
 	status, err := e.processUnsatCore(result)
 	if err != nil {
 		return lbool.Undef, err

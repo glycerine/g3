@@ -27,6 +27,13 @@ func (e *maxResEngine) collectCoreBatch(first []ast.ASTHandle, result *Arithmeti
 	if err != nil {
 		return nil, lbool.Undef, err
 	}
+	if len(core) == 0 {
+		e.lower.Set(&e.upper)
+		return nil, lbool.True, nil
+	}
+	if err = e.updateMUSModel(result); err != nil {
+		return nil, lbool.Undef, err
+	}
 	var status lbool.LBool
 	core, status, err = e.minimizeCore(core)
 	if err != nil {
@@ -54,9 +61,16 @@ func (e *maxResEngine) collectCoreBatch(first []ast.ASTHandle, result *Arithmeti
 			if err != nil {
 				return nil, lbool.Undef, err
 			}
+			if err = e.updateMUSModel(result); err != nil {
+				return nil, lbool.Undef, err
+			}
 			core, err = e.filterCore(raw)
 			if err != nil {
 				return nil, lbool.Undef, err
+			}
+			if len(core) == 0 {
+				e.lower.Set(&e.upper)
+				return nil, lbool.True, nil
 			}
 			core, status, err = e.minimizeCore(core)
 			if err != nil {

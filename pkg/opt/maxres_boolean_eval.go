@@ -10,6 +10,9 @@ import (
 )
 
 func (e *maxResEngine) modelBoolean(md *model.ModelCore, expression ast.ASTHandle) (value bool, resultErr error) {
+	if formula, found := e.proxies[expression]; found {
+		return e.modelBoolean(md, formula)
+	}
 	evaluator, err := model.NewModelEvaluator(md, e.solver.config.ModelEvaluator)
 	if err != nil {
 		if evaluator != nil {

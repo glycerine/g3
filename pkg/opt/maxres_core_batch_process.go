@@ -15,6 +15,10 @@ func (e *maxResEngine) processCoreBatch(cores [][]ast.ASTHandle) error {
 		if err := e.processCore(core); err != nil {
 			return err
 		}
+		e.clampPrimalDualLower()
+		if err := e.pivotAfterCore(core); err != nil {
+			return err
+		}
 	}
 	return nil
 }

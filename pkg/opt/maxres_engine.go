@@ -8,25 +8,29 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/solver"
 )
 
 type maxResEngine struct {
-	solver           *ArithmeticSolver
-	objective        *arithmeticObjective
-	index            int
-	config           maxSMTConfig
-	strategy         maxResStrategy
-	owner            maxSMTASTOwner
-	active           []ast.ASTHandle
-	weights          map[ast.ASTHandle]*big.Rat
-	proxies          map[ast.ASTHandle]ast.ASTHandle
-	mus              *solver.MUS
-	lower            big.Rat
-	upper            big.Rat
-	bestSet          bool
-	correction       []ast.ASTHandle
-	stats            maxResStatistics
+	solver            *ArithmeticSolver
+	objective         *arithmeticObjective
+	index             int
+	config            maxSMTConfig
+	strategy          maxResStrategy
+	owner             maxSMTASTOwner
+	active            []ast.ASTHandle
+	weights           map[ast.ASTHandle]*big.Rat
+	proxies           map[ast.ASTHandle]ast.ASTHandle
+	mus               *solver.MUS
+	lower             big.Rat
+	upper             big.Rat
+	bestSet           bool
+	correction        []ast.ASTHandle
+	correctionModel   *model.ModelCore
+	correctionSize    int
+	currentCorrection []ast.ASTHandle
+	stats             maxResStatistics
 }
 
 func newMaxResEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int, config maxSMTConfig) (result *maxResEngine, resultErr error) {
@@ -60,11 +64,29 @@ func (e *maxResEngine) close() error {
 	if e == nil {
 		return nil
 	}
-	e.active, e.correction, e.weights, e.proxies = nil, nil, nil, nil
+	e.active, e.correction, e.currentCorrection, e.weights, e.proxies = nil, nil, nil, nil, nil
+	var correctionErr error
+	if e.correctionModel != nil {
+		correctionErr = e.correctionModel.DecRef()
+		e.correctionModel = nil
+	}
 	var musErr error
 	if e.mus != nil {
 		musErr = e.mus.Close()
 		e.mus = nil
 	}
-	return errors.Join(musErr, e.owner.close())
+	return errors.Join(musErr, correctionErr, e.owner.close())
+}
+
+func (e *maxResEngine) clearCorrectionModel() error {
+	if e.correctionModel == nil {
+		e.correctionSize = 0
+		return nil
+	}
+	err := e.correctionModel.DecRef()
+	if err == nil {
+		e.correctionModel = nil
+		e.correctionSize = 0
+	}
+	return err
 }

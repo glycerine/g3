@@ -4,8 +4,34 @@ package opt
 
 import "errors"
 import "fmt"
+import "math/big"
 
 import "github.com/glycerine/g3/pkg/model"
+
+func (e *maxResEngine) updateMUSModel(result *ArithmeticResult) error {
+	if e == nil || e.mus == nil {
+		return errMaxResState
+	}
+	var candidate *model.ModelCore
+	var weight big.Rat
+	var err error
+	if e.config.satCoreEnabled {
+		candidate, err = e.solver.backend.AcquireModel()
+	} else {
+		var value *big.Rat
+		candidate, value, err = e.mus.BestModel()
+		if value != nil {
+			weight.Set(value)
+		}
+	}
+	if err != nil || candidate == nil {
+		return err
+	}
+	if weight.Cmp(&e.upper) < 0 {
+		return e.updateCandidateModel(result, candidate)
+	}
+	return candidate.DecRef()
+}
 
 func (e *maxResEngine) updateCandidate(result *ArithmeticResult) error {
 	md, err := e.solver.backend.AcquireModel()
@@ -33,6 +59,20 @@ func (e *maxResEngine) updateCandidateModel(result *ArithmeticResult, md *model.
 	if err != nil {
 		return errors.Join(fmt.Errorf("maxres candidate correction: %w", err), md.DecRef())
 	}
+	e.currentCorrection = append(e.currentCorrection[:0], correction...)
+	correctionSize := len(correction)
+	if e.correctionModel == nil || correctionSize < e.correctionSize {
+		if err = md.IncRef(); err != nil {
+			return errors.Join(err, md.DecRef())
+		}
+		if e.correctionModel != nil {
+			if err = e.correctionModel.DecRef(); err != nil {
+				return errors.Join(err, md.DecRef())
+			}
+		}
+		e.correctionModel = md
+		e.correctionSize = correctionSize
+	}
 	if e.bestSet && cost.Cmp(&e.upper) > 0 {
 		return md.DecRef()
 	}
@@ -48,7 +88,6 @@ func (e *maxResEngine) updateCandidateModel(result *ArithmeticResult, md *model.
 	setSoftObjectiveValue(result, e.index, cost, satisfied, assignment)
 	e.upper.Set(&cost)
 	e.bestSet = true
-	e.correction = append(e.correction[:0], correction...)
 	e.stats.Improvements++
 	return e.assertUpperBound(&satisfied)
 }
