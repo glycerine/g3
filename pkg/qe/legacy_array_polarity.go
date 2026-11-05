@@ -4,8 +4,6 @@ package qe
 // array_project_eqs_util::project/mk_result no-substitution path.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
@@ -25,7 +23,7 @@ func (p *legacyArrayProjection) replaceEqualityPolarities(md *model.ModelCore, v
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, equalities.Close()) }()
+	defer func() { resultErr = closeFailedLegacyArrayEqualities(equalities, resultErr) }()
 	evaluator, err := newLegacyModelEvaluator(md, model.ModelEvaluatorConfig{
 		Context: p.syntax.config.Context, Globals: p.syntax.config.Globals,
 		Memory: p.syntax.manager.NumeralService().RuntimeOwner(), Cooperation: p.syntax.config.Cooperation, Trace: p.syntax.config.Trace,
@@ -33,7 +31,7 @@ func (p *legacyArrayProjection) replaceEqualityPolarities(md *model.ModelCore, v
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
+	defer func() { resultErr = closeFailedLegacyArrayEvaluator(p.syntax.manager, evaluator, resultErr) }()
 	if err = evaluator.SetModelCompletion(true); err != nil {
 		return nil, err
 	}

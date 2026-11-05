@@ -28,7 +28,7 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 	if err != nil {
 		return nil, false, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, equalities.Close()) }()
+	defer func() { resultErr = closeFailedLegacyArrayEqualities(equalities, resultErr) }()
 	evaluator, err := newLegacyModelEvaluator(md, model.ModelEvaluatorConfig{
 		Context: p.syntax.config.Context, Globals: p.syntax.config.Globals,
 		Memory: p.syntax.manager.NumeralService().RuntimeOwner(), Cooperation: p.syntax.config.Cooperation, Trace: p.syntax.config.Trace,
@@ -36,7 +36,7 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 	if err != nil {
 		return nil, false, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
+	defer func() { resultErr = closeFailedLegacyArrayEvaluator(p.syntax.manager, evaluator, resultErr) }()
 	if err = evaluator.SetModelCompletion(true); err != nil {
 		return nil, false, err
 	}
@@ -202,12 +202,12 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 	if err != nil {
 		return nil, false, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, partial.Close()) }()
+	defer func() { resultErr = closeFailedLegacyPartialEquality(partial, resultErr) }()
 	factored, err := p.factorPartialSelects(md, evaluator, variable, partial)
 	if err != nil {
 		return nil, false, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, factored.Close()) }()
+	defer func() { resultErr = closeFailedLegacyFactoredPartial(factored, resultErr) }()
 	for _, variableRef := range factored.variables {
 		handle, err := p.syntax.manager.RefGet(variableRef)
 		if err != nil {
@@ -246,7 +246,7 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 	if err != nil {
 		return nil, false, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, expansion.Close()) }()
+	defer func() { resultErr = closeFailedLegacyPartialExpansion(expansion, resultErr) }()
 	for index, constantRef := range expansion.constants {
 		constant, err := p.syntax.manager.RefGet(constantRef)
 		if err != nil {

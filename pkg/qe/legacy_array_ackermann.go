@@ -4,7 +4,6 @@ package qe
 // array_project_selects_util.
 
 import (
-	"errors"
 	"math/big"
 	"sort"
 
@@ -69,7 +68,7 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
+	defer func() { resultErr = closeFailedLegacyArrayEvaluator(p.syntax.manager, evaluator, resultErr) }()
 	if err = evaluator.SetModelCompletion(true); err != nil {
 		return nil, err
 	}

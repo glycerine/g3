@@ -24,6 +24,60 @@ type legacyPartialEqualityExpansion struct {
 	constants []ast.ASTRef
 }
 
+type legacyPartialEqualityExpansionFailure struct {
+	owner          *legacyPartialEqualityExpansion
+	nested         memory.ConstructionFailure
+	runtime        *memory.Runtime
+	cause, cleanup error
+}
+
+var _ memory.ConstructionFailure = (*legacyPartialEqualityExpansionFailure)(nil)
+
+func (f *legacyPartialEqualityExpansionFailure) Error() string {
+	return errors.Join(f.cause, f.cleanup).Error()
+}
+func (f *legacyPartialEqualityExpansionFailure) Unwrap() error {
+	return errors.Join(f.cause, f.cleanup)
+}
+func (f *legacyPartialEqualityExpansionFailure) OriginalCause() error          { return f.cause }
+func (f *legacyPartialEqualityExpansionFailure) CleanupCause() error           { return f.cleanup }
+func (f *legacyPartialEqualityExpansionFailure) RuntimeOwner() *memory.Runtime { return f.runtime }
+func (f *legacyPartialEqualityExpansionFailure) Cleanup() error {
+	if f.nested != nil {
+		f.cleanup = f.nested.Cleanup()
+		if f.cleanup != nil {
+			return f.cleanup
+		}
+		f.nested = nil
+	}
+	if f.owner != nil && f.owner.manager != nil {
+		f.cleanup = f.owner.Close()
+		if f.cleanup != nil {
+			return f.cleanup
+		}
+	}
+	f.owner = nil
+	f.cleanup = nil
+	return nil
+}
+
+func closeFailedLegacyPartialExpansion(owner *legacyPartialEqualityExpansion, cause error) error {
+	cleanup := owner.Close()
+	if cleanup == nil {
+		return cause
+	}
+	origin := cause
+	if origin == nil {
+		origin = cleanup
+	}
+	var nested memory.ConstructionFailure
+	_ = errors.As(cause, &nested)
+	return &legacyPartialEqualityExpansionFailure{
+		owner: owner, nested: nested, runtime: owner.manager.NumeralService().RuntimeOwner(),
+		cause: origin, cleanup: cleanup,
+	}
+}
+
 type legacyPartialEqualityConstructionFailure struct {
 	owner          *legacyPartialEquality
 	nested         memory.ConstructionFailure
@@ -216,7 +270,7 @@ func (p *legacyPartialEquality) Expand(storesOnRight bool) (_ *legacyPartialEqua
 	result := &legacyPartialEqualityExpansion{manager: p.manager}
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+			resultErr = closeFailedLegacyPartialExpansion(result, resultErr)
 		}
 	}()
 	lhs, err := p.manager.RefGet(p.lhs)

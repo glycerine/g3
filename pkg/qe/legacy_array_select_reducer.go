@@ -131,7 +131,7 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
+	defer func() { resultErr = closeFailedLegacyArrayEvaluator(p.syntax.manager, evaluator, resultErr) }()
 	if err = evaluator.SetModelCompletion(true); err != nil {
 		return nil, err
 	}
