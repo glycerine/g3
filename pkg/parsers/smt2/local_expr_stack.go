@@ -38,6 +38,27 @@ func (s *localExprStack) shrink(m *ast.ASTManager, size int) error {
 	return s.releaseSuffix(m, size)
 }
 
+// shrinkKeepingLast releases temporary children in a parsed expression frame
+// while moving the frame's result reference into its starting slot.
+func (s *localExprStack) shrinkKeepingLast(m *ast.ASTManager, size int) error {
+	if s == nil || size < 0 || size >= len(s.refs) {
+		return errLocalExprStack
+	}
+	result := s.refs[len(s.refs)-1]
+	var failure error
+	for i := size; i < len(s.refs)-1; i++ {
+		if s.refs[i] == (ast.ASTRef{}) {
+			continue
+		}
+		failure = errors.Join(failure, m.DelRef(&s.refs[i]))
+	}
+	if failure != nil {
+		return failure
+	}
+	s.refs = append(s.refs[:size], result)
+	return nil
+}
+
 func (s *localExprStack) releaseSuffix(m *ast.ASTManager, size int) error {
 	var failure error
 	for i := size; i < len(s.refs); i++ {

@@ -79,7 +79,7 @@ func (p *commandParser) annotatedExpression(quantifier *ast.ASTQuantifierSpec) (
 				label, err = p.manager.Symbols.Intern(name)
 			}
 			if err == nil {
-				body, err = p.pin(p.manager.MkLabel(key == ":lblpos", []usymbol.Symbol{label}, body))
+				body, err = p.pinExpression(p.manager.MkLabel(key == ":lblpos", []usymbol.Symbol{label}, body))
 			}
 		case ":weight":
 			var weight uint32
@@ -112,10 +112,15 @@ func (p *commandParser) annotatedExpression(quantifier *ast.ASTQuantifierSpec) (
 				}
 			} else {
 				var term ast.ASTHandle
+				start := len(p.exprs.refs)
 				term, _, err = p.expression()
 				if err == nil {
-					quantifier.NoPatterns = append(quantifier.NoPatterns, term)
+					_, err = p.pin(term, nil)
+					if err == nil {
+						quantifier.NoPatterns = append(quantifier.NoPatterns, term)
+					}
 				}
+				err = errors.Join(err, p.exprs.shrink(p.manager, start))
 			}
 		default:
 			if err = diagnostic.BorrowProcessWarningService().Warning(fmt.Sprintf("unknown attribute %s", key)); err == nil {
@@ -132,7 +137,9 @@ func (p *commandParser) annotatedExpression(quantifier *ast.ASTQuantifierSpec) (
 	return body, named, nil
 }
 
-func (p *commandParser) pattern() (ast.ASTHandle, error) {
+func (p *commandParser) pattern() (result ast.ASTHandle, resultErr error) {
+	start := len(p.exprs.refs)
+	defer func() { resultErr = errors.Join(resultErr, p.exprs.shrink(p.manager, start)) }()
 	if p.token != LeftParenToken {
 		if !p.ignoreBadPatterns {
 			return ast.ASTHandle{}, fmt.Errorf("invalid pattern, '(' expected")

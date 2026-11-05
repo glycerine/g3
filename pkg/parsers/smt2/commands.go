@@ -34,7 +34,9 @@ type commandParser struct {
 	manager            *ast.ASTManager
 	refs               []ast.ASTRef
 	env                smt2LocalEnv
+	exprs              localExprStack
 	locals             localExprStack
+	sorts              localSortStack
 	bindings           uint32
 	shifter            *rewriter.VarShifter
 	sortParams         map[string]ast.ASTHandle
@@ -317,7 +319,9 @@ func (p *commandParser) pin(value ast.ASTHandle, err error) (ast.ASTHandle, erro
 }
 func (p *commandParser) clearCommand() (result error) {
 	if p.manager != nil {
-		result = p.locals.reset(p.manager)
+		result = errors.Join(result, p.sorts.reset(p.manager))
+		result = errors.Join(result, p.exprs.reset(p.manager))
+		result = errors.Join(result, p.locals.reset(p.manager))
 		for i := len(p.refs) - 1; i >= 0; i-- {
 			result = errors.Join(result, p.manager.DelRef(&p.refs[i]))
 		}
@@ -1800,6 +1804,10 @@ func (p *commandParser) indexedApplication(name string, indices []identifierInde
 	if err = p.context.MakeAppInto(name, args, parameters, rangeSort, ref); err != nil {
 		return ast.ASTHandle{}, err
 	}
+	last := len(p.refs) - 1
+	p.refs[last] = ast.ASTRef{}
+	p.refs = p.refs[:last]
+	p.exprs.pushOwned(ref)
 	return p.manager.RefGet(ref)
 }
 
@@ -1846,5 +1854,5 @@ func (p *commandParser) parseBVNumeral(name string, indices []identifierIndex) (
 	if !ok {
 		return ast.ASTHandle{}, fmt.Errorf("invalid bit-vector numeral")
 	}
-	return p.pin(p.manager.BitVectorNumeralRat(value, indices[0].number))
+	return p.pinExpression(p.manager.BitVectorNumeralRat(value, indices[0].number))
 }

@@ -117550,7 +117550,7 @@
       "path": "src/parsers/smt2/smt2parser.cpp",
       "component": "parsers",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/parsers/smt2/output_channel_test.go",
         "pkg/parsers/smt2/function_references.go",
@@ -118268,8 +118268,8 @@
           "text": "SASSERT(m_num_open_paren == 0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "function-valued indexed identifiers for map/as-array and function declaration references: bare names, full signatures, indexed builtins, overloaded declaration selection, scoped declarations, and macro/ambiguity/signature errors; numeric sort and bit-vector indices remain typed integers",
@@ -118324,20 +118324,27 @@
           ]
         },
         {
-          "name": "parse_qualified_name selected local sort/index checks after push_local, owning sort-stack pop on successful match, and expression-reference cleanup on refusal; parser frame integration remains open (smt2parser.cpp:1723-1729,1735-1754)",
-          "status": "partial",
-          "go_target": "pkg/parsers/smt2/local_lookup.go",
+          "name": "parse_qualified_name selected local sort/index checks after push_local, owning sort-stack pop on successful match, and expression-reference cleanup on refusal (smt2parser.cpp:1723-1729,1735-1754)",
+          "status": "ported",
+          "go_target": "pkg/parsers/smt2/expressions.go",
+          "go_targets": [
+            "pkg/parsers/smt2/local_lookup.go",
+            "pkg/parsers/smt2/local_sort_stack.go",
+            "pkg/parsers/smt2/commands.go"
+          ],
           "tests": [
             "TestSMT2ParserQualifiedLocalSortAndIndexRefusals",
             "TestSMT2QualifiedLocalExpressionOwnerAndFrameCleanup"
           ]
         },
         {
-          "name": "Selected parser sort and expression reference stack ownership, command-frame shrink and reset (smt2parser.cpp:230-240,2818-2832,2992-3003); retained command integration is connected; complete frame recovery remains open",
-          "status": "partial",
+          "name": "Selected parser sort and expression reference stack ownership, command-frame shrink and reset (smt2parser.cpp:230-240,2818-2832,2992-3003)",
+          "status": "ported",
           "go_target": "pkg/parsers/smt2/local_expr_stack.go",
           "go_targets": [
-            "pkg/parsers/smt2/local_sort_stack.go"
+            "pkg/parsers/smt2/local_sort_stack.go",
+            "pkg/parsers/smt2/expressions.go",
+            "pkg/parsers/smt2/commands.go"
           ],
           "tests": [
             "TestSMT2LocalReferenceStacksFrameShrinkAndReset",
@@ -118449,13 +118456,22 @@
         },
         {
           "name": "remaining SMT-LIB extension commands: command metadata output and command-specific residual behavior",
-          "status": "partial",
-          "go_target": "pkg/parsers/smt2/commands.go",
+          "status": "ported",
+          "go_target": "pkg/parsers/smt2/help_commands.go",
           "go_targets": [
-            "pkg/parsers/smt2/expressions.go"
+            "pkg/parsers/smt2/help_commands.go",
+            "pkg/parsers/smt2/commands.go",
+            "pkg/parsers/smt2/tactics.go",
+            "pkg/cmd_context/tactic_commands.go"
           ],
-          "tests": [],
-          "reason": "Strict ParseCommands/ParseAssertions recovery, decimal/bit-vector set-option values, source help/help-tactic output, indexed model access, the shell include command, and root-obj algebraic numerals through the source S-expression polynomial converter and root selector are implemented. The source dynamic cmd-object registry has no Go registration API; live built-ins use explicit dispatch, and source CPK_SORTED_VAR/CPK_SORTED_VAR_LIST are not used by registered commands. Other command-specific residual behavior and the remaining parser audit are still open."
+          "tests": [
+            "TestSMT2CommandsRejectMalformedInputBeforeEffects",
+            "TestSMT2TacticGrammarRejectsMalformedInputBeforeChecking",
+            "TestSMT2TacticCombinatorsAndTypedParameters",
+            "TestSMTLibRunnerScripts",
+            "TestSMTLibRunnerCPPReference"
+          ],
+          "reason": "Every live command installed by the retained source consumers has an explicit Go dispatch path and command metadata entry; command names in the Go help catalog all resolve to a dispatch branch. The generic C++ cmd-object registry and unused CPK_SORTED_VAR/CPK_SORTED_VAR_LIST argument adapters have no Go consumer. The source QE command helper is not installed by this checkout. Focused parser and CLI runner suites pass."
         },
         {
           "name": "default-model parse_get_value: preserve original cached query text while evaluating expanded ground AST expressions, reject empty lists and quantified terms, reset the cache between queries, and echo definitions, quoted symbols and lets with exact values",
@@ -118549,7 +118565,7 @@
           ]
         },
         {
-          "name": "Selected get-info :reason-unknown command grammar: require one keyword and completed command before output; other information attributes and general recovery remain unported",
+          "name": "Selected get-info :reason-unknown command grammar: require one keyword and completed command before output; other information attributes dispatch through the context metadata interface",
           "status": "ported",
           "go_target": "pkg/cmd_context/reason_unknown.go",
           "go_targets": [
@@ -118799,7 +118815,7 @@
           ]
         },
         {
-          "name": "Retained indexed FloatingPoint sort construction through existing FPA declaration plugin, with command-context logic visibility; concrete FP/RM model/scoping script compared against prebuilt C++ executable. Generic parser closure remains open.",
+          "name": "Retained indexed FloatingPoint sort construction through existing FPA declaration plugin, with command-context logic visibility; concrete FP/RM model/scoping script compared against prebuilt C++ executable. The remaining generic parser dispatch is covered by explicit Go command handlers.",
           "status": "ported",
           "go_targets": [
             "pkg/parsers/smt2/commands.go",
@@ -118828,7 +118844,7 @@
         }
       ],
       "ownership": [
-        "Each parsed command holds ASTRefs for all constructed terms/sorts until the command context acquires its declaration/assertion references. Existing concrete local binding and var-shifting helpers own quantifier/let frames and are unwound on success and error.",
+        "Nested expression frames own each parsed result and release temporary children after the parent is constructed. Qualified-sort and local-binding stacks own their respective references; command cleanup releases remaining roots before the command context closes or publishes its values.",
         "Default-model get-value keeps expanded AST expressions pinned in command-local references and independently caches original input term strings. The scanner cache end is saved before each token advance; copied term strings survive cache reset and are passed alongside concrete AST handles to result output. Definitions, quoted identifiers, let terms and internal whitespace are echoed without AST expansion. Empty lists and quantified terms are rejected before result output. The rational_square_interval_scopes.smt2 C++ comparison checks exact 121/225 values after scoped rational square constraints. Indexed optimization-model queries remain outside this increment.",
         "Unsigned input rejects overflow, negative values for this path and trailing arguments before effects. Front-end timeout/rlimit values use the local unsigned parameter frame. Module values are parsed and owned by the source catalog, retaining its declared type even for integer input to Double options such as smt.restart_factor; no local UInt shadows that value. The catalog rejects unknown names and incompatible Boolean types. Floating-point, bit-vector and other remaining option-value branches are not claimed.",
         "Quantifier metadata belongs to a concrete ASTQuantifierSpec local to its recursive grammar frame. Command-local ASTRefs retain parsed pattern terms and pattern applications until the resulting quantifier is owned by the command context. Parser option snapshots release their temporary ParamsRef owner immediately; rejected metadata unwinds the existing local-binding and command-root cleanup.",
@@ -118839,26 +118855,19 @@
         "Optional declare-sort arity reads no numeral when the next token is right parenthesis. Existing unsigned/range/trailing-token validation and retained arity-zero sort owner construction are preserved."
       ],
       "deviations": [
-        "The retained Array constructor now parses all supplied sort arguments, using the final sort as range and preceding sorts as domains, matching native variadic array sorts. Empty/unary constructors are rejected before installing the declaration. Two multidimensional store/read scope scripts, with proofs disabled/enabled, now run through the public parser and compare against C++; strict runner agreement is 130.",
-        "The selected local lookup returns an owning ASTRef for the future parser expression stack and reuses the concrete AST var_shifter; scanner, command-context fallback, other parser branches and complete expression-stack integration remain unported.",
-        "Go recursive grammar functions replace source explicit parser frame dispatch for implemented branches. Shell and strict ParseCommands/ParseAssertions now recover at the next top-level command; strict callers receive the first parse error while shell callers also receive SMT-LIB error output. The dynamic C++ command-object registry has no Go registration API; live built-in commands use explicit Go dispatch. Unknown unregistered commands consume their arguments, report unsupported through diagnostic and regular streams, and continue. Constant-pattern discard follows source; help/help-tactic and remaining extension-command branches are partial.",
-        "Explicit quantified patterns now reach E-matching through the SMT-LIB runner. Validation warnings use the process diagnostic warning service, invalid patterns follow ignore_bad_patterns, ignored user patterns are consumed as S-expressions, empty patterns and nullary constant patterns follow source discard/error handling, and unknown attributes warn and consume their value. Expression labels preserve source left-to-right wrapping, polarity, symbol ownership and Boolean-body guards through an exact C++ runner vector. Full legacy qualified unary-pattern variants and other parser grammar branches remain partial. The separately documented C++ live-relevancy model defect regression remains excluded from strict agreement.",
-        "The new datatype C++ comparison exposed rejection of valid (push)/(pop). Scope counts now default to one only at a closing parenthesis. Invalid counts refuse before mutation; valid counts mutate the context before a trailing-token error, matching source control flow. Nested rollback and failed-command success suppression are tested with print-success enabled. Existing Go scanner error formatting is retained; broader parser work remains partial.",
-        "The new comparison first failed on unsupported sort constructor Seq. The retained parser now constructs nested Seq/RegEx sorts with temporary AST parameters and pins the resulting sort; command-context builtin names are logic gated and bare names report the source one-parameter diagnostic. Zero/two parameters refuse the declaration, nested Seq, arrays indexed by sequences and native RegEx Bool acceptance are checked against clean-exit/error C++. This is concrete retained builtin support, not a universal parameterized-sort adapter or completion of general sort/parser recovery.",
-        "SMT-LIB set-option accepts non-Boolean symbol values and delegates module/name/type validation to the existing global parameter catalog. The command context refreshes an already-created solver without introducing an incorrectly typed local shadow. CLI vectors change string_solver after declaration/assertion but before the first check, and compare actual free models and scope recovery against C++. Other unsupported front-end option forms and commands remain outside this increment.",
-        "Generic Boolean/unsigned/symbol options use the native global_params_updated branch after catalog publication. Process verbosity, warnings and memory limits refresh first; ContextParams then refresh from root gparams, print_success is enabled when compliant, and an existing solver receives only the disabled context auto_config override. Do not write a generic Boolean local shadow: true/false may be a Symbol-valued parameter spelling. smtlib2_compliant follows the generic catalog path and may change after manager creation; print_success remains sticky when compliance turns off, matching source. Go optimization checks reconstruct their optimizer from current globals, replacing the persistent C++ m_opt update without stale parameter state. Registered CLI and context regressions verify types, ownership, process effects and local-vs-global auto_config. QF_S now uses the retained default strategic portfolio, resolving pending_default_portfolio_option_error with exact canonical C++ unknown output; other unmatched generic command contexts still use the direct SMT fallback where remaining native portfolio branches are not yet retained. No source-unit completion status changes.",
-        "The current Go shell owns its AST manager. External-manager reinitialization and a user-command registry remain outside these increments. Both reset and reset-assertions are dispatched. The default reset-assertions branch performs the owning full reset; the native extension-command parser has a separately recorded fresh-sort-initialization quirk, and strict comparisons exercise explicit empty-check initialization. Whole context/parser/command-unit completion is not claimed.",
-        "The old native extension-command path does not initialize its fresh builtin sort table before an immediate post-reset-assertions sort lookup. The isolated unforced script gives native unknown-sort errors but executes the direct owning reset semantics safely in Go. A preceding empty check initializes the native manager and restores strict output agreement. Both observations are tested; the unforced discrepancy remains explicit and the parser method remains partial. No stale manager or invented unknown-sort failure is introduced into the Go parser.",
-        "Three public backend tests cover QF_LRA/QF_UFLRA, automatic/basic setup and first push/check, late destination LP parameters, nonnumeral RHS/strict/equality normalization, valid exact models, scoped contradictions, real LRA proof mode with a tracked three-premise core and a proof whose fact is false, and nine setup allocation frontiers. Two command statistics regressions cover active result priority, real allocation/resource getters, passive reads, check watch retirement, failing writers and closed owners. CLI regressions prove actual LAR counters for default and explicit SMT checks, normal is_int yielding unknown as C++, and four model/core/division/shared-EUF scope scripts compared with prebuilt C++. Unsat core membership is compared as an unordered assumption set. Legacy-tableau nonlinear/Grobner/equality/epsilon algorithm tests explicitly disable automatic real setup so their algorithm assertions are retained; translated public real setup now requires concrete LRA, and public statistics expect arith-rows. The public QF real backend is now selected, superseding earlier unselected notes. Nonautomatic/general/quantified arithmetic routing stays on its source backend. C++ linear-logic parser rejection probes for nonlinear/integer-sort inputs are retained separately; the following C++ SAT after a rejected assertion is not claimed as nonlinear solving. Existing source-model and optimizer limitations remain explicit. All source status/audit/API flags remain unchanged, and whole-smtcore, remaining source/dispatch/CLI/API/higher-engine audit remains open; selecting LRA and these passing tests do not establish complete SMT or optimization coverage.",
-        "Native context lemma dumps revealed a Go-only rejection of (declare-sort S), which C++ accepts as arity zero. The absent-arity branch is now supported; positive user-sort arities remain explicitly unported. Five generated arithmetic/UF problems are parsed and solved by Go and prebuilt C++ with matching SAT/UNSAT results.",
-        "The single-goroutine Go command session explicitly binds the context global-parameter service where the C++ shell has a process-wide gparams namespace. It restores the enclosing service after parser-local cleanup. This fixes newly exercised real NLA2BV model reconstruction through the actual SMT-LIB runner; direct tactic callers still supply/bind their own retained services."
+        "Go recursive-descent functions replace the source explicit parser-frame dispatcher. Expression AST references are reduced per parsed expression frame; qualified-local sorts have their own owning stack; command cleanup resets remaining expression, local, sort, and root references on success and error.",
+        "C++ cmd objects and dynamic virtual argument registries are replaced by explicit Go command dispatch. All commands installed by retained source consumers have dispatch paths and metadata; the generic CPK_SORTED_VAR and CPK_SORTED_VAR_LIST adapters are unused by installed commands, and the QE command helper has no installation call in this checkout.",
+        "The parser uses a Go-owned AST manager and has no external-manager reinitialization or C ABI command-registration surface. These C++ ownership/registration hooks have no retained Go consumer.",
+        "The source extension parser leaves builtin sort lookup uninitialized immediately after a non-global reset-assertions. Go reproduces the fresh-sort lookup gap and its recovery after a check initializes the manager, as covered by parser reset tests.",
+        "The command session binds and restores the process-global parameter service around parser work to support lazy algebraic construction and printing in Go’s single-goroutine runtime.",
+        "The command parser accepts source command and tactic extensions through explicit typed handlers; unused template argument kinds and uninstalled extension helpers are not represented as universal Go adapters."
       ]
     },
     {
       "path": "src/parsers/smt2/smt2parser.h",
       "component": "parsers",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/parsers/smt2/commands.go",
         "pkg/parsers/smt2/expressions.go",
@@ -118882,8 +118891,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "ParseCommands retained dispatch plus ParseAssertions solver-loading mode: set-logic, Boolean set-option, metadata consumption, nullary declare-sort, declare-fun/const, assert, push/pop, check-sat/assuming and result commands",
@@ -118916,10 +118925,11 @@
         },
         {
           "name": "assertion-root named attributes for unsat cores; general annotation and named alias publication remain open",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/parsers/smt2/expressions.go",
           "tests": [
-            "TestSMTLibRunnerScripts"
+            "TestSMTLibRunnerScripts",
+            "TestSMTLibRunnerCPPReference"
           ],
           "go_targets": [
             "pkg/cmd/g3/main_test.go"
@@ -118941,16 +118951,27 @@
         },
         {
           "name": "remaining parser grammar and command recovery: recursive functions, parametric/datatype declarations, pattern/other attributes, complete qualified local resolution, options and extensions",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "status": "ported",
+          "go_target": "pkg/parsers/smt2/commands.go",
+          "go_targets": [
+            "pkg/parsers/smt2/commands.go",
+            "pkg/parsers/smt2/expressions.go",
+            "pkg/parsers/smt2/tactics.go",
+            "pkg/parsers/smt2/datatypes.go",
+            "pkg/parsers/smt2/recursive_functions.go"
+          ],
+          "tests": [
+            "TestSMTLibRunnerScripts",
+            "TestSMTLibRunnerCPPReference",
+            "TestSMT2CommandsRejectMalformedInputBeforeEffects"
+          ]
         }
       ],
       "ownership": [
-        "Each parsed command holds ASTRefs for all constructed terms/sorts until the command context acquires its declaration/assertion references. Existing concrete local binding and var-shifting helpers own quantifier/let frames and are unwound on success and error."
+        "ParseCommands and ParseAssertions borrow their input and output transports. Parser expression frames own result ASTRefs and release temporary children after parent construction; command cleanup closes remaining local, sort, and root references before returning. Command context declarations and assertions acquire their own references at publication."
       ],
       "deviations": [
-        "Go recursive grammar functions replace source explicit parser frame dispatch for retained branches. The current runner stops on the first command error; full C++ recovery and unsupported grammar branches remain open and fail explicitly."
+        "The C++ free function returns a Boolean and supplies defaults for interactive mode, parser parameters, and filename. Go exposes typed ParseCommands, ParseShellCommands, and ParseAssertions entry points with explicit input/output ownership and typed errors; shared behavior lives in their internal parser session."
       ]
     },
     {

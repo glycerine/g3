@@ -167,17 +167,85 @@ func (p *commandParser) qualifiedLocal(name string, indices []identifierIndex, e
 	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	ref, found, err := p.env.resolveQualifiedLocalSort(p.manager, p.shifter, symbol, p.bindings, expectedSort, hasSort, uint32(len(indices)))
+	if hasSort {
+		if err = p.sorts.push(p.manager, expectedSort); err != nil {
+			return ast.ASTHandle{}, false, err
+		}
+	}
+	ref, found, err := p.env.resolveQualifiedLocal(p.manager, p.shifter, symbol, p.bindings, &p.sorts, hasSort, uint32(len(indices)))
 	if err != nil || !found {
 		return ast.ASTHandle{}, found, err
 	}
-	p.refs = append(p.refs, ref)
+	p.exprs.pushOwned(ref)
 	value, err = p.manager.RefGet(ref)
 	return value, true, err
 }
 
+// checkQualifiedResult is the source check_qualifier step for nonlocal names:
+// after application construction, compare its sort with the stacked qualifier
+// and consume that sort reference only after a successful match.
+func (p *commandParser) checkQualifiedResult(value ast.ASTHandle, hasSort bool) error {
+	if !hasSort {
+		return nil
+	}
+	expected, err := p.sorts.top(p.manager)
+	if err != nil {
+		return err
+	}
+	actual, err := p.manager.GetSort(value)
+	if err != nil {
+		return err
+	}
+	if actual != expected {
+		return errLocalQualifiedSort
+	}
+	return p.sorts.pop(p.manager)
+}
+
 func (p *commandParser) expression() (ast.ASTHandle, string, error) {
-	return p.expressionWithQuantifier(nil)
+	return p.expressionFrame(nil)
+}
+
+func (p *commandParser) expressionFrame(quantifier *ast.ASTQuantifierSpec) (value ast.ASTHandle, named string, resultErr error) {
+	start := len(p.exprs.refs)
+	value, named, resultErr = p.expressionWithQuantifier(quantifier)
+	if p.manager == nil {
+		return value, named, resultErr
+	}
+	if resultErr != nil {
+		resultErr = errors.Join(resultErr, p.exprs.shrink(p.manager, start))
+		return ast.ASTHandle{}, "", resultErr
+	}
+	if len(p.exprs.refs) <= start {
+		return ast.ASTHandle{}, "", fmt.Errorf("%w: missing output at frame start %d, size %d", errLocalExprStack, start, len(p.exprs.refs))
+	}
+	result, err := p.manager.RefGet(p.exprs.refs[len(p.exprs.refs)-1])
+	if err != nil {
+		return ast.ASTHandle{}, "", errors.Join(err, p.exprs.shrink(p.manager, start))
+	}
+	if result != value {
+		return ast.ASTHandle{}, "", errors.Join(fmt.Errorf("%w: output %v differs from top %v at frame start %d", errLocalExprStack, value, result, start), p.exprs.shrink(p.manager, start))
+	}
+	if err = p.exprs.shrinkKeepingLast(p.manager, start); err != nil {
+		return ast.ASTHandle{}, "", fmt.Errorf("shrink expression frame start %d size %d: %w", start, len(p.exprs.refs), err)
+	}
+	return value, named, nil
+}
+
+func (p *commandParser) pinExpression(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	manager, err := p.astManager()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	ref, err := manager.NewRef(value)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	p.exprs.pushOwned(ref)
+	return value, nil
 }
 
 // Only the immediate annotated body of a quantifier can update its metadata.
@@ -219,7 +287,7 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 			return ast.ASTHandle{}, "", e
 		}
 		if found {
-			p.refs = append(p.refs, ref)
+			p.exprs.pushOwned(ref)
 			result, err = m.RefGet(ref)
 			return result, "", err
 		}
@@ -266,7 +334,7 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 				if err != nil {
 					return ast.ASTHandle{}, "", err
 				}
-				result, err = p.pin(result, nil)
+				result, err = p.pinExpression(result, nil)
 				return result, "", err
 			case "forall", "exists":
 				return p.quantifier(name == "forall")
@@ -312,16 +380,15 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 					if e != nil {
 						return ast.ASTHandle{}, "", e
 					}
-					actual, e := m.GetSort(value)
-					if e != nil {
+					if e = p.checkQualifiedResult(value, true); e != nil {
 						return ast.ASTHandle{}, "", e
-					}
-					if actual != rangeSort {
-						return ast.ASTHandle{}, "", fmt.Errorf("invalid qualified identifier, sort mismatch")
 					}
 					return value, "", nil
 				}
 				value, err := p.indexedApplication(name, indices, nil, rangeSort)
+				if err == nil {
+					err = p.checkQualifiedResult(value, true)
+				}
 				return value, "", err
 			}
 		}
@@ -341,7 +408,7 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 	default:
 		return ast.ASTHandle{}, "", fmt.Errorf("invalid expression, unexpected input")
 	}
-	result, err = p.pin(result, err)
+	result, err = p.pinExpression(result, err)
 	return result, "", err
 }
 
@@ -439,7 +506,7 @@ func (p *commandParser) quantifier(forall bool) (value ast.ASTHandle, named stri
 		result = errors.Join(result, p.env.endScopeWithOwningCleanup(), p.locals.shrink(p.manager, oldExprs))
 	}()
 	spec := ast.ASTQuantifierSpec{Forall: forall, Sorts: sorts, Names: names, Weight: 1}
-	body, _, err := p.expressionWithQuantifier(&spec)
+	body, _, err := p.expressionFrame(&spec)
 	if err != nil {
 		return ast.ASTHandle{}, "", err
 	}
@@ -453,7 +520,7 @@ func (p *commandParser) quantifier(forall bool) (value ast.ASTHandle, named stri
 	if err = p.expect(RightParenToken); err != nil {
 		return ast.ASTHandle{}, "", err
 	}
-	value, err = p.pin(p.manager.MkQuantifier(spec))
+	value, err = p.pinExpression(p.manager.MkQuantifier(spec))
 	return value, "", err
 }
 
