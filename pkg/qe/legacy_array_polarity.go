@@ -61,14 +61,14 @@ func (p *legacyArrayProjection) replaceEqualityPolarities(md *model.ModelCore, v
 		}
 		valueHandle, err := p.syntax.manager.RefGet(value)
 		if err != nil {
-			_ = p.syntax.manager.DelRef(&value)
-			return nil, err
+			return nil, closeFailedLegacyArrayRewrite(p.syntax.manager, value, err)
 		}
 		replacement := truth
 		if p.syntax.manager.IsFalse(valueHandle) {
 			replacement = falsity
 		}
-		err = errors.Join(replace.Insert(equality, replacement), p.syntax.manager.DelRef(&value))
+		err = replace.Insert(equality, replacement)
+		err = closeFailedLegacyArrayRewrite(p.syntax.manager, value, err)
 		if err != nil {
 			return nil, err
 		}
@@ -78,11 +78,11 @@ func (p *legacyArrayProjection) replaceEqualityPolarities(md *model.ModelCore, v
 		return nil, err
 	}
 	if err = replace.Apply(formula, replaced); err != nil {
-		return nil, errors.Join(err, p.syntax.manager.DelRef(&replaced))
+		return nil, closeFailedLegacyArrayRewrite(p.syntax.manager, replaced, err)
 	}
 	handle, err := p.syntax.manager.RefGet(replaced)
 	if err != nil {
-		return nil, errors.Join(err, p.syntax.manager.DelRef(&replaced))
+		return nil, closeFailedLegacyArrayRewrite(p.syntax.manager, replaced, err)
 	}
 	final, err := p.rewrite(handle)
 	err = finishLegacyPolarityRewrite(p.syntax.manager, final, replaced, err)

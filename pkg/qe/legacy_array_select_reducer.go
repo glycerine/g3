@@ -49,7 +49,10 @@ func (f *legacyArrayRewriteConstructionFailure) Cleanup() error {
 }
 
 func closeFailedLegacyArrayRewrite(manager *ast.ASTManager, result ast.ASTRef, cause error) error {
-	cleanup := manager.DelRef(&result)
+	var cleanup error
+	if result != (ast.ASTRef{}) {
+		cleanup = manager.DelRef(&result)
+	}
 	if cleanup == nil {
 		return cause
 	}

@@ -17,7 +17,7 @@ func (p *legacyArrayProjection) projectDirectEquality(md *model.ModelCore, varia
 	}
 	defer func() {
 		if resultErr != nil && result != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+			resultErr = closeFailedLegacyArrayRewrite(result.manager, result.formula, resultErr)
 			result = nil
 			eliminated = false
 		}
@@ -56,12 +56,11 @@ func (p *legacyArrayProjection) projectDirectEquality(md *model.ModelCore, varia
 		}
 		valueHandle, err := p.syntax.manager.RefGet(value)
 		if err != nil {
-			_ = p.syntax.manager.DelRef(&value)
-			return nil, false, err
+			return nil, false, closeFailedLegacyArrayRewrite(p.syntax.manager, value, err)
 		}
 		isFalse := p.syntax.manager.IsFalse(valueHandle)
 		if err = p.syntax.manager.DelRef(&value); err != nil {
-			return nil, false, err
+			return nil, false, closeFailedLegacyArrayRewrite(p.syntax.manager, value, err)
 		}
 		if isFalse {
 			continue
@@ -117,11 +116,11 @@ func (p *legacyArrayProjection) projectDirectEquality(md *model.ModelCore, varia
 		return nil, false, err
 	}
 	if err = replace.Apply(formula, replaced); err != nil {
-		return nil, false, errors.Join(err, p.syntax.manager.DelRef(&replaced))
+		return nil, false, closeFailedLegacyArrayRewrite(p.syntax.manager, replaced, err)
 	}
 	replacedHandle, err := p.syntax.manager.RefGet(replaced)
 	if err != nil {
-		return nil, false, errors.Join(err, p.syntax.manager.DelRef(&replaced))
+		return nil, false, closeFailedLegacyArrayRewrite(p.syntax.manager, replaced, err)
 	}
 	final, err := p.rewrite(replacedHandle)
 	err = finishLegacyDirectEqualityRewrite(p.syntax.manager, final, replaced, err)

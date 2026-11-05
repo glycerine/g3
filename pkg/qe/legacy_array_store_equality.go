@@ -19,7 +19,7 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 	ownedResult := result
 	defer func() {
 		if resultErr != nil && ownedResult != nil {
-			resultErr = errors.Join(resultErr, ownedResult.Close())
+			resultErr = closeFailedLegacyArraySelectProjection(ownedResult, resultErr)
 			result = nil
 			eliminated = false
 		}
@@ -53,12 +53,11 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 		}
 		valueHandle, err := p.syntax.manager.RefGet(value)
 		if err != nil {
-			_ = p.syntax.manager.DelRef(&value)
-			return nil, false, err
+			return nil, false, closeFailedLegacyArrayRewrite(p.syntax.manager, value, err)
 		}
 		isFalse := p.syntax.manager.IsFalse(valueHandle)
 		if err = p.syntax.manager.DelRef(&value); err != nil {
-			return nil, false, err
+			return nil, false, closeFailedLegacyArrayRewrite(p.syntax.manager, value, err)
 		}
 		if isFalse {
 			continue
@@ -128,35 +127,38 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 		}
 		indexValueHandle, err := p.syntax.manager.RefGet(indexValue)
 		if err != nil {
-			_ = p.syntax.manager.DelRef(&indexValue)
-			return nil, false, err
+			return nil, false, closeFailedLegacyArrayRewrite(p.syntax.manager, indexValue, err)
 		}
 		matchedIndex := -1
 		for candidate, previous := range indices {
 			previousValue, err := evaluate(previous)
 			if err != nil {
-				_ = p.syntax.manager.DelRef(&indexValue)
-				return nil, false, err
+				return nil, false, closeFailedLegacyArrayRewrite(p.syntax.manager, indexValue, err)
 			}
 			previousHandle, err := p.syntax.manager.RefGet(previousValue)
-			if err == nil {
-				var equal bool
-				equal, err = p.syntax.manager.AreEqual(indexValueHandle, previousHandle)
-				if equal {
-					matchedIndex = candidate
-				}
-			}
-			err = errors.Join(err, p.syntax.manager.DelRef(&previousValue))
 			if err != nil {
-				_ = p.syntax.manager.DelRef(&indexValue)
-				return nil, false, err
+				err = closeFailedLegacyArrayRewrite(p.syntax.manager, indexValue, err)
+				return nil, false, closeFailedLegacyArrayRewrite(p.syntax.manager, previousValue, err)
+			}
+			var equal bool
+			equal, err = p.syntax.manager.AreEqual(indexValueHandle, previousHandle)
+			if equal {
+				matchedIndex = candidate
+			}
+			if err != nil {
+				err = closeFailedLegacyArrayRewrite(p.syntax.manager, indexValue, err)
+				return nil, false, closeFailedLegacyArrayRewrite(p.syntax.manager, previousValue, err)
+			}
+			err = closeFailedLegacyArrayRewrite(p.syntax.manager, previousValue, nil)
+			if err != nil {
+				return nil, false, closeFailedLegacyArrayRewrite(p.syntax.manager, indexValue, err)
 			}
 			if matchedIndex >= 0 {
 				break
 			}
 		}
 		if err = p.syntax.manager.DelRef(&indexValue); err != nil {
-			return nil, false, err
+			return nil, false, closeFailedLegacyArrayRewrite(p.syntax.manager, indexValue, err)
 		}
 		if matchedIndex >= 0 {
 			condition, err := p.syntax.manager.MkEq(index, indices[matchedIndex])
@@ -271,7 +273,7 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 				err = md.RegisterConstant(decl, valueHandle)
 			}
 		}
-		err = errors.Join(err, p.syntax.manager.DelRef(&value))
+		err = closeFailedLegacyArrayRewrite(p.syntax.manager, value, err)
 		if err != nil {
 			return nil, false, err
 		}
@@ -310,11 +312,11 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 		return nil, false, err
 	}
 	if err = replace.Apply(combined, replaced); err != nil {
-		return nil, false, errors.Join(err, p.syntax.manager.DelRef(&replaced))
+		return nil, false, closeFailedLegacyArrayRewrite(p.syntax.manager, replaced, err)
 	}
 	replacedHandle, err := p.syntax.manager.RefGet(replaced)
 	if err != nil {
-		return nil, false, errors.Join(err, p.syntax.manager.DelRef(&replaced))
+		return nil, false, closeFailedLegacyArrayRewrite(p.syntax.manager, replaced, err)
 	}
 	result.formula, err = p.rewrite(replacedHandle)
 	ownedResult, err = finishLegacyStoreEqualityRewrite(p.syntax.manager, result, replaced, err)
