@@ -6,7 +6,18 @@ type maxSMTEngineFactory func(*ArithmeticSolver, *arithmeticObjective, int, maxS
 
 var maxSMTFallbackFactory maxSMTEngineFactory
 
+func sourceMaxSMTEngine(name string) string {
+	switch name {
+	case "", "maxres", "pd-maxres", "wmax", "sortmax":
+		return name
+	default:
+		// maxsmt::operator() warns and constructs MaxRes for unknown names.
+		return "maxres"
+	}
+}
+
 func selectMaxSMTEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int, config maxSMTConfig) (maxSMTEngine, error) {
+	config.engine = sourceMaxSMTEngine(config.engine)
 	if config.engine == "sortmax" {
 		engine, usable, err := newSortMaxEngine(s, objective, index)
 		if err != nil || usable {
