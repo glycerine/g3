@@ -226,8 +226,8 @@ func TestExprQEFreshVariablePolicy(t *testing.T) {
 	fmMust(t, variables.add(y))
 	ok, err = exprQENewVariablesSupported(variables, context, 1)
 	fmMust(t, err)
-	if ok {
-		t.Fatal("arithmetic variable was accepted")
+	if !ok {
+		t.Fatal("source arithmetic branch variable was rejected")
 	}
 	fmMust(t, variables.add(z))
 	ok, err = exprQENewVariablesSupported(variables, context, 2)

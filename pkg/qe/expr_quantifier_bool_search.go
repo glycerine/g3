@@ -13,8 +13,8 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-// Fresh datatype and bit-vector variables can use the refreshed context.
-// Other new theories still require additional search support.
+// Fresh arithmetic, bit-vector, datatype, and finite-domain variables use the
+// same refreshed solver context and branch machinery as source add_var.
 func exprQENewVariablesSupported(variables *exprQEBranchVariables, context *SolverContext, start int) (bool, error) {
 	if variables == nil || context == nil || start < 0 || start > len(variables.entries) || variables.manager != context.manager {
 		return false, ast.ErrASTHandle
@@ -33,7 +33,7 @@ func exprQENewVariablesSupported(variables *exprQEBranchVariables, context *Solv
 			return false, err
 		}
 		switch plugin.(type) {
-		case *DatatypeSolverPlugin, *BitVectorPlugin:
+		case *ArithmeticPlugin, *BitVectorPlugin, *DatatypeSolverPlugin, *DatalogPlugin:
 		default:
 			return false, nil
 		}
