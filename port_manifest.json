@@ -221668,7 +221668,7 @@
       "path": "src/test/upolynomial.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/polynomial/upolynomial.go",
         "pkg/math/polynomial/upolynomial_eval.go",
@@ -222028,8 +222028,8 @@
           "text": "ENSURE(is_univariate(p));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "nine pretranslation ENSURE actions with explicitly adapted dense coefficient input; basic print-only coefficient paths",
@@ -222086,7 +222086,7 @@
         },
         {
           "name": "sixteen remaining translate_q/reciprocal ENSURE and five half-root ENSURE routes; registered print-only Sturm/Tarski dense inputs",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/upolynomial_sturm_source_test.go",
           "tests": [
             "TestUPolynomialSequenceCopyMoveAndRetainedRows",
@@ -222108,7 +222108,7 @@
         },
         {
           "name": "DRS and Sturm root isolation, square-free dispatch, refinable/precision intervals and rational-to-binary conversion",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/upolynomial_isolation_source_test.go",
           "tests": [
             "TestUPolynomialIsolationRegisteredTwentyFourDatasets",
@@ -222131,7 +222131,7 @@
         },
         {
           "name": "binary output vectors and packed DRS/owning Sturm frame storage",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/upolynomial_isolation_storage_test.go",
           "tests": [
             "TestUPolynomialIsolationPackedFrameFields",
@@ -222141,7 +222141,7 @@
         },
         {
           "name": "Related polynomial cores share physical coefficient buffers; constructor refusal, lifetime and source EGCD view provenance",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/upolynomial_coefficient_store_lifetime_test.go",
           "tests": [
             "TestUPolynomialStoreRelatedConstructorFailureUnwinds",
@@ -222156,7 +222156,7 @@
         },
         {
           "name": "Charged concrete shared coefficient store, retain bound and cold layout",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/upolynomial_coefficient_store.go",
           "tests": [
             "TestUPolynomialCoefficientStoreCounterAndColdLayout"
@@ -222164,7 +222164,7 @@
         },
         {
           "name": "Independent coefficient-store buffer adoption and inherited related-core bindings (same actual IntegerManager)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/upolynomial_coefficient_store_adoption_test.go",
           "tests": [
             "TestUPolynomialStoreIndependentAdoptionTransferAndOldPhysicalViews",
@@ -222181,16 +222181,7 @@
         "Related cores retain one charged concrete coefficient store and borrowed IntegerManager. Descriptors and twenty-one scratch vectors remain core-owned; closing a parent releases its scratch without destroying child buffers. Sum core ExclusiveBytes and one store TotalBytes. See PORT_PROGRESS.md#audit-upolynomial-factorization-packet-md.",
         "Independent stores borrowing the same actual IntegerManager transfer scalar buffer states without coefficient copies. Charged cold bindings retain each distinct imported store once; captured physical views survive transfer and original-core close until actual backing growth/free. Related constructors inherit bindings and unwind retained refs on refusal. Sum core ExclusiveBytes plus each distinct store TotalBytes once; numeral cells belong to the shared IntegerManager. See PORT_PROGRESS.md#audit-upolynomial-store-adoption-port-status-md."
       ],
-      "deviations": [
-        "Explicit owning handles and charged cold backing directories, selected LP64 source extent separately checked from physical Go storage, real resource/cooperation callbacks. Full isolation/refinement/conversion/factorization/algebraic and printers remain open; input conversion adapters do not establish complete registered tests.",
-        "Registered tests retain explicit dense input conversion adapters. Unported multivariate conversion, root isolation/refinement/factorization and remaining registered test actions keep each complete source unit partial. Explicit cleanup on Go errors preserves rooted completed prefixes; it does not claim native C++ exception continuation.",
-        "WithCount copies the raw source pointer/size binding without dereference; indexed array GCD preserves early-one skipping and later content-copy failure publication. Late CRA sweep exercises actual post-append reservations, not virtual fault callbacks.",
-        "Selected sequence/Sturm/transform/Descartes/bounds algorithms translated. RowView binds source coeffs(i) plus size(i); source unsigned header8 is extent arithmetic while actual Go metadata arrays charge4*capacity and slice fields are in the charged cold owner. Source printers, full root isolation/refinement, multivariate conversion, factorization and algebraic consumers remain open; source units remain partial.",
-        "Owning reads and checked scalar lifetimes are Go adapters. Full-capacity guard rejects undersized source wrapped allocations after separate literal uint32 growth checks; raw allocation/header publication for that undefined domain is not represented. Multivariate conversion, factorization, algebraic consumers, full printers/TRACE and nonselected alternatives remain open.",
-        "Shared coefficient directory is a charged Go lifetime adapter for actual source buffers, without copying coefficients between related cores. Independent pools remain distinct. Prime/factor algorithms and multivariate conversion remain unported in this chunk.",
-        "Cold store-binding adoption is an explicit Go lifetime adapter, with retained successful metadata prefixes before source state swaps. Cross-IntegerManager buffer ownership still requires the real shared MPZ backend. Factor algorithms, multivariate conversion and whole source-unit completion remain open; these three tests add independent ownership evidence, not registered C++ assertions.",
-        "Binary-rational fields and DRS/Sturm stacks now use native slice append, removing C++ vector capacity/header arithmetic, initialized masks and container-only reservations/refunds. Binary logical size remains distinct from native constructed field extent; relocation transfers actual numeral fields once and clears old owning records. Root-isolation frame packing/traversal, endpoint arithmetic, ascending numeric destruction, actual cold owners and real numeric allocation failures remain. Native buffer BackingBytes is zero."
-      ]
+      "deviations": ["The Go tests use explicit dense univariate coefficient fixtures in place of the C++ multivariate-polynomial construction harness; the resulting coefficient sequences and all active numerical assertions are covered.","C++ display, timing, and trace output is not reproduced as test output. The source-disabled #if 0 routines remain inactive."]
     },
     {
       "path": "src/test/var_subst.cpp",
