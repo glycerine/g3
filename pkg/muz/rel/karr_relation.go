@@ -122,19 +122,16 @@ func (r *KarrRelation) Clone() *KarrRelation {
 	}
 }
 
-// AddFact changes an empty relation into the abstraction of one concrete fact.
+// AddFact appends the source Karr fact equalities. C++ asserts that the
+// relation is empty in debug builds, but release builds append another fact's
+// coordinate equalities conjunctively; preserve that behavior here.
 // A nil coordinate denotes a non-integer/non-numeral source value and is skipped.
 func (r *KarrRelation) AddFact(values []*big.Rat) error {
 	if r == nil || uint32(len(values)) != r.dimension {
 		return ErrKarrDimension
 	}
-	if !r.empty {
-		return errors.New("muz/rel: AddFact requires an empty Karr relation")
-	}
 	r.empty = false
-	r.inequalities = KarrMatrix{}
 	r.inequalitiesValid = true
-	r.basisValid = false
 	for i, value := range values {
 		if value == nil || !value.IsInt() {
 			continue
