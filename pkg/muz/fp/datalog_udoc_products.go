@@ -22,6 +22,7 @@ type udocProductFilter struct {
 type udocProductMembership struct {
 	declaration                ast.ASTHandle
 	productColumns, docColumns []uint32
+	product                    bool
 }
 type udocProductRulePlan struct {
 	head, doc, finite, source ast.ASTHandle
@@ -38,7 +39,7 @@ type udocProductRulePlan struct {
 	ruleIndex                 int
 }
 
-func similarityMembershipTail(m *ast.ASTManager, rule *base.Rule, positive int, extraDocs map[ast.ASTHandle][]ast.ASTHandle) (int, ast.ASTHandle, error) {
+func similarityMembershipTail(m *ast.ASTManager, rule *base.Rule, positive int, extraDocs, extraProducts map[ast.ASTHandle][]ast.ASTHandle) (int, ast.ASTHandle, error) {
 	if positive == 0 {
 		return -1, ast.ASTHandle{}, nil
 	}
@@ -50,21 +51,23 @@ func similarityMembershipTail(m *ast.ASTManager, rule *base.Rule, positive int, 
 	if err != nil {
 		return -1, ast.ASTHandle{}, err
 	}
-	if _, found := extraDocs[declaration]; !found {
+	_, rawDoc := extraDocs[declaration]
+	_, product := extraProducts[declaration]
+	if !rawDoc && !product {
 		return -1, ast.ASTHandle{}, nil
 	}
 	return positive - 1, tail, nil
 }
 
-func productDocMembership(m *ast.ASTManager, arguments []ast.ASTHandle, tail ast.ASTHandle, declaration ast.ASTHandle) (udocProductMembership, []ast.ASTHandle, error) {
+func productDocMembership(m *ast.ASTManager, arguments []ast.ASTHandle, tail ast.ASTHandle, declaration ast.ASTHandle, product bool) (udocProductMembership, []ast.ASTHandle, error) {
 	arity, err := m.GetNumArgs(tail)
 	if err != nil {
 		return udocProductMembership{}, nil, err
 	}
-	if arity != 1 {
+	if arity != 1 && !product {
 		return udocProductMembership{}, nil, ErrUDocDatalogFragment
 	}
-	membership := udocProductMembership{declaration: declaration, productColumns: make([]uint32, 0, arity), docColumns: make([]uint32, 0, arity)}
+	membership := udocProductMembership{declaration: declaration, product: product, productColumns: make([]uint32, 0, arity), docColumns: make([]uint32, 0, arity)}
 	auxiliaryArguments := make([]ast.ASTHandle, arity)
 	for column := uint32(0); column < arity; column++ {
 		argument, err := m.GetArg(tail, column)
@@ -94,10 +97,14 @@ type udocProductProgram struct {
 	docs, finite   map[ast.ASTHandle]bool
 	order          []ast.ASTHandle
 	groundFacts    []*udocProductGroundRule
-	groundProducts map[ast.ASTHandle]int // Mixed ground input -> its BV column.
+	groundProducts map[ast.ASTHandle]int  // Mixed ground input -> its BV column.
+	productSeeds   map[ast.ASTHandle]bool // Similarity auxiliaries inheriting product kind.
 }
 
 func (p *udocProductProgram) productHead(d ast.ASTHandle) bool {
+	if p.productSeeds[d] {
+		return true
+	}
 	if _, found := p.groundProducts[d]; found {
 		return true
 	}
@@ -208,10 +215,10 @@ func planUDocProductAssembly(m *ast.ASTManager, plan *udocProductRulePlan, argum
 }
 
 func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory, docFavourite bool, known map[ast.ASTHandle][]ast.ASTHandle) (program *udocProductProgram, resultErr error) {
-	return e.planUDocProductsForSet(factory, docFavourite, known, e.set, nil)
+	return e.planUDocProductsForSet(factory, docFavourite, known, e.set, nil, nil)
 }
 
-func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFactory, docFavourite bool, known map[ast.ASTHandle][]ast.ASTHandle, source *base.RuleSet, extraDocs map[ast.ASTHandle][]ast.ASTHandle) (program *udocProductProgram, resultErr error) {
+func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFactory, docFavourite bool, known map[ast.ASTHandle][]ast.ASTHandle, source *base.RuleSet, extraDocs, extraProducts map[ast.ASTHandle][]ast.ASTHandle) (program *udocProductProgram, resultErr error) {
 	if factory.FormulaChecked() {
 		return nil, nil
 	}
@@ -259,7 +266,10 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 		}
 		definitions[head]++
 	}
-	p := &udocProductProgram{rules: make(map[ast.ASTHandle]*udocProductRulePlan), sorts: make(map[ast.ASTHandle][]ast.ASTHandle), finiteSorts: make(map[ast.ASTHandle][]ast.ASTHandle), docs: make(map[ast.ASTHandle]bool), finite: make(map[ast.ASTHandle]bool), groundProducts: make(map[ast.ASTHandle]int)}
+	p := &udocProductProgram{rules: make(map[ast.ASTHandle]*udocProductRulePlan), sorts: make(map[ast.ASTHandle][]ast.ASTHandle), finiteSorts: make(map[ast.ASTHandle][]ast.ASTHandle), docs: make(map[ast.ASTHandle]bool), finite: make(map[ast.ASTHandle]bool), groundProducts: make(map[ast.ASTHandle]int), productSeeds: make(map[ast.ASTHandle]bool)}
+	for declaration := range extraProducts {
+		p.productSeeds[declaration] = true
+	}
 	boolean, err := e.manager.MkBoolSort()
 	if err != nil {
 		return nil, err
@@ -267,6 +277,10 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 	for ruleIndex := range rules {
 		fact := groundRules[ruleIndex]
 		if fact == nil {
+			continue
+		}
+		if extraProducts[fact.head] != nil {
+			p.productSeeds[fact.head] = true
 			continue
 		}
 		if _, found := p.groundProducts[fact.head]; found {
@@ -334,7 +348,7 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 		if err != nil {
 			return nil, err
 		}
-		membershipIndex, membershipTail, err := similarityMembershipTail(e.manager, rule, positive, extraDocs)
+		membershipIndex, membershipTail, err := similarityMembershipTail(e.manager, rule, positive, extraDocs, extraProducts)
 		if err != nil {
 			return nil, err
 		}
@@ -342,6 +356,17 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 		if membershipIndex >= 0 {
 			basePositive--
 			baseTotal--
+		}
+		if basePositive == 0 && baseTotal == 0 && membershipIndex >= 0 {
+			auxiliary, err := e.manager.GetDecl(membershipTail)
+			if err != nil {
+				return nil, err
+			}
+			_, productAuxiliary := extraProducts[auxiliary]
+			if productAuxiliary {
+				forwardHeads[head] = true
+				continue
+			}
 		}
 		if basePositive == 1 && baseTotal == 1 {
 			// Source acyclic strata forward an existing product through
@@ -488,7 +513,8 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 			if err != nil {
 				return nil, err
 			}
-			membership, auxiliaryArguments, err := productDocMembership(e.manager, arguments, membershipTail, declaration)
+			_, productMembership := extraProducts[declaration]
+			membership, auxiliaryArguments, err := productDocMembership(e.manager, arguments, membershipTail, declaration, productMembership)
 			if err != nil {
 				return nil, err
 			}
@@ -513,6 +539,9 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 	for ruleIndex := range rules {
 		fact := groundRules[ruleIndex]
 		if fact == nil {
+			continue
+		}
+		if extraProducts[fact.head] != nil {
 			continue
 		}
 		if sorts := extraDocs[fact.head]; sorts != nil {
@@ -558,7 +587,11 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 				return nil, err
 			}
 			if pairHeads[head] {
-				if definitions[head] != 1 || positive != 2 || total != 2 {
+				membershipIndex, membershipTail, err := similarityMembershipTail(e.manager, rule, positive, extraDocs, extraProducts)
+				if err != nil {
+					return nil, err
+				}
+				if definitions[head] != 1 || membershipIndex < 0 && (positive != 2 || total != 2) || membershipIndex >= 0 && (positive != 3 || total != 3 || membershipIndex != 2) {
 					return nil, ErrUDocDatalogFragment
 				}
 				plan, err := e.planUDocProductPair(p, rule)
@@ -568,18 +601,62 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 				if plan == nil {
 					continue
 				}
+				if membershipIndex >= 0 {
+					var arguments []ast.ASTHandle
+					for tailIndex := 0; tailIndex < 2; tailIndex++ {
+						tail, _, cause := rule.Tail(tailIndex)
+						if cause != nil {
+							return nil, cause
+						}
+						tailArguments, cause := productArguments(e.manager, tail)
+						if cause != nil {
+							return nil, cause
+						}
+						arguments = append(arguments, tailArguments...)
+					}
+					declaration, cause := e.manager.GetDecl(membershipTail)
+					if cause != nil {
+						return nil, cause
+					}
+					_, productMembership := extraProducts[declaration]
+					membership, auxiliaryArguments, cause := productDocMembership(e.manager, arguments, membershipTail, declaration, productMembership)
+					if cause != nil {
+						return nil, cause
+					}
+					plan.docMemberships = append(plan.docMemberships, membership)
+					arguments = append(arguments, auxiliaryArguments...)
+					headApplication, cause := rule.Head()
+					if cause != nil {
+						return nil, cause
+					}
+					plan.filters, plan.identical, plan.removed, plan.cycles, plan.output = nil, nil, nil, nil, nil
+					if cause = planUDocProductAssembly(e.manager, plan, arguments, headApplication, true); cause != nil {
+						return nil, cause
+					}
+					plan.identical = nil
+				}
 				p.rules[head], p.sorts[head] = plan, append([]ast.ASTHandle(nil), e.predicates[head].sorts...)
 				p.order = append(p.order, head)
 				advanced = true
 				continue
 			}
-			if !e.auxiliary[head] && !forwardHeads[head] || definitions[head] != 1 || positive != 1 || total != 1 {
+			if !e.auxiliary[head] && !forwardHeads[head] || definitions[head] != 1 {
 				return nil, ErrUDocDatalogFragment
 			}
-			tail, _, err := rule.Tail(0)
+			membershipIndex, membershipTail, err := similarityMembershipTail(e.manager, rule, positive, extraDocs, extraProducts)
 			if err != nil {
 				return nil, err
 			}
+			sourceTailIndex := 0
+			if membershipIndex >= 0 {
+				if positive != 2 || total != 2 {
+					return nil, ErrUDocDatalogFragment
+				}
+				sourceTailIndex = 1 - membershipIndex
+			} else if positive != 1 || total != 1 {
+				return nil, ErrUDocDatalogFragment
+			}
+			tail, _, err := rule.Tail(sourceTailIndex)
 			source, err := e.manager.GetDecl(tail)
 			if err != nil {
 				return nil, err
@@ -609,6 +686,19 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 			args, err := productArguments(e.manager, tail)
 			if err != nil {
 				return nil, err
+			}
+			if membershipIndex >= 0 {
+				declaration, err := e.manager.GetDecl(membershipTail)
+				if err != nil {
+					return nil, err
+				}
+				_, productMembership := extraProducts[declaration]
+				membership, auxiliaryArguments, err := productDocMembership(e.manager, args, membershipTail, declaration, productMembership)
+				if err != nil {
+					return nil, err
+				}
+				plan.docMemberships = append(plan.docMemberships, membership)
+				args = append(args, auxiliaryArguments...)
 			}
 			h, err := rule.Head()
 			if err != nil {

@@ -166,6 +166,9 @@ func (e *PropositionalEngine) queryUDocDatalog(declarations []ast.ASTHandle) (st
 	if owner == nil {
 		return lbool.Undef, ErrUDocDatalogFragment
 	}
+	if err := e.relations.ResetSaturatedMarks(); err != nil {
+		return lbool.Undef, err
+	}
 	set := e.set
 	var similarityScope *udocSimilarityQueryScope
 	if enabled, threshold, err := e.udocSimilaritySettings(); err != nil {
@@ -176,7 +179,18 @@ func (e *PropositionalEngine) queryUDocDatalog(declarations []ast.ASTHandle) (st
 			return lbool.Undef, err
 		}
 		outputs = append(outputs, declarations...)
-		program, err := rel.NewUDocSimilarityProgram(e.manager, e.rules, owner.factory, e.set, threshold, outputs)
+		productHeads := make(map[ast.ASTHandle]bool)
+		if owner.products != nil && owner.products.program != nil {
+			for declaration := range owner.products.program.groundProducts {
+				productHeads[declaration] = true
+			}
+			for declaration, plan := range owner.products.program.rules {
+				if plan.inputKind == 0 {
+					productHeads[declaration] = true
+				}
+			}
+		}
+		program, err := rel.NewUDocSimilarityProgram(e.manager, e.relations, productHeads, e.rules, owner.factory, e.set, threshold, outputs)
 		if err != nil {
 			return lbool.Undef, err
 		}
@@ -187,7 +201,7 @@ func (e *PropositionalEngine) queryUDocDatalog(declarations []ast.ASTHandle) (st
 			}
 			var productPlan *udocProductProgram
 			if owner.products != nil {
-				productPlan, err = e.planUDocProductsForSet(owner.factory, true, owner.products.program.sorts, set, program.SeedSorts())
+				productPlan, err = e.planUDocProductsForSet(owner.factory, true, owner.products.program.sorts, set, program.SeedSorts(), similarityProductSeedSorts(program))
 				if err != nil && !errors.Is(err, ErrUDocDatalogFragment) {
 					return lbool.Undef, errors.Join(err, program.Close())
 				}

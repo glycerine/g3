@@ -8,10 +8,11 @@ import (
 )
 
 type udocSimilarityQueryScope struct {
-	owner            *datalogUDocContext
-	program          *rel.UDocSimilarityProgram
-	previousProducts *udocProductProgram
-	installed        []ast.ASTHandle
+	owner             *datalogUDocContext
+	program           *rel.UDocSimilarityProgram
+	previousProducts  *udocProductProgram
+	installed         []ast.ASTHandle
+	installedProducts []ast.ASTHandle
 }
 
 func (e *PropositionalEngine) udocSimilaritySettings() (bool, uint32, error) {
@@ -36,7 +37,16 @@ func installUDocSimilaritySeeds(owner *datalogUDocContext, program *rel.UDocSimi
 	}
 	scope := &udocSimilarityQueryScope{owner: owner, program: program}
 	seeds := program.Seeds()
+	products := program.ProductSeeds()
 	for _, declaration := range program.SeedOrder() {
+		if product := products[declaration]; product != nil {
+			if owner.products == nil || owner.products.seeds[declaration] != nil || owner.seeds[declaration] != nil {
+				return nil, errors.Join(ErrUDocDatalogFragment, scope.Close())
+			}
+			owner.products.seeds[declaration] = product
+			scope.installedProducts = append(scope.installedProducts, declaration)
+			continue
+		}
 		if seeds[declaration] == nil || owner.seeds[declaration] != nil {
 			return nil, errors.Join(ErrUDocDatalogFragment, scope.Close())
 		}
@@ -60,6 +70,17 @@ func (s *udocSimilarityQueryScope) Close() (result error) {
 		}
 		delete(s.owner.seeds, declaration)
 	}
+	if s.owner != nil && s.owner.products != nil {
+		for _, declaration := range s.installedProducts {
+			if product := s.owner.products.result[declaration]; product != nil {
+				result = errors.Join(result, product.Close())
+				if result == nil {
+					delete(s.owner.products.result, declaration)
+				}
+			}
+			delete(s.owner.products.seeds, declaration)
+		}
+	}
 	if s.owner != nil {
 		if s.previousProducts != nil && s.owner.products != nil {
 			s.owner.products.program = s.previousProducts
@@ -81,7 +102,19 @@ func (s *udocSimilarityQueryScope) Close() (result error) {
 		result = errors.Join(result, s.program.Close())
 	}
 	if result == nil {
-		s.owner, s.program, s.installed = nil, nil, nil
+		s.owner, s.program, s.installed, s.installedProducts = nil, nil, nil, nil
+	}
+	return result
+}
+
+func similarityProductSeedSorts(program *rel.UDocSimilarityProgram) map[ast.ASTHandle][]ast.ASTHandle {
+	result := make(map[ast.ASTHandle][]ast.ASTHandle)
+	if program == nil {
+		return result
+	}
+	sorts, products := program.SeedSorts(), program.ProductSeeds()
+	for declaration := range products {
+		result[declaration] = sorts[declaration]
 	}
 	return result
 }
