@@ -98474,11 +98474,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["Explanation predicate declarations, rule-set transformation, output bridges, finite fact transfer and typed product registration are implemented and consumed by the Datalog expression-query compiler. Both fact-level and relation-level products publish owning explanation answers; supported finite checked-table and relation-level formula-checking paths are connected. Direct relation-declaration queries do not activate explanation transformation, and fact-level formula checking remains explicitly unsupported; broader combination and exceptional-ownership audits remain separate."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"mk_explanations declaration contract: transformer state, explanation declarations, rule transformation and fact transfer","status":"ported","go_targets":["pkg/muz/rel/explanation_transform.go","pkg/muz/rel/explanation_transform_rules.go","pkg/muz/rel/explanation_transform_facts.go","pkg/muz/rel/relation_explanation_product.go"],"tests":["TestExplanationTransformerAddsRuleRecords","TestExplanationTransformerUsesUnnamedRuleDisplay","TestExplanationTransformerRuleSetAndOutputBridge","TestExplanationTransformerTransfersFiniteFacts","TestExplanationTransformerTransfersRelationFacts"],"reason":"Context and AST state map to the typed manager/rule-manager fields; declaration pinning and cached explanation declarations are owned until Close. Relation mode and the singleton fact explanation are represented by the separate typed transfer paths. The header-declared static get_explanation has no C++ definition or live caller, so it has no Go counterpart."}],
+      "ownership": ["Explanation declaration/sort references are owned by ExplanationTransformer and released by Close. Transferred relation products are published under explained predicates and owned by RelationManager; the fact-level singleton is scoped to fact transfer."],
+      "deviations": ["The header-declared static get_explanation has no C++ definition or live caller and is not ported. Direct relation-declaration queries bypass explanation transformation in both C++ and Go. Fact-level check_relation is an invalid source plugin combination for rule-sort proof relations; Go reports it as unsupported before transfer."]
     },
     {
       "path": "src/muz/rel/dl_mk_similarity_compressor.cpp",

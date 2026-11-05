@@ -1,8 +1,7 @@
 package rel
 
-// Source: src/muz/rel/dl_mk_explanations.cpp/.h, get_e_decl, get_e_lit,
-// get_rule_symbol and get_e_rule. Relation-kind assignment and rule-set/fact
-// transformation are separate port steps.
+// Source: src/muz/rel/dl_mk_explanations.cpp/.h, explanation declaration
+// caching, rule transformation, and fact/relation product transfer.
 
 import (
 	"bytes"
@@ -15,7 +14,7 @@ import (
 )
 
 // ExplanationTransformer owns fresh explanation declarations and borrows the
-// rule manager. The relation-level plugin assignment is not yet connected.
+// rule manager. Transfer methods publish products to the relation manager.
 type ExplanationTransformer struct {
 	manager          *ast.ASTManager
 	rules            *base.RuleManager
