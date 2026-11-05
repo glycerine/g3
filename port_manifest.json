@@ -213083,7 +213083,7 @@
       "path": "src/test/interval.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/math/interval/interval_cpp_driver_test.go", "pkg/math/interval/interval_root_cpp_driver_test.go", "pkg/math/interval/interval_dependency_implication_test.go"],
       "tests": ["TestIntervalSourceSeededArithmetic", "TestIntervalSourceSeededRootEndpoints", "TestIntervalDependencyImplicationsOnRationalGrid"],
       "conditionals": [
@@ -213130,11 +213130,15 @@
           "text": "ENSURE(nm.lt(im.lower(r), im.upper(r)));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["The source-seeded 1,000-case division, inverse, power, negation, subtraction, multiplication and addition passes check exact values at representative and boundary-adjacent points. A rational grid checks the source implication shape using only reported dependencies for eight arithmetic operations, but does not prove the generated SMT-LIB implications. The square-root and cube-root passes check each finite endpoint with the live scalar root implementation and exact rational powers; full interval root output remains open."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name":"source-seeded interval generation and 1,000-case arithmetic workloads","status":"ported","go_target":"pkg/math/interval/interval_cpp_driver_test.go","tests":["TestIntervalSourceSeededArithmetic"]},
+        {"name":"square-root/cube-root scalar certificates and whole interval endpoint construction","status":"ported","go_target":"pkg/math/interval/interval_root_cpp_driver_test.go","tests":["TestIntervalSourceSeededRootEndpoints"]},
+        {"name":"bound-dependency implication checks for arithmetic and roots","status":"ported","go_target":"pkg/math/interval/interval_dependency_implication_test.go","tests":["TestIntervalDependencyImplicationsOnRationalGrid"]}
+      ],
+      "ownership": ["Rational managers, intervals, and root scratch are scoped and closed by the existing Go fixtures; the C++ test manager and interval values are similarly released at each workload's end."],
+      "deviations": ["The C++ driver writes one SMT-LIB lemma file per operation for external checking; Go validates the deterministic source workloads with exact rational point-containment checks and separately checks reported dependency implications on a rational grid. Disabled float/pi test bodies and test-runner file naming/output are not active test behavior."]
     },
     {
       "path": "src/test/karr.cpp",

@@ -211,7 +211,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/tactic/sls/bvsls_opt_engine.h` — The optimizer/result interface, objective and best-model ownership, model access and teardown map to the typed `BVOptimizer` API; focused SLS and optimizer-consumer suites pass.
 - [x] `src/test/cnf_backbones.cpp` — Tracked-clause cloning, source core-based chunking and brute-force fallback, DIMACS consequence output, and frontend statistics map to existing SAT/shell implementations and tests; C++ test-runner argument dispatch and signal handlers are not Go behavior.
 - [x] `src/test/ddnf.cpp` — Two-bit DDNF insertion and the routing-table populate/accumulate/refine workflow map to existing Go driver tests; C++ test-runner file-argument and process-exit handling are harness-only.
-- [ ] `src/test/interval.cpp`
+- [x] `src/test/interval.cpp` — Source-seeded arithmetic, scalar and interval root endpoint construction, and dependency-implication checks map to the existing exact-rational Go driver tests; inactive float/pi paths and C++ test-runner lemma-file emission are not active Go behavior.
 - [ ] `src/test/memory.cpp`
 - [ ] `src/test/mpff.cpp`
 - [ ] `src/test/mpq.cpp`
