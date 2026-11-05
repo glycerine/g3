@@ -119433,7 +119433,7 @@
       "path": "src/qe/nlarith_util.cpp",
       "component": "qe",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/qe/nlarith_util.go",
         "pkg/qe/nlarith_polynomial.go",
@@ -119560,12 +119560,62 @@
           "text": "SASSERT(mat.size() % 2 == 0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "create_branches and polynomial case analysis",
+          "status": "ported",
+          "go_targets": [
+            "pkg/qe/nlarith_branch_builder.go",
+            "pkg/qe/nlarith_analysis.go",
+            "pkg/qe/nlarith_literal.go",
+            "pkg/qe/nlarith_candidate.go",
+            "pkg/qe/nlarith_branch_algebra.go",
+            "pkg/qe/nlarith_root_form.go",
+            "pkg/qe/nlarith_root_instantiate.go",
+            "pkg/qe/nlarith_root_compare.go",
+            "pkg/qe/nlarith_epsilon.go",
+            "pkg/qe/nlarith_infinity.go"
+          ],
+          "tests": [
+            "TestNLCreateQuadraticBranchesSubstitutionShapeAndOwnership",
+            "TestNLCreateBranchesLinearGateAndDegreeThreeRejection",
+            "TestNLCreateBranchesDeclinesNonRealTargets"
+          ]
+        },
+        {
+          "name": "polynomial decomposition, operations, derivatives, and numeric quotient/remainder",
+          "status": "ported",
+          "go_targets": [
+            "pkg/qe/nlarith_polynomial.go",
+            "pkg/qe/nlarith_polynomial_decompose.go",
+            "pkg/qe/nlarith_polynomial_ops.go",
+            "pkg/qe/nlarith_polynomial_derivative.go",
+            "pkg/qe/nlarith_polynomial_division.go"
+          ],
+          "tests": [
+            "TestNLArithmeticPolynomialDecompositionOperationsAndDerivative"
+          ]
+        },
+        {
+          "name": "nonlinear variable extraction and enable-linear setting",
+          "status": "ported",
+          "go_targets": [
+            "pkg/qe/nlarith_util.go",
+            "pkg/qe/nlarith_extract.go",
+            "pkg/qe/nlarith_weights.go"
+          ],
+          "tests": [
+            "TestNLArithmeticExtractNonlinearTraversalAndWeightCache",
+            "TestNLArithmeticEnableLinearAndNonArithmeticPropagation",
+            "TestNLArithmeticExtractTraversesQuantifierBody"
+          ]
+        }
+      ],
       "ownership": [],
       "deviations": [
-        "The sign-literal and sign-branch APIs have no source consumers outside this unit and are excluded under the live-consumer rule. Full declaration and lifetime audits remain pending."
+        "The sign-literal and sign-branch v2 APIs, their opaque literal_set, and their branch interface have no source consumers outside this unit; they are excluded under the retained-consumer rule."
       ]
     },
     {

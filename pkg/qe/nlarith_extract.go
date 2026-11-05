@@ -14,8 +14,22 @@ func (u *NonlinearArithmeticUtil) isVariable(h ast.ASTHandle) (bool, error) {
 	if family != ast.NullFamilyID || n != 0 {
 		return false, nil
 	}
-	integer, err := u.term.isInteger(h)
-	return !integer, err
+	sort, err := u.manager.GetSort(h)
+	if err != nil {
+		return false, err
+	}
+	family, err = u.manager.GetFamilyID(sort)
+	if err != nil || family != u.family {
+		return false, err
+	}
+	kind, err := u.manager.GetDeclKind(sort)
+	if err != nil {
+		return false, err
+	}
+	// arith_util::is_real accepts only the arithmetic plugin's real sort.
+	// Treating every non-integer nullary symbol as Real incorrectly admits
+	// Boolean, bit-vector, and uninterpreted constants as arithmetic variables.
+	return kind == 0, nil
 }
 func (u *NonlinearArithmeticUtil) isNonlinearMul(h ast.ASTHandle) (bool, error) {
 	family, err := u.manager.GetFamilyID(h)
@@ -81,7 +95,10 @@ func (u *NonlinearArithmeticUtil) ExtractNonlinear(root ast.ASTHandle) ([]ast.AS
 			continue
 		}
 		variable, err := u.isVariable(w.h)
-		if err == nil && variable {
+		if err != nil {
+			return nil, err
+		}
+		if variable {
 			if (w.nonlinear || u.enableLinear) && !added[w.h] {
 				added[w.h] = true
 				result = append(result, w.h)

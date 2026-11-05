@@ -54,6 +54,25 @@ func (p *NLPolynomial) Coefficient(i uint32) (ast.ASTHandle, error) {
 	}
 	return p.manager.RefGet(p.coefficients[i])
 }
+func (p *NLPolynomial) setCoefficient(i uint32, h ast.ASTHandle) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	if i >= uint32(len(p.coefficients)) {
+		return ast.ErrASTDomain
+	}
+	r, err := p.manager.NewRef(h)
+	if err != nil {
+		return err
+	}
+	old := p.coefficients[i]
+	if err = p.manager.DelRef(&old); err != nil {
+		_ = p.manager.DelRef(&r)
+		return err
+	}
+	p.coefficients[i] = r
+	return nil
+}
 func (p *NLPolynomial) handles() ([]ast.ASTHandle, error) {
 	r := make([]ast.ASTHandle, len(p.coefficients))
 	for i := range r {
