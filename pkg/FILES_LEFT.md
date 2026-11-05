@@ -129,7 +129,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/spacer/spacer_util.h` — Spacer infinity-level helpers, evaluator and projection interfaces, and extended pretty-printer map to the concrete Go APIs. C++ STL container aliases have no separate port, and declarations without retained consumers remain unported by design.
 - [x] `src/muz/tab/tab_context.cpp` — Matcher, clauses, rule index, predicate selection, subsumption, unification, delta extraction, backtracking search, proof certificates, statistics, and cleanup map to the implementations in `pkg/muz/tab`. The complete tab package suite passes.
 - [x] `src/muz/tab/tab_context.h` — The public tabulation engine query, cleanup, statistics, certificate, and answer interface maps to Go's tab query/session/statistics/certificate APIs. The complete tab package suite passes.
-- [ ] `src/muz/transforms/dl_mk_scale.cpp`
+- [ ] `src/muz/transforms/dl_mk_scale.cpp` — The scaling transform and focused tests are present. Source audit still finds a model-converter mismatch: C++ branches on the scaled declaration's arity, while Go reconstructs nullary originals as constants; resolve this live result path against the exact C++ release behavior before checking off the unit.
 - [ ] `src/muz/transforms/dl_mk_scale.h`
 - [ ] `src/muz/transforms/dl_mk_slice.cpp`
 - [ ] `src/nlsat/nlsat_explain.cpp`
