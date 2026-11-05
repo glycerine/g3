@@ -246,6 +246,9 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 		return result, false, err
 	}
 	defer func() { err = errors.Join(err, root.Close()) }()
+	if simplifier, ok := scalarPlugin.(exprQETreeSimplifier); ok {
+		root.simplifiers = append(root.simplifiers, simplifier)
+	}
 	if err = root.initialize(body); err != nil {
 		return result, false, err
 	}

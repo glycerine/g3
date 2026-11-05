@@ -49,8 +49,12 @@ func TestQuantifierContextTranslationCopiesParametersAndOptions(t *testing.T) {
 	fmMust(t, err)
 	quantified, err := target.r.manager.HasQuantifiers(h)
 	fmMust(t, err)
-	if quantified {
-		t.Fatal("translated tactic did not eliminate the quantifier")
+	// The source arithmetic factory replaces linear elimination with
+	// nlarith_plugin when qe_nonlinear is true. Its branch builder rejects a
+	// mixed arithmetic/uninterpreted body such as x=3 && P(x), so this formula
+	// remains quantified after translation just as it does in C++.
+	if !quantified {
+		t.Fatal("translated nonlinear tactic unexpectedly eliminated unsupported mixed formula")
 	}
 }
 

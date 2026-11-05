@@ -23,6 +23,7 @@ type NonlinearArithmeticPlugin struct {
 	manager       *ast.ASTManager
 	util          *NonlinearArithmeticUtil
 	replacer      *astrewriter.ExprSafeReplace
+	factor        *astrewriter.FactorRewriter
 	weights       *NLWeightCache
 	family        ast.FamilyID
 	produceModels bool
@@ -52,13 +53,20 @@ func NewNonlinearArithmeticPlugin(context *SolverContext, produceModels bool) (*
 		_ = u.Close()
 		return nil, err
 	}
-	w, err := NewNLWeightCache(m, true)
+	f, err := astrewriter.NewFactorRewriter(m)
 	if err != nil {
 		_ = r.Close()
 		_ = u.Close()
 		return nil, err
 	}
-	p := &NonlinearArithmeticPlugin{context: context, manager: m, util: u, replacer: r, weights: w, family: u.family, produceModels: produceModels, cache: make(map[nlPluginKey]*nlPluginEntry)}
+	w, err := NewNLWeightCache(m, true)
+	if err != nil {
+		_ = f.Close()
+		_ = r.Close()
+		_ = u.Close()
+		return nil, err
+	}
+	p := &NonlinearArithmeticPlugin{context: context, manager: m, util: u, replacer: r, factor: f, weights: w, family: u.family, produceModels: produceModels, cache: make(map[nlPluginKey]*nlPluginEntry)}
 	p.self = p
 	return p, nil
 }
@@ -116,7 +124,7 @@ func (p *NonlinearArithmeticPlugin) Close() (result error) {
 	for i := len(p.constraints) - 1; i >= 0; i-- {
 		result = errors.Join(result, p.manager.DelRef(&p.constraints[i].Formula))
 	}
-	result = errors.Join(result, p.weights.Close(), p.replacer.Close(), p.util.Close())
+	result = errors.Join(result, p.weights.Close(), p.factor.Close(), p.replacer.Close(), p.util.Close())
 	if result == nil {
 		p.closed = true
 	}

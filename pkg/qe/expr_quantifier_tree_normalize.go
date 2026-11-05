@@ -9,6 +9,10 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
+type exprQETreeSimplifier interface {
+	Simplify(ast.ASTRef, *rewriter.TheoryRewriter) (bool, error)
+}
+
 func normalizeExprQETree(node *exprQETree, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer) (err error) {
 	if node == nil || node.manager == nil || rw == nil || nnf == nil || node.formula == (ast.ASTRef{}) {
 		return ast.ErrASTHandle
@@ -20,6 +24,17 @@ func normalizeExprQETree(node *exprQETree, rw *rewriter.TheoryRewriter, nnf *QEN
 	}
 	if err = rw.Rewrite(root, node.formula); err != nil {
 		return err
+	}
+	for _, simplifier := range node.simplifiers {
+		for {
+			changed, cause := simplifier.Simplify(node.formula, rw)
+			if cause != nil {
+				return cause
+			}
+			if !changed {
+				break
+			}
+		}
 	}
 	atoms, err := nnf.Normalize(node.formula)
 	if err != nil {

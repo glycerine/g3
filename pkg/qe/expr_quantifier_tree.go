@@ -18,6 +18,7 @@ type exprQETree struct {
 	atoms                         *BoolAtomIndex
 	children                      []*exprQETree
 	branchIndex                   map[string]int
+	simplifiers                   []exprQETreeSimplifier
 	branches                      big.Rat
 	pure                          bool
 }
@@ -40,6 +41,9 @@ func newExprQETree(m *ast.ASTManager, config Config, parent *exprQETree, assignm
 	result.definitions, err = NewDefinitionVector(m, config)
 	if err != nil {
 		return result, err
+	}
+	if parent != nil {
+		result.simplifiers = append(result.simplifiers, parent.simplifiers...)
 	}
 	return result, nil
 }
