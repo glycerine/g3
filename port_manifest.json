@@ -97883,7 +97883,7 @@
       "path": "src/muz/rel/dl_interval_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/rel/interval_relation_capability.go",
         "pkg/muz/rel/interval_relation_capability_test.go",
@@ -97948,8 +97948,8 @@
           "text": "SASSERT(!m_arith.is_mul(e) || a->get_num_args() == 2);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "is_linear/is_le/is_lt/is_eq: source arithmetic filter shape recognition and exact rational offsets",
@@ -98047,7 +98047,7 @@
         "Interval bounds are copied across the package boundary and carry no arithmetic dependencies."
       ],
       "deviations": [
-        "Pending full vector relation operations, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The concrete interval implementation is live through the specialized fixedpoint runtime but is not installed through generic relation-plugin registration. The source formula builder ignores the empty flag, so empty interval relations export the conjunction identity."
+        "The Go port exposes the reached interval relation as a concrete typed implementation used by the fixedpoint runtime rather than installing a generic relation-plugin factory. Its direct constructors and operations cover the live source consumers; unsupported complement and subset operations remain unsupported as in C++. Formula conversion preserves the source behavior of exporting the bounds conjunction even for an empty relation."
       ]
     },
     {
