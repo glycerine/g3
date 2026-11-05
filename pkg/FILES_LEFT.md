@@ -268,8 +268,8 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/scoped_ptr_vector.h` — Live scoped pointer vectors are represented by concrete Go owner slices with explicit replacement, pop, resize, reset, and close order; generic delete-procedure plumbing is unnecessary. Existing polynomial skeleton-vector and SMT string regex-stage ownership checks pass with `-short`; no tests were added.
 - [x] `src/util/scoped_vector.h`
 - [x] `src/util/symbol_table.h` — The live parser `symbol_table<local>` is a concrete binding map with source-order undo trails, and the AST family registry has its own concrete `symbol_table<family_id>` port. The source symbol-table insertion, lookup, overwrite, nested-scope restore, and reset behaviors are covered by existing SMT2 local-environment and AST family tests with `-short`; unused generic `append` has no retained call site.
-- [ ] `src/util/trace.cpp`
-- [ ] `src/util/trace.h`
+- [x] `src/util/trace.cpp` — The process trace-tag registry, enable-all state, finalization, and compile-time trace-file setup are implemented in `pkg/util/diagnostic`; the unused `open_trace` and `close_trace` entry points have no retained call sites. Existing diagnostics tests pass with and without `g3trace` using `-short`.
+- [x] `src/util/trace.h` — The `TRACE_CODE`, `TRACE`, `STRACE`, and `CTRACE` compile/tag/condition ordering and stream output behavior are represented by the concrete trace emission API. Existing source-order, output, flush, sticky-error, and compile-gate tests pass with and without `g3trace` using `-short`.
 - [ ] `src/util/util.cpp`
 - [ ] `src/util/util.h`
 
