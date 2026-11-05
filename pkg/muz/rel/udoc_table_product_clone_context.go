@@ -21,6 +21,7 @@ func (p *UDocTableProduct) CloneForManager(manager *RelationManager) (*UDocTable
 	if p.table == nil {
 		return a.finish(nil)
 	}
+	a.product.tableColumns = append([]bool(nil), p.tableColumns...)
 	source, lazy := p.table.(*LazySparseTable)
 	if !lazy {
 		a.product.table, err = p.table.CloneFinite()

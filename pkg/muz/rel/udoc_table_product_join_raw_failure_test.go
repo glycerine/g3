@@ -130,11 +130,6 @@ func TestUDocTableProductRawJoinRejectsIncompatibleSources(t *testing.T) {
 	checked := ownUDocTableUnionRelation(t, raw, err)
 	raw, err = factory.NewFull([]ast.ASTHandle{f.bits, f.bits})
 	multi := ownUDocTableUnionRelation(t, raw, err)
-	wideSort, err := f.ast.BitVectorSort(96)
-	astTestMust(t, err)
-	astTestPin(t, f.ast, wideSort)
-	raw, err = factory.NewFull([]ast.ASTHandle{wideSort})
-	wide := ownUDocTableUnionRelation(t, raw, err)
 	cases := []struct {
 		name         string
 		doc          *TypedUDocRelation
@@ -145,7 +140,6 @@ func TestUDocTableProductRawJoinRejectsIncompatibleSources(t *testing.T) {
 		{name: "foreign-factory", doc: foreign},
 		{name: "checked", doc: checked},
 		{name: "multi-column", doc: multi},
-		{name: "wide-sort", doc: wide},
 		{name: "unequal-key-count", doc: doc, left: []uint32{0}},
 		{name: "raw-column-out-of-range", doc: doc, left: []uint32{1}, right: []uint32{1}},
 		{name: "product-column-out-of-range", doc: doc, left: []uint32{0}, right: []uint32{2}},
@@ -185,6 +179,52 @@ func TestUDocTableProductRawJoinRejectsIncompatibleSources(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUDocTableProductWideSortUsesSieveMask(t *testing.T) {
+	f, factory, doc, values := rawUDocProductJoinFixture(t, "hashtable")
+	wideSort, err := f.ast.BitVectorSort(96)
+	astTestMust(t, err)
+	astTestPin(t, f.ast, wideSort)
+	raw, err := factory.NewFull([]ast.ASTHandle{wideSort})
+	wideDoc := ownUDocTableUnionRelation(t, raw, err)
+	finite := rawUDocProductJoinFinite(t, f, []uint64{2}, Fact{1})
+
+	product, err := JoinUDocFinite(f.relations, wideDoc, []ast.ASTHandle{f.boolean}, finite, nil, nil)
+	product = ownUDocTableProduct(t, product, err)
+	if got := product.TableColumns(); len(got) != 2 || got[0] || !got[1] {
+		want := []bool{false, true}
+		t.Fatal("wide sort was not represented by a sieve column", got, want)
+	}
+	if count, err := product.Table().Len(); err != nil || count != 1 {
+		t.Fatal("ignored wide column changed finite table rows", count, err)
+	}
+	if found, err := product.Table().Contains(Fact{1}); err != nil || !found {
+		t.Fatal("wide-sort sieve join lost finite row", found, err)
+	}
+	if empty, err := product.Empty(); err != nil || empty {
+		t.Fatal("wide-sort sieve join became empty", empty, err)
+	}
+	astTestMust(t, product.Close())
+	astTestMust(t, wideDoc.Close())
+
+	// A raw wide-sort component joined with an existing DOC/table product
+	// keeps the same ignored-column mask in the combined table abstraction.
+	checkedUDocAdd(t, doc, values[1])
+	rawFinite := rawUDocProductJoinFinite(t, f, []uint64{2, 4}, Fact{1, 1})
+	input := rawUDocProductJoinInput(t, f, doc, rawFinite)
+	rawWide, err := factory.NewFull([]ast.ASTHandle{wideSort})
+	wide := ownUDocTableUnionRelation(t, rawWide, err)
+	joined, err := JoinUDocProduct(wide, input, nil, nil)
+	joined = ownUDocTableProduct(t, joined, err)
+	if got := joined.TableColumns(); len(got) != 3 || got[0] || !got[1] || !got[2] {
+		want := []bool{false, true, true}
+		t.Fatal("raw/product join lost ignored wide column", got, want)
+	}
+	astTestMust(t, joined.Close())
+	astTestMust(t, input.Close())
+	astTestMust(t, doc.Close())
+	astTestMust(t, wide.Close())
 }
 
 func TestUDocTableProductRawJoinRejectsForeignLazyOwner(t *testing.T) {

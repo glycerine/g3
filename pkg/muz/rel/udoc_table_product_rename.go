@@ -27,10 +27,18 @@ func (p *UDocTableProduct) Rename(cycle []uint32) (*UDocTableProduct, error) {
 	sorts := make([]ast.ASTHandle, len(permutation))
 	mask := make([]bool, len(permutation))
 	var innerPermutation []uint32
+	oldTableMask := productTableMask(p.doc.sorts, p.tableColumns)
+	newTableMask := make([]bool, len(permutation))
+	oldTableMap := productTableColumnMap(oldTableMask)
+	var tablePermutation []uint32
 	for destination, source := range permutation {
 		sorts[destination], mask[destination] = p.doc.sorts[source], p.doc.innerColumns[source]
 		if mask[destination] {
 			innerPermutation = append(innerPermutation, uint32(p.doc.sigToInner[source]))
+		}
+		newTableMask[destination] = oldTableMask[source]
+		if newTableMask[destination] {
+			tablePermutation = append(tablePermutation, uint32(oldTableMap[source]))
 		}
 	}
 	a := newUDocTableProductAttempt(p.manager)
@@ -63,7 +71,34 @@ func (p *UDocTableProduct) Rename(cycle []uint32) (*UDocTableProduct, error) {
 	// intermediates remain in the attempt until all construction has finished.
 	a.inners = a.inners[:len(a.inners)-1]
 	if p.table != nil {
-		a.product.table, err = finiteTableRename(p.table, finiteCycle)
+		table, cause := p.table.CloneFinite()
+		if table != nil {
+			a.tables = append(a.tables, table)
+		}
+		if cause != nil {
+			return a.finish(cause)
+		}
+		for {
+			local, found := removePermutationCycle(tablePermutation)
+			if !found {
+				break
+			}
+			cycle := make([]int, len(local))
+			for i, column := range local {
+				cycle[i] = int(column)
+			}
+			next, renameErr := finiteTableRename(table, cycle)
+			if next != nil {
+				a.tables = append(a.tables, next)
+			}
+			if renameErr != nil {
+				return a.finish(renameErr)
+			}
+			table = next
+		}
+		a.product.table = table
+		a.product.tableColumns = newTableMask
+		a.tables = a.tables[:len(a.tables)-1]
 	}
 	return a.finish(err)
 }

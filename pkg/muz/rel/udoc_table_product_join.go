@@ -81,10 +81,6 @@ func joinUDocFinite(manager *RelationManager, doc *TypedUDocRelation, finiteSort
 	if err != nil || !signature.equal(actual) {
 		return nil, ErrUDocTableProduct
 	}
-	fullSignature, err := tableRelationSignature(manager, doc.sorts)
-	if err != nil {
-		return nil, err
-	}
 	hasBool := false
 	boolean, err := manager.manager.MkBoolSort()
 	if err != nil {
@@ -117,14 +113,14 @@ func joinUDocFinite(manager *RelationManager, doc *TypedUDocRelation, finiteSort
 	if err != nil {
 		return a.finish(err)
 	}
-	full, err := a.fullUnaryFinite(fullSignature, finite)
+	full, fullMask, err := a.fullTableish(doc.sorts, finite)
 	if err != nil {
 		return a.finish(err)
 	}
 	if docFirst {
-		a.product.table, err = finiteTableJoin(full, finite, left, right)
+		a.product.table, a.product.tableColumns, err = joinProductTableComponents(manager, doc.sorts, full, fullMask, finiteSorts, finite, productTableMask(finiteSorts, nil), docColumns, finiteColumns)
 	} else {
-		a.product.table, err = finiteTableJoin(finite, full, right, left)
+		a.product.table, a.product.tableColumns, err = joinProductTableComponents(manager, finiteSorts, finite, productTableMask(finiteSorts, nil), doc.sorts, full, fullMask, finiteColumns, docColumns)
 	}
 	return a.finish(err)
 }
@@ -134,7 +130,7 @@ func joinUDocFinite(manager *RelationManager, doc *TypedUDocRelation, finiteSort
 // these two live mixed-join callers supply exactly the unary DOC signature.
 // Every temporary is registered before the next fallible operation.
 func (a *udocTableProductAttempt) fullUnaryFinite(signature Signature, like FiniteTable) (FiniteTable, error) {
-	if signature.Len() != 1 || rawUDocProductFiniteKind(like) == 0 {
+	if signature.Len() > 1 || rawUDocProductFiniteKind(like) == 0 {
 		return nil, ErrUDocTableProduct
 	}
 	if lazy, ok := like.(*LazySparseTable); ok && (a.manager.lazyFinite == nil || !a.manager.lazyFinite.Owns(lazy)) {

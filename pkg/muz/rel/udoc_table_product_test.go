@@ -247,11 +247,6 @@ func TestUDocTableProductRejectsUnsupportedSourceShapesWithoutMutation(t *testin
 	checked := ownUDocTableUnionRelation(t, raw, err)
 	raw, err = factory.NewEmpty([]ast.ASTHandle{f.bits, f.bits})
 	multiple := ownUDocTableUnionRelation(t, raw, err)
-	wideSort, err := f.ast.BitVectorSort(96)
-	astTestMust(t, err)
-	astTestPin(t, f.ast, wideSort)
-	raw, err = factory.NewEmpty([]ast.ASTHandle{wideSort})
-	wide := ownUDocTableUnionRelation(t, raw, err)
 	for _, test := range []struct {
 		name  string
 		doc   *TypedUDocRelation
@@ -262,7 +257,6 @@ func TestUDocTableProductRejectsUnsupportedSourceShapesWithoutMutation(t *testin
 	}{
 		{"checked", checked, []ast.ASTHandle{f.boolean}, finite, nil, nil},
 		{"multiple-doc-columns", multiple, []ast.ASTHandle{f.boolean}, finite, nil, nil},
-		{"wide-unmaterializable-opposite", wide, []ast.ASTHandle{f.boolean}, finite, nil, nil},
 		{"finite-signature-mismatch", doc, []ast.ASTHandle{f.boolean, f.bits}, finite, nil, nil},
 		{"incompatible-key-sorts", doc, []ast.ASTHandle{f.boolean}, finite, []uint32{0}, []uint32{0}},
 		{"outside-key-column", doc, []ast.ASTHandle{f.boolean}, finite, []uint32{1}, []uint32{0}},

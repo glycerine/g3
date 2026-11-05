@@ -39,13 +39,11 @@ func joinProductFinite(product *UDocTableProduct, finiteSorts []ast.ASTHandle, f
 	if err != nil || !signature.equal(actual) {
 		return nil, ErrUDocTableProduct
 	}
-	left, right := make([]int, len(productColumns)), make([]int, len(finiteColumns))
 	for i, column := range productColumns {
 		other := finiteColumns[i]
 		if column >= uint32(len(product.doc.sorts)) || other >= uint32(len(finiteSorts)) || product.doc.sorts[column] != finiteSorts[other] {
 			return nil, ErrUDocTableProduct
 		}
-		left[i], right[i] = int(column), int(other)
 	}
 	a := newUDocTableProductAttempt(product.manager)
 	a.fullDoc, err = NewFullUDocSieve(product.doc.inner.factory, finiteSorts)
@@ -55,35 +53,23 @@ func joinProductFinite(product *UDocTableProduct, finiteSorts []ast.ASTHandle, f
 	if productFirst {
 		a.product.doc, err = product.doc.Join(a.fullDoc, productColumns, finiteColumns)
 		if err == nil {
-			if product.table == nil {
-				var signature Signature
-				signature, err = tableRelationSignature(product.manager, product.doc.sorts)
-				if err == nil {
-					var full FiniteTable
-					full, err = a.fullUnaryFinite(signature, finite)
-					if err == nil {
-						a.product.table, err = finiteTableJoin(full, finite, left, right)
-					}
-				}
-			} else {
-				a.product.table, err = finiteTableJoin(product.table, finite, left, right)
+			leftTable, leftMask := product.table, productTableMask(product.doc.sorts, product.tableColumns)
+			if leftTable == nil {
+				leftTable, leftMask, err = a.fullTableish(product.doc.sorts, finite)
+			}
+			if err == nil {
+				a.product.table, a.product.tableColumns, err = joinProductTableComponents(product.manager, product.doc.sorts, leftTable, leftMask, finiteSorts, finite, productTableMask(finiteSorts, nil), productColumns, finiteColumns)
 			}
 		}
 	} else {
 		a.product.doc, err = a.fullDoc.Join(product.doc, finiteColumns, productColumns)
 		if err == nil {
-			if product.table == nil {
-				var signature Signature
-				signature, err = tableRelationSignature(product.manager, product.doc.sorts)
-				if err == nil {
-					var full FiniteTable
-					full, err = a.fullUnaryFinite(signature, finite)
-					if err == nil {
-						a.product.table, err = finiteTableJoin(finite, full, right, left)
-					}
-				}
-			} else {
-				a.product.table, err = finiteTableJoin(finite, product.table, right, left)
+			rightTable, rightMask := product.table, productTableMask(product.doc.sorts, product.tableColumns)
+			if rightTable == nil {
+				rightTable, rightMask, err = a.fullTableish(product.doc.sorts, finite)
+			}
+			if err == nil {
+				a.product.table, a.product.tableColumns, err = joinProductTableComponents(product.manager, finiteSorts, finite, productTableMask(finiteSorts, nil), product.doc.sorts, rightTable, rightMask, finiteColumns, productColumns)
 			}
 		}
 	}

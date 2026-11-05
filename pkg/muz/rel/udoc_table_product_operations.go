@@ -15,6 +15,7 @@ func (p *UDocTableProduct) EmptyLike() (*UDocTableProduct, error) {
 	a.product.doc, err = finishUDocSieve(p.doc.sorts, p.doc.innerColumns, inner, err)
 	if err == nil && p.table != nil {
 		a.product.table, err = emptyFiniteLike(p.table)
+		a.product.tableColumns = append([]bool(nil), p.tableColumns...)
 	}
 	return a.finish(err)
 }
@@ -23,8 +24,9 @@ func (p *UDocTableProduct) sameLayout(other *UDocTableProduct) bool {
 	if p.open() != nil || other.open() != nil || p.manager != other.manager || !p.doc.inner.sameShape(other.doc.inner) || len(p.doc.sorts) != len(other.doc.sorts) || rawUDocProductFiniteKind(p.table) != rawUDocProductFiniteKind(other.table) {
 		return false
 	}
+	leftMask, rightMask := productTableMask(p.doc.sorts, p.tableColumns), productTableMask(other.doc.sorts, other.tableColumns)
 	for i, sort := range p.doc.sorts {
-		if sort != other.doc.sorts[i] || p.doc.innerColumns[i] != other.doc.innerColumns[i] {
+		if sort != other.doc.sorts[i] || p.doc.innerColumns[i] != other.doc.innerColumns[i] || leftMask[i] != rightMask[i] {
 			return false
 		}
 	}
@@ -41,7 +43,15 @@ func (p *UDocTableProduct) AddFact(values []ast.ASTHandle) error {
 	if p.table == nil {
 		return nil
 	}
-	fact, err := p.manager.EncodeFact(p.doc.sorts, values)
+	mask := productTableMask(p.doc.sorts, p.tableColumns)
+	sorts := productTableInnerSorts(p.doc.sorts, mask)
+	selected := make([]ast.ASTHandle, 0, len(sorts))
+	for column, include := range mask {
+		if include {
+			selected = append(selected, values[column])
+		}
+	}
+	fact, err := p.manager.EncodeFact(sorts, selected)
 	if err != nil {
 		return err
 	}
@@ -94,8 +104,10 @@ func (p *UDocTableProduct) FilterEqual(column uint32, value ast.ASTHandle) error
 	if column >= uint32(len(p.doc.sorts)) {
 		return ErrUDocTableProduct
 	}
+	mask := productTableMask(p.doc.sorts, p.tableColumns)
+	innerColumns := productTableColumnMap(mask)
 	var encoded Element
-	if p.table != nil {
+	if p.table != nil && innerColumns[column] >= 0 {
 		var err error
 		encoded, err = p.manager.EncodeValue(p.doc.sorts[column], value)
 		if err != nil {
@@ -110,20 +122,30 @@ func (p *UDocTableProduct) FilterEqual(column uint32, value ast.ASTHandle) error
 	if p.table == nil {
 		return nil
 	}
-	return finiteTableFilterEqual(p.table, encoded, int(column))
+	if innerColumns[column] < 0 {
+		return nil
+	}
+	return finiteTableFilterEqual(p.table, encoded, innerColumns[column])
 }
 
 func (p *UDocTableProduct) FilterIdentical(columns []uint32) error {
 	if err := p.open(); err != nil {
 		return err
 	}
+	if len(columns) == 0 {
+		return nil
+	}
 	var selected []uint32
-	finite := make([]int, len(columns))
-	for i, column := range columns {
+	mask := productTableMask(p.doc.sorts, p.tableColumns)
+	innerColumns := productTableColumnMap(mask)
+	var finite []int
+	for _, column := range columns {
 		if column >= uint32(len(p.doc.sorts)) || p.doc.sorts[column] != p.doc.sorts[columns[0]] {
 			return ErrUDocTableProduct
 		}
-		finite[i] = int(column)
+		if innerColumns[column] >= 0 {
+			finite = append(finite, innerColumns[column])
+		}
 		if inner := p.doc.sigToInner[column]; inner >= 0 {
 			selected = append(selected, uint32(inner))
 		}
@@ -133,7 +155,7 @@ func (p *UDocTableProduct) FilterIdentical(columns []uint32) error {
 			return err
 		}
 	}
-	if len(columns) < 2 {
+	if len(finite) < 2 {
 		return nil
 	}
 	if p.table == nil {

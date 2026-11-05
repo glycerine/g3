@@ -1,7 +1,5 @@
 package rel
 
-import "github.com/glycerine/g3/pkg/ast"
-
 // Source: dl_product_relation.cpp join_fn::init pairs matching underlying DOC
 // kinds and pairs the actual table components. No missing component needs a
 // full relation in this concrete product/product case.
@@ -18,13 +16,11 @@ func (p *UDocTableProduct) Join(other *UDocTableProduct, left, right []uint32) (
 	if err := other.productJoinTableReady(); err != nil {
 		return nil, err
 	}
-	columns1, columns2 := make([]int, len(left)), make([]int, len(right))
 	for i, column := range left {
 		otherColumn := right[i]
 		if column >= uint32(len(p.doc.sorts)) || otherColumn >= uint32(len(other.doc.sorts)) || p.doc.sorts[column] != other.doc.sorts[otherColumn] {
 			return nil, ErrUDocTableProduct
 		}
-		columns1[i], columns2[i] = int(column), int(otherColumn)
 	}
 	a := newUDocTableProductAttempt(p.manager)
 	var err error
@@ -35,22 +31,22 @@ func (p *UDocTableProduct) Join(other *UDocTableProduct, left, right []uint32) (
 	switch {
 	case p.table == nil && other.table == nil:
 	case p.table == nil:
-		full, cause := a.fullProductTable(p.doc.sorts, other.table)
+		full, mask, cause := a.fullTableish(p.doc.sorts, other.table)
 		if cause == nil {
-			a.product.table, cause = finiteTableJoin(full, other.table, columns1, columns2)
+			a.product.table, a.product.tableColumns, cause = joinProductTableComponents(p.manager, p.doc.sorts, full, mask, other.doc.sorts, other.table, productTableMask(other.doc.sorts, other.tableColumns), left, right)
 		}
 		err = cause
 	case other.table == nil:
-		full, cause := a.fullProductTable(other.doc.sorts, p.table)
+		full, mask, cause := a.fullTableish(other.doc.sorts, p.table)
 		if cause == nil {
-			a.product.table, cause = finiteTableJoin(p.table, full, columns1, columns2)
+			a.product.table, a.product.tableColumns, cause = joinProductTableComponents(p.manager, p.doc.sorts, p.table, productTableMask(p.doc.sorts, p.tableColumns), other.doc.sorts, full, mask, left, right)
 		}
 		err = cause
 	default:
 		// dl_relation_manager.cpp's default table join selects the first
 		// capable actual plugin. Mixed concrete kinds use that existing
 		// fallback; the context's preferred table kind is not consulted.
-		a.product.table, err = finiteTableJoin(p.table, other.table, columns1, columns2)
+		a.product.table, a.product.tableColumns, err = joinProductTableComponents(p.manager, p.doc.sorts, p.table, productTableMask(p.doc.sorts, p.tableColumns), other.doc.sorts, other.table, productTableMask(other.doc.sorts, other.tableColumns), left, right)
 	}
 	return a.finish(err)
 }
@@ -81,7 +77,9 @@ func (p *UDocTableProduct) productJoinTableReady() error {
 	if functional != 0 {
 		return ErrUDocTableProduct
 	}
-	expected, err := tableRelationSignature(p.manager, p.doc.sorts)
+	mask := productTableMask(p.doc.sorts, p.tableColumns)
+	sorts := productTableInnerSorts(p.doc.sorts, mask)
+	expected, err := tableRelationSignature(p.manager, sorts)
 	if err != nil {
 		return err
 	}
@@ -93,12 +91,4 @@ func (p *UDocTableProduct) productJoinTableReady() error {
 		return ErrUDocTableProduct
 	}
 	return nil
-}
-
-func (a *udocTableProductAttempt) fullProductTable(sorts []ast.ASTHandle, like FiniteTable) (FiniteTable, error) {
-	signature, err := tableRelationSignature(a.manager, sorts)
-	if err != nil {
-		return nil, err
-	}
-	return a.fullUnaryFinite(signature, like)
 }

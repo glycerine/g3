@@ -51,13 +51,11 @@ func joinUDocProduct(doc *TypedUDocRelation, product *UDocTableProduct, docColum
 	if product.open() != nil || doc == nil || doc.open() != nil || doc.FormulaChecked() || doc.factory != product.doc.inner.factory || len(doc.sorts) != 1 || len(docColumns) != len(productColumns) || product.table != nil && rawUDocProductFiniteKind(product.table) == 0 {
 		return nil, ErrUDocTableProduct
 	}
-	left, right := make([]int, len(docColumns)), make([]int, len(docColumns))
 	for i, column := range docColumns {
 		other := productColumns[i]
 		if column >= uint32(len(doc.sorts)) || other >= uint32(len(product.doc.sorts)) || doc.sorts[column] != product.doc.sorts[other] {
 			return nil, ErrUDocTableProduct
 		}
-		left[i], right[i] = int(column), int(other)
 	}
 	a := newUDocTableProductAttempt(product.manager)
 	var err error
@@ -72,21 +70,14 @@ func joinUDocProduct(doc *TypedUDocRelation, product *UDocTableProduct, docColum
 	if product.table == nil {
 		return a.finish(nil)
 	}
-	// Full table construction is limited to the existing table-encodable
-	// unary DOC domain. The product may already have projected away its Bool
-	// columns; preserve its actual mask instead of reclassifying the sorts.
-	signature, err := tableRelationSignature(product.manager, doc.sorts)
-	if err != nil {
-		return a.finish(err)
-	}
-	full, err := a.fullUnaryFinite(signature, product.table)
+	full, fullMask, err := a.fullTableish(doc.sorts, product.table)
 	if err != nil {
 		return a.finish(err)
 	}
 	if docFirst {
-		a.product.table, err = finiteTableJoin(full, product.table, left, right)
+		a.product.table, a.product.tableColumns, err = joinProductTableComponents(product.manager, doc.sorts, full, fullMask, product.doc.sorts, product.table, productTableMask(product.doc.sorts, product.tableColumns), docColumns, productColumns)
 	} else {
-		a.product.table, err = finiteTableJoin(product.table, full, right, left)
+		a.product.table, a.product.tableColumns, err = joinProductTableComponents(product.manager, product.doc.sorts, product.table, productTableMask(product.doc.sorts, product.tableColumns), doc.sorts, full, fullMask, productColumns, docColumns)
 	}
 	return a.finish(err)
 }

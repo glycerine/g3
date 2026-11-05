@@ -36,13 +36,21 @@ func (p *UDocTableProduct) ToFormula() (result ast.ASTRef, resultErr error) {
 		owner.result = doc
 		return owner.result, err
 	}
+	mask := productTableMask(p.doc.sorts, p.tableColumns)
+	innerSorts := productTableInnerSorts(p.doc.sorts, mask)
+	outerColumns := make([]int, 0, len(innerSorts))
+	for column, include := range mask {
+		if include {
+			outerColumns = append(outerColumns, column)
+		}
+	}
 	facts, err := p.table.Facts()
 	if err != nil {
 		return result, err
 	}
 	rows := make([]ast.ASTHandle, len(facts))
 	for rowIndex, fact := range facts {
-		values, err := p.manager.DecodeFact(p.doc.sorts, fact)
+		values, err := p.manager.DecodeFact(innerSorts, fact)
 		owner.roots = append(owner.roots, values...)
 		if err != nil {
 			return result, err
@@ -57,7 +65,8 @@ func (p *UDocTableProduct) ToFormula() (result ast.ASTRef, resultErr error) {
 			if err != nil {
 				return result, err
 			}
-			variable, cause := m.MkVar(uint32(column), p.doc.sorts[column])
+			outerColumn := outerColumns[column]
+			variable, cause := m.MkVar(uint32(outerColumn), p.doc.sorts[outerColumn])
 			if err = errors.Join(cause, m.SetRef(root, variable)); err != nil {
 				return result, err
 			}
