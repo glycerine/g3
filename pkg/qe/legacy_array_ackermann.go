@@ -132,13 +132,15 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, replace.Close()) }()
+	defer func() { resultErr = closeFailedLegacyArrayReplacer(p.syntax.manager, replace, resultErr) }()
 	conditions := make([]ast.ASTRef, 0)
-	defer func() { resultErr = errors.Join(resultErr, truncateLiteVector(p.syntax.manager, &conditions, 0)) }()
 	values := make([]ast.ASTRef, 0)
 	defer func() {
 		for index := len(values) - 1; index >= 0; index-- {
-			resultErr = errors.Join(resultErr, p.syntax.manager.DelRef(&values[index]))
+			resultErr = closeFailedLegacyArrayRewrite(p.syntax.manager, values[index], resultErr)
+		}
+		for index := len(conditions) - 1; index >= 0; index-- {
+			resultErr = closeFailedLegacyArrayRewrite(p.syntax.manager, conditions[index], resultErr)
 		}
 	}()
 	type indexClass struct {
@@ -230,7 +232,7 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 					err = md.RegisterConstant(decl, termValueHandle)
 				}
 			}
-			err = errors.Join(err, p.syntax.manager.DelRef(&termValue))
+			err = closeFailedLegacyArrayRewrite(p.syntax.manager, termValue, err)
 			if err != nil {
 				return nil, err
 			}

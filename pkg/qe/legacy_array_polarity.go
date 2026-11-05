@@ -41,7 +41,7 @@ func (p *legacyArrayProjection) replaceEqualityPolarities(md *model.ModelCore, v
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, replace.Close()) }()
+	defer func() { resultErr = closeFailedLegacyArrayReplacer(p.syntax.manager, replace, resultErr) }()
 	truth, err := p.syntax.manager.MkTrue()
 	if err != nil {
 		return nil, err
