@@ -45,13 +45,19 @@ func (s *SMTSolver) arithmeticObjectiveTheory() (smtArithmeticObjectiveTheory, e
 // initial check/setup, when the ordinary cold-registration guard is too strict.
 // This concrete path is only for the live theory_mi_arith fallback.
 func (s *SMTSolver) installOptimizerArithmetic(family ast.FamilyID) error {
-	theory, err := NewSMTMixedLinearArithmeticTheory(family)
-	if err != nil {
-		return err
-	}
 	config := s.kernel.arithState
 	if owner := s.kernel.copiedArithmeticOwner; owner != nil {
 		config = owner.state
+	}
+	var theory *SMTLinearArithmeticTheory
+	var err error
+	if config.Mode == 5 { // AS_OPTINF: src/smt/smt_setup.cpp setup_mi_arith.
+		theory, err = NewSMTInfiniteArithmeticTheory(family)
+	} else {
+		theory, err = NewSMTMixedLinearArithmeticTheory(family)
+	}
+	if err != nil {
+		return err
 	}
 	if err = theory.ConfigureArithmetic(config); err != nil {
 		return err
