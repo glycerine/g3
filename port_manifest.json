@@ -118444,10 +118444,11 @@
           ]
         },
         {
-          "name": "remaining parser grammar and command recovery: strict API recovery, registered user-command dispatch, residual options and extensions",
+          "name": "remaining SMT-LIB extension commands: help/help-tactic metadata output and command-specific residual behavior",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/commands.go",
-          "tests": []
+          "tests": [],
+          "reason": "Strict ParseCommands/ParseAssertions recovery and decimal/bit-vector set-option values are implemented. The source dynamic cmd-object registry has no Go registration API; its retained built-ins use explicit dispatch, and source CPK_SORTED_VAR/CPK_SORTED_VAR_LIST are not used by registered commands. The help and help-tactic output commands remain unported, as do any remaining extension branches found by the parser audit."
         },
         {
           "name": "default-model parse_get_value: preserve original cached query text while evaluating expanded ground AST expressions, reject empty lists and quantified terms, reset the cache between queries, and echo definitions, quoted symbols and lets with exact values",
