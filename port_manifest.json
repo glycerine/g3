@@ -210470,7 +210470,7 @@
       "path": "src/test/cnf_backbones.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/sat/cnf_backbones_cpp_driver_test.go", "pkg/shell/cnf_backbones_cpp_driver_test.go", "pkg/shell/dimacs_core.go"],
       "tests": ["TestCNFBackbonesSourceConsequences", "TestCNFBackbonesSourceChunking", "TestCNFBackbonesSourceChunkingExhaustiveBinaryCNFs", "TestCNFBackbonesSourceTrackedConsequences"],
       "conditionals": [
@@ -210483,11 +210483,15 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["The DIMACS consequence mode and the separate test-driver chunking algorithm are covered, including exhaustive two-variable binary CNFs. Tracked clause assumptions are exercised through the live DIMACS frontend; command-line and statistics paths remain open; the SAT solver's internal chunking emits conflict-core literals rather than the driver's backbone output."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name":"tracked clause construction and source solver cloning","status":"ported","go_target":"pkg/shell/dimacs_core.go","tests":["TestCNFBackbonesSourceTrackedConsequences"]},
+        {"name":"unfixed-candidate pruning, core-based chunking, and brute-force fallback","status":"ported","go_target":"pkg/sat/cnf_backbones_cpp_driver_test.go","tests":["TestCNFBackbonesSourceChunking","TestCNFBackbonesSourceChunkingExhaustiveBinaryCNFs"]},
+        {"name":"DIMACS consequence query, status display, and statistics collection","status":"ported","go_targets":["pkg/shell/dimacs_frontend.go","pkg/shell/dimacs_statistics.go"],"tests":["TestCNFBackbonesSourceConsequences"]}
+      ],
+      "ownership": ["The Go shell frontend owns and closes both source and tracked SAT solvers; the chunking test helper uses solver fixtures scoped to each test."],
+      "deviations": ["The tst_cnf_backbones argument dispatch and its standalone signal handlers are specific to the C++ test runner, not retained Go behavior; shared DIMACS frontend timeout, interrupt, status, and statistics handling is implemented in the Go shell.", "The Go source chunking helper reports an empty core intersection as a test failure instead of looping without progress; normal solver outcomes follow the source algorithm. The SAT solver's separate internal consequence chunking emits conflict-core literals, so the test-driver algorithm remains a test helper rather than replacing that API."]
     },
     {
       "path": "src/test/datalog_parser.cpp",
