@@ -118451,8 +118451,11 @@
           "name": "remaining SMT-LIB extension commands: command metadata output and command-specific residual behavior",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/commands.go",
+          "go_targets": [
+            "pkg/parsers/smt2/expressions.go"
+          ],
           "tests": [],
-          "reason": "Strict ParseCommands/ParseAssertions recovery, decimal/bit-vector set-option values, source help/help-tactic output, indexed model access, and the shell include command are implemented. The source dynamic cmd-object registry has no Go registration API; retained built-ins use explicit dispatch, and source CPK_SORTED_VAR/CPK_SORTED_VAR_LIST are not used by registered commands. Command-specific residual behavior and the remaining parser audit are still open."
+          "reason": "Strict ParseCommands/ParseAssertions recovery, decimal/bit-vector set-option values, source help/help-tactic output, indexed model access, the shell include command, and root-obj algebraic numerals through the source S-expression polynomial converter and root selector are implemented. The source dynamic cmd-object registry has no Go registration API; live built-ins use explicit dispatch, and source CPK_SORTED_VAR/CPK_SORTED_VAR_LIST are not used by registered commands. Other command-specific residual behavior and the remaining parser audit are still open."
         },
         {
           "name": "default-model parse_get_value: preserve original cached query text while evaluating expanded ground AST expressions, reject empty lists and quantified terms, reset the cache between queries, and echo definitions, quoted symbols and lets with exact values",

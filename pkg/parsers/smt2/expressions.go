@@ -8,8 +8,159 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/math/polynomial"
+	usexpr "github.com/glycerine/g3/pkg/util/sexpr"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
+
+func (p *commandParser) rootObjectExpression() (result ast.ASTHandle, resultErr error) {
+	manager := p.manager
+	if manager == nil {
+		return ast.ASTHandle{}, fmt.Errorf("root-obj requires an initialized AST manager")
+	}
+	numerals := manager.NumeralService()
+	if numerals == nil {
+		return ast.ASTHandle{}, fmt.Errorf("root-obj requires arithmetic numerals")
+	}
+	sexprs, err := usexpr.NewSexprManager(usexpr.SexprConfig{Budget: manager.Budget(), Symbols: manager.Symbols, Rationals: numerals})
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, sexprs.Close()) }()
+	polynomialExpr, err := p.parseRootObjectSExpr(sexprs)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if p.token != IntegerToken {
+		return ast.ASTHandle{}, fmt.Errorf("invalid root-obj, (unsigned) integer expected")
+	}
+	indexValue := p.scanner.Number()
+	if !indexValue.IsInt() || indexValue.Sign() < 0 || !indexValue.Num().IsUint64() || indexValue.Num().Uint64() > uint64(^uint32(0)) {
+		return ast.ASTHandle{}, fmt.Errorf("invalid root-obj, index must fit in an unsigned machine integer")
+	}
+	index := uint32(indexValue.Num().Uint64())
+	if index == 0 {
+		return ast.ASTHandle{}, fmt.Errorf("invalid root-obj, index must be >= 1")
+	}
+	if err = p.advance(); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if err = p.expect(RightParenToken); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	algebraic, err := manager.ArithmeticAlgebraicManager()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	value := polynomial.Algebraic{}
+	defer func() { resultErr = errors.Join(resultErr, algebraic.Del(&value)) }()
+	if err = algebraic.MkSexprRoot(sexprs, polynomialExpr, index, &value); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	rational, err := algebraic.IsRational(&value)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if rational {
+		numeral, e := numerals.NewValue()
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		defer func() { resultErr = errors.Join(resultErr, numerals.CleanupValue(&numeral)) }()
+		if err = algebraic.ToRational(&value, &numeral.Raw); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		result, err = manager.ArithmeticNumeral(&numeral, false)
+		return result, err
+	}
+	return manager.ArithmeticAlgebraicNumeral(&value)
+}
+
+func (p *commandParser) parseRootObjectSExpr(manager *usexpr.SexprManager) (result usexpr.SexprHandle, resultErr error) {
+	line, pos := uint32(p.scanner.Line()), uint32(p.scanner.Position())
+	if p.token == LeftParenToken {
+		if err := p.advance(); err != nil {
+			return usexpr.SexprHandle{}, err
+		}
+		children := make([]usexpr.SexprHandle, 0, 4)
+		for p.token != RightParenToken {
+			if p.token == EOFToken {
+				return usexpr.SexprHandle{}, fmt.Errorf("invalid s-expression, unexpected end of file")
+			}
+			child, err := p.parseRootObjectSExpr(manager)
+			if err != nil {
+				return usexpr.SexprHandle{}, err
+			}
+			children = append(children, child)
+		}
+		if len(children) == 0 {
+			return usexpr.SexprHandle{}, fmt.Errorf("invalid empty s-expression")
+		}
+		result, err := manager.MkComposite(children, line, pos)
+		if err != nil {
+			return usexpr.SexprHandle{}, err
+		}
+		return result, p.advance()
+	}
+	switch p.token {
+	case SymbolToken:
+		name, err := p.manager.Symbols.Intern(p.scanner.ID())
+		if err != nil {
+			return usexpr.SexprHandle{}, err
+		}
+		result, err := manager.MkSymbol(name, line, pos)
+		if err != nil {
+			return usexpr.SexprHandle{}, err
+		}
+		return result, p.advance()
+	case KeywordToken:
+		name, err := p.manager.Symbols.Intern(p.scanner.ID())
+		if err != nil {
+			return usexpr.SexprHandle{}, err
+		}
+		result, err := manager.MkKeyword(name, line, pos)
+		if err != nil {
+			return usexpr.SexprHandle{}, err
+		}
+		return result, p.advance()
+	case StringToken:
+		result, err := manager.MkString(p.scanner.String(), line, pos)
+		if err != nil {
+			return usexpr.SexprHandle{}, err
+		}
+		return result, p.advance()
+	case IntegerToken, DecimalToken:
+		numeral, err := p.manager.NumeralService().NewValue()
+		if err != nil {
+			return usexpr.SexprHandle{}, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, p.manager.NumeralService().CleanupValue(&numeral)) }()
+		if err = p.manager.NumeralService().SetString(&numeral, p.scanner.Number().RatString()); err != nil {
+			return usexpr.SexprHandle{}, err
+		}
+		result, err := manager.MkNumeral(&numeral, line, pos)
+		if err != nil {
+			return usexpr.SexprHandle{}, err
+		}
+		return result, p.advance()
+	case BitVectorToken:
+		numeral, err := p.manager.NumeralService().NewValue()
+		if err != nil {
+			return usexpr.SexprHandle{}, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, p.manager.NumeralService().CleanupValue(&numeral)) }()
+		if err = p.manager.NumeralService().SetString(&numeral, p.scanner.Number().RatString()); err != nil {
+			return usexpr.SexprHandle{}, err
+		}
+		result, err := manager.MkBVNumeral(&numeral, p.scanner.BitVectorSize(), line, pos)
+		if err != nil {
+			return usexpr.SexprHandle{}, err
+		}
+		return result, p.advance()
+	default:
+		return usexpr.SexprHandle{}, fmt.Errorf("invalid s-expression, unexpected input")
+	}
+}
 
 func (p *commandParser) qualifiedLocal(name string, indices []identifierIndex, expectedSort ast.ASTHandle, hasSort bool) (value ast.ASTHandle, found bool, resultErr error) {
 	symbol, err := p.manager.Symbols.Intern(name)
@@ -110,6 +261,13 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 				return ast.ASTHandle{}, "", err
 			}
 			switch name {
+			case "root-obj":
+				result, err = p.rootObjectExpression()
+				if err != nil {
+					return ast.ASTHandle{}, "", err
+				}
+				result, err = p.pin(result, nil)
+				return result, "", err
 			case "forall", "exists":
 				return p.quantifier(name == "forall")
 			case "let":
