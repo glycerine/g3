@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/parsers/smt2"
 	"github.com/glycerine/g3/pkg/shell"
 )
 
@@ -14,9 +15,10 @@ type rejectingWriter struct{ err error }
 func (w rejectingWriter) Write([]byte) (int, error) { return 0, w.err }
 
 func TestSMTLIBFrontendReturnsScannerErrorAndStillAttemptsStatistics(t *testing.T) {
-	frontend, _, output := newBorrowedFrontend(t, "(assert true) (bogus)", true, steppedClock(0, 1_000_000_000))
+	frontend, _, output := newBorrowedFrontend(t, "(assert true) (assert", true, steppedClock(0, 1_000_000_000))
 	err := frontend.Run()
-	if err == nil || !strings.Contains(err.Error(), "unsupported command bogus") {
+	var scannerError *smt2.ScannerError
+	if err == nil || !errors.As(err, &scannerError) {
 		t.Fatalf("error %v", err)
 	}
 	if !strings.Contains(output.String(), ":total-time   1.00") {

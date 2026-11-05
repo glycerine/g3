@@ -125,12 +125,12 @@ func collectDatalogQEAtoms(m *ast.ASTManager, variable ast.ASTHandle, positive, 
 	return result, true, nil
 }
 
-// datalogQEBranchCount mirrors dl_plugin::is_small_domain: enumerate the
-// domain only when its size is strictly less than the number of equality and
-// disequality atoms.
+// datalogQEBranchCount enumerates the domain when the exclusions can cover
+// every value. The equality boundary matters: with n distinct exclusions in
+// an n-element domain, the synthetic "other" branch may be empty.
 func datalogQEBranchCount(domain uint64, atoms datalogQEAtoms) (count uint64, small bool) {
 	total := uint64(len(atoms.positive)) + uint64(len(atoms.negative))
-	if domain < total {
+	if domain <= total {
 		return domain, true
 	}
 	return uint64(len(atoms.positive)) + 1, false

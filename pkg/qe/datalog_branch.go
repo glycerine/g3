@@ -164,7 +164,10 @@ func (p *DatalogPlugin) Substitute(variable *ast.ContainsApp, value *numeral.Own
 			}
 		}
 		for _, a := range entry.atoms.negative {
-			replacement, e := p.manager.MkBoolVal(true)
+			// Negative literals store their underlying equality atom. In the
+			// "other value" branch that equality is false, so its negation
+			// remains true in the projected formula.
+			replacement, e := p.manager.MkBoolVal(false)
 			if e != nil {
 				return e
 			}
