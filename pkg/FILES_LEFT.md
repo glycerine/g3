@@ -99,7 +99,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/rel/dl_interval_relation.cpp` — Interval signatures, empty/full construction, joins, projection, rename, union/delta, widening, equality/interpreted filters, fact insertion/membership, formula conversion, diagnostics, and rational endpoint operations map to the concrete typed Go implementation. The live fixedpoint runtime calls that typed implementation directly; unsupported complement/subset operations remain unsupported in C++. Focused interval relation and fixedpoint tests pass.
 - [x] `src/muz/rel/dl_interval_relation.h` — The plugin and relation declarations map to the concrete typed `IntervalRelation` API and its rational interval operations. The live fixedpoint runtime uses the typed implementation directly; the Go port does not add a generic relation-plugin factory. Focused interval relation and fixedpoint tests pass.
 - [x] `src/muz/rel/dl_lazy_table.cpp` — Lazy sparse-table construction, deferred join/project/rename and filters, union, negation, interpreted-project fusion, force behavior, estimates, reset, clone, bulk removal, and ownership transfer map to concrete Go lazy-table nodes. Existing lazy-table and fixedpoint representation tests pass.
-- [ ] `src/muz/rel/dl_lazy_table.h`
+- [x] `src/muz/rel/dl_lazy_table.h` — The lazy table, plugin, node-kind, and reference ownership declarations map to concrete Go `LazyTable` and `LazySparseTable` types, including deferred-root cloning and fixed non-exact size estimates. Focused lazy-table and fixedpoint tests pass.
 - [ ] `src/muz/rel/dl_mk_explanations.cpp`
 - [ ] `src/muz/rel/dl_mk_explanations.h`
 - [ ] `src/muz/rel/dl_mk_similarity_compressor.cpp`

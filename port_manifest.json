@@ -98304,7 +98304,7 @@
       "path": "src/muz/rel/dl_lazy_table.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go", "pkg/muz/rel/lazy_table_interpreted.go", "pkg/muz/rel/lazy_table_interpreted_test.go", "pkg/muz/rel/lazy_table_interpreted_validation_test.go", "pkg/muz/rel/lazy_table_ownership.go"],
       "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableJoinProjectFusionProducesOneEmptyTuple", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableSelectEqualOtherProjectionUsesFallback", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableBulkRemoveForcesLikeSource", "TestLazyTableInterpretedFilterRetainsConditionAcrossSharedNodes", "TestLazyTableInterpretedFilterProjectFusion", "TestLazyTableEngineCloseReleasesConditionOwners", "TestLazyTableInterpretedFilterValidatesBeforeRetainingAST", "TestLazyTableMutatingFiltersTransferCachedTables", "TestLazyTableFixedSizeEstimatesRemainDeferred", "TestLazyTableGeneralProjectionAndRenameStatistics"],
       "conditionals": [
@@ -98323,14 +98323,14 @@
           "text": "table_base* eval() { if (!m_table) { m_table = force(); } SASSERT(m_table); return m_table.get(); }"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {"name": "lazy_sparse finite factory accepts non-nullary functional signatures and creates independent roots whose Fetch/Ensure/Remove and size/display operations force and mutate the actual cached SparseTable owner", "status": "ported", "go_targets": ["pkg/muz/rel/lazy_sparse_finite.go", "pkg/muz/rel/lazy_sparse_finite_factory.go", "pkg/muz/rel/lazy_sparse_functional_mutation_test.go"], "tests": ["TestLazySparseFunctionalOperationsForceAndMutateActualOwner", "TestLazySparseFactoryFunctionalRootsAreIndependentAndNonNullary"], "reason": "The same lazy engine owns independent functional roots without copying away deferred ownership. Width-zero signatures remain rejected by source sparse capability."},
         {"name": "lazy_table reports fixed row/byte estimates and declares that exact size is unknown (dl_lazy_table.h:148-150)", "status": "ported", "go_target": "pkg/muz/rel/lazy_table.go", "tests": ["TestLazyTableFixedSizeEstimatesRemainDeferred"]}
       ],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The Go port represents the source lazy table with concrete LazyTable and LazySparseTable types rather than exposing the C++ plugin/ref hierarchy. The reached source signatures have typed equivalents, including deferred ownership and fixed non-exact size estimates."]
     },
     {
       "path": "src/muz/rel/dl_mk_explanations.cpp",
