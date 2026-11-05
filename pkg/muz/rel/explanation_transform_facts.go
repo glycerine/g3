@@ -16,13 +16,13 @@ import (
 // relation manager owns the published products under explained declarations.
 // The transformer exposes borrowed views until it closes.
 func (t *ExplanationTransformer) TransferFiniteFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle) error {
-	return t.transferFacts(source, target, relations, predicates, false, nil, smtcore.SMTSolverConfig{})
+	return t.transferFacts(source, target, relations, predicates, false, nil, smtcore.SMTSolverConfig{}, "")
 }
 
 // TransferRelationFacts attaches the source fact explanation to the whole
 // finite relation rather than to individual tuples.
 func (t *ExplanationTransformer) TransferRelationFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle) error {
-	return t.transferFacts(source, target, relations, predicates, true, nil, smtcore.SMTSolverConfig{})
+	return t.transferFacts(source, target, relations, predicates, true, nil, smtcore.SMTSolverConfig{}, "")
 }
 
 // TransferRelationFactsFormulaChecked gives eligible whole-relation products a
@@ -30,16 +30,22 @@ func (t *ExplanationTransformer) TransferRelationFacts(source, target *base.Rule
 // representation request; their concrete source representation is therefore
 // preserved by TransferRelationFacts instead.
 func (t *ExplanationTransformer) TransferRelationFactsFormulaChecked(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle, eligible map[ast.ASTHandle]bool, config smtcore.SMTSolverConfig) error {
+	return t.TransferRelationFactsFormulaCheckedWithBacking(source, target, relations, predicates, eligible, config, "")
+}
+
+// TransferRelationFactsFormulaCheckedWithBacking preserves the selected
+// check_relation base plugin for eligible finite explanation sieves.
+func (t *ExplanationTransformer) TransferRelationFactsFormulaCheckedWithBacking(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle, eligible map[ast.ASTHandle]bool, config smtcore.SMTSolverConfig, backing string) error {
 	if len(eligible) == 0 {
 		return t.TransferRelationFacts(source, target, relations, predicates)
 	}
 	if config.Params == nil {
 		return ErrTableRelation
 	}
-	return t.transferFacts(source, target, relations, predicates, true, eligible, config)
+	return t.transferFacts(source, target, relations, predicates, true, eligible, config, backing)
 }
 
-func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle, relationLevel bool, formulaEligible map[ast.ASTHandle]bool, formulaConfig smtcore.SMTSolverConfig) (resultErr error) {
+func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle, relationLevel bool, formulaEligible map[ast.ASTHandle]bool, formulaConfig smtcore.SMTSolverConfig, formulaBacking string) (resultErr error) {
 	if err := t.open(); err != nil {
 		return err
 	}
@@ -133,7 +139,7 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 			return err
 		}
 		if relationLevel {
-			product, err := newRelationExplanationProductFromFiniteChecked(relations, sorts, finite, fact, formulaEligible[original], formulaConfig)
+			product, err := newRelationExplanationProductFromFiniteCheckedWithBacking(relations, sorts, finite, fact, formulaEligible[original], formulaConfig, formulaBacking)
 			if err != nil {
 				return err
 			}
@@ -180,7 +186,17 @@ func newRelationExplanationProductFromFinite(manager *RelationManager, sorts []a
 }
 
 func newRelationExplanationProductFromFiniteChecked(manager *RelationManager, sorts []ast.ASTHandle, source FiniteTable, fact ast.ASTHandle, formulaChecked bool, config smtcore.SMTSolverConfig) (_ *RelationExplanationProduct, resultErr error) {
-	product, err := newRelationExplanationProductWithBacking(manager, sorts, source)
+	return newRelationExplanationProductFromFiniteCheckedWithBacking(manager, sorts, source, fact, formulaChecked, config, "")
+}
+
+func newRelationExplanationProductFromFiniteCheckedWithBacking(manager *RelationManager, sorts []ast.ASTHandle, source FiniteTable, fact ast.ASTHandle, formulaChecked bool, config smtcore.SMTSolverConfig, backingKind string) (_ *RelationExplanationProduct, resultErr error) {
+	var product *RelationExplanationProduct
+	var err error
+	if formulaChecked && backingKind != "" {
+		product, err = newRelationExplanationProductWithSelectedBacking(manager, sorts, backingKind)
+	} else {
+		product, err = newRelationExplanationProductWithBacking(manager, sorts, source)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("relation explanation finite backing: %w", err)
 	}
@@ -191,6 +207,28 @@ func newRelationExplanationProductFromFiniteChecked(manager *RelationManager, so
 	}()
 	if formulaChecked {
 		if pair, nested := product.table.(*FiniteCheckedPair); nested {
+			checked, err := NewFormulaCheckedFinitePair(manager, sorts, pair, config)
+			if err != nil {
+				return nil, err
+			}
+			product.table = checked
+		} else if backingKind == "sparse" || backingKind == "lazy_sparse" {
+			signature, err := product.table.Signature()
+			if err != nil {
+				return nil, err
+			}
+			factory, err := NewFiniteCheckedFactoryWithLazy(backingKind, "hashtable", manager.lazyFinite)
+			if err != nil {
+				return nil, err
+			}
+			pair, err := factory.New(signature)
+			if err != nil {
+				return nil, err
+			}
+			if err = product.table.Close(); err != nil {
+				return nil, errors.Join(err, pair.Close())
+			}
+			product.table = pair
 			checked, err := NewFormulaCheckedFinitePair(manager, sorts, pair, config)
 			if err != nil {
 				return nil, err

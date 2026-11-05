@@ -50,6 +50,34 @@ func newRelationExplanationFiniteBacking(manager *RelationManager, signature Sig
 	return manager.NewDefaultFiniteTable(signature)
 }
 
+// newRelationExplanationFiniteBackingSelected builds the ordinary relation
+// plugin selected as the check_relation favourite. Sparse and LazySparse
+// reject nullary signatures in C++, so the source relation manager falls back
+// to Hash for that shape.
+func newRelationExplanationFiniteBackingSelected(manager *RelationManager, signature Signature, kind string) (FiniteTable, error) {
+	switch kind {
+	case "":
+		return manager.NewDefaultFiniteTable(signature)
+	case "hashtable":
+		return NewHashTable(signature), nil
+	case "sparse":
+		if signature.Len() == 0 {
+			return NewHashTable(signature), nil
+		}
+		return NewSparseTable(signature, 0)
+	case "lazy_sparse":
+		if signature.Len() == 0 {
+			return NewHashTable(signature), nil
+		}
+		if manager.lazyFinite == nil || !manager.lazyFinite.CanHandleSignature(signature) {
+			return nil, ErrTable
+		}
+		return manager.lazyFinite.New(signature)
+	default:
+		return nil, ErrTable
+	}
+}
+
 func newRelationExplanationProductWithBacking(manager *RelationManager, sorts []ast.ASTHandle, source FiniteTable) (_ *RelationExplanationProduct, resultErr error) {
 	product, err := NewRelationExplanationProduct(manager, sorts)
 	if err != nil || source == nil {
@@ -60,6 +88,26 @@ func newRelationExplanationProductWithBacking(manager *RelationManager, sorts []
 		return nil, errors.Join(err, product.Close())
 	}
 	backing, err := newRelationExplanationFiniteBacking(manager, signature, source)
+	if err != nil {
+		return nil, errors.Join(err, product.Close())
+	}
+	if err = product.table.Close(); err != nil {
+		return nil, errors.Join(err, backing.Close(), product.Close())
+	}
+	product.table = backing
+	return product, nil
+}
+
+func newRelationExplanationProductWithSelectedBacking(manager *RelationManager, sorts []ast.ASTHandle, kind string) (_ *RelationExplanationProduct, resultErr error) {
+	product, err := NewRelationExplanationProduct(manager, sorts)
+	if err != nil || kind == "" {
+		return product, err
+	}
+	signature, err := product.table.Signature()
+	if err != nil {
+		return nil, errors.Join(err, product.Close())
+	}
+	backing, err := newRelationExplanationFiniteBackingSelected(manager, signature, kind)
 	if err != nil {
 		return nil, errors.Join(err, product.Close())
 	}

@@ -74,7 +74,7 @@ func TestExplanationFormulaScopeFiniteSortsExplicitBypassAndLifetime(t *testing.
 	}
 }
 
-func TestExplanationFormulaScopeRejectsUnavailableSelectedBacking(t *testing.T) {
+func TestExplanationFormulaScopeDispatchesSelectedBacking(t *testing.T) {
 	f := newDirectFactFixture(t)
 	e := f.engine
 	scope, enabled, err := e.beginDatalogExplanationFormulaScope()
@@ -82,11 +82,24 @@ func TestExplanationFormulaScopeRejectsUnavailableSelectedBacking(t *testing.T) 
 	if scope != nil || enabled {
 		t.Fatal("default unexpectedly installs formula checker")
 	}
-	for _, name := range []string{"tr_sparse", "doc"} {
+	for _, name := range []string{"tr_sparse", "tr_lazy_sparse"} {
 		fragmentMust(t, e.globals.SourceSetName("fixedpoint.datalog.check_relation", name))
 		scope, enabled, err = e.beginDatalogExplanationFormulaScope()
-		if !errors.Is(err, rel.ErrCompilerUnsupported) || scope != nil || enabled {
-			t.Fatal("unsupported selected backing silently substituted", name, scope, enabled, err)
+		if err != nil || scope == nil || !enabled {
+			t.Fatal("selected finite checker was not dispatched", name, scope, enabled, err)
 		}
+		want := "sparse"
+		if name == "tr_lazy_sparse" {
+			want = "lazy_sparse"
+		}
+		if scope.backing != want {
+			t.Fatal("selected finite backing changed", name, scope.backing, want)
+		}
+		fragmentMust(t, scope.Close())
+	}
+	fragmentMust(t, e.globals.SourceSetName("fixedpoint.datalog.check_relation", "doc"))
+	scope, enabled, err = e.beginDatalogExplanationFormulaScope()
+	if !errors.Is(err, rel.ErrCompilerUnsupported) || scope != nil || enabled {
+		t.Fatal("unsupported selected backing silently substituted", "doc", scope, enabled, err)
 	}
 }

@@ -73,7 +73,7 @@ func TestDatalogExpressionExplanationsCarryNamedProofAndSurviveScope(t *testing.
 }
 
 func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) {
-	for _, mode := range []string{"enabled", "magic", "local-disabled", "relation-level", "checked", "relation-checked", "relation-checked-explicit", "checked-default", "checked-default-reverse", "checked-default-lazy", "checked-default-sparse-lazy", "checked-default-lazy-sparse", "relation-checked-default", "relation-checked-default-reverse", "relation-checked-default-lazy", "empty"} {
+	for _, mode := range []string{"enabled", "magic", "local-disabled", "relation-level", "checked", "relation-checked", "relation-checked-sparse", "relation-checked-lazy", "relation-checked-explicit", "checked-default", "checked-default-reverse", "checked-default-lazy", "checked-default-sparse-lazy", "checked-default-lazy-sparse", "relation-checked-default", "relation-checked-default-reverse", "relation-checked-default-lazy", "empty"} {
 		t.Run(mode, func(t *testing.T) {
 			f := newDirectFactFixture(t)
 			e, m := f.engine, f.manager
@@ -88,6 +88,12 @@ func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) 
 			}
 			if mode == "relation-checked" || mode == "relation-checked-explicit" {
 				must(e.globals.SourceSetName("fixedpoint.datalog.check_relation", "hashtable"))
+			}
+			if mode == "relation-checked-sparse" {
+				must(e.globals.SourceSetName("fixedpoint.datalog.check_relation", "sparse"))
+			}
+			if mode == "relation-checked-lazy" {
+				must(e.globals.SourceSetName("fixedpoint.datalog.check_relation", "lazy_sparse"))
 			}
 			if mode == "checked-default" || mode == "relation-checked-default" {
 				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checked", "true"))
@@ -112,7 +118,7 @@ func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) 
 				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checked", "true"))
 				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checker", checker))
 			}
-			if mode == "relation-level" || mode == "relation-checked" || mode == "relation-checked-explicit" || mode == "relation-checked-default" || mode == "relation-checked-default-reverse" || mode == "relation-checked-default-lazy" {
+			if mode == "relation-level" || mode == "relation-checked" || mode == "relation-checked-sparse" || mode == "relation-checked-lazy" || mode == "relation-checked-explicit" || mode == "relation-checked-default" || mode == "relation-checked-default-reverse" || mode == "relation-checked-default-lazy" {
 				must(e.globals.SourceSetName("fixedpoint.datalog.explanations_on_relation_level", "true"))
 			}
 			if mode == "local-disabled" {

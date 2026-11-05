@@ -17,6 +17,13 @@ import (
 // formula checker around the manager-selected finite backing. eligible is
 // false for proof-free auxiliary predicates.
 func NewFormulaCheckedRelationExplanationForPredicate(manager *RelationManager, predicate ast.ASTHandle, config smtcore.SMTSolverConfig) (_ *RelationExplanationProduct, eligible bool, resultErr error) {
+	return NewFormulaCheckedRelationExplanationForPredicateWithBacking(manager, predicate, config, "")
+}
+
+// NewFormulaCheckedRelationExplanationForPredicateWithBacking constructs an
+// empty product using the selected check_relation base before installing its
+// formula checker.
+func NewFormulaCheckedRelationExplanationForPredicateWithBacking(manager *RelationManager, predicate ast.ASTHandle, config smtcore.SMTSolverConfig, backing string) (_ *RelationExplanationProduct, eligible bool, resultErr error) {
 	if manager == nil || manager.open() != nil {
 		return nil, false, ErrTableRelation
 	}
@@ -46,7 +53,12 @@ func NewFormulaCheckedRelationExplanationForPredicate(manager *RelationManager, 
 	if explanations != 1 {
 		return nil, false, nil
 	}
-	product, err := NewRelationExplanationProduct(manager, sorts)
+	if len(sorts) == 0 && (backing == "sparse" || backing == "lazy_sparse") {
+		// The selected sparse plugin declines a nullary finite sieve. Relation
+		// manager selection falls through to Hash without check_relation.
+		return nil, false, nil
+	}
+	product, err := newRelationExplanationProductWithSelectedBacking(manager, sorts, backing)
 	if err != nil {
 		return nil, false, fmt.Errorf("fresh explanation product: %w", err)
 	}
@@ -59,6 +71,30 @@ func NewFormulaCheckedRelationExplanationForPredicate(manager *RelationManager, 
 		checked, err := NewFormulaCheckedFinitePair(manager, sorts, pair, config)
 		if err != nil {
 			return nil, false, fmt.Errorf("fresh nested checker: %w", err)
+		}
+		product.table = checked
+		return product, true, nil
+	}
+	if backing == "sparse" || backing == "lazy_sparse" {
+		signature, err := product.table.Signature()
+		if err != nil {
+			return nil, false, err
+		}
+		factory, err := NewFiniteCheckedFactoryWithLazy(backing, "hashtable", manager.lazyFinite)
+		if err != nil {
+			return nil, false, err
+		}
+		pair, err := factory.New(signature)
+		if err != nil {
+			return nil, false, err
+		}
+		if err = product.table.Close(); err != nil {
+			return nil, false, errors.Join(err, pair.Close())
+		}
+		product.table = pair
+		checked, err := NewFormulaCheckedFinitePair(manager, sorts, pair, config)
+		if err != nil {
+			return nil, false, err
 		}
 		product.table = checked
 		return product, true, nil

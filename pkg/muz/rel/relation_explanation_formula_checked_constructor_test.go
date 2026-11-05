@@ -37,3 +37,42 @@ func TestFormulaCheckedRelationExplanationFreshPredicateSelection(t *testing.T) 
 		t.Fatal("fresh predicate checker composition", formula, primary, checker, pair)
 	}
 }
+
+func TestFormulaCheckedRelationExplanationSelectedSparseBackings(t *testing.T) {
+	f := newTableRelationFixture(t)
+	ruleSort, err := f.ast.MkDatalogRuleSort()
+	astTestMust(t, err)
+
+	for _, test := range []struct {
+		name string
+		kind string
+	}{
+		{name: "sparse", kind: "sparse"},
+		{name: "lazy-sparse", kind: "lazy_sparse"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if test.kind == "lazy_sparse" {
+				astTestMust(t, f.relations.SetLazySparseFiniteFactory(NewLazySparseFiniteFactory()))
+			}
+			predicate := defaultFinitePredicate(t, f, "fresh-selected-"+test.name, []ast.ASTHandle{f.boolean, ruleSort})
+			product, eligible, err := NewFormulaCheckedRelationExplanationForPredicateWithBacking(
+				f.relations, predicate, formulaCheckerConfig(t, f.ast), test.kind,
+			)
+			astTestMust(t, err)
+			if !eligible || product == nil {
+				t.Fatal("selected sparse explanation product not installed", eligible, product)
+			}
+			defer func() { astTestMust(t, product.Close()) }()
+			primary, checker, formula, err := product.CheckedConcreteKinds()
+			astTestMust(t, err)
+			if primary != test.kind || checker != "hashtable" || !formula {
+				t.Fatal("selected relation backing changed", primary, checker, formula)
+			}
+			checked, err := product.FormulaChecked()
+			astTestMust(t, err)
+			if !checked {
+				t.Fatal("selected sparse product lost formula checking")
+			}
+		})
+	}
+}

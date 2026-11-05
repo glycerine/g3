@@ -17,6 +17,7 @@ type datalogExplanationFormulaScope struct {
 	engine   *PropositionalEngine
 	eligible map[ast.ASTHandle]bool
 	nested   bool
+	backing  string
 }
 
 func (e *PropositionalEngine) beginDatalogExplanationFormulaScope() (*datalogExplanationFormulaScope, bool, error) {
@@ -24,16 +25,32 @@ func (e *PropositionalEngine) beginDatalogExplanationFormulaScope() (*datalogExp
 	if err != nil || !enabled {
 		return nil, false, err
 	}
-	// The live formula checker currently owns a Hash TableRelation. Other
-	// selected checker plugins must not silently fall back to that backing.
-	if name != "hashtable" && name != "check" {
+	// check_relation wraps its selected finite plugin. Preserve supported
+	// concrete finite backings through the relation-level explanation sieve.
+	if name != "hashtable" && name != "sparse" && name != "lazy_sparse" && name != "check" {
 		return nil, false, fmt.Errorf("%w: explanation formula checker %s", rel.ErrCompilerUnsupported, name)
 	}
-	scope := &datalogExplanationFormulaScope{engine: e, eligible: make(map[ast.ASTHandle]bool), nested: name == "check"}
+	backing := name
+	if name == "check" {
+		backing = ""
+	}
+	if name == "lazy_sparse" && e.lazyFinite == nil {
+		e.lazyFinite = rel.NewLazySparseFiniteFactory()
+		if err = e.relations.SetLazySparseFiniteFactory(e.lazyFinite); err != nil {
+			return nil, false, err
+		}
+	}
+	scope := &datalogExplanationFormulaScope{engine: e, eligible: make(map[ast.ASTHandle]bool), nested: name == "check", backing: backing}
 	for _, declaration := range e.predicateOrder {
 		state := e.predicates[declaration]
 		if state != nil {
-			scope.eligible[declaration] = len(state.requestedRepresentations) == 0
+			eligible := len(state.requestedRepresentations) == 0
+			// Sparse families reject the nullary signature. The source relation
+			// manager then falls through to ordinary Hash without this wrapper.
+			if (backing == "sparse" || backing == "lazy_sparse") && len(state.sorts) == 0 {
+				eligible = false
+			}
+			scope.eligible[declaration] = eligible
 		}
 	}
 	return scope, true, nil
@@ -44,7 +61,7 @@ func (s *datalogExplanationFormulaScope) transferFacts(transformer *rel.Explanat
 		return rel.ErrCompilerUnsupported
 	}
 	e := s.engine
-	return transformer.TransferRelationFactsFormulaChecked(source, target, e.relations, e.predicateOrder, s.eligible, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
+	return transformer.TransferRelationFactsFormulaCheckedWithBacking(source, target, e.relations, e.predicateOrder, s.eligible, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals}, s.backing)
 }
 
 func (s *datalogExplanationFormulaScope) installFreshProducts(predicates []ast.ASTHandle) error {
@@ -61,7 +78,7 @@ func (s *datalogExplanationFormulaScope) installFreshProducts(predicates []ast.A
 		if found {
 			continue
 		}
-		product, eligible, err := rel.NewFormulaCheckedRelationExplanationForPredicate(e.relations, declaration, config)
+		product, eligible, err := rel.NewFormulaCheckedRelationExplanationForPredicateWithBacking(e.relations, declaration, config, s.backing)
 		if err != nil {
 			return fmt.Errorf("muz/fp: construct fresh explanation product %v: %w", declaration, err)
 		}
