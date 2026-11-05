@@ -221219,7 +221219,7 @@
       "path": "src/test/theory_pb.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/smtcore/theory_pb_cpp_driver_test.go"],
       "tests": ["TestPseudoBooleanTheorySourceConstantCardinalities", "TestPseudoBooleanTheorySourceNestedFuzz"],
       "assertions": [
@@ -221240,11 +221240,17 @@
           "text": "VERIFY(l_true == ctx.check());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["The constant-literal matrix uses scoped QF_FD solver assertions. The nested seeded fuzzer runs 100 rather than 100,000 outer rounds, asserts the twice-rewritten source expression, and collapses repeated literal negations to their Boolean parity."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name": "populate_literals and exhaustive constant-cardinality assertions for widths 4 through 10", "status": "ported", "go_target": "pkg/smtcore/theory_pb_cpp_driver_test.go", "tests": ["TestPseudoBooleanTheorySourceConstantCardinalities"]},
+        {"name": "pb_fuzzer nested seeded assertion/check/pop workload with 100,000 outer rounds", "status": "ported", "go_target": "pkg/smtcore/theory_pb_cpp_driver_test.go", "tests": ["TestPseudoBooleanTheorySourceNestedFuzz"]}
+      ],
+      "ownership": ["The constant-cardinality driver scopes each assertion with Push/Pop. The nested fuzzer uses one solver and balances every recursive push with a deferred pop; AST and rewrite references are released in test cleanup."],
+      "deviations": [
+        "The full 100,000-round seeded fuzzer is skipped in default mode and runs with -short. The attempted -short run was interrupted after 517 seconds without a reported assertion failure, so completion of that long run is not claimed.",
+        "C++ SMT-LIB and TRACE output is omitted. The Go fuzzer checks the twice-rewritten asserted formula against solver status and verifies the first twelve nested scopes against all eight Boolean assignments."
+      ]
     },
     {
       "path": "src/test/timeout.cpp",

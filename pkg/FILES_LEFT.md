@@ -223,7 +223,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/test/polynomial.cpp` — The registered driver runs the eight-case PSC suite and returns immediately; existing Go tests execute its 21 coefficient/resultant assertions and check the configured source traces. All later C++ test routines are unreachable from this entry point and remain reference-only.
 - [x] `src/test/rational.cpp` — Existing Go tests cover every active arithmetic, parsing, conversion, comparison, number-theory, hash, and inspection assertion. The remaining active routines are random rational/float timing benchmarks and C++ stream/`sizeof` diagnostics without correctness assertions, so they are reference-only.
 - [x] `src/test/rcf.cpp` — The existing Go driver covers the two source integer-system outcomes, all three independent-row assertions, and tensor/selected-column values. Remaining arithmetic, denominator, matrix permutation, and trace code only emits diagnostics; RCF arithmetic and denominator behavior are already tested in the package.
-- [ ] `src/test/theory_pb.cpp`
+- [x] `src/test/theory_pb.cpp` — The constant-literal cardinality matrix is covered for widths 4–10, and the existing seeded nested fuzzer now preserves the source’s full 100,000 outer rounds under `-short` (default runs skip it). Default-mode cardinality checks pass; the opt-in fuzzer did not finish within 517 seconds, so its long-run completion remains unverified.
 - [ ] `src/test/trigo.cpp`
 - [ ] `src/test/udoc_relation.cpp`
 - [ ] `src/test/upolynomial.cpp`

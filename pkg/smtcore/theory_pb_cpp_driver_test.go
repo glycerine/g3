@@ -58,9 +58,14 @@ func TestPseudoBooleanTheorySourceConstantCardinalities(t *testing.T) {
 	}
 }
 
-// TestPseudoBooleanTheorySourceNestedFuzz checks a bounded version of the
-// source's nested push/check/pop fuzzer against all eight Boolean assignments.
+// TestPseudoBooleanTheorySourceNestedFuzz checks the source's nested
+// push/check/pop fuzzer against all eight Boolean assignments.
 func TestPseudoBooleanTheorySourceNestedFuzz(t *testing.T) {
+	// The C++ driver runs 100,000 seeded outer rounds. In this repository,
+	// -short opts into the full long source-port workloads.
+	if !testing.Short() {
+		t.Skip("run the full seeded pseudo-Boolean fuzzer with -short")
+	}
 	m := astTestManager(t)
 	_, err := m.RegisterPseudoBooleanPlugin()
 	astTestMust(t, err)
@@ -191,7 +196,7 @@ func TestPseudoBooleanTheorySourceNestedFuzz(t *testing.T) {
 		*previous = rounds
 	}
 	var rounds uint32
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 100000; i++ {
 		runRound(&rounds, 2, 0xff)
 	}
 	if verified != 12 {
