@@ -175,20 +175,20 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/sat/sat_model_converter.h` — Entry kinds/layout, construction/insertion overloads, model application/checking, invariant/display/copy/reset, empty, variable collection and max-variable API map to the typed `satModelConverter`; Go's stable owner/index handle is the concrete storage adapter for C++ vector entry references.
 - [x] `src/sat/sat_mus.cpp` — Linear MUS minimization, the 64-literal QX branch, recursive support/core updates, cancellation and restart handling, user-scope literals, model capture, and source output transitions map to `satSolverMUSMembers`; focused MUS algorithm, branch, lifetime, trace, verbose, fault, and warm-allocation tests pass.
 - [x] `src/sat/sat_mus.h` — The MUS owner state, active/model accessors, restart window, linear/QX helpers, scoped append, and literal-set split/intersection operations map to the solver-owned typed MUS state and `satMUSLiteralSet`; focused MUS ownership and behavior tests pass.
-- [ ] `src/sat/sat_probing.cpp`
-- [ ] `src/sat/sat_probing.h`
-- [ ] `src/sat/sat_scc.cpp`
-- [ ] `src/sat/sat_scc.h`
-- [ ] `src/sat/sat_simplifier.cpp`
-- [ ] `src/sat/sat_simplifier.h`
-- [ ] `src/sat/sat_solver.cpp`
-- [ ] `src/sat/sat_solver.h`
-- [ ] `src/sat/sat_types.h`
-- [ ] `src/sat/sat_var_queue.h`
-- [ ] `src/sat/sat_watched.h`
-- [ ] `src/shell/dimacs_frontend.cpp`
-- [ ] `src/shell/dimacs_frontend.h`
-- [ ] `src/shell/install_tactic.cpp`
+- [x] `src/sat/sat_probing.cpp` — Failed-literal probing, cached implication reuse/invalidation, binary-watch probing, quota and restart position, assignment accounting, propagation, diagnostics, report output, and normal-round finalization map to `satSolverProbing`; focused algorithm, cache, branch, cancellation, diagnostics, statistics, report, and allocation tests pass.
+- [x] `src/sat/sat_probing.h` — Probing configuration, cache/set/vector workspaces, counters, callback methods, statistics and finalization map to the solver-owned typed probing implementation and cache; focused probing ownership, lifecycle, and behavior tests pass.
+- [x] `src/sat/sat_scc.cpp` — Source-order Tarjan traversal over binary implication watches, SCC root selection, external-variable preference, opposite-literal conflict detection, and equivalence elimination map to `satSCC`; focused SCC graph, root/conflict, trace, report, cancellation, allocation, and deep-component tests pass. Go also has an explicitly exposed `scc.tr` transitive-reduction extension backed by `satBIG`.
+- [x] `src/sat/sat_scc.h` — SCC enablement, statistics/reset, update and parameter-description methods map to `satSCC`; focused SCC parameter, statistics, lifecycle, and integration tests pass.
+- [x] `src/sat/sat_simplifier.cpp` — Occurrence-list maintenance, registration order, clause cleanup, backward subsumption/resolution, duplicate binary handling, blocked-clause elimination, variable resolution/elimination, parameter-controlled rounds, and scoped finalization map across `satSimplifier` and its typed helpers; focused simplifier, subsumption, elimination, blocked-clause, lifecycle, and refusal-prefix tests pass.
+- [x] `src/sat/sat_simplifier.h` — The use-list API, simplifier state/configuration/statistics, elimination and subsumption helpers, scoped-finalize contract, and public run/update/reset methods map to `satSimplifier` and its typed helper owners; focused interface, parameter, statistics, and integration tests pass.
+- [x] `src/sat/sat_solver.cpp` — Solver construction/copy, clause and watch lifecycle, propagation/search/restarts, assumptions and cores, conflict analysis, model handling, GC, scope changes, simplification, mutex/consequence queries, displays, parameters, and statistics map to the typed `Solver` owners and split algorithm files; the full short `pkg/sat` suite passes.
+- [x] `src/sat/sat_solver.h` — Solver state and public/protected contracts for variables, clauses, assignment, propagation, search, model/core, GC, conflict analysis, scopes, simplification, mutex/consequence queries, activity, iterators, displays, and invariants map to typed Go owners, lifecycle methods, and package interfaces; full short `pkg/sat` tests pass.
+- [x] `src/sat/sat_types.h` — Literal encoding and algebra, partial model rendering/value lookup, concrete live variable/literal set operations and iterators, DIMACS/literal-list formatting, and memory-stat output map to typed Go values and solver helpers; unused approximation-set aliases have no retained Go consumer, and focused type/set tests pass.
+- [x] `src/sat/sat_var_queue.h` — The activity comparator, indexed binary heap, variable insertion/removal/reinsertion, increase-key callback, reset, membership and max-priority extraction map to `satVarQueue`; focused source-oracle, tie, growth, owner, guard, and native-backing tests pass.
+- [x] `src/sat/sat_watched.h` — Packed binary/ternary/clause/external watch layouts, encoded kind/learned bits, constructor/getter/setter behavior, watch ordering, equality, and display/erase consumers map to `satWatched` and solver watch-list helpers; focused encoding, source-domain, ordering, watch-store, and clause-attachment tests pass.
+- [x] `src/shell/dimacs_frontend.cpp` — DIMACS parsing, tracked-core reconstruction, model/core output, verbose status, final statistics, process timeout cancellation/statistics, and SIGINT statistics/re-raise map to `DIMACSFrontend` and `TimeoutService`; focused parser and frontend tests pass.
+- [x] `src/shell/dimacs_frontend.h` — The `read_dimacs` entry point maps to `NewDIMACSFrontend` plus `Run`, wired through both shell runner dispatch and the `g3` command path; focused DIMACS frontend tests pass.
+- [x] `src/shell/install_tactic.cpp` — This CMake-generated unit scans dependency headers for all `ADD_TACTIC`/`ADD_PROBE` registrations; the Go command-context/API registries and concrete factories cover the 106 tactics and 42 probes in source order, with registry and probe-factory checks passing.
 - [ ] `src/shell/main.cpp`
 - [ ] `src/shell/opt_frontend.cpp`
 - [ ] `src/shell/opt_frontend.h`

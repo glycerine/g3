@@ -56,6 +56,9 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 	if command.Action != shell.CommandContinue {
 		return command.WriteTerminalAction(output)
 	}
+	if err = uparams.UpdateProcessEnvParams(globals.Current); err != nil {
+		return err
+	}
 	filename, selected := command.Input.Selected()
 	if selected && command.StandardInput {
 		return fmt.Errorf("using standard input to read formula")
@@ -78,7 +81,7 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		}
 		return shell.RunDatalogFrontend(context, filename, output)
 	}
-	if kind != shell.InputSMT2 && kind != shell.InputDIMACS && kind != shell.InputOPB && kind != shell.InputWCNF && kind != shell.InputZ3Log {
+	if kind != shell.InputSMT2 && kind != shell.InputDIMACS && kind != shell.InputOPB && kind != shell.InputWCNF && kind != shell.InputZ3Log && kind != shell.InputMPS {
 		return fmt.Errorf("selected input frontend is not ported yet")
 	}
 	if selected {
@@ -155,8 +158,16 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		}
 		return frontend.Run(input)
 	}
+	if kind == shell.InputMPS {
+		frontend, err := shell.NewLPFrontend(shell.LPFrontendConfig{Globals: globals, Input: input, Output: output, Name: filename})
+		if err != nil {
+			return err
+		}
+		defer func() { result = errors.Join(result, frontend.Close()) }()
+		return frontend.Run()
+	}
 	if kind == shell.InputDIMACS {
-		frontend, err := shell.NewDIMACSFrontend(shell.DIMACSFrontendConfig{Globals: globals, Input: input, Writer: output, DisplayStatistics: command.DisplayStatistics})
+		frontend, err := shell.NewDIMACSFrontend(shell.DIMACSFrontendConfig{Globals: globals, Timer: command.Timer, Input: input, Writer: output, DisplayStatistics: command.DisplayStatistics})
 		if err != nil {
 			return err
 		}

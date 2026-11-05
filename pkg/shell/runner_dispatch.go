@@ -27,7 +27,7 @@ func (r *Runner) dispatch(kind InputKind) (result error) {
 		return frontend.Run()
 	case InputDIMACS:
 		frontend, err := NewDIMACSFrontend(DIMACSFrontendConfig{
-			Globals: globals, Input: r.input, Writer: r.output,
+			Globals: globals, Timer: r.command.Timer, Input: r.input, Writer: r.output,
 			DisplayStatistics: r.command.DisplayStatistics,
 		})
 		if err != nil {
