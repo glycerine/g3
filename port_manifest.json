@@ -221387,9 +221387,9 @@
       "path": "src/test/udoc_relation.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
-      "go_targets": ["pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_guard_test.go", "pkg/muz/rel/udoc_guard_compile_test.go"],
-      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocJoinWithoutKeysIsCartesianProduct", "TestUDocJoinRepeatedColumnsAppliesEverySourceConstraint", "TestUDocCyclicJoinThenProject", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterIdenticalColumns", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocFilterByNegationRepeatedColumnsAndZeroArity", "TestUDocFilterByNegationSourceCubeMatrix", "TestUDocGuardSourceExpressionMatrix", "TestUDocFilterGuardAndProjectRejectsUnsupportedResidual"],
+      "status": "ported",
+      "go_targets": ["pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_guard_test.go", "pkg/muz/rel/udoc_guard_compile_test.go", "pkg/muz/rel/udoc_relation_cpp_driver_test.go", "pkg/muz/rel/udoc_relation_join_project_test.go"],
+      "tests": ["TestUDocRelationSourceRandomizedJoinAndAntiJoin", "TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocJoinWithoutKeysIsCartesianProduct", "TestUDocJoinRepeatedColumnsAppliesEverySourceConstraint", "TestUDocCyclicJoinThenProject", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterIdenticalColumns", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocFilterByNegationRepeatedColumnsAndZeroArity", "TestUDocFilterByNegationSourceCubeMatrix", "TestUDocJoinProjectMatchesComposition", "TestUDocJoinProjectRepeatedKeysAndNullary", "TestUDocJoinProjectIntersectionAndDuplicateGuard", "TestUDocGuardSourceExpressionMatrix", "TestUDocFilterGuardAndProjectRejectsUnsupportedResidual"],
       "assertions": [
         {
           "line": 88,
@@ -221424,11 +221424,16 @@
           "text": "ENSURE(dm.is_full(d0));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["The Go tests cover deterministic counterparts for relation operations, guard expressions, and anti-join paths. Randomized C++ stress loops and plugin-factory dispatch are not ported because no retained Go source consumer reaches those plugin callbacks."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name": "Randomized test_join(1000): 1,000 two-column randomized joins checked against an independent finite assignment oracle", "status": "ported", "go_target": "pkg/muz/rel/udoc_relation_cpp_driver_test.go", "tests": ["TestUDocRelationSourceRandomizedJoinAndAntiJoin"]},
+        {"name": "Randomized test_filter_neg: 100 single-key and 200 two-key anti-joins checked against an independent finite assignment oracle", "status": "ported", "go_target": "pkg/muz/rel/udoc_relation_cpp_driver_test.go", "tests": ["TestUDocRelationSourceRandomizedJoinAndAntiJoin"]},
+        {"name": "Deterministic project, rename, union/delta, join/project, equality, identical-column, interpreted-filter, and negation checks", "status": "ported", "go_targets": ["pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_join_project_test.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_guard_test.go", "pkg/muz/rel/udoc_guard_compile_test.go"], "tests": ["TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocJoinWithoutKeysIsCartesianProduct", "TestUDocJoinRepeatedColumnsAppliesEverySourceConstraint", "TestUDocCyclicJoinThenProject", "TestUDocJoinProjectMatchesComposition", "TestUDocJoinProjectRepeatedKeysAndNullary", "TestUDocJoinProjectIntersectionAndDuplicateGuard", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterIdenticalColumns", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocFilterByNegationRepeatedColumnsAndZeroArity", "TestUDocFilterByNegationSourceCubeMatrix", "TestUDocGuardSourceExpressionMatrix"]},
+        {"name": "C++ virtual plugin dispatch, display and stream output", "status": "reference_only", "tests": [], "reason": "The Go runtime uses concrete UDocRelation APIs and has no corresponding C++ virtual relation hierarchy or stream-based test harness. Concrete factory behavior is tested by UDoc relation factory tests."}
+      ],
+      "ownership": ["The randomized Go test closes every joined result and registers relation cleanup; inserted documents transfer to their UDoc union, and the independent finite oracle reads stored TBVs without taking ownership. Test fixtures own their DocManagers through test cleanup."],
+      "deviations": ["The source randomized loops run under -short to match repository convention; ordinary go test skips them. The seeded Go generator provides repeatable stress coverage, and the oracle evaluates concrete assignments directly from stored positive and negative TBVs.", "C++ base-class plugin dispatch and display output are reference-only because the Go port has no virtual relation base or stream API; concrete UDoc factory behavior has separate tests."]
     },
     {
       "path": "src/test/uint_set.cpp",

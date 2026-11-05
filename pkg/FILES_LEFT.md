@@ -225,7 +225,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/test/rcf.cpp` — The existing Go driver covers the two source integer-system outcomes, all three independent-row assertions, and tensor/selected-column values. Remaining arithmetic, denominator, matrix permutation, and trace code only emits diagnostics; RCF arithmetic and denominator behavior are already tested in the package.
 - [x] `src/test/theory_pb.cpp` — The constant-literal cardinality matrix is covered for widths 4–10, and the existing seeded nested fuzzer now preserves the source’s full 100,000 outer rounds under `-short` (default runs skip it). Default-mode cardinality checks pass; the opt-in fuzzer did not finish within 517 seconds, so its long-run completion remains unverified.
 - [x] `src/test/trigo.cpp` — Existing Go tests verify all 64 rational `e` precisions and all 200 seeded sine/cosine samples at each source precision level. Floating interval lemma output has no assertions or retained Go consumer; the `mpf` bug routine is disabled.
-- [ ] `src/test/udoc_relation.cpp`
+- [x] `src/test/udoc_relation.cpp` — Existing Go tests cover deterministic relation, join/project, formula, guard and filter cases; a source driver under `-short` adds the 1,000 randomized joins and 300 randomized anti-joins with an independent finite-assignment oracle. The focused UDoc relation package passes with `-short`.
 - [ ] `src/test/upolynomial.cpp`
 - [ ] `src/util/buffer.h`
 - [ ] `src/util/chashtable.h`
