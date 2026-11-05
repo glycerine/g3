@@ -216021,122 +216021,48 @@
         "The random numeral string generator is inside #if 0 and is not part of the active test driver."
       ]
     },
-    {
+            {
       "path": "src/test/mpz.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
-        "pkg/util/numeral/mpn.go",
+        "pkg/util/numeral/mpz.go",
         "pkg/util/numeral/mpz_mul.go",
         "pkg/util/numeral/mpz_div.go",
         "pkg/util/numeral/mpz_gcd.go",
         "pkg/util/numeral/mpz_log.go",
         "pkg/util/numeral/mpz_power_shift.go",
-        "pkg/util/numeral/mpz_parse.go",
-        "pkg/util/numeral/mpz_bitwise_test.go",
-        "pkg/util/numeral/mp_root_test.go",
         "pkg/util/numeral/scoped_numeral.go",
+        "pkg/util/numeral/mpz_test.go",
+        "pkg/util/numeral/mpn_test.go",
+        "pkg/util/numeral/mpz_mul_div_test.go",
+        "pkg/util/numeral/mpz_gcd_test.go",
         "pkg/util/numeral/mpz_facade_extra_test.go",
-        "pkg/util/numeral/mp_power_publication_test.go",
-        "pkg/util/numeral/mp_gcd_publication_test.go",
-        "pkg/util/numeral/mpz_gcd_diagnostics_debug.go",
-        "pkg/util/numeral/mpz_gcd_diagnostics_release.go"
+        "pkg/util/numeral/mpz_bitwise_test.go",
+        "pkg/util/numeral/mpz_power_shift_test.go",
+        "pkg/util/numeral/mpq_round_test.go",
+        "pkg/util/numeral/mp_root_test.go",
+        "pkg/util/numeral/scoped_numeral_test.go",
+        "pkg/util/numeral/mp_gcd_publication_test.go"
       ],
       "tests": [
-        "TestSourceMPZMagnitudeProjections",
-        "TestIntegerSourceMultiplication",
-        "TestIntegerMulDivisionLimbOracle",
-        "TestIntegerMultiplicationFailurePointsAndAliases",
-        "TestIntegerMulDivisionWarmAllocations",
-        "TestIntegerSignedDivisionExhaustive",
-        "TestIntegerDivisionCorrectionFixtures",
-        "TestIntegerDivisionZeroAndBudgetFailure",
-        "TestIntegerSourceDivisionAliasDefects",
-        "TestIntegerDivisionAllAllocationFailurePoints",
-        "TestIntegerEuclideanStagedFailurePointsAndAliases",
-        "TestIntegerDivisionWidthBoundaries",
-        "TestIntegerScalarGCD",
-        "TestIntegerSourceGCDCoherence",
-        "TestIntegerGCDSignedLimbAliases",
-        "TestIntegerAddMulSubMulPrerequisites",
-        "TestIntegerGCDFailureCleanup",
-        "TestIntegerAddMulSubMulFailureCleanup",
-        "TestIntegerGCDZeroPromotionFailure",
-        "TestIntegerGCDAndFusedWarmAllocations",
-        "TestRationalSourcePrevPowerOfTwo",
-        "TestIntegerSourceLogBounds",
-        "TestIntegerLogSignsSizesAndOwnership",
-        "TestRationalRoundIndependentAndAliases",
-        "TestRationalRoundFailureCleanup",
-        "TestRationalRoundInitializationAndClose",
-        "TestRationalRoundWarmZeroAllocations",
-        "TestIntegerSourceShiftTable",
-        "TestIntegerPowerAndShiftIndependent",
-        "TestSourceShiftDefectAndPowerDomains",
-        "TestPowerShiftFailureCleanup",
-        "TestPowerShiftWarmStorageAndLifetime",
-        "TestShiftUnsignedBoundsAndPromotions",
-        "TestPowerDomainAliases",
-        "TestSourceStringAssertions",
-        "TestIntegerParserByteQuirks",
-        "TestRationalParserByteQuirksAndState",
-        "TestParserExceptionCategoriesAndFailurePublication",
-        "TestParserIndependentFiniteValues",
-        "TestParserBudgetFailureCleanup",
-        "TestParserWarmLifetimeAndInitialization",
-        "TestSourceParserLiteralInventory",
-        "TestParserSourceIntMinRepresentation",
-        "TestIntegerSourceBitwiseBug4",
-        "TestIntegerBitwiseIndependentOracleAndAliases",
-        "TestIntegerBitwiseFailurePublicationAndWarm",
-        "TestIntegerBitwiseSourcePreconditions",
-        "TestIntegerBitwiseAliasedFailurePublication",
-        "TestIntegerBitwiseSmallPathsReleaseBigOutput",
-        "TestIntegerSourceRoots",
-        "TestIntegerRootIndependentAndAliases",
-        "TestPerfectSquareIndependentAndSourceAlias",
-        "TestRationalRootAndSquareSourcePublication",
-        "TestRootDomainsAndInitialization",
-        "TestRationalRootIndependentAndAliases",
-        "TestBigPerfectSquaresAndIntegerWrapper",
-        "TestIntegerRootAndSquareFailureCleanup",
-        "TestRationalRootSquareFailureCleanup",
-        "TestRootWarmStorageAndClosedOutputs",
-        "TestRationalRootWarmStorage",
-        "TestScopedNumeralSourceTstScoped",
-        "TestScopedNumeralResizeUsesGoSliceStorage",
-        "TestScopedNumeralMoveAndAscendingCleanup",
-        "TestScopedNumeralScalarFailureAndAllThinOperations",
-        "TestScopedNumeralWarmReuseAndLifetimeGuards",
-        "TestScopedNumeralScalarOwnershipAndOperators",
-        "TestScopedNumeralVectorIndependentLifecycle",
-        "TestScopedRationalVectorAndScalarLifetimes",
-        "TestScopedNumeralHeadersFailuresAndSourcePushPrefix",
-        "TestScopedRationalVectorIndependentLifecycleAndFailures",
-        "TestScopedNumeralDeepCloneFailureCleanup",
         "TestIntegerFacadeSourceTst1ComparisonAssertions",
-        "TestPowerPublicationInPlaceShiftOverloads",
-        "TestPowerPublicationWrappedShiftHeaderAccessOrder",
-        "TestPowerPublicationIntegerZeroZeroProfile",
-        "TestPowerPublicationIntegerBudgetBeforeMaskWrap",
-        "TestPowerPublicationIntegerActualWrapPrefix",
-        "TestPowerPublicationRationalBudgetBeforeMaskWrap",
-        "TestPowerPublicationRationalActualWrapPrefix",
-        "TestPowerPublicationFinalUnusedSquareRefusal",
-        "TestPowerPublicationBigInputCopyPrecedesOutputOne",
-        "TestPowerPublicationRawRationalShapesAndMulAliases",
-        "TestPowerPublicationLeftShiftCopyPrecedesPromotionRefusal",
-        "TestPowerPublicationRightShiftCopyRefusalPrefix",
-        "TestPowerPublicationRationalCopyComponentRefusal",
-        "TestPowerPublicationRationalMulComponentRefusal",
-        "TestGCDPublicationZeroCopyBeforeMinimumPromotion",
-        "TestGCDPublicationZeroBigCopyRefusal",
-        "TestGCDPublicationRationalIntegralityProfiles",
-        "TestGCDPublicationRationalArrayVisitedFraction",
+        "TestIntegerSourceMultiplication",
+        "TestIntegerMultiLimbOracleAndSourceBug1",
+        "TestIntegerSourceBug3",
+        "TestIntegerSourceBitwiseBug4",
+        "TestIntegerSourceShiftTable",
+        "TestIntegerSourceIntMinSubtraction",
+        "TestScopedNumeralSourceTstScoped",
+        "TestIntegerSourceGCDCoherence",
         "TestGCDPublicationSourceFull168PrimeCampaign",
-        "TestGCDPublicationPrimeTableAndPredicateBoundary",
-        "TestGCDPublicationFullFamilySignedAliases"
+        "TestIntegerSourceLogBounds",
+        "TestIntegerSourceRoots",
+        "TestIntegerPowerBigCellSmallValueGeneralLoop",
+        "TestIntegerArithmeticOracle",
+        "TestIntegerLogSignsSizesAndOwnership",
+        "TestIntegerPowerAndShiftIndependent"
       ],
       "conditionals": [
         {
@@ -216151,164 +216077,305 @@
       "assertions": [
         {
           "line": 36,
-          "text": "ENSURE(m.eq(v, v3));"
+          "text": "ENSURE(m.eq(v, v3));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 37,
-          "text": "ENSURE(m.le(v, v3));"
+          "text": "ENSURE(m.le(v, v3));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 38,
-          "text": "ENSURE(m.ge(v, v3));"
+          "text": "ENSURE(m.ge(v, v3));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 39,
-          "text": "ENSURE(m.lt(v2, v));"
+          "text": "ENSURE(m.lt(v2, v));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 40,
-          "text": "ENSURE(m.le(v2, v));"
+          "text": "ENSURE(m.le(v2, v));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 41,
-          "text": "ENSURE(m.gt(v, v2));"
+          "text": "ENSURE(m.gt(v, v2));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 42,
-          "text": "ENSURE(m.ge(v, v2));"
+          "text": "ENSURE(m.ge(v, v2));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 43,
-          "text": "ENSURE(m.neq(v, v2));"
+          "text": "ENSURE(m.neq(v, v2));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 44,
-          "text": "ENSURE(!m.neq(v, v3));"
+          "text": "ENSURE(!m.neq(v, v3));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_facade_extra_test.go"
+          ],
+          "tests": [
+            "TestIntegerFacadeSourceTst1ComparisonAssertions"
+          ]
         },
         {
           "line": 83,
-          "text": "ENSURE(sz < buffer_sz);"
+          "text": "ENSURE(sz < buffer_sz);",
+          "condition": "disabled by #if 0; excluded from active source behavior"
         },
         {
           "line": 99,
-          "text": "ENSURE(m.is_zero(v2));"
+          "text": "ENSURE(m.is_zero(v2));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_test.go"
+          ],
+          "tests": [
+            "TestIntegerMultiLimbOracleAndSourceBug1"
+          ]
         },
         {
           "line": 122,
-          "text": "ENSURE(m.eq(v1, v2));"
+          "text": "ENSURE(m.eq(v1, v2));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceBug3"
+          ]
         },
         {
           "line": 140,
-          "text": "ENSURE(m.eq(result1, result2));"
-        },
-        {
-          "line": 152,
-          "text": "ENSURE(is_eq);"
-        },
-        {
-          "line": 180,
-          "text": "ENSURE(is_eq);"
-        },
-        {
-          "line": 289,
-          "text": "ENSURE(m.eq(r, expected));"
-        },
-        {
-          "line": 399,
-          "text": "ENSURE(m.is_zero(a) || m.le(b, a));"
-        },
-        {
-          "line": 401,
-          "text": "ENSURE(m.le(a, b));"
-        },
-        {
-          "line": 409,
-          "text": "ENSURE(m.is_zero(neg_a) || m.le(neg_a, b));"
-        },
-        {
-          "line": 412,
-          "text": "ENSURE(m.le(b, neg_a));"
-        },
-        {
-          "line": 433,
-          "text": "VERIFY(!m.root(a, 5));"
-        },
-        {
-          "line": 435,
-          "text": "ENSURE(m.eq(a, mpz(3)));"
-        },
-        {
-          "line": 437,
-          "text": "VERIFY(!m.root(a, 5));"
-        },
-        {
-          "line": 439,
-          "text": "ENSURE(m.eq(a, mpz(-2)));"
-        },
-        {
-          "line": 441,
-          "text": "VERIFY(m.root(a, 3));"
-        },
-        {
-          "line": 442,
-          "text": "ENSURE(m.is_zero(a));"
-        },
-        {
-          "line": 444,
-          "text": "VERIFY(m.root(a, 3));"
-        },
-        {
-          "line": 445,
-          "text": "ENSURE(m.eq(a, mpz(2)));"
-        },
-        {
-          "line": 447,
-          "text": "VERIFY(m.root(a, 3));"
-        },
-        {
-          "line": 448,
-          "text": "ENSURE(m.eq(a, mpz(-2)));"
-        }
-      ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [
-        {
-          "name": "active bug4 bitwise_or alias assertion and output",
-          "status": "ported",
-          "go_target": "pkg/util/numeral/mpz_bitwise_test.go",
+          "text": "ENSURE(m.eq(result1, result2));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_bitwise_test.go"
+          ],
           "tests": [
             "TestIntegerSourceBitwiseBug4"
           ]
         },
         {
-          "name": "active tst_root five VERIFY/five ENSURE assertions and two output lines",
-          "status": "ported",
-          "go_target": "pkg/util/numeral/mp_root_test.go",
+          "line": 152,
+          "text": "ENSURE(is_eq);",
+          "go_targets": [
+            "pkg/util/numeral/mpz_power_shift_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceShiftTable"
+          ]
+        },
+        {
+          "line": 180,
+          "text": "ENSURE(is_eq);",
+          "go_targets": [
+            "pkg/util/numeral/mpz_power_shift_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceShiftTable"
+          ]
+        },
+        {
+          "line": 289,
+          "text": "ENSURE(m.eq(r, expected));",
+          "go_targets": [
+            "pkg/util/numeral/mpz_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceIntMinSubtraction"
+          ]
+        },
+        {
+          "line": 399,
+          "text": "ENSURE(m.is_zero(a) || m.le(b, a));",
+          "go_targets": [
+            "pkg/util/numeral/mpq_round_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceLogBounds"
+          ]
+        },
+        {
+          "line": 401,
+          "text": "ENSURE(m.le(a, b));",
+          "go_targets": [
+            "pkg/util/numeral/mpq_round_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceLogBounds"
+          ]
+        },
+        {
+          "line": 409,
+          "text": "ENSURE(m.is_zero(neg_a) || m.le(neg_a, b));",
+          "go_targets": [
+            "pkg/util/numeral/mpq_round_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceLogBounds"
+          ]
+        },
+        {
+          "line": 412,
+          "text": "ENSURE(m.le(b, neg_a));",
+          "go_targets": [
+            "pkg/util/numeral/mpq_round_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceLogBounds"
+          ]
+        },
+        {
+          "line": 433,
+          "text": "VERIFY(!m.root(a, 5));",
+          "go_targets": [
+            "pkg/util/numeral/mp_root_test.go"
+          ],
           "tests": [
             "TestIntegerSourceRoots"
           ]
         },
         {
-          "name": "tst_scoped active three print lines, no executable ENSURE assertions",
-          "status": "ported",
-          "go_target": "pkg/util/numeral/scoped_numeral.go",
+          "line": 435,
+          "text": "ENSURE(m.eq(a, mpz(3)));",
+          "go_targets": [
+            "pkg/util/numeral/mp_root_test.go"
+          ],
           "tests": [
-            "TestScopedNumeralSourceTstScoped",
-            "TestScopedNumeralResizeUsesGoSliceStorage",
-            "TestScopedNumeralMoveAndAscendingCleanup",
-            "TestScopedNumeralScalarFailureAndAllThinOperations",
-            "TestScopedNumeralWarmReuseAndLifetimeGuards",
-            "TestScopedNumeralScalarOwnershipAndOperators",
-            "TestScopedNumeralVectorIndependentLifecycle",
-            "TestScopedRationalVectorAndScalarLifetimes",
-            "TestScopedNumeralHeadersFailuresAndSourcePushPrefix",
-            "TestScopedRationalVectorIndependentLifecycleAndFailures",
-            "TestScopedNumeralDeepCloneFailureCleanup"
+            "TestIntegerSourceRoots"
           ]
         },
         {
-          "name": "active tst1 nine comparison ENSURE executions in exact source order",
+          "line": 437,
+          "text": "VERIFY(!m.root(a, 5));",
+          "go_targets": [
+            "pkg/util/numeral/mp_root_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceRoots"
+          ]
+        },
+        {
+          "line": 439,
+          "text": "ENSURE(m.eq(a, mpz(-2)));",
+          "go_targets": [
+            "pkg/util/numeral/mp_root_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceRoots"
+          ]
+        },
+        {
+          "line": 441,
+          "text": "VERIFY(m.root(a, 3));",
+          "go_targets": [
+            "pkg/util/numeral/mp_root_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceRoots"
+          ]
+        },
+        {
+          "line": 442,
+          "text": "ENSURE(m.is_zero(a));",
+          "go_targets": [
+            "pkg/util/numeral/mp_root_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceRoots"
+          ]
+        },
+        {
+          "line": 444,
+          "text": "VERIFY(m.root(a, 3));",
+          "go_targets": [
+            "pkg/util/numeral/mp_root_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceRoots"
+          ]
+        },
+        {
+          "line": 445,
+          "text": "ENSURE(m.eq(a, mpz(2)));",
+          "go_targets": [
+            "pkg/util/numeral/mp_root_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceRoots"
+          ]
+        },
+        {
+          "line": 447,
+          "text": "VERIFY(m.root(a, 3));",
+          "go_targets": [
+            "pkg/util/numeral/mp_root_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceRoots"
+          ]
+        },
+        {
+          "line": 448,
+          "text": "ENSURE(m.eq(a, mpz(-2)));",
+          "go_targets": [
+            "pkg/util/numeral/mp_root_test.go"
+          ],
+          "tests": [
+            "TestIntegerSourceRoots"
+          ]
+        }
+      ],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "tst1 active integer multiply/add/negate and nine ordered comparison assertions",
           "status": "ported",
           "go_target": "pkg/util/numeral/mpz_facade_extra_test.go",
           "tests": [
@@ -216316,72 +216383,106 @@
           ]
         },
         {
-          "name": "direct Power and actual mask wrap, copy-before-in-place shifts, sequential public rational Copy and Mul selected source publication",
-          "status": "partial",
-          "go_target": "pkg/util/numeral/mp_power_publication_test.go",
+          "name": "tst2/tst2b UINT_MAX increment, square, and repeated in-place squares",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpz_mul_div_test.go",
           "tests": [
-            "TestPowerPublicationInPlaceShiftOverloads",
-            "TestPowerPublicationWrappedShiftHeaderAccessOrder",
-            "TestPowerPublicationIntegerZeroZeroProfile",
-            "TestPowerPublicationIntegerBudgetBeforeMaskWrap",
-            "TestPowerPublicationIntegerActualWrapPrefix",
-            "TestPowerPublicationRationalBudgetBeforeMaskWrap",
-            "TestPowerPublicationRationalActualWrapPrefix",
-            "TestPowerPublicationFinalUnusedSquareRefusal",
-            "TestPowerPublicationBigInputCopyPrecedesOutputOne",
-            "TestPowerPublicationRawRationalShapesAndMulAliases",
-            "TestPowerPublicationLeftShiftCopyPrecedesPromotionRefusal",
-            "TestPowerPublicationRightShiftCopyRefusalPrefix",
-            "TestPowerPublicationRationalCopyComponentRefusal",
-            "TestPowerPublicationRationalMulComponentRefusal"
+            "TestIntegerSourceMultiplication"
           ]
         },
         {
-          "name": "Selected GCD caller Copy-before-Abs zero path, twelve Lehmer and ExtendedGCD order assertion switch reads, completed ExtendedGCD equality source action, remaining raw rational number-theory forwarding profiles",
-          "status": "partial",
-          "go_target": "pkg/util/numeral/mpz_gcd.go",
+          "name": "bug1 self-subtraction and bug2 large signed subtraction smoke path",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpz_test.go",
           "tests": [
-            "TestExtendedGCDOrderAssertionReadsAfterInitialPublication",
-            "TestExtendedGCDOrderAssertionSourceAction",
-            "TestLehmerGCDStructuralAssertionSourceActions",
-            "TestLehmerGCDNestedAllocateAssertionStopsSecondInputCopy",
-            "TestGCDPublicationZeroCopyBeforeMinimumPromotion",
-            "TestGCDPublicationZeroBigCopyRefusal",
-            "TestGCDPublicationRationalIntegralityProfiles",
-            "TestGCDPublicationRationalArrayVisitedFraction",
-            "TestGCDPublicationSourceFull168PrimeCampaign",
-            "TestGCDPublicationPrimeTableAndPredicateBoundary",
-            "TestGCDPublicationFullFamilySignedAliases"
+            "TestIntegerMultiLimbOracleAndSourceBug1",
+            "TestIntegerArithmeticOracle"
           ]
         },
         {
-          "name": "Registered rand_tst_gcd(50,3,2) full 168-prime generation and literal slow_gcd; hermetic nonnegative31-bit RNG adapter",
-          "status": "partial",
+          "name": "bug3 INT_MIN negation and INT_MAX plus one alias equality",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpz_test.go",
+          "tests": [
+            "TestIntegerSourceBug3"
+          ]
+        },
+        {
+          "name": "bug4 bitwise OR into an aliased destination",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpz_bitwise_test.go",
+          "tests": [
+            "TestIntegerSourceBitwiseBug4"
+          ]
+        },
+        {
+          "name": "tst_2k multiplication/division by powers of two across signed and large fixtures",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpz_power_shift_test.go",
+          "tests": [
+            "TestIntegerSourceShiftTable"
+          ]
+        },
+        {
+          "name": "tst_int_min_bug UINT64_MAX minus INT_MIN publication",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpz_test.go",
+          "tests": [
+            "TestIntegerSourceIntMinSubtraction"
+          ]
+        },
+        {
+          "name": "tst_scoped scoped owners and in-place multiplication output",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/scoped_numeral_test.go",
+          "tests": [
+            "TestScopedNumeralSourceTstScoped"
+          ]
+        },
+        {
+          "name": "rand_tst_gcd full 168-prime corpus and slow Euclidean cross-check",
+          "status": "ported",
           "go_target": "pkg/util/numeral/mp_gcd_publication_test.go",
           "tests": [
             "TestGCDPublicationSourceFull168PrimeCampaign",
             "TestGCDPublicationPrimeTableAndPredicateBoundary"
           ]
+        },
+        {
+          "name": "tst_log2 positive and negative logarithm bounds over small and growing integers",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpq_round_test.go",
+          "tests": [
+            "TestIntegerSourceLogBounds",
+            "TestIntegerLogSignsSizesAndOwnership"
+          ]
+        },
+        {
+          "name": "tst_root exactness and signed ceiling-root fixtures",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mp_root_test.go",
+          "tests": [
+            "TestIntegerSourceRoots"
+          ]
+        },
+        {
+          "name": "tst_pw2 demonstration powers and arithmetic branches",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpz_power_shift_test.go",
+          "tests": [
+            "TestIntegerPowerBigCellSmallValueGeneralLoop",
+            "TestIntegerPowerAndShiftIndependent",
+            "TestIntegerPowerAndShiftIndependent"
+          ]
         }
       ],
       "ownership": [
-        "Magnitude projections only; signed manager assertions remain unported.",
-        "Signed multiplication assertions and print-only square expectations strengthened. Remaining parser/GCD/root/bitwise/shift source assertions remain unported.",
-        "Active 50-case GCD coherence uses bounded independent prime-product fixture generator. INT_MIN GCD print case strengthened to exact 2^31 expectation; see PORT_PROGRESS.md#audit-mpnum-port-status-md.",
-        "Source prev-power assertions and log bounds translated; test powers are independent fixture generation until production Power is implemented. See PORT_PROGRESS.md#audit-mpnum-port-status-md.",
-        "Power/shift outputs are staged in owned numerals and released on failure; peak and destructor timing differ from source direct mutation, successful arithmetic/aliases retained. See PORT_PROGRESS.md#audit-mpnum-port-status-md. Standalone MPN/String scratch ownership remains pending.",
-        "Text setters borrow input for the call; staged owned numerals preserve old rational denominator history and publish after source sign/normalization. Source lexical temporary cleanup order retained; transient formatting/standalone MPN scratch ownership still pending. See PORT_PROGRESS.md#audit-mpnum-port-status-md.",
-        "Concrete scoped Int/Rational objects borrow managers; all cold headers and actual old+new pointer-free backing are charged. Deep copy owns independent limbs, source ascending truncation releases them, vector failure prefixes retained. See PORT_PROGRESS.md#audit-scoped-numeral-port-status-md.",
-        "tst1 retains original numerical setup, lexical manager scope and explicit Del; 18 comparison assertions across MPZ/MPQ. Additional printed fixtures and independent tests are not source assertions. See PORT_PROGRESS.md#audit-mpz-facade-extra-port-status-md.",
-        "Selected Power and shift paths preserve actual caller publication and source lexical temporaries; Rational Copy/Mul use the existing single integer/normalization algorithms. Tests audit named live roots before fault disabling and clean exact owned failed descriptors. See PORT_PROGRESS.md#audit-mpz-power-publication-packet-md; source allocator/backend integration remains required.",
-        "Zero GCD copies directly into caller before Abs; minimum-promotion allocation refusal retains the completed inline copy, while failed BIG Copy retains the actual published sign/dead descriptor. Existing general GCD locals and final publication remain source ordered; twelve Lehmer and one intermediate ExtendedGCD diagnostics execute only in g3debug. Named roots audited before fault disabling. See PORT_PROGRESS.md#audit-mpz-gcd-publication-packet-md."
+        "C++ local synchronized and unsynchronized managers and scoped numerals map to existing IntegerManager/ScopedInt ownership tests; direct source regression tests clean their actual manager-owned values and verify full budget release.",
+        "The 50-case GCD generator keeps the complete 168-prime table and Euclidean reference algorithm, with deterministic Go draws and an independent big.Int oracle instead of relying on libc rand sequence or global C++ state."
       ],
       "deviations": [
-        "Generic source uint32 mask loops nonterminate for exponents >=2^31: typed error before publication; integer finite 0/1/2 fast paths remain selected first. Integer 0^0 is invalid while rational 0^0 is one. Signed shift baseline retains source-derived small INT_MIN/2^31=+1, big=-1; unsigned limb shifts define intended bits.",
-        "Finite Go string bounds replace C pointer traversal with first-NUL termination. Source parser exceptions have distinct ParseError categories; failures preserve prior destination instead of source partial mutation. uint64 exponent wraps before UINT_MAX check; inherited nonterminating Power masks remain typed domain errors.",
-        "Explicit Close substitutes RAII; self identity rejects shallow Go owner copies. Vectors expose deep Read/Set rather than escaping indexed element addresses. Source noncopyable vector remains noncopyable; other numeral manager specializations stay open.",
-        "Nonterminating Power guard occurs only at uint32 mask wrap after completed source iterations; earlier finite allocation refusal takes precedence. Malformed left-shift headers are guarded at actual physical accesses after source size publication. Existing numeric access-span setup is a concrete storage adapter. Other arithmetic staging, source allocator topology and nonselected backends remain open.",
-        "The registered randomized GCD campaign preserves all 168 primes, conditional Power/Mul and sign draw order using an explicit hermetic RNG adapter, not libc sequence identity. Independent table enumeration and arithmetic checks add no ENSURE credit; print-only minimum GCD expectation is additional verification. Actual allocator topology, cleanup exceptions, alternate backends and full source-unit completion remain open."
+        "Go preserves the active arithmetic, aliases, comparison order, source fixture corpus, and source assertions; console transcripts and process-wide trace toggles are omitted from the library test port.",
+        "The random-string helper is compiled out by #if 0 and tst_gcd() is not called by tst_mpz(); neither is active driver behavior."
       ]
     },
     {
