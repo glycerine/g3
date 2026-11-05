@@ -147,6 +147,21 @@ func (p *commandParser) pattern() (ast.ASTHandle, error) {
 	}
 	var terms []ast.ASTHandle
 	if p.token == SymbolToken {
+		isNullary, err := p.context.IsNullaryFunction(p.scanner.ID())
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if isNullary {
+			if !p.ignoreBadPatterns {
+				return ast.ASTHandle{}, fmt.Errorf("invalid constant pattern")
+			}
+			for p.token != RightParenToken {
+				if err = p.skipSExpr(); err != nil {
+					return ast.ASTHandle{}, err
+				}
+			}
+			return ast.ASTHandle{}, p.advance()
+		}
 		// Retain the source's older unary syntax :pattern (f x).
 		name, err := p.symbol()
 		if err != nil {

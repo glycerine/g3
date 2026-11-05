@@ -104,3 +104,28 @@ func (c *Context) FindFunctionDeclaration(name string, indices []uint32, domain 
 	}
 	return declaration, nil
 }
+
+// IsNullaryFunction reports whether a bare name resolves to one zero-arity
+// declaration. Source parse_pattern uses find_func_decl(name) before it parses
+// the rest of a unary pattern so it can discard legacy constant patterns.
+func (c *Context) IsNullaryFunction(name string) (bool, error) {
+	m, err := c.Manager()
+	if err != nil {
+		return false, err
+	}
+	if builtins := c.builtins[name]; len(builtins) != 0 {
+		declaration, cause := m.MkFamilyFuncDecl(builtins[0].family, builtins[0].kind, nil, nil, ast.ASTHandle{})
+		if cause != nil || declaration.IsNull() {
+			// C++ find_func_decl catches AST declaration refusal as an ordinary
+			// command lookup failure, then parses the name as a nonconstant.
+			return false, nil
+		}
+		arity, cause := m.GetArity(declaration)
+		return cause == nil && arity == 0, cause
+	}
+	if c.containsMacro(name, nil) || len(c.functions[name]) != 1 {
+		return false, nil
+	}
+	arity, err := m.GetArity(c.functions[name][0])
+	return arity == 0, err
+}
