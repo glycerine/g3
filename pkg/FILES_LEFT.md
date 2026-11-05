@@ -138,7 +138,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/nlsat/tactic/nlsat_tactic.cpp` — Parameter and statistics lifecycle, tactic reporting, proof-generation rejection, SAT/unknown/UNSAT goal transitions, model/core publication, and source `to_int` fallback behavior for nonintegral integer assignments map to `NLSATTactic` and `GoalCompiler`. Focused NLSAT tactic/solver and NLQSAT consumer suites pass.
 - [x] `src/opt/maxres.cpp` — MaxRes core extraction/minimization, MUS candidate updates, separate objective and correction-set model tracking, weighted core splitting, resolution proxies, primal-dual bounds, and post-core correction pivots follow the source ordering. Focused MaxRes tests and the full `pkg/opt` short suite pass.
 - [x] `src/opt/maxsmt.cpp` — Soft-term accumulation and normalization, objective/model/bound publication, mutex discovery and decomposition, unknown-engine fallback, and explicit WMax dispatch map to the weighted soft set, MaxRes/SortMax/WMax engines, and result pipeline; the weighted mutex end-to-end regression and focused optimizer checks pass.
-- [ ] `src/opt/maxsmt.h`
+- [x] `src/opt/maxsmt.h` — The MaxSMT solver contracts, bounds, assignment, statistics, model/label access, parameter updates, and commit behavior map to the `maxSMTEngine` interface, typed arithmetic objective state, and result APIs. C++ inheritance, reference/vector containers, and the verbose-only answer stream have no separate Go runtime consumer; focused objective, assignment, bounds, statistics, and WMax engine tests pass.
 - [ ] `src/opt/opt_context.cpp`
 - [ ] `src/opt/opt_context.h`
 - [ ] `src/opt/opt_parse.h`
