@@ -244,7 +244,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/memory_manager.cpp` — Allocation/header/reallocation order, TLS and non-TLS counters, limits, OOM state, watermark queries, and initialization/finalization lifecycle are mapped to `pkg/util/memory` and the generated-process owner in `pkg/engine`; existing `go test ./pkg/util/memory ./pkg/engine -count=1 -timeout=0` passes. No tests were added.
 - [x] `src/util/memory_manager.h` — `alloc`/`dealloc` and vector/svector macros are represented by the live owners’ concrete constructors, cleanup, and raw `memory.Runtime` blocks; generic placement-new wrappers have no Go consumer and are not duplicated. Existing memory-runtime and generated-process tests pass; no tests were added.
 - [x] `src/util/mpf.h` — The retained `mpf_manager` behavior maps to `ArbitraryFloatManager`, including value metadata, rounding modes, scoped numerals, cached powers, and IEEE/SMT conversions; the focused float checks and default `pkg/util/numeral` suite pass. No tests were added.
-- [ ] `src/util/mpn.cpp`
+- [x] `src/util/mpn.cpp` — The Go `NaturalManager` implements the source limb compare/add/subtract/multiply, normalized Knuth division, short-input branches, and decimal conversion; deterministic `math/big` oracle, source-prefix, alias, division-correction, and formatting checks pass. No tests were added.
 - [ ] `src/util/mpn.h`
 - [ ] `src/util/mpq.cpp`
 - [ ] `src/util/mpq.h`
