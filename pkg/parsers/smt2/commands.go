@@ -1043,6 +1043,11 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 		success = false
+	case "help":
+		if err = p.helpCommands(); err != nil {
+			return false, err
+		}
+		success = false
 	case "get-option":
 		if p.token != KeywordToken {
 			return false, fmt.Errorf("option keyword expected")
