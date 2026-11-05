@@ -22,6 +22,7 @@ var (
 	ErrGoalNeedsSimplify         = errors.New("apply simplify before applying nlsat")
 	ErrGoalNeedsDistinctElim     = errors.New("eliminate distinct before applying nlsat")
 	ErrGoalNeedsArithmeticPurify = errors.New("apply purify-arith before applying nlsat")
+	ErrGoalNeedsTermITE          = errors.New("eliminate term-ite before applying nlsat")
 )
 
 // DependencyAttachment records the borrowed goal dependency represented by an
@@ -35,16 +36,17 @@ type DependencyAttachment struct {
 // GoalCompiler compiles a preprocessed CNF goal into the retained NLSAT solver.
 // It borrows all constructor arguments and owns its expression mappings.
 type GoalCompiler struct {
-	manager     *ast.ASTManager
-	solver      *nlsat.Solver
-	polynomials *polynomial.MultivariatePolynomialManager
-	atoms       *ast.Expr2Var
-	terms       *ast.Expr2Var
-	expressions *ast.Expr2Polynomial
-	arithmetic  ast.FamilyID
-	attachments []DependencyAttachment
-	factor      bool
-	closed      bool
+	manager      *ast.ASTManager
+	solver       *nlsat.Solver
+	polynomials  *polynomial.MultivariatePolynomialManager
+	atoms        *ast.Expr2Var
+	terms        *ast.Expr2Var
+	expressions  *ast.Expr2Polynomial
+	arithmetic   ast.FamilyID
+	attachments  []DependencyAttachment
+	factor       bool
+	factorParams polynomial.UPolynomialFactorParams
+	closed       bool
 }
 
 // SetFactor selects goal2nlsat's source polynomial-factorization branch.
@@ -56,11 +58,21 @@ func (c *GoalCompiler) SetFactor(factor bool) error {
 	return nil
 }
 
+// SetFactorParams copies the source polynomial factorization limits used by
+// goal2nlsat when it factors arithmetic atoms.
+func (c *GoalCompiler) SetFactorParams(params polynomial.UPolynomialFactorParams) error {
+	if c == nil || c.closed {
+		return arena.ErrClosed
+	}
+	c.factorParams = params
+	return nil
+}
+
 func NewGoalCompiler(manager *ast.ASTManager, solver *nlsat.Solver) (compiler *GoalCompiler, err error) {
 	if manager == nil || solver == nil {
 		return nil, arena.ErrConfig
 	}
-	compiler = &GoalCompiler{manager: manager, solver: solver}
+	compiler = &GoalCompiler{manager: manager, solver: solver, factorParams: polynomial.DefaultUPolynomialFactorParams()}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, compiler.Close())
@@ -209,7 +221,7 @@ func (c *GoalCompiler) processArithmeticAtom(expression ast.ASTHandle, kind nlsa
 		return 0, err
 	}
 	defer func() { err = errors.Join(err, factors.CloseChecked()) }()
-	if err = c.polynomials.Factor(difference, factors, polynomial.DefaultUPolynomialFactorParams()); err != nil {
+	if err = c.polynomials.Factor(difference, factors, c.factorParams); err != nil {
 		return 0, errors.Join(err, c.polynomials.CleanupFactor())
 	}
 	count, err := factors.Distinct()
@@ -358,6 +370,13 @@ func (c *GoalCompiler) processFormula(formula ast.ASTHandle, dependency ast.ASTD
 func (c *GoalCompiler) Compile(goal *basetactic.Goal) error {
 	if c == nil || c.closed || goal == nil {
 		return arena.ErrClosed
+	}
+	termITE, err := basetactic.HasTermITE(goal)
+	if err != nil {
+		return err
+	}
+	if termITE {
+		return ErrGoalNeedsTermITE
 	}
 	count, err := goal.Size()
 	if err != nil {

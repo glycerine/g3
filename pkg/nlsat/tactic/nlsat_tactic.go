@@ -158,10 +158,17 @@ func (t *NLSATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	if err := uparams.InsertMaxMemory(out); err != nil {
 		return err
 	}
+	factorDescription := "(default: true) factor polynomials."
+	if err := out.InsertName("factor", uparams.ParamBool, &factorDescription, nil, nil); err != nil {
+		return err
+	}
 	entries := []struct {
 		name, description string
 		kind              uparams.ParamKind
 	}{
+		{"max_search_size", "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter can be used to limit the search space.", uparams.ParamUInt},
+		{"max_prime", "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter limits the maximum prime number p to be used in the first step.", uparams.ParamUInt},
+		{"num_primes", "(default: 1) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. The search space may be reduced by factoring the polynomial in different GF(p)'s. This parameter specify the maximum number of finite factorizations to be considered, before lifiting and searching.", uparams.ParamUInt},
 		{"lazy", "how lazy the solver is.", uparams.ParamUInt},
 		{"reorder", "reorder variables.", uparams.ParamBool},
 		{"simplify_conflicts", "simplify conflicts using equalities before resolving them.", uparams.ParamBool},
@@ -171,7 +178,6 @@ func (t *NLSATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 		{"shuffle_vars", "use a random variable order.", uparams.ParamBool},
 		{"inline_vars", "inline variables that can be isolated from equations", uparams.ParamBool},
 		{"seed", "random seed.", uparams.ParamUInt},
-		{"factor", "factor polynomials produced during conflict resolution.", uparams.ParamBool},
 	}
 	for _, entry := range entries {
 		if err := out.InsertName(entry.name, entry.kind, &entry.description, nil, nil); err != nil {
@@ -255,6 +261,25 @@ func (t *NLSATTactic) solverConfig(polynomials *polynomial.MultivariatePolynomia
 		SimplifyCore: simplify, MinimizeCore: minimize, Randomize: randomize, Factor: factor, InlineVars: inlineVars,
 		Reorder: reorder, ShuffleVars: shuffle, Seed: seed, MaxConflicts: maxConflicts,
 	}, nil
+}
+
+func (t *NLSATTactic) factorizationParams() (polynomial.UPolynomialFactorParams, error) {
+	read := func(name string, fallback uint32) (uint32, error) {
+		return t.context.GetUIntName(&t.params, &name, fallback)
+	}
+	maxPrime, err := read("max_prime", math.MaxUint32)
+	if err != nil {
+		return polynomial.UPolynomialFactorParams{}, err
+	}
+	primeTrials, err := read("num_primes", 1)
+	if err != nil {
+		return polynomial.UPolynomialFactorParams{}, err
+	}
+	maxSearchSize, err := read("max_search_size", math.MaxUint32)
+	if err != nil {
+		return polynomial.UPolynomialFactorParams{}, err
+	}
+	return polynomial.UPolynomialFactorParams{MaxPrime: maxPrime, PrimeTrials: primeTrials, MaxSearchSize: maxSearchSize}, nil
 }
 
 func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResult) (err error) {
@@ -341,6 +366,13 @@ func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResu
 		return err
 	}
 	if err = compiler.SetFactor(config.Factor); err != nil {
+		return err
+	}
+	factorParams, cause := t.factorizationParams()
+	if cause != nil {
+		return cause
+	}
+	if err = compiler.SetFactorParams(factorParams); err != nil {
 		return err
 	}
 	if err = compiler.Compile(goal); err != nil {

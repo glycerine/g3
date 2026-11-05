@@ -1,9 +1,11 @@
 package tactic
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/math/polynomial"
 	basetactic "github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
@@ -22,6 +24,10 @@ func TestNLSATTacticAdvertisesSourceParameterCatalog(t *testing.T) {
 		kind              uparams.ParamKind
 	}{
 		{"max_memory", "(default: infty) maximum amount of memory in megabytes.", uparams.ParamUInt},
+		{"factor", "(default: true) factor polynomials.", uparams.ParamBool},
+		{"max_search_size", "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter can be used to limit the search space.", uparams.ParamUInt},
+		{"max_prime", "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter limits the maximum prime number p to be used in the first step.", uparams.ParamUInt},
+		{"num_primes", "(default: 1) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. The search space may be reduced by factoring the polynomial in different GF(p)'s. This parameter specify the maximum number of finite factorizations to be considered, before lifiting and searching.", uparams.ParamUInt},
 		{"lazy", "how lazy the solver is.", uparams.ParamUInt},
 		{"reorder", "reorder variables.", uparams.ParamBool},
 		{"simplify_conflicts", "simplify conflicts using equalities before resolving them.", uparams.ParamBool},
@@ -31,7 +37,6 @@ func TestNLSATTacticAdvertisesSourceParameterCatalog(t *testing.T) {
 		{"shuffle_vars", "use a random variable order.", uparams.ParamBool},
 		{"inline_vars", "inline variables that can be isolated from equations", uparams.ParamBool},
 		{"seed", "random seed.", uparams.ParamUInt},
-		{"factor", "factor polynomials produced during conflict resolution.", uparams.ParamBool},
 	}
 	size, err := descriptions.Size()
 	compilerMust(t, err)
@@ -56,6 +61,47 @@ func TestNLSATTacticAdvertisesSourceParameterCatalog(t *testing.T) {
 		if !present || description != entry.description {
 			t.Fatalf("%s description = %q, present %v, want %q", got, description, present, entry.description)
 		}
+	}
+}
+
+func TestGoalCompilerRejectsTermITEBeforeCompilation(t *testing.T) {
+	fixture := newGoalCompilerFixture(t)
+	boolean, err := fixture.manager.MkBoolSort()
+	compilerMust(t, err)
+	condition := compilerConst(t, fixture.manager, "ite-condition", boolean)
+	one, err := fixture.manager.ArithmeticIntegerNumeralText("1")
+	compilerMust(t, err)
+	sort, err := fixture.manager.GetSort(one)
+	compilerMust(t, err)
+	x := compilerConst(t, fixture.manager, "ite-x", sort)
+	y := compilerConst(t, fixture.manager, "ite-y", sort)
+	choice, err := fixture.manager.MkIte(condition, x, y)
+	compilerMust(t, err)
+	formula, err := fixture.manager.MkEq(choice, one)
+	compilerMust(t, err)
+	err = fixture.compiler.Compile(compilerGoal(t, fixture.manager, formula))
+	if !errors.Is(err, ErrGoalNeedsTermITE) {
+		t.Fatalf("term ITE compile error = %v, want %v", err, ErrGoalNeedsTermITE)
+	}
+}
+
+func TestNLSATTacticReadsPolynomialFactorizationParameters(t *testing.T) {
+	fixture := newGoalCompilerFixture(t)
+	value, err := NewNLSATTactic(fixture.manager, fixture.context, fixture.globals, nil, fixture.services)
+	compilerMust(t, err)
+	t.Cleanup(func() { compilerMust(t, value.Close()) })
+	params, err := fixture.context.NewValue()
+	compilerMust(t, err)
+	t.Cleanup(func() { compilerMust(t, fixture.context.Del(&params)) })
+	for name, number := range map[string]uint32{"max_prime": 17, "num_primes": 3, "max_search_size": 91} {
+		compilerMust(t, fixture.context.SetUIntName(&params, &name, number))
+	}
+	compilerMust(t, value.UpdateParams(&params))
+	got, err := value.factorizationParams()
+	compilerMust(t, err)
+	want := polynomial.UPolynomialFactorParams{MaxPrime: 17, PrimeTrials: 3, MaxSearchSize: 91}
+	if got != want {
+		t.Fatalf("polynomial factorization params = %+v, want %+v", got, want)
 	}
 }
 
