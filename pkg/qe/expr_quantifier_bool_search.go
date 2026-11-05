@@ -33,7 +33,7 @@ func exprQENewVariablesSupported(variables *exprQEBranchVariables, context *Solv
 			return false, err
 		}
 		switch plugin.(type) {
-		case *ArithmeticPlugin, *BitVectorPlugin, *DatatypeSolverPlugin, *DatalogPlugin:
+		case *ArithmeticPlugin, *BitVectorPlugin, *BoolPlugin, *DatatypeSolverPlugin, *DatalogPlugin:
 		default:
 			return false, nil
 		}
