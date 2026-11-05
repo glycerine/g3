@@ -141,7 +141,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/opt/maxsmt.h` — The MaxSMT solver contracts, bounds, assignment, statistics, model/label access, parameter updates, and commit behavior map to the `maxSMTEngine` interface, typed arithmetic objective state, and result APIs. C++ inheritance, reference/vector containers, and the verbose-only answer stream have no separate Go runtime consumer; focused objective, assignment, bounds, statistics, and WMax engine tests pass.
 - [x] `src/opt/opt_context.cpp` — Scoped objectives, solver setup, normalization/internalization, lexicographic/box/Pareto execution, model/bound publication, soft constraints, and objective formatting map across `pkg/cmd_context` and `pkg/opt`; benchmark dumping uses the shared SAT display path. The only QSAT optimization branch is disabled by `#if 0` in C++, so it is not a live port target. Focused `cmd_context` and `opt` short suites pass.
 - [x] `src/opt/opt_context.h` — The optimization wrapper and MaxSAT-context contracts, scoped objective records, model/label/bound access, and parameter/state hooks map to typed `cmd_context.Context` and `opt.ArithmeticSolver` methods. C++ base-class, pointer/reference, and inline forwarding surfaces have no separate Go adapter; objective API, lifecycle, lex/box/Pareto, and focused optimization suites pass. The declared QSAT optimization helper is disabled in its only caller.
-- [ ] `src/opt/opt_parse.h`
+- [x] `src/opt/opt_parse.h` — The WCNF/OPB parser declarations map to typed `ParseWCNF` and `ParseOPB` document APIs with shell frontends; focused malformed-input, ownership, parser, and frontend tests pass.
 - [ ] `src/opt/opt_solver.cpp`
 - [ ] `src/opt/opt_solver.h`
 - [ ] `src/opt/optsmt.cpp`
