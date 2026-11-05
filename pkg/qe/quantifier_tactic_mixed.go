@@ -42,7 +42,7 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 	}
 	extracted, err := extractExprQuantifier(m, quantifier)
 	if err != nil {
-		return result, false, err
+		return result, false, closeFailedExprQuantifierExtract(extracted, err)
 	}
 	defer func() { err = errors.Join(err, extracted.Close()) }()
 	boolean, err := m.MkBoolSort()

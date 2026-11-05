@@ -60,7 +60,7 @@ func eliminateQuantifierArrayEquations(m *ast.ASTManager, quantifier ast.ASTHand
 	}
 	extracted, err := extractExprQuantifier(m, quantifier)
 	if err != nil {
-		return result, false, err
+		return result, false, closeFailedExprQuantifierExtract(extracted, err)
 	}
 	defer func() { err = errors.Join(err, extracted.Close()) }()
 	variables := make([]ast.ASTHandle, len(extracted.variables))

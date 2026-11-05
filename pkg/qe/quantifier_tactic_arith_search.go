@@ -102,7 +102,7 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 	}
 	extracted, err := extractExprQuantifier(m, quantifier)
 	if err != nil {
-		return result, false, err
+		return result, false, closeFailedExprQuantifierExtract(extracted, err)
 	}
 	defer func() { err = errors.Join(err, extracted.Close()) }()
 	variable, err := m.RefGet(extracted.variables[0])

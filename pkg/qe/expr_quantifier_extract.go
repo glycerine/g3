@@ -22,8 +22,11 @@ func extractExprQuantifier(m *ast.ASTManager, quantifier ast.ASTHandle) (result 
 	result = &exprQuantifierExtract{manager: m}
 	defer func() {
 		if err != nil {
-			err = errors.Join(err, result.Close())
-			result = nil
+			cleanupErr := result.Close()
+			err = errors.Join(err, cleanupErr)
+			if cleanupErr == nil {
+				result = nil
+			}
 		}
 	}()
 	body, err := m.GetQuantifierBody(quantifier)
@@ -89,6 +92,13 @@ func extractExprQuantifier(m *ast.ASTManager, quantifier ast.ASTHandle) (result 
 		return result, err
 	}
 	return result, nil
+}
+
+func closeFailedExprQuantifierExtract(extracted *exprQuantifierExtract, cause error) error {
+	if extracted == nil {
+		return cause
+	}
+	return errors.Join(cause, extracted.Close())
 }
 
 func (s *exprQuantifierExtract) Close() error {

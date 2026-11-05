@@ -95,7 +95,7 @@ func eliminateQuantifierArithmeticEquations(m *ast.ASTManager, quantifier ast.AS
 	}
 	extracted, err := extractExprQuantifier(m, quantifier)
 	if err != nil {
-		return result, false, err
+		return result, false, closeFailedExprQuantifierExtract(extracted, err)
 	}
 	defer func() { err = errors.Join(err, extracted.Close()) }()
 	var auxiliary []ast.ASTRef

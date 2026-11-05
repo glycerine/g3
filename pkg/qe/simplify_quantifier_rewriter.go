@@ -128,7 +128,7 @@ func simplifyQEQuantifier(m *ast.ASTManager, quantifier ast.ASTHandle) (result a
 	}()
 	extracted, err := extractExprQuantifier(m, quantifier)
 	if err != nil {
-		return result, err
+		return result, closeFailedExprQuantifierExtract(extracted, err)
 	}
 	defer func() { err = errors.Join(err, extracted.Close()) }()
 	vars := make([]ast.ASTHandle, len(extracted.variables))

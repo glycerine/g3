@@ -120389,7 +120389,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
-        {"name": "extract_vars owns newly created quantifier constants before further allocation (qe.cpp:2285 onward)", "status": "partial", "go_targets": ["pkg/qe/expr_quantifier_extract.go", "pkg/muz/base/rule_unbound_quantifier_failure_test.go"], "tests": ["TestRuleFixUnboundQuantifierReferenceFailure"], "reason": "The extracted constant owner is reserved before construction, and Close now attempts every release while preserving failed references for retry. A constructor error can still drop the partial owner if that cleanup also refuses; fixedpoint reference-pressure cases exercise the QE consumer and retry."},
+        {"name": "extract_vars owns newly created quantifier constants before further allocation (qe.cpp:2285 onward)", "status": "partial", "go_targets": ["pkg/qe/expr_quantifier_extract.go", "pkg/muz/base/rule_unbound_quantifier_failure_test.go"], "tests": ["TestRuleFixUnboundQuantifierReferenceFailure"], "reason": "The extracted constant owner is reserved before construction, Close attempts every reference release, and all live extraction callers retry cleanup when construction returns a partial owner. A repeated cleanup refusal can still leave that owner unreachable; fixedpoint reference-pressure cases exercise the QE consumer and retry."},
         {
           "name": "conjunctions::get_partition and partition_vars: classify source uninterpreted terms, simplify the three partitions, and form majority/shared plus union-find variable groups",
           "status": "ported",
