@@ -18,6 +18,9 @@ func sourceMaxSMTEngine(name string) string {
 
 func selectMaxSMTEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int, config maxSMTConfig) (maxSMTEngine, error) {
 	config.engine = sourceMaxSMTEngine(config.engine)
+	if config.engine == "wmax" {
+		return newWMaxEngine(s, objective, index)
+	}
 	if config.engine == "sortmax" {
 		engine, usable, err := newSortMaxEngine(s, objective, index)
 		if err != nil || usable {
