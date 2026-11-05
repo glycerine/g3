@@ -202,8 +202,8 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/tactic/arith/eq2bv_tactic.cpp` — Candidate collection, bound sizing and dependency transfer, nested equality rewriting, model reconstruction, proof updates, goal-depth changes, tactic translation and trace output map to `Eq2BVTactic` and its typed helpers; focused arithmetic and model-converter tests pass.
 - [x] `src/tactic/arith/lia2card_tactic.cpp` — 0/1 bound discovery, conditional weighted-sum extraction, all comparison rewrites, cardinality construction, goal rewriting, and tactic parameter/translation lifecycle map to `LIA2CardTactic` and typed helpers; focused tactic and optimizer-consumer suites pass.
 - [x] `src/tactic/arith/lia2card_tactic.h` — The named tactic factory and shared pseudo-Boolean sum helper map to `MakeLIA2CardTactic` and the concrete owned `PBSum` extraction API used by the live optimizer consumer; focused arithmetic and optimizer tests pass.
-- [ ] `src/tactic/arith/purify_arith_tactic.cpp`
-- [ ] `src/tactic/arith/purify_arith_tactic.h`
+- [x] `src/tactic/arith/purify_arith_tactic.cpp` — The source dispatch cases for DIV, IDIV/MOD, TO_INT, POWER, inverse/forward trig, irrational algebraic roots and quantified formulas map to the Go purifier helpers; tactic construction preserves the SNF → simplify → purify → simplify pipeline, and focused purifier/QF_UFNRA suites pass.
+- [x] `src/tactic/arith/purify_arith_tactic.h` — The named factory, default parameters, description and registry wiring are implemented by `MakePurifyArithTactic` and command-context integration; focused factory and tactic suites pass.
 - [ ] `src/tactic/arith/recover_01_tactic.cpp`
 - [ ] `src/tactic/nlsat_smt/nl_purify_tactic.cpp`
 - [ ] `src/tactic/nlsat_smt/nl_purify_tactic.h`
