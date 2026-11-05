@@ -120,7 +120,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/rel/tbv.cpp` — Ternary-bit encoding, construction/parsing, range writes, projection/permutation, logic operations, well-formedness, complement, containment, hash/equality, display and formula conversion map to `TBVManager` and its concrete vector implementation. The audited retained DOC/UDoc/DDNF consumers and existing TBV/DOC/DDNF tests pass.
 - [x] `src/muz/rel/tbv.h` — The TBV, manager, truth-value enum, and scoped-owner interfaces map to concrete Go vector/manager APIs and explicit cleanup paths; source-only C++ friend access and RAII syntax have no separate Go runtime counterpart. TBV, DOC and DDNF focused tests pass.
 - [x] `src/muz/rel/udoc_relation.cpp` — UDoc fact storage, joins, projection/rename, union and delta, equality/guard compilation, interpreted filters, negation, formulas and display map to the concrete `UDocRelation` and `TypedUDocRelation` operations. The source-audited TBV/DOC/UDoc/DDNF focused tests pass.
-- [ ] `src/muz/rel/udoc_relation.h`
+- [x] `src/muz/rel/udoc_relation.h` — UDoc relation/plugin operations, signature metadata, guarded filters and joins, ownership, and document-manager access map to concrete typed relation/factory APIs; the C++ virtual hierarchy and RAII wrapper have no separate Go runtime layer. Existing UDoc, DOC and DDNF focused tests pass.
 - [ ] `src/muz/spacer/spacer_context.cpp`
 - [ ] `src/muz/spacer/spacer_context.h`
 - [ ] `src/muz/spacer/spacer_dl_interface.cpp`
