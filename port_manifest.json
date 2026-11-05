@@ -218126,7 +218126,7 @@
       "path": "src/test/polynomial.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/polynomial/polynomial_monomial_order_test.go",
         "pkg/math/polynomial/polynomial_monomial_test.go",
@@ -218622,8 +218622,8 @@
           "text": "ENSURE(lex_compare2(m.get_monomial(p2, 0), m.get_monomial(p1, 0), min) == -r2);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Reference-only source obligation outside retained consumers; existing Go regression coverage: Dormant tst_lex source21cases84 adapted monomial comparator conditions (cpp1740\u20131790); source registered driver returns before tst_lex",
@@ -218638,9 +218638,14 @@
           ]
         },
         {
-          "name": "Registered tst_polynomial active PSC suite and complete polynomial manager expression paths",
-          "status": "unported",
-          "tests": []
+          "name": "Registered tst_polynomial active PSC driver (the entry point returns immediately after tst_psc)",
+          "status": "ported",
+          "go_target": "pkg/math/polynomial/polynomial_psc_registered_test.go",
+          "tests": [
+            "TestPolynomialPSCAllEightOriginalCoefficientFixtures",
+            "TestPolynomialPSCRegisteredDriverAssertionsWithTraces",
+            "TestPolynomialResultantRegisteredPSCThirdAssertion"
+          ]
         },
         {
           "name": "Reference-only source obligation outside retained consumers; existing Go regression coverage: Dormant monomial manager identity/conversion inputs plus source-body and independent bounded/fault fixtures; registered tst_polynomial runs PSC then returns, no active ENSURE completion credit",
@@ -218810,6 +218815,7 @@
         }
       ],
       "ownership": [
+        "The active PSC driver fixture owns its manager and polynomial reference vector; the Go tests close vectors and result references and call PSC cleanup before fixture teardown.",
         "Concrete reflected composition scope borrows source degree2pos member, owns actual completed numeral/poly locals and exact created-outcome orphan cohort. Source auxiliary then degree then local destruction; matching younger constant numeral\u2192rational NUM/DEN stop preserves older locals and sticky causes. Explicit owning cleanup resumes matching callee first and acknowledges only its exact consumed returned result; physical pending ObjectRef/triples and borrowed callbacks remain separate, no registry-derived authority.",
         "Charged concrete scope owns actual four scoped NUMs, RAW two, monomial_ref, exact created-only cohort and matched callee/factory/physical receipts. Successful incoming INC transfers output before older DEC callback; source destruction is reverse lexical and stops before older fields, separate from explicit owning CleanupSqrt.",
         "polynomial.cpp:3186-3205: actual caller-owned unsigned vector and persistent imp m_found_vars bool vector retain their own direct raw/pending leaves. No source NUM/ref local is declared, no INC/DEC or child receipt is invented. Failed push leaves preceding true flag, and final reset loop runs only after successful body; later source retry skips retained flag without adapter repair.",
@@ -218818,14 +218824,14 @@
         "polynomial.cpp:5193-5272: charged diagnostic archive retains only body/source/first-own errors and captured child identity across completed invocation reuse until actual final core owner context end. Archive reservation refusal preserves old frame; archives grant no raw, polynomial, numeral or cleanup authority."
       ],
       "deviations": [
-        "No active source ENSURE credit: tst_polynomial1815ff invokes tst_psc and returns before tst_lex. Added comparator models are independent bounded regressions, not evidence of active PSC/resultant completion.",
-        "tst_polynomial at1814 has early return1825 after PSC; monomial/lex routines below are dormant in selected !__clang__ profile. No active registered driver assertion credit.",
-        "Newton source campaign is dormant after early return: one ENSURE adapted, no registered active ENSURE completion credit. Full active optimized PSC8 campaign remains required and source-first private work has begun.",
-        "Selected active PSC coefficient inputs and first/second static ENSURE sites now executed. Third static ENSURE calls Resultant and remains unported; complete original expression-constructor/lifetime/TRACE driver credit is not claimed.",
+        "The registered driver runs tst_psc and returns before tst_lex and the remaining polynomial routines; those post-return routines are reference-only and receive no active-driver completion credit.",
+        "The active PSC driver’s three ENSURE sites run over all eight fixtures (21 dynamic checks), including actual resultant comparison and the psc_chain_classic/Lazard trace configuration. The Go tests preserve these checks; printed polynomial transcripts are not reproduced.",
+        "The Newton interpolation source campaign is dormant after the registered driver returns; its separately covered Go fixture does not count as active-driver behavior.",
+        "The active PSC coefficient fixtures are constructed by an independent bounded test expression parser; this covers the source mathematical expressions while avoiding additions to the production polynomial manager API.",
         "Dense coefficient construction adapts unavailable expression builder; registered driver returns at cpp1825 before these eval cases. Active original-driver assertion credit is zero.",
         "Selected source composition bodies complete for explicit same-Integer rational binding and actual Runtime profile. Dormant cpp573-574 ENSURE adapted via dense term construction; registered driver returns before tst_compose, active original driver credit zero. TLS/dangling-pointer proofs are actual owner-primitive guarded-domain tests, not ordinary mathematical OOM reachability. Global TRACE/assertions/native ABI, same-frame high-level callback reentry and full polynomial family remain open; persistent source class members are not implicitly reset by owning lexical abort.",
         "Selected source algorithms and explicit Runtime profile only. Signed TLS stops and large factory/auxiliary receipts are guarded owner-primitive proofs, not ordinary mathematical exhaustion. Non-Z perfect-square remains the source unsupported operation. Registered polynomial driver returns before sqrt; dormant assertions give no active driver completion credit. Global diagnostics/native ABI and remaining source methods stay partial.",
-        "Selected algorithms and explicit Runtime/NUM cohorts only. Actual signed-TLS/consumed-raw proofs exercise guarded owner domains, not claimed ordinary mathematical OOM reachability. Global mgcd_check/TRACE/assertion dispatcher/native ostream/other ABI and source expression-driver construction remain open. Original tst_polynomial returns after PSC: dormant GCD/primitive source fixture bodies have zero active-driver credit. Eight original PSC cases reach first coefficient8, second coefficient5 and Resultant8 selected ENSURE expressions (21 dynamic expressions at3 static sites); full original registered-driver lifecycle/printing is not promoted.",
+        "The later GCD/primitive source fixture bodies are dormant because the registered entry point returns after PSC; they are documented as reference-only. The printed native stdout body is omitted, while source-trace behavior of the active PSC configuration is checked.",
         "polynomial.cpp:3186-3205: returning allocation transport callbacks are a supported Go owner domain, separately qualified from original C++ source. Invalid Go polynomial borrow is guarded at reached p.size after literal output reset/reserve; invalid/copy output and manager guards precede source body.",
         "src/test/polynomial.cpp:837-879,1824-1825,1853: seven literal dormant Vars cases retain seven size and twenty sorted variable ENSURE comparisons (27 source assertions). The driver returns at line1825 before Vars at line1853; active original-driver credit is zero. Existing pure-Go expression parser maps x0..x4 to a,b,c,d,x and evaluates original arithmetic.",
         "src/test/polynomial.cpp:140-163,1824-1825: original displayed quasi-resultant fixture has no ENSURE assertions and is dormant. Independent literal elimination expression and bounded supported degree-decreasing chains validate mathematics; active original driver assertion credit is zero.",
