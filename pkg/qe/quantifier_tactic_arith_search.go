@@ -263,6 +263,9 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 		return result, false, err
 	}
 	defer func() { err = errors.Join(err, solver.Close()) }()
+	if config.qeStatistics != nil {
+		defer func() { err = errors.Join(err, solver.CollectStatistics(config.qeStatistics)) }()
+	}
 	if err = solver.SetProduceModels(true); err != nil {
 		return result, false, err
 	}

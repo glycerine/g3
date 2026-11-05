@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -22,6 +23,7 @@ type QuantifierTactic struct {
 	config              Config
 	params              uparams.ParamsRef
 	options             quantifierTacticOptions
+	stats               *statistics.Statistics
 	refs                uint32
 	bytes               uint64
 	paramsReady, closed bool
@@ -40,7 +42,7 @@ func NewQuantifierTactic(m *ast.ASTManager, params *uparams.ParamsRef, config Co
 	if err := m.Budget().Reserve(size); err != nil {
 		return nil, err
 	}
-	t := &QuantifierTactic{manager: m, config: config, bytes: size}
+	t := &QuantifierTactic{manager: m, config: config, stats: statistics.New(), bytes: size}
 	t.self = t
 	var err error
 	t.params, err = config.Context.NewValue()
@@ -129,8 +131,28 @@ func (t *QuantifierTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	}
 	return collectQuantifierTacticOptions(out)
 }
-func (t *QuantifierTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *QuantifierTactic) ResetStatistics() error                 { return t.open() }
+func (t *QuantifierTactic) CollectStatistics() map[string]float64 {
+	if t == nil || t.stats == nil || t.open() != nil {
+		return nil
+	}
+	result := make(map[string]float64, t.stats.Size())
+	for i := 0; i < t.stats.Size(); i++ {
+		key := string(t.stats.Key(i))
+		if t.stats.IsUint(i) {
+			result[key] += float64(t.stats.UintValue(i))
+		} else {
+			result[key] += t.stats.DoubleValue(i)
+		}
+	}
+	return result
+}
+func (t *QuantifierTactic) ResetStatistics() error {
+	if err := t.open(); err != nil {
+		return err
+	}
+	t.stats.Reset()
+	return nil
+}
 func (t *QuantifierTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
 func (t *QuantifierTactic) SetProgressCallback(func(uint32)) error { return t.open() }
 
@@ -168,6 +190,7 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 	if err := out.Prepare(t.manager); err != nil {
 		return err
 	}
+	t.stats.Reset()
 	produceModels, err := goal.ModelsEnabled()
 	if err != nil {
 		return err
@@ -217,6 +240,7 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 			qeConfig.eliminateVariablesAsBlockSet = true
 			qeConfig.nonlinearQuantifierElimination = t.options.nonlinear
 			qeConfig.produceModels = produceModels
+			qeConfig.qeStatistics = t.stats
 			updates[i], complete, e = rewriteQuantifierScalar(t.manager, form, qeConfig)
 			if e != nil {
 				if onlyArithmeticBranchUnsupported(e) {

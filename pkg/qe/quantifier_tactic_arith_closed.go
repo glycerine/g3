@@ -137,6 +137,9 @@ func eliminateQuantifierArithmeticClosed(m *ast.ASTManager, quantifier ast.ASTHa
 		return result, false, err
 	}
 	defer func() { err = errors.Join(err, solver.Close()) }()
+	if config.qeStatistics != nil {
+		defer func() { err = errors.Join(err, solver.CollectStatistics(config.qeStatistics)) }()
+	}
 	if err = solver.AssertFormula(body); err != nil {
 		return result, false, err
 	}

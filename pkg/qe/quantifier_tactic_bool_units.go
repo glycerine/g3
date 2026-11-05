@@ -156,6 +156,9 @@ func eliminateQuantifierBoolUnits(m *ast.ASTManager, quantifier ast.ASTHandle, c
 			return result, false, e
 		}
 		defer func() { err = errors.Join(err, solver.Close()) }()
+		if config.qeStatistics != nil {
+			defer func() { err = errors.Join(err, solver.CollectStatistics(config.qeStatistics)) }()
+		}
 		if e = solver.SetProduceModels(true); e != nil {
 			return result, false, e
 		}

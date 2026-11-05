@@ -8,6 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
@@ -25,6 +26,7 @@ type Config struct {
 	eliminateVariablesAsBlockSet   bool
 	nonlinearQuantifierElimination bool
 	produceModels                  bool
+	qeStatistics                   *statistics.Statistics
 }
 
 // The enclosing TRACE owns ostream's sticky state. A failed insertion must
