@@ -96628,7 +96628,7 @@
       "path": "src/muz/rel/dl_external_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/rel/external_relation.go",
         "pkg/muz/rel/external_relation_test.go",
@@ -96710,7 +96710,7 @@
       ],
       "deviations": [
         "The source Datalog select declaration guard rejects relation selection before the reduction callback; Go preserves this behavior.",
-        "Registered external favourites now serve fact, predicate/list and expression-query execution with independent query-clone plugins. Mixed external/finite rule execution, generic product composition and remaining concrete callback cleanup audits keep the unit partial."
+        "The declared callback, relation, plugin, and helper surfaces map to typed Go owners and operations. External callbacks remain scoped to their plugin; registered-predicate clones use independent query-owned plugins. Mixed-backend products are a relation-manager concern tracked under dl_product_relation.cpp, not an unimplemented external relation declaration."
       ]
     },
     {
