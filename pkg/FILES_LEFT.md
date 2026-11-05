@@ -267,7 +267,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/scoped_numeral_vector.h` — Live scoped integer/rational numeral vectors use concrete typed owners with source-order push, copy, resize, shrink, pop, reset, and cleanup; other retained vector consumers use their own concrete manager-specific implementations, with no universal generic layer. Existing scoped numeral vector lifecycle and interrupted-cleanup checks pass with `-short`; no tests were added.
 - [x] `src/util/scoped_ptr_vector.h` — Live scoped pointer vectors are represented by concrete Go owner slices with explicit replacement, pop, resize, reset, and close order; generic delete-procedure plumbing is unnecessary. Existing polynomial skeleton-vector and SMT string regex-stage ownership checks pass with `-short`; no tests were added.
 - [x] `src/util/scoped_vector.h`
-- [ ] `src/util/symbol_table.h`
+- [x] `src/util/symbol_table.h` — The live parser `symbol_table<local>` is a concrete binding map with source-order undo trails, and the AST family registry has its own concrete `symbol_table<family_id>` port. The source symbol-table insertion, lookup, overwrite, nested-scope restore, and reset behaviors are covered by existing SMT2 local-environment and AST family tests with `-short`; unused generic `append` has no retained call site.
 - [ ] `src/util/trace.cpp`
 - [ ] `src/util/trace.h`
 - [ ] `src/util/util.cpp`
