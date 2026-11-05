@@ -257,7 +257,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/params.cpp` — Parameter-name normalization, descriptors and module lookup/display, typed parameter storage and copy-on-write references, validation, global/module registration, and environment parameter routes map to concrete Go owners in `pkg/util/params`; the full package suite passes with `-short` to include long checks. No tests were added.
 - [x] `src/util/params.h` — The `params_ref` and `param_descrs` public API, typed getters/setters with fallback, copy/append/reset/validate/display behavior, and parameter kind aliases map to `ParamsRef`, `ParamsContext`, and `ParamDescrs`; the full package suite passes with `-short` to include long checks. No tests were added.
 - [x] `src/util/plugin_manager.h` — The live theory and model-factory registries use typed family maps plus registration-order slices, preserving duplicate checks, lookup, iteration order, and owner teardown without a generic plugin manager. Existing SMT theory-order and model-factory destruction checks pass; no tests were added.
-- [ ] `src/util/rational.cpp`
+- [x] `src/util/rational.cpp` — Rational global initialization/finalization, shared zero/one constants, cached powers of two, and infinitesimal subsystem lifecycle map to `RationalGlobalService` and `RationalService`; existing focused global lifecycle, power-cache, and previous-power checks pass. No tests were added.
 - [ ] `src/util/rational.h`
 - [ ] `src/util/ref.h`
 - [ ] `src/util/ref_buffer.h`
