@@ -200,8 +200,8 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/tactic/aig/aig.cpp` — The remaining SMT-LIB display path now emits postorder `define-fun` nodes, variable expressions, inverted references, and the root assertion; AIG construction, simplification, gate encodings, conversions, max-sharing, ordinary display, and tactic integration are implemented in `pkg/tactic/aig`, whose focused suite passes.
 - [x] `src/tactic/aig/aig.h` — The manager/reference API maps to typed Go owners and methods, including all gate constructors, expression/goal conversion, max-sharing, ordinary and SMT-LIB display, node count, and explicit close/clone ownership; focused AIG tests pass.
 - [x] `src/tactic/arith/eq2bv_tactic.cpp` — Candidate collection, bound sizing and dependency transfer, nested equality rewriting, model reconstruction, proof updates, goal-depth changes, tactic translation and trace output map to `Eq2BVTactic` and its typed helpers; focused arithmetic and model-converter tests pass.
-- [ ] `src/tactic/arith/lia2card_tactic.cpp`
-- [ ] `src/tactic/arith/lia2card_tactic.h`
+- [x] `src/tactic/arith/lia2card_tactic.cpp` — 0/1 bound discovery, conditional weighted-sum extraction, all comparison rewrites, cardinality construction, goal rewriting, and tactic parameter/translation lifecycle map to `LIA2CardTactic` and typed helpers; focused tactic and optimizer-consumer suites pass.
+- [x] `src/tactic/arith/lia2card_tactic.h` — The named tactic factory and shared pseudo-Boolean sum helper map to `MakeLIA2CardTactic` and the concrete owned `PBSum` extraction API used by the live optimizer consumer; focused arithmetic and optimizer tests pass.
 - [ ] `src/tactic/arith/purify_arith_tactic.cpp`
 - [ ] `src/tactic/arith/purify_arith_tactic.h`
 - [ ] `src/tactic/arith/recover_01_tactic.cpp`
