@@ -197,8 +197,8 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/shell/z3_log_frontend.cpp` — CLI input selection and replay reporting are implemented in `pkg/cmd/g3` and `pkg/api`; generated replay commands are separate source units.
 - [x] `src/shell/z3_log_frontend.h` — Not applicable: this header only declares the C++ replay entry point, which is implemented by the Go frontend.
 - [x] `src/smt/smt2_extra_cmds.cpp` — The shell-only `include` command opens and parses the named SMT-LIB file in the existing Go command context, recovers and reports nested parser errors with the source filename, then closes it; native command-object registration is replaced by a direct parser branch.
-- [ ] `src/tactic/aig/aig.cpp`
-- [ ] `src/tactic/aig/aig.h`
+- [x] `src/tactic/aig/aig.cpp` — The remaining SMT-LIB display path now emits postorder `define-fun` nodes, variable expressions, inverted references, and the root assertion; AIG construction, simplification, gate encodings, conversions, max-sharing, ordinary display, and tactic integration are implemented in `pkg/tactic/aig`, whose focused suite passes.
+- [x] `src/tactic/aig/aig.h` — The manager/reference API maps to typed Go owners and methods, including all gate constructors, expression/goal conversion, max-sharing, ordinary and SMT-LIB display, node count, and explicit close/clone ownership; focused AIG tests pass.
 - [ ] `src/tactic/arith/eq2bv_tactic.cpp`
 - [ ] `src/tactic/arith/lia2card_tactic.cpp`
 - [ ] `src/tactic/arith/lia2card_tactic.h`
