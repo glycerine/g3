@@ -1,11 +1,12 @@
 package rel
 
-// Source: dl_mk_similarity_compressor.cpp merge_class/operator, using the
-// registered interval_relation plugin for arithmetic auxiliary facts.
+// Source: dl_mk_similarity_compressor.cpp merge_class/operator, with concrete
+// interval, bound, and Karr auxiliary relation implementations.
 
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
@@ -24,6 +25,7 @@ type arithmeticSimilarityProgram struct {
 	auxiliary   []ast.ASTHandle
 	seeds       map[ast.ASTHandle]*IntervalRelation
 	boundSeeds  map[ast.ASTHandle]*BoundRelation
+	karrSeeds   map[ast.ASTHandle]*KarrRelation
 	origins     map[ast.ASTHandle]ast.ASTHandle
 	modified    bool
 	closed      bool
@@ -31,6 +33,15 @@ type arithmeticSimilarityProgram struct {
 
 type IntervalSimilarityProgram struct{ *arithmeticSimilarityProgram }
 type BoundSimilarityProgram struct{ *arithmeticSimilarityProgram }
+type KarrSimilarityProgram struct{ *arithmeticSimilarityProgram }
+
+type similarityBackend uint8
+
+const (
+	similarityIntervalBackend similarityBackend = iota
+	similarityBoundBackend
+	similarityKarrBackend
+)
 
 func (p *IntervalSimilarityProgram) Rules() (*base.RuleSet, error) {
 	if p == nil {
@@ -75,8 +86,30 @@ func (p *BoundSimilarityProgram) Close() error {
 	return p.arithmeticSimilarityProgram.Close()
 }
 
+func (p *KarrSimilarityProgram) Rules() (*base.RuleSet, error) {
+	if p == nil {
+		return nil, ast.ErrASTHandle
+	}
+	return p.arithmeticSimilarityProgram.Rules()
+}
+func (p *KarrSimilarityProgram) AuxiliaryPredicates() []ast.ASTHandle {
+	if p == nil {
+		return nil
+	}
+	return p.arithmeticSimilarityProgram.AuxiliaryPredicates()
+}
+func (p *KarrSimilarityProgram) Modified() bool {
+	return p != nil && p.arithmeticSimilarityProgram.Modified()
+}
+func (p *KarrSimilarityProgram) Close() error {
+	if p == nil {
+		return nil
+	}
+	return p.arithmeticSimilarityProgram.Close()
+}
+
 func NewIntervalSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet, threshold uint32, outputs []ast.ASTHandle) (*IntervalSimilarityProgram, error) {
-	p, err := newArithmeticSimilarityProgram(manager, source, threshold, outputs, false)
+	p, err := newArithmeticSimilarityProgram(manager, source, threshold, outputs, similarityIntervalBackend)
 	if err != nil {
 		return nil, err
 	}
@@ -84,22 +117,34 @@ func NewIntervalSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet,
 }
 
 func NewBoundSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet, threshold uint32, outputs []ast.ASTHandle) (*BoundSimilarityProgram, error) {
-	p, err := newArithmeticSimilarityProgram(manager, source, threshold, outputs, true)
+	p, err := newArithmeticSimilarityProgram(manager, source, threshold, outputs, similarityBoundBackend)
 	if err != nil {
 		return nil, err
 	}
 	return &BoundSimilarityProgram{p}, nil
 }
 
-func newArithmeticSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet, threshold uint32, outputs []ast.ASTHandle, bounds bool) (_ *arithmeticSimilarityProgram, resultErr error) {
+// NewKarrSimilarityProgram applies the source similarity rewrite while
+// building its auxiliary fact relation with Karr's concrete source semantics.
+func NewKarrSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet, threshold uint32, outputs []ast.ASTHandle) (*KarrSimilarityProgram, error) {
+	p, err := newArithmeticSimilarityProgram(manager, source, threshold, outputs, similarityKarrBackend)
+	if err != nil {
+		return nil, err
+	}
+	return &KarrSimilarityProgram{p}, nil
+}
+
+func newArithmeticSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet, threshold uint32, outputs []ast.ASTHandle, backend similarityBackend) (_ *arithmeticSimilarityProgram, resultErr error) {
 	if manager == nil || source == nil || threshold <= 1 {
 		return nil, ast.ErrASTDomain
 	}
 	p := &arithmeticSimilarityProgram{manager: manager, origins: make(map[ast.ASTHandle]ast.ASTHandle)}
-	if bounds {
+	if backend == similarityBoundBackend {
 		p.boundSeeds = make(map[ast.ASTHandle]*BoundRelation)
-	} else {
+	} else if backend == similarityIntervalBackend {
 		p.seeds = make(map[ast.ASTHandle]*IntervalRelation)
+	} else {
+		p.karrSeeds = make(map[ast.ASTHandle]*KarrRelation)
 	}
 	defer func() {
 		if resultErr != nil {
@@ -199,7 +244,7 @@ func newArithmeticSimilarityProgram(manager *ast.ASTManager, source *base.RuleSe
 			}
 			continue
 		}
-		if err = p.merge(class, bounds); err != nil {
+		if err = p.merge(class, backend); err != nil {
 			return nil, err
 		}
 		p.modified = true
@@ -207,30 +252,71 @@ func newArithmeticSimilarityProgram(manager *ast.ASTManager, source *base.RuleSe
 	return p, nil
 }
 
-func (p *arithmeticSimilarityProgram) merge(class similarityClass, bounds bool) error {
+func (p *arithmeticSimilarityProgram) merge(class similarityClass, backend similarityBackend) error {
 	domains, rows, err := similarityOrphanRows(class.rules, class.constants)
 	if err != nil {
 		return err
 	}
-	if !CanHandleIntervalSorts(p.manager, domains) {
+	if backend == similarityKarrBackend {
+		family, err := p.manager.RegisterArithmeticPlugin()
+		if err != nil {
+			return err
+		}
+		integer, err := p.manager.MkFamilySort(family, 1, nil)
+		if err != nil {
+			return err
+		}
+		for _, sort := range domains {
+			if sort != integer {
+				return ast.ErrASTDomain
+			}
+		}
+	} else if !CanHandleIntervalSorts(p.manager, domains) {
 		return ast.ErrASTDomain
 	}
 	var intervalSeed *IntervalRelation
 	var boundSeed *BoundRelation
-	if bounds {
+	var karrSeed *KarrRelation
+	switch backend {
+	case similarityBoundBackend:
 		boundSeed = NewBoundRelation(uint32(len(domains)), true)
 		for _, row := range rows {
 			if err = boundSeed.AddFact(row); err != nil {
 				return err
 			}
 		}
-	} else {
+	case similarityIntervalBackend:
 		intervalSeed = NewIntervalEmpty(uint32(len(domains)))
 		for _, row := range rows {
 			if err = intervalSeed.AddFactExpressions(p.manager, domains, row); err != nil {
 				return err
 			}
 		}
+	case similarityKarrBackend:
+		karrSeed = NewKarrEmpty(uint32(len(domains)), nil)
+		for _, row := range rows {
+			values := make([]*big.Rat, len(row))
+			for i, expression := range row {
+				text, _, matched, cause := p.manager.ArithmeticNumeralText(expression)
+				if cause != nil {
+					return cause
+				}
+				if matched {
+					value, ok := new(big.Rat).SetString(text)
+					if !ok {
+						return ast.ErrASTDomain
+					}
+					if value.IsInt() {
+						values[i] = value
+					}
+				}
+			}
+			if err = karrSeed.AddFact(values); err != nil {
+				return err
+			}
+		}
+	default:
+		return ast.ErrASTDomain
 	}
 	head, err := class.rules[0].HeadDeclaration()
 	if err != nil {
@@ -261,10 +347,13 @@ func (p *arithmeticSimilarityProgram) merge(class similarityClass, bounds bool) 
 		return err
 	}
 	p.auxiliary = append(p.auxiliary, auxiliary)
-	if bounds {
+	switch backend {
+	case similarityBoundBackend:
 		p.boundSeeds[auxiliary] = boundSeed
-	} else {
+	case similarityIntervalBackend:
 		p.seeds[auxiliary] = intervalSeed
+	case similarityKarrBackend:
+		p.karrSeeds[auxiliary] = karrSeed
 	}
 	p.origins[auxiliary] = head
 	merged, err := similarityRewriteRule(p.rules, class.rules[0], class.constants, auxiliary)
@@ -314,6 +403,14 @@ func (p *BoundSimilarityProgram) AuxiliaryRelation(predicate ast.ASTHandle) (*Bo
 	return relation, found
 }
 
+func (p *KarrSimilarityProgram) AuxiliaryRelation(predicate ast.ASTHandle) (*KarrRelation, bool) {
+	if p == nil || p.arithmeticSimilarityProgram == nil || p.closed {
+		return nil, false
+	}
+	relation, found := p.karrSeeds[predicate]
+	return relation, found
+}
+
 func (p *arithmeticSimilarityProgram) Modified() bool { return p != nil && !p.closed && p.modified }
 
 func (p *arithmeticSimilarityProgram) Close() error {
@@ -356,6 +453,6 @@ func (p *arithmeticSimilarityProgram) Close() error {
 			return err
 		}
 	}
-	p.seeds, p.boundSeeds, p.origins, p.auxiliary, p.closed = nil, nil, nil, nil, true
+	p.seeds, p.boundSeeds, p.karrSeeds, p.origins, p.auxiliary, p.closed = nil, nil, nil, nil, nil, true
 	return nil
 }
