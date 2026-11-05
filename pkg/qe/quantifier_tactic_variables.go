@@ -47,7 +47,7 @@ func rewriteQuantifierVariablesIndividually(m *ast.ASTManager, quantifier ast.AS
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&current)) }()
 	remaining := make([]ast.ASTHandle, 0, len(extracted.variables))
-	for _, variableRef := range extracted.variables {
+	for variableIndex, variableRef := range extracted.variables {
 		variable, e := m.RefGet(variableRef)
 		if e != nil {
 			return result, false, e
@@ -89,7 +89,14 @@ func rewriteQuantifierVariablesIndividually(m *ast.ASTManager, quantifier ast.AS
 		}
 		if !done {
 			remaining = append(remaining, variable)
-			continue
+			for _, later := range extracted.variables[variableIndex+1:] {
+				value, e := m.RefGet(later)
+				if e != nil {
+					return result, false, e
+				}
+				remaining = append(remaining, value)
+			}
+			break
 		}
 		value, e := m.RefGet(part)
 		if e == nil {
