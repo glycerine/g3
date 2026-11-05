@@ -263,6 +263,10 @@ func (c *Context) SetDiagnosticOutput(output io.Writer) error {
 // RegularOutput follows the current stream even when a command changes it.
 func (c *Context) RegularOutput() io.Writer { return contextRegularOutput{c} }
 
+// DiagnosticOutput follows the current diagnostic stream even when a command
+// changes its destination.
+func (c *Context) DiagnosticOutput() io.Writer { return contextDiagnosticOutput{c} }
+
 func (c *Context) setOutputChannel(name string, regular bool) error {
 	output, channelName, file := &c.diagnosticOutput, &c.diagnosticOutputName, &c.diagnosticFile
 	defaultName := "stderr"

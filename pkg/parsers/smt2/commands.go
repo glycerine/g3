@@ -1287,7 +1287,21 @@ func (p *commandParser) command() (bool, error) {
 		}
 		return true, nil
 	default:
-		return false, fmt.Errorf("unsupported command %s", name)
+		// Source parse_unknown_cmd consumes the command's arguments, reports
+		// the end location on the diagnostic stream, and emits "unsupported"
+		// on the regular stream while continuing with the next command.
+		for p.token != RightParenToken {
+			if err = p.skipSExpr(); err != nil {
+				return false, err
+			}
+		}
+		if _, err = fmt.Fprintf(p.context.DiagnosticOutput(), "; %s line: %d position: %d\n", name, p.scanner.Line(), p.scanner.Position()); err != nil {
+			return false, err
+		}
+		if _, err = fmt.Fprintln(p.out, "unsupported"); err != nil {
+			return false, err
+		}
+		return false, p.advance()
 	}
 	if err = p.expect(RightParenToken); err != nil {
 		return false, err
@@ -1412,6 +1426,26 @@ func (p *commandParser) indexed() (string, []uint32, error) {
 		indices = append(indices, value)
 	}
 	return name, indices, p.advance()
+}
+
+// qualifiedIdentifier parses the identifier portion accepted by source
+// parse_indexed_identifier: either a symbol or an indexed `(_ name ...)`.
+func (p *commandParser) qualifiedIdentifier() (string, []identifierIndex, error) {
+	if p.token == SymbolToken {
+		name, err := p.symbol()
+		return name, nil, err
+	}
+	if err := p.expect(LeftParenToken); err != nil {
+		return "", nil, err
+	}
+	marker, err := p.symbol()
+	if err != nil {
+		return "", nil, err
+	}
+	if marker != "_" {
+		return "", nil, fmt.Errorf("invalid indexed identifier, '_' expected")
+	}
+	return p.indexedExpression()
 }
 
 func (p *commandParser) sort() (ast.ASTHandle, error) {
@@ -1569,15 +1603,36 @@ func (p *commandParser) indexedApplication(name string, indices []identifierInde
 }
 
 func parseBitVectorName(name string) (string, bool) {
-	if !strings.HasPrefix(name, "bv") || len(name) == 2 {
+	base, digits := 10, ""
+	switch {
+	case strings.HasPrefix(name, "bvbin"):
+		base, digits = 2, name[len("bvbin"):]
+	case strings.HasPrefix(name, "bvhex"):
+		base, digits = 16, name[len("bvhex"):]
+	case strings.HasPrefix(name, "bv"):
+		digits = name[len("bv"):]
+	default:
 		return "", false
 	}
-	for _, c := range name[2:] {
-		if c < '0' || c > '9' {
+	if digits == "" {
+		return "", false
+	}
+	for _, digit := range digits {
+		valid := '0' <= digit && digit <= '9'
+		if base == 2 {
+			valid = digit == '0' || digit == '1'
+		} else if base == 16 {
+			valid = ('0' <= digit && digit <= '9') || ('a' <= digit && digit <= 'f') || ('A' <= digit && digit <= 'F')
+		}
+		if !valid {
 			return "", false
 		}
 	}
-	return name[2:], true
+	value, ok := new(big.Int).SetString(digits, base)
+	if !ok || value.Sign() < 0 {
+		return "", false
+	}
+	return value.String(), true
 }
 
 func (p *commandParser) parseBVNumeral(name string, indices []identifierIndex) (ast.ASTHandle, error) {

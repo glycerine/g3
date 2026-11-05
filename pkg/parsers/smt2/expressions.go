@@ -11,6 +11,20 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
+func (p *commandParser) qualifiedLocal(name string, indices []identifierIndex, expectedSort ast.ASTHandle, hasSort bool) (value ast.ASTHandle, found bool, resultErr error) {
+	symbol, err := p.manager.Symbols.Intern(name)
+	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	ref, found, err := p.env.resolveQualifiedLocalSort(p.manager, p.shifter, symbol, p.bindings, expectedSort, hasSort, uint32(len(indices)))
+	if err != nil || !found {
+		return ast.ASTHandle{}, found, err
+	}
+	p.refs = append(p.refs, ref)
+	value, err = p.manager.RefGet(ref)
+	return value, true, err
+}
+
 func (p *commandParser) expression() (ast.ASTHandle, string, error) {
 	return p.expressionWithQuantifier(nil)
 }
@@ -77,7 +91,7 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 			if head == "_" {
 				name, indices, err = p.indexedExpression()
 			} else if head == "as" {
-				name, err = p.symbol()
+				name, indices, err = p.qualifiedIdentifier()
 				if err == nil {
 					rangeSort, err = p.sort()
 				}
@@ -107,6 +121,9 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 				if err != nil {
 					return ast.ASTHandle{}, "", err
 				}
+				if value, found, localErr := p.qualifiedLocal(name, indices, ast.ASTHandle{}, false); localErr != nil || found {
+					return value, "", localErr
+				}
 				var value ast.ASTHandle
 				if _, numeral := parseBitVectorName(name); numeral {
 					value, err = p.parseBVNumeral(name, indices)
@@ -115,7 +132,7 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 				}
 				return value, "", err
 			case "as":
-				name, err := p.symbol()
+				name, indices, err := p.qualifiedIdentifier()
 				if err != nil {
 					return ast.ASTHandle{}, "", err
 				}
@@ -126,7 +143,27 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 				if err = p.expect(RightParenToken); err != nil {
 					return ast.ASTHandle{}, "", err
 				}
-				value, err := p.indexedApplication(name, nil, nil, rangeSort)
+				if value, found, localErr := p.qualifiedLocal(name, indices, rangeSort, true); localErr != nil || found {
+					return value, "", localErr
+				}
+				if _, ok := parseBitVectorName(name); ok {
+					if len(indices) != 1 || !indices[0].function.IsNull() {
+						return ast.ASTHandle{}, "", fmt.Errorf("invalid bit-vector constant, index expected")
+					}
+					value, e := p.parseBVNumeral(name, indices)
+					if e != nil {
+						return ast.ASTHandle{}, "", e
+					}
+					actual, e := m.GetSort(value)
+					if e != nil {
+						return ast.ASTHandle{}, "", e
+					}
+					if actual != rangeSort {
+						return ast.ASTHandle{}, "", fmt.Errorf("invalid qualified identifier, sort mismatch")
+					}
+					return value, "", nil
+				}
+				value, err := p.indexedApplication(name, indices, nil, rangeSort)
 				return value, "", err
 			}
 		}

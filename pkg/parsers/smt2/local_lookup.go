@@ -92,6 +92,32 @@ func (e *smt2LocalEnv) resolveQualifiedLocal(m *ast.ASTManager, shifter *rewrite
 	return ref, true, nil
 }
 
+// resolveQualifiedLocalSort is the source local branch when the requested
+// qualifier sort is already available as a parsed AST handle.
+func (e *smt2LocalEnv) resolveQualifiedLocalSort(m *ast.ASTManager, shifter *rewriter.VarShifter, name usymbol.Symbol, numBindings uint32, expectedSort ast.ASTHandle, hasSort bool, numIndices uint32) (ast.ASTRef, bool, error) {
+	ref, found, err := e.resolveLocal(m, shifter, name, numBindings)
+	if err != nil || !found {
+		return ref, found, err
+	}
+	if hasSort {
+		h, e := m.RefGet(ref)
+		if e != nil {
+			return ast.ASTRef{}, true, errors.Join(e, m.DelRef(&ref))
+		}
+		sort, e := m.GetSort(h)
+		if e != nil {
+			return ast.ASTRef{}, true, errors.Join(e, m.DelRef(&ref))
+		}
+		if sort != expectedSort {
+			return ast.ASTRef{}, true, errors.Join(errLocalQualifiedSort, m.DelRef(&ref))
+		}
+	}
+	if numIndices != 0 {
+		return ast.ASTRef{}, true, errors.Join(errLocalIndexed, m.DelRef(&ref))
+	}
+	return ref, true, nil
+}
+
 // pushQualifiedLocal is the corresponding parse_qualified_name local branch.
 // A missing local remains available to the caller's nonlocal resolution path.
 func (e *smt2LocalEnv) pushQualifiedLocal(m *ast.ASTManager, shifter *rewriter.VarShifter, name usymbol.Symbol, numBindings uint32, sorts *localSortStack, hasSort bool, numIndices uint32, exprs *localExprStack) (bool, error) {
