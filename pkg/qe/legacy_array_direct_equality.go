@@ -4,8 +4,6 @@ package qe
 // array_project_eqs_util::project/mk_result direct-equality path.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
@@ -44,7 +42,7 @@ func (p *legacyArrayProjection) projectDirectEquality(md *model.ModelCore, varia
 	if err != nil {
 		return nil, false, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, contains.Close()) }()
+	defer func() { resultErr = closeFailedLegacyArrayContains(p.syntax.manager, contains, resultErr) }()
 	for _, equalityRef := range equalities.equalities {
 		equality, err := p.syntax.manager.RefGet(equalityRef)
 		if err != nil {
