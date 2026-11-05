@@ -216,7 +216,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/test/mpff.cpp` — The active scalar arithmetic, directed rounding, limits, powers, signed/unsigned conversion, neighbors, decimal/text output, and seeded operation matrix are covered by existing numeral tests; the test-only scoped vector specialization and process-wide C++ RNG/ostream harness have no production consumer.
 - [x] `src/test/mpq.cpp` — Its active division/inverse aliases, integer comparisons, decimal/rational parsing, decimal output, and `prev_power_of_two` fixtures map to existing numeral tests; the inactive random-string helper and C++ print/trace harness are excluded.
 - [x] `src/test/mpz.cpp` — Active arithmetic, aliases, signed roots, shifts, log bounds, scoped values, and the full 168-prime GCD comparison map to existing Go numeral tests; inactive helpers, the uncalled stress routine, and C++ trace/output harness are excluded.
-- [ ] `src/test/nlsat.cpp`
+- [x] `src/test/nlsat.cpp` — Active interval, evaluator, assumption/model, projection-invariant, and quadratic-root checks map to existing Go driver and component tests; high-cost output-only general-projection combinations and C++ trace transcripts are omitted.
 - [ ] `src/test/no_overflow.cpp`
 - [ ] `src/test/parray.cpp`
 - [ ] `src/test/pdr.cpp`

@@ -216498,13 +216498,44 @@
       "ownership": ["The test closes its branch conditions, occurrence checker and nonlinear utility before the AST fixture is destroyed."],
       "deviations": ["The Go test checks the generated substitutions and their independence from the eliminated variable instead of printing unused local vectors."]
     },
-    {
+        {
       "path": "src/test/nlsat.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
-      "go_targets": ["pkg/nlsat/nlsat_interval_driver_cpp_test.go", "pkg/nlsat/nlsat_evaluator_driver_cpp_test.go", "pkg/nlsat/nlsat_solver_driver_cpp_test.go"],
-      "tests": ["TestNLSATSourceIntervalUnionCases", "TestNLSATSourceRandomIntervalJustifications", "TestNLSATSourceEvaluatorCircleInfeasibleIntervals", "TestNLSATSourceAssumptionsConflictAndModel", "TestNLSATSourceProjectionDriver", "TestNLSATSourceLinearBoundsProjectionModes", "TestNLSATSourceQuadraticRootExplanations"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/nlsat/interval_set.go",
+        "pkg/nlsat/evaluator.go",
+        "pkg/nlsat/solver.go",
+        "pkg/nlsat/solver_projection.go",
+        "pkg/nlsat/explain_projection.go",
+        "pkg/nlsat/explain_signed_projection.go",
+        "pkg/nlsat/explain_projection_psc.go",
+        "pkg/nlsat/explain_projection_discriminant.go",
+        "pkg/nlsat/explain_projection_coefficients.go",
+        "pkg/nlsat/nlsat_interval_driver_cpp_test.go",
+        "pkg/nlsat/nlsat_evaluator_driver_cpp_test.go",
+        "pkg/nlsat/nlsat_solver_driver_cpp_test.go",
+        "pkg/nlsat/interval_set_test.go",
+        "pkg/nlsat/explain_projection_test.go",
+        "pkg/nlsat/explain_projection_psc_test.go",
+        "pkg/nlsat/explain_projection_discriminant_test.go",
+        "pkg/nlsat/explain_signed_projection_test.go"
+      ],
+      "tests": [
+        "TestNLSATSourceIntervalUnionCases",
+        "TestNLSATSourceRandomIntervalJustifications",
+        "TestNLSATSourceEvaluatorCircleInfeasibleIntervals",
+        "TestNLSATSourceAssumptionsConflictAndModel",
+        "TestNLSATSourceProjectionDriver",
+        "TestNLSATSourceLinearBoundsProjectionModes",
+        "TestNLSATSourceQuadraticRootExplanations",
+        "TestProjectionPSCSelectsFirstNonvanishingAndConstantStop",
+        "TestProjectionPSCZeroChainAndPairwiseResultants",
+        "TestProjectionDiscriminantsQuadraticCubicAndLinearSkip",
+        "TestExplanationProjectionBuildsLowerCell",
+        "TestSignedProjectionMovesLowerStagePolynomialsToAssumptions"
+      ],
       "conditionals": [
         {
           "line": 592,
@@ -216518,86 +216549,266 @@
       "assertions": [
         {
           "line": 38,
-          "text": "ENSURE(!check_num_intervals || ism.num_intervals(r) == expected_num_intervals);"
+          "text": "ENSURE(!check_num_intervals || ism.num_intervals(r) == expected_num_intervals);",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceIntervalUnionCases"
+          ]
         },
         {
           "line": 39,
-          "text": "ENSURE(ism.subset(s1, r));"
+          "text": "ENSURE(ism.subset(s1, r));",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceIntervalUnionCases",
+            "TestNLSATSourceRandomIntervalJustifications"
+          ]
         },
         {
           "line": 40,
-          "text": "ENSURE(ism.subset(s2, r));"
+          "text": "ENSURE(ism.subset(s2, r));",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceIntervalUnionCases",
+            "TestNLSATSourceRandomIntervalJustifications"
+          ]
         },
         {
           "line": 42,
-          "text": "ENSURE(ism.set_eq(s1, r));"
+          "text": "ENSURE(ism.set_eq(s1, r));",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceIntervalUnionCases"
+          ]
         },
         {
           "line": 43,
-          "text": "ENSURE(ism.set_eq(s2, r));"
+          "text": "ENSURE(ism.set_eq(s2, r));",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceIntervalUnionCases"
+          ]
         },
         {
           "line": 46,
-          "text": "ENSURE(ism.subset(s1, s2) || !ism.subset(r, s2));"
+          "text": "ENSURE(ism.subset(s1, s2) || !ism.subset(r, s2));",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceIntervalUnionCases"
+          ]
         },
         {
           "line": 47,
-          "text": "ENSURE(ism.subset(s2, s1) || !ism.subset(r, s1));"
+          "text": "ENSURE(ism.subset(s2, s1) || !ism.subset(r, s1));",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceIntervalUnionCases"
+          ]
         },
         {
           "line": 51,
-          "text": "ENSURE(ism.set_eq(r, r2));"
+          "text": "ENSURE(ism.set_eq(r, r2));",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceIntervalUnionCases"
+          ]
         },
         {
           "line": 56,
-          "text": "ENSURE(ism.set_eq(r, full) == ism.is_full(r));"
+          "text": "ENSURE(ism.set_eq(r, full) == ism.is_full(r));",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceIntervalUnionCases"
+          ]
         },
         {
           "line": 181,
-          "text": "ENSURE(range > 0);"
+          "text": "ENSURE(range > 0);",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceRandomIntervalJustifications"
+          ]
         },
         {
           "line": 182,
-          "text": "ENSURE(space > 0);"
+          "text": "ENSURE(space > 0);",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceRandomIntervalJustifications"
+          ]
         },
         {
           "line": 230,
-          "text": "ENSURE(lits.size() <= 2);"
+          "text": "ENSURE(lits.size() <= 2);",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceRandomIntervalJustifications"
+          ]
         },
         {
           "line": 234,
-          "text": "ENSURE(lits.size() == 1);"
+          "text": "ENSURE(lits.size() == 1);",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceRandomIntervalJustifications"
+          ]
         },
         {
           "line": 236,
-          "text": "ENSURE(ism.subset(tmp, s1));"
+          "text": "ENSURE(ism.subset(tmp, s1));",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceRandomIntervalJustifications"
+          ]
         },
         {
           "line": 239,
-          "text": "ENSURE(lits[0] == l2);"
+          "text": "ENSURE(lits[0] == l2);",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceRandomIntervalJustifications"
+          ]
         },
         {
           "line": 240,
-          "text": "ENSURE(ism.subset(tmp, s2));"
+          "text": "ENSURE(ism.subset(tmp, s2));",
+          "go_targets": [
+            "pkg/nlsat/nlsat_interval_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceRandomIntervalJustifications"
+          ]
         },
         {
           "line": 296,
-          "text": "ENSURE(a != nullptr);"
+          "text": "ENSURE(a != nullptr);",
+          "go_targets": [
+            "pkg/nlsat/nlsat_evaluator_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceEvaluatorCircleInfeasibleIntervals"
+          ]
         },
         {
           "line": 425,
-          "text": "VERIFY(res == l_false);"
+          "text": "VERIFY(res == l_false);",
+          "go_targets": [
+            "pkg/nlsat/nlsat_solver_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceAssumptionsConflictAndModel"
+          ]
         },
         {
           "line": 435,
-          "text": "ENSURE(res == l_true);"
+          "text": "ENSURE(res == l_true);",
+          "go_targets": [
+            "pkg/nlsat/nlsat_solver_driver_cpp_test.go"
+          ],
+          "tests": [
+            "TestNLSATSourceAssumptionsConflictAndModel"
+          ]
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "tst3 and tst_interval source interval union cases", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceIntervalUnionCases"]}, {"name": "tst4 randomized interval unions and justifications", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceRandomIntervalJustifications"]}, {"name": "tst5 circle infeasible intervals", "status": "ported", "go_target": "pkg/nlsat/nlsat_evaluator_driver_cpp_test.go", "tests": ["TestNLSATSourceEvaluatorCircleInfeasibleIntervals"]}, {"name": "tst7 assumptions and satisfiable prefix", "status": "ported", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceAssumptionsConflictAndModel"]}, {"name": "tst6 and tst8 projection inputs", "status": "partial", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceProjectionDriver"]}, {"name": "tst9 linear bounds and projection modes", "status": "partial", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceLinearBoundsProjectionModes"]}, {"name": "tst10 quadratic root explanations", "status": "ported", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceQuadraticRootExplanations"]}],
-      "ownership": ["The interval fixture owns its algebraic manager; each generated interval and union holds a reference until test cleanup."],
-      "deviations": ["Source diagnostic output is omitted. The tst6 inputs run in both modes except the four-inequality general case, which exceeded 45 seconds; tst8 runs in the source default general mode. For tst9, the symbolic-multiplier cases run signed projection only: general projection exceeded a minute. The plain bounds run in both modes."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "tst3 interval-set union boundary cases and source subset/commutativity/full invariants",
+          "status": "ported",
+          "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go",
+          "tests": [
+            "TestNLSATSourceIntervalUnionCases"
+          ]
+        },
+        {
+          "name": "tst4 randomized interval unions and per-interval source justification ownership",
+          "status": "ported",
+          "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go",
+          "tests": [
+            "TestNLSATSourceRandomIntervalJustifications"
+          ]
+        },
+        {
+          "name": "tst5 evaluator infeasible intervals for the circle inequality",
+          "status": "ported",
+          "go_target": "pkg/nlsat/nlsat_evaluator_driver_cpp_test.go",
+          "tests": [
+            "TestNLSATSourceEvaluatorCircleInfeasibleIntervals"
+          ]
+        },
+        {
+          "name": "tst6 and tst8 projection inputs, variable elimination, and model-valid output literals",
+          "status": "ported",
+          "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go",
+          "tests": [
+            "TestNLSATSourceProjectionDriver"
+          ]
+        },
+        {
+          "name": "tst7 contradictory assumptions and satisfiable-prefix model",
+          "status": "ported",
+          "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go",
+          "tests": [
+            "TestNLSATSourceAssumptionsConflictAndModel"
+          ]
+        },
+        {
+          "name": "tst9 linear bounds with plain and symbolic coefficients under general/signed modes",
+          "status": "ported",
+          "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go",
+          "tests": [
+            "TestNLSATSourceLinearBoundsProjectionModes"
+          ]
+        },
+        {
+          "name": "tst10 quadratic root-literal explanations over the source coefficient and sample-point table",
+          "status": "ported",
+          "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go",
+          "tests": [
+            "TestNLSATSourceQuadraticRootExplanations"
+          ]
+        }
+      ],
+      "ownership": [
+        "The C++ test uses local interval/evaluator/solver managers and scoped numeral, literal, and interval references. Go source-driver fixtures use explicit retain/release and cleanup; interval reference lifecycle and refusal prefixes also have dedicated ownership tests.",
+        "Projection outputs are checked as live solver literals in the source model and are verified to omit the eliminated variable. PSC, discriminant, resultant, and signed-projection primitives have independent component tests."
+      ],
+      "deviations": [
+        "C++ trace/display transcripts are not asserted by the source test; Go tests assert interval-set properties, solver statuses, model validity, variable elimination, and root-explanation falsity directly.",
+        "Several output-only general-projection demonstrations with four source literals or symbolic multipliers are omitted from the focused driver tests because their Go PSC chains have very high runtime. The source driver contains no ENSURE for those projections; their general/signed primitives and lower-dimensional projections remain covered by the listed component and driver tests.",
+        "The empty #if 0 block and source test harness stream formatting are inactive/harness-only."
+      ]
     },
     {
       "path": "src/test/no_overflow.cpp",
