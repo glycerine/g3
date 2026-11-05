@@ -43,8 +43,8 @@ func (p *commandParser) annotatedExpression(quantifier *ast.ASTQuantifierSpec) (
 		if err = p.advance(); err != nil {
 			return ast.ASTHandle{}, "", err
 		}
-		isLabel := key == ":lblpos" || key == ":lblneg"
-		if key != ":named" && !isLabel && !(p.ignoreUserPatterns && (key == ":pattern" || key == ":no-pattern")) && quantifier == nil {
+		quantifierAttribute := key == ":weight" || key == ":qid" || key == ":skolemid" || key == ":pattern" || key == ":no-pattern"
+		if quantifierAttribute && !(p.ignoreUserPatterns && (key == ":pattern" || key == ":no-pattern")) && quantifier == nil {
 			return ast.ASTHandle{}, "", fmt.Errorf("invalid attribute, not in the scope of a quantifier")
 		}
 		switch key {
@@ -101,8 +101,14 @@ func (p *commandParser) annotatedExpression(quantifier *ast.ASTQuantifierSpec) (
 			} else if key == ":pattern" {
 				var pattern ast.ASTHandle
 				pattern, err = p.pattern()
-				if err == nil && !pattern.IsNull() {
-					quantifier.Patterns = append(quantifier.Patterns, pattern)
+				if err == nil {
+					if pattern.IsNull() {
+						if !p.ignoreBadPatterns {
+							err = fmt.Errorf("invalid empty pattern")
+						}
+					} else {
+						quantifier.Patterns = append(quantifier.Patterns, pattern)
+					}
 				}
 			} else {
 				var term ast.ASTHandle
@@ -112,7 +118,9 @@ func (p *commandParser) annotatedExpression(quantifier *ast.ASTQuantifierSpec) (
 				}
 			}
 		default:
-			return ast.ASTHandle{}, "", fmt.Errorf("unsupported expression attribute %s", key)
+			if err = diagnostic.BorrowProcessWarningService().Warning(fmt.Sprintf("unknown attribute %s", key)); err == nil {
+				err = p.skipSExpr()
+			}
 		}
 		if err != nil {
 			return ast.ASTHandle{}, "", err
@@ -133,6 +141,9 @@ func (p *commandParser) pattern() (ast.ASTHandle, error) {
 	}
 	if err := p.advance(); err != nil {
 		return ast.ASTHandle{}, err
+	}
+	if p.token == RightParenToken {
+		return ast.ASTHandle{}, p.advance()
 	}
 	var terms []ast.ASTHandle
 	if p.token == SymbolToken {
