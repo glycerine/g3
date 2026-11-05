@@ -652,7 +652,56 @@ func (s *ArithmeticSolver) optimizeOne(index int, result *ArithmeticResult) (lbo
 	if s.objectives[index].soft {
 		return s.optimizeSoft(index, result)
 	}
+	if s.objectives[index].maximize && (s.optsmtEngine == "farkas" || s.optsmtEngine == "symba") {
+		return s.optimizeBoxEngineObjective(index, result)
+	}
 	return s.optimizeArithmetic(index, result)
+}
+
+// optsmt::lex dispatches maximizing objectives through farkas_opt or
+// symba_opt when selected. Those engines optimize the arithmetic objective
+// vector together, then lex commits the current objective before continuing.
+func (s *ArithmeticSolver) optimizeBoxEngineObjective(index int, result *ArithmeticResult) (status lbool.LBool, optimal bool, resultErr error) {
+	box := *s
+	box.objectives = make([]arithmeticObjective, 0, len(s.objectives))
+	boxIndex := -1
+	for i, objective := range s.objectives {
+		if objective.soft {
+			continue // MaxSMT objectives use their own source engine.
+		}
+		if i == index {
+			boxIndex = len(box.objectives)
+		}
+		box.objectives = append(box.objectives, objective)
+	}
+	if boxIndex < 0 {
+		return lbool.Undef, false, ast.ErrASTDomain
+	}
+	combined, err := box.CheckBox()
+	if err != nil {
+		return lbool.Undef, false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, combined.Close()) }()
+	if combined.Status != lbool.True || !combined.Optimal {
+		result.ReasonUnknown = combined.ReasonUnknown
+		return combined.Status, false, nil
+	}
+	if boxIndex >= len(combined.Values) || boxIndex >= len(combined.ObjectiveModels) || combined.ObjectiveModels[boxIndex] == nil {
+		return lbool.Undef, false, ast.ErrASTDomain
+	}
+	modelSnapshot := combined.ObjectiveModels[boxIndex]
+	if err = modelSnapshot.IncRef(); err != nil {
+		return lbool.Undef, false, err
+	}
+	if result.Model != nil {
+		if err = result.Model.DecRef(); err != nil {
+			return lbool.Undef, false, errors.Join(err, modelSnapshot.DecRef())
+		}
+	}
+	result.Model = modelSnapshot
+	result.Labels = append(result.Labels[:0], combined.Labels...)
+	result.Values[index] = cloneObjectiveValue(combined.Values[boxIndex])
+	return lbool.True, true, nil
 }
 
 func (s *ArithmeticSolver) captureArithmeticModel(index int, value *ObjectiveValue, md *model.ModelCore) (resultErr error) {
