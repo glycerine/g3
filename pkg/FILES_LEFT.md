@@ -240,7 +240,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/inf_eps_rational.h` — The live `inf_eps_rational<inf_rational>` instantiation is implemented by the typed `OwnedInfEpsInfRational` operations in `pkg/util/numeral`, including source comparison quirks, arithmetic, formatting, projection, and constructors; `go test ./pkg/util/numeral -run '^TestInfEpsInf' -count=1 -timeout=0` passes. No tests were added.
 - [x] `src/util/inf_int_rational.h` — The live integer-epsilon value maps to `OwnedInfIntRational`, including int32 scalar-domain checks, comparison, floor/ceil, formatting, hashing, and constructors; the existing focused `go test ./pkg/util/numeral -run '^TestInfInt' -count=1 -timeout=0` suite passes. No tests were added.
 - [x] `src/util/inf_rational.h` — The live rational-plus-infinitesimal operations map to `OwnedInfRational`, including source ordering, mixed comparisons, fused add/subtract, rounding, and component access; existing focused numeral, simplex, and SMT-core checks pass. No tests were added.
-- [ ] `src/util/map.h`
+- [x] `src/util/map.h` — Live maps are represented by concrete Go maps/slices and owner-local map implementations at their call sites; `ptr_addr_map` has no live instantiations. The standalone `src/test/map.cpp` exercises only a generic C-string-key map without a retained Go consumer, so no universal map adapter is added. Existing AST, relation, SAT, and SMT-core suites pass; no tests were added.
 - [ ] `src/util/memory_manager.cpp`
 - [ ] `src/util/memory_manager.h`
 - [ ] `src/util/mpf.h`
