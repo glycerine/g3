@@ -199,7 +199,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/smt/smt2_extra_cmds.cpp` — The shell-only `include` command opens and parses the named SMT-LIB file in the existing Go command context, recovers and reports nested parser errors with the source filename, then closes it; native command-object registration is replaced by a direct parser branch.
 - [x] `src/tactic/aig/aig.cpp` — The remaining SMT-LIB display path now emits postorder `define-fun` nodes, variable expressions, inverted references, and the root assertion; AIG construction, simplification, gate encodings, conversions, max-sharing, ordinary display, and tactic integration are implemented in `pkg/tactic/aig`, whose focused suite passes.
 - [x] `src/tactic/aig/aig.h` — The manager/reference API maps to typed Go owners and methods, including all gate constructors, expression/goal conversion, max-sharing, ordinary and SMT-LIB display, node count, and explicit close/clone ownership; focused AIG tests pass.
-- [ ] `src/tactic/arith/eq2bv_tactic.cpp`
+- [x] `src/tactic/arith/eq2bv_tactic.cpp` — Candidate collection, bound sizing and dependency transfer, nested equality rewriting, model reconstruction, proof updates, goal-depth changes, tactic translation and trace output map to `Eq2BVTactic` and its typed helpers; focused arithmetic and model-converter tests pass.
 - [ ] `src/tactic/arith/lia2card_tactic.cpp`
 - [ ] `src/tactic/arith/lia2card_tactic.h`
 - [ ] `src/tactic/arith/purify_arith_tactic.cpp`
