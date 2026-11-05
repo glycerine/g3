@@ -8,6 +8,7 @@ import (
 
 type legacyOuterArrayCleanupFailure struct {
 	child          *legacyArrayProjectionResult
+	nested         memory.ConstructionFailure
 	runtime        *memory.Runtime
 	cause, cleanup error
 	reported       error
@@ -21,6 +22,13 @@ func (f *legacyOuterArrayCleanupFailure) OriginalCause() error          { return
 func (f *legacyOuterArrayCleanupFailure) CleanupCause() error           { return f.cleanup }
 func (f *legacyOuterArrayCleanupFailure) RuntimeOwner() *memory.Runtime { return f.runtime }
 func (f *legacyOuterArrayCleanupFailure) Cleanup() error {
+	if f.nested != nil {
+		f.cleanup = f.nested.Cleanup()
+		if f.cleanup != nil {
+			return f.cleanup
+		}
+		f.nested = nil
+	}
 	if f.child == nil {
 		f.cleanup = nil
 		return nil
@@ -34,6 +42,8 @@ func (f *legacyOuterArrayCleanupFailure) Cleanup() error {
 
 func closeTransferredLegacyOuterArray(child *legacyArrayProjectionResult, cause error) error {
 	if cleanup := child.Close(); cleanup != nil {
+		var nested memory.ConstructionFailure
+		_ = errors.As(cause, &nested)
 		reported := cleanup
 		if cause == nil {
 			cause = cleanup
@@ -41,7 +51,7 @@ func closeTransferredLegacyOuterArray(child *legacyArrayProjectionResult, cause 
 			reported = errors.Join(cause, cleanup)
 		}
 		return &legacyOuterArrayCleanupFailure{
-			child: child, runtime: child.manager.NumeralService().RuntimeOwner(), cause: cause, cleanup: cleanup,
+			child: child, nested: nested, runtime: child.manager.NumeralService().RuntimeOwner(), cause: cause, cleanup: cleanup,
 			reported: reported,
 		}
 	}
@@ -50,6 +60,7 @@ func closeTransferredLegacyOuterArray(child *legacyArrayProjectionResult, cause 
 
 type legacyOuterArithmeticCleanupFailure struct {
 	child          *legacyFormulaProjection
+	nested         memory.ConstructionFailure
 	runtime        *memory.Runtime
 	cause, cleanup error
 	reported       error
@@ -63,6 +74,13 @@ func (f *legacyOuterArithmeticCleanupFailure) OriginalCause() error          { r
 func (f *legacyOuterArithmeticCleanupFailure) CleanupCause() error           { return f.cleanup }
 func (f *legacyOuterArithmeticCleanupFailure) RuntimeOwner() *memory.Runtime { return f.runtime }
 func (f *legacyOuterArithmeticCleanupFailure) Cleanup() error {
+	if f.nested != nil {
+		f.cleanup = f.nested.Cleanup()
+		if f.cleanup != nil {
+			return f.cleanup
+		}
+		f.nested = nil
+	}
 	if f.child == nil {
 		f.cleanup = nil
 		return nil
@@ -76,6 +94,8 @@ func (f *legacyOuterArithmeticCleanupFailure) Cleanup() error {
 
 func closeTransferredLegacyOuterArithmetic(child *legacyFormulaProjection, cause error) error {
 	if cleanup := child.Close(); cleanup != nil {
+		var nested memory.ConstructionFailure
+		_ = errors.As(cause, &nested)
 		reported := cleanup
 		if cause == nil {
 			cause = cleanup
@@ -83,7 +103,7 @@ func closeTransferredLegacyOuterArithmetic(child *legacyFormulaProjection, cause
 			reported = errors.Join(cause, cleanup)
 		}
 		return &legacyOuterArithmeticCleanupFailure{
-			child: child, runtime: child.manager.NumeralService().RuntimeOwner(), cause: cause, cleanup: cleanup,
+			child: child, nested: nested, runtime: child.manager.NumeralService().RuntimeOwner(), cause: cause, cleanup: cleanup,
 			reported: reported,
 		}
 	}

@@ -16,7 +16,7 @@ func (p *LegacyProjection) projectArithmeticRound(md *model.ModelCore, variables
 	defer func() {
 		resultErr = errors.Join(resultErr, scope.Close())
 		if resultErr != nil && result != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+			resultErr = closeTransferredLegacyOuterArithmetic(result, resultErr)
 			result = nil
 		}
 	}()
@@ -33,7 +33,7 @@ func (p *LegacyProjection) projectArrayRound(md *model.ModelCore, variables []as
 	defer func() {
 		resultErr = errors.Join(resultErr, scope.Close())
 		if resultErr != nil && result != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+			resultErr = closeTransferredLegacyOuterArray(result, resultErr)
 			result = nil
 		}
 	}()
