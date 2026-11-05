@@ -119622,7 +119622,7 @@
       "path": "src/qe/nlarith_util.h",
       "component": "qe",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/qe/nlarith_util.go",
         "pkg/qe/nlarith_branch_conditions.go",
@@ -119649,16 +119649,23 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "nonlinear arithmetic utility and branch conditions",
-          "status": "partial",
-          "go_target": "pkg/qe/nlarith_util.go",
+          "name": "live utility declarations and branch condition storage/access",
+          "status": "ported",
+          "go_targets": [
+            "pkg/qe/nlarith_util.go",
+            "pkg/qe/nlarith_branch_conditions.go",
+            "pkg/qe/nlarith_branch_builder.go",
+            "pkg/qe/qe_nlarith_plugin_branch.go",
+            "pkg/qe/qe_nlarith_plugin_substitute.go"
+          ],
           "tests": [
             "TestNLBranchConditionsOwnResetAndReuse",
-            "TestNLArithmeticExtractNonlinearTraversalAndWeightCache"
+            "TestNLArithmeticExtractNonlinearTraversalAndWeightCache",
+            "TestNLCreateQuadraticBranchesSubstitutionShapeAndOwnership"
           ]
         }
       ],
@@ -119666,7 +119673,7 @@
         "Branch conditions own references to predicates and branch expressions, including copied substitutions."
       ],
       "deviations": [
-        "The sign-literal and sign-branch APIs have no source consumers outside this unit and are excluded under the live-consumer rule. Full declaration and lifetime audits remain pending."
+        "The sign-literal and sign-branch v2 declarations have no source consumers outside this unit; their opaque types and adapters are excluded under the retained-consumer rule."
       ]
     },
     {
