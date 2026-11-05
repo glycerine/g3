@@ -487,7 +487,7 @@ func (p *RuleSlicePlugin) updateRule(rule *base.Rule, variables *[]uint32) (*bas
 	tails := make([]ast.ASTHandle, 0, total)
 	negated := make([]bool, 0, total)
 	for index := 0; index < uninterpreted; index++ {
-		tail, negative, getErr := rule.Tail(index)
+		tail, _, getErr := rule.Tail(index)
 		if getErr != nil {
 			return nil, getErr
 		}
@@ -496,7 +496,9 @@ func (p *RuleSlicePlugin) updateRule(rule *base.Rule, variables *[]uint32) (*bas
 			return nil, getErr
 		}
 		tails = append(tails, tail)
-		negated = append(negated, negative)
+		// C++ update_rule calls rule_manager::mk with a null negation array,
+		// so rewriting a rule clears every negative-tail flag.
+		negated = append(negated, false)
 	}
 	conjuncts, err := p.interpretedConjuncts(rule)
 	if err != nil {
