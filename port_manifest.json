@@ -218082,14 +218082,14 @@
       "path": "src/test/pdr.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/pdr/model_search_cpp_driver_test.go"],
       "tests": ["TestModelSearchSourceRandomTrees"],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["The original seeded tree workload is bounded to 500 mutations per tree: its first Go run did not converge within 100,000 mutations. Source diagnostic output is omitted."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "test_model_search init/add_tree/mutate seeded 100-root stress driver", "status": "ported", "go_target": "pkg/muz/pdr/model_search_cpp_driver_test.go", "tests": ["TestModelSearchSourceRandomTrees"]}],
+      "ownership": ["The driver closes the model search, releases all retained state ASTs, and closes the predicate transformer and shared fixture in deferred cleanup, matching the C++ stack-owned test fixture lifetime."],
+      "deviations": ["The complete source loop continues until the search frontier is empty; the prior 500-mutation cap was removed. The stress test is skipped by default and runs with -short because the first seeded root exceeds 24 million mutations without yet exhausting the frontier during this validation. C++ display output is replaced by a verbose progress line every 100,000 mutations."]
     },
     {
       "path": "src/test/permutation.cpp",

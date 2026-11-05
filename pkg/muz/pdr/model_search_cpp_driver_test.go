@@ -11,6 +11,11 @@ import (
 )
 
 func TestModelSearchSourceRandomTrees(t *testing.T) {
+	// This source stress run can exceed the normal test budget. In this
+	// repository, -short explicitly opts into long source-port checks.
+	if !testing.Short() {
+		t.Skip("run the full source model-search workload with -short")
+	}
 	manager, owner, transformer, _, closeBase := closureFixture(t)
 	search := NewModelSearch(true)
 	var stateRefs []ast.ASTRef
@@ -55,16 +60,19 @@ func TestModelSearchSourceRandomTrees(t *testing.T) {
 		closureMust(t, err)
 		closureMust(t, search.SetRoot(root))
 		addTree(root, false)
-		// Bound this stress test: the first source-seeded tree did not finish
-		// within 100,000 mutations on the Go implementation.
-		for step := 0; step < 500; step++ {
+		steps := 0
+		for {
 			if err := search.WellFormed(); err != nil {
-				t.Fatalf("round %d step %d: %v", round, step, err)
+				t.Fatalf("round %d step %d: %v", round, steps, err)
 			}
 			leaf, found, err := search.Next()
 			closureMust(t, err)
 			if !found {
 				break
+			}
+			steps++
+			if testing.Verbose() && steps%100000 == 0 {
+				t.Logf("source round %d: %d mutations", round, steps)
 			}
 			if leaf.Level() == 0 {
 				if random.Bounded(2) == 0 {

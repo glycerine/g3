@@ -432,7 +432,10 @@ func (s *ModelSearch) removeNode(node *ModelNode, backtrack bool) error {
 	if position < 0 {
 		return ast.ErrASTDomain
 	}
-	nodes[position] = nodes[len(nodes)-1]
+	// src/util/vector.h vector::erase shifts the suffix left, preserving the
+	// cache order used by model_search::remove_node when it reopens nodes[0].
+	copy(nodes[position:], nodes[position+1:])
+	nodes[len(nodes)-1] = nil
 	nodes = nodes[:len(nodes)-1]
 	if err := s.removeGoal(node); err != nil {
 		return err
