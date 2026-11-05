@@ -49,15 +49,25 @@ func (e *PropositionalEngine) validateExternalRulePredicates() (resultErr error)
 	return nil
 }
 
-func (e *PropositionalEngine) queryExternalDatalogPredicates(declarations []ast.ASTHandle, ruleCount int) (lbool.LBool, error) {
+func (e *PropositionalEngine) queryExternalDatalogPredicates(declarations []ast.ASTHandle, ruleCount int) (status lbool.LBool, resultErr error) {
 	if e.external == nil {
 		return lbool.Undef, ErrPropositionalHorn
 	}
+	if err := e.discardExternalSimilarity(); err != nil {
+		return lbool.Undef, err
+	}
+	defer func() {
+		resultErr = errors.Join(resultErr, e.discardExternalSimilarity())
+		if resultErr != nil {
+			status = lbool.Undef
+		}
+	}()
 	if ruleCount != 0 {
 		if err := e.validateExternalRulePredicates(); err != nil {
 			return lbool.Undef, err
 		}
 		options := rel.ExternalRuleExecutionOptions{}
+		similarity, threshold := true, uint32(11)
 		if e.params != nil && e.globals != nil {
 			view, err := e.fixedpointParamView()
 			if err != nil {
@@ -67,11 +77,25 @@ func (e *PropositionalEngine) queryExternalDatalogPredicates(declarations []ast.
 			if err == nil {
 				options.AllOrNothingDeltas, err = view.Bool("datalog.all_or_nothing_deltas", false)
 			}
+			if err == nil {
+				similarity, err = view.Bool("datalog.similarity_compressor", true)
+			}
+			if err == nil && similarity {
+				threshold, err = view.UInt("datalog.similarity_compressor_threshold", 11)
+			}
 			if err = errors.Join(err, view.Close()); err != nil {
 				return lbool.Undef, err
 			}
 		}
-		if err := rel.ExecuteExternalFactRulesWithOptions(e.external, e.set, options); err != nil {
+		rules := e.set
+		if similarity {
+			var err error
+			rules, err = e.prepareExternalSimilarity(declarations, threshold)
+			if err != nil {
+				return lbool.Undef, err
+			}
+		}
+		if err := rel.ExecuteExternalFactRulesWithOptions(e.external, rules, options); err != nil {
 			return lbool.Undef, err
 		}
 	}

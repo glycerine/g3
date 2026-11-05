@@ -93,6 +93,7 @@ type PropositionalEngine struct {
 	binder              *base.VariableBinder
 	relations           *rel.RelationManager
 	external            *rel.ExternalRelationPlugin
+	externalSimilarity  *externalSimilarityQueryScope
 	guard               *astrewriter.TheoryRewriter
 	pdrTheory           *astrewriter.TheoryRewriter // borrowed original fixedpoint rewriter in query clones
 	unboundCooperation  *cooperate.Cooperation
@@ -3146,6 +3147,9 @@ func (e *PropositionalEngine) Close() (result error) {
 	e.queryReady = false
 	e.lastResult = lbool.Undef
 	if err := e.closeExternalIntervalDatalog(); err != nil {
+		return err
+	}
+	if err := e.discardExternalSimilarity(); err != nil {
 		return err
 	}
 	if e.external != nil {
