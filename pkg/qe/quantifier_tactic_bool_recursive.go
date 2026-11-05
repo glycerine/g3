@@ -38,6 +38,15 @@ func rewriteQuantifierScalar(m *ast.ASTManager, expression ast.ASTHandle, config
 	}
 	switch kind {
 	case ast.ASTQuantifier:
+		if config.eliminateVariablesAsBlockSet && !config.eliminateVariablesAsBlock {
+			count, e := m.GetNumDeclarations(expression)
+			if e != nil {
+				return result, false, e
+			}
+			if count > 1 {
+				return rewriteQuantifierVariablesIndividually(m, expression, config)
+			}
+		}
 		body, e := m.GetQuantifierBody(expression)
 		if e != nil {
 			return result, false, e

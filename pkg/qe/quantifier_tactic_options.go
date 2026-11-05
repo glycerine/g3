@@ -7,7 +7,10 @@ import (
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
-type quantifierTacticOptions struct{ nonlinear bool }
+type quantifierTacticOptions struct {
+	nonlinear                 bool
+	eliminateVariablesAsBlock bool
+}
 
 // update reads a new parameter snapshot; the source uses false when this
 // parameter is absent, even when an earlier update enabled it.
@@ -21,6 +24,11 @@ func (o *quantifierTacticOptions) update(context *uparams.ParamsContext, p *upar
 		return err
 	}
 	o.nonlinear = value
+	key = "eliminate_variables_as_block"
+	o.eliminateVariablesAsBlock, err = context.GetBoolName(p, &key, true)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

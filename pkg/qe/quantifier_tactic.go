@@ -208,7 +208,10 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 		}
 		if quantified {
 			var complete bool
-			updates[i], complete, e = rewriteQuantifierScalar(t.manager, form, t.config)
+			qeConfig := t.config
+			qeConfig.eliminateVariablesAsBlock = t.options.eliminateVariablesAsBlock
+			qeConfig.eliminateVariablesAsBlockSet = true
+			updates[i], complete, e = rewriteQuantifierScalar(t.manager, form, qeConfig)
 			if e != nil {
 				if onlyArithmeticBranchUnsupported(e) {
 					return tactic.NewTacticException(errArithmeticBranchUnsupported.Error())
