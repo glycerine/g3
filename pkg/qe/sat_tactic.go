@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -21,6 +22,8 @@ type QESATTactic struct {
 	config              Config
 	params              uparams.ParamsRef
 	options             satTacticOptions
+	levelStats          statistics.Statistics
+	persistentStats     statistics.Statistics
 	refs                uint32
 	bytes               uint64
 	paramsReady, closed bool
@@ -128,8 +131,32 @@ func (t *QESATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	}
 	return collectSATTacticOptions(out)
 }
-func (t *QESATTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *QESATTactic) ResetStatistics() error                 { return t.open() }
+func (t *QESATTactic) CollectStatistics() map[string]float64 {
+	if t.open() != nil {
+		return nil
+	}
+	var collected statistics.Statistics
+	collected.Copy(t.persistentStats)
+	collected.Copy(t.levelStats)
+	result := make(map[string]float64, collected.Size())
+	for i := 0; i < collected.Size(); i++ {
+		key := string(collected.Key(i))
+		if collected.IsUint(i) {
+			result[key] += float64(collected.UintValue(i))
+		} else {
+			result[key] += collected.DoubleValue(i)
+		}
+	}
+	return result
+}
+func (t *QESATTactic) ResetStatistics() error {
+	if err := t.open(); err != nil {
+		return err
+	}
+	t.levelStats.Reset()
+	t.persistentStats.Reset()
+	return nil
+}
 func (t *QESATTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
 func (t *QESATTactic) SetProgressCallback(func(uint32)) error { return t.open() }
 
@@ -157,6 +184,10 @@ func (t *QESATTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err er
 	if err = t.config.Cooperation.Cooperate("qe-sat"); err != nil {
 		return err
 	}
+	// The source tactic resets its per-application level solvers before
+	// preparing the next goal. Its auxiliary solver and context rewriter live
+	// across applications, so their statistics are accumulated separately.
+	t.levelStats.Reset()
 	if err = out.Prepare(m); err != nil {
 		return err
 	}
@@ -199,6 +230,15 @@ func (t *QESATTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err er
 		return err
 	}
 	defer func() { err = errors.Join(err, search.Close()) }()
+	defer func() {
+		var level, persistent statistics.Statistics
+		if collectErr := search.collectStatistics(&level, &persistent); collectErr != nil {
+			err = errors.Join(err, collectErr)
+			return
+		}
+		t.levelStats = level
+		t.persistentStats.Copy(persistent)
+	}()
 	truth, err := m.MkTrue()
 	if err != nil {
 		return err

@@ -5,11 +5,13 @@ package qe
 import (
 	"errors"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
 type satPartialSearch struct {
@@ -23,6 +25,33 @@ type satPartialSearch struct {
 	aux     *smtcore.SMTSolver
 	strong  *smtcore.ExprStrongContextSimplifier
 }
+
+// collectStatistics separates the per-application level solvers from the
+// auxiliary solver and context simplifier, which correspond to the tactic's
+// persistent source members.
+func (s *satPartialSearch) collectStatistics(levels, persistent *statistics.Statistics) error {
+	if s == nil || s.manager == nil || s.levels == nil || s.aux == nil {
+		return arena.ErrClosed
+	}
+	if levels == nil || persistent == nil {
+		return ast.ErrASTHandle
+	}
+	for _, level := range s.levels.levels {
+		if err := level.solver.CollectStatistics(levels); err != nil {
+			return err
+		}
+	}
+	if err := s.aux.CollectStatistics(persistent); err != nil {
+		return err
+	}
+	if s.strong != nil {
+		if err := s.strong.CollectStatistics(persistent); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type satPartialResult struct {
 	manager *ast.ASTManager
 	formula ast.ASTRef

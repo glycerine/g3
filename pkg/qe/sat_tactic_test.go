@@ -88,6 +88,42 @@ func TestQESATTacticFullProjectionUnsupportedGoalIsUnchanged(t *testing.T) {
 	}
 }
 
+func TestQESATTacticStatisticsAcrossApplyAndReset(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	port, err := NewQESATTactic(m, nil, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, port.Close()) }()
+	makeGoal := func() *tactic.Goal {
+		variable := f.own(m.MkVar(0, f.boolean))
+		quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{
+			Forall: true, Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: variable,
+		}))
+		goal := f.goal(false, false)
+		fmMust(t, goal.Assert(quantifier))
+		return goal
+	}
+	apply := func() {
+		goal := makeGoal()
+		defer func() { fmMust(t, goal.Close()) }()
+		out := f.result()
+		defer func() { fmMust(t, out.Close()) }()
+		fmMust(t, port.Apply(goal, out))
+	}
+	apply()
+	if got := port.CollectStatistics(); len(got) == 0 {
+		t.Fatal("SAT tactic did not report solver statistics")
+	}
+	fmMust(t, port.ResetStatistics())
+	if got := port.CollectStatistics(); len(got) != 0 {
+		t.Fatalf("statistics after reset: %v", got)
+	}
+	apply()
+	if got := port.CollectStatistics(); len(got) == 0 {
+		t.Fatal("statistics were not collected after reset and another application")
+	}
+}
+
 func TestQESATTacticCancellationBeforePreprocessingAndRetry(t *testing.T) {
 	f := qsatKernelFixture(t)
 	m := f.r.manager
