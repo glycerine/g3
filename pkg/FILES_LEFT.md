@@ -171,7 +171,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/sat/sat_integrity_checker.cpp` — Clause/watch consistency, frozen counts, Boolean-array widths, eliminated-variable watches, reinit membership, clause-ID disjointness and source assertion/trace read order map to `satIntegrityChecker`. Its aggregate checker preserves the inconsistent fast path and individual SASSERT order; focused integrity-checker tests pass.
 - [x] `src/sat/sat_integrity_checker.h` — The checker’s borrowed solver reference and public clause/vector/watch/Boolean/reinit/disjoint/operator queries map to `satIntegrityChecker` over `satSolverClauseLifecycle`, with the GC owner supplying the source frozen-count field.
 - [x] `src/sat/sat_justification.h` — None, binary, ternary, clause-offset and external justification encodings, masked kind decoding, raw getters, source SASSERT getter boundaries and display spellings map to `satJustification`; the all-kinds and action-order checks pass.
-- [ ] `src/sat/sat_model_converter.cpp`
+- [x] `src/sat/sat_model_converter.cpp` — Reverse-order eliminated/blocked model reconstruction, per-clause separators, undefined-variable patching, model checking, entry insertion/copy/reset, invariant checks, display, variable collection and maximum-variable queries map to `satModelConverter`; focused model reconstruction, insertion, ownership, invariant and collection tests pass.
 - [ ] `src/sat/sat_model_converter.h`
 - [ ] `src/sat/sat_mus.cpp`
 - [ ] `src/sat/sat_mus.h`
