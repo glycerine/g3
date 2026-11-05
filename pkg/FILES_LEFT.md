@@ -246,7 +246,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/mpf.h` — The retained `mpf_manager` behavior maps to `ArbitraryFloatManager`, including value metadata, rounding modes, scoped numerals, cached powers, and IEEE/SMT conversions; the focused float checks and default `pkg/util/numeral` suite pass. No tests were added.
 - [x] `src/util/mpn.cpp` — The Go `NaturalManager` implements the source limb compare/add/subtract/multiply, normalized Knuth division, short-input branches, and decimal conversion; deterministic `math/big` oracle, source-prefix, alias, division-correction, and formatting checks pass. No tests were added.
 - [x] `src/util/mpn.h` — `mpn_manager`’s concrete operations, four reusable division workspaces, buffer growth, and raw-limb diagnostics map to `NaturalManager`; locking is unnecessary in the current single-goroutine port. Existing focused natural arithmetic, division, scratch-storage, and source-order checks pass; no tests were added.
-- [ ] `src/util/mpq.cpp`
+- [x] `src/util/mpq.cpp` — Rational comparison and rounding, gcd, source parser/scientific notation, power, decimal/SMT display, root, and projections map to the concrete Go rational managers; existing focused rational and MPQ checks pass. No tests were added.
 - [ ] `src/util/mpq.h`
 - [ ] `src/util/mpz.cpp`
 - [ ] `src/util/mpz.h`
