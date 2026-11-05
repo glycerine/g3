@@ -4,6 +4,8 @@ package smtcore
 // dispatch; src/smt/theory_opt.h.
 
 import (
+	"strconv"
+
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
@@ -48,6 +50,21 @@ func (s *SMTSolver) installOptimizerArithmetic(family ast.FamilyID) error {
 	config := s.kernel.arithState
 	if owner := s.kernel.copiedArithmeticOwner; owner != nil {
 		config = owner.state
+	}
+	globals := s.config.Globals
+	if globals == nil {
+		globals = s.kernel.smtParams.Globals
+	}
+	if globals != nil {
+		modeText, modeErr := globals.SourceGetValueName("smt.arith.solver")
+		if modeErr != nil {
+			return modeErr
+		}
+		mode, modeErr := strconv.ParseUint(modeText, 10, 32)
+		if modeErr != nil {
+			return modeErr
+		}
+		config.Mode = uint32(mode)
 	}
 	var theory *SMTLinearArithmeticTheory
 	var err error
@@ -143,6 +160,47 @@ func (s *SMTSolver) MakeObjectiveLowerBound(index uint32, filter *tactic.FilterM
 		return ast.ASTHandle{}, err
 	}
 	return objective.theory.MakeObjectiveLowerBound(filter, objective.variable, value)
+}
+
+// EnableObjectiveConflictRecording asks an infinite arithmetic objective
+// theory to derive a tighter bound from conflicts involving bound.
+func (s *SMTSolver) EnableObjectiveConflictRecording(index uint32, bound ast.ASTHandle) error {
+	objective, err := s.objective(index)
+	if err != nil {
+		return err
+	}
+	recorder, ok := objective.theory.(interface{ EnableRecordConflict(ast.ASTHandle) error })
+	if !ok {
+		return ast.ErrASTDomain
+	}
+	return recorder.EnableRecordConflict(bound)
+}
+
+// ObjectiveSupportsConflictRecording is true only for source theory_inf_arith.
+func (s *SMTSolver) ObjectiveSupportsConflictRecording(index uint32) (bool, error) {
+	objective, err := s.objective(index)
+	if err != nil {
+		return false, err
+	}
+	theory, ok := objective.theory.(*SMTLinearArithmeticTheory)
+	return ok && theory.infinite, nil
+}
+
+// ObjectiveConflictMinimize returns the best upper bound recorded for the
+// currently watched arithmetic objective conflict.
+func (s *SMTSolver) ObjectiveConflictMinimize(index uint32) (simplex.Infinitesimal, bool, error) {
+	objective, err := s.objective(index)
+	if err != nil {
+		return simplex.Infinitesimal{}, false, err
+	}
+	recorder, ok := objective.theory.(interface {
+		ConflictMinimize() (simplex.Infinitesimal, bool)
+	})
+	if !ok {
+		return simplex.Infinitesimal{}, false, ast.ErrASTDomain
+	}
+	value, finite := recorder.ConflictMinimize()
+	return value, finite, nil
 }
 
 // ResetObjectives releases every objective term retained by this solver.

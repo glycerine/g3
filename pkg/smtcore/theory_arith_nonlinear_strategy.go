@@ -50,11 +50,15 @@ func (t *SMTLinearArithmeticTheory) derivedBoundConflict(solver *simplex.Solver)
 			if err != nil {
 				return err
 			}
+			proofs = proofs || t.recordConflict
 			var antecedents smtArithmeticAntecedents
 			for _, dependency := range dependencies {
 				if err = smtArithmeticPushDependency(&antecedents, dependency, &dependency.Coefficient, proofs, t.equalityBounds); err != nil {
 					return err
 				}
+			}
+			if err = t.recordWatchedConflict(&antecedents); err != nil {
+				return err
 			}
 			parameters, err := antecedents.parameters(t.state.manager, "farkas")
 			if err != nil {

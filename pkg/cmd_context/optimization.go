@@ -310,7 +310,32 @@ func (c *Context) setupOptimizationArithmeticSolver() (resultErr error) {
 }
 
 func (c *Context) newOptimizer(assumptions []ast.ASTHandle) (optimizer *opt.ArithmeticSolver, resultErr error) {
-	optimizer, err := opt.NewArithmeticSolver(c.manager, &c.params, c.logic, c.config)
+	solverParams, err := c.config.Params.NewValue()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, c.config.Params.Del(&solverParams)) }()
+	if err = c.config.Params.Copy(&solverParams, &c.params); err != nil {
+		return nil, err
+	}
+	parameters, err := opt.NewParams(c.config.Params, c.config.Globals, &solverParams)
+	if err != nil {
+		return nil, err
+	}
+	engine, err := parameters.OptSMTEngine()
+	if err == nil {
+		var name string
+		name, err = c.manager.Symbols.String(engine)
+		if err == nil && (name == "symba" || name == "farkas") {
+			mode := "arith.solver"
+			err = c.config.Params.SetUIntName(&solverParams, &mode, 5)
+		}
+	}
+	err = errors.Join(err, parameters.Close())
+	if err != nil {
+		return nil, err
+	}
+	optimizer, err = opt.NewArithmeticSolver(c.manager, &solverParams, c.logic, c.config)
 	if err != nil {
 		return nil, err
 	}

@@ -204,6 +204,10 @@ type SMTLinearArithmeticTheory struct {
 	delta                                   big.Rat
 	equalityAdapter                         *smtArithmeticEqualityAdapter
 	statistics                              smtLinearArithmeticStatistics
+	recordConflict                          bool
+	recordConflictBound                     SMTLiteral
+	conflictUpper                           simplex.Infinitesimal
+	conflictUpperFinite                     bool
 }
 
 func NewSMTLinearArithmeticTheory(family ast.FamilyID) (*SMTLinearArithmeticTheory, error) {

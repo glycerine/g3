@@ -236,6 +236,16 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 				return theoryErr
 			}
 			err = kernel.RegisterTheory(theory)
+		} else if logic == "QF_LIRA" {
+			if kernel.arithState.Mode == 5 {
+				err = kernel.installMixedArithmeticSetup(kernel.arithState)
+			} else {
+				theory, theoryErr := NewSMTMixedLinearArithmeticTheory(family)
+				if theoryErr != nil {
+					return theoryErr
+				}
+				err = kernel.RegisterTheory(theory)
+			}
 		} else {
 			if kernel.arithState.Mode == 0 {
 				err = install(family, "no arithmetic")
