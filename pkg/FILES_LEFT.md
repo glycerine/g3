@@ -234,7 +234,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/debug.cpp` — Assertion enablement/notification, lazily initialized debug-tag membership and finalization, and host-specific debugger actions map to `pkg/util/diagnostic`; focused tag, assertion lifecycle, and debugger-action tests pass. The Linux debugger command path is build-tagged by host, while other hosts report the unsupported action.
 - [x] `src/util/debug.h` — Assertion, conditional assertion, verification, ensure, unreachable, debug-code, and trace gates map to the `diagnostic` build profiles and source-order helpers. Focused default-profile macro/context/action tests pass; platform debugger behavior remains host-selected.
 - [x] `src/util/dependency.h` — The retained instantiations use concrete Go DAG owners: AST proof/goal dependencies, NLSAT assumptions, and scoped SMT arithmetic-bound dependencies. Focused tests cover nil/duplicate joins, shared paths, breadth-first linearization, membership, reference cleanup, and scoped reset; the C++ traits/allocator template is not duplicated as an unused generic layer.
-- [ ] `src/util/dictionary.h`
+- [x] `src/util/dictionary.h` — This is only `map<symbol,T>`; Go consumers use typed symbol maps or `DictionaryInt32`, and insertion-order-visible registries use `insdict` v0.14.6 or a companion slice. Dictionary lookup/mutation, parameter-descriptor ordering, global-parameter merge, tactic lookup/finalization, and sorted-variable behavior pass focused tests; no wrapper type is needed.
 - [ ] `src/util/hashtable.h`
 - [ ] `src/util/heap.h`
 - [ ] `src/util/inf_eps_rational.h`
