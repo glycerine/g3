@@ -159,7 +159,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/qe/qe_datatype_plugin.cpp` — Constructor-recognizer branches, recursive equality/disequality classification and substitution, fresh constructor-field variables, branch constraints/definitions, and `lift_foreign_vars` simplification map to `DatatypeSolverPlugin`. The source no-op `solve`, `mk_atom`, and default maximum branch weight remain no-op/default behavior. Datatype search checks and the full short `pkg/qe` suite pass.
 - [x] `src/qe/qe_dl_plugin.cpp` — Source-ordered positive/negative equality collection, finite-domain versus “other” branch counting, branch constraints, large-domain cofactor substitution, and definition clearing map to `DatalogPlugin`. The strict finite-domain comparison and source cofactor substitutions match current C++; focused plugin tests pass, while two higher-level semantic tests expose the same incorrect finite-domain cases in the C++ algorithm.
 - [x] `src/qe/qe_sat_tactic.cpp` — Alternation extraction, solver-level ownership, extrapolation/projection search, goal/model publication, persistent versus per-application statistics, reset, parameter updates and cleanup map to `QESATTactic` and `satPartialSearch`. Statistics are snapshotted before search cleanup; focused tactic lifecycle and collect/reset/reapply checks pass.
-- [ ] `src/qe/qe_sat_tactic.h`
+- [x] `src/qe/qe_sat_tactic.h` — The `mk_sat_tactic` factory declaration and `qe-sat` tactic registration map to `NewQESATTactic` and the command-context tactic factory/registry; its advertised description is covered by the registry description tests.
 - [ ] `src/qe/qe_tactic.cpp`
 - [ ] `src/qe/qe_tactic.h`
 - [ ] `src/sat/sat_asymm_branch.cpp`
