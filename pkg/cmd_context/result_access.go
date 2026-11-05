@@ -31,6 +31,16 @@ func (c *Context) ScopeLevel() (uint32, error) {
 	return uint32(len(c.scopes)), nil
 }
 
+// ResultProductionEnabled reports the current proof, model, and unsat-core
+// production settings used to construct a check-sat result.
+func (c *Context) ResultProductionEnabled() (models, proofs, unsatCores bool, err error) {
+	state, err := c.parameters.State()
+	if err != nil {
+		return false, false, false, err
+	}
+	return state.Model, state.Proof, state.UnsatCore, nil
+}
+
 // Statistics returns an owning Go copy of the current solver statistics.
 func (c *Context) Statistics() (statistics.Statistics, error) {
 	if err := c.valid(); err != nil {

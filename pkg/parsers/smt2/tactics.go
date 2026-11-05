@@ -337,19 +337,51 @@ func (p *commandParser) checkSatUsing(execute bool) (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, c.Del(&options)) }()
+	printStatistics, printUnsatCore, printProof, printModel := false, false, false, false
 	for p.token == KeywordToken {
 		key, e := p.parametricKeyword()
 		if e != nil {
 			return e
 		}
-		if key != "timeout" {
-			return fmt.Errorf("unsupported check-sat-using option %s", key)
+		kind := uparams.ParamKind(0)
+		switch key {
+		case "timeout", "max_memory":
+			kind = uparams.ParamUInt
+		case "print_statistics":
+			kind = uparams.ParamBool
+		case "print_unsat_core":
+			kind = uparams.ParamBool
+		case "print_proof":
+			kind = uparams.ParamBool
+		case "print_model":
+			kind = uparams.ParamBool
+		default:
+			return fmt.Errorf("invalid keyword argument")
 		}
 		if err = p.advance(); err != nil {
 			return err
 		}
-		if err = p.tacticParameter(c, &options, key, uparams.ParamUInt); err != nil {
+		if kind == uparams.ParamUInt && p.token != IntegerToken {
+			return fmt.Errorf("invalid command argument, unsigned integer expected")
+		}
+		if err = p.tacticParameter(c, &options, key, kind); err != nil {
 			return err
+		}
+		if kind == uparams.ParamBool {
+			value, e := c.GetBoolName(&options, &key, false)
+			if e != nil {
+				return e
+			}
+			switch key {
+			case "print_statistics":
+				printStatistics = value
+			case "print_unsat_core":
+				printUnsatCore = value
+			case "print_proof":
+				printProof = value
+			case "print_model":
+				printModel = value
+			}
 		}
 	}
 	if err = p.requireEnd(); err != nil {
@@ -359,22 +391,70 @@ func (p *commandParser) checkSatUsing(execute bool) (err error) {
 		return nil
 	}
 	status, err := p.context.CheckSatUsing(selected, &options)
+	tacticFailure := false
 	if err != nil {
 		var failure cmd_context.TacticCommandFailure
 		if errors.As(err, &failure) {
 			_, err = fmt.Fprintf(p.out, "(error \"tactic failed: %s\")\n", failure.Error())
+			if err != nil {
+				return err
+			}
+			status = lbool.Undef
+			tacticFailure = true
+		} else {
 			return err
 		}
+	}
+	if !tacticFailure {
+		text := "unknown"
+		if status == lbool.True {
+			text = "sat"
+		} else if status == lbool.False {
+			text = "unsat"
+		}
+		if _, err = fmt.Fprintln(p.out, text); err != nil {
+			return err
+		}
+	}
+	if err = p.context.ValidateInfoStatus(status); err != nil {
 		return err
 	}
-	text := "unknown"
-	if status == lbool.True {
-		text = "sat"
-	} else if status == lbool.False {
-		text = "unsat"
-	}
-	if _, err = fmt.Fprintln(p.out, text); err != nil {
+	produceModels, produceProofs, produceCores, err := p.context.ResultProductionEnabled()
+	if err != nil {
 		return err
 	}
-	return p.context.ValidateInfoStatus(status)
+	if printUnsatCore && produceCores && status == lbool.False {
+		core, e := p.context.UnsatCore()
+		if e != nil {
+			return e
+		}
+		if _, err = fmt.Fprint(p.out, "(unsat-core"); err != nil {
+			return err
+		}
+		for _, expression := range core {
+			if _, err = fmt.Fprint(p.out, " "); err != nil {
+				return err
+			}
+			if err = p.context.WriteExpression(p.out, expression); err != nil {
+				return err
+			}
+		}
+		if _, err = fmt.Fprintln(p.out, ")"); err != nil {
+			return err
+		}
+	}
+	if printModel && produceModels {
+		if err = p.context.WriteModel(p.out); err != nil && err.Error() != "model is not available" {
+			return err
+		}
+	}
+	if printProof && produceProofs && status == lbool.False {
+		if err = p.context.WriteProof(p.out); err != nil && err.Error() != "proof is not available" {
+			return err
+		}
+	}
+	if printStatistics {
+		return p.context.WriteStatistics(p.out)
+	}
+	return nil
 }

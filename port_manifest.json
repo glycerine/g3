@@ -118448,11 +118448,11 @@
           ]
         },
         {
-          "name": "remaining SMT-LIB extension commands: help/help-tactic metadata output and command-specific residual behavior",
+          "name": "remaining SMT-LIB extension commands: command metadata output and command-specific residual behavior",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/commands.go",
           "tests": [],
-          "reason": "Strict ParseCommands/ParseAssertions recovery and decimal/bit-vector set-option values are implemented. The source dynamic cmd-object registry has no Go registration API; its retained built-ins use explicit dispatch, and source CPK_SORTED_VAR/CPK_SORTED_VAR_LIST are not used by registered commands. The help and help-tactic output commands remain unported, as do any remaining extension branches found by the parser audit."
+          "reason": "Strict ParseCommands/ParseAssertions recovery, decimal/bit-vector set-option values, source help/help-tactic output, indexed model access, and the shell include command are implemented. The source dynamic cmd-object registry has no Go registration API; retained built-ins use explicit dispatch, and source CPK_SORTED_VAR/CPK_SORTED_VAR_LIST are not used by registered commands. Command-specific residual behavior and the remaining parser audit are still open."
         },
         {
           "name": "default-model parse_get_value: preserve original cached query text while evaluating expanded ground AST expressions, reject empty lists and quantified terms, reset the cache between queries, and echo definitions, quoted symbols and lets with exact values",
@@ -118524,7 +118524,7 @@
             "TestSMTLibRunnerCPPReference",
             "TestSMT2TacticCombinatorsAndTypedParameters"
           ],
-          "reason": "The command is connected for the retained concrete tactic/combinator set; remaining tactic/probe grammar and execution-option surface are tracked in tactic_cmds.cpp."
+          "reason": "Command options now include source timeout/max_memory and print_statistics/print_unsat_core/print_proof/print_model handling before and after execution. The retained concrete tactic/combinator grammar is connected; remaining tactic/probe grammar differences remain under audit."
         },
         {
           "name": "parse_declare_datatype(s), parse_datatype_dec and parse_constructor_decls: legacy and SMT2.6 nullary/parametric mutually recursive declarations, direct and nested sibling fields, formal sorts, constructor/recognizer/accessor naming, validation and publication after complete command syntax",
