@@ -146,6 +146,129 @@ func TestExternalIntervalRecursiveProgramConsumesDeltasAcrossRounds(t *testing.T
 	}
 }
 
+func TestExternalIntervalRecursiveProgramEvaluatesSeedsWithoutRecursiveRounds(t *testing.T) {
+	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
+	family, err := manager.RegisterArithmeticPlugin()
+	fragmentMust(t, err)
+	integer, err := manager.MkFamilySort(family, 1, nil)
+	fragmentMust(t, err)
+	kinds := []string{"interval_relation", "external_relation"}
+	p := declareExternalIntervalPredicate(t, manager, engine, "seed-only-P", []ast.ASTHandle{integer, integer}, kinds)
+	q := declareExternalIntervalPredicate(t, manager, engine, "seed-only-Q", []ast.ASTHandle{integer}, kinds)
+	s := declareExternalIntervalPredicate(t, manager, engine, "seed-only-S", []ast.ASTHandle{integer}, kinds)
+	zero, err := manager.ArithmeticIntegerNumeralText("0")
+	fragmentMust(t, err)
+	two, err := manager.ArithmeticIntegerNumeralText("2")
+	fragmentMust(t, err)
+	fragmentMust(t, engine.AddFact(q, []ast.ASTHandle{zero}))
+	fragmentMust(t, engine.AddFact(s, []ast.ASTHandle{two}))
+	x, err := manager.MkVar(0, integer)
+	fragmentMust(t, err)
+	y, err := manager.MkVar(1, integer)
+	fragmentMust(t, err)
+	qApp, err := manager.MkApp(q, []ast.ASTHandle{x})
+	fragmentMust(t, err)
+	sApp, err := manager.MkApp(s, []ast.ASTHandle{y})
+	fragmentMust(t, err)
+	body, err := manager.MkAnd(qApp, sApp)
+	fragmentMust(t, err)
+	pHead, err := manager.MkApp(p, []ast.ASTHandle{x, y})
+	fragmentMust(t, err)
+	seed, err := manager.MkImplies(body, pHead)
+	fragmentMust(t, err)
+	fragmentMust(t, engine.AddRule(seed, "seed-only-product"))
+	resetExternalIntervalCartesianCallbacks(callbacks)
+
+	status, err := engine.QueryPredicate(p)
+	if err != nil || status != lbool.Undef {
+		t.Fatalf("seed-only query status=%v err=%v", status, err)
+	}
+	if operationCount(callbacks.operations, ast.DatalogOpJoin) != 1 ||
+		operationCount(callbacks.operations, ast.DatalogOpUnion) == 0 {
+		t.Fatalf("nonrecursive seed execution did not run exactly its seed rule: %v", callbacks.operations)
+	}
+	var display bytes.Buffer
+	fragmentMust(t, engine.externalIntervalDatalog.entries[p].product.Display(&display))
+	for _, want := range []string{"0 in [0, 0]", "1 in [2, 2]"} {
+		if !strings.Contains(display.String(), want) {
+			t.Fatalf("seed relation %q missing %q", display.String(), want)
+		}
+	}
+}
+
+func TestExternalIntervalRecursiveProgramOptionalWidening(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		widen     bool
+		wantBound string
+	}{
+		{name: "disabled", wantBound: "1 in [0, 2]"},
+		{name: "enabled", widen: true, wantBound: "1 in [0, oo)"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
+			family, err := manager.RegisterArithmeticPlugin()
+			fragmentMust(t, err)
+			integer, err := manager.MkFamilySort(family, 1, nil)
+			fragmentMust(t, err)
+			kinds := []string{"interval_relation", "external_relation"}
+			p := declareExternalIntervalPredicate(t, manager, engine, "widening-P-"+test.name, []ast.ASTHandle{integer, integer}, kinds)
+			q := declareExternalIntervalPredicate(t, manager, engine, "widening-Q-"+test.name, []ast.ASTHandle{integer}, kinds)
+			s := declareExternalIntervalPredicate(t, manager, engine, "widening-S-"+test.name, []ast.ASTHandle{integer}, kinds)
+			r := declareExternalIntervalPredicate(t, manager, engine, "widening-R-"+test.name, []ast.ASTHandle{integer}, kinds)
+			numeral := func(value string) ast.ASTHandle {
+				h, cause := manager.ArithmeticIntegerNumeralText(value)
+				fragmentMust(t, cause)
+				return h
+			}
+			fragmentMust(t, engine.AddFact(q, []ast.ASTHandle{numeral("0")}))
+			fragmentMust(t, engine.AddFact(s, []ast.ASTHandle{numeral("0")}))
+			fragmentMust(t, engine.AddFact(r, []ast.ASTHandle{numeral("1")}))
+			fragmentMust(t, engine.AddFact(r, []ast.ASTHandle{numeral("2")}))
+			x, err := manager.MkVar(0, integer)
+			fragmentMust(t, err)
+			y, err := manager.MkVar(1, integer)
+			fragmentMust(t, err)
+			z, err := manager.MkVar(2, integer)
+			fragmentMust(t, err)
+			app := func(declaration ast.ASTHandle, args ...ast.ASTHandle) ast.ASTHandle {
+				h, cause := manager.MkApp(declaration, args)
+				fragmentMust(t, cause)
+				return h
+			}
+			seedBody, err := manager.MkAnd(app(q, x), app(s, y))
+			fragmentMust(t, err)
+			seed, err := manager.MkImplies(seedBody, app(p, x, y))
+			fragmentMust(t, err)
+			fragmentMust(t, engine.AddRule(seed, "widening-seed-"+test.name))
+			loopBody, err := manager.MkAnd(app(p, x, y), app(r, z))
+			fragmentMust(t, err)
+			loop, err := manager.MkImplies(loopBody, app(p, x, z))
+			fragmentMust(t, err)
+			fragmentMust(t, engine.AddRule(loop, "widening-loop-"+test.name))
+			fragmentMust(t, engine.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", modeValue(test.widen)))
+			resetExternalIntervalCartesianCallbacks(callbacks)
+
+			status, err := engine.QueryPredicate(p)
+			if err != nil || status != lbool.Undef {
+				t.Fatalf("widening query status=%v err=%v", status, err)
+			}
+			var display bytes.Buffer
+			fragmentMust(t, engine.externalIntervalDatalog.entries[p].product.Display(&display))
+			if !strings.Contains(display.String(), test.wantBound) {
+				t.Fatalf("widen=%t produced %q; want bound %q", test.widen, display.String(), test.wantBound)
+			}
+			widenCalls := operationCount(callbacks.operations, ast.DatalogOpWiden)
+			if test.widen && widenCalls == 0 {
+				t.Fatalf("widening enabled but relation WIDEN was not invoked: %v", callbacks.operations)
+			}
+			if !test.widen && widenCalls != 0 {
+				t.Fatalf("widening disabled but relation WIDEN was invoked: %v", callbacks.operations)
+			}
+		})
+	}
+}
+
 func modeValue(value bool) string {
 	if value {
 		return "true"
