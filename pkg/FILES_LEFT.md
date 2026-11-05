@@ -204,7 +204,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/tactic/arith/lia2card_tactic.h` — The named tactic factory and shared pseudo-Boolean sum helper map to `MakeLIA2CardTactic` and the concrete owned `PBSum` extraction API used by the live optimizer consumer; focused arithmetic and optimizer tests pass.
 - [x] `src/tactic/arith/purify_arith_tactic.cpp` — The source dispatch cases for DIV, IDIV/MOD, TO_INT, POWER, inverse/forward trig, irrational algebraic roots and quantified formulas map to the Go purifier helpers; tactic construction preserves the SNF → simplify → purify → simplify pipeline, and focused purifier/QF_UFNRA suites pass.
 - [x] `src/tactic/arith/purify_arith_tactic.h` — The named factory, default parameters, description and registry wiring are implemented by `MakePurifyArithTactic` and command-context integration; focused factory and tactic suites pass.
-- [ ] `src/tactic/arith/recover_01_tactic.cpp`
+- [x] `src/tactic/arith/recover_01_tactic.cpp` — Clause collection, complementary-literal truth-table checks, integer substitutions, bounds, model reconstruction, progress and tactic lifecycle map to `Recover01Tactic`; the Go implementation explicitly declines tables wider than 31 entries instead of relying on overflowing source-width shifts, and focused tactic/QF_LRA tests pass.
 - [ ] `src/tactic/nlsat_smt/nl_purify_tactic.cpp`
 - [ ] `src/tactic/nlsat_smt/nl_purify_tactic.h`
 - [ ] `src/tactic/sls/bvsls_opt_engine.cpp`
