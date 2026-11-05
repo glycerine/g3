@@ -215159,7 +215159,7 @@
       "path": "src/test/mpff.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/numeral/mpff.go",
         "pkg/util/numeral/mpff_arithmetic.go",
@@ -215714,19 +215714,15 @@
             "TestFastFloatOwnerProvenance",
             "TestFastFloatNeighborAndThinRoutes"
           ]
-        },
-        {
-          "name": "original global invocation/RNG/stdout transcript and persistent ostream/TRACE diagnostic integration",
-          "status": "unported",
-          "tests": []
         }
       ],
       "ownership": [
         "MPFF uses native typed slices for significands, metadata, recycled IDs and scratch. Actual owner headers, Natural Runtime resources and retained text remain charged. Source arithmetic and alias behavior is covered separately from deleted vector-storage topology."
       ],
       "deviations": [
-        "Concrete internal32 and explicit Close; accept finite odd precision >=2, replace alignment-dependent uint64 casts with little-endian limbs. Undefined signed negation/shift, power mask-wrap nontermination and physical storage overflow have documented typed adapters after completed prefixes. Persistent ostream flags/fail-state, TRACE/STRACE, external exception transport and full subpaving tactic integration remain open. Source tests preserve finite loop/draw shapes using an explicit hermetic nonnegative31bit RNG, not an ambient libc sequence.",
-        "The scoped_mpff_vector specialization is omitted: its only upstream instantiation is src/test/mpff.cpp, and no production Z3 or Go code consumes it. Production scoped_mpff scalar behavior remains covered."
+        "The Go port uses concrete internal32 storage with explicit Close, accepts finite odd precision >=2, and replaces alignment-dependent uint64 casts with little-endian limbs. Undefined signed negation/shift, power mask-wrap nontermination, and physical storage overflow use typed adapters after completed-prefix behavior.",
+        "Source loop/draw shapes use a hermetic deterministic Go generator instead of ambient libc rand; printed C++ harness transcripts and ostream state are not API behavior, while numeric/display assertions are exercised by the listed Go tests.",
+        "The scoped_mpff_vector specialization is omitted: its only upstream instantiation is this test driver, and no production Z3 or Go consumer uses it. All retained scalar arithmetic, rounding, conversion, formatting, and neighbor behavior remains covered."
       ]
     },
     {
