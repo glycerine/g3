@@ -8,8 +8,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/glycerine/g3/pkg/ackermannization"
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/tactic/arith"
+	"github.com/glycerine/g3/pkg/tactic/bv"
+	"github.com/glycerine/g3/pkg/tactic/smtlogics"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
@@ -78,6 +83,113 @@ func (p *commandParser) parseTactic() (result tactic.Tactic, err error) {
 			}
 		} else {
 			result, err = tactic.NewAndThenTactic(children...)
+		}
+	case "par", "par-or", "par-then":
+		for p.token != RightParenToken && p.token != EOFToken {
+			if err = child(); err != nil {
+				return nil, err
+			}
+		}
+		if len(children) == 0 {
+			return nil, fmt.Errorf("invalid %s combinator, at least one argument expected", name)
+		}
+		if err = p.expect(RightParenToken); err != nil {
+			return nil, err
+		}
+		if len(children) == 1 {
+			result = children[0]
+		} else if name == "par-then" {
+			result, err = tactic.NewParAndThenTactic(children...)
+		} else {
+			result, err = tactic.NewParTactic(children...)
+		}
+	case "if", "ite", "cond", "when", "fail-if":
+		probe, e := p.parseProbe()
+		if e != nil {
+			return nil, e
+		}
+		defer func() { err = errors.Join(err, probe.DecRef()) }()
+		if name == "fail-if" {
+			if err = p.expect(RightParenToken); err != nil {
+				return nil, err
+			}
+			result, err = tactic.NewFailIfTactic(probe)
+		} else {
+			if err = child(); err != nil {
+				return nil, err
+			}
+			if name == "when" {
+				if err = p.expect(RightParenToken); err != nil {
+					return nil, err
+				}
+				result, err = tactic.NewWhenTactic(probe, children[0])
+			} else {
+				if err = child(); err != nil {
+					return nil, err
+				}
+				if err = p.expect(RightParenToken); err != nil {
+					return nil, err
+				}
+				result, err = tactic.NewCondTactic(probe, children[0], children[1])
+			}
+		}
+	case "if-no-proofs", "if-no-models", "if-no-unsat-cores":
+		if err = child(); err != nil {
+			return nil, err
+		}
+		if err = p.expect(RightParenToken); err != nil {
+			return nil, err
+		}
+		switch name {
+		case "if-no-proofs":
+			result, err = tactic.NewIfNoProofsTactic(children[0])
+		case "if-no-models":
+			result, err = tactic.NewIfNoModelsTactic(children[0])
+		default:
+			result, err = tactic.NewIfNoUnsatCoresTactic(children[0])
+		}
+	case "echo":
+		var steps []tactic.Tactic
+		defer func() {
+			for _, step := range steps {
+				err = errors.Join(err, step.DecRef())
+			}
+		}()
+		for p.token != RightParenToken && p.token != EOFToken {
+			last := p.scanner
+			var step tactic.Tactic
+			if p.token == StringToken {
+				message := last.String()
+				if err = p.advance(); err != nil {
+					return nil, err
+				}
+				step, err = cmd_context.NewEchoTactic(p.context, message, p.token == RightParenToken)
+			} else {
+				probe, e := p.parseProbe()
+				if e != nil {
+					return nil, e
+				}
+				step, err = cmd_context.NewProbeValueTactic(p.context, nil, probe, p.token == RightParenToken)
+				err = errors.Join(err, probe.DecRef())
+			}
+			if err != nil {
+				return nil, err
+			}
+			if err = step.IncRef(); err != nil {
+				return nil, err
+			}
+			steps = append(steps, step)
+		}
+		if len(steps) == 0 {
+			return nil, fmt.Errorf("invalid echo tactic, must have at least one argument")
+		}
+		if err = p.expect(RightParenToken); err != nil {
+			return nil, err
+		}
+		if len(steps) == 1 {
+			result = steps[0]
+		} else {
+			result, err = tactic.NewAndThenTactic(steps...)
 		}
 	case "using-params", "with", "!":
 		if err = child(); err != nil {
@@ -186,6 +298,169 @@ func (p *commandParser) parseTactic() (result tactic.Tactic, err error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+func (p *commandParser) parseProbe() (result tactic.ProbeEvaluator, err error) {
+	manager, err := p.astManager()
+	if err != nil {
+		return nil, err
+	}
+	if p.token == IntegerToken || p.token == DecimalToken {
+		value := p.scanner.Number()
+		if !value.IsInt() || !value.Num().IsInt64() || value.Num().Int64() < -2147483648 || value.Num().Int64() > 2147483647 {
+			return nil, fmt.Errorf("invalid probe, constant is too big to fit in a fixed size integer")
+		}
+		if err = p.advance(); err != nil {
+			return nil, err
+		}
+		result, err = tactic.NewProbe(manager.Budget(), tactic.ProbeConstant, float64(value.Num().Int64()))
+	} else if p.token == SymbolToken {
+		name, e := p.symbol()
+		if e != nil {
+			return nil, e
+		}
+		result, err = p.sourceBuiltinProbe(name, manager)
+		if err != nil {
+			return nil, err
+		}
+		if result == nil {
+			return nil, fmt.Errorf("invalid probe, unknown builtin probe %s", name)
+		}
+	} else if p.token == LeftParenToken {
+		if err = p.advance(); err != nil {
+			return nil, err
+		}
+		name, e := p.symbol()
+		if e != nil {
+			return nil, e
+		}
+		var arguments []tactic.ProbeEvaluator
+		defer func() {
+			for _, argument := range arguments {
+				err = errors.Join(err, argument.DecRef())
+			}
+		}()
+		for p.token != RightParenToken && p.token != EOFToken {
+			argument, e := p.parseProbe()
+			if e != nil {
+				return nil, e
+			}
+			arguments = append(arguments, argument)
+		}
+		if err = p.expect(RightParenToken); err != nil {
+			return nil, err
+		}
+		if name == "not" {
+			if len(arguments) != 1 {
+				return nil, fmt.Errorf("invalid probe expression, one argument expected")
+			}
+			result, err = tactic.NewNotProbe(manager.Budget(), arguments[0])
+		} else {
+			kind, found := sourceProbeOperator(name)
+			if !found {
+				return nil, fmt.Errorf("invalid probe, unknown probe expression %s", name)
+			}
+			if len(arguments) == 0 {
+				return nil, fmt.Errorf("invalid probe, at least one argument expected")
+			}
+			if kind >= tactic.ProbeEqual && kind <= tactic.ProbeGreater {
+				if len(arguments) != 2 {
+					return nil, fmt.Errorf("invalid probe expression, two arguments expected")
+				}
+				result, err = tactic.NewBinaryProbe(manager.Budget(), kind, arguments[0], arguments[1])
+			} else if len(arguments) == 1 {
+				result = arguments[0]
+			} else {
+				result = arguments[0]
+				for _, argument := range arguments[1:] {
+					next, e := tactic.NewBinaryProbe(manager.Budget(), kind, result, argument)
+					if e != nil {
+						return nil, e
+					}
+					result = next
+				}
+			}
+		}
+	} else {
+		return nil, fmt.Errorf("invalid probe, unexpected input")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err = result.IncRef(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (p *commandParser) sourceBuiltinProbe(name string, manager *ast.ASTManager) (tactic.ProbeEvaluator, error) {
+	kinds := map[string]tactic.ProbeKind{
+		"memory": tactic.ProbeMemory, "depth": tactic.ProbeDepth, "size": tactic.ProbeSize,
+		"num-exprs": tactic.ProbeNumExprs, "num-consts": tactic.ProbeNumConsts,
+		"num-bool-consts": tactic.ProbeNumBoolConsts, "num-arith-consts": tactic.ProbeNumArithmeticConsts,
+		"num-bv-consts": tactic.ProbeNumBitVectorConsts, "produce-proofs": tactic.ProbeProduceProofs,
+		"produce-model": tactic.ProbeProduceModels, "produce-unsat-cores": tactic.ProbeProduceUnsatCores,
+		"has-quantifiers": tactic.ProbeHasQuantifier, "has-patterns": tactic.ProbeHasPattern,
+		"is-propositional": tactic.ProbeIsPropositional, "is-qfbv": tactic.ProbeIsQFBitVector,
+		"is-qfaufbv": tactic.ProbeIsQFArrayUFBitVector, "is-qfufbv": tactic.ProbeIsQFUFBitVector,
+	}
+	kind, found := kinds[name]
+	if found {
+		return tactic.NewProbe(manager.Budget(), kind, 0)
+	}
+	globals, err := p.context.GlobalParameters()
+	if err != nil {
+		return nil, err
+	}
+	context := globals.Context
+	switch name {
+	case "ackr-bound-probe":
+		return ackermannization.NewBoundProbe(manager.Budget())
+	case "is-qflia", "is-qfauflia", "is-qflra", "is-qflira", "is-ilp", "is-qfnia", "is-qfnra", "is-nia", "is-nra", "is-nira", "is-lia", "is-lra", "is-lira", "is-qfufnra":
+		fragments := map[string]arith.ArithmeticFragment{
+			"is-qflia": arith.FragmentQFLIA, "is-qfauflia": arith.FragmentQFAUFLIA,
+			"is-qflra": arith.FragmentQFLRA, "is-qflira": arith.FragmentQFLIRA,
+			"is-ilp": arith.FragmentILP, "is-qfnia": arith.FragmentQFNIA,
+			"is-qfnra": arith.FragmentQFNRA, "is-nia": arith.FragmentNIA,
+			"is-nra": arith.FragmentNRA, "is-nira": arith.FragmentNIRA,
+			"is-lia": arith.FragmentLIA, "is-lra": arith.FragmentLRA,
+			"is-lira": arith.FragmentLIRA, "is-qfufnra": arith.FragmentQFUFNRA,
+		}
+		return arith.NewArithmeticFragmentProbe(manager.Budget(), context, globals, fragments[name])
+	case "is-unbounded":
+		return arith.NewIsUnboundedProbe(manager.Budget(), context, globals)
+	case "is-pb":
+		return arith.NewIsPBProbe(manager.Budget(), context, globals)
+	case "is-quasi-pb":
+		return smtlogics.NewIsQuasiPBProbe(manager, context, globals)
+	case "arith-max-deg":
+		return arith.NewArithmeticMaximumDegreeProbe(manager.Budget())
+	case "arith-avg-deg":
+		return arith.NewArithmeticAverageDegreeProbe(manager.Budget())
+	case "arith-max-bw":
+		return arith.NewArithmeticMaximumBitWidthProbe(manager.Budget())
+	case "arith-avg-bw":
+		return arith.NewArithmeticAverageBitWidthProbe(manager.Budget())
+	case "is-qfbv-eq":
+		return bv.NewIsQFBVEqualityProbe(manager.Budget(), context, globals)
+	case "is-qffp", "is-qffpbv":
+		return smtlogics.NewIsQFFPProbe(manager.Budget())
+	case "is-qffplra":
+		return smtlogics.NewIsQFFPLRAProbe(manager.Budget())
+	default:
+		return nil, nil
+	}
+}
+
+func sourceProbeOperator(name string) (tactic.ProbeKind, bool) {
+	kinds := map[string]tactic.ProbeKind{
+		"=": tactic.ProbeEqual, "<=": tactic.ProbeLessEqual, ">=": tactic.ProbeGreaterEqual,
+		"<": tactic.ProbeLess, ">": tactic.ProbeGreater, "and": tactic.ProbeAnd,
+		"or": tactic.ProbeOr, "=>": tactic.ProbeImplies, "implies": tactic.ProbeImplies,
+		"*": tactic.ProbeMultiply, "+": tactic.ProbeAdd, "-": tactic.ProbeSubtract, "/": tactic.ProbeDivide,
+	}
+	kind, found := kinds[name]
+	return kind, found
 }
 
 func (p *commandParser) parseDeclaredTactic(name, body string) (result tactic.Tactic, err error) {

@@ -118513,7 +118513,7 @@
         },
         {
           "name": "check-sat-using command dispatch and retained tactic-expression grammar, typed using-params attributes and timeout keyword parsing before command effects",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/parsers/smt2/tactics.go",
           "go_targets": [
             "pkg/parsers/smt2/tactics_test.go",
@@ -118527,7 +118527,7 @@
             "TestSMTLibRunnerCPPReference",
             "TestSMT2TacticCombinatorsAndTypedParameters"
           ],
-          "reason": "Command options now include source timeout/max_memory and print_statistics/print_unsat_core/print_proof/print_model handling before and after execution. The retained concrete tactic/combinator grammar is connected; remaining tactic/probe grammar differences remain under audit."
+          "reason": "Command options include source timeout/max_memory and print_statistics/print_unsat_core/print_proof/print_model handling before and after execution. The tactic grammar covers the source combinators, echo strings/probes, built-in probes including Ackermann bounds, recursive probe expressions, typed using-params attributes and timeout handling; the SMT-LIB parser short suite passes."
         },
         {
           "name": "parse_declare_datatype(s), parse_datatype_dec and parse_constructor_decls: legacy and SMT2.6 nullary/parametric mutually recursive declarations, direct and nested sibling fields, formal sorts, constructor/recognizer/accessor naming, validation and publication after complete command syntax",
