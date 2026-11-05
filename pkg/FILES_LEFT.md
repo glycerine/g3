@@ -139,7 +139,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/opt/maxres.cpp` — MaxRes core extraction/minimization, MUS candidate updates, separate objective and correction-set model tracking, weighted core splitting, resolution proxies, primal-dual bounds, and post-core correction pivots follow the source ordering. Focused MaxRes tests and the full `pkg/opt` short suite pass.
 - [x] `src/opt/maxsmt.cpp` — Soft-term accumulation and normalization, objective/model/bound publication, mutex discovery and decomposition, unknown-engine fallback, and explicit WMax dispatch map to the weighted soft set, MaxRes/SortMax/WMax engines, and result pipeline; the weighted mutex end-to-end regression and focused optimizer checks pass.
 - [x] `src/opt/maxsmt.h` — The MaxSMT solver contracts, bounds, assignment, statistics, model/label access, parameter updates, and commit behavior map to the `maxSMTEngine` interface, typed arithmetic objective state, and result APIs. C++ inheritance, reference/vector containers, and the verbose-only answer stream have no separate Go runtime consumer; focused objective, assignment, bounds, statistics, and WMax engine tests pass.
-- [ ] `src/opt/opt_context.cpp`
+- [x] `src/opt/opt_context.cpp` — Scoped objectives, solver setup, normalization/internalization, lexicographic/box/Pareto execution, model/bound publication, soft constraints, and objective formatting map across `pkg/cmd_context` and `pkg/opt`; benchmark dumping uses the shared SAT display path. The only QSAT optimization branch is disabled by `#if 0` in C++, so it is not a live port target. Focused `cmd_context` and `opt` short suites pass.
 - [ ] `src/opt/opt_context.h`
 - [ ] `src/opt/opt_parse.h`
 - [ ] `src/opt/opt_solver.cpp`
