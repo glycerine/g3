@@ -269,6 +269,72 @@ func TestExternalIntervalRecursiveProgramOptionalWidening(t *testing.T) {
 	}
 }
 
+// The planner is a subcomponent of recursive evaluation: source-only rules
+// must run once as seeds, while each same-SCC tail must become its own delta
+// action. Check this schedule directly, independently of callback execution.
+func TestExternalIntervalProgramPlanSeparatesSeedsAndDeltaActions(t *testing.T) {
+	manager, engine, _ := newExternalIntervalDatalogFixture(t)
+	family, err := manager.RegisterArithmeticPlugin()
+	fragmentMust(t, err)
+	integer, err := manager.MkFamilySort(family, 1, nil)
+	fragmentMust(t, err)
+	kinds := []string{"interval_relation", "external_relation"}
+	p := declareExternalIntervalPredicate(t, manager, engine, "plan-seed-delta-P", []ast.ASTHandle{integer}, kinds)
+	q := declareExternalIntervalPredicate(t, manager, engine, "plan-seed-delta-Q", []ast.ASTHandle{integer}, kinds)
+	zero, err := manager.ArithmeticIntegerNumeralText("0")
+	fragmentMust(t, err)
+	seed, err := manager.MkApp(p, []ast.ASTHandle{zero})
+	fragmentMust(t, err)
+	fragmentMust(t, engine.AddRule(seed, "plan-ground-seed"))
+	addExternalIntervalIdentityRule(t, manager, engine, p, q, []ast.ASTHandle{integer}, "plan-P-to-Q")
+	addExternalIntervalIdentityRule(t, manager, engine, q, p, []ast.ASTHandle{integer}, "plan-Q-to-P")
+
+	program, err := engine.externalIntervalProgramPlan()
+	fragmentMust(t, err)
+	t.Cleanup(func() {
+		for index := len(program.rules) - 1; index >= 0; index-- {
+			fragmentMust(t, program.rules[index].identity.close(manager))
+			fragmentMust(t, program.rules[index].cartesian.close(manager))
+			fragmentMust(t, program.rules[index].ground.close(manager))
+		}
+	})
+	if len(program.strata) != 1 {
+		t.Fatalf("mutually recursive predicates planned into %d strata, want 1", len(program.strata))
+	}
+	stage := program.strata[0]
+	if !stage.cyclic || len(stage.heads) != 2 {
+		t.Fatalf("recursive component classification: cyclic=%t heads=%v", stage.cyclic, stage.heads)
+	}
+	if len(stage.seeds) != 1 || stage.seeds[0] != 0 {
+		t.Fatalf("seed schedule %v, want only the ground fact rule [0]", stage.seeds)
+	}
+	if len(stage.loop) != 2 {
+		t.Fatalf("recursive delta actions %v, want one action per recursive tail", stage.loop)
+	}
+	seen := make(map[[2]int]bool, len(stage.loop))
+	for _, action := range stage.loop {
+		if action.rule < 1 || action.rule > 2 || action.inputTail != 0 {
+			t.Fatalf("invalid recursive delta action %+v", action)
+		}
+		key := [2]int{action.rule, action.inputTail}
+		if seen[key] {
+			t.Fatalf("duplicate recursive delta action %+v", action)
+		}
+		seen[key] = true
+	}
+	if !seen[[2]int{1, 0}] || !seen[[2]int{2, 0}] {
+		t.Fatalf("recursive tails missing from delta schedule: %v", stage.loop)
+	}
+	if len(stage.allLoop) != 3 {
+		t.Fatalf("all-relations loop actions %v, want all three source rules", stage.allLoop)
+	}
+	for _, action := range stage.allLoop {
+		if action.inputTail != -1 {
+			t.Fatalf("all-or-nothing action unexpectedly selects a delta: %+v", action)
+		}
+	}
+}
+
 func modeValue(value bool) string {
 	if value {
 		return "true"

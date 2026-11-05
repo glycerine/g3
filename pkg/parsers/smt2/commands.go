@@ -436,6 +436,19 @@ func (p *commandParser) command() (bool, error) {
 			}
 			break
 		}
+		if p.token == DecimalToken || p.token == BitVectorToken {
+			value := p.scanner.Number()
+			if err = p.advance(); err != nil {
+				return false, err
+			}
+			if err = p.requireEnd(); err != nil {
+				return false, err
+			}
+			if err = p.context.SetNumeralOption(key, value); err != nil {
+				return false, err
+			}
+			break
+		}
 		value, err := p.symbol()
 		if err != nil {
 			return false, err

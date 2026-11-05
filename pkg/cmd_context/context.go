@@ -643,6 +643,57 @@ func (c *Context) SetDoubleOption(name string, value float64) error {
 	return c.globalParametersUpdated()
 }
 
+// SetNumeralOption applies the source set_option_cmd rational-value branch.
+// Generic module parameters retain their catalog type; the three numeric
+// builtins are converted through the source unsigned-machine-integer path.
+func (c *Context) SetNumeralOption(name string, value *big.Rat) error {
+	if err := c.valid(); err != nil {
+		return err
+	}
+	if value == nil {
+		return fmt.Errorf("invalid option value")
+	}
+	name = strings.ReplaceAll(name, "-", "_")
+	switch name {
+	case "random_seed", "verbosity", "reproducible_resource_limit", "timeout", "rlimit":
+		if !value.IsInt() || value.Sign() < 0 || !value.Num().IsUint64() || value.Num().Uint64() > uint64(^uint32(0)) {
+			return fmt.Errorf("option value is too big to fit in a machine integer.")
+		}
+		return c.SetUIntOption(name, uint32(value.Num().Uint64()))
+	case "print_success", "print_warning", "expand_definitions", "interactive_mode", "produce_proofs", "produce_unsat_cores", "produce_unsat_assumptions", "produce_models", "produce_assignments", "produce_interpolants", "regular_output_channel", "diagnostic_output_channel", "global_decls", "global_declarations", "produce_assertions":
+		return fmt.Errorf("option value is not a numeral")
+	}
+	text := rationalOptionText(value)
+	if err := c.config.Globals.SourceSetName(name, text); err != nil {
+		return err
+	}
+	return c.globalParametersUpdated()
+}
+
+func rationalOptionText(value *big.Rat) string {
+	if value.IsInt() {
+		return value.Num().String()
+	}
+	denominator := new(big.Int).Set(value.Denom())
+	two, five := 0, 0
+	for new(big.Int).Mod(denominator, big.NewInt(2)).Sign() == 0 {
+		denominator.Div(denominator, big.NewInt(2))
+		two++
+	}
+	for new(big.Int).Mod(denominator, big.NewInt(5)).Sign() == 0 {
+		denominator.Div(denominator, big.NewInt(5))
+		five++
+	}
+	if denominator.Cmp(big.NewInt(1)) != 0 {
+		return value.RatString()
+	}
+	places := two
+	if five > places {
+		places = five
+	}
+	return value.FloatString(places)
+}
+
 // SetSymbolOption follows set_option_cmd::set_symbol's generic parameter
 // path. The source catalog validates the module/name and parses its type;
 // keeping that typed global value avoids an incorrectly typed local shadow.
