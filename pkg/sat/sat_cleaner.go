@@ -95,7 +95,7 @@ func (c *satCleaner) run(force bool) (done bool, err error) {
 	if e != nil {
 		return false, e
 	}
-	if _, e = p.propagateCore(false); e != nil {
+	if _, e = c.lifecycle.propagate(false); e != nil {
 		return false, e
 	}
 	if p.inconsistent {
@@ -133,7 +133,7 @@ func (c *satCleaner) run(force bool) (done bool, err error) {
 	if e = c.cleanupClauses(true); e != nil {
 		return false, e
 	}
-	if _, e = p.propagateCore(false); e != nil {
+	if _, e = c.lifecycle.propagate(false); e != nil {
 		return false, e
 	}
 	if e = c.assertInvariant(); e != nil {

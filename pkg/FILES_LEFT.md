@@ -164,7 +164,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/qe/qe_tactic.h` — The `mk_qe_tactic` factory signature and the `qe` registration/description map to `NewQuantifierTactic` and the command-context tactic registry; factory validation and source-description checks cover the declaration's public behavior.
 - [x] `src/sat/sat_asymm_branch.cpp` — Clause ordering, bounded propagation-cost search, asymmetric assignments, clause reductions to conflict/unit/binary/general clauses, source exception repair, phase restoration only on normal completion, reporting and statistics map to `satAsymmBranch` operations and continuations. Focused asymmetric branch, report and integrity tests pass; the parsed `asymm_branch.rounds` field is not read by the C++ operator either.
 - [x] `src/sat/sat_asymm_branch.h` — The solver reference, propagation-cost counter, three configuration values, eliminated-literal statistic, callback signatures and `operator(bool force=false)` map to the private `satAsymmBranch` and its typed Go methods; no extra generic interface is needed.
-- [ ] `src/sat/sat_cleaner.cpp`
+- [x] `src/sat/sat_cleaner.cpp` — Watch-list compaction, satisfied/falsified literal removal, frozen-clause conflict/unit handling, binary conversion, clause reattachment, cleanup cost/skip gates, reports and statistics map to `satCleaner`. Both source `solver::propagate(false)` calls now use the lifecycle wrapper so conditional invariant and missed-propagation checks run at the same boundaries; the full short `pkg/sat` suite passes.
 - [ ] `src/sat/sat_cleaner.h`
 - [ ] `src/sat/sat_elim_eqs.h`
 - [ ] `src/sat/sat_extension.h`
