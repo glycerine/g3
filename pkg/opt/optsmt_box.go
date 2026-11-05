@@ -1,6 +1,6 @@
 package opt
 
-// Source: src/opt/optsmt.cpp geometric_opt, update_lower and set_max.
+// Source: src/opt/optsmt.cpp symba_opt, geometric_opt, update_lower and set_max.
 
 import (
 	"errors"
@@ -9,7 +9,9 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -95,8 +97,17 @@ func (s *ArithmeticSolver) CheckBox() (result *ArithmeticResult, resultErr error
 	}()
 	var delta big.Int
 	delta.SetInt64(1)
+	// geometric_opt initializes delta_index to zero. get_max_delta in the
+	// source reports whether an integral objective advanced but does not assign
+	// the index reference, so the jump bound remains attached to objective 0.
+	deltaIndex := uint32(0)
 	var steps, stepIncs uint32
-	status, err = s.geometricBoxSearch(result, &owner, lower, lowerFormulas, &delta, &steps, &stepIncs, &deltaScopes)
+	if s.optsmtEngine == "symba" {
+		status, err = s.symbaBoxSearch(&owner, lowerFormulas)
+	}
+	if err == nil && status == lbool.True {
+		status, err = s.geometricBoxSearch(result, &owner, lower, lowerFormulas, deltaIndex, &delta, &steps, &stepIncs, &deltaScopes)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +142,85 @@ func (s *ArithmeticSolver) CheckBox() (result *ArithmeticResult, resultErr error
 	return result, nil
 }
 
-func (s *ArithmeticSolver) geometricBoxSearch(result *ArithmeticResult, owner *maxSMTASTOwner, lower []simplex.Infinitesimal, lowerFormulas []ast.ASTRef, delta *big.Int, steps, stepIncs *uint32, deltaScopes *uint32) (lbool.LBool, error) {
+func readOptSMTEngine(m *ast.ASTManager, local *uparams.ParamsRef, config smtcore.SMTSolverConfig) (engine string, resultErr error) {
+	globals := config.Globals
+	if globals == nil {
+		globals = config.ModelEvaluator.Globals
+	}
+	if globals == nil {
+		globals = uparams.BorrowProcessGlobalParamsService()
+	}
+	if globals == nil || config.Params == nil {
+		return "basic", nil
+	}
+	params, err := NewParams(config.Params, globals, local)
+	if err != nil {
+		return "", err
+	}
+	defer func() { resultErr = errors.Join(resultErr, params.Close()) }()
+	value, err := params.OptSMTEngine()
+	if err != nil {
+		return "", err
+	}
+	return m.Symbols.String(value)
+}
+
+// symba_opt first asks whether any objective still reaches its current upper
+// endpoint. optsmt::setup initializes those endpoints to +infinity, while the
+// live optimizer context only updates lower endpoints before box execution;
+// therefore every initial endpoint atom is false and the guarded probe is
+// unsatisfiable. The source then asserts the disjunction of the initial true
+// lower formulas and enters geometric_opt.
+func (s *ArithmeticSolver) symbaBoxSearch(owner *maxSMTASTOwner, lowerFormulas []ast.ASTRef) (lbool.LBool, error) {
+	tors := make([]ast.ASTHandle, len(s.objectives))
+	for i := range tors {
+		var err error
+		tors[i], err = s.manager.MkFalse()
+		if err != nil {
+			return lbool.Undef, err
+		}
+	}
+	upperDisjunction, err := s.manager.MkOrArray(tors)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	boolean, err := s.manager.MkBoolSort()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	probe, err := owner.hold(s.manager.MkFreshConst("b", boolean))
+	if err != nil {
+		return lbool.Undef, err
+	}
+	implication, err := owner.hold(s.manager.MkImplies(probe, upperDisjunction))
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if err = s.backend.Assert(implication); err != nil {
+		return lbool.Undef, err
+	}
+	status, err := s.backend.CheckSat([]ast.ASTHandle{probe})
+	if err != nil || status != lbool.False {
+		return status, err
+	}
+	lower := make([]ast.ASTHandle, len(lowerFormulas))
+	for i := range lowerFormulas {
+		lower[i], err = s.manager.RefGet(lowerFormulas[i])
+		if err != nil {
+			return lbool.Undef, err
+		}
+	}
+	bound, err := s.manager.MkOrArray(lower)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if err = s.backend.Assert(bound); err != nil {
+		return lbool.Undef, err
+	}
+	return lbool.True, nil
+}
+
+func (s *ArithmeticSolver) geometricBoxSearch(result *ArithmeticResult, owner *maxSMTASTOwner, lower []simplex.Infinitesimal, lowerFormulas []ast.ASTRef, deltaIndex uint32, delta *big.Int, steps, stepIncs *uint32, deltaScopes *uint32) (lbool.LBool, error) {
 	for {
 		status, err := s.backend.CheckSat(nil)
 		if err != nil {
@@ -234,12 +323,12 @@ func (s *ArithmeticSolver) geometricBoxSearch(result *ArithmeticResult, owner *m
 				return lbool.Undef, err
 			}
 			*deltaScopes++
-			if len(lower) == 0 {
+			if int(deltaIndex) >= len(lower) {
 				return lbool.Undef, ast.ErrASTDomain
 			}
-			jump := lower[0].Clone()
+			jump := lower[deltaIndex].Clone()
 			jump.Main.Add(&jump.Main, new(big.Rat).SetInt(delta))
-			bound, cause := s.backend.MakeObjectiveLowerBound(s.objectives[0].backendIndex, s.filter, jump)
+			bound, cause := s.backend.MakeObjectiveLowerBound(s.objectives[deltaIndex].backendIndex, s.filter, jump)
 			if cause != nil {
 				return lbool.Undef, cause
 			}

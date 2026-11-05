@@ -91,6 +91,7 @@ type ArithmeticSolver struct {
 	backend             *smtcore.SMTSolver
 	manager             *ast.ASTManager
 	config              smtcore.SMTSolverConfig
+	optsmtEngine        string
 	objectives          []arithmeticObjective
 	filter              *tactic.FilterModelConverter
 	preprocessor        tactic.ModelConverter
@@ -125,7 +126,11 @@ func NewArithmeticSolver(m *ast.ASTManager, params *uparams.ParamsRef, logic str
 	if err != nil {
 		return nil, errors.Join(err, backend.Close())
 	}
-	return &ArithmeticSolver{backend: backend, manager: m, config: config, filter: filter}, nil
+	engine, err := readOptSMTEngine(m, params, config)
+	if err != nil {
+		return nil, errors.Join(err, filter.Close(), backend.Close())
+	}
+	return &ArithmeticSolver{backend: backend, manager: m, config: config, filter: filter, optsmtEngine: engine}, nil
 }
 
 func (s *ArithmeticSolver) Assert(formula ast.ASTHandle) error {
