@@ -5,6 +5,47 @@ package rel
 
 import "github.com/glycerine/g3/pkg/ast"
 
+// JoinFiniteTables constructs the DOC/table product for two raw table inputs.
+// The DOC side is full; the finite side performs the actual source join.
+func JoinFiniteTables(manager *RelationManager, factory *UDocRelationFactory, leftSorts []ast.ASTHandle, left FiniteTable, rightSorts []ast.ASTHandle, right FiniteTable, leftColumns, rightColumns []uint32) (*UDocTableProduct, error) {
+	if manager == nil || manager.open() != nil || factory == nil || factory.open() != nil || factory.manager != manager.manager || left == nil || right == nil || rawUDocProductFiniteKind(left) == 0 || rawUDocProductFiniteKind(right) == 0 || len(leftColumns) != len(rightColumns) {
+		return nil, ErrUDocTableProduct
+	}
+	leftSignature, err := tableRelationSignature(manager, leftSorts)
+	if err != nil {
+		return nil, err
+	}
+	rightSignature, err := tableRelationSignature(manager, rightSorts)
+	if err != nil {
+		return nil, err
+	}
+	actual, err := left.Signature()
+	if err != nil || !leftSignature.equal(actual) {
+		return nil, ErrUDocTableProduct
+	}
+	actual, err = right.Signature()
+	if err != nil || !rightSignature.equal(actual) {
+		return nil, ErrUDocTableProduct
+	}
+	for i, column := range leftColumns {
+		if column >= uint32(len(leftSorts)) || rightColumns[i] >= uint32(len(rightSorts)) || leftSorts[column] != rightSorts[rightColumns[i]] {
+			return nil, ErrUDocTableProduct
+		}
+	}
+	sorts := append(append([]ast.ASTHandle(nil), leftSorts...), rightSorts...)
+	joinedLeft, joinedRight := make([]int, len(leftColumns)), make([]int, len(rightColumns))
+	for i := range leftColumns {
+		joinedLeft[i], joinedRight[i] = int(leftColumns[i]), int(rightColumns[i])
+	}
+	a := newUDocTableProductAttempt(manager)
+	var cause error
+	a.product.doc, cause = NewFullUDocSieve(factory, sorts)
+	if cause == nil {
+		a.product.table, cause = finiteTableJoin(left, right, joinedLeft, joinedRight)
+	}
+	return a.finish(cause)
+}
+
 func rawUDocProductFiniteKind(table FiniteTable) uint8 {
 	switch table.(type) {
 	case *HashTable:

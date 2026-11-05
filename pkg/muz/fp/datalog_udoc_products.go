@@ -821,7 +821,7 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 				if !ready || len(plan.multi) == 0 {
 					continue
 				}
-				canStart := plan.multiStartKind == 0 || plan.multi[0].kind == 0 || plan.multiStartKind == 1 && plan.multi[0].kind == 2 || plan.multiStartKind == 2 && plan.multi[0].kind == 1
+				canStart := plan.multiStartKind == 0 || plan.multi[0].kind == 0 || plan.multiStartKind == 1 && plan.multi[0].kind == 2 || plan.multiStartKind == 2 && (plan.multi[0].kind == 1 || plan.multi[0].kind == 2)
 				if !canStart {
 					continue
 				}

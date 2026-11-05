@@ -17,7 +17,7 @@ func (c *datalogUDocContext) syncProducts(e *PropositionalEngine, program *udocP
 	if c.products == nil {
 		c.products = &udocProductContext{}
 	}
-	if err := c.products.sync(e.relations, program); err != nil {
+	if err := c.products.sync(e.relations, c.factory, program); err != nil {
 		return err
 	}
 	// Rebuild borrowed input metadata so a previous finite-forwarding owner

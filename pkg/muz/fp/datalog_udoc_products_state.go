@@ -11,6 +11,7 @@ import (
 type udocProductContext struct {
 	program       *udocProductProgram
 	manager       *rel.RelationManager
+	factory       *rel.UDocRelationFactory
 	seeds, result map[ast.ASTHandle]*rel.UDocTableProduct
 	borrowedSeeds map[ast.ASTHandle]*rel.UDocTableProduct
 	pending       []*udocProductAttempt
@@ -112,7 +113,7 @@ func (p *udocProductContext) close() error {
 		}
 		delete(p.seeds, d)
 	}
-	p.borrowedSeeds, p.manager, p.program = nil, nil, nil
+	p.borrowedSeeds, p.manager, p.factory, p.program = nil, nil, nil, nil
 	return nil
 }
 
@@ -122,11 +123,11 @@ func (p *udocProductContext) clone() *udocProductContext {
 	}
 	// newQueryClone immediately calls sync with its new relation manager.
 	// Until then these seeds are borrowed from the still-live parent context.
-	return &udocProductContext{program: p.program, borrowedSeeds: p.seeds, seeds: make(map[ast.ASTHandle]*rel.UDocTableProduct)}
+	return &udocProductContext{program: p.program, manager: p.manager, factory: p.factory, borrowedSeeds: p.seeds, seeds: make(map[ast.ASTHandle]*rel.UDocTableProduct)}
 }
 
-func (p *udocProductContext) sync(manager *rel.RelationManager, program *udocProductProgram) (resultErr error) {
-	p.manager, p.program = manager, program
+func (p *udocProductContext) sync(manager *rel.RelationManager, factory *rel.UDocRelationFactory, program *udocProductProgram) (resultErr error) {
+	p.manager, p.factory, p.program = manager, factory, program
 	if p.seeds == nil {
 		p.seeds = make(map[ast.ASTHandle]*rel.UDocTableProduct)
 	}

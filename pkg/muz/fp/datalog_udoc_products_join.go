@@ -220,6 +220,12 @@ func (p *udocProductContext) joinMultiFirst(first ast.ASTHandle, firstKind uint8
 				return nil, nil
 			}
 			return rel.JoinFiniteUDoc(p.manager, sorts, table, document, leftColumns, rightColumns)
+		case 2:
+			other := finite[second.declaration]
+			if other == nil {
+				return nil, nil
+			}
+			return rel.JoinFiniteTables(p.manager, p.factory, sorts, table, second.sorts, other, leftColumns, rightColumns)
 		}
 	}
 	return nil, ErrUDocDatalogFragment
