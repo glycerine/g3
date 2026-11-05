@@ -434,6 +434,59 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 	}
 	selected := c.optimizationBoxNext
 	c.optimizationBoxNext++
+	allArithmetic := true
+	for i := range c.objectives {
+		if c.objectives[i].soft {
+			allArithmetic = false
+			break
+		}
+	}
+	if allArithmetic {
+		optimizer, err := c.newOptimizer(assumptions)
+		if err != nil {
+			return nil, err
+		}
+		for i := range c.objectives {
+			if err = c.addOptimizerObjective(optimizer, i); err != nil {
+				return nil, errors.Join(err, optimizer.Close())
+			}
+		}
+		combined, err := optimizer.CheckBox()
+		err = errors.Join(err, optimizer.Close())
+		if err != nil {
+			if combined != nil {
+				err = errors.Join(err, combined.Close())
+			}
+			return nil, err
+		}
+		if combined.Status != lbool.True || !combined.Optimal || len(combined.ObjectiveModels) != len(c.objectives) {
+			if combined.Status == lbool.Undef {
+				c.optimizationBoxReasonUnknown = combined.ReasonUnknown
+			}
+			return combined, nil
+		}
+		c.optimizationBoxLabels = append(c.optimizationBoxLabels[:0], combined.InitialLabels...)
+		c.optimizationBoxModels = combined.ObjectiveModels
+		combined.ObjectiveModels = nil
+		c.optimizationBoxValues = cloneOptimizationBoxValues(combined.Values)
+		if selected >= len(c.optimizationBoxModels) || c.optimizationBoxModels[selected] == nil {
+			return nil, errors.Join(ast.ErrASTHandle, c.clearOptimizationBoxModels(), combined.Close())
+		}
+		if err = c.optimizationBoxModels[selected].IncRef(); err != nil {
+			return nil, errors.Join(err, c.clearOptimizationBoxModels(), combined.Close())
+		}
+		if combined.Model != nil {
+			initialModel := combined.Model
+			combined.Model = nil
+			if err = initialModel.DecRef(); err != nil {
+				_ = c.optimizationBoxModels[selected].DecRef()
+				return nil, errors.Join(err, c.clearOptimizationBoxModels(), combined.Close())
+			}
+		}
+		combined.Model = c.optimizationBoxModels[selected]
+		c.optimizationBoxActive = true
+		return combined, nil
+	}
 	combined := &opt.ArithmeticResult{Status: lbool.True, Values: make([]opt.ObjectiveValue, len(c.objectives)), Optimal: true}
 	var boxModels []*model.ModelCore
 	defer func() {

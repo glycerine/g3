@@ -47,9 +47,12 @@ type ArithmeticResult struct {
 	ReasonUnknown string
 	Values        []ObjectiveValue
 	Model         *model.ModelCore
-	Optimal       bool
-	MaxSMT        []MaxSMTStatistics
-	Labels        []usymbol.Symbol
+	// ObjectiveModels holds the independent best-model snapshots produced by
+	// source box optimization, in objective registration order.
+	ObjectiveModels []*model.ModelCore
+	Optimal         bool
+	MaxSMT          []MaxSMTStatistics
+	Labels          []usymbol.Symbol
 	// InitialLabels captures the initial satisfiable check before improvement;
 	// opt_context::execute_box preserves these across arithmetic box models.
 	InitialLabels  []usymbol.Symbol
@@ -58,12 +61,25 @@ type ArithmeticResult struct {
 }
 
 func (r *ArithmeticResult) Close() error {
-	if r == nil || r.Model == nil {
+	if r == nil {
 		return nil
 	}
-	err := r.Model.DecRef()
-	if err == nil {
-		r.Model = nil
+	var err error
+	if r.Model != nil {
+		err = errors.Join(err, r.Model.DecRef())
+		if err == nil {
+			r.Model = nil
+		}
+	}
+	for i := len(r.ObjectiveModels) - 1; i >= 0; i-- {
+		if r.ObjectiveModels[i] == nil {
+			continue
+		}
+		if closeErr := r.ObjectiveModels[i].DecRef(); closeErr == nil {
+			r.ObjectiveModels[i] = nil
+		} else {
+			err = errors.Join(err, closeErr)
+		}
 	}
 	return err
 }

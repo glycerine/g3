@@ -8,6 +8,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -223,4 +224,24 @@ func (s *SMTSolver) SavedObjectiveValue(index uint32) (SMTArithmeticObjectiveVal
 		return SMTArithmeticObjectiveValue{}, err
 	}
 	return cloneOptimizationValue(objective.saved), nil
+}
+
+// AcquireSavedObjectiveModel returns an independently owned reference to the
+// model snapshot saved when this objective was last maximized. Box optimization
+// keeps one best model per objective while continuing the joint search.
+func (s *SMTSolver) AcquireSavedObjectiveModel(index uint32) (*model.ModelCore, error) {
+	if _, err := s.objective(index); err != nil {
+		return nil, err
+	}
+	if s.optimization == nil || uint64(index) >= uint64(len(s.optimization.models)) {
+		return nil, ast.ErrASTDomain
+	}
+	md := s.optimization.models[index]
+	if md == nil {
+		return nil, nil
+	}
+	if err := md.IncRef(); err != nil {
+		return nil, err
+	}
+	return md, nil
 }
