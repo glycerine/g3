@@ -95,18 +95,27 @@ func (s *exprQuantifierExtract) Close() error {
 	if s == nil || s.manager == nil {
 		return nil
 	}
+	var result error
 	if s.body != (ast.ASTRef{}) {
-		if err := s.manager.DelRef(&s.body); err != nil {
-			return err
+		result = errors.Join(result, s.manager.DelRef(&s.body))
+	}
+	for i := len(s.variables) - 1; i >= 0; i-- {
+		if s.variables[i] != (ast.ASTRef{}) {
+			result = errors.Join(result, s.manager.DelRef(&s.variables[i]))
 		}
 	}
-	for len(s.variables) > 0 {
-		i := len(s.variables) - 1
-		if err := s.manager.DelRef(&s.variables[i]); err != nil {
-			return err
+	if result == nil {
+		s.manager = nil
+		s.variables = nil
+	} else {
+		// Keep failed references reachable so a later Close can retry them.
+		remaining := s.variables[:0]
+		for _, ref := range s.variables {
+			if ref != (ast.ASTRef{}) {
+				remaining = append(remaining, ref)
+			}
 		}
-		s.variables = s.variables[:i]
+		s.variables = remaining
 	}
-	s.manager = nil
-	return nil
+	return result
 }
