@@ -96717,7 +96717,7 @@
       "path": "src/muz/rel/dl_finite_product_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/rel/finite_explanation_display.go",
         "pkg/muz/rel/finite_explanation_display_test.go",
@@ -97139,8 +97139,8 @@
           "text": "SASSERT(fact.size() == fact_sz);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {"name": "registered explanation-product clone for manager load/store registers", "status": "ported", "go_targets": ["pkg/muz/rel/finite_explanation_product.go", "pkg/muz/rel/relation_manager_explanation.go", "pkg/muz/rel/instruction_explanation_io_test.go"], "tests": ["TestExplanationRelationInstructionsLoadCloneStoreAndReset"], "reason": "Copies finite keys and independently owned explanation rows for the concrete specialization used by relation-manager execution registers; broader product operation dispatch remains partial."},
         {"name": "registered explanation-product output conversion and converting union into table/delta", "status": "ported", "go_targets": ["pkg/muz/rel/finite_explanation_output.go", "pkg/muz/rel/finite_explanation_output_test.go"], "tests": ["TestFiniteExplanationProjectionConvertsAndUnionsIntoTables", "TestFiniteExplanationOutputNullaryAndDomainGuards"], "reason": "Requires zero remaining explanation columns; collects empty/unreferenced inner owners, removes functional index and delegates typed table union with preserved delta. General compiler product dispatch remains separate."},
@@ -97353,7 +97353,7 @@
         "The product owns its sparse table and interval relations, and borrows its manager and sort handles."
       ],
       "deviations": [
-        "Concrete sparse-inner products support split-layer and converting joins, unaligned union, and complement within source per-layer single-data-column limits; explanation/table converting joins are also implemented. Broader specialization/manager/compiler dispatch and ownership/failure-frontier audits remain pending.",
+        "The finite-product plugin has two concrete source-reached inner specializations: SparseRelation is constructed by the source relation tests, and ExplanationRelation is registered by dl_mk_explanations.cpp. Go maps these to FiniteSparseProduct and FiniteExplanationProduct, including nested table/index ownership, converting joins, projection, union/delta, filters, complement, and explanation output conversion. The C++ class can be instantiated for arbitrary inner plugins, but no retained source constructor reaches additional specializations; Go does not add a universal adapter for them.",
         "Source formula construction assumes finite columns lead the signature even when actual column layouts are interleaved; Go follows this behavior.",
         "Source interval clone splits column equivalence classes while copying representative bounds; Go follows this behavior.",
         "Finite/interval full construction allows at most one outer finite data column; sparse-inner complement/full additionally allows at most one inner data column.",
