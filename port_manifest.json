@@ -98176,7 +98176,7 @@
       "path": "src/muz/rel/dl_lazy_table.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go", "pkg/muz/rel/lazy_table_interpreted.go", "pkg/muz/rel/lazy_table_interpreted_test.go", "pkg/muz/rel/lazy_table_interpreted_validation_test.go", "pkg/muz/rel/lazy_table_interpreted_retry_test.go", "pkg/muz/rel/lazy_table_interpreted_transfer_test.go", "pkg/muz/rel/lazy_table_ownership.go", "pkg/muz/rel/table_join_project.go"],
       "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableJoinProjectFusionProducesOneEmptyTuple", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableSelectEqualOtherProjectionUsesFallback", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableBulkRemoveForcesLikeSource", "TestLazyTableInterpretedFilterRetainsConditionAcrossSharedNodes", "TestLazyTableInterpretedFilterProjectFusion", "TestLazyTableEngineCloseReleasesConditionOwners", "TestLazyTableInterpretedFilterValidatesBeforeRetainingAST", "TestLazyTableMutatingFiltersTransferCachedTables", "TestLazyTableFixedSizeEstimatesRemainDeferred", "TestLazyTableGeneralProjectionAndRenameStatistics"],
       "assertions": [
@@ -98237,8 +98237,8 @@
           "text": "SASSERT(m);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "lazy_table::remove_facts overloads force the deferred table and forward the bulk removal span (dl_lazy_table.cpp:298-302)",
@@ -98298,7 +98298,7 @@
         }
       ],
       "ownership": ["Mutating force nodes own the transferred concrete table; if child cleanup refuses, the node preserves that table for retry instead of publishing or losing it. Interpreted filter nodes retain their AST condition through deferred execution and retry, and the finite factory owns migrated sparse bases and every outstanding lazy handle until close."],
-      "deviations": ["The live fixedpoint representation selector installs concrete LazySparse tables; compiled bytecode preserves typed deferred results and emits interpreted-filter/project fusion. Ordinary formula-checked finite query scopes use interpreted execution; relation-level explanation compilation has concrete formula-checked dispatch. Broader plugin/source assertion audits remain open."]
+      "deviations": ["The Go port implements the live sparse-table specialization with concrete LazySparse types and typed bytecode dispatch instead of a generic table-plugin wrapper. Compiled execution preserves deferred evaluation and source fusion opportunities; ordinary formula-checked scopes and relation-level explanation compilation use their concrete checked-table paths. C++ dynamic-cast and assertion scaffolding has no separate runtime behavior beyond those typed paths."]
     },
     {
       "path": "src/muz/rel/dl_lazy_table.h",
