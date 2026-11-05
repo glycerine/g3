@@ -81,6 +81,54 @@ func closePartitionRefs(manager *ast.ASTManager, refs ...*ast.ASTRef) (err error
 	return err
 }
 
+// rewritePartitionAnd matches the default bool_rewriter::mk_and used by
+// conjunctions::get_partition: it removes true and repeated literals,
+// returns false for false or a complementary pair, and otherwise preserves
+// the original conjunction shape and order.
+func rewritePartitionAnd(manager *ast.ASTManager, args []ast.ASTHandle) (ast.ASTHandle, error) {
+	filtered := make([]ast.ASTHandle, 0, len(args))
+	positive := make(map[ast.ASTHandle]bool, len(args))
+	negative := make(map[ast.ASTHandle]bool, len(args))
+	changed := false
+	for _, arg := range args {
+		if manager.IsTrue(arg) {
+			changed = true
+			continue
+		}
+		if manager.IsFalse(arg) {
+			return manager.MkFalse()
+		}
+		isNot, atom, err := manager.IsNot(arg)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if isNot {
+			if negative[atom] {
+				changed = true
+				continue
+			}
+			if positive[atom] {
+				return manager.MkFalse()
+			}
+			negative[atom] = true
+		} else {
+			if positive[arg] {
+				changed = true
+				continue
+			}
+			if negative[arg] {
+				return manager.MkFalse()
+			}
+			positive[arg] = true
+		}
+		filtered = append(filtered, arg)
+	}
+	if changed {
+		args = filtered
+	}
+	return manager.MkAndArray(args)
+}
+
 // GetPartition returns owning references. Closed conjuncts mention none of the
 // supplied variables; mixed conjuncts mention a variable and an uninterpreted
 // application; open conjuncts include both mixed and purely interpreted ones.
@@ -183,7 +231,7 @@ func (p *ConjunctionPartitioner) GetPartition(formula ast.ASTHandle, variables [
 			result = errors.Join(result, closePartitionRefs(p.manager, &closed, &mixed, &open))
 		}
 	}()
-	h, err := p.manager.MkAndArray(closedHandles)
+	h, err := rewritePartitionAnd(p.manager, closedHandles)
 	if err != nil {
 		return closed, mixed, open, err
 	}
@@ -191,7 +239,7 @@ func (p *ConjunctionPartitioner) GetPartition(formula ast.ASTHandle, variables [
 	if err != nil {
 		return closed, mixed, open, err
 	}
-	h, err = p.manager.MkAndArray(mixedHandles)
+	h, err = rewritePartitionAnd(p.manager, mixedHandles)
 	if err != nil {
 		return closed, mixed, open, err
 	}
@@ -199,7 +247,7 @@ func (p *ConjunctionPartitioner) GetPartition(formula ast.ASTHandle, variables [
 	if err != nil {
 		return closed, mixed, open, err
 	}
-	h, err = p.manager.MkAndArray(openHandles)
+	h, err = rewritePartitionAnd(p.manager, openHandles)
 	if err != nil {
 		return closed, mixed, open, err
 	}

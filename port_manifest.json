@@ -120391,6 +120391,20 @@
       "methods": [
         {"name": "extract_vars owns newly created quantifier constants before further allocation (qe.cpp:2285 onward)", "status": "partial", "go_targets": ["pkg/qe/expr_quantifier_extract.go", "pkg/muz/base/rule_unbound_quantifier_failure_test.go"], "tests": ["TestRuleFixUnboundQuantifierReferenceFailure"], "reason": "The extracted constant owner is reserved before construction; fixedpoint reference-pressure cases exercise the QE consumer and retry. Refused cleanup of partially extracted owners remains open."},
         {
+          "name": "conjunctions::get_partition and partition_vars: classify source uninterpreted terms, simplify the three partitions, and form majority/shared plus union-find variable groups",
+          "status": "ported",
+          "go_targets": [
+            "pkg/qe/conjunction_partition.go",
+            "pkg/qe/expr_quantifier_tree_partition.go"
+          ],
+          "tests": [
+            "TestConjunctionPartitionSourceClassification",
+            "TestConjunctionPartitionMajorityAndUnionOrdering",
+            "TestExprQETreePartitionSeparatesIndependentVariables",
+            "TestExprQETreeClosedPartitionCompletesModelAndBlocks"
+          ]
+        },
+        {
           "name": "Retained extract_vars helper/declaration reached by qsat::elim_rec: declaration-order fresh x constants, standard-order variable substitution and inverse shift of the complete supplied vector length",
           "status": "ported",
           "go_targets": [
