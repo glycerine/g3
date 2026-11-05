@@ -97,22 +97,18 @@ func (c *externalIntervalDatalogCompiler) externalIntervalProgramPlan() (*extern
 		if cause != nil {
 			return nil, cause
 		}
-		total, cause := rule.TailSize()
 		plan := externalIntervalDatalogProgramRule{}
+		positive, cause := rule.PositiveTailSize()
 		if cause == nil {
-			var positive int
-			positive, cause = rule.PositiveTailSize()
-			if cause == nil {
-				switch {
-				case total == 0:
-					plan.ground, cause = c.externalIntervalGroundRule(rule)
-				case positive == 1:
-					plan.identity, cause = c.externalIntervalIdentityRulePlan(rule)
-				case positive == 2:
-					plan.cartesian, cause = c.externalIntervalCartesianRule(rule)
-				default:
-					cause = ErrExternalIntervalDatalogFragment
-				}
+			switch {
+			case positive == 0:
+				plan.ground, cause = c.externalIntervalGroundRule(rule)
+			case positive == 1:
+				plan.identity, cause = c.externalIntervalIdentityRulePlan(rule)
+			case positive == 2:
+				plan.cartesian, cause = c.externalIntervalCartesianRule(rule)
+			default:
+				cause = ErrExternalIntervalDatalogFragment
 			}
 		}
 		cause = errors.Join(cause, rule.Close())

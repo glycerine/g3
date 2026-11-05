@@ -165,6 +165,13 @@ func (c *externalIntervalDatalogCompiler) externalIntervalGroundRule(rule *base.
 			headSources[i] = source
 			continue
 		}
+		isValue, cause := c.manager.IsValue(value)
+		if cause != nil {
+			return nil, fmt.Errorf("ground head argument %d value: %w", i, cause)
+		}
+		if !isValue {
+			return nil, ErrExternalIntervalDatalogFragment
+		}
 		_, _, numeral, cause := c.manager.ArithmeticNumeralText(value)
 		if cause != nil {
 			return nil, fmt.Errorf("ground head argument %d numeral: %w", i, cause)

@@ -1,6 +1,7 @@
 package fp
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"reflect"
@@ -322,13 +323,26 @@ func TestExternalIntervalDatalogUnaryGuardRejectsUnsupportedBeforeCallbacks(t *t
 		t.Run(shape, func(t *testing.T) {
 			tail, head := []int{0}, []uint32{0}
 			guard := externalIntervalUnaryGuardSpec{op: "<", left: 0, bound: "3"}
+			var facts []string
 			switch shape {
 			case "unbound-guard":
 				guard.left = 1
+				facts = []string{"7"}
 			}
 			_, engine, callbacks, _, q, _ := newExternalIntervalUnaryGuardFixture(t,
-				[]string{"external_relation", "interval_relation"}, tail, head, nil, false, shape == "negative-tail", []externalIntervalUnaryGuardSpec{guard})
+				[]string{"external_relation", "interval_relation"}, tail, head, facts, false, shape == "negative-tail", []externalIntervalUnaryGuardSpec{guard})
 			status, err := engine.QueryPredicate(q)
+			if shape == "unbound-guard" {
+				if status != lbool.Undef || err != nil || engine.externalIntervalDatalog == nil || operationCount(callbacks.operations, ast.DatalogOpUnion) == 0 {
+					t.Fatal("condition-only variable was not materialized and filtered", status, err, callbacks.operations)
+				}
+				var display bytes.Buffer
+				fragmentMust(t, engine.externalIntervalDatalog.entries[q].product.Display(&display))
+				if !strings.Contains(display.String(), "0 in [7, 7]") {
+					t.Fatal("guard-only variable changed the bound head tuple", display.String())
+				}
+				return
+			}
 			if status != lbool.Undef || !errors.Is(err, ErrExternalIntervalDatalogFragment) || engine.externalIntervalDatalog != nil || len(callbacks.operations) != 0 {
 				t.Fatal("unsupported guard reached activation or callbacks", status, err, callbacks.operations)
 			}

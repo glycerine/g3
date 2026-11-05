@@ -6,6 +6,7 @@ package fp
 import (
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
@@ -31,6 +32,7 @@ type externalIntervalDatalogCartesianRule struct {
 	headConstants []externalIntervalCartesianHeadConstant
 	headUnbound   []externalIntervalCartesianHeadVariable
 	headAdditions []externalIntervalCartesianHeadAddition
+	conditionAdds []int
 	duplicates    []uint32
 	renames       [][]uint32
 	condition     *externalIntervalUnaryCondition
@@ -79,7 +81,7 @@ func sameExternalIntervalCartesianRule(left, right *externalIntervalDatalogCarte
 		!externalIntervalColumnsEqual(left.filterRemoved, right.filterRemoved) ||
 		!externalIntervalColumnsEqual(left.headRemoved, right.headRemoved) || len(left.constants) != len(right.constants) ||
 		len(left.headConstants) != len(right.headConstants) || len(left.headUnbound) != len(right.headUnbound) ||
-		len(left.headAdditions) != len(right.headAdditions) ||
+		len(left.headAdditions) != len(right.headAdditions) || len(left.conditionAdds) != len(right.conditionAdds) ||
 		!externalIntervalColumnsEqual(left.duplicates, right.duplicates) ||
 		!sameExternalIntervalUnaryCondition(left.condition, right.condition) || len(left.renames) != len(right.renames) {
 		return false
@@ -103,6 +105,11 @@ func sameExternalIntervalCartesianRule(left, right *externalIntervalDatalogCarte
 	}
 	for i, addition := range left.headAdditions {
 		if addition != right.headAdditions[i] {
+			return false
+		}
+	}
+	for i, addition := range left.conditionAdds {
+		if addition != right.conditionAdds[i] {
 			return false
 		}
 	}
@@ -217,6 +224,13 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 				return nil, ErrExternalIntervalDatalogFragment
 			}
 			if kind != ast.ASTVar {
+				isValue, cause := c.manager.IsValue(argument)
+				if cause != nil {
+					return nil, cause
+				}
+				if !isValue {
+					return nil, ErrExternalIntervalDatalogFragment
+				}
 				_, _, numeral, cause := c.manager.ArithmeticNumeralText(argument)
 				if cause != nil {
 					return nil, cause
@@ -287,11 +301,13 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 	wanted := make(map[uint32]bool)
 	needed := make(map[uint32]uint32)
 	unsafeSorts := make(map[uint32]ast.ASTHandle)
+	conditionOnlySorts := make(map[uint32]ast.ASTHandle)
 	for column, argument := range arguments[0] {
 		if !argument.numeral.IsNull() {
 			continue
 		}
 		variable := argument.variable
+		wanted[variable] = true
 		source, found := last[variable]
 		if !found {
 			if sort, exists := unsafeSorts[variable]; exists && sort != sorts[0][column] {
@@ -303,7 +319,6 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 		if joinedSorts[source] != sorts[0][column] {
 			return nil, ErrExternalIntervalDatalogFragment
 		}
-		wanted[variable] = true
 		needed[variable]++
 	}
 	if total > 2 {
@@ -335,6 +350,40 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 			if kind != ast.ASTApp || sort != boolean {
 				return nil, ErrExternalIntervalDatalogFragment
 			}
+			operator, cause := c.manager.GetDeclKind(guard)
+			if cause != nil {
+				return nil, cause
+			}
+			if operator == ast.ASTOpEq {
+				count, cause := c.manager.GetNumArgs(guard)
+				if cause != nil {
+					return nil, cause
+				}
+				for column := uint32(0); column < count; column++ {
+					argument, cause := c.manager.GetArg(guard, column)
+					if cause != nil {
+						return nil, cause
+					}
+					argumentKind, cause := c.manager.GetKind(argument)
+					if cause != nil {
+						return nil, cause
+					}
+					if argumentKind == ast.ASTVar {
+						continue
+					}
+					isValue, cause := c.manager.IsValue(argument)
+					if cause != nil {
+						return nil, cause
+					}
+					_, _, numeral, cause := c.manager.ArithmeticNumeralText(argument)
+					if cause != nil {
+						return nil, cause
+					}
+					if !isValue || !numeral {
+						return nil, ErrExternalIntervalDatalogFragment
+					}
+				}
+			}
 			if cause := used.Collect(guard); cause != nil {
 				return nil, cause
 			}
@@ -344,11 +393,24 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 					continue
 				}
 				column, bound := last[variable]
-				if !bound || joinedSorts[column] != sort {
-					return nil, ErrExternalIntervalDatalogFragment
-				}
-				if needed[variable] == 0 {
-					needed[variable] = 1
+				if bound {
+					if joinedSorts[column] != sort {
+						return nil, ErrExternalIntervalDatalogFragment
+					}
+					if needed[variable] == 0 {
+						needed[variable] = 1
+					}
+				} else if prior, found := unsafeSorts[variable]; found {
+					if prior != sort {
+						return nil, ErrExternalIntervalDatalogFragment
+					}
+					conditionOnlySorts[variable] = sort
+				} else if prior, found := conditionOnlySorts[variable]; found {
+					if prior != sort {
+						return nil, ErrExternalIntervalDatalogFragment
+					}
+				} else {
+					conditionOnlySorts[variable] = sort
 				}
 			}
 			condition.source = append(condition.source, guard)
@@ -377,13 +439,30 @@ func (c *externalIntervalDatalogCompiler) externalIntervalCartesianRule(rule *ba
 			projectedArguments = append(projectedArguments, argument)
 		}
 	}
+	var conditionOnlyVariables []uint32
+	for variable := range conditionOnlySorts {
+		conditionOnlyVariables = append(conditionOnlyVariables, variable)
+	}
+	sort.Slice(conditionOnlyVariables, func(i, j int) bool { return conditionOnlyVariables[i] < conditionOnlyVariables[j] })
+	for _, variable := range conditionOnlyVariables {
+		column := uint32(len(projectedArguments))
+		surviving[variable] = column
+		index := len(plan.headUnbound)
+		plan.headUnbound = append(plan.headUnbound, externalIntervalCartesianHeadVariable{sort: conditionOnlySorts[variable]})
+		plan.conditionAdds = append(plan.conditionAdds, index)
+		projectedArguments = append(projectedArguments, externalIntervalCartesianArgument{variable: variable})
+	}
 	filteredArguments := projectedArguments
 	if plan.condition != nil {
 		for column, argument := range projectedArguments {
 			if argument.numeral.IsNull() && surviving[argument.variable] == uint32(column) {
 				variable := argument.variable
+				variableSort := conditionOnlySorts[variable]
+				if variableSort.IsNull() {
+					variableSort = joinedSorts[last[variable]]
+				}
 				plan.condition.bindings = append(plan.condition.bindings, externalIntervalUnaryConditionBinding{
-					variable: variable, column: surviving[variable], sort: joinedSorts[last[variable]],
+					variable: variable, column: surviving[variable], sort: variableSort,
 				})
 			}
 		}
@@ -654,6 +733,11 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 	}
 	finishEmpty := func() error {
 		if len(a.cartesian.headAssemblyAdditions()) == 0 {
+			for _, index := range a.cartesian.conditionAdds {
+				if _, cause := registers.totalRelation(a.cartesian.head, a.cartesian.headUnbound[index].sort); cause != nil {
+					return rollback(cause)
+				}
+			}
 			return finish()
 		}
 		// Source make_empty retires the current relation before later
@@ -664,6 +748,11 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 		}
 		if cause := registers.initializeCartesianHeadConstants(a.cartesian); cause != nil {
 			return rollback(cause)
+		}
+		for _, index := range a.cartesian.conditionAdds {
+			if _, cause := registers.totalRelation(a.cartesian.head, a.cartesian.headUnbound[index].sort); cause != nil {
+				return rollback(cause)
+			}
 		}
 		return finish()
 	}
@@ -713,6 +802,15 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalCartesian() e
 				return rollback(cause)
 			}
 			empty, cause = owner.temporary.Empty()
+			if cause != nil {
+				return rollback(cause)
+			}
+			if empty {
+				return finishEmpty()
+			}
+		}
+		for _, index := range a.cartesian.conditionAdds {
+			empty, cause = owner.appendHeadTotal(a.cartesian.head, a.cartesian.headUnbound[index])
 			if cause != nil {
 				return rollback(cause)
 			}

@@ -1,7 +1,9 @@
 package fp
 
 import (
+	"bytes"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -466,6 +468,26 @@ func TestExternalIntervalDatalogCartesianPreflightsShapesBeforeCallbacks(t *test
 				}
 				if status != lbool.Undef || engine.externalIntervalDatalog == nil || operationCount(callbacks.operations, ast.DatalogOpJoin) == 0 || operationCount(callbacks.operations, ast.DatalogOpUnion) == 0 {
 					t.Fatal("recursive Cartesian program did not run its delta rounds", status, callbacks.operations)
+				}
+				return
+			}
+			if shape == "unbound-guard" {
+				one, cause := manager.ArithmeticIntegerNumeralText("1")
+				fragmentMust(t, cause)
+				two, cause := manager.ArithmeticIntegerNumeralText("2")
+				fragmentMust(t, cause)
+				fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{one}))
+				fragmentMust(t, engine.AddFact(q, []ast.ASTHandle{two}))
+				resetExternalIntervalCartesianCallbacks(callbacks)
+				status, queryErr := engine.QueryPredicate(headDeclaration)
+				fragmentMust(t, queryErr)
+				if status != lbool.Undef || operationCount(callbacks.operations, ast.DatalogOpJoin) < 2 || operationCount(callbacks.operations, ast.DatalogOpFilter) != 1 || operationCount(callbacks.operations, ast.DatalogOpUnion) != 1 {
+					t.Fatal("condition-only Cartesian guard variable was not materialized and filtered", status, callbacks.operations)
+				}
+				var display bytes.Buffer
+				fragmentMust(t, engine.externalIntervalDatalog.entries[headDeclaration].product.Display(&display))
+				if !strings.Contains(display.String(), "0 in [1, 1]") || !strings.Contains(display.String(), "1 in [2, 2]") {
+					t.Fatal("condition-only Cartesian guard changed the head tuple", display.String())
 				}
 				return
 			}

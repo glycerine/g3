@@ -18,6 +18,7 @@ type externalIntervalDatalogUnaryTransform struct {
 	headConstants   []externalIntervalCartesianHeadConstant
 	headUnbound     []externalIntervalCartesianHeadVariable
 	headAdditions   []externalIntervalCartesianHeadAddition
+	conditionAdds   []int
 	duplicates      []uint32
 	identical       [][]uint32
 	filterRemoved   []uint32
@@ -83,7 +84,7 @@ func sameExternalIntervalUnaryTransform(left, right *externalIntervalDatalogUnar
 	if !sameExternalIntervalUnaryCondition(left.condition, right.condition) {
 		return false
 	}
-	if left.headApplication != right.headApplication || !externalIntervalColumnsEqual(left.filterRemoved, right.filterRemoved) || !externalIntervalColumnsEqual(left.removed, right.removed) || len(left.constants) != len(right.constants) || len(left.headConstants) != len(right.headConstants) || len(left.headUnbound) != len(right.headUnbound) || len(left.headAdditions) != len(right.headAdditions) || !externalIntervalColumnsEqual(left.duplicates, right.duplicates) || len(left.identical) != len(right.identical) || len(left.renames) != len(right.renames) {
+	if left.headApplication != right.headApplication || !externalIntervalColumnsEqual(left.filterRemoved, right.filterRemoved) || !externalIntervalColumnsEqual(left.removed, right.removed) || len(left.constants) != len(right.constants) || len(left.headConstants) != len(right.headConstants) || len(left.headUnbound) != len(right.headUnbound) || len(left.headAdditions) != len(right.headAdditions) || len(left.conditionAdds) != len(right.conditionAdds) || !externalIntervalColumnsEqual(left.duplicates, right.duplicates) || len(left.identical) != len(right.identical) || len(left.renames) != len(right.renames) {
 		return false
 	}
 	for i := range left.constants {
@@ -103,6 +104,11 @@ func sameExternalIntervalUnaryTransform(left, right *externalIntervalDatalogUnar
 	}
 	for i := range left.headAdditions {
 		if left.headAdditions[i] != right.headAdditions[i] {
+			return false
+		}
+	}
+	for i := range left.conditionAdds {
+		if left.conditionAdds[i] != right.conditionAdds[i] {
 			return false
 		}
 	}
@@ -219,6 +225,13 @@ func (c *externalIntervalDatalogCompiler) externalIntervalUnaryPlan(rule *base.R
 				return fail(ErrExternalIntervalDatalogFragment)
 			}
 			if kind != ast.ASTVar {
+				isValue, cause := c.manager.IsValue(argument)
+				if cause != nil {
+					return fail(cause)
+				}
+				if !isValue {
+					return fail(ErrExternalIntervalDatalogFragment)
+				}
 				_, _, numeral, cause := c.manager.ArithmeticNumeralText(argument)
 				if cause != nil {
 					return fail(cause)
@@ -275,6 +288,7 @@ func (c *externalIntervalDatalogCompiler) externalIntervalUnaryPlan(rule *base.R
 			continue
 		}
 		variable := argument.variable
+		wanted[variable] = true
 		group := columns[variable]
 		if len(group) == 0 {
 			if sort, exists := unsafeSorts[variable]; exists && sort != headSorts[column] {
@@ -286,7 +300,6 @@ func (c *externalIntervalDatalogCompiler) externalIntervalUnaryPlan(rule *base.R
 		if sorts[1][group[len(group)-1]] != headSorts[column] {
 			return fail(ErrExternalIntervalDatalogFragment)
 		}
-		wanted[variable] = true
 	}
 	if total > 1 {
 		boolean, cause := c.manager.MkBoolSort()
@@ -298,6 +311,7 @@ func (c *externalIntervalDatalogCompiler) externalIntervalUnaryPlan(rule *base.R
 			return fail(cause)
 		}
 		condition := &externalIntervalUnaryCondition{}
+		conditionOnly := make(map[uint32]bool)
 		for index := 1; index < total; index++ {
 			guard, negated, cause := rule.Tail(index)
 			if cause != nil {
@@ -310,23 +324,42 @@ func (c *externalIntervalDatalogCompiler) externalIntervalUnaryPlan(rule *base.R
 			if cause != nil {
 				return fail(cause)
 			}
-			sort, cause := c.manager.GetSort(guard)
+			guardSort, cause := c.manager.GetSort(guard)
 			if cause != nil {
 				return fail(cause)
 			}
-			if kind != ast.ASTApp || sort != boolean {
+			if kind != ast.ASTApp || guardSort != boolean {
 				return fail(ErrExternalIntervalDatalogFragment)
 			}
 			if cause := used.Collect(guard); cause != nil {
 				return fail(cause)
 			}
 			for variable := uint32(0); variable < used.MaxFoundVarIndexPlusOne(); variable++ {
-				sort := used.Contains(variable)
-				if sort.IsNull() {
+				variableSort := used.Contains(variable)
+				if variableSort.IsNull() {
 					continue
 				}
 				group := columns[variable]
-				if len(group) == 0 || sorts[1][group[len(group)-1]] != sort {
+				if len(group) == 0 {
+					if headSort, headVariable := unsafeSorts[variable]; headVariable && headSort != variableSort {
+						return fail(ErrExternalIntervalDatalogFragment)
+					}
+					if prior, found := unsafeSorts[variable]; found && prior != variableSort {
+						return fail(ErrExternalIntervalDatalogFragment)
+					}
+					if !conditionOnly[variable] {
+						column := uint32(len(variables[1]))
+						index := len(plan.headUnbound)
+						plan.headUnbound = append(plan.headUnbound, externalIntervalCartesianHeadVariable{sort: variableSort})
+						plan.conditionAdds = append(plan.conditionAdds, index)
+						variables[1] = append(variables[1], variable)
+						sorts[1] = append(sorts[1], variableSort)
+						columns[variable] = []uint32{column}
+						conditionOnly[variable] = true
+						order = append(order, variable)
+						sort.Slice(order, func(i, j int) bool { return order[i] < order[j] })
+					}
+				} else if sorts[1][group[len(group)-1]] != variableSort {
 					return fail(ErrExternalIntervalDatalogFragment)
 				}
 			}
@@ -473,6 +506,11 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalUnary(plan *e
 	}
 	finishEmpty := func() error {
 		if len(transform.headAdditions) == 0 {
+			for _, index := range transform.conditionAdds {
+				if _, err := registers.totalRelation(plan.head, transform.headUnbound[index].sort); err != nil {
+					return rollback(err)
+				}
+			}
 			return finish()
 		}
 		if err := owner.closeProducts(); err != nil {
@@ -480,6 +518,11 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalUnary(plan *e
 		}
 		if err := registers.initializeHeadAssembly(plan.head, transform.headAdditions, transform.headConstants, transform.headUnbound); err != nil {
 			return rollback(err)
+		}
+		for _, index := range transform.conditionAdds {
+			if _, err := registers.totalRelation(plan.head, transform.headUnbound[index].sort); err != nil {
+				return rollback(err)
+			}
 		}
 		return finish()
 	}
@@ -525,6 +568,25 @@ func (a *externalIntervalDatalogActivation) executeExternalIntervalUnary(plan *e
 			if err != nil {
 				return rollback(err)
 			}
+			if empty {
+				return finishEmpty()
+			}
+		}
+	}
+	if len(transform.conditionAdds) != 0 {
+		if owner.temporary == nil {
+			owner.temporary, err = current.Clone()
+			if err != nil {
+				return rollback(err)
+			}
+			current = owner.temporary
+		}
+		for _, index := range transform.conditionAdds {
+			empty, cause := owner.appendHeadTotal(plan.head, transform.headUnbound[index])
+			if cause != nil {
+				return rollback(cause)
+			}
+			current = owner.temporary
 			if empty {
 				return finishEmpty()
 			}
