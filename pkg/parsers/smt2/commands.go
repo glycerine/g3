@@ -15,6 +15,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/math/polynomial"
+	"github.com/glycerine/g3/pkg/util/escaped"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/symbol"
@@ -24,6 +25,7 @@ type commandParser struct {
 	context            *cmd_context.Context
 	scanner            *Scanner
 	token              Token
+	parenDepth         int
 	cacheEnd           int
 	out                io.Writer
 	manager            *ast.ASTManager
@@ -42,6 +44,13 @@ type commandParser struct {
 	softWeight         big.Rat
 	softID             string
 }
+
+// ReportedParseError indicates that ParseShellCommands already emitted the
+// source parser's error response and recovered through the rest of the input.
+type ReportedParseError struct{ cause error }
+
+func (e *ReportedParseError) Error() string { return e.cause.Error() }
+func (e *ReportedParseError) Unwrap() error { return e.cause }
 
 // ParseCommands executes the retained SMT-LIB command grammar against Context.
 // Unsupported commands fail explicitly. Command-local AST references are
@@ -110,29 +119,121 @@ func parseCommandsWithOutput(context *cmd_context.Context, input io.Reader, out 
 	if err = p.configurePatternOptions(); err != nil {
 		return err
 	}
+	var firstParseError error
 	if err = p.advance(); err != nil {
-		return err
+		if !shell {
+			return err
+		}
+		firstParseError = parserScannerError(err, scanner)
+		if err = reportParserError(p, firstParseError); err != nil {
+			return errors.Join(firstParseError, err)
+		}
+		if err = p.syncAfterError(func(cause error) error {
+			return reportParserError(p, cause)
+		}); err != nil {
+			return errors.Join(firstParseError, err)
+		}
 	}
 	for p.token != EOFToken {
 		exit, err := p.command()
 		if err != nil {
-			return &ScannerError{err.Error(), scanner.Line(), scanner.Position()}
+			parseErr := parserScannerError(err, scanner)
+			if !shell {
+				return parseErr
+			}
+			if firstParseError == nil {
+				firstParseError = parseErr
+			}
+			if err = reportParserError(p, parseErr); err != nil {
+				return errors.Join(firstParseError, err)
+			}
+			if err = p.clearCommand(); err != nil {
+				return errors.Join(firstParseError, err)
+			}
+			if p.shifter != nil {
+				if err = p.shifter.Close(); err != nil {
+					return errors.Join(firstParseError, err)
+				}
+				p.shifter = nil
+			}
+			if err = p.syncAfterError(func(cause error) error {
+				if firstParseError == nil {
+					firstParseError = cause
+				}
+				return reportParserError(p, cause)
+			}); err != nil {
+				return errors.Join(firstParseError, err)
+			}
+			continue
 		}
 		if err = p.clearCommand(); err != nil {
 			return err
 		}
 		if exit {
+			if firstParseError != nil {
+				return &ReportedParseError{cause: firstParseError}
+			}
 			return nil
 		}
+	}
+	if firstParseError != nil {
+		return &ReportedParseError{cause: firstParseError}
 	}
 	return nil
 }
 
 func (p *commandParser) advance() error {
+	switch p.token {
+	case LeftParenToken:
+		p.parenDepth++
+	case RightParenToken:
+		p.parenDepth--
+	}
 	p.cacheEnd = p.scanner.CacheSize()
 	var err error
 	p.token, err = p.scanner.Scan()
 	return err
+}
+
+func parserScannerError(err error, scanner *Scanner) *ScannerError {
+	var parseError *ScannerError
+	if errors.As(err, &parseError) {
+		return parseError
+	}
+	return &ScannerError{Message: err.Error(), Line: scanner.Line(), Column: scanner.Position()}
+}
+
+func reportParserError(p *commandParser, err error) error {
+	var parseError *ScannerError
+	if !errors.As(err, &parseError) {
+		parseError = &ScannerError{Message: err.Error(), Line: p.scanner.Line(), Column: p.scanner.Position()}
+	}
+	message, cause := escaped.String(&parseError.Message, true, 0)
+	if cause != nil {
+		return cause
+	}
+	_, cause = fmt.Fprintf(p.out, "(error \"line %d column %d: %s\")\n", parseError.Line, parseError.Column, message)
+	return cause
+}
+
+func (p *commandParser) syncAfterError(report func(error) error) error {
+	if p.parenDepth < 0 {
+		p.parenDepth = 0
+	}
+	for p.token != EOFToken {
+		if p.parenDepth == 0 && p.token == LeftParenToken {
+			return nil
+		}
+		if err := p.advance(); err != nil {
+			if cause := report(err); cause != nil {
+				return cause
+			}
+		}
+		if p.parenDepth < 0 {
+			p.parenDepth = 0
+		}
+	}
+	return nil
 }
 func (p *commandParser) expect(token Token) error {
 	if p.token != token {

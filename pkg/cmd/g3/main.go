@@ -189,6 +189,10 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 
 func main() {
 	if err := runArgumentsWithDiagnostics(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
+		var reportedParseError *smt2.ReportedParseError
+		if errors.As(err, &reportedParseError) {
+			os.Exit(1)
+		}
 		var openError *z3LogOpenError
 		if errors.As(err, &openError) {
 			fmt.Fprintln(os.Stderr, openError.Error())
