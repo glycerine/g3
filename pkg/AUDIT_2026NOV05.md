@@ -75,6 +75,14 @@ Port relation-level explanation construction through UDoc while preserving
 finite-signature capability checks, typed formula export, and the existing
 Hash fallback for signatures UDoc declines.
 
+The live Go rejection is explicit: `ensureUDocDatalog` returns
+`ErrUDocDatalogFragment` whenever `datalog.generate_explanations` is enabled
+([datalog_udoc_dispatch.go](muz/fp/datalog_udoc_dispatch.go)). UDoc stores
+subsumed bit-vector cubes, so implementing this requires carrying UDoc's typed
+relation operations through the relation-level product/compiler; converting
+the cubes to enumerated finite tuples would change the selected representation
+and its semantics.
+
 ### `bound_relation` and `interval_relation`
 
 Both C++ plugins accept signatures consisting entirely of integer or real
@@ -88,6 +96,13 @@ only constructs finite-table products. Add source-faithful checker dispatch
 and test numeric relation-level explanations, proof-column separation,
 formula conversion, and operation coverage.
 
+The live Go rejection is explicit in `ensureBoundDatalog` and
+`ensureIntervalDatalog` ([datalog_bound_dispatch.go](muz/fp/datalog_bound_dispatch.go),
+[datalog_interval_dispatch.go](muz/fp/datalog_interval_dispatch.go)). The
+required product path must carry the numeric relation through source joins,
+projections, assignment filters, unions/deltas, and formula checks; translating
+the numeric relation into a finite table would not preserve C++ behavior.
+
 ### `karr_relation`
 
 The C++ plugin accepts signatures when Karr analysis is enabled in the
@@ -98,3 +113,22 @@ relation operations to relation-level explanations; if it does, port the
 checker/product route and test it. Otherwise document the specific missing
 consumer/configuration gate rather than treating the plugin name alone as
 unsupported.
+
+Go exposes the same `xform.karr` configuration and relation implementation,
+but `ensureKarrDatalog` currently rejects generated explanations with
+`ErrKarrDatalogFragment` ([datalog_karr_dispatch.go](muz/fp/datalog_karr_dispatch.go)).
+Thus this is a live-consumer parity gap, subject to the same generic relation
+product/compiler work as the numeric relations.
+
+## Implementation dependency order
+
+The remaining items share the same architectural prerequisite: generalize the
+relation-level explanation product and its compiled operations from a
+`FiniteTable` field to a source relation backing that can own typed
+transformations, formulas, and unions. Implement and validate that boundary
+before adding UDoc, numeric bound/interval, and Karr adapters. Keep the existing
+finite-table implementation as the first concrete adapter; then add UDoc and
+numeric relations before Karr, which depends on the optional Karr context and
+is already the most constrained Go dispatch path. The sparse/lazy-sparse
+implementation above is the finite-table case and does not satisfy this
+remaining generalization.
