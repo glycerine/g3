@@ -348,7 +348,8 @@ func (c *ExecutionContext) Reset() error {
 	c.explanationRegisters = c.explanationRegisters[:0]
 	c.relationExplanationRegisters = c.relationExplanationRegisters[:0]
 	clear(c.annotations)
-	c.stats = ExecutionStats{}
+	// execution_context::reset clears registers, annotations and the timeout,
+	// but leaves its statistics cumulative for the lifetime of the context.
 	_ = c.ResetTimeLimit()
 	return nil
 }
