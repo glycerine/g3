@@ -99,7 +99,7 @@ func (e *satElimEqs) execute() error {
 	if err := e.saveElim(); err != nil {
 		return err
 	}
-	if _, err := p.propagateCore(false); err != nil {
+	if _, err := e.lifecycle.propagate(false); err != nil {
 		return err
 	}
 	if satStorageSourceDebug {

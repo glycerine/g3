@@ -166,7 +166,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/sat/sat_asymm_branch.h` — The solver reference, propagation-cost counter, three configuration values, eliminated-literal statistic, callback signatures and `operator(bool force=false)` map to the private `satAsymmBranch` and its typed Go methods; no extra generic interface is needed.
 - [x] `src/sat/sat_cleaner.cpp` — Watch-list compaction, satisfied/falsified literal removal, frozen-clause conflict/unit handling, binary conversion, clause reattachment, cleanup cost/skip gates, reports and statistics map to `satCleaner`. Both source `solver::propagate(false)` calls now use the lifecycle wrapper so conditional invariant and missed-propagation checks run at the same boundaries; the full short `pkg/sat` suite passes.
 - [x] `src/sat/sat_cleaner.h` — Cleaner ownership, unit-count/cost state, clause/literal counters, `operator(force)`, parameter-free interface and statistics/reset methods map to the concrete `satCleaner` and borrowed solver-lifecycle APIs.
-- [ ] `src/sat/sat_elim_eqs.h`
+- [x] `src/sat/sat_elim_eqs.h` — The solver-bound `elim_eqs` object and its `operator(roots,to_elim)`, binary-watch cleanup, clause/model-converter rewriting and debug checker map to `satElimEqs`. Its final source `solver::propagate(false)` now goes through the lifecycle wrapper for conditional invariant and missed-propagation checks; focused SCC/equivalence-elimination tests pass.
 - [ ] `src/sat/sat_extension.h`
 - [ ] `src/sat/sat_integrity_checker.cpp`
 - [ ] `src/sat/sat_integrity_checker.h`
