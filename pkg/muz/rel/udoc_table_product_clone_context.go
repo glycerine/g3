@@ -18,6 +18,9 @@ func (p *UDocTableProduct) CloneForManager(manager *RelationManager) (*UDocTable
 	if err != nil {
 		return a.finish(err)
 	}
+	if p.table == nil {
+		return a.finish(nil)
+	}
 	source, lazy := p.table.(*LazySparseTable)
 	if !lazy {
 		a.product.table, err = p.table.CloneFinite()

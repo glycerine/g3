@@ -4,6 +4,38 @@ package rel
 // through a sieve and supplies a full finite relation only for the unmatched
 // table component. This is the live raw-DOC/product case, not product/product.
 
+import "github.com/glycerine/g3/pkg/ast"
+
+// JoinUDocRelations wraps a raw DOC join as a DOC-only product component.
+func JoinUDocRelations(manager *RelationManager, left, right *TypedUDocRelation, leftColumns, rightColumns []uint32) (*UDocTableProduct, error) {
+	if manager == nil || manager.open() != nil || left == nil || right == nil || left.open() != nil || right.open() != nil || left.factory != right.factory || left.factory.manager != manager.manager || left.FormulaChecked() || right.FormulaChecked() || len(leftColumns) != len(rightColumns) {
+		return nil, ErrUDocTableProduct
+	}
+	for i, column := range leftColumns {
+		if column >= uint32(len(left.sorts)) || rightColumns[i] >= uint32(len(right.sorts)) || left.sorts[column] != right.sorts[rightColumns[i]] {
+			return nil, ErrUDocTableProduct
+		}
+	}
+	a := newUDocTableProductAttempt(manager)
+	inner, err := left.Join(right, leftColumns, rightColumns)
+	if inner != nil {
+		a.inners = append(a.inners, inner)
+	}
+	if err != nil {
+		return a.finish(err)
+	}
+	sorts := append(append([]ast.ASTHandle(nil), left.sorts...), right.sorts...)
+	mask := make([]bool, len(sorts))
+	for i := range mask {
+		mask[i] = true
+	}
+	a.product.doc, err = AdoptUDocSieve(sorts, mask, inner)
+	if err == nil {
+		a.inners = a.inners[:len(a.inners)-1]
+	}
+	return a.finish(err)
+}
+
 // JoinUDocProduct joins raw unary DOC with an existing two-component product.
 // The product's borrowed manager and shared DOC factory must remain live.
 func JoinUDocProduct(doc *TypedUDocRelation, product *UDocTableProduct, docColumns, productColumns []uint32) (*UDocTableProduct, error) {
@@ -16,15 +48,8 @@ func JoinProductUDoc(product *UDocTableProduct, doc *TypedUDocRelation, productC
 }
 
 func joinUDocProduct(doc *TypedUDocRelation, product *UDocTableProduct, docColumns, productColumns []uint32, docFirst bool) (*UDocTableProduct, error) {
-	if product.open() != nil || doc == nil || doc.open() != nil || doc.FormulaChecked() || doc.factory != product.doc.inner.factory || len(doc.sorts) != 1 || len(docColumns) != len(productColumns) || rawUDocProductFiniteKind(product.table) == 0 {
+	if product.open() != nil || doc == nil || doc.open() != nil || doc.FormulaChecked() || doc.factory != product.doc.inner.factory || len(doc.sorts) != 1 || len(docColumns) != len(productColumns) || product.table != nil && rawUDocProductFiniteKind(product.table) == 0 {
 		return nil, ErrUDocTableProduct
-	}
-	// Full table construction is limited to the existing table-encodable
-	// unary DOC domain. The product may already have projected away its Bool
-	// columns; preserve its actual mask instead of reclassifying the sorts.
-	signature, err := tableRelationSignature(product.manager, doc.sorts)
-	if err != nil {
-		return nil, err
 	}
 	left, right := make([]int, len(docColumns)), make([]int, len(docColumns))
 	for i, column := range docColumns {
@@ -35,11 +60,22 @@ func joinUDocProduct(doc *TypedUDocRelation, product *UDocTableProduct, docColum
 		left[i], right[i] = int(column), int(other)
 	}
 	a := newUDocTableProductAttempt(product.manager)
+	var err error
 	if docFirst {
 		a.product.doc, err = doc.JoinSieve(product.doc, docColumns, productColumns)
 	} else {
 		a.product.doc, err = product.doc.JoinUDoc(doc, productColumns, docColumns)
 	}
+	if err != nil {
+		return a.finish(err)
+	}
+	if product.table == nil {
+		return a.finish(nil)
+	}
+	// Full table construction is limited to the existing table-encodable
+	// unary DOC domain. The product may already have projected away its Bool
+	// columns; preserve its actual mask instead of reclassifying the sorts.
+	signature, err := tableRelationSignature(product.manager, doc.sorts)
 	if err != nil {
 		return a.finish(err)
 	}

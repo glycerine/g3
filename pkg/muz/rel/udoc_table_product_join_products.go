@@ -1,5 +1,7 @@
 package rel
 
+import "github.com/glycerine/g3/pkg/ast"
+
 // Source: dl_product_relation.cpp join_fn::init pairs matching underlying DOC
 // kinds and pairs the actual table components. No missing component needs a
 // full relation in this concrete product/product case.
@@ -27,7 +29,24 @@ func (p *UDocTableProduct) Join(other *UDocTableProduct, left, right []uint32) (
 	a := newUDocTableProductAttempt(p.manager)
 	var err error
 	a.product.doc, err = p.doc.Join(other.doc, left, right)
-	if err == nil {
+	if err != nil {
+		return a.finish(err)
+	}
+	switch {
+	case p.table == nil && other.table == nil:
+	case p.table == nil:
+		full, cause := a.fullProductTable(p.doc.sorts, other.table)
+		if cause == nil {
+			a.product.table, cause = finiteTableJoin(full, other.table, columns1, columns2)
+		}
+		err = cause
+	case other.table == nil:
+		full, cause := a.fullProductTable(other.doc.sorts, p.table)
+		if cause == nil {
+			a.product.table, cause = finiteTableJoin(p.table, full, columns1, columns2)
+		}
+		err = cause
+	default:
 		// dl_relation_manager.cpp's default table join selects the first
 		// capable actual plugin. Mixed concrete kinds use that existing
 		// fallback; the context's preferred table kind is not consulted.
@@ -37,8 +56,11 @@ func (p *UDocTableProduct) Join(other *UDocTableProduct, left, right []uint32) (
 }
 
 func (p *UDocTableProduct) productJoinTableReady() error {
-	if p.doc.inner.FormulaChecked() || rawUDocProductFiniteKind(p.table) == 0 {
+	if p.doc.inner.FormulaChecked() || p.table != nil && rawUDocProductFiniteKind(p.table) == 0 {
 		return ErrUDocTableProduct
+	}
+	if p.table == nil {
+		return nil
 	}
 	// Functional table suffixes reorder joined columns. The DOC sieve's
 	// ordinary relation signature has no such suffix in this live consumer.
@@ -71,4 +93,12 @@ func (p *UDocTableProduct) productJoinTableReady() error {
 		return ErrUDocTableProduct
 	}
 	return nil
+}
+
+func (a *udocTableProductAttempt) fullProductTable(sorts []ast.ASTHandle, like FiniteTable) (FiniteTable, error) {
+	signature, err := tableRelationSignature(a.manager, sorts)
+	if err != nil {
+		return nil, err
+	}
+	return a.fullUnaryFinite(signature, like)
 }

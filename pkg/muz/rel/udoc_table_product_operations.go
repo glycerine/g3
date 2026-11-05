@@ -13,7 +13,7 @@ func (p *UDocTableProduct) EmptyLike() (*UDocTableProduct, error) {
 	a := newUDocTableProductAttempt(p.manager)
 	inner, err := p.doc.inner.factory.NewEmpty(p.doc.inner.sorts)
 	a.product.doc, err = finishUDocSieve(p.doc.sorts, p.doc.innerColumns, inner, err)
-	if err == nil {
+	if err == nil && p.table != nil {
 		a.product.table, err = emptyFiniteLike(p.table)
 	}
 	return a.finish(err)
@@ -35,11 +35,14 @@ func (p *UDocTableProduct) AddFact(values []ast.ASTHandle) error {
 	if err := p.open(); err != nil {
 		return err
 	}
-	fact, err := p.manager.EncodeFact(p.doc.sorts, values)
-	if err != nil {
+	if _, err := p.doc.AddFact(values); err != nil {
 		return err
 	}
-	if _, err = p.doc.AddFact(values); err != nil {
+	if p.table == nil {
+		return nil
+	}
+	fact, err := p.manager.EncodeFact(p.doc.sorts, values)
+	if err != nil {
 		return err
 	}
 	_, err = p.table.Add(fact)
@@ -57,6 +60,9 @@ func (p *UDocTableProduct) UnionFrom(source, delta *UDocTableProduct) (resultErr
 		if err := p.doc.inner.UnionFrom(source.doc.inner, nil); err != nil {
 			return err
 		}
+		if p.table == nil {
+			return nil
+		}
 		return finiteTableUnion(p.table, source.table, nil)
 	}
 	a := newUDocTableProductAttempt(p.manager)
@@ -72,10 +78,13 @@ func (p *UDocTableProduct) UnionFrom(source, delta *UDocTableProduct) (resultErr
 	if err = delta.doc.inner.UnionFrom(a.product.doc.inner, nil); err != nil {
 		return err
 	}
-	if err = finiteTableUnion(p.table, source.table, a.product.table); err != nil {
-		return err
+	if p.table != nil {
+		if err = finiteTableUnion(p.table, source.table, a.product.table); err != nil {
+			return err
+		}
+		return finiteTableUnion(delta.table, a.product.table, nil)
 	}
-	return finiteTableUnion(delta.table, a.product.table, nil)
+	return nil
 }
 
 func (p *UDocTableProduct) FilterEqual(column uint32, value ast.ASTHandle) error {
@@ -85,14 +94,21 @@ func (p *UDocTableProduct) FilterEqual(column uint32, value ast.ASTHandle) error
 	if column >= uint32(len(p.doc.sorts)) {
 		return ErrUDocTableProduct
 	}
-	encoded, err := p.manager.EncodeValue(p.doc.sorts[column], value)
-	if err != nil {
-		return err
-	}
-	if inner := p.doc.sigToInner[column]; inner >= 0 {
-		if err = p.doc.inner.FilterEqual(uint32(inner), value); err != nil {
+	var encoded Element
+	if p.table != nil {
+		var err error
+		encoded, err = p.manager.EncodeValue(p.doc.sorts[column], value)
+		if err != nil {
 			return err
 		}
+	}
+	if inner := p.doc.sigToInner[column]; inner >= 0 {
+		if err := p.doc.inner.FilterEqual(uint32(inner), value); err != nil {
+			return err
+		}
+	}
+	if p.table == nil {
+		return nil
 	}
 	return finiteTableFilterEqual(p.table, encoded, int(column))
 }
@@ -118,6 +134,9 @@ func (p *UDocTableProduct) FilterIdentical(columns []uint32) error {
 		}
 	}
 	if len(columns) < 2 {
+		return nil
+	}
+	if p.table == nil {
 		return nil
 	}
 	return finiteTableFilterIdentical(p.table, finite)

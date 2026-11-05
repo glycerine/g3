@@ -55,12 +55,36 @@ func joinProductFinite(product *UDocTableProduct, finiteSorts []ast.ASTHandle, f
 	if productFirst {
 		a.product.doc, err = product.doc.Join(a.fullDoc, productColumns, finiteColumns)
 		if err == nil {
-			a.product.table, err = finiteTableJoin(product.table, finite, left, right)
+			if product.table == nil {
+				var signature Signature
+				signature, err = tableRelationSignature(product.manager, product.doc.sorts)
+				if err == nil {
+					var full FiniteTable
+					full, err = a.fullUnaryFinite(signature, finite)
+					if err == nil {
+						a.product.table, err = finiteTableJoin(full, finite, left, right)
+					}
+				}
+			} else {
+				a.product.table, err = finiteTableJoin(product.table, finite, left, right)
+			}
 		}
 	} else {
 		a.product.doc, err = a.fullDoc.Join(product.doc, finiteColumns, productColumns)
 		if err == nil {
-			a.product.table, err = finiteTableJoin(finite, product.table, right, left)
+			if product.table == nil {
+				var signature Signature
+				signature, err = tableRelationSignature(product.manager, product.doc.sorts)
+				if err == nil {
+					var full FiniteTable
+					full, err = a.fullUnaryFinite(signature, finite)
+					if err == nil {
+						a.product.table, err = finiteTableJoin(finite, full, right, left)
+					}
+				}
+			} else {
+				a.product.table, err = finiteTableJoin(finite, product.table, right, left)
+			}
 		}
 	}
 	return a.finish(err)

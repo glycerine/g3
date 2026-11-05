@@ -31,6 +31,11 @@ func (p *UDocTableProduct) ToFormula() (result ast.ASTRef, resultErr error) {
 		}
 		return ref, err
 	}
+	if p.table == nil {
+		doc, err := p.doc.ToFormula()
+		owner.result = doc
+		return owner.result, err
+	}
 	facts, err := p.table.Facts()
 	if err != nil {
 		return result, err

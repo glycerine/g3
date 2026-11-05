@@ -200,6 +200,12 @@ func (p *udocProductContext) joinMultiFirst(first ast.ASTHandle, firstKind uint8
 				return nil, nil
 			}
 			return rel.JoinUDocFinite(p.manager, document, second.sorts, table, leftColumns, rightColumns)
+		case 1:
+			other := docs[second.declaration]
+			if other == nil {
+				return nil, nil
+			}
+			return rel.JoinUDocRelations(p.manager, document, other, leftColumns, rightColumns)
 		}
 	case 2:
 		table := finite[first]

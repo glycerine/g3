@@ -62,6 +62,8 @@ func (p *UDocTableProduct) Rename(cycle []uint32) (*UDocTableProduct, error) {
 	// Only the final inner transfers into the new sieve. Earlier cycle
 	// intermediates remain in the attempt until all construction has finished.
 	a.inners = a.inners[:len(a.inners)-1]
-	a.product.table, err = finiteTableRename(p.table, finiteCycle)
+	if p.table != nil {
+		a.product.table, err = finiteTableRename(p.table, finiteCycle)
+	}
 	return a.finish(err)
 }

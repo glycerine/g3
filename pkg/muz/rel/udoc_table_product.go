@@ -22,7 +22,7 @@ type UDocTableProduct struct {
 }
 
 func (p *UDocTableProduct) open() error {
-	if p == nil || p.manager == nil || p.manager.open() != nil || p.doc == nil || p.doc.open() != nil || p.table == nil {
+	if p == nil || p.manager == nil || p.manager.open() != nil || p.doc == nil || p.doc.open() != nil {
 		return ErrUDocTableProduct
 	}
 	return nil
@@ -79,6 +79,9 @@ func (p *UDocTableProduct) Empty() (bool, error) {
 	if err != nil || empty {
 		return empty, err
 	}
+	if p.table == nil {
+		return false, nil
+	}
 	count, err := p.table.Len()
 	return count == 0, err
 }
@@ -90,6 +93,9 @@ func (p *UDocTableProduct) ContainsFact(values []ast.ASTHandle) (bool, error) {
 	found, err := p.doc.ContainsFact(values)
 	if err != nil || !found {
 		return found, err
+	}
+	if p.table == nil {
+		return true, nil
 	}
 	fact, err := p.manager.EncodeFact(p.doc.sorts, values)
 	if err != nil {
@@ -105,7 +111,7 @@ func (p *UDocTableProduct) Clone() (*UDocTableProduct, error) {
 	a := newUDocTableProductAttempt(p.manager)
 	var err error
 	a.product.doc, err = p.doc.Clone()
-	if err == nil {
+	if err == nil && p.table != nil {
 		a.product.table, err = p.table.CloneFinite()
 	}
 	return a.finish(err)
@@ -118,7 +124,7 @@ func (p *UDocTableProduct) Project(removed []uint32) (*UDocTableProduct, error) 
 	a := newUDocTableProductAttempt(p.manager)
 	var err error
 	a.product.doc, err = p.doc.Project(removed)
-	if err == nil {
+	if err == nil && p.table != nil {
 		columns := make([]int, len(removed))
 		for i, column := range removed {
 			columns[i] = int(column)
