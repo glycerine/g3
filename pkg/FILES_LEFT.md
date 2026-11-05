@@ -238,7 +238,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/hashtable.h` — Every live table instantiation now has a concrete Go owner: native typed maps/slices for AST, SAT, SMT, and fixedpoint consumers, and canonical sorted state keys for symbolic-automata determinization. The remaining `uint_set` map in the C++ test only prints diagnostics; generic probing, tombstones, and bucket iteration have no Go consumer. Existing focused AST, SAT, SMT/UTVPI/sequence, relation compiler, and automata tests pass; no tests were added.
 - [x] `src/util/heap.h` — The live integer heap and its SAT, SMT, Euclidean, simplex, and Hilbert owners use typed Go heap implementations with indexed membership, priority updates, deletion, reset, swap, and source-ordered iteration behavior. The C++ `find_le` and tree display methods have no retained heap call sites. Existing heap and consumer suites pass; no tests were added.
 - [x] `src/util/inf_eps_rational.h` — The live `inf_eps_rational<inf_rational>` instantiation is implemented by the typed `OwnedInfEpsInfRational` operations in `pkg/util/numeral`, including source comparison quirks, arithmetic, formatting, projection, and constructors; `go test ./pkg/util/numeral -run '^TestInfEpsInf' -count=1 -timeout=0` passes. No tests were added.
-- [ ] `src/util/inf_int_rational.h`
+- [x] `src/util/inf_int_rational.h` — The live integer-epsilon value maps to `OwnedInfIntRational`, including int32 scalar-domain checks, comparison, floor/ceil, formatting, hashing, and constructors; the existing focused `go test ./pkg/util/numeral -run '^TestInfInt' -count=1 -timeout=0` suite passes. No tests were added.
 - [ ] `src/util/inf_rational.h`
 - [ ] `src/util/map.h`
 - [ ] `src/util/memory_manager.cpp`
