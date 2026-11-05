@@ -121,16 +121,15 @@ func parseCommandsWithOutput(context *cmd_context.Context, input io.Reader, out 
 	}
 	var firstParseError error
 	if err = p.advance(); err != nil {
-		if !shell {
-			return err
-		}
 		firstParseError = parserScannerError(err, scanner)
-		if err = reportParserError(p, firstParseError); err != nil {
+		report := func(cause error) error { return nil }
+		if shell {
+			report = func(cause error) error { return reportParserError(p, cause) }
+		}
+		if err = report(firstParseError); err != nil {
 			return errors.Join(firstParseError, err)
 		}
-		if err = p.syncAfterError(func(cause error) error {
-			return reportParserError(p, cause)
-		}); err != nil {
+		if err = p.syncAfterError(report); err != nil {
 			return errors.Join(firstParseError, err)
 		}
 	}
@@ -138,13 +137,14 @@ func parseCommandsWithOutput(context *cmd_context.Context, input io.Reader, out 
 		exit, err := p.command()
 		if err != nil {
 			parseErr := parserScannerError(err, scanner)
-			if !shell {
-				return parseErr
-			}
 			if firstParseError == nil {
 				firstParseError = parseErr
 			}
-			if err = reportParserError(p, parseErr); err != nil {
+			report := func(cause error) error { return nil }
+			if shell {
+				report = func(cause error) error { return reportParserError(p, cause) }
+			}
+			if err = report(parseErr); err != nil {
 				return errors.Join(firstParseError, err)
 			}
 			if err = p.clearCommand(); err != nil {
@@ -160,7 +160,7 @@ func parseCommandsWithOutput(context *cmd_context.Context, input io.Reader, out 
 				if firstParseError == nil {
 					firstParseError = cause
 				}
-				return reportParserError(p, cause)
+				return report(cause)
 			}); err != nil {
 				return errors.Join(firstParseError, err)
 			}
@@ -170,14 +170,17 @@ func parseCommandsWithOutput(context *cmd_context.Context, input io.Reader, out 
 			return err
 		}
 		if exit {
-			if firstParseError != nil {
+			if firstParseError != nil && shell {
 				return &ReportedParseError{cause: firstParseError}
 			}
-			return nil
+			return firstParseError
 		}
 	}
 	if firstParseError != nil {
-		return &ReportedParseError{cause: firstParseError}
+		if shell {
+			return &ReportedParseError{cause: firstParseError}
+		}
+		return firstParseError
 	}
 	return nil
 }
