@@ -219142,7 +219142,7 @@
       "path": "src/test/rational.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/numeral/mpq_parse.go",
         "pkg/util/numeral/mpq_ops.go",
@@ -220020,13 +220020,13 @@
         },
         {
           "name": "tst10/tst11 million-value and ten-thousand-value multiplication timing loops",
-          "status": "unported",
-          "go_target": "",
-          "tests": []
+          "status": "reference_only",
+          "tests": [],
+          "reason": "Active benchmark-only random rational/float multiplication and timing output, with no correctness assertions; multiplication semantics are covered by the existing rational operation tests. The C++ RNG, throughput comparison, and stream diagnostics are test harness behavior."
         },
         {
-          "name": "tst_rational source driver calls each registered semantic routine; Go test registration separates these routines and omits diagnostic output",
-          "status": "partial",
+          "name": "tst_rational source driver calls each registered semantic routine; Go tests preserve assertion behavior and omit diagnostic output",
+          "status": "ported",
           "go_target": "pkg/util/numeral/rational_service_ops_test.go",
           "tests": [
             "TestRationalFacadeSourceTST1",
@@ -220054,7 +220054,7 @@
         "Selected release ExtendedGCD preserves finite aliases and modified-input sign rereads. Source Z3DEBUG diagnostic arithmetic remains unported; g3checked selects reference validation only. ext_gcd.h wrapper algorithm remains separate and is not credited from manager inverse properties.",
         "Explicit manager projects rational.h inclusive32-bit wrappers, distinct from strict MPZ boundaries; global wrapper remains incomplete. Float64 reads the converted denominator assertion switch at mpq.cpp:302 and follows the bound Throw/Continue action. Source raw component alias publication can leave denominator zero; subsequent operations diagnose initialization.",
         "Global mutable manager/cache replaced with explicit owner-local service. Constants return independent deep values; owning token Del invalidates provenance, source move val history retained. Cache failed-prefix/retry actions preserved; INT_MIN signed-negation domain uses explicit wider magnitude adaptation. Broad facade and infinitesimal hooks remain incomplete.",
-        "The C++ tst10/tst11 random multiplication timing loops and tst_rational stream/sizeof diagnostics are not translated; the rational source test unit remains partial until the benchmark-only paths are addressed or classified as platform replacements."
+        "The active tst10/tst11 random multiplication timing loops and tst_rational stream/sizeof diagnostics are benchmark and harness output only; existing Go arithmetic checks cover rational multiplication, so these paths are classified reference-only."
       ]
     },
     {
