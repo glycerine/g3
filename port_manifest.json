@@ -214884,7 +214884,7 @@
       "path": "src/test/memory.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/util/memory/memory_cpp_driver_test.go", "pkg/api/api_memory_cpp_driver_test.go"],
       "tests": ["TestMemorySourceLimitSequence", "TestMemorySourceGrowingBitVectorSortsRecoverAfterFailure"],
       "conditionals": [
@@ -214901,11 +214901,15 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["The 10/20/30 MiB limits and actual allocation failures are checked with separate local runtime owners. The API loop creates successive bit-vector sorts until an injected arena reservation fails, checks previously owned sort widths, and verifies recovery; this is distinct from the source's process-global memory limit and reset sequence, which remains open."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name":"10/20/30 MiB memory limit sequence and out-of-memory state","status":"ported","go_target":"pkg/util/memory/memory_cpp_driver_test.go","tests":["TestMemorySourceLimitSequence"]},
+        {"name":"bit-vector sort growth, allocation failure, and post-failure recovery","status":"ported","go_target":"pkg/api/api_memory_cpp_driver_test.go","tests":["TestMemorySourceGrowingBitVectorSortsRecoverAfterFailure"]},
+        {"name":"process memory reset/finalize lifecycle","status":"ported","go_targets":["pkg/engine/default_process.go","pkg/api/z3_generated_process_commands.go"],"tests":["TestDefaultProcessBindsAssertionServicesAndReleasesOwners"]}
+      ],
+      "ownership": ["Each memory-limit test owns and closes a local runtime; the API test releases all sort references and the context fixture owns the generated process lifecycle."],
+      "deviations": ["The source's Windows-only test repeatedly allocates through the native C API under a process-global size cap. Go tests exercise the runtime limit directly and use deterministic arena failure while growing API bit-vector sorts; the non-Windows C++ test body is empty. Process reset is implemented by finalizing and reinitializing the generated Go process."]
     },
     {
       "path": "src/test/model2expr.cpp",

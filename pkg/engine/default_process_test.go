@@ -31,10 +31,19 @@ func TestDefaultProcessBindsAssertionServicesAndReleasesOwners(t *testing.T) {
 	if tied, err := d.input.Tie(); err != nil || tied != stdout {
 		t.Fatal("debugger input lost the actual standard output tie", tied, err)
 	}
+	oldBudget := d.budget
+	if err := ResetDefaultProcess(); err != nil {
+		t.Fatal(err)
+	}
+	reset := apiDefaultProcess
+	if reset == nil || reset == d || oldBudget.Used() != 0 {
+		t.Fatal("memory reset did not replace and release the generated process", reset, oldBudget.Used())
+	}
+	resetBudget := reset.budget
 	if err := FinalizeDefaultProcess(); err != nil {
 		t.Fatal(err)
 	}
-	if apiDefaultProcess != nil || diagnostic.BorrowProcessDebugContext() != previous || d.budget.Used() != 0 {
-		t.Fatal("default generated owners or process binding survived close", d.budget.Used())
+	if apiDefaultProcess != nil || diagnostic.BorrowProcessDebugContext() != previous || oldBudget.Used() != 0 || resetBudget.Used() != 0 {
+		t.Fatal("default generated owners or process binding survived close", oldBudget.Used(), resetBudget.Used())
 	}
 }
