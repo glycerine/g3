@@ -93,13 +93,23 @@ func purificationPolarities(m *ast.ASTManager, roots []ast.ASTHandle) (map[ast.A
 }
 
 func pureArithmeticExpressions(m *ast.ASTManager, roots []ast.ASTHandle) (map[ast.ASTHandle]bool, error) {
+	result := make(map[ast.ASTHandle]bool)
+	for _, root := range roots {
+		if _, err := pureArithmeticExpression(m, root, result); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+func pureArithmeticExpression(m *ast.ASTManager, root ast.ASTHandle, result map[ast.ASTHandle]bool) (bool, error) {
 	family, err := m.RegisterArithmeticPlugin()
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 	boolean, err := m.MkBoolSort()
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 	isReal := func(h ast.ASTHandle) (bool, error) {
 		sort, err := m.GetSort(h)
@@ -113,81 +123,78 @@ func pureArithmeticExpressions(m *ast.ASTManager, roots []ast.ASTHandle) (map[as
 		kind, err := m.GetDeclKind(sort)
 		return kind == 0, err
 	}
-	result := make(map[ast.ASTHandle]bool)
 	type frame struct {
 		term ast.ASTHandle
 		exit bool
 	}
-	for _, root := range roots {
-		todo := []frame{{term: root}}
-		for len(todo) > 0 {
-			current := todo[len(todo)-1]
-			todo = todo[:len(todo)-1]
-			if _, found := result[current.term]; found {
-				continue
-			}
-			kind, err := m.GetKind(current.term)
-			if err != nil {
-				return nil, err
-			}
-			if kind != ast.ASTApp {
-				result[current.term] = false
-				continue
-			}
-			n, err := m.GetNumArgs(current.term)
-			if err != nil {
-				return nil, err
-			}
-			if !current.exit {
-				todo = append(todo, frame{term: current.term, exit: true})
-				for i := uint32(0); i < n; i++ {
-					arg, err := m.GetArg(current.term, i)
-					if err != nil {
-						return nil, err
-					}
-					todo = append(todo, frame{term: arg})
-				}
-				continue
-			}
-			fid, err := m.GetFamilyID(current.term)
-			if err != nil {
-				return nil, err
-			}
-			op, err := m.GetDeclKind(current.term)
-			if err != nil {
-				return nil, err
-			}
-			real, err := isReal(current.term)
-			if err != nil {
-				return nil, err
-			}
-			pure := fid == m.BasicFamilyID() || (fid == family && real) || (fid == ast.NullFamilyID && n == 0 && real)
-			if n > 0 {
-				arg, err := m.GetArg(current.term, 0)
-				if err != nil {
-					return nil, err
-				}
-				argReal, err := isReal(arg)
-				if err != nil {
-					return nil, err
-				}
-				sort, err := m.GetSort(current.term)
-				if err != nil {
-					return nil, err
-				}
-				pure = pure || (fid == m.BasicFamilyID() && op == ast.ASTOpEq && argReal) || (fid == family && sort == boolean && argReal)
-			}
+	todo := []frame{{term: root}}
+	for len(todo) > 0 {
+		current := todo[len(todo)-1]
+		todo = todo[:len(todo)-1]
+		if _, found := result[current.term]; found {
+			continue
+		}
+		kind, err := m.GetKind(current.term)
+		if err != nil {
+			return false, err
+		}
+		if kind != ast.ASTApp {
+			result[current.term] = false
+			continue
+		}
+		n, err := m.GetNumArgs(current.term)
+		if err != nil {
+			return false, err
+		}
+		if !current.exit {
+			todo = append(todo, frame{term: current.term, exit: true})
 			for i := uint32(0); i < n; i++ {
 				arg, err := m.GetArg(current.term, i)
 				if err != nil {
-					return nil, err
+					return false, err
 				}
-				pure = pure && result[arg]
+				todo = append(todo, frame{term: arg})
 			}
-			result[current.term] = pure
+			continue
 		}
+		fid, err := m.GetFamilyID(current.term)
+		if err != nil {
+			return false, err
+		}
+		op, err := m.GetDeclKind(current.term)
+		if err != nil {
+			return false, err
+		}
+		real, err := isReal(current.term)
+		if err != nil {
+			return false, err
+		}
+		pure := fid == m.BasicFamilyID() || (fid == family && real) || (fid == ast.NullFamilyID && n == 0 && real)
+		if n > 0 {
+			arg, err := m.GetArg(current.term, 0)
+			if err != nil {
+				return false, err
+			}
+			argReal, err := isReal(arg)
+			if err != nil {
+				return false, err
+			}
+			sort, err := m.GetSort(current.term)
+			if err != nil {
+				return false, err
+			}
+			pure = pure || (fid == m.BasicFamilyID() && op == ast.ASTOpEq && argReal) || (fid == family && sort == boolean && argReal)
+		}
+		for i := uint32(0); i < n; i++ {
+			arg, err := m.GetArg(current.term, i)
+			if err != nil {
+				return false, err
+			}
+			pure = pure && result[arg]
+		}
+		result[current.term] = pure
 	}
-	return result, nil
+	return result[root], nil
 }
 
 // removePureArithmetic performs the source's transfer before the cooperating
@@ -207,24 +214,22 @@ func removePureArithmetic(g, nonlinear *tactic.Goal) error {
 	if err != nil {
 		return err
 	}
-	roots := make([]ast.ASTHandle, n)
+	pureCache := make(map[ast.ASTHandle]bool)
 	for i := uint32(0); i < n; i++ {
-		roots[i], err = g.Form(i)
+		root, err := g.Form(i)
 		if err != nil {
 			return err
 		}
-	}
-	pure, err := pureArithmeticExpressions(g.Manager(), roots)
-	if err != nil {
-		return err
-	}
-	truth, err := g.Manager().MkTrue()
-	if err != nil {
-		return err
-	}
-	for i, root := range roots {
-		if !pure[root] {
+		pure, err := pureArithmeticExpression(g.Manager(), root, pureCache)
+		if err != nil {
+			return err
+		}
+		if !pure {
 			continue
+		}
+		truth, err := g.Manager().MkTrue()
+		if err != nil {
+			return err
 		}
 		proof, err := g.Proof(uint32(i))
 		if err != nil {

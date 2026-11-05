@@ -205,8 +205,8 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/tactic/arith/purify_arith_tactic.cpp` — The source dispatch cases for DIV, IDIV/MOD, TO_INT, POWER, inverse/forward trig, irrational algebraic roots and quantified formulas map to the Go purifier helpers; tactic construction preserves the SNF → simplify → purify → simplify pipeline, and focused purifier/QF_UFNRA suites pass.
 - [x] `src/tactic/arith/purify_arith_tactic.h` — The named factory, default parameters, description and registry wiring are implemented by `MakePurifyArithTactic` and command-context integration; focused factory and tactic suites pass.
 - [x] `src/tactic/arith/recover_01_tactic.cpp` — Clause collection, complementary-literal truth-table checks, integer substitutions, bounds, model reconstruction, progress and tactic lifecycle map to `Recover01Tactic`; the Go implementation explicitly declines tables wider than 31 entries instead of relying on overflowing source-width shifts, and focused tactic/QF_LRA tests pass.
-- [ ] `src/tactic/nlsat_smt/nl_purify_tactic.cpp`
-- [ ] `src/tactic/nlsat_smt/nl_purify_tactic.h`
+- [x] `src/tactic/nlsat_smt/nl_purify_tactic.cpp` — Formula purity classification/movement now follows source per-formula classify → transfer → replace order; interface and polarity rewrites, clause/dependency extraction, cooperating NLSAT/SMT solving, learned cores, equality refinement, model merging, cancellation, statistics and cleanup map to `NLPurifyTactic` and its helpers; focused package and QF_UFNRA integration suites pass.
+- [x] `src/tactic/nlsat_smt/nl_purify_tactic.h` — The `nl-purify` factory and named tactic registration map to the Go constructor, command registry and description; focused tactic and integration suites pass.
 - [ ] `src/tactic/sls/bvsls_opt_engine.cpp`
 - [ ] `src/tactic/sls/bvsls_opt_engine.h`
 - [ ] `src/test/cnf_backbones.cpp`
