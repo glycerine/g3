@@ -132,7 +132,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/transforms/dl_mk_scale.cpp` — Predicate and constraint scaling, output metadata, homogeneous-coordinate substitution and model reconstruction match the current Z3 source, including nullary predicates; focused transform and PDR/Spacer/BMC/CLP/Duality scale tests pass. The bundled legacy `src/` copy contains an older nullary-converter bug, documented in `TRANSFORM_UNIT_AUDIT.md`.
 - [x] `src/muz/transforms/dl_mk_scale.h` — Plugin state, constructor/default priority, transform interface and scaling helpers map to `ScalePlugin` and its typed per-rule state; focused transform tests pass.
 - [x] `src/muz/transforms/dl_mk_slice.cpp` — Predicate-slice fixed-point analysis, rule rewriting, output/origin propagation, proof conversion and model reconstruction map to `RuleSlicePlugin`, `SliceProofConverter` and the fixedpoint result pipeline. Rewritten rules follow the source null-negation-array behavior; model conversion copies function entries and fallbacks, and focused transform/proof and PDR/Spacer slice tests pass.
-- [ ] `src/nlsat/nlsat_explain.cpp`
+- [x] `src/nlsat/nlsat_explain.cpp` — Explanation assumptions, vanishing-term reduction, core normalization/simplification/minimization, cell construction, PSC/resultant/discriminant/factor projection, signed projection, maximization and solver configuration map across `pkg/nlsat/explain_*.go` and `solver_projection.go`. The root-literal hook is only called by C++ test code and debug pretty-printers have no production consumer; NLSAT and tactic short suites pass.
 - [ ] `src/nlsat/nlsat_solver.cpp`
 - [ ] `src/nlsat/tactic/goal2nlsat.cpp`
 - [ ] `src/nlsat/tactic/nlsat_tactic.cpp`
