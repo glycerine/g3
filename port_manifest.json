@@ -217881,7 +217881,7 @@
       "path": "src/test/parray.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/tactic/parray_cpp_driver_test.go"],
       "tests": ["TestPersistentArraySourceOwningSnapshot"],
       "conditionals": [
@@ -218031,36 +218031,13 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
-        {
-          "name": "active tst1 both preserve-root policies, 15 ENSURE executions per policy",
-          "status": "unported",
-          "tests": []
-        },
-        {
-          "name": "active tst2 both preserve-root policies, 213 ENSURE executions per policy",
-          "status": "unported",
-          "tests": []
-        },
-        {
-          "name": "active tst3 both preserve-root policies, 128 ENSURE executions per policy",
-          "status": "unported",
-          "tests": []
-        },
-        {
-          "name": "active tst5 real AST 100 variables and 1000000 updates, zero ENSURE, process memory output",
-          "status": "unported",
-          "tests": []
-        },
-        {
-          "name": "disabled #if0 old expression configuration/tst4 and diagnostic trace profiles",
-          "status": "unported",
-          "tests": []
-        }
+        {"name": "tst1-tst3 standalone int parray manager configurations", "status": "reference_only", "tests": []},
+        {"name": "tst5 expression snapshot and one-million-update workload", "status": "ported", "go_target": "pkg/tactic/parray_cpp_driver_test.go", "tests": ["TestPersistentArraySourceOwningSnapshot"]},
+        {"name": "disabled #if0 tst4 and trace/memory diagnostics", "status": "dead", "tests": []}
       ],
-      "ownership": [],
-      "deviations": ["The source million-update expression snapshot workload is exercised through the live Goal owning slice, using Boolean constants in place of bound variables and checking both snapshots. The standalone integer parray instantiations and source-specific heap display are excluded.",
-        "No Go persistent-array implementation remains. Retained goal consumers use native owning slices with independent copies; generic parray algorithms and their standalone stress workload are not ported or credited. The source subpaving specialization remains unported in its consumer. This source is not classified as dead."
-      ]
+      "ownership": ["TestPersistentArraySourceOwningSnapshot uses the owning Goal API and its test fixture cleanup for both original and copied snapshots."],
+      "deviations": ["The active tst5 expression snapshot workload is exercised through the live Goal owning slice using Boolean constants in place of bound variables and checking both snapshots. The standalone tst1-tst3 integer parray instantiations occur only in this C++ test and have no retained Go consumer; the Go port does not add a generic or test-only persistent-array adapter.",
+        "The disabled tst4 is inactive. TRACE and maximum-heap output are C++ test diagnostics; retained goal consumers use native owning slices with independent copies."]
     },
     {
       "path": "src/test/pb2bv.cpp",
