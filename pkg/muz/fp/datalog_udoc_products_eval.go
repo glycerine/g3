@@ -15,24 +15,32 @@ func (p *udocProductContext) evaluate(plan *udocProductRulePlan, docs map[ast.AS
 	var working *rel.UDocTableProduct
 	var err error
 	if !plan.multiStart.IsNull() {
-		working = p.result[plan.multiStart]
-		if working == nil {
-			return nil
+		first, second := plan.multiStart, plan.multi[0]
+		firstEmpty, cause := p.multiInputEmpty(first, plan.multiStartKind, docs, finite)
+		if cause != nil || firstEmpty {
+			return cause
 		}
-		for _, input := range plan.multi {
+		secondEmpty, cause := p.multiInputEmpty(second.declaration, second.kind, docs, finite)
+		if cause != nil || secondEmpty {
+			return cause
+		}
+		working, err = p.joinMultiFirst(first, plan.multiStartKind, second, second.leftColumns, second.rightColumns, docs, finite)
+		if working != nil {
+			a.values = append(a.values, working)
+		}
+		if err != nil || working == nil {
+			return err
+		}
+		for _, input := range plan.multi[1:] {
 			empty, cause := working.Empty()
 			if cause != nil || empty {
 				return cause
 			}
-			right := p.result[input.declaration]
-			if right == nil {
-				return nil
-			}
-			empty, cause = right.Empty()
+			empty, cause = p.multiInputEmpty(input.declaration, input.kind, docs, finite)
 			if cause != nil || empty {
 				return cause
 			}
-			next, cause := working.Join(right, input.leftColumns, input.rightColumns)
+			next, cause := p.joinMultiProductInput(working, input, input.leftColumns, input.rightColumns, docs, finite)
 			if next != nil {
 				a.values = append(a.values, next)
 			}

@@ -28,6 +28,7 @@ type udocProductRulePlan struct {
 	head, doc, finite, source ast.ASTHandle
 	pair                      *udocProductPairPlan
 	multiStart                ast.ASTHandle
+	multiStartKind            uint8
 	multi                     []udocProductMultiInput
 	docFirst                  bool
 	docColumns, finiteColumns []uint32
@@ -43,6 +44,8 @@ type udocProductRulePlan struct {
 
 type udocProductMultiInput struct {
 	declaration               ast.ASTHandle
+	kind                      uint8 // 0 product, 1 DOC, 2 finite table
+	sorts                     []ast.ASTHandle
 	leftColumns, rightColumns []uint32
 }
 
@@ -400,6 +403,42 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 			if baseTotal != basePositive {
 				return nil, ErrUDocDatalogFragment
 			}
+			for sourceTail := 0; sourceTail < positive; sourceTail++ {
+				if sourceTail == membershipIndex {
+					continue
+				}
+				tail, _, cause := rule.Tail(sourceTail)
+				if cause != nil {
+					return nil, cause
+				}
+				declaration, cause := e.manager.GetDecl(tail)
+				if cause != nil {
+					return nil, cause
+				}
+				if p.productHead(declaration) || definitions[declaration] != 0 {
+					continue
+				}
+				doc, cause := isDoc(declaration)
+				if cause != nil {
+					return nil, cause
+				}
+				if doc {
+					p.docs[declaration] = true
+					continue
+				}
+				input := e.predicates[declaration]
+				if input == nil || input.external != nil || !e.relations.CanHandleTableSorts(input.sorts) {
+					return nil, ErrUDocDatalogFragment
+				}
+				if input.table == nil && known[declaration] == nil || input.table != nil && udocProductFiniteKind(input.table) != e.datalogDefaultTable {
+					return nil, ErrUDocDatalogFragment
+				}
+				if len(input.requestedRepresentations) != 0 && !input.explicitFiniteRepresentation {
+					return nil, ErrUDocDatalogFragment
+				}
+				p.finite[declaration] = true
+				p.finiteSorts[declaration] = append([]ast.ASTHandle(nil), input.sorts...)
+			}
 			for _, sort := range state.sorts {
 				if sort == boolean {
 					continue
@@ -733,18 +772,25 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 					if tailIndex == 0 {
 						plan.multiStart = declaration
 					}
+					kind := uint8(0)
 					if !p.productHead(declaration) {
-						if p.rules[declaration] != nil || p.docs[declaration] || p.finite[declaration] {
-							return nil, ErrUDocDatalogFragment
+						if p.docs[declaration] {
+							kind = 1
+						} else if p.finite[declaration] {
+							kind = 2
+						} else {
+							ready = false
+							break
 						}
-						ready = false
-						break
+					}
+					if tailIndex == 0 {
+						plan.multiStartKind = kind
 					}
 					tailArguments, cause := productArguments(e.manager, tail)
 					if cause != nil {
 						return nil, cause
 					}
-					input := udocProductMultiInput{declaration: declaration}
+					input := udocProductMultiInput{declaration: declaration, kind: kind, sorts: append([]ast.ASTHandle(nil), e.predicates[declaration].sorts...)}
 					currentVariables := make(map[ast.ASTHandle]uint32)
 					for column, argument := range tailArguments {
 						kind, cause := e.manager.GetKind(argument)
@@ -772,7 +818,11 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 					}
 					arguments = append(arguments, tailArguments...)
 				}
-				if !ready {
+				if !ready || len(plan.multi) == 0 {
+					continue
+				}
+				canStart := plan.multiStartKind == 0 || plan.multi[0].kind == 0 || plan.multiStartKind == 1 && plan.multi[0].kind == 2 || plan.multiStartKind == 2 && plan.multi[0].kind == 1
+				if !canStart {
 					continue
 				}
 				if membershipIndex >= 0 {

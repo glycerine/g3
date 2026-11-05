@@ -123,6 +123,108 @@ func (p *udocProductContext) productPairInput(declaration ast.ASTHandle, finite 
 	return nil, true, nil
 }
 
+func (p *udocProductContext) multiInputEmpty(declaration ast.ASTHandle, kind uint8, docs map[ast.ASTHandle]*rel.TypedUDocRelation, finite map[ast.ASTHandle]rel.FiniteTable) (bool, error) {
+	switch kind {
+	case 0:
+		product := p.result[declaration]
+		if product == nil {
+			return true, nil
+		}
+		return product.Empty()
+	case 1:
+		document := docs[declaration]
+		if document == nil {
+			return true, nil
+		}
+		return document.Empty()
+	case 2:
+		table := finite[declaration]
+		if table == nil {
+			return true, nil
+		}
+		rows, err := table.Len()
+		return rows == 0, err
+	default:
+		return false, ErrUDocDatalogFragment
+	}
+}
+
+func (p *udocProductContext) joinMultiProductInput(left *rel.UDocTableProduct, right udocProductMultiInput, leftColumns, rightColumns []uint32, docs map[ast.ASTHandle]*rel.TypedUDocRelation, finite map[ast.ASTHandle]rel.FiniteTable) (*rel.UDocTableProduct, error) {
+	switch right.kind {
+	case 0:
+		product := p.result[right.declaration]
+		if product == nil {
+			return nil, nil
+		}
+		return left.Join(product, leftColumns, rightColumns)
+	case 1:
+		document := docs[right.declaration]
+		if document == nil {
+			return nil, nil
+		}
+		return rel.JoinProductUDoc(left, document, leftColumns, rightColumns)
+	case 2:
+		table := finite[right.declaration]
+		if table == nil {
+			return nil, nil
+		}
+		return rel.JoinProductFinite(left, right.sorts, table, leftColumns, rightColumns)
+	default:
+		return nil, ErrUDocDatalogFragment
+	}
+}
+
+func (p *udocProductContext) joinMultiFirst(first ast.ASTHandle, firstKind uint8, second udocProductMultiInput, leftColumns, rightColumns []uint32, docs map[ast.ASTHandle]*rel.TypedUDocRelation, finite map[ast.ASTHandle]rel.FiniteTable) (*rel.UDocTableProduct, error) {
+	switch firstKind {
+	case 0:
+		product := p.result[first]
+		if product == nil {
+			return nil, nil
+		}
+		return p.joinMultiProductInput(product, second, leftColumns, rightColumns, docs, finite)
+	case 1:
+		document := docs[first]
+		if document == nil {
+			return nil, nil
+		}
+		switch second.kind {
+		case 0:
+			product := p.result[second.declaration]
+			if product == nil {
+				return nil, nil
+			}
+			return rel.JoinUDocProduct(document, product, leftColumns, rightColumns)
+		case 2:
+			table := finite[second.declaration]
+			if table == nil {
+				return nil, nil
+			}
+			return rel.JoinUDocFinite(p.manager, document, second.sorts, table, leftColumns, rightColumns)
+		}
+	case 2:
+		table := finite[first]
+		if table == nil {
+			return nil, nil
+		}
+		sorts := p.program.finiteSorts[first]
+		switch second.kind {
+		case 0:
+			product := p.result[second.declaration]
+			if product == nil {
+				return nil, nil
+			}
+			return rel.JoinFiniteProduct(p.manager, sorts, table, product, leftColumns, rightColumns)
+		case 1:
+			document := docs[second.declaration]
+			if document == nil {
+				return nil, nil
+			}
+			return rel.JoinFiniteUDoc(p.manager, sorts, table, document, leftColumns, rightColumns)
+		}
+	}
+	return nil, ErrUDocDatalogFragment
+}
+
 func (p *udocProductContext) evaluateProductPair(pair *udocProductPairPlan, docs map[ast.ASTHandle]*rel.TypedUDocRelation, finite map[ast.ASTHandle]rel.FiniteTable) (*rel.UDocTableProduct, error) {
 	if pair.docTail == 0 {
 		document := docs[pair.left]
