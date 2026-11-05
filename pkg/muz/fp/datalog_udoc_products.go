@@ -153,10 +153,17 @@ func planUDocProductAssembly(m *ast.ASTManager, plan *udocProductRulePlan, argum
 }
 
 func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory, docFavourite bool, known map[ast.ASTHandle][]ast.ASTHandle) (program *udocProductProgram, resultErr error) {
+	return e.planUDocProductsForSet(factory, docFavourite, known, e.set, nil)
+}
+
+func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFactory, docFavourite bool, known map[ast.ASTHandle][]ast.ASTHandle, source *base.RuleSet, extraDocs map[ast.ASTHandle][]ast.ASTHandle) (program *udocProductProgram, resultErr error) {
 	if factory.FormulaChecked() {
 		return nil, nil
 	}
-	count, err := e.set.Len()
+	if source == nil {
+		return nil, ErrUDocDatalogFragment
+	}
+	count, err := source.Len()
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +185,7 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 	forwardHeads := make(map[ast.ASTHandle]bool)
 	pairHeads := make(map[ast.ASTHandle]bool)
 	for i := 0; i < count; i++ {
-		rule, err := e.set.Rule(i)
+		rule, err := source.Rule(i)
 		if err != nil {
 			return nil, err
 		}
@@ -219,6 +226,9 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 		}
 	}
 	isDoc := func(d ast.ASTHandle) (bool, error) {
+		if sorts, found := extraDocs[d]; found {
+			return factory.CanHandleSignature(sorts)
+		}
 		state := e.predicates[d]
 		if state == nil || state.external != nil || state.explicitFiniteRepresentation || len(state.sorts) != 1 || !e.relations.CanHandleTableSorts(state.sorts) {
 			return false, nil
@@ -418,6 +428,12 @@ func (e *PropositionalEngine) planUDocProducts(factory *rel.UDocRelationFactory,
 		fact := groundRules[ruleIndex]
 		if fact == nil {
 			continue
+		}
+		if sorts := extraDocs[fact.head]; sorts != nil {
+			if supported, cause := factory.CanHandleSignature(sorts); cause != nil || !supported {
+				return nil, errors.Join(cause, ErrUDocDatalogFragment)
+			}
+			p.docs[fact.head] = true
 		}
 		_, mixed := p.groundProducts[fact.head]
 		if !p.docs[fact.head] && !mixed {

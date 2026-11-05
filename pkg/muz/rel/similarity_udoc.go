@@ -15,12 +15,13 @@ import (
 // auxiliary UDoc relations. The factory is borrowed from the active UDoc
 // query owner.
 type UDocSimilarityProgram struct {
-	set      *base.RuleSet
-	factory  *UDocRelationFactory
-	seeds    map[ast.ASTHandle]*TypedUDocRelation
-	order    []ast.ASTHandle
-	modified bool
-	closed   bool
+	set       *base.RuleSet
+	factory   *UDocRelationFactory
+	seeds     map[ast.ASTHandle]*TypedUDocRelation
+	seedSorts map[ast.ASTHandle][]ast.ASTHandle
+	order     []ast.ASTHandle
+	modified  bool
+	closed    bool
 }
 
 func NewUDocSimilarityProgram(manager *ast.ASTManager, rules *base.RuleManager, factory *UDocRelationFactory, source *base.RuleSet, threshold uint32, outputs []ast.ASTHandle) (_ *UDocSimilarityProgram, resultErr error) {
@@ -31,7 +32,7 @@ func NewUDocSimilarityProgram(manager *ast.ASTManager, rules *base.RuleManager, 
 	if err != nil || owner != rules {
 		return nil, errors.Join(err, ast.ErrASTDomain)
 	}
-	p := &UDocSimilarityProgram{factory: factory, seeds: make(map[ast.ASTHandle]*TypedUDocRelation)}
+	p := &UDocSimilarityProgram{factory: factory, seeds: make(map[ast.ASTHandle]*TypedUDocRelation), seedSorts: make(map[ast.ASTHandle][]ast.ASTHandle)}
 	defer func() {
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, p.Close())
@@ -83,11 +84,12 @@ func NewUDocSimilarityProgram(manager *ast.ASTManager, rules *base.RuleManager, 
 			}
 			continue
 		}
-		auxiliary, relation, err := mergeSimilarityClassUDoc(manager, rules, factory, class)
+		auxiliary, sorts, relation, err := mergeSimilarityClassUDoc(manager, rules, factory, class)
 		if err != nil {
 			return nil, err
 		}
 		p.seeds[auxiliary] = relation
+		p.seedSorts[auxiliary] = sorts
 		p.order = append(p.order, auxiliary)
 		merged, err := similarityRewriteRule(rules, class.rules[0], class.constants, auxiliary)
 		if err != nil {
@@ -105,51 +107,51 @@ func NewUDocSimilarityProgram(manager *ast.ASTManager, rules *base.RuleManager, 
 	return p, nil
 }
 
-func mergeSimilarityClassUDoc(manager *ast.ASTManager, rules *base.RuleManager, factory *UDocRelationFactory, class similarityClass) (ast.ASTHandle, *TypedUDocRelation, error) {
+func mergeSimilarityClassUDoc(manager *ast.ASTManager, rules *base.RuleManager, factory *UDocRelationFactory, class similarityClass) (ast.ASTHandle, []ast.ASTHandle, *TypedUDocRelation, error) {
 	if manager == nil || rules == nil || factory == nil || !class.merge || len(class.rules) < 2 || len(class.constants) == 0 {
-		return ast.ASTHandle{}, nil, ast.ErrASTDomain
+		return ast.ASTHandle{}, nil, nil, ast.ErrASTDomain
 	}
 	domains, rows, err := similarityOrphanRows(class.rules, class.constants)
 	if err != nil {
-		return ast.ASTHandle{}, nil, err
+		return ast.ASTHandle{}, nil, nil, err
 	}
 	supported, err := factory.CanHandleSignature(domains)
 	if err != nil || !supported {
-		return ast.ASTHandle{}, nil, errors.Join(err, ErrTableRelation)
+		return ast.ASTHandle{}, nil, nil, errors.Join(err, ErrTableRelation)
 	}
 	head, err := class.rules[0].HeadDeclaration()
 	if err != nil {
-		return ast.ASTHandle{}, nil, err
+		return ast.ASTHandle{}, nil, nil, err
 	}
 	prefix, err := manager.GetASTName(head)
 	if err != nil {
-		return ast.ASTHandle{}, nil, err
+		return ast.ASTHandle{}, nil, nil, err
 	}
 	suffix, err := manager.Symbols.Intern(fmt.Sprintf("sc_%d", len(class.constants)))
 	if err != nil {
-		return ast.ASTHandle{}, nil, err
+		return ast.ASTHandle{}, nil, nil, err
 	}
 	boolean, err := manager.MkBoolSort()
 	if err != nil {
-		return ast.ASTHandle{}, nil, err
+		return ast.ASTHandle{}, nil, nil, err
 	}
 	auxiliary, err := manager.MkFreshFuncDecl(prefix, suffix, domains, boolean)
 	if err != nil {
-		return ast.ASTHandle{}, nil, err
+		return ast.ASTHandle{}, nil, nil, err
 	}
 	if err = rules.RegisterPredicate(auxiliary); err != nil {
-		return ast.ASTHandle{}, nil, err
+		return ast.ASTHandle{}, nil, nil, err
 	}
 	relation, err := factory.NewEmpty(domains)
 	if err != nil {
-		return ast.ASTHandle{}, nil, err
+		return ast.ASTHandle{}, nil, nil, err
 	}
 	for _, row := range rows {
 		if _, err = relation.AddFact(row); err != nil {
-			return ast.ASTHandle{}, nil, errors.Join(err, relation.Close())
+			return ast.ASTHandle{}, nil, nil, errors.Join(err, relation.Close())
 		}
 	}
-	return auxiliary, relation, nil
+	return auxiliary, append([]ast.ASTHandle(nil), domains...), relation, nil
 }
 
 func (p *UDocSimilarityProgram) RuleSet() (*base.RuleSet, error) {
@@ -173,6 +175,14 @@ func (p *UDocSimilarityProgram) SeedOrder() []ast.ASTHandle {
 	return append([]ast.ASTHandle(nil), p.order...)
 }
 
+func (p *UDocSimilarityProgram) SeedSorts() map[ast.ASTHandle][]ast.ASTHandle {
+	result := make(map[ast.ASTHandle][]ast.ASTHandle, len(p.seedSorts))
+	for declaration, sorts := range p.seedSorts {
+		result[declaration] = append([]ast.ASTHandle(nil), sorts...)
+	}
+	return result
+}
+
 func (p *UDocSimilarityProgram) Close() (result error) {
 	if p == nil || p.closed {
 		return nil
@@ -193,7 +203,7 @@ func (p *UDocSimilarityProgram) Close() (result error) {
 		}
 	}
 	if result == nil {
-		p.factory, p.seeds, p.order, p.closed = nil, nil, nil, true
+		p.factory, p.seeds, p.seedSorts, p.order, p.closed = nil, nil, nil, nil, true
 	}
 	return result
 }

@@ -170,7 +170,7 @@ func (e *PropositionalEngine) queryUDocDatalog(declarations []ast.ASTHandle) (st
 	var similarityScope *udocSimilarityQueryScope
 	if enabled, threshold, err := e.udocSimilaritySettings(); err != nil {
 		return lbool.Undef, err
-	} else if enabled && owner.products == nil {
+	} else if enabled {
 		outputs, err := e.set.OutputPredicates()
 		if err != nil {
 			return lbool.Undef, err
@@ -181,15 +181,35 @@ func (e *PropositionalEngine) queryUDocDatalog(declarations []ast.ASTHandle) (st
 			return lbool.Undef, err
 		}
 		if program != nil {
-			similarityScope, err = installUDocSimilaritySeeds(owner, program)
+			set, err = program.RuleSet()
 			if err != nil {
 				return lbool.Undef, errors.Join(err, program.Close())
 			}
-			set, err = program.RuleSet()
-			if err != nil {
-				return lbool.Undef, errors.Join(err, similarityScope.Close())
+			var productPlan *udocProductProgram
+			if owner.products != nil {
+				productPlan, err = e.planUDocProductsForSet(owner.factory, true, owner.products.program.sorts, set, program.SeedSorts())
+				if err != nil && !errors.Is(err, ErrUDocDatalogFragment) {
+					return lbool.Undef, errors.Join(err, program.Close())
+				}
+				if err != nil || productPlan == nil {
+					if closeErr := program.Close(); closeErr != nil {
+						return lbool.Undef, errors.Join(err, closeErr)
+					}
+					program = nil
+					set = e.set
+				}
 			}
-			defer func() { resultErr = errors.Join(resultErr, similarityScope.Close()) }()
+			if program != nil {
+				similarityScope, err = installUDocSimilaritySeeds(owner, program)
+				if err != nil {
+					return lbool.Undef, errors.Join(err, program.Close())
+				}
+				if productPlan != nil {
+					similarityScope.previousProducts = owner.products.program
+					owner.products.program = productPlan
+				}
+				defer func() { resultErr = errors.Join(resultErr, similarityScope.Close()) }()
+			}
 		}
 	}
 	if err := e.udocDatalog.checkpoint(); err != nil {

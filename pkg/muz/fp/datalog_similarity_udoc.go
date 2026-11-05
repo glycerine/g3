@@ -8,9 +8,10 @@ import (
 )
 
 type udocSimilarityQueryScope struct {
-	owner     *datalogUDocContext
-	program   *rel.UDocSimilarityProgram
-	installed []ast.ASTHandle
+	owner            *datalogUDocContext
+	program          *rel.UDocSimilarityProgram
+	previousProducts *udocProductProgram
+	installed        []ast.ASTHandle
 }
 
 func (e *PropositionalEngine) udocSimilaritySettings() (bool, uint32, error) {
@@ -60,6 +61,10 @@ func (s *udocSimilarityQueryScope) Close() (result error) {
 		delete(s.owner.seeds, declaration)
 	}
 	if s.owner != nil {
+		if s.previousProducts != nil && s.owner.products != nil {
+			s.owner.products.program = s.previousProducts
+			s.previousProducts = nil
+		}
 		installed := make(map[ast.ASTHandle]bool, len(s.installed))
 		for _, declaration := range s.installed {
 			installed[declaration] = true
