@@ -242,7 +242,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/inf_rational.h` — The live rational-plus-infinitesimal operations map to `OwnedInfRational`, including source ordering, mixed comparisons, fused add/subtract, rounding, and component access; existing focused numeral, simplex, and SMT-core checks pass. No tests were added.
 - [x] `src/util/map.h` — Live maps are represented by concrete Go maps/slices and owner-local map implementations at their call sites; `ptr_addr_map` has no live instantiations. The standalone `src/test/map.cpp` exercises only a generic C-string-key map without a retained Go consumer, so no universal map adapter is added. Existing AST, relation, SAT, and SMT-core suites pass; no tests were added.
 - [x] `src/util/memory_manager.cpp` — Allocation/header/reallocation order, TLS and non-TLS counters, limits, OOM state, watermark queries, and initialization/finalization lifecycle are mapped to `pkg/util/memory` and the generated-process owner in `pkg/engine`; existing `go test ./pkg/util/memory ./pkg/engine -count=1 -timeout=0` passes. No tests were added.
-- [ ] `src/util/memory_manager.h`
+- [x] `src/util/memory_manager.h` — `alloc`/`dealloc` and vector/svector macros are represented by the live owners’ concrete constructors, cleanup, and raw `memory.Runtime` blocks; generic placement-new wrappers have no Go consumer and are not duplicated. Existing memory-runtime and generated-process tests pass; no tests were added.
 - [ ] `src/util/mpf.h`
 - [ ] `src/util/mpn.cpp`
 - [ ] `src/util/mpn.h`
