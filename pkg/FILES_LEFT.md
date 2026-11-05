@@ -256,7 +256,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/obj_ref.h` — Live reference instantiations use concrete AST, S-expression, and rule owners with explicit clone/move/reset/swap/steal and cleanup operations; the template itself has no Go runtime consumer requiring a universal smart-pointer wrapper. Existing AST and S-expression reference lifecycle and interrupted-decrement checks pass; no tests were added.
 - [x] `src/util/params.cpp` — Parameter-name normalization, descriptors and module lookup/display, typed parameter storage and copy-on-write references, validation, global/module registration, and environment parameter routes map to concrete Go owners in `pkg/util/params`; the full package suite passes with `-short` to include long checks. No tests were added.
 - [x] `src/util/params.h` — The `params_ref` and `param_descrs` public API, typed getters/setters with fallback, copy/append/reset/validate/display behavior, and parameter kind aliases map to `ParamsRef`, `ParamsContext`, and `ParamDescrs`; the full package suite passes with `-short` to include long checks. No tests were added.
-- [ ] `src/util/plugin_manager.h`
+- [x] `src/util/plugin_manager.h` — The live theory and model-factory registries use typed family maps plus registration-order slices, preserving duplicate checks, lookup, iteration order, and owner teardown without a generic plugin manager. Existing SMT theory-order and model-factory destruction checks pass; no tests were added.
 - [ ] `src/util/rational.cpp`
 - [ ] `src/util/rational.h`
 - [ ] `src/util/ref.h`
