@@ -65,7 +65,7 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 	if err != nil {
 		return result, false, err
 	}
-	var arrayVars, datatypeVars, boolVars, arithmeticVars, bitVectorVars, datalogVars []ast.ASTHandle
+	var arrayVars, datatypeVars, boolVars, arithmeticVars, bitVectorVars, datalogVars, unsupportedVars []ast.ASTHandle
 	for _, ref := range extracted.variables {
 		variable, e := m.RefGet(ref)
 		if e != nil {
@@ -101,7 +101,9 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 		case datalog:
 			datalogVars = append(datalogVars, variable)
 		default:
-			return result, false, nil
+			// quant_elim_plugin::check leaves declarations without a theory
+			// plugin in m_free_vars while continuing with supported variables.
+			unsupportedVars = append(unsupportedVars, variable)
 		}
 	}
 	groups := [][]ast.ASTHandle{arrayVars, datatypeVars, boolVars, arithmeticVars, bitVectorVars, datalogVars}
@@ -111,7 +113,7 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 			nonempty++
 		}
 	}
-	if nonempty < 2 {
+	if nonempty == 0 || (nonempty < 2 && len(unsupportedVars) == 0) {
 		return result, false, nil
 	}
 	body, err = m.RefGet(extracted.body)
@@ -193,6 +195,17 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 	body, err = m.RefGet(formula)
 	if err != nil {
 		return result, false, err
+	}
+	if len(unsupportedVars) > 0 {
+		bound, e := bindExprQuantifierVariables(m, unsupportedVars, body)
+		if e != nil {
+			return result, false, e
+		}
+		body, e = m.RefGet(bound)
+		err = errors.Join(e, m.DelRef(&bound))
+		if err != nil {
+			return result, false, err
+		}
 	}
 	if forall {
 		body, err = m.MkNotSimplified(body)
