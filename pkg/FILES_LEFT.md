@@ -253,7 +253,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/util/mpzzp.h` — Modular integer mode, centered residue normalization, mode switching, delegated arithmetic, inverse/division, power, and integer-only roots map to `IntegerModularManager`; the source constructor’s uninitialized prime flag and modular square-root limitation are represented explicitly. Existing focused `TestIntegerModular*` tests pass; no tests were added.
 - [x] `src/util/obj_hashtable.h` — Live object-set/map instantiations use concrete owner-local Go maps keyed by their actual pointer-identity handles, with cleanup handled by each owner; the generic C++ bucket and sentinel-pointer representation has no shared Go consumer and is not duplicated as a universal adapter. Existing AST trail/context and fixedpoint transform checks pass; no tests were added.
 - [x] `src/util/obj_pair_hashtable.h` — Live pair-set/map instantiations use concrete Go key structs containing the source object handles, preserving pointer-identity pair equality; cleanup stays with each consuming owner and no generic adapter is needed. Existing pattern inference, UFBV matching, and fixedpoint join/MagicSets checks pass; no tests were added.
-- [ ] `src/util/obj_ref.h`
+- [x] `src/util/obj_ref.h` — Live reference instantiations use concrete AST, S-expression, and rule owners with explicit clone/move/reset/swap/steal and cleanup operations; the template itself has no Go runtime consumer requiring a universal smart-pointer wrapper. Existing AST and S-expression reference lifecycle and interrupted-decrement checks pass; no tests were added.
 - [ ] `src/util/params.cpp`
 - [ ] `src/util/params.h`
 - [ ] `src/util/plugin_manager.h`
