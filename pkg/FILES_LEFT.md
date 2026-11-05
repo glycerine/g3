@@ -110,8 +110,8 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/muz/rel/dl_relation_manager.h` — Relation manager fields and inline accessors map to Go’s context-owned finite/explanation storage and typed relation/table factories, including saturation, predicate restrictions, plugin capability, and source operation contracts. C++ plugin-pointer maps and container aliases are not separate runtime objects; concrete Go dispatch is covered by relation-manager and backend tests.
 - [x] `src/muz/rel/dl_sieve_relation.cpp` — Sieve mask construction, fact projection, clone/complement, formula/display, join/project/rename, union/delta, interpreted/equality/identical filters, negation, estimates and mixed table conversions map to `SieveRelation`, `UDocSieve`, `IntervalSieve` and concrete sparse/interval products. Source ignored-column approximation and component ownership are covered by focused sieve tests.
 - [x] `src/muz/rel/dl_sieve_relation.h` — Plugin/relation contracts, mask-to-column mappings and operation factories map to the typed sieve APIs; C++ virtual/plugin pointer surfaces have no standalone Go runtime representation. Focused sieve and mixed-product tests pass.
-- [ ] `src/muz/rel/dl_sparse_table.cpp`
-- [ ] `src/muz/rel/dl_sparse_table.h`
+- [x] `src/muz/rel/dl_sparse_table.cpp` — Packed sparse rows, reserve/uniqueness semantics, functional suffixes, lazy key indexing, fetch/ensure/remove, clone/reset, garbage collection, joins/project, union, rename, select/project, negation, negated joins and estimates map to `SparseLayout`, `SparseTable` and typed sparse operation paths. Focused sparse storage, functional-index, join, filter and ownership tests pass.
+- [x] `src/muz/rel/dl_sparse_table.h` — Sparse table/plugin and entry-storage contracts map to the typed Go layout/storage types and concrete operation methods; C++ byte-buffer and hash-container internals are represented by Go-owned packed rows and indices without porting STL mechanics. The focused sparse test group passes.
 - [ ] `src/muz/rel/dl_vector_relation.h`
 - [ ] `src/muz/rel/karr_relation.cpp`
 - [ ] `src/muz/rel/karr_relation.h`
