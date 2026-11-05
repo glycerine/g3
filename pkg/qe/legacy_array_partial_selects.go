@@ -129,7 +129,9 @@ func (p *legacyArrayProjection) factorPartialSelects(md *model.ModelCore, evalua
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, p.syntax.manager.DelRef(&application)) }()
+	defer func() {
+		resultErr = closeFailedLegacyArrayRewrite(p.syntax.manager, application, resultErr)
+	}()
 	root, err := p.syntax.manager.RefGet(application)
 	if err != nil {
 		return nil, err
@@ -214,7 +216,7 @@ func (p *legacyArrayProjection) factorPartialSelects(md *model.ModelCore, evalua
 					err = md.RegisterConstant(decl, valueHandle)
 				}
 			}
-			err = errors.Join(err, p.syntax.manager.DelRef(&value))
+			err = closeFailedLegacyArrayRewrite(p.syntax.manager, value, err)
 			if err != nil {
 				return rewrittenNode{}, err
 			}
