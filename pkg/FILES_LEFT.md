@@ -137,7 +137,7 @@ Source files classified as partial in `port_manifest.json` when this list was cr
 - [x] `src/nlsat/tactic/goal2nlsat.cpp` — CNF clauses, Boolean abstraction, arithmetic conversion, factor-sign/parity handling, dependency assumptions, term-ITE rejection and inverse model/core reconstruction map to `GoalCompiler`/`GoalConverter`; factorization controls and source diagnostics are carried through. Focused NLSAT tactic tests pass.
 - [x] `src/nlsat/tactic/nlsat_tactic.cpp` — Parameter and statistics lifecycle, tactic reporting, proof-generation rejection, SAT/unknown/UNSAT goal transitions, model/core publication, and source `to_int` fallback behavior for nonintegral integer assignments map to `NLSATTactic` and `GoalCompiler`. Focused NLSAT tactic/solver and NLQSAT consumer suites pass.
 - [x] `src/opt/maxres.cpp` — MaxRes core extraction/minimization, MUS candidate updates, separate objective and correction-set model tracking, weighted core splitting, resolution proxies, primal-dual bounds, and post-core correction pivots follow the source ordering. Focused MaxRes tests and the full `pkg/opt` short suite pass.
-- [ ] `src/opt/maxsmt.cpp`
+- [ ] `src/opt/maxsmt.cpp` — Soft-term accumulation and normalization, objective/model/bound publication, mutex discovery and decomposition, and unknown-engine fallback map to the weighted soft set, MaxRes/SortMax engines, and result pipeline. The explicit `wmax` selection still reaches the generic soft-search fallback; complete it when its custom weighted-theory engine is ported from `src/opt/wmax.cpp`.
 - [ ] `src/opt/maxsmt.h`
 - [ ] `src/opt/opt_context.cpp`
 - [ ] `src/opt/opt_context.h`
