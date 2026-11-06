@@ -25,7 +25,7 @@ slow:
 
 bench:
 	go test ./smtcore -run '^$$' \
-	-bench '^BenchmarkSMT(BooleanPropagation|RelevanceCallbacks|ConflictResolution|ScopeResolution)$$' \
+	-bench '^BenchmarkSMT(BooleanPropagation|RelevanceCallbacks|ConflictResolution|ScopeRestoration)$$' \
 	-benchmem -benchtime=2s -count=5
 
 # To profile one component, select its exact name:
@@ -42,7 +42,7 @@ bench:
 # - `BenchmarkSMTBooleanPropagation`
 # - `BenchmarkSMTRelevanceCallbacks`
 # - `BenchmarkSMTConflictResolution`
-# - `BenchmarkSMTScopeResolution`
+# - `BenchmarkSMTScopeRestoration` # the slow one
 #
 # `-run '^$'` skips unit tests. Benchmark timings exclude setup and resets; CPU profiles also capture
 # that untimed work, so filter pprof by the component function when analyzing it.

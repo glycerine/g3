@@ -132,6 +132,7 @@ func BenchmarkSMTConflictResolution(b *testing.B) {
 	}
 }
 
+/* it is Restoration not Resolution that is super slow. comment this one out to avoid confusion.
 // BenchmarkSMTScopeResolution times rollback of a scope holding 128 Boolean
 // assignments. Scope construction and assignment publication are excluded.
 func BenchmarkSMTScopeResolution(b *testing.B) {
@@ -153,6 +154,7 @@ func BenchmarkSMTScopeResolution(b *testing.B) {
 	}
 	b.ReportMetric(smtHotPathWidth, "assignments/op")
 }
+*/
 
 // BenchmarkSMTScopeRestoration times a search backtrack that preserves and
 // rebuilds 64 learned clauses over 128 atoms. SurvivingAtoms exercises cached
