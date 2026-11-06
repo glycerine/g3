@@ -43,7 +43,7 @@ func TestBoundRelationJoinAndProjection(t *testing.T) {
 	astTestMust(t, err)
 	strict, weak, err = projected.Bounds(0)
 	astTestMust(t, err)
-	if !reflect.DeepEqual(strict, []uint32{1}) || len(weak) != 0 {
+	if !reflect.DeepEqual(strict, []uint32{1}) || !reflect.DeepEqual(weak, []uint32{^uint32(0)}) {
 		t.Fatal("projected bounds", strict, weak)
 	}
 	if _, err = source.Project([]uint32{2, 1}); err == nil {

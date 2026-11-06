@@ -38,8 +38,9 @@ func JoinBoundRelations(left, right *BoundRelation, leftColumns, rightColumns []
 	return result, nil
 }
 
-// Project removes sorted, unique columns and maps bounds to the surviving
-// columns. Bounds naming removed columns are dropped.
+// Project removes sorted, unique columns and maps bounds through the source
+// renaming vector. Bounds naming removed columns are mapped to MaxUint32, as
+// bound_relation_helper::mk_project_t does in C++.
 func (r *BoundRelation) Project(removed []uint32) (*BoundRelation, error) {
 	if r == nil || len(removed) > len(r.columns) {
 		return nil, ast.ErrASTDomain
@@ -73,24 +74,32 @@ func (r *BoundRelation) Project(removed []uint32) (*BoundRelation, error) {
 			classes[root] = dest
 		}
 	}
-	renaming := make(map[uint32]uint32, len(kept))
-	for i, old := range kept {
-		renaming[old] = result.find(uint32(i))
+	renaming := make(map[uint32]uint32, len(r.columns))
+	keptIndex := 0
+	removeIndex = 0
+	for old := range r.columns {
+		index := uint32(old)
+		if removeIndex < len(removed) && removed[removeIndex] == index {
+			renaming[index] = ^uint32(0)
+			removeIndex++
+			continue
+		}
+		renaming[index] = result.find(uint32(keptIndex))
+		keptIndex++
 	}
+	// Preserve the source sentinel if an already-mapped representative is
+	// visited again through another member of its equality class.
+	renaming[^uint32(0)] = ^uint32(0)
 	// The source applies the projection helper through operator[] for every
 	// column, including repeated representatives.
 	for i := range result.columns {
 		column := &result.columns[result.find(uint32(i))]
 		mapped := boundColumn{lt: make(map[uint32]bool), le: make(map[uint32]bool)}
 		for old := range column.lt {
-			if next, ok := renaming[old]; ok {
-				mapped.lt[next] = true
-			}
+			mapped.lt[renaming[old]] = true
 		}
 		for old := range column.le {
-			if next, ok := renaming[old]; ok {
-				mapped.le[next] = true
-			}
+			mapped.le[renaming[old]] = true
 		}
 		*column = mapped
 	}

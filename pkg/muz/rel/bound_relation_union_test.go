@@ -60,6 +60,30 @@ func TestBoundRelationUnionSplitsEqualities(t *testing.T) {
 	}
 }
 
+func TestBoundRelationUnionDropsProjectionSentinelLikeSourceMkEq(t *testing.T) {
+	source := NewBoundRelation(2, false)
+	astTestMust(t, source.AddLessEqual(0, 1))
+	projected, err := source.Project([]uint32{1})
+	astTestMust(t, err)
+	_, weak, err := projected.Bounds(0)
+	astTestMust(t, err)
+	if !reflect.DeepEqual(weak, []uint32{^uint32(0)}) {
+		t.Fatal("projection did not preserve C++ removed-column sentinel", weak)
+	}
+
+	// bound_relation::mk_eq copies bounds by scanning only valid source column
+	// indices, so the sentinel is discarded when a projected relation is
+	// subsequently unioned.
+	other := projected.Clone()
+	_, err = projected.Union(other)
+	astTestMust(t, err)
+	_, weak, err = projected.Bounds(0)
+	astTestMust(t, err)
+	if len(weak) != 0 {
+		t.Fatal("union copied an out-of-range projection sentinel", weak)
+	}
+}
+
 func TestBoundRelationUnionDelta(t *testing.T) {
 	target, source, delta := NewBoundRelation(2, true), NewBoundRelation(2, false), NewBoundRelation(2, true)
 	astTestMust(t, source.AddLess(0, 1))

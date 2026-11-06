@@ -78,6 +78,11 @@ func (r *BoundRelation) merge(left, right uint32) {
 func (r *BoundRelation) remap(c boundColumn, joint *BoundRelation) boundColumn {
 	result := boundColumn{lt: make(map[uint32]bool), le: make(map[uint32]bool)}
 	for index := range c.lt {
+		// bound_relation::mk_eq visits only source columns [0, arity), so
+		// projection's UINT_MAX sentinel is not copied into the union result.
+		if uint64(index) >= uint64(len(r.columns)) {
+			continue
+		}
 		for j := range r.columns {
 			if r.find(uint32(j)) == r.find(index) {
 				result.lt[joint.find(uint32(j))] = true
@@ -85,6 +90,9 @@ func (r *BoundRelation) remap(c boundColumn, joint *BoundRelation) boundColumn {
 		}
 	}
 	for index := range c.le {
+		if uint64(index) >= uint64(len(r.columns)) {
+			continue
+		}
 		for j := range r.columns {
 			if r.find(uint32(j)) == r.find(index) {
 				result.le[joint.find(uint32(j))] = true

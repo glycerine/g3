@@ -115,7 +115,7 @@ the source manager.
 
 **Verification.** Passed `go test ./pkg/muz/rel -run 'UDoc|RelationExplanationProduct' -count=1 -timeout=0`
 and `go test ./pkg/muz/fp -run 'DatalogDoc' -count=1 -timeout=0`. Rerun both
-complete short package suites after the remaining numeric and Karr work.
+complete short package suites after the remaining numeric work.
 
 ### `bound_relation` and `interval_relation`
 
@@ -124,65 +124,102 @@ sorts ([dl_bound_relation.cpp](../src/muz/rel/dl_bound_relation.cpp#L32),
 [dl_interval_relation.cpp](../src/muz/rel/dl_interval_relation.cpp#L37)). They
 can be selected as the `check_relation` base for numeric original columns;
 the trailing rule-proof column is assigned to the explanation relation by the
-relation-level sieve. Go has separate bound/interval implementations and
-product helpers, but the generic formula-checking explanation path currently
-only constructs finite-table products. Add source-faithful checker dispatch
-and test numeric relation-level explanations, proof-column separation,
-formula conversion, and operation coverage.
+relation-level sieve.
 
-The live Go rejection is explicit in `ensureBoundDatalog` and
-`ensureIntervalDatalog` ([datalog_bound_dispatch.go](muz/fp/datalog_bound_dispatch.go),
-[datalog_interval_dispatch.go](muz/fp/datalog_interval_dispatch.go)). The
-required product path must carry the numeric relation through source joins,
-projections, assignment filters, unions/deltas, and formula checks; translating
-the numeric relation into a finite table would not preserve C++ behavior.
+The audit initially identified a finite-only formula-checking explanation
+path. Commit `93370e9d3` added a shared numeric product adapter, interval
+relation-level query dispatch, numeric compiler columns/constants, and one
+recursive interval explanation test. This is partial integration evidence,
+not proof that the Go relation algorithms or all dispatch paths match C++.
+Treat both Go implementations as candidates for a source-to-source behavioral
+re-audit and replace code wherever that audit finds a divergence.
 
-**Current worktree status:** relation-level numeric products now support
-interval-backed joins, projection, numeric equality and interpreted filters,
-union, and formula export. The relation-level compiler can construct numeric
-full columns and numeric head constants. Datalog dispatch routes selected
-relation-level numeric explanation queries through that compiler, and typed
-zero-arity finite seeds are carried into numeric products. An end-to-end
-interval test covers a numeric fact, an unbound head variable, recursive
-compilation, and a ground expression query. The interval and fixedpoint package
-short suites pass.
+**Status: open; re-audit and rework the Go implementations against C++.** Use
+the following sequence and record source locations and observed behavior for
+each operation before changing its Go counterpart.
 
-**Still open:** the current end-to-end coverage does not yet establish bound
-relation behavior, checked numeric relation behavior, non-nullary seeds held in
-the specialized activation stores, magic-set auxiliary products, or a broad
-parity audit of every numeric compiler operation. Do not mark this item
-complete until those paths are tested against the corresponding C++ behavior.
+1. **Build a source behavior matrix.** Read the complete C++ plugin and
+   relation implementation for each operation: signature capability, empty
+   and full constructors, fact insertion, clone/reset, equality and identical
+   filters, interpreted filters, join, projection, rename, union, delta, and
+   widening. Include nullary relations, integer and real sorts, malformed
+   inputs, unsupported operators, and each source quirk. Compare each entry
+   with the existing Go implementation and its tests; label it matched,
+   divergent, or not covered. Do not infer parity from matching method names.
+2. **Rework `BoundRelation`.** Match C++'s equivalence classes and strict and
+   weak order constraints, including their normalization and transitive
+   closure. Verify empty/full and fact semantics; joins across shared columns;
+   projection and rename; equality-class merging; strict/weak union behavior,
+   delta calculation, and widening; intentionally coarse `filter_equal`; and
+   the exact accepted grammar and effects of interpreted filters. Preserve
+   source-visible no-ops and errors rather than improving the abstraction.
+3. **Rework `IntervalRelation`.** Match C++ interval endpoints, open/closed
+   bounds, infinities, empty/full state, numeral fact insertion, equality and
+   identical filters, supported interpreted comparisons, joins, projection,
+   rename, union, delta, and widening. Check real and integer boundary cases
+   separately, including singleton intervals and contradictions.
+4. **Match plugin dispatch and cross-plugin operations.** Verify which concrete
+   operations each plugin constructs or declines, including bound union from
+   interval sources and every product/plugin combination used by the Datalog
+   engine. Audit `check_relation` wrapping to confirm it checks the selected
+   backing's formula while keeping the trailing proof column in the
+   explanation relation. Keep signature fallback behavior identical to the
+   C++ relation manager.
+5. **Re-audit ingestion and lifecycle.** Trace how C++ and Go move direct
+   numeric facts, rule facts, and updates into relation seeds; how seeds are
+   cloned into query contexts; and when they are reset or restored. Cover
+   query clones, repeated queries, scopes, updates, failure cleanup, and
+   formula-checker setup/teardown. Do not substitute finite tuple enumeration
+   for a numeric relation or silently discard an existing typed seed.
+6. **Establish operation-level tests.** For each matrix entry, add or correct
+   a Go unit test that asserts the C++ result, including error/no-op behavior
+   and state after failure. For checked operations, compare the relation
+   formula to an independently constructed expected formula. Keep tests for
+   both plugins and cross-plugin dispatch; do not remove existing coverage.
+7. **Establish end-to-end tests.** Exercise default selection and
+   `check_relation` selection for both plugins, proof-column separation,
+   numeric facts and constants, positive recursive derivation, interpreted
+   arithmetic guards, expression queries, seed updates, and supported
+   magic-set transformations. Assert both answer status and exported proof
+   formula. Include expected unsupported cases where C++ declines an
+   operation.
+8. **Close only on demonstrated parity.** Run focused source-matrix tests after
+   each implementation change, then the full short `pkg/muz/rel` and
+   `pkg/muz/fp` suites. Keep the item open until every matrix entry is matched
+   or explicitly proven unreachable in retained Go consumers, and all
+   required end-to-end tests pass.
+
+The current interval explanation regression and short package runs are useful
+baseline coverage, but do not replace these checks. Bound behavior, checked
+numeric query integration, non-nullary typed activation seeds, and magic-set
+auxiliary products are specifically unverified.
+
+**Parity audit progress.** The first concrete divergence was in bound-relation
+projection. C++ `bound_relation_helper::mk_project_t` remaps every stored edge
+through the projection vector, including mapping references to removed columns
+to `UINT_MAX`; Go had dropped those edges. Go now preserves that sentinel and
+`TestBoundRelationJoinAndProjection` asserts it. The follow-on union behavior is
+also source-specific: `bound_relation::mk_eq` copies edges by iterating only
+valid source columns, so it drops the sentinel; Go now does the same, covered by
+`TestBoundRelationUnionDropsProjectionSentinelLikeSourceMkEq`. Verified with
+those focused tests and `go test ./pkg/muz/rel -short -count=1 -timeout=0`.
+Other operation rows remain unaudited; these corrections do not establish full
+bound or interval parity.
 
 ### `karr_relation`
 
-The C++ plugin accepts signatures when Karr analysis is enabled in the
-fixedpoint context ([karr_relation.h](../src/muz/rel/karr_relation.h#L48)).
-Under that option it is therefore a valid `check_relation` base. Determine
-whether the corresponding Go engine exposes this live configuration and Karr
-relation operations to relation-level explanations; if it does, port the
-checker/product route and test it. Otherwise document the specific missing
-consumer/configuration gate rather than treating the plugin name alone as
-unsupported.
-
-Go exposes the same `xform.karr` configuration and relation implementation,
-but `ensureKarrDatalog` currently rejects generated explanations with
-`ErrKarrDatalogFragment` ([datalog_karr_dispatch.go](muz/fp/datalog_karr_dispatch.go)).
-Thus this is a live-consumer parity gap, subject to the same generic relation
-product/compiler work as the numeric relations.
-
-**Current worktree status:** Karr uses the shared partial numeric product
-adapter, but no end-to-end relation-level explanation query has been tested.
-Seed transfer, Karr-specific filter/union behavior, formula validation, and
-the `xform.karr` dispatch boundary remain unverified.
+The Karr port is considered complete based on the existing Go implementation
+and its tests matching the C++ Karr behavior. The C++ plugin can participate in
+the generic relation-level explanation machinery when Karr is enabled, but
+that composition does not add a separate requirement to this audit. Do not add
+Karr-specific explanation support or tests unless a concrete divergence from
+C++ Karr behavior is found.
 
 ## Remaining implementation order
 
 1. Audit and port `bound_relation` and `interval_relation` through relation
    explanation products and their compiler operations; validate numeric facts,
    recursive derivation, proof-column handling, and formula checks.
-2. Audit and port `karr_relation` through the same pipeline when the Go engine's
-   Karr context option is enabled; test both enabled and disabled selection.
 
-All three need focused source-to-Go behavior tests. Do not close an item solely
-because its constructor or unit-level storage tests pass: require an engine
-query exercising the selected backing.
+Require focused source-to-Go behavior tests for the remaining numeric item;
+do not close it solely because constructor or unit-level storage tests pass.
