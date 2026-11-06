@@ -238,6 +238,11 @@ endpoint values, dropping a strict edge when `upper(lhs) >= lower(rhs)` and a
 weak edge only when `upper(lhs) > lower(rhs)`, without using endpoint openness.
 `TestBoundRelationUnionIntervalIgnoresEndpointOpenness` covers equal open and
 closed endpoints for both edge kinds.
+Although `mk_union_i` uses bracket syntax, `vector_relation::operator[]`
+resolves each interval index through its equality representative. The added
+`TestBoundRelationUnionIntervalUsesRepresentativePayload` checks strict and
+weak cases where reading a stale alias would prune an edge but the C++
+representative payload preserves it.
 The fact-membership audit found and fixed another direct divergence. C++
 `interval_relation::contains_fact` checks equality classes and each interval
 payload but does not inspect `m_empty`; an empty relation whose reset payload
@@ -310,7 +315,7 @@ the full operation has exhaustive edge-case coverage.
 | Join | Matched | Matched | Right bound indices follow the C++ unoffset-copy quirk; both plugins propagate empty operands. |
 | Projection | Sentinel mapping and empty-source behavior matched | Empty-source behavior matched | Bound removed-column edges map to `UINT_MAX`; C++ generic transform drops the empty flag. Native C++ interval regression and Go relation tests cover empty source; fixedpoint product tests cover resulting filter/guard/head-assembly order. |
 | Rename | Empty-source behavior matched | Empty-source behavior matched | C++ generic transform copies reset payload and does not propagate the empty flag; Go relation tests and affected fixedpoint tests cover the behavior. |
-| Union/delta/widen | Matched for covered cases | Matched for covered cases | Bound union from interval ignores endpoint openness as C++; interval tests cover all equal-endpoint openness pairs, hull, widening, delta state, and pruning. Other union boundaries remain to audit. |
+| Union/delta/widen | Matched for covered cases | Matched for covered cases | Bound union from interval covers endpoint openness and equality representative payloads; interval tests cover all equal-endpoint openness pairs, hull, widening, delta state, and pruning. Other union boundaries remain to audit. |
 | Plugin/cross-plugin dispatch | Partial | Partial | Bound-from-interval union and numeric explanation proof-column separation are covered. Both plugins accept numeric signatures, but `check_relation::mk_empty` rejects their reset full-payload formula against false; the Go selected-wrapper regression matches this source failure. Other consumer combinations remain open. |
 
 The numeric proof-column test confirms `explanationPredicateSignature` removes
