@@ -55,7 +55,7 @@ func TestIntervalBoundProductIdenticalColumnsWithWeakOrder(t *testing.T) {
 	}
 }
 
-func TestBoundRelationStrictCycleThroughMergedColumn(t *testing.T) {
+func TestBoundRelationMissesCycleThroughStaleMergedColumnLikeSource(t *testing.T) {
 	r := NewBoundRelation(3, false)
 	astTestMust(t, r.AddLess(0, 1))
 	astTestMust(t, r.Equate(1, 2))
@@ -63,8 +63,33 @@ func TestBoundRelationStrictCycleThroughMergedColumn(t *testing.T) {
 		t.Fatal("unrelated equality made strict order empty")
 	}
 	astTestMust(t, r.AddLessEqual(2, 0))
-	if !r.Empty() {
-		t.Fatal("strict cycle through an equality class was not detected")
+	// C++ mk_lt traverses the edge 0<1 through raw m_elems[1] after the
+	// equality merge. That stale payload is full, so it does not see the
+	// representative 2's outgoing path and leaves the relation nonempty.
+	if r.Empty() {
+		t.Fatal("source raw nonrepresentative traversal unexpectedly normalized the cycle")
+	}
+	strict, weak, err := r.Bounds(2)
+	astTestMust(t, err)
+	if !reflect.DeepEqual(strict, []uint32{1}) || !reflect.DeepEqual(weak, []uint32{0}) {
+		t.Fatalf("source stale-payload bounds: strict=%v weak=%v", strict, weak)
+	}
+}
+
+func TestBoundRelationClosureReadsStaleNonrepresentativePayloadLikeSource(t *testing.T) {
+	r := NewBoundRelation(6, false)
+	astTestMust(t, r.AddLess(0, 1))
+	astTestMust(t, r.AddLess(1, 3))
+	astTestMust(t, r.AddLess(2, 4))
+	astTestMust(t, r.Equate(1, 2))
+	if r.find(1) != 2 {
+		t.Fatalf("fixture requires source equal-size merge root 2; got %d", r.find(1))
+	}
+	astTestMust(t, r.AddLess(5, 0))
+	strict, weak, err := r.Bounds(5)
+	astTestMust(t, err)
+	if !reflect.DeepEqual(strict, []uint32{0, 1, 3}) || len(weak) != 0 {
+		t.Fatalf("source raw nonrepresentative traversal: strict=%v weak=%v", strict, weak)
 	}
 }
 

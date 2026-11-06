@@ -143,7 +143,10 @@ func (r *BoundRelation) addBound(left, right uint32, strict bool) error {
 		i := len(todo) - 1
 		item := todo[i]
 		todo = todo[:i]
-		item.column = r.find(item.column)
+		// dl_bound_relation.cpp reads (*m_elems)[j] directly while walking
+		// stored edges. Edges created before an equality merge can therefore
+		// inspect the stale payload of a nonrepresentative column; only the
+		// initial left and right arguments are normalized with find().
 		if seen[item] {
 			continue
 		}

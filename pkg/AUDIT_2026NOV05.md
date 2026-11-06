@@ -253,6 +253,15 @@ the target and delta must both adopt the source-common partition, and a stable
 repeat must leave the published delta unchanged. The test also confirms that
 the copied interval delta has the source vector-copy behavior (fresh independent
 columns with the copied interval payload).
+Bound-constraint closure now follows another exact source quirk: its C++ walk
+normalizes the initial left/right columns, but reads each subsequently visited
+edge index directly from the backing vector without `find()`. Because equality
+merges leave old nonrepresentative payloads in place, this can miss a strict
+cycle through an equality alias and can omit bounds stored only on the current
+representative. Go previously normalized every visited index and derived those
+extra bounds. The Go walk now keeps the raw edge index, with regressions for both
+the omitted derived bound and the missed cycle; the graph-closure oracle still
+covers strict-cycle behavior without equality aliases.
 
 **Operation matrix (partial).** “Matched” means the implementation and a
 focused Go test currently agree with the read C++ branch; it does not imply
