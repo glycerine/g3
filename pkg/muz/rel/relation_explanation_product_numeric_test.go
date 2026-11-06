@@ -70,3 +70,29 @@ func TestFormulaCheckedNumericRelationFilterEqualUsesSelectedBase(t *testing.T) 
 		}
 	})
 }
+
+func TestFormulaCheckedNumericRelationFilterIdenticalMatchesSelectedBases(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	arithmetic, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(arithmetic, 1, nil)
+	astTestMust(t, err)
+
+	for _, kind := range []string{"bound_relation", "interval_relation"} {
+		t.Run(kind, func(t *testing.T) {
+			numeric := &relationExplanationNumeric{
+				manager: f.relations, sorts: []ast.ASTHandle{integer, integer}, kind: kind, checker: &config,
+			}
+			switch kind {
+			case "bound_relation":
+				numeric.bound = NewBoundRelation(2, false)
+			case "interval_relation":
+				numeric.interval = NewIntervalFull(2)
+			}
+			if err := numeric.FilterIdentical([]uint32{0, 1}); err != nil {
+				t.Fatalf("checked identical filter: %v", err)
+			}
+		})
+	}
+}

@@ -395,12 +395,108 @@ func (b *relationExplanationNumeric) FilterIdentical(columns []uint32) error {
 	}
 	switch b.kind {
 	case "bound_relation":
-		return b.bound.FilterIdentical(columns)
+		var before, condition ast.ASTRef
+		if b.checker != nil {
+			if len(columns) == 0 {
+				return ast.ErrASTDomain
+			}
+			var err error
+			before, err = b.bound.ToFormula(b.manager.manager, b.sorts)
+			if err != nil {
+				return err
+			}
+			defer b.manager.manager.DelRef(&before)
+			condition, err = numericIdenticalCondition(b.manager.manager, b.sorts, columns)
+			if err != nil {
+				return err
+			}
+			defer b.manager.manager.DelRef(&condition)
+		}
+		if err := b.bound.FilterIdentical(columns); err != nil {
+			return err
+		}
+		if b.checker != nil {
+			beforeHandle, err := b.manager.manager.RefGet(before)
+			if err != nil {
+				return err
+			}
+			conditionHandle, err := b.manager.manager.RefGet(condition)
+			if err != nil {
+				return err
+			}
+			return VerifyBoundRelationFilter(b.manager.manager, b.sorts, *b.checker, beforeHandle, conditionHandle, b.bound, false)
+		}
+		return nil
 	case "interval_relation":
-		return b.interval.FilterIdenticalColumns(columns)
+		var before, condition ast.ASTRef
+		if b.checker != nil {
+			if len(columns) == 0 {
+				return ast.ErrASTDomain
+			}
+			var err error
+			before, err = b.interval.ToFormula(b.manager.manager, b.sorts)
+			if err != nil {
+				return err
+			}
+			defer b.manager.manager.DelRef(&before)
+			condition, err = numericIdenticalCondition(b.manager.manager, b.sorts, columns)
+			if err != nil {
+				return err
+			}
+			defer b.manager.manager.DelRef(&condition)
+		}
+		if err := b.interval.FilterIdenticalColumns(columns); err != nil {
+			return err
+		}
+		if b.checker != nil {
+			beforeHandle, err := b.manager.manager.RefGet(before)
+			if err != nil {
+				return err
+			}
+			conditionHandle, err := b.manager.manager.RefGet(condition)
+			if err != nil {
+				return err
+			}
+			return VerifyIntervalRelationFilter(b.manager.manager, b.sorts, *b.checker, beforeHandle, conditionHandle, b.interval, false)
+		}
+		return nil
 	default:
 		return b.karr.FilterIdentical(columns)
 	}
+}
+
+func numericIdenticalCondition(manager *ast.ASTManager, sorts []ast.ASTHandle, columns []uint32) (result ast.ASTRef, resultErr error) {
+	if manager == nil || len(columns) == 0 {
+		return result, ast.ErrASTDomain
+	}
+	first := columns[0]
+	if first >= uint32(len(sorts)) {
+		return result, ast.ErrASTDomain
+	}
+	condition := make([]ast.ASTHandle, 0, len(columns)-1)
+	for _, column := range columns[1:] {
+		if column >= uint32(len(sorts)) {
+			return result, ast.ErrASTDomain
+		}
+		left, err := manager.MkVar(first, sorts[first])
+		if err != nil {
+			return result, err
+		}
+		right, err := manager.MkVar(column, sorts[column])
+		if err != nil {
+			return result, err
+		}
+		equality, err := manager.MkEq(left, right)
+		if err != nil {
+			return result, err
+		}
+		condition = append(condition, equality)
+	}
+	formula, err := manager.MkAndArgs(condition)
+	if err != nil {
+		return result, err
+	}
+	return manager.NewRef(formula)
 }
 
 func (b *relationExplanationNumeric) FilterInterpreted(condition ast.ASTHandle) error {

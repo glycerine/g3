@@ -271,13 +271,15 @@ extra bounds. The Go walk now keeps the raw edge index, with regressions for bot
 the omitted derived bound and the missed cycle; the graph-closure oracle still
 covers strict-cycle behavior without equality aliases.
 
-For the numeric `check_relation` backing, `filter_equal` now follows the C++
-wrapper's postcondition: the previous formula is conjoined with `column =
-value` and compared with the selected backing's resulting formula. A focused
-test confirms the interval plugin satisfies that condition and the bound
-plugin's deliberate no-op is reported as a verification failure, matching
-`check_relation.cpp::filter_equal_fn` and the two plugin implementations. This
-covers the filter operation only; selected numeric wrapper construction and
+For the numeric `check_relation` backing, `filter_equal` and
+`filter_identical` now follow the C++ wrapper's postcondition: the previous
+formula is conjoined with the requested equality condition and compared with
+the selected backing's resulting formula. Focused tests confirm interval
+`filter_equal` and both plugins' `filter_identical` are verified; the bound
+plugin's deliberate `filter_equal` no-op is reported as a verification failure.
+This matches `check_relation.cpp::filter_equal_fn` and
+`check_relation.cpp::filter_identical_fn` plus the two plugin implementations.
+These filter operations are covered; selected numeric wrapper construction and
 the remaining checked operations still need source-matrix coverage.
 
 **Operation matrix (partial).** “Matched” means the implementation and a
