@@ -4,6 +4,7 @@ package pdr
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -16,74 +17,114 @@ func TestModelSearchSourceRandomTrees(t *testing.T) {
 	if !testing.Short() {
 		t.Skip("run the full source model-search workload with -short")
 	}
+	// The source stress driver has no mutation limit and can stay in round 0
+	// for millions of random backtracks. Keep a large deterministic prefix in
+	// the normal suite; the exact unbounded source workload remains available
+	// through TestModelSearchSourceRandomTreesFull with G3_PDR_SOURCE_STRESS=1.
+	runModelSearchSourceRandomTrees(t, 100, 10, 4, 100000, false)
+}
+
+func TestModelSearchSourceRandomTreesBudgetRegression(t *testing.T) {
+	runModelSearchSourceRandomTrees(t, 1, 10, 4, 100000, true)
+}
+
+func TestModelSearchSourceRandomTreesFull(t *testing.T) {
+	if !testing.Short() {
+		t.Skip("run the full source model-search workload with -short")
+	}
+	if os.Getenv("G3_PDR_SOURCE_STRESS") != "1" {
+		t.Skip("set G3_PDR_SOURCE_STRESS=1 to run the unbounded C++ source workload")
+	}
+	runModelSearchSourceRandomTrees(t, 100, 10, 4, 0, false)
+}
+
+func runModelSearchSourceRandomTrees(t *testing.T, rounds, stateCount int, depth uint32, maxMutations int, expectBudget bool) {
+	t.Helper()
+	// The source driver performs millions of tiny mutations. testing.T.Helper
+	// walks the stack on every call, so use this no-stack-walk check in the hot
+	// path and preserve detailed test locations for ordinary unit tests.
+	must := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	manager, owner, transformer, _, closeBase := closureFixture(t)
 	search := NewModelSearch(true)
 	var stateRefs []ast.ASTRef
 	defer func() {
-		closureMust(t, search.Close())
+		must(search.Close())
 		for i := range stateRefs {
-			closureMust(t, manager.DelRef(&stateRefs[i]))
+			must(manager.DelRef(&stateRefs[i]))
 		}
-		closureMust(t, transformer.Close())
-		closureMust(t, owner.Close())
+		must(transformer.Close())
+		must(owner.Close())
 		closeBase()
 	}()
 	boolean, err := manager.MkBoolSort()
-	closureMust(t, err)
-	states := make([]ast.ASTHandle, 10)
+	must(err)
+	states := make([]ast.ASTHandle, stateCount)
 	for i := range states {
 		name, err := manager.Symbols.Intern(fmt.Sprintf("source_pdr_s%d", i))
-		closureMust(t, err)
+		must(err)
 		states[i], err = manager.MkConst(name, boolean)
-		closureMust(t, err)
+		must(err)
 		ref, err := manager.NewRef(states[i])
-		closureMust(t, err)
+		must(err)
 		stateRefs = append(stateRefs, ref)
 	}
 	random := z3rand.New(10)
 	nextState := func() ast.ASTHandle { return states[random.Bounded(uint32(len(states)))] }
 	var addTree func(*ModelNode, bool)
 	addTree = func(parent *ModelNode, force bool) {
-		closureMust(t, search.AddLeaf(parent))
+		must(search.AddLeaf(parent))
 		if parent.Level() > 0 && (force || parent.IsGoal()) {
-			closureMust(t, search.removeGoal(parent))
+			must(search.removeGoal(parent))
 			for i := 0; i < 2; i++ {
 				child, err := NewModelNode(parent, nextState(), transformer, parent.Level()-1)
-				closureMust(t, err)
+				must(err)
 				addTree(child, false)
 			}
-			closureMust(t, parent.CheckPreClosed())
+			must(parent.CheckPreClosed())
 		}
 	}
-	for round := 0; round < 100; round++ {
-		root, err := NewModelNode(nil, nextState(), transformer, 4)
-		closureMust(t, err)
-		closureMust(t, search.SetRoot(root))
+	for round := 0; round < rounds; round++ {
+		root, err := NewModelNode(nil, nextState(), transformer, depth)
+		must(err)
+		must(search.SetRoot(root))
 		addTree(root, false)
 		steps := 0
 		for {
-			if err := search.WellFormed(); err != nil {
-				t.Fatalf("round %d step %d: %v", round, steps, err)
-			}
+			must(search.WellFormed())
 			leaf, found, err := search.Next()
-			closureMust(t, err)
+			must(err)
 			if !found {
+				if expectBudget && steps < maxMutations {
+					t.Fatalf("source random tree drained after %d mutations; expected the bounded non-draining prefix", steps)
+				}
 				break
 			}
 			steps++
-			if testing.Verbose() && steps%100000 == 0 {
-				t.Logf("source round %d: %d mutations", round, steps)
-			}
 			if leaf.Level() == 0 {
 				if random.Bounded(2) == 0 {
-					closureMust(t, search.BacktrackLevel(false, leaf.Parent()))
+					must(search.BacktrackLevel(false, leaf.Parent()))
 				} else {
-					closureMust(t, search.BacktrackLevel(false, leaf))
+					must(search.BacktrackLevel(false, leaf))
 				}
 			} else {
 				addTree(leaf, true)
 			}
+			if maxMutations > 0 && steps >= maxMutations {
+				must(search.WellFormed())
+				if expectBudget {
+					goals, err := search.GoalCount()
+					must(err)
+					if goals == 0 {
+						t.Fatal("source random tree reached the mutation budget without a frontier")
+					}
+				}
+				break
+			}
 		}
-		closureMust(t, search.Reset())
+		must(search.Reset())
 	}
 }
