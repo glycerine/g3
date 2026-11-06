@@ -261,6 +261,10 @@ Interval endpoint coverage now also exercises `IntervalRelation.Union` itself:
 the ordinary union hull closes equal endpoints from either source, while
 widening the same open/closed pair expands both endpoints to infinity, as in
 the C++ plugin's asymmetric tie conditions.
+`TestIntervalRelationUnionAndWidenEqualEndpointTieMatrix` now covers all 16
+target/source combinations of lower- and upper-endpoint openness at equal
+finite endpoints, including the reverse widening direction where C++ keeps the
+target endpoint finite.
 Bound-constraint closure now follows another exact source quirk: its C++ walk
 normalizes the initial left/right columns, but reads each subsequently visited
 edge index directly from the backing vector without `find()`. Because equality
@@ -306,7 +310,7 @@ the full operation has exhaustive edge-case coverage.
 | Join | Matched | Matched | Right bound indices follow the C++ unoffset-copy quirk; both plugins propagate empty operands. |
 | Projection | Sentinel mapping and empty-source behavior matched | Empty-source behavior matched | Bound removed-column edges map to `UINT_MAX`; C++ generic transform drops the empty flag. Native C++ interval regression and Go relation tests cover empty source; fixedpoint product tests cover resulting filter/guard/head-assembly order. |
 | Rename | Empty-source behavior matched | Empty-source behavior matched | C++ generic transform copies reset payload and does not propagate the empty flag; Go relation tests and affected fixedpoint tests cover the behavior. |
-| Union/delta/widen | Matched for covered cases | Matched for covered cases | Bound union from interval ignores endpoint openness as C++; interval tests cover hull, widening, delta state, and pruning. Remaining boundary matrix is incomplete. |
+| Union/delta/widen | Matched for covered cases | Matched for covered cases | Bound union from interval ignores endpoint openness as C++; interval tests cover all equal-endpoint openness pairs, hull, widening, delta state, and pruning. Other union boundaries remain to audit. |
 | Plugin/cross-plugin dispatch | Partial | Partial | Bound-from-interval union and numeric explanation proof-column separation are covered. Both plugins accept numeric signatures, but `check_relation::mk_empty` rejects their reset full-payload formula against false; the Go selected-wrapper regression matches this source failure. Other consumer combinations remain open. |
 
 The numeric proof-column test confirms `explanationPredicateSignature` removes
