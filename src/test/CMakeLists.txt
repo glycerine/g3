@@ -99,6 +99,7 @@ add_executable(test-z3
   small_object_allocator.cpp
   smt2print_parse.cpp
   smt_context.cpp
+  smt_scope_restoration.cpp
   sorting_network.cpp
   stack.cpp
   string_buffer.cpp

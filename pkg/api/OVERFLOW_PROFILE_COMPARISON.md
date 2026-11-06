@@ -1,5 +1,11 @@
 # Go and C++ overflow CPU profiles, 2026-11-06
 
+The native measurements below used a separate modern Z3 checkout, not this
+project's C++ fork. They are historical reference measurements, not a matching
+source baseline for this port. Project C++ benchmarks and positive controls
+belong under this repository's `src/` tree. The matching scope-restoration
+benchmark is now `src/test/smt_scope_restoration.cpp`.
+
 These measurements predate the fixed-equality regression correction described
 in [OVERFLOW_PERFORMANCE.md](OVERFLOW_PERFORMANCE.md#fixed-equality-regression-correction).
 The BV heuristic used here has been removed; new timings are required before

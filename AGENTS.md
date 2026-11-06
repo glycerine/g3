@@ -1,6 +1,11 @@
 git use: Do not amend or rebase commits in git. Make a corrective additional commit instead. We push
 in the background and have seen an accidental git fork and we do not want to lose data.
 
+C++ additions, tests, benchmarks, and positive controls belong in this repository's
+src/ tree by default. This is the C++ fork being ported. Do not use the separate
+~/go/src/github.com/Z3Prover/z3 checkout as a project source or destination unless
+the user explicitly requests it.
+
 A rule for storing test vectors and associated test data: do not create a 
 directory named testdata. Avoid this as a directory name. Use test_vectors instead. 
 The reason is that the Go fuzzer uses the directory name testdata/ for its ephemeral

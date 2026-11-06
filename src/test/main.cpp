@@ -209,6 +209,7 @@ int main(int argc, char ** argv) {
     TST(permutation);
     TST(nlsat);
     if (test_all) return 0;
+    TST_ARGV(smt_scope_restoration);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
