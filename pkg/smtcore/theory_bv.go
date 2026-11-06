@@ -53,6 +53,7 @@ type SMTBitVectorTheory struct {
 	bitTrail           []ast.ASTHandle
 	comparisonAtoms    map[int32]SMTLiteral
 	fixedVariables     map[smtBVFixedKey]SMTTheoryVar
+	eqActivity         [256]uint8
 	temporary          []ast.ASTRef
 	scopes             []smtBVScope
 	unsupported        bool
@@ -166,6 +167,7 @@ func (t *SMTBitVectorTheory) nativeBitBlaster() (*bit_blaster.Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	config.SetFlatAndOr(false)
 	return bit_blaster.NewEngine(config)
 }
 

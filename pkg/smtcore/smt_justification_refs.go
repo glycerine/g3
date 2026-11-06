@@ -138,6 +138,12 @@ type SMTBoolVarData struct {
 	internalLevel  uint32
 	atom           bool
 	notifyTheory   uint8
+	// Immutable expression metadata replaces repeated arena lookups at the
+	// source's direct expr::is_* access sites. Owned by the Boolean variable.
+	basicOp      int32
+	notChild     ast.ASTHandle
+	gateArgs     []ast.ASTHandle
+	gateLiterals []SMTLiteral
 }
 
 func (d *SMTBoolVarData) updateAtom() {

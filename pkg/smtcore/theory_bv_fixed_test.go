@@ -62,6 +62,8 @@ func TestSMTBVFixedCacheCallbackOrderQueueAndProofParentOrder(t *testing.T) {
 	if bvFixedRepresentative(t, bv, key) != lv || len(s.pending) != before || bv.statistics.theoryToCoreEq != 0 {
 		t.Fatal("first notification scanned another fixed word")
 	}
+	// Exercise the full emission branch of current C++'s activity throttle.
+	bv.eqActivity[smtBVFixedEqualityBucket(lv, rv)] = 255
 	astTestMust(t, bv.fixedVariable(rv))
 	if bvFixedRepresentative(t, bv, key) != lv || bv.statistics.theoryToCoreEq != 1 || bv.statistics.eqDynamic != 1 {
 		t.Fatal("cache representative/counters", bv.fixedVariables, bv.statistics)
@@ -200,6 +202,7 @@ func TestSMTBVFixedEqualitySourceClauseSchedule(t *testing.T) {
 	wordEq, err := bv.MkEqualityLiteral(left.owner, right.owner, true)
 	astTestMust(t, err)
 	before := len(s.clauses)
+	bv.eqActivity[smtBVFixedEqualityBucket(rv, lv)] = 255
 	astTestMust(t, bv.addFixedEquality(rv, lv))
 	added := s.clauses[before:]
 	if len(added) != 19 {
@@ -322,6 +325,7 @@ func TestSMTBVFixedEqualityAllocationRefusalRetainsRepresentativeAndRetries(t *t
 	astTestMust(t, bv.fixedVariable(left))
 	booleans := len(s.boolExpr)
 	astTestMust(t, s.PushScope())
+	bv.eqActivity[smtBVFixedEqualityBucket(left, right)] = 255
 	m.Budget().FailAfter(0)
 	err := bv.fixedVariable(right)
 	m.Budget().FailAfter(-1)
@@ -343,6 +347,7 @@ func TestSMTBVFixedEqualityAllocationRefusalRetainsRepresentativeAndRetries(t *t
 	if len(s.boolExpr) != booleans || bv.NumVariables() != 2 {
 		t.Fatal("failed prefix survived scoped retirement")
 	}
+	bv.eqActivity[smtBVFixedEqualityBucket(left, right)] = 255
 	astTestMust(t, bv.fixedVariable(right))
 	if bvFixedRepresentative(t, bv, key) != left || bv.statistics.theoryToCoreEq != 2 || bv.statistics.eqDynamic != 2 {
 		t.Fatal("retry did not preserve native representative/counters")

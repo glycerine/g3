@@ -14,6 +14,7 @@ func bvSourceOperator(t *testing.T, m *ast.ASTManager, family ast.FamilyID, ext 
 	t.Helper()
 	config, err := bit_blaster.NewConfig(m, family, bit_blaster.SMTBitBlasterParams{ExtGates: ext})
 	astTestMust(t, err)
+	config.SetFlatAndOr(false) // current theory_bv constructor
 	engine, err := bit_blaster.NewEngine(config)
 	astTestMust(t, err)
 	var roots []ast.ASTRef

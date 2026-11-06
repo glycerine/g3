@@ -73,6 +73,14 @@ func (p *SMTRelevancyPropagator) IsRelevant(expression ast.ASTHandle) bool {
 }
 
 func (p *SMTRelevancyPropagator) assignment(expression ast.ASTHandle) lbool.LBool {
+	if s := p.internalizer; s != nil {
+		if variable, found := s.boolVar[expression]; found {
+			if child := s.booleanData[variable].notChild; !child.IsNull() {
+				return p.context.assignments[child].Negated()
+			}
+			return s.assignment[NewSMTLiteral(variable, false).Index()]
+		}
+	}
 	// Source find_assignment reads the atom beneath a NOT. A nongate NOT
 	// can also own a Boolean variable; assignment events use its direct value.
 	if p.context.manager.IsFalse(expression) {
@@ -88,20 +96,10 @@ func (p *SMTRelevancyPropagator) assignment(expression ast.ASTHandle) lbool.LBoo
 }
 
 func (p *SMTRelevancyPropagator) negatedArgument(expression ast.ASTHandle) (ast.ASTHandle, error) {
-	m := p.context.manager
-	kind, err := m.GetKind(expression)
-	if err != nil || kind != ast.ASTApp {
-		return ast.ASTHandle{}, err
-	}
-	family, err := m.GetFamilyID(expression)
-	if err != nil || family != m.BasicFamilyID() {
-		return ast.ASTHandle{}, err
-	}
-	op, err := m.GetDeclKind(expression)
-	if err != nil || op != ast.ASTOpNot {
-		return ast.ASTHandle{}, err
-	}
-	return m.GetArg(expression, 0)
+	// The source inspects the node once. IsNot combines kind, family,
+	// declaration and child lookup under one manager lock in the Go arena.
+	_, child, err := p.context.manager.IsNot(expression)
+	return child, err
 }
 
 // Source context::add_rel_watch receives a literal, then watches its positive
@@ -554,20 +552,38 @@ func (p *SMTRelevancyPropagator) validateBasicApplication(expression ast.ASTHand
 }
 
 func (p *SMTRelevancyPropagator) propagateAll(expression ast.ASTHandle) error {
-	count, err := p.context.manager.GetNumArgs(expression)
+	arguments, _, err := p.gateArguments(expression)
 	if err != nil {
 		return err
 	}
-	for index := count; index > 0; index-- {
-		argument, err := p.context.manager.GetArg(expression, index-1)
-		if err != nil {
-			return err
-		}
-		if err = p.MarkRelevant(argument); err != nil {
+	for index := len(arguments); index > 0; index-- {
+		if err = p.MarkRelevant(arguments[index-1]); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (p *SMTRelevancyPropagator) gateArguments(expression ast.ASTHandle) ([]ast.ASTHandle, []SMTLiteral, error) {
+	if s := p.internalizer; s != nil {
+		if variable, found := s.boolVar[expression]; found {
+			if args := s.booleanData[variable].gateArgs; args != nil {
+				return args, s.booleanData[variable].gateLiterals, nil
+			}
+		}
+	}
+	count, err := p.context.manager.GetNumArgs(expression)
+	if err != nil {
+		return nil, nil, err
+	}
+	args := make([]ast.ASTHandle, count)
+	for i := range args {
+		args[i], err = p.context.manager.GetArg(expression, uint32(i))
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return args, nil, nil
 }
 
 func (p *SMTRelevancyPropagator) propagateOr(expression ast.ASTHandle) error {
@@ -581,17 +597,19 @@ func (p *SMTRelevancyPropagator) propagateOr(expression ast.ASTHandle) error {
 	if value != lbool.True {
 		return nil
 	}
-	count, err := p.context.manager.GetNumArgs(expression)
+	arguments, literals, err := p.gateArguments(expression)
 	if err != nil {
 		return err
 	}
 	var selected ast.ASTHandle
-	for index := uint32(0); index < count; index++ {
-		argument, err := p.context.manager.GetArg(expression, index)
-		if err != nil {
-			return err
+	for index, argument := range arguments {
+		var value lbool.LBool
+		if literals != nil {
+			value = p.internalizer.assignment[literals[index].Index()]
+		} else {
+			value = p.assignment(argument)
 		}
-		if p.assignment(argument) == lbool.True {
+		if value == lbool.True {
 			if p.context.relevant[argument] {
 				return nil
 			}
@@ -614,17 +632,19 @@ func (p *SMTRelevancyPropagator) propagateAnd(expression ast.ASTHandle) error {
 	if value != lbool.False {
 		return nil
 	}
-	count, err := p.context.manager.GetNumArgs(expression)
+	arguments, literals, err := p.gateArguments(expression)
 	if err != nil {
 		return err
 	}
 	var selected ast.ASTHandle
-	for index := uint32(0); index < count; index++ {
-		argument, err := p.context.manager.GetArg(expression, index)
-		if err != nil {
-			return err
+	for index, argument := range arguments {
+		var value lbool.LBool
+		if literals != nil {
+			value = p.internalizer.assignment[literals[index].Index()]
+		} else {
+			value = p.assignment(argument)
 		}
-		if p.assignment(argument) == lbool.False {
+		if value == lbool.False {
 			if p.context.relevant[argument] {
 				return nil
 			}
@@ -894,6 +914,14 @@ func (p *SMTRelevancyPropagator) Check(expressions []ast.ASTHandle) error {
 }
 
 func (p *SMTRelevancyPropagator) AssignmentEvent(expression ast.ASTHandle, value bool) error {
+	return p.assignmentEvent(expression, value, SMTNullBoolVar)
+}
+
+func (p *SMTRelevancyPropagator) assignmentVariableEvent(variable int32, value bool) error {
+	return p.assignmentEvent(p.internalizer.boolExpr[variable], value, variable)
+}
+
+func (p *SMTRelevancyPropagator) assignmentEvent(expression ast.ASTHandle, value bool, variable int32) error {
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
@@ -903,34 +931,47 @@ func (p *SMTRelevancyPropagator) AssignmentEvent(expression ast.ASTHandle, value
 	want := lbool.FromBool(value)
 	// context::propagate_relevancy passes bool_var2expr and the assigned
 	// literal's value, not find_assignment's normalized NOT-child value.
-	assignment, direct := p.context.assignments[expression]
+	var assignment lbool.LBool
+	direct := false
+	if variable != SMTNullBoolVar {
+		assignment, direct = p.internalizer.assignment[NewSMTLiteral(variable, false).Index()], true
+	} else {
+		assignment, direct = p.context.assignments[expression]
+	}
 	if !direct {
 		assignment = p.assignment(expression)
 	}
 	if assignment != want {
 		return ast.ErrASTDomain
 	}
-	if p.context.relevant[expression] {
+	op := int32(-1)
+	if variable != SMTNullBoolVar {
+		op = p.internalizer.booleanData[variable].basicOp
+	} else if p.context.relevant[expression] {
 		family, err := p.context.manager.GetFamilyID(expression)
 		if err == nil && family == p.context.manager.BasicFamilyID() {
-			op, err := p.context.manager.GetDeclKind(expression)
+			op, err = p.context.manager.GetDeclKind(expression)
 			if err != nil {
 				return err
 			}
-			if op == ast.ASTOpOr {
-				if err = p.propagateOr(expression); err != nil {
-					return err
-				}
-			} else if op == ast.ASTOpAnd {
-				if err = p.propagateAnd(expression); err != nil {
-					return err
-				}
+		}
+	}
+	if (op == ast.ASTOpOr || op == ast.ASTOpAnd) && p.context.relevant[expression] {
+		if op == ast.ASTOpOr {
+			if err := p.propagateOr(expression); err != nil {
+				return err
+			}
+		} else if op == ast.ASTOpAnd {
+			if err := p.propagateAnd(expression); err != nil {
+				return err
 			}
 		}
 	}
-	watches := p.negativeWatch[expression]
+	var watches []smtRelevancyHandler
 	if value {
 		watches = p.positiveWatch[expression]
+	} else {
+		watches = p.negativeWatch[expression]
 	}
 	for index := len(watches); index > 0; index-- {
 		if err := p.invoke(watches[index-1]); err != nil {

@@ -854,6 +854,11 @@ func (s *SMTInternalizerState) addGateConstraints(expression ast.ASTHandle, oper
 	if err != nil {
 		return err
 	}
+	if operation == ast.ASTOpAnd || operation == ast.ASTOpOr {
+		// Children precede their gate in scope order, so these literal indices
+		// remain live for the owning Boolean variable's whole lifetime.
+		s.booleanData[variable].gateLiterals = arguments
+	}
 	add := func(values ...SMTLiteral) error { return s.addGateClause(values) }
 	switch operation {
 	case ast.ASTOpNot:

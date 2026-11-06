@@ -25,6 +25,8 @@ type smtRetainedLemmaAtom struct {
 	expression ast.ASTHandle
 	sign       bool
 	relevant   bool
+	variable   int32
+	creation   uint64
 }
 
 // captureLemmaAtoms transfers every acquired reference to the returned slice,
@@ -43,7 +45,8 @@ func (s *SMTInternalizerState) captureLemmaAtoms(literals []SMTLiteral) ([]smtRe
 		if s.relevancy != nil {
 			relevant = s.relevancy.IsRelevant(expression)
 		}
-		atoms = append(atoms, smtRetainedLemmaAtom{expression: expression, sign: literal.Sign(), relevant: relevant})
+		atoms = append(atoms, smtRetainedLemmaAtom{expression: expression, sign: literal.Sign(), relevant: relevant,
+			variable: literal.Var(), creation: s.booleanCreation[literal.Var()]})
 	}
 	return atoms, nil
 }
@@ -126,17 +129,32 @@ func (s *SMTInternalizerState) disposeLemmaAtoms(atoms []smtRetainedLemmaAtom, c
 var _ memory.ConstructionFailure = (*smtLemmaAtomsCleanupFailure)(nil)
 
 func (s *SMTInternalizerState) reinternalizeLemmaAtoms(atoms []smtRetainedLemmaAtom) ([]SMTLiteral, error) {
+	// Preserve the arena continuation guard before using context-owned nodes.
+	if len(atoms) != 0 {
+		if _, err := s.manager.GetKind(atoms[0].expression); err != nil {
+			return nil, err
+		}
+	}
 	literals := make([]SMTLiteral, len(atoms))
 	for index, atom := range atoms {
-		if err := s.Internalize(atom.expression, true); err != nil {
-			return nil, err
-		}
-		literal, err := s.Literal(atom.expression)
-		if err != nil {
-			return nil, err
-		}
-		if atom.sign {
-			literal = literal.Negated()
+		var literal SMTLiteral
+		var err error
+		if atom.creation != 0 && atom.variable >= SMTFirstBoolVar && int(atom.variable) < len(s.boolExpr) &&
+			s.booleanCreation[atom.variable] == atom.creation && s.boolExpr[atom.variable] == atom.expression {
+			// Like C++'s surviving Boolean variables, reuse the literal without
+			// traversing and reconstructing its expression after every backjump.
+			literal = NewSMTLiteral(atom.variable, atom.sign)
+		} else {
+			if err = s.Internalize(atom.expression, true); err != nil {
+				return nil, err
+			}
+			literal, err = s.Literal(atom.expression)
+			if err != nil {
+				return nil, err
+			}
+			if atom.sign {
+				literal = literal.Negated()
+			}
 		}
 		if atom.relevant && s.relevancy != nil && !s.relevancy.IsRelevant(atom.expression) {
 			if err = s.relevancy.MarkRelevant(atom.expression); err != nil {

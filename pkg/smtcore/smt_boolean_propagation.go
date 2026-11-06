@@ -67,7 +67,7 @@ func (s *SMTInternalizerState) assignLiteralCore(literal SMTLiteral, justificati
 		return err
 	}
 	if s.relevancy != nil {
-		return s.relevancy.AssignmentEvent(s.boolExpr[literal.Var()], want == lbool.True)
+		return s.relevancy.assignmentVariableEvent(literal.Var(), want == lbool.True)
 	}
 	return nil
 }
@@ -252,19 +252,19 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 		kept := 0
 		for index := 0; index < len(clauses); index++ {
 			clause := clauses[index]
-			first, err := clause.Literal(0)
-			if err != nil {
+			if err := clause.open(); err != nil {
 				return false, err
 			}
-			second, err := clause.Literal(1)
-			if err != nil {
-				return false, err
+			// C++ traverses an already validated clause's contiguous literals.
+			// Keep the public checked accessors, but validate once per visit.
+			literals := clause.literals
+			if len(literals) < 2 {
+				return false, ast.ErrASTDomain
 			}
+			first, second := literals[0], literals[1]
 			falseLiteral := assigned.Negated()
 			if first == falseLiteral {
-				if err = clause.SwapLiterals(0, 1); err != nil {
-					return false, err
-				}
+				literals[0], literals[1] = second, first
 				first, second = second, first
 			}
 			if second != falseLiteral {
@@ -280,11 +280,8 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 				continue
 			}
 			moved := false
-			for candidateIndex := 2; candidateIndex < len(clause.Literals()); candidateIndex++ {
-				candidate, err := clause.Literal(candidateIndex)
-				if err != nil {
-					return false, err
-				}
+			for candidateIndex := 2; candidateIndex < len(literals); candidateIndex++ {
+				candidate := literals[candidateIndex]
 				candidateValue, err := s.Assignment(candidate)
 				if err != nil {
 					return false, err
@@ -295,12 +292,7 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 				if err = s.watches[candidate.Negated().Index()].InsertClause(clause); err != nil {
 					return false, err
 				}
-				if err = clause.SetLiteral(1, candidate); err != nil {
-					return false, err
-				}
-				if err = clause.SetLiteral(candidateIndex, falseLiteral); err != nil {
-					return false, err
-				}
+				literals[1], literals[candidateIndex] = candidate, falseLiteral
 				moved = true
 				break
 			}

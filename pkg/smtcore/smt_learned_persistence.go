@@ -78,7 +78,7 @@ func (s *SMTInternalizerState) finishLearnedAssignment(p *smtLearnedAssignment) 
 	}
 	if p.stage == smtLearnedAssignmentEvent {
 		if s.relevancy != nil {
-			if err := s.relevancy.AssignmentEvent(expression, !literal.Sign()); err != nil {
+			if err := s.relevancy.assignmentVariableEvent(literal.Var(), !literal.Sign()); err != nil {
 				return err
 			}
 		}

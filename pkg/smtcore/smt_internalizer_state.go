@@ -510,14 +510,50 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 	if sort != boolean || s.manager.IsTrue(expression) || s.manager.IsFalse(expression) {
 		return SMTNullBoolVar, ast.ErrASTDomain
 	}
+	data := SMTBoolVarData{}
+	data.Initialize(s.scopeLevel)
+	data.basicOp = -1
+	kind, err := s.manager.GetKind(expression)
+	if err != nil {
+		return SMTNullBoolVar, err
+	}
+	if kind == ast.ASTApp {
+		family, err := s.manager.GetFamilyID(expression)
+		if err != nil {
+			return SMTNullBoolVar, err
+		}
+		if family == s.manager.BasicFamilyID() {
+			data.basicOp, err = s.manager.GetDeclKind(expression)
+			if err != nil {
+				return SMTNullBoolVar, err
+			}
+			if data.basicOp == ast.ASTOpNot {
+				data.notChild, err = s.manager.GetArg(expression, 0)
+				if err != nil {
+					return SMTNullBoolVar, err
+				}
+			}
+			if data.basicOp == ast.ASTOpAnd || data.basicOp == ast.ASTOpOr {
+				count, err := s.manager.GetNumArgs(expression)
+				if err != nil {
+					return SMTNullBoolVar, err
+				}
+				data.gateArgs = make([]ast.ASTHandle, count)
+				for i := range data.gateArgs {
+					data.gateArgs[i], err = s.manager.GetArg(expression, uint32(i))
+					if err != nil {
+						return SMTNullBoolVar, err
+					}
+				}
+			}
+		}
+	}
 	if err = s.manager.IncRef(expression); err != nil {
 		return SMTNullBoolVar, err
 	}
 	variable := int32(len(s.boolExpr))
 	s.boolVar[expression] = variable
 	s.boolExpr = append(s.boolExpr, expression)
-	data := SMTBoolVarData{}
-	data.Initialize(s.scopeLevel)
 	s.booleanData = append(s.booleanData, data)
 	s.nextBooleanCreation++
 	s.booleanCreation = append(s.booleanCreation, s.nextBooleanCreation)

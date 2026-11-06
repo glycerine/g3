@@ -111,6 +111,14 @@ func TestNoOverflowSourceSymbolicEquivalences(t *testing.T) {
 					astTestMust(t, s.Assert(f.pin(f.c.Not(equiv))))
 					status, e := s.Check()
 					astTestMust(t, e)
+					if width == 16 && tc.ext == 0 {
+						stats, e := s.Statistics()
+						astTestMust(t, e)
+						text, e := stats.String()
+						astTestMust(t, e)
+						t.Log("OVERFLOW-PATH Go", text)
+						astTestMust(t, stats.Close())
+					}
 					if status != lbool.False {
 						t.Fatal("non-equivalent overflow predicate", status)
 					}

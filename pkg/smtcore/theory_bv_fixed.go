@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/hash"
 )
 
 type smtBVFixedKey struct {
@@ -94,7 +95,26 @@ func (t *SMTBitVectorTheory) fixedVariable(variable SMTTheoryVar) error {
 	return nil
 }
 
+// Current Z3 theory_bv::add_fixed_eq uses a byte activity table to amortize
+// the expensive per-bit equivalence axioms. Equality propagation itself is
+// still performed on every fixed-variable notification by fixedVariable.
+func smtBVFixedEqualityBucket(first, second SMTTheoryVar) uint8 {
+	if first > second {
+		first, second = second, first
+	}
+	// Current util/hash.h combine_hash; leave the older port's hash consumers
+	// unchanged, since this heuristic was introduced in the newer source.
+	a, b := hash.Uint(uint32(first)), hash.Uint(uint32(second))
+	return uint8(hash.Uint(a ^ (b + 0x9e3779b9 + (a << 6) + (a >> 2))))
+}
+
 func (t *SMTBitVectorTheory) addFixedEquality(first, second SMTTheoryVar) error {
+	bucket := smtBVFixedEqualityBucket(first, second)
+	activity := t.eqActivity[bucket]
+	t.eqActivity[bucket]++
+	if activity != 255 {
+		return nil
+	}
 	t.statistics.eqDynamic++
 	if first > second {
 		first, second = second, first
@@ -115,6 +135,11 @@ func (t *SMTBitVectorTheory) addFixedEquality(first, second SMTTheoryVar) error 
 	wordEquality, err := t.MkEqualityLiteral(left.owner, right.owner, true)
 	if err != nil {
 		return err
+	}
+	if s.relevancy != nil {
+		if err = s.relevancy.MarkRelevant(s.boolExpr[wordEquality.Var()]); err != nil {
+			return err
+		}
 	}
 	if err = t.traceBVFixedAxiom(left.owner, right.owner); err != nil {
 		return err
