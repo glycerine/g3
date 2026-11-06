@@ -187,3 +187,42 @@ func TestFormulaCheckedNumericRelationProjectMatchesSource(t *testing.T) {
 		}
 	})
 }
+
+func TestFormulaCheckedNumericRelationRenameMatchesSource(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	arithmetic, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(arithmetic, 1, nil)
+	astTestMust(t, err)
+
+	t.Run("bound constraint follows the column permutation", func(t *testing.T) {
+		source := NewBoundRelation(2, false)
+		astTestMust(t, source.AddLess(0, 1))
+		numeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer, integer}, kind: "bound_relation",
+			bound: source, checker: &config,
+		}
+		renamed, err := numeric.Rename([]uint32{0, 1})
+		astTestMust(t, err)
+		defer renamed.Close()
+		if renamed.checker != &config {
+			t.Fatal("renamed bound relation lost its formula checker")
+		}
+	})
+
+	t.Run("interval point follows the column permutation", func(t *testing.T) {
+		source := NewIntervalFull(2)
+		astTestMust(t, source.FilterEqual(0, big.NewRat(3, 1)))
+		numeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer, integer}, kind: "interval_relation",
+			interval: source, checker: &config,
+		}
+		renamed, err := numeric.Rename([]uint32{0, 1})
+		astTestMust(t, err)
+		defer renamed.Close()
+		if renamed.checker != &config {
+			t.Fatal("renamed interval relation lost its formula checker")
+		}
+	})
+}

@@ -341,7 +341,11 @@ func (b *relationExplanationNumeric) Rename(cycle []uint32) (*relationExplanatio
 	if err := b.open(); err != nil {
 		return nil, err
 	}
-	out, err := newRelationExplanationNumeric(b.manager, b.sorts, b.kind, b.checker)
+	checker := b.checker
+	if b.checker != nil && (b.kind == "bound_relation" || b.kind == "interval_relation") {
+		checker = nil
+	}
+	out, err := newRelationExplanationNumeric(b.manager, b.sorts, b.kind, checker)
 	if err != nil {
 		return nil, err
 	}
@@ -356,6 +360,35 @@ func (b *relationExplanationNumeric) Rename(cycle []uint32) (*relationExplanatio
 	if err != nil {
 		out.Close()
 		return nil, err
+	}
+	if b.checker != nil && (b.kind == "bound_relation" || b.kind == "interval_relation") {
+		var sourceRef ast.ASTRef
+		if b.kind == "bound_relation" {
+			sourceRef, err = b.bound.ToFormula(b.manager.manager, b.sorts)
+		} else {
+			sourceRef, err = b.interval.ToFormula(b.manager.manager, b.sorts)
+		}
+		if err != nil {
+			out.Close()
+			return nil, err
+		}
+		defer b.manager.manager.DelRef(&sourceRef)
+		sourceHandle, err := b.manager.manager.RefGet(sourceRef)
+		if err != nil {
+			out.Close()
+			return nil, err
+		}
+		switch b.kind {
+		case "bound_relation":
+			err = VerifyBoundRelationRename(b.manager.manager, b.sorts, out.sorts, *b.checker, sourceHandle, cycle, out.bound)
+		case "interval_relation":
+			err = VerifyIntervalRelationRename(b.manager.manager, b.sorts, out.sorts, *b.checker, sourceHandle, cycle, out.interval)
+		}
+		if err != nil {
+			out.Close()
+			return nil, err
+		}
+		out.checker = b.checker
 	}
 	return out, nil
 }

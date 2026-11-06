@@ -281,11 +281,12 @@ and unrecognized interpreted-form no-op are reported as verification failures.
 Without a checker, the unrecognized bound form remains an accepted no-op, as in
 C++. Integer strict bounds are also covered (`x < 3` yields `x <= 2`). This
 matches `check_relation.cpp`'s filter wrappers and the two plugin
-implementations. Numeric project operations now also verify existential
-projection against the source formula for both backings; the checker is
-attached after the concrete transform, matching C++'s transform-then-wrap
-order. These operations are covered; selected numeric wrapper construction
-and the remaining checked operations still need source-matrix coverage.
+implementations. Numeric project and rename operations now also verify
+existential projection and column permutation against the source formula for
+both backings; the checker is attached after each concrete transform, matching
+C++'s transform-then-wrap order. These operations are covered; selected
+numeric wrapper construction and the remaining checked operations still need
+source-matrix coverage.
 
 **Operation matrix (partial).** “Matched” means the implementation and a
 focused Go test currently agree with the read C++ branch; it does not imply
