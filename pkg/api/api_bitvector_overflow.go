@@ -214,21 +214,15 @@ func (c *SMTContext) BitVectorSubNoUnderflow(a, b ast.ASTHandle, signed bool) (a
 	return m.MkImplies(positive, safe)
 }
 func (c *SMTContext) BitVectorMulNoOverflow(a, b ast.ASTHandle, signed bool) (ast.ASTHandle, error) {
-	m, e := c.bitVectorManager()
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
+	// api_bv.cpp uses MK_BINARY_BODY directly. The bv_util convenience
+	// methods reverse their arguments and are not the C API construction path.
 	if signed {
-		return m.MkBitVectorSignedMulNoOverflow(a, b)
+		return c.bitVectorApp(53, a, b)
 	}
-	return m.MkBitVectorUnsignedMulNoOverflow(a, b)
+	return c.bitVectorApp(52, a, b)
 }
 func (c *SMTContext) BitVectorMulNoUnderflow(a, b ast.ASTHandle) (ast.ASTHandle, error) {
-	m, e := c.bitVectorManager()
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	return m.MkBitVectorSignedMulNoUnderflow(a, b)
+	return c.bitVectorApp(54, a, b)
 }
 func (c *SMTContext) BitVectorNegNoOverflow(a ast.ASTHandle) (ast.ASTHandle, error) {
 	m, e := c.bitVectorManager()

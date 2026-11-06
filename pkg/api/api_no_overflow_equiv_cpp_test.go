@@ -28,31 +28,21 @@ func TestNoOverflowSourceSymbolicEquivalences(t *testing.T) {
 					continue
 				}
 				t.Run(fmt.Sprintf("%s/%d/signed=%t", tc.name, width, signed), func(t *testing.T) {
-					// This repository uses -short to opt into the expensive source
-					// multiplication proofs; ordinary go test leaves them skipped.
-					if !testing.Short() && width == 16 && signed && (tc.name == "mul-overflow" || tc.name == "mul-underflow") {
-						t.Skip("run the signed 16-bit multiplication proof with -short")
-					}
 					f := newSMTAPIFixture(t, "ALL", nil)
-					var s *APISimpleSolver
-					var err error
-					if width == 16 && tc.name == "mul-overflow" && !signed {
-						s, err = f.c.NewSolverForLogic("QF_BV")
-					} else {
-						s, err = f.c.NewSolver()
-					}
+					s, err := f.c.NewSolver()
 					astTestMust(t, err)
 					defer func() { astTestMust(t, s.Close()) }()
 					sort := f.pin(f.c.BitVectorSort(width))
+					// Source mk_min/mk_max construct numerals, rather than the
+					// separate API extrema macros (which build shift/not terms).
+					minValue, maxValue := int64(0), int64(1<<width)-1
+					if signed {
+						minValue, maxValue = -int64(1<<(width-1)), int64(1<<(width-1))-1
+					}
+					min := f.pin(f.c.BitVectorValue(minValue, sort))
+					max := f.pin(f.c.BitVectorValue(maxValue, sort))
 					x := f.pin(f.c.Constant("x", sort))
 					y := f.pin(f.c.Constant("y", sort))
-					zero := f.pin(f.c.BitVectorValue(0, sort))
-					min := zero
-					max := f.pin(f.c.BitVectorUnsignedMax(sort))
-					if signed {
-						min = f.pin(f.c.BitVectorSignedMin(sort))
-						max = f.pin(f.c.BitVectorSignedMax(sort))
-					}
 					var pred ast.ASTHandle
 					switch tc.name {
 					case "add-overflow":
@@ -71,6 +61,11 @@ func TestNoOverflowSourceSymbolicEquivalences(t *testing.T) {
 						pred = f.pin(f.c.BitVectorSDivNoOverflow(x, y))
 					case "neg-overflow":
 						pred = f.pin(f.c.BitVectorNegNoOverflow(x))
+					}
+					var nonzero ast.ASTHandle
+					if tc.nonzero {
+						zero := f.pin(f.c.BitVectorValue(0, sort))
+						nonzero = f.pin(f.c.Not(f.pin(f.c.Equal(y, zero))))
 					}
 					ext := tc.ext
 					if ext == 0 {
@@ -108,15 +103,18 @@ func TestNoOverflowSourceSymbolicEquivalences(t *testing.T) {
 					}
 					equiv := f.pin(f.c.Iff(pred, bound))
 					if tc.nonzero {
-						nonzero := f.pin(f.c.Not(f.pin(f.c.Equal(y, zero))))
 						equiv = f.pin(f.c.Implies(nonzero, equiv))
 					}
+					// Match test_equiv's push/assert/check/pop protocol. Push selects
+					// the incremental SMT backend in the source combined solver.
+					astTestMust(t, s.Push())
 					astTestMust(t, s.Assert(f.pin(f.c.Not(equiv))))
 					status, e := s.Check()
 					astTestMust(t, e)
 					if status != lbool.False {
 						t.Fatal("non-equivalent overflow predicate", status)
 					}
+					astTestMust(t, s.Pop(1))
 				})
 			}
 		}
