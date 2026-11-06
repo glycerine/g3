@@ -265,3 +265,62 @@ func TestFormulaCheckedNumericRelationUnionMatchesSource(t *testing.T) {
 		astTestMust(t, targetNumeric.UnionFrom(sourceNumeric, nil))
 	})
 }
+
+func TestFormulaCheckedNumericRelationUnionDeltaMatchesSource(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	arithmetic, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(arithmetic, 1, nil)
+	astTestMust(t, err)
+
+	t.Run("bound destination and delta coverage", func(t *testing.T) {
+		target, source, delta := NewBoundRelation(2, false), NewBoundRelation(2, false), NewBoundRelation(2, true)
+		astTestMust(t, target.AddLess(0, 1))
+		targetNumeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer, integer}, kind: "bound_relation",
+			bound: target, checker: &config,
+		}
+		sourceNumeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer, integer}, kind: "bound_relation", bound: source,
+		}
+		deltaNumeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer, integer}, kind: "bound_relation", bound: delta,
+		}
+		astTestMust(t, targetNumeric.UnionFrom(sourceNumeric, deltaNumeric))
+		if target.Empty() || delta.Empty() {
+			t.Fatal("bound union did not update target and delta")
+		}
+	})
+
+	t.Run("interval destination and delta coverage", func(t *testing.T) {
+		target, source, delta := NewIntervalFull(1), NewIntervalFull(1), NewIntervalEmpty(1)
+		astTestMust(t, target.FilterEqual(0, big.NewRat(3, 1)))
+		targetNumeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer}, kind: "interval_relation",
+			interval: target, checker: &config,
+		}
+		sourceNumeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer}, kind: "interval_relation", interval: source,
+		}
+		deltaNumeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer}, kind: "interval_relation", interval: delta,
+		}
+		astTestMust(t, targetNumeric.UnionFrom(sourceNumeric, deltaNumeric))
+		if target.Empty() || delta.Empty() {
+			t.Fatal("interval union did not update target and delta")
+		}
+	})
+}
+
+func TestRelationUnionDeltaCheckerRejectsDroppedPreviousDelta(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	truth, err := f.ast.MkTrue()
+	astTestMust(t, err)
+	falsehood, err := f.ast.MkFalse()
+	astTestMust(t, err)
+	if err := verifyRelationUnionDelta(f.ast, nil, config, falsehood, falsehood, falsehood, truth, falsehood); !errors.Is(err, ErrRelationVerification) {
+		t.Fatalf("union verifier accepted a delta that discarded its prior facts: %v", err)
+	}
+}

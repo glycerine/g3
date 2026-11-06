@@ -284,10 +284,12 @@ matches `check_relation.cpp`'s filter wrappers and the two plugin
 implementations. Numeric project and rename operations now also verify
 existential projection and column permutation against the source formula for
 both backings; the checker is attached after each concrete transform, matching
-C++'s transform-then-wrap order. Non-delta numeric union now checks the result
-against the old formula OR source formula; delta union verification is still
-open. These cases are covered; selected numeric wrapper construction and the
-remaining checked operations still need source-matrix coverage.
+C++'s transform-then-wrap order. Numeric union checks the destination against
+the old formula OR source formula. Delta union also checks coverage of newly
+added tuples and the previous delta, plus the source no-overflow equality.
+Positive bound and interval cases and a rejected dropped-delta case are
+covered; selected numeric wrapper construction and the remaining checked
+operations still need source-matrix coverage.
 
 **Operation matrix (partial).** “Matched” means the implementation and a
 focused Go test currently agree with the read C++ branch; it does not imply

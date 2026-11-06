@@ -637,7 +637,8 @@ func (b *relationExplanationNumeric) UnionFrom(source, delta *relationExplanatio
 		}
 	}
 	var before ast.ASTRef
-	if b.checker != nil && delta == nil && (b.kind == "bound_relation" || b.kind == "interval_relation") {
+	var deltaBefore ast.ASTRef
+	if b.checker != nil && (b.kind == "bound_relation" || b.kind == "interval_relation") {
 		var err error
 		if b.kind == "bound_relation" {
 			before, err = b.bound.ToFormula(b.manager.manager, b.sorts)
@@ -648,6 +649,17 @@ func (b *relationExplanationNumeric) UnionFrom(source, delta *relationExplanatio
 			return err
 		}
 		defer b.manager.manager.DelRef(&before)
+		if delta != nil {
+			if b.kind == "bound_relation" {
+				deltaBefore, err = delta.bound.ToFormula(b.manager.manager, delta.sorts)
+			} else {
+				deltaBefore, err = delta.interval.ToFormula(b.manager.manager, delta.sorts)
+			}
+			if err != nil {
+				return err
+			}
+			defer b.manager.manager.DelRef(&deltaBefore)
+		}
 	}
 	var changed bool
 	var err error
@@ -670,12 +682,46 @@ func (b *relationExplanationNumeric) UnionFrom(source, delta *relationExplanatio
 			_, err = delta.karr.Union(source.karr)
 		}
 	}
-	if err != nil || delta != nil || b.checker == nil {
+	if err != nil || b.checker == nil || (b.kind != "bound_relation" && b.kind != "interval_relation") {
 		return err
 	}
 	beforeHandle, err := b.manager.manager.RefGet(before)
 	if err != nil {
 		return err
+	}
+	if delta != nil {
+		sourceFormula, formulaErr := source.ToFormula()
+		if formulaErr != nil {
+			return formulaErr
+		}
+		defer b.manager.manager.DelRef(&sourceFormula)
+		sourceHandle, formulaErr := b.manager.manager.RefGet(sourceFormula)
+		if formulaErr != nil {
+			return formulaErr
+		}
+		destinationFormula, formulaErr := b.ToFormula()
+		if formulaErr != nil {
+			return formulaErr
+		}
+		defer b.manager.manager.DelRef(&destinationFormula)
+		destinationHandle, formulaErr := b.manager.manager.RefGet(destinationFormula)
+		if formulaErr != nil {
+			return formulaErr
+		}
+		deltaFormula, formulaErr := delta.ToFormula()
+		if formulaErr != nil {
+			return formulaErr
+		}
+		defer b.manager.manager.DelRef(&deltaFormula)
+		deltaHandle, formulaErr := b.manager.manager.RefGet(deltaFormula)
+		if formulaErr != nil {
+			return formulaErr
+		}
+		deltaBeforeHandle, formulaErr := b.manager.manager.RefGet(deltaBefore)
+		if formulaErr != nil {
+			return formulaErr
+		}
+		return verifyRelationUnionDelta(b.manager.manager, b.sorts, *b.checker, beforeHandle, sourceHandle, destinationHandle, deltaBeforeHandle, deltaHandle)
 	}
 	switch b.kind {
 	case "bound_relation":

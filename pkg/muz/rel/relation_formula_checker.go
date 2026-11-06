@@ -72,6 +72,97 @@ func VerifyRelationFormulasEquivalent(manager *ast.ASTManager, config smtcore.SM
 	return nil
 }
 
+// verifyRelationUnionDelta mirrors check_relation_plugin::verify_union's
+// destination, delta coverage, and no-overflow postconditions.
+func verifyRelationUnionDelta(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, dstBefore, source, dstAfter, deltaBefore, deltaAfter ast.ASTHandle) (resultErr error) {
+	if manager == nil || dstBefore.IsNull() || source.IsNull() || dstAfter.IsNull() || deltaBefore.IsNull() || deltaAfter.IsNull() {
+		return ErrRelationVerification
+	}
+	var refs []ast.ASTRef
+	defer func() {
+		for i := len(refs) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, manager.DelRef(&refs[i]))
+		}
+	}()
+	hold := func(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		ref, err := manager.NewRef(value)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		refs = append(refs, ref)
+		return value, nil
+	}
+	ground := func(value ast.ASTHandle) (ast.ASTHandle, error) {
+		ref, err := GroundRelationFormula(manager, sorts, value)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		refs = append(refs, ref)
+		return manager.RefGet(ref)
+	}
+	d0, err := ground(dstBefore)
+	if err != nil {
+		return err
+	}
+	s, err := ground(source)
+	if err != nil {
+		return err
+	}
+	dst, err := ground(dstAfter)
+	if err != nil {
+		return err
+	}
+	delta0, err := ground(deltaBefore)
+	if err != nil {
+		return err
+	}
+	delta, err := ground(deltaAfter)
+	if err != nil {
+		return err
+	}
+	union, err := hold(manager.MkOrArgs([]ast.ASTHandle{d0, s}))
+	if err != nil {
+		return err
+	}
+	if err = VerifyRelationFormulasEquivalent(manager, config, union, dst); err != nil {
+		return err
+	}
+	notBefore, err := hold(manager.MkNot(d0))
+	if err != nil {
+		return err
+	}
+	newFacts, err := hold(manager.MkAndArgs([]ast.ASTHandle{dst, notBefore}))
+	if err != nil {
+		return err
+	}
+	coveredNewFacts, err := hold(manager.MkAndArgs([]ast.ASTHandle{delta, newFacts}))
+	if err != nil {
+		return err
+	}
+	if err = VerifyRelationFormulasEquivalent(manager, config, coveredNewFacts, newFacts); err != nil {
+		return err
+	}
+	coveredOldDelta, err := hold(manager.MkAndArgs([]ast.ASTHandle{delta, delta0}))
+	if err != nil {
+		return err
+	}
+	if err = VerifyRelationFormulasEquivalent(manager, config, coveredOldDelta, delta0); err != nil {
+		return err
+	}
+	left, err := hold(manager.MkOrArgs([]ast.ASTHandle{dst, delta0}))
+	if err != nil {
+		return err
+	}
+	right, err := hold(manager.MkOrArgs([]ast.ASTHandle{delta, d0}))
+	if err != nil {
+		return err
+	}
+	return VerifyRelationFormulasEquivalent(manager, config, left, right)
+}
+
 func verifyRelationFormulaPair(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, left, right ast.ASTHandle, named bool) (resultErr error) {
 	if manager == nil || left.IsNull() || right.IsNull() {
 		return ErrRelationVerification
