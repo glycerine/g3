@@ -22,3 +22,43 @@ slow:
 ## The full 100,000-round PB fuzzer is opt-in; the C++ `theory_pb` test also did not finish within two minutes.
 ##
 ## Follow-up: yeah we should probably skip these.
+
+bench:
+	go test ./smtcore -run '^$$' \
+	-bench '^BenchmarkSMT(BooleanPropagation|RelevanceCallbacks|ConflictResolution|ScopeResolution)$$' \
+	-benchmem -benchtime=2s -count=5
+
+# To profile one component, select its exact name:
+#
+# go test ./smtcore -run '^$' \
+#   -bench '^BenchmarkSMTBooleanPropagation$' \
+#   -benchmem -benchtime=5s \
+#   -cpuprofile=/tmp/boolean-propagation.cpu
+#
+# go tool pprof -http=localhost:8080 /tmp/boolean-propagation.cpu
+#
+# The four benchmark names are:
+#
+# - `BenchmarkSMTBooleanPropagation`
+# - `BenchmarkSMTRelevanceCallbacks`
+# - `BenchmarkSMTConflictResolution`
+# - `BenchmarkSMTScopeResolution`
+#
+# `-run '^$'` skips unit tests. Benchmark timings exclude setup and resets; CPU profiles also capture
+# that untimed work, so filter pprof by the component function when analyzing it.
+#
+# starting point, 2026 Nov 06:
+# at 9c41fa9ad (HEAD -> master, origin/master, origin/HEAD) Restore source BV equality scheduling to fix optimization regressions
+#
+# | CPU activity        | C++    |  Go     |
+# |---------------------|-------:|--------:|
+# | Boolean propagation | 2.22 s | 12.48 s |
+# | Relevance callbacks | 0.36 s |  3.85 s |
+# | Conflict resolution | 0.92 s |  4.28 s |
+# | Scope restoration   | 0.24 s |  7.35 s |
+# | Background GC       | —      |  4.01 s |
+#
+# These are inclusive CPU times; rows can overlap.
+#
+# Relevance callback cost fell from **8.96 to 3.85 CPU seconds**. The largest remaining relative
+# gap is scope restoration, roughly 31× the native cost.
