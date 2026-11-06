@@ -20,12 +20,17 @@ type smtPersistentLearnedUnit struct {
 }
 
 type smtPreservedLearnedClause struct {
-	atoms     []smtRetainedLemmaAtom
-	proof     ast.ASTHandle
-	activity  uint32
-	installed bool
-	clause    *SMTClause
-	pending   smtLearnedAssignment
+	atoms       []smtRetainedLemmaAtom
+	proof       ast.ASTHandle
+	activity    uint32
+	installed   bool
+	clause      *SMTClause
+	pending     smtLearnedAssignment
+	inPlace     bool
+	recordIndex int
+	sourceAtoms []smtClauseAtom // borrowed from the surviving clause owner
+	bindHead    int
+	keepReinit  bool
 }
 
 // Assignment publication precedes context/relevance notifications. Preserve
@@ -181,13 +186,38 @@ func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreserved
 		return nil, ast.ErrASTDomain
 	}
 	var result []smtPreservedLearnedClause
+	livePop := s.pendingPop != nil && s.pendingPop.preserve && s.pendingPop.stage == 0
+	booleanLimit, kept := 0, 0
+	if livePop {
+		booleanLimit = s.scopes[s.pendingPop.level].booleanLimit + int(SMTFirstBoolVar)
+	}
 	for index := limit; index < len(s.clauses); index++ {
 		clause := s.clauses[index].clause
-		if clause == nil || !clause.IsLearned() {
+		if clause == nil || !clause.IsLemma() {
 			continue
+		}
+		recordIndex := limit + kept
+		kept++
+		if livePop {
+			retired := false
+			for _, literal := range clause.literals {
+				retired = retired || int(literal.Var()) >= booleanLimit
+			}
+			if !retired && !(clause.InReinitStack() && !clause.ReinternalizeAtoms()) {
+				// C++ keeps the object, proof owner, literal storage and watches.
+				// There is no snapshot or reconstruction for surviving bindings.
+				continue
+			}
 		}
 		result = append(result, smtPreservedLearnedClause{})
 		saved := &result[len(result)-1]
+		if livePop {
+			saved.inPlace, saved.clause, saved.recordIndex = true, clause, recordIndex
+			saved.sourceAtoms = clause.atoms
+			// Source clause objects already own their atoms and proof. Do not
+			// acquire a second snapshot merely to keep the same object alive.
+			continue
+		}
 		var err error
 		saved.atoms, err = s.captureLemmaAtoms(clause.literals)
 		if err != nil {
@@ -223,6 +253,12 @@ func (s *SMTInternalizerState) releasePreservedLearnedClauses(clauses []smtPrese
 func (s *SMTInternalizerState) restoreLearnedClauses(clauses []smtPreservedLearnedClause) error {
 	for index := range clauses {
 		saved := &clauses[index]
+		if saved.inPlace {
+			if err := s.reinitializeLearnedClause(saved); err != nil {
+				return err
+			}
+			continue
+		}
 		if !saved.installed {
 			literals, err := s.reinternalizeLemmaAtoms(saved.atoms)
 			if err != nil {

@@ -96,6 +96,7 @@ void benchmark_scope_restoration(unsigned iterations, bool scoped) {
         for (expr* atom : atoms) {
             VERIFY(ctx.b_internalized(atom));
             VERIFY(ctx.get_intern_level(ctx.get_bool_var(atom)) == 1);
+            VERIFY(ctx.is_relevant(atom) == !scoped);
         }
         for (unsigned j = 0; j < num_clauses; ++j) {
             // Surviving clauses keep their objects; scoped atoms must now have

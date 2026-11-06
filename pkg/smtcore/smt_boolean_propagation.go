@@ -152,7 +152,19 @@ func (s *SMTInternalizerState) makeClauseWithJustificationAndDeleteHandler(liter
 	} else if proofs && owner == nil {
 		owner = &SMTJustificationBase{heap: kind != SMTClauseAux}
 	}
-	clause, err := NewSMTClause(s.manager, literals, kind, owner, deleteHandler, false, nil)
+	base := s.scopeLevel
+	if s.searching {
+		base = s.searchBaseLevel
+	}
+	saveAtoms := false
+	if kind != SMTClauseAux {
+		for _, literal := range literals {
+			saveAtoms = saveAtoms || s.booleanData[literal.Var()].InternalLevel() > base
+		}
+	}
+	// Like clause::mk, acquire expression roots when the lemma is created,
+	// before any search pop can retire its Boolean bindings.
+	clause, err := NewSMTClause(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr)
 	if err != nil {
 		if owner != nil {
 			err = errors.Join(err, owner.Release(s.manager))

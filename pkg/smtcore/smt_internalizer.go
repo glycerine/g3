@@ -243,12 +243,14 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		}
 		return s.assignLiteral(kept[0])
 	}
+	firstWatch, secondWatch := 0, 1
 	if kind == SMTClauseLearned {
 		watch, err := s.selectLearnedWatchLiteral(kept)
 		if err != nil {
 			return err
 		}
 		kept[1], kept[watch] = kept[watch], kept[1]
+		secondWatch = watch
 	} else if kind == SMTClauseAuxLemma {
 		first, err := s.selectWatchLiteral(kept, 0)
 		if err != nil {
@@ -260,6 +262,7 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 			return err
 		}
 		kept[1], kept[second] = kept[second], kept[1]
+		firstWatch, secondWatch = first, second
 	}
 	if len(kept) == 2 && s.binaryClauseOptimization && s.scopeLevel == 0 && (kind == SMTClauseAux || s.relevancy == nil) {
 		first, second := kept[0], kept[1]
@@ -287,6 +290,12 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 	if err != nil {
 		return err
 	}
+	if clause.ReinternalizeAtoms() {
+		// C++ saves atoms before selecting watch positions. Restore that
+		// original order in the atom owner, without changing the live watches.
+		clause.atoms[1], clause.atoms[secondWatch] = clause.atoms[secondWatch], clause.atoms[1]
+		clause.atoms[0], clause.atoms[firstWatch] = clause.atoms[firstWatch], clause.atoms[0]
+	}
 	s.clauses = append(s.clauses, SMTInternalizedClause{Literals: kept, Root: root, Proof: proof, clause: clause, owner: owner})
 	s.statistics.NumMkClause++
 	if len(kept) == 2 {
@@ -299,6 +308,12 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 	secondValue, err := s.Assignment(kept[1])
 	if err != nil {
 		return err
+	}
+	if kind == SMTClauseAuxLemma && s.searching && s.scopeLevel > s.searchBaseLevel &&
+		(firstValue == lbool.False || secondValue == lbool.False && firstValue == lbool.Undef) {
+		// Source also revisits unit/conflicting auxiliary lemmas whose atoms
+		// survive, since their assignment can belong to the discarded scope.
+		clause.reinit = true
 	}
 	if firstValue == lbool.False {
 		s.setBooleanConflict(NewSMTBooleanClause(clause), SMTNullLiteral)

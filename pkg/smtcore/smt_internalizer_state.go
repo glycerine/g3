@@ -1058,12 +1058,40 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 		return ast.ErrASTDomain
 	}
 	for index := len(s.clauses); index > scope.clauseLimit; index-- {
+		record := &s.clauses[index-1]
+		if s.keepClauseAcrossPop(record) {
+			retired := false
+			for _, literal := range record.clause.literals {
+				retired = retired || int(literal.Var()) >= scope.booleanLimit+int(SMTFirstBoolVar)
+			}
+			if retired {
+				// Detach before retiring Boolean variables. closeWatches also
+				// makes destruction safe if a later owner refuses the pop.
+				for record.closeWatches < 2 {
+					literal := record.clause.literals[record.closeWatches]
+					if !s.watches[literal.Negated().Index()].RemoveClause(record.clause) {
+						return ast.ErrASTDomain
+					}
+					record.closeWatches++
+				}
+			}
+			continue
+		}
 		if err := s.closeClause(&s.clauses[index-1]); err != nil {
 			return fmt.Errorf("close clause: %w", err)
 		}
 	}
-	s.statistics.NumDelClause += uint32(len(s.clauses) - scope.clauseLimit)
-	s.clauses = s.clauses[:scope.clauseLimit]
+	write := scope.clauseLimit
+	for index := scope.clauseLimit; index < len(s.clauses); index++ {
+		if s.keepClauseAcrossPop(&s.clauses[index]) {
+			s.clauses[write] = s.clauses[index]
+			write++
+		} else {
+			s.statistics.NumDelClause++
+		}
+	}
+	clear(s.clauses[write:])
+	s.clauses = s.clauses[:write]
 	if scope.justificationLimit < 0 || scope.justificationLimit > len(s.ownedJustifications) {
 		return ast.ErrASTDomain
 	}

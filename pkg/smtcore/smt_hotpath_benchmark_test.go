@@ -194,6 +194,7 @@ func BenchmarkSMTScopeRestoration(b *testing.B) {
 					literals[i], err = s.Literal(expression)
 					benchmarkMust(b, err)
 				}
+				benchmarkMust(b, p.Propagate())
 			}
 			const clauses = smtHotPathWidth / 2
 			b.ReportAllocs()
@@ -210,10 +211,12 @@ func BenchmarkSMTScopeRestoration(b *testing.B) {
 					internalize()
 				}
 				creation := s.booleanCreation[literals[0].Var()]
+				original := make([]*SMTClause, clauses)
 				for j := 0; j < clauses; j++ {
 					benchmarkMust(b, s.AddLearnedClauseWithProof([]SMTLiteral{
 						literals[2*j], literals[2*j+1].Negated(), literals[(2*j+2)%len(literals)],
 					}, ast.ASTHandle{}))
+					original[j] = s.clauses[j].clause
 				}
 				b.StartTimer()
 				err := s.PopScopes(1)
@@ -223,8 +226,13 @@ func BenchmarkSMTScopeRestoration(b *testing.B) {
 					b.Fatal("search backtrack lost learned clauses", s.scopeLevel, len(s.clauses))
 				}
 				for _, expression := range expressions {
-					if _, found := s.BoolVar(expression); !found || !p.IsRelevant(expression) {
-						b.Fatal("restoration lost a learned atom or its relevance")
+					if _, found := s.BoolVar(expression); !found || p.IsRelevant(expression) == scoped {
+						b.Fatal("restoration lost a learned atom or changed source relevance")
+					}
+				}
+				for j, record := range s.clauses {
+					if record.clause != original[j] {
+						b.Fatal("backtrack replaced a learned clause object")
 					}
 				}
 				variable, _ := s.BoolVar(expressions[0])
