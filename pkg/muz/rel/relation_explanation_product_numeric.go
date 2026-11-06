@@ -636,6 +636,19 @@ func (b *relationExplanationNumeric) UnionFrom(source, delta *relationExplanatio
 			return ErrTableRelation
 		}
 	}
+	var before ast.ASTRef
+	if b.checker != nil && delta == nil && (b.kind == "bound_relation" || b.kind == "interval_relation") {
+		var err error
+		if b.kind == "bound_relation" {
+			before, err = b.bound.ToFormula(b.manager.manager, b.sorts)
+		} else {
+			before, err = b.interval.ToFormula(b.manager.manager, b.sorts)
+		}
+		if err != nil {
+			return err
+		}
+		defer b.manager.manager.DelRef(&before)
+	}
 	var changed bool
 	var err error
 	switch b.kind {
@@ -657,7 +670,21 @@ func (b *relationExplanationNumeric) UnionFrom(source, delta *relationExplanatio
 			_, err = delta.karr.Union(source.karr)
 		}
 	}
-	return err
+	if err != nil || delta != nil || b.checker == nil {
+		return err
+	}
+	beforeHandle, err := b.manager.manager.RefGet(before)
+	if err != nil {
+		return err
+	}
+	switch b.kind {
+	case "bound_relation":
+		return VerifyBoundRelationUnion(b.manager.manager, b.sorts, *b.checker, beforeHandle, source.bound, b.bound)
+	case "interval_relation":
+		return VerifyIntervalRelationUnion(b.manager.manager, b.sorts, *b.checker, beforeHandle, source.interval, b.interval)
+	default:
+		return nil
+	}
 }
 
 func (p *RelationExplanationProduct) UnionNumericSeed(seed RelationExplanationNumericSeed) error {

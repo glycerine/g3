@@ -226,3 +226,42 @@ func TestFormulaCheckedNumericRelationRenameMatchesSource(t *testing.T) {
 		}
 	})
 }
+
+func TestFormulaCheckedNumericRelationUnionMatchesSource(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	arithmetic, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(arithmetic, 1, nil)
+	astTestMust(t, err)
+
+	t.Run("bound duplicate constraint", func(t *testing.T) {
+		target := NewBoundRelation(2, false)
+		source := NewBoundRelation(2, false)
+		astTestMust(t, target.AddLess(0, 1))
+		astTestMust(t, source.AddLess(0, 1))
+		targetNumeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer, integer}, kind: "bound_relation",
+			bound: target, checker: &config,
+		}
+		sourceNumeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer, integer}, kind: "bound_relation", bound: source,
+		}
+		astTestMust(t, targetNumeric.UnionFrom(sourceNumeric, nil))
+	})
+
+	t.Run("interval duplicate point", func(t *testing.T) {
+		target := NewIntervalFull(1)
+		source := NewIntervalFull(1)
+		astTestMust(t, target.FilterEqual(0, big.NewRat(3, 1)))
+		astTestMust(t, source.FilterEqual(0, big.NewRat(3, 1)))
+		targetNumeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer}, kind: "interval_relation",
+			interval: target, checker: &config,
+		}
+		sourceNumeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer}, kind: "interval_relation", interval: source,
+		}
+		astTestMust(t, targetNumeric.UnionFrom(sourceNumeric, nil))
+	})
+}
