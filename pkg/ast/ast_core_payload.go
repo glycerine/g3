@@ -42,15 +42,7 @@ func (m *ASTManager) readWord(p arena.SmallBytesRef, offset uint32) (uint32, err
 	if uint64(offset)+4 > math.MaxUint32 {
 		return 0, arena.ErrBounds
 	}
-	var v uint32
-	for i := uint32(0); i < 4; i++ {
-		b, e := m.allocator.Read(p, offset+i)
-		if e != nil {
-			return 0, e
-		}
-		v |= uint32(b) << (8 * i)
-	}
-	return v, nil
+	return m.allocator.ReadUint32LE(p, offset)
 }
 func (m *ASTManager) writeInternal(p arena.SmallBytesRef, index uint32, r astNodeRef) error {
 	offset, e := astPayloadOffset(index, astRefBytes)

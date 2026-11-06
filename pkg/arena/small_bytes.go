@@ -1,6 +1,7 @@
 package arena
 
 import (
+	"encoding/binary"
 	"errors"
 	"reflect"
 )
@@ -118,6 +119,20 @@ func (a *SmallBytes) Read(r SmallBytesRef, i uint32) (byte, error) {
 		return 0, ErrBounds
 	}
 	return a.chunks[d.page].data[d.offset+i], nil
+}
+
+// ReadUint32LE reads a scalar without exposing storage or validating the same
+// descriptor four times. Offset is in bytes and need not be aligned.
+func (a *SmallBytes) ReadUint32LE(r SmallBytesRef, offset uint32) (uint32, error) {
+	d, err := a.descriptor(r)
+	if err != nil {
+		return 0, err
+	}
+	if offset > d.length || d.length-offset < 4 {
+		return 0, ErrBounds
+	}
+	start := d.offset + offset
+	return binary.LittleEndian.Uint32(a.chunks[d.page].data[start : start+4]), nil
 }
 func (a *SmallBytes) Write(r SmallBytesRef, i uint32, v byte) error {
 	d, e := a.descriptor(r)
