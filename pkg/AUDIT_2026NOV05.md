@@ -213,6 +213,27 @@ changes. That trial was reverted; verify the C++ behavior through an executable
 consumer case and account for the affected Go consumers before changing this
 shared operation. Remaining operation-matrix rows are unaudited.
 
+**Operation matrix (partial).** “Matched” means the implementation and a
+focused Go test currently agree with the read C++ branch; it does not imply
+the full operation has exhaustive edge-case coverage.
+
+| Operation | Bound relation | Interval relation | Evidence or open case |
+| --- | --- | --- | --- |
+| Signature capability | Matched | Matched | Both accept nullary and mixed Int/Real signatures; reject other sorts. |
+| Empty/full construction and clone | Matched | Matched | Constructor, full-column, and copy/equality-class tests. |
+| Equality and identical filters | Matched | Matched | Coarse bound `filter_equal`, interval point intersection, and n-ary merge tests. |
+| Interpreted filters | Matched for tested grammar | Matched for tested grammar | Bound variable order/equality forms; interval real/Int strictness and unsupported conjunctions. |
+| Join | Matched | Matched | Right bound indices follow the C++ unoffset-copy quirk; both plugins propagate empty operands. |
+| Projection | Sentinel mapping fixed; empty-source case unresolved | Empty-source case unresolved | Bound removed-column edges map to `UINT_MAX`; empty-input C++ template behavior has live Go regressions. |
+| Rename | Matched for nonempty inputs | Matched for nonempty inputs | Empty-input behavior has the same unresolved template issue. |
+| Union/delta/widen | Matched for covered cases | Matched for covered cases | Bound/interval tests cover shared constraints, delta state, and endpoint pruning; boundary matrix is incomplete. |
+| Plugin/cross-plugin dispatch | Partial | Partial | Bound-from-interval union covered; explanation products and all consumer combinations remain open. |
+
+The cited implementation branches are in
+[`dl_vector_relation.h`](../src/muz/rel/dl_vector_relation.h#L178),
+[`dl_bound_relation.cpp`](../src/muz/rel/dl_bound_relation.cpp#L32), and
+[`dl_interval_relation.cpp`](../src/muz/rel/dl_interval_relation.cpp#L37).
+
 ### `karr_relation`
 
 The Karr port is considered complete based on the existing Go implementation

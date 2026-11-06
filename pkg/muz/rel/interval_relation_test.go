@@ -66,6 +66,21 @@ func TestIntervalRelationFactAndJoin(t *testing.T) {
 	}
 }
 
+func TestIntervalRelationJoinPropagatesEmptyOperands(t *testing.T) {
+	for _, emptyOnLeft := range []bool{true, false} {
+		left, right := rel.NewIntervalFull(1), rel.NewIntervalFull(1)
+		if emptyOnLeft {
+			left = rel.NewIntervalEmpty(1)
+		} else {
+			right = rel.NewIntervalEmpty(1)
+		}
+		joined, err := rel.JoinIntervalRelations(left, right, []uint32{0}, []uint32{0})
+		if err != nil || !joined.Empty() {
+			t.Fatalf("empty join operand left=%v: empty=%v err=%v", emptyOnLeft, joined.Empty(), err)
+		}
+	}
+}
+
 func TestIntervalRelationFull(t *testing.T) {
 	if !rel.NewIntervalFull(2).IsFull() {
 		t.Fatal("full interval relation reported bounded")
