@@ -51,10 +51,6 @@ func (r *BoundRelation) Project(removed []uint32) (*BoundRelation, error) {
 		}
 	}
 	result := NewBoundRelation(uint32(len(r.columns)-len(removed)), false)
-	if r.empty {
-		result.reset()
-		return result, nil
-	}
 	kept := make([]uint32, 0, len(result.columns))
 	classes := make(map[uint32]uint32)
 	removeIndex := 0
@@ -119,10 +115,6 @@ func (r *BoundRelation) Rename(cycle []uint32) (*BoundRelation, error) {
 		seen[column] = true
 	}
 	result := NewBoundRelation(uint32(len(r.columns)), false)
-	if r.empty {
-		result.reset()
-		return result, nil
-	}
 	classes := make([]uint32, len(r.columns))
 	for i := range r.columns {
 		classes[i] = r.find(uint32(i))

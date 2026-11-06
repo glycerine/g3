@@ -22,12 +22,12 @@ func TestIntervalBoundProductFilterByIntersection(t *testing.T) {
 	}
 }
 
-func TestIntervalBoundProductIntersectionEmptyAliasAndFailure(t *testing.T) {
+func TestIntervalBoundProductIntersectionEmptyProjectQuirkAliasAndFailure(t *testing.T) {
 	target := NewIntervalBoundProduct(1, false)
 	empty := NewIntervalBoundProduct(1, true)
 	astTestMust(t, target.FilterByIntersection(empty, nil, nil))
-	if !target.Empty() {
-		t.Fatal("empty source did not empty target intersection")
+	if target.Empty() || !target.ContainsFact([]*big.Rat{big.NewRat(99, 1)}) {
+		t.Fatal("C++ join/project intersection turns the empty join into a full product")
 	}
 	alias := NewIntervalBoundProduct(1, true)
 	astTestMust(t, alias.AddFact([]*big.Rat{big.NewRat(7, 1)}))

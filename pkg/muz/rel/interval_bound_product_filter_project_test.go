@@ -84,7 +84,7 @@ func TestIntervalBoundProductFilterProjectConjunctionAndFailureSemantics(t *test
 	}
 	emptyProjected, err := empty.FilterInterpretedAndProject(m, upper, []uint32{1})
 	astTestMust(t, err)
-	if !emptyProjected.Empty() {
-		t.Fatal("fused filter/project did not preserve empty input")
+	if emptyProjected.Empty() || !emptyProjected.ContainsFact([]*big.Rat{big.NewRat(3, 1)}) || emptyProjected.ContainsFact([]*big.Rat{big.NewRat(4, 1)}) {
+		t.Fatal("C++ filter/project drops empty flag but keeps the filter's reset-payload bound")
 	}
 }

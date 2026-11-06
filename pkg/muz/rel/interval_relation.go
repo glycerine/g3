@@ -135,7 +135,7 @@ func (r *IntervalRelation) AddFact(values []*big.Rat) error {
 }
 
 func (r *IntervalRelation) ContainsFact(values []*big.Rat) bool {
-	if r.Empty() || len(values) != len(r.values.columns) {
+	if r == nil || r.values == nil || len(values) != len(r.values.columns) {
 		return false
 	}
 	for i, value := range values {
@@ -197,9 +197,6 @@ func (r *IntervalRelation) Project(removed []uint32) (*IntervalRelation, error) 
 	if err != nil {
 		return nil, err
 	}
-	if r.Empty() {
-		values.setEmpty()
-	}
 	return &IntervalRelation{values}, nil
 }
 
@@ -211,9 +208,6 @@ func (r *IntervalRelation) Rename(cycle []uint32) (*IntervalRelation, error) {
 	values, err := renameIntervalColumns(r.values, cycle)
 	if err != nil {
 		return nil, err
-	}
-	if r.Empty() {
-		values.setEmpty()
 	}
 	return &IntervalRelation{values}, nil
 }

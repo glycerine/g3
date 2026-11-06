@@ -11,8 +11,8 @@ func TestIntervalBoundProductSelectEqualAndProject(t *testing.T) {
 	astTestMust(t, p.AddFact([]*big.Rat{big.NewRat(8, 1), big.NewRat(8, 1)}))
 	rejected, err := p.SelectEqualAndProject(1, big.NewRat(7, 1))
 	astTestMust(t, err)
-	if !rejected.Empty() {
-		t.Fatal("select-equal was not applied before projection")
+	if rejected.Empty() || !rejected.ContainsFact([]*big.Rat{big.NewRat(8, 1)}) {
+		t.Fatal("C++ selection empties the clone, then projection returns a full product")
 	}
 	selected, err := p.SelectEqualAndProject(1, big.NewRat(8, 1))
 	astTestMust(t, err)
@@ -41,7 +41,7 @@ func TestIntervalBoundProductSelectProjectEmptyAndRejection(t *testing.T) {
 	empty := NewIntervalBoundProduct(2, true)
 	projected, err := empty.SelectEqualAndProject(0, big.NewRat(1, 1))
 	astTestMust(t, err)
-	if !projected.Empty() {
-		t.Fatal("select/project did not preserve empty input")
+	if projected.Empty() || !projected.ContainsFact([]*big.Rat{big.NewRat(-100, 1)}) {
+		t.Fatal("C++ select/project turns empty selected input into a full product")
 	}
 }

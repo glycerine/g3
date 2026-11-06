@@ -33,10 +33,10 @@ func TestIntervalVectorSelectEqualProjectUsesSourceCloneSemantics(t *testing.T) 
 	intervalIntersectionBound(t, source, 0, 1, 5)
 }
 
-func TestIntervalVectorSelectEqualProjectEmptyAndValidation(t *testing.T) {
+func TestIntervalVectorSelectEqualProjectEmptyInputFollowsSourceQuirkAndValidation(t *testing.T) {
 	empty := NewIntervalEmpty(2)
 	selected, err := empty.SelectEqualAndProject(big.NewRat(2, 1), 1)
-	if err != nil || selected == nil || !selected.Empty() || len(selected.values.columns) != 1 {
+	if err != nil || selected == nil || selected.Empty() || !selected.IsFull() || len(selected.values.columns) != 1 {
 		t.Fatalf("empty selection=%v err=%v", selected, err)
 	}
 

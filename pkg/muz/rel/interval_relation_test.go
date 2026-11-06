@@ -61,8 +61,8 @@ func TestIntervalRelationFactAndJoin(t *testing.T) {
 		t.Fatal("bounds escaped mutable state")
 	}
 	emptyProjection, err := rel.NewIntervalEmpty(2).Project([]uint32{0})
-	if err != nil || !emptyProjection.Empty() {
-		t.Fatal("projection of empty relation must remain empty")
+	if err != nil || emptyProjection.Empty() || !emptyProjection.IsFull() {
+		t.Fatal("C++ vector_relation::mk_project makes empty-source projection full", err)
 	}
 }
 
@@ -87,6 +87,13 @@ func TestIntervalRelationFull(t *testing.T) {
 	}
 	if !rel.NewIntervalEmpty(2).IsFull() {
 		t.Fatal("empty relation columns should retain full interval bounds")
+	}
+	// interval_relation::contains_fact checks the reset per-column payload and
+	// does not consult vector_relation::empty(). The empty bit and membership
+	// answer are intentionally independent in this source path.
+	empty := rel.NewIntervalEmpty(1)
+	if !empty.Empty() || !empty.ContainsFact([]*big.Rat{big.NewRat(3, 1)}) {
+		t.Fatal("source membership must inspect the empty relation's reset full interval payload")
 	}
 	bounded := rel.NewIntervalFull(1)
 	if err := bounded.FilterEqual(0, big.NewRat(3, 1)); err != nil {
@@ -120,8 +127,8 @@ func TestIntervalRelationRename(t *testing.T) {
 		t.Fatal("out-of-range cycle column accepted")
 	}
 	empty, err := rel.NewIntervalEmpty(2).Rename([]uint32{0, 1})
-	if err != nil || !empty.Empty() {
-		t.Fatal("rename must preserve emptiness")
+	if err != nil || empty.Empty() || !empty.IsFull() {
+		t.Fatal("C++ vector_relation::mk_rename makes empty-source rename full", err)
 	}
 }
 

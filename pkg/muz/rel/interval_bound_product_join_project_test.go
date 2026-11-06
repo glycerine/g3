@@ -45,7 +45,7 @@ func TestIntervalBoundProductJoinProjectCompilerComposition(t *testing.T) {
 	}
 }
 
-func TestIntervalBoundProductJoinProjectEmptyAndFailureAtomicity(t *testing.T) {
+func TestIntervalBoundProductJoinProjectEmptySourceProjectQuirkAndFailureAtomicity(t *testing.T) {
 	m := astTestManager(t)
 	family, err := m.RegisterArithmeticPlugin()
 	astTestMust(t, err)
@@ -64,8 +64,8 @@ func TestIntervalBoundProductJoinProjectEmptyAndFailureAtomicity(t *testing.T) {
 	}
 	result, err := JoinProjectIntervalBoundProducts(full, empty, nil, nil, []uint32{1})
 	astTestMust(t, err)
-	if !result.Empty() {
-		t.Fatal("fused join/project did not propagate empty operand")
+	if result.Empty() || !result.ContainsFact([]*big.Rat{big.NewRat(101, 1)}) {
+		t.Fatal("C++ join/project returns full product after projecting an empty join")
 	}
 	if _, err = JoinProjectIntervalBoundProducts(full, full, []uint32{1}, []uint32{0}, nil); err == nil {
 		t.Fatal("out-of-range join mapping was accepted")

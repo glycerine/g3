@@ -51,8 +51,15 @@ func TestBoundRelationJoinAndProjection(t *testing.T) {
 	}
 	empty, err = NewBoundRelation(3, true).Project([]uint32{0})
 	astTestMust(t, err)
-	if !empty.Empty() {
-		t.Fatal("empty projection")
+	if empty.Empty() {
+		t.Fatal("C++ vector_relation::mk_project leaves the full destination nonempty")
+	}
+	for column := range empty.columns {
+		strict, weak, err = empty.Bounds(uint32(column))
+		astTestMust(t, err)
+		if len(strict) != 0 || len(weak) != 0 {
+			t.Fatal("empty-source projection should copy reset full payload", column, strict, weak)
+		}
 	}
 }
 
@@ -96,8 +103,8 @@ func TestBoundRelationRename(t *testing.T) {
 	}
 	empty, err := NewBoundRelation(2, true).Rename([]uint32{0, 1})
 	astTestMust(t, err)
-	if !empty.Empty() {
-		t.Fatal("empty rename")
+	if empty.Empty() {
+		t.Fatal("C++ vector_relation::mk_rename leaves the full destination nonempty")
 	}
 
 	equivalent := NewBoundRelation(3, false)

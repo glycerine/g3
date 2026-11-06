@@ -64,8 +64,14 @@ func TestIntervalVectorIntersectionUsesSourceJoinEquivalenceSemantics(t *testing
 	if err := target.FilterByIntersection(empty, nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	if !target.Empty() {
-		t.Fatal("intersection with empty source did not clear target")
+	if target.Empty() {
+		t.Fatal("C++ intersection join/project returns full relation after empty join")
+	}
+	for column := uint32(0); column < 2; column++ {
+		lower, _, upper, _, err := target.Bounds(column)
+		if err != nil || lower != nil || upper != nil {
+			t.Fatalf("empty-source intersection result column %d: lower=%v upper=%v err=%v", column, lower, upper, err)
+		}
 	}
 }
 

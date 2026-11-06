@@ -25,7 +25,7 @@ func TestBoundVectorIntersectionPropagatesSourceOrder(t *testing.T) {
 	}
 }
 
-func TestBoundVectorIntersectionEmptyAliasAndFailureAtomicity(t *testing.T) {
+func TestBoundVectorIntersectionEmptySourceFollowsProjectSourceQuirk(t *testing.T) {
 	target := NewBoundRelation(2, false)
 	if err := target.AddLessEqual(0, 1); err != nil {
 		t.Fatal(err)
@@ -33,8 +33,14 @@ func TestBoundVectorIntersectionEmptyAliasAndFailureAtomicity(t *testing.T) {
 	if err := target.FilterByIntersection(NewBoundRelation(2, true), nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	if !target.Empty() {
-		t.Fatal("intersection with empty source did not clear target")
+	if target.Empty() {
+		t.Fatal("C++ joins to empty then projects to a full relation")
+	}
+	for column := uint32(0); column < 2; column++ {
+		strict, weak, err := target.Bounds(column)
+		if err != nil || len(strict) != 0 || len(weak) != 0 {
+			t.Fatalf("projected empty source payload column %d: strict=%v weak=%v err=%v", column, strict, weak, err)
+		}
 	}
 
 	alias := NewBoundRelation(2, false)

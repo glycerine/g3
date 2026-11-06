@@ -56,15 +56,18 @@ func TestIntervalSieveRenameMovesSelectedAndIgnoredColumns(t *testing.T) {
 	}
 }
 
-func TestIntervalSieveRenamePreservesEmptyAndRejectsInvalidCycle(t *testing.T) {
-	f, integer, _ := intervalSieveFixture(t)
+func TestIntervalSieveRenameEmptyInputFollowsInnerProjectQuirkAndRejectsInvalidCycle(t *testing.T) {
+	f, integer, numeral := intervalSieveFixture(t)
 	source, err := NewIntervalSieveEmpty(f.ast, []ast.ASTHandle{integer, f.boolean})
 	if err != nil {
 		t.Fatal(err)
 	}
 	renamed, err := source.Rename([]int{0, 1})
-	if err != nil || !renamed.Empty() {
-		t.Fatal("empty rename", renamed, err)
+	if err != nil || renamed.Empty() {
+		t.Fatal("C++ interval rename turns the empty inner relation full", renamed, err)
+	}
+	if found, err := renamed.ContainsFact([]ast.ASTHandle{f.truth, numeral("2")}); err != nil || !found {
+		t.Fatal("renamed full inner relation rejected an unconstrained tuple", found, err)
 	}
 	if _, err = source.Rename([]int{0, 0}); err == nil {
 		t.Fatal("duplicate rename column accepted")

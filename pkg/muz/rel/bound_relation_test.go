@@ -126,3 +126,4 @@ func TestBoundRelationUnionInterval(t *testing.T) {
 		t.Fatal("infinite interval must clear bounds", strict, weak, err)
 	}
 }
+
