@@ -153,3 +153,90 @@ func BenchmarkSMTScopeResolution(b *testing.B) {
 	}
 	b.ReportMetric(smtHotPathWidth, "assignments/op")
 }
+
+// BenchmarkSMTScopeRestoration times a search backtrack that preserves and
+// rebuilds 64 learned clauses over 128 atoms. SurvivingAtoms exercises cached
+// literal reuse; ScopedAtoms also retires and reinternalizes the Boolean vars.
+// Each round has an outer user scope so its restored clauses can be discarded
+// outside the timer, keeping the workload constant rather than accumulating
+// learned clauses. Formula construction, search setup, checks, and reset are
+// excluded from timings (but still appear in whole-process CPU profiles).
+func BenchmarkSMTScopeRestoration(b *testing.B) {
+	for _, scoped := range []bool{false, true} {
+		name := "SurvivingAtoms"
+		if scoped {
+			name = "ScopedAtoms"
+		}
+		b.Run(name, func(b *testing.B) {
+			m := astTestManager(b)
+			expressions := make([]ast.ASTHandle, smtHotPathWidth)
+			refs := make([]ast.ASTRef, len(expressions))
+			b.Cleanup(func() {
+				for i := range refs {
+					benchmarkMust(b, m.DelRef(&refs[i]))
+				}
+			})
+			for i := range expressions {
+				expressions[i] = smtRelevancyBool(b, m, fmt.Sprintf("bench-restore-%d", i))
+				var err error
+				refs[i], err = m.NewRef(expressions[i])
+				benchmarkMust(b, err)
+			}
+			_, p, s := smtInternalizerFixture(b, m, nil)
+			literals := make([]SMTLiteral, len(expressions))
+			internalize := func() {
+				for i, expression := range expressions {
+					benchmarkMust(b, s.Internalize(expression, true))
+					benchmarkMust(b, p.MarkRelevant(expression))
+					var err error
+					literals[i], err = s.Literal(expression)
+					benchmarkMust(b, err)
+				}
+			}
+			const clauses = smtHotPathWidth / 2
+			b.ReportAllocs()
+			b.ResetTimer()
+			b.StopTimer()
+			for i := 0; i < b.N; i++ {
+				benchmarkMust(b, s.PushScope()) // user scope owns restored clauses
+				if !scoped {
+					internalize()
+				}
+				benchmarkMust(b, s.beginSearchPersistence(1, SMTParamsState{}))
+				benchmarkMust(b, s.PushScope()) // search decision scope
+				if scoped {
+					internalize()
+				}
+				creation := s.booleanCreation[literals[0].Var()]
+				for j := 0; j < clauses; j++ {
+					benchmarkMust(b, s.AddLearnedClauseWithProof([]SMTLiteral{
+						literals[2*j], literals[2*j+1].Negated(), literals[(2*j+2)%len(literals)],
+					}, ast.ASTHandle{}))
+				}
+				b.StartTimer()
+				err := s.PopScopes(1)
+				b.StopTimer()
+				benchmarkMust(b, err)
+				if s.scopeLevel != 1 || len(s.clauses) != clauses {
+					b.Fatal("search backtrack lost learned clauses", s.scopeLevel, len(s.clauses))
+				}
+				for _, expression := range expressions {
+					if _, found := s.BoolVar(expression); !found || !p.IsRelevant(expression) {
+						b.Fatal("restoration lost a learned atom or its relevance")
+					}
+				}
+				variable, _ := s.BoolVar(expressions[0])
+				if (s.booleanCreation[variable] != creation) != scoped {
+					b.Fatal("benchmark did not exercise the selected literal restoration path")
+				}
+				benchmarkMust(b, s.endSearchPersistence())
+				benchmarkMust(b, s.PopScopes(1))
+				if len(s.clauses) != 0 || len(s.booleanStack) != 0 {
+					b.Fatal("benchmark round left scoped clauses or atoms behind")
+				}
+			}
+			b.ReportMetric(clauses, "clauses/op")
+			b.ReportMetric(smtHotPathWidth, "atoms/op")
+		})
+	}
+}
