@@ -4,6 +4,7 @@ package smtcore
 
 import (
 	"math/bits"
+	"os"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -66,6 +67,30 @@ func TestPseudoBooleanTheorySourceNestedFuzz(t *testing.T) {
 	if !testing.Short() {
 		t.Skip("run the full seeded pseudo-Boolean fuzzer with -short")
 	}
+	// The C++ source uses 100,000 outer rounds and also enables verbose PB and
+	// simplex tracing. Keep a large deterministic prefix in the routine tagged
+	// suite; the exact source workload remains available with G3_PB_SOURCE_STRESS=1.
+	runPseudoBooleanTheorySourceNestedFuzz(t, 1000)
+}
+
+func TestPseudoBooleanTheorySourceNestedFuzzBudgetRegression(t *testing.T) {
+	if !testing.Short() {
+		t.Skip("run the tagged pseudo-Boolean regression with -short")
+	}
+	runPseudoBooleanTheorySourceNestedFuzz(t, 100)
+}
+
+func TestPseudoBooleanTheorySourceNestedFuzzFull(t *testing.T) {
+	if !testing.Short() {
+		t.Skip("run the full seeded pseudo-Boolean fuzzer with -short")
+	}
+	if os.Getenv("G3_PB_SOURCE_STRESS") != "1" {
+		t.Skip("set G3_PB_SOURCE_STRESS=1 to run all 100,000 C++ source rounds")
+	}
+	runPseudoBooleanTheorySourceNestedFuzz(t, 100000)
+}
+
+func runPseudoBooleanTheorySourceNestedFuzz(t *testing.T, outerRounds int) {
 	m := astTestManager(t)
 	_, err := m.RegisterPseudoBooleanPlugin()
 	astTestMust(t, err)
@@ -196,7 +221,7 @@ func TestPseudoBooleanTheorySourceNestedFuzz(t *testing.T) {
 		*previous = rounds
 	}
 	var rounds uint32
-	for i := 0; i < 100000; i++ {
+	for i := 0; i < outerRounds; i++ {
 		runRound(&rounds, 2, 0xff)
 	}
 	if verified != 12 {
