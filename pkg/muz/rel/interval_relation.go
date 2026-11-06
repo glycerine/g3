@@ -138,6 +138,8 @@ func (r *IntervalRelation) ContainsFact(values []*big.Rat) bool {
 	if r == nil || r.values == nil || len(values) != len(r.values.columns) {
 		return false
 	}
+	// The C++ contains_fact path reads reset column payloads even when the
+	// relation's empty flag is set, so do not short-circuit on r.Empty().
 	for i, value := range values {
 		root := r.values.find(uint32(i))
 		if value == nil || values[root] == nil || value.Cmp(values[root]) != 0 || !r.values.columns[root].Contains(value) {
