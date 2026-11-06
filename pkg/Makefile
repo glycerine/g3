@@ -25,8 +25,10 @@ slow:
 
 bench:
 	go test ./smtcore -run '^$$' \
-	-bench '^BenchmarkSMT(BooleanPropagation|RelevanceCallbacks|ConflictResolution|ScopeRestoration)$$' \
-	-benchmem -benchtime=2s -count=5
+	-bench '^BenchmarkSMTScopeRestoration$$' \
+
+#-bench '^BenchmarkSMT(BooleanPropagation|RelevanceCallbacks|ConflictResolution|ScopeRestoration)$$' \
+#-benchmem -benchtime=2s -count=5
 
 # To profile one component, select its exact name:
 #
