@@ -1,6 +1,7 @@
 package rel
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -35,4 +36,37 @@ func TestRelationExplanationProductIntervalBackingFiltersAndBuildsFormula(t *tes
 	if _, err := f.ast.RefGet(formula); err != nil {
 		t.Fatal("numeric explanation formula is not readable", err)
 	}
+}
+
+func TestFormulaCheckedNumericRelationFilterEqualUsesSelectedBase(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	arithmetic, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(arithmetic, 1, nil)
+	astTestMust(t, err)
+	three, err := f.ast.ArithmeticIntegerNumeralText("3")
+	astTestMust(t, err)
+	astTestPin(t, f.ast, three)
+
+	t.Run("interval backing checks and accepts the numeric filter", func(t *testing.T) {
+		numeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer}, kind: "interval_relation",
+			interval: NewIntervalFull(1), checker: &config,
+		}
+		astTestMust(t, numeric.FilterEqual(0, three))
+		if numeric.interval.Empty() {
+			t.Fatal("verified interval filter made the full relation empty")
+		}
+	})
+
+	t.Run("bound no-op is rejected by the selected formula checker", func(t *testing.T) {
+		numeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer}, kind: "bound_relation",
+			bound: NewBoundRelation(1, false), checker: &config,
+		}
+		if err := numeric.FilterEqual(0, three); !errors.Is(err, ErrRelationVerification) {
+			t.Fatalf("bound filter_equal source no-op was not detected: %v", err)
+		}
+	})
 }

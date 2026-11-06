@@ -328,11 +328,40 @@ func (b *relationExplanationNumeric) FilterEqual(column uint32, value ast.ASTHan
 	if column >= uint32(len(b.sorts)) {
 		return ast.ErrASTDomain
 	}
+	var before ast.ASTRef
+	var condition ast.ASTRef
+	if b.checker != nil && (b.kind == "bound_relation" || b.kind == "interval_relation") {
+		var err error
+		if b.kind == "bound_relation" {
+			before, err = b.bound.ToFormula(b.manager.manager, b.sorts)
+		} else {
+			before, err = b.interval.ToFormula(b.manager.manager, b.sorts)
+		}
+		if err != nil {
+			return err
+		}
+		defer b.manager.manager.DelRef(&before)
+		variable, err := b.manager.manager.MkVar(column, b.sorts[column])
+		if err != nil {
+			return err
+		}
+		equality, err := b.manager.manager.MkEq(variable, value)
+		if err != nil {
+			return err
+		}
+		condition, err = b.manager.manager.NewRef(equality)
+		if err != nil {
+			return err
+		}
+		defer b.manager.manager.DelRef(&condition)
+	}
 	switch b.kind {
 	case "bound_relation":
 		b.bound.FilterEqual(0, column)
 	case "interval_relation":
-		return b.interval.FilterEqualExpression(b.manager.manager, column, value)
+		if err := b.interval.FilterEqualExpression(b.manager.manager, column, value); err != nil {
+			return err
+		}
 	case "karr_relation":
 		text, _, matched, err := b.manager.manager.ArithmeticNumeralText(value)
 		if err != nil {
@@ -340,6 +369,22 @@ func (b *relationExplanationNumeric) FilterEqual(column uint32, value ast.ASTHan
 		}
 		_, integer := new(big.Rat).SetString(text)
 		return b.karr.FilterEqual(column, matched && integer)
+	}
+	if b.checker != nil {
+		beforeHandle, err := b.manager.manager.RefGet(before)
+		if err != nil {
+			return err
+		}
+		conditionHandle, err := b.manager.manager.RefGet(condition)
+		if err != nil {
+			return err
+		}
+		switch b.kind {
+		case "bound_relation":
+			return VerifyBoundRelationFilter(b.manager.manager, b.sorts, *b.checker, beforeHandle, conditionHandle, b.bound, false)
+		case "interval_relation":
+			return VerifyIntervalRelationFilter(b.manager.manager, b.sorts, *b.checker, beforeHandle, conditionHandle, b.interval, false)
+		}
 	}
 	return nil
 }
