@@ -201,20 +201,23 @@ func (r *BoundRelation) UnionInterval(source *IntervalRelation) error {
 		if r.find(uint32(i)) != uint32(i) {
 			continue
 		}
-		_, _, upper, _ := source.values.columns[source.values.find(uint32(i))].Bounds()
+		// mk_union_i indexes the interval vector directly. Equality aliases
+		// therefore expose their stale, pre-merge payload here instead of the
+		// representative interval returned by find().
+		_, _, upper, _ := source.values.columns[i].Bounds()
 		if upper == nil {
 			clear(r.columns[i].lt)
 			clear(r.columns[i].le)
 			continue
 		}
 		for j := range r.columns[i].lt {
-			lower, _, _, _ := source.values.columns[source.values.find(j)].Bounds()
+			lower, _, _, _ := source.values.columns[j].Bounds()
 			if lower == nil || upper.Cmp(lower) >= 0 {
 				delete(r.columns[i].lt, j)
 			}
 		}
 		for j := range r.columns[i].le {
-			lower, _, _, _ := source.values.columns[source.values.find(j)].Bounds()
+			lower, _, _, _ := source.values.columns[j].Bounds()
 			if lower == nil || upper.Cmp(lower) > 0 {
 				delete(r.columns[i].le, j)
 			}
