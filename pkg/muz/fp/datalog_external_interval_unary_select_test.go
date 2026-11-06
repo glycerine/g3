@@ -213,22 +213,28 @@ func TestExternalIntervalDatalogUnarySelectContradictionStillProjects(t *testing
 		for _, later := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/later=%t", kinds[0], later), func(t *testing.T) {
 				facts := []string{"8", "2", "9"}
-				selections := 1
+				selections := 2
 				if later {
 					facts = []string{"7", "2", "10"}
-					selections = 2
 				}
 				_, engine, callbacks, p, q, _ := newExternalIntervalUnarySelectFixture(t, kinds, []int{-1, 0, -1}, []uint32{0}, []string{"7", "", "9"}, facts, nil)
 				resetExternalIntervalUnarySelectCallbacks(callbacks)
 				status, err := engine.QueryPredicate(q)
 				fragmentMust(t, err)
-				if status != lbool.False {
-					t.Fatal("contradictory selection result", status)
+				// The source interval projection drops the empty flag after the
+				// contradictory selection, so the query result is imprecise.
+				if status != lbool.Undef {
+					t.Fatal("empty-source projection did not match C++ behavior", status)
+				}
+				projected := engine.externalIntervalDatalog.entries[q].product
+				if empty, cause := projected.Empty(); cause != nil || empty {
+					t.Fatal("contradictory projection did not preserve the source reset payload", empty, cause)
 				}
 				want := []int32{ast.DatalogOpClone}
 				for range selections {
 					want = append(want, ast.DatalogOpClone, ast.DatalogOpFilter, ast.DatalogOpProject)
 				}
+				want = append(want, ast.DatalogOpUnion)
 				assertExternalIntervalRegisterOperations(t, externalIntervalUnaryOperations(callbacks.operations), want)
 				for column, value := range facts {
 					assertExternalIntervalGroundProgramInterval(t, engine.externalIntervalDatalog.entries[p].product, column, value, value)

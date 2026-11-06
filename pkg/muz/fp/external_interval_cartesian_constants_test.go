@@ -260,7 +260,7 @@ func TestExternalIntervalDatalogCartesianConstantsEmptyFrontiers(t *testing.T) {
 				count := 0
 				switch shape {
 				case "join":
-					rightFacts[0] = "6"
+					rightFacts[0], count = "6", 5
 				case "first-constant":
 					leftFacts[0], count = "8", 1
 				case "middle-constant":
@@ -276,8 +276,18 @@ func TestExternalIntervalDatalogCartesianConstantsEmptyFrontiers(t *testing.T) {
 				resetExternalIntervalUnaryGuardCallbacks(callbacks)
 				status, err := engine.QueryPredicate(h)
 				fragmentMust(t, err)
-				if status != lbool.False || len(callbacks.constantColumns) != count || len(callbacks.constantValues) != count {
-					t.Fatal("constant filtering did not stop at first empty frontier", status, callbacks.constantColumns, callbacks.constantValues)
+				// Source vector_relation::mk_project drops the empty flag when
+				// constructing its full destination. The later constant filters
+				// therefore still run, including constants after the contradictory
+				// one. Preserve all filter callbacks as a regression of that order.
+				wantConstantColumns := []uint32{0, 2, 3, 5, 7}[:count]
+				wantConstantValues := []string{"7", "9", "7", "11", "9"}[:count]
+				wantStatus := lbool.False
+				if shape == "join" || shape == "guard" {
+					wantStatus = lbool.Undef
+				}
+				if status != wantStatus || !reflect.DeepEqual(callbacks.constantColumns, wantConstantColumns) || !reflect.DeepEqual(callbacks.constantValues, wantConstantValues) {
+					t.Fatal("projected empty source did not continue constant filtering", status, callbacks.constantColumns, callbacks.constantValues)
 				}
 				want := []int32{ast.DatalogOpClone, ast.DatalogOpClone, ast.DatalogOpJoin, ast.DatalogOpProject}
 				for range count {
@@ -285,8 +295,11 @@ func TestExternalIntervalDatalogCartesianConstantsEmptyFrontiers(t *testing.T) {
 				}
 				projects := [][]uint32{{2, 4, 5}}
 				if shape == "guard" {
-					want = append(want, ast.DatalogOpClone, ast.DatalogOpFilter, ast.DatalogOpProject)
-					projects = append(projects, []uint32{4})
+					want = append(want, ast.DatalogOpClone, ast.DatalogOpFilter, ast.DatalogOpProject, ast.DatalogOpProject, ast.DatalogOpRename, ast.DatalogOpUnion)
+					projects = append(projects, []uint32{4}, []uint32{0, 2, 3, 4, 6})
+				} else if shape == "join" {
+					want = append(want, ast.DatalogOpClone, ast.DatalogOpFilter, ast.DatalogOpProject, ast.DatalogOpProject, ast.DatalogOpRename, ast.DatalogOpUnion)
+					projects = append(projects, []uint32{4}, []uint32{0, 2, 3, 4, 6})
 				} else if len(callbacks.guardConditions) != 0 {
 					t.Fatal("constant contradiction reached interpreted guard", callbacks.guardConditions)
 				}

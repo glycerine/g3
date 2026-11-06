@@ -292,8 +292,17 @@ func TestExternalIntervalDatalogCartesianGuardEmptyFrontiers(t *testing.T) {
 				resetExternalIntervalUnaryGuardCallbacks(callbacks)
 				status, err := engine.QueryPredicate(h)
 				fragmentMust(t, err)
-				if status != lbool.False {
-					t.Fatal("empty two-tail guard result", status)
+				wantStatus := lbool.False
+				if shape == "fused-contradiction" {
+					wantStatus = lbool.Undef
+				}
+				if status != wantStatus {
+					t.Fatal("two-tail guard result", status, wantStatus)
+				}
+				if shape == "disjoint-join" {
+					want = append(want, ast.DatalogOpFilter)
+				} else if shape == "fused-contradiction" {
+					want = append(want, ast.DatalogOpRename, ast.DatalogOpUnion)
 				}
 				assertExternalIntervalRegisterOperations(t, externalIntervalCartesianGuardOperations(callbacks.operations), want)
 				if shape == "fused-contradiction" && !reflect.DeepEqual(callbacks.projectParameters, [][]uint32{{1, 2, 3}, {1}}) {

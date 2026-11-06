@@ -158,8 +158,12 @@ func TestExternalIntervalDatalogPositiveDisjointKeysThenUpdate(t *testing.T) {
 			resetExternalIntervalCartesianCallbacks(callbacks)
 			status, err := engine.QueryPredicate(h)
 			fragmentMust(t, err)
-			if status != lbool.False || operationCount(callbacks.operations, ast.DatalogOpJoin) != 1 || operationCount(callbacks.operations, ast.DatalogOpProject) != 1 || operationCount(callbacks.operations, ast.DatalogOpRename) != 0 || operationCount(callbacks.operations, ast.DatalogOpUnion) != 0 {
-				t.Fatal("disjoint shared key reached head assembly", status, callbacks.operations)
+			// The interval component's project operation follows
+			// vector_relation::mk_project: its full destination does not inherit
+			// the source empty bit. The projected product can therefore proceed
+			// to head assembly even though the pre-projection join was empty.
+			if status != lbool.Undef || operationCount(callbacks.operations, ast.DatalogOpJoin) != 1 || operationCount(callbacks.operations, ast.DatalogOpProject) != 1 || operationCount(callbacks.operations, ast.DatalogOpRename) != 1 || operationCount(callbacks.operations, ast.DatalogOpUnion) != 1 {
+				t.Fatal("disjoint shared key did not follow source project/head path", status, callbacks.operations)
 			}
 			seven, err := manager.ArithmeticIntegerNumeralText("7")
 			fragmentMust(t, err)

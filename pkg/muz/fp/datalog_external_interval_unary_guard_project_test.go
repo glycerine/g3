@@ -107,12 +107,15 @@ func TestExternalIntervalDatalogUnaryGuardProjectContradictionStillProjects(t *t
 			resetExternalIntervalUnaryGuardCallbacks(callbacks)
 			status, err := engine.QueryPredicate(q)
 			fragmentMust(t, err)
-			if status != lbool.False || !reflect.DeepEqual(callbacks.projectParameters, [][]uint32{{1}}) {
-				t.Fatal("contradictory fused filter skipped projection", status, callbacks.projectParameters)
+			if status != lbool.Undef || !reflect.DeepEqual(callbacks.projectParameters, [][]uint32{{1}}) {
+				t.Fatal("empty-source projection did not match C++ behavior", status, callbacks.projectParameters)
 			}
 			assertExternalIntervalRegisterOperations(t, externalIntervalUnaryOperations(callbacks.operations), []int32{
-				ast.DatalogOpClone, ast.DatalogOpClone, ast.DatalogOpFilter, ast.DatalogOpProject,
+				ast.DatalogOpClone, ast.DatalogOpClone, ast.DatalogOpFilter, ast.DatalogOpProject, ast.DatalogOpUnion,
 			})
+			if empty, cause := engine.externalIntervalDatalog.entries[q].product.Empty(); cause != nil || empty {
+				t.Fatal("empty-source projection did not publish the reset payload", empty, cause)
+			}
 			for column, value := range []string{"3", "1"} {
 				assertExternalIntervalGroundProgramInterval(t, engine.externalIntervalDatalog.entries[p].product, column, value, value)
 			}

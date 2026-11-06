@@ -245,12 +245,21 @@ func TestExternalIntervalDatalogCartesianHeadConstantsEmptyProducerStillInitiali
 				resetExternalIntervalUnaryGuardCallbacks(callbacks)
 				status, err := engine.QueryPredicate(h)
 				fragmentMust(t, err)
-				if status != lbool.False {
-					t.Fatal("empty producer acquired rows from a head singleton", status)
+				wantStatus := lbool.False
+				if shape == "disjoint-join" || shape == "guard" {
+					wantStatus = lbool.Undef
 				}
-				// Unary-singleton instructions do not depend on the empty source
-				// register; only their subsequent append JOINs are skipped.
-				want = append(want, ast.DatalogOpStore, ast.DatalogOpStore)
+				if status != wantStatus {
+					t.Fatal("projected producer status", status, wantStatus)
+				}
+				// Unary-singleton instructions run after the producer transforms.
+				// If interval projection reset an empty join to full, append JOINs
+				// and union run; an empty external source still short-circuits.
+				if shape == "disjoint-join" || shape == "guard" {
+					want = append(want, ast.DatalogOpStore, ast.DatalogOpJoin, ast.DatalogOpJoin, ast.DatalogOpStore, ast.DatalogOpJoin, ast.DatalogOpUnion)
+				} else {
+					want = append(want, ast.DatalogOpStore, ast.DatalogOpStore)
+				}
 				assertExternalIntervalRegisterOperations(t, externalIntervalHeadConstantOperations(callbacks.operations), want)
 			})
 		}

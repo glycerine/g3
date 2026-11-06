@@ -203,15 +203,48 @@ also source-specific: `bound_relation::mk_eq` copies edges by iterating only
 valid source columns, so it drops the sentinel; Go now does the same, covered by
 `TestBoundRelationUnionDropsProjectionSentinelLikeSourceMkEq`. Verified with
 those focused tests and `go test ./pkg/muz/rel -short -count=1 -timeout=0`.
-The next suspected divergence is empty-input transform behavior. C++
-`vector_relation::mk_project` and `mk_rename` appear to copy the reset payload
-into a full destination without propagating `m_empty`; in contrast `mk_join`
-explicitly propagates emptiness. Go currently preserves emptiness for both
-plugins. A trial change to the C++-apparent behavior caused 9 relation-package
-tests and 29 fixedpoint-package tests to fail, including solver answer/status
-changes. That trial was reverted; verify the C++ behavior through an executable
-consumer case and account for the affected Go consumers before changing this
-shared operation. Remaining operation-matrix rows are unaudited.
+Empty-source projection and rename behavior is now confirmed at the relation
+layer. C++ `vector_relation::mk_project` and `mk_rename` initialize a full
+destination, copy the reset payload, and do not propagate `m_empty`; Go now
+matches this for both plugins. A native C++ `dl_relation` regression directly
+confirmed that empty interval projection and rename produce full relations,
+and the Go relation suite passes with corresponding operation tests. The
+behavior also changes Go fixedpoint query results where an empty intermediate
+is projected: an initial fixedpoint package run exposed 29 failures, chiefly
+status and empty-state expectations. Focused tests now also cover the resulting
+nullary projection, ground-query status, contradictory selection/guard
+operation order, clone cleanup, and disjoint shared-tail projection behavior.
+The consequences are now traced through numeric/external and sparse/interval
+products as well. Tests distinguish an empty join that becomes full after the
+interval projection from a later contradictory constant filter that empties
+the projected relation again. They assert continued guard/filter callbacks,
+head singleton assembly, rename and union ordering, and the resulting
+`l_false`/`l_undef` outcomes while retaining independent answer-formula,
+source-state, and ownership checks. The affected relation tests pass with
+`go test ./pkg/muz/rel -short -count=1 -timeout=0`; the relevant fixedpoint
+suite passes with
+`go test ./pkg/muz/fp -run '(BoundInterval|ExternalInterval|SparseInterval|IntervalDatalog)' -short -count=1 -timeout=0`.
+This resolves the empty-source transform divergence and the integration cases
+found from it, not the full numeric relation audit. Bound/interval fact
+semantics, constraint normalization, join boundary cases, union/delta/
+widening, interpreted-filter grammar, plugin dispatch combinations, and
+failure-state parity still need operation-by-operation C++ comparison.
+Nullary signatures are now directly covered for both plugins: full/empty tuple
+membership, adding the empty tuple as a fact, full and empty joins, and the
+source full-destination result when projecting an empty relation to arity zero
+pass in `TestNumericRelationNullarySourceBehavior`.
+The bound-from-interval union boundary is also pinned down: C++ compares only
+endpoint values, dropping a strict edge when `upper(lhs) >= lower(rhs)` and a
+weak edge only when `upper(lhs) > lower(rhs)`, without using endpoint openness.
+`TestBoundRelationUnionIntervalIgnoresEndpointOpenness` covers equal open and
+closed endpoints for both edge kinds.
+The fact-membership audit found and fixed another direct divergence. C++
+`interval_relation::contains_fact` checks equality classes and each interval
+payload but does not inspect `m_empty`; an empty relation whose reset payload
+is unbounded can therefore report a numeric tuple as contained. Go's
+rational-tuple `ContainsFact` used to reject all empty relations before reading
+that payload. It now matches the source, with unary and nullary regression
+coverage alongside the existing AST-valued membership test.
 
 **Operation matrix (partial).** “Matched” means the implementation and a
 focused Go test currently agree with the read C++ branch; it does not imply
@@ -224,9 +257,9 @@ the full operation has exhaustive edge-case coverage.
 | Equality and identical filters | Matched | Matched | Coarse bound `filter_equal`, interval point intersection, and n-ary merge tests. |
 | Interpreted filters | Matched for tested grammar | Matched for tested grammar | Bound variable order/equality forms; interval real/Int strictness and unsupported conjunctions. |
 | Join | Matched | Matched | Right bound indices follow the C++ unoffset-copy quirk; both plugins propagate empty operands. |
-| Projection | Sentinel mapping fixed; empty-source case unresolved | Empty-source case unresolved | Bound removed-column edges map to `UINT_MAX`; empty-input C++ template behavior has live Go regressions. |
-| Rename | Matched for nonempty inputs | Matched for nonempty inputs | Empty-input behavior has the same unresolved template issue. |
-| Union/delta/widen | Matched for covered cases | Matched for covered cases | Bound/interval tests cover shared constraints, delta state, and endpoint pruning; boundary matrix is incomplete. |
+| Projection | Sentinel mapping and empty-source behavior matched | Empty-source behavior matched | Bound removed-column edges map to `UINT_MAX`; C++ generic transform drops the empty flag. Native C++ interval regression and Go relation tests cover empty source; fixedpoint product tests cover resulting filter/guard/head-assembly order. |
+| Rename | Empty-source behavior matched | Empty-source behavior matched | C++ generic transform copies reset payload and does not propagate the empty flag; Go relation tests and affected fixedpoint tests cover the behavior. |
+| Union/delta/widen | Matched for covered cases | Matched for covered cases | Bound union from interval ignores endpoint openness exactly as C++; interval tests cover hull, widening, delta state, and pruning. Remaining boundary matrix is incomplete. |
 | Plugin/cross-plugin dispatch | Partial | Partial | Bound-from-interval union covered; explanation products and all consumer combinations remain open. |
 
 The cited implementation branches are in

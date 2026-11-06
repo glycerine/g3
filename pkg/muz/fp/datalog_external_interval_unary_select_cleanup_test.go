@@ -144,9 +144,9 @@ func testExternalIntervalUnaryProjectionNativeCleanup(t *testing.T, interpreted 
 	assertExternalIntervalGroundProgramInterval(t, source, 1, "11", "11")
 
 	for _, test := range []struct {
-		value ast.ASTHandle
-		empty bool
-	}{{value: seven}, {value: five, empty: true}} {
+		value     ast.ASTHandle
+		wantValue bool
+	}{{value: seven, wantValue: true}, {value: five}} {
 		callbacks.operations = nil
 		var result *rel.ExternalIntervalProduct
 		var cause error
@@ -166,10 +166,10 @@ func testExternalIntervalUnaryProjectionNativeCleanup(t *testing.T, interpreted 
 		})
 		empty, cause := result.Empty()
 		must(cause)
-		if empty != test.empty {
-			t.Fatal("select projected result emptiness", empty, test.empty)
+		if empty {
+			t.Fatal("empty-source projection did not match C++ reset-payload behavior")
 		}
-		if !empty {
+		if test.wantValue {
 			assertExternalIntervalGroundProgramInterval(t, result, 0, "11", "11")
 		}
 		must(result.Close())
