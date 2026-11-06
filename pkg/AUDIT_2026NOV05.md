@@ -305,7 +305,16 @@ the full operation has exhaustive edge-case coverage.
 | Projection | Sentinel mapping and empty-source behavior matched | Empty-source behavior matched | Bound removed-column edges map to `UINT_MAX`; C++ generic transform drops the empty flag. Native C++ interval regression and Go relation tests cover empty source; fixedpoint product tests cover resulting filter/guard/head-assembly order. |
 | Rename | Empty-source behavior matched | Empty-source behavior matched | C++ generic transform copies reset payload and does not propagate the empty flag; Go relation tests and affected fixedpoint tests cover the behavior. |
 | Union/delta/widen | Matched for covered cases | Matched for covered cases | Bound union from interval ignores endpoint openness exactly as C++; interval tests cover hull, widening, delta state, and pruning. Remaining boundary matrix is incomplete. |
-| Plugin/cross-plugin dispatch | Partial | Partial | Bound-from-interval union covered; explanation products and all consumer combinations remain open. |
+| Plugin/cross-plugin dispatch | Partial | Partial | Bound-from-interval union and numeric explanation proof-column separation are covered. Both plugins accept numeric signatures, but `check_relation::mk_empty` rejects their reset full-payload formula against false; the Go selected-wrapper regression matches this source failure. Other consumer combinations remain open. |
+
+The numeric proof-column test confirms `explanationPredicateSignature` removes
+the trailing rule sort before selected numeric backing construction and gives
+that sort to the explanation relation. It also pins a source limitation:
+`check_relation` initializes its formula from the backing and checks the result
+of `mk_empty` against false, while these numeric backings serialize their
+reset payload as full. The selected checked empty product therefore fails
+verification in Go just as the C++ wrapper does. Signature acceptance alone
+does not make that wrapped construction operational.
 
 The cited implementation branches are in
 [`dl_vector_relation.h`](../src/muz/rel/dl_vector_relation.h#L178),

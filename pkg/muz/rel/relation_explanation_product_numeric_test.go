@@ -39,6 +39,52 @@ func TestRelationExplanationProductIntervalBackingFiltersAndBuildsFormula(t *tes
 	}
 }
 
+func TestSelectedNumericRelationExplanationSeparatesProofAndMatchesCheckEmpty(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	arithmetic, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(arithmetic, 1, nil)
+	astTestMust(t, err)
+	ruleSort, err := f.ast.MkDatalogRuleSort()
+	astTestMust(t, err)
+
+	for _, kind := range []string{"bound_relation", "interval_relation"} {
+		t.Run(kind, func(t *testing.T) {
+			astTestMust(t, f.relations.SetRelationExplanationNumericBacking(kind, nil))
+			defer f.relations.clearRelationExplanationNumericBacking()
+			predicate := defaultFinitePredicate(t, f, "numeric-proof-"+kind, []ast.ASTHandle{integer, ruleSort})
+			sorts, explanations, err := f.relations.explanationPredicateSignature(predicate)
+			astTestMust(t, err)
+			if explanations != 1 || len(sorts) != 1 || sorts[0] != integer {
+				t.Fatal("proof column entered selected numeric backing signature", sorts, explanations)
+			}
+			product, err := newRelationExplanationProductWithSelectedBacking(f.relations, sorts, kind)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, product.Close()) }()
+			if product.numeric == nil || product.numeric.kind != kind || product.table != nil {
+				t.Fatal("selected numeric plugin was not used", product.numeric, product.table)
+			}
+			proofSorts, err := product.explanation.signature()
+			astTestMust(t, err)
+			if len(proofSorts) != 1 || proofSorts[0] != ruleSort {
+				t.Fatal("trailing proof column was not assigned to explanation relation", proofSorts)
+			}
+
+			// check_relation::mk_empty checks the concrete backing's formula
+			// against false. These plugins reset their payload to full, so that
+			// exact source check rejects the checked empty product at creation.
+			astTestMust(t, f.relations.SetRelationExplanationNumericBacking(kind, &config))
+			checked, eligible, err := NewFormulaCheckedRelationExplanationForPredicateWithBacking(
+				f.relations, predicate, config, kind,
+			)
+			if checked != nil || eligible || !errors.Is(err, ErrRelationVerification) {
+				t.Fatalf("checked empty source initialization: product=%v eligible=%v err=%v", checked, eligible, err)
+			}
+		})
+	}
+}
+
 func TestFormulaCheckedNumericRelationFilterEqualUsesSelectedBase(t *testing.T) {
 	f := newTableRelationFixture(t)
 	config := formulaCheckerConfig(t, f.ast)
