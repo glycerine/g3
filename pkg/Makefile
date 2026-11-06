@@ -27,6 +27,17 @@ bench:
 	go test ./smtcore -run '^$$' \
 	-bench '^BenchmarkSMTScopeRestoration$$' \
 
+cppbench:
+	cd ../build && make -j 48 && \
+	make test -j 48 && \
+	./test-z3 smt_scope_restoration
+
+#BenchmarkSMTScopeRestoration/SurvivingAtoms	10000	458.37 ns/op	128 atoms/op	64 clauses/op
+#BenchmarkSMTScopeRestoration/ScopedAtoms	10000	12295.14 ns/op	128 atoms/op	64 clauses/op
+#PASS
+#(test smt_scope_restoration :time 0.39 :before-memory 0.00 :after-memory 0.12)
+
+
 #-bench '^BenchmarkSMT(BooleanPropagation|RelevanceCallbacks|ConflictResolution|ScopeRestoration)$$' \
 #-benchmem -benchtime=2s -count=5
 
