@@ -3,7 +3,19 @@
 g3 is a port of Z3 (C++) to pure Go. 
 
 Status: the port is feature complete. It is currently undergoing performance optimization and tuning
-since the baseline Go port g3 is slower than the C++ original Z3.
+since, unsurprisingly, the baseline Go port g3 is slower than the C++ original Z3.
+
+The C++ Z3 is also included in this repo. The version of Z3 is the version that Ivy needs. This
+is a fork of Z3 4.7.1 with patches applied. 
+
+The Z3 and g3 here include Ken McMillan's Duality and Interpolating Z3 (Craig Interpolation)
+extensions that Ivy uses. See https://mcmil.net/wordpress/category/research/projects/ for brief
+descriptions of these features. 
+
+Sadly later versions of Z3 did not preserve these, but since one of my primary aims was
+to allow g3 to integrate with GoIvy, this is the version of Z3 that g3 requires.
+
+See also GoIvy, my port of Ivy to Go: https://github.com/glycerine/ivy
 
 ---------
 Author: Jason E. Aten, Ph.D.
