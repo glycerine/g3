@@ -248,6 +248,11 @@ coverage alongside the existing AST-valued membership test.
 The same payload distinction is now asserted for formula export: both plugins
 produce `true` from an empty relation's reset, unconstrained columns, matching
 the C++ `to_formula` methods that do not branch on `m_empty`.
+Union/delta coverage now includes equality-class splitting for both relations:
+the target and delta must both adopt the source-common partition, and a stable
+repeat must leave the published delta unchanged. The test also confirms that
+the copied interval delta has the source vector-copy behavior (fresh independent
+columns with the copied interval payload).
 
 **Operation matrix (partial).** “Matched” means the implementation and a
 focused Go test currently agree with the read C++ branch; it does not imply
