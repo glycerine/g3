@@ -284,26 +284,71 @@ func (s *SMTInternalizerState) propagateTheoryRelevancy() error {
 	return nil
 }
 
+// C++ context::propagate saves m_qhead before BCP and delivers assignment
+// relevance only after BCP and theory case splits succeed. The end is captured
+// once: assignments made by callbacks belong to a subsequent Boolean batch.
+// Go also keeps the cursor so a refused callback can be retried without
+// replaying completed callbacks or losing the already-consumed BCP prefix.
+type smtRelevancyAssignmentBatch struct {
+	head, end      int
+	active         bool
+	caseSplitsDone bool
+}
+
+func (s *SMTInternalizerState) propagateRelevancyAssignments() error {
+	batch := &s.relevancyBatch
+	if s.relevancy == nil || !s.relevancy.enabled {
+		batch.head = batch.end
+		return nil
+	}
+	for batch.head < batch.end {
+		literal := s.assignedLiterals[batch.head]
+		if err := s.relevancy.assignmentVariableEvent(literal.Var(), !literal.Sign()); err != nil {
+			return err
+		}
+		batch.head++
+	}
+	return nil
+}
+
 // PropagateCore runs the retained logical-context queues to a fixed point.
 func (s *SMTInternalizerState) PropagateCore() (bool, error) {
 	if err := s.open(); err != nil {
 		return false, err
 	}
 	for {
-		caseSplitHead := s.propagationHead
-		consistent, err := s.Propagate()
-		if err != nil || !consistent {
-			if err != nil {
-				return consistent, fmt.Errorf("Boolean propagation: %w", err)
+		var err error
+		if !s.relevancyBatch.active {
+			caseSplitHead := s.propagationHead
+			consistent, err := s.Propagate()
+			if err != nil || !consistent {
+				if err != nil {
+					return consistent, fmt.Errorf("Boolean propagation: %w", err)
+				}
+				return consistent, nil
 			}
-			return consistent, nil
+			s.relevancyBatch = smtRelevancyAssignmentBatch{head: caseSplitHead, active: true}
 		}
-		consistent, err = s.propagateTheoryCaseSplits(caseSplitHead)
-		if err != nil || !consistent {
-			return consistent, err
+		if !s.relevancyBatch.caseSplitsDone {
+			consistent, err := s.propagateTheoryCaseSplits(s.relevancyBatch.head)
+			if err != nil || !consistent {
+				if err == nil {
+					s.relevancyBatch = smtRelevancyAssignmentBatch{}
+				}
+				return consistent, err
+			}
+			s.relevancyBatch.end = len(s.assignedLiterals)
+			s.relevancyBatch.caseSplitsDone = true
+		}
+		if err = s.propagateRelevancyAssignments(); err != nil {
+			return false, fmt.Errorf("assignment relevancy: %w", err)
 		}
 		if err = s.propagateTheoryRelevancy(); err != nil {
 			return false, fmt.Errorf("theory relevancy: %w", err)
+		}
+		s.relevancyBatch = smtRelevancyAssignmentBatch{}
+		if s.inconsistent {
+			return false, nil
 		}
 		if err = s.PropagateTheoryAssignments(); err != nil {
 			return false, fmt.Errorf("theory assignments: %w", err)

@@ -66,9 +66,8 @@ func (s *SMTInternalizerState) assignLiteralCore(literal SMTLiteral, justificati
 	if err := s.relevanceGoalAssigned(literal); err != nil {
 		return err
 	}
-	if s.relevancy != nil {
-		return s.relevancy.assignmentVariableEvent(literal.Var(), want == lbool.True)
-	}
+	// context::assign_core only publishes the assignment. Relevance callbacks
+	// consume the completed BCP batch in context::propagate_relevancy.
 	return nil
 }
 

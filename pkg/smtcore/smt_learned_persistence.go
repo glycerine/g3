@@ -77,11 +77,8 @@ func (s *SMTInternalizerState) finishLearnedAssignment(p *smtLearnedAssignment) 
 		p.stage = smtLearnedAssignmentEvent
 	}
 	if p.stage == smtLearnedAssignmentEvent {
-		if s.relevancy != nil {
-			if err := s.relevancy.assignmentVariableEvent(literal.Var(), !literal.Sign()); err != nil {
-				return err
-			}
-		}
+		// The published literal is already in assignedLiterals. Its relevance
+		// callback belongs to the later post-BCP batch, including on retry.
 		p.stage = smtLearnedAssignmentDone
 	}
 	return nil

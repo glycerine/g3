@@ -34,6 +34,7 @@ type smtInternalizerScope struct {
 	theoryLimit          int
 	assignedLimit        int
 	propagationHead      int
+	relevancyBatch       smtRelevancyAssignmentBatch
 	theoryEqLimit        int
 	theoryEqHead         int
 	theoryDiseqLimit     int
@@ -192,6 +193,7 @@ type SMTInternalizerState struct {
 	ownedJustifications        []SMTJustification
 	assignedLiterals           []SMTLiteral
 	propagationHead            int
+	relevancyBatch             smtRelevancyAssignmentBatch
 	conflict                   SMTBooleanJustification
 	conflictLiteral            SMTLiteral
 	inconsistent               bool
@@ -796,7 +798,7 @@ func (s *SMTInternalizerState) PushScope() error {
 		booleanLimit:         len(s.booleanStack), enodeLimit: len(s.enodeStack), pendingLimit: len(s.pending), pendingHead: s.pendingHead,
 		equalityLimit:   len(s.equalityTrail),
 		assignmentLimit: len(s.assignmentTrail), clauseLimit: len(s.clauses), justificationLimit: len(s.ownedJustifications), theoryLimit: len(s.theoryTrail), inconsistent: s.inconsistent,
-		assignedLimit: len(s.assignedLiterals), propagationHead: s.propagationHead, conflict: s.conflict,
+		assignedLimit: len(s.assignedLiterals), propagationHead: s.propagationHead, relevancyBatch: s.relevancyBatch, conflict: s.conflict,
 		conflictLiteral: s.conflictLiteral,
 		disequalities:   disequalities, disequalityReasons: reasons,
 		theoryEqLimit: len(s.theoryEqualities), theoryEqHead: s.theoryEqualityHead,
@@ -1009,6 +1011,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 		return ast.ErrASTDomain
 	}
 	s.propagationHead = scope.propagationHead
+	s.relevancyBatch = scope.relevancyBatch
 	s.simplifyHead = scope.simplifyHead
 	if scope.theoryEqLimit < 0 || scope.theoryEqLimit > len(s.theoryEqualities) || scope.theoryEqHead < 0 || scope.theoryEqHead > scope.theoryEqLimit {
 		return ast.ErrASTDomain
