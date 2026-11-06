@@ -257,6 +257,10 @@ the target and delta must both adopt the source-common partition, and a stable
 repeat must leave the published delta unchanged. The test also confirms that
 the copied interval delta has the source vector-copy behavior (fresh independent
 columns with the copied interval payload).
+Interval endpoint coverage now also exercises `IntervalRelation.Union` itself:
+the ordinary union hull closes equal endpoints from either source, while
+widening the same open/closed pair expands both endpoints to infinity, as in
+the C++ plugin's asymmetric tie conditions.
 Bound-constraint closure now follows another exact source quirk: its C++ walk
 normalizes the initial left/right columns, but reads each subsequently visited
 edge index directly from the backing vector without `find()`. Because equality
