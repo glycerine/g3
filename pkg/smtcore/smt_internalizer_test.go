@@ -8,7 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func smtInternalizerFixture(t *testing.T, m *ast.ASTManager, registry *SMTQuantifierRegistry) (*SMTCheckerContext, *SMTRelevancyPropagator, *SMTInternalizerState) {
+func smtInternalizerFixture(t testing.TB, m *ast.ASTManager, registry *SMTQuantifierRegistry) (*SMTCheckerContext, *SMTRelevancyPropagator, *SMTInternalizerState) {
 	t.Helper()
 	context, err := NewSMTCheckerContext(m)
 	astTestMust(t, err)

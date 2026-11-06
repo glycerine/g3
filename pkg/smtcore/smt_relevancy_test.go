@@ -8,7 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func smtRelevancyBool(t *testing.T, m *ast.ASTManager, name string) ast.ASTHandle {
+func smtRelevancyBool(t testing.TB, m *ast.ASTManager, name string) ast.ASTHandle {
 	t.Helper()
 	boolean, err := m.MkBoolSort()
 	astTestMust(t, err)

@@ -21,20 +21,20 @@ import (
 	"path/filepath"
 )
 
-func astTestMust(t *testing.T, e error) {
+func astTestMust(t testing.TB, e error) {
 	t.Helper()
 	if e != nil {
 		t.Fatal(e)
 	}
 }
 
-func astTestSymbol(t *testing.T, m *ast.ASTManager, text string) usymbol.Symbol {
+func astTestSymbol(t testing.TB, m *ast.ASTManager, text string) usymbol.Symbol {
 	t.Helper()
 	s, e := m.Symbols.Intern(text)
 	astTestMust(t, e)
 	return s
 }
-func astTestManager(t *testing.T) *ast.ASTManager {
+func astTestManager(t testing.TB) *ast.ASTManager {
 	t.Helper()
 	s, q, b := astTestOwners(t)
 	m, e := ast.NewASTManager(ast.ASTManagerConfig{Symbols: s, Numerals: q, Budget: b})
@@ -393,7 +393,7 @@ func upolyHenselAuditPhysical(t *testing.T, cores []*polynomial.UPolynomialManag
 
 	return graph
 }
-func astTestOwners(t *testing.T) (*usymbol.Manager, *unumeral.RationalService, *arena.Budget) {
+func astTestOwners(t testing.TB) (*usymbol.Manager, *unumeral.RationalService, *arena.Budget) {
 	t.Helper()
 	b := arena.NewBudget(1 << 30)
 	s, e := usymbol.NewManager(usymbol.Config{Budget: b})
