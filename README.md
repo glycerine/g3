@@ -22,7 +22,7 @@ Author: Jason E. Aten, Ph.D.
 
 License: MIT
 
-The original Z3 README follows.
+The original Z3 README follows. [To build the C++, see compile.sh](compile.sh)
 
 # Z3
 
