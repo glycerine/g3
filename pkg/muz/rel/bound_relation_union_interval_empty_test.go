@@ -1,6 +1,7 @@
 package rel
 
 import (
+	"math/big"
 	"testing"
 )
 
@@ -25,5 +26,21 @@ func TestBoundRelationUnionFromEmptyIntervalUsesResetPayload(t *testing.T) {
 		if len(strict) != 0 || len(weak) != 0 {
 			t.Fatalf("empty interval payload did not clear column %d bounds: lt=%v le=%v", column, strict, weak)
 		}
+	}
+}
+
+func TestBoundRelationUnionIntervalDoesNotReviveEmptyTarget(t *testing.T) {
+	target := NewBoundRelation(1, true)
+	source := NewIntervalFull(1)
+	astTestMust(t, source.FilterEqual(0, big.NewRat(3, 1)))
+
+	astTestMust(t, target.UnionInterval(source))
+	if !target.Empty() {
+		t.Fatal("mk_union_i must leave the bound relation empty")
+	}
+	strict, weak, err := target.Bounds(0)
+	astTestMust(t, err)
+	if len(strict) != 0 || len(weak) != 0 {
+		t.Fatal("mk_union_i added constraints to an empty target", strict, weak)
 	}
 }

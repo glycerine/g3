@@ -343,15 +343,17 @@ passed. This confirms the checked-in C++ relation smoke test still passes
 alongside the broader Go regressions; it is a baseline control, not proof of
 the remaining uncovered matrix cases.
 
-`TestBoundRelationUnionFromEmptyIntervalUsesResetPayload` now covers a
-source-specific cross-plugin boundary from `bound_relation::mk_union_i`:
+`TestBoundRelationUnionFromEmptyIntervalUsesResetPayload` and
+`TestBoundRelationUnionIntervalDoesNotReviveEmptyTarget` cover two
+source-specific cross-plugin boundaries from `bound_relation::mk_union_i`:
 the C++ routine does not branch on the interval source's empty flag and reads
 its reset unbounded payload, clearing target bounds. The focused Go regression
 and the full short `pkg/muz/rel` suite passed; the related focused fixedpoint
 suite `go test ./pkg/muz/fp -run '(BoundInterval|IntervalDatalog)' -short
 -count=1 -timeout=0` passed. The C++ branch itself was inspected; the native
 `dl_relation` smoke test does not exercise this exact empty-source
-cross-plugin case.
+cross-plugin case. It also does not revive an empty bound target because
+`mk_union_i` modifies payloads only and never changes the target empty flag.
 
 ### `karr_relation`
 
