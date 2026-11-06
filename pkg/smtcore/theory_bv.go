@@ -53,7 +53,6 @@ type SMTBitVectorTheory struct {
 	bitTrail           []ast.ASTHandle
 	comparisonAtoms    map[int32]SMTLiteral
 	fixedVariables     map[smtBVFixedKey]SMTTheoryVar
-	eqActivity         [256]uint8
 	temporary          []ast.ASTRef
 	scopes             []smtBVScope
 	unsupported        bool

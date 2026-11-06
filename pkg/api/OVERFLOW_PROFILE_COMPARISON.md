@@ -1,5 +1,10 @@
 # Go and C++ overflow CPU profiles, 2026-11-06
 
+These measurements predate the fixed-equality regression correction described
+in [OVERFLOW_PERFORMANCE.md](OVERFLOW_PERFORMANCE.md#fixed-equality-regression-correction).
+The BV heuristic used here has been removed; new timings are required before
+treating this report as the current Go performance baseline.
+
 Both runs execute the 44 symbolic equivalence cases, without skips. Native C++
 uses the Release `test-z3 no_overflow_symbolic_equiv` test; Go uses
 `TestNoOverflowSourceSymbolicEquivalences` with

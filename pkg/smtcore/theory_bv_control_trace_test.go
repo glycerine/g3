@@ -67,7 +67,6 @@ func TestSMTBVFrontendFixedRelevantAndScopeSourceTrace(t *testing.T) {
 	q := smtRelevancyBool(t, m, "trace-control-q")
 	left, leftVariable := bvNativeWord(t, m, state, theory, p)
 	right, rightVariable := bvNativeWord(t, m, state, theory, q)
-	theory.eqActivity[smtBVFixedEqualityBucket(leftVariable, rightVariable)] = 255
 	astTestMust(t, theory.addFixedEquality(leftVariable, rightVariable))
 
 	comparison, err := m.MkBitVectorULE(left.owner, right.owner)

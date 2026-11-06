@@ -133,3 +133,24 @@ remaining scheduling divergence; they are now deferred, with ordering, conflict,
 retry, snapshot and scope regressions. The remeasured complete test takes
 **33.59 seconds**. See [the side-by-side CPU comparison](OVERFLOW_PROFILE_COMPARISON.md)
 for measured native/Go phase costs, commands and saved profile summaries.
+
+## Fixed-equality regression correction
+
+The modern-C++ BV fixed-equality activity throttle and added word-equality
+relevance marking were incompatible with this port. The former made
+`TestSMT2BitVectorParetoOptimizationEndToEnd` omit the feasible `(3,0)` point;
+the latter changed the string model in
+`sequence_word_equations_relations.smt2` from the native result. Both tests
+passed before commit `7630b281b`, and isolated removal reproduced the cause
+of each failure. Go now follows this repository's `src/smt/theory_bv.cpp`:
+emit fixed-equality axioms eagerly, without the added relevance notification.
+The timing/profile results above describe the earlier implementation and must
+be measured again before using them as the performance baseline. The other
+hot-path optimizations and deferred relevance assignment callbacks remain.
+
+Validation after the correction: `cd pkg && go test ./... -count=1` passed all
+109 tested packages without build tags; `cmd/g3` took 93.981 s,
+`parsers/smt2` 6.208 s, and `smtcore` 23.309 s in that run. Their end-to-end
+expected outputs were unchanged. Focused fixed-equality tests also cover eager
+emission across scopes, core propagation, and absence of the added relevance
+notification.
