@@ -203,8 +203,15 @@ also source-specific: `bound_relation::mk_eq` copies edges by iterating only
 valid source columns, so it drops the sentinel; Go now does the same, covered by
 `TestBoundRelationUnionDropsProjectionSentinelLikeSourceMkEq`. Verified with
 those focused tests and `go test ./pkg/muz/rel -short -count=1 -timeout=0`.
-Other operation rows remain unaudited; these corrections do not establish full
-bound or interval parity.
+The next suspected divergence is empty-input transform behavior. C++
+`vector_relation::mk_project` and `mk_rename` appear to copy the reset payload
+into a full destination without propagating `m_empty`; in contrast `mk_join`
+explicitly propagates emptiness. Go currently preserves emptiness for both
+plugins. A trial change to the C++-apparent behavior caused 9 relation-package
+tests and 29 fixedpoint-package tests to fail, including solver answer/status
+changes. That trial was reverted; verify the C++ behavior through an executable
+consumer case and account for the affected Go consumers before changing this
+shared operation. Remaining operation-matrix rows are unaudited.
 
 ### `karr_relation`
 
