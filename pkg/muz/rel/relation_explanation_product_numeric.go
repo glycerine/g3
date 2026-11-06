@@ -279,7 +279,13 @@ func (b *relationExplanationNumeric) Project(removed []uint32) (*relationExplana
 			sorts = append(sorts, s)
 		}
 	}
-	out, err := newRelationExplanationNumeric(b.manager, sorts, b.kind, b.checker)
+	checker := b.checker
+	if b.checker != nil && (b.kind == "bound_relation" || b.kind == "interval_relation") {
+		// C++ wraps the transformed concrete relation directly; it does not
+		// construct and validate an intermediate empty backing.
+		checker = nil
+	}
+	out, err := newRelationExplanationNumeric(b.manager, sorts, b.kind, checker)
 	if err != nil {
 		return nil, err
 	}
@@ -294,6 +300,39 @@ func (b *relationExplanationNumeric) Project(removed []uint32) (*relationExplana
 	if err != nil {
 		out.Close()
 		return nil, err
+	}
+	if b.checker != nil && (b.kind == "bound_relation" || b.kind == "interval_relation") {
+		var sourceRef ast.ASTRef
+		if b.kind == "bound_relation" {
+			sourceRef, err = b.bound.ToFormula(b.manager.manager, b.sorts)
+		} else {
+			sourceRef, err = b.interval.ToFormula(b.manager.manager, b.sorts)
+		}
+		if err != nil {
+			out.Close()
+			return nil, err
+		}
+		defer b.manager.manager.DelRef(&sourceRef)
+		sourceHandle, err := b.manager.manager.RefGet(sourceRef)
+		if err != nil {
+			out.Close()
+			return nil, err
+		}
+		removedColumns := make([]int, len(removed))
+		for i, column := range removed {
+			removedColumns[i] = int(column)
+		}
+		switch b.kind {
+		case "bound_relation":
+			err = VerifyBoundRelationProject(b.manager.manager, b.sorts, sorts, *b.checker, sourceHandle, removedColumns, out.bound)
+		case "interval_relation":
+			err = VerifyIntervalRelationProject(b.manager.manager, b.sorts, sorts, *b.checker, sourceHandle, removedColumns, out.interval)
+		}
+		if err != nil {
+			out.Close()
+			return nil, err
+		}
+		out.checker = b.checker
 	}
 	return out, nil
 }

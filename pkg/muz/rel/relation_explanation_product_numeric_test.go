@@ -148,3 +148,42 @@ func TestNumericRelationInterpretedFilterMatchesSourceWrapper(t *testing.T) {
 		}
 	})
 }
+
+func TestFormulaCheckedNumericRelationProjectMatchesSource(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	arithmetic, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(arithmetic, 1, nil)
+	astTestMust(t, err)
+
+	t.Run("bound existentially removes the constrained column", func(t *testing.T) {
+		source := NewBoundRelation(2, false)
+		astTestMust(t, source.AddLess(0, 1))
+		numeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer, integer}, kind: "bound_relation",
+			bound: source, checker: &config,
+		}
+		projected, err := numeric.Project([]uint32{0})
+		astTestMust(t, err)
+		defer projected.Close()
+		if projected.checker != &config || len(projected.sorts) != 1 {
+			t.Fatal("projected numeric backing lost source checker or result signature")
+		}
+	})
+
+	t.Run("interval existentially removes a point column", func(t *testing.T) {
+		source := NewIntervalFull(2)
+		astTestMust(t, source.FilterEqual(0, big.NewRat(3, 1)))
+		numeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer, integer}, kind: "interval_relation",
+			interval: source, checker: &config,
+		}
+		projected, err := numeric.Project([]uint32{0})
+		astTestMust(t, err)
+		defer projected.Close()
+		if projected.checker != &config || len(projected.sorts) != 1 {
+			t.Fatal("projected numeric backing lost source checker or result signature")
+		}
+	})
+}
