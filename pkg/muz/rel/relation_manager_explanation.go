@@ -40,7 +40,17 @@ func (m *RelationManager) explanationPredicateSignature(predicate ast.ASTHandle)
 		if explanations != 0 {
 			return nil, 0, ErrTableRelation
 		}
-		if _, err = m.sortDomain(sort); err != nil {
+		if m.explanationNumericKind != "" {
+			accepted, numericErr := relationExplanationNumericCanHandle(m, m.explanationNumericKind, []ast.ASTHandle{sort})
+			if numericErr != nil {
+				return nil, 0, numericErr
+			}
+			if !accepted {
+				if _, err = m.sortDomain(sort); err != nil {
+					return nil, 0, err
+				}
+			}
+		} else if _, err = m.sortDomain(sort); err != nil {
 			return nil, 0, err
 		}
 		finite = append(finite, sort)

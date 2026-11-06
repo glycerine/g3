@@ -96,7 +96,13 @@ func planExplanationConditionColumns(relations *RelationManager, rule *base.Rule
 			return ErrCompilerUnsupported
 		}
 		if _, err := relations.sortDomain(variable.sort); err != nil {
-			return errors.Join(ErrCompilerUnsupported, err)
+			if relations.explanationNumericKind == "" {
+				return errors.Join(ErrCompilerUnsupported, err)
+			}
+			accepted, numericErr := relationExplanationNumericCanHandle(relations, relations.explanationNumericKind, []ast.ASTHandle{variable.sort})
+			if numericErr != nil || !accepted {
+				return errors.Join(ErrCompilerUnsupported, err, numericErr)
+			}
 		}
 		column := bodyFinite + len(plan.appendFinite)
 		plan.appendFinite = append(plan.appendFinite, explanationFiniteColumn{sort: variable.sort})

@@ -57,9 +57,6 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 			return false, err
 		}
 		hasDoc := len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "doc"
-		if checkedDoc && hasDoc {
-			return true, ErrUDocDatalogFragment
-		}
 		candidate := supported && !state.explicitFiniteRepresentation && state.external == nil && (hasDoc || docFavourite && len(state.requestedRepresentations) == 0 || e.auxiliary[d])
 		any = any || candidate
 		guard := udocFiniteNullary(state) && owner.seeds[d] == nil
@@ -112,14 +109,37 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 		}
 		return false, nil
 	}
-	if enabled, err := e.datalogExplanationsEnabled(); err != nil || enabled {
-		return true, errors.Join(err, ErrUDocDatalogFragment)
+	explanations, err := e.datalogExplanationsEnabled()
+	if err != nil {
+		return true, err
+	}
+	if explanations {
+		view, err := e.fixedpointParamView()
+		if err != nil {
+			return true, err
+		}
+		relationLevel, err := view.Bool("datalog.explanations_on_relation_level", false)
+		err = errors.Join(err, view.Close())
+		if err != nil || !relationLevel {
+			return true, errors.Join(err, ErrUDocDatalogFragment)
+		}
 	}
 	if checkerEnabled && !checkedDoc {
 		return true, ErrUDocDatalogFragment
 	}
 	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled {
 		return true, errors.Join(err, ErrUDocDatalogFragment)
+	}
+	if explanations || checkerEnabled {
+		if owner.borrowed {
+			err = e.relations.BorrowRelationExplanationUDocFactory(owner.factory)
+		} else {
+			err = e.relations.SetRelationExplanationUDocFactory(owner.factory)
+		}
+		if err != nil {
+			return true, err
+		}
+		owner.borrowed = true
 	}
 	e.udocDatalog = owner
 	return true, owner.sync(e)

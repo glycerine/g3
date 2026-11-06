@@ -8,21 +8,26 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/smtcore"
 )
 
 // RelationManager borrows an AST manager, owns stored finite predicate tables,
 // and converts between finite-domain relation values and table elements.
 type RelationManager struct {
-	manager       *ast.ASTManager
-	relations     map[ast.ASTHandle]*HashTable
-	finite        map[ast.ASTHandle]FiniteTable
-	explanations  map[ast.ASTHandle]*FiniteExplanationProduct
-	relationLevel map[ast.ASTHandle]*RelationExplanationProduct
-	saturated     map[ast.ASTHandle]bool
-	defaultFinite string
-	lazyFinite    *LazySparseFiniteFactory // borrowed; context closes it after this manager
-	checkedFinite *FiniteCheckedFactory    // borrowed for one checked execution scope
-	closed        bool
+	manager                 *ast.ASTManager
+	relations               map[ast.ASTHandle]*HashTable
+	finite                  map[ast.ASTHandle]FiniteTable
+	explanations            map[ast.ASTHandle]*FiniteExplanationProduct
+	relationLevel           map[ast.ASTHandle]*RelationExplanationProduct
+	saturated               map[ast.ASTHandle]bool
+	defaultFinite           string
+	lazyFinite              *LazySparseFiniteFactory // borrowed; context closes it after this manager
+	checkedFinite           *FiniteCheckedFactory    // borrowed for one checked execution scope
+	explanationUDoc         *UDocRelationFactory     // owned by the relation manager for explanation products
+	explanationUDocOwned    bool
+	explanationNumericKind  string
+	explanationNumericCheck *smtcore.SMTSolverConfig
+	closed                  bool
 }
 
 func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
@@ -188,6 +193,11 @@ func (m *RelationManager) Close() (result error) {
 	if len(m.relations) != 0 || len(m.finite) != 0 || len(m.explanations) != 0 || len(m.relationLevel) != 0 {
 		return errors.Join(result, ErrTable)
 	}
+	if m.explanationUDoc != nil && m.explanationUDocOwned {
+		m.explanationUDoc.Close()
+	}
+	m.explanationUDoc = nil
+	m.explanationUDocOwned = false
 	m.closed = true
 	m.manager = nil
 	m.relations = nil

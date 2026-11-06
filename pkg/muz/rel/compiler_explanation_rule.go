@@ -16,13 +16,15 @@ import (
 )
 
 type explanationTailConstant struct {
-	column int
-	value  Element
+	column   int
+	value    Element
+	astValue ast.ASTHandle
 }
 
 type explanationFiniteColumn struct {
 	sort      ast.ASTHandle
 	value     Element
+	astValue  ast.ASTHandle
 	singleton bool
 }
 
@@ -34,6 +36,21 @@ type explanationTailJoin struct {
 type explanationNegativeTail struct {
 	predicate        ast.ASTHandle
 	target, negative []int
+}
+
+func explanationDeclarationSorts(manager *ast.ASTManager, declaration ast.ASTHandle) ([]ast.ASTHandle, error) {
+	arity, err := manager.GetArity(declaration)
+	if err != nil {
+		return nil, err
+	}
+	sorts := make([]ast.ASTHandle, arity)
+	for column := uint32(0); column < arity; column++ {
+		sorts[column], err = manager.GetDomain(declaration, column)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return sorts, nil
 }
 
 type explanationRuleLayout struct {
@@ -101,7 +118,7 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 		if explained {
 			sorts, explanations, err = relations.explanationPredicateSignature(predicate)
 		} else {
-			sorts, _, err = relations.PredicateSignature(predicate)
+			sorts, err = explanationDeclarationSorts(m, predicate)
 		}
 		if err != nil {
 			return plan, errors.Join(ErrCompilerUnsupported, err)
@@ -136,7 +153,7 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	if explained {
 		headSorts, headExplanations, err = relations.explanationPredicateSignature(plan.head)
 	} else {
-		headSorts, _, err = relations.PredicateSignature(plan.head)
+		headSorts, err = explanationDeclarationSorts(m, plan.head)
 	}
 	if err != nil {
 		return plan, errors.Join(ErrCompilerUnsupported, err)
@@ -190,10 +207,18 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 					return plan, ErrCompilerUnsupported
 				}
 				value, err := relations.EncodeValue(tailSorts[column], argument)
-				if err != nil {
+				if err == nil {
+					plan.tailConstants = append(plan.tailConstants, explanationTailConstant{column: column, value: value})
+					continue
+				}
+				if relations.explanationNumericKind == "" {
 					return plan, err
 				}
-				plan.tailConstants = append(plan.tailConstants, explanationTailConstant{column: column, value: value})
+				accepted, numericErr := relationExplanationNumericCanHandle(relations, relations.explanationNumericKind, []ast.ASTHandle{tailSorts[column]})
+				if numericErr != nil || !accepted {
+					return plan, errors.Join(err, numericErr, ErrCompilerUnsupported)
+				}
+				plan.tailConstants = append(plan.tailConstants, explanationTailConstant{column: column, astValue: argument})
 				continue
 			}
 			index, sort, err := variable(tail, local)
@@ -328,12 +353,20 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 			return plan, err
 		}
 		if kind != ast.ASTVar {
-			value, err := relations.EncodeValue(headSort, argument)
-			if err != nil {
-				return plan, err
-			}
 			from := len(tailSorts) + len(plan.appendFinite)
-			plan.appendFinite = append(plan.appendFinite, explanationFiniteColumn{sort: headSort, value: value, singleton: true})
+			value, encodeErr := relations.EncodeValue(headSort, argument)
+			if encodeErr != nil {
+				if relations.explanationNumericKind == "" {
+					return plan, encodeErr
+				}
+				accepted, numericErr := relationExplanationNumericCanHandle(relations, relations.explanationNumericKind, []ast.ASTHandle{headSort})
+				if numericErr != nil || !accepted {
+					return plan, errors.Join(encodeErr, numericErr, ErrCompilerUnsupported)
+				}
+				plan.appendFinite = append(plan.appendFinite, explanationFiniteColumn{sort: headSort, astValue: argument, singleton: true})
+			} else {
+				plan.appendFinite = append(plan.appendFinite, explanationFiniteColumn{sort: headSort, value: value, singleton: true})
+			}
 			headColumns = append(headColumns, from)
 			continue
 		}
@@ -563,7 +596,13 @@ func compileExplanationRuleWithRegisters(relations *RelationManager, rule *base.
 		current = joined
 	}
 	for _, constant := range plan.tailConstants {
-		if err = emit(NewFilterEqualInstruction(current, constant.value, constant.column)); err != nil {
+		var instruction Instruction
+		if !constant.astValue.IsNull() {
+			instruction = NewFilterEqualASTInstruction(current, constant.astValue, constant.column)
+		} else {
+			instruction = NewFilterEqualInstruction(current, constant.value, constant.column)
+		}
+		if err = emit(instruction); err != nil {
 			return result, err
 		}
 	}
@@ -575,10 +614,16 @@ func compileExplanationRuleWithRegisters(relations *RelationManager, rule *base.
 	for _, column := range plan.appendFinite {
 		unary := fresh()
 		var instruction Instruction
-		if column.singleton {
+		if !column.astValue.IsNull() {
+			instruction, err = NewExplanationNumericColumnInstruction(relations, column.sort, column.astValue, unary)
+		} else if column.singleton {
 			instruction, err = NewExplanationFiniteSingletonInstruction(relations, column.sort, column.value, unary)
 		} else {
-			instruction, err = NewExplanationFiniteTotalInstruction(relations, column.sort, unary)
+			if _, domainErr := relations.sortDomain(column.sort); domainErr != nil {
+				instruction, err = NewExplanationNumericColumnInstruction(relations, column.sort, ast.ASTHandle{}, unary)
+			} else {
+				instruction, err = NewExplanationFiniteTotalInstruction(relations, column.sort, unary)
+			}
 		}
 		if err != nil {
 			return result, err

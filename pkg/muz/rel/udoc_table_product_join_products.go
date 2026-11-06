@@ -52,7 +52,7 @@ func (p *UDocTableProduct) Join(other *UDocTableProduct, left, right []uint32) (
 }
 
 func (p *UDocTableProduct) productJoinTableReady() error {
-	if p.doc.inner.FormulaChecked() || p.table != nil && rawUDocProductFiniteKind(p.table) == 0 {
+	if p.table != nil && rawUDocProductFiniteKind(p.table) == 0 {
 		return ErrUDocTableProduct
 	}
 	if p.table == nil {

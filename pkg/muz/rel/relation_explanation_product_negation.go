@@ -24,6 +24,25 @@ func (p *RelationExplanationProduct) FilterByNegation(negative *RelationExplanat
 	if p.manager != negative.manager || len(targetColumns) != len(negativeColumns) {
 		return ast.ErrASTDomain
 	}
+	if p.numeric != nil || negative.numeric != nil {
+		// The source bound, interval, and Karr plugins do not register
+		// mk_filter_by_negation_fn; relation_manager returns no operation.
+		return ErrCompilerUnsupported
+	}
+	if p.doc != nil || negative.doc != nil {
+		if p.doc == nil || negative.doc == nil {
+			return ErrUDocTableProduct
+		}
+		left, right := make([]uint32, len(targetColumns)), make([]uint32, len(negativeColumns))
+		for i, column := range targetColumns {
+			other := negativeColumns[i]
+			if column < 0 || column >= len(p.finiteSorts) || other < 0 || other >= len(negative.finiteSorts) || p.finiteSorts[column] != negative.finiteSorts[other] {
+				return ast.ErrASTDomain
+			}
+			left[i], right[i] = uint32(column), uint32(other)
+		}
+		return p.doc.Doc().FilterByNegation(negative.doc.Doc(), left, right)
+	}
 	for index, targetColumn := range targetColumns {
 		negativeColumn := negativeColumns[index]
 		if targetColumn < 0 || targetColumn >= len(p.finiteSorts) || negativeColumn < 0 || negativeColumn >= len(negative.finiteSorts) || p.finiteSorts[targetColumn] != negative.finiteSorts[negativeColumn] {

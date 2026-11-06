@@ -95,6 +95,90 @@ func TestDatalogDocFormulaCheckerExecutesActualJoinsAndProjection(t *testing.T) 
 	}
 }
 
+func TestDatalogDocFormulaCheckerRelationExplanationTransfersTypedSeeds(t *testing.T) {
+	for _, checked := range []bool{false, true} {
+		name := "unchecked"
+		if checked {
+			name = "checked"
+		}
+		t.Run(name, func(t *testing.T) { testDatalogDocRelationExplanationTransfersTypedSeeds(t, checked) })
+	}
+}
+
+func testDatalogDocRelationExplanationTransfersTypedSeeds(t *testing.T, checked bool) {
+	m, g := newPDRLifecycleServices(t)
+	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
+	fragmentMust(t, err)
+	must := func(err error) { t.Helper(); fragmentMust(t, err) }
+	defer func() { must(e.Close()) }()
+	must(e.SelectEngine("datalog"))
+	must(g.SourceSetName("fixedpoint.datalog.generate_explanations", "true"))
+	must(g.SourceSetName("fixedpoint.datalog.explanations_on_relation_level", "true"))
+	boolean, err := m.MkBoolSort()
+	must(err)
+	if checked {
+		must(g.SourceSetName("fixedpoint.datalog.check_relation", "doc"))
+	} else {
+		must(g.SourceSetName("fixedpoint.datalog.default_relation", "doc"))
+	}
+	bv, err := m.BitVectorSort(3)
+	must(err)
+	declare := func(name string) ast.ASTHandle {
+		symbol, err := m.Symbols.Intern(name)
+		must(err)
+		declaration, err := m.MkFuncDecl(symbol, []ast.ASTHandle{bv}, boolean, ast.ASTFuncDeclInfo{})
+		must(err)
+		must(e.RegisterPredicate(declaration))
+		return declaration
+	}
+	p, q, r := declare("doc-explanation-left-seed"), declare("doc-explanation-derived"), declare("doc-explanation-right-seed")
+	symbol, err := m.Symbols.Intern("doc-explanation-finite-bool-seed")
+	must(err)
+	booleanSeed, err := m.MkFuncDecl(symbol, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
+	must(err)
+	must(e.RegisterPredicate(booleanSeed))
+	value, err := m.BitVectorNumeralUint64(5, 3)
+	must(err)
+	must(e.AddFact(p, []ast.ASTHandle{value}))
+	must(e.AddFact(r, []ast.ASTHandle{value}))
+	truth, err := m.MkTrue()
+	must(err)
+	must(e.AddFact(booleanSeed, []ast.ASTHandle{truth}))
+	x, err := m.MkVar(0, bv)
+	must(err)
+	pa, err := m.MkApp(p, []ast.ASTHandle{x})
+	must(err)
+	ra, err := m.MkApp(r, []ast.ASTHandle{x})
+	must(err)
+	booleanApp, err := m.MkApp(booleanSeed, []ast.ASTHandle{truth})
+	must(err)
+	qa, err := m.MkApp(q, []ast.ASTHandle{x})
+	must(err)
+	equality, err := m.MkEq(x, value)
+	must(err)
+	body, err := m.MkAndArgs([]ast.ASTHandle{pa, ra, booleanApp, equality})
+	must(err)
+	rule, err := m.MkImplies(body, qa)
+	must(err)
+	must(e.AddRule(rule, "doc-explanation-join-project"))
+	query, err := m.MkApp(q, []ast.ASTHandle{value})
+	must(err)
+	status, err := e.QueryExpression(query)
+	must(err)
+	if status != lbool.True {
+		t.Fatal("checked DOC relation-level explanation result", status)
+	}
+	answer, err := e.ExpressionAnswer()
+	must(err)
+	defer func() { must(m.DelRef(&answer)) }()
+	formula, err := m.RefGet(answer)
+	must(err)
+	names := datalogExplanationFormulaNames(t, m, formula)
+	if !names["doc-explanation-join-project"] || !names["fact"] {
+		t.Fatal("checked DOC explanation omitted source proof", names)
+	}
+}
+
 func TestDatalogDocFormulaCheckerKeepsBooleanFallbackAndNullaryDOC(t *testing.T) {
 	f := newDirectFactFixture(t)
 	e, m := f.engine, f.manager

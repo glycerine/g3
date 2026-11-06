@@ -17,6 +17,12 @@ func (p *RelationExplanationProduct) ToFormula() (result ast.ASTRef, resultErr e
 	if err := p.open(); err != nil {
 		return result, err
 	}
+	if p.doc != nil {
+		return p.toFormulaWithUDoc()
+	}
+	if p.numeric != nil {
+		return p.toFormulaWithNumeric()
+	}
 	rows, err := p.table.Facts()
 	if err != nil {
 		return result, err

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
@@ -27,7 +28,7 @@ func (e *PropositionalEngine) beginDatalogExplanationFormulaScope() (*datalogExp
 	}
 	// check_relation wraps its selected finite plugin. Preserve supported
 	// concrete finite backings through the relation-level explanation sieve.
-	if name != "hashtable" && name != "sparse" && name != "lazy_sparse" && name != "check" {
+	if name != "hashtable" && name != "sparse" && name != "lazy_sparse" && name != "doc" && name != "check" && name != "bound_relation" && name != "interval_relation" && name != "karr_relation" {
 		return nil, false, fmt.Errorf("%w: explanation formula checker %s", rel.ErrCompilerUnsupported, name)
 	}
 	backing := name
@@ -40,11 +41,66 @@ func (e *PropositionalEngine) beginDatalogExplanationFormulaScope() (*datalogExp
 			return nil, false, err
 		}
 	}
+	if name == "doc" {
+		if _, found, factoryErr := e.relations.RelationExplanationUDocFactory(); factoryErr != nil {
+			return nil, false, factoryErr
+		} else if !found {
+			var factory *rel.UDocRelationFactory
+			if e.udocDatalog != nil && e.udocDatalog.factory.FormulaChecked() {
+				factory = e.udocDatalog.factory
+			} else {
+				factory, factoryErr = rel.NewFormulaCheckedUDocFactory(e.manager, arena.VectorConfig{}, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
+				if factoryErr != nil {
+					return nil, false, factoryErr
+				}
+			}
+			borrowed := factory == e.udocDatalogFactory()
+			if borrowed {
+				factoryErr = e.relations.BorrowRelationExplanationUDocFactory(factory)
+			} else {
+				factoryErr = e.relations.SetRelationExplanationUDocFactory(factory)
+			}
+			if factoryErr != nil {
+				if !borrowed {
+					factory.Close()
+				}
+				return nil, false, factoryErr
+			}
+		}
+	}
+	if name == "bound_relation" || name == "interval_relation" || name == "karr_relation" {
+		config := smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals}
+		if err = e.relations.SetRelationExplanationNumericBacking(name, &config); err != nil {
+			return nil, false, err
+		}
+	}
 	scope := &datalogExplanationFormulaScope{engine: e, eligible: make(map[ast.ASTHandle]bool), nested: name == "check", backing: backing}
+	var udoc *rel.UDocRelationFactory
+	if backing == "doc" {
+		udoc, _, err = e.relations.RelationExplanationUDocFactory()
+		if err != nil {
+			return nil, false, err
+		}
+	}
 	for _, declaration := range e.predicateOrder {
 		state := e.predicates[declaration]
 		if state != nil {
 			eligible := len(state.requestedRepresentations) == 0
+			if eligible && udoc != nil {
+				// check_relation delegates capability to its selected base. When
+				// DOC declines a whole signature, the relation manager selects its
+				// ordinary fallback and no DOC formula check is installed.
+				eligible, err = udoc.CanHandleSignature(state.sorts)
+				if err != nil {
+					return nil, false, err
+				}
+			}
+			if eligible && (backing == "bound_relation" || backing == "interval_relation" || backing == "karr_relation") {
+				eligible, err = rel.RelationExplanationNumericCanHandle(e.relations, backing, state.sorts)
+				if err != nil {
+					return nil, false, err
+				}
+			}
 			// Sparse families reject the nullary signature. The source relation
 			// manager then falls through to ordinary Hash without this wrapper.
 			if (backing == "sparse" || backing == "lazy_sparse") && len(state.sorts) == 0 {
@@ -61,7 +117,17 @@ func (s *datalogExplanationFormulaScope) transferFacts(transformer *rel.Explanat
 		return rel.ErrCompilerUnsupported
 	}
 	e := s.engine
+	if s.backing == "doc" && e.udocDatalog != nil {
+		return transformer.TransferRelationFactsFormulaCheckedWithUDocSeeds(source, target, e.relations, e.predicateOrder, s.eligible, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals}, s.backing, e.udocDatalog.seeds)
+	}
 	return transformer.TransferRelationFactsFormulaCheckedWithBacking(source, target, e.relations, e.predicateOrder, s.eligible, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals}, s.backing)
+}
+
+func (e *PropositionalEngine) udocDatalogFactory() *rel.UDocRelationFactory {
+	if e != nil && e.udocDatalog != nil {
+		return e.udocDatalog.factory
+	}
+	return nil
 }
 
 func (s *datalogExplanationFormulaScope) installFreshProducts(predicates []ast.ASTHandle) error {

@@ -99,7 +99,14 @@ func TestExplanationFormulaScopeDispatchesSelectedBacking(t *testing.T) {
 	}
 	fragmentMust(t, e.globals.SourceSetName("fixedpoint.datalog.check_relation", "doc"))
 	scope, enabled, err = e.beginDatalogExplanationFormulaScope()
-	if !errors.Is(err, rel.ErrCompilerUnsupported) || scope != nil || enabled {
-		t.Fatal("unsupported selected backing silently substituted", "doc", scope, enabled, err)
+	fragmentMust(t, err)
+	if !enabled || scope == nil || scope.backing != "doc" {
+		t.Fatal("selected checked UDoc backing was not dispatched", scope, enabled)
 	}
+	factory, found, err := e.relations.RelationExplanationUDocFactory()
+	fragmentMust(t, err)
+	if !found || !factory.FormulaChecked() {
+		t.Fatal("selected doc explanation factory is not formula checked", found, factory)
+	}
+	fragmentMust(t, scope.Close())
 }

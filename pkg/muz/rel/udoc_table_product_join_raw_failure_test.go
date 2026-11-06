@@ -161,6 +161,18 @@ func TestUDocTableProductRawJoinRejectsIncompatibleSources(t *testing.T) {
 				} else {
 					result, cause = JoinUDocProduct(test.doc, input, test.left, test.right)
 				}
+				if test.otherDefault {
+					if cause != nil || result == nil {
+						cleanupUDocProductFailure(t, cause)
+						t.Fatal("full relation ignored the product's selected table kind", reverse, cause)
+					}
+					if _, ok := result.Table().(*HashTable); !ok {
+						astTestMust(t, result.Close())
+						t.Fatal("mixed join changed the source table kind", reverse, result.Table())
+					}
+					astTestMust(t, result.Close())
+					continue
+				}
 				cleanupUDocProductFailure(t, cause)
 				if result != nil || cause == nil {
 					if result != nil {

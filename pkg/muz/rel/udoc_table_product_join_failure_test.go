@@ -222,7 +222,7 @@ func TestUDocTableProductJoinProductsValidatesActualFiniteStorage(t *testing.T) 
 	}
 }
 
-func TestUDocTableProductJoinProductsRejectsCheckedDOCStorage(t *testing.T) {
+func TestUDocTableProductJoinProductsChecksSelectedDOCStorage(t *testing.T) {
 	f, _, doc, values := rawUDocProductJoinFixture(t, "hashtable")
 	checkedUDocAdd(t, doc, values[1])
 	finite := rawUDocProductJoinFinite(t, f, []uint64{2, 4}, Fact{1, 1})
@@ -240,21 +240,12 @@ func TestUDocTableProductJoinProductsRejectsCheckedDOCStorage(t *testing.T) {
 	table, err := input.Table().CloneFinite()
 	astTestMust(t, err)
 	other := ownUDocTableProduct(t, &UDocTableProduct{manager: f.relations, doc: sieve, table: table}, nil)
-	// Both operands have the same codec and checked DOC factory. This
-	// isolates raw-kind rejection from the independent identity guards.
-	before := f.ast.Stats()
 	result, cause := other.Join(other, nil, nil)
-	cleanupUDocProductFailure(t, cause)
-	if result != nil || !errors.Is(cause, ErrUDocTableProduct) {
-		if result != nil {
-			astTestMust(t, result.Close())
-		}
-		t.Fatal("join accepted checked DOC storage as a raw component", cause)
+	joined := ownUDocTableProduct(t, result, cause)
+	if !joined.Doc().Inner().FormulaChecked() {
+		t.Fatal("product join discarded selected check_relation(doc) wrapper")
 	}
-	after := f.ast.Stats()
-	if before.LiveNodes != after.LiveNodes || before.LiveInfos != after.LiveInfos || before.LiveParameters != after.LiveParameters || before.LiveReferences != after.LiveReferences {
-		t.Fatal("checked DOC rejection leaked AST ownership", before, after)
-	}
+	assertUDocTableProductContains(t, joined, true, f.truth, values[1], f.truth, values[1])
 	checkedUDocContains(t, checked, true, values[1])
 	assertUDocTableProductContains(t, input, true, f.truth, values[1])
 }

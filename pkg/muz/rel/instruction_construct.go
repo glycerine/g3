@@ -18,11 +18,13 @@ type constructInstruction struct {
 	kind          string
 	signature     Signature
 	value         Element
+	astValue      ast.ASTHandle
 	target        uint32
 	closed        bool
 	relations     *RelationManager
 	explanations  int
 	finiteSort    ast.ASTRef
+	astValueRoot  ast.ASTRef
 	finiteManager *ast.ASTManager
 	pendingFinite FiniteTable
 	closing       bool
@@ -66,6 +68,41 @@ func NewExplanationFiniteTotalInstruction(relations *RelationManager, sort ast.A
 // used to append a constant head column to an explained body.
 func NewExplanationFiniteSingletonInstruction(relations *RelationManager, sort ast.ASTHandle, value Element, target uint32) (Instruction, error) {
 	return newExplanationFiniteColumnInstruction(relations, sort, value, target, true)
+}
+
+// NewExplanationNumericColumnInstruction creates a total numeric column or
+// singleton. A nil value means the full relation; otherwise the selected
+// numeric plugin applies its native equality operation.
+func NewExplanationNumericColumnInstruction(relations *RelationManager, sort ast.ASTHandle, value ast.ASTHandle, target uint32) (Instruction, error) {
+	if relations == nil || relations.open() != nil || relations.explanationNumericKind == "" {
+		return nil, ErrInstruction
+	}
+	accepted, err := relationExplanationNumericCanHandle(relations, relations.explanationNumericKind, []ast.ASTHandle{sort})
+	if err != nil {
+		return nil, err
+	}
+	if !accepted {
+		if value.IsNull() {
+			return NewExplanationFiniteTotalInstruction(relations, sort, target)
+		}
+		encoded, encodeErr := relations.EncodeValue(sort, value)
+		if encodeErr != nil {
+			return nil, encodeErr
+		}
+		return NewExplanationFiniteSingletonInstruction(relations, sort, encoded, target)
+	}
+	root, err := relations.manager.NewRef(sort)
+	if err != nil {
+		return nil, err
+	}
+	var valueRoot ast.ASTRef
+	if !value.IsNull() {
+		valueRoot, err = relations.manager.NewRef(value)
+		if err != nil {
+			return nil, errors.Join(err, relations.manager.DelRef(&root))
+		}
+	}
+	return &constructInstruction{accounting: base.NewAccountedObject(), kind: "mk_explanation_numeric_column", relations: relations, finiteManager: relations.manager, finiteSort: root, astValueRoot: valueRoot, astValue: value, target: target}, nil
 }
 
 func newExplanationFiniteColumnInstruction(relations *RelationManager, sort ast.ASTHandle, value Element, target uint32, singleton bool) (Instruction, error) {
@@ -226,6 +263,44 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 			return false, errors.Join(err, product.Close())
 		}
 		return true, nil
+	case "mk_explanation_numeric_column":
+		if err := context.open(); err != nil {
+			return false, err
+		}
+		if context.relations != nil && context.relations != i.relations {
+			return false, ErrInstruction
+		}
+		sort, err := i.finiteManager.RefGet(i.finiteSort)
+		if err != nil {
+			return false, err
+		}
+		product, err := newNumericRelationExplanationProductWithProofColumns(i.relations, []ast.ASTHandle{sort}, i.relations.explanationNumericKind, i.relations.explanationNumericCheck, 0)
+		if err != nil {
+			return false, err
+		}
+		var seed RelationExplanationNumericSeed
+		seed.Kind = product.numeric.kind
+		switch seed.Kind {
+		case "bound_relation":
+			seed.Bound = NewBoundRelation(1, false)
+		case "interval_relation":
+			seed.Interval = NewIntervalFull(1)
+		case "karr_relation":
+			seed.Karr = NewKarrFull(1, nil, product.numeric.karr.formulaChecker)
+		default:
+			return false, errors.Join(ErrInstruction, product.Close())
+		}
+		if err = product.UnionNumericSeed(seed); err == nil && !i.astValue.IsNull() {
+			err = product.FilterEqualAST(i.astValue, 0)
+		}
+		if err != nil {
+			return false, errors.Join(err, product.Close())
+		}
+		if err = product.explanation.AddFact(nil); err != nil {
+			return false, errors.Join(err, product.Close())
+		}
+		context.stats.Total++
+		return setRelationExplanationResult(context, i.target, product)
 	case "mk_explanation_total":
 		if err := context.open(); err != nil {
 			return false, err
@@ -293,6 +368,9 @@ func (i *constructInstruction) DisplayHead(out io.Writer) error {
 	case "mk_explanation_finite_singleton":
 		_, err := fmt.Fprintf(out, "mk_unary_singleton into %d domain:%d val:%d", i.target, i.signature.domains[0], i.value)
 		return err
+	case "mk_explanation_numeric_column":
+		_, err := fmt.Fprintf(out, "mk_total into %d numeric-column:%s", i.target, i.relations.explanationNumericKind)
+		return err
 	case "mk_explanation_total":
 		_, err := fmt.Fprintf(out, "mk_total into %d explanation-columns:%d", i.target, i.explanations)
 		return err
@@ -339,6 +417,11 @@ func (i *constructInstruction) Close() error {
 	}
 	if i.finiteSort != (ast.ASTRef{}) {
 		if err := i.finiteManager.DelRef(&i.finiteSort); err != nil {
+			return err
+		}
+	}
+	if i.astValueRoot != (ast.ASTRef{}) {
+		if err := i.finiteManager.DelRef(&i.astValueRoot); err != nil {
 			return err
 		}
 	}

@@ -283,9 +283,22 @@ func TestUDocSieveAdoptionValidatesMaskAndTransfersOnlyOnSuccess(t *testing.T) {
 	checkedFactory, err := NewFormulaCheckedUDocFactory(m, arena.VectorConfig{}, formulaCheckerConfig(t, m))
 	astTestMust(t, err)
 	t.Cleanup(checkedFactory.Close)
-	if bad, err := NewFullUDocSieve(checkedFactory, []ast.ASTHandle{boolean, sort}); !errors.Is(err, ErrSieve) || bad != nil {
-		t.Fatal("unreachable checked product/sieve dispatch was accepted", bad, err)
+	checked, err := NewFullUDocSieve(checkedFactory, []ast.ASTHandle{boolean, sort})
+	checkedSieve := ownUDocSieve(t, checked, err)
+	if !checkedSieve.Inner().FormulaChecked() {
+		t.Fatal("selected check_relation(doc) backing lost its checker inside the sieve")
 	}
+	falsehood, err := m.MkFalse()
+	astTestMust(t, err)
+	truth, err := m.MkTrue()
+	astTestMust(t, err)
+	assertUDocSieveContains(t, checkedSieve, true, falsehood, values[2])
+	checkedClone, err := checkedSieve.Clone()
+	checkedClone = ownUDocSieve(t, checkedClone, err)
+	if !checkedClone.Inner().FormulaChecked() {
+		t.Fatal("clone lost check_relation(doc) backing")
+	}
+	assertUDocSieveContains(t, checkedClone, true, truth, values[3])
 	astTestMust(t, sieve.Close())
 	if inner.Core() != nil {
 		t.Fatal("successful sieve adoption did not own its inner relation")

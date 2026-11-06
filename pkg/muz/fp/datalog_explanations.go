@@ -6,12 +6,107 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/muz/transforms"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
+
+// relationLevelDocExplanationSelected routes DOC explanation queries through
+// the generic rule compiler. That compiler can select DOC for compatible
+// predicate signatures and the source fallback relation for others in one
+// query, matching relation_manager's per-signature plugin selection.
+func (e *PropositionalEngine) relationLevelDocExplanationSelected() (bool, error) {
+	enabled, err := e.datalogExplanationsEnabled()
+	if err != nil || !enabled {
+		return false, err
+	}
+	view, err := e.fixedpointParamView()
+	if err != nil {
+		return false, err
+	}
+	relationLevel, err := view.Bool("datalog.explanations_on_relation_level", false)
+	err = errors.Join(err, view.Close())
+	if err != nil || !relationLevel {
+		return false, err
+	}
+	checkName, checkEnabled, err := e.datalogCheckRelationName()
+	if err != nil {
+		return false, err
+	}
+	if checkEnabled {
+		return checkName == "doc", nil
+	}
+	if err = e.cacheDatalogRelationFavourite(); err != nil {
+		return false, err
+	}
+	return e.datalogRelationFavourite == "doc", nil
+}
+
+func (e *PropositionalEngine) relationLevelNumericExplanationSelected() (bool, error) {
+	enabled, err := e.datalogExplanationsEnabled()
+	if err != nil || !enabled {
+		return false, err
+	}
+	view, err := e.fixedpointParamView()
+	if err != nil {
+		return false, err
+	}
+	relationLevel, err := view.Bool("datalog.explanations_on_relation_level", false)
+	if err == nil && relationLevel {
+		selectedName := ""
+		checkEnabled := false
+		if name, found, cause := e.datalogCheckRelationName(); cause != nil {
+			err = cause
+		} else if found {
+			selectedName = name
+			checkEnabled = true
+		} else {
+			if cause := e.cacheDatalogRelationFavourite(); cause != nil {
+				err = cause
+			} else {
+				selectedName = e.datalogRelationFavourite
+			}
+		}
+		if selectedName == "bound_relation" || selectedName == "interval_relation" || selectedName == "karr_relation" {
+			if selectedName == "karr_relation" {
+				karr, cause := view.Bool("xform.karr", false)
+				if cause != nil || !karr {
+					return false, errors.Join(cause, view.Close())
+				}
+			}
+			config := smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals}
+			var checker *smtcore.SMTSolverConfig
+			if checkEnabled {
+				checker = &config
+			}
+			if err = e.relations.SetRelationExplanationNumericBacking(selectedName, checker); err != nil {
+				return false, errors.Join(err, view.Close())
+			}
+			err = errors.Join(err, view.Close())
+			return true, err
+		}
+	}
+	return false, errors.Join(err, view.Close())
+}
+
+func (e *PropositionalEngine) ensureRelationExplanationUDocFactory() error {
+	if _, found, err := e.relations.RelationExplanationUDocFactory(); err != nil || found {
+		return err
+	}
+	factory, err := rel.NewUDocRelationFactory(e.manager, arena.VectorConfig{})
+	if err != nil {
+		return err
+	}
+	if err = e.relations.SetRelationExplanationUDocFactory(factory); err != nil {
+		factory.Close()
+		return err
+	}
+	return nil
+}
 
 func (e *PropositionalEngine) datalogExplanationsEnabled() (bool, error) {
 	if e.backend != "datalog" || e.params == nil || e.globals == nil {
@@ -76,6 +171,31 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 			defer func() { resultErr = errors.Join(resultErr, checkedScope.Close()) }()
 		}
 	} else {
+		if err = e.ensureRelationExplanationUDocFactoryForDefault(); err != nil {
+			return lbool.Undef, err
+		}
+		if selected, cause := e.relationLevelNumericExplanationSelected(); cause != nil {
+			return lbool.Undef, cause
+		} else if selected {
+			name, checkEnabled, cause := e.datalogCheckRelationName()
+			if cause != nil {
+				return lbool.Undef, cause
+			}
+			if !checkEnabled {
+				if cause = e.cacheDatalogRelationFavourite(); cause != nil {
+					return lbool.Undef, cause
+				}
+				name = e.datalogRelationFavourite
+			}
+			config := smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals}
+			var checker *smtcore.SMTSolverConfig
+			if checkEnabled {
+				checker = &config
+			}
+			if err = e.relations.SetRelationExplanationNumericBacking(name, checker); err != nil {
+				return lbool.Undef, err
+			}
+		}
 		checkedScope, _, err = e.beginDatalogExplanationCheckedScope()
 		if err != nil {
 			return lbool.Undef, err
@@ -84,7 +204,16 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 			defer func() { resultErr = errors.Join(resultErr, checkedScope.Close()) }()
 		}
 	}
-	if err = e.validateFragment(); err != nil {
+	if selected, cause := e.relationLevelNumericExplanationSelected(); cause != nil {
+		return lbool.Undef, cause
+	} else if selected {
+		// checkDatalogEarlyRuleProperties ran before dispatcher selection; numeric
+		// explanation backings accept infinite arithmetic domains at this stage.
+		err = e.validateFragmentStructure()
+	} else {
+		err = e.validateFragment()
+	}
+	if err != nil {
 		return lbool.Undef, err
 	}
 	if err = e.relations.ResetSaturatedMarks(); err != nil {
@@ -120,6 +249,8 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 	if relationLevel {
 		if formulaScope != nil {
 			err = formulaScope.transferFacts(transformer, e.set, transformed)
+		} else if e.udocDatalog != nil {
+			err = transformer.TransferRelationFactsWithUDocSeeds(e.set, transformed, e.relations, e.predicateOrder, e.udocDatalog.seeds)
 		} else {
 			err = transformer.TransferRelationFacts(e.set, transformed, e.relations, e.predicateOrder)
 		}
@@ -278,6 +409,20 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 	}
 	e.datalogExplanationAnswer, err = product.ToFormula()
 	return lbool.FromBool(count != 0), err
+}
+
+func (e *PropositionalEngine) ensureRelationExplanationUDocFactoryForDefault() error {
+	_, checkEnabled, err := e.datalogCheckRelationName()
+	if err != nil || checkEnabled {
+		return err
+	}
+	if err = e.cacheDatalogRelationFavourite(); err != nil {
+		return err
+	}
+	if e.datalogRelationFavourite != "doc" {
+		return nil
+	}
+	return e.ensureRelationExplanationUDocFactory()
 }
 
 // datalogExplanationFiniteOrigins records the source predicate behind each

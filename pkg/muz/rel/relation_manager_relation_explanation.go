@@ -25,6 +25,15 @@ func (m *RelationManager) relationExplanationPredicateSignature(predicate ast.AS
 	if err != nil {
 		return nil, ast.ASTHandle{}, Signature{}, err
 	}
+	if m.explanationNumericKind != "" {
+		accepted, err := relationExplanationNumericCanHandle(m, m.explanationNumericKind, sorts)
+		if err != nil {
+			return nil, ast.ASTHandle{}, Signature{}, err
+		}
+		if accepted {
+			return sorts, proofSort, Signature{}, nil
+		}
+	}
 	domains := make([]uint64, len(sorts))
 	for i, sort := range sorts {
 		domains[i], err = m.sortDomain(sort)
@@ -50,9 +59,16 @@ func (m *RelationManager) validateRelationExplanation(predicate ast.ASTHandle, p
 	if err != nil {
 		return nil, err
 	}
-	actual, err := product.FiniteSignature()
-	if err != nil || !expected.equal(actual) {
-		return nil, errors.Join(err, ErrTableRelation)
+	if product.numeric != nil {
+		accepted, err := relationExplanationNumericCanHandle(m, product.numeric.kind, sorts)
+		if err != nil || !accepted || m.explanationNumericKind != product.numeric.kind {
+			return nil, errors.Join(err, ErrTableRelation)
+		}
+	} else {
+		actual, err := product.FiniteSignature()
+		if err != nil || !expected.equal(actual) {
+			return nil, errors.Join(err, ErrTableRelation)
+		}
 	}
 	if product.manager != m || len(sorts) != len(product.finiteSorts) {
 		return nil, ErrTableRelation

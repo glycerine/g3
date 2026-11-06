@@ -6,6 +6,7 @@ package rel
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -58,7 +59,7 @@ func compileExplanationRulesWithGuard(relations *RelationManager, set *base.Rule
 		rules = append(rules, rule)
 		plan, err := planExplanationRule(relations, rule)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("compile explanation rule %d: %w", index, err)
 		}
 		plans = append(plans, plan)
 		if len(plan.conditions) != 0 && guard == nil {

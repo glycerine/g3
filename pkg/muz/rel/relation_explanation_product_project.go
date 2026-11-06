@@ -58,12 +58,36 @@ func (p *RelationExplanationProduct) ProjectColumns(removed []int) (_ *RelationE
 }
 
 func (p *RelationExplanationProduct) projectComponents(finiteRemoved, proofRemoved []int, finiteFlags []bool) (_ *RelationExplanationProduct, resultErr error) {
-	table, err := finiteTableProject(p.table, finiteRemoved)
+	var table FiniteTable
+	var doc *UDocTableProduct
+	var numeric *relationExplanationNumeric
+	var err error
+	if p.doc != nil {
+		columns := make([]uint32, len(finiteRemoved))
+		for i, column := range finiteRemoved {
+			columns[i] = uint32(column)
+		}
+		doc, err = p.doc.Project(columns)
+	} else if p.numeric != nil {
+		columns := make([]uint32, len(finiteRemoved))
+		for i, column := range finiteRemoved {
+			columns[i] = uint32(column)
+		}
+		numeric, err = p.numeric.Project(columns)
+	} else {
+		table, err = finiteTableProject(p.table, finiteRemoved)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("finite projection: %w", err)
 	}
 	explanation, err := p.explanation.Project(proofRemoved)
 	if err != nil {
+		if doc != nil {
+			return nil, errors.Join(fmt.Errorf("proof projection: %w", err), doc.Close())
+		}
+		if numeric != nil {
+			return nil, errors.Join(fmt.Errorf("proof projection: %w", err), numeric.Close())
+		}
 		return nil, errors.Join(fmt.Errorf("proof projection: %w", err), table.Close())
 	}
 	sorts := make([]ast.ASTHandle, 0, len(p.finiteSorts)-len(finiteRemoved))
@@ -72,5 +96,5 @@ func (p *RelationExplanationProduct) projectComponents(finiteRemoved, proofRemov
 			sorts = append(sorts, sort)
 		}
 	}
-	return &RelationExplanationProduct{manager: p.manager, finiteSorts: sorts, table: table, explanation: explanation}, nil
+	return &RelationExplanationProduct{manager: p.manager, finiteSorts: sorts, table: table, doc: doc, numeric: numeric, explanation: explanation}, nil
 }

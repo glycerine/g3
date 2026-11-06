@@ -58,6 +58,12 @@ func NewFormulaCheckedRelationExplanationForPredicateWithBacking(manager *Relati
 		// manager selection falls through to Hash without check_relation.
 		return nil, false, nil
 	}
+	if backing == "bound_relation" || backing == "interval_relation" || backing == "karr_relation" {
+		accepted, err := relationExplanationNumericCanHandle(manager, backing, sorts)
+		if err != nil || !accepted {
+			return nil, false, err
+		}
+	}
 	product, err := newRelationExplanationProductWithSelectedBacking(manager, sorts, backing)
 	if err != nil {
 		return nil, false, fmt.Errorf("fresh explanation product: %w", err)
@@ -67,6 +73,12 @@ func NewFormulaCheckedRelationExplanationForPredicateWithBacking(manager *Relati
 			resultErr = errors.Join(resultErr, product.Close())
 		}
 	}()
+	if product.numeric != nil {
+		if product.numeric.checker == nil {
+			return nil, false, fmt.Errorf("%w: fresh numeric explanation product has no checker", ErrRelationVerification)
+		}
+		return product, true, nil
+	}
 	if pair, nested := product.table.(*FiniteCheckedPair); nested {
 		checked, err := NewFormulaCheckedFinitePair(manager, sorts, pair, config)
 		if err != nil {

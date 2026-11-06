@@ -253,20 +253,27 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		return lbool.Undef, err
 	}
 	karrSelected := false
+	relationExplanationSelected := false
 	if clone.backend == "datalog" {
-		karrSelected, err = clone.ensureKarrDatalog()
+		relationExplanationSelected, err = clone.relationLevelNumericExplanationSelected()
+		if err != nil {
+			return lbool.Undef, err
+		}
+		if !relationExplanationSelected {
+			karrSelected, err = clone.ensureKarrDatalog()
+		}
 		if err != nil {
 			return lbool.Undef, err
 		}
 	}
 	boundIntervalSelected := false
-	if clone.backend == "datalog" && !karrSelected {
+	if clone.backend == "datalog" && !karrSelected && !relationExplanationSelected {
 		boundIntervalSelected, err = clone.ensureBoundIntervalDatalog()
 		if err != nil {
 			return lbool.Undef, err
 		}
 	}
-	if clone.backend == "datalog" && !karrSelected && !boundIntervalSelected {
+	if clone.backend == "datalog" && !karrSelected && !boundIntervalSelected && !relationExplanationSelected {
 		if _, cause := clone.ensureUDocDatalog(); cause != nil {
 			return lbool.Undef, cause
 		}

@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
@@ -25,6 +26,7 @@ type tableInstruction struct {
 	right      []int
 	removed    []int
 	value      Element
+	astValue   ast.ASTHandle
 	column     int
 	closed     bool
 }
@@ -43,6 +45,12 @@ func NewJoinInstruction(first, second uint32, left, right []int, result uint32) 
 func NewFilterEqualInstruction(register uint32, value Element, column int) Instruction {
 	i := newTableInstruction("filter_equal")
 	i.first, i.value, i.column = register, value, column
+	return i
+}
+
+func NewFilterEqualASTInstruction(register uint32, value ast.ASTHandle, column int) Instruction {
+	i := newTableInstruction("filter_equal")
+	i.first, i.astValue, i.column = register, value, column
 	return i
 }
 

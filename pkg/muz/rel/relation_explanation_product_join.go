@@ -6,6 +6,7 @@ package rel
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -25,11 +26,67 @@ func (p *RelationExplanationProduct) Join(other *RelationExplanationProduct, lef
 	if p.manager != other.manager || len(left) != len(right) {
 		return nil, ast.ErrASTDomain
 	}
+	if p.numeric != nil || other.numeric != nil {
+		if p.numeric == nil || other.numeric == nil {
+			return nil, ErrTableRelation
+		}
+		leftColumns, rightColumns := make([]uint32, len(left)), make([]uint32, len(right))
+		for index := range left {
+			leftColumns[index], rightColumns[index] = uint32(left[index]), uint32(right[index])
+		}
+		numeric, err := p.numeric.Join(other.numeric, leftColumns, rightColumns)
+		if err != nil {
+			return nil, err
+		}
+		explanation, err := p.explanation.Join(other.explanation)
+		if err != nil {
+			return nil, errors.Join(err, numeric.Close())
+		}
+		return &RelationExplanationProduct{manager: p.manager, finiteSorts: append(append([]ast.ASTHandle(nil), p.finiteSorts...), other.finiteSorts...), numeric: numeric, explanation: explanation}, nil
+	}
 	for index, leftColumn := range left {
 		rightColumn := right[index]
 		if leftColumn < 0 || leftColumn >= len(p.finiteSorts) || rightColumn < 0 || rightColumn >= len(other.finiteSorts) || p.finiteSorts[leftColumn] != other.finiteSorts[rightColumn] {
 			return nil, ast.ErrASTDomain
 		}
+	}
+	if p.doc != nil || other.doc != nil {
+		var doc *UDocTableProduct
+		var err error
+		leftColumns, rightColumns := make([]uint32, len(left)), make([]uint32, len(right))
+		for i := range left {
+			leftColumns[i], rightColumns[i] = uint32(left[i]), uint32(right[i])
+		}
+		switch {
+		case p.doc != nil && other.doc != nil:
+			doc, err = p.doc.Join(other.doc, leftColumns, rightColumns)
+			if err != nil {
+				return nil, errors.Join(errors.New("join two UDoc relation explanation products"), err)
+			}
+		case p.doc != nil:
+			doc, err = JoinProductFinite(p.doc, other.finiteSorts, other.table, leftColumns, rightColumns)
+			if err != nil {
+				return nil, fmt.Errorf("join UDoc relation explanation product with finite relation (%T, sorts=%v, columns=%v/%v): %w", other.table, other.finiteSorts, left, right, err)
+			}
+		default:
+			doc, err = JoinFiniteProduct(p.manager, p.finiteSorts, p.table, other.doc, leftColumns, rightColumns)
+			if err != nil {
+				return nil, errors.Join(errors.New("join finite relation with UDoc relation explanation product"), err)
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+		explanation, err := p.explanation.Join(other.explanation)
+		if err != nil {
+			return nil, errors.Join(err, doc.Close())
+		}
+		return &RelationExplanationProduct{
+			manager:     p.manager,
+			finiteSorts: append(append([]ast.ASTHandle(nil), p.finiteSorts...), other.finiteSorts...),
+			doc:         doc,
+			explanation: explanation,
+		}, nil
 	}
 	first, second := p.table, other.table
 	var firstOwned, secondOwned bool

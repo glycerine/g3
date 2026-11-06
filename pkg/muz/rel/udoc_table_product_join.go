@@ -3,7 +3,11 @@ package rel
 // Source: dl_product_relation.cpp join_fn::init constructs the missing DOC
 // component with sieve.full and the missing finite component with mk_full.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"fmt"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 // JoinFiniteTables constructs the DOC/table product for two raw table inputs.
 // The DOC side is full; the finite side performs the actual source join.
@@ -70,7 +74,7 @@ func JoinFiniteUDoc(manager *RelationManager, finiteSorts []ast.ASTHandle, finit
 }
 
 func joinUDocFinite(manager *RelationManager, doc *TypedUDocRelation, finiteSorts []ast.ASTHandle, finite FiniteTable, docColumns, finiteColumns []uint32, docFirst bool) (*UDocTableProduct, error) {
-	if manager == nil || manager.open() != nil || doc == nil || doc.open() != nil || doc.FormulaChecked() || doc.factory.manager != manager.manager || len(doc.sorts) != 1 || rawUDocProductFiniteKind(finite) == 0 || len(docColumns) != len(finiteColumns) {
+	if manager == nil || manager.open() != nil || doc == nil || doc.open() != nil || doc.factory.manager != manager.manager || len(doc.sorts) != 1 || rawUDocProductFiniteKind(finite) == 0 || len(docColumns) != len(finiteColumns) {
 		return nil, ErrUDocTableProduct
 	}
 	signature, err := tableRelationSignature(manager, finiteSorts)
@@ -130,49 +134,46 @@ func joinUDocFinite(manager *RelationManager, doc *TypedUDocRelation, finiteSort
 // these two live mixed-join callers supply exactly the unary DOC signature.
 // Every temporary is registered before the next fallible operation.
 func (a *udocTableProductAttempt) fullUnaryFinite(signature Signature, like FiniteTable) (FiniteTable, error) {
-	if signature.Len() > 1 || rawUDocProductFiniteKind(like) == 0 {
+	if rawUDocProductFiniteKind(like) == 0 {
 		return nil, ErrUDocTableProduct
 	}
 	if lazy, ok := like.(*LazySparseTable); ok && (a.manager.lazyFinite == nil || !a.manager.lazyFinite.Owns(lazy)) {
 		return nil, ErrUDocTableProduct
 	}
-	empty, err := a.manager.NewDefaultFiniteTable(signature)
+	kind := ""
+	switch like.(type) {
+	case *HashTable:
+		kind = "hashtable"
+	case *SparseTable:
+		kind = "sparse"
+	case *LazySparseTable:
+		kind = "lazy_sparse"
+	default:
+		return nil, ErrUDocTableProduct
+	}
+	empty, err := newRelationExplanationFiniteBackingSelected(a.manager, signature, kind)
 	if empty != nil {
 		a.tables = append(a.tables, empty)
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("construct empty %s table: %w", kind, err)
 	}
 	// get_full_tableish_relation passes the original table kind to the selected
-	// plugin. This bounded path requires that concrete plugin to agree.
+	// plugin, including for wider finite signatures. mk_full is a total relation,
+	// so construct every tuple instead of using table_base complement, whose Go
+	// port is intentionally limited to narrow source complement operations.
 	if rawUDocProductFiniteKind(empty) != rawUDocProductFiniteKind(like) {
-		return nil, ErrUDocTableProduct
+		return nil, fmt.Errorf("constructed table kind %T differs from source %T: %w", empty, like, ErrUDocTableProduct)
 	}
-	var full FiniteTable
-	switch table := empty.(type) {
-	case *HashTable:
-		value, cause := table.Complement()
-		err = cause
-		if value != nil {
-			full = value
-		}
-	case *SparseTable:
-		value, cause := table.ComplementFunctional(nil)
-		err = cause
-		if value != nil {
-			full = value
-		}
-	case *LazySparseTable:
-		value, cause := table.Complement()
-		err = cause
-		if value != nil {
-			full = value
-		}
-	default:
-		err = ErrUDocTableProduct
+	err = fillTotalTable(empty, signature)
+	if err != nil {
+		return nil, fmt.Errorf("populate full %s table: %w", kind, err)
 	}
-	if full != nil {
-		a.tables = append(a.tables, full)
+	for index, table := range a.tables {
+		if table == empty {
+			a.tables = append(a.tables[:index], a.tables[index+1:]...)
+			break
+		}
 	}
-	return full, err
+	return empty, nil
 }

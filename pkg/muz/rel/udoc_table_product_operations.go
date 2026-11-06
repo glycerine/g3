@@ -4,7 +4,11 @@ package rel
 // with dl_sieve_relation.cpp's concrete DOC mask dispatch. Cross-component
 // refinements require both directional unions; finite<-DOC is unavailable.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 func (p *UDocTableProduct) EmptyLike() (*UDocTableProduct, error) {
 	if err := p.open(); err != nil {
@@ -21,14 +25,20 @@ func (p *UDocTableProduct) EmptyLike() (*UDocTableProduct, error) {
 }
 
 func (p *UDocTableProduct) sameLayout(other *UDocTableProduct) bool {
-	if p.open() != nil || other.open() != nil || p.manager != other.manager || !p.doc.inner.sameShape(other.doc.inner) || len(p.doc.sorts) != len(other.doc.sorts) || rawUDocProductFiniteKind(p.table) != rawUDocProductFiniteKind(other.table) {
+	if p.open() != nil || other.open() != nil || p.manager != other.manager || !p.doc.inner.sameShape(other.doc.inner) || len(p.doc.sorts) != len(other.doc.sorts) {
 		return false
 	}
 	leftMask, rightMask := productTableMask(p.doc.sorts, p.tableColumns), productTableMask(other.doc.sorts, other.tableColumns)
 	for i, sort := range p.doc.sorts {
-		if sort != other.doc.sorts[i] || p.doc.innerColumns[i] != other.doc.innerColumns[i] || leftMask[i] != rightMask[i] {
+		if sort != other.doc.sorts[i] || p.doc.innerColumns[i] != other.doc.innerColumns[i] {
 			return false
 		}
+		if p.table != nil && other.table != nil && leftMask[i] != rightMask[i] {
+			return false
+		}
+	}
+	if p.table != nil && other.table != nil && rawUDocProductFiniteKind(p.table) != rawUDocProductFiniteKind(other.table) {
+		return false
 	}
 	return true
 }
@@ -64,6 +74,44 @@ func (p *UDocTableProduct) AddFact(values []ast.ASTHandle) error {
 // union, preserving any facts already accumulated by earlier instructions.
 func (p *UDocTableProduct) UnionFrom(source, delta *UDocTableProduct) (resultErr error) {
 	if !p.sameLayout(source) || delta != nil && (!p.sameLayout(delta) || delta == p || delta == source) {
+		return ErrUDocTableProduct
+	}
+	// product_relation::unaligned_union_fn converts both sides to their common
+	// component specification. A missing finite component is full for a
+	// nonempty product and empty for a newly created empty product.
+	reference := p
+	if reference.table == nil {
+		reference = source
+	}
+	if reference.table == nil && delta != nil {
+		reference = delta
+	}
+	if reference.table != nil {
+		for _, product := range []*UDocTableProduct{p, source, delta} {
+			if product == nil || product.table != nil {
+				continue
+			}
+			table, err := emptyFiniteLike(reference.table)
+			if err != nil {
+				return err
+			}
+			empty, err := product.doc.Empty()
+			if err == nil && !empty {
+				signature, signatureErr := table.Signature()
+				if signatureErr != nil {
+					err = signatureErr
+				} else {
+					err = fillTotalTable(table, signature)
+				}
+			}
+			if err != nil {
+				return errors.Join(err, table.Close())
+			}
+			product.table = table
+			product.tableColumns = append([]bool(nil), reference.tableColumns...)
+		}
+	}
+	if !p.sameLayout(source) || delta != nil && !p.sameLayout(delta) {
 		return ErrUDocTableProduct
 	}
 	if delta == nil {

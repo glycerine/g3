@@ -1120,6 +1120,10 @@ func (e *PropositionalEngine) validateFragment() error {
 	if err := e.checkSourceRules(); err != nil {
 		return err
 	}
+	return e.validateFragmentStructure()
+}
+
+func (e *PropositionalEngine) validateFragmentStructure() error {
 	count, err := e.set.Len()
 	if err != nil {
 		return err
@@ -2421,6 +2425,16 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if _, err := e.ensureDefaultExternalDatalog(); err != nil {
 		return lbool.Undef, err
 	}
+	if selected, err := e.relationLevelDocExplanationSelected(); err != nil {
+		return lbool.Undef, err
+	} else if selected {
+		return e.queryDatalogExplanation(declarations)
+	}
+	if selected, err := e.relationLevelNumericExplanationSelected(); err != nil {
+		return lbool.Undef, err
+	} else if selected {
+		return e.queryDatalogExplanation(declarations)
+	}
 	if selected, err := e.ensureKarrDatalog(); err != nil {
 		return lbool.Undef, err
 	} else if selected {
@@ -2444,6 +2458,11 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if selected, err := e.ensureUDocDatalog(); err != nil {
 		return lbool.Undef, err
 	} else if selected {
+		if enabled, err := e.datalogExplanationsEnabled(); err != nil {
+			return lbool.Undef, err
+		} else if enabled {
+			return e.queryDatalogExplanation(declarations)
+		}
 		return e.queryUDocDatalog(declarations)
 	}
 	if selected, err := e.ensureSparseIntervalDatalog(); err != nil {
@@ -2724,6 +2743,9 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 	if err = e.requireResultSnapshot(kind); err != nil {
 		return answer, err
 	}
+	if kind == EngineDatalog && e.datalogExplanationAnswer != (ast.ASTRef{}) {
+		return e.manager.CopyRef(e.datalogExplanationAnswer)
+	}
 	if kind == EngineDatalog && (e.karrDatalog != nil || e.queryClone != nil && e.queryClone.karrDatalog != nil) {
 		return e.karrDatalogAnswer(declaration)
 	}
@@ -2747,9 +2769,6 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 	}
 	if kind == EngineDatalog && e.intervalDatalog != nil {
 		return e.intervalDatalog.relationFormula(declaration)
-	}
-	if kind == EngineDatalog && e.datalogExplanationAnswer != (ast.ASTRef{}) {
-		return e.manager.CopyRef(e.datalogExplanationAnswer)
 	}
 	if kind == EngineCLP {
 		value, err := e.manager.MkTrue()
@@ -3165,7 +3184,7 @@ func (e *PropositionalEngine) Close() (result error) {
 		return errors.Join(result, err)
 	}
 	if err := e.closeUDocDatalog(); err != nil {
-		return err
+		return fmt.Errorf("close UDoc Datalog context: %w", err)
 	}
 	if err := e.closeSparseIntervalDatalog(); err != nil {
 		return errors.Join(result, err)
@@ -3298,7 +3317,7 @@ func (e *PropositionalEngine) Close() (result error) {
 	}
 	if e.relations != nil {
 		if err := e.relations.Close(); err != nil {
-			return errors.Join(result, err)
+			return errors.Join(result, fmt.Errorf("close relation manager: %w", err))
 		}
 		e.relations = nil
 	}

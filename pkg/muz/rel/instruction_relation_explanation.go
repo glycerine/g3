@@ -58,9 +58,17 @@ func (i *relationExplanationInstruction) Perform(context *ExecutionContext) (boo
 	case *explanationFiniteLoadInstruction:
 		return performRelationExplanationFiniteLoad(instruction, context)
 	case *constructInstruction:
-		return performRelationExplanationConstruct(instruction, context)
+		complete, err := performRelationExplanationConstruct(instruction, context)
+		if err != nil {
+			err = fmt.Errorf("relation explanation construct %s: %w", instruction.kind, err)
+		}
+		return complete, err
 	case *tableInstruction:
-		return performRelationExplanationTable(instruction, context)
+		complete, err := performRelationExplanationTable(instruction, context)
+		if err != nil {
+			err = fmt.Errorf("relation explanation table %s: %w", instruction.kind, err)
+		}
+		return complete, err
 	case *interpretedFilterInstruction:
 		if err := instruction.open(); err != nil {
 			return false, err
@@ -75,6 +83,9 @@ func (i *relationExplanationInstruction) Perform(context *ExecutionContext) (boo
 		}
 		context.stats.Filter++
 		err = product.FilterInterpreted(instruction.rewriter, conditions, instruction.variableColumns, instruction.variableSorts)
+		if err != nil {
+			err = fmt.Errorf("relation explanation interpreted filter: %w", err)
+		}
 		return finishRelationExplanationMutation(context, instruction.register, product, err)
 	case *explanationNegationInstruction:
 		if err := instruction.open(); err != nil {
@@ -254,6 +265,38 @@ func performRelationExplanationConstruct(i *constructInstruction, context *Execu
 		}
 		return setRelationExplanationResult(context, i.target, product)
 	}
+	if i.kind == "mk_explanation_numeric_column" {
+		sort, err := i.finiteManager.RefGet(i.finiteSort)
+		if err != nil {
+			return false, err
+		}
+		product, err := newNumericRelationExplanationProductWithProofColumns(i.relations, []ast.ASTHandle{sort}, i.relations.explanationNumericKind, i.relations.explanationNumericCheck, 0)
+		if err != nil {
+			return false, err
+		}
+		seed := RelationExplanationNumericSeed{Kind: product.numeric.kind}
+		switch seed.Kind {
+		case "bound_relation":
+			seed.Bound = NewBoundRelation(1, false)
+		case "interval_relation":
+			seed.Interval = NewIntervalFull(1)
+		case "karr_relation":
+			seed.Karr = NewKarrFull(1, nil, product.numeric.karr.formulaChecker)
+		default:
+			return false, errors.Join(ErrInstruction, product.Close())
+		}
+		if err = product.UnionNumericSeed(seed); err == nil && !i.astValue.IsNull() {
+			err = product.FilterEqualAST(i.astValue, 0)
+		}
+		if err != nil {
+			return false, errors.Join(fmt.Errorf("numeric explanation column construction: %w", err), product.Close())
+		}
+		if err = product.explanation.AddFact(nil); err != nil {
+			return false, errors.Join(err, product.Close())
+		}
+		context.stats.Total++
+		return setRelationExplanationResult(context, i.target, product)
+	}
 	if i.kind != "mk_explanation_finite_total" && i.kind != "mk_explanation_finite_singleton" {
 		return false, ErrCompilerUnsupported
 	}
@@ -301,11 +344,18 @@ func performRelationExplanationTable(i *tableInstruction, context *ExecutionCont
 	switch i.kind {
 	case "filter_equal":
 		context.stats.FilterEqual++
-		err = finiteTableFilterEqual(source.table, i.value, i.column)
+		if source.numeric != nil {
+			err = source.FilterEqualAST(i.astValue, i.column)
+			if err != nil {
+				err = fmt.Errorf("numeric relation explanation equality filter: %w", err)
+			}
+		} else {
+			err = source.FilterEqual(i.value, i.column)
+		}
 		return finishRelationExplanationMutation(context, i.first, source, err)
 	case "filter_identical":
 		context.stats.FilterIdentical++
-		err = finiteTableFilterIdentical(source.table, i.left)
+		err = source.FilterIdentical(i.left)
 		return finishRelationExplanationMutation(context, i.first, source, err)
 	case "join":
 		context.stats.Join++

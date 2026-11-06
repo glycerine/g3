@@ -24,7 +24,7 @@ type UDocSieve struct {
 // AdoptUDocSieve transfers inner only on success. The mask may ignore supported
 // sorts as well as unsupported ones, matching source mk_from_inner.
 func AdoptUDocSieve(sorts []ast.ASTHandle, mask []bool, inner *TypedUDocRelation) (*UDocSieve, error) {
-	if inner == nil || inner.open() != nil || inner.FormulaChecked() || len(sorts) != len(mask) {
+	if inner == nil || inner.open() != nil || len(sorts) != len(mask) {
 		return nil, ErrSieve
 	}
 	r := &UDocSieve{manager: inner.factory.manager, sorts: append([]ast.ASTHandle(nil), sorts...), innerColumns: append([]bool(nil), mask...), sigToInner: make([]int, len(sorts))}
@@ -61,7 +61,7 @@ func AdoptUDocSieve(sorts []ast.ASTHandle, mask []bool, inner *TypedUDocRelation
 }
 
 func udocSieveSignature(factory *UDocRelationFactory, sorts []ast.ASTHandle) ([]ast.ASTHandle, []bool, error) {
-	if factory == nil || factory.open() != nil || factory.FormulaChecked() {
+	if factory == nil || factory.open() != nil {
 		return nil, nil, ErrSieve
 	}
 	mask := make([]bool, len(sorts))

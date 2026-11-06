@@ -85,6 +85,22 @@ func (p *RelationExplanationProduct) FilterInterpreted(theory *astrewriter.Theor
 }
 
 func (p *RelationExplanationProduct) filterFiniteInterpreted(theory *astrewriter.TheoryRewriter, conditions []ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle) error {
+	if p.numeric != nil {
+		for _, condition := range conditions {
+			if err := p.filterNumericInterpreted(condition, columns, sorts); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if p.doc != nil {
+		for _, condition := range conditions {
+			if err := p.doc.Doc().FilterInterpreted(condition, columns, sorts); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	switch table := p.table.(type) {
 	case *HashTable:
 		relation := &TableRelation{manager: p.manager, sorts: p.finiteSorts, table: table}
@@ -102,6 +118,57 @@ func (p *RelationExplanationProduct) filterFiniteInterpreted(theory *astrewriter
 	default:
 		return ErrCompilerUnsupported
 	}
+}
+
+func (p *RelationExplanationProduct) filterNumericInterpreted(condition ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle) (resultErr error) {
+	manager := p.manager.manager
+	var maximum uint32
+	for variable := range sorts {
+		if variable > maximum {
+			maximum = variable
+		}
+	}
+	bindings := make([]ast.ASTHandle, uint64(maximum)+1)
+	var references []ast.ASTRef
+	defer func() {
+		for i := len(references) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, manager.DelRef(&references[i]))
+		}
+	}()
+	for variable, sort := range sorts {
+		column, found := columns[variable]
+		if !found || column < 0 || column >= len(p.finiteSorts) || p.finiteSorts[column] != sort {
+			return ErrTableRelation
+		}
+		value, err := manager.MkVar(uint32(column), sort)
+		if err != nil {
+			return err
+		}
+		reference, err := manager.NewRef(value)
+		if err != nil {
+			return err
+		}
+		references = append(references, reference)
+		bindings[variable] = value
+	}
+	substitution, err := astrewriter.NewVarSubstitution(manager, false)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, substitution.Close()) }()
+	output, err := manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	references = append(references, output)
+	if err = substitution.Substitute(condition, bindings, output); err != nil {
+		return err
+	}
+	mapped, err := manager.RefGet(output)
+	if err != nil {
+		return err
+	}
+	return p.numeric.FilterInterpreted(mapped)
 }
 
 func (p *RelationExplanationProduct) assignExplanationCondition(condition ast.ASTHandle, columns map[uint32]int, variables map[uint32]ast.ASTHandle) (resultErr error) {

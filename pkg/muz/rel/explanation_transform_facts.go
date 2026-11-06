@@ -16,13 +16,19 @@ import (
 // relation manager owns the published products under explained declarations.
 // The transformer exposes borrowed views until it closes.
 func (t *ExplanationTransformer) TransferFiniteFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle) error {
-	return t.transferFacts(source, target, relations, predicates, false, nil, smtcore.SMTSolverConfig{}, "")
+	return t.transferFacts(source, target, relations, predicates, false, nil, smtcore.SMTSolverConfig{}, "", nil)
 }
 
 // TransferRelationFacts attaches the source fact explanation to the whole
 // finite relation rather than to individual tuples.
 func (t *ExplanationTransformer) TransferRelationFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle) error {
-	return t.transferFacts(source, target, relations, predicates, true, nil, smtcore.SMTSolverConfig{}, "")
+	return t.transferFacts(source, target, relations, predicates, true, nil, smtcore.SMTSolverConfig{}, "", nil)
+}
+
+// TransferRelationFactsWithUDocSeeds transfers selected UDoc seed owners into
+// the relation-level explanation products using typed relation union.
+func (t *ExplanationTransformer) TransferRelationFactsWithUDocSeeds(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle, seeds map[ast.ASTHandle]*TypedUDocRelation) error {
+	return t.transferFacts(source, target, relations, predicates, true, nil, smtcore.SMTSolverConfig{}, "", seeds)
 }
 
 // TransferRelationFactsFormulaChecked gives eligible whole-relation products a
@@ -42,10 +48,22 @@ func (t *ExplanationTransformer) TransferRelationFactsFormulaCheckedWithBacking(
 	if config.Params == nil {
 		return ErrTableRelation
 	}
-	return t.transferFacts(source, target, relations, predicates, true, eligible, config, backing)
+	return t.transferFacts(source, target, relations, predicates, true, eligible, config, backing, nil)
 }
 
-func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle, relationLevel bool, formulaEligible map[ast.ASTHandle]bool, formulaConfig smtcore.SMTSolverConfig, formulaBacking string) (resultErr error) {
+// TransferRelationFactsFormulaCheckedWithUDocSeeds selects the formula-checked
+// DOC backing and transfers seed relations without tuple materialization.
+func (t *ExplanationTransformer) TransferRelationFactsFormulaCheckedWithUDocSeeds(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle, eligible map[ast.ASTHandle]bool, config smtcore.SMTSolverConfig, backing string, seeds map[ast.ASTHandle]*TypedUDocRelation) error {
+	if len(eligible) == 0 {
+		return t.TransferRelationFactsWithUDocSeeds(source, target, relations, predicates, seeds)
+	}
+	if config.Params == nil {
+		return ErrTableRelation
+	}
+	return t.transferFacts(source, target, relations, predicates, true, eligible, config, backing, seeds)
+}
+
+func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle, relationLevel bool, formulaEligible map[ast.ASTHandle]bool, formulaConfig smtcore.SMTSolverConfig, formulaBacking string, udocSeeds map[ast.ASTHandle]*TypedUDocRelation) (resultErr error) {
 	if err := t.open(); err != nil {
 		return err
 	}
@@ -105,6 +123,7 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 		if err != nil {
 			return err
 		}
+		udocSeed := udocSeeds[original]
 		group, err := source.PredicateRules(original)
 		if err != nil {
 			return err
@@ -116,7 +135,7 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 		if err != nil {
 			return err
 		}
-		if !exists && !hasRules {
+		if !exists && udocSeed == nil && !hasRules {
 			continue
 		}
 		if _, exists := t.factProducts[original]; exists {
@@ -134,14 +153,34 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 				return err
 			}
 		}
-		sorts, _, err := relations.PredicateSignature(original)
-		if err != nil {
-			return err
+		var sorts []ast.ASTHandle
+		if relationLevel {
+			arity, cause := t.manager.GetArity(original)
+			if cause != nil {
+				return cause
+			}
+			sorts = make([]ast.ASTHandle, arity)
+			for column := uint32(0); column < arity; column++ {
+				sorts[column], cause = t.manager.GetDomain(original, column)
+				if cause != nil {
+					return cause
+				}
+			}
+		} else {
+			sorts, _, err = relations.PredicateSignature(original)
+			if err != nil {
+				return err
+			}
 		}
 		if relationLevel {
 			product, err := newRelationExplanationProductFromFiniteCheckedWithBacking(relations, sorts, finite, fact, formulaEligible[original], formulaConfig, formulaBacking)
 			if err != nil {
 				return err
+			}
+			if udocSeed != nil {
+				if err = product.UnionUDocSeed(udocSeed); err != nil {
+					return errors.Join(err, product.Close())
+				}
 			}
 			if err = relations.StoreRelationExplanation(explained, product); err != nil {
 				return errors.Join(err, product.Close())
@@ -206,7 +245,15 @@ func newRelationExplanationProductFromFiniteCheckedWithBacking(manager *Relation
 		}
 	}()
 	if formulaChecked {
-		if pair, nested := product.table.(*FiniteCheckedPair); nested {
+		if product.doc != nil {
+			if !product.doc.Doc().Inner().FormulaChecked() {
+				return nil, fmt.Errorf("%w: selected doc relation is not formula checked", ErrRelationVerification)
+			}
+		} else if product.numeric != nil {
+			if product.numeric.checker == nil {
+				return nil, fmt.Errorf("%w: selected numeric relation is not formula checked", ErrRelationVerification)
+			}
+		} else if pair, nested := product.table.(*FiniteCheckedPair); nested {
 			checked, err := NewFormulaCheckedFinitePair(manager, sorts, pair, config)
 			if err != nil {
 				return nil, err
@@ -250,6 +297,42 @@ func newRelationExplanationProductFromFiniteCheckedWithBacking(manager *Relation
 		}
 	}
 	if source != nil {
+		if product.doc != nil {
+			if err = importFiniteFactsToExplanationUDoc(manager, sorts, source, product.doc); err != nil {
+				return nil, fmt.Errorf("relation explanation doc snapshot: %w", err)
+			}
+			if err = product.explanation.AddFact([]ast.ASTHandle{fact}); err != nil {
+				return nil, err
+			}
+			return product, nil
+		}
+		if product.numeric != nil {
+			count, countErr := source.Len()
+			if countErr != nil {
+				return nil, countErr
+			}
+			if count != 0 {
+				if len(sorts) != 0 {
+					return nil, ErrTableRelation
+				}
+				seed := RelationExplanationNumericSeed{Kind: product.numeric.kind}
+				switch seed.Kind {
+				case "bound_relation":
+					seed.Bound = NewBoundRelation(0, false)
+				case "interval_relation":
+					seed.Interval = NewIntervalFull(0)
+				case "karr_relation":
+					seed.Karr = NewKarrFull(0, nil, product.numeric.karr.formulaChecker)
+				}
+				if err = product.UnionNumericSeed(seed); err != nil {
+					return nil, err
+				}
+			}
+			if err = product.explanation.AddFact([]ast.ASTHandle{fact}); err != nil {
+				return nil, err
+			}
+			return product, nil
+		}
 		expected, err := product.table.Signature()
 		if err != nil {
 			return nil, err
