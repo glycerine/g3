@@ -118,8 +118,10 @@ func runModelSearchSourceRandomTrees(t *testing.T, rounds, stateCount int, depth
 				if expectBudget {
 					goals, err := search.GoalCount()
 					must(err)
-					if goals == 0 {
-						t.Fatal("source random tree reached the mutation budget without a frontier")
+					// Checkpoint from the seeded C++ source driver in
+					// src/test/pdr.cpp and model_search in pdr_context.cpp.
+					if goals != 7 || modelSearchNodeCount(root) != 15 {
+						t.Fatalf("source random tree diverged at mutation %d: frontier=%d nodes=%d, want frontier=7 nodes=15", steps, goals, modelSearchNodeCount(root))
 					}
 				}
 				break
@@ -127,4 +129,20 @@ func runModelSearchSourceRandomTrees(t *testing.T, rounds, stateCount int, depth
 		}
 		must(search.Reset())
 	}
+}
+
+func modelSearchNodeCount(root *ModelNode) int {
+	if root == nil {
+		return 0
+	}
+	count := 0
+	nodes := []*ModelNode{root}
+	for len(nodes) != 0 {
+		last := len(nodes) - 1
+		node := nodes[last]
+		nodes = nodes[:last]
+		count++
+		nodes = append(nodes, node.children...)
+	}
+	return count
 }
