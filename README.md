@@ -1,3 +1,17 @@
+# g3
+
+g3 is a port of Z3 (C++) to pure Go. 
+
+Status: the port is feature complete. It is currently undergoing performance optimization and tuning
+since the baseline Go port g3 is slower than the C++ original Z3.
+
+---------
+Author: Jason E. Aten, Ph.D.
+
+License: MIT
+
+The original Z3 README follows.
+
 # Z3
 
 Z3 is a theorem prover from Microsoft Research. It is licensed

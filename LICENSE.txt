@@ -1,5 +1,6 @@
 Z3
-Copyright (c) Microsoft Corporation
+portions Copyright (c) 2026 Jason E. Aten, Ph.D.
+portions Copyright (c) Microsoft Corporation
 All rights reserved. 
 MIT License
 
