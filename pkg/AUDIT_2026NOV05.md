@@ -270,6 +270,10 @@ the C++ plugin's asymmetric tie conditions.
 target/source combinations of lower- and upper-endpoint openness at equal
 finite endpoints, including the reverse widening direction where C++ keeps the
 target endpoint finite.
+`TestIntervalRelationUnionIntoEmptyUsesSourceVectorCopy` verifies the public
+union path copies representative interval payloads into independent columns
+when the target is empty, leaves the source equivalence class untouched, and
+does not change the target for an empty source.
 Bound-constraint closure now follows another exact source quirk: its C++ walk
 normalizes the initial left/right columns, but reads each subsequently visited
 edge index directly from the backing vector without `find()`. Because equality
