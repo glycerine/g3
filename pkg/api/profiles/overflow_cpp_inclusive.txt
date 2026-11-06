@@ -1,0 +1,85 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 2K of event 'cpu-clock:u'
+# Event count (approx.): 4268537040
+#
+# Children      Self  Command  Shared Object         Symbol                                                                                                                                                                                                                                                                                                                                         
+# ........  ........  .......  ....................  ...............................................................................................................................................................................................................................................................................................................................................
+#
+    99.95%     0.00%  test-z3  libc.so.6             [.] __libc_start_call_main
+    99.95%     0.00%  test-z3  libc.so.6             [.] __libc_start_main_impl (inlined)
+    99.95%     0.00%  test-z3  test-z3               [.] _start
+    99.95%     0.00%  test-z3  test-z3               [.] main
+    99.91%     0.00%  test-z3  test-z3               [.] tst_no_overflow_symbolic_equiv()
+    98.22%     0.00%  test-z3  test-z3               [.] smt::context::check(unsigned int, expr* const*, bool)
+    98.22%     0.00%  test-z3  test-z3               [.] solver_na2as::check_sat_core(unsigned int, expr* const*)
+    98.17%     0.00%  test-z3  test-z3               [.] Z3_solver_check
+    98.17%     0.00%  test-z3  test-z3               [.] combined_solver::check_sat_core(unsigned int, expr* const*)
+    98.17%     0.00%  test-z3  test-z3               [.] solver::check_sat(unsigned int, expr* const*)
+    97.84%     0.00%  test-z3  test-z3               [.] smt::context::search()
+    97.56%     0.00%  test-z3  test-z3               [.] test_equiv(Equivalence_params, unsigned int, bool) [clone .constprop.1]
+    97.42%     0.09%  test-z3  test-z3               [.] smt::context::bounded_search()
+    64.60%     0.47%  test-z3  test-z3               [.] smt::context::propagate()
+    51.97%    45.07%  test-z3  test-z3               [.] smt::context::bcp()
+    29.25%     0.80%  test-z3  test-z3               [.] smt::context::resolve_conflict()
+    21.64%     3.71%  test-z3  test-z3               [.] smt::conflict_resolution::resolve(smt::b_justification, sat::literal)
+     9.72%     0.19%  test-z3  test-z3               [.] smt::conflict_resolution::finalize_resolve(smt::b_justification, sat::literal)
+     9.48%     0.70%  test-z3  test-z3               [.] smt::conflict_resolution::minimize_lemma()
+     8.78%     5.49%  test-z3  test-z3               [.] smt::conflict_resolution::implied_by_marked(sat::literal)
+     8.40%     4.84%  test-z3  test-z3               [.] smt::relevancy_propagator_imp::assign_eh(expr*, bool)
+     8.22%     5.35%  test-z3  test-z3               [.] smt::conflict_resolution::process_antecedent(sat::literal, unsigned int&)
+     6.20%     6.06%  test-z3  test-z3               [.] smt::context::assign_core(sat::literal, smt::b_justification, bool)
+     5.59%     0.09%  test-z3  test-z3               [.] smt::context::pop_scope_core(unsigned int)
+     3.33%     1.78%  test-z3  test-z3               [.] smt::context::unassign_vars(unsigned int)
+     3.00%     3.00%  test-z3  test-z3               [.] smt::conflict_resolution::process_antecedent_for_minimization(sat::literal)
+     2.86%     2.86%  test-z3  test-z3               [.] (anonymous namespace)::dact_case_split_queue::activity_increased_eh(unsigned int)
+     2.63%     0.05%  test-z3  test-z3               [.] smt::context::decide()
+     2.39%     0.89%  test-z3  test-z3               [.] smt::relevancy_propagator_imp::propagate()
+     2.30%     0.00%  test-z3  test-z3               [.] test_equiv(Equivalence_params, unsigned int, bool) [clone .constprop.0]
+     1.55%     1.55%  test-z3  test-z3               [.] (anonymous namespace)::act_case_split_queue::unassign_var_eh(unsigned int)
+     1.50%     1.50%  test-z3  test-z3               [.] smt::context::find_assignment(expr*) const
+     1.36%     0.05%  test-z3  test-z3               [.] (anonymous namespace)::dact_case_split_queue::next_case_split(unsigned int&, lbool&)
+     1.31%     1.31%  test-z3  test-z3               [.] (anonymous namespace)::act_case_split_queue::next_case_split(unsigned int&, lbool&)
+     1.27%     0.66%  test-z3  test-z3               [.] smt::and_relevancy_eh::operator()(smt::relevancy_propagator&)
+     1.22%     1.22%  test-z3  test-z3               [.] smt::context::get_assignment(expr*) const
+     1.13%     0.05%  test-z3  test-z3               [.] smt::context::push_scope()
+     1.13%     0.00%  test-z3  test-z3               [.] Z3_mk_context
+     1.13%     0.00%  test-z3  test-z3               [.] api::context::context(ast_context_params*, bool)
+     1.08%     1.08%  test-z3  test-z3               [.] reslimit::inc()
+     1.08%     0.56%  test-z3  test-z3               [.] ast_manager::ast_manager(proof_gen_mode, char const*, bool)
+     1.08%     0.00%  test-z3  test-z3               [.] ast_context_params::mk_ast_manager()
+     0.75%     0.75%  test-z3  test-z3               [.] smt::relevancy_propagator_imp::mark_as_relevant(expr*)
+     0.70%     0.66%  test-z3  test-z3               [.] smt::context::relevant_eh(expr*)
+     0.70%     0.23%  test-z3  test-z3               [.] smt::context::propagate_atoms()
+     0.61%     0.61%  test-z3  test-z3               [.] smt::relevancy_propagator_imp::is_relevant(expr*) const
+     0.61%     0.09%  test-z3  test-z3               [.] smt::theory_seq::pop_scope_eh(unsigned int)
+     0.52%     0.52%  test-z3  test-z3               [.] ast_manager::ast_manager(proof_gen_mode, std::basic_fstream<char, std::char_traits<char> >*, bool)
+     0.52%     0.28%  test-z3  test-z3               [.] smt::context::mk_clause(unsigned int, sat::literal*, smt::justification*, smt::clause_kind, smt::clause_del_eh*)
+     0.52%     0.19%  test-z3  test-z3               [.] smt::context::del_inactive_lemmas2()
+     0.52%     0.05%  test-z3  test-z3               [.] smt::theory_lra::pop_scope_eh(unsigned int)
+     0.47%     0.23%  test-z3  test-z3               [.] smt::context::restore_relevancy(unsigned int, sat::literal const*)
+     0.47%     0.09%  test-z3  test-z3               [.] lp::lar_solver::pop(unsigned int)
+     0.47%     0.05%  test-z3  test-z3               [.] rewriter_core::reset()
+     0.47%     0.00%  test-z3  test-z3               [.] Z3_solver_push
+     0.42%     0.28%  test-z3  test-z3               [.] smt::theory_bv::assign_eh(unsigned int, bool)
+     0.42%     0.05%  test-z3  test-z3               [.] act_cache::reset()
+     0.42%     0.00%  test-z3  test-z3               [.] smt::context::restart(lbool&, unsigned int)
+     0.38%     0.38%  test-z3  test-z3               [.] act_cache::dec_refs()
+     0.38%     0.23%  test-z3  test-z3               [.] smt::or_relevancy_eh::operator()(smt::relevancy_propagator&)
+     0.38%     0.09%  test-z3  test-z3               [.] smt::context::record_relevancy(unsigned int, sat::literal const*)
+     0.38%     0.09%  test-z3  test-z3               [.] smt::context::simplify_clauses(ptr_vector<smt::clause>&, unsigned int)
+     0.38%     0.09%  test-z3  test-z3               [.] smt::theory_lra::push_scope_eh()
+     0.38%     0.00%  test-z3  test-z3               [.] smt::context::internalize_assertions()
+     0.38%     0.00%  test-z3  test-z3               [.] smt::context::simplify_clauses()
+     0.33%     0.33%  test-z3  test-z3               [.] smt::conflict_resolution::unmark_justifications(unsigned int)
+     0.33%     0.05%  test-z3  test-z3               [.] smt::context::internalize_formula_core(app*, bool)
+     0.33%     0.00%  test-z3  test-z3               [.] init_solver_core
+     0.33%     0.00%  test-z3  test-z3               [.] smt::context::internalize_assertion(expr*, app*, unsigned int)
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

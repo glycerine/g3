@@ -124,3 +124,12 @@ slower than the 4.23-second native comparison. The remaining profile identifies
 Boolean propagation/relevance expression-map traffic and Go learned-clause
 scope reconstruction as the next costs. These results establish a measured
 speedup, not a claim that the performance gap is fully closed.
+
+## Follow-up: native CPU profile and relevance batch correction
+
+A native perf recording revealed that C++ defers relevance assignment callbacks
+until BCP and theory case splits complete. Go's immediate callbacks were a
+remaining scheduling divergence; they are now deferred, with ordering, conflict,
+retry, snapshot and scope regressions. The remeasured complete test takes
+**33.59 seconds**. See [the side-by-side CPU comparison](OVERFLOW_PROFILE_COMPARISON.md)
+for measured native/Go phase costs, commands and saved profile summaries.

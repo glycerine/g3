@@ -1,0 +1,42 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 2K of event 'cpu-clock:u'
+# Event count (approx.): 4268537040
+#
+# Overhead  Command  Shared Object         Symbol                                                                                                                                                                                                
+# ........  .......  ....................  ......................................................................................................................................................................................................
+#
+    45.07%  test-z3  test-z3               [.] smt::context::bcp()
+     6.06%  test-z3  test-z3               [.] smt::context::assign_core(sat::literal, smt::b_justification, bool)
+     5.49%  test-z3  test-z3               [.] smt::conflict_resolution::implied_by_marked(sat::literal)
+     5.35%  test-z3  test-z3               [.] smt::conflict_resolution::process_antecedent(sat::literal, unsigned int&)
+     4.84%  test-z3  test-z3               [.] smt::relevancy_propagator_imp::assign_eh(expr*, bool)
+     3.71%  test-z3  test-z3               [.] smt::conflict_resolution::resolve(smt::b_justification, sat::literal)
+     3.00%  test-z3  test-z3               [.] smt::conflict_resolution::process_antecedent_for_minimization(sat::literal)
+     2.86%  test-z3  test-z3               [.] (anonymous namespace)::dact_case_split_queue::activity_increased_eh(unsigned int)
+     1.78%  test-z3  test-z3               [.] smt::context::unassign_vars(unsigned int)
+     1.55%  test-z3  test-z3               [.] (anonymous namespace)::act_case_split_queue::unassign_var_eh(unsigned int)
+     1.50%  test-z3  test-z3               [.] smt::context::find_assignment(expr*) const
+     1.31%  test-z3  test-z3               [.] (anonymous namespace)::act_case_split_queue::next_case_split(unsigned int&, lbool&)
+     1.22%  test-z3  test-z3               [.] smt::context::get_assignment(expr*) const
+     1.08%  test-z3  test-z3               [.] reslimit::inc()
+     0.89%  test-z3  test-z3               [.] smt::relevancy_propagator_imp::propagate()
+     0.80%  test-z3  test-z3               [.] smt::context::resolve_conflict()
+     0.75%  test-z3  test-z3               [.] smt::relevancy_propagator_imp::mark_as_relevant(expr*)
+     0.70%  test-z3  test-z3               [.] smt::conflict_resolution::minimize_lemma()
+     0.66%  test-z3  test-z3               [.] smt::and_relevancy_eh::operator()(smt::relevancy_propagator&)
+     0.66%  test-z3  test-z3               [.] smt::context::relevant_eh(expr*)
+     0.61%  test-z3  test-z3               [.] smt::relevancy_propagator_imp::is_relevant(expr*) const
+     0.56%  test-z3  test-z3               [.] ast_manager::ast_manager(proof_gen_mode, char const*, bool)
+     0.52%  test-z3  test-z3               [.] ast_manager::ast_manager(proof_gen_mode, std::basic_fstream<char, std::char_traits<char> >*, bool)
+     0.47%  test-z3  test-z3               [.] smt::context::propagate()
+     0.38%  test-z3  test-z3               [.] act_cache::dec_refs()
+     0.33%  test-z3  test-z3               [.] smt::conflict_resolution::unmark_justifications(unsigned int)
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

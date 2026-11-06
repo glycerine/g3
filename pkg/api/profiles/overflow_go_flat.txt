@@ -1,0 +1,44 @@
+File: g3-overflow-batched.test
+Build ID: a60564c881046ff607fa0be05aac18b2d1f1f2a8
+Type: cpu
+Time: 2026-11-06 01:20:59 CST
+Duration: 33.59s, Total samples = 38.66s (115.09%)
+Showing nodes accounting for 25.31s, 65.47% of 38.66s total
+Dropped 1018 nodes (cum <= 0.19s)
+Showing top 35 nodes out of 207
+      flat  flat%   sum%        cum   cum%
+     2.33s  6.03%  6.03%      2.34s  6.05%  github.com/glycerine/g3/pkg/smtcore.SMTLiteral.Negated (inline)
+     2.24s  5.79% 11.82%     12.48s 32.28%  github.com/glycerine/g3/pkg/smtcore.(*SMTInternalizerState).Propagate
+     1.99s  5.15% 16.97%      1.99s  5.15%  github.com/glycerine/g3/pkg/smtcore.(*SMTClause).open (inline)
+     1.79s  4.63% 21.60%      1.79s  4.63%  internal/runtime/maps.ctrlGroup.matchH2 (inline)
+     1.30s  3.36% 24.96%      1.30s  3.36%  internal/runtime/maps.memHashAES
+     1.03s  2.66% 27.63%      1.33s  3.44%  github.com/glycerine/g3/pkg/smtcore.(*SMTInternalizerState).clauseIsReason
+        1s  2.59% 30.21%         1s  2.59%  internal/sync.(*Mutex).Unlock (inline)
+     0.97s  2.51% 32.72%      3.08s  7.97%  github.com/glycerine/g3/pkg/smtcore.(*SMTInternalizerState).SetAssignment
+     0.87s  2.25% 34.97%      1.63s  4.22%  runtime.tryDeferToSpanScan
+     0.83s  2.15% 37.12%      0.83s  2.15%  github.com/glycerine/g3/pkg/ast.(*ASTManager).cleanupNodeDeletions
+     0.77s  1.99% 39.11%      1.30s  3.36%  github.com/glycerine/g3/pkg/smtcore.(*SMTInternalizerState).Assignment
+     0.75s  1.94% 41.05%         4s 10.35%  runtime.mapaccess2
+     0.75s  1.94% 42.99%      0.75s  1.94%  runtime.memequal128
+     0.63s  1.63% 44.62%      1.48s  3.83%  github.com/glycerine/g3/pkg/smtcore.(*SMTConflictResolver).minimizeLemma.func1
+     0.63s  1.63% 46.25%      0.63s  1.63%  internal/runtime/maps.(*groupReference).key (inline)
+     0.63s  1.63% 47.88%      0.63s  1.63%  runtime.spanClass.sizeclass (inline)
+     0.62s  1.60% 49.48%      0.64s  1.66%  github.com/glycerine/g3/pkg/smtcore.(*SMTBoolVarData).SetJustification (inline)
+     0.58s  1.50% 50.98%      1.54s  3.98%  runtime.scanObjectsSmall
+     0.50s  1.29% 52.28%      0.50s  1.29%  internal/sync.(*Mutex).Lock (inline)
+     0.49s  1.27% 53.54%      0.49s  1.27%  github.com/glycerine/g3/pkg/smtcore.(*SMTInternalizerState).openOwner (inline)
+     0.45s  1.16% 54.71%      2.92s  7.55%  github.com/glycerine/g3/pkg/smtcore.(*SMTInternalizerState).popTo
+     0.39s  1.01% 55.72%      0.39s  1.01%  runtime.memclrNoHeapPointers
+     0.38s  0.98% 56.70%      1.89s  4.89%  runtime.mapassign
+     0.37s  0.96% 57.66%      0.39s  1.01%  github.com/glycerine/g3/pkg/smtcore.(*SMTWatchList).InsertClause (inline)
+     0.31s   0.8% 58.46%      3.85s  9.96%  github.com/glycerine/g3/pkg/smtcore.(*SMTRelevancyPropagator).assignmentEvent
+     0.30s  0.78% 59.23%      0.30s  0.78%  github.com/glycerine/g3/pkg/smtcore.(*SMTWatchList).Literals (inline)
+     0.29s  0.75% 59.98%      0.29s  0.75%  github.com/glycerine/g3/pkg/smtcore.SMTBooleanJustification.Clause (inline)
+     0.29s  0.75% 60.73%      0.37s  0.96%  runtime.typePointers.next
+     0.28s  0.72% 61.46%      0.48s  1.24%  github.com/glycerine/g3/pkg/ast.(*ASTManager).validNode (inline)
+     0.27s   0.7% 62.16%      0.27s   0.7%  github.com/glycerine/g3/pkg/smtcore.(*SMTBoolVarData).IsENode
+     0.26s  0.67% 62.83%      1.34s  3.47%  github.com/glycerine/g3/pkg/smtcore.(*SMTConflictResolver).resolve.func2
+     0.26s  0.67% 63.50%      1.94s  5.02%  github.com/glycerine/g3/pkg/smtcore.(*SMTRelevancyPropagator).propagateAnd
+     0.26s  0.67% 64.17%      0.26s  0.67%  runtime.futex
+     0.25s  0.65% 64.82%      0.25s  0.65%  github.com/glycerine/g3/pkg/ast.(*ASTManager).nodeAt (inline)
+     0.25s  0.65% 65.47%      0.52s  1.35%  github.com/glycerine/g3/pkg/smtcore.(*SMTConflictResolver).levels
