@@ -503,18 +503,44 @@ func (b *relationExplanationNumeric) FilterInterpreted(condition ast.ASTHandle) 
 	if err := b.open(); err != nil {
 		return err
 	}
-	switch b.kind {
-	case "bound_relation":
-		matched, err := b.bound.FilterInterpreted(b.manager.manager, condition)
+	var before ast.ASTRef
+	if b.checker != nil && (b.kind == "bound_relation" || b.kind == "interval_relation") {
+		var err error
+		if b.kind == "bound_relation" {
+			before, err = b.bound.ToFormula(b.manager.manager, b.sorts)
+		} else {
+			before, err = b.interval.ToFormula(b.manager.manager, b.sorts)
+		}
 		if err != nil {
 			return err
 		}
-		if !matched {
-			return ErrCompilerUnsupported
+		defer b.manager.manager.DelRef(&before)
+	}
+	switch b.kind {
+	case "bound_relation":
+		_, err := b.bound.FilterInterpreted(b.manager.manager, condition)
+		if err != nil {
+			return err
 		}
-		return nil
 	case "interval_relation":
-		return b.interval.FilterInterpreted(b.manager.manager, condition)
+		if err := b.interval.FilterInterpreted(b.manager.manager, condition); err != nil {
+			return err
+		}
+	default:
+		return ErrCompilerUnsupported
+	}
+	if b.checker == nil {
+		return nil
+	}
+	beforeHandle, err := b.manager.manager.RefGet(before)
+	if err != nil {
+		return err
+	}
+	switch b.kind {
+	case "bound_relation":
+		return VerifyBoundRelationFilter(b.manager.manager, b.sorts, *b.checker, beforeHandle, condition, b.bound, false)
+	case "interval_relation":
+		return VerifyIntervalRelationFilter(b.manager.manager, b.sorts, *b.checker, beforeHandle, condition, b.interval, false)
 	default:
 		return ErrCompilerUnsupported
 	}

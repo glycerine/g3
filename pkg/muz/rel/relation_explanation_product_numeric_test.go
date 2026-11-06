@@ -2,6 +2,7 @@ package rel
 
 import (
 	"errors"
+	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -95,4 +96,55 @@ func TestFormulaCheckedNumericRelationFilterIdenticalMatchesSelectedBases(t *tes
 			}
 		})
 	}
+}
+
+func TestNumericRelationInterpretedFilterMatchesSourceWrapper(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	arithmetic, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(arithmetic, 1, nil)
+	astTestMust(t, err)
+	variable, err := f.ast.MkVar(0, integer)
+	astTestMust(t, err)
+	three, err := f.ast.ArithmeticIntegerNumeralText("3")
+	astTestMust(t, err)
+	astTestPin(t, f.ast, three)
+	condition, err := f.ast.MkArithmeticLT(variable, three)
+	astTestMust(t, err)
+	astTestPin(t, f.ast, condition)
+
+	t.Run("interval applies and checks supported unary comparison", func(t *testing.T) {
+		numeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer}, kind: "interval_relation",
+			interval: NewIntervalFull(1), checker: &config,
+		}
+		astTestMust(t, numeric.FilterInterpreted(condition))
+		lower, _, upper, upperOpen, err := numeric.interval.Bounds(0)
+		astTestMust(t, err)
+		if lower != nil || upper == nil || upper.Cmp(big.NewRat(2, 1)) != 0 || upperOpen {
+			t.Fatal("interval strict upper bound", lower, upper, upperOpen)
+		}
+	})
+
+	t.Run("bound unsupported comparison is a source no-op", func(t *testing.T) {
+		numeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer}, kind: "bound_relation",
+			bound: NewBoundRelation(1, false),
+		}
+		astTestMust(t, numeric.FilterInterpreted(condition))
+		if numeric.bound.Empty() {
+			t.Fatal("unsupported bound filter changed the full relation")
+		}
+	})
+
+	t.Run("checked bound no-op is rejected", func(t *testing.T) {
+		numeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer}, kind: "bound_relation",
+			bound: NewBoundRelation(1, false), checker: &config,
+		}
+		if err := numeric.FilterInterpreted(condition); !errors.Is(err, ErrRelationVerification) {
+			t.Fatalf("checked unsupported bound filter was not detected: %v", err)
+		}
+	})
 }
