@@ -287,8 +287,10 @@ both backings; the checker is attached after each concrete transform, matching
 C++'s transform-then-wrap order. Numeric union checks the destination against
 the old formula OR source formula. Delta union also checks coverage of newly
 added tuples and the previous delta, plus the source no-overflow equality.
-Positive bound and interval cases and a rejected dropped-delta case are
-covered; selected numeric wrapper construction and the remaining checked
+Checked numeric joins now also build the concrete join before attaching the
+checker and verify the result formula for both backings. Positive bound and
+interval join cases, positive delta cases, and a rejected dropped-delta case
+are covered; selected numeric wrapper construction and the remaining checked
 operations still need source-matrix coverage.
 
 **Operation matrix (partial).** “Matched” means the implementation and a

@@ -359,6 +359,53 @@ func TestFormulaCheckedNumericRelationUnionDeltaMatchesSource(t *testing.T) {
 	})
 }
 
+func TestFormulaCheckedNumericRelationJoinMatchesSource(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	arithmetic, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(arithmetic, 1, nil)
+	astTestMust(t, err)
+
+	t.Run("bound left constraint joins full right relation", func(t *testing.T) {
+		left := NewBoundRelation(2, false)
+		astTestMust(t, left.AddLess(0, 1))
+		right := NewBoundRelation(1, false)
+		leftNumeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer, integer}, kind: "bound_relation",
+			bound: left, checker: &config,
+		}
+		rightNumeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer}, kind: "bound_relation", bound: right,
+		}
+		joined, err := leftNumeric.Join(rightNumeric, []uint32{1}, []uint32{0})
+		astTestMust(t, err)
+		defer joined.Close()
+		if joined.checker != &config || len(joined.bound.columns) != 3 {
+			t.Fatal("checked bound join lost checker or result signature")
+		}
+	})
+
+	t.Run("interval point joins full right relation", func(t *testing.T) {
+		left := NewIntervalFull(2)
+		astTestMust(t, left.FilterEqual(1, big.NewRat(3, 1)))
+		right := NewIntervalFull(1)
+		leftNumeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer, integer}, kind: "interval_relation",
+			interval: left, checker: &config,
+		}
+		rightNumeric := &relationExplanationNumeric{
+			manager: f.relations, sorts: []ast.ASTHandle{integer}, kind: "interval_relation", interval: right,
+		}
+		joined, err := leftNumeric.Join(rightNumeric, []uint32{1}, []uint32{0})
+		astTestMust(t, err)
+		defer joined.Close()
+		if joined.checker != &config || len(joined.interval.values.columns) != 3 {
+			t.Fatal("checked interval join lost checker or result signature")
+		}
+	})
+}
+
 func TestRelationUnionDeltaCheckerRejectsDroppedPreviousDelta(t *testing.T) {
 	f := newTableRelationFixture(t)
 	config := formulaCheckerConfig(t, f.ast)

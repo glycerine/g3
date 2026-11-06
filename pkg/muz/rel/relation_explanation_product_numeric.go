@@ -233,7 +233,12 @@ func (b *relationExplanationNumeric) Join(other *relationExplanationNumeric, lef
 		return nil, ErrTableRelation
 	}
 	sorts := append(append([]ast.ASTHandle(nil), b.sorts...), other.sorts...)
-	out, err := newRelationExplanationNumeric(b.manager, sorts, b.kind, b.checker)
+	checker := b.checker
+	if b.checker != nil && (b.kind == "bound_relation" || b.kind == "interval_relation") {
+		// C++ joins the concrete backings before constructing the checked result.
+		checker = nil
+	}
+	out, err := newRelationExplanationNumeric(b.manager, sorts, b.kind, checker)
 	if err != nil {
 		return nil, err
 	}
@@ -258,6 +263,9 @@ func (b *relationExplanationNumeric) Join(other *relationExplanationNumeric, lef
 	if err != nil {
 		out.Close()
 		return nil, err
+	}
+	if b.checker != nil && (b.kind == "bound_relation" || b.kind == "interval_relation") {
+		out.checker = b.checker
 	}
 	return out, nil
 }
