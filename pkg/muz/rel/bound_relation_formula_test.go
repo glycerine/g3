@@ -38,4 +38,12 @@ func TestBoundRelationToFormula(t *testing.T) {
 	if !m.IsTrue(h) {
 		t.Fatal("empty conjunction must be true")
 	}
+	emptyFormula, err := NewBoundRelation(2, true).ToFormula(m, []ast.ASTHandle{integer, integer})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, m.DelRef(&emptyFormula)) }()
+	emptyHandle, err := m.RefGet(emptyFormula)
+	astTestMust(t, err)
+	if !m.IsTrue(emptyHandle) {
+		t.Fatal("source empty flag must not alter the reset bound payload formula")
+	}
 }

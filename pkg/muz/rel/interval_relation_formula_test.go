@@ -39,4 +39,12 @@ func TestIntervalRelationToFormula(t *testing.T) {
 	if !m.IsTrue(h) {
 		t.Fatal("full interval should produce true")
 	}
+	emptyFormula, err := NewIntervalEmpty(1).ToFormula(m, []ast.ASTHandle{real})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, m.DelRef(&emptyFormula)) }()
+	emptyHandle, err := m.RefGet(emptyFormula)
+	astTestMust(t, err)
+	if !m.IsTrue(emptyHandle) {
+		t.Fatal("source empty flag must not alter the reset interval payload formula")
+	}
 }

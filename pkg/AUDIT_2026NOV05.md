@@ -245,6 +245,9 @@ is unbounded can therefore report a numeric tuple as contained. Go's
 rational-tuple `ContainsFact` used to reject all empty relations before reading
 that payload. It now matches the source, with unary and nullary regression
 coverage alongside the existing AST-valued membership test.
+The same payload distinction is now asserted for formula export: both plugins
+produce `true` from an empty relation's reset, unconstrained columns, matching
+the C++ `to_formula` methods that do not branch on `m_empty`.
 
 **Operation matrix (partial).** “Matched” means the implementation and a
 focused Go test currently agree with the read C++ branch; it does not imply
