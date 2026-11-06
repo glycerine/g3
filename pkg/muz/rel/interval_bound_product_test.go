@@ -2,6 +2,7 @@ package rel
 
 import (
 	"math/big"
+	"reflect"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -89,6 +90,27 @@ func TestIntervalBoundProductUnionAndDelta(t *testing.T) {
 	}
 	if _, err = target.Union(NewIntervalBoundProduct(2, false), nil, false); err == nil {
 		t.Fatal("mismatched arity accepted")
+	}
+}
+
+func TestIntervalBoundProductSkipsOneWayCrossUnion(t *testing.T) {
+	makeProduct := func() *IntervalBoundProduct {
+		p := NewIntervalBoundProduct(2, false)
+		astTestMust(t, p.bound.AddLess(0, 1))
+		astTestMust(t, p.interval.FilterEqual(0, big.NewRat(0, 1)))
+		astTestMust(t, p.interval.FilterEqual(1, big.NewRat(0, 1)))
+		return p
+	}
+	target, source := makeProduct(), makeProduct()
+	changed, err := target.Union(source, nil, false)
+	astTestMust(t, err)
+	if changed {
+		t.Fatal("union of identical product components changed the target")
+	}
+	strict, weak, err := target.bound.Bounds(0)
+	astTestMust(t, err)
+	if !reflect.DeepEqual(strict, []uint32{1}) || len(weak) != 0 {
+		t.Fatalf("product applied unsupported one-way interval-to-bound cross union: lt=%v le=%v", strict, weak)
 	}
 }
 

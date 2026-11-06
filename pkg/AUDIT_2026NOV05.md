@@ -320,7 +320,7 @@ the full operation has exhaustive edge-case coverage.
 | Projection | Sentinel mapping and empty-source behavior matched | Empty-source behavior matched | Bound removed-column edges map to `UINT_MAX`; C++ generic transform drops the empty flag. Native C++ interval regression and Go relation tests cover empty source; fixedpoint product tests cover resulting filter/guard/head-assembly order. |
 | Rename | Empty-source behavior matched | Empty-source behavior matched | C++ generic transform copies reset payload and does not propagate the empty flag; Go relation tests and affected fixedpoint tests cover the behavior. |
 | Union/delta/widen | Matched for covered cases | Matched for covered cases | Bound union from interval covers endpoint openness and equality representative payloads; interval tests cover all equal-endpoint openness pairs, hull, widening, delta state, and pruning. Other union boundaries remain to audit. |
-| Plugin/cross-plugin dispatch | Partial | Partial | Bound-from-interval union and numeric explanation proof-column separation are covered. Both plugins accept numeric signatures, but `check_relation::mk_empty` rejects their reset full-payload formula against false; the Go selected-wrapper regression matches this source failure. Other consumer combinations remain open. |
+| Plugin/cross-plugin dispatch | Partial | Partial | Bound-from-interval union and numeric explanation proof-column separation are covered. `TestIntervalBoundProductSkipsOneWayCrossUnion` covers C++ `aligned_union_fn`'s requirement that both plugin directions support a cross-union before applying either direction. Both plugins accept numeric signatures, but `check_relation::mk_empty` rejects their reset full-payload formula against false; Go matches this source failure. Other consumer combinations remain open. |
 
 The numeric proof-column test confirms `explanationPredicateSignature` removes
 the trailing rule sort before selected numeric backing construction and gives
@@ -354,6 +354,14 @@ suite `go test ./pkg/muz/fp -run '(BoundInterval|IntervalDatalog)' -short
 `dl_relation` smoke test does not exercise this exact empty-source
 cross-plugin case. It also does not revive an empty bound target because
 `mk_union_i` modifies payloads only and never changes the target empty flag.
+
+`TestIntervalBoundProductSkipsOneWayCrossUnion` and the short relation and
+fixedpoint suites passed. This follows `product_relation.cpp`'s explicit
+two-direction capability gate before applying a cross-component union
+([`dl_product_relation.cpp`](../src/muz/rel/dl_product_relation.cpp#L664)). The
+native `dl_product_relation` test also passes, but its current cases exercise
+finite products only; the numeric cross-plugin case is verified against the
+C++ dispatch source rather than claimed as a native runtime control.
 
 ### `karr_relation`
 
