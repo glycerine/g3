@@ -336,6 +336,23 @@ The cited implementation branches are in
 [`dl_bound_relation.cpp`](../src/muz/rel/dl_bound_relation.cpp#L32), and
 [`dl_interval_relation.cpp`](../src/muz/rel/dl_interval_relation.cpp#L37).
 
+**Native C++ positive control.** Ran the source test `./build/test-z3
+dl_relation` from the current C++ Z3 checkout; it passed. The matching Go
+relation suite, `go test ./pkg/muz/rel -short -count=1 -timeout=0`, also
+passed. This confirms the checked-in C++ relation smoke test still passes
+alongside the broader Go regressions; it is a baseline control, not proof of
+the remaining uncovered matrix cases.
+
+`TestBoundRelationUnionFromEmptyIntervalUsesResetPayload` now covers a
+source-specific cross-plugin boundary from `bound_relation::mk_union_i`:
+the C++ routine does not branch on the interval source's empty flag and reads
+its reset unbounded payload, clearing target bounds. The focused Go regression
+and the full short `pkg/muz/rel` suite passed; the related focused fixedpoint
+suite `go test ./pkg/muz/fp -run '(BoundInterval|IntervalDatalog)' -short
+-count=1 -timeout=0` passed. The C++ branch itself was inspected; the native
+`dl_relation` smoke test does not exercise this exact empty-source
+cross-plugin case.
+
 ### `karr_relation`
 
 The Karr port is considered complete based on the existing Go implementation
