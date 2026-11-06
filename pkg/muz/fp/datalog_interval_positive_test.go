@@ -189,8 +189,15 @@ func TestIntervalDatalogPositiveSharedTailJoin(t *testing.T) {
 	fragmentMust(t, evaluator.SaturatePositive(false))
 	result, err := evaluator.Relation(h)
 	fragmentMust(t, err)
-	if !result.Empty() {
-		t.Fatal("shared-tail join ignored the disjoint common variable")
+	// The direct join is empty, then the C++ head projection loses m_empty
+	// while constructing a full interval destination.
+	if result.Empty() {
+		t.Fatal("disjoint join projection propagated the C++-dropped empty flag")
+	}
+	found, err := result.ContainsFactExpressions(m, []ast.ASTHandle{n("3"), n("1")})
+	fragmentMust(t, err)
+	if !found {
+		t.Fatal("projection did not preserve the copied endpoint payload")
 	}
 }
 

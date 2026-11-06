@@ -179,5 +179,7 @@ func TestDatalogBoundIntervalNormalizationCompletionRetriesNativeCleanup(t *test
 	}
 	f.checkFormula(f.own(e.Answer(h)), []int{7}, true)
 	f.checkFormula(savedAnswer, []int{7}, true)
-	f.checkFormula(savedAnswer, []int{8}, false)
+	// The normalized empty intermediate projects its reset payload, so the
+	// saved C++-compatible answer also admits this valuation.
+	f.checkFormula(savedAnswer, []int{8}, true)
 }

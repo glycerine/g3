@@ -222,8 +222,10 @@ func TestBoundIntervalDatalogTwoPositiveDisjointAndThreeTailBoundary(t *testing.
 	must(e.AddRule(rule, "bound-interval-two-tail-disjoint"))
 	status, err := activation.query([]ast.ASTHandle{r})
 	must(err)
-	if status != lbool.False || activation.evaluated[r] == nil || !activation.evaluated[r].Empty() {
-		t.Fatal("disjoint two-tail join was not empty", status)
+	// The join itself is empty, but C++ mk_project rebuilds a full result
+	// without carrying the empty flag through head-column projection.
+	if status != lbool.Undef || activation.evaluated[r] == nil || activation.evaluated[r].Empty() {
+		t.Fatal("disjoint join projection did not match C++ behavior", status)
 	}
 	threeBody, err := m.MkAnd3(app(p), app(q), app(r))
 	must(err)

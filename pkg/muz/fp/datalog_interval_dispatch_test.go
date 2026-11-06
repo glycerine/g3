@@ -94,8 +94,11 @@ func TestDatalogConfiguredIntervalFactsLatePredicatesAndExpressionOwners(t *test
 	must(err)
 	status, err = e.QueryExpression(absent)
 	must(err)
-	if status != lbool.False {
-		t.Fatal("interval contradiction did not prove empty", status)
+	// C++ interval projection rebuilds a full destination without preserving
+	// m_empty, so this ground query becomes unknown after projecting its empty
+	// intermediate relation.
+	if status != lbool.Undef {
+		t.Fatal("empty-source projection did not match C++ interval behavior", status)
 	}
 }
 

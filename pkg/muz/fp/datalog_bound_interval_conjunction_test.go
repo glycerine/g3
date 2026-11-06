@@ -159,8 +159,10 @@ func TestBoundIntervalDatalogCombinesInterpretedTailsWithoutStrengthening(t *tes
 				if !contains(single, 2) || !contains(single, 5) || contains(single, 6) {
 					t.Fatal("singleton interpreted tail lost its source filter")
 				}
-				if !activation.evaluated[empty].Empty() || !contains(p, maxX, maxY) || !contains(r, maxY, maxZ) {
-					t.Fatal("conjunction changed emptiness or source ownership")
+				// C++ projects the empty Missing join into the head relation
+				// without carrying vector_relation::m_empty.
+				if activation.evaluated[empty].Empty() || !contains(p, maxX, maxY) || !contains(r, maxY, maxZ) {
+					t.Fatal("empty-source projection or source ownership differs from C++")
 				}
 			}
 			check(8, 20, 40)

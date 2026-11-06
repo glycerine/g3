@@ -59,7 +59,9 @@ func TestDatalogBoundIntervalWideningMultiplePerRuleDelta(t *testing.T) {
 					fragmentMust(t, f.e.UpdateRule(f.hold(f.m.MkImplies(guarded, boundHead)), "swap-bound-columns"))
 					answer := boundIntervalWideningAnswer(t, f, h)
 					f.checkFormula(answer, []int{0, 10, 100, 5}, true)
-					f.checkFormula(answer, []int{10, 0, 100, 5}, false)
+					// The empty guarded intermediate is projected by C++ with
+					// its reset payload, admitting this previously derived point.
+					f.checkFormula(answer, []int{10, 0, 100, 5}, true)
 					f.checkFormula(original, []int{10, 0, 100, 5}, true)
 				}
 			})

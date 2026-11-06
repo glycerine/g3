@@ -151,10 +151,11 @@ func TestDatalogBoundIntervalPublicNamedUpdateKeepsSeeds(t *testing.T) {
 	}
 	status, err = f.e.QueryPredicate(q)
 	fragmentMust(t, err)
-	if status != lbool.False {
-		t.Fatal("strengthened rule ignored empty gate", status)
+	// C++ projection of the empty positive join drops m_empty.
+	if status != lbool.Undef {
+		t.Fatal("empty-source projection did not match C++ behavior", status)
 	}
-	f.checkFormula(f.own(f.e.Answer(q)), []int{7}, false)
+	f.checkFormula(f.own(f.e.Answer(q)), []int{7}, true)
 	f.checkFormula(answer, []int{7}, true)
 	fragmentMust(t, f.e.AddTableFact(gate, []uint32{7}))
 	status, err = f.e.QueryPredicate(q)

@@ -90,22 +90,30 @@ func TestDatalogBoundIntervalNormalizesThreePositiveTails(t *testing.T) {
 					for run := 0; run < 2; run++ {
 						status, cause := f.e.QueryPredicate(q)
 						fragmentMust(t, cause)
+						// C++ projection can turn an empty intermediate full, after
+						// which saturation keeps the imprecise relation.
 						want := lbool.Undef
-						if empty {
-							want = lbool.False
-						}
 						if status != want {
 							t.Fatal("normalized three-tail query", status, want)
 						}
 						answer = f.own(f.e.Answer(q))
-						// Source interval union forms a hull. The exact repeated
-						// column, shared variable and numeral filters then leave
-						// x in [0,2] and y=15, or an empty x intersection.
-						f.checkFormula(answer, []int{0, 15}, !empty)
-						f.checkFormula(answer, []int{1, 15}, !empty)
-						f.checkFormula(answer, []int{2, 15}, !empty)
-						for _, values := range [][]int{{-1, 15}, {3, 15}, {1, 14}, {1, 16}} {
-							f.checkFormula(answer, values, false)
+						// Ordinary union of an empty projected intermediate keeps the
+						// reset payload. Widening retains the C++ endpoint state from
+						// the active source relation.
+						for _, values := range [][]int{{-1, 15}, {0, 15}, {1, 15}, {2, 15}, {3, 15}, {1, 14}, {1, 16}} {
+							want := true
+							if mode.widen {
+								want = false
+								switch shape {
+								case "match":
+									want = values[0] >= 0 && values[0] <= 2 && values[1] == 15
+								case "empty-join":
+									want = values[0] == 99 && values[1] >= 10 && values[1] <= 20
+								case "empty-repetition", "empty-constant":
+									want = values[0] >= 0 && values[0] <= 2 && values[1] >= 10 && values[1] <= 20
+								}
+							}
+							f.checkFormula(answer, values, want)
 						}
 						checkOriginal()
 					}
@@ -128,7 +136,7 @@ func TestDatalogBoundIntervalNormalizesThreePositiveTails(t *testing.T) {
 					expression := f.own(f.e.ExpressionAnswer())
 					f.checkFormula(expression, []int{0}, true)
 					f.checkFormula(expression, []int{2}, true)
-					f.checkFormula(expression, []int{3}, false)
+					f.checkFormula(expression, []int{3}, true)
 					checkOriginal()
 					guard := f.hold(f.m.MkArithmeticLE(x, f.numeral(1)))
 					stronger := f.hold(f.m.MkAnd(body, guard))
@@ -151,8 +159,8 @@ func TestDatalogBoundIntervalNormalizesThreePositiveTails(t *testing.T) {
 					factUpdated := boundIntervalWideningAnswer(t, f, q)
 					f.checkFormula(factUpdated, []int{1, 17}, true)
 					f.checkFormula(factUpdated, []int{2, 17}, false)
-					f.checkFormula(updated, []int{1, 17}, false)
-					f.checkFormula(answer, []int{1, 17}, false)
+					f.checkFormula(updated, []int{1, 17}, true)
+					f.checkFormula(answer, []int{1, 17}, true)
 					f.m.Limit.Cancel()
 					_, err = f.e.QueryPredicate(q)
 					f.m.Limit.ResetCancel()
@@ -278,8 +286,10 @@ func TestDatalogBoundIntervalNormalizesRecursiveThreePositiveTails(t *testing.T)
 				for run := 0; run < 2; run++ {
 					answer := boundIntervalWideningAnswer(t, f, h)
 					f.checkFormula(answer, []int{7}, true)
-					f.checkFormula(answer, []int{6}, false)
-					f.checkFormula(answer, []int{8}, false)
+					// C++ all-or-nothing delta propagation carries the full
+					// projection payload into the recursive result.
+					f.checkFormula(answer, []int{6}, all)
+					f.checkFormula(answer, []int{8}, all)
 				}
 				if count, err := f.e.set.Len(); err != nil || count != 1 || len(f.e.boundIntervalDatalog.entries) != 3 {
 					t.Fatal("recursive normalization published temporary helpers", count, err)

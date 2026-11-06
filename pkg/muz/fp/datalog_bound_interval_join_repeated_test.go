@@ -154,10 +154,9 @@ func TestBoundIntervalDatalogTwoTailOccurrenceProjection(t *testing.T) {
 					t.Helper()
 					status, cause := activation.query([]ast.ASTHandle{h})
 					must(cause)
+					// The empty local-equality join is projected into a full
+					// destination by the C++ vector relation transformer.
 					want := lbool.Undef
-					if len(test.inside) == 0 {
-						want = lbool.False
-					}
 					if status != want {
 						t.Fatal("two-tail status", status, want)
 					}

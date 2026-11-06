@@ -98,8 +98,21 @@ func TestIntervalDatalogActivationLifecycleAndZeroArityQuery(t *testing.T) {
 	}
 	status, err = activation.query([]ast.ASTHandle{p, query}, true)
 	fragmentMust(t, err)
-	if status != lbool.False {
-		t.Fatal("reset activation did not produce empty relations", status)
+	// The source vector_relation projection constructs a full destination and
+	// does not copy m_empty. The empty unary predicate therefore becomes a
+	// full nullary relation when the query rule projects away its argument.
+	if status != lbool.Undef {
+		t.Fatal("empty-source projection did not match C++ interval behavior", status)
+	}
+	resetPredicate, err := activation.relation(p)
+	fragmentMust(t, err)
+	if !resetPredicate.Empty() {
+		t.Fatal("reset changed the original predicate seed")
+	}
+	projectedQuery, err := activation.relation(query)
+	fragmentMust(t, err)
+	if projectedQuery.Empty() || !projectedQuery.IsFull() {
+		t.Fatal("empty nullary projection did not become full", projectedQuery.Empty(), projectedQuery.IsFull())
 	}
 }
 

@@ -41,7 +41,7 @@ func TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates(t *testing.T) {
 			q, reordered := declare("Q", 1), declare("Reordered", 3)
 			guarded, empty, wrongConstant := declare("Guarded", 4), declare("Empty", 1), declare("WrongConstant", 1)
 			guardedProjected, guardedConstant := declare("GuardedProjected", 3), declare("GuardedConstant", 3)
-			coarseProjected := declare("CoarseProjected", 2)
+			coarseProjected, repeatedValid := declare("CoarseProjected", 2), declare("RepeatedValid", 1)
 			activation, selected, err := newBoundIntervalDatalogActivation(m, e.set, predicates)
 			must(err)
 			if !selected {
@@ -136,8 +136,10 @@ func TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates(t *testing.T) {
 				if !contains(coarseProjected, 3, maxX) || contains(coarseProjected, 4, 3) {
 					t.Fatal("fused projection did not preserve source clone coarsening and last-occurrence binding")
 				}
-				if !activation.evaluated[empty].Empty() || !activation.evaluated[wrongConstant].Empty() {
-					t.Fatal("disjoint repetitions or nonmatching constant did not produce empty output")
+				// Projection of each empty intermediate copies the C++ reset
+				// payload into a nonempty head relation.
+				if activation.evaluated[empty].Empty() || activation.evaluated[wrongConstant].Empty() {
+					t.Fatal("empty-source projections did not match C++ behavior")
 				}
 				if !activation.entries[p].seed.ContainsFact(values(1, 6)) || !activation.entries[mixed].seed.ContainsFact(values(1, 7, 6, 30, 5)) {
 					t.Fatal("repeated-tail filtering mutated source hulls")
@@ -154,11 +156,11 @@ func TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates(t *testing.T) {
 
 			body, err := m.MkAnd(app(p, x, x), app(q, x))
 			must(err)
-			addRule(app(empty, x), body, "repeated two-tail shared variable")
-			if status, cause := activation.query([]ast.ASTHandle{empty}); cause != nil || status != lbool.Undef {
+			addRule(app(repeatedValid, x), body, "repeated two-tail shared variable")
+			if status, cause := activation.query([]ast.ASTHandle{repeatedValid}); cause != nil || status != lbool.Undef {
 				t.Fatal("repeated two-tail query failed", status, cause)
 			}
-			if !contains(empty, 3) || !contains(empty, 6) || contains(empty, 2) || contains(empty, 7) {
+			if !contains(repeatedValid, 3) || !contains(repeatedValid, 6) || contains(repeatedValid, 2) || contains(repeatedValid, 7) {
 				t.Fatal("repeated two-tail join did not intersect all shared occurrences")
 			}
 		})

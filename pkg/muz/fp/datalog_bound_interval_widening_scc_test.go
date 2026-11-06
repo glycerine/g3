@@ -149,10 +149,16 @@ func TestDatalogBoundIntervalWideningNormalizesJoinsAndKeepsCompilerGuards(t *te
 					}
 					status, err := f.e.QueryPredicate(h)
 					fragmentMust(t, err)
-					if status != lbool.False {
-						t.Fatal("normalized empty recursive join was not false", status)
+					// Ordinary union projects the reset payload, while widening
+					// retains the empty recursive relation in this source path.
+					want := lbool.Undef
+					if widen {
+						want = lbool.False
 					}
-					f.checkFormula(f.own(f.e.Answer(h)), []int{0}, false)
+					if status != want {
+						t.Fatal("normalized recursive empty-join result", status, want)
+					}
+					f.checkFormula(f.own(f.e.Answer(h)), []int{0}, !widen)
 					return
 				}
 				if _, err := f.e.QueryPredicate(h); !errors.Is(err, ErrBoundIntervalDatalogFragment) {

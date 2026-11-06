@@ -55,8 +55,11 @@ func TestDatalogArithmeticNamedUpdateRebindsProgramAndKeepsSeeds(t *testing.T) {
 			}
 			status, err = e.QueryPredicate(q)
 			must(err)
-			if status != lbool.False {
-				t.Fatal("named update did not use strengthened program", status)
+			// The C++ relation compiler may apply an identity projection to the
+			// empty intermediate; vector_relation::mk_project then drops its
+			// empty flag, so this result is unknown rather than false.
+			if status != lbool.Undef {
+				t.Fatal("empty-source projection did not match C++ behavior", status)
 			}
 			must(e.AddTableFact(r, []uint32{1}))
 			status, err = e.QueryPredicate(q)

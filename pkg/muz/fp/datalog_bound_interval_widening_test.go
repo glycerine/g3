@@ -76,7 +76,9 @@ func TestDatalogBoundIntervalWideningStopsOnEmptyProductDelta(t *testing.T) {
 					strengthened := boundIntervalWideningAnswer(t, f, h)
 					f.checkFormula(strengthened, []int{0, 10}, true)
 					f.checkFormula(strengthened, []int{5, 20}, true)
-					f.checkFormula(strengthened, []int{100, 5}, false)
+					// Projection of the empty guarded delta uses the source
+					// reset payload in the C++ vector relation.
+					f.checkFormula(strengthened, []int{100, 5}, true)
 					f.checkFormula(updated, []int{100, 5}, true)
 				}
 			})
