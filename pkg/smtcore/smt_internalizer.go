@@ -1038,11 +1038,11 @@ func (s *SMTInternalizerState) internalizeTermITE(expression ast.ASTHandle) erro
 	if err != nil {
 		return err
 	}
-	thenEquality, err := s.manager.MkEq(expression, thenTerm)
+	thenEquality, err := s.mkEqualityAtom(expression, thenTerm) // mk_eq_atom(n, t)
 	if err != nil {
 		return err
 	}
-	elseEquality, err := s.manager.MkEq(expression, elseTerm)
+	elseEquality, err := s.mkEqualityAtom(expression, elseTerm) // mk_eq_atom(n, e)
 	if err != nil {
 		return err
 	}

@@ -338,9 +338,11 @@ func TestSMTInternalizerTermITEEqualityClausesAndRelevancy(t *testing.T) {
 	if context.enodes.get(term) == nil || context.enodes.get(thenTerm) == nil || context.enodes.get(elseTerm) == nil || len(state.Clauses()) != 2 {
 		t.Fatal("term ITE enodes or clauses", context.enodes.count(), state.Clauses())
 	}
-	thenEquality, err := m.MkEq(term, thenTerm)
+	// internalize_ite_term builds mk_eq_atom(n, t) and mk_eq_atom(n, e):
+	// for an uninterpreted sort, operands in AST-id order.
+	thenEquality, err := state.mkEqualityAtom(term, thenTerm)
 	astTestMust(t, err)
-	elseEquality, err := m.MkEq(term, elseTerm)
+	elseEquality, err := state.mkEqualityAtom(term, elseTerm)
 	astTestMust(t, err)
 	for _, equality := range []ast.ASTHandle{thenEquality, elseEquality} {
 		variable, found := state.BoolVar(equality)
