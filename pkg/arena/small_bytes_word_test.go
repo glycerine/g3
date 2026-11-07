@@ -103,3 +103,31 @@ func TestSmallBytesWordReadsDoNotAllocate(t *testing.T) {
 		t.Fatalf("%v allocations", allocs)
 	}
 }
+
+func TestSmallBytesBorrowSeesTheBlockInPlace(t *testing.T) {
+	store := newSmallTest(t, 80, nil)
+	ref := smallAlloc(t, store, 16)
+	if err := store.WriteUint32LE(ref, 4, 0xAABBCCDD); err != nil {
+		t.Fatal(err)
+	}
+	data, err := store.Borrow(ref)
+	if err != nil || len(data) != 16 || cap(data) != 16 {
+		t.Fatal("borrow", len(data), cap(data), err)
+	}
+	if data[4] != 0xDD || data[7] != 0xAA {
+		t.Fatal("borrow does not read the block", data)
+	}
+	data[8] = 0x11
+	if got, err := store.Read(ref, 8); err != nil || got != 0x11 {
+		t.Fatal("borrow does not write the block", got, err)
+	}
+	if empty, err := store.Borrow(SmallBytesRef{}); err != nil || empty != nil {
+		t.Fatal("null reference", empty, err)
+	}
+	if err = store.Deallocate(16, ref); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Borrow(ref); err != ErrInvalidSlot {
+		t.Fatal("stale borrow", err)
+	}
+}

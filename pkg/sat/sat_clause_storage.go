@@ -4,6 +4,7 @@ package sat
 // Concrete standalone storage translation of sat_clause.h/.cpp.
 
 import (
+	"encoding/binary"
 	"errors"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"reflect"
@@ -137,6 +138,7 @@ func (a *ClauseAllocator) validate(r StoredClauseRef) error {
 	return nil
 }
 func (a *ClauseAllocator) IsLive(r StoredClauseRef) bool { return a.validate(r) == nil }
+
 // readWord and writeWord check the owner and let the arena validate the small
 // clause's descriptor once; propagation calls them for every literal visited.
 func (a *ClauseAllocator) readWord(r StoredClauseRef, i uint64) (uint32, error) {
@@ -176,6 +178,49 @@ func (a *ClauseAllocator) writeWordChecked(r StoredClauseRef, i uint64, v uint32
 	a.large[r.slot].data[i] = v
 	return nil
 }
+
+// Flag bits in clause word 4.
+const (
+	satClauseFlagRemoved uint32 = 2
+	satClauseFlagUsed    uint32 = 8
+)
+
+// satClauseView is one validated clause's words for the duration of one
+// propagation visit. Clause storage does not move while propagation runs.
+type satClauseView struct {
+	small []byte
+	large []uint32
+}
+
+func (a *ClauseAllocator) view(r StoredClauseRef) (satClauseView, error) {
+	if r.storageKind == 0 && r.slot != 0 && a != nil && !a.closed && r.owner == a.origin && a.self == a {
+		data, e := a.storage.Borrow(arena.SmallBytesRef{Slot: arena.Slot(r.slot), Generation: arena.Generation(r.generation)})
+		return satClauseView{small: data}, e
+	}
+	if e := a.validate(r); e != nil {
+		return satClauseView{}, e
+	}
+	return satClauseView{large: a.large[r.slot].data}, nil
+}
+func (v satClauseView) word(i uint32) uint32 {
+	if v.small != nil {
+		return binary.LittleEndian.Uint32(v.small[i*4:])
+	}
+	return v.large[i]
+}
+func (v satClauseView) setWord(i, value uint32) {
+	if v.small != nil {
+		binary.LittleEndian.PutUint32(v.small[i*4:], value)
+		return
+	}
+	v.large[i] = value
+}
+func (v satClauseView) size() uint32                   { return v.word(1) }
+func (v satClauseView) literal(i uint32) Literal       { return Literal(v.word(5 + i)) }
+func (v satClauseView) setLiteral(i uint32, l Literal) { v.setWord(5+i, uint32(l)) }
+func (v satClauseView) flag(mask uint32) bool          { return v.word(4)&mask != 0 }
+func (v satClauseView) setFlag(mask uint32)            { v.setWord(4, v.word(4)|mask) }
+
 func (a *ClauseAllocator) allocate(n uint32) (StoredClauseRef, error) {
 	bytes, _ := satClauseObjectBytes(n)
 	if e := satClauseHostExtent(bytes, uint64(^uint(0)>>1)); e != nil {
@@ -359,16 +404,20 @@ func (a *ClauseAllocator) setFlag(r StoredClauseRef, mask uint32, v bool) error 
 	}
 	return a.writeWord(r, 4, old)
 }
-func (a *ClauseAllocator) Learned(r StoredClauseRef) (bool, error)       { return a.flag(r, 4) }
-func (a *ClauseAllocator) Strengthened(r StoredClauseRef) (bool, error)  { return a.flag(r, 1) }
-func (a *ClauseAllocator) Removed(r StoredClauseRef) (bool, error)       { return a.flag(r, 2) }
+func (a *ClauseAllocator) Learned(r StoredClauseRef) (bool, error)      { return a.flag(r, 4) }
+func (a *ClauseAllocator) Strengthened(r StoredClauseRef) (bool, error) { return a.flag(r, 1) }
+func (a *ClauseAllocator) Removed(r StoredClauseRef) (bool, error) {
+	return a.flag(r, satClauseFlagRemoved)
+}
 func (a *ClauseAllocator) Used(r StoredClauseRef) (bool, error)          { return a.flag(r, 8) }
 func (a *ClauseAllocator) Frozen(r StoredClauseRef) (bool, error)        { return a.flag(r, 16) }
 func (a *ClauseAllocator) OnReinitStack(r StoredClauseRef) (bool, error) { return a.flag(r, 32) }
 func (a *ClauseAllocator) SetRemoved(r StoredClauseRef, b bool) error {
 	return a.setFlag(r, 2, b)
 }
-func (a *ClauseAllocator) MarkUsed(r StoredClauseRef) error   { return a.setFlag(r, 8, true) }
+func (a *ClauseAllocator) MarkUsed(r StoredClauseRef) error {
+	return a.setFlag(r, satClauseFlagUsed, true)
+}
 func (a *ClauseAllocator) UnmarkUsed(r StoredClauseRef) error { return a.setFlag(r, 8, false) }
 func (a *ClauseAllocator) SetReinitStack(r StoredClauseRef, b bool) error {
 	return a.setFlag(r, 32, b)

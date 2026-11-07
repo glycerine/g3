@@ -136,6 +136,19 @@ func (a *SmallBytes) ReadUint32LE(r SmallBytesRef, offset uint32) (uint32, error
 	return binary.LittleEndian.Uint32(a.chunks[d.page].data[start : start+4]), nil
 }
 
+// Borrow returns a block's bytes in place. They stay valid until the block is
+// deallocated, because chunks never move. The caller must not retain them longer.
+func (a *SmallBytes) Borrow(r SmallBytesRef) ([]byte, error) {
+	d, err := a.descriptor(r)
+	if err != nil {
+		return nil, err
+	}
+	if d.length == 0 {
+		return nil, nil
+	}
+	return a.chunks[d.page].data[d.offset : d.offset+d.length : d.offset+d.length], nil
+}
+
 // ReadUint32LEs fills dst from consecutive scalars with one validation.
 func (a *SmallBytes) ReadUint32LEs(r SmallBytesRef, offset uint32, dst []uint32) error {
 	d, err := a.descriptor(r)

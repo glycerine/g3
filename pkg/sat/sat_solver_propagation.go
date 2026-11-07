@@ -58,6 +58,7 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 		return false, nil
 	}
 	v := s.variables
+	tracing := s.tracingPropagation()
 	for {
 		size, e := v.trail.Size(v.trailRef)
 		if e != nil {
@@ -80,7 +81,9 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 		if e != nil {
 			return false, e
 		}
-		s.tracePropagating(l)
+		if tracing {
+			s.tracePropagating(l)
+		}
 		v.qhead++
 		not := l.Negated()
 		if satStorageSourceDebug {
@@ -118,23 +121,23 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 			return false, e
 		}
 		out := uint32(0)
+		// The list keeps its backing through this loop, since a clause's new
+		// watch is never this literal's. Only an extension can reallocate it.
+		var data []satWatched
+		if iter.backing != nil {
+			data = iter.backing.data
+		}
+		if uint64(iter.end) > uint64(len(data)) {
+			return false, arena.ErrBounds
+		}
+		assignment := v.assignment
 		for pos := uint32(0); pos < iter.end; pos++ {
-			w, e := satPropagationCursorRead(&iter, pos)
-			if e != nil {
-				return false, e
-			}
+			w := data[pos]
 			keep := true
 			switch w.Kind() {
 			case 0:
-				l1, e := w.Literal()
-				if e != nil {
-					return false, e
-				}
-				value, e := v.valueLiteral(l1)
-				if e != nil {
-					return false, e
-				}
-				switch value {
+				l1 := Literal(w.val1)
+				switch assignment[l1.index()] {
 				case lbool.False:
 					if e = s.propagationConflictCleanup(&iter, pos, &out, list); e != nil {
 						return false, e
@@ -156,14 +159,7 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 				if e != nil {
 					return false, e
 				}
-				a, e := v.valueLiteral(l1)
-				if e != nil {
-					return false, e
-				}
-				b, e := v.valueLiteral(l2)
-				if e != nil {
-					return false, e
-				}
+				a, b := assignment[l1.index()], assignment[l2.index()]
 				if a == lbool.False && b == lbool.Undef {
 					s.ternaryPropagations++
 					if e = s.assignCore(l2, newSATTernaryJustification(l1, not)); e != nil {
@@ -186,89 +182,49 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 				if e != nil {
 					return false, e
 				}
-				value, e := v.valueLiteral(blocked)
-				if e != nil {
-					return false, e
-				}
-				if value == lbool.True {
-					s.traceBlockedClause(blocked, w)
+				if assignment[blocked.index()] == lbool.True {
+					if tracing {
+						s.traceBlockedClause(blocked, w)
+					}
 					break
 				}
 				off, e := w.ClauseOffset()
 				if e != nil {
 					return false, e
 				}
-				c, e := s.clauses.GetClause(off)
+				c := StoredClauseRef(off)
+				clause, e := s.clauses.view(c)
 				if e != nil {
 					return false, e
 				}
-				s.traceProcessingClause(c)
-				c0, e := s.clauses.Literal(c, 0)
-				if e != nil {
-					return false, e
+				if tracing {
+					s.traceProcessingClause(c)
 				}
-				if c0 == not {
-					c1, e := s.clauses.Literal(c, 1)
-					if e != nil {
-						return false, e
-					}
-					if e = s.clauses.SetLiteral(c, 0, c1); e != nil {
-						return false, e
-					}
-					if e = s.clauses.SetLiteral(c, 1, c0); e != nil {
-						return false, e
-					}
+				if c0 := clause.literal(0); c0 == not {
+					clause.setLiteral(0, clause.literal(1))
+					clause.setLiteral(1, c0)
 				}
-				c1, e := s.clauses.Literal(c, 1)
-				if e != nil {
-					return false, e
+				c1 := clause.literal(1)
+				if tracing {
+					s.traceClauseMismatch(l, c, c1 != not)
 				}
-				s.traceClauseMismatch(l, c, c1 != not)
-				removed, e := s.clauses.Removed(c)
-				if e != nil {
-					return false, e
-				}
-				if removed {
+				if clause.flag(satClauseFlagRemoved) || c1 != not {
 					break
 				}
-				if c1 != not {
-					break
-				}
-				c0, e = s.clauses.Literal(c, 0)
-				if e != nil {
-					return false, e
-				}
-				value, e = v.valueLiteral(c0)
-				if e != nil {
-					return false, e
-				}
-				if value == lbool.True {
+				c0 := clause.literal(0)
+				if assignment[c0.index()] == lbool.True {
 					w.SetClause(c0, off)
 					break
 				}
-				n, e := s.clauses.Size(c)
-				if e != nil {
-					return false, e
-				}
+				n := clause.size()
 				moved := false
 				for j := uint32(2); j < n; j++ {
-					replacement, e := s.clauses.Literal(c, j)
-					if e != nil {
-						return false, e
-					}
-					value, e := v.valueLiteral(replacement)
-					if e != nil {
-						return false, e
-					}
-					if value == lbool.False {
+					replacement := clause.literal(j)
+					if assignment[replacement.index()] == lbool.False {
 						continue
 					}
-					if e = s.clauses.SetLiteral(c, 1, replacement); e != nil {
-						return false, e
-					}
-					if e = s.clauses.SetLiteral(c, j, not); e != nil {
-						return false, e
-					}
+					clause.setLiteral(1, replacement)
+					clause.setLiteral(j, not)
 					dest, e := v.watches.Get(replacement.Negated().index())
 					if e != nil {
 						return false, e
@@ -287,17 +243,12 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 				if moved {
 					break
 				}
-				value, e = v.valueLiteral(c0)
-				if e != nil {
-					return false, e
-				}
+				value := assignment[c0.index()]
 				if satStorageSourceDebug && value != lbool.False && value != lbool.Undef {
 					return false, ErrSATAssertion
 				}
+				clause.setFlag(satClauseFlagUsed)
 				if value == lbool.False {
-					if e = s.clauses.MarkUsed(c); e != nil {
-						return false, e
-					}
 					if e = s.propagationConflictCleanup(&iter, pos, &out, list); e != nil {
 						return false, e
 					}
@@ -305,15 +256,10 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 					return false, nil
 				}
 				// Source retains this watch BEFORE increment/mark/assignment/glue actions.
-				if e = satPropagationCursorWrite(&iter, out, w); e != nil {
-					return false, e
-				}
+				data[out] = w
 				out++
 				keep = false
 				s.clausePropagations++
-				if e = s.clauses.MarkUsed(c); e != nil {
-					return false, e
-				}
 				if e = s.assignCore(c0, newSATClauseJustification(off)); e != nil {
 					return false, e
 				}
@@ -347,6 +293,14 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 				if keep, e = s.propagateExtension(l, w, keep); e != nil {
 					return false, e
 				}
+				if iter.backing == nil || !iter.backing.alive {
+					return false, arena.ErrInvalidSlot
+				}
+				data = iter.backing.data
+				if uint64(iter.end) > uint64(len(data)) {
+					return false, arena.ErrBounds
+				}
+				assignment = v.assignment
 				if s.inconsistent {
 					if e = s.propagationConflictCleanup(&iter, pos, &out, list); e != nil {
 						return false, e
@@ -357,9 +311,7 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 				return false, ErrSATAssertion
 			}
 			if keep {
-				if e = satPropagationCursorWrite(&iter, out, w); e != nil {
-					return false, e
-				}
+				data[out] = w
 				out++
 			}
 		}

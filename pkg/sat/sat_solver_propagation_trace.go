@@ -43,6 +43,10 @@ func (s *satSolverPropagationState) traceAssignCore(l Literal, j satJustificatio
 	})
 }
 
+func (s *satSolverPropagationState) tracingPropagation() bool {
+	return diagnostic.TraceCompiled()
+}
+
 func (s *satSolverPropagationState) tracePropagating(l Literal) {
 	s.traceRecord("sat_propagate", "propagate_core", 564, func(w io.Writer) error {
 		j, err := s.variables.justification.read(uint32(l.variable()))

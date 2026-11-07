@@ -79,6 +79,10 @@ func (t *TraceTags) IsEnabled(tag string) bool {
 
 // ShouldTrace includes the source _TRACE compile gate before the tag test.
 // Callers use it before constructing the trace body, matching TRACE_CODE.
+// TraceCompiled reports whether this build can emit any trace, so hot loops can
+// skip building trace arguments at no cost in ordinary builds.
+func TraceCompiled() bool { return traceCompiled }
+
 func (t *TraceTags) ShouldTrace(tag string) bool {
 	return traceCompiled && t != nil && t.IsEnabled(tag)
 }
