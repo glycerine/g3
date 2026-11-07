@@ -63,6 +63,43 @@ phase can be compared side by side.
 8. **Switch over** in setup, delete the replay design and its tests, and
    rerun PERF.md measurements.
 
+## Audit: what already exists in Go (name-independent)
+
+Checked by location, call graph and statistics, not just function names.
+
+- **Which C++ theory serves which logic (smt_setup.cpp, 4.7.1):** LIA-family
+  logics use `theory_i_arith`; AUFLIA/UFLIA/UFNIA/QF_S and some others use
+  `theory_mi_arith` (the B5 case); LRA-only logics use `theory_lra`.
+  Default `arith.solver=2` (`AS_ARITH`) selects the old `theory_arith`.
+- **`theory_lra` is a real port.** `pkg/util/lp` ports `lar_solver`,
+  `lp_bound_propagator` and the row bound analyzer, driven by
+  `smtcore/theory_lra*.go`. It is not part of this work.
+- **`tactic/arith/bound_propagator` is unrelated** to the SMT theory. In C++ it
+  is used only by tactics (`propagate_ineqs`), never by `theory_arith`.
+- **`math/simplex` ports `src/math/simplex`** (sparse matrix, simplex, the
+  `arith_*` helpers for GCD, Gomory, freedom intervals and row conflicts), not
+  the `theory_arith` engine.
+- **Ported but not wired in:** `smtcore/theory_arith_tableau.go` (`row`,
+  `column`, `add_row_entry`, compress) has no non-test callers.
+- **Ported in Go and live:** `fixed_var_eh`'s equality part
+  (`propagateFixedEquality`, `theory_arith_fixed_bounds.go`), bound axioms,
+  Gröbner, GCD test, Gomory cuts, branch and bound, assume-eq,
+  `theory_arith_mutation`, objective code, statistics reporting.
+- **Missing as a live engine:** no Go function plays the role of `set_bound`,
+  `assert_lower/upper`, `update_value`, `restore_assignment`, `pivot`,
+  `select_pivot`, `make_feasible`, `add_row`/`mk_row`, `internalize_add/mul`.
+  `SMTLinearArithmeticTheory.Propagate` calls `rebuild()`, which rebuilds a
+  `math/simplex` solver from all assertions. Its infeasible fallback conflict
+  uses every assertion, not an explained row. The `arith pivots` and
+  `arith assert lower` statistics are derived from that replay, so they
+  cannot match C++ even when verdicts do.
+
+Consequence for the plan: phases 2 to 5 are real new code. The data structures
+in phase 1 mostly exist (tableau row/column) and need bound, atom and
+var_data types wired to them. `propagateFixedEquality`, the explanation
+helpers, Gröbner, GCD, Gomory and branch code should be reused and rewired
+to the live tableau rather than rewritten.
+
 ## Status
 
 - Phase 0 (this plan): done. B5 stays open until phase 5.
