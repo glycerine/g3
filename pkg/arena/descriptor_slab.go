@@ -138,6 +138,20 @@ func (s *descriptorSlab) IsLive(slot Slot, generation Generation) bool {
 	m := s.state(slot)
 	return m != nil && m.live && m.generation == generation
 }
+
+// readLive validates a slot and generation once and reads its record.
+func (s *descriptorSlab) readLive(slot Slot, generation Generation) (vectorDescriptor, bool) {
+	if s.closed || generation == 0 || slot == 0 || uint32(slot) > s.slots {
+		return vectorDescriptor{}, false
+	}
+	p, i := s.location(slot)
+	page := &s.pages[p]
+	if m := &page.meta[i]; !m.live || m.generation != generation {
+		return vectorDescriptor{}, false
+	}
+	return page.records[i], true
+}
+
 func (s *descriptorSlab) Read(slot Slot) (vectorDescriptor, error) {
 	var zero vectorDescriptor
 	if s.closed {

@@ -98,10 +98,11 @@ func (a *SmallBytes) descriptor(r SmallBytesRef) (vectorDescriptor, error) {
 	if r == (SmallBytesRef{}) {
 		return vectorDescriptor{}, nil
 	}
-	if !a.descriptors.IsLive(r.Slot, r.Generation) {
+	d, live := a.descriptors.readLive(r.Slot, r.Generation)
+	if !live {
 		return vectorDescriptor{}, ErrInvalidSlot
 	}
-	return a.descriptors.Read(r.Slot)
+	return d, nil
 }
 func (a *SmallBytes) IsLive(r SmallBytesRef) bool {
 	return !a.closed && r != (SmallBytesRef{}) && a.descriptors.IsLive(r.Slot, r.Generation)
@@ -133,6 +134,23 @@ func (a *SmallBytes) ReadUint32LE(r SmallBytesRef, offset uint32) (uint32, error
 	}
 	start := d.offset + offset
 	return binary.LittleEndian.Uint32(a.chunks[d.page].data[start : start+4]), nil
+}
+
+// ReadUint32LEs fills dst from consecutive scalars with one validation.
+func (a *SmallBytes) ReadUint32LEs(r SmallBytesRef, offset uint32, dst []uint32) error {
+	d, err := a.descriptor(r)
+	if err != nil {
+		return err
+	}
+	need := uint64(len(dst)) * 4
+	if uint64(offset)+need > uint64(d.length) {
+		return ErrBounds
+	}
+	data := a.chunks[d.page].data[d.offset+offset:]
+	for i := range dst {
+		dst[i] = binary.LittleEndian.Uint32(data[4*i:])
+	}
+	return nil
 }
 
 // WriteUint32LE is the single-validation counterpart of ReadUint32LE.

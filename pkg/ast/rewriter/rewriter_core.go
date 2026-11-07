@@ -102,11 +102,7 @@ func (c *rewriterCore) open() error {
 	if !c.ready {
 		return ast.ErrASTDomain
 	}
-	if c.cause != nil {
-		return c.cause
-	}
-	_, e := c.manager.ProofsEnabled()
-	return e
+	return c.cause
 }
 func (c *rewriterCore) pushCache(stack *[]*ast.ActivityCache, line int) (*ast.ActivityCache, error) {
 	v, e := ast.NewActivityCache(c.manager, nil)
@@ -295,22 +291,11 @@ func (c *rewriterCore) mustCache(t ast.ASTHandle) (bool, error) {
 	if e := c.open(); e != nil {
 		return false, e
 	}
-	refs, e := c.manager.GetRefCount(t)
-	if e != nil || refs <= 1 || t == c.root {
+	header, e := c.manager.NodeHeader(t)
+	if e != nil || header.RefCount <= 1 || t == c.root {
 		return false, e
 	}
-	kind, e := c.manager.GetKind(t)
-	if e != nil {
-		return false, e
-	}
-	if kind == ast.ASTQuantifier {
-		return true, nil
-	}
-	if kind != ast.ASTApp {
-		return false, nil
-	}
-	n, e := c.manager.GetNumArgs(t)
-	return n > 0, e
+	return header.Kind == ast.ASTQuantifier || header.Kind == ast.ASTApp && header.NumArgs > 0, nil
 }
 func (c *rewriterCore) pushFrameCore(t ast.ASTHandle, cache bool, state, depth uint32) error {
 	if e := c.open(); e != nil {

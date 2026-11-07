@@ -518,20 +518,13 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 	data := SMTBoolVarData{}
 	data.Initialize(s.scopeLevel)
 	data.basicOp = -1
-	kind, err := s.manager.GetKind(expression)
+	header, err := s.manager.NodeHeader(expression)
 	if err != nil {
 		return SMTNullBoolVar, err
 	}
-	if kind == ast.ASTApp {
-		family, err := s.manager.GetFamilyID(expression)
-		if err != nil {
-			return SMTNullBoolVar, err
-		}
-		if family == s.manager.BasicFamilyID() {
-			data.basicOp, err = s.manager.GetDeclKind(expression)
-			if err != nil {
-				return SMTNullBoolVar, err
-			}
+	if header.Kind == ast.ASTApp {
+		if header.Family == s.manager.BasicFamilyID() {
+			data.basicOp = header.DeclKind
 			if data.basicOp == ast.ASTOpNot {
 				data.notChild, err = s.manager.GetArg(expression, 0)
 				if err != nil {
@@ -539,11 +532,7 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 				}
 			}
 			if data.basicOp == ast.ASTOpAnd || data.basicOp == ast.ASTOpOr {
-				count, err := s.manager.GetNumArgs(expression)
-				if err != nil {
-					return SMTNullBoolVar, err
-				}
-				data.gateArgs = make([]ast.ASTHandle, count)
+				data.gateArgs = make([]ast.ASTHandle, header.NumArgs)
 				for i := range data.gateArgs {
 					data.gateArgs[i], err = s.manager.GetArg(expression, uint32(i))
 					if err != nil {
@@ -600,37 +589,27 @@ func (s *SMTInternalizerState) Literal(expression ast.ASTHandle) (SMTLiteral, er
 	if s.manager.IsFalse(expression) {
 		return SMTFalseLiteral, nil
 	}
-	kind, err := s.manager.GetKind(expression)
+	header, err := s.manager.NodeHeader(expression)
 	if err != nil {
 		return SMTNullLiteral, err
 	}
-	if kind == ast.ASTApp {
-		family, err := s.manager.GetFamilyID(expression)
+	if header.Kind == ast.ASTApp && header.Family == s.manager.BasicFamilyID() && header.DeclKind == ast.ASTOpNot {
+		child, err := s.manager.GetArg(expression, 0)
 		if err != nil {
 			return SMTNullLiteral, err
 		}
-		op, err := s.manager.GetDeclKind(expression)
-		if err != nil {
-			return SMTNullLiteral, err
+		// Reserved truth literals have no ordinary boolVar table entry.
+		if s.manager.IsTrue(child) {
+			return SMTFalseLiteral, nil
 		}
-		if family == s.manager.BasicFamilyID() && op == ast.ASTOpNot {
-			child, err := s.manager.GetArg(expression, 0)
-			if err != nil {
-				return SMTNullLiteral, err
-			}
-			// Reserved truth literals have no ordinary boolVar table entry.
-			if s.manager.IsTrue(child) {
-				return SMTFalseLiteral, nil
-			}
-			if s.manager.IsFalse(child) {
-				return SMTTrueLiteral, nil
-			}
-			variable, found := s.boolVar.lookup(child)
-			if !found {
-				return SMTNullLiteral, ast.ErrASTDomain
-			}
-			return NewSMTLiteral(variable, true), nil
+		if s.manager.IsFalse(child) {
+			return SMTTrueLiteral, nil
 		}
+		variable, found := s.boolVar.lookup(child)
+		if !found {
+			return SMTNullLiteral, ast.ErrASTDomain
+		}
+		return NewSMTLiteral(variable, true), nil
 	}
 	variable, found := s.boolVar.lookup(expression)
 	if !found {

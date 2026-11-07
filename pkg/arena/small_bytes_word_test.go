@@ -45,3 +45,61 @@ func TestSmallBytesReadUint32LE(t *testing.T) {
 		}
 	}
 }
+
+func TestSmallBytesReadUint32LEsMatchesSingleReads(t *testing.T) {
+	store := newSmallTest(t, 80, nil)
+	ref := smallAlloc(t, store, 40)
+	var err error
+	for i := uint32(0); i < 10; i++ {
+		if err = store.WriteUint32LE(ref, i*4, 1000+i); err != nil {
+			t.Fatal(err)
+		}
+	}
+	block := make([]uint32, 4)
+	if err = store.ReadUint32LEs(ref, 8, block); err != nil {
+		t.Fatal(err)
+	}
+	for i, got := range block {
+		single, err := store.ReadUint32LE(ref, 8+uint32(i)*4)
+		if err != nil || single != got || got != 1002+uint32(i) {
+			t.Fatal("block read", i, got, single, err)
+		}
+	}
+	// One word past the end is refused without a partial read mattering.
+	if err = store.ReadUint32LEs(ref, 36, make([]uint32, 2)); err != ErrBounds {
+		t.Fatal("overrun", err)
+	}
+	if err = store.ReadUint32LEs(ref, 40, nil); err != nil {
+		t.Fatal("empty read at the end", err)
+	}
+	if err = store.ReadUint32LEs(ref, ^uint32(0), make([]uint32, 2)); err != ErrBounds {
+		t.Fatal("offset overflow", err)
+	}
+	if err = store.WriteUint32LE(ref, 38, 1); err != ErrBounds {
+		t.Fatal("write overrun", err)
+	}
+	if err = store.Deallocate(40, ref); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.ReadUint32LEs(ref, 0, block); err != ErrInvalidSlot {
+		t.Fatal("stale reference", err)
+	}
+	if _, err = store.ReadUint32LE(ref, 0); err != ErrInvalidSlot {
+		t.Fatal("stale single read", err)
+	}
+}
+
+func TestSmallBytesWordReadsDoNotAllocate(t *testing.T) {
+	store := newSmallTest(t, 80, nil)
+	ref := smallAlloc(t, store, 16)
+	var err error
+	_ = err
+	var words [2]uint32
+	if allocs := testing.AllocsPerRun(100, func() {
+		_, _ = store.ReadUint32LE(ref, 0)
+		_ = store.ReadUint32LEs(ref, 0, words[:])
+		_ = store.WriteUint32LE(ref, 4, 7)
+	}); allocs != 0 {
+		t.Fatalf("%v allocations", allocs)
+	}
+}

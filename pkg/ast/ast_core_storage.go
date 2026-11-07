@@ -236,6 +236,16 @@ func (astOwnerConfined) Lock()   {}
 func (astOwnerConfined) Unlock() {}
 
 type ASTManager struct {
+	// Hot: read by lock and by every accessor. Keep these on one cache line.
+	Self                                         *ASTManager
+	origin                                       uint64
+	nodes                                        []*astNodePage
+	apps                                         []*astAppPage
+	pendingDeletions                             []astDeletionContinuation
+	nextNode                                     uint32
+	traceExecuting, formatExecuting              bool
+	Closed, sourceDTStarted, constructorComplete bool
+
 	exprSubstitutions          map[arena.SmallBytesRef]*astExprSubstState
 	scopedExprSubstitutions    map[arena.SmallBytesRef]*astScopedExprSubstState
 	someValueProc              SomeValueProc
@@ -244,66 +254,59 @@ type ASTManager struct {
 	exprVisitHistory           *astExprPendingMark
 	exprVisit                  astExprVisitFrame // actual charged lexical traversal storage
 
-	traceAcquisitionHistory                                                                            *astTraceAcquisition
-	traceAcquisitions, traceAcquisitionExecuting                                                       *astTraceAcquisition
-	traceAcquisitionSerial                                                                             uint64
-	rationalTraceSerial                                                                                uint64
-	mu                                                                                                 astOwnerConfined
-	Self                                                                                               *ASTManager
-	origin                                                                                             uint64
-	BudgetField                                                                                        *arena.Budget
-	Symbols                                                                                            *usymbol.Manager
-	recFun                                                                                             usymbol.Symbol
-	numerals                                                                                           *unumeral.RationalService
-	params                                                                                             *uparams.ParamsContext
-	globals                                                                                            *uparams.GlobalParamsService
-	families                                                                                           *FamilyManager
-	Limit                                                                                              control.Reslimit // source inline member, charged in the ASTManager header
-	allocator                                                                                          *arena.SmallBytes
-	Format                                                                                             *ASTManager
-	proofMode                                                                                          ASTProofMode
-	coercions, Closed, closing                                                                         bool
-	sourceDTStarted, sourceDTCompleted, sourceClosing, traceEOFReached                                 bool
-	sourceDTCause, errorOwnClose                                                                       error
-	constructorComplete                                                                                bool
-	constructorBodyCause, constructorUnwindCause, constructorOwnCause                                  error
-	constructorMemberStage                                                                             uint8
-	constructorMembers                                                                                 uint32
-	constructorPendingFormat                                                                           *ASTManager
-	constructorPendingFile                                                                             *astTraceFile
-	TraceFile                                                                                          *astTraceFile
-	TraceStream                                                                                        *utext.NumericTextStream
-	traceTags                                                                                          *udiag.TraceTags
-	traceOwner                                                                                         bool
-	formatTraceLive                                                                                    bool
-	LowLevel                                                                                           astLowLevelFrame
-	traceExecuting                                                                                     bool
-	DebugRefCount                                                                                      bool
-	DebugFreeIndices                                                                                   map[uint32]struct{}
-	debugFreeComplete                                                                                  bool
-	ExprIDs, declIDs                                                                                   idgen.Generator
-	nodes                                                                                              []*astNodePage
-	sorts                                                                                              []*astSortPage
-	decls                                                                                              []*astFuncDeclPage
-	apps                                                                                               []*astAppPage
-	vars                                                                                               []*astVarPage
-	quantifiers                                                                                        []*astQuantifierPage
-	Parameters                                                                                         []*astParameterPage
-	infos                                                                                              []*astInfoPage
-	references                                                                                         []*astRefPage
-	nextKind, freeKind                                                                                 [5]uint32
-	nextNode, freeNode, nextParameter, freeParameter, nextInfo, freeInfo, nextReference, freeReference uint32
-	liveNodes, liveParameters, liveInfos, liveReferences                                               uint32
-	pageBytes, directoryBytes, ownerBytes                                                              uint64
-	table                                                                                              astCanonicalTable
-	plugins                                                                                            astPluginVector
-	builtinPluginTraceLive                                                                             [5]bool
-	basic                                                                                              astBasicPluginState
-	builtin                                                                                            astBuiltinPluginState
-	boolSort, proofSort, trueApp, falseApp, undefProof                                                 astNodeRef
-	deletionHead, deletionCurrent                                                                      astNodeRef
-	pendingDeletionHead, pendingDeletionCurrent                                                        astNodeRef
-	pendingDeletions                                                                                   []astDeletionContinuation
+	traceAcquisitionHistory                                                                  *astTraceAcquisition
+	traceAcquisitions, traceAcquisitionExecuting                                             *astTraceAcquisition
+	traceAcquisitionSerial                                                                   uint64
+	rationalTraceSerial                                                                      uint64
+	mu                                                                                       astOwnerConfined
+	BudgetField                                                                              *arena.Budget
+	Symbols                                                                                  *usymbol.Manager
+	recFun                                                                                   usymbol.Symbol
+	numerals                                                                                 *unumeral.RationalService
+	params                                                                                   *uparams.ParamsContext
+	globals                                                                                  *uparams.GlobalParamsService
+	families                                                                                 *FamilyManager
+	Limit                                                                                    control.Reslimit // source inline member, charged in the ASTManager header
+	allocator                                                                                *arena.SmallBytes
+	Format                                                                                   *ASTManager
+	proofMode                                                                                ASTProofMode
+	coercions, closing                                                                       bool
+	sourceDTCompleted, sourceClosing, traceEOFReached                                        bool
+	sourceDTCause, errorOwnClose                                                             error
+	constructorBodyCause, constructorUnwindCause, constructorOwnCause                        error
+	constructorMemberStage                                                                   uint8
+	constructorMembers                                                                       uint32
+	constructorPendingFormat                                                                 *ASTManager
+	constructorPendingFile                                                                   *astTraceFile
+	TraceFile                                                                                *astTraceFile
+	TraceStream                                                                              *utext.NumericTextStream
+	traceTags                                                                                *udiag.TraceTags
+	traceOwner                                                                               bool
+	formatTraceLive                                                                          bool
+	LowLevel                                                                                 astLowLevelFrame
+	DebugRefCount                                                                            bool
+	DebugFreeIndices                                                                         map[uint32]struct{}
+	debugFreeComplete                                                                        bool
+	ExprIDs, declIDs                                                                         idgen.Generator
+	sorts                                                                                    []*astSortPage
+	decls                                                                                    []*astFuncDeclPage
+	vars                                                                                     []*astVarPage
+	quantifiers                                                                              []*astQuantifierPage
+	Parameters                                                                               []*astParameterPage
+	infos                                                                                    []*astInfoPage
+	references                                                                               []*astRefPage
+	nextKind, freeKind                                                                       [5]uint32
+	freeNode, nextParameter, freeParameter, nextInfo, freeInfo, nextReference, freeReference uint32
+	liveNodes, liveParameters, liveInfos, liveReferences                                     uint32
+	pageBytes, directoryBytes, ownerBytes                                                    uint64
+	table                                                                                    astCanonicalTable
+	plugins                                                                                  astPluginVector
+	builtinPluginTraceLive                                                                   [5]bool
+	basic                                                                                    astBasicPluginState
+	builtin                                                                                  astBuiltinPluginState
+	boolSort, proofSort, trueApp, falseApp, undefProof                                       astNodeRef
+	deletionHead, deletionCurrent                                                            astNodeRef
+	pendingDeletionHead, pendingDeletionCurrent                                              astNodeRef
 	// Source fresh_id and lexical func_decl_info storage; included in owner header.
 	freshID                                        uint32
 	freshInfo                                      astInfoRecord
@@ -323,7 +326,6 @@ type ASTManager struct {
 	formatPluginFailed                             *astFormatPluginOwner
 	bitVectorUtilityParameters                     astBVUtilityParameters
 	formatLexical                                  astFormatLexical
-	formatExecuting                                bool
 	appCoercion                                    astAppCoercionFrame
 	formatFrames                                   *astFormatFlatFrame
 	formatFrameSerial                              uint64

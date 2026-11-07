@@ -217,18 +217,11 @@ func (r *rewriterEngine) mustCache(t ast.ASTHandle) (bool, error) {
 		if t == c.root {
 			return false, nil
 		}
-		kind, e := c.manager.GetKind(t)
+		header, e := c.manager.NodeHeader(t)
 		if e != nil {
 			return false, e
 		}
-		if kind == ast.ASTQuantifier {
-			return true, nil
-		}
-		if kind != ast.ASTApp {
-			return false, nil
-		}
-		n, e := c.manager.GetNumArgs(t)
-		return n > 0, e
+		return header.Kind == ast.ASTQuantifier || header.Kind == ast.ASTApp && header.NumArgs > 0, nil
 	}
 	if r.cfg.cacheResults() {
 		return c.mustCache(t)

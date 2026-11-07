@@ -48,6 +48,39 @@ func (m *ASTManager) sortOf(r astNodeRef) (astNodeRef, error) {
 		}
 	}
 }
+
+// ASTNodeHeader is what callers usually read about one node, in one validated
+// access. For anything but an application NumArgs and Decl are zero and Family
+// and DeclKind are -1, whatever the single accessors would report.
+type ASTNodeHeader struct {
+	Kind     ASTKind
+	RefCount uint32
+	NumArgs  uint32
+	Family   FamilyID
+	DeclKind int32
+	Decl     ASTHandle
+}
+
+func (m *ASTManager) NodeHeader(h ASTHandle) (ASTNodeHeader, error) {
+	header := ASTNodeHeader{Family: -1, DeclKind: -1}
+	if e := m.lock(); e != nil {
+		return header, e
+	}
+	defer m.mu.Unlock()
+	r, e := m.internal(h)
+	if e != nil {
+		return header, e
+	}
+	n := m.nodeAt(r.slot)
+	header.Kind, header.RefCount = n.kind, n.rc
+	if n.kind == ASTApp {
+		v := m.appAt(r.slot)
+		header.NumArgs, header.Decl = v.count, m.external(v.decl)
+		header.Family, header.DeclKind, e = m.declIdentity(v.decl)
+	}
+	return header, e
+}
+
 func (m *ASTManager) GetKind(h ASTHandle) (ASTKind, error) {
 	if e := m.lock(); e != nil {
 		return 0, e

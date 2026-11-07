@@ -59,12 +59,14 @@ func (m *ASTManager) readInternal(p arena.SmallBytesRef, index uint32) (astNodeR
 	if e != nil {
 		return astNodeRef{}, e
 	}
-	s, e := m.readWord(p, offset)
-	if e != nil {
+	if uint64(offset)+8 > math.MaxUint32 {
+		return astNodeRef{}, arena.ErrBounds
+	}
+	var words [2]uint32
+	if e = m.allocator.ReadUint32LEs(p, offset, words[:]); e != nil {
 		return astNodeRef{}, e
 	}
-	g, e := m.readWord(p, offset+4)
-	return astNodeRef{s, g}, e
+	return astNodeRef{words[0], words[1]}, nil
 }
 func (m *ASTManager) writeSymbol(p arena.SmallBytesRef, index uint32, s usymbol.Symbol) error {
 	// Symbol is local to package g3. Its scalar fields are encoded by name;

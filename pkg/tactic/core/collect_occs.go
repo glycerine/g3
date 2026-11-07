@@ -25,25 +25,12 @@ func collectSingleOccurrenceVariables(goal *tactic.Goal) ([]ast.ASTHandle, error
 	}
 	var stack []frame
 	visit := func(term ast.ASTHandle) (bool, error) {
-		kind, err := m.GetKind(term)
+		header, err := m.NodeHeader(term)
 		if err != nil {
 			return false, err
 		}
-		constant := false
-		var count uint32
-		if kind == ast.ASTApp {
-			count, err = m.GetNumArgs(term)
-			if err != nil {
-				return false, err
-			}
-			if count == 0 {
-				family, e := m.GetFamilyID(term)
-				if e != nil {
-					return false, e
-				}
-				constant = family == ast.NullFamilyID
-			}
-		}
+		kind, count := header.Kind, header.NumArgs
+		constant := kind == ast.ASTApp && count == 0 && header.Family == ast.NullFamilyID
 		if visited[term] {
 			if constant {
 				repeated[term] = true

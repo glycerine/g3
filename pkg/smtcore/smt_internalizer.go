@@ -44,19 +44,11 @@ func (s *SMTInternalizerState) isBoolean(expression ast.ASTHandle) (bool, error)
 }
 
 func (s *SMTInternalizerState) basicOperation(expression ast.ASTHandle) (int32, bool, error) {
-	kind, err := s.manager.GetKind(expression)
-	if err != nil || kind != ast.ASTApp {
+	header, err := s.manager.NodeHeader(expression)
+	if err != nil || header.Kind != ast.ASTApp || header.Family != s.manager.BasicFamilyID() {
 		return 0, false, err
 	}
-	family, err := s.manager.GetFamilyID(expression)
-	if err != nil {
-		return 0, false, err
-	}
-	if family != s.manager.BasicFamilyID() {
-		return 0, false, nil
-	}
-	op, err := s.manager.GetDeclKind(expression)
-	return op, err == nil, err
+	return header.DeclKind, true, nil
 }
 
 func (s *SMTInternalizerState) expressionTheory(expression ast.ASTHandle) (SMTTheoryInternalizer, error) {
