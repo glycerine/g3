@@ -122,3 +122,35 @@ func TestDiamondConflictsGrowLikeResolution(t *testing.T) {
 		t.Fatalf("conflicts grew from %v to %v over four extra diamonds", small, large)
 	}
 }
+
+// A wrong counterexample answer used to make MBQI accept a model violating the
+// first quantifier. A sat answer here must satisfy f(x) = g(x, x).
+func TestMBQIDoesNotAcceptInvalidModel(t *testing.T) {
+	script := `(set-logic UFLIA)
+(set-option :smt.mbqi.max_iterations 5)
+(declare-fun f (Int) Int)
+(declare-fun g (Int Int) Int)
+(declare-const c Int)
+(declare-const d Int)
+(assert (forall ((x Int)) (! (= (f x) (g x x)) :pattern ((f x)))))
+(assert (forall ((x Int)) (! (<= (f x) (+ x 0)) :pattern ((f x)))))
+(assert (forall ((x Int)) (! (>= (g x x) (g x d)) :pattern ((f x)))))
+(assert (distinct (g c d) (f 1)))
+(assert (<= (g d c) c))
+(assert (distinct d (+ 1 2)))
+(check-sat)`
+	got := runScriptWithin(t, script, time.Minute)
+	if got == "unknown\n" {
+		return
+	}
+	if got != "sat\n" {
+		t.Fatalf("got %q", got)
+	}
+	for _, x := range []int{-7, 0, 10, 1234} {
+		output := runScriptWithin(t, script+fmt.Sprintf("(eval (f %d))(eval (g %d %d))", x, x, x), time.Minute)
+		lines := strings.Split(strings.TrimSpace(output), "\n")
+		if len(lines) != 3 || lines[1] != lines[2] {
+			t.Fatalf("model violates f(%d)=g(%d,%d): %q", x, x, x, output)
+		}
+	}
+}

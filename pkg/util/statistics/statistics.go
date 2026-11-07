@@ -5,6 +5,7 @@ package statistics
 import (
 	"fmt"
 	"io"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -274,6 +275,15 @@ func addMemory(s *Statistics, current, peak, count uint64) {
 	s.UpdateDouble("max memory", memoryMegabytes(peak))
 	s.UpdateDouble("memory", memoryMegabytes(current))
 	s.UpdateUint64("num allocs", count)
+}
+
+// AddProcessMemory reports the Go heap, where nearly all solver storage lives,
+// for the source get_memory_statistics fields. HeapSys only grows, so it stands
+// in for the peak. ReadMemStats stops the world, so call it only for reporting.
+func AddProcessMemory(s *Statistics) {
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	addMemory(s, stats.HeapAlloc, stats.HeapSys, stats.Mallocs)
 }
 
 // AddMemory follows get_memory_statistics using the source process accounting

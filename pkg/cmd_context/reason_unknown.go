@@ -48,26 +48,9 @@ func (c *Context) writeStatistics(out io.Writer, totalSeconds *float64) error {
 		return err
 	}
 	st.UpdateDouble("time", seconds)
-	{
-		// Native memory counters are sampled before m().limit() initializes
-		// a still-lazy manager. Keep that ordering for a first info command.
-		runtime := c.config.Params.NumeralsField.RuntimeOwner()
-		maximum, err := runtime.MaximumUsed()
-		if err != nil {
-			return err
-		}
-		used, err := runtime.AllocationSize()
-		if err != nil {
-			return err
-		}
-		allocations, err := runtime.AllocationCount()
-		if err != nil {
-			return err
-		}
-		st.UpdateDouble("max memory", float64((100*maximum)/(1024*1024))/100)
-		st.UpdateDouble("memory", float64((100*used)/(1024*1024))/100)
-		st.UpdateUint64("num allocs", allocations)
-	}
+	// Native memory counters are sampled before m().limit() initializes a
+	// still-lazy manager. Keep that ordering for a first info command.
+	statistics.AddProcessMemory(st)
 	m, err := c.Manager()
 	if err != nil {
 		return err

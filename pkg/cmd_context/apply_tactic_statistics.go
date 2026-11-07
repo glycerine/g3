@@ -11,22 +11,7 @@ import (
 
 func (c *Context) writeAppliedTacticStatistics(out io.Writer, selected tactic.Tactic) error {
 	values := statistics.New()
-	runtime := c.config.Params.NumeralsField.RuntimeOwner()
-	maximum, err := runtime.MaximumUsed()
-	if err != nil {
-		return err
-	}
-	used, err := runtime.AllocationSize()
-	if err != nil {
-		return err
-	}
-	allocations, err := runtime.AllocationCount()
-	if err != nil {
-		return err
-	}
-	values.UpdateDouble("max memory", float64((100*maximum)/(1024*1024))/100)
-	values.UpdateDouble("memory", float64((100*used)/(1024*1024))/100)
-	values.UpdateUint64("num allocs", allocations)
+	statistics.AddProcessMemory(values)
 	statistics.AddResourceLimit(values, c.manager.ResourceLimit().Count())
 	seconds, err := c.watch.Seconds()
 	if err != nil {

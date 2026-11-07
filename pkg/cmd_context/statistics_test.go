@@ -31,16 +31,10 @@ func TestCommandContextStatisticsResultPriorityAndProcessCounters(t *testing.T) 
 	stats.UpdateUint("dup", 3)
 	// The live solver exists as well; the explicit result must take precedence.
 	before := m.Limit.Count()
-	maximum, err := runtime.MaximumUsed()
-	contextMust(t, err)
-	used, err := runtime.AllocationSize()
-	contextMust(t, err)
-	allocations, err := runtime.AllocationCount()
-	contextMust(t, err)
 	var out bytes.Buffer
 	contextMust(t, c.WriteStatistics(&out))
 	text := out.String()
-	for key, want := range map[string]float64{"selected-result": 17, "dup": 3, "rlimit-count": float64(before), "memory": float64((100*used)/(1024*1024)) / 100, "max-memory": float64((100*maximum)/(1024*1024)) / 100, "num-allocs": float64(allocations)} {
+	for key, want := range map[string]float64{"selected-result": 17, "dup": 3, "rlimit-count": float64(before)} {
 		match := regexp.MustCompile(`:` + key + `\s+([0-9.]+)`).FindStringSubmatch(text)
 		if want == 0 && len(match) == 0 {
 			continue
@@ -53,6 +47,19 @@ func TestCommandContextStatisticsResultPriorityAndProcessCounters(t *testing.T) 
 		if got != want {
 			t.Fatal("statistic value", key, got, want, text)
 		}
+	}
+	// Process counters report the Go heap, which includes the block held above.
+	processValue := func(key string) float64 {
+		match := regexp.MustCompile(`:` + key + `\s+([0-9.]+)`).FindStringSubmatch(text)
+		if len(match) != 2 {
+			t.Fatal("missing statistic", key, text)
+		}
+		got, err := strconv.ParseFloat(match[1], 64)
+		contextMust(t, err)
+		return got
+	}
+	if memory := processValue("memory"); memory < 2 || processValue("max-memory") < memory || processValue("num-allocs") == 0 {
+		t.Fatal("process counters do not reflect the heap", text)
 	}
 	if m.Limit.Count() != before {
 		t.Fatal("statistics read consumed a resource step")
