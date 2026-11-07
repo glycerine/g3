@@ -134,41 +134,39 @@ func NewDefaultStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, 
 	if err != nil {
 		return nil, err
 	}
-	probe, err := newALLAsArrayProbe(m)
-	asArray, err := keepProbe(probe, err)
-	if err != nil {
-		return nil, err
-	}
 	lira, err := smtlogics.NewLIRATactic(m, p, config)
 	lira, err = keepTactic(lira, err)
 	if err != nil {
 		return nil, err
 	}
-	liraFragment, err := keepProbe(arith.NewArithmeticFragmentProbe(m.Budget(), config.Params, config.Globals, arith.FragmentLIRA))
+	fragment := func(kind arith.ArithmeticFragment) (tactic.ProbeEvaluator, error) {
+		return keepProbe(arith.NewArithmeticFragmentProbe(m.Budget(), config.Params, config.Globals, kind))
+	}
+	qfLIAProbe, err := fragment(arith.FragmentQFLIA)
 	if err != nil {
 		return nil, err
 	}
-	qfLIAProbe, err := keepProbe(arith.NewArithmeticFragmentProbe(m.Budget(), config.Params, config.Globals, arith.FragmentQFLIA))
+	qfAUFLIAProbe, err := fragment(arith.FragmentQFAUFLIA)
 	if err != nil {
 		return nil, err
 	}
-	qfAUFLIAProbe, err := keepProbe(arith.NewArithmeticFragmentProbe(m.Budget(), config.Params, config.Globals, arith.FragmentQFAUFLIA))
+	qfLRAProbe, err := fragment(arith.FragmentQFLRA)
 	if err != nil {
 		return nil, err
 	}
-	qfLRAProbe, err := keepProbe(arith.NewArithmeticFragmentProbe(m.Budget(), config.Params, config.Globals, arith.FragmentQFLRA))
+	qfNRAProbe, err := fragment(arith.FragmentQFNRA)
 	if err != nil {
 		return nil, err
 	}
-	qfNIAProbe, err := keepProbe(arith.NewArithmeticFragmentProbe(m.Budget(), config.Params, config.Globals, arith.FragmentQFNIA))
+	qfNIAProbe, err := fragment(arith.FragmentQFNIA)
 	if err != nil {
 		return nil, err
 	}
-	qfNRAProbe, err := keepProbe(arith.NewArithmeticFragmentProbe(m.Budget(), config.Params, config.Globals, arith.FragmentQFNRA))
+	liraProbe, err := fragment(arith.FragmentLIRA)
 	if err != nil {
 		return nil, err
 	}
-	nraProbe, err := keepProbe(arith.NewArithmeticFragmentProbe(m.Budget(), config.Params, config.Globals, arith.FragmentNRA))
+	nraProbe, err := fragment(arith.FragmentNRA)
 	if err != nil {
 		return nil, err
 	}
@@ -188,55 +186,34 @@ func NewDefaultStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, 
 	if err != nil {
 		return nil, err
 	}
-	qfSingleSort, err := keepProbe(tactic.NewBinaryProbe(m.Budget(), tactic.ProbeOr, qfLIAProbe, qfLRAProbe))
-	if err != nil {
-		return nil, err
-	}
-	mixedArithmetic, err := keepProbe(tactic.NewNotProbe(m.Budget(), qfSingleSort))
-	if err != nil {
-		return nil, err
-	}
-	liraMixed, err := keepProbe(tactic.NewBinaryProbe(m.Budget(), tactic.ProbeAnd, liraFragment, mixedArithmetic))
-	if err != nil {
-		return nil, err
-	}
-	route, err := tactic.NewCondTactic(nraProbe, nra, ordinary)
-	route, err = keepTactic(route, err)
-	if err != nil {
-		return nil, err
-	}
-	route, err = tactic.NewCondTactic(liraMixed, lira, route)
-	route, err = keepTactic(route, err)
-	if err != nil {
-		return nil, err
-	}
-	for _, branch := range []struct {
+	// mk_default_tactic: and_then(simplify, cond(is_qfbv, qfbv, cond(is_qfaufbv,
+	// qfaufbv, cond(is_qflia, qflia, cond(is_qfauflia, qfauflia, cond(is_qflra,
+	// qflra, cond(is_qfnra, qfnra, cond(is_qfnia, qfnia, cond(is_lira, lira,
+	// cond(is_nra, nra, cond(is_qffp, qffp, cond(is_qffplra, qffplra,
+	// smt))))))))))), each branch its own tactic instance.
+	chain := []struct {
 		probe  tactic.ProbeEvaluator
 		tactic tactic.Tactic
 	}{
-		{qfFPLRAProbe, qfFPLRA},
-		{qfFPProbe, qfFP},
-		{qfNIAProbe, qfNIA},
-		{qfNRAProbe, qfNRA},
-		{qfLRAProbe, qfLRA},
-		{qfAUFLIAProbe, qfAUFLIA},
-		{qfLIAProbe, qfLIA},
-		{qfAUFBVProbe, qfAUFBV},
 		{qfBVProbe, qfBV},
-	} {
-		if err != nil {
-			return nil, err
-		}
-		route, err = tactic.NewCondTactic(branch.probe, branch.tactic, route)
+		{qfAUFBVProbe, qfAUFBV},
+		{qfLIAProbe, qfLIA},
+		{qfAUFLIAProbe, qfAUFLIA},
+		{qfLRAProbe, qfLRA},
+		{qfNRAProbe, qfNRA},
+		{qfNIAProbe, qfNIA},
+		{liraProbe, lira},
+		{nraProbe, nra},
+		{qfFPProbe, qfFP},
+		{qfFPLRAProbe, qfFPLRA},
+	}
+	route := ordinary
+	for i := len(chain) - 1; i >= 0; i-- {
+		route, err = tactic.NewCondTactic(chain[i].probe, chain[i].tactic, route)
 		route, err = keepTactic(route, err)
 		if err != nil {
 			return nil, err
 		}
-	}
-	route, err = tactic.NewCondTactic(asArray, qfAUFLIA, route)
-	route, err = keepTactic(route, err)
-	if err != nil {
-		return nil, err
 	}
 	simplify, err := core.NewSimplifyTactic(m, config.Params, config.Globals, p)
 	if err != nil {
