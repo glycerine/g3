@@ -103,6 +103,10 @@ func TestSMTStringLengthReaderRequiresMixedAndCoreRoots(t *testing.T) {
 	length, err := m.MkSequenceLength(x)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(length, false))
+	// internalize_var: an arithmetic term mentioning the length attaches it.
+	if _, err := arithmetic.internalizeTermCore(length); err != nil {
+		t.Fatal(err)
+	}
 	variable := state.context.enodes.get(length).TheoryVar(arithmetic.FamilyID())
 	arithmetic.value[variable].rational.SetInt64(7) // a candidate value, not a bound
 	if _, known, err := theory.lengthValue(x); err != nil || known {

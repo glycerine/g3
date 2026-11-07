@@ -12,7 +12,17 @@ import (
 func stringLibraryFixture(t *testing.T) (*ast.ASTManager, *SMTStringTheory, *SMTInternalizerState, *rewriter.TheoryRewriter) {
 	t.Helper()
 	m, config := smtModelGeneratorFixture(t)
-	rw, err := rewriter.NewTheoryRewriter(m, config.Context, config.Globals, config.Params)
+	// ctx.get_rewriter() is the asserted_formulas rewriter, configured by
+	// set_eliminate_and (arith_ineq_lhs, som, ...).
+	params, err := config.Context.NewValue()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, config.Context.Del(&params)) })
+	for _, name := range []string{"arith_ineq_lhs", "sort_sums", "rewrite_patterns", "gcd_rounding", "expand_select_store", "bv_sort_ac", "som"} {
+		astTestMust(t, config.Context.SetBoolName(&params, &name, true))
+	}
+	name := "elim_and"
+	astTestMust(t, config.Context.SetBoolName(&params, &name, false))
+	rw, err := rewriter.NewTheoryRewriter(m, config.Context, config.Globals, &params)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, rw.Close()) })
 	theory, state := stringTheoryFixture(t, m)
