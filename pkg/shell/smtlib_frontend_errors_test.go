@@ -21,7 +21,7 @@ func TestSMTLIBFrontendReturnsScannerErrorAndStillAttemptsStatistics(t *testing.
 	if err == nil || !errors.As(err, &scannerError) {
 		t.Fatalf("error %v", err)
 	}
-	if !strings.Contains(output.String(), ":total-time   1.00") {
+	if !statisticsLine(":total-time", "1.00").MatchString(output.String()) {
 		t.Fatalf("missing final statistics %q", output.String())
 	}
 	result, resultErr := frontend.Result()

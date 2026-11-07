@@ -1,0 +1,8 @@
+(declare-const a (Array Int Int))
+(declare-const b (Array Int Int))
+(declare-const i0 Int)
+(declare-const i1 Int)
+(declare-const i2 Int)
+(assert (not (= (store b i2 i0) (store a i1 i0))))
+(assert (= (store b i2 i1) a))
+(check-sat)

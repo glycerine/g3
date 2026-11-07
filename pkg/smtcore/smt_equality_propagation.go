@@ -499,6 +499,29 @@ func (s *SMTInternalizerState) propagateEqualityClassRelevancy(first, second *SM
 	return nil
 }
 
+// disequalityAtomTerms returns the enodes of the equality atom behind a
+// disequality reason, so a conflict can explain how they reached their roots.
+func (s *SMTInternalizerState) disequalityAtomTerms(reason SMTLiteral) (*SMTEnode, *SMTEnode, error) {
+	variable := reason.Var()
+	if variable < SMTFirstBoolVar || int(variable) >= len(s.boolExpr) {
+		return nil, nil, nil
+	}
+	atom := s.boolExpr[variable]
+	count, err := s.manager.GetNumArgs(atom)
+	if err != nil || count != 2 {
+		return nil, nil, err
+	}
+	first, err := s.manager.GetArg(atom, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	second, err := s.manager.GetArg(atom, 1)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.context.enodes[first], s.context.enodes[second], nil
+}
+
 func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification SMTEqualityJustification) error {
 	if left == nil || right == nil || left.manager != s.manager || right.manager != s.manager {
 		return ast.ErrASTDomain
@@ -514,7 +537,11 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 			return err
 		}
 		key, _ := smtCheckerPair(r1, r2)
-		return s.setEqualityConflict(proof, s.disequalityReasons[key])
+		reason := s.disequalityReasons[key]
+		if proof.DiseqLeft, proof.DiseqRight, err = s.disequalityAtomTerms(reason); err != nil {
+			return err
+		}
+		return s.setEqualityConflict(proof, reason)
 	}
 	if r1.interpreted && r2.interpreted {
 		proof, err := NewSMTEqualityConflictJustification(left, right, justification)
