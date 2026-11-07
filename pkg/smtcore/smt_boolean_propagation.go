@@ -240,10 +240,7 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 		s.simplifyCounter--
 		watch := &s.watches[assigned.Index()]
 		for _, implied := range watch.Literals() {
-			value, err := s.Assignment(implied)
-			if err != nil {
-				return false, err
-			}
+			value := s.assignment[implied.Index()]
 			justification := NewSMTBooleanBinaryClause(assigned)
 			switch value {
 			case lbool.False:
@@ -254,7 +251,7 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 				return false, nil
 			case lbool.Undef:
 				s.statistics.NumPropagations++
-				if err = s.AssignLiteral(implied, justification); err != nil {
+				if err := s.AssignLiteral(implied, justification); err != nil {
 					return false, err
 				}
 			}
@@ -263,8 +260,10 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 		kept := 0
 		for index := 0; index < len(clauses); index++ {
 			clause := clauses[index]
-			if err := clause.open(); err != nil {
-				return false, err
+			if smtcoreSourceDebug {
+				if err := clause.open(); err != nil {
+					return false, err
+				}
 			}
 			// C++ traverses an already validated clause's contiguous literals.
 			// Keep the public checked accessors, but validate once per visit.
@@ -281,10 +280,7 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 			if second != falseLiteral {
 				return false, ast.ErrASTDomain
 			}
-			firstValue, err := s.Assignment(first)
-			if err != nil {
-				return false, err
-			}
+			firstValue := s.assignment[first.Index()]
 			if firstValue == lbool.True {
 				clauses[kept] = clause
 				kept++
@@ -293,14 +289,11 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 			moved := false
 			for candidateIndex := 2; candidateIndex < len(literals); candidateIndex++ {
 				candidate := literals[candidateIndex]
-				candidateValue, err := s.Assignment(candidate)
-				if err != nil {
-					return false, err
-				}
+				candidateValue := s.assignment[candidate.Index()]
 				if candidateValue == lbool.False {
 					continue
 				}
-				if err = s.watches[candidate.Negated().Index()].InsertClause(clause); err != nil {
+				if err := s.watches[candidate.Negated().Index()].InsertClause(clause); err != nil {
 					return false, err
 				}
 				literals[1], literals[candidateIndex] = candidate, falseLiteral
@@ -317,7 +310,7 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 					clauses[kept] = clauses[rest]
 					kept++
 				}
-				if err = watch.SetClauseCount(kept); err != nil {
+				if err := watch.SetClauseCount(kept); err != nil {
 					return false, err
 				}
 				s.inconsistent = true
@@ -327,7 +320,7 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 				return false, nil
 			}
 			s.statistics.NumPropagations++
-			if err = s.AssignLiteral(first, NewSMTBooleanClause(clause)); err != nil {
+			if err := s.AssignLiteral(first, NewSMTBooleanClause(clause)); err != nil {
 				return false, err
 			}
 		}

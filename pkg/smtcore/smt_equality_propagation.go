@@ -242,14 +242,18 @@ func (s *SMTInternalizerState) rebuildCongruence() error {
 		node.parents = nil
 	}
 	for _, parent := range s.enodeStack {
-		seen := make(map[*SMTEnode]struct{})
-		for _, argument := range parent.arguments {
+		for index, argument := range parent.arguments {
 			root := argument.root
-			if _, found := seen[root]; found {
-				continue
+			repeated := false
+			for _, prior := range parent.arguments[:index] {
+				if prior.root == root {
+					repeated = true
+					break
+				}
 			}
-			seen[root] = struct{}{}
-			root.parents = append(root.parents, parent)
+			if !repeated {
+				root.parents = append(root.parents, parent)
+			}
 		}
 	}
 	for _, node := range s.enodeStack {
