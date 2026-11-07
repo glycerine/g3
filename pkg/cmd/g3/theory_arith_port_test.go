@@ -39,3 +39,25 @@ func TestTheoryArithPortGroundEqualityAdapter(t *testing.T) {
 		t.Fatalf("got %q, want unsat", got)
 	}
 }
+
+// ctx.relevancy() is m_relevancy_lvl > 0. At relevancy level 0 (QF_LIA) the
+// mod/div axioms are created at internalization; reading the presence of
+// the relevancy propagator instead dropped them and answered sat.
+func TestTheoryArithPortDivisionAxiomsWithoutRelevancy(t *testing.T) {
+	t.Setenv("G3_THEORY_ARITH", "port")
+	const script = `(set-logic QF_LIA)
+(declare-const x Int)
+(assert (= (mod x 3) 2))
+(push 1)
+(assert (= (div x 3) 0))
+(assert (> x 3))
+(check-sat)
+(pop 1)
+(assert (= (div x 3) 1))
+(check-sat)
+(get-value (x))
+`
+	if got := runScriptWithin(t, script, 20*time.Second); got != "unsat\nsat\n((x 5))\n" {
+		t.Fatalf("got %q", got)
+	}
+}

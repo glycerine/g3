@@ -183,7 +183,7 @@ func (a *smtArithmeticEqualityAdapter) mkAxiomsSource(n1, n2 *SMTEnode) (result 
 			return err
 		}
 	}
-	if state.relevancy != nil {
+	if state.relevancyLevel > 0 { // ctx.relevancy()
 		// arith_eq_relevancy_eh: when n1 and n2 are relevant, so are the
 		// equality and both bounds.
 		if err = a.AddRelevancy(n1.owner, n2.owner, t1EqT2, le, ge); err != nil {

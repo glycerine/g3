@@ -549,7 +549,8 @@ func (t *SMTTheoryArith) divisorUnderspecified(n ast.ASTHandle) (bool, error) {
 	return !ok || r.Sign() == 0, nil
 }
 
-func (t *SMTTheoryArith) relevancy() bool { return t.state.relevancy != nil }
+// relevancy is ctx.relevancy(): m_relevancy_lvl > 0.
+func (t *SMTTheoryArith) relevancy() bool { return t.state.relevancyLevel > 0 }
 
 func (t *SMTTheoryArith) internalizeDiv(n ast.ASTHandle) (SMTTheoryVar, error) {
 	under, err := t.divisorUnderspecified(n)
