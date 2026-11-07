@@ -1,5 +1,7 @@
 git use: Do not amend or rebase commits in git. Make a corrective additional commit instead. We push
 in the background and have seen an accidental git fork and we do not want to lose data.
+Never add "Co-Authored-By" to git commits--this is just gross advertising, and we
+do not tolerate it.
 
 C++ additions, tests, benchmarks, and positive controls belong in this repository's
 src/ tree by default. This is the C++ fork being ported. Do not use the separate
@@ -30,3 +32,5 @@ Port only C++ code reached by retained source consumers. Do not port dead C++
 code or add universal Go adapters merely to represent an unused template. For
 live template instantiations, use concrete typed Go implementations for the
 actual numeral, pointer, or value types instead of any-valued callback layers.
+
+
