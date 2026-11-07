@@ -36,7 +36,7 @@ func TestSMTStringSuffixConcatCoreArrangement(t *testing.T) {
 			t.Fatal("literal-suffix equality did not reach its cut and three byte splits", reverse, state.Inconsistent(), state.theoryCaseSplitSets)
 		}
 		astTestMust(t, state.PopScopes(1))
-		if len(state.theoryCaseSplitSets) != 0 || state.context.enodes[left].Root() == state.context.enodes[right].Root() {
+		if len(state.theoryCaseSplitSets) != 0 || state.context.enodes.get(left).Root() == state.context.enodes.get(right).Root() {
 			t.Fatal("suffix arrangement registration or equality survived pop", reverse)
 		}
 	}
@@ -214,12 +214,12 @@ func TestSMTStringSuffixConcatWitnessReuseAndFiltering(t *testing.T) {
 	}
 	witness := theory.arrangementVars[[2]ast.ASTHandle{left, right}][0]
 	astTestMust(t, state.PopScopes(1))
-	if _, remains := theory.cutHistory[witness]; remains || state.context.enodes[witness] != nil {
+	if _, remains := theory.cutHistory[witness]; remains || state.context.enodes.get(witness) != nil {
 		t.Fatal("unseeded suffix witness cut/enode survived pop")
 	}
 	before := theory.freshID
 	astTestMust(t, theory.simplifyStringConcatEquality(right, left))
-	if theory.freshID != before || len(theory.arrangementVars) != 1 || state.context.enodes[witness] == nil {
+	if theory.freshID != before || len(theory.arrangementVars) != 1 || state.context.enodes.get(witness) == nil {
 		t.Fatal("reverse suffix witness reuse failed to refresh its existing residual")
 	}
 }

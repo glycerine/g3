@@ -52,7 +52,7 @@ func (g *smtModelFinderAUFGraph) matchingArrays(array ast.ASTHandle) ([]*SMTEnod
 		return nil, err
 	}
 	if ground {
-		if node := context.enodes[array]; node != nil && g.finder.state.isRelevant(array) {
+		if node := context.enodes.get(array); node != nil && g.finder.state.isRelevant(array) {
 			return []*SMTEnode{node}, nil
 		}
 		return nil, nil

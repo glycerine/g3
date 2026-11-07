@@ -417,8 +417,8 @@ func (a *smtArithmeticEqualityAdapter) Restart() error {
 		if state.inconsistent {
 			break
 		}
-		left := state.context.enodes[pair.first]
-		right := state.context.enodes[pair.second]
+		left := state.context.enodes.get(pair.first)
+		right := state.context.enodes.get(pair.second)
 		if left == nil || right == nil {
 			return ast.ErrASTDomain
 		}

@@ -20,7 +20,7 @@ func (t *SMTStringTheory) stringArithmeticBound(expression ast.ASTHandle, lower 
 		return nil, false, err
 	}
 	arithmetic, mixed := t.state.Theory(family).(*SMTLinearArithmeticTheory)
-	node := t.state.context.enodes[expression]
+	node := t.state.context.enodes.get(expression)
 	if !mixed || !arithmetic.mixed || node == nil || arithmetic.solver == nil {
 		return nil, false, nil
 	}

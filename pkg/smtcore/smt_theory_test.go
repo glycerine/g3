@@ -171,7 +171,7 @@ func TestSMTTheoryInternalizationCallbacksVariablesAndScopes(t *testing.T) {
 
 	astTestMust(t, state.PushScope())
 	astTestMust(t, state.Internalize(atom, true))
-	node := state.context.enodes[term]
+	node := state.context.enodes.get(term)
 	if node == nil || theory.atoms != 1 || theory.terms != 1 || theory.sortConstraints != 1 || theory.NumVariables() != 1 || !theory.IsAttachedToVariable(node) {
 		t.Fatal("theory atom/term internalization", theory.atoms, theory.terms, theory.sortConstraints, theory.NumVariables(), node)
 	}
@@ -214,8 +214,8 @@ func TestSMTTheoryInternalizationCallbacksVariablesAndScopes(t *testing.T) {
 		t.Fatal("theory equality callback", theory.equalities)
 	}
 	astTestMust(t, state.PopScopes(1))
-	if theory.NumVariables() != 0 || node.TheoryVar(family) != SMTNullTheoryVar || state.context.enodes[term] != nil {
-		t.Fatal("theory scope rollback", theory.NumVariables(), node.TheoryVar(family), state.context.enodes[term])
+	if theory.NumVariables() != 0 || node.TheoryVar(family) != SMTNullTheoryVar || state.context.enodes.get(term) != nil {
+		t.Fatal("theory scope rollback", theory.NumVariables(), node.TheoryVar(family), state.context.enodes.get(term))
 	}
 }
 
@@ -253,7 +253,7 @@ func TestSMTTheoryAttachmentQueuesEqualityAndDisequalityEvents(t *testing.T) {
 	rightOwner, _ := smtEnodeConstant(t, m, 2263, integer, 0)
 	astTestMust(t, state.Internalize(leftOwner, false))
 	astTestMust(t, state.Internalize(rightOwner, false))
-	leftNode, rightNode := state.context.enodes[leftOwner], state.context.enodes[rightOwner]
+	leftNode, rightNode := state.context.enodes.get(leftOwner), state.context.enodes.get(rightOwner)
 	equality, err := m.MkEq(leftOwner, rightOwner)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(equality, true))
@@ -299,7 +299,7 @@ func TestSMTTheoryBaseConstructsEqualityLiteral(t *testing.T) {
 	equality, err := m.MkEq(values[0], values[1])
 	astTestMust(t, err)
 	variable, found := state.BoolVar(equality)
-	if !found || variable != literal.Var() || state.context.enodes[values[0]] == nil || state.context.enodes[values[1]] == nil {
+	if !found || variable != literal.Var() || state.context.enodes.get(values[0]) == nil || state.context.enodes.get(values[1]) == nil {
 		t.Fatal("equality internalization", variable, found, literal)
 	}
 	reversed, err := base.MkEqualityLiteral(values[1], values[0], true)

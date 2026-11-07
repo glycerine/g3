@@ -174,7 +174,7 @@ func TestSMTLearnedAssignmentResumesPublishedScalarBeforeContext(t *testing.T) {
 	}
 	astTestMust(t, state.finishLearnedAssignment(&pending))
 	astTestMust(t, state.finishLearnedAssignment(&pending))
-	if pending.stage != smtLearnedAssignmentDone || len(state.assignedLiterals) != assigned+1 || state.context.assignments[expression] != lbool.True || state.booleanData[literal.Var()].Justification() != justification {
+	if pending.stage != smtLearnedAssignmentDone || len(state.assignedLiterals) != assigned+1 || state.context.assignments.get(expression) != lbool.True || state.booleanData[literal.Var()].Justification() != justification {
 		t.Fatal("assignment continuation lost metadata or duplicated publication", pending.stage, len(state.assignedLiterals))
 	}
 }

@@ -34,7 +34,7 @@ func (s *SMTInternalizerState) enqueueExistingDisequalities(root *SMTEnode, vari
 		if parent == nil || !parent.IsEquality() || len(parent.arguments) != 2 {
 			continue
 		}
-		boolVariable, found := s.boolVar[parent.owner]
+		boolVariable, found := s.boolVar.lookup(parent.owner)
 		if !found {
 			continue
 		}
@@ -129,7 +129,7 @@ func (s *SMTInternalizerState) propagateAssignedAtom(literal SMTLiteral) error {
 	if !data.IsAtom() || s.atomNotified[variable] {
 		return nil
 	}
-	if node := s.context.enodes[s.boolExpr[variable]]; node != nil {
+	if node := s.context.enodes.get(s.boolExpr[variable]); node != nil {
 		if err = s.propagateBooleanEnode(variable, node); err != nil {
 			return err
 		}
@@ -144,7 +144,7 @@ func (s *SMTInternalizerState) propagateAssignedAtom(literal SMTLiteral) error {
 		if leftErr != nil || rightErr != nil {
 			return fmt.Errorf("assigned equality %d arguments: %w", variable, ast.ErrASTDomain)
 		}
-		left, right := s.context.enodes[leftExpression], s.context.enodes[rightExpression]
+		left, right := s.context.enodes.get(leftExpression), s.context.enodes.get(rightExpression)
 		if left == nil || right == nil {
 			return fmt.Errorf("assigned equality %d enodes: %w", variable, ast.ErrASTDomain)
 		}
@@ -212,7 +212,7 @@ func (s *SMTInternalizerState) notifyRelevant(expression ast.ASTHandle) error {
 		return nil
 	}
 	if s.quantifierManager != nil {
-		s.quantifierManager.NotifyRelevant(s.context.enodes[expression])
+		s.quantifierManager.NotifyRelevant(s.context.enodes.get(expression))
 	}
 	notified := make(map[SMTTheoryID]struct{})
 	family, err := s.manager.GetFamilyID(expression)
@@ -227,7 +227,7 @@ func (s *SMTInternalizerState) notifyRelevant(expression ast.ASTHandle) error {
 			notified[family] = struct{}{}
 		}
 	}
-	if node := s.context.enodes[expression]; node != nil {
+	if node := s.context.enodes.get(expression); node != nil {
 		for item := &node.theoryVariables; item != nil && item.theory != SMTNullTheoryID; item = item.next {
 			if _, found := notified[item.theory]; found {
 				continue

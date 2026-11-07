@@ -235,7 +235,7 @@ func (t *SMTStringTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error
 			return false, err
 		}
 	}
-	if node := state.context.enodes[expression]; node != nil {
+	if node := state.context.enodes.get(expression); node != nil {
 		_, err := t.mkVar(node)
 		return err == nil, err
 	}
@@ -263,7 +263,7 @@ func (t *SMTStringTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error
 			return false, err
 		}
 	}
-	node := state.context.enodes[expression]
+	node := state.context.enodes.get(expression)
 	if node == nil {
 		node, err = state.MkEnode(expression, false, isBoolean, true)
 		if err != nil {

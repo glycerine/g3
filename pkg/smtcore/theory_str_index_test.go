@@ -42,7 +42,7 @@ func TestSMTStringIndexFirstOccurrenceAndNoMatch(t *testing.T) {
 	expression, err := m.MkSequenceIndex(word, needle, zero)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(expression, false))
-	astTestMust(t, theory.instantiateIndex(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateIndex(state.context.enodes.get(expression)))
 	variables := []ast.ASTHandle{
 		stringLibraryWitness(t, theory, "x1!tmp0"), stringLibraryWitness(t, theory, "x2!tmp1"),
 		stringLibraryWitness(t, theory, "index!tmp2"),
@@ -90,7 +90,7 @@ func TestSMTStringIndexFirstOccurrenceAndNoMatch(t *testing.T) {
 		t.Fatal("simple index accepted a later occurrence")
 	}
 	before, fresh := len(theory.refs), theory.freshID
-	astTestMust(t, theory.instantiateIndex(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateIndex(state.context.enodes.get(expression)))
 	if len(theory.refs) != before || theory.freshID != fresh {
 		t.Fatal("duplicate simple index repeated native witnesses/axioms")
 	}
@@ -105,7 +105,7 @@ func TestSMTStringIndexExtendedBoundsAndTailRelativeResult(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(expression, false))
 	before := len(theory.refs)
-	astTestMust(t, theory.instantiateIndex(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateIndex(state.context.enodes.get(expression)))
 	var axioms []ast.ASTHandle
 	for _, ref := range theory.refs[before:] {
 		value, err := m.RefGet(ref)
@@ -159,7 +159,7 @@ func TestSMTStringIndexExtendedBoundsAndTailRelativeResult(t *testing.T) {
 		}
 	}
 	before, fresh := len(theory.refs), theory.freshID
-	astTestMust(t, theory.instantiateIndex(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateIndex(state.context.enodes.get(expression)))
 	if len(theory.refs) != before || theory.freshID != fresh || len(theory.delayedAssertions) != 1 {
 		t.Fatal("duplicate extended index repeated cases/heuristic")
 	}
@@ -228,7 +228,7 @@ func TestSMTStringIndexDeferredOwnershipBeforeSearchClose(t *testing.T) {
 	expression, err := m.MkSequenceIndex(word, needle, start)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(expression, false))
-	astTestMust(t, theory.instantiateIndex(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateIndex(state.context.enodes.get(expression)))
 	if len(theory.delayedAssertions) != 1 {
 		t.Fatal("missing queue-owned pre-search heuristic")
 	}

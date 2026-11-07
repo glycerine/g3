@@ -691,7 +691,7 @@ func (t *SMTFloatingPointTheory) ensureVariable(expression ast.ASTHandle) (bool,
 			return false, argumentErr
 		}
 	}
-	node := state.context.enodes[expression]
+	node := state.context.enodes.get(expression)
 	if node == nil {
 		node, err = state.MkEnode(expression, false, false, true)
 		if err != nil {
@@ -723,7 +723,7 @@ func (t *SMTFloatingPointTheory) InternalizeTerm(expression ast.ASTHandle) (bool
 	}); err != nil {
 		return false, err
 	}
-	if err = fpaSourceAssertBool(454, "!get_context().e_internalized(term)", state.context.enodes[expression] == nil); err != nil {
+	if err = fpaSourceAssertBool(454, "!get_context().e_internalized(term)", state.context.enodes.get(expression) == nil); err != nil {
 		return false, err
 	}
 	created, err := t.ensureVariable(expression)
@@ -1175,7 +1175,7 @@ func (t *SMTFloatingPointTheory) ModelValue(node *SMTEnode, generator *SMTModelG
 		return nil, ast.ErrASTDomain
 	}
 	owner := node.Owner()
-	if err = fpaSourceAssertBool(739, "ctx.e_internalized(owner)", state.context.enodes[owner] != nil); err != nil {
+	if err = fpaSourceAssertBool(739, "ctx.e_internalized(owner)", state.context.enodes.get(owner) != nil); err != nil {
 		return nil, err
 	}
 	sort, err := state.manager.GetSort(owner)
@@ -1220,7 +1220,7 @@ func (t *SMTFloatingPointTheory) ModelValue(node *SMTEnode, generator *SMTModelG
 			if argumentErr != nil {
 				return nil, argumentErr
 			}
-			argumentNode := state.context.enodes[argument]
+			argumentNode := state.context.enodes.get(argument)
 			if argumentNode == nil {
 				return nil, ast.ErrASTDomain
 			}
@@ -1249,7 +1249,7 @@ func (t *SMTFloatingPointTheory) ModelValue(node *SMTEnode, generator *SMTModelG
 		if argumentErr != nil {
 			return nil, argumentErr
 		}
-		argumentNode := state.context.enodes[argument]
+		argumentNode := state.context.enodes.get(argument)
 		if argumentNode == nil {
 			return nil, ast.ErrASTDomain
 		}
@@ -1272,7 +1272,7 @@ func (t *SMTFloatingPointTheory) ModelValue(node *SMTEnode, generator *SMTModelG
 	}); err != nil {
 		return nil, err
 	}
-	if wrappedNode := state.context.enodes[wrapped]; wrappedNode != nil {
+	if wrappedNode := state.context.enodes.get(wrapped); wrappedNode != nil {
 		procedure.dependencies, err = smtFPAEnodeDependency(wrappedNode)
 		if err == nil {
 			err = t.traceFPADependencies(generator, 798, wrappedNode)
@@ -1282,7 +1282,7 @@ func (t *SMTFloatingPointTheory) ModelValue(node *SMTEnode, generator *SMTModelG
 		}
 		return procedure, err
 	}
-	if err = t.traceFPAMissingDependency(generator, wrapped, state.context.enodes[owner] != nil); err != nil {
+	if err = t.traceFPAMissingDependency(generator, wrapped, state.context.enodes.get(owner) != nil); err != nil {
 		return nil, err
 	}
 	if rounding {

@@ -121,7 +121,7 @@ func TestSMTLRAStatisticsBasicVersusLPAndEqualityCallbacks(t *testing.T) {
 		if lraCollectedStatistics(t, f.a)["arith-fixed-eqs"] != 1 {
 			t.Fatal("fixed equality omitted")
 		}
-		xv, yv := f.s.context.enodes[x].TheoryVar(f.a.FamilyID()), f.s.context.enodes[y].TheoryVar(f.a.FamilyID())
+		xv, yv := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID()), f.s.context.enodes.get(y).TheoryVar(f.a.FamilyID())
 		astTestMust(t, f.a.NewDisequality(xv, yv))
 		st := lraCollectedStatistics(t, f.a)
 		if st["arith-diseq"] != 1 || st["arith eq adapter"] == 0 {
@@ -194,7 +194,7 @@ func TestSMTLRAStatisticsSolverCollectionAndResetNoOp(t *testing.T) {
 			t.Fatal("source kernel reset must be no-op", key)
 		}
 	}
-	v := s.kernel.internalizer.context.enodes[x].TheoryVar(family)
+	v := s.kernel.internalizer.context.enodes.get(x).TheoryVar(family)
 	value, err := a.numeric.value(v)
 	astTestMust(t, err)
 	if value.Main.Cmp(big.NewRat(1, 1)) < 0 {

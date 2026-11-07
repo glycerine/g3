@@ -200,7 +200,7 @@ func TestSMTQuantifierLiveParamsPreservePendingAndConstructorCaches(t *testing.T
 		constant, err := m.MkConst(symbol.Numerical(2740+uint32(index)), sort)
 		astTestMust(t, err)
 		astTestMust(t, state.Internalize(constant, false))
-		bindings[index] = state.context.enodes[constant]
+		bindings[index] = state.context.enodes.get(constant)
 	}
 	registry := manager.registry
 	first, err := registry.AddInstance(quantifier, ast.ASTHandle{}, bindings[:1], 50, 0, 0)

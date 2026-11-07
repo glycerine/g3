@@ -25,7 +25,7 @@ func stringContainmentRegister(t *testing.T, theory *SMTStringTheory, haystack, 
 	relation, err := theory.state.manager.MkSequenceContains(haystack, needle)
 	astTestMust(t, err)
 	astTestMust(t, theory.state.Internalize(relation, true))
-	astTestMust(t, theory.instantiateContains(theory.state.context.enodes[relation]))
+	astTestMust(t, theory.instantiateContains(theory.state.context.enodes.get(relation)))
 	return relation
 }
 
@@ -146,7 +146,7 @@ func TestSMTStringContainmentPairSymbolicClassGuards(t *testing.T) {
 			// Establish only private-class membership. The emitted theorem
 			// must still guard every alias equality explicitly.
 			for _, pair := range [][2]ast.ASTHandle{{a, aa}, {b, bb}} {
-				theory.find.Merge(uint32(state.context.enodes[pair[0]].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[pair[1]].TheoryVar(theory.FamilyID())))
+				theory.find.Merge(uint32(state.context.enodes.get(pair[0]).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(pair[1]).TheoryVar(theory.FamilyID())))
 			}
 			before := len(theory.refs)
 			astTestMust(t, theory.checkContainByEqualNodes(x, y))
@@ -205,7 +205,7 @@ func TestSMTStringContainmentNonconstantSubstringAndPremiseLifetime(t *testing.T
 	constant := astTestString(t, m, "aaa")
 	astTestMust(t, state.Internalize(constant, false))
 	for _, variable := range []ast.ASTHandle{x, y} {
-		theory.find.Merge(uint32(state.context.enodes[variable].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[constant].TheoryVar(theory.FamilyID())))
+		theory.find.Merge(uint32(state.context.enodes.get(variable).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(constant).TheoryVar(theory.FamilyID())))
 	}
 	concat := stringEqualityConcat(t, m, astTestString(t, m, "b"), tail)
 	astTestMust(t, state.Internalize(concat, false))
@@ -265,7 +265,7 @@ func TestSMTStringContainmentEqualClassAndReflexiveRules(t *testing.T) {
 			first = stringContainmentRegister(t, theory, a, x)
 			second = stringContainmentRegister(t, theory, b, y)
 		}
-		theory.find.Merge(uint32(state.context.enodes[a].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[b].TheoryVar(theory.FamilyID())))
+		theory.find.Merge(uint32(state.context.enodes.get(a).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(b).TheoryVar(theory.FamilyID())))
 		before := len(theory.refs)
 		astTestMust(t, theory.checkContainByEqualNodes(x, y))
 		if len(theory.refs) != before+1 {

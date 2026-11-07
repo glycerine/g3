@@ -60,7 +60,7 @@ func TestSMTDatatypeSplitActivatesExistingRecognizerWithoutChangingPhase(t *test
 	astTestMust(t, err)
 	// Exercise the source's cached-but-irrelevant slot branch explicitly.
 	// Merely internalizing a recognizer does not watch it with relevancy on.
-	astTestMust(t, dt.addRecognizer(s.context.enodes[x].TheoryVar(dt.FamilyID()), s.context.enodes[expression]))
+	astTestMust(t, dt.addRecognizer(s.context.enodes.get(x).TheoryVar(dt.FamilyID()), s.context.enodes.get(expression)))
 	if s.isRelevant(expression) {
 		t.Fatal("fixture recognizer was already relevant")
 	}
@@ -92,7 +92,7 @@ func TestSMTDatatypeSplitAdvancesInDeclarationOrderAndBacktracks(t *testing.T) {
 			if existing {
 				_, expression, err := dt.recognizerLiteral(constructors[0], x)
 				astTestMust(t, err)
-				astTestMust(t, dt.addRecognizer(s.context.enodes[x].TheoryVar(dt.FamilyID()), s.context.enodes[expression]))
+				astTestMust(t, dt.addRecognizer(s.context.enodes.get(x).TheoryVar(dt.FamilyID()), s.context.enodes.get(expression)))
 			}
 			notPreferred, err := m.MkNot(preferred.expression)
 			astTestMust(t, err)

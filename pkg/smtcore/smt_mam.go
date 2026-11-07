@@ -43,7 +43,7 @@ func (m *SMTMAM) collectGround(term ast.ASTHandle) error {
 		if err = m.state.Internalize(term, false); err != nil {
 			return err
 		}
-		node := m.state.context.enodes[term]
+		node := m.state.context.enodes.get(term)
 		if node == nil {
 			return ast.ErrASTDomain
 		}

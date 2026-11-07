@@ -70,7 +70,7 @@ func TestSMTRelevancyCachedGateArgumentsPreserveNegationAndOrder(t *testing.T) {
 		}
 		astTestMust(t, err)
 		astTestMust(t, s.Internalize(parent, true))
-		av, bv, pv := s.boolVar[a], s.boolVar[b], s.boolVar[parent]
+		av, bv, pv := s.boolVar.get(a), s.boolVar.get(b), s.boolVar.get(parent)
 		astTestMust(t, s.SetAssignment(av, lbool.FromBool(conjunction)))
 		astTestMust(t, s.SetAssignment(bv, lbool.FromBool(!conjunction)))
 		astTestMust(t, s.SetAssignment(pv, lbool.FromBool(!conjunction)))

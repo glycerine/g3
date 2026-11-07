@@ -23,7 +23,7 @@ func TestSMTLRAOperatorConstantDivisionThroughRelevance(t *testing.T) {
 	astTestMust(t, f.s.markRelevant(div))
 	astTestMust(t, f.s.relevancy.Propagate())
 	f.propagate(true)
-	v := f.s.context.enodes[div].TheoryVar(f.a.FamilyID())
+	v := f.s.context.enodes.get(div).TheoryVar(f.a.FamilyID())
 	value, err := f.a.numeric.value(v)
 	astTestMust(t, err)
 	checkInfiniteArithmetic(t, value, 0, 3, 0)

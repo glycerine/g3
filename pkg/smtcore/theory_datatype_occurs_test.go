@@ -44,7 +44,7 @@ func TestSMTDatatypeOccursEvidenceOrderAndScopeRecovery(t *testing.T) {
 					attach := func(h ast.ASTHandle) {
 						t.Helper()
 						astTestMust(t, state.Internalize(h, false))
-						astTestMust(t, dt.ensureVariable(state.context.enodes[h]))
+						astTestMust(t, dt.ensureVariable(state.context.enodes.get(h)))
 					}
 					if unknownFirst {
 						attach(unknown)
@@ -175,7 +175,7 @@ func TestSMTDatatypeAccessorVariableContract(t *testing.T) {
 	family, err := m.DatatypeFamilyID()
 	astTestMust(t, err)
 	dt := state.theories[family].(*SMTDatatypeTheory)
-	if !dt.IsAttachedToVariable(state.context.enodes[x]) || dt.IsAttachedToVariable(state.context.enodes[selected]) {
+	if !dt.IsAttachedToVariable(state.context.enodes.get(x)) || dt.IsAttachedToVariable(state.context.enodes.get(selected)) {
 		t.Fatal("accessor attached a spurious result variable")
 	}
 	// Source context::has_quantifiers refers to sticky asserted-formula
@@ -194,16 +194,16 @@ func TestSMTDatatypeAccessorVariableContract(t *testing.T) {
 	if !solver.kernel.assertedHasQuantifiers {
 		t.Fatal("asserted quantifier did not set context quantifier state")
 	}
-	astTestMust(t, dt.ApplySortConstraint(state.context.enodes[selected], sort))
-	if !dt.IsAttachedToVariable(state.context.enodes[selected]) {
+	astTestMust(t, dt.ApplySortConstraint(state.context.enodes.get(selected), sort))
+	if !dt.IsAttachedToVariable(state.context.enodes.get(selected)) {
 		t.Fatal("quantified sort constraint omitted infinite datatype variable")
 	}
 	astTestMust(t, solver.Pop(1))
-	if dt.IsAttachedToVariable(state.context.enodes[selected]) {
+	if dt.IsAttachedToVariable(state.context.enodes.get(selected)) {
 		t.Fatal("scoped sort constraint retained its variable")
 	}
-	astTestMust(t, dt.ApplySortConstraint(state.context.enodes[selected], sort))
-	if !dt.IsAttachedToVariable(state.context.enodes[selected]) {
+	astTestMust(t, dt.ApplySortConstraint(state.context.enodes.get(selected), sort))
+	if !dt.IsAttachedToVariable(state.context.enodes.get(selected)) {
 		t.Fatal("pop incorrectly cleared sticky asserted quantifier state")
 	}
 }
@@ -237,10 +237,10 @@ func TestSMTDatatypeAccessorResultSortConstraints(t *testing.T) {
 			astTestMust(t, err)
 			astTestPin(t, m, selected)
 			astTestMust(t, state.Internalize(selected, false))
-			if !dt.IsAttachedToVariable(state.context.enodes[x]) {
+			if !dt.IsAttachedToVariable(state.context.enodes.get(x)) {
 				t.Fatal("accessor argument has no datatype variable")
 			}
-			if dt.IsAttachedToVariable(state.context.enodes[selected]) != finite {
+			if dt.IsAttachedToVariable(state.context.enodes.get(selected)) != finite {
 				t.Fatal("accessor result did not follow its sort constraint")
 			}
 		})

@@ -46,7 +46,7 @@ func (t *SMTLinearArithmeticTheory) AddObjective(term ast.ASTHandle) (SMTTheoryV
 	if err = s.Internalize(term, false); err != nil {
 		return SMTNullTheoryVar, err
 	}
-	node := s.context.enodes[term]
+	node := s.context.enodes.get(term)
 	if node == nil || !t.IsAttachedToVariable(node) {
 		return SMTNullTheoryVar, ast.ErrASTDomain
 	}

@@ -15,7 +15,7 @@ func TestSMTSharedTheoryNodeIteAndUnownedRoots(t *testing.T) {
 	expression, err := m.MkIte(condition, values[0], values[1])
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(expression, false))
-	plain, conditional := state.context.enodes[values[0]], state.context.enodes[expression]
+	plain, conditional := state.context.enodes.get(values[0]), state.context.enodes.get(expression)
 	if plain == nil || conditional == nil || plain.NumTheoryVars() != 0 || conditional.NumTheoryVars() != 0 {
 		t.Fatal("fixture failed to isolate root sharing without theory attachments")
 	}
@@ -47,7 +47,7 @@ func TestSMTAssumeEqualityScopedPhaseAndRelevancy(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, state.internalizeTerm(x))
 	astTestMust(t, state.internalizeTerm(y))
-	left, right := state.context.enodes[x], state.context.enodes[y]
+	left, right := state.context.enodes.get(x), state.context.enodes.get(y)
 	eq, err := m.MkEq(x, y)
 	astTestMust(t, err)
 	ref, err := m.NewRef(eq)

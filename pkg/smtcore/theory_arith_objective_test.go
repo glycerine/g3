@@ -306,7 +306,7 @@ func TestSMTArithmeticObjectiveBlockerIntegerCeilAndRealCast(t *testing.T) {
 	// An integral-valued Real expression still uses the real strict blocker.
 	cast := f.app(smtArithOpToReal, x)
 	astTestMust(t, f.s.Internalize(cast, false))
-	node := f.s.context.enodes[cast]
+	node := f.s.context.enodes.get(cast)
 	if node == nil {
 		t.Fatal("missing cast enode")
 	}

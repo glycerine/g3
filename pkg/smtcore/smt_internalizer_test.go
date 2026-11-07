@@ -85,13 +85,13 @@ func TestSMTInternalizerScopedEnodeFlagOnExistingGate(t *testing.T) {
 		astTestMust(t, state.Internalize(gate, false))
 		data, err = state.BooleanData(variable)
 		astTestMust(t, err)
-		if !data.IsENode() || state.context.enodes[gate] == nil {
+		if !data.IsENode() || state.context.enodes.get(gate) == nil {
 			t.Fatal("scoped enode was not attached")
 		}
 		astTestMust(t, state.PopScopes(1))
 		data, err = state.BooleanData(variable)
 		astTestMust(t, err)
-		if data.IsENode() || state.context.enodes[gate] != nil {
+		if data.IsENode() || state.context.enodes.get(gate) != nil {
 			t.Fatal("scoped enode flag survived rollback")
 		}
 		if v, ok := state.BoolVar(gate); !ok || v != variable {
@@ -123,7 +123,7 @@ func TestSMTInternalizerBooleanGateClausesAndRootAssertions(t *testing.T) {
 	if len(state.Clauses()) != 3 {
 		t.Fatal("AND definition clauses", state.Clauses())
 	}
-	if len(state.context.enodes) != 0 {
+	if state.context.enodes.count() != 0 {
 		t.Fatal("gate-context formula unexpectedly created enodes")
 	}
 
@@ -137,7 +137,7 @@ func TestSMTInternalizerBooleanGateClausesAndRootAssertions(t *testing.T) {
 	if len(clauses) != before+1 || !clauses[len(clauses)-1].Root || len(clauses[len(clauses)-1].Literals) != 2 {
 		t.Fatal("root OR clause", clauses)
 	}
-	if !state.context.relevant[disjunction] || state.Statistics().MaxGeneration != 9 {
+	if !state.context.relevant.get(disjunction) || state.Statistics().MaxGeneration != 9 {
 		t.Fatal("root relevance or generation")
 	}
 }
@@ -335,8 +335,8 @@ func TestSMTInternalizerTermITEEqualityClausesAndRelevancy(t *testing.T) {
 	astTestMust(t, err)
 	context, relevancy, state := smtInternalizerFixture(t, m, nil)
 	astTestMust(t, state.Internalize(term, false))
-	if context.enodes[term] == nil || context.enodes[thenTerm] == nil || context.enodes[elseTerm] == nil || len(state.Clauses()) != 2 {
-		t.Fatal("term ITE enodes or clauses", len(context.enodes), state.Clauses())
+	if context.enodes.get(term) == nil || context.enodes.get(thenTerm) == nil || context.enodes.get(elseTerm) == nil || len(state.Clauses()) != 2 {
+		t.Fatal("term ITE enodes or clauses", context.enodes.count(), state.Clauses())
 	}
 	thenEquality, err := m.MkEq(term, thenTerm)
 	astTestMust(t, err)
@@ -390,7 +390,7 @@ func TestSMTInternalizerQuantifierRegistrationAndDefaultAssertion(t *testing.T) 
 	if value, err := state.Assignment(NewSMTLiteral(atomVar, false)); err != nil || value != lbool.True {
 		t.Fatal("default assertion assignment", value, err)
 	}
-	if !state.context.relevant[atom] {
+	if !state.context.relevant.get(atom) {
 		t.Fatal("default assertion relevance")
 	}
 }
@@ -449,8 +449,8 @@ func TestSMTInternalizerDeepAssertionUsesTopologicalPrepass(t *testing.T) {
 	}
 	_, _, state := smtInternalizerFixture(t, m, nil)
 	astTestMust(t, state.Assert(expression, ast.ASTHandle{}, 3))
-	if len(state.boolVar) != int(smtDeepExpressionThreshold)+2 {
-		t.Fatal("deep assertion internalization count", len(state.boolVar))
+	if state.boolVar.count() != int(smtDeepExpressionThreshold)+2 {
+		t.Fatal("deep assertion internalization count", state.boolVar.count())
 	}
 	rootVariable, found := state.BoolVar(expression)
 	if !found {

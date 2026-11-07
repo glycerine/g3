@@ -12,7 +12,7 @@ func stringTesterNewEquality(t *testing.T, theory *SMTStringTheory, left, right 
 	state := theory.state
 	astTestMust(t, state.Internalize(left, false))
 	astTestMust(t, state.Internalize(right, false))
-	astTestMust(t, theory.NewEquality(state.context.enodes[left].TheoryVar(theory.FamilyID()), state.context.enodes[right].TheoryVar(theory.FamilyID())))
+	astTestMust(t, theory.NewEquality(state.context.enodes.get(left).TheoryVar(theory.FamilyID()), state.context.enodes.get(right).TheoryVar(theory.FamilyID())))
 }
 
 func TestSMTStringTesterCallbacksBeforeMergeBothOrientations(t *testing.T) {
@@ -178,7 +178,7 @@ func TestSMTStringTesterBinaryCallbackAsymmetriesAndGuards(t *testing.T) {
 	if err := theory.moreStringValueTests(manual, "more"); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("missing binary stack accepted", err)
 	}
-	left, right := state.context.enodes[manual].TheoryVar(theory.FamilyID()), state.context.enodes[more].TheoryVar(theory.FamilyID())
+	left, right := state.context.enodes.get(manual).TheoryVar(theory.FamilyID()), state.context.enodes.get(more).TheoryVar(theory.FamilyID())
 	if err := theory.NewEquality(left, right); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("failed callback did not propagate its guard", err)
 	}

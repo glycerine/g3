@@ -50,7 +50,7 @@ func (t *SMTBitVectorTheory) internalizeBooleanGate3(expression ast.ASTHandle, o
 			}
 		}
 	}
-	if !gateContext && s.context.enodes[expression] == nil {
+	if !gateContext && s.context.enodes.get(expression) == nil {
 		if err = s.ensureBooleanEnode(expression, variable, true, true, true); err != nil {
 			return false, err
 		}

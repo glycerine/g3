@@ -80,7 +80,7 @@ func TestSMTLRAFrontendWorkStackCompactionAndUnitVariable(t *testing.T) {
 	f := newLRAFrontendFixture(t, true)
 	x, y := f.variable("lra-stack-x"), f.variable("lra-stack-y")
 	astTestMust(t, f.s.Internalize(x, false))
-	if f.a.IsAttachedToVariable(f.s.context.enodes[x]) {
+	if f.a.IsAttachedToVariable(f.s.context.enodes.get(x)) {
 		t.Fatal("source LRA has no sort-constraint attachment")
 	}
 	product := f.app(smtArithOpMul, f.number(2), x)
@@ -90,9 +90,9 @@ func TestSMTLRAFrontendWorkStackCompactionAndUnitVariable(t *testing.T) {
 	if f.a.NumVariables() != 3 {
 		t.Fatal("leaf/term variable count", f.a.NumVariables())
 	}
-	xv := f.s.context.enodes[x].TheoryVar(f.a.FamilyID())
-	yv := f.s.context.enodes[y].TheoryVar(f.a.FamilyID())
-	v := f.s.context.enodes[term].TheoryVar(f.a.FamilyID())
+	xv := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
+	yv := f.s.context.enodes.get(y).TheoryVar(f.a.FamilyID())
+	v := f.s.context.enodes.get(term).TheoryVar(f.a.FamilyID())
 	if xv != 0 || yv != 1 || v != 2 {
 		t.Fatal("native swap-last visitation order", xv, yv, v)
 	}
@@ -117,7 +117,7 @@ func TestSMTLRAFrontendWorkStackCompactionAndUnitVariable(t *testing.T) {
 	if constant.Cmp(big.NewRat(7, 1)) != 0 || len(f.a.numeric.solver.Terms) != 1 {
 		t.Fatal("compacted constant/term", constant)
 	}
-	if f.s.context.enodes[term].CongruenceEnabled() || f.s.context.enodes[product].CongruenceEnabled() || f.s.context.enodes[term].NumArgs() != 4 {
+	if f.s.context.enodes.get(term).CongruenceEnabled() || f.s.context.enodes.get(product).CongruenceEnabled() || f.s.context.enodes.get(term).NumArgs() != 4 {
 		t.Fatal("native arithmetic enode policy")
 	}
 	unit := f.app(smtArithOpMul, f.number(1), x)
@@ -144,7 +144,7 @@ func TestSMTLRAFrontendBooleanBoundsConflictAndScopeReplay(t *testing.T) {
 	f.propagate(false)
 	astTestMust(t, f.s.PopScopes(1))
 	f.propagate(true)
-	xv := f.s.context.enodes[x].TheoryVar(f.a.FamilyID())
+	xv := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
 	index, ok := f.a.numeric.index(xv)
 	if !ok || len(f.a.numeric.solver.Constraints) != 1 {
 		t.Fatal("parent bound was not replayed", ok, len(f.a.numeric.solver.Constraints))
@@ -200,7 +200,7 @@ func TestSMTLRAFrontendStrictBoxThroughActualLAR(t *testing.T) {
 	if !f.a.notHandled.IsNull() {
 		t.Fatal("linear source input refused")
 	}
-	if f.s.context.enodes[objective].NumArgs() != 0 || f.s.context.enodes[objective].CongruenceEnabled() {
+	if f.s.context.enodes.get(objective).NumArgs() != 0 || f.s.context.enodes.get(objective).CongruenceEnabled() {
 		t.Fatal("reflection-off arithmetic node policy")
 	}
 	checkNativeLRANumeric(t)
@@ -238,11 +238,11 @@ func TestSMTLRAFrontendSubtractionAndRightNumeralMultiplication(t *testing.T) {
 	astTestMust(t, f.s.Internalize(term, false))
 	vars := []ast.ASTHandle{x, z, y}
 	for i, h := range vars {
-		if f.s.context.enodes[h].TheoryVar(f.a.FamilyID()) != SMTTheoryVar(i) {
+		if f.s.context.enodes.get(h).TheoryVar(f.a.FamilyID()) != SMTTheoryVar(i) {
 			t.Fatal("swap-last subtraction order", i)
 		}
 	}
-	index, ok := f.a.numeric.index(f.s.context.enodes[term].TheoryVar(f.a.FamilyID()))
+	index, ok := f.a.numeric.index(f.s.context.enodes.get(term).TheoryVar(f.a.FamilyID()))
 	if !ok {
 		t.Fatal("missing subtraction term")
 	}
@@ -270,7 +270,7 @@ func TestSMTLRAFrontendUnderspecifiedReflectionAndIterativeUnitTerms(t *testing.
 	x, y := f.variable("lra-reflect-x"), f.variable("lra-reflect-y")
 	zeroDiv := f.app(smtArithOpDiv, x, f.number(0))
 	astTestMust(t, f.s.Internalize(zeroDiv, false))
-	if node := f.s.context.enodes[zeroDiv]; node.NumArgs() != 2 || !node.CongruenceEnabled() {
+	if node := f.s.context.enodes.get(zeroDiv); node.NumArgs() != 2 || !node.CongruenceEnabled() {
 		t.Fatal("underspecified operator must reflect despite reflect=false")
 	}
 	if !f.a.notHandled.IsNull() || len(f.a.underspecified) != 0 {
@@ -287,10 +287,10 @@ func TestSMTLRAFrontendUnderspecifiedReflectionAndIterativeUnitTerms(t *testing.
 	}
 	v, err := f.a.internalizeDef(term)
 	astTestMust(t, err)
-	if v != f.s.context.enodes[x].TheoryVar(f.a.FamilyID()) {
+	if v != f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID()) {
 		t.Fatal("iterative unit chain lost the leaf variable")
 	}
-	if f.a.IsAttachedToVariable(f.s.context.enodes[term]) {
+	if f.a.IsAttachedToVariable(f.s.context.enodes.get(term)) {
 		t.Fatal("source unit-form optimization must not add a slack")
 	}
 }

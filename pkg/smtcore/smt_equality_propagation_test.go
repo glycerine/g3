@@ -31,7 +31,7 @@ func TestSMTBooleanClassAssignmentAfterMerge(t *testing.T) {
 				v, _ := s.BoolVar(term)
 				astTestMust(t, s.ensureBooleanEnode(term, v, true, false, false))
 			}
-			left, right := s.context.enodes[a], s.context.enodes[b]
+			left, right := s.context.enodes.get(a), s.context.enodes.get(b)
 			astTestMust(t, s.addEquality(left, right, NewSMTEqualityAxiom()))
 			source := left
 			if (source == source.root) != assignRoot {
@@ -54,7 +54,7 @@ func TestSMTBooleanClassAssignmentAfterMerge(t *testing.T) {
 					if got != lbool.True {
 						t.Fatal("assignment did not reach class member", truth, assignRoot, got)
 					}
-					if s.context.enodes[term].mergeTruthValue {
+					if s.context.enodes.get(term).mergeTruthValue {
 						t.Fatal("test unexpectedly enabled merge_tf")
 					}
 				}
@@ -161,7 +161,7 @@ func TestSMTCoreEqualityPropagatesRelevancyAndRollsBack(t *testing.T) {
 	astTestMust(t, err)
 	context, relevancy, state := smtInternalizerFixture(t, manager, nil)
 	astTestMust(t, state.Internalize(equality, false))
-	left, right := context.enodes[values[0]], context.enodes[values[1]]
+	left, right := context.enodes.get(values[0]), context.enodes.get(values[1])
 	if left == nil || right == nil {
 		t.Fatal("equality arguments were not internalized")
 	}

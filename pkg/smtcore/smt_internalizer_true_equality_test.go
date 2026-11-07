@@ -32,7 +32,7 @@ func TestSMTInternalizerNewTrueEqualityPropagationAndPop(t *testing.T) {
 		astTestMust(t, state.AssignLiteral(literal, NewSMTBooleanAxiom()))
 		_, err = state.PropagateCore()
 		astTestMust(t, err)
-		if state.context.enodes[fa].Root() != state.context.enodes[fb].Root() {
+		if state.context.enodes.get(fa).Root() != state.context.enodes.get(fb).Root() {
 			t.Fatal("fixture did not establish congruent application roots")
 		}
 		astTestMust(t, state.Internalize(lateEquality, gate))
@@ -62,7 +62,7 @@ func TestSMTInternalizerNewTrueEqualityConflictsWithAssignedFalse(t *testing.T) 
 	for _, value := range values {
 		astTestMust(t, state.Internalize(value, false))
 	}
-	astTestMust(t, state.addEquality(state.context.enodes[values[0]], state.context.enodes[values[1]], NewSMTEqualityAxiom()))
+	astTestMust(t, state.addEquality(state.context.enodes.get(values[0]), state.context.enodes.get(values[1]), NewSMTEqualityAxiom()))
 	_, err := state.PropagateCore()
 	astTestMust(t, err)
 	astTestMust(t, state.PushScope())
@@ -77,7 +77,7 @@ func TestSMTInternalizerNewTrueEqualityConflictsWithAssignedFalse(t *testing.T) 
 		t.Fatal("a newly attached true equality ignored its opposite assignment")
 	}
 	astTestMust(t, state.PopScopes(1))
-	if state.Inconsistent() || state.context.enodes[equality] != nil {
+	if state.Inconsistent() || state.context.enodes.get(equality) != nil {
 		t.Fatal("late-equality conflict or enode survived pop")
 	}
 }

@@ -31,7 +31,7 @@ func smtLemmaFixture(t *testing.T) (*lraFrontendFixture, []SMTLiteral, []SMTEnod
 	x, y := f.variable("lemma-x"), f.variable("lemma-y")
 	astTestMust(t, f.s.Internalize(x, false))
 	astTestMust(t, f.s.Internalize(y, false))
-	return f, ls, []SMTEnodePair{{First: f.s.context.enodes[x], Second: f.s.context.enodes[y]}}
+	return f, ls, []SMTEnodePair{{First: f.s.context.enodes.get(x), Second: f.s.context.enodes.get(y)}}
 }
 
 func TestSMTLemmaProblemPremiseOrderAndConclusionPolarity(t *testing.T) {

@@ -98,7 +98,7 @@ func (t *SMTStringTheory) simplifyStringParents(expression, constant ast.ASTHand
 		return err
 	}
 	for _, member := range t.stringClass(expression) {
-		node := t.state.context.enodes[member]
+		node := t.state.context.enodes.get(member)
 		if node == nil {
 			return ast.ErrASTDomain
 		}

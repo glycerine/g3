@@ -35,7 +35,7 @@ func TestSMTModelCheckerContextRecoveryUsesOldestEqualityMember(t *testing.T) {
 		astTestMust(t, err)
 		astTestMust(t, state.SetGeneration(generation))
 		astTestMust(t, state.Internalize(term, false))
-		nodes[i] = state.context.enodes[term]
+		nodes[i] = state.context.enodes.get(term)
 	}
 	astTestMust(t, state.addEquality(nodes[0], nodes[1], NewSMTEqualityAxiom()))
 	root := nodes[0].Root()
@@ -85,10 +85,10 @@ func TestSMTModelCheckerInversePreservesGenerationBeforeFingerprintCanonicalizat
 			q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []symbol.Symbol{astTestSymbol(t, m, "inverse-generation-x")}, Body: body})
 			astTestMust(t, err)
 			astTestMust(t, state.Internalize(q, true))
-			original, err := NewSMTEnode(m, seven, state.context.enodes, SMTEnodeOptions{Generation: 8})
+			original, err := NewSMTEnode(m, seven, state.context.enodes.get, SMTEnodeOptions{Generation: 8})
 			astTestMust(t, err)
 			astTestMust(t, state.context.RegisterEnode(original, true))
-			representative, err := NewSMTEnode(m, three, state.context.enodes, SMTEnodeOptions{Generation: 1})
+			representative, err := NewSMTEnode(m, three, state.context.enodes.get, SMTEnodeOptions{Generation: 1})
 			astTestMust(t, err)
 			astTestMust(t, state.context.RegisterEnode(representative, true))
 			original.root = representative
@@ -149,10 +149,10 @@ func TestSMTModelCheckerRejectsUnrecoverablePrivateBindings(t *testing.T) {
 		q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{sort}, Names: []symbol.Symbol{astTestSymbol(t, m, "private-binding-x")}, Body: body})
 		astTestMust(t, err)
 		astTestMust(t, state.Internalize(q, true))
-		before := len(state.context.enodes)
+		before := state.context.enodes.count()
 		inserted, err := checker.addCounterexample(q, []ast.ASTHandle{value})
 		astTestMust(t, err)
-		if inserted || !checker.Exhausted() || len(state.context.enodes) != before || registry.schedule.HasWork() {
+		if inserted || !checker.Exhausted() || state.context.enodes.count() != before || registry.schedule.HasWork() {
 			t.Fatal("private model binding entered logical context", value)
 		}
 	}

@@ -37,7 +37,7 @@ func (t *SMTStringTheory) createStringVariable(name string, basicAxioms bool) (a
 	if err = t.state.Internalize(variable, false); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	node := t.state.context.enodes[variable]
+	node := t.state.context.enodes.get(variable)
 	if _, err = t.mkVar(node); err != nil {
 		return ast.ASTHandle{}, err
 	}

@@ -42,7 +42,7 @@ func TestSMTModelFinderAUFOffsetPopulationAndSameClassCutoff(t *testing.T) {
 				Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []symbol.Symbol{astTestSymbol(t, m, "auf-offset-x")}, Body: body,
 			})
 			astTestMust(t, err)
-			tenNode, err := NewSMTEnode(m, ten, state.context.enodes, SMTEnodeOptions{Generation: 6})
+			tenNode, err := NewSMTEnode(m, ten, state.context.enodes.get, SMTEnodeOptions{Generation: 6})
 			astTestMust(t, err)
 			astTestMust(t, state.context.RegisterEnode(tenNode, true))
 			smtQuickApplicationNode(t, m, state.context, predicate, tenNode, true)
@@ -93,7 +93,7 @@ func TestSMTModelFinderAUFBitVectorOffsetWraps(t *testing.T) {
 		Forall: true, Sorts: []ast.ASTHandle{sort}, Names: []symbol.Symbol{astTestSymbol(t, m, "auf-bv-offset-x")}, Body: body,
 	})
 	astTestMust(t, err)
-	oneNode, err := NewSMTEnode(m, one, state.context.enodes, SMTEnodeOptions{Generation: 9})
+	oneNode, err := NewSMTEnode(m, one, state.context.enodes.get, SMTEnodeOptions{Generation: 9})
 	astTestMust(t, err)
 	astTestMust(t, state.context.RegisterEnode(oneNode, true))
 	smtQuickApplicationNode(t, m, state.context, p, oneNode, true)

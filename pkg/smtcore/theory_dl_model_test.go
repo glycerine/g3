@@ -59,7 +59,7 @@ func (f *dlModelFixture) representative(t *testing.T) (ast.ASTHandle, SMTTheoryV
 	rep, err := f.dl.rep(f.node.owner)
 	astTestMust(t, err)
 	astTestMust(t, f.s.Internalize(rep, false))
-	return rep, f.s.context.enodes[rep].TheoryVar(f.bv.FamilyID())
+	return rep, f.s.context.enodes.get(rep).TheoryVar(f.bv.FamilyID())
 }
 func (f *dlModelFixture) assign(t *testing.T, v SMTTheoryVar, value uint64) {
 	t.Helper()
@@ -93,7 +93,7 @@ func TestSMTDatalogNativeModelDeferredNoLateInternalization(t *testing.T) {
 	dlModelNumber(t, f, p, 0)
 	rep, err := f.dl.rep(f.node.owner)
 	astTestMust(t, err)
-	if f.s.context.enodes[rep] != nil || len(f.bv.variables) != 0 {
+	if f.s.context.enodes.get(rep) != nil || len(f.bv.variables) != 0 {
 		t.Fatal("missing representative was internalized during MakeValue")
 	}
 	// The same procedure observes assignments created after its construction.
@@ -418,7 +418,7 @@ func TestSMTDatalogNativeOrderBridgeTermContextAndRelevance(t *testing.T) {
 	astTestMust(t, err)
 	le, err := f.m.MkBitVectorULE(right, left)
 	astTestMust(t, err)
-	if f.s.context.enodes[lt] == nil || f.s.context.enodes[le] == nil || !f.s.relevancy.IsRelevant(lt) || !f.s.relevancy.IsRelevant(le) {
+	if f.s.context.enodes.get(lt) == nil || f.s.context.enodes.get(le) == nil || !f.s.relevancy.IsRelevant(lt) || !f.s.relevancy.IsRelevant(le) {
 		t.Fatal("source order bridge lost term-context enodes or literal relevance")
 	}
 	// Relevant's inverse/range units must mark their Boolean atom before the

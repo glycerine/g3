@@ -40,8 +40,8 @@ func TestSMTLRASharedCandidatesOrderPhaseAndScope(t *testing.T) {
 		t.Fatal("missing scoped shared candidates", progress, f.a.assumeCandidates, f.a.assumeHead)
 	}
 	for i, pair := range f.a.assumeCandidates {
-		wantLeft := f.s.context.enodes[vars[(start+i+1)%len(vars)]].TheoryVar(f.a.FamilyID())
-		wantRight := f.s.context.enodes[vars[start]].TheoryVar(f.a.FamilyID())
+		wantLeft := f.s.context.enodes.get(vars[(start+i+1)%len(vars)]).TheoryVar(f.a.FamilyID())
+		wantRight := f.s.context.enodes.get(vars[start]).TheoryVar(f.a.FamilyID())
 		if pair.left != wantLeft || pair.right != wantRight {
 			t.Fatal("native cyclic candidate order", pair, wantLeft, wantRight)
 		}
@@ -87,12 +87,12 @@ func TestSMTLRASharedUnderspecifiedParentScan(t *testing.T) {
 		}
 		astTestMust(t, f.s.relevancy.MarkRelevant(x))
 		astTestMust(t, f.s.relevancy.Propagate())
-		shared, err := f.a.relevantShared(f.s.context.enodes[x])
+		shared, err := f.a.relevantShared(f.s.context.enodes.get(x))
 		astTestMust(t, err)
 		if !shared {
-			t.Fatal("underspecified child was not shared", many, len(f.s.context.enodes[x].Root().parents))
+			t.Fatal("underspecified child was not shared", many, len(f.s.context.enodes.get(x).Root().parents))
 		}
-		parents := len(f.s.context.enodes[x].Root().parents)
+		parents := len(f.s.context.enodes.get(x).Root().parents)
 		if many != (parents > 2*len(f.a.underspecified)) {
 			t.Fatal("test did not reach both native sharing branches", many, parents, len(f.a.underspecified))
 		}
@@ -108,8 +108,8 @@ func TestSMTLRADelayedCandidateRechecksCurrentValues(t *testing.T) {
 	lraFix(t, f, x, 1)
 	f.assert(f.app(smtArithOpGE, y, f.number(1)), true)
 	f.propagate(true)
-	xv := f.s.context.enodes[x].TheoryVar(f.a.FamilyID())
-	yv := f.s.context.enodes[y].TheoryVar(f.a.FamilyID())
+	xv := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
+	yv := f.s.context.enodes.get(y).TheoryVar(f.a.FamilyID())
 	f.a.assumeCandidates = append(f.a.assumeCandidates, smtArithmeticEqualityCandidate{xv, yv})
 	f.assert(f.app(smtArithOpGE, y, f.number(2)), true)
 	f.propagate(true)
@@ -135,8 +135,8 @@ func TestSMTLRASharedRandomizationSeparatesFlexibleValues(t *testing.T) {
 		astTestMust(t, f.s.relevancy.MarkRelevant(v))
 	}
 	astTestMust(t, f.s.relevancy.Propagate())
-	xv := f.s.context.enodes[x].TheoryVar(f.a.FamilyID())
-	yv := f.s.context.enodes[y].TheoryVar(f.a.FamilyID())
+	xv := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
+	yv := f.s.context.enodes.get(y).TheoryVar(f.a.FamilyID())
 	x0, err := f.a.numeric.value(xv)
 	astTestMust(t, err)
 	y0, err := f.a.numeric.value(yv)
@@ -165,8 +165,8 @@ func TestSMTLRADelayedCandidateKeepsEpsilonDistinct(t *testing.T) {
 	f.assert(f.app(smtArithOpGE, y, f.number(0)), true)
 	f.assert(f.app(smtArithOpGE, y, f.number(1)), false)
 	f.propagate(true)
-	xv := f.s.context.enodes[x].TheoryVar(f.a.FamilyID())
-	yv := f.s.context.enodes[y].TheoryVar(f.a.FamilyID())
+	xv := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
+	yv := f.s.context.enodes.get(y).TheoryVar(f.a.FamilyID())
 	_, err := f.a.numeric.maximize(yv)
 	astTestMust(t, err)
 	a, err := f.a.numeric.value(xv)
@@ -212,7 +212,7 @@ func TestSMTLRAModelStrictValuesTermFactoryAndOwnership(t *testing.T) {
 	_, err := f.a.internalizeDef(term)
 	astTestMust(t, err)
 	f.propagate(true)
-	xv := f.s.context.enodes[x].TheoryVar(f.a.FamilyID())
+	xv := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
 	_, err = f.a.numeric.maximize(xv)
 	astTestMust(t, err)
 	astTestMust(t, f.a.InitializeModel(g))
@@ -221,9 +221,9 @@ func TestSMTLRAModelStrictValuesTermFactoryAndOwnership(t *testing.T) {
 	procedures := make(map[*SMTEnode]SMTModelValueProcedure)
 	var roots []*SMTEnode
 	for i, h := range []ast.ASTHandle{x, term} {
-		procedure, err := f.a.ModelValue(f.s.context.enodes[h], g)
+		procedure, err := f.a.ModelValue(f.s.context.enodes.get(h), g)
 		astTestMust(t, err)
-		root := f.s.context.enodes[h].Root()
+		root := f.s.context.enodes.get(h).Root()
 		roots = append(roots, root)
 		procedures[root] = procedure
 		handles[i], err = procedure.MakeValue(g, nil)
@@ -270,7 +270,7 @@ func TestSMTLRAModelMissingColumnCacheAndFeasibilityReset(t *testing.T) {
 	astTestMust(t, err)
 	lraFix(t, f, x, 2)
 	f.propagate(true)
-	xv := f.s.context.enodes[x].TheoryVar(f.a.FamilyID())
+	xv := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
 	if f.a.canGetModelValue(xv) {
 		t.Fatal("proper column was available before model initialization")
 	}
@@ -308,12 +308,12 @@ func TestSMTLRAModelRejectsFractionalIntAndUninitializedGenerator(t *testing.T) 
 	astTestMust(t, err)
 	index, err := f.a.numeric.getVarIndex(v)
 	astTestMust(t, err)
-	if _, err = f.a.ModelValue(f.s.context.enodes[x], g); err == nil {
+	if _, err = f.a.ModelValue(f.s.context.enodes.get(x), g); err == nil {
 		t.Fatal("model value accepted without init_model")
 	}
 	astTestMust(t, f.a.InitializeModel(g))
 	f.a.modelValues[index] = big.NewRat(3, 2)
-	if _, err = f.a.ModelValue(f.s.context.enodes[x], g); err == nil {
+	if _, err = f.a.ModelValue(f.s.context.enodes.get(x), g); err == nil {
 		t.Fatal("native fractional Int rejection was replaced with rounding")
 	}
 }

@@ -98,9 +98,9 @@ func TestSMTDenseTheoryPropagationConflictAndScope(t *testing.T) {
 			astTestMust(t, state.context.SetRelevant(x, true))
 			astTestMust(t, state.context.SetRelevant(y, true))
 			astTestMust(t, generator.BuildStateValues(state))
-			xValue, err := generator.Value(state.context.enodes[x])
+			xValue, err := generator.Value(state.context.enodes.get(x))
 			astTestMust(t, err)
-			yValue, err := generator.Value(state.context.enodes[y])
+			yValue, err := generator.Value(state.context.enodes.get(y))
 			astTestMust(t, err)
 			xText, _, _, err := m.ArithmeticNumeralText(xValue)
 			astTestMust(t, err)
@@ -115,8 +115,8 @@ func TestSMTDenseTheoryPropagationConflictAndScope(t *testing.T) {
 			if gap.Sign() <= 0 || !integer && gap.Cmp(big.NewRat(1, 3)) > 0 {
 				t.Fatal("published dense model violates strict complement or rational upper bound", xText, yText)
 			}
-			xv := state.context.enodes[x].TheoryVar(family)
-			yv := state.context.enodes[y].TheoryVar(family)
+			xv := state.context.enodes.get(x).TheoryVar(family)
+			yv := state.context.enodes.get(y).TheoryVar(family)
 			var difference smtInfRational
 			difference.Sub(&theory.values[xv], &theory.values[yv])
 			if difference.Sign() <= 0 {

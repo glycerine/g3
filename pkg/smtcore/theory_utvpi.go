@@ -69,7 +69,7 @@ func (t *SMTUTVPITheory) Initialize(state *SMTInternalizerState) error {
 	if err != nil {
 		return err
 	}
-	node := state.context.enodes[zero]
+	node := state.context.enodes.get(zero)
 	if node == nil {
 		node, err = state.MkEnode(zero, false, false, true)
 		if err != nil {
@@ -107,13 +107,13 @@ func (t *SMTUTVPITheory) createVariable(node *SMTEnode) (SMTTheoryVar, error) {
 }
 
 func (t *SMTUTVPITheory) variable(expression ast.ASTHandle) (SMTTheoryVar, error) {
-	if node := t.state.context.enodes[expression]; node != nil && t.IsAttachedToVariable(node) {
+	if node := t.state.context.enodes.get(expression); node != nil && t.IsAttachedToVariable(node) {
 		return node.TheoryVar(t.FamilyID()), nil
 	}
 	if err := t.state.Internalize(expression, false); err != nil {
 		return SMTNullTheoryVar, err
 	}
-	node := t.state.context.enodes[expression]
+	node := t.state.context.enodes.get(expression)
 	if node == nil {
 		return SMTNullTheoryVar, ast.ErrASTDomain
 	}
@@ -223,7 +223,7 @@ func (t *SMTUTVPITheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool
 }
 
 func (t *SMTUTVPITheory) InternalizeTerm(expression ast.ASTHandle) (bool, error) {
-	if node := t.state.context.enodes[expression]; node != nil && t.IsAttachedToVariable(node) {
+	if node := t.state.context.enodes.get(expression); node != nil && t.IsAttachedToVariable(node) {
 		return true, nil
 	}
 	accepted, err := t.linearizer.linearize(expression, ast.ASTHandle{})
@@ -246,7 +246,7 @@ func (t *SMTUTVPITheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 		}
 		graphTerms = append(graphTerms, smtUTVPIGraphTerm{int32(v), term.coefficient.Sign() < 0})
 	}
-	node := t.state.context.enodes[expression]
+	node := t.state.context.enodes.get(expression)
 	if node == nil {
 		node, err = t.state.MkEnode(expression, false, false, true)
 		if err != nil {

@@ -24,7 +24,7 @@ func smtDiseqLiteral(t testing.TB, m *ast.ASTManager, s *SMTInternalizerState, a
 func TestDisequalitySurvivesMergesOfEitherSide(t *testing.T) {
 	f := newSMTEqualityUndoFixture(t, "diseq-merge", 4)
 	s := f.s
-	node := func(i int) *SMTEnode { return s.context.enodes[f.base[i]] }
+	node := func(i int) *SMTEnode { return s.context.enodes.get(f.base[i]) }
 	astTestMust(t, s.addDisequality(node(0), node(1), smtDiseqLiteral(t, f.m, s, f.base[0], f.base[1])))
 	astTestMust(t, s.addEquality(node(0), node(2), NewSMTEqualityAxiom()))
 	astTestMust(t, s.addEquality(node(1), node(3), NewSMTEqualityAxiom()))
@@ -41,7 +41,7 @@ func TestDisequalitySurvivesMergesOfEitherSide(t *testing.T) {
 func TestDisequalityIsRestoredByScopePop(t *testing.T) {
 	f := newSMTEqualityUndoFixture(t, "diseq-scope", 5)
 	s := f.s
-	node := func(i int) *SMTEnode { return s.context.enodes[f.base[i]] }
+	node := func(i int) *SMTEnode { return s.context.enodes.get(f.base[i]) }
 	astTestMust(t, s.addDisequality(node(0), node(1), smtDiseqLiteral(t, f.m, s, f.base[0], f.base[1])))
 
 	astTestMust(t, s.PushScope())
@@ -83,7 +83,7 @@ func TestDisequalityIsRestoredByScopePop(t *testing.T) {
 func TestDisequalityUndoToleratesAnyTrailOrder(t *testing.T) {
 	f := newSMTEqualityUndoFixture(t, "diseq-order", 4)
 	s := f.s
-	node := func(i int) *SMTEnode { return s.context.enodes[f.base[i]] }
+	node := func(i int) *SMTEnode { return s.context.enodes.get(f.base[i]) }
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.addDisequality(node(0), node(1), smtDiseqLiteral(t, f.m, s, f.base[0], f.base[1])))
 	astTestMust(t, s.addEquality(node(2), node(0), NewSMTEqualityAxiom()))
@@ -99,7 +99,7 @@ func TestDisequalityUndoToleratesAnyTrailOrder(t *testing.T) {
 func TestDisequalityConflictUsesLatestReason(t *testing.T) {
 	f := newSMTEqualityUndoFixture(t, "diseq-reason", 3)
 	s := f.s
-	node := func(i int) *SMTEnode { return s.context.enodes[f.base[i]] }
+	node := func(i int) *SMTEnode { return s.context.enodes.get(f.base[i]) }
 	astTestMust(t, s.addEquality(node(1), node(2), NewSMTEqualityAxiom()))
 	astTestMust(t, s.addDisequality(node(0), node(1), smtDiseqLiteral(t, f.m, s, f.base[0], f.base[1])))
 	latest := smtDiseqLiteral(t, f.m, s, f.base[0], f.base[2])
@@ -113,7 +113,7 @@ func TestDisequalityConflictUsesLatestReason(t *testing.T) {
 func TestSetDisequalToggleOnContext(t *testing.T) {
 	f := newSMTEqualityUndoFixture(t, "diseq-toggle", 3)
 	context := f.s.context
-	a, b, c := context.enodes[f.base[0]], context.enodes[f.base[1]], context.enodes[f.base[2]]
+	a, b, c := context.enodes.get(f.base[0]), context.enodes.get(f.base[1]), context.enodes.get(f.base[2])
 	astTestMust(t, context.SetDisequal(a, b, true))
 	astTestMust(t, context.SetDisequal(a, c, true))
 	if !context.isDisequal(a, b) || !context.isDisequal(c, a) {
@@ -134,9 +134,9 @@ func TestDisequalityPushAndMergeDoNotScaleWithCount(t *testing.T) {
 		f := newSMTEqualityUndoFixture(t, fmt.Sprintf("diseq-scale-%d", count), count+3)
 		s := f.s
 		for i := 0; i < count; i++ {
-			astTestMust(t, s.addDisequality(s.context.enodes[f.base[i+3]], s.context.enodes[f.base[i+2]], smtDiseqLiteral(t, f.m, s, f.base[i+3], f.base[i+2])))
+			astTestMust(t, s.addDisequality(s.context.enodes.get(f.base[i+3]), s.context.enodes.get(f.base[i+2]), smtDiseqLiteral(t, f.m, s, f.base[i+3], f.base[i+2])))
 		}
-		left, right := s.context.enodes[f.base[0]], s.context.enodes[f.base[1]]
+		left, right := s.context.enodes.get(f.base[0]), s.context.enodes.get(f.base[1])
 		return testing.AllocsPerRun(50, func() {
 			astTestMust(t, s.PushScope())
 			astTestMust(t, s.addEquality(left, right, NewSMTEqualityAxiom()))
@@ -161,7 +161,7 @@ func smtScanRelevantFalseEquality(t *testing.T, s *SMTInternalizerState, first, 
 		if s.assignment[NewSMTLiteral(variable, false).Index()] != lbool.False {
 			continue
 		}
-		a, b := s.context.enodes[left], s.context.enodes[right]
+		a, b := s.context.enodes.get(left), s.context.enodes.get(right)
 		if a == nil || b == nil {
 			continue
 		}
@@ -206,11 +206,11 @@ func TestRelevantFalseEqualityMatchesFullScan(t *testing.T) {
 						astTestMust(t, s.AssignLiteral(literal.Negated(), NewSMTBooleanAxiom()))
 					}
 				case action < 9:
-					astTestMust(t, s.addEquality(s.context.enodes[pick()], s.context.enodes[pick()], NewSMTEqualityAxiom()))
+					astTestMust(t, s.addEquality(s.context.enodes.get(pick()), s.context.enodes.get(pick()), NewSMTEqualityAxiom()))
 				}
 				for i := range f.base {
 					for j := i + 1; j < len(f.base); j++ {
-						first, second := s.context.enodes[f.base[i]], s.context.enodes[f.base[j]]
+						first, second := s.context.enodes.get(f.base[i]), s.context.enodes.get(f.base[j])
 						got, err := s.hasRelevantFalseEquality(first, second)
 						astTestMust(t, err)
 						want := first.root != second.root && smtScanRelevantFalseEquality(t, s, first, second)
@@ -231,7 +231,7 @@ func TestRelevantFalseEqualityMatchesFullScan(t *testing.T) {
 func TestContextSetDisequalIsRestoredByScopePop(t *testing.T) {
 	f := newSMTEqualityUndoFixture(t, "diseq-direct", 2)
 	s := f.s
-	a, b := s.context.enodes[f.base[0]], s.context.enodes[f.base[1]]
+	a, b := s.context.enodes.get(f.base[0]), s.context.enodes.get(f.base[1])
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.context.SetDisequal(a, b, true))
 	if !s.context.isDisequal(a, b) {

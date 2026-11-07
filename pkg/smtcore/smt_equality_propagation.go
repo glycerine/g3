@@ -250,7 +250,7 @@ func (s *SMTInternalizerState) propagateTrueEquality(node *SMTEnode) error {
 	if !node.IsTrueEquality() {
 		return nil
 	}
-	variable, found := s.boolVar[node.owner]
+	variable, found := s.boolVar.lookup(node.owner)
 	if !found {
 		return nil
 	}
@@ -343,7 +343,7 @@ func (s *SMTInternalizerState) propagateBooleanClass(root *SMTEnode) error {
 			}
 			break
 		}
-		if variable, found := s.boolVar[node.owner]; found {
+		if variable, found := s.boolVar.lookup(node.owner); found {
 			assigned, err := s.Assignment(NewSMTLiteral(variable, false))
 			if err != nil {
 				return err
@@ -361,7 +361,7 @@ func (s *SMTInternalizerState) propagateBooleanClass(root *SMTEnode) error {
 		return nil
 	}
 	for node := root; ; node = node.next {
-		if variable, found := s.boolVar[node.owner]; found && node != source {
+		if variable, found := s.boolVar.lookup(node.owner); found && node != source {
 			literal := NewSMTLiteral(variable, value == lbool.False)
 			assigned, e := s.Assignment(literal)
 			if e != nil {
@@ -414,7 +414,7 @@ func (s *SMTInternalizerState) booleanValueEnode(value bool) (*SMTEnode, error) 
 	if err != nil {
 		return nil, err
 	}
-	if node := s.context.enodes[expression]; node != nil {
+	if node := s.context.enodes.get(expression); node != nil {
 		return node, nil
 	}
 	return s.MkEnode(expression, true, true, false)
@@ -450,7 +450,7 @@ func (s *SMTInternalizerState) propagateEqualityClassRelevancy(first, second *SM
 	relevant := false
 	for _, root := range []*SMTEnode{first, second} {
 		for node := root; ; node = node.next {
-			if s.context.relevant[node.owner] {
+			if s.context.relevant.get(node.owner) {
 				relevant = true
 				break
 			}
@@ -467,7 +467,7 @@ func (s *SMTInternalizerState) propagateEqualityClassRelevancy(first, second *SM
 	}
 	for _, root := range []*SMTEnode{first, second} {
 		for node := root; ; node = node.next {
-			if !s.context.relevant[node.owner] {
+			if !s.context.relevant.get(node.owner) {
 				if err := s.markRelevant(node.owner); err != nil {
 					return err
 				}

@@ -68,7 +68,7 @@ func TestSMTObjectiveLowerBoundIntegralRealCastUsesUnitStep(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal(status)
 	}
-	xnode := f.s.context.enodes[x]
+	xnode := f.s.context.enodes.get(x)
 	value, ok := f.a.solver.Upper(f.a.simplexVariables[xnode.TheoryVar(f.a.FamilyID())])
 	if !ok || value.Main.Cmp(big.NewRat(4, 1)) != 0 || value.Epsilon.Sign() != 0 {
 		t.Fatal("integral Real atom used an infinitesimal complement", ok, value.String())

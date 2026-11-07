@@ -41,7 +41,7 @@ func TestSMTSequenceAssumeEqualityRewritesBeforeInternalizing(t *testing.T) {
 			if tc.equal {
 				want = lbool.True
 			}
-			if value != want || f.state.searchProgress() != before || f.state.context.enodes[left] != nil || f.state.context.enodes[right] != nil {
+			if value != want || f.state.searchProgress() != before || f.state.context.enodes.get(left) != nil || f.state.context.enodes.get(right) != nil {
 				t.Fatal("rewritable equality changed the search", value, "want", want)
 			}
 		})
@@ -99,7 +99,7 @@ func TestSMTSequenceAssumeEqualityRecognizesMergedRoots(t *testing.T) {
 	astTestMust(t, f.state.assignDecisionLiteral(literal))
 	consistent, err := f.state.PropagateCore()
 	astTestMust(t, err)
-	if !consistent || f.state.context.enodes[f.x].Root() != f.state.context.enodes[f.y].Root() {
+	if !consistent || f.state.context.enodes.get(f.x).Root() != f.state.context.enodes.get(f.y).Root() {
 		t.Fatal("fixture roots did not merge")
 	}
 	before := f.state.searchProgress()
@@ -114,7 +114,7 @@ func TestSMTSequenceAssumeEqualityHonorsCoreDisequality(t *testing.T) {
 	f := newSMTSequenceInterfaceFixture(t)
 	for attempt := 0; attempt < 2; attempt++ {
 		astTestMust(t, f.state.PushScope())
-		astTestMust(t, f.state.context.SetDisequal(f.state.context.enodes[f.x], f.state.context.enodes[f.y], true))
+		astTestMust(t, f.state.context.SetDisequal(f.state.context.enodes.get(f.x), f.state.context.enodes.get(f.y), true))
 		if f.theory.exclusions.Contains(f.x, f.y) {
 			t.Fatal("fixture did not isolate the core disequality check")
 		}
@@ -125,7 +125,7 @@ func TestSMTSequenceAssumeEqualityHonorsCoreDisequality(t *testing.T) {
 			t.Fatal("core-disequal roots acquired an interface equality", value)
 		}
 		astTestMust(t, f.state.PopScopes(1))
-		if f.state.context.isDisequal(f.state.context.enodes[f.x], f.state.context.enodes[f.y]) {
+		if f.state.context.isDisequal(f.state.context.enodes.get(f.x), f.state.context.enodes.get(f.y)) {
 			t.Fatal("core disequality survived its scope")
 		}
 	}
@@ -164,7 +164,7 @@ func TestSMTSequenceAssumeEqualityDoesNotBorrowPreprocessorSubstitutions(t *test
 	astTestMust(t, rw.SetSubstitution(&substitution))
 	value, err := f.theory.assumeSequenceEquality(f.x, literal)
 	astTestMust(t, err)
-	if value != lbool.Undef || f.state.context.enodes[f.x].Root() == f.state.context.enodes[literal].Root() {
+	if value != lbool.Undef || f.state.context.enodes.get(f.x).Root() == f.state.context.enodes.get(literal).Root() {
 		t.Fatal("preprocessor substitution was treated as an unconditional sequence equality", value)
 	}
 }

@@ -41,7 +41,7 @@ func TestSMTStringToIntAgreementZeroSplitIsUnasserted(t *testing.T) {
 	astTestMust(t, err)
 	value, err := state.Assignment(literal)
 	astTestMust(t, err)
-	if value != lbool.Undef || state.context.enodes[isZero] == nil {
+	if value != lbool.Undef || state.context.enodes.get(isZero) == nil {
 		t.Fatal("source zero split was asserted or omitted its enode", value)
 	}
 }
@@ -107,7 +107,7 @@ func TestSMTStringToIntAgreementParsesPrivateClassBytes(t *testing.T) {
 			constant := astTestString(t, m, test.text)
 			astTestMust(t, state.Internalize(constant, false))
 			// Exercise the source private class, independent of core congruence.
-			theory.find.Merge(uint32(state.context.enodes[word].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[constant].TheoryVar(theory.FamilyID())))
+			theory.find.Merge(uint32(state.context.enodes.get(word).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(constant).TheoryVar(theory.FamilyID())))
 			added, err := theory.finalCheckStringToInt(expression)
 			astTestMust(t, err)
 			if !added || len(theory.conversionAxioms) != 1 {
@@ -145,7 +145,7 @@ func TestSMTIntToStringAgreementParsesOrRefusesClassValue(t *testing.T) {
 			astTestMust(t, state.Internalize(expression, false))
 			constant := astTestString(t, m, test.text)
 			astTestMust(t, state.Internalize(constant, false))
-			theory.find.Merge(uint32(state.context.enodes[expression].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[constant].TheoryVar(theory.FamilyID())))
+			theory.find.Merge(uint32(state.context.enodes.get(expression).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(constant).TheoryVar(theory.FamilyID())))
 			before := len(theory.refs)
 			added, err := theory.finalCheckIntToString(expression)
 			astTestMust(t, err)
@@ -199,7 +199,7 @@ func TestSMTConversionAgreementMemoScopeRollbackAndMissingClass(t *testing.T) {
 	astTestMust(t, state.Internalize(constant, false))
 	for repeat := 0; repeat < 2; repeat++ {
 		astTestMust(t, state.PushScope())
-		theory.find.Merge(uint32(state.context.enodes[expression].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[constant].TheoryVar(theory.FamilyID())))
+		theory.find.Merge(uint32(state.context.enodes.get(expression).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(constant).TheoryVar(theory.FamilyID())))
 		added, err := theory.finalCheckIntToString(expression)
 		astTestMust(t, err)
 		if !added || len(theory.conversionAxioms) != 1 {
@@ -228,7 +228,7 @@ func TestSMTConversionAgreementMemoKeepsOuterScopes(t *testing.T) {
 		if i > 0 {
 			astTestMust(t, state.PushScope())
 		}
-		theory.find.Merge(uint32(state.context.enodes[expression].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[constant].TheoryVar(theory.FamilyID())))
+		theory.find.Merge(uint32(state.context.enodes.get(expression).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(constant).TheoryVar(theory.FamilyID())))
 		added, err := theory.finalCheckIntToString(expression)
 		astTestMust(t, err)
 		if !added || len(theory.conversionAxioms) != i+1 {

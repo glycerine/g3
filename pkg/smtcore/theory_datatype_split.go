@@ -14,7 +14,7 @@ func (t *SMTDatatypeTheory) split(value, sort ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	node := s.context.enodes[value]
+	node := s.context.enodes.get(value)
 	if node == nil {
 		return ast.ErrASTDomain
 	}

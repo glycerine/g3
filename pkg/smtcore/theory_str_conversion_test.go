@@ -14,7 +14,7 @@ func TestSMTStringToIntInitialBoundsZeroAndDecimalLanguage(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(expression, false))
 	before := len(theory.refs)
-	astTestMust(t, theory.instantiateStringToInt(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateStringToInt(state.context.enodes.get(expression)))
 	boolean, err := m.MkBoolSort()
 	astTestMust(t, err)
 	var axioms []ast.ASTHandle
@@ -57,7 +57,7 @@ func TestSMTStringToIntInitialBoundsZeroAndDecimalLanguage(t *testing.T) {
 		}
 	}
 	before, fresh := len(theory.refs), theory.freshID
-	astTestMust(t, theory.instantiateStringToInt(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateStringToInt(state.context.enodes.get(expression)))
 	if len(theory.refs) != before || theory.freshID != fresh || len(theory.libraryTodo) != 1 {
 		t.Fatal("duplicate string-to-int repeated constraints or regex work")
 	}
@@ -69,7 +69,7 @@ func TestSMTIntToStringInitialNegativeEmptyEquivalence(t *testing.T) {
 	expression, err := m.MkIntToString(integer)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(expression, false))
-	astTestMust(t, theory.instantiateIntToString(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateIntToString(state.context.enodes.get(expression)))
 	axiom, err := m.RefGet(theory.refs[len(theory.refs)-1])
 	astTestMust(t, err)
 	for _, number := range []string{"-999999999999999999999999999999999999", "-1", "0", "1", "42", "999999999999999999999999999999999999"} {
@@ -84,7 +84,7 @@ func TestSMTIntToStringInitialNegativeEmptyEquivalence(t *testing.T) {
 		}
 	}
 	before, fresh := len(theory.refs), theory.freshID
-	astTestMust(t, theory.instantiateIntToString(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateIntToString(state.context.enodes.get(expression)))
 	if len(theory.refs) != before || theory.freshID != fresh {
 		t.Fatal("duplicate int-to-string repeated its initial constraint")
 	}

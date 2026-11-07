@@ -19,7 +19,7 @@ func TestSMTDatatypeEmptyRecognizerTracePrecedesDomainGuard(t *testing.T) {
 	_, dt, x, _, _ := smtDatatypeSplitFixture(t)
 	s, err := dt.State()
 	astTestMust(t, err)
-	variable := s.context.enodes[x].TheoryVar(dt.FamilyID())
+	variable := s.context.enodes.get(x).TheoryVar(dt.FamilyID())
 
 	var output bytes.Buffer
 	tags := diagnostic.NewTraceTagsWithWriter(&output)
@@ -68,7 +68,7 @@ func TestSMTDatatypeExhaustionTraceUsesTriggerAndOrderedEvidence(t *testing.T) {
 				literals = append(literals, literal)
 				expressions = append(expressions, expression)
 			}
-			astTestMust(t, s.addEquality(s.context.enodes[x], s.context.enodes[y], NewSMTEqualityAxiom()))
+			astTestMust(t, s.addEquality(s.context.enodes.get(x), s.context.enodes.get(y), NewSMTEqualityAxiom()))
 			_, err = s.PropagateCore()
 			astTestMust(t, err)
 			if s.Inconsistent() {
@@ -178,7 +178,7 @@ func TestSMTDatatypeEqualityTraceSourceBranchesBeforeQueuedMerge(t *testing.T) {
 					}
 					return
 				}
-				left, right := s.context.enodes[x], s.context.enodes[y]
+				left, right := s.context.enodes.get(x), s.context.enodes.get(y)
 				lid, err := left.OwnerID()
 				astTestMust(t, err)
 				rid, err := right.OwnerID()
@@ -245,12 +245,12 @@ func TestSMTDatatypeTraceBadStreamPreservesQueuedEquality(t *testing.T) {
 	tags.Enable("datatype")
 	dt.trace = tags
 	astTestMust(t, dt.equalityAxiom(x, y, SMTNullLiteral))
-	if s.context.enodes[x].root == s.context.enodes[y].root {
+	if s.context.enodes.get(x).root == s.context.enodes.get(y).root {
 		t.Fatal("bad stream changed source deferred equality")
 	}
 	_, err = s.PropagateCore()
 	astTestMust(t, err)
-	if s.context.enodes[x].root != s.context.enodes[y].root {
+	if s.context.enodes.get(x).root != s.context.enodes.get(y).root {
 		t.Fatal("sticky ostream failure stopped equality publication")
 	}
 	var output bytes.Buffer
@@ -265,7 +265,7 @@ func TestSMTDatatypeOccursTraceLeafExitAndCachedSkip(t *testing.T) {
 	_, dt, x, _, _ := smtDatatypeSplitFixture(t)
 	s, err := dt.State()
 	astTestMust(t, err)
-	node := s.context.enodes[x]
+	node := s.context.enodes.get(x)
 	id, err := node.OwnerID()
 	astTestMust(t, err)
 	var output bytes.Buffer
@@ -370,7 +370,7 @@ func TestSMTDatatypeRecognizerAssignmentTraceAndConstructorPrefix(t *testing.T) 
 				t.Fatal("assignment diagnostic changed constructor publication")
 			}
 			if tags.ShouldTrace("datatype") {
-				id, err := s.context.enodes[expression].OwnerID()
+				id, err := s.context.enodes.get(expression).OwnerID()
 				astTestMust(t, err)
 				prefix := fmt.Sprintf("-------- [datatype] assign_eh src/smt/theory_datatype.cpp:367 ---------\nassigning recognizer: #%d is_true: %d\n", id, bit)
 				if !strings.HasPrefix(output.String(), prefix) {
@@ -410,7 +410,7 @@ func TestSMTDatatypeMergeTracePrecedesImportedRecognizer(t *testing.T) {
 	tags := diagnostic.NewTraceTagsWithWriter(&output)
 	tags.Enable("datatype")
 	dt.trace = tags
-	left, right := s.context.enodes[x], s.context.enodes[y]
+	left, right := s.context.enodes.get(x), s.context.enodes.get(y)
 	astTestMust(t, s.addEquality(left, right, NewSMTEqualityAxiom()))
 	astTestMust(t, s.PropagateTheoryEvents())
 	root, data, err := dt.rootData(left.TheoryVar(dt.FamilyID()))
@@ -424,7 +424,7 @@ func TestSMTDatatypeMergeTracePrecedesImportedRecognizer(t *testing.T) {
 		t.Fatal("merge diagnostic changed recognizer import")
 	}
 	if tags.ShouldTrace("datatype") {
-		id, err := s.context.enodes[imported].OwnerID()
+		id, err := s.context.enodes.get(imported).OwnerID()
 		astTestMust(t, err)
 		want := smtDatatypeTraceRecord("datatype", "merge_eh", 663, fmt.Sprintf("merging v%d v%d\n", root, child)) + smtDatatypeTraceRecord("datatype", "add_recognizer", 712, fmt.Sprintf("adding recognizer to v%d rec: #%d val: l_undef\n", root, id))
 		if output.String() != want {
@@ -439,7 +439,7 @@ func TestSMTDatatypeSortConstraintTraceIncludesAttachedSkip(t *testing.T) {
 	_, dt, x, sort, _ := smtDatatypeSplitFixture(t)
 	s, err := dt.State()
 	astTestMust(t, err)
-	node := s.context.enodes[x]
+	node := s.context.enodes.get(x)
 	id, err := node.OwnerID()
 	astTestMust(t, err)
 	before := dt.NumVariables()
@@ -510,9 +510,9 @@ func TestSMTDatatypeRelevanceTracePrecedesRegistrationAndDuplicateSkip(t *testin
 	if strings.Contains(output.String(), "[datatype] add_recognizer") {
 		t.Fatal("already watched recognizer was registered twice")
 	}
-	_, data, err := dt.rootData(s.context.enodes[x].TheoryVar(dt.FamilyID()))
+	_, data, err := dt.rootData(s.context.enodes.get(x).TheoryVar(dt.FamilyID()))
 	astTestMust(t, err)
-	if len(data.recognizers) != 3 || data.recognizers[1] != s.context.enodes[expression] {
+	if len(data.recognizers) != 3 || data.recognizers[1] != s.context.enodes.get(expression) {
 		t.Fatal("relevance diagnostic changed source watch slot")
 	}
 }

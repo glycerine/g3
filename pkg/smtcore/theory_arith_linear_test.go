@@ -29,7 +29,7 @@ func TestSMTLinearArithmeticStandaloneTermDefinition(t *testing.T) {
 	if feasible, rebuildErr := theory.rebuild(); rebuildErr != nil || !feasible {
 		t.Fatal("standalone definition rebuild", feasible, rebuildErr)
 	}
-	node := state.context.enodes[sum]
+	node := state.context.enodes.get(sum)
 	if node == nil || !theory.IsAttachedToVariable(node) {
 		t.Fatal("standalone term was not attached")
 	}
@@ -73,7 +73,7 @@ func TestSMTLinearArithmeticEqualDefinitionRows(t *testing.T) {
 	astTestMust(t, state.RegisterTheory(theory))
 	astTestMust(t, state.Internalize(first, false))
 	astTestMust(t, state.Internalize(second, false))
-	firstNode, secondNode := state.context.enodes[first], state.context.enodes[second]
+	firstNode, secondNode := state.context.enodes.get(first), state.context.enodes.get(second)
 	if firstNode == nil || secondNode == nil || firstNode.Root() == secondNode.Root() {
 		t.Fatal("definition rows started merged")
 	}

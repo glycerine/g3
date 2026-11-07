@@ -336,8 +336,8 @@ func TestSMTUTVPIEqualityEventsAndScopedFragmentRefusal(t *testing.T) {
 				astTestMust(t, state.Internalize(v, false))
 				variables = append(variables, v)
 			}
-			left := state.context.enodes[variables[0]].TheoryVar(family)
-			right := state.context.enodes[variables[1]].TheoryVar(family)
+			left := state.context.enodes.get(variables[0]).TheoryVar(family)
+			right := state.context.enodes.get(variables[1]).TheoryVar(family)
 			astTestMust(t, state.PushScope())
 			astTestMust(t, state.enqueueTheoryEquality(family, left, right))
 			astTestMust(t, state.PropagateTheoryEvents())

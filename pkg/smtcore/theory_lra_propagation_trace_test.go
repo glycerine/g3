@@ -161,7 +161,7 @@ func TestSMTLRAFixedEqualityTraceNestedQueryAndEvidence(t *testing.T) {
 		lraFix(t, f, x, 7)
 		w, tags := lraFrontendTrace(f, refuse)
 		f.propagate(true)
-		if f.s.context.enodes[x].Root() != f.s.context.enodes[constant].Root() || f.a.fixedEqualities != 1 {
+		if f.s.context.enodes.get(x).Root() != f.s.context.enodes.get(constant).Root() || f.a.fixedEqualities != 1 {
 			t.Fatal("fixed numeral merge lost")
 		}
 		if tags.ShouldTrace("arith") && !refuse {

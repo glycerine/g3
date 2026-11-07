@@ -176,7 +176,7 @@ func TestSMTDiffObjectiveStrictRealAndUnbounded(t *testing.T) {
 	if len(f.i.optimization.objectives[v].core) != 1 {
 		t.Fatal("missing strict bound core")
 	}
-	assignment, err := f.r.realGraph.Assignment(int32(f.s.context.enodes[x].TheoryVar(f.family)))
+	assignment, err := f.r.realGraph.Assignment(int32(f.s.context.enodes.get(x).TheoryVar(f.family)))
 	astTestMust(t, err)
 	if assignment.rational.Cmp(big.NewRat(5, 1)) >= 0 || assignment.infinitesimal.Sign() != 0 {
 		t.Fatal("optimized graph has no concrete strict witness", assignment)
@@ -426,7 +426,7 @@ func TestSMTDiffObjectiveIncrementalEdgesReuseCanonicalRows(t *testing.T) {
 			if f.i.optimization.solver != solver {
 				t.Fatal("incremental edges discarded the source simplex cache")
 			}
-			variable := f.s.context.enodes[x].TheoryVar(f.family)
+			variable := f.s.context.enodes.get(x).TheoryVar(f.family)
 			var point *big.Rat
 			a, err := f.r.realGraph.Assignment(int32(variable))
 			astTestMust(t, err)

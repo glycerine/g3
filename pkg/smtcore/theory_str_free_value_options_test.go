@@ -90,13 +90,13 @@ func TestSMTStringFreeValueOptionsAssignedSkipAndScopeRefresh(t *testing.T) {
 	astTestMust(t, m.DelRef(&root))
 	first := theory.testers.valueIndicators[word][1][0].variable
 	astTestMust(t, state.PopScopes(1))
-	if state.context.enodes[first] != nil {
+	if state.context.enodes.get(first) != nil {
 		t.Fatal("test requires popped tester enode")
 	}
 	fresh := theory.freshID
 	root, err = theory.generateStringFreeValueOptions(word, length, "1", ast.ASTHandle{}, "")
 	astTestMust(t, err)
-	if root != (ast.ASTRef{}) || theory.freshID != fresh || state.context.enodes[first] == nil {
+	if root != (ast.ASTRef{}) || theory.freshID != fresh || state.context.enodes.get(first) == nil {
 		t.Fatal("persistent internal membership did not refresh popped tester")
 	}
 	zero := astTestString(t, m, "0")

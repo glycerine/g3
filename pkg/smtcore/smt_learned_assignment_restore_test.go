@@ -44,7 +44,7 @@ func TestSMTLearnedClauseRestorePropagatesAcrossFalseWatchOnce(t *testing.T) {
 		t.Fatal("restoration lost or duplicated clause assignment", len(state.clauses), len(state.assignedLiterals))
 	}
 	data := state.booleanData[literals[0].Var()]
-	if data.ScopeLevel != 0 || state.context.assignments[expressions[0]] != lbool.True || data.Justification() != NewSMTBooleanClause(saved[0].clause) {
+	if data.ScopeLevel != 0 || state.context.assignments.get(expressions[0]) != lbool.True || data.Justification() != NewSMTBooleanClause(saved[0].clause) {
 		t.Fatal("restored assignment lost its context or clause justification")
 	}
 	activity, err := saved[0].clause.Activity()
@@ -101,7 +101,7 @@ func TestSMTLearnedUnitRestorePublishesProofAssignmentOnce(t *testing.T) {
 	astTestMust(t, err)
 	justification, err := NewSMTBooleanJustification(owner)
 	astTestMust(t, err)
-	if gotProof != proof || state.booleanData[literal.Var()].Justification() != justification || state.context.assignments[expression] != lbool.True {
+	if gotProof != proof || state.booleanData[literal.Var()].Justification() != justification || state.context.assignments.get(expression) != lbool.True {
 		t.Fatal("restored unit lost its proof or assignment")
 	}
 	afterProof, err := m.GetRefCount(proof)

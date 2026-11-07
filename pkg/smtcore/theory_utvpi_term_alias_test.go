@@ -23,7 +23,7 @@ func TestSMTUTVPINumeralsAndConcreteTermAliases(t *testing.T) {
 
 			sourceZero, err := m.ArithmeticNumeralRat(new(big.Rat), true)
 			astTestMust(t, err)
-			zeroNode := state.context.enodes[sourceZero]
+			zeroNode := state.context.enodes.get(sourceZero)
 			if zeroNode == nil || zeroNode.TheoryVar(family) != theory.zero || theory.zero != 0 {
 				t.Fatal("source zero variable was not initialized once", theory.zero)
 			}
@@ -43,7 +43,7 @@ func TestSMTUTVPINumeralsAndConcreteTermAliases(t *testing.T) {
 			seven, err := m.ArithmeticNumeralRat(big.NewRat(7, 1), integer)
 			astTestMust(t, err)
 			astTestMust(t, state.Internalize(seven, false))
-			sevenVar := state.context.enodes[seven].TheoryVar(family)
+			sevenVar := state.context.enodes.get(seven).TheoryVar(family)
 			if sevenVar == SMTNullTheoryVar || sevenVar == theory.zero || len(theory.graph.graph.edges) != baseEdges+4 {
 				t.Fatal("nonzero numeral did not receive its paired equality", sevenVar, len(theory.graph.graph.edges))
 			}
@@ -58,7 +58,7 @@ func TestSMTUTVPINumeralsAndConcreteTermAliases(t *testing.T) {
 			astTestMust(t, err)
 			for _, expression := range []ast.ASTHandle{plus, minus} {
 				astTestMust(t, state.Internalize(expression, false))
-				node := state.context.enodes[expression]
+				node := state.context.enodes.get(expression)
 				if node == nil || !theory.IsAttachedToVariable(node) {
 					t.Fatal("concrete term alias has no attached UTVPI variable")
 				}
@@ -81,7 +81,7 @@ func TestSMTUTVPINumeralsAndConcreteTermAliases(t *testing.T) {
 			values, err := theory.graph.modelValues(int32(theory.zero))
 			astTestMust(t, err)
 			for _, expression := range []ast.ASTHandle{seven, plus, minus} {
-				variable := state.context.enodes[expression].TheoryVar(family)
+				variable := state.context.enodes.get(expression).TheoryVar(family)
 				if variable < 0 || int(variable) >= len(values) || values[variable].Cmp(big.NewRat(7, 1)) != 0 {
 					t.Fatal("numeral/alias model value", expression, variable, values)
 				}

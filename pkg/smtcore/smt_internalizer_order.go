@@ -82,7 +82,7 @@ func (o *SMTInternalizationOrder) visitChildren(item SMTInternalizationItem, col
 	if err != nil {
 		return false, err
 	}
-	if boolean && o.booleanInternalized[item.Expression] || !boolean && o.context.enodes[item.Expression] != nil {
+	if boolean && o.booleanInternalized[item.Expression] || !boolean && o.context.enodes.get(item.Expression) != nil {
 		return true, nil
 	}
 	family, err := o.manager.GetFamilyID(item.Expression)

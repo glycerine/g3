@@ -24,7 +24,7 @@ func (t *SMTSequenceTheory) Relevant(expression ast.ASTHandle) error {
 	if _, tracked := t.lengths[argument]; tracked {
 		return nil
 	}
-	if node := state.context.enodes[argument]; node != nil {
+	if node := state.context.enodes.get(argument); node != nil {
 		return t.enforceSequenceLength(node)
 	}
 	return nil

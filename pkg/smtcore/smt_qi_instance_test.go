@@ -132,7 +132,7 @@ func TestSMTQIInstanceSatisfiedAndReducedTrueShortCircuits(t *testing.T) {
 	astTestMust(t, m.DelFuncDeclInfo(&info))
 	pxOwner, err := m.MkApp(predicate, []ast.ASTHandle{xOwner})
 	astTestMust(t, err)
-	px, err := NewSMTEnode(m, pxOwner, map[ast.ASTHandle]*SMTEnode{xOwner: x}, SMTEnodeOptions{CongruenceEnabled: true})
+	px, err := NewSMTEnode(m, pxOwner, smtEnodeMapLookup(map[ast.ASTHandle]*SMTEnode{xOwner: x}), SMTEnodeOptions{CongruenceEnabled: true})
 	astTestMust(t, err)
 	variable, err := m.MkVar(0, sort)
 	astTestMust(t, err)

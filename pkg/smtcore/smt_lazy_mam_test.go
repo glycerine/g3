@@ -194,7 +194,7 @@ func TestSMTLazyPatternsRestoreScopesAndContributeSharedGroundTerms(t *testing.T
 	astTestMust(t, f.state.Internalize(q, true))
 	astTestMust(t, f.state.context.SetAssignment(q, lbool.True))
 	astTestMust(t, f.manager.Propagate())
-	node := f.state.context.enodes[anchor]
+	node := f.state.context.enodes.get(anchor)
 	if node == nil || f.manager.mam.IsShared(node) || !f.manager.lazyMAM.IsShared(node) || !f.manager.IsShared(node) {
 		t.Fatal("deferred pattern ground term was omitted from context sharing")
 	}

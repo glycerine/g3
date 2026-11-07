@@ -13,7 +13,7 @@ func TestSMTCoreEqualityQueueCountsAsSearchProgress(t *testing.T) {
 	for _, value := range values {
 		astTestMust(t, s.Internalize(value, false))
 	}
-	left, right := s.context.enodes[values[0]], s.context.enodes[values[1]]
+	left, right := s.context.enodes.get(values[0]), s.context.enodes.get(values[1])
 	astTestMust(t, s.addEquality(left, right, NewSMTEqualityAxiom()))
 	_, err := s.PropagateCore()
 	astTestMust(t, err)
@@ -48,7 +48,7 @@ func TestSMTCoreEqualityQueueFIFOWithGeneratedCongruenceConflict(t *testing.T) {
 	var nodes []*SMTEnode
 	for _, value := range values {
 		astTestMust(t, s.Internalize(value, false))
-		nodes = append(nodes, s.context.enodes[value])
+		nodes = append(nodes, s.context.enodes.get(value))
 	}
 	function, err := m.MkFuncDecl(astTestSymbol(t, m, "queued-core-f"), []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
 	astTestMust(t, err)
@@ -64,7 +64,7 @@ func TestSMTCoreEqualityQueueFIFOWithGeneratedCongruenceConflict(t *testing.T) {
 	astTestMust(t, s.Internalize(equality, false))
 	literal, err := s.Literal(equality)
 	astTestMust(t, err)
-	left, right := s.context.enodes[applications[0]], s.context.enodes[applications[1]]
+	left, right := s.context.enodes.get(applications[0]), s.context.enodes.get(applications[1])
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.AssignLiteral(literal.Negated(), NewSMTBooleanAxiom()))
 	astTestMust(t, s.addDisequality(left, right, literal.Negated()))
@@ -94,7 +94,7 @@ func TestSMTCoreEqualityQueueUndeliveredPopAndRedundantAccounting(t *testing.T) 
 	var nodes []*SMTEnode
 	for _, value := range values {
 		astTestMust(t, s.Internalize(value, false))
-		nodes = append(nodes, s.context.enodes[value])
+		nodes = append(nodes, s.context.enodes.get(value))
 	}
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.assignEquality(nodes[0], nodes[1], NewSMTEqualityAxiom()))

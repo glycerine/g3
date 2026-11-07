@@ -45,7 +45,7 @@ func (c *smtBVExpressionCall) app(op int32, args ...ast.ASTHandle) (ast.ASTHandl
 func (c *smtBVExpressionCall) bits(expression ast.ASTHandle) ([]ast.ASTHandle, error) {
 	t := c.theory
 	s := t.state
-	node := s.context.enodes[expression]
+	node := s.context.enodes.get(expression)
 	if node == nil {
 		return nil, ast.ErrASTDomain
 	}
@@ -94,7 +94,7 @@ func (t *SMTBitVectorTheory) assertBVToIntAxiom(expression ast.ASTHandle) (resul
 	if err != nil {
 		return err
 	}
-	if err = bvAssert(571, "get_context().e_internalized(n)", func() (bool, error) { return s.context.enodes[expression] != nil, nil }); err != nil {
+	if err = bvAssert(571, "get_context().e_internalized(n)", func() (bool, error) { return s.context.enodes.get(expression) != nil, nil }); err != nil {
 		return err
 	}
 	if err = bvAssert(572, "m_util.is_bv2int(n)", func() (bool, error) {
@@ -185,7 +185,7 @@ func (t *SMTBitVectorTheory) assertIntToBVAxiom(expression ast.ASTHandle) (resul
 	if err != nil {
 		return err
 	}
-	if err = bvAssert(644, "get_context().e_internalized(n)", func() (bool, error) { return s.context.enodes[expression] != nil, nil }); err != nil {
+	if err = bvAssert(644, "get_context().e_internalized(n)", func() (bool, error) { return s.context.enodes.get(expression) != nil, nil }); err != nil {
 		return err
 	}
 	if err = bvAssert(645, "m_util.is_int2bv(n)", func() (bool, error) {

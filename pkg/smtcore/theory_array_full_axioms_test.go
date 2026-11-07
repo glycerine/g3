@@ -97,7 +97,7 @@ func TestSMTFullArrayCanonicalConstructorReadAxioms(t *testing.T) {
 			}
 			astTestMust(t, state.Internalize(constructor, false))
 			astTestMust(t, state.Internalize(alias, false))
-			astTestMust(t, state.addEquality(state.context.enodes[alias], state.context.enodes[constructor], NewSMTEqualityAxiom()))
+			astTestMust(t, state.addEquality(state.context.enodes.get(alias), state.context.enodes.get(constructor), NewSMTEqualityAxiom()))
 			observer, err := m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{alias, indices[0]})
 			astTestMust(t, err)
 			astTestMust(t, state.Internalize(observer, false))
@@ -113,7 +113,7 @@ func TestSMTFullArrayCanonicalConstructorReadAxioms(t *testing.T) {
 			}
 			atom, err := state.mkEqualityAtom(selected, value)
 			astTestMust(t, err)
-			if !state.relevancy.IsRelevant(atom) || state.context.enodes[selected] == nil {
+			if !state.relevancy.IsRelevant(atom) || state.context.enodes.get(selected) == nil {
 				t.Fatal("canonical constructor read was not internalized or relevant")
 			}
 			before := theory.statistics

@@ -37,7 +37,7 @@ func stringRegexRegister(t *testing.T, theory *SMTStringTheory, word, regex ast.
 	expression, err := theory.state.manager.MkSequenceInRegex(word, regex)
 	astTestMust(t, err)
 	astTestMust(t, theory.state.Internalize(expression, true))
-	astTestMust(t, theory.instantiateRegexMembership(theory.state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateRegexMembership(theory.state.context.enodes.get(expression)))
 	return expression
 }
 
@@ -87,7 +87,7 @@ func TestSMTStringRegexTextKeysAndAutomataRegistries(t *testing.T) {
 		t.Fatal("text-key overwrite or automata per-string registration diverged")
 	}
 	before := len(theory.refs)
-	astTestMust(t, theory.instantiateRegexMembership(state.context.enodes[first]))
+	astTestMust(t, theory.instantiateRegexMembership(state.context.enodes.get(first)))
 	if len(theory.refs) != before || len(theory.regexTermsByString[x]) != 2 {
 		t.Fatal("duplicate regex setup changed registration")
 	}
@@ -344,7 +344,7 @@ func TestSMTStringLegacyRegexStarUnrollDefinition(t *testing.T) {
 	astTestMust(t, err)
 	unroll, err := m.MkFamilyApp(theory.FamilyID(), 43, nil, []ast.ASTHandle{child, bound})
 	astTestMust(t, err)
-	if state.context.enodes[bound] == nil || theory.IsAttachedToVariable(state.context.enodes[bound]) || len(theory.regexVariables) != 0 {
+	if state.context.enodes.get(bound) == nil || theory.IsAttachedToVariable(state.context.enodes.get(bound)) || len(theory.regexVariables) != 0 {
 		t.Fatal("unroll counter was incorrectly classified as a String witness")
 	}
 	// A zero bound forces the empty unroll, and membership then forces
@@ -360,7 +360,7 @@ func TestSMTStringLegacyRegexStarUnrollDefinition(t *testing.T) {
 	_, err = state.PropagateCore()
 	astTestMust(t, err)
 	empty := astTestString(t, m, "")
-	if state.context.enodes[unroll].Root() != state.context.enodes[empty].Root() || state.context.enodes[x].Root() != state.context.enodes[empty].Root() {
+	if state.context.enodes.get(unroll).Root() != state.context.enodes.get(empty).Root() || state.context.enodes.get(x).Root() != state.context.enodes.get(empty).Root() {
 		t.Fatal("zero-count unroll definition was not connected to membership")
 	}
 	if status, err := theory.FinalCheck(); err != nil || status != SMTFinalCheckDone {

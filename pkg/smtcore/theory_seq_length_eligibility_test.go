@@ -131,7 +131,7 @@ func TestSMTSequenceLengthRelevanceFollowsMergedClassAndScope(t *testing.T) {
 			t.Fatal("fixture equality conflicted")
 		}
 		astTestMust(t, f.theory.Relevant(lengthX))
-		if f.state.context.enodes[lengthY] == nil {
+		if f.state.context.enodes.get(lengthY) == nil {
 			t.Fatal("relevant length was not extended to its merged sequence class")
 		}
 		before := f.state.searchProgress()
@@ -141,7 +141,7 @@ func TestSMTSequenceLengthRelevanceFollowsMergedClassAndScope(t *testing.T) {
 			t.Fatal("repeated length relevance changed the search")
 		}
 		astTestMust(t, f.state.PopScopes(1))
-		if f.state.context.enodes[lengthY] != nil || f.state.context.enodes[f.x].Root() == f.state.context.enodes[f.y].Root() {
+		if f.state.context.enodes.get(lengthY) != nil || f.state.context.enodes.get(f.x).Root() == f.state.context.enodes.get(f.y).Root() {
 			t.Fatal("child length application or class merge survived pop")
 		}
 	}
@@ -155,8 +155,8 @@ func TestSMTSequenceLengthTermsHaveNoSequenceVariables(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, f.state.Internalize(left, false))
 	astTestMust(t, f.state.Internalize(right, false))
-	first := f.state.context.enodes[left].TheoryVar(f.theory.FamilyID())
-	second := f.state.context.enodes[right].TheoryVar(f.theory.FamilyID())
+	first := f.state.context.enodes.get(left).TheoryVar(f.theory.FamilyID())
+	second := f.state.context.enodes.get(right).TheoryVar(f.theory.FamilyID())
 	if first != SMTNullTheoryVar || second != SMTNullTheoryVar {
 		t.Fatal("integer length terms acquired sequence theory variables")
 	}
@@ -170,7 +170,7 @@ func TestSMTSequenceRelationAtomHasNoSequenceVariable(t *testing.T) {
 	contains, err := f.m.MkSequenceContains(f.x, f.y)
 	astTestMust(t, err)
 	astTestMust(t, f.state.Internalize(contains, false))
-	node := f.state.context.enodes[contains]
+	node := f.state.context.enodes.get(contains)
 	variable, found := f.state.BoolVar(contains)
 	if node == nil || !found || node.TheoryVar(f.theory.FamilyID()) != SMTNullTheoryVar {
 		t.Fatal("Boolean relation internalization attached a sequence variable")

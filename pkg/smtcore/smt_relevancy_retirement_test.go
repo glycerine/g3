@@ -22,14 +22,14 @@ func TestSMTRelevancyBaseMarksSurviveScopedInternalization(t *testing.T) {
 			limit := len(p.relevant)
 			astTestMust(t, s.PushScope())
 			astTestMust(t, s.Internalize(expr, false))
-			if s.context.enodes[expr] == nil {
+			if s.context.enodes.get(expr) == nil {
 				t.Fatal("scoped enode not created")
 			}
 			if !p.IsRelevant(expr) {
 				t.Fatal("native owner creation reset an earlier expression relevancy mark")
 			}
 			astTestMust(t, s.PopScopes(1))
-			if s.context.enodes[expr] != nil {
+			if s.context.enodes.get(expr) != nil {
 				t.Fatal("scoped enode survived")
 			}
 			_, exists := s.BoolVar(expr)

@@ -17,7 +17,7 @@ func bvNativeWord(t *testing.T, m *ast.ASTManager, s *SMTInternalizerState, bv *
 	word, err := m.MkBitVectorFromBits(bits)
 	astTestMust(t, err)
 	astTestMust(t, s.Internalize(word, false))
-	node := s.context.enodes[word]
+	node := s.context.enodes.get(word)
 	return node, node.TheoryVar(bv.FamilyID())
 }
 
@@ -59,7 +59,7 @@ func TestSMTBVNativeForestSizeTiesCircularOrderAndScopedRetirement(t *testing.T)
 	astTestMust(t, bv.NewEquality(childVar, a))
 	childOwner := child.owner
 	astTestMust(t, s.PopScopes(1))
-	if s.context.enodes[childOwner] != nil {
+	if s.context.enodes.get(childOwner) != nil {
 		t.Fatal("child enode survived pop")
 	}
 	if len(bv.privateFind) != 3 || len(bv.bitLiterals) != 3 || len(bv.zeroOneBits) != 3 || len(bv.watchedPosition) != 3 {
@@ -430,7 +430,7 @@ func TestSMTBVNativeDisplayUsesPrivateRootsAndActualLiteralVectors(t *testing.T)
 	numeral, err := m.BitVectorNumeralUint64(5, 3)
 	astTestMust(t, err)
 	astTestMust(t, s.Internalize(numeral, false))
-	nv := s.context.enodes[numeral].TheoryVar(bv.FamilyID())
+	nv := s.context.enodes.get(numeral).TheoryVar(bv.FamilyID())
 	id, err := m.GetASTID(numeral)
 	astTestMust(t, err)
 	out.Reset()

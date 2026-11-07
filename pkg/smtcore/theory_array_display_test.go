@@ -49,7 +49,7 @@ func TestSMTArrayDisplayPrivateRootsParentsAndScopes(t *testing.T) {
 			astTestMust(t, err)
 			astTestMust(t, state.Internalize(base, false))
 			astTestMust(t, state.Internalize(alias, false))
-			baseNode, aliasNode := state.context.enodes[base], state.context.enodes[alias]
+			baseNode, aliasNode := state.context.enodes.get(base), state.context.enodes.get(alias)
 			baseID, err := m.GetASTID(base)
 			astTestMust(t, err)
 			aliasID, err := m.GetASTID(alias)
@@ -72,13 +72,13 @@ func TestSMTArrayDisplayPrivateRootsParentsAndScopes(t *testing.T) {
 			read, err := m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{alias, indices[0]})
 			astTestMust(t, err)
 			astTestMust(t, state.Internalize(read, false))
-			readNode := state.context.enodes[read]
+			readNode := state.context.enodes.get(read)
 			astTestMust(t, theory.addParentSelect(1, readNode))
 			value := smtRelevancyBool(t, m, "array-display-value")
 			store, err := m.MkFamilyApp(family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{alias, indices[0], value})
 			astTestMust(t, err)
 			astTestMust(t, state.Internalize(store, false))
-			astTestMust(t, theory.addParentStore(1, state.context.enodes[store]))
+			astTestMust(t, theory.addParentStore(1, state.context.enodes.get(store)))
 			astTestMust(t, theory.setArrayUpward(1))
 			readID, err := m.GetASTID(read)
 			astTestMust(t, err)
@@ -145,13 +145,13 @@ func TestSMTFullArrayDisplayConstructorLists(t *testing.T) {
 	mapID, err := m.GetASTID(mapped)
 	astTestMust(t, err)
 	var output bytes.Buffer
-	astTestMust(t, theory.DisplayVariable(&output, state.context.enodes[constant].TheoryVar(family)))
+	astTestMust(t, theory.DisplayVariable(&output, state.context.enodes.get(constant).TheoryVar(family)))
 	want := fmt.Sprintf(" maps: {} p_parent_maps: {#%d} p_const: {#%d}\n", mapID, constantID)
 	if !strings.HasSuffix(output.String(), want) {
 		t.Fatal("constant and parent-map lists", output.String(), want)
 	}
 	output.Reset()
-	astTestMust(t, theory.DisplayVariable(&output, state.context.enodes[mapped].TheoryVar(family)))
+	astTestMust(t, theory.DisplayVariable(&output, state.context.enodes.get(mapped).TheoryVar(family)))
 	want = fmt.Sprintf(" maps: {#%d} p_parent_maps: {} p_const: {}\n", mapID)
 	if !strings.HasSuffix(output.String(), want) {
 		t.Fatal("map constructor list", output.String(), want)

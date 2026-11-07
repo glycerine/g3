@@ -58,7 +58,7 @@ func TestSMTStringConcatCanonicalizationCacheAndScope(t *testing.T) {
 		}
 	}
 	astTestMust(t, state.PushScope())
-	astTestMust(t, theory.NewEquality(state.context.enodes[x].TheoryVar(theory.FamilyID()), state.context.enodes[a].TheoryVar(theory.FamilyID())))
+	astTestMust(t, theory.NewEquality(state.context.enodes.get(x).TheoryVar(theory.FamilyID()), state.context.enodes.get(a).TheoryVar(theory.FamilyID())))
 	got, err := theory.concatTerm(x, b)
 	astTestMust(t, err)
 	if text, _, err := m.SequenceStringValue(got); err != nil || text != "ab" {
@@ -82,7 +82,7 @@ func TestSMTStringContainsConstantFastPath(t *testing.T) {
 		relation, err := m.MkSequenceContains(astTestString(t, m, test.haystack), astTestString(t, m, test.needle))
 		astTestMust(t, err)
 		astTestMust(t, state.Internalize(relation, true))
-		astTestMust(t, theory.instantiateContains(state.context.enodes[relation]))
+		astTestMust(t, theory.instantiateContains(state.context.enodes.get(relation)))
 		literal, err := state.Literal(relation)
 		astTestMust(t, err)
 		value, err := state.Assignment(literal)

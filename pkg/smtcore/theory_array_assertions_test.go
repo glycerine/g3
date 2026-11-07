@@ -40,7 +40,7 @@ func TestSMTOrdinaryArraySourceAssertionGateAndShape(t *testing.T) {
 	constant, err := manager.MkConstArray(arraySort, value)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(constant, false))
-	node := state.context.enodes[constant]
+	node := state.context.enodes.get(constant)
 	variable := node.TheoryVar(family)
 	if err = theory.addParentSelect(variable, node); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("disabled source assertion changed the physical shape guard", err)

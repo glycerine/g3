@@ -99,7 +99,7 @@ func TestSMTBVBitOccurrencesPreservePositionsSignsAndSourceHeadOrder(t *testing.
 	word, err := m.MkBitVectorFromBits([]ast.ASTHandle{p, q, p, notQ, truth, falsity})
 	astTestMust(t, err)
 	astTestMust(t, s.Internalize(word, false))
-	variable := s.context.enodes[word].TheoryVar(bv.FamilyID())
+	variable := s.context.enodes.get(word).TheoryVar(bv.FamilyID())
 	pv, _ := s.BoolVar(p)
 	qv, _ := s.BoolVar(q)
 	wantBits := []SMTLiteral{NewSMTLiteral(pv, false), NewSMTLiteral(qv, false), NewSMTLiteral(pv, false), NewSMTLiteral(qv, true), SMTTrueLiteral, SMTFalseLiteral}
@@ -165,7 +165,7 @@ func TestSMTBVBitOccurrencesScopeUndoAfterCoreNodeRetirement(t *testing.T) {
 	child, err := m.MkBitVectorFromBits([]ast.ASTHandle{q, notP})
 	astTestMust(t, err)
 	astTestMust(t, s.Internalize(child, false))
-	childVar := s.context.enodes[child].TheoryVar(bv.FamilyID())
+	childVar := s.context.enodes.get(child).TheoryVar(bv.FamilyID())
 	if got := bv.bitAtoms[pv]; got[len(got)-1] != (smtBVBitOccurrence{childVar, 1}) {
 		t.Fatal("new head occurrence", got)
 	}
@@ -178,7 +178,7 @@ func TestSMTBVBitOccurrencesScopeUndoAfterCoreNodeRetirement(t *testing.T) {
 	astTestMust(t, s.Internalize(extra, false))
 	fv, _ := s.BoolVar(fresh)
 	astTestMust(t, s.PopScopes(1))
-	if s.context.enodes[child] != nil || s.context.enodes[extra] != nil {
+	if s.context.enodes.get(child) != nil || s.context.enodes.get(extra) != nil {
 		t.Fatal("core nodes did not retire before theory rollback")
 	}
 	if _, exists := bv.bitAtoms[fv]; exists {
@@ -225,7 +225,7 @@ func TestSMTBVBitProjectionOwnerFirstInitializationAndNumeralExpansion(t *testin
 			astTestMust(t, err)
 			t.Cleanup(func() { astTestMust(t, m.DelRef(&root)) })
 			astTestMust(t, s.Internalize(high, true))
-			variable := s.context.enodes[word].TheoryVar(bv.FamilyID())
+			variable := s.context.enodes.get(word).TheoryVar(bv.FamilyID())
 			var previous int32
 			for i := uint32(0); i < 3; i++ {
 				atom, err := m.MkBitVectorBit2Bool(i, word)

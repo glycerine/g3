@@ -27,7 +27,7 @@ func TestSMTArithmeticDefinitionsPropagateWithoutBooleanAtoms(t *testing.T) {
 			astTestMust(t, state.Internalize(number, false))
 			consistent, err := state.PropagateCore()
 			astTestMust(t, err)
-			column := theory.simplexVariables[state.context.enodes[number].TheoryVar(family)]
+			column := theory.simplexVariables[state.context.enodes.get(number).TheoryVar(family)]
 			if !consistent || theory.arithmeticColumnValue(column).Cmp(want) != 0 {
 				t.Fatal("standalone numeral lost its fixed value", text, theory.arithmeticColumnValue(column))
 			}
@@ -38,7 +38,7 @@ func TestSMTArithmeticDefinitionsPropagateWithoutBooleanAtoms(t *testing.T) {
 			astTestMust(t, state.Internalize(sum, false))
 			consistent, err = state.PropagateCore()
 			astTestMust(t, err)
-			column = theory.simplexVariables[state.context.enodes[sum].TheoryVar(family)]
+			column = theory.simplexVariables[state.context.enodes.get(sum).TheoryVar(family)]
 			want.Mul(want, big.NewRat(2, 1))
 			if !consistent || theory.arithmeticColumnValue(column).Cmp(want) != 0 || len(theory.atoms) != 0 || theory.CanPropagate() {
 				t.Fatal("new arithmetic definition was not published without a Boolean atom", text, theory.arithmeticColumnValue(column))

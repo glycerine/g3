@@ -52,8 +52,8 @@ func TestSMTArrayExtensionalityDisequalityQueueAndRollback(t *testing.T) {
 					if !theory.CanPropagate() || len(theory.extensionalityTodo) != 1 || len(theory.selectTrail) != 0 {
 						t.Fatal("disequality did not defer its witness axiom")
 					}
-					left := state.context.enodes[a].TheoryVar(family)
-					right := state.context.enodes[b].TheoryVar(family)
+					left := state.context.enodes.get(a).TheoryVar(family)
+					right := state.context.enodes.get(b).TheoryVar(family)
 					astTestMust(t, theory.NewDisequality(right, left))
 					if len(theory.extensionalityTodo) != 1 {
 						t.Fatal("reversed duplicate witness was queued")

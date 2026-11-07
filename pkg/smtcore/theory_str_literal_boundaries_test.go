@@ -36,14 +36,14 @@ func TestSMTStringMatchingLiteralBoundariesCoreAndRollback(t *testing.T) {
 			astTestMust(t, state.AssignLiteral(literal, NewSMTBooleanAxiom()))
 			_, err = state.PropagateCore()
 			astTestMust(t, err)
-			if state.Inconsistent() || state.context.enodes[residual] == nil || state.context.enodes[y].Root() != state.context.enodes[residual].Root() {
+			if state.Inconsistent() || state.context.enodes.get(residual) == nil || state.context.enodes.get(y).Root() != state.context.enodes.get(residual).Root() {
 				t.Fatal("matching literal boundaries did not propagate their residual equality", suffix, reverse)
 			}
 			if theory.freshID != 0 {
 				t.Fatal("deterministic boundary cancellation introduced a witness")
 			}
 			astTestMust(t, state.PopScopes(1))
-			if node := state.context.enodes[residual]; node != nil && node.Root() == state.context.enodes[y].Root() {
+			if node := state.context.enodes.get(residual); node != nil && node.Root() == state.context.enodes.get(y).Root() {
 				t.Fatal("matching boundary consequence survived scope rollback", suffix, reverse)
 			}
 		}
@@ -157,7 +157,7 @@ func TestSMTStringMatchingLiteralBoundaryExactFormulasAndBytes(t *testing.T) {
 					astTestMust(t, err)
 					second, err := m.GetArg(conclusion, 1)
 					astTestMust(t, err)
-					theory.find.Merge(uint32(state.context.enodes[first].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[second].TheoryVar(theory.FamilyID())))
+					theory.find.Merge(uint32(state.context.enodes.get(first).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(second).TheoryVar(theory.FamilyID())))
 					before := len(theory.refs)
 					astTestMust(t, theory.arrangeMatchingLiteralBoundaries(left, right, suffix))
 					if len(theory.refs) != before {
@@ -196,7 +196,7 @@ func TestSMTStringOpposingLiteralBoundariesCoreAndRollback(t *testing.T) {
 			t.Fatal("opposing literal boundaries did not reach zero/one/full overlap plus gap", reverse, state.Inconsistent(), state.theoryCaseSplitSets)
 		}
 		astTestMust(t, state.PopScopes(1))
-		if len(state.theoryCaseSplitSets) != 0 || state.context.enodes[left].Root() == state.context.enodes[right].Root() {
+		if len(state.theoryCaseSplitSets) != 0 || state.context.enodes.get(left).Root() == state.context.enodes.get(right).Root() {
 			t.Fatal("opposing arrangement registration or equality survived pop", reverse)
 		}
 	}
@@ -341,12 +341,12 @@ func TestSMTStringOpposingBoundaryWitnessReuseAndUnfilteredOverlap(t *testing.T)
 		t.Fatal("opposing residual acquired cut origins")
 	}
 	astTestMust(t, state.PopScopes(1))
-	if state.context.enodes[witness] != nil {
+	if state.context.enodes.get(witness) != nil {
 		t.Fatal("opposing witness enode survived pop")
 	}
 	before := theory.freshID
 	astTestMust(t, theory.simplifyStringConcatEquality(right, left))
-	if theory.freshID != before || len(theory.arrangementVars) != 1 || state.context.enodes[witness] == nil {
+	if theory.freshID != before || len(theory.arrangementVars) != 1 || state.context.enodes.get(witness) == nil {
 		t.Fatal("opposing reverse-key witness cache did not refresh its retained residual")
 	}
 }

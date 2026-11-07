@@ -38,7 +38,7 @@ func TestSMTDatalogSourceTraceEntryAndAttachmentOrder(t *testing.T) {
 	} else if output.Len() != 0 {
 		t.Fatal("native trace not erased")
 	}
-	if !f.dl.IsAttachedToVariable(f.s.context.enodes[term]) {
+	if !f.dl.IsAttachedToVariable(f.s.context.enodes.get(term)) {
 		t.Fatal("trace lost native attachment")
 	}
 	output.Reset()

@@ -34,16 +34,16 @@ func TestSMTFullArrayAsArrayReadAxiomsUseConstructorMergeTrigger(t *testing.T) {
 			astTestPin(t, m, read)
 			astTestMust(t, state.Internalize(alias, false))
 			astTestMust(t, state.Internalize(constructor, false))
-			aliasVariable := state.context.enodes[alias].TheoryVar(family)
-			constructorVariable := state.context.enodes[constructor].TheoryVar(family)
+			aliasVariable := state.context.enodes.get(alias).TheoryVar(family)
+			constructorVariable := state.context.enodes.get(constructor).TheoryVar(family)
 			if readBeforeMerge {
 				astTestMust(t, state.Internalize(read, false))
-				astTestMust(t, theory.addParentSelect(aliasVariable, state.context.enodes[read]))
+				astTestMust(t, theory.addParentSelect(aliasVariable, state.context.enodes.get(read)))
 			}
 			astTestMust(t, theory.NewEquality(constructorVariable, aliasVariable))
 			if !readBeforeMerge {
 				astTestMust(t, state.Internalize(read, false))
-				astTestMust(t, theory.addParentSelect(aliasVariable, state.context.enodes[read]))
+				astTestMust(t, theory.addParentSelect(aliasVariable, state.context.enodes.get(read)))
 			}
 			want := uint32(0)
 			if readBeforeMerge {

@@ -56,7 +56,7 @@ func TestSMTModelFinderAUFSelectIndexesUseModelFunctionAndRelevantParents(t *tes
 	falsehood, err := m.MkFalse()
 	astTestMust(t, err)
 	makeNode := func(owner ast.ASTHandle, relevant bool, generation uint32) *SMTEnode {
-		node, err := NewSMTEnode(m, owner, state.context.enodes, SMTEnodeOptions{Generation: generation, UpdateChildrenParent: true})
+		node, err := NewSMTEnode(m, owner, state.context.enodes.get, SMTEnodeOptions{Generation: generation, UpdateChildrenParent: true})
 		astTestMust(t, err)
 		astTestMust(t, state.context.RegisterEnode(node, relevant))
 		return node
@@ -181,7 +181,7 @@ func TestSMTModelFinderAUFSelectNestedArrayParents(t *testing.T) {
 	falsehood, err := m.MkFalse()
 	astTestMust(t, err)
 	makeNode := func(term ast.ASTHandle, generation uint32) {
-		node, err := NewSMTEnode(m, term, state.context.enodes, SMTEnodeOptions{Generation: generation, UpdateChildrenParent: true})
+		node, err := NewSMTEnode(m, term, state.context.enodes.get, SMTEnodeOptions{Generation: generation, UpdateChildrenParent: true})
 		astTestMust(t, err)
 		astTestMust(t, state.context.RegisterEnode(node, true))
 	}

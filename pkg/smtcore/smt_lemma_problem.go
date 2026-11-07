@@ -102,7 +102,7 @@ func (s *SMTInternalizerState) DisplayLemmaAsSMTProblem(out io.Writer, anteceden
 		}
 	}
 	for _, pair := range equalities {
-		if pair.First == nil || pair.Second == nil || pair.First.manager != s.manager || pair.Second.manager != s.manager || s.context.enodes[pair.First.owner] != pair.First || s.context.enodes[pair.Second.owner] != pair.Second {
+		if pair.First == nil || pair.Second == nil || pair.First.manager != s.manager || pair.Second.manager != s.manager || s.context.enodes.get(pair.First.owner) != pair.First || s.context.enodes.get(pair.Second.owner) != pair.Second {
 			return ast.ErrASTDomain
 		}
 		expression, err := s.manager.MkEq(pair.First.owner, pair.Second.owner)

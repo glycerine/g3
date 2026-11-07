@@ -54,8 +54,8 @@ func TestSMTArithmeticEqualityAdapterRetainedDiagnostics(t *testing.T) {
 		tags := diagnostic.NewTraceTagsWithWriter(&out)
 		enableArithmeticAdapterTrace(tags)
 		f.a.equalityAdapter.trace = tags
-		xv := f.s.context.enodes[x].TheoryVar(f.a.FamilyID())
-		yv := f.s.context.enodes[y].TheoryVar(f.a.FamilyID())
+		xv := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
+		yv := f.s.context.enodes.get(y).TheoryVar(f.a.FamilyID())
 		astTestMust(t, f.a.NewEquality(xv, yv))
 		if tags.ShouldTrace("arith_eq_adapter") {
 			checkArithmeticAdapterTrace(t, out.String())
@@ -91,8 +91,8 @@ func TestSMTArithmeticEqualityAdapterTraceBadbitAndAssertionGate(t *testing.T) {
 	tags := diagnostic.NewTraceTagsWithWriter(&arithmeticAdapterTraceWriter{refuse: true})
 	enableArithmeticAdapterTrace(tags)
 	f.a.equalityAdapter.trace = tags
-	xv := f.s.context.enodes[x].TheoryVar(f.a.FamilyID())
-	yv := f.s.context.enodes[y].TheoryVar(f.a.FamilyID())
+	xv := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
+	yv := f.s.context.enodes.get(y).TheoryVar(f.a.FamilyID())
 	astTestMust(t, f.a.NewDisequality(xv, yv))
 	if f.a.equalityAdapter.NumAxioms() != 1 {
 		t.Fatal("trace badbit stopped adapter operands")

@@ -64,7 +64,7 @@ func (t *SMTArrayTheory) instantiateConstructorRead(observer, constructor ast.AS
 	if op != ast.ASTArrayOpConst && op != ast.ASTArrayOpMap && op != ast.ASTArrayOpAsArray {
 		return false, nil
 	}
-	read := s.context.enodes[observer]
+	read := s.context.enodes.get(observer)
 	if read == nil || len(read.arguments) < 2 {
 		return false, ast.ErrASTDomain
 	}
@@ -75,7 +75,7 @@ func (t *SMTArrayTheory) instantiateConstructorRead(observer, constructor ast.AS
 		}
 		return false, ast.ErrASTDomain
 	}
-	constructorNode := s.context.enodes[constructor]
+	constructorNode := s.context.enodes.get(constructor)
 	if constructorNode == nil {
 		return false, ast.ErrASTDomain
 	}

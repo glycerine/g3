@@ -55,7 +55,7 @@ func smtQuickApplicationNode(t *testing.T, m *ast.ASTManager, context *SMTChecke
 	t.Helper()
 	expression, err := m.MkApp(declaration, []ast.ASTHandle{child.owner})
 	astTestMust(t, err)
-	node, err := NewSMTEnode(m, expression, map[ast.ASTHandle]*SMTEnode{child.owner: child}, SMTEnodeOptions{CongruenceEnabled: true})
+	node, err := NewSMTEnode(m, expression, smtEnodeMapLookup(map[ast.ASTHandle]*SMTEnode{child.owner: child}), SMTEnodeOptions{CongruenceEnabled: true})
 	astTestMust(t, err)
 	node.congruence = node
 	astTestMust(t, context.RegisterEnode(node, relevant))
@@ -160,7 +160,7 @@ func TestSMTQuickCheckerUnsatInstantiationCanonicalizationAndDuplicates(t *testi
 	thirdOwner, _ := smtEnodeConstant(t, m, 2212, sort, 4)
 	generated, err = checker.InstantiateNotSatCandidates(quantifier, []ast.ASTHandle{thirdOwner})
 	astTestMust(t, err)
-	if !generated || context.enodes[thirdOwner] == nil || len(schedule.newEntries) != 3 {
-		t.Fatal("explicit candidate internalization", generated, context.enodes[thirdOwner], len(schedule.newEntries))
+	if !generated || context.enodes.get(thirdOwner) == nil || len(schedule.newEntries) != 3 {
+		t.Fatal("explicit candidate internalization", generated, context.enodes.get(thirdOwner), len(schedule.newEntries))
 	}
 }

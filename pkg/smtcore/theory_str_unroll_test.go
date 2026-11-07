@@ -80,7 +80,7 @@ func TestSMTStringUnrollClassCollectionCycleAndRollback(t *testing.T) {
 	}
 	astTestMust(t, state.PushScope())
 	for _, member := range []ast.ASTHandle{u2, u1, a, b} {
-		theory.find.Merge(uint32(state.context.enodes[x].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[member].TheoryVar(theory.FamilyID())))
+		theory.find.Merge(uint32(state.context.enodes.get(x).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(member).TheoryVar(theory.FamilyID())))
 	}
 	for _, test := range [][2]ast.ASTHandle{{a, b}, {b, a}} {
 		constant, unrolls, err := theory.stringClassUnrolls(test[0])
@@ -146,13 +146,13 @@ func TestSMTStringUnrollConstantLegacyCoreCallbackAndPop(t *testing.T) {
 		astTestMust(t, state.AssignLiteral(literal, NewSMTBooleanAxiom()))
 		_, err = state.PropagateCore()
 		astTestMust(t, err)
-		text, _, numeral, err := m.ArithmeticNumeralText(state.context.enodes[bound].Root().Owner())
+		text, _, numeral, err := m.ArithmeticNumeralText(state.context.enodes.get(bound).Root().Owner())
 		astTestMust(t, err)
 		if state.Inconsistent() || !numeral || text != test.count {
 			t.Fatal("legacy star membership did not reach the unroll count callback", text, numeral)
 		}
 		astTestMust(t, state.PopScopes(1))
-		if _, _, numeral, err := m.ArithmeticNumeralText(state.context.enodes[bound].Root().Owner()); err != nil || numeral {
+		if _, _, numeral, err := m.ArithmeticNumeralText(state.context.enodes.get(bound).Root().Owner()); err != nil || numeral {
 			t.Fatal("unroll count survived its scope", numeral, err)
 		}
 	}

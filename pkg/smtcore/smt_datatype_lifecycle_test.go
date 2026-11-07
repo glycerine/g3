@@ -38,7 +38,7 @@ func TestSMTDatatypeLazyPolicyAndFinalCheckWithoutInputRecognizer(t *testing.T) 
 				astTestMust(t, err)
 				state := s.kernel.internalizer
 				astTestMust(t, state.Internalize(x, false))
-				astTestMust(t, dt.ensureVariable(state.context.enodes[x]))
+				astTestMust(t, dt.ensureVariable(state.context.enodes.get(x)))
 				eager := policy == 0 || policy == 1 && !infinite
 				slots, err := dt.recognizerSlots(x)
 				astTestMust(t, err)

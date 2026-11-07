@@ -47,12 +47,12 @@ func (t *SMTStringTheory) stringFreeVariableOrder(candidates map[ast.ASTHandle]i
 		// input_var_in_len has one source insertion, guarded by String sort
 		// and is_length simultaneously. Actual length terms have Int sort,
 		// so that cache is always empty for retained well-typed consumers.
-		if t.state.context.enodes[variable] == nil {
+		if t.state.context.enodes.get(variable) == nil {
 			if err := t.state.Internalize(variable, false); err != nil {
 				return nil, err
 			}
 		}
-		node := t.state.context.enodes[variable]
+		node := t.state.context.enodes.get(variable)
 		if node == nil {
 			return nil, ast.ErrASTDomain
 		}

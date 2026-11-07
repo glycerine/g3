@@ -52,7 +52,7 @@ func (t *SMTSequenceTheory) expandSequenceExpression(expression ast.ASTHandle, d
 			if err != nil {
 				return out, dependency, err
 			}
-			node, branchNode := state.context.enodes[expression], state.context.enodes[branch]
+			node, branchNode := state.context.enodes.get(expression), state.context.enodes.get(branch)
 			if node != nil && branchNode != nil && node.Root() == branchNode.Root() {
 				dependency = t.dependencies.Join(dependency, t.dependencies.Leaf(smtSequenceAssumption{left: node, right: branchNode, literal: SMTNullLiteral}))
 				return t.expandSequenceExpression(branch, dependency)
@@ -142,7 +142,7 @@ func (t *SMTSequenceTheory) expandSequenceIntegerString(expression ast.ASTHandle
 	if err != nil {
 		return out, dependency, err
 	}
-	node := state.context.enodes[argument]
+	node := state.context.enodes.get(argument)
 	var value *big.Rat
 	if node != nil {
 		family, err := m.ArithmeticFamilyID()
@@ -200,7 +200,7 @@ func (t *SMTSequenceTheory) expandSequenceIntegerString(expression ast.ASTHandle
 		return out, dependency, err
 	}
 	defer func() { result = errors.Join(result, m.DelRef(&textRef)) }()
-	numeralNode := state.context.enodes[numeral]
+	numeralNode := state.context.enodes.get(numeral)
 	if numeralNode.Root() == node.Root() {
 		dependency = t.dependencies.Join(dependency, t.dependencies.Leaf(smtSequenceAssumption{left: numeralNode, right: node, literal: SMTNullLiteral}))
 		out, err = m.NewRef(text)

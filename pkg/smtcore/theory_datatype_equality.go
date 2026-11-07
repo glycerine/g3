@@ -54,7 +54,7 @@ func (t *SMTDatatypeTheory) equalityAxiom(left, right ast.ASTHandle, antecedent 
 	if err = state.Internalize(right, false); err != nil {
 		return err
 	}
-	lhs, rhs := state.context.enodes[left], state.context.enodes[right]
+	lhs, rhs := state.context.enodes.get(left), state.context.enodes.get(right)
 	if lhs == nil || rhs == nil {
 		return ast.ErrASTDomain
 	}

@@ -18,7 +18,7 @@ func (t *SMTStringTheory) ensureEnode(expression ast.ASTHandle) (*SMTEnode, erro
 	if err := state.Internalize(expression, false); err != nil {
 		return nil, err
 	}
-	if variable, boolean := state.BoolVar(expression); boolean && state.context.enodes[expression] == nil {
+	if variable, boolean := state.BoolVar(expression); boolean && state.context.enodes.get(expression) == nil {
 		// Go Boolean gates need an explicit enode flag to realize the
 		// source ensure_enode contract used by this theory's traversal.
 		if err := state.ensureBooleanEnode(expression, variable, false, true, true); err != nil {
@@ -28,7 +28,7 @@ func (t *SMTStringTheory) ensureEnode(expression ast.ASTHandle) (*SMTEnode, erro
 	if err := state.markRelevant(expression); err != nil {
 		return nil, err
 	}
-	return state.context.enodes[expression], nil
+	return state.context.enodes.get(expression), nil
 }
 
 func (t *SMTStringTheory) setUpAxioms(expression ast.ASTHandle) error {
@@ -46,7 +46,7 @@ func (t *SMTStringTheory) setUpAxioms(expression ast.ASTHandle) error {
 		return err
 	}
 	if isString {
-		node := t.state.context.enodes[expression]
+		node := t.state.context.enodes.get(expression)
 		if node == nil {
 			return ast.ErrASTDomain
 		}

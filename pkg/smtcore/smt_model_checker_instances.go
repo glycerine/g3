@@ -120,12 +120,12 @@ func (c *SMTModelChecker) Restart() (result error) {
 		}
 		bindings := make([]*SMTEnode, len(instance.bindings))
 		for i, expression := range instance.bindings {
-			if c.state.context.enodes[expression] == nil {
+			if c.state.context.enodes.get(expression) == nil {
 				if err := c.state.Internalize(expression, false); err != nil {
 					return err
 				}
 			}
-			node := c.state.context.enodes[expression]
+			node := c.state.context.enodes.get(expression)
 			if node == nil {
 				return ast.ErrASTDomain
 			}

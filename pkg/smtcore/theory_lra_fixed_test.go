@@ -37,7 +37,7 @@ func TestSMTLRAFixedColumnsEqualityEvidenceAndPop(t *testing.T) {
 			want := lraFix(t, f, x, 7)
 			want = append(want, lraFix(t, f, y, 7)...)
 			f.propagate(true)
-			if f.s.context.enodes[x].Root() != f.s.context.enodes[y].Root() || f.a.fixedEqualities != 1 {
+			if f.s.context.enodes.get(x).Root() != f.s.context.enodes.get(y).Root() || f.a.fixedEqualities != 1 {
 				t.Fatal("fixed columns were not merged", f.a.fixedEqualities)
 			}
 			found := false
@@ -53,7 +53,7 @@ func TestSMTLRAFixedColumnsEqualityEvidenceAndPop(t *testing.T) {
 				t.Fatal("missing fixed equality justification")
 			}
 			astTestMust(t, f.s.PopScopes(1))
-			if f.s.context.enodes[x].Root() == f.s.context.enodes[y].Root() {
+			if f.s.context.enodes.get(x).Root() == f.s.context.enodes.get(y).Root() {
 				t.Fatal("fixed equality survived its bound scope")
 			}
 			if len(f.a.fixedVariables) != 1 {
@@ -74,7 +74,7 @@ func TestSMTLRAFixedEqualityCongruenceConflictAndPop(t *testing.T) {
 	lraFix(t, f, x, 7)
 	lraFix(t, f, y, 7)
 	f.propagate(true)
-	if f.s.context.enodes[fx].Root() != f.s.context.enodes[fy].Root() || f.a.fixedEqualities != 1 {
+	if f.s.context.enodes.get(fx).Root() != f.s.context.enodes.get(fy).Root() || f.a.fixedEqualities != 1 {
 		t.Fatal("fixed equality did not reach congruence closure")
 	}
 	astTestMust(t, f.s.PushScope())
@@ -83,7 +83,7 @@ func TestSMTLRAFixedEqualityCongruenceConflictAndPop(t *testing.T) {
 	f.propagate(false)
 	astTestMust(t, f.s.PopScopes(1))
 	f.propagate(true)
-	if f.s.context.enodes[fx].Root() != f.s.context.enodes[fy].Root() {
+	if f.s.context.enodes.get(fx).Root() != f.s.context.enodes.get(fy).Root() {
 		t.Fatal("root congruence equality lost on child pop")
 	}
 }
@@ -107,7 +107,7 @@ func TestSMTLRAFixedNumeralImplicitWitnesses(t *testing.T) {
 	}
 	want := lraFix(t, f, x, 7)
 	f.propagate(true)
-	if f.s.context.enodes[x].Root() != f.s.context.enodes[constant].Root() {
+	if f.s.context.enodes.get(x).Root() != f.s.context.enodes.get(constant).Root() {
 		t.Fatal("fixed column did not merge with cached numeral")
 	}
 	found := false
@@ -148,11 +148,11 @@ func TestSMTLRAFixedTermBoundsTrailAndEquality(t *testing.T) {
 	f.assert(f.app(smtArithOpLE, u, f.number(9)), true) // likewise for the upper directory
 	lraFix(t, f, v, 7)
 	f.propagate(true)
-	if f.s.context.enodes[u].Root() != f.s.context.enodes[v].Root() {
+	if f.s.context.enodes.get(u).Root() != f.s.context.enodes.get(v).Root() {
 		t.Fatal("fixed compound terms were not merged")
 	}
 	astTestMust(t, f.s.PopScopes(1))
-	if f.s.context.enodes[u].Root() == f.s.context.enodes[v].Root() {
+	if f.s.context.enodes.get(u).Root() == f.s.context.enodes.get(v).Root() {
 		t.Fatal("compound equality survived child scope")
 	}
 	actual, found, err := f.a.hasFixedBound(ui, big.NewRat(7, 1), true)
@@ -183,14 +183,14 @@ func TestSMTLRAFixedCacheRevalidatesPoppedColumn(t *testing.T) {
 	lraFix(t, f, y, 5)
 	lraFix(t, f, z, 5)
 	f.propagate(true)
-	if f.s.context.enodes[x].Root() == f.s.context.enodes[y].Root() || f.s.context.enodes[y].Root() == f.s.context.enodes[z].Root() || f.a.fixedEqualities != 0 {
+	if f.s.context.enodes.get(x).Root() == f.s.context.enodes.get(y).Root() || f.s.context.enodes.get(y).Root() == f.s.context.enodes.get(z).Root() || f.a.fixedEqualities != 0 {
 		t.Fatal("stale fixed cache was used or silently replaced")
 	}
 	// Source does not replace a still-live cached variable just because its
 	// old bounds disappeared; the later model-combination phase handles this.
-	key, err := f.a.fixedKey(f.s.context.enodes[x].TheoryVar(f.a.FamilyID()), big.NewRat(5, 1))
+	key, err := f.a.fixedKey(f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID()), big.NewRat(5, 1))
 	astTestMust(t, err)
-	if f.a.fixedVariables[key] != f.s.context.enodes[x].TheoryVar(f.a.FamilyID()) {
+	if f.a.fixedVariables[key] != f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID()) {
 		t.Fatal("source stale-cache retention changed")
 	}
 }
@@ -210,7 +210,7 @@ func TestSMTLRAFixedCacheReplacesPoppedVariableID(t *testing.T) {
 	z := f.variable("lra-replace-fixed-z")
 	lraFix(t, f, z, 5)
 	f.propagate(true)
-	if f.s.context.enodes[y].Root() != f.s.context.enodes[z].Root() || f.a.fixedEqualities != 1 {
+	if f.s.context.enodes.get(y).Root() != f.s.context.enodes.get(z).Root() || f.a.fixedEqualities != 1 {
 		t.Fatal("popped cached variable ID was not replaced safely", f.a.fixedEqualities)
 	}
 }
@@ -241,7 +241,7 @@ func TestSMTLRAFixedSortKeysAndIndependentBoundMode(t *testing.T) {
 	lraFix(t, f, x, 5)
 	lraFix(t, f, z, 5)
 	f.propagate(true)
-	if f.s.context.enodes[x].Root() != f.s.context.enodes[z].Root() || f.a.fixedEqualities != 1 {
+	if f.s.context.enodes.get(x).Root() != f.s.context.enodes.get(z).Root() || f.a.fixedEqualities != 1 {
 		t.Fatal("bound propagation mode incorrectly disabled fixed equalities")
 	}
 }
@@ -261,7 +261,7 @@ func TestSMTLRAFixedEqualityConfigurationAndStrictness(t *testing.T) {
 			lraFix(t, f, x, 2)
 			lraFix(t, f, y, 2)
 			f.propagate(true)
-			if f.s.context.enodes[x].Root() == f.s.context.enodes[y].Root() || f.a.fixedEqualities != 0 {
+			if f.s.context.enodes.get(x).Root() == f.s.context.enodes.get(y).Root() || f.a.fixedEqualities != 0 {
 				t.Fatal("disabled fixed equality propagated")
 			}
 		})
@@ -270,7 +270,7 @@ func TestSMTLRAFixedEqualityConfigurationAndStrictness(t *testing.T) {
 	x := f.variable("lra-strict-fixed-x")
 	f.assert(f.app(smtArithOpLE, x, f.number(1)), false)
 	f.propagate(true)
-	v := f.s.context.enodes[x].TheoryVar(f.a.FamilyID())
+	v := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
 	index, _ := f.a.numeric.index(v)
 	_, found, err := f.a.hasFixedBound(index, big.NewRat(1, 1), true)
 	astTestMust(t, err)

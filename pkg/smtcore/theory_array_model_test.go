@@ -82,7 +82,7 @@ func TestSMTArrayModelDefaultPartitionAndStoreSelectPropagation(t *testing.T) {
 				if data == nil || data.unspecified {
 					t.Fatal("store terms did not initialize the shared-default partition")
 				}
-				nodes := []*SMTEnode{state.context.enodes[a], state.context.enodes[first], state.context.enodes[last]}
+				nodes := []*SMTEnode{state.context.enodes.get(a), state.context.enodes.get(first), state.context.enodes.get(last)}
 				root := data.find(int(nodes[0].TheoryVar(family)))
 				for _, node := range nodes[1:] {
 					if data.find(int(node.TheoryVar(family))) != root {

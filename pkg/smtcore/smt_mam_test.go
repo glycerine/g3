@@ -148,7 +148,7 @@ func TestSMTMAMMatchesUnaryAndRepeatedVariablesModuloEquality(t *testing.T) {
 	astTestMust(t, state.context.RegisterEnode(b, true))
 	application, err := m.MkApp(predicate, []ast.ASTHandle{a.owner, b.owner})
 	astTestMust(t, err)
-	node, err := NewSMTEnode(m, application, state.context.enodes, SMTEnodeOptions{Generation: 4, CongruenceEnabled: true})
+	node, err := NewSMTEnode(m, application, state.context.enodes.get, SMTEnodeOptions{Generation: 4, CongruenceEnabled: true})
 	astTestMust(t, err)
 	node.congruence = node
 	astTestMust(t, state.context.RegisterEnode(node, true))
@@ -160,7 +160,7 @@ func TestSMTMAMMatchesUnaryAndRepeatedVariablesModuloEquality(t *testing.T) {
 	astTestMust(t, state.context.SetRelevant(application, false))
 	application, err = m.MkApp(predicate, []ast.ASTHandle{a.owner, a.owner})
 	astTestMust(t, err)
-	node, err = NewSMTEnode(m, application, state.context.enodes, SMTEnodeOptions{Generation: 5, CongruenceEnabled: true})
+	node, err = NewSMTEnode(m, application, state.context.enodes.get, SMTEnodeOptions{Generation: 5, CongruenceEnabled: true})
 	astTestMust(t, err)
 	node.congruence = node
 	astTestMust(t, state.context.RegisterEnode(node, true))
@@ -230,7 +230,7 @@ func TestSMTMAMTracksNestedGroundPatternTermsAsShared(t *testing.T) {
 	astTestMust(t, registry.Add(quantifier, 0))
 	astTestMust(t, mam.PushScope())
 	astTestMust(t, mam.AddPattern(quantifier, pattern))
-	node := state.context.enodes[constant]
+	node := state.context.enodes.get(constant)
 	if node == nil || !mam.IsShared(node) {
 		t.Fatal("nested ground pattern term was not internalized and shared")
 	}

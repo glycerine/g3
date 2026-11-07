@@ -28,7 +28,7 @@ func TestSMTArithmeticOwnEqualityRetainedForReplayWithoutContextBounce(t *testin
 		h, err := m.MkConst(astTestSymbol(t, m, name), sort)
 		astTestMust(t, err)
 		astTestMust(t, s.Internalize(h, false))
-		node := s.context.enodes[h]
+		node := s.context.enodes.get(h)
 		variables = append(variables, node.TheoryVar(family))
 		nodes = append(nodes, node)
 	}
@@ -102,7 +102,7 @@ func TestSMTArithmeticEqualityEventsQueueNativeBoundsAndProofs(t *testing.T) {
 						astTestMust(t, err)
 						astTestMust(t, state.AssignLiteral(literal, NewSMTBooleanAxiom()))
 						before := len(state.boolExpr)
-						left, right := state.context.enodes[x], state.context.enodes[y]
+						left, right := state.context.enodes.get(x), state.context.enodes.get(y)
 						astTestMust(t, state.addEquality(left, right, NewSMTEqualityEquation(literal)))
 						astTestMust(t, state.PropagateTheoryEvents())
 						if len(theory.equalityBounds) != 1 || len(theory.pendingBounds) != 2 || len(state.boolExpr) != before || len(theory.atoms) != 0 || theory.equalityAdapter.NumAxioms() != 0 {

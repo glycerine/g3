@@ -267,7 +267,7 @@ func (t *SMTBitVectorTheory) bridgeAtom(expression, definition ast.ASTHandle, la
 	if err := t.releaseTemporary(); err != nil {
 		return false, fmt.Errorf("release bit-vector atom definition: %w", err)
 	}
-	variable, found := state.boolVar[expression]
+	variable, found := state.boolVar.lookup(expression)
 	if !found {
 		variable, err = state.MkBoolVar(expression)
 		if err != nil {
@@ -539,15 +539,15 @@ func (t *SMTBitVectorTheory) InternalizeTerm(expression ast.ASTHandle) (bool, er
 	}
 	switch op {
 	case smtBVOpNumeral:
-		if err = bvAssert(518, "!get_context().e_internalized(n)", func() (bool, error) { return state.context.enodes[expression] == nil, nil }); err != nil {
+		if err = bvAssert(518, "!get_context().e_internalized(n)", func() (bool, error) { return state.context.enodes.get(expression) == nil, nil }); err != nil {
 			return false, err
 		}
 	case 58:
-		if err = bvAssert(555, "!get_context().e_internalized(n)", func() (bool, error) { return state.context.enodes[expression] == nil, nil }); err != nil {
+		if err = bvAssert(555, "!get_context().e_internalized(n)", func() (bool, error) { return state.context.enodes.get(expression) == nil, nil }); err != nil {
 			return false, err
 		}
 	case 57:
-		if err = bvAssert(623, "!get_context().e_internalized(n)", func() (bool, error) { return state.context.enodes[expression] == nil, nil }); err != nil {
+		if err = bvAssert(623, "!get_context().e_internalized(n)", func() (bool, error) { return state.context.enodes.get(expression) == nil, nil }); err != nil {
 			return false, err
 		}
 		if err = bvAssert(624, "n->get_num_args() == 1", func() (bool, error) { return count == 1, nil }); err != nil {
@@ -565,7 +565,7 @@ func (t *SMTBitVectorTheory) InternalizeTerm(expression ast.ASTHandle) (bool, er
 			return false, argErr
 		}
 	}
-	node := state.context.enodes[expression]
+	node := state.context.enodes.get(expression)
 	if node == nil {
 		node, err = state.MkEnode(expression, !t.config.Reflect, false, t.config.CC)
 		if err != nil {
@@ -648,7 +648,7 @@ func (t *SMTBitVectorTheory) InternalizeTerm(expression ast.ASTHandle) (bool, er
 	}
 	// Source init_bits calls find_wpos immediately. All bits may already be
 	// fixed when a new compound term reuses an existing circuit.
-	if err = t.findWatchedPosition(state.context.enodes[expression].TheoryVar(t.FamilyID())); err != nil {
+	if err = t.findWatchedPosition(state.context.enodes.get(expression).TheoryVar(t.FamilyID())); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -731,7 +731,7 @@ func (t *SMTBitVectorTheory) Relevant(expression ast.ASTHandle) error {
 		return err
 	}
 	if isBool {
-		if variable, exists := state.boolVar[expression]; exists {
+		if variable, exists := state.boolVar.lookup(expression); exists {
 			if defined, found := t.comparisonAtoms[variable]; found {
 				if err = t.markLiteralRelevant(defined); err != nil {
 					return err
@@ -743,7 +743,7 @@ func (t *SMTBitVectorTheory) Relevant(expression ast.ASTHandle) error {
 		}
 		return nil
 	}
-	node := state.context.enodes[expression]
+	node := state.context.enodes.get(expression)
 	if node == nil {
 		return nil
 	}

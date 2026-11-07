@@ -82,7 +82,7 @@ func TestSMTArithmeticSharedEpsilonPreservesDistinctValues(t *testing.T) {
 	// 10-epsilon that collide at the initial model epsilon of 1/2.
 	columns := make([]uint32, 0, 4)
 	for _, expr := range []ast.ASTHandle{x, y, fx, fy} {
-		node := theory.state.context.enodes[expr]
+		node := theory.state.context.enodes.get(expr)
 		columns = append(columns, theory.simplexVariables[node.TheoryVar(family)])
 	}
 	theory.solver = simplex.NewSolver(nil)

@@ -66,7 +66,7 @@ func TestSMTTheoryAssumptionsOrdinaryCheckAndValidation(t *testing.T) {
 		if len(theory.core) != 1 || theory.core[0] != notA || len(k.UnsatCore()) != 1 || k.UnsatCore()[0] != notA {
 			t.Fatal("theory assumption missing from the extracted core", theory.core, k.UnsatCore())
 		}
-		if k.internalizer.scopeLevel != 0 || k.Statistics().NumChecks != 1 || k.internalizer.booleanData[k.internalizer.boolVar[a]].Assumption {
+		if k.internalizer.scopeLevel != 0 || k.Statistics().NumChecks != 1 || k.internalizer.booleanData[k.internalizer.boolVar.get(a)].Assumption {
 			t.Fatal("theory assumptions leaked a scope/flag or double-counted the check")
 		}
 	}

@@ -58,9 +58,9 @@ func TestSMTSequenceStructuredModelValues(t *testing.T) {
 	astTestMust(t, generator.SetContext(context))
 	astTestMust(t, generator.InitializeModel(config))
 	astTestMust(t, generator.BuildStateValues(state))
-	xValue, err := generator.Value(context.enodes[x])
+	xValue, err := generator.Value(context.enodes.get(x))
 	astTestMust(t, err)
-	concatValue, err := generator.Value(context.enodes[concat])
+	concatValue, err := generator.Value(context.enodes.get(concat))
 	astTestMust(t, err)
 	xText, xString, err := m.SequenceStringValue(xValue)
 	astTestMust(t, err)
@@ -1094,8 +1094,8 @@ func TestSMTSequenceTheoryExposesExtensionalityEquality(t *testing.T) {
 	}
 	equality, err := m.MkEq(x, y)
 	astTestMust(t, err)
-	if _, found := state.BoolVar(equality); !found || !context.relevant[equality] {
-		t.Fatal("extensionality equality is not a relevant Boolean atom", found, context.relevant[equality])
+	if _, found := state.BoolVar(equality); !found || !context.relevant.get(equality) {
+		t.Fatal("extensionality equality is not a relevant Boolean atom", found, context.relevant.get(equality))
 	}
 }
 

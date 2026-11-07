@@ -148,7 +148,7 @@ func (t *SMTIntegerDiffTheory) addDiffObjective(term ast.ASTHandle, dense *SMTDe
 		if err := s.Internalize(h, false); err != nil {
 			return false, err
 		}
-		node := s.context.enodes[h]
+		node := s.context.enodes.get(h)
 		if node != nil && !t.IsAttachedToVariable(node) && dense != nil {
 			if _, err := dense.createVariable(node); err != nil {
 				return false, err

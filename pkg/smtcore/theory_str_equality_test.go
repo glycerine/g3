@@ -103,7 +103,7 @@ func TestSMTStringLengthReaderRequiresMixedAndCoreRoots(t *testing.T) {
 	length, err := m.MkSequenceLength(x)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(length, false))
-	variable := state.context.enodes[length].TheoryVar(arithmetic.FamilyID())
+	variable := state.context.enodes.get(length).TheoryVar(arithmetic.FamilyID())
 	column := arithmetic.simplexVariables[variable]
 	candidate := arithmetic.solver.Value(column)
 	candidate.Main.SetInt64(7)
@@ -235,8 +235,8 @@ func TestSMTStringEqualityChecksClassMembersBeforeMerge(t *testing.T) {
 	if !state.Inconsistent() {
 		t.Fatal("incompatible concat members were missed by cross-class checking")
 	}
-	a := uint32(state.context.enodes[variables[0]].TheoryVar(theory.FamilyID()))
-	b := uint32(state.context.enodes[variables[1]].TheoryVar(theory.FamilyID()))
+	a := uint32(state.context.enodes.get(variables[0]).TheoryVar(theory.FamilyID()))
+	b := uint32(state.context.enodes.get(variables[1]).TheoryVar(theory.FamilyID()))
 	if theory.find.Find(a) != theory.find.Find(b) {
 		t.Fatal("source post-handler merge was skipped after conflict")
 	}

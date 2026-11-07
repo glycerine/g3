@@ -50,7 +50,7 @@ func (s *SMTInternalizerState) GetTheoryValue(node *SMTEnode) (ast.ASTHandle, bo
 	if err := s.open(); err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	if node == nil || node.manager != s.manager || s.context.enodes[node.owner] != node {
+	if node == nil || node.manager != s.manager || s.context.enodes.get(node.owner) != node {
 		return ast.ASTHandle{}, false, ast.ErrASTDomain
 	}
 	sort, err := s.manager.GetSort(node.owner)

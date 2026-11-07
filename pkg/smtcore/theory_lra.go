@@ -240,7 +240,7 @@ func (t *SMTLRATheory) internalizeArguments(h ast.ASTHandle) error {
 		if err != nil {
 			return err
 		}
-		if t.state.context.enodes[arg] == nil {
+		if t.state.context.enodes.get(arg) == nil {
 			if err = t.state.Internalize(arg, false); err != nil {
 				return err
 			}
@@ -250,7 +250,7 @@ func (t *SMTLRATheory) internalizeArguments(h ast.ASTHandle) error {
 }
 
 func (t *SMTLRATheory) mkEnode(h ast.ASTHandle) (*SMTEnode, error) {
-	if node := t.state.context.enodes[h]; node != nil {
+	if node := t.state.context.enodes.get(h); node != nil {
 		return node, nil
 	}
 	reflect, err := t.reflect(h)
@@ -265,12 +265,12 @@ func (t *SMTLRATheory) mkEnode(h ast.ASTHandle) (*SMTEnode, error) {
 }
 
 func (t *SMTLRATheory) mkVar(h ast.ASTHandle) (SMTTheoryVar, error) {
-	if t.state.context.enodes[h] == nil {
+	if t.state.context.enodes.get(h) == nil {
 		if err := t.state.Internalize(h, false); err != nil {
 			return SMTNullTheoryVar, err
 		}
 	}
-	node := t.state.context.enodes[h]
+	node := t.state.context.enodes.get(h)
 	if node == nil {
 		return SMTNullTheoryVar, ast.ErrASTDomain
 	}
@@ -550,7 +550,7 @@ func (t *SMTLRATheory) InternalizeTerm(term ast.ASTHandle) (bool, error) {
 	if _, err := t.State(); err != nil {
 		return false, err
 	}
-	if node := t.state.context.enodes[term]; node != nil && t.IsAttachedToVariable(node) {
+	if node := t.state.context.enodes.get(term); node != nil && t.IsAttachedToVariable(node) {
 		return true, nil
 	}
 	_, err := t.internalizeDef(term)
@@ -642,7 +642,7 @@ func (t *SMTLRATheory) InternalizeEquality(h ast.ASTHandle, _ int32) error {
 	if err != nil {
 		return err
 	}
-	n1, n2 := t.state.context.enodes[left], t.state.context.enodes[right]
+	n1, n2 := t.state.context.enodes.get(left), t.state.context.enodes.get(right)
 	if n1 != nil && n2 != nil && n1 != n2 && t.IsAttachedToVariable(n1) && t.IsAttachedToVariable(n2) {
 		if err = t.traceLRAExpression("internalize_eq_eh", 781, "", h, "\n"); err != nil {
 			return err

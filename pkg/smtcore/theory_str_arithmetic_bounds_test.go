@@ -69,7 +69,7 @@ func TestSMTStringArithmeticBoundsAssignmentAndScope(t *testing.T) {
 	astTestPin(t, m, length)
 	stringCheckArithmeticBound(t, theory, length, true, "")
 	astTestMust(t, state.Internalize(length, false))
-	variable := state.context.enodes[length].TheoryVar(arithmetic.FamilyID())
+	variable := state.context.enodes.get(length).TheoryVar(arithmetic.FamilyID())
 	column := arithmetic.simplexVariables[variable]
 	candidate := arithmetic.solver.Value(column)
 	candidate.Main.SetInt64(6)

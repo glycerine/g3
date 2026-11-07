@@ -121,7 +121,7 @@ func (t *SMTLinearArithmeticTheory) queueCongruenceEqualityBounds(first, second 
 		} else if err := t.state.context.SetRelevant(difference, true); err != nil {
 			return err
 		}
-		node := t.state.context.enodes[difference]
+		node := t.state.context.enodes.get(difference)
 		if node == nil || !t.IsAttachedToVariable(node) {
 			return ast.ErrASTDomain
 		}

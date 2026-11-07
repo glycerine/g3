@@ -67,14 +67,14 @@ func (t *SMTStringTheory) ValidateUnsatCore(core []ast.ASTHandle) (lbool.LBool, 
 	if err := state.Internalize(target, false); err != nil {
 		return lbool.Undef, err
 	}
-	node := state.context.enodes[target]
+	node := state.context.enodes.get(target)
 	if node == nil {
 		return lbool.Undef, ast.ErrASTDomain
 	}
 	for _, assumption := range core {
 		// Native compares enode identity, not congruence roots. Core
 		// expressions were internalized by the assumption search.
-		if node == state.context.enodes[assumption] {
+		if node == state.context.enodes.get(assumption) {
 			return lbool.Undef, nil
 		}
 	}

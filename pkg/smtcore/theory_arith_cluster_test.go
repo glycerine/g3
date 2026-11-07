@@ -118,12 +118,12 @@ func TestSMTNonlinearClusterInequalityRowsScopedProofs(t *testing.T) {
 							found[column] = true
 						}
 						for _, variable := range []ast.ASTHandle{x, y, z} {
-							column := theory.simplexVariables[theory.state.context.enodes[variable].TheoryVar(family)]
+							column := theory.simplexVariables[theory.state.context.enodes.get(variable).TheoryVar(family)]
 							if !found[column] {
 								t.Fatal("connected factor missing from nonlinear cluster")
 							}
 						}
-						column := theory.simplexVariables[theory.state.context.enodes[unrelated].TheoryVar(family)]
+						column := theory.simplexVariables[theory.state.context.enodes.get(unrelated).TheoryVar(family)]
 						if found[column] {
 							t.Fatal("free substitution pulled an unrelated variable into the cluster")
 						}

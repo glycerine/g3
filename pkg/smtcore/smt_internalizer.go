@@ -462,7 +462,7 @@ func (s *SMTInternalizerState) markRelevant(expression ast.ASTHandle) error {
 }
 
 func (s *SMTInternalizerState) ensureBooleanEnode(expression ast.ASTHandle, variable int32, suppressArguments, mergeTruthValue, congruenceEnabled bool) error {
-	node := s.context.enodes[expression]
+	node := s.context.enodes.get(expression)
 	if node == nil {
 		var err error
 		node, err = s.MkEnode(expression, suppressArguments, mergeTruthValue, congruenceEnabled)
@@ -528,7 +528,7 @@ func (s *SMTInternalizerState) internalizeFormula(expression ast.ASTHandle, gate
 		}
 		return s.Internalize(child, true)
 	}
-	if variable, found := s.boolVar[expression]; found {
+	if variable, found := s.boolVar.lookup(expression); found {
 		if !gateContext {
 			return s.ensureBooleanEnode(expression, variable, true, true, false)
 		}
@@ -553,7 +553,7 @@ func (s *SMTInternalizerState) internalizeFormula(expression ast.ASTHandle, gate
 				return err
 			}
 			if handled {
-				variable, found := s.boolVar[expression]
+				variable, found := s.boolVar.lookup(expression)
 				if !found {
 					return ast.ErrASTDomain
 				}
@@ -570,7 +570,7 @@ func (s *SMTInternalizerState) internalizeFormula(expression ast.ASTHandle, gate
 		return err
 	}
 	if basic && op == ast.ASTOpEq {
-		variable, _ := s.boolVar[expression]
+		variable, _ := s.boolVar.lookup(expression)
 		data, err := s.BooleanData(variable)
 		if err != nil {
 			return err
@@ -696,7 +696,7 @@ func (s *SMTInternalizerState) internalizeFormulaCore(expression ast.ASTHandle, 
 			return fmt.Errorf("internalize formula child %d: %w", index, err)
 		}
 	}
-	variable, isNew := s.boolVar[expression]
+	variable, isNew := s.boolVar.lookup(expression)
 	if !isNew {
 		variable, err = s.MkBoolVar(expression)
 		if err != nil {
@@ -706,7 +706,7 @@ func (s *SMTInternalizerState) internalizeFormulaCore(expression ast.ASTHandle, 
 	} else {
 		isNew = false
 	}
-	if s.context.enodes[expression] == nil && (!gateContext || !isGate && count > 0) {
+	if s.context.enodes.get(expression) == nil && (!gateContext || !isGate && count > 0) {
 		if err = s.ensureBooleanEnode(expression, variable, isGate, !gateContext, true); err != nil {
 			return fmt.Errorf("internalize formula enode: %w", err)
 		}
@@ -863,7 +863,7 @@ func (s *SMTInternalizerState) assignRootLiteral(literal SMTLiteral, proof ast.A
 }
 
 func (s *SMTInternalizerState) addGateConstraints(expression ast.ASTHandle, operation int32) error {
-	variable := s.boolVar[expression]
+	variable := s.boolVar.get(expression)
 	literal := NewSMTLiteral(variable, false)
 	arguments, err := s.argumentLiterals(expression)
 	if err != nil {
@@ -973,7 +973,7 @@ func (s *SMTInternalizerState) addGateConstraints(expression ast.ASTHandle, oper
 }
 
 func (s *SMTInternalizerState) internalizeTerm(expression ast.ASTHandle) error {
-	if node := s.context.enodes[expression]; node != nil {
+	if node := s.context.enodes.get(expression); node != nil {
 		theory, err := s.expressionTheory(expression)
 		if err != nil {
 			return err
@@ -983,7 +983,7 @@ func (s *SMTInternalizerState) internalizeTerm(expression ast.ASTHandle) error {
 			if err != nil {
 				return err
 			}
-			if handled && s.context.enodes[expression] == nil {
+			if handled && s.context.enodes.get(expression) == nil {
 				return ast.ErrASTDomain
 			}
 		}
@@ -1006,7 +1006,7 @@ func (s *SMTInternalizerState) internalizeTerm(expression ast.ASTHandle) error {
 			return err
 		}
 		if handled {
-			node := s.context.enodes[expression]
+			node := s.context.enodes.get(expression)
 			if node == nil {
 				return ast.ErrASTDomain
 			}
@@ -1098,7 +1098,7 @@ func (s *SMTInternalizerState) preInternalizeDeep(expression ast.ASTHandle) erro
 	if err != nil {
 		return err
 	}
-	for existing := range s.boolVar {
+	for _, existing := range s.boolExpr[SMTFirstBoolVar:] {
 		if err = order.SetBooleanInternalized(existing, true); err != nil {
 			return err
 		}

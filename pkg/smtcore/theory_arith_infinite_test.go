@@ -214,7 +214,7 @@ func TestSMTInfiniteArithmeticEqualityDoesNotProjectInfinity(t *testing.T) {
 	}
 	_, err = f.a.propagateImpliedEqualities()
 	astTestMust(t, err)
-	if f.s.context.enodes[x].Root() == f.s.context.enodes[y].Root() {
+	if f.s.context.enodes.get(x).Root() == f.s.context.enodes.get(y).Root() {
 		t.Fatal("rational projection invented x=y")
 	}
 	xv := f.a.simplexVariables[v]

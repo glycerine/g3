@@ -23,7 +23,7 @@ func TestSMTSequenceBranchesOrdinaryVariableWords(t *testing.T) {
 	}
 	data, err := f.state.BooleanData(literal.Var())
 	astTestMust(t, err)
-	if !data.TryTrueFirst() || f.state.context.enodes[f.x].Root() == f.state.context.enodes[empty].Root() {
+	if !data.TryTrueFirst() || f.state.context.enodes.get(f.x).Root() == f.state.context.enodes.get(empty).Root() {
 		t.Fatal("ordinary prefix split was not an unassigned preferred equality")
 	}
 }

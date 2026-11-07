@@ -145,13 +145,13 @@ func TestSMTFPADisplayMergeRootAndScopeRollback(t *testing.T) {
 	m, s, fp, terms, base := fpaDisplayFixture(t)
 	contextBase := fpaFixtureBVDisplayExpected(t, m, terms[3]) + base
 	astTestMust(t, s.PushScope())
-	astTestMust(t, s.addEquality(s.context.enodes[terms[0]], s.context.enodes[terms[1]], NewSMTEqualityAxiom()))
+	astTestMust(t, s.addEquality(s.context.enodes.get(terms[0]), s.context.enodes.get(terms[1]), NewSMTEqualityAxiom()))
 	extra, err := m.MkConst(astTestSymbol(t, m, "scoped-fpa"), mustFPASort(t, m, terms[0]))
 	astTestMust(t, err)
 	astTestMust(t, s.Internalize(extra, false))
 	var out bytes.Buffer
 	astTestMust(t, fp.Display(&out))
-	root, err := s.context.enodes[terms[0]].Root().OwnerID()
+	root, err := s.context.enodes.get(terms[0]).Root().OwnerID()
 	astTestMust(t, err)
 	firstID, err := m.GetASTID(terms[0])
 	astTestMust(t, err)

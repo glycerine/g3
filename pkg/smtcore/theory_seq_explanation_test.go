@@ -234,7 +234,7 @@ func TestSMTSequenceSingletonEqualityEnqueuesElementConsequence(t *testing.T) {
 				astTestMust(t, state.AssignLiteral(literal, NewSMTBooleanAxiom()))
 				_, err = state.PropagateCore()
 				astTestMust(t, err)
-				left, right := state.context.enodes[elements[0]], state.context.enodes[elements[1]]
+				left, right := state.context.enodes.get(elements[0]), state.context.enodes.get(elements[1])
 				if left.root == right.root {
 					t.Fatal("element equality preceded sequence reduction")
 				}

@@ -77,10 +77,10 @@ func TestSMTArrayStoreReadSourceTracesAndRefusal(t *testing.T) {
 			constant, err := manager.MkConstArray(arraySort, value)
 			astTestMust(t, err)
 			astTestMust(t, state.Internalize(constant, false))
-			baseVariable := state.context.enodes[base].TheoryVar(family)
-			constantVariable := state.context.enodes[constant].TheoryVar(family)
+			baseVariable := state.context.enodes.get(base).TheoryVar(family)
+			constantVariable := state.context.enodes.get(constant).TheoryVar(family)
 			astTestMust(t, theory.setArrayUpward(uint32(baseVariable)))
-			astTestMust(t, theory.setStoreBaseUpward(state.context.enodes[store]))
+			astTestMust(t, theory.setStoreBaseUpward(state.context.enodes.get(store)))
 			astTestMust(t, theory.NewEquality(baseVariable, constantVariable))
 			if closed {
 				return
@@ -356,7 +356,7 @@ func TestSMTFullArraySourceShapeGuards(t *testing.T) {
 	constant, err := manager.MkConstArray(arraySort, value)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(constant, false))
-	node := state.context.enodes[constant]
+	node := state.context.enodes.get(constant)
 	variable := node.TheoryVar(family)
 	if err = theory.addParentMap(variable, node); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("non-map parent accepted", err)
@@ -400,9 +400,9 @@ func TestSMTOrdinaryArraySourceTraces(t *testing.T) {
 	for _, expression := range []ast.ASTHandle{first, second, store} {
 		astTestMust(t, state.Internalize(expression, false))
 	}
-	firstVar := state.context.enodes[first].TheoryVar(family)
-	storeVar := state.context.enodes[store].TheoryVar(family)
-	secondVar := state.context.enodes[second].TheoryVar(family)
+	firstVar := state.context.enodes.get(first).TheoryVar(family)
+	storeVar := state.context.enodes.get(store).TheoryVar(family)
+	secondVar := state.context.enodes.get(second).TheoryVar(family)
 	astTestMust(t, theory.NewEquality(firstVar, storeVar))
 	read, err := manager.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{store, yes})
 	astTestMust(t, err)

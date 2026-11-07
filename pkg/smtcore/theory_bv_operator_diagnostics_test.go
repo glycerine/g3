@@ -57,7 +57,7 @@ func TestSMTBVOperatorSourceAssertionSites(t *testing.T) {
 				_, report := newLRASourceAssertionContext(t)
 				_, _, theory := bvOccurrenceFixture(t)
 				expression := ast.ASTHandle{}
-				theory.state.context.enodes[expression] = &SMTEnode{}
+				theory.state.context.enodes.set(expression, &SMTEnode{})
 				err := theory.assertTermOperatorShape(expression, test.operation, test.count)
 				bvInvariantFailure(t, err, report, test.line, "!get_context().e_internalized(n)")
 			})

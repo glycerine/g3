@@ -304,13 +304,13 @@ func TestSMTStringRegexPathWitnessCacheRefreshGrowthAndShorterPrefix(t *testing.
 	astTestMust(t, m.SetRef(out, ast.ASTHandle{}))
 	astTestMust(t, state.PopScopes(1))
 	for _, character := range old {
-		if state.context.enodes[character] != nil {
+		if state.context.enodes.get(character) != nil {
 			t.Fatal("scoped character retained its old enode")
 		}
 	}
 	root, err = theory.generateStringRegexPathConstraints(word, owner, 1, out)
 	astTestMust(t, err)
-	if theory.freshID != 2 || len(theory.stringChars[word]) != 2 || state.context.enodes[old[0]] == nil || state.context.enodes[old[1]] != nil {
+	if theory.freshID != 2 || len(theory.stringChars[word]) != 2 || state.context.enodes.get(old[0]) == nil || state.context.enodes.get(old[1]) != nil {
 		t.Fatal("shorter reuse did not refresh only the requested prefix")
 	}
 	astTestMust(t, m.DelRef(&root))
@@ -348,7 +348,7 @@ func TestSMTStringRegexPathWitnessCacheRefreshGrowthAndShorterPrefix(t *testing.
 		t.Fatal("path character concat reordered its prefix")
 	}
 	for _, character := range characters {
-		if state.context.enodes[character] == nil {
+		if state.context.enodes.get(character) == nil {
 			t.Fatal("cached character was not refreshed")
 		}
 	}

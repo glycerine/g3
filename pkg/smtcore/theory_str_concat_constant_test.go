@@ -31,10 +31,10 @@ func TestSMTStringConcatConstantCoreCancellationAndEmpty(t *testing.T) {
 		_, err = state.PropagateCore()
 		astTestMust(t, err)
 		value := astTestString(t, m, want)
-		if state.context.enodes[value] == nil || state.context.enodes[x].Root() != state.context.enodes[value].Root() {
+		if state.context.enodes.get(value) == nil || state.context.enodes.get(x).Root() != state.context.enodes.get(value).Root() {
 			t.Fatal("constant concat cancellation was not propagated through the core", mode)
 		}
-		if mode == "empty" && state.context.enodes[y].Root() != state.context.enodes[value].Root() {
+		if mode == "empty" && state.context.enodes.get(y).Root() != state.context.enodes.get(value).Root() {
 			t.Fatal("empty concat did not force both operands empty")
 		}
 		astTestMust(t, state.PopScopes(1))
@@ -159,7 +159,7 @@ func TestSMTStringConcatClassSimplificationKeepsAliasGuards(t *testing.T) {
 	constant := astTestString(t, m, "a")
 	astTestMust(t, state.Internalize(constant, false))
 	astTestMust(t, state.PushScope())
-	theory.find.Merge(uint32(state.context.enodes[x].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[constant].TheoryVar(theory.FamilyID())))
+	theory.find.Merge(uint32(state.context.enodes.get(x).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(constant).TheoryVar(theory.FamilyID())))
 	simplified, err := theory.simplifyStringConcat(concat)
 	astTestMust(t, err)
 	leaves, err := theory.concatLeaves(simplified)

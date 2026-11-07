@@ -168,7 +168,7 @@ func TestEqualityUndoRestoresClassesAndCongruence(t *testing.T) {
 					astTestMust(t, s.PushScope())
 				case action < 7:
 					left, right := f.base[r.Intn(len(f.base))], f.base[r.Intn(len(f.base))]
-					astTestMust(t, s.addEquality(s.context.enodes[left], s.context.enodes[right], NewSMTEqualityAxiom()))
+					astTestMust(t, s.addEquality(s.context.enodes.get(left), s.context.enodes.get(right), NewSMTEqualityAxiom()))
 					astTestMust(t, s.propagateCoreEqualities())
 				case action < 8:
 					f.application(t, r)
@@ -203,13 +203,13 @@ func TestEqualityUndoSeparatesCongruentApplications(t *testing.T) {
 	astTestMust(t, s.Internalize(second, false))
 	saved := smtEqualityUndoImage(s)
 	astTestMust(t, s.PushScope())
-	astTestMust(t, s.addEquality(s.context.enodes[f.base[0]], s.context.enodes[f.base[1]], NewSMTEqualityAxiom()))
+	astTestMust(t, s.addEquality(s.context.enodes.get(f.base[0]), s.context.enodes.get(f.base[1]), NewSMTEqualityAxiom()))
 	astTestMust(t, s.propagateCoreEqualities())
-	if s.context.enodes[first].root != s.context.enodes[second].root {
+	if s.context.enodes.get(first).root != s.context.enodes.get(second).root {
 		t.Fatal("merge did not propagate congruence")
 	}
 	astTestMust(t, s.PopScopes(1))
-	if s.context.enodes[first].root == s.context.enodes[second].root {
+	if s.context.enodes.get(first).root == s.context.enodes.get(second).root {
 		t.Fatal("undo left applications merged")
 	}
 	requireSMTEqualityImage(t, s, saved)
@@ -223,12 +223,12 @@ func TestEqualityUndoRetiresNodesCreatedAfterMerge(t *testing.T) {
 	s := f.s
 	saved := smtEqualityUndoImage(s)
 	astTestMust(t, s.PushScope())
-	astTestMust(t, s.addEquality(s.context.enodes[f.base[0]], s.context.enodes[f.base[1]], NewSMTEqualityAxiom()))
+	astTestMust(t, s.addEquality(s.context.enodes.get(f.base[0]), s.context.enodes.get(f.base[1]), NewSMTEqualityAxiom()))
 	late, err := f.m.MkApp(f.binary, []ast.ASTHandle{f.base[0], f.base[2]})
 	astTestMust(t, err)
 	astTestMust(t, s.Internalize(late, false))
 	astTestMust(t, s.PopScopes(1))
-	if s.context.enodes[late] != nil {
+	if s.context.enodes.get(late) != nil {
 		t.Fatal("late enode survived its scope")
 	}
 	requireSMTEqualityImage(t, s, saved)
@@ -245,7 +245,7 @@ func TestEqualityUndoResumesFromRecordedStage(t *testing.T) {
 	astTestMust(t, s.Internalize(application, false))
 	saved := smtEqualityUndoImage(s)
 	astTestMust(t, s.PushScope())
-	astTestMust(t, s.addEquality(s.context.enodes[f.base[0]], s.context.enodes[f.base[1]], NewSMTEqualityAxiom()))
+	astTestMust(t, s.addEquality(s.context.enodes.get(f.base[0]), s.context.enodes.get(f.base[1]), NewSMTEqualityAxiom()))
 	entry := &s.equalityTrail[len(s.equalityTrail)-1]
 	astTestMust(t, s.undoEquality(entry))
 	if entry.stage != 2 {
@@ -262,7 +262,7 @@ func TestEqualityUndoResumesFromRecordedStage(t *testing.T) {
 func TestEqualityUndoSkipsUnmergedEntry(t *testing.T) {
 	f := newSMTEqualityUndoFixture(t, "undo-unmerged", 2)
 	s := f.s
-	left, right := s.context.enodes[f.base[0]], s.context.enodes[f.base[1]]
+	left, right := s.context.enodes.get(f.base[0]), s.context.enodes.get(f.base[1])
 	saved := smtEqualityUndoImage(s)
 	astTestMust(t, s.PushScope())
 	s.recordEqualityUndo(left, left, right)
@@ -276,10 +276,10 @@ func TestEqualityUndoAllocationsDoNotScaleWithClassSize(t *testing.T) {
 		f := newSMTEqualityUndoFixture(t, fmt.Sprintf("undo-allocs-%d", classSize), classSize+2)
 		s := f.s
 		for i := 1; i < classSize; i++ {
-			astTestMust(t, s.addEquality(s.context.enodes[f.base[0]], s.context.enodes[f.base[i]], NewSMTEqualityAxiom()))
+			astTestMust(t, s.addEquality(s.context.enodes.get(f.base[0]), s.context.enodes.get(f.base[i]), NewSMTEqualityAxiom()))
 		}
-		small := s.context.enodes[f.base[classSize]]
-		large := s.context.enodes[f.base[0]]
+		small := s.context.enodes.get(f.base[classSize])
+		large := s.context.enodes.get(f.base[0])
 		return testing.AllocsPerRun(50, func() {
 			astTestMust(t, s.PushScope())
 			astTestMust(t, s.addEquality(large, small, NewSMTEqualityAxiom()))
@@ -302,7 +302,7 @@ func BenchmarkSMTMergeAndUndo(b *testing.B) {
 				astTestMust(b, err)
 				astTestMust(b, s.Internalize(application, false))
 			}
-			left, right := s.context.enodes[f.base[0]], s.context.enodes[f.base[1]]
+			left, right := s.context.enodes.get(f.base[0]), s.context.enodes.get(f.base[1])
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {

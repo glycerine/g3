@@ -13,9 +13,10 @@ import (
 type SMTCheckerContext struct {
 	manager          *ast.ASTManager
 	relevancy        *SMTRelevancyPropagator
-	relevant         map[ast.ASTHandle]bool
-	assignments      map[ast.ASTHandle]lbool.LBool
-	enodes           map[ast.ASTHandle]*SMTEnode
+	exprs            *smtExprTable
+	relevant         smtRelevantTable
+	assignments      smtAssignmentTable
+	enodes           smtEnodeTable
 	byDeclaration    map[ast.ASTHandle][]*SMTEnode
 	disequalityTrail []smtDisequalityUndo
 }
@@ -26,16 +27,17 @@ func (c *SMTCheckerContext) isRelevant(expression ast.ASTHandle) bool {
 	if c.relevancy != nil {
 		return c.relevancy.IsRelevant(expression)
 	}
-	return c.relevant[expression]
+	return c.relevant.get(expression)
 }
 
 func NewSMTCheckerContext(manager *ast.ASTManager) (*SMTCheckerContext, error) {
 	if manager == nil {
 		return nil, ast.ErrASTHandle
 	}
+	exprs := newSMTExprTable()
 	return &SMTCheckerContext{
-		manager: manager, relevant: make(map[ast.ASTHandle]bool),
-		assignments: make(map[ast.ASTHandle]lbool.LBool), enodes: make(map[ast.ASTHandle]*SMTEnode),
+		manager: manager, exprs: exprs, relevant: smtRelevantTable{exprs},
+		assignments: smtAssignmentTable{exprs}, enodes: smtEnodeTable{exprs},
 		byDeclaration: make(map[ast.ASTHandle][]*SMTEnode),
 	}, nil
 }
@@ -47,7 +49,7 @@ func (c *SMTCheckerContext) SetRelevant(expression ast.ASTHandle, relevant bool)
 	if _, err := c.manager.GetKind(expression); err != nil {
 		return err
 	}
-	c.relevant[expression] = relevant
+	c.relevant.set(expression, relevant)
 	return nil
 }
 
@@ -61,7 +63,7 @@ func (c *SMTCheckerContext) SetAssignment(expression ast.ASTHandle, value lbool.
 	if _, err := c.manager.GetKind(expression); err != nil {
 		return err
 	}
-	c.assignments[expression] = value
+	c.assignments.set(expression, value)
 	return nil
 }
 
@@ -75,14 +77,14 @@ func (c *SMTCheckerContext) RegisterEnode(node *SMTEnode, relevant bool) error {
 	if err := node.valid(); err != nil {
 		return err
 	}
-	if prior := c.enodes[node.owner]; prior != nil && prior != node {
+	if prior := c.enodes.get(node.owner); prior != nil && prior != node {
 		return ast.ErrASTDomain
 	}
-	if c.enodes[node.owner] == nil {
-		c.enodes[node.owner] = node
+	if c.enodes.get(node.owner) == nil {
+		c.enodes.set(node.owner, node)
 		c.byDeclaration[node.declaration] = append(c.byDeclaration[node.declaration], node)
 	}
-	c.relevant[node.owner] = relevant
+	c.relevant.set(node.owner, relevant)
 	return nil
 }
 
@@ -240,7 +242,7 @@ func (c *SMTChecker) enodeEqualTo(expression ast.ASTHandle) (*SMTEnode, error) {
 		}
 		return c.bindings[len(c.bindings)-int(index)-1], nil
 	}
-	if node := c.context.enodes[expression]; node != nil && c.context.isRelevant(expression) {
+	if node := c.context.enodes.get(expression); node != nil && c.context.isRelevant(expression) {
 		return node, nil
 	}
 	if kind != ast.ASTApp {
@@ -281,7 +283,7 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, value bool) (bool, erro
 	if sort != boolean {
 		return false, ast.ErrASTDomain
 	}
-	if assignment, found := c.context.assignments[expression]; found && c.context.isRelevant(expression) {
+	if assignment, found := c.context.assignments.lookup(expression); found && c.context.isRelevant(expression) {
 		return assignment != lbool.Undef && value == (assignment == lbool.True), nil
 	}
 	kind, err := manager.GetKind(expression)
@@ -341,7 +343,7 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, value bool) (bool, erro
 			if len(arguments) != 3 {
 				return false, ast.ErrASTDomain
 			}
-			if assignment, found := c.context.assignments[arguments[0]]; found && c.context.isRelevant(arguments[0]) {
+			if assignment, found := c.context.assignments.lookup(arguments[0]); found && c.context.isRelevant(arguments[0]) {
 				switch assignment {
 				case lbool.False:
 					return c.check(arguments[2], value)
@@ -378,7 +380,7 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, value bool) (bool, erro
 	if err != nil || node == nil || !node.boolean || !c.context.isRelevant(node.owner) {
 		return false, err
 	}
-	assignment, found := c.context.assignments[node.owner]
+	assignment, found := c.context.assignments.lookup(node.owner)
 	return found && assignment != lbool.Undef && value == (assignment == lbool.True), nil
 }
 

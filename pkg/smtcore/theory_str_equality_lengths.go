@@ -11,7 +11,7 @@ import (
 )
 
 func (t *SMTStringTheory) arithmeticValue(expression ast.ASTHandle) (*big.Int, bool, error) {
-	node := t.state.context.enodes[expression]
+	node := t.state.context.enodes.get(expression)
 	if node == nil {
 		return nil, false, nil
 	}

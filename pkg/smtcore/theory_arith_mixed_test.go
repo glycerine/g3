@@ -103,7 +103,7 @@ func smtMixedArithmeticScopeModel(t *testing.T, proofs bool) {
 		t.Fatal("real model value", text, isInt, matched)
 	}
 	state := solver.kernel.internalizer
-	if state.context.enodes[i].Root() == state.context.enodes[cast].Root() {
+	if state.context.enodes.get(i).Root() == state.context.enodes.get(cast).Root() {
 		t.Fatal("Int and Real enodes were merged")
 	}
 }

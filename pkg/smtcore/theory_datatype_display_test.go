@@ -32,7 +32,7 @@ func TestSMTDatatypeDisplayPrivateRootsAndScopedMetadata(t *testing.T) {
 	// A private merge leaves the enode roots distinct. The diagnostic must
 	// report the private root and each variable's own constructor pointer.
 	astTestMust(t, dt.NewEquality(0, 1))
-	if s.context.enodes[x].root == s.context.enodes[c].root {
+	if s.context.enodes.get(x).root == s.context.enodes.get(c).root {
 		t.Fatal("fixture lost distinct egraph roots")
 	}
 	out.Reset()
@@ -120,7 +120,7 @@ func TestSMTDatatypeDisplayBoundsConstructorArguments(t *testing.T) {
 	value, err := m.MkApp(constructor, []ast.ASTHandle{element})
 	astTestMust(t, err)
 	astTestMust(t, s.Internalize(value, false))
-	node := s.context.enodes[value]
+	node := s.context.enodes.get(value)
 	variable := node.TheoryVar(f.dt.FamilyID())
 	id, err := m.GetASTID(value)
 	astTestMust(t, err)

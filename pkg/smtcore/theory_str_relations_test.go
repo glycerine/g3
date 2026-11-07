@@ -49,7 +49,7 @@ func TestSMTStringBoundaryAxiomsConcretePartitions(t *testing.T) {
 		}
 		astTestMust(t, err)
 		astTestMust(t, state.Internalize(relation, true))
-		astTestMust(t, theory.instantiateBoundaryRelation(state.context.enodes[relation], suffix))
+		astTestMust(t, theory.instantiateBoundaryRelation(state.context.enodes.get(relation), suffix))
 		axiom, err := m.RefGet(theory.refs[len(theory.refs)-1])
 		astTestMust(t, err)
 		first, err := m.MkSequenceSkolem(astTestSymbol(t, m, "ts0!tmp0"), nil, sort)
@@ -84,7 +84,7 @@ func TestSMTStringBoundaryAxiomsConcretePartitions(t *testing.T) {
 			}
 		}
 		before, freshID := len(theory.refs), theory.freshID
-		astTestMust(t, theory.instantiateBoundaryRelation(state.context.enodes[relation], suffix))
+		astTestMust(t, theory.instantiateBoundaryRelation(state.context.enodes.get(relation), suffix))
 		if len(theory.refs) != before || theory.freshID != freshID {
 			t.Fatal("duplicate boundary setup created new axioms or witnesses")
 		}
@@ -103,7 +103,7 @@ func TestSMTStringContainsWitnessesAndIndices(t *testing.T) {
 	relation, err := m.MkSequenceContains(haystack, needle)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(relation, true))
-	astTestMust(t, theory.instantiateContains(state.context.enodes[relation]))
+	astTestMust(t, theory.instantiateContains(state.context.enodes.get(relation)))
 	key := [2]ast.ASTHandle{haystack, needle}
 	if len(theory.contains) != 1 || theory.containsByPair[key] != relation {
 		t.Fatal("symbolic containment was not registered")
@@ -140,7 +140,7 @@ func TestSMTStringContainsWitnessesAndIndices(t *testing.T) {
 		}
 	}
 	before, freshID := len(theory.refs), theory.freshID
-	astTestMust(t, theory.instantiateContains(state.context.enodes[relation]))
+	astTestMust(t, theory.instantiateContains(state.context.enodes.get(relation)))
 	if len(theory.refs) != before || theory.freshID != freshID || len(theory.contains) != 1 {
 		t.Fatal("duplicate containment setup changed the registry or witnesses")
 	}

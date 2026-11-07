@@ -50,7 +50,7 @@ func TestSMTArrayParentsPrivateMergesDelayedUpwardAndRollback(t *testing.T) {
 					read, err := m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{a, indices[1]})
 					astTestMust(t, err)
 					astTestMust(t, s.Internalize(read, true))
-					parentData := theory.arrayData[theory.arrayUnion.Find(uint32(s.context.enodes[a].TheoryVar(family)))]
+					parentData := theory.arrayData[theory.arrayUnion.Find(uint32(s.context.enodes.get(a).TheoryVar(family)))]
 					if relevant && len(parentData.parentSelects) != 0 {
 						t.Fatal("irrelevant read entered parent list")
 					}
@@ -58,9 +58,9 @@ func TestSMTArrayParentsPrivateMergesDelayedUpwardAndRollback(t *testing.T) {
 					astTestMust(t, s.markRelevant(store))
 					_, err = s.PropagateCore()
 					astTestMust(t, err)
-					baseVariable := s.context.enodes[a].TheoryVar(family)
-					storeVariable := s.context.enodes[store].TheoryVar(family)
-					aliasVariable := s.context.enodes[b].TheoryVar(family)
+					baseVariable := s.context.enodes.get(a).TheoryVar(family)
+					storeVariable := s.context.enodes.get(store).TheoryVar(family)
+					aliasVariable := s.context.enodes.get(b).TheoryVar(family)
 					base := theory.arrayData[theory.arrayUnion.Find(uint32(baseVariable))]
 					if base.propUpward || len(base.parentStores) != 1 || len(base.parentSelects) == 0 {
 						t.Fatal("initial parent lists or upward flag", base)
@@ -69,7 +69,7 @@ func TestSMTArrayParentsPrivateMergesDelayedUpwardAndRollback(t *testing.T) {
 						astTestMust(t, s.PushScope())
 						// Context event order merges the private store class into
 						// the alias class; both partitions must undo on pop.
-						astTestMust(t, s.addEquality(s.context.enodes[b], s.context.enodes[store], NewSMTEqualityAxiom()))
+						astTestMust(t, s.addEquality(s.context.enodes.get(b), s.context.enodes.get(store), NewSMTEqualityAxiom()))
 						astTestMust(t, s.PropagateTheoryEvents())
 						if theory.arrayUnion.Find(uint32(storeVariable)) != theory.arrayUnion.Find(uint32(aliasVariable)) || base.propUpward == weak {
 							t.Fatal("private merge/upward flag", weak, base.propUpward)

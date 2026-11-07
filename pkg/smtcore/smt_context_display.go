@@ -122,7 +122,7 @@ func (s *SMTInternalizerState) DisplayExpressionBoolVarMap(out io.Writer) error 
 		if err != nil {
 			return err
 		}
-		variable, ok := s.boolVar[expression]
+		variable, ok := s.boolVar.lookup(expression)
 		if !ok {
 			return ast.ErrASTDomain
 		}

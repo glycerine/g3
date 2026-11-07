@@ -397,13 +397,13 @@ func (t *SMTLinearArithmeticTheory) ensureVariable(expression ast.ASTHandle) (ui
 	if err != nil {
 		return 0, err
 	}
-	if node := state.context.enodes[expression]; node != nil && t.IsAttachedToVariable(node) {
+	if node := state.context.enodes.get(expression); node != nil && t.IsAttachedToVariable(node) {
 		return t.simplexVariables[node.TheoryVar(t.FamilyID())], nil
 	}
 	if err = state.Internalize(expression, false); err != nil {
 		return 0, err
 	}
-	node := state.context.enodes[expression]
+	node := state.context.enodes.get(expression)
 	if node == nil {
 		node, err = state.MkEnode(expression, false, false, true)
 		if err != nil {
@@ -609,7 +609,7 @@ func (t *SMTLinearArithmeticTheory) InternalizeTerm(expression ast.ASTHandle) (b
 	if division || own && op == smtArithOpToInt && t.mixed {
 		// Source internalize_to_int publishes its variable before creating
 		// the to_real/to_int axioms, whose terms visit this cast again.
-		node := state.context.enodes[expression]
+		node := state.context.enodes.get(expression)
 		if node == nil {
 			node, err = state.MkEnode(expression, false, false, true)
 			if err != nil {
@@ -631,7 +631,7 @@ func (t *SMTLinearArithmeticTheory) InternalizeTerm(expression ast.ASTHandle) (b
 	}
 	form, linear, err := t.linearize(expression)
 	if err == nil && !linear {
-		node := state.context.enodes[expression]
+		node := state.context.enodes.get(expression)
 		if node == nil {
 			node, err = state.MkEnode(expression, false, false, true)
 		}
@@ -643,7 +643,7 @@ func (t *SMTLinearArithmeticTheory) InternalizeTerm(expression ast.ASTHandle) (b
 	if err != nil {
 		return false, err
 	}
-	node := state.context.enodes[expression]
+	node := state.context.enodes.get(expression)
 	if node == nil {
 		node, err = state.MkEnode(expression, false, false, true)
 		if err != nil {
@@ -710,7 +710,7 @@ func (t *SMTLinearArithmeticTheory) InternalizeAtom(expression ast.ASTHandle, _ 
 	// Internalizing an arithmetic term can recursively internalize the same
 	// comparison (for example via term-ITE equalities and bound axioms).
 	// The nested call has already installed the complete theory atom.
-	if variable, found := state.boolVar[expression]; found {
+	if variable, found := state.boolVar.lookup(expression); found {
 		if _, installed := t.atomByBool[variable]; installed {
 			return true, nil
 		}
@@ -1875,7 +1875,7 @@ func (t *SMTLinearArithmeticTheory) fixedPolynomialValue(expression ast.ASTHandl
 		}
 		return nil, nil, false, nil
 	}
-	node := state.context.enodes[expression]
+	node := state.context.enodes.get(expression)
 	if node == nil || !t.IsAttachedToVariable(node) {
 		return nil, nil, false, nil
 	}
@@ -2063,7 +2063,7 @@ func (t *SMTLinearArithmeticTheory) polynomialInterval(expression ast.ASTHandle,
 		}
 		return result, result != nil, nil
 	}
-	node := state.context.enodes[expression]
+	node := state.context.enodes.get(expression)
 	if node == nil || !t.IsAttachedToVariable(node) {
 		return nil, false, nil
 	}

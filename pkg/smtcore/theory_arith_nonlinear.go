@@ -39,7 +39,7 @@ func (t *SMTLinearArithmeticTheory) internalizeNonlinearMonomial(expression ast.
 	if nonNumerals < 2 {
 		return false, nil
 	}
-	node := s.context.enodes[expression]
+	node := s.context.enodes.get(expression)
 	if node == nil {
 		node, err = s.MkEnode(expression, false, false, true)
 		if err != nil {

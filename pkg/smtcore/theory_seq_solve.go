@@ -247,7 +247,7 @@ func (t *SMTSequenceTheory) addSolution(variable, value ast.ASTHandle, dependenc
 	if err = state.Internalize(value, false); err != nil {
 		return false, err
 	}
-	left, right := state.context.enodes[variable], state.context.enodes[value]
+	left, right := state.context.enodes.get(variable), state.context.enodes.get(value)
 	if left == nil || right == nil {
 		return false, ast.ErrASTDomain
 	}
@@ -277,7 +277,7 @@ func (t *SMTSequenceTheory) propagateWordEquality(leftExpression, rightExpressio
 	if err = state.Internalize(rightExpression, false); err != nil {
 		return false, err
 	}
-	left, right := state.context.enodes[leftExpression], state.context.enodes[rightExpression]
+	left, right := state.context.enodes.get(leftExpression), state.context.enodes.get(rightExpression)
 	if left == nil || right == nil {
 		return false, ast.ErrASTDomain
 	}
@@ -338,7 +338,7 @@ func (t *SMTSequenceTheory) equalWordParts(left, right ast.ASTHandle, dependency
 	if err != nil {
 		return false, dependency
 	}
-	leftNode, rightNode := state.context.enodes[left], state.context.enodes[right]
+	leftNode, rightNode := state.context.enodes.get(left), state.context.enodes.get(right)
 	if leftNode == nil || rightNode == nil || leftNode.Root() != rightNode.Root() {
 		return false, dependency
 	}
@@ -498,7 +498,7 @@ func (t *SMTSequenceTheory) reduceEqualLengthBoundary(index int, left, right []a
 		if makeErr != nil {
 			return false, false, makeErr
 		}
-		leftNode, rightNode := state.context.enodes[leftLength], state.context.enodes[rightLength]
+		leftNode, rightNode := state.context.enodes.get(leftLength), state.context.enodes.get(rightLength)
 		if leftNode == nil || rightNode == nil || leftNode.Root() != rightNode.Root() {
 			continue
 		}
@@ -835,7 +835,7 @@ func (t *SMTSequenceTheory) hasUnresolvedWordEquation() (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		leftNode, rightNode := state.context.enodes[leftWord], state.context.enodes[rightWord]
+		leftNode, rightNode := state.context.enodes.get(leftWord), state.context.enodes.get(rightWord)
 		if leftNode != nil && rightNode != nil && leftNode.Root() == rightNode.Root() {
 			continue
 		}

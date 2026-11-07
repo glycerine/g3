@@ -36,7 +36,8 @@ func stringLibraryWitness(t *testing.T, theory *SMTStringTheory, name string) as
 	t.Helper()
 	m := theory.state.manager
 	want := astTestSymbol(t, m, name)
-	for expression := range theory.state.context.enodes {
+	for _, node := range theory.state.context.enodes.all() {
+		expression := node.owner
 		declaration, err := m.GetDecl(expression)
 		astTestMust(t, err)
 		actual, err := m.GetASTName(declaration)
@@ -78,7 +79,7 @@ func TestSMTStringCharAtAxiomConcreteBoundsAndReduction(t *testing.T) {
 	expression, err := m.MkSequenceAt(word, index)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(expression, false))
-	astTestMust(t, theory.instantiateCharAt(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateCharAt(state.context.enodes.get(expression)))
 	variables := []ast.ASTHandle{stringLibraryWitness(t, theory, "ts0!tmp0"), stringLibraryWitness(t, theory, "ts1!tmp1"), stringLibraryWitness(t, theory, "ts2!tmp2")}
 	axiom, err := m.RefGet(theory.refs[len(theory.refs)-1])
 	astTestMust(t, err)
@@ -99,7 +100,7 @@ func TestSMTStringCharAtAxiomConcreteBoundsAndReduction(t *testing.T) {
 		}
 	}
 	before, fresh := len(theory.refs), theory.freshID
-	astTestMust(t, theory.instantiateCharAt(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateCharAt(state.context.enodes.get(expression)))
 	if len(theory.refs) != before || theory.freshID != fresh {
 		t.Fatal("duplicate character-at setup repeated its axiom/witnesses")
 	}
@@ -113,7 +114,7 @@ func TestSMTStringSubstringAxiomsConcreteTruncationAndInvalidBounds(t *testing.T
 	expression, err := m.MkSequenceExtract(word, position, count)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(expression, false))
-	astTestMust(t, theory.instantiateSubstring(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateSubstring(state.context.enodes.get(expression)))
 	variables := make([]ast.ASTHandle, 5)
 	for i := range variables {
 		variables[i] = stringLibraryWitness(t, theory, "t"+strconv.Itoa(i)+"!tmp"+strconv.Itoa(i))
@@ -158,7 +159,7 @@ func TestSMTStringSubstringAxiomsConcreteTruncationAndInvalidBounds(t *testing.T
 		}
 	}
 	before, fresh := len(theory.refs), theory.freshID
-	astTestMust(t, theory.instantiateSubstring(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateSubstring(state.context.enodes.get(expression)))
 	if len(theory.refs) != before || theory.freshID != fresh {
 		t.Fatal("duplicate substring setup repeated its cases/witnesses")
 	}
@@ -172,7 +173,7 @@ func TestSMTStringReplaceAxiomsFirstOccurrenceAndNoMatch(t *testing.T) {
 	expression, err := m.MkSequenceReplace(word, needle, replacement)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(expression, false))
-	astTestMust(t, theory.instantiateReplace(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateReplace(state.context.enodes.get(expression)))
 	variables := []ast.ASTHandle{
 		stringLibraryWitness(t, theory, "x1!tmp0"), stringLibraryWitness(t, theory, "x2!tmp1"),
 		stringLibraryWitness(t, theory, "i1!tmp2"), stringLibraryWitness(t, theory, "result!tmp3"),
@@ -218,7 +219,7 @@ func TestSMTStringReplaceAxiomsFirstOccurrenceAndNoMatch(t *testing.T) {
 		t.Fatal("replacement accepted a later occurrence despite an earlier match")
 	}
 	before, fresh := len(theory.refs), theory.freshID
-	astTestMust(t, theory.instantiateReplace(state.context.enodes[expression]))
+	astTestMust(t, theory.instantiateReplace(state.context.enodes.get(expression)))
 	if len(theory.refs) != before || theory.freshID != fresh {
 		t.Fatal("duplicate replacement setup repeated axioms/witnesses")
 	}

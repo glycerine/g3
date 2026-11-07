@@ -245,7 +245,7 @@ func TestSMTBVNativeOperatorCircuitsMatchSourceEngine(t *testing.T) {
 						}
 						actual = []SMTLiteral{definition}
 					} else {
-						actual = bv.bitLiterals[s.context.enodes[term].TheoryVar(bv.FamilyID())]
+						actual = bv.bitLiterals[s.context.enodes.get(term).TheoryVar(bv.FamilyID())]
 					}
 					if len(actual) != len(expected) {
 						t.Fatal("source output width", len(actual), len(expected))
@@ -291,7 +291,7 @@ func TestSMTBVNativeOperatorRefusalScopeAndRetry(t *testing.T) {
 					failures++
 				}
 				astTestMust(t, s.PopScopes(1))
-				if len(bv.variables) != base || len(bv.temporary) != 0 || s.context.enodes[term] != nil {
+				if len(bv.variables) != base || len(bv.temporary) != 0 || s.context.enodes.get(term) != nil {
 					t.Fatal("operator refusal escaped its scope")
 				}
 				astTestMust(t, s.PushScope())
@@ -307,7 +307,7 @@ func TestSMTBVNativeOperatorRefusalScopeAndRetry(t *testing.T) {
 					if _, ok = bv.comparisonAtoms[variable]; !ok {
 						t.Fatal("missing retried comparison definition")
 					}
-				} else if node := s.context.enodes[term]; node == nil || len(bv.bitLiterals[node.TheoryVar(bv.FamilyID())]) != 8 {
+				} else if node := s.context.enodes.get(term); node == nil || len(bv.bitLiterals[node.TheoryVar(bv.FamilyID())]) != 8 {
 					t.Fatal("missing retried native result")
 				}
 				astTestMust(t, s.PopScopes(1))
@@ -327,7 +327,7 @@ func TestSMTBVNativeOperandLookupCreatesSuppressedVariable(t *testing.T) {
 	x, err := m.MkConst(astTestSymbol(t, m, "native-suppressed-operand"), sort)
 	astTestMust(t, err)
 	astTestMust(t, s.Internalize(x, false))
-	node := s.context.enodes[x]
+	node := s.context.enodes.get(x)
 	if node == nil || node.TheoryVar(bv.FamilyID()) != SMTNullTheoryVar || !bv.unsupported {
 		t.Fatal("fixture did not suppress sort attachment")
 	}
@@ -383,7 +383,7 @@ func TestSMTBVAtomApproximationPrecedesOperatorDispatch(t *testing.T) {
 	if handled || !bv.unsupported || len(bv.comparisonAtoms) != 0 {
 		t.Fatal("source atom approximation did not stop before operator dispatch", handled, bv.unsupported, len(bv.comparisonAtoms))
 	}
-	if bv.state.context.enodes[left] != nil || bv.state.context.enodes[right] != nil {
+	if bv.state.context.enodes.get(left) != nil || bv.state.context.enodes.get(right) != nil {
 		t.Fatal("source atom approximation processed operands before refusal")
 	}
 }

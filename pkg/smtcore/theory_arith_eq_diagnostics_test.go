@@ -101,7 +101,7 @@ func TestSMTArithmeticEqualityRetainedDiagnostics(t *testing.T) {
 		}
 		_, err = f.s.PropagateCore()
 		astTestMust(t, err)
-		if f.s.context.enodes[x].Root() != f.s.context.enodes[w].Root() {
+		if f.s.context.enodes.get(x).Root() != f.s.context.enodes.get(w).Root() {
 			t.Fatal("implied fixed variable did not merge with the fixed-value peer")
 		}
 		requireArithmeticEqualityTrace(t, output.String(),

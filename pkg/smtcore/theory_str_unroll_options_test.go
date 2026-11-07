@@ -207,7 +207,7 @@ func TestSMTStringConditionalUnrollScopeRoleFilterAndFresh(t *testing.T) {
 	root, err = theory.generateStringConditionalUnrollOptions(word, []ast.ASTHandle{u}, "x")
 	astTestMust(t, err)
 	astTestMust(t, m.DelRef(&root))
-	if theory.freshID != fresh || history.testers[0] != first || state.context.enodes[first] == nil {
+	if theory.freshID != fresh || history.testers[0] != first || state.context.enodes.get(first) == nil {
 		t.Fatal("scope pop replaced lifetime-role tester instead of refreshing")
 	}
 	delete(theory.unrollTestVariables, first)

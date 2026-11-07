@@ -128,7 +128,7 @@ func TestSMTModelFinderAUFWitnessConstraintsWaitForRestart(t *testing.T) {
 	}
 	literal, err := state.Literal(constraint)
 	astTestMust(t, err)
-	if !state.context.relevant[state.boolExpr[literal.Var()]] {
+	if !state.context.relevant.get(state.boolExpr[literal.Var()]) {
 		t.Fatal("restart did not mark witness literal relevant")
 	}
 	assignment, err := state.Assignment(literal)

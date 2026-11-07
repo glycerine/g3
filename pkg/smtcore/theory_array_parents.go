@@ -401,7 +401,7 @@ func (t *SMTArrayTheory) Relevant(expression ast.ASTHandle) error {
 			return err
 		}
 	}
-	node := s.context.enodes[expression]
+	node := s.context.enodes.get(expression)
 	if node == nil {
 		return nil
 	}

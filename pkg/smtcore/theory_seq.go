@@ -236,7 +236,7 @@ func (t *SMTSequenceTheory) ensureVariable(expression ast.ASTHandle) error {
 			return argumentErr
 		}
 	}
-	node := state.context.enodes[expression]
+	node := state.context.enodes.get(expression)
 	if node == nil {
 		sort, sortErr := state.manager.GetSort(expression)
 		if sortErr != nil {
@@ -832,7 +832,7 @@ func (t *SMTSequenceTheory) concreteString(expression ast.ASTHandle, dependency 
 		// Canonization of a unit also uses established character equalities.
 		// Keep that equality evidence when the concrete word explains a
 		// conflict, rather than reading a guessed model character.
-		if node := state.context.enodes[element]; node != nil {
+		if node := state.context.enodes.get(element); node != nil {
 			for current := node.Next(); current != node; current = current.Next() {
 				value, fixed, valueErr = state.manager.SequenceUnitByteElementValue(current.Owner())
 				if valueErr != nil {

@@ -345,7 +345,7 @@ func (g *SMTModelGenerator) discoverValueProcedures(state *SMTInternalizerState)
 			if g.manager.IsTrue(node.owner) {
 				value, valueErr = g.manager.MkTrue()
 			} else if !g.manager.IsFalse(node.owner) {
-				assignment := g.context.assignments[node.owner]
+				assignment := g.context.assignments.get(node.owner)
 				if err := g.traceModel("model", "mk_value_procs", 94, func() bool { return assignment == lbool.Undef }, func(out io.Writer) error {
 					if traceErr := g.displayModelExpression(out, node.owner); traceErr != nil {
 						return traceErr

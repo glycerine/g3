@@ -504,7 +504,8 @@ func (t *SMTSequenceTheory) reduceExpandedRegexMemberships() (progress, unresolv
 		return false, false, err
 	}
 	seen := make(map[ast.ASTHandle]struct{})
-	for expression := range state.context.enodes {
+	for _, node := range state.context.enodes.all() {
+		expression := node.owner
 		if _, found := seen[expression]; found {
 			continue
 		}

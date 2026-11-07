@@ -43,12 +43,12 @@ func TestSMTBitVectorMKBVBooleanArgumentsEnodesAndScopes(t *testing.T) {
 			t.Cleanup(func() { astTestMust(t, m.DelRef(&atomRoot)) })
 			astTestMust(t, s.PushScope())
 			astTestMust(t, s.Internalize(atom, true))
-			node := s.context.enodes[term]
+			node := s.context.enodes.get(term)
 			if node == nil || node.suppressArguments == reflect {
 				t.Fatal("MKBV enode flags", node)
 			}
 			for _, arg := range args {
-				if s.context.enodes[arg] == nil {
+				if s.context.enodes.get(arg) == nil {
 					t.Fatal("Boolean argument missing source term-context enode", arg)
 				}
 			}
@@ -62,7 +62,7 @@ func TestSMTBitVectorMKBVBooleanArgumentsEnodesAndScopes(t *testing.T) {
 				}
 			}
 			astTestMust(t, s.PopScopes(1))
-			if s.context.enodes[term] != nil {
+			if s.context.enodes.get(term) != nil {
 				t.Fatal("scoped MKBV enode survived pop")
 			}
 		})

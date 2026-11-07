@@ -148,7 +148,7 @@ func TestSMTSequenceResidualDisequalityRetainsCancellationEvidence(t *testing.T)
 	for attempt := 0; attempt < 2; attempt++ {
 		astTestMust(t, state.PushScope())
 		astTestMust(t, state.Assert(negative, ast.ASTHandle{}, 0))
-		astTestMust(t, state.addEquality(state.context.enodes[words[0]], state.context.enodes[words[1]], NewSMTEqualityAxiom()))
+		astTestMust(t, state.addEquality(state.context.enodes.get(words[0]), state.context.enodes.get(words[1]), NewSMTEqualityAxiom()))
 		_, err = state.PropagateCore()
 		astTestMust(t, err)
 		progress, err := theory.checkReducedDisequations()
@@ -176,7 +176,7 @@ func TestSMTSequenceResidualDisequalityRetainsCancellationEvidence(t *testing.T)
 			t.Fatal("already propagated residual reported progress", progress, err)
 		}
 		astTestMust(t, state.PopScopes(1))
-		if value, err := state.Assignment(residualLiteral); err != nil || value != lbool.Undef || state.context.enodes[words[0]].root == state.context.enodes[words[1]].root {
+		if value, err := state.Assignment(residualLiteral); err != nil || value != lbool.Undef || state.context.enodes.get(words[0]).root == state.context.enodes.get(words[1]).root {
 			t.Fatal("scoped residual propagation or cancellation equality survived pop", value, err)
 		}
 	}

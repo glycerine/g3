@@ -160,12 +160,12 @@ func TestSMTArithmeticUnderspecifiedParentMarksChildShared(t *testing.T) {
 	if !ok || len(theory.divisionTerms) == 0 {
 		t.Fatal("division fixture did not reach the underspecified-operator owner")
 	}
-	shared, err := theory.sharedArithmeticNode(state.context.enodes[x])
+	shared, err := theory.sharedArithmeticNode(state.context.enodes.get(x))
 	astTestMust(t, err)
 	if !shared {
 		t.Fatal("division child was not marked shared")
 	}
-	shared, err = theory.sharedArithmeticNode(state.context.enodes[z])
+	shared, err = theory.sharedArithmeticNode(state.context.enodes.get(z))
 	astTestMust(t, err)
 	if shared {
 		t.Fatal("ordinary single-theory arithmetic child was marked shared")

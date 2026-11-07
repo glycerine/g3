@@ -109,7 +109,7 @@ func (t *SMTBitVectorTheory) registerBitLiteral(expression ast.ASTHandle, index 
 	if err != nil {
 		return err
 	}
-	node := s.context.enodes[expression]
+	node := s.context.enodes.get(expression)
 	if node == nil {
 		return ast.ErrASTDomain
 	}
@@ -238,16 +238,16 @@ func (t *SMTBitVectorTheory) internalizeBitProjection(expression ast.ASTHandle) 
 	if err != nil {
 		return false, err
 	}
-	missing := s.context.enodes[owner] == nil
+	missing := s.context.enodes.get(owner) == nil
 	if err = s.Internalize(owner, false); err != nil {
 		return false, err
 	}
 	if missing {
-		if err = bvAssert(87, "ctx.e_internalized(first_arg)", func() (bool, error) { return s.context.enodes[owner] != nil, nil }); err != nil {
+		if err = bvAssert(87, "ctx.e_internalized(first_arg)", func() (bool, error) { return s.context.enodes.get(owner) != nil, nil }); err != nil {
 			return false, err
 		}
 	}
-	node := s.context.enodes[owner]
+	node := s.context.enodes.get(owner)
 	if node == nil {
 		return false, ast.ErrASTDomain
 	}

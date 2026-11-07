@@ -23,7 +23,7 @@ func TestSMTEnodeTemporaryKeyInvariantDisplayAndDeletion(t *testing.T) {
 	astTestMust(t, m.DelFuncDeclInfo(&info))
 	owner, err := m.MkApp(declaration, []ast.ASTHandle{a, b})
 	astTestMust(t, err)
-	concrete, err := NewSMTEnode(m, owner, map[ast.ASTHandle]*SMTEnode{a: an, b: bn}, SMTEnodeOptions{CongruenceEnabled: true, UpdateChildrenParent: true})
+	concrete, err := NewSMTEnode(m, owner, smtEnodeMapLookup(map[ast.ASTHandle]*SMTEnode{a: an, b: bn}), SMTEnodeOptions{CongruenceEnabled: true, UpdateChildrenParent: true})
 	astTestMust(t, err)
 	temporary, err := NewSMTTempEnode(m)
 	astTestMust(t, err)

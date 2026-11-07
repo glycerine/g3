@@ -63,7 +63,7 @@ func TestSMTContextDisplayMapsAndEquivalenceClassesUseSourceOrder(t *testing.T) 
 	}
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.Internalize(terms[2], false))
-	astTestMust(t, s.addEquality(s.context.enodes[terms[1]], s.context.enodes[terms[0]], NewSMTEqualityAxiom()))
+	astTestMust(t, s.addEquality(s.context.enodes.get(terms[1]), s.context.enodes.get(terms[0]), NewSMTEqualityAxiom()))
 	out.Reset()
 	astTestMust(t, s.DisplayEquivalenceClasses(&out))
 	want := fmt.Sprintf("equivalence classes:\n#%d -> #%d: display-uf-b -> display-uf-a\n", id[1], id[0])
@@ -135,7 +135,7 @@ func TestSMTContextDisplayPrefixesBorrowingAndGuards(t *testing.T) {
 	for _, term := range terms {
 		astTestMust(t, s.Internalize(term, false))
 	}
-	astTestMust(t, s.addEquality(s.context.enodes[terms[0]], s.context.enodes[terms[1]], NewSMTEqualityAxiom()))
+	astTestMust(t, s.addEquality(s.context.enodes.get(terms[0]), s.context.enodes.get(terms[1]), NewSMTEqualityAxiom()))
 	// SMT2 formatting initializes manager-owned scratch storage on first use.
 	for _, display := range methods {
 		astTestMust(t, display(io.Discard))

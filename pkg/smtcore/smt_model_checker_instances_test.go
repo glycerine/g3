@@ -28,7 +28,7 @@ func TestSMTModelCheckerRetainsBindingsAcrossBacktrackingUntilRestart(t *testing
 			astTestMust(t, err)
 			astTestMust(t, state.SetGeneration(9))
 			astTestMust(t, state.Internalize(term, false))
-			oldNode := state.context.enodes[term]
+			oldNode := state.context.enodes.get(term)
 			for i := 0; i < 2; i++ {
 				added, err := checker.enqueueCounterexample(q, []ast.ASTHandle{term}, true, 11)
 				astTestMust(t, err)
@@ -40,7 +40,7 @@ func TestSMTModelCheckerRetainsBindingsAcrossBacktrackingUntilRestart(t *testing
 				t.Fatal("candidate capture prematurely entered the quantifier queue")
 			}
 			astTestMust(t, state.PopScopes(1))
-			if state.context.enodes[term] != nil {
+			if state.context.enodes.get(term) != nil {
 				t.Fatal("decision enode survived backtracking")
 			}
 			if _, err := m.GetKind(term); err != nil {
@@ -52,7 +52,7 @@ func TestSMTModelCheckerRetainsBindingsAcrossBacktrackingUntilRestart(t *testing
 			if quantifierGeneration > wantGeneration {
 				wantGeneration = quantifierGeneration
 			}
-			node := state.context.enodes[term]
+			node := state.context.enodes.get(term)
 			if node == nil || node == oldNode || node.Generation() != wantGeneration || state.generation != 77 {
 				t.Fatal("restart did not reinternalize the pinned binding with source generation", node, state.generation)
 			}
@@ -75,7 +75,7 @@ func TestSMTModelCheckerRestartSkipsQuantifiersRemovedByPop(t *testing.T) {
 	astTestMust(t, err)
 	added, err := checker.addCounterexample(q, []ast.ASTHandle{term})
 	astTestMust(t, err)
-	if !added || state.context.enodes[term] != nil || registry.schedule.HasWork() {
+	if !added || state.context.enodes.get(term) != nil || registry.schedule.HasWork() {
 		t.Fatal("capture must not internalize a new binding")
 	}
 	astTestMust(t, state.PopScopes(1))
@@ -83,7 +83,7 @@ func TestSMTModelCheckerRestartSkipsQuantifiersRemovedByPop(t *testing.T) {
 		t.Fatal("fixture quantifier was not removed")
 	}
 	astTestMust(t, checker.Restart())
-	if checker.HasNewInstances() || registry.schedule.HasWork() || state.context.enodes[term] != nil {
+	if checker.HasNewInstances() || registry.schedule.HasWork() || state.context.enodes.get(term) != nil {
 		t.Fatal("restart revived an obsolete quantifier or binding")
 	}
 }
@@ -117,7 +117,7 @@ func TestSMTModelCheckerCaptureUsesInverseGenerationRatherThanEnodeGeneration(t 
 	checker := state.quantifierManager.modelChecker
 	added, err := checker.addFiniteCounterexample(q, []ast.ASTHandle{falsity})
 	astTestMust(t, err)
-	if !added || len(checker.newInstances) != 1 || checker.newInstances[0].generation != 13 || state.context.enodes[falsity].Generation() == 13 {
+	if !added || len(checker.newInstances) != 1 || checker.newInstances[0].generation != 13 || state.context.enodes.get(falsity).Generation() == 13 {
 		t.Fatal("capture substituted enode generation for inverse generation", added, checker.newInstances)
 	}
 	astTestMust(t, checker.Restart())

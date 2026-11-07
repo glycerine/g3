@@ -11,7 +11,7 @@ import (
 )
 
 func (t *SMTStringTheory) eqcStringValue(expression ast.ASTHandle) (ast.ASTHandle, bool, error) {
-	node := t.state.context.enodes[expression]
+	node := t.state.context.enodes.get(expression)
 	if node == nil || !t.IsAttachedToVariable(node) {
 		return expression, false, nil
 	}
@@ -90,7 +90,7 @@ func (t *SMTStringTheory) ModelValue(node *SMTEnode, generator *SMTModelGenerato
 		}
 		return nil, err
 	}
-	if state.context.enodes[node.Owner()] != node {
+	if state.context.enodes.get(node.Owner()) != node {
 		return nil, ast.ErrASTDomain
 	}
 	value, concrete, err := t.modelStringValue(node.Owner())

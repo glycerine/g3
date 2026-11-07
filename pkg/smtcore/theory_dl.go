@@ -131,7 +131,7 @@ func (t *SMTDatalogTheory) ensureVariable(expression ast.ASTHandle) (bool, error
 			return false, argumentErr
 		}
 	}
-	node := state.context.enodes[expression]
+	node := state.context.enodes.get(expression)
 	if node == nil {
 		node, err = state.MkEnode(expression, false, false, true)
 		if err != nil {

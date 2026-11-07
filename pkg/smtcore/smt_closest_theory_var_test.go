@@ -24,7 +24,7 @@ func smtClosestVariableFixture(t *testing.T) (*ast.ASTManager, *SMTInternalizerS
 		x, err := m.MkConst(astTestSymbol(t, m, fmt.Sprintf("closest-%d", i)), sort)
 		astTestMust(t, err)
 		astTestMust(t, s.Internalize(x, false))
-		nodes = append(nodes, s.context.enodes[x])
+		nodes = append(nodes, s.context.enodes.get(x))
 	}
 	return m, s, theory, nodes
 }

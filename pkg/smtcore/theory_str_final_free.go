@@ -25,7 +25,7 @@ func (t *SMTStringTheory) assignStringFreeVariables(analysis *smtStringDependenc
 	concatUnrolls := make(map[ast.ASTHandle]map[ast.ASTHandle]int)
 	m := t.state.manager
 	for _, head := range stringOrderedRelations(analysis.unrollGroups) {
-		start := t.state.context.enodes[head]
+		start := t.state.context.enodes.get(head)
 		if start == nil {
 			return ast.ErrASTDomain
 		}

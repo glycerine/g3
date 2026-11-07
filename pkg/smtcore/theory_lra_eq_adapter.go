@@ -473,7 +473,7 @@ func (a *smtLRAEqualityAdapter) Restart() error {
 		if s.inconsistent {
 			break
 		}
-		left, right := s.context.enodes[pair.first], s.context.enodes[pair.second]
+		left, right := s.context.enodes.get(pair.first), s.context.enodes.get(pair.second)
 		if left == nil || right == nil {
 			return ast.ErrASTDomain
 		}

@@ -71,7 +71,7 @@ func TestSMTSequenceExtensionalityRequiresSharingAndPrefersTrue(t *testing.T) {
 		astTestMust(t, err)
 		value, err := f.state.Assignment(NewSMTLiteral(variable, false))
 		astTestMust(t, err)
-		if !data.TryTrueFirst() || value != lbool.Undef || !f.state.isRelevant(equality) || f.state.context.enodes[f.x].root == f.state.context.enodes[f.y].root {
+		if !data.TryTrueFirst() || value != lbool.Undef || !f.state.isRelevant(equality) || f.state.context.enodes.get(f.x).root == f.state.context.enodes.get(f.y).root {
 			t.Fatal("interface equality was not an undecided true-first relevant split")
 		}
 		astTestMust(t, f.state.PopScopes(1))
@@ -155,7 +155,7 @@ func TestSMTSequenceExtensionalityHonorsDisabledRelevancy(t *testing.T) {
 		if found == enabled {
 			t.Fatal("interface equality was not scoped to the disabled-filter pass", enabled, found)
 		}
-		if context.relevant[x] || context.relevant[y] {
+		if context.relevant.get(x) || context.relevant.get(y) {
 			t.Fatal("querying the relevance policy changed its marks")
 		}
 		astTestMust(t, state.PopScopes(1))

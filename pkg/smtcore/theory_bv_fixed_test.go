@@ -17,7 +17,7 @@ func bvFixedSymbolic(t *testing.T, m *ast.ASTManager, s *SMTInternalizerState, b
 	word, err := m.MkConst(astTestSymbol(t, m, name), sort)
 	astTestMust(t, err)
 	astTestMust(t, s.Internalize(word, false))
-	node := s.context.enodes[word]
+	node := s.context.enodes.get(word)
 	return node, node.TheoryVar(bv.FamilyID())
 }
 
@@ -296,7 +296,7 @@ func TestSMTBVFixedCacheReusedSlotForBVToInt(t *testing.T) {
 	conversion, err := m.MkBitVectorToInt(argument.owner)
 	astTestMust(t, err)
 	astTestMust(t, s.Internalize(conversion, false))
-	node := s.context.enodes[conversion]
+	node := s.context.enodes.get(conversion)
 	if node == nil || node.TheoryVar(bv.FamilyID()) != old {
 		t.Fatal("native BV-to-Int consumer did not reuse cached theory slot")
 	}

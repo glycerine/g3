@@ -270,7 +270,7 @@ func TestSMTBVInvariantNonBVSummaryAndNativeErasure(t *testing.T) {
 	term, err := m.MkBitVectorToInt(node.owner)
 	astTestMust(t, err)
 	astTestMust(t, s.Internalize(term, false))
-	v := s.context.enodes[term].TheoryVar(bv.FamilyID())
+	v := s.context.enodes.get(term).TheoryVar(bv.FamilyID())
 	bv.zeroOneBits[v] = []smtBVZeroOneBit{{variable: SMTNullTheoryVar, index: 99, isTrue: true}}
 	astTestMust(t, bv.checkBVZeroOneBits(v))
 	if !diagnostic.DebugBuild {

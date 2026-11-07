@@ -107,7 +107,7 @@ func TestSMTFullArrayExplicitExtensionalityOriginalFingerprint(t *testing.T) {
 	witness, err := m.MkApp(declarations[0], arrays[:2])
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(witness, true))
-	node := state.context.enodes[witness]
+	node := state.context.enodes.get(witness)
 	variable, found := state.BoolVar(witness)
 	if node == nil || !theory.IsAttachedToVariable(node) || !found {
 		t.Fatal("full theory did not internalize explicit Boolean witness")
@@ -117,9 +117,9 @@ func TestSMTFullArrayExplicitExtensionalityOriginalFingerprint(t *testing.T) {
 	if !data.IsENode() || data.Theory() != family || len(theory.extensionalityTodo) != 1 || theory.statistics.extensionality != 1 {
 		t.Fatal("explicit witness enode flags or extensionality scheduling")
 	}
-	first := state.context.enodes[arrays[0]]
-	second := state.context.enodes[arrays[1]]
-	third := state.context.enodes[arrays[2]]
+	first := state.context.enodes.get(arrays[0])
+	second := state.context.enodes.get(arrays[1])
+	third := state.context.enodes.get(arrays[2])
 	astTestMust(t, state.PushScope())
 	astTestMust(t, state.addEquality(first, third, NewSMTEqualityAxiom()))
 	if first.root != third {

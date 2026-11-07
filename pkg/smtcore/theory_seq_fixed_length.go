@@ -286,7 +286,7 @@ func (t *SMTSequenceTheory) addFixedLengthDecomposition() (bool, error) {
 			return false, valueErr
 		}
 		if !exact {
-			lengthNode := state.context.enodes[length]
+			lengthNode := state.context.enodes.get(length)
 			if lengthNode != nil {
 				text, integer, numeral, numeralErr := state.manager.ArithmeticNumeralText(lengthNode.Root().Owner())
 				if numeralErr != nil {

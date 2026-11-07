@@ -309,13 +309,13 @@ func (t *SMTDatatypeTheory) InternalizeTerm(expression ast.ASTHandle) (bool, err
 		if argumentErr = state.Internalize(argument, false); argumentErr != nil {
 			return false, argumentErr
 		}
-		if state.context.enodes[argument] == nil && (state.manager.IsTrue(argument) || state.manager.IsFalse(argument)) {
+		if state.context.enodes.get(argument) == nil && (state.manager.IsTrue(argument) || state.manager.IsFalse(argument)) {
 			if _, argumentErr = state.MkEnode(argument, false, true, false); argumentErr != nil {
 				return false, fmt.Errorf("datatype Boolean value enode: %w", argumentErr)
 			}
 		}
 	}
-	node := state.context.enodes[expression]
+	node := state.context.enodes.get(expression)
 	// Source internalize_term can encounter an enode created while its
 	// arguments were internalized; that term must not be initialized twice.
 	if node != nil {
@@ -438,7 +438,7 @@ func (t *SMTDatatypeTheory) Assign(variable int32, isTrue bool) error {
 	if err != nil || !own || op != ast.ASTDatatypeRecognizer && op != ast.ASTDatatypeIs {
 		return err
 	}
-	recognizerNode := state.context.enodes[expression]
+	recognizerNode := state.context.enodes.get(expression)
 	if recognizerNode == nil {
 		return ast.ErrASTDomain
 	}
@@ -476,7 +476,7 @@ func (t *SMTDatatypeTheory) Assign(variable int32, isTrue bool) error {
 	if err != nil {
 		return err
 	}
-	node := state.context.enodes[value]
+	node := state.context.enodes.get(value)
 	if node == nil {
 		return ast.ErrASTDomain
 	}
@@ -488,7 +488,7 @@ func (t *SMTDatatypeTheory) Assign(variable int32, isTrue bool) error {
 	if !isTrue {
 		if known != nil {
 			if known.declaration == constructor {
-				return t.signRecognizerConflict(known, state.context.enodes[expression])
+				return t.signRecognizerConflict(known, state.context.enodes.get(expression))
 			}
 			return nil
 		}

@@ -45,7 +45,7 @@ type SMTEnode struct {
 	labels, propagatedLabels              approx.UintSet
 }
 
-func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp map[ast.ASTHandle]*SMTEnode, options SMTEnodeOptions) (*SMTEnode, error) {
+func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandle) *SMTEnode, options SMTEnodeOptions) (*SMTEnode, error) {
 	if m == nil {
 		return nil, ast.ErrASTDomain
 	}
@@ -106,7 +106,7 @@ func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp map[ast.ASTHandle
 			if err != nil {
 				return nil, err
 			}
-			child := byApp[argument]
+			child := byApp(argument)
 			if child == nil || child.root == nil {
 				return nil, ast.ErrASTDomain
 			}

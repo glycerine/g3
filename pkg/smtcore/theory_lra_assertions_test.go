@@ -168,7 +168,7 @@ func TestSMTLRASourceAssertionReusedVariableBounds(t *testing.T) {
 		v, err := f.a.mkVar(y)
 		f.a.bounds[next] = nil
 		checkLRASourceAssertionResult(t, err, enabled, nil)
-		if enabled && diagnostic.DebugBuild && (f.a.NumVariables() != next+1 || f.s.context.enodes[y].TheoryVar(f.a.FamilyID()) != SMTNullTheoryVar) {
+		if enabled && diagnostic.DebugBuild && (f.a.NumVariables() != next+1 || f.s.context.enodes.get(y).TheoryVar(f.a.FamilyID()) != SMTNullTheoryVar) {
 			t.Fatal("source invariant must follow variable allocation and precede attachment")
 		}
 		if !(enabled && diagnostic.DebugBuild) && v != SMTTheoryVar(next) {

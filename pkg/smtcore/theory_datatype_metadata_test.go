@@ -12,7 +12,7 @@ func TestSMTDatatypeWatchRegistrationAndScopedSlots(t *testing.T) {
 	m, dt, x, _, constructors := smtDatatypeSplitFixture(t)
 	s, err := dt.State()
 	astTestMust(t, err)
-	xNode := s.context.enodes[x]
+	xNode := s.context.enodes.get(x)
 	_, data, err := dt.rootData(xNode.TheoryVar(dt.FamilyID()))
 	astTestMust(t, err)
 	literal, expression, err := dt.recognizerLiteral(constructors[1], x)
@@ -26,7 +26,7 @@ func TestSMTDatatypeWatchRegistrationAndScopedSlots(t *testing.T) {
 	astTestMust(t, s.Assert(negative, ast.ASTHandle{}, 0))
 	_, err = s.PropagateCore()
 	astTestMust(t, err)
-	if len(data.recognizers) != 3 || data.recognizers[1] != s.context.enodes[expression] {
+	if len(data.recognizers) != 3 || data.recognizers[1] != s.context.enodes.get(expression) {
 		t.Fatal("relevancy did not register the watched slot before false assignment")
 	}
 	if assignment, err := s.Assignment(literal); err != nil || assignment != lbool.False {
@@ -67,9 +67,9 @@ func TestSMTDatatypeMergedFalseRecognizersPropagateWithSourceEvidence(t *testing
 				astTestPin(t, m, h)
 				astTestMust(t, s.Internalize(h, false))
 			}
-			astTestMust(t, s.addEquality(s.context.enodes[x], s.context.enodes[alias], NewSMTEqualityAxiom()))
+			astTestMust(t, s.addEquality(s.context.enodes.get(x), s.context.enodes.get(alias), NewSMTEqualityAxiom()))
 			astTestMust(t, s.PropagateTheoryEvents())
-			root, rootData, err := dt.rootData(s.context.enodes[x].TheoryVar(dt.FamilyID()))
+			root, rootData, err := dt.rootData(s.context.enodes.get(x).TheoryVar(dt.FamilyID()))
 			astTestMust(t, err)
 			rootNode := dt.variables[root]
 			first, firstExpr, err := dt.recognizerLiteral(constructors[0], rootNode.owner)
@@ -95,7 +95,7 @@ func TestSMTDatatypeMergedFalseRecognizersPropagateWithSourceEvidence(t *testing
 			}
 			astTestMust(t, s.PushScope())
 			clauses, bools := len(s.clauses), len(s.boolExpr)
-			astTestMust(t, s.addEquality(rootNode, s.context.enodes[y], NewSMTEqualityAxiom()))
+			astTestMust(t, s.addEquality(rootNode, s.context.enodes.get(y), NewSMTEqualityAxiom()))
 			astTestMust(t, s.PropagateTheoryEvents())
 			if !existing {
 				survivor, survivorExpr, err = dt.recognizerLiteral(constructors[2], rootNode.owner)
@@ -112,7 +112,7 @@ func TestSMTDatatypeMergedFalseRecognizersPropagateWithSourceEvidence(t *testing
 				t.Fatal("survivor lost ordered literal/equality evidence", owner)
 			}
 			pair := extended.Equalities[0]
-			if pair.First != rootNode || pair.Second != s.context.enodes[y] || pair.First.root != pair.Second.root {
+			if pair.First != rootNode || pair.Second != s.context.enodes.get(y) || pair.First.root != pair.Second.root {
 				t.Fatal("survivor used an invented equality")
 			}
 			wantNew := 0
@@ -148,7 +148,7 @@ func TestSMTDatatypeConstructorMetadataAndModelProcedureRollback(t *testing.T) {
 	astTestMust(t, g.SetContext(s.context))
 	astTestMust(t, g.InitializeModel(f.k.modelConfig))
 	astTestMust(t, f.dt.InitializeModel(g))
-	if _, err = f.dt.ModelValue(s.context.enodes[f.x], g); err == nil {
+	if _, err = f.dt.ModelValue(s.context.enodes.get(f.x), g); err == nil {
 		t.Fatal("constructor-free theory variable received an arbitrary fallback model value")
 	}
 	ctor, _, err := f.m.DatatypeConstructorApp(f.left)
@@ -163,7 +163,7 @@ func TestSMTDatatypeConstructorMetadataAndModelProcedureRollback(t *testing.T) {
 	astTestMust(t, err)
 	astTestPin(t, f.m, second)
 	astTestMust(t, s.Internalize(second, false))
-	firstNode, secondNode := s.context.enodes[f.left], s.context.enodes[second]
+	firstNode, secondNode := s.context.enodes.get(f.left), s.context.enodes.get(second)
 	for attempt := 0; attempt < 2; attempt++ {
 		astTestMust(t, s.PushScope())
 		astTestMust(t, s.addEquality(firstNode, secondNode, NewSMTEqualityAxiom()))
@@ -234,7 +234,7 @@ func TestSMTDatatypeMergePreservesFirstWatchPerConstructor(t *testing.T) {
 	_, err = s.PropagateCore()
 	astTestMust(t, err)
 	astTestMust(t, s.PushScope())
-	astTestMust(t, s.addEquality(s.context.enodes[x], s.context.enodes[y], NewSMTEqualityAxiom()))
+	astTestMust(t, s.addEquality(s.context.enodes.get(x), s.context.enodes.get(y), NewSMTEqualityAxiom()))
 	events := s.PendingTheoryEqualities()
 	if len(events) != 1 {
 		t.Fatal("unexpected watch merge events", events)
@@ -243,16 +243,16 @@ func TestSMTDatatypeMergePreservesFirstWatchPerConstructor(t *testing.T) {
 	astTestMust(t, err)
 	expected := dt.data[secondRoot].recognizers[1]
 	astTestMust(t, s.PropagateTheoryEvents())
-	_, merged, err := dt.rootData(s.context.enodes[x].TheoryVar(dt.FamilyID()))
+	_, merged, err := dt.rootData(s.context.enodes.get(x).TheoryVar(dt.FamilyID()))
 	astTestMust(t, err)
 	if merged.recognizers[1] != expected {
 		t.Fatal("merge overwrote the winning root's watched slot")
 	}
 	astTestMust(t, s.PopScopes(1))
 	for i, value := range []ast.ASTHandle{x, y} {
-		_, restored, err := dt.rootData(s.context.enodes[value].TheoryVar(dt.FamilyID()))
+		_, restored, err := dt.rootData(s.context.enodes.get(value).TheoryVar(dt.FamilyID()))
 		astTestMust(t, err)
-		if restored.recognizers[1] != s.context.enodes[expressions[i]] {
+		if restored.recognizers[1] != s.context.enodes.get(expressions[i]) {
 			t.Fatal("watch metadata did not restore on pop")
 		}
 	}
@@ -265,9 +265,9 @@ func TestSMTDatatypeRelevanceBeforePushRegistersAtBaseScope(t *testing.T) {
 	literal, expression, err := dt.recognizerLiteral(constructors[1], x)
 	astTestMust(t, err)
 	astTestMust(t, s.markRelevant(expression))
-	_, data, err := dt.rootData(s.context.enodes[x].TheoryVar(dt.FamilyID()))
+	_, data, err := dt.rootData(s.context.enodes.get(x).TheoryVar(dt.FamilyID()))
 	astTestMust(t, err)
-	watched := s.context.enodes[expression]
+	watched := s.context.enodes.get(expression)
 	if len(data.recognizers) != 3 || data.recognizers[1] != watched {
 		t.Fatal("source relevance callback was deferred past its scope")
 	}

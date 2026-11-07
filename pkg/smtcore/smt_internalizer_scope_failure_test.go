@@ -104,7 +104,7 @@ func TestSMTInternalizerPopRestoresCongruenceDuringRefusal(t *testing.T) {
 		applications = append(applications, application)
 	}
 	astTestMust(t, state.PushScope())
-	astTestMust(t, state.addEquality(state.context.enodes[values[0]], state.context.enodes[values[1]], NewSMTEqualityAxiom()))
+	astTestMust(t, state.addEquality(state.context.enodes.get(values[0]), state.context.enodes.get(values[1]), NewSMTEqualityAxiom()))
 	_, err = state.PropagateCore()
 	astTestMust(t, err)
 	trigger()
@@ -113,7 +113,7 @@ func TestSMTInternalizerPopRestoresCongruenceDuringRefusal(t *testing.T) {
 	if failure != nil {
 		astTestMust(t, state.PopScopes(1))
 	}
-	if len(state.equalityTrail) != 0 || state.scopeLevel != 0 || state.context.enodes[applications[0]].Root() == state.context.enodes[applications[1]].Root() {
+	if len(state.equalityTrail) != 0 || state.scopeLevel != 0 || state.context.enodes.get(applications[0]).Root() == state.context.enodes.get(applications[1]).Root() {
 		t.Fatal("pop did not restore independent application classes")
 	}
 	astTestMust(t, state.congruence.CheckInvariant())

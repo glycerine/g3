@@ -193,7 +193,7 @@ func (t *SMTDatatypeTheory) Relevant(expression ast.ASTHandle) error {
 	}); err != nil {
 		return err
 	}
-	node := s.context.enodes[expression]
+	node := s.context.enodes.get(expression)
 	if node == nil || len(node.arguments) != 1 {
 		return ast.ErrASTDomain
 	}

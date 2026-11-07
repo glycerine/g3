@@ -24,7 +24,7 @@ func (t *SMTArrayTheory) queueStoreReadAxiom(read, store ast.ASTHandle, upward b
 	if err != nil {
 		return false, err
 	}
-	readNode, storeNode := s.context.enodes[read], s.context.enodes[store]
+	readNode, storeNode := s.context.enodes.get(read), s.context.enodes.get(store)
 	if readNode == nil || storeNode == nil || len(readNode.arguments) < 2 || len(storeNode.arguments) != len(readNode.arguments)+1 {
 		return false, ast.ErrASTDomain
 	}
@@ -138,7 +138,7 @@ func (t *SMTArrayTheory) assertStoreReadAxiomCore(read, store ast.ASTHandle) err
 	if err != nil {
 		return err
 	}
-	readNode, storeNode := s.context.enodes[read], s.context.enodes[store]
+	readNode, storeNode := s.context.enodes.get(read), s.context.enodes.get(store)
 	if readNode == nil || storeNode == nil {
 		return ast.ErrASTDomain
 	}

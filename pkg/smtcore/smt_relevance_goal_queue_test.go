@@ -40,7 +40,7 @@ func TestSMTRelevanceGoalCachesGenerationAtAdmission(t *testing.T) {
 		terms = append(terms, x)
 	}
 	var trail SMTEnodeTrail
-	astTestMust(t, s.context.enodes[terms[0]].SetGeneration(&trail, 0))
+	astTestMust(t, s.context.enodes.get(terms[0]).SetGeneration(&trail, 0))
 	defer func() { astTestMust(t, trail.Undo(0)) }()
 	want, _ := s.BoolVar(terms[1])
 	for i := 0; i < 2; i++ {

@@ -11,7 +11,7 @@ import (
 
 func lraDirectValue(t *testing.T, f *lraFrontendFixture, h ast.ASTHandle, want *big.Rat) {
 	t.Helper()
-	got, present, err := f.s.GetTheoryValue(f.s.context.enodes[h])
+	got, present, err := f.s.GetTheoryValue(f.s.context.enodes.get(h))
 	astTestMust(t, err)
 	if !present {
 		t.Fatal("missing direct theory value")
@@ -37,7 +37,7 @@ func TestSMTLRADirectValueEligibilityAndSortDispatch(t *testing.T) {
 	astTestMust(t, err)
 	lraFix(t, f, foreign, 5)
 	f.propagate(true)
-	node := f.s.context.enodes[x]
+	node := f.s.context.enodes.get(x)
 	got, present, err := f.s.GetTheoryValue(node)
 	astTestMust(t, err)
 	if present || !got.IsNull() {
@@ -57,14 +57,14 @@ func TestSMTLRADirectValueEligibilityAndSortDispatch(t *testing.T) {
 	lraDirectValue(t, f, term, big.NewRat(7, 1))
 	unattached := f.variable("lra-direct-unattached")
 	astTestMust(t, f.s.Internalize(unattached, false))
-	got, present, err = f.s.GetTheoryValue(f.s.context.enodes[unattached])
+	got, present, err = f.s.GetTheoryValue(f.s.context.enodes.get(unattached))
 	astTestMust(t, err)
 	if present || !got.IsNull() {
 		t.Fatal("unattached variable has a value")
 	}
 	boolean := f.pin(f.m.MkTrue())
 	astTestMust(t, f.s.Internalize(boolean, false))
-	got, present, err = f.s.GetTheoryValue(f.s.context.enodes[boolean])
+	got, present, err = f.s.GetTheoryValue(f.s.context.enodes.get(boolean))
 	astTestMust(t, err)
 	if present || !got.IsNull() {
 		t.Fatal("missing theory callback manufactured a value")
@@ -85,13 +85,13 @@ func TestSMTLRADirectValueIntegerAndStoppedOwnerGuards(t *testing.T) {
 	index, err := f.a.numeric.getVarIndex(v)
 	astTestMust(t, err)
 	f.a.modelValues = map[uint32]*big.Rat{index: big.NewRat(3, 2)}
-	if _, present, err := f.s.GetTheoryValue(f.s.context.enodes[x]); err == nil || present {
+	if _, present, err := f.s.GetTheoryValue(f.s.context.enodes.get(x)); err == nil || present {
 		t.Fatal("fractional Int value was rounded", present, err)
 	}
 	f.a.modelValues[index] = big.NewRat(3, 1)
 	lraDirectValue(t, f, x, big.NewRat(3, 1))
 	f.a.numeric.stopped = true
-	if _, present, err := f.s.GetTheoryValue(f.s.context.enodes[x]); err != lp.ErrExactVectorPending || present {
+	if _, present, err := f.s.GetTheoryValue(f.s.context.enodes.get(x)); err != lp.ErrExactVectorPending || present {
 		t.Fatal("stopped direct-value owner reused", present, err)
 	}
 }

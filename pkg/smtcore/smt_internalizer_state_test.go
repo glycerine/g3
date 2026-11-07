@@ -133,7 +133,7 @@ func TestSMTInternalizerEnodeGenerationCongruenceAndRollback(t *testing.T) {
 		t.Fatal("pending congruence", pending)
 	}
 	astTestMust(t, state.PopScopes(1))
-	if context.enodes[fa] != nil || context.enodes[fb] != nil || len(state.PendingCongruences()) != 0 {
+	if context.enodes.get(fa) != nil || context.enodes.get(fb) != nil || len(state.PendingCongruences()) != 0 {
 		t.Fatal("enode scope rollback")
 	}
 	bn.root = bn

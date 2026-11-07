@@ -32,7 +32,7 @@ func TestSMTArraySharedRolesAndScopedInterfaceEqualities(t *testing.T) {
 		read, err := m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{array, index})
 		astTestMust(t, err)
 		astTestMust(t, state.Internalize(read, false))
-		shared, err := theory.sharedArrayNode(state.context.enodes[array])
+		shared, err := theory.sharedArrayNode(state.context.enodes.get(array))
 		astTestMust(t, err)
 		if shared {
 			t.Fatal("single array role was treated as shared")
@@ -40,7 +40,7 @@ func TestSMTArraySharedRolesAndScopedInterfaceEqualities(t *testing.T) {
 		read, err = m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{outer, array})
 		astTestMust(t, err)
 		astTestMust(t, state.Internalize(read, false))
-		shared, err = theory.sharedArrayNode(state.context.enodes[array])
+		shared, err = theory.sharedArrayNode(state.context.enodes.get(array))
 		astTestMust(t, err)
 		if !shared {
 			t.Fatal("array/index roles were not shared")
@@ -154,7 +154,7 @@ func TestSMTArraySharedValueAndUninterpretedParentRoles(t *testing.T) {
 			astTestMust(t, err)
 			astTestMust(t, state.Internalize(parent, false))
 		}
-		shared, err := theory.sharedArrayNode(state.context.enodes[a])
+		shared, err := theory.sharedArrayNode(state.context.enodes.get(a))
 		astTestMust(t, err)
 		if !shared {
 			t.Fatal("shared array value or uninterpreted parent was missed", ufParent)

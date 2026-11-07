@@ -108,7 +108,7 @@ func (b *smtEuclideanBridge) bigInteger(value *numeral.Int) (*big.Int, error) {
 }
 
 func (b *smtEuclideanBridge) lookup(expression ast.ASTHandle) (uint32, bool) {
-	node := b.theory.state.context.enodes[expression]
+	node := b.theory.state.context.enodes.get(expression)
 	if node == nil || !b.theory.IsAttachedToVariable(node) {
 		return 0, false
 	}

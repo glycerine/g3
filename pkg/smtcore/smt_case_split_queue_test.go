@@ -390,7 +390,7 @@ func TestSMTRelevantCaseSplitQueueLooksAheadAtDisequality(t *testing.T) {
 	if !found {
 		t.Fatal("equality was not Boolean-internalized")
 	}
-	left, right := context.enodes[values[0]], context.enodes[values[1]]
+	left, right := context.enodes.get(values[0]), context.enodes.get(values[1])
 	if left == nil || right == nil {
 		t.Fatal("equality arguments were not e-internalized")
 	}
@@ -463,7 +463,7 @@ func TestSMTRelevantGoalCaseSplitUsesLowestGeneration(t *testing.T) {
 	lowVar, _ := state.BoolVar(low)
 	astTestMust(t, relevance.MarkRelevant(low))
 
-	if state.context.enodes[high] == nil || state.context.enodes[low] == nil {
+	if state.context.enodes.get(high) == nil || state.context.enodes.get(low) == nil {
 		t.Fatal("generation candidates were not e-internalized")
 	}
 	selected, _, err := queue.NextCaseSplit()

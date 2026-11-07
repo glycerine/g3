@@ -188,7 +188,7 @@ func (t *SMTSequenceTheory) appendModelExpression(procedure *smtSequenceValuePro
 		if argumentErr != nil {
 			return argumentErr
 		}
-		node := state.context.enodes[argument]
+		node := state.context.enodes.get(argument)
 		if node == nil {
 			return ast.ErrASTDomain
 		}
@@ -197,13 +197,13 @@ func (t *SMTSequenceTheory) appendModelExpression(procedure *smtSequenceValuePro
 	if argument, conversion, conversionErr := state.manager.SequenceIntToStringArgument(expression); conversionErr != nil {
 		return conversionErr
 	} else if conversion {
-		node := state.context.enodes[argument]
+		node := state.context.enodes.get(argument)
 		if node == nil {
 			return ast.ErrASTDomain
 		}
 		return t.appendModelDependency(procedure, smtSequenceModelInteger, node)
 	}
-	if node := state.context.enodes[expression]; node != nil && node.Root() != root {
+	if node := state.context.enodes.get(expression); node != nil && node.Root() != root {
 		return t.appendModelDependency(procedure, smtSequenceModelSequence, node)
 	}
 	sort, err := state.manager.GetSort(expression)

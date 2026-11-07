@@ -148,13 +148,13 @@ func TestSMTArrayBooleanGateEnodesRetainAntecedentsAndScope(t *testing.T) {
 				resolver, err := NewSMTConflictResolver(state)
 				astTestMust(t, err)
 				t.Cleanup(func() { astTestMust(t, resolver.Close()) })
-				premise, err := resolver.expander.LiteralForENode(state.context.enodes[expression])
+				premise, err := resolver.expander.LiteralForENode(state.context.enodes.get(expression))
 				astTestMust(t, err)
 				if premise != literal {
 					t.Fatal("Boolean enode antecedent polarity", premise, literal)
 				}
 				astTestMust(t, state.PopScopes(1))
-				if _, found := state.BoolVar(expression); found || state.context.enodes[expression] != nil {
+				if _, found := state.BoolVar(expression); found || state.context.enodes.get(expression) != nil {
 					t.Fatal("child array gate survived scope pop")
 				}
 			})

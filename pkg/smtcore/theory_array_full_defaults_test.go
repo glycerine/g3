@@ -134,7 +134,7 @@ func TestSMTFullArrayDefaultFingerprintsAndEpsilonsAreScoped(t *testing.T) {
 	astTestMust(t, err)
 	astTestPin(t, m, store)
 	astTestMust(t, state.Internalize(base, false))
-	baseNode := state.context.enodes[base]
+	baseNode := state.context.enodes.get(base)
 	var previousEpsilon ast.ASTHandle
 	for attempt := 0; attempt < 2; attempt++ {
 		astTestMust(t, state.PushScope())

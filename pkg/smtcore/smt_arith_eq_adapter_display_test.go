@@ -18,7 +18,7 @@ func arithmeticAdapterDisplayFixture(t *testing.T) (*arithmeticObjectiveFixture,
 	x, y := f.variable("adapter-display-x"), f.variable("adapter-display-y")
 	astTestMust(t, f.s.Internalize(x, false))
 	astTestMust(t, f.s.Internalize(y, false))
-	left, right := f.s.context.enodes[x], f.s.context.enodes[y]
+	left, right := f.s.context.enodes.get(x), f.s.context.enodes.get(y)
 	astTestMust(t, f.a.NewEquality(right.TheoryVar(f.a.FamilyID()), left.TheoryVar(f.a.FamilyID())))
 	first, err := left.OwnerID()
 	astTestMust(t, err)
@@ -39,7 +39,7 @@ func TestSMTArithmeticAdapterDisplayProcessedPairsAndScopes(t *testing.T) {
 	if out.String() != want || f.m.Stats() != before {
 		t.Fatal("literal record or borrowed owner changed", out.String(), want)
 	}
-	pair, err := a.pair(f.s.context.enodes[y], f.s.context.enodes[x])
+	pair, err := a.pair(f.s.context.enodes.get(y), f.s.context.enodes.get(x))
 	astTestMust(t, err)
 	first, err := f.m.GetASTID(pair.first)
 	astTestMust(t, err)
@@ -48,14 +48,14 @@ func TestSMTArithmeticAdapterDisplayProcessedPairsAndScopes(t *testing.T) {
 	if first >= second {
 		t.Fatal("pair canonicalization does not use owner IDs", first, second)
 	}
-	astTestMust(t, f.a.NewDisequality(f.s.context.enodes[y].TheoryVar(f.a.FamilyID()), f.s.context.enodes[x].TheoryVar(f.a.FamilyID())))
+	astTestMust(t, f.a.NewDisequality(f.s.context.enodes.get(y).TheoryVar(f.a.FamilyID()), f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())))
 	if len(a.processed) != 1 {
 		t.Fatal("reverse duplicate cache entry")
 	}
 	z := f.variable("adapter-display-z")
 	astTestMust(t, f.s.Internalize(z, false))
 	astTestMust(t, f.s.PushScope())
-	astTestMust(t, f.a.NewEquality(f.s.context.enodes[x].TheoryVar(f.a.FamilyID()), f.s.context.enodes[z].TheoryVar(f.a.FamilyID())))
+	astTestMust(t, f.a.NewEquality(f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID()), f.s.context.enodes.get(z).TheoryVar(f.a.FamilyID())))
 	out.Reset()
 	astTestMust(t, a.DisplayAlreadyProcessed(&out))
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")

@@ -74,7 +74,7 @@ func TestSMTBitVectorNumeralBit2Bool(t *testing.T) {
 	astTestMust(t, err)
 	assignment, err := state.Assignment(literal)
 	astTestMust(t, err)
-	variable := state.context.enodes[value].TheoryVar(theory.FamilyID())
+	variable := state.context.enodes.get(value).TheoryVar(theory.FamilyID())
 	want := []SMTLiteral{SMTFalseLiteral, SMTTrueLiteral, SMTFalseLiteral}
 	if assignment != lbool.Undef || len(state.clauses) != 0 || theory.statistics.bit2core != 0 {
 		t.Fatal("source internal numeral projection creates an atom without eager semantic bridge", assignment, len(state.clauses), theory.statistics)
@@ -229,7 +229,7 @@ func TestSMTBitVectorEnodeConfiguration(t *testing.T) {
 			config.Reflect, config.CC = test.reflect, test.congruence
 			astTestMust(t, theory.ConfigureBitVector(config))
 			astTestMust(t, solver.kernel.internalizer.Internalize(term, false))
-			node := solver.kernel.internalizer.context.enodes[term]
+			node := solver.kernel.internalizer.context.enodes.get(term)
 			if node == nil || node.suppressArguments == test.reflect || node.congruenceEnabled != test.congruence {
 				t.Fatal("bit-vector enode flags", node)
 			}
@@ -389,7 +389,7 @@ func TestSMTBitVectorMergesNativeClasses(t *testing.T) {
 	state := solver.kernel.internalizer
 	astTestMust(t, state.Internalize(left, false))
 	astTestMust(t, state.Internalize(right, false))
-	leftNode, rightNode := state.context.enodes[left], state.context.enodes[right]
+	leftNode, rightNode := state.context.enodes.get(left), state.context.enodes.get(right)
 	theory, ok := state.theories[family].(*SMTBitVectorTheory)
 	if !ok || theory == nil {
 		t.Fatal("missing bit-vector theory")
@@ -901,7 +901,7 @@ func TestSMTBitVectorPublishesNumeralModelValue(t *testing.T) {
 	astTestMust(t, generator.SetContext(context))
 	astTestMust(t, generator.InitializeModel(modelConfig))
 	astTestMust(t, generator.BuildStateValues(state))
-	node := context.enodes[value]
+	node := context.enodes.get(value)
 	interpretation, err := generator.Value(node)
 	astTestMust(t, err)
 	text, matched, err := m.BitVectorNumeralText(interpretation)

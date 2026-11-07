@@ -69,14 +69,14 @@ func NewSMTRelevancyPropagator(context *SMTCheckerContext, enabled bool) (*SMTRe
 }
 
 func (p *SMTRelevancyPropagator) IsRelevant(expression ast.ASTHandle) bool {
-	return p != nil && (!p.enabled || p.context.relevant[expression])
+	return p != nil && (!p.enabled || p.context.relevant.get(expression))
 }
 
 func (p *SMTRelevancyPropagator) assignment(expression ast.ASTHandle) lbool.LBool {
 	if s := p.internalizer; s != nil {
-		if variable, found := s.boolVar[expression]; found {
+		if variable, found := s.boolVar.lookup(expression); found {
 			if child := s.booleanData[variable].notChild; !child.IsNull() {
-				return p.context.assignments[child].Negated()
+				return p.context.assignments.get(child).Negated()
 			}
 			return s.assignment[NewSMTLiteral(variable, false).Index()]
 		}
@@ -87,9 +87,9 @@ func (p *SMTRelevancyPropagator) assignment(expression ast.ASTHandle) lbool.LBoo
 		return lbool.False
 	}
 	if child, err := p.negatedArgument(expression); err == nil && !child.IsNull() {
-		return p.context.assignments[child].Negated()
+		return p.context.assignments.get(child).Negated()
 	}
-	if value, found := p.context.assignments[expression]; found {
+	if value, found := p.context.assignments.lookup(expression); found {
 		return value
 	}
 	return lbool.Undef
@@ -123,10 +123,10 @@ func (p *SMTRelevancyPropagator) addLiteralWatch(expression ast.ASTHandle, value
 }
 
 func (p *SMTRelevancyPropagator) setRelevant(expression ast.ASTHandle) error {
-	if p.context.relevant[expression] {
+	if p.context.relevant.get(expression) {
 		return nil
 	}
-	p.context.relevant[expression] = true
+	p.context.relevant.set(expression, true)
 	p.relevant = append(p.relevant, expression)
 	p.newlyRelevant = append(p.newlyRelevant, expression)
 	if p.internalizer != nil {
@@ -139,13 +139,13 @@ func (p *SMTRelevancyPropagator) MarkRelevant(expression ast.ASTHandle) error {
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
-	if !p.enabled || p.context.relevant[expression] {
+	if !p.enabled || p.context.relevant.get(expression) {
 		return nil
 	}
 	if _, err := p.context.manager.GetKind(expression); err != nil {
 		return err
 	}
-	if node := p.context.enodes[expression]; node != nil {
+	if node := p.context.enodes.get(expression); node != nil {
 		start := node
 		for current := start; ; current = current.next {
 			if current == nil || current.owner.IsNull() {
@@ -229,7 +229,7 @@ func (p *SMTRelevancyPropagator) addHandler(source ast.ASTHandle, handler smtRel
 	if !p.enabled {
 		return nil
 	}
-	if p.context.relevant[source] {
+	if p.context.relevant.get(source) {
 		return p.invoke(handler)
 	}
 	p.handlers[source] = append(p.handlers[source], handler)
@@ -480,7 +480,7 @@ func (p *SMTRelevancyPropagator) restoreExpressionWatches(root ast.ASTHandle) er
 				return err
 			}
 			if sort != boolean {
-				if p.context.enodes[expression] == nil {
+				if p.context.enodes.get(expression) == nil {
 					continue
 				}
 				handler.kind = smtRelevancyTermITE
@@ -566,7 +566,7 @@ func (p *SMTRelevancyPropagator) propagateAll(expression ast.ASTHandle) error {
 
 func (p *SMTRelevancyPropagator) gateArguments(expression ast.ASTHandle) ([]ast.ASTHandle, []SMTLiteral, error) {
 	if s := p.internalizer; s != nil {
-		if variable, found := s.boolVar[expression]; found {
+		if variable, found := s.boolVar.lookup(expression); found {
 			if args := s.booleanData[variable].gateArgs; args != nil {
 				return args, s.booleanData[variable].gateLiterals, nil
 			}
@@ -610,7 +610,7 @@ func (p *SMTRelevancyPropagator) propagateOr(expression ast.ASTHandle) error {
 			value = p.assignment(argument)
 		}
 		if value == lbool.True {
-			if p.context.relevant[argument] {
+			if p.context.relevant.get(argument) {
 				return nil
 			}
 			if selected.IsNull() {
@@ -645,7 +645,7 @@ func (p *SMTRelevancyPropagator) propagateAnd(expression ast.ASTHandle) error {
 			value = p.assignment(argument)
 		}
 		if value == lbool.False {
-			if p.context.relevant[argument] {
+			if p.context.relevant.get(argument) {
 				return nil
 			}
 			if selected.IsNull() {
@@ -873,7 +873,7 @@ func (p *SMTRelevancyPropagator) Check(expressions []ast.ASTHandle) error {
 			return err
 		}
 		if kind != ast.ASTApp {
-			if node := p.context.enodes[expression]; node != nil {
+			if node := p.context.enodes.get(expression); node != nil {
 				for current := node.next; current != node; current = current.next {
 					if current == nil || !p.IsRelevant(current.owner) {
 						return ast.ErrASTDomain
@@ -936,7 +936,7 @@ func (p *SMTRelevancyPropagator) assignmentEvent(expression ast.ASTHandle, value
 	if variable != SMTNullBoolVar {
 		assignment, direct = p.internalizer.assignment[NewSMTLiteral(variable, false).Index()], true
 	} else {
-		assignment, direct = p.context.assignments[expression]
+		assignment, direct = p.context.assignments.lookup(expression)
 	}
 	if !direct {
 		assignment = p.assignment(expression)
@@ -947,7 +947,7 @@ func (p *SMTRelevancyPropagator) assignmentEvent(expression ast.ASTHandle, value
 	op := int32(-1)
 	if variable != SMTNullBoolVar {
 		op = p.internalizer.booleanData[variable].basicOp
-	} else if p.context.relevant[expression] {
+	} else if p.context.relevant.get(expression) {
 		family, err := p.context.manager.GetFamilyID(expression)
 		if err == nil && family == p.context.manager.BasicFamilyID() {
 			op, err = p.context.manager.GetDeclKind(expression)
@@ -956,7 +956,7 @@ func (p *SMTRelevancyPropagator) assignmentEvent(expression ast.ASTHandle, value
 			}
 		}
 	}
-	if (op == ast.ASTOpOr || op == ast.ASTOpAnd) && p.context.relevant[expression] {
+	if (op == ast.ASTOpOr || op == ast.ASTOpAnd) && p.context.relevant.get(expression) {
 		if op == ast.ASTOpOr {
 			if err := p.propagateOr(expression); err != nil {
 				return err
@@ -996,13 +996,13 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 	newLevel := len(p.scopes) - int(count)
 	scope := p.scopes[newLevel]
 	for index := len(p.relevant); index > scope.relevantLimit; index-- {
-		delete(p.context.relevant, p.relevant[index-1])
+		p.context.relevant.del(p.relevant[index-1])
 	}
 	p.relevant = p.relevant[:scope.relevantLimit]
 	p.qhead = len(p.relevant)
 	kept := p.newlyRelevant[:0]
 	for _, expression := range p.newlyRelevant {
-		if p.context.relevant[expression] {
+		if p.context.relevant.get(expression) {
 			kept = append(kept, expression)
 		}
 	}

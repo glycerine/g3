@@ -885,7 +885,7 @@ func (s *SMTSolver) FindMutexes(variables []ast.ASTHandle) (lbool.LBool, [][]ast
 		if isNot {
 			atom, negative = argument, true
 		}
-		variable, found := state.boolVar[atom]
+		variable, found := state.boolVar.lookup(atom)
 		if !found {
 			continue
 		}

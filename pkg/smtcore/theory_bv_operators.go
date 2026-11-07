@@ -60,7 +60,7 @@ func (t *SMTBitVectorTheory) assertTermOperatorShape(expression ast.ASTHandle, o
 	s := t.state
 	fresh := func(line int32) error {
 		return bvAssert(line, "!get_context().e_internalized(n)", func() (bool, error) {
-			return s.context.enodes[expression] == nil, nil
+			return s.context.enodes.get(expression) == nil, nil
 		})
 	}
 	arity := func(line int32, condition string, holds bool) error {

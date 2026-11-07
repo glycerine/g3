@@ -13,7 +13,7 @@ func (t *SMTDatatypeTheory) recognizerSlots(value ast.ASTHandle) (map[ast.ASTHan
 	if err != nil {
 		return nil, err
 	}
-	node := s.context.enodes[value]
+	node := s.context.enodes.get(value)
 	if node == nil {
 		return nil, ast.ErrASTDomain
 	}
@@ -33,7 +33,7 @@ func (t *SMTDatatypeTheory) recognizerSlots(value ast.ASTHandle) (map[ast.ASTHan
 		if err != nil {
 			return nil, err
 		}
-		other := s.context.enodes[argument]
+		other := s.context.enodes.get(argument)
 		if other == nil || other.root != node.root {
 			continue
 		}

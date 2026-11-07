@@ -54,7 +54,7 @@ func TestSMTDatatypeBooleanTermsUseSourceArgumentOrderAndEnodeFlags(t *testing.T
 		_, err = s.PropagateCore()
 		astTestMust(t, err)
 		astTestMust(t, s.PopScopes(1))
-		if _, found := s.BoolVar(atom); found || s.context.enodes[atom] != nil || s.context.enodes[selected] != nil {
+		if _, found := s.BoolVar(atom); found || s.context.enodes.get(atom) != nil || s.context.enodes.get(selected) != nil {
 			t.Fatal("scoped Boolean datatype terms survived pop")
 		}
 	}

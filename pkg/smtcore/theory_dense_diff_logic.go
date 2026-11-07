@@ -90,7 +90,7 @@ func (t *SMTDenseDiffTheory) createVariable(node *SMTEnode) (SMTTheoryVar, error
 
 func (t *SMTDenseDiffTheory) term(expression ast.ASTHandle) (SMTTheoryVar, error) {
 	m := t.state.manager
-	if node := t.state.context.enodes[expression]; node != nil && t.IsAttachedToVariable(node) {
+	if node := t.state.context.enodes.get(expression); node != nil && t.IsAttachedToVariable(node) {
 		return node.TheoryVar(t.FamilyID()), nil
 	}
 	value, numeral, err := t.syntax.numeral(expression)
@@ -134,7 +134,7 @@ func (t *SMTDenseDiffTheory) term(expression ast.ASTHandle) (SMTTheoryVar, error
 			return SMTNullTheoryVar, err
 		}
 	}
-	node := t.state.context.enodes[expression]
+	node := t.state.context.enodes.get(expression)
 	if node == nil {
 		node, err = t.state.MkEnode(expression, shifted && !t.config.Reflect, false, true)
 		if err != nil {

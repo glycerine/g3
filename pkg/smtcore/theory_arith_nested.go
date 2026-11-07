@@ -72,7 +72,7 @@ func (n *smtNestedArithmetic) column(expression ast.ASTHandle) (uint32, bool) {
 	if column, found := n.columns[expression]; found {
 		return column, true
 	}
-	node := n.theory.state.context.enodes[expression]
+	node := n.theory.state.context.enodes.get(expression)
 	if node == nil || !n.theory.IsAttachedToVariable(node) {
 		return 0, false
 	}

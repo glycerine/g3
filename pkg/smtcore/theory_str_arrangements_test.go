@@ -32,7 +32,7 @@ func TestSMTStringVariableConcatCoreArrangement(t *testing.T) {
 		t.Fatal("variable-concat equality did not reach its native three arrangements", state.Inconsistent(), state.theoryCaseSplitSets)
 	}
 	astTestMust(t, state.PopScopes(1))
-	if len(state.theoryCaseSplitSets) != 0 || state.context.enodes[left].Root() == state.context.enodes[right].Root() {
+	if len(state.theoryCaseSplitSets) != 0 || state.context.enodes.get(left).Root() == state.context.enodes.get(right).Root() {
 		t.Fatal("arrangement registration or equality survived pop")
 	}
 }
@@ -178,12 +178,12 @@ func TestSMTStringVariableConcatWitnessReuseAfterPop(t *testing.T) {
 	astTestMust(t, theory.simplifyStringConcatEquality(left, right))
 	variables := theory.arrangementVars[[2]ast.ASTHandle{left, right}]
 	astTestMust(t, state.PopScopes(1))
-	if state.context.enodes[variables[0]] != nil || theory.hasSelfCut(variables[0], a) {
+	if state.context.enodes.get(variables[0]) != nil || theory.hasSelfCut(variables[0], a) {
 		t.Fatal("popped residual enode or scoped cut origins survived")
 	}
 	before := theory.freshID
 	astTestMust(t, theory.simplifyStringConcatEquality(right, left))
-	if theory.freshID != before || len(theory.arrangementVars) != 1 || state.context.enodes[variables[0]] == nil || state.context.enodes[variables[1]] == nil {
+	if theory.freshID != before || len(theory.arrangementVars) != 1 || state.context.enodes.get(variables[0]) == nil || state.context.enodes.get(variables[1]) == nil {
 		t.Fatal("reverse-key reuse failed to refresh the native retained witnesses", theory.freshID, before)
 	}
 	for _, variable := range variables[:2] {
@@ -414,8 +414,8 @@ func TestSMTStringConcatResimplificationBridgeGuards(t *testing.T) {
 	for _, expression := range []ast.ASTHandle{p, pq, empty} {
 		astTestMust(t, state.Internalize(expression, false))
 	}
-	theory.find.Merge(uint32(state.context.enodes[x].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[p].TheoryVar(theory.FamilyID())))
-	theory.find.Merge(uint32(state.context.enodes[a].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[pq].TheoryVar(theory.FamilyID())))
+	theory.find.Merge(uint32(state.context.enodes.get(x).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(p).TheoryVar(theory.FamilyID())))
+	theory.find.Merge(uint32(state.context.enodes.get(a).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(pq).TheoryVar(theory.FamilyID())))
 	left, right := stringEqualityConcat(t, m, x, y), stringEqualityConcat(t, m, a, b)
 	astTestMust(t, theory.simplifyStringConcatEquality(left, right))
 	newLeft, newRight := stringEqualityConcat(t, m, p, y), stringEqualityConcat(t, m, pq, b)

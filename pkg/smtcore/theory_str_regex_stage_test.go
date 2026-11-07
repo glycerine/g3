@@ -140,7 +140,7 @@ func TestSMTStringRegexStageScopedLengthFormulaReuse(t *testing.T) {
 		t.Fatal("scope replay replaced cached witnesses/formula")
 	}
 	for _, variable := range variables {
-		if state.context.enodes[variable] == nil {
+		if state.context.enodes.get(variable) == nil {
 			t.Fatal("cached length variable was not refreshed")
 		}
 	}

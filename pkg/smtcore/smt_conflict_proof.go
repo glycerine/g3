@@ -730,7 +730,7 @@ func (b *smtConflictProofBuilder) disequalityConflictProof(value *SMTDisequality
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	first, second := b.state.context.enodes[left], b.state.context.enodes[right]
+	first, second := b.state.context.enodes.get(left), b.state.context.enodes.get(right)
 	if first == nil || second == nil {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}

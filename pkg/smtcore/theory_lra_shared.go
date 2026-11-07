@@ -44,7 +44,7 @@ func (t *SMTLRATheory) sharedNode(node *SMTEnode) (bool, error) {
 				if err != nil {
 					return false, err
 				}
-				enode := t.state.context.enodes[arg]
+				enode := t.state.context.enodes.get(arg)
 				if enode == nil {
 					return false, ast.ErrASTDomain
 				}

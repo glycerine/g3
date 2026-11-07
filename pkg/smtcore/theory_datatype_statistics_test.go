@@ -34,9 +34,9 @@ func TestSMTDatatypeStatisticsWrapThroughRetainedOperations(t *testing.T) {
 			case "occurs":
 				dt.statistics.occursChecks = math.MaxUint32
 				check := smtDatatypeOccursCheck{theory: dt, onStack: make(map[*SMTEnode]bool), cycleFree: make(map[*SMTEnode]bool), parent: make(map[*SMTEnode]*SMTEnode)}
-				cycle, err := check.run(s.context.enodes[x])
+				cycle, err := check.run(s.context.enodes.get(x))
 				astTestMust(t, err)
-				if cycle || dt.statistics.occursChecks != 0 || !check.cycleFree[s.context.enodes[x].root] {
+				if cycle || dt.statistics.occursChecks != 0 || !check.cycleFree[s.context.enodes.get(x).root] {
 					t.Fatal("source occurs counter wrap changed traversal", dt.statistics.occursChecks)
 				}
 			case "split":
@@ -55,7 +55,7 @@ func TestSMTDatatypeStatisticsWrapThroughRetainedOperations(t *testing.T) {
 				astTestMust(t, dt.assertConstructor(x, constructors[1], SMTNullLiteral))
 				_, err = s.PropagateCore()
 				astTestMust(t, err)
-				_, data, err := dt.rootData(s.context.enodes[x].TheoryVar(dt.FamilyID()))
+				_, data, err := dt.rootData(s.context.enodes.get(x).TheoryVar(dt.FamilyID()))
 				astTestMust(t, err)
 				if s.Inconsistent() || dt.statistics.constructorAxioms != 0 || data.constructor == nil || data.constructor.declaration != constructors[1] {
 					t.Fatal("source constructor counter wrap changed reconstruction", dt.statistics.constructorAxioms)
@@ -65,7 +65,7 @@ func TestSMTDatatypeStatisticsWrapThroughRetainedOperations(t *testing.T) {
 				value, err := m.MkApp(constructors[0], nil)
 				astTestMust(t, err)
 				astTestMust(t, s.Internalize(value, false))
-				if dt.statistics.accessorAxioms != 0 || s.context.enodes[value] == nil {
+				if dt.statistics.accessorAxioms != 0 || s.context.enodes.get(value) == nil {
 					t.Fatal("source accessor counter did not wrap during constructor internalization", dt.statistics.accessorAxioms)
 				}
 			case "update":
@@ -93,7 +93,7 @@ func TestSMTDatatypeStatisticsWrapThroughRetainedOperations(t *testing.T) {
 				astTestMust(t, err)
 				dt.statistics.updateAxioms = math.MaxUint32
 				astTestMust(t, s.Internalize(updated, false))
-				if s.Inconsistent() || dt.statistics.updateAxioms != 0 || s.context.enodes[updated] == nil {
+				if s.Inconsistent() || dt.statistics.updateAxioms != 0 || s.context.enodes.get(updated) == nil {
 					t.Fatal("source update counter did not wrap through actual axiom publication", dt.statistics.updateAxioms)
 				}
 			}

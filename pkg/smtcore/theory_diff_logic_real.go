@@ -62,7 +62,7 @@ func (t *SMTRealDiffTheory) Initialize(state *SMTInternalizerState) error {
 	if err != nil {
 		return err
 	}
-	node := state.context.enodes[zero]
+	node := state.context.enodes.get(zero)
 	if node == nil {
 		node, err = state.MkEnode(zero, false, false, true)
 		if err != nil {
@@ -224,7 +224,7 @@ func (t *SMTRealDiffTheory) InternalizeTerm(expression ast.ASTHandle) (bool, err
 	if err != nil {
 		return false, err
 	}
-	if node := state.context.enodes[expression]; node != nil {
+	if node := state.context.enodes.get(expression); node != nil {
 		if !t.IsAttachedToVariable(node) {
 			_, err = t.createRealVariable(node)
 		}
@@ -296,13 +296,13 @@ func (t *SMTRealDiffTheory) ensureRealVariable(expression ast.ASTHandle) (SMTThe
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
-	if node := state.context.enodes[expression]; node != nil && t.IsAttachedToVariable(node) {
+	if node := state.context.enodes.get(expression); node != nil && t.IsAttachedToVariable(node) {
 		return node.TheoryVar(t.FamilyID()), nil
 	}
 	if err = state.Internalize(expression, false); err != nil {
 		return SMTNullTheoryVar, err
 	}
-	node := state.context.enodes[expression]
+	node := state.context.enodes.get(expression)
 	if node == nil {
 		if value, numeral, numeralErr := t.numeral(expression); numeralErr == nil && numeral && value.Sign() == 0 {
 			return t.realZero, nil

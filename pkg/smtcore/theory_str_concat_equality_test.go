@@ -30,11 +30,11 @@ func TestSMTStringConcatEqualityCoreCancellationAndRollback(t *testing.T) {
 		astTestMust(t, state.AssignLiteral(literal, NewSMTBooleanAxiom()))
 		_, err = state.PropagateCore()
 		astTestMust(t, err)
-		if state.Inconsistent() || state.context.enodes[y].Root() != state.context.enodes[z].Root() {
+		if state.Inconsistent() || state.context.enodes.get(y).Root() != state.context.enodes.get(z).Root() {
 			t.Fatal("concat pair did not cancel its shared operand through the core", suffix)
 		}
 		astTestMust(t, state.PopScopes(1))
-		if state.context.enodes[y].Root() == state.context.enodes[z].Root() {
+		if state.context.enodes.get(y).Root() == state.context.enodes.get(z).Root() {
 			t.Fatal("concat cancellation survived scope rollback", suffix)
 		}
 	}
@@ -70,7 +70,7 @@ func TestSMTStringConcatEqualityClassCancellationGuards(t *testing.T) {
 		}
 		// Private equality is deliberately not a core equality. The lemma
 		// must retain its premise instead of treating that equality as true.
-		theory.find.Merge(uint32(state.context.enodes[first].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[second].TheoryVar(theory.FamilyID())))
+		theory.find.Merge(uint32(state.context.enodes.get(first).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(second).TheoryVar(theory.FamilyID())))
 		start := len(theory.refs)
 		astTestMust(t, theory.simplifyStringConcatEquality(left, right))
 		parentEq, err := m.MkEq(left, right)
@@ -118,7 +118,7 @@ func TestSMTStringConcatEqualityClassCancellationGuards(t *testing.T) {
 		}
 		astTestMust(t, rw.Close())
 		// With both sides already equivalent, the quick path is a no-op.
-		theory.find.Merge(uint32(state.context.enodes[remaining].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[other].TheoryVar(theory.FamilyID())))
+		theory.find.Merge(uint32(state.context.enodes.get(remaining).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(other).TheoryVar(theory.FamilyID())))
 		start = len(theory.refs)
 		astTestMust(t, theory.simplifyStringConcatEquality(left, right))
 		if len(theory.refs) != start {

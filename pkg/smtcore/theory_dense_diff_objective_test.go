@@ -96,7 +96,7 @@ func TestSMTDenseObjectiveWeightedScopesAndNullCore(t *testing.T) {
 			// saved literal core, unlike a Boolean bound edge.
 			zero, err := f.d.term(f.number("0"))
 			astTestMust(t, err)
-			xv := f.s.context.enodes[x].TheoryVar(f.family)
+			xv := f.s.context.enodes.get(x).TheoryVar(f.family)
 			offset := newSMTInfRational(big.NewRat(-1, 1), nil)
 			astTestMust(t, f.d.addEdge(int(zero), int(xv), &offset, SMTNullLiteral))
 			f.prepare()
@@ -124,7 +124,7 @@ func TestSMTDenseObjectiveStrictSourceRationalProjection(t *testing.T) {
 	if !own || op != smtArithOpGE {
 		t.Fatal("strict dense supremum blocker", op)
 	}
-	xv := f.s.context.enodes[x].TheoryVar(f.family)
+	xv := f.s.context.enodes.get(x).TheoryVar(f.family)
 	if f.d.values[xv].rational.Cmp(big.NewRat(5, 1)) != 0 || f.d.values[xv].infinitesimal.Sign() != 0 {
 		t.Fatal("source rational-only assignment projection changed")
 	}

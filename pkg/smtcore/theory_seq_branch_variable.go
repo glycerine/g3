@@ -121,7 +121,7 @@ func (t *SMTSequenceTheory) assumeSequenceEquality(left, right ast.ASTHandle) (v
 	if err = state.Internalize(right, false); err != nil {
 		return lbool.Undef, err
 	}
-	first, second := state.context.enodes[left], state.context.enodes[right]
+	first, second := state.context.enodes.get(left), state.context.enodes.get(right)
 	if first == nil || second == nil {
 		return lbool.Undef, ast.ErrASTDomain
 	}

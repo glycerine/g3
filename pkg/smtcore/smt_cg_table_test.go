@@ -25,7 +25,7 @@ func smtCGTestApplication(t *testing.T, manager *ast.ASTManager, declaration ast
 	for i := range handles {
 		byApp[handles[i]] = nodes[i]
 	}
-	node, err := NewSMTEnode(manager, owner, byApp, SMTEnodeOptions{CongruenceEnabled: true})
+	node, err := NewSMTEnode(manager, owner, smtEnodeMapLookup(byApp), SMTEnodeOptions{CongruenceEnabled: true})
 	astTestMust(t, err)
 	return node
 }

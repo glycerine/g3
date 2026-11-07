@@ -142,7 +142,7 @@ type SMTInternalizerState struct {
 	relevancy                  *SMTRelevancyPropagator
 	theories                   map[ast.FamilyID]SMTTheoryInternalizer
 	theoryOrder                []SMTTheoryInternalizer
-	boolVar                    map[ast.ASTHandle]int32
+	boolVar                    smtBoolVarTable
 	boolExpr                   []ast.ASTHandle
 	booleanData                []SMTBoolVarData
 	booleanCreation            []uint64
@@ -232,7 +232,7 @@ func NewSMTInternalizerState(manager *ast.ASTManager, context *SMTCheckerContext
 	}
 	state := &SMTInternalizerState{
 		manager: manager, context: context, congruence: table, quantifiers: quantifiers,
-		boolVar: make(map[ast.ASTHandle]int32), boolExpr: make([]ast.ASTHandle, 1), booleanData: make([]SMTBoolVarData, 1), booleanCreation: make([]uint64, 1),
+		boolVar: smtBoolVarTable{context.exprs}, boolExpr: make([]ast.ASTHandle, 1), booleanData: make([]SMTBoolVarData, 1), booleanCreation: make([]uint64, 1),
 		activity: make([]float64, 1), assignment: []lbool.LBool{lbool.True, lbool.False}, watches: make([]SMTWatchList, 2),
 		cachedGeneration: make(map[ast.ASTHandle]uint32), theories: make(map[ast.FamilyID]SMTTheoryInternalizer),
 		equalityAtomsByTerm:   make(map[ast.ASTHandle][]int32),
@@ -473,7 +473,7 @@ func (s *SMTInternalizerState) BoolVar(expression ast.ASTHandle) (int32, bool) {
 	if s == nil {
 		return SMTNullBoolVar, false
 	}
-	variable, found := s.boolVar[expression]
+	variable, found := s.boolVar.lookup(expression)
 	return variable, found
 }
 
@@ -501,7 +501,7 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 	if err := s.open(); err != nil {
 		return SMTNullBoolVar, err
 	}
-	if _, found := s.boolVar[expression]; found {
+	if _, found := s.boolVar.lookup(expression); found {
 		return SMTNullBoolVar, ast.ErrASTDomain
 	}
 	sort, err := s.manager.GetSort(expression)
@@ -557,7 +557,7 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 		return SMTNullBoolVar, err
 	}
 	variable := int32(len(s.boolExpr))
-	s.boolVar[expression] = variable
+	s.boolVar.set(expression, variable)
 	s.boolExpr = append(s.boolExpr, expression)
 	s.booleanData = append(s.booleanData, data)
 	s.nextBooleanCreation++
@@ -625,14 +625,14 @@ func (s *SMTInternalizerState) Literal(expression ast.ASTHandle) (SMTLiteral, er
 			if s.manager.IsFalse(child) {
 				return SMTTrueLiteral, nil
 			}
-			variable, found := s.boolVar[child]
+			variable, found := s.boolVar.lookup(child)
 			if !found {
 				return SMTNullLiteral, ast.ErrASTDomain
 			}
 			return NewSMTLiteral(variable, true), nil
 		}
 	}
-	variable, found := s.boolVar[expression]
+	variable, found := s.boolVar.lookup(expression)
 	if !found {
 		return SMTNullLiteral, ast.ErrASTDomain
 	}
@@ -695,7 +695,7 @@ func (s *SMTInternalizerState) MkEnode(expression ast.ASTHandle, suppressArgumen
 	if err := s.open(); err != nil {
 		return nil, err
 	}
-	if s.context.enodes[expression] != nil {
+	if s.context.enodes.get(expression) != nil {
 		return nil, ast.ErrASTDomain
 	}
 	generation := s.generation
@@ -705,7 +705,7 @@ func (s *SMTInternalizerState) MkEnode(expression ast.ASTHandle, suppressArgumen
 	if err := s.manager.IncRef(expression); err != nil {
 		return nil, err
 	}
-	node, err := NewSMTEnode(s.manager, expression, s.context.enodes, SMTEnodeOptions{
+	node, err := NewSMTEnode(s.manager, expression, s.context.enodes.get, SMTEnodeOptions{
 		Generation: generation, InternalScopeLevel: s.scopeLevel, SuppressArguments: suppressArguments,
 		MergeTruthValue: mergeTruthValue, CongruenceEnabled: congruenceEnabled, UpdateChildrenParent: true,
 	})
@@ -747,7 +747,7 @@ func (s *SMTInternalizerState) MkEnode(expression ast.ASTHandle, suppressArgumen
 	// Source mk_enode does not reset an expression's existing relevance.
 	// Gate-context Boolean atoms can be marked before a term-context enode
 	// is needed, including during a later search scope.
-	if err = s.context.RegisterEnode(node, s.context.relevant[expression]); err != nil {
+	if err = s.context.RegisterEnode(node, s.context.relevant.get(expression)); err != nil {
 		if node.congruence == node && count != 0 && congruenceEnabled && !node.IsTrueEquality() {
 			_, _ = s.congruence.Erase(node)
 		}
@@ -859,7 +859,7 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 		}
 		return s.finishUnregisterEnode()
 	}
-	if s.context.enodes[node.owner] != node {
+	if s.context.enodes.get(node.owner) != node {
 		return fmt.Errorf("enode owner %d is not current: %w", node.owner.Slot(), ast.ErrASTDomain)
 	}
 	bucket := s.context.byDeclaration[node.declaration]
@@ -875,12 +875,12 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 			return fmt.Errorf("congruence entry was absent: %w", ast.ErrASTDomain)
 		}
 	}
-	delete(s.context.enodes, node.owner)
+	s.context.enodes.del(node.owner)
 	s.context.byDeclaration[node.declaration] = bucket[:len(bucket)-1]
 	// Source relevancy marks belong to the expression's relevancy scope.
 	// A base mark can precede an enode created only in this retiring scope.
 	if s.relevancy == nil {
-		delete(s.context.relevant, node.owner)
+		s.context.relevant.del(node.owner)
 	}
 	if err := node.deleteAfterEqualityUndo(); err != nil {
 		return fmt.Errorf("delete enode: %w", err)
@@ -1097,7 +1097,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 	for len(s.booleanStack) > scope.booleanLimit {
 		expression := s.booleanStack[len(s.booleanStack)-1]
 		if !s.retiringBoolean {
-			variable := s.boolVar[expression]
+			variable := s.boolVar.get(expression)
 			if (s.cachedActivity || s.caseSplitStrategy == 2) && s.searching && s.activity[variable] > 0 {
 				if err := s.cacheBooleanActivity(expression, s.activity[variable]); err != nil {
 					return err
@@ -1130,10 +1130,10 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 				}
 			}
 			s.unindexEqualityAtom(variable, expression)
-			delete(s.boolVar, expression)
-			delete(s.context.assignments, expression)
+			s.boolVar.del(expression)
+			s.context.assignments.del(expression)
 			if s.relevancy == nil {
-				delete(s.context.relevant, expression)
+				s.context.relevant.del(expression)
 			}
 			s.boolExpr[variable] = ast.ASTHandle{}
 			s.boolExpr = s.boolExpr[:variable]

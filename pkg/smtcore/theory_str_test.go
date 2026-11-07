@@ -42,12 +42,12 @@ func TestSMTStringTheoryTypedAttachmentAndAlphabet(t *testing.T) {
 		astTestMust(t, state.Internalize(expression, false))
 	}
 	for _, expression := range []ast.ASTHandle{x, value} {
-		if !theory.IsAttachedToVariable(state.context.enodes[expression]) {
+		if !theory.IsAttachedToVariable(state.context.enodes.get(expression)) {
 			t.Fatal("String term did not acquire a string-theory variable")
 		}
 	}
 	for _, expression := range []ast.ASTHandle{length, contains, regex} {
-		if theory.IsAttachedToVariable(state.context.enodes[expression]) {
+		if theory.IsAttachedToVariable(state.context.enodes.get(expression)) {
 			t.Fatal("scalar/Boolean/regex term acquired a string-theory variable")
 		}
 	}
@@ -89,7 +89,7 @@ func TestSMTStringTheoryPrivateClassesAndScopeRollback(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(x, false))
 	astTestMust(t, state.Internalize(value, false))
-	xNode, valueNode := state.context.enodes[x], state.context.enodes[value]
+	xNode, valueNode := state.context.enodes.get(x), state.context.enodes.get(value)
 	for repeat := 0; repeat < 3; repeat++ {
 		astTestMust(t, state.PushScope())
 		astTestMust(t, theory.NewEquality(xNode.TheoryVar(theory.FamilyID()), valueNode.TheoryVar(theory.FamilyID())))
@@ -138,7 +138,7 @@ func TestSMTStringTheoryBasicLengthZeroEquivalence(t *testing.T) {
 		x, err := m.MkConst(astTestSymbol(t, m, "str-empty-length-x"), sort)
 		astTestMust(t, err)
 		astTestMust(t, state.Internalize(x, false))
-		astTestMust(t, theory.instantiateBasicStringAxioms(state.context.enodes[x]))
+		astTestMust(t, theory.instantiateBasicStringAxioms(state.context.enodes.get(x)))
 		length, err := m.MkSequenceLength(x)
 		astTestMust(t, err)
 		zero, err := m.ArithmeticIntegerNumeralText("0")
@@ -195,13 +195,13 @@ func TestSMTStringTheoryModelFactoryConcatAndFallback(t *testing.T) {
 	for _, expression := range []ast.ASTHandle{concat, left, y} {
 		astTestMust(t, state.Internalize(expression, false))
 	}
-	xNode, leftNode := state.context.enodes[x], state.context.enodes[left]
+	xNode, leftNode := state.context.enodes.get(x), state.context.enodes.get(left)
 	astTestMust(t, theory.NewEquality(xNode.TheoryVar(theory.FamilyID()), leftNode.TheoryVar(theory.FamilyID())))
 	for _, test := range []struct {
 		expression ast.ASTHandle
 		want       string
 	}{{concat, "abcd"}, {y, "**UNUSED**0"}, {y, "**UNUSED**1"}} {
-		procedure, err := theory.ModelValue(state.context.enodes[test.expression], generator)
+		procedure, err := theory.ModelValue(state.context.enodes.get(test.expression), generator)
 		astTestMust(t, err)
 		value, err := procedure.MakeValue(generator, nil)
 		astTestMust(t, err)
@@ -255,8 +255,8 @@ func TestSMTStringTheoryConcatAxiomsAndSyntacticEvaluation(t *testing.T) {
 	concat, err := m.MkSequenceConcat(left, right)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(concat, false))
-	astTestMust(t, theory.instantiateConcatAxiom(state.context.enodes[concat]))
-	astTestMust(t, theory.tryEvalConcat(state.context.enodes[concat]))
+	astTestMust(t, theory.instantiateConcatAxiom(state.context.enodes.get(concat)))
+	astTestMust(t, theory.tryEvalConcat(state.context.enodes.get(concat)))
 	_, err = state.PropagateCore()
 	astTestMust(t, err)
 	got, concrete, err := theory.eqcStringValue(concat)
@@ -273,10 +273,10 @@ func TestSMTStringTheoryConcatAxiomsAndSyntacticEvaluation(t *testing.T) {
 	symbolic, err := m.MkSequenceConcat(x, right)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(symbolic, false))
-	xNode, leftNode := state.context.enodes[x], state.context.enodes[left]
+	xNode, leftNode := state.context.enodes.get(x), state.context.enodes.get(left)
 	astTestMust(t, theory.NewEquality(xNode.TheoryVar(theory.FamilyID()), leftNode.TheoryVar(theory.FamilyID())))
 	before := len(theory.refs)
-	astTestMust(t, theory.tryEvalConcat(state.context.enodes[symbolic]))
+	astTestMust(t, theory.tryEvalConcat(state.context.enodes.get(symbolic)))
 	if len(theory.refs) != before {
 		t.Fatal("syntactic evaluation exposed an axiom from a model-only private equality")
 	}
@@ -300,7 +300,7 @@ func TestSMTStringTheoryEqualityLengthAxiomKeepsPremise(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(x, false))
 	astTestMust(t, state.Internalize(y, false))
-	astTestMust(t, theory.instantiateStringEqualityLengthAxiom(state.context.enodes[x], state.context.enodes[y]))
+	astTestMust(t, theory.instantiateStringEqualityLengthAxiom(state.context.enodes.get(x), state.context.enodes.get(y)))
 	leftLength, err := m.MkSequenceLength(x)
 	astTestMust(t, err)
 	rightLength, err := m.MkSequenceLength(y)

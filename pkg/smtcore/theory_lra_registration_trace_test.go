@@ -221,13 +221,13 @@ func TestSMTLRARegistrationTraceUnderspecifiedSharingBranches(t *testing.T) {
 			astTestMust(t, f.s.relevancy.MarkRelevant(x))
 			astTestMust(t, f.s.relevancy.Propagate())
 			astTestMust(t, f.s.PushScope())
-			root := f.s.context.enodes[x].Root()
+			root := f.s.context.enodes.get(x).Root()
 			parents := len(root.parents)
 			if many != (parents > 2*len(f.a.underspecified)) {
 				t.Fatal("sharing fixture missed branch")
 			}
 			w, tags := lraRegistrationTrace(f, refuse, "shared")
-			shared, err := f.a.relevantShared(f.s.context.enodes[x])
+			shared, err := f.a.relevantShared(f.s.context.enodes.get(x))
 			astTestMust(t, err)
 			if !shared {
 				t.Fatal("underspecified child not shared")

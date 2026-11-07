@@ -34,7 +34,7 @@ func (t *SMTPseudoBooleanTheory) compileArgument(expression ast.ASTHandle) (SMTL
 			return SMTNullLiteral, ast.ErrASTDomain
 		}
 	}
-	if _, found := s.boolVar[expression]; !found {
+	if _, found := s.boolVar.lookup(expression); !found {
 		if err := s.Internalize(expression, false); err != nil {
 			return SMTNullLiteral, err
 		}

@@ -53,13 +53,13 @@ func TestSMTSequenceEmptyWordSolutionsSurviveSuppressedCallback(t *testing.T) {
 				for _, word := range words {
 					value, _, err := theory.solutions.Find(word)
 					astTestMust(t, err)
-					if value != empty || theory.solutions.IsRoot(word) || state.context.enodes[word].Root() != state.context.enodes[empty].Root() {
+					if value != empty || theory.solutions.IsRoot(word) || state.context.enodes.get(word).Root() != state.context.enodes.get(empty).Root() {
 						t.Fatal("originating theory lost its empty solution", word, value)
 					}
 				}
 				astTestMust(t, state.PopScopes(1))
 				for _, word := range words {
-					if !theory.solutions.IsRoot(word) || state.context.enodes[word].Root() == state.context.enodes[empty].Root() {
+					if !theory.solutions.IsRoot(word) || state.context.enodes.get(word).Root() == state.context.enodes.get(empty).Root() {
 						t.Fatal("empty solution survived pop", word)
 					}
 				}

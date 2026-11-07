@@ -26,7 +26,7 @@ func TestSMTStringUnrollConstructorDefinitionAndOwnership(t *testing.T) {
 			roots++
 		}
 	}
-	if roots != 1 || theory.state.context.enodes[term] == nil {
+	if roots != 1 || theory.state.context.enodes.get(term) == nil {
 		t.Fatal("unroll constructor lost explicit root or assertion internalization")
 	}
 	for count := -1; count <= 2; count++ {
@@ -167,7 +167,7 @@ func TestSMTStringVirtualRegexStarUsesActualUnrollConstructor(t *testing.T) {
 	if arg != bound {
 		t.Fatal("wrong unroll bound")
 	}
-	if state := theory.state; state.context.enodes[unroll] == nil {
+	if state := theory.state; state.context.enodes.get(unroll) == nil {
 		t.Fatal("constructor axioms did not internalize unroll")
 	}
 }

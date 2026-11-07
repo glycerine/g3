@@ -85,7 +85,7 @@ func TestSMTStringFreeDispatchUsesCoreCyclesAndRemovesSkippedArguments(t *testin
 			concat := stringDependencyConcat(t, theory, left, right)
 			count := stringLibraryInteger(t, m, state, "free-core-count")
 			unroll := stringUnrollTerm(t, theory, stringRegexLiteral(t, m, "x"), count)
-			astTestMust(t, state.addEquality(state.context.enodes[concat], state.context.enodes[unroll], NewSMTEqualityAxiom()))
+			astTestMust(t, state.addEquality(state.context.enodes.get(concat), state.context.enodes.get(unroll), NewSMTEqualityAxiom()))
 			if same, err := theory.sameStringClass(concat, unroll); err != nil || same {
 				t.Fatal("test requires merged core cycle before private theory callback", same, err)
 			}
@@ -117,8 +117,8 @@ func TestSMTStringFreeDispatchNestedConcatAndLiteralBoundedness(t *testing.T) {
 	u1 := stringUnrollTerm(t, theory, regex, count)
 	secondCount := stringLibraryInteger(t, m, state, "free-nested-count2")
 	u2 := stringUnrollTerm(t, theory, regex, secondCount)
-	astTestMust(t, state.addEquality(state.context.enodes[inner], state.context.enodes[u1], NewSMTEqualityAxiom()))
-	astTestMust(t, state.addEquality(state.context.enodes[outer], state.context.enodes[u2], NewSMTEqualityAxiom()))
+	astTestMust(t, state.addEquality(state.context.enodes.get(inner), state.context.enodes.get(u1), NewSMTEqualityAxiom()))
+	astTestMust(t, state.addEquality(state.context.enodes.get(outer), state.context.enodes.get(u2), NewSMTEqualityAxiom()))
 	a := &smtStringDependencyAnalysis{freeVariables: map[ast.ASTHandle]int{left: 1, right: 1}, unrollGroups: map[ast.ASTHandle]map[ast.ASTHandle]int{u1: {u1: 1}, u2: {u2: 1}}}
 	astTestMust(t, theory.assignStringFreeVariables(a))
 	if len(theory.testers.concatUnrollDefinitions) != 2 {

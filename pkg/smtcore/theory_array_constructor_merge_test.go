@@ -51,8 +51,8 @@ func TestSMTArrayConstructorMergesMarkClassUpwardAndRollback(t *testing.T) {
 				astTestMust(t, err)
 				astTestMust(t, state.Internalize(alias, false))
 				astTestMust(t, state.Internalize(constructor, false))
-				aliasVariable := state.context.enodes[alias].TheoryVar(family)
-				constructorVariable := state.context.enodes[constructor].TheoryVar(family)
+				aliasVariable := state.context.enodes.get(alias).TheoryVar(family)
+				constructorVariable := state.context.enodes.get(constructor).TheoryVar(family)
 				no, err := m.MkFalse()
 				astTestMust(t, err)
 				parentStore, err := m.MkFamilyApp(family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{alias, no, yes})
@@ -61,8 +61,8 @@ func TestSMTArrayConstructorMergesMarkClassUpwardAndRollback(t *testing.T) {
 				read, err := m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{alias, yes})
 				astTestMust(t, err)
 				astTestMust(t, state.Internalize(read, false))
-				astTestMust(t, theory.addParentStore(aliasVariable, state.context.enodes[parentStore]))
-				astTestMust(t, theory.addParentSelect(aliasVariable, state.context.enodes[read]))
+				astTestMust(t, theory.addParentStore(aliasVariable, state.context.enodes.get(parentStore)))
+				astTestMust(t, theory.addParentSelect(aliasVariable, state.context.enodes.get(read)))
 				data := theory.arrayData[aliasVariable]
 				if data.propUpward {
 					t.Fatal("alias was marked upward before acquiring a constructor")
@@ -76,7 +76,7 @@ func TestSMTArrayConstructorMergesMarkClassUpwardAndRollback(t *testing.T) {
 					t.Fatal("constructor merge did not apply the source upward class flag", kind, weak, data.propUpward)
 				}
 				if kind == "simple-store" || kind == "full-store" || kind == "map" {
-					inputVariable := state.context.enodes[input].TheoryVar(family)
+					inputVariable := state.context.enodes.get(input).TheoryVar(family)
 					if theory.arrayData[theory.arrayUnion.Find(uint32(inputVariable))].propUpward != !weak {
 						t.Fatal("new constructor inputs did not receive upward propagation")
 					}

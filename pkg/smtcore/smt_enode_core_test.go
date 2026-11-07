@@ -30,7 +30,7 @@ func TestSMTEnodeConstructionParentsFlagsAndTheoryVariables(t *testing.T) {
 	astTestMust(t, m.DelFuncDeclInfo(&info))
 	owner, err := m.MkApp(declaration, []ast.ASTHandle{a, b})
 	astTestMust(t, err)
-	node, err := NewSMTEnode(m, owner, map[ast.ASTHandle]*SMTEnode{a: an, b: bn}, SMTEnodeOptions{
+	node, err := NewSMTEnode(m, owner, smtEnodeMapLookup(map[ast.ASTHandle]*SMTEnode{a: an, b: bn}), SMTEnodeOptions{
 		Generation: 11, InternalScopeLevel: 4, CongruenceEnabled: true, UpdateChildrenParent: true,
 	})
 	astTestMust(t, err)
@@ -76,9 +76,9 @@ func TestSMTEnodeCongruenceCommutationEqualityClassAndMarks(t *testing.T) {
 	rightOwner, err := m.MkApp(declaration, []ast.ASTHandle{b, a})
 	astTestMust(t, err)
 	lookup := map[ast.ASTHandle]*SMTEnode{a: an, b: bn}
-	left, err := NewSMTEnode(m, leftOwner, lookup, SMTEnodeOptions{Generation: 9, CongruenceEnabled: true})
+	left, err := NewSMTEnode(m, leftOwner, smtEnodeMapLookup(lookup), SMTEnodeOptions{Generation: 9, CongruenceEnabled: true})
 	astTestMust(t, err)
-	right, err := NewSMTEnode(m, rightOwner, lookup, SMTEnodeOptions{Generation: 4, CongruenceEnabled: true})
+	right, err := NewSMTEnode(m, rightOwner, smtEnodeMapLookup(lookup), SMTEnodeOptions{Generation: 4, CongruenceEnabled: true})
 	astTestMust(t, err)
 	yes, commuted, err := SMTEnodesCongruent(left, right)
 	astTestMust(t, err)
@@ -101,7 +101,7 @@ func TestSMTEnodeCongruenceCommutationEqualityClassAndMarks(t *testing.T) {
 	}
 	equalityOwner, err := m.MkEq(a, a)
 	astTestMust(t, err)
-	equality, err := NewSMTEnode(m, equalityOwner, lookup, SMTEnodeOptions{MergeTruthValue: true, CongruenceEnabled: true})
+	equality, err := NewSMTEnode(m, equalityOwner, smtEnodeMapLookup(lookup), SMTEnodeOptions{MergeTruthValue: true, CongruenceEnabled: true})
 	astTestMust(t, err)
 	if !equality.IsBool() || !equality.IsEquality() || !equality.IsTrueEquality() {
 		t.Fatal("Boolean equality flags")

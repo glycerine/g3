@@ -196,7 +196,7 @@ func TestSMTFPAVariableConstraintRelevantAndScopeSourceTrace(t *testing.T) {
 	astTestMust(t, theory.Relevant(constant))
 	wrapper, err := theory.wrap(constant)
 	astTestMust(t, err)
-	if state.context.enodes[wrapper] == nil {
+	if state.context.enodes.get(wrapper) == nil {
 		t.Fatal("relevant floating constant did not install its source wrapper relation")
 	}
 	falsehood, err := m.MkFalse()

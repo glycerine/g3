@@ -338,7 +338,7 @@ func (q *SMTActivityCaseSplitQueue) selectedEqualityDisequal(variable int32) boo
 	if variable < SMTFirstBoolVar || int(variable) >= len(q.state.boolExpr) {
 		return false
 	}
-	node := q.state.context.enodes[q.state.boolExpr[variable]]
+	node := q.state.context.enodes.get(q.state.boolExpr[variable])
 	if node == nil || !node.IsEquality() || node.NumArgs() != 2 {
 		return false
 	}
@@ -549,7 +549,7 @@ func (s *SMTInternalizerState) expressionGeneration(expression ast.ASTHandle) (u
 			continue
 		}
 		seen[current] = true
-		if node := s.context.enodes[current]; node != nil {
+		if node := s.context.enodes.get(current); node != nil {
 			if node.Generation() > maximum {
 				maximum = node.Generation()
 			}

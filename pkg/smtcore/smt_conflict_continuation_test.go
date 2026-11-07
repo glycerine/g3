@@ -131,7 +131,7 @@ func TestSMTEqualityConflictRetainsEarlierBooleanConflict(t *testing.T) {
 	astTestMust(t, s.Internalize(p, true))
 	boolean, err := s.Literal(p)
 	astTestMust(t, err)
-	left, right := s.context.enodes[values[0]], s.context.enodes[values[1]]
+	left, right := s.context.enodes.get(values[0]), s.context.enodes.get(values[1])
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.AssignLiteral(eq.Negated(), NewSMTBooleanAxiom()))
 	astTestMust(t, s.addDisequality(left, right, eq.Negated()))

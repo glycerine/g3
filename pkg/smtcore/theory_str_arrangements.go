@@ -84,7 +84,7 @@ func (t *SMTStringTheory) refreshStringVariable(variable ast.ASTHandle) error {
 	if err := t.state.Internalize(variable, false); err != nil {
 		return err
 	}
-	node := t.state.context.enodes[variable]
+	node := t.state.context.enodes.get(variable)
 	if _, err := t.mkVar(node); err != nil {
 		return err
 	}

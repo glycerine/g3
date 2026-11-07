@@ -19,7 +19,7 @@ func (t *SMTBitVectorTheory) fixedExpressionValue(expression ast.ASTHandle) (*bi
 	if err != nil {
 		return nil, false, err
 	}
-	node := s.context.enodes[expression]
+	node := s.context.enodes.get(expression)
 	if node == nil {
 		return nil, false, nil
 	}
@@ -83,7 +83,7 @@ func (p *smtDatalogValueProcedure) MakeValue(generator *SMTModelGenerator, _ []a
 		}
 	}
 	var number uint64
-	if s.context.enodes[representative] != nil && ok && bv != nil {
+	if s.context.enodes.get(representative) != nil && ok && bv != nil {
 		value, fixed, e := bv.fixedExpressionValue(representative)
 		if e != nil {
 			return result, e

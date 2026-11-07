@@ -199,7 +199,7 @@ func (t *SMTStringTheory) analyzeStringDependencies() (analysis *smtStringDepend
 		if _, found := unrollAliases[unroll]; found {
 			continue
 		}
-		first := t.state.context.enodes[unroll]
+		first := t.state.context.enodes.get(unroll)
 		if first == nil {
 			return nil, ast.ErrASTDomain
 		}

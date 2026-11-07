@@ -39,7 +39,7 @@ func (t *SMTArrayTheory) instantiateConstructorDefault(constructor ast.ASTHandle
 	if op != ast.ASTArrayOpConst && op != ast.ASTArrayOpMap && op != ast.ASTArrayOpStore && op != ast.ASTArrayOpAsArray {
 		return false, nil
 	}
-	node := s.context.enodes[constructor]
+	node := s.context.enodes.get(constructor)
 	if node == nil {
 		return false, ast.ErrASTDomain
 	}

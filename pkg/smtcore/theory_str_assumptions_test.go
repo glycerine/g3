@@ -88,8 +88,8 @@ func TestSMTStringOverlapValidationUsesEnodeIdentity(t *testing.T) {
 	astTestMust(t, state.Internalize(assumptions[0], false))
 	astTestMust(t, state.Internalize(other, false))
 	astTestMust(t, state.PushScope())
-	astTestMust(t, state.addEquality(state.context.enodes[assumptions[0]], state.context.enodes[other], NewSMTEqualityAxiom()))
-	if state.context.enodes[assumptions[0]].Root() != state.context.enodes[other].Root() {
+	astTestMust(t, state.addEquality(state.context.enodes.get(assumptions[0]), state.context.enodes.get(other), NewSMTEqualityAxiom()))
+	if state.context.enodes.get(assumptions[0]).Root() != state.context.enodes.get(other).Root() {
 		t.Fatal("identity regression did not establish congruent Boolean terms")
 	}
 	if result, err := theory.ValidateUnsatCore([]ast.ASTHandle{other}); err != nil || result != lbool.False {

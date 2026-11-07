@@ -57,13 +57,13 @@ func TestSMTModelFinderFlattenOwnsScopedQuantifierAndMapsOriginalBinders(t *test
 	truth, err := m.MkTrue()
 	astTestMust(t, err)
 	for _, term := range []ast.ASTHandle{seven, truth} {
-		node, err := NewSMTEnode(m, term, state.context.enodes, SMTEnodeOptions{Generation: 4})
+		node, err := NewSMTEnode(m, term, state.context.enodes.get, SMTEnodeOptions{Generation: 4})
 		astTestMust(t, err)
 		astTestMust(t, state.context.RegisterEnode(node, true))
 	}
 	ground, err := m.MkApp(function, []ast.ASTHandle{seven, truth})
 	astTestMust(t, err)
-	node, err := NewSMTEnode(m, ground, state.context.enodes, SMTEnodeOptions{})
+	node, err := NewSMTEnode(m, ground, state.context.enodes.get, SMTEnodeOptions{})
 	astTestMust(t, err)
 	astTestMust(t, state.context.RegisterEnode(node, true))
 	astTestMust(t, state.context.SetRelevant(outer, true))

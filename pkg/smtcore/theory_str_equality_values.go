@@ -136,7 +136,7 @@ func (t *SMTStringTheory) canTwoNodesEqual(left, right ast.ASTHandle) (bool, err
 }
 
 func (t *SMTStringTheory) stringClass(expression ast.ASTHandle) []ast.ASTHandle {
-	node := t.state.context.enodes[expression]
+	node := t.state.context.enodes.get(expression)
 	if node == nil || !t.IsAttachedToVariable(node) {
 		return []ast.ASTHandle{expression}
 	}

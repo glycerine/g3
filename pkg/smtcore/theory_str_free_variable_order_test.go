@@ -74,12 +74,12 @@ func TestSMTStringFreeVariableOrderInternalizesMissingCandidate(t *testing.T) {
 	word, err := m.MkConst(astTestSymbol(t, m, "tester-order-missing"), sort)
 	astTestMust(t, err)
 	astTestPin(t, m, word)
-	if state.context.enodes[word] != nil {
+	if state.context.enodes.get(word) != nil {
 		t.Fatal("fixture candidate was already internalized")
 	}
 	ordered, err := theory.stringFreeVariableOrder(map[ast.ASTHandle]int{word: 1})
 	astTestMust(t, err)
-	if len(ordered) != 1 || ordered[0] != word || state.context.enodes[word] == nil {
+	if len(ordered) != 1 || ordered[0] != word || state.context.enodes.get(word) == nil {
 		t.Fatal("standalone selection omitted native internalization")
 	}
 	if _, registered := theory.variableSet[word]; registered {

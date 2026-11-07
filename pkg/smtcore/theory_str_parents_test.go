@@ -97,7 +97,7 @@ func TestSMTStringParentCoreCallbackAndRollback(t *testing.T) {
 		astTestMust(t, state.AssignLiteral(literal, NewSMTBooleanAxiom()))
 		_, err = state.PropagateCore()
 		astTestMust(t, err)
-		if state.Inconsistent() || state.context.enodes[simplified] == nil || state.context.enodes[parent].Root() != state.context.enodes[simplified].Root() {
+		if state.Inconsistent() || state.context.enodes.get(simplified) == nil || state.context.enodes.get(parent).Root() != state.context.enodes.get(simplified).Root() {
 			t.Fatal("core callback missed native parent simplification", pattern)
 		}
 		astTestMust(t, state.PopScopes(1))
@@ -122,7 +122,7 @@ func TestSMTStringParentSiblingClassPremiseAndConcatReplacement(t *testing.T) {
 		for _, expression := range []ast.ASTHandle{parent, a, b} {
 			astTestMust(t, state.Internalize(expression, false))
 		}
-		theory.find.Merge(uint32(state.context.enodes[y].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[b].TheoryVar(theory.FamilyID())))
+		theory.find.Merge(uint32(state.context.enodes.get(y).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(b).TheoryVar(theory.FamilyID())))
 		astTestMust(t, theory.simplifyStringParents(x, a))
 		axiom, err := m.RefGet(theory.refs[len(theory.refs)-1])
 		astTestMust(t, err)
@@ -227,13 +227,13 @@ func TestSMTStringInitialConcatShortcutPrecedesConsistency(t *testing.T) {
 		if shortcut {
 			t.Fatal("syntactically shared operand alone triggered early return")
 		}
-		theory.find.Merge(uint32(state.context.enodes[x].TheoryVar(theory.FamilyID())), uint32(state.context.enodes[y].TheoryVar(theory.FamilyID())))
+		theory.find.Merge(uint32(state.context.enodes.get(x).TheoryVar(theory.FamilyID())), uint32(state.context.enodes.get(y).TheoryVar(theory.FamilyID())))
 		// A consistency scan would emit containment congruence here.
 		// The native initial shortcut must return before that scan.
 		stringContainmentRegister(t, theory, left, astTestString(t, m, "a"))
 		stringContainmentRegister(t, theory, right, astTestString(t, m, "a"))
 		refs, accesses := len(theory.refs), theory.cacheAccesses
-		astTestMust(t, theory.NewEquality(state.context.enodes[left].TheoryVar(theory.FamilyID()), state.context.enodes[right].TheoryVar(theory.FamilyID())))
+		astTestMust(t, theory.NewEquality(state.context.enodes.get(left).TheoryVar(theory.FamilyID()), state.context.enodes.get(right).TheoryVar(theory.FamilyID())))
 		if len(theory.refs) != refs || theory.cacheAccesses != accesses {
 			t.Fatal("initial concat shortcut ran the later equality stages")
 		}

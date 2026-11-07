@@ -43,7 +43,7 @@ func (t *SMTDenseDiffTheory) forcedDifferenceEquality(left, right ast.ASTHandle)
 
 func (t *SMTDenseDiffTheory) denseEqualityOperandsAttached(left, right ast.ASTHandle) bool {
 	for _, expression := range []ast.ASTHandle{left, right} {
-		node := t.state.context.enodes[expression]
+		node := t.state.context.enodes.get(expression)
 		if node == nil || !t.IsAttachedToVariable(node) {
 			return false
 		}
@@ -136,8 +136,8 @@ func (t *SMTDenseDiffTheory) installDenseEqualityAxioms(expression ast.ASTHandle
 	if left == right || leftValue && rightValue {
 		return nil
 	}
-	leftNode := state.context.enodes[left]
-	rightNode := state.context.enodes[right]
+	leftNode := state.context.enodes.get(left)
+	rightNode := state.context.enodes.get(right)
 	if leftNode == nil || rightNode == nil {
 		return ast.ErrASTDomain
 	}
@@ -276,8 +276,8 @@ func (t *SMTDenseDiffTheory) Restart() error {
 		if state.inconsistent {
 			break
 		}
-		left := state.context.enodes[pair.first]
-		right := state.context.enodes[pair.second]
+		left := state.context.enodes.get(pair.first)
+		right := state.context.enodes.get(pair.second)
 		if left == nil || right == nil || !t.IsAttachedToVariable(left) || !t.IsAttachedToVariable(right) {
 			return ast.ErrASTDomain
 		}

@@ -249,7 +249,7 @@ func (q *SMTQuickChecker) canonize(expression ast.ASTHandle) (ast.ASTHandle, err
 		}
 		return q.bindings[len(q.bindings)-int(index)-1].root.owner, nil
 	}
-	if node := q.context.enodes[expression]; node != nil {
+	if node := q.context.enodes.get(expression); node != nil {
 		return node.root.owner, nil
 	}
 	if kind != ast.ASTApp {
@@ -274,7 +274,7 @@ func (q *SMTQuickChecker) canonize(expression ast.ASTHandle) (ast.ASTHandle, err
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		argumentNodes[index] = q.context.enodes[arguments[index]]
+		argumentNodes[index] = q.context.enodes.get(arguments[index])
 		if argumentNodes[index] == nil {
 			allInternalized = false
 		}
@@ -364,8 +364,8 @@ func (q *SMTQuickChecker) checkCore(expression ast.ASTHandle, value bool) (bool,
 	if sort != boolean {
 		return false, ast.ErrASTDomain
 	}
-	if _, internalized := q.context.assignments[expression]; internalized && q.context.isRelevant(expression) {
-		assignment := q.context.assignments[expression]
+	if _, internalized := q.context.assignments.lookup(expression); internalized && q.context.isRelevant(expression) {
+		assignment := q.context.assignments.get(expression)
 		return assignment != lbool.Undef && value == (assignment == lbool.True), nil
 	}
 	kind, err := q.context.manager.GetKind(expression)
@@ -484,7 +484,7 @@ func (q *SMTQuickChecker) checkCore(expression ast.ASTHandle, value bool) (bool,
 			if value {
 				return left == right, nil
 			}
-			leftNode, rightNode := q.context.enodes[left], q.context.enodes[right]
+			leftNode, rightNode := q.context.enodes.get(left), q.context.enodes.get(right)
 			if leftNode != nil && rightNode != nil && q.context.isRelevant(left) && q.context.isRelevant(right) && leftNode.root != rightNode.root {
 				return true, nil
 			}
@@ -495,7 +495,7 @@ func (q *SMTQuickChecker) checkCore(expression ast.ASTHandle, value bool) (bool,
 	if err != nil {
 		return false, err
 	}
-	if assignment, internalized := q.context.assignments[canonical]; internalized && q.context.isRelevant(canonical) && assignment != lbool.Undef {
+	if assignment, internalized := q.context.assignments.lookup(canonical); internalized && q.context.isRelevant(canonical) && assignment != lbool.Undef {
 		return value == (assignment == lbool.True), nil
 	}
 	op, err := q.context.manager.GetDeclKind(canonical)
@@ -605,7 +605,7 @@ func (q *SMTQuickChecker) InstantiateNotSat(quantifier ast.ASTHandle) (bool, err
 }
 
 func (q *SMTQuickChecker) internalizeCandidate(expression ast.ASTHandle) (*SMTEnode, error) {
-	if node := q.context.enodes[expression]; node != nil {
+	if node := q.context.enodes.get(expression); node != nil {
 		return node, nil
 	}
 	kind, err := q.context.manager.GetKind(expression)
@@ -632,7 +632,7 @@ func (q *SMTQuickChecker) internalizeCandidate(expression ast.ASTHandle) (*SMTEn
 			return nil, err
 		}
 	}
-	node, err := NewSMTEnode(q.context.manager, expression, q.context.enodes, SMTEnodeOptions{CongruenceEnabled: true})
+	node, err := NewSMTEnode(q.context.manager, expression, q.context.enodes.get, SMTEnodeOptions{CongruenceEnabled: true})
 	if err != nil {
 		return nil, err
 	}

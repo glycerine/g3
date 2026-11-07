@@ -91,7 +91,7 @@ func (t *SMTPseudoBooleanTheory) internalizeAtom(expression ast.ASTHandle, retai
 		return false, err
 	}
 	state, _ := t.State()
-	if _, found := state.boolVar[expression]; found {
+	if _, found := state.boolVar.lookup(expression); found {
 		return false, nil
 	}
 	variable, err := state.MkBoolVar(expression)

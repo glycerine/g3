@@ -39,7 +39,7 @@ func TestSMTLRAFinalCheckFeasibilityCacheAndUnsupportedScope(t *testing.T) {
 	if status != SMTFinalCheckDone || f.a.numeric.solver.Bounds.Status.Value != lp.StatusOptimal || f.a.modelValues != nil {
 		t.Fatal("final feasibility did not solve and invalidate model", status)
 	}
-	v := f.s.context.enodes[x].TheoryVar(f.a.FamilyID())
+	v := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
 	value, err := f.a.numeric.value(v)
 	astTestMust(t, err)
 	if value.Main.Cmp(big.NewRat(3, 1)) < 0 {
@@ -146,8 +146,8 @@ func TestSMTLRAFinalCheckDelayedBeforeFreshAndUnsupported(t *testing.T) {
 	f.propagate(true)
 	// These variables are not shared. Only the already queued candidate can
 	// request progress, and it takes precedence over the unsupported marker.
-	xv := f.s.context.enodes[x].TheoryVar(f.a.FamilyID())
-	yv := f.s.context.enodes[y].TheoryVar(f.a.FamilyID())
+	xv := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
+	yv := f.s.context.enodes.get(y).TheoryVar(f.a.FamilyID())
 	f.a.assumeCandidates = append(f.a.assumeCandidates, smtArithmeticEqualityCandidate{xv, yv})
 	astTestMust(t, f.s.Internalize(f.app(smtArithOpMul, x, x), false))
 	status, err := f.a.FinalCheck()

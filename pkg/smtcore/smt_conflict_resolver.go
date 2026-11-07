@@ -33,7 +33,7 @@ func (r *SMTConflictResolver) syncENodeLiterals() error {
 		if !r.state.booleanData[variable].IsENode() {
 			continue
 		}
-		node := r.state.context.enodes[r.state.boolExpr[variable]]
+		node := r.state.context.enodes.get(r.state.boolExpr[variable])
 		if node == nil {
 			return ast.ErrASTDomain
 		}

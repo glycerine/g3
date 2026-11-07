@@ -40,7 +40,7 @@ func TestSMTStringTesterNamesRolesAndOwnership(t *testing.T) {
 		_, internal := theory.internalVariables[test.variable]
 		_, variable := theory.variableSet[test.variable]
 		_, scoped := theory.variableScopes[theory.level][test.variable]
-		if isLength != test.length || isValue == test.length || !internal || !variable || !scoped || state.context.enodes[test.variable] == nil {
+		if isLength != test.length || isValue == test.length || !internal || !variable || !scoped || state.context.enodes.get(test.variable) == nil {
 			t.Fatal("tester lost native role/internalization/scope membership")
 		}
 		roots := 0

@@ -25,7 +25,7 @@ func (s *SMTInternalizerState) CheckInvariant() error {
 	}
 	for variable := SMTFirstBoolVar; int(variable) < variables; variable++ {
 		expression := s.boolExpr[variable]
-		if expression.IsNull() || s.boolVar[expression] != variable {
+		if expression.IsNull() || s.boolVar.get(expression) != variable {
 			return ast.ErrASTDomain
 		}
 		positive := NewSMTLiteral(variable, false)
@@ -33,7 +33,7 @@ func (s *SMTInternalizerState) CheckInvariant() error {
 			return ast.ErrASTDomain
 		}
 	}
-	if len(s.boolVar) != variables-1 {
+	if s.boolVar.count() != variables-1 {
 		return ast.ErrASTDomain
 	}
 	for index := range s.watches {
@@ -132,7 +132,7 @@ func (s *SMTInternalizerState) checkEqualityClassBooleanAssignments() error {
 		if !node.IsBool() {
 			continue
 		}
-		if s.context.assignments[node.Owner()] != s.context.assignments[node.Root().Owner()] {
+		if s.context.assignments.get(node.Owner()) != s.context.assignments.get(node.Root().Owner()) {
 			return ast.ErrASTDomain
 		}
 	}

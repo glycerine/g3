@@ -189,7 +189,7 @@ func (t *SMTLRATheory) validateBackground(core []SMTLiteral, conclusion SMTLiter
 		}
 	}
 	if left != nil || right != nil {
-		if left == nil || right == nil || left.manager != t.state.manager || right.manager != t.state.manager || t.state.context.enodes[left.owner] != left || t.state.context.enodes[right.owner] != right {
+		if left == nil || right == nil || left.manager != t.state.manager || right.manager != t.state.manager || t.state.context.enodes.get(left.owner) != left || t.state.context.enodes.get(right.owner) != right {
 			return false, ast.ErrASTDomain
 		}
 		eq, err := c.manager.MkEq(left.owner, right.owner)

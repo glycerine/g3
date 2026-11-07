@@ -177,8 +177,8 @@ func TestSMTIntegerDiffTheoryOffsetTerm(t *testing.T) {
 	offset, err := f.manager.MkFamilyApp(f.family, smtArithOpAdd, nil, []ast.ASTHandle{f.x, f.numeral(t, 3)})
 	astTestMust(t, err)
 	astTestMust(t, f.state.Internalize(offset, false))
-	sourceNode := f.state.context.enodes[f.x]
-	targetNode := f.state.context.enodes[offset]
+	sourceNode := f.state.context.enodes.get(f.x)
+	targetNode := f.state.context.enodes.get(offset)
 	if sourceNode == nil || targetNode == nil || !f.theory.IsAttachedToVariable(sourceNode) || !f.theory.IsAttachedToVariable(targetNode) {
 		t.Fatal("offset theory variables", sourceNode, targetNode)
 	}
@@ -265,7 +265,7 @@ func TestSMTIntegerDiffTheoryBuildsModelValues(t *testing.T) {
 	t.Cleanup(func() { astTestMust(t, generator.Close()) })
 	astTestMust(t, generator.SetContext(context))
 	astTestMust(t, generator.InitializeModel(config))
-	xNode, yNode := context.enodes[x], context.enodes[y]
+	xNode, yNode := context.enodes.get(x), context.enodes.get(y)
 	astTestMust(t, generator.BuildStateValues(state))
 	xValue, err := generator.Value(xNode)
 	astTestMust(t, err)

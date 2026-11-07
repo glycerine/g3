@@ -102,7 +102,7 @@ func (s *SMTInternalizerState) hasRelevantFalseEquality(first, second *SMTEnode)
 			if !isEquality {
 				continue
 			}
-			a, b := s.context.enodes[left], s.context.enodes[right]
+			a, b := s.context.enodes.get(left), s.context.enodes.get(right)
 			if a == nil || b == nil {
 				continue
 			}

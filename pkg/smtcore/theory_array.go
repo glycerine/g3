@@ -133,7 +133,7 @@ func (t *SMTArrayTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool
 				return false, fmt.Errorf("array select atom: %w", termErr)
 			}
 			state, _ := t.State()
-			variable, found := state.boolVar[expression]
+			variable, found := state.boolVar.lookup(expression)
 			if !found {
 				variable, termErr = state.MkBoolVar(expression)
 				if termErr != nil {
@@ -207,7 +207,7 @@ func (t *SMTArrayTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 	}
 	handled := op == ast.ASTArrayOpStore || op == ast.ASTArrayOpSelect || op == ast.ASTArrayOpConst || op == ast.ASTArrayOpExt || op == ast.ASTArrayOpMap || op == ast.ASTArrayOpAsArray || op == ast.ASTArrayOpDefault
 	if handled {
-		node := state.context.enodes[expression]
+		node := state.context.enodes.get(expression)
 		if node != nil && t.IsAttachedToVariable(node) {
 			return true, nil
 		}
@@ -229,11 +229,11 @@ func (t *SMTArrayTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 			return false, fmt.Errorf("array store axiom: %w", err)
 		}
 		if t.arrayConfig.Laziness == 0 {
-			base := state.context.enodes[expression].arguments[0]
+			base := state.context.enodes.get(expression).arguments[0]
 			if err = arraySourceAssert(280, "v_arg != null_theory_var", func() bool { return base.TheoryVar(t.FamilyID()) != SMTNullTheoryVar }); err != nil {
 				return false, err
 			}
-			if err = t.addParentStore(base.TheoryVar(t.FamilyID()), state.context.enodes[expression]); err != nil {
+			if err = t.addParentStore(base.TheoryVar(t.FamilyID()), state.context.enodes.get(expression)); err != nil {
 				return false, err
 			}
 		}
@@ -243,7 +243,7 @@ func (t *SMTArrayTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 		}
 	case ast.ASTArrayOpConst:
 	case ast.ASTArrayOpExt:
-		node := state.context.enodes[expression]
+		node := state.context.enodes.get(expression)
 		if len(node.arguments) != 2 {
 			return false, ast.ErrASTDomain
 		}
@@ -251,8 +251,8 @@ func (t *SMTArrayTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 			return false, err
 		}
 	case ast.ASTArrayOpMap:
-		for _, input := range state.context.enodes[expression].arguments {
-			if err = t.addParentMap(input.TheoryVar(t.FamilyID()), state.context.enodes[expression]); err != nil {
+		for _, input := range state.context.enodes.get(expression).arguments {
+			if err = t.addParentMap(input.TheoryVar(t.FamilyID()), state.context.enodes.get(expression)); err != nil {
 				return false, err
 			}
 		}
@@ -351,7 +351,7 @@ func (t *SMTArrayTheory) assertStoreAxiomCore(store ast.ASTHandle) error {
 	if err = state.Internalize(selected, false); err != nil {
 		return err
 	}
-	if err = state.assignEquality(state.context.enodes[selected], state.context.enodes[value], NewSMTEqualityAxiom()); err != nil {
+	if err = state.assignEquality(state.context.enodes.get(selected), state.context.enodes.get(value), NewSMTEqualityAxiom()); err != nil {
 		return err
 	}
 	return state.markRelevant(selected)
@@ -368,7 +368,7 @@ func (t *SMTArrayTheory) assertSelectStoreAxioms(selectExpression ast.ASTHandle)
 		return err
 	}
 	if t.arrayConfig.Laziness == 0 {
-		return t.addParentSelect(state.context.enodes[array].TheoryVar(t.FamilyID()), state.context.enodes[selectExpression])
+		return t.addParentSelect(state.context.enodes.get(array).TheoryVar(t.FamilyID()), state.context.enodes.get(selectExpression))
 	}
 	return nil
 }
@@ -401,7 +401,7 @@ func (t *SMTArrayTheory) assertDefaultAxiom(defaultExpression ast.ASTHandle) err
 	if err != nil {
 		return err
 	}
-	node := state.context.enodes[array]
+	node := state.context.enodes.get(array)
 	if node == nil {
 		return ast.ErrASTDomain
 	}

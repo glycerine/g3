@@ -40,7 +40,7 @@ func (t *SMTSequenceTheory) exactSequenceLength(expression ast.ASTHandle) (uint6
 		return 0, false, err
 	}
 	if !exact {
-		if node := state.context.enodes[length]; node != nil {
+		if node := state.context.enodes.get(length); node != nil {
 			text, integer, numeral, numeralErr := state.manager.ArithmeticNumeralText(node.Root().Owner())
 			if numeralErr != nil {
 				return 0, false, numeralErr

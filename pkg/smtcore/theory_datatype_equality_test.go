@@ -30,7 +30,7 @@ func TestSMTDatatypeEqualityAxiomSourceBranchesAndRollback(t *testing.T) {
 				astTestMust(t, s.Internalize(p, true))
 				pLiteral, err := s.Literal(p)
 				astTestMust(t, err)
-				left, right := s.context.enodes[x], s.context.enodes[y]
+				left, right := s.context.enodes.get(x), s.context.enodes.get(y)
 				for attempt := 0; attempt < 2; attempt++ {
 					astTestMust(t, s.PushScope())
 					antecedent := pLiteral
@@ -81,7 +81,7 @@ func TestSMTDatatypeEqualityAxiomSourceBranchesAndRollback(t *testing.T) {
 					} else {
 						eq, err := s.mkEqualityAtom(x, y)
 						astTestMust(t, err)
-						if _, found := s.boolVar[eq]; !found || !s.isRelevant(eq) {
+						if _, found := s.boolVar.lookup(eq); !found || !s.isRelevant(eq) {
 							t.Fatal("clause equality was not internalized and relevant")
 						}
 						if guard == "undefined" && !proofs && !s.isRelevant(p) {
@@ -148,12 +148,12 @@ func TestSMTDatatypeConstructorAccessorAxiomsAndCounters(t *testing.T) {
 			astTestMust(t, err)
 			argument, err := f.m.GetArg(f.left, 0)
 			astTestMust(t, err)
-			if !proofs && s.context.enodes[selected].root == s.context.enodes[argument].root {
+			if !proofs && s.context.enodes.get(selected).root == s.context.enodes.get(argument).root {
 				t.Fatal("accessor axiom merged before the source equality phase")
 			}
 			_, err = s.PropagateCore()
 			astTestMust(t, err)
-			if s.context.enodes[selected].root != s.context.enodes[argument].root {
+			if s.context.enodes.get(selected).root != s.context.enodes.get(argument).root {
 				t.Fatal("accessor axiom was not propagated")
 			}
 			astTestMust(t, s.PushScope())

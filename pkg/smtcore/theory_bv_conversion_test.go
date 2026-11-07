@@ -94,7 +94,7 @@ func TestSMTBVConversionSourceAxiomsAndRelevance(t *testing.T) {
 			astTestMust(t, err)
 			expected[eq] = true
 			expectedOrder = append(expectedOrder, eq)
-			variable := s.context.enodes[term].TheoryVar(bv.FamilyID())
+			variable := s.context.enodes.get(term).TheoryVar(bv.FamilyID())
 			for i, bit := range bv.bitLiterals[variable] {
 				division := app(11, x, bvConversionInt(t, m, fmt.Sprint(1<<uint(i))))
 				parity := app(13, division, bvConversionInt(t, m, "2"))
@@ -142,7 +142,7 @@ func TestSMTBVConversionNativeSignedBitsAndMissingEnode(t *testing.T) {
 	astTestMust(t, err)
 	node, _ := bvNativeWord(t, m, s, bv, p, notQ)
 	astTestMust(t, bv.Relevant(node.owner))
-	if !s.relevancy.IsRelevant(p) || !s.relevancy.IsRelevant(q) || s.context.relevant[notQ] {
+	if !s.relevancy.IsRelevant(p) || !s.relevancy.IsRelevant(q) || s.context.relevant.get(notQ) {
 		t.Fatal("native signed literal relevance must use the positive atom")
 	}
 	converted, err := m.MkBitVectorToInt(node.owner)
@@ -186,7 +186,7 @@ func TestSMTBVConversionNativeSignedBitsAndMissingEnode(t *testing.T) {
 	astTestMust(t, err)
 	before := len(bv.bits)
 	astTestMust(t, bv.Relevant(missing))
-	if len(bv.bits) != before || s.context.enodes[missing] != nil {
+	if len(bv.bits) != before || s.context.enodes.get(missing) != nil {
 		t.Fatal("relevance fabricated a missing enode or circuit")
 	}
 }
@@ -209,7 +209,7 @@ func TestSMTBVComparisonDefinitionSurvivesRelevancePop(t *testing.T) {
 				term, err := m.MkBitVectorULE(x, y)
 				astTestMust(t, err)
 				astTestMust(t, s.Internalize(term, true))
-				variable := s.boolVar[term]
+				variable := s.boolVar.get(term)
 				definition, ok := bv.comparisonAtoms[variable]
 				if !ok {
 					t.Fatal("source comparison definition was not retained")

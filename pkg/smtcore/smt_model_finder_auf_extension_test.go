@@ -56,7 +56,7 @@ func TestSMTModelFinderAUFProductionExtensionPreservesGroundFunction(t *testing.
 			astTestMust(t, state.context.SetRelevant(q, true))
 			astTestMust(t, state.context.SetAssignment(q, lbool.True))
 			for _, term := range []ast.ASTHandle{zero, ten} {
-				node, err := NewSMTEnode(m, term, state.context.enodes, SMTEnodeOptions{})
+				node, err := NewSMTEnode(m, term, state.context.enodes.get, SMTEnodeOptions{})
 				astTestMust(t, err)
 				astTestMust(t, state.context.RegisterEnode(node, true))
 				smtQuickApplicationNode(t, m, state.context, function, node, true)

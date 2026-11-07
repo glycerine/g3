@@ -60,7 +60,7 @@ func TestSMTArrayStoreReadQueuesProofBranchesAndRelevance(t *testing.T) {
 				t.Fatal("conditional read axiom was not deferred")
 			}
 			astTestMust(t, state.Internalize(indices[2], false))
-			astTestMust(t, state.addEquality(state.context.enodes[indices[2]], state.context.enodes[indices[1]], NewSMTEqualityAxiom()))
+			astTestMust(t, state.addEquality(state.context.enodes.get(indices[2]), state.context.enodes.get(indices[1]), NewSMTEqualityAxiom()))
 			aliasRead, err := m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{store, indices[2]})
 			astTestMust(t, err)
 			astTestMust(t, state.Internalize(aliasRead, true))
@@ -83,7 +83,7 @@ func TestSMTArrayStoreReadQueuesProofBranchesAndRelevance(t *testing.T) {
 			}
 			_, err = state.PropagateCore()
 			astTestMust(t, err)
-			if state.context.enodes[sameIndexRead].root != state.context.enodes[value].root && !proofs {
+			if state.context.enodes.get(sameIndexRead).root != state.context.enodes.get(value).root && !proofs {
 				t.Fatal("non-proof store axiom did not merge read and value")
 			}
 			fallback, err := m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{array, indices[1]})
@@ -140,7 +140,7 @@ func TestSMTArrayReadQueueRechecksIndexRootsAndClearsPoppedWork(t *testing.T) {
 			t.Fatal("child read was not queued")
 		}
 		if attempt == 0 {
-			astTestMust(t, state.addEquality(state.context.enodes[indices[1]], state.context.enodes[indices[0]], NewSMTEqualityAxiom()))
+			astTestMust(t, state.addEquality(state.context.enodes.get(indices[1]), state.context.enodes.get(indices[0]), NewSMTEqualityAxiom()))
 			before := len(state.clauses)
 			astTestMust(t, theory.Propagate())
 			if len(state.clauses) != before {
@@ -166,7 +166,7 @@ func TestSMTArrayReadFingerprintOriginalTupleAfterRootChange(t *testing.T) {
 	for _, index := range indices {
 		astTestMust(t, state.Internalize(index, false))
 	}
-	first, second, other := state.context.enodes[indices[0]], state.context.enodes[indices[1]], state.context.enodes[indices[2]]
+	first, second, other := state.context.enodes.get(indices[0]), state.context.enodes.get(indices[1]), state.context.enodes.get(indices[2])
 	// Constructor identity is opaque to the fingerprint table.
 	constructor := indices[3]
 	tuple := []*SMTEnode{first, other}

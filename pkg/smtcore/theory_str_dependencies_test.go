@@ -30,8 +30,8 @@ func stringDependencyConcat(t *testing.T, theory *SMTStringTheory, left, right a
 
 func stringDependencyPrivateMerge(t *testing.T, theory *SMTStringTheory, left, right ast.ASTHandle) {
 	t.Helper()
-	l := theory.state.context.enodes[left]
-	r := theory.state.context.enodes[right]
+	l := theory.state.context.enodes.get(left)
+	r := theory.state.context.enodes.get(right)
 	if l == nil || r == nil || !theory.IsAttachedToVariable(l) || !theory.IsAttachedToVariable(r) {
 		t.Fatal("dependency fixture requires two actual String theory variables")
 	}
@@ -135,7 +135,7 @@ func TestSMTStringDependenciesAliasesCountsAndScopeRecompute(t *testing.T) {
 	stringDependencyPrivateMerge(t, theory, fixed, constant)
 	analysis, err := theory.analyzeStringDependencies()
 	astTestMust(t, err)
-	if state.context.enodes[x].Root() == state.context.enodes[alias].Root() {
+	if state.context.enodes.get(x).Root() == state.context.enodes.get(alias).Root() {
 		t.Fatal("fixture unexpectedly relied on core aliases instead of private String classes")
 	}
 	if analysis.variableAliases[alias] != x || analysis.dependencies[first][x] != 2 || analysis.dependencies[first][y] != 2 || analysis.dependencies[second][x] != 2 || analysis.dependencies[second][z] != 2 || analysis.dependencies[fixed][constant] != 1 {

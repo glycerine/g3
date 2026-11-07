@@ -101,14 +101,14 @@ func TestSMTStringSequentialOptionsInactiveResetAndScopeRefresh(t *testing.T) {
 	astTestMust(t, m.DelRef(&root))
 	first := theory.testers.lengthIndicators[word][0]
 	astTestMust(t, state.PopScopes(1))
-	if state.context.enodes[first] != nil {
+	if state.context.enodes.get(first) != nil {
 		t.Fatal("test requires popped enode")
 	}
 	fresh := theory.freshID
 	root, err = theory.generateStringSequentialOptions(word, ast.ASTHandle{}, "")
 	astTestMust(t, err)
 	astTestMust(t, m.DelRef(&root))
-	if theory.freshID != fresh || state.context.enodes[first] == nil {
+	if theory.freshID != fresh || state.context.enodes.get(first) == nil {
 		t.Fatal("scope pop reset lifetime-active history")
 	}
 	delete(theory.internalVariables, first)
