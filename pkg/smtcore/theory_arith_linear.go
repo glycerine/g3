@@ -75,19 +75,22 @@ func (f *smtLinearForm) scale(coefficient *big.Rat) {
 }
 
 type smtLinearArithmeticAtom struct {
-	native       *smtArithmeticAtom
-	nativeOffset big.Rat
-	boundAxiom   *smtArithmeticBoundAxiomAtom
-	variable     int32
-	left         ast.ASTHandle
-	right        ast.ASTHandle
-	form         smtLinearForm
-	op           int32
-	supported    bool
-	nonlinear    bool
-	decided      bool
-	required     bool
-	truth        bool
+	coefficientKey    string // lazily filled; an atom's form never changes
+	coefficientKeySet bool
+	bounds            [4]smtArithmeticAtomBound // indexed by smtAtomBoundIndex
+	native            *smtArithmeticAtom
+	nativeOffset      big.Rat
+	boundAxiom        *smtArithmeticBoundAxiomAtom
+	variable          int32
+	left              ast.ASTHandle
+	right             ast.ASTHandle
+	form              smtLinearForm
+	op                int32
+	supported         bool
+	nonlinear         bool
+	decided           bool
+	required          bool
+	truth             bool
 }
 
 type smtLinearArithmeticScope struct {
@@ -162,6 +165,10 @@ type SMTLinearArithmeticTheory struct {
 	*SMTTheoryBase
 	solver                                  *simplex.Solver
 	incrementalSolver                       *simplex.Solver
+	assertionIndex                          map[uint32][]int
+	assertionIndexBases                     []uint32
+	assertionIndexed                        int
+	assertionIndexEpoch, assertionPopEpoch  uint64
 	incrementalAtoms, incrementalAssertions int
 	incrementalBases                        []uint32
 	propagationSolver                       *simplex.Solver
@@ -835,6 +842,48 @@ func (t *SMTLinearArithmeticTheory) CanPropagate() bool {
 	return t != nil && (len(t.newBoundAtoms) != 0 || t.replayedNextSimplex != t.nextSimplex || t.replayedDefinitions != len(t.definitions) || t.assertionHead < len(t.assertions) || t.pendingBoundHead < len(t.pendingBounds) || t.ownEqualityHead < len(t.ownEqualities))
 }
 
+// smtArithmeticAtomBound memoizes smtLinearAtomBound for atoms whose bound is
+// fixed by their form.
+type smtArithmeticAtomBound struct {
+	value simplex.Infinitesimal
+	lower bool
+	set   bool
+}
+
+func smtAtomBoundIndex(truth, integer bool) int {
+	index := 0
+	if truth {
+		index = 1
+	}
+	if integer {
+		index |= 2
+	}
+	return index
+}
+
+// smtLinearAtomBoundShared returns a value sharing storage with the atom's
+// cache, so callers must only read it. Native atoms carry mutable assignment
+// state and are always recomputed.
+func smtLinearAtomBoundShared(atom *smtLinearArithmeticAtom, truth, integer bool) (bool, simplex.Infinitesimal) {
+	if atom.native != nil {
+		return smtLinearAtomBound(atom, truth, integer)
+	}
+	entry := &atom.bounds[smtAtomBoundIndex(truth, integer)]
+	if !entry.set {
+		entry.lower, entry.value = smtLinearAtomBound(atom, truth, integer)
+		entry.set = true
+	}
+	return entry.lower, entry.value
+}
+
+func (atom *smtLinearArithmeticAtom) cachedCoefficientKey() string {
+	if !atom.coefficientKeySet {
+		atom.coefficientKey = smtArithmeticCoefficientKey(&atom.form)
+		atom.coefficientKeySet = true
+	}
+	return atom.coefficientKey
+}
+
 func smtLinearAtomBound(atom *smtLinearArithmeticAtom, truth, integer bool) (lower bool, value simplex.Infinitesimal) {
 	if atom.native != nil {
 		epsilon := newSMTArithmeticValue(nil, big.NewRat(1, 1))
@@ -1468,7 +1517,7 @@ func (t *SMTLinearArithmeticTheory) buildSimplexReplay(values map[uint32]*big.Ra
 			continue
 		}
 		base := t.nextSimplex + uint32(index)
-		key := smtArithmeticCoefficientKey(&atom.form)
+		key := atom.cachedCoefficientKey()
 		if prior, found := coefficientBases[key]; found {
 			atomBases[index] = prior
 			continue
@@ -1672,6 +1721,7 @@ func (t *SMTLinearArithmeticTheory) PopScopes(count uint32) error {
 		return ast.ErrASTDomain
 	}
 	t.incrementalSolver = nil
+	t.assertionPopEpoch++
 	level := len(t.scopes) - int(count)
 	scope := t.scopes[level]
 	clear(t.ownEqualities[scope.ownEqualities:])

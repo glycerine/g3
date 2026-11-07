@@ -337,7 +337,7 @@ func (t *SMTLinearArithmeticTheory) propagateArithmeticBoundAtoms() error {
 		}
 		base := bases[index]
 		for _, truth := range []bool{true, false} {
-			lower, threshold := smtLinearAtomBound(atom, truth, t.integralAtom(atom))
+			lower, threshold := smtLinearAtomBoundShared(atom, truth, t.integralAtom(atom))
 			endpoint, explanation, found, err := t.impliedArithmeticRowEndpoint(solver, rowsByColumn[base], base, lower)
 			if err != nil {
 				return err
@@ -401,7 +401,7 @@ func (t *SMTLinearArithmeticTheory) arithmeticAtomBases() []uint32 {
 		if !atom.supported {
 			continue
 		}
-		key := smtArithmeticCoefficientKey(&atom.form)
+		key := atom.cachedCoefficientKey()
 		if base, found := coefficientBases[key]; found {
 			bases[index] = base
 			continue
@@ -568,17 +568,45 @@ func (t *SMTLinearArithmeticTheory) relaxArithmeticRowExplanation(solver *simple
 	return result
 }
 
-func (t *SMTLinearArithmeticTheory) assignedArithmeticBoundCandidates(column uint32, lower bool, bases []uint32) []smtArithmeticAssignedBoundCandidate {
-	result := make([]smtArithmeticAssignedBoundCandidate, 0)
-	for _, assertion := range t.assertions {
-		atom := &t.atoms[assertion.atom]
+// arithmeticAssertionsByColumn lists, in assertion order, the assertions touching
+// each column, either through the atom's row base or as its single term. It
+// stays valid while the assertion stack only grows and the bases are the same.
+func (t *SMTLinearArithmeticTheory) arithmeticAssertionsByColumn(bases []uint32) map[uint32][]int {
+	if len(bases) == 0 || t.assertionIndexBases == nil || &t.assertionIndexBases[0] != &bases[0] || len(t.assertionIndexBases) != len(bases) ||
+		t.assertionIndexed > len(t.assertions) || t.assertionIndexEpoch != t.assertionPopEpoch {
+		t.assertionIndex = make(map[uint32][]int)
+		t.assertionIndexed = 0
+		t.assertionIndexBases = bases
+		t.assertionIndexEpoch = t.assertionPopEpoch
+	}
+	for index := t.assertionIndexed; index < len(t.assertions); index++ {
+		atom := &t.atoms[t.assertions[index].atom]
 		if !atom.supported {
 			continue
 		}
-		boundLower, value := smtLinearAtomBound(atom, assertion.truth, t.integralAtom(atom))
+		base := bases[t.assertions[index].atom]
+		t.assertionIndex[base] = append(t.assertionIndex[base], index)
+		if len(atom.form.terms) == 1 {
+			for variable := range atom.form.terms {
+				if variable != base {
+					t.assertionIndex[variable] = append(t.assertionIndex[variable], index)
+				}
+			}
+		}
+	}
+	t.assertionIndexed = len(t.assertions)
+	return t.assertionIndex
+}
+
+func (t *SMTLinearArithmeticTheory) assignedArithmeticBoundCandidates(column uint32, lower bool, bases []uint32) []smtArithmeticAssignedBoundCandidate {
+	result := make([]smtArithmeticAssignedBoundCandidate, 0)
+	for _, index := range t.arithmeticAssertionsByColumn(bases)[column] {
+		assertion := t.assertions[index]
+		atom := &t.atoms[assertion.atom]
+		boundLower, value := smtLinearAtomBoundShared(atom, assertion.truth, t.integralAtom(atom))
 		literal := smtLinearAssertionLiteral(atom, assertion)
 		if bases[assertion.atom] == column && boundLower == lower {
-			result = append(result, smtArithmeticAssignedBoundCandidate{value: value, dependency: simplex.BoundDependency{Literal: literal.Index(), Coefficient: *big.NewRat(1, 1)}})
+			result = append(result, smtArithmeticAssignedBoundCandidate{value: value.Clone(), dependency: simplex.BoundDependency{Literal: literal.Index(), Coefficient: *big.NewRat(1, 1)}})
 		}
 		if len(atom.form.terms) != 1 {
 			continue
