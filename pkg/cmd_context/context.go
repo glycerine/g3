@@ -903,11 +903,8 @@ func (c *Context) mkSolver(m *ast.ASTManager) error {
 		// does not terminate on those goals, in the source as well.
 		c.solver, err = portfolio.NewALLStrategicSolver(m, &c.params, proofs, models, cores, c.config)
 	default:
-		var direct *smtcore.SMTSolver
-		direct, err = smtcore.NewSMTSolver(m, &c.params, c.logic, c.config)
-		if err == nil {
-			c.solver = direct
-		}
+		// mk_tactic_for_logic falls through to mk_default_tactic.
+		c.solver, err = portfolio.NewDefaultStrategicSolver(m, &c.params, proofs, models, cores, c.logic, c.config)
 	}
 	if err != nil {
 		return err

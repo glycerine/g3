@@ -41,6 +41,14 @@ func NewQFAUFLIAStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs,
 // so combined_solver owns the same nonincremental/incremental transition and
 // unknown fallback as the source factory.
 func NewALLStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, models, cores bool, config smtcore.SMTSolverConfig) (result solver.Solver, err error) {
+	return NewDefaultStrategicSolver(m, p, proofs, models, cores, "ALL", config)
+}
+
+// NewDefaultStrategicSolver is mk_default_tactic combined with an SMT solver
+// for logic: mk_tactic_for_logic falls through to mk_default_tactic for every
+// logic without its own strategy, and the solver keeps the actual logic for
+// its setup.
+func NewDefaultStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, models, cores bool, logic string, config smtcore.SMTSolverConfig) (result solver.Solver, err error) {
 	var tacticOwners []tactic.Tactic
 	var probeOwners []tactic.ProbeEvaluator
 	defer func() {
@@ -242,7 +250,7 @@ func NewALLStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, mode
 	if err != nil {
 		return nil, err
 	}
-	result, err = newStrategicSolver(m, strategy, "ALL", p, proofs, models, cores, config)
+	result, err = newStrategicSolver(m, strategy, logic, p, proofs, models, cores, config)
 	return result, err
 }
 
