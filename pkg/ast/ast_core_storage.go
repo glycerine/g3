@@ -8,7 +8,6 @@ import (
 	"errors"
 	"math"
 	"reflect"
-	"sync"
 	"sync/atomic"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -229,6 +228,13 @@ type astBuiltinPluginState struct {
 	userTable                    usymbol.DictionaryInt32
 }
 
+// astOwnerConfined keeps the manager's lock call sites as no-ops. An ASTManager
+// is confined to one goroutine; cancellation only touches its atomic Reslimit.
+type astOwnerConfined struct{}
+
+func (astOwnerConfined) Lock()   {}
+func (astOwnerConfined) Unlock() {}
+
 type ASTManager struct {
 	exprSubstitutions          map[arena.SmallBytesRef]*astExprSubstState
 	scopedExprSubstitutions    map[arena.SmallBytesRef]*astScopedExprSubstState
@@ -242,7 +248,7 @@ type ASTManager struct {
 	traceAcquisitions, traceAcquisitionExecuting                                                       *astTraceAcquisition
 	traceAcquisitionSerial                                                                             uint64
 	rationalTraceSerial                                                                                uint64
-	mu                                                                                                 sync.Mutex
+	mu                                                                                                 astOwnerConfined
 	Self                                                                                               *ASTManager
 	origin                                                                                             uint64
 	BudgetField                                                                                        *arena.Budget
@@ -429,9 +435,11 @@ func (m *ASTManager) lock() error {
 		m.mu.Unlock()
 		return ErrASTDomain
 	}
-	if err := m.cleanupNodeDeletions(); err != nil {
-		m.mu.Unlock()
-		return err
+	if len(m.pendingDeletions) != 0 {
+		if err := m.cleanupNodeDeletions(); err != nil {
+			m.mu.Unlock()
+			return err
+		}
 	}
 	return nil
 }
