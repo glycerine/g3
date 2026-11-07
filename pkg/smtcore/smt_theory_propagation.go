@@ -353,8 +353,15 @@ func (s *SMTInternalizerState) PropagateCore() (bool, error) {
 		if err = s.PropagateTheoryAssignments(); err != nil {
 			return false, fmt.Errorf("theory assignments: %w", err)
 		}
+		if s.inconsistent { // if (!propagate_atoms()) return false;
+			return false, nil
+		}
 		if err = s.PropagateTheoryEvents(); err != nil {
 			return false, fmt.Errorf("theory events: %w", err)
+		}
+		// propagate_th_eqs(); propagate_th_diseqs(); if (inconsistent()) return false;
+		if s.inconsistent {
+			return false, nil
 		}
 		dynamicAckProgress, err := s.dynamicAck.propagate()
 		if err != nil {
