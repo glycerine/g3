@@ -9,9 +9,11 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	nlsattactic "github.com/glycerine/g3/pkg/nlsat/tactic"
+	sattactic "github.com/glycerine/g3/pkg/sat/tactic"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/tactic/arith"
+	"github.com/glycerine/g3/pkg/tactic/bv"
 	"github.com/glycerine/g3/pkg/tactic/core"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
@@ -82,7 +84,29 @@ func NewQFNIATacticWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, config sm
 		cofactor,
 	)
 	nla := b.keep(arith.NewNLA2BVTactic(m, c, g, nlaParams, config.ModelEvaluator))
-	bvSolver := b.keep(NewQFBVTacticWithOutput(m, p, config, output))
+	// mk_qfnia_bv_solver: simplify, propagate-values, local-context simplify,
+	// max-bv-sharing, bit-blast and SAT under flat=false, hi_div0, elim_and,
+	// blast_distinct.
+	bvParams, localParams := copyParams(), copyParams()
+	for _, params := range []*uparams.ParamsRef{bvParams, localParams} {
+		b.boolean(params, "flat", false)
+		b.boolean(params, "hi_div0", true)
+		b.boolean(params, "elim_and", true)
+		b.boolean(params, "blast_distinct", true)
+	}
+	b.boolean(localParams, "local_ctx", true)
+	b.uint(localParams, "local_ctx_limit", 10000000)
+	if b.err != nil {
+		return nil, b.err
+	}
+	bvSolver := b.using(b.then(
+		b.clean(b.keep(core.NewSimplifyTactic(m, c, g, nil))),
+		b.keep(core.NewPropagateValuesTactic(m, c, g, nil)),
+		simplify(localParams),
+		b.clean(b.keep(bv.NewMaxBVSharingTactic(m, c, nil, config.ModelEvaluator.Cooperation))),
+		b.clean(b.keep(bv.NewBitBlasterTactic(m, c, g, nil, config.ModelEvaluator.Cooperation))),
+		b.clean(b.keep(sattactic.NewSATTactic(c, nil, config.ModelEvaluator, output))),
+	), bvParams)
 	bounded := b.then(simplify(simplifyParams), nla, bvSolver, b.keep(tactic.NewFailIfUndecidedTactic(), nil))
 	smtSolver := func() tactic.Tactic {
 		return b.then(simplify(smtParams), b.keep(smtcore.NewSMTTactic(m, nil, config)))
