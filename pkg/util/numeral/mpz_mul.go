@@ -15,6 +15,15 @@ func (m *IntegerManager) Mul(a, b, c *Int) error {
 	return m.mulWithAllocationContext(a, b, c, integerAllocationInvocationContext{})
 }
 func (m *IntegerManager) mulWithAllocationContext(a, b, c *Int, context integerAllocationInvocationContext) (err error) {
+	if smallIntegerOperands(a, b, c) {
+		if v := int64(a.Val) * int64(b.Val); v >= math.MinInt32 && v <= math.MaxInt32 {
+			if e := m.checkReady(); e != nil {
+				return e
+			}
+			c.Val = int32(v)
+			return nil
+		}
+	}
 	for _, n := range []*Int{a, b, c} {
 		if e := m.check(n); e != nil {
 			return e

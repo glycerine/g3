@@ -1221,6 +1221,13 @@ func (m *IntegerManager) publishTmpAtWithAllocationContext(idx int, dst *Int, si
 	}
 	return nil
 }
+
+// smallIntegerOperands reports a build and operands where arithmetic is a machine
+// operation: no trace can be emitted and no operand owns a cell to validate.
+func smallIntegerOperands(a, b, c *Int) bool {
+	return !diagnostic.TraceCompiled() && a != nil && b != nil && c != nil && a.Cell == 0 && b.Cell == 0 && c.Cell == 0
+}
+
 func (m *IntegerManager) Add(a, b, c *Int) error { return m.addSub(a, b, c, false) }
 func (m *IntegerManager) Sub(a, b, c *Int) error { return m.addSub(a, b, c, true) }
 func (m *IntegerManager) addSub(a, b, c *Int, subtract bool) error {
@@ -1230,6 +1237,19 @@ func (m *IntegerManager) addSubWithPNReceipt(a, b, c *Int, subtract bool, pn *in
 	return m.addSubWithAllocationContext(a, b, c, subtract, pnAllocationContext(pn))
 }
 func (m *IntegerManager) addSubWithAllocationContext(a, b, c *Int, subtract bool, context integerAllocationInvocationContext) (err error) {
+	if smallIntegerOperands(a, b, c) {
+		v := int64(b.Val)
+		if subtract {
+			v = -v
+		}
+		if v += int64(a.Val); v >= math.MinInt32 && v <= math.MaxInt32 {
+			if e := m.checkReady(); e != nil {
+				return e
+			}
+			c.Val = int32(v)
+			return nil
+		}
+	}
 	for _, n := range []*Int{a, b, c} {
 		if e := m.check(n); e != nil {
 			return e
