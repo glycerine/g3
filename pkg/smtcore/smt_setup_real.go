@@ -50,8 +50,10 @@ func (k *SMTKernel) applyArithmeticSetup(smt SMTParamsState, arithmetic SMTArith
 	if err := k.configureArithmeticTheories(arithmetic); err != nil {
 		return err
 	}
-	k.assertedPhaseReady = false
-	return k.setAssertedEliminateAnd(false)
+	// context::setup_components calls asserted_formulas::setup(), which
+	// does not refresh the rewriter: the asserted parameters (eq2ineq, ...)
+	// change only when set_eliminate_and toggles its flag.
+	return nil
 }
 
 func (k *SMTKernel) setupRealLogicPolicy(useStaticFeatures bool) (result error) {
