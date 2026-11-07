@@ -62,10 +62,13 @@ func (r *smtArithmeticRow) deleteEntry(index int) error {
 	if index < 0 || index >= len(r.entries) || r.entries[index].dead() {
 		return ast.ErrASTDomain
 	}
+	// row::del_row_entry links the entry to the free list but, unlike
+	// column::del_col_entry, never makes it the list head: a dead row slot
+	// is not reused before compress, and later entries are appended.
 	entry := &r.entries[index]
 	entry.variable, entry.freeNext = SMTNullTheoryVar, r.firstFree
 	entry.coefficient.SetInt64(0)
-	r.firstFree, r.size = index, r.size-1
+	r.size--
 	return nil
 }
 

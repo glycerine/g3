@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestSMTArithmeticRowHoleReusePositionsAndLCM(t *testing.T) {
+func TestSMTArithmeticRowHolesPositionsAndLCM(t *testing.T) {
 	row := newSMTArithmeticRow()
 	for variable, coefficient := range []*big.Rat{big.NewRat(1, 2), big.NewRat(2, 3), big.NewRat(3, 5)} {
 		index, entry := row.addEntry()
@@ -22,9 +22,11 @@ func TestSMTArithmeticRowHoleReusePositionsAndLCM(t *testing.T) {
 	if err := row.deleteEntry(1); err != nil {
 		t.Fatal(err)
 	}
+	// Source row::del_row_entry never makes the hole the free-list head,
+	// so the next entry is appended rather than placed in the hole.
 	index, entry := row.addEntry()
-	if index != 1 {
-		t.Fatal("row did not reuse first hole", index)
+	if index != 3 || row.firstFree != -1 || !row.entries[1].dead() {
+		t.Fatal("row reused a hole before compress", index)
 	}
 	entry.variable = 3
 	entry.coefficient.SetInt64(7)
@@ -33,7 +35,7 @@ func TestSMTArithmeticRowHoleReusePositionsAndLCM(t *testing.T) {
 	if err := row.saveVariablePositions(positions); err != nil {
 		t.Fatal(err)
 	}
-	if positions[0] != 0 || positions[2] != 2 || positions[3] != 1 {
+	if positions[0] != 0 || positions[1] != -1 || positions[2] != 2 || positions[3] != 3 {
 		t.Fatal("saved positions", positions)
 	}
 	if err := row.resetVariablePositions(positions); err != nil {
