@@ -197,13 +197,28 @@ func TestContextProofSharesNoninitialDiamondState(t *testing.T) {
 					if len(leaves) != len(originals) {
 						t.Fatal("proof lost a source rule in the shared derivation", len(leaves), len(originals))
 					}
-					before := manager.Stats().LiveReferences
-					bytes := manager.Budget().Used()
-					repeated, err := context.Proof(goal)
-					pdrMust(t, err)
-					pdrMust(t, manager.DelRef(&repeated))
-					if manager.Stats().LiveReferences != before || manager.Budget().Used() != bytes {
-						t.Fatal("repeated shared proof reconstruction leaked ownership")
+					// Live counts must return exactly. Arena capacity may grow once for
+					// reconstruction's temporary nodes, but never on a later repeat.
+					reconstruct := func() {
+						repeated, err := context.Proof(goal)
+						pdrMust(t, err)
+						pdrMust(t, manager.DelRef(&repeated))
+					}
+					live := func() [4]uint32 {
+						stats := manager.Stats()
+						return [4]uint32{stats.LiveNodes, stats.LiveParameters, stats.LiveInfos, stats.LiveReferences}
+					}
+					before := live()
+					reconstruct()
+					if live() != before {
+						t.Fatal("repeated shared proof reconstruction leaked ownership", before, live())
+					}
+					capacity := manager.Budget().Used()
+					for repeat := 0; repeat < 3; repeat++ {
+						reconstruct()
+						if live() != before || manager.Budget().Used() != capacity {
+							t.Fatal("repeated shared proof reconstruction leaked ownership", repeat, before, live(), capacity, manager.Budget().Used())
+						}
 					}
 				})
 			}
