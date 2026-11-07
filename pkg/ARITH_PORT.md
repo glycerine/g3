@@ -156,5 +156,22 @@ depends on std::sort or hash tables; Gröbner dependencies travel as AST
 dependencies whose leaves index the bounds; value_trail entries live in the
 theory's scope records.
 
-Next: make the port the default, compare statistics more widely against
-C++, then delete the replay design (phase 8).
+`make` with `G3_THEORY_ARITH=port` (after 0b03b49cd): failures that remain
+before the port can become the default (phase 8):
+
+- Setup-routing tests that assert the replay type and its fields:
+  `smt_arithmetic_lifecycle_test`, `smt_setup_difference_test` (two),
+  `smt_setup_test` QF_LIA automatic setup. They need equivalent checks on
+  `SMTTheoryArith`, not code changes.
+- `TestOptimizationFrontendResourceLimitedOPBBounds` pins Go step counts
+  under `rlimit`; C++ solves the instance outright at those limits. The port
+  counts steps as the source does (`get_cancel_flag` increments), so the
+  interrupted bound differs.
+- `TestParetoCanceledImprovementDropsBackendAndAllowsFreshSearch`: when the
+  resource limit fires inside asserted-formula preprocessing, the Go kernel
+  returns an error where the source yields `unknown`. Kernel behavior,
+  exposed because the port spends steps like the source.
+
+Also needed for phase 8: `theory_inf_arith` (AS_OPTINF) is not ported, and
+the sequence/string theories type-assert the replay theory for length
+bounds; they must read bounds through `SMTTheoryArith` instead.
