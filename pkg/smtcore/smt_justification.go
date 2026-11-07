@@ -161,6 +161,7 @@ type SMTDisequalityConflictJustification struct {
 	SMTJustificationBase
 	First, Second         *SMTEnode
 	DiseqLeft, DiseqRight *SMTEnode
+	Reason                SMTLiteral
 	Equality              SMTEqualityJustification
 }
 

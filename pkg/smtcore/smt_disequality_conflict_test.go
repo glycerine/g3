@@ -109,15 +109,3 @@ func TestDisequalityConflictExplanationIsOrderIndependent(t *testing.T) {
 		requireAntecedents(t, smtConflictAntecedents(t, s), literals...)
 	}
 }
-
-// A conflict with a null or non-equality reason still explains both sides.
-func TestDisequalityAtomTermsToleratesNonEqualityReasons(t *testing.T) {
-	_, s, _, literals := smtDiseqFixture(t, "diseq-reason", 1, 1)
-	for _, reason := range []SMTLiteral{SMTNullLiteral, SMTTrueLiteral, literals[0]} {
-		first, second, err := s.disequalityAtomTerms(reason)
-		astTestMust(t, err)
-		if first != nil || second != nil {
-			t.Fatalf("reason %d returned terms", reason)
-		}
-	}
-}

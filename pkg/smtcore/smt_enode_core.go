@@ -37,7 +37,8 @@ type SMTEnode struct {
 	commutative, boolean, mergeTruthValue bool
 	congruenceEnabled                     bool
 	parents, arguments                    []*SMTEnode
-	parentOfMergeTarget                   bool // transient, one addEquality
+	parentOfMergeTarget                   bool                  // transient, one addEquality
+	disequalities                         []smtDisequalityEntry // meaningful on class roots
 	theoryVariables                       SMTTheoryVarList
 	trans                                 SMTTransJustification
 	labelHash                             int8
@@ -165,6 +166,59 @@ func (n *SMTEnode) Arg(index uint32) (*SMTEnode, error) {
 func (n *SMTEnode) OwnerID() (uint32, error)       { return n.manager.GetASTID(n.owner) }
 func (n *SMTEnode) DeclarationID() (uint32, error) { return n.manager.GetASTID(n.declaration) }
 func (n *SMTEnode) Hash() (uint32, error)          { return n.manager.GetHash(n.owner) }
+
+// smtDisequalityEntry records a disequality's own terms. Their current roots
+// give the classes it separates, so merges need not rewrite any entry.
+type smtDisequalityEntry struct {
+	left, right *SMTEnode
+	reason      SMTLiteral
+}
+
+func (e *smtDisequalityEntry) otherRoot(root *SMTEnode) *SMTEnode {
+	if e.left.root == root {
+		return e.right.root
+	}
+	return e.left.root
+}
+
+// smtFindDisequality scans the shorter root list, newest first, so the latest
+// reason recorded between two classes wins.
+func smtFindDisequality(first, second *SMTEnode) (*smtDisequalityEntry, bool) {
+	if first == nil || second == nil || first.root == nil || second.root == nil || first.root == second.root {
+		return nil, false
+	}
+	near, far := first.root, second.root
+	if len(near.disequalities) > len(far.disequalities) {
+		near, far = far, near
+	}
+	for i := len(near.disequalities) - 1; i >= 0; i-- {
+		entry := &near.disequalities[i]
+		if entry.otherRoot(near) == far {
+			return entry, true
+		}
+	}
+	return nil, false
+}
+
+// truncateDisequalities ignores lengths above the current one: a scope pop undoes
+// merges and disequalities on separate trails, and either can reach a root first.
+func (n *SMTEnode) truncateDisequalities(length int) {
+	if length < len(n.disequalities) {
+		clear(n.disequalities[length:])
+		n.disequalities = n.disequalities[:length]
+	}
+}
+
+func (n *SMTEnode) removeDisequalitiesWith(other *SMTEnode) {
+	kept := n.disequalities[:0]
+	for _, entry := range n.disequalities {
+		if entry.otherRoot(n) != other {
+			kept = append(kept, entry)
+		}
+	}
+	clear(n.disequalities[len(kept):])
+	n.disequalities = kept
+}
 
 func (n *SMTEnode) IsTrueEquality() bool {
 	return n.equality && len(n.arguments) == 2 && n.arguments[0].root == n.arguments[1].root

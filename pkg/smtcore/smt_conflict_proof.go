@@ -714,12 +714,8 @@ func (b *smtConflictProofBuilder) dynamicAckProof(justification *smtDynamicAckJu
 // conflictProof then resolves it against that literal, as in the source's
 // equality propagation followed by Boolean conflict resolution.
 func (b *smtConflictProofBuilder) disequalityConflictProof(value *SMTDisequalityConflictJustification) (ast.ASTHandle, error) {
-	key, err := smtCheckerPair(value.First.root, value.Second.root)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	literal, found := b.state.disequalityReasons[key]
-	if !found || !literal.Sign() {
+	literal := value.Reason
+	if literal == SMTNullLiteral || !literal.Sign() {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
 	expression, err := b.state.BoolExpression(literal.Var())

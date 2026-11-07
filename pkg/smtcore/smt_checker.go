@@ -11,13 +11,13 @@ import (
 // The complete SMT context can own this component and update it as terms are
 // internalized, assigned, and merged.
 type SMTCheckerContext struct {
-	manager       *ast.ASTManager
-	relevancy     *SMTRelevancyPropagator
-	relevant      map[ast.ASTHandle]bool
-	assignments   map[ast.ASTHandle]lbool.LBool
-	enodes        map[ast.ASTHandle]*SMTEnode
-	byDeclaration map[ast.ASTHandle][]*SMTEnode
-	disequalities map[smtEnodePairKey]struct{}
+	manager          *ast.ASTManager
+	relevancy        *SMTRelevancyPropagator
+	relevant         map[ast.ASTHandle]bool
+	assignments      map[ast.ASTHandle]lbool.LBool
+	enodes           map[ast.ASTHandle]*SMTEnode
+	byDeclaration    map[ast.ASTHandle][]*SMTEnode
+	disequalityTrail []smtDisequalityUndo
 }
 
 // Source context::is_relevant includes all expressions when filtering is
@@ -36,7 +36,7 @@ func NewSMTCheckerContext(manager *ast.ASTManager) (*SMTCheckerContext, error) {
 	return &SMTCheckerContext{
 		manager: manager, relevant: make(map[ast.ASTHandle]bool),
 		assignments: make(map[ast.ASTHandle]lbool.LBool), enodes: make(map[ast.ASTHandle]*SMTEnode),
-		byDeclaration: make(map[ast.ASTHandle][]*SMTEnode), disequalities: make(map[smtEnodePairKey]struct{}),
+		byDeclaration: make(map[ast.ASTHandle][]*SMTEnode),
 	}, nil
 }
 
@@ -86,53 +86,48 @@ func (c *SMTCheckerContext) RegisterEnode(node *SMTEnode, relevant bool) error {
 	return nil
 }
 
-func smtCheckerPair(first, second *SMTEnode) (smtEnodePairKey, error) {
-	if first == nil || second == nil || first.manager == nil || first.manager != second.manager {
-		return smtEnodePairKey{}, ast.ErrASTDomain
-	}
-	first, second = first.root, second.root
-	if first == nil || second == nil || first == second {
-		return smtEnodePairKey{}, ast.ErrASTDomain
-	}
-	firstID, err := first.OwnerID()
-	if err != nil {
-		return smtEnodePairKey{}, err
-	}
-	secondID, err := second.OwnerID()
-	if err != nil {
-		return smtEnodePairKey{}, err
-	}
-	if firstID > secondID {
-		first, second = second, first
-	}
-	return smtEnodePairKey{first: first, second: second}, nil
-}
-
 func (c *SMTCheckerContext) SetDisequal(first, second *SMTEnode, disequal bool) error {
 	if c == nil || c.manager == nil {
 		return ast.ErrASTHandle
 	}
-	key, err := smtCheckerPair(first, second)
-	if err != nil {
-		return err
-	}
-	if key.first.manager != c.manager {
+	if first == nil || second == nil || first.manager != c.manager || second.manager != c.manager || first.root == nil || second.root == nil || first.root == second.root {
 		return ast.ErrASTDomain
 	}
+	r1, r2 := first.root, second.root
 	if disequal {
-		c.disequalities[key] = struct{}{}
-	} else {
-		delete(c.disequalities, key)
+		c.recordDisequality(smtDisequalityEntry{left: first, right: second, reason: SMTNullLiteral})
+		return nil
+	}
+	r1.removeDisequalitiesWith(r2)
+	r2.removeDisequalitiesWith(r1)
+	return nil
+}
+
+// recordDisequality files an entry on both current roots, undone by scope pops.
+func (c *SMTCheckerContext) recordDisequality(entry smtDisequalityEntry) {
+	r1, r2 := entry.left.root, entry.right.root
+	c.disequalityTrail = append(c.disequalityTrail, smtDisequalityUndo{r1, len(r1.disequalities)}, smtDisequalityUndo{r2, len(r2.disequalities)})
+	r1.disequalities = append(r1.disequalities, entry)
+	r2.disequalities = append(r2.disequalities, entry)
+}
+
+// undoDisequalities restores the root lists to a trail length from a scope.
+func (c *SMTCheckerContext) undoDisequalities(limit int) error {
+	if limit < 0 || limit > len(c.disequalityTrail) {
+		return ast.ErrASTDomain
+	}
+	for len(c.disequalityTrail) > limit {
+		index := len(c.disequalityTrail) - 1
+		entry := c.disequalityTrail[index]
+		entry.root.truncateDisequalities(entry.length)
+		c.disequalityTrail[index] = smtDisequalityUndo{}
+		c.disequalityTrail = c.disequalityTrail[:index]
 	}
 	return nil
 }
 
 func (c *SMTCheckerContext) isDisequal(first, second *SMTEnode) bool {
-	key, err := smtCheckerPair(first, second)
-	if err != nil {
-		return false
-	}
-	_, found := c.disequalities[key]
+	_, found := smtFindDisequality(first, second)
 	return found
 }
 

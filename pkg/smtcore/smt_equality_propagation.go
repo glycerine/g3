@@ -24,7 +24,7 @@ func cloneSMTTheoryVariables(source SMTTheoryVarList) SMTTheoryVarList {
 // proof tree are derived again on undo, so one merge costs one fixed trail entry.
 func (s *SMTInternalizerState) recordEqualityUndo(r1, left, r2 *SMTEnode) {
 	s.equalityTrail = append(s.equalityTrail, smtEqualityUndo{
-		r1: r1, left: left, r2: r2, r2NumParents: len(r2.parents), theoryLimit: len(s.theoryTrail),
+		r1: r1, left: left, r2: r2, r2NumParents: len(r2.parents), r2NumDisequalities: len(r2.disequalities), theoryLimit: len(s.theoryTrail),
 		r2TheoryVariables: cloneSMTTheoryVariables(r2.theoryVariables),
 	})
 }
@@ -68,6 +68,7 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 			}
 			clear(r2.parents[entry.r2NumParents:])
 			r2.parents = r2.parents[:entry.r2NumParents]
+			r2.truncateDisequalities(entry.r2NumDisequalities)
 			entry.left.trans = SMTTransJustification{Justification: NullSMTEqualityJustification()}
 			smtInvertTrans(r1)
 		}
@@ -144,12 +145,8 @@ func (s *SMTInternalizerState) addDisequality(left, right *SMTEnode, literal SMT
 		}
 		return s.setEqualityConflict(justification, literal)
 	}
-	key, err := smtCheckerPair(left, right)
-	if err != nil {
-		return err
-	}
-	s.context.disequalities[key] = struct{}{}
-	s.disequalityReasons[key] = literal
+	s.context.recordDisequality(smtDisequalityEntry{left: left, right: right, reason: literal})
+	var err error
 	for item := &left.root.theoryVariables; item != nil && item.theory != SMTNullTheoryID; item = item.next {
 		variable := s.theoryVariableNear(left, item.theory)
 		other := s.theoryVariableNear(right, item.theory)
@@ -244,47 +241,6 @@ func (s *SMTInternalizerState) mergeTheoryVariables(from, to *SMTEnode, justific
 			if err := pushDisequalities(r2, item.theory, variable); err != nil {
 				return err
 			}
-		}
-	}
-	return nil
-}
-
-func (s *SMTInternalizerState) remapDisequalities(from *SMTEnode) error {
-	type update struct {
-		old, next smtEnodePairKey
-		reason    SMTLiteral
-		collapsed bool
-	}
-	var changed []update
-	for key := range s.context.disequalities {
-		if key.first != from && key.second != from {
-			continue
-		}
-		if key.first.root == key.second.root {
-			proof, err := NewSMTEqualityPropagationJustification(key.first, key.second)
-			if err != nil {
-				return fmt.Errorf("make collapsed disequality proof: %w", err)
-			}
-			if err = s.setEqualityConflict(proof, s.disequalityReasons[key]); err != nil {
-				return err
-			}
-			changed = append(changed, update{old: key, collapsed: true})
-			continue
-		}
-		mapped, err := smtCheckerPair(key.first, key.second)
-		if err != nil {
-			return fmt.Errorf("map disequality roots: %w", err)
-		}
-		changed = append(changed, update{old: key, next: mapped, reason: s.disequalityReasons[key]})
-	}
-	for _, u := range changed {
-		delete(s.context.disequalities, u.old)
-		delete(s.disequalityReasons, u.old)
-	}
-	for _, u := range changed {
-		if !u.collapsed {
-			s.context.disequalities[u.next] = struct{}{}
-			s.disequalityReasons[u.next] = u.reason
 		}
 	}
 	return nil
@@ -524,29 +480,6 @@ func (s *SMTInternalizerState) propagateEqualityClassRelevancy(first, second *SM
 	return nil
 }
 
-// disequalityAtomTerms returns the enodes of the equality atom behind a
-// disequality reason, so a conflict can explain how they reached their roots.
-func (s *SMTInternalizerState) disequalityAtomTerms(reason SMTLiteral) (*SMTEnode, *SMTEnode, error) {
-	variable := reason.Var()
-	if variable < SMTFirstBoolVar || int(variable) >= len(s.boolExpr) {
-		return nil, nil, nil
-	}
-	atom := s.boolExpr[variable]
-	count, err := s.manager.GetNumArgs(atom)
-	if err != nil || count != 2 {
-		return nil, nil, err
-	}
-	first, err := s.manager.GetArg(atom, 0)
-	if err != nil {
-		return nil, nil, err
-	}
-	second, err := s.manager.GetArg(atom, 1)
-	if err != nil {
-		return nil, nil, err
-	}
-	return s.context.enodes[first], s.context.enodes[second], nil
-}
-
 func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification SMTEqualityJustification) error {
 	if left == nil || right == nil || left.manager != s.manager || right.manager != s.manager {
 		return ast.ErrASTDomain
@@ -556,17 +489,13 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 	if r1 == r2 {
 		return nil
 	}
-	if s.context.isDisequal(r1, r2) {
+	if entry, found := smtFindDisequality(r1, r2); found {
 		proof, err := NewSMTDisequalityConflictJustification(left, right, justification)
 		if err != nil {
 			return err
 		}
-		key, _ := smtCheckerPair(r1, r2)
-		reason := s.disequalityReasons[key]
-		if proof.DiseqLeft, proof.DiseqRight, err = s.disequalityAtomTerms(reason); err != nil {
-			return err
-		}
-		return s.setEqualityConflict(proof, reason)
+		proof.DiseqLeft, proof.DiseqRight, proof.Reason = entry.left, entry.right, entry.reason
+		return s.setEqualityConflict(proof, entry.reason)
 	}
 	if r1.interpreted && r2.interpreted {
 		proof, err := NewSMTEqualityConflictJustification(left, right, justification)
@@ -600,6 +529,7 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 	}
 	r1.next, r2.next = r2.next, r1.next
 	r2.classSize += r1.classSize
+	r2.disequalities = append(r2.disequalities, r1.disequalities...)
 	if err := s.reinsertCongruenceParents(r1, r2); err != nil {
 		return fmt.Errorf("reinsert congruence parents: %w", err)
 	}
@@ -611,9 +541,6 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 	}
 	if s.inconsistent {
 		return nil
-	}
-	if err := s.remapDisequalities(r1); err != nil {
-		return fmt.Errorf("remap disequalities: %w", err)
 	}
 	return nil
 }

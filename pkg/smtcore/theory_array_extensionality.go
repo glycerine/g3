@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 type smtArrayEnodePair struct{ first, second *SMTEnode }
@@ -224,39 +223,7 @@ func (t *SMTArrayTheory) hasRelevantDisequality(first, second *SMTEnode) (bool, 
 	if err != nil {
 		return false, err
 	}
-	for variable := SMTFirstBoolVar; int(variable) < len(s.boolExpr); variable++ {
-		expression := s.boolExpr[variable]
-		op, basic, err := s.basicOperation(expression)
-		if err != nil {
-			return false, err
-		}
-		if !basic || op != ast.ASTOpEq && op != ast.ASTOpIff || s.relevancy != nil && !s.relevancy.IsRelevant(expression) {
-			continue
-		}
-		value, err := s.Assignment(NewSMTLiteral(variable, false))
-		if err != nil {
-			return false, err
-		}
-		if value != lbool.False {
-			continue
-		}
-		a, err := s.manager.GetArg(expression, 0)
-		if err != nil {
-			return false, err
-		}
-		b, err := s.manager.GetArg(expression, 1)
-		if err != nil {
-			return false, err
-		}
-		left, right := s.context.enodes[a], s.context.enodes[b]
-		if left == nil || right == nil {
-			continue
-		}
-		if left.root == first.root && right.root == second.root || left.root == second.root && right.root == first.root {
-			return true, nil
-		}
-	}
-	return false, nil
+	return s.hasRelevantFalseEquality(first, second)
 }
 
 func (t *SMTArrayTheory) CanPropagate() bool {

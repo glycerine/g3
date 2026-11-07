@@ -47,8 +47,7 @@ type smtInternalizerScope struct {
 	inconsistent         bool
 	conflict             SMTBooleanJustification
 	conflictLiteral      SMTLiteral
-	disequalities        map[smtEnodePairKey]struct{}
-	disequalityReasons   map[smtEnodePairKey]SMTLiteral
+	disequalityLimit     int
 }
 
 type smtInternalizerAssignmentTrail struct {
@@ -71,14 +70,21 @@ type smtInternalizerNotifyTrail struct {
 	theory   SMTTheoryID
 }
 
+// smtDisequalityUndo restores one root's disequality list length.
+type smtDisequalityUndo struct {
+	root   *SMTEnode
+	length int
+}
+
 // smtEqualityUndo is one source add_eq_trail entry.
 type smtEqualityUndo struct {
-	r1, left, r2      *SMTEnode
-	r2NumParents      int
-	theoryLimit       int
-	r2TheoryVariables SMTTheoryVarList
-	merged            bool
-	stage             uint8
+	r1, left, r2       *SMTEnode
+	r2NumParents       int
+	r2NumDisequalities int
+	theoryLimit        int
+	r2TheoryVariables  SMTTheoryVarList
+	merged             bool
+	stage              uint8
 }
 
 type SMTTheoryPropagation struct {
@@ -169,7 +175,8 @@ type SMTInternalizerState struct {
 	pending                    []smtPendingEquality
 	pendingHead                int
 	equalityTrail              []smtEqualityUndo
-	disequalityReasons         map[smtEnodePairKey]SMTLiteral
+	equalityAtomsByTerm        map[ast.ASTHandle][]int32
+	equalityAtomCursor         int
 	dynamicAck                 *smtDynAckManager
 	assignmentTrail            []smtInternalizerAssignmentTrail
 	theoryTrail                []smtInternalizerTheoryTrail
@@ -228,7 +235,7 @@ func NewSMTInternalizerState(manager *ast.ASTManager, context *SMTCheckerContext
 		boolVar: make(map[ast.ASTHandle]int32), boolExpr: make([]ast.ASTHandle, 1), booleanData: make([]SMTBoolVarData, 1), booleanCreation: make([]uint64, 1),
 		activity: make([]float64, 1), assignment: []lbool.LBool{lbool.True, lbool.False}, watches: make([]SMTWatchList, 2),
 		cachedGeneration: make(map[ast.ASTHandle]uint32), theories: make(map[ast.FamilyID]SMTTheoryInternalizer),
-		disequalityReasons:    make(map[smtEnodePairKey]SMTLiteral),
+		equalityAtomsByTerm:   make(map[ast.ASTHandle][]int32),
 		conflictLiteral:       SMTNullLiteral,
 		activityIncrement:     1,
 		activityInverseDecay:  1.052,
@@ -777,14 +784,6 @@ func (s *SMTInternalizerState) PushScope() error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	disequalities := make(map[smtEnodePairKey]struct{}, len(s.context.disequalities))
-	for key := range s.context.disequalities {
-		disequalities[key] = struct{}{}
-	}
-	reasons := make(map[smtEnodePairKey]SMTLiteral, len(s.disequalityReasons))
-	for key, literal := range s.disequalityReasons {
-		reasons[key] = literal
-	}
 	s.scopes = append(s.scopes, smtInternalizerScope{
 		goalQueue:     s.relevanceGoal.snapshot(s.scopeLevel),
 		relevanceFIFO: s.relevanceFIFO.snapshot(),
@@ -795,9 +794,9 @@ func (s *SMTInternalizerState) PushScope() error {
 		equalityLimit:   len(s.equalityTrail),
 		assignmentLimit: len(s.assignmentTrail), clauseLimit: len(s.clauses), justificationLimit: len(s.ownedJustifications), theoryLimit: len(s.theoryTrail), inconsistent: s.inconsistent,
 		assignedLimit: len(s.assignedLiterals), propagationHead: s.propagationHead, relevancyBatch: s.relevancyBatch, conflict: s.conflict,
-		conflictLiteral: s.conflictLiteral,
-		disequalities:   disequalities, disequalityReasons: reasons,
-		theoryEqLimit: len(s.theoryEqualities), theoryEqHead: s.theoryEqualityHead,
+		conflictLiteral:  s.conflictLiteral,
+		disequalityLimit: len(s.context.disequalityTrail),
+		theoryEqLimit:    len(s.theoryEqualities), theoryEqHead: s.theoryEqualityHead,
 		theoryDiseqLimit: len(s.theoryDisequalities), theoryDiseqHead: s.theoryDisequalityHead,
 		atomHead: s.atomPropagationHead, notifyLimit: len(s.notifyTrail), simplifyHead: s.simplifyHead,
 		enodeFlagLimit:    len(s.enodeFlagTrail),
@@ -955,12 +954,8 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 		*entry = smtEqualityUndo{}
 		s.equalityTrail = s.equalityTrail[:index]
 	}
-	if scope.disequalities == nil {
-		s.context.disequalities = make(map[smtEnodePairKey]struct{})
-		s.disequalityReasons = make(map[smtEnodePairKey]SMTLiteral)
-	} else {
-		s.context.disequalities = scope.disequalities
-		s.disequalityReasons = scope.disequalityReasons
+	if err := s.context.undoDisequalities(scope.disequalityLimit); err != nil {
+		return err
 	}
 	if err := s.undoTheoryAttachments(scope.theoryLimit); err != nil {
 		return err
@@ -1134,6 +1129,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 					}
 				}
 			}
+			s.unindexEqualityAtom(variable, expression)
 			delete(s.boolVar, expression)
 			delete(s.context.assignments, expression)
 			if s.relevancy == nil {
