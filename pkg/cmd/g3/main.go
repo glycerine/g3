@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 
 	"github.com/glycerine/g3/pkg/api"
 	"github.com/glycerine/g3/pkg/cmd_context"
@@ -209,7 +210,22 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 	return fmt.Errorf("selected input frontend %s is not ported yet", shell.InputKindName(kind))
 }
 
+// defaultGCPercent trades heap for time in this short-lived process: it measured
+// up to 30% faster for 1.2 to 2.2 times the resident memory.
+const defaultGCPercent = 400
+
+// configureGC applies the default unless the user set GOGC, and reports whether
+// it did. Library users of the solver packages keep their own GC settings.
+func configureGC(lookup func(string) (string, bool), set func(int) int) bool {
+	if _, chosen := lookup("GOGC"); chosen {
+		return false
+	}
+	set(defaultGCPercent)
+	return true
+}
+
 func main() {
+	configureGC(os.LookupEnv, debug.SetGCPercent)
 	if err := runArgumentsWithDiagnostics(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
 		var commandError *shell.CommandLineError
 		if errors.As(err, &commandError) {
