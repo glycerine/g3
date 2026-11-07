@@ -30,10 +30,6 @@ type SMTKernelAssertion struct {
 }
 
 type SMTKernel struct {
-	univariateNRA      *smtNRAWorkspace
-	nraInputs          []ast.ASTRef
-	nraScopes          []int
-	nraInputsValid     bool
 	queueWarnings      *diagnostic.WarningService // Borrowed factory diagnostics; nil uses process warnings.
 	caseSplitQueue     *SMTActivityCaseSplitQueue
 	booleanSetupSeeded bool
@@ -162,7 +158,6 @@ func NewSMTKernel(manager *ast.ASTManager, quantifiers *SMTQuantifierRegistry) (
 		return nil, errors.Join(err, names.Close(), macroManager.Close(), manager.DelRef(&proof), internalizer.Close())
 	}
 	kernel := &SMTKernel{
-		nraInputsValid: true,
 		manager:        manager, checker: checker, relevancy: relevancy, internalizer: internalizer, unsatProof: proof, assertedMacros: macroManager, definedNames: names, bvSharing: sharing,
 		smtState: SMTParamsState{
 			MaxConflicts: ^uint32(0), InvDecay: 1.052, RandomInitialActivity: 1, RandomVarFreq: 0.01, CaseSplitStrategy: 1, RestartStrategy: 1, RestartInitial: 100, RestartFactor: 1.1,
@@ -677,19 +672,7 @@ func (k *SMTKernel) Assert(formula, proof ast.ASTHandle) (err error) {
 	if err := k.open(); err != nil {
 		return err
 	}
-	if (k.setupLogic != "QF_NRA" && k.setupLogic != "QF_NIA") || !k.nraInputsValid || k.assertedFormulasInconsistent() {
-		return k.assertFormulaCore(formula, proof)
-	}
-	ref, err := k.manager.NewRef(formula)
-	if err != nil {
-		return err
-	}
-	if err = k.assertFormulaCore(formula, proof); err != nil {
-		k.nraInputsValid = false
-		return errors.Join(err, k.manager.DelRef(&ref))
-	}
-	k.nraInputs = append(k.nraInputs, ref)
-	return nil
+	return k.assertFormulaCore(formula, proof)
 }
 func (k *SMTKernel) assertFormulaCore(formula, proof ast.ASTHandle) (resultErr error) {
 	if err := k.open(); err != nil {
@@ -944,7 +927,6 @@ func (k *SMTKernel) Push() error {
 		return errors.Join(err, k.internalizer.PopScopes(1), k.bvSharing.PopScope(1), k.definedNames.Pop(1), k.assertedMacros.PopScope(1), k.manager.ScopedExprSubstitutionPop(k.assertedScopedSubst, 1))
 	}
 	k.scopes = append(k.scopes, len(k.assertions))
-	k.nraScopes = append(k.nraScopes, len(k.nraInputs))
 	k.assertedScopeConflicts = append(k.assertedScopeConflicts, k.assertedInconsistent)
 	if err := k.assertedSourceAssertion(184, "inconsistent() || s.m_formulas_lim == m_qhead || m.canceled()", func() (bool, error) {
 		if k.assertedInconsistent || k.scopes[len(k.scopes)-1] == k.assertedHead {
@@ -979,7 +961,7 @@ func (k *SMTKernel) Pop(count uint32) error {
 			return err
 		}
 		level := len(k.scopes) - int(count)
-		k.pendingPop = &smtKernelPendingPop{count: count, level: level, assertions: k.scopes[level], nraInputs: k.nraScopes[level]}
+		k.pendingPop = &smtKernelPendingPop{count: count, level: level, assertions: k.scopes[level]}
 	}
 	pop := k.pendingPop
 	if pop.stage == smtKernelPopInternalizer {
@@ -1031,14 +1013,7 @@ func (k *SMTKernel) Pop(count uint32) error {
 		}
 		pop.stage++
 	}
-	if pop.stage == smtKernelPopNRAInputs {
-		if err := k.restoreNRAInputs(pop.nraInputs); err != nil {
-			return err
-		}
-		pop.stage++
-	}
 	if pop.stage == smtKernelPopPublish {
-		k.nraScopes = k.nraScopes[:pop.level]
 		k.scopes = k.scopes[:pop.level]
 		k.assertedInconsistent = k.assertedScopeConflicts[pop.level]
 		k.assertedScopeConflicts = k.assertedScopeConflicts[:pop.level]
@@ -1056,7 +1031,6 @@ const (
 	smtKernelPopDefinedNames
 	smtKernelPopSubstitution
 	smtKernelPopAssertions
-	smtKernelPopNRAInputs
 	smtKernelPopPublish
 	smtKernelPopFinish
 )
@@ -1065,7 +1039,7 @@ const (
 // between owners, so the next call resumes the same source-order operation.
 type smtKernelPendingPop struct {
 	count                        uint32
-	level, assertions, nraInputs int
+	level, assertions int
 	stage                        smtKernelPopStage
 }
 
@@ -1209,9 +1183,6 @@ func (k *SMTKernel) Check() (result lbool.LBool, resultErr error) {
 	}
 	if len(assumptions) != 0 {
 		return k.checkConfiguredAssumptions(assumptions)
-	}
-	if result, handled, err := k.tryNLSAT(); handled || err != nil {
-		return k.finalizeCheck(result, err)
 	}
 	if err := k.internalizeCheckAssertions(); err != nil {
 		return lbool.Undef, err
@@ -1467,15 +1438,6 @@ func (k *SMTKernel) Close() error {
 		return ast.ErrASTHandle
 	}
 	k.closing = true
-	if k.univariateNRA != nil {
-		if err := k.univariateNRA.Close(); err != nil {
-			return err
-		}
-		k.univariateNRA = nil
-	}
-	if err := k.restoreNRAInputs(0); err != nil {
-		return err
-	}
 	// Source destruction has no failing release. The Go owners can refuse;
 	// leave later dependencies live and remember every completed child.
 	if err := k.clearLiteralResults(); err != nil {

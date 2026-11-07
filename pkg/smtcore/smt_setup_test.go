@@ -274,8 +274,10 @@ func TestSMTUnknownLogicSetupInstallsMixedArithmetic(t *testing.T) {
 			astTestMust(t, solver.Assert(positive))
 			status, err := smtSetupProfileCheck(solver)
 			astTestMust(t, err)
+			// z3 4.7.1's smt kernel (no NLSAT inside it): x*x > 0 is sat over
+			// the integers and unknown over the reals.
 			want := lbool.Undef
-			if test.integer || test.logic == "QF_NRA" {
+			if test.integer {
 				want = lbool.True
 			}
 			if status != want {

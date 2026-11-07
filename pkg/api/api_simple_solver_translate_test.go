@@ -1112,7 +1112,10 @@ func TestAPITacticSolverTranslateDegreeShiftAfterSourceClose(t *testing.T) {
 	for _, owner := range []*APITactic{combined, smt, shift} {
 		astTestMust(t, owner.Close())
 	}
-	astTestMust(t, solver.LoadSMT2String("(declare-const x Real) (assert (= (* x x) 4)) (assert (> x 0))"))
+	// Every occurrence of x is in x*x, so degree-shift applies to the whole
+	// goal; z3 4.7.1's (then degree-shift smt) answers sat. With (> x 0) the
+	// shifted goal is unknown to the smt core, in z3 as well.
+	astTestMust(t, solver.LoadSMT2String("(declare-const x Real) (assert (= (* x x) 4)) (assert (> (* x x) 3))"))
 	translated, err := solver.Translate(target)
 	astTestMust(t, err)
 	defer func() { astTestMust(t, translated.Close()) }()

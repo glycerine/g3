@@ -23,7 +23,7 @@ func TestSMTKernelPopResumesNativeOwnerFrontiers(t *testing.T) {
 	}{
 		{smtKernelPopBVSharing, ""}, {smtKernelPopMacros, ""},
 		{smtKernelPopDefinedNames, ""}, {smtKernelPopSubstitution, ""},
-		{smtKernelPopAssertions, ""}, {smtKernelPopNRAInputs, ""},
+		{smtKernelPopAssertions, ""},
 		{smtKernelPopFinish, ""}, {smtKernelPopFinish, "assignments"},
 		{smtKernelPopFinish, "relevant"}, {smtKernelPopFinish, "labeled"},
 		{smtKernelPopFinish, "guessed"}, {smtKernelPopFinish, "unsat-core"},
@@ -79,9 +79,6 @@ func TestSMTKernelPopResumesNativeOwnerFrontiers(t *testing.T) {
 				p := smtRelevancyBool(t, m, "kernel-pop-frontier")
 				astTestMust(t, s.Assert(p))
 				k := s.kernel
-				root, err := m.NewRef(p)
-				astTestMust(t, err)
-				k.nraInputs = append(k.nraInputs, root)
 
 				// Reach each exact boundary using the real child owners. Keeping
 				// the parent scope published models a refusal between children.
@@ -115,10 +112,8 @@ func TestSMTKernelPopResumesNativeOwnerFrontiers(t *testing.T) {
 				if stage > smtKernelPopAssertions {
 					astTestMust(t, k.restoreAssertions(0))
 				}
-				if stage > smtKernelPopNRAInputs {
-					astTestMust(t, k.restoreNRAInputs(0))
+				if stage > smtKernelPopAssertions {
 					k.scopes = nil
-					k.nraScopes = nil
 					k.assertedScopeConflicts = nil
 				}
 				k.pendingPop = &smtKernelPendingPop{count: 1, stage: stage}
@@ -189,7 +184,7 @@ func TestSMTKernelPopResumesNativeOwnerFrontiers(t *testing.T) {
 				astTestMust(t, s.Pop(1))
 				level, err = s.ScopeLevel()
 				astTestMust(t, err)
-				if level != 0 || k.ScopeLevel() != 0 || k.pendingPop != nil || len(k.assertions) != 0 || len(k.nraInputs) != 0 {
+				if level != 0 || k.ScopeLevel() != 0 || k.pendingPop != nil || len(k.assertions) != 0 {
 					t.Fatal("scope retry left owners or bookkeeping", level, k.ScopeLevel(), k.pendingPop)
 				}
 				astTestMust(t, s.Push())
@@ -199,26 +194,24 @@ func TestSMTKernelPopResumesNativeOwnerFrontiers(t *testing.T) {
 	}
 }
 
-func TestSMTKernelPendingPopRejectsNRABeforeAcquiringInputs(t *testing.T) {
+func TestSMTKernelPendingPopRejectsAssertionWithoutAcquiringIt(t *testing.T) {
 	m, s := smtSolverFixture(t)
 	astTestMust(t, s.Push())
 	k := s.kernel
-	k.setupLogic = "QF_NRA"
-	k.nraInputsValid = true
 	k.pendingPop = &smtKernelPendingPop{count: 1}
-	p := smtRelevancyBool(t, m, "pending-nra-input")
+	p := smtRelevancyBool(t, m, "pending-assertion")
 	root, err := m.NewRef(p)
 	astTestMust(t, err)
 	defer func() { astTestMust(t, m.DelRef(&root)) }()
 	before, err := m.GetRefCount(p)
 	astTestMust(t, err)
 	if err := k.Assert(p, ast.ASTHandle{}); !errors.Is(err, ast.ErrASTPending) {
-		t.Fatal("pending pop accepted an NRA assertion", err)
+		t.Fatal("pending pop accepted an assertion", err)
 	}
 	after, err := m.GetRefCount(p)
 	astTestMust(t, err)
-	if !k.nraInputsValid || len(k.nraInputs) != 0 || before != after {
-		t.Fatal("refused assertion changed NRA ownership", k.nraInputsValid, len(k.nraInputs), before, after)
+	if before != after {
+		t.Fatal("refused assertion changed ownership", before, after)
 	}
 	astTestMust(t, s.Pop(1))
 }

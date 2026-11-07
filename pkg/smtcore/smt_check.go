@@ -29,12 +29,6 @@ func (k *SMTKernel) checkPreamble(countCheck bool) (bool, error) {
 	if err := k.open(); err != nil {
 		return false, err
 	}
-	if k.univariateNRA != nil {
-		if err := k.univariateNRA.Close(); err != nil {
-			return false, err
-		}
-		k.univariateNRA = nil
-	}
 
 	if err := k.clearLiteralResults(); err != nil {
 		return false, err
@@ -96,9 +90,6 @@ func (k *SMTKernel) SetupAndCheck() (result lbool.LBool, resultErr error) {
 			return lbool.Undef, err
 		}
 		return k.checkConfiguredAssumptions(assumptions)
-	}
-	if result, handled, err := k.tryNLSAT(); handled || err != nil {
-		return k.finalizeCheck(result, err)
 	}
 	if err := k.internalizeCheckAssertions(); err != nil {
 		return lbool.Undef, err
