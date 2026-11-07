@@ -36,6 +36,26 @@ func ShouldAckermannize(m *ast.ASTManager, term ast.ASTHandle) (bool, error) {
 
 type termGroups map[ast.ASTHandle]map[ast.ASTHandle]bool
 
+// declarations and sortedTerms give the groups a stable order, since the order
+// here picks abstraction names and the order of Ackermann lemmas.
+func (g termGroups) declarations() []ast.ASTHandle {
+	keys := make([]ast.ASTHandle, 0, len(g))
+	for key := range g {
+		keys = append(keys, key)
+	}
+	ast.SortHandles(keys)
+	return keys
+}
+
+func sortedTerms(terms map[ast.ASTHandle]bool) []ast.ASTHandle {
+	keys := make([]ast.ASTHandle, 0, len(terms))
+	for key := range terms {
+		keys = append(keys, key)
+	}
+	ast.SortHandles(keys)
+	return keys
+}
+
 func (g termGroups) bound() float64 {
 	var result float64
 	for _, terms := range g {

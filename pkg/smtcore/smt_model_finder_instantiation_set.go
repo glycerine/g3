@@ -4,6 +4,7 @@ package smtcore
 
 import (
 	"errors"
+	"slices"
 
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
@@ -167,7 +168,13 @@ func (s *smtModelFinderInstantiationSet) Remove(term ast.ASTHandle) error {
 }
 
 func (s *smtModelFinderInstantiationSet) clearInverse() (result error) {
-	for value, ref := range s.inverseRefs {
+	inverses := make([]ast.ASTHandle, 0, len(s.inverseRefs))
+	for value := range s.inverseRefs {
+		inverses = append(inverses, value)
+	}
+	ast.SortHandles(inverses)
+	for _, value := range inverses {
+		ref := s.inverseRefs[value]
 		err := s.manager.DelRef(&ref)
 		if ref == (ast.ASTRef{}) {
 			delete(s.inverseRefs, value)
@@ -192,7 +199,8 @@ func (s *smtModelFinderInstantiationSet) MakeInverse(model *protomodel.ProtoMode
 	if err := s.clearInverse(); err != nil {
 		return err
 	}
-	for term, generation := range s.elements {
+	for _, term := range s.orderedElements() {
+		generation := s.elements[term]
 		valueRef, err := s.manager.NewRef(ast.ASTHandle{})
 		if err != nil {
 			return err
@@ -239,6 +247,7 @@ func (s *smtModelFinderInstantiationSet) Values() ([]ast.ASTHandle, error) {
 	for value := range s.inverse {
 		result = append(result, value)
 	}
+	slices.SortFunc(result, smtCompareHandles)
 	return result, nil
 }
 
@@ -253,7 +262,13 @@ func (s *smtModelFinderInstantiationSet) Close() (result error) {
 		return ast.ErrASTHandle
 	}
 	result = s.clearInverse()
-	for term, ref := range s.references {
+	terms := make([]ast.ASTHandle, 0, len(s.references))
+	for term := range s.references {
+		terms = append(terms, term)
+	}
+	ast.SortHandles(terms)
+	for _, term := range terms {
+		ref := s.references[term]
 		err := s.manager.DelRef(&ref)
 		if ref == (ast.ASTRef{}) {
 			delete(s.references, term)

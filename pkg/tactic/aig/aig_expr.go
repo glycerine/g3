@@ -199,7 +199,13 @@ func (c *exprConverter) complete(fr exprFrame) error {
 
 func (c *exprConverter) cleanup() error {
 	var err error
-	for _, r := range c.cache {
+	expressions := make([]ast.ASTHandle, 0, len(c.cache))
+	for expression := range c.cache {
+		expressions = append(expressions, expression)
+	}
+	ast.SortHandles(expressions)
+	for _, expression := range expressions {
+		r := c.cache[expression]
 		c.manager.traceExprCacheDecRef(r.lit)
 		err = errors.Join(err, r.Close())
 	}

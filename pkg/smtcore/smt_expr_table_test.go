@@ -187,3 +187,38 @@ func TestExprTableLookupsDoNotAllocate(t *testing.T) {
 		t.Fatalf("%v allocations per lookup round", allocs)
 	}
 }
+
+func TestDeterministicOrderHelpersSort(t *testing.T) {
+	f := newSMTEqualityUndoFixture(t, "order-helpers", 8)
+	set := map[ast.ASTHandle]struct{}{}
+	for _, h := range f.base {
+		set[h] = struct{}{}
+	}
+	sorted := smtSortedHandleSet(set)
+	if len(sorted) != len(f.base) {
+		t.Fatal("lost handles", len(sorted))
+	}
+	for i := 1; i < len(sorted); i++ {
+		if smtCompareHandles(sorted[i-1], sorted[i]) >= 0 {
+			t.Fatal("not sorted", sorted)
+		}
+	}
+	nodes := map[*SMTEnode]ast.ASTHandle{nil: {}}
+	for _, h := range f.base {
+		nodes[f.s.context.enodes.get(h)] = h
+	}
+	roots := smtSortedEnodeKeys(nodes)
+	if len(roots) != len(f.base) {
+		t.Fatal("nil enode must be skipped", len(roots))
+	}
+	for i := 1; i < len(roots); i++ {
+		if smtCompareHandles(roots[i-1].owner, roots[i].owner) >= 0 {
+			t.Fatal("enodes not sorted")
+		}
+	}
+	first, second := f.base[0], f.base[1]
+	keys := smtSortedAUFKeys(map[smtModelFinderAUFKey]*smtModelFinderAUFNode{{second, 0}: nil, {first, 2}: nil, {first, 1}: nil})
+	if keys[0] != (smtModelFinderAUFKey{first, 1}) || keys[1] != (smtModelFinderAUFKey{first, 2}) || keys[2] != (smtModelFinderAUFKey{second, 0}) {
+		t.Fatal("AUF keys", keys)
+	}
+}

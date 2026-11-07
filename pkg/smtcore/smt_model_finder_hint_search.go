@@ -67,7 +67,7 @@ func (s *hintSearchState) updateSatisfiedResidue(f, def ast.ASTHandle) (bool, er
 		return false, ast.ErrASTDomain
 	}
 	useful := false
-	for q := range qFDef {
+	for _, q := range smtSortedHandleSet(qFDef) {
 		if s.satisfied.contains(q) {
 			continue
 		}
@@ -85,7 +85,7 @@ func (s *hintSearchState) updateSatisfiedResidue(f, def ast.ASTHandle) (bool, er
 	if !useful {
 		return false, nil
 	}
-	for q := range qF {
+	for _, q := range smtSortedHandleSet(qF) {
 		if !s.satisfied.contains(q) {
 			s.residue.insert(q)
 		}

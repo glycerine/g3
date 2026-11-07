@@ -187,7 +187,8 @@ func (r *eagerEncoder) collect() (bool, error) {
 }
 func (r *eagerEncoder) abstract() error {
 	m := r.owner.manager
-	for d, terms := range r.groups {
+	for _, d := range r.groups.declarations() {
+		terms := r.groups[d]
 		sort, err := m.GetRange(d)
 		if err != nil {
 			return err
@@ -200,7 +201,7 @@ func (r *eagerEncoder) abstract() error {
 		if err != nil {
 			return err
 		}
-		for term := range terms {
+		for _, term := range sortedTerms(terms) {
 			fresh, err := m.MkFreshConstNullable(&prefix, sort)
 			if err != nil {
 				return err
@@ -380,7 +381,8 @@ func (r *eagerEncoder) encode() error {
 	if err := r.emit("eager_enc", 133, func(w io.Writer) error { _, e := fmt.Fprintf(w, "#funs: %d\n", len(r.groups)); return e }); err != nil {
 		return err
 	}
-	for _, terms := range r.groups {
+	for _, d := range r.groups.declarations() {
+		terms := r.groups[d]
 		canceled, err := r.owner.manager.Canceled()
 		if err != nil {
 			return err
@@ -393,10 +395,7 @@ func (r *eagerEncoder) encode() error {
 				return err
 			}
 		}
-		var list []ast.ASTHandle
-		for t := range terms {
-			list = append(list, t)
-		}
+		list := sortedTerms(terms)
 		for i, first := range list {
 			for _, second := range list[i+1:] {
 				if first != second {

@@ -3,6 +3,8 @@ package ast
 // Source AST scalar/indexed readers. All public borrows remain handle values.
 
 import (
+	"slices"
+
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
@@ -47,6 +49,27 @@ func (m *ASTManager) sortOf(r astNodeRef) (astNodeRef, error) {
 			return astNodeRef{}, ErrASTDomain
 		}
 	}
+}
+
+// SortHandles orders handles by slot and generation. Go randomizes map iteration,
+// so loops releasing references from a map sort first: release order decides
+// slot and id reuse, and with them later term orders.
+func SortHandles(handles []ASTHandle) {
+	slices.SortFunc(handles, func(a, b ASTHandle) int {
+		if a.slot != b.slot {
+			if a.slot < b.slot {
+				return -1
+			}
+			return 1
+		}
+		if a.generation != b.generation {
+			if a.generation < b.generation {
+				return -1
+			}
+			return 1
+		}
+		return 0
+	})
 }
 
 // ASTNodeHeader is what callers usually read about one node, in one validated

@@ -14,7 +14,7 @@ import (
 func (g *smtModelFinderAUFGraph) collectPartialFunctions() ([]ast.ASTHandle, error) {
 	seen := make(map[ast.ASTHandle]bool)
 	var functions []ast.ASTHandle
-	for key := range g.arguments {
+	for _, key := range smtSortedAUFKeys(g.arguments) {
 		function := key.owner
 		if seen[function] {
 			continue

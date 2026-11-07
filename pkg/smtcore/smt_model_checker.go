@@ -79,8 +79,8 @@ func (c *SMTModelChecker) SetCandidateTerms(rootValues map[*SMTEnode]ast.ASTHand
 		return err
 	}
 	c.valueTerms = make(map[ast.ASTHandle]ast.ASTHandle, len(rootValues))
-	for root, value := range rootValues {
-		if root != nil && !value.IsNull() {
+	for _, root := range smtSortedEnodeKeys(rootValues) {
+		if value := rootValues[root]; !value.IsNull() {
 			c.valueTerms[value] = root.EqualityClassMinGeneration().owner
 		}
 	}

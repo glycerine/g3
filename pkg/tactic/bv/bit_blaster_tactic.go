@@ -416,9 +416,14 @@ func (t *BitBlasterTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult)
 		if e != nil {
 			return e
 		}
+		declarations := make([]ast.ASTHandle, 0, len(cache))
+		for d := range cache {
+			declarations = append(declarations, d)
+		}
+		ast.SortHandles(declarations)
 		bindings := make([]BitBlasterBinding, 0, len(cache))
-		for d, bits := range cache {
-			bindings = append(bindings, BitBlasterBinding{d, bits})
+		for _, d := range declarations {
+			bindings = append(bindings, BitBlasterBinding{d, cache[d]})
 		}
 		mc, e := NewBitBlasterModelConverter(t.manager, t.context, t.globals, bindings)
 		if e != nil {

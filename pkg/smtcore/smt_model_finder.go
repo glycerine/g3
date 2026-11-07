@@ -182,9 +182,7 @@ func (f *SMTModelFinder) RegisterQuantifier(quantifier ast.ASTHandle) (result er
 		return err
 	}
 	info := &hintQuantifierInfo{nonGround: make([]ast.ASTHandle, 0, len(f.nonGround[quantifier]))}
-	for declaration := range f.nonGround[quantifier] {
-		info.nonGround = append(info.nonGround, declaration)
-	}
+	info.nonGround = append(info.nonGround, smtSortedHandleSet(f.nonGround[quantifier])...)
 	for i := 0; i < candidates.Len(); i++ {
 		candidate, err := candidates.At(i)
 		if err != nil {
@@ -618,7 +616,13 @@ func (f *SMTModelFinder) FixModel(model *protomodel.ProtoModel) error {
 	allRelevant := append([]ast.ASTHandle(nil), relevant...)
 	// The C++ solver resets AUF nodes and macro-derived sets for each
 	// candidate model. Term copies and inverses must not survive that reset.
-	for _, sets := range f.sets {
+	quantifiers := make([]ast.ASTHandle, 0, len(f.sets))
+	for quantifier := range f.sets {
+		quantifiers = append(quantifiers, quantifier)
+	}
+	ast.SortHandles(quantifiers)
+	for _, quantifier := range quantifiers {
+		sets := f.sets[quantifier]
 		for i, set := range sets {
 			if set != nil {
 				if err := set.Close(); err != nil {

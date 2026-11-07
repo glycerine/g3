@@ -147,7 +147,7 @@ func (s *hintSearchState) candidatesFromResidue() (map[ast.ASTHandle]struct{}, e
 		return nil, ast.ErrASTDomain
 	}
 	result := make(map[ast.ASTHandle]struct{})
-	for q := range s.residue.values {
+	for _, q := range smtSortedHandleSet(s.residue.values) {
 		info, e := s.info(q)
 		if e != nil {
 			return nil, e

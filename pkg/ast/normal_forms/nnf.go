@@ -854,7 +854,13 @@ func (n *NNF) ResetCache() error {
 		return e
 	}
 	for i := range n.caches {
-		for key, entry := range n.caches[i] {
+		keys := make([]ast.ASTHandle, 0, len(n.caches[i]))
+		for key := range n.caches[i] {
+			keys = append(keys, key)
+		}
+		ast.SortHandles(keys)
+		for _, key := range keys {
+			entry := n.caches[i][key]
 			if entry.proof != (ast.ASTRef{}) {
 				if e := n.manager.DelRef(&entry.proof); e != nil {
 					n.caches[i][key] = entry

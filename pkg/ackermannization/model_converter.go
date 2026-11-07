@@ -26,6 +26,16 @@ type conversion struct {
 	arguments        []ast.ASTHandle
 	failures         []memory.ConstructionFailure
 }
+// functionDeclarations gives the rebuilt functions a stable order.
+func (w *conversion) functionDeclarations() []ast.ASTHandle {
+	keys := make([]ast.ASTHandle, 0, len(w.functions))
+	for key := range w.functions {
+		keys = append(keys, key)
+	}
+	ast.SortHandles(keys)
+	return keys
+}
+
 type ModelConverter struct {
 	self          *ModelConverter
 	manager       *ast.ASTManager
@@ -141,7 +151,8 @@ func (c *ModelConverter) closeWork(w *conversion) error {
 			*ref = ast.ASTRef{}
 		}
 	}
-	for d, f := range w.functions {
+	for _, d := range w.functionDeclarations() {
+		f := w.functions[d]
 		if f != nil {
 			if err := f.Close(); err != nil {
 				return err
@@ -373,7 +384,8 @@ func (c *ModelConverter) ApplyModel(out *tactic.ModelRef, index uint32) (err err
 			return e
 		}
 	}
-	for d, fi := range w.functions {
+	for _, d := range w.functionDeclarations() {
+		fi := w.functions[d]
 		sort, e := c.manager.GetRange(d)
 		if e != nil {
 			return e

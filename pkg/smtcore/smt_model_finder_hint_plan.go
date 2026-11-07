@@ -50,7 +50,7 @@ func (s *hintSearchState) planSubset(m *ast.ASTManager, qs []ast.ASTHandle) (hin
 	if e := s.makeQuantifierIndexes(candidates); e != nil {
 		return plan, false, e
 	}
-	for f := range s.candidates {
+	for _, f := range smtSortedHandleSet(s.candidates) {
 		found, e := s.searchFrom(m, f)
 		if e != nil {
 			return plan, false, e

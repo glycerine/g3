@@ -946,7 +946,13 @@ func (t *SMTBitVectorTheory) Close() error {
 	if err := t.releaseTemporary(); err != nil {
 		return err
 	}
-	for expression, owner := range t.bitOwners {
+	owned := make([]ast.ASTHandle, 0, len(t.bitOwners))
+	for expression := range t.bitOwners {
+		owned = append(owned, expression)
+	}
+	ast.SortHandles(owned)
+	for _, expression := range owned {
+		owner := t.bitOwners[expression]
 		if owner != (ast.ASTRef{}) {
 			err := state.manager.DelRef(&owner)
 			// DelRef clears a consumed reference even if its child cleanup

@@ -192,8 +192,8 @@ func (g *smtModelFinderAUFGraph) setSimpleProjectionElse(node *smtModelFinderAUF
 			}
 		}
 	}
-	for term := range node.set.elements {
-		return node.setElse(term)
+	if elements := node.set.orderedElements(); len(elements) != 0 {
+		return node.setElse(elements[0])
 	}
 	return nil
 }

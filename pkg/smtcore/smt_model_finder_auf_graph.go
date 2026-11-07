@@ -195,7 +195,8 @@ func (g *smtModelFinderAUFGraph) populateFunctionArguments(quantifier ast.ASTHan
 }
 
 func (g *smtModelFinderAUFGraph) publishInstantiationSets() error {
-	for key, node := range g.uvars {
+	for _, key := range smtSortedAUFKeys(g.uvars) {
+		node := g.uvars[key]
 		count, err := g.finder.manager.GetNumDeclarations(g.finder.flatQuantifier(key.owner))
 		if err != nil {
 			return err
@@ -207,7 +208,9 @@ func (g *smtModelFinderAUFGraph) publishInstantiationSets() error {
 		if count-key.index-1 >= originalCount {
 			continue
 		}
-		for term, generation := range node.root().set.elements {
+		set := node.root().set
+		for _, term := range set.orderedElements() {
+			generation := set.elements[term]
 			if _, err := g.finder.InsertInstantiationTerm(key.owner, count-key.index-1, term, generation); err != nil {
 				return err
 			}

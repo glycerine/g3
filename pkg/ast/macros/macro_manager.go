@@ -183,6 +183,7 @@ func (m *Manager) publishForbidden() {
 	for d := range m.forbiddenSet {
 		values = append(values, d)
 	}
+	ast.SortHandles(values)
 	m.util.SetForbidden(values)
 }
 

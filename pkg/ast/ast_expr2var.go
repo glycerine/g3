@@ -3,6 +3,8 @@ package ast
 // Source: src/ast/expr2var.cpp:27-92; src/ast/expr2var.h:32-77.
 
 import (
+	"slices"
+
 	"errors"
 	"io"
 	"math"
@@ -194,6 +196,15 @@ func (x *Expr2Var) Entries() ([]ExprVarBinding, error) {
 	for expression, variable := range x.mapping {
 		result = append(result, ExprVarBinding{Expr: expression, Variable: variable})
 	}
+	slices.SortFunc(result, func(a, b ExprVarBinding) int {
+		switch {
+		case a.Variable < b.Variable:
+			return -1
+		case a.Variable > b.Variable:
+			return 1
+		}
+		return 0
+	})
 	return result, nil
 }
 
@@ -250,7 +261,12 @@ func (x *Expr2Var) Pop(scopes uint32) error {
 }
 
 func (x *Expr2Var) reset() error {
+	owned := make([]ASTHandle, 0, len(x.mapping))
 	for h := range x.mapping {
+		owned = append(owned, h)
+	}
+	SortHandles(owned)
+	for _, h := range owned {
 		consumed, err := x.manager.DecRefConsumed(h)
 		if consumed {
 			delete(x.mapping, h)

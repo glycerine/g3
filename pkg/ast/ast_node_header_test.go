@@ -159,3 +159,15 @@ func TestGetArgStillReturnsEachArgument(t *testing.T) {
 		t.Fatal("out of range argument", err)
 	}
 }
+
+func TestSortHandlesOrdersBySlotThenGeneration(t *testing.T) {
+	handles := []ASTHandle{{slot: 9, generation: 1}, {slot: 2, generation: 7}, {slot: 2, generation: 3}, {slot: 5, generation: 1}, {}}
+	SortHandles(handles)
+	want := []ASTHandle{{}, {slot: 2, generation: 3}, {slot: 2, generation: 7}, {slot: 5, generation: 1}, {slot: 9, generation: 1}}
+	for i := range want {
+		if handles[i] != want[i] {
+			t.Fatal(i, handles)
+		}
+	}
+	SortHandles(nil)
+}

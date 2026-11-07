@@ -22,7 +22,7 @@ type smtModelFinderProjectionValue struct {
 func (g *smtModelFinderAUFGraph) instantiationValues(node *smtModelFinderAUFNode) ([]ast.ASTHandle, error) {
 	seen := make(map[ast.ASTHandle]bool)
 	var values []ast.ASTHandle
-	for term := range node.root().set.elements {
+	for _, term := range node.root().set.orderedElements() {
 		value, err := g.eval(term)
 		if err != nil {
 			return nil, err

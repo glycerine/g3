@@ -25,7 +25,7 @@ func (s *hintSearchState) greedyFunction(m *ast.ASTManager, f ast.ASTHandle, dep
 	if defs == nil {
 		return false, ast.ErrASTDomain
 	}
-	for def := range defs {
+	for _, def := range smtSortedHandleSet(defs) {
 		// Source asserts that a selected function is not chosen twice.
 		if _, selected := s.definitions[f]; selected {
 			return false, ast.ErrASTDomain
@@ -65,7 +65,7 @@ func (s *hintSearchState) greedyResidue(m *ast.ASTManager, depth uint32) (bool, 
 		return false, e
 	}
 	s.traceResidueCandidates(m, candidates)
-	for f := range candidates {
+	for _, f := range smtSortedHandleSet(candidates) {
 		found, e := s.greedyFunction(m, f, depth)
 		if e != nil || found {
 			return found, e
