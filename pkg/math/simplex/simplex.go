@@ -31,38 +31,104 @@ func NewInfiniteInfinitesimal(infinity, main, epsilon *big.Rat) Infinitesimal {
 	return r
 }
 func RationalInfinitesimal(v *big.Rat) Infinitesimal { return NewInfinitesimal(v, nil) }
+
+// Two of an Infinitesimal's three components are usually zero, and big.Rat
+// allocates for zero operands too, so these helpers skip that work.
+func ratSet(z, x *big.Rat) {
+	if x.Sign() == 0 {
+		if z.Sign() != 0 {
+			z.SetInt64(0)
+		}
+		return
+	}
+	z.Set(x)
+}
+func ratAdd(z, x *big.Rat) {
+	if x.Sign() == 0 {
+		return
+	}
+	if z.Sign() == 0 {
+		z.Set(x)
+		return
+	}
+	z.Add(z, x)
+}
+func ratSub(z, x *big.Rat) {
+	if x.Sign() == 0 {
+		return
+	}
+	if z.Sign() == 0 {
+		z.Neg(x)
+		return
+	}
+	z.Sub(z, x)
+}
+func ratMul(z, q *big.Rat) {
+	if z.Sign() == 0 {
+		return
+	}
+	z.Mul(z, q)
+}
+func ratQuo(z, q *big.Rat) {
+	// A zero divisor must still panic as big.Rat does.
+	if z.Sign() == 0 && q.Sign() != 0 {
+		return
+	}
+	z.Quo(z, q)
+}
+func ratCmp(x, y *big.Rat) int {
+	sx, sy := x.Sign(), y.Sign()
+	switch {
+	case sx < sy:
+		return -1
+	case sx > sy:
+		return 1
+	case sx == 0:
+		return 0
+	}
+	return x.Cmp(y)
+}
+
 func (a *Infinitesimal) Set(b *Infinitesimal) {
-	a.Infinity.Set(&b.Infinity)
-	a.Main.Set(&b.Main)
-	a.Epsilon.Set(&b.Epsilon)
+	ratSet(&a.Infinity, &b.Infinity)
+	ratSet(&a.Main, &b.Main)
+	ratSet(&a.Epsilon, &b.Epsilon)
 }
 func (a *Infinitesimal) Clone() Infinitesimal {
-	return NewInfiniteInfinitesimal(&a.Infinity, &a.Main, &a.Epsilon)
+	var r Infinitesimal
+	r.Set(a)
+	return r
 }
 func (a *Infinitesimal) Add(b *Infinitesimal) {
-	a.Infinity.Add(&a.Infinity, &b.Infinity)
-	a.Main.Add(&a.Main, &b.Main)
-	a.Epsilon.Add(&a.Epsilon, &b.Epsilon)
+	ratAdd(&a.Infinity, &b.Infinity)
+	ratAdd(&a.Main, &b.Main)
+	ratAdd(&a.Epsilon, &b.Epsilon)
 }
 func (a *Infinitesimal) Sub(b *Infinitesimal) {
-	a.Infinity.Sub(&a.Infinity, &b.Infinity)
-	a.Main.Sub(&a.Main, &b.Main)
-	a.Epsilon.Sub(&a.Epsilon, &b.Epsilon)
+	ratSub(&a.Infinity, &b.Infinity)
+	ratSub(&a.Main, &b.Main)
+	ratSub(&a.Epsilon, &b.Epsilon)
 }
 func (a *Infinitesimal) Neg() {
-	a.Infinity.Neg(&a.Infinity)
-	a.Main.Neg(&a.Main)
-	a.Epsilon.Neg(&a.Epsilon)
+	if a.Infinity.Sign() != 0 {
+		a.Infinity.Neg(&a.Infinity)
+	}
+	if a.Main.Sign() != 0 {
+		a.Main.Neg(&a.Main)
+	}
+	if a.Epsilon.Sign() != 0 {
+		a.Epsilon.Neg(&a.Epsilon)
+	}
 }
 func (a *Infinitesimal) Mul(q *big.Rat) {
-	a.Infinity.Mul(&a.Infinity, q)
-	a.Main.Mul(&a.Main, q)
-	a.Epsilon.Mul(&a.Epsilon, q)
+	ratMul(&a.Infinity, q)
+	ratMul(&a.Main, q)
+	ratMul(&a.Epsilon, q)
 }
 func (a *Infinitesimal) Quo(q *big.Rat) {
-	a.Infinity.Quo(&a.Infinity, q)
-	a.Main.Quo(&a.Main, q)
-	a.Epsilon.Quo(&a.Epsilon, q)
+	ratQuo(&a.Infinity, q)
+	ratQuo(&a.Main, q)
+	ratQuo(&a.Epsilon, q)
 }
 func (a *Infinitesimal) Sign() int {
 	if n := a.Infinity.Sign(); n != 0 {
@@ -74,13 +140,13 @@ func (a *Infinitesimal) Sign() int {
 	return a.Epsilon.Sign()
 }
 func (a *Infinitesimal) Cmp(b *Infinitesimal) int {
-	if n := a.Infinity.Cmp(&b.Infinity); n != 0 {
+	if n := ratCmp(&a.Infinity, &b.Infinity); n != 0 {
 		return n
 	}
-	if n := a.Main.Cmp(&b.Main); n != 0 {
+	if n := ratCmp(&a.Main, &b.Main); n != 0 {
 		return n
 	}
-	return a.Epsilon.Cmp(&b.Epsilon)
+	return ratCmp(&a.Epsilon, &b.Epsilon)
 }
 func (a *Infinitesimal) IsZero() bool {
 	return a.Infinity.Sign() == 0 && a.Main.Sign() == 0 && a.Epsilon.Sign() == 0
@@ -328,6 +394,10 @@ func (s *Solver) UnsetUpper(v uint32) {
 		s.vars[v].upperDependencies, s.vars[v].upperExplained = nil, false
 	}
 }
+// HasLower and HasUpper test for a bound without copying it.
+func (s *Solver) HasLower(v uint32) bool { return int(v) < len(s.vars) && s.vars[v].lowerValid }
+func (s *Solver) HasUpper(v uint32) bool { return int(v) < len(s.vars) && s.vars[v].upperValid }
+
 func (s *Solver) Lower(v uint32) (Infinitesimal, bool) {
 	if int(v) >= len(s.vars) {
 		return Infinitesimal{}, false

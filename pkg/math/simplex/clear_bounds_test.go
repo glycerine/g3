@@ -5,6 +5,25 @@ import (
 	"testing"
 )
 
+func TestHasBoundsMatchesBoundAccessors(t *testing.T) {
+	s := NewSolver(nil)
+	five := RationalInfinitesimal(big.NewRat(5, 1))
+	if s.HasLower(0) || s.HasUpper(99) {
+		t.Fatal("unknown column has a bound")
+	}
+	if err := s.SetLower(2, five); err != nil {
+		t.Fatal(err)
+	}
+	if !s.HasLower(2) || s.HasUpper(2) {
+		t.Fatal(s.HasLower(2), s.HasUpper(2))
+	}
+	_, lower := s.Lower(2)
+	_, upper := s.Upper(2)
+	if lower != s.HasLower(2) || upper != s.HasUpper(2) {
+		t.Fatal("accessors disagree")
+	}
+}
+
 func TestClearBoundsKeepsRowsAndValues(t *testing.T) {
 	s := NewSolver(nil)
 	if _, err := s.AddRationalRow(2, []uint32{2, 0, 1}, []big.Rat{*big.NewRat(1, 1), *big.NewRat(-1, 1), *big.NewRat(-1, 1)}); err != nil {

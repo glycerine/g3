@@ -438,9 +438,24 @@ func (t *SMTLinearArithmeticTheory) impliedArithmeticRowEndpoint(solver *simplex
 			if target.Variable != column {
 				continue
 			}
+			// Most rows lack an endpoint. Finding that takes only signs, so
+			// check before doing any rational arithmetic on the row.
+			targetSign := target.Coefficient.Sign()
+			finite := true
+			for _, other := range entries {
+				if other.Variable == column {
+					continue
+				}
+				if useLower := lower == (other.Coefficient.Sign()*targetSign < 0); useLower && !solver.HasLower(other.Variable) || !useLower && !solver.HasUpper(other.Variable) {
+					finite = false
+					break
+				}
+			}
+			if !finite {
+				continue
+			}
 			var candidate simplex.Infinitesimal
 			var uses []simplex.ArithmeticBoundUse
-			finite := true
 			for _, other := range entries {
 				if other.Variable == column {
 					continue

@@ -134,3 +134,23 @@ func TestAssertionColumnIndexMatchesFullScan(t *testing.T) {
 		check("rebased")
 	}
 }
+
+// The sign shortcut must choose the same endpoint the rational computation does.
+func TestEndpointBoundDirectionMatchesRationalSign(t *testing.T) {
+	r := rand.New(rand.NewSource(13))
+	for round := 0; round < 2000; round++ {
+		other := big.NewRat(int64(r.Intn(21)-10), int64(1+r.Intn(5)))
+		target := big.NewRat(int64(1+r.Intn(9)), int64(1+r.Intn(5)))
+		if r.Intn(2) == 0 {
+			target.Neg(target)
+		}
+		for _, lower := range []bool{true, false} {
+			coefficient := new(big.Rat).Neg(new(big.Rat).Quo(other, target))
+			exact := lower == (coefficient.Sign() > 0)
+			shortcut := lower == (other.Sign()*target.Sign() < 0)
+			if exact != shortcut {
+				t.Fatalf("other %v target %v lower %v: exact %v, shortcut %v", other, target, lower, exact, shortcut)
+			}
+		}
+	}
+}
