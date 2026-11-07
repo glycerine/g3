@@ -461,3 +461,40 @@ with `pprof.StartCPUProfile`. Generators:
 - `quant_f`: `f(x+1)=f(x)+2` with pattern `(f x)`, and 50 array reads.
 
 Only the formulas quoted above are in this file. The generator scripts were temporary.
+
+## Status on branch `perf-plan` (2026-11-07)
+
+Done and committed, each with unit tests. Unless noted, search statistics were checked unchanged.
+
+- **B1 fixed** (`a031acd63`). The hang that blocked it was a strategy gap: LRA, LIA, NIA and
+  logic-free input now reach QSAT. **B2** no longer occurs (it was a consequence of B1).
+  **B3** fixed: real heap figures.
+- **B4 (new) fixed:** identical inputs gave different searches across runs, from Go's random
+  map order in the model finder, Ackermannization and reference-release loops. 669/669 test
+  vectors now repeat at 8 runs. Not swept: about 80 similar release loops in `muz` and
+  `duality`.
+- **P1/P2** trail undo; **P3** per-root disequalities; **P4** dense expression table;
+  **P5** `NodeHeader`; **P6** SAT clause views; **P7** `GOGC=400` in the CLI;
+  **P10/P11** allocation-free conflict resolution and arity-2 congruence keys.
+- **P8:** cached atom keys and bounds, column index, zero-skipping `Infinitesimal`, endpoint
+  sign check, and small-integer fast path. Arithmetic now adds atom rows and undoes scopes on
+  the live tableau, and this one *does* change search: checked against C++ on 1,200
+  push/pop scripts with model validation. Not done: replacing `big.Rat` in simplex.
+
+Measured: `r3sat190` 10.96 s → 0.95 s (C++ 0.21); `ud16` 11.8 s → 1.9 s, with B1's correct
+lemmas (C++ 0.48); `arr_chain` 3.3 s → 0.29 s; MBQI stress `qbi` 32.5 s → 5.6 s.
+
+### Open
+
+- **P9, new bug B5:** `(assert (forall ((x Int)) (! (= (f (+ x 1)) (+ (f x) 2)) :pattern ((f x)))))`
+  with `(assert (= (f 0) 0))`, `(assert (not (= (f 3) 6)))` under `(set-logic AUFLIA)` never
+  terminates. This predates the audit, and C++ solves it instantly. Cause: C++
+  `theory_arith::fixed_var_eh` propagates equalities between fixed variables while bounds are
+  asserted. Go only does it in `FinalCheck` (`propagateFixedSharedValues`), so eager E-matching
+  runs forever. Calling `propagateFixedSharedValues` from `Propagate` fixes it (verified for
+  N=3..20) but makes `quant_f` 16x and `qbi` 6x slower, because it replays a separate solver
+  and its derived bounds disable the incremental tableau. Fix properly by detecting newly fixed
+  columns on the live solver as C++ does. Not committed.
+- The full `make` suite has not run since commit `9a52bf219`. Run it before merging.
+- Remaining P11: `reflect.TypeOf` per clause allocation, `elim_unconstrained`'s quadratic rounds
+  (`lia_big_parse` is still about 27 s against 1 s in C++).
