@@ -94,7 +94,7 @@ func (s *SMTArithParams) constructSource(c *uparams.ParamsContext, p *uparams.Pa
 	if s == nil || s.self != nil {
 		return uparams.ErrParamsOwner
 	}
-	*s = SMTArithParams{ModuleParamsOwner: uparams.ModuleParamsOwner{Context: c, Globals: g, Budget: b}, header: s.header, state: SMTArithState{Eq2Ineq: false, ProcessAllEqs: false, Mode: 2, AutoConfigSimplex: false, BlandsRuleThreshold: 1000, PropagateEqs: true, BoundProp: 2, StrongerLemmas: true, SkipRowsWithBigCoeffs: true, MaxLemmaSize: 128, SmallLemmaSize: 16, Reflect: true, IgnoreInt: false, LazyPivotingLevel: 0, RandomSeed: 0, RandomInitialValue: false, RandomLower: -1000, RandomUpper: 1000, Adaptive: false, AdaptiveAssertionThreshold: 0.2, AdaptivePropagationThreshold: 0.4, DumpLemmas: false, EagerEqAxioms: true, BranchCutRatio: 2, IntEqBranching: false, EnumConstMod: false, GCDTest: true, EagerGCD: false, AdaptiveGCD: false, PropagationThreshold: 4294967295, PivotStrategy: 0, AddBinaryBounds: false, PropagationStrategy: 1, EqBounds: false, LazyAdapter: false, Fixnum: false, IntOnly: false, NLArith: true, NLArithGB: true, NLArithGBThreshold: 512, NLArithGBEqs: false, NLArithGBPerturbate: true, NLArithMaxDegree: 6, NLArithBranching: true, NLArithRounds: 1024, EuclideanSolver: false}}
+	*s = SMTArithParams{ModuleParamsOwner: uparams.ModuleParamsOwner{Context: c, Globals: g, Budget: b}, header: s.header, state: smtArithDefaultState()}
 	s.self = s
 	s.ModuleParamsOwner.Self = &s.ModuleParamsOwner
 	e := s.update(p)
@@ -924,4 +924,9 @@ func (s *SMTArithParams) Display(out *utext.NumericTextStream) error {
 		return e
 	}
 	return nil
+}
+
+// smtArithDefaultState holds the theory_arith_params defaults.
+func smtArithDefaultState() SMTArithState {
+	return SMTArithState{Eq2Ineq: false, ProcessAllEqs: false, Mode: 2, AutoConfigSimplex: false, BlandsRuleThreshold: 1000, PropagateEqs: true, BoundProp: 2, StrongerLemmas: true, SkipRowsWithBigCoeffs: true, MaxLemmaSize: 128, SmallLemmaSize: 16, Reflect: true, IgnoreInt: false, LazyPivotingLevel: 0, RandomSeed: 0, RandomInitialValue: false, RandomLower: -1000, RandomUpper: 1000, Adaptive: false, AdaptiveAssertionThreshold: 0.2, AdaptivePropagationThreshold: 0.4, DumpLemmas: false, EagerEqAxioms: true, BranchCutRatio: 2, IntEqBranching: false, EnumConstMod: false, GCDTest: true, EagerGCD: false, AdaptiveGCD: false, PropagationThreshold: 4294967295, PivotStrategy: 0, AddBinaryBounds: false, PropagationStrategy: 1, EqBounds: false, LazyAdapter: false, Fixnum: false, IntOnly: false, NLArith: true, NLArithGB: true, NLArithGBThreshold: 512, NLArithGBEqs: false, NLArithGBPerturbate: true, NLArithMaxDegree: 6, NLArithBranching: true, NLArithRounds: 1024, EuclideanSolver: false}
 }
