@@ -122,5 +122,39 @@ source structure and was discarded. The port follows the C++ directly:
 
 ## Status
 
-Discarded and to be redone: all of the first attempt. Nothing of the new
-`SMTTheoryArith` exists yet; B5 stays open.
+Ported (commits dd0607fda through 3ed202f4c), all of `theory_arith<Ext>`:
+
+- `smt_theory_arith.go` (theory_arith.h), `smt_theory_arith_core.go`,
+  `_aux.go`, `_eq.go`, `_int.go` (with the euclidean solver bridge),
+  `_nl.go` (intervals, cross nested forms, Gröbner), `_pp.go`
+  (collect_statistics) and `_opt.go` (theory_opt members).
+- `smt_arith_eq_adapter_source.go` ports `arith_eq_adapter::mk_axioms` for
+  the port; the replay theory keeps the previous adapter behavior.
+- `opt/arithmetic_solver.go` now rewrites objectives as `optsmt::add` does.
+
+Selection: `G3_THEORY_ARITH=port` replaces the replay theory at
+registration (i_ext for integer setups, mi_ext otherwise; theory_inf_arith
+is not ported).
+
+Verification:
+
+- Focused tests: `smtcore/smt_theory_arith_test.go` (real context) and
+  `cmd/g3/theory_arith_port_test.go` (B5, ground B5, mod/div without
+  relevancy, minimize).
+- All 659 `cmd/g3/test_vectors`: with the port, every vector where the
+  replay theory agrees with C++ also agrees, plus B5, which only the port
+  solves. Optimization vectors match C++ output byte for byte.
+- Arithmetic statistics on small cases match C++ exactly (uf1, uf4); on B5
+  they are close (add rows 7/7, assert lower/upper 6/6, bound prop 2/2, fixed
+  eqs 2/2, pivots 5 vs 6, eq adapter 9 vs 8). Remaining differences sit in
+  the surrounding search, not in the theory.
+- `make` passes with the replay theory still the default.
+
+Known deviations, all documented in the code: `flush_bound_axioms` and
+`get_polynomial_info` use deterministic orders where the source's order
+depends on std::sort or hash tables; Gröbner dependencies travel as AST
+dependencies whose leaves index the bounds; value_trail entries live in the
+theory's scope records.
+
+Next: make the port the default, compare statistics more widely against
+C++, then delete the replay design (phase 8).

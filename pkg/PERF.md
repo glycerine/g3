@@ -498,3 +498,10 @@ lemmas (C++ 0.48); `arr_chain` 3.3 s → 0.29 s; MBQI stress `qbi` 32.5 s → 5.
 - The full `make` suite has not run since commit `9a52bf219`. Run it before merging.
 - Remaining P11: `reflect.TypeOf` per clause allocation, `elim_unconstrained`'s quadratic rounds
   (`lia_big_parse` is still about 27 s against 1 s in C++).
+
+### B5 update
+
+Fixed by the `theory_arith` port (ARITH_PORT.md): with `G3_THEORY_ARITH=port`
+the AUFLIA goal is refuted at once, as in C++, because `fixed_var_eh` runs
+from `set_bound`. The replay theory, still the default, does not terminate.
+Regression test: `cmd/g3/theory_arith_port_test.go`.
