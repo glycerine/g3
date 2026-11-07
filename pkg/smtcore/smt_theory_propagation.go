@@ -179,12 +179,38 @@ func (s *SMTInternalizerState) propagateAssignedAtom(literal SMTLiteral) error {
 	return nil
 }
 
+func (s *SMTInternalizerState) atomQueuedOnAssignment(variable int32) (bool, error) {
+	data, err := s.BooleanData(variable)
+	if err != nil {
+		return false, err
+	}
+	if !data.IsAtom() || s.relevancyLevel == 0 || s.relevancy == nil || !s.relevancy.enabled {
+		return true, nil
+	}
+	if s.relevancyLevel == 1 && !data.IsQuantifier() {
+		return true, nil
+	}
+	return s.relevancy.IsRelevant(s.boolExpr[variable]), nil
+}
+
 func (s *SMTInternalizerState) PropagateTheoryAssignments() error {
 	if err := s.open(); err != nil {
 		return err
 	}
 	for s.atomPropagationHead < len(s.assignedLiterals) {
-		if err := s.propagateAssignedAtom(s.assignedLiterals[s.atomPropagationHead]); err != nil {
+		literal := s.assignedLiterals[s.atomPropagationHead]
+		// assign_core queues an atom only if m_relevancy_lvl == 0, or
+		// m_relevancy_lvl == 1 and it is not a quantifier, or it is already
+		// relevant; relevant_eh queues it when it becomes relevant later.
+		queued, err := s.atomQueuedOnAssignment(literal.Var())
+		if err != nil {
+			return err
+		}
+		if !queued {
+			s.atomPropagationHead++
+			continue
+		}
+		if err := s.propagateAssignedAtom(literal); err != nil {
 			return err
 		}
 		if s.inconsistent {

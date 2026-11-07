@@ -212,6 +212,10 @@ func (t *SMTSequenceTheory) assertConstraint(expression ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
+	// theory_seq::add_axiom marks each literal of the axiom relevant.
+	if err = state.markRelevant(expression); err != nil {
+		return err
+	}
 	return state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{literal})
 }
 

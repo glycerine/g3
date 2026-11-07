@@ -79,6 +79,9 @@ func stringSetLength(t *testing.T, m *ast.ASTManager, state *SMTInternalizerStat
 	equality, err := m.MkEq(length, numeral)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(equality, true))
+	// An asserted formula is relevant (internalize_assertion), so its atom
+	// reaches the theories.
+	astTestMust(t, state.markRelevant(equality))
 	literal, err := state.Literal(equality)
 	astTestMust(t, err)
 	astTestMust(t, state.AssignLiteral(literal, NewSMTBooleanAxiom()))
