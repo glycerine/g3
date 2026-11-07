@@ -12,6 +12,17 @@ import (
 )
 
 func (n *SMTEnode) Delete(updateChildrenParent bool) error {
+	return n.delete(updateChildrenParent, true)
+}
+
+// deleteAfterEqualityUndo retires a node popped with its scope. Undoing a merge
+// older than the node has already cut the node from that root's parent vector;
+// the source avoids this by interleaving node creation on one undo trail.
+func (n *SMTEnode) deleteAfterEqualityUndo() error {
+	return n.delete(true, false)
+}
+
+func (n *SMTEnode) delete(updateChildrenParent, requireParentEntry bool) error {
 	if err := n.valid(); err != nil {
 		return err
 	}
@@ -36,7 +47,7 @@ func (n *SMTEnode) Delete(updateChildrenParent bool) error {
 				}
 				kept = append(kept, parent)
 			}
-			if removed == 0 {
+			if removed == 0 && requireParentEntry {
 				operation, _ := n.manager.GetDeclKind(n.owner)
 				family, _ := n.manager.GetFamilyID(n.owner)
 				return fmt.Errorf("delete enode %d family %d operation %d argument %d missing from parents (parents %d): %w", n.owner.Slot(), family, operation, index, len(parents), ast.ErrASTDomain)

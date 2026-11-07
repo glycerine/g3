@@ -20,39 +20,95 @@ func cloneSMTTheoryVariables(source SMTTheoryVarList) SMTTheoryVarList {
 	return result
 }
 
-func (s *SMTInternalizerState) equalitySnapshot(from, to *SMTEnode) smtEqualitySnapshot {
-	snapshot := smtEqualitySnapshot{
-		nodes:       make([]smtEqualityNodeSnapshot, 0, int(from.classSize)+1),
-		theoryLimit: len(s.theoryTrail),
-	}
-	// Union changes roots and the transitivity path only in the smaller
-	// class, plus the target root's list link, size and theory variables.
-	// Parent/congruence indexes are derived again after rollback; copying the
-	// entire context at every merge creates quadratic retained trail storage.
-	for node := from; ; node = node.next {
-		snapshot.nodes = append(snapshot.nodes, smtEqualityNodeSnapshot{
-			node: node, root: node.root, next: node.next,
-			classSize:       node.classSize,
-			theoryVariables: cloneSMTTheoryVariables(node.theoryVariables), trans: node.trans,
-		})
-		if node.next == from {
-			break
-		}
-	}
-	snapshot.nodes = append(snapshot.nodes, smtEqualityNodeSnapshot{node: to, root: to.root, next: to.next, classSize: to.classSize, theoryVariables: cloneSMTTheoryVariables(to.theoryVariables), trans: to.trans})
-	return snapshot
+// recordEqualityUndo follows source add_eq_trail. The class links, roots, and
+// proof tree are derived again on undo, so one merge costs one fixed trail entry.
+func (s *SMTInternalizerState) recordEqualityUndo(r1, left, r2 *SMTEnode) {
+	s.equalityTrail = append(s.equalityTrail, smtEqualityUndo{
+		r1: r1, left: left, r2: r2, r2NumParents: len(r2.parents), theoryLimit: len(s.theoryTrail),
+		r2TheoryVariables: cloneSMTTheoryVariables(r2.theoryVariables),
+	})
 }
 
-func (s *SMTInternalizerState) restoreEqualitySnapshot(snapshot smtEqualitySnapshot) error {
-	for _, saved := range snapshot.nodes {
-		saved.node.root, saved.node.next = saved.root, saved.next
-		saved.node.classSize = saved.classSize
-		saved.node.theoryVariables = cloneSMTTheoryVariables(saved.theoryVariables)
-		saved.node.trans = saved.trans
+// undoEquality follows source context::undo_add_eq. Its stage keeps a retried
+// pop from repeating the class unmerge after a later owner refuses.
+func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
+	r1, r2 := entry.r1, entry.r2
+	if entry.stage == 0 {
+		// Parents added since this merge are retiring nodes or r1's parents;
+		// r1's are reinserted below. Retired ones just leave the table.
+		if entry.merged {
+			for _, parent := range r2.parents[entry.r2NumParents:] {
+				if err := s.eraseMergedCongruenceRoot(parent); err != nil {
+					return err
+				}
+				if parent.congruence == parent {
+					parent.congruence = nil
+				}
+			}
+			for _, parent := range r1.parents {
+				if err := s.eraseMergedCongruenceRoot(parent); err != nil {
+					return err
+				}
+				if parent.congruence == parent {
+					parent.congruence = nil
+				}
+			}
+		}
+		entry.stage = 1
 	}
-	// PushScope owns the complete disequality snapshot. PopScopes restores
-	// it after all union trails, before invoking theory callbacks.
+	if entry.stage == 1 {
+		if entry.merged {
+			r2.classSize -= r1.classSize
+			r1.next, r2.next = r2.next, r1.next
+			for current := r1; ; current = current.next {
+				current.root = r1
+				if current.next == r1 {
+					break
+				}
+			}
+			clear(r2.parents[entry.r2NumParents:])
+			r2.parents = r2.parents[:entry.r2NumParents]
+			entry.left.trans = SMTTransJustification{Justification: NullSMTEqualityJustification()}
+			smtInvertTrans(r1)
+		}
+		r2.theoryVariables = entry.r2TheoryVariables
+		entry.stage = 2
+	}
+	if !entry.merged {
+		return nil
+	}
+	for _, parent := range r1.parents {
+		if !parent.congruenceEnabled {
+			continue
+		}
+		if parent.IsTrueEquality() {
+			parent.congruence = parent
+			continue
+		}
+		if keep := parent.congruence; keep != nil && keep != parent {
+			congruent, _, err := SMTEnodesCongruent(parent, keep)
+			if err != nil {
+				return err
+			}
+			if congruent {
+				continue
+			}
+		}
+		inserted, err := s.congruence.Insert(parent)
+		if err != nil {
+			return err
+		}
+		parent.congruence = inserted.Node
+	}
 	return nil
+}
+
+func (s *SMTInternalizerState) eraseMergedCongruenceRoot(parent *SMTEnode) error {
+	if parent.congruence != parent || !parent.congruenceEnabled || parent.IsTrueEquality() {
+		return nil
+	}
+	_, err := s.congruence.Erase(parent)
+	return err
 }
 
 func smtInvertTrans(node *SMTEnode) {
@@ -234,42 +290,6 @@ func (s *SMTInternalizerState) remapDisequalities(from *SMTEnode) error {
 	return nil
 }
 
-func (s *SMTInternalizerState) rebuildCongruence() error {
-	if err := s.congruence.Reset(); err != nil {
-		return err
-	}
-	for _, node := range s.enodeStack {
-		node.parents = nil
-	}
-	for _, parent := range s.enodeStack {
-		for index, argument := range parent.arguments {
-			root := argument.root
-			repeated := false
-			for _, prior := range parent.arguments[:index] {
-				if prior.root == root {
-					repeated = true
-					break
-				}
-			}
-			if !repeated {
-				root.parents = append(root.parents, parent)
-			}
-		}
-	}
-	for _, node := range s.enodeStack {
-		if len(node.arguments) == 0 || !node.congruenceEnabled || node.IsTrueEquality() {
-			node.congruence = node
-			continue
-		}
-		inserted, err := s.congruence.Insert(node)
-		if err != nil {
-			return err
-		}
-		node.congruence = inserted.Node
-	}
-	return nil
-}
-
 func (s *SMTInternalizerState) propagateTrueEquality(node *SMTEnode) error {
 	if !node.IsTrueEquality() {
 		return nil
@@ -302,30 +322,35 @@ func (s *SMTInternalizerState) propagateTrueEquality(node *SMTEnode) error {
 // Source context::remove_parents_from_cg_table / reinsert_parents_into_cg_table.
 // Only parents of the class whose roots change need a new signature. The Go
 // parent vectors also retain nonrepresentatives for concrete enode deletion.
-func (s *SMTInternalizerState) detachCongruenceParents(from, to *SMTEnode) (map[*SMTEnode]bool, error) {
-	alreadyTarget := make(map[*SMTEnode]bool, len(from.parents))
+func (s *SMTInternalizerState) detachCongruenceParents(from, to *SMTEnode) error {
 	for _, parent := range from.parents {
+		parent.parentOfMergeTarget = false
 		for _, arg := range parent.arguments {
 			if arg.root == to {
-				alreadyTarget[parent] = true
+				parent.parentOfMergeTarget = true
 				break
 			}
 		}
 		if parent.congruenceEnabled && parent.congruence == parent && !parent.IsTrueEquality() {
 			if _, err := s.congruence.Erase(parent); err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
-	return alreadyTarget, nil
+	return nil
 }
-func (s *SMTInternalizerState) reinsertCongruenceParents(from, to *SMTEnode, alreadyTarget map[*SMTEnode]bool) error {
+func (s *SMTInternalizerState) reinsertCongruenceParents(from, to *SMTEnode) error {
 	for _, parent := range from.parents {
-		if !alreadyTarget[parent] {
+		if !parent.parentOfMergeTarget {
 			to.parents = append(to.parents, parent)
 		}
+		parent.parentOfMergeTarget = false
+		// A nonrepresentative stays attached to its representative, whose
+		// arguments have the same roots, as in the source.
+		if parent.congruence != parent {
+			continue
+		}
 		if !parent.congruenceEnabled || parent.IsTrueEquality() {
-			parent.congruence = parent
 			continue
 		}
 		inserted, err := s.congruence.Insert(parent)
@@ -553,7 +578,8 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 	if (r1.classSize > r2.classSize && !r2.interpreted) || r1.interpreted {
 		left, right, r1, r2 = right, left, r2, r1
 	}
-	s.equalityTrail = append(s.equalityTrail, s.equalitySnapshot(r1, r2))
+	trailIndex := len(s.equalityTrail)
+	s.recordEqualityUndo(r1, left, r2)
 	if err := s.propagateEqualityClassRelevancy(r1, r2); err != nil {
 		return fmt.Errorf("propagate equality-class relevancy: %w", err)
 	}
@@ -562,8 +588,8 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 	}
 	smtInvertTrans(left)
 	left.trans = SMTTransJustification{Target: right, Justification: justification}
-	alreadyTarget, err := s.detachCongruenceParents(r1, r2)
-	if err != nil {
+	s.equalityTrail[trailIndex].merged = true
+	if err := s.detachCongruenceParents(r1, r2); err != nil {
 		return fmt.Errorf("detach congruence parents: %w", err)
 	}
 	for current := r1; ; current = current.next {
@@ -574,7 +600,7 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 	}
 	r1.next, r2.next = r2.next, r1.next
 	r2.classSize += r1.classSize
-	if err := s.reinsertCongruenceParents(r1, r2, alreadyTarget); err != nil {
+	if err := s.reinsertCongruenceParents(r1, r2); err != nil {
 		return fmt.Errorf("reinsert congruence parents: %w", err)
 	}
 	if s.quantifierManager != nil && s.quantifierManager.ematching && !s.quantifierManager.registry.Empty() {

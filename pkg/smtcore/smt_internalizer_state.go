@@ -71,17 +71,14 @@ type smtInternalizerNotifyTrail struct {
 	theory   SMTTheoryID
 }
 
-type smtEqualityNodeSnapshot struct {
-	node            *SMTEnode
-	root, next      *SMTEnode
-	classSize       uint32
-	theoryVariables SMTTheoryVarList
-	trans           SMTTransJustification
-}
-
-type smtEqualitySnapshot struct {
-	nodes       []smtEqualityNodeSnapshot
-	theoryLimit int
+// smtEqualityUndo is one source add_eq_trail entry.
+type smtEqualityUndo struct {
+	r1, left, r2      *SMTEnode
+	r2NumParents      int
+	theoryLimit       int
+	r2TheoryVariables SMTTheoryVarList
+	merged            bool
+	stage             uint8
 }
 
 type SMTTheoryPropagation struct {
@@ -164,7 +161,6 @@ type SMTInternalizerState struct {
 	pendingPop                 *smtInternalizerPendingPop
 	popActive                  bool
 	closing                    bool
-	congruenceRestorePending   bool
 	retiringEnode              *SMTEnode
 	retiringEnodeRoot          ast.ASTHandle
 	retiringBoolean            bool
@@ -172,7 +168,7 @@ type SMTInternalizerState struct {
 	cachedGeneration           map[ast.ASTHandle]uint32
 	pending                    []smtPendingEquality
 	pendingHead                int
-	equalityTrail              []smtEqualitySnapshot
+	equalityTrail              []smtEqualityUndo
 	disequalityReasons         map[smtEnodePairKey]SMTLiteral
 	dynamicAck                 *smtDynAckManager
 	assignmentTrail            []smtInternalizerAssignmentTrail
@@ -887,7 +883,7 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 	if s.relevancy == nil {
 		delete(s.context.relevant, node.owner)
 	}
-	if err := node.Delete(true); err != nil {
+	if err := node.deleteAfterEqualityUndo(); err != nil {
 		return fmt.Errorf("delete enode: %w", err)
 	}
 	s.retiringEnode, s.retiringEnodeRoot = node, node.owner
@@ -947,23 +943,17 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 	if scope.equalityLimit < 0 || scope.equalityLimit > len(s.equalityTrail) {
 		return ast.ErrASTDomain
 	}
-	s.congruenceRestorePending = s.congruenceRestorePending || len(s.equalityTrail) > scope.equalityLimit
 	for len(s.equalityTrail) > scope.equalityLimit {
 		index := len(s.equalityTrail) - 1
-		entry := s.equalityTrail[index]
+		entry := &s.equalityTrail[index]
 		if err := s.undoTheoryAttachments(entry.theoryLimit); err != nil {
 			return err
 		}
+		if err := s.undoEquality(entry); err != nil {
+			return fmt.Errorf("undo equality: %w", err)
+		}
+		*entry = smtEqualityUndo{}
 		s.equalityTrail = s.equalityTrail[:index]
-		if err := s.restoreEqualitySnapshot(entry); err != nil {
-			return fmt.Errorf("restore equality snapshot: %w", err)
-		}
-	}
-	if s.congruenceRestorePending {
-		if err := s.rebuildCongruence(); err != nil {
-			return fmt.Errorf("restore congruence index: %w", err)
-		}
-		s.congruenceRestorePending = false
 	}
 	if scope.disequalities == nil {
 		s.context.disequalities = make(map[smtEnodePairKey]struct{})

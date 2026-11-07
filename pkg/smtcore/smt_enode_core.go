@@ -37,6 +37,7 @@ type SMTEnode struct {
 	commutative, boolean, mergeTruthValue bool
 	congruenceEnabled                     bool
 	parents, arguments                    []*SMTEnode
+	parentOfMergeTarget                   bool // transient, one addEquality
 	theoryVariables                       SMTTheoryVarList
 	trans                                 SMTTransJustification
 	labelHash                             int8
