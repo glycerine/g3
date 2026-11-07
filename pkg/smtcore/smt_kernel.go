@@ -629,8 +629,9 @@ func (k *SMTKernel) RegisterTheory(theory SMTTheoryInternalizer) error {
 	if err := k.open(); err != nil {
 		return err
 	}
-	if old, ok := theory.(*SMTLinearArithmeticTheory); ok && smtTheoryArithPortEnabled() && !old.infinite {
-		// Opt-in comparison with the theory_arith port (ARITH_PORT.md):
+	if old, ok := theory.(*SMTLinearArithmeticTheory); ok && smtTheoryArithPortEnabled() && !old.infinite && !smtSetupUsesTheoryLRA(k.setupLogic) {
+		// Opt-in comparison with the theory_arith port (ARITH_PORT.md).
+		// Logics whose source setup selects theory_lra keep their theory.
 		// i_ext for integer arithmetic, mi_ext otherwise.
 		port, err := NewSMTTheoryArith(old.FamilyID(), old.integer && !old.mixed)
 		if err != nil {

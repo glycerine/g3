@@ -471,3 +471,7 @@ func (t *SMTTheoryArith) Close() (result error) {
 // arithmetic theory (G3_THEORY_ARITH=port) while the port is compared with
 // the C++ build.
 func smtTheoryArithPortEnabled() bool { return os.Getenv("G3_THEORY_ARITH") == "port" }
+
+// smtSetupUsesTheoryLRA: smt_setup.cpp selects theory_lra (setup_r_arith),
+// not theory_arith, for these logics.
+func smtSetupUsesTheoryLRA(logic string) bool { return logic == "QF_LRA" || logic == "QF_UFLRA" }

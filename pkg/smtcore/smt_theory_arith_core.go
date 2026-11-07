@@ -671,7 +671,12 @@ func (t *SMTTheoryArith) rewrite(x *smtArithExprs, e ast.ASTHandle) (ast.ASTHand
 	return m.RefGet(ref)
 }
 
-func (t *SMTTheoryArith) cancelFlag() bool { return t.state.manager.Limit.CancelFlag() }
+// cancelFlag is context::get_cancel_flag(): !m_manager.limit().inc(), which
+// counts a step and is set by cancellation or an exhausted resource limit.
+func (t *SMTTheoryArith) cancelFlag() bool {
+	canceled, err := t.state.manager.Canceled()
+	return err != nil || canceled
+}
 
 func (t *SMTTheoryArith) mkAxiom(ante, conseq ast.ASTHandle, simplifyConseq bool) (err error) {
 	m := t.state.manager
