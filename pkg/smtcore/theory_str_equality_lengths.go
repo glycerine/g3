@@ -35,8 +35,16 @@ func (t *SMTStringTheory) lengthValue(expression ast.ASTHandle) (value *big.Int,
 	if err != nil {
 		return nil, false, err
 	}
-	arithmetic, mixed := t.state.Theory(family).(*SMTLinearArithmeticTheory)
-	if !mixed || !arithmetic.mixed {
+	switch arithmetic := t.state.Theory(family).(type) {
+	case *SMTLinearArithmeticTheory:
+		if !arithmetic.mixed {
+			return nil, false, nil
+		}
+	case *SMTTheoryArith: // theory_mi_arith only
+		if arithmetic.integerExt {
+			return nil, false, nil
+		}
+	default:
 		return nil, false, nil
 	}
 	ref, err := m.NewRef(ast.ASTHandle{})

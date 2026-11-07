@@ -42,7 +42,7 @@ func TestSMTIDLSetupFirstBoundaryAndSimplex(t *testing.T) {
 						}
 						return
 					}
-					theory, ok := k.internalizer.theories[family].(*SMTLinearArithmeticTheory)
+					theory, ok := smtArithFactsOf(k.internalizer.theories[family])
 					if !ok || !theory.integer || theory.propagateEqualities || k.arithState != k.smtParams.arith.state || !k.arithState.Eq2Ineq || k.arithState.Reflect || k.arithState.SmallLemmaSize != 30 || k.relevancy.enabled || k.preprocessState.NNFCNF {
 						t.Fatal("IDL profile did not reach integer simplex and parameter owners")
 					}
@@ -173,7 +173,7 @@ func TestSMTIDLDenseFeaturePolicyAndProofRouting(t *testing.T) {
 					if k.smtState.PhaseSelection != phase || (!push && (k.smtState.RestartStrategy != 0 || k.smtState.RestartAdaptive || k.smtState.RandomInitialActivity != 2)) {
 						t.Fatal("dense feature policy did not match proof/simplex/first-push routing", k.smtState)
 					}
-					theory, ok := k.internalizer.theories[family].(*SMTLinearArithmeticTheory)
+					theory, ok := smtArithFactsOf(k.internalizer.theories[family])
 					_, dense := k.internalizer.theories[family].(*SMTDenseDiffTheory)
 					wantDense := !push && !proofs && !simplex
 					if dense != wantDense || !wantDense && (!ok || theory.mixed != (proofs && !push) || theory.integer == (proofs && !push)) {

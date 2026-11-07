@@ -24,6 +24,14 @@ func smtArithmeticLifecycleKind(theory SMTTheoryInternalizer) string {
 			return "integer-simplex"
 		}
 		return "real-simplex"
+	case *SMTTheoryArith:
+		if value.infExt {
+			return "infinite-simplex"
+		}
+		if value.integerExt {
+			return "integer-simplex"
+		}
+		return "mixed-simplex"
 	case *SMTRealDiffTheory:
 		if value.mixed {
 			return "mixed-graph"

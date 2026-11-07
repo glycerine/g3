@@ -75,7 +75,7 @@ func TestSMTBasicArithmeticModesBeforeFirstBoundary(t *testing.T) {
 							t.Fatal("mixed graph not selected")
 						}
 					case 2:
-						theory, ok := k.internalizer.theories[family].(*SMTLinearArithmeticTheory)
+						theory, ok := smtArithFactsOf(k.internalizer.theories[family])
 						if !ok || theory.integer || !theory.mixed {
 							t.Fatal("basic simplex integrality selection")
 						}
@@ -110,7 +110,7 @@ func TestSMTBasicArithmeticModesBeforeFirstBoundary(t *testing.T) {
 							t.Fatal("solver statistics omitted the selected UTVPI backend")
 						}
 					case 5:
-						theory, ok := k.internalizer.theories[family].(*SMTLinearArithmeticTheory)
+						theory, ok := smtArithFactsOf(k.internalizer.theories[family])
 						if !ok || !theory.infinite {
 							t.Fatal("infinite arithmetic mode not selected")
 						}

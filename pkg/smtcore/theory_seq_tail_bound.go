@@ -77,16 +77,10 @@ func (t *SMTSequenceTheory) addTailEmptyMaximum(left, right []ast.ASTHandle) (bo
 					if makeErr != nil {
 						return false, makeErr
 					}
-					arithmeticFamily, makeErr := state.manager.ArithmeticFamilyID()
-					if makeErr != nil {
-						return false, makeErr
-					}
-					if arithmetic, ok := state.Theory(arithmeticFamily).(*SMTLinearArithmeticTheory); ok {
-						intervals, intervalErr := arithmetic.linearVariableIntervals()
-						if intervalErr != nil {
-							return false, intervalErr
-						}
-						interval, evaluated, intervalErr := arithmetic.polynomialInterval(length, intervals)
+					if arithmetic, ok, queryErr := smtSeqArithmetic(state); queryErr != nil {
+						return false, queryErr
+					} else if ok {
+						interval, evaluated, intervalErr := arithmetic.interval(length)
 						if intervalErr != nil {
 							return false, intervalErr
 						}

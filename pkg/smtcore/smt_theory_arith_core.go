@@ -3195,6 +3195,9 @@ func (t *SMTTheoryArith) refineEpsilon() error {
 				continue
 			}
 			val := t.getValue(v)
+			if t.isInfinite(val) {
+				continue
+			}
 			var value big.Rat
 			value.Mul(&t.epsilon, &val.infinitesimal)
 			value.Add(&value, &val.rational)

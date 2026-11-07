@@ -182,6 +182,9 @@ func (s *SMTSolver) ObjectiveSupportsConflictRecording(index uint32) (bool, erro
 	if err != nil {
 		return false, err
 	}
+	if port, ok := objective.theory.(*SMTTheoryArith); ok {
+		return port.infExt, nil // theory_inf_arith
+	}
 	theory, ok := objective.theory.(*SMTLinearArithmeticTheory)
 	return ok && theory.infinite, nil
 }

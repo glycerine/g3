@@ -59,7 +59,7 @@ func TestSMTUnknownStaticSetupClassifiesLinearArithmetic(t *testing.T) {
 			}
 			installed := solver.kernel.internalizer.theories[family]
 			if test.integer {
-				theory, ok := installed.(*SMTLinearArithmeticTheory)
+				theory, ok := smtArithFactsOf(installed)
 				if !ok || !theory.integer || theory.mixed {
 					t.Fatalf("integer classifier installed %T (integer=%v mixed=%v)", installed, ok && theory.integer, ok && theory.mixed)
 				}

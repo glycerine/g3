@@ -27,15 +27,11 @@ func (t *SMTSequenceTheory) exactSequenceLength(expression ast.ASTHandle) (uint6
 	if err != nil {
 		return 0, false, err
 	}
-	arithmeticFamily, err := state.manager.ArithmeticFamilyID()
-	if err != nil {
-		return 0, false, err
+	arithmetic, ok, queryErr := smtSeqArithmetic(state)
+	if queryErr != nil || !ok {
+		return 0, false, queryErr
 	}
-	arithmetic, ok := state.Theory(arithmeticFamily).(*SMTLinearArithmeticTheory)
-	if !ok {
-		return 0, false, nil
-	}
-	value, _, exact, err := arithmetic.fixedPolynomialValue(length, arithmetic.fixedLinearAssignments())
+	value, exact, err := arithmetic.fixedValue(length)
 	if err != nil {
 		return 0, false, err
 	}

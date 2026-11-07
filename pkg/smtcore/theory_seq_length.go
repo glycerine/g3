@@ -98,15 +98,10 @@ func (t *SMTSequenceTheory) addIntegerStringLengthRefinement() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	arithmeticFamily, err := state.manager.ArithmeticFamilyID()
-	if err != nil {
-		return false, err
+	arithmetic, ok, queryErr := smtSeqArithmetic(state)
+	if queryErr != nil || !ok {
+		return false, queryErr
 	}
-	arithmetic, ok := state.Theory(arithmeticFamily).(*SMTLinearArithmeticTheory)
-	if !ok {
-		return false, nil
-	}
-	fixed := arithmetic.fixedLinearAssignments()
 	seen := make(map[ast.ASTHandle]struct{})
 	for _, node := range t.variables {
 		if node == nil {
@@ -129,14 +124,14 @@ func (t *SMTSequenceTheory) addIntegerStringLengthRefinement() (bool, error) {
 			return false, makeErr
 		}
 		width := uint64(1)
-		integerValue, _, integerFixed, valueErr := arithmetic.fixedPolynomialValue(integer, fixed)
+		integerValue, integerFixed, valueErr := arithmetic.fixedValue(integer)
 		if valueErr != nil {
 			return false, valueErr
 		}
 		if integerFixed && integerValue.IsInt() && integerValue.Sign() >= 0 {
 			width = uint64(len(integerValue.Num().String()))
 		}
-		lengthValue, _, lengthFixed, valueErr := arithmetic.fixedPolynomialValue(length, fixed)
+		lengthValue, lengthFixed, valueErr := arithmetic.fixedValue(length)
 		if valueErr != nil {
 			return false, valueErr
 		}

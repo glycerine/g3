@@ -42,17 +42,9 @@ func (t *SMTSequenceTheory) addLengthLowerBoundDecomposition() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	arithmeticFamily, err := state.manager.ArithmeticFamilyID()
-	if err != nil {
-		return false, err
-	}
-	arithmetic, ok := state.Theory(arithmeticFamily).(*SMTLinearArithmeticTheory)
-	if !ok {
-		return false, nil
-	}
-	intervals, err := arithmetic.linearVariableIntervals()
-	if err != nil {
-		return false, err
+	arithmetic, ok, queryErr := smtSeqArithmetic(state)
+	if queryErr != nil || !ok {
+		return false, queryErr
 	}
 	seen := make(map[ast.ASTHandle]struct{})
 	for _, node := range t.variables {
@@ -78,7 +70,7 @@ func (t *SMTSequenceTheory) addLengthLowerBoundDecomposition() (bool, error) {
 		if makeErr != nil {
 			return false, makeErr
 		}
-		interval, evaluated, intervalErr := arithmetic.polynomialInterval(length, intervals)
+		interval, evaluated, intervalErr := arithmetic.interval(length)
 		if intervalErr != nil {
 			return false, intervalErr
 		}
@@ -226,15 +218,10 @@ func (t *SMTSequenceTheory) addFixedLengthDecomposition() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	arithmeticFamily, err := state.manager.ArithmeticFamilyID()
-	if err != nil {
-		return false, err
+	arithmetic, ok, queryErr := smtSeqArithmetic(state)
+	if queryErr != nil || !ok {
+		return false, queryErr
 	}
-	arithmetic, ok := state.Theory(arithmeticFamily).(*SMTLinearArithmeticTheory)
-	if !ok {
-		return false, nil
-	}
-	fixed := arithmetic.fixedLinearAssignments()
 	seen := make(map[ast.ASTHandle]struct{})
 	for _, node := range t.variables {
 		if node == nil {
@@ -281,7 +268,7 @@ func (t *SMTSequenceTheory) addFixedLengthDecomposition() (bool, error) {
 		if makeErr != nil {
 			return false, makeErr
 		}
-		value, _, exact, valueErr := arithmetic.fixedPolynomialValue(length, fixed)
+		value, exact, valueErr := arithmetic.fixedValue(length)
 		if valueErr != nil {
 			return false, valueErr
 		}

@@ -150,6 +150,7 @@ func (t *SMTSequenceTheory) expandSequenceIntegerString(expression ast.ASTHandle
 			return out, dependency, err
 		}
 		arithmetic, _ := state.Theory(family).(*SMTLinearArithmeticTheory)
+		port, _ := state.Theory(family).(*SMTTheoryArith)
 		for current := node; ; current = current.Next() {
 			text, integer, numeral, err := m.ArithmeticNumeralText(current.Owner())
 			if err != nil {
@@ -157,6 +158,17 @@ func (t *SMTSequenceTheory) expandSequenceIntegerString(expression ast.ASTHandle
 			}
 			if numeral && integer {
 				value, _ = new(big.Rat).SetString(text)
+			} else if port != nil && port.IsAttachedToVariable(current) {
+				// get_arith_value: theory_arith::get_value of the enode.
+				h, known, err := port.GetTheoryValue(current)
+				if err != nil {
+					return out, dependency, err
+				}
+				if known {
+					if r, ok := port.isNumeral(h); ok && r.IsInt() {
+						value = r
+					}
+				}
 			} else if arithmetic != nil && arithmetic.solver != nil && arithmetic.IsAttachedToVariable(current) {
 				variable := current.TheoryVar(family)
 				column := arithmetic.simplexVariables[variable]

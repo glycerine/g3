@@ -18,23 +18,15 @@ func (t *SMTSequenceTheory) sequenceLengthLowerBound(sequence ast.ASTHandle) (ui
 	if err != nil {
 		return 0, false, err
 	}
-	arithmeticFamily, err := state.manager.ArithmeticFamilyID()
-	if err != nil {
-		return 0, false, err
-	}
-	arithmetic, ok := state.Theory(arithmeticFamily).(*SMTLinearArithmeticTheory)
-	if !ok {
-		return 0, false, nil
-	}
-	intervals, err := arithmetic.linearVariableIntervals()
-	if err != nil {
-		return 0, false, err
+	arithmetic, ok, queryErr := smtSeqArithmetic(state)
+	if queryErr != nil || !ok {
+		return 0, false, queryErr
 	}
 	length, err := state.manager.MkSequenceLength(sequence)
 	if err != nil {
 		return 0, false, err
 	}
-	interval, evaluated, err := arithmetic.polynomialInterval(length, intervals)
+	interval, evaluated, err := arithmetic.interval(length)
 	if err != nil || !evaluated || interval.minusInfinity() {
 		return 0, false, err
 	}
@@ -170,23 +162,15 @@ func (t *SMTSequenceTheory) boundedSequenceLengthRange(sequence ast.ASTHandle) (
 	if err != nil {
 		return 0, 0, false, err
 	}
-	arithmeticFamily, err := state.manager.ArithmeticFamilyID()
-	if err != nil {
-		return 0, 0, false, err
-	}
-	arithmetic, ok := state.Theory(arithmeticFamily).(*SMTLinearArithmeticTheory)
-	if !ok {
-		return 0, 0, false, nil
-	}
-	intervals, err := arithmetic.linearVariableIntervals()
-	if err != nil {
-		return 0, 0, false, err
+	arithmetic, ok, queryErr := smtSeqArithmetic(state)
+	if queryErr != nil || !ok {
+		return 0, 0, false, queryErr
 	}
 	length, err := state.manager.MkSequenceLength(sequence)
 	if err != nil {
 		return 0, 0, false, err
 	}
-	interval, evaluated, err := arithmetic.polynomialInterval(length, intervals)
+	interval, evaluated, err := arithmetic.interval(length)
 	if err != nil || !evaluated || interval.plusInfinity() {
 		return 0, 0, false, err
 	}

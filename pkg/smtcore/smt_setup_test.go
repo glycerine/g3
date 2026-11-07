@@ -44,8 +44,12 @@ func TestSMTQFUFLIASetupOwnsInternalArithmeticThresholdAcrossUpdates(t *testing.
 			t.Cleanup(func() { astTestMust(t, s.Close()) })
 			family, err := m.ArithmeticFamilyID()
 			astTestMust(t, err)
-			theory := s.kernel.internalizer.theories[family].(*SMTLinearArithmeticTheory)
+			facts := func() *smtArithSetupFacts {
+				f, _ := smtArithFactsOf(s.kernel.internalizer.theories[family])
+				return f
+			}
 			checkThreshold := func() {
+				theory := facts()
 				owner, err := s.kernel.smtParams.ArithmeticState()
 				astTestMust(t, err)
 				if owner.PropagationThreshold != tc.threshold || s.kernel.arithState.PropagationThreshold != tc.threshold || theory.propagationThreshold != tc.threshold {
@@ -66,7 +70,7 @@ func TestSMTQFUFLIASetupOwnsInternalArithmeticThresholdAcrossUpdates(t *testing.
 				astTestMust(t, cfg.Context.SetBoolName(&params, &name, enabled))
 				astTestMust(t, s.UpdateParams(&params))
 				checkThreshold()
-				if theory.propagateEqualities != enabled {
+				if facts().propagateEqualities != enabled {
 					t.Fatal("parameter update failed to reach the arithmetic theory")
 				}
 			}
@@ -118,7 +122,7 @@ func TestSMTQFAUFLIASetupUsesIntegerArithmeticAndArrays(t *testing.T) {
 	})
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, solver.Close()) })
-	arithmetic, ok := solver.kernel.internalizer.theories[arithmeticFamily].(*SMTLinearArithmeticTheory)
+	arithmetic, ok := smtArithFactsOf(solver.kernel.internalizer.theories[arithmeticFamily])
 	if !ok || !arithmetic.integer {
 		t.Fatal("QF_AUFLIA did not install concrete integer linear arithmetic")
 	}
@@ -164,7 +168,7 @@ func TestSMTLinearRealLogicSetupUsesConcreteArithmetic(t *testing.T) {
 			})
 			astTestMust(t, err)
 			t.Cleanup(func() { astTestMust(t, solver.Close()) })
-			arithmetic, ok := solver.kernel.internalizer.theories[arithmeticFamily].(*SMTLinearArithmeticTheory)
+			arithmetic, ok := smtArithFactsOf(solver.kernel.internalizer.theories[arithmeticFamily])
 			if !ok || arithmetic.integer || !arithmetic.mixed {
 				t.Fatal(test.logic, "did not install concrete mixed linear arithmetic")
 			}
@@ -207,7 +211,7 @@ func TestSMTQuantifiedIntegerLogicSetupUsesConcreteLinearSubset(t *testing.T) {
 			})
 			astTestMust(t, err)
 			t.Cleanup(func() { astTestMust(t, solver.Close()) })
-			arithmetic, ok := solver.kernel.internalizer.theories[arithmeticFamily].(*SMTLinearArithmeticTheory)
+			arithmetic, ok := smtArithFactsOf(solver.kernel.internalizer.theories[arithmeticFamily])
 			if !ok || !arithmetic.integer {
 				t.Fatal(logic, "did not install the concrete integer linear subset")
 			}
@@ -260,7 +264,7 @@ func TestSMTUnknownLogicSetupInstallsMixedArithmetic(t *testing.T) {
 			})
 			astTestMust(t, err)
 			t.Cleanup(func() { astTestMust(t, solver.Close()) })
-			arithmetic, ok := solver.kernel.internalizer.theories[arithmeticFamily].(*SMTLinearArithmeticTheory)
+			arithmetic, ok := smtArithFactsOf(solver.kernel.internalizer.theories[arithmeticFamily])
 			if !ok || !arithmetic.mixed {
 				t.Fatal(test.logic, "did not install mixed arithmetic")
 			}

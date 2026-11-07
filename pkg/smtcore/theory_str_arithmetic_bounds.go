@@ -19,8 +19,27 @@ func (t *SMTStringTheory) stringArithmeticBound(expression ast.ASTHandle, lower 
 	if err != nil {
 		return nil, false, err
 	}
-	arithmetic, mixed := t.state.Theory(family).(*SMTLinearArithmeticTheory)
 	node := t.state.context.enodes.get(expression)
+	if port, ok := t.state.Theory(family).(*SMTTheoryArith); ok {
+		// theory_str queries theory_mi_arith::get_lower/get_upper.
+		if port.integerExt || node == nil {
+			return nil, false, nil
+		}
+		get := port.getUpper
+		if lower {
+			get = port.getLower
+		}
+		h, known, err := get(node)
+		if err != nil || !known {
+			return nil, false, err
+		}
+		r, isNumeral := port.isNumeral(h)
+		if !isNumeral || !r.IsInt() {
+			return nil, false, nil
+		}
+		return new(big.Int).Set(r.Num()), true, nil
+	}
+	arithmetic, mixed := t.state.Theory(family).(*SMTLinearArithmeticTheory)
 	if !mixed || !arithmetic.mixed || node == nil || arithmetic.solver == nil {
 		return nil, false, nil
 	}

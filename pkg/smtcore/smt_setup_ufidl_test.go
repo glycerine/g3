@@ -79,7 +79,7 @@ func TestSMTUFIDLSetupProfilesAndBackends(t *testing.T) {
 				t.Fatal("UFIDL dense backend routing", gotDense)
 			}
 			if !gotDense {
-				theory, ok := k.internalizer.theories[family].(*SMTLinearArithmeticTheory)
+				theory, ok := smtArithFactsOf(k.internalizer.theories[family])
 				if !ok || theory.mixed != (tc.proofs && !tc.push) || theory.integer == (tc.proofs && !tc.push) {
 					t.Fatal("UFIDL simplex integrality mode")
 				}

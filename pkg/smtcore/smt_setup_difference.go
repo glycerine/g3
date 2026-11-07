@@ -72,6 +72,8 @@ func (k *SMTKernel) setupIntegerDifferencePolicy(useStaticFeatures bool) (result
 				// Both concrete specializations share this implementation.
 				// Select per-column integrality before any asserted term is internalized.
 				theory.integer, theory.mixed = false, true
+			} else if port, ok := k.internalizer.theories[family].(*SMTTheoryArith); ok && port.getNumVars() == 0 {
+				port.useMixedExt()
 			}
 		}
 		if !proofs && !arithmetic.AutoConfigSimplex && dense {
@@ -269,6 +271,8 @@ func (k *SMTKernel) setupUFIntegerDifferencePolicy(useStaticFeatures bool) (resu
 			}
 			if theory, ok := k.internalizer.theories[family].(*SMTLinearArithmeticTheory); ok {
 				theory.integer, theory.mixed = false, true
+			} else if port, ok := k.internalizer.theories[family].(*SMTTheoryArith); ok && port.getNumVars() == 0 {
+				port.useMixedExt()
 			}
 		}
 		if dense {

@@ -114,6 +114,7 @@ const smtArithDeadRowID = -1 // dead_row_id
 type SMTTheoryArith struct {
 	*SMTTheoryBase
 	integerExt bool // Ext == i_ext
+	infExt     bool // Ext == inf_ext (theory_inf_arith)
 
 	stats                 smtTheoryArithStats
 	params                SMTArithState
@@ -475,3 +476,25 @@ func smtTheoryArithPortEnabled() bool { return os.Getenv("G3_THEORY_ARITH") == "
 // smtSetupUsesTheoryLRA: smt_setup.cpp selects theory_lra (setup_r_arith),
 // not theory_arith, for these logics.
 func smtSetupUsesTheoryLRA(logic string) bool { return logic == "QF_LRA" || logic == "QF_UFLRA" }
+
+// useMixedExt turns an unused theory_i_arith into theory_mi_arith, as setup
+// does when it registers theory_mi_arith in place of theory_i_arith.
+func (t *SMTTheoryArith) useMixedExt() {
+	t.integerExt = false
+	t.initExt()
+}
+
+// NewSMTTheoryInfArith creates theory_inf_arith (inf_ext): mi_ext epsilons,
+// with values that may carry an infinity component.
+func NewSMTTheoryInfArith(family ast.FamilyID) (*SMTTheoryArith, error) {
+	t, err := NewSMTTheoryArith(family, false)
+	if err == nil {
+		t.infExt = true
+	}
+	return t, err
+}
+
+// isInfinite is Ext::is_infinite: only inf_ext values can be infinite.
+func (t *SMTTheoryArith) isInfinite(v *smtArithmeticValue) bool {
+	return t.infExt && v.infinity.Sign() != 0
+}
