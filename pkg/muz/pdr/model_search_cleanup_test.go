@@ -148,9 +148,14 @@ func testModelSearchNativeCleanup(t *testing.T, replacing, replacingModel bool) 
 	gt := own(m.MkArithmeticGT(y, lo))
 	lt := own(m.MkArithmeticLT(y, hi))
 	px := own(m.MkApp(p, []ast.ASTHandle{x}))
+	// The goal's predecessors avoid P(0): with one shared context the goal
+	// check leaves the initial x = 0 assignment of P's interval rule in
+	// place, so a P(0) predecessor would hold the same numeral (as in z3
+	// 4.7.1 with pdr.max_num_contexts=1). P(1) and P(2) each get their own.
 	one := own(m.ArithmeticRealNumeralText("1"))
-	p0 := own(m.MkApp(p, []ast.ASTHandle{zero}))
-	p1 := own(m.MkApp(p, []ast.ASTHandle{one}))
+	two := own(m.ArithmeticRealNumeralText("2"))
+	p0 := own(m.MkApp(p, []ast.ASTHandle{one}))
+	p1 := own(m.MkApp(p, []ast.ASTHandle{two}))
 	goal := own(m.MkApp(g, nil))
 	add := func(head ast.ASTHandle, tail []ast.ASTHandle, name string) {
 		r, e := rm.NewRule(head, tail, nil, name)
