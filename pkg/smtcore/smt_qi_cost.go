@@ -177,7 +177,12 @@ func (m *SMTQICostModel) Close() error {
 	if m.closed {
 		return nil
 	}
+	// qi_queue members are destroyed in reverse declaration order:
+	// m_parser, then m_new_gen_function, then m_cost_function.
 	var result error
+	if m.parser != nil {
+		result = errors.Join(result, m.parser.Close())
+	}
 	if m.manager != nil {
 		if _, err := m.manager.RefGet(m.newGeneration); err == nil {
 			result = errors.Join(result, m.manager.DelRef(&m.newGeneration))
@@ -185,9 +190,6 @@ func (m *SMTQICostModel) Close() error {
 		if _, err := m.manager.RefGet(m.costFunction); err == nil {
 			result = errors.Join(result, m.manager.DelRef(&m.costFunction))
 		}
-	}
-	if m.parser != nil {
-		result = errors.Join(result, m.parser.Close())
 	}
 	m.closed = result == nil
 	return result

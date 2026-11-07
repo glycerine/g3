@@ -75,7 +75,8 @@ func (p *CostParser) AddCostVariable(name string) (uint32, error) {
 
 func (p *CostParser) ResetCostVariables() error {
 	p.SimpleParser.ResetVariables()
-	for i := len(p.variables) - 1; i >= 0; i-- {
+	// var_ref_vector::reset releases its elements front to back.
+	for i := range p.variables {
 		if err := p.manager.DelRef(&p.variables[i]); err != nil {
 			return err
 		}

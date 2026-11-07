@@ -8,7 +8,6 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/macros"
-	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
 func (k *SMTKernel) applyPendingBit2Int() (result error) {
@@ -16,12 +15,9 @@ func (k *SMTKernel) applyPendingBit2Int() (result error) {
 	if !k.preprocess || !k.preprocessState.SimplifyBitToInt {
 		return nil
 	}
-	proc, err := rewriter.NewBit2Int(k.manager)
-	if proc != nil {
-		defer func() { result = errors.Join(result, proc.Close()) }()
-	}
-	if err != nil {
-		return err
+	proc := k.assertedBit2Int
+	if proc == nil {
+		return ast.ErrASTHandle
 	}
 	out, err := k.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
