@@ -15,6 +15,7 @@ import (
 
 func main() {
 	full := flag.Bool("f", false, "also list associated Go source files after each C++ file")
+	reverse := flag.Bool("r", false, "print the full reverse mapping from Go source files to partial C++ files")
 	manifest := flag.String("manifest", "", "port manifest path (searched for in the current directory and its parents when omitted)")
 	flag.Parse()
 
@@ -27,7 +28,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	if err := listPartial(os.Stdout, path, *full); err != nil {
+	if err := listPartial(os.Stdout, path, *full, *reverse); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -57,13 +58,14 @@ func findManifest() (string, error) {
 	return "", errors.New("port_manifest.json not found in current directory or its parents; pass -manifest")
 }
 
-func listPartial(output io.Writer, manifestPath string, full bool) error {
+func listPartial(output io.Writer, manifestPath string, full, reverse bool) error {
 	manifest, err := portcheck.Load(manifestPath)
 	if err != nil {
 		return fmt.Errorf("read manifest: %w", err)
 	}
 
 	goByCPP := make(map[string]map[string]struct{})
+	partialCPP := make(map[string]struct{})
 	addGoFiles := func(cppPath string, targets ...string) {
 		files := goByCPP[cppPath]
 		if files == nil {
@@ -78,8 +80,11 @@ func listPartial(output io.Writer, manifestPath string, full bool) error {
 	}
 
 	for _, unit := range manifest.Units {
-		if unit.Status != "partial" || !isCPPFile(unit.Path) {
+		if !isCPPFile(unit.Path) {
 			continue
+		}
+		if unit.Status == "partial" {
+			partialCPP[unit.Path] = struct{}{}
 		}
 		addGoFiles(unit.Path, unit.GoTargets...)
 		for _, method := range unit.Methods {
@@ -90,11 +95,11 @@ func listPartial(output io.Writer, manifestPath string, full bool) error {
 		}
 	}
 
-	// API records can point to a partial C++ source or header independently of
-	// the unit's aggregate target list. Include those Go implementation files too.
+	// API records can point to a C++ source or header independently of the
+	// unit's aggregate target list. Include those Go implementation files too.
 	for _, api := range manifest.APIs {
 		for _, source := range api.Sources {
-			if _, partial := goByCPP[source]; !partial {
+			if !isCPPFile(source) {
 				continue
 			}
 			targets := append([]string(nil), api.GoTargets...)
@@ -105,12 +110,15 @@ func listPartial(output io.Writer, manifestPath string, full bool) error {
 		}
 	}
 
-	cppFiles := make([]string, 0, len(goByCPP))
-	for path := range goByCPP {
+	if reverse {
+		return listReverse(output, goByCPP)
+	}
+
+	cppFiles := make([]string, 0, len(partialCPP))
+	for path := range partialCPP {
 		cppFiles = append(cppFiles, path)
 	}
 	sort.Strings(cppFiles)
-
 	for _, cppPath := range cppFiles {
 		if _, err := fmt.Fprintln(output, cppPath); err != nil {
 			return err
@@ -127,6 +135,37 @@ func listPartial(output io.Writer, manifestPath string, full bool) error {
 			if _, err := fmt.Fprintf(output, "  %s\n", goPath); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func listReverse(output io.Writer, goByCPP map[string]map[string]struct{}) error {
+	cppByGo := make(map[string]map[string]struct{})
+	for cppPath, goFiles := range goByCPP {
+		for goPath := range goFiles {
+			files := cppByGo[goPath]
+			if files == nil {
+				files = make(map[string]struct{})
+				cppByGo[goPath] = files
+			}
+			files[cppPath] = struct{}{}
+		}
+	}
+
+	goFiles := make([]string, 0, len(cppByGo))
+	for goPath := range cppByGo {
+		goFiles = append(goFiles, goPath)
+	}
+	sort.Strings(goFiles)
+	for _, goPath := range goFiles {
+		cppPaths := make([]string, 0, len(cppByGo[goPath]))
+		for cppPath := range cppByGo[goPath] {
+			cppPaths = append(cppPaths, cppPath)
+		}
+		sort.Strings(cppPaths)
+		if _, err := fmt.Fprintf(output, "%s: %s\n", goPath, strings.Join(cppPaths, " ")); err != nil {
+			return err
 		}
 	}
 	return nil
