@@ -1049,6 +1049,26 @@ func TestSMTLibRunnerCPPReference(t *testing.T) {
 }
 
 func canonicalReferenceOutput(name, output string) string {
+	if name == "sequence_word_equations_relations.smt2" {
+		// The fifth scope, (str.contains "abc" x) with |x| = 2, has two models,
+		// "ab" and "bc". Which one is printed depends on search state carried
+		// over from earlier scopes (z3 4.7.1 itself prints either, depending on
+		// which earlier scopes ran). The Go seq theory does not yet follow
+		// theory_seq's unit decomposition (a TRACE build shows z3 creating
+		// (= "a" (seq.unit #x61)) atoms in the first scope that Go does not),
+		// so its choice can differ. Accept exactly the valid models there.
+		lines := strings.Split(output, "\n")
+		models := 0
+		for i, line := range lines {
+			if strings.HasPrefix(line, "((x ") {
+				models++
+				if models == 4 && (line == "((x \"ab\"))" || line == "((x \"bc\"))") {
+					lines[i] = "((x <length-2 substring of \"abc\">))"
+				}
+			}
+		}
+		output = strings.Join(lines, "\n")
+	}
 	if name == "fixedpoint_pdr_sliced_trace.smt2" || name == "fixedpoint_pdr_sliced_compound_tail.smt2" || name == "fixedpoint_pdr_sliced_compound_head.smt2" {
 		// Native relation-query setup first allocates a synthetic query
 		// predicate, while Go's public declaration-query surface does not.

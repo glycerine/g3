@@ -175,3 +175,45 @@ before the port can become the default (phase 8):
 Also needed for phase 8: `theory_inf_arith` (AS_OPTINF) is not ported, and
 the sequence/string theories type-assert the replay theory for length
 bounds; they must read bounds through `SMTTheoryArith` instead.
+
+## Phase 8: switch-over (done)
+
+`SMTTheoryArith` is the arithmetic theory for every `theory_mi_arith`,
+`theory_i_arith` and `theory_inf_arith` setup (theory_lra logics keep
+`SMTLRATheory`). The replay theory (`SMTLinearArithmeticTheory` over
+`math/simplex`), its 79 files and 105 tests are deleted; the env switch and
+the kernel swap are gone. `port_manifest.json` maps the C++ members to the
+port (bcb01010a).
+
+Source fixes made on the way, each checked against z3 4.7.1 (a TRACE build,
+`build_trace/` from `mk_make.py -t`, was used to diff mk_bool_var,
+mk_arith_var, arith_eq_adapter, arith_relevant_eh, decide and pdr traces):
+
+- `poly_rewriter` `mk_mul_core` / `mk_flat_mul_core` / `mk_nflat_mul_core` /
+  `mk_mul_app` ported for arithmetic (`ast/rewriter/arith_poly_mul.go`):
+  `(* c (* x y))` as in C++, so theory_arith never sees a numeral-first
+  three-argument product.
+- `bounded_search` continues on FC_CONTINUE; the Go-only "theory made no
+  progress" cutoff is removed.
+- `theory_seq` length comparisons use `mk_sub` / `mk_simplified_literal`.
+- `arith_eq_adapter::mk_axioms` builds `t1_eq_t2` with
+  `theory_arith::mk_eq_atom` (`arith_util::mk_eq`); `internalize_eq_eh`
+  passes the atom's own enodes; `restart_eh` works on enode pairs.
+- `final_check_eh` traces `arith_eq_adapter_info`; `record_conflict` closes
+  its local `th_rewriter`.
+
+On the nested mod/div problem behind `TestExprQENestedModuloProjection` the
+port creates the same 72 Boolean variables in the same order as z3, with the
+same decisions, conflicts, GCD tests and Gomory cuts.
+
+Tests written against the replay theory were changed only where C++ behaves
+differently (bare constants have no arithmetic variable until an arithmetic
+term mentions them; atoms are `<=`/`>=` normal forms; proof rules, statuses
+and shared-context PDR models as z3 4.7.1 produces). `make` passes.
+
+Open, outside theory_arith: the Go sequence theory does not follow
+`theory_seq`'s unit decomposition (z3 refutes the first scope of
+`sequence_word_equations_relations.smt2` in propagation with
+`(= "a" (seq.unit #x61))` atoms; Go branches in final check). The
+`str.contains` model in that script is therefore compared as "a valid
+model" rather than byte for byte.
