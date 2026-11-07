@@ -134,6 +134,20 @@ func (a *SmallBytes) ReadUint32LE(r SmallBytesRef, offset uint32) (uint32, error
 	start := d.offset + offset
 	return binary.LittleEndian.Uint32(a.chunks[d.page].data[start : start+4]), nil
 }
+
+// WriteUint32LE is the single-validation counterpart of ReadUint32LE.
+func (a *SmallBytes) WriteUint32LE(r SmallBytesRef, offset uint32, v uint32) error {
+	d, err := a.descriptor(r)
+	if err != nil {
+		return err
+	}
+	if offset > d.length || d.length-offset < 4 {
+		return ErrBounds
+	}
+	start := d.offset + offset
+	binary.LittleEndian.PutUint32(a.chunks[d.page].data[start:start+4], v)
+	return nil
+}
 func (a *SmallBytes) Write(r SmallBytesRef, i uint32, v byte) error {
 	d, e := a.descriptor(r)
 	if e != nil {

@@ -137,50 +137,43 @@ func (a *ClauseAllocator) validate(r StoredClauseRef) error {
 	return nil
 }
 func (a *ClauseAllocator) IsLive(r StoredClauseRef) bool { return a.validate(r) == nil }
+// readWord and writeWord check the owner and let the arena validate the small
+// clause's descriptor once; propagation calls them for every literal visited.
 func (a *ClauseAllocator) readWord(r StoredClauseRef, i uint64) (uint32, error) {
-	if e := a.validate(r); e != nil {
-		return 0, e
-	}
-	if r.storageKind == 1 {
-		if i >= uint64(len(a.large[r.slot].data)) {
-			return 0, arena.ErrBounds
-		}
-		return a.large[r.slot].data[i], nil
+	if r.storageKind != 0 || r.slot == 0 || a == nil || a.closed || r.owner != a.origin || a.self != a {
+		return a.readWordChecked(r, i)
 	}
 	if i > uint64(^uint32(0))/4 {
 		return 0, arena.ErrBounds
 	}
-	var v uint32
-	ref := arena.SmallBytesRef{Slot: arena.Slot(r.slot), Generation: arena.Generation(r.generation)}
-	for j := uint32(0); j < 4; j++ {
-		x, e := a.storage.Read(ref, uint32(i*4)+j)
-		if e != nil {
-			return 0, e
-		}
-		v |= uint32(x) << (8 * j)
+	return a.storage.ReadUint32LE(arena.SmallBytesRef{Slot: arena.Slot(r.slot), Generation: arena.Generation(r.generation)}, uint32(i*4))
+}
+func (a *ClauseAllocator) readWordChecked(r StoredClauseRef, i uint64) (uint32, error) {
+	if e := a.validate(r); e != nil {
+		return 0, e
 	}
-	return v, nil
+	if i >= uint64(len(a.large[r.slot].data)) {
+		return 0, arena.ErrBounds
+	}
+	return a.large[r.slot].data[i], nil
 }
 func (a *ClauseAllocator) writeWord(r StoredClauseRef, i uint64, v uint32) error {
-	if e := a.validate(r); e != nil {
-		return e
-	}
-	if r.storageKind == 1 {
-		if i >= uint64(len(a.large[r.slot].data)) {
-			return arena.ErrBounds
-		}
-		a.large[r.slot].data[i] = v
-		return nil
+	if r.storageKind != 0 || r.slot == 0 || a == nil || a.closed || r.owner != a.origin || a.self != a {
+		return a.writeWordChecked(r, i, v)
 	}
 	if i > uint64(^uint32(0))/4 {
 		return arena.ErrBounds
 	}
-	ref := arena.SmallBytesRef{Slot: arena.Slot(r.slot), Generation: arena.Generation(r.generation)}
-	for j := uint32(0); j < 4; j++ {
-		if e := a.storage.Write(ref, uint32(i*4)+j, byte(v>>(8*j))); e != nil {
-			return e
-		}
+	return a.storage.WriteUint32LE(arena.SmallBytesRef{Slot: arena.Slot(r.slot), Generation: arena.Generation(r.generation)}, uint32(i*4), v)
+}
+func (a *ClauseAllocator) writeWordChecked(r StoredClauseRef, i uint64, v uint32) error {
+	if e := a.validate(r); e != nil {
+		return e
 	}
+	if i >= uint64(len(a.large[r.slot].data)) {
+		return arena.ErrBounds
+	}
+	a.large[r.slot].data[i] = v
 	return nil
 }
 func (a *ClauseAllocator) allocate(n uint32) (StoredClauseRef, error) {
@@ -327,37 +320,27 @@ func (a *ClauseAllocator) Approx(r StoredClauseRef) (satApproxSet, error) {
 	return satApproxSet(n), e
 }
 func (a *ClauseAllocator) Literal(r StoredClauseRef, i uint32) (Literal, error) {
-	n, e := a.Size(r)
-	if e != nil {
-		return 0, e
-	}
-	if satStorageSourceDebug && i >= n {
-		return 0, ErrSATAssertion
-	}
-	capacity, e := a.Capacity(r)
-	if e != nil {
-		return 0, e
-	}
-	if i >= capacity {
-		return 0, arena.ErrBounds
+	if satStorageSourceDebug {
+		n, e := a.Size(r)
+		if e != nil {
+			return 0, e
+		}
+		if i >= n {
+			return 0, ErrSATAssertion
+		}
 	}
 	v, e := a.readWord(r, 5+uint64(i))
 	return Literal(v), e
 }
 func (a *ClauseAllocator) SetLiteral(r StoredClauseRef, i uint32, l Literal) error {
-	n, e := a.Size(r)
-	if e != nil {
-		return e
-	}
-	if satStorageSourceDebug && i >= n {
-		return ErrSATAssertion
-	}
-	capacity, e := a.Capacity(r)
-	if e != nil {
-		return e
-	}
-	if i >= capacity {
-		return arena.ErrBounds
+	if satStorageSourceDebug {
+		n, e := a.Size(r)
+		if e != nil {
+			return e
+		}
+		if i >= n {
+			return ErrSATAssertion
+		}
 	}
 	return a.writeWord(r, 5+uint64(i), uint32(l))
 }
