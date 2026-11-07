@@ -88,7 +88,8 @@ func TestSMTInternalizerBooleanVariablesLiteralsAssignmentsAndScopes(t *testing.
 		t.Fatal("assignment scope rollback", value, err)
 	}
 	stats := state.Statistics()
-	if stats.NumMkBoolVar != 1 || stats.NumDelBoolVar != 0 {
+	// context::init counts the true variable as well.
+	if stats.NumMkBoolVar != 2 || stats.NumDelBoolVar != 0 {
 		t.Fatal("Boolean variable statistics", stats)
 	}
 }

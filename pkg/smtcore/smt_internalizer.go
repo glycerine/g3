@@ -310,7 +310,6 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 	if firstValue == lbool.False {
 		s.setBooleanConflict(NewSMTBooleanClause(clause), SMTNullLiteral)
 	} else if secondValue == lbool.False && firstValue == lbool.Undef {
-		s.statistics.NumPropagations++
 		if err = s.AssignLiteral(kept[0], NewSMTBooleanClause(clause)); err != nil {
 			return err
 		}

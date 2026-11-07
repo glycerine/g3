@@ -244,13 +244,14 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 			justification := NewSMTBooleanBinaryClause(assigned)
 			switch value {
 			case lbool.False:
+				s.statistics.NumBinPropagations++
 				s.inconsistent = true
 				s.conflict = justification
 				s.conflictLiteral = implied.Negated()
 				s.statistics.NumConflicts++
 				return false, nil
 			case lbool.Undef:
-				s.statistics.NumPropagations++
+				s.statistics.NumBinPropagations++
 				if err := s.AssignLiteral(implied, justification); err != nil {
 					return false, err
 				}

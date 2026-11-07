@@ -248,6 +248,9 @@ func NewSMTInternalizerState(manager *ast.ASTManager, context *SMTCheckerContext
 		newCore2thEq:          true,
 	}
 	state.booleanData[0].Initialize(0)
+	// context::init creates the true variable through mk_bool_var, which
+	// counts it in m_num_mk_bool_var.
+	state.statistics.NumMkBoolVar = 1
 	dynamicAck, err := newSMTDynAckManager(state, defaultSMTDynAckState())
 	if err != nil {
 		_ = table.Close()

@@ -84,7 +84,6 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 			saved.keepReinit = true
 		} else if allOtherFalse && firstValue == lbool.Undef {
 			saved.keepReinit = true
-			s.statistics.NumPropagations++
 			assigned := len(s.assignedLiterals)
 			if err = s.AssignLiteral(literals[0], justification); err != nil {
 				saved.pending = s.learnedAssignmentRemainder(literals[0], firstValue, assigned, justification)
