@@ -747,6 +747,22 @@ func (s *Solver) Minimize(objective uint32) (lbool.LBool, error) {
 	}
 }
 
+// ClearBounds removes every bound and its explanation, keeping rows and values,
+// so a caller can re-assert a smaller bound set on the same tableau. Values stay
+// a valid starting point: relaxing bounds cannot make a nonbasic value illegal.
+func (s *Solver) ClearBounds() {
+	s.arithmeticBoundAtoms = nil
+	s.boundConflict, s.boundConflictKnown = nil, false
+	s.infeasible = NullVariable
+	for i := range s.vars {
+		x := &s.vars[i]
+		x.lowerValid, x.upperValid = false, false
+		x.lowerDependencies, x.upperDependencies = nil, nil
+		x.lowerExplained, x.upperExplained = false, false
+	}
+	s.patch.clear()
+}
+
 func (s *Solver) Reset() {
 	s.arithmeticBoundAtoms = nil
 	s.boundConflict, s.boundConflictKnown = nil, false

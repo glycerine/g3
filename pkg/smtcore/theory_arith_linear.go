@@ -171,6 +171,10 @@ type SMTLinearArithmeticTheory struct {
 	assertionIndexEpoch, assertionPopEpoch  uint64
 	incrementalAtoms, incrementalAssertions int
 	incrementalBases                        []uint32
+	incrementalKeys                         map[string]uint32 // coefficient key to base column
+	incrementalAtomKeys                     []string          // per atom, empty unless it owns its row
+	incrementalRowEpoch                     uint64            // changes when atoms or rows change without a pivot
+	propagationRowEpoch                     uint64
 	propagationSolver                       *simplex.Solver
 	propagationPivots                       uint32
 	propagationHead                         int
@@ -1404,7 +1408,11 @@ func (t *SMTLinearArithmeticTheory) rebuild() (bool, error) {
 	plain := len(t.nonlinearColumns) == 0 && len(t.expressionBounds) == 0 && len(t.derivedBounds) == 0
 	if plain && t.incrementalSolver != nil && t.incrementalSolver == t.solver &&
 		t.replayedNextSimplex == t.nextSimplex && t.replayedDefinitions == len(t.definitions) &&
-		t.incrementalAtoms == len(t.atoms) && t.incrementalAssertions <= len(t.assertions) {
+		t.incrementalAtoms <= len(t.atoms) && t.incrementalAssertions <= len(t.assertions) {
+		if err := t.addIncrementalAtomRows(); err != nil {
+			t.incrementalSolver = nil
+			return false, err
+		}
 		for _, assertion := range t.assertions[t.incrementalAssertions:] {
 			ok, err := t.applyReplayAssertion(t.solver, t.incrementalBases, assertion)
 			if err != nil || !ok {
@@ -1449,12 +1457,112 @@ func (t *SMTLinearArithmeticTheory) rebuild() (bool, error) {
 			t.incrementalSolver = solver
 			t.incrementalAtoms, t.incrementalAssertions = len(t.atoms), len(t.assertions)
 			t.incrementalBases = t.arithmeticAtomBases()
+			t.incrementalKeys = make(map[string]uint32, len(t.atoms))
+			t.incrementalAtomKeys = t.incrementalAtomKeys[:0]
+			for index := range t.atoms {
+				key := ""
+				if t.atoms[index].supported && t.incrementalBases[index] == t.nextSimplex+uint32(index) {
+					key = t.atoms[index].cachedCoefficientKey()
+					t.incrementalKeys[key] = t.incrementalBases[index]
+				}
+				t.incrementalAtomKeys = append(t.incrementalAtomKeys, key)
+			}
+			t.incrementalRowEpoch++
 		}
 	}
 	if err == nil && status == lbool.False && t.state != nil {
 		err = t.derivedBoundConflict(solver)
 	}
 	return status == lbool.True, err
+}
+
+// addIncrementalAtomRows gives atoms created since the last replay their rows on
+// the live tableau, as the source does when it internalizes an atom. The bases
+// match what arithmeticAtomBases computes, because atoms only append here.
+func (t *SMTLinearArithmeticTheory) addIncrementalAtomRows() error {
+	for index := t.incrementalAtoms; index < len(t.atoms); index++ {
+		atom := &t.atoms[index]
+		base, key := uint32(0), ""
+		if atom.supported {
+			key = atom.cachedCoefficientKey()
+			if prior, found := t.incrementalKeys[key]; found {
+				base, key = prior, ""
+			} else {
+				base = t.nextSimplex + uint32(index)
+				variables := make([]uint32, 0, len(atom.form.terms)+1)
+				coefficients := make([]big.Rat, 0, len(atom.form.terms)+1)
+				variables = append(variables, base)
+				coefficients = append(coefficients, *big.NewRat(1, 1))
+				ordered := make([]uint32, 0, len(atom.form.terms))
+				for variable := range atom.form.terms {
+					ordered = append(ordered, variable)
+				}
+				sort.Slice(ordered, func(i, j int) bool { return ordered[i] < ordered[j] })
+				for _, variable := range ordered {
+					variables = append(variables, variable)
+					coefficients = append(coefficients, *new(big.Rat).Neg(atom.form.terms[variable]))
+				}
+				if _, err := t.solver.AddRationalRow(base, variables, coefficients); err != nil {
+					return err
+				}
+				t.incrementalKeys[key] = base
+			}
+		}
+		t.incrementalRowEpoch++
+		t.incrementalBases = append(t.incrementalBases, base)
+		t.incrementalAtomKeys = append(t.incrementalAtomKeys, key)
+	}
+	t.incrementalAtoms = len(t.atoms)
+	return nil
+}
+
+// restoreIncrementalAfterPop undoes a scope on the live tableau: it drops the
+// popped atoms' rows and re-asserts the surviving bounds, keeping the pivoted
+// rows and assignment. It reports false when only a full replay can restore the
+// state, including any conflict, which the replay then reports normally.
+func (t *SMTLinearArithmeticTheory) restoreIncrementalAfterPop() (bool, error) {
+	if t.incrementalSolver == nil || t.incrementalSolver != t.solver ||
+		t.replayedNextSimplex != t.nextSimplex || t.replayedDefinitions != len(t.definitions) ||
+		len(t.atoms) > t.incrementalAtoms || t.incrementalAtoms != len(t.incrementalBases) ||
+		len(t.nonlinearColumns) != 0 || len(t.expressionBounds) != 0 || len(t.derivedBounds) != 0 {
+		return false, nil
+	}
+	solver := t.solver
+	before := solver.Stats.NumPivots
+	for index := t.incrementalAtoms - 1; index >= len(t.atoms); index-- {
+		if key := t.incrementalAtomKeys[index]; key != "" {
+			if err := solver.DeleteRow(t.incrementalBases[index]); err != nil {
+				return false, nil
+			}
+			delete(t.incrementalKeys, key)
+		}
+		t.incrementalRowEpoch++
+	}
+	t.incrementalBases = t.incrementalBases[:len(t.atoms)]
+	t.incrementalAtomKeys = t.incrementalAtomKeys[:len(t.atoms)]
+	t.incrementalAtoms = len(t.atoms)
+	solver.ClearBounds()
+	one := simplex.RationalInfinitesimal(big.NewRat(1, 1))
+	if err := solver.SetLowerWithDependencies(0, one, nil); err != nil {
+		return false, nil
+	}
+	if err := solver.SetUpperWithDependencies(0, one, nil); err != nil {
+		return false, nil
+	}
+	for _, assertion := range t.assertions {
+		ok, err := t.applyReplayAssertion(solver, t.incrementalBases, assertion)
+		if err != nil || !ok {
+			return false, nil
+		}
+	}
+	status, err := solver.MakeFeasible()
+	if err != nil || status != lbool.True {
+		return false, nil
+	}
+	t.statistics.pivots += uint64(solver.Stats.NumPivots - before)
+	t.replayStatsCounted = t.replayStatsEpoch
+	t.incrementalAssertions = len(t.assertions)
+	return true, nil
 }
 
 func (t *SMTLinearArithmeticTheory) buildSimplex() (*simplex.Solver, lbool.LBool, error) {
@@ -1720,7 +1828,6 @@ func (t *SMTLinearArithmeticTheory) PopScopes(count uint32) error {
 	if count == 0 || int(count) > len(t.scopes) {
 		return ast.ErrASTDomain
 	}
-	t.incrementalSolver = nil
 	t.assertionPopEpoch++
 	level := len(t.scopes) - int(count)
 	scope := t.scopes[level]
@@ -1787,6 +1894,14 @@ func (t *SMTLinearArithmeticTheory) PopScopes(count uint32) error {
 			delete(t.definitions, variable)
 		}
 	}
+	restored, err := t.restoreIncrementalAfterPop()
+	if err != nil {
+		return err
+	}
+	if restored {
+		return nil
+	}
+	t.incrementalSolver = nil
 	return func() error { _, err := t.rebuild(); return err }()
 }
 

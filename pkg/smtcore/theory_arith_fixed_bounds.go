@@ -285,7 +285,7 @@ func (t *SMTLinearArithmeticTheory) propagateArithmeticBoundAtoms() error {
 	// pivots or a rebuilt tableau invalidate the reverse index and require a
 	// full scan. An unchanged matrix keeps the same column-to-row mapping.
 	var affected map[uint32]bool
-	if t.propagationSolver == solver && t.propagationPivots == solver.Stats.NumPivots && t.propagationHead <= len(t.assertions) {
+	if t.propagationSolver == solver && t.propagationPivots == solver.Stats.NumPivots && t.propagationRowEpoch == t.incrementalRowEpoch && t.propagationHead <= len(t.assertions) {
 		affected = make(map[uint32]bool)
 		touch := func(column uint32) {
 			affected[column] = true
@@ -316,6 +316,7 @@ func (t *SMTLinearArithmeticTheory) propagateArithmeticBoundAtoms() error {
 		t.propagationBases = t.arithmeticAtomBases()
 	}
 	t.propagationSolver, t.propagationPivots = solver, solver.Stats.NumPivots
+	t.propagationRowEpoch = t.incrementalRowEpoch
 	t.propagationHead = len(t.assertions)
 	bases, rowsByColumn := t.propagationBases, t.propagationRows
 	proofs, err := t.state.manager.ProofsEnabled()
