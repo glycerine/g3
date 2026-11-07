@@ -100,42 +100,27 @@ var_data types wired to them. `propagateFixedEquality`, the explanation
 helpers, Gröbner, GCD, Gomory and branch code should be reused and rewired
 to the live tableau rather than rewritten.
 
+## Ground rules for the port (restart)
+
+The first attempt (commits 3e500de53, cd2c3cce4) split the theory into an
+"engine" plus a "host" interface with a fake host for tests. That is not the
+source structure and was discarded. The port follows the C++ directly:
+
+- One type, `SMTTheoryArith`, is `theory_arith<Ext>`. It embeds
+  `SMTTheoryBase` (the C++ base class `theory`) and calls the context through
+  `t.state`, exactly where the source calls `get_context()`. No interfaces or
+  adapters between the theory and the context.
+- Files mirror the C++ headers and their order: `smt_theory_arith.go`
+  (theory_arith.h), `smt_theory_arith_core.go`, `_aux.go`, `_eq.go`, `_int.go`,
+  `_nl.go`, `_pp.go`. Function names are the C++ names in lowerCamelCase and
+  appear in the same order as in the header.
+- Already-ported pieces that match the source are reused as they are:
+  `theory_arith_tableau.go` (row/column), `theory_arith_bounds.go` (bound,
+  atom, eq_bound, derived_bound, antecedents, var data). Nothing new is
+  invented for a type the source already has.
+- Tests exercise a real `SMTInternalizerState`, not a fake.
+
 ## Status
 
-Done (engine core, `smtcore/theory_arith_engine*.go`, tested with a fake host
-in `theory_arith_engine_test.go`; not yet attached to any logic):
-
-- Phase 1: the existing bound/atom/antecedent/tableau types are reused; the
-  engine struct and `inf_numeral` helpers are new.
-- Phase 3: `save_value`, `restore_assignment`, `update_value`, `add_row`,
-  `pivot`, `eliminate`, `update_and_pivot`, `set_bound` (calls `fixed_var_eh`),
-  `assert_lower/upper/bound`, push/pop scopes, `restore_bounds`, `del_vars`,
-  `del_row`, `mk_row`, `init_row`, quasi-base handling.
-- Phase 4: `select_pivot` (Bland and default), `make_var_feasible`,
-  `make_feasible`, `sign_row_conflict`, `sign_bound_conflict`, `set_conflict`.
-- Phase 5: `mark_row(s)_for_bound_prop`, `is_row_useful_for_bound_prop`,
-  `imply_bound_for_monomial/all_monomials`, `explain_bound`,
-  `mk_implied_bound`, `assign_bound_literal`, `propagate_bounds`,
-  `fixed_var_eh`, `is_offset_row`, `propagate_cheap_eq`,
-  `collect_fixed_var_justifications`, derived bounds (`mk_bound_from_row`,
-  `accumulate_justification`), bound axioms and `flush_bound_axioms`,
-  `assign_eh`, `propagate_core`, `failed`.
-
-Not yet ported (all of these are needed before the switch-over):
-
-- Phase 2: term internalization (`internalize_add/mul/div/idiv/mod/rem/
-  to_real/to_int/is_int/numeral`, `mk_axiom` helpers, `internalize_atom`'s
-  expression half), `new_eq_eh`/`new_diseq_eh` through `arith_eq_adapter`,
-  `init_search_eh` (`move_unconstrained_to_base`), `relevant_eh`.
-- Phase 6: `theory_arith_int.h` (`gcd_test`, branch and bound, Gomory cuts,
-  `check_int_feasibility`, euclidean solver, `patch_int_infeasible_vars`),
-  `assume_eqs_core`/`delayed_assume_eqs`, `final_check_eh`, model generation
-  (`compute_epsilon`, `init_model`, `mk_value`).
-- Phase 7: `theory_arith_nl.h` (`propagate_linear_monomials`, Gröbner,
-  `process_non_linear`) and `theory_arith_aux.h` max/min for optimization.
-- Phase 8: the `SMTTheoryInternalizer` adapter around `smtArithEngine`
-  implementing `smtArithEngineHost`, selection in `smt_setup`, differential
-  comparison of statistics against C++, deletion of the replay design.
-
-B5 stays open until the adapter is attached, because the engine is the only
-place `fixed_var_eh` runs at bound-assertion time.
+Discarded and to be redone: all of the first attempt. Nothing of the new
+`SMTTheoryArith` exists yet; B5 stays open.
