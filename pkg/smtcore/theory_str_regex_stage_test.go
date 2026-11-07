@@ -15,7 +15,7 @@ func stringRegexStageFixture(t *testing.T) (*ast.ASTManager, *SMTStringTheory, *
 	m, parent, theory := stringExpressionSolverFixture(t)
 	family, err := m.ArithmeticFamilyID()
 	astTestMust(t, err)
-	arithmetic, err := NewSMTMixedLinearArithmeticTheory(family)
+	arithmetic, err := NewSMTTheoryArith(family, false)
 	astTestMust(t, err)
 	astTestMust(t, parent.internalizer.RegisterTheory(arithmetic))
 	return m, theory, parent.internalizer, parent.preprocessor

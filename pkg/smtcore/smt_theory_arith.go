@@ -14,7 +14,6 @@ package smtcore
 import (
 	"errors"
 	"math/big"
-	"os"
 
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
@@ -467,15 +466,6 @@ func (t *SMTTheoryArith) Close() (result error) {
 	}
 	return result
 }
-
-// smtTheoryArithPortEnabled selects SMTTheoryArith in place of the replay
-// arithmetic theory (G3_THEORY_ARITH=port) while the port is compared with
-// the C++ build.
-func smtTheoryArithPortEnabled() bool { return os.Getenv("G3_THEORY_ARITH") == "port" }
-
-// smtSetupUsesTheoryLRA: smt_setup.cpp selects theory_lra (setup_r_arith),
-// not theory_arith, for these logics.
-func smtSetupUsesTheoryLRA(logic string) bool { return logic == "QF_LRA" || logic == "QF_UFLRA" }
 
 // useMixedExt turns an unused theory_i_arith into theory_mi_arith, as setup
 // does when it registers theory_mi_arith in place of theory_i_arith.

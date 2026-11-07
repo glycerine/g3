@@ -208,11 +208,11 @@ func (t *SMTSequenceTheory) addIndexAxioms(expression ast.ASTHandle) error {
 	if err = t.pushSequenceImplication([]ast.ASTHandle{offsetNegative}, indexMinusOne); err != nil {
 		return err
 	}
-	offsetAtLeastLength, err := state.manager.MkArithmeticGE(offset, sourceLength)
+	offsetAtLeastLength, err := t.seqCompareGE(offset, sourceLength)
 	if err != nil {
 		return err
 	}
-	offsetAtMostLength, err := state.manager.MkArithmeticLE(offset, sourceLength)
+	offsetAtMostLength, err := t.seqCompareLE(offset, sourceLength)
 	if err != nil {
 		return err
 	}

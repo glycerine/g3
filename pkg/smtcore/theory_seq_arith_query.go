@@ -3,7 +3,6 @@ package smtcore
 // The arithmetic queries of the sequence and string theories. The source
 // (theory_seq::lower_bound, upper_bound, get_num_value) asks the arithmetic
 // theory for get_lower, get_upper and get_value of a term's enode. The
-// replay theory answers through its interval and fixed-assignment helpers;
 // SMTTheoryArith answers as the source does.
 
 import (
@@ -27,37 +26,10 @@ func smtSeqArithmetic(state *SMTInternalizerState) (smtSeqArithmeticQuery, bool,
 		return nil, false, err
 	}
 	switch a := state.Theory(family).(type) {
-	case *SMTLinearArithmeticTheory:
-		return &smtSeqReplayArithmetic{a: a}, true, nil
 	case *SMTTheoryArith:
 		return a, true, nil
 	}
 	return nil, false, nil
-}
-
-type smtSeqReplayArithmetic struct {
-	a         *SMTLinearArithmeticTheory
-	intervals *smtPolynomialIntervals
-	fixed     map[uint32]smtFixedPolynomialValue
-}
-
-func (q *smtSeqReplayArithmetic) interval(term ast.ASTHandle) (*smtOldInterval, bool, error) {
-	if q.intervals == nil {
-		intervals, err := q.a.linearVariableIntervals()
-		if err != nil {
-			return nil, false, err
-		}
-		q.intervals = intervals
-	}
-	return q.a.polynomialInterval(term, q.intervals)
-}
-
-func (q *smtSeqReplayArithmetic) fixedValue(term ast.ASTHandle) (*big.Rat, bool, error) {
-	if q.fixed == nil {
-		q.fixed = q.a.fixedLinearAssignments()
-	}
-	value, _, exact, err := q.a.fixedPolynomialValue(term, q.fixed)
-	return value, exact, err
 }
 
 // interval is get_lower/get_upper of the term's enode: a bound is known only
@@ -87,8 +59,11 @@ func (t *SMTTheoryArith) interval(term ast.ASTHandle) (*smtOldInterval, bool, er
 	return result, known, nil
 }
 
-// fixedValue is get_num_value: the integer value of some member of the
-// term's equivalence class.
+// fixedValue returns the integer value of some member of the term's
+// equivalence class whose theory variable is fixed by its bounds
+// (theory_arith::is_fixed, with get_lower giving the value). The sequence
+// callers decompose words by this length, so it must be implied by the
+// asserted bounds, not be the current assignment.
 func (t *SMTTheoryArith) fixedValue(term ast.ASTHandle) (*big.Rat, bool, error) {
 	n := t.state.context.enodes.get(term)
 	if n == nil {
@@ -96,15 +71,9 @@ func (t *SMTTheoryArith) fixedValue(term ast.ASTHandle) (*big.Rat, bool, error) 
 	}
 	next := n
 	for {
-		if v := next.TheoryVar(t.FamilyID()); v != SMTNullTheoryVar {
-			h, ok, err := t.GetTheoryValue(next)
-			if err != nil {
-				return nil, false, err
-			}
-			if ok {
-				if r, isNum := t.isNumeral(h); isNum && r.IsInt() {
-					return r, true, nil
-				}
+		if v := next.TheoryVar(t.FamilyID()); v != SMTNullTheoryVar && t.isFixed(v) {
+			if value := &t.lower(v).base().value; value.isRational() && value.rational.IsInt() {
+				return new(big.Rat).Set(&value.rational), true, nil
 			}
 		}
 		next = next.next

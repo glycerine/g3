@@ -48,12 +48,12 @@ func TestSMTArithmeticEqualityAdapterRetainedDiagnostics(t *testing.T) {
 	t.Run("generic", func(t *testing.T) {
 		f := newArithmeticObjectiveFixture(t, false)
 		x, y := f.variable("adapter-diagnostic-x"), f.variable("adapter-diagnostic-y")
-		astTestMust(t, f.s.Internalize(x, false))
-		astTestMust(t, f.s.Internalize(y, false))
+		f.internalizeVar(x)
+		f.internalizeVar(y)
 		var out bytes.Buffer
 		tags := diagnostic.NewTraceTagsWithWriter(&out)
 		enableArithmeticAdapterTrace(tags)
-		f.a.equalityAdapter.trace = tags
+		f.a.arithEqAdapter.trace = tags
 		xv := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
 		yv := f.s.context.enodes.get(y).TheoryVar(f.a.FamilyID())
 		astTestMust(t, f.a.NewEquality(xv, yv))
@@ -86,20 +86,20 @@ func TestSMTArithmeticEqualityAdapterRetainedDiagnostics(t *testing.T) {
 func TestSMTArithmeticEqualityAdapterTraceBadbitAndAssertionGate(t *testing.T) {
 	f := newArithmeticObjectiveFixture(t, false)
 	x, y := f.variable("adapter-badbit-x"), f.variable("adapter-badbit-y")
-	astTestMust(t, f.s.Internalize(x, false))
-	astTestMust(t, f.s.Internalize(y, false))
+	f.internalizeVar(x)
+	f.internalizeVar(y)
 	tags := diagnostic.NewTraceTagsWithWriter(&arithmeticAdapterTraceWriter{refuse: true})
 	enableArithmeticAdapterTrace(tags)
-	f.a.equalityAdapter.trace = tags
+	f.a.arithEqAdapter.trace = tags
 	xv := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
 	yv := f.s.context.enodes.get(y).TheoryVar(f.a.FamilyID())
 	astTestMust(t, f.a.NewDisequality(xv, yv))
-	if f.a.equalityAdapter.NumAxioms() != 1 {
+	if f.a.arithEqAdapter.NumAxioms() != 1 {
 		t.Fatal("trace badbit stopped adapter operands")
 	}
 
 	_, _ = newLRASourceAssertionContext(t)
-	err := f.a.equalityAdapter.MkAxioms(xv, xv)
+	err := f.a.arithEqAdapter.MkAxioms(xv, xv)
 	checkLRASourceAssertionResult(t, err, true, ast.ErrASTDomain)
 }
 

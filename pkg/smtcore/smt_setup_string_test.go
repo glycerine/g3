@@ -159,7 +159,7 @@ func TestSMTQFSSetupInstallsNativeStringAndMixedArithmetic(t *testing.T) {
 			}
 			arith, err := m.ArithmeticFamilyID()
 			astTestMust(t, err)
-			if arithmetic, ok := solver.kernel.internalizer.theories[arith].(*SMTLinearArithmeticTheory); !ok || !arithmetic.mixed {
+			if arithmetic, ok := solver.kernel.internalizer.theories[arith].(*SMTTheoryArith); !ok || !(!arithmetic.integerExt) {
 				t.Fatal("QF_S must select native theory_mi_arith")
 			}
 			if auto && (str.parameterOwner != &solver.kernel.smtParams.str || str.regexExpressionSolver == nil || str.regexExpressionSolver.kernel.smtParams != solver.kernel.smtParams) {

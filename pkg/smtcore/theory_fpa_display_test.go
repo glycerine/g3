@@ -56,7 +56,9 @@ func fpaDisplayFixture(t *testing.T) (*ast.ASTManager, *SMTInternalizerState, *S
 	_, foreign := smtUFConstants(t, m, "foreign-", 1)
 	astTestMust(t, s.Internalize(foreign[0], false))
 	terms := []ast.ASTHandle{a, b, integer, bv, foreign[0]}
-	want := "fpa theory variables:\n1 -> |first fpa|\n0 -> second-fpa\nbv theory variables:\n0 -> bits-var\narith theory variables:\n0 -> integer-var\nequivalence classes:\n"
+	// theory_arith::apply_sort_cnstr does nothing: a bare integer constant
+	// has no arithmetic variable until an arithmetic term mentions it.
+	want := "fpa theory variables:\n1 -> |first fpa|\n0 -> second-fpa\nbv theory variables:\n0 -> bits-var\narith theory variables:\nequivalence classes:\n"
 	for i, name := range []string{"|first fpa|", "second-fpa", "integer-var", "bits-var", "foreign-a"} {
 		id, err := m.GetASTID(terms[i])
 		astTestMust(t, err)
@@ -115,9 +117,9 @@ func TestSMTFPADisplayWriterPrefixesFlushAndOwnerStability(t *testing.T) {
 	m, s, fp, _, want := fpaDisplayFixture(t)
 	w := &theoryDisplayFlushWriter{}
 	astTestMust(t, fp.Display(w))
-	// Three section headings, four variable lines and five equivalence lines
+	// Three section headings, three variable lines and five equivalence lines
 	// use endl. The equivalence heading has an ordinary newline.
-	if w.output.String() != want || w.flushes != 12 {
+	if w.output.String() != want || w.flushes != 11 {
 		t.Fatal(w.output.String(), w.flushes)
 	}
 	before := m.Stats()

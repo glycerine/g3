@@ -12,7 +12,7 @@ func (k *SMTKernel) installMixedArithmeticSetup(config SMTArithState) error {
 	if err != nil {
 		return err
 	}
-	theory, err := NewSMTInfiniteArithmeticTheory(family)
+	theory, err := NewSMTTheoryInfArith(family)
 	if err != nil {
 		return err
 	}

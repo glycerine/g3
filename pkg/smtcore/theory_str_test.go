@@ -16,7 +16,7 @@ func stringTheoryFixture(t *testing.T, m *ast.ASTManager) (*SMTStringTheory, *SM
 	_, _, state := smtInternalizerFixture(t, m, nil)
 	arithmeticFamily, err := m.ArithmeticFamilyID()
 	astTestMust(t, err)
-	arithmetic, err := NewSMTLinearIntegerArithmeticTheory(arithmeticFamily)
+	arithmetic, err := NewSMTTheoryArith(arithmeticFamily, true)
 	astTestMust(t, err)
 	astTestMust(t, state.RegisterTheory(arithmetic))
 	astTestMust(t, state.RegisterTheory(theory))

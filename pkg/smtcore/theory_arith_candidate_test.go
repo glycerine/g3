@@ -39,7 +39,14 @@ func TestSMTArithmeticCandidateFloorsFractionalIntegers(t *testing.T) {
 			astTestMust(t, err)
 			y, err := m.MkConst(astTestSymbol(t, m, "fractional-y"), integer)
 			astTestMust(t, err)
-			difference, err := m.MkArithmeticSub(x, y)
+			// Preprocessing is off: give theory_arith the rewriter's normal
+			// form of (- x y), (+ x (* -1 y)) (internalize_term_core rejects
+			// subtraction).
+			minusOne, err := m.ArithmeticIntegerNumeralText("-1")
+			astTestMust(t, err)
+			negated, err := m.MkArithmeticMul(minusOne, y)
+			astTestMust(t, err)
+			difference, err := m.MkArithmeticAdd(x, negated)
 			astTestMust(t, err)
 			same, err := m.MkEq(difference, zero)
 			astTestMust(t, err)

@@ -64,7 +64,7 @@ func TestSMTQFLIAAutomaticSetupUsesFeaturesAtFirstBoundary(t *testing.T) {
 			k := solver.kernel
 			owner, err := k.smtParams.ArithmeticState()
 			astTestMust(t, err)
-			theory := k.internalizer.theories[family].(*SMTLinearArithmeticTheory)
+			theory := k.internalizer.theories[family].(*SMTTheoryArith)
 			if profile == "disabled" {
 				if owner.Eq2Ineq || !owner.Reflect || !owner.PropagateEqs || k.smtState.RelevancyLvl != 2 {
 					t.Fatal("disabled auto configuration applied a logic profile", owner, k.smtState)
@@ -74,7 +74,7 @@ func TestSMTQFLIAAutomaticSetupUsesFeaturesAtFirstBoundary(t *testing.T) {
 			if owner != k.arithState || owner.Reflect || k.preprocessState.NNFCNF || k.smtParams.preprocess.state.NNFCNF {
 				t.Fatal("setup owner and retained caches diverged")
 			}
-			if theory.gcdEnabled != owner.GCDTest || theory.propagateEqualities != owner.PropagateEqs || theory.branchCutRatio != owner.BranchCutRatio || theory.strongerLemmas != owner.StrongerLemmas {
+			if theory.params.GCDTest != owner.GCDTest || theory.params.PropagateEqs != owner.PropagateEqs || theory.params.BranchCutRatio != owner.BranchCutRatio || theory.params.StrongerLemmas != owner.StrongerLemmas {
 				t.Fatal("arithmetic theory did not receive setup policy")
 			}
 			if k.relevancy.enabled != (k.smtState.RelevancyLvl > 0) || k.internalizer.relevancyLevel != k.smtState.RelevancyLvl || k.smtParams.state.RelevancyLvl != k.smtState.RelevancyLvl {

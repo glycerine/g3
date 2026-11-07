@@ -347,7 +347,7 @@ func (t *SMTSequenceTheory) branchLeadingVariableOverlap(left, right []ast.ASTHa
 				}
 				var abovePrefix, withinCandidate ast.ASTHandle
 				if rightIndex == 0 {
-					withinCandidate, makeErr = state.manager.MkArithmeticLE(leftLength, rightLength)
+					withinCandidate, makeErr = t.seqCompareLE(leftLength, rightLength)
 					if makeErr != nil {
 						return false, makeErr
 					}
@@ -356,7 +356,7 @@ func (t *SMTSequenceTheory) branchLeadingVariableOverlap(left, right []ast.ASTHa
 					if lengthErr != nil {
 						return false, lengthErr
 					}
-					atMostPrefix, lengthErr := state.manager.MkArithmeticLE(leftLength, prefixLength)
+					atMostPrefix, lengthErr := t.seqCompareLE(leftLength, prefixLength)
 					if lengthErr != nil {
 						return false, lengthErr
 					}
@@ -368,7 +368,7 @@ func (t *SMTSequenceTheory) branchLeadingVariableOverlap(left, right []ast.ASTHa
 					if lengthErr != nil {
 						return false, lengthErr
 					}
-					withinCandidate, lengthErr = state.manager.MkArithmeticLE(leftLength, prefixAndRightLength)
+					withinCandidate, lengthErr = t.seqCompareLE(leftLength, prefixAndRightLength)
 					if lengthErr != nil {
 						return false, lengthErr
 					}

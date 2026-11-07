@@ -37,7 +37,7 @@ func (t *SMTSequenceTheory) addExtractAxioms(expression ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	offsetPastEnd, err := state.manager.MkArithmeticGE(offset, sequenceLength)
+	offsetPastEnd, err := t.seqCompareGE(offset, sequenceLength)
 	if err != nil {
 		return err
 	}
@@ -74,11 +74,11 @@ func (t *SMTSequenceTheory) addExtractAxioms(expression ast.ASTHandle) error {
 		return err
 	}
 
-	remaining, err := state.manager.MkArithmeticSub(sequenceLength, offset)
+	remaining, err := t.seqSub(sequenceLength, offset)
 	if err != nil {
 		return err
 	}
-	postLength, err := state.manager.MkArithmeticSub(remaining, requested)
+	postLength, err := t.seqSub(remaining, requested)
 	if err != nil {
 		return err
 	}
@@ -117,7 +117,7 @@ func (t *SMTSequenceTheory) addExtractAxioms(expression ast.ASTHandle) error {
 	if err = t.pushSequenceImplication(valid, prefixAtOffset); err != nil {
 		return err
 	}
-	withinRemaining, err := state.manager.MkArithmeticLE(requested, remaining)
+	withinRemaining, err := t.seqCompareLE(requested, remaining)
 	if err != nil {
 		return err
 	}

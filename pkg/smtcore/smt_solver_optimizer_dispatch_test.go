@@ -35,8 +35,8 @@ func TestSMTSolverOptimizerInstallsMissingMixedArithmetic(t *testing.T) {
 	before := len(s.kernel.internalizer.theoryOrder)
 	optimizer, err := s.arithmeticObjectiveTheory()
 	astTestMust(t, err)
-	mixed, ok := optimizer.(*SMTLinearArithmeticTheory)
-	if !ok || !mixed.mixed || mixed.integer || mixed.infinite {
+	mixed, ok := optimizer.(*SMTTheoryArith)
+	if !ok || !(!mixed.integerExt) || mixed.integerExt || mixed.infExt {
 		t.Fatal("source fallback specialization", optimizer)
 	}
 	if s.kernel.internalizer.theories[family] != mixed || len(s.kernel.internalizer.theoryOrder) != before+1 {
@@ -119,9 +119,9 @@ func TestSMTSolverOptimizerLateInstallMatchesContextScopes(t *testing.T) {
 			before := len(s.kernel.internalizer.scopes)
 			optimizer, err := s.arithmeticObjectiveTheory()
 			astTestMust(t, err)
-			mixed := optimizer.(*SMTLinearArithmeticTheory)
-			if mixed.propagationThreshold != 17 || len(mixed.scopes) != before || len(mixed.equalityAdapter.limits) != before || len(mixed.SMTTheoryBase.limits) != before {
-				t.Fatal("late plugin scope/configuration", stage, before, len(mixed.scopes), mixed.propagationThreshold)
+			mixed := optimizer.(*SMTTheoryArith)
+			if mixed.params.PropagationThreshold != 17 || len(mixed.scopes) != before || len(mixed.arithEqAdapter.limits) != before || len(mixed.SMTTheoryBase.limits) != before {
+				t.Fatal("late plugin scope/configuration", stage, before, len(mixed.scopes), mixed.params.PropagationThreshold)
 			}
 			if s.kernel.internalizer.theories[family] != mixed {
 				t.Fatal("late plugin not published")
@@ -141,10 +141,10 @@ func TestSMTSolverOptimizerDispatchesAllConcreteFamilies(t *testing.T) {
 		name string
 		make func(ast.FamilyID) (SMTTheoryInternalizer, error)
 	}{
-		{"mixed", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTMixedLinearArithmeticTheory(f) }},
-		{"integer", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTLinearIntegerArithmeticTheory(f) }},
-		{"real", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTLinearArithmeticTheory(f) }},
-		{"infinite", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTInfiniteArithmeticTheory(f) }},
+		{"mixed", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTTheoryArith(f, false) }},
+		{"integer", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTTheoryArith(f, true) }},
+		{"real", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTTheoryArith(f, false) }},
+		{"infinite", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTTheoryInfArith(f) }},
 		{"lra", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTLRATheory(f) }},
 		{"rdl", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTRealDiffTheory(f) }},
 		{"mixed-difference", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTMixedDiffTheory(f) }},

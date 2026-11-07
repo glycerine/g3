@@ -690,6 +690,9 @@ func (t *SMTTheoryArith) recordConflict(lits []SMTLiteral, eqs []SMTEnodePair, b
 		}
 	}
 	rw, err := s.theoryRewriter.FreshDefault() // th_rewriter rw(m)
+	if rw != nil {
+		defer func() { result = errors.Join(result, rw.Close()) }()
+	}
 	if err != nil {
 		return err
 	}

@@ -9,7 +9,7 @@ import (
 )
 
 type smtBooleanModelOrderTheory struct {
-	*SMTLinearArithmeticTheory
+	*SMTTheoryArith
 	declaration ast.ASTHandle
 }
 
@@ -21,7 +21,7 @@ func (t *smtBooleanModelOrderTheory) InitializeModel(g *SMTModelGenerator) error
 	if !value.IsNull() {
 		return fmt.Errorf("Boolean publication preceded theory initialization")
 	}
-	return t.SMTLinearArithmeticTheory.InitializeModel(g)
+	return t.SMTTheoryArith.InitializeModel(g)
 }
 
 func (t *smtBooleanModelOrderTheory) ModelValue(node *SMTEnode, g *SMTModelGenerator) (SMTModelValueProcedure, error) {
@@ -32,7 +32,7 @@ func (t *smtBooleanModelOrderTheory) ModelValue(node *SMTEnode, g *SMTModelGener
 	if !g.manager.IsTrue(value) {
 		return nil, fmt.Errorf("Boolean assignment unavailable during theory value discovery")
 	}
-	procedure, err := t.SMTLinearArithmeticTheory.ModelValue(node, g)
+	procedure, err := t.SMTTheoryArith.ModelValue(node, g)
 	return &smtBooleanModelOrderProcedure{SMTModelValueProcedure: procedure, declaration: t.declaration}, err
 }
 
@@ -75,17 +75,21 @@ func TestSMTModelGeneratorBooleanPublicationPhases(t *testing.T) {
 			astTestMust(t, context.SetRelevant(p, true))
 			family, err := m.RegisterArithmeticPlugin()
 			astTestMust(t, err)
-			arithmetic, err := NewSMTLinearArithmeticTheory(family)
+			arithmetic, err := NewSMTTheoryArith(family, false)
 			astTestMust(t, err)
-			theory := &smtBooleanModelOrderTheory{SMTLinearArithmeticTheory: arithmetic, declaration: declaration}
+			theory := &smtBooleanModelOrderTheory{SMTTheoryArith: arithmetic, declaration: declaration}
 			astTestMust(t, state.RegisterTheory(theory))
 			real, err := m.MkFamilySort(family, 0, nil)
 			astTestMust(t, err)
 			x, err := m.MkConst(astTestSymbol(t, m, "model-order-x"), real)
 			astTestMust(t, err)
 			astTestMust(t, state.Internalize(x, false))
+			// internalize_var: an arithmetic term mentioning x attaches it.
+			if _, err := arithmetic.internalizeTermCore(x); err != nil {
+				t.Fatal(err)
+			}
 			astTestMust(t, context.SetRelevant(x, true))
-			feasible, err := arithmetic.rebuild()
+			feasible, err := arithmetic.propagateCore()
 			astTestMust(t, err)
 			if !feasible {
 				t.Fatal("free arithmetic fixture infeasible")

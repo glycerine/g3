@@ -28,6 +28,7 @@ type SMTSequenceTheory struct {
 	relations      *smtSequenceRelationQueue
 	axioms         *smtSequenceAxiomQueue
 	rewrite        *smtSequenceRewriterOwner
+	rewriteRefs    []ast.ASTRef // results of m_rewrite kept alive (theory_seq_simplify.go)
 	internalTerms  map[ast.ASTHandle]struct{}
 	internalLog    []ast.ASTHandle
 	internalLim    []int
@@ -1280,6 +1281,7 @@ func (t *SMTSequenceTheory) Close() (result error) {
 	t.lengths = nil
 	t.lengthLog = nil
 	t.lengthLim = nil
+	result = errors.Join(result, t.releaseRewriteRefs())
 	if t.rewrite != nil {
 		result = errors.Join(result, t.rewrite.close())
 		t.rewrite = nil

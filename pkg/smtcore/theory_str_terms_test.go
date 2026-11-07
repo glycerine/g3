@@ -103,7 +103,7 @@ func TestSMTStringSearchSetupBorrowsKernelAssertions(t *testing.T) {
 	astTestMust(t, err)
 	arithmeticFamily, err := m.ArithmeticFamilyID()
 	astTestMust(t, err)
-	arithmetic, err := NewSMTLinearIntegerArithmeticTheory(arithmeticFamily)
+	arithmetic, err := NewSMTTheoryArith(arithmeticFamily, true)
 	astTestMust(t, err)
 	astTestMust(t, kernel.RegisterTheory(arithmetic))
 	astTestMust(t, kernel.RegisterTheory(theory))

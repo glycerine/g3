@@ -1920,6 +1920,10 @@ func (t *SMTTheoryArith) finalCheckCore() (SMTFinalCheckStatus, error) {
 }
 
 func (t *SMTTheoryArith) FinalCheck() (SMTFinalCheckStatus, error) {
+	// TRACE("arith_eq_adapter_info", display_already_processed)
+	if err := t.arithEqAdapter.traceFinalCheckPairs(); err != nil {
+		return SMTFinalCheckGiveUp, err
+	}
 	ok, err := t.propagateCore()
 	if err != nil {
 		return SMTFinalCheckGiveUp, err

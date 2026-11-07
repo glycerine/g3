@@ -40,8 +40,8 @@ func TestSMTMixedSetupSelectsInfiniteArithmetic(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("mixed setup changed satisfiability", status)
 			}
-			theory, ok := solver.kernel.internalizer.theories[family].(*SMTLinearArithmeticTheory)
-			if !ok || !theory.infinite {
+			theory, ok := solver.kernel.internalizer.theories[family].(*SMTTheoryArith)
+			if !ok || !theory.infExt {
 				t.Fatalf("setup_mi_arith mode 5 selected %T", solver.kernel.internalizer.theories[family])
 			}
 		})
@@ -75,8 +75,8 @@ func TestSMTRDLStaticSetupKeepsDirectBackendSelection(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal(status)
 	}
-	theory, ok := solver.kernel.internalizer.theories[family].(*SMTLinearArithmeticTheory)
-	if !ok || theory.infinite {
+	theory, ok := solver.kernel.internalizer.theories[family].(*SMTTheoryArith)
+	if !ok || theory.infExt {
 		t.Fatalf("static QF_RDL incorrectly used setup_mi_arith: %T", solver.kernel.internalizer.theories[family])
 	}
 }

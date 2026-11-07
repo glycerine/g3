@@ -1829,9 +1829,12 @@ func TestSMTSolverLinearArithmeticPropagatesPolynomialIntervals(t *testing.T) {
 		threshold string
 		want      lbool.LBool
 	}{
-		{name: "proved", op: smtArithOpGT, threshold: "8", want: lbool.True},
+		// z3 4.7.1 with auto_config=false (setup_unknown, theory_mi_arith):
+		// interval reasoning refutes x*y < 8, but the nonlinear final check
+		// gives up when the bounds admit a model.
+		{name: "proved", op: smtArithOpGT, threshold: "8", want: lbool.Undef},
 		{name: "refuted", op: smtArithOpLT, threshold: "8", want: lbool.False},
-		{name: "overlap", op: smtArithOpLT, threshold: "9", want: lbool.True},
+		{name: "overlap", op: smtArithOpLT, threshold: "9", want: lbool.Undef},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			m := astTestManager(t)

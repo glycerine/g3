@@ -68,11 +68,7 @@ func (k *SMTKernel) setupIntegerDifferencePolicy(useStaticFeatures bool) (result
 			if err != nil {
 				return err
 			}
-			if theory, ok := k.internalizer.theories[family].(*SMTLinearArithmeticTheory); ok {
-				// Both concrete specializations share this implementation.
-				// Select per-column integrality before any asserted term is internalized.
-				theory.integer, theory.mixed = false, true
-			} else if port, ok := k.internalizer.theories[family].(*SMTTheoryArith); ok && port.getNumVars() == 0 {
+			if port, ok := k.internalizer.theories[family].(*SMTTheoryArith); ok && port.getNumVars() == 0 {
 				port.useMixedExt()
 			}
 		}
@@ -127,8 +123,6 @@ func (k *SMTKernel) replaceUnusedSetupArithmetic(theory SMTTheoryInternalizer) e
 	}
 	unused := false
 	switch previous := old.(type) {
-	case *SMTLinearArithmeticTheory:
-		unused = len(previous.variables) == 0
 	case *SMTTheoryArith:
 		unused = len(previous.variables) == 0
 	case *SMTDummyTheory:
@@ -269,9 +263,7 @@ func (k *SMTKernel) setupUFIntegerDifferencePolicy(useStaticFeatures bool) (resu
 			if err != nil {
 				return err
 			}
-			if theory, ok := k.internalizer.theories[family].(*SMTLinearArithmeticTheory); ok {
-				theory.integer, theory.mixed = false, true
-			} else if port, ok := k.internalizer.theories[family].(*SMTTheoryArith); ok && port.getNumVars() == 0 {
+			if port, ok := k.internalizer.theories[family].(*SMTTheoryArith); ok && port.getNumVars() == 0 {
 				port.useMixedExt()
 			}
 		}

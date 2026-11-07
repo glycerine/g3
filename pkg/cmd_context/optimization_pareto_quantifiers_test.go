@@ -15,7 +15,9 @@ func TestParetoQuantifierUnknownInitialAdjustmentAndDirectContinuation(t *testin
 	p, err := c.config.Params.NewValue()
 	contextMust(t, err)
 	defer func() { contextMust(t, c.config.Params.Del(&p)) }()
-	for _, name := range []string{"mbqi", "preprocess", "auto_config"} {
+	// Preprocessing stays on: pareto's mk_cmp builds (>= val term), which
+	// theory_arith only accepts after asserted_formulas rewrites it.
+	for _, name := range []string{"mbqi", "auto_config"} {
 		contextMust(t, c.config.Params.SetBoolName(&p, &name, false))
 	}
 	contextMust(t, c.UpdateOptimizationParameters(&p))

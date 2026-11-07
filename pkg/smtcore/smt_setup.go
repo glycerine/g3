@@ -212,26 +212,26 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 			return err
 		}
 		if logic == "QF_S" || logic == "QF_RDL" && kernel.smtState.AutoConfig {
-			theory, theoryErr := NewSMTMixedLinearArithmeticTheory(family)
+			theory, theoryErr := NewSMTTheoryArith(family, false)
 			if theoryErr != nil {
 				return theoryErr
 			}
 			err = kernel.RegisterTheory(theory)
 		} else if (logic == "QF_IDL" || logic == "QF_UFIDL") && kernel.smtState.AutoConfig {
-			theory, theoryErr := NewSMTLinearIntegerArithmeticTheory(family)
+			theory, theoryErr := NewSMTTheoryArith(family, true)
 			if theoryErr != nil {
 				return theoryErr
 			}
 			err = kernel.RegisterTheory(theory)
 		} else if logic == "QF_LRA" || logic == "QF_UFLRA" {
-			theory, theoryErr := NewSMTLinearArithmeticTheory(family)
+			theory, theoryErr := NewSMTTheoryArith(family, false)
 			if theoryErr != nil {
 				return theoryErr
 			}
 			err = kernel.RegisterTheory(theory)
 		} else if logic == "QF_LIA" || logic == "QF_UFLIA" || logic == "QF_AUFLIA" || logic == "AUFLIA" ||
 			logic == "AUFLIA+" || logic == "AUFLIA-" || logic == "UFNIA" || logic == "QF_BVRE" || logic == "QF_S" {
-			theory, theoryErr := NewSMTLinearIntegerArithmeticTheory(family)
+			theory, theoryErr := NewSMTTheoryArith(family, true)
 			if theoryErr != nil {
 				return theoryErr
 			}
@@ -240,7 +240,7 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 			if kernel.arithState.Mode == 5 {
 				err = kernel.installMixedArithmeticSetup(kernel.arithState)
 			} else {
-				theory, theoryErr := NewSMTMixedLinearArithmeticTheory(family)
+				theory, theoryErr := NewSMTTheoryArith(family, false)
 				if theoryErr != nil {
 					return theoryErr
 				}
@@ -250,7 +250,7 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 			if kernel.arithState.Mode == 0 {
 				err = install(family, "no arithmetic")
 			} else {
-				theory, theoryErr := NewSMTMixedLinearArithmeticTheory(family)
+				theory, theoryErr := NewSMTTheoryArith(family, false)
 				if theoryErr != nil {
 					return theoryErr
 				}

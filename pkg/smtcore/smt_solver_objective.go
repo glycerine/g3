@@ -66,12 +66,12 @@ func (s *SMTSolver) installOptimizerArithmetic(family ast.FamilyID) error {
 		}
 		config.Mode = uint32(mode)
 	}
-	var theory *SMTLinearArithmeticTheory
+	var theory *SMTTheoryArith
 	var err error
 	if config.Mode == 5 { // AS_OPTINF: src/smt/smt_setup.cpp setup_mi_arith.
-		theory, err = NewSMTInfiniteArithmeticTheory(family)
+		theory, err = NewSMTTheoryInfArith(family)
 	} else {
-		theory, err = NewSMTMixedLinearArithmeticTheory(family)
+		theory, err = NewSMTTheoryArith(family, false)
 	}
 	if err != nil {
 		return err
@@ -100,6 +100,23 @@ func (s *SMTSolver) AddObjective(term ast.ASTHandle) (uint32, error) {
 	theory, err := s.arithmeticObjectiveTheory()
 	if err != nil {
 		return 0, err
+	}
+	// Objectives reaching theory_arith::add_objective are integer or real
+	// terms; the source rejects other sorts before the theory sees them.
+	sort, err := s.manager.GetSort(term)
+	if err != nil {
+		return 0, err
+	}
+	family, err := s.manager.GetFamilyID(sort)
+	if err != nil {
+		return 0, err
+	}
+	arithmetic, err := s.manager.ArithmeticFamilyID()
+	if err != nil {
+		return 0, err
+	}
+	if family != arithmetic {
+		return 0, ast.ErrASTDomain
 	}
 	variable, err := theory.AddObjective(term)
 	if err != nil {
@@ -182,11 +199,8 @@ func (s *SMTSolver) ObjectiveSupportsConflictRecording(index uint32) (bool, erro
 	if err != nil {
 		return false, err
 	}
-	if port, ok := objective.theory.(*SMTTheoryArith); ok {
-		return port.infExt, nil // theory_inf_arith
-	}
-	theory, ok := objective.theory.(*SMTLinearArithmeticTheory)
-	return ok && theory.infinite, nil
+	port, ok := objective.theory.(*SMTTheoryArith)
+	return ok && port.infExt, nil // theory_inf_arith
 }
 
 // ObjectiveConflictMinimize returns the best upper bound recorded for the

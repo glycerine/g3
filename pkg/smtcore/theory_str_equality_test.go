@@ -54,12 +54,12 @@ func TestSMTStringEqualitySyntacticFeasibility(t *testing.T) {
 	}
 }
 
-func stringMixedEqualityFixture(t *testing.T, m *ast.ASTManager) (*SMTStringTheory, *SMTInternalizerState, *SMTLinearArithmeticTheory) {
+func stringMixedEqualityFixture(t *testing.T, m *ast.ASTManager) (*SMTStringTheory, *SMTInternalizerState, *SMTTheoryArith) {
 	t.Helper()
 	_, _, state := smtInternalizerFixture(t, m, nil)
 	family, err := m.ArithmeticFamilyID()
 	astTestMust(t, err)
-	arithmetic, err := NewSMTMixedLinearArithmeticTheory(family)
+	arithmetic, err := NewSMTTheoryArith(family, false)
 	astTestMust(t, err)
 	astTestMust(t, state.RegisterTheory(arithmetic))
 	family, err = m.SequenceFamilyID()
@@ -104,10 +104,7 @@ func TestSMTStringLengthReaderRequiresMixedAndCoreRoots(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(length, false))
 	variable := state.context.enodes.get(length).TheoryVar(arithmetic.FamilyID())
-	column := arithmetic.simplexVariables[variable]
-	candidate := arithmetic.solver.Value(column)
-	candidate.Main.SetInt64(7)
-	arithmetic.solver.SetValue(column, candidate)
+	arithmetic.value[variable].rational.SetInt64(7) // a candidate value, not a bound
 	if _, known, err := theory.lengthValue(x); err != nil || known {
 		t.Fatal("candidate arithmetic value became a length premise", known, err)
 	}

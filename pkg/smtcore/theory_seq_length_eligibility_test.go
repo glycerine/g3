@@ -11,7 +11,7 @@ func TestSMTSequenceLengthCoherenceRequiresSolutionRoot(t *testing.T) {
 	f := newSMTSequenceInterfaceFixture(t)
 	family, err := f.m.ArithmeticFamilyID()
 	astTestMust(t, err)
-	arithmetic, err := NewSMTLinearArithmeticTheory(family)
+	arithmetic, err := NewSMTTheoryArith(family, false)
 	astTestMust(t, err)
 	astTestMust(t, f.state.RegisterTheory(arithmetic))
 	length, err := f.m.MkSequenceLength(f.x)
@@ -67,7 +67,7 @@ func TestSMTSequenceFixedLengthSkolemEligibilityAndReplay(t *testing.T) {
 			astTestMust(t, err)
 			family, err := f.m.ArithmeticFamilyID()
 			astTestMust(t, err)
-			arithmetic, err := NewSMTLinearArithmeticTheory(family)
+			arithmetic, err := NewSMTTheoryArith(family, false)
 			astTestMust(t, err)
 			astTestMust(t, f.state.RegisterTheory(arithmetic))
 			length, err := f.m.MkSequenceLength(word)
@@ -85,6 +85,8 @@ func TestSMTSequenceFixedLengthSkolemEligibilityAndReplay(t *testing.T) {
 				}
 				astTestMust(t, arithmetic.Assign(variable, true))
 			}
+			// assign_eh queues the bounds; propagate asserts them.
+			astTestMust(t, arithmetic.Propagate())
 			astTestMust(t, f.theory.Relevant(length))
 			for attempt := 0; attempt < 2; attempt++ {
 				astTestMust(t, f.state.PushScope())

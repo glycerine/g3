@@ -1,11 +1,9 @@
 package smtcore
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func stringAssertArithmeticBound(t *testing.T, m *ast.ASTManager, state *SMTInternalizerState, expression ast.ASTHandle, operation int32, numeral string, real bool) {
@@ -19,6 +17,15 @@ func stringAssertArithmeticBound(t *testing.T, m *ast.ASTManager, state *SMTInte
 		number, err = m.ArithmeticIntegerNumeralText(numeral)
 	}
 	astTestMust(t, err)
+	// theory_arith atoms are the rewriter's normal form: (> a k) is
+	// (not (<= a k)) and (< a k) is (not (>= a k)).
+	negated := false
+	switch operation {
+	case smtArithOpGT:
+		operation, negated = smtArithOpLE, true
+	case smtArithOpLT:
+		operation, negated = smtArithOpGE, true
+	}
 	atom, err := m.MkFamilyApp(family, operation, nil, []ast.ASTHandle{expression, number})
 	astTestMust(t, err)
 	astTestPin(t, m, atom)
@@ -26,6 +33,9 @@ func stringAssertArithmeticBound(t *testing.T, m *ast.ASTManager, state *SMTInte
 	astTestMust(t, state.markRelevant(atom))
 	literal, err := state.Literal(atom)
 	astTestMust(t, err)
+	if negated {
+		literal = literal.Negated()
+	}
 	astTestMust(t, state.AssignLiteral(literal, NewSMTBooleanAxiom()))
 	_, err = state.PropagateCore()
 	astTestMust(t, err)
@@ -68,32 +78,16 @@ func TestSMTStringArithmeticBoundsAssignmentAndScope(t *testing.T) {
 	astTestMust(t, err)
 	astTestPin(t, m, length)
 	stringCheckArithmeticBound(t, theory, length, true, "")
-	astTestMust(t, state.Internalize(length, false))
-	variable := state.context.enodes.get(length).TheoryVar(arithmetic.FamilyID())
-	column := arithmetic.simplexVariables[variable]
-	candidate := arithmetic.solver.Value(column)
-	candidate.Main.SetInt64(6)
-	arithmetic.solver.SetValue(column, candidate)
-	stringCheckArithmeticBound(t, theory, length, true, "")
-	stringCheckArithmeticBound(t, theory, length, false, "")
 	stringAssertArithmeticBound(t, m, state, length, smtArithOpGE, "2", false)
+	// The length is attached to an arithmetic variable once an arithmetic
+	// atom mentions it.
+	variable := state.context.enodes.get(length).TheoryVar(arithmetic.FamilyID())
+	arithmetic.value[variable].rational.SetInt64(6) // a candidate value, not a bound
+	stringCheckArithmeticBound(t, theory, length, true, "2")
+	stringCheckArithmeticBound(t, theory, length, false, "")
 	stringAssertArithmeticBound(t, m, state, length, smtArithOpLE, "9", false)
 	stringCheckArithmeticBound(t, theory, length, true, "2")
 	stringCheckArithmeticBound(t, theory, length, false, "9")
-	// Exercise the actual candidate-tableau constructor used by nonlinear
-	// model patching. Its temporary fixes must not hide the weaker logical
-	// endpoints or become exact-length premises.
-	candidateTableau, status, err := arithmetic.buildSimplexWithValues(map[uint32]*big.Rat{column: big.NewRat(6, 1)})
-	astTestMust(t, err)
-	if status != lbool.True {
-		t.Fatal("candidate tableau construction failed", status)
-	}
-	arithmetic.solver = candidateTableau
-	stringCheckArithmeticBound(t, theory, length, true, "2")
-	stringCheckArithmeticBound(t, theory, length, false, "9")
-	if arithmetic.solver != candidateTableau {
-		t.Fatal("bound read replaced the current candidate assignment")
-	}
 	astTestMust(t, state.PushScope())
 	stringAssertArithmeticBound(t, m, state, length, smtArithOpGE, "5", false)
 	stringAssertArithmeticBound(t, m, state, length, smtArithOpLE, "7", false)

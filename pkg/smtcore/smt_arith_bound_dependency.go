@@ -11,7 +11,6 @@ type smtArithmeticBound struct {
 	value             smtArithmeticValue
 	kind              smtArithmeticBoundKind
 	atom              bool
-	replayExplanation *smtArithmeticBoundExplanation
 }
 
 type smtArithmeticBoundDependency struct {

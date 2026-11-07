@@ -84,8 +84,8 @@ func TestSMTRDLSetupSelectsConcreteBackend(t *testing.T) {
 				if tc.backend != "graph" || !theory.addBinaryBounds {
 					t.Fatal("unexpected or unconfigured real graph")
 				}
-			case *SMTLinearArithmeticTheory:
-				if tc.backend != "simplex" || !theory.mixed {
+			case *SMTTheoryArith:
+				if tc.backend != "simplex" || !(!theory.integerExt) {
 					t.Fatal("unexpected arithmetic integrality route")
 				}
 			default:

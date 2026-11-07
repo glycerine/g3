@@ -13,17 +13,6 @@ func smtArithmeticLifecycleKind(theory SMTTheoryInternalizer) string {
 	switch value := theory.(type) {
 	case *SMTLRATheory:
 		return "lra"
-	case *SMTLinearArithmeticTheory:
-		if value.infinite {
-			return "infinite-simplex"
-		}
-		if value.mixed {
-			return "mixed-simplex"
-		}
-		if value.integer {
-			return "integer-simplex"
-		}
-		return "real-simplex"
 	case *SMTTheoryArith:
 		if value.infExt {
 			return "infinite-simplex"
@@ -243,9 +232,9 @@ func TestSMTArithmeticTranslationRetainsLiveSourceParameterOwner(t *testing.T) {
 		}
 		family, err := target.ArithmeticFamilyID()
 		astTestMust(t, err)
-		copied := translated.kernel.internalizer.theories[family].(*SMTLinearArithmeticTheory)
-		if copied.branchCutRatio != want {
-			t.Fatal("fresh plugin did not use its source parameter owner", copied.branchCutRatio, want)
+		copied := translated.kernel.internalizer.theories[family].(*SMTTheoryArith)
+		if copied.params.BranchCutRatio != want {
+			t.Fatal("fresh plugin did not use its source parameter owner", copied.params.BranchCutRatio, want)
 		}
 	}
 	check(7)
@@ -274,7 +263,7 @@ func TestSMTArithmeticTranslationRetainsLiveSourceParameterOwner(t *testing.T) {
 	}
 	targetFamily, err := target.ArithmeticFamilyID()
 	astTestMust(t, err)
-	if again.kernel.internalizer.theories[targetFamily].(*SMTLinearArithmeticTheory).branchCutRatio != 11 {
+	if again.kernel.internalizer.theories[targetFamily].(*SMTTheoryArith).params.BranchCutRatio != 11 {
 		t.Fatal("chained translation used the intermediate context's parameter values")
 	}
 }

@@ -132,7 +132,7 @@ func TestSMTStringFreeKernelModelAndCPPReference(t *testing.T) {
 			m, parent, theory := stringExpressionSolverFixture(t)
 			family, err := m.ArithmeticFamilyID()
 			astTestMust(t, err)
-			arithmetic, err := NewSMTMixedLinearArithmeticTheory(family)
+			arithmetic, err := NewSMTTheoryArith(family, false)
 			astTestMust(t, err)
 			astTestMust(t, parent.internalizer.RegisterTheory(arithmetic))
 			word := stringGroundingWord(t, theory, "free-model-word")

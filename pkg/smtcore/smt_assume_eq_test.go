@@ -47,6 +47,14 @@ func TestSMTAssumeEqualityScopedPhaseAndRelevancy(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, state.internalizeTerm(x))
 	astTestMust(t, state.internalizeTerm(y))
+	// assume_eq applies to terms shared with arithmetic: attach the
+	// variables as theory_arith's internalize_var does.
+	arithmetic := state.Theory(family).(*SMTTheoryArith)
+	for _, h := range []ast.ASTHandle{x, y} {
+		if _, err := arithmetic.internalizeTermCore(h); err != nil {
+			t.Fatal(err)
+		}
+	}
 	left, right := state.context.enodes.get(x), state.context.enodes.get(y)
 	eq, err := m.MkEq(x, y)
 	astTestMust(t, err)
@@ -65,8 +73,17 @@ func TestSMTAssumeEqualityScopedPhaseAndRelevancy(t *testing.T) {
 	if !found || !state.booleanData[variable].TryTrueFirst() || !state.relevancy.IsRelevant(eq) {
 		t.Fatal("interface equality has no preferred relevant split")
 	}
+	// arith_eq_adapter::mk_axioms: le/ge of (+ x (* -1 y)) against 0.
+	minusOne, err := m.ArithmeticRealNumeralText("-1")
+	astTestMust(t, err)
+	zero, err := m.ArithmeticRealNumeralText("0")
+	astTestMust(t, err)
+	t3, err := m.MkFamilyApp(family, smtArithOpMul, nil, []ast.ASTHandle{minusOne, y})
+	astTestMust(t, err)
+	difference, err := m.MkFamilyApp(family, smtArithOpAdd, nil, []ast.ASTHandle{x, t3})
+	astTestMust(t, err)
 	for _, op := range []int32{smtArithOpLE, smtArithOpGE} {
-		bound, err := m.MkFamilyApp(family, op, nil, []ast.ASTHandle{x, y})
+		bound, err := m.MkFamilyApp(family, op, nil, []ast.ASTHandle{difference, zero})
 		astTestMust(t, err)
 		v, found := state.BoolVar(bound)
 		if !found || !state.booleanData[v].TryTrueFirst() {

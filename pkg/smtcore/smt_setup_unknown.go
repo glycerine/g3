@@ -115,7 +115,7 @@ func (k *SMTKernel) installIntegerArithmeticSetup(arithmetic SMTArithState) erro
 	if err != nil {
 		return err
 	}
-	theory, err := NewSMTLinearIntegerArithmeticTheory(family)
+	theory, err := NewSMTTheoryArith(family, true)
 	if err != nil {
 		return err
 	}

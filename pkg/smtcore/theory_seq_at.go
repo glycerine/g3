@@ -53,7 +53,7 @@ func (t *SMTSequenceTheory) addAtAxioms(expression ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	outOfBounds, err := state.manager.MkArithmeticGE(index, length)
+	outOfBounds, err := t.seqCompareGE(index, length)
 	if err != nil {
 		return err
 	}

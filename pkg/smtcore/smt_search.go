@@ -430,7 +430,6 @@ func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
 			continue
 		}
 
-		before := k.internalizer.searchProgress()
 		status, err := k.internalizer.FinalCheckTheories()
 		if err != nil {
 			return lbool.Undef, fmt.Errorf("smt search final check: %w", err)
@@ -481,18 +480,6 @@ func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
 			}
 			if !consistent {
 				continue
-			}
-			if k.internalizer.searchProgress() == before {
-				available, splitErr := queue.hasCaseSplit()
-				if splitErr != nil {
-					return lbool.Undef, fmt.Errorf("smt search final case split: %w", splitErr)
-				}
-				if available {
-					continue
-				}
-				k.lastFailure = SMTFailureUnknown
-				k.unknown = "theory made no progress"
-				return lbool.Undef, nil
 			}
 		default:
 			return lbool.Undef, ast.ErrASTDomain

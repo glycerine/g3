@@ -426,6 +426,15 @@ func (a *smtArithmeticEqualityAdapter) Restart() error {
 		if left == nil || right == nil {
 			return ast.ErrASTDomain
 		}
+		if a.source {
+			// restart_eh: mk_axioms(it->first, it->second) on the enodes. Their
+			// theory variables may have been removed with a popped scope; the
+			// le/ge atoms reattach them.
+			if err = a.mkAxiomsSource(left, right); err != nil {
+				return err
+			}
+			continue
+		}
 		leftVar := left.TheoryVar(a.owner.FamilyID())
 		rightVar := right.TheoryVar(a.owner.FamilyID())
 		if leftVar == SMTNullTheoryVar || rightVar == SMTNullTheoryVar {

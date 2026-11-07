@@ -29,15 +29,11 @@ func (k *SMTKernel) copyArithmeticPlugin(source *SMTKernel) error {
 	switch previous := old.(type) {
 	case *SMTLRATheory:
 		theory, err = NewSMTLRATheory(family)
-	case *SMTLinearArithmeticTheory:
-		if previous.infinite {
-			theory, err = NewSMTInfiniteArithmeticTheory(family)
-		} else if previous.mixed {
-			theory, err = NewSMTMixedLinearArithmeticTheory(family)
-		} else if previous.integer {
-			theory, err = NewSMTLinearIntegerArithmeticTheory(family)
+	case *SMTTheoryArith: // theory_arith<Ext>::mk_fresh
+		if previous.infExt {
+			theory, err = NewSMTTheoryInfArith(family)
 		} else {
-			theory, err = NewSMTLinearArithmeticTheory(family)
+			theory, err = NewSMTTheoryArith(family, previous.integerExt)
 		}
 	case *SMTRealDiffTheory:
 		if previous.mixed {

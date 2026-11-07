@@ -47,8 +47,8 @@ func TestSMTLRASetupPreservesNNFAndArithmeticControls(t *testing.T) {
 						}
 						family, err := m.ArithmeticFamilyID()
 						astTestMust(t, err)
-						theory, ok := k.internalizer.theories[family].(*SMTLinearArithmeticTheory)
-						if !ok || !theory.mixed || theory.propagateEqualities != want.PropagateEqs || k.relevancy.enabled == automatic {
+						theory, ok := k.internalizer.theories[family].(*SMTTheoryArith)
+						if !ok || !(!theory.integerExt) || theory.params.PropagateEqs != want.PropagateEqs || k.relevancy.enabled == automatic {
 							t.Fatal("LRA setup did not reach concrete mixed arithmetic and relevance consumers")
 						}
 					}

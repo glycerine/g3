@@ -36,17 +36,17 @@ func (k *SMTKernel) setupBasicArithmetic() (result error) {
 		arithmetic.Eq2Ineq = true
 		theory, err = NewSMTUTVPITheory(family)
 	case 5:
-		theory, err = NewSMTInfiniteArithmeticTheory(family)
+		theory, err = NewSMTTheoryInfArith(family)
 	default:
-		if existing, ok := k.internalizer.theories[family].(*SMTLinearArithmeticTheory); ok {
-			// Direct internalizer clients may have already created columns.
+		if existing, ok := k.internalizer.theories[family].(*SMTTheoryArith); ok {
+			// Direct internalizer clients may have already created variables.
 			// Their concrete specialization must remain stable thereafter.
 			if existing.NumVariables() == 0 && !k.copiedArithmeticPlugin {
-				existing.integer, existing.mixed = false, true
+				existing.useMixedExt()
 			}
 			return nil
 		}
-		theory, err = NewSMTMixedLinearArithmeticTheory(family)
+		theory, err = NewSMTTheoryArith(family, false)
 	}
 	if err != nil {
 		return err

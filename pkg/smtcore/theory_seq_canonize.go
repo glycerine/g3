@@ -149,7 +149,6 @@ func (t *SMTSequenceTheory) expandSequenceIntegerString(expression ast.ASTHandle
 		if err != nil {
 			return out, dependency, err
 		}
-		arithmetic, _ := state.Theory(family).(*SMTLinearArithmeticTheory)
 		port, _ := state.Theory(family).(*SMTTheoryArith)
 		for current := node; ; current = current.Next() {
 			text, integer, numeral, err := m.ArithmeticNumeralText(current.Owner())
@@ -167,18 +166,6 @@ func (t *SMTSequenceTheory) expandSequenceIntegerString(expression ast.ASTHandle
 				if known {
 					if r, ok := port.isNumeral(h); ok && r.IsInt() {
 						value = r
-					}
-				}
-			} else if arithmetic != nil && arithmetic.solver != nil && arithmetic.IsAttachedToVariable(current) {
-				variable := current.TheoryVar(family)
-				column := arithmetic.simplexVariables[variable]
-				if column < arithmetic.solver.NumVariables() {
-					if err = arithmetic.computeModelDelta(); err != nil {
-						return out, dependency, err
-					}
-					candidate := arithmetic.arithmeticColumnValue(column)
-					if candidate.IsInt() {
-						value = candidate
 					}
 				}
 			}

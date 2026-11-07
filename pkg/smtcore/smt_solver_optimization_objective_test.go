@@ -237,7 +237,7 @@ func TestOptimizationObjectiveSharedRepairAllocationFrontier(t *testing.T) {
 
 type optimizationValueChangeTheory struct {
 	*smtInternalizerTestTheory
-	arithmetic *SMTLinearArithmeticTheory
+	arithmetic *SMTTheoryArith
 	column     uint32
 	enabled    bool
 	fired      int
@@ -249,7 +249,12 @@ func (t *optimizationValueChangeTheory) FinalCheck() (SMTFinalCheckStatus, error
 	if t.enabled {
 		t.enabled = false
 		t.fired++
-		t.arithmetic.solver.SetValue(t.column, t.next)
+		var next smtArithmeticValue
+		next.rational.Set(&t.next.Main)
+		next.infinitesimal.Set(&t.next.Epsilon)
+		if err := t.arithmetic.setValue(SMTTheoryVar(t.column), &next); err != nil {
+			return SMTFinalCheckGiveUp, err
+		}
 	}
 	return SMTFinalCheckDone, nil
 }
@@ -283,7 +288,7 @@ func TestOptimizationObjectiveSuccessfulSharedRefreshRechecksChangedValue(t *tes
 			if status != lbool.True {
 				t.Fatal(status)
 			}
-			hook.column = f.a.simplexVariables[s.objectives[index].variable]
+			hook.column = uint32(s.objectives[index].variable)
 			hook.enabled = true
 			checks := s.kernel.internalizer.statistics.NumChecks
 			value, blocker, err := s.MaximizeOptimizationObjective(index, filter)

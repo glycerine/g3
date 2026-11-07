@@ -28,7 +28,7 @@ func TestSMTSearchEqualityArithmeticConventions(t *testing.T) {
 			case "dummy":
 				theory, err = NewSMTDummyTheory(family, "arithmetic")
 			case "simplex":
-				theory, err = NewSMTLinearArithmeticTheory(family)
+				theory, err = NewSMTTheoryArith(family, false)
 			case "difference":
 				theory, err = NewSMTRealDiffTheory(family)
 			case "dense":

@@ -3,6 +3,7 @@ package smtcore
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -47,7 +48,7 @@ func startSMTModelUpdate(t *testing.T, s *SMTSolver, f *arithmeticObjectiveFixtu
 	family, err := f.m.ArithmeticFamilyID()
 	astTestMust(t, err)
 	var ok bool
-	f.a, ok = s.kernel.internalizer.theories[family].(*SMTLinearArithmeticTheory)
+	f.a, ok = s.kernel.internalizer.theories[family].(*SMTTheoryArith)
 	if !ok {
 		t.Fatal("expected retained arithmetic mode 2")
 	}
@@ -86,7 +87,8 @@ func TestSMTUpdateModelPublishesOptimizedAssignmentAndKeepsOldOwner(t *testing.T
 				startSMTModelUpdate(t, s, f)
 				x := f.variable("update-model-x")
 				obj := f.app(smtArithOpAdd, f.app(smtArithOpMul, f.number("2"), x), f.number("1"))
-				bound := f.app(smtArithOpLT, x, f.number("5"))
+				// Preprocessing is off: assert the rewriter's normal form of x < 5.
+				bound := f.pin(f.m.MkNot(f.app(smtArithOpGE, x, f.number("5"))))
 				if integer {
 					bound = f.app(smtArithOpLE, f.app(smtArithOpMul, f.number("2"), x), f.number("7"))
 				}
@@ -269,14 +271,26 @@ func TestSMTUpdateModelSharedArithmeticRequestsContinuation(t *testing.T) {
 		t.Fatal("missing shared arithmetic movement")
 	}
 	checks := f.s.statistics.NumChecks
+	// update_model(refinalize) runs final_check: theory_arith's liberal
+	// final check mutates the shared assignment (mutate_assignment and
+	// random_update move x below its bound) and assume_eqs splits on any
+	// remaining equal shared values. Either the check continues and nothing
+	// is published, or the published model satisfies f(x) != f(5).
 	updated, err := s.UpdateModel(shared)
 	astTestMust(t, err)
-	if updated {
-		t.Fatal("local optimum with an interface equality was published")
+	if f.s.statistics.NumChecks != checks {
+		t.Fatal("update_model ran another search")
 	}
 	still := acquireUpdateModel(t, s)
-	if old != still || s.kernel.GeneratedModel() != old || modelUpdateNumber(t, f.m, still, x) != oldValue || f.s.statistics.NumChecks != checks {
-		t.Fatal("continuation changed publication or ran another search")
+	if !updated {
+		if old != still || s.kernel.GeneratedModel() != old || modelUpdateNumber(t, f.m, still, x) != oldValue {
+			t.Fatal("continuation changed publication")
+		}
+		return
+	}
+	published, ok := new(big.Rat).SetString(modelUpdateNumber(t, f.m, still, x))
+	if !ok || published.Cmp(big.NewRat(5, 1)) >= 0 {
+		t.Fatal("published model violates x <= 5 and f(x) != f(5)", published)
 	}
 }
 

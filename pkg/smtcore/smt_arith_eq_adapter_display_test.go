@@ -16,8 +16,8 @@ func arithmeticAdapterDisplayFixture(t *testing.T) (*arithmeticObjectiveFixture,
 	t.Helper()
 	f := newArithmeticObjectiveFixture(t, false)
 	x, y := f.variable("adapter-display-x"), f.variable("adapter-display-y")
-	astTestMust(t, f.s.Internalize(x, false))
-	astTestMust(t, f.s.Internalize(y, false))
+	f.internalizeVar(x)
+	f.internalizeVar(y)
 	left, right := f.s.context.enodes.get(x), f.s.context.enodes.get(y)
 	astTestMust(t, f.a.NewEquality(right.TheoryVar(f.a.FamilyID()), left.TheoryVar(f.a.FamilyID())))
 	first, err := left.OwnerID()
@@ -32,7 +32,7 @@ func arithmeticAdapterDisplayFixture(t *testing.T) (*arithmeticObjectiveFixture,
 
 func TestSMTArithmeticAdapterDisplayProcessedPairsAndScopes(t *testing.T) {
 	f, x, y, want := arithmeticAdapterDisplayFixture(t)
-	a := f.a.equalityAdapter
+	a := f.a.arithEqAdapter
 	var out bytes.Buffer
 	before := f.m.Stats()
 	astTestMust(t, a.DisplayAlreadyProcessed(&out))
@@ -53,7 +53,7 @@ func TestSMTArithmeticAdapterDisplayProcessedPairsAndScopes(t *testing.T) {
 		t.Fatal("reverse duplicate cache entry")
 	}
 	z := f.variable("adapter-display-z")
-	astTestMust(t, f.s.Internalize(z, false))
+	f.internalizeVar(z)
 	astTestMust(t, f.s.PushScope())
 	astTestMust(t, f.a.NewEquality(f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID()), f.s.context.enodes.get(z).TheoryVar(f.a.FamilyID())))
 	out.Reset()
@@ -72,7 +72,7 @@ func TestSMTArithmeticAdapterDisplayProcessedPairsAndScopes(t *testing.T) {
 
 func TestSMTArithmeticAdapterDisplayEveryWriterPrefixAndGuards(t *testing.T) {
 	f, _, _, want := arithmeticAdapterDisplayFixture(t)
-	a := f.a.equalityAdapter
+	a := f.a.arithEqAdapter
 	for cut := 0; cut < len(want); cut++ {
 		out := &smtLRAOutputPrefix{remaining: cut}
 		err := a.DisplayAlreadyProcessed(out)
@@ -98,7 +98,7 @@ func TestSMTArithmeticAdapterDisplayEveryWriterPrefixAndGuards(t *testing.T) {
 
 type arithmeticAdapterTraceWriter struct {
 	output                bytes.Buffer
-	owner                 *SMTLinearArithmeticTheory
+	owner                 *SMTTheoryArith
 	seen, pending, refuse bool
 }
 
@@ -123,10 +123,12 @@ func TestSMTArithmeticAdapterFinalCheckTracePrecedesPropagation(t *testing.T) {
 		writer := &arithmeticAdapterTraceWriter{owner: f.a, refuse: refuse}
 		tags := diagnostic.NewTraceTagsWithWriter(writer)
 		tags.Enable("arith_eq_adapter_info")
-		f.a.equalityAdapter.trace = tags
+		f.a.arithEqAdapter.trace = tags
 		status, err := f.a.FinalCheck()
 		astTestMust(t, err)
-		if status != SMTFinalCheckContinue || f.a.CanPropagate() {
+		// final_check_eh propagates, then runs final_check_core: x = 2 with
+		// y unconstrained is a model.
+		if status != SMTFinalCheckDone || f.a.CanPropagate() {
 			t.Fatal("trace changed actual propagation", status)
 		}
 		want := ""
@@ -158,12 +160,12 @@ func TestSMTArithmeticAdapterTraceBadbitContinuesOperandsAndNativeErases(t *test
 		t.Fatal("stale test operand is live")
 	}
 	invalid := smtArithmeticEqualityPair{first: dead, second: y}
-	f.a.equalityAdapter.processed[invalid] = struct{}{}
-	defer delete(f.a.equalityAdapter.processed, invalid)
+	f.a.arithEqAdapter.processed[invalid] = struct{}{}
+	defer delete(f.a.arithEqAdapter.processed, invalid)
 	writer := &arithmeticAdapterTraceWriter{owner: f.a, refuse: true}
 	tags := diagnostic.NewTraceTagsWithWriter(writer)
 	tags.Enable("arith_eq_adapter_info")
-	f.a.equalityAdapter.trace = tags
+	f.a.arithEqAdapter.trace = tags
 	status, err := f.a.FinalCheck()
 	if tags.ShouldTrace("arith_eq_adapter_info") {
 		if err == nil || tags.IsStreamFailure(err) || status != SMTFinalCheckGiveUp || !f.a.CanPropagate() {
@@ -171,7 +173,7 @@ func TestSMTArithmeticAdapterTraceBadbitContinuesOperandsAndNativeErases(t *test
 		}
 	} else {
 		astTestMust(t, err)
-		if status != SMTFinalCheckContinue || writer.seen || f.a.CanPropagate() {
+		if status != SMTFinalCheckDone || writer.seen || f.a.CanPropagate() {
 			t.Fatal("native trace evaluated stale operand", status)
 		}
 	}
