@@ -54,7 +54,7 @@ func (a *smtArithmeticEqualityAdapter) mkAxiomsSource(n1, n2 *SMTEnode) (result 
 	a.numAxioms++
 	x := smtArithExprs{m: m}
 	defer func() { result = errors.Join(result, x.release()) }()
-	t1EqT2, err := x.hold(m.MkEq(t1, t2)) // ctx.mk_eq_atom
+	t1EqT2, err := x.hold(state.mkEqualityAtom(t1, t2)) // ctx.mk_eq_atom: theory_arith::mk_eq_atom is arith_util::mk_eq
 	if err != nil {
 		return err
 	}

@@ -1713,7 +1713,9 @@ func (t *SMTTheoryArith) InternalizeEquality(atom ast.ASTHandle, v int32) error 
 	// as (= a a); mk_axioms expects n1 != n2.
 	if n1 != nil && n2 != nil && n1.TheoryVar(t.FamilyID()) != SMTNullTheoryVar &&
 		n2.TheoryVar(t.FamilyID()) != SMTNullTheoryVar && n1 != n2 {
-		return t.arithEqAdapter.MkAxioms(n1.TheoryVar(t.FamilyID()), n2.TheoryVar(t.FamilyID()))
+		// m_arith_eq_adapter.mk_axioms(n1, n2) on the atom's own enodes: a
+		// merged operand may carry another class member's variable.
+		return t.arithEqAdapter.mkAxiomsSource(n1, n2)
 	}
 	return nil
 }

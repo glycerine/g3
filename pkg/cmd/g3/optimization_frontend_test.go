@@ -65,17 +65,17 @@ func TestOptimizationFrontendResourceLimitedOPBBounds(t *testing.T) {
 	input := "min: 1 ~x1 +2 ~x2 +3 ~x3 +4 ~x4 +5 ~x5 +6 ~x6;\n" +
 		"1 x1 +1 x2 +1 x3 +1 x4 +1 x5 +1 x6 <= 5;\n"
 	// Work limits select a search checkpoint, not an invariant model order.
-	// In-place restoration changes the conservative-phase incumbent sequence
-	// from cost 3 directly to cost 1. Keep coverage of the original cost-2
-	// interrupted bound using explicitly seeded phases, and also require the
-	// tighter cost-1 bound on the default path. Neither may report an optimum.
+	// The explicitly seeded phases pass incumbents of cost 6, 5, 3 and 1;
+	// keep coverage of an interrupted intermediate bound (cost 3) there, and
+	// require the tighter cost-1 bound on the default path. Neither may
+	// report an optimum.
 	for _, test := range []struct {
 		name string
 		args []string
 		want string
 	}{
 		{"default-phase", []string{"rlimit=280", "-bpo", "-in"}, "unknown\n  [0:1]\n"},
-		{"seeded-phase", []string{"rlimit=270", "smt.phase_selection=5", "smt.random_seed=0", "-bpo", "-in"}, "unknown\n  [0:2]\n"},
+		{"seeded-phase", []string{"rlimit=330", "smt.phase_selection=5", "smt.random_seed=0", "-bpo", "-in"}, "unknown\n  [0:3]\n"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer

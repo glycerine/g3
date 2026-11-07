@@ -5,6 +5,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -134,13 +135,22 @@ func TestExprQENestedModuloProjection(t *testing.T) {
 	ymod := f.own(m.MkFamilyApp(f.r.arithmetic, 13, nil, []ast.ASTHandle{y, f.number("2")}))
 	want := f.own(m.MkEq(ymod, f.number("1")))
 	different := f.own(m.MkNot(f.own(m.MkEq(h, want))))
-	kernel := qsatKernelOwner(t, f)
-	solver, err := kernel.solver()
+	// Both sides depend only on y mod 4, so checking every residue (and
+	// negative representatives) proves the equivalence. A symbolic
+	// refutation of this mod/div formula need not terminate: z3 4.7.1 does
+	// not finish it with the qsat kernel's relevancy_lvl=0 either.
+	solver, err := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: f.r.config.Context, Globals: f.r.config.Globals})
 	fmMust(t, err)
-	fmMust(t, solver.AssertFormula(different))
-	status, err := solver.CheckSat(nil)
-	fmMust(t, err)
-	if status != lbool.False {
-		t.Fatal("nested modulo projection differs from oddness", status)
+	defer func() { fmMust(t, solver.Close()) }()
+	fmMust(t, solver.Assert(different))
+	for _, k := range []string{"-4", "-3", "-2", "-1", "0", "1", "2", "3", "4", "5", "6", "7"} {
+		fmMust(t, solver.Push())
+		fmMust(t, solver.Assert(f.own(m.MkEq(y, f.number(k)))))
+		status, err := solver.CheckSat(nil)
+		fmMust(t, err)
+		if status != lbool.False {
+			t.Fatal("nested modulo projection differs from oddness at y =", k, status)
+		}
+		fmMust(t, solver.Pop(1))
 	}
 }
