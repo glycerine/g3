@@ -360,13 +360,22 @@ func (s *SMTInternalizerState) PropagateCore() (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("dynamic Ackermann propagation: %w", err)
 		}
+		// propagate_theories: every theory's propagate() runs each round (it
+		// returns early when it has nothing to do); can_theories_propagate()
+		// then decides whether another round is needed.
+		for _, plugin := range s.theoryOrder {
+			if err = plugin.Propagate(); err != nil {
+				return false, fmt.Errorf("theory %d propagation: %w", plugin.FamilyID(), err)
+			}
+			if s.inconsistent {
+				return false, nil
+			}
+		}
 		theoryProgress := false
 		for _, plugin := range s.theoryOrder {
 			if plugin.CanPropagate() {
 				theoryProgress = true
-				if err = plugin.Propagate(); err != nil {
-					return false, fmt.Errorf("theory %d propagation: %w", plugin.FamilyID(), err)
-				}
+				break
 			}
 		}
 		quantifierProgress := false
