@@ -256,7 +256,9 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		kept[1], kept[second] = kept[second], kept[1]
 		firstWatch, secondWatch = first, second
 	}
-	if len(kept) == 2 && s.binaryClauseOptimization && s.scopeLevel == 0 && (kind == SMTClauseAux || s.relevancy == nil) {
+	if len(kept) == 2 && s.binaryClauseOptimization && s.scopeLevel == 0 && (kind == SMTClauseAux || s.relevancy == nil) &&
+		s.binaryClauseBaseLevel() == 0 &&
+		s.booleanData[kept[0].Var()].InternalLevel() == 0 && s.booleanData[kept[1].Var()].InternalLevel() == 0 {
 		first, second := kept[0], kept[1]
 		if err := s.watches[first.Negated().Index()].InsertLiteral(second); err != nil {
 			return err
@@ -1287,4 +1289,20 @@ func (s *SMTInternalizerState) InternalizeInstance(instance *SMTQIInstance) erro
 		return err
 	}
 	return s.Assert(lemma, proof, instance.Generation())
+}
+
+// binaryClauseBaseLevel is context::m_base_lvl as use_binary_clause_opt reads
+// it: the search base level while searching, otherwise the user scope level
+// that pop_to_base_lvl restores.
+//
+// use_binary_clause_opt also refuses binary clauses whose variables were
+// internalized above scope 0, and any clause once m_base_lvl > 0. Source
+// additionally permits binary lemmas above scope 0 when relevancy is below 2;
+// the clause trail here pops every binary record created above scope 0, so
+// those lemmas stay ordinary clauses.
+func (s *SMTInternalizerState) binaryClauseBaseLevel() uint32 {
+	if s.searching {
+		return s.searchBaseLevel
+	}
+	return s.scopeLevel
 }
