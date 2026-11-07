@@ -9,6 +9,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -215,12 +216,37 @@ func (s *ArithmeticSolver) AddObjective(term ast.ASTHandle, maximize bool) error
 	if err != nil {
 		return err
 	}
-	backendIndex, err := s.backend.AddObjective(objective)
+	// optsmt::add simplifies the objective with a fresh th_rewriter, so the
+	// arithmetic theory receives (* -1 t) rather than (- t).
+	rewritten, rewriteRef, err := s.rewriteObjective(objective)
+	if err != nil {
+		return errors.Join(err, s.manager.DelRef(&ref))
+	}
+	backendIndex, err := s.backend.AddObjective(rewritten)
+	err = errors.Join(err, s.manager.DelRef(&rewriteRef))
 	if err != nil {
 		return errors.Join(err, s.manager.DelRef(&ref))
 	}
 	s.objectives = append(s.objectives, arithmeticObjective{term: ref, maximize: maximize, integer: kind == 1, backendIndex: backendIndex})
 	return nil
+}
+
+// rewriteObjective is the th_rewriter rw(m); rw(t1, t2) step of
+// optsmt::add. The caller releases the returned reference.
+func (s *ArithmeticSolver) rewriteObjective(t ast.ASTHandle) (ast.ASTHandle, ast.ASTRef, error) {
+	rw, err := rewriter.NewTheoryRewriter(s.manager, s.config.Params, s.config.Globals, nil)
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTRef{}, err
+	}
+	out, err := s.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTRef{}, errors.Join(err, rw.Close())
+	}
+	if err = rw.Rewrite(t, out); err != nil {
+		return ast.ASTHandle{}, out, errors.Join(err, rw.Close())
+	}
+	h, err := s.manager.RefGet(out)
+	return h, out, errors.Join(err, rw.Close())
 }
 
 // AddSoftObjective registers one source MaxSMT group. Negative weights are

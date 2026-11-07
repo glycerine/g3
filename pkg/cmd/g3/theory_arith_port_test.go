@@ -61,3 +61,28 @@ func TestTheoryArithPortDivisionAxiomsWithoutRelevancy(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+// optsmt::add rewrites the objective, so minimize hands the theory
+// (* -1 x), which internalize_term_core supports, not (- x).
+func TestTheoryArithPortMinimizeObjective(t *testing.T) {
+	t.Setenv("G3_THEORY_ARITH", "port")
+	const script = `(set-option :produce-models true)
+(set-logic QF_LIA)
+(declare-const x Int)
+(assert (and (>= x 0) (<= x 3)))
+(push)
+(maximize x)
+(check-sat)
+(get-objectives)
+(pop)
+(push)
+(minimize x)
+(check-sat)
+(get-objectives)
+(pop)
+`
+	want := "sat\n(objectives\n (x 3)\n)\nsat\n(objectives\n (x 0)\n)\n"
+	if got := runScriptWithin(t, script, 20*time.Second); got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
