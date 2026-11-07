@@ -14,6 +14,7 @@ package smtcore
 import (
 	"errors"
 	"math/big"
+	"os"
 
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
@@ -421,6 +422,7 @@ func NewSMTTheoryArith(family ast.FamilyID, integerExt bool) (*SMTTheoryArith, e
 	if t.arithEqAdapter, err = newSMTArithmeticEqualityAdapter(base); err != nil {
 		return nil, err
 	}
+	t.arithEqAdapter.source = true
 	t.initExt()
 	return t, t.ConfigureArithmetic(smtArithDefaultState())
 }
@@ -464,3 +466,8 @@ func (t *SMTTheoryArith) Close() (result error) {
 	}
 	return result
 }
+
+// smtTheoryArithPortEnabled selects SMTTheoryArith in place of the replay
+// arithmetic theory (G3_THEORY_ARITH=port) while the port is compared with
+// the C++ build.
+func smtTheoryArithPortEnabled() bool { return os.Getenv("G3_THEORY_ARITH") == "port" }

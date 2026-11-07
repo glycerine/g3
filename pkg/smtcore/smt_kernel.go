@@ -629,6 +629,15 @@ func (k *SMTKernel) RegisterTheory(theory SMTTheoryInternalizer) error {
 	if err := k.open(); err != nil {
 		return err
 	}
+	if old, ok := theory.(*SMTLinearArithmeticTheory); ok && smtTheoryArithPortEnabled() && !old.infinite {
+		// Opt-in comparison with the theory_arith port (ARITH_PORT.md):
+		// i_ext for integer arithmetic, mi_ext otherwise.
+		port, err := NewSMTTheoryArith(old.FamilyID(), old.integer && !old.mixed)
+		if err != nil {
+			return err
+		}
+		theory = port
+	}
 	if datatype, ok := theory.(*SMTDatatypeTheory); ok && k.smtParams != nil && datatype.parameterOwner == nil {
 		datatype.parameterOwner = &k.smtParams.datatype
 	}

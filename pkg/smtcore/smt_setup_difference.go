@@ -127,6 +127,8 @@ func (k *SMTKernel) replaceUnusedSetupArithmetic(theory SMTTheoryInternalizer) e
 	switch previous := old.(type) {
 	case *SMTLinearArithmeticTheory:
 		unused = len(previous.variables) == 0
+	case *SMTTheoryArith:
+		unused = len(previous.variables) == 0
 	case *SMTDummyTheory:
 		unused = len(previous.variables) == 0 && !previous.theoryExprs
 	}

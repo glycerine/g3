@@ -30,6 +30,7 @@ type smtArithmeticEqualityAdapter struct {
 	lazy      bool
 	binary    bool
 	trace     *diagnostic.TraceTags
+	source    bool // mk_axioms of the source (SMTTheoryArith)
 }
 
 func newSMTArithmeticEqualityAdapter(owner *SMTTheoryBase) (*smtArithmeticEqualityAdapter, error) {
@@ -126,6 +127,9 @@ func (a *smtArithmeticEqualityAdapter) MkAxioms(left, right SMTTheoryVar) error 
 	}
 	if left == right {
 		return ast.ErrASTDomain
+	}
+	if a.source {
+		return a.mkAxiomsSource(leftNode, rightNode)
 	}
 	state, err := a.owner.State()
 	if err != nil {
