@@ -14,8 +14,14 @@ import (
 func TestHornQuantifiedClauseReferenceFailuresLeaveNoASTRoots(t *testing.T) {
 	// These reference-page boundaries previously stranded quantified
 	// clauses while building fresh Horn definitions.
-	for _, budget := range []int64{0, 1} {
-		for _, free := range []int{10, 12, 15} {
+	// Every allocation frontier must fail cleanly, up to the first budget that
+	// succeeds; where that lies depends on capacity already grown in the fixture.
+	for _, free := range []int{10, 12, 15} {
+		completed := false
+		for budget := int64(0); !completed; budget++ {
+			if budget > 4096 {
+				t.Fatal("normalization never completed", free)
+			}
 			t.Run(fmt.Sprintf("%d/%d", budget, free), func(t *testing.T) {
 				f := newRuleSetFixture(t, "P", "Q", "R", "H")
 				m := f.manager
@@ -82,6 +88,13 @@ func TestHornQuantifiedClauseReferenceFailuresLeaveNoASTRoots(t *testing.T) {
 				m.Budget().FailAfter(-1)
 				if result != nil {
 					ruleMust(t, result.Close())
+				}
+				if cause == nil {
+					if budget == 0 {
+						t.Fatal("normalization allocated nothing, so no frontier was tested")
+					}
+					completed = true
+					return
 				}
 				if !errors.Is(cause, arena.ErrInjectedFailure) {
 					t.Fatal("expected allocation failure", cause)
