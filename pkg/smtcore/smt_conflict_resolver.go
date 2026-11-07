@@ -21,50 +21,77 @@ type SMTConflictResolution struct {
 }
 
 type SMTConflictResolver struct {
-	state      *SMTInternalizerState
-	expander   *SMTAntecedentExpander
-	lemmaProof ast.ASTRef
-	closePhase uint8
-	closed     bool
+	state        *SMTInternalizerState
+	expander     *SMTAntecedentExpander
+	lemmaProof   ast.ASTRef
+	marks        []bool // reused across conflicts, as the source's context-owned marks
+	levelsBuf    []uint32
+	levelSeen    []bool
+	levelTouched []uint32
+	temporary    []int32
+	stack        []int32
+	closePhase   uint8
+	closed       bool
 }
 
-func (r *SMTConflictResolver) syncENodeLiterals() error {
-	for variable := int32(SMTFirstBoolVar); int(variable) < len(r.state.booleanData); variable++ {
-		if !r.state.booleanData[variable].IsENode() {
-			continue
-		}
-		node := r.state.context.enodes.get(r.state.boolExpr[variable])
-		if node == nil {
-			return ast.ErrASTDomain
-		}
-		literal := NewSMTLiteral(variable, false)
-		if r.state.assignment[literal.Index()] == lbool.False {
-			literal = literal.Negated()
-		}
-		if err := r.expander.SetENodeLiteral(node, literal); err != nil {
-			return err
-		}
+// enodeLiteral reads a Boolean enode's literal in its current polarity, which is
+// fixed for the duration of one conflict.
+func (r *SMTConflictResolver) enodeLiteral(node *SMTEnode) (SMTLiteral, bool) {
+	variable, found := r.state.boolVar.lookup(node.owner)
+	if !found || !r.state.booleanData[variable].IsENode() {
+		return SMTNullLiteral, false
 	}
-	return nil
+	literal := NewSMTLiteral(variable, false)
+	if r.state.assignment[literal.Index()] == lbool.False {
+		literal = literal.Negated()
+	}
+	return literal, true
+}
+
+func (r *SMTConflictResolver) resetMarks() []bool {
+	n := len(r.state.booleanData)
+	if cap(r.marks) < n {
+		r.marks = make([]bool, n, n+n/2)
+	} else {
+		r.marks = r.marks[:n]
+		clear(r.marks)
+	}
+	return r.marks
 }
 
 func (r *SMTConflictResolver) minimizeLemma(lemma []SMTLiteral, marks []bool, levels []uint32, baseLevel uint32) ([]SMTLiteral, error) {
-	levelSet := make(map[uint32]struct{}, len(lemma))
+	// Minimization overwrites lemma in place, so remember the levels it marked.
+	touched := r.levelTouched[:0]
 	for _, literal := range lemma {
-		levelSet[levels[literal.Var()]] = struct{}{}
+		level := levels[literal.Var()]
+		if int(level) >= len(r.levelSeen) {
+			r.levelSeen = append(r.levelSeen, make([]bool, int(level)+1-len(r.levelSeen))...)
+		}
+		if !r.levelSeen[level] {
+			r.levelSeen[level] = true
+			touched = append(touched, level)
+		}
 	}
-	temporary := make([]int32, 0)
+	r.levelTouched = touched
+	defer func() {
+		for _, level := range touched {
+			r.levelSeen[level] = false
+		}
+	}()
+	temporary := r.temporary[:0]
+	defer func() { r.temporary = temporary[:0] }()
 	var implied func(SMTLiteral) (bool, error)
 	implied = func(literal SMTLiteral) (bool, error) {
 		oldTemporary := len(temporary)
-		stack := []int32{literal.Var()}
+		stack := append(r.stack[:0], literal.Var())
+		defer func() { r.stack = stack }()
 		processAntecedent := func(antecedent SMTLiteral) bool {
 			variable := antecedent.Var()
 			level := levels[variable]
 			if marks[variable] || level <= baseLevel {
 				return true
 			}
-			if _, found := levelSet[level]; !found {
+			if int(level) >= len(r.levelSeen) || !r.levelSeen[level] {
 				return false
 			}
 			marks[variable] = true
@@ -107,7 +134,7 @@ func (r *SMTConflictResolver) minimizeLemma(lemma []SMTLiteral, marks []bool, le
 					}
 				}
 				if clause.justification != nil {
-					antecedents, err := r.expander.ExpandJustification(clause.justification)
+					antecedents, err := r.expander.expandReusing(clause.justification)
 					if err != nil {
 						return false, err
 					}
@@ -137,7 +164,7 @@ func (r *SMTConflictResolver) minimizeLemma(lemma []SMTLiteral, marks []bool, le
 				if !ok || object == nil {
 					return false, ast.ErrASTDomain
 				}
-				antecedents, err := r.expander.ExpandJustification(object)
+				antecedents, err := r.expander.expandReusing(object)
 				if err != nil {
 					return false, err
 				}
@@ -181,10 +208,7 @@ func NewSMTConflictResolver(state *SMTInternalizerState) (*SMTConflictResolver, 
 		return nil, err
 	}
 	resolver := &SMTConflictResolver{state: state, expander: NewSMTAntecedentExpander(), lemmaProof: proof}
-	if err = resolver.syncENodeLiterals(); err != nil {
-		_ = state.manager.DelRef(&proof)
-		return nil, err
-	}
+	resolver.expander.literalOf = resolver.enodeLiteral
 	return resolver, nil
 }
 
@@ -225,9 +249,6 @@ func (r *SMTConflictResolver) Close() error {
 func (r *SMTConflictResolver) UnsatCore(conflict SMTBooleanJustification, notLiteral SMTLiteral) ([]SMTLiteral, error) {
 	if r == nil || r.state == nil || r.expander == nil || r.state.open() != nil {
 		return nil, ast.ErrASTHandle
-	}
-	if err := r.syncENodeLiterals(); err != nil {
-		return nil, err
 	}
 	seen := make([]bool, len(r.state.booleanData))
 	core := make([]SMTLiteral, 0)
@@ -368,7 +389,11 @@ func (r *SMTConflictResolver) UnsatCore(conflict SMTBooleanJustification, notLit
 }
 
 func (r *SMTConflictResolver) levels() []uint32 {
-	levels := make([]uint32, len(r.state.booleanData))
+	if cap(r.levelsBuf) < len(r.state.booleanData) {
+		r.levelsBuf = make([]uint32, len(r.state.booleanData), len(r.state.booleanData)*3/2)
+	}
+	levels := r.levelsBuf[:len(r.state.booleanData)]
+	r.levelsBuf = levels
 	for variable := int32(SMTFirstBoolVar); int(variable) < len(levels); variable++ {
 		levels[variable] = r.state.booleanData[variable].ScopeLevel
 	}
@@ -387,9 +412,6 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 	}
 	if err := r.state.manager.ResetRef(r.lemmaProof); err != nil {
 		return SMTConflictResolution{}, err
-	}
-	if err := r.syncENodeLiterals(); err != nil {
-		return SMTConflictResolution{}, fmt.Errorf("sync enode literals: %w", err)
 	}
 	originalConflict := conflict
 	consequent := SMTFalseLiteral
@@ -417,7 +439,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 		}
 		return result, nil
 	}
-	marks := make([]bool, len(r.state.booleanData))
+	marks := r.resetMarks()
 	lemma := []SMTLiteral{SMTNullLiteral}
 	numMarks := 0
 	processAntecedent := func(literal SMTLiteral) error {
@@ -478,7 +500,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 				}
 			}
 			if clause.justification != nil {
-				antecedents, err := r.expander.ExpandJustification(clause.justification)
+				antecedents, err := r.expander.expandReusing(clause.justification)
 				if err != nil {
 					return err
 				}
@@ -500,7 +522,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 			if !ok || object == nil {
 				return ast.ErrASTDomain
 			}
-			antecedents, err := r.expander.ExpandJustification(object)
+			antecedents, err := r.expander.expandReusing(object)
 			if err != nil {
 				return fmt.Errorf("expand %s: %w", object.Name(), err)
 			}

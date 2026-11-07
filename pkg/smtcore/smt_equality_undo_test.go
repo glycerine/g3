@@ -111,16 +111,12 @@ func requireSMTCongruenceInvariant(t *testing.T, s *SMTInternalizerState) {
 	t.Helper()
 	astTestMust(t, s.congruence.CheckInvariant())
 	stored := 0
-	for _, bucket := range s.congruence.tables {
-		for key, entries := range bucket.entries {
-			for _, entry := range entries {
-				if smtCongruenceSignature(entry) != key {
-					t.Fatal("table entry filed under a stale signature")
-				}
-				stored++
-			}
+	s.congruence.forEachEntry(func(_ *SMTEnode, current bool) {
+		if !current {
+			t.Fatal("table entry filed under a stale signature")
 		}
-	}
+		stored++
+	})
 	representatives := 0
 	for _, node := range s.enodeStack {
 		if len(node.arguments) == 0 || !node.congruenceEnabled || node.IsTrueEquality() {

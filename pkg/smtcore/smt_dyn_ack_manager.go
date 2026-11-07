@@ -261,13 +261,13 @@ func (m *smtDynAckManager) recordConflictUses(expander *SMTAntecedentExpander, c
 	if m == nil || m.closed || expander == nil {
 		return ast.ErrASTHandle
 	}
-	for _, use := range expander.CongruenceUses() {
+	for _, use := range expander.congruenceUses {
 		if err := m.schedule.usedCongruence(use.First.owner, use.Second.owner, m.strategy); err != nil {
 			return err
 		}
 	}
 	if m.equalities {
-		for _, use := range expander.EqualityUses() {
+		for _, use := range expander.equalityUses {
 			if err := m.schedule.usedEquality(use.First.owner, use.Second.owner, use.Common.owner, true); err != nil {
 				return err
 			}

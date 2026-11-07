@@ -9,16 +9,27 @@ import (
 )
 
 // Native Go signature keys replace the source per-declaration unary, binary,
-// commutative-binary and n-ary hash tables. Binary keys use root pointers
-// directly; n-ary suffix owner identities select collision buckets whose
+// commutative-binary and n-ary hash tables. Arity one and two key on root
+// pointers, so one enode per key suffices. Wider keys encode root owners in a
+// suffix, which distinct roots can share, so they keep collision chains whose
 // entries still pass the exact source congruence comparison.
 type smtCongruenceKey struct {
 	first, second *SMTEnode
 	tail          string
 }
 type smtCongruenceBucket struct {
-	id      uint32
-	entries map[smtCongruenceKey][]*SMTEnode
+	id          uint32
+	declaration ast.ASTHandle
+	small       map[[2]*SMTEnode]*SMTEnode // arity one and two, without a string key
+	wide        map[smtCongruenceKey][]*SMTEnode
+}
+
+func smtCongruenceSmallKey(node *SMTEnode) [2]*SMTEnode {
+	key := [2]*SMTEnode{node.arguments[0].root}
+	if len(node.arguments) > 1 {
+		key[1] = node.arguments[1].root
+	}
+	return key
 }
 
 func smtCongruenceSignature(node *SMTEnode) smtCongruenceKey {
@@ -39,6 +50,70 @@ func smtCongruenceSignature(node *SMTEnode) smtCongruenceKey {
 	return key
 }
 
+// find returns the congruent entry for a node, if any.
+func (b *smtCongruenceBucket) find(node *SMTEnode) (*SMTEnode, bool, error) {
+	if len(node.arguments) > 2 {
+		for _, candidate := range b.wide[smtCongruenceSignature(node)] {
+			congruent, commuted, err := SMTEnodesCongruent(candidate, node)
+			if err != nil {
+				return nil, false, err
+			}
+			if congruent {
+				return candidate, commuted, nil
+			}
+		}
+		return nil, false, nil
+	}
+	key := smtCongruenceSmallKey(node)
+	if candidate := b.small[key]; candidate != nil {
+		congruent, commuted, err := SMTEnodesCongruent(candidate, node)
+		if err != nil || congruent {
+			return candidate, commuted, err
+		}
+	}
+	if node.commutative && len(node.arguments) == 2 && key[0] != key[1] {
+		if candidate := b.small[[2]*SMTEnode{key[1], key[0]}]; candidate != nil {
+			congruent, commuted, err := SMTEnodesCongruent(candidate, node)
+			if err != nil || congruent {
+				return candidate, commuted, err
+			}
+		}
+	}
+	return nil, false, nil
+}
+
+func (b *smtCongruenceBucket) store(node *SMTEnode) {
+	if len(node.arguments) <= 2 {
+		b.small[smtCongruenceSmallKey(node)] = node
+		return
+	}
+	key := smtCongruenceSignature(node)
+	b.wide[key] = append(b.wide[key], node)
+}
+
+// remove deletes the stored node itself, under its own current signature.
+func (b *smtCongruenceBucket) remove(node *SMTEnode) {
+	if len(node.arguments) <= 2 {
+		delete(b.small, smtCongruenceSmallKey(node))
+		return
+	}
+	key := smtCongruenceSignature(node)
+	chain := b.wide[key]
+	for i, entry := range chain {
+		if entry != node {
+			continue
+		}
+		if len(chain) == 1 {
+			delete(b.wide, key)
+			return
+		}
+		copy(chain[i:], chain[i+1:])
+		chain[len(chain)-1] = nil
+		b.wide[key] = chain[:len(chain)-1]
+		return
+	}
+}
+
 type SMTCongruenceInsertResult struct {
 	Node     *SMTEnode
 	Commuted bool
@@ -48,6 +123,7 @@ type SMTCongruenceTable struct {
 	self         *SMTCongruenceTable
 	manager      *ast.ASTManager
 	tables       map[ast.ASTHandle]*smtCongruenceBucket
+	buckets      []*smtCongruenceBucket // by enode functionDeclID, to skip the map
 	declarations []ast.ASTHandle
 	resetIndex   int
 	closed       bool
@@ -79,35 +155,53 @@ func (t *SMTCongruenceTable) validateNode(node *SMTEnode) error {
 	return node.valid()
 }
 
-func (t *SMTCongruenceTable) ensureTable(node *SMTEnode) error {
-	if bucket, found := t.tables[node.declaration]; found {
+func (t *SMTCongruenceTable) bucketFor(node *SMTEnode) *smtCongruenceBucket {
+	if id := node.functionDeclID; uint64(id) < uint64(len(t.buckets)) {
+		if bucket := t.buckets[id]; bucket.declaration == node.declaration {
+			return bucket
+		}
+	}
+	bucket := t.tables[node.declaration]
+	if bucket != nil {
 		node.functionDeclID = bucket.id
-		return nil
+	}
+	return bucket
+}
+
+func (t *SMTCongruenceTable) ensureTable(node *SMTEnode) (*smtCongruenceBucket, error) {
+	if bucket := t.bucketFor(node); bucket != nil {
+		return bucket, nil
 	}
 	if err := t.manager.IncRef(node.declaration); err != nil {
-		return err
+		return nil, err
 	}
 	node.functionDeclID = uint32(len(t.declarations))
 	t.declarations = append(t.declarations, node.declaration)
-	t.tables[node.declaration] = &smtCongruenceBucket{id: node.functionDeclID, entries: make(map[smtCongruenceKey][]*SMTEnode)}
-	return nil
+	bucket := &smtCongruenceBucket{
+		id: node.functionDeclID, declaration: node.declaration,
+		small: make(map[[2]*SMTEnode]*SMTEnode), wide: make(map[smtCongruenceKey][]*SMTEnode),
+	}
+	t.buckets = append(t.buckets, bucket)
+	t.tables[node.declaration] = bucket
+	return bucket, nil
 }
 
 func (t *SMTCongruenceTable) Insert(node *SMTEnode) (SMTCongruenceInsertResult, error) {
 	if err := t.validateNode(node); err != nil {
 		return SMTCongruenceInsertResult{}, err
 	}
-	if err := t.ensureTable(node); err != nil {
+	bucket, err := t.ensureTable(node)
+	if err != nil {
 		return SMTCongruenceInsertResult{}, err
 	}
-	if candidate, commuted, err := t.Find(node); err != nil {
+	candidate, commuted, err := bucket.find(node)
+	if err != nil {
 		return SMTCongruenceInsertResult{}, err
-	} else if candidate != nil {
+	}
+	if candidate != nil {
 		return SMTCongruenceInsertResult{Node: candidate, Commuted: commuted}, nil
 	}
-	key := smtCongruenceSignature(node)
-	bucket := t.tables[node.declaration]
-	bucket.entries[key] = append(bucket.entries[key], node)
+	bucket.store(node)
 	return SMTCongruenceInsertResult{Node: node}, nil
 }
 
@@ -115,32 +209,11 @@ func (t *SMTCongruenceTable) Find(node *SMTEnode) (*SMTEnode, bool, error) {
 	if err := t.validateNode(node); err != nil {
 		return nil, false, err
 	}
-	bucket := t.tables[node.declaration]
+	bucket := t.bucketFor(node)
 	if bucket == nil {
 		return nil, false, nil
 	}
-	key := smtCongruenceSignature(node)
-	if found, commuted, err := smtFindCongruence(bucket.entries[key], node); found != nil || err != nil {
-		return found, commuted, err
-	}
-	if node.commutative && len(node.arguments) == 2 && key.first != key.second {
-		key.first, key.second = key.second, key.first
-		return smtFindCongruence(bucket.entries[key], node)
-	}
-	return nil, false, nil
-}
-
-func smtFindCongruence(entries []*SMTEnode, node *SMTEnode) (*SMTEnode, bool, error) {
-	for _, candidate := range entries {
-		congruent, commuted, err := SMTEnodesCongruent(candidate, node)
-		if err != nil {
-			return nil, false, err
-		}
-		if congruent {
-			return candidate, commuted, nil
-		}
-	}
-	return nil, false, nil
+	return bucket.find(node)
 }
 
 func (t *SMTCongruenceTable) Contains(node *SMTEnode) (bool, error) {
@@ -154,33 +227,27 @@ func (t *SMTCongruenceTable) ContainsPointer(node *SMTEnode) (bool, error) {
 }
 
 func (t *SMTCongruenceTable) Erase(node *SMTEnode) (bool, error) {
-	if err := t.validateNode(node); err != nil {
-		return false, err
-	}
 	candidate, _, err := t.Find(node)
-	if err != nil {
+	if err != nil || candidate == nil {
 		return false, err
 	}
-	if candidate == nil {
-		return false, nil
-	}
-	key := smtCongruenceSignature(candidate)
-	entries := t.tables[node.declaration].entries
-	bucket := entries[key]
-	for i, entry := range bucket {
-		if entry != candidate {
-			continue
+	t.bucketFor(node).remove(candidate)
+	return true, nil
+}
+
+// forEachEntry visits stored enodes, reporting whether each sits under its
+// current signature.
+func (t *SMTCongruenceTable) forEachEntry(visit func(node *SMTEnode, current bool)) {
+	for _, bucket := range t.buckets {
+		for key, node := range bucket.small {
+			visit(node, key == smtCongruenceSmallKey(node))
 		}
-		copy(bucket[i:], bucket[i+1:])
-		bucket[len(bucket)-1] = nil
-		if len(bucket) == 1 {
-			delete(entries, key)
-		} else {
-			entries[key] = bucket[:len(bucket)-1]
+		for key, chain := range bucket.wide {
+			for _, node := range chain {
+				visit(node, key == smtCongruenceSignature(node))
+			}
 		}
-		return true, nil
 	}
-	return false, nil
 }
 
 func (t *SMTCongruenceTable) Reset() error {
@@ -202,7 +269,7 @@ func (t *SMTCongruenceTable) Reset() error {
 			return err
 		}
 	}
-	t.declarations = nil
+	t.declarations, t.buckets = nil, nil
 	t.tables = make(map[ast.ASTHandle]*smtCongruenceBucket)
 	return nil
 }
@@ -211,20 +278,19 @@ func (t *SMTCongruenceTable) CheckInvariant() error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	for _, bucket := range t.tables {
-		for _, entries := range bucket.entries {
-			for _, node := range entries {
-				contained, err := t.ContainsPointer(node)
-				if err != nil {
-					return err
-				}
-				if !contained {
-					return ast.ErrASTDomain
-				}
-			}
+	var failure error
+	t.forEachEntry(func(node *SMTEnode, current bool) {
+		if failure != nil {
+			return
 		}
-	}
-	return nil
+		contained, err := t.ContainsPointer(node)
+		if err != nil {
+			failure = err
+		} else if !contained || !current {
+			failure = ast.ErrASTDomain
+		}
+	})
+	return failure
 }
 
 // Display and DisplayCompact are intentionally empty in the active source

@@ -16,7 +16,7 @@ func SMTJustificationMaxLevel(expander *SMTAntecedentExpander, justification SMT
 	if expander == nil || justification == nil {
 		return 0, ast.ErrASTHandle
 	}
-	antecedents, err := expander.ExpandJustification(justification)
+	antecedents, err := expander.expandReusing(justification)
 	if err != nil {
 		return 0, err
 	}

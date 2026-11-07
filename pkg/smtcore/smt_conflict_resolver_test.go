@@ -97,7 +97,6 @@ func TestSMTConflictResolverSynchronizesLateBooleanEnodes(t *testing.T) {
 	if !found {
 		t.Fatal("missing late Boolean variable")
 	}
-	astTestMust(t, resolver.syncENodeLiterals())
 	literal, err := resolver.expander.LiteralForENode(state.context.enodes.get(late))
 	astTestMust(t, err)
 	if literal != NewSMTLiteral(variable, false) {

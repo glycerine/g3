@@ -64,16 +64,21 @@ func (n *SMTEnode) delete(updateChildrenParent, requireParentEntry bool) error {
 	return nil
 }
 
+// TransReaches walks the proof tree. Brent's check catches a corrupted cycle
+// without allocating, since this runs for every equality a conflict expands.
 func (n *SMTEnode) TransReaches(target *SMTEnode) bool {
-	seen := make(map[*SMTEnode]struct{})
+	checkpoint, steps, limit := n, 0, 1
 	for current := n; current != nil; current = current.trans.Target {
 		if current == target {
 			return true
 		}
-		if _, found := seen[current]; found {
+		if steps == limit {
+			checkpoint, steps, limit = current, 0, limit*2
+		}
+		steps++
+		if next := current.trans.Target; next == checkpoint {
 			return false
 		}
-		seen[current] = struct{}{}
 	}
 	return false
 }

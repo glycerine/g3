@@ -19,6 +19,8 @@ type smtEnodePairKey struct{ first, second *SMTEnode }
 type SMTAntecedentExpander struct {
 	self            *SMTAntecedentExpander
 	enodeLiterals   map[*SMTEnode]SMTLiteral
+	literalOf       func(*SMTEnode) (SMTLiteral, bool) // the owning resolver's live view
+	result          []SMTLiteral
 	antecedents     []SMTLiteral
 	justifications  []SMTJustification
 	justificationAt int
@@ -56,6 +58,9 @@ func (e *SMTAntecedentExpander) LiteralForENode(node *SMTEnode) (SMTLiteral, err
 		return SMTNullLiteral, err
 	}
 	literal, found := e.enodeLiterals[node]
+	if !found && e.literalOf != nil && node != nil {
+		literal, found = e.literalOf(node)
+	}
 	if !found {
 		if node != nil {
 			return SMTNullLiteral, fmt.Errorf("missing Boolean enode literal for %v: %w", node.owner, ast.ErrASTDomain)
@@ -184,16 +189,23 @@ func smtCommonTransAncestor(first, second *SMTEnode) (*SMTEnode, error) {
 	if !first.TransReaches(first.root) || !second.TransReaches(second.root) {
 		return nil, fmt.Errorf("broken equality proof path: %w", ast.ErrASTDomain)
 	}
-	seen := make(map[*SMTEnode]struct{})
 	for current := first; current != nil; current = current.trans.Target {
-		seen[current] = struct{}{}
+		current.transMark = true
 	}
+	var common *SMTEnode
 	for current := second; current != nil; current = current.trans.Target {
-		if _, found := seen[current]; found {
-			return current, nil
+		if current.transMark {
+			common = current
+			break
 		}
 	}
-	return nil, ast.ErrASTDomain
+	for current := first; current != nil; current = current.trans.Target {
+		current.transMark = false
+	}
+	if common == nil {
+		return nil, ast.ErrASTDomain
+	}
+	return common, nil
 }
 func (e *SMTAntecedentExpander) expandBranch(node, ancestor *SMTEnode) error {
 	if !node.TransReaches(ancestor) {
@@ -254,13 +266,24 @@ func (e *SMTAntecedentExpander) cleanup() error {
 			result = errors.Join(result, justification.SetMarked(false))
 		}
 	}
-	e.antecedents, e.justifications, e.equalities = nil, nil, nil
+	clear(e.justifications)
+	e.antecedents, e.justifications, e.equalities = e.antecedents[:0], e.justifications[:0], e.equalities[:0]
 	e.justificationAt = 0
-	e.processed = make(map[smtEnodePairKey]struct{})
+	clear(e.processed)
 	e.active = false
 	return result
 }
-func (e *SMTAntecedentExpander) ExpandJustification(justification SMTJustification) (result []SMTLiteral, err error) {
+func (e *SMTAntecedentExpander) ExpandJustification(justification SMTJustification) ([]SMTLiteral, error) {
+	result, err := e.expandReusing(justification)
+	if err != nil {
+		return nil, err
+	}
+	return append([]SMTLiteral(nil), result...), nil
+}
+
+// expandReusing returns a buffer valid until the next expansion, for callers on
+// the conflict path that only read it.
+func (e *SMTAntecedentExpander) expandReusing(justification SMTJustification) (result []SMTLiteral, err error) {
 	if err = e.valid(); err != nil {
 		return nil, err
 	}
@@ -275,7 +298,8 @@ func (e *SMTAntecedentExpander) ExpandJustification(justification SMTJustificati
 	if err = e.process(); err != nil {
 		return nil, err
 	}
-	return append([]SMTLiteral(nil), e.antecedents...), nil
+	e.result = append(e.result[:0], e.antecedents...)
+	return e.result, nil
 }
 func (e *SMTAntecedentExpander) ExpandEquality(first, second *SMTEnode) (result []SMTLiteral, err error) {
 	if err = e.valid(); err != nil {
@@ -308,7 +332,7 @@ func (e *SMTAntecedentExpander) EqualityUses() []SMTEqualityUse {
 }
 func (e *SMTAntecedentExpander) ResetUses() {
 	if e != nil {
-		e.congruenceUses = nil
-		e.equalityUses = nil
+		e.congruenceUses = e.congruenceUses[:0]
+		e.equalityUses = e.equalityUses[:0]
 	}
 }

@@ -183,3 +183,71 @@ func TestSMTAlmostCongruenceTableGroupsSpecialRoots(t *testing.T) {
 		t.Fatal("reset for roots")
 	}
 }
+
+// Commutative binary and unary entries must round-trip through erase, and an
+// erased signature must accept a new representative.
+func TestSMTCongruenceTableEraseAndReinsert(t *testing.T) {
+	m := astTestManager(t)
+	sort, err := m.MkSort(symbol.Numerical(2800), ast.ASTSortInfo{})
+	astTestMust(t, err)
+	a, an := smtEnodeConstant(t, m, 2801, sort, 0)
+	b, bn := smtEnodeConstant(t, m, 2802, sort, 0)
+	plus := smtCGTestDeclaration(t, m, 2803, sort, ast.ASTFuncFlags{Commutative: true})
+	table, err := NewSMTCongruenceTable(m)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, table.Close()) }()
+	first := smtCGTestApplication(t, m, plus, []ast.ASTHandle{a, b}, []*SMTEnode{an, bn})
+	second := smtCGTestApplication(t, m, plus, []ast.ASTHandle{b, a}, []*SMTEnode{bn, an})
+	inserted, err := table.Insert(first)
+	astTestMust(t, err)
+	if inserted.Node != first {
+		t.Fatal("first insert")
+	}
+	inserted, err = table.Insert(second)
+	astTestMust(t, err)
+	if inserted.Node != first || !inserted.Commuted {
+		t.Fatal("commuted lookup")
+	}
+	erased, err := table.Erase(second)
+	astTestMust(t, err)
+	if !erased {
+		t.Fatal("erasing through a commuted congruent node must remove its representative")
+	}
+	if found, _, err := table.Find(first); err != nil || found != nil {
+		t.Fatal("representative survived erase", found, err)
+	}
+	erased, err = table.Erase(first)
+	astTestMust(t, err)
+	if erased {
+		t.Fatal("double erase reported success")
+	}
+	inserted, err = table.Insert(second)
+	astTestMust(t, err)
+	if inserted.Node != second || inserted.Commuted {
+		t.Fatal("erased signature did not accept a new representative")
+	}
+	astTestMust(t, table.CheckInvariant())
+}
+
+// Merging must not allocate per-lookup signature keys for arity two terms.
+func TestSMTCongruenceTableBinaryOperationsDoNotAllocate(t *testing.T) {
+	m := astTestManager(t)
+	sort, err := m.MkSort(symbol.Numerical(2810), ast.ASTSortInfo{})
+	astTestMust(t, err)
+	a, an := smtEnodeConstant(t, m, 2811, sort, 0)
+	b, bn := smtEnodeConstant(t, m, 2812, sort, 0)
+	declaration := smtCGTestDeclaration(t, m, 2813, sort, ast.ASTFuncFlags{})
+	table, err := NewSMTCongruenceTable(m)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, table.Close()) }()
+	node := smtCGTestApplication(t, m, declaration, []ast.ASTHandle{a, b}, []*SMTEnode{an, bn})
+	_, err = table.Insert(node)
+	astTestMust(t, err)
+	if allocs := testing.AllocsPerRun(200, func() {
+		_, _ = table.Erase(node)
+		_, _ = table.Insert(node)
+		_, _, _ = table.Find(node)
+	}); allocs != 0 {
+		t.Fatalf("%v allocations per erase/insert/find", allocs)
+	}
+}

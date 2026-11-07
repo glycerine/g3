@@ -9,8 +9,9 @@ import (
 
 const smtHotPathWidth = 128
 
+// benchmarkMust stays free of b.Helper, whose stack walk would dominate the
+// whole-process profiles taken around these benchmarks.
 func benchmarkMust(b *testing.B, err error) {
-	b.Helper()
 	if err != nil {
 		b.Fatal(err)
 	}

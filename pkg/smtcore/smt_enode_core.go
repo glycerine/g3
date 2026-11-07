@@ -38,6 +38,7 @@ type SMTEnode struct {
 	congruenceEnabled                     bool
 	parents, arguments                    []*SMTEnode
 	parentOfMergeTarget                   bool                  // transient, one addEquality
+	transMark                             bool                  // transient, one ancestor search
 	disequalities                         []smtDisequalityEntry // meaningful on class roots
 	theoryVariables                       SMTTheoryVarList
 	trans                                 SMTTransJustification
