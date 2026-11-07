@@ -48,6 +48,10 @@ type smtArithEngineHost interface {
 	// mkAuxLemma adds the clause lits as an auxiliary lemma (ctx.mk_clause
 	// with CLS_AUX_LEMMA); ante supplies the proof parameters.
 	mkAuxLemma(lits []SMTLiteral, ante *smtArithmeticAntecedents) error
+	// mkTheoryAxiom is ctx.mk_th_axiom with farkas parameters all equal to 1.
+	mkTheoryAxiom(lits []SMTLiteral) error
+	// isSearching is context::is_searching.
+	isSearching() bool
 	// isIntSource is is_int_src: the variable's expression has sort Int.
 	isIntSource(SMTTheoryVar) bool
 	// isEqual is is_equal: the variables' enodes share a root.
