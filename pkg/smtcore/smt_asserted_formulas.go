@@ -196,6 +196,15 @@ func (k *SMTKernel) preprocessAssertion(formula, proof ast.ASTHandle) (result, r
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
 	defer func() { err = errors.Join(err, k.manager.DelRef(&proofRef)) }()
+	return k.preprocessAssertionWith(formula, proof, resultRef, proofRef)
+}
+
+// preprocessAssertionWith is m_rewriter(n, r1, pr1) with the caller's r1
+// and pr1, which the rewrite overwrites (so their old values may die there).
+func (k *SMTKernel) preprocessAssertionWith(formula, proof ast.ASTHandle, resultRef, proofRef ast.ASTRef) (result, resultProof ast.ASTHandle, err error) {
+	if !k.preprocess || k.preprocessor == nil {
+		return formula, proof, nil
+	}
 	proofs, err := k.manager.ProofsEnabled()
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err

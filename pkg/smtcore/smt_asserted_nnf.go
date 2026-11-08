@@ -84,26 +84,18 @@ func (k *SMTKernel) appendNormalizedAssertion(proc *normal_forms.NNF, batch *mac
 	if err != nil {
 		return false, err
 	}
-	for i, definition := range definitions {
-		value, err := k.manager.RefGet(definition)
-		if err != nil {
-			return false, err
-		}
-		var p ast.ASTHandle
-		if proofs {
-			p, err = k.manager.RefGet(definitionProofs[i])
-			if err != nil {
-				return false, err
-			}
-		}
-		if canceled, err := k.appendNNFRewritten(batch, value, p); canceled || err != nil {
-			return canceled, err
-		}
-	}
+	// pr = m.mk_modus_ponens(pr, pr1); push_todo.push_back(r1);
+	// push_todo_prs.push_back(pr): the main row is held before the rows are
+	// rewritten, since the rewrites reuse r1 and pr1.
 	value, err := k.manager.RefGet(out)
 	if err != nil {
 		return false, err
 	}
+	main, err := k.manager.NewRef(value)
+	if err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, k.manager.DelRef(&main)) }()
 	var p ast.ASTHandle
 	if proofs {
 		rewrite, err := k.manager.RefGet(proof)
@@ -114,21 +106,35 @@ func (k *SMTKernel) appendNormalizedAssertion(proc *normal_forms.NNF, batch *mac
 		if err != nil {
 			return false, err
 		}
-		// Source push_todo_prs owns this composed proof while the theory
-		// rewriter processes the normalized main formula.
 		held, err := k.manager.NewRef(p)
 		if err != nil {
 			return false, err
 		}
 		defer func() { result = errors.Join(result, k.manager.DelRef(&held)) }()
 	}
-	return k.appendNNFRewritten(batch, value, p)
+	for i, definition := range definitions {
+		value, err := k.manager.RefGet(definition)
+		if err != nil {
+			return false, err
+		}
+		var dp ast.ASTHandle
+		if proofs {
+			dp, err = k.manager.RefGet(definitionProofs[i])
+			if err != nil {
+				return false, err
+			}
+		}
+		if canceled, err := k.appendNNFRewritten(batch, value, dp, out, proof); canceled || err != nil {
+			return canceled, err
+		}
+	}
+	return k.appendNNFRewritten(batch, value, p, out, proof)
 }
 
 // NNF checks cancellation both after normalization and after rewriting each
 // introduced definition/main row, before pushing it into the local vector.
-func (k *SMTKernel) appendNNFRewritten(batch *macros.FormulaBatch, formula, proof ast.ASTHandle) (canceled bool, result error) {
-	value, p, err := k.preprocessAssertion(formula, proof)
+func (k *SMTKernel) appendNNFRewritten(batch *macros.FormulaBatch, formula, proof ast.ASTHandle, r1, pr1 ast.ASTRef) (canceled bool, result error) {
+	value, p, err := k.preprocessAssertionWith(formula, proof, r1, pr1)
 	if err != nil {
 		return false, err
 	}

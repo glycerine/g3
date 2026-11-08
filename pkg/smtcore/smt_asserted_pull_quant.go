@@ -72,6 +72,10 @@ func (k *SMTKernel) pullPendingNestedQuantifiers() (result error) {
 		if err = k.appendTransformedAssertion(batch, assertion, row.Expression, row.Proof); err != nil {
 			return err
 		}
+		// Per-formula result and result_pr die here, result_pr first.
+		if err = errors.Join(k.manager.SetRef(proof, ast.ASTHandle{}), k.manager.SetRef(out, ast.ASTHandle{})); err != nil {
+			return err
+		}
 		if canceled, err := k.manager.Canceled(); canceled || err != nil {
 			return err
 		}

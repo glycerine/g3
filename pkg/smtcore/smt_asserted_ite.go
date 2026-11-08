@@ -166,5 +166,10 @@ func (k *SMTKernel) appendSimplifiedAssertion(batch *macros.FormulaBatch, assert
 			return err
 		}
 	}
-	return k.appendTransformedAssertion(batch, assertion, row.Expression, row.Proof)
+	if err = k.appendTransformedAssertion(batch, assertion, row.Expression, row.Proof); err != nil {
+		return err
+	}
+	// simplify_fmls::operator() declares result and result_pr per formula:
+	// they die at the end of each iteration, result_pr first.
+	return errors.Join(k.manager.SetRef(proof, ast.ASTHandle{}), k.manager.SetRef(out, ast.ASTHandle{}))
 }

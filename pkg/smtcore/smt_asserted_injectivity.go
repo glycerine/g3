@@ -84,6 +84,10 @@ func (k *SMTKernel) refinePendingInjectivityAxioms() (result error) {
 		if err := k.appendTransformedAssertion(batch, assertion, row.Expression, row.Proof); err != nil {
 			return err
 		}
+		// The per-formula result dies at the end of the iteration.
+		if err := k.manager.SetRef(out, ast.ASTHandle{}); err != nil {
+			return err
+		}
 		if canceled, err := k.manager.Canceled(); canceled || err != nil {
 			return err
 		}

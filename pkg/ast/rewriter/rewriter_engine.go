@@ -1155,19 +1155,19 @@ func (r *rewriterEngine) publish(out, proof ast.ASTRef) error {
 	if e != nil {
 		return e
 	}
+	// result = result_stack().back(); result_stack().pop_back();
 	if e = m.SetRef(out, h); e != nil {
 		return e
 	}
+	if e = r.core.popResult(); e != nil {
+		return e
+	}
 	if r.core.proofGen {
+		// result_pr = result_pr_stack().back(); result_pr_stack().pop_back();
+		// the previous result_pr is released before mk_reflexivity runs.
 		pr, e := r.coreProofBack()
 		if e != nil {
 			return e
-		}
-		if pr.IsNull() {
-			pr, e = m.MkProofReflexivity(r.core.root)
-			if e != nil {
-				return e
-			}
 		}
 		if proof != (ast.ASTRef{}) {
 			if e = m.SetRef(proof, pr); e != nil {
@@ -1177,8 +1177,19 @@ func (r *rewriterEngine) publish(out, proof ast.ASTRef) error {
 		if e = r.popProof(); e != nil {
 			return e
 		}
+		if pr.IsNull() {
+			pr, e = m.MkProofReflexivity(r.core.root)
+			if e != nil {
+				return e
+			}
+			if proof != (ast.ASTRef{}) {
+				if e = m.SetRef(proof, pr); e != nil {
+					return e
+				}
+			}
+		}
 	}
-	return r.core.popResult()
+	return nil
 }
 
 // rewriter_tpl overrides the base child assertion: builtin/macro frames may
