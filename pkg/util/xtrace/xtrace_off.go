@@ -1,6 +1,6 @@
-//go:build xtrace_off
+//go:build !xtrace
 
-// When the xtrace_off build tag IS set, all trace calls are no-ops.
+// When the xtrace build tag is not set, all trace calls are no-ops.
 // The compiler inlines empty functions, so there is zero runtime cost.
 package xtrace
 

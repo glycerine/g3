@@ -1,4 +1,4 @@
-//go:build !xtrace_off
+//go:build xtrace
 
 // Package xtracer provides execution tracing for parallel conformance
 // testing between Go goivy and Python ivy. Trace() prints timestamped
