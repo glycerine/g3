@@ -52,7 +52,7 @@ func TestSpacerExpressionQueryReachableSummary(t *testing.T) {
 		return own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
 	}
 	pzero := own(m.MkApp(p, []ast.ASTHandle{zero}))
-	fragmentMust(t, e.AddRule(pzero, "fact"))
+	fragmentMust(t, e.addRuleEager(pzero, "fact"))
 	for repeat := 0; repeat < 2; repeat++ {
 		status, err := e.QueryExpression(pzero)
 		fragmentMust(t, err)
@@ -64,7 +64,7 @@ func TestSpacerExpressionQueryReachableSummary(t *testing.T) {
 		if repeat == 1 {
 			// Mutation must still reject a stale query, while an already returned
 			// summary remains caller-owned after the active query is disposed.
-			fragmentMust(t, e.AddRule(pzero, "later-fact"))
+			fragmentMust(t, e.addRuleEager(pzero, "later-fact"))
 			if stale, err := e.Reachable(p); err == nil || stale != (ast.ASTRef{}) {
 				t.Fatal("mutation exposed a stale reachable summary", stale, err)
 			}

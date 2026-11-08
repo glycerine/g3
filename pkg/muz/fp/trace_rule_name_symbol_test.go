@@ -33,7 +33,7 @@ func TestFixedpointTraceRuleNameSymbolsPreserveSourceRenderingAndOwners(t *testi
 	_, s := f.predicate("typed-trace-s")
 	clauses := []ast.ASTHandle{p, f.own(m.MkImplies(p, q)), f.own(m.MkImplies(q, r)), f.own(m.MkImplies(r, s))}
 	for i, clause := range clauses {
-		fragmentMust(t, e.AddRuleWithSymbol(clause, names[i]))
+		fragmentMust(t, e.addRuleWithSymbolEager(clause, names[i]))
 	}
 	status, err := e.QueryExpression(s)
 	fragmentMust(t, err)

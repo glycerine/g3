@@ -62,8 +62,8 @@ func TestPDRExpressionAnswersPreserveInitialModelAfterPrequeryTransfer(t *testin
 			must(e.RegisterPredicate(predicate))
 			query := own(m.MkApp(predicate, []ast.ASTHandle{own(m.MkFalse())}))
 			alternative := own(m.MkApp(predicate, []ast.ASTHandle{own(m.MkTrue())}))
-			must(e.AddRule(query, "false-fact"))
-			must(e.AddRule(alternative, "true-fact"))
+			must(e.addRuleEager(query, "false-fact"))
+			must(e.addRuleEager(alternative, "true-fact"))
 			_, err = e.NumLevels(predicate)
 			must(err)
 			prequery := e.pdr

@@ -61,8 +61,8 @@ func TestPDRQueryPreservesOriginalRulesAcrossSourcePipeline(t *testing.T) {
 						if reachable {
 							fact = p0
 						}
-						fragmentMust(t, e.AddRule(fact, "pipeline-fact"))
-						fragmentMust(t, e.AddRule(own(m.MkImplies(p0, goalApp)), "pipeline-goal"))
+						fragmentMust(t, e.addRuleEager(fact, "pipeline-fact"))
+						fragmentMust(t, e.addRuleEager(own(m.MkImplies(p0, goalApp)), "pipeline-goal"))
 						atoms = []ast.ASTHandle{goalApp, p1, p0}
 					} else {
 						for _, label := range []string{"a", "b", "c"} {
@@ -70,14 +70,14 @@ func TestPDRQueryPreservesOriginalRulesAcrossSourcePipeline(t *testing.T) {
 							atoms = append(atoms, own(m.MkApp(d, nil)))
 						}
 						for i := 0; i < 2; i++ {
-							fragmentMust(t, e.AddRule(atoms[i], "pipeline-fact"))
+							fragmentMust(t, e.addRuleEager(atoms[i], "pipeline-fact"))
 						}
 						if reachable {
-							fragmentMust(t, e.AddRule(atoms[2], "pipeline-c"))
+							fragmentMust(t, e.addRuleEager(atoms[2], "pipeline-c"))
 						} else {
-							fragmentMust(t, e.AddRule(own(m.MkImplies(atoms[2], atoms[2])), "pipeline-c-recursive"))
+							fragmentMust(t, e.addRuleEager(own(m.MkImplies(atoms[2], atoms[2])), "pipeline-c-recursive"))
 						}
-						fragmentMust(t, e.AddRule(own(m.MkImplies(own(m.MkAndArray(atoms)), goalApp)), "pipeline-goal"))
+						fragmentMust(t, e.addRuleEager(own(m.MkImplies(own(m.MkAndArray(atoms)), goalApp)), "pipeline-goal"))
 					}
 					original, names, err := e.NamedRules()
 					fragmentMust(t, err)

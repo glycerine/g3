@@ -15,7 +15,7 @@ func TestPendingFlushSourceProofMode(t *testing.T) {
 				fragmentMust(t, f.m.ToggleProofMode(initial))
 				fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.generate_proof_trace", fmt.Sprint(trace)))
 				_, fact := f.predicate("flush-proof-fact")
-				fragmentMust(t, f.e.AddRule(fact, "flush-proof-fact"))
+				fragmentMust(t, f.e.addRuleEager(fact, "flush-proof-fact"))
 				fragmentMust(t, f.e.flushPendingRules())
 				mode, err := f.m.ProofMode()
 				fragmentMust(t, err)
@@ -53,7 +53,7 @@ func TestPendingFlushProofUsesBoundFormula(t *testing.T) {
 	boolean := f.own(f.m.MkBoolSort())
 	variable := f.own(f.m.MkVar(0, boolean))
 	_, open := f.predicate("flush-proof-variable", variable)
-	fragmentMust(t, f.e.AddRule(open, "flush-proof-variable"))
+	fragmentMust(t, f.e.addRuleEager(open, "flush-proof-variable"))
 	fragmentMust(t, f.e.flushPendingRules())
 	rule, err := f.e.set.Rule(0)
 	fragmentMust(t, err)
@@ -133,7 +133,7 @@ func TestPendingFlushReassertsAfterBindingRegisteredVariable(t *testing.T) {
 	if bound == original {
 		t.Fatal("fixture did not bind the registered variable")
 	}
-	fragmentMust(t, f.e.AddRule(original, "proof-bound"))
+	fragmentMust(t, f.e.addRuleEager(original, "proof-bound"))
 	fragmentMust(t, f.e.flushPendingRules())
 	rule, err := f.e.set.Rule(0)
 	fragmentMust(t, err)

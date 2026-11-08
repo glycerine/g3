@@ -67,7 +67,7 @@ func TestDatalogUDocFiniteNullaryGuardsPreserveStorageAndClones(t *testing.T) {
 				must(err)
 				rule, err := m.MkImplies(body, qa)
 				must(err)
-				must(e.AddRule(rule, "doc-mixed-guard"))
+				must(e.addRuleEager(rule, "doc-mixed-guard"))
 				checkDatalogUDocBV1Tuples(t, m, e, q, 1, nil)
 				if e.udocDatalog == nil || e.predicates[p].table != nil || e.predicates[gate].table != original || e.udocDatalog.finiteNullary[gate] != original {
 					t.Fatal("mixed query replaced a concrete relation owner")
@@ -230,7 +230,7 @@ func TestDatalogUDocMixedFiniteHeadRefusesBeforeRulePublication(t *testing.T) {
 	must(e.SetPredicateRepresentation(gate, []string{"tr_hashtable"}))
 	ga, err := m.MkApp(gate, nil)
 	must(err)
-	must(e.AddRule(ga, "finite-head-outside-mixed-guard-slice"))
+	must(e.addRuleEager(ga, "finite-head-outside-mixed-guard-slice"))
 	status, err := e.QueryPredicate(p)
 	if status != lbool.Undef || !errors.Is(err, ErrUDocDatalogFragment) {
 		t.Fatal("mixed finite head was published without its union dispatch", status, err)

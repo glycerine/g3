@@ -54,7 +54,7 @@ func TestPendingOpenDisplayPromotesRulesAndSwapsRawArchive(t *testing.T) {
 					arg = v
 				}
 				app := pin(m.MkApp(d, []ast.ASTHandle{arg}))
-				must(e.AddRuleWithBound(app, name, uint32(i+1)))
+				must(e.addRuleWithBoundEager(app, name, uint32(i+1)))
 			}
 			checkRaw := func(wantNames []string, wantBounds []uint32) {
 				t.Helper()

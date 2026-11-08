@@ -142,7 +142,7 @@ func TestBoundIntervalDatalogTwoTailOccurrenceProjection(t *testing.T) {
 				must(err)
 				formula, err := m.MkImplies(body, application(h, test.headArgs))
 				must(err)
-				must(e.AddRule(formula, test.name))
+				must(e.addRuleEager(formula, test.name))
 				contains := func(declaration ast.ASTHandle, values []int64) bool {
 					arguments := make([]*big.Rat, len(values))
 					for i, value := range values {

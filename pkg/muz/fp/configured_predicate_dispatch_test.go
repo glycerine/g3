@@ -19,7 +19,7 @@ func TestConfiguredDirectPredicateQueryDispatch(t *testing.T) {
 				e := f.engine
 				must := func(err error) { t.Helper(); fragmentMust(t, err) }
 				must(e.globals.SourceSetName("fixedpoint.engine", backend))
-				must(e.AddRule(f.applications["p"], "configured-predicate-fact"))
+				must(e.addRuleEager(f.applications["p"], "configured-predicate-fact"))
 				query := func() (lbool.LBool, error) {
 					if list {
 						return e.QueryPredicates([]ast.ASTHandle{f.declarations["p"]})
@@ -78,7 +78,7 @@ func TestDirectPredicateQueryAutomaticallySelectsNumericProgram(t *testing.T) {
 			must(e.RegisterPredicate(p))
 			fact, err := m.MkApp(p, []ast.ASTHandle{zero})
 			must(err)
-			must(e.AddRule(fact, "numeric-fact"))
+			must(e.addRuleEager(fact, "numeric-fact"))
 			var status lbool.LBool
 			if list {
 				status, err = e.QueryPredicates([]ast.ASTHandle{p})
@@ -102,7 +102,7 @@ func TestConfiguredMultiplePredicateUnsupportedGuard(t *testing.T) {
 	f := newDirectFactFixture(t)
 	e := f.engine
 	fragmentMust(t, e.globals.SourceSetName("fixedpoint.engine", "pdr"))
-	fragmentMust(t, e.AddRule(f.applications["p"], "fact"))
+	fragmentMust(t, e.addRuleEager(f.applications["p"], "fact"))
 	status, err := e.QueryPredicates([]ast.ASTHandle{f.declarations["p"], f.declarations["q"]})
 	fragmentMust(t, err)
 	if status != lbool.Undef {
@@ -114,7 +114,7 @@ func TestConfiguredPredicateQueryFromLevelDispatch(t *testing.T) {
 	f := newDirectFactFixture(t)
 	e := f.engine
 	fragmentMust(t, e.globals.SourceSetName("fixedpoint.engine", "spacer"))
-	fragmentMust(t, e.AddRule(f.applications["p"], "fact"))
+	fragmentMust(t, e.addRuleEager(f.applications["p"], "fact"))
 	status, err := e.QueryPredicateFromLevel(f.declarations["p"], 0)
 	fragmentMust(t, err)
 	if status != lbool.True {

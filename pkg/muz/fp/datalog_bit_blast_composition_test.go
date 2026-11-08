@@ -49,13 +49,13 @@ func TestDatalogBitBlastComposesInliningModelsAndExpressionQueries(t *testing.T)
 	for _, pair := range [][2]ast.ASTHandle{{seed, middle}, {middle, result}} {
 		rule, err := m.MkImplies(app(pair[0], x), app(pair[1], x))
 		must(err)
-		must(e.AddRule(rule, ""))
+		must(e.addRuleEager(rule, ""))
 	}
 	three, err := m.BitVectorNumeralUint64(3, 2)
 	must(err)
 	rule, err := m.MkImplies(app(result, three), app(goal))
 	must(err)
-	must(e.AddRule(rule, "unreachable-composed-goal"))
+	must(e.addRuleEager(rule, "unreachable-composed-goal"))
 
 	// A semantic model check alone could also pass if the bit-blast option
 	// were ignored. Inspect the mapped seeded relation while its scope lives.

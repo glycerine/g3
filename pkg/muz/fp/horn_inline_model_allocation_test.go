@@ -35,10 +35,10 @@ func newHornInlineArrayModelFixture(t *testing.T) (*fpRuleNameFixture, ast.ASTHa
 	selected := f.own(f.m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{a, truth}))
 	// P(a) holds exactly when a[true] does; Goal asks for its contradiction.
 	seed := f.own(f.m.MkImplies(selected, application))
-	fragmentMust(t, f.e.AddRule(seed, "seed"))
+	fragmentMust(t, f.e.addRuleEager(seed, "seed"))
 	tail := f.own(f.m.MkAndArgs([]ast.ASTHandle{application, f.own(f.m.MkNot(selected))}))
 	step := f.own(f.m.MkImplies(tail, goal))
-	fragmentMust(t, f.e.AddRule(step, "bad"))
+	fragmentMust(t, f.e.addRuleEager(step, "bad"))
 	status, err := f.e.QueryExpression(goal)
 	fragmentMust(t, err)
 	if status != lbool.False || f.e.queryClone == nil || !f.e.queryReady {

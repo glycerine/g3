@@ -88,7 +88,7 @@ func testPDRPrequeryStatisticsCleanup(t *testing.T, completion string) {
 	must(engine.RegisterPredicate(predicate))
 	fact, err := manager.MkApp(predicate, nil)
 	must(err)
-	must(engine.AddRule(fact, "native-prequery-statistics-fact"))
+	must(engine.addRuleEager(fact, "native-prequery-statistics-fact"))
 
 	// The manager's background becomes the only owner of a real, large
 	// rational declaration parameter after the parent background is replaced.

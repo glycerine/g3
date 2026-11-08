@@ -37,7 +37,7 @@ func TestSpacerExpressionQueryReportsCloneBoundedStatus(t *testing.T) {
 	declaration := own(manager.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{}))
 	fragmentMust(t, engine.RegisterPredicate(declaration))
 	query := own(manager.MkApp(declaration, nil))
-	fragmentMust(t, engine.AddRule(query, "fact"))
+	fragmentMust(t, engine.addRuleEager(query, "fact"))
 
 	status, err := engine.QueryExpression(query)
 	fragmentMust(t, err)

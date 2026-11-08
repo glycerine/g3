@@ -44,7 +44,7 @@ func TestPendingFlushRecoversReducerAfterNativeCleanupFailure(t *testing.T) {
 		Forall: true, Sorts: []ast.ASTHandle{real},
 		Names: []symbol.Symbol{symbol.Numerical(0)}, Body: implication,
 	}))
-	fragmentMust(t, f.e.AddRule(formula, "pending-cleanup"))
+	fragmentMust(t, f.e.addRuleEager(formula, "pending-cleanup"))
 	fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.xform.fix_unbound_vars", "true"))
 
 	writer := &ruleUpdateDERCleanupWriter{boundary: ruleUpdateNumeralParserWriter{t: t, runtime: f.runtime}}

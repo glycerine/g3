@@ -42,7 +42,7 @@ func TestIntervalDatalogConditionOnlyColumnProjectionAndUpdates(t *testing.T) {
 		return result
 	}
 	five := numeral("5")
-	fragmentMust(t, engine.AddRule(app(p, five), "interval condition-column fact"))
+	fragmentMust(t, engine.addRuleEager(app(p, five), "interval condition-column fact"))
 	x, err := m.MkVar(0, integer)
 	fragmentMust(t, err)
 	y, err := m.MkVar(1, integer)
@@ -54,7 +54,7 @@ func TestIntervalDatalogConditionOnlyColumnProjectionAndUpdates(t *testing.T) {
 	for _, head := range []ast.ASTHandle{app(ordered, y, x), app(projected, x)} {
 		rule, cause := m.MkImplies(body, head)
 		fragmentMust(t, cause)
-		fragmentMust(t, engine.AddRule(rule, "interval condition-only full column"))
+		fragmentMust(t, engine.addRuleEager(rule, "interval condition-only full column"))
 	}
 	evaluator, err := NewIntervalDatalogEvaluator(m, engine.set, []ast.ASTHandle{p, ordered, projected}, nil)
 	fragmentMust(t, err)
@@ -94,7 +94,7 @@ func TestIntervalDatalogConditionOnlyColumnProjectionAndUpdates(t *testing.T) {
 	checkInitial()
 
 	nine := numeral("9")
-	fragmentMust(t, engine.AddRule(app(p, nine), "late interval condition-column fact"))
+	fragmentMust(t, engine.addRuleEager(app(p, nine), "late interval condition-column fact"))
 	fragmentMust(t, evaluator.SaturatePositive(false))
 	if !contains(ordered, numeral("8"), nine) || contains(ordered, numeral("10"), nine) {
 		t.Fatal("late interval update did not receive the condition-only full column")

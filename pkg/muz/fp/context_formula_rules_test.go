@@ -11,7 +11,7 @@ func TestPublicRuleFormulasAppendNegatedOutputsAfterPendingInputs(t *testing.T) 
 	e, m := f.engine, f.manager
 	e.flushRawDisplayRules()
 	fragmentMust(t, e.set.SetOutputPredicate(f.declarations["q"]))
-	fragmentMust(t, e.AddRule(f.applications["u"], "pending"))
+	fragmentMust(t, e.addRuleEager(f.applications["u"], "pending"))
 	before := m.Stats().LiveReferences
 	formulas, err := e.RuleFormulas()
 	fragmentMust(t, err)

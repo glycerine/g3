@@ -22,10 +22,10 @@ func newUDocProductPairFailureFixture(t *testing.T) *publicUDocProductFixture {
 	f.head = declare("public-doc-product-pair-result")
 	firstApp, secondApp := f.app(source, f.x, f.b), f.app(second, f.x, f.b)
 	forward := f.pin(f.m.MkImplies(firstApp, secondApp))
-	fragmentMust(t, f.e.AddRule(forward, "pair-copy"))
+	fragmentMust(t, f.e.addRuleEager(forward, "pair-copy"))
 	body := f.pin(f.m.MkAnd(firstApp, secondApp))
 	formula := f.pin(f.m.MkImplies(body, f.app(f.head, f.x, f.b)))
-	fragmentMust(t, f.e.AddRule(formula, "pair-result"))
+	fragmentMust(t, f.e.addRuleEager(formula, "pair-result"))
 	return f
 }
 

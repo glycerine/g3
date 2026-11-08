@@ -67,7 +67,7 @@ func TestDatalogSparseIntervalRequestedPairLifecycle(t *testing.T) {
 	px, qx, rx := app(p, b, x), app(q, b, x), app(r, b, x)
 	rule, err := m.MkImplies(px, qx)
 	must(err)
-	must(e.AddRule(rule, "copy-product"))
+	must(e.addRuleEager(rule, "copy-product"))
 	prior := e.set
 	activation := e.sparseIntervalDatalog
 	store := activation.store

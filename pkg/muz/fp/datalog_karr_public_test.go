@@ -45,7 +45,7 @@ func TestDatalogKarrPublicFactAndIdentity(t *testing.T) {
 	must(err)
 	rule, err := m.MkImplies(px, qx)
 	must(err)
-	must(e.AddRule(rule, "karr-forward"))
+	must(e.addRuleEager(rule, "karr-forward"))
 	status, err := e.QueryPredicate(q)
 	must(err)
 	if status != lbool.Undef {
@@ -187,7 +187,7 @@ func TestDatalogKarrSelectionAndGroundRule(t *testing.T) {
 			must(err)
 			fact, err := m.MkApp(p, []ast.ASTHandle{one})
 			must(err)
-			must(e.AddRule(fact, "ground"))
+			must(e.addRuleEager(fact, "ground"))
 			status, err = e.QueryPredicate(p)
 			must(err)
 			if status != lbool.Undef || e.karrDatalog.results == nil {
@@ -351,7 +351,7 @@ func TestDatalogKarrLargeFactOverflowDoesNotPublish(t *testing.T) {
 	must(err)
 	rule, err := m.MkImplies(px, qx)
 	must(err)
-	must(e.AddRule(rule, "overflow-forward"))
+	must(e.addRuleEager(rule, "overflow-forward"))
 	for i := 0; i < 2; i++ {
 		status, err := e.QueryPredicate(q)
 		if status != lbool.Undef || !errors.Is(err, hilbert.ErrOverflow) || e.karrDatalog.results != nil {

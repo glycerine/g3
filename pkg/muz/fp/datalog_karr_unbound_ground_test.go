@@ -40,7 +40,7 @@ func TestDatalogKarrUnboundNoTailPublicAndRetry(t *testing.T) {
 	must(err)
 	head, err := m.MkApp(p, []ast.ASTHandle{x, four, x})
 	must(err)
-	must(e.AddRule(head, ""))
+	must(e.addRuleEager(head, ""))
 	status, err := e.QueryPredicate(p)
 	must(err)
 	if status != lbool.Undef {
@@ -158,7 +158,7 @@ func TestDatalogKarrUnboundGroundOverflowNoPublication(t *testing.T) {
 	must(err)
 	head, err := m.MkApp(p, []ast.ASTHandle{x, huge})
 	must(err)
-	must(e.AddRule(head, ""))
+	must(e.addRuleEager(head, ""))
 	for i := 0; i < 2; i++ {
 		status, err := e.QueryPredicate(p)
 		if status != lbool.Undef || !errors.Is(err, hilbert.ErrOverflow) || e.karrDatalog.results != nil {
@@ -211,7 +211,7 @@ func TestDatalogKarrWhollyUnboundNativeBasisAndRepeatedVariables(t *testing.T) {
 	add := func(d ast.ASTHandle, args ...ast.ASTHandle) {
 		h, err := m.MkApp(d, args)
 		must(err)
-		must(e.AddRule(h, ""))
+		must(e.addRuleEager(h, ""))
 	}
 	must(e.AddTableFact(seeded, []uint32{1, 2}))
 	add(full, x, y)

@@ -71,7 +71,7 @@ func TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries(t *testing.T)
 	}
 	step, err := m.MkImplies(f.applications["p"], f.applications["q"])
 	must(err)
-	must(e.AddRule(step, "edge"))
+	must(e.addRuleEager(step, "edge"))
 	query, err := m.MkAnd(f.applications["p"], f.applications["q"])
 	must(err)
 	queryRef, err := m.NewRef(query)
@@ -150,7 +150,7 @@ func TestDatalogFactSelectionUsesParametersAndCachesSourceChoice(t *testing.T) {
 				must(e.RegisterPredicate(d))
 				fact, err := e.manager.MkApp(d, []ast.ASTHandle{zero})
 				must(err)
-				must(e.AddRule(fact, "auto-integer-rule"))
+				must(e.addRuleEager(fact, "auto-integer-rule"))
 				rawCount++
 			}
 			must(e.Push())

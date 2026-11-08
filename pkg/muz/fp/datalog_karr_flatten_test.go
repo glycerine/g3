@@ -49,7 +49,7 @@ func TestKarrNegatedOrNormalizesToTwoGuards(t *testing.T) {
 	must(err)
 	formula, err := m.MkImplies(body, output)
 	must(err)
-	must(e.AddRule(formula, ""))
+	must(e.addRuleEager(formula, ""))
 	must(e.flushPendingRules())
 	n, err := e.set.Len()
 	must(err)

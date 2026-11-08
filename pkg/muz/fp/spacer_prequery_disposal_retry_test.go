@@ -114,7 +114,7 @@ func testSpacerPrequeryDisposalRetry(t *testing.T, completion string) {
 	must(engine.RegisterPredicate(predicate))
 	fact, err := manager.MkApp(predicate, nil)
 	must(err)
-	must(engine.AddRule(fact, "prequery-disposal-fact"))
+	must(engine.addRuleEager(fact, "prequery-disposal-fact"))
 	levels, err := engine.NumLevels(predicate)
 	must(err)
 	prequery := engine.spacer

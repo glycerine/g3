@@ -57,7 +57,7 @@ func TestDatalogKarrGuardedConstantTailPublicAndRetry(t *testing.T) {
 	must(err)
 	formula, err := m.MkImplies(body, head)
 	must(err)
-	must(e.AddRule(formula, ""))
+	must(e.addRuleEager(formula, ""))
 	status, err := e.QueryPredicate(q)
 	must(err)
 	if status != lbool.Undef {

@@ -108,7 +108,7 @@ func TestExpressionAnswerAllocationFailurePublicationAndRetry(t *testing.T) {
 					fragmentMust(t, err)
 					heldHandle, err := m.RefGet(held)
 					fragmentMust(t, err)
-					fragmentMust(t, e.AddRule(f.fact, "retire-answer-query"))
+					fragmentMust(t, e.addRuleEager(f.fact, "retire-answer-query"))
 					m.Budget().FailAfter(0)
 					retired, retiredErr := e.ExpressionAnswer()
 					m.Budget().FailAfter(-1)

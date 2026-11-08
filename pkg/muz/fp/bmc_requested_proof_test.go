@@ -25,7 +25,7 @@ func TestBMCRequestedNonlinearProofWithoutGlobalTracing(t *testing.T) {
 			fragmentMust(t, err)
 			rule, err := m.MkImplies(body, f.applications["u"])
 			fragmentMust(t, err)
-			fragmentMust(t, e.AddRule(rule, "nonlinear"))
+			fragmentMust(t, e.addRuleEager(rule, "nonlinear"))
 			params, err := e.params.NewValue()
 			fragmentMust(t, err)
 			defer func() { fragmentMust(t, e.params.Del(&params)) }()

@@ -24,7 +24,7 @@ func TestPendingNormalizationCancellationPreservesRulesAndRetry(t *testing.T) {
 					e, m := f.engine, f.manager
 					must := func(err error) { t.Helper(); fragmentMust(t, err) }
 					if !flush {
-						must(e.AddRule(f.query, "pending-open-fact"))
+						must(e.addRuleEager(f.query, "pending-open-fact"))
 					}
 					original, revision := e.set, e.revision
 					raw := append([]rawRuleFormula(nil), e.rawRules...)

@@ -88,7 +88,7 @@ func TestPDRResetPreservesStatisticsAcrossNativeCleanupFailure(t *testing.T) {
 	must(engine.RegisterPredicate(predicate))
 	fact, err := manager.MkApp(predicate, nil)
 	must(err)
-	must(engine.AddRule(fact, "native-reset-fact"))
+	must(engine.addRuleEager(fact, "native-reset-fact"))
 
 	_, err = engine.NumLevels(predicate)
 	must(err)

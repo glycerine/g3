@@ -136,7 +136,7 @@ func TestRelationQueryOwnedExpressionAcrossLiveBackends(t *testing.T) {
 				fragmentMust(t, e.RegisterPredicate(declaration))
 				fact, err := m.MkApp(declaration, values)
 				fragmentMust(t, err)
-				fragmentMust(t, e.AddRule(fact, "wrapper-fact"))
+				fragmentMust(t, e.addRuleEager(fact, "wrapper-fact"))
 				for repeat := 0; repeat < 2; repeat++ {
 					status, err := e.QueryPredicate(declaration)
 					fragmentMust(t, err)

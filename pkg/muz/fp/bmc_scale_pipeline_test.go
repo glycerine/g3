@@ -51,7 +51,7 @@ func TestBMCScaleQueryAndDefaultModel(t *testing.T) {
 				p := own(m.MkFuncDecl(symbol, []ast.ASTHandle{realSort}, boolean, ast.ASTFuncDeclInfo{}))
 				fragmentMust(t, e.RegisterPredicate(p))
 				fact := own(m.MkApp(p, []ast.ASTHandle{one}))
-				fragmentMust(t, e.AddRule(fact, "scale-fact"))
+				fragmentMust(t, e.addRuleEager(fact, "scale-fact"))
 				status, err := e.QueryPredicate(p)
 				fragmentMust(t, err)
 				if status != lbool.True {

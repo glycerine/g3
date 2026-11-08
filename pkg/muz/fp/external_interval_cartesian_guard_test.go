@@ -95,7 +95,7 @@ func newExternalIntervalCartesianGuardFixture(t *testing.T, kinds []string, head
 	conditions = append(conditions, application(q, []uint32{1, 3, 2}), application(p, []uint32{0, 1, 4}))
 	body := own(manager.MkAndArgs(conditions))
 	formula := own(manager.MkImplies(body, application(h, head)))
-	fragmentMust(t, engine.AddRule(formula, "cartesian-guard-rule"))
+	fragmentMust(t, engine.addRuleEager(formula, "cartesian-guard-rule"))
 	return manager, engine, callbacks, p, q, h, sort
 }
 
@@ -171,7 +171,7 @@ func TestExternalIntervalDatalogCartesianGuardOriginalNoKeyShape(t *testing.T) {
 				fragmentMust(t, err)
 				formula, err := manager.MkImplies(body, head)
 				fragmentMust(t, err)
-				fragmentMust(t, engine.AddRule(formula, "cartesian-no-key-guard-rule"))
+				fragmentMust(t, engine.addRuleEager(formula, "cartesian-no-key-guard-rule"))
 				resetExternalIntervalUnaryGuardCallbacks(callbacks)
 				status, err := engine.QueryPredicate(h)
 				fragmentMust(t, err)

@@ -89,12 +89,12 @@ func testPDRExpressionCachedAnswer(t *testing.T, cache int, trace, alternatives 
 		for i, value := range values {
 			fact := own(m.MkApp(predicate, []ast.ASTHandle{value}))
 			originals = append(originals, fact)
-			must(e.AddRule(fact, fmt.Sprintf("initial-%d", i)))
+			must(e.addRuleEager(fact, fmt.Sprintf("initial-%d", i)))
 		}
 	} else {
 		fact := own(m.MkApp(predicate, nil))
 		originals = append(originals, fact)
-		must(e.AddRule(fact, "initial-nullary"))
+		must(e.addRuleEager(fact, "initial-nullary"))
 	}
 	query, replacement := originals[0], originals[0]
 	if alternatives {

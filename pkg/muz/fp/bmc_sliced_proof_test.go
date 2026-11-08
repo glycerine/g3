@@ -90,7 +90,7 @@ func testBMCSlicedProofUsesOriginalRules(t *testing.T, backend string, nonlinear
 			formula = own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: formula}))
 		}
 		originals = append(originals, formula)
-		fragmentMust(t, e.AddRule(formula, name))
+		fragmentMust(t, e.addRuleEager(formula, name))
 	}
 	// The first coordinate requires a numeric binding; the unused second
 	// coordinate must be removed by slicing while proofs still use P and Q.

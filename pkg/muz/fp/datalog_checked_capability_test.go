@@ -113,7 +113,7 @@ func TestDatalogCheckedFavouriteHonorsBothNullaryCapabilities(t *testing.T) {
 			must(err)
 			rule, err := m.MkImplies(unaryApplication, nullaryApplication)
 			must(err)
-			must(e.AddRule(rule, "checked-capability-step"))
+			must(e.addRuleEager(rule, "checked-capability-step"))
 			for iteration := 0; iteration < 2; iteration++ {
 				status, queryErr := e.QueryPredicate(nullary)
 				must(queryErr)

@@ -44,13 +44,13 @@ func TestHornRuleLifecycleFirstUncoveredRuleOrder(t *testing.T) {
 	}
 	u, err := f.manager.MkApp(f.declarations["u"], nil)
 	fragmentMust(t, err)
-	fragmentMust(t, f.engine.AddRule(u, "first-fresh"))
+	fragmentMust(t, f.engine.addRuleEager(u, "first-fresh"))
 	// A later fresh rule must not replace the first one in the source diagnostic.
 	notP, err := f.manager.MkNot(f.applications["p"])
 	fragmentMust(t, err)
 	later, err := f.manager.MkImplies(notP, u)
 	fragmentMust(t, err)
-	fragmentMust(t, f.engine.AddRule(later, "later-fresh"))
+	fragmentMust(t, f.engine.addRuleEager(later, "later-fresh"))
 	before := f.manager.Stats().LiveReferences
 	missing, err = firstUncoveredHornRule(snapshot, f.engine.set)
 	fragmentMust(t, err)

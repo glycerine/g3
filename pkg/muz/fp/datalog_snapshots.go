@@ -15,6 +15,10 @@ type DatalogRelationSnapshot struct {
 // DatalogRelationSnapshots copies saturated finite tables in declaration and
 // tuple insertion order. It is valid only after a Datalog query has run.
 func (e *PropositionalEngine) DatalogRelationSnapshots(declarations []ast.ASTHandle) ([]DatalogRelationSnapshot, error) {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return nil, err
+	}
 	if err := e.open(); err != nil {
 		return nil, err
 	}

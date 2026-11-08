@@ -28,7 +28,7 @@ func TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules(t *testing.T) {
 	u := f.applications["u"]
 	recursive, err := m.MkImplies(u, u)
 	must(err)
-	must(e.AddRule(recursive, "spacer-lifecycle-recursive"))
+	must(e.addRuleEager(recursive, "spacer-lifecycle-recursive"))
 	addSpacerLifecycleIntegerRules(t, e, u)
 	query := f.declarations["u"]
 	status, err := e.QueryPredicate(query)
@@ -65,7 +65,7 @@ func TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules(t *testing.T) {
 			must(err)
 			rule, err := m.MkImplies(body, u)
 			must(err)
-			must(e.AddRule(rule, "spacer-lifecycle-stronger"))
+			must(e.addRuleEager(rule, "spacer-lifecycle-stronger"))
 		}
 		status, err = e.QueryPredicate(query)
 		must(err)
@@ -95,7 +95,7 @@ func TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules(t *testing.T) {
 	}
 	// The old recursive body cannot subsume a fresh fact. Keeping its learned
 	// false invariant would incorrectly report this reachable predicate UNSAT.
-	must(e.AddRule(u, "spacer-lifecycle-new-fact"))
+	must(e.addRuleEager(u, "spacer-lifecycle-new-fact"))
 	status, err = e.QueryPredicate(query)
 	must(err)
 	if status != lbool.True {
@@ -205,8 +205,8 @@ func addSpacerLifecycleIntegerRules(t *testing.T, e *PropositionalEngine, u ast.
 	atX := own(m.MkApp(pred, []ast.ASTHandle{x}))
 	atZero := own(m.MkApp(pred, []ast.ASTHandle{zero}))
 	atNext := own(m.MkApp(pred, []ast.ASTHandle{own(m.MkArithmeticAdd(x, one))}))
-	must(e.AddRule(atZero, "lifecycle-base"))
-	must(e.AddRule(own(m.MkImplies(atX, atNext)), "lifecycle-step"))
+	must(e.addRuleEager(atZero, "lifecycle-base"))
+	must(e.addRuleEager(own(m.MkImplies(atX, atNext)), "lifecycle-step"))
 	negative := own(m.MkArithmeticLT(x, zero))
-	must(e.AddRule(own(m.MkImplies(own(m.MkAnd(atX, negative)), u)), "lifecycle-negative"))
+	must(e.addRuleEager(own(m.MkImplies(own(m.MkAnd(atX, negative)), u)), "lifecycle-negative"))
 }

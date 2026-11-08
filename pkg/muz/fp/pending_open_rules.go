@@ -18,6 +18,10 @@ func (e *PropositionalEngine) normalizePendingOpenRules() error {
 
 func (e *PropositionalEngine) normalizePendingRules(flush bool) (resultErr error) {
 	if !flush {
+		// Display-time normalization works on the eager copies.
+		if err := e.materializePendingRules(); err != nil {
+			return err
+		}
 		return e.normalizePendingOpenSourceRules()
 	}
 	return e.flushPendingSourceRules()

@@ -56,9 +56,9 @@ func TestPDRCoalesceRequiresUnfoldAndPrecedesIt(t *testing.T) {
 					p0 := own(m.MkApp(p, []ast.ASTHandle{zero}))
 					p1 := own(m.MkApp(p, []ast.ASTHandle{one}))
 					qa := own(m.MkApp(q, nil))
-					fragmentMust(t, e.AddRule(p0, "base-zero"))
-					fragmentMust(t, e.AddRule(p1, "base-one"))
-					fragmentMust(t, e.AddRule(own(m.MkImplies(p1, qa)), "goal"))
+					fragmentMust(t, e.addRuleEager(p0, "base-zero"))
+					fragmentMust(t, e.addRuleEager(p1, "base-one"))
+					fragmentMust(t, e.addRuleEager(own(m.MkImplies(p1, qa)), "goal"))
 					status, err := e.QueryPredicate(q)
 					fragmentMust(t, err)
 					if status != lbool.True {

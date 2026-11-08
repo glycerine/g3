@@ -27,7 +27,7 @@ func externalIntervalIdentityFormula(t *testing.T, manager *ast.ASTManager, tail
 
 func addExternalIntervalIdentityRule(t *testing.T, manager *ast.ASTManager, engine *PropositionalEngine, tail, head ast.ASTHandle, sorts []ast.ASTHandle, name string) {
 	t.Helper()
-	fragmentMust(t, engine.AddRule(externalIntervalIdentityFormula(t, manager, tail, head, sorts), name))
+	fragmentMust(t, engine.addRuleEager(externalIntervalIdentityFormula(t, manager, tail, head, sorts), name))
 }
 
 func TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat(t *testing.T) {
@@ -509,11 +509,11 @@ func TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks(
 			fragmentMust(t, err)
 			formula, err := manager.MkImplies(tail, head)
 			fragmentMust(t, err)
-			fragmentMust(t, engine.AddRule(formula, "external-interval-invalid-"+shape))
+			fragmentMust(t, engine.addRuleEager(formula, "external-interval-invalid-"+shape))
 			if shape == "mutual-recursion" {
 				second, ruleErr := manager.MkImplies(head, tail)
 				fragmentMust(t, ruleErr)
-				fragmentMust(t, engine.AddRule(second, "external-interval-invalid-second"))
+				fragmentMust(t, engine.addRuleEager(second, "external-interval-invalid-second"))
 			}
 			if shape == "constant-head" || shape == "unsafe-head" || shape == "repeated" || shape == "nullary" {
 				one, valueErr := manager.ArithmeticIntegerNumeralText("1")

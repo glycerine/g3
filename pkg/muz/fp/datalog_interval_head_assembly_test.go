@@ -50,9 +50,9 @@ func TestDatalogConfiguredIntervalHeadAssemblyAndUpdates(t *testing.T) {
 	seven := number("7")
 	rule, err := m.MkImplies(app(p, x), app(q, seven, x, x, y))
 	must(err)
-	must(e.AddRule(rule, "interval constant repeated and head-only columns"))
+	must(e.addRuleEager(rule, "interval constant repeated and head-only columns"))
 	for _, text := range []string{"2", "4"} {
-		must(e.AddRule(app(p, number(text)), "interval seed"))
+		must(e.addRuleEager(app(p, number(text)), "interval seed"))
 	}
 
 	query := func() {
@@ -86,7 +86,7 @@ func TestDatalogConfiguredIntervalHeadAssemblyAndUpdates(t *testing.T) {
 		t.Fatal("repeated query changed assembled head columns")
 	}
 
-	must(e.AddRule(app(p, number("10")), "late interval seed"))
+	must(e.addRuleEager(app(p, number("10")), "late interval seed"))
 	query()
 	if !contains(seven, two, number("10"), number("0")) {
 		t.Fatal("late rule update did not flow through assembled interval columns")

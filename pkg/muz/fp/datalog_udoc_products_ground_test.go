@@ -18,7 +18,7 @@ func prepareUDocProductGroundRules(f *publicUDocProductFixture) {
 
 func (f *publicUDocProductFixture) addGroundRule(declaration ast.ASTHandle, name string, values ...ast.ASTHandle) {
 	f.t.Helper()
-	fragmentMust(f.t, f.e.AddRule(f.app(declaration, values...), name))
+	fragmentMust(f.t, f.e.addRuleEager(f.app(declaration, values...), name))
 }
 
 func TestDatalogUDocProductsGroundRulesUseActualSnapshots(t *testing.T) {
@@ -142,7 +142,7 @@ func TestDatalogUDocProductsGroundAllBoolTupleAssembly(t *testing.T) {
 			second := f.pin(f.m.MkVar(2, f.boolean))
 			body := f.pin(f.m.MkAnd(f.app(f.doc, f.x), f.app(f.finite, f.b, second)))
 			formula := f.pin(f.m.MkImplies(body, f.app(f.head, f.x, f.b)))
-			fragmentMust(t, f.e.AddRule(formula, "all-bool-product"))
+			fragmentMust(t, f.e.addRuleEager(formula, "all-bool-product"))
 			f.addGroundRule(f.doc, "doc-one", f.values[1])
 			f.addGroundRule(f.finite, "true-false", f.yes, f.no)
 			f.addGroundRule(f.finite, "false-true", f.no, f.yes)

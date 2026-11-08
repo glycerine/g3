@@ -62,14 +62,14 @@ func TestDatalogFactExplanationMagicInheritsFiniteRepresentation(t *testing.T) {
 				}
 				step, err := manager.MkImplies(app(seed, variable), app(predicate, variable))
 				must(err)
-				must(engine.AddRule(step, "explanation-magic-kind-step"))
+				must(engine.addRuleEager(step, "explanation-magic-kind-step"))
 				goalArgument := variable
 				if ground {
 					goalArgument = truth
 				}
 				goalRule, err := manager.MkImplies(app(predicate, goalArgument), app(goal))
 				must(err)
-				must(engine.AddRule(goalRule, "explanation-magic-kind-goal"))
+				must(engine.addRuleEager(goalRule, "explanation-magic-kind-goal"))
 				must(engine.applyDatalogDefaultFiniteTable())
 
 				transformer, err := rel.NewExplanationTransformer(manager, engine.rules)
@@ -187,7 +187,7 @@ func TestDatalogFactExplanationMagicRepresentationPublicQuery(t *testing.T) {
 	must(err)
 	step, err := manager.MkImplies(seedVariable, predicateVariable)
 	must(err)
-	must(engine.AddRule(step, "explanation-magic-public-step"))
+	must(engine.addRuleEager(step, "explanation-magic-public-step"))
 	query, err := manager.MkApp(predicate, []ast.ASTHandle{truth})
 	must(err)
 	queryRef, err := manager.NewRef(query)

@@ -66,7 +66,7 @@ func TestDatalogSparseIntervalHashAndNullaryOriginals(t *testing.T) {
 			must(err)
 			rule, err := m.MkImplies(body, ga)
 			must(err)
-			must(e.AddRule(rule, "hash-nullary-rule"))
+			must(e.addRuleEager(rule, "hash-nullary-rule"))
 			status, err := e.QueryPredicate(goal)
 			must(err)
 			if status != lbool.True {

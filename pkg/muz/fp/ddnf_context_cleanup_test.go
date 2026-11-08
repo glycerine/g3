@@ -31,7 +31,7 @@ func TestDDNFContextDumpWriterFailurePreservesRulesAndRetry(t *testing.T) {
 			f := &fpRuleNameFixture{t: t, e: e, m: m}
 			t.Cleanup(func() { fragmentMust(t, closeASTRefs(m, f.roots)) })
 			declaration, fact := f.predicate("ddnf-writer-P")
-			fragmentMust(t, e.AddRule(fact, "ddnf-writer-fact"))
+			fragmentMust(t, e.addRuleEager(fact, "ddnf-writer-fact"))
 			fragmentMust(t, e.flushPendingRules())
 			persistent := e.set
 			formulas, err := e.RuleFormulas()

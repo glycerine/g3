@@ -124,7 +124,7 @@ func testSpacerExpressionTraceFailure(t *testing.T, spare int) {
 				}
 			}
 			release(typedForms)
-			fragmentMust(t, e.AddRule(f.fact, "retire-trace-query"))
+			fragmentMust(t, e.addRuleEager(f.fact, "retire-trace-query"))
 			m.Budget().FailAfter(0)
 			stale, staleNames, staleErr := e.RulesAlongTrace()
 			m.Budget().FailAfter(-1)

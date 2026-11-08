@@ -60,6 +60,10 @@ func (e *PropositionalEngine) contextSMT2Config(queries []ast.ASTHandle, local *
 // or invalidating a published result. Local parameters, when given, override
 // engine/module print settings for this invocation only.
 func (e *PropositionalEngine) WriteContextSMT2(out io.Writer, queries []ast.ASTHandle, local *uparams.ParamsRef) (resultErr error) {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return err
+	}
 	if err := e.open(); err != nil {
 		return err
 	}

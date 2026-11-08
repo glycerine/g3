@@ -45,7 +45,7 @@ func TestDatalogBoundSimilarityPublicQueriesAndUpdates(t *testing.T) {
 					must(err)
 					atom, err := m.MkApp(p, []ast.ASTHandle{value})
 					must(err)
-					must(e.AddRule(atom, "bound-source"))
+					must(e.addRuleEager(atom, "bound-source"))
 				}
 				for _, text := range []string{"0", "2", "4"} {
 					addRule(text)
@@ -58,7 +58,7 @@ func TestDatalogBoundSimilarityPublicQueriesAndUpdates(t *testing.T) {
 				must(err)
 				step, err := m.MkImplies(body, head)
 				must(err)
-				must(e.AddRule(step, "bound-step"))
+				must(e.addRuleEager(step, "bound-step"))
 				query := q
 				if mode == "queried-output" {
 					query = p

@@ -58,7 +58,7 @@ func TestPendingNormalizationBindsRegisteredVariables(t *testing.T) {
 				const name, bound = "registered-pending", uint32(19)
 				nameSymbol, err := m.Symbols.Intern(name)
 				fragmentMust(t, err)
-				fragmentMust(t, e.AddRuleWithBound(original, name, bound))
+				fragmentMust(t, e.addRuleWithBoundEager(original, name, bound))
 				checkArchive := func(wantPending bool) {
 					t.Helper()
 					if displayFirst && open {

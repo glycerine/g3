@@ -38,7 +38,7 @@ func TestDatalogArithmeticNamedUpdateRebindsProgramAndKeepsSeeds(t *testing.T) {
 			px, qx, rx := app(p), app(q), app(r)
 			rule, err := m.MkImplies(px, qx)
 			must(err)
-			must(e.AddRule(rule, "step"))
+			must(e.addRuleEager(rule, "step"))
 			status, err := e.QueryPredicate(q)
 			must(err)
 			if status != lbool.Undef {

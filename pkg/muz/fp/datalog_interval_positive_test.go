@@ -41,7 +41,7 @@ func TestIntervalDatalogPositiveUnaryRepeatedBoundsAndFixpoint(t *testing.T) {
 		return h
 	}
 	for _, tuple := range [][2]string{{"0", "5"}, {"10", "5"}} {
-		fragmentMust(t, e.AddRule(app(decl["interval-positive-p"], number(tuple[0]), number(tuple[1])), "p fact"))
+		fragmentMust(t, e.addRuleEager(app(decl["interval-positive-p"], number(tuple[0]), number(tuple[1])), "p fact"))
 	}
 	x, err := m.MkVar(0, integer)
 	fragmentMust(t, err)
@@ -49,7 +49,7 @@ func TestIntervalDatalogPositiveUnaryRepeatedBoundsAndFixpoint(t *testing.T) {
 	// Put R <- Q first so reaching R requires another scheduling round.
 	implication, err := m.MkImplies(qx, rx)
 	fragmentMust(t, err)
-	fragmentMust(t, e.AddRule(implication, "r from q"))
+	fragmentMust(t, e.addRuleEager(implication, "r from q"))
 	pxx := app(decl["interval-positive-p"], x, x)
 	lower, err := m.MkArithmeticGE(x, number("2"))
 	fragmentMust(t, err)
@@ -59,7 +59,7 @@ func TestIntervalDatalogPositiveUnaryRepeatedBoundsAndFixpoint(t *testing.T) {
 	fragmentMust(t, err)
 	implication, err = m.MkImplies(body, qx)
 	fragmentMust(t, err)
-	fragmentMust(t, e.AddRule(implication, "bounded repeated tail"))
+	fragmentMust(t, e.addRuleEager(implication, "bounded repeated tail"))
 
 	evaluator, err := NewIntervalDatalogEvaluator(m, e.set, []ast.ASTHandle{decl["interval-positive-p"], decl["interval-positive-q"], decl["interval-positive-r"]}, nil)
 	fragmentMust(t, err)
@@ -116,7 +116,7 @@ func TestIntervalDatalogPositiveUnaryConstantAndHeadPermutation(t *testing.T) {
 		fragmentMust(t, cause)
 		return h
 	}
-	fragmentMust(t, e.AddRule(app(p, n("1"), n("7"), n("3")), "fact"))
+	fragmentMust(t, e.addRuleEager(app(p, n("1"), n("7"), n("3")), "fact"))
 	x, err := m.MkVar(0, integer)
 	fragmentMust(t, err)
 	y, err := m.MkVar(1, integer)
@@ -125,7 +125,7 @@ func TestIntervalDatalogPositiveUnaryConstantAndHeadPermutation(t *testing.T) {
 	head := app(q, y, x)
 	rule, err := m.MkImplies(tail, head)
 	fragmentMust(t, err)
-	fragmentMust(t, e.AddRule(rule, "constant and permutation"))
+	fragmentMust(t, e.addRuleEager(rule, "constant and permutation"))
 	evaluator, err := NewIntervalDatalogEvaluator(m, e.set, []ast.ASTHandle{p, q}, nil)
 	fragmentMust(t, err)
 	defer func() { fragmentMust(t, evaluator.Close()) }()
@@ -170,8 +170,8 @@ func TestIntervalDatalogPositiveSharedTailJoin(t *testing.T) {
 		fragmentMust(t, cause)
 		return value
 	}
-	fragmentMust(t, e.AddRule(app(p, n("1"), n("8")), "p"))
-	fragmentMust(t, e.AddRule(app(s, n("7"), n("3")), "s"))
+	fragmentMust(t, e.addRuleEager(app(p, n("1"), n("8")), "p"))
+	fragmentMust(t, e.addRuleEager(app(s, n("7"), n("3")), "s"))
 	x, err := m.MkVar(0, integer)
 	fragmentMust(t, err)
 	y, err := m.MkVar(1, integer)
@@ -182,7 +182,7 @@ func TestIntervalDatalogPositiveSharedTailJoin(t *testing.T) {
 	fragmentMust(t, err)
 	rule, err := m.MkImplies(body, app(h, z, x))
 	fragmentMust(t, err)
-	fragmentMust(t, e.AddRule(rule, "disjoint shared join"))
+	fragmentMust(t, e.addRuleEager(rule, "disjoint shared join"))
 	evaluator, err := NewIntervalDatalogEvaluator(m, e.set, []ast.ASTHandle{p, s, h}, nil)
 	fragmentMust(t, err)
 	defer func() { fragmentMust(t, evaluator.Close()) }()
@@ -232,18 +232,18 @@ func TestIntervalDatalogWideningOnlyAppliesToRecursivePredicates(t *testing.T) {
 		fragmentMust(t, cause)
 		return result
 	}
-	fragmentMust(t, e.AddRule(app(p, n("0")), "p"))
-	fragmentMust(t, e.AddRule(app(q, n("10")), "q"))
+	fragmentMust(t, e.addRuleEager(app(p, n("0")), "p"))
+	fragmentMust(t, e.addRuleEager(app(q, n("10")), "q"))
 	x, err := m.MkVar(0, integer)
 	fragmentMust(t, err)
 	for _, source := range []ast.ASTHandle{p, q} {
 		rule, cause := m.MkImplies(app(source, x), app(h, x))
 		fragmentMust(t, cause)
-		fragmentMust(t, e.AddRule(rule, "nonrecursive union"))
+		fragmentMust(t, e.addRuleEager(rule, "nonrecursive union"))
 	}
 	self, err := m.MkImplies(app(h, x), app(h, x))
 	fragmentMust(t, err)
-	fragmentMust(t, e.AddRule(self, "recursive identity after external seeds"))
+	fragmentMust(t, e.addRuleEager(self, "recursive identity after external seeds"))
 	evaluator, err := NewIntervalDatalogEvaluator(m, e.set, []ast.ASTHandle{p, q, h}, nil)
 	fragmentMust(t, err)
 	defer func() { fragmentMust(t, evaluator.Close()) }()

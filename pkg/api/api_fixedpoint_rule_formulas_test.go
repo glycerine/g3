@@ -19,6 +19,13 @@ func TestAPIFixedpointDeferredIllegalHeadEnumerationAndScopes(t *testing.T) {
 	astTestMust(t, f.fp.Push())
 	astTestMust(t, f.fp.AddRule(invalid, "invalid"))
 	astTestMust(t, f.fp.AddRule(f.qAtom, "later"))
+	// AddRule only queues (dl_context::add_rule); the first reader builds and
+	// keeps the Go eager rule view, so prime it before counting references.
+	primed, err := f.fp.Rules()
+	astTestMust(t, err)
+	for i := range primed {
+		astTestMust(t, f.m.DelRef(&primed[i]))
+	}
 	before := f.m.Stats().LiveReferences
 	forms, err := f.fp.Rules()
 	astTestMust(t, err)

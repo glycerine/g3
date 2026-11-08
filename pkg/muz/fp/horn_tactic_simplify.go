@@ -21,6 +21,10 @@ func (t *HornTactic) simplifyGoal(goal *tactic.Goal, out *tactic.TacticResult, e
 	if err := engine.set.SetOutputPredicate(queryDeclaration); err != nil {
 		return err
 	}
+	// m_ctx.get_rules(); // flush adding rules.
+	if err := engine.flushPendingRules(); err != nil {
+		return err
+	}
 	if _, err := engine.set.Finalize(); err != nil {
 		return err
 	}

@@ -42,7 +42,7 @@ func TestDatalogIntervalSimilarityPublicQueriesAndUpdates(t *testing.T) {
 				must(err)
 				atom, err := m.MkApp(p, []ast.ASTHandle{value})
 				must(err)
-				must(e.AddRule(atom, "arithmetic-source"))
+				must(e.addRuleEager(atom, "arithmetic-source"))
 			}
 			for _, text := range []string{"0", "2", "4"} {
 				addRule(text)
@@ -55,7 +55,7 @@ func TestDatalogIntervalSimilarityPublicQueriesAndUpdates(t *testing.T) {
 			must(err)
 			step, err := m.MkImplies(body, head)
 			must(err)
-			must(e.AddRule(step, "arithmetic-step"))
+			must(e.addRuleEager(step, "arithmetic-step"))
 			seed, err := m.ArithmeticIntegerNumeralText("-2")
 			must(err)
 			seedRef, err := m.NewRef(seed)

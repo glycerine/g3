@@ -32,7 +32,7 @@ func newDualityDisplayResultFixture(t *testing.T) *dualityDisplayResultFixture {
 	fragmentMust(t, err)
 	x := f.own(f.m.MkVar(0, integer))
 	f.openRule = f.own(f.m.MkImplies(f.own(f.m.MkEq(x, zero)), f.application))
-	fragmentMust(t, f.e.AddRuleWithSymbol(f.openRule, symbol.Numerical(7)))
+	fragmentMust(t, f.e.addRuleWithSymbolEager(f.openRule, symbol.Numerical(7)))
 	return f
 }
 
@@ -183,7 +183,7 @@ func TestDualityDisplayDoesNotResurrectMutatedResults(t *testing.T) {
 					t.Fatal("initial reachable result", status)
 				}
 				if mutation == "rule" {
-					fragmentMust(t, f.e.AddRule(f.openRule, "new-rule"))
+					fragmentMust(t, f.e.addRuleEager(f.openRule, "new-rule"))
 				} else {
 					local := f.e.params.EmptyValue()
 					key := "duality.recursion_bound"

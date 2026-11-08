@@ -40,7 +40,7 @@ func TestDatalogSimilarityInheritsRequestedFiniteKind(t *testing.T) {
 				fragmentMust(t, err)
 				atom, err := manager.MkApp(predicate, []ast.ASTHandle{constant})
 				fragmentMust(t, err)
-				fragmentMust(t, engine.AddRule(atom, ""))
+				fragmentMust(t, engine.addRuleEager(atom, ""))
 			}
 			for value := uint64(0); value < 12; value++ {
 				addRule(value)

@@ -26,7 +26,7 @@ func newAdmittedCloseFailureFixture(t *testing.T) (*spacerGeneralizerExpressionF
 	must(err)
 	rule, err := m.MkImplies(f.query, goal)
 	must(err)
-	must(e.AddRule(rule, "negative-goal"))
+	must(e.addRuleEager(rule, "negative-goal"))
 	status, err := e.QueryPredicate(declaration)
 	must(err)
 	if status != lbool.False || e.spacer == nil || e.queryClone != nil {

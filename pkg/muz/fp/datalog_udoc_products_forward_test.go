@@ -55,7 +55,7 @@ func (f *publicUDocForwardFixture) declare(name string, sorts ...ast.ASTHandle) 
 func (f *publicUDocForwardFixture) rule(name string, body, head ast.ASTHandle) ast.ASTHandle {
 	f.t.Helper()
 	formula := f.pin(f.m.MkImplies(body, head))
-	fragmentMust(f.t, f.e.AddRule(formula, name))
+	fragmentMust(f.t, f.e.addRuleEager(formula, name))
 	return formula
 }
 

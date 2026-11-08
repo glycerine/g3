@@ -69,7 +69,7 @@ func newExternalIntervalPositiveFixture(t *testing.T, kinds []string, leftVariab
 	fragmentMust(t, err)
 	formula, err := manager.MkImplies(body, head)
 	fragmentMust(t, err)
-	fragmentMust(t, engine.AddRule(formula, "external-interval-positive"))
+	fragmentMust(t, engine.addRuleEager(formula, "external-interval-positive"))
 	return manager, engine, callbacks, p, q, h
 }
 

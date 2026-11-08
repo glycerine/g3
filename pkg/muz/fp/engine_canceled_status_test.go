@@ -13,7 +13,7 @@ func TestFixedpointCanceledQueryPublishesSourceReasonAndRetries(t *testing.T) {
 	fixture := newDirectFactFixture(t)
 	engine, manager := fixture.engine, fixture.manager
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
-	must(engine.AddRule(fixture.applications["p"], "canceled-status-fact"))
+	must(engine.addRuleEager(fixture.applications["p"], "canceled-status-fact"))
 	must(engine.SelectEngine("pdr"))
 
 	limit := manager.ResourceLimit()

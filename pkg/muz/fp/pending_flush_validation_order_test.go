@@ -24,7 +24,7 @@ func TestExpressionFlushValidatesBeforeEngineConstruction(t *testing.T) {
 			decl := f.own(f.m.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{}))
 			body := f.own(f.m.MkApp(decl, nil))
 			formula := f.own(f.m.MkImplies(body, head))
-			fragmentMust(t, f.e.AddRule(formula, "validation-order"))
+			fragmentMust(t, f.e.addRuleEager(formula, "validation-order"))
 			query := f.own(f.m.MkFalse())
 			for attempt := 0; attempt < 2; attempt++ {
 				status, cause := f.e.QueryExpression(query)
@@ -66,7 +66,7 @@ func TestPredicateQueriesValidatePublishedRules(t *testing.T) {
 			fragmentMust(t, err)
 			decl := f.own(f.m.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{}))
 			body := f.own(f.m.MkApp(decl, nil))
-			fragmentMust(t, f.e.AddRule(f.own(f.m.MkImplies(body, head)), "predicate-validation"))
+			fragmentMust(t, f.e.addRuleEager(f.own(f.m.MkImplies(body, head)), "predicate-validation"))
 			for attempt := 0; attempt < 2; attempt++ {
 				var status lbool.LBool
 				var cause error

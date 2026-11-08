@@ -95,7 +95,7 @@ func testDatalogExternalExpressionClone(t *testing.T, arithmetic bool) {
 	must(err)
 	rule, err := m.MkImplies(query, derived)
 	must(err)
-	must(e.AddRule(rule, "external-expression-copy"))
+	must(e.addRuleEager(rule, "external-expression-copy"))
 	queryRef, err := m.NewRef(query)
 	must(err)
 	defer func() { must(m.DelRef(&queryRef)) }()

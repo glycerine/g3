@@ -83,7 +83,7 @@ func TestBoundIntervalDatalogActivationFactsCloneFormulaAndRuleBoundary(t *testi
 
 	qFact, err := m.MkApp(q, []ast.ASTHandle{three})
 	must(err)
-	must(e.AddRule(qFact, "bound-interval-ground-fact"))
+	must(e.addRuleEager(qFact, "bound-interval-ground-fact"))
 	if status, cause := activation.query([]ast.ASTHandle{q}); cause != nil || status != lbool.Undef {
 		t.Fatal("ground fact rule did not populate product", status, cause)
 	}
@@ -95,7 +95,7 @@ func TestBoundIntervalDatalogActivationFactsCloneFormulaAndRuleBoundary(t *testi
 	must(err)
 	rule, err := m.MkImplies(pTail, qHead)
 	must(err)
-	must(e.AddRule(rule, "bound-interval-positive-copy"))
+	must(e.addRuleEager(rule, "bound-interval-positive-copy"))
 	if status, cause := activation.query([]ast.ASTHandle{q}); cause != nil || status != lbool.Undef {
 		t.Fatal("positive product copy rule", status, cause)
 	}
@@ -103,7 +103,7 @@ func TestBoundIntervalDatalogActivationFactsCloneFormulaAndRuleBoundary(t *testi
 	must(err)
 	unsupported, err := m.MkImplies(twoTails, qHead)
 	must(err)
-	must(e.AddRule(unsupported, "bound-interval-two-positive"))
+	must(e.addRuleEager(unsupported, "bound-interval-two-positive"))
 	if status, cause := activation.query([]ast.ASTHandle{q}); cause != nil || status != lbool.Undef {
 		t.Fatal("two-positive product rule", status, cause)
 	}

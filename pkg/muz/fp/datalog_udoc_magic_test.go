@@ -55,11 +55,11 @@ func TestDatalogUDocMagicSetsTransfersSeededIntentionalFacts(t *testing.T) {
 	intentionalHead := app(intentional, variable)
 	intentionalRule, err := manager.MkImplies(extensionalBody, intentionalHead)
 	must(err)
-	must(engine.AddRule(intentionalRule, "doc-magic-intentional"))
+	must(engine.addRuleEager(intentionalRule, "doc-magic-intentional"))
 	goalHead := app(goal, variable)
 	goalRule, err := manager.MkImplies(intentionalHead, goalHead)
 	must(err)
-	must(engine.AddRule(goalRule, "doc-magic-goal"))
+	must(engine.addRuleEager(goalRule, "doc-magic-goal"))
 
 	// Query setup selects UDoc before MagicSets creates its adorned predicates.
 	// Exercise that boundary directly so QueryPredicate's later idempotent sync
@@ -79,7 +79,7 @@ func TestDatalogUDocMagicSetsTransfersSeededIntentionalFacts(t *testing.T) {
 	must(prepared.inheritDatalogQueryKind(seedQuery, queryDeclaration))
 	queryRule, err := manager.MkImplies(seedQuery, queryHead)
 	must(err)
-	must(prepared.AddRule(queryRule, "doc-magic-prepared-query"))
+	must(prepared.addRuleEager(queryRule, "doc-magic-prepared-query"))
 	selected, err := prepared.ensureUDocDatalog()
 	must(err)
 	if !selected {

@@ -57,7 +57,7 @@ func TestDatalogKarrProjectionPermutationPublic(t *testing.T) {
 		must(err)
 		f, err := m.MkImplies(body, h)
 		must(err)
-		must(e.AddRule(f, ""))
+		must(e.addRuleEager(f, ""))
 		return h
 	}
 	addRule(rotated, []ast.ASTHandle{vars[2], vars[0], vars[1]})
@@ -72,7 +72,7 @@ func TestDatalogKarrProjectionPermutationPublic(t *testing.T) {
 	must(err)
 	repeatedRule, err := m.MkImplies(repeatedTail, repeatedResult)
 	must(err)
-	must(e.AddRule(repeatedRule, ""))
+	must(e.addRuleEager(repeatedRule, ""))
 	substitution, err := astrewriter.NewVarSubstitution(m, false)
 	must(err)
 	defer func() { must(substitution.Close()) }()
@@ -182,7 +182,7 @@ func TestDatalogKarrProjectionRepeatedHead(t *testing.T) {
 	must(err)
 	rule, err := m.MkImplies(body, head)
 	must(err)
-	must(e.AddRule(rule, ""))
+	must(e.addRuleEager(rule, ""))
 	for i := 0; i < 2; i++ {
 		status, err := e.QueryPredicate(q)
 		if status != lbool.Undef || err != nil || e.karrDatalog.results == nil {
@@ -226,7 +226,7 @@ func TestKarrDatalogProjectionCancellationDuringDualization(t *testing.T) {
 	must(err)
 	rule, err := m.MkImplies(body, head)
 	must(err)
-	must(e.AddRule(rule, ""))
+	must(e.addRuleEager(rule, ""))
 	must(e.flushPendingRules())
 	activation, err := newKarrDatalogActivation(m, e.set, []ast.ASTHandle{p, q})
 	must(err)

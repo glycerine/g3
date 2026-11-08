@@ -52,7 +52,7 @@ func TestQueryMagicSetsInheritsRequestedFiniteRepresentations(t *testing.T) {
 			must(err)
 			rule, err := manager.MkImplies(extensionalApp, predicateApp)
 			must(err)
-			must(engine.AddRule(rule, "magic-kind-rule"))
+			must(engine.addRuleEager(rule, "magic-kind-rule"))
 			query, err := manager.MkApp(predicate, []ast.ASTHandle{truth})
 			must(err)
 			queryRef, err := manager.NewRef(query)

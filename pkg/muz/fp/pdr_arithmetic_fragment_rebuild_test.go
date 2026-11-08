@@ -53,7 +53,7 @@ func TestPDREngineRebuildsContextAcrossArithmeticFragments(t *testing.T) {
 	fragmentMust(t, err)
 	differenceRule, err := manager.MkImplies(differenceBound, head)
 	fragmentMust(t, err)
-	fragmentMust(t, engine.AddRule(differenceRule, "pdr-fragment-rule"))
+	fragmentMust(t, engine.addRuleEager(differenceRule, "pdr-fragment-rule"))
 
 	status, err := engine.QueryPredicate(predicate)
 	fragmentMust(t, err)

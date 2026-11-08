@@ -95,7 +95,7 @@ func testQueryMagicSets(t *testing.T, global bool, local *bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = engine.AddRule(rule, "magic-query-rule"); err != nil {
+	if err = engine.addRuleEager(rule, "magic-query-rule"); err != nil {
 		t.Fatal(err)
 	}
 	query, err := manager.MkApp(goalRelation, []ast.ASTHandle{truth})
@@ -134,7 +134,7 @@ func testQueryMagicSets(t *testing.T, global bool, local *bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = clone.AddRule(queryRule, "magic-query-wrapper"); err != nil {
+	if err = clone.addRuleEager(queryRule, "magic-query-wrapper"); err != nil {
 		t.Fatal(err)
 	}
 	valid, err := clone.set.Finalize()

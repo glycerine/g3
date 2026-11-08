@@ -87,7 +87,7 @@ func testSpacerBackgroundReplacementCleanup(t *testing.T, completion string) {
 	must(engine.RegisterPredicate(predicate))
 	fact, err := manager.MkApp(predicate, nil)
 	must(err)
-	must(engine.AddRule(fact, "native-spacer-background-replacement-fact"))
+	must(engine.addRuleEager(fact, "native-spacer-background-replacement-fact"))
 
 	// A completed expression query also owns its background. Retire that clone
 	// before replacement, leaving the parent as the sole large-numeral owner.

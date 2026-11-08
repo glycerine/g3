@@ -23,11 +23,11 @@ func TestBMCExpressionStatisticsIncludeWorkBeforeFailure(t *testing.T) {
 			}
 			fragmentMust(t, e.SetQueryParameters(&params))
 			fragmentMust(t, e.params.Del(&params))
-			fragmentMust(t, e.AddRule(f.applications["p"], "statistics-start"))
+			fragmentMust(t, e.addRuleEager(f.applications["p"], "statistics-start"))
 			for _, edge := range [][2]string{{"p", "q"}, {"q", "u"}} {
 				rule, err := m.MkImplies(f.applications[edge[0]], f.applications[edge[1]])
 				fragmentMust(t, err)
-				fragmentMust(t, e.AddRule(rule, "statistics-"+edge[1]))
+				fragmentMust(t, e.addRuleEager(rule, "statistics-"+edge[1]))
 			}
 			query := f.applications["u"]
 			limit := m.ResourceLimit()

@@ -16,7 +16,7 @@ func (e *PropositionalEngine) copyQueryRules(clone *PropositionalEngine) (result
 		if x != nil {
 			return x
 		}
-		if x = clone.AddRuleWithSymbol(formula, names[i]); x != nil {
+		if x = clone.addRuleWithSymbolNow(formula, names[i]); x != nil {
 			return x
 		}
 	}

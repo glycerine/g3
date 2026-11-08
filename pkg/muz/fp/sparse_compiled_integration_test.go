@@ -60,13 +60,13 @@ func testDatalogCompiledMixedFiniteAndNullary(t *testing.T, representation strin
 	must(err)
 	rule, err := m.MkImplies(body, app(q, x))
 	must(err)
-	must(e.AddRule(rule, "mixed-three-tail"))
+	must(e.addRuleEager(rule, "mixed-three-tail"))
 	rule, err = m.MkImplies(app(q, yes), f.applications["u"])
 	must(err)
-	must(e.AddRule(rule, "project-all-true"))
+	must(e.addRuleEager(rule, "project-all-true"))
 	rule, err = m.MkImplies(app(q, no), f.applications["p"])
 	must(err)
-	must(e.AddRule(rule, "project-all-false"))
+	must(e.addRuleEager(rule, "project-all-false"))
 	for _, tc := range []struct {
 		decl ast.ASTHandle
 		want lbool.LBool
@@ -150,7 +150,7 @@ func testDatalogCompiledFiniteRecursiveFixpoint(t *testing.T, representation str
 	must(err)
 	rule, err := m.MkImplies(body, ry)
 	must(err)
-	must(e.AddRule(rule, "recursive-step"))
+	must(e.addRuleEager(rule, "recursive-step"))
 	for i := 0; i < 2; i++ {
 		status, err := e.QueryPredicate(reach)
 		must(err)

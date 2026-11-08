@@ -8,6 +8,10 @@ import (
 // held by concrete Datalog relation tables. Public source rule enumeration
 // deliberately omits these; the explicit Go replay exporter uses them.
 func (e *PropositionalEngine) StoredFactFormulas() (result []ast.ASTRef, resultErr error) {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return nil, err
+	}
 	if err := e.open(); err != nil {
 		return nil, err
 	}

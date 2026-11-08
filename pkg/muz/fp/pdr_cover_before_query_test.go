@@ -65,7 +65,7 @@ func TestPDRCoverBeforeFirstQuerySurvivesRuleInstallation(t *testing.T) {
 			must(err)
 			fact, err := m.MkApp(query, []ast.ASTHandle{zero})
 			must(err)
-			must(e.AddRule(fact, "covered-zero-fact"))
+			must(e.addRuleEager(fact, "covered-zero-fact"))
 			parameters, err := e.params.NewValue()
 			must(err)
 			defer func() { must(e.params.Del(&parameters)) }()
@@ -138,7 +138,7 @@ func TestPDRCoverBeforeFirstQuerySurvivesRuleInstallation(t *testing.T) {
 			must(err)
 			fact, err = m.MkApp(query, []ast.ASTHandle{one})
 			must(err)
-			must(e.AddRule(fact, "cover-invalidating-one-fact"))
+			must(e.addRuleEager(fact, "cover-invalidating-one-fact"))
 			status, err = e.QueryPredicate(query)
 			must(err)
 			if status != lbool.True {

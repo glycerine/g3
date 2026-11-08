@@ -52,16 +52,16 @@ func TestDatalogKarrFullPropagationThroughUnaryAndBinary(t *testing.T) {
 		must(err)
 		return v
 	}
-	must(e.AddRule(app(p, x, y), ""))
-	must(e.AddRule(app(one, z), ""))
+	must(e.addRuleEager(app(p, x, y), ""))
+	must(e.addRuleEager(app(one, z), ""))
 	unary, err := m.MkImplies(app(p, x, y), app(q, y))
 	must(err)
-	must(e.AddRule(unary, ""))
+	must(e.addRuleEager(unary, ""))
 	body, err := m.MkAnd(app(p, x, y), app(one, z))
 	must(err)
 	binary, err := m.MkImplies(body, app(joined, x, y, z))
 	must(err)
-	must(e.AddRule(binary, ""))
+	must(e.addRuleEager(binary, ""))
 	for _, d := range []ast.ASTHandle{q, joined} {
 		status, err := e.QueryPredicate(d)
 		must(err)

@@ -85,7 +85,7 @@ func TestDatalogInliningPreservesFactsModelsAndQueryScope(t *testing.T) {
 			for _, pair := range [][2]ast.ASTHandle{{seed, middle}, {middle, output}} {
 				rule, err := m.MkImplies(app(pair[0], x), app(pair[1], x))
 				must(err)
-				must(e.AddRule(rule, ""))
+				must(e.addRuleEager(rule, ""))
 			}
 			status, err := e.QueryPredicate(output)
 			must(err)

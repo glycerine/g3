@@ -36,7 +36,7 @@ func TestDatalogCheckRelationSourceTableNames(t *testing.T) {
 			must(err)
 			rule, err := m.MkImplies(px, f.applications["q"])
 			must(err)
-			must(e.AddRule(rule, "canonical-checker"))
+			must(e.addRuleEager(rule, "canonical-checker"))
 			for i := 0; i < 2; i++ {
 				status, err := e.QueryPredicate(f.declarations["q"])
 				must(err)

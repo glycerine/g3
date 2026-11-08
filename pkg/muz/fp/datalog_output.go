@@ -10,6 +10,10 @@ import (
 )
 
 func (e *PropositionalEngine) WriteDatalogOutputTables(names *base.DatalogContext, out io.Writer) error {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return err
+	}
 	if err := e.open(); err != nil {
 		return err
 	}

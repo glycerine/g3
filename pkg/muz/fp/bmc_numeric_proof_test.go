@@ -90,7 +90,7 @@ func runBMCNumericProofIndependentValidation(t *testing.T, name string) {
 			formula = own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: formula}))
 		}
 		originals = append(originals, formula)
-		fragmentMust(t, e.AddRule(formula, name))
+		fragmentMust(t, e.addRuleEager(formula, name))
 	}
 	if strings.HasSuffix(name, "/recursive") {
 		zero := own(m.ArithmeticIntegerNumeralText("0"))

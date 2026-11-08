@@ -48,7 +48,7 @@ func newPendingFlushAllocationFixture(t *testing.T) *contextDisplayCleanupFixtur
 		Forall: true, Sorts: []ast.ASTHandle{boolean, boolean},
 		Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: implication,
 	}))
-	fragmentMust(t, f.e.AddRuleWithBound(formula, "closed-forall-split", 17))
+	fragmentMust(t, f.e.addRuleWithBoundEager(formula, "closed-forall-split", 17))
 	if free, err := f.m.HasFreeVars(formula); err != nil || free {
 		t.Fatal("pending flush fixture is not an explicitly closed formula", free, err)
 	}

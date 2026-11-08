@@ -89,7 +89,7 @@ func TestEngineDefaultModelStatusAndIndependentOwners(t *testing.T) {
 				}
 				checkInvalid("failed-query model reached allocation")
 				run()
-				fragmentMust(t, e.AddRule(f.applications["p"], "invalidate-default-model"))
+				fragmentMust(t, e.addRuleEager(f.applications["p"], "invalidate-default-model"))
 				checkInvalid("stale model reached allocation")
 				run()
 				fragmentMust(t, e.Close())

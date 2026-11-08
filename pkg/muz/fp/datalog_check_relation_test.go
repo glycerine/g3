@@ -67,10 +67,10 @@ func TestDatalogCheckRelationParameterRunsCheckedSaturation(t *testing.T) {
 	must(e.AddFact(f.declarations["p"], nil))
 	step, err := m.MkImplies(f.applications["p"], f.applications["q"])
 	must(err)
-	must(e.AddRule(step, "checked-step"))
+	must(e.addRuleEager(step, "checked-step"))
 	step, err = m.MkImplies(f.applications["q"], f.applications["u"])
 	must(err)
-	must(e.AddRule(step, "checked-goal"))
+	must(e.addRuleEager(step, "checked-goal"))
 
 	before := e.predicates[f.declarations["u"]].table
 	status, err := e.QueryPredicate(f.declarations["u"])
@@ -132,10 +132,10 @@ func TestDatalogCheckRelationLocalPrecedenceAndDocCompression(t *testing.T) {
 	must(err)
 	px, err := m.MkApp(p, []ast.ASTHandle{x})
 	must(err)
-	must(e.AddRule(px, "checked-doc-all"))
+	must(e.addRuleEager(px, "checked-doc-all"))
 	implication, err := m.MkImplies(px, f.applications["q"])
 	must(err)
-	must(e.AddRule(implication, "checked-doc-goal"))
+	must(e.addRuleEager(implication, "checked-doc-goal"))
 	scope, err := e.prepareDatalogUnbound([]ast.ASTHandle{f.declarations["q"]})
 	must(err)
 	if scope != nil {
@@ -177,7 +177,7 @@ func TestDatalogCheckRelationSparseBackend(t *testing.T) {
 	must(err)
 	rule, err := m.MkImplies(px, qx)
 	must(err)
-	must(e.AddRule(rule, "checked-sparse-step"))
+	must(e.addRuleEager(rule, "checked-sparse-step"))
 
 	status, err := e.QueryPredicate(q)
 	must(err)

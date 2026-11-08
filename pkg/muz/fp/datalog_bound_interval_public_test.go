@@ -136,13 +136,13 @@ func TestDatalogBoundIntervalPublicQueriesAndOwnership(t *testing.T) {
 			f.fact(unit)
 			f.fact(p, 2, 10)
 			fragmentMust(t, e.AddTableFact(p, []uint32{5, 20}))
-			fragmentMust(t, e.AddRule(f.app(ground, f.numeral(10), f.numeral(100)), "ground-product"))
+			fragmentMust(t, e.addRuleEager(f.app(ground, f.numeral(10), f.numeral(100)), "ground-product"))
 			x, y, z := f.hold(m.MkVar(0, f.integer)), f.hold(m.MkVar(1, f.integer)), f.hold(m.MkVar(2, f.integer))
 			pxy := f.app(p, x, y)
 			body := f.hold(m.MkAnd(pxy, f.hold(m.MkArithmeticLE(x, f.numeral(3)))))
-			fragmentMust(t, e.AddRule(f.hold(m.MkImplies(body, f.app(copied, y, x))), "one-tail-product"))
+			fragmentMust(t, e.addRuleEager(f.hold(m.MkImplies(body, f.app(copied, y, x))), "one-tail-product"))
 			body = f.hold(m.MkAnd(pxy, f.app(ground, y, z)))
-			fragmentMust(t, e.AddRule(f.hold(m.MkImplies(body, f.app(joined, z))), "two-tail-product"))
+			fragmentMust(t, e.addRuleEager(f.hold(m.MkImplies(body, f.app(joined, z))), "two-tail-product"))
 
 			for _, test := range []struct {
 				outputs []ast.ASTHandle
@@ -229,7 +229,7 @@ func TestDatalogBoundIntervalPublicNormalizesJoinsAndRejectsNegativeRules(t *tes
 			if name == "negative-tail" {
 				body = f.hold(f.m.MkAnd(f.app(p, x), f.hold(f.m.MkNot(f.app(q, x)))))
 			}
-			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(body, f.app(output, x))), name))
+			fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(body, f.app(output, x))), name))
 			if name == "three-positive-tails" {
 				status, err := f.e.QueryPredicate(output)
 				fragmentMust(t, err)

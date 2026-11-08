@@ -44,7 +44,7 @@ func TestBMCRelationQueryUsesSourceVariableOrder(t *testing.T) {
 			fragmentMust(t, err)
 			fact, err := manager.MkApp(predicate, []ast.ASTHandle{truth, zero})
 			fragmentMust(t, err)
-			fragmentMust(t, engine.AddRule(fact, "mixed-fact"))
+			fragmentMust(t, engine.addRuleEager(fact, "mixed-fact"))
 			status, err := engine.QueryPredicate(predicate)
 			fragmentMust(t, err)
 			if status != lbool.True {

@@ -82,7 +82,7 @@ func TestSpacerSymbolicNonlinearWitnessOriginalClauses(t *testing.T) {
 					formula = own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: formula}))
 				}
 				originals = append(originals, formula)
-				fragmentMust(t, e.AddRule(formula, name))
+				fragmentMust(t, e.addRuleEager(formula, name))
 			}
 			// The unused leaf column forces real slicing, while the numeric column
 			// must preserve the distinct left/right instances and their correlation.

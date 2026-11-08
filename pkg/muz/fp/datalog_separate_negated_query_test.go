@@ -58,7 +58,7 @@ func TestDatalogPrivateNegativeTailHasQueryLocalComplement(t *testing.T) {
 	must(err)
 	rule, err := m.MkImplies(body, head)
 	must(err)
-	must(e.AddRule(rule, "private-negative-tail"))
+	must(e.addRuleEager(rule, "private-negative-tail"))
 	original, err := e.set.Rule(0)
 	must(err)
 	defer func() { must(original.Close()) }()

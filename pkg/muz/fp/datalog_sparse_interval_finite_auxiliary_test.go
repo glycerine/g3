@@ -32,10 +32,10 @@ func TestSparseIntervalDerivedFiniteAuxiliaryShapeSurvivesClone(t *testing.T) {
 	}
 	rule, err := m.MkImplies(app(seed, variable), app(finite, variable))
 	fragmentMust(t, err)
-	fragmentMust(t, engine.AddRule(rule, "derive finite shape"))
+	fragmentMust(t, engine.addRuleEager(rule, "derive finite shape"))
 	rule, err = m.MkImplies(app(seed, variable), app(nullary))
 	fragmentMust(t, err)
-	fragmentMust(t, engine.AddRule(rule, "derive nullary shape"))
+	fragmentMust(t, engine.addRuleEager(rule, "derive nullary shape"))
 
 	activation, selected, err := newClassifiedSparseIntervalDatalogActivation(m, engine.set, engine.guard, []sparseIntervalOriginal{{declaration: seed, class: sparseIntervalFiniteOriginal}})
 	fragmentMust(t, err)

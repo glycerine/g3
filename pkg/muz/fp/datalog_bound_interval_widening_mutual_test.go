@@ -22,8 +22,8 @@ func TestDatalogBoundIntervalWideningMutualIdentity(t *testing.T) {
 			h, q := f.declare("identity-mutual-H", 1), f.declare("identity-mutual-Q", 1)
 			f.fact(h, 0)
 			x := f.hold(f.m.MkVar(0, f.integer))
-			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(f.app(h, x), f.app(q, x))), "recursive-first"))
-			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(f.app(q, x), f.app(h, x))), "recursive-second"))
+			fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(f.app(h, x), f.app(q, x))), "recursive-first"))
+			fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(f.app(q, x), f.app(h, x))), "recursive-second"))
 			if widen {
 				fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
 			}

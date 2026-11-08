@@ -105,14 +105,14 @@ func TestDatalogBitBlastFiniteQueriesPreserveOriginalDomain(t *testing.T) {
 			must(err)
 			rule, err := m.MkImplies(body, qa)
 			must(err)
-			must(e.AddRule(rule, "finite-bit-filter"))
+			must(e.addRuleEager(rule, "finite-bit-filter"))
 			three, err := m.BitVectorNumeralUint64(3, 2)
 			must(err)
 			ga, err := m.MkApp(goal, nil)
 			must(err)
 			rule, err = m.MkImplies(app(q, three), ga)
 			must(err)
-			must(e.AddRule(rule, "finite-bit-unreachable"))
+			must(e.addRuleEager(rule, "finite-bit-unreachable"))
 
 			// Exercise actual source expansion and stored-row import while the
 			// generated relation owners are still visible in their query scope.

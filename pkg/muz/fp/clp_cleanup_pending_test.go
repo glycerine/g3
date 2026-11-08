@@ -83,10 +83,10 @@ func TestCLPBackendAttemptPreservesRefusedCleanup(t *testing.T) {
 	}
 	_, pApp := declare("p")
 	q, qApp := declare("q")
-	must(root.AddRule(pApp, "fact"))
+	must(root.addRuleEager(pApp, "fact"))
 	edge, err := manager.MkImplies(pApp, qApp)
 	must(err)
-	must(root.AddRule(edge, "edge"))
+	must(root.addRuleEager(edge, "edge"))
 
 	prepared, err := root.preprocessHornRulesWithQueryRule(q, nil, true, true, false, false)
 	must(err)

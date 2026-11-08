@@ -89,7 +89,7 @@ func testSpacerPrequeryBackgroundCleanup(t *testing.T, completion string) {
 	must(engine.RegisterPredicate(predicate))
 	fact, err := manager.MkApp(predicate, nil)
 	must(err)
-	must(engine.AddRule(fact, "native-spacer-background-fact"))
+	must(engine.addRuleEager(fact, "native-spacer-background-fact"))
 
 	// The manager's background becomes the only owner of a real, large
 	// rational declaration parameter after the parent background is replaced.

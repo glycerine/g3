@@ -79,7 +79,7 @@ func TestSpacerPreprocessedSharedWitnessExports(t *testing.T) {
 				if i == 2 || i == 4 || i == 5 {
 					formula = own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: formula}))
 				}
-				fragmentMust(t, e.AddRule(formula, names[i]))
+				fragmentMust(t, e.addRuleEager(formula, names[i]))
 			}
 			inputCount, err := e.set.Len()
 			fragmentMust(t, err)

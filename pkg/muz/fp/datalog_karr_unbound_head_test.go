@@ -57,12 +57,12 @@ func TestDatalogKarrUnboundUnaryAndBinaryHead(t *testing.T) {
 	}
 	unary, err := m.MkImplies(app(p, x), app(u, y, x, four, y))
 	must(err)
-	must(e.AddRule(unary, ""))
+	must(e.addRuleEager(unary, ""))
 	body, err := m.MkAnd(app(p, x), app(q, z))
 	must(err)
 	binary, err := m.MkImplies(body, app(b, y, z, y, x))
 	must(err)
-	must(e.AddRule(binary, ""))
+	must(e.addRuleEager(binary, ""))
 	for _, d := range []ast.ASTHandle{u, b} {
 		status, err := e.QueryPredicate(d)
 		must(err)
@@ -169,7 +169,7 @@ func TestKarrUnboundHeadCancellationAndOverflow(t *testing.T) {
 	must(err)
 	f, err := m.MkImplies(body, head)
 	must(err)
-	must(e.AddRule(f, ""))
+	must(e.addRuleEager(f, ""))
 	must(e.flushPendingRules())
 	a, err := newKarrDatalogActivation(m, e.set, []ast.ASTHandle{p, q})
 	must(err)

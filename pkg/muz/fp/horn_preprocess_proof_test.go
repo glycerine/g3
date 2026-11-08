@@ -34,10 +34,10 @@ func TestHornPreprocessingCarriesRequestedRuleProofs(t *testing.T) {
 	}
 	_, fact := declare("proof-preprocess-fact")
 	goal, goalApp := declare("proof-preprocess-goal")
-	fragmentMust(t, engine.AddRule(fact, "fact"))
+	fragmentMust(t, engine.addRuleEager(fact, "fact"))
 	step, err := manager.MkImplies(fact, goalApp)
 	fragmentMust(t, err)
-	fragmentMust(t, engine.AddRule(step, "step"))
+	fragmentMust(t, engine.addRuleEager(step, "step"))
 	fragmentMust(t, engine.validateFragment())
 	prepared, err := engine.preprocessHornRules(goal, true, true)
 	fragmentMust(t, err)

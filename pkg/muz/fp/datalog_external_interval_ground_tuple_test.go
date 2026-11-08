@@ -15,7 +15,7 @@ func addExternalIntervalNaryGroundRule(t *testing.T, manager *ast.ASTManager, en
 	t.Helper()
 	application, err := manager.MkApp(head, values)
 	fragmentMust(t, err)
-	fragmentMust(t, engine.AddRule(application, "external-interval-nary-ground"))
+	fragmentMust(t, engine.addRuleEager(application, "external-interval-nary-ground"))
 }
 
 func TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder(t *testing.T) {

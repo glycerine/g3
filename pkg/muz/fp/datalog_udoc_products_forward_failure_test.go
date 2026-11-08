@@ -16,7 +16,7 @@ func newUDocProductForwardFailureFixture(t *testing.T) *publicUDocProductFixture
 	f.head = f.pin(f.m.MkFuncDecl(name, []ast.ASTHandle{f.bits, f.boolean}, f.boolean, ast.ASTFuncDeclInfo{}))
 	fragmentMust(t, f.e.RegisterPredicate(f.head))
 	formula := f.pin(f.m.MkImplies(f.app(source, f.x, f.b), f.app(f.head, f.x, f.b)))
-	fragmentMust(t, f.e.AddRule(formula, "forward-product-result"))
+	fragmentMust(t, f.e.addRuleEager(formula, "forward-product-result"))
 	return f
 }
 

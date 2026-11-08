@@ -86,7 +86,7 @@ func TestSpacerScaleOriginalClauseModel(t *testing.T) {
 					formula = own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: formula}))
 				}
 				originals = append(originals, formula)
-				fragmentMust(t, e.AddRule(formula, name))
+				fragmentMust(t, e.addRuleEager(formula, name))
 			}
 			add(own(m.MkTrue()), app(leaf, zero, y), 2, "model-base")
 			add(and(app(leaf, x, y), own(m.MkArithmeticLT(x, five))), app(leaf, own(m.MkArithmeticAdd(x, one)), y), 2, "model-successor")

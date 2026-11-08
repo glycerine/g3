@@ -35,7 +35,7 @@ func TestSpacerExpressionQueryUsesPrequeryCoverOwner(t *testing.T) {
 			must(err)
 			fact, err := m.MkApp(declaration, []ast.ASTHandle{zero})
 			must(err)
-			must(e.AddRule(fact, "expression-zero-fact"))
+			must(e.addRuleEager(fact, "expression-zero-fact"))
 			parameters, err := e.params.NewValue()
 			must(err)
 			defer func() { must(e.params.Del(&parameters)) }()

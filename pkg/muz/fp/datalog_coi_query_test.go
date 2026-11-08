@@ -12,8 +12,8 @@ func TestDatalogConeOfInfluenceScopesDisconnectedRuleFacts(t *testing.T) {
 	e := f.engine
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
 	must(e.SelectEngine("datalog"))
-	must(e.AddRule(f.applications["q"], "coi-q-fact"))
-	must(e.AddRule(f.applications["p"], "coi-p-fact"))
+	must(e.addRuleEager(f.applications["q"], "coi-q-fact"))
+	must(e.addRuleEager(f.applications["p"], "coi-p-fact"))
 
 	status, err := e.QueryPredicate(f.declarations["q"])
 	must(err)

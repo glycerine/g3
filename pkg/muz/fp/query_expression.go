@@ -249,7 +249,7 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err != nil {
 		return lbool.Undef, err
 	}
-	if err = clone.AddRule(rule, ""); err != nil {
+	if err = clone.addRuleNow(rule, ""); err != nil {
 		return lbool.Undef, err
 	}
 	karrSelected := false

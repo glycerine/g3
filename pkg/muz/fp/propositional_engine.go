@@ -615,56 +615,25 @@ func (e *PropositionalEngine) AddRuleWithSymbolAndBound(formula ast.ASTHandle, n
 			resultErr = errors.Join(resultErr, e.manager.DelRef(&original))
 		}
 	}()
-	finalized, err := e.set.IsFinalized()
-	if err != nil {
-		return err
-	}
-	if finalized {
-		if err = e.set.Reopen(); err != nil {
-			return err
-		}
-	}
+	// context::add_rule only queues the formula (m_rule_fmls); variable
+	// binding and mk_rule run in flush_add_rules at query time or when the
+	// rule set is requested.
 	first, err := e.set.Len()
 	if err != nil {
 		return err
 	}
-	bound, err := e.binder.Bind(formula, true)
-	if err != nil {
-		return err
-	}
-	boundFormula, getErr := e.manager.RefGet(bound)
-	if getErr == nil {
-		getErr = e.addFormula(e.set, boundFormula, name)
-	}
-	deferHead := onlyInvalidRuleHead(getErr)
-	end := first
-	if getErr == nil || deferHead {
-		var lenErr error
-		end, lenErr = e.set.Len()
-		if lenErr != nil {
-			getErr = errors.Join(getErr, lenErr)
-			deferHead = false
-		}
-	}
-	cleanupErr := e.manager.DelRef(&bound)
-	if cleanupErr != nil {
-		deferHead = false
-	}
-	added := getErr == nil || deferHead
-	if deferHead {
-		getErr = nil
-	}
-	getErr = errors.Join(getErr, cleanupErr)
-	if added {
-		e.rawRules = append(e.rawRules, rawRuleFormula{formula: original, name: name, bound: recursionBound, pending: true, first: first, end: end})
-		keepOriginal = true
-		e.advanceRuleRevision()
-	}
-	return getErr
+	e.rawRules = append(e.rawRules, rawRuleFormula{formula: original, name: name, bound: recursionBound, pending: true, first: first, end: first})
+	keepOriginal = true
+	e.advanceRuleRevision()
+	return nil
 }
 
 // AddFact stores a Datalog tuple directly; other engines receive a raw rule.
 func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.ASTHandle) error {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return err
+	}
 	if err := e.open(); err != nil {
 		return err
 	}
@@ -787,6 +756,10 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 // AddTableFact inserts native finite-table elements directly for Datalog.
 // Other engines receive the corresponding decoded ground predicate rule.
 func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []uint32) (resultErr error) {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return err
+	}
 	if err := e.open(); err != nil {
 		return err
 	}
@@ -1064,6 +1037,10 @@ func (e *PropositionalEngine) UpdateRuleWithSymbol(formula ast.ASTHandle, name s
 // Predicate registrations are intentionally not scoped, matching
 // dl_context::push.
 func (e *PropositionalEngine) Push() error {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return err
+	}
 	if err := e.open(); err != nil {
 		return err
 	}
@@ -1087,6 +1064,10 @@ func (e *PropositionalEngine) Push() error {
 // Pop restores the most recent rule snapshot. Duality also supports popping
 // after queries; PDR/Spacer reject pops once their context has been created.
 func (e *PropositionalEngine) Pop() error {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return err
+	}
 	if err := e.openState(); err != nil {
 		return err
 	}
@@ -2280,6 +2261,10 @@ func (e *PropositionalEngine) ResetStatistics() error {
 // Rules returns owning formula references for the current scoped Horn rule
 // set in insertion order. The caller releases every reference.
 func (e *PropositionalEngine) Rules() (result []ast.ASTRef, resultErr error) {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return nil, err
+	}
 	result, _, resultErr = e.NamedRules()
 	return result, resultErr
 }

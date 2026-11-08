@@ -81,7 +81,7 @@ func TestFixedpointRuleNameSymbolsUpdateDistinctIdentities(t *testing.T) {
 	decls := make([]ast.ASTHandle, len(names))
 	for i, name := range names {
 		decls[i], heads[i] = f.predicate(fmt.Sprintf("typed-update-head-%d", i))
-		fragmentMust(t, f.e.AddRuleWithSymbolAndBound(heads[i], name, uint32(31+i)))
+		fragmentMust(t, f.e.addRuleWithSymbolAndBoundEager(heads[i], name, uint32(31+i)))
 	}
 	fragmentMust(t, f.e.flushPendingRules())
 	fragmentMust(t, closeASTRefs(f.m, checkFPRuleNameSnapshot(t, f.e, names)))
@@ -159,7 +159,7 @@ func TestFixedpointRuleNameSymbolsPreserveRawScopesAndOpenPromotion(t *testing.T
 		_, head := f.predicate(fmt.Sprintf("typed-closed-%d", i), x)
 		formula := f.own(f.m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []usymbol.Symbol{binderName}, Body: head}))
 		closed = append(closed, formula)
-		fragmentMust(t, f.e.AddRuleWithSymbolAndBound(formula, name, uint32(40+i)))
+		fragmentMust(t, f.e.addRuleWithSymbolAndBoundEager(formula, name, uint32(40+i)))
 	}
 	before, namesBefore, boundsBefore, err := f.e.RawRulesWithSymbols()
 	fragmentMust(t, err)
@@ -170,7 +170,7 @@ func TestFixedpointRuleNameSymbolsPreserveRawScopesAndOpenPromotion(t *testing.T
 	fragmentMust(t, f.e.Push())
 	for i, name := range names {
 		_, head := f.predicate(fmt.Sprintf("typed-open-%d", i), x)
-		fragmentMust(t, f.e.AddRuleWithSymbolAndBound(head, name, uint32(50+i)))
+		fragmentMust(t, f.e.addRuleWithSymbolAndBoundEager(head, name, uint32(50+i)))
 	}
 	scoped, scopedNames, scopedBounds, err := f.e.RawRulesWithSymbols()
 	fragmentMust(t, err)
@@ -218,7 +218,7 @@ func TestFixedpointRuleNameSymbolsSurviveActualQueryClone(t *testing.T) {
 	names := fpRuleNameSymbols(t, f.m)
 	for i, name := range names {
 		_, head := f.predicate(fmt.Sprintf("typed-clone-%d", i))
-		fragmentMust(t, f.e.AddRuleWithSymbol(head, name))
+		fragmentMust(t, f.e.addRuleWithSymbolEager(head, name))
 	}
 	fragmentMust(t, f.e.flushPendingRules())
 	clone, err := f.e.newQueryClone()
@@ -240,7 +240,7 @@ func TestFixedpointRuleNameSymbolsSurviveActualQueryClone(t *testing.T) {
 func TestFixedpointRuleNameSymbolsRefuseInvalidOwnersBeforePhaseChanges(t *testing.T) {
 	f := newFPRuleNameFixture(t)
 	_, head := f.predicate("typed-guard-head")
-	fragmentMust(t, f.e.AddRule(head, ""))
+	fragmentMust(t, f.e.addRuleEager(head, ""))
 	fragmentMust(t, closeASTRefs(f.m, checkFPRuleNameSnapshot(t, f.e, []usymbol.Symbol{{}})))
 	finalized, err := f.e.set.Finalize()
 	fragmentMust(t, err)
@@ -259,8 +259,8 @@ func TestFixedpointRuleNameSymbolsRefuseInvalidOwnersBeforePhaseChanges(t *testi
 		revision, live := f.e.revision, f.e.set
 		rawBefore := append([]rawRuleFormula(nil), f.e.rawRules...)
 		for _, operation := range []func() error{
-			func() error { return f.e.AddRuleWithSymbol(head, name) },
-			func() error { return f.e.AddRuleWithSymbolAndBound(head, name, 77) },
+			func() error { return f.e.addRuleWithSymbolEager(head, name) },
+			func() error { return f.e.addRuleWithSymbolAndBoundEager(head, name, 77) },
 			func() error { return f.e.UpdateRuleWithSymbol(head, name) },
 		} {
 			if err := operation(); err == nil {
@@ -317,9 +317,9 @@ func TestFixedpointRuleNameSymbolsPendingCurrentParameters(t *testing.T) {
 	names := fpRuleNameSymbols(t, m)
 	for i, name := range names {
 		if i%2 == 0 {
-			must(e.AddRuleWithSymbol(formula, name))
+			must(e.addRuleWithSymbolEager(formula, name))
 		} else {
-			must(e.AddRuleWithSymbolAndBound(formula, name, uint32(i+7)))
+			must(e.addRuleWithSymbolAndBoundEager(formula, name, uint32(i+7)))
 		}
 	}
 	readTail := func(i int) ast.ASTHandle {

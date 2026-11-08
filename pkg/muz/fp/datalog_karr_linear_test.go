@@ -109,7 +109,7 @@ func TestDatalogKarrLinearGuardPublicAndRetry(t *testing.T) {
 	must(err)
 	formula, err := m.MkImplies(body, output)
 	must(err)
-	must(e.AddRule(formula, ""))
+	must(e.addRuleEager(formula, ""))
 	status, err := e.QueryPredicate(q)
 	must(err)
 	if status != lbool.Undef {

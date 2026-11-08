@@ -61,8 +61,8 @@ func TestDDNFContextDumpUsesInnerModuleProfiles(t *testing.T) {
 			empty, err := m.Symbols.Intern("")
 			fragmentMust(t, err)
 			labels := []symbol.Symbol{empty, symbol.Numerical(7)}
-			fragmentMust(t, e.AddRuleWithSymbol(first, labels[0]))
-			fragmentMust(t, e.AddRuleWithSymbol(second, labels[1]))
+			fragmentMust(t, e.addRuleWithSymbolEager(first, labels[0]))
+			fragmentMust(t, e.addRuleWithSymbolEager(second, labels[1]))
 			boolean := f.own(m.MkBoolSort())
 			backgroundName, err := m.Symbols.Intern("outer-ddnf-background")
 			fragmentMust(t, err)

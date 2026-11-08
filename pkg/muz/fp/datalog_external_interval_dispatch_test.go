@@ -426,7 +426,7 @@ func TestExternalIntervalDatalogUnsupportedExpressionAndVariableHead(t *testing.
 	fragmentMust(t, err)
 	variableHead, err := manager.MkApp(p, []ast.ASTHandle{variable})
 	fragmentMust(t, err)
-	fragmentMust(t, engine.AddRule(variableHead, "unsupported-product-variable-rule"))
+	fragmentMust(t, engine.addRuleEager(variableHead, "unsupported-product-variable-rule"))
 	status, err = engine.QueryPredicate(p)
 	fragmentMust(t, err)
 	if status != lbool.Undef || engine.externalIntervalDatalog == nil || operationCount(callbacks.operations, ast.DatalogOpComplement) == 0 || operationCount(callbacks.operations, ast.DatalogOpUnion) == 0 {

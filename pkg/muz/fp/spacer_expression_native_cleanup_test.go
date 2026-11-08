@@ -90,7 +90,7 @@ func testSpacerExpressionCloneCoverCleanup(t *testing.T, completion string) {
 	must(engine.RegisterPredicate(predicate))
 	fact, err := manager.MkApp(predicate, nil)
 	must(err)
-	must(engine.AddRule(fact, "native-spacer-clone-cover-fact"))
+	must(engine.addRuleEager(fact, "native-spacer-clone-cover-fact"))
 
 	status, err := engine.QueryExpression(fact)
 	must(err)

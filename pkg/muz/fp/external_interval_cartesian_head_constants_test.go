@@ -99,7 +99,7 @@ func newExternalIntervalHeadConstantsFixture(t *testing.T, kinds []string, left,
 	}
 	body := own(manager.MkAndArgs(conditions))
 	formula := own(manager.MkImplies(body, application(h, head)))
-	fragmentMust(t, engine.AddRule(formula, "cartesian-head-constants-rule"))
+	fragmentMust(t, engine.addRuleEager(formula, "cartesian-head-constants-rule"))
 	return manager, engine, callbacks, p, q, h, sort
 }
 
@@ -291,7 +291,7 @@ func TestExternalIntervalDatalogCartesianHeadConstantsEmptyFirstUseSharedCache(t
 			fragmentMust(t, err)
 			formula, err := manager.MkImplies(body, head)
 			fragmentMust(t, err)
-			fragmentMust(t, engine.AddRule(formula, "head-cache-result-rule"))
+			fragmentMust(t, engine.addRuleEager(formula, "head-cache-result-rule"))
 			var createdKinds [][]string
 			installed := callbacks.callbacks()
 			assign := installed.ReduceAssign

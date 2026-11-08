@@ -53,7 +53,7 @@ func TestKarrDisjunctionRetainedRuleShape(t *testing.T) {
 	must(err)
 	formula, err := m.MkImplies(body, head)
 	must(err)
-	must(e.AddRule(formula, ""))
+	must(e.addRuleEager(formula, ""))
 	must(e.flushPendingRules())
 	n, err := e.set.Len()
 	must(err)
@@ -124,7 +124,7 @@ func TestDatalogKarrDisjunctionPublicAndCancellationRetry(t *testing.T) {
 	must(err)
 	f, err := m.MkImplies(body, output)
 	must(err)
-	must(e.AddRule(f, ""))
+	must(e.addRuleEager(f, ""))
 	status, err := e.QueryPredicate(q)
 	must(err)
 	if status != lbool.Undef {

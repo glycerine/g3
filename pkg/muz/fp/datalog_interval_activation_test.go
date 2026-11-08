@@ -63,7 +63,7 @@ func TestIntervalDatalogActivationLifecycleAndZeroArityQuery(t *testing.T) {
 	fragmentMust(t, err)
 	rule, err := m.MkImplies(px, queryApp)
 	fragmentMust(t, err)
-	fragmentMust(t, engine.AddRule(rule, "synthetic zero-arity query"))
+	fragmentMust(t, engine.addRuleEager(rule, "synthetic zero-arity query"))
 	clone, err := activation.clone(engine.set)
 	fragmentMust(t, err)
 	defer func() { fragmentMust(t, clone.close()) }()
@@ -173,7 +173,7 @@ func TestIntervalDatalogActivationDeclinesMixedSignaturesAndRejectsUnsupportedRu
 	fragmentMust(t, err)
 	rule, err := m.MkImplies(notP, qApp)
 	fragmentMust(t, err)
-	fragmentMust(t, engine.AddRule(rule, "unsupported negative tail"))
+	fragmentMust(t, engine.addRuleEager(rule, "unsupported negative tail"))
 	activation, selected, err := newIntervalDatalogActivation(m, engine.set, []ast.ASTHandle{p, q})
 	fragmentMust(t, err)
 	if !selected {

@@ -264,7 +264,7 @@ func TestFixedpointRuleValidationProofParameterPrecedence(t *testing.T) {
 			fragmentMust(t, engine.RegisterPredicate(declaration))
 			head, err := manager.MkApp(declaration, nil)
 			fragmentMust(t, err)
-			fragmentMust(t, engine.AddRule(head, "fact"))
+			fragmentMust(t, engine.addRuleEager(head, "fact"))
 			fragmentMust(t, engine.validateFragment())
 			rule, err := engine.set.Rule(0)
 			fragmentMust(t, err)

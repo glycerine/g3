@@ -58,7 +58,7 @@ func TestDatalogSparseRepresentationUsesConcreteStorage(t *testing.T) {
 	must(err)
 	rule, err := m.MkImplies(px, qx)
 	must(err)
-	must(e.AddRule(rule, "sparse-step"))
+	must(e.addRuleEager(rule, "sparse-step"))
 	for i := 0; i < 2; i++ {
 		status, err := e.QueryPredicate(q)
 		must(err)

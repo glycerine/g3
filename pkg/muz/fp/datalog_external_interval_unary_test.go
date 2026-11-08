@@ -47,7 +47,7 @@ func newExternalIntervalUnaryFixture(t *testing.T, kinds []string, tailVariables
 	body, head := application(p, tailVariables), application(q, headVariables)
 	formula, err := manager.MkImplies(body, head)
 	fragmentMust(t, err)
-	fragmentMust(t, engine.AddRule(formula, "external-interval-unary"))
+	fragmentMust(t, engine.addRuleEager(formula, "external-interval-unary"))
 	return manager, engine, callbacks, p, q
 }
 

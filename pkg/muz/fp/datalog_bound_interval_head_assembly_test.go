@@ -69,7 +69,7 @@ func TestBoundIntervalDatalogHeadAssemblyAndUpdates(t *testing.T) {
 			must(err)
 			rule, err := m.MkImplies(pTail, qHead)
 			must(err)
-			must(e.AddRule(rule, "bound/interval constant repeated and head-only columns"))
+			must(e.addRuleEager(rule, "bound/interval constant repeated and head-only columns"))
 
 			values := func(items ...int64) []*big.Rat {
 				result := make([]*big.Rat, len(items))

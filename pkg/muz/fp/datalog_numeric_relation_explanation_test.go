@@ -42,13 +42,13 @@ func TestDatalogIntervalRelationExplanationCompilesNumericConstantsAndVariables(
 	}
 	x, err := m.MkVar(0, integer)
 	must(err)
-	must(e.AddRule(app(p, number("3")), "numeric-explanation-fact"))
+	must(e.addRuleEager(app(p, number("3")), "numeric-explanation-fact"))
 	implication, err := m.MkImplies(app(p, x), app(q, x))
 	must(err)
-	must(e.AddRule(implication, "numeric-explanation-step"))
+	must(e.addRuleEager(implication, "numeric-explanation-step"))
 	cycle, err := m.MkImplies(app(q, x), app(q, x))
 	must(err)
-	must(e.AddRule(cycle, "numeric-explanation-cycle"))
+	must(e.addRuleEager(cycle, "numeric-explanation-cycle"))
 
 	query := app(q, number("3"))
 	status, err := e.QueryExpression(query)

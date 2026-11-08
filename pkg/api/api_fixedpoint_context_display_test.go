@@ -26,6 +26,11 @@ func TestSMTContextFixedpointSourceDisplayAndExplicitReplay(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, c.AddFixedpointFact(p, nil))
 	astTestMust(t, c.AddFixedpointRule(step, "context-step"))
+	// AddRule only queues (dl_context::add_rule); the first reader builds and
+	// keeps the Go eager rule view, so prime it before counting references.
+	if _, err := c.FixedpointSMT2(qa, pa); err != nil {
+		t.Fatal(err)
+	}
 	before := m.Stats().LiveReferences
 	source, err := c.FixedpointSMT2(qa, pa)
 	astTestMust(t, err)

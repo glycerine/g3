@@ -61,7 +61,7 @@ func TestDualityScaleRealQueries(t *testing.T) {
 				fragmentMust(t, e.RegisterPredicate(predicate))
 				fact := own(m.MkApp(predicate, []ast.ASTHandle{one}))
 				absent := own(m.MkApp(predicate, []ast.ASTHandle{two}))
-				fragmentMust(t, e.AddRule(fact, "scale-fact"))
+				fragmentMust(t, e.addRuleEager(fact, "scale-fact"))
 				var firstProof ast.ASTRef
 				var safeModel *model.Model
 				defer func() {

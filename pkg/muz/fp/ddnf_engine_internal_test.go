@@ -66,7 +66,7 @@ func TestDDNFRegistryPersistsAcrossQueryClones(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = engine.AddRule(rule, "ddnf-persistent-rule"); err != nil {
+	if err = engine.addRuleEager(rule, "ddnf-persistent-rule"); err != nil {
 		t.Fatal(err)
 	}
 	status, err := engine.QueryPredicate(predicate)

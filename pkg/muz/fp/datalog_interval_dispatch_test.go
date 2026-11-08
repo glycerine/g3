@@ -48,7 +48,7 @@ func TestDatalogConfiguredIntervalFactsLatePredicatesAndExpressionOwners(t *test
 	must(err)
 	rule, err := m.MkImplies(px, qx)
 	must(err)
-	must(e.AddRule(rule, "interval-step"))
+	must(e.addRuleEager(rule, "interval-step"))
 	// Favourite selection belongs to the engine lifetime, not later params.
 	must(e.globals.SourceSetName("fixedpoint.datalog.default_relation", "pentagon"))
 	must(e.SetQueryParameters(nil))
@@ -123,7 +123,7 @@ func TestDatalogConfiguredIntervalNullaryAndUnsupportedFragment(t *testing.T) {
 	must(err)
 	rule, err := m.MkImplies(neg, f.applications["q"])
 	must(err)
-	must(e.AddRule(rule, "unsupported-negative"))
+	must(e.addRuleEager(rule, "unsupported-negative"))
 	_, err = e.QueryPredicate(f.declarations["q"])
 	if !errors.Is(err, ErrIntervalDatalogFragment) {
 		t.Fatal("selected unsupported rule silently fell back", err)

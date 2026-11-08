@@ -26,6 +26,10 @@ func TestAPIFixedpointPendingDisplayPreservesBindersAcrossFlushAndScopes(t *test
 	astTestMust(t, options.Close())
 	astTestMust(t, f.fp.AddRule(makeRule("source-first"), "first"))
 	check := func(want, absent string) string {
+		// AddRule only queues (dl_context::add_rule); the first reader builds and
+		// keeps the Go eager rule view, so prime it before counting references.
+		_, err := f.fp.SMT2()
+		astTestMust(t, err)
 		before := f.m.Stats().LiveReferences
 		text, err := f.fp.SMT2()
 		astTestMust(t, err)

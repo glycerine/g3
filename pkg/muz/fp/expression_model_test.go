@@ -61,7 +61,7 @@ func TestExpressionModelOriginalClausesAndLifecycle(t *testing.T) {
 			step := forall(own(m.MkImplies(px, next)))
 			originals := []ast.ASTHandle{pzero, step}
 			for _, rule := range originals {
-				fragmentMust(t, e.AddRule(rule, ""))
+				fragmentMust(t, e.addRuleEager(rule, ""))
 			}
 			status, err := e.QueryExpression(pzero)
 			fragmentMust(t, err)
@@ -87,7 +87,7 @@ func TestExpressionModelOriginalClausesAndLifecycle(t *testing.T) {
 				md, err := e.ExpressionModel()
 				fragmentMust(t, err)
 				if repeat == 1 {
-					fragmentMust(t, e.AddRule(pzero, "later"))
+					fragmentMust(t, e.addRuleEager(pzero, "later"))
 					if stale, err := e.ExpressionModel(); err == nil || stale != nil {
 						t.Fatal("stale model", stale, err)
 					}

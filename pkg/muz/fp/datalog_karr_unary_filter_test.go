@@ -68,7 +68,7 @@ func TestDatalogKarrUnaryConstantsRepeatedColumnsAndSibling(t *testing.T) {
 			must(err)
 			rule, err := m.MkImplies(body, head)
 			must(err)
-			must(e.AddRule(rule, "filtered"))
+			must(e.addRuleEager(rule, "filtered"))
 			vars := make([]ast.ASTHandle, 5)
 			for i := range vars {
 				vars[i], err = m.MkVar(uint32(i), integer)
@@ -80,7 +80,7 @@ func TestDatalogKarrUnaryConstantsRepeatedColumnsAndSibling(t *testing.T) {
 			must(err)
 			copyRule, err := m.MkImplies(copyBody, copyHead)
 			must(err)
-			must(e.AddRule(copyRule, "sibling"))
+			must(e.addRuleEager(copyRule, "sibling"))
 			must(e.flushPendingRules())
 			// Verify the compiled columns, including the LAST occurrence of x.
 			owner, err := newKarrDatalogActivation(m, e.set, e.predicateOrder)
@@ -209,7 +209,7 @@ func TestKarrUnaryEmptySourceSkipsFilters(t *testing.T) {
 	must(err)
 	rule, err := m.MkImplies(body, head)
 	must(err)
-	must(e.AddRule(rule, ""))
+	must(e.addRuleEager(rule, ""))
 	for i := 0; i < 2; i++ {
 		status, err := e.QueryPredicate(q)
 		must(err)
@@ -254,7 +254,7 @@ func TestKarrUnaryConstantFilterMidCancellationAndOverflowRetry(t *testing.T) {
 	must(err)
 	rule, err := m.MkImplies(body, head)
 	must(err)
-	must(e.AddRule(rule, ""))
+	must(e.addRuleEager(rule, ""))
 	must(e.flushPendingRules())
 	a, err := newKarrDatalogActivation(m, e.set, []ast.ASTHandle{p, q})
 	must(err)

@@ -77,7 +77,7 @@ func testDatalogInterpretedEqualityPrecedesFiniteCompilation(t *testing.T, withS
 	must(err)
 	formula, err := m.MkImplies(body, head)
 	must(err)
-	must(e.AddRule(formula, "interp-tail-rule"))
+	must(e.addRuleEager(formula, "interp-tail-rule"))
 	original, err := e.set.Rule(0)
 	must(err)
 	defer func() { must(original.Close()) }()

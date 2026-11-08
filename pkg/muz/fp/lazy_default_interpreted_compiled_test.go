@@ -51,7 +51,7 @@ func TestDatalogDefaultLazySparseCompiledInterpretedProject(t *testing.T) {
 	must(err)
 	rule, err := manager.MkImplies(body, head)
 	must(err)
-	must(e.AddRule(rule, "default-lazy-interpreted-project"))
+	must(e.addRuleEager(rule, "default-lazy-interpreted-project"))
 	status, err := e.QueryPredicate(result)
 	must(err)
 	if status != lbool.True {

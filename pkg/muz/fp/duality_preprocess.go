@@ -45,7 +45,7 @@ func (e *PropositionalEngine) prepareDualityTransformedQuery(query ast.ASTHandle
 	if err != nil {
 		return nil, err
 	}
-	if err := clone.AddRule(implication, ""); err != nil {
+	if err := clone.addRuleNow(implication, ""); err != nil {
 		return nil, err
 	}
 	prepared, err := clone.preprocessHornRulesWithQueryRule(declaration, nil, true, true, false, true)

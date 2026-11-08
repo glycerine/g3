@@ -32,7 +32,7 @@ func TestPendingClosedAnnotationsNamedUpdateAndScope(t *testing.T) {
 		Body: f.own(m.MkImplies(px, rx)), Weight: 7, QID: qid, SkolemID: skid,
 		Patterns: []ast.ASTHandle{pattern},
 	}))
-	fragmentMust(t, e.AddRuleWithBound(original, "phase-annotation", 29))
+	fragmentMust(t, e.addRuleWithBoundEager(original, "phase-annotation", 29))
 	read := func() []ast.ASTHandle {
 		t.Helper()
 		refs, err := e.RuleFormulas()
@@ -130,10 +130,10 @@ func TestPendingClosedAnnotationDisplayProfiles(t *testing.T) {
 	qid, err := m.Symbols.Intern("phase-profile-qid")
 	fragmentMust(t, err)
 	original := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{binder}, Body: head, Weight: 7, QID: qid, Patterns: []ast.ASTHandle{pattern}}))
-	fragmentMust(t, e.AddRule(original, "phase-profile-rule"))
+	fragmentMust(t, e.addRuleEager(original, "phase-profile-rule"))
 	_, otherHead := f.predicate("phase-profile-Q", x)
 	noPattern := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{binder}, Body: otherHead, NoPatterns: []ast.ASTHandle{otherHead}}))
-	fragmentMust(t, e.AddRule(noPattern, "phase-no-pattern-rule"))
+	fragmentMust(t, e.addRuleEager(noPattern, "phase-no-pattern-rule"))
 	params := e.params.EmptyValue()
 	key := "print_with_variable_declarations"
 	fragmentMust(t, e.params.SetBoolName(&params, &key, false))

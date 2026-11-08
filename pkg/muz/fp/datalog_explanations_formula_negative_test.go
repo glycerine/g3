@@ -83,7 +83,7 @@ func TestDatalogRelationExplanationFormulaCheckExplicitNegativeBoundary(t *testi
 			rule, err := m.MkImplies(body, app(q, x))
 			must(err)
 			proofName := "formula-negative-proof-" + test.name
-			must(e.AddRule(rule, proofName))
+			must(e.addRuleEager(rule, proofName))
 
 			positiveValue := falsehood
 			if test.nullary {

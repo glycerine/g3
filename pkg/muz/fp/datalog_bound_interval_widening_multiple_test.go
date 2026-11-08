@@ -31,11 +31,11 @@ func TestDatalogBoundIntervalWideningMultiplePerRuleDelta(t *testing.T) {
 				head, tail := f.app(h, vars...), f.app(e, vars...)
 				ordered := f.hold(f.m.MkArithmeticLE(x, y))
 				body := f.hold(f.m.MkAnd(tail, ordered))
-				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(body, head)), "initialize-weak-bound"))
+				fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(body, head)), "initialize-weak-bound"))
 				intervalHead := f.app(h, x, y, w, z)
 				boundHead := f.app(h, y, x, z, w)
-				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(head, intervalHead)), "swap-interval-columns"))
-				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(head, boundHead)), "swap-bound-columns"))
+				fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(head, intervalHead)), "swap-interval-columns"))
+				fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(head, boundHead)), "swap-bound-columns"))
 				fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
 				if allOrNothing {
 					fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.all_or_nothing_deltas", "true"))
@@ -88,7 +88,7 @@ func TestDatalogBoundIntervalWideningMultipleShareInputSnapshot(t *testing.T) {
 				bodies[0], bodies[1] = bodies[1], bodies[0]
 			}
 			for i, body := range bodies {
-				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(body, head)), []string{"first-swap", "second-swap"}[i]))
+				fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(body, head)), []string{"first-swap", "second-swap"}[i]))
 			}
 			fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
 			answer := boundIntervalWideningAnswer(t, f, h)
@@ -121,9 +121,9 @@ func TestDatalogBoundIntervalWideningMultipleAllOrNothingReplaysInitialization(t
 			x := f.hold(f.m.MkVar(0, f.integer))
 			ex, hx := f.app(e, x), f.app(h, x)
 			strict := f.hold(f.m.MkAnd(ex, f.hold(f.m.MkArithmeticLT(x, ten))))
-			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(strict, hx)), "strict-init-first"))
-			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(ex, hx)), "closed-init-second"))
-			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(hx, hx)), "recursive-real-identity"))
+			fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(strict, hx)), "strict-init-first"))
+			fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(ex, hx)), "closed-init-second"))
+			fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(hx, hx)), "recursive-real-identity"))
 			fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
 			if allOrNothing {
 				fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.all_or_nothing_deltas", "true"))
@@ -160,11 +160,11 @@ func TestDatalogBoundIntervalWideningMultipleAllOrNothingReplaysInitialization(t
 func TestDatalogBoundIntervalWideningMultipleReplaysGroundRule(t *testing.T) {
 	f := newBoundIntervalPublicFixture(t, []string{"bound_relation", "interval_relation"})
 	h := f.declare("ground-replay-H", 1)
-	fragmentMust(t, f.e.AddRule(f.app(h, f.numeral(0)), "ground-seed-rule"))
+	fragmentMust(t, f.e.addRuleEager(f.app(h, f.numeral(0)), "ground-seed-rule"))
 	x := f.hold(f.m.MkVar(0, f.integer))
 	tail := f.app(h, x)
 	for i, value := range []int{10, 20} {
-		fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(tail, f.app(h, f.numeral(value)))), []string{"first-constant", "second-constant"}[i]))
+		fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(tail, f.app(h, f.numeral(value)))), []string{"first-constant", "second-constant"}[i]))
 	}
 	fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
 	fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.all_or_nothing_deltas", "true"))

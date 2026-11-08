@@ -83,7 +83,7 @@ func newExternalIntervalUnarySelectFixture(t *testing.T, kinds []string, tail []
 	fragmentMust(t, err)
 	formula, err := manager.MkImplies(body, conclusion)
 	fragmentMust(t, err)
-	fragmentMust(t, engine.AddRule(formula, "external-interval-select-rule"))
+	fragmentMust(t, engine.addRuleEager(formula, "external-interval-select-rule"))
 	return manager, engine, callbacks, p, q, headSorts
 }
 

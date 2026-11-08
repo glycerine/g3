@@ -109,7 +109,7 @@ func (f *publicUDocProductFixture) addRule(reverse bool) {
 	body := f.pin(f.m.MkAnd(left, right))
 	head := f.app(f.head, f.x, f.b)
 	rule := f.pin(f.m.MkImplies(body, head))
-	fragmentMust(f.t, f.e.AddRule(rule, "public-doc-table-product"))
+	fragmentMust(f.t, f.e.addRuleEager(rule, "public-doc-table-product"))
 }
 
 func (f *publicUDocProductFixture) checkFormula(answer ast.ASTRef, values []ast.ASTHandle, want bool) {

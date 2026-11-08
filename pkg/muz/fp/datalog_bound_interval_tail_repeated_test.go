@@ -79,7 +79,7 @@ func TestBoundIntervalDatalogRepeatedTailColumnsAndUpdates(t *testing.T) {
 			addRule := func(head, body ast.ASTHandle, name string) {
 				formula, cause := m.MkImplies(body, head)
 				must(cause)
-				must(e.AddRule(formula, name))
+				must(e.addRuleEager(formula, name))
 			}
 			addRule(app(q, x), app(p, x, x), "repeated tail intersection")
 			mixedTail := app(mixed, x, numeral(7), x, y, x)

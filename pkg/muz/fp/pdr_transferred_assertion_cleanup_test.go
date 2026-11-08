@@ -88,7 +88,7 @@ func TestPDRTransferredContextAssertionCleanupFailureAndRetry(t *testing.T) {
 	must(engine.RegisterPredicate(predicate))
 	fact, err := manager.MkApp(predicate, nil)
 	must(err)
-	must(engine.AddRule(fact, "native-transferred-assertion-fact"))
+	must(engine.addRuleEager(fact, "native-transferred-assertion-fact"))
 
 	_, err = engine.NumLevels(predicate)
 	must(err)

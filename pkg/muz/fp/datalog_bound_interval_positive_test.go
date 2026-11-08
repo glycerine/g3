@@ -62,7 +62,7 @@ func TestBoundIntervalDatalogPositiveFilterProjectConsumer(t *testing.T) {
 	must(err)
 	rule, err := m.MkImplies(body, head)
 	must(err)
-	must(e.AddRule(rule, "bound-interval-filter-project"))
+	must(e.addRuleEager(rule, "bound-interval-filter-project"))
 	status, err := activation.query([]ast.ASTHandle{q})
 	must(err)
 	if status != lbool.Undef {
@@ -139,7 +139,7 @@ func TestBoundIntervalDatalogTwoPositiveJoinFilterProjectAndRepeat(t *testing.T)
 	must(err)
 	rule, err := m.MkImplies(body, head)
 	must(err)
-	must(e.AddRule(rule, "bound-interval-two-tail-filter-project"))
+	must(e.addRuleEager(rule, "bound-interval-two-tail-filter-project"))
 
 	check := func(maxX int64) {
 		t.Helper()
@@ -219,7 +219,7 @@ func TestBoundIntervalDatalogTwoPositiveDisjointAndThreeTailBoundary(t *testing.
 	must(err)
 	rule, err := m.MkImplies(body, app(r))
 	must(err)
-	must(e.AddRule(rule, "bound-interval-two-tail-disjoint"))
+	must(e.addRuleEager(rule, "bound-interval-two-tail-disjoint"))
 	status, err := activation.query([]ast.ASTHandle{r})
 	must(err)
 	// The join itself is empty, but C++ mk_project rebuilds a full result
@@ -231,7 +231,7 @@ func TestBoundIntervalDatalogTwoPositiveDisjointAndThreeTailBoundary(t *testing.
 	must(err)
 	threeRule, err := m.MkImplies(threeBody, app(s))
 	must(err)
-	must(e.AddRule(threeRule, "bound-interval-three-tail-unsupported"))
+	must(e.addRuleEager(threeRule, "bound-interval-three-tail-unsupported"))
 	if _, cause := activation.query([]ast.ASTHandle{s}); !errors.Is(cause, ErrBoundIntervalDatalogFragment) {
 		t.Fatal("three-positive-tail rule was not rejected", cause)
 	}

@@ -60,6 +60,10 @@ func TestFixedpointReplayPreservesPresentTextualRuleSymbols(t *testing.T) {
 		replaySymbolMust(t, err)
 		replaySymbolMust(t, context.AddFixedpointRuleWithSymbol(formula, labels[i]))
 	}
+	// AddRule only queues (dl_context::add_rule); the first reader builds and
+	// keeps the Go eager rule view, so prime it before counting references.
+	var primed bytes.Buffer
+	replaySymbolMust(t, context.WriteFixedpointReplaySMT2(&primed))
 	before := manager.Stats().LiveReferences
 	var out bytes.Buffer
 	replaySymbolMust(t, context.WriteFixedpointReplaySMT2(&out))

@@ -48,7 +48,7 @@ func TestPendingOpenDisplayPublishesPartialMultiClauseInputOnFailure(t *testing.
 			body := own(m.MkOrArray(tails))
 			implication := own(m.MkImplies(body, head))
 			formula := implication
-			fragmentMust(t, e.AddRule(formula, "partial-open"))
+			fragmentMust(t, e.addRuleEager(formula, "partial-open"))
 			fragmentMust(t, globals.SourceSetName("fixedpoint.xform.fix_unbound_vars", "true"))
 			fragmentMust(t, globals.SourceSetName("fixedpoint.generate_proof_trace", fmt.Sprint(proof)))
 			w := &pendingPartialFailureWriter{set: e.set, manager: m}

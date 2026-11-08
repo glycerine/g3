@@ -89,7 +89,7 @@ func (f *contextScopeNativeFixture) addRule(name string) {
 	d, err := f.manager.GetDecl(h)
 	f.must(err)
 	f.must(f.engine.RegisterPredicate(d))
-	f.must(f.engine.AddRule(h, name))
+	f.must(f.engine.addRuleEager(h, name))
 }
 
 func TestFixedpointPopRefusesNativeInvocationBeforeMutation(t *testing.T) {

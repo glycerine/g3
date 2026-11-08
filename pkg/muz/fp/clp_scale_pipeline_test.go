@@ -55,7 +55,7 @@ func TestCLPScaleQueryAnswerAndDefaultModel(t *testing.T) {
 			}
 			p := decl("scale-clp-reachable")
 			q := decl("scale-clp-unreachable")
-			fragmentMust(t, e.AddRule(own(m.MkApp(p, []ast.ASTHandle{one})), "scale-clp-fact"))
+			fragmentMust(t, e.addRuleEager(own(m.MkApp(p, []ast.ASTHandle{one})), "scale-clp-fact"))
 			for _, query := range []struct {
 				decl ast.ASTHandle
 				want lbool.LBool

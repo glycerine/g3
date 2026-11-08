@@ -83,11 +83,11 @@ func newContextDisplayCleanupFixture(t *testing.T) *contextDisplayCleanupFixture
 	}
 	p, q, r := declare("display-P"), declare("display-Q"), declare("display-R")
 	app := func(d, v ast.ASTHandle) ast.ASTHandle { return f.own(f.m.MkApp(d, []ast.ASTHandle{v})) }
-	fragmentMust(t, f.e.AddRule(app(p, truth), "closed-prefix"))
+	fragmentMust(t, f.e.addRuleEager(app(p, truth), "closed-prefix"))
 	f.e.flushRawDisplayRules()
-	fragmentMust(t, f.e.AddRule(f.own(f.m.MkImplies(app(p, x), app(q, x))), "open-output"))
+	fragmentMust(t, f.e.addRuleEager(f.own(f.m.MkImplies(app(p, x), app(q, x))), "open-output"))
 	fragmentMust(t, f.e.set.SetOutputPredicate(q))
-	fragmentMust(t, f.e.AddRule(app(r, truth), "closed-pending"))
+	fragmentMust(t, f.e.addRuleEager(app(r, truth), "closed-pending"))
 	// Stabilize source open-rule promotion before capturing exact ownership
 	// counts. A closed pending formula still forces a display-only snapshot.
 	fragmentMust(t, f.e.normalizePendingOpenRules())

@@ -32,7 +32,7 @@ func TestConfiguredExpressionQueryDispatchBeforeFirstQuery(t *testing.T) {
 				must(e.SetQueryParameters(&local))
 				must(e.params.Del(&local))
 			}
-			must(e.AddRule(f.applications["p"], "configured-expression-fact"))
+			must(e.addRuleEager(f.applications["p"], "configured-expression-fact"))
 			var status lbool.LBool
 			var err error
 			if tc.fromLevel {
@@ -87,7 +87,7 @@ func TestExpressionQueryAutoSelectsNumericProgram(t *testing.T) {
 	must(e.RegisterPredicate(p))
 	fact, err := m.MkApp(p, []ast.ASTHandle{zero})
 	must(err)
-	must(e.AddRule(fact, "numeric-fact"))
+	must(e.addRuleEager(fact, "numeric-fact"))
 	status, err := e.QueryExpression(fact)
 	must(err)
 	if status != lbool.True {

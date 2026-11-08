@@ -40,10 +40,10 @@ func TestSpacerExpressionQueryTraceNamesFollowInlining(t *testing.T) {
 					return app
 				}
 				p, q := declare("trace-name-p"), declare("trace-name-q")
-				fragmentMust(t, e.AddRule(p, "fact"))
+				fragmentMust(t, e.addRuleEager(p, "fact"))
 				step, err := m.MkImplies(p, q)
 				fragmentMust(t, err)
-				fragmentMust(t, e.AddRule(step, "step"))
+				fragmentMust(t, e.addRuleEager(step, "step"))
 				status, err := e.QueryExpression(q)
 				fragmentMust(t, err)
 				if status != lbool.True {

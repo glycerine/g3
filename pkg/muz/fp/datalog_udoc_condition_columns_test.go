@@ -57,7 +57,7 @@ func TestDatalogUDocConditionOnlyFiniteColumns(t *testing.T) {
 	add := func(body, head ast.ASTHandle, name string) {
 		r, cause := m.MkImplies(body, head)
 		must(cause)
-		must(e.AddRule(r, name))
+		must(e.addRuleEager(r, name))
 	}
 	add(body, app(projected, x), "project-witness")
 	add(body, app(head, witness, x), "keep-witness-permutation")

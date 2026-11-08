@@ -50,8 +50,8 @@ func TestBMCPreprocessingStillSlicesUnusedColumns(t *testing.T) {
 	forall := func(body ast.ASTHandle) ast.ASTHandle {
 		return own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
 	}
-	fragmentMust(t, e.AddRule(forall(px), "base"))
-	fragmentMust(t, e.AddRule(forall(own(m.MkImplies(px, goalExpr))), "goal"))
+	fragmentMust(t, e.addRuleEager(forall(px), "base"))
+	fragmentMust(t, e.addRuleEager(forall(own(m.MkImplies(px, goalExpr))), "goal"))
 	prepared, err := e.preprocessHornRulesWithStages(goal, nil, true, true, false, true, false)
 	fragmentMust(t, err)
 	defer func() { fragmentMust(t, prepared.Close()) }()

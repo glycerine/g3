@@ -64,7 +64,7 @@ func TestNamedRuleEnumerationReleasesFailedPrefix(t *testing.T) {
 			f := newDirectFactFixture(t)
 			e, m := f.engine, f.manager
 			for i := 0; i < 200; i++ {
-				fragmentMust(t, e.AddRule(f.applications["p"], fmt.Sprintf("enumeration-%d", i)))
+				fragmentMust(t, e.addRuleEager(f.applications["p"], fmt.Sprintf("enumeration-%d", i)))
 			}
 			baseline := m.Stats().LiveReferences
 			m.Budget().FailAfter(allowance)

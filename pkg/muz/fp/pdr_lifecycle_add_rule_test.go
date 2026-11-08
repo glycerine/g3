@@ -20,7 +20,7 @@ func TestPDREngineResetsContextForGeneralRuleAddition(t *testing.T) {
 	if err = transformer.EnsureLevel(2); err != nil {
 		t.Fatal(err)
 	}
-	if err = fixture.engine.AddRule(fixture.applications["u"], "pdr-lifecycle-extra"); err != nil {
+	if err = fixture.engine.addRuleEager(fixture.applications["u"], "pdr-lifecycle-extra"); err != nil {
 		t.Fatal(err)
 	}
 	status, err = fixture.engine.QueryPredicate(fixture.declarations["q"])

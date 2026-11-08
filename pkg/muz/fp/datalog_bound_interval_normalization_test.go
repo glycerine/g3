@@ -47,7 +47,7 @@ func TestDatalogBoundIntervalNormalizesThreePositiveTails(t *testing.T) {
 					x, y := f.hold(f.m.MkVar(0, f.integer)), f.hold(f.m.MkVar(1, f.integer))
 					body := f.hold(f.m.MkAnd3(f.app(p, x, x), f.app(r, x, y), f.app(s, y, f.numeral(7))))
 					head := f.app(q, x, y)
-					fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(body, head)), "normalize-three-positive"))
+					fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(body, head)), "normalize-three-positive"))
 
 					originalSet := f.e.set
 					originalRule, err := originalSet.Rule(0)
@@ -196,7 +196,7 @@ func TestDatalogBoundIntervalNormalizesHelpersWithOriginKinds(t *testing.T) {
 	f.fact(s, 15, 7)
 	x, y := f.hold(f.m.MkVar(0, f.integer)), f.hold(f.m.MkVar(1, f.integer))
 	body := f.hold(f.m.MkAnd3(f.app(p, x, x), f.app(r, x, y), f.app(s, y, f.numeral(7))))
-	fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(body, f.app(q, x, y))), "mixed-kind-origins"))
+	fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(body, f.app(q, x, y))), "mixed-kind-origins"))
 	source := f.e.boundIntervalDatalog
 	scope, err := prepareBoundIntervalNormalization(source, []ast.ASTHandle{q})
 	fragmentMust(t, err)
@@ -282,7 +282,7 @@ func TestDatalogBoundIntervalNormalizesRecursiveThreePositiveTails(t *testing.T)
 				}
 				x := f.hold(f.m.MkVar(0, f.integer))
 				body := f.hold(f.m.MkAnd3(f.app(h, x), f.app(p, x), f.app(q, x)))
-				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(body, f.app(h, x))), "normalized-recursive-identity"))
+				fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(body, f.app(h, x))), "normalized-recursive-identity"))
 				for run := 0; run < 2; run++ {
 					answer := boundIntervalWideningAnswer(t, f, h)
 					f.checkFormula(answer, []int{7}, true)
@@ -309,7 +309,7 @@ func TestDatalogBoundIntervalNormalizesOnlyPositiveLongBodies(t *testing.T) {
 	x := f.hold(f.m.MkVar(0, f.integer))
 	negative := f.hold(f.m.MkNot(f.app(n, x)))
 	body := f.hold(f.m.MkAndArgs([]ast.ASTHandle{f.app(p, x), f.app(q, x), f.app(r, x), negative}))
-	fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(body, f.app(h, x))), "normalized-negative-boundary"))
+	fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(body, f.app(h, x))), "normalized-negative-boundary"))
 	source, owner := f.e.set, f.e.boundIntervalDatalog
 	entries := make(map[ast.ASTHandle]*boundIntervalDatalogEntry, len(owner.entries))
 	for declaration, entry := range owner.entries {

@@ -23,7 +23,7 @@ func TestDualityQueryReportFollowsSourceVerbosityAndStreamState(t *testing.T) {
 	e, m := f.engine, f.manager
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
 	must(e.SelectEngine("duality"))
-	must(e.AddRule(f.applications["p"], "fact"))
+	must(e.addRuleEager(f.applications["p"], "fact"))
 	oldLevel, err := diagnostic.ProcessVerbosityLevel()
 	must(err)
 	oldStream, err := diagnostic.BorrowProcessVerboseStream()

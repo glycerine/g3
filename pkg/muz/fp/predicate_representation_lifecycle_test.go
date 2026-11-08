@@ -93,7 +93,7 @@ func TestPredicateRepresentationNonDatalogInfiniteDomain(t *testing.T) {
 	must(e.SetPredicateRepresentation(d, []string{"not-a-datalog-plugin"}))
 	fact, err := m.MkApp(d, []ast.ASTHandle{zero})
 	must(err)
-	must(e.AddRule(fact, "fact"))
+	must(e.addRuleEager(fact, "fact"))
 	status, err := e.QueryPredicate(d)
 	must(err)
 	if status != lbool.True {
@@ -104,7 +104,7 @@ func TestPredicateRepresentationNonDatalogInfiniteDomain(t *testing.T) {
 	if e.revision != revision {
 		t.Fatal("ignored representation invalidated solved program")
 	}
-	must(e.AddRule(f.applications["q"], "new-fact"))
+	must(e.addRuleEager(f.applications["q"], "new-fact"))
 	must(e.SetPredicateRepresentation(d, []string{"ignored-after-rule-update"}))
 }
 

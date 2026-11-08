@@ -34,7 +34,7 @@ func TestDatalogBoundIntervalWideningStopsOnEmptyProductDelta(t *testing.T) {
 				f.fact(h, 0, 10)
 				x, y := f.hold(f.m.MkVar(0, f.integer)), f.hold(f.m.MkVar(1, f.integer))
 				rule := f.hold(f.m.MkImplies(f.app(h, x, y), f.app(h, y, x)))
-				fragmentMust(t, f.e.AddRule(rule, "swap-product"))
+				fragmentMust(t, f.e.addRuleEager(rule, "swap-product"))
 				fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
 				if allOrNothing {
 					fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.all_or_nothing_deltas", "true"))
@@ -99,7 +99,7 @@ func TestDatalogBoundIntervalWideningInitializesWithOrdinaryUnions(t *testing.T)
 		head ast.ASTHandle
 		name string
 	}{{h, h, "recursive-identity"}, {q, h, "upper-init"}, {p, nonrecursive, "lower-acyclic"}, {p, h, "lower-init"}, {q, nonrecursive, "upper-acyclic"}} {
-		fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(f.app(edge.tail, x), f.app(edge.head, x))), edge.name))
+		fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(f.app(edge.tail, x), f.app(edge.head, x))), edge.name))
 	}
 	fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
 	for _, declaration := range []ast.ASTHandle{h, nonrecursive} {
@@ -128,7 +128,7 @@ func TestDatalogBoundIntervalWideningParameterPrecedence(t *testing.T) {
 			h := f.declare("widen-parameter-H", 1)
 			f.fact(h, 0)
 			x := f.hold(f.m.MkVar(0, f.integer))
-			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(f.app(h, x), f.app(h, f.numeral(10)))), "increase-upper"))
+			fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(f.app(h, x), f.app(h, f.numeral(10)))), "increase-upper"))
 			if test.module != "" {
 				fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", test.module))
 			}
@@ -165,14 +165,14 @@ func TestDatalogBoundIntervalWideningMultiHeadIdentityComponents(t *testing.T) {
 					body = f.hold(f.m.MkAnd(body, f.app(q, x)))
 					f.fact(q, 0)
 				}
-				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(body, f.app(q, x))), "recursive-first"))
+				fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(body, f.app(q, x))), "recursive-first"))
 				tail := f.app(q, x)
 				if shape == "three-heads" {
 					r := f.declare("widen-boundary-R", 1)
-					fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(tail, f.app(r, x))), "recursive-middle"))
+					fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(tail, f.app(r, x))), "recursive-middle"))
 					tail = f.app(r, x)
 				}
-				fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(tail, f.app(h, x))), "recursive-last"))
+				fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(tail, f.app(h, x))), "recursive-last"))
 				if widen {
 					fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
 				}
@@ -197,8 +197,8 @@ func TestDatalogBoundIntervalWideningRecursiveTailsWithConstantHeads(t *testing.
 			f.fact(h, 0)
 			x, y := f.hold(f.m.MkVar(0, f.integer)), f.hold(f.m.MkVar(1, f.integer))
 			body := f.hold(f.m.MkAnd(f.app(h, x), f.app(h, y)))
-			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(body, f.app(h, f.numeral(10)))), "recursive-first"))
-			fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(f.app(h, x), f.app(h, f.numeral(20)))), "recursive-second"))
+			fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(body, f.app(h, f.numeral(10)))), "recursive-first"))
+			fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(f.app(h, x), f.app(h, f.numeral(20)))), "recursive-second"))
 			if widen {
 				fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.compile_with_widening", "true"))
 			}

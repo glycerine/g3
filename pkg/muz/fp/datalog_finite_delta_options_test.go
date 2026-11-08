@@ -70,7 +70,7 @@ func TestDatalogFiniteAllOrNothingDeltaOption(t *testing.T) {
 			must(err)
 			rule, err := m.MkImplies(body, application(0, 2))
 			must(err)
-			must(e.AddRule(rule, "finite-delta-transitive"))
+			must(e.addRuleEager(rule, "finite-delta-transitive"))
 			for query := 0; query < 2; query++ {
 				status, err := e.QueryPredicate(predicate)
 				must(err)

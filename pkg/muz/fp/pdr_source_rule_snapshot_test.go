@@ -32,7 +32,7 @@ func TestPDRCoveredAdditionUsesOriginalRuleSnapshot(t *testing.T) {
 	must(err)
 	edge, err := m.MkImplies(body, f.applications["q"])
 	must(err)
-	must(e.AddRule(edge, "covered-added-edge"))
+	must(e.addRuleEager(edge, "covered-added-edge"))
 	status, err = e.QueryPredicate(query)
 	must(err)
 	if status != lbool.True || e.pdr != context {
@@ -47,7 +47,7 @@ func TestPDRCoveredAdditionUsesOriginalRuleSnapshot(t *testing.T) {
 	if count != 3 {
 		t.Fatal("source snapshot lost the added original rule", count)
 	}
-	must(e.AddRule(f.applications["u"], "uncovered-added-fact"))
+	must(e.addRuleEager(f.applications["u"], "uncovered-added-fact"))
 	status, err = e.QueryPredicate(query)
 	must(err)
 	if status != lbool.True || e.pdr != context {
@@ -90,7 +90,7 @@ func TestPDRCoveredArithmeticAdditionResetsRawCover(t *testing.T) {
 	must(err)
 	fact, err := m.MkApp(query, []ast.ASTHandle{zero})
 	must(err)
-	must(e.AddRule(fact, "zero-fact"))
+	must(e.addRuleEager(fact, "zero-fact"))
 	parameters, err := e.params.NewValue()
 	must(err)
 	defer func() { must(e.params.Del(&parameters)) }()
@@ -119,7 +119,7 @@ func TestPDRCoveredArithmeticAdditionResetsRawCover(t *testing.T) {
 	}
 	edge, err := m.MkImplies(f.applications["p"], fact)
 	must(err)
-	must(e.AddRule(edge, "covered-zero-rule"))
+	must(e.addRuleEager(edge, "covered-zero-rule"))
 	proofsBefore, err := m.ProofsEnabled()
 	must(err)
 	status, err = e.QueryPredicate(query)
@@ -168,7 +168,7 @@ func TestPDRCoveredAdditionDoesNotHideBackgroundRevision(t *testing.T) {
 	must(err)
 	edge, err := m.MkImplies(body, f.applications["q"])
 	must(err)
-	must(e.AddRule(edge, "covered-addition-after-background"))
+	must(e.addRuleEager(edge, "covered-addition-after-background"))
 	status, err = e.QueryPredicate(query)
 	must(err)
 	if status != lbool.False || e.pdr == prior {

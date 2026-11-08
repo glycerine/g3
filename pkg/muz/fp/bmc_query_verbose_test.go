@@ -38,7 +38,7 @@ func addNonlinearBMCFixtureRule(t *testing.T, f *pdrLifecycleFixture) {
 	fragmentMust(t, err)
 	rule, err := f.manager.MkImplies(body, f.applications["u"])
 	fragmentMust(t, err)
-	fragmentMust(t, f.engine.AddRule(rule, "nonlinear"))
+	fragmentMust(t, f.engine.addRuleEager(rule, "nonlinear"))
 	params, err := f.engine.params.NewValue()
 	fragmentMust(t, err)
 	defer func() { fragmentMust(t, f.engine.params.Del(&params)) }()

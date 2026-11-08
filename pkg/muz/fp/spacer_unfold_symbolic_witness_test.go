@@ -79,7 +79,7 @@ func TestSpacerUnfoldedSymbolicSharedWitnessOriginalClauses(t *testing.T) {
 						formula = own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: formula}))
 					}
 					originals = append(originals, formula)
-					fragmentMust(t, e.AddRule(formula, name))
+					fragmentMust(t, e.addRuleEager(formula, name))
 				}
 				add(and(own(m.MkArithmeticGE(x, two)), own(m.MkArithmeticLE(x, three))), app(shared[8], x), 1, "leaf-low")
 				add(and(own(m.MkArithmeticGE(x, four)), own(m.MkArithmeticLE(x, five))), app(shared[8], x), 1, "leaf-high")

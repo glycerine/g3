@@ -42,7 +42,7 @@ func TestConfiguredUnknownEngineFallsBackToSourceAutoSelection(t *testing.T) {
 			query := f.declarations["p"]
 			switch tc.program {
 			case "boolean":
-				must(e.AddRule(f.applications["p"], "fact"))
+				must(e.addRuleEager(f.applications["p"], "fact"))
 			case "integer":
 				zero, err := m.ArithmeticIntegerNumeralText("0")
 				must(err)
@@ -58,7 +58,7 @@ func TestConfiguredUnknownEngineFallsBackToSourceAutoSelection(t *testing.T) {
 				query = d
 				fact, err := m.MkApp(d, []ast.ASTHandle{zero})
 				must(err)
-				must(e.AddRule(fact, "integer"))
+				must(e.addRuleEager(fact, "integer"))
 			case "quantified":
 				zero, err := m.ArithmeticIntegerNumeralText("0")
 				must(err)
@@ -72,7 +72,7 @@ func TestConfiguredUnknownEngineFallsBackToSourceAutoSelection(t *testing.T) {
 				must(err)
 				rule, err := m.MkImplies(q, f.applications["p"])
 				must(err)
-				must(e.AddRule(rule, "quantified"))
+				must(e.addRuleEager(rule, "quantified"))
 			}
 			must(e.SelectConfiguredEngine())
 			got, err := e.SelectedEngine()

@@ -149,7 +149,7 @@ func newExternalIntervalUnaryGuardFixture(t *testing.T, kinds []string, tail []i
 	}
 	conclusion := own(manager.MkApp(q, headArguments))
 	formula := own(manager.MkImplies(body, conclusion))
-	fragmentMust(t, engine.AddRule(formula, "external-interval-guard-rule"))
+	fragmentMust(t, engine.addRuleEager(formula, "external-interval-guard-rule"))
 	return manager, engine, callbacks, p, q, sort
 }
 

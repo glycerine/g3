@@ -25,7 +25,7 @@ func TestSpacerCoverBeforeFirstQuerySurvivesRuleInstallation(t *testing.T) {
 	u := f.applications["u"]
 	recursive, err := m.MkImplies(u, u)
 	must(err)
-	must(e.AddRule(recursive, "covered-recursive-predicate"))
+	must(e.addRuleEager(recursive, "covered-recursive-predicate"))
 	addSpacerLifecycleIntegerRules(t, e, u)
 	parameters, err := e.params.NewValue()
 	must(err)
@@ -83,7 +83,7 @@ func TestSpacerCoverBeforeFirstQuerySurvivesRuleInstallation(t *testing.T) {
 	// No search level can create/promote a replacement lemma at max_level=0,
 	// so this frame must have survived initial rule installation itself.
 	assertCover(true)
-	must(e.AddRule(u, "cover-invalidating-fact"))
+	must(e.addRuleEager(u, "cover-invalidating-fact"))
 	_, err = e.QueryPredicate(query)
 	must(err)
 	assertCover(false)

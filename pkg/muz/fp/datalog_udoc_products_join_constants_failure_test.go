@@ -17,7 +17,7 @@ func newUDocProductPairConstantsFailureFixture(t *testing.T) *publicUDocProductF
 	fragmentMust(t, f.e.RegisterPredicate(f.head))
 	body := f.pin(f.m.MkAnd(f.app(source, f.x, f.yes), f.app(source, f.values[1], f.b)))
 	formula := f.pin(f.m.MkImplies(body, f.app(f.head, f.x, f.b)))
-	fragmentMust(t, f.e.AddRule(formula, "pair-constants"))
+	fragmentMust(t, f.e.addRuleEager(formula, "pair-constants"))
 	return f
 }
 

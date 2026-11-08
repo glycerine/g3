@@ -75,6 +75,10 @@ func (e *PropositionalEngine) contextFormulaRules() (_ *base.RuleSet, pending []
 // RuleFormulas returns the source public rule enumeration: normalized clauses,
 // pending closed inputs, then negated output queries. The caller owns each ref.
 func (e *PropositionalEngine) RuleFormulas() (result []ast.ASTRef, resultErr error) {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return nil, err
+	}
 	if err := e.open(); err != nil {
 		return nil, err
 	}

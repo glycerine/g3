@@ -22,7 +22,7 @@ func TestDatalogExpressionExplanationNegativeEDBAndMagic(t *testing.T) {
 				if derived {
 					rule, err := m.MkImplies(f.applications["p"], f.applications["u"])
 					must(err)
-					must(e.AddRule(rule, "negative-producer"))
+					must(e.addRuleEager(rule, "negative-producer"))
 				}
 				neg, err := m.MkNot(f.applications["u"])
 				must(err)
@@ -30,7 +30,7 @@ func TestDatalogExpressionExplanationNegativeEDBAndMagic(t *testing.T) {
 				must(err)
 				rule, err := m.MkImplies(body, f.applications["q"])
 				must(err)
-				must(e.AddRule(rule, "negative-consumer"))
+				must(e.addRuleEager(rule, "negative-consumer"))
 				status, err := e.QueryExpression(f.applications["q"])
 				if derived {
 					if !errors.Is(err, rel.ErrCompilerUnsupported) {

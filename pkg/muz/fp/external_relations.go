@@ -45,6 +45,10 @@ func (e *PropositionalEngine) NewExternalRelation(sorts []ast.ASTHandle) (*rel.E
 // context's external relation plugin. The returned relation is borrowed and
 // is retired automatically with the fixedpoint context.
 func (e *PropositionalEngine) ExternalPredicateRelation(predicate ast.ASTHandle) (*rel.ExternalRelation, error) {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return nil, err
+	}
 	if err := e.open(); err != nil {
 		return nil, err
 	}

@@ -27,7 +27,7 @@ func newExpressionScopePhaseFixture(t *testing.T, backend, preparation string) (
 	declaration, query := f.predicate("expression-phase-P", variable)
 	truth := f.own(f.m.MkTrue())
 	fact := f.own(f.m.MkApp(declaration, []ast.ASTHandle{truth}))
-	fragmentMust(t, f.e.AddRule(fact, "expression-phase-fact"))
+	fragmentMust(t, f.e.addRuleEager(fact, "expression-phase-fact"))
 	if preparation == "hoist" {
 		const count = 130
 		sorts := make([]ast.ASTHandle, count)
@@ -38,7 +38,7 @@ func newExpressionScopePhaseFixture(t *testing.T, backend, preparation string) (
 		}
 		query = f.own(f.m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: sorts, Names: names, Body: query}))
 		_, gate := f.predicate("expression-phase-gate")
-		fragmentMust(t, f.e.AddRule(gate, "expression-phase-gate-fact"))
+		fragmentMust(t, f.e.addRuleEager(gate, "expression-phase-gate-fact"))
 		query = f.own(f.m.MkAnd(query, gate))
 	}
 	return f, query

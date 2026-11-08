@@ -46,7 +46,7 @@ func TestDatalogKarrGroundRulesAndDirectFacts(t *testing.T) {
 		}
 		f, err := m.MkApp(d, args)
 		must(err)
-		must(e.AddRule(f, ""))
+		must(e.addRuleEager(f, ""))
 	}
 	fact(p, "3", "4")
 	fact(unit)

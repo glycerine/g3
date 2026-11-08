@@ -48,7 +48,7 @@ func TestFixedpointExplicitApproximationDoesNotInheritSpacerBound(t *testing.T) 
 	e := f.engine
 	fragmentMust(t, e.globals.SourceSetName("fixedpoint.spacer.max_level", "0"))
 	fragmentMust(t, e.SelectEngine("spacer"))
-	fragmentMust(t, e.AddRule(f.applications["p"], "bounded-fact"))
+	fragmentMust(t, e.addRuleEager(f.applications["p"], "bounded-fact"))
 
 	status, err := e.QueryPredicate(f.declarations["p"])
 	fragmentMust(t, err)

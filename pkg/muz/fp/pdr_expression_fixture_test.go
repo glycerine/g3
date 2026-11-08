@@ -57,7 +57,7 @@ func newExpressionFixture(t *testing.T, backend string, cover bool) *coveredPDRE
 	must(err)
 	fact, err := m.MkApp(declaration, []ast.ASTHandle{zero})
 	must(err)
-	must(e.AddRule(fact, "failed-expression-zero"))
+	must(e.addRuleEager(fact, "failed-expression-zero"))
 	variable, err := m.MkVar(0, integer)
 	must(err)
 	property, err := m.MkEq(variable, zero)

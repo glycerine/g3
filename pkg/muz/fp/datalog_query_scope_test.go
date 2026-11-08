@@ -30,7 +30,7 @@ func TestDatalogQueriesRestoreFilterAndJoinScopes(t *testing.T) {
 				must(err)
 				rule, err := m.MkImplies(app, f.applications["u"])
 				must(err)
-				must(e.AddRule(rule, "filter-consumer"))
+				must(e.addRuleEager(rule, "filter-consumer"))
 			} else {
 				must(e.AddFact(f.declarations["p"], nil))
 				must(e.AddFact(f.declarations["q"], nil))
@@ -50,7 +50,7 @@ func TestDatalogQueriesRestoreFilterAndJoinScopes(t *testing.T) {
 				must(err)
 				rule, err := m.MkImplies(body, f.applications["u"])
 				must(err)
-				must(e.AddRule(rule, "join-consumer"))
+				must(e.addRuleEager(rule, "join-consumer"))
 			}
 			original := e.set
 			count, err := e.set.Len()

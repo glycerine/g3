@@ -102,7 +102,7 @@ func TestFixedpointPopPreservesSourceExternalFinalizerOrder(t *testing.T) {
 						Body: body, Patterns: []ast.ASTHandle{pattern},
 					})
 					must(err)
-					must(e.AddRule(formula, "pattern-only-literal"))
+					must(e.addRuleEager(formula, "pattern-only-literal"))
 				} else {
 					formula, err = m.MkApp(wrapper, []ast.ASTHandle{numeral})
 					must(err)

@@ -49,7 +49,7 @@ func TestRuleIngestionUnboundGateUsesCurrentPhaseParameters(t *testing.T) {
 						}))
 					}
 					label := symbol.Numerical(7)
-					fragmentMust(t, e.AddRuleWithSymbol(input, label))
+					fragmentMust(t, e.addRuleWithSymbolEager(input, label))
 					if !initial && (e.unboundLite != nil || e.unboundCooperation != nil) {
 						t.Fatal("disabled ingestion created QE-lite services")
 					}

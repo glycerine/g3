@@ -34,7 +34,7 @@ func TestPDRValidateResultParameterChecksSATAndUNSATQueries(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err = e.AddRule(impossible, "validated-impossible-rule"); err != nil {
+			if err = e.addRuleEager(impossible, "validated-impossible-rule"); err != nil {
 				t.Fatal(err)
 			}
 			status, err = e.QueryPredicate(f.declarations["u"])

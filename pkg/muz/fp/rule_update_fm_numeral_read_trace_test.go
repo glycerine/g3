@@ -45,7 +45,7 @@ func TestFixedpointUpdateReadsWideInequalityCoefficientWithoutParsing(t *testing
 	name := symbol.Numerical(7)
 	rawName, err := f.m.Symbols.Intern("read-inequality-pending")
 	fragmentMust(t, err)
-	fragmentMust(t, f.e.AddRuleWithSymbolAndBound(p, rawName, 17))
+	fragmentMust(t, f.e.addRuleWithSymbolAndBoundEager(p, rawName, 17))
 	rawBefore := append([]rawRuleFormula(nil), f.e.rawRules...)
 	persistent := f.e.set
 	writer := &ruleUpdateNumeralParserWriter{t: t, runtime: f.runtime, coefficient: text}

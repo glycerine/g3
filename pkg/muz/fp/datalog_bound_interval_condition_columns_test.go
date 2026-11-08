@@ -61,7 +61,7 @@ func TestBoundIntervalDatalogConditionOnlyColumnProjectionAndUpdates(t *testing.
 			for _, head := range []ast.ASTHandle{app(ordered, y, x), app(projected, x)} {
 				rule, cause := m.MkImplies(body, head)
 				fragmentMust(t, cause)
-				fragmentMust(t, engine.AddRule(rule, "bound/interval condition-only full column"))
+				fragmentMust(t, engine.addRuleEager(rule, "bound/interval condition-only full column"))
 			}
 			activation, selected, err := newBoundIntervalDatalogActivation(m, engine.set, []boundIntervalDatalogPredicate{
 				{declaration: p, kinds: test.kinds},

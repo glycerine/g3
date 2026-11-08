@@ -567,6 +567,10 @@ func (e *PropositionalEngine) CoverDelta(level int, declaration ast.ASTHandle) (
 // AddCover installs a bound-variable property in a retained PDR or Spacer
 // frame.
 func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTHandle) error {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return err
+	}
 	if err := e.open(); err != nil {
 		return err
 	}
@@ -634,6 +638,10 @@ func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTH
 
 // AddInvariant installs a bound-variable property in the invariant frame.
 func (e *PropositionalEngine) AddInvariant(declaration, property ast.ASTHandle) error {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return err
+	}
 	return e.AddCover(-1, declaration, property)
 }
 
@@ -682,6 +690,10 @@ func (e *PropositionalEngine) GroundSatAnswer(declaration ast.ASTHandle) (ast.AS
 // RulesAlongTrace returns owning rule formulas and the source symbol::str
 // spelling of each name, including "<null>" for an absent label.
 func (e *PropositionalEngine) RulesAlongTrace() (formulas []ast.ASTRef, names []string, resultErr error) {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return nil, nil, err
+	}
 	formulas, labels, err := e.RulesAlongTraceWithSymbols()
 	if err != nil {
 		return nil, nil, err
@@ -700,6 +712,10 @@ func (e *PropositionalEngine) RulesAlongTrace() (formulas []ast.ASTRef, names []
 // RulesAlongTraceWithSymbols preserves the source trace label identities and
 // returns caller-owned rule formulas for the latest Spacer or BMC query.
 func (e *PropositionalEngine) RulesAlongTraceWithSymbols() (formulas []ast.ASTRef, names []symbol.Symbol, resultErr error) {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return nil, nil, err
+	}
 	if e.queryClone != nil && e.backend == "spacer" {
 		clone, _, err := e.expressionQueryState()
 		if err != nil {

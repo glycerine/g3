@@ -25,7 +25,7 @@ func TestExpressionModelsIsolateCallerInterpretationMutation(t *testing.T) {
 			zero := f.own(m.ArithmeticIntegerNumeralText("0"))
 			one := f.own(m.ArithmeticIntegerNumeralText("1"))
 			declaration, fact := f.predicate("isolated-model-P", zero)
-			fragmentMust(t, e.AddRule(fact, "zero"))
+			fragmentMust(t, e.addRuleEager(fact, "zero"))
 			query := f.own(m.MkApp(declaration, []ast.ASTHandle{one}))
 			status, err := e.QueryExpression(query)
 			fragmentMust(t, err)

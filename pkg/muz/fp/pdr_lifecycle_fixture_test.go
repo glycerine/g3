@@ -44,12 +44,12 @@ func newPDRLifecycleFixture(t *testing.T) *pdrLifecycleFixture {
 		fixture.declarations[label] = declaration
 		fixture.applications[label] = application
 	}
-	if err = engine.AddRule(fixture.applications["p"], "pdr-lifecycle-fact"); err != nil {
+	if err = engine.addRuleEager(fixture.applications["p"], "pdr-lifecycle-fact"); err != nil {
 		t.Fatal(err)
 	}
 	edge, err := manager.MkImplies(fixture.applications["p"], fixture.applications["q"])
 	if err == nil {
-		err = engine.AddRule(edge, "pdr-lifecycle-edge")
+		err = engine.addRuleEager(edge, "pdr-lifecycle-edge")
 	}
 	if err != nil {
 		t.Fatal(err)

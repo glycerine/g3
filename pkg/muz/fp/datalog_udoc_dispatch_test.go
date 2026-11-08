@@ -49,7 +49,7 @@ func TestDatalogUDocPublicFactsProjectionQueryAndOwnership(t *testing.T) {
 	pa, qa, ea := app(p, x, y), app(q, y), app(empty, y)
 	rule, err := m.MkImplies(pa, qa)
 	must(err)
-	must(e.AddRule(rule, "doc-project"))
+	must(e.addRuleEager(rule, "doc-project"))
 	status, err := e.QueryPredicate(q)
 	must(err)
 	if status != lbool.True {
@@ -188,7 +188,7 @@ func TestDatalogUDocSelectionAndNullary(t *testing.T) {
 				must(err)
 				fact, err := m.MkApp(p, []ast.ASTHandle{value})
 				must(err)
-				must(e.AddRule(fact, "doc-ground-fact"))
+				must(e.addRuleEager(fact, "doc-ground-fact"))
 			} else {
 				must(e.AddTableFact(p, values))
 			}

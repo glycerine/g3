@@ -84,7 +84,7 @@ func TestSpacerSlicedUnfoldedSharedWitnessOriginalClauses(t *testing.T) {
 						formula = own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: formula}))
 					}
 					originals = append(originals, formula)
-					fragmentMust(t, e.AddRule(formula, name))
+					fragmentMust(t, e.addRuleEager(formula, name))
 				}
 				// Every shared relation carries a second integer column that never
 				// affects a guard or the query. Distinct z/w branch arguments keep it

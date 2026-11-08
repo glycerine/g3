@@ -14,14 +14,14 @@ func addExternalIntervalGroundRule(t *testing.T, manager *ast.ASTManager, engine
 	t.Helper()
 	application, err := manager.MkApp(head, []ast.ASTHandle{value})
 	fragmentMust(t, err)
-	fragmentMust(t, engine.AddRule(application, name))
+	fragmentMust(t, engine.addRuleEager(application, name))
 }
 
 func addExternalIntervalNullaryGroundRule(t *testing.T, manager *ast.ASTManager, engine *PropositionalEngine, head ast.ASTHandle, name string) {
 	t.Helper()
 	application, err := manager.MkApp(head, nil)
 	fragmentMust(t, err)
-	fragmentMust(t, engine.AddRule(application, name))
+	fragmentMust(t, engine.addRuleEager(application, name))
 }
 
 func TestExternalIntervalDatalogNullaryGroundRuleTotalAndRepeat(t *testing.T) {
@@ -460,7 +460,7 @@ func TestExternalIntervalDatalogGroundAndVariableHeads(t *testing.T) {
 				formula, err = manager.MkImplies(tail, head)
 				fragmentMust(t, err)
 			}
-			fragmentMust(t, engine.AddRule(formula, "external-interval-ground-invalid-"+shape))
+			fragmentMust(t, engine.addRuleEager(formula, "external-interval-ground-invalid-"+shape))
 			if shape == "later-unsafe-rule" {
 				// The later zero-tail variable head is part of the same program;
 				// compilation must assemble it from a total relation as well.
@@ -469,7 +469,7 @@ func TestExternalIntervalDatalogGroundAndVariableHeads(t *testing.T) {
 				fragmentMust(t, secondErr)
 				second, secondErr := manager.MkApp(r, []ast.ASTHandle{variable})
 				fragmentMust(t, secondErr)
-				fragmentMust(t, engine.AddRule(second, "external-interval-ground-invalid-second"))
+				fragmentMust(t, engine.addRuleEager(second, "external-interval-ground-invalid-second"))
 			}
 			if shape == "body" || shape == "nullary-body" {
 				var fact []ast.ASTHandle

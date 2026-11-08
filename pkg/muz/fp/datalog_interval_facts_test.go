@@ -32,7 +32,7 @@ func TestIntervalDatalogEvaluatorFactRulesAndOwnership(t *testing.T) {
 	for _, value := range []ast.ASTHandle{one, three} {
 		fact, cause := m.MkApp(p, []ast.ASTHandle{value})
 		fragmentMust(t, cause)
-		fragmentMust(t, e.AddRule(fact, "interval fact"))
+		fragmentMust(t, e.addRuleEager(fact, "interval fact"))
 	}
 	before, err := m.GetRefCount(p)
 	fragmentMust(t, err)
@@ -102,10 +102,10 @@ func TestIntervalDatalogEvaluatorRejectsUnsupportedRulesAndSeeds(t *testing.T) {
 	fragmentMust(t, err)
 	pOne, err := m.MkApp(decl[0], []ast.ASTHandle{one})
 	fragmentMust(t, err)
-	fragmentMust(t, e.AddRule(pOne, "fact before unsupported tail"))
+	fragmentMust(t, e.addRuleEager(pOne, "fact before unsupported tail"))
 	rule, err := m.MkImplies(p, q)
 	fragmentMust(t, err)
-	fragmentMust(t, e.AddRule(rule, "unsupported tail"))
+	fragmentMust(t, e.addRuleEager(rule, "unsupported tail"))
 	evaluator, err := NewIntervalDatalogEvaluator(m, e.set, decl, nil)
 	fragmentMust(t, err)
 	defer func() { fragmentMust(t, evaluator.Close()) }()

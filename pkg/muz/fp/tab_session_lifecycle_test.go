@@ -43,12 +43,12 @@ func TestTabSessionTransfersBorrowsAndClosesAcrossExpressionLifecycle(t *testing
 	}
 	pDeclaration, p := declare("tab-session-lifecycle-p")
 	qDeclaration, q := declare("tab-session-lifecycle-q")
-	if err = engine.AddRule(p, "fact"); err != nil {
+	if err = engine.addRuleEager(p, "fact"); err != nil {
 		t.Fatal(err)
 	}
 	step, err := manager.MkImplies(p, q)
 	if err == nil {
-		err = engine.AddRule(step, "step")
+		err = engine.addRuleEager(step, "step")
 	}
 	if err != nil {
 		t.Fatal(err)

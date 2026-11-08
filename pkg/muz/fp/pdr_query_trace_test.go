@@ -55,7 +55,7 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 			p, pa := declare("fresh-trace-P")
 			q, _ := declare("fresh-trace-Q")
 			r, _ := declare("fresh-trace-R")
-			fragmentMust(t, e.AddRule(pa, "old-fact"))
+			fragmentMust(t, e.addRuleEager(pa, "old-fact"))
 			status, err := e.QueryPredicate(p)
 			fragmentMust(t, err)
 			if status != lbool.True {
@@ -77,10 +77,10 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 			output.Reset()
 			qa, err := m.MkApp(q, nil)
 			fragmentMust(t, err)
-			fragmentMust(t, e.AddRule(qa, "first-fresh"))
+			fragmentMust(t, e.addRuleEager(qa, "first-fresh"))
 			ra, err := m.MkApp(r, nil)
 			fragmentMust(t, err)
-			fragmentMust(t, e.AddRule(ra, "later-fresh"))
+			fragmentMust(t, e.addRuleEager(ra, "later-fresh"))
 			if mode == "disabled" {
 				fragmentMust(t, e.tracePDRFreshRule(100000))
 			} // Disabled operands must not run.

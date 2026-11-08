@@ -97,7 +97,7 @@ func checkExpressionQueryNativeDeletion(t *testing.T, completion string, fail bo
 	declaration, err := f.m.GetDecl(atom)
 	fragmentMust(t, err)
 	fragmentMust(t, f.e.RegisterPredicate(declaration))
-	fragmentMust(t, f.e.AddRule(atom, "fact"))
+	fragmentMust(t, f.e.addRuleEager(atom, "fact"))
 	wide, err := f.m.ArithmeticRealNumeralText(strings.Repeat("9", 600))
 	fragmentMust(t, err)
 	numeralDeclaration, err := f.m.GetDecl(wide)

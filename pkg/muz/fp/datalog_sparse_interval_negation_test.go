@@ -65,7 +65,7 @@ func TestDatalogSparseIntervalExactFiniteNegationUsesLowerStrata(t *testing.T) {
 	addRule := func(body, head ast.ASTHandle, name string) {
 		rule, cause := m.MkImplies(body, head)
 		must(cause)
-		must(e.AddRule(rule, name))
+		must(e.addRuleEager(rule, name))
 	}
 	addRule(app(seed, b), app(negative, b), "heterogeneous-negation-lower-stratum")
 	notNegative, err := m.MkNot(app(negative, b))
@@ -186,7 +186,7 @@ func TestDatalogSparseIntervalNegationRejectsMixedNegative(t *testing.T) {
 	must(err)
 	rule, err := m.MkImplies(body, head)
 	must(err)
-	must(e.AddRule(rule, "heterogeneous-mixed-negation-refusal"))
+	must(e.addRuleEager(rule, "heterogeneous-mixed-negation-refusal"))
 	status, cause := e.QueryPredicate(out)
 	if status != lbool.Undef || !errors.Is(cause, ErrSparseIntervalDatalogFragment) {
 		t.Fatal("mixed negative relation was silently accepted", status, cause)

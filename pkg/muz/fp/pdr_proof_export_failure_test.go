@@ -122,10 +122,10 @@ func testPDRProofExportFailure(t *testing.T, available int, stop int64, symbolic
 	}
 	_, premise := declare("proof-export-P", domain, arguments)
 	goal, conclusion := declare("proof-export-Q", nil, nil)
-	must(engine.AddRule(premise, "proof-export-fact"))
+	must(engine.addRuleEager(premise, "proof-export-fact"))
 	edge, err := manager.MkImplies(premise, conclusion)
 	must(err)
-	must(engine.AddRule(edge, "proof-export-edge"))
+	must(engine.addRuleEager(edge, "proof-export-edge"))
 	status, err := engine.QueryPredicate(goal)
 	must(err)
 	if status != lbool.True || engine.pdrProof != (ast.ASTRef{}) {

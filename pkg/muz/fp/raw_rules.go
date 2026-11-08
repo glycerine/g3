@@ -44,6 +44,9 @@ type rawRuleFormula struct {
 	name    symbol.Symbol
 	bound   uint32
 	pending bool
+	// materialized: the Go-only eager copy has been built (see
+	// materializePendingRules); AddRule itself only queues, as add_rule does.
+	materialized bool
 	// Half-open origin range in the eager rule set, meaningful only while pending.
 	// Query flush precedes transforms; fresh updates shift the pending suffix.
 	first, end int

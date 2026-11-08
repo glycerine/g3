@@ -75,7 +75,7 @@ func TestPendingFlushPublishesPartialMultiClauseInputOnFailure(t *testing.T) {
 				Forall: true, Sorts: []ast.ASTHandle{boolean, boolean},
 				Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: implication,
 			}))
-			fragmentMust(t, e.AddRule(formula, "partial-flush"))
+			fragmentMust(t, e.addRuleEager(formula, "partial-flush"))
 			fragmentMust(t, globals.SourceSetName("fixedpoint.xform.fix_unbound_vars", "true"))
 			fragmentMust(t, globals.SourceSetName("fixedpoint.generate_proof_trace", fmt.Sprint(proof)))
 			w := &pendingPartialFailureWriter{set: e.set, manager: m}

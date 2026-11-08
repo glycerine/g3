@@ -58,7 +58,7 @@ func TestDatalogBoundDefaultAndExplicitLifecycle(t *testing.T) {
 			must(err)
 			rule, err := m.MkImplies(body, qy)
 			must(err)
-			must(e.AddRule(rule, "bound-order"))
+			must(e.addRuleEager(rule, "bound-order"))
 			must(g.SourceSetName("fixedpoint.datalog.default_relation", "interval_relation"))
 			must(e.SetQueryParameters(nil))
 			status, err := e.QueryPredicate(q)

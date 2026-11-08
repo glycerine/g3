@@ -81,7 +81,7 @@ func TestBoundIntervalDatalogPositiveTailConstantsAndUpdates(t *testing.T) {
 			addRule := func(head, tail ast.ASTHandle, name string) {
 				formula, cause := m.MkImplies(tail, head)
 				must(cause)
-				must(e.AddRule(formula, name))
+				must(e.addRuleEager(formula, name))
 			}
 			addRule(app(q, x), app(p, numeral("2"), x, numeral("7")), "matching bound/interval tail constants")
 			addRule(app(empty, x), app(p, numeral("10"), x, numeral("7")), "nonmatching bound/interval tail constant")

@@ -66,7 +66,7 @@ func TestDatalogKarrJoinGuardsPublicAndRetry(t *testing.T) {
 	must(err)
 	rule, err := m.MkImplies(body, head)
 	must(err)
-	must(e.AddRule(rule, ""))
+	must(e.addRuleEager(rule, ""))
 	status, err := e.QueryPredicate(h)
 	must(err)
 	if status != lbool.Undef {
@@ -168,7 +168,7 @@ func TestDatalogKarrJoinGuardsPublicAndRetry(t *testing.T) {
 	must(err)
 	prior, err := e.set.Len()
 	must(err)
-	must(e.AddRule(bad, ""))
+	must(e.addRuleEager(bad, ""))
 	must(e.flushPendingRules())
 	status, err = e.karrDatalog.query([]ast.ASTHandle{h})
 	if status != lbool.Undef || !errors.Is(err, ErrKarrDatalogFragment) || e.karrDatalog.results != nil {

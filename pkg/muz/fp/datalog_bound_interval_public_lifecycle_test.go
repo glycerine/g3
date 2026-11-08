@@ -30,7 +30,7 @@ func TestDatalogBoundIntervalPublicMigratesEagerNullaryFact(t *testing.T) {
 	}
 	fragmentMust(t, f.e.SetPredicateRepresentation(unit, f.kinds))
 	output := f.declare("nullary-output", 0)
-	fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(f.app(unit), f.app(output))), "nullary-copy"))
+	fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(f.app(unit), f.app(output))), "nullary-copy"))
 	for _, declaration := range []ast.ASTHandle{output, unit, output} {
 		status, err := f.e.QueryPredicate(declaration)
 		fragmentMust(t, err)
@@ -132,7 +132,7 @@ func TestDatalogBoundIntervalPublicNamedUpdateKeepsSeeds(t *testing.T) {
 	f.fact(p, 7)
 	x := f.hold(f.m.MkVar(0, f.integer))
 	px, qx, gx := f.app(p, x), f.app(q, x), f.app(gate, x)
-	fragmentMust(t, f.e.AddRule(f.hold(f.m.MkImplies(px, qx)), "product-step"))
+	fragmentMust(t, f.e.addRuleEager(f.hold(f.m.MkImplies(px, qx)), "product-step"))
 	status, err := f.e.QueryPredicate(q)
 	fragmentMust(t, err)
 	if status != lbool.Undef {

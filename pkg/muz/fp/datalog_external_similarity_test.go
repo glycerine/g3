@@ -38,7 +38,7 @@ func TestDatalogExternalSimilarityPublishesAuxiliarySeedsAndCleansUp(t *testing.
 		fragmentMust(t, cause)
 		head, cause := m.MkApp(seed, []ast.ASTHandle{value})
 		fragmentMust(t, cause)
-		fragmentMust(t, e.AddRule(head, "external-similarity-seed"))
+		fragmentMust(t, e.addRuleEager(head, "external-similarity-seed"))
 	}
 	x, err := m.MkVar(0, domain)
 	fragmentMust(t, err)
@@ -48,7 +48,7 @@ func TestDatalogExternalSimilarityPublishesAuxiliarySeedsAndCleansUp(t *testing.
 	fragmentMust(t, err)
 	rule, err := m.MkImplies(body, head)
 	fragmentMust(t, err)
-	fragmentMust(t, e.AddRule(rule, "external-similarity-query"))
+	fragmentMust(t, e.addRuleEager(rule, "external-similarity-query"))
 
 	if _, err = e.externalRelations(); err != nil {
 		t.Fatal(err)

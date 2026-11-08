@@ -27,7 +27,7 @@ func addExternalIntervalCartesianRule(t *testing.T, manager *ast.ASTManager, eng
 	fragmentMust(t, err)
 	formula, err := manager.MkImplies(body, headApplication)
 	fragmentMust(t, err)
-	fragmentMust(t, engine.AddRule(formula, name))
+	fragmentMust(t, engine.addRuleEager(formula, name))
 }
 
 func resetExternalIntervalCartesianCallbacks(callbacks *externalIntervalCallbackState) {
@@ -388,7 +388,7 @@ func TestExternalIntervalDatalogCartesianPreflightsShapesBeforeCallbacks(t *test
 			headApplication := app(headDeclaration, headArguments...)
 			formula, err := manager.MkImplies(body, headApplication)
 			fragmentMust(t, err)
-			fragmentMust(t, engine.AddRule(formula, "external-interval-cartesian-invalid-"+shape))
+			fragmentMust(t, engine.addRuleEager(formula, "external-interval-cartesian-invalid-"+shape))
 			if shape == "compound-head" {
 				one, cause := manager.ArithmeticIntegerNumeralText("1")
 				fragmentMust(t, cause)
@@ -417,7 +417,7 @@ func TestExternalIntervalDatalogCartesianPreflightsShapesBeforeCallbacks(t *test
 				fragmentMust(t, cause)
 				second, cause := manager.MkImplies(backBody, app(p, x))
 				fragmentMust(t, cause)
-				fragmentMust(t, engine.AddRule(second, "external-interval-cartesian-invalid-second"))
+				fragmentMust(t, engine.addRuleEager(second, "external-interval-cartesian-invalid-second"))
 			}
 			if shape == "cycle" || shape == "mutual-recursion" {
 				if _, ensureErr := engine.ensureExternalIntervalDatalog(); ensureErr != nil {

@@ -22,7 +22,7 @@ func TestSpacerGroundAnswerAllocationFailurePublicationAndRetry(t *testing.T) {
 			fragmentMust(t, e.globals.SourceSetName("fixedpoint.xform.subsumption_checker", "false"))
 			step, err := m.MkImplies(f.fact, f.applications["u"])
 			fragmentMust(t, err)
-			fragmentMust(t, e.AddRule(step, "numeric-ground-goal"))
+			fragmentMust(t, e.addRuleEager(step, "numeric-ground-goal"))
 			before, err := m.GetRefCount(f.fact)
 			fragmentMust(t, err)
 			status, err := e.QueryExpression(f.applications["u"])

@@ -78,7 +78,7 @@ func TestDatalogKarrMultipleGuardsPublicAndRetry(t *testing.T) {
 	for _, h := range []ast.ASTHandle{app(q, x, y), app(projected, x)} {
 		formula, err := m.MkImplies(body, h)
 		must(err)
-		must(e.AddRule(formula, ""))
+		must(e.addRuleEager(formula, ""))
 	}
 	for _, d := range []ast.ASTHandle{q, projected} {
 		status, err := e.QueryPredicate(d)
@@ -204,7 +204,7 @@ func TestDatalogKarrMultipleGuardsPublicAndRetry(t *testing.T) {
 	must(err)
 	prior, err := e.set.Len()
 	must(err)
-	must(e.AddRule(bad, ""))
+	must(e.addRuleEager(bad, ""))
 	must(e.flushPendingRules())
 	status, err = e.karrDatalog.query([]ast.ASTHandle{q})
 	if status != lbool.Undef || !errors.Is(err, ErrKarrDatalogFragment) || e.karrDatalog.results != nil {

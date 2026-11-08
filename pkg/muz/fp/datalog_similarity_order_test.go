@@ -67,13 +67,13 @@ func TestDatalogSimilarityPrecedesConstantTailFilters(t *testing.T) {
 				must(err)
 				rule, err := m.MkImplies(body, ra)
 				must(err)
-				must(e.AddRule(rule, ""))
+				must(e.addRuleEager(rule, ""))
 			}
 			ga, err := m.MkApp(goal, []ast.ASTHandle{x})
 			must(err)
 			rule, err := m.MkImplies(ra, ga)
 			must(err)
-			must(e.AddRule(rule, ""))
+			must(e.addRuleEager(rule, ""))
 			for query := 0; query < 2; query++ {
 				if query == 1 {
 					must(e.AddTableFact(p, []uint32{2, 2}))

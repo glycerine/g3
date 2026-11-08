@@ -70,7 +70,7 @@ func TestSpacerExpressionPrequeryOwnerFailureAndRetry(t *testing.T) {
 					t.Fatal("failed query lost the pre-query cover", handle, property)
 				}
 				if e.queryClone != nil {
-					must(e.AddRule(fact, "duplicate-after-failed-query"))
+					must(e.addRuleEager(fact, "duplicate-after-failed-query"))
 					if _, err := e.CoverDelta(2, declaration); !errors.Is(err, ErrPropositionalEngine) {
 						t.Fatal("rule mutation exposed stale failed-query frames", err)
 					}

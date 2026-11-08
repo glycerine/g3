@@ -64,7 +64,7 @@ func TestDatalogLinearInliningBranchParametersAndFacts(t *testing.T) {
 			for _, pair := range [][2]ast.ASTHandle{{seed, middle}, {middle, left}, {middle, right}} {
 				rule, err := m.MkImplies(app(pair[0]), app(pair[1]))
 				must(err)
-				must(e.AddRule(rule, ""))
+				must(e.addRuleEager(rule, ""))
 			}
 			status, err := e.QueryPredicates([]ast.ASTHandle{left, right})
 			must(err)

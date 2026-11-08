@@ -57,7 +57,7 @@ func TestDatalogGeneratedFiltersAndJoinsInheritFiniteKinds(t *testing.T) {
 					must(err)
 					rule, err := m.MkImplies(body, head)
 					must(err)
-					must(e.AddRule(rule, ""))
+					must(e.addRuleEager(rule, ""))
 				}
 				var origin, seed ast.ASTHandle
 				var outputs []ast.ASTHandle

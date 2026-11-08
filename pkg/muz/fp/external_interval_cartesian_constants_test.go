@@ -100,7 +100,7 @@ func newExternalIntervalCartesianConstantsFixture(t *testing.T, kinds []string, 
 		headTerms[i] = int(variable)
 	}
 	formula := own(manager.MkImplies(body, application(h, headTerms)))
-	fragmentMust(t, engine.AddRule(formula, "cartesian-constants-rule"))
+	fragmentMust(t, engine.addRuleEager(formula, "cartesian-constants-rule"))
 	return manager, engine, callbacks, p, q, h, sort
 }
 

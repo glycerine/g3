@@ -23,7 +23,7 @@ func rejectedUpdateFormula(t *testing.T, f *contextDisplayCleanupFixture) ast.AS
 		return h
 	}
 	p, q, r := predicate("reject-P"), predicate("reject-Q"), predicate("reject-R")
-	fragmentMust(t, f.e.AddRuleWithBound(p, "pending-seed", 7))
+	fragmentMust(t, f.e.addRuleWithBoundEager(p, "pending-seed", 7))
 	body := f.own(f.m.MkOr(p, q))
 	return f.own(f.m.MkImplies(body, r))
 }

@@ -28,8 +28,8 @@ func TestExpressionBitBlastModelPreservesOriginalPredicates(t *testing.T) {
 			predicate, fact := f.predicate("public-blast-model-P", zero)
 			second := f.own(m.MkApp(predicate, []ast.ASTHandle{two}))
 			query := f.own(m.MkApp(predicate, []ast.ASTHandle{one}))
-			fragmentMust(t, e.AddRule(fact, "zero"))
-			fragmentMust(t, e.AddRule(second, "two"))
+			fragmentMust(t, e.addRuleEager(fact, "zero"))
+			fragmentMust(t, e.addRuleEager(second, "two"))
 			status, err := e.QueryExpression(query)
 			fragmentMust(t, err)
 			if status != lbool.False {

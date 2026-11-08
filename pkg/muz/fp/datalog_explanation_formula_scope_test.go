@@ -29,7 +29,7 @@ func TestExplanationFormulaScopeFiniteSortsExplicitBypassAndLifetime(t *testing.
 				}
 			}
 			fragmentMust(t, e.AddTableFact(p, []uint32{1, 3}))
-			fragmentMust(t, e.AddRule(f.applications["q"], "formula-scope-rule"))
+			fragmentMust(t, e.addRuleEager(f.applications["q"], "formula-scope-rule"))
 			scope, enabled, err := e.beginDatalogExplanationFormulaScope()
 			fragmentMust(t, err)
 			if !enabled || scope == nil {

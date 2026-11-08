@@ -96,7 +96,7 @@ func TestExpressionModelAllocationFailurePublicationAndRetry(t *testing.T) {
 					if got := m.Stats().LiveReferences; got != before {
 						t.Fatal("retry leaked references", before, got)
 					}
-					fragmentMust(t, e.AddRule(f.fact, "retire-model-query"))
+					fragmentMust(t, e.addRuleEager(f.fact, "retire-model-query"))
 					m.Budget().FailAfter(0)
 					retired, retiredErr := e.ExpressionModel()
 					m.Budget().FailAfter(-1)

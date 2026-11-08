@@ -39,7 +39,7 @@ func TestKarrDatalogIdentitySnapshotAndGuards(t *testing.T) {
 	must(err)
 	rule, err := m.MkImplies(px, qx)
 	must(err)
-	must(e.AddRule(rule, "karr-forward"))
+	must(e.addRuleEager(rule, "karr-forward"))
 	must(e.flushPendingRules())
 	a, err := newKarrDatalogActivation(m, e.set, []ast.ASTHandle{p, q})
 	must(err)
@@ -120,7 +120,7 @@ func TestKarrDatalogIdentitySnapshotAndGuards(t *testing.T) {
 
 	back, err := m.MkImplies(qx, px)
 	must(err)
-	must(e.AddRule(back, "karr-cycle"))
+	must(e.addRuleEager(back, "karr-cycle"))
 	must(e.flushPendingRules())
 	status, err = clone.query([]ast.ASTHandle{q})
 	if status != lbool.Undef || !errors.Is(err, ErrKarrDatalogFragment) || clone.results != nil {

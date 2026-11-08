@@ -70,7 +70,7 @@ func TestSliceMixedSortModelSatisfiesOriginalClauses(t *testing.T) {
 				names := []symbol.Symbol{symbol.Numerical(3), symbol.Numerical(2), symbol.Numerical(1), symbol.Numerical(0)}
 				formula = own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: formula}))
 				originals = append(originals, formula)
-				fragmentMust(t, e.AddRule(formula, name))
+				fragmentMust(t, e.addRuleEager(formula, name))
 			}
 			add(app(predicate, variables[0], zero, variables[2], one), "mixed-fact")
 			negative := own(m.MkOrArray([]ast.ASTHandle{own(m.MkArithmeticLT(variables[1], zero)), own(m.MkArithmeticLT(variables[3], realZero))}))

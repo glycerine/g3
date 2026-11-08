@@ -33,7 +33,7 @@ func TestBMCExpressionStatisticsReplacePreviousQueryAfterCancellation(t *testing
 			e, m := f.engine, f.manager
 			fragmentMust(t, e.SelectEngine(backend))
 			query := f.applications["p"]
-			fragmentMust(t, e.AddRule(query, "statistics-fact"))
+			fragmentMust(t, e.addRuleEager(query, "statistics-fact"))
 			status, err := e.QueryExpression(query)
 			fragmentMust(t, err)
 			if status != lbool.True || bmcExpressionCheckCount(t, e) == 0 {

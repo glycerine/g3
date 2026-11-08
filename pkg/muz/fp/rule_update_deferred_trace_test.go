@@ -101,7 +101,7 @@ func TestFixedpointDeferredUpdatePublishesCompletedPrefix(t *testing.T) {
 			f.e.unboundLite, f.e.unboundCooperation = lite, cooperation
 			// Install the traced owner before ingestion lazily constructs one.
 			// This predicate-only input cannot reach solve_arith's boundary.
-			fragmentMust(t, f.e.AddRuleWithSymbolAndBound(p, rawName, 17))
+			fragmentMust(t, f.e.addRuleWithSymbolAndBoundEager(p, rawName, 17))
 			if resume == "pop" {
 				fragmentMust(t, f.e.Push())
 			}

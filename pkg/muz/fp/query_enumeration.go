@@ -12,6 +12,10 @@ import (
 
 // BackgroundAssertions returns owning references in insertion order.
 func (e *PropositionalEngine) BackgroundAssertions() (result []ast.ASTRef, resultErr error) {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return nil, err
+	}
 	if err := e.open(); err != nil {
 		return nil, err
 	}
@@ -39,6 +43,10 @@ func (e *PropositionalEngine) BackgroundAssertions() (result []ast.ASTRef, resul
 // NamedRules returns owning formulas and their copied names in insertion
 // order.
 func (e *PropositionalEngine) NamedRules() (result []ast.ASTRef, names []string, resultErr error) {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return nil, nil, err
+	}
 	formulas, labels, err := e.NamedRulesWithSymbols()
 	if err != nil {
 		return nil, nil, err
@@ -54,6 +62,10 @@ func (e *PropositionalEngine) NamedRules() (result []ast.ASTRef, names []string,
 // NamedRulesWithSymbols returns owning formulas and exact source label
 // identities. Each returned formula belongs to the caller.
 func (e *PropositionalEngine) NamedRulesWithSymbols() (result []ast.ASTRef, names []symbol.Symbol, resultErr error) {
+	// Readers outside the query flush see the eager copies of queued rules.
+	if err := e.materializePendingRules(); err != nil {
+		return nil, nil, err
+	}
 	if err := e.open(); err != nil {
 		return nil, nil, err
 	}

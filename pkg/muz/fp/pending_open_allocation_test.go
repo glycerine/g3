@@ -23,7 +23,7 @@ func newPendingOpenAllocationFixture(t *testing.T) *contextDisplayCleanupFixture
 	head := f.own(f.m.MkApp(r, []ast.ASTHandle{x}))
 	body := f.own(f.m.MkAnd(px, py))
 	formula := f.own(f.m.MkImplies(body, head))
-	fragmentMust(t, f.e.AddRule(formula, "fresh-open-allocation"))
+	fragmentMust(t, f.e.addRuleEager(formula, "fresh-open-allocation"))
 	return f
 }
 
