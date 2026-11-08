@@ -60,10 +60,9 @@ var goldenTraceSites = map[string]bool{
 
 // goldenVectors are compared when G3_GOLDEN_VECTORS is unset. Each is
 // expected to match z3 record for record at the sites above; add a vector
-// once it does. None does yet: g3 creates more SMT contexts than z3 (the
-// theory_seq expression solver and the qsat kernels), so the first
-// mk_bool_var records already differ. See TODO.md.
-var goldenVectors = []string{}
+// once it does. seq_regex_length_disequality is block 12 of
+// sequence_helper_inventory (see TODO.md item 11).
+var goldenVectors = []string{"seq_regex_length_disequality"}
 
 const goldenContext = 30
 

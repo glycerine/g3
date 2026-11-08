@@ -109,7 +109,7 @@ Found while matching `-st` output against `build/z3` on
     Run it only with a short `-timeout` (e.g. 60s) until this has stayed
     fixed through a full `make`.
 
-11. **Extra SMT contexts (first golden-trace divergence).** On
+11. **DONE: Extra SMT contexts (first golden-trace divergence).** On
     sequence_helper_inventory block 12, z3 creates 17 `smt::context`s
     (count of `creating boolean variable: 0` records with
     `-tr:mk_bool_var`); g3 created 52, now 27.
@@ -121,8 +121,9 @@ Found while matching `-st` output against `build/z3` on
       g3 used QE2 (qsat-based `mk_qe2_tactic`), whose kernels were 10
       extra contexts and added `mk-bool-var` 4 under logic ALL (27
       vectors). It now uses qe.QuantifierTactic. That port of
-      qe_tactic.cpp is partial (it leaves a quantifier in place when no
-      plugin eliminates it, as the source does); completing it remains.
+      qe_tactic.cpp leaves a quantifier in place when no plugin
+      eliminates it, as the source does; the gaps in the expr_quant_elim
+      plugins it uses are item 18.
     - DONE: `qe::qsat::~qsat` calls reset(), creating two kernels at
       teardown; QSATTactic.Close now does too. Block 12 creates 17
       contexts on both sides.
@@ -146,11 +147,13 @@ Found while matching `-st` output against `build/z3` on
         after pdecl_manager has created the datatype family, so seq is 9
         and bv 7 as in z3.
       All-stats exact went from 570 to 578 of 658; verdicts unchanged.
-    - OPEN: block 12 now matches z3 at the golden sites for 488 records.
-      The next difference follows the backjump from level 16: z3 reuses
-      bool var 83 (the level-16 variables were deleted), g3 continues at
-      88 and adds a seq length axiom z3 does not. Compare which Boolean
-      variables and enodes the pop removes.
+    - DONE: the last block-12 difference was propagate_th_eqs and
+      propagate_th_diseqs, which stop at an inconsistency and reset their
+      queues; g3 kept delivering theory equalities after a bv merge_eh
+      conflict, and theory_arith's adapter created atoms z3 never made.
+      Block 12 now matches z3 at every golden site and is the default
+      golden vector (test_vectors/seq_regex_length_disequality.smt2).
+      All-stats exact: 580 of 658.
 
 12. **Golden trace coverage.** Port more TRACE records into Go at the
     sites z3 traces (add each to `goldenTraceSites` in
@@ -222,3 +225,12 @@ Found while matching `-st` output against `build/z3` on
     proofs `mk_solver` builds a plain SMT solver, not the strategic one.
     g3 always built the strategic solver. All-statistics exact 555 -> 567;
     one cmd/g3 test now expects z3's `unknown` answers.
+
+18. **OPEN: expr_quant_elim arithmetic plugin gaps.** qe.QuantifierTactic
+    (qe_tactic.cpp over expr_quant_elim, src/qe/qe.cpp and
+    qe_arith_plugin.cpp) raises a tactic exception
+    (errArithmeticBranchUnsupported, qe/quantifier_tactic.go) for
+    arithmetic branches the Go port of the arith plugin does not cover,
+    where the source eliminates the variable. Port the remaining branch
+    cases (qe_arith_plugin.cpp) for the retained callers, then drop the
+    exception path.

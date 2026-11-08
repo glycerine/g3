@@ -1,0 +1,7 @@
+(set-logic ALL)
+(declare-const x String)
+(declare-const y String)
+(assert (str.in.re x (re.++ (str.to.re "ab") (re.* (str.to.re "c")))))
+(assert (= (str.len x) 4))
+(assert (not (= x "abcc")))
+(check-sat)

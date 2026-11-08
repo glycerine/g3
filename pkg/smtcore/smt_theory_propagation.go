@@ -101,7 +101,9 @@ func (s *SMTInternalizerState) PropagateTheoryEvents() error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	for s.theoryEqualityHead < len(s.theoryEqualities) {
+	// propagate_th_eqs/propagate_th_diseqs stop at an inconsistency and
+	// then reset their queues, dropping the events not yet delivered.
+	for s.theoryEqualityHead < len(s.theoryEqualities) && !s.inconsistent {
 		event := s.theoryEqualities[s.theoryEqualityHead]
 		plugin := s.theories[event.Theory]
 		if plugin == nil {
@@ -112,7 +114,8 @@ func (s *SMTInternalizerState) PropagateTheoryEvents() error {
 		}
 		s.theoryEqualityHead++
 	}
-	for s.theoryDisequalityHead < len(s.theoryDisequalities) {
+	s.theoryEqualityHead = len(s.theoryEqualities)
+	for s.theoryDisequalityHead < len(s.theoryDisequalities) && !s.inconsistent {
 		event := s.theoryDisequalities[s.theoryDisequalityHead]
 		plugin := s.theories[event.Theory]
 		if plugin == nil {
@@ -135,6 +138,7 @@ func (s *SMTInternalizerState) PropagateTheoryEvents() error {
 		}
 		s.theoryDisequalityHead++
 	}
+	s.theoryDisequalityHead = len(s.theoryDisequalities)
 	return nil
 }
 
