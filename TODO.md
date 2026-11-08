@@ -367,10 +367,12 @@ Found while matching `-st` output against `build/z3` on
       [del] #id, act_cache::insert prints [act], and Z3_DEL_BT/Z3_MK_BT_N
       print a backtrace) is rebuilt from a private copy of src and
       build_trace, outside the repository.
-    - OPEN: rewriteStringInRegex (seq_rewriter::mk_str_in_regexp) does
-      not compress the automaton (re2automaton::operator() does), its
-      is_sequence differs, and it walks the frontier as a Go map, so its
-      AST creation order is nondeterministic; port u_map order.
+    - DONE: rewriteStringInRegex is a port of mk_str_in_regexp: it uses
+      the compressed re2automaton result, both is_sequence overloads (the
+      expression walk visits right operands and last characters first),
+      add_next, plain mk_and/mk_or, and u_map frontiers that iterate in
+      core_hashtable order (it walked a Go map before, so its AST order was
+      nondeterministic).
 
 15. **DONE: quantifier statistics.** `context::collect_statistics` adds
     `m_qmanager->collect_statistics` (qi_queue: quant instantiations, lazy
