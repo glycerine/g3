@@ -37,7 +37,7 @@ func (k *SMTKernel) checkPreamble(countCheck bool) (bool, error) {
 	if err := k.clearLiteralResults(); err != nil {
 		return false, err
 	}
-	if err := k.clearGeneratedModel(); err != nil {
+	if err := k.retireGeneratedModel(); err != nil {
 		return false, err
 	}
 	if err := k.clearUnsatCore(); err != nil {

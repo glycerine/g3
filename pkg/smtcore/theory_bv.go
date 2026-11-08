@@ -893,10 +893,13 @@ func (t *SMTBitVectorTheory) PopScopes(count uint32) error {
 	if err = t.restorePrivateTrail(scope); err != nil {
 		return err
 	}
-	for _, expression := range t.bitTrail[scope.bits:] {
+	// The bit2bool atoms die as the source unwinds its internalization
+	// stacks: last created first.
+	for k := len(t.bitTrail) - 1; k >= scope.bits; k-- {
+		expression := t.bitTrail[k]
 		delete(t.bits, expression)
 		owner := t.bitOwners[expression]
-		for i := range owner {
+		for i := len(owner) - 1; i >= 0; i-- {
 			if err := state.manager.DelRef(&owner[i]); err != nil {
 				return err
 			}

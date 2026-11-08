@@ -342,13 +342,27 @@ Found while matching `-st` output against `build/z3` on
       retained setup with an empty logic, so the bit-vector theory blasts
       the minterm constants as in z3. The minterm constant is named "x"
       (sym_expr_boolean_algebra::is_sat), not "seq-automaton".
-    - OPEN: the minterm queries themselves differ. g3's
-      sequenceAutomatonBuilder (ast/rewriter/seq_rewriter_automaton.go)
-      is not a port of re2automaton/symbolic_automata (mk_complement,
-      mk_minterms, determinization): on seq_negative_symbolic_mixed z3
-      checks x!2, x!4, x!10, x!12, x!14, x!16 and g3 checks x!0, x!2,
-      x!4-x!7, x!11, x!13, x!15, x!17. Port symbolic_automata_def.h for
-      the retained callers.
+    - DONE: the minterm queries match (x!0..x!16 as in z3). The label
+      algebra is sym_expr_boolean_algebra (mk_and, mk_not, is_sat), and
+      labels are refcounted like sym_expr: they own m_t/m_s and are freed
+      where z3 drops the last move or ref_t (generate_min_terms locals,
+      min_terms resets, mk_product's ab and pruned mvs, re2aut/seq2aut
+      scoped_ptr intermediates, the compressed eautomaton's m_delta_inv
+      then m_delta destruction).
+    - DONE: the seq_expr_solver kernel builds a proto model on FC_DONE
+      (m_fparams.m_model), and a kernel keeps its last model until the
+      next mk_proto_model (model_generator::reset) instead of freeing it
+      when a check begins. theory_bv's pop releases bit2bool atoms last
+      created first.
+    - seq_negative_symbolic_mixed's AST log now matches z3 through line
+      21029 of 24052 (it diverged at line 80). Next: theory_seq keeps
+      `= #105 #103` (assume_equality's m.mk_eq(l, r) before mk_eq_atom
+      swaps it) alive where g3 frees it; find the z3 holder (build_dbg
+      with -tr:seq) before changing anything.
+    - OPEN: rewriteStringInRegex (seq_rewriter::mk_str_in_regexp) does
+      not compress the automaton (re2automaton::operator() does), its
+      is_sequence differs, and it walks the frontier as a Go map, so its
+      AST creation order is nondeterministic; port u_map order.
 
 15. **DONE: quantifier statistics.** `context::collect_statistics` adds
     `m_qmanager->collect_statistics` (qi_queue: quant instantiations, lazy
@@ -413,3 +427,6 @@ Found while matching `-st` output against `build/z3` on
    compares the unsigned product with 2^(sz-1)); nlqsat answers goals the
    source rejects as 'not NRA' (is_pure_proc is not ported; the test keeps
    the C++ unknowns as referenceWant). Ask before changing either.
+   Also kept: symbolic_automata::mk_product tests is_final_state without
+   the epsilon closure, so ("" | a) & ("" | b) would be empty; g3's
+   product includes the closure (string_regex_automaton_product_test).

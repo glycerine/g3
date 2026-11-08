@@ -61,10 +61,14 @@ type SMTKernel struct {
 	// pendingResults records the literals of the latest satisfiable check;
 	// the result expressions are built on the first query, as the source
 	// getters build them, not when the check ends.
-	pendingResults   *smtPendingLiteralResults
-	callback         solver.ProgressCallback
-	modelConfig      model.ModelEvaluatorConfig
-	generated        *model.Model
+	pendingResults *smtPendingLiteralResults
+	callback       solver.ProgressCallback
+	modelConfig    model.ModelEvaluatorConfig
+	generated      *model.Model
+	// staleModel is context::m_proto_model/m_model after a new check began:
+	// no longer the result, but held until the next mk_proto_model replaces
+	// it (or the context is destroyed).
+	staleModel       *model.Model
 	preprocessor     *rewriter.TheoryRewriter
 	patternInference *pattern.InferenceRewriter
 	bvSharing        *rewriter.MaximizeBVSharing
@@ -460,6 +464,11 @@ func (k *SMTKernel) configureQuantifiers(full *SMTParams, state SMTParamsState, 
 
 func (k *SMTKernel) buildCandidateModelGenerator() (*SMTModelGenerator, error) {
 	if err := k.open(); err != nil {
+		return nil, err
+	}
+	// m_model_generator->reset() releases the previous model's values
+	// before the new model is made.
+	if err := k.releaseStaleModel(); err != nil {
 		return nil, err
 	}
 	generator, err := NewSMTModelGenerator(k.manager)
@@ -1295,8 +1304,35 @@ func (k *SMTKernel) buildGeneratedModel() error {
 	if err != nil {
 		return err
 	}
+	if err = k.releaseStaleModel(); err != nil {
+		return errors.Join(err, generated.Core().DecRef())
+	}
 	k.generated = generated
 	return nil
+}
+
+// retireGeneratedModel starts a check: the previous model stops being the
+// result but stays alive, as the source keeps m_model until it is replaced.
+func (k *SMTKernel) retireGeneratedModel() error {
+	if k == nil || k.generated == nil {
+		return nil
+	}
+	if err := k.releaseStaleModel(); err != nil {
+		return err
+	}
+	k.staleModel, k.generated = k.generated, nil
+	return nil
+}
+
+func (k *SMTKernel) releaseStaleModel() error {
+	if k == nil || k.staleModel == nil {
+		return nil
+	}
+	consumed, err := k.staleModel.Core().DecRefConsumed()
+	if consumed {
+		k.staleModel = nil
+	}
+	return err
 }
 
 // finalizeGeneratedModel consumes the generator and returns one model
@@ -1511,6 +1547,9 @@ func (k *SMTKernel) Close() error {
 		return err
 	}
 	if err := k.clearGeneratedModel(); err != nil {
+		return err
+	}
+	if err := k.releaseStaleModel(); err != nil {
 		return err
 	}
 	if err := k.clearUnsatCore(); err != nil {

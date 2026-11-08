@@ -67,6 +67,9 @@ func (s *smtStringExpressionSolver) CheckSatisfiable(expression ast.ASTHandle) (
 	}
 	s.kernel.smtState, s.kernel.arithState, s.kernel.bvState = state, arithmetic, bitVector
 	s.kernel.preprocessState, s.kernel.preprocess = preprocess, state.Preprocess
+	// context::mk_proto_model runs on FC_DONE when m_fparams.m_model or
+	// m_model_on_final_check is set; the kernel shares the parent's params.
+	s.kernel.produceModel = state.Model || state.ModelOnFinalCheck
 	if err := s.kernel.Push(); err != nil {
 		return lbool.Undef, err
 	}

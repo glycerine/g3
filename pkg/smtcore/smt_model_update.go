@@ -50,7 +50,7 @@ func (k *SMTKernel) UpdateModel(refinalize bool) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if err = k.clearGeneratedModel(); err != nil {
+	if err = errors.Join(k.clearGeneratedModel(), k.releaseStaleModel()); err != nil {
 		return false, errors.Join(err, generated.Core().DecRef())
 	}
 	k.generated = generated
