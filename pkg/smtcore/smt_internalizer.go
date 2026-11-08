@@ -291,10 +291,9 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		clause.atoms[0], clause.atoms[firstWatch] = clause.atoms[firstWatch], clause.atoms[0]
 	}
 	s.clauses = append(s.clauses, SMTInternalizedClause{Literals: kept, Root: root, Proof: proof, clause: clause, owner: owner})
+	// Source mk_clause counts a two-literal clause that is not stored as a
+	// binary watch only in m_num_mk_clause (case 2 falls through).
 	s.statistics.NumMkClause++
-	if len(kept) == 2 {
-		s.statistics.NumMkBinClause++
-	}
 	firstValue, err := s.Assignment(kept[0])
 	if err != nil {
 		return err

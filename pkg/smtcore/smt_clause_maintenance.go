@@ -76,9 +76,15 @@ func (s *SMTInternalizerState) deleteLearnedClauseIndexes(remove map[int]struct{
 	}
 	removedBefore := make([]int, len(s.clauses)+1)
 	kept := 0
+	var deleted uint32
 	for index := range s.clauses {
 		removedBefore[index+1] = removedBefore[index]
 		if _, found := remove[index]; found {
+			// del_clause counts allocated clauses only; binary clauses live
+			// in the watch lists.
+			if !s.clauses[index].Binary {
+				deleted++
+			}
 			if err := s.closeClause(&s.clauses[index]); err != nil {
 				return err
 			}
@@ -97,7 +103,7 @@ func (s *SMTInternalizerState) deleteLearnedClauseIndexes(remove map[int]struct{
 		}
 		s.scopes[index].clauseLimit -= removedBefore[limit]
 	}
-	s.statistics.NumDelClause += uint32(len(remove))
+	s.statistics.NumDelClause += deleted
 	s.clauses = s.clauses[:kept]
 	return nil
 }

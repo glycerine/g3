@@ -1074,7 +1074,9 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 		if s.keepClauseAcrossPop(&s.clauses[index]) {
 			s.clauses[write] = s.clauses[index]
 			write++
-		} else {
+		} else if !s.clauses[index].Binary {
+			// del_clause deletes allocated clauses; binary clauses live
+			// only in the watch lists and are not counted.
 			s.statistics.NumDelClause++
 		}
 	}
