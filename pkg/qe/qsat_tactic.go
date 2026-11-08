@@ -459,6 +459,11 @@ func (t *QSATTactic) Close() error {
 		return err
 	}
 	if t.search != nil {
+		// ~qsat calls reset(), which collects statistics and replaces both
+		// kernels with fresh SMT solvers before the members are destroyed.
+		if err := t.search.reset(); err != nil {
+			return err
+		}
 		if err := t.search.Close(); err != nil {
 			return err
 		}

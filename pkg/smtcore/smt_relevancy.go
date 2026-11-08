@@ -694,6 +694,7 @@ func (p *SMTRelevancyPropagator) Propagate() error {
 	defer func() { p.propagating = false }()
 	for p.qhead < len(p.relevant) {
 		expression := p.relevant[p.qhead]
+		p.tracePropagate(expression)
 		p.qhead++
 		kind, err := p.context.manager.GetKind(expression)
 		if err != nil {
@@ -997,6 +998,7 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 	scope := p.scopes[newLevel]
 	for index := len(p.relevant); index > scope.relevantLimit; index-- {
 		p.context.relevant.del(p.relevant[index-1])
+		p.traceUnmark(p.relevant[index-1])
 	}
 	p.relevant = p.relevant[:scope.relevantLimit]
 	p.qhead = len(p.relevant)

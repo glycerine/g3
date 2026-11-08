@@ -224,3 +224,60 @@ func (s *SMTInternalizerState) traceMkEnode(node *SMTEnode, count uint32, congru
 	}
 	emitSMTTrace("mk_enode", "mk_enode", "src/smt/smt_internalizer.cpp", 939, body)
 }
+
+// tracePropagate is the TRACE pair at the head of relevancy_propagator::
+// propagate (src/smt/smt_relevancy.cpp:462-463).
+func (p *SMTRelevancyPropagator) tracePropagate(n ast.ASTHandle) {
+	if smtTraceEnabled("propagate_relevancy_to_args") {
+		id, _ := p.context.manager.GetASTID(n)
+		emitSMTTrace("propagate_relevancy_to_args", "propagate", "src/smt/smt_relevancy.cpp", 462,
+			"propagating relevancy to args of #"+strconv.FormatUint(uint64(id), 10)+"\n")
+	}
+	if smtTraceEnabled("propagate_relevancy") {
+		emitSMTTrace("propagate_relevancy", "propagate", "src/smt/smt_relevancy.cpp", 463,
+			"marking as relevant:\n"+traceBoundedPP(p.context.manager, n)+"\n")
+	}
+}
+
+// traceUnmark is the TRACE in relevancy_propagator_imp::unmark_relevant_exprs
+// (src/smt/smt_relevancy.cpp:279).
+func (p *SMTRelevancyPropagator) traceUnmark(n ast.ASTHandle) {
+	if smtTraceEnabled("propagate_relevancy") {
+		emitSMTTrace("propagate_relevancy", "unmark_relevant_exprs", "src/smt/smt_relevancy.cpp", 279,
+			"unmarking:\n"+tracePP(p.context.manager, n)+"\n")
+	}
+}
+
+// traceRelevantEh is the TRACE in context::relevant_eh
+// (src/smt/smt_context.cpp:1614).
+func (s *SMTInternalizerState) traceRelevantEh(n ast.ASTHandle) {
+	if smtTraceEnabled("propagate_relevancy") {
+		emitSMTTrace("propagate_relevancy", "relevant_eh", "src/smt/smt_context.cpp", 1614,
+			"marking as relevant:\n"+traceBoundedPP(s.manager, n)+" "+strconv.FormatUint(uint64(s.scopeLevel), 10)+"\n")
+	}
+}
+
+// tracePropagateAtom is the TRACE in context::propagate_atoms
+// (src/smt/smt_context.cpp:1380).
+func (s *SMTInternalizerState) tracePropagateAtom(l SMTLiteral, d *SMTBoolVarData) {
+	if !smtTraceEnabled("propagate_atoms") {
+		return
+	}
+	id, _ := s.manager.GetASTID(s.boolExpr[l.Var()])
+	tag := ""
+	if d.IsEquality() {
+		tag += "eq"
+	}
+	if d.IsTheoryAtom() {
+		tag += "th"
+	}
+	if d.IsQuantifier() {
+		tag += "q"
+	}
+	enode := "0"
+	if d.IsENode() {
+		enode = "1"
+	}
+	emitSMTTrace("propagate_atoms", "propagate_atoms", "src/smt/smt_context.cpp", 1380,
+		"propagating atom, #"+strconv.FormatUint(uint64(id), 10)+", is_enode(): "+enode+" tag: "+tag+" "+traceLiteral(l)+"\n")
+}

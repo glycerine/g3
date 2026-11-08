@@ -249,6 +249,7 @@ func (t *SMTTheorySeq) enqueAxiom(e ast.ASTHandle) {
 }
 
 func (t *SMTTheorySeq) dequeAxiom(n ast.ASTHandle) {
+	t.traceDequeAxiom(n)
 	if t.isStrOp(n, seqOpLength) {
 		t.addLengthAxiom(n)
 	} else if t.isEmpty(n) && !t.hasLength(n) && t.length.size != 0 {

@@ -470,38 +470,30 @@ func (s *SMTInternalizerState) propagateBooleanEnode(variable int32, node *SMTEn
 	return s.propagateBooleanClass(node.root)
 }
 
-func (s *SMTInternalizerState) propagateEqualityClassRelevancy(first, second *SMTEnode) error {
-	relevant := false
-	for _, root := range []*SMTEnode{first, second} {
-		for node := root; ; node = node.next {
-			if s.context.relevant.get(node.owner) {
-				relevant = true
-				break
-			}
-			if node.next == root {
-				break
-			}
-		}
-		if relevant {
-			break
-		}
+// propagateEqualityClassRelevancy is the relevancy step of context::add_eq,
+// before the classes are merged: if r1 is relevant, mark_as_relevant(r2)
+// marks r2's class; otherwise, if r2 is relevant, r1's class.
+func (s *SMTInternalizerState) propagateEqualityClassRelevancy(r1, r2 *SMTEnode) error {
+	target := (*SMTEnode)(nil)
+	if s.context.relevant.get(r1.owner) {
+		target = r2
+	} else if s.context.relevant.get(r2.owner) {
+		target = r1
 	}
-	if !relevant {
+	if target == nil {
 		return nil
 	}
-	for _, root := range []*SMTEnode{first, second} {
-		for node := root; ; node = node.next {
-			if !s.context.relevant.get(node.owner) {
-				if err := s.markRelevant(node.owner); err != nil {
-					return err
-				}
-			}
-			if node.next == root {
-				break
-			}
+	if s.relevancy != nil {
+		return s.markRelevant(target.owner) // walks target's class
+	}
+	for node := target; ; node = node.next {
+		if err := s.context.SetRelevant(node.owner, true); err != nil {
+			return err
+		}
+		if node.next == target {
+			return nil
 		}
 	}
-	return nil
 }
 
 func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification SMTEqualityJustification) error {

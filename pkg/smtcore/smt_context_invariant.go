@@ -114,7 +114,6 @@ func (s *SMTInternalizerState) CheckInvariant() error {
 	}
 	if s.propagationHead < 0 || s.propagationHead > len(s.assignedLiterals) ||
 		s.pendingHead < 0 || s.pendingHead > len(s.pending) ||
-		s.atomPropagationHead < 0 || s.atomPropagationHead > len(s.assignedLiterals) ||
 		s.theoryEqualityHead < 0 || s.theoryEqualityHead > len(s.theoryEqualities) ||
 		s.theoryDisequalityHead < 0 || s.theoryDisequalityHead > len(s.theoryDisequalities) {
 		return ast.ErrASTDomain

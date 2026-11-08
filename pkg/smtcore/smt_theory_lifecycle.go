@@ -122,7 +122,7 @@ func (s *SMTInternalizerState) FinalCheckTheories() (SMTFinalCheckStatus, error)
 // Source context::can_propagate checks every logical-context queue, not only
 // the theories' callbacks. New assignments/equalities must run before give-up.
 func (s *SMTInternalizerState) canPropagate() bool {
-	if s.propagationHead != len(s.assignedLiterals) || s.atomPropagationHead != len(s.assignedLiterals) ||
+	if s.propagationHead != len(s.assignedLiterals) || len(s.atomQueue) != 0 ||
 		s.pendingHead != len(s.pending) || s.theoryEqualityHead != len(s.theoryEqualities) ||
 		s.theoryDisequalityHead != len(s.theoryDisequalities) ||
 		s.relevancy != nil && s.relevancy.CanPropagate() ||

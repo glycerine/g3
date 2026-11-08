@@ -39,7 +39,6 @@ type smtInternalizerScope struct {
 	theoryEqHead         int
 	theoryDiseqLimit     int
 	theoryDiseqHead      int
-	atomHead             int
 	notifyLimit          int
 	enodeFlagLimit       int
 	mergeTFLimit         int
@@ -189,10 +188,10 @@ type SMTInternalizerState struct {
 	theoryDisequalities        []SMTTheoryPropagation
 	theoryEqualityHead         int
 	theoryDisequalityHead      int
-	atomPropagationHead        int
-	// atomQueued parallels assignedLiterals: whether assign_core put the
-	// literal on m_atom_propagation_queue, decided when it was assigned.
-	atomQueued               []bool
+	// atomQueue is m_atom_propagation_queue: assign_core appends a literal
+	// whose atom is relevant (or relevancy is off) when it is assigned, and
+	// relevant_eh appends an assigned atom when it becomes relevant.
+	atomQueue                []SMTLiteral
 	notifyTrail              []smtInternalizerNotifyTrail
 	enodeFlagTrail           []int32
 	mergeTFTrail             []*SMTEnode // set_merge_tf_trail
@@ -801,7 +800,7 @@ func (s *SMTInternalizerState) PushScope() error {
 		disequalityLimit: len(s.context.disequalityTrail),
 		theoryEqLimit:    len(s.theoryEqualities), theoryEqHead: s.theoryEqualityHead,
 		theoryDiseqLimit: len(s.theoryDisequalities), theoryDiseqHead: s.theoryDisequalityHead,
-		atomHead: s.atomPropagationHead, notifyLimit: len(s.notifyTrail), simplifyHead: s.simplifyHead,
+		notifyLimit: len(s.notifyTrail), simplifyHead: s.simplifyHead,
 		enodeFlagLimit:    len(s.enodeFlagTrail),
 		mergeTFLimit:      len(s.mergeTFTrail),
 		atomNotifiedLimit: len(s.atomNotifiedTrail),
@@ -996,7 +995,6 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 		return ast.ErrASTDomain
 	}
 	s.assignedLiterals = s.assignedLiterals[:scope.assignedLimit]
-	s.atomQueued = s.atomQueued[:scope.assignedLimit]
 	if scope.propagationHead < 0 || scope.propagationHead > len(s.assignedLiterals) {
 		return ast.ErrASTDomain
 	}
@@ -1013,10 +1011,10 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 	}
 	s.theoryDisequalities = s.theoryDisequalities[:scope.theoryDiseqLimit]
 	s.theoryDisequalityHead = scope.theoryDiseqHead
-	if scope.atomHead < 0 || scope.atomHead > len(s.assignedLiterals) || scope.notifyLimit < 0 || scope.notifyLimit > len(s.notifyTrail) {
+	if scope.notifyLimit < 0 || scope.notifyLimit > len(s.notifyTrail) {
 		return ast.ErrASTDomain
 	}
-	s.atomPropagationHead = scope.atomHead
+	s.atomQueue = s.atomQueue[:0] // pop_scope: m_atom_propagation_queue.reset()
 	if scope.atomNotifiedLimit < 0 || scope.atomNotifiedLimit > len(s.atomNotifiedTrail) {
 		return ast.ErrASTDomain
 	}

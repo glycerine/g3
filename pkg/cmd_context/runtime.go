@@ -4,6 +4,7 @@ package cmd_context
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/ast"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/model"
@@ -107,6 +108,16 @@ func newStandaloneContext(shellMemory bool) (*Context, *diagnostic.MemoryFatalCo
 
 // NewAuxiliaryContext constructs the non-main command context used by API
 // parsers, which must not redirect the process diagnostic streams.
+// NewAuxiliaryContextFor is an auxiliary context whose manager takes its
+// family ids from template, so its terms translate into template's manager.
+func NewAuxiliaryContextFor(template *ast.ASTManager) (*Context, error) {
+	c, err := NewAuxiliaryContext()
+	if c != nil {
+		c.familyTemplate = template
+	}
+	return c, err
+}
+
 func NewAuxiliaryContext() (*Context, error) {
 	c, err := NewStandaloneContext()
 	if c != nil {

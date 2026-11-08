@@ -455,7 +455,12 @@ func (s *SMTInternalizerState) markRelevant(expression ast.ASTHandle) error {
 	if s.relevancy == nil {
 		return s.context.SetRelevant(expression, true)
 	}
-	return s.relevancy.MarkRelevant(expression)
+	// context::mark_as_relevant marks n and then propagates relevancy
+	// (smt_context.h); the propagator's own marking does not propagate.
+	if err := s.relevancy.MarkRelevant(expression); err != nil {
+		return err
+	}
+	return s.relevancy.Propagate()
 }
 
 func (s *SMTInternalizerState) ensureBooleanEnode(expression ast.ASTHandle, variable int32, suppressArguments, mergeTruthValue, congruenceEnabled bool) error {
@@ -514,7 +519,7 @@ func (s *SMTInternalizerState) setMergeTF(node *SMTEnode, variable int32, isNewV
 	if value == lbool.False {
 		literal = literal.Negated()
 	}
-	return s.addEquality(node, constant, NewSMTEqualityEquation(literal))
+	return s.assignEquality(node, constant, NewSMTEqualityEquation(literal)) // push_eq
 }
 
 func (s *SMTInternalizerState) Internalize(expression ast.ASTHandle, gateContext bool) error {
@@ -590,16 +595,7 @@ func (s *SMTInternalizerState) internalizeFormula(expression ast.ASTHandle, gate
 				return err
 			}
 			if handled {
-				variable, found := s.boolVar.lookup(expression)
-				if !found {
-					return ast.ErrASTDomain
-				}
-				if !gateContext {
-					if err = s.ensureBooleanEnode(expression, variable, true, true, false); err != nil {
-						return err
-					}
-				}
-				return nil
+				return s.finishTheoryAtom(expression, gateContext)
 			}
 		}
 	}
@@ -632,6 +628,44 @@ func (s *SMTInternalizerState) internalizeFormula(expression ast.ASTHandle, gate
 		}
 	}
 	return nil
+}
+
+// finishTheoryAtom is the tail of context::internalize_theory_atom after the
+// theory internalized the atom.
+func (s *SMTInternalizerState) finishTheoryAtom(expression ast.ASTHandle, gateContext bool) error {
+	variable, found := s.boolVar.lookup(expression)
+	if !found {
+		return ast.ErrASTDomain
+	}
+	if !gateContext {
+		// Not in the context of a gate: the formula must have an enode.
+		if node := s.context.enodes.get(expression); node == nil {
+			if _, err := s.MkEnode(expression, true, true, false); err != nil {
+				return err
+			}
+		} else {
+			s.setEnodeFlag(variable, true)
+			if err := s.setMergeTF(node, variable, true); err != nil {
+				return err
+			}
+		}
+	}
+	if node := s.context.enodes.get(expression); node != nil {
+		s.setEnodeFlag(variable, true)
+		return s.propagateBooleanEnode(variable, node)
+	}
+	return nil
+}
+
+// setEnodeFlag is context::set_enode_flag.
+func (s *SMTInternalizerState) setEnodeFlag(variable int32, isNewVar bool) {
+	data := &s.booleanData[variable]
+	if !data.IsENode() {
+		if !isNewVar {
+			s.enodeFlagTrail = append(s.enodeFlagTrail, variable)
+		}
+		data.SetENode()
+	}
 }
 
 func (s *SMTInternalizerState) internalizeQuantifier(expression ast.ASTHandle, gateContext bool) error {
@@ -879,10 +913,19 @@ func (s *SMTInternalizerState) addRootClause(literals []SMTLiteral, assertionPro
 	return s.addClause(literals, true, proof)
 }
 
+// assignRootLiteral is the assign of context::assert_default, which justifies
+// the literal with a justification_proof_wrapper even without a proof.
 func (s *SMTInternalizerState) assignRootLiteral(literal SMTLiteral, proof ast.ASTHandle) error {
 	justification := NewSMTBooleanAxiom()
 	if proof.IsNull() {
-		return s.AssignLiteral(literal, justification)
+		// With proofs enabled the source always has an assertion proof; a
+		// caller without one keeps the axiom the proof builder can close.
+		if proofs, err := s.manager.ProofsEnabled(); err != nil || proofs {
+			if err != nil {
+				return err
+			}
+			return s.AssignLiteral(literal, justification)
+		}
 	}
 	owner, err := NewSMTJustificationProofWrapper(s.manager, proof, false)
 	if err != nil {

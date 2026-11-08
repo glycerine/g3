@@ -147,6 +147,7 @@ func (s *SMTInternalizerState) propagateAssignedAtom(literal SMTLiteral) error {
 	if !data.IsAtom() || s.atomNotified[variable] {
 		return nil
 	}
+	s.tracePropagateAtom(literal, data)
 	if node := s.context.enodes.get(s.boolExpr[variable]); node != nil {
 		if err = s.propagateBooleanEnode(variable, node); err != nil {
 			return err
@@ -208,7 +209,9 @@ func (s *SMTInternalizerState) appendAssignedLiteral(literal SMTLiteral) error {
 		return err
 	}
 	s.assignedLiterals = append(s.assignedLiterals, literal)
-	s.atomQueued = append(s.atomQueued, queued)
+	if queued {
+		s.atomQueue = append(s.atomQueue, literal)
+	}
 	return nil
 }
 
@@ -233,23 +236,17 @@ func (s *SMTInternalizerState) PropagateTheoryAssignments() error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	for s.atomPropagationHead < len(s.assignedLiterals) {
-		literal := s.assignedLiterals[s.atomPropagationHead]
-		// assign_core decided, when the literal was assigned, whether it
-		// goes on the atom queue; relevant_eh queues it when it becomes
-		// relevant later.
-		if !s.atomQueued[s.atomPropagationHead] {
-			s.atomPropagationHead++
-			continue
-		}
-		if err := s.propagateAssignedAtom(literal); err != nil {
+	// propagate_atoms: the queue may grow while it is processed; it is reset
+	// only when every entry has been processed without a conflict.
+	for i := 0; i < len(s.atomQueue); i++ {
+		if err := s.propagateAssignedAtom(s.atomQueue[i]); err != nil {
 			return err
 		}
 		if s.inconsistent {
 			return nil
 		}
-		s.atomPropagationHead++
 	}
+	s.atomQueue = s.atomQueue[:0]
 	if err := s.propagateCoreEqualities(); err != nil {
 		return fmt.Errorf("propagate core equalities: %w", err)
 	}
@@ -259,6 +256,16 @@ func (s *SMTInternalizerState) PropagateTheoryAssignments() error {
 // Source context::relevant_eh is called by set_relevant immediately,
 // before assignment propagation and at the scope where the mark was made.
 func (s *SMTInternalizerState) notifyRelevant(expression ast.ASTHandle) error {
+	// Quantifiers are only asserted when marked as relevant. Other atoms are
+	// only asserted when marked as relevant if m_relevancy_lvl >= 2.
+	if variable, found := s.BoolVar(expression); found {
+		if d := &s.booleanData[variable]; d.IsAtom() && (d.IsQuantifier() || s.relevancyLevel >= 2) {
+			if value := s.assignment[NewSMTLiteral(variable, false).Index()]; value != lbool.Undef {
+				s.atomQueue = append(s.atomQueue, NewSMTLiteral(variable, value == lbool.False))
+			}
+		}
+	}
+	s.traceRelevantEh(expression)
 	if err := s.admitRelevanceCaseSplit(expression); err != nil {
 		return err
 	}
@@ -310,35 +317,8 @@ func (s *SMTInternalizerState) propagateTheoryRelevancy() error {
 	if err := s.relevancy.Propagate(); err != nil {
 		return err
 	}
-	for _, expression := range s.relevancy.DrainNewlyRelevant() {
-		kind, err := s.manager.GetKind(expression)
-		if err != nil {
-			return err
-		}
-		if kind != ast.ASTApp {
-			continue
-		}
-		// Source relevant_eh queues an already assigned atom when it first
-		// becomes relevant. Notify once per assignment and restore on pop.
-		if variable, found := s.BoolVar(expression); found {
-			literal := NewSMTLiteral(variable, false)
-			value, err := s.Assignment(literal)
-			if err != nil {
-				return err
-			}
-			if value != lbool.Undef {
-				if value == lbool.False {
-					literal = literal.Negated()
-				}
-				if err = s.propagateAssignedAtom(literal); err != nil {
-					return err
-				}
-				if s.inconsistent {
-					return nil
-				}
-			}
-		}
-	}
+	// relevant_eh already queued assigned atoms (notifyRelevant).
+	s.relevancy.DrainNewlyRelevant()
 	return nil
 }
 
@@ -454,7 +434,7 @@ func (s *SMTInternalizerState) PropagateCore() (bool, error) {
 			return false, nil
 		}
 		relevancyDone := s.relevancy == nil || !s.relevancy.CanPropagate()
-		if s.propagationHead == len(s.assignedLiterals) && s.atomPropagationHead == len(s.assignedLiterals) && s.pendingHead == len(s.pending) && s.theoryEqualityHead == len(s.theoryEqualities) && s.theoryDisequalityHead == len(s.theoryDisequalities) && relevancyDone && !theoryProgress && !quantifierProgress && !dynamicAckProgress {
+		if s.propagationHead == len(s.assignedLiterals) && len(s.atomQueue) == 0 && s.pendingHead == len(s.pending) && s.theoryEqualityHead == len(s.theoryEqualities) && s.theoryDisequalityHead == len(s.theoryDisequalities) && relevancyDone && !theoryProgress && !quantifierProgress && !dynamicAckProgress {
 			return true, nil
 		}
 	}

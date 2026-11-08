@@ -825,6 +825,10 @@ func (k *SMTKernel) internalizePending() error {
 		}
 		// Set the Boolean conflict directly: pending expressions must never
 		// enter theory/quantifier internalization on this source branch.
+		// Without an inconsistency proof the source sets an axiom conflict.
+		if proof.IsNull() {
+			return k.internalizer.AssignLiteral(SMTFalseLiteral, NewSMTBooleanAxiom())
+		}
 		if err := k.internalizer.assignRootLiteral(SMTFalseLiteral, proof); err != nil {
 			return err
 		}

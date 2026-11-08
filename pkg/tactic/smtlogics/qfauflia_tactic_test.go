@@ -92,6 +92,9 @@ func TestQFAUFLIATacticTranslationAndProofLifetime(t *testing.T) {
 	qfaufliaMust(t, source.IncRef())
 	target, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: m.Symbols, Numerals: m.NumeralService(), Budget: m.Budget(), ProofMode: ast.ASTProofEnabled})
 	qfaufliaMust(t, err)
+	// The source copy-constructs the target (ast_manager(m, ...)), which
+	// keeps the source family ids.
+	qfaufliaMust(t, target.CopyFamiliesPlugins(m))
 	t.Cleanup(func() { qfaufliaMust(t, target.Close()) })
 	translated, err := source.Translate(target)
 	qfaufliaMust(t, err)

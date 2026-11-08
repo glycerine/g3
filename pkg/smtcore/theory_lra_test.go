@@ -132,8 +132,9 @@ func TestSMTLRAFrontendBooleanBoundsConflictAndScopeReplay(t *testing.T) {
 	f := newLRAFrontendFixture(t, true)
 	x := f.variable("lra-scope-x")
 	f.assert(f.app(smtArithOpGE, x, f.number(0)), true)
-	// Push before propagation: root assignments are reached inside the child
-	// and must be replayed after the numerical scope is removed.
+	// context::push propagates before push_scope; pop_scope resets the atom
+	// queue, so a root atom left unpropagated across a scope would be lost.
+	f.propagate(true)
 	astTestMust(t, f.s.PushScope())
 	// Distinct axes force a numerical contradiction; same-axis bound clauses
 	// could otherwise conflict before the root assignment reaches LAR.

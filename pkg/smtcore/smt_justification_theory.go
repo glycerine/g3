@@ -20,9 +20,14 @@ func NewSMTJustificationProofWrapper(manager *ast.ASTManager, proof ast.ASTHandl
 	if manager == nil {
 		return nil, ast.ErrASTDomain
 	}
-	ref, err := manager.NewRef(proof)
-	if err != nil {
-		return nil, err
+	// assert_default wraps the assertion's proof, which is null when proofs
+	// are disabled.
+	var ref ast.ASTRef
+	if !proof.IsNull() {
+		var err error
+		if ref, err = manager.NewRef(proof); err != nil {
+			return nil, err
+		}
 	}
 	return &SMTJustificationProofWrapper{SMTJustificationBase: NewSMTJustificationBase(region), manager: manager, proof: ref}, nil
 }
@@ -30,6 +35,9 @@ func (*SMTJustificationProofWrapper) Name() string { return "proof-wrapper" }
 func (j *SMTJustificationProofWrapper) Proof() (ast.ASTHandle, error) {
 	if j == nil || j.manager == nil || j.released {
 		return ast.ASTHandle{}, ast.ErrASTHandle
+	}
+	if j.proof == (ast.ASTRef{}) {
+		return ast.ASTHandle{}, nil
 	}
 	return j.manager.RefGet(j.proof)
 }

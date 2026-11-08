@@ -146,7 +146,10 @@ func TestSMTFullArrayDisplayConstructorLists(t *testing.T) {
 	astTestMust(t, err)
 	var output bytes.Buffer
 	astTestMust(t, theory.DisplayVariable(&output, state.context.enodes.get(constant).TheoryVar(family)))
-	want := fmt.Sprintf(" maps: {} p_parent_maps: {#%d} p_const: {#%d}\n", mapID, constantID)
+	// internalize_term adds the map to its argument's parent maps; then
+	// try_assign_eq's mark_as_relevant propagates relevancy to the map, and
+	// relevant_eh adds it again, as in the source.
+	want := fmt.Sprintf(" maps: {} p_parent_maps: {#%d #%d} p_const: {#%d}\n", mapID, mapID, constantID)
 	if !strings.HasSuffix(output.String(), want) {
 		t.Fatal("constant and parent-map lists", output.String(), want)
 	}

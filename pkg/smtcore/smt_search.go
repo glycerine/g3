@@ -502,6 +502,7 @@ func (k *SMTKernel) resolveSearchConflict(session *smtSearchSession) (bool, erro
 	}
 	conflictLiteral := k.internalizer.ConflictLiteral()
 	userBaseLevel := k.internalizer.searchUserBaseLevel
+	k.internalizer.atomQueue = k.internalizer.atomQueue[:0] // m_atom_propagation_queue.reset()
 	resolution, err := resolver.resolve(conflict, conflictLiteral, baseLevel, userBaseLevel)
 	if err != nil {
 		return false, fmt.Errorf("smt search resolve conflict: %w", err)

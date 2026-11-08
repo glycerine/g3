@@ -45,6 +45,11 @@ Found while matching `-st` output against `build/z3` on
    new terms get different ids. This needs the source destruction order of
    smt::context (flush: trail undo, clauses, justifications; then the
    asserted_formulas and enode members) and of the tactic objects.
+   Related: z3's relevancy propagator keeps m_relevant_exprs as an
+   expr_ref_vector, so its terms live until it unmarks them on pop. g3's
+   propagator holds no references; the ported unmark_relevant_exprs
+   TRACE (datatype_update_equality_scopes) shows terms already deleted
+   when g3 unmarks them, so g3 frees them earlier than z3 does.
 
 4. **DONE: get-consequences algorithm.** smt_solver::get_consequences_core
    is now context::get_consequences (smt_consequences.cpp: antecedent sets,
@@ -118,17 +123,42 @@ Found while matching `-st` output against `build/z3` on
       vectors). It now uses qe.QuantifierTactic. That port of
       qe_tactic.cpp is partial (it leaves a quantifier in place when no
       plugin eliminates it, as the source does); completing it remains.
-    - OPEN: `qe::qsat::~qsat` calls reset(), creating two kernels at
-      teardown (z3's last 2 contexts); g3's qsat Close does not.
-    Until this is fixed no vector matches z3 record for record, so
-    `TestTraceGolden` (cmd/g3, `-tags g3trace`, see the file comment) has
-    no default vectors.
+    - DONE: `qe::qsat::~qsat` calls reset(), creating two kernels at
+      teardown; QSATTactic.Close now does too. Block 12 creates 17
+      contexts on both sides.
+    - DONE (found by the record comparison on block 12):
+      - context::mark_as_relevant propagates relevancy right after
+        marking (smt_context.h); g3 only marked.
+      - add_eq propagates relevancy from root to root (is_relevant(r1) ->
+        mark_as_relevant(r2) and vice versa) before the merge.
+      - m_atom_propagation_queue: assign_core queues a relevant atom when
+        it is assigned, relevant_eh queues an assigned atom when it
+        becomes relevant, propagate_atoms drains it in that order, and it
+        is reset by pop_scope and resolve_conflict. g3 processed newly
+        relevant atoms immediately, ahead of the queued ones.
+      - set_merge_tf uses push_eq (queued), not an immediate add_eq.
+      - internalize_theory_atom sets the enode flag for an atom the theory
+        gave an enode (theory_seq's str.in.re), also in a gate context.
+      - assert_default justifies asserted literals with a
+        justification_proof_wrapper even without proofs.
+      - family ids: cmd_context registers its plugins in init_manager_core
+        order (arith, bv, array, datatype, seq, pb, fpa, datalog_relation)
+        after pdecl_manager has created the datatype family, so seq is 9
+        and bv 7 as in z3.
+      All-stats exact went from 570 to 578 of 658; verdicts unchanged.
+    - OPEN: block 12 now matches z3 at the golden sites for 488 records.
+      The next difference follows the backjump from level 16: z3 reuses
+      bool var 83 (the level-16 variables were deleted), g3 continues at
+      88 and adds a seq length axiom z3 does not. Compare which Boolean
+      variables and enodes the pop removes.
 
 12. **Golden trace coverage.** Port more TRACE records into Go at the
     sites z3 traces (add each to `goldenTraceSites` in
     cmd/g3/trace_golden_test.go). Ported so far: assign_core (with the
-    justification display), add_eq_detail, decide, mk_bool_var, and seq
-    add_axiom and get_automaton. Next candidates: seq final_check_eh
+    justification display), add_eq_detail, decide, mk_bool_var, mk_enode,
+    propagate_atoms, propagate_relevancy (propagate, relevant_eh and
+    unmark_relevant_exprs), propagate_relevancy_to_args, and seq add_axiom,
+    deque_axiom and get_automaton. Next candidates: seq final_check_eh
     (theory_seq::display), the arith tags, and the remaining seq records.
 
 13. **DONE: conflict counting.** z3 counts `conflicts` in

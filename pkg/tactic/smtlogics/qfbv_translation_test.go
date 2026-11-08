@@ -27,6 +27,9 @@ func TestQFBVTacticTranslatedProofAndCoreRoutes(t *testing.T) {
 			}
 			target, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: m.Symbols, Numerals: m.NumeralService(), Budget: m.Budget(), ProofMode: mode})
 			qfaufliaMust(t, err)
+			// The source copy-constructs the target (ast_manager(m, ...)), which
+			// keeps the source family ids.
+			qfaufliaMust(t, target.CopyFamiliesPlugins(m))
 			t.Cleanup(func() { qfaufliaMust(t, target.Close()) })
 			translated, err := r.Translate(target)
 			qfaufliaMust(t, err)

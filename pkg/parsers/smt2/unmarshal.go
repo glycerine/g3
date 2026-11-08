@@ -15,7 +15,7 @@ func Unmarshal(input io.Reader, manager *ast.ASTManager) (result ast.ASTRef, res
 	if input == nil || manager == nil {
 		return ast.ASTRef{}, ErrMarshalInput
 	}
-	parsed, err := cmd_context.NewAuxiliaryContext()
+	parsed, err := cmd_context.NewAuxiliaryContextFor(manager)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}

@@ -42,13 +42,20 @@ var goldenTraceTags = []string{"assign_core", "decide", "add_eq_detail", "mk_boo
 // Records at other sites (z3 traces many more) are not compared. Add a site
 // here when its record is ported.
 var goldenTraceSites = map[string]bool{
-	"assign_core assign_core src/smt/smt_context.cpp:293":      true,
-	"add_eq_detail add_eq src/smt/smt_context.cpp:497":         true,
-	"decide decide src/smt/smt_context.cpp:1829":               true,
-	"decide decide src/smt/smt_context.cpp:1885":               true,
-	"mk_bool_var mk_bool_var src/smt/smt_internalizer.cpp:825": true,
-	"seq add_axiom src/smt/theory_seq.cpp:3865":                true,
-	"seq get_automaton src/smt/theory_seq.cpp:4174":            true,
+	"assign_core assign_core src/smt/smt_context.cpp:293":                     true,
+	"add_eq_detail add_eq src/smt/smt_context.cpp:497":                        true,
+	"decide decide src/smt/smt_context.cpp:1829":                              true,
+	"decide decide src/smt/smt_context.cpp:1885":                              true,
+	"mk_bool_var mk_bool_var src/smt/smt_internalizer.cpp:825":                true,
+	"seq add_axiom src/smt/theory_seq.cpp:3865":                               true,
+	"seq deque_axiom src/smt/theory_seq.cpp:3098":                             true,
+	"mk_enode mk_enode src/smt/smt_internalizer.cpp:939":                      true,
+	"propagate_atoms propagate_atoms src/smt/smt_context.cpp:1380":            true,
+	"propagate_relevancy propagate src/smt/smt_relevancy.cpp:463":             true,
+	"propagate_relevancy relevant_eh src/smt/smt_context.cpp:1614":            true,
+	"propagate_relevancy unmark_relevant_exprs src/smt/smt_relevancy.cpp:279": true,
+	"propagate_relevancy_to_args propagate src/smt/smt_relevancy.cpp:462":     true,
+	"seq get_automaton src/smt/theory_seq.cpp:4174":                           true,
 }
 
 // goldenVectors are compared when G3_GOLDEN_VECTORS is unset. Each is

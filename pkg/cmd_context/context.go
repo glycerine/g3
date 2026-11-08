@@ -142,15 +142,16 @@ type Context struct {
 	regularFile                      *os.File
 	diagnosticFile                   *os.File
 	mainContext                      bool
+	familyTemplate                   *ast.ASTManager // see NewAuxiliaryContextFor
 	// interpolatingSMTSolver is set_interpolating_solver_factory(
 	// mk_smt_solver_factory()), installed by the SMT-LIB front end.
 	interpolatingSMTSolver bool
-	diagnosticBound                  bool
-	diagnosticGeneration             uint64
-	previousWarning                  io.Writer
-	previousVerbose                  *utext.NumericTextStream
-	diagnosticVerbose                *utext.NumericTextStream
-	logicChecker                     LogicChecker
+	diagnosticBound        bool
+	diagnosticGeneration   uint64
+	previousWarning        io.Writer
+	previousVerbose        *utext.NumericTextStream
+	diagnosticVerbose      *utext.NumericTextStream
+	logicChecker           LogicChecker
 }
 
 func NewContext(config smtcore.SMTSolverConfig) (*Context, error) {
@@ -815,7 +816,7 @@ func (c *Context) Manager() (manager *ast.ASTManager, result error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = m.RegisterDeclarationPlugins(); err != nil {
+	if err = c.registerManagerPlugins(m); err != nil {
 		return nil, err
 	}
 	if err = c.initBuiltins(); err != nil {
@@ -828,6 +829,42 @@ func (c *Context) Manager() (manager *ast.ASTManager, result error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+// registerManagerPlugins fixes the manager's family ids. A main command
+// context creates its manager in cmd_context::init_manager: the
+// pdecl_manager constructor creates the datatype family, then
+// init_manager_core registers its plugins in its own order (seq before pb,
+// fpa and datalog_relation). Auxiliary contexts stand for the API, whose
+// manager gets reg_decl_plugins and whose parser borrows it.
+func (c *Context) registerManagerPlugins(m *ast.ASTManager) error {
+	if c.familyTemplate != nil {
+		if err := m.CopyFamiliesPlugins(c.familyTemplate); err != nil {
+			return err
+		}
+		return m.RegisterDeclarationPlugins()
+	}
+	if !c.mainContext {
+		return m.RegisterDeclarationPlugins()
+	}
+	if _, err := m.EnsureFamilyID("datatype"); err != nil {
+		return err
+	}
+	for _, register := range [...]func(*ast.ASTManager) (ast.FamilyID, error){
+		(*ast.ASTManager).RegisterArithmeticPlugin,
+		(*ast.ASTManager).RegisterBitVectorPlugin,
+		(*ast.ASTManager).RegisterArrayPlugin,
+		(*ast.ASTManager).RegisterDatatypePlugin,
+		(*ast.ASTManager).RegisterSequencePlugin,
+		(*ast.ASTManager).RegisterPseudoBooleanPlugin,
+		(*ast.ASTManager).RegisterFloatingPointPlugin,
+		(*ast.ASTManager).RegisterDatalogPlugin,
+	} {
+		if _, err := register(m); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // mkSolver mirrors the shell factory step independently of manager creation.
