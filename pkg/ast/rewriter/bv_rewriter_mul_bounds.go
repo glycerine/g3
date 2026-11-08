@@ -50,13 +50,9 @@ func (p *BVRewriter) RewriteMultiplyBound(args ast.AppArguments, out ast.ASTRef,
 	}
 	result := false
 	matched := false
-	fastOperand := func(i int) (bool, error) {
-		// At signed width one, the bit pattern 1 means -1, not +1.
-		if mode != BVUnsignedNoOverflow && width == 1 {
-			return n.IsZero(i)
-		}
-		return n.ZeroOrOne(i)
-	}
+	// Every source variant tests is_zero() || is_one() on the unsigned
+	// numeral value, whatever the width.
+	fastOperand := func(i int) (bool, error) { return n.ZeroOrOne(i) }
 	if num1 {
 		matched, e = fastOperand(0)
 		if e != nil {
@@ -73,7 +69,17 @@ func (p *BVRewriter) RewriteMultiplyBound(args ast.AppArguments, out ast.ASTRef,
 		result = true
 	} else if num1 && num2 {
 		matched = true
-		if mode != BVUnsignedNoOverflow {
+		if mode == BVSignedNoOverflow {
+			// mk_bvsmul_no_overflow compares the product of the unsigned
+			// numeral values with 2^(sz-1); it does not sign-adjust them.
+			if e = n.Product(2); e != nil {
+				return st, e
+			}
+			if e = n.Power(3, width-1); e != nil {
+				return st, e
+			}
+			result, e = n.Compare(2, 3, false)
+		} else if mode == BVSignedNoUnderflow {
 			if e = n.Power(2, width); e != nil {
 				return st, e
 			}
@@ -89,17 +95,13 @@ func (p *BVRewriter) RewriteMultiplyBound(args ast.AppArguments, out ast.ASTRef,
 			if e = n.Product(4); e != nil {
 				return st, e
 			}
-			if mode == BVSignedNoUnderflow {
-				if e = n.NegativeLimit(); e != nil {
-					return st, e
-				}
-				if e = p.traceSignedMultiplyUnderflow(n); e != nil {
-					return st, e
-				}
-				result, e = n.Compare(4, 5, true)
-			} else {
-				result, e = n.Compare(4, 3, false)
+			if e = n.NegativeLimit(); e != nil {
+				return st, e
 			}
+			if e = p.traceSignedMultiplyUnderflow(n); e != nil {
+				return st, e
+			}
+			result, e = n.Compare(4, 5, true)
 		} else {
 			if e = n.Product(2); e != nil {
 				return st, e

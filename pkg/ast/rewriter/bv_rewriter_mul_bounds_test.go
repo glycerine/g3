@@ -73,12 +73,18 @@ func TestBVRewriterSignedMultiplyBoundNumerals(t *testing.T) {
 				if right >= sign {
 					right -= int64(limit)
 				}
+				// Source semantics (bv_rewriter.cpp mk_bvsmul_no_overflow and
+				// mk_bvsmul_no_underflow): an unsigned operand of 0 or 1 folds
+				// to true; otherwise no_overflow compares the product of the
+				// unsigned values with 2^(sz-1), and only no_underflow
+				// sign-adjusts before comparing with -2^(sz-1).
+				fast := a <= 1 || b <= 1
 				for _, tc := range []struct {
 					mode BVMultiplyBound
 					want bool
 				}{
-					{BVSignedNoOverflow, left*right < sign},
-					{BVSignedNoUnderflow, left*right >= -sign},
+					{BVSignedNoOverflow, fast || int64(a)*int64(b) < sign},
+					{BVSignedNoUnderflow, fast || left*right >= -sign},
 				} {
 					st, err := p.RewriteMultiplyBound(ast.SliceArguments([]ast.ASTHandle{bvAddNum(t, m, a, width), bvAddNum(t, m, b, width)}), out, tc.mode)
 					astTestMust(t, err)
@@ -100,8 +106,9 @@ func TestBVRewriterSignedMultiplyBoundNumerals(t *testing.T) {
 		for _, pair := range [][]ast.ASTHandle{{one, x}, {x, one}} {
 			st, err := p.RewriteMultiplyBound(ast.SliceArguments(pair), out, mode)
 			astTestMust(t, err)
-			if st != RewriteFailed {
-				t.Fatal("one-bit -1 with unknown operand must not fold", mode, st)
+			// is_one() on the unsigned value folds even at width one.
+			if st != RewriteDone {
+				t.Fatal("one-bit 1 with unknown operand folds", mode, st)
 			}
 		}
 	}
