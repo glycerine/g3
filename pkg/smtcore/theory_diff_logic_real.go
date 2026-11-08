@@ -58,7 +58,9 @@ func (t *SMTRealDiffTheory) Initialize(state *SMTInternalizerState) error {
 	if err := t.SMTTheoryBase.Initialize(state); err != nil {
 		return err
 	}
-	zero, err := state.manager.ArithmeticNumeralRat(new(big.Rat), false)
+	// theory_diff_logic<Ext>::init uses m_util.mk_numeral(rational(0), true),
+	// an Int zero, for the real extension too.
+	zero, err := state.manager.ArithmeticNumeralRat(new(big.Rat), true)
 	if err != nil {
 		return err
 	}
