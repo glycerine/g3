@@ -19,6 +19,7 @@ type astTraceAcquisition struct {
 	retired                                  bool
 	owner                                    *ASTManager
 	previous                                 *astTraceAcquisition
+	outer                                    *astTraceAcquisition // enclosing mk_app_core still executing
 	invocation                               uint64
 	node                                     astNodeRef
 	hash                                     uint32
@@ -33,7 +34,9 @@ func (m *ASTManager) prepareTraceAcquisition(count uint32) (*astTraceAcquisition
 	if m.TraceStream == nil {
 		return nil, nil
 	}
-	if m.traceAcquisitionExecuting != nil || m.traceAcquisitionSerial == math.MaxUint64 {
+	// mk_app_core nests: argument coercion creates to_real/to_int apps after
+	// the outer app's placement, so acquisitions form a stack.
+	if m.traceAcquisitionSerial == math.MaxUint64 {
 		return nil, ErrASTPending
 	}
 	n := uint64(count) + 1
@@ -46,7 +49,7 @@ func (m *ASTManager) prepareTraceAcquisition(count uint32) (*astTraceAcquisition
 		return nil, e
 	}
 	m.traceAcquisitionSerial++
-	f := &astTraceAcquisition{owner: m, invocation: m.traceAcquisitionSerial, references: make([]astNodeRef, int(n)), bytes: bytes}
+	f := &astTraceAcquisition{owner: m, invocation: m.traceAcquisitionSerial, references: make([]astNodeRef, int(n)), bytes: bytes, outer: m.traceAcquisitionExecuting}
 	m.traceAcquisitionExecuting = f
 	return f, nil
 }
@@ -61,7 +64,8 @@ func (m *ASTManager) finishTraceAcquisition(f *astTraceAcquisition) {
 	if f == nil {
 		return
 	}
-	m.traceAcquisitionExecuting = nil
+	m.traceAcquisitionExecuting = f.outer
+	f.outer = nil
 	if !f.caught {
 		m.retireTraceAcquisition(f)
 		return
