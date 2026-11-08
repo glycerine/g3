@@ -455,19 +455,29 @@ func (s *SMTInternalizerState) markRelevant(expression ast.ASTHandle) error {
 }
 
 func (s *SMTInternalizerState) ensureBooleanEnode(expression ast.ASTHandle, variable int32, suppressArguments, mergeTruthValue, congruenceEnabled bool) error {
+	node, err := s.attachBooleanEnode(expression, variable, suppressArguments, mergeTruthValue, congruenceEnabled)
+	if err != nil {
+		return err
+	}
+	return s.propagateBooleanEnode(variable, node)
+}
+
+// attachBooleanEnode is mk_enode followed by set_enode_flag, without
+// propagate_bool_var_enode, as in context::internalize_formula_core.
+func (s *SMTInternalizerState) attachBooleanEnode(expression ast.ASTHandle, variable int32, suppressArguments, mergeTruthValue, congruenceEnabled bool) (*SMTEnode, error) {
 	node := s.context.enodes.get(expression)
 	if node == nil {
 		var err error
 		node, err = s.MkEnode(expression, suppressArguments, mergeTruthValue, congruenceEnabled)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	} else if mergeTruthValue {
 		node.mergeTruthValue = true
 	}
 	data, err := s.BooleanData(variable)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// Source set_enode_flag trails an existing Boolean variable's newly
 	// attached enode. That enode may be deleted while the variable survives.
@@ -475,7 +485,32 @@ func (s *SMTInternalizerState) ensureBooleanEnode(expression ast.ASTHandle, vari
 		s.enodeFlagTrail = append(s.enodeFlagTrail, variable)
 		data.SetENode()
 	}
-	return s.propagateBooleanEnode(variable, node)
+	return node, nil
+}
+
+// setMergeTF is context::set_merge_tf: once enabled, the enode is merged
+// with true/false whenever its Boolean variable is assigned.
+func (s *SMTInternalizerState) setMergeTF(node *SMTEnode, variable int32, isNewVar bool) error {
+	if node.mergeTruthValue {
+		return nil
+	}
+	if !isNewVar {
+		s.mergeTFTrail = append(s.mergeTFTrail, node)
+	}
+	node.mergeTruthValue = true
+	literal := NewSMTLiteral(variable, false)
+	value, err := s.Assignment(literal)
+	if err != nil || value == lbool.Undef {
+		return err
+	}
+	constant, err := s.booleanValueEnode(value == lbool.True)
+	if err != nil {
+		return err
+	}
+	if value == lbool.False {
+		literal = literal.Negated()
+	}
+	return s.addEquality(node, constant, NewSMTEqualityEquation(literal))
 }
 
 func (s *SMTInternalizerState) Internalize(expression ast.ASTHandle, gateContext bool) error {
@@ -522,7 +557,12 @@ func (s *SMTInternalizerState) internalizeFormula(expression ast.ASTHandle, gate
 		return s.Internalize(child, true)
 	}
 	if variable, found := s.boolVar.lookup(expression); found {
+		// Source: n was already internalized as a Boolean. Outside a gate
+		// it needs an enode merged with true/false.
 		if !gateContext {
+			if node := s.context.enodes.get(expression); node != nil {
+				return s.setMergeTF(node, variable, false)
+			}
 			return s.ensureBooleanEnode(expression, variable, true, true, false)
 		}
 		return nil
@@ -700,7 +740,7 @@ func (s *SMTInternalizerState) internalizeFormulaCore(expression ast.ASTHandle, 
 		isNew = false
 	}
 	if s.context.enodes.get(expression) == nil && (!gateContext || !isGate && count > 0) {
-		if err = s.ensureBooleanEnode(expression, variable, isGate, !gateContext, true); err != nil {
+		if _, err = s.attachBooleanEnode(expression, variable, isGate, !gateContext, true); err != nil {
 			return fmt.Errorf("internalize formula enode: %w", err)
 		}
 	}

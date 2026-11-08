@@ -42,6 +42,7 @@ type smtInternalizerScope struct {
 	atomHead             int
 	notifyLimit          int
 	enodeFlagLimit       int
+	mergeTFLimit         int
 	atomNotifiedLimit    int
 	simplifyHead         int
 	inconsistent         bool
@@ -187,6 +188,7 @@ type SMTInternalizerState struct {
 	atomPropagationHead        int
 	notifyTrail                []smtInternalizerNotifyTrail
 	enodeFlagTrail             []int32
+	mergeTFTrail               []*SMTEnode // set_merge_tf_trail
 	trueFirstTrail             []int32
 	atomNotified               map[int32]bool
 	atomNotifiedTrail          []int32
@@ -785,6 +787,7 @@ func (s *SMTInternalizerState) PushScope() error {
 		theoryDiseqLimit: len(s.theoryDisequalities), theoryDiseqHead: s.theoryDisequalityHead,
 		atomHead: s.atomPropagationHead, notifyLimit: len(s.notifyTrail), simplifyHead: s.simplifyHead,
 		enodeFlagLimit:    len(s.enodeFlagTrail),
+		mergeTFLimit:      len(s.mergeTFTrail),
 		atomNotifiedLimit: len(s.atomNotifiedTrail),
 	})
 	if s.quantifiers != nil {
@@ -1012,6 +1015,15 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 		i := len(s.enodeFlagTrail) - 1
 		s.booleanData[s.enodeFlagTrail[i]].ResetENode()
 		s.enodeFlagTrail = s.enodeFlagTrail[:i]
+	}
+	if scope.mergeTFLimit < 0 || scope.mergeTFLimit > len(s.mergeTFTrail) {
+		return ast.ErrASTDomain
+	}
+	for len(s.mergeTFTrail) > scope.mergeTFLimit {
+		i := len(s.mergeTFTrail) - 1
+		s.mergeTFTrail[i].mergeTruthValue = false
+		s.mergeTFTrail[i] = nil
+		s.mergeTFTrail = s.mergeTFTrail[:i]
 	}
 	for len(s.notifyTrail) > scope.notifyLimit {
 		index := len(s.notifyTrail) - 1
