@@ -50,3 +50,17 @@ Found while matching `-st` output against `build/z3` on
    differs (shared_arithmetic_fixed_integer: z3 1, Go 3). The same storage
    prevents binary lemmas above scope 0, which C++ allows when relevancy
    is below 2.
+
+10. **Hung test: parsers/smt2
+    TestSMT2GeometricIntegerOptimizationCrossesBooleanBranches/maximize.**
+    Documented by `pkg/parsers/smt2/log.hung.red` (timed out after 10
+    minutes in `opt.(*ArithmeticSolver).optimizeArithmetic`, rechecking
+    `CheckSat` forever). Cause: with search scopes kept after a check, Go's
+    geometric optimizer built its `mk_ge` bound atom before `push()`, whose
+    `pop_to_base_lvl` deleted it, so the bound asserted nothing. Fixed in
+    aa4ab5c8c by following `optsmt::geometric_opt` (assert the
+    `update_lower` blocker; build `mk_ge` only after the push). The log's
+    stack (CheckSat at arithmetic_solver.go:510) is from the intermediate
+    working tree before that commit. At aa4ab5c8c the test passes in 0.02s.
+    Run it only with a short `-timeout` (e.g. 60s) until this has stayed
+    fixed through a full `make`.
