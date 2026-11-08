@@ -137,14 +137,19 @@ func (c *Context) Evaluate(expression ast.ASTHandle, completion bool) (result as
 // EvaluateWithOptions evaluates an expression using command-local evaluator
 // parameters. The caller owns the returned AST reference.
 func (c *Context) EvaluateWithOptions(expression ast.ASTHandle, options EvaluationOptions) (result ast.ASTRef, resultErr error) {
-	md, err := c.Model()
-	if err != nil {
-		return result, err
+	if available, err := c.IsModelAvailable(); err != nil || !available {
+		if err == nil {
+			err = fmt.Errorf("model is not available")
+		}
+		return ast.ASTRef{}, err
 	}
-	if options.ModelIndex != 0 && len(c.objectives) != 0 {
-		if err = md.DecRef(); err != nil {
+	var md *model.ModelCore
+	var err error
+	if options.ModelIndex == 0 || len(c.objectives) == 0 {
+		if md, err = c.Model(); err != nil {
 			return result, err
 		}
+	} else {
 		if uint64(options.ModelIndex) >= uint64(len(c.optimizationBoxModels)) {
 			return result, fmt.Errorf("index into models is out of bounds")
 		}
@@ -281,6 +286,12 @@ func (c *Context) WriteAssertions(out io.Writer) error {
 }
 
 func (c *Context) WriteAssignment(out io.Writer) (result error) {
+	if available, err := c.IsModelAvailable(); err != nil || !available {
+		if err == nil {
+			err = fmt.Errorf("model is not available")
+		}
+		return err
+	}
 	md, err := c.Model()
 	if err != nil {
 		return err

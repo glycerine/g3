@@ -13,6 +13,11 @@ import (
 // completeModel applies the command-context model.completion option to the
 // current successful check result. ModelCore owns the added interpretations.
 func (c *Context) completeModel() (resultErr error) {
+	// if (!is_model_available() || model.completion != "true") return;
+	available, err := c.IsModelAvailable()
+	if err != nil || !available {
+		return err
+	}
 	enabled, err := c.config.Globals.SourceGetValueName("model.completion")
 	if err != nil || enabled != "true" {
 		return err
@@ -147,6 +152,9 @@ func (c *Context) validateModel() (resultErr error) {
 	if err != nil || enabled != "true" || !c.checked || c.status != lbool.True {
 		return err
 	}
+	if available, err := c.IsModelAvailable(); err != nil || !available {
+		return err
+	}
 	md, err := c.availableCheckModel()
 	if err != nil {
 		return err
@@ -207,6 +215,17 @@ func (c *Context) validateModel() (resultErr error) {
 		return errors.New("an invalid model was generated")
 	}
 	return nil
+}
+
+// IsModelAvailable is cmd_context::is_model_available: it retrieves the
+// check-sat result's model (running the solvers' model conversions) and
+// drops it again. Source commands call it before their own get_model.
+func (c *Context) IsModelAvailable() (bool, error) {
+	md, err := c.availableCheckModel()
+	if err != nil || md == nil {
+		return false, err
+	}
+	return true, md.DecRef()
 }
 
 func (c *Context) availableCheckModel() (*model.ModelCore, error) {
