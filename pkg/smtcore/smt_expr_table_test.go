@@ -159,7 +159,7 @@ func TestExprTableRejectsForeignManagerWrites(t *testing.T) {
 func TestExprTableAllListsLiveEnodesInSlotOrder(t *testing.T) {
 	f := newSMTEqualityUndoFixture(t, "table-all", 6)
 	nodes := f.s.context.enodes.all()
-	if len(nodes) != f.s.context.enodes.count() || len(nodes) != len(f.base) {
+	if len(nodes) != f.s.context.enodes.count() || len(nodes) != len(f.base)+smtInitEnodes {
 		t.Fatal("enode listing size", len(nodes), f.s.context.enodes.count(), len(f.base))
 	}
 	for i := 1; i < len(nodes); i++ {
@@ -167,11 +167,12 @@ func TestExprTableAllListsLiveEnodesInSlotOrder(t *testing.T) {
 			t.Fatal("enodes not in slot order")
 		}
 	}
+	first := f.s.context.enodes.get(f.base[0])
 	f.s.context.enodes.del(f.base[0])
-	if f.s.context.enodes.get(f.base[0]) != nil || len(f.s.context.enodes.all()) != len(f.base)-1 {
+	if f.s.context.enodes.get(f.base[0]) != nil || len(f.s.context.enodes.all()) != len(f.base)+smtInitEnodes-1 {
 		t.Fatal("deleted enode still listed")
 	}
-	f.s.context.enodes.set(f.base[0], nodes[0])
+	f.s.context.enodes.set(f.base[0], first)
 }
 
 // Lookups on the search path must be allocation-free.

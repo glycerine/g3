@@ -209,6 +209,7 @@ type SMTInternalizerState struct {
 	conflictLiteral          SMTLiteral
 	inconsistent             bool
 	generation               uint32
+	initEnodes               int // enodes created by context::init (0 until then)
 	scopeLevel               uint32
 	statistics               SMTContextStatistics
 	finalCheckIndex          int
@@ -234,6 +235,20 @@ type SMTInternalizerState struct {
 }
 
 func NewSMTInternalizerState(manager *ast.ASTManager, context *SMTCheckerContext, quantifiers *SMTQuantifierRegistry) (*SMTInternalizerState, error) {
+	state, err := newSMTInternalizerState(manager, context, quantifiers)
+	if err != nil {
+		return nil, err
+	}
+	if err = state.initContextEnodes(); err != nil {
+		return nil, errors.Join(err, state.Close())
+	}
+	return state, nil
+}
+
+// newSMTInternalizerState leaves context::init's true and false enodes to the
+// owner. The kernel creates them after its asserted-formula and quantifier
+// members, as the source context constructor body does.
+func newSMTInternalizerState(manager *ast.ASTManager, context *SMTCheckerContext, quantifiers *SMTQuantifierRegistry) (*SMTInternalizerState, error) {
 	if manager == nil || context == nil || context.manager != manager || quantifiers != nil && quantifiers.manager != manager {
 		return nil, ast.ErrASTHandle
 	}
@@ -276,13 +291,33 @@ func NewSMTInternalizerState(manager *ast.ASTManager, context *SMTCheckerContext
 	return state, nil
 }
 
+// initContextEnodes is the end of context::init: the true and false enodes.
+func (s *SMTInternalizerState) initContextEnodes() error {
+	if s.initEnodes != 0 {
+		return nil
+	}
+	for _, mk := range []func() (ast.ASTHandle, error){s.manager.MkTrue, s.manager.MkFalse} {
+		value, err := mk()
+		if err != nil {
+			return err
+		}
+		if node := s.context.enodes.get(value); node == nil {
+			if _, err = s.MkEnode(value, true, true, false); err != nil {
+				return err
+			}
+		}
+	}
+	s.initEnodes = smtInitEnodes
+	return nil
+}
+
 // ConfigureDynamicAck installs source dynamic-Ackermann parameters before any
 // expressions or scopes are created.
 func (s *SMTInternalizerState) ConfigureDynamicAck(config SMTDynAckState) error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	if len(s.booleanStack) != 0 || len(s.enodeStack) != 0 || len(s.scopes) != 0 {
+	if len(s.booleanStack) != 0 || len(s.enodeStack) != s.initEnodes || len(s.scopes) != 0 {
 		return ast.ErrASTDomain
 	}
 	replacement, err := newSMTDynAckManager(s, config)
@@ -344,7 +379,7 @@ func (s *SMTInternalizerState) SetBinaryClauseOptimization(enabled bool) error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	if len(s.booleanStack) != 0 || len(s.enodeStack) != 0 || len(s.clauses) != 0 || len(s.scopes) != 0 {
+	if len(s.booleanStack) != 0 || len(s.enodeStack) != s.initEnodes || len(s.clauses) != 0 || len(s.scopes) != 0 {
 		return ast.ErrASTDomain
 	}
 	if enabled {
@@ -690,6 +725,9 @@ func (s *SMTInternalizerState) WatchList(literal SMTLiteral) (*SMTWatchList, err
 	return &s.watches[literal.Index()], nil
 }
 
+// smtInitEnodes counts the true and false enodes context::init creates.
+const smtInitEnodes = 2
+
 func (s *SMTInternalizerState) MkEnode(expression ast.ASTHandle, suppressArguments, mergeTruthValue, congruenceEnabled bool) (*SMTEnode, error) {
 	if err := s.open(); err != nil {
 		return nil, err
@@ -766,6 +804,7 @@ func (s *SMTInternalizerState) MkEnode(expression ast.ASTHandle, suppressArgumen
 			return nil, err
 		}
 	}
+	s.traceAttachEnode(node)
 	return node, nil
 }
 
@@ -786,6 +825,7 @@ func (s *SMTInternalizerState) PushScope() error {
 	if err := s.open(); err != nil {
 		return err
 	}
+	s.tracePushStream()
 	s.scopes = append(s.scopes, smtInternalizerScope{
 		goalQueue:     s.relevanceGoal.snapshot(s.scopeLevel),
 		relevanceFIFO: s.relevanceFIFO.snapshot(),
@@ -1218,6 +1258,7 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 		if count == 0 || count > uint32(len(s.scopes)) {
 			return ast.ErrASTDomain
 		}
+		s.tracePopStream(count)
 		level := len(s.scopes) - int(count)
 		s.pendingPop = &smtInternalizerPendingPop{count: count, level: level, theory: len(s.theoryOrder) - 1,
 			preserve: uint32(level) >= s.baseLevel}

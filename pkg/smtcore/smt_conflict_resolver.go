@@ -479,6 +479,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 		if err := r.state.incrementBooleanActivity(variable); err != nil {
 			return err
 		}
+		st.traceResolveLitStream(conflictLevel-level, literal)
 		if level == conflictLevel {
 			st.traceConflict("process_antecedent", 335, func() string { return "marking:" + st.traceLiteralCompact(literal) + "\n" })
 			numMarks++
@@ -572,6 +573,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 		index--
 	}
 	for {
+		st.traceResolveProcessStream(consequent)
 		st.traceConflict("resolve", 499, func() string {
 			return fmt.Sprintf("processing consequent id: %d lit: %s ", index, traceLiteral(consequent)) +
 				st.traceLiteralCompact(consequent) + st.traceLiteralVerbose(consequent) + "\n" +

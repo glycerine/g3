@@ -353,9 +353,8 @@ func (s *SMTInternalizerState) reinsertCongruenceParents(from, to *SMTEnode) err
 	return nil
 }
 
-
-// The source context creates true/false enodes at initialization. The concrete
-// Go context creates them when a Boolean value first participates as a term.
+// context::init creates the true/false enodes (initContextEnodes); this also
+// covers a kernel whose context has not finished initialization yet.
 func (s *SMTInternalizerState) booleanValueEnode(value bool) (*SMTEnode, error) {
 	var expression ast.ASTHandle
 	var err error

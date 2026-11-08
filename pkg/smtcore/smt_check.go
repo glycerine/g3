@@ -29,6 +29,10 @@ func (k *SMTKernel) checkPreamble(countCheck bool) (bool, error) {
 	if err := k.open(); err != nil {
 		return false, err
 	}
+	if err := k.internalizer.initContextEnodes(); err != nil {
+		return false, err
+	}
+	k.internalizer.traceBeginCheckStream()
 
 	if err := k.clearLiteralResults(); err != nil {
 		return false, err

@@ -66,6 +66,7 @@ func (s *SMTInternalizerState) assignLiteralCore(literal SMTLiteral, justificati
 	if err := s.appendAssignedLiteral(literal); err != nil {
 		return err
 	}
+	s.traceAssignStream(literal, justification, decision)
 	if err := s.relevanceGoalAssigned(literal); err != nil {
 		return err
 	}

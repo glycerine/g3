@@ -56,6 +56,9 @@ func TestSMTModelFinderAUFSelectIndexesUseModelFunctionAndRelevantParents(t *tes
 	falsehood, err := m.MkFalse()
 	astTestMust(t, err)
 	makeNode := func(owner ast.ASTHandle, relevant bool, generation uint32) *SMTEnode {
+		if smtTestInitEnode(t, state, owner, relevant, generation) {
+			return state.context.enodes.get(owner)
+		}
 		node, err := NewSMTEnode(m, owner, state.context.enodes.get, SMTEnodeOptions{Generation: generation, UpdateChildrenParent: true})
 		astTestMust(t, err)
 		astTestMust(t, state.context.RegisterEnode(node, relevant))
@@ -181,6 +184,9 @@ func TestSMTModelFinderAUFSelectNestedArrayParents(t *testing.T) {
 	falsehood, err := m.MkFalse()
 	astTestMust(t, err)
 	makeNode := func(term ast.ASTHandle, generation uint32) {
+		if smtTestInitEnode(t, state, term, true, generation) {
+			return
+		}
 		node, err := NewSMTEnode(m, term, state.context.enodes.get, SMTEnodeOptions{Generation: generation, UpdateChildrenParent: true})
 		astTestMust(t, err)
 		astTestMust(t, state.context.RegisterEnode(node, true))
@@ -231,4 +237,17 @@ func TestSMTModelFinderAUFSelectNestedArrayParents(t *testing.T) {
 	if len(matches) != 1 || matches[0].owner != groundInner {
 		t.Fatal("disabled filtering skipped nested array parents", matches)
 	}
+}
+
+// smtTestInitEnode reuses context::init's true or false enode for a fixture
+// that wants one with a given relevance and generation.
+func smtTestInitEnode(t *testing.T, state *SMTInternalizerState, owner ast.ASTHandle, relevant bool, generation uint32) bool {
+	t.Helper()
+	node := state.context.enodes.get(owner)
+	if node == nil {
+		return false
+	}
+	node.generation = generation
+	astTestMust(t, state.context.SetRelevant(owner, relevant))
+	return true
 }

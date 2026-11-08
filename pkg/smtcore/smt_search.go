@@ -531,6 +531,7 @@ func (k *SMTKernel) resolveSearchConflict(session *smtSearchSession) (bool, erro
 	if proofErr != nil {
 		return false, fmt.Errorf("smt search lemma proof: %w", proofErr)
 	}
+	k.internalizer.traceConflictStream(resolution.Lemma)
 	retained, err := k.internalizer.retainLemmaAtoms(resolution.Lemma)
 	if err != nil {
 		return false, fmt.Errorf("smt search retain lemma atoms: %w", err)

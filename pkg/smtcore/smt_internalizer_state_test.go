@@ -139,7 +139,8 @@ func TestSMTInternalizerEnodeGenerationCongruenceAndRollback(t *testing.T) {
 	}
 	bn.root = bn
 	stats := state.Statistics()
-	if stats.NumMkEnode != 4 || stats.NumDelEnode != 2 {
+	// context::init's true and false enodes count in m_num_mk_enode.
+	if stats.NumMkEnode != 4+smtInitEnodes || stats.NumDelEnode != 2 {
 		t.Fatal("enode statistics", stats)
 	}
 }

@@ -57,6 +57,9 @@ func TestSMTModelFinderFlattenOwnsScopedQuantifierAndMapsOriginalBinders(t *test
 	truth, err := m.MkTrue()
 	astTestMust(t, err)
 	for _, term := range []ast.ASTHandle{seven, truth} {
+		if smtTestInitEnode(t, state, term, true, 4) {
+			continue
+		}
 		node, err := NewSMTEnode(m, term, state.context.enodes.get, SMTEnodeOptions{Generation: 4})
 		astTestMust(t, err)
 		astTestMust(t, state.context.RegisterEnode(node, true))

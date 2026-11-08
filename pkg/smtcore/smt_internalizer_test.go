@@ -123,7 +123,7 @@ func TestSMTInternalizerBooleanGateClausesAndRootAssertions(t *testing.T) {
 	if len(state.Clauses()) != 3 {
 		t.Fatal("AND definition clauses", state.Clauses())
 	}
-	if state.context.enodes.count() != 0 {
+	if state.context.enodes.count() != smtInitEnodes {
 		t.Fatal("gate-context formula unexpectedly created enodes")
 	}
 

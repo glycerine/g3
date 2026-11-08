@@ -96,61 +96,80 @@ func traceLiteral(l SMTLiteral) string {
 
 // traceLiteralVerbose is literal::display(out, m, bool_var2expr).
 func (s *SMTInternalizerState) traceLiteralVerbose(l SMTLiteral) string {
+	var b strings.Builder
+	s.traceLiteralVerboseTo(l, func(t string) { b.WriteString(t) })
+	return b.String()
+}
+
+// traceLiteralVerboseTo writes in source stream order: "(not " precedes the
+// mk_pp formatting, whose format terms the AST log records in between.
+func (s *SMTInternalizerState) traceLiteralVerboseTo(l SMTLiteral, w func(string)) {
 	switch {
 	case l == SMTTrueLiteral:
-		return "true"
+		w("true")
+		return
 	case l == SMTFalseLiteral:
-		return "false"
+		w("false")
+		return
 	case l == SMTNullLiteral:
-		return "null"
+		w("null")
+		return
 	}
-	e := tracePP(s.manager, s.boolExpr[l.Var()])
 	if l.Sign() {
-		return "(not " + e + ")"
+		w("(not ")
+		w(tracePP(s.manager, s.boolExpr[l.Var()]))
+		w(")")
+		return
 	}
-	return e
+	w(tracePP(s.manager, s.boolExpr[l.Var()]))
 }
 
 // traceLiteralsVerbose is display_literals_verbose: separated by newlines.
 func (s *SMTInternalizerState) traceLiteralsVerbose(lits []SMTLiteral) string {
 	var b strings.Builder
+	s.traceLiteralsVerboseTo(lits, func(t string) { b.WriteString(t) })
+	return b.String()
+}
+
+func (s *SMTInternalizerState) traceLiteralsVerboseTo(lits []SMTLiteral, w func(string)) {
 	for i, l := range lits {
 		if i > 0 {
-			b.WriteString("\n")
+			w("\n")
 		}
-		b.WriteString(s.traceLiteralVerbose(l))
+		s.traceLiteralVerboseTo(l, w)
 	}
-	return b.String()
 }
 
 // traceJustification is context::display(out, b_justification).
 func (s *SMTInternalizerState) traceJustification(j SMTBooleanJustification) string {
 	var b strings.Builder
+	s.traceJustificationTo(j, func(t string) { b.WriteString(t) })
+	return b.String()
+}
+
+func (s *SMTInternalizerState) traceJustificationTo(j SMTBooleanJustification, w func(string)) {
 	switch j.kind {
 	case SMTBooleanJustificationAxiom:
-		b.WriteString("axiom")
+		w("axiom")
 	case SMTBooleanJustificationBinaryClause:
-		b.WriteString("bin-clause ")
-		b.WriteString(s.traceLiteralVerbose(j.literal))
+		w("bin-clause ")
+		s.traceLiteralVerboseTo(j.literal, w)
 	case SMTBooleanJustificationClause:
-		b.WriteString("clause ")
+		w("clause ")
 		if j.clause != nil {
-			b.WriteString(s.traceLiteralsVerbose(j.clause.literals))
+			s.traceLiteralsVerboseTo(j.clause.literals, w)
 		}
 	case SMTBooleanJustificationObject:
 		theory := SMTNullTheoryID
 		if j.justification != nil {
 			theory = j.justification.FromTheory()
 		}
-		b.WriteString("justification ")
-		b.WriteString(strconv.Itoa(int(theory)))
-		b.WriteString(": ")
+		w("justification " + strconv.Itoa(int(theory)) + ": ")
 		if j.justification != nil {
-			b.WriteString(s.traceLiteralsVerbose(s.traceJustificationLiterals(j.justification)))
+			s.traceLiteralsVerboseTo(s.traceJustificationLiterals(j.justification), w)
 		}
 	}
-	b.WriteString("\n")
-	return b.String()
+	w("\n")
 }
 
 // traceJustificationLiterals is conflict_resolution::justification2literals.

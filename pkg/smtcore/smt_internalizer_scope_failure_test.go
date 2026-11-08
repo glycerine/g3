@@ -56,6 +56,11 @@ func TestSMTInternalizerPopResumesNativeRootRetirement(t *testing.T) {
 						t.Fatal("enode retirement lost its live owner")
 					}
 				case "boolean":
+					// Close retires the root scope, where context::init's
+					// true/false enodes precede the Boolean variable's turn.
+					if closeOnly && state.retiringEnode != nil && !state.retiringEnodeRoot.IsNull() {
+						break
+					}
 					if !state.retiringBoolean || state.retiringBooleanRoot.IsNull() {
 						t.Fatal("Boolean retirement lost its live owner")
 					}
@@ -78,7 +83,7 @@ func TestSMTInternalizerPopResumesNativeRootRetirement(t *testing.T) {
 					return
 				}
 				astTestMust(t, state.PopScopes(1))
-				if state.scopeLevel != 0 || state.pendingPop != nil || len(state.booleanStack) != 0 || len(state.enodeStack) != 0 || len(state.clauses) != 0 {
+				if state.scopeLevel != 0 || state.pendingPop != nil || len(state.booleanStack) != 0 || len(state.enodeStack) != smtInitEnodes || len(state.clauses) != 0 {
 					t.Fatal("pop retry left owned scope state")
 				}
 				smtTestUserPush(t, state)

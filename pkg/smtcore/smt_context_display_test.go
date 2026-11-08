@@ -57,7 +57,8 @@ func TestSMTContextDisplayMapsAndEquivalenceClassesUseSourceOrder(t *testing.T) 
 	}
 	var out bytes.Buffer
 	astTestMust(t, s.DisplayApplicationEnodeMap(&out))
-	base := fmt.Sprintf("expression -> enode:\n(#%d -> e!0) (#%d -> e!1) \n", id[1], id[0])
+	// context::init's true and false enodes come first.
+	base := fmt.Sprintf("expression -> enode:\n(#1 -> e!0) (#2 -> e!1) (#%d -> e!2) (#%d -> e!3) \n", id[1], id[0])
 	if out.String() != base {
 		t.Fatal(out.String(), base)
 	}
@@ -72,7 +73,7 @@ func TestSMTContextDisplayMapsAndEquivalenceClassesUseSourceOrder(t *testing.T) 
 	}
 	out.Reset()
 	astTestMust(t, s.DisplayApplicationEnodeMap(&out))
-	want = fmt.Sprintf("expression -> enode:\n(#%d -> e!0) (#%d -> e!1) (#%d -> e!2) \n", id[1], id[0], id[2])
+	want = fmt.Sprintf("expression -> enode:\n(#1 -> e!0) (#2 -> e!1) (#%d -> e!2) (#%d -> e!3) (#%d -> e!4) \n", id[1], id[0], id[2])
 	if out.String() != want {
 		t.Fatal("map must not substitute class root", out.String(), want)
 	}
@@ -120,7 +121,8 @@ func TestSMTContextDisplayPrefixesBorrowingAndGuards(t *testing.T) {
 	for _, display := range methods {
 		var out bytes.Buffer
 		astTestMust(t, display(&out))
-		if out.Len() != 0 {
+		// A fresh context already maps context::init's true and false enodes.
+		if out.Len() != 0 && out.String() != "expression -> enode:\n(#1 -> e!0) (#2 -> e!1) \n" {
 			t.Fatal("empty section emitted a header", out.String())
 		}
 		if err := display(nil); !errors.Is(err, ast.ErrASTHandle) {

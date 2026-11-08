@@ -133,7 +133,7 @@ func NewSMTKernel(manager *ast.ASTManager, quantifiers *SMTQuantifierRegistry) (
 	if err != nil {
 		return nil, err
 	}
-	internalizer, err := NewSMTInternalizerState(manager, checker, quantifiers)
+	internalizer, err := newSMTInternalizerState(manager, checker, quantifiers)
 	if err != nil {
 		return nil, err
 	}
@@ -211,6 +211,15 @@ func (k *SMTKernel) configurePreprocessing(context *uparams.ParamsContext, globa
 // existing owned-clone path; the String expression solver uses the borrowed
 // path and must close before the parent parameter owner.
 func (k *SMTKernel) configurePreprocessingParams(context *uparams.ParamsContext, globals *uparams.GlobalParamsService, params *uparams.ParamsRef, sourceParams *SMTParams, borrowSource bool) error {
+	if err := k.configurePreprocessingParamsCore(context, globals, params, sourceParams, borrowSource); err != nil {
+		return err
+	}
+	// The source context constructor runs init() after its asserted-formula
+	// and quantifier-manager members, whose setup this configuration ports.
+	return k.internalizer.initContextEnodes()
+}
+
+func (k *SMTKernel) configurePreprocessingParamsCore(context *uparams.ParamsContext, globals *uparams.GlobalParamsService, params *uparams.ParamsRef, sourceParams *SMTParams, borrowSource bool) error {
 	if err := k.open(); err != nil {
 		return err
 	}
@@ -702,6 +711,10 @@ func (k *SMTKernel) assertFormulaCore(formula, proof ast.ASTHandle) (resultErr e
 	if err := k.open(); err != nil {
 		return err
 	}
+	// Kernels used without preprocessing configuration finish context::init here.
+	if err := k.internalizer.initContextEnodes(); err != nil {
+		return err
+	}
 	// context::assert_expr_core starts with pop_to_base_lvl.
 	if err := k.internalizer.popToBaseLevel(); err != nil {
 		return err
@@ -883,6 +896,10 @@ func (k *SMTKernel) commitAssertedTo(head int) error {
 
 func (k *SMTKernel) Push() error {
 	if err := k.open(); err != nil {
+		return err
+	}
+	// Kernels used without preprocessing configuration finish context::init here.
+	if err := k.internalizer.initContextEnodes(); err != nil {
 		return err
 	}
 	// context::push starts with pop_to_base_lvl.
