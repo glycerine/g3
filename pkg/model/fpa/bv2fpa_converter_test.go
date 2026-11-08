@@ -228,7 +228,12 @@ func TestBV2FPAConverterRebuildsFunctionInterpretation(t *testing.T) {
 	testMust(t, err)
 	snapshot, err := sourceConverter.Snapshot()
 	testMust(t, err)
-	convertedDeclaration := snapshot.ConvertedUFs[declaration]
+	var convertedDeclaration ast.ASTHandle
+	for _, entry := range snapshot.ConvertedUFs {
+		if entry.Key == declaration {
+			convertedDeclaration = entry.Value[0]
+		}
+	}
 	if convertedDeclaration.IsNull() {
 		t.Fatal("converted declaration was not recorded")
 	}
@@ -315,7 +320,7 @@ func TestBV2FPAConverterTranslationOwnsCopiedCache(t *testing.T) {
 	t.Cleanup(func() { testMust(t, translated.Close()) })
 	translatedDeclaration, err := translation.Translate(declaration)
 	testMust(t, err)
-	if _, found := translated.constants[translatedDeclaration]; !found {
+	if _, found, _ := translated.constants.Find(translatedDeclaration); !found {
 		t.Fatal("translated cache omitted floating constant")
 	}
 	testMust(t, sourceConverter.Reset())

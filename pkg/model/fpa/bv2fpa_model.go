@@ -35,7 +35,8 @@ func (c *Converter) bvUint64(value ast.ASTHandle) (number uint64, found bool, re
 }
 
 func (c *Converter) convertConstants(source, target *model.ModelCore, seen map[ast.ASTHandle]struct{}) error {
-	for declaration, encoded := range c.constants {
+	for _, entry := range c.constants.Entries() {
+		declaration, encoded := entry.Key, entry.Value[0]
 		sort, err := c.manager.GetRange(declaration)
 		if err != nil {
 			return err
@@ -112,7 +113,8 @@ func (c *Converter) convertConstants(source, target *model.ModelCore, seen map[a
 }
 
 func (c *Converter) convertRoundingConstants(source, target *model.ModelCore, seen map[ast.ASTHandle]struct{}) error {
-	for declaration, wrapped := range c.roundingConstants {
+	for _, entry := range c.roundingConstants.Entries() {
+		declaration, wrapped := entry.Key, entry.Value[0]
 		bits, err := c.manager.GetArg(wrapped, 0)
 		if err != nil {
 			return err
@@ -140,7 +142,8 @@ func (c *Converter) convertRoundingConstants(source, target *model.ModelCore, se
 }
 
 func (c *Converter) convertMinMaxSpecials(source, target *model.ModelCore, seen map[ast.ASTHandle]struct{}) error {
-	for declaration, signs := range c.minMaxSigns {
+	for _, entry := range c.minMaxSigns.Entries() {
+		declaration, signs := entry.Key, entry.Value
 		sort, err := c.manager.GetRange(declaration)
 		if err != nil {
 			return err

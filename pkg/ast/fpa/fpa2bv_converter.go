@@ -24,13 +24,15 @@ const (
 // AST results returned by its methods have the same borrowed-handle contract as
 // ASTManager factories.
 type Converter struct {
-	self              *Converter
-	manager           *ast.ASTManager
-	family            ast.FamilyID
-	constants         map[ast.ASTHandle]ast.ASTHandle
-	roundingConstants map[ast.ASTHandle]ast.ASTHandle
-	convertedUFs      map[ast.ASTHandle]ast.ASTHandle
-	minMaxSigns       map[ast.ASTHandle][2]ast.ASTHandle
+	self    *Converter
+	manager *ast.ASTManager
+	family  ast.FamilyID
+	// m_const2bv, m_rm_const2bv, m_uf2bvuf and m_min_max_ufs: obj_maps,
+	// iterated in their hash-table order.
+	constants         *ast.ObjMap
+	roundingConstants *ast.ObjMap
+	convertedUFs      *ast.ObjMap
+	minMaxSigns       *ast.ObjMap
 	extraAssertions   []ast.ASTHandle
 	header            uint64
 	highUnspecified   bool
@@ -49,10 +51,10 @@ func NewConverter(m *ast.ASTManager) (owner *Converter, result error) {
 	}
 	owner = &Converter{
 		manager: m, header: n, highUnspecified: true,
-		constants:         make(map[ast.ASTHandle]ast.ASTHandle),
-		roundingConstants: make(map[ast.ASTHandle]ast.ASTHandle),
-		convertedUFs:      make(map[ast.ASTHandle]ast.ASTHandle),
-		minMaxSigns:       make(map[ast.ASTHandle][2]ast.ASTHandle),
+		constants:         ast.NewObjMap(m),
+		roundingConstants: ast.NewObjMap(m),
+		convertedUFs:      ast.NewObjMap(m),
+		minMaxSigns:       ast.NewObjMap(m),
 	}
 	owner.self = owner
 	fail := func(err error) (*Converter, error) { return owner, errors.Join(err, owner.Close()) }
@@ -80,7 +82,7 @@ func (c *Converter) SetConstantFactories(
 	if err := c.open(); err != nil {
 		return err
 	}
-	if len(c.constants) != 0 || len(c.roundingConstants) != 0 {
+	if c.constants.Len() != 0 || c.roundingConstants.Len() != 0 {
 		return ast.ErrASTDomain
 	}
 	c.constantFactory = floating

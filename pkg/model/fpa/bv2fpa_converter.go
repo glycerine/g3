@@ -14,12 +14,13 @@ import (
 // Converter rebuilds floating-point interpretations from the bit-vector model
 // produced by ast/fpa. It owns retained copies of the source converter maps.
 type Converter struct {
-	self              *Converter
-	manager           *ast.ASTManager
-	constants         map[ast.ASTHandle]ast.ASTHandle
-	roundingConstants map[ast.ASTHandle]ast.ASTHandle
-	convertedUFs      map[ast.ASTHandle]ast.ASTHandle
-	minMaxSigns       map[ast.ASTHandle][2]ast.ASTHandle
+	self    *Converter
+	manager *ast.ASTManager
+	// m_const2bv, m_rm_const2bv, m_uf2bvuf, m_specials: obj_maps.
+	constants         *ast.ObjMap
+	roundingConstants *ast.ObjMap
+	convertedUFs      *ast.ObjMap
+	minMaxSigns       *ast.ObjMap
 	header            uint64
 	closed            bool
 }
@@ -34,8 +35,8 @@ func NewConverter(m *ast.ASTManager, source *astfpa.Converter) (owner *Converter
 	}
 	owner = &Converter{
 		manager: m, header: bytes,
-		constants: make(map[ast.ASTHandle]ast.ASTHandle), roundingConstants: make(map[ast.ASTHandle]ast.ASTHandle),
-		convertedUFs: make(map[ast.ASTHandle]ast.ASTHandle), minMaxSigns: make(map[ast.ASTHandle][2]ast.ASTHandle),
+		constants: ast.NewObjMap(m), roundingConstants: ast.NewObjMap(m),
+		convertedUFs: ast.NewObjMap(m), minMaxSigns: ast.NewObjMap(m),
 	}
 	owner.self = owner
 	if source == nil {
@@ -54,25 +55,35 @@ func NewConverter(m *ast.ASTManager, source *astfpa.Converter) (owner *Converter
 		}
 		return nil
 	}
-	for key, value := range snapshot.Constants {
+	for _, entry := range snapshot.Constants {
+		key, value := entry.Key, entry.Value[0]
 		if err = retain(key, value); err != nil {
 			return owner, errors.Join(err, owner.Close())
 		}
-		owner.constants[key] = value
+		if err := owner.constants.Insert(key, [2]ast.ASTHandle{value}); err != nil {
+			return nil, err
+		}
 	}
-	for key, value := range snapshot.RoundingConstants {
+	for _, entry := range snapshot.RoundingConstants {
+		key, value := entry.Key, entry.Value[0]
 		if err = retain(key, value); err != nil {
 			return owner, errors.Join(err, owner.Close())
 		}
-		owner.roundingConstants[key] = value
+		if err := owner.roundingConstants.Insert(key, [2]ast.ASTHandle{value}); err != nil {
+			return nil, err
+		}
 	}
-	for key, value := range snapshot.ConvertedUFs {
+	for _, entry := range snapshot.ConvertedUFs {
+		key, value := entry.Key, entry.Value[0]
 		if err = retain(key, value); err != nil {
 			return owner, errors.Join(err, owner.Close())
 		}
-		owner.convertedUFs[key] = value
+		if err := owner.convertedUFs.Insert(key, [2]ast.ASTHandle{value}); err != nil {
+			return nil, err
+		}
 	}
-	for key, values := range snapshot.MinMaxSigns {
+	for _, entry := range snapshot.MinMaxSigns {
+		key, values := entry.Key, entry.Value
 		if err = m.IncRef(key); err != nil {
 			return owner, errors.Join(err, owner.Close())
 		}
@@ -82,7 +93,9 @@ func NewConverter(m *ast.ASTManager, source *astfpa.Converter) (owner *Converter
 		if err = m.IncRef(values[1]); err != nil {
 			return owner, errors.Join(err, m.DecRef(values[0]), m.DecRef(key), owner.Close())
 		}
-		owner.minMaxSigns[key] = values
+		if err := owner.minMaxSigns.Insert(key, values); err != nil {
+			return nil, err
+		}
 	}
 	return owner, nil
 }
@@ -99,22 +112,28 @@ func (c *Converter) Close() (result error) {
 	if c == nil || c.self != c || c.closed {
 		return nil
 	}
-	for key, value := range c.constants {
-		result = errors.Join(result, c.manager.DecRef(value), c.manager.DecRef(key))
-		delete(c.constants, key)
+	// ~bv2fpa_converter: dec_ref_map_key_values (key, then value) on each map
+	// in table order, then the specials (key, first, second).
+	for _, entry := range c.constants.Entries() {
+		key, value := entry.Key, entry.Value[0]
+		result = errors.Join(result, c.manager.DecRef(key), c.manager.DecRef(value))
 	}
-	for key, value := range c.roundingConstants {
-		result = errors.Join(result, c.manager.DecRef(value), c.manager.DecRef(key))
-		delete(c.roundingConstants, key)
+	for _, entry := range c.roundingConstants.Entries() {
+		key, value := entry.Key, entry.Value[0]
+		result = errors.Join(result, c.manager.DecRef(key), c.manager.DecRef(value))
 	}
-	for key, value := range c.convertedUFs {
-		result = errors.Join(result, c.manager.DecRef(value), c.manager.DecRef(key))
-		delete(c.convertedUFs, key)
+	for _, entry := range c.convertedUFs.Entries() {
+		key, value := entry.Key, entry.Value[0]
+		result = errors.Join(result, c.manager.DecRef(key), c.manager.DecRef(value))
 	}
-	for key, values := range c.minMaxSigns {
-		result = errors.Join(result, c.manager.DecRef(values[1]), c.manager.DecRef(values[0]), c.manager.DecRef(key))
-		delete(c.minMaxSigns, key)
+	for _, entry := range c.minMaxSigns.Entries() {
+		key, values := entry.Key, entry.Value
+		result = errors.Join(result, c.manager.DecRef(key), c.manager.DecRef(values[0]), c.manager.DecRef(values[1]))
 	}
+	c.constants.Reset()
+	c.roundingConstants.Reset()
+	c.convertedUFs.Reset()
+	c.minMaxSigns.Reset()
 	c.manager.Budget().Release(c.header)
 	c.header = 0
 	c.closed = true

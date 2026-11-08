@@ -58,22 +58,26 @@ func (c *Converter) Display(out io.Writer) error {
 		}
 		return write(")")
 	}
-	for declaration, value := range c.constants {
+	for _, entry := range c.constants.Entries() {
+		declaration, value := entry.Key, entry.Value[0]
 		if err = expressionEntry(declaration, value); err != nil {
 			return err
 		}
 	}
-	for declaration, value := range c.roundingConstants {
+	for _, entry := range c.roundingConstants.Entries() {
+		declaration, value := entry.Key, entry.Value[0]
 		if err = expressionEntry(declaration, value); err != nil {
 			return err
 		}
 	}
-	for declaration, value := range c.convertedUFs {
+	for _, entry := range c.convertedUFs.Entries() {
+		declaration, value := entry.Key, entry.Value[0]
 		if err = declarationEntry(declaration, value); err != nil {
 			return err
 		}
 	}
-	for declaration, values := range c.minMaxSigns {
+	for _, entry := range c.minMaxSigns.Entries() {
+		declaration, values := entry.Key, entry.Value
 		text, e := name(declaration)
 		if e != nil {
 			return e

@@ -213,7 +213,8 @@ func (c *Converter) convertFunctionInterpretation(source *model.ModelCore, decla
 }
 
 func (c *Converter) convertUFs(source, target *model.ModelCore, seen map[ast.ASTHandle]struct{}) error {
-	for declaration, convertedDeclaration := range c.convertedUFs {
+	for _, entry := range c.convertedUFs.Entries() {
+		declaration, convertedDeclaration := entry.Key, entry.Value[0]
 		seen[convertedDeclaration] = struct{}{}
 		arity, err := c.manager.GetArity(declaration)
 		if err != nil {

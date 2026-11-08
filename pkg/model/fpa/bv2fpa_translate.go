@@ -42,7 +42,8 @@ func (c *Converter) Translate(translation *ast.ASTTranslation) (*Converter, erro
 		}
 		return nil
 	}
-	for key, value := range c.constants {
+	for _, entry := range c.constants.Entries() {
+		key, value := entry.Key, entry.Value[0]
 		translatedKey, translatedValue, e := translatePair(key, value)
 		if e != nil {
 			return fail(e)
@@ -50,9 +51,12 @@ func (c *Converter) Translate(translation *ast.ASTTranslation) (*Converter, erro
 		if e = retainPair(translatedKey, translatedValue); e != nil {
 			return fail(e)
 		}
-		result.constants[translatedKey] = translatedValue
+		if err := result.constants.Insert(translatedKey, [2]ast.ASTHandle{translatedValue}); err != nil {
+			return nil, err
+		}
 	}
-	for key, value := range c.roundingConstants {
+	for _, entry := range c.roundingConstants.Entries() {
+		key, value := entry.Key, entry.Value[0]
 		translatedKey, translatedValue, e := translatePair(key, value)
 		if e != nil {
 			return fail(e)
@@ -60,9 +64,12 @@ func (c *Converter) Translate(translation *ast.ASTTranslation) (*Converter, erro
 		if e = retainPair(translatedKey, translatedValue); e != nil {
 			return fail(e)
 		}
-		result.roundingConstants[translatedKey] = translatedValue
+		if err := result.roundingConstants.Insert(translatedKey, [2]ast.ASTHandle{translatedValue}); err != nil {
+			return nil, err
+		}
 	}
-	for key, value := range c.convertedUFs {
+	for _, entry := range c.convertedUFs.Entries() {
+		key, value := entry.Key, entry.Value[0]
 		translatedKey, translatedValue, e := translatePair(key, value)
 		if e != nil {
 			return fail(e)
@@ -70,9 +77,12 @@ func (c *Converter) Translate(translation *ast.ASTTranslation) (*Converter, erro
 		if e = retainPair(translatedKey, translatedValue); e != nil {
 			return fail(e)
 		}
-		result.convertedUFs[translatedKey] = translatedValue
+		if err := result.convertedUFs.Insert(translatedKey, [2]ast.ASTHandle{translatedValue}); err != nil {
+			return nil, err
+		}
 	}
-	for key, values := range c.minMaxSigns {
+	for _, entry := range c.minMaxSigns.Entries() {
+		key, values := entry.Key, entry.Value
 		translatedKey, e := translation.Translate(key)
 		if e != nil {
 			return fail(e)
@@ -94,7 +104,9 @@ func (c *Converter) Translate(translation *ast.ASTTranslation) (*Converter, erro
 		if e = result.manager.IncRef(translatedSecond); e != nil {
 			return fail(errors.Join(e, result.manager.DecRef(translatedFirst), result.manager.DecRef(translatedKey)))
 		}
-		result.minMaxSigns[translatedKey] = [2]ast.ASTHandle{translatedFirst, translatedSecond}
+		if err := result.minMaxSigns.Insert(translatedKey, [2]ast.ASTHandle{translatedFirst, translatedSecond}); err != nil {
+			return nil, err
+		}
 	}
 	return result, nil
 }

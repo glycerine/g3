@@ -9,41 +9,30 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
+// ConverterSnapshot lists the model-conversion maps' entries in obj_map
+// iteration order, as bv2fpa_converter's constructor walks them.
 type ConverterSnapshot struct {
-	Constants         map[ast.ASTHandle]ast.ASTHandle
-	RoundingConstants map[ast.ASTHandle]ast.ASTHandle
-	ConvertedUFs      map[ast.ASTHandle]ast.ASTHandle
-	MinMaxSigns       map[ast.ASTHandle][2]ast.ASTHandle
+	Constants         []ast.ObjMapEntry
+	RoundingConstants []ast.ObjMapEntry
+	ConvertedUFs      []ast.ObjMapEntry
+	MinMaxSigns       []ast.ObjMapEntry
 }
 
-// Snapshot returns borrowed copies of the model-conversion maps accumulated by
-// this converter. A model converter that outlives Converter must retain them.
+// Snapshot returns borrowed entries of the model-conversion maps accumulated
+// by this converter. A model converter that outlives Converter must retain them.
 func (c *Converter) Snapshot() (ConverterSnapshot, error) {
 	if err := c.open(); err != nil {
 		return ConverterSnapshot{}, err
 	}
-	s := ConverterSnapshot{
-		Constants:         make(map[ast.ASTHandle]ast.ASTHandle, len(c.constants)),
-		RoundingConstants: make(map[ast.ASTHandle]ast.ASTHandle, len(c.roundingConstants)),
-		ConvertedUFs:      make(map[ast.ASTHandle]ast.ASTHandle, len(c.convertedUFs)),
-		MinMaxSigns:       make(map[ast.ASTHandle][2]ast.ASTHandle, len(c.minMaxSigns)),
-	}
-	for key, value := range c.constants {
-		s.Constants[key] = value
-	}
-	for key, value := range c.roundingConstants {
-		s.RoundingConstants[key] = value
-	}
-	for key, value := range c.convertedUFs {
-		s.ConvertedUFs[key] = value
-	}
-	for key, value := range c.minMaxSigns {
-		s.MinMaxSigns[key] = value
-	}
-	return s, nil
+	return ConverterSnapshot{
+		Constants:         c.constants.Entries(),
+		RoundingConstants: c.roundingConstants.Entries(),
+		ConvertedUFs:      c.convertedUFs.Entries(),
+		MinMaxSigns:       c.minMaxSigns.Entries(),
+	}, nil
 }
 
-func (c *Converter) cacheInsert(cache map[ast.ASTHandle]ast.ASTHandle, declaration, value ast.ASTHandle) error {
+func (c *Converter) cacheInsert(cache *ast.ObjMap, declaration, value ast.ASTHandle) error {
 	if err := c.manager.IncRef(declaration); err != nil {
 		return err
 	}
@@ -51,7 +40,9 @@ func (c *Converter) cacheInsert(cache map[ast.ASTHandle]ast.ASTHandle, declarati
 		_ = c.manager.DecRef(declaration)
 		return err
 	}
-	cache[declaration] = value
+	if err := cache.Insert(declaration, [2]ast.ASTHandle{value}); err != nil {
+		return errors.Join(err, c.manager.DecRef(value), c.manager.DecRef(declaration))
+	}
 	return nil
 }
 
@@ -83,11 +74,13 @@ func (c *Converter) FlushExtraAssertions() ([]ast.ASTHandle, error) {
 	return result, nil
 }
 
-func (c *Converter) releaseCache(cache map[ast.ASTHandle]ast.ASTHandle) (result error) {
-	for declaration, value := range cache {
-		result = errors.Join(result, c.manager.DecRef(declaration), c.manager.DecRef(value))
-		delete(cache, declaration)
+// releaseCache is dec_ref_map_key_values: key then value, in table order,
+// and then map.reset().
+func (c *Converter) releaseCache(cache *ast.ObjMap) (result error) {
+	for _, entry := range cache.Entries() {
+		result = errors.Join(result, c.manager.DecRef(entry.Key), c.manager.DecRef(entry.Value[0]))
 	}
+	cache.Reset()
 	return result
 }
 
@@ -97,10 +90,10 @@ func (c *Converter) Reset() (result error) {
 		return nil
 	}
 	result = errors.Join(result, c.releaseCache(c.constants), c.releaseCache(c.roundingConstants), c.releaseCache(c.convertedUFs))
-	for declaration, signs := range c.minMaxSigns {
-		result = errors.Join(result, c.manager.DecRef(declaration), c.manager.DecRef(signs[0]), c.manager.DecRef(signs[1]))
-		delete(c.minMaxSigns, declaration)
+	for _, entry := range c.minMaxSigns.Entries() {
+		result = errors.Join(result, c.manager.DecRef(entry.Key), c.manager.DecRef(entry.Value[0]), c.manager.DecRef(entry.Value[1]))
 	}
+	c.minMaxSigns.Reset()
 	for _, assertion := range c.extraAssertions {
 		result = errors.Join(result, c.manager.DecRef(assertion))
 	}
@@ -113,8 +106,10 @@ func (c *Converter) MkConst(declaration ast.ASTHandle) (ast.ASTHandle, error) {
 	if err := c.open(); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if value, found := c.constants[declaration]; found {
-		return value, nil
+	if value, found, err := c.constants.Find(declaration); err != nil {
+		return ast.ASTHandle{}, err
+	} else if found {
+		return value[0], nil
 	}
 	arity, err := c.manager.GetArity(declaration)
 	if err != nil || arity != 0 {
@@ -221,8 +216,10 @@ func (c *Converter) MkRMConst(declaration ast.ASTHandle) (ast.ASTHandle, error) 
 	if err := c.open(); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if value, found := c.roundingConstants[declaration]; found {
-		return value, nil
+	if value, found, err := c.roundingConstants.Find(declaration); err != nil {
+		return ast.ASTHandle{}, err
+	} else if found {
+		return value[0], nil
 	}
 	arity, err := c.manager.GetArity(declaration)
 	if err != nil || arity != 0 {
@@ -277,7 +274,7 @@ func (c *Converter) MkRMConst(declaration ast.ASTHandle) (ast.ASTHandle, error) 
 		return ast.ASTHandle{}, err
 	}
 	if err = c.addAssertion(constraint); err != nil {
-		delete(c.roundingConstants, declaration)
+		_ = c.roundingConstants.Erase(declaration)
 		return ast.ASTHandle{}, errors.Join(err, c.manager.DecRef(declaration), c.manager.DecRef(result))
 	}
 	return result, nil
@@ -299,8 +296,10 @@ func (c *Converter) convertedUF(declaration ast.ASTHandle, rangeSort ast.ASTHand
 }
 
 func (c *Converter) convertedUFWithDomain(declaration ast.ASTHandle, domain []ast.ASTHandle, rangeSort ast.ASTHandle) (ast.ASTHandle, error) {
-	if value, found := c.convertedUFs[declaration]; found {
-		return value, nil
+	if value, found, err := c.convertedUFs.Find(declaration); err != nil {
+		return ast.ASTHandle{}, err
+	} else if found {
+		return value[0], nil
 	}
 	result, err := c.manager.MkFreshFuncDecl(usymbol.Symbol{}, usymbol.Symbol{}, domain, rangeSort)
 	if err != nil {

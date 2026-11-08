@@ -9,7 +9,9 @@ import (
 )
 
 func (c *Converter) minMaxSignPair(declaration ast.ASTHandle) ([2]ast.ASTHandle, error) {
-	if pair, found := c.minMaxSigns[declaration]; found {
+	if pair, found, err := c.minMaxSigns.Find(declaration); err != nil {
+		return [2]ast.ASTHandle{}, err
+	} else if found {
 		return pair, nil
 	}
 	sort, err := c.manager.BitVectorSort(1)
@@ -35,7 +37,9 @@ func (c *Converter) minMaxSignPair(declaration ast.ASTHandle) ([2]ast.ASTHandle,
 		return [2]ast.ASTHandle{}, errors.Join(err, c.manager.DecRef(first), c.manager.DecRef(declaration))
 	}
 	pair := [2]ast.ASTHandle{first, second}
-	c.minMaxSigns[declaration] = pair
+	if err = c.minMaxSigns.Insert(declaration, pair); err != nil {
+		return [2]ast.ASTHandle{}, errors.Join(err, c.manager.DecRef(second), c.manager.DecRef(first), c.manager.DecRef(declaration))
+	}
 	return pair, nil
 }
 
