@@ -4,6 +4,7 @@ package aig
 
 import (
 	"errors"
+	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -84,9 +85,17 @@ func (c *formulaConverter) build(n *node) (result ast.ASTRef, err error) {
 	return m.ast.NewRef(and)
 }
 
+// cleanup destroys naive's expr_ref_vector cache, which is indexed by
+// to_idx(n) and so releases its entries in node-id order.
 func (c *formulaConverter) cleanup() error {
+	nodes := make([]*node, 0, len(c.cache))
+	for n := range c.cache {
+		nodes = append(nodes, n)
+	}
+	sort.Slice(nodes, func(i, j int) bool { return nodes[i].id < nodes[j].id })
 	var err error
-	for _, ref := range c.cache {
+	for _, n := range nodes {
+		ref := c.cache[n]
 		err = errors.Join(err, c.manager.releaseAST(&ref))
 	}
 	c.cache = nil

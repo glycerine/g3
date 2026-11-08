@@ -30,7 +30,8 @@ func (p *sharingPass) cleanup() error {
 	for _, r := range p.cache {
 		err = errors.Join(err, r.Close())
 	}
-	for i := len(p.saved) - 1; i >= 0; i-- {
+	// reset_saved: m.dec_array_ref(m_saved.size(), m_saved.c_ptr()), forward.
+	for i := range p.saved {
 		err = errors.Join(err, p.saved[i].Close())
 	}
 	p.results = nil
