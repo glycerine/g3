@@ -120,11 +120,13 @@ Found while matching `-st` output against `build/z3` on
    Tools: $CLAUDE_JOB_DIR/tmp/delcmp.sh TEST [rebuild] prints the first real
    difference with both deletion logs; mkbt.sh TEST LINE gives g3's creation
    stack for a log line; classify.py buckets all differing vectors.
-   OPEN lead (integer_branch_cut_scopes, QF_LIA pb branch): z3 frees the
-   bound atoms, (not k!0) and k!0 together in goal::~goal of an
-   or_else_tactical after the pb branch fails, while g3 frees (not k!0)
-   earlier, in solve_eqs' goal update. Compare how z3's and_then/or_else
-   keep the intermediate goals of a failing pb2bv branch.
+   DONE (300 -> 315): goals store forms/proofs/dependencies in a port of
+   parray_manager (tactic/goal_parray.go), so a goal copy such as
+   or_else's `goal orig(*in)` keeps values replaced afterwards alive until
+   it dies; theory_bv's bit-blaster keeps flat and/or gates (only
+   bit_blaster_rewriter disables them in this fork); pb2bv builds monomial
+   ites right to left and ~imp releases bits in obj_map order; the
+   bit-blast rewriter keeps m_in1/m_in2/m_out until the next operation.
    Remaining big buckets: `not`/`and`/`=` id offsets in bit-blasting
    vectors (theory_bv's shared t.temporary list approximates per-function
    expr_ref_vector locals), Real/Int numeral ids (arith), query!0 (item 20),
