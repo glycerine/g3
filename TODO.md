@@ -52,12 +52,10 @@ Found while matching `-st` output against `build/z3` on
    - cmd_context resolves `=` to the basic plugin's OP_EQ declaration
      instead of calling mk_eq, so a parsed Boolean equality stays `=`
      (g3 built iff). All-stats exact 583 -> 598; AST logs 98 identical.
-   Example of a remaining release-order difference: in
-   add_bounds_fractional_real, after `(check-sat-using (then add-bounds
-   smt))` z3 frees the goal formulas first to last ((not (<= x 0)), then
-   (<= x 1.5), then (>= x 0.5)); g3 frees them last to first. Both goals
-   release forward, so the last owner is elsewhere (the SMT tactic's
-   context: asserted_formulas or the internalization trail).
+   - asserted_formulas releases m_formulas first to last (vector shrink
+     and destructor), each justified_expr formula before proof; g3
+     released last to first, proof first (add_bounds_fractional_real
+     freed its goal formulas in reverse). AST logs: 99 identical.
    Next: model and value printing (format_ns `string`/`compose`/`cr`
    ASTs, labels.smt2 and others), and the remaining buckets of first
    differences (records 33-40) in the per-vector comparison.

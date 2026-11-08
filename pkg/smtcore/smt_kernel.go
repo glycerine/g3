@@ -1085,10 +1085,12 @@ type smtKernelPendingPop struct {
 }
 
 func (k *SMTKernel) restoreAssertions(limit int) error {
-	for len(k.assertions) > limit {
-		last := len(k.assertions) - 1
-		assertion := &k.assertions[last]
-		for _, root := range []*ast.ASTHandle{&assertion.Proof, &assertion.Formula} {
+	// m_formulas.shrink and the vector destructor destroy justified_exprs
+	// first to last, and ~justified_expr releases the formula, then the
+	// proof. Released roots are cleared so a refused release can be retried.
+	for i := limit; i < len(k.assertions); i++ {
+		assertion := &k.assertions[i]
+		for _, root := range []*ast.ASTHandle{&assertion.Formula, &assertion.Proof} {
 			if root.IsNull() {
 				continue
 			}
@@ -1100,10 +1102,12 @@ func (k *SMTKernel) restoreAssertions(limit int) error {
 				return err
 			}
 		}
-		k.assertions = k.assertions[:last]
-		if k.assertedHead > last {
-			k.assertedHead = last
-		}
+	}
+	if limit < len(k.assertions) {
+		k.assertions = k.assertions[:limit]
+	}
+	if k.assertedHead > limit {
+		k.assertedHead = limit
 	}
 	return nil
 }
