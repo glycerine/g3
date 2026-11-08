@@ -12,8 +12,7 @@ import (
 
 func seqUnported(name string) { panic("theory_seq port: unported " + name) }
 
-func (t *SMTTheorySeq) addAxiom(lits ...SMTLiteral)   { seqUnported("add_axiom") }
-func (t *SMTTheorySeq) enforceLengthNode(n *SMTEnode) { seqUnported("enforce_length") }
+func (t *SMTTheorySeq) addAxiom(lits ...SMTLiteral) { seqUnported("add_axiom") }
 func (t *SMTTheorySeq) ensureEnode(e ast.ASTHandle) *SMTEnode {
 	seqUnported("ensure_enode")
 	return nil
@@ -67,7 +66,6 @@ func (t *SMTTheorySeq) canonizeVec(es []ast.ASTHandle, out *seqExprVector, dep *
 	seqUnported("canonize")
 	return false
 }
-func (t *SMTTheorySeq) hasLength(e ast.ASTHandle) bool { seqUnported("has_length"); return false }
 func (t *SMTTheorySeq) mkJoinLits(dep *seqDep, lits []SMTLiteral) *seqDep {
 	seqUnported("mk_join")
 	return nil
@@ -80,3 +78,10 @@ func (t *SMTTheorySeq) mkSimplifiedLiteral(e ast.ASTHandle) SMTLiteral {
 	seqUnported("mk_simplified_literal")
 	return SMTNullLiteral
 }
+
+func (t *SMTTheorySeq) enqueAxiom(e ast.ASTHandle) { seqUnported("enque_axiom") }
+func (t *SMTTheorySeq) getNumValue(e ast.ASTHandle) (*big.Rat, bool) {
+	seqUnported("get_num_value")
+	return nil, false
+}
+func (t *SMTTheorySeq) closeAutomata() { seqUnported("automata") }
