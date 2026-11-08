@@ -51,7 +51,7 @@ Found while matching `-st` output against `build/z3` on
    prevents binary lemmas above scope 0, which C++ allows when relevancy
    is below 2.
 
-10. **Hung test: parsers/smt2
+10. **RESOLVED (user confirmed): Hung test: parsers/smt2
     TestSMT2GeometricIntegerOptimizationCrossesBooleanBranches/maximize.**
     Documented by `pkg/parsers/smt2/log.hung.red` (timed out after 10
     minutes in `opt.(*ArithmeticSolver).optimizeArithmetic`, rechecking
