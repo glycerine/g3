@@ -9,6 +9,7 @@ import (
 	"unicode"
 
 	"github.com/glycerine/g3/pkg/ast"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 //go:embed pattern_database.smt2
@@ -17,6 +18,9 @@ var embeddedPatternDatabase string
 type databaseSExpr struct {
 	atom string
 	list []databaseSExpr
+	// endLine is the scanner line at the list's closing parenthesis, which
+	// the smt2 parser uses as a quantifier's default qid (symbol(line)).
+	endLine uint32
 }
 
 type patternDatabaseLoader struct {
@@ -30,8 +34,13 @@ type patternDatabaseLoader struct {
 
 func parseDatabaseSExprs(text string) ([]databaseSExpr, error) {
 	tokens := make([]string, 0, 2048)
+	lines := make([]uint32, 0, 2048)
+	line := uint32(1)
 	for i := 0; i < len(text); {
 		if unicode.IsSpace(rune(text[i])) {
+			if text[i] == '\n' {
+				line++
+			}
 			i++
 			continue
 		}
@@ -43,6 +52,7 @@ func parseDatabaseSExprs(text string) ([]databaseSExpr, error) {
 		}
 		if text[i] == '(' || text[i] == ')' {
 			tokens = append(tokens, text[i:i+1])
+			lines = append(lines, line)
 			i++
 			continue
 		}
@@ -51,6 +61,7 @@ func parseDatabaseSExprs(text string) ([]databaseSExpr, error) {
 			i++
 		}
 		tokens = append(tokens, text[start:i])
+		lines = append(lines, line)
 	}
 	var parse func(*int) (databaseSExpr, error)
 	parse = func(at *int) (databaseSExpr, error) {
@@ -71,6 +82,7 @@ func parseDatabaseSExprs(text string) ([]databaseSExpr, error) {
 				return databaseSExpr{}, fmt.Errorf("pattern database: unterminated list")
 			}
 			if tokens[*at] == ")" {
+				n.endLine = lines[*at]
 				*at++
 				return n, nil
 			}
@@ -313,7 +325,8 @@ func (l *patternDatabaseLoader) assertion(n databaseSExpr) error {
 	}
 	// ASTQuantifierSpec uses util/symbol.Symbol; build it without introducing a
 	// parser-owned symbol representation.
-	spec := ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Body: body, Weight: weight, Patterns: patterns}
+	spec := ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Body: body, Weight: weight, Patterns: patterns,
+		QID: usymbol.Numerical(q.endLine)}
 	for _, text := range quantifierNames {
 		symbol, e := l.manager.Symbols.Intern(text)
 		if e != nil {
