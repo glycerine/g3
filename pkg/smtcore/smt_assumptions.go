@@ -88,9 +88,9 @@ func (k *SMTKernel) checkConfiguredAssumptions(assumptions []ast.ASTHandle) (res
 	if k.assertedFormulasInconsistent() {
 		return lbool.False, nil
 	}
-	// The native facade also propagates an empty assumption batch here. Its
-	// search-persistence boundary must capture those base theory consequences.
-	if !k.internalizer.Inconsistent() {
+	// Source init_assumptions propagates only when there are assumptions;
+	// otherwise the first propagation runs inside search.
+	if len(assumptions) != 0 && !k.internalizer.Inconsistent() {
 		if _, err := k.internalizer.PropagateCore(); err != nil {
 			return lbool.Undef, err
 		}

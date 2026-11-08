@@ -102,13 +102,9 @@ func (k *SMTKernel) SetupAndCheck() (result lbool.LBool, resultErr error) {
 	if k.assertedFormulasInconsistent() {
 		return lbool.False, nil
 	}
-	// As in the native assumption facade, capture base theory consequences
-	// before entering search persistence, including for an empty assumption set.
-	if !k.internalizer.Inconsistent() {
-		if _, err := k.internalizer.PropagateCore(); err != nil {
-			return lbool.Undef, err
-		}
-	}
+	// Source setup_and_check does not propagate before search: the first
+	// propagation runs inside search with m_searching set, so the Boolean
+	// variables it creates take random initial activity.
 	if k.internalizer.Inconsistent() {
 		return k.resolveCheckConflict()
 	}

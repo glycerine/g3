@@ -406,6 +406,8 @@ var errSMTArithFreeVariable = errors.New("smt: arithmetic term contains a free v
 
 func (t *SMTTheoryArith) internalizeAdd(n ast.ASTHandle) (SMTTheoryVar, error) {
 	rID := t.mkRow()
+	built := false
+	defer func() { t.abandonRow(rID, built) }()
 	t.pushRowVars()
 	defer t.popRowVars()
 	args, err := t.args(n)
@@ -432,10 +434,12 @@ func (t *SMTTheoryArith) internalizeAdd(n ast.ASTHandle) (SMTTheoryVar, error) {
 		if err = t.addRowEntry(false, rID, big.NewRat(1, 1), v); err != nil {
 			return SMTNullTheoryVar, err
 		}
+		built = true
 		return v, t.initRow(rID)
 	}
 	// n was already internalized by the calls above, which can happen when
 	// one of them invokes mk_axiom (for example a nested to_int(t) term).
+	built = true
 	t.delRow(rID)
 	return v, nil
 }
@@ -483,6 +487,8 @@ func (t *SMTTheoryArith) internalizeMul(m ast.ASTHandle) (SMTTheoryVar, error) {
 	}
 	if val, ok := t.isNumeral(args[0]); ok {
 		rID := t.mkRow()
+		built := false
+		defer func() { t.abandonRow(rID, built) }()
 		t.pushRowVars()
 		defer t.popRowVars()
 		if t.isVar(args[1]) {
@@ -511,6 +517,7 @@ func (t *SMTTheoryArith) internalizeMul(m ast.ASTHandle) (SMTTheoryVar, error) {
 		if err = t.addRowEntry(false, rID, big.NewRat(1, 1), s); err != nil {
 			return SMTNullTheoryVar, err
 		}
+		built = true
 		return s, t.initRow(rID)
 	}
 	return t.internalizeMulCore(m)
@@ -1131,6 +1138,8 @@ func (t *SMTTheoryArith) internalizeToReal(n ast.ASTHandle) (SMTTheoryVar, error
 		return SMTNullTheoryVar, err
 	}
 	rID := t.mkRow()
+	built := false
+	defer func() { t.abandonRow(rID, built) }()
 	t.pushRowVars()
 	defer t.popRowVars()
 	one := big.NewRat(1, 1)
@@ -1140,6 +1149,7 @@ func (t *SMTTheoryArith) internalizeToReal(n ast.ASTHandle) (SMTTheoryVar, error
 	if err = t.addRowEntry(false, rID, one, r); err != nil {
 		return SMTNullTheoryVar, err
 	}
+	built = true
 	return r, t.initRow(rID)
 }
 
@@ -3499,6 +3509,15 @@ func (t *SMTTheoryArith) delVars(oldNumVars int) error {
 	t.bounds[0] = t.bounds[0][:oldNumVars]
 	t.bounds[1] = t.bounds[1][:oldNumVars]
 	return nil
+}
+
+// abandonRow deletes a row whose construction failed before init_row, so a
+// later del_vars never meets column entries of a row without a base. The
+// source has no such path: an allocation failure throws out of the context.
+func (t *SMTTheoryArith) abandonRow(rowID int, built bool) {
+	if !built {
+		t.delRow(rowID)
+	}
 }
 
 func (t *SMTTheoryArith) delRow(rowID int) {

@@ -28,7 +28,7 @@ func (s *SMTInternalizerState) assumeEquality(left, right *SMTEnode) (progress b
 	if left.root == right.root {
 		return false, nil
 	}
-	equality, err := s.manager.MkEq(left.owner, right.owner)
+	equality, err := s.mkEqualityAtom(left.owner, right.owner) // context::mk_eq_atom
 	if err != nil || s.manager.IsFalse(equality) {
 		return false, err
 	}
