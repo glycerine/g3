@@ -1251,20 +1251,26 @@ func (c *Context) restoreDeclarations(functions, sorts int) error {
 	return nil
 }
 
+// restoreAssertions is cmd_context::restore_assertions: restore() releases
+// m_assertions[old_sz..] forward, and then m_assertion_names the same way.
 func (c *Context) restoreAssertions(size int) error {
-	for len(c.assertions) > size {
-		i := len(c.assertions) - 1
+	if len(c.assertions) <= size {
+		return nil
+	}
+	for i := size; i < len(c.assertions); i++ {
+		if err := c.manager.DelRef(&c.assertions[i].ref); err != nil {
+			return err
+		}
+	}
+	for i := size; i < len(c.assertions); i++ {
 		row := &c.assertions[i]
 		if row.tagRef != (ast.ASTRef{}) {
 			if err := c.manager.DelRef(&row.tagRef); err != nil {
 				return err
 			}
 		}
-		if err := c.manager.DelRef(&row.ref); err != nil {
-			return err
-		}
-		c.assertions = c.assertions[:i]
 	}
+	c.assertions = c.assertions[:size]
 	return nil
 }
 
