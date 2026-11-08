@@ -78,8 +78,27 @@ Found while matching `-st` output against `build/z3` on
      /var/tmp/g3-job-487c9ee8/fullcmp_log.py (pointer values masked):
      122 of 658 identical. Not ported yet: [new-match], [instance] and
      [end-of-instance] (see item 19).
-   Next: the remaining buckets of first differences in the per-vector
-   comparison.
+   Later the same day (full logs 122 -> 238 identical, stdout identical
+   to z3 630 -> 640 of 660):
+   - display paths release their format_ref documents (cmd_context
+     display, model_v2, sat model converter); GCC right-to-left order in
+     mk_seq1/3/4/5, smt2 process_app, bv mk_eq_concat and mk_leq_core;
+     bounded_int2bv and bv2int expr_ref scopes; act_cache releases in
+     chashtable order (ast/ast_activity_chashtable.go);
+     is_model_available() probes before each get_model.
+   - bugs found on the way: trace=true broke arithmetic coercion
+     (nested trace acquisitions); pb2bv in QF_LIA failed to build a model
+     (func_interp arity); model function definitions now use pp_funs
+     formats; get-proof's display_smt2 indent quirk; unknown-sort error
+     context/position; NRA numerals are Real (get_sort_names side effect).
+   Tools: /var/tmp/g3-job-487c9ee8/fullcmp_log.py (whole log),
+   firstdiff.py (buckets first differences), outcmp.py/outlist.py
+   (stdout vs z3). build_dbg/ is an untracked z3 build that logs
+   [del] #id records (Z3_TRACE_DEL=1) from a patched copy of ast.cpp;
+   pair it with a temporary Go hook in ast_core_delete.go.
+   Next buckets: '[mk-app] vs [mk-var]' (fixedpoint, see item 20),
+   not/iff/= id differences (bit-blaster and SAT ownership), and
+   '[mk-quant]' ordering.
    The earlier example, `(check-sat-using smt)(declare-const z
    Int)...(check-sat-using smt)` with x+y=7 and x>=0, now has identical
    AST logs: the apparent destruction-order difference came from the
@@ -370,3 +389,17 @@ Found while matching `-st` output against `build/z3` on
    [instance]/[end-of-instance] records that go with it. Port mam.cpp
    (compiler, code trees, interpreter, inverted path index) for the
    instantiated pattern shapes, then add the three records.
+
+20. **OPEN: fixedpoint rules are not flushed lazily.** dl_context::add_rule
+   only queues the formula (m_rule_fmls); flush_add_rules runs mk_rule
+   (variable binding, rule-set insertion) at query time or get_rules().
+   g3's PropositionalEngine binds and adds each rule immediately, so
+   variable/rule ASTs are created earlier (38 vectors' first AST-log
+   difference) and invalid-rule errors surface at the rule command, not
+   at the query. Port the queue and the flush points.
+
+21. **Recorded deviations, kept deliberately.** cmd/g3 tests encode
+   these: bvsmul_noovfl numeral folding uses signed semantics (the source
+   compares the unsigned product with 2^(sz-1)); nlqsat answers goals the
+   source rejects as 'not NRA' (is_pure_proc is not ported; the test keeps
+   the C++ unknowns as referenceWant). Ask before changing either.
