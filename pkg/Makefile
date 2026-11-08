@@ -26,6 +26,7 @@ slow:
 bench:
 	go test ./smtcore -run '^$$' \
 	-bench '^BenchmarkSMTScopeRestoration$$' \
+	-benchtime=10000x
 
 cppbench:
 	cd ../build && make -j 48 && \
