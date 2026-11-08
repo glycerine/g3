@@ -7,6 +7,8 @@ package smtcore
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -29,8 +31,30 @@ func (a *smtArithmeticEqualityAdapter) mkAxiomsSource(n1, n2 *SMTEnode) (result 
 	if err != nil {
 		return err
 	}
+	tags := a.traceTags()
+	exprs := func(out io.Writer, hs ...ast.ASTHandle) error {
+		for _, h := range hs {
+			if err := smtArithEqDisplayExpression(m, out, h); err != nil {
+				return err
+			}
+			if err := smtWriteTheoryText(out, "\n"); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	always := func() bool { return true }
+	if err = smtArithEqTrace(tags, "arith_eq_adapter_mk_axioms", "mk_axioms", 86, always, func(out io.Writer) error {
+		if err := smtWriteTheoryText(out, fmt.Sprintf("#%d #%d\n", id1, id2)); err != nil {
+			return err
+		}
+		return exprs(out, n1.owner, n2.owner)
+	}); err != nil {
+		return err
+	}
 	if id1 > id2 {
 		n1, n2 = n2, n1
+		id1, id2 = id2, id1
 	}
 	t1, t2 := n1.owner, n2.owner
 	v1, err := m.IsValue(t1)
@@ -47,15 +71,64 @@ func (a *smtArithmeticEqualityAdapter) mkAxiomsSource(n1, n2 *SMTEnode) (result 
 	if t1 == t2 {
 		return nil
 	}
+	relevant := func(n *SMTEnode) bool { return state.relevancy == nil || state.relevancy.IsRelevant(n.owner) }
+	if err = smtArithEqTrace(tags, "arith_eq_adapter_relevancy", "mk_axioms", 102, func() bool {
+		return !(relevant(n1) && relevant(n2))
+	}, func(out io.Writer) error {
+		if err := smtWriteTheoryText(out, fmt.Sprintf("is_relevant(n1): #%d %d\nis_relevant(n2): #%d %d\n", id1, smtDisplayBool(relevant(n1)), id2, smtDisplayBool(relevant(n2)))); err != nil {
+			return err
+		}
+		if err := exprs(out, n1.owner, n2.owner); err != nil {
+			return err
+		}
+		return state.DisplayContext(out)
+	}); err != nil {
+		return err
+	}
 	pair := smtArithmeticEqualityPair{first: t1, second: t2}
 	if _, found := a.processed[pair]; found {
 		return nil
 	}
+	if err = smtArithEqTrace(tags, "arith_eq_adapter_profile", "mk_axioms", 116, always, func(out io.Writer) error {
+		return smtWriteTheoryText(out, fmt.Sprintf("mk #%d #%d %d %d\n", id1, id2, len(a.processed), state.scopeLevel))
+	}); err != nil {
+		return err
+	}
 	a.numAxioms++
+	if err = smtArithEqTrace(tags, "arith_eq_adapter_profile_detail", "mk_axioms", 121, always, func(out io.Writer) error {
+		if err := smtWriteTheoryText(out, "mk_detail "); err != nil {
+			return err
+		}
+		if err := smtArithEqDisplayBounded(m, out, t1, 5); err != nil {
+			return err
+		}
+		if err := smtWriteTheoryText(out, " "); err != nil {
+			return err
+		}
+		if err := smtArithEqDisplayBounded(m, out, t2, 5); err != nil {
+			return err
+		}
+		return smtWriteTheoryText(out, "\n")
+	}); err != nil {
+		return err
+	}
 	x := smtArithExprs{m: m}
 	defer func() { result = errors.Join(result, x.release()) }()
 	t1EqT2, err := x.hold(state.mkEqualityAtom(t1, t2)) // ctx.mk_eq_atom: theory_arith::mk_eq_atom is arith_util::mk_eq
 	if err != nil {
+		return err
+	}
+	if err = smtArithEqTrace(tags, "arith_eq_adapter_bug", "mk_axioms", 130, always, func(out io.Writer) error {
+		for _, h := range []ast.ASTHandle{t1EqT2, t1, t2} {
+			if err := smtArithEqDisplayBounded(m, out, h, ^uint32(0)); err != nil {
+				return err
+			}
+			if err := smtWriteTheoryText(out, "\n"); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		return err
 	}
 	family := a.owner.FamilyID()
@@ -115,9 +188,19 @@ func (a *smtArithmeticEqualityAdapter) mkAxiomsSource(n1, n2 *SMTEnode) (result 
 			return err
 		}
 	}
+	if err = smtArithEqTrace(tags, "arith_eq_adapter_perf", "mk_axioms", 174, always, func(out io.Writer) error {
+		return exprs(out, t1EqT2, le, ge)
+	}); err != nil {
+		return err
+	}
 	// already_processed_trail
 	a.processed[pair] = struct{}{}
 	a.trail = append(a.trail, pair)
+	if err = smtArithEqTrace(tags, "arith_eq_adapter_profile", "mk_axioms", 179, always, func(out io.Writer) error {
+		return smtWriteTheoryText(out, fmt.Sprintf("insert #%d #%d\n", id1, id2))
+	}); err != nil {
+		return err
+	}
 	if err = state.Internalize(t1EqT2, true); err != nil {
 		return err
 	}
@@ -126,6 +209,34 @@ func (a *smtArithmeticEqualityAdapter) mkAxiomsSource(n1, n2 *SMTEnode) (result 
 		return ast.ErrASTDomain
 	}
 	eqLit := NewSMTLiteral(bv, false)
+	if err = smtArithEqTrace(tags, "interface_eq", "mk_axioms", 182, always, func(out io.Writer) error {
+		if err := smtWriteTheoryText(out, "core should try true phase first for the equality: "); err != nil {
+			return err
+		}
+		if err := smtArithEqDisplayLiteral(out, eqLit); err != nil {
+			return err
+		}
+		return smtWriteTheoryText(out, fmt.Sprintf("\n#%d == #%d\ntry_true_first: %d\n", id1, id2, smtDisplayBool(state.booleanData[bv].TryTrueFirst())))
+	}); err != nil {
+		return err
+	}
+	if err = smtArithEqTrace(tags, "arith_eq_adapter_bug", "mk_axioms", 186, always, func(out io.Writer) error {
+		if err := smtWriteTheoryText(out, "le: "); err != nil {
+			return err
+		}
+		if err := smtArithEqDisplayExpression(m, out, le); err != nil {
+			return err
+		}
+		if err := smtWriteTheoryText(out, "\nge: "); err != nil {
+			return err
+		}
+		if err := smtArithEqDisplayExpression(m, out, ge); err != nil {
+			return err
+		}
+		return smtWriteTheoryText(out, "\n")
+	}); err != nil {
+		return err
+	}
 	if err = state.Internalize(le, true); err != nil {
 		return err
 	}
@@ -178,7 +289,34 @@ func (a *smtArithmeticEqualityAdapter) mkAxiomsSource(n1, n2 *SMTEnode) (result 
 			return err
 		}
 	}
+	if err = smtArithEqTrace(tags, "arith_eq_adapter", "mk_axioms", 208, always, func(out io.Writer) error {
+		if err := smtWriteTheoryText(out, "internalizing: "); err != nil {
+			return err
+		}
+		for i, h := range []ast.ASTHandle{le, ge, t1EqT2} {
+			if err := smtWriteTheoryText(out, " "); err != nil {
+				return err
+			}
+			if err := smtArithEqDisplayExpression(m, out, h); err != nil {
+				return err
+			}
+			if err := smtWriteTheoryText(out, ": "); err != nil {
+				return err
+			}
+			if err := smtArithEqDisplayLiteral(out, []SMTLiteral{leLit, geLit, eqLit}[i]); err != nil {
+				return err
+			}
+		}
+		return smtWriteTheoryText(out, "\n")
+	}); err != nil {
+		return err
+	}
 	if a.binary {
+		if err = smtArithEqTrace(tags, "arith_eq_adapter", "mk_axioms", 214, always, func(out io.Writer) error {
+			return smtWriteTheoryText(out, "adding binary bounds...\n")
+		}); err != nil {
+			return err
+		}
 		if err = state.addTheoryAxiomWithParameters(family, []SMTLiteral{leLit, geLit}, hint); err != nil {
 			return err
 		}
@@ -194,5 +332,5 @@ func (a *smtArithmeticEqualityAdapter) mkAxiomsSource(n1, n2 *SMTEnode) (result 
 		n1.InternalScopeLevel() <= state.searchBaseLevel && n2.InternalScopeLevel() <= state.searchBaseLevel {
 		a.restart = append(a.restart, pair)
 	}
-	return nil
+	return smtArithEqTraceContext(tags, "arith_eq_adapter_detail", "mk_axioms", 226, state)
 }

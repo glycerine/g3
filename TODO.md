@@ -185,15 +185,15 @@ Found while matching `-st` output against `build/z3` on
     deque_axiom and get_automaton.
     Fixed trace formats: theory_bv prints booleans as 1/0 (ostream bool)
     and internalize_term/internalize_atom use mk_bounded_pp.
-    The `-tags g3trace` smtcore run no longer panics (a test writer without
-    an owner). One traced test still fails, and did before:
-    TestSMTArithmeticEqualityAdapterRetainedDiagnostics. The adapter has
-    two mk_axioms paths. The source one, used by theory_arith
-    (smt_arith_eq_adapter_source.go), follows arith_eq_adapter::mk_axioms
-    but emits none of its TRACE records (lines 86-226); the other (the
-    LRA path) derives the bounds by internalizing the equality and carries
-    the traces. Port the traces to the source path and check whether the
-    LRA path can use it too.
+    The `-tags g3trace` smtcore run passes completely: a test writer without
+    an owner no longer panics, and the theory_arith path of the equality
+    adapter (smt_arith_eq_adapter_source.go) now emits mk_axioms's TRACE
+    records (lines 86-226) in the source order.
+    Remaining: the LRA path of the adapter (smt_arith_eq_adapter.go) is a
+    different algorithm (it derives the bounds by internalizing the
+    equality); z3's theory_lra uses the same arith_eq_adapter::mk_axioms.
+    Switching LRA to the source path changes LRA behavior, so it needs its
+    own stats comparison.
     Next candidates: the conflict tag (initialize_resolve, resolve,
     process_antecedent, finalize_resolve), seq final_check_eh
     (theory_seq::display), the arith tags, and the remaining seq records
