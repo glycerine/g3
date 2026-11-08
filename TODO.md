@@ -196,9 +196,10 @@ Found while matching `-st` output against `build/z3` on
     own stats comparison.
     Ported: the conflict tag in conflict_resolution (initialize_resolve
     403/411, process_antecedent 314/335, resolve 479/487/573,
-    finalize_resolve 432/439/462). Not yet: resolve 499 (processing
-    consequent, needs the b_justification kind names) and 507 (clause
-    detail). These records print AST ids, so they join goldenTraceSites
+    finalize_resolve 432/439/462, resolve 499 processing consequent and
+    507 clause detail): all of conflict_resolution's conflict-tag
+    records. On block 12 all 148 match z3 apart from AST ids (indices,
+    levels and variables agree). These records print AST ids, so they join goldenTraceSites
     only once item 3 makes the ids agree. They already show a difference
     on block 12: in the core conflict for (not (= x "abcc")) (an
     eq_propagation justification), z3's antecedents start with the

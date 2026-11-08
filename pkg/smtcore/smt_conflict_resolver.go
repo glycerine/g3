@@ -486,6 +486,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 			if !ok || clause == nil {
 				return ast.ErrASTDomain
 			}
+			st.traceConflict("resolve", 507, func() string { return st.traceClauseDetail(clause, levels) })
 			if clause.IsLemma() {
 				if err := clause.IncrementActivity(); err != nil {
 					return err
@@ -555,8 +556,17 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 			return SMTConflictResolution{}, err
 		}
 	}
+	// skip_literals_above_conflict_level
 	index := len(r.state.assignedLiterals) - 1
+	for index >= 0 && levels[r.state.assignedLiterals[index].Var()] > conflictLevel {
+		index--
+	}
 	for {
+		st.traceConflict("resolve", 499, func() string {
+			return fmt.Sprintf("processing consequent id: %d lit: %s ", index, traceLiteral(consequent)) +
+				st.traceLiteralCompact(consequent) + st.traceLiteralVerbose(consequent) + "\n" +
+				fmt.Sprintf("num_marks: %d, js kind: %s level: %d\n", numMarks, traceBJustificationKind(conflict.Kind()), levels[consequent.Var()])
+		})
 		if err = process(consequent, conflict); err != nil {
 			return SMTConflictResolution{}, fmt.Errorf("resolve consequent %d (%s): %w", consequent, conflict.Kind(), err)
 		}
