@@ -29,7 +29,8 @@ func TestSMT2GetConsequencesAssumptionsVariablesAndStatuses(t *testing.T) {
 	if err = ParseCommands(context, strings.NewReader(script), &output); err != nil {
 		t.Fatal(err, output.String())
 	}
-	want := "sat\n\n(=> a a)\n(=> a (= x 3))\n(=> true (= y 4))\nsat\n\n(=> true (= y 4))\nunsat\n\n"
+	// The order is context::get_consequences', as the C++ binary prints it.
+	want := "sat\n\n(=> a a)\n(=> true (= y 4))\n(=> a (= x 3))\nsat\n\n(=> true (= y 4))\nunsat\n\n"
 	if output.String() != want {
 		t.Fatal("get-consequences output", output.String(), "want", want)
 	}

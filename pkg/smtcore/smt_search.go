@@ -279,6 +279,7 @@ func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
 	}
 	defer func() {
 		resultErr = errors.Join(resultErr, k.endSearch(session))
+		k.lastSearch = session
 		if resultErr != nil {
 			result = lbool.Undef
 		}
@@ -289,6 +290,17 @@ func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
 			return lbool.Undef, err
 		}
 		if !restartDue {
+			if status == lbool.True {
+				if err = k.captureRelevantLabels(); err != nil {
+					return lbool.Undef, fmt.Errorf("smt search capture labels: %w", err)
+				}
+				if err = k.captureLiteralResults(session.baseLevel); err != nil {
+					return lbool.Undef, fmt.Errorf("smt search capture literal results: %w", err)
+				}
+				if err = k.buildGeneratedModel(); err != nil {
+					return lbool.Undef, fmt.Errorf("smt search build model: %w", err)
+				}
+			}
 			return status, nil
 		}
 		if err = k.restartSearch(session.baseLevel, &session.restarts); err != nil {
@@ -449,15 +461,7 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 		}
 		switch status {
 		case SMTFinalCheckDone:
-			if err = k.captureRelevantLabels(); err != nil {
-				return lbool.Undef, false, fmt.Errorf("smt search capture labels: %w", err)
-			}
-			if err = k.captureLiteralResults(baseLevel); err != nil {
-				return lbool.Undef, false, fmt.Errorf("smt search capture literal results: %w", err)
-			}
-			if err = k.buildGeneratedModel(); err != nil {
-				return lbool.Undef, false, fmt.Errorf("smt search build model: %w", err)
-			}
+			// search (scoped_mk_model) builds the model; bounded_search does not.
 			return lbool.True, false, nil
 		case SMTFinalCheckGiveUp:
 			k.lastFailure = SMTFailureTheory

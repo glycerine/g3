@@ -25,6 +25,7 @@ type seqObjEntry struct {
 	state seqObjEntryState
 	e     ast.ASTHandle
 	hash  uint32
+	value ast.ASTHandle // obj_map value; unused by obj_hashtable
 }
 
 // seqObjHashtable is obj_hashtable<expr>.
@@ -183,4 +184,28 @@ func (h *seqObjHashtable) elems() []ast.ASTHandle {
 		}
 	}
 	return result
+}
+
+// insertValue is obj_map::insert(k, v): it adds k, or replaces its value.
+func (h *seqObjHashtable) insertValue(e, value ast.ASTHandle) error {
+	if err := h.insert(e); err != nil {
+		return err
+	}
+	i, err := h.find(e)
+	if err != nil {
+		return err
+	}
+	h.table[i].value = value
+	return nil
+}
+
+// entries returns the used entries in table order, as obj_map iterates.
+func (h *seqObjHashtable) entries() []seqObjEntry {
+	out := make([]seqObjEntry, 0, h.size)
+	for _, entry := range h.table {
+		if entry.state == seqObjUsed {
+			out = append(out, entry)
+		}
+	}
+	return out
 }

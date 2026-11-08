@@ -25,8 +25,13 @@ Found while matching `-st` output against `build/z3` on
    `expr_ref` temporary on scope exit. Recycled AST ids then differ, and
    mon_lt orders sum monomials by id (lia2pb_model_scopes).
 
-4. **get-consequences algorithm.** Go's `get-consequences` does not follow
-   `smt_consequences.cpp` (get_consequences: 11 checks vs 5, no eq adapter).
+4. **DONE: get-consequences algorithm.** smt_solver::get_consequences_core
+   is now context::get_consequences (smt_consequences.cpp: antecedent sets,
+   forced disequalities in obj_map order, bounded_search rounds with
+   inc_limits, delete_unfixed, extract_fixed_eqs), on a search split into
+   begin/boundedSearch/end with resolve_conflict extracted. bounded_search no
+   longer builds the model (search does, as scoped_mk_model). The
+   get_consequences vector matches z3, including the consequence order.
 
 5. **DONE: integer_auto_deep_ite.** Now matches z3 exactly. The last
    difference was arith-assert-diseq (54 vs 4): push_new_th_diseqs walks

@@ -6,6 +6,7 @@ package smtcore
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/messages"
 	"io"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -872,11 +873,72 @@ func (s *SMTSolver) GetConsequences(assumptions []ast.ASTHandle, variables []ast
 		return lbool.Undef, nil, err
 	}
 	defer func() { err = errors.Join(err, s.SetProduceModels(previous)) }()
-	return solver.DefaultGetConsequences(s, assumptions, variables, func(md *model.ModelCore) (solver.ConsequenceEvaluator, error) {
-		config := s.config.ModelEvaluator
-		config.Params = &s.params
-		return model.NewModelEvaluator(md, config)
-	})
+	// solver::get_consequences: a canceled run reports unknown.
+	defer func() {
+		if err == nil {
+			return
+		}
+		if canceled, check := s.manager.Canceled(); check == nil && canceled {
+			err = s.SetReasonUnknown(messages.Canceled)
+			status = lbool.Undef
+			return
+		}
+		_ = s.SetReasonUnknown(err.Error())
+	}()
+	result, err := solver.NewSimpleCheckSatResult(s.manager)
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
+	if err = s.replaceResult(result); err != nil {
+		_ = result.Close()
+		return lbool.Undef, nil, err
+	}
+	// smt_solver::get_consequences_core is context::get_consequences.
+	var evaluator *model.ModelEvaluator
+	defer func() {
+		if evaluator != nil {
+			err = errors.Join(err, evaluator.Close())
+		}
+	}()
+	evaluate := func(v ast.ASTHandle) (ast.ASTRef, error) {
+		if evaluator == nil {
+			md := s.kernel.GeneratedModel()
+			if md == nil {
+				return ast.ASTRef{}, errors.New("smt: satisfiable result has no model")
+			}
+			config := s.config.ModelEvaluator
+			config.Params = &s.params
+			ev, err := model.NewModelEvaluator(md, config)
+			if err != nil {
+				return ast.ASTRef{}, err
+			}
+			evaluator = ev
+		}
+		return evaluator.EvaluateValue(v)
+	}
+	status, refs, err := s.kernel.GetConsequences(assumptions, variables, evaluate)
+	defer func() {
+		for i := range refs {
+			err = errors.Join(err, s.manager.DelRef(&refs[i]))
+		}
+	}()
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
+	if err = result.SetStatus(status); err != nil {
+		return lbool.Undef, nil, err
+	}
+	for i := range refs {
+		h, e := s.manager.RefGet(refs[i])
+		if e != nil {
+			return lbool.Undef, consequences, e
+		}
+		if h, e = s.RetainConsequence(h); e != nil {
+			return lbool.Undef, consequences, e
+		}
+		consequences = append(consequences, h)
+	}
+	return status, consequences, nil
 }
 
 func (s *SMTSolver) FindMutexes(variables []ast.ASTHandle) (lbool.LBool, [][]ast.ASTHandle, error) {

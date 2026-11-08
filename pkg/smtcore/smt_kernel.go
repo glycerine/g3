@@ -48,6 +48,9 @@ type SMTKernel struct {
 	unsatProof       ast.ASTRef
 	assumptions      map[SMTLiteral]ast.ASTHandle
 	lastFailure      SMTFailure
+	// lastSearch is the session of the latest search (its search level,
+	// conflict base and restart state), which get_consequences resumes.
+	lastSearch *smtSearchSession
 	unknown          string
 	labels           []usymbol.Symbol
 	assignments      []ast.ASTHandle
