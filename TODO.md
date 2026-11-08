@@ -28,9 +28,12 @@ Found while matching `-st` output against `build/z3` on
 4. **get-consequences algorithm.** Go's `get-consequences` does not follow
    `smt_consequences.cpp` (get_consequences: 11 checks vs 5, no eq adapter).
 
-5. **integer_auto_deep_ite.** Checks 1-2: one added equality too many and
-   the equality-axiom clause count differs. Check 3: different first
-   decision.
+5. **DONE: integer_auto_deep_ite.** Now matches z3 exactly. The last
+   difference was arith-assert-diseq (54 vs 4): push_new_th_diseqs walks
+   the source parent list (m_parents), which keeps only parents that stay
+   congruence roots through merges; g3's parent list keeps every parent,
+   so it re-sent one disequality for each congruent copy of an equality.
+   Enodes now also keep that source list (sourceParents).
 
 6. **DONE: Typed tactic statistics.** `Tactic.CollectStatistics()` returned
    `map[string]float64`; C++ `collect_statistics(statistics&)` keeps uint

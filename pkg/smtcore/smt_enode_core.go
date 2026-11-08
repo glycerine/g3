@@ -37,13 +37,18 @@ type SMTEnode struct {
 	commutative, boolean, mergeTruthValue bool
 	congruenceEnabled                     bool
 	parents, arguments                    []*SMTEnode
-	parentOfMergeTarget                   bool                  // transient, one addEquality
-	transMark                             bool                  // transient, one ancestor search
-	disequalities                         []smtDisequalityEntry // meaningful on class roots
-	theoryVariables                       SMTTheoryVarList
-	trans                                 SMTTransJustification
-	labelHash                             int8
-	labels, propagatedLabels              approx.UintSet
+	// sourceParents is the source m_parents of a class root: parents added at
+	// creation, and on merge only those that stay congruence roots
+	// (reinsert_parents_into_cg_table). parents keeps every parent.
+	sourceParents            []*SMTEnode
+	sourceParentMark         bool
+	parentOfMergeTarget      bool                  // transient, one addEquality
+	transMark                bool                  // transient, one ancestor search
+	disequalities            []smtDisequalityEntry // meaningful on class roots
+	theoryVariables          SMTTheoryVarList
+	trans                    SMTTransJustification
+	labelHash                int8
+	labels, propagatedLabels approx.UintSet
 }
 
 func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandle) *SMTEnode, options SMTEnodeOptions) (*SMTEnode, error) {
@@ -114,6 +119,7 @@ func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandl
 			n.arguments[i] = child
 			if options.UpdateChildrenParent {
 				child.root.parents = append(child.root.parents, n)
+				child.root.sourceParents = append(child.root.sourceParents, n)
 			}
 		}
 	}

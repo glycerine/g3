@@ -56,6 +56,15 @@ func (n *SMTEnode) delete(updateChildrenParent, requireParentEntry bool) error {
 				parents[i] = nil
 			}
 			root.parents = kept
+			// enode::del_eh pops this node from its argument root's m_parents.
+			for i := len(root.sourceParents) - 1; i >= 0; i-- {
+				if root.sourceParents[i] == n {
+					copy(root.sourceParents[i:], root.sourceParents[i+1:])
+					root.sourceParents[len(root.sourceParents)-1] = nil
+					root.sourceParents = root.sourceParents[:len(root.sourceParents)-1]
+					break
+				}
+			}
 		}
 	}
 	n.manager = nil

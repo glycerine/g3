@@ -24,7 +24,7 @@ func cloneSMTTheoryVariables(source SMTTheoryVarList) SMTTheoryVarList {
 // proof tree are derived again on undo, so one merge costs one fixed trail entry.
 func (s *SMTInternalizerState) recordEqualityUndo(r1, left, r2 *SMTEnode) {
 	s.equalityTrail = append(s.equalityTrail, smtEqualityUndo{
-		r1: r1, left: left, r2: r2, r2NumParents: len(r2.parents), r2NumDisequalities: len(r2.disequalities), theoryLimit: len(s.theoryTrail),
+		r1: r1, left: left, r2: r2, r2NumParents: len(r2.parents), r2NumSourceParents: len(r2.sourceParents), r2NumDisequalities: len(r2.disequalities), theoryLimit: len(s.theoryTrail),
 		r2TheoryVariables: cloneSMTTheoryVariables(r2.theoryVariables),
 	})
 }
@@ -68,6 +68,8 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 			}
 			clear(r2.parents[entry.r2NumParents:])
 			r2.parents = r2.parents[:entry.r2NumParents]
+			clear(r2.sourceParents[entry.r2NumSourceParents:])
+			r2.sourceParents = r2.sourceParents[:entry.r2NumSourceParents]
 			r2.truncateDisequalities(entry.r2NumDisequalities)
 			entry.left.trans = SMTTransJustification{Justification: NullSMTEqualityJustification()}
 			smtInvertTrans(r1)
@@ -279,6 +281,13 @@ func (s *SMTInternalizerState) propagateTrueEquality(node *SMTEnode) error {
 // Only parents of the class whose roots change need a new signature. The Go
 // parent vectors also retain nonrepresentatives for concrete enode deletion.
 func (s *SMTInternalizerState) detachCongruenceParents(from, to *SMTEnode) error {
+	// remove_parents_from_cg_table marks r1's parents that are congruence
+	// roots and not true equalities.
+	for _, parent := range from.sourceParents {
+		if !parent.sourceParentMark && parent.congruence == parent && !parent.IsTrueEquality() {
+			parent.sourceParentMark = true
+		}
+	}
 	for _, parent := range from.parents {
 		parent.parentOfMergeTarget = false
 		for _, arg := range parent.arguments {
@@ -316,6 +325,21 @@ func (s *SMTInternalizerState) reinsertCongruenceParents(from, to *SMTEnode) err
 		parent.congruence = inserted.Node
 		if inserted.Node != parent && inserted.Node.root != parent.root {
 			s.pending = append(s.pending, smtPendingEquality{parent, inserted.Node, NewSMTEqualityCongruence(inserted.Commuted)})
+		}
+	}
+	// reinsert_parents_into_cg_table copies to r2->m_parents the marked
+	// parents that remain congruence roots (or have congruence closure
+	// disabled); a parent that became a true equality is not copied.
+	for _, parent := range from.sourceParents {
+		if !parent.sourceParentMark {
+			continue
+		}
+		parent.sourceParentMark = false
+		if parent.IsTrueEquality() {
+			continue
+		}
+		if !parent.congruenceEnabled || parent.congruence == parent {
+			to.sourceParents = append(to.sourceParents, parent)
 		}
 	}
 	for _, parent := range from.parents {

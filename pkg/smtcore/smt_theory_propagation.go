@@ -30,7 +30,14 @@ func (s *SMTInternalizerState) enqueueExistingDisequalities(root *SMTEnode, vari
 	if !plugin.UseDisequalities() {
 		return nil
 	}
-	for _, parent := range root.parents {
+	if smtTraceEnabled("push_new_th_diseqs") {
+		if id, err := root.OwnerID(); err == nil {
+			emitSMTTrace("push_new_th_diseqs", "push_new_th_diseqs", "src/smt/smt_context.cpp", 1496,
+				fmt.Sprintf("#%d v%d\n", id, variable))
+		}
+	}
+	// r->get_parents() is the source parent list (sourceParents).
+	for _, parent := range root.sourceParents {
 		if parent == nil || !parent.IsEquality() || len(parent.arguments) != 2 {
 			continue
 		}
@@ -46,6 +53,17 @@ func (s *SMTInternalizerState) enqueueExistingDisequalities(root *SMTEnode, vari
 			continue
 		}
 		left, right := parent.arguments[0], parent.arguments[1]
+		if smtTraceEnabled("push_new_th_diseqs") {
+			pid, _ := parent.OwnerID()
+			lid, _ := left.OwnerID()
+			rid, _ := right.OwnerID()
+			lrid, _ := left.root.OwnerID()
+			rrid, _ := right.root.OwnerID()
+			oid, _ := root.OwnerID()
+			orid, _ := root.root.OwnerID()
+			emitSMTTrace("push_new_th_diseqs", "push_new_th_diseqs", "src/smt/smt_context.cpp", 1505,
+				fmt.Sprintf("#%d lhs: #%d, rhs: #%d, lhs->root: #%d, rhs->root: #%d, r: #%d, r->root: #%d\n", pid, lid, rid, lrid, rrid, oid, orid))
+		}
 		if right.root == root {
 			left, right = right, left
 		}

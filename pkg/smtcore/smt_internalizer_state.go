@@ -81,6 +81,7 @@ type smtDisequalityUndo struct {
 type smtEqualityUndo struct {
 	r1, left, r2       *SMTEnode
 	r2NumParents       int
+	r2NumSourceParents int
 	r2NumDisequalities int
 	theoryLimit        int
 	r2TheoryVariables  SMTTheoryVarList
@@ -188,37 +189,37 @@ type SMTInternalizerState struct {
 	atomPropagationHead        int
 	// atomQueued parallels assignedLiterals: whether assign_core put the
 	// literal on m_atom_propagation_queue, decided when it was assigned.
-	atomQueued []bool
-	notifyTrail                []smtInternalizerNotifyTrail
-	enodeFlagTrail             []int32
-	mergeTFTrail               []*SMTEnode // set_merge_tf_trail
-	trueFirstTrail             []int32
-	atomNotified               map[int32]bool
-	atomNotifiedTrail          []int32
-	relevancyLevel             uint32
-	newCore2thEq               bool
-	clauses                    []SMTInternalizedClause
-	ownedJustifications        []SMTJustification
-	assignedLiterals           []SMTLiteral
-	propagationHead            int
-	relevancyBatch             smtRelevancyAssignmentBatch
-	conflict                   SMTBooleanJustification
-	conflictLiteral            SMTLiteral
-	inconsistent               bool
-	generation                 uint32
-	scopeLevel                 uint32
-	statistics                 SMTContextStatistics
-	finalCheckIndex            int
-	incompleteTheories         []SMTTheoryInternalizer
-	theoriesSetup              bool
-	binaryClauseOptimization   bool
-	clauseMaintenance          SMTClauseMaintenanceConfig
-	conflictsSinceLemmaGC      uint32
-	lemmaGCThreshold           uint32
-	simplifyHead               int
-	simplifyCounter            int
-	learnedUnits               []smtPersistentLearnedUnit
-	searchBaseLevel            uint32
+	atomQueued               []bool
+	notifyTrail              []smtInternalizerNotifyTrail
+	enodeFlagTrail           []int32
+	mergeTFTrail             []*SMTEnode // set_merge_tf_trail
+	trueFirstTrail           []int32
+	atomNotified             map[int32]bool
+	atomNotifiedTrail        []int32
+	relevancyLevel           uint32
+	newCore2thEq             bool
+	clauses                  []SMTInternalizedClause
+	ownedJustifications      []SMTJustification
+	assignedLiterals         []SMTLiteral
+	propagationHead          int
+	relevancyBatch           smtRelevancyAssignmentBatch
+	conflict                 SMTBooleanJustification
+	conflictLiteral          SMTLiteral
+	inconsistent             bool
+	generation               uint32
+	scopeLevel               uint32
+	statistics               SMTContextStatistics
+	finalCheckIndex          int
+	incompleteTheories       []SMTTheoryInternalizer
+	theoriesSetup            bool
+	binaryClauseOptimization bool
+	clauseMaintenance        SMTClauseMaintenanceConfig
+	conflictsSinceLemmaGC    uint32
+	lemmaGCThreshold         uint32
+	simplifyHead             int
+	simplifyCounter          int
+	learnedUnits             []smtPersistentLearnedUnit
+	searchBaseLevel          uint32
 	// baseLevel is context::m_base_lvl: the number of user scopes. Search
 	// scopes above it stay until popToBaseLevel, as in pop_to_base_lvl.
 	baseLevel             uint32

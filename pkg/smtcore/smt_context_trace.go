@@ -63,6 +63,23 @@ func tracePP(m *ast.ASTManager, h ast.ASTHandle) string {
 	return text
 }
 
+// traceBoundedPP is mk_bounded_pp(e, m) with the default depth 3.
+func traceBoundedPP(m *ast.ASTManager, h ast.ASTHandle) string {
+	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{})
+	if err != nil {
+		return "<" + err.Error() + ">"
+	}
+	defer stream.Close()
+	if err = m.DisplayBoundedLowLevel(stream, h, 3); err != nil {
+		return "<" + err.Error() + ">"
+	}
+	text, err := stream.String()
+	if err != nil {
+		return "<" + err.Error() + ">"
+	}
+	return text
+}
+
 // traceLiteral is operator<<(ostream, literal).
 func traceLiteral(l SMTLiteral) string {
 	switch {

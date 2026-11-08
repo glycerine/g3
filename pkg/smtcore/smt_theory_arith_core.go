@@ -1859,6 +1859,14 @@ func (t *SMTTheoryArith) NewEquality(v1, v2 SMTTheoryVar) (err error) {
 func (t *SMTTheoryArith) UseDisequalities() bool { return true }
 
 func (t *SMTTheoryArith) NewDisequality(v1, v2 SMTTheoryVar) error {
+	if smtTraceEnabled("arith_new_diseq_eh") {
+		e1, err1 := t.Enode(v1)
+		e2, err2 := t.Enode(v2)
+		if err1 == nil && err2 == nil {
+			emitSMTTrace("arith_new_diseq_eh", "new_diseq_eh", "src/smt/theory_arith_core.h", 1394,
+				traceBoundedPP(t.state.manager, e1.owner)+"\n"+traceBoundedPP(t.state.manager, e2.owner)+"\n")
+		}
+	}
 	t.stats.assertDiseq++
 	return t.arithEqAdapter.NewDisequality(v1, v2)
 }
