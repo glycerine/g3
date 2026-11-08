@@ -35,7 +35,8 @@ func (t *SMTTheorySeq) mustBool(b bool, err error) bool {
 	return b
 }
 
-// recoverErr converts a seqPanic into the entry point's error result.
+// recoverErr converts a seqPanic into the entry point's error result. It
+// must be deferred directly: defer t.recoverErr(&err).
 func (t *SMTTheorySeq) recoverErr(result *error) {
 	if r := recover(); r != nil {
 		p, ok := r.(seqPanic)

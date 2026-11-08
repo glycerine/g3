@@ -32,9 +32,15 @@ func (t *SMTTheorySeq) Initialize(state *SMTInternalizerState) (result error) {
 	if err := t.SMTTheoryBase.Initialize(state); err != nil {
 		return err
 	}
-	defer t.recoverErr(&result)
 	m := state.manager
 	t.m = m
+	// The internalizer drops a theory whose init fails without closing it.
+	defer func() {
+		if result != nil {
+			result = errors.Join(result, t.Close())
+		}
+	}()
+	defer t.recoverErr(&result)
 	t.rep = newSeqSolutionMap(m, &t.dm)
 	t.eqs = seqEqVector{th: t}
 	t.nqs = seqNeVector{th: t}
@@ -88,7 +94,14 @@ func (t *SMTTheorySeq) Initialize(state *SMTInternalizerState) (result error) {
 // leave ends an entry point: it recovers the port's internal errors and
 // releases the expr_ref temporaries of mk_sub.
 func (t *SMTTheorySeq) leave(result *error) {
-	t.recoverErr(result)
+	// recover must be called by the deferred function itself.
+	if r := recover(); r != nil {
+		p, ok := r.(seqPanic)
+		if !ok {
+			panic(r)
+		}
+		*result = errors.Join(*result, p.err)
+	}
 	*result = errors.Join(*result, t.tmps.release())
 }
 

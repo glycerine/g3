@@ -12,7 +12,7 @@ Found while matching `-st` output against `build/z3` on
    `smt.max_conflicts=0`, repeated `check-sat-assuming` calls turn unsat on
    check 9 in z3 and check 10 in Go.
 
-2. **Port `theory_seq::final_check_eh` faithfully.** Logics missing from
+2. **DONE (see pkg/SEQ_PORT.md): Port `theory_seq::final_check_eh` faithfully.** Logics missing from
    `setup::setup_logic` (QF_NIA, ALL, ...) use `setup_unknown`, which
    registers theory_seq. Its final check draws from the context random
    generator in `reduce_length_eq` and `branch_variable` even with no

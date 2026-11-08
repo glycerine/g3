@@ -173,7 +173,7 @@ func (k *SMTKernel) setupSequenceBackend(useStaticFeatures bool) (result error) 
 		if _, ok := old.(*SMTStringTheory); ok {
 			return nil
 		}
-	} else if _, ok := old.(*SMTSequenceTheory); ok {
+	} else if _, ok := old.(*SMTTheorySeq); ok {
 		return nil
 	}
 	return k.installFreshSequencePlugin(legacy, &k.smtParams.str, false)
@@ -339,7 +339,7 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 				return err
 			}
 		} else {
-			theory, theoryErr := NewSMTSequenceTheory(family)
+			theory, theoryErr := NewSMTTheorySeq(family)
 			if theoryErr != nil {
 				return theoryErr
 			}

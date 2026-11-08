@@ -66,4 +66,17 @@ On all `cmd/g3/test_vectors` and the fuzzers:
 
 ## Status
 
-Not started.
+Done. All of theory_seq.cpp reached by retained callers is ported in
+`smtcore/smt_theory_seq*.go`, with `seq_rewriter::reduce_eq` and its
+helpers in `ast/rewriter/seq_rewriter_reduce_eq.go`, and is registered in
+setup. The old `SMTSequenceTheory` and its internals tests are deleted.
+`propagate_not_prefix` and `propagate_not_prefix2` are reached only from
+`#if 0` code and are not ported.
+
+Known lifetime differences (TODO.md item 3): some expr_ref locals are held
+until the function returns instead of being reassigned, and mk_sub results
+are held until the theory entry point returns.
+
+Result: nonlinear_nested_integer_row_aliases matches z3 except del-clause
+(TODO.md item 9); all-statistics exact vectors 371 -> 374; verdict
+mismatches against z3 unchanged (6, none in sequence vectors).

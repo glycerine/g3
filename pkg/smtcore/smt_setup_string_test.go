@@ -153,7 +153,7 @@ func TestSMTQFSSetupInstallsNativeStringAndMixedArithmetic(t *testing.T) {
 				t.Fatal("QF_S profile must select native theory_str independently of generic string_solver")
 			}
 			if !auto {
-				if _, isSeq := solver.kernel.internalizer.theories[seq].(*SMTSequenceTheory); !isSeq {
+				if _, isSeq := solver.kernel.internalizer.theories[seq].(*SMTTheorySeq); !isSeq {
 					t.Fatal("CFG_BASIC default seq selector did not retain generic sequence theory")
 				}
 			}

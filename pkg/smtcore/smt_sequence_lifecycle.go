@@ -28,7 +28,7 @@ func (k *SMTKernel) copySequencePlugin(source *SMTKernel) error {
 		return nil // Native register_plugin keeps an already installed plugin.
 	}
 	switch previous := old.(type) {
-	case *SMTSequenceTheory:
+	case *SMTTheorySeq:
 		return k.installFreshSequencePlugin(false, nil, false)
 	case *SMTStringTheory:
 		return k.installFreshSequencePlugin(true, previous.parameterOwner, true)
@@ -53,7 +53,7 @@ func (k *SMTKernel) installFreshSequencePlugin(legacy bool, owner *SMTStrParams,
 	position := -1
 	if old != nil {
 		switch previous := old.(type) {
-		case *SMTSequenceTheory:
+		case *SMTTheorySeq:
 			if previous.NumVariables() != 0 {
 				return ast.ErrASTDomain
 			}
@@ -78,7 +78,7 @@ func (k *SMTKernel) installFreshSequencePlugin(legacy bool, owner *SMTStrParams,
 	if legacy {
 		theory, err = newSMTStringTheory(family, owner, borrowed)
 	} else {
-		theory, err = NewSMTSequenceTheory(family)
+		theory, err = NewSMTTheorySeq(family)
 	}
 	if err != nil {
 		return err

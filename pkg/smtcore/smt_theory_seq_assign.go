@@ -128,7 +128,10 @@ func (t *SMTTheorySeq) assignEh(v int32, isTrue bool) {
 		// propagate equalities
 	} else if t.isSkolem(t.symbol("seq.is_digit"), e) {
 	} else {
-		t.chk(ast.ErrASTDomain) // UNREACHABLE
+		// UNREACHABLE(): reached by Boolean atoms the theory owns without
+		// a case here, such as (seq.nth s i) over (Seq Bool). Release builds
+		// compile it to __builtin_unreachable, and z3 continues as if the
+		// assignment were ignored.
 	}
 }
 
