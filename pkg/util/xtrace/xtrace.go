@@ -40,10 +40,6 @@ func init() {
 	}
 }
 
-func Trace1(format string, args ...interface{}) {
-	trace(format, args...)
-}
-
 // Trace prints an execution trace line to stdout.
 // Format: "XTRACE: " + fmt.Sprintf(format, args...) + "\n"
 func Trace(format string, args ...interface{}) {
@@ -60,30 +56,30 @@ func trace(format string, args ...interface{}) {
 		return
 	}
 
-	if false {
-		if globalXtraceCounter%50 == 0 {
-			runtime.ReadMemStats(mems)
-			fmt.Printf("[at trace %v] mems.HeapAlloc = %0.3f MB; HeapInuse = %0.3f MB\n", globalXtraceCounter, float64(mems.HeapAlloc)/(1<<20), float64(mems.HeapInuse)/(1<<20))
-			//maybePaceGC(globalXtraceCounter, mems)
-		}
-		//maybeWriteHeapProfile(globalXtraceCounter)
-		globalXtraceCounter++
-	}
+	// if false {
+	// 	if globalXtraceCounter%50 == 0 {
+	// 		runtime.ReadMemStats(mems)
+	// 		fmt.Printf("[at trace %v] mems.HeapAlloc = %0.3f MB; HeapInuse = %0.3f MB\n", globalXtraceCounter, float64(mems.HeapAlloc)/(1<<20), float64(mems.HeapInuse)/(1<<20))
+	// 		//maybePaceGC(globalXtraceCounter, mems)
+	// 	}
+	// 	//maybeWriteHeapProfile(globalXtraceCounter)
+	// 	globalXtraceCounter++
+	// }
 
-	// replace true/false with True/False to match python
-	// and avoid spurious diffs.
-	for i, a := range args {
-		switch b := a.(type) {
-		case bool:
-			if b {
-				args[i] = "True"
-			} else {
-				args[i] = "False"
-			}
-		case string:
-			args[i] = b // NormalizeLine(b)
-		}
-	}
+	// // replace true/false with True/False to match python
+	// // and avoid spurious diffs.
+	// for i, a := range args {
+	// 	switch b := a.(type) {
+	// 	case bool:
+	// 		if b {
+	// 			args[i] = "True"
+	// 		} else {
+	// 			args[i] = "False"
+	// 		}
+	// 	case string:
+	// 		args[i] = b // NormalizeLine(b)
+	// 	}
+	// }
 
 	if strings.Contains(format, "\n") {
 		splt := strings.SplitN(format, "\n", 2)
