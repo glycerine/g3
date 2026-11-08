@@ -113,3 +113,9 @@ Found while matching `-st` output against `build/z3` on
     queries differ: z3 checks each with a fresh constant `x!N` that is
     bit-blasted and decided; g3 uses `seq-automaton!N` and creates no bit
     variables. Comparing these needs context identity in the traces.
+
+15. **DONE: quantifier statistics.** `context::collect_statistics` adds
+    `m_qmanager->collect_statistics` (qi_queue: quant instantiations, lazy
+    and missed instantiations, min/max missed cost); g3 never reported
+    them. Theories are now also collected in registration order, not map
+    order. All-statistics exact 515 -> 541.

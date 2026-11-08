@@ -341,7 +341,17 @@ func (s *SMTSolver) CollectStatistics(dst *statistics.Statistics) error {
 		return arena.ErrInvalidSlot
 	}
 	collectSMTKernelStatistics(dst, s.kernel.Statistics())
-	for _, theory := range s.kernel.internalizer.theories {
+	// m_qmanager->collect_statistics: qi_queue::collect_statistics.
+	if q := s.kernel.internalizer.quantifiers; q != nil && q.schedule != nil {
+		qs := q.schedule.Stats()
+		dst.UpdateUint("quant instantiations", qs.Instances)
+		dst.UpdateUint("lazy quant instantiations", qs.LazyInstances)
+		dst.UpdateUint("missed quant instantiations", qs.MissedInstances)
+		dst.UpdateDouble("min missed qa cost", float64(qs.MinimumMissedCost))
+		dst.UpdateDouble("max missed qa cost", float64(qs.MaximumMissedCost))
+	}
+	// Theories in registration order (m_theory_set).
+	for _, theory := range s.kernel.internalizer.theoryOrder {
 		if collector, ok := theory.(interface {
 			CollectStatistics(*statistics.Statistics) error
 		}); ok {
