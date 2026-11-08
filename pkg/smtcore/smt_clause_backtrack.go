@@ -10,6 +10,9 @@ import (
 )
 
 func (s *SMTInternalizerState) keepClauseAcrossPop(record *SMTInternalizedClause) bool {
+	if record.Binary && record.Lemma {
+		return !s.closing
+	}
 	return !s.closing && s.pendingPop != nil && s.pendingPop.preserve && record.clause != nil && record.clause.IsLemma()
 }
 

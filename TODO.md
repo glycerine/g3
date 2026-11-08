@@ -64,15 +64,16 @@ Found while matching `-st` output against `build/z3` on
    `:precision precise :depth N`: `apply` calls `goal::display(ctx)`, the
    ast_printer_context overload, which prints them.
 
-9. **Clause storage and del-clause.** PARTLY DONE: `del-clause` and
-   `mk-clause` now count as the source does: binary clauses that live
-   only in the watch lists are not counted when deleted (pop, simplify,
-   GC), and a two-literal clause stored as a full clause counts only in
-   `mk-clause` (all-statistics exact 444 -> 488; the
-   shared_arithmetic_fixed_integer example matches). OPEN: Go still keeps
-   one clause list where C++ has `m_aux_clauses`/`m_lemmas`, and that
-   storage prevents binary lemmas above scope 0, which C++ allows when
-   relevancy is below 2.
+9. **DONE: Clause storage and del-clause.** `del-clause` and `mk-clause`
+   count as the source does (binary clauses that live only in the watch
+   lists are not counted when deleted; a two-literal clause stored as a
+   full clause counts only in `mk-clause`). Binary lemmas now follow
+   use_binary_clause_opt: a lemma is refused only at relevancy level 2 or
+   more and may be stored above scope 0 (base level 0, atoms internalized
+   at level 0), and its watches persist across pops as in the source. Go
+   still keeps one clause list where C++ has `m_aux_clauses`/`m_lemmas`;
+   the pop and lemma-preservation rules applied to it give the source's
+   deletions and counts.
 
 10. **RESOLVED (user confirmed): Hung test: parsers/smt2
     TestSMT2GeometricIntegerOptimizationCrossesBooleanBranches/maximize.**

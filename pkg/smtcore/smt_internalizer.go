@@ -256,8 +256,13 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		kept[1], kept[second] = kept[second], kept[1]
 		firstWatch, secondWatch = first, second
 	}
-	if len(kept) == 2 && s.binaryClauseOptimization && s.scopeLevel == 0 && (kind == SMTClauseAux || s.relevancy == nil) &&
-		s.binaryClauseBaseLevel() == 0 &&
+	// use_binary_clause_opt: a lemma (any kind but aux) is refused only at
+	// relevancy level 2 or more, and may be stored above scope 0; an aux
+	// clause only at scope 0. Both need base level 0 and atoms internalized
+	// at level 0.
+	lemma := kind != SMTClauseAux
+	if len(kept) == 2 && s.binaryClauseOptimization && !(lemma && s.relevancyLevel >= 2) &&
+		s.binaryClauseBaseLevel() == 0 && (lemma || s.scopeLevel == 0) &&
 		s.booleanData[kept[0].Var()].InternalLevel() == 0 && s.booleanData[kept[1].Var()].InternalLevel() == 0 {
 		first, second := kept[0], kept[1]
 		if err := s.watches[first.Negated().Index()].InsertLiteral(second); err != nil {
@@ -267,7 +272,7 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 			_ = s.watches[first.Negated().Index()].RemoveLiteral(second)
 			return err
 		}
-		s.clauses = append(s.clauses, SMTInternalizedClause{Literals: kept, Root: root, Binary: true, Proof: proof})
+		s.clauses = append(s.clauses, SMTInternalizedClause{Literals: kept, Root: root, Binary: true, Lemma: lemma, Proof: proof})
 		value, err := s.Assignment(second)
 		if err != nil {
 			return err

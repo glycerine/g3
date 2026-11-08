@@ -43,6 +43,9 @@ func TestSMTRestartPreservesAssumptionScopeClauseReasons(t *testing.T) {
 	k := smtTestKernel(t, m)
 	k.smtState.SimplifyClauses = true
 	s := k.internalizer
+	// A two-literal lemma would be a binary watch (use_binary_clause_opt);
+	// this test needs a clause reason.
+	s.binaryClauseOptimization = false
 	p := smtRelevancyBool(t, m, "restart-assumption-p")
 	q := smtRelevancyBool(t, m, "restart-assumption-q")
 	for _, h := range []ast.ASTHandle{p, q} {

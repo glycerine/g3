@@ -95,9 +95,12 @@ type SMTTheoryPropagation struct {
 }
 
 type SMTInternalizedClause struct {
-	Literals     []SMTLiteral
-	Root         bool
-	Binary       bool
+	Literals []SMTLiteral
+	Root     bool
+	Binary   bool
+	// Lemma marks a binary lemma: its watches persist across pops, as the
+	// source keeps binary lemma watches (atoms internalized at level 0).
+	Lemma        bool
 	Proof        ast.ASTHandle
 	clause       *SMTClause
 	owner        SMTJustification
@@ -1053,6 +1056,9 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 	for index := len(s.clauses); index > scope.clauseLimit; index-- {
 		record := &s.clauses[index-1]
 		if s.keepClauseAcrossPop(record) {
+			if record.clause == nil {
+				continue // binary lemma: watches only
+			}
 			retired := false
 			for _, literal := range record.clause.literals {
 				retired = retired || int(literal.Var()) >= scope.booleanLimit+int(SMTFirstBoolVar)
