@@ -398,7 +398,9 @@ Found while matching `-st` output against `build/z3` on
    (compiler, code trees, interpreter, inverted path index) for the
    instantiated pattern shapes, then add the three records.
 
-20. **OPEN: fixedpoint rules are not flushed lazily.** dl_context::add_rule
+20. **DONE (e36db5524): fixedpoint rules are flushed lazily.** AddRule queues; the
+   query flush binds and builds rules; other readers build the Go eager view on
+   first use. Was: dl_context::add_rule
    only queues the formula (m_rule_fmls); flush_add_rules runs mk_rule
    (variable binding, rule-set insertion) at query time or get_rules().
    g3's PropositionalEngine binds and adds each rule immediately, so
