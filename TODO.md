@@ -82,11 +82,12 @@ Found while matching `-st` output against `build/z3` on
       a solver is created, where z3 registers them at the first check/push
       (`setup_context`); building the kernel in `Initialize` made every
       constructed solver build one. It is now built in `Setup`.
-    - OPEN: `mk_lra_tactic` falls back to `mk_qe_tactic` (qe_tactic.cpp,
-      the classic quantifier elimination), which creates no contexts. g3
-      uses QE2 (qsat-based `mk_qe2_tactic`) there because its port of
-      qe_tactic.cpp (qe/quantifier_tactic.go) is partial. QE2's kernels are
-      the 10 extra contexts. Fix: complete the qe_tactic port and use it.
+    - DONE: `mk_lra_tactic` falls back to `mk_qe_tactic` (qe_tactic.cpp);
+      g3 used QE2 (qsat-based `mk_qe2_tactic`), whose kernels were 10
+      extra contexts and added `mk-bool-var` 4 under logic ALL (27
+      vectors). It now uses qe.QuantifierTactic. That port of
+      qe_tactic.cpp is partial (it leaves a quantifier in place when no
+      plugin eliminates it, as the source does); completing it remains.
     - OPEN: `qe::qsat::~qsat` calls reset(), creating two kernels at
       teardown (z3's last 2 contexts); g3's qsat Close does not.
     Until this is fixed no vector matches z3 record for record, so

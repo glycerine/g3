@@ -201,8 +201,9 @@ func newQuantifiedArithmeticTactic(m *ast.ASTManager, p *uparams.ParamsRef, conf
 		lira := b.probe(arith.NewArithmeticFragmentProbe(m.Budget(), c, g, arith.FragmentLIRA))
 		quantifiedLIRA := b.probe(tactic.NewBinaryProbe(m.Budget(), tactic.ProbeAnd, hasQuantifier, lira))
 		qsat := b.keep(qe.NewQSATTactic(m, p, qe.Config{Context: c, Globals: g, Cooperation: config.ModelEvaluator.Cooperation, Trace: config.ModelEvaluator.Trace}))
-		qe2 := b.keep(qe.NewQE2Tactic(m, p, qe.Config{Context: c, Globals: g, Cooperation: config.ModelEvaluator.Cooperation, Trace: config.ModelEvaluator.Trace}))
-		qeFallback := b.then(qe2, b.keep(smtcore.NewSMTTactic(m, nil, config)))
+		// mk_lra_tactic: or_else(mk_qsat_tactic, and_then(mk_qe_tactic, mk_smt_tactic)).
+		qeTactic := b.keep(qe.NewQuantifierTactic(m, p, qe.Config{Context: c, Globals: g, Cooperation: config.ModelEvaluator.Cooperation, Trace: config.ModelEvaluator.Trace}))
+		qeFallback := b.then(qeTactic, b.keep(smtcore.NewSMTTactic(m, nil, config)))
 		quantified := b.otherwise(qsat, qeFallback)
 		backend = b.keep(tactic.NewCondTactic(quantifiedLIRA, quantified, b.keep(smtcore.NewSMTTactic(m, nil, config))))
 	} else {
