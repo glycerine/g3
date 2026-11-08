@@ -209,7 +209,11 @@ Found while matching `-st` output against `build/z3` on
       598 -> 606 of 659. (mk_gate_clause's proof is built before the
       sort, so a gate clause's proof fact lists the literals in gate
       order.)
-    Open lead (bv_fixed_cache_scopes): at level 0 z3 propagates
+    - (fixed) mk_clause wraps the clause's justification in a
+      unit_resolution_justification over the removed false literals and
+      builds the proof lazily; g3 built the unit-resolution proof eagerly
+      under proofs and kept a bare proof wrapper.
+    Former lead (bv_fixed_cache_scopes): at level 0 z3 propagates
     (= ((_ bit2bool 0) x) ((_ bit2bool 0) y)) with a justification whose
     antecedents are the two bit literals; g3 assigns it with a proof
     wrapper (no antecedents). Cause: mk_clause wraps the clause's

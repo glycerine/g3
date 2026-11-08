@@ -306,6 +306,7 @@ pb2bv_qflia_direct_smt_reference_gap
 pb2bv_refusal_fallback
 pb2bv_shifted_lia_pipeline
 pb2bv_split_model
+pb_native_watches_proof
 pb_native_watches_scopes
 pb_simplex_proof
 pb_simplex_scopes
@@ -393,6 +394,7 @@ qfnra_nlsat_named
 qfufbv_ackr_core_refusal
 qfufbv_ackr_incsat_eager
 qfufbv_ackr_incsat_lazy
+qfufbv_ackr_proof_refusal
 qfufbv_ackr_sat_eager
 qfufbv_ackr_sat_lazy
 qfufbv_ackr_smt_eager

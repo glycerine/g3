@@ -155,19 +155,16 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		seen[literal] = struct{}{}
 		kept = append(kept, literal)
 	}
-	if !proof.IsNull() && len(removedFalse) != 0 {
-		builder := &smtConflictProofBuilder{
-			state: s, marked: make(map[int32]struct{}), literal: make(map[SMTLiteral]ast.ASTHandle),
-			objects: make(map[SMTJustification]ast.ASTHandle), equality: make(map[smtEnodePairKey]ast.ASTHandle),
-		}
-		parents, err := builder.literalProofs(removedFalse)
+	// mk_clause: j = unit_resolution_justification(j, simp_lits) whenever
+	// false literals were removed; the clause's proof is then built lazily
+	// from that justification (the proof wrapper of pr resolved with the
+	// removed literals), not here.
+	if !proof.IsNull() && len(removedFalse) != 0 && justification == nil {
+		wrapper, err := NewSMTJustificationProofWrapper(s.manager, proof, false)
 		if err != nil {
 			return err
 		}
-		proof, err = s.manager.MkProofUnitResolution(append([]ast.ASTHandle{proof}, parents...))
-		if err != nil {
-			return err
-		}
+		justification, proof = wrapper, ast.ASTHandle{}
 	}
 	// Source mk_clause wraps even a null antecedent when simplifying an
 	// auxiliary clause. Those true literals still explain the removed false
