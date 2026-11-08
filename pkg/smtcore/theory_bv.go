@@ -411,7 +411,7 @@ func (t *SMTBitVectorTheory) InternalizeAtom(expression ast.ASTHandle, gateConte
 	if err != nil || !own {
 		return false, err
 	}
-	if err = t.traceBVExpression("bv", "internalize_atom", 1052, "internalizing atom: ", expression); err != nil {
+	if err = t.traceBVBoundedExpression("bv", "internalize_atom", 1052, "internalizing atom: ", expression); err != nil {
 		return false, err
 	}
 	if err = bvAssert(1053, "atom->get_family_id() == get_family_id()", func() (bool, error) {
@@ -505,7 +505,7 @@ func (t *SMTBitVectorTheory) InternalizeTerm(expression ast.ASTHandle) (bool, er
 	}); err != nil {
 		return false, err
 	}
-	if err = t.traceBVExpression("bv", "internalize_term", 859, "internalizing term: ", expression); err != nil {
+	if err = t.traceBVBoundedExpression("bv", "internalize_term", 859, "internalizing term: ", expression); err != nil {
 		return false, err
 	}
 	if approximate, err := t.approximateTerm(expression); err != nil || approximate {

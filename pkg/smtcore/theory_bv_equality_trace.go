@@ -59,7 +59,7 @@ func (t *SMTBitVectorTheory) traceBVNewEquality(left, right SMTTheoryVar) error 
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(out, "new_eq_eh v%d = v%d relevant1: %t relevant2: %t\n", left, right, state.context.isRelevant(leftNode.owner), state.context.isRelevant(rightNode.owner))
+		_, err = fmt.Fprintf(out, "new_eq_eh v%d = v%d relevant1: %s relevant2: %s\n", left, right, traceBool(state.context.isRelevant(leftNode.owner)), traceBool(state.context.isRelevant(rightNode.owner)))
 		return err
 	})
 }
@@ -78,7 +78,7 @@ func (t *SMTBitVectorTheory) traceBVAssignment(variable int32, isTrue bool) erro
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(out, "assert: v%d #%d is_true: %t\n", variable, id, isTrue)
+		_, err = fmt.Fprintf(out, "assert: v%d #%d is_true: %s\n", variable, id, traceBool(isTrue))
 		return err
 	})
 }

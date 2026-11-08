@@ -103,7 +103,7 @@ type arithmeticAdapterTraceWriter struct {
 }
 
 func (w *arithmeticAdapterTraceWriter) Write(p []byte) (int, error) {
-	if !w.seen {
+	if !w.seen && w.owner != nil {
 		w.seen = true
 		w.pending = w.owner.CanPropagate()
 	}

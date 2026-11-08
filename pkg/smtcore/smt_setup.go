@@ -206,6 +206,8 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 		}
 		return kernel.RegisterTheory(dummy)
 	}
+	// setup_unknown order: arith, arrays, bv, datatypes, dl, seq_str, card,
+	// fpa. Logic-specific setups install subsets in the same relative order.
 	if smtLogicUsesArithmetic(logic) {
 		family, err := manager.ArithmeticFamilyID()
 		if err != nil {
@@ -291,18 +293,25 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 			return err
 		}
 	}
-	if smtLogicUsesFloatingPoint(logic) {
-		if _, err := manager.RegisterArithmeticPlugin(); err != nil {
-			return err
-		}
-		if _, err := manager.RegisterBitVectorPlugin(); err != nil {
-			return err
-		}
-		family, err := manager.RegisterFloatingPointPlugin()
+	if smtLogicUsesDatatypes(logic) {
+		family, err := manager.RegisterDatatypePlugin()
 		if err != nil {
 			return err
 		}
-		theory, theoryErr := NewSMTFloatingPointTheory(family)
+		theory, theoryErr := NewSMTDatatypeTheory(family)
+		if theoryErr != nil {
+			return theoryErr
+		}
+		if err = kernel.RegisterTheory(theory); err != nil {
+			return err
+		}
+	}
+	if smtLogicUsesDatalog(logic) {
+		family, err := manager.RegisterDatalogPlugin()
+		if err != nil {
+			return err
+		}
+		theory, theoryErr := NewSMTDatalogTheory(family)
 		if theoryErr != nil {
 			return theoryErr
 		}
@@ -349,19 +358,6 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 		}
 		kernel.sequenceSetupPlaceholder = kernel.internalizer.theories[family]
 	}
-	if smtLogicUsesDatatypes(logic) {
-		family, err := manager.RegisterDatatypePlugin()
-		if err != nil {
-			return err
-		}
-		theory, theoryErr := NewSMTDatatypeTheory(family)
-		if theoryErr != nil {
-			return theoryErr
-		}
-		if err = kernel.RegisterTheory(theory); err != nil {
-			return err
-		}
-	}
 	if smtLogicUsesPseudoBooleans(logic) {
 		family, err := manager.RegisterPseudoBooleanPlugin()
 		if err != nil {
@@ -375,12 +371,18 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 			return err
 		}
 	}
-	if smtLogicUsesDatalog(logic) {
-		family, err := manager.RegisterDatalogPlugin()
+	if smtLogicUsesFloatingPoint(logic) {
+		if _, err := manager.RegisterArithmeticPlugin(); err != nil {
+			return err
+		}
+		if _, err := manager.RegisterBitVectorPlugin(); err != nil {
+			return err
+		}
+		family, err := manager.RegisterFloatingPointPlugin()
 		if err != nil {
 			return err
 		}
-		theory, theoryErr := NewSMTDatalogTheory(family)
+		theory, theoryErr := NewSMTFloatingPointTheory(family)
 		if theoryErr != nil {
 			return theoryErr
 		}

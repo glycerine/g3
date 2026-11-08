@@ -165,6 +165,12 @@ func TestSMTDatatypeEqualityTraceSourceBranchesBeforeQueuedMerge(t *testing.T) {
 				tags.Enable("datatype_detail")
 				dt.trace = tags
 				astTestMust(t, dt.equalityAxiom(x, y, antecedent))
+				// context::mark_as_relevant propagates at once, so the axiom's
+				// equality reaches x and y and relevant_eh traces them, as in
+				// the source; this test checks the assert_eq_axiom records.
+				trimmed := smtDatatypeDropRecords(output.String(), "relevant_eh")
+				output.Reset()
+				output.WriteString(trimmed)
 				if proofs || !tags.ShouldTrace("datatype") {
 					if output.Len() != 0 {
 						t.Fatal("proof branch or native erasure evaluated datatype trace operands", output.String())
@@ -515,4 +521,29 @@ func TestSMTDatatypeRelevanceTracePrecedesRegistrationAndDuplicateSkip(t *testin
 	if len(data.recognizers) != 3 || data.recognizers[1] != s.context.enodes.get(expression) {
 		t.Fatal("relevance diagnostic changed source watch slot")
 	}
+}
+
+// smtDatatypeDropRecords removes the datatype TRACE records of function.
+func smtDatatypeDropRecords(trace, function string) string {
+	var out strings.Builder
+	header := "-------- [datatype] " + function + " "
+	footer := "------------------------------------------------\n"
+	for len(trace) > 0 {
+		if strings.HasPrefix(trace, header) {
+			end := strings.Index(trace, footer)
+			if end < 0 {
+				break
+			}
+			trace = trace[end+len(footer):]
+			continue
+		}
+		next := strings.Index(trace, "\n")
+		if next < 0 {
+			out.WriteString(trace)
+			break
+		}
+		out.WriteString(trace[:next+1])
+		trace = trace[next+1:]
+	}
+	return out.String()
 }

@@ -46,10 +46,10 @@ func TestSMTBVEqualityAssignmentAndMergeSourceTrace(t *testing.T) {
 		astTestMust(t, err)
 		trace := output.String()
 		for _, want := range []string{
-			fmt.Sprintf("-------- [bv] assign_eh src/smt/theory_bv.cpp:1164 ---------\nassert: v%d #%d is_true: true\n", pVariable, pID),
+			fmt.Sprintf("-------- [bv] assign_eh src/smt/theory_bv.cpp:1164 ---------\nassert: v%d #%d is_true: 1\n", pVariable, pID), /* ostream bool */
 			"-------- [bv] assign_eh src/smt/theory_bv.cpp:1181 ---------\n1\n",
 			"-------- [bv_eq] new_eq_eh src/smt/theory_bv.cpp:1106 ---------\nnew_eq: ",
-			fmt.Sprintf("-------- [bv] new_eq_eh src/smt/theory_bv.cpp:1107 ---------\nnew_eq_eh v%d = v%d relevant1: false relevant2: false\n", leftVariable, rightVariable),
+			fmt.Sprintf("-------- [bv] new_eq_eh src/smt/theory_bv.cpp:1107 ---------\nnew_eq_eh v%d = v%d relevant1: 0 relevant2: 0\n", leftVariable, rightVariable),
 			fmt.Sprintf("-------- [bv] merge_eh src/smt/theory_bv.cpp:1384 ---------\nmerging: #%d #%d\n", rightID, leftID),
 			fmt.Sprintf("-------- [bv_bit_prop] merge_eh src/smt/theory_bv.cpp:1385 ---------\nmerging: #%d #%d\n", rightID, leftID),
 			"-------- [bv] merge_eh src/smt/theory_bv.cpp:1397 ---------\nbits size: 1\n",

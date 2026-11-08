@@ -23,6 +23,18 @@ func (t *SMTBitVectorTheory) traceBVExpression(tag, function string, line int, p
 	})
 }
 
+// traceBVBoundedExpression is for records that print mk_bounded_pp.
+func (t *SMTBitVectorTheory) traceBVBoundedExpression(tag, function string, line int, prefix string, expression ast.ASTHandle) error {
+	return t.emitBVTrace(tag, function, line, func(out io.Writer) error {
+		state, err := t.State()
+		if err != nil {
+			return err
+		}
+		_, err = io.WriteString(out, prefix+traceBoundedPP(state.manager, expression)+"\n")
+		return err
+	})
+}
+
 func (t *SMTBitVectorTheory) traceBVFixedAxiom(left, right ast.ASTHandle) error {
 	return t.emitBVTrace("bv", "add_fixed_eq", 436, func(out io.Writer) error {
 		state, err := t.State()

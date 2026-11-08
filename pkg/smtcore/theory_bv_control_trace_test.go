@@ -40,7 +40,7 @@ func TestSMTBVConversionSourceTrace(t *testing.T) {
 	if tags.ShouldTrace("bv") {
 		trace := output.String()
 		for _, want := range []string{
-			"-------- [bv] internalize_term src/smt/theory_bv.cpp:859 ---------\ninternalizing term: ((_ int2bv 2) trace-conversion-x)\n",
+			"-------- [bv] internalize_term src/smt/theory_bv.cpp:859 ---------\ninternalizing term: (int2bv[2] trace-conversion-x)\n", /* mk_bounded_pp */
 			"-------- [bv] assert_int2bv_axiom src/smt/theory_bv.cpp:662 ---------\n",
 			"-------- [bv] assert_int2bv_axiom src/smt/theory_bv.cpp:678 ---------\n",
 			"-------- [bv] internalize_bv2int src/smt/theory_bv.cpp:557 ---------\n(bv2int trace-conversion-w)\n",

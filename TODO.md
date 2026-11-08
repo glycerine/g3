@@ -158,8 +158,22 @@ Found while matching `-st` output against `build/z3` on
     justification display), add_eq_detail, decide, mk_bool_var, mk_enode,
     propagate_atoms, propagate_relevancy (propagate, relevant_eh and
     unmark_relevant_exprs), propagate_relevancy_to_args, and seq add_axiom,
-    deque_axiom and get_automaton. Next candidates: seq final_check_eh
-    (theory_seq::display), the arith tags, and the remaining seq records.
+    deque_axiom and get_automaton.
+    Fixed trace formats: theory_bv prints booleans as 1/0 (ostream bool)
+    and internalize_term/internalize_atom use mk_bounded_pp.
+    The `-tags g3trace` smtcore run no longer panics (a test writer without
+    an owner). One traced test still fails, and did before:
+    TestSMTArithmeticEqualityAdapterRetainedDiagnostics. The adapter has
+    two mk_axioms paths. The source one, used by theory_arith
+    (smt_arith_eq_adapter_source.go), follows arith_eq_adapter::mk_axioms
+    but emits none of its TRACE records (lines 86-226); the other (the
+    LRA path) derives the bounds by internalizing the equality and carries
+    the traces. Port the traces to the source path and check whether the
+    LRA path can use it too.
+    Next candidates: the conflict tag (initialize_resolve, resolve,
+    process_antecedent, finalize_resolve), seq final_check_eh
+    (theory_seq::display), the arith tags, and the remaining seq records
+    (add_accept2step, propagate_*, solve_eq, simplify_eq, reduce_eq).
 
 13. **DONE: conflict counting.** z3 counts `conflicts` in
     `context::resolve_conflict`; g3 counted when a conflict was set, so a
