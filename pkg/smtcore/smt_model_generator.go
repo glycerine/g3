@@ -673,8 +673,18 @@ func (g *SMTModelGenerator) publishFunctionInterpretations(state *SMTInternalize
 		if err != nil {
 			return err
 		}
+		// alloc(func_interp, m, f->get_arity()): for an associative
+		// application the entry records only the first arity values.
+		arity, err := g.manager.GetArity(node.declaration)
+		if err != nil {
+			return err
+		}
+		if uint64(arity) > uint64(len(arguments)) {
+			return ast.ErrASTDomain
+		}
+		arguments = arguments[:arity]
 		if interpretation == nil {
-			interpretation, err = model.NewFunctionInterpretation(g.manager, node.NumArgs())
+			interpretation, err = model.NewFunctionInterpretation(g.manager, arity)
 			if err != nil {
 				return err
 			}
