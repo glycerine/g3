@@ -6,6 +6,7 @@ package smtcore
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/xtrace"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -567,6 +568,9 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 		if cached, found := s.activityCache[expression]; found {
 			initialActivity = cached
 		}
+	}
+	if xtrace.Enabled {
+		xtrace.Trace("[mk_bool_var] p%d activity: %v %s", variable, initialActivity, xtraceExpr(s.manager, expression))
 	}
 	s.activity = append(s.activity, initialActivity)
 	s.assignment = append(s.assignment, lbool.Undef, lbool.Undef)

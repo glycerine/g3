@@ -5,6 +5,7 @@ package smtcore
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/xtrace"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -43,6 +44,13 @@ func (s *SMTInternalizerState) assignLiteralCore(literal SMTLiteral, justificati
 		// Source not_l is the already true opposite of the failed consequent.
 		s.setBooleanConflict(justification, literal.Negated())
 		return nil
+	}
+	if xtrace.Enabled {
+		kind := "propagating: "
+		if decision {
+			kind = "decision: "
+		}
+		xtrace.Trace("[assign_core] %s%s level: %d", kind, s.xtraceLiteral(literal), s.scopeLevel)
 	}
 	want := lbool.True
 	if literal.Sign() {

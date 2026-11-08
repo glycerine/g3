@@ -8,6 +8,8 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+	"github.com/glycerine/g3/pkg/util/xtrace"
+	"strings"
 )
 
 func (t *SMTTheorySeq) propagateInRe(n ast.ASTHandle, isTrue bool) {
@@ -79,6 +81,13 @@ func (t *SMTTheorySeq) getAutomaton(re ast.ASTHandle) *rewriter.StringRegexAutom
 	}
 	result, err := rewriter.NewSeqAutomaton(t.m, re, t.seqExprSolver())
 	t.chk(err)
+	if xtrace.Enabled && result != nil {
+		if g, err := result.Graph(); err == nil {
+			var b strings.Builder
+			_ = g.Display(&b)
+			xtrace.Trace("[seq] get_automaton %s", xtraceLine(b.String()))
+		}
+	}
 	t.automata = append(t.automata, result)
 	t.re2aut[re] = result
 	t.chk(t.res.pushBack(re))

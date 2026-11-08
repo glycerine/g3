@@ -6,6 +6,7 @@ package smtcore
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/xtrace"
 	"math/big"
 	"strings"
 
@@ -115,6 +116,9 @@ func (t *SMTTheorySeq) FinalCheck() (status SMTFinalCheckStatus, result error) {
 		t.resetCacheFlag = false
 	}
 	t.newPropagation = false
+	if xtrace.Enabled {
+		xtrace.Trace("[seq] final_check_eh level: %d", t.state.scopeLevel)
+	}
 	if t.simplifyAndSolveEqs() {
 		t.stats.solveEqs++
 		return SMTFinalCheckContinue, nil

@@ -6,6 +6,7 @@ package smtcore
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/xtrace"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -599,6 +600,18 @@ func (t *SMTTheorySeq) addAxiom(ls ...SMTLiteral) {
 			t.markLitRelevant(l)
 			lits = append(lits, l)
 		}
+	}
+	if xtrace.Enabled {
+		text := ""
+		for _, l := range lits {
+			e, _ := t.state.BoolExpression(l.Var())
+			if l.Sign() {
+				text += " (not " + xtraceExpr(t.m, e) + ")"
+			} else {
+				text += " " + xtraceExpr(t.m, e)
+			}
+		}
+		xtrace.Trace("[seq] add_axiom assert:%s", text)
 	}
 	t.newPropagation = true
 	t.stats.addAxiom++

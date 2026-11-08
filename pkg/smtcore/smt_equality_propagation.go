@@ -5,6 +5,7 @@ package smtcore
 
 import (
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/xtrace"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -486,6 +487,9 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 	}
 	r1, r2 := left.root, right.root
 	s.statistics.NumAddEq++
+	if xtrace.Enabled {
+		xtrace.Trace("[add_eq_detail] assigning %s %s kind: %d", xtraceExpr(s.manager, left.owner), xtraceExpr(s.manager, right.owner), justification.kind)
+	}
 	if r1 == r2 {
 		return nil
 	}
