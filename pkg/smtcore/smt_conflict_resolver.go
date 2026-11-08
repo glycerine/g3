@@ -430,7 +430,9 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 		return SMTConflictResolution{}, err
 	}
 	result := SMTConflictResolution{ConflictLevel: conflictLevel}
+	st := r.state
 	if conflictLevel <= searchLevel {
+		st.traceConflict("initialize_resolve", 403, func() string { return "problem is unsat\n" })
 		proof, proofErr := r.conflictProof(originalConflict, notLiteral, nil)
 		if proofErr != nil {
 			return SMTConflictResolution{}, proofErr
@@ -442,6 +444,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 		}
 		return result, nil
 	}
+	st.traceConflict("initialize_resolve", 411, func() string { return fmt.Sprintf("conflict_lvl: %d\n", conflictLevel) })
 	marks := r.resetMarks()
 	lemma := []SMTLiteral{SMTNullLiteral}
 	numMarks := 0
@@ -457,6 +460,9 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 			return ast.ErrASTDomain
 		}
 		level := levels[variable]
+		st.traceConflict("process_antecedent", 314, func() string {
+			return fmt.Sprintf("processing antecedent (level %d):", level) + st.traceLiteralCompact(literal) + " " + st.traceLiteralVerbose(literal) + "\n"
+		})
 		if marks[variable] || level <= userBaseLevel {
 			return nil
 		}
@@ -465,6 +471,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 			return err
 		}
 		if level == conflictLevel {
+			st.traceConflict("process_antecedent", 335, func() string { return "marking:" + st.traceLiteralCompact(literal) + "\n" })
 			numMarks++
 		} else {
 			lemma = append(lemma, literal.Negated())
@@ -539,7 +546,11 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 		}
 		return nil
 	}
+	st.traceConflict("resolve", 479, func() string {
+		return st.traceLiteralVerbose(notLiteral) + " " + st.traceJustification(conflict) + "\n"
+	})
 	if notLiteral != SMTNullLiteral {
+		st.traceConflict("resolve", 487, func() string { return "not_l: " + st.traceLiteralVerbose(notLiteral) + "\n" })
 		if err = processAntecedent(notLiteral); err != nil {
 			return SMTConflictResolution{}, err
 		}
@@ -565,11 +576,14 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 			break
 		}
 	}
+	st.traceConflict("resolve", 573, func() string { return "FUIP: " + st.traceLiteralCompact(consequent) + "\n" })
 	lemma[0] = consequent.Negated()
+	st.traceConflict("finalize_resolve", 432, func() string { return "before minimization:\n" + st.traceLiteralsCompact(lemma) + "\n" })
 	lemma, err = r.minimizeLemma(lemma, marks, levels, userBaseLevel)
 	if err != nil {
 		return SMTConflictResolution{}, err
 	}
+	st.traceConflict("finalize_resolve", 439, func() string { return "after minimization:\n" + st.traceLiteralsCompact(lemma) + "\n" })
 	result.Resolved, result.Lemma = true, lemma
 	result.InternalScopeLevel = r.state.booleanData[lemma[0].Var()].InternalLevel()
 	result.NewScopeLevel = searchLevel
@@ -583,6 +597,9 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 			result.InternalScopeLevel = level
 		}
 	}
+	st.traceConflict("finalize_resolve", 462, func() string {
+		return fmt.Sprintf("new scope level:     %d\nintern. scope level: %d\n", result.NewScopeLevel, result.InternalScopeLevel)
+	})
 	proof, proofErr := r.conflictProof(originalConflict, notLiteral, lemma)
 	if proofErr != nil {
 		return SMTConflictResolution{}, proofErr

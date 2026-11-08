@@ -281,3 +281,38 @@ func (s *SMTInternalizerState) tracePropagateAtom(l SMTLiteral, d *SMTBoolVarDat
 	emitSMTTrace("propagate_atoms", "propagate_atoms", "src/smt/smt_context.cpp", 1380,
 		"propagating atom, #"+strconv.FormatUint(uint64(id), 10)+", is_enode(): "+enode+" tag: "+tag+" "+traceLiteral(l)+"\n")
 }
+
+// traceLiteralCompact is literal::display_compact (context::display_literal).
+func (s *SMTInternalizerState) traceLiteralCompact(l SMTLiteral) string {
+	switch {
+	case l == SMTTrueLiteral:
+		return "true"
+	case l == SMTFalseLiteral:
+		return "false"
+	}
+	id, _ := s.manager.GetASTID(s.boolExpr[l.Var()])
+	if l.Sign() {
+		return "(not #" + strconv.FormatUint(uint64(id), 10) + ")"
+	}
+	return "#" + strconv.FormatUint(uint64(id), 10)
+}
+
+// traceLiteralsCompact is context::display_literals: space separated.
+func (s *SMTInternalizerState) traceLiteralsCompact(lits []SMTLiteral) string {
+	var b strings.Builder
+	for i, l := range lits {
+		if i > 0 {
+			b.WriteString(" ")
+		}
+		b.WriteString(s.traceLiteralCompact(l))
+	}
+	return b.String()
+}
+
+// traceConflict emits a TRACE("conflict", ...) record of
+// src/smt/smt_conflict_resolution.cpp.
+func (s *SMTInternalizerState) traceConflict(function string, line int, body func() string) {
+	if smtTraceEnabled("conflict") {
+		emitSMTTrace("conflict", function, "src/smt/smt_conflict_resolution.cpp", line, body())
+	}
+}

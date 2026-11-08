@@ -194,8 +194,18 @@ Found while matching `-st` output against `build/z3` on
     equality); z3's theory_lra uses the same arith_eq_adapter::mk_axioms.
     Switching LRA to the source path changes LRA behavior, so it needs its
     own stats comparison.
-    Next candidates: the conflict tag (initialize_resolve, resolve,
-    process_antecedent, finalize_resolve), seq final_check_eh
+    Ported: the conflict tag in conflict_resolution (initialize_resolve
+    403/411, process_antecedent 314/335, resolve 479/487/573,
+    finalize_resolve 432/439/462). Not yet: resolve 499 (processing
+    consequent, needs the b_justification kind names) and 507 (clause
+    detail). These records print AST ids, so they join goldenTraceSites
+    only once item 3 makes the ids agree. They already show a difference
+    on block 12: in the core conflict for (not (= x "abcc")) (an
+    eq_propagation justification), z3's antecedents start with the
+    "abcc" equality and include one more level-0 literal; g3's e-graph
+    explanation visits the equalities in another order. Compare
+    conflict_resolution's eq-justification walk over the proof forest.
+    Next candidates: seq final_check_eh
     (theory_seq::display), the arith tags, and the remaining seq records
     (add_accept2step, propagate_*, solve_eq, simplify_eq, reduce_eq).
 
