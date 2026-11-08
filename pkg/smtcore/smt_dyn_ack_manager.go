@@ -275,12 +275,6 @@ func (m *smtDynAckManager) recordConflictUses(expander *SMTAntecedentExpander, c
 	}
 	if object, ok := conflict.Justification(); ok {
 		switch value := object.(type) {
-		case *SMTDisequalityConflictJustification:
-			if value.Equality.Kind() == SMTEqualityJustificationCongruence {
-				if err := m.schedule.conflictCongruence(value.First.owner, value.Second.owner, m.strategy); err != nil {
-					return err
-				}
-			}
 		case *SMTEqualityConflictJustification:
 			if value.Equality.Kind() == SMTEqualityJustificationCongruence {
 				if err := m.schedule.conflictCongruence(value.First.owner, value.Second.owner, m.strategy); err != nil {

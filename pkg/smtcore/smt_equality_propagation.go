@@ -506,14 +506,6 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 	if r1 == r2 {
 		return nil
 	}
-	if entry, found := smtFindDisequality(r1, r2); found {
-		proof, err := NewSMTDisequalityConflictJustification(left, right, justification)
-		if err != nil {
-			return err
-		}
-		proof.DiseqLeft, proof.DiseqRight, proof.Reason = entry.left, entry.right, entry.reason
-		return s.setEqualityConflict(proof, entry.reason)
-	}
 	if r1.interpreted && r2.interpreted {
 		proof, err := NewSMTEqualityConflictJustification(left, right, justification)
 		if err != nil {

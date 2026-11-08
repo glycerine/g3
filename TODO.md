@@ -203,8 +203,16 @@ Found while matching `-st` output against `build/z3` on
     on block 12: in the core conflict for (not (= x "abcc")) (an
     eq_propagation justification), z3's antecedents start with the
     "abcc" equality and include one more level-0 literal; g3's e-graph
-    explanation visits the equalities in another order. Compare
-    conflict_resolution's eq-justification walk over the proof forest.
+    explanation visits the equalities in another order. Cause: g3's
+    addEquality refused to merge two classes recorded as disequal and set
+    its own SMTDisequalityConflictJustification. z3's add_eq has no such
+    check: it merges, and reinsert_parents_into_cg_table assigns the
+    false equality atom true with an eq_propagation_justification, which
+    is the conflict. The check, the justification type and the tests of
+    that mechanism are removed; the conflict records on block 12 now
+    match z3 except for AST ids. (The disequality table still answers
+    the checker's is_diseq queries; z3 answers those from the congruence
+    table.)
     Next candidates: seq final_check_eh
     (theory_seq::display), the arith tags, and the remaining seq records
     (add_accept2step, propagate_*, solve_eq, simplify_eq, reduce_eq).

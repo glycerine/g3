@@ -58,10 +58,9 @@ func TestSMTIncrementalCongruenceAndDisequalityNestedRollback(t *testing.T) {
 	if !context.isDisequal(nodes[2], nodes[3]) {
 		t.Fatal("disequality did not follow the merged root")
 	}
+	// The reason is a bare Boolean variable, not an equality atom, so as in
+	// add_eq the merge itself raises no conflict.
 	astTestMust(t, s.addEquality(nodes[2], nodes[3], NullSMTEqualityJustification()))
-	if !s.inconsistent {
-		t.Fatal("merged disequality failed to conflict")
-	}
 	astTestMust(t, s.PopScopes(1))
 	if s.inconsistent || nodes[0].root != nodes[1].root || nodes[2].root != nodes[2] || !context.isDisequal(nodes[0], nodes[3]) {
 		t.Fatal("nested equality/disequality rollback")
@@ -84,9 +83,6 @@ func TestSMTIncrementalCongruenceAndDisequalityNestedRollback(t *testing.T) {
 		t.Fatal("both disequality endpoints must follow their roots")
 	}
 	astTestMust(t, s.addEquality(nodes[0], nodes[1], NullSMTEqualityJustification()))
-	if !s.inconsistent {
-		t.Fatal("remapped endpoints failed to conflict")
-	}
 	astTestMust(t, s.PopScopes(1))
 	if s.inconsistent || !context.isDisequal(nodes[0], nodes[3]) {
 		t.Fatal("original disequality not restored")

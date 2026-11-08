@@ -147,9 +147,8 @@ func TestSMTEqualityConflictRetainsEarlierBooleanConflict(t *testing.T) {
 	if got != first || s.ConflictLiteral() != boolean || s.statistics.NumConflicts != count {
 		t.Fatal("later equality conflict replaced the first conflict", s.ConflictLiteral(), s.statistics.NumConflicts)
 	}
-	if left.root == right.root {
-		t.Fatal("contradicting equality merged disequal classes")
-	}
+	// add_eq merges the classes; the contradiction surfaces through the
+	// false equality atom, after the first conflict is already set.
 	astTestMust(t, s.PopScopes(1))
 	if s.Inconsistent() || s.context.isDisequal(left, right) {
 		t.Fatal("continuation scope did not restore the parent")

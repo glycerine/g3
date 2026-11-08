@@ -419,8 +419,6 @@ func (b *smtConflictProofBuilder) objectProof(object SMTJustification) (ast.ASTH
 			return ast.ASTHandle{}, e
 		}
 		proof, err = b.state.manager.MkProofModusPonens(first, rewrite)
-	case *SMTDisequalityConflictJustification:
-		proof, err = b.disequalityConflictProof(value)
 	case *SMTEqualityConflictJustification:
 		if value.First == nil || value.Second == nil || value.First.root == nil || value.Second.root == nil {
 			return ast.ASTHandle{}, ast.ErrASTDomain
@@ -707,66 +705,6 @@ func (b *smtConflictProofBuilder) dynamicAckProof(justification *smtDynamicAckJu
 		return ast.ASTHandle{}, err
 	}
 	return b.state.manager.MkProofLemma(contradiction, lemma)
-}
-
-// The Go equality engine detects explicit disequalities before merging roots.
-// Reconstruct the equality of the disequality literal's original operands;
-// conflictProof then resolves it against that literal, as in the source's
-// equality propagation followed by Boolean conflict resolution.
-func (b *smtConflictProofBuilder) disequalityConflictProof(value *SMTDisequalityConflictJustification) (ast.ASTHandle, error) {
-	literal := value.Reason
-	if literal == SMTNullLiteral || !literal.Sign() {
-		return ast.ASTHandle{}, ast.ErrASTDomain
-	}
-	expression, err := b.state.BoolExpression(literal.Var())
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	left, err := b.state.manager.GetArg(expression, 0)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	right, err := b.state.manager.GetArg(expression, 1)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	first, second := b.state.context.enodes.get(left), b.state.context.enodes.get(right)
-	if first == nil || second == nil {
-		return ast.ASTHandle{}, ast.ErrASTDomain
-	}
-	start, end := first, second
-	reverse := first.root != value.First.root
-	if reverse {
-		start, end = second, first
-	}
-	parents := make([]ast.ASTHandle, 0, 3)
-	if start != value.First {
-		p, err := b.equalityProof(start, value.First)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		parents = append(parents, p)
-	}
-	p, err := b.equalityJustificationProof(value.First, value.Second, value.Equality)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	parents = append(parents, p)
-	if value.Second != end {
-		p, err := b.equalityProof(value.Second, end)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		parents = append(parents, p)
-	}
-	p, err = b.state.manager.MkProofTransitivityStar(parents, start.owner, end.owner)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if reverse {
-		return b.state.manager.MkProofSymmetry(p)
-	}
-	return p, nil
 }
 
 func (r *SMTConflictResolver) conflictProof(conflict SMTBooleanJustification, notLiteral SMTLiteral, lemma []SMTLiteral) (ast.ASTHandle, error) {

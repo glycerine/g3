@@ -76,7 +76,7 @@ func TestSMTCoreEqualityQueueFIFOWithGeneratedCongruenceConflict(t *testing.T) {
 	astTestMust(t, s.propagateCoreEqualities())
 	// The first merge appends f(a)=f(b) behind the already queued b=c.
 	// Its conflict must therefore happen after b=c has been processed.
-	if !s.Inconsistent() || nodes[0].root != nodes[1].root || nodes[1].root != nodes[2].root || left.root == right.root {
+	if !s.Inconsistent() || nodes[0].root != nodes[1].root || nodes[1].root != nodes[2].root {
 		t.Fatal("generated congruence did not preserve source FIFO order")
 	}
 	astTestMust(t, s.PopScopes(1))

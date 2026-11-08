@@ -96,20 +96,6 @@ func TestDisequalityUndoToleratesAnyTrailOrder(t *testing.T) {
 	}
 }
 
-func TestDisequalityConflictUsesLatestReason(t *testing.T) {
-	f := newSMTEqualityUndoFixture(t, "diseq-reason", 3)
-	s := f.s
-	node := func(i int) *SMTEnode { return s.context.enodes.get(f.base[i]) }
-	astTestMust(t, s.addEquality(node(1), node(2), NewSMTEqualityAxiom()))
-	astTestMust(t, s.addDisequality(node(0), node(1), smtDiseqLiteral(t, f.m, s, f.base[0], f.base[1])))
-	latest := smtDiseqLiteral(t, f.m, s, f.base[0], f.base[2])
-	astTestMust(t, s.addDisequality(node(0), node(2), latest))
-	astTestMust(t, s.addEquality(node(0), node(1), NewSMTEqualityAxiom()))
-	if got := s.ConflictLiteral(); got != latest {
-		t.Fatalf("conflict literal %d, want latest %d", got, latest)
-	}
-}
-
 func TestSetDisequalToggleOnContext(t *testing.T) {
 	f := newSMTEqualityUndoFixture(t, "diseq-toggle", 3)
 	context := f.s.context

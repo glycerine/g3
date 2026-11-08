@@ -154,46 +154,6 @@ func (j *SMTEqualityConflictJustification) MarkAntecedents(m SMTAntecedentMarker
 }
 func (*SMTEqualityConflictJustification) Name() string { return "eq-conflict" }
 
-// SMTDisequalityConflictJustification explains why a pending equality cannot
-// merge two roots that are already constrained to be distinct. DiseqLeft and
-// DiseqRight are the terms of the disequality atom recorded for those roots.
-type SMTDisequalityConflictJustification struct {
-	SMTJustificationBase
-	First, Second         *SMTEnode
-	DiseqLeft, DiseqRight *SMTEnode
-	Reason                SMTLiteral
-	Equality              SMTEqualityJustification
-}
-
-func NewSMTDisequalityConflictJustification(first, second *SMTEnode, equality SMTEqualityJustification) (*SMTDisequalityConflictJustification, error) {
-	if first == nil || second == nil || first == second {
-		return nil, ast.ErrASTDomain
-	}
-	return &SMTDisequalityConflictJustification{SMTJustificationBase: NewSMTJustificationBase(true), First: first, Second: second, Equality: equality}, nil
-}
-
-func (j *SMTDisequalityConflictJustification) MarkAntecedents(marker SMTAntecedentMarker) error {
-	if marker == nil {
-		return ast.ErrASTHandle
-	}
-	if j.First.root == nil || j.Second.root == nil {
-		return ast.ErrASTDomain
-	}
-	// The conflict depends on every merge linking the pending equality's terms
-	// and the disequality's terms to the two roots, not only on the last merge.
-	for _, node := range []*SMTEnode{j.First, j.Second, j.DiseqLeft, j.DiseqRight} {
-		if node == nil {
-			continue
-		}
-		if err := marker.MarkEquality(node, node.root); err != nil {
-			return err
-		}
-	}
-	return marker.MarkJustifiedEquality(j.First, j.Second, j.Equality)
-}
-
-func (*SMTDisequalityConflictJustification) Name() string { return "diseq-conflict" }
-
 type SMTEqualityRootJustification struct {
 	SMTJustificationBase
 	Node *SMTEnode
