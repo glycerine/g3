@@ -123,7 +123,7 @@ func TestSMTDatatypeConstructorRecognizerConflictsBeforeFinalCheck(t *testing.T)
 						t.Fatal("conflict did not retain source literal/equality evidence", owner)
 					}
 					pair := extended.Equalities[0]
-					if pair.First.owner != f.left || pair.Second.owner != f.x || pair.First.root != pair.Second.root || f.dt.statistics.constructorAxioms != reconstructions || s.statistics.NumConflicts != conflicts+1 {
+					if pair.First.owner != f.left || pair.Second.owner != f.x || pair.First.root != pair.Second.root || f.dt.statistics.constructorAxioms != reconstructions || s.statistics.NumConflicts != conflicts { // set_conflict does not count
 						t.Fatal("conflict reconstructed another constructor or lost its actual class evidence")
 					}
 					wantTrace := ""

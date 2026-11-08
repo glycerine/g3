@@ -522,7 +522,7 @@ func TestSMTInternalizerWatchedClausePropagationAndRollback(t *testing.T) {
 	astTestMust(t, err)
 	conflict, found := state.Conflict()
 	clause, clauseConflict := conflict.Clause()
-	if consistent || !found || !clauseConflict || clause == nil || state.Statistics().NumConflicts != 1 {
+	if consistent || !found || !clauseConflict || clause == nil || state.Statistics().NumConflicts != 0 { // counted by resolve_conflict, not set_conflict
 		t.Fatal("watched clause conflict", consistent, found, conflict.Kind(), state.Statistics())
 	}
 	astTestMust(t, state.PopScopes(1))

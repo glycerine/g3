@@ -321,7 +321,6 @@ func (t *SMTUTVPITheory) setConflict(edges []int32) (result error) {
 	t.state.inconsistent = true
 	t.state.conflict = wrapped
 	t.state.conflictLiteral = SMTNullLiteral
-	t.state.statistics.NumConflicts++
 	return nil
 }
 

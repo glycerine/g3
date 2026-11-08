@@ -81,7 +81,6 @@ func (s *SMTInternalizerState) setBooleanConflict(justification SMTBooleanJustif
 	s.inconsistent = true
 	s.conflict = justification
 	s.conflictLiteral = literal
-	s.statistics.NumConflicts++
 }
 
 func (s *SMTInternalizerState) Conflict() (SMTBooleanJustification, bool) {
@@ -124,7 +123,6 @@ func (s *SMTInternalizerState) SetTheoryConflict(theory SMTTheoryID, literals []
 	s.inconsistent = true
 	s.conflict = wrapped
 	s.conflictLiteral = SMTNullLiteral
-	s.statistics.NumConflicts++
 	return nil
 }
 
@@ -247,7 +245,6 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 				s.inconsistent = true
 				s.conflict = justification
 				s.conflictLiteral = implied.Negated()
-				s.statistics.NumConflicts++
 				return false, nil
 			case lbool.Undef:
 				s.statistics.NumBinPropagations++
@@ -316,7 +313,6 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 				s.inconsistent = true
 				s.conflict = NewSMTBooleanClause(clause)
 				s.conflictLiteral = SMTNullLiteral
-				s.statistics.NumConflicts++
 				return false, nil
 			}
 			s.statistics.NumPropagations++

@@ -410,6 +410,9 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 	if r == nil || r.state == nil || r.expander == nil || r.closed || r.state.open() != nil {
 		return SMTConflictResolution{}, ast.ErrASTHandle
 	}
+	// context::resolve_conflict counts each resolved conflict; setting a
+	// conflict does not.
+	r.state.statistics.NumConflicts++
 	if err := r.state.manager.ResetRef(r.lemmaProof); err != nil {
 		return SMTConflictResolution{}, err
 	}

@@ -172,7 +172,6 @@ func (t *SMTTheorySeq) setConflict(dep *seqDep, _lits []SMTLiteral) {
 	t.state.inconsistent = true
 	t.state.conflict = wrapped
 	t.state.conflictLiteral = SMTNullLiteral
-	t.state.statistics.NumConflicts++
 }
 
 // propagateEqNodes is propagate_eq(dep, n1, n2).

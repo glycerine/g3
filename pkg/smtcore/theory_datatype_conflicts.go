@@ -25,7 +25,6 @@ func (t *SMTDatatypeTheory) setDatatypeConflict(literals []SMTLiteral, equalitie
 	s.inconsistent = true
 	s.conflict = wrapped
 	s.conflictLiteral = SMTNullLiteral
-	s.statistics.NumConflicts++
 	return nil
 }
 

@@ -95,3 +95,16 @@ Found while matching `-st` output against `build/z3` on
     justification display), add_eq_detail, decide, mk_bool_var, and seq
     add_axiom and get_automaton. Next candidates: seq final_check_eh
     (theory_seq::display), the arith tags, and the remaining seq records.
+
+13. **DONE: conflict counting.** z3 counts `conflicts` in
+    `context::resolve_conflict`; g3 counted when a conflict was set, so a
+    conflict found where z3 never resolves one (e.g. while internalizing
+    an unsat assertion) counted 1. The count now happens in the resolver.
+    It was the only differing statistic in 50 vectors.
+
+14. **OPEN: inner-solver and outer `mk-bool-var`.** In
+    seq_negative_symbolic_mixed the outer context makes 81 Boolean
+    variables where z3 makes 77. Separately, the automaton's minterm
+    queries differ: z3 checks each with a fresh constant `x!N` that is
+    bit-blasted and decided; g3 uses `seq-automaton!N` and creates no bit
+    variables. Comparing these needs context identity in the traces.

@@ -3137,7 +3137,6 @@ func (t *SMTTheoryArith) setConflictCore(lits []SMTLiteral, eqs []SMTEnodePair, 
 	t.state.inconsistent = true
 	t.state.conflict = wrapped
 	t.state.conflictLiteral = SMTNullLiteral
-	t.state.statistics.NumConflicts++
 	return nil
 }
 

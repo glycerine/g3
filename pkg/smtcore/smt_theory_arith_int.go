@@ -704,7 +704,6 @@ func (t *SMTTheoryArith) gcdConflict(ante *smtArithmeticAntecedents) (result err
 	t.state.inconsistent = true
 	t.state.conflict = wrapped
 	t.state.conflictLiteral = SMTNullLiteral
-	t.state.statistics.NumConflicts++
 	return nil
 }
 

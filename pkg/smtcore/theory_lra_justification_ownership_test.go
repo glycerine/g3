@@ -54,7 +54,7 @@ func TestSMTLRAConflictUsesScopedExtendedSourceJustification(t *testing.T) {
 					owned++
 				}
 			}
-			if owned != 1 || f.s.statistics.NumConflicts != 1 {
+			if owned != 1 || f.s.statistics.NumConflicts != 0 { // resolve_conflict counts, set_conflict does not
 				t.Fatal("conflict owner registration/count", owned, f.s.statistics.NumConflicts)
 			}
 			if proofs {
