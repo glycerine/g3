@@ -194,8 +194,11 @@ func TestOptimizationSolverBenchmarkUsesGlobalPrettyPrinterDefaults(t *testing.T
 	outer, err := m.MkImplies(args[0], inner)
 	astTestMust(t, err)
 	astTestPin(t, m, outer)
+	// display_smt2 passes the literal true as smt_printer's simplify_implies
+	// (m_simplify_implies lands in its indent parameter), so implications
+	// are merged whatever pp.simplify_implies says.
 	for _, test := range []struct{ flag, want string }{
-		{"false", "(=> dump-a (=> dump-b dump-c))"},
+		{"false", "(=> (and dump-a dump-b) dump-c)"},
 		{"true", "(=> (and dump-a dump-b) dump-c)"},
 	} {
 		astTestMust(t, s.kernel.paramGlobals.SourceSetName("pp.simplify_implies", test.flag))

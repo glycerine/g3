@@ -36,7 +36,9 @@ func TestAPIBenchmarkUsesGlobalSimplifyImplies(t *testing.T) {
 	astTestMust(t, err)
 	for _, tc := range []struct{ setting, want string }{
 		{"true", "(=> (and a b) c)"},
-		{"false", "(=> a (=> b c))"},
+		// display_smt2 passes the literal true as smt_printer's
+		// simplify_implies; the setting only reaches its indent parameter.
+		{"false", "(=> (and a b) c)"},
 	} {
 		astTestMust(t, globals.SourceSetName("pp.simplify_implies", tc.setting))
 		text, err := f.c.BenchmarkSMT2(root, APIBenchmarkConfig{})

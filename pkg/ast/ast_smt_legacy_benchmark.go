@@ -146,9 +146,20 @@ func (p *LegacySMTPrinter) writeBenchmark(stream io.Writer, root ASTHandle, conf
 			out.WriteByte('\n')
 		}
 	}
+	// Source quirk: display_smt2 constructs smt_printer(..., m_logic, no_lets,
+	// true, m_simplify_implies, k), so the bool m_simplify_implies lands in
+	// the indent parameter (newline() then emits one space when it is set).
+	// Its simplify_implies argument is the literal true.
+	indent := uint32(0)
+	if p.simplifyImplies {
+		indent = 1
+	}
+	savedSimplify := p.simplifyImplies
+	p.simplifyImplies = true
+	defer func() { p.simplifyImplies = savedSimplify }()
 	writeAssertion := func(expr ASTHandle) error {
 		out.WriteString("(assert\n ")
-		text, e := p.exprTextIndented(expr, nil, 1)
+		text, e := p.exprTextIndented(expr, nil, indent)
 		if e != nil {
 			return e
 		}
@@ -175,14 +186,14 @@ func (p *LegacySMTPrinter) writeBenchmark(stream io.Writer, root ASTHandle, conf
 		out.WriteString("(check-sat)\n")
 	} else if isProof {
 		out.WriteString("(proof\n")
-		text, e := p.exprText(root, nil)
+		text, e := p.exprTextIndented(root, nil, indent)
 		if e != nil {
 			return e
 		}
 		out.WriteString(text)
 		out.WriteString("))\n")
 	} else {
-		text, e := p.exprText(root, nil)
+		text, e := p.exprTextIndented(root, nil, indent)
 		if e != nil {
 			return e
 		}
