@@ -991,6 +991,11 @@ func (k *SMTKernel) Pop(count uint32) error {
 		if count == 0 || count > uint32(len(k.scopes)) {
 			return ast.ErrASTDomain
 		}
+		// Source kernel literal queries read the live context, which pop
+		// unwinds; drop the Go snapshot of the last search with it.
+		if err := k.clearLiteralResults(); err != nil {
+			return err
+		}
 		// context::pop starts with pop_to_base_lvl.
 		if err := k.internalizer.popToBaseLevel(); err != nil {
 			return err
