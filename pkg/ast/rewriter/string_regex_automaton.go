@@ -249,3 +249,48 @@ func (a *StringRegexAutomaton) Close() error {
 	a.closed = true
 	return result
 }
+
+// NewSeqAutomaton is re2automaton::operator()(re) as theory_seq uses it: the
+// automaton of any sequence regex, compressed, or nil when re does not
+// compile to an automaton.
+func NewSeqAutomaton(m *ast.ASTManager, regex ast.ASTHandle, solver SequenceExpressionSolver) (owner *StringRegexAutomaton, result error) {
+	rw, err := NewSequenceRewriter(m)
+	if err != nil {
+		return nil, err
+	}
+	rw.solver = solver
+	a := &StringRegexAutomaton{builder: sequenceAutomatonBuilder{rewriter: rw}}
+	defer func() {
+		if result != nil {
+			result = errors.Join(result, a.Close())
+			owner = nil
+		}
+	}()
+	if err := a.builder.hold(regex); err != nil {
+		return nil, err
+	}
+	built, err := a.builder.regex(regex)
+	if err != nil {
+		return nil, err
+	}
+	if built == nil {
+		return nil, a.Close()
+	}
+	if err := a.materialize(built); err != nil {
+		return nil, err
+	}
+	a.graph.Compress()
+	return a, nil
+}
+
+// Accept is move.t()->accept(e) for the move label with this condition id.
+// The result is not held; the caller roots it.
+func (a *StringRegexAutomaton) Accept(condition uint32, e ast.ASTHandle) (ast.ASTHandle, error) {
+	if a == nil || a.closed {
+		return ast.ASTHandle{}, ast.ErrASTHandle
+	}
+	if uint64(condition) >= uint64(len(a.labels)) {
+		return ast.ASTHandle{}, ast.ErrASTDomain
+	}
+	return a.builder.accept(a.labels[condition], e)
+}

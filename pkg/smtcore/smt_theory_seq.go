@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -834,9 +835,10 @@ type SMTTheorySeq struct {
 	branchStart map[uint32]int
 
 	// maintain automata with regular expressions
-	automata []*rewriter.StringRegexAutomaton
-	re2aut   map[ast.ASTHandle]*rewriter.StringRegexAutomaton
-	res      seqExprVector
+	automata   []*rewriter.StringRegexAutomaton
+	exprSolver *smtStringExpressionSolver // seq_expr_solver of m_mk_aut
+	re2aut     map[ast.ASTHandle]*rewriter.StringRegexAutomaton
+	res        seqExprVector
 
 	// queue of asserted atoms
 	atoms          []ast.ASTHandle
@@ -847,9 +849,11 @@ type SMTTheorySeq struct {
 
 	fixed seqObjHashtable // string variables that are fixed length
 
-	uf     seqUnionFind // m_find
-	tmps   seqRefs      // expr_ref temporaries released when an entry point returns
-	closed bool
+	uf         seqUnionFind // m_find
+	factory    *protomodel.SequenceFactory
+	modelTrail seqExprVector // the factory's add_trail
+	tmps       seqRefs       // expr_ref temporaries released when an entry point returns
+	closed     bool
 }
 
 // seqRewriterOwner is the source's m_rewrite member: a th_rewriter with
