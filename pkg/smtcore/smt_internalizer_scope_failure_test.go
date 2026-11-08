@@ -21,7 +21,7 @@ func TestSMTInternalizerPopResumesNativeRootRetirement(t *testing.T) {
 					}
 				})
 				_, _, state = smtInternalizerFixture(t, m, nil)
-				astTestMust(t, state.PushScope())
+				smtTestUserPush(t, state)
 				switch owner {
 				case "enode":
 					_, values := smtUFConstants(t, m, "pop-native-enode", 1)
@@ -81,7 +81,7 @@ func TestSMTInternalizerPopResumesNativeRootRetirement(t *testing.T) {
 				if state.scopeLevel != 0 || state.pendingPop != nil || len(state.booleanStack) != 0 || len(state.enodeStack) != 0 || len(state.clauses) != 0 {
 					t.Fatal("pop retry left owned scope state")
 				}
-				astTestMust(t, state.PushScope())
+				smtTestUserPush(t, state)
 				astTestMust(t, state.PopScopes(1))
 			})
 		}

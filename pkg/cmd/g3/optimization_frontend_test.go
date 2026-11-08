@@ -75,7 +75,7 @@ func TestOptimizationFrontendResourceLimitedOPBBounds(t *testing.T) {
 		want string
 	}{
 		{"default-phase", []string{"rlimit=280", "-bpo", "-in"}, "unknown\n  [0:1]\n"},
-		{"seeded-phase", []string{"rlimit=360", "smt.phase_selection=5", "smt.random_seed=0", "-bpo", "-in"}, "unknown\n  [0:3]\n"},
+		{"seeded-phase", []string{"rlimit=320", "smt.phase_selection=5", "smt.random_seed=0", "-bpo", "-in"}, "unknown\n  [0:3]\n"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer

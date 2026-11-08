@@ -152,10 +152,8 @@ func (s *SMTInternalizerState) makeClauseWithJustificationAndDeleteHandler(liter
 	} else if proofs && owner == nil {
 		owner = &SMTJustificationBase{heap: kind != SMTClauseAux}
 	}
-	base := s.scopeLevel
-	if s.searching {
-		base = s.searchBaseLevel
-	}
+	// mk_clause: save_atoms = lemma && iscope_lvl > m_base_lvl.
+	base := s.baseLevel
 	saveAtoms := false
 	if kind != SMTClauseAux {
 		for _, literal := range literals {

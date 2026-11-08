@@ -94,7 +94,9 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 	if err := s.finishLearnedAssignment(&saved.pending); err != nil {
 		return err
 	}
-	if s.scopeLevel <= s.searchBaseLevel || !saved.keepReinit {
+	// reinit_clauses keeps a clause on the reinit stack only while
+	// m_scope_lvl > m_base_lvl.
+	if s.scopeLevel <= s.baseLevel || !saved.keepReinit {
 		if err := saved.clause.ReleaseAtoms(); err != nil {
 			return err
 		}

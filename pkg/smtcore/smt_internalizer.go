@@ -303,7 +303,7 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 	if err != nil {
 		return err
 	}
-	if kind == SMTClauseAuxLemma && s.searching && s.scopeLevel > s.searchBaseLevel &&
+	if kind == SMTClauseAuxLemma && s.scopeLevel > s.baseLevel &&
 		(firstValue == lbool.False || secondValue == lbool.False && firstValue == lbool.Undef) {
 		// Source also revisits unit/conflicting auxiliary lemmas whose atoms
 		// survive, since their assignment can belong to the discarded scope.
@@ -1292,17 +1292,22 @@ func (s *SMTInternalizerState) InternalizeInstance(instance *SMTQIInstance) erro
 }
 
 // binaryClauseBaseLevel is context::m_base_lvl as use_binary_clause_opt reads
-// it: the search base level while searching, otherwise the user scope level
-// that pop_to_base_lvl restores.
+// it.
 //
 // use_binary_clause_opt also refuses binary clauses whose variables were
 // internalized above scope 0, and any clause once m_base_lvl > 0. Source
 // additionally permits binary lemmas above scope 0 when relevancy is below 2;
 // the clause trail here pops every binary record created above scope 0, so
 // those lemmas stay ordinary clauses.
-func (s *SMTInternalizerState) binaryClauseBaseLevel() uint32 {
-	if s.searching {
-		return s.searchBaseLevel
+func (s *SMTInternalizerState) binaryClauseBaseLevel() uint32 { return s.baseLevel }
+
+// pushBaseScope is the m_base_lvl++ of context::push, after its push_scope.
+func (s *SMTInternalizerState) pushBaseScope() { s.baseLevel++ }
+
+// popToBaseLevel is context::pop_to_base_lvl.
+func (s *SMTInternalizerState) popToBaseLevel() error {
+	if s.scopeLevel > s.baseLevel {
+		return s.PopScopes(s.scopeLevel - s.baseLevel)
 	}
-	return s.scopeLevel
+	return nil
 }

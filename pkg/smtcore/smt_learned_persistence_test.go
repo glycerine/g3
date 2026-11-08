@@ -55,7 +55,7 @@ func TestSMTLearnedUnitSurvivesSearchBacktrackAndExpiresWithBase(t *testing.T) {
 	_, _, state := smtInternalizerFixture(t, m, nil)
 	expression := smtRelevancyBool(t, m, "persistent-unit")
 
-	astTestMust(t, state.PushScope())
+	smtTestUserPush(t, state)
 	astTestMust(t, state.beginSearchPersistence(1, SMTParamsState{}))
 	astTestMust(t, state.PushScope())
 	astTestMust(t, state.Internalize(expression, true))

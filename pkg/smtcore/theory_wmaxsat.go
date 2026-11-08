@@ -56,6 +56,12 @@ func (t *SMTWeightedMaxTheory) AddWeighted(formula ast.ASTHandle, weight *big.Ra
 	if weight == nil || weight.Sign() <= 0 {
 		return ast.ASTHandle{}, ast.ASTHandle{}, ast.ErrASTDomain
 	}
+	// theory_wmaxsat::assert_weighted asserts its disjunction before
+	// register_var; context::assert_expr starts with pop_to_base_lvl, so the
+	// slack variable is created at the base level.
+	if err = state.popToBaseLevel(); err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, err
+	}
 	manager := state.manager
 	boolean, err := manager.MkBoolSort()
 	if err != nil {

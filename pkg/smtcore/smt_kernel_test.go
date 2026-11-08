@@ -200,15 +200,22 @@ func TestSMTKernelAssertionCheckAndDecisionClause(t *testing.T) {
 	}
 	internalizer, err := other.Internalizer()
 	astTestMust(t, err)
+	// context::search leaves its decision scopes in place; the next push
+	// restores the base level through pop_to_base_lvl.
+	if internalizer.scopeLevel == 0 {
+		t.Fatal("search scopes were popped by the check itself")
+	}
+	astTestMust(t, other.Push())
 	for _, expression := range []ast.ASTHandle{a, b} {
 		literal, literalErr := internalizer.Literal(expression)
 		astTestMust(t, literalErr)
 		value, assignmentErr := internalizer.Assignment(literal)
 		astTestMust(t, assignmentErr)
 		if value != lbool.Undef {
-			t.Fatal("search decision leaked after check", expression, value)
+			t.Fatal("search decision survived pop_to_base_lvl", expression, value)
 		}
 	}
+	astTestMust(t, other.Pop(1))
 
 	falseExpression, err := m.MkFalse()
 	astTestMust(t, err)

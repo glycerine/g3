@@ -29,7 +29,7 @@ func TestSMTScopeRestorationReassertsUnitAndConflictInPlace(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			m := astTestManager(t)
 			_, _, s := smtInternalizerFixture(t, m, nil)
-			astTestMust(t, s.PushScope())
+			smtTestUserPush(t, s)
 			a := smtRelevancyBool(t, m, "restore-replay-a")
 			b := smtRelevancyBool(t, m, "restore-replay-b")
 			base := scopeRestorationLiterals(t, s, a, b)
@@ -75,7 +75,7 @@ func TestSMTScopeRestorationReassertsUnitAndConflictInPlace(t *testing.T) {
 func TestSMTScopeRestorationReassertsStableAuxiliaryLemma(t *testing.T) {
 	m := astTestManager(t)
 	_, _, s := smtInternalizerFixture(t, m, nil)
-	astTestMust(t, s.PushScope())
+	smtTestUserPush(t, s)
 	expressions := []ast.ASTHandle{smtRelevancyBool(t, m, "stable-aux-a"), smtRelevancyBool(t, m, "stable-aux-b")}
 	ls := scopeRestorationLiterals(t, s, expressions...)
 	astTestMust(t, s.AssignLiteral(ls[0].Negated(), NewSMTBooleanAxiom()))
@@ -99,7 +99,7 @@ func TestSMTScopeRestorationReassertsStableAuxiliaryLemma(t *testing.T) {
 func TestSMTScopeRestorationCrossesMultipleSearchScopes(t *testing.T) {
 	m := astTestManager(t)
 	_, p, s := smtInternalizerFixture(t, m, nil)
-	astTestMust(t, s.PushScope())
+	smtTestUserPush(t, s)
 	a := smtRelevancyBool(t, m, "multi-restore-a")
 	al := scopeRestorationLiterals(t, s, a)[0]
 	astTestMust(t, s.beginSearchPersistence(1, SMTParamsState{}))
@@ -136,7 +136,7 @@ func TestSMTScopeRestorationCrossesMultipleSearchScopes(t *testing.T) {
 func TestSMTScopeRestorationSavesAtomsBeforeWatchSelection(t *testing.T) {
 	m := astTestManager(t)
 	_, _, s := smtInternalizerFixture(t, m, nil)
-	astTestMust(t, s.PushScope())
+	smtTestUserPush(t, s)
 	astTestMust(t, s.beginSearchPersistence(1, SMTParamsState{}))
 	astTestMust(t, s.PushScope())
 	expressions := []ast.ASTHandle{smtRelevancyBool(t, m, "restore-order-a"), smtRelevancyBool(t, m, "restore-order-b"), smtRelevancyBool(t, m, "restore-order-c")}
@@ -169,7 +169,7 @@ func TestSMTScopeRestorationSavesAtomsBeforeWatchSelection(t *testing.T) {
 func TestSMTScopeRestorationNestedMixedClausesAndMovedWatches(t *testing.T) {
 	m := astTestManager(t)
 	_, p, s := smtInternalizerFixture(t, m, nil)
-	astTestMust(t, s.PushScope())
+	smtTestUserPush(t, s)
 	a := smtRelevancyBool(t, m, "nested-restore-a")
 	b := smtRelevancyBool(t, m, "nested-restore-b")
 	base := scopeRestorationLiterals(t, s, a, b)
@@ -235,7 +235,7 @@ func TestSMTScopeRestorationNestedMixedClausesAndMovedWatches(t *testing.T) {
 func TestSMTScopeRestorationPreservesNonGateNotVariable(t *testing.T) {
 	m := astTestManager(t)
 	_, _, s := smtInternalizerFixture(t, m, nil)
-	astTestMust(t, s.PushScope())
+	smtTestUserPush(t, s)
 	astTestMust(t, s.beginSearchPersistence(1, SMTParamsState{}))
 	astTestMust(t, s.PushScope())
 	a := smtRelevancyBool(t, m, "restore-not-a")
@@ -308,7 +308,7 @@ func TestSMTScopeRestorationProofOwnershipFailureRetryAndClose(t *testing.T) {
 				astTestMust(t, err)
 				theory := &scopeRestorationHoldTheory{smtInternalizerTestTheory: &smtInternalizerTestTheory{SMTTheoryBase: base}}
 				astTestMust(t, s.RegisterTheory(theory))
-				astTestMust(t, s.PushScope())
+				smtTestUserPush(t, s)
 				astTestMust(t, s.beginSearchPersistence(1, SMTParamsState{}))
 				astTestMust(t, s.PushScope())
 				expressions := []ast.ASTHandle{smtRelevancyBool(t, m, "restore-failure-a"), smtRelevancyBool(t, m, "restore-failure-b"), smtRelevancyBool(t, m, "restore-failure-c")}
@@ -396,7 +396,7 @@ func TestSMTScopeRestorationSourceContract(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			m := astTestManager(t)
 			_, p, s := smtInternalizerFixture(t, m, nil)
-			astTestMust(t, s.PushScope())
+			smtTestUserPush(t, s)
 			expressions := []ast.ASTHandle{smtRelevancyBool(t, m, "source-restore-a"), smtRelevancyBool(t, m, "source-restore-b"), smtRelevancyBool(t, m, "source-restore-c")}
 			internalize := func() {
 				for _, e := range expressions {
@@ -486,4 +486,11 @@ func TestSMTScopeRestorationSourceContract(t *testing.T) {
 			}
 		})
 	}
+}
+
+// smtTestUserPush models context::push: push_scope followed by m_base_lvl++.
+func smtTestUserPush(t *testing.T, s *SMTInternalizerState) {
+	t.Helper()
+	astTestMust(t, s.PushScope())
+	s.pushBaseScope()
 }

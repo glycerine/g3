@@ -315,7 +315,7 @@ func (s *SMTInternalizerState) captureLearnedUnit(literal SMTLiteral, proof ast.
 		return errors.Join(err, cleanup)
 	}
 	s.learnedUnits = append(s.learnedUnits, smtPersistentLearnedUnit{
-		expression: expression, proof: proof, sign: literal.Sign(), ownerLevel: s.searchBaseLevel, installedLevel: s.scopeLevel,
+		expression: expression, proof: proof, sign: literal.Sign(), ownerLevel: s.baseLevel, installedLevel: s.scopeLevel,
 	})
 	return nil
 }

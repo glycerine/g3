@@ -303,13 +303,10 @@ func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
 		if closeErr := timer.Close(); closeErr != nil {
 			resultErr = errors.Join(resultErr, fmt.Errorf("smt search close timer: %w", closeErr))
 		}
-		if count := k.internalizer.scopeLevel - baseLevel; count != 0 {
-			if popErr := k.internalizer.PopScopes(count); popErr != nil {
-				resultErr = errors.Join(resultErr, fmt.Errorf("smt search restore base scope: %w", popErr))
-			}
-			if resultErr != nil {
-				result = lbool.Undef
-			}
+		// context::search leaves its scopes in place; the next assert, push,
+		// pop or check restores the base level through pop_to_base_lvl.
+		if resultErr != nil {
+			result = lbool.Undef
 		}
 		if persistenceErr := k.internalizer.endSearchPersistence(); persistenceErr != nil {
 			resultErr = errors.Join(resultErr, fmt.Errorf("smt search end persistence: %w", persistenceErr))

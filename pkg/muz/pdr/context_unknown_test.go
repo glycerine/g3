@@ -6,6 +6,7 @@ package pdr_test
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -39,27 +40,38 @@ func TestContextSolvePropagatesNativeConflictLimitUnknown(t *testing.T) {
 	rules, err := base.NewRuleSet(ruleManager)
 	pdrMust(t, err)
 
-	aName, err := manager.Symbols.Intern("unknown_a")
-	pdrMust(t, err)
-	a, err := manager.MkConst(aName, boolean)
-	pdrMust(t, err)
-	bName, err := manager.Symbols.Intern("unknown_b")
-	pdrMust(t, err)
-	b, err := manager.MkConst(bName, boolean)
-	pdrMust(t, err)
-	notA, err := manager.MkNot(a)
-	pdrMust(t, err)
-	notB, err := manager.MkNot(b)
-	pdrMust(t, err)
-	clauses := make([]ast.ASTHandle, 4)
-	clauses[0], err = manager.MkOr(a, b)
-	pdrMust(t, err)
-	clauses[1], err = manager.MkOr(notA, b)
-	pdrMust(t, err)
-	clauses[2], err = manager.MkOr(a, notB)
-	pdrMust(t, err)
-	clauses[3], err = manager.MkOr(notA, notB)
-	pdrMust(t, err)
+	// Pigeonhole PHP(4,3) needs many conflicts. Each limited check keeps the
+	// lemma it learned, as in the source, so a formula settled by one lemma
+	// would turn later solves into decisions.
+	const pigeons, holes = 4, 3
+	var places [pigeons][holes]ast.ASTHandle
+	for p := 0; p < pigeons; p++ {
+		for h := 0; h < holes; h++ {
+			name, err := manager.Symbols.Intern(fmt.Sprintf("unknown_p%d_h%d", p, h))
+			pdrMust(t, err)
+			places[p][h], err = manager.MkConst(name, boolean)
+			pdrMust(t, err)
+		}
+	}
+	var clauses []ast.ASTHandle
+	for p := 0; p < pigeons; p++ {
+		clause, err := manager.MkOrArgs(places[p][:])
+		pdrMust(t, err)
+		clauses = append(clauses, clause)
+	}
+	for h := 0; h < holes; h++ {
+		for p1 := 0; p1 < pigeons; p1++ {
+			for p2 := p1 + 1; p2 < pigeons; p2++ {
+				n1, err := manager.MkNot(places[p1][h])
+				pdrMust(t, err)
+				n2, err := manager.MkNot(places[p2][h])
+				pdrMust(t, err)
+				clause, err := manager.MkOr(n1, n2)
+				pdrMust(t, err)
+				clauses = append(clauses, clause)
+			}
+		}
+	}
 	constraint, err := manager.MkAndArgs(clauses)
 	pdrMust(t, err)
 	head, err := manager.MkApp(query, nil)

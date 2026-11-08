@@ -187,8 +187,16 @@ func TestSMTCheckFinalizesBeforeNativeAssumptionCleanup(t *testing.T) {
 	canceled := m.Limit.CancelFlag()
 	m.Limit.ResetCancel()
 	astTestMust(t, err)
-	if status != lbool.True || !canceled || k.internalizer.scopeLevel != 0 {
-		t.Fatal("SAT finalization ran after native-only assumption cleanup", status, canceled)
+	// A SAT check keeps the assumption scope; it is undone by the next
+	// pop_to_base_lvl, not by the check.
+	if status != lbool.True || canceled || k.internalizer.scopeLevel == 0 {
+		t.Fatal("SAT check popped its assumption scope", status, canceled, k.internalizer.scopeLevel)
+	}
+	astTestMust(t, k.Push())
+	canceled = m.Limit.CancelFlag()
+	m.Limit.ResetCancel()
+	if !canceled || k.internalizer.scopeLevel != 1 {
+		t.Fatal("pop_to_base_lvl did not undo the assumption scope", canceled, k.internalizer.scopeLevel)
 	}
 }
 

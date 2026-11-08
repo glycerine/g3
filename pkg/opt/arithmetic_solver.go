@@ -474,21 +474,19 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 		}
 		boundValue := value.Finite.Clone()
 		boundValue.Main.Add(&boundValue.Main, new(big.Rat).SetInt(delta))
+		// optsmt::geometric_opt asserts the update_lower blocker; only a
+		// larger step pushes first and then builds mk_ge at the base level.
 		var bound ast.ASTHandle
-		if value.Finite.Infinity.Sign() == 0 {
-			bound, err = s.backend.MakeObjectiveLowerBound(s.objectives[index].backendIndex, s.filter, boundValue)
+		var boundRef ast.ASTRef
+		if delta.Cmp(big.NewInt(1)) > 0 && value.Finite.Infinity.Sign() == 0 {
+			err = s.backend.Push()
+			if err == nil {
+				jumpScopes++
+				bound, err = s.backend.MakeObjectiveLowerBound(s.objectives[index].backendIndex, s.filter, boundValue)
+			}
 		} else {
 			bound, err = s.manager.RefGet(blockerRef)
 		}
-		if err == nil {
-			if delta.Cmp(big.NewInt(1)) > 0 {
-				err = s.backend.Push()
-				if err == nil {
-					jumpScopes++
-				}
-			}
-		}
-		var boundRef ast.ASTRef
 		if err == nil {
 			boundRef, err = s.manager.NewRef(bound)
 		}

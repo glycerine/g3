@@ -117,7 +117,7 @@ func TestSMTInternalizerInstallsLearnedClauseInCurrentScope(t *testing.T) {
 		}
 		variables[index] = NewSMTLiteral(variable, false)
 	}
-	astTestMust(t, state.PushScope())
+	smtTestUserPush(t, state)
 	astTestMust(t, state.AddLearnedClause(variables))
 	clauses := state.Clauses()
 	if len(clauses) != 1 || state.clauses[0].clause.Kind() != SMTClauseLearned {

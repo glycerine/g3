@@ -117,7 +117,12 @@ func (k *SMTKernel) checkConfiguredAssumptions(assumptions []ast.ASTHandle) (res
 				k.internalizer.booleanData[variable].Assumption = false
 			}
 		}
-		resultErr = errors.Join(resultErr, k.internalizer.PopScopes(1))
+		// mk_unsat_core undoes the push_scope of init_assumptions through
+		// pop_to_base_lvl; any other outcome leaves the scopes for the next
+		// pop_to_base_lvl.
+		if result == lbool.False || resultErr != nil {
+			resultErr = errors.Join(resultErr, k.internalizer.popToBaseLevel())
+		}
 		k.assumptions = nil
 		// Native tracking_assumptions tests the assumption search scope,
 		// including a nonempty input containing only true constants.

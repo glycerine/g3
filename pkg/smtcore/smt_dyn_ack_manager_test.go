@@ -22,7 +22,7 @@ func TestSMTDynamicAckManagerBuildsPairAndTripleClauses(t *testing.T) {
 	config.Factor = 1
 	config.Equalities = true
 	astTestMust(t, state.ConfigureDynamicAck(config))
-	astTestMust(t, state.PushScope())
+	smtTestUserPush(t, state)
 	astTestMust(t, state.dynamicAck.schedule.conflictCongruence(applications[0], applications[1], dynAckRoot))
 	astTestMust(t, state.dynamicAck.schedule.usedEquality(applications[0], applications[1], applications[2], true))
 	state.statistics.NumConflicts = 2
@@ -127,7 +127,7 @@ func TestSMTDynamicAckClauseDeletionCallbackRunsDuringLemmaGC(t *testing.T) {
 	maintenance.Half = true
 	maintenance.Recent = 0
 	astTestMust(t, state.ConfigureClauseMaintenance(maintenance))
-	astTestMust(t, state.PushScope())
+	smtTestUserPush(t, state)
 	astTestMust(t, state.dynamicAck.schedule.conflictCongruence(applications[0], applications[1], dynAckRoot))
 	astTestMust(t, state.dynamicAck.schedule.usedEquality(applications[0], applications[1], applications[2], true))
 	state.statistics.NumConflicts = 2

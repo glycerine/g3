@@ -20,11 +20,11 @@ func TestSMTClauseMaintenanceDeletesInactiveLemmasAndRepairsScopes(t *testing.T)
 		}
 		literals[index] = NewSMTLiteral(variable, false)
 	}
-	astTestMust(t, state.PushScope())
+	smtTestUserPush(t, state)
 	for index := 0; index < 3; index++ {
 		astTestMust(t, state.AddLearnedClause(literals[index:index+3]))
 	}
-	astTestMust(t, state.PushScope())
+	smtTestUserPush(t, state)
 	for index := 3; index < 6; index++ {
 		astTestMust(t, state.AddLearnedClause(literals[index:index+3]))
 	}

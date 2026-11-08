@@ -214,12 +214,15 @@ type SMTInternalizerState struct {
 	simplifyCounter            int
 	learnedUnits               []smtPersistentLearnedUnit
 	searchBaseLevel            uint32
-	searchUserBaseLevel        uint32
-	searchAgility              float64
-	searchAgilityFactor        float64
-	searchRestartAdaptive      bool
-	searching                  bool
-	closed                     bool
+	// baseLevel is context::m_base_lvl: the number of user scopes. Search
+	// scopes above it stay until popToBaseLevel, as in pop_to_base_lvl.
+	baseLevel             uint32
+	searchUserBaseLevel   uint32
+	searchAgility         float64
+	searchAgilityFactor   float64
+	searchRestartAdaptive bool
+	searching             bool
+	closed                bool
 }
 
 func NewSMTInternalizerState(manager *ast.ASTManager, context *SMTCheckerContext, quantifiers *SMTQuantifierRegistry) (*SMTInternalizerState, error) {
@@ -1185,7 +1188,7 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 		}
 		level := len(s.scopes) - int(count)
 		s.pendingPop = &smtInternalizerPendingPop{count: count, level: level, theory: len(s.theoryOrder) - 1,
-			preserve: s.searching && uint32(level) >= s.searchBaseLevel}
+			preserve: uint32(level) >= s.baseLevel}
 	}
 	pop := s.pendingPop
 	active := s.popActive
@@ -1246,6 +1249,9 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 		}
 		s.scopes = s.scopes[:pop.level]
 		s.scopeLevel = uint32(pop.level)
+		if s.scopeLevel < s.baseLevel {
+			s.baseLevel = s.scopeLevel
+		}
 		pop.stage++
 	}
 	if pop.stage == 6 {
@@ -1316,6 +1322,7 @@ func (s *SMTInternalizerState) Close() error {
 	}
 	s.scopes = nil
 	s.scopeLevel = 0
+	s.baseLevel = 0
 	for len(s.theoryOrder) != 0 {
 		i := len(s.theoryOrder) - 1
 		if closer, ok := s.theoryOrder[i].(interface{ Close() error }); ok {

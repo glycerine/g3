@@ -62,7 +62,7 @@ type SMTKernel struct {
 	bvSharing        *rewriter.MaximizeBVSharing
 	// asserted_formulas::m_apply_bit2int owns its bit2int, whose constructor
 	// builds m_bit0; it lives as long as the asserted formulas.
-	assertedBit2Int *rewriter.Bit2Int
+	assertedBit2Int  *rewriter.Bit2Int
 	assertedMacros   *macros.Manager
 	definedNames     *normal_forms.DefinedNames
 	quantifierCosts  *SMTQICostModel
@@ -168,7 +168,7 @@ func NewSMTKernel(manager *ast.ASTManager, quantifiers *SMTQuantifierRegistry) (
 		return nil, errors.Join(err, sharing.Close(), names.Close(), macroManager.Close(), manager.DelRef(&proof), internalizer.Close())
 	}
 	kernel := &SMTKernel{
-		manager:        manager, checker: checker, relevancy: relevancy, internalizer: internalizer, unsatProof: proof, assertedMacros: macroManager, definedNames: names, bvSharing: sharing, assertedBit2Int: bit2int,
+		manager: manager, checker: checker, relevancy: relevancy, internalizer: internalizer, unsatProof: proof, assertedMacros: macroManager, definedNames: names, bvSharing: sharing, assertedBit2Int: bit2int,
 		smtState: SMTParamsState{
 			MaxConflicts: ^uint32(0), InvDecay: 1.052, RandomInitialActivity: 1, RandomVarFreq: 0.01, CaseSplitStrategy: 1, RestartStrategy: 1, RestartInitial: 100, RestartFactor: 1.1,
 			RestartAdaptive: true, AgilityFactor: 0.9999, RestartAgilityThreshold: 0.18, SimplifyClauses: true,
@@ -688,6 +688,10 @@ func (k *SMTKernel) assertFormulaCore(formula, proof ast.ASTHandle) (resultErr e
 	if err := k.open(); err != nil {
 		return err
 	}
+	// context::assert_expr_core starts with pop_to_base_lvl.
+	if err := k.internalizer.popToBaseLevel(); err != nil {
+		return err
+	}
 	sort, err := k.manager.GetSort(formula)
 	if err != nil {
 		return err
@@ -863,6 +867,10 @@ func (k *SMTKernel) Push() error {
 	if err := k.open(); err != nil {
 		return err
 	}
+	// context::push starts with pop_to_base_lvl.
+	if err := k.internalizer.popToBaseLevel(); err != nil {
+		return err
+	}
 	if k.smtParams != nil {
 		if err := k.configureArrayTheories(k.smtParams.array.state); err != nil {
 			return err
@@ -932,6 +940,7 @@ func (k *SMTKernel) Push() error {
 	if err := k.internalizer.PushScope(); err != nil {
 		return errors.Join(err, k.bvSharing.PopScope(1), k.definedNames.Pop(1), k.assertedMacros.PopScope(1), k.manager.ScopedExprSubstitutionPop(k.assertedScopedSubst, 1))
 	}
+	k.internalizer.pushBaseScope()
 	// asserted_formulas::push_scope commits even an inconsistent manager.
 	if err := k.commitAssertedTo(len(k.assertions)); err != nil {
 		return errors.Join(err, k.internalizer.PopScopes(1), k.bvSharing.PopScope(1), k.definedNames.Pop(1), k.assertedMacros.PopScope(1), k.manager.ScopedExprSubstitutionPop(k.assertedScopedSubst, 1))
@@ -963,6 +972,10 @@ func (k *SMTKernel) Pop(count uint32) error {
 	} else {
 		if count == 0 || count > uint32(len(k.scopes)) {
 			return ast.ErrASTDomain
+		}
+		// context::pop starts with pop_to_base_lvl.
+		if err := k.internalizer.popToBaseLevel(); err != nil {
+			return err
 		}
 		if err := k.traceAssertedBody("asserted_formulas_scopes", "pop_scope", 194, func(out io.Writer) error {
 			_, err := fmt.Fprintf(out, "before pop %d of %d\n", count, len(k.scopes))
@@ -1048,9 +1061,9 @@ const (
 // Each successful source pop is consumed exactly once. Go cleanup can refuse
 // between owners, so the next call resumes the same source-order operation.
 type smtKernelPendingPop struct {
-	count                        uint32
+	count             uint32
 	level, assertions int
-	stage                        smtKernelPopStage
+	stage             smtKernelPopStage
 }
 
 func (k *SMTKernel) restoreAssertions(limit int) error {

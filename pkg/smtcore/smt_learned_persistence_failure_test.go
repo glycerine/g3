@@ -89,7 +89,7 @@ func TestSMTLearnedClauseRestoreFailureResumesWithoutDuplicates(t *testing.T) {
 	relevancy, err := NewSMTRelevancyPropagator(state.context, true)
 	astTestMust(t, err)
 	astTestMust(t, state.SetRelevancy(relevancy))
-	astTestMust(t, state.PushScope())
+	smtTestUserPush(t, state)
 	var expressions []ast.ASTHandle
 	var literals []SMTLiteral
 	for _, name := range []string{"restore-first", "restore-second", "restore-third"} {

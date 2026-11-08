@@ -25,7 +25,7 @@ func TestSMTLearnedClauseRestorePropagatesAcrossFalseWatchOnce(t *testing.T) {
 	astTestMust(t, state.AssignLiteral(literals[1].Negated(), NewSMTBooleanAxiom()))
 	astTestMust(t, state.AddLearnedClause([]SMTLiteral{literals[0].Negated(), literals[2]}))
 	baseClauses := len(state.clauses)
-	astTestMust(t, state.PushScope())
+	smtTestUserPush(t, state)
 	astTestMust(t, state.AddLearnedClause([]SMTLiteral{literals[0], literals[1]}))
 	astTestMust(t, state.clauses[len(state.clauses)-1].clause.SetActivity(19))
 	saved, err := state.preserveLearnedClauses(baseClauses)
@@ -72,22 +72,22 @@ func TestSMTLearnedUnitRestorePublishesProofAssignmentOnce(t *testing.T) {
 	proof, err := m.MkProofAsserted(expression)
 	astTestMust(t, err)
 	astTestPin(t, m, proof)
+	assigned, owners := len(state.assignedLiterals), len(state.ownedJustifications)
+	beforeProof, err := m.GetRefCount(proof)
+	astTestMust(t, err)
 	astTestMust(t, state.beginSearchPersistence(0, SMTParamsState{}))
 	astTestMust(t, state.PushScope())
 	astTestMust(t, state.AddLearnedClauseWithProof([]SMTLiteral{literal}, proof))
 	if len(state.learnedUnits) != 1 {
 		t.Fatal("unit was not captured for backtracking")
 	}
-	// End search while the unit is still installed above its owning scope,
-	// then retire that assignment before explicitly restoring the saved unit.
+	// End search while the unit is still installed above its owning scope.
+	// The pop to the base level then reasserts it, as reassert_units does.
 	astTestMust(t, state.endSearchPersistence())
-	astTestMust(t, state.PopScopes(1))
 	if len(state.learnedUnits) != 1 || state.learnedUnits[0].installedLevel != 1 {
-		t.Fatal("scope retirement dropped its persistent unit")
+		t.Fatal("search end dropped its persistent unit")
 	}
-	assigned, owners := len(state.assignedLiterals), len(state.ownedJustifications)
-	beforeProof, err := m.GetRefCount(proof)
-	astTestMust(t, err)
+	astTestMust(t, state.PopScopes(1))
 	astTestMust(t, state.restoreLearnedUnits(0))
 	astTestMust(t, state.restoreLearnedUnits(0))
 	if len(state.assignedLiterals) != assigned+1 || len(state.ownedJustifications) != owners+1 || state.learnedUnits[0].installedLevel != 0 || state.learnedUnits[0].pending.stage != smtLearnedAssignmentDone {
@@ -106,7 +106,8 @@ func TestSMTLearnedUnitRestorePublishesProofAssignmentOnce(t *testing.T) {
 	}
 	afterProof, err := m.GetRefCount(proof)
 	astTestMust(t, err)
-	if afterProof != beforeProof+1 {
+	// The persistent unit and the restored assignment's owner each hold one.
+	if afterProof != beforeProof+2 {
 		t.Fatal("unit restoration acquired the wrong proof ownership", beforeProof, afterProof)
 	}
 	astTestMust(t, state.endSearchPersistence())
