@@ -521,7 +521,7 @@ func (b *sequenceAutomatonBuilder) labelSatisfiable(label *sequenceAutomatonLabe
 	if err != nil {
 		return false, false, err
 	}
-	variable, err := b.rewriter.manager.MkFreshConst("seq-automaton", sort)
+	variable, err := b.rewriter.manager.MkFreshConst("x", sort) // sym_expr_boolean_algebra::is_sat
 	if err != nil {
 		return false, false, err
 	}

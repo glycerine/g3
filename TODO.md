@@ -167,12 +167,24 @@ Found while matching `-st` output against `build/z3` on
     an unsat assertion) counted 1. The count now happens in the resolver.
     It was the only differing statistic in 50 vectors.
 
-14. **OPEN: inner-solver and outer `mk-bool-var`.** In
-    seq_negative_symbolic_mixed the outer context makes 81 Boolean
-    variables where z3 makes 77. Separately, the automaton's minterm
-    queries differ: z3 checks each with a fresh constant `x!N` that is
-    bit-blasted and decided; g3 uses `seq-automaton!N` and creates no bit
-    variables. Comparing these needs context identity in the traces.
+14. **Inner-solver and outer `mk-bool-var`.**
+    - DONE: the outer context of seq_negative_symbolic_mixed now matches
+      z3's statistics exactly (fixed by the relevancy and atom-queue work
+      in item 11).
+    - DONE: the seq_expr_solver kernel had no theory setup in g3 (only the
+      lazily installed arith and seq plugins). kernel(m, fp) runs
+      setup_context at its first push, and with no logic that reaches
+      setup_unknown(), which installs every theory; g3 now installs the
+      retained setup with an empty logic, so the bit-vector theory blasts
+      the minterm constants as in z3. The minterm constant is named "x"
+      (sym_expr_boolean_algebra::is_sat), not "seq-automaton".
+    - OPEN: the minterm queries themselves differ. g3's
+      sequenceAutomatonBuilder (ast/rewriter/seq_rewriter_automaton.go)
+      is not a port of re2automaton/symbolic_automata (mk_complement,
+      mk_minterms, determinization): on seq_negative_symbolic_mixed z3
+      checks x!2, x!4, x!10, x!12, x!14, x!16 and g3 checks x!0, x!2,
+      x!4-x!7, x!11, x!13, x!15, x!17. Port symbolic_automata_def.h for
+      the retained callers.
 
 15. **DONE: quantifier statistics.** `context::collect_statistics` adds
     `m_qmanager->collect_statistics` (qi_queue: quant instantiations, lazy

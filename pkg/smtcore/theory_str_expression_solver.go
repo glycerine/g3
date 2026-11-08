@@ -31,6 +31,13 @@ func newSMTStringExpressionSolver(manager *ast.ASTManager, parameters *SMTParams
 	if err = kernel.configurePreprocessingParams(parameters.Context, parameters.Globals, &empty, parameters, true); err != nil {
 		return nil, errors.Join(err, kernel.Close())
 	}
+	// kernel(m, fp) has no logic: its first push runs setup_context, and with
+	// an empty logic both CFG_BASIC and CFG_LOGIC reach setup_unknown(),
+	// which installs every theory (the bit-vector one blasts the minterm
+	// queries' character constants).
+	if err = smtInstallRetainedSetup(kernel, manager, ""); err != nil {
+		return nil, errors.Join(err, kernel.Close())
+	}
 	return &smtStringExpressionSolver{kernel: kernel}, nil
 }
 
