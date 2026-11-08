@@ -1275,7 +1275,10 @@ func TestSMTLibRunnerNestedUnboundedProofModeReferenceUnknown(t *testing.T) {
 	if err = run(strings.NewReader(unbounded), &out); err != nil {
 		t.Fatal(err)
 	}
-	if canonicalOutput(out.String()) != canonicalOutput("unsat\nsat\nunsat\nsat\n") {
+	// With proofs, the SMT-LIB front end uses the plain SMT solver
+	// (produce_interpolants is a synonym of produce_proofs), which answers
+	// unknown here, as the C++ binary does.
+	if canonicalOutput(out.String()) != canonicalOutput("unsat\nunknown\nunsat\nunknown\n") {
 		t.Fatal(out.String())
 	}
 	if reference := os.Getenv("G3_CPP_REFERENCE"); reference != "" {

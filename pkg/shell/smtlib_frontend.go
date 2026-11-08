@@ -65,6 +65,8 @@ func NewSMTLIBFrontend(c SMTLIBFrontendConfig) (f *SMTLIBFrontend, err error) {
 		}
 		f.owned = true
 	}
+	// read_smtlib2_commands: ctx.set_interpolating_solver_factory(mk_smt_solver_factory()).
+	f.context.SetInterpolatingSMTSolverFactory()
 	f.timer = c.Timer
 	if f.timer == nil {
 		f.timer = BorrowProcessTimeoutService()

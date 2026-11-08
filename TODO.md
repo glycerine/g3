@@ -128,3 +128,11 @@ Found while matching `-st` output against `build/z3` on
     queued. g3 tested at propagation time and also queued non-atoms;
     it now records the decision with the assignment. All-statistics exact
     541 -> 555.
+
+17. **DONE: proof mode uses the plain SMT solver in the SMT-LIB front
+    end.** `read_smtlib2_commands` installs
+    `set_interpolating_solver_factory(mk_smt_solver_factory())`, and
+    `produce_interpolants()` is a synonym of `produce_proofs()`, so with
+    proofs `mk_solver` builds a plain SMT solver, not the strategic one.
+    g3 always built the strategic solver. All-statistics exact 555 -> 567;
+    one cmd/g3 test now expects z3's `unknown` answers.

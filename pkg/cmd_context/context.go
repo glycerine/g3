@@ -142,6 +142,9 @@ type Context struct {
 	regularFile                      *os.File
 	diagnosticFile                   *os.File
 	mainContext                      bool
+	// interpolatingSMTSolver is set_interpolating_solver_factory(
+	// mk_smt_solver_factory()), installed by the SMT-LIB front end.
+	interpolatingSMTSolver bool
 	diagnosticBound                  bool
 	diagnosticGeneration             uint64
 	previousWarning                  io.Writer
@@ -828,11 +831,32 @@ func (c *Context) Manager() (manager *ast.ASTManager, result error) {
 }
 
 // mkSolver mirrors the shell factory step independently of manager creation.
+// SetInterpolatingSMTSolverFactory is set_interpolating_solver_factory(
+// mk_smt_solver_factory()), as read_smtlib2_commands installs it.
+func (c *Context) SetInterpolatingSMTSolverFactory() { c.interpolatingSMTSolver = true }
+
 func (c *Context) mkSolver(m *ast.ASTManager) error {
 	var err error
 	var proofs, models, cores bool
 	if err = c.parameters.GetSolverParams(m, &c.params, &proofs, &models, &cores); err != nil {
 		return err
+	}
+	// produce_interpolants() is a synonym of produce_proofs() in the source;
+	// with an interpolating factory installed, proofs select a plain SMT
+	// solver instead of the strategic one.
+	if c.interpolatingSMTSolver {
+		state, e := c.parameters.State()
+		if e != nil {
+			return e
+		}
+		if state.Proof {
+			direct, e := smtcore.NewSMTSolver(m, &c.params, c.logic, c.config)
+			if e != nil {
+				return e
+			}
+			c.solver = direct
+			return nil
+		}
 	}
 	switch c.logic {
 	case "QF_FD", "SAT":
