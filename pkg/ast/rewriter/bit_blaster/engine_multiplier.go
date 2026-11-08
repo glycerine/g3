@@ -187,7 +187,8 @@ func (e *Engine) MkMultiplier(a, b []ast.ASTHandle) (out []ast.ASTRef, result er
 				bitOut = nextOut
 			}
 		}
-		cleanup := errors.Join(m.DelRef(&left), m.DelRef(&right))
+		// expr_ref i1, i2 die in reverse order: i2 first.
+		cleanup := errors.Join(m.DelRef(&right), m.DelRef(&left))
 		if cleanup != nil {
 			_ = m.DelRef(&bitOut)
 			_ = releaseRefs(m, nextCarries)
