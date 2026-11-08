@@ -46,21 +46,22 @@ func TestTacticGoalNativeSlicesGrowCopyUpdateAndRelease(t *testing.T) {
 	astTestMust(t, g.CopyTo(copy))
 	astTestMust(t, g.CopyTo(copy)) // Replacing a snapshot must release its old pins.
 	astTestMust(t, g.CopyTo(g))
+	// The copy shares the arrays (parray_manager::copy): one pin each.
 	for i, f := range forms {
 		rc, e := m.GetRefCount(f)
 		astTestMust(t, e)
-		if rc != before[i]+2 {
-			t.Fatal("independent formula pins", i, rc, before[i])
+		if rc != before[i]+1 {
+			t.Fatal("shared formula pins", i, rc, before[i])
 		}
 		rc, e = m.GetRefCount(proofs[i])
 		astTestMust(t, e)
-		if rc != 3 {
-			t.Fatal("independent proof pins", i, rc)
+		if rc != 2 {
+			t.Fatal("shared proof pins", i, rc)
 		}
 		rc, e = m.DependencyRefCount(deps[i])
 		astTestMust(t, e)
-		if rc != 3 {
-			t.Fatal("independent dependency pins", i, rc)
+		if rc != 2 {
+			t.Fatal("shared dependency pins", i, rc)
 		}
 	}
 	astTestMust(t, g.Update(0, forms[count-1], proofs[count-1], deps[count-1]))
@@ -73,32 +74,27 @@ func TestTacticGoalNativeSlicesGrowCopyUpdateAndRelease(t *testing.T) {
 		t.Fatal("snapshot proof/dependency changed", pr, d)
 	}
 	astTestMust(t, g.Reset())
+	// The replaced formula stays pinned by the older version the copy holds.
+	if rc, e := m.GetRefCount(forms[0]); e != nil || rc != before[0]+1 {
+		t.Fatal("copy lost the replaced formula", rc, e)
+	}
 	goalTestForms(t, copy, forms...)
 	astTestMust(t, copy.shrink(64))
 	goalTestForms(t, copy, forms[:64]...)
+	astTestMust(t, g.Close())
+	astTestMust(t, copy.Close())
 	for i, f := range forms {
-		pins := uint32(0)
-		if i < 64 {
-			pins = 1
-		}
 		rc, e := m.GetRefCount(f)
 		astTestMust(t, e)
-		if rc != before[i]+pins {
-			t.Fatal("shrink formula ownership", i, rc, before[i], pins)
+		if rc != before[i] {
+			t.Fatal("closed goals kept a formula pin", i, rc, before[i])
 		}
 		rc, e = m.GetRefCount(proofs[i])
 		astTestMust(t, e)
-		if rc != 1+pins {
-			t.Fatal("shrink proof ownership", i, rc, pins)
-		}
-		rc, e = m.DependencyRefCount(deps[i])
-		astTestMust(t, e)
-		if rc != 1+pins {
-			t.Fatal("shrink dependency ownership", i, rc, pins)
+		if rc != 1 {
+			t.Fatal("closed goals kept a proof pin", i, rc)
 		}
 	}
-	astTestMust(t, g.Close())
-	astTestMust(t, copy.Close())
 	if m.Budget().Used() != used-ownerBytes {
 		// Owner headers are released on close; native slice backing is uncharged.
 		t.Fatal("unexpected arena change during native slice operations")
@@ -144,7 +140,7 @@ func TestTacticGoalNativeSlicesKeepActualPublicationPrefix(t *testing.T) {
 	goalTestForms(t, g, f)
 	got, e := g.Proof(0)
 	astTestMust(t, e)
-	if got != pr || len(g.dependencies) != 0 {
+	if got != pr || int(g.dependencies.size()) != 0 {
 		t.Fatal("formula/proof publication must precede rejected core", got, g.dependencies)
 	}
 	astTestMust(t, g.Close())

@@ -6,9 +6,10 @@ import "github.com/glycerine/g3/pkg/ast"
 
 func walkGoalExpressions(g *Goal, visit func(ast.ASTHandle, ast.ASTKind) (bool, error)) (bool, error) {
 	visited := make(map[ast.ASTHandle]bool)
-	stack := make([]ast.ASTHandle, 0, len(g.forms))
-	for i := len(g.forms) - 1; i >= 0; i-- {
-		stack = append(stack, g.forms[i])
+	forms := g.formSlice()
+	stack := make([]ast.ASTHandle, 0, len(forms))
+	for i := len(forms) - 1; i >= 0; i-- {
+		stack = append(stack, forms[i])
 	}
 	for len(stack) != 0 {
 		i := len(stack) - 1

@@ -66,7 +66,7 @@ func (g *Goal) Display(out io.Writer) error {
 	if err := goalDisplayWrite(out, "(goal"); err != nil {
 		return err
 	}
-	for _, form := range g.forms {
+	for _, form := range g.formSlice() {
 		if err := goalDisplayWrite(out, "\n  "); err != nil {
 			return err
 		}
@@ -107,7 +107,7 @@ func (g *Goal) DisplayWithAttributes(out io.Writer) error {
 	if err := goalDisplayWrite(out, "(goal"); err != nil {
 		return err
 	}
-	for _, form := range g.forms {
+	for _, form := range g.formSlice() {
 		body, err := g.displaySMT2Formula(form)
 		if err != nil {
 			return err
@@ -150,13 +150,14 @@ func (g *Goal) DisplayWithDependencies(out io.Writer) error {
 	if err := goalDisplayWrite(out, "(goal"); err != nil {
 		return err
 	}
-	for i, form := range g.forms {
+	dependencies := g.dependencySlice()
+	for i, form := range g.formSlice() {
 		if err := goalDisplayWrite(out, "\n  |-"); err != nil {
 			return err
 		}
 		dependency := ast.ASTDependency{}
 		if g.coreEnabled {
-			dependency = g.dependencies[i]
+			dependency = dependencies[i]
 		}
 		leaves, err := g.manager.DependencyLinearize(dependency, nil)
 		if err != nil {
@@ -207,7 +208,7 @@ func (g *Goal) DisplayAsAnd(out io.Writer) error {
 	if out == nil {
 		return arena.ErrInvalidSlot
 	}
-	conjunction, err := g.manager.MkFamilyApp(g.manager.BasicFamilyID(), ast.ASTOpAnd, nil, g.forms)
+	conjunction, err := g.manager.MkFamilyApp(g.manager.BasicFamilyID(), ast.ASTOpAnd, nil, g.formSlice())
 	if err != nil {
 		return err
 	}
@@ -225,7 +226,7 @@ func (g *Goal) DisplayLowLevel(out io.Writer) (result error) {
 	if out == nil {
 		return arena.ErrInvalidSlot
 	}
-	for _, form := range g.forms {
+	for _, form := range g.formSlice() {
 		stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: g.manager.Budget()})
 		if err != nil {
 			return err
@@ -320,7 +321,7 @@ func (g *Goal) DisplayDIMACSWithNames(out io.Writer, includeNames bool) error {
 		return id, id > 0, err
 	}
 	fromNumericDIMACS := true
-	for _, form := range g.forms {
+	for _, form := range g.formSlice() {
 		literals, err := clauseLiterals(form)
 		if err != nil {
 			return err
@@ -339,7 +340,7 @@ func (g *Goal) DisplayDIMACSWithNames(out io.Writer, includeNames bool) error {
 			break
 		}
 	}
-	for _, form := range g.forms {
+	for _, form := range g.formSlice() {
 		literals, err := clauseLiterals(form)
 		if err != nil {
 			return err
@@ -374,10 +375,10 @@ func (g *Goal) DisplayDIMACSWithNames(out io.Writer, includeNames bool) error {
 			}
 		}
 	}
-	if err := goalDisplayWrite(out, "p cnf "+strconv.FormatUint(uint64(next), 10)+" "+strconv.Itoa(len(g.forms))+"\n"); err != nil {
+	if err := goalDisplayWrite(out, "p cnf "+strconv.FormatUint(uint64(next), 10)+" "+strconv.Itoa(int(g.forms.size()))+"\n"); err != nil {
 		return err
 	}
-	for _, form := range g.forms {
+	for _, form := range g.formSlice() {
 		literals, err := clauseLiterals(form)
 		if err != nil {
 			return err

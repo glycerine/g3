@@ -27,8 +27,8 @@ func TestGoalRefFinalDecrementConsumedBeforeStoppedFormulaRelease(t *testing.T) 
 	// reference has been consumed by the goal destructor.
 	m.DebugFreeIndices[id] = struct{}{}
 	consumed, e := g.DecRefConsumed()
-	if !consumed || !errors.Is(e, ast.ErrASTDomain) || g.RefCount != 0 || g.Closed || len(g.forms) != 0 {
-		t.Fatalf("stopped final goal reference: consumed=%v error=%v count=%d closed=%v forms=%d", consumed, e, g.RefCount, g.Closed, len(g.forms))
+	if !consumed || !errors.Is(e, ast.ErrASTDomain) || g.RefCount != 0 || g.Closed || int(g.forms.size()) != 0 {
+		t.Fatalf("stopped final goal reference: consumed=%v error=%v count=%d closed=%v forms=%d", consumed, e, g.RefCount, g.Closed, int(g.forms.size()))
 	}
 	delete(m.DebugFreeIndices, id)
 	astTestMust(t, g.Close())

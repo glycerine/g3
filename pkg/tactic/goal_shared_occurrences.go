@@ -44,7 +44,7 @@ func (s *GoalSharedOccurrences) Collect(g *Goal) (result error) {
 		return err
 	}
 	defer func() { result = errors.Join(result, visited.Close()) }()
-	for _, form := range g.forms {
+	for _, form := range g.formSlice() {
 		if err = s.occs.CollectWithMark(form, visited); err != nil {
 			return err
 		}

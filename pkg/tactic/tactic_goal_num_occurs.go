@@ -31,7 +31,7 @@ func (n *GoalNumOccurs) Count(g *Goal) error {
 	if err := g.open(); err != nil {
 		return err
 	}
-	return n.counter.CountAll(g.forms)
+	return n.counter.CountAll(g.formSlice())
 }
 
 func (n *GoalNumOccurs) GetNumOccurrences(h ast.ASTHandle) uint32 {

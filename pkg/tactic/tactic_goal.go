@@ -37,8 +37,7 @@ func tacticGoalPrecisionUnion(a, b GoalPrecision) GoalPrecision {
 type Goal struct {
 	self                                                            *Goal
 	manager                                                         *ast.ASTManager
-	forms, proofs                                                   []ast.ASTHandle
-	dependencies                                                    []ast.ASTDependency
+	forms, proofs, dependencies                                     goalArray
 	RefCount, depth                                                 uint32
 	precision                                                       GoalPrecision
 	modelsEnabled, proofsEnabled, coreEnabled, inconsistent, Closed bool
@@ -136,35 +135,36 @@ func (g *Goal) Translate(translation *ast.ASTTranslation) (result *Goal, err err
 			result = nil
 		}
 	}()
-	for i, form := range g.forms {
+	sourceProofs, sourceDependencies := g.proofSlice(), g.dependencySlice()
+	for i, form := range g.formSlice() {
 		translatedForm, e := translation.Translate(form)
 		if e != nil {
 			return nil, e
 		}
 		var translatedProof ast.ASTHandle
 		if result.proofsEnabled {
-			translatedProof, e = translation.Translate(g.proofs[i])
+			translatedProof, e = translation.Translate(sourceProofs[i])
 			if e != nil {
 				return nil, e
 			}
 		}
 		var translatedDependency ast.ASTDependency
 		if result.coreEnabled {
-			translatedDependency, e = translation.TranslateDependency(g.dependencies[i])
+			translatedDependency, e = translation.TranslateDependency(sourceDependencies[i])
 			if e != nil {
 				return nil, e
 			}
 		}
-		if e = goalPushExpr(result.manager, &result.forms, translatedForm); e != nil {
+		if e = result.exprArrays().pushBack(&result.forms, goalArrayValue{h: translatedForm}); e != nil {
 			return nil, e
 		}
 		if result.proofsEnabled {
-			if e = goalPushExpr(result.manager, &result.proofs, translatedProof); e != nil {
+			if e = result.exprArrays().pushBack(&result.proofs, goalArrayValue{h: translatedProof}); e != nil {
 				return nil, e
 			}
 		}
 		if result.coreEnabled {
-			if e = goalPushDependency(result.manager, &result.dependencies, translatedDependency); e != nil {
+			if e = result.depArrays().pushBack(&result.dependencies, goalArrayValue{d: translatedDependency}); e != nil {
 				return nil, e
 			}
 		}
@@ -188,16 +188,13 @@ func (g *Goal) Size() (uint32, error) {
 	if e := g.open(); e != nil {
 		return 0, e
 	}
-	return uint32(len(g.forms)), nil
+	return g.forms.size(), nil
 }
 func (g *Goal) Form(i uint32) (ast.ASTHandle, error) {
 	if e := g.open(); e != nil {
 		return ast.ASTHandle{}, e
 	}
-	if uint64(i) >= uint64(len(g.forms)) {
-		return ast.ASTHandle{}, arena.ErrBounds
-	}
-	return g.forms[i], nil
+	return g.formAt(i)
 }
 
 // IsWellSorted follows goal.cpp's formula order and stops at the first
@@ -206,7 +203,7 @@ func (g *Goal) IsWellSorted() (bool, error) {
 	if e := g.open(); e != nil {
 		return false, e
 	}
-	for _, form := range g.forms {
+	for _, form := range g.formSlice() {
 		good, e := g.manager.IsWellSorted(form, nil)
 		if e != nil || !good {
 			return good, e
@@ -221,10 +218,7 @@ func (g *Goal) Proof(i uint32) (ast.ASTHandle, error) {
 	if !g.proofsEnabled {
 		return ast.ASTHandle{}, nil
 	}
-	if uint64(i) >= uint64(len(g.proofs)) {
-		return ast.ASTHandle{}, arena.ErrBounds
-	}
-	return g.proofs[i], nil
+	return g.proofAt(i)
 }
 func (g *Goal) Dependency(i uint32) (ast.ASTDependency, error) {
 	if e := g.open(); e != nil {
@@ -233,10 +227,7 @@ func (g *Goal) Dependency(i uint32) (ast.ASTDependency, error) {
 	if !g.coreEnabled {
 		return ast.ASTDependency{}, nil
 	}
-	if uint64(i) >= uint64(len(g.dependencies)) {
-		return ast.ASTDependency{}, arena.ErrBounds
-	}
-	return g.dependencies[i], nil
+	return g.dependencyAt(i)
 }
 func (g *Goal) SetDepth(d uint32) error {
 	if e := g.open(); e != nil {
@@ -295,15 +286,15 @@ func GoalsEqual(first, second *Goal) (bool, error) {
 	if first.manager != second.manager {
 		return false, ast.ErrASTHandle
 	}
-	if len(first.forms) != len(second.forms) {
+	if first.forms.size() != second.forms.size() {
 		return false, nil
 	}
-	left := make(map[ast.ASTHandle]bool, len(first.forms))
-	for _, formula := range first.forms {
+	left := make(map[ast.ASTHandle]bool, first.forms.size())
+	for _, formula := range first.formSlice() {
 		left[formula] = true
 	}
-	right := make(map[ast.ASTHandle]bool, len(second.forms))
-	for _, formula := range second.forms {
+	right := make(map[ast.ASTHandle]bool, second.forms.size())
+	for _, formula := range second.formSlice() {
 		if !left[formula] {
 			return false, nil
 		}
@@ -337,13 +328,10 @@ func (g *Goal) DecRefConsumed() (bool, error) {
 	return true, nil
 }
 func (g *Goal) resetCore() error {
-	if e := goalDropExprs(g.manager, &g.forms); e != nil {
-		return e
-	}
-	if e := goalDropExprs(g.manager, &g.proofs); e != nil {
-		return e
-	}
-	return goalDropDependencies(g.manager, &g.dependencies)
+	// m().del(m_forms); m().del(m_proofs); m().del(m_dependencies)
+	e := g.exprArrays().release(&g.forms)
+	e = errors.Join(e, g.exprArrays().release(&g.proofs))
+	return errors.Join(e, g.depArrays().release(&g.dependencies))
 }
 func (g *Goal) Reset() error {
 	if e := g.open(); e != nil {
@@ -428,16 +416,16 @@ func (g *Goal) pushBack(f, pr ast.ASTHandle, d ast.ASTDependency) (err error) {
 	} else if g.inconsistent {
 		return ast.ErrASTDomain
 	}
-	if err = goalPushExpr(m, &g.forms, f); err != nil {
+	if err = g.exprArrays().pushBack(&g.forms, goalArrayValue{h: f}); err != nil {
 		return err
 	}
 	if g.proofsEnabled {
-		if err = goalPushExpr(m, &g.proofs, pr); err != nil {
+		if err = g.exprArrays().pushBack(&g.proofs, goalArrayValue{h: pr}); err != nil {
 			return err
 		}
 	}
 	if g.coreEnabled {
-		return goalPushDependency(m, &g.dependencies, d)
+		return g.depArrays().pushBack(&g.dependencies, goalArrayValue{d: d})
 	}
 	return nil
 }
@@ -738,16 +726,16 @@ func (g *Goal) Update(i uint32, f, pr ast.ASTHandle, d ast.ASTDependency) (err e
 		}
 		return g.pushBack(f, ast.ASTHandle{}, d)
 	}
-	if err = goalSetExpr(m, g.forms, i, out); err != nil {
+	if err = g.exprArrays().set(&g.forms, i, goalArrayValue{h: out}); err != nil {
 		return err
 	}
 	if g.proofsEnabled {
-		if err = goalSetExpr(m, g.proofs, i, rp); err != nil {
+		if err = g.exprArrays().set(&g.proofs, i, goalArrayValue{h: rp}); err != nil {
 			return err
 		}
 	}
 	if g.coreEnabled {
-		return goalSetDependency(m, g.dependencies, i, d)
+		return g.depArrays().set(&g.dependencies, i, goalArrayValue{d: d})
 	}
 	return nil
 }
@@ -764,14 +752,14 @@ func (g *Goal) CopyTo(target *Goal) error {
 	if g == target {
 		return nil
 	}
-	m := g.manager
-	if e := goalCopyExprs(m, g.forms, &target.forms); e != nil {
+	// m().copy shares the arrays (parray_manager::copy).
+	if e := g.exprArrays().copyRef(g.forms, &target.forms); e != nil {
 		return e
 	}
-	if e := goalCopyExprs(m, g.proofs, &target.proofs); e != nil {
+	if e := g.exprArrays().copyRef(g.proofs, &target.proofs); e != nil {
 		return e
 	}
-	if e := goalCopyDependencies(m, g.dependencies, &target.dependencies); e != nil {
+	if e := g.depArrays().copyRef(g.dependencies, &target.dependencies); e != nil {
 		return e
 	}
 	if g.depth > target.depth {
@@ -789,22 +777,21 @@ func (g *Goal) shrink(j uint32) error {
 	if j > sz {
 		return ast.ErrASTDomain
 	}
-	m := g.manager
 	for i := j; i < sz; i++ {
-		if e = goalPopExpr(m, &g.forms); e != nil {
+		if e = g.exprArrays().popBack(&g.forms); e != nil {
 			return e
 		}
 	}
 	if g.proofsEnabled {
 		for i := j; i < sz; i++ {
-			if e = goalPopExpr(m, &g.proofs); e != nil {
+			if e = g.exprArrays().popBack(&g.proofs); e != nil {
 				return e
 			}
 		}
 	}
 	if g.coreEnabled {
 		for i := j; i < sz; i++ {
-			if e = goalPopDependency(m, &g.dependencies); e != nil {
+			if e = g.depArrays().popBack(&g.dependencies); e != nil {
 				return e
 			}
 		}
@@ -812,8 +799,7 @@ func (g *Goal) shrink(j uint32) error {
 	return nil
 }
 func (g *Goal) move(i, j uint32, f ast.ASTHandle) error {
-	m := g.manager
-	if e := goalSetExpr(m, g.forms, j, f); e != nil {
+	if e := g.exprArrays().set(&g.forms, j, goalArrayValue{h: f}); e != nil {
 		return e
 	}
 	if g.proofsEnabled {
@@ -821,7 +807,7 @@ func (g *Goal) move(i, j uint32, f ast.ASTHandle) error {
 		if e != nil {
 			return e
 		}
-		if e = goalSetExpr(m, g.proofs, j, pr); e != nil {
+		if e = g.exprArrays().set(&g.proofs, j, goalArrayValue{h: pr}); e != nil {
 			return e
 		}
 	}
@@ -830,7 +816,7 @@ func (g *Goal) move(i, j uint32, f ast.ASTHandle) error {
 		if e != nil {
 			return e
 		}
-		if e = goalSetDependency(m, g.dependencies, j, d); e != nil {
+		if e = g.depArrays().set(&g.dependencies, j, goalArrayValue{d: d}); e != nil {
 			return e
 		}
 	}

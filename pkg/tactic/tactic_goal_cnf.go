@@ -48,7 +48,7 @@ func (g *Goal) IsCNF() (bool, error) {
 	if err := g.open(); err != nil {
 		return false, err
 	}
-	for _, form := range g.forms {
+	for _, form := range g.formSlice() {
 		isOr, err := g.isOp(form, ast.ASTOpOr)
 		if err != nil {
 			return false, err

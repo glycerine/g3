@@ -138,8 +138,8 @@ func (t *sineTactic) filterExpressions(g *Goal) ([]ast.ASTHandle, error) {
 	expressionConstants := make(map[ast.ASTHandle]map[ast.ASTHandle]bool)
 	waiting := make(map[ast.ASTHandle]map[sineWorkItem]bool)
 	constants := make(map[ast.ASTHandle]bool)
-	stack := make([]sineWorkItem, 0, len(g.forms))
-	for _, form := range g.forms {
+	stack := make([]sineWorkItem, 0, int(g.forms.size()))
+	for _, form := range g.formSlice() {
 		stack = append(stack, sineWorkItem{form, form})
 	}
 	for len(stack) != 0 {
@@ -222,11 +222,11 @@ func (t *sineTactic) filterExpressions(g *Goal) ([]ast.ASTHandle, error) {
 			}
 		}
 	}
-	if len(g.forms) == 0 {
+	if int(g.forms.size()) == 0 {
 		return nil, ast.ErrASTDomain
 	}
 	visited := make(map[ast.ASTHandle]bool)
-	toVisit := []ast.ASTHandle{g.forms[len(g.forms)-1]}
+	toVisit := []ast.ASTHandle{g.formSlice()[int(g.forms.size())-1]}
 	for len(toVisit) != 0 {
 		last := len(toVisit) - 1
 		current := toVisit[last]
@@ -241,7 +241,7 @@ func (t *sineTactic) filterExpressions(g *Goal) ([]ast.ASTHandle, error) {
 		}
 	}
 	result := make([]ast.ASTHandle, 0, len(visited))
-	for _, form := range g.forms {
+	for _, form := range g.formSlice() {
 		if visited[form] {
 			result = append(result, form)
 		}
@@ -270,7 +270,7 @@ func (t *sineTactic) Apply(g *Goal, out *TacticResult) (result error) {
 	if err := t.trace(58, g.Display); err != nil {
 		return err
 	}
-	if err := t.trace(59, func(w io.Writer) error { _, e := io.WriteString(w, strconv.Itoa(len(g.forms))); return e }); err != nil {
+	if err := t.trace(59, func(w io.Writer) error { _, e := io.WriteString(w, strconv.Itoa(int(g.forms.size()))); return e }); err != nil {
 		return err
 	}
 	selected, err := t.filterExpressions(g)
