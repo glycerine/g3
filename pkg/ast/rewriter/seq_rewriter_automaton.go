@@ -49,10 +49,14 @@ type sequenceAutomatonMove struct {
 	label               *sequenceAutomatonLabel
 }
 
+// sequenceAutomaton is automaton<sym_expr, sym_expr_manager> from
+// math/automata/automaton.h as re2automaton builds it. moves is m_delta;
+// finals is m_final_set and finalStates is m_final_states, in insertion order.
 type sequenceAutomaton struct {
-	initial int
-	finals  map[int]bool
-	moves   [][]sequenceAutomatonMove
+	initial     int
+	finals      map[int]bool
+	finalStates []int
+	moves       [][]sequenceAutomatonMove
 }
 
 func newSequenceAutomaton(states int) *sequenceAutomaton {
@@ -62,86 +66,185 @@ func newSequenceAutomaton(states int) *sequenceAutomaton {
 	return &sequenceAutomaton{finals: make(map[int]bool), moves: make([][]sequenceAutomatonMove, states)}
 }
 
-func sequenceEmptyAutomaton() *sequenceAutomaton { return newSequenceAutomaton(1) }
-
-func sequenceEpsilonAutomaton() *sequenceAutomaton {
-	a := newSequenceAutomaton(1)
-	a.finals[0] = true
-	return a
-}
-
-func sequenceLabelAutomaton(label *sequenceAutomatonLabel) *sequenceAutomaton {
-	a := newSequenceAutomaton(2)
-	a.finals[1] = true
-	a.moves[0] = append(a.moves[0], sequenceAutomatonMove{source: 0, destination: 1, label: label})
-	return a
-}
-
-func sequenceLoopAutomaton(label *sequenceAutomatonLabel) *sequenceAutomaton {
-	a := newSequenceAutomaton(1)
-	a.finals[0] = true
-	a.moves[0] = append(a.moves[0], sequenceAutomatonMove{source: 0, destination: 0, label: label})
-	return a
-}
-
-func (a *sequenceAutomaton) appendInto(result *sequenceAutomaton, offset int) {
-	for source, moves := range a.moves {
-		for _, move := range moves {
-			result.moves[source+offset] = append(result.moves[source+offset], sequenceAutomatonMove{
-				source: source + offset, destination: move.destination + offset, label: move.label,
-			})
+// sequenceAutomatonOf is automaton(m, init, final, mvs). The source sizes
+// m_delta from the moves alone; a final or initial state outside the moves is
+// also given a row here so it can be indexed.
+func sequenceAutomatonOf(initial int, final []int, moves []sequenceAutomatonMove) *sequenceAutomaton {
+	n := 1
+	for _, mv := range moves {
+		if mv.source+1 > n {
+			n = mv.source + 1
+		}
+		if mv.destination+1 > n {
+			n = mv.destination + 1
 		}
 	}
-	for state := range a.finals {
-		result.finals[state+offset] = true
+	for _, f := range final {
+		if f+1 > n {
+			n = f + 1
+		}
+	}
+	if initial+1 > n {
+		n = initial + 1
+	}
+	a := newSequenceAutomaton(n)
+	a.initial = initial
+	for _, f := range final {
+		a.addFinal(f)
+	}
+	for _, mv := range moves {
+		a.add(mv)
+	}
+	return a
+}
+
+// addFinal is add_to_final_states.
+func (a *sequenceAutomaton) addFinal(state int) {
+	if !a.finals[state] {
+		a.finals[state] = true
+		a.finalStates = append(a.finalStates, state)
 	}
 }
 
+// add is automaton::add: it skips a move equal to the last move from the
+// same source (is_duplicate_cheap).
+func (a *sequenceAutomaton) add(mv sequenceAutomatonMove) {
+	out := a.moves[mv.source]
+	if n := len(out); n > 0 && out[n-1].destination == mv.destination && out[n-1].label == mv.label {
+		return
+	}
+	a.moves[mv.source] = append(out, mv)
+}
+
+// sequenceEmptyAutomaton is automaton(m): one state, no final state.
+func sequenceEmptyAutomaton() *sequenceAutomaton { return newSequenceAutomaton(1) }
+
+// sequenceEpsilonAutomaton is mk_epsilon.
+func sequenceEpsilonAutomaton() *sequenceAutomaton {
+	return sequenceAutomatonOf(0, []int{0}, nil)
+}
+
+// sequenceLabelAutomaton is automaton(m, t).
+func sequenceLabelAutomaton(label *sequenceAutomatonLabel) *sequenceAutomaton {
+	a := newSequenceAutomaton(2)
+	a.addFinal(1)
+	a.add(sequenceAutomatonMove{source: 0, destination: 1, label: label})
+	return a
+}
+
+// sequenceLoopAutomaton is mk_loop.
+func sequenceLoopAutomaton(label *sequenceAutomatonLabel) *sequenceAutomaton {
+	return sequenceAutomatonOf(0, []int{0}, []sequenceAutomatonMove{{source: 0, destination: 0, label: label}})
+}
+
+func (a *sequenceAutomaton) numStates() int { return len(a.moves) }
+
+func (a *sequenceAutomaton) isEmpty() bool { return len(a.finalStates) == 0 }
+
+// initialStateIsSource is m_delta_inv[m_init].empty().
+func (a *sequenceAutomaton) initialStateIsSource() bool {
+	for _, out := range a.moves {
+		for _, mv := range out {
+			if mv.destination == a.initial {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// appendMoves is append_moves.
+func (a *sequenceAutomaton) appendMoves(offset int, moves []sequenceAutomatonMove) []sequenceAutomatonMove {
+	for _, out := range a.moves {
+		for _, mv := range out {
+			moves = append(moves, sequenceAutomatonMove{source: mv.source + offset, destination: mv.destination + offset, label: mv.label})
+		}
+	}
+	return moves
+}
+
+// appendFinal is append_final.
+func (a *sequenceAutomaton) appendFinal(offset int, final []int) []int {
+	for _, state := range a.finalStates {
+		final = append(final, state+offset)
+	}
+	return final
+}
+
+func (a *sequenceAutomaton) clone() *sequenceAutomaton {
+	return sequenceAutomatonOf(a.initial, a.appendFinal(0, nil), a.appendMoves(0, nil))
+}
+
+// sequenceUnionAutomaton is mk_union.
 func sequenceUnionAutomaton(left, right *sequenceAutomaton) *sequenceAutomaton {
-	leftOffset := 1
-	rightOffset := leftOffset + len(left.moves)
-	result := newSequenceAutomaton(1 + len(left.moves) + len(right.moves))
-	left.appendInto(result, leftOffset)
-	right.appendInto(result, rightOffset)
-	result.moves[0] = append(result.moves[0],
-		sequenceAutomatonMove{source: 0, destination: left.initial + leftOffset},
-		sequenceAutomatonMove{source: 0, destination: right.initial + rightOffset})
-	return result
+	if left.isEmpty() {
+		return right.clone()
+	}
+	if right.isEmpty() {
+		return left.clone()
+	}
+	offset1 := 1
+	offset2 := left.numStates() + 1
+	moves := []sequenceAutomatonMove{{source: 0, destination: left.initial + offset1}, {source: 0, destination: right.initial + offset2}}
+	moves = left.appendMoves(offset1, moves)
+	moves = right.appendMoves(offset2, moves)
+	final := left.appendFinal(offset1, nil)
+	final = right.appendFinal(offset2, final)
+	return sequenceAutomatonOf(0, final, moves)
 }
 
+// sequenceOptionalAutomaton is mk_opt.
+func sequenceOptionalAutomaton(a *sequenceAutomaton) *sequenceAutomaton {
+	var moves []sequenceAutomatonMove
+	offset := 0
+	initial := a.initial
+	if !a.initialStateIsSource() {
+		offset = 1
+		initial = 0
+		moves = append(moves, sequenceAutomatonMove{source: 0, destination: a.initial + offset})
+	}
+	if a.isEmpty() {
+		return a.clone()
+	}
+	moves = append(moves, sequenceAutomatonMove{source: initial, destination: a.finalStates[0] + offset})
+	moves = a.appendMoves(offset, moves)
+	return sequenceAutomatonOf(initial, a.appendFinal(offset, nil), moves)
+}
+
+// sequenceConcatAutomaton is mk_concat. Its is_epsilon shortcuts test
+// m_delta.empty(), which never holds, so they are not ported.
 func sequenceConcatAutomaton(left, right *sequenceAutomaton) *sequenceAutomaton {
-	rightOffset := len(left.moves)
-	result := newSequenceAutomaton(len(left.moves) + len(right.moves))
-	left.appendInto(result, 0)
-	for state := range left.finals {
-		delete(result.finals, state)
-		result.moves[state] = append(result.moves[state], sequenceAutomatonMove{source: state, destination: right.initial + rightOffset})
+	if left.isEmpty() {
+		return left.clone()
 	}
-	right.appendInto(result, rightOffset)
-	result.initial = left.initial
-	return result
+	if right.isEmpty() {
+		return right.clone()
+	}
+	offset1 := 1
+	offset2 := left.numStates() + offset1
+	moves := []sequenceAutomatonMove{{source: 0, destination: left.initial + offset1}}
+	moves = left.appendMoves(offset1, moves)
+	for _, state := range left.finalStates {
+		moves = append(moves, sequenceAutomatonMove{source: state + offset1, destination: right.initial + offset2})
+	}
+	moves = right.appendMoves(offset2, moves)
+	return sequenceAutomatonOf(0, right.appendFinal(offset2, nil), moves)
 }
 
-func sequenceStarAutomaton(body *sequenceAutomaton, includeEmpty bool) *sequenceAutomaton {
-	result := newSequenceAutomaton(len(body.moves))
-	body.appendInto(result, 0)
-	for state := range body.finals {
-		result.moves[state] = append(result.moves[state], sequenceAutomatonMove{source: state, destination: body.initial})
+// addFinalToInitMoves is add_final_to_init_moves. The source's duplicate
+// check loop never runs (it starts with found = false), so every final state
+// other than the initial state gets an epsilon move to it.
+func (a *sequenceAutomaton) addFinalToInitMoves() {
+	for i := 0; i < len(a.finalStates); i++ {
+		state := a.finalStates[i]
+		if state != a.initial {
+			a.add(sequenceAutomatonMove{source: state, destination: a.initial})
+		}
 	}
-	if includeEmpty {
-		result.finals[body.initial] = true
-	}
-	result.initial = body.initial
-	return result
 }
 
-func sequenceOptionalAutomaton(body *sequenceAutomaton) *sequenceAutomaton {
-	result := newSequenceAutomaton(len(body.moves))
-	body.appendInto(result, 0)
-	result.initial = body.initial
-	result.finals[result.initial] = true
-	return result
-}
+// addInitToFinalStates is add_init_to_final_states.
+func (a *sequenceAutomaton) addInitToFinalStates() { a.addFinal(a.initial) }
 
 func (a *sequenceAutomaton) epsilonClosure(state int) []int {
 	seen := map[int]bool{state: true}
@@ -249,37 +352,45 @@ func (b *sequenceAutomatonBuilder) character(value byte) (ast.ASTHandle, error) 
 	return h, nil
 }
 
+// sequence is re2automaton::seq2aut.
 func (b *sequenceAutomatonBuilder) sequence(expression ast.ASTHandle) (*sequenceAutomaton, error) {
-	leaves, err := b.rewriter.manager.SequenceFlattenConcat(expression)
-	if err != nil {
+	m := b.rewriter.manager
+	if left, right, matched, err := m.SequenceConcatParts(expression); err != nil {
+		return nil, err
+	} else if matched {
+		a, err := b.sequence(left)
+		if err != nil || a == nil {
+			return nil, err
+		}
+		c, err := b.sequence(right)
+		if err != nil || c == nil {
+			return nil, err
+		}
+		return sequenceConcatAutomaton(a, c), nil
+	}
+	if element, unit, err := m.SequenceUnitArgument(expression); err != nil {
+		return nil, err
+	} else if unit {
+		return sequenceLabelAutomaton(&sequenceAutomatonLabel{kind: sequenceLabelCharacter, character: element}), nil
+	}
+	if empty, err := m.IsSequenceEmpty(expression); err != nil {
+		return nil, err
+	} else if empty {
+		return sequenceEpsilonAutomaton(), nil
+	}
+	text, stringValue, err := m.SequenceStringValue(expression)
+	if err != nil || !stringValue {
 		return nil, err
 	}
-	result := sequenceEpsilonAutomaton()
-	for _, leaf := range leaves {
-		text, stringValue, err := b.rewriter.manager.SequenceStringValue(leaf)
+	moves := make([]sequenceAutomatonMove, 0, len(text))
+	for k := 0; k < len(text); k++ {
+		character, err := b.character(text[k])
 		if err != nil {
 			return nil, err
 		}
-		if stringValue {
-			for i := 0; i < len(text); i++ {
-				character, err := b.character(text[i])
-				if err != nil {
-					return nil, err
-				}
-				result = sequenceConcatAutomaton(result, sequenceLabelAutomaton(&sequenceAutomatonLabel{kind: sequenceLabelCharacter, character: character}))
-			}
-			continue
-		}
-		element, unit, err := b.rewriter.manager.SequenceUnitArgument(leaf)
-		if err != nil {
-			return nil, err
-		}
-		if !unit {
-			return nil, nil
-		}
-		result = sequenceConcatAutomaton(result, sequenceLabelAutomaton(&sequenceAutomatonLabel{kind: sequenceLabelCharacter, character: element}))
+		moves = append(moves, sequenceAutomatonMove{source: k, destination: k + 1, label: &sequenceAutomatonLabel{kind: sequenceLabelCharacter, character: character}})
 	}
-	return result, nil
+	return sequenceAutomatonOf(0, []int{len(text)}, moves), nil
 }
 
 func (b *sequenceAutomatonBuilder) intersectLabels(left, right *sequenceAutomatonLabel) *sequenceAutomatonLabel {
@@ -444,7 +555,7 @@ func (b *sequenceAutomatonBuilder) product(left, right *sequenceAutomaton) (*seq
 	todo := []pair{initial}
 	result := newSequenceAutomaton(1)
 	if left.closureIsFinal(initial.left) && right.closureIsFinal(initial.right) {
-		result.finals[0] = true
+		result.addFinal(0)
 	}
 	for len(todo) > 0 {
 		current := todo[len(todo)-1]
@@ -470,7 +581,7 @@ func (b *sequenceAutomatonBuilder) product(left, right *sequenceAutomaton) (*seq
 					ids[targetPair] = target
 					result.moves = append(result.moves, nil)
 					if left.closureIsFinal(targetPair.left) && right.closureIsFinal(targetPair.right) {
-						result.finals[target] = true
+						result.addFinal(target)
 					}
 					todo = append(todo, targetPair)
 				}
@@ -550,7 +661,7 @@ func (b *sequenceAutomatonBuilder) determinize(input *sequenceAutomaton, flipAcc
 			final = final || input.finals[state]
 		}
 		if final != flipAcceptance {
-			result.finals[id] = true
+			result.addFinal(id)
 		}
 	}
 	setFinal(0, initial)
@@ -624,8 +735,15 @@ func (b *sequenceAutomatonBuilder) regex(expression ast.ASTHandle) (*sequenceAut
 	for _, row := range []struct {
 		kind int32
 		make func(*sequenceAutomaton) *sequenceAutomaton
-	}{{14, func(a *sequenceAutomaton) *sequenceAutomaton { return sequenceStarAutomaton(a, true) }},
-		{13, func(a *sequenceAutomaton) *sequenceAutomaton { return sequenceStarAutomaton(a, false) }},
+	}{{14, func(a *sequenceAutomaton) *sequenceAutomaton {
+		a.addFinalToInitMoves()
+		a.addInitToFinalStates()
+		return a
+	}},
+		{13, func(a *sequenceAutomaton) *sequenceAutomaton {
+			a.addFinalToInitMoves()
+			return a
+		}},
 		{15, sequenceOptionalAutomaton}} {
 		argument, matched, err := b.rewriter.manager.SequenceUnaryOperationArgument(expression, row.kind)
 		if err != nil {
@@ -668,23 +786,34 @@ func (b *sequenceAutomatonBuilder) regex(expression ast.ASTHandle) (*sequenceAut
 		return nil, err
 	}
 	if loop {
-		if lower < 0 || bounded && upper < lower {
+		if lower < 0 || bounded && upper < 0 {
 			return nil, nil
 		}
-		base, err := b.regex(body)
-		if err != nil || base == nil {
+		a, err := b.regex(body)
+		if err != nil || a == nil {
 			return nil, err
 		}
-		result := sequenceEpsilonAutomaton()
-		for i := int32(0); i < lower; i++ {
-			result = sequenceConcatAutomaton(result, base)
-		}
+		lo, hi := lower, upper
 		if bounded {
-			for i := lower; i < upper; i++ {
-				result = sequenceConcatAutomaton(result, sequenceOptionalAutomaton(base))
+			eps := sequenceEpsilonAutomaton()
+			result := sequenceEpsilonAutomaton()
+			for hi > lo {
+				c := sequenceConcatAutomaton(a, result)
+				result = sequenceUnionAutomaton(eps, c)
+				hi--
 			}
-		} else {
-			result = sequenceConcatAutomaton(result, sequenceStarAutomaton(base, true))
+			for lo > 0 {
+				result = sequenceConcatAutomaton(a, result)
+				lo--
+			}
+			return result, nil
+		}
+		result := a.clone()
+		result.addFinalToInitMoves()
+		result.addInitToFinalStates()
+		for lo > 0 {
+			result = sequenceConcatAutomaton(a, result)
+			lo--
 		}
 		return result, nil
 	}

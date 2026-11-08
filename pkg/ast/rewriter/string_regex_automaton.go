@@ -82,11 +82,9 @@ func NewStringRegexAutomaton(m *ast.ASTManager, regex ast.ASTHandle, solver Sequ
 }
 
 func (a *StringRegexAutomaton) materialize(built *sequenceAutomaton) error {
-	var finals []uint32
-	for state := range built.moves {
-		if built.finals[state] {
-			finals = append(finals, uint32(state))
-		}
+	finals := make([]uint32, 0, len(built.finalStates))
+	for _, state := range built.finalStates {
+		finals = append(finals, uint32(state))
 	}
 	labels := make(map[*sequenceAutomatonLabel]uint32)
 	var moves []automata.Move
@@ -172,7 +170,7 @@ func (a *StringRegexAutomaton) sequenceGraph() (*sequenceAutomaton, error) {
 	result := newSequenceAutomaton(int(a.graph.NumStates()))
 	result.initial = int(a.graph.Initial())
 	for _, state := range a.graph.FinalStates() {
-		result.finals[int(state)] = true
+		result.addFinal(int(state))
 	}
 	for _, move := range a.graph.Moves() {
 		var label *sequenceAutomatonLabel
@@ -281,6 +279,15 @@ func NewSeqAutomaton(m *ast.ASTManager, regex ast.ASTHandle, solver SequenceExpr
 	}
 	a.graph.Compress()
 	return a, nil
+}
+
+// ConditionCharacter returns the character of a condition built by
+// sym_expr::mk_char, for display.
+func (a *StringRegexAutomaton) ConditionCharacter(condition uint32) (ast.ASTHandle, bool) {
+	if a == nil || uint64(condition) >= uint64(len(a.labels)) || a.labels[condition].kind != sequenceLabelCharacter {
+		return ast.ASTHandle{}, false
+	}
+	return a.labels[condition].character, true
 }
 
 // Accept is move.t()->accept(e) for the move label with this condition id.

@@ -143,8 +143,16 @@ func TestStringRegexAutomatonComposedPredicates(t *testing.T) {
 			for _, move := range graph.ExpandedMovesFrom(graph.Initial(), true) {
 				condition, err := owner.Condition(move.Condition)
 				astTestMust(t, err)
-				if condition.Kind != StringRegexPredicate {
-					t.Fatal("composed label did not expose a concrete predicate AST")
+				// A composed label exposes a predicate AST. As in the
+				// source, a minterm equal to one original character keeps
+				// that character label.
+				predicate := condition.Predicate
+				switch condition.Kind {
+				case StringRegexPredicate:
+				case StringRegexCharacter:
+					predicate = pin(m.MkEq(variable, condition.Character))
+				default:
+					t.Fatal("composed label did not expose a predicate or character")
 				}
 				predicateMoves++
 				replace, err := NewExprSafeReplace(m)
@@ -153,7 +161,7 @@ func TestStringRegexAutomatonComposedPredicates(t *testing.T) {
 				astTestMust(t, replace.Insert(variable, numeral))
 				out, err := m.NewRef(ast.ASTHandle{})
 				astTestMust(t, err)
-				astTestMust(t, replace.Apply(condition.Predicate, out))
+				astTestMust(t, replace.Apply(predicate, out))
 				expression, err := m.RefGet(out)
 				astTestMust(t, err)
 				astTestMust(t, rw.Rewrite(expression, out))
