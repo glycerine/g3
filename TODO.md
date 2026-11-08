@@ -23,7 +23,13 @@ Found while matching `-st` output against `build/z3` on
 3. **AST lifetimes of arith rewriter temporaries.** Go's arith rewriter
    returns ref-count-0 handles that a later sweep frees; C++ frees each
    `expr_ref` temporary on scope exit. Recycled AST ids then differ, and
-   mon_lt orders sum monomials by id (lia2pb_model_scopes).
+   mon_lt orders sum monomials by id (lia2pb_model_scopes). Narrowed
+   (2026-11-08): lia2pb_model_scopes' first check alone matches z3
+   exactly, and the goal reaching `smt` in the third check is textually
+   identical to z3's (apart from fresh `k!` names), so only the AST id
+   state left by the earlier checks differs (arith-add-rows 3 vs 5,
+   pivots 7 vs 6). Fixing it needs the source's release points for the
+   expr_ref temporaries along simplify, lia2pb and SMT preprocessing.
 
 4. **DONE: get-consequences algorithm.** smt_solver::get_consequences_core
    is now context::get_consequences (smt_consequences.cpp: antecedent sets,
@@ -50,9 +56,9 @@ Found while matching `-st` output against `build/z3` on
    into its result and its own statistics. nlsat reports the five counters
    of `solver::collect_statistics`; horn keeps only the engine's.
 
-7. **SAT solver statistics.** Statistics from the SAT path differ widely,
-   and the SAT solver's `mk bool var` is not reported
-   (qflia_solver_pb_sat_pipeline check 1).
+7. **DONE: SAT solver statistics.** qflia_solver_pb_sat_pipeline now
+   matches z3, including the SAT `mk bool var`, since tactic statistics
+   are typed and summed (item 6).
 
 8. **DONE: `(apply ...)` goal display.** Go omitted
    `:precision precise :depth N`: `apply` calls `goal::display(ctx)`, the
