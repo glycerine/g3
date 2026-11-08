@@ -22,10 +22,6 @@ func (t *SMTTheorySeq) getLengthValue(e ast.ASTHandle) (*big.Rat, bool) {
 	seqUnported("get_length")
 	return nil, false
 }
-func (t *SMTTheorySeq) isBinaryEq(l, r []ast.ASTHandle) (x ast.ASTHandle, xs, ys []ast.ASTHandle, y ast.ASTHandle, ok bool) {
-	seqUnported("is_binary_eq")
-	return
-}
 func (t *SMTTheorySeq) isSkolem(s usymbol.Symbol, e ast.ASTHandle) bool {
 	seqUnported("is_skolem")
 	return false
@@ -59,20 +55,28 @@ func (t *SMTTheorySeq) mkSub(a, b ast.ASTHandle) ast.ASTHandle {
 	return ast.ASTHandle{}
 }
 func (t *SMTTheorySeq) newEqEhDep(dep *seqDep, n1, n2 *SMTEnode) { seqUnported("new_eq_eh") }
-func (t *SMTTheorySeq) propagateEqDep(dep *seqDep, e1, e2 ast.ASTHandle, addToEqs bool) {
-	seqUnported("propagate_eq")
-}
 func (t *SMTTheorySeq) propagateEqLits(dep *seqDep, lits []SMTLiteral, e1, e2 ast.ASTHandle, addToEqs bool) {
 	seqUnported("propagate_eq")
 }
-func (t *SMTTheorySeq) propagateEqLit(dep *seqDep, lit SMTLiteral, e1, e2 ast.ASTHandle, addToEqs bool) {
-	seqUnported("propagate_eq")
+
+func (t *SMTTheorySeq) canonize(e ast.ASTHandle, dep **seqDep) ast.ASTHandle {
+	seqUnported("canonize")
+	return ast.ASTHandle{}
 }
-func (t *SMTTheorySeq) propagateLit(dep *seqDep, lits []SMTLiteral, lit SMTLiteral) {
-	seqUnported("propagate_lit")
-}
-func (t *SMTTheorySeq) reduceLengthEq(ls, rs []ast.ASTHandle, dep *seqDep) bool {
-	seqUnported("reduce_length_eq")
+func (t *SMTTheorySeq) canonizeVec(es []ast.ASTHandle, out *seqExprVector, dep **seqDep) bool {
+	seqUnported("canonize")
 	return false
 }
-func (t *SMTTheorySeq) setConflict(dep *seqDep, lits []SMTLiteral) { seqUnported("set_conflict") }
+func (t *SMTTheorySeq) hasLength(e ast.ASTHandle) bool { seqUnported("has_length"); return false }
+func (t *SMTTheorySeq) mkJoinLits(dep *seqDep, lits []SMTLiteral) *seqDep {
+	seqUnported("mk_join")
+	return nil
+}
+func (t *SMTTheorySeq) mkJoinLit(dep *seqDep, lit SMTLiteral) *seqDep {
+	seqUnported("mk_join")
+	return nil
+}
+func (t *SMTTheorySeq) mkSimplifiedLiteral(e ast.ASTHandle) SMTLiteral {
+	seqUnported("mk_simplified_literal")
+	return SMTNullLiteral
+}

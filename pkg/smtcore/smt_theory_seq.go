@@ -834,8 +834,9 @@ type SMTTheorySeq struct {
 	branchStart map[uint32]int
 
 	// maintain automata with regular expressions
-	re2aut map[ast.ASTHandle]*rewriter.StringRegexAutomaton
-	res    seqExprVector
+	automata []*rewriter.StringRegexAutomaton
+	re2aut   map[ast.ASTHandle]*rewriter.StringRegexAutomaton
+	res      seqExprVector
 
 	// queue of asserted atoms
 	atoms          []ast.ASTHandle
