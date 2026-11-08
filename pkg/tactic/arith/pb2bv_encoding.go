@@ -264,7 +264,9 @@ func (t *PB2BVTactic) bitblast(p pbPolynomial, c *big.Rat, s *pbEncodingScope) (
 	}
 	args := make([]ast.ASTHandle, 0, n)
 	for i := range p {
-		lit, err := t.monomialLiteral(p[i].literal)
+		// m.mk_ite(mon_lit2lit(l), mk_numeral(a), mk_numeral(0)): GCC
+		// evaluates the arguments right to left.
+		zero, err := s.hold(m.BitVectorNumeralRat(new(big.Rat), bits))
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -272,7 +274,7 @@ func (t *PB2BVTactic) bitblast(p pbPolynomial, c *big.Rat, s *pbEncodingScope) (
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		zero, err := s.hold(m.BitVectorNumeralRat(new(big.Rat), bits))
+		lit, err := t.monomialLiteral(p[i].literal)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}

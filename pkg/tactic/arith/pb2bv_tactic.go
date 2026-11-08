@@ -145,6 +145,11 @@ func (t *PB2BVTactic) Close() error {
 	if t.closed {
 		return nil
 	}
+	// ~imp: dec_ref_map_key_values(m_const2bit), then
+	// dec_ref_map_values(m_not_const2bit), both in obj_map order.
+	if err := t.orderHeldByObjMap(); err != nil {
+		return err
+	}
 	if err := t.releaseHandles(&t.heldKeys); err != nil {
 		return err
 	}
@@ -343,5 +348,30 @@ func (t *PB2BVTactic) checkpoint() error {
 	if n > t.maxMemory {
 		return tactic.NewTacticException("max. memory exceeded")
 	}
+	return nil
+}
+
+// orderHeldByObjMap arranges the entries' (decl, bit) pins and negations in
+// the iteration order of the source's obj_maps keyed by the decls.
+func (t *PB2BVTactic) orderHeldByObjMap() error {
+	n := len(t.entries)
+	if n == 0 || len(t.heldKeys) != 2*n || len(t.heldNots) != n {
+		return nil
+	}
+	decls := make([]ast.ASTHandle, n)
+	for i, e := range t.entries {
+		decls[i] = e.declaration
+	}
+	order, err := pbObjMapOrder(t.manager, decls)
+	if err != nil {
+		return err
+	}
+	keys := make([]ast.ASTHandle, 0, 2*n)
+	nots := make([]ast.ASTHandle, 0, n)
+	for _, i := range order {
+		keys = append(keys, t.heldKeys[2*i], t.heldKeys[2*i+1])
+		nots = append(nots, t.heldNots[i])
+	}
+	t.heldKeys, t.heldNots = keys, nots
 	return nil
 }
