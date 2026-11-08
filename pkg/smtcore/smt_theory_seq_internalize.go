@@ -312,6 +312,7 @@ func (t *SMTTheorySeq) mkVar(n *SMTEnode) SMTTheoryVar {
 	}
 	v, err := t.CreateVariable(n)
 	t.chk(err)
+	t.ufMkVar()
 	t.chk(t.state.markRelevant(o))
 	return v
 }

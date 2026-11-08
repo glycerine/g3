@@ -847,7 +847,8 @@ type SMTTheorySeq struct {
 
 	fixed seqObjHashtable // string variables that are fixed length
 
-	tmps   seqRefs // expr_ref temporaries released when an entry point returns
+	uf     seqUnionFind // m_find
+	tmps   seqRefs      // expr_ref temporaries released when an entry point returns
 	closed bool
 }
 
