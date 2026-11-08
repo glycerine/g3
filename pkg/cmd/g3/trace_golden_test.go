@@ -87,11 +87,25 @@ func goldenRecordText(r traceRecord) string {
 	return r.text
 }
 
-// goldenVectors are compared when G3_GOLDEN_VECTORS is unset. Each is
-// expected to match z3 record for record at the sites above; add a vector
-// once it does. seq_regex_length_disequality is block 12 of
-// sequence_helper_inventory (see TODO.md item 11).
-var goldenVectors = []string{"seq_regex_length_disequality"}
+// goldenVectorList names the vectors compared when G3_GOLDEN_VECTORS is
+// unset, one per line. Each is expected to match z3 record for record at
+// the sites above; add a vector once it does. seq_regex_length_disequality
+// is block 12 of sequence_helper_inventory (see TODO.md item 11).
+const goldenVectorList = "test_vectors/golden_trace_vectors.txt"
+
+func goldenVectors(t *testing.T) []string {
+	data, err := os.ReadFile(goldenVectorList)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, line := range strings.Split(string(data), "\n") {
+		if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "#") {
+			out = append(out, line)
+		}
+	}
+	return out
+}
 
 const goldenContext = 30
 
@@ -245,7 +259,7 @@ func TestTraceGolden(t *testing.T) {
 	if s := os.Getenv("G3_GOLDEN_TAGS"); s != "" {
 		tags = strings.Split(s, ",")
 	}
-	vectors := goldenVectors
+	vectors := goldenVectors(t)
 	if s := os.Getenv("G3_GOLDEN_VECTORS"); s != "" {
 		vectors = strings.Split(s, ",")
 	}

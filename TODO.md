@@ -176,7 +176,13 @@ Found while matching `-st` output against `build/z3` on
       golden vector (test_vectors/seq_regex_length_disequality.smt2).
       All-stats exact: 580 of 658.
 
-12. **Golden trace coverage.** Port more TRACE records into Go at the
+12. **Golden trace coverage.** 423 of 660 test vectors now match the z3
+    trace build at every golden site (assign_core, decide, add_eq_detail,
+    mk_bool_var, the seq records, and the conflict records with ids
+    masked); they are TestTraceGolden's default vectors
+    (cmd/g3/test_vectors/golden_trace_vectors.txt). The other 237 show
+    where g3 still diverges; run them with G3_GOLDEN_VECTORS=<name>.
+    Port more TRACE records into Go at the
     sites z3 traces (add each to `goldenTraceSites` in
     cmd/g3/trace_golden_test.go). Ported so far: assign_core (with the
     justification display), add_eq_detail, decide, mk_bool_var, mk_enode,
