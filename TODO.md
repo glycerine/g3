@@ -32,11 +32,15 @@ Found while matching `-st` output against `build/z3` on
    the equality-axiom clause count differs. Check 3: different first
    decision.
 
-6. **Typed tactic statistics.** `Tactic.CollectStatistics()` returns
+6. **DONE: Typed tactic statistics.** `Tactic.CollectStatistics()` returned
    `map[string]float64`; C++ `collect_statistics(statistics&)` keeps uint
    and double values apart. Go prints `5.00` where z3 prints `5` and cannot
    sum duplicate keys the way `statistics::display_smt2` does
-   (84 implementers).
+   (84 implementers). Now `CollectStatistics(*statistics.Statistics)`,
+   as `collect_statistics(statistics&)`: implementers add uint and double
+   values, combinators pass the object down, and tactic2solver collects
+   into its result and its own statistics. nlsat reports the five counters
+   of `solver::collect_statistics`; horn keeps only the engine's.
 
 7. **SAT solver statistics.** Statistics from the SAT path differ widely,
    and the SAT solver's `mk bool var` is not reported
