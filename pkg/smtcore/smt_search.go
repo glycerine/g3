@@ -363,7 +363,7 @@ func (k *SMTKernel) endSearch(session *smtSearchSession) (resultErr error) {
 // threshold is reached (the source returns l_undef with m_last_search_failure
 // OK); the caller restarts (search) or raises the limits (get_consequences).
 func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool, error) {
-	queue, baseLevel, conflictBase, resolver, timer := session.queue, session.baseLevel, session.conflictBase, session.resolver, session.timer
+	queue, baseLevel, conflictBase, timer := session.queue, session.baseLevel, session.conflictBase, session.timer
 	restarts := &session.restarts
 	for {
 		exceeded, err := k.searchResourceLimitExceeded(timer, &session.nextProgressSample)
@@ -378,67 +378,13 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 			return lbool.Undef, false, fmt.Errorf("smt search propagate: %w", err)
 		}
 		if !consistent {
-			if err = queue.PrepareConflict(); err != nil {
-				return lbool.Undef, false, fmt.Errorf("smt search prepare conflict: %w", err)
-			}
-			conflict, found := k.internalizer.Conflict()
-			if !found {
-				return lbool.Undef, false, fmt.Errorf("smt search missing conflict: %w", ast.ErrASTDomain)
-			}
-			conflictLiteral := k.internalizer.ConflictLiteral()
-			userBaseLevel := k.internalizer.searchUserBaseLevel
-			resolution, err := resolver.resolve(conflict, conflictLiteral, baseLevel, userBaseLevel)
+			resolved, err := k.resolveSearchConflict(session)
 			if err != nil {
-				return lbool.Undef, false, fmt.Errorf("smt search resolve conflict: %w", err)
+				return lbool.Undef, false, err
 			}
-			if !resolution.Resolved {
-				proof, proofErr := resolver.LemmaProof()
-				if proofErr != nil {
-					return lbool.Undef, false, fmt.Errorf("smt search conflict proof: %w", proofErr)
-				}
-				if err = k.manager.SetRef(k.unsatProof, proof); err != nil {
-					return lbool.Undef, false, fmt.Errorf("smt search retain unsat proof: %w", err)
-				}
-				if err = k.captureUnsatCore(resolver, conflict, conflictLiteral); err != nil {
-					return lbool.Undef, false, fmt.Errorf("smt search capture unsat core: %w", err)
-				}
+			if !resolved {
 				return lbool.False, false, nil
 			}
-			newScopeLevel, err := k.learnedBackjumpLevel(resolution, baseLevel)
-			if err != nil {
-				return lbool.Undef, false, fmt.Errorf("smt search backjump level: %w", err)
-			}
-			if newScopeLevel < baseLevel || newScopeLevel >= k.internalizer.scopeLevel {
-				return lbool.Undef, false, fmt.Errorf("smt search invalid backjump level: %w", ast.ErrASTDomain)
-			}
-			proof, proofErr := resolver.LemmaProof()
-			if proofErr != nil {
-				return lbool.Undef, false, fmt.Errorf("smt search lemma proof: %w", proofErr)
-			}
-			retained, err := k.internalizer.retainLemmaAtoms(resolution.Lemma)
-			if err != nil {
-				return lbool.Undef, false, fmt.Errorf("smt search retain lemma atoms: %w", err)
-			}
-			if err = k.internalizer.PopScopes(k.internalizer.scopeLevel - newScopeLevel); err != nil {
-				err = k.internalizer.disposeLemmaAtoms(retained, err)
-				return lbool.Undef, false, fmt.Errorf("smt search backjump: %w", err)
-			}
-			resolution.Lemma, err = k.internalizer.reinternalizeLemmaAtoms(retained)
-			err = k.internalizer.disposeLemmaAtoms(retained, err)
-			if err != nil {
-				return lbool.Undef, false, fmt.Errorf("smt search reinternalize learned clause: %w", err)
-			}
-			if err = k.internalizer.AddLearnedClauseWithProof(resolution.Lemma, proof); err != nil {
-				return lbool.Undef, false, fmt.Errorf("smt search learn clause: %w", err)
-			}
-			if err = k.internalizer.recordConflictForClauseMaintenance(); err != nil {
-				return lbool.Undef, false, fmt.Errorf("smt search collect learned clauses: %w", err)
-			}
-			k.internalizer.decayBooleanActivity()
-			if err = queue.RecordConflict(); err != nil {
-				return lbool.Undef, false, fmt.Errorf("smt phase cache counter: %w", err)
-			}
-			restarts.conflicts++
 			if k.internalizer.statistics.NumConflicts-conflictBase > k.smtState.MaxConflicts {
 				k.lastFailure = SMTFailureConflictLimit
 				return lbool.Undef, false, nil
@@ -534,4 +480,75 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 			return lbool.Undef, false, ast.ErrASTDomain
 		}
 	}
+}
+
+// resolveSearchConflict is context::resolve_conflict for the session's
+// current conflict. It returns false when the conflict is at the search level
+// (the source returns false after building the proof and unsat core).
+// Otherwise it backjumps, learns the lemma and counts the conflict.
+func (k *SMTKernel) resolveSearchConflict(session *smtSearchSession) (bool, error) {
+	queue, baseLevel, resolver := session.queue, session.baseLevel, session.resolver
+	var err error
+	if err = queue.PrepareConflict(); err != nil {
+		return false, fmt.Errorf("smt search prepare conflict: %w", err)
+	}
+	conflict, found := k.internalizer.Conflict()
+	if !found {
+		return false, fmt.Errorf("smt search missing conflict: %w", ast.ErrASTDomain)
+	}
+	conflictLiteral := k.internalizer.ConflictLiteral()
+	userBaseLevel := k.internalizer.searchUserBaseLevel
+	resolution, err := resolver.resolve(conflict, conflictLiteral, baseLevel, userBaseLevel)
+	if err != nil {
+		return false, fmt.Errorf("smt search resolve conflict: %w", err)
+	}
+	if !resolution.Resolved {
+		proof, proofErr := resolver.LemmaProof()
+		if proofErr != nil {
+			return false, fmt.Errorf("smt search conflict proof: %w", proofErr)
+		}
+		if err = k.manager.SetRef(k.unsatProof, proof); err != nil {
+			return false, fmt.Errorf("smt search retain unsat proof: %w", err)
+		}
+		if err = k.captureUnsatCore(resolver, conflict, conflictLiteral); err != nil {
+			return false, fmt.Errorf("smt search capture unsat core: %w", err)
+		}
+		return false, nil
+	}
+	newScopeLevel, err := k.learnedBackjumpLevel(resolution, baseLevel)
+	if err != nil {
+		return false, fmt.Errorf("smt search backjump level: %w", err)
+	}
+	if newScopeLevel < baseLevel || newScopeLevel >= k.internalizer.scopeLevel {
+		return false, fmt.Errorf("smt search invalid backjump level: %w", ast.ErrASTDomain)
+	}
+	proof, proofErr := resolver.LemmaProof()
+	if proofErr != nil {
+		return false, fmt.Errorf("smt search lemma proof: %w", proofErr)
+	}
+	retained, err := k.internalizer.retainLemmaAtoms(resolution.Lemma)
+	if err != nil {
+		return false, fmt.Errorf("smt search retain lemma atoms: %w", err)
+	}
+	if err = k.internalizer.PopScopes(k.internalizer.scopeLevel - newScopeLevel); err != nil {
+		err = k.internalizer.disposeLemmaAtoms(retained, err)
+		return false, fmt.Errorf("smt search backjump: %w", err)
+	}
+	resolution.Lemma, err = k.internalizer.reinternalizeLemmaAtoms(retained)
+	err = k.internalizer.disposeLemmaAtoms(retained, err)
+	if err != nil {
+		return false, fmt.Errorf("smt search reinternalize learned clause: %w", err)
+	}
+	if err = k.internalizer.AddLearnedClauseWithProof(resolution.Lemma, proof); err != nil {
+		return false, fmt.Errorf("smt search learn clause: %w", err)
+	}
+	if err = k.internalizer.recordConflictForClauseMaintenance(); err != nil {
+		return false, fmt.Errorf("smt search collect learned clauses: %w", err)
+	}
+	k.internalizer.decayBooleanActivity()
+	if err = queue.RecordConflict(); err != nil {
+		return false, fmt.Errorf("smt phase cache counter: %w", err)
+	}
+	session.restarts.conflicts++
+	return true, nil
 }
