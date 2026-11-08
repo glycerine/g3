@@ -354,7 +354,7 @@ func (r *ArithRewriter) rewriteNegativePolynomialComparison(kind int32, left, ri
 	return true, r.manager.SetRef(out, result)
 }
 
-func (r *ArithRewriter) rewriteComparison(kind int32, left, right ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
+func (r *ArithRewriter) rewriteComparison(kind int32, left, right ast.ASTHandle, out ast.ASTRef) (status RewriteStatus, err error) {
 	if kind == arithOpLT || kind == arithOpGT {
 		a, b := right, left
 		if kind == arithOpGT {
@@ -381,11 +381,34 @@ func (r *ArithRewriter) rewriteComparison(kind int32, left, right ast.ASTHandle,
 		}
 		return Rewrite1, r.manager.SetRef(out, result)
 	}
+	// mk_le_ge_eq_core's expr_ref locals new_arg1, new_arg2, new_new_arg1
+	// and new_new_arg2 release their values when it returns (reverse
+	// declaration order), freeing rewriting temporaries the result does
+	// not reuse.
+	var locals [4]ast.ASTRef
+	defer func() {
+		for i := len(locals) - 1; i >= 0; i-- {
+			if locals[i] != (ast.ASTRef{}) {
+				err = errors.Join(err, r.manager.DelRef(&locals[i]))
+			}
+		}
+	}()
+	hold := func(slot int, h ast.ASTHandle) error {
+		ref, e := r.manager.NewRef(h)
+		locals[slot] = ref
+		return e
+	}
 	newLeft, newRight, changed, err := r.cancelMonomials(left, right, r.arithIneqLHS || r.arithLHS)
 	if err != nil {
 		return RewriteFailed, err
 	}
 	if changed {
+		if err = hold(0, newLeft); err == nil {
+			err = hold(1, newRight)
+		}
+		if err != nil {
+			return RewriteFailed, err
+		}
 		left, right = newLeft, newRight
 	}
 	if r.elimToReal {
@@ -394,6 +417,12 @@ func (r *ArithRewriter) rewriteComparison(kind int32, left, right ast.ASTHandle,
 			return RewriteFailed, e
 		}
 		if eliminated {
+			if e = hold(2, newLeft); e == nil {
+				e = hold(3, newRight)
+			}
+			if e != nil {
+				return RewriteFailed, e
+			}
 			left, right, changed = newLeft, newRight, true
 		}
 	}
