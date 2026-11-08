@@ -19,6 +19,11 @@ type SMTCheckerContext struct {
 	enodes           smtEnodeTable
 	byDeclaration    map[ast.ASTHandle][]*SMTEnode
 	disequalityTrail []smtDisequalityUndo
+	// diseqTmp is the owner of context::m_is_diseq_tmp: is_diseq builds
+	// (= n1 n2) once per argument sort and holds it until the sort changes
+	// or the context is flushed.
+	diseqTmp     ast.ASTRef
+	diseqTmpHeld bool
 }
 
 // Source context::is_relevant includes all expressions when filtering is
@@ -129,8 +134,56 @@ func (c *SMTCheckerContext) undoDisequalities(limit int) error {
 }
 
 func (c *SMTCheckerContext) isDisequal(first, second *SMTEnode) bool {
+	c.holdDiseqTmp(first, second)
 	_, found := smtFindDisequality(first, second)
 	return found
+}
+
+// holdDiseqTmp keeps m_is_diseq_tmp's equality alive as context::is_diseq
+// does. It only affects AST lifetimes; a failure leaves the lookup intact.
+func (c *SMTCheckerContext) holdDiseqTmp(first, second *SMTEnode) {
+	m := c.manager
+	if m == nil || first == nil || second == nil {
+		return
+	}
+	if c.diseqTmpHeld {
+		current, err := m.RefGet(c.diseqTmp)
+		if err != nil {
+			return
+		}
+		arg, err := m.GetArg(current, 0)
+		if err != nil {
+			return
+		}
+		held, err1 := m.GetSort(arg)
+		wanted, err2 := m.GetSort(first.owner)
+		if err1 != nil || err2 != nil || held == wanted {
+			return
+		}
+		// m_manager.dec_ref(m_is_diseq_tmp->get_owner()) before mk_eq.
+		c.diseqTmpHeld = false
+		if err = m.DelRef(&c.diseqTmp); err != nil {
+			return
+		}
+	}
+	eq, err := m.MkEq(first.owner, second.owner)
+	if err != nil {
+		return
+	}
+	ref, err := m.NewRef(eq)
+	if err != nil {
+		return
+	}
+	c.diseqTmp, c.diseqTmpHeld = ref, true
+}
+
+// releaseDiseqTmp is context::flush's release of m_is_diseq_tmp.
+func (c *SMTCheckerContext) releaseDiseqTmp() error {
+	if c == nil || !c.diseqTmpHeld {
+		return nil
+	}
+	c.diseqTmpHeld = false
+	return c.manager.DelRef(&c.diseqTmp)
 }
 
 type smtCheckerTruthKey struct {

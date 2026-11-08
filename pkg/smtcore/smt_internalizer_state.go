@@ -1469,6 +1469,11 @@ func (s *SMTInternalizerState) Close() error {
 		s.quantifiers.popScheduled = false
 		s.quantifiers = nil
 	}
+	if s.context != nil {
+		if err := s.context.releaseDiseqTmp(); err != nil {
+			return err
+		}
+	}
 	if err := s.congruence.Close(); err != nil {
 		return err
 	}
