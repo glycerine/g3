@@ -201,11 +201,15 @@ func (i *Info) Close() error {
 	if i.closed {
 		return nil
 	}
-	if i.replacer != nil {
-		if err := i.replacer.Close(); err != nil {
+	// ~ackr_info: the body releases the m_t2c references, then the members
+	// die in reverse order: m_subst, then m_er (whose cache may hold the
+	// last references).
+	for len(i.held) > 0 {
+		n := len(i.held) - 1
+		if err := i.manager.DecRef(i.held[n]); err != nil {
 			return err
 		}
-		i.replacer = nil
+		i.held = i.held[:n]
 	}
 	if i.substitutionReady {
 		if err := i.manager.DelExprSubstitution(&i.substitution); err != nil {
@@ -213,12 +217,11 @@ func (i *Info) Close() error {
 		}
 		i.substitutionReady = false
 	}
-	for len(i.held) > 0 {
-		n := len(i.held) - 1
-		if err := i.manager.DecRef(i.held[n]); err != nil {
+	if i.replacer != nil {
+		if err := i.replacer.Close(); err != nil {
 			return err
 		}
-		i.held = i.held[:n]
+		i.replacer = nil
 	}
 	i.terms = nil
 	i.constants = nil

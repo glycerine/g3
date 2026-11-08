@@ -250,7 +250,11 @@ func (r *eagerEncoder) abstract() error {
 func (r *eagerEncoder) ackermann(first, second ast.ASTHandle) (err error) {
 	m := r.owner.manager
 	start := len(r.scratch)
-	defer func() { err = errors.Join(err, r.releaseScratch(start)) }()
+	// The locals die in reverse order when ackr returns: cga (r.simplified)
+	// first, then cg, rhs, lhs and eqs (the scratch entries).
+	defer func() {
+		err = errors.Join(err, m.SetRef(r.simplified, ast.ASTHandle{}), r.releaseScratch(start))
+	}()
 	if err = r.emit("ackr", 92, func(w io.Writer) error {
 		if _, e := io.WriteString(w, "ackr "); e != nil {
 			return e
@@ -363,6 +367,10 @@ func (r *eagerEncoder) ackermann(first, second ast.ASTHandle) (err error) {
 		return err
 	}
 	if err = r.simplifier.Rewrite(abstract, r.simplified); err != nil {
+		return err
+	}
+	// m_simp(cga) assigns its result to cga, releasing the abstraction.
+	if err = m.SetRef(r.out, ast.ASTHandle{}); err != nil {
 		return err
 	}
 	lemma, err := m.RefGet(r.simplified)

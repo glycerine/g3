@@ -961,14 +961,27 @@ func (t *SMTBitVectorTheory) Close() error {
 	if err := t.releaseTemporary(); err != nil {
 		return err
 	}
+	// As on a pop, the bit2bool atoms die newest first (the source frees
+	// them while undoing its trail); entries outside the trail follow.
 	owned := make([]ast.ASTHandle, 0, len(t.bitOwners))
-	for expression := range t.bitOwners {
-		owned = append(owned, expression)
+	seen := make(map[ast.ASTHandle]bool, len(t.bitOwners))
+	for k := len(t.bitTrail) - 1; k >= 0; k-- {
+		if expression := t.bitTrail[k]; t.bitOwners[expression] != nil && !seen[expression] {
+			seen[expression] = true
+			owned = append(owned, expression)
+		}
 	}
-	ast.SortHandles(owned)
+	var rest []ast.ASTHandle
+	for expression := range t.bitOwners {
+		if !seen[expression] {
+			rest = append(rest, expression)
+		}
+	}
+	ast.SortHandles(rest)
+	owned = append(owned, rest...)
 	for _, expression := range owned {
 		owner := t.bitOwners[expression]
-		for i := range owner {
+		for i := len(owner) - 1; i >= 0; i-- {
 			if owner[i] == (ast.ASTRef{}) {
 				continue
 			}
