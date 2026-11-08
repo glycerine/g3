@@ -197,6 +197,12 @@ Found while matching `-st` output against `build/z3` on
       unmark_justifications(0)), so a justification or equality already
       explained adds no antecedents again; g3's expander cleaned up after
       every expansion and re-reported them (489 matching).
+    - Boolean class propagation is now a port of propagate_bool_var_enode
+      (walk from the assigned node's successor, only if it is the root,
+      the root is irrelevant, or the root has another value; mp_iff
+      justifications) and of propagate_bool_enode_assignment(_core),
+      which add_eq runs before merging the class rings. g3 scanned the
+      merged class from the root (495 matching).
     Many remaining equality-order differences come from AST ids
     (mk_eq_atom orders by id), i.e. item 3.
     The remaining vectors show where g3 still diverges; run them with

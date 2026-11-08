@@ -64,18 +64,18 @@ func TestOptimizationFrontendWCNFSortMax(t *testing.T) {
 func TestOptimizationFrontendResourceLimitedOPBBounds(t *testing.T) {
 	input := "min: 1 ~x1 +2 ~x2 +3 ~x3 +4 ~x4 +5 ~x5 +6 ~x6;\n" +
 		"1 x1 +1 x2 +1 x3 +1 x4 +1 x5 +1 x6 <= 5;\n"
-	// Work limits select a search checkpoint, not an invariant model order.
-	// The explicitly seeded phases pass incumbents of cost 6, 5, 3 and 1;
-	// keep coverage of an interrupted intermediate bound (cost 3) there, and
-	// require the tighter cost-1 bound on the default path. Neither may
-	// report an optimum.
+	// Work limits select a search checkpoint, not an invariant model order
+	// (z3 4.7.1 finishes both runs within these limits). The seeded run
+	// keeps coverage of an interrupted intermediate bound (cost 4 since
+	// Boolean class propagation follows propagate_bool_var_enode), and the
+	// default path the tighter cost-1 bound. Neither may report an optimum.
 	for _, test := range []struct {
 		name string
 		args []string
 		want string
 	}{
 		{"default-phase", []string{"rlimit=280", "-bpo", "-in"}, "unknown\n  [0:1]\n"},
-		{"seeded-phase", []string{"rlimit=320", "smt.phase_selection=5", "smt.random_seed=0", "-bpo", "-in"}, "unknown\n  [0:3]\n"},
+		{"seeded-phase", []string{"rlimit=320", "smt.phase_selection=5", "smt.random_seed=0", "-bpo", "-in"}, "unknown\n  [0:4]\n"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer

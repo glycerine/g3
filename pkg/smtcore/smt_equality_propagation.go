@@ -353,77 +353,6 @@ func (s *SMTInternalizerState) reinsertCongruenceParents(from, to *SMTEnode) err
 	return nil
 }
 
-func (s *SMTInternalizerState) propagateBooleanClass(root *SMTEnode) error {
-	if root == nil || !root.boolean {
-		return nil
-	}
-	var source *SMTEnode
-	value := lbool.Undef
-	for node := root; ; node = node.next {
-		if s.manager.IsTrue(node.owner) || s.manager.IsFalse(node.owner) {
-			source, value = node, lbool.False
-			if s.manager.IsTrue(node.owner) {
-				value = lbool.True
-			}
-			break
-		}
-		if variable, found := s.boolVar.lookup(node.owner); found {
-			assigned, err := s.Assignment(NewSMTLiteral(variable, false))
-			if err != nil {
-				return err
-			}
-			if assigned != lbool.Undef {
-				source, value = node, assigned
-				break
-			}
-		}
-		if node.next == root {
-			break
-		}
-	}
-	if source == nil {
-		return nil
-	}
-	for node := root; ; node = node.next {
-		if variable, found := s.boolVar.lookup(node.owner); found && node != source {
-			literal := NewSMTLiteral(variable, value == lbool.False)
-			assigned, e := s.Assignment(literal)
-			if e != nil {
-				return e
-			}
-			if assigned == lbool.True {
-				if node.next == root {
-					break
-				}
-				continue
-			}
-			var justification SMTJustification
-			var err error
-			if s.manager.IsTrue(source.owner) || s.manager.IsFalse(source.owner) {
-				justification, err = NewSMTEqualityRootJustification(node)
-			} else {
-				justification, err = NewSMTModusPonensIffJustification(source, node)
-			}
-			if err != nil {
-				return err
-			}
-			wrapped, err := NewSMTBooleanJustification(justification)
-			if err != nil {
-				return err
-			}
-			if err = s.AssignLiteral(literal, wrapped); err != nil {
-				return err
-			}
-			if s.inconsistent {
-				return nil
-			}
-		}
-		if node.next == root {
-			break
-		}
-	}
-	return nil
-}
 
 // The source context creates true/false enodes at initialization. The concrete
 // Go context creates them when a Boolean value first participates as a term.
@@ -464,10 +393,37 @@ func (s *SMTInternalizerState) propagateBooleanEnode(variable int32, node *SMTEn
 			return err
 		}
 	}
-	// Source propagate_bool_var_enode also transfers the assignment to the
-	// other members of the class when merge_tf is disabled. Congruent Boolean
-	// terms can have merged before any member received a truth value.
-	return s.propagateBooleanClass(node.root)
+	// propagate_bool_var_enode: move the truth value to the other members
+	// of the class if node is the root, the root is not relevant, or the
+	// root's variable has another value.
+	r := node.root
+	if s.isBooleanValueEnode(r) {
+		return nil
+	}
+	rv, found := s.boolVar.lookup(r.owner)
+	rootValue := lbool.Undef
+	if found {
+		rootValue = s.assignment[NewSMTLiteral(rv, false).Index()]
+	}
+	if node != r && s.enodeRelevant(r) && rootValue == value {
+		return nil
+	}
+	sign := value == lbool.False
+	first := node
+	for n := node.next; n != first; n = n.next {
+		v2, found := s.boolVar.lookup(n.owner)
+		if !found || s.assignment[NewSMTLiteral(v2, false).Index()] == value {
+			continue
+		}
+		j, err := NewSMTModusPonensIffJustification(first, n)
+		if err != nil {
+			return err
+		}
+		if err = s.assignWithJustification(NewSMTLiteral(v2, sign), j); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // propagateEqualityClassRelevancy is the relevancy step of context::add_eq,
@@ -536,22 +492,112 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 			break
 		}
 	}
-	r1.next, r2.next = r2.next, r1.next
-	r2.classSize += r1.classSize
-	r2.disequalities = append(r2.disequalities, r1.disequalities...)
 	if err := s.reinsertCongruenceParents(r1, r2); err != nil {
 		return fmt.Errorf("reinsert congruence parents: %w", err)
 	}
+	// add_eq: propagate_bool_enode_assignment runs before the classes'
+	// rings are merged.
+	if right.boolean {
+		if err := s.propagateBoolEnodeAssignment(r1, r2, left, right); err != nil {
+			return fmt.Errorf("propagate Boolean equality class: %w", err)
+		}
+	}
+	r1.next, r2.next = r2.next, r1.next
+	r2.classSize += r1.classSize
+	r2.disequalities = append(r2.disequalities, r1.disequalities...)
 	if s.quantifierManager != nil && s.quantifierManager.ematching && !s.quantifierManager.registry.Empty() {
 		s.quantifierManager.mam.AddEquality(r1, r2)
 	}
-	if err := s.propagateBooleanClass(r2); err != nil {
-		return fmt.Errorf("propagate Boolean equality class: %w", err)
+	return nil
+}
+
+func (s *SMTInternalizerState) isBooleanValueEnode(n *SMTEnode) bool {
+	return s.manager.IsTrue(n.owner) || s.manager.IsFalse(n.owner)
+}
+
+func (s *SMTInternalizerState) enodeRelevant(n *SMTEnode) bool {
+	if s.relevancy == nil || !s.relevancy.enabled {
+		return true
 	}
-	if s.inconsistent {
+	return s.relevancy.IsRelevant(n.owner)
+}
+
+// propagateBoolEnodeAssignment is context::propagate_bool_enode_assignment.
+func (s *SMTInternalizerState) propagateBoolEnodeAssignment(r1, r2, n1, n2 *SMTEnode) error {
+	if s.isBooleanValueEnode(r2) {
+		sign := s.manager.IsFalse(r2.owner)
+		for curr := r1; ; {
+			if v, found := s.boolVar.lookup(curr.owner); found {
+				l := NewSMTLiteral(v, sign)
+				if s.assignment[l.Index()] != lbool.True {
+					j, err := NewSMTEqualityRootJustification(curr)
+					if err != nil {
+						return err
+					}
+					if err = s.assignWithJustification(l, j); err != nil {
+						return err
+					}
+				}
+			}
+			curr = curr.next
+			if curr == r1 {
+				return nil
+			}
+		}
+	}
+	v1, ok1 := s.boolVar.lookup(n1.owner)
+	v2, ok2 := s.boolVar.lookup(n2.owner)
+	if !ok1 || !ok2 {
 		return nil
 	}
-	return nil
+	val1 := s.assignment[NewSMTLiteral(v1, false).Index()]
+	val2 := s.assignment[NewSMTLiteral(v2, false).Index()]
+	if val1 == val2 {
+		return nil
+	}
+	if val2 == lbool.Undef {
+		return s.propagateBoolEnodeAssignmentCore(n1, n2)
+	}
+	return s.propagateBoolEnodeAssignmentCore(n2, n1)
+}
+
+// propagateBoolEnodeAssignmentCore is
+// context::propagate_bool_enode_assignment_core: the target's class takes
+// the source's value (the classes are not merged yet).
+func (s *SMTInternalizerState) propagateBoolEnodeAssignmentCore(source, target *SMTEnode) error {
+	vs, found := s.boolVar.lookup(source.owner)
+	if !found {
+		return nil
+	}
+	val := s.assignment[NewSMTLiteral(vs, false).Index()]
+	if val == lbool.Undef {
+		return nil
+	}
+	sign := val == lbool.False
+	first := target
+	for {
+		if v2, found := s.boolVar.lookup(target.owner); found && s.assignment[NewSMTLiteral(v2, false).Index()] != val {
+			j, err := NewSMTModusPonensIffJustification(source, target)
+			if err != nil {
+				return err
+			}
+			if err = s.assignWithJustification(NewSMTLiteral(v2, sign), j); err != nil {
+				return err
+			}
+		}
+		target = target.next
+		if target == first {
+			return nil
+		}
+	}
+}
+
+func (s *SMTInternalizerState) assignWithJustification(l SMTLiteral, j SMTJustification) error {
+	wrapped, err := NewSMTBooleanJustification(j)
+	if err != nil {
+		return err
+	}
+	return s.AssignLiteral(l, wrapped)
 }
 
 // Source context::assign_eq/push_eq only enqueue; add_eq runs later during
