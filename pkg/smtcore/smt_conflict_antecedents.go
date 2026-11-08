@@ -336,3 +336,42 @@ func (e *SMTAntecedentExpander) ResetUses() {
 		e.equalityUses = e.equalityUses[:0]
 	}
 }
+
+// beginSession starts a conflict_resolution::resolve pass: justification
+// marks and processed equalities persist across its expansions, so a
+// justification or equality already explained in this resolve adds no
+// antecedents again. endSession is unmark_justifications(0).
+func (e *SMTAntecedentExpander) beginSession() error {
+	if err := e.valid(); err != nil {
+		return err
+	}
+	if e.active {
+		return ast.ErrASTDomain
+	}
+	e.active = true
+	return nil
+}
+
+// expandInSession is process_justification's justification2literals_core:
+// only the antecedent buffer is reset.
+func (e *SMTAntecedentExpander) expandInSession(justification SMTJustification) ([]SMTLiteral, error) {
+	if !e.active || justification == nil {
+		return nil, ast.ErrASTDomain
+	}
+	e.antecedents = e.antecedents[:0]
+	if err := e.MarkJustification(justification); err != nil {
+		return nil, err
+	}
+	if err := e.process(); err != nil {
+		return nil, err
+	}
+	e.result = append(e.result[:0], e.antecedents...)
+	return e.result, nil
+}
+
+func (e *SMTAntecedentExpander) endSession() error {
+	if !e.active {
+		return nil
+	}
+	return e.cleanup()
+}

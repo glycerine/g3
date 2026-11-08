@@ -192,6 +192,11 @@ Found while matching `-st` output against `build/z3` on
       epsilon arguments and f(epsilon...) (the other default axioms build
       the value first), which fixes the ids and the equality's argument
       order (485 matching; AST logs 101 identical).
+    - conflict_resolution keeps justification marks and the processed-
+      equality set for a whole resolve (until finalize_resolve's
+      unmark_justifications(0)), so a justification or equality already
+      explained adds no antecedents again; g3's expander cleaned up after
+      every expansion and re-reported them (489 matching).
     Many remaining equality-order differences come from AST ids
     (mk_eq_atom orders by id), i.e. item 3.
     The remaining vectors show where g3 still diverges; run them with

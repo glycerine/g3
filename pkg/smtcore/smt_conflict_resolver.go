@@ -406,7 +406,7 @@ func (r *SMTConflictResolver) Resolve(conflict SMTBooleanJustification, notLiter
 
 // The search level includes temporary assumptions, while the user base does
 // not. Assumption-level antecedents must remain in learned clauses and cores.
-func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiteral SMTLiteral, searchLevel, userBaseLevel uint32) (SMTConflictResolution, error) {
+func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiteral SMTLiteral, searchLevel, userBaseLevel uint32) (_ SMTConflictResolution, resolveErr error) {
 	if r == nil || r.state == nil || r.expander == nil || r.closed || r.state.open() != nil {
 		return SMTConflictResolution{}, ast.ErrASTHandle
 	}
@@ -446,6 +446,15 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 	}
 	st.traceConflict("initialize_resolve", 411, func() string { return fmt.Sprintf("conflict_lvl: %d\n", conflictLevel) })
 	marks := r.resetMarks()
+	if err = r.expander.beginSession(); err != nil {
+		return SMTConflictResolution{}, err
+	}
+	sessionOpen := true
+	defer func() {
+		if sessionOpen {
+			resolveErr = errors.Join(resolveErr, r.expander.endSession())
+		}
+	}()
 	lemma := []SMTLiteral{SMTNullLiteral}
 	numMarks := 0
 	processAntecedent := func(literal SMTLiteral) error {
@@ -511,7 +520,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 				}
 			}
 			if clause.justification != nil {
-				antecedents, err := r.expander.expandReusing(clause.justification)
+				antecedents, err := r.expander.expandInSession(clause.justification)
 				if err != nil {
 					return err
 				}
@@ -533,7 +542,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 			if !ok || object == nil {
 				return ast.ErrASTDomain
 			}
-			antecedents, err := r.expander.expandReusing(object)
+			antecedents, err := r.expander.expandInSession(object)
 			if err != nil {
 				return fmt.Errorf("expand %s: %w", object.Name(), err)
 			}
@@ -589,6 +598,11 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 	}
 	st.traceConflict("resolve", 573, func() string { return "FUIP: " + st.traceLiteralCompact(consequent) + "\n" })
 	lemma[0] = consequent.Negated()
+	// finalize_resolve: unmark_justifications(0)
+	sessionOpen = false
+	if err = r.expander.endSession(); err != nil {
+		return SMTConflictResolution{}, err
+	}
 	st.traceConflict("finalize_resolve", 432, func() string { return "before minimization:\n" + st.traceLiteralsCompact(lemma) + "\n" })
 	lemma, err = r.minimizeLemma(lemma, marks, levels, userBaseLevel)
 	if err != nil {
