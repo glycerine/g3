@@ -466,28 +466,20 @@ func (c *Context) WriteValuesWithTextAtModelIndex(out io.Writer, expressions []a
 		return err
 	}
 	defer func() { result = errors.Join(result, md.DecRef()) }()
-	evaluator, err := model.NewModelEvaluator(md, c.config.ModelEvaluator)
-	if evaluator != nil {
-		defer func() { result = errors.Join(result, evaluator.Close()) }()
-	}
-	if err != nil {
-		return err
-	}
-	if err = evaluator.SetModelCompletion(true); err != nil {
-		return err
-	}
 	if _, err = io.WriteString(out, "("); err != nil {
 		return err
 	}
 	for i, expression := range expressions {
-		if i > 0 {
-			if _, err = io.WriteString(out, "\n "); err != nil {
-				return err
-			}
-		}
-		value, err := evaluator.EvaluateValue(expression)
+		// md->eval(e, v, true): model::eval builds its own model_evaluator,
+		// which (with its cache) is gone before v is printed.
+		value, err := c.evaluateWithFreshEvaluator(md, expression)
 		if err != nil {
 			return err
+		}
+		if i > 0 {
+			if _, err = io.WriteString(out, "\n "); err != nil {
+				return errors.Join(err, c.manager.DelRef(&value))
+			}
 		}
 		term := ""
 		if text != nil {
@@ -643,4 +635,19 @@ func (c *Context) WriteProof(out io.Writer) error {
 	}
 	_, err = io.WriteString(out, "\n")
 	return err
+}
+
+// evaluateWithFreshEvaluator is model::eval(e, result, true).
+func (c *Context) evaluateWithFreshEvaluator(md *model.ModelCore, expression ast.ASTHandle) (value ast.ASTRef, result error) {
+	evaluator, err := model.NewModelEvaluator(md, c.config.ModelEvaluator)
+	if evaluator != nil {
+		defer func() { result = errors.Join(result, evaluator.Close()) }()
+	}
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	if err = evaluator.SetModelCompletion(true); err != nil {
+		return ast.ASTRef{}, err
+	}
+	return evaluator.EvaluateValue(expression)
 }

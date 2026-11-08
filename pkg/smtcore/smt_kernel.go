@@ -1584,13 +1584,25 @@ func (k *SMTKernel) Close() error {
 		}
 		k.internalizer = nil
 	}
-	// Pending internalizer scope cleanup can rebuild learned clauses through
-	// its borrowed theory rewriter. Close that borrower before its owner.
-	if k.preprocessor != nil {
-		if err := k.preprocessor.Close(); err != nil {
+	// The internalizer (context::flush) is closed above, before the
+	// asserted formulas' theory rewriter it borrows.
+	if k.assertedMacros != nil {
+		if err := k.assertedMacros.Close(); err != nil {
 			return err
 		}
-		k.preprocessor = nil
+		k.assertedMacros = nil
+	}
+	// ~asserted_formulas destroys its members in reverse order: the macro
+	// manager, m_formulas, m_defined_names, m_scoped_substitution,
+	// m_substitution and finally m_rewriter.
+	if err := k.restoreAssertions(0); err != nil {
+		return err
+	}
+	if k.definedNames != nil {
+		if err := k.definedNames.Close(); err != nil {
+			return err
+		}
+		k.definedNames = nil
 	}
 	if k.assertedScopedSubst != (ast.ASTScopedExprSubstitution{}) {
 		if err := k.manager.DelScopedExprSubstitution(&k.assertedScopedSubst); err != nil {
@@ -1602,17 +1614,11 @@ func (k *SMTKernel) Close() error {
 			return err
 		}
 	}
-	if k.assertedMacros != nil {
-		if err := k.assertedMacros.Close(); err != nil {
+	if k.preprocessor != nil {
+		if err := k.preprocessor.Close(); err != nil {
 			return err
 		}
-		k.assertedMacros = nil
-	}
-	if k.definedNames != nil {
-		if err := k.definedNames.Close(); err != nil {
-			return err
-		}
-		k.definedNames = nil
+		k.preprocessor = nil
 	}
 	if k.quantifierCosts != nil {
 		if err := k.quantifierCosts.Close(); err != nil {
