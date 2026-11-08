@@ -256,231 +256,282 @@ func (k *SMTKernel) learnedBackjumpLevel(resolution SMTConflictResolution, baseL
 	return level, nil
 }
 
+// smtSearchSession holds the state of one context::search: init_search,
+// the bounded_search rounds, and the end_search cleanup. get_consequences
+// drives bounded_search itself between its own decisions.
+type smtSearchSession struct {
+	queue              *SMTActivityCaseSplitQueue
+	baseLevel          uint32
+	conflictBase       uint32
+	restarts           smtRestartState
+	nextProgressSample uint32
+	timer              *stopwatch.Timer
+	resolver           *SMTConflictResolver
+}
+
 // search runs the retained CDCL control loop. Learned clauses are installed at
 // the computed backjump scope and therefore participate in the next propagation
 // pass instead of re-exploring the conflicting branch.
 func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
-	if err := k.internalizer.InitializeTheorySearch(); err != nil {
+	session, err := k.beginSearch()
+	if err != nil {
 		return lbool.Undef, err
 	}
+	defer func() {
+		resultErr = errors.Join(resultErr, k.endSearch(session))
+		if resultErr != nil {
+			result = lbool.Undef
+		}
+	}()
+	for {
+		status, restartDue, err := k.boundedSearch(session)
+		if err != nil {
+			return lbool.Undef, err
+		}
+		if !restartDue {
+			return status, nil
+		}
+		if err = k.restartSearch(session.baseLevel, &session.restarts); err != nil {
+			return lbool.Undef, fmt.Errorf("smt search restart: %w", err)
+		}
+	}
+}
+
+// beginSearch is init_search with the search persistence boundary.
+func (k *SMTKernel) beginSearch() (*smtSearchSession, error) {
+	if err := k.internalizer.InitializeTheorySearch(); err != nil {
+		return nil, err
+	}
 	if err := k.manager.ResetRef(k.unsatProof); err != nil {
-		return lbool.Undef, err
+		return nil, err
 	}
 	queue := k.caseSplitQueue
 	if queue == nil {
 		if err := k.configureQueueHeuristics(k.smtState, false); err != nil {
-			return lbool.Undef, err
+			return nil, err
 		}
 		queue = k.caseSplitQueue
 	}
 	// Source init_search resets only the default phase, not cache counters.
 	queue.phaseDefault = false
-	baseLevel := k.internalizer.scopeLevel
-	conflictBase := k.internalizer.statistics.NumConflicts
-	restarts := newSMTRestartState(k.smtState)
-	var nextProgressSample uint32
+	session := &smtSearchSession{
+		queue:        queue,
+		baseLevel:    k.internalizer.scopeLevel,
+		conflictBase: k.internalizer.statistics.NumConflicts,
+		restarts:     newSMTRestartState(k.smtState),
+	}
 	timer, err := stopwatch.NewTimer(k.timerClock)
 	if err != nil {
-		return lbool.Undef, err
+		return nil, err
 	}
+	session.timer = timer
 	resolver, err := NewSMTConflictResolver(k.internalizer)
 	if err != nil {
-		return lbool.Undef, errors.Join(err, timer.Close())
+		return nil, errors.Join(err, timer.Close())
 	}
+	session.resolver = resolver
 	if err = k.internalizer.resetBooleanActivityCache(); err != nil {
-		return lbool.Undef, errors.Join(err, resolver.Close(), timer.Close())
+		return nil, errors.Join(err, resolver.Close(), timer.Close())
 	}
-	if err = k.internalizer.beginSearchPersistence(baseLevel, k.smtState); err != nil {
-		return lbool.Undef, errors.Join(err, resolver.Close(), timer.Close())
+	if err = k.internalizer.beginSearchPersistence(session.baseLevel, k.smtState); err != nil {
+		return nil, errors.Join(err, resolver.Close(), timer.Close())
 	}
 	if k.assumptions != nil {
 		k.internalizer.searchUserBaseLevel--
 	}
-	defer func() {
-		if closeErr := resolver.Close(); closeErr != nil {
-			resultErr = errors.Join(resultErr, fmt.Errorf("smt search close resolver: %w", closeErr))
-		}
-		if closeErr := timer.Close(); closeErr != nil {
-			resultErr = errors.Join(resultErr, fmt.Errorf("smt search close timer: %w", closeErr))
-		}
-		// context::search leaves its scopes in place; the next assert, push,
-		// pop or check restores the base level through pop_to_base_lvl.
-		if resultErr != nil {
-			result = lbool.Undef
-		}
-		if persistenceErr := k.internalizer.endSearchPersistence(); persistenceErr != nil {
-			resultErr = errors.Join(resultErr, fmt.Errorf("smt search end persistence: %w", persistenceErr))
-		}
-	}()
+	return session, nil
+}
+
+// endSearch is end_search: it closes the session's resolver and timer and the
+// search persistence boundary. context::search leaves its scopes in place;
+// the next assert, push, pop or check restores the base level through
+// pop_to_base_lvl.
+func (k *SMTKernel) endSearch(session *smtSearchSession) (resultErr error) {
+	if closeErr := session.resolver.Close(); closeErr != nil {
+		resultErr = errors.Join(resultErr, fmt.Errorf("smt search close resolver: %w", closeErr))
+	}
+	if closeErr := session.timer.Close(); closeErr != nil {
+		resultErr = errors.Join(resultErr, fmt.Errorf("smt search close timer: %w", closeErr))
+	}
+	if persistenceErr := k.internalizer.endSearchPersistence(); persistenceErr != nil {
+		resultErr = errors.Join(resultErr, fmt.Errorf("smt search end persistence: %w", persistenceErr))
+	}
+	return resultErr
+}
+
+// boundedSearch is bounded_search. It returns restartDue when the restart
+// threshold is reached (the source returns l_undef with m_last_search_failure
+// OK); the caller restarts (search) or raises the limits (get_consequences).
+func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool, error) {
+	queue, baseLevel, conflictBase, resolver, timer := session.queue, session.baseLevel, session.conflictBase, session.resolver, session.timer
+	restarts := &session.restarts
 	for {
-		exceeded, err := k.searchResourceLimitExceeded(timer, &nextProgressSample)
+		exceeded, err := k.searchResourceLimitExceeded(timer, &session.nextProgressSample)
 		if err != nil {
-			return lbool.Undef, fmt.Errorf("smt search resource check: %w", err)
+			return lbool.Undef, false, fmt.Errorf("smt search resource check: %w", err)
 		}
 		if exceeded {
-			return lbool.Undef, nil
+			return lbool.Undef, false, nil
 		}
 		consistent, err := k.internalizer.PropagateCore()
 		if err != nil {
-			return lbool.Undef, fmt.Errorf("smt search propagate: %w", err)
+			return lbool.Undef, false, fmt.Errorf("smt search propagate: %w", err)
 		}
 		if !consistent {
 			if err = queue.PrepareConflict(); err != nil {
-				return lbool.Undef, fmt.Errorf("smt search prepare conflict: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search prepare conflict: %w", err)
 			}
 			conflict, found := k.internalizer.Conflict()
 			if !found {
-				return lbool.Undef, fmt.Errorf("smt search missing conflict: %w", ast.ErrASTDomain)
+				return lbool.Undef, false, fmt.Errorf("smt search missing conflict: %w", ast.ErrASTDomain)
 			}
 			conflictLiteral := k.internalizer.ConflictLiteral()
 			userBaseLevel := k.internalizer.searchUserBaseLevel
 			resolution, err := resolver.resolve(conflict, conflictLiteral, baseLevel, userBaseLevel)
 			if err != nil {
-				return lbool.Undef, fmt.Errorf("smt search resolve conflict: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search resolve conflict: %w", err)
 			}
 			if !resolution.Resolved {
 				proof, proofErr := resolver.LemmaProof()
 				if proofErr != nil {
-					return lbool.Undef, fmt.Errorf("smt search conflict proof: %w", proofErr)
+					return lbool.Undef, false, fmt.Errorf("smt search conflict proof: %w", proofErr)
 				}
 				if err = k.manager.SetRef(k.unsatProof, proof); err != nil {
-					return lbool.Undef, fmt.Errorf("smt search retain unsat proof: %w", err)
+					return lbool.Undef, false, fmt.Errorf("smt search retain unsat proof: %w", err)
 				}
 				if err = k.captureUnsatCore(resolver, conflict, conflictLiteral); err != nil {
-					return lbool.Undef, fmt.Errorf("smt search capture unsat core: %w", err)
+					return lbool.Undef, false, fmt.Errorf("smt search capture unsat core: %w", err)
 				}
-				return lbool.False, nil
+				return lbool.False, false, nil
 			}
 			newScopeLevel, err := k.learnedBackjumpLevel(resolution, baseLevel)
 			if err != nil {
-				return lbool.Undef, fmt.Errorf("smt search backjump level: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search backjump level: %w", err)
 			}
 			if newScopeLevel < baseLevel || newScopeLevel >= k.internalizer.scopeLevel {
-				return lbool.Undef, fmt.Errorf("smt search invalid backjump level: %w", ast.ErrASTDomain)
+				return lbool.Undef, false, fmt.Errorf("smt search invalid backjump level: %w", ast.ErrASTDomain)
 			}
 			proof, proofErr := resolver.LemmaProof()
 			if proofErr != nil {
-				return lbool.Undef, fmt.Errorf("smt search lemma proof: %w", proofErr)
+				return lbool.Undef, false, fmt.Errorf("smt search lemma proof: %w", proofErr)
 			}
 			retained, err := k.internalizer.retainLemmaAtoms(resolution.Lemma)
 			if err != nil {
-				return lbool.Undef, fmt.Errorf("smt search retain lemma atoms: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search retain lemma atoms: %w", err)
 			}
 			if err = k.internalizer.PopScopes(k.internalizer.scopeLevel - newScopeLevel); err != nil {
 				err = k.internalizer.disposeLemmaAtoms(retained, err)
-				return lbool.Undef, fmt.Errorf("smt search backjump: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search backjump: %w", err)
 			}
 			resolution.Lemma, err = k.internalizer.reinternalizeLemmaAtoms(retained)
 			err = k.internalizer.disposeLemmaAtoms(retained, err)
 			if err != nil {
-				return lbool.Undef, fmt.Errorf("smt search reinternalize learned clause: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search reinternalize learned clause: %w", err)
 			}
 			if err = k.internalizer.AddLearnedClauseWithProof(resolution.Lemma, proof); err != nil {
-				return lbool.Undef, fmt.Errorf("smt search learn clause: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search learn clause: %w", err)
 			}
 			if err = k.internalizer.recordConflictForClauseMaintenance(); err != nil {
-				return lbool.Undef, fmt.Errorf("smt search collect learned clauses: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search collect learned clauses: %w", err)
 			}
 			k.internalizer.decayBooleanActivity()
 			if err = queue.RecordConflict(); err != nil {
-				return lbool.Undef, fmt.Errorf("smt phase cache counter: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt phase cache counter: %w", err)
 			}
 			restarts.conflicts++
 			if k.internalizer.statistics.NumConflicts-conflictBase > k.smtState.MaxConflicts {
 				k.lastFailure = SMTFailureConflictLimit
-				return lbool.Undef, nil
+				return lbool.Undef, false, nil
 			}
 			if restarts.due(k.internalizer.scopeLevel, baseLevel) {
-				if err = k.restartSearch(baseLevel, &restarts); err != nil {
-					return lbool.Undef, fmt.Errorf("smt search restart: %w", err)
-				}
+				return lbool.Undef, true, nil
 			}
 			continue
 		}
-		exceeded, err = k.searchResourceLimitExceeded(timer, &nextProgressSample)
+		exceeded, err = k.searchResourceLimitExceeded(timer, &session.nextProgressSample)
 		if err != nil {
-			return lbool.Undef, fmt.Errorf("smt search resource recheck: %w", err)
+			return lbool.Undef, false, fmt.Errorf("smt search resource recheck: %w", err)
 		}
 		if exceeded {
-			return lbool.Undef, nil
+			return lbool.Undef, false, nil
 		}
 		// Source simplification is restricted to the user base, below the
 		// temporary assumption scope. Discarding reasons there loses cores.
 		if k.smtState.SimplifyClauses && k.assumptions == nil {
 			if err = k.internalizer.simplifyClausesAtBase(baseLevel); err != nil {
-				return lbool.Undef, fmt.Errorf("smt search simplify clauses: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search simplify clauses: %w", err)
 			}
 		}
 
 		variable, phase, err := queue.NextCaseSplit()
 		if err != nil {
-			return lbool.Undef, fmt.Errorf("smt search case split: %w", err)
+			return lbool.Undef, false, fmt.Errorf("smt search case split: %w", err)
 		}
 		if variable != SMTNullBoolVar {
 			if err = k.internalizer.PushScope(); err != nil {
-				return lbool.Undef, fmt.Errorf("smt search push decision scope: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search push decision scope: %w", err)
 			}
 			k.internalizer.statistics.NumDecisions++
 			k.internalizer.traceDecide(variable, phase == lbool.True)
 			if err = k.internalizer.assignDecisionLiteral(smtDecisionLiteral(variable, phase)); err != nil {
-				return lbool.Undef, fmt.Errorf("smt search decision: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search decision: %w", err)
 			}
 			continue
 		}
 
 		status, err := k.internalizer.FinalCheckTheories()
 		if err != nil {
-			return lbool.Undef, fmt.Errorf("smt search final check: %w", err)
+			return lbool.Undef, false, fmt.Errorf("smt search final check: %w", err)
 		}
 		restartForModel := false
 		if status == SMTFinalCheckDone && k.internalizer.quantifierManager != nil {
 			modelStatus, err := k.internalizer.quantifierManager.CheckModel()
 			if err != nil {
-				return lbool.Undef, fmt.Errorf("smt search quantifier model check: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search quantifier model check: %w", err)
 			}
 			switch modelStatus {
 			case SMTQuantifierModelSAT:
 			case SMTQuantifierModelUnknown:
 				k.lastFailure = SMTFailureQuantifiers
-				return lbool.Undef, nil
+				return lbool.Undef, false, nil
 			case SMTQuantifierModelRestart:
 				status = SMTFinalCheckContinue
 				restartForModel = true
 			default:
-				return lbool.Undef, ast.ErrASTDomain
+				return lbool.Undef, false, ast.ErrASTDomain
 			}
 		}
 		switch status {
 		case SMTFinalCheckDone:
 			if err = k.captureRelevantLabels(); err != nil {
-				return lbool.Undef, fmt.Errorf("smt search capture labels: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search capture labels: %w", err)
 			}
 			if err = k.captureLiteralResults(baseLevel); err != nil {
-				return lbool.Undef, fmt.Errorf("smt search capture literal results: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search capture literal results: %w", err)
 			}
 			if err = k.buildGeneratedModel(); err != nil {
-				return lbool.Undef, fmt.Errorf("smt search build model: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search build model: %w", err)
 			}
-			return lbool.True, nil
+			return lbool.True, false, nil
 		case SMTFinalCheckGiveUp:
 			k.lastFailure = SMTFailureTheory
-			return lbool.Undef, nil
+			return lbool.Undef, false, nil
 		case SMTFinalCheckContinue:
 			if manager := k.internalizer.quantifierManager; restartForModel || manager != nil && len(manager.modelFinder.pendingConstraints) != 0 {
-				if err = k.restartSearchAtBase(baseLevel, &restarts, true); err != nil {
-					return lbool.Undef, err
+				if err = k.restartSearchAtBase(baseLevel, restarts, true); err != nil {
+					return lbool.Undef, false, err
 				}
 				continue
 			}
 			consistent, err = k.internalizer.PropagateCore()
 			if err != nil {
-				return lbool.Undef, fmt.Errorf("smt search final propagation: %w", err)
+				return lbool.Undef, false, fmt.Errorf("smt search final propagation: %w", err)
 			}
 			if !consistent {
 				continue
 			}
 		default:
-			return lbool.Undef, ast.ErrASTDomain
+			return lbool.Undef, false, ast.ErrASTDomain
 		}
 	}
 }
