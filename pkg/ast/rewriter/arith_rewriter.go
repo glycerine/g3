@@ -326,7 +326,33 @@ func (r *ArithRewriter) setBool(out ast.ASTRef, value bool) error {
 	return r.manager.SetRef(out, h)
 }
 
-func (r *ArithRewriter) rewriteNegativePolynomialComparison(kind int32, left, right ast.ASTHandle, out ast.ASTRef) (bool, error) {
+// arithComparisonLocals are mk_le_ge_eq_core's expr_ref locals new_arg1,
+// new_arg2, new_new_arg1 and new_new_arg2: assignment releases the old
+// value, and they are released in reverse declaration order on return.
+type arithComparisonLocals struct {
+	manager *ast.ASTManager
+	refs    [4]ast.ASTRef
+}
+
+func (l *arithComparisonLocals) set(slot int, h ast.ASTHandle) error {
+	if l.refs[slot] != (ast.ASTRef{}) {
+		return l.manager.SetRef(l.refs[slot], h)
+	}
+	ref, err := l.manager.NewRef(h)
+	l.refs[slot] = ref
+	return err
+}
+
+func (l *arithComparisonLocals) release() (err error) {
+	for i := len(l.refs) - 1; i >= 0; i-- {
+		if l.refs[i] != (ast.ASTRef{}) {
+			err = errors.Join(err, l.manager.DelRef(&l.refs[i]))
+		}
+	}
+	return err
+}
+
+func (r *ArithRewriter) rewriteNegativePolynomialComparison(kind int32, left, right ast.ASTHandle, out ast.ASTRef, locals *arithComparisonLocals) (bool, error) {
 	if !r.arithLHS && !r.arithIneqLHS {
 		return false, nil
 	}
@@ -338,8 +364,15 @@ func (r *ArithRewriter) rewriteNegativePolynomialComparison(kind int32, left, ri
 	if err != nil || !negative {
 		return false, err
 	}
+	// is_neg_poly(arg1, new_arg1); new_arg2 = mk_numeral(...).
+	if err = locals.set(0, positive); err != nil {
+		return false, err
+	}
 	negatedRight, err := r.numeralForTerm(new(big.Rat).Neg(rightValue), positive)
 	if err != nil {
+		return false, err
+	}
+	if err = locals.set(1, negatedRight); err != nil {
 		return false, err
 	}
 	var result ast.ASTHandle
@@ -381,23 +414,9 @@ func (r *ArithRewriter) rewriteComparison(kind int32, left, right ast.ASTHandle,
 		}
 		return Rewrite1, r.manager.SetRef(out, result)
 	}
-	// mk_le_ge_eq_core's expr_ref locals new_arg1, new_arg2, new_new_arg1
-	// and new_new_arg2 release their values when it returns (reverse
-	// declaration order), freeing rewriting temporaries the result does
-	// not reuse.
-	var locals [4]ast.ASTRef
-	defer func() {
-		for i := len(locals) - 1; i >= 0; i-- {
-			if locals[i] != (ast.ASTRef{}) {
-				err = errors.Join(err, r.manager.DelRef(&locals[i]))
-			}
-		}
-	}()
-	hold := func(slot int, h ast.ASTHandle) error {
-		ref, e := r.manager.NewRef(h)
-		locals[slot] = ref
-		return e
-	}
+	locals := &arithComparisonLocals{manager: r.manager}
+	defer func() { err = errors.Join(err, locals.release()) }()
+	hold := locals.set
 	newLeft, newRight, changed, err := r.cancelMonomials(left, right, r.arithIneqLHS || r.arithLHS)
 	if err != nil {
 		return RewriteFailed, err
@@ -461,10 +480,17 @@ func (r *ArithRewriter) rewriteComparison(kind int32, left, right ast.ASTHandle,
 				return RewriteDone, r.setBool(out, false)
 			}
 			if reduced {
+				// div_polynomial writes new_arg1, then new_arg2.
+				if e = locals.set(0, newLeft); e == nil {
+					e = locals.set(1, newRight)
+				}
+				if e != nil {
+					return RewriteFailed, e
+				}
 				left, right, changed = newLeft, newRight, true
 			}
 		}
-		if rewritten, e := r.rewriteNegativePolynomialComparison(kind, left, right, out); e != nil || rewritten {
+		if rewritten, e := r.rewriteNegativePolynomialComparison(kind, left, right, out, locals); e != nil || rewritten {
 			return RewriteDone, e
 		}
 		if changed && err == nil {
@@ -1162,7 +1188,9 @@ func (r *ArithRewriter) rewriteAbs(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 
 // MkEqCore performs the arithmetic equality dispatch used by the Boolean and
 // combined theory rewriters.
-func (r *ArithRewriter) MkEqCore(left, right ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
+func (r *ArithRewriter) MkEqCore(left, right ast.ASTHandle, out ast.ASTRef) (status RewriteStatus, err error) {
+	locals := &arithComparisonLocals{manager: r.manager}
+	defer func() { err = errors.Join(err, locals.release()) }()
 	if err := r.open(); err != nil {
 		return RewriteFailed, err
 	}
@@ -1212,6 +1240,12 @@ func (r *ArithRewriter) MkEqCore(left, right ast.ASTHandle, out ast.ASTRef) (Rew
 		}
 		changed = cancelled
 		if changed {
+			if err = locals.set(0, newLeft); err == nil {
+				err = locals.set(1, newRight)
+			}
+			if err != nil {
+				return RewriteFailed, err
+			}
 			left, right = newLeft, newRight
 		}
 	}
@@ -1221,6 +1255,12 @@ func (r *ArithRewriter) MkEqCore(left, right ast.ASTHandle, out ast.ASTRef) (Rew
 			return RewriteFailed, e
 		}
 		if eliminated {
+			if e = locals.set(2, newLeft); e == nil {
+				e = locals.set(3, newRight)
+			}
+			if e != nil {
+				return RewriteFailed, e
+			}
 			left, right, changed = newLeft, newRight, true
 		}
 	}
@@ -1259,10 +1299,17 @@ func (r *ArithRewriter) MkEqCore(left, right ast.ASTHandle, out ast.ASTRef) (Rew
 				return RewriteDone, r.setBool(out, false)
 			}
 			if reduced {
+				// div_polynomial writes new_arg1, then new_arg2.
+				if e = locals.set(0, newLeft); e == nil {
+					e = locals.set(1, newRight)
+				}
+				if e != nil {
+					return RewriteFailed, e
+				}
 				left, right, changed = newLeft, newRight, true
 			}
 		}
-		if rewritten, e := r.rewriteNegativePolynomialComparison(arithRelationEq, left, right, out); e != nil || rewritten {
+		if rewritten, e := r.rewriteNegativePolynomialComparison(arithRelationEq, left, right, out, locals); e != nil || rewritten {
 			return RewriteDone, e
 		}
 		if changed && err == nil {

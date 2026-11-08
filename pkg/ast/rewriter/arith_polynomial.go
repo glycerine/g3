@@ -811,6 +811,21 @@ func (r *ArithRewriter) cancelMonomials(left, right ast.ASTHandle, move bool) (a
 		}
 		lhs = append(lhs, h)
 	}
+	if move && r.sortSums && len(lhs) > 1 {
+		// std::sort(new_lhs_monomials.begin() + 1, ..., mon_lt): the
+		// coefficient slot is filled afterwards.
+		var cause error
+		sort.SliceStable(lhs, func(i, j int) bool {
+			less, e := r.monomialLess(lhs[i], lhs[j])
+			if cause == nil {
+				cause = e
+			}
+			return e == nil && less
+		})
+		if cause != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, false, cause
+		}
+	}
 	constantAtRight := move || len(rhs) == 0 || len(lhs) != 0
 	if constantAtRight {
 		constant.Neg(constant)
