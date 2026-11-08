@@ -6,7 +6,6 @@ package smtcore
 import (
 	"errors"
 	"fmt"
-	"github.com/glycerine/g3/pkg/util/xtrace"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -257,6 +256,11 @@ func NewSMTInternalizerState(manager *ast.ASTManager, context *SMTCheckerContext
 	// context::init creates the true variable through mk_bool_var, which
 	// counts it in m_num_mk_bool_var.
 	state.statistics.NumMkBoolVar = 1
+	if smtTraceEnabled("mk_bool_var") {
+		if t, err := manager.MkTrue(); err == nil {
+			state.traceMkBoolVar(0, t)
+		}
+	}
 	dynamicAck, err := newSMTDynAckManager(state, defaultSMTDynAckState())
 	if err != nil {
 		_ = table.Close()
@@ -569,9 +573,7 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 			initialActivity = cached
 		}
 	}
-	if xtrace.Enabled {
-		xtrace.Trace("[mk_bool_var] p%d activity: %v %s", variable, initialActivity, xtraceExpr(s.manager, expression))
-	}
+	s.traceMkBoolVar(variable, expression)
 	s.activity = append(s.activity, initialActivity)
 	s.assignment = append(s.assignment, lbool.Undef, lbool.Undef)
 	s.watches = append(s.watches, SMTWatchList{}, SMTWatchList{})

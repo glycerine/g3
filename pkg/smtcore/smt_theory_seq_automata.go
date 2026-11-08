@@ -4,13 +4,10 @@ package smtcore
 // 4166-4794 (get_automaton through get_concat).
 
 import (
-	"fmt"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
-	"github.com/glycerine/g3/pkg/util/xtrace"
-	"strings"
 )
 
 func (t *SMTTheorySeq) propagateInRe(n ast.ASTHandle, isTrue bool) {
@@ -82,8 +79,8 @@ func (t *SMTTheorySeq) getAutomaton(re ast.ASTHandle) *rewriter.StringRegexAutom
 	}
 	result, err := rewriter.NewSeqAutomaton(t.m, re, t.seqExprSolver())
 	t.chk(err)
-	if xtrace.Enabled && result != nil {
-		t.xtraceAutomaton(result)
+	if result != nil {
+		t.traceAutomaton(result)
 	}
 	t.automata = append(t.automata, result)
 	t.re2aut[re] = result
@@ -548,30 +545,4 @@ func (t *SMTTheorySeq) getConcatRep(e ast.ASTHandle, concats *[]ast.ASTHandle) {
 		*concats = append(*concats, e)
 		return
 	}
-}
-
-// xtraceAutomaton is the get_automaton trace: automaton::display with
-// character conditions shown as expressions, as display_expr1 prints them.
-func (t *SMTTheorySeq) xtraceAutomaton(a *rewriter.StringRegexAutomaton) {
-	g, err := a.Graph()
-	if err != nil {
-		return
-	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "init: %d final: ", g.Initial())
-	for _, state := range g.FinalStates() {
-		fmt.Fprintf(&b, "%d ", state)
-	}
-	for state := uint32(0); state < g.NumStates(); state++ {
-		for _, mv := range g.MovesFrom(state) {
-			if mv.Epsilon {
-				fmt.Fprintf(&b, "%d -> %d ", state, mv.Destination)
-			} else if c, ok := a.ConditionCharacter(mv.Condition); ok {
-				fmt.Fprintf(&b, "%d -> %d if %s ", state, mv.Destination, xtraceExpr(t.m, c))
-			} else {
-				fmt.Fprintf(&b, "%d -> %d if <%d> ", state, mv.Destination, mv.Condition)
-			}
-		}
-	}
-	xtrace.Trace("[seq] get_automaton %s", xtraceLine(b.String()))
 }

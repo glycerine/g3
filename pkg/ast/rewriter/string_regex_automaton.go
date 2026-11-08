@@ -281,15 +281,6 @@ func NewSeqAutomaton(m *ast.ASTManager, regex ast.ASTHandle, solver SequenceExpr
 	return a, nil
 }
 
-// ConditionCharacter returns the character of a condition built by
-// sym_expr::mk_char, for display.
-func (a *StringRegexAutomaton) ConditionCharacter(condition uint32) (ast.ASTHandle, bool) {
-	if a == nil || uint64(condition) >= uint64(len(a.labels)) || a.labels[condition].kind != sequenceLabelCharacter {
-		return ast.ASTHandle{}, false
-	}
-	return a.labels[condition].character, true
-}
-
 // Accept is move.t()->accept(e) for the move label with this condition id.
 // The result is not held; the caller roots it.
 func (a *StringRegexAutomaton) Accept(condition uint32, e ast.ASTHandle) (ast.ASTHandle, error) {

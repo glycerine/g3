@@ -64,3 +64,27 @@ Found while matching `-st` output against `build/z3` on
     working tree before that commit. At aa4ab5c8c the test passes in 0.02s.
     Run it only with a short `-timeout` (e.g. 60s) until this has stayed
     fixed through a full `make`.
+
+11. **Extra SMT contexts (first golden-trace divergence).** On
+    sequence_helper_inventory block 12, z3 creates 17 `smt::context`s and
+    g3 creates 52 (count of `creating boolean variable: 0` records with
+    `-tr:mk_bool_var`).
+    - theory_seq's expression solver: z3 builds one `seq_expr_solver`
+      kernel in `theory_seq::init` and reuses it (push/check/pop) for every
+      automaton query; that kernel's setup does not register theory_seq
+      for a bit-vector query. g3 builds a solver per query
+      (`newSMTStringExpressionSolver`, 26 constructions), and each one
+      registers a theory_seq that builds another solver.
+    - qsat: z3's `qe::qsat` creates its kernels in the constructor, reset,
+      reset_statistics, cleanup and destructor (14 contexts here); g3's
+      qsatKernel creates 24.
+    Until this is fixed no vector matches z3 record for record, so
+    `TestTraceGolden` (cmd/g3, `-tags g3trace`, see the file comment) has
+    no default vectors.
+
+12. **Golden trace coverage.** Port more TRACE records into Go at the
+    sites z3 traces (add each to `goldenTraceSites` in
+    cmd/g3/trace_golden_test.go). Ported so far: assign_core (with the
+    justification display), add_eq_detail, decide, mk_bool_var, and seq
+    add_axiom and get_automaton. Next candidates: seq final_check_eh
+    (theory_seq::display), the arith tags, and the remaining seq records.

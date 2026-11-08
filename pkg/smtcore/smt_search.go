@@ -6,7 +6,6 @@ package smtcore
 import (
 	"errors"
 	"fmt"
-	"github.com/glycerine/g3/pkg/util/xtrace"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -422,14 +421,7 @@ func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
 				return lbool.Undef, fmt.Errorf("smt search push decision scope: %w", err)
 			}
 			k.internalizer.statistics.NumDecisions++
-			if xtrace.Enabled {
-				pos := 0
-				if phase == lbool.True {
-					pos = 1
-				}
-				xtrace.Trace("[decide] splitting, lvl: %d", k.internalizer.scopeLevel)
-				xtrace.Trace("[decide] case split pos: %d p%d activity: %v", pos, variable, k.internalizer.activity[variable])
-			}
+			k.internalizer.traceDecide(variable, phase == lbool.True)
 			if err = k.internalizer.assignDecisionLiteral(smtDecisionLiteral(variable, phase)); err != nil {
 				return lbool.Undef, fmt.Errorf("smt search decision: %w", err)
 			}
