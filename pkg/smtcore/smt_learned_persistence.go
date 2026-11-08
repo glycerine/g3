@@ -72,7 +72,9 @@ func (s *SMTInternalizerState) finishLearnedAssignment(p *smtLearnedAssignment) 
 			}
 		}
 		data.PhaseAvailable, data.Phase = true, !literal.Sign()
-		s.assignedLiterals = append(s.assignedLiterals, literal)
+		if err := s.appendAssignedLiteral(literal); err != nil {
+			return err
+		}
 		p.stage = smtLearnedAssignmentGoal
 	}
 	if p.stage == smtLearnedAssignmentGoal {

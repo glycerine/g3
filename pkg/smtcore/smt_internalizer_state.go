@@ -186,6 +186,9 @@ type SMTInternalizerState struct {
 	theoryEqualityHead         int
 	theoryDisequalityHead      int
 	atomPropagationHead        int
+	// atomQueued parallels assignedLiterals: whether assign_core put the
+	// literal on m_atom_propagation_queue, decided when it was assigned.
+	atomQueued []bool
 	notifyTrail                []smtInternalizerNotifyTrail
 	enodeFlagTrail             []int32
 	mergeTFTrail               []*SMTEnode // set_merge_tf_trail
@@ -986,6 +989,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 		return ast.ErrASTDomain
 	}
 	s.assignedLiterals = s.assignedLiterals[:scope.assignedLimit]
+	s.atomQueued = s.atomQueued[:scope.assignedLimit]
 	if scope.propagationHead < 0 || scope.propagationHead > len(s.assignedLiterals) {
 		return ast.ErrASTDomain
 	}

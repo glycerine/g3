@@ -119,3 +119,12 @@ Found while matching `-st` output against `build/z3` on
     and missed instantiations, min/max missed cost); g3 never reported
     them. Theories are now also collected in registration order, not map
     order. All-statistics exact 515 -> 541.
+
+16. **DONE: atom queue decided at assignment.** `assign_core` queues a
+    literal for atom propagation only if it is already an atom (and the
+    relevancy test passes) when it is assigned. An equality that
+    `internalize_eq` assigns while creating its enode (both sides already
+    in one class) is assigned before `set_eq_flag`, so it is never
+    queued. g3 tested at propagation time and also queued non-atoms;
+    it now records the decision with the assignment. All-statistics exact
+    541 -> 555.

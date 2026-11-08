@@ -179,12 +179,30 @@ func (s *SMTInternalizerState) propagateAssignedAtom(literal SMTLiteral) error {
 	return nil
 }
 
+// appendAssignedLiteral records an assignment and assign_core's queue test:
+// an atom is queued if m_relevancy_lvl == 0, or m_relevancy_lvl == 1 and it
+// is not a quantifier, or it is already relevant. The atom flag is read now,
+// so an equality assigned while internalize_eq is still creating it (before
+// set_eq_flag) is not queued, as in the source.
+func (s *SMTInternalizerState) appendAssignedLiteral(literal SMTLiteral) error {
+	queued, err := s.atomQueuedOnAssignment(literal.Var())
+	if err != nil {
+		return err
+	}
+	s.assignedLiterals = append(s.assignedLiterals, literal)
+	s.atomQueued = append(s.atomQueued, queued)
+	return nil
+}
+
 func (s *SMTInternalizerState) atomQueuedOnAssignment(variable int32) (bool, error) {
 	data, err := s.BooleanData(variable)
 	if err != nil {
 		return false, err
 	}
-	if !data.IsAtom() || s.relevancyLevel == 0 || s.relevancy == nil || !s.relevancy.enabled {
+	if !data.IsAtom() {
+		return false, nil
+	}
+	if s.relevancyLevel == 0 || s.relevancy == nil || !s.relevancy.enabled {
 		return true, nil
 	}
 	if s.relevancyLevel == 1 && !data.IsQuantifier() {
@@ -199,14 +217,10 @@ func (s *SMTInternalizerState) PropagateTheoryAssignments() error {
 	}
 	for s.atomPropagationHead < len(s.assignedLiterals) {
 		literal := s.assignedLiterals[s.atomPropagationHead]
-		// assign_core queues an atom only if m_relevancy_lvl == 0, or
-		// m_relevancy_lvl == 1 and it is not a quantifier, or it is already
-		// relevant; relevant_eh queues it when it becomes relevant later.
-		queued, err := s.atomQueuedOnAssignment(literal.Var())
-		if err != nil {
-			return err
-		}
-		if !queued {
+		// assign_core decided, when the literal was assigned, whether it
+		// goes on the atom queue; relevant_eh queues it when it becomes
+		// relevant later.
+		if !s.atomQueued[s.atomPropagationHead] {
 			s.atomPropagationHead++
 			continue
 		}
