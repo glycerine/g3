@@ -34,14 +34,26 @@ const (
 	sequenceLabelAny
 	sequenceLabelIntersection
 	sequenceLabelNegation
+	sequenceLabelNone
 )
 
+// sequenceAutomatonLabel is sym_expr: t_char (character), t_range (lower and
+// upper bounds) or t_pred, a formula over var(0) of sort. The predicate kinds
+// (Any = mk_pred(true), None = mk_pred(false), and the results of mk_and and
+// mk_not) also keep their operands, which only the Go-only concrete
+// enumeration helpers read.
 type sequenceAutomatonLabel struct {
 	kind       sequenceAutomatonLabelKind
 	character  ast.ASTHandle
 	lowerBound ast.ASTHandle
 	upperBound ast.ASTHandle
+	predicate  ast.ASTHandle
+	sort       ast.ASTHandle
 	operands   []*sequenceAutomatonLabel
+}
+
+func (l *sequenceAutomatonLabel) isPredicate() bool {
+	return l.kind != sequenceLabelCharacter && l.kind != sequenceLabelRange
 }
 
 type sequenceAutomatonMove struct {
@@ -393,36 +405,203 @@ func (b *sequenceAutomatonBuilder) sequence(expression ast.ASTHandle) (*sequence
 	return sequenceAutomatonOf(0, []int{len(text)}, moves), nil
 }
 
-func (b *sequenceAutomatonBuilder) intersectLabels(left, right *sequenceAutomatonLabel) *sequenceAutomatonLabel {
-	if left.kind == sequenceLabelAny {
-		return right
+// predicateLabel is sym_expr::mk_pred(formula, sort).
+func (b *sequenceAutomatonBuilder) predicateLabel(kind sequenceAutomatonLabelKind, formula, sort ast.ASTHandle, operands ...*sequenceAutomatonLabel) (*sequenceAutomatonLabel, error) {
+	if err := b.hold(formula); err != nil {
+		return nil, err
 	}
-	if right.kind == sequenceLabelAny {
-		return left
-	}
-	return &sequenceAutomatonLabel{kind: sequenceLabelIntersection, operands: []*sequenceAutomatonLabel{left, right}}
+	return &sequenceAutomatonLabel{kind: kind, predicate: formula, sort: sort, operands: operands}, nil
 }
 
-func (b *sequenceAutomatonBuilder) negateLabel(label *sequenceAutomatonLabel) *sequenceAutomatonLabel {
-	if label.kind == sequenceLabelNegation && len(label.operands) == 1 {
-		return label.operands[0]
+// trueLabel and falseLabel are mk_pred(m.mk_true()/m.mk_false(), sort).
+func (b *sequenceAutomatonBuilder) trueLabel(sort ast.ASTHandle) (*sequenceAutomatonLabel, error) {
+	t, err := b.rewriter.manager.MkTrue()
+	if err != nil {
+		return nil, err
 	}
-	return &sequenceAutomatonLabel{kind: sequenceLabelNegation, operands: []*sequenceAutomatonLabel{label}}
+	return b.predicateLabel(sequenceLabelAny, t, sort)
 }
 
+func (b *sequenceAutomatonBuilder) falseLabel(sort ast.ASTHandle) (*sequenceAutomatonLabel, error) {
+	f, err := b.rewriter.manager.MkFalse()
+	if err != nil {
+		return nil, err
+	}
+	return b.predicateLabel(sequenceLabelNone, f, sort)
+}
+
+// regexCharacterLabelSort is the char_s of re2aut's full_seq/full_char cases.
+func (b *sequenceAutomatonBuilder) regexCharacterSort(expression ast.ASTHandle) (ast.ASTHandle, error) {
+	m := b.rewriter.manager
+	sort, err := m.GetSort(expression)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	seq, ok, err := m.RegexSequenceSort(sort)
+	if err != nil || !ok {
+		return ast.ASTHandle{}, errors.Join(err, ast.ErrASTDomain)
+	}
+	element, ok, err := m.SequenceSortElement(seq)
+	if err != nil || !ok {
+		return ast.ASTHandle{}, errors.Join(err, ast.ErrASTDomain)
+	}
+	return element, nil
+}
+
+// automatonLocals are expr_ref/var_ref locals, released in reverse
+// declaration order when the source function returns.
+type automatonLocals struct {
+	manager *ast.ASTManager
+	refs    []ast.ASTRef
+}
+
+func (l *automatonLocals) own(ref ast.ASTRef) ast.ASTRef {
+	l.refs = append(l.refs, ref)
+	return ref
+}
+
+func (l *automatonLocals) hold(h ast.ASTHandle) error {
+	ref, err := l.manager.NewRef(h)
+	if err != nil {
+		return err
+	}
+	l.refs = append(l.refs, ref)
+	return nil
+}
+
+func (l *automatonLocals) release() (err error) {
+	for i := len(l.refs) - 1; i >= 0; i-- {
+		err = errors.Join(err, l.manager.DelRef(&l.refs[i]))
+	}
+	l.refs = nil
+	return err
+}
+
+// intersectLabels is sym_expr_boolean_algebra::mk_and.
+func (b *sequenceAutomatonBuilder) intersectLabels(x, y *sequenceAutomatonLabel) (result *sequenceAutomatonLabel, resultErr error) {
+	m := b.rewriter.manager
+	if x.kind == sequenceLabelCharacter && y.kind == sequenceLabelCharacter {
+		if x.character == y.character {
+			return x, nil
+		}
+		distinct, err := m.AreDistinct(x.character, y.character)
+		if err != nil {
+			return nil, err
+		}
+		if distinct {
+			sort, err := b.labelSort(x)
+			if err != nil {
+				return nil, err
+			}
+			return b.falseLabel(sort)
+		}
+	}
+	xs, err := b.labelSort(x)
+	if err != nil {
+		return nil, err
+	}
+	s := xs
+	if boolean, err := m.MkBoolSort(); err != nil {
+		return nil, err
+	} else if s == boolean {
+		if s, err = b.labelSort(y); err != nil {
+			return nil, err
+		}
+	}
+	locals := &automatonLocals{manager: m}
+	defer func() { resultErr = errors.Join(resultErr, locals.release()) }()
+	v, err := m.MkVar(0, s)
+	if err != nil {
+		return nil, err
+	}
+	if err = locals.hold(v); err != nil { // var_ref v
+		return nil, err
+	}
+	r1, err := b.acceptOwned(x, v)
+	if err != nil {
+		return nil, err
+	}
+	f1, err := m.RefGet(locals.own(r1))
+	if err != nil {
+		return nil, err
+	}
+	r2, err := b.acceptOwned(y, v)
+	if err != nil {
+		return nil, err
+	}
+	f2, err := m.RefGet(locals.own(r2))
+	if err != nil {
+		return nil, err
+	}
+	if m.IsTrue(f1) {
+		return y, nil
+	}
+	if m.IsTrue(f2) || f1 == f2 {
+		return x, nil
+	}
+	out, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return nil, err
+	}
+	locals.own(out) // expr_ref fml
+	if err = SimplifyBooleanGateDefault(m, ast.ASTOpAnd, []ast.ASTHandle{f1, f2}, out); err != nil {
+		return nil, err
+	}
+	f, err := m.RefGet(out)
+	if err != nil {
+		return nil, err
+	}
+	return b.predicateLabel(sequenceLabelIntersection, f, xs, x, y)
+}
+
+// negateLabel is sym_expr_boolean_algebra::mk_not: mk_pred(m.mk_not(...)).
+func (b *sequenceAutomatonBuilder) negateLabel(x *sequenceAutomatonLabel) (result *sequenceAutomatonLabel, resultErr error) {
+	m := b.rewriter.manager
+	sort, err := b.labelSort(x)
+	if err != nil {
+		return nil, err
+	}
+	locals := &automatonLocals{manager: m}
+	defer func() { resultErr = errors.Join(resultErr, locals.release()) }()
+	v, err := m.MkVar(0, sort)
+	if err != nil {
+		return nil, err
+	}
+	if err = locals.hold(v); err != nil { // var_ref v
+		return nil, err
+	}
+	// expr_ref fml(m.mk_not(x->accept(v))): the accept temporary dies after
+	// fml takes its reference.
+	accepted, err := b.acceptOwned(x, v)
+	if err != nil {
+		return nil, err
+	}
+	body, err := m.RefGet(accepted)
+	if err != nil {
+		return nil, errors.Join(err, m.DelRef(&accepted))
+	}
+	f, err := m.MkNot(body)
+	if err == nil {
+		err = locals.hold(f)
+	}
+	if err = errors.Join(err, m.DelRef(&accepted)); err != nil {
+		return nil, err
+	}
+	return b.predicateLabel(sequenceLabelNegation, f, sort, x)
+}
+
+// labelSort is sym_expr::get_sort (m_sort; get_sort(hi) for ranges).
 func (b *sequenceAutomatonBuilder) labelSort(label *sequenceAutomatonLabel) (ast.ASTHandle, error) {
 	switch label.kind {
 	case sequenceLabelCharacter:
 		return b.rewriter.manager.GetSort(label.character)
 	case sequenceLabelRange:
-		return b.rewriter.manager.GetSort(label.lowerBound)
-	case sequenceLabelIntersection, sequenceLabelNegation:
-		if len(label.operands) == 0 {
+		return b.rewriter.manager.GetSort(label.upperBound)
+	default:
+		if label.sort.IsNull() {
 			return ast.ASTHandle{}, ast.ErrASTDomain
 		}
-		return b.labelSort(label.operands[0])
-	default:
-		return ast.ASTHandle{}, ast.ErrASTDomain
+		return label.sort, nil
 	}
 }
 
@@ -432,6 +611,8 @@ func (b *sequenceAutomatonBuilder) concreteLabelBytes(label *sequenceAutomatonLa
 		for i := range values {
 			values[i] = true
 		}
+		return values, true, nil
+	case sequenceLabelNone:
 		return values, true, nil
 	case sequenceLabelCharacter:
 		value, numeral, err := b.rewriter.manager.SequenceUnitByteElementValue(label.character)
@@ -484,51 +665,31 @@ func (b *sequenceAutomatonBuilder) concreteLabelBytes(label *sequenceAutomatonLa
 	}
 }
 
+// labelSatisfiable is sym_expr_boolean_algebra::is_sat: characters are
+// satisfiable; every other label is accepted on a fresh constant "x" and
+// decided by the expression solver unless that formula is true or false.
 func (b *sequenceAutomatonBuilder) labelSatisfiable(label *sequenceAutomatonLabel) (satisfiable, defined bool, err error) {
-	if values, concrete, err := b.concreteLabelBytes(label); err != nil {
-		return false, false, err
-	} else if concrete {
-		for _, present := range values {
-			if present {
-				return true, true, nil
-			}
-		}
-		return false, true, nil
-	}
-	if label.kind == sequenceLabelAny || label.kind == sequenceLabelCharacter {
+	if label.kind == sequenceLabelCharacter {
 		return true, true, nil
-	}
-	if label.kind == sequenceLabelRange {
-		lo, loNumeral, err := b.rewriter.manager.SequenceUnitByteElementValue(label.lowerBound)
-		if err != nil {
-			return false, false, err
-		}
-		hi, hiNumeral, err := b.rewriter.manager.SequenceUnitByteElementValue(label.upperBound)
-		if err != nil {
-			return false, false, err
-		}
-		if loNumeral && hiNumeral {
-			return lo <= hi, true, nil
-		}
-	}
-	if b.rewriter.solver == nil {
-		if b.allowUnknownLabels {
-			return true, true, nil
-		}
-		return false, false, nil
 	}
 	sort, err := b.labelSort(label)
 	if err != nil {
 		return false, false, err
 	}
-	variable, err := b.rewriter.manager.MkFreshConst("x", sort) // sym_expr_boolean_algebra::is_sat
+	locals := &automatonLocals{manager: b.rewriter.manager}
+	defer func() { err = errors.Join(err, locals.release()) }()
+	variable, err := b.rewriter.manager.MkFreshConst("x", sort)
 	if err != nil {
 		return false, false, err
 	}
-	if err = b.hold(variable); err != nil {
+	if err = locals.hold(variable); err != nil { // expr_ref v
 		return false, false, err
 	}
-	formula, err := b.accept(label, variable)
+	accepted, err := b.acceptOwned(label, variable)
+	if err != nil {
+		return false, false, err
+	}
+	formula, err := b.rewriter.manager.RefGet(locals.own(accepted)) // expr_ref fml
 	if err != nil {
 		return false, false, err
 	}
@@ -537,6 +698,22 @@ func (b *sequenceAutomatonBuilder) labelSatisfiable(label *sequenceAutomatonLabe
 	}
 	if b.rewriter.manager.IsFalse(formula) {
 		return false, true, nil
+	}
+	if b.rewriter.solver == nil {
+		if values, concrete, err := b.concreteLabelBytes(label); err != nil {
+			return false, false, err
+		} else if concrete {
+			for _, present := range values {
+				if present {
+					return true, true, nil
+				}
+			}
+			return false, true, nil
+		}
+		if b.allowUnknownLabels {
+			return true, true, nil
+		}
+		return false, false, nil
 	}
 	answer, err := b.rewriter.solver.CheckSatisfiable(formula)
 	if err != nil {
@@ -563,7 +740,10 @@ func (b *sequenceAutomatonBuilder) product(left, right *sequenceAutomaton) (*seq
 		source := ids[current]
 		for _, leftMove := range left.movesFrom(current.left, true) {
 			for _, rightMove := range right.movesFrom(current.right, true) {
-				label := b.intersectLabels(leftMove.label, rightMove.label)
+				label, err := b.intersectLabels(leftMove.label, rightMove.label)
+				if err != nil {
+					return nil, err
+				}
 				satisfiable, defined, err := b.labelSatisfiable(label)
 				if err != nil {
 					return nil, err
@@ -633,17 +813,38 @@ func (b *sequenceAutomatonBuilder) deterministicMinterms(labels []*sequenceAutom
 			return nil
 		}
 		bits = append(bits, true)
-		if err = visit(index+1, b.intersectLabels(predicate, labels[index])); err != nil || !defined {
+		positive, err := b.intersectLabels(predicate, labels[index])
+		if err != nil {
+			return err
+		}
+		if err = visit(index+1, positive); err != nil || !defined {
 			return err
 		}
 		bits[len(bits)-1] = false
-		if err = visit(index+1, b.intersectLabels(predicate, b.negateLabel(labels[index]))); err != nil || !defined {
+		negated, err := b.negateLabel(labels[index])
+		if err != nil {
+			return err
+		}
+		negative, err := b.intersectLabels(predicate, negated)
+		if err != nil {
+			return err
+		}
+		if err = visit(index+1, negative); err != nil || !defined {
 			return err
 		}
 		bits = bits[:len(bits)-1]
 		return nil
 	}
-	if err = visit(0, &sequenceAutomatonLabel{kind: sequenceLabelAny}); err != nil {
+	// curr_pred(m_ba.mk_true()): mk_pred(true, Bool).
+	boolean, err := b.rewriter.manager.MkBoolSort()
+	if err != nil {
+		return nil, nil, false, err
+	}
+	root, err := b.trueLabel(boolean)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	if err = visit(0, root); err != nil {
 		return nil, nil, false, err
 	}
 	return assignments, predicates, defined, nil
@@ -839,21 +1040,37 @@ func (b *sequenceAutomatonBuilder) regex(expression ast.ASTHandle) (*sequenceAut
 		}
 		return b.determinize(automaton, true)
 	}
+	// full_seq and full_char use sym_expr::mk_pred(true, char_s).
+	fullTrue := func() (*sequenceAutomatonLabel, error) {
+		charSort, err := b.regexCharacterSort(expression)
+		if err != nil {
+			return nil, err
+		}
+		return b.trueLabel(charSort)
+	}
 	for _, row := range []struct {
 		kind int32
-		make func() *sequenceAutomaton
-	}{{22, sequenceEmptyAutomaton}, {23, func() *sequenceAutomaton {
-		return sequenceLoopAutomaton(&sequenceAutomatonLabel{kind: sequenceLabelAny})
+		make func() (*sequenceAutomaton, error)
+	}{{22, func() (*sequenceAutomaton, error) { return sequenceEmptyAutomaton(), nil }}, {23, func() (*sequenceAutomaton, error) {
+		label, err := fullTrue()
+		if err != nil {
+			return nil, err
+		}
+		return sequenceLoopAutomaton(label), nil
 	}},
-		{24, func() *sequenceAutomaton {
-			return sequenceLabelAutomaton(&sequenceAutomatonLabel{kind: sequenceLabelAny})
+		{24, func() (*sequenceAutomaton, error) {
+			label, err := fullTrue()
+			if err != nil {
+				return nil, err
+			}
+			return sequenceLabelAutomaton(label), nil
 		}}} {
 		matched, err := b.rewriter.sequenceOperation(expression, row.kind)
 		if err != nil {
 			return nil, err
 		}
 		if matched {
-			return row.make(), nil
+			return row.make()
 		}
 	}
 	return nil, nil
@@ -1116,95 +1333,72 @@ func (b *sequenceAutomatonBuilder) booleanOr(left, right ast.ASTHandle) (ast.AST
 	return result, nil
 }
 
+// accept is sym_expr::accept for callers that keep the result for the
+// builder's lifetime.
 func (b *sequenceAutomatonBuilder) accept(label *sequenceAutomatonLabel, character ast.ASTHandle) (ast.ASTHandle, error) {
-	if label.kind == sequenceLabelAny {
-		return b.rewriter.manager.MkTrue()
-	}
-	if label.kind == sequenceLabelIntersection {
-		result, err := b.rewriter.manager.MkTrue()
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		for _, operand := range label.operands {
-			condition, err := b.accept(operand, character)
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-			result, err = b.booleanAnd(result, condition)
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-		}
-		return result, nil
-	}
-	if label.kind == sequenceLabelNegation {
-		if len(label.operands) != 1 {
-			return ast.ASTHandle{}, ast.ErrASTDomain
-		}
-		condition, err := b.accept(label.operands[0], character)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		result, err := b.rewriter.manager.MkNotSimplified(condition)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		if err = b.hold(result); err != nil {
-			return ast.ASTHandle{}, err
-		}
-		return result, nil
-	}
-	if label.kind == sequenceLabelCharacter {
-		labelValue, err := b.rewriter.manager.IsValue(label.character)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		characterValue, err := b.rewriter.manager.IsValue(character)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		if labelValue && characterValue {
-			return b.rewriter.manager.MkBoolVal(label.character == character)
-		}
-		result, err := b.rewriter.manager.MkEq(character, label.character)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		if err = b.hold(result); err != nil {
-			return ast.ASTHandle{}, err
-		}
-		return result, nil
-	}
-	lo, loNumeral, err := b.rewriter.manager.SequenceUnitByteElementValue(label.lowerBound)
+	ref, err := b.acceptOwned(label, character)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	value, valueNumeral, err := b.rewriter.manager.SequenceUnitByteElementValue(character)
+	b.refs = append(b.refs, ref)
+	return b.rewriter.manager.RefGet(ref)
+}
+
+// acceptOwned is sym_expr::accept returning its expr_ref result; the caller
+// releases it.
+func (b *sequenceAutomatonBuilder) acceptOwned(label *sequenceAutomatonLabel, character ast.ASTHandle) (ast.ASTRef, error) {
+	m := b.rewriter.manager
+	own := func(h ast.ASTHandle, err error) (ast.ASTRef, error) {
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		return m.NewRef(h)
+	}
+	switch label.kind {
+	case sequenceLabelCharacter:
+		return own(m.MkEq(character, label.character))
+	case sequenceLabelRange:
+		lo, loNumeral, err := m.SequenceUnitByteElementValue(label.lowerBound)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		value, valueNumeral, err := m.SequenceUnitByteElementValue(character)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		hi, hiNumeral, err := m.SequenceUnitByteElementValue(label.upperBound)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		if loNumeral && valueNumeral && hiNumeral {
+			return own(m.MkBoolVal(lo <= value && value <= hi))
+		}
+		// m.mk_and(bv.mk_ule(m_t, e), bv.mk_ule(e, m_s)): GCC builds the
+		// second argument first.
+		upper, err := m.MkBitVectorULE(character, label.upperBound)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		lower, err := m.MkBitVectorULE(label.lowerBound, character)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		return own(m.MkAndArray([]ast.ASTHandle{lower, upper}))
+	}
+	// var_subst subst(m); subst(m_t, 1, &e, result).
+	subst, err := NewVarSubstitution(m, true)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTRef{}, err
 	}
-	hi, hiNumeral, err := b.rewriter.manager.SequenceUnitByteElementValue(label.upperBound)
+	out, err := m.NewRef(ast.ASTHandle{})
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTRef{}, errors.Join(err, subst.Close())
 	}
-	if loNumeral && valueNumeral && hiNumeral {
-		return b.rewriter.manager.MkBoolVal(lo <= value && value <= hi)
+	err = subst.Substitute(label.predicate, []ast.ASTHandle{character}, out)
+	if err = errors.Join(err, subst.Close()); err != nil {
+		return ast.ASTRef{}, errors.Join(err, m.DelRef(&out))
 	}
-	lower, err := b.rewriter.manager.MkBitVectorULE(label.lowerBound, character)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if err = b.hold(lower); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	upper, err := b.rewriter.manager.MkBitVectorULE(character, label.upperBound)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if err = b.hold(upper); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	return b.booleanAnd(lower, upper)
+	return out, nil
 }
 
 func (r *SequenceRewriter) rewriteStringInRegex(sequence, regex ast.ASTHandle, out ast.ASTRef) (status RewriteStatus, err error) {
@@ -1286,10 +1480,38 @@ func (r *SequenceRewriter) rewriteStringInRegex(sequence, regex ast.ASTHandle, o
 		next := make(map[int]ast.ASTHandle)
 		for state, accumulated := range frontier {
 			for _, move := range automaton.movesFrom(state, false) {
-				condition, e := builder.accept(move.label, character)
-				if e != nil {
-					return RewriteFailed, e
+				var condition ast.ASTHandle
+				// mk_str_in_regexp compares a concrete character label with a
+				// concrete character directly instead of calling accept.
+				concreteCharacter := false
+				if move.label.kind == sequenceLabelCharacter {
+					labelValue, e := r.manager.IsValue(move.label.character)
+					if e != nil {
+						return RewriteFailed, e
+					}
+					characterValue, e := r.manager.IsValue(character)
+					if e != nil {
+						return RewriteFailed, e
+					}
+					concreteCharacter = labelValue && characterValue
 				}
+				if concreteCharacter {
+					if move.label.character != character {
+						continue
+					}
+					t, e := r.manager.MkTrue()
+					if e != nil {
+						return RewriteFailed, e
+					}
+					condition = t
+				} else {
+					c, e := builder.accept(move.label, character)
+					if e != nil {
+						return RewriteFailed, e
+					}
+					condition = c
+				}
+				var e error
 				if r.manager.IsFalse(condition) {
 					continue
 				}

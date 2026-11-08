@@ -35,8 +35,10 @@ func TestSMTStringCachedAutomatonProductUsesNestedSolver(t *testing.T) {
 		before := theory.regexExpressionSolver.kernel.Statistics().NumChecks
 		product, err := rewriter.NewStringRegexAutomatonProduct(left, right, theory.regexExpressionSolver)
 		astTestMust(t, err)
-		if theory.regexExpressionSolver.kernel.Statistics().NumChecks <= before {
-			t.Fatal("cached graph product bypassed the actual nested solver")
+		// sym_expr mk_and of c and (not c) folds to false in bool_rewriter, so
+		// is_sat decides it without the solver; the literal case needs it.
+		if checked := theory.regexExpressionSolver.kernel.Statistics().NumChecks > before; checked == tc.empty {
+			t.Fatal("cached graph product solver use", checked, tc.empty)
 		}
 		astTestMust(t, left.Close())
 		astTestMust(t, right.Close())
