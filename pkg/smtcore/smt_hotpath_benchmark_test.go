@@ -203,6 +203,7 @@ func BenchmarkSMTScopeRestoration(b *testing.B) {
 			b.StopTimer()
 			for i := 0; i < b.N; i++ {
 				benchmarkMust(b, s.PushScope()) // user scope owns restored clauses
+				s.pushBaseScope()               // context::push: m_base_lvl++
 				if !scoped {
 					internalize()
 				}
@@ -243,7 +244,7 @@ func BenchmarkSMTScopeRestoration(b *testing.B) {
 				benchmarkMust(b, s.endSearchPersistence())
 				benchmarkMust(b, s.PopScopes(1))
 				if len(s.clauses) != 0 || len(s.booleanStack) != 0 {
-					b.Fatal("benchmark round left scoped clauses or atoms behind")
+					b.Fatal("benchmark round left scoped clauses or atoms behind", len(s.clauses), len(s.booleanStack))
 				}
 			}
 			b.ReportMetric(clauses, "clauses/op")
