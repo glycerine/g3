@@ -13,19 +13,21 @@ func (m *ASTManager) FormatSeq3(header string, children []ASTHandle, split, inde
 		return ASTHandle{}, err
 	}
 	defer documents.finish(&document, &resultErr)
-	left, err := documents.own(m.FormatString("("))
-	if err != nil {
-		return ASTHandle{}, err
-	}
-	head, err := documents.own(m.FormatString(header))
-	if err != nil {
-		return ASTHandle{}, err
-	}
+	// GCC evaluates call arguments right to left: rp, the indented tail, the
+	// grouped first part, then header and lp.
 	right, err := documents.own(m.FormatString(")"))
 	if err != nil {
 		return ASTHandle{}, err
 	}
 	if len(children) == 0 {
+		head, err := documents.own(m.FormatString(header))
+		if err != nil {
+			return ASTHandle{}, err
+		}
+		left, err := documents.own(m.FormatString("("))
+		if err != nil {
+			return ASTHandle{}, err
+		}
 		return documents.own(m.FormatCompose([]ASTHandle{left, head, right}))
 	}
 	if split == 0 {
@@ -60,11 +62,19 @@ func (m *ASTManager) FormatSeq3(header string, children []ASTHandle, split, inde
 		}
 		return documents.own(m.FormatCompose(parts))
 	}
-	space, err := documents.own(m.FormatString(" "))
+	tail, err := seq(children[int(end):])
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	tail, err = documents.own(m.FormatIndent(indent, tail))
 	if err != nil {
 		return ASTHandle{}, err
 	}
 	firstTail, err := seq(children[1:int(end)])
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	space, err := documents.own(m.FormatString(" "))
 	if err != nil {
 		return ASTHandle{}, err
 	}
@@ -80,15 +90,19 @@ func (m *ASTManager) FormatSeq3(header string, children []ASTHandle, split, inde
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	tail, err := seq(children[int(end):])
+	head, err := documents.own(m.FormatString(header))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	tail, err = documents.own(m.FormatIndent(indent, tail))
+	left, err := documents.own(m.FormatString("("))
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	whole, err := documents.own(m.FormatCompose([]ASTHandle{left, head, first, tail, right}))
+	opening, err := documents.own(m.FormatCompose([]ASTHandle{left, head}))
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	whole, err := documents.own(m.FormatCompose([]ASTHandle{opening, first, tail, right}))
 	if err != nil {
 		return ASTHandle{}, err
 	}

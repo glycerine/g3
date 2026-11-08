@@ -13,27 +13,25 @@ func (m *ASTManager) FormatSeq1(header string, children []ASTHandle) (document A
 		return ASTHandle{}, err
 	}
 	defer documents.finish(&document, &resultErr)
-	left, err := documents.own(m.FormatString("("))
-	if err != nil {
-		return ASTHandle{}, err
-	}
-	head, err := documents.own(m.FormatString(header))
-	if err != nil {
-		return ASTHandle{}, err
-	}
+	// GCC evaluates call arguments right to left, so every document is built
+	// last-argument first: rp, the indented body, header, then lp.
 	right, err := documents.own(m.FormatString(")"))
 	if err != nil {
 		return ASTHandle{}, err
 	}
 	if len(children) == 0 {
+		head, err := documents.own(m.FormatString(header))
+		if err != nil {
+			return ASTHandle{}, err
+		}
+		left, err := documents.own(m.FormatString("("))
+		if err != nil {
+			return ASTHandle{}, err
+		}
 		return documents.own(m.FormatCompose([]ASTHandle{left, head, right}))
 	}
 	if uint64(len(header))+2 > math.MaxUint32 {
 		return ASTHandle{}, ErrASTDomain
-	}
-	space, err := documents.own(m.FormatString(" "))
-	if err != nil {
-		return ASTHandle{}, err
 	}
 	formatOwner, err := m.GetFormatManager()
 	if err != nil {
@@ -58,11 +56,23 @@ func (m *ASTManager) FormatSeq1(header string, children []ASTHandle) (document A
 	if err != nil {
 		return ASTHandle{}, err
 	}
+	space, err := documents.own(m.FormatString(" "))
+	if err != nil {
+		return ASTHandle{}, err
+	}
 	body, err := documents.own(m.FormatCompose([]ASTHandle{space, children[0], seq, right}))
 	if err != nil {
 		return ASTHandle{}, err
 	}
 	indented, err := documents.own(m.FormatIndent(uint32(len(header)+2), body))
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	head, err := documents.own(m.FormatString(header))
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	left, err := documents.own(m.FormatString("("))
 	if err != nil {
 		return ASTHandle{}, err
 	}

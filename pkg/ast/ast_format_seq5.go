@@ -10,15 +10,17 @@ func (m *ASTManager) FormatSeq5(children []ASTHandle) (document ASTHandle, resul
 		return ASTHandle{}, err
 	}
 	defer documents.finish(&document, &resultErr)
-	left, err := documents.own(m.FormatString("("))
-	if err != nil {
-		return ASTHandle{}, err
-	}
+	// mk_seq4 with GCC's right-to-left argument evaluation: rp, the indented
+	// tail, then lp and the first element.
 	right, err := documents.own(m.FormatString(")"))
 	if err != nil {
 		return ASTHandle{}, err
 	}
 	if len(children) == 0 {
+		left, err := documents.own(m.FormatString("("))
+		if err != nil {
+			return ASTHandle{}, err
+		}
 		return documents.own(m.FormatCompose([]ASTHandle{left, right}))
 	}
 	formatOwner, err := m.GetFormatManager()
@@ -44,19 +46,23 @@ func (m *ASTManager) FormatSeq5(children []ASTHandle) (document ASTHandle, resul
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	first, err := documents.own(m.FormatCompose([]ASTHandle{left, children[0]}))
-	if err != nil {
-		return ASTHandle{}, err
-	}
-	first, err = documents.own(m.FormatIndent(1, first))
-	if err != nil {
-		return ASTHandle{}, err
-	}
 	last, err := documents.own(m.FormatCompose([]ASTHandle{seq, right}))
 	if err != nil {
 		return ASTHandle{}, err
 	}
 	last, err = documents.own(m.FormatIndent(1, last))
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	left, err := documents.own(m.FormatString("("))
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	first, err := documents.own(m.FormatCompose([]ASTHandle{left, children[0]}))
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	first, err = documents.own(m.FormatIndent(1, first))
 	if err != nil {
 		return ASTHandle{}, err
 	}
