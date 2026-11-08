@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -35,7 +36,7 @@ import (
 )
 
 // goldenTraceTags are enabled on both sides by default.
-var goldenTraceTags = []string{"assign_core", "decide", "add_eq_detail", "mk_bool_var", "seq"}
+var goldenTraceTags = []string{"assign_core", "decide", "add_eq_detail", "mk_bool_var", "seq", "conflict"}
 
 // goldenTraceSites lists the TRACE records the Go port emits, as
 // "tag function file:line" with the source path relative to the repository.
@@ -56,6 +57,34 @@ var goldenTraceSites = map[string]bool{
 	"propagate_relevancy unmark_relevant_exprs src/smt/smt_relevancy.cpp:279": true,
 	"propagate_relevancy_to_args propagate src/smt/smt_relevancy.cpp:462":     true,
 	"seq get_automaton src/smt/theory_seq.cpp:4174":                           true,
+}
+
+// goldenIDMaskedSites print AST ids ("#123"). Until g3 allocates the same
+// ids as z3 (TODO.md item 3) they are compared with the ids masked; every
+// other field must still agree.
+var goldenIDMaskedSites = map[string]bool{
+	"conflict initialize_resolve src/smt/smt_conflict_resolution.cpp:403": true,
+	"conflict initialize_resolve src/smt/smt_conflict_resolution.cpp:411": true,
+	"conflict process_antecedent src/smt/smt_conflict_resolution.cpp:314": true,
+	"conflict process_antecedent src/smt/smt_conflict_resolution.cpp:335": true,
+	"conflict resolve src/smt/smt_conflict_resolution.cpp:479":            true,
+	"conflict resolve src/smt/smt_conflict_resolution.cpp:487":            true,
+	"conflict resolve src/smt/smt_conflict_resolution.cpp:499":            true,
+	"conflict resolve src/smt/smt_conflict_resolution.cpp:507":            true,
+	"conflict resolve src/smt/smt_conflict_resolution.cpp:573":            true,
+	"conflict finalize_resolve src/smt/smt_conflict_resolution.cpp:432":   true,
+	"conflict finalize_resolve src/smt/smt_conflict_resolution.cpp:439":   true,
+	"conflict finalize_resolve src/smt/smt_conflict_resolution.cpp:462":   true,
+}
+
+var goldenASTID = regexp.MustCompile(`#[0-9]+`)
+
+// goldenRecordText is the text a record is compared by.
+func goldenRecordText(r traceRecord) string {
+	if goldenIDMaskedSites[r.site] {
+		return goldenASTID.ReplaceAllString(r.text, "#")
+	}
+	return r.text
 }
 
 // goldenVectors are compared when G3_GOLDEN_VECTORS is unset. Each is
@@ -184,7 +213,7 @@ func parseTraceRecords(t *testing.T, f *os.File) []traceRecord {
 func filterTraceRecords(records []traceRecord) []traceRecord {
 	out := records[:0:0]
 	for _, r := range records {
-		if goldenTraceSites[r.site] {
+		if goldenTraceSites[r.site] || goldenIDMaskedSites[r.site] {
 			out = append(out, r)
 		}
 	}
@@ -243,7 +272,7 @@ func compareTraceRecords(t *testing.T, want, got []traceRecord) {
 		n = len(got)
 	}
 	for i := 0; i < n; i++ {
-		if want[i].text == got[i].text {
+		if goldenRecordText(want[i]) == goldenRecordText(got[i]) {
 			continue
 		}
 		var b strings.Builder

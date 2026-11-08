@@ -548,7 +548,8 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 		return nil
 	}
 	st.traceConflict("resolve", 479, func() string {
-		return st.traceLiteralVerbose(notLiteral) + " " + st.traceJustification(conflict) + "\n"
+		// context::display(b_justification) ends its own line.
+		return st.traceLiteralVerbose(notLiteral) + " " + st.traceJustification(conflict)
 	})
 	if notLiteral != SMTNullLiteral {
 		st.traceConflict("resolve", 487, func() string { return "not_l: " + st.traceLiteralVerbose(notLiteral) + "\n" })

@@ -199,8 +199,9 @@ Found while matching `-st` output against `build/z3` on
     finalize_resolve 432/439/462, resolve 499 processing consequent and
     507 clause detail): all of conflict_resolution's conflict-tag
     records. On block 12 all 148 match z3 apart from AST ids (indices,
-    levels and variables agree). These records print AST ids, so they join goldenTraceSites
-    only once item 3 makes the ids agree. They already show a difference
+    levels and variables agree). These records print AST ids; they are in goldenIDMaskedSites
+    (compared with `#<digits>` masked) and the conflict tag is a default
+    golden tag, so TestTraceGolden checks them on block 12. They already show a difference
     on block 12: in the core conflict for (not (= x "abcc")) (an
     eq_propagation justification), z3's antecedents start with the
     "abcc" equality and include one more level-0 literal; g3's e-graph
