@@ -118,7 +118,8 @@ func (t *SMTArrayTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool
 	if op, array, err := t.arrayOperation(expression); err != nil {
 		return false, err
 	} else if array {
-		if op == ast.ASTArrayOpExt && t.simple {
+		// internalize_atom is internalize_term, which refuses array-ext.
+		if op == ast.ASTArrayOpExt {
 			return false, nil
 		}
 		if t.simple && op != ast.ASTArrayOpSelect && op != ast.ASTArrayOpStore {
@@ -127,7 +128,7 @@ func (t *SMTArrayTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool
 			}
 			return false, nil
 		}
-		if op == ast.ASTArrayOpSelect || op == ast.ASTArrayOpDefault || op == ast.ASTArrayOpExt {
+		if op == ast.ASTArrayOpSelect || op == ast.ASTArrayOpDefault {
 			_, termErr := t.InternalizeTerm(expression)
 			if termErr != nil {
 				return false, fmt.Errorf("array select atom: %w", termErr)
@@ -180,7 +181,10 @@ func (t *SMTArrayTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 	if err != nil || !array {
 		return false, err
 	}
-	if op == ast.ASTArrayOpExt && t.simple {
+	// Both theory_array and theory_array_full return false for array-ext
+	// before internalizing anything (theory_array_full's later is_array_ext
+	// branch is unreachable).
+	if op == ast.ASTArrayOpExt {
 		return false, nil
 	}
 	if t.simple && op != ast.ASTArrayOpStore && op != ast.ASTArrayOpSelect {
@@ -205,7 +209,7 @@ func (t *SMTArrayTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 			return false, fmt.Errorf("array term argument %d: %w", index, argErr)
 		}
 	}
-	handled := op == ast.ASTArrayOpStore || op == ast.ASTArrayOpSelect || op == ast.ASTArrayOpConst || op == ast.ASTArrayOpExt || op == ast.ASTArrayOpMap || op == ast.ASTArrayOpAsArray || op == ast.ASTArrayOpDefault
+	handled := op == ast.ASTArrayOpStore || op == ast.ASTArrayOpSelect || op == ast.ASTArrayOpConst || op == ast.ASTArrayOpMap || op == ast.ASTArrayOpAsArray || op == ast.ASTArrayOpDefault
 	if handled {
 		node := state.context.enodes.get(expression)
 		if node != nil && t.IsAttachedToVariable(node) {
@@ -242,14 +246,6 @@ func (t *SMTArrayTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 			return false, fmt.Errorf("array select-store axiom: %w", err)
 		}
 	case ast.ASTArrayOpConst:
-	case ast.ASTArrayOpExt:
-		node := state.context.enodes.get(expression)
-		if len(node.arguments) != 2 {
-			return false, ast.ErrASTDomain
-		}
-		if err = t.instantiateArrayExtensionality(node.arguments[0], node.arguments[1]); err != nil {
-			return false, err
-		}
 	case ast.ASTArrayOpMap:
 		for _, input := range state.context.enodes.get(expression).arguments {
 			if err = t.addParentMap(input.TheoryVar(t.FamilyID()), state.context.enodes.get(expression)); err != nil {

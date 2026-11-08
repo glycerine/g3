@@ -103,19 +103,21 @@ func TestSMTFullArrayExplicitExtensionalityOriginalFingerprint(t *testing.T) {
 		astTestMust(t, err)
 		astTestMust(t, state.Internalize(arrays[i], false))
 	}
+	// array-ext is refused by internalize_term (its theory_array_full branch
+	// is unreachable); extensionality is scheduled by new_diseq_eh.
 	declarations := theory.sortDeclarations[sort]
 	witness, err := m.MkApp(declarations[0], arrays[:2])
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(witness, true))
-	node := state.context.enodes.get(witness)
-	variable, found := state.BoolVar(witness)
-	if node == nil || !theory.IsAttachedToVariable(node) || !found {
-		t.Fatal("full theory did not internalize explicit Boolean witness")
+	if len(theory.extensionalityTodo) != 0 || theory.statistics.extensionality != 0 {
+		t.Fatal("array-ext internalization scheduled extensionality")
 	}
-	data, err := state.BooleanData(variable)
-	astTestMust(t, err)
-	if !data.IsENode() || data.Theory() != family || len(theory.extensionalityTodo) != 1 || theory.statistics.extensionality != 1 {
-		t.Fatal("explicit witness enode flags or extensionality scheduling")
+	variableOf := func(h ast.ASTHandle) SMTTheoryVar {
+		return state.context.enodes.get(h).TheoryVar(family)
+	}
+	astTestMust(t, theory.NewDisequality(variableOf(arrays[0]), variableOf(arrays[1])))
+	if len(theory.extensionalityTodo) != 1 || theory.statistics.extensionality != 1 {
+		t.Fatal("disequality did not schedule extensionality")
 	}
 	first := state.context.enodes.get(arrays[0])
 	second := state.context.enodes.get(arrays[1])
@@ -125,9 +127,7 @@ func TestSMTFullArrayExplicitExtensionalityOriginalFingerprint(t *testing.T) {
 	if first.root != third {
 		t.Fatal("fixture did not move the original fingerprint root")
 	}
-	otherWitness, err := m.MkApp(declarations[1], arrays[:2])
-	astTestMust(t, err)
-	astTestMust(t, state.Internalize(otherWitness, true))
+	astTestMust(t, theory.NewDisequality(variableOf(arrays[0]), variableOf(arrays[1])))
 	if len(theory.extensionalityTrail) != 1 || len(theory.extensionalityTodo) != 1 || theory.statistics.extensionality != 1 {
 		t.Fatal("root change forgot the original witness fingerprint")
 	}

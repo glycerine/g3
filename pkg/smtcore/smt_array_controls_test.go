@@ -91,7 +91,8 @@ func TestSMTArrayBackendOperationBoundary(t *testing.T) {
 				astTestMust(t, state.PushScope())
 				handled, err := core.InternalizeTerm(expression)
 				astTestMust(t, err)
-				wantHandled := !simple || op == ast.ASTArrayOpStore || op == ast.ASTArrayOpSelect
+				// Both array theories refuse array-ext before internalizing it.
+				wantHandled := op != ast.ASTArrayOpExt && (!simple || op == ast.ASTArrayOpStore || op == ast.ASTArrayOpSelect)
 				wantUnsupported := op != ast.ASTArrayOpExt && (simple && !wantHandled || op == ast.ASTArrayOpAsArray)
 				if handled != wantHandled || core.unsupported != wantUnsupported {
 					t.Fatal("array operation boundary", handled, core.unsupported, "want", wantHandled, wantUnsupported)
