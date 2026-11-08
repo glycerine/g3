@@ -61,10 +61,17 @@ func (c *distributeForallConfiguration) distribute(q, body ast.ASTHandle, negate
 		if getErr != nil {
 			return fmt.Errorf("distribute-forall update quantifier: %w", getErr)
 		}
+		// quantifier_ref tmp_q holds the updated quantifier for this
+		// iteration only; new_args keeps new_q.
+		tmpQ, getErr := c.manager.NewRef(updated)
+		if getErr != nil {
+			return getErr
+		}
 		reduced, getErr := rewriter.ElimUnusedVarsUFBV(c.manager, updated)
 		if reduced != (ast.ASTRef{}) {
 			refs = append(refs, reduced)
 		}
+		getErr = errors.Join(getErr, c.manager.DelRef(&tmpQ))
 		if getErr != nil {
 			return fmt.Errorf("distribute-forall eliminate unused variables: %w", getErr)
 		}

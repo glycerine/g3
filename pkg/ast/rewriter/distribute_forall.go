@@ -249,33 +249,20 @@ func (r *DistributeForall) reduceQuantifier(q ast.ASTHandle) (result error) {
 	if err != nil {
 		return err
 	}
+	// new_args (expr_ref_buffer) owns each new_q; not_arg, tmp_q and new_q
+	// are locals of one iteration and die at its end, new_q first.
 	conjuncts := make([]ast.ASTHandle, 0, n)
 	for i := uint32(0); i < n; i++ {
 		arg, err := r.manager.GetArg(disjunction, i)
 		if err != nil {
 			return err
 		}
-		notArg, err := scratch()
+		held, err := r.distributeConjunct(boolean, q, arg)
 		if err != nil {
 			return err
 		}
-		if err = boolean.mkNot(arg, notArg); err != nil {
-			return err
-		}
-		negated, err := r.manager.RefGet(notArg)
-		if err != nil {
-			return err
-		}
-		updated, err := r.manager.UpdateQuantifierBody(q, negated)
-		if err != nil {
-			return err
-		}
-		eliminated, err := ElimUnusedVarsUFBV(r.manager, updated)
-		if err != nil {
-			return err
-		}
-		owned = append(owned, eliminated)
-		conjunct, err := r.manager.RefGet(eliminated)
+		owned = append(owned, held)
+		conjunct, err := r.manager.RefGet(held)
 		if err != nil {
 			return err
 		}
@@ -389,4 +376,34 @@ func (r *DistributeForall) Apply(root ast.ASTHandle, out ast.ASTRef) (result err
 		return err
 	}
 	return r.trace(root, got)
+}
+
+// distributeConjunct is one iteration of reduce1_quantifier's loop. The
+// returned reference is new_q as new_args holds it; tmp_q and then not_arg
+// are released before returning.
+func (r *DistributeForall) distributeConjunct(boolean *boolRewriter, q, arg ast.ASTHandle) (newQ ast.ASTRef, result error) {
+	notArg, err := r.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	tmpQ, err := r.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTRef{}, errors.Join(err, r.manager.DelRef(&notArg))
+	}
+	defer func() { result = errors.Join(result, r.manager.DelRef(&tmpQ), r.manager.DelRef(&notArg)) }()
+	if err = boolean.mkNot(arg, notArg); err != nil {
+		return ast.ASTRef{}, err
+	}
+	negated, err := r.manager.RefGet(notArg)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	updated, err := r.manager.UpdateQuantifierBody(q, negated)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	if err = r.manager.SetRef(tmpQ, updated); err != nil {
+		return ast.ASTRef{}, err
+	}
+	return ElimUnusedVarsUFBV(r.manager, updated)
 }
