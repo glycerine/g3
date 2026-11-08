@@ -56,6 +56,14 @@ Found while matching `-st` output against `build/z3` on
      and destructor), each justified_expr formula before proof; g3
      released last to first, proof first (add_bounds_fractional_real
      freed its goal formulas in reverse). AST logs: 99 identical.
+   - mk_simplify_tactic is clean(simplify_tactic): the cleaner tactical
+     destroys the rewriter (and its cache) right after each apply. The
+     default strategy, mk_default_tactic and the sls factory built a bare
+     simplifier, whose cache kept the simplified formulas alive (AST logs
+     101 -> 103 identical).
+   Next lead (get-model on (> x 2)): after elim-uncnstr's second round
+   z3 frees (not k!0) last and keeps (<= x 2) alive, probably through the
+   model converter's k!0 definition; g3 frees (<= x 2) last.
    Next: model and value printing (format_ns `string`/`compose`/`cr`
    ASTs, labels.smt2 and others), and the remaining buckets of first
    differences (records 33-40) in the per-vector comparison.

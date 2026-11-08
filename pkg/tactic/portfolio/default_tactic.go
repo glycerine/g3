@@ -114,7 +114,7 @@ func NewDefaultTactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SM
 			return nil, e
 		}
 	}
-	simplify, err := core.NewSimplifyTactic(m, config.Params, config.Globals, nil)
+	simplify, err := core.MakeSimplifyTactic(m, config.Params, config.Globals, nil)
 	first, err := keepTactic(simplify, err)
 	if err != nil {
 		return nil, err

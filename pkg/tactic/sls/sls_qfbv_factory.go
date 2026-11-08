@@ -52,7 +52,7 @@ func NewQFBVSLSTactic(manager *ast.ASTManager, params *uparams.ParamsRef, config
 		return b.finish(nil)
 	}
 
-	simplify1, err := core.NewSimplifyTactic(manager, c, g, nil)
+	simplify1, err := core.MakeSimplifyTactic(manager, c, g, nil)
 	first := b.own(simplify1, err)
 	propagate, err := core.NewPropagateValuesTactic(manager, c, g, nil)
 	second := b.own(propagate, err)
@@ -62,11 +62,11 @@ func NewQFBVSLSTactic(manager *ast.ASTManager, params *uparams.ParamsRef, config
 	fourth := b.own(eliminate, err)
 	reduce, err := bv.NewBVSizeReductionTactic(manager, c, g, services)
 	fifth := b.own(reduce, err)
-	simplify2, err := core.NewSimplifyTactic(manager, c, g, nil)
+	simplify2, err := core.MakeSimplifyTactic(manager, c, g, nil)
 	sixth := b.using(b.own(simplify2, err), simp2P)
 	inner := b.sequence(first, second, third, fourth, fifth, sixth)
 
-	hoist, err := core.NewSimplifyTactic(manager, c, g, nil)
+	hoist, err := core.MakeSimplifyTactic(manager, c, g, nil)
 	hoistStage := b.using(b.own(hoist, err), hoistP)
 	sharing, err := bv.NewMaxBVSharingTactic(manager, c, nil, services.Cooperation)
 	sharingStage := b.own(sharing, err)

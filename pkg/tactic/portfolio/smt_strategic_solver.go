@@ -221,7 +221,7 @@ func NewDefaultStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, 
 			return nil, err
 		}
 	}
-	simplify, err := core.NewSimplifyTactic(m, config.Params, config.Globals, p)
+	simplify, err := core.MakeSimplifyTactic(m, config.Params, config.Globals, p)
 	if err != nil {
 		return nil, err
 	}
