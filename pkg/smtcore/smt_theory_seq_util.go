@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -378,14 +379,18 @@ func (t *SMTTheorySeq) pushReplay(kind seqApplyKind, e ast.ASTHandle) {
 	})
 }
 
-// rewriteTh is m_rewrite(e) for an expr_ref e: the rewritten term, which
-// the caller holds.
-func (t *SMTTheorySeq) rewriteTh(e ast.ASTHandle) ast.ASTHandle {
+// rewriteTh is m_rewrite(e) for an expr_ref e: the rewritten term, held in
+// the caller's locals x.
+func (t *SMTTheorySeq) rewriteTh(x *seqRefs, e ast.ASTHandle) ast.ASTHandle {
 	r, err := t.rewrite.rewriterFor(t.m)
 	t.chk(err)
-	out, err := t.m.NewRef(ast.ASTHandle{})
+	return t.rewriteWith(x, e, r)
+}
+
+func (t *SMTTheorySeq) rewriteWith(x *seqRefs, e ast.ASTHandle, r *rewriter.TheoryRewriter) ast.ASTHandle {
+	out, err := t.m.NewRef(e)
 	t.chk(err)
-	defer func() { t.chk(t.m.DelRef(&out)) }()
+	x.refs = append(x.refs, out)
 	t.chk(r.Rewrite(e, out))
 	return t.must(t.m.RefGet(out))
 }

@@ -203,7 +203,7 @@ func (t *SMTTheorySeq) solveNc(idx int) bool {
 	deps := n.dep
 	x := t.loc()
 	defer x.drop()
-	c := t.ref(x, t.canonize(n.contains, &deps), nil)
+	c := t.canonize(x, n.contains, &deps)
 	if t.m.IsTrue(c) {
 		t.setConflict(deps, nil)
 		return true

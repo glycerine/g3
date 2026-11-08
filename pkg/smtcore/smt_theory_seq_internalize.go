@@ -167,7 +167,7 @@ func (t *SMTTheorySeq) addStoiValAxiom(e ast.ASTHandle) bool {
 					c.Mul(c, big.NewRat(10, 1))
 				}
 				num := t.ref(x, t.mkAddN(nums.handles()), nil)
-				num = t.ref(x, t.ctxRewrite(num), nil)
+				num = t.ctxRewrite(x, num)
 				lits = append(lits, t.mkEq(e, num, false))
 				t.stats.addAxiom++
 				t.newPropagation = true
@@ -198,16 +198,12 @@ func (t *SMTTheorySeq) intSort() ast.ASTHandle {
 	return t.must(t.m.MkFamilySort(fid, smtArithIntSort, nil))
 }
 
-// ctxRewrite is ctx.get_rewriter()(e).
-func (t *SMTTheorySeq) ctxRewrite(e ast.ASTHandle) ast.ASTHandle {
+// ctxRewrite is ctx.get_rewriter()(e), held in x.
+func (t *SMTTheorySeq) ctxRewrite(x *seqRefs, e ast.ASTHandle) ast.ASTHandle {
 	if t.state.theoryRewriter == nil {
 		t.chk(ast.ErrASTDomain)
 	}
-	out, err := t.m.NewRef(e)
-	t.chk(err)
-	defer func() { t.chk(t.m.DelRef(&out)) }()
-	t.chk(t.state.theoryRewriter.Rewrite(e, out))
-	return t.must(t.m.RefGet(out))
+	return t.rewriteWith(x, e, t.state.theoryRewriter)
 }
 
 func (t *SMTTheorySeq) isDigit(ch ast.ASTHandle) SMTLiteral {

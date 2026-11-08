@@ -439,7 +439,7 @@ func (t *SMTTheorySeq) assumeEquality(l, r ast.ASTHandle) lbool.LBool {
 	x := t.loc()
 	defer x.drop()
 	eq := t.ref(x, t.mkEqExpr(l, r), nil)
-	eq = t.ref(x, t.rewriteTh(eq), nil)
+	eq = t.rewriteTh(x, eq)
 	if t.m.IsTrue(eq) {
 		return lbool.True
 	}

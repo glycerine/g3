@@ -23,7 +23,7 @@ func (t *SMTTheorySeq) checkExtensionality() bool {
 		if len(seqs) != 0 && t.state.isRelevant(o1) && t.isSeq(o1) && t.isShared(n1) {
 			x := t.loc()
 			var dep *seqDep
-			e1 := t.ref(x, t.canonize(o1, &dep), nil)
+			e1 := t.canonize(x, o1, &dep)
 			for _, sv := range seqs {
 				n2, err := t.Enode(sv)
 				t.chk(err)
@@ -34,7 +34,7 @@ func (t *SMTTheorySeq) checkExtensionality() bool {
 				if t.state.context.isDisequal(n1, n2) || t.mustBool(t.exclude.contains(o1, o2)) {
 					continue
 				}
-				e2 := t.ref(x, t.canonize(n2.Owner(), &dep), nil)
+				e2 := t.canonize(x, n2.Owner(), &dep)
 				t.chk(t.lhsV.reset())
 				t.chk(t.rhsV.reset())
 				var lhs, rhs []ast.ASTHandle
