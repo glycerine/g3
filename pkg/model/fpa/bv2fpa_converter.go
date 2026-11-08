@@ -142,11 +142,15 @@ func (c *Converter) ConvertBV2FP(sort, sign, exponent, significand ast.ASTHandle
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	components, err := c.manager.MkFamilyApp(family, ast.FPAOpFP, nil, []ast.ASTHandle{sign, exponent, significand})
-	if err != nil {
-		return ast.ASTHandle{}, err
+	// convert_bv2fp builds the mpf and m_fpa_util.mk_value(fp_val) directly;
+	// it never creates an fp(sgn, exp, sig) application.
+	var domain [3]ast.ASTHandle
+	for i, component := range []ast.ASTHandle{sign, exponent, significand} {
+		if domain[i], err = c.manager.GetSort(component); err != nil {
+			return ast.ASTHandle{}, err
+		}
 	}
-	declaration, err := c.manager.GetDecl(components)
+	declaration, err := c.manager.MkFamilyFuncDecl(family, ast.FPAOpFP, nil, domain[:], sort)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -268,6 +272,18 @@ func (c *Converter) ConvertPackedBV(mc *model.ModelCore, sort, value ast.ASTHand
 			return ast.ASTHandle{}, errors.Join(e, c.manager.DecRef(node))
 		}
 		return node, nil
+	}
+	// sgn, exp and sig are expr_ref extract applications that m_th_rw then
+	// folds to v_sgn, v_exp and v_sig; all are released on return.
+	for _, bounds := range [][2]uint32{{width - 1, width - 1}, {width - 2, sbits - 1}, {sbits - 2, 0}} {
+		app, e := c.manager.MkBitVectorExtract(bounds[0], bounds[1], value)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if e = c.manager.IncRef(app); e != nil {
+			return ast.ASTHandle{}, e
+		}
+		defer c.manager.DecRef(app)
 	}
 	sign, err := extract(width-1, width-1)
 	if err != nil {

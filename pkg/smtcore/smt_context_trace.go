@@ -33,6 +33,23 @@ func emitSMTTrace(tag, function, file string, line int, body string) {
 
 // tracePP is mk_pp(e, m).
 func tracePP(m *ast.ASTManager, h ast.ASTHandle) string {
+	var text string
+	tracePPTo(m, h, func(t string) { text = t })
+	return text
+}
+
+// tracePPTo is operator<<(mk_pp): the text is written while the format is
+// still alive, and the format is released afterwards.
+func tracePPTo(m *ast.ASTManager, h ast.ASTHandle, w func(string)) {
+	text := tracePPText(m, h, w)
+	if text != "" {
+		w(text)
+	}
+}
+
+// tracePPText returns its text only on early failure; otherwise it hands the
+// rendered text to w before the deferred format release.
+func tracePPText(m *ast.ASTManager, h ast.ASTHandle, w func(string)) string {
 	if h == (ast.ASTHandle{}) {
 		return "null"
 	}
@@ -61,7 +78,8 @@ func tracePP(m *ast.ASTManager, h ast.ASTHandle) string {
 	if err != nil {
 		return "<" + err.Error() + ">"
 	}
-	return text
+	w(text)
+	return ""
 }
 
 // traceBoundedPP is mk_bounded_pp(e, m) with the default depth 3.
@@ -117,11 +135,11 @@ func (s *SMTInternalizerState) traceLiteralVerboseTo(l SMTLiteral, w func(string
 	}
 	if l.Sign() {
 		w("(not ")
-		w(tracePP(s.manager, s.boolExpr[l.Var()]))
+		tracePPTo(s.manager, s.boolExpr[l.Var()], w)
 		w(")")
 		return
 	}
-	w(tracePP(s.manager, s.boolExpr[l.Var()]))
+	tracePPTo(s.manager, s.boolExpr[l.Var()], w)
 }
 
 // traceLiteralsVerbose is display_literals_verbose: separated by newlines.

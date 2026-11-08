@@ -298,15 +298,16 @@ func (c *Converter) isNaN(value ast.ASTHandle) (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	expTop, err := c.boolEq(exponent, top)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
+	// mk_is_nan: sig_is_zero, sig_is_not_zero, then exp_is_top.
 	sigZero, err := c.boolEq(significand, zero)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	sigNonzero, err := c.boolNot(sigZero)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	expTop, err := c.boolEq(exponent, top)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
