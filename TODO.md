@@ -96,6 +96,14 @@ Found while matching `-st` output against `build/z3` on
    (stdout vs z3). build_dbg/ is an untracked z3 build that logs
    [del] #id records (Z3_TRACE_DEL=1) from a patched copy of ast.cpp;
    pair it with a temporary Go hook in ast_core_delete.go.
+   Later still: full logs 238 -> 268 identical. Updated quantifiers log
+   [mk-quant]; real diff logic's zero is Int; mk_le_ge_eq_core's
+   expr_ref temporaries are released (cancel_monomials, elim_to_real,
+   is_neg_poly/div_polynomial reassignment) and moved monomials sorted
+   by mon_lt; fpa mk_is_nan order and convert_bv2fp's extract shape.
+   Rebuild the [del]-logging g3 with /var/tmp/g3-job-487c9ee8/build_g3del.sh.
+   Open in fpa: the bv2fpa model conversion releases a group of terms in a
+   different order (likely an obj_map walked in hash order).
    Next buckets: '[mk-app] vs [mk-var]' (fixedpoint, see item 20),
    not/iff/= id differences (bit-blaster and SAT ownership), and
    '[mk-quant]' ordering.
