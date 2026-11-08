@@ -79,28 +79,34 @@ func NewDefaultStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, 
 		probeOwners = append(probeOwners, value)
 		return value, nil
 	}
-	qfAUFLIA, err := smtlogics.NewQFAUFLIATactic(m, p, config)
-	qfAUFLIA, err = keepTactic(qfAUFLIA, err)
+	// mk_default_tactic is one nested call expression; GCC evaluates call
+	// arguments right to left, so the source constructs the innermost
+	// alternatives first: smt, qffplra, qffp, nra, lira, qfnia, qfnra, qflra,
+	// qfauflia, qflia, qfaufbv, qfbv, and the leading simplify last. Their
+	// constructors create ASTs (e.g. bit2int and bv1-blaster numerals), so
+	// this order fixes AST ids.
+	ordinaryValue, err := smtcore.NewSMTTactic(m, p, config)
+	ordinary, err := keepTactic(ordinaryValue, err)
 	if err != nil {
 		return nil, err
 	}
-	qfBV, err := smtlogics.NewQFBVTactic(m, p, config)
-	qfBV, err = keepTactic(qfBV, err)
+	qfFPLRA, err := smtlogics.NewQFFPLRATactic(m, p, config)
+	qfFPLRA, err = keepTactic(qfFPLRA, err)
 	if err != nil {
 		return nil, err
 	}
-	qfAUFBV, err := smtlogics.NewQFAUFBVTactic(m, p, config)
-	qfAUFBV, err = keepTactic(qfAUFBV, err)
+	qfFP, err := smtlogics.NewQFFPTactic(m, p, config)
+	qfFP, err = keepTactic(qfFP, err)
 	if err != nil {
 		return nil, err
 	}
-	qfLIA, err := smtlogics.NewQFLIATactic(m, p, config)
-	qfLIA, err = keepTactic(qfLIA, err)
+	nra, err := smtlogics.NewNRATactic(m, p, config)
+	nra, err = keepTactic(nra, err)
 	if err != nil {
 		return nil, err
 	}
-	qfLRA, err := smtlogics.NewQFLRATactic(m, p, config)
-	qfLRA, err = keepTactic(qfLRA, err)
+	lira, err := smtlogics.NewLIRATactic(m, p, config)
+	lira, err = keepTactic(lira, err)
 	if err != nil {
 		return nil, err
 	}
@@ -114,28 +120,28 @@ func NewDefaultStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, 
 	if err != nil {
 		return nil, err
 	}
-	nra, err := smtlogics.NewNRATactic(m, p, config)
-	nra, err = keepTactic(nra, err)
+	qfLRA, err := smtlogics.NewQFLRATactic(m, p, config)
+	qfLRA, err = keepTactic(qfLRA, err)
 	if err != nil {
 		return nil, err
 	}
-	qfFP, err := smtlogics.NewQFFPTactic(m, p, config)
-	qfFP, err = keepTactic(qfFP, err)
+	qfAUFLIA, err := smtlogics.NewQFAUFLIATactic(m, p, config)
+	qfAUFLIA, err = keepTactic(qfAUFLIA, err)
 	if err != nil {
 		return nil, err
 	}
-	qfFPLRA, err := smtlogics.NewQFFPLRATactic(m, p, config)
-	qfFPLRA, err = keepTactic(qfFPLRA, err)
+	qfLIA, err := smtlogics.NewQFLIATactic(m, p, config)
+	qfLIA, err = keepTactic(qfLIA, err)
 	if err != nil {
 		return nil, err
 	}
-	ordinaryValue, err := smtcore.NewSMTTactic(m, p, config)
-	ordinary, err := keepTactic(ordinaryValue, err)
+	qfAUFBV, err := smtlogics.NewQFAUFBVTactic(m, p, config)
+	qfAUFBV, err = keepTactic(qfAUFBV, err)
 	if err != nil {
 		return nil, err
 	}
-	lira, err := smtlogics.NewLIRATactic(m, p, config)
-	lira, err = keepTactic(lira, err)
+	qfBV, err := smtlogics.NewQFBVTactic(m, p, config)
+	qfBV, err = keepTactic(qfBV, err)
 	if err != nil {
 		return nil, err
 	}

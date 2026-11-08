@@ -30,10 +30,11 @@ type SMTKernelAssertion struct {
 }
 
 type SMTKernel struct {
-	queueWarnings      *diagnostic.WarningService // Borrowed factory diagnostics; nil uses process warnings.
-	caseSplitQueue     *SMTActivityCaseSplitQueue
-	booleanSetupSeeded bool
-	smtParamsBorrowed  bool
+	trueProofInitialized bool                       // context::init's proof branch has run
+	queueWarnings        *diagnostic.WarningService // Borrowed factory diagnostics; nil uses process warnings.
+	caseSplitQueue       *SMTActivityCaseSplitQueue
+	booleanSetupSeeded   bool
+	smtParamsBorrowed    bool
 
 	manager         *ast.ASTManager
 	checker         *SMTCheckerContext
@@ -379,6 +380,12 @@ func (k *SMTKernel) configurePreprocessingParams(context *uparams.ParamsContext,
 	}
 	if err = k.configureQuantifiers(full, fullState, quantifiers); err != nil {
 		return err
+	}
+	// The quantifier manager (and its qi_queue cost parser) is a context
+	// member, built before the constructor body runs context::init.
+	if !k.trueProofInitialized {
+		k.trueProofInitialized = true
+		return k.internalizer.initTrueProof()
 	}
 	return nil
 }

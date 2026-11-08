@@ -37,15 +37,29 @@ Found while matching `-st` output against `build/z3` on
    reference count 0 stays live until an inc/dec pair, so the release
    deleted nodes that callers still held without owning (pdr failed).
    Doing this needs callers to own their handles first.
-   OPEN: the order in which a finished `check-sat-using` releases its SMT
-   context, goal and tactic objects. In
-   `(check-sat-using smt)(declare-const z Int)...(check-sat-using smt)`
-   z3 frees the first check's `(>= x+y 7)`, `(>= x 0)`, `(<= x+y 7)` in
-   that order and g3 frees them in creation order, so the second check's
-   new terms get different ids. This needs the source destruction order of
-   smt::context (flush: trail undo, clauses, justifications; then the
-   asserted_formulas and enode members) and of the tactic objects.
-   Related: z3's relevancy propagator keeps m_relevant_exprs as an
+   Also fixed (measured by comparing `[mk-*]` AST creation logs on every
+   test vector; 73 -> 95 of 659 identical):
+   - mk_default_tactic constructs its alternatives in GCC's right-to-left
+     argument order (smt, qffplra, qffp, nra, lira, ..., qfbv), so the
+     tactic constructors' ASTs (bit2int, bv1-blaster numerals) get z3's
+     ids. With that, the two-check-sat-using example below matches.
+   - context::init creates mk_true_proof() under proofs, after the context
+     members (asserted_formulas, quantifier_manager's qi cost parser).
+   - lackr: a single argument equality is the lhs itself (no 1-ary and),
+     and fun2terms_map/app_set iterate in z3's hash-table order
+     (ackermannization/obj_hashtable.go), which picks f!N and the lemma
+     order.
+   Next: model and value printing (format_ns `string`/`compose`/`cr`
+   ASTs, labels.smt2 and others), and the remaining buckets of first
+   differences (records 33-40) in the per-vector comparison.
+   The earlier example, `(check-sat-using smt)(declare-const z
+   Int)...(check-sat-using smt)` with x+y=7 and x>=0, now has identical
+   AST logs: the apparent destruction-order difference came from the
+   tactic construction order above, not from smt::context teardown.
+   OPEN: in principle smt::context::flush still differs (z3 undoes one
+   interleaved trail of mk_bool_var/mk_enode entries; g3 unwinds enodes,
+   then Boolean variables), which matters only when a term's last
+   reference is one of the two. Related: z3's relevancy propagator keeps m_relevant_exprs as an
    expr_ref_vector, so its terms live until it unmarks them on pop. g3's
    propagator holds no references; the ported unmark_relevant_exprs
    TRACE (datatype_update_equality_scopes) shows terms already deleted

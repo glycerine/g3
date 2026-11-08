@@ -22,7 +22,7 @@ type eagerEncoder struct {
 	owner                     *encodingState
 	forms, abstracted, lemmas []ast.ASTHandle
 	held, scratch             []ast.ASTHandle
-	groups                    termGroups
+	groups                    *termGroups
 	info                      *Info
 	infoCleanup               bool
 	simplifier                *rewriter.TheoryRewriter
@@ -187,8 +187,8 @@ func (r *eagerEncoder) collect() (bool, error) {
 }
 func (r *eagerEncoder) abstract() error {
 	m := r.owner.manager
-	for _, d := range r.groups.declarations() {
-		terms := r.groups[d]
+	for _, group := range r.groups.groups() {
+		d := group.decl
 		sort, err := m.GetRange(d)
 		if err != nil {
 			return err
@@ -201,7 +201,7 @@ func (r *eagerEncoder) abstract() error {
 		if err != nil {
 			return err
 		}
-		for _, term := range sortedTerms(terms) {
+		for _, term := range group.terms {
 			fresh, err := m.MkFreshConstNullable(&prefix, sort)
 			if err != nil {
 				return err
@@ -320,12 +320,17 @@ func (r *eagerEncoder) ackermann(first, second ast.ASTHandle) (err error) {
 	if err = r.label("ackr", 111, "abstr2 ", b); err != nil {
 		return err
 	}
-	lhs, err := m.MkAndArgs(equalities)
-	if err != nil {
-		return err
-	}
-	if err = r.hold(lhs, true); err != nil {
-		return err
+	// lhs = (eqs.size() == 1) ? eqs.get(0) : m_m.mk_and(eqs.size(), eqs.c_ptr())
+	var lhs ast.ASTHandle
+	if len(equalities) == 1 {
+		lhs = equalities[0]
+	} else {
+		if lhs, err = m.MkAndArgs(equalities); err != nil {
+			return err
+		}
+		if err = r.hold(lhs, true); err != nil {
+			return err
+		}
 	}
 	if err = r.label("ackr", 114, "ackr constr lhs", lhs); err != nil {
 		return err
@@ -378,11 +383,10 @@ func (r *eagerEncoder) ackermann(first, second ast.ASTHandle) (err error) {
 	return nil
 }
 func (r *eagerEncoder) encode() error {
-	if err := r.emit("eager_enc", 133, func(w io.Writer) error { _, e := fmt.Fprintf(w, "#funs: %d\n", len(r.groups)); return e }); err != nil {
+	if err := r.emit("eager_enc", 133, func(w io.Writer) error { _, e := fmt.Fprintf(w, "#funs: %d\n", r.groups.size()); return e }); err != nil {
 		return err
 	}
-	for _, d := range r.groups.declarations() {
-		terms := r.groups[d]
+	for _, group := range r.groups.groups() {
 		canceled, err := r.owner.manager.Canceled()
 		if err != nil {
 			return err
@@ -395,7 +399,7 @@ func (r *eagerEncoder) encode() error {
 				return err
 			}
 		}
-		list := sortedTerms(terms)
+		list := group.terms
 		for i, first := range list {
 			for _, second := range list[i+1:] {
 				if first != second {

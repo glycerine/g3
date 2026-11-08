@@ -1441,3 +1441,24 @@ func (s *SMTInternalizerState) Close() error {
 	s.manager = nil
 	return nil
 }
+
+// initTrueProof is the proof branch of context::init: with proofs enabled
+// the true variable is justified by a proof wrapper of mk_true_proof(),
+// held until flush. The source runs init in the context constructor body,
+// after asserted_formulas and its members are built.
+func (s *SMTInternalizerState) initTrueProof() error {
+	proofs, err := s.manager.ProofsEnabled()
+	if err != nil || !proofs {
+		return err
+	}
+	proof, err := s.manager.MkProofTrue()
+	if err != nil {
+		return err
+	}
+	owner, err := NewSMTJustificationProofWrapper(s.manager, proof, true)
+	if err != nil {
+		return err
+	}
+	s.ownedJustifications = append(s.ownedJustifications, owner)
+	return nil
+}

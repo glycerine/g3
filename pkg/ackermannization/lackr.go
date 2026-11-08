@@ -57,7 +57,7 @@ func NewLackr(m *ast.ASTManager, p *uparams.ParamsRef, stats *Stats, formulas []
 	r := &Lackr{encodingState: encodingState{manager: m, context: c, globals: g, services: services, stats: stats}, backend: backend, header: n}
 	r.self = r
 	r.encoder.owner = &r.encodingState
-	r.encoder.groups = make(termGroups)
+	r.encoder.groups = newTermGroups()
 	var err error
 	r.params, err = c.NewValue()
 	r.paramsReady = err == nil

@@ -96,7 +96,7 @@ func (p *BoundProbe) Eval(g *tactic.Goal) (float64, error) {
 	if _, err := m.BitVectorUtilityFamilyID(); err != nil {
 		return 0, err
 	}
-	groups := make(termGroups)
+	groups := newTermGroups()
 	seen := make(map[ast.ASTHandle]bool)
 	n, err := g.Size()
 	if err != nil {

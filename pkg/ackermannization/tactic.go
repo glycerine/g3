@@ -192,7 +192,7 @@ func (t *Tactic) Apply(g *tactic.Goal, result *tactic.TacticResult) (err error) 
 	}); err != nil {
 		return err
 	}
-	r := &eagerEncoder{owner: &t.encodingState, groups: make(termGroups)}
+	r := &eagerEncoder{owner: &t.encodingState, groups: newTermGroups()}
 	t.pending = append(t.pending, r)
 	defer func() {
 		var failure memory.ConstructionFailure
