@@ -29,7 +29,7 @@ func (p *commandParser) recursiveHeader() (d recursiveDeclaration, err error) {
 	if d.names, d.domain, err = p.sortedVariables(); err != nil {
 		return d, err
 	}
-	d.rangeSort, err = p.sort()
+	d.rangeSort, err = p.sortIn("Invalid recursive function definition")
 	return d, err
 }
 

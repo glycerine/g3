@@ -312,7 +312,7 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 			} else if head == "as" {
 				name, indices, err = p.qualifiedIdentifier()
 				if err == nil {
-					rangeSort, err = p.sort()
+					rangeSort, err = p.sortIn("Invalid qualified identifier")
 				}
 				if err == nil {
 					err = p.expect(RightParenToken)
@@ -362,7 +362,7 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 				if err != nil {
 					return ast.ASTHandle{}, "", err
 				}
-				rangeSort, err := p.sort()
+				rangeSort, err := p.sortIn("Invalid qualified identifier")
 				if err != nil {
 					return ast.ASTHandle{}, "", err
 				}
@@ -430,7 +430,7 @@ func (p *commandParser) sortedVariables() ([]usymbol.Symbol, []ast.ASTHandle, er
 		if err != nil {
 			return nil, nil, err
 		}
-		sort, err := p.sort()
+		sort, err := p.sortIn("invalid sorted variables")
 		if err != nil {
 			return nil, nil, err
 		}
@@ -470,7 +470,11 @@ func (p *commandParser) defineFunction(withArguments bool) (result error) {
 		p.bindings = oldBindings
 		result = errors.Join(result, p.env.endScopeWithOwningCleanup(), p.locals.shrink(p.manager, oldExprs))
 	}()
-	rangeSort, err := p.sort()
+	rangeContext := "Invalid function definition"
+	if !withArguments {
+		rangeContext = "Invalid constant definition"
+	}
+	rangeSort, err := p.sortIn(rangeContext)
 	if err != nil {
 		return err
 	}

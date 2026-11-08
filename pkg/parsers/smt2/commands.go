@@ -23,6 +23,7 @@ import (
 )
 
 type commandParser struct {
+	sortContext string // parse_sort's context for unknown_sort messages
 	context            *cmd_context.Context
 	scanner            *Scanner
 	filename           string
@@ -609,7 +610,7 @@ func (p *commandParser) command() (bool, error) {
 				return false, err
 			}
 			for p.token != RightParenToken {
-				sort, err := p.sort()
+				sort, err := p.sortIn("Parsing function declaration. Expecting sort list '('")
 				if err != nil {
 					return false, err
 				}
@@ -619,7 +620,11 @@ func (p *commandParser) command() (bool, error) {
 				return false, err
 			}
 		}
-		rangeSort, err := p.sort()
+		rangeContext := "Invalid function declaration"
+		if name == "declare-const" {
+			rangeContext = "Invalid constant declaration"
+		}
+		rangeSort, err := p.sortIn(rangeContext)
 		if err != nil {
 			return false, err
 		}
@@ -1646,33 +1651,66 @@ func (p *commandParser) qualifiedIdentifier() (string, []identifierIndex, error)
 	return p.indexedExpression()
 }
 
+// unknownSort is smt2parser::unknown_sort(id, context).
+func (p *commandParser) unknownSort(name string) error {
+	msg := p.sortContext
+	if msg != "" {
+		msg += ": "
+	}
+	return errors.New(msg + "unknown sort '" + name + "'")
+}
+
+// sortIn is parse_sort(context): the context prefixes unknown-sort errors.
+func (p *commandParser) sortIn(context string) (ast.ASTHandle, error) {
+	saved := p.sortContext
+	p.sortContext = context
+	defer func() { p.sortContext = saved }()
+	return p.sort()
+}
+
 func (p *commandParser) sort() (ast.ASTHandle, error) {
 	// cmd_context::reset_assertions falls through to reset(false) when global
 	// declarations are disabled. The native extension parser then performs
 	// sort-name lookup before lazy manager initialization, so its next Int sort
 	// lookup fails until another AST operation initializes the manager.
 	if p.freshResetSortGap && p.token == SymbolToken && p.scanner.ID() == "Int" {
-		return ast.ASTHandle{}, fmt.Errorf("unknown sort 'Int'")
+		return ast.ASTHandle{}, p.unknownSort("Int")
 	}
 	m, err := p.astManager()
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	if p.token == SymbolToken {
-		name, err := p.symbol()
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
+		// parse_sort_name resolves the identifier before next(), so its
+		// errors carry the sort token's own position.
+		name := p.scanner.ID()
 		if formal, found := p.sortParams[name]; found {
+			if err := p.advance(); err != nil {
+				return ast.ASTHandle{}, err
+			}
 			return p.pin(formal, nil)
 		}
 		if arity, found := p.datatypeHeaders[name]; found {
 			if arity != 0 {
 				return ast.ASTHandle{}, fmt.Errorf("sort constructor expects %d parameters", arity)
 			}
+			if err := p.advance(); err != nil {
+				return ast.ASTHandle{}, err
+			}
 			return p.currentDatatypeSort(name, nil)
 		}
-		return p.pin(p.context.LookupSort(name))
+		value, err := p.context.LookupSort(name)
+		var unknown *cmd_context.UnknownSortError
+		if errors.As(err, &unknown) {
+			return ast.ASTHandle{}, p.unknownSort(name)
+		}
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if err = p.advance(); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		return p.pin(value, nil)
 	}
 	if err := p.expect(LeftParenToken); err != nil {
 		return ast.ASTHandle{}, err

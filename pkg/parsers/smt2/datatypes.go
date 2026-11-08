@@ -79,6 +79,9 @@ func (p *commandParser) datatypeFormalParameters(names []string) ([]ast.ASTHandl
 }
 
 func (p *commandParser) declareDatatypes(single bool) error {
+	// parse_declare_datatype(s) records the position after the command name;
+	// check_missing reports unknown field sorts there.
+	declLine, declPos := p.scanner.Line(), p.scanner.Position()
 	m, err := p.context.Manager()
 	if err != nil {
 		return err
@@ -329,7 +332,7 @@ func (p *commandParser) declareDatatypes(single bool) error {
 		} else {
 			field.Range, err = p.context.LookupSort(row.name)
 			if err != nil {
-				return fmt.Errorf("invalid datatype declaration, unknown sort '%s'", row.name)
+				return &ScannerError{Message: fmt.Sprintf("invalid datatype declaration, unknown sort '%s'", row.name), Line: declLine, Column: declPos}
 			}
 		}
 	}

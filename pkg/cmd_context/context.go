@@ -980,6 +980,11 @@ func (c *Context) DeclareSort(name string) (ast.ASTHandle, error) {
 	return c.DeclareSortConstructor(name, 0)
 }
 
+// UnknownSortError is find_psort_decl failing; the parser adds its context.
+type UnknownSortError struct{ Name string }
+
+func (e *UnknownSortError) Error() string { return "unknown sort " + e.Name }
+
 func (c *Context) LookupSort(name string) (ast.ASTHandle, error) {
 	m, err := c.Manager()
 	if err != nil {
@@ -995,7 +1000,7 @@ func (c *Context) LookupSort(name string) (ast.ASTHandle, error) {
 		return s, nil
 	}
 	if !c.BuiltinSortAvailable(name) {
-		return ast.ASTHandle{}, fmt.Errorf("unknown sort %s", name)
+		return ast.ASTHandle{}, &UnknownSortError{Name: name}
 	}
 	if name == "FloatingPoint" {
 		return ast.ASTHandle{}, fmt.Errorf("invalid floating-point sort, expecting two parameters")
