@@ -91,7 +91,7 @@ func (t *SMTTheorySeq) Initialize(state *SMTInternalizerState) (result error) {
 // built here, at the setup boundary, instead. Standalone fixtures without
 // SMT parameters have no nested solver.
 func (t *SMTTheorySeq) Setup() error {
-	if t.exprSolver != nil || t.state == nil || t.state.smtParams == nil {
+	if t.exprSolver != nil || t.setupSkipped || t.state == nil || t.state.smtParams == nil {
 		return nil
 	}
 	solver, err := newSMTStringExpressionSolver(t.m, t.state.smtParams)

@@ -835,10 +835,11 @@ type SMTTheorySeq struct {
 	branchStart map[uint32]int
 
 	// maintain automata with regular expressions
-	automata   []*rewriter.StringRegexAutomaton
-	exprSolver *smtStringExpressionSolver // seq_expr_solver of m_mk_aut
-	re2aut     map[ast.ASTHandle]*rewriter.StringRegexAutomaton
-	res        seqExprVector
+	automata     []*rewriter.StringRegexAutomaton
+	exprSolver   *smtStringExpressionSolver // seq_expr_solver of m_mk_aut
+	setupSkipped bool                       // setup chose a profile without theory_seq (unused placeholder)
+	re2aut       map[ast.ASTHandle]*rewriter.StringRegexAutomaton
+	res          seqExprVector
 
 	// queue of asserted atoms
 	atoms          []ast.ASTHandle

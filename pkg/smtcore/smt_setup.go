@@ -142,6 +142,13 @@ func (k *SMTKernel) setupSequenceBackend(useStaticFeatures bool) (result error) 
 		}
 		defer func() { result = errors.Join(result, features.Close()) }()
 		if k.smtState.AutoConfig && useStaticFeatures && !smtUnknownSetupUsesSequences(features) {
+			// setup_unknown(st) picks a profile without theory_seq, so the
+			// source never runs theory_seq::init (which builds the
+			// seq_expr_solver kernel). The Go placeholder stays registered
+			// but must not build that kernel either.
+			if placeholder, ok := k.sequenceSetupPlaceholder.(*SMTTheorySeq); ok && k.internalizer.theories[placeholder.FamilyID()] == k.sequenceSetupPlaceholder {
+				placeholder.setupSkipped = true
+			}
 			return nil
 		}
 		choice, _, err := k.manager.Symbols.BareString(k.smtState.StringSolver)

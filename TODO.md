@@ -180,8 +180,18 @@ Found while matching `-st` output against `build/z3` on
     trace build at every golden site (assign_core, decide, add_eq_detail,
     mk_bool_var, the seq records, and the conflict records with ids
     masked); they are TestTraceGolden's default vectors
-    (cmd/g3/test_vectors/golden_trace_vectors.txt). The other 237 show
-    where g3 still diverges; run them with G3_GOLDEN_VECTORS=<name>.
+    (cmd/g3/test_vectors/golden_trace_vectors.txt). Fixes found by the
+    failing vectors so far (423 -> 482 matching):
+    - model_checker::assert_neg_q_m makes its Skolems with
+      mk_fresh_const(nullptr, s), named k!N; g3 named them mbqi!N.
+    - when setup_unknown(st) picks a profile without theory_seq, z3 never
+      runs theory_seq::init and so never builds the seq_expr_solver
+      kernel; g3's eager seq placeholder built it anyway (one extra SMT
+      context in every check-sat-using smt under logic ALL).
+    The remaining vectors show where g3 still diverges; run them with
+    G3_GOLDEN_VECTORS=<name>. About half still differ in the number of
+    SMT contexts (g3 more in most): compare the context-creating call
+    sites, as done for the two fixes above.
     Port more TRACE records into Go at the
     sites z3 traces (add each to `goldenTraceSites` in
     cmd/g3/trace_golden_test.go). Ported so far: assign_core (with the

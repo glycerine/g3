@@ -435,7 +435,7 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 		if e != nil {
 			return false, e
 		}
-		skolems[i], e = c.manager.MkFreshConst("mbqi", sort)
+		skolems[i], e = c.manager.MkFreshConstNullable(nil, sort) // mk_fresh_const(nullptr, s)
 		if e != nil {
 			return false, e
 		}
