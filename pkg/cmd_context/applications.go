@@ -177,7 +177,10 @@ func (c *Context) MakeApp(name string, args []ast.ASTHandle, indices []ast.ASTPa
 			}
 		}
 		if name == "=" && len(args) == 2 {
-			return m.MkEq(args[0], args[1])
+			// cmd_context resolves "=" to the basic plugin's OP_EQ
+			// declaration; it does not call mk_eq, which turns a Boolean
+			// equality into iff.
+			return m.MkFamilyApp(m.BasicFamilyID(), ast.ASTOpEq, nil, args)
 		}
 		if name == "xor" {
 			return m.MkXorArgs(args)
