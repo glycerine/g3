@@ -18,7 +18,8 @@ func (c *Context) writeAppliedTacticResult(out io.Writer, applied *tactic.Tactic
 			if settings.printDependencies {
 				err = goal.DisplayWithDependencies(out)
 			} else {
-				err = goal.Display(out)
+				// goal::display(ast_printer_context&) prints the attributes.
+				err = goal.DisplayWithAttributes(out)
 			}
 			if err != nil {
 				return err

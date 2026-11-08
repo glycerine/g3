@@ -42,8 +42,9 @@ Found while matching `-st` output against `build/z3` on
    and the SAT solver's `mk bool var` is not reported
    (qflia_solver_pb_sat_pipeline check 1).
 
-8. **`(apply ...)` goal display.** Go omits
-   `:precision precise :depth N`.
+8. **DONE: `(apply ...)` goal display.** Go omitted
+   `:precision precise :depth N`: `apply` calls `goal::display(ctx)`, the
+   ast_printer_context overload, which prints them.
 
 9. **Clause storage and del-clause.** Go keeps one clause list where C++
    has `m_aux_clauses`/`m_lemmas` with `del_clauses` at pop; `del-clause`

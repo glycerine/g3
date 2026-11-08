@@ -23,7 +23,7 @@ func TestSMT2UserTacticDeclarationLookupDisplayAndApply(t *testing.T) {
 	if !strings.HasPrefix(output, wantDeclarations) {
 		t.Fatalf("user tactic display = %q, want prefix %q", output, wantDeclarations)
 	}
-	if !strings.Contains(output, "(goal\n  p)") {
+	if !strings.Contains(output, "(goal\n  p\n  :precision precise :depth ") {
 		t.Fatal("aliased user tactic was not applied", output)
 	}
 }

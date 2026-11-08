@@ -10,7 +10,7 @@ func TestSMT2ApplyTacticPrintsResultGoals(t *testing.T) {
 	if err != nil {
 		t.Fatal(err, output)
 	}
-	if !strings.HasPrefix(output, "(goals\n") || !strings.Contains(output, "(goal\n  p)") || !strings.HasSuffix(output, ")\n") {
+	if !strings.HasPrefix(output, "(goals\n") || !strings.Contains(output, "(goal\n  p\n  :precision precise :depth 1)") || !strings.HasSuffix(output, ")\n") {
 		t.Fatal(output)
 	}
 }
