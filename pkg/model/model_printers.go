@@ -465,88 +465,295 @@ func (md *ModelCore) WriteSMT2(out io.Writer, context *uparams.ParamsContext, gl
 		return err
 	}
 	for _, decl := range functions {
-		name, e := p.smt2Name(decl)
-		if e != nil {
-			return e
-		}
-		fi, e := md.FunctionInterpretation(decl)
-		if e != nil || fi == nil {
-			if e != nil {
-				return e
-			}
-			return ast.ErrASTPending
-		}
-		vars, exprNames, e := p.functionNames(fi.arity, 0)
-		if e != nil {
-			return e
-		}
-		args := make([]string, fi.arity)
-		for i := uint32(0); i < fi.arity; i++ {
-			domain, x := md.manager.GetDomain(decl, i)
-			if x != nil {
-				return x
-			}
-			domainText, x := p.renderSort(domain, 0)
-			if x != nil {
-				return x
-			}
-			args[i] = "(" + vars[i] + " " + domainText + ")"
-		}
-		rangeSort, e := md.manager.GetRange(decl)
-		if e != nil {
-			return e
-		}
-		rangeText, e := p.renderSort(rangeSort, 0)
-		if e != nil {
-			return e
-		}
-		body := "#unspecified"
-		if !fi.fallback.IsNull() {
-			body, e = p.render(fi.fallback, exprNames)
-			if e != nil {
-				return e
-			}
-		}
-		for i := len(fi.entries) - 1; i >= 0; i-- {
-			entry := fi.entries[i]
-			conds := make([]string, fi.arity)
-			for j := uint32(0); j < fi.arity; j++ {
-				arg, x := entry.Argument(j)
-				if x != nil {
-					return x
-				}
-				argText, x := p.render(arg, nil)
-				if x != nil {
-					return x
-				}
-				conds[j] = "(= " + vars[j] + " " + argText + ")"
-			}
-			condition := conds[0]
-			if len(conds) > 1 {
-				condition = "(and " + strings.Join(conds, " ") + ")"
-			}
-			result, x := entry.Result()
-			if x != nil {
-				return x
-			}
-			resultText, x := p.render(result, nil)
-			if x != nil {
-				return x
-			}
-			body = "(ite " + condition + " " + resultText + " " + body + ")"
-		}
-		if e = p.indent(indent); e != nil {
-			return e
-		}
-		if e = p.write("(define-fun " + name + " (" + strings.Join(args, " ") + ") " + rangeText + "\n"); e != nil {
-			return e
-		}
-		if e = p.indent(indent + 2); e != nil {
-			return e
-		}
-		if e = p.write(body + ")\n"); e != nil {
+		if e := p.writeFunctionSMT2(decl, indent); e != nil {
 			return e
 		}
 	}
 	return nil
+}
+
+// formatRefs holds format_ref locals; release follows reverse declaration.
+type formatRefs struct {
+	formats *ast.ASTManager
+	refs    []ast.ASTRef
+}
+
+func (r *formatRefs) hold(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
+	if err != nil {
+		return h, err
+	}
+	ref, err := r.formats.NewRef(h)
+	if err != nil {
+		return h, err
+	}
+	r.refs = append(r.refs, ref)
+	return h, nil
+}
+
+func (r *formatRefs) release() (err error) {
+	for i := len(r.refs) - 1; i >= 0; i-- {
+		err = errors.Join(err, r.formats.DelRef(&r.refs[i]))
+	}
+	r.refs = nil
+	return err
+}
+
+func (p *modelPrinter) printFormat(format ast.ASTHandle) (text string, result error) {
+	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: p.model.manager.Budget()})
+	if err != nil {
+		return "", err
+	}
+	defer func() { result = errors.Join(result, stream.Close()) }()
+	empty := p.context.EmptyValue()
+	if err = p.model.manager.PrintFormat(stream, format, p.context, &empty, p.globals); err != nil {
+		return "", err
+	}
+	return stream.String()
+}
+
+// writeFunctionSMT2 is one iteration of model_smt2_pp.cpp pp_funs. The
+// nested format calls are built in GCC's right-to-left argument order.
+func (p *modelPrinter) writeFunctionSMT2(decl ast.ASTHandle, indent uint32) (result error) {
+	md := p.model
+	m := md.manager
+	formats, err := m.GetFormatManager()
+	if err != nil {
+		return err
+	}
+	fi, err := md.FunctionInterpretation(decl)
+	if err != nil || fi == nil {
+		if err != nil {
+			return err
+		}
+		return ast.ErrASTPending
+	}
+	// format_ref body, f_range, def: destroyed in reverse order.
+	var body, rangeRef, def ast.ASTRef
+	defer func() {
+		result = errors.Join(result, formats.DelRef(&def), formats.DelRef(&rangeRef), formats.DelRef(&body))
+	}()
+	if body, err = formats.NewRef(ast.ASTHandle{}); err != nil {
+		return err
+	}
+	if rangeRef, err = formats.NewRef(ast.ASTHandle{}); err != nil {
+		return err
+	}
+	if def, err = formats.NewRef(ast.ASTHandle{}); err != nil {
+		return err
+	}
+	partial := fi.fallback.IsNull()
+	first := uint32(0)
+	if partial {
+		first = 1 // "x!" << (j+1)
+	}
+	vars, exprNames, err := p.functionNames(fi.arity, first)
+	if err != nil {
+		return err
+	}
+	var bodyFormat ast.ASTHandle
+	if partial {
+		bodyFormat, err = m.FormatString("#unspecified")
+	} else {
+		bodyFormat, err = m.SMT2PPExprTree(fi.fallback, exprNames)
+	}
+	if err != nil {
+		return err
+	}
+	if err = formats.SetRef(body, bodyFormat); err != nil {
+		return err
+	}
+	varNames := make([]ast.ASTHandle, fi.arity)
+	for i := range varNames {
+		if varNames[i], err = m.FormatString(vars[i]); err != nil {
+			return err
+		}
+	}
+	argDecls := make([]ast.ASTHandle, fi.arity)
+	for i := uint32(0); i < fi.arity; i++ {
+		domain, err := m.GetDomain(decl, i)
+		if err != nil {
+			return err
+		}
+		local := formatRefs{formats: formats}
+		domainFormat, err := local.hold(m.SMT2PPSort(domain))
+		if err == nil {
+			argDecls[i], err = m.FormatSeq5([]ast.ASTHandle{varNames[i], domainFormat})
+		}
+		if err = errors.Join(err, local.release()); err != nil {
+			return err
+		}
+	}
+	domainFormat, err := m.FormatSeq5(argDecls)
+	if err != nil {
+		return err
+	}
+	rangeSort, err := m.GetRange(decl)
+	if err != nil {
+		return err
+	}
+	rangeFormat, err := m.SMT2PPSort(rangeSort)
+	if err != nil {
+		return err
+	}
+	if err = formats.SetRef(rangeRef, rangeFormat); err != nil {
+		return err
+	}
+	if len(fi.entries) > 0 {
+		var entries []ast.ASTHandle
+		for i, entry := range fi.entries {
+			conds := make([]ast.ASTHandle, fi.arity)
+			for j := uint32(0); j < fi.arity; j++ {
+				arg, err := entry.Argument(j)
+				if err != nil {
+					return err
+				}
+				local := formatRefs{formats: formats}
+				argFormat, err := local.hold(m.SMT2PPExprTree(arg, nil))
+				if err == nil {
+					conds[j], err = m.FormatSeq1("=", []ast.ASTHandle{varNames[j], argFormat})
+				}
+				if err = errors.Join(err, local.release()); err != nil {
+					return err
+				}
+			}
+			cond := conds[0]
+			if len(conds) > 1 {
+				if cond, err = m.FormatSeq1("and", conds); err != nil {
+					return err
+				}
+			}
+			value, err := entry.Result()
+			if err != nil {
+				return err
+			}
+			local := formatRefs{formats: formats}
+			resultFormat, err := local.hold(m.SMT2PPExprTree(value, nil))
+			if err == nil && i > 0 {
+				var lb ast.ASTHandle
+				if lb, err = m.FormatLineBreak(); err == nil {
+					entries = append(entries, lb)
+				}
+			}
+			var group ast.ASTHandle
+			if err == nil {
+				// mk_group(mk_compose(mk_string("(ite "), mk_indent(5, cond),
+				//                     mk_indent(TAB_SZ, mk_compose(mk_line_break, f_result))))
+				var lb, inner, resultIndent, condIndent, head, whole ast.ASTHandle
+				lb, err = m.FormatLineBreak()
+				if err == nil {
+					inner, err = m.FormatCompose([]ast.ASTHandle{lb, resultFormat})
+				}
+				if err == nil {
+					resultIndent, err = m.FormatIndent(2, inner)
+				}
+				if err == nil {
+					condIndent, err = m.FormatIndent(5, cond)
+				}
+				if err == nil {
+					head, err = m.FormatString("(ite ")
+				}
+				if err == nil {
+					whole, err = m.FormatCompose([]ast.ASTHandle{head, condIndent, resultIndent})
+				}
+				if err == nil {
+					group, err = m.FormatGroup(whole)
+				}
+			}
+			if err = errors.Join(err, local.release()); err != nil {
+				return err
+			}
+			entries = append(entries, group)
+		}
+		lb, err := m.FormatLineBreak()
+		if err != nil {
+			return err
+		}
+		elseCompose, err := m.FormatCompose([]ast.ASTHandle{lb, bodyFormat})
+		if err != nil {
+			return err
+		}
+		elseIndent, err := m.FormatIndent(2, elseCompose)
+		if err != nil {
+			return err
+		}
+		entries = append(entries, elseIndent)
+		for range fi.entries {
+			closing, err := m.FormatString(")")
+			if err != nil {
+				return err
+			}
+			entries = append(entries, closing)
+		}
+		if bodyFormat, err = m.FormatCompose(entries); err != nil {
+			return err
+		}
+		if err = formats.SetRef(body, bodyFormat); err != nil {
+			return err
+		}
+	}
+	name, err := p.smt2Name(decl)
+	if err != nil {
+		return err
+	}
+	// mk_indent(indent, mk_compose(mk_compose("(define-fun ", fname, " ",
+	//   mk_compose(f_domain, " ", f_range)), mk_indent(TAB_SZ, mk_compose(lb, body, ")"))))
+	closing, err := m.FormatString(")")
+	if err != nil {
+		return err
+	}
+	lb, err := m.FormatLineBreak()
+	if err != nil {
+		return err
+	}
+	tailCompose, err := m.FormatCompose([]ast.ASTHandle{lb, bodyFormat, closing})
+	if err != nil {
+		return err
+	}
+	tail, err := m.FormatIndent(2, tailCompose)
+	if err != nil {
+		return err
+	}
+	space, err := m.FormatString(" ")
+	if err != nil {
+		return err
+	}
+	signature, err := m.FormatCompose([]ast.ASTHandle{domainFormat, space, rangeFormat})
+	if err != nil {
+		return err
+	}
+	space2, err := m.FormatString(" ")
+	if err != nil {
+		return err
+	}
+	fname, err := m.FormatString(name)
+	if err != nil {
+		return err
+	}
+	opening, err := m.FormatString("(define-fun ")
+	if err != nil {
+		return err
+	}
+	header, err := m.FormatCompose([]ast.ASTHandle{opening, fname, space2, signature})
+	if err != nil {
+		return err
+	}
+	whole, err := m.FormatCompose([]ast.ASTHandle{header, tail})
+	if err != nil {
+		return err
+	}
+	defFormat, err := m.FormatIndent(indent, whole)
+	if err != nil {
+		return err
+	}
+	if err = formats.SetRef(def, defFormat); err != nil {
+		return err
+	}
+	text, err := p.printFormat(defFormat)
+	if err != nil {
+		return err
+	}
+	if err = p.indent(indent); err != nil {
+		return err
+	}
+	return p.write(text + "\n")
 }

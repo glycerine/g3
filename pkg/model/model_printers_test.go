@@ -127,7 +127,8 @@ func TestModelSMT2PrinterUniversesQuotedNamesAndDependencyOrder(t *testing.T) {
 		"  ;; cardinality constraint:\n",
 		"  (define-fun |quoted constant| () Bool\n    false)\n",
 		"  (define-fun printer-f ((x!0 Bool)) Bool\n    true)\n",
-		"  (define-fun printer-g ((x!0 Bool)) Bool\n    (ite (= x!0 false) true (printer-f x!0)))\n",
+		// pp_funs breaks each entry's result onto its own indented line.
+		"  (define-fun printer-g ((x!0 Bool)) Bool\n    (ite (= x!0 false) true\n      (printer-f x!0)))\n",
 	}
 	for _, check := range checks {
 		if !strings.Contains(text, check) {
