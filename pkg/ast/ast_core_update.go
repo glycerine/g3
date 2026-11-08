@@ -227,7 +227,13 @@ func (m *ASTManager) updateQuantifierArguments(h, body ASTHandle, forall bool, w
 		m.freeNodeStorage(r)
 		return ASTHandle{}, e
 	}
+	// update_quantifier returns mk_quantifier(...), which logs [mk-quant]
+	// for a newly registered node.
+	original := r
 	r, e = m.registerNode(r)
+	if e == nil && r == original {
+		e = m.traceQuantifier(r)
+	}
 	return m.external(r), e
 }
 
