@@ -127,6 +127,14 @@ Found while matching `-st` output against `build/z3` on
    bit_blaster_rewriter disables them in this fork); pb2bv builds monomial
    ites right to left and ~imp releases bits in obj_map order; the
    bit-blast rewriter keeps m_in1/m_in2/m_out until the next operation.
+   DONE (315 -> 332): smt kernel teardown follows ~asserted_formulas member
+   order (macros, m_formulas, defined names, substitutions, rewriter);
+   get-value evaluates each term with its own model_evaluator (model::eval);
+   distribute-forall pins tmp_q per iteration.
+   Pattern to look for next: a z3 expr_ref/quantifier_ref local that g3
+   leaves unpinned (a node nothing ever references is never freed, so it
+   outlives the source's temporary), and member vectors that z3 resets at
+   the start of the next operation while g3 releases them at the end.
    Remaining big buckets: `not`/`and`/`=` id offsets in bit-blasting
    vectors (theory_bv's shared t.temporary list approximates per-function
    expr_ref_vector locals), Real/Int numeral ids (arith), query!0 (item 20),
