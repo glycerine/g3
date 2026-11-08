@@ -61,12 +61,25 @@ Found while matching `-st` output against `build/z3` on
      default strategy, mk_default_tactic and the sls factory built a bare
      simplifier, whose cache kept the simplified formulas alive (AST logs
      101 -> 103 identical).
-   Next lead (get-model on (> x 2)): after elim-uncnstr's second round
-   z3 frees (not k!0) last and keeps (<= x 2) alive, probably through the
-   model converter's k!0 definition; g3 frees (<= x 2) last.
-   Next: model and value printing (format_ns `string`/`compose`/`cr`
-   ASTs, labels.smt2 and others), and the remaining buckets of first
-   differences (records 33-40) in the per-vector comparison.
+   2026-11-08 (AST logs 103 -> 123 identical):
+   - elim-uncnstr's m_fresh_vars and m_cache_domain are app_ref_vectors:
+     destroyed in reverse member order, each releasing forward (g3 used
+     one LIFO frame). This fixed the get-model (> x 2) lead.
+   - model printing wraps a sort shown with an indent in mk_indent
+     (cmd_context::display(out, s, indent)).
+   - the kernel's captured literal-result snapshot (a Go addition; z3
+     queries the live context) is released on pop, so popped atoms die.
+   - smt2 process_app builds the body before the "(" fname header (GCC
+     right-to-left argument evaluation).
+   - z3 writes smt-context records ([attach-enode], [assign], [push],
+     [pop], [begin-check], [conflict], [resolve-lit], [resolve-process])
+     to the same stream; g3 now does too, and creates context::init's
+     true/false enodes eagerly. Compare whole logs with
+     /var/tmp/g3-job-487c9ee8/fullcmp_log.py (pointer values masked):
+     122 of 658 identical. Not ported yet: [new-match], [instance] and
+     [end-of-instance] (see item 19).
+   Next: the remaining buckets of first differences in the per-vector
+   comparison.
    The earlier example, `(check-sat-using smt)(declare-const z
    Int)...(check-sat-using smt)` with x+y=7 and x>=0, now has identical
    AST logs: the apparent destruction-order difference came from the
@@ -347,3 +360,13 @@ Found while matching `-st` output against `build/z3` on
     QE context enumerates with blast_or); compare g3's symbolic
     expansion in qe/arithmetic_qe_resolve_cooper.go with
     i_solver_context::blast_or.
+
+19. **OPEN: E-matching is not a port of z3's MAM.** smtcore/smt_mam.go is a
+   direct congruence-aware matcher over context enodes, not mam.cpp's
+   code trees, inverted path indexes and backtracking interpreter. Match
+   discovery order, and so instance order and the quantifier statistics,
+   can differ from z3. It also blocks the [new-match] trace record, which
+   lists mam's m_used_enodes in interpreter order, and the qi_queue
+   [instance]/[end-of-instance] records that go with it. Port mam.cpp
+   (compiler, code trees, interpreter, inverted path index) for the
+   instantiated pattern shapes, then add the three records.
