@@ -111,6 +111,24 @@ Found while matching `-st` output against `build/z3` on
    Int)...(check-sat-using smt)` with x+y=7 and x>=0, now has identical
    AST logs: the apparent destruction-order difference came from the
    tactic construction order above, not from smt::context teardown.
+   DONE this round (full logs identical 268 -> 300): preprocessing proof
+   lifetimes (rewriter main_loop, nnf_cnf r1/pr1, per-formula simplify_fmls
+   locals), ackermannization (ackr locals, ~ackr_info member order),
+   theory_bv (Close frees bit atoms newest first; expand_diseq's diff is a
+   loop local, not a shared temporary), cmd_context restore_assertions
+   (assertions forward, then names), array-ext refused at internalization.
+   Tools: $CLAUDE_JOB_DIR/tmp/delcmp.sh TEST [rebuild] prints the first real
+   difference with both deletion logs; mkbt.sh TEST LINE gives g3's creation
+   stack for a log line; classify.py buckets all differing vectors.
+   OPEN lead (integer_branch_cut_scopes, QF_LIA pb branch): z3 frees the
+   bound atoms, (not k!0) and k!0 together in goal::~goal of an
+   or_else_tactical after the pb branch fails, while g3 frees (not k!0)
+   earlier, in solve_eqs' goal update. Compare how z3's and_then/or_else
+   keep the intermediate goals of a failing pb2bv branch.
+   Remaining big buckets: `not`/`and`/`=` id offsets in bit-blasting
+   vectors (theory_bv's shared t.temporary list approximates per-function
+   expr_ref_vector locals), Real/Int numeral ids (arith), query!0 (item 20),
+   [new-match] (item 19).
    DONE: pops and smt::context::flush (Close unwinds through popTo) undo
    mk_bool_var and mk_enode entries newest first across both stacks, as
    z3's single m_trail_stack does. Related: z3's relevancy propagator keeps m_relevant_exprs as an
