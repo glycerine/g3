@@ -67,8 +67,16 @@ type traceRecord struct {
 
 var buildTraceG3 struct {
 	once sync.Once
+	dir  string
 	path string
 	err  error
+}
+
+// cleanupTraceG3 removes the traced g3 build; TestTraceGolden registers it.
+func cleanupTraceG3() {
+	if buildTraceG3.dir != "" {
+		_ = os.RemoveAll(buildTraceG3.dir)
+	}
 }
 
 func goldenTraceG3(t *testing.T) string {
@@ -78,6 +86,7 @@ func goldenTraceG3(t *testing.T) string {
 			buildTraceG3.err = err
 			return
 		}
+		buildTraceG3.dir = dir
 		buildTraceG3.path = filepath.Join(dir, "g3")
 		cmd := exec.Command("go", "build", "-tags", "g3trace", "-o", buildTraceG3.path, ".")
 		if out, err := cmd.CombinedOutput(); err != nil {
@@ -196,6 +205,7 @@ func TestTraceGolden(t *testing.T) {
 		t.Skipf("z3 TRACE build not found at %s (set G3_Z3_TRACE)", z3)
 	}
 	g3 := goldenTraceG3(t)
+	t.Cleanup(cleanupTraceG3)
 	tags := goldenTraceTags
 	if s := os.Getenv("G3_GOLDEN_TAGS"); s != "" {
 		tags = strings.Split(s, ",")

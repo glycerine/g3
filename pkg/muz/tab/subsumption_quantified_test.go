@@ -77,6 +77,12 @@ func TestTabQuantifiedSubsumptionDeclinesWithoutErrorAndContinues(t *testing.T) 
 	entailed, independent := clause(c), clause(d)
 	entailed.sequence, independent.sequence = 11, 12
 	counted := &countingTabSolver{Solver: f.subSolver}
+	// The first use sets the solvers up, and setup keeps state (theory_seq
+	// init builds its seq_expr_solver kernel, as in the source). Measure the
+	// ownership of declined subsumption after that one-time setup.
+	if _, _, err := isClauseSubsumed(query, []*Clause{entailed}, f.lite, counted); err != nil {
+		t.Fatal(err)
+	}
 	for _, candidate := range []*Clause{entailed, independent, entailed} {
 		before := m.Stats()
 		found, sequence, err := isClauseSubsumed(query, []*Clause{candidate}, f.lite, counted)

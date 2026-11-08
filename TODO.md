@@ -66,18 +66,20 @@ Found while matching `-st` output against `build/z3` on
     fixed through a full `make`.
 
 11. **Extra SMT contexts (first golden-trace divergence).** On
-    sequence_helper_inventory block 12, z3 creates 17 `smt::context`s and
-    g3 creates 52 (count of `creating boolean variable: 0` records with
-    `-tr:mk_bool_var`).
-    - theory_seq's expression solver: z3 builds one `seq_expr_solver`
-      kernel in `theory_seq::init` and reuses it (push/check/pop) for every
-      automaton query; that kernel's setup does not register theory_seq
-      for a bit-vector query. g3 builds a solver per query
-      (`newSMTStringExpressionSolver`, 26 constructions), and each one
-      registers a theory_seq that builds another solver.
-    - qsat: z3's `qe::qsat` creates its kernels in the constructor, reset,
-      reset_statistics, cleanup and destructor (14 contexts here); g3's
-      qsatKernel creates 24.
+    sequence_helper_inventory block 12, z3 creates 17 `smt::context`s
+    (count of `creating boolean variable: 0` records with
+    `-tr:mk_bool_var`); g3 created 52, now 27.
+    - DONE: theory_seq's `seq_expr_solver` kernel. g3 installs theories when
+      a solver is created, where z3 registers them at the first check/push
+      (`setup_context`); building the kernel in `Initialize` made every
+      constructed solver build one. It is now built in `Setup`.
+    - OPEN: `mk_lra_tactic` falls back to `mk_qe_tactic` (qe_tactic.cpp,
+      the classic quantifier elimination), which creates no contexts. g3
+      uses QE2 (qsat-based `mk_qe2_tactic`) there because its port of
+      qe_tactic.cpp (qe/quantifier_tactic.go) is partial. QE2's kernels are
+      the 10 extra contexts. Fix: complete the qe_tactic port and use it.
+    - OPEN: `qe::qsat::~qsat` calls reset(), creating two kernels at
+      teardown (z3's last 2 contexts); g3's qsat Close does not.
     Until this is fixed no vector matches z3 record for record, so
     `TestTraceGolden` (cmd/g3, `-tags g3trace`, see the file comment) has
     no default vectors.

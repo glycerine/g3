@@ -81,13 +81,24 @@ func (t *SMTTheorySeq) Initialize(state *SMTInternalizerState) (result error) {
 	t.pre = t.symbol("seq.pre")   // (seq.pre s l): prefix of string s of length l
 	t.post = t.symbol("seq.post") // (seq.post s l): suffix of string s of length l
 	t.eqSym = t.symbol("seq.eq")
-	// init: m_mk_aut.set_solver(alloc(seq_expr_solver, m, get_fparams())).
-	// Standalone fixtures without SMT parameters have no nested solver.
-	if state.smtParams != nil {
-		if t.exprSolver, err = newSMTStringExpressionSolver(m, state.smtParams); err != nil {
-			return err
-		}
+	return nil
+}
+
+// Setup runs the rest of theory_seq::init: m_mk_aut.set_solver(alloc(
+// seq_expr_solver, m, get_fparams())). The source registers theory_seq, and
+// so builds this kernel, when the context is set up for its first check or
+// push; g3 installs the theory when the solver is created, so the kernel is
+// built here, at the setup boundary, instead. Standalone fixtures without
+// SMT parameters have no nested solver.
+func (t *SMTTheorySeq) Setup() error {
+	if t.exprSolver != nil || t.state == nil || t.state.smtParams == nil {
+		return nil
 	}
+	solver, err := newSMTStringExpressionSolver(t.m, t.state.smtParams)
+	if err != nil {
+		return err
+	}
+	t.exprSolver = solver
 	return nil
 }
 
