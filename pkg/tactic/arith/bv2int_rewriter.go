@@ -333,15 +333,43 @@ func (c *bv2IntCall) extend(n uint32, h ast.ASTHandle, signed bool) ast.ASTHandl
 	}
 	return c.hold(c.r.manager.MkBitVectorZeroExtend(n, h))
 }
+// align is align_sizes(expr_ref& s, expr_ref& t): assigning the extension to
+// the expr_ref releases its previous value, which dies unless shared.
 func (c *bv2IntCall) align(s, t ast.ASTHandle, signed bool) (ast.ASTHandle, ast.ASTHandle) {
 	a, b := c.width(s), c.width(t)
 	if a > b {
+		old := t
 		t = c.extend(a-b, t, signed)
+		c.release(old)
 	}
 	if a < b {
+		old := s
 		s = c.extend(b-a, s, signed)
+		c.release(old)
 	}
 	return s, t
+}
+
+// release drops the frame's most recent hold on h, if it has one.
+func (c *bv2IntCall) release(h ast.ASTHandle) {
+	if c.err != nil || h.IsNull() {
+		return
+	}
+	for i := len(c.refs) - 1; i >= 0; i-- {
+		if c.refs[i] == (ast.ASTRef{}) {
+			continue
+		}
+		held, err := c.r.manager.RefGet(c.refs[i])
+		if err != nil {
+			c.err = err
+			return
+		}
+		if held == h {
+			c.err = c.r.manager.DelRef(&c.refs[i])
+			c.refs[i] = ast.ASTRef{}
+			return
+		}
+	}
 }
 func (c *bv2IntCall) unsigned(h ast.ASTHandle) (ast.ASTHandle, bool) {
 	if c.is(h, c.r.bv, 58, 1) {

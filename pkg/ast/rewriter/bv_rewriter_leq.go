@@ -270,15 +270,9 @@ func (p *BVRewriter) leBody(v *bvLEInvocation, signed bool, a, b ast.ASTHandle, 
 			node, e := m.MkEq(a, c)
 			return node, Rewrite1, false, e
 		} else if first < size-1 {
-			hi, e := p.extract.Apply(size-1, first+1, a)
-			if e != nil {
-				return failed, RewriteFailed, false, e
-			}
-			c, e := n.ZeroConstant(size - first - 1)
-			if e != nil {
-				return failed, RewriteFailed, false, e
-			}
-			eq, e := m.MkEq(hi, c)
+			// mk_and(mk_eq(extract(a), 0), mk_ule(extract(a), extract(b))):
+			// GCC evaluates every argument list right to left.
+			loB, e := p.extract.Apply(first, 0, b)
 			if e != nil {
 				return failed, RewriteFailed, false, e
 			}
@@ -286,11 +280,19 @@ func (p *BVRewriter) leBody(v *bvLEInvocation, signed bool, a, b ast.ASTHandle, 
 			if e != nil {
 				return failed, RewriteFailed, false, e
 			}
-			loB, e := p.extract.Apply(first, 0, b)
+			le, e := m.MkBitVectorULE(loA, loB)
 			if e != nil {
 				return failed, RewriteFailed, false, e
 			}
-			le, e := m.MkBitVectorULE(loA, loB)
+			c, e := n.ZeroConstant(size - first - 1)
+			if e != nil {
+				return failed, RewriteFailed, false, e
+			}
+			hi, e := p.extract.Apply(size-1, first+1, a)
+			if e != nil {
+				return failed, RewriteFailed, false, e
+			}
+			eq, e := m.MkEq(hi, c)
 			if e != nil {
 				return failed, RewriteFailed, false, e
 			}

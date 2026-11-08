@@ -191,67 +191,8 @@ func (s *BoundedInt2BVSolver) accumulateSub(c *boundedInt2BVCall) error {
 			}
 			bv, found := s.int2bv[f]
 			if !found {
-				var n big.Rat
-				n.Sub(&hi, &lo)
-				n.Add(&n, big.NewRat(1, 1))
-				bits, err := boundedInt2BVNumBits(&n)
-				if err != nil {
+				if bv, err = s.introduceBVConstant(c, f, &lo, &hi); err != nil {
 					return err
-				}
-				sort, err := m.BitVectorSort(bits)
-				if err != nil {
-					return err
-				}
-				b, err := c.hold(m.MkFreshConst("b", sort))
-				if err != nil {
-					return err
-				}
-				bv, err = m.GetDecl(b)
-				if err != nil {
-					return err
-				}
-				s.int2bv[f] = bv
-				s.bv2int[bv] = f
-				var copy big.Rat
-				copy.Set(&lo)
-				s.offsets[bv] = copy
-				if err = m.IncRef(bv); err != nil {
-					return err
-				}
-				s.bvDecls = append(s.bvDecls, bv)
-				if err = m.IncRef(f); err != nil {
-					return err
-				}
-				s.intDecls = append(s.intDecls, f)
-				// Source only adds the range cap when the offset is nonzero.
-				power := new(big.Int).Sub(n.Num(), big.NewInt(1))
-				power.And(power, n.Num())
-				if lo.Sign() != 0 && power.Sign() != 0 {
-					var max big.Rat
-					max.Sub(&n, big.NewRat(1, 1))
-					q, err := c.numeral()
-					if err != nil {
-						return err
-					}
-					err = m.NumeralService().SetString(q, max.RatString())
-					var cap ast.ASTHandle
-					if err == nil {
-						cap, err = m.BitVectorNumeral(q, bits)
-					}
-					if err == nil {
-						cap, err = c.hold(cap, nil)
-					}
-					err = errors.Join(err, c.retireNumber(q))
-					if err != nil {
-						return err
-					}
-					guard, err := c.hold(m.MkBitVectorULE(b, cap))
-					if err != nil {
-						return err
-					}
-					if err = s.appendAssertion(guard); err != nil {
-						return err
-					}
 				}
 			}
 			t, err := c.definition(bv)
@@ -549,4 +490,78 @@ func (c *boundedInt2BVCall) retireNumber(q *unumeral.OwnedRational) error {
 		}
 	}
 	return nil
+}
+
+// introduceBVConstant is accumulate_sub's !m_int2bv.find(f, fbv) block. Its
+// expr_ref b dies at the block end; the declaration stays owned by m_bv_fns
+// and the range cap by m_assertions.
+func (s *BoundedInt2BVSolver) introduceBVConstant(c *boundedInt2BVCall, f ast.ASTHandle, lo, hi *big.Rat) (bv ast.ASTHandle, result error) {
+	m := s.manager
+	var n big.Rat
+	n.Sub(hi, lo)
+	n.Add(&n, big.NewRat(1, 1))
+	bits, err := boundedInt2BVNumBits(&n)
+	if err != nil {
+		return bv, err
+	}
+	sort, err := m.BitVectorSort(bits)
+	if err != nil {
+		return bv, err
+	}
+	b, err := m.MkFreshConst("b", sort)
+	if err != nil {
+		return bv, err
+	}
+	bRef, err := m.NewRef(b)
+	if err != nil {
+		return bv, err
+	}
+	defer func() { result = errors.Join(result, m.DelRef(&bRef)) }()
+	bv, err = m.GetDecl(b)
+	if err != nil {
+		return bv, err
+	}
+	s.int2bv[f] = bv
+	s.bv2int[bv] = f
+	var copy big.Rat
+	copy.Set(lo)
+	s.offsets[bv] = copy
+	if err = m.IncRef(bv); err != nil {
+		return bv, err
+	}
+	s.bvDecls = append(s.bvDecls, bv)
+	if err = m.IncRef(f); err != nil {
+		return bv, err
+	}
+	s.intDecls = append(s.intDecls, f)
+	// Source only adds the range cap when the offset is nonzero.
+	power := new(big.Int).Sub(n.Num(), big.NewInt(1))
+	power.And(power, n.Num())
+	if lo.Sign() != 0 && power.Sign() != 0 {
+		var max big.Rat
+		max.Sub(&n, big.NewRat(1, 1))
+		q, err := c.numeral()
+		if err != nil {
+			return bv, err
+		}
+		err = m.NumeralService().SetString(q, max.RatString())
+		var cap ast.ASTHandle
+		if err == nil {
+			cap, err = m.BitVectorNumeral(q, bits)
+		}
+		err = errors.Join(err, c.retireNumber(q))
+		if err != nil {
+			return bv, err
+		}
+		// m_assertions.push_back(m_bv.mk_ule(b, mk_numeral(...))): the
+		// temporaries are owned only by the assertion vector.
+		guard, err := m.MkBitVectorULE(b, cap)
+		if err != nil {
+			return bv, err
+		}
+		if err = s.appendAssertion(guard); err != nil {
+			return bv, err
+		}
+	}
+	return bv, nil
 }
