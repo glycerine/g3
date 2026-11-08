@@ -46,6 +46,15 @@ func (c *Context) initBuiltins() error {
 		return err
 	}
 	if c.logic == "" || solver.LogicHasArithmetic(c.logic) {
+		// register_plugin installs register_builtin_sorts before the ops.
+		// arith_decl_plugin::get_sort_names(names, logic) also switches the
+		// plugin to Real numerals in NRA, QF_NRA and QF_UFNRA.
+		var sortNames ast.ASTBuiltinNames
+		err = m.GetArithmeticSortNames(&sortNames, logic)
+		sortNames.Close()
+		if err != nil {
+			return err
+		}
 		if err = m.GetArithmeticOpNames(&names, logic); err != nil {
 			return err
 		}
