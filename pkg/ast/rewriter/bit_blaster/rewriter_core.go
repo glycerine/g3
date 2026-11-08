@@ -38,8 +38,12 @@ type BitBlasterRewriter struct {
 	keyRoots  []ast.ASTRef
 	limits    []int
 	bindings  []ast.ASTRef
-	closed    bool
-	trace     *diagnostic.TraceTags
+	// in1, in2 and outBits are blaster_rewriter_cfg's m_in1, m_in2 and
+	// m_out: each operation resets them when it starts, so an operation's
+	// bits stay alive until the next one (or the rewriter's destruction).
+	in1, in2, outBits []ast.ASTRef
+	closed            bool
+	trace             *diagnostic.TraceTags
 }
 
 func NewBitBlasterRewriter(m *ast.ASTManager, params *RewriterParams) (*BitBlasterRewriter, error) {
@@ -245,8 +249,10 @@ func (r *BitBlasterRewriter) makeConstant(decl ast.ASTHandle, out ast.ASTRef) (r
 	if err != nil {
 		return err
 	}
-	bits := make([]ast.ASTRef, 0, width)
-	defer func() { result = errors.Join(result, releaseRefs(r.manager, bits)) }()
+	// m_out.reset(); push fresh constants; r = mk_mkbv(m_out)
+	if err = r.resetBits(&r.outBits); err != nil {
+		return err
+	}
 	for i := uint32(0); i < width; i++ {
 		bit, err := r.manager.MkFreshConstNullable(nil, boolSort)
 		if err != nil {
@@ -256,9 +262,9 @@ func (r *BitBlasterRewriter) makeConstant(decl ast.ASTHandle, out ast.ASTRef) (r
 		if err != nil {
 			return err
 		}
-		bits = append(bits, ref)
+		r.outBits = append(r.outBits, ref)
 	}
-	handles, err := r.blaster.handles(bits)
+	handles, err := r.blaster.handles(r.outBits)
 	if err != nil {
 		return err
 	}
@@ -324,6 +330,10 @@ func (r *BitBlasterRewriter) Close() (result error) {
 		return err
 	}
 	if err := r.releaseCache(0); err != nil {
+		return err
+	}
+	// ~blaster_rewriter_cfg: m_out, m_in2, m_in1 (reverse declaration).
+	if err := errors.Join(r.resetBits(&r.outBits), r.resetBits(&r.in2), r.resetBits(&r.in1)); err != nil {
 		return err
 	}
 	r.cache = nil

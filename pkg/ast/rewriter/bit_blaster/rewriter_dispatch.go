@@ -32,12 +32,15 @@ func (r *BitBlasterRewriter) reduceNumeral(decl ast.ASTHandle, out ast.ASTRef) (
 	if !ok {
 		return ast.ErrASTDomain
 	}
-	bits, err := r.blaster.NumToBits(value, int(width))
+	// m_out.reset(); m_blaster.num2bits(v, bv_sz, m_out); mk_mkbv(m_out)
+	if err = r.resetBits(&r.outBits); err != nil {
+		return err
+	}
+	r.outBits, err = r.blaster.NumToBits(value, int(width))
 	if err != nil {
 		return err
 	}
-	defer func() { result = errors.Join(result, releaseRefs(r.manager, bits)) }()
-	return r.setBitVector(bits, out)
+	return r.setBitVector(r.outBits, out)
 }
 
 func (r *BitBlasterRewriter) declIntParameter(decl ast.ASTHandle, index int) (value uint32, result error) {
