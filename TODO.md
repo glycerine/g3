@@ -203,10 +203,20 @@ Found while matching `-st` output against `build/z3` on
       justifications) and of propagate_bool_enode_assignment(_core),
       which add_eq runs before merging the class rings. g3 scanned the
       merged class from the root (495 matching).
+    - simplify_aux_clause_literals sorts an auxiliary clause's literals
+      by index before simplifying (std::sort), which fixes the order and
+      the watched literals; g3 kept the given order. All-stats exact
+      598 -> 606 of 659. (mk_gate_clause's proof is built before the
+      sort, so a gate clause's proof fact lists the literals in gate
+      order.)
     Open lead (bv_fixed_cache_scopes): at level 0 z3 propagates
     (= ((_ bit2bool 0) x) ((_ bit2bool 0) y)) with a justification whose
     antecedents are the two bit literals; g3 assigns it with a proof
-    wrapper (no antecedents). Find the g3 assignment site and compare.
+    wrapper (no antecedents). Cause: mk_clause wraps the clause's
+    justification (here the proof wrapper of mk_gate_clause) in a
+    unit_resolution_justification over the removed false literals; with
+    a proof g3 instead builds the unit-resolution proof eagerly and keeps
+    the bare proof wrapper (smt_internalizer.go addClause...).
     Many remaining equality-order differences come from AST ids
     (mk_eq_atom orders by id), i.e. item 3.
     The remaining vectors show where g3 still diverges; run them with

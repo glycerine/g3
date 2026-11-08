@@ -4,8 +4,10 @@ package smtcore
 // uninterpreted-term internalization.
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -115,6 +117,11 @@ func (s *SMTInternalizerState) addClauseKindWithDeleteHandler(literals []SMTLite
 }
 
 func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(literals []SMTLiteral, root bool, kind SMTClauseKind, proof ast.ASTHandle, justification SMTJustification, deleteHandler SMTClauseDeleteHandler) error {
+	if kind == SMTClauseAux {
+		// simplify_aux_clause_literals sorts the literals (by index) first.
+		literals = append([]SMTLiteral(nil), literals...)
+		slices.SortFunc(literals, func(a, b SMTLiteral) int { return cmp.Compare(a.Index(), b.Index()) })
+	}
 	seen := make(map[SMTLiteral]struct{}, len(literals))
 	kept := make([]SMTLiteral, 0, len(literals))
 	removedFalse := make([]SMTLiteral, 0)

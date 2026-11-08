@@ -181,9 +181,12 @@ func TestSMTInternalizerBuildsGateAndRootClauseProofs(t *testing.T) {
 		astTestMust(t, proofErr)
 		fact, proofErr := m.GetProofFact(proof)
 		astTestMust(t, proofErr)
+		// mk_gate_clause builds the clause-definition proof before mk_clause
+		// sorts the literals, so the fact holds the clause's literals in
+		// the gate's order: compare them as sets.
 		want, proofErr := builder.theoryFact(clause.literals)
 		astTestMust(t, proofErr)
-		if fact != want {
+		if !smtSameDisjunction(t, m, fact, want) {
 			t.Fatal("gate clause proof fact", index, fact, want)
 		}
 	}
@@ -529,4 +532,41 @@ func TestSMTInternalizerWatchedClausePropagationAndRollback(t *testing.T) {
 	if state.Inconsistent() {
 		t.Fatal("conflict scope rollback")
 	}
+}
+
+// smtSameDisjunction reports whether two disjunctions (or single literals)
+// have the same disjuncts, ignoring order.
+func smtSameDisjunction(t *testing.T, m *ast.ASTManager, a, b ast.ASTHandle) bool {
+	t.Helper()
+	disjuncts := func(h ast.ASTHandle) map[ast.ASTHandle]int {
+		out := map[ast.ASTHandle]int{}
+		kind, err := m.GetKind(h)
+		astTestMust(t, err)
+		if kind == ast.ASTApp {
+			if op, err := m.GetDeclKind(h); err == nil && op == ast.ASTOpOr {
+				if family, err := m.GetFamilyID(h); err == nil && family == m.BasicFamilyID() {
+					n, err := m.GetNumArgs(h)
+					astTestMust(t, err)
+					for i := uint32(0); i < n; i++ {
+						arg, err := m.GetArg(h, i)
+						astTestMust(t, err)
+						out[arg]++
+					}
+					return out
+				}
+			}
+		}
+		out[h]++
+		return out
+	}
+	x, y := disjuncts(a), disjuncts(b)
+	if len(x) != len(y) {
+		return false
+	}
+	for k, v := range x {
+		if y[k] != v {
+			return false
+		}
+	}
+	return true
 }

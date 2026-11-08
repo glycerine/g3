@@ -1,7 +1,9 @@
 package smtcore
 
 import (
+	"cmp"
 	"math/big"
+	"slices"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -225,6 +227,10 @@ func TestSMTIntegerDiffTheoryParallelBoundAxioms(t *testing.T) {
 		{strongLiteral.Negated(), weakLiteral},
 		{strongLiteral.Negated(), equalLiteral},
 		{equalLiteral.Negated(), strongLiteral},
+	}
+	// mk_clause sorts an auxiliary clause's literals by index.
+	for _, w := range want {
+		slices.SortFunc(w, func(a, b SMTLiteral) int { return cmp.Compare(a.Index(), b.Index()) })
 	}
 	for index := range want {
 		if len(clauses[index].Literals) != 2 || clauses[index].Literals[0] != want[index][0] || clauses[index].Literals[1] != want[index][1] {
