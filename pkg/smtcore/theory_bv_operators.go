@@ -370,18 +370,23 @@ func (t *SMTBitVectorTheory) nativeAtomDefinition(operation int32, arguments [][
 	return t.state.manager.RefGet(ref)
 }
 
-func (t *SMTBitVectorTheory) boolXor(left, right ast.ASTHandle) (ast.ASTHandle, error) {
+// boolXor is m_bb.mk_xor(l1, l2, diff): the caller owns diff, an expr_ref
+// local of its loop iteration.
+func (t *SMTBitVectorTheory) boolXor(left, right ast.ASTHandle) (ast.ASTRef, error) {
 	engine, err := t.nativeBitBlaster()
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTRef{}, err
 	}
 	refs, err := engine.MkXor([]ast.ASTHandle{left}, []ast.ASTHandle{right})
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTRef{}, err
 	}
-	bits, err := t.adoptBitBlasterRefs(refs)
-	if err != nil {
-		return ast.ASTHandle{}, err
+	if len(refs) != 1 {
+		var err error
+		for i := range refs {
+			err = errors.Join(err, t.state.manager.DelRef(&refs[i]))
+		}
+		return ast.ASTRef{}, errors.Join(ast.ErrASTDomain, err)
 	}
-	return bits[0], nil
+	return refs[0], nil
 }

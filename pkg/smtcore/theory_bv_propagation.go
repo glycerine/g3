@@ -34,15 +34,15 @@ func (t *SMTBitVectorTheory) internalizeBitDifference(left, right SMTLiteral) (r
 		return SMTNullLiteral, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, s.manager.DelRef(&secondRoot)) }()
-	difference, err := t.boolXor(first, second)
-	if err != nil {
-		return SMTNullLiteral, err
-	}
-	differenceRoot, err := s.manager.NewRef(difference)
+	differenceRoot, err := t.boolXor(first, second)
 	if err != nil {
 		return SMTNullLiteral, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, s.manager.DelRef(&differenceRoot)) }()
+	difference, err := s.manager.RefGet(differenceRoot)
+	if err != nil {
+		return SMTNullLiteral, err
+	}
 	if err = s.Internalize(difference, true); err != nil {
 		return SMTNullLiteral, err
 	}
