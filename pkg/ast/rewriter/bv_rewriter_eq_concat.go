@@ -118,11 +118,13 @@ func (p *BVPolynomialRewriter) RewriteConcatenationEquality(lhs, rhs ast.ASTHand
 		if em != m {
 			return st, ast.ErrASTHandle
 		}
-		left, e := extract.Apply(high1, b.low1, a)
+		// mk_eq(m_mk_extract(.., arg1), m_mk_extract(.., arg2)): GCC evaluates
+		// the arguments right to left, so arg2's extract is created first.
+		right, e := extract.Apply(high2, b.low2, d)
 		if e != nil {
 			return st, e
 		}
-		right, e := extract.Apply(high2, b.low2, d)
+		left, e := extract.Apply(high1, b.low1, a)
 		if e != nil {
 			return st, e
 		}

@@ -413,8 +413,21 @@ func (r *SATModelConverter) writeAtom(out io.Writer, atom ast.ASTHandle) (err er
 	if err != nil {
 		return err
 	}
+	// mk_ismt2_pp's format_ref releases the document after printing.
+	formats, err := r.manager.GetFormatManager()
+	if err != nil {
+		return err
+	}
+	ref, err := formats.NewRef(f)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, formats.DelRef(&ref)) }()
 	f, err = r.manager.FormatIndent(2, f)
 	if err != nil {
+		return err
+	}
+	if err = formats.SetRef(ref, f); err != nil {
 		return err
 	}
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: r.manager.Budget()})

@@ -17,6 +17,16 @@ func (md *ModelCore) writeV2Expr(out io.Writer, h ast.ASTHandle, context *uparam
 	if err != nil {
 		return err
 	}
+	// mk_pp's format_ref releases the document after printing.
+	formats, err := md.manager.GetFormatManager()
+	if err != nil {
+		return err
+	}
+	ref, err := formats.NewRef(format)
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, formats.DelRef(&ref)) }()
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: md.manager.Budget()})
 	if err != nil {
 		return err

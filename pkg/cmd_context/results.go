@@ -66,9 +66,27 @@ func (c *Context) WriteExpressionIndented(out io.Writer, expression ast.ASTHandl
 	if err != nil {
 		return err
 	}
+	return c.writeOwnedFormat(out, format, indent)
+}
+
+// writeOwnedFormat is cmd_context::display's format_ref: the (optionally
+// indented) document is printed and released before display returns.
+func (c *Context) writeOwnedFormat(out io.Writer, format ast.ASTHandle, indent uint32) (result error) {
+	formats, err := c.manager.GetFormatManager()
+	if err != nil {
+		return err
+	}
+	ref, err := formats.NewRef(format)
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, formats.DelRef(&ref)) }()
 	if indent != 0 {
 		format, err = c.manager.FormatIndent(indent, format)
 		if err != nil {
+			return err
+		}
+		if err = formats.SetRef(ref, format); err != nil {
 			return err
 		}
 	}
@@ -81,13 +99,7 @@ func (c *Context) WriteSort(out io.Writer, sort ast.ASTHandle, indent uint32) er
 	if err != nil {
 		return err
 	}
-	if indent != 0 {
-		format, err = c.manager.FormatIndent(indent, format)
-		if err != nil {
-			return err
-		}
-	}
-	return c.writeASTFormat(out, format)
+	return c.writeOwnedFormat(out, format, indent)
 }
 
 func (c *Context) writeASTFormat(out io.Writer, format ast.ASTHandle) (result error) {
