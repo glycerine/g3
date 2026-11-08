@@ -247,11 +247,17 @@ Found while matching `-st` output against `build/z3` on
     g3 always built the strategic solver. All-statistics exact 555 -> 567;
     one cmd/g3 test now expects z3's `unknown` answers.
 
-18. **OPEN: expr_quant_elim arithmetic plugin gaps.** qe.QuantifierTactic
-    (qe_tactic.cpp over expr_quant_elim, src/qe/qe.cpp and
-    qe_arith_plugin.cpp) raises a tactic exception
-    (errArithmeticBranchUnsupported, qe/quantifier_tactic.go) for
-    arithmetic branches the Go port of the arith plugin does not cover,
-    where the source eliminates the variable. Port the remaining branch
-    cases (qe_arith_plugin.cpp) for the retained callers, then drop the
-    exception path.
+18. **OPEN: expr_quant_elim output order (not a correctness gap).**
+    Checked: errArithmeticBranchUnsupported (qe/quantifier_tactic.go) is
+    reachable only without a QE context (resolveCooper with |b| > 3 and
+    no qeConfig); the qe tactic always sets one, so integer resolution
+    with large coefficients succeeds. Example:
+    `(assert (exists ((x Int)) (and (<= (* 5 x) y) (>= (* 7 x) z))))
+    (apply qe)` gives an equivalent formula on both sides, but the
+    disjuncts come in a different order (z3: cases z = 0, 2, 4, 3; g3:
+    3, 0, 4, 2) and z3 keeps both (+ (* (- 7) y) (* 5 z)) and
+    (+ (* 5 z) (* (- 7) y)). For an upper bound above 1, z3's mk_big_or
+    uses mk_big_or_symbolic_blast (a bounded bit-vector variable that the
+    QE context enumerates with blast_or); compare g3's symbolic
+    expansion in qe/arithmetic_qe_resolve_cooper.go with
+    i_solver_context::blast_or.
