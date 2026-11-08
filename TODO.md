@@ -431,6 +431,15 @@ Found while matching `-st` output against `build/z3` on
    variable/rule ASTs are created earlier (38 vectors' first AST-log
    difference) and invalid-rule errors surface at the rule command, not
    at the query. Port the queue and the flush points.
+   DONE: BackgroundAssertions (read on the query path) no longer builds the
+   eager rule view, so a query binds each rule once, in its flush.
+   OPEN (24 vectors' first difference): `(query R)` is
+   dl_context::rel_query, and engine_base::query(num_rels, rels) (every
+   engine but rel_context) wraps R as an expression, so mk_query builds the
+   `query!N` rule. g3's QueryPredicate dispatches predicate-direct paths
+   (queryPDR etc.); routing PDR through queryRelationExpression still made
+   no query!0 and hung on fixedpoint_pdr_arithmetic_inductive, so the PDR
+   expression path itself needs porting first.
 
 21. **Recorded deviations, kept deliberately.** cmd/g3 tests encode
    these: bvsmul_noovfl numeral folding uses signed semantics (the source

@@ -12,10 +12,8 @@ import (
 
 // BackgroundAssertions returns owning references in insertion order.
 func (e *PropositionalEngine) BackgroundAssertions() (result []ast.ASTRef, resultErr error) {
-	// Readers outside the query flush see the eager copies of queued rules.
-	if err := e.materializePendingRules(); err != nil {
-		return nil, err
-	}
+	// Background assertions do not depend on queued rules: the query's own
+	// flush binds them (dl_context::flush_add_rules), as the source does.
 	if err := e.open(); err != nil {
 		return nil, err
 	}
