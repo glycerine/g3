@@ -17,6 +17,9 @@ import (
 // ---- assumption and scoped_dependency_manager<assumption> ----
 
 // seqAssumption is theory_seq::assumption: an enode pair or a literal.
+// seqAssumption is theory_seq::assumption. An equality assumption has lit
+// SMTNullLiteral, as assumption(n1, n2) sets null_literal; the zero
+// SMTLiteral is the true literal.
 type seqAssumption struct {
 	n1, n2 *SMTEnode
 	lit    SMTLiteral

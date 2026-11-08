@@ -213,6 +213,13 @@ Found while matching `-st` output against `build/z3` on
       unit_resolution_justification over the removed false literals and
       builds the proof lazily; g3 built the unit-resolution proof eagerly
       under proofs and kept a bare proof wrapper.
+    - theory_seq's assumption(n1, n2) has lit = null_literal; g3's
+      equality assumptions left the zero SMTLiteral, which is the true
+      literal, so every seq equality dependency added a spurious `true`
+      antecedent to its propagations and conflicts.
+    - theory_bv kept each bit vector's bits alive through an assembled
+      mkbv term, an AST z3 never makes (it shifted later ids); it now
+      references the bit expressions directly (518 matching).
     Former lead (bv_fixed_cache_scopes): at level 0 z3 propagates
     (= ((_ bit2bool 0) x) ((_ bit2bool 0) y)) with a justification whose
     antecedents are the two bit literals; g3 assigns it with a proof

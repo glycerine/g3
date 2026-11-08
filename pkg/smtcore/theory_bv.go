@@ -49,7 +49,7 @@ type SMTBitVectorTheory struct {
 	mergeAux           [2][]SMTTheoryVar
 	watchedPosition    []uint32
 	propagationQueue   []smtBVBitOccurrence
-	bitOwners          map[ast.ASTHandle]ast.ASTRef
+	bitOwners          map[ast.ASTHandle][]ast.ASTRef
 	bitTrail           []ast.ASTHandle
 	comparisonAtoms    map[int32]SMTLiteral
 	fixedVariables     map[smtBVFixedKey]SMTTheoryVar
@@ -79,7 +79,7 @@ func NewSMTBitVectorTheory(family ast.FamilyID) (*SMTBitVectorTheory, error) {
 		SMTTheoryBase:   base,
 		bits:            make(map[ast.ASTHandle][]ast.ASTHandle),
 		bitAtoms:        make(map[int32][]smtBVBitOccurrence),
-		bitOwners:       make(map[ast.ASTHandle]ast.ASTRef),
+		bitOwners:       make(map[ast.ASTHandle][]ast.ASTRef),
 		comparisonAtoms: make(map[int32]SMTLiteral),
 		fixedVariables:  make(map[smtBVFixedKey]SMTTheoryVar),
 		config:          SMTBVState{Mode: 1, HiDiv0: true, Reflect: true, BlastMaxSize: 2147483647, EnableInt2BV: true},
@@ -352,20 +352,30 @@ func (t *SMTBitVectorTheory) bitsFor(expression ast.ASTHandle) ([]ast.ASTHandle,
 	return bits, nil
 }
 
-// Keep the AST representation used by Go consumers alive independently of
-// recursively drained engine outputs. Native literal vectors remain authoritative.
+// Keep each bit expression alive independently of recursively drained engine
+// outputs. The source holds the bits in m_bits (literals whose atoms the
+// context owns) and builds no term from them, so the Go owner references the
+// bits themselves rather than an assembled mkbv application, which would
+// create an extra AST and shift later ids.
 func (t *SMTBitVectorTheory) publishBitOwner(expression ast.ASTHandle, bits []ast.ASTHandle) error {
 	state := t.state
-	assembled, err := state.manager.MkBitVectorFromBits(bits)
-	if err != nil {
-		return errors.Join(err, t.releaseTemporary())
+	owner := make([]ast.ASTRef, 0, len(bits))
+	release := func() error {
+		var err error
+		for i := range owner {
+			err = errors.Join(err, state.manager.DelRef(&owner[i]))
+		}
+		return err
 	}
-	owner, err := state.manager.NewRef(assembled)
-	if err != nil {
-		return errors.Join(err, t.releaseTemporary())
+	for _, bit := range bits {
+		ref, err := state.manager.NewRef(bit)
+		if err != nil {
+			return errors.Join(err, release(), t.releaseTemporary())
+		}
+		owner = append(owner, ref)
 	}
-	if err = t.releaseTemporary(); err != nil {
-		return errors.Join(err, state.manager.DelRef(&owner))
+	if err := t.releaseTemporary(); err != nil {
+		return errors.Join(err, release())
 	}
 	t.bits[expression] = bits
 	t.bitOwners[expression] = owner
@@ -886,8 +896,10 @@ func (t *SMTBitVectorTheory) PopScopes(count uint32) error {
 	for _, expression := range t.bitTrail[scope.bits:] {
 		delete(t.bits, expression)
 		owner := t.bitOwners[expression]
-		if err := state.manager.DelRef(&owner); err != nil {
-			return err
+		for i := range owner {
+			if err := state.manager.DelRef(&owner[i]); err != nil {
+				return err
+			}
 		}
 		delete(t.bitOwners, expression)
 	}
@@ -953,12 +965,13 @@ func (t *SMTBitVectorTheory) Close() error {
 	ast.SortHandles(owned)
 	for _, expression := range owned {
 		owner := t.bitOwners[expression]
-		if owner != (ast.ASTRef{}) {
-			err := state.manager.DelRef(&owner)
+		for i := range owner {
+			if owner[i] == (ast.ASTRef{}) {
+				continue
+			}
 			// DelRef clears a consumed reference even if its child cleanup
-			// fails. Publish that receipt before returning to the owner.
-			t.bitOwners[expression] = owner
-			if err != nil {
+			// fails; the cleared entries stay in owner for a retry.
+			if err := state.manager.DelRef(&owner[i]); err != nil {
 				return err
 			}
 		}

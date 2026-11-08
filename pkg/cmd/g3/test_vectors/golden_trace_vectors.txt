@@ -79,6 +79,7 @@ bv_bound_core_refusal
 bv_bound_inconsistent
 bv_bound_models_scopes
 bv_bound_proof_refusal
+bv_fixed_cache_scopes
 bv_private_propagation_scopes
 bv_quantified_mbqi
 bv_quantified_strategy

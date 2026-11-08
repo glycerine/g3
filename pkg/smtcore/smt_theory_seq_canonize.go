@@ -179,7 +179,7 @@ func (t *SMTTheorySeq) expand1(x *seqRefs, e0 ast.ASTHandle, eqs **seqDep) ast.A
 			} else if n1.Root() == n2.Root() {
 				// TBD remove this: using roots is unsound for propagation.
 				result = res
-				deps = t.dm.mkJoin(deps, t.dm.mkLeaf(seqAssumption{n1: n1, n2: n2}))
+				deps = t.dm.mkJoin(deps, t.dm.mkLeaf(seqAssumption{n1: n1, n2: n2, lit: SMTNullLiteral}))
 			} else {
 				t.addAxiom(t.mkEq(num, e1, false).Negated(), t.mkEq(e, res, false))
 				t.addAxiom(t.mkEq(num, e1, false), t.mkEq(e, res, false).Negated())
@@ -201,7 +201,7 @@ func (t *SMTTheorySeq) expand1(x *seqRefs, e0 ast.ASTHandle, eqs **seqDep) ast.A
 
 func (t *SMTTheorySeq) addDependency(dep **seqDep, a, b *SMTEnode) {
 	if a != b {
-		*dep = t.dm.mkJoin(*dep, t.dm.mkLeaf(seqAssumption{n1: a, n2: b}))
+		*dep = t.dm.mkJoin(*dep, t.dm.mkLeaf(seqAssumption{n1: a, n2: b, lit: SMTNullLiteral}))
 	}
 }
 

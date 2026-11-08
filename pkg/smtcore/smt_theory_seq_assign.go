@@ -148,7 +148,7 @@ func (t *SMTTheorySeq) newEqEh(v1, v2 SMTTheoryVar) {
 	t.chk(err)
 	n2, err := t.Enode(v2)
 	t.chk(err)
-	deps := t.dm.mkLeaf(seqAssumption{n1: n1, n2: n2})
+	deps := t.dm.mkLeaf(seqAssumption{n1: n1, n2: n2, lit: SMTNullLiteral})
 	t.newEqEhDep(deps, n1, n2)
 }
 
