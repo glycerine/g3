@@ -91,7 +91,8 @@ func (t *SMTTheorySeq) checkIntString() bool {
 
 // mkNumRe is (0-9)+.
 func (t *SMTTheorySeq) mkNumRe(x *seqRefs) ast.ASTHandle {
-	numRe := t.ref(x, t.must(t.m.MkRegexRange(t.mkString("0"), t.mkString("9"))), nil)
+	nine := t.mkString("9") // arguments right to left
+	numRe := t.ref(x, t.must(t.m.MkRegexRange(t.mkString("0"), nine)), nil)
 	return t.ref(x, t.must(t.m.MkRegexPlus(numRe)), nil)
 }
 
@@ -221,8 +222,9 @@ func (t *SMTTheorySeq) isDigit(ch ast.ASTHandle) SMTLiteral {
 	t.addAxiom(isd.Negated(), lo)
 	t.addAxiom(isd.Negated(), hi)
 	for i := int64(0); i < 10; i++ {
-		t.addAxiom(t.mkEq(ch, t.must(t.m.BitVectorNumeralUint64(uint64('0'+i), 8)), false).Negated(),
-			t.mkEq(d2i, t.mkInt(i), false))
+		// GCC evaluates call arguments right to left.
+		eqD := t.mkEq(d2i, t.mkInt(i), false)
+		t.addAxiom(t.mkEq(ch, t.must(t.m.BitVectorNumeralUint64(uint64('0'+i), 8)), false).Negated(), eqD)
 	}
 	return isd
 }

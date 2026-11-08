@@ -111,10 +111,9 @@ Found while matching `-st` output against `build/z3` on
    Int)...(check-sat-using smt)` with x+y=7 and x>=0, now has identical
    AST logs: the apparent destruction-order difference came from the
    tactic construction order above, not from smt::context teardown.
-   OPEN: in principle smt::context::flush still differs (z3 undoes one
-   interleaved trail of mk_bool_var/mk_enode entries; g3 unwinds enodes,
-   then Boolean variables), which matters only when a term's last
-   reference is one of the two. Related: z3's relevancy propagator keeps m_relevant_exprs as an
+   DONE: pops and smt::context::flush (Close unwinds through popTo) undo
+   mk_bool_var and mk_enode entries newest first across both stacks, as
+   z3's single m_trail_stack does. Related: z3's relevancy propagator keeps m_relevant_exprs as an
    expr_ref_vector, so its terms live until it unmarks them on pop. g3's
    propagator holds no references; the ported unmark_relevant_exprs
    TRACE (datatype_update_equality_scopes) shows terms already deleted
@@ -354,11 +353,20 @@ Found while matching `-st` output against `build/z3` on
       next mk_proto_model (model_generator::reset) instead of freeing it
       when a check begins. theory_bv's pop releases bit2bool atoms last
       created first.
-    - seq_negative_symbolic_mixed's AST log now matches z3 through line
-      21029 of 24052 (it diverged at line 80). Next: theory_seq keeps
-      `= #105 #103` (assume_equality's m.mk_eq(l, r) before mk_eq_atom
-      swaps it) alive where g3 frees it; find the z3 holder (build_dbg
-      with -tr:seq) before changing anything.
+    - DONE: seq_negative_symbolic_mixed's AST log is identical to z3's
+      (all 24052 lines; it diverged at line 80). The last gaps were:
+      context::is_diseq holds m_is_diseq_tmp's (= n1 n2) until the sort
+      changes or flush; a pop undoes mk_enode and mk_bool_var newest first
+      across both stacks (one m_trail_stack in the source); and the seq
+      port evaluated nested AST-building arguments left to right where GCC
+      goes right to left (add_axiom(~mk_eq(..), mk_seq_eq(..)) and 27
+      other sites, found with a go/ast scan for calls with two or more
+      mk* arguments; the other packages' error-returning APIs already
+      sequence their constructions).
+      A deletion-logging z3 (z3del: ast_manager::delete_node prints
+      [del] #id, act_cache::insert prints [act], and Z3_DEL_BT/Z3_MK_BT_N
+      print a backtrace) is rebuilt from a private copy of src and
+      build_trace, outside the repository.
     - OPEN: rewriteStringInRegex (seq_rewriter::mk_str_in_regexp) does
       not compress the automaton (re2automaton::operator() does), its
       is_sequence differs, and it walks the frontier as a Go map, so its

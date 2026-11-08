@@ -356,8 +356,11 @@ func (t *SMTTheorySeq) propagateNotSuffix(e ast.ASTHandle) {
 	c := t.ref(x0, t.mkSkolem(t.symbol("seq.suffix.c"), e1, e2, null, charSort), nil)
 	d := t.ref(x0, t.mkSkolem(t.symbol("seq.suffix.d"), e1, e2, null, charSort), nil)
 	t.addAxiom(lit, e2IsEmp, t.mkSeqEq(e1, t.mkConcat3(y, t.mkUnit(c), x)))
-	t.addAxiom(lit, e2IsEmp, t.mkSeqEq(e2, t.mkConcat3(z, t.mkUnit(d), x)), t.mkSeqEq(e2, x))
-	t.addAxiom(lit, e2IsEmp, t.mkEq(c, d, false).Negated(), t.mkSeqEq(e2, x))
+	// GCC evaluates call arguments right to left.
+	eqX := t.mkSeqEq(e2, x)
+	t.addAxiom(lit, e2IsEmp, t.mkSeqEq(e2, t.mkConcat3(z, t.mkUnit(d), x)), eqX)
+	eqX = t.mkSeqEq(e2, x)
+	t.addAxiom(lit, e2IsEmp, t.mkEq(c, d, false).Negated(), eqX)
 }
 
 // addPrefix2prefix: !prefix -> e2 = emp \/ nth(e1,0) != nth(e2,0) \/ !prefix(tail(e1),tail(e2))

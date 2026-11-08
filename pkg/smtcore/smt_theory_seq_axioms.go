@@ -91,9 +91,10 @@ func (t *SMTTheorySeq) addIndexofAxiom(i ast.ASTHandle) {
 	t.addAxiom(offsetGe0.Negated(), offsetGeLen, t.mkSeqEq(tt, t.mkConcat2(x, y)))
 	t.addAxiom(offsetGe0.Negated(), offsetGeLen, t.mkEq(t.mkLength(x), offset, false))
 	t.addAxiom(offsetGe0.Negated(), offsetGeLen, t.mkEq(indexof0, minusOne, false).Negated(), iEqM1)
+	// GCC evaluates call arguments right to left.
+	eqI := t.mkEq(offsetPIndexof0, i, false)
 	t.addAxiom(offsetGe0.Negated(), offsetGeLen,
-		t.mkSimplifiedLiteral(t.mkGe(indexof0, zero)).Negated(),
-		t.mkEq(offsetPIndexof0, i, false))
+		t.mkSimplifiedLiteral(t.mkGe(indexof0, zero)).Negated(), eqI)
 	// offset < 0 => -1 = i
 	t.addAxiom(offsetGe0, iEqM1)
 }
@@ -388,18 +389,21 @@ func (t *SMTTheorySeq) addTailAxiom(e, s ast.ASTHandle) {
 	x := t.loc()
 	defer x.drop()
 	head, _ := t.mkDecompose(x, s)
-	t.addAxiom(t.mkEqEmpty(s, true), t.mkSeqEq(s, t.mkConcat2(head, e)))
+	eqS := t.mkSeqEq(s, t.mkConcat2(head, e)) // arguments right to left
+	t.addAxiom(t.mkEqEmpty(s, true), eqS)
 }
 
 func (t *SMTTheorySeq) addDropLastAxiom(e, s ast.ASTHandle) {
-	t.addAxiom(t.mkEqEmpty(s, true), t.mkSeqEq(s, t.mkConcat2(e, t.mkUnit(t.mkLast(s)))))
+	eqS := t.mkSeqEq(s, t.mkConcat2(e, t.mkUnit(t.mkLast(s)))) // arguments right to left
+	t.addAxiom(t.mkEqEmpty(s, true), eqS)
 }
 
 func (t *SMTTheorySeq) lengthMinusOneEq(s, l ast.ASTHandle) bool {
 	x := t.loc()
 	defer x.drop()
 	l1 := t.ref(x, l, nil)
-	l2 := t.ref(x, t.mkSubExpr(t.mkLength(s), t.mkInt(1)), nil)
+	one := t.mkInt(1) // arguments right to left
+	l2 := t.ref(x, t.mkSubExpr(t.mkLength(s), one), nil)
 	l1 = t.rewriteTh(x, l1)
 	l2 = t.rewriteTh(x, l2)
 	return l1 == l2
@@ -527,7 +531,8 @@ func (t *SMTTheorySeq) ensureNth(lit SMTLiteral, s, idx ast.ASTHandle) {
 		head, tail := t.mkDecompose(x, s2)
 		t.chk(elems.pushBack(head))
 		len1 := t.ref(x, t.mkLength(s2), nil)
-		len2 := t.ref(x, t.mkAdd(t.mkInt(1), t.mkLength(tail)), nil)
+		lenTail := t.mkLength(tail) // arguments right to left
+		len2 := t.ref(x, t.mkAdd(t.mkInt(1), lenTail), nil)
 		t.propagateEqLitOnly(lit, len1, len2, false)
 		s2 = tail
 	}

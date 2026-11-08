@@ -254,7 +254,8 @@ func (t *SMTTheorySeq) simplifyEq(ls, rs *seqExprVector, deps *seqDep) bool {
 		} else if t.isSeq(li) || t.isRe(li) {
 			t.eqs.pushBack(t.mkEqdep(li, ri, deps))
 		} else {
-			t.propagateEqNodes(deps, t.ensureEnode(li), t.ensureEnode(ri))
+			rn := t.ensureEnode(ri) // arguments right to left
+			t.propagateEqNodes(deps, t.ensureEnode(li), rn)
 		}
 	}
 	return true
@@ -413,7 +414,8 @@ func (t *SMTTheorySeq) propagateMaxLength(l, r ast.ASTHandle, deps *seqDep) bool
 	s, idx, ok := t.isTailIdx(l)
 	if ok && t.hasLength(s) && t.isEmpty(r) {
 		if _, has := t.upperBound(s); !has {
-			t.propagateLit(deps, nil, t.mkLiteral(t.mkLe(t.mkLength(s), t.mkInt(idx+1))))
+			bound := t.mkInt(idx + 1) // arguments right to left
+			t.propagateLit(deps, nil, t.mkLiteral(t.mkLe(t.mkLength(s), bound)))
 			return true
 		}
 	}

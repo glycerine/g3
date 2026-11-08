@@ -181,8 +181,11 @@ func (t *SMTTheorySeq) expand1(x *seqRefs, e0 ast.ASTHandle, eqs **seqDep) ast.A
 				result = res
 				deps = t.dm.mkJoin(deps, t.dm.mkLeaf(seqAssumption{n1: n1, n2: n2, lit: SMTNullLiteral}))
 			} else {
-				t.addAxiom(t.mkEq(num, e1, false).Negated(), t.mkEq(e, res, false))
-				t.addAxiom(t.mkEq(num, e1, false), t.mkEq(e, res, false).Negated())
+				// GCC evaluates call arguments right to left.
+				eqRes := t.mkEq(e, res, false)
+				t.addAxiom(t.mkEq(num, e1, false).Negated(), eqRes)
+				eqRes = t.mkEq(e, res, false).Negated()
+				t.addAxiom(t.mkEq(num, e1, false), eqRes)
 				result = t.ref(x, e, nil)
 			}
 		} else {

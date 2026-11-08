@@ -65,7 +65,8 @@ func (t *SMTTheorySeq) branchBinaryVariable(e *seqEq) bool {
 	sumY := new(big.Rat).Add(lenY, big.NewRat(int64(len(ys)), 1))
 	if sumX.Cmp(sumY) != 0 {
 		// |x| - |y| = |ys| - |xs|
-		a := t.ref(x0, t.mkSub(t.mkLength(x), t.mkLength(y)), nil)
+		lenY := t.mkLength(y) // arguments right to left
+		a := t.ref(x0, t.mkSub(t.mkLength(x), lenY), nil)
 		// unsigned subtraction, as the source writes ys.size()-xs.size()
 		b := t.ref(x0, t.mkInt(int64(uint32(len(ys))-uint32(len(xs)))), nil)
 		t.propagateLit(e.dep, nil, t.mkEq(a, b, false))
@@ -75,7 +76,8 @@ func (t *SMTTheorySeq) branchBinaryVariable(e *seqEq) bool {
 		t.branchUnitVariableDep(e.dep, x, ys)
 		return true
 	}
-	le := t.ref(x0, t.mkLe(t.mkLength(x), t.mkInt(int64(len(ys)))), nil)
+	size := t.mkInt(int64(len(ys))) // arguments right to left
+	le := t.ref(x0, t.mkLe(t.mkLength(x), size), nil)
 	lit := t.mkLiteral(le)
 	if t.assignment(lit) == lbool.False {
 		// |x| > |ys| => x = ys ++ y1, y = y1 ++ y2, y2 = xs
@@ -131,7 +133,8 @@ func (t *SMTTheorySeq) branchUnitVariableDep(dep *seqDep, X ast.ASTHandle, units
 	x := t.loc()
 	defer x.drop()
 	if lenX.Cmp(big.NewRat(int64(len(units)), 1)) > 0 {
-		le := t.ref(x, t.mkLe(t.mkLength(X), t.mkInt(int64(len(units)))), nil)
+		size := t.mkInt(int64(len(units))) // arguments right to left
+		le := t.ref(x, t.mkLe(t.mkLength(X), size), nil)
 		t.propagateLit(dep, nil, t.mkLiteral(le))
 		return
 	}
@@ -140,7 +143,8 @@ func (t *SMTTheorySeq) branchUnitVariableDep(dep *seqDep, X ast.ASTHandle, units
 		t.setEmpty(X)
 		return
 	}
-	lit := t.mkEq(t.mkInt(lX), t.mkLength(X), false)
+	lenXE := t.mkLength(X) // arguments right to left
+	lit := t.mkEq(t.mkInt(lX), lenXE, false)
 	if t.assignment(lit) == lbool.True {
 		R := t.ref(x, t.mkConcatN(units[:lX]), nil)
 		t.propagateEqLit(dep, lit, X, R, true)
@@ -257,8 +261,11 @@ func (t *SMTTheorySeq) splitLengths(dep *seqDep, ls, rs []ast.ASTHandle, ll, rl 
 	lenXE := t.ref(x, t.mkLength(X), nil)
 	lenYE := t.ref(x, t.mkLength(Y), nil)
 	lenb := t.ref(x, t.mkLength(b), nil)
-	le1 := t.ref(x, t.mkLe(t.mkSub(lenXE, lenb), t.mkInt(0)), nil)
-	le2 := t.ref(x, t.mkLe(t.mkSub(t.mkSub(lenXE, lenb), lenYE), t.mkInt(0)), nil)
+	// GCC evaluates call arguments right to left.
+	zero := t.mkInt(0)
+	le1 := t.ref(x, t.mkLe(t.mkSub(lenXE, lenb), zero), nil)
+	zero = t.mkInt(0)
+	le2 := t.ref(x, t.mkLe(t.mkSub(t.mkSub(lenXE, lenb), lenYE), zero), nil)
 	lit1 := t.mkLiteral(le1).Negated()
 	lit2 := t.mkLiteral(le2)
 	lits := []SMTLiteral{lit1, lit2}
@@ -282,7 +289,10 @@ func (t *SMTTheorySeq) splitLengths(dep *seqDep, ls, rs []ast.ASTHandle, ll, rl 
 }
 
 func (t *SMTTheorySeq) setEmpty(x ast.ASTHandle) bool {
-	t.addAxiom(t.mkEq(t.mkInt(0), t.mkLength(x), false).Negated(), t.mkEqEmpty(x, true))
+	// GCC evaluates call arguments right to left.
+	empty := t.mkEqEmpty(x, true)
+	lenX := t.mkLength(x)
+	t.addAxiom(t.mkEq(t.mkInt(0), lenX, false).Negated(), empty)
 	return true
 }
 
@@ -487,16 +497,21 @@ func (t *SMTTheorySeq) propagateLengthCoherence(e ast.ASTHandle) bool {
 	t.chk(elems.pushBack(seq))
 	tail := t.ref(x, t.mkConcatN(elems.handles()), nil)
 	// len(e) >= low => e = tail;
-	low := t.mkLiteral(t.mkGe(t.mkLength(e), t.mkIntRat(lo)))
+	loNum := t.mkIntRat(lo) // arguments right to left
+	low := t.mkLiteral(t.mkGe(t.mkLength(e), loNum))
 	t.addAxiom(low.Negated(), t.mkSeqEq(e, tail))
 	if hi, ok := t.upperBound(e); ok {
 		// len(e) <= hi => len(tail) <= hi - lo
-		high1 := t.ref(x, t.mkLe(t.mkLength(e), t.mkIntRat(hi)), nil)
+		hiNum := t.mkIntRat(hi) // arguments right to left
+		high1 := t.ref(x, t.mkLe(t.mkLength(e), hiNum), nil)
 		if hi.Cmp(lo) == 0 {
-			t.addAxiom(t.mkLiteral(high1).Negated(), t.mkSeqEq(seq, emp))
+			eqEmp := t.mkSeqEq(seq, emp) // arguments right to left
+			t.addAxiom(t.mkLiteral(high1).Negated(), eqEmp)
 		} else {
-			high2 := t.ref(x, t.mkLe(t.mkLength(seq), t.mkIntRat(new(big.Rat).Sub(hi, lo))), nil)
-			t.addAxiom(t.mkLiteral(high1).Negated(), t.mkLiteral(high2))
+			diff := t.mkIntRat(new(big.Rat).Sub(hi, lo)) // arguments right to left
+			high2 := t.ref(x, t.mkLe(t.mkLength(seq), diff), nil)
+			lit2 := t.mkLiteral(high2)
+			t.addAxiom(t.mkLiteral(high1).Negated(), lit2)
 		}
 	} else {
 		t.assumeEquality(seq, emp)
@@ -596,7 +611,10 @@ func (t *SMTTheorySeq) fixedLength(e ast.ASTHandle) bool {
 		}
 		seq = t.ref(x, t.mkConcatN(elems.handles()), nil)
 	}
-	t.addAxiom(t.mkEq(t.mkLength(e), t.mkIntRat(lo), false).Negated(), t.mkSeqEq(seq, e))
+	// GCC evaluates call arguments right to left.
+	eqSeq := t.mkSeqEq(seq, e)
+	loNum := t.mkIntRat(lo)
+	t.addAxiom(t.mkEq(t.mkLength(e), loNum, false).Negated(), eqSeq)
 	if !t.atBaseLevel() {
 		t.pushReplay(seqReplayFixedLength, e)
 	}
