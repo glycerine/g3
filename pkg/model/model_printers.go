@@ -57,7 +57,9 @@ func (p *modelPrinter) render(h ast.ASTHandle, names []usymbol.Symbol) (text str
 	return stream.String()
 }
 
-func (p *modelPrinter) renderSort(h ast.ASTHandle) (text string, result error) {
+// renderSort is source cmd_context::display(out, s, indent): a positive
+// indent wraps the sort format in mk_indent before printing.
+func (p *modelPrinter) renderSort(h ast.ASTHandle, indent uint32) (text string, result error) {
 	format, err := p.model.manager.SMT2PPSort(h)
 	if err != nil {
 		return "", err
@@ -71,6 +73,16 @@ func (p *modelPrinter) renderSort(h ast.ASTHandle) (text string, result error) {
 		return "", err
 	}
 	defer func() { result = errors.Join(result, formats.DelRef(&ref)) }()
+	if indent > 0 {
+		if format, err = p.model.manager.FormatIndent(indent, format); err != nil {
+			return "", err
+		}
+		indented, err := formats.NewRef(format)
+		if err != nil {
+			return "", err
+		}
+		defer func() { result = errors.Join(result, formats.DelRef(&indented)) }()
+	}
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: p.model.manager.Budget()})
 	if err != nil {
 		return "", err
@@ -125,7 +137,7 @@ func (md *ModelCore) WriteDebug(out io.Writer, context *uparams.ParamsContext, g
 	}
 	if md.Derived != nil {
 		for _, sort := range md.Derived.sorts {
-			sortText, e := p.renderSort(sort)
+			sortText, e := p.renderSort(sort, 0)
 			if e != nil {
 				return e
 			}
@@ -335,7 +347,7 @@ func (md *ModelCore) WriteSMT2(out io.Writer, context *uparams.ParamsContext, gl
 			if !found || u == nil || len(u.values) == 0 {
 				return ast.ErrASTDomain
 			}
-			sortText, e := p.renderSort(sort)
+			sortText, e := p.renderSort(sort, 13)
 			if e != nil {
 				return e
 			}
@@ -378,7 +390,11 @@ func (md *ModelCore) WriteSMT2(out io.Writer, context *uparams.ParamsContext, gl
 				if e = p.indent(indent); e != nil {
 					return e
 				}
-				if e = p.write("(declare-fun " + name + " () " + sortText + ")\n"); e != nil {
+				rangeText, e := p.renderSort(sort, indent+uint32(len(name))+16)
+				if e != nil {
+					return e
+				}
+				if e = p.write("(declare-fun " + name + " () " + rangeText + ")\n"); e != nil {
 					return e
 				}
 			}
@@ -419,7 +435,7 @@ func (md *ModelCore) WriteSMT2(out io.Writer, context *uparams.ParamsContext, gl
 		if e != nil {
 			return e
 		}
-		sortText, e := p.renderSort(rangeSort)
+		sortText, e := p.renderSort(rangeSort, indent+uint32(len(name))+16)
 		if e != nil {
 			return e
 		}
@@ -470,7 +486,7 @@ func (md *ModelCore) WriteSMT2(out io.Writer, context *uparams.ParamsContext, gl
 			if x != nil {
 				return x
 			}
-			domainText, x := p.renderSort(domain)
+			domainText, x := p.renderSort(domain, 0)
 			if x != nil {
 				return x
 			}
@@ -480,7 +496,7 @@ func (md *ModelCore) WriteSMT2(out io.Writer, context *uparams.ParamsContext, gl
 		if e != nil {
 			return e
 		}
-		rangeText, e := p.renderSort(rangeSort)
+		rangeText, e := p.renderSort(rangeSort, 0)
 		if e != nil {
 			return e
 		}

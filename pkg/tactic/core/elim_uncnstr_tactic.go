@@ -176,7 +176,7 @@ func (t *EliminateUnconstrainedTactic) releaseImplementation() error {
 		t.rewriter = nil
 	}
 	if t.configuration != nil {
-		if err := t.configuration.owned.Close(); err != nil {
+		if err := t.configuration.close(); err != nil {
 			return err
 		}
 		t.configuration = nil
@@ -306,7 +306,7 @@ func (t *EliminateUnconstrainedTactic) run(goal *tactic.Goal, result *tactic.Tac
 		return err
 	}
 	t.configurationBytes = amount
-	t.configuration = &elimUnconstrainedRewriteConfig{owner: t, proofs: proofs, converter: t.converter, cache: make(map[ast.ASTHandle]ast.ASTHandle), owned: solveEquationFrame{manager: t.manager}}
+	t.configuration = &elimUnconstrainedRewriteConfig{owner: t, proofs: proofs, converter: t.converter, cache: make(map[ast.ASTHandle]ast.ASTHandle), freshVars: elimUnconstrainedRefVector{manager: t.manager}, cacheDomain: elimUnconstrainedRefVector{manager: t.manager}}
 	if proofs {
 		t.rewriter, err = rewriter.NewProofTraversal(t.manager, t.configuration)
 	} else {

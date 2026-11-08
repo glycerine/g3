@@ -17,8 +17,37 @@ type elimUnconstrainedRewriteConfig struct {
 	converter *tactic.ExtensionModelConverter
 	fresh     []ast.ASTHandle
 	cache     map[ast.ASTHandle]ast.ASTHandle
-	owned     solveEquationFrame
+	// Source rw_cfg::m_fresh_vars and m_cache_domain are app_ref_vectors.
+	freshVars   elimUnconstrainedRefVector
+	cacheDomain elimUnconstrainedRefVector
 	frame     *solveEquationFrame
+}
+
+// elimUnconstrainedRefVector releases like ref_vector's destructor: forward.
+type elimUnconstrainedRefVector struct {
+	manager *ast.ASTManager
+	refs    []ast.ASTRef
+}
+
+func (v *elimUnconstrainedRefVector) push(value ast.ASTHandle) error {
+	ref, err := v.manager.NewRef(value)
+	if err != nil {
+		return err
+	}
+	v.refs = append(v.refs, ref)
+	return nil
+}
+func (v *elimUnconstrainedRefVector) Close() (err error) {
+	for i := range v.refs {
+		err = errors.Join(err, v.manager.DelRef(&v.refs[i]))
+	}
+	v.refs = nil
+	return err
+}
+
+// close destroys the source members in reverse declaration order.
+func (c *elimUnconstrainedRewriteConfig) close() error {
+	return errors.Join(c.cacheDomain.Close(), c.freshVars.Close())
 }
 
 func (c *elimUnconstrainedRewriteConfig) MaxStepsExceeded(n uint32) (bool, error) {
@@ -78,10 +107,10 @@ func (c *elimUnconstrainedRewriteConfig) freshFor(d ast.ASTHandle, args []ast.AS
 	if err = c.owner.traceFresh(t); err != nil {
 		return v, false, err
 	}
-	if err = c.owned.pin(v); err != nil {
+	if err = c.freshVars.push(v); err != nil {
 		return v, false, err
 	}
-	if err = c.owned.pin(t); err != nil {
+	if err = c.cacheDomain.push(t); err != nil {
 		return v, false, err
 	}
 	c.fresh = append(c.fresh, v)
