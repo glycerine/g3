@@ -20,6 +20,7 @@ aig_models_scopes
 aig_proof_guard
 all_quantified_arithmetic_after_push
 arith_negated_weighted_branches
+array_as_array_direct_core_scopes
 array_auto_unit_profile
 array_constructor_default_models
 array_cyclic_store_model_scopes
@@ -309,6 +310,7 @@ qe_rec_blocked_terms
 qfaufbv_models_scopes
 qfaufbv_solver_models_scopes
 qfaufbv_store_sort_models
+qfauflia_as_array_scopes
 qfauflia_combined_assumptions
 qfauflia_combined_core
 qfauflia_combined_model_scopes
@@ -445,6 +447,7 @@ shared_bound_queue
 shared_linear_expression_bounds
 shared_nonlinear_model
 simplify_command
+solve_eqs_as_array_scopes
 solve_eqs_boolean_scopes
 solve_eqs_core
 solve_eqs_cycle

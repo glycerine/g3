@@ -188,6 +188,12 @@ Found while matching `-st` output against `build/z3` on
       runs theory_seq::init and so never builds the seq_expr_solver
       kernel; g3's eager seq placeholder built it anyway (one extra SMT
       context in every check-sat-using smt under logic ALL).
+    - instantiate_default_as_array_axiom makes mk_default(arr) before the
+      epsilon arguments and f(epsilon...) (the other default axioms build
+      the value first), which fixes the ids and the equality's argument
+      order (485 matching; AST logs 101 identical).
+    Many remaining equality-order differences come from AST ids
+    (mk_eq_atom orders by id), i.e. item 3.
     The remaining vectors show where g3 still diverges; run them with
     G3_GOLDEN_VECTORS=<name>. About half still differ in the number of
     SMT contexts (g3 more in most): compare the context-creating call

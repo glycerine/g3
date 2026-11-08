@@ -68,6 +68,20 @@ func (t *SMTArrayTheory) instantiateConstructorDefault(constructor ast.ASTHandle
 	if err = t.traceFullArrayExpression(function, line, constructor); err != nil {
 		return false, err
 	}
+	// instantiate_default_as_array_axiom makes mk_default(arr) before the
+	// epsilon arguments and f(epsilon...); the other axioms build their
+	// value first.
+	var defaultTerm ast.ASTHandle
+	if op == ast.ASTArrayOpAsArray {
+		if defaultTerm, err = s.manager.MkFamilyApp(t.FamilyID(), ast.ASTArrayOpDefault, nil, []ast.ASTHandle{constructor}); err != nil {
+			return false, err
+		}
+		defaultRef, refErr := s.manager.NewRef(defaultTerm)
+		if refErr != nil {
+			return false, refErr
+		}
+		defer func() { err = errors.Join(err, s.manager.DelRef(&defaultRef)) }()
+	}
 	value, err := t.defaultConstructorValue(constructor, op)
 	if err != nil {
 		return false, err
@@ -85,9 +99,10 @@ func (t *SMTArrayTheory) instantiateConstructorDefault(constructor ast.ASTHandle
 			return false, err
 		}
 	}
-	defaultTerm, err := s.manager.MkFamilyApp(t.FamilyID(), ast.ASTArrayOpDefault, nil, []ast.ASTHandle{constructor})
-	if err != nil {
-		return false, err
+	if defaultTerm.IsNull() {
+		if defaultTerm, err = s.manager.MkFamilyApp(t.FamilyID(), ast.ASTArrayOpDefault, nil, []ast.ASTHandle{constructor}); err != nil {
+			return false, err
+		}
 	}
 	if err = s.Internalize(defaultTerm, false); err != nil {
 		return false, err
