@@ -180,28 +180,12 @@ func (t *NLPurifyTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	return NewNLPurifyTactic(m, t.context, t.globals, &t.parameters, t.services)
 }
 func (t *NLPurifyTactic) CollectParamDescrs(*params.ParamDescrs) error { return t.open() }
-func (t *NLPurifyTactic) CollectStatistics() map[string]float64 {
+func (t *NLPurifyTactic) CollectStatistics(st *statistics.Statistics) {
 	if t == nil || t.closed || t.nonlinear == nil || t.smt == nil {
-		return nil
+		return
 	}
-	result := t.nonlinear.CollectStatistics()
-	if result == nil {
-		result = make(map[string]float64)
-	}
-	var s statistics.Statistics
-	if t.smt.CollectStatistics(&s) != nil {
-		return result
-	}
-	for i := 0; i < s.Size(); i++ {
-		value := 0.0
-		if s.IsUint(i) {
-			value = float64(s.UintValue(i))
-		} else {
-			value = s.DoubleValue(i)
-		}
-		result[string(s.Key(i))] += value
-	}
-	return result
+	t.nonlinear.CollectStatistics(st)
+	_ = t.smt.CollectStatistics(st)
 }
 func (t *NLPurifyTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

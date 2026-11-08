@@ -1,6 +1,7 @@
 package qe
 
 import (
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -146,7 +147,7 @@ func TestNLQSATTacticMixedRealAlternationAndProjection(t *testing.T) {
 			} else if !goal.IsDecidedUnsat() {
 				t.Fatal("mixed quantified goal was not decided UNSAT")
 			}
-			if rounds := tactic.CollectStatistics()["qsat num rounds"]; rounds < 3 {
+			if rounds := statistics.Sums(tactic.CollectStatistics)["qsat num rounds"]; rounds < 3 {
 				t.Fatal("mixed formula did not exercise projected alternation", rounds)
 			}
 		})

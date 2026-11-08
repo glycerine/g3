@@ -4,6 +4,7 @@ package bv
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"reflect"
 
@@ -486,8 +487,8 @@ func (t *BitBlasterTactic) BindTrace(tags *diagnostic.TraceTags) error {
 	t.trace = tags
 	return t.current.active.BindTrace(tags)
 }
-func (t *BitBlasterTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *BitBlasterTactic) ResetStatistics() error                 { return t.open() }
-func (t *BitBlasterTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *BitBlasterTactic) SetProgressCallback(func(uint32)) error { return t.open() }
-func (t *BitBlasterTactic) Reset() error                           { return t.Cleanup() }
+func (t *BitBlasterTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *BitBlasterTactic) ResetStatistics() error                   { return t.open() }
+func (t *BitBlasterTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *BitBlasterTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
+func (t *BitBlasterTactic) Reset() error                             { return t.Cleanup() }

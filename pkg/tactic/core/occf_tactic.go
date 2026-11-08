@@ -4,6 +4,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -97,7 +98,7 @@ func (t *OCCFTactic) Close() error {
 
 func (t *OCCFTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *OCCFTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *OCCFTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *OCCFTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *OCCFTactic) ResetStatistics() error                        { return t.open() }
 func (t *OCCFTactic) Cleanup() error                                { return t.open() }
 func (t *OCCFTactic) Reset() error                                  { return t.Cleanup() }

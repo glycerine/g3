@@ -411,9 +411,7 @@ func (s *Solver) CollectStatistics(st *statistics.Statistics) error {
 		return err
 	}
 	if s.encoder != nil && s.encoder.pipeline != nil {
-		for k, v := range s.encoder.pipeline.root.CollectStatistics() {
-			st.UpdateDouble(statistics.Key(k), v)
-		}
+		s.encoder.pipeline.root.CollectStatistics(st)
 	}
 	return s.core.CollectStatistics(st)
 }

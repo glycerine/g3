@@ -4,6 +4,7 @@ package core
 // statistics, cleanup, parameter update, and translation.
 
 import (
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -27,15 +28,15 @@ func TestBlastTermITEStandaloneStatisticsCleanupAndTranslation(t *testing.T) {
 	var result tactic.TacticResult
 	t.Cleanup(func() { simplifyMust(t, result.Close()) })
 	simplifyMust(t, f.runner.Apply(goal, &result))
-	if f.runner.CollectStatistics() != nil || f.runner.numFresh != 2 {
-		t.Fatal("source progress counter", f.runner.CollectStatistics(), f.runner.numFresh)
+	if len(statistics.Sums(f.runner.CollectStatistics)) != 0 || f.runner.numFresh != 2 {
+		t.Fatal("source progress counter", statistics.Sums(f.runner.CollectStatistics), f.runner.numFresh)
 	}
 	simplifyMust(t, f.runner.ResetStatistics())
 	if f.runner.numFresh != 2 {
 		t.Fatal("base tactic reset_statistics should not clear progress count", f.runner.numFresh)
 	}
 	simplifyMust(t, f.runner.Cleanup())
-	if f.runner.CollectStatistics() != nil {
+	if len(statistics.Sums(f.runner.CollectStatistics)) != 0 {
 		t.Fatal("cleanup did not replace source implementation state")
 	}
 	p, err := f.runner.context.NewValue()

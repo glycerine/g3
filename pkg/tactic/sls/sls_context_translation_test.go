@@ -3,6 +3,7 @@ package sls
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -67,7 +68,7 @@ func TestSLSContextTranslationCopiesParametersAndEngine(t *testing.T) {
 	if len(result.Goals) != 1 || result.ModelConverter == nil {
 		t.Fatal("translated engine did not publish a model")
 	}
-	if copy.CollectStatistics()["sls full evals"] == 0 {
+	if statistics.Sums(copy.CollectStatistics)["sls full evals"] == 0 {
 		t.Fatal("translated engine did not evaluate the target goal")
 	}
 }

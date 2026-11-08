@@ -6,6 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -127,11 +128,11 @@ func (t *unaryTactic) CollectParamDescrs(p *uparams.ParamDescrs) error {
 	}
 	return t.child.CollectParamDescrs(p)
 }
-func (t *unaryTactic) CollectStatistics() map[string]float64 {
+func (t *unaryTactic) CollectStatistics(st *statistics.Statistics) {
 	if t.open() != nil {
-		return nil
+		return
 	}
-	return t.child.CollectStatistics()
+	t.child.CollectStatistics(st)
 }
 func (t *unaryTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

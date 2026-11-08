@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -287,11 +288,11 @@ func TestDiffNeqBacktrackingStatisticsAndIndependentModel(t *testing.T) {
 		t.Fatal("depth", depth)
 	}
 	equationMust(t, r.Cleanup())
-	if r.CollectStatistics()["conflicts"] != 1 || len(r.current.variables) != 0 {
+	if statistics.Sums(r.CollectStatistics)["conflicts"] != 1 || len(r.current.variables) != 0 {
 		t.Fatal("cleanup lost stats or kept search state")
 	}
 	equationMust(t, r.ResetStatistics())
-	if r.CollectStatistics()["conflicts"] != 0 {
+	if statistics.Sums(r.CollectStatistics)["conflicts"] != 0 {
 		t.Fatal("reset statistics")
 	}
 	equationMust(t, r.Close())

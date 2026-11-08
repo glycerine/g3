@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	"reflect"
 )
@@ -190,7 +191,7 @@ func (t *BVArray2UFTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err 
 }
 func (t *BVArray2UFTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *BVArray2UFTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *BVArray2UFTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *BVArray2UFTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *BVArray2UFTactic) ResetStatistics() error                        { return t.open() }
 func (t *BVArray2UFTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *BVArray2UFTactic) SetProgressCallback(func(uint32)) error        { return t.open() }

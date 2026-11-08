@@ -6,6 +6,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -173,14 +174,11 @@ func (t *SolveEquationsTactic) CollectParamDescrs(out *uparams.ParamDescrs) erro
 	}
 	return nil
 }
-func (t *SolveEquationsTactic) CollectStatistics() map[string]float64 {
-	if t == nil || t.open() != nil {
-		return nil
+func (t *SolveEquationsTactic) CollectStatistics(st *statistics.Statistics) {
+	if t == nil || t.open() != nil || t.eliminated == 0 {
+		return
 	}
-	if t.eliminated == 0 {
-		return map[string]float64{}
-	}
-	return map[string]float64{"eliminated vars": float64(t.eliminated)}
+	st.UpdateUint64("eliminated vars", uint64(t.eliminated))
 }
 func (t *SolveEquationsTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

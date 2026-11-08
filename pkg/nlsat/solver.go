@@ -5,6 +5,7 @@ package nlsat
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/math/polynomial"
@@ -381,6 +382,25 @@ func (s *Solver) Statistics() (map[string]float64, error) {
 		"nlsat irrational assignments": float64(s.search.irrationalAssignments),
 		"nlsat simplifications":        float64(s.search.simplifications),
 	}, nil
+}
+
+// CollectStatistics is solver::collect_statistics.
+func (s *Solver) CollectStatistics(st *statistics.Statistics) error {
+	if s == nil || s.closed || s.search == nil || s.resolution == nil {
+		return ErrSearchOwner
+	}
+	if err := s.search.owner(); err != nil {
+		return err
+	}
+	if s.search.running {
+		return ErrSearchPending
+	}
+	st.UpdateUint64("nlsat conflicts", uint64(s.search.conflicts))
+	st.UpdateUint64("nlsat propagations", uint64(s.search.propagations))
+	st.UpdateUint64("nlsat decisions", uint64(s.search.decisions))
+	st.UpdateUint64("nlsat stages", uint64(s.search.stages))
+	st.UpdateUint64("nlsat irrational assignments", uint64(s.search.irrationalAssignments))
+	return nil
 }
 
 func (s *Solver) ResetStatistics() error {

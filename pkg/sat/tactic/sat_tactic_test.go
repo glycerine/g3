@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"os"
 	"os/exec"
@@ -99,14 +100,14 @@ func TestSATTacticBooleanTruthTablesAndStatistics(t *testing.T) {
 		var result tactic.TacticResult
 		satOK(t, r.Apply(g, &result))
 		satOK(t, result.Close())
-		counts = append(counts, r.CollectStatistics()["mk bool var"])
+		counts = append(counts, statistics.Sums(r.CollectStatistics)["mk bool var"])
 	}
 	if counts[0] == 0 || counts[1] != 2*counts[0] {
 		t.Fatal("statistics must accumulate across fresh solvers", counts)
 	}
 	satOK(t, r.ResetStatistics())
-	if len(r.CollectStatistics()) != 0 {
-		t.Fatal(r.CollectStatistics())
+	if len(statistics.Sums(r.CollectStatistics)) != 0 {
+		t.Fatal(statistics.Sums(r.CollectStatistics))
 	}
 }
 
@@ -174,7 +175,7 @@ func TestSATTacticCancellationBoundaryAndResidualTranslation(t *testing.T) {
 			if !errors.As(err, &ex) || err.Error() != "canceled" {
 				t.Fatal("source exception boundary", err)
 			}
-			count := r.CollectStatistics()["mk bool var"]
+			count := statistics.Sums(r.CollectStatistics)["mk bool var"]
 			if (!nested && count == 0) || (nested && count != 0) {
 				t.Fatal("only caught solver_exception collects interrupted statistics", nested, count)
 			}

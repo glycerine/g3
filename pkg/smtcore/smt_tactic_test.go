@@ -1,6 +1,7 @@
 package smtcore
 
 import (
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"strings"
 	"testing"
 
@@ -65,7 +66,7 @@ func TestSMTTacticParameterSnapshotsLogicAndLiveProgress(t *testing.T) {
 		if created.active.kernel.smtState.MaxConflicts != ^uint32(0) {
 			t.Fatal("context rebuilt fparams from stale params_ref keys")
 		}
-		if stats := created.CollectStatistics(); stats["num checks"] != 0 || stats["mk bool var"] < 2 {
+		if stats := statistics.Sums(created.CollectStatistics); stats["num checks"] != 0 || stats["mk bool var"] < 2 {
 			t.Fatal("progress callback cannot inspect the running context's statistics")
 		}
 	}))
@@ -351,7 +352,7 @@ func TestSMTTacticKeepsStatisticsOnUnknownAndApproximationFailure(t *testing.T) 
 	if err == nil || !strings.Contains(err.Error(), "max-conflicts-reached") {
 		t.Fatal("expected conflict-limit failure", err)
 	}
-	if stats := created.CollectStatistics(); stats["num checks"] != 0 || stats["mk bool var"] != 3 || stats["conflicts"] == 0 {
+	if stats := statistics.Sums(created.CollectStatistics); stats["num checks"] != 0 || stats["mk bool var"] != 3 || stats["conflicts"] == 0 {
 		t.Fatal("UNKNOWN lost check statistics", stats)
 	}
 	astTestMust(t, created.ResetStatistics())
@@ -364,15 +365,15 @@ func TestSMTTacticKeepsStatisticsOnUnknownAndApproximationFailure(t *testing.T) 
 	if err == nil || err.Error() != "over-approximated goal found to be sat" {
 		t.Fatal("expected approximation failure", err)
 	}
-	if stats := created.CollectStatistics(); stats["num checks"] != 0 || stats["mk bool var"] != 2 {
+	if stats := statistics.Sums(created.CollectStatistics); stats["num checks"] != 0 || stats["mk bool var"] != 2 {
 		t.Fatal("approximation exception lost check statistics", stats)
 	}
 	astTestMust(t, created.Cleanup())
-	if stats := created.CollectStatistics(); stats["num checks"] != 0 || stats["mk bool var"] != 2 {
+	if stats := statistics.Sums(created.CollectStatistics); stats["num checks"] != 0 || stats["mk bool var"] != 2 {
 		t.Fatal("cleanup erased stored statistics")
 	}
 	astTestMust(t, created.ResetStatistics())
-	if len(created.CollectStatistics()) != 0 {
+	if len(statistics.Sums(created.CollectStatistics)) != 0 {
 		t.Fatal("statistics did not reset")
 	}
 }

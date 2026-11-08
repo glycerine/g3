@@ -4,6 +4,7 @@ package arith
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -239,11 +240,11 @@ func (t *LIA2PBTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	return nil
 }
 
-func (t *LIA2PBTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *LIA2PBTactic) ResetStatistics() error                 { return t.open() }
-func (t *LIA2PBTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *LIA2PBTactic) SetProgressCallback(func(uint32)) error { return t.open() }
-func (t *LIA2PBTactic) Reset() error                           { return t.Cleanup() }
+func (t *LIA2PBTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *LIA2PBTactic) ResetStatistics() error                   { return t.open() }
+func (t *LIA2PBTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *LIA2PBTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
+func (t *LIA2PBTactic) Reset() error                             { return t.Cleanup() }
 
 func (t *LIA2PBTactic) resetNewDependencies() error {
 	for t.releasedDeps < len(t.newDeps) {

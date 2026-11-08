@@ -4,6 +4,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -135,7 +136,7 @@ func (t *NNFTactic) UpdateParams(params *uparams.ParamsRef) error {
 	return t.applyMode()
 }
 func (t *NNFTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *NNFTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *NNFTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *NNFTactic) ResetStatistics() error                        { return t.open() }
 func (t *NNFTactic) Cleanup() error                                { return t.open() }
 func (t *NNFTactic) Reset() error                                  { return t.open() }

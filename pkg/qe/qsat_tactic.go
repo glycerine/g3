@@ -416,25 +416,11 @@ func (s *qsatSearch) collectStatistics(out *statistics.Statistics) error {
 	}
 	return nil
 }
-func (t *QSATTactic) CollectStatistics() map[string]float64 {
+func (t *QSATTactic) CollectStatistics(st *statistics.Statistics) {
 	if t.open() != nil {
-		return nil
+		return
 	}
-	var st statistics.Statistics
-	if t.search.collectStatistics(&st) != nil {
-		return nil
-	}
-	out := make(map[string]float64)
-	for i := 0; i < st.Size(); i++ {
-		v := 0.0
-		if st.IsUint(i) {
-			v = float64(st.UintValue(i))
-		} else {
-			v = st.DoubleValue(i)
-		}
-		out[string(st.Key(i))] += v
-	}
-	return out
+	_ = t.search.collectStatistics(st)
 }
 func (t *QSATTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

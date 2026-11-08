@@ -4,6 +4,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"reflect"
 
@@ -166,7 +167,7 @@ func (t *ReduceArgsTactic) Cleanup() error {
 func (t *ReduceArgsTactic) Reset() error                                  { return t.Cleanup() }
 func (t *ReduceArgsTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *ReduceArgsTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *ReduceArgsTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *ReduceArgsTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *ReduceArgsTactic) ResetStatistics() error                        { return t.open() }
 func (t *ReduceArgsTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *ReduceArgsTactic) SetProgressCallback(func(uint32)) error        { return t.open() }

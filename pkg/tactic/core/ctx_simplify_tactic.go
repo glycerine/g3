@@ -4,6 +4,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -477,7 +478,7 @@ func ContextSimplifyParameterDescriptions(d *uparams.ParamDescrs) error {
 	text = "(default: false) enable equality propagation from bounds."
 	return d.InsertName("propagate_eq", uparams.ParamBool, &text, nil, nil)
 }
-func (*ContextSimplifyTactic) CollectStatistics() map[string]float64    { return nil }
+func (*ContextSimplifyTactic) CollectStatistics(*statistics.Statistics) {}
 func (t *ContextSimplifyTactic) ResetStatistics() error                 { return t.open() }
 func (t *ContextSimplifyTactic) Reset() error                           { return t.Cleanup() }
 func (t *ContextSimplifyTactic) SetLogic(usymbol.Symbol) error          { return t.open() }

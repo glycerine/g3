@@ -4,6 +4,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -276,11 +277,11 @@ func (t *EliminateTermITETactic) CollectParamDescrs(out *uparams.ParamDescrs) er
 	return out.InsertName("max_args", uparams.ParamUInt, &description, nil, nil)
 }
 
-func (t *EliminateTermITETactic) CollectStatistics() map[string]float64 {
+func (t *EliminateTermITETactic) CollectStatistics(st *statistics.Statistics) {
 	if t == nil || t.self != t || t.closed || t.numFresh == 0 {
-		return nil
+		return
 	}
-	return map[string]float64{"elim-term-ite-consts": float64(t.numFresh)}
+	st.UpdateUint64("elim-term-ite-consts", uint64(t.numFresh))
 }
 
 func (t *EliminateTermITETactic) ResetStatistics() error {

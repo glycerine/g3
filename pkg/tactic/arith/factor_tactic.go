@@ -4,6 +4,7 @@ package arith
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -623,12 +624,12 @@ func (t *FactorTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	return nil
 }
 
-func (t *FactorTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *FactorTactic) ResetStatistics() error                 { return t.open() }
-func (t *FactorTactic) Cleanup() error                         { return t.open() }
-func (t *FactorTactic) Reset() error                           { return t.Cleanup() }
-func (t *FactorTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *FactorTactic) SetProgressCallback(func(uint32)) error { return t.open() }
+func (t *FactorTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *FactorTactic) ResetStatistics() error                   { return t.open() }
+func (t *FactorTactic) Cleanup() error                           { return t.open() }
+func (t *FactorTactic) Reset() error                             { return t.Cleanup() }
+func (t *FactorTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *FactorTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
 func (t *FactorTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if err := t.open(); err != nil {
 		return nil, err

@@ -3,6 +3,7 @@ package cmd_context
 // Source: src/cmd_context/echo_tactic.h; src/cmd_context/echo_tactic.cpp.
 
 import (
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"strconv"
 
@@ -156,7 +157,7 @@ func (t *echoTactic) Apply(in *tactic.Goal, result *tactic.TacticResult) error {
 
 func (t *echoTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *echoTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *echoTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *echoTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *echoTactic) ResetStatistics() error                        { return t.open() }
 func (t *echoTactic) Cleanup() error                                { return t.open() }
 func (t *echoTactic) Reset() error                                  { return t.open() }

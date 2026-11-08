@@ -295,3 +295,21 @@ func AddMemory(s *Statistics, process *memory.ProcessAccounting) error {
 	addMemory(s, process.AllocationSize(), process.MaximumUsed(), process.AllocationCount())
 	return nil
 }
+
+// Sums runs collect on fresh statistics and returns each key's total, uint
+// and double contributions together. It is a lookup view for tests and
+// diagnostics; displays use the typed values.
+func Sums(collect func(*Statistics)) map[string]float64 {
+	var s Statistics
+	collect(&s)
+	out := make(map[string]float64, s.Size())
+	for i := 0; i < s.Size(); i++ {
+		key := string(s.Key(i))
+		if s.IsUint(i) {
+			out[key] += float64(s.UintValue(i))
+		} else {
+			out[key] += s.DoubleValue(i)
+		}
+	}
+	return out
+}

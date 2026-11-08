@@ -6,6 +6,7 @@ package arith
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -745,12 +746,12 @@ func (t *QFNRAPurifyTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	return rewriter.TheoryRewriterParameterDescriptions(out)
 }
 
-func (t *QFNRAPurifyTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *QFNRAPurifyTactic) ResetStatistics() error                 { return t.open() }
-func (t *QFNRAPurifyTactic) Cleanup() error                         { return t.open() }
-func (t *QFNRAPurifyTactic) Reset() error                           { return t.Cleanup() }
-func (t *QFNRAPurifyTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *QFNRAPurifyTactic) SetProgressCallback(func(uint32)) error { return t.open() }
+func (t *QFNRAPurifyTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *QFNRAPurifyTactic) ResetStatistics() error                   { return t.open() }
+func (t *QFNRAPurifyTactic) Cleanup() error                           { return t.open() }
+func (t *QFNRAPurifyTactic) Reset() error                             { return t.Cleanup() }
+func (t *QFNRAPurifyTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *QFNRAPurifyTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
 func (t *QFNRAPurifyTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if err := t.open(); err != nil {
 		return nil, err

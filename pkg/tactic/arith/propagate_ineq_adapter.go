@@ -4,6 +4,7 @@ package arith
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -224,7 +225,7 @@ func (t *PropagateIneqsTactic) UpdateParams(p *uparams.ParamsRef) error {
 
 // Source collect_param_descrs and the inherited statistics/hooks are empty.
 func (t *PropagateIneqsTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *PropagateIneqsTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *PropagateIneqsTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *PropagateIneqsTactic) ResetStatistics() error                        { return t.open() }
 func (t *PropagateIneqsTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *PropagateIneqsTactic) SetProgressCallback(func(uint32)) error        { return t.open() }

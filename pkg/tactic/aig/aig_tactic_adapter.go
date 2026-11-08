@@ -4,6 +4,7 @@ package aig
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -174,8 +175,8 @@ func (t *Tactic) Cleanup() error {
 	}
 	return t.pass.Close()
 }
-func (t *Tactic) Reset() error                           { return t.Cleanup() }
-func (t *Tactic) CollectStatistics() map[string]float64  { return nil }
-func (t *Tactic) ResetStatistics() error                 { return t.open() }
-func (t *Tactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *Tactic) SetProgressCallback(func(uint32)) error { return t.open() }
+func (t *Tactic) Reset() error                             { return t.Cleanup() }
+func (t *Tactic) CollectStatistics(*statistics.Statistics) {}
+func (t *Tactic) ResetStatistics() error                   { return t.open() }
+func (t *Tactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *Tactic) SetProgressCallback(func(uint32)) error   { return t.open() }

@@ -5,6 +5,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -188,7 +189,7 @@ func (t *DistributeForallTactic) Close() error {
 
 func (t *DistributeForallTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *DistributeForallTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *DistributeForallTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *DistributeForallTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *DistributeForallTactic) ResetStatistics() error                        { return t.open() }
 func (t *DistributeForallTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *DistributeForallTactic) SetProgressCallback(func(uint32)) error        { return t.open() }

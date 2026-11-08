@@ -4,6 +4,7 @@ package arith
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -84,7 +85,7 @@ func (t *DegreeShiftTactic) Cleanup() error                                { ret
 func (t *DegreeShiftTactic) Reset() error                                  { return t.open() }
 func (t *DegreeShiftTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *DegreeShiftTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *DegreeShiftTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *DegreeShiftTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *DegreeShiftTactic) ResetStatistics() error                        { return t.open() }
 func (t *DegreeShiftTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *DegreeShiftTactic) SetProgressCallback(func(uint32)) error        { return t.open() }

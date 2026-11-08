@@ -1,6 +1,7 @@
 package cmd_context
 
 import (
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -98,7 +99,7 @@ func TestCommandContextQFLRAFixedPivotSurvivesCallerUpdates(t *testing.T) {
 		if status != lbool.True {
 			t.Fatal("QF_LRA result", status)
 		}
-		if pivots := selected.CollectStatistics()["arith pivots"]; pivots != 1 {
+		if pivots := statistics.Sums(selected.CollectStatistics)["arith pivots"]; pivots != 1 {
 			t.Fatal("fixed pivot policy lost", pivots)
 		}
 	}

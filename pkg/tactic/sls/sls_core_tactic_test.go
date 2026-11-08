@@ -5,6 +5,7 @@ package sls
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -185,7 +186,7 @@ func TestSLSCoreTacticAppliesCleansAndReusesFreshEngine(t *testing.T) {
 		}
 	}
 	apply("sls-core-first")
-	stats := core.CollectStatistics()
+	stats := statistics.Sums(core.CollectStatistics)
 	if stats["sls moves"] == 0 || stats["sls incr evals"] == 0 {
 		t.Fatal("source statistics missing", stats)
 	}
@@ -274,7 +275,7 @@ func TestSLSCoreTacticParamsStatisticsAndReferenceLifecycle(t *testing.T) {
 	if err = core.ResetStatistics(); err != nil {
 		t.Fatal(err)
 	}
-	stats := core.CollectStatistics()
+	stats := statistics.Sums(core.CollectStatistics)
 	if stats["sls moves"] != 9 || stats["sls restarts"] != 3 || stats["sls full evals"] != 0 || stats["sls incr evals"] != 0 || stats["sls FLIP moves"] != 0 || stats["sls INC moves"] != 7 {
 		t.Fatal("source statistics reset", stats)
 	}

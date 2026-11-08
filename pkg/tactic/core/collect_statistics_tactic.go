@@ -4,6 +4,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"os"
 	"reflect"
@@ -205,7 +206,7 @@ func (t *CollectStatisticsTactic) UpdateParams(p *uparams.ParamsRef) error {
 	return t.context.Assign(&t.params, p)
 }
 func (t *CollectStatisticsTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *CollectStatisticsTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *CollectStatisticsTactic) CollectStatistics(*statistics.Statistics)      {}
 
 // Source reset_statistics calls reset/cleanup, both no-ops; accumulated output
 // counters intentionally survive this virtual reset.

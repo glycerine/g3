@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	"reflect"
 )
@@ -277,7 +278,7 @@ func (t *DomSimplifyTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err
 }
 func (t *DomSimplifyTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *DomSimplifyTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *DomSimplifyTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *DomSimplifyTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *DomSimplifyTactic) ResetStatistics() error                        { return t.open() }
 func (t *DomSimplifyTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *DomSimplifyTactic) SetProgressCallback(func(uint32)) error        { return t.open() }

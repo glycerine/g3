@@ -4,6 +4,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -197,9 +198,7 @@ func (t *BlastTermITETactic) CollectParamDescrs(out *uparams.ParamDescrs) error 
 	description := "(default: 128) maximum number of arguments (per application) that will be considered by the greedy (quadratic) heuristic."
 	return out.InsertName("max_args", uparams.ParamUInt, &description, nil, nil)
 }
-func (t *BlastTermITETactic) CollectStatistics() map[string]float64 {
-	return nil
-}
+func (t *BlastTermITETactic) CollectStatistics(*statistics.Statistics) {}
 func (t *BlastTermITETactic) ResetStatistics() error {
 	return t.open()
 }

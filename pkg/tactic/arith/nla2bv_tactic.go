@@ -4,6 +4,7 @@ package arith
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -139,10 +140,10 @@ func (t *NLA2BVTactic) UpdateParams(p *uparams.ParamsRef) error {
 	}
 	return t.context.Assign(&t.params, p)
 }
-func (t *NLA2BVTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *NLA2BVTactic) ResetStatistics() error                 { return t.open() }
-func (t *NLA2BVTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *NLA2BVTactic) SetProgressCallback(func(uint32)) error { return t.open() }
+func (t *NLA2BVTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *NLA2BVTactic) ResetStatistics() error                   { return t.open() }
+func (t *NLA2BVTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *NLA2BVTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
 func (t *NLA2BVTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	if err := t.open(); err != nil {
 		return err

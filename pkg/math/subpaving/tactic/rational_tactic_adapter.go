@@ -86,23 +86,11 @@ func (a *rationalTacticAdapter) CollectParamDescrs(d *params.ParamDescrs) error 
 	}
 	return CollectParamDescriptions(d)
 }
-func (a *rationalTacticAdapter) CollectStatistics() map[string]float64 {
-	out := map[string]float64{}
+func (a *rationalTacticAdapter) CollectStatistics(st *statistics.Statistics) {
 	if a.open() != nil {
-		return out
+		return
 	}
-	s := statistics.New()
-	if a.core.CollectStatistics(s) != nil {
-		return out
-	}
-	for i := 0; i < s.Size(); i++ {
-		if s.IsUint(i) {
-			out[string(s.Key(i))] += float64(s.UintValue(i))
-		} else {
-			out[string(s.Key(i))] += s.DoubleValue(i)
-		}
-	}
-	return out
+	_ = a.core.CollectStatistics(st)
 }
 func (a *rationalTacticAdapter) ResetStatistics() error {
 	if err := a.open(); err != nil {

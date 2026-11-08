@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"strings"
 	"testing"
@@ -78,9 +79,9 @@ func TestQFUFBVAckrRawBackendModelsSurviveClose(t *testing.T) {
 				if n, err := goal.Size(); err != nil || n != 2 {
 					t.Fatal("raw source mutated input", n, err)
 				}
-				before := r.CollectStatistics()
+				before := statistics.Sums(r.CollectStatistics)
 				qfaufliaMust(t, r.Cleanup())
-				if before["lackr-its"] != r.CollectStatistics()["lackr-its"] {
+				if before["lackr-its"] != statistics.Sums(r.CollectStatistics)["lackr-its"] {
 					t.Fatal("source cleanup reset stats")
 				}
 				if !eager && before["lackr-its"] == 0 {
@@ -259,11 +260,11 @@ func TestQFUFBVAckrConstructorSnapshotAndTranslationBackendReset(t *testing.T) {
 	if !strings.Contains(text, "(card2bv ") || strings.Contains(text, "(smt.tactic start)") {
 		t.Fatal("backend update not applied", text)
 	}
-	if r.CollectStatistics()["lackr-its"] < 2 {
-		t.Fatal("backend update replaced constructor eager snapshot", r.CollectStatistics())
+	if statistics.Sums(r.CollectStatistics)["lackr-its"] < 2 {
+		t.Fatal("backend update replaced constructor eager snapshot", statistics.Sums(r.CollectStatistics))
 	}
 	qfaufliaMust(t, r.ResetStatistics())
-	if r.CollectStatistics()["lackr-its"] != 0 || r.CollectStatistics()["ackr-constraints"] != 0 {
+	if statistics.Sums(r.CollectStatistics)["lackr-its"] != 0 || statistics.Sums(r.CollectStatistics)["ackr-constraints"] != 0 {
 		t.Fatal("statistics reset")
 	}
 	target, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: m.Symbols, Numerals: m.NumeralService(), Budget: m.Budget()})

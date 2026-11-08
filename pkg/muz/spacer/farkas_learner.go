@@ -8,6 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/pdr"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
 // FarkasLearner extracts B-vocabulary arithmetic consequences from a proof.
@@ -58,12 +59,7 @@ func (f *FarkasLearner) GetLemmas(root ast.ASTHandle, bAssertions []ast.ASTHandl
 }
 
 // CollectStatistics matches the source learner, which records no statistics.
-func (f *FarkasLearner) CollectStatistics() map[string]float64 {
-	if f.open() != nil {
-		return nil
-	}
-	return nil
-}
+func (f *FarkasLearner) CollectStatistics(*statistics.Statistics) {}
 
 // ResetStatistics matches the source no-op while still enforcing lifetime.
 func (f *FarkasLearner) ResetStatistics() error { return f.open() }

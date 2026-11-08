@@ -482,10 +482,8 @@ func (s *TacticSolver) CheckSatCore(assumptions []ast.ASTHandle) (status lbool.L
 	if err = result.SetLabels(labels.Values); err != nil {
 		return lbool.Undef, err
 	}
-	for key, value := range s.tactic.CollectStatistics() {
-		result.stats.UpdateDouble(statistics.Key(key), value)
-		s.stats.UpdateDouble(statistics.Key(key), value)
-	}
+	s.tactic.CollectStatistics(&result.stats)
+	s.tactic.CollectStatistics(&s.stats)
 	if err = s.tactic.Cleanup(); err != nil {
 		return lbool.Undef, err
 	}

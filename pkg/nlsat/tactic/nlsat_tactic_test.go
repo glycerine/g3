@@ -2,6 +2,7 @@ package tactic
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -243,13 +244,15 @@ func TestNLSATTacticPublishesUnsatCore(t *testing.T) {
 	if len(leaves) != 2 {
 		t.Fatalf("tactic core = %#v", leaves)
 	}
-	statistics := tacticValue.CollectStatistics()
-	if len(statistics) != 6 || statistics["nlsat conflicts"] == 0 || statistics["nlsat stages"] == 0 || statistics["nlsat simplifications"] != 0 {
-		t.Fatal("NLSAT tactic statistics", statistics)
+	// solver::collect_statistics reports five counters; statistics::update
+	// skips the zero ones.
+	stats := statistics.Sums(tacticValue.CollectStatistics)
+	if len(stats) > 5 || stats["nlsat conflicts"] == 0 || stats["nlsat stages"] == 0 || stats["nlsat simplifications"] != 0 {
+		t.Fatal("NLSAT tactic statistics", stats)
 	}
 	compilerMust(t, tacticValue.ResetStatistics())
-	if statistics = tacticValue.CollectStatistics(); len(statistics) != 0 {
-		t.Fatal("NLSAT tactic statistics reset", statistics)
+	if stats = statistics.Sums(tacticValue.CollectStatistics); len(stats) != 0 {
+		t.Fatal("NLSAT tactic statistics reset", stats)
 	}
 }
 

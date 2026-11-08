@@ -4,6 +4,7 @@ package arith
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -245,11 +246,11 @@ func (t *DiffNeqTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	description := "(default: 1024) maximum variable upper bound for diff neq solver."
 	return out.InsertName("diff_neq_max_k", uparams.ParamUInt, &description, nil, nil)
 }
-func (t *DiffNeqTactic) CollectStatistics() map[string]float64 {
+func (t *DiffNeqTactic) CollectStatistics(st *statistics.Statistics) {
 	if t == nil || t.self != t || t.closed {
-		return nil
+		return
 	}
-	return map[string]float64{"conflicts": float64(t.current.conflicts)}
+	st.UpdateUint64("conflicts", uint64(t.current.conflicts))
 }
 func (t *DiffNeqTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

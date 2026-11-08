@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -130,10 +131,10 @@ func (t *BVSliceTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	}
 	return rewriter.TheoryRewriterParameterDescriptions(out)
 }
-func (t *BVSliceTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *BVSliceTactic) ResetStatistics() error                 { return t.open() }
-func (t *BVSliceTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *BVSliceTactic) SetProgressCallback(func(uint32)) error { return t.open() }
+func (t *BVSliceTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *BVSliceTactic) ResetStatistics() error                   { return t.open() }
+func (t *BVSliceTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *BVSliceTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
 func (t *BVSliceTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if e := t.open(); e != nil {
 		return nil, e

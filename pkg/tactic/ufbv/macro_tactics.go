@@ -5,6 +5,7 @@ package ufbv
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -143,9 +144,9 @@ func (t *MacroTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	return out.InsertName("elim_and", uparams.ParamBool, &description, nil, nil)
 }
 
-func (t *MacroTactic) CollectStatistics() map[string]float64 { return nil }
-func (t *MacroTactic) ResetStatistics() error                { return t.open() }
-func (t *MacroTactic) SetLogic(usymbol.Symbol) error         { return t.open() }
+func (t *MacroTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *MacroTactic) ResetStatistics() error                   { return t.open() }
+func (t *MacroTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
 func (t *MacroTactic) SetProgressCallback(func(uint32)) error {
 	return t.open()
 }

@@ -451,28 +451,15 @@ func (t *SMTTactic) CollectParamDescrs(p *uparams.ParamDescrs) error {
 	return lp.CollectParamDescrs(p)
 }
 
-func (t *SMTTactic) CollectStatistics() map[string]float64 {
+func (t *SMTTactic) CollectStatistics(st *statistics.Statistics) {
 	if t == nil || t.open() != nil {
-		return nil
+		return
 	}
-	var stats statistics.Statistics
 	if t.active != nil {
-		if t.active.CollectStatistics(&stats) != nil {
-			return nil
-		}
-	} else {
-		stats.Copy(t.stats)
+		_ = t.active.CollectStatistics(st)
+		return
 	}
-	result := make(map[string]float64, stats.Size())
-	for i := 0; i < stats.Size(); i++ {
-		key := string(stats.Key(i))
-		if stats.IsUint(i) {
-			result[key] += float64(stats.UintValue(i))
-		} else {
-			result[key] += stats.DoubleValue(i)
-		}
-	}
-	return result
+	st.Copy(t.stats)
 }
 func (t *SMTTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

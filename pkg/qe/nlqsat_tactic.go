@@ -4,6 +4,7 @@ package qe
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"math"
 	"reflect"
 
@@ -27,7 +28,8 @@ type NLQSATTactic struct {
 	manager     *ast.ASTManager
 	config      Config
 	mode        qsatMode
-	statistics  map[string]float64
+	statistics  statistics.Statistics // m_st
+	rounds      uint64                // m_stats.m_num_rounds
 	params      uparams.ParamsRef
 	paramsReady bool
 	bytes       uint64
@@ -316,16 +318,9 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 		return err
 	}
 	defer func() {
-		if stats, cause := solver.Statistics(); cause == nil {
-			if t.statistics == nil {
-				t.statistics = make(map[string]float64)
-			}
-			for name, value := range stats {
-				t.statistics[name] = value
-			}
-		} else {
-			err = errors.Join(err, cause)
-		}
+		// m_st.reset(); m_solver.collect_statistics(m_st).
+		t.statistics.Reset()
+		err = errors.Join(err, solver.CollectStatistics(&t.statistics))
 		err = errors.Join(err, solver.Close())
 	}()
 	if err = solver.SetSignedProjection(true); err != nil {
@@ -348,10 +343,7 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	}
 	defer func() { err = errors.Join(err, search.close()) }()
 	status, err := search.check()
-	if t.statistics == nil {
-		t.statistics = make(map[string]float64)
-	}
-	t.statistics["qsat num rounds"] = float64(search.rounds)
+	t.rounds = uint64(search.rounds)
 	if err != nil {
 		return tactic.NewTacticException(err.Error())
 	}
@@ -444,18 +436,16 @@ func (t *NLQSATTactic) UpdateParams(params *uparams.ParamsRef) error {
 	return t.config.Context.Assign(&t.params, params)
 }
 func (t *NLQSATTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *NLQSATTactic) CollectStatistics() map[string]float64 {
-	out := make(map[string]float64, len(t.statistics))
-	for k, v := range t.statistics {
-		out[k] = v
-	}
-	return out
+func (t *NLQSATTactic) CollectStatistics(st *statistics.Statistics) {
+	st.Copy(t.statistics)
+	st.UpdateUint64("qsat num rounds", t.rounds)
 }
 func (t *NLQSATTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	t.statistics = nil
+	t.statistics.Reset()
+	t.rounds = 0
 	return nil
 }
 func (t *NLQSATTactic) Cleanup() error                         { return t.open() }

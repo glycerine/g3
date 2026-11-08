@@ -2,13 +2,16 @@ package tactic
 
 // Source: src/tactic/tactic.cpp lazy_tactic lifecycle forwarding.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/statistics"
+)
 
-func (t *lazyTactic) CollectStatistics() map[string]float64 {
+func (t *lazyTactic) CollectStatistics(st *statistics.Statistics) {
 	if t.open() != nil || t.child == nil {
-		return map[string]float64{}
+		return
 	}
-	return t.child.CollectStatistics()
+	t.child.CollectStatistics(st)
 }
 func (t *lazyTactic) ResetStatistics() error {
 	if e := t.open(); e != nil {

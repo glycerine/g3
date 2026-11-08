@@ -7,6 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	"reflect"
 )
@@ -103,12 +104,12 @@ func (t *RootObjectPurifyTactic) CollectParamDescrs(out *uparams.ParamDescrs) er
 	d := "(default: true) eliminate root objects"
 	return out.InsertName("elim_root_objects", uparams.ParamBool, &d, nil, nil)
 }
-func (t *RootObjectPurifyTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *RootObjectPurifyTactic) ResetStatistics() error                 { return t.open() }
-func (t *RootObjectPurifyTactic) Cleanup() error                         { return t.open() }
-func (t *RootObjectPurifyTactic) Reset() error                           { return t.open() }
-func (t *RootObjectPurifyTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *RootObjectPurifyTactic) SetProgressCallback(func(uint32)) error { return t.open() }
+func (t *RootObjectPurifyTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *RootObjectPurifyTactic) ResetStatistics() error                   { return t.open() }
+func (t *RootObjectPurifyTactic) Cleanup() error                           { return t.open() }
+func (t *RootObjectPurifyTactic) Reset() error                             { return t.open() }
+func (t *RootObjectPurifyTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *RootObjectPurifyTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
 func (t *RootObjectPurifyTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if e := t.open(); e != nil {
 		return nil, e

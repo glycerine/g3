@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"os"
 	"os/exec"
 	"strings"
@@ -134,7 +135,7 @@ func TestEliminateUnconstrainedDepthStatisticsAndRecovery(t *testing.T) {
 		t.Fatal("elimination depth", depth)
 	}
 	simplifyMust(t, runner.ResetStatistics())
-	if len(runner.CollectStatistics()) != 0 {
+	if len(statistics.Sums(runner.CollectStatistics)) != 0 {
 		t.Fatal("statistics reset")
 	}
 	copy := *runner
@@ -181,7 +182,7 @@ func TestEliminateUnconstrainedMemoryGuardAndParameterTranslation(t *testing.T) 
 	simplifyMust(t, translated.UpdateParams(&p))
 	// Re-entry retires an interrupted traversal before replacing its owners.
 	simplifyMust(t, translated.Apply(goal, &result))
-	if translated.CollectStatistics()["eliminated applications"] != 1 {
+	if statistics.Sums(translated.CollectStatistics)["eliminated applications"] != 1 {
 		t.Fatal("memory-limit recovery failed")
 	}
 }

@@ -3,6 +3,7 @@ package tactic
 import (
 	"github.com/glycerine/g3/pkg/ast"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"testing"
 )
 
@@ -13,7 +14,7 @@ func TestLazyTacticStatisticsDoNotMaterialize(t *testing.T) {
 	astTestMust(t, e)
 	astTestMust(t, l.IncRef())
 	defer l.DecRef()
-	if len(l.CollectStatistics()) != 0 || calls != 0 {
+	if len(statistics.Sums(l.CollectStatistics)) != 0 || calls != 0 {
 		t.Fatal(calls)
 	}
 }

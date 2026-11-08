@@ -4,6 +4,7 @@ package arith
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"math"
 	"reflect"
 
@@ -225,7 +226,7 @@ func (t *FMTactic) CollectParamDescrs(d *uparams.ParamDescrs) error {
 	}
 	return nil
 }
-func (t *FMTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *FMTactic) ResetStatistics() error                 { return t.open() }
-func (t *FMTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *FMTactic) SetProgressCallback(func(uint32)) error { return t.open() }
+func (t *FMTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *FMTactic) ResetStatistics() error                   { return t.open() }
+func (t *FMTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *FMTactic) SetProgressCallback(func(uint32)) error   { return t.open() }

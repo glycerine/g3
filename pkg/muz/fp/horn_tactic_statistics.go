@@ -1,44 +1,29 @@
 package fp
 
-// Source: horn_tactic statistics collection/reset and cleanup accumulation.
+// Source: src/muz/fp/horn_tactic.cpp:394-410, collect_statistics,
+// reset_statistics and the cleanup that accumulates m_stats.
 
 import "github.com/glycerine/g3/pkg/util/statistics"
 
+// recordEngineStatistics is cleanup's m_imp->collect_statistics(m_stats).
 func (t *HornTactic) recordEngineStatistics(engine *PropositionalEngine) {
 	if engine == nil || t.closed {
 		return
 	}
-	var values statistics.Statistics
-	if engine.CollectStatistics(&values) != nil {
-		return
-	}
-	for i := 0; i < values.Size(); i++ {
-		var value float64
-		if values.IsUint(i) {
-			value = float64(values.UintValue(i))
-		} else {
-			value = values.DoubleValue(i)
-		}
-		t.statistics[string(values.Key(i))] += value
-	}
-	t.statistics["applications"]++
+	_ = engine.CollectStatistics(&t.statistics)
 }
 
-func (t *HornTactic) CollectStatistics() map[string]float64 {
-	result := make(map[string]float64)
+func (t *HornTactic) CollectStatistics(st *statistics.Statistics) {
 	if t == nil || t.closed {
-		return result
+		return
 	}
-	for key, value := range t.statistics {
-		result[key] = value
-	}
-	return result
+	st.Copy(t.statistics)
 }
 
 func (t *HornTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	clear(t.statistics)
+	t.statistics.Reset()
 	return nil
 }

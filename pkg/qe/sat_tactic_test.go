@@ -1,6 +1,7 @@
 package qe
 
 import (
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -111,15 +112,15 @@ func TestQESATTacticStatisticsAcrossApplyAndReset(t *testing.T) {
 		fmMust(t, port.Apply(goal, out))
 	}
 	apply()
-	if got := port.CollectStatistics(); len(got) == 0 {
+	if got := statistics.Sums(port.CollectStatistics); len(got) == 0 {
 		t.Fatal("SAT tactic did not report solver statistics")
 	}
 	fmMust(t, port.ResetStatistics())
-	if got := port.CollectStatistics(); len(got) != 0 {
+	if got := statistics.Sums(port.CollectStatistics); len(got) != 0 {
 		t.Fatalf("statistics after reset: %v", got)
 	}
 	apply()
-	if got := port.CollectStatistics(); len(got) == 0 {
+	if got := statistics.Sums(port.CollectStatistics); len(got) == 0 {
 		t.Fatal("statistics were not collected after reset and another application")
 	}
 }

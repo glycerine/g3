@@ -1705,7 +1705,8 @@ func TestAPITacticSolverTranslateAckermannAfterSourceClose(t *testing.T) {
 				key, err := stats.Key(i)
 				astTestMust(t, err)
 				if key == "ackr-constraints" {
-					count, err := stats.DoubleValue(i)
+					// The tactic reports the count as an unsigned value.
+					count, err := stats.UintValue(i)
 					astTestMust(t, err)
 					found = count > 0
 				}

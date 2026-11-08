@@ -4,6 +4,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -94,7 +95,7 @@ func (t *DERTactic) Close() (result error) {
 
 func (t *DERTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *DERTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *DERTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *DERTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *DERTactic) ResetStatistics() error                        { return t.open() }
 func (t *DERTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *DERTactic) SetProgressCallback(func(uint32)) error        { return t.open() }

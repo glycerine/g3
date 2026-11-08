@@ -4,6 +4,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"reflect"
 
@@ -299,7 +300,7 @@ func (t *SimplifyTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	return SimplifyParameterDescriptions(out)
 }
 
-func (*SimplifyTactic) CollectStatistics() map[string]float64    { return nil }
+func (*SimplifyTactic) CollectStatistics(*statistics.Statistics) {}
 func (t *SimplifyTactic) ResetStatistics() error                 { return t.open() }
 func (t *SimplifyTactic) Reset() error                           { return t.Cleanup() }
 func (t *SimplifyTactic) SetLogic(usymbol.Symbol) error          { return t.open() }

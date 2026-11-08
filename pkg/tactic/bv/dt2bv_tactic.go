@@ -4,6 +4,7 @@ package bv
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"reflect"
 
@@ -114,7 +115,7 @@ func (t *DT2BVTactic) DecRef() error {
 }
 func (t *DT2BVTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *DT2BVTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *DT2BVTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *DT2BVTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *DT2BVTactic) ResetStatistics() error                        { return t.open() }
 func (t *DT2BVTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *DT2BVTactic) SetProgressCallback(func(uint32)) error        { return t.open() }

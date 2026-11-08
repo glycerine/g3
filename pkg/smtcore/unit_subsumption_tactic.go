@@ -3,6 +3,7 @@ package smtcore
 // Source: src/smt/tactic/unit_subsumption_tactic.cpp.
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -272,7 +273,7 @@ func (t *UnitSubsumptionTactic) UpdateParams(p *uparams.ParamsRef) error {
 	return t.config.Params.Assign(&t.params, p)
 }
 func (t *UnitSubsumptionTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (*UnitSubsumptionTactic) CollectStatistics() map[string]float64           { return nil }
+func (*UnitSubsumptionTactic) CollectStatistics(*statistics.Statistics)        {}
 func (t *UnitSubsumptionTactic) ResetStatistics() error                        { return t.open() }
 func (t *UnitSubsumptionTactic) Cleanup() error                                { return t.open() }
 func (t *UnitSubsumptionTactic) Reset() error                                  { return t.open() }

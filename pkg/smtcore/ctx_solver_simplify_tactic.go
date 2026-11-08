@@ -5,6 +5,7 @@ package smtcore
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -473,11 +474,11 @@ func (t *ContextSolverSimplifyTactic) CollectParamDescrs(d *uparams.ParamDescrs)
 	}
 	return t.solver.CollectParamDescrs(d)
 }
-func (t *ContextSolverSimplifyTactic) CollectStatistics() map[string]float64 {
+func (t *ContextSolverSimplifyTactic) CollectStatistics(st *statistics.Statistics) {
 	if t == nil || t.closed {
-		return nil
+		return
 	}
-	return map[string]float64{"solver-simplify-steps": float64(t.steps)}
+	st.UpdateUint64("solver-simplify-steps", uint64(t.steps))
 }
 func (t *ContextSolverSimplifyTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

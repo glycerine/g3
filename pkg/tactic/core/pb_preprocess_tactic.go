@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -131,7 +132,7 @@ func (t *PBPreprocessTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (er
 }
 func (t *PBPreprocessTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *PBPreprocessTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *PBPreprocessTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *PBPreprocessTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *PBPreprocessTactic) ResetStatistics() error                        { return t.open() }
 func (t *PBPreprocessTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *PBPreprocessTactic) SetProgressCallback(func(uint32)) error        { return t.open() }

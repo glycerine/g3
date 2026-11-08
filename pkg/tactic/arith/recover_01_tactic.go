@@ -4,6 +4,7 @@ package arith
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -179,10 +180,10 @@ func (t *Recover01Tactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	description := "(default: 10) maximum number of bits to consider in a clause."
 	return out.InsertName("recover_01_max_bits", uparams.ParamUInt, &description, nil, nil)
 }
-func (t *Recover01Tactic) CollectStatistics() map[string]float64  { return nil }
-func (t *Recover01Tactic) ResetStatistics() error                 { return t.open() }
-func (t *Recover01Tactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *Recover01Tactic) SetProgressCallback(func(uint32)) error { return t.open() }
+func (t *Recover01Tactic) CollectStatistics(*statistics.Statistics) {}
+func (t *Recover01Tactic) ResetStatistics() error                   { return t.open() }
+func (t *Recover01Tactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *Recover01Tactic) SetProgressCallback(func(uint32)) error   { return t.open() }
 func (t *Recover01Tactic) BindTrace(tags *diagnostic.TraceTags) error {
 	if err := t.open(); err != nil {
 		return err

@@ -4,6 +4,7 @@ package arith
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -182,7 +183,7 @@ func (t *Card2BVTactic) Cleanup() error {
 }
 func (t *Card2BVTactic) Reset() error                                  { return t.Cleanup() }
 func (t *Card2BVTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *Card2BVTactic) CollectStatistics() map[string]float64         { return map[string]float64{} }
+func (t *Card2BVTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *Card2BVTactic) ResetStatistics() error                        { return t.open() }
 func (t *Card2BVTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *Card2BVTactic) SetProgressCallback(func(uint32)) error        { return t.open() }

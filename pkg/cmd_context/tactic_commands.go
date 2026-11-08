@@ -31,7 +31,6 @@ import (
 	ufbvtactic "github.com/glycerine/g3/pkg/tactic/ufbv"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
-	"github.com/glycerine/g3/pkg/util/statistics"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	"github.com/glycerine/g3/pkg/util/z3exception"
@@ -490,9 +489,7 @@ func (c *Context) CheckSatUsing(selected tactic.Tactic, options *uparams.ParamsR
 			if e != nil {
 				return lbool.Undef, errors.Join(checkErr, e)
 			}
-			for key, value := range wrapped.CollectStatistics() {
-				stats.UpdateDouble(statistics.Key(key), value)
-			}
+			wrapped.CollectStatistics(stats)
 			return lbool.Undef, TacticCommandFailure{Cause: checkErr, Message: source.Message()}
 		}
 		return lbool.Undef, checkErr
@@ -537,9 +534,7 @@ func (c *Context) CheckSatUsing(selected tactic.Tactic, options *uparams.ParamsR
 	if err != nil {
 		return lbool.Undef, err
 	}
-	for key, value := range wrapped.CollectStatistics() {
-		stats.UpdateDouble(statistics.Key(key), value)
-	}
+	wrapped.CollectStatistics(stats)
 	c.status, c.checked = status, true
 	if status == lbool.True {
 		if err = c.validateModel(); err != nil {

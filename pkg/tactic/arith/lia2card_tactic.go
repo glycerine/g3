@@ -4,6 +4,7 @@ package arith
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"math/big"
 	"reflect"
 
@@ -156,10 +157,10 @@ func (t *LIA2CardTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	description := "(default:false) compile equalities into pseudo-Boolean equality"
 	return out.InsertName("compile_equality", uparams.ParamBool, &description, nil, nil)
 }
-func (t *LIA2CardTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *LIA2CardTactic) ResetStatistics() error                 { return t.open() }
-func (t *LIA2CardTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *LIA2CardTactic) SetProgressCallback(func(uint32)) error { return t.open() }
+func (t *LIA2CardTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *LIA2CardTactic) ResetStatistics() error                   { return t.open() }
+func (t *LIA2CardTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *LIA2CardTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
 func (t *LIA2CardTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if err := t.open(); err != nil {
 		return nil, err

@@ -4,6 +4,7 @@ package bv
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -239,8 +240,8 @@ func (t *MaxBVSharingTactic) BindTrace(tags *diagnostic.TraceTags) error {
 	t.current.configuration.reducer.trace = tags
 	return nil
 }
-func (t *MaxBVSharingTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *MaxBVSharingTactic) ResetStatistics() error                 { return t.open() }
-func (t *MaxBVSharingTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *MaxBVSharingTactic) SetProgressCallback(func(uint32)) error { return t.open() }
-func (t *MaxBVSharingTactic) Reset() error                           { return t.Cleanup() }
+func (t *MaxBVSharingTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *MaxBVSharingTactic) ResetStatistics() error                   { return t.open() }
+func (t *MaxBVSharingTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *MaxBVSharingTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
+func (t *MaxBVSharingTactic) Reset() error                             { return t.Cleanup() }

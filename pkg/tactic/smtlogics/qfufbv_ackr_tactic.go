@@ -4,6 +4,7 @@ package smtlogics
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"os"
 	"reflect"
@@ -403,25 +404,24 @@ func (t *QFUFBVAckrCoreTactic) Apply(g *tactic.Goal, result *tactic.TacticResult
 	return nil
 }
 
-func (t *QFUFBVAckrCoreTactic) CollectStatistics() map[string]float64 {
+func (t *QFUFBVAckrCoreTactic) CollectStatistics(st *statistics.Statistics) {
 	if t == nil || t.open() != nil {
-		return nil
+		return
 	}
 	global, err := t.config.Globals.SourceGetModuleName("ackermannization")
 	if err != nil {
-		return nil
+		return
 	}
 	key := "eager"
 	eager, err := t.config.Params.GetBoolFallbackName(&t.params, &key, &global, true)
 	cleanup := t.config.Params.Del(&global)
 	if err != nil || cleanup != nil {
-		return nil
+		return
 	}
-	out := map[string]float64{"ackr-constraints": float64(t.stats.Constraints)}
+	st.UpdateUint64("ackr-constraints", uint64(t.stats.Constraints))
 	if !eager {
-		out["lackr-its"] = float64(t.stats.Iterations)
+		st.UpdateUint64("lackr-its", uint64(t.stats.Iterations))
 	}
-	return out
 }
 func (t *QFUFBVAckrCoreTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

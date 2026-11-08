@@ -131,23 +131,12 @@ func (t *QESATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	}
 	return collectSATTacticOptions(out)
 }
-func (t *QESATTactic) CollectStatistics() map[string]float64 {
+func (t *QESATTactic) CollectStatistics(st *statistics.Statistics) {
 	if t.open() != nil {
-		return nil
+		return
 	}
-	var collected statistics.Statistics
-	collected.Copy(t.persistentStats)
-	collected.Copy(t.levelStats)
-	result := make(map[string]float64, collected.Size())
-	for i := 0; i < collected.Size(); i++ {
-		key := string(collected.Key(i))
-		if collected.IsUint(i) {
-			result[key] += float64(collected.UintValue(i))
-		} else {
-			result[key] += collected.DoubleValue(i)
-		}
-	}
-	return result
+	st.Copy(t.persistentStats)
+	st.Copy(t.levelStats)
 }
 func (t *QESATTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

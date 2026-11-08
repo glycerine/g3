@@ -7,6 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	goaltactic "github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -19,7 +20,7 @@ type selectedSubpavingTactic struct {
 	params  params.ParamsRef
 	engine  EngineKind
 	inner   goaltactic.Tactic
-	stats   map[string]float64
+	stats   statistics.Statistics
 	refs    uint32
 	closed  bool
 }
@@ -30,7 +31,7 @@ func newSelectedSubpavingTactic(m *ast.ASTManager, pc *params.ParamsContext, p *
 	if m == nil || pc == nil || p == nil {
 		return nil, params.ErrParamsOwner
 	}
-	a := &selectedSubpavingTactic{manager: m, pc: pc, stats: make(map[string]float64), engine: engine}
+	a := &selectedSubpavingTactic{manager: m, pc: pc, engine: engine}
 	a.self = a
 	if err := pc.Check(p); err != nil {
 		return nil, err
@@ -99,7 +100,8 @@ func (a *selectedSubpavingTactic) Apply(g *goaltactic.Goal, out *goaltactic.Tact
 	if err := a.inner.Apply(g, out); err != nil {
 		return err
 	}
-	a.stats = a.inner.CollectStatistics()
+	a.stats.Reset()
+	a.inner.CollectStatistics(&a.stats)
 	return nil
 }
 
@@ -153,19 +155,15 @@ func (a *selectedSubpavingTactic) CollectParamDescrs(d *params.ParamDescrs) erro
 	return a.inner.CollectParamDescrs(d)
 }
 
-func (a *selectedSubpavingTactic) CollectStatistics() map[string]float64 {
-	out := make(map[string]float64, len(a.stats))
-	for name, value := range a.stats {
-		out[name] = value
-	}
-	return out
+func (a *selectedSubpavingTactic) CollectStatistics(st *statistics.Statistics) {
+	st.Copy(a.stats)
 }
 
 func (a *selectedSubpavingTactic) ResetStatistics() error {
 	if err := a.open(); err != nil {
 		return err
 	}
-	a.stats = make(map[string]float64)
+	a.stats.Reset()
 	return nil
 }
 
@@ -228,6 +226,7 @@ func (a *selectedSubpavingTactic) close() error {
 		return err
 	}
 	a.closed = true
-	a.manager, a.pc, a.stats = nil, nil, nil
+	a.manager, a.pc = nil, nil
+	a.stats.Reset()
 	return nil
 }

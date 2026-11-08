@@ -4,6 +4,7 @@ package tactic
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"strconv"
 
@@ -333,7 +334,7 @@ func (t *sineTactic) Apply(g *Goal, out *TacticResult) (result error) {
 
 func (t *sineTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *sineTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *sineTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *sineTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *sineTactic) ResetStatistics() error                        { return t.open() }
 func (t *sineTactic) Cleanup() error                                { return t.open() }
 func (t *sineTactic) Reset() error                                  { return t.open() }

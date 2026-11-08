@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"strings"
 	"testing"
 
@@ -57,7 +58,7 @@ func TestSolveEquationsExactTraceAndVerbose(t *testing.T) {
 	var result tactic.TacticResult
 	t.Cleanup(func() { simplifyMust(t, result.Close()) })
 	simplifyMust(t, runner.Apply(goal, &result))
-	if !goal.IsDecidedSat() || runner.CollectStatistics()["eliminated vars"] != 2 {
+	if !goal.IsDecidedSat() || statistics.Sums(runner.CollectStatistics)["eliminated vars"] != 2 {
 		t.Fatal("tracing changed elimination")
 	}
 	output, err := stream.String()

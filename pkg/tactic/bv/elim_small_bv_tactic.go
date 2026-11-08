@@ -5,6 +5,7 @@ package bv
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"math"
 	"reflect"
 
@@ -143,12 +144,12 @@ func (t *ElimSmallBVTactic) CollectParamDescrs(d *uparams.ParamDescrs) error {
 	}
 	return d.InsertName("max_bits", uparams.ParamUInt, &c, nil, nil)
 }
-func (t *ElimSmallBVTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *ElimSmallBVTactic) ResetStatistics() error                 { return t.open() }
-func (t *ElimSmallBVTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *ElimSmallBVTactic) SetProgressCallback(func(uint32)) error { return t.open() }
-func (t *ElimSmallBVTactic) Cleanup() error                         { return t.open() }
-func (t *ElimSmallBVTactic) Reset() error                           { return t.open() }
+func (t *ElimSmallBVTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *ElimSmallBVTactic) ResetStatistics() error                   { return t.open() }
+func (t *ElimSmallBVTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *ElimSmallBVTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
+func (t *ElimSmallBVTactic) Cleanup() error                           { return t.open() }
+func (t *ElimSmallBVTactic) Reset() error                             { return t.open() }
 func (t *ElimSmallBVTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if e := t.open(); e != nil {
 		return nil, e

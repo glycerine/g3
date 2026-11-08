@@ -5,6 +5,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"reflect"
 
@@ -131,12 +132,12 @@ func (t *SplitClauseTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	return out.InsertName("split_largest_clause", uparams.ParamBool, &description, nil, nil)
 }
 
-func (t *SplitClauseTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *SplitClauseTactic) ResetStatistics() error                 { return t.open() }
-func (t *SplitClauseTactic) Cleanup() error                         { return t.open() }
-func (t *SplitClauseTactic) Reset() error                           { return t.Cleanup() }
-func (t *SplitClauseTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *SplitClauseTactic) SetProgressCallback(func(uint32)) error { return t.open() }
+func (t *SplitClauseTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *SplitClauseTactic) ResetStatistics() error                   { return t.open() }
+func (t *SplitClauseTactic) Cleanup() error                           { return t.open() }
+func (t *SplitClauseTactic) Reset() error                             { return t.Cleanup() }
+func (t *SplitClauseTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *SplitClauseTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
 
 func (t *SplitClauseTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if err := t.open(); err != nil {

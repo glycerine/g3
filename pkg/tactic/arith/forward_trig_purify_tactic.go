@@ -7,6 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	"reflect"
 )
@@ -90,7 +91,7 @@ func (t *ForwardTrigPurifyTactic) UpdateParams(p *uparams.ParamsRef) error {
 	return t.context.Assign(&t.params, p)
 }
 func (t *ForwardTrigPurifyTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *ForwardTrigPurifyTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *ForwardTrigPurifyTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *ForwardTrigPurifyTactic) ResetStatistics() error                        { return t.open() }
 func (t *ForwardTrigPurifyTactic) Cleanup() error                                { return t.open() }
 func (t *ForwardTrigPurifyTactic) Reset() error                                  { return t.open() }

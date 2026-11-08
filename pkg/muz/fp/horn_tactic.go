@@ -4,6 +4,7 @@ package fp
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -20,7 +21,7 @@ type HornTactic struct {
 	params      uparams.ParamsRef
 	paramsReady bool
 	simplify    bool
-	statistics  map[string]float64
+	statistics  statistics.Statistics // m_stats
 	progress    func(uint32)
 	logic       usymbol.Symbol
 	references  uint32
@@ -39,7 +40,7 @@ func newHornTactic(manager *ast.ASTManager, context *uparams.ParamsContext, glob
 	if err != nil {
 		return nil, err
 	}
-	return &HornTactic{manager: manager, context: context, globals: globals, params: params, paramsReady: true, simplify: simplify, statistics: make(map[string]float64)}, nil
+	return &HornTactic{manager: manager, context: context, globals: globals, params: params, paramsReady: true, simplify: simplify}, nil
 }
 
 func (t *HornTactic) open() error {

@@ -3,6 +3,7 @@ package ackermannization_test
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"math"
 	"strings"
 	"testing"
@@ -33,7 +34,7 @@ func TestAckermannTacticAppendFallbackAndStatistics(t *testing.T) {
 		if len(result.Goals) != i {
 			t.Fatal("successful application did not append its goal")
 		}
-		if got := r.CollectStatistics()["ackr-constraints"]; got != float64(i) {
+		if got := statistics.Sums(r.CollectStatistics)["ackr-constraints"]; got != float64(i) {
 			t.Fatalf("constraints = %v, want %d", got, i)
 		}
 	}
@@ -52,11 +53,11 @@ func TestAckermannTacticAppendFallbackAndStatistics(t *testing.T) {
 	if result.ModelConverter != nil {
 		t.Fatal("fallback retained a model converter")
 	}
-	if got := r.CollectStatistics()["ackr-constraints"]; got != 2 {
+	if got := statistics.Sums(r.CollectStatistics)["ackr-constraints"]; got != 2 {
 		t.Fatal("fallback changed statistics", got)
 	}
 	ackMust(t, r.ResetStatistics())
-	if got := r.CollectStatistics()["ackr-constraints"]; got != 0 {
+	if got := statistics.Sums(r.CollectStatistics)["ackr-constraints"]; got != 0 {
 		t.Fatal("statistics not reset", got)
 	}
 }

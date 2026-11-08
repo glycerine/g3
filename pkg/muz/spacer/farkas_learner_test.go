@@ -5,6 +5,7 @@ package spacer_test
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -80,7 +81,7 @@ func TestFarkasLearnerExtractsProofLemmaAndGuardsLifetime(t *testing.T) {
 		t.Fatal("proof traversal did not recover the Spacer Farkas lemma", len(lemmas))
 	}
 	spacerMust(t, manager.DelRef(&lemmas[0]))
-	if learner.CollectStatistics() != nil {
+	if len(statistics.Sums(learner.CollectStatistics)) != 0 {
 		t.Fatal("source learner unexpectedly reported statistics")
 	}
 	spacerMust(t, learner.ResetStatistics())

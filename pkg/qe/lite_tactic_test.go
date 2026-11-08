@@ -2,6 +2,7 @@ package qe
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -146,7 +147,7 @@ func TestLiteTacticParamsCleanupTranslationAndNoOpSurfaces(t *testing.T) {
 	if n, err := g2.Size(); err != nil || n != 1 {
 		t.Fatal("translated goal", n, err)
 	}
-	if tt.CollectStatistics() != nil {
+	if len(statistics.Sums(tt.CollectStatistics)) != 0 {
 		t.Fatal("source empty statistics")
 	}
 	fmMust(t, tt.CollectParamDescrs(nil))

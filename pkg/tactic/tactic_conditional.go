@@ -4,6 +4,7 @@ package tactic
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -207,17 +208,13 @@ func (t *conditionalTactic) CollectParamDescrs(p *uparams.ParamDescrs) error {
 	}
 	return err
 }
-func (t *conditionalTactic) CollectStatistics() map[string]float64 {
-	result := make(map[string]float64)
+func (t *conditionalTactic) CollectStatistics(st *statistics.Statistics) {
 	if t.open() != nil {
-		return result
+		return
 	}
 	for _, child := range t.children() {
-		for name, value := range child.CollectStatistics() {
-			result[name] += value
-		}
+		child.CollectStatistics(st)
 	}
-	return result
 }
 func (t *conditionalTactic) each(action func(Tactic) error) error {
 	if err := t.open(); err != nil {

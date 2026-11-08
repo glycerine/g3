@@ -4,6 +4,7 @@ package ufbv
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -152,7 +153,7 @@ func (t *RewriterTacticAdapter) Apply(goal *tactic.Goal, result *tactic.TacticRe
 }
 func (t *RewriterTacticAdapter) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *RewriterTacticAdapter) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *RewriterTacticAdapter) CollectStatistics() map[string]float64         { return nil }
+func (t *RewriterTacticAdapter) CollectStatistics(*statistics.Statistics)      {}
 func (t *RewriterTacticAdapter) ResetStatistics() error                        { return t.open() }
 func (t *RewriterTacticAdapter) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *RewriterTacticAdapter) SetProgressCallback(func(uint32)) error        { return t.open() }

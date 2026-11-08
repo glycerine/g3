@@ -4,6 +4,7 @@ package arith
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"math/big"
 	"reflect"
@@ -333,7 +334,7 @@ func (t *AddBoundsTactic) CollectParamDescrs(d *uparams.ParamDescrs) error {
 	l = "(default: 2) upper bound to be added to unbounded variables."
 	return d.InsertName("add_bound_upper", uparams.ParamNumeral, &l, nil, nil)
 }
-func (*AddBoundsTactic) CollectStatistics() map[string]float64    { return nil }
+func (*AddBoundsTactic) CollectStatistics(*statistics.Statistics) {}
 func (t *AddBoundsTactic) ResetStatistics() error                 { return t.open() }
 func (t *AddBoundsTactic) Reset() error                           { return t.Cleanup() }
 func (t *AddBoundsTactic) SetLogic(usymbol.Symbol) error          { return t.open() }

@@ -1,6 +1,7 @@
 package smtcore
 
 import (
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/tactic"
@@ -35,12 +36,12 @@ func TestContextSolverSimplifyUsesBooleanContext(t *testing.T) {
 	if formula != p {
 		t.Fatalf("contextual result = %v, want p (%v)", formula, p)
 	}
-	stats := unit.CollectStatistics()
+	stats := statistics.Sums(unit.CollectStatistics)
 	if stats["solver-simplify-steps"] != 1 {
 		t.Fatal("steps", stats)
 	}
 	astTestMust(t, unit.Cleanup())
-	if unit.CollectStatistics()["solver-simplify-steps"] != 0 {
+	if statistics.Sums(unit.CollectStatistics)["solver-simplify-steps"] != 0 {
 		t.Fatal("cleanup did not reset steps")
 	}
 	astTestMust(t, unit.ResetStatistics())

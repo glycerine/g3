@@ -4,6 +4,7 @@ package bv
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -238,8 +239,10 @@ func (t *BVBoundCheckTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error)
 	return NewBVBoundCheckTactic(m, t.context, t.globals, &t.params, t.services)
 }
 func (t *BVBoundCheckTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *BVBoundCheckTactic) CollectStatistics() map[string]float64 {
-	return map[string]float64{"unsat bv bounds": float64(t.stats.Unsats), "bv singletons": float64(t.stats.Singletons), "bv reduces": float64(t.stats.Reduces)}
+func (t *BVBoundCheckTactic) CollectStatistics(st *statistics.Statistics) {
+	st.UpdateUint64("unsat bv bounds", uint64(t.stats.Unsats))
+	st.UpdateUint64("bv singletons", uint64(t.stats.Singletons))
+	st.UpdateUint64("bv reduces", uint64(t.stats.Reduces))
 }
 func (t *BVBoundCheckTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"os"
 	"os/exec"
 	"strings"
@@ -44,15 +45,15 @@ func TestSolveEquationsBooleanDefinitionsAndIndependentModel(t *testing.T) {
 	if !goal.IsDecidedSat() || result.ModelConverter == nil {
 		t.Fatal("definitions were not eliminated with model reconstruction")
 	}
-	if runner.CollectStatistics()["eliminated vars"] != 2 {
-		t.Fatal("eliminated-variable statistics", runner.CollectStatistics())
+	if statistics.Sums(runner.CollectStatistics)["eliminated vars"] != 2 {
+		t.Fatal("eliminated-variable statistics", statistics.Sums(runner.CollectStatistics))
 	}
 	simplifyMust(t, runner.Cleanup())
-	if runner.CollectStatistics()["eliminated vars"] != 2 {
+	if statistics.Sums(runner.CollectStatistics)["eliminated vars"] != 2 {
 		t.Fatal("cleanup erased elimination statistics")
 	}
 	simplifyMust(t, runner.ResetStatistics())
-	if len(runner.CollectStatistics()) != 0 {
+	if len(statistics.Sums(runner.CollectStatistics)) != 0 {
 		t.Fatal("elimination statistics were not reset")
 	}
 	simplifyMust(t, runner.Close())

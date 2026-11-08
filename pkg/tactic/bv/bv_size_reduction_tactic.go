@@ -4,6 +4,7 @@ package bv
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"math/big"
 	"reflect"
@@ -303,7 +304,7 @@ func (t *BVSizeReductionTactic) Translate(m *ast.ASTManager) (tactic.Tactic, err
 }
 func (t *BVSizeReductionTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *BVSizeReductionTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *BVSizeReductionTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *BVSizeReductionTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *BVSizeReductionTactic) ResetStatistics() error                        { return t.open() }
 func (t *BVSizeReductionTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *BVSizeReductionTactic) SetProgressCallback(func(uint32)) error        { return t.open() }

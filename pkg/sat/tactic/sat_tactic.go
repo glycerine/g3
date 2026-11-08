@@ -351,21 +351,8 @@ func (t *SATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	}
 	return sat.CollectSolverParamDescrs(out)
 }
-func (t *SATTactic) CollectStatistics() map[string]float64 {
-	uints := make(map[string]uint32)
-	values := make(map[string]float64)
-	for i := 0; i < t.stats.Size(); i++ {
-		k := string(t.stats.Key(i))
-		if t.stats.IsUint(i) {
-			uints[k] += t.stats.UintValue(i)
-		} else {
-			values[k] += t.stats.DoubleValue(i)
-		}
-	}
-	for k, v := range uints {
-		values[k] += float64(v)
-	}
-	return values
+func (t *SATTactic) CollectStatistics(st *statistics.Statistics) {
+	st.Copy(t.stats)
 }
 func (t *SATTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

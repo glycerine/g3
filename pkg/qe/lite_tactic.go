@@ -4,6 +4,7 @@ package qe
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"reflect"
 
@@ -406,7 +407,7 @@ func (t *LiteTactic) UpdateParams(p *uparams.ParamsRef) error {
 	return t.config.Context.Assign(&t.params, p)
 }
 func (t *LiteTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (*LiteTactic) CollectStatistics() map[string]float64           { return nil }
+func (*LiteTactic) CollectStatistics(*statistics.Statistics)        {}
 func (t *LiteTactic) ResetStatistics() error                        { return t.open() }
 func (t *LiteTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *LiteTactic) SetProgressCallback(func(uint32)) error        { return t.open() }

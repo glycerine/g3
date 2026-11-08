@@ -4,6 +4,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -111,7 +112,7 @@ func (t *SymmetryReduceTactic) Close() error {
 }
 func (t *SymmetryReduceTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *SymmetryReduceTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *SymmetryReduceTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *SymmetryReduceTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *SymmetryReduceTactic) ResetStatistics() error                        { return t.open() }
 func (t *SymmetryReduceTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *SymmetryReduceTactic) SetProgressCallback(func(uint32)) error        { return t.open() }

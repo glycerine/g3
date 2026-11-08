@@ -18,8 +18,6 @@ func (c *Context) writeAppliedTacticStatistics(out io.Writer, selected tactic.Ta
 		return err
 	}
 	values.UpdateDouble("time", seconds)
-	for name, value := range selected.CollectStatistics() {
-		values.UpdateDouble(statistics.Key(name), value)
-	}
+	selected.CollectStatistics(values)
 	return values.DisplaySMT2(out)
 }

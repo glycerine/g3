@@ -4,6 +4,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -151,11 +152,11 @@ func (t *EliminateUnconstrainedTactic) CollectParamDescrs(out *uparams.ParamDesc
 	}
 	return uparams.InsertMaxSteps(out)
 }
-func (t *EliminateUnconstrainedTactic) CollectStatistics() map[string]float64 {
+func (t *EliminateUnconstrainedTactic) CollectStatistics(st *statistics.Statistics) {
 	if t == nil || t.self != t || t.closed || t.eliminated == 0 {
-		return nil
+		return
 	}
-	return map[string]float64{"eliminated applications": float64(t.eliminated)}
+	st.UpdateUint64("eliminated applications", uint64(t.eliminated))
 }
 func (t *EliminateUnconstrainedTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

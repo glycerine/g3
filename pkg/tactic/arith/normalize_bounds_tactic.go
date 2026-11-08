@@ -4,6 +4,7 @@ package arith
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"math/big"
 	"reflect"
 
@@ -209,11 +210,11 @@ func (t *NormalizeBoundsTactic) CollectParamDescrs(out *uparams.ParamDescrs) err
 	description := "(default: true) normalize only the bounds of integer constants."
 	return out.InsertName("norm_int_only", uparams.ParamBool, &description, nil, nil)
 }
-func (t *NormalizeBoundsTactic) CollectStatistics() map[string]float64  { return nil }
-func (t *NormalizeBoundsTactic) ResetStatistics() error                 { return t.open() }
-func (t *NormalizeBoundsTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *NormalizeBoundsTactic) SetProgressCallback(func(uint32)) error { return t.open() }
-func (t *NormalizeBoundsTactic) Reset() error                           { return t.Cleanup() }
+func (t *NormalizeBoundsTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *NormalizeBoundsTactic) ResetStatistics() error                   { return t.open() }
+func (t *NormalizeBoundsTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *NormalizeBoundsTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
+func (t *NormalizeBoundsTactic) Reset() error                             { return t.Cleanup() }
 func (t *NormalizeBoundsTactic) target(variable ast.ASTHandle) (value big.Rat, found bool, err error) {
 	constant, err := t.bounds.constant(variable)
 	if err != nil || !constant {

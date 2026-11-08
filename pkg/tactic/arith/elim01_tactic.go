@@ -4,6 +4,7 @@ package arith
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"math/big"
 	"reflect"
 
@@ -189,10 +190,10 @@ func (t *Elim01Tactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	description := "(default: 1) maximal upper bound for finite range -> Bool conversion"
 	return out.InsertName("max_coefficient", uparams.ParamUInt, &description, nil, nil)
 }
-func (t *Elim01Tactic) CollectStatistics() map[string]float64  { return nil }
-func (t *Elim01Tactic) ResetStatistics() error                 { return t.open() }
-func (t *Elim01Tactic) SetLogic(usymbol.Symbol) error          { return t.open() }
-func (t *Elim01Tactic) SetProgressCallback(func(uint32)) error { return t.open() }
+func (t *Elim01Tactic) CollectStatistics(*statistics.Statistics) {}
+func (t *Elim01Tactic) ResetStatistics() error                   { return t.open() }
+func (t *Elim01Tactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *Elim01Tactic) SetProgressCallback(func(uint32)) error   { return t.open() }
 
 type elim01Conversion struct {
 	sub       *rewriter.ExprSafeReplace

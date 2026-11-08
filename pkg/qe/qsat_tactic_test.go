@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"strings"
 	"testing"
@@ -110,7 +111,7 @@ func TestQSATTacticCancelTranslationStatisticsAndIgnoredHooks(t *testing.T) {
 		t.Fatal("cancellation changed result")
 	}
 	fmMust(t, tt.Apply(g, result))
-	if tt.CollectStatistics()["qsat num rounds"] == 0 {
+	if statistics.Sums(tt.CollectStatistics)["qsat num rounds"] == 0 {
 		t.Fatal("missing source round statistics")
 	}
 	fmMust(t, tt.UpdateParams(nil))

@@ -5,6 +5,7 @@ package tactic
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -36,7 +37,7 @@ type Tactic interface {
 	Apply(*Goal, *TacticResult) error
 	UpdateParams(*uparams.ParamsRef) error
 	CollectParamDescrs(*uparams.ParamDescrs) error
-	CollectStatistics() map[string]float64
+	CollectStatistics(*statistics.Statistics)
 	ResetStatistics() error
 	Cleanup() error
 	Reset() error
@@ -417,7 +418,7 @@ func (t *primitiveTactic) Apply(in *Goal, result *TacticResult) error {
 }
 func (t *primitiveTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *primitiveTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *primitiveTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *primitiveTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *primitiveTactic) ResetStatistics() error                        { return t.open() }
 func (t *primitiveTactic) Cleanup() error                                { return t.open() }
 func (t *primitiveTactic) Reset() error                                  { return t.Cleanup() }

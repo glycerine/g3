@@ -5,6 +5,7 @@ package sls
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"time"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -162,27 +163,25 @@ func (t *CoreTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	return catalogCollectSlsParams(out)
 }
 
-func (t *CoreTactic) CollectStatistics() map[string]float64 {
+func (t *CoreTactic) CollectStatistics(st *statistics.Statistics) {
 	if t == nil || t.self != t || t.closed || t.owner == nil || t.owner.engine == nil {
-		return nil
+		return
 	}
 	s := t.owner.engine.stats
 	seconds := time.Since(s.Started).Seconds()
 	if seconds <= 0 {
 		seconds = 1
 	}
-	return map[string]float64{
-		"sls restarts":       float64(s.Restarts),
-		"sls full evals":     float64(s.FullEvaluations),
-		"sls incr evals":     float64(s.IncrementalEvaluations),
-		"sls incr evals/sec": float64(s.IncrementalEvaluations) / seconds,
-		"sls FLIP moves":     float64(s.Flips),
-		"sls INC moves":      float64(s.Increments),
-		"sls DEC moves":      float64(s.Decrements),
-		"sls INV moves":      float64(s.Inversions),
-		"sls moves":          float64(s.Moves),
-		"sls moves/sec":      float64(s.Moves) / seconds,
-	}
+	st.UpdateUint64("sls restarts", uint64(s.Restarts))
+	st.UpdateUint64("sls full evals", uint64(s.FullEvaluations))
+	st.UpdateUint64("sls incr evals", uint64(s.IncrementalEvaluations))
+	st.UpdateDouble("sls incr evals/sec", float64(s.IncrementalEvaluations)/seconds)
+	st.UpdateUint64("sls FLIP moves", uint64(s.Flips))
+	st.UpdateUint64("sls INC moves", uint64(s.Increments))
+	st.UpdateUint64("sls DEC moves", uint64(s.Decrements))
+	st.UpdateUint64("sls INV moves", uint64(s.Inversions))
+	st.UpdateUint64("sls moves", uint64(s.Moves))
+	st.UpdateDouble("sls moves/sec", float64(s.Moves)/seconds)
 }
 
 func (t *CoreTactic) ResetStatistics() error {

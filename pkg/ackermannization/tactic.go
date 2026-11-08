@@ -4,6 +4,7 @@ package ackermannization
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"reflect"
 
@@ -292,8 +293,8 @@ func (t *Tactic) CollectParamDescrs(d *uparams.ParamDescrs) error {
 	}
 	return catalogCollectAckermannizeBvTacticParams(d)
 }
-func (t *Tactic) CollectStatistics() map[string]float64 {
-	return map[string]float64{"ackr-constraints": float64(t.stats.Constraints)}
+func (t *Tactic) CollectStatistics(st *statistics.Statistics) {
+	st.UpdateUint64("ackr-constraints", uint64(t.stats.Constraints))
 }
 func (t *Tactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

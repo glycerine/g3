@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"strings"
 	"testing"
 
@@ -101,7 +102,7 @@ func TestBVBoundCheckStatisticsCleanupAndGuards(t *testing.T) {
 	}
 	singleton := bvBoundGoal(t, r, 2, 2)
 	sharingMust(t, r.Apply(singleton, &result))
-	if r.CollectStatistics()["bv singletons"] != 1 {
+	if statistics.Sums(r.CollectStatistics)["bv singletons"] != 1 {
 		t.Fatal("missing singleton statistic", r.stats)
 	}
 	for _, proofs := range []bool{true, false} {

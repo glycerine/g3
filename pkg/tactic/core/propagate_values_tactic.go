@@ -4,6 +4,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"reflect"
 
@@ -526,7 +527,7 @@ func (t *PropagateValuesTactic) CollectParamDescrs(out *uparams.ParamDescrs) err
 	description := "(default: 2) maximum number of rounds."
 	return out.InsertName("max_rounds", uparams.ParamUInt, &description, nil, nil)
 }
-func (*PropagateValuesTactic) CollectStatistics() map[string]float64    { return nil }
+func (*PropagateValuesTactic) CollectStatistics(*statistics.Statistics) {}
 func (t *PropagateValuesTactic) ResetStatistics() error                 { return t.open() }
 func (t *PropagateValuesTactic) Reset() error                           { return t.Cleanup() }
 func (t *PropagateValuesTactic) SetLogic(usymbol.Symbol) error          { return t.open() }

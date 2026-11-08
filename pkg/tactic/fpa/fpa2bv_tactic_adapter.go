@@ -4,6 +4,7 @@ package fpa
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -132,7 +133,7 @@ func (t *FPA2BVTactic) UpdateParams(p *uparams.ParamsRef) error {
 }
 
 func (t *FPA2BVTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *FPA2BVTactic) CollectStatistics() map[string]float64         { return nil }
+func (t *FPA2BVTactic) CollectStatistics(*statistics.Statistics)      {}
 func (t *FPA2BVTactic) ResetStatistics() error                        { return t.open() }
 func (t *FPA2BVTactic) Cleanup() error {
 	if err := t.open(); err != nil {

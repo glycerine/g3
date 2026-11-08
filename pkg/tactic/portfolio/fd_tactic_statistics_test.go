@@ -2,6 +2,7 @@ package portfolio_test
 
 import (
 	"github.com/glycerine/g3/pkg/tactic/portfolio"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"testing"
 )
 
@@ -11,8 +12,10 @@ func TestFDTacticStatisticsLifecycle(t *testing.T) {
 	enumMust(t, e)
 	enumMust(t, r.IncRef())
 	defer r.DecRef()
-	if r.CollectStatistics() == nil {
-		t.Fatal("nil stats")
+	// Before any apply there is nothing to report (statistics::update skips
+	// zero counters).
+	if got := statistics.Sums(r.CollectStatistics); len(got) != 0 {
+		t.Fatal("statistics before apply", got)
 	}
 	enumMust(t, r.ResetStatistics())
 	enumMust(t, r.Cleanup())

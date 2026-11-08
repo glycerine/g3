@@ -566,20 +566,11 @@ func (t *SolverTactic) CollectParamDescrs(p *uparams.ParamDescrs) error {
 	}
 	return t.solver.CollectParamDescrs(p)
 }
-func (t *SolverTactic) CollectStatistics() map[string]float64 {
+func (t *SolverTactic) CollectStatistics(st *statistics.Statistics) {
 	if t == nil || t.open() != nil {
-		return nil
+		return
 	}
-	result := make(map[string]float64, t.stats.Size())
-	for i := 0; i < t.stats.Size(); i++ {
-		key := string(t.stats.Key(i))
-		if t.stats.IsUint(i) {
-			result[key] += float64(t.stats.UintValue(i))
-		} else {
-			result[key] += t.stats.DoubleValue(i)
-		}
-	}
-	return result
+	st.Copy(t.stats)
 }
 func (t *SolverTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

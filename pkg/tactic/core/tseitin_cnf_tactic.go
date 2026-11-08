@@ -4,6 +4,7 @@ package core
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -235,11 +236,11 @@ func (t *TseitinCNFTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	}
 	return nil
 }
-func (t *TseitinCNFTactic) CollectStatistics() map[string]float64 {
+func (t *TseitinCNFTactic) CollectStatistics(st *statistics.Statistics) {
 	if t == nil || t.self != t || t.closed || t.numAux == 0 {
-		return nil
+		return
 	}
-	return map[string]float64{"cnf encoding aux vars": float64(t.numAux)}
+	st.UpdateUint64("cnf encoding aux vars", uint64(t.numAux))
 }
 func (t *TseitinCNFTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {
