@@ -895,9 +895,9 @@ func (c *Context) mkSolver(m *ast.ASTManager) error {
 		c.solver, err = portfolio.NewBVStrategicSolver(m, &c.params, proofs, models, cores, c.config)
 	case "HORN":
 		c.solver, err = portfolio.NewHornStrategicSolver(m, &c.params, proofs, models, cores, c.config)
-	case "ALL", "QF_S":
+	case "ALL":
 		c.solver, err = portfolio.NewALLStrategicSolver(m, &c.params, proofs, models, cores, c.config)
-	case "", "NIA":
+	case "":
 		// Source mk_tactic_for_logic falls through to mk_default_tactic, whose
 		// arithmetic probes select QSAT for quantified LIRA goals. MBQI alone
 		// does not terminate on those goals, in the source as well.

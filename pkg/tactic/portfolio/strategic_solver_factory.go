@@ -105,8 +105,12 @@ func (f *strategicSolverFactory) New(m *ast.ASTManager, p *uparams.ParamsRef, pr
 		return NewHornStrategicSolver(m, p, proofs, models, cores, f.config)
 	case "ALL":
 		return NewALLStrategicSolver(m, p, proofs, models, cores, f.config)
+	case "":
+		return NewALLStrategicSolver(m, p, proofs, models, cores, f.config)
 	}
-	return NewALLStrategicSolver(m, p, proofs, models, cores, f.config)
+	// mk_tactic_for_logic falls through to mk_default_tactic, and the solver
+	// keeps the logic, which the SMT setup reads (setup_QF_S, ...).
+	return NewDefaultStrategicSolver(m, p, proofs, models, cores, selected, f.config)
 }
 
 func (f *strategicSolverFactory) Close() error {
