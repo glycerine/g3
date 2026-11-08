@@ -167,27 +167,33 @@ type SMTInternalizerState struct {
 	watches                    []SMTWatchList
 	booleanStack               []ast.ASTHandle
 	enodeStack                 []*SMTEnode
-	scopes                     []smtInternalizerScope
-	pendingPop                 *smtInternalizerPendingPop
-	popActive                  bool
-	closing                    bool
-	retiringEnode              *SMTEnode
-	retiringEnodeRoot          ast.ASTHandle
-	retiringBoolean            bool
-	retiringBooleanRoot        ast.ASTHandle
-	cachedGeneration           map[ast.ASTHandle]uint32
-	pending                    []smtPendingEquality
-	pendingHead                int
-	equalityTrail              []smtEqualityUndo
-	equalityAtomsByTerm        map[ast.ASTHandle][]int32
-	equalityAtomCursor         int
-	dynamicAck                 *smtDynAckManager
-	assignmentTrail            []smtInternalizerAssignmentTrail
-	theoryTrail                []smtInternalizerTheoryTrail
-	theoryEqualities           []SMTTheoryPropagation
-	theoryDisequalities        []SMTTheoryPropagation
-	theoryEqualityHead         int
-	theoryDisequalityHead      int
+	// booleanSeq and enodeSeq number each mk_bool_var and mk_enode in one
+	// sequence: the source records both on m_trail_stack, so a pop undoes
+	// them interleaved, newest first.
+	booleanSeq            []uint64
+	enodeSeq              []uint64
+	internalizeSeq        uint64
+	scopes                []smtInternalizerScope
+	pendingPop            *smtInternalizerPendingPop
+	popActive             bool
+	closing               bool
+	retiringEnode         *SMTEnode
+	retiringEnodeRoot     ast.ASTHandle
+	retiringBoolean       bool
+	retiringBooleanRoot   ast.ASTHandle
+	cachedGeneration      map[ast.ASTHandle]uint32
+	pending               []smtPendingEquality
+	pendingHead           int
+	equalityTrail         []smtEqualityUndo
+	equalityAtomsByTerm   map[ast.ASTHandle][]int32
+	equalityAtomCursor    int
+	dynamicAck            *smtDynAckManager
+	assignmentTrail       []smtInternalizerAssignmentTrail
+	theoryTrail           []smtInternalizerTheoryTrail
+	theoryEqualities      []SMTTheoryPropagation
+	theoryDisequalities   []SMTTheoryPropagation
+	theoryEqualityHead    int
+	theoryDisequalityHead int
 	// atomQueue is m_atom_propagation_queue: assign_core appends a literal
 	// whose atom is relevant (or relevancy is off) when it is assigned, and
 	// relevant_eh appends an assigned atom when it becomes relevant.
@@ -619,6 +625,8 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 	s.assignment = append(s.assignment, lbool.Undef, lbool.Undef)
 	s.watches = append(s.watches, SMTWatchList{}, SMTWatchList{})
 	s.booleanStack = append(s.booleanStack, expression)
+	s.internalizeSeq++
+	s.booleanSeq = append(s.booleanSeq, s.internalizeSeq)
 	s.statistics.NumMkBoolVar++
 	if err := s.basicActivityCreated(variable); err != nil {
 		return SMTNullBoolVar, err
@@ -793,6 +801,8 @@ func (s *SMTInternalizerState) MkEnode(expression ast.ASTHandle, suppressArgumen
 		return nil, err
 	}
 	s.enodeStack = append(s.enodeStack, node)
+	s.internalizeSeq++
+	s.enodeSeq = append(s.enodeSeq, s.internalizeSeq)
 	s.statistics.NumMkEnode++
 	if smtTraceEnabled("mk_enode") {
 		s.traceMkEnode(node, count, congruenceEnabled)
@@ -1144,14 +1154,22 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 		}
 		s.ownedJustifications = s.ownedJustifications[:index]
 	}
-	for len(s.enodeStack) > scope.enodeLimit {
-		node := s.enodeStack[len(s.enodeStack)-1]
-		if err := s.unregisterEnode(node); err != nil {
-			return fmt.Errorf("unregister enode: %w", err)
+	// undo_trail_stack: mk_enode and mk_bool_var entries, newest first.
+	for {
+		enodeMore := len(s.enodeStack) > scope.enodeLimit
+		booleanMore := len(s.booleanStack) > scope.booleanLimit
+		if !enodeMore && !booleanMore {
+			break
 		}
-		s.enodeStack = s.enodeStack[:len(s.enodeStack)-1]
-	}
-	for len(s.booleanStack) > scope.booleanLimit {
+		if enodeMore && !s.retiringBoolean && (!booleanMore || s.enodeSeq[len(s.enodeSeq)-1] > s.booleanSeq[len(s.booleanSeq)-1]) {
+			node := s.enodeStack[len(s.enodeStack)-1]
+			if err := s.unregisterEnode(node); err != nil {
+				return fmt.Errorf("unregister enode: %w", err)
+			}
+			s.enodeStack = s.enodeStack[:len(s.enodeStack)-1]
+			s.enodeSeq = s.enodeSeq[:len(s.enodeSeq)-1]
+			continue
+		}
 		expression := s.booleanStack[len(s.booleanStack)-1]
 		if !s.retiringBoolean {
 			variable := s.boolVar.get(expression)
@@ -1212,6 +1230,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 		}
 		s.retiringBoolean = false
 		s.booleanStack = s.booleanStack[:len(s.booleanStack)-1]
+		s.booleanSeq = s.booleanSeq[:len(s.booleanSeq)-1]
 		s.statistics.NumDelBoolVar++
 	}
 	if scope.pendingLimit < 0 || scope.pendingLimit > len(s.pending) {
