@@ -39,21 +39,133 @@ const (
 
 // sequenceAutomatonLabel is sym_expr: t_char (character), t_range (lower and
 // upper bounds) or t_pred, a formula over var(0) of sort. The predicate kinds
-// (Any = mk_pred(true), None = mk_pred(false), and the results of mk_and and
-// mk_not) also keep their operands, which only the Go-only concrete
-// enumeration helpers read.
+// are Any = mk_pred(true), None = mk_pred(false), and the results of mk_and
+// and mk_not.
+//
+// Like sym_expr, a label is reference counted (m_ref, starting at 0) by the
+// automaton moves and ref_t locals that hold it, and owns its expressions
+// through m_t and m_s: (c, c) for a character, (lo, hi) for a range and
+// (f, f) for a predicate. When the count drops to 0 the label is deallocated,
+// which destroys m_s and then m_t.
+//
+// concrete is the label's byte set when it is known from numerals alone; only
+// the Go-only enumeration helpers and the solver-less fallback read it. It is
+// computed when the label is made so that no label keeps its operands.
 type sequenceAutomatonLabel struct {
-	kind       sequenceAutomatonLabelKind
-	character  ast.ASTHandle
-	lowerBound ast.ASTHandle
-	upperBound ast.ASTHandle
-	predicate  ast.ASTHandle
-	sort       ast.ASTHandle
-	operands   []*sequenceAutomatonLabel
+	kind          sequenceAutomatonLabelKind
+	character     ast.ASTHandle
+	lowerBound    ast.ASTHandle
+	upperBound    ast.ASTHandle
+	predicate     ast.ASTHandle
+	sort          ast.ASTHandle
+	manager       *ast.ASTManager
+	t, s          ast.ASTRef
+	refs          int
+	freed         bool
+	concrete      [256]bool
+	concreteKnown bool
 }
 
 func (l *sequenceAutomatonLabel) isPredicate() bool {
 	return l.kind != sequenceLabelCharacter && l.kind != sequenceLabelRange
+}
+
+// newSequenceLabel is the sym_expr constructor: m_t(t), m_s(s), m_ref(0).
+func newSequenceLabel(m *ast.ASTManager, kind sequenceAutomatonLabelKind, t, s ast.ASTHandle) (*sequenceAutomatonLabel, error) {
+	tRef, err := m.NewRef(t)
+	if err != nil {
+		return nil, err
+	}
+	sRef, err := m.NewRef(s)
+	if err != nil {
+		return nil, errors.Join(err, m.DelRef(&tRef))
+	}
+	return &sequenceAutomatonLabel{kind: kind, manager: m, t: tRef, s: sRef}, nil
+}
+
+// retain is sym_expr::inc_ref.
+func (l *sequenceAutomatonLabel) retain() {
+	if l != nil {
+		l.refs++
+	}
+}
+
+// release is sym_expr::dec_ref: at 0 the label is deallocated.
+func (l *sequenceAutomatonLabel) release() error {
+	if l == nil {
+		return nil
+	}
+	if l.refs <= 0 || l.freed {
+		return ast.ErrASTHandle
+	}
+	l.refs--
+	if l.refs > 0 {
+		return nil
+	}
+	return l.free()
+}
+
+// free destroys m_s and then m_t.
+func (l *sequenceAutomatonLabel) free() error {
+	if l.freed {
+		return nil
+	}
+	l.freed = true
+	err := l.manager.DelRef(&l.s)
+	return errors.Join(err, l.manager.DelRef(&l.t))
+}
+
+// releaseUnowned deallocates a label that nothing ever referenced, as when a
+// ref_t takes and drops a fresh sym_expr.
+func (l *sequenceAutomatonLabel) releaseUnowned() error {
+	if l == nil || l.refs != 0 {
+		return nil
+	}
+	return l.free()
+}
+
+// characterLabel is sym_expr::mk_char(m, ch).
+func (b *sequenceAutomatonBuilder) characterLabel(ch ast.ASTHandle) (*sequenceAutomatonLabel, error) {
+	m := b.rewriter.manager
+	l, err := newSequenceLabel(m, sequenceLabelCharacter, ch, ch)
+	if err != nil {
+		return nil, err
+	}
+	l.character = ch
+	value, numeral, err := m.SequenceUnitByteElementValue(ch)
+	if err != nil {
+		return nil, errors.Join(err, l.free())
+	}
+	if numeral {
+		l.concrete[value] = true
+		l.concreteKnown = true
+	}
+	return l, nil
+}
+
+// rangeLabel is sym_expr::mk_range(lo, hi).
+func (b *sequenceAutomatonBuilder) rangeLabel(lo, hi ast.ASTHandle) (*sequenceAutomatonLabel, error) {
+	m := b.rewriter.manager
+	l, err := newSequenceLabel(m, sequenceLabelRange, lo, hi)
+	if err != nil {
+		return nil, err
+	}
+	l.lowerBound, l.upperBound = lo, hi
+	loValue, loNumeral, err := m.SequenceUnitByteElementValue(lo)
+	if err != nil {
+		return nil, errors.Join(err, l.free())
+	}
+	hiValue, hiNumeral, err := m.SequenceUnitByteElementValue(hi)
+	if err != nil {
+		return nil, errors.Join(err, l.free())
+	}
+	if loNumeral && hiNumeral {
+		for value := int(loValue); value <= int(hiValue); value++ {
+			l.concrete[value] = true
+		}
+		l.concreteKnown = true
+	}
+	return l, nil
 }
 
 type sequenceAutomatonMove struct {
@@ -119,13 +231,47 @@ func (a *sequenceAutomaton) addFinal(state int) {
 }
 
 // add is automaton::add: it skips a move equal to the last move from the
-// same source (is_duplicate_cheap).
+// same source (is_duplicate_cheap). The kept move holds its label (its
+// m_delta and m_delta_inv copies are counted as one reference here: nothing
+// removes one copy without the other in these automata).
 func (a *sequenceAutomaton) add(mv sequenceAutomatonMove) {
 	out := a.moves[mv.source]
 	if n := len(out); n > 0 && out[n-1].destination == mv.destination && out[n-1].label == mv.label {
 		return
 	}
+	mv.label.retain()
 	a.moves[mv.source] = append(out, mv)
+}
+
+// release is the automaton destructor (scoped_ptr reset/dealloc): its moves
+// release their labels in m_delta order, after the m_delta_inv copies, which
+// can never free a label.
+func (a *sequenceAutomaton) release() (err error) {
+	if a == nil {
+		return nil
+	}
+	for _, out := range a.moves {
+		for _, mv := range out {
+			err = errors.Join(err, mv.label.release())
+		}
+	}
+	a.moves = nil
+	return err
+}
+
+// releaseMoves is the destructor of a moves vector holding its labels.
+func releaseSequenceMoves(moves []sequenceAutomatonMove) (err error) {
+	for _, mv := range moves {
+		err = errors.Join(err, mv.label.release())
+	}
+	return err
+}
+
+// retainSequenceMoves is moves::push_back of copies.
+func retainSequenceMoves(moves []sequenceAutomatonMove) {
+	for _, mv := range moves {
+		mv.label.retain()
+	}
 }
 
 // sequenceEmptyAutomaton is automaton(m): one state, no final state.
@@ -364,7 +510,8 @@ func (b *sequenceAutomatonBuilder) character(value byte) (ast.ASTHandle, error) 
 	return h, nil
 }
 
-// sequence is re2automaton::seq2aut.
+// sequence is re2automaton::seq2aut. Its scoped_ptr<eautomaton> a, b are
+// destroyed when it returns, b first.
 func (b *sequenceAutomatonBuilder) sequence(expression ast.ASTHandle) (*sequenceAutomaton, error) {
 	m := b.rewriter.manager
 	if left, right, matched, err := m.SequenceConcatParts(expression); err != nil {
@@ -372,18 +519,23 @@ func (b *sequenceAutomatonBuilder) sequence(expression ast.ASTHandle) (*sequence
 	} else if matched {
 		a, err := b.sequence(left)
 		if err != nil || a == nil {
-			return nil, err
+			return nil, errors.Join(err, a.release())
 		}
 		c, err := b.sequence(right)
 		if err != nil || c == nil {
-			return nil, err
+			return nil, errors.Join(err, c.release(), a.release())
 		}
-		return sequenceConcatAutomaton(a, c), nil
+		result := sequenceConcatAutomaton(a, c)
+		return result, errors.Join(c.release(), a.release())
 	}
 	if element, unit, err := m.SequenceUnitArgument(expression); err != nil {
 		return nil, err
 	} else if unit {
-		return sequenceLabelAutomaton(&sequenceAutomatonLabel{kind: sequenceLabelCharacter, character: element}), nil
+		label, err := b.characterLabel(element)
+		if err != nil {
+			return nil, err
+		}
+		return sequenceLabelAutomaton(label), nil
 	}
 	if empty, err := m.IsSequenceEmpty(expression); err != nil {
 		return nil, err
@@ -396,21 +548,30 @@ func (b *sequenceAutomatonBuilder) sequence(expression ast.ASTHandle) (*sequence
 	}
 	moves := make([]sequenceAutomatonMove, 0, len(text))
 	for k := 0; k < len(text); k++ {
-		character, err := b.character(text[k])
+		// sym_expr::mk_char(m, u.str.mk_char(s, k))
+		character, err := m.BitVectorNumeralUnsigned(uint32(text[k]), 8)
 		if err != nil {
 			return nil, err
 		}
-		moves = append(moves, sequenceAutomatonMove{source: k, destination: k + 1, label: &sequenceAutomatonLabel{kind: sequenceLabelCharacter, character: character}})
+		label, err := b.characterLabel(character)
+		if err != nil {
+			return nil, err
+		}
+		moves = append(moves, sequenceAutomatonMove{source: k, destination: k + 1, label: label})
 	}
 	return sequenceAutomatonOf(0, []int{len(text)}, moves), nil
 }
 
-// predicateLabel is sym_expr::mk_pred(formula, sort).
-func (b *sequenceAutomatonBuilder) predicateLabel(kind sequenceAutomatonLabelKind, formula, sort ast.ASTHandle, operands ...*sequenceAutomatonLabel) (*sequenceAutomatonLabel, error) {
-	if err := b.hold(formula); err != nil {
+// predicateLabel is sym_expr::mk_pred(formula, sort); concrete and known are
+// the label's byte set when it follows from its operands.
+func (b *sequenceAutomatonBuilder) predicateLabel(kind sequenceAutomatonLabelKind, formula, sort ast.ASTHandle, concrete [256]bool, known bool) (*sequenceAutomatonLabel, error) {
+	l, err := newSequenceLabel(b.rewriter.manager, kind, formula, formula)
+	if err != nil {
 		return nil, err
 	}
-	return &sequenceAutomatonLabel{kind: kind, predicate: formula, sort: sort, operands: operands}, nil
+	l.predicate, l.sort = formula, sort
+	l.concrete, l.concreteKnown = concrete, known
+	return l, nil
 }
 
 // trueLabel and falseLabel are mk_pred(m.mk_true()/m.mk_false(), sort).
@@ -419,7 +580,11 @@ func (b *sequenceAutomatonBuilder) trueLabel(sort ast.ASTHandle) (*sequenceAutom
 	if err != nil {
 		return nil, err
 	}
-	return b.predicateLabel(sequenceLabelAny, t, sort)
+	var all [256]bool
+	for i := range all {
+		all[i] = true
+	}
+	return b.predicateLabel(sequenceLabelAny, t, sort, all, true)
 }
 
 func (b *sequenceAutomatonBuilder) falseLabel(sort ast.ASTHandle) (*sequenceAutomatonLabel, error) {
@@ -427,7 +592,7 @@ func (b *sequenceAutomatonBuilder) falseLabel(sort ast.ASTHandle) (*sequenceAuto
 	if err != nil {
 		return nil, err
 	}
-	return b.predicateLabel(sequenceLabelNone, f, sort)
+	return b.predicateLabel(sequenceLabelNone, f, sort, [256]bool{}, true)
 }
 
 // regexCharacterLabelSort is the char_s of re2aut's full_seq/full_char cases.
@@ -551,7 +716,14 @@ func (b *sequenceAutomatonBuilder) intersectLabels(x, y *sequenceAutomatonLabel)
 	if err != nil {
 		return nil, err
 	}
-	return b.predicateLabel(sequenceLabelIntersection, f, xs, x, y)
+	var concrete [256]bool
+	known := x.concreteKnown && y.concreteKnown
+	if known {
+		for i := range concrete {
+			concrete[i] = x.concrete[i] && y.concrete[i]
+		}
+	}
+	return b.predicateLabel(sequenceLabelIntersection, f, xs, concrete, known)
 }
 
 // negateLabel is sym_expr_boolean_algebra::mk_not: mk_pred(m.mk_not(...)).
@@ -587,7 +759,13 @@ func (b *sequenceAutomatonBuilder) negateLabel(x *sequenceAutomatonLabel) (resul
 	if err = errors.Join(err, m.DelRef(&accepted)); err != nil {
 		return nil, err
 	}
-	return b.predicateLabel(sequenceLabelNegation, f, sort, x)
+	var concrete [256]bool
+	if x.concreteKnown {
+		for i := range concrete {
+			concrete[i] = !x.concrete[i]
+		}
+	}
+	return b.predicateLabel(sequenceLabelNegation, f, sort, concrete, x.concreteKnown)
 }
 
 // labelSort is sym_expr::get_sort (m_sort; get_sort(hi) for ranges).
@@ -606,63 +784,10 @@ func (b *sequenceAutomatonBuilder) labelSort(label *sequenceAutomatonLabel) (ast
 }
 
 func (b *sequenceAutomatonBuilder) concreteLabelBytes(label *sequenceAutomatonLabel) (values [256]bool, concrete bool, err error) {
-	switch label.kind {
-	case sequenceLabelAny:
-		for i := range values {
-			values[i] = true
-		}
-		return values, true, nil
-	case sequenceLabelNone:
-		return values, true, nil
-	case sequenceLabelCharacter:
-		value, numeral, err := b.rewriter.manager.SequenceUnitByteElementValue(label.character)
-		if err != nil || !numeral {
-			return values, false, err
-		}
-		values[value] = true
-		return values, true, nil
-	case sequenceLabelRange:
-		lo, loNumeral, err := b.rewriter.manager.SequenceUnitByteElementValue(label.lowerBound)
-		if err != nil {
-			return values, false, err
-		}
-		hi, hiNumeral, err := b.rewriter.manager.SequenceUnitByteElementValue(label.upperBound)
-		if err != nil || !loNumeral || !hiNumeral {
-			return values, false, err
-		}
-		for value := int(lo); value <= int(hi); value++ {
-			values[value] = true
-		}
-		return values, true, nil
-	case sequenceLabelIntersection:
-		for i := range values {
-			values[i] = true
-		}
-		for _, operand := range label.operands {
-			operandValues, operandConcrete, err := b.concreteLabelBytes(operand)
-			if err != nil || !operandConcrete {
-				return [256]bool{}, false, err
-			}
-			for i := range values {
-				values[i] = values[i] && operandValues[i]
-			}
-		}
-		return values, true, nil
-	case sequenceLabelNegation:
-		if len(label.operands) != 1 {
-			return values, false, ast.ErrASTDomain
-		}
-		operandValues, operandConcrete, err := b.concreteLabelBytes(label.operands[0])
-		if err != nil || !operandConcrete {
-			return values, false, err
-		}
-		for i := range values {
-			values[i] = !operandValues[i]
-		}
-		return values, true, nil
-	default:
-		return values, false, ast.ErrASTDomain
+	if label == nil || label.freed {
+		return values, false, ast.ErrASTHandle
 	}
+	return label.concrete, label.concreteKnown, nil
 }
 
 // labelSatisfiable is sym_expr_boolean_algebra::is_sat: characters are
@@ -725,51 +850,102 @@ func (b *sequenceAutomatonBuilder) labelSatisfiable(label *sequenceAutomatonLabe
 	return answer == lbool.True, true, nil
 }
 
-func (b *sequenceAutomatonBuilder) product(left, right *sequenceAutomaton) (*sequenceAutomaton, error) {
+// product is symbolic_automata::mk_product. Each pair's ref_t ab holds the
+// conjunction until the end of its iteration, so an unsatisfiable one is
+// freed at once; mvs holds the kept moves until the function returns, after
+// the result has taken the back-reachable ones.
+func (b *sequenceAutomatonBuilder) product(left, right *sequenceAutomaton) (result *sequenceAutomaton, resultErr error) {
 	type pair struct{ left, right int }
 	initial := pair{left.initial, right.initial}
 	ids := map[pair]int{initial: 0}
 	todo := []pair{initial}
-	result := newSequenceAutomaton(1)
-	if left.closureIsFinal(initial.left) && right.closureIsFinal(initial.right) {
-		result.addFinal(0)
+	var mvs []sequenceAutomatonMove
+	defer func() { resultErr = errors.Join(resultErr, releaseSequenceMoves(mvs)) }()
+	var final []int
+	// Deliberate deviation: the source tests is_final_state, which misses a
+	// final state reached by epsilon moves (("" | a) & ("" | b) would be
+	// empty); finality here includes the epsilon closure.
+	if left.closureIsFinal(left.initial) && right.closureIsFinal(right.initial) {
+		final = append(final, 0)
 	}
+	n := 1
 	for len(todo) > 0 {
 		current := todo[len(todo)-1]
 		todo = todo[:len(todo)-1]
 		source := ids[current]
-		for _, leftMove := range left.movesFrom(current.left, true) {
-			for _, rightMove := range right.movesFrom(current.right, true) {
-				label, err := b.intersectLabels(leftMove.label, rightMove.label)
+		mvsA := left.movesFrom(current.left, true)
+		mvsB := right.movesFrom(current.right, true)
+		for _, leftMove := range mvsA {
+			for _, rightMove := range mvsB {
+				ab, err := b.intersectLabels(leftMove.label, rightMove.label)
 				if err != nil {
 					return nil, err
 				}
-				satisfiable, defined, err := b.labelSatisfiable(label)
-				if err != nil {
-					return nil, err
-				}
-				if !defined {
-					return nil, nil
+				ab.retain() // ref_t ab
+				satisfiable, defined, err := b.labelSatisfiable(ab)
+				if err != nil || !defined {
+					return nil, errors.Join(err, ab.release())
 				}
 				if !satisfiable {
+					if err = ab.release(); err != nil {
+						return nil, err
+					}
 					continue
 				}
 				targetPair := pair{leftMove.destination, rightMove.destination}
 				target, present := ids[targetPair]
 				if !present {
-					target = len(ids)
+					target = n
+					n++
 					ids[targetPair] = target
-					result.moves = append(result.moves, nil)
-					if left.closureIsFinal(targetPair.left) && right.closureIsFinal(targetPair.right) {
-						result.addFinal(target)
-					}
 					todo = append(todo, targetPair)
+					if left.closureIsFinal(targetPair.left) && right.closureIsFinal(targetPair.right) {
+						final = append(final, target)
+					}
 				}
-				result.moves[source] = append(result.moves[source], sequenceAutomatonMove{source: source, destination: target, label: label})
+				ab.retain() // mvs.push_back(move_t(m, src, tgt, ab))
+				mvs = append(mvs, sequenceAutomatonMove{source: source, destination: target, label: ab})
+				if err = ab.release(); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
-	return result, nil
+	if len(final) == 0 {
+		return sequenceEmptyAutomaton(), nil
+	}
+	inverse := make([][]int, n)
+	for _, mv := range mvs {
+		inverse[mv.destination] = append(inverse[mv.destination], mv.source)
+	}
+	backReachable := make([]bool, n)
+	for _, state := range final {
+		backReachable[state] = true
+	}
+	stack := append([]int(nil), final...)
+	for len(stack) > 0 {
+		state := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		for _, predecessor := range inverse[state] {
+			if !backReachable[predecessor] {
+				backReachable[predecessor] = true
+				stack = append(stack, predecessor)
+			}
+		}
+	}
+	var kept []sequenceAutomatonMove
+	for _, mv := range mvs {
+		if backReachable[mv.destination] {
+			kept = append(kept, mv)
+		}
+	}
+	if len(kept) == 0 {
+		if left.closureIsFinal(left.initial) && right.closureIsFinal(right.initial) {
+			return sequenceAutomatonOf(0, []int{0}, nil), nil
+		}
+		return sequenceEmptyAutomaton(), nil
+	}
+	return sequenceAutomatonOf(0, final, kept), nil
 }
 
 func sequenceAutomatonStateSet(states []int) ([]int, string) {
@@ -790,52 +966,72 @@ func sequenceAutomatonStateSet(states []int) ([]int, string) {
 	return unique, key.String()
 }
 
+// deterministicMinterms is generate_min_terms. Each returned predicate is
+// held once for the min_terms vector. In generate_min_terms_rec an
+// undetermined minterm is dropped like an unsatisfiable one; without an
+// expression solver (a Go-only mode) it makes the whole result undefined.
+// new_pred_pos, neg and new_pred_neg live until the end of the else block,
+// and curr_pred until generate_min_terms returns.
 func (b *sequenceAutomatonBuilder) deterministicMinterms(labels []*sequenceAutomatonLabel) (assignments [][]bool, predicates []*sequenceAutomatonLabel, defined bool, err error) {
 	defined = true
 	bits := make([]bool, 0, len(labels))
 	var visit func(int, *sequenceAutomatonLabel) error
-	visit = func(index int, predicate *sequenceAutomatonLabel) error {
+	visit = func(index int, predicate *sequenceAutomatonLabel) (result error) {
 		satisfiable, known, err := b.labelSatisfiable(predicate)
 		if err != nil {
 			return err
 		}
-		if !known {
+		if !known && b.rewriter.solver == nil {
 			defined = false
 			return nil
 		}
-		if !satisfiable {
+		if !known || !satisfiable {
 			return nil
 		}
 		if index == len(labels) {
 			copyBits := append([]bool(nil), bits...)
 			assignments = append(assignments, copyBits)
+			predicate.retain()
 			predicates = append(predicates, predicate)
 			return nil
 		}
+		var locals []*sequenceAutomatonLabel
+		defer func() {
+			for k := len(locals) - 1; k >= 0; k-- {
+				result = errors.Join(result, locals[k].release())
+			}
+		}()
 		bits = append(bits, true)
 		positive, err := b.intersectLabels(predicate, labels[index])
 		if err != nil {
 			return err
 		}
+		positive.retain() // ref_t new_pred_pos
+		locals = append(locals, positive)
 		if err = visit(index+1, positive); err != nil || !defined {
 			return err
 		}
-		bits[len(bits)-1] = false
+		bits = bits[:len(bits)-1]
+		bits = append(bits, false)
 		negated, err := b.negateLabel(labels[index])
 		if err != nil {
 			return err
 		}
+		negated.retain() // ref_t neg
+		locals = append(locals, negated)
 		negative, err := b.intersectLabels(predicate, negated)
 		if err != nil {
 			return err
 		}
+		negative.retain() // ref_t new_pred_neg
+		locals = append(locals, negative)
 		if err = visit(index+1, negative); err != nil || !defined {
 			return err
 		}
 		bits = bits[:len(bits)-1]
 		return nil
 	}
-	// curr_pred(m_ba.mk_true()): mk_pred(true, Bool).
+	// ref_t curr_pred(m_ba.mk_true()): mk_pred(true, Bool).
 	boolean, err := b.rewriter.manager.MkBoolSort()
 	if err != nil {
 		return nil, nil, false, err
@@ -844,31 +1040,59 @@ func (b *sequenceAutomatonBuilder) deterministicMinterms(labels []*sequenceAutom
 	if err != nil {
 		return nil, nil, false, err
 	}
-	if err = visit(0, root); err != nil {
+	root.retain()
+	err = visit(0, root)
+	if err = errors.Join(err, root.release()); err != nil {
 		return nil, nil, false, err
+	}
+	if !defined {
+		return nil, nil, false, releaseSequenceLabels(predicates)
 	}
 	return assignments, predicates, defined, nil
 }
 
-func (b *sequenceAutomatonBuilder) determinize(input *sequenceAutomaton, flipAcceptance bool) (*sequenceAutomaton, error) {
+// releaseSequenceLabels is the destructor of a vector of ref_t labels.
+func releaseSequenceLabels(labels []*sequenceAutomatonLabel) (err error) {
+	for _, l := range labels {
+		err = errors.Join(err, l.release())
+	}
+	return err
+}
+
+// determinize is symbolic_automata::mk_determinstic_param. min_terms is
+// reset for each state, and with new_mvs and the input moves it is destroyed
+// after the result is made; with no final state the result is empty and
+// new_mvs then frees every minterm it held.
+func (b *sequenceAutomatonBuilder) determinize(input *sequenceAutomaton, flipAcceptance bool) (result *sequenceAutomaton, resultErr error) {
 	initial, initialKey := sequenceAutomatonStateSet(input.epsilonClosure(input.initial))
 	states := [][]int{initial}
 	ids := map[string]int{initialKey: 0}
 	todo := []int{0}
-	result := newSequenceAutomaton(1)
+	var newMoves []sequenceAutomatonMove
+	var newFinal []int
+	var minTerms []*sequenceAutomatonLabel
+	defer func() {
+		resultErr = errors.Join(resultErr, releaseSequenceMoves(newMoves), releaseSequenceLabels(minTerms))
+	}()
 	setFinal := func(id int, set []int) {
 		final := false
 		for _, state := range set {
 			final = final || input.finals[state]
 		}
 		if final != flipAcceptance {
-			result.addFinal(id)
+			newFinal = append(newFinal, id)
 		}
 	}
 	setFinal(0, initial)
 	for len(todo) > 0 {
 		stateID := todo[len(todo)-1]
 		todo = todo[:len(todo)-1]
+		// min_terms.reset()
+		err := releaseSequenceLabels(minTerms)
+		minTerms = nil
+		if err != nil {
+			return nil, err
+		}
 		moves := make([]sequenceAutomatonMove, 0, 4)
 		for _, state := range states[stateID] {
 			moves = append(moves, input.movesFrom(state, true)...)
@@ -884,6 +1108,7 @@ func (b *sequenceAutomatonBuilder) determinize(input *sequenceAutomaton, flipAcc
 		if !defined {
 			return nil, nil
 		}
+		minTerms = predicates
 		for i, assignment := range assignments {
 			targetStates := make([]int, 0, len(assignment))
 			for j, selected := range assignment {
@@ -897,18 +1122,25 @@ func (b *sequenceAutomatonBuilder) determinize(input *sequenceAutomaton, flipAcc
 				targetID = len(states)
 				ids[targetKey] = targetID
 				states = append(states, targetSet)
-				result.moves = append(result.moves, nil)
 				setFinal(targetID, targetSet)
 				todo = append(todo, targetID)
 			}
-			result.moves[stateID] = append(result.moves[stateID], sequenceAutomatonMove{source: stateID, destination: targetID, label: predicates[i]})
+			predicates[i].retain() // new_mvs.push_back(move_t(...))
+			newMoves = append(newMoves, sequenceAutomatonMove{source: stateID, destination: targetID, label: predicates[i]})
 		}
 	}
-	return result, nil
+	if len(newFinal) == 0 {
+		return sequenceEmptyAutomaton(), nil
+	}
+	return sequenceAutomatonOf(0, newFinal, newMoves), nil
 }
 
+// regex is re2automaton::re2aut. Its scoped_ptr<eautomaton> a, b destroy
+// the intermediate automata when it returns (b before a), and assigning to
+// one destroys the automaton it held after the new one is made.
 func (b *sequenceAutomatonBuilder) regex(expression ast.ASTHandle) (*sequenceAutomaton, error) {
-	if argument, matched, err := b.rewriter.manager.SequenceUnaryOperationArgument(expression, 11); err != nil {
+	m := b.rewriter.manager
+	if argument, matched, err := m.SequenceUnaryOperationArgument(expression, 11); err != nil {
 		return nil, err
 	} else if matched {
 		return b.sequence(argument)
@@ -917,20 +1149,21 @@ func (b *sequenceAutomatonBuilder) regex(expression ast.ASTHandle) (*sequenceAut
 		kind int32
 		make func(*sequenceAutomaton, *sequenceAutomaton) *sequenceAutomaton
 	}{{17, sequenceConcatAutomaton}, {18, sequenceUnionAutomaton}} {
-		left, right, matched, err := b.rewriter.manager.SequenceBinaryOperationArguments(expression, row.kind)
+		left, right, matched, err := m.SequenceBinaryOperationArguments(expression, row.kind)
 		if err != nil {
 			return nil, err
 		}
 		if matched {
 			leftAutomaton, err := b.regex(left)
 			if err != nil || leftAutomaton == nil {
-				return nil, err
+				return nil, errors.Join(err, leftAutomaton.release())
 			}
 			rightAutomaton, err := b.regex(right)
 			if err != nil || rightAutomaton == nil {
-				return nil, err
+				return nil, errors.Join(err, rightAutomaton.release(), leftAutomaton.release())
 			}
-			return row.make(leftAutomaton, rightAutomaton), nil
+			result := row.make(leftAutomaton, rightAutomaton)
+			return result, errors.Join(rightAutomaton.release(), leftAutomaton.release())
 		}
 	}
 	for _, row := range []struct {
@@ -946,43 +1179,52 @@ func (b *sequenceAutomatonBuilder) regex(expression ast.ASTHandle) (*sequenceAut
 			return a
 		}},
 		{15, sequenceOptionalAutomaton}} {
-		argument, matched, err := b.rewriter.manager.SequenceUnaryOperationArgument(expression, row.kind)
+		argument, matched, err := m.SequenceUnaryOperationArgument(expression, row.kind)
 		if err != nil {
 			return nil, err
 		}
 		if matched {
 			automaton, err := b.regex(argument)
 			if err != nil || automaton == nil {
-				return nil, err
+				return nil, errors.Join(err, automaton.release())
 			}
-			return row.make(automaton), nil
+			result := row.make(automaton)
+			if result != automaton { // a = eautomaton::mk_opt(*a)
+				err = automaton.release()
+			}
+			return result, err
 		}
 	}
-	if lower, upper, matched, err := b.rewriter.manager.SequenceBinaryOperationArguments(expression, 16); err != nil {
+	if lower, upper, matched, err := m.SequenceBinaryOperationArguments(expression, 16); err != nil {
 		return nil, err
 	} else if matched {
-		lo, loString, err := b.rewriter.manager.SequenceStringValue(lower)
+		lo, loString, err := m.SequenceStringValue(lower)
 		if err != nil {
 			return nil, err
 		}
-		hi, hiString, err := b.rewriter.manager.SequenceStringValue(upper)
+		hi, hiString, err := m.SequenceStringValue(upper)
 		if err != nil {
 			return nil, err
 		}
 		if !loString || !hiString || len(lo) != 1 || len(hi) != 1 {
 			return nil, nil
 		}
-		loValue, err := b.character(lo[0])
+		// expr_ref _start(...), _stop(...); sym_expr::mk_range(_start, _stop)
+		loValue, err := m.BitVectorNumeralUnsigned(uint32(lo[0]), 8)
 		if err != nil {
 			return nil, err
 		}
-		hiValue, err := b.character(hi[0])
+		hiValue, err := m.BitVectorNumeralUnsigned(uint32(hi[0]), 8)
 		if err != nil {
 			return nil, err
 		}
-		return sequenceLabelAutomaton(&sequenceAutomatonLabel{kind: sequenceLabelRange, lowerBound: loValue, upperBound: hiValue}), nil
+		label, err := b.rangeLabel(loValue, hiValue)
+		if err != nil {
+			return nil, err
+		}
+		return sequenceLabelAutomaton(label), nil
 	}
-	body, lower, upper, bounded, loop, err := b.rewriter.manager.RegexLoopParameters(expression)
+	body, lower, upper, bounded, loop, err := m.RegexLoopParameters(expression)
 	if err != nil {
 		return nil, err
 	}
@@ -992,53 +1234,63 @@ func (b *sequenceAutomatonBuilder) regex(expression ast.ASTHandle) (*sequenceAut
 		}
 		a, err := b.regex(body)
 		if err != nil || a == nil {
-			return nil, err
+			return nil, errors.Join(err, a.release())
 		}
 		lo, hi := lower, upper
+		var result *sequenceAutomaton
 		if bounded {
 			eps := sequenceEpsilonAutomaton()
-			result := sequenceEpsilonAutomaton()
+			result = sequenceEpsilonAutomaton()
 			for hi > lo {
 				c := sequenceConcatAutomaton(a, result)
-				result = sequenceUnionAutomaton(eps, c)
+				next := sequenceUnionAutomaton(eps, c)
+				err = errors.Join(err, result.release(), c.release())
+				result = next
 				hi--
 			}
 			for lo > 0 {
-				result = sequenceConcatAutomaton(a, result)
+				next := sequenceConcatAutomaton(a, result)
+				err = errors.Join(err, result.release())
+				result = next
 				lo--
 			}
-			return result, nil
+			err = errors.Join(err, eps.release())
+		} else {
+			result = a.clone()
+			result.addFinalToInitMoves()
+			result.addInitToFinalStates()
+			for lo > 0 {
+				next := sequenceConcatAutomaton(a, result)
+				err = errors.Join(err, result.release())
+				result = next
+				lo--
+			}
 		}
-		result := a.clone()
-		result.addFinalToInitMoves()
-		result.addInitToFinalStates()
-		for lo > 0 {
-			result = sequenceConcatAutomaton(a, result)
-			lo--
-		}
-		return result, nil
+		return result, errors.Join(err, a.release())
 	}
-	if left, right, intersection, err := b.rewriter.manager.SequenceBinaryOperationArguments(expression, 19); err != nil {
+	if left, right, intersection, err := m.SequenceBinaryOperationArguments(expression, 19); err != nil {
 		return nil, err
 	} else if intersection {
 		leftAutomaton, err := b.regex(left)
 		if err != nil || leftAutomaton == nil {
-			return nil, err
+			return nil, errors.Join(err, leftAutomaton.release())
 		}
 		rightAutomaton, err := b.regex(right)
 		if err != nil || rightAutomaton == nil {
-			return nil, err
+			return nil, errors.Join(err, rightAutomaton.release(), leftAutomaton.release())
 		}
-		return b.product(leftAutomaton, rightAutomaton)
+		result, err := b.product(leftAutomaton, rightAutomaton)
+		return result, errors.Join(err, rightAutomaton.release(), leftAutomaton.release())
 	}
-	if body, complement, err := b.rewriter.manager.SequenceUnaryOperationArgument(expression, 21); err != nil {
+	if body, complement, err := m.SequenceUnaryOperationArgument(expression, 21); err != nil {
 		return nil, err
 	} else if complement {
 		automaton, err := b.regex(body)
 		if err != nil || automaton == nil {
-			return nil, err
+			return nil, errors.Join(err, automaton.release())
 		}
-		return b.determinize(automaton, true)
+		result, err := b.determinize(automaton, true)
+		return result, errors.Join(err, automaton.release())
 	}
 	// full_seq and full_char use sym_expr::mk_pred(true, char_s).
 	fullTrue := func() (*sequenceAutomatonLabel, error) {
@@ -1088,7 +1340,8 @@ func (r *SequenceRewriter) RegexByteStringCandidates(regex ast.ASTHandle, limit 
 		return nil, false, ast.ErrASTDomain
 	}
 	builder := &sequenceAutomatonBuilder{rewriter: r}
-	defer func() { result = errors.Join(result, builder.close()) }()
+	var automaton *sequenceAutomaton
+	defer func() { result = errors.Join(result, builder.close(), automaton.release()) }()
 	automaton, err := builder.regex(regex)
 	if err != nil || automaton == nil {
 		return nil, false, err
@@ -1163,7 +1416,8 @@ func (r *SequenceRewriter) RegexAcceptedLengths(regex ast.ASTHandle, limit int) 
 		return nil, false, ast.ErrASTDomain
 	}
 	builder := &sequenceAutomatonBuilder{rewriter: r, allowUnknownLabels: true}
-	defer func() { result = errors.Join(result, builder.close()) }()
+	var automaton *sequenceAutomaton
+	defer func() { result = errors.Join(result, builder.close(), automaton.release()) }()
 	automaton, err := builder.regex(regex)
 	if err != nil || automaton == nil {
 		return nil, false, err
@@ -1420,8 +1674,10 @@ func (r *SequenceRewriter) rewriteStringInRegex(sequence, regex ast.ASTHandle, o
 		return r.assignBoolean(true, out)
 	}
 	builder := sequenceAutomatonBuilder{rewriter: r}
-	defer func() { err = errors.Join(err, builder.close()) }()
-	automaton, err := builder.regex(regex)
+	// scoped_ptr<eautomaton> aut is destroyed after the other locals.
+	var automaton *sequenceAutomaton
+	defer func() { err = errors.Join(err, builder.close(), automaton.release()) }()
+	automaton, err = builder.regex(regex)
 	if err != nil || automaton == nil {
 		return RewriteFailed, err
 	}

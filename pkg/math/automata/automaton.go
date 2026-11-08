@@ -110,6 +110,16 @@ func (a *Automaton) Moves() []Move {
 	}
 	return result
 }
+// InverseMoves lists m_delta_inv in destruction order: every state's
+// incoming moves, including the copies kept for states that compress
+// sinkified or trimmed from the outgoing lists.
+func (a *Automaton) InverseMoves() []Move {
+	var result []Move
+	for i := range a.in {
+		result = append(result, a.in[i]...)
+	}
+	return result
+}
 func (a *Automaton) MoveFrom(state uint32) (Move, error) {
 	if len(a.out[state]) != 1 {
 		return Move{}, fmt.Errorf("automata: expected one outgoing move")

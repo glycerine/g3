@@ -32,6 +32,7 @@ type StringRegexAutomaton struct {
 	graph      *automata.Automaton
 	conditions []StringRegexCondition
 	labels     []*sequenceAutomatonLabel
+	owned      bool
 	closed     bool
 }
 
@@ -76,6 +77,9 @@ func NewStringRegexAutomaton(m *ast.ASTManager, regex ast.ASTHandle, solver Sequ
 		return nil, ast.ErrASTDomain
 	}
 	if err := a.materialize(built); err != nil {
+		return nil, errors.Join(err, built.release())
+	}
+	if err := a.own(built); err != nil {
 		return nil, err
 	}
 	return a, nil
@@ -112,6 +116,46 @@ func (a *StringRegexAutomaton) materialize(built *sequenceAutomaton) error {
 	return nil
 }
 
+// own makes the graph hold its labels and then destroys the builder's
+// automaton, which no longer frees anything. Each label is held once here;
+// Compress may still rearrange the graph's moves, so the destructor's order is
+// worked out from the moves the graph has when it is closed.
+func (a *StringRegexAutomaton) own(built *sequenceAutomaton) error {
+	for _, label := range a.labels {
+		label.retain()
+	}
+	a.owned = true
+	return built.release()
+}
+
+// releaseLabels is the eautomaton destructor: m_delta_inv is destroyed before
+// m_delta, so a label is freed at its last copy in that order. A label with
+// no copy left is freed last.
+func (a *StringRegexAutomaton) releaseLabels() (err error) {
+	if !a.owned || a.graph == nil {
+		return nil
+	}
+	a.owned = false
+	order := append(a.graph.InverseMoves(), a.graph.Moves()...)
+	last := make(map[uint32]int, len(a.labels))
+	for i, move := range order {
+		if !move.Epsilon {
+			last[move.Condition] = i
+		}
+	}
+	for i, move := range order {
+		if !move.Epsilon && last[move.Condition] == i {
+			err = errors.Join(err, a.labels[move.Condition].release())
+		}
+	}
+	for id, label := range a.labels {
+		if _, present := last[uint32(id)]; !present {
+			err = errors.Join(err, label.release())
+		}
+	}
+	return err
+}
+
 // NewStringRegexAutomatonProduct is re2automaton::mk_product for the retained
 // String final checker. It consumes the current graphs, including Compress
 // changes, and gives the result independent ownership of both label domains.
@@ -134,6 +178,7 @@ func NewStringRegexAutomatonProduct(left, right *StringRegexAutomaton, solver Se
 			result = errors.Join(result, a.Close())
 		}
 	}()
+	// The product keeps the input regex roots its sources acquired.
 	for _, source := range []*StringRegexAutomaton{left, right} {
 		for _, ref := range source.builder.refs {
 			value, err := m.RefGet(ref)
@@ -161,11 +206,16 @@ func NewStringRegexAutomatonProduct(left, right *StringRegexAutomaton, solver Se
 		return nil, ast.ErrASTDomain
 	}
 	if err := a.materialize(built); err != nil {
+		return nil, errors.Join(err, built.release())
+	}
+	if err := a.own(built); err != nil {
 		return nil, err
 	}
 	return a, nil
 }
 
+// sequenceGraph is a borrowed view of the graph: its moves do not hold
+// their labels, and it is never released.
 func (a *StringRegexAutomaton) sequenceGraph() (*sequenceAutomaton, error) {
 	result := newSequenceAutomaton(int(a.graph.NumStates()))
 	result.initial = int(a.graph.Initial())
@@ -185,39 +235,15 @@ func (a *StringRegexAutomaton) sequenceGraph() (*sequenceAutomaton, error) {
 	return result, nil
 }
 
+// condition is the sym_expr view of a label: m_t (and m_s for a range).
 func (a *StringRegexAutomaton) condition(label *sequenceAutomatonLabel) (StringRegexCondition, error) {
 	switch label.kind {
 	case sequenceLabelCharacter:
 		return StringRegexCondition{Kind: StringRegexCharacter, Character: label.character}, nil
 	case sequenceLabelRange:
 		return StringRegexCondition{Kind: StringRegexRange, Lower: label.lowerBound, Upper: label.upperBound}, nil
-	case sequenceLabelAny:
-		predicate, err := a.builder.rewriter.manager.MkTrue()
-		if err == nil {
-			err = a.builder.hold(predicate)
-		}
-		return StringRegexCondition{Kind: StringRegexPredicate, Predicate: predicate}, err
 	default:
-		m := a.builder.rewriter.manager
-		sort, err := m.BitVectorSort(8)
-		if err != nil {
-			return StringRegexCondition{}, err
-		}
-		variable, err := m.MkVar(0, sort)
-		if err != nil {
-			return StringRegexCondition{}, err
-		}
-		if err := a.builder.hold(variable); err != nil {
-			return StringRegexCondition{}, err
-		}
-		predicate, err := a.builder.accept(label, variable)
-		if err != nil {
-			return StringRegexCondition{}, err
-		}
-		if err := a.builder.hold(predicate); err != nil {
-			return StringRegexCondition{}, err
-		}
-		return StringRegexCondition{Kind: StringRegexPredicate, Predicate: predicate}, nil
+		return StringRegexCondition{Kind: StringRegexPredicate, Predicate: label.predicate}, nil
 	}
 }
 
@@ -242,7 +268,8 @@ func (a *StringRegexAutomaton) Close() error {
 	if a == nil || a.closed {
 		return nil
 	}
-	result := a.builder.close()
+	result := a.releaseLabels()
+	result = errors.Join(result, a.builder.close())
 	a.conditions, a.labels, a.graph = nil, nil, nil
 	a.closed = true
 	return result
@@ -275,9 +302,12 @@ func NewSeqAutomaton(m *ast.ASTManager, regex ast.ASTHandle, solver SequenceExpr
 		return nil, a.Close()
 	}
 	if err := a.materialize(built); err != nil {
-		return nil, err
+		return nil, errors.Join(err, built.release())
 	}
 	a.graph.Compress()
+	if err := a.own(built); err != nil {
+		return nil, err
+	}
 	return a, nil
 }
 
