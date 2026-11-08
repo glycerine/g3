@@ -10,9 +10,10 @@ import (
 )
 
 // Native entries own the key/value references recorded by their acquisition
-// flags. Insertion order makes stopped reference cleanup deterministic.
+// flags. The source's chained table (table) fixes the release order.
 type astActivityEntry struct {
 	key, value                          ASTHandle
+	hash                                uint32 // obj_ptr_hash<expr>: the key's AST hash
 	accessed, dummy, keyHeld, valueHeld bool
 }
 
@@ -22,6 +23,7 @@ type ActivityCache struct {
 	self                     *ActivityCache
 	manager                  *ASTManager
 	entries                  insdict.Dict[ASTHandle, *astActivityEntry]
+	table                    activityChashtable
 	queue                    []ASTHandle
 	qhead, unused, maxUnused uint32
 	header                   uint64
@@ -58,6 +60,7 @@ func NewActivityCache(m *ASTManager, maxUnused *uint32) (*ActivityCache, error) 
 	}
 	c := &ActivityCache{manager: m, maxUnused: n, header: bytes}
 	c.entries = *insdict.NewDictFunc[ASTHandle, *astActivityEntry](activityHandleHash)
+	c.table = newActivityChashtable()
 	c.self = c
 	return c, nil
 }
@@ -132,6 +135,7 @@ func (c *ActivityCache) deleteUnused() error {
 			c.retiring = *entry
 			c.pending = true
 			c.entries.DelPackMaybe(k)
+			c.table.erase(entry)
 			if e := c.finishPending(); e != nil {
 				return e
 			}
@@ -166,6 +170,10 @@ func (c *ActivityCache) Insert(k, v ASTHandle) (err error) {
 	if _, e := m.GetSort(k); e != nil {
 		return e
 	}
+	hash, e := m.GetHash(k)
+	if e != nil {
+		return e
+	}
 	if !v.IsNull() {
 		if _, e := m.GetSort(v); e != nil {
 			return e
@@ -178,8 +186,9 @@ func (c *ActivityCache) Insert(k, v ASTHandle) (err error) {
 	}
 	entry, found := c.entries.Get2(k)
 	if !found {
-		entry = &astActivityEntry{key: k, dummy: true}
+		entry = &astActivityEntry{key: k, hash: hash, dummy: true}
 		c.entries.Put(k, entry)
+		c.table.insert(entry)
 	}
 	if entry.dummy {
 		if e := m.IncRef(k); e != nil {
@@ -255,12 +264,8 @@ func (c *ActivityCache) decRefs() error {
 	if e := c.finishPending(); e != nil {
 		return e
 	}
-	for _, entry := range c.entries.All() {
-		if e := c.retire(entry); e != nil {
-			return e
-		}
-	}
-	return nil
+	// act_cache::dec_refs walks the cmap: slot order, then each chain.
+	return c.table.each(c.retire)
 }
 func (c *ActivityCache) clear(cleanup bool) (err error) {
 	if c == nil || c.self != c || c.closed {
@@ -275,6 +280,11 @@ func (c *ActivityCache) clear(cleanup bool) (err error) {
 		return e
 	}
 	c.entries.Clear()
+	if cleanup {
+		c.table.finalize()
+	} else {
+		c.table.reset()
+	}
 	c.queue = c.queue[:0]
 	if cleanup {
 		c.queue = nil
@@ -308,6 +318,7 @@ func (c *ActivityCache) Close() error {
 		return e
 	}
 	c.entries = insdict.Dict[ASTHandle, *astActivityEntry]{}
+	c.table = activityChashtable{}
 	c.manager.BudgetField.Release(c.header)
 	c.queue = nil
 	c.header = 0
