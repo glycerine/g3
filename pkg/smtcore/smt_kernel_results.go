@@ -32,6 +32,9 @@ func (k *SMTKernel) ownLiteral(literal SMTLiteral) (ast.ASTHandle, error) {
 }
 
 func (k *SMTKernel) clearLiteralResults() error {
+	if err := k.releasePendingResults(); err != nil {
+		return err
+	}
 	for _, values := range []*[]ast.ASTHandle{&k.assignments, &k.relevantLiterals, &k.relevantLabeled, &k.guessed} {
 		for index := range *values {
 			root := &(*values)[index]
@@ -51,26 +54,69 @@ func (k *SMTKernel) clearLiteralResults() error {
 	return nil
 }
 
+// smtPendingLiteralResult is one literal with the atom its variable had when
+// the check ended; a query skips it if the variable has since been reused.
+type smtPendingLiteralResult struct {
+	literal SMTLiteral
+	atom    ast.ASTHandle
+}
+
+type smtPendingLiteralResults struct {
+	assignments, relevant, guessed []smtPendingLiteralResult
+	labeled                        []ast.ASTHandle
+	// held keeps the recorded atoms alive until the results are cleared, as
+	// the eagerly built result expressions did; callers rely on it.
+	held  []ast.ASTHandle
+	built bool
+}
+
+func (k *SMTKernel) pendingLiteral(pending *smtPendingLiteralResults, literal SMTLiteral) (smtPendingLiteralResult, error) {
+	atom := k.internalizer.boolExpr[literal.Var()]
+	if err := k.manager.IncRef(atom); err != nil {
+		return smtPendingLiteralResult{}, err
+	}
+	pending.held = append(pending.held, atom)
+	return smtPendingLiteralResult{literal: literal, atom: atom}, nil
+}
+
+func (k *SMTKernel) releasePendingResults() error {
+	pending := k.pendingResults
+	k.pendingResults = nil
+	if pending == nil {
+		return nil
+	}
+	var err error
+	for _, atom := range pending.held {
+		err = errors.Join(err, k.manager.DecRef(atom))
+	}
+	return err
+}
+
+// captureLiteralResults records the literals get_assignments,
+// get_relevant_literals, get_guessed_literals and
+// get_relevant_labeled_literals report after a satisfiable check. It creates
+// no expressions; materializeLiteralResults builds them on the first query.
 func (k *SMTKernel) captureLiteralResults(baseLevel uint32) error {
 	if err := k.clearLiteralResults(); err != nil {
 		return err
 	}
-	fail := func(cause error) error { return errors.Join(cause, k.clearLiteralResults()) }
+	pending := &smtPendingLiteralResults{}
+	k.pendingResults = pending
 	for _, literal := range k.internalizer.assignedLiterals {
-		expression, err := k.ownLiteral(literal)
+		if literal.Var() < SMTFirstBoolVar || int(literal.Var()) >= len(k.internalizer.boolExpr) {
+			return ast.ErrASTDomain
+		}
+		item, err := k.pendingLiteral(pending, literal)
 		if err != nil {
-			return fail(err)
+			return err
 		}
-		k.assignments = append(k.assignments, expression)
-		owner := k.internalizer.boolExpr[literal.Var()]
-		if !k.relevancy.IsRelevant(owner) {
-			continue
+		pending.assignments = append(pending.assignments, item)
+		if k.relevancy.IsRelevant(k.internalizer.boolExpr[literal.Var()]) {
+			if item, err = k.pendingLiteral(pending, literal); err != nil {
+				return err
+			}
+			pending.relevant = append(pending.relevant, item)
 		}
-		relevant, err := k.ownLiteral(literal)
-		if err != nil {
-			return fail(err)
-		}
-		k.relevantLiterals = append(k.relevantLiterals, relevant)
 	}
 	for level := int(baseLevel); level < len(k.internalizer.scopes); level++ {
 		index := k.internalizer.scopes[level].assignedLimit
@@ -81,11 +127,11 @@ func (k *SMTKernel) captureLiteralResults(baseLevel uint32) error {
 		if k.internalizer.booleanData[literal.Var()].Justification().Kind() != SMTBooleanJustificationAxiom {
 			continue
 		}
-		expression, err := k.ownLiteral(literal)
+		item, err := k.pendingLiteral(pending, literal)
 		if err != nil {
-			return fail(err)
+			return err
 		}
-		k.guessed = append(k.guessed, expression)
+		pending.guessed = append(pending.guessed, item)
 	}
 	for variable := int32(SMTFirstBoolVar); int(variable) < len(k.internalizer.boolExpr); variable++ {
 		expression := k.internalizer.boolExpr[variable]
@@ -93,29 +139,74 @@ func (k *SMTKernel) captureLiteralResults(baseLevel uint32) error {
 			continue
 		}
 		value, err := k.internalizer.Assignment(NewSMTLiteral(variable, false))
-		if err != nil || value != lbool.True {
-			if err != nil {
-				return fail(err)
-			}
+		if err != nil {
+			return err
+		}
+		if value != lbool.True {
 			continue
 		}
 		var names []usymbol.Symbol
 		label, err := k.manager.IsLabelLit(expression, &names)
 		if err != nil {
-			return fail(err)
+			return err
 		}
 		if label {
 			if err = k.manager.IncRef(expression); err != nil {
-				return fail(err)
+				return err
 			}
-			k.relevantLabeled = append(k.relevantLabeled, expression)
+			pending.held = append(pending.held, expression)
+			pending.labeled = append(pending.labeled, expression)
 		}
+	}
+	return nil
+}
+
+// materializeLiteralResults builds the recorded result expressions, owned by
+// the kernel until the results are cleared.
+func (k *SMTKernel) materializeLiteralResults() error {
+	pending := k.pendingResults
+	if pending == nil || pending.built {
+		return nil
+	}
+	pending.built = true
+	fail := func(cause error) error { return errors.Join(cause, k.clearLiteralResults()) }
+	build := func(items []smtPendingLiteralResult, out *[]ast.ASTHandle) error {
+		for _, item := range items {
+			v := item.literal.Var()
+			if int(v) >= len(k.internalizer.boolExpr) || k.internalizer.boolExpr[v] != item.atom {
+				continue
+			}
+			expression, err := k.ownLiteral(item.literal)
+			if err != nil {
+				return err
+			}
+			*out = append(*out, expression)
+		}
+		return nil
+	}
+	if err := build(pending.assignments, &k.assignments); err != nil {
+		return fail(err)
+	}
+	if err := build(pending.relevant, &k.relevantLiterals); err != nil {
+		return fail(err)
+	}
+	if err := build(pending.guessed, &k.guessed); err != nil {
+		return fail(err)
+	}
+	for _, expression := range pending.labeled {
+		if err := k.manager.IncRef(expression); err != nil {
+			return fail(err)
+		}
+		k.relevantLabeled = append(k.relevantLabeled, expression)
 	}
 	return nil
 }
 
 func (k *SMTKernel) Assignments() ([]ast.ASTHandle, error) {
 	if err := k.open(); err != nil {
+		return nil, err
+	}
+	if err := k.materializeLiteralResults(); err != nil {
 		return nil, err
 	}
 	return append([]ast.ASTHandle(nil), k.assignments...), nil
@@ -125,11 +216,17 @@ func (k *SMTKernel) RelevantLiterals() ([]ast.ASTHandle, error) {
 	if err := k.open(); err != nil {
 		return nil, err
 	}
+	if err := k.materializeLiteralResults(); err != nil {
+		return nil, err
+	}
 	return append([]ast.ASTHandle(nil), k.relevantLiterals...), nil
 }
 
 func (k *SMTKernel) RelevantLabeledLiterals(atLabels bool) ([]ast.ASTHandle, error) {
 	if err := k.open(); err != nil {
+		return nil, err
+	}
+	if err := k.materializeLiteralResults(); err != nil {
 		return nil, err
 	}
 	if !atLabels {
@@ -162,6 +259,9 @@ func (k *SMTKernel) RelevantLabeledLiterals(atLabels bool) ([]ast.ASTHandle, err
 
 func (k *SMTKernel) GuessedLiterals() ([]ast.ASTHandle, error) {
 	if err := k.open(); err != nil {
+		return nil, err
+	}
+	if err := k.materializeLiteralResults(); err != nil {
 		return nil, err
 	}
 	return append([]ast.ASTHandle(nil), k.guessed...), nil

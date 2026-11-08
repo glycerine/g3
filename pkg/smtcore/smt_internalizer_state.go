@@ -757,6 +757,9 @@ func (s *SMTInternalizerState) MkEnode(expression ast.ASTHandle, suppressArgumen
 	}
 	s.enodeStack = append(s.enodeStack, node)
 	s.statistics.NumMkEnode++
+	if smtTraceEnabled("mk_enode") {
+		s.traceMkEnode(node, count, congruenceEnabled)
+	}
 	// Source mk_enode assigns a newly created true equality immediately.
 	// Its operands may already have merged before this atom was internalized.
 	if node.IsTrueEquality() {

@@ -20,16 +20,31 @@ Found while matching `-st` output against `build/z3` on
    and does not draw, so later random choices diverge
    (nonlinear_nested_integer_row_aliases, bv_integer_conversion_scopes).
 
-3. **AST lifetimes of arith rewriter temporaries.** Go's arith rewriter
-   returns ref-count-0 handles that a later sweep frees; C++ frees each
-   `expr_ref` temporary on scope exit. Recycled AST ids then differ, and
-   mon_lt orders sum monomials by id (lia2pb_model_scopes). Narrowed
-   (2026-11-08): lia2pb_model_scopes' first check alone matches z3
-   exactly, and the goal reaching `smt` in the third check is textually
-   identical to z3's (apart from fresh `k!` names), so only the AST id
-   state left by the earlier checks differs (arith-add-rows 3 vs 5,
-   pivots 7 vs 6). Fixing it needs the source's release points for the
-   expr_ref temporaries along simplify, lia2pb and SMT preprocessing.
+3. **AST lifetimes and id recycling.** z3 frees each `expr_ref`
+   temporary on scope exit and recycles its id (LIFO), so later terms take
+   different ids, and mon_lt orders sum monomials by id
+   (lia2pb_model_scopes: arith-add-rows 3 vs 5, pivots 7 vs 6). Compare the
+   AST creation logs with `trace=true trace_file_name=FILE` on both
+   binaries (the `[mk-app] #id` lines). Fixed so far:
+   - eq2ineq creates the `>=` atom before the `<=` atom, as the reference
+     build (GCC, right-to-left argument evaluation) does;
+   - the kernel no longer builds `(not atom)` result literals after every
+     satisfiable check; get_assignments and the other getters build them
+     on the first query. (This exposed a pdr test that reused an
+     unowned `(not q)` handle; the test now holds a reference.)
+   Tried and reverted: releasing mk_le_ge_eq_core's cancel_monomials
+   results (new_arg1, new_arg2) on return. In g3 a hash-consed node with
+   reference count 0 stays live until an inc/dec pair, so the release
+   deleted nodes that callers still held without owning (pdr failed).
+   Doing this needs callers to own their handles first.
+   OPEN: the order in which a finished `check-sat-using` releases its SMT
+   context, goal and tactic objects. In
+   `(check-sat-using smt)(declare-const z Int)...(check-sat-using smt)`
+   z3 frees the first check's `(>= x+y 7)`, `(>= x 0)`, `(<= x+y 7)` in
+   that order and g3 frees them in creation order, so the second check's
+   new terms get different ids. This needs the source destruction order of
+   smt::context (flush: trail undo, clauses, justifications; then the
+   asserted_formulas and enode members) and of the tactic objects.
 
 4. **DONE: get-consequences algorithm.** smt_solver::get_consequences_core
    is now context::get_consequences (smt_consequences.cpp: antecedent sets,

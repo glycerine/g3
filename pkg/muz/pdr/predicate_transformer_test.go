@@ -74,6 +74,9 @@ func TestPredicateTransformerSignatureFramesAndReachability(t *testing.T) {
 	}
 	notQ, err := manager.MkNot(q)
 	pdrMust(t, err)
+	// notQ is reused across checks, so the test owns a reference to it.
+	notQRef, err := manager.NewRef(notQ)
+	pdrMust(t, err)
 	result, err = transformer.CheckReachable(1, notQ, false, false)
 	pdrMust(t, err)
 	if result.Status != lbool.False {
@@ -105,6 +108,7 @@ func TestPredicateTransformerSignatureFramesAndReachability(t *testing.T) {
 		t.Fatal("frame property accounting", stats)
 	}
 
+	pdrMust(t, manager.DelRef(&notQRef))
 	pdrMust(t, transformer.Close())
 	pdrMust(t, owner.Close())
 	pdrMust(t, command.Close())

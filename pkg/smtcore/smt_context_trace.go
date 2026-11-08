@@ -203,3 +203,24 @@ func (s *SMTInternalizerState) traceMkBoolVar(variable int32, expression ast.AST
 	emitSMTTrace("mk_bool_var", "mk_bool_var", "src/smt/smt_internalizer.cpp", 825,
 		"creating boolean variable: "+strconv.Itoa(int(variable))+" for:\n"+tracePP(s.manager, expression)+"\n")
 }
+
+func traceBool(b bool) string {
+	if b {
+		return "1"
+	}
+	return "0"
+}
+
+// traceMkEnode is the mk_enode record (src/smt/smt_internalizer.cpp:939).
+func (s *SMTInternalizerState) traceMkEnode(node *SMTEnode, count uint32, congruenceEnabled bool) {
+	id, err := node.OwnerID()
+	if err != nil {
+		return
+	}
+	body := "created enode: #" + strconv.Itoa(int(id)) + " for:\n" + tracePP(s.manager, node.owner) + "\n"
+	if count > 0 {
+		inTable := congruenceEnabled && node.congruence == node && !node.IsTrueEquality()
+		body += "is_true_eq: " + traceBool(node.IsTrueEquality()) + " in cg_table: " + traceBool(inTable) + " is_cgr: " + traceBool(node.congruence == node) + "\n"
+	}
+	emitSMTTrace("mk_enode", "mk_enode", "src/smt/smt_internalizer.cpp", 939, body)
+}

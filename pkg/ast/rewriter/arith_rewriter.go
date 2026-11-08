@@ -1138,11 +1138,14 @@ func (r *ArithRewriter) MkEqCore(left, right ast.ASTHandle, out ast.ASTRef) (Rew
 		return RewriteFailed, err
 	}
 	if r.eq2ineq {
-		le, err := r.app(arithOpLE, left, right)
+		// mk_and(mk_le(a, b), mk_ge(a, b)): the reference build (GCC, x86-64)
+		// evaluates the call arguments right to left, so the ge atom is
+		// created, and takes its AST id, first.
+		ge, err := r.app(arithOpGE, left, right)
 		if err != nil {
 			return RewriteFailed, err
 		}
-		ge, err := r.app(arithOpGE, left, right)
+		le, err := r.app(arithOpLE, left, right)
 		if err != nil {
 			return RewriteFailed, err
 		}

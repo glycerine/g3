@@ -35,28 +35,32 @@ type SMTKernel struct {
 	booleanSetupSeeded bool
 	smtParamsBorrowed  bool
 
-	manager          *ast.ASTManager
-	checker          *SMTCheckerContext
-	relevancy        *SMTRelevancyPropagator
-	repairRelevancy  bool
-	internalizer     *SMTInternalizerState
-	assertions       []SMTKernelAssertion
-	assertedHead     int
-	scopes           []int
-	pendingPop       *smtKernelPendingPop
-	unsatCore        []ast.ASTHandle
-	unsatProof       ast.ASTRef
-	assumptions      map[SMTLiteral]ast.ASTHandle
-	lastFailure      SMTFailure
+	manager         *ast.ASTManager
+	checker         *SMTCheckerContext
+	relevancy       *SMTRelevancyPropagator
+	repairRelevancy bool
+	internalizer    *SMTInternalizerState
+	assertions      []SMTKernelAssertion
+	assertedHead    int
+	scopes          []int
+	pendingPop      *smtKernelPendingPop
+	unsatCore       []ast.ASTHandle
+	unsatProof      ast.ASTRef
+	assumptions     map[SMTLiteral]ast.ASTHandle
+	lastFailure     SMTFailure
 	// lastSearch is the session of the latest search (its search level,
 	// conflict base and restart state), which get_consequences resumes.
-	lastSearch *smtSearchSession
+	lastSearch       *smtSearchSession
 	unknown          string
 	labels           []usymbol.Symbol
 	assignments      []ast.ASTHandle
 	relevantLiterals []ast.ASTHandle
 	relevantLabeled  []ast.ASTHandle
 	guessed          []ast.ASTHandle
+	// pendingResults records the literals of the latest satisfiable check;
+	// the result expressions are built on the first query, as the source
+	// getters build them, not when the check ends.
+	pendingResults   *smtPendingLiteralResults
 	callback         solver.ProgressCallback
 	modelConfig      model.ModelEvaluatorConfig
 	generated        *model.Model
