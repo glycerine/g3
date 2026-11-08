@@ -166,7 +166,7 @@ func (t *SMTBitVectorTheory) nativeBitBlaster() (*bit_blaster.Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	config.SetFlatAndOr(false)
+	// theory_bv's bit_blaster keeps the bool_rewriter default (flat).
 	return bit_blaster.NewEngine(config)
 }
 

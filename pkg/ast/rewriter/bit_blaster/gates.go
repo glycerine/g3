@@ -29,10 +29,6 @@ func NewConfig(m *ast.ASTManager, family ast.FamilyID, params SMTBitBlasterParam
 	return &Config{manager: m, family: family, params: params, flat: true}, nil
 }
 
-// SetFlatAndOr mirrors bit_blaster::set_flat_and_or. The SMT BV theory in
-// current C++ disables flattening to preserve shared carry subcircuits.
-func (c *Config) SetFlatAndOr(flat bool) { c.flat = flat }
-
 func newRewriterConfig(m *ast.ASTManager, family ast.FamilyID) (*Config, error) {
 	c, err := NewConfig(m, family, SMTBitBlasterParams{})
 	if err == nil {
