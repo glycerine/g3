@@ -63,7 +63,9 @@ func TestOptimizationResourceLimitDuringMaxResCoreIsUnknown(t *testing.T) {
 	contextMust(t, err)
 	_, err = c.LoadOPB(document)
 	contextMust(t, err)
-	contextMust(t, c.SetUIntOption("rlimit", 320))
+	// optimize() always runs normalize() first (simplify tactic), which now
+	// spends part of the resource budget before MaxRes starts.
+	contextMust(t, c.SetUIntOption("rlimit", 400))
 	status, err := c.CheckSat(nil)
 	contextMust(t, err)
 	if status != lbool.Undef {

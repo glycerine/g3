@@ -6,7 +6,6 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
-	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 type objectiveFormulaMetadata struct {
@@ -81,7 +80,13 @@ func (c *ObjectiveFormulaCodec) freshDeclaration(kind FormulaObjectiveKind, args
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	declaration, err := c.manager.MkFreshFuncDecl(prefix, usymbol.Symbol{}, domain, boolean)
+	// mk_fresh_func_decl(name, "", ...): the empty suffix is a non-null
+	// symbol, so the name is name!!N.
+	empty, err := c.manager.Symbols.Intern("")
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	declaration, err := c.manager.MkFreshFuncDecl(prefix, empty, domain, boolean)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}

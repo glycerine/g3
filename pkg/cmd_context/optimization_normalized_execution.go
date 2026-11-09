@@ -26,7 +26,10 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	if err != nil {
 		return nil, err
 	}
-	useSimplifier := settings.rlimit == 0 && settings.timeout == 0 && !paretoContinuation && !boxContinuation && priority != "pareto" && priority != "box"
+	// optimize() always runs normalize() unless it resumes Pareto or box
+	// execution.
+	_ = settings
+	useSimplifier := !paretoContinuation && !boxContinuation && priority != "pareto" && priority != "box"
 	for i := range original {
 		if original[i].soft && len(original[i].softTerms) == 0 {
 			useSimplifier = false

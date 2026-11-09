@@ -74,8 +74,10 @@ func TestOptimizationFrontendResourceLimitedOPBBounds(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"default-phase", []string{"rlimit=280", "-bpo", "-in"}, "unknown\n  [0:1]\n"},
-		{"seeded-phase", []string{"rlimit=320", "smt.phase_selection=5", "smt.random_seed=0", "-bpo", "-in"}, "unknown\n  [0:4]\n"},
+		// optimize() normalizes (simplify tactic) before MaxRes, which
+		// spends part of each budget.
+		{"default-phase", []string{"rlimit=380", "-bpo", "-in"}, "unknown\n  [0:1]\n"},
+		{"seeded-phase", []string{"rlimit=340", "smt.phase_selection=5", "smt.random_seed=0", "-bpo", "-in"}, "unknown\n  [0:3]\n"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
@@ -93,7 +95,7 @@ func TestOptimizationFrontendResourceLimitDuringMaxResCore(t *testing.T) {
 	input := "min: 1 ~x1 +2 ~x2 +3 ~x3 +4 ~x4 +5 ~x5 +6 ~x6;\n" +
 		"1 x1 +1 x2 +1 x3 +1 x4 +1 x5 +1 x6 <= 5;\n"
 	var output bytes.Buffer
-	if err := runArguments([]string{"rlimit=320", "-bpo", "-in"}, strings.NewReader(input), &output); err != nil {
+	if err := runArguments([]string{"rlimit=380", "-bpo", "-in"}, strings.NewReader(input), &output); err != nil {
 		t.Fatal(err, output.String())
 	}
 	if got, want := output.String(), "unknown\n  [0:1]\n"; got != want {
@@ -109,7 +111,7 @@ func TestOptimizationFrontendResourceLimitedSortMaxBounds(t *testing.T) {
 	if err := runArguments(args, strings.NewReader(input), &output); err != nil {
 		t.Fatal(err, output.String())
 	}
-	if got, want := output.String(), "unknown\n  [0:4]\n"; got != want {
+	if got, want := output.String(), "unknown\n  [0:5]\n"; got != want {
 		t.Fatalf("resource-limited SortMax output = %q, want %q", got, want)
 	}
 }
