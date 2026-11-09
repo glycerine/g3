@@ -255,7 +255,11 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 			return nil, errors.Join(err, transformer.Close())
 		}
 	} else {
-		if err = transformer.Register(transforms.NewQuantifierInstantiationPlugin(e.manager, e.rules, 37000)); err != nil {
+		instantiation := transforms.NewQuantifierInstantiationPlugin(e.manager, e.rules, 37000)
+		if e.params != nil && e.globals != nil {
+			instantiation.SetRuleMaker(e.transformRuleMaker())
+		}
+		if err = transformer.Register(instantiation); err != nil {
 			return nil, errors.Join(err, transformer.Close())
 		}
 	}

@@ -17,8 +17,12 @@ type QuantifierInstantiationPlugin struct {
 	manager  *ast.ASTManager
 	rules    *base.RuleManager
 	priority uint32
+	mkRule   ArrayInstantiationRuleMaker
 	closed   bool
 }
+
+// SetRuleMaker supplies rule_manager::mk_rule.
+func (p *QuantifierInstantiationPlugin) SetRuleMaker(mk ArrayInstantiationRuleMaker) { p.mkRule = mk }
 
 func NewQuantifierInstantiationPlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32) *QuantifierInstantiationPlugin {
 	return &QuantifierInstantiationPlugin{manager: manager, rules: rules, priority: priority}
@@ -400,7 +404,7 @@ func (p *QuantifierInstantiationPlugin) instantiate(q ast.ASTHandle, graph *quan
 	return instances, nil
 }
 
-func (p *QuantifierInstantiationPlugin) transformRule(rule *base.Rule) (_ *base.Rule, changed bool, resultErr error) {
+func (p *QuantifierInstantiationPlugin) transformRule(rule *base.Rule, destination *base.RuleSet) (_ *base.Rule, changed bool, resultErr error) {
 	total, err := rule.TailSize()
 	if err != nil {
 		return nil, false, err
@@ -447,6 +451,17 @@ func (p *QuantifierInstantiationPlugin) transformRule(rule *base.Rule) (_ *base.
 		return nil, false, errors.Join(err, variablesToConstants.Close())
 	}
 	defer func() { resultErr = errors.Join(resultErr, constantsToVariables.Close(), variablesToConstants.Close()) }()
+	// fml = m.mk_and(conjs) precedes the fresh constants; mk_and(n, args) is
+	// the raw n-ary and. fml stays alive across the reassignments below.
+	early, err := p.manager.MkFamilyApp(0, ast.ASTOpAnd, nil, conjuncts)
+	if err != nil {
+		return nil, false, err
+	}
+	fmlRef, err := p.manager.NewRef(early)
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&fmlRef)) }()
 	for _, variable := range variables {
 		if variable.IsNull() {
 			continue
@@ -466,19 +481,18 @@ func (p *QuantifierInstantiationPlugin) transformRule(rule *base.Rule) (_ *base.
 			return nil, false, getErr
 		}
 	}
-	body, err := p.manager.MkAndArgs(conjuncts)
+	body, err := p.manager.MkFamilyApp(0, ast.ASTOpAnd, nil, conjuncts)
 	if err != nil {
 		return nil, false, err
 	}
-	bodyRef, err := p.manager.NewRef(body)
-	if err != nil {
+	if err = p.manager.SetRef(fmlRef, body); err != nil {
 		return nil, false, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&bodyRef)) }()
-	if err = variablesToConstants.ApplyRef(bodyRef); err != nil {
+	// m_var2cnst(fml) rewrites fml in place.
+	if err = variablesToConstants.ApplyRef(fmlRef); err != nil {
 		return nil, false, err
 	}
-	body, err = p.manager.RefGet(bodyRef)
+	body, err = p.manager.RefGet(fmlRef)
 	if err != nil {
 		return nil, false, err
 	}
@@ -529,43 +543,89 @@ func (p *QuantifierInstantiationPlugin) transformRule(rule *base.Rule) (_ *base.
 	if err != nil {
 		return nil, false, err
 	}
-	replacement, err := p.rules.NewRuleWithSymbol(head, conjuncts, nil, name)
+	// fml = m.mk_and(conjs); fml = m.mk_implies(fml, r.get_head());
+	conjunction, err := p.manager.MkFamilyApp(0, ast.ASTOpAnd, nil, conjuncts)
+	if err != nil {
+		return nil, false, err
+	}
+	if err = p.manager.SetRef(fmlRef, conjunction); err != nil {
+		return nil, false, err
+	}
+	formula, err := p.manager.MkImplies(conjunction, head)
+	if err != nil {
+		return nil, false, err
+	}
+	if err = p.manager.SetRef(fmlRef, formula); err != nil {
+		return nil, false, err
+	}
+	// rule_set added_rules; rm.mk_rule(fml, pr, added_rules, r.name()).
+	added, err := base.NewRuleSet(p.rules)
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, added.Close()) }()
+	if p.mkRule != nil {
+		err = p.mkRule(added, formula, name)
+	} else {
+		err = p.rules.AddFormulaWithSymbol(added, formula, name)
+	}
 	if err != nil {
 		return nil, false, err
 	}
 	sourceProof, hasProof, err := rule.Proof()
-	if err == nil && hasProof {
-		oldFact, proofErr := p.manager.GetProofFact(sourceProof)
-		var formula ast.ASTRef
-		if proofErr == nil {
-			formula, proofErr = replacement.ToFormula()
-		}
-		var newFact ast.ASTHandle
-		if proofErr == nil {
-			newFact, proofErr = p.manager.RefGet(formula)
-		}
-		var weakening, asserted ast.ASTHandle
-		if proofErr == nil {
-			weakening, proofErr = p.manager.MkImplies(oldFact, newFact)
-		}
-		if proofErr == nil {
-			asserted, proofErr = p.manager.MkProofDefAxiom(weakening)
-		}
-		if proofErr == nil {
-			asserted, proofErr = p.manager.MkProofModusPonens(sourceProof, asserted)
-		}
-		if formula != (ast.ASTRef{}) {
-			proofErr = errors.Join(proofErr, p.manager.DelRef(&formula))
-		}
-		if proofErr == nil {
-			proofErr = replacement.SetProof(asserted)
-		}
-		err = proofErr
-	}
 	if err != nil {
-		return nil, false, errors.Join(err, replacement.Close())
+		return nil, false, err
 	}
-	return replacement, true, nil
+	count, err := added.Len()
+	if err != nil {
+		return nil, false, err
+	}
+	for i := 0; i < count; i++ {
+		derived, getErr := added.Rule(i)
+		if getErr != nil {
+			return nil, false, getErr
+		}
+		if hasProof {
+			// def-axiom: the new rule is a weakening of the original.
+			getErr = p.weakeningProof(sourceProof, derived)
+		}
+		if getErr == nil {
+			getErr = destination.Add(derived)
+		}
+		if getErr = errors.Join(getErr, derived.Close()); getErr != nil {
+			return nil, false, getErr
+		}
+	}
+	return nil, true, nil
+}
+
+func (p *QuantifierInstantiationPlugin) weakeningProof(sourceProof ast.ASTHandle, derived *base.Rule) error {
+	oldFact, err := p.manager.GetProofFact(sourceProof)
+	if err != nil {
+		return err
+	}
+	formula, err := derived.ToFormula()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = p.manager.DelRef(&formula) }()
+	newFact, err := p.manager.RefGet(formula)
+	if err != nil {
+		return err
+	}
+	weakening, err := p.manager.MkImplies(oldFact, newFact)
+	if err != nil {
+		return err
+	}
+	asserted, err := p.manager.MkProofDefAxiom(weakening)
+	if err != nil {
+		return err
+	}
+	asserted, err = p.manager.MkProofModusPonens(sourceProof, asserted)
+	if err != nil {
+		return err
+	}
+	return derived.SetProof(asserted)
 }
 
 func (p *QuantifierInstantiationPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
@@ -624,33 +684,29 @@ func (p *QuantifierInstantiationPlugin) Transform(source *base.RuleSet) (_ *base
 			resultErr = errors.Join(resultErr, result.Close())
 		}
 	}()
-	if err = result.InheritPredicates(source); err != nil {
-		return nil, err
-	}
 	changed := false
 	for i := 0; i < count; i++ {
 		rule, getErr := source.Rule(i)
 		if getErr != nil {
 			return nil, getErr
 		}
-		replacement, ruleChanged, transformErr := p.transformRule(rule)
+		_, ruleChanged, transformErr := p.transformRule(rule, result)
 		changed = changed || ruleChanged
-		if transformErr == nil {
-			if replacement == nil {
-				replacement = rule
-			}
-			transformErr = result.Add(replacement)
+		if transformErr == nil && !ruleChanged {
+			// qs.empty(): result->add_rule(r).
+			transformErr = result.Add(rule)
 		}
 		transformErr = errors.Join(transformErr, rule.Close())
-		if replacement != nil && replacement != rule {
-			transformErr = errors.Join(transformErr, replacement.Close())
-		}
 		if transformErr != nil {
 			return nil, transformErr
 		}
 	}
 	if !changed {
 		return nil, nil
+	}
+	// inherit_predicates follows the instantiated rules.
+	if err = result.InheritPredicates(source); err != nil {
+		return nil, err
 	}
 	keep = true
 	return result, nil
