@@ -934,7 +934,7 @@ func (c *Context) mkSolver(m *ast.ASTManager) error {
 		c.solver, err = portfolio.NewLRAStrategicSolver(m, &c.params, proofs, models, cores, c.config)
 	case "LIA":
 		c.solver, err = portfolio.NewLIAStrategicSolver(m, &c.params, proofs, models, cores, c.config)
-	case "QF_FP", "QF_FPBV", "QF_BVFP", "QF_FPLRA":
+	case "QF_FP", "QF_FPBV", "QF_BVFP":
 		c.solver, err = portfolio.NewQFFPStrategicSolverWithOutput(m, &c.params, proofs, models, cores, c.logic, c.config, contextRegularOutput{c})
 	case "QF_NIA":
 		c.solver, err = portfolio.NewQFNIAStrategicSolverWithOutput(m, &c.params, proofs, models, cores, c.config, contextRegularOutput{c})

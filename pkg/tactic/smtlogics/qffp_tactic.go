@@ -82,8 +82,10 @@ func NewQFFPTacticWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, config smt
 		}
 		return b.keep(tactic.NewIfNoProofsTactic(child))
 	}
+	// The first stage is mk_simplify_tactic(m, simp_p), not using_params:
+	// the closing st->updt_params(p) replaces its arith_lhs/elim_and.
 	preamble := b.then(
-		b.using(simplify(), simplifyParams),
+		simplify(),
 		b.keep(core.NewPropagateValuesTactic(m, c, g, p)),
 		b.clean(b.keep(fpatactic.NewFPA2BVTactic(m, c, g, p))),
 		b.keep(core.NewPropagateValuesTactic(m, c, g, p)),
