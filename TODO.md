@@ -698,6 +698,8 @@ Found while matching `-st` output against `build/z3` on
        m_var2cnst/m_cnst2var are plugin members, and ground_free_vars
        releases the fresh aux constant on reassignment;
        quantifier_instantiation 65 -> 256.
+     - DONE (26af4862c): mk_horn_rule's m_body/m_head terms live until the
+       next rule; array_blast 75 -> 82.
      - OPEN: fp_spacer_mutual_inv line 117. z3 frees qe_lite's input fml
        (and ...) inside th_rewriter before DER's intermediate; g3 frees the
        intermediate first (equalityDERCall.close releases c.refs LIFO). A
