@@ -842,6 +842,11 @@ Found while matching `-st` output against `build/z3` on
     identical; horn_tactic_finite still differs at 34, where z3 frees the
     (not Q) temporary and wraps the query rule in a forall), and
     sat_dimacs/pb2bv string printing (35, 46).
+    DONE (d59ca8f62, 71d51408f and the follow-up): one-shot trace/print
+    formats were never released, while z3's format_ref frees them after
+    pp(). PrintFormatTransient owns and releases an unreferenced root,
+    and every one-shot call site uses it. sat_dimacs is now identical;
+    full logs 402 -> 406.
 
 21. **Recorded deviations, kept deliberately.** cmd/g3 tests encode
    these: bvsmul_noovfl numeral folding uses signed semantics (the source
