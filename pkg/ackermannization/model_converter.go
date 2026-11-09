@@ -23,11 +23,12 @@ type conversion struct {
 	evaluator        *model.ModelEvaluator
 	functions        map[ast.ASTHandle]*model.FunctionInterpretation
 	// layout is the interpretations obj_map's layout (its iteration order).
-	layout *ast.ObjMap
-	abstract, value  ast.ASTRef
-	arguments        []ast.ASTHandle
-	failures         []memory.ConstructionFailure
+	layout          *ast.ObjMap
+	abstract, value ast.ASTRef
+	arguments       []ast.ASTHandle
+	failures        []memory.ConstructionFailure
 }
+
 // functionDeclarations lists the interpretations obj_map's keys in its
 // iteration order.
 func (w *conversion) functionDeclarations() []ast.ASTHandle {

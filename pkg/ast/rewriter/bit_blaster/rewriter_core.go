@@ -35,12 +35,12 @@ type BitBlasterRewriter struct {
 	traversal *parent.Traversal
 	// cache is m_const2bits (obj_map<func_decl, expr*>, holding no
 	// references); keyRoots and values are m_keys and m_values.
-	cache     *ast.ObjMap
-	keys      []ast.ASTHandle
-	keyRoots  []ast.ASTRef
-	values    []ast.ASTRef
-	limits    []int
-	bindings  []ast.ASTRef
+	cache    *ast.ObjMap
+	keys     []ast.ASTHandle
+	keyRoots []ast.ASTRef
+	values   []ast.ASTRef
+	limits   []int
+	bindings []ast.ASTRef
 	// in1, in2 and outBits are blaster_rewriter_cfg's m_in1, m_in2 and
 	// m_out: each operation resets them when it starts, so an operation's
 	// bits stay alive until the next one (or the rewriter's destruction).

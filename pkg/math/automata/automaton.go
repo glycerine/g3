@@ -110,6 +110,7 @@ func (a *Automaton) Moves() []Move {
 	}
 	return result
 }
+
 // InverseMoves lists m_delta_inv in destruction order: every state's
 // incoming moves, including the copies kept for states that compress
 // sinkified or trimmed from the outgoing lists.
