@@ -61,6 +61,30 @@ func (c *equalityDERCall) hold(h ast.ASTHandle) (ast.ASTHandle, error) {
 	c.refs = append(c.refs, r)
 	return h, nil
 }
+
+// releaseFrom ends a scope opened at mark: it first holds each kept handle
+// with a fresh call-level reference (m_new_exprs), then releases the
+// scope's own references forward.
+func (c *equalityDERCall) releaseFrom(mark int, kept []ast.ASTHandle) error {
+	scope := append([]ast.ASTRef(nil), c.refs[mark:]...)
+	c.refs = c.refs[:mark]
+	for _, h := range kept {
+		if _, err := c.hold(h); err != nil {
+			return errors.Join(err, closeEqualityRefs(c.owner.manager, scope))
+		}
+	}
+	return closeEqualityRefs(c.owner.manager, scope)
+}
+
+func closeEqualityRefs(m *ast.ASTManager, refs []ast.ASTRef) (result error) {
+	for i := range refs {
+		if refs[i] != (ast.ASTRef{}) {
+			result = errors.Join(result, m.DelRef(&refs[i]))
+		}
+	}
+	return result
+}
+
 func (c *equalityDERCall) ref(h ast.ASTHandle) (ast.ASTRef, error) {
 	r, err := c.owner.manager.NewRef(h)
 	if err == nil {

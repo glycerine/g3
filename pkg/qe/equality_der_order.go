@@ -76,11 +76,18 @@ func (d *EqualityDER) findDefinitions(c *equalityDERCall, args []ast.ASTHandle, 
 		if err = d.checkpoint(); err != nil {
 			return count, err
 		}
+		// ts (expr_ref_vector) is local to the iteration: an accepted
+		// definition survives through m_new_exprs, the rest die here.
+		mark := len(c.refs)
+		var kept []ast.ASTHandle
 		solutions, matched, err := d.variableDefinition(c, h, exists)
 		if err != nil {
 			return count, err
 		}
 		if !matched {
+			if err = c.releaseFrom(mark, nil); err != nil {
+				return count, err
+			}
 			continue
 		}
 		for _, solution := range solutions {
@@ -93,9 +100,7 @@ func (d *EqualityDER) findDefinitions(c *equalityDERCall, args []ast.ASTHandle, 
 			}
 			entry := &c.definitions[index]
 			if entry.term.IsNull() {
-				if _, err = c.hold(solution.term); err != nil {
-					return count, err
-				}
+				kept = append(kept, solution.term)
 				*entry = equalityDefinition{solution.variable, solution.term, i}
 				c.positions[i] = int(index)
 				count++
@@ -131,9 +136,7 @@ func (d *EqualityDER) findDefinitions(c *equalityDERCall, args []ast.ASTHandle, 
 				}
 			}
 			if preferred {
-				if _, err = c.hold(solution.term); err != nil {
-					return count, err
-				}
+				kept = append(kept, solution.term)
 				c.positions[entry.position] = -1
 				c.positions[i] = int(index)
 				entry.position = i
@@ -160,6 +163,9 @@ func (d *EqualityDER) findDefinitions(c *equalityDERCall, args []ast.ASTHandle, 
 			if err != nil {
 				return count, err
 			}
+		}
+		if err = c.releaseFrom(mark, kept); err != nil {
+			return count, err
 		}
 	}
 	return count, nil
