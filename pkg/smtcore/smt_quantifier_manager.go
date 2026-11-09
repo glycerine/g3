@@ -10,6 +10,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -18,20 +19,24 @@ import (
 // the Go SMT context. Pattern matching and model-based checking add instances
 // through Registry; this manager schedules and internalizes those instances.
 type SMTQuantifierManager struct {
-	state                       *SMTInternalizerState
-	registry                    *SMTQuantifierRegistry
-	rewriter                    *rewriter.TheoryRewriter
-	checker                     *SMTChecker
-	quick                       *SMTQuickChecker
-	substitute                  *SMTCachedVarSubstitution
-	builder                     *SMTQIInstanceBuilder
-	mam                         *SMTMAM
-	lazyMAM                     *SMTMAM
-	modelFinder                 *SMTModelFinder
-	modelChecker                *SMTModelChecker
-	auxiliarySolver             smtAuxiliarySolverFactory
-	candidateModel              func() (*SMTModelGenerator, error)
-	acceptedModel               *SMTModelGenerator
+	state           *SMTInternalizerState
+	registry        *SMTQuantifierRegistry
+	rewriter        *rewriter.TheoryRewriter
+	checker         *SMTChecker
+	quick           *SMTQuickChecker
+	substitute      *SMTCachedVarSubstitution
+	builder         *SMTQIInstanceBuilder
+	mam             *SMTMAM
+	lazyMAM         *SMTMAM
+	modelFinder     *SMTModelFinder
+	modelChecker    *SMTModelChecker
+	auxiliarySolver smtAuxiliarySolverFactory
+	candidateModel  func() (*SMTModelGenerator, error)
+	acceptedModel   *SMTModelGenerator
+	// retiredProto is context::m_proto_model after MBQI rejected it: it
+	// stays alive until the next mk_proto_model has built its successor, or
+	// the search starts or ends.
+	retiredProto                *protomodel.ProtoModel
 	activated                   map[ast.ASTHandle]bool
 	activationTrail             []ast.ASTHandle
 	activationScopes            []int
@@ -218,6 +223,9 @@ func (q *SMTQuantifierManager) InitSearch() error {
 		return err
 	}
 	q.lazyMatchingIndex = 0
+	if err := q.releaseRetiredProto(); err != nil {
+		return err
+	}
 	if q.acceptedModel != nil {
 		if err := q.acceptedModel.Close(); err != nil {
 			return err
@@ -626,7 +634,7 @@ func (q *SMTQuantifierManager) CheckModel() (SMTQuantifierModelCheckResult, erro
 			return SMTQuantifierModelUnknown, err
 		}
 		if len(q.modelFinder.pendingConstraints) != 0 {
-			return SMTQuantifierModelRestart, generator.Close()
+			return SMTQuantifierModelRestart, q.retireCandidate(generator)
 		}
 		if err = q.modelChecker.SetCandidateTerms(generator.rootValues); err != nil {
 			return SMTQuantifierModelUnknown, errors.Join(err, generator.Close())
@@ -640,7 +648,7 @@ func (q *SMTQuantifierManager) CheckModel() (SMTQuantifierModelCheckResult, erro
 			return SMTQuantifierModelUnknown, errors.Join(checkErr, generator.Close())
 		}
 		if !modelSatisfied {
-			if err = generator.Close(); err != nil {
+			if err = q.retireCandidate(generator); err != nil {
 				return SMTQuantifierModelUnknown, err
 			}
 			if q.modelChecker.HasNewInstances() {
@@ -657,6 +665,32 @@ func (q *SMTQuantifierManager) CheckModel() (SMTQuantifierModelCheckResult, erro
 		return SMTQuantifierModelSAT, nil
 	}
 	return SMTQuantifierModelUnknown, nil
+}
+
+// retireCandidate closes a rejected candidate's generator (its pins go to
+// the kernel's model_generator m_asts) but keeps its proto model.
+func (q *SMTQuantifierManager) retireCandidate(generator *SMTModelGenerator) error {
+	proto := generator.model
+	generator.model = nil
+	err := generator.Close()
+	if proto == nil {
+		return err
+	}
+	if q.retiredProto != nil {
+		err = errors.Join(err, q.retiredProto.Close())
+	}
+	q.retiredProto = proto
+	return err
+}
+
+// releaseRetiredProto drops m_proto_model's rejected candidate.
+func (q *SMTQuantifierManager) releaseRetiredProto() error {
+	if q == nil || q.retiredProto == nil {
+		return nil
+	}
+	proto := q.retiredProto
+	q.retiredProto = nil
+	return proto.Close()
 }
 
 func (q *SMTQuantifierManager) mbqiEnabled(quantifier ast.ASTHandle) (bool, error) {
@@ -694,6 +728,9 @@ func (q *SMTQuantifierManager) Close() error {
 	}
 	if q.closed {
 		return nil
+	}
+	if err := q.releaseRetiredProto(); err != nil {
+		return err
 	}
 	if q.acceptedModel != nil {
 		if err := q.acceptedModel.Close(); err != nil {

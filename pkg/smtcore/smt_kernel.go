@@ -517,6 +517,12 @@ func (k *SMTKernel) buildCandidateModelGenerator() (*SMTModelGenerator, error) {
 			return fail(err)
 		}
 	}
+	// m_proto_model = mk_model(): a rejected predecessor dies now.
+	if manager := k.internalizer.quantifierManager; manager != nil {
+		if err = manager.releaseRetiredProto(); err != nil {
+			return fail(err)
+		}
+	}
 	return generator, nil
 }
 
@@ -1296,10 +1302,14 @@ func (k *SMTKernel) buildGeneratedModel() error {
 		manager.acceptedModel = nil
 	}
 	if !k.produceModel {
-		if generator != nil {
-			return generator.Close()
+		var err error
+		if manager := k.internalizer.quantifierManager; manager != nil {
+			err = manager.releaseRetiredProto()
 		}
-		return nil
+		if generator != nil {
+			err = errors.Join(err, generator.Close())
+		}
+		return err
 	}
 	var err error
 	if generator == nil {
@@ -1316,6 +1326,10 @@ func (k *SMTKernel) buildGeneratedModel() error {
 		return errors.Join(err, generated.Core().DecRef())
 	}
 	k.generated = generated
+	// ~scoped_mk_model: m_proto_model = nullptr once m_model exists.
+	if manager := k.internalizer.quantifierManager; manager != nil {
+		return manager.releaseRetiredProto()
+	}
 	return nil
 }
 
