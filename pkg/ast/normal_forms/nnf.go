@@ -36,10 +36,6 @@ func DefaultNNFOptions() NNFOptions {
 }
 
 type nnfResult struct{ value, proof ast.ASTHandle }
-type nnfCacheEntry struct {
-	key                  ast.ASTHandle
-	keyRef, value, proof ast.ASTRef
-}
 
 // NNF performs polarity-aware negation-normal-form conversion and
 // skolemization, retaining the source's four (polarity, quantifier-scope)
@@ -53,11 +49,14 @@ type NNF struct {
 	quant      *ExprNamer
 	options    NNFOptions
 	maxMemory  uint64
-	caches     [4]map[ast.ASTHandle]nnfCacheEntry
-	scratch    []ast.ASTRef
-	todoDefs   []ast.ASTRef
-	todoProofs []ast.ASTRef
-	closed     bool
+	// caches and proofCaches are m_cache[4] and m_cache_pr[4] (act_caches;
+	// the proof caches exist only under proofs).
+	caches      [4]*ast.ActivityCache
+	proofCaches [4]*ast.ActivityCache
+	scratch     []ast.ASTRef
+	todoDefs    []ast.ASTRef
+	todoProofs  []ast.ASTRef
+	closed      bool
 }
 
 func NewNNF(m *ast.ASTManager, names *DefinedNames, options NNFOptions) (*NNF, error) {
@@ -66,10 +65,33 @@ func NewNNF(m *ast.ASTManager, names *DefinedNames, options NNFOptions) (*NNF, e
 	}
 	n := &NNF{manager: m, names: names}
 	n.self = n
-	for i := range n.caches {
-		n.caches[i] = make(map[ast.ASTHandle]nnfCacheEntry)
+	proofs, e := m.ProofsEnabled()
+	if e != nil {
+		return n, e
 	}
-	var e error
+	closeCaches := func(cause error) (*NNF, error) {
+		for i := range n.caches {
+			if n.caches[i] != nil {
+				cause = errors.Join(cause, n.caches[i].Close())
+				n.caches[i] = nil
+			}
+			if n.proofCaches[i] != nil {
+				cause = errors.Join(cause, n.proofCaches[i].Close())
+				n.proofCaches[i] = nil
+			}
+		}
+		return nil, cause
+	}
+	for i := range n.caches {
+		if n.caches[i], e = ast.NewActivityCache(m, nil); e != nil {
+			return closeCaches(e)
+		}
+		if proofs {
+			if n.proofCaches[i], e = ast.NewActivityCache(m, nil); e != nil {
+				return closeCaches(e)
+			}
+		}
+	}
 	n.skolemizer, e = NewSkolemizer(m)
 	if e != nil {
 		return n, e
@@ -192,40 +214,28 @@ func (n *NNF) hold(h ast.ASTHandle) error {
 	return nil
 }
 
+// cacheResult is cache_result: m_cache[idx]->insert(t, v), then the proof.
 func (n *NNF) cacheResult(key ast.ASTHandle, polarity, inQuantifier bool, r nnfResult) error {
 	i := nnfCacheIndex(polarity, inQuantifier)
-	if _, found := n.caches[i][key]; found {
-		return nil
+	if e := n.caches[i].Insert(key, r.value); e != nil {
+		return e
 	}
-	e := nnfCacheEntry{key: key}
-	var x error
-	if e.keyRef, x = n.manager.NewRef(key); x != nil {
-		return x
+	if n.proofCaches[i] != nil {
+		return n.proofCaches[i].Insert(key, r.proof)
 	}
-	if e.value, x = n.manager.NewRef(r.value); x != nil {
-		return errors.Join(x, n.manager.DelRef(&e.keyRef))
-	}
-	if !r.proof.IsNull() {
-		if e.proof, x = n.manager.NewRef(r.proof); x != nil {
-			return errors.Join(x, n.manager.DelRef(&e.value), n.manager.DelRef(&e.keyRef))
-		}
-	}
-	n.caches[i][key] = e
 	return nil
 }
 
+// cached is get_cached and get_cached_pr.
 func (n *NNF) cached(key ast.ASTHandle, polarity, inQuantifier bool) (nnfResult, bool, error) {
-	e, found := n.caches[nnfCacheIndex(polarity, inQuantifier)][key]
-	if !found {
-		return nnfResult{}, false, nil
-	}
-	v, x := n.manager.RefGet(e.value)
-	if x != nil {
+	i := nnfCacheIndex(polarity, inQuantifier)
+	v, x := n.caches[i].Find(key)
+	if x != nil || v.IsNull() {
 		return nnfResult{}, false, x
 	}
 	var p ast.ASTHandle
-	if e.proof != (ast.ASTRef{}) {
-		p, x = n.manager.RefGet(e.proof)
+	if n.proofCaches[i] != nil {
+		p, x = n.proofCaches[i].Find(key)
 	}
 	return nnfResult{v, p}, true, x
 }
@@ -849,37 +859,19 @@ func (n *NNF) Reset() error {
 	return n.clearScratch()
 }
 
+// ResetCache is reset_cache: each m_cache[i]->reset(), then its proof cache.
 func (n *NNF) ResetCache() error {
 	if e := n.open(); e != nil {
 		return e
 	}
 	for i := range n.caches {
-		keys := make([]ast.ASTHandle, 0, len(n.caches[i]))
-		for key := range n.caches[i] {
-			keys = append(keys, key)
+		if e := n.caches[i].Reset(); e != nil {
+			return e
 		}
-		ast.SortHandles(keys)
-		for _, key := range keys {
-			entry := n.caches[i][key]
-			if entry.proof != (ast.ASTRef{}) {
-				if e := n.manager.DelRef(&entry.proof); e != nil {
-					n.caches[i][key] = entry
-					return e
-				}
+		if n.proofCaches[i] != nil {
+			if e := n.proofCaches[i].Reset(); e != nil {
+				return e
 			}
-			if entry.value != (ast.ASTRef{}) {
-				if e := n.manager.DelRef(&entry.value); e != nil {
-					n.caches[i][key] = entry
-					return e
-				}
-			}
-			if entry.keyRef != (ast.ASTRef{}) {
-				if e := n.manager.DelRef(&entry.keyRef); e != nil {
-					n.caches[i][key] = entry
-					return e
-				}
-			}
-			delete(n.caches[i], key)
 		}
 	}
 	return nil
@@ -895,8 +887,18 @@ func (n *NNF) Close() error {
 	if e := n.clearScratch(); e != nil {
 		return e
 	}
-	if e := n.ResetCache(); e != nil {
-		return e
+	// ~imp: dealloc(m_cache[i]) and m_cache_pr[i] for each i.
+	for i := range n.caches {
+		if n.caches[i] != nil {
+			if e := n.caches[i].Close(); e != nil {
+				return e
+			}
+		}
+		if n.proofCaches[i] != nil {
+			if e := n.proofCaches[i].Close(); e != nil {
+				return e
+			}
+		}
 	}
 	if n.quant != nil {
 		if e := n.quant.Close(); e != nil {

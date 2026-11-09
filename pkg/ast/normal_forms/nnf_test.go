@@ -260,7 +260,9 @@ func TestNNFDeepTraversalCacheResetAndOwnerGuards(t *testing.T) {
 	nnfTransform(t, m, n, shared)
 	populated := false
 	for i := range n.caches {
-		populated = populated || len(n.caches[i]) != 0
+		size, e := n.caches[i].Size()
+		definedNamesMust(t, e)
+		populated = populated || size != 0
 	}
 	if !populated {
 		t.Fatal("shared expression was not cached")
@@ -268,15 +270,17 @@ func TestNNFDeepTraversalCacheResetAndOwnerGuards(t *testing.T) {
 	definedNamesMust(t, n.Reset())
 	stillPopulated := false
 	for i := range n.caches {
-		stillPopulated = stillPopulated || len(n.caches[i]) != 0
+		size, e := n.caches[i].Size()
+		definedNamesMust(t, e)
+		stillPopulated = stillPopulated || size != 0
 	}
 	if !stillPopulated {
 		t.Fatal("Reset cleared persistent caches")
 	}
 	definedNamesMust(t, n.ResetCache())
 	for i := range n.caches {
-		if len(n.caches[i]) != 0 {
-			t.Fatal("ResetCache retained entries", i, len(n.caches[i]))
+		if size, e := n.caches[i].Size(); e != nil || size != 0 {
+			t.Fatal("ResetCache retained entries", i, size, e)
 		}
 	}
 	copyOwner := *n
