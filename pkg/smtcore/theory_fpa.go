@@ -207,7 +207,9 @@ func (t *SMTFloatingPointTheory) unwrapFloating(expression, sort ast.ASTHandle) 
 	if width != ebits+sbits {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
-	sign, err := state.manager.MkBitVectorExtract(width-1, width-1, expression)
+	// mk_fp(extract(sgn), extract(exp), extract(sig)): GCC builds the
+	// extracts right to left.
+	significand, err := state.manager.MkBitVectorExtract(sbits-2, 0, expression)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -215,7 +217,7 @@ func (t *SMTFloatingPointTheory) unwrapFloating(expression, sort ast.ASTHandle) 
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	significand, err := state.manager.MkBitVectorExtract(sbits-2, 0, expression)
+	sign, err := state.manager.MkBitVectorExtract(width-1, width-1, expression)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -935,20 +937,26 @@ func (t *SMTFloatingPointTheory) ApplySortConstraint(node *SMTEnode, sort ast.AS
 		if op, own, operationErr := t.operation(owner); operationErr != nil {
 			return operationErr
 		} else if !own || op != ast.FPAOpBV2RM {
-			packed, wrapErr := t.wrap(owner)
-			if wrapErr != nil {
-				return wrapErr
-			}
+			// limit = mk_numeral(4, 3); valid = mk_ule(wrap(owner), limit).
 			limit, limitErr := state.manager.BitVectorNumeralUint64(4, 3)
 			if limitErr != nil {
 				return limitErr
+			}
+			packed, wrapErr := t.wrap(owner)
+			if wrapErr != nil {
+				return wrapErr
 			}
 			valid, validErr := state.manager.MkBitVectorULE(packed, limit)
 			if validErr != nil {
 				return validErr
 			}
-			return t.assertConstraint(valid)
+			if err = t.assertConstraint(valid); err != nil {
+				return err
+			}
 		}
+	}
+	if state.relevancy == nil || !state.relevancy.enabled {
+		return t.Relevant(node.Owner())
 	}
 	return nil
 }
