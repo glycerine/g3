@@ -17,6 +17,9 @@ to allow g3 to integrate with GoIvy, this is the version of Z3 that g3 requires.
 
 See also GoIvy, my port of Ivy to Go: https://github.com/glycerine/ivy
 
+For summary of features added to Z3 since the 2018 fork of 4.7.1, and therefore missing
+in g3 (for now), [see z3-since-4.7.1.md](z3-since-4.7.1.md).
+
 ---------
 Author: Jason E. Aten, Ph.D.
 
