@@ -198,23 +198,14 @@ func (c *SMTModelChecker) restrictSkolemToUniverse(auxiliary *SMTSolver, skolem 
 	if len(universe) == 0 {
 		return ast.ErrASTDomain
 	}
+	// restrict_to_universe: the equalities sit in a ptr_buffer (no
+	// references) until mk_or takes them; fml is an expr_ref.
 	equalities := make([]ast.ASTHandle, 0, len(universe))
-	refs := make([]ast.ASTRef, 0, len(universe))
-	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			result = errors.Join(result, c.manager.DelRef(&refs[i]))
-		}
-	}()
 	for _, value := range universe {
 		equal, err := c.manager.MkEq(skolem, value)
 		if err != nil {
 			return err
 		}
-		ref, err := c.manager.NewRef(equal)
-		if err != nil {
-			return err
-		}
-		refs = append(refs, ref)
 		equalities = append(equalities, equal)
 	}
 	clause, err := c.manager.MkOrArgs(equalities)
@@ -282,7 +273,10 @@ func (c *SMTModelChecker) addInstantiationSetRestrictions(auxiliary *SMTSolver, 
 	if uint32(len(skolems)) < count {
 		return false, ast.ErrASTDomain
 	}
-	for i, skolem := range skolems[:count] {
+	// restrict_sks_to_inst_set walks uvar 0..n-1, i.e. declarations from the
+	// last to the first; each eqs is a ptr_buffer and new_cnstr an expr_ref.
+	for i := int(count) - 1; i >= 0; i-- {
+		skolem := skolems[i]
 		if skolem.IsNull() {
 			continue
 		}
@@ -294,38 +288,23 @@ func (c *SMTModelChecker) addInstantiationSetRestrictions(auxiliary *SMTSolver, 
 			continue
 		}
 		equalities := make([]ast.ASTHandle, 0, len(values))
-		refs := make([]ast.ASTRef, 0, len(values))
 		for _, value := range values {
 			equal, e := c.manager.MkEq(skolem, value)
 			if e != nil {
-				for j := range refs {
-					result = errors.Join(result, c.manager.DelRef(&refs[j]))
-				}
-				return false, errors.Join(e, result)
+				return false, e
 			}
-			ref, e := c.manager.NewRef(equal)
-			if e != nil {
-				for j := range refs {
-					result = errors.Join(result, c.manager.DelRef(&refs[j]))
-				}
-				return false, errors.Join(e, result)
-			}
-			refs = append(refs, ref)
 			equalities = append(equalities, equal)
 		}
 		clause, err := c.manager.MkOrArgs(equalities)
-		if err == nil {
-			var clauseRef ast.ASTRef
-			clauseRef, err = c.manager.NewRef(clause)
-			if err == nil {
-				err = auxiliary.Assert(clause)
-				err = errors.Join(err, c.manager.DelRef(&clauseRef))
-			}
-		}
-		for j := range refs {
-			err = errors.Join(err, c.manager.DelRef(&refs[j]))
-		}
 		if err != nil {
+			return false, err
+		}
+		clauseRef, err := c.manager.NewRef(clause)
+		if err != nil {
+			return false, err
+		}
+		err = auxiliary.Assert(clause)
+		if err = errors.Join(err, c.manager.DelRef(&clauseRef)); err != nil {
 			return false, err
 		}
 		asserted = true
