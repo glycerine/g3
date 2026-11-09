@@ -15,10 +15,13 @@ import (
 // Original constant/function interpretation ownership. The derived model
 // supplies universe lifetimes and virtual final-reference destruction.
 type ModelCore struct {
-	self                               *ModelCore
-	manager                            *ast.ASTManager
-	Constants                          insdict.Dict[ast.ASTHandle, *modelConstantEntry]
-	Functions                          insdict.Dict[ast.ASTHandle, *modelFunctionEntry]
+	self      *ModelCore
+	manager   *ast.ASTManager
+	Constants insdict.Dict[ast.ASTHandle, *modelConstantEntry]
+	Functions insdict.Dict[ast.ASTHandle, *modelFunctionEntry]
+	// constantLayout and functionLayout are the key layouts of m_interp and
+	// m_finterp (obj_maps): code that iterates them walks table order.
+	constantLayout, functionLayout     *ast.ObjMap
 	removedFunction                    *modelFunctionEntry
 	removedConstant                    *modelConstantEntry
 	copiedFunction                     *FunctionInterpretation
@@ -53,6 +56,7 @@ func NewModelCore(m *ast.ASTManager) (md *ModelCore, err error) {
 	md.self = md
 	md.Constants = *insdict.NewDictFunc[ast.ASTHandle, *modelConstantEntry](modelHandleHash)
 	md.Functions = *insdict.NewDictFunc[ast.ASTHandle, *modelFunctionEntry](modelHandleHash)
+	md.constantLayout, md.functionLayout = ast.NewObjMap(m), ast.NewObjMap(m)
 	return md, nil
 }
 func (md *ModelCore) open() error {
@@ -101,6 +105,9 @@ func (md *ModelCore) RegisterConstant(d, v ast.ASTHandle) error {
 	if !found {
 		entry = &modelConstantEntry{declaration: d}
 		md.Constants.Set(d, entry)
+		if e = md.constantLayout.Insert(d, [2]ast.ASTHandle{}); e != nil {
+			return e
+		}
 	}
 	if !entry.pending.IsNull() {
 		return ast.ErrASTPending
@@ -225,6 +232,9 @@ func (md *ModelCore) UnregisterConstant(d ast.ASTHandle) error {
 	}
 	md.removedConstant = entry
 	md.Constants.Del(d)
+	if e = md.constantLayout.Erase(d); e != nil {
+		return e
+	}
 	for i, h := range md.ConstantDeclarations {
 		if h == d {
 			copy(md.ConstantDeclarations[i:], md.ConstantDeclarations[i+1:])
@@ -245,8 +255,8 @@ func (md *ModelCore) CopyConstantInterpretations(source *ModelCore) error {
 	if md.manager != source.manager {
 		return ast.ErrASTHandle
 	}
-	for d, entry := range source.Constants.All() {
-		if e := md.RegisterConstant(d, entry.value); e != nil {
+	for _, entry := range source.constantEntries() {
+		if e := md.RegisterConstant(entry.declaration, entry.value); e != nil {
 			return e
 		}
 	}
@@ -294,13 +304,13 @@ func (md *ModelCore) closeCoreMembers() error {
 		return nil
 	}
 	m := md.manager
-	// Retire constants before functions, in dictionary insertion order.
-	for _, entry := range md.Constants.All() {
+	// ~model_core: m_interp, then m_finterp, each in table order.
+	for _, entry := range md.constantEntries() {
 		if e := md.retireConstant(entry); e != nil {
 			return e
 		}
 	}
-	for _, entry := range md.Functions.All() {
+	for _, entry := range md.functionEntries() {
 		if e := md.retireFunction(entry, 29); e != nil {
 			return e
 		}
@@ -324,8 +334,49 @@ func (md *ModelCore) closeCoreMembers() error {
 	md.declarations = nil
 	md.Functions = insdict.Dict[ast.ASTHandle, *modelFunctionEntry]{}
 	md.Constants = insdict.Dict[ast.ASTHandle, *modelConstantEntry]{}
+	md.constantLayout, md.functionLayout = nil, nil
 	m.Budget().Release(md.ownerBytes)
 	md.ownerBytes = 0
 	md.Closed = true
 	return nil
+}
+
+// constantEntries lists the m_interp entries in obj_map iteration order.
+func (md *ModelCore) constantEntries() []*modelConstantEntry {
+	layout := md.constantLayout.Entries()
+	result := make([]*modelConstantEntry, 0, len(layout))
+	for _, slot := range layout {
+		if entry, found := md.Constants.Get2(slot.Key); found {
+			result = append(result, entry)
+		}
+	}
+	return result
+}
+
+// functionEntries lists the m_finterp entries in obj_map iteration order.
+func (md *ModelCore) functionEntries() []*modelFunctionEntry {
+	layout := md.functionLayout.Entries()
+	result := make([]*modelFunctionEntry, 0, len(layout))
+	for _, slot := range layout {
+		if entry, found := md.Functions.Get2(slot.Key); found {
+			result = append(result, entry)
+		}
+	}
+	return result
+}
+
+// FunctionDeclarationsInTableOrder lists the m_finterp keys in iteration
+// order (for (auto const& kv : m_finterp)).
+func (md *ModelCore) FunctionDeclarationsInTableOrder() ([]ast.ASTHandle, error) {
+	if e := md.open(); e != nil {
+		return nil, e
+	}
+	entries := md.functionEntries()
+	result := make([]ast.ASTHandle, 0, len(entries))
+	for _, entry := range entries {
+		if entry.function != nil {
+			result = append(result, entry.declaration)
+		}
+	}
+	return result, nil
 }

@@ -38,6 +38,9 @@ func (md *ModelCore) RegisterFunction(d ast.ASTHandle, fi *FunctionInterpretatio
 	if !found {
 		entry = &modelFunctionEntry{declaration: d}
 		md.Functions.Set(d, entry)
+		if e = md.functionLayout.Insert(d, [2]ast.ASTHandle{}); e != nil {
+			return e
+		}
 	}
 	if entry.function == nil {
 		md.declarations = append(md.declarations, d)
@@ -134,6 +137,9 @@ func (md *ModelCore) UnregisterDeclaration(d ast.ASTHandle) error {
 	}
 	md.removedFunction = entry
 	md.Functions.Del(d)
+	if e = md.functionLayout.Erase(d); e != nil {
+		return e
+	}
 	for i, h := range md.functionDeclarations {
 		if h == d {
 			copy(md.functionDeclarations[i:], md.functionDeclarations[i+1:])

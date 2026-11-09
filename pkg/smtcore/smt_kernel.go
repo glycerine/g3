@@ -68,7 +68,11 @@ type SMTKernel struct {
 	// staleModel is context::m_proto_model/m_model after a new check began:
 	// no longer the result, but held until the next mk_proto_model replaces
 	// it (or the context is destroyed).
-	staleModel       *model.Model
+	staleModel *model.Model
+	// generatorPins is model_generator::m_asts: the values a model
+	// generation pinned stay alive until the next mk_proto_model resets the
+	// generator (or the context is destroyed), and are released forward.
+	generatorPins    []ast.ASTRef
 	preprocessor     *rewriter.TheoryRewriter
 	patternInference *pattern.InferenceRewriter
 	bvSharing        *rewriter.MaximizeBVSharing
@@ -471,10 +475,14 @@ func (k *SMTKernel) buildCandidateModelGenerator() (*SMTModelGenerator, error) {
 	if err := k.releaseStaleModel(); err != nil {
 		return nil, err
 	}
+	if err := k.releaseGeneratorPins(); err != nil {
+		return nil, err
+	}
 	generator, err := NewSMTModelGenerator(k.manager)
 	if err != nil {
 		return nil, err
 	}
+	generator.pinSink = &k.generatorPins
 	fail := func(cause error) (*SMTModelGenerator, error) {
 		return nil, errors.Join(cause, generator.Close())
 	}
@@ -1324,6 +1332,18 @@ func (k *SMTKernel) retireGeneratedModel() error {
 	return nil
 }
 
+// releaseGeneratorPins is model_generator::reset's m_asts.reset().
+func (k *SMTKernel) releaseGeneratorPins() error {
+	for i := range k.generatorPins {
+		if err := k.manager.DelRef(&k.generatorPins[i]); err != nil {
+			k.generatorPins = k.generatorPins[i:]
+			return err
+		}
+	}
+	k.generatorPins = nil
+	return nil
+}
+
 func (k *SMTKernel) releaseStaleModel() error {
 	if k == nil || k.staleModel == nil {
 		return nil
@@ -1550,6 +1570,9 @@ func (k *SMTKernel) Close() error {
 		return err
 	}
 	if err := k.releaseStaleModel(); err != nil {
+		return err
+	}
+	if err := k.releaseGeneratorPins(); err != nil {
 		return err
 	}
 	if err := k.clearUnsatCore(); err != nil {

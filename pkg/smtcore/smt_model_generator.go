@@ -24,8 +24,11 @@ type SMTModelGenerator struct {
 	searchFailure SMTFailure // Active kernel's failure when building this candidate.
 	trace         *diagnostic.TraceTags
 	refs          []ast.ASTRef
-	freshIndex    uint32
-	closed        bool
+	// pinSink, when set, receives refs at Close: the kernel keeps them as
+	// model_generator::m_asts until the next reset.
+	pinSink    *[]ast.ASTRef
+	freshIndex uint32
+	closed     bool
 }
 
 func NewSMTModelGenerator(manager *ast.ASTManager) (*SMTModelGenerator, error) {
@@ -810,8 +813,13 @@ func (g *SMTModelGenerator) Close() error {
 		result = errors.Join(result, g.model.Close())
 		g.model = nil
 	}
-	for index := len(g.refs); index > 0; index-- {
-		result = errors.Join(result, g.manager.DelRef(&g.refs[index-1]))
+	if g.pinSink != nil {
+		// The kernel's m_asts outlives this generation.
+		*g.pinSink = append(*g.pinSink, g.refs...)
+	} else {
+		for index := len(g.refs); index > 0; index-- {
+			result = errors.Join(result, g.manager.DelRef(&g.refs[index-1]))
+		}
 	}
 	g.refs = nil
 	if result == nil {

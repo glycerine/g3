@@ -44,9 +44,9 @@ func (md *ModelCore) CopyFunctionInterpretations(source *ModelCore) error {
 	if md.manager != source.manager {
 		return ast.ErrASTHandle
 	}
-	for d, entry := range source.Functions.All() {
+	for _, entry := range source.functionEntries() {
 		if entry.function != nil {
-			if e := md.CopyFunctionInterpretation(d, entry.function); e != nil {
+			if e := md.CopyFunctionInterpretation(entry.declaration, entry.function); e != nil {
 				return e
 			}
 		}
@@ -82,4 +82,42 @@ func (md *Model) Copy() (copied *Model, err error) {
 	}
 	err = copied.CopyUniverseInterpretations(md)
 	return copied, err
+}
+
+// TransferFunctionInterpretations is proto_model::mk_model's m_finterp loop:
+// in table order each interpretation moves to md (m->register_decl(k, fi)),
+// and the source drops its key reference; then m_finterp.reset(). The source
+// keeps its constants.
+func (md *ModelCore) TransferFunctionInterpretations(source *ModelCore) error {
+	if e := md.open(); e != nil {
+		return e
+	}
+	if e := source.open(); e != nil {
+		return e
+	}
+	if md.manager != source.manager || md == source {
+		return ast.ErrASTHandle
+	}
+	for _, entry := range source.functionEntries() {
+		if entry.function == nil {
+			continue
+		}
+		if e := md.RegisterFunction(entry.declaration, entry.function); e != nil {
+			return e
+		}
+		entry.function = nil
+		if entry.declarationOwned {
+			consumed, e := source.manager.DecRefConsumed(entry.declaration)
+			if consumed {
+				entry.declarationOwned = false
+			}
+			if e != nil {
+				return e
+			}
+		}
+		source.Functions.Del(entry.declaration)
+	}
+	source.functionLayout.Reset()
+	source.functionDeclarations = nil
+	return nil
 }

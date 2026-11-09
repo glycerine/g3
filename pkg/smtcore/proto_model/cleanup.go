@@ -124,12 +124,11 @@ func (p *ProtoModel) Cleanup() error {
 		return err
 	}
 	found := ast.NewObjMap(p.manager) // func_decl_set found_aux_fs
-	count := p.core.Core().NumFunctionDeclarations()
-	for i := uint32(0); i < count; i++ {
-		d, err := p.core.Core().Function(i)
-		if err != nil {
-			return err
-		}
+	declarations, err := p.core.Core().FunctionDeclarationsInTableOrder()
+	if err != nil {
+		return err
+	}
+	for _, d := range declarations {
 		fi, err := p.core.Core().FunctionInterpretation(d)
 		if err != nil {
 			return err
@@ -177,7 +176,8 @@ func (p *ProtoModel) FinalModel() (*model.Model, error) {
 	if err = result.Core().CopyConstantInterpretations(p.core.Core()); err != nil {
 		return fail(err)
 	}
-	if err = result.Core().CopyFunctionInterpretations(p.core.Core()); err != nil {
+	// m took the ownership of the func_interp's.
+	if err = result.Core().TransferFunctionInterpretations(p.core.Core()); err != nil {
 		return fail(err)
 	}
 	for _, s := range p.user.Sorts() {

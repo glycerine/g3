@@ -56,7 +56,8 @@ func TestModelNativeDictionaryGrowthCopyOrderAndReinsert(t *testing.T) {
 	}
 	m.Budget().FailAfter(-1)
 
-	// Replacements keep their position; erased and reinserted keys move last.
+	// copy_const_interps and copy_func_interps walk the source's m_interp
+	// and m_finterp in table order, so the copy's declarations follow it.
 	const retired = 7
 	astTestMust(t, original.Core().UnregisterDeclaration(constants[retired]))
 	astTestMust(t, original.Core().RegisterConstant(constants[retired], yes))
@@ -64,28 +65,32 @@ func TestModelNativeDictionaryGrowthCopyOrderAndReinsert(t *testing.T) {
 	replacement := modelTestFunction(t, m, 1)
 	astTestMust(t, replacement.SetElse(no))
 	astTestMust(t, original.Core().RegisterFunction(functions[retired], replacement))
+	constantOrder := original.Core().ConstantDeclarationsInTableOrderForTest()
+	functionOrder, e := original.Core().FunctionDeclarationsInTableOrder()
+	astTestMust(t, e)
+	if len(constantOrder) != count || len(functionOrder) != count {
+		t.Fatal("table order lost declarations", len(constantOrder), len(functionOrder))
+	}
+	indexOf := make(map[ast.ASTHandle]int, count)
+	for i := 0; i < count; i++ {
+		indexOf[functions[i]] = i
+	}
 	copied, e := original.Copy()
 	astTestMust(t, e)
 	t.Cleanup(func() { astTestMust(t, copied.Close()) })
 	astTestMust(t, original.Close())
-	order := make([]int, 0, count)
-	for i := 0; i < count; i++ {
-		if i != retired {
-			order = append(order, i)
-		}
-	}
-	order = append(order, retired)
-	for position, index := range order {
+	for position := 0; position < count; position++ {
 		d, e := copied.Core().Constant(uint32(position))
 		astTestMust(t, e)
-		if d != constants[index] {
-			t.Fatal("constant copy changed insertion order", position)
+		if d != constantOrder[position] {
+			t.Fatal("constant copy did not follow m_interp order", position)
 		}
 		d, e = copied.Core().Function(uint32(position))
 		astTestMust(t, e)
-		if d != functions[index] {
-			t.Fatal("function copy changed insertion order", position)
+		if d != functionOrder[position] {
+			t.Fatal("function copy did not follow m_finterp order", position)
 		}
+		index := indexOf[d]
 		fi, e := copied.Core().FunctionInterpretation(d)
 		astTestMust(t, e)
 		fallback, e := fi.Else()

@@ -80,7 +80,8 @@ func (md *Model) Translate(translation *ast.ASTTranslation) (result *Model, err 
 			result = nil
 		}
 	}()
-	for declaration, entry := range md.CoreField.Constants.All() {
+	for _, entry := range md.CoreField.constantEntries() {
+		declaration := entry.declaration
 		translatedDeclaration, e := translation.Translate(declaration)
 		if e != nil {
 			return nil, e
@@ -93,7 +94,8 @@ func (md *Model) Translate(translation *ast.ASTTranslation) (result *Model, err 
 			return nil, e
 		}
 	}
-	for declaration, entry := range md.CoreField.Functions.All() {
+	for _, entry := range md.CoreField.functionEntries() {
+		declaration := entry.declaration
 		translatedDeclaration, e := translation.Translate(declaration)
 		if e != nil {
 			return nil, e
