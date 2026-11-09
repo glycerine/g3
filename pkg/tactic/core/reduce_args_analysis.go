@@ -3,12 +3,12 @@ package core
 // Source: src/tactic/core/reduce_args_tactic.cpp candidate discovery and cfg.
 
 import (
-	"encoding/binary"
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
+	uhash "github.com/glycerine/g3/pkg/util/hash"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -149,12 +149,15 @@ func (f *reduceArgsFrame) visit(term ast.ASTHandle, first bool, non map[ast.ASTH
 			}
 		}
 		non[d] = true
-		return nil
+		return f.nonOrder.Insert(d, [2]ast.ASTHandle{})
 	}
 	c := f.candidates[d]
 	if c == nil {
 		c = &reduceArgsCandidate{mask: make([]bool, n), bases: make([]ast.ASTHandle, n)}
 		f.candidates[d] = c
+		if err = f.candidateOrder.Insert(d, [2]ast.ASTHandle{}); err != nil {
+			return err
+		}
 		for i := n; i > 0; i-- {
 			arg, err := m.GetArg(term, i-1)
 			if err != nil {
@@ -242,22 +245,30 @@ func (f *reduceArgsFrame) analyze(g *tactic.Goal) error {
 	if err := f.walk(g, true, non); err != nil {
 		return err
 	}
-	if err := f.owner.emitCandidates(non, nil, 169); err != nil {
+	if err := f.owner.emitCandidates(non, f.nonOrder.Entries(), nil, 169); err != nil {
 		return err
 	}
 	if err := f.walk(g, false, non); err != nil {
 		return err
 	}
-	for d, c := range f.candidates {
+	// bad_decls in decl2args order, then each is erased.
+	var bad []ast.ASTHandle
+	for _, entry := range f.candidateOrder.Entries() {
 		any := false
-		for _, v := range c.mask {
+		for _, v := range f.candidates[entry.Key].mask {
 			any = any || v
 		}
 		if !any {
-			delete(f.candidates, d)
+			bad = append(bad, entry.Key)
 		}
 	}
-	return f.owner.emitCandidates(nil, f.candidates, 255)
+	for _, d := range bad {
+		delete(f.candidates, d)
+		if err := f.candidateOrder.Erase(d); err != nil {
+			return err
+		}
+	}
+	return f.owner.emitCandidates(nil, f.candidateOrder.Entries(), f.candidates, 255)
 }
 
 type reduceArgsConfiguration struct {
@@ -279,7 +290,8 @@ func (c *reduceArgsConfiguration) ReduceApp(d ast.ASTHandle, args ast.AppArgumen
 		return rewriter.RewriteFailed, nil
 	}
 	var all, remaining []ast.ASTHandle
-	var key []byte
+	// arg2func_hash_proc: only the arguments where the mask is set.
+	hashCode := uint32(0x9e3779b9)
 	for i := uint32(0); i < args.Count(); i++ {
 		arg, e := args.At(i)
 		if e != nil {
@@ -291,11 +303,22 @@ func (c *reduceArgsConfiguration) ReduceApp(d ast.ASTHandle, args ast.AppArgumen
 			if e != nil {
 				return rewriter.RewriteFailed, e
 			}
-			key = binary.LittleEndian.AppendUint32(key, id)
+			hashCode = uhash.UintPair(hashCode, id)
 		} else {
 			remaining = append(remaining, arg)
 		}
 	}
+	// arg2func *& map = m_decl2arg2funcs.insert_if_not_there2(f, 0)
+	group, err := f.groups.InsertIfNotThere(d)
+	if err != nil {
+		return rewriter.RewriteFailed, err
+	}
+	if group.Num == 0 {
+		f.arg2funcs = append(f.arg2funcs, ast.NewObjMap(m))
+		group.Num = uint64(len(f.arg2funcs))
+	}
+	arg2func := f.arg2funcs[group.Num-1]
+	// app_ref tmp(m.mk_app(f, num, args), m)
 	origin, err := m.MkApp(d, all)
 	if err != nil {
 		return rewriter.RewriteFailed, err
@@ -305,15 +328,29 @@ func (c *reduceArgsConfiguration) ReduceApp(d ast.ASTHandle, args ast.AppArgumen
 		return rewriter.RewriteFailed, err
 	}
 	defer func() { err = errors.Join(err, f.release(&f.scratch, scratch)) }()
-	group := f.groups[d]
-	if group == nil {
-		group = make(map[string]*reduceArgsEntry)
-		f.groups[d] = group
+	// arg2func_eq_proc: compare only the arguments where the mask is set.
+	var equalErr error
+	equal := func(k ast.ASTHandle) bool {
+		for i, v := range candidate.mask {
+			if !v {
+				continue
+			}
+			a, e := m.GetArg(k, uint32(i))
+			if e != nil {
+				equalErr = e
+				return false
+			}
+			if a != all[i] {
+				return false
+			}
+		}
+		return true
 	}
-	entry := group[string(key)]
-	if entry == nil {
-		entry = &reduceArgsEntry{application: origin}
-		group[string(key)] = entry
+	entry := arg2func.InsertIfNotThereHashed(origin, hashCode, equal)
+	if equalErr != nil {
+		return rewriter.RewriteFailed, equalErr
+	}
+	if entry.Value[0].IsNull() {
 		var domain []ast.ASTHandle
 		for i, v := range candidate.mask {
 			if !v {
@@ -332,18 +369,21 @@ func (c *reduceArgsConfiguration) ReduceApp(d ast.ASTHandle, args ast.AppArgumen
 		if e != nil {
 			return rewriter.RewriteFailed, e
 		}
-		entry.declaration, e = m.MkFreshFuncDecl(name, usymbol.Symbol{}, domain, rangeSort)
+		fresh, e := m.MkFreshFuncDecl(name, usymbol.Symbol{}, domain, rangeSort)
 		if e != nil {
 			return rewriter.RewriteFailed, e
 		}
-		if err = f.hold(origin, false); err != nil {
+		// m.inc_ref(tmp); m.inc_ref(new_f): owned by reduce_args_ctx.
+		if err = m.IncRef(origin); err != nil {
 			return rewriter.RewriteFailed, err
 		}
-		if err = f.hold(entry.declaration, false); err != nil {
-			return rewriter.RewriteFailed, err
+		if err = m.IncRef(fresh); err != nil {
+			return rewriter.RewriteFailed, errors.Join(err, m.DecRef(origin))
 		}
+		entry.Value[0] = fresh
 	}
-	result, err := m.MkApp(entry.declaration, remaining)
+	declaration := entry.Value[0]
+	result, err := m.MkApp(declaration, remaining)
 	if err != nil {
 		return rewriter.RewriteFailed, err
 	}

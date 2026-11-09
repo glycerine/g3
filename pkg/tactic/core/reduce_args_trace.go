@@ -40,7 +40,9 @@ func (t *ReduceArgsTactic) emitGoal(g *tactic.Goal, mc tactic.ModelConverter, li
 		return nil
 	})
 }
-func (t *ReduceArgsTactic) emitCandidates(non map[ast.ASTHandle]bool, candidates map[ast.ASTHandle]*reduceArgsCandidate, line int) error {
+// emitCandidates prints non_candidates (non != nil) or decl2args; order is
+// the table order of the corresponding obj_hashtable or obj_map.
+func (t *ReduceArgsTactic) emitCandidates(non map[ast.ASTHandle]bool, order []ast.ObjMapEntry, candidates map[ast.ASTHandle]*reduceArgsCandidate, line int) error {
 	function := "populate_decl2args"
 	if non != nil {
 		function = "find_non_candidates"
@@ -57,8 +59,8 @@ func (t *ReduceArgsTactic) emitCandidates(non map[ast.ASTHandle]bool, candidates
 			if _, err := io.WriteString(w, "non_candidates:\n"); err != nil {
 				return err
 			}
-			for d := range non {
-				s, err := name(d)
+			for _, entry := range order {
+				s, err := name(entry.Key)
 				if err != nil {
 					return err
 				}
@@ -71,8 +73,9 @@ func (t *ReduceArgsTactic) emitCandidates(non map[ast.ASTHandle]bool, candidates
 		if _, err := io.WriteString(w, "decl2args:\n"); err != nil {
 			return err
 		}
-		for d, c := range candidates {
-			s, err := name(d)
+		for _, entry := range order {
+			c := candidates[entry.Key]
+			s, err := name(entry.Key)
 			if err != nil {
 				return err
 			}

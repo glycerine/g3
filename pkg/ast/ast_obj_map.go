@@ -136,6 +136,62 @@ func (o *ObjMap) insert(entry ObjMapEntry) error {
 	return ErrASTDomain // UNREACHABLE: the table always has a free slot
 }
 
+// InsertIfNotThere is obj_map::insert_if_not_there2(k, {}): the entry for
+// k, added with zero values when absent. The pointer is valid until the
+// next insertion.
+func (o *ObjMap) InsertIfNotThere(key ASTHandle) (*ObjMapEntry, error) {
+	hash, err := o.manager.GetHash(key)
+	if err != nil {
+		return nil, err
+	}
+	return o.InsertIfNotThereHashed(key, hash, func(k ASTHandle) bool { return k == key }), nil
+}
+
+// InsertIfNotThereHashed is core_hashtable::insert_if_not_there_core for a
+// table2map with its own hash and equality procedures (util/map.h map<K, V,
+// HashProc, EqProc>): hash is HashProc(key), and equal(k) is EqProc(k, key).
+// A key found equal keeps its entry, whose stored key is the earlier one.
+func (o *ObjMap) InsertIfNotThereHashed(key ASTHandle, hash uint32, equal func(ASTHandle) bool) *ObjMapEntry {
+	if (o.size+o.numDeleted)<<2 > len(o.table)*3 {
+		o.expandTable()
+	}
+	mask := uint32(len(o.table) - 1)
+	begin := int(hash & mask)
+	deleted := -1
+	visit := func(i int) *ObjMapEntry {
+		curr := &o.table[i]
+		switch curr.state {
+		case objMapUsed:
+			if curr.hash == hash && equal(curr.Key) {
+				return curr
+			}
+		case objMapFree:
+			n := i
+			if deleted >= 0 {
+				n = deleted
+				o.numDeleted--
+			}
+			o.table[n] = ObjMapEntry{Key: key, hash: hash, state: objMapUsed}
+			o.size++
+			return &o.table[n]
+		default:
+			deleted = i
+		}
+		return nil
+	}
+	for i := begin; i < len(o.table); i++ {
+		if e := visit(i); e != nil {
+			return e
+		}
+	}
+	for i := 0; i < begin; i++ {
+		if e := visit(i); e != nil {
+			return e
+		}
+	}
+	return nil // UNREACHABLE: the table always has a free slot
+}
+
 func (o *ObjMap) index(key ASTHandle) (int, error) {
 	hash, err := o.manager.GetHash(key)
 	if err != nil {

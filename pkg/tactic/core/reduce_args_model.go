@@ -29,7 +29,8 @@ func (f *reduceArgsFrame) makeModelConverter(result *tactic.TacticResult) error 
 	if err = f.filter.BindTrace(f.owner.trace, f.owner.globals); err != nil {
 		return err
 	}
-	for d, group := range f.groups {
+	for _, group := range f.groups.Entries() {
+		d := group.Key
 		candidate := f.candidates[d]
 		var variables, arguments []ast.ASTHandle
 		for i, v := range candidate.mask {
@@ -50,11 +51,11 @@ func (f *reduceArgsFrame) makeModelConverter(result *tactic.TacticResult) error 
 			}
 		}
 		var definition ast.ASTHandle
-		for _, entry := range group {
-			if err = f.filter.Insert(entry.declaration); err != nil {
+		for _, entry := range f.arg2funcs[group.Num-1].Entries() {
+			if err = f.filter.Insert(entry.Value[0]); err != nil {
 				return err
 			}
-			term, err := m.MkApp(entry.declaration, arguments)
+			term, err := m.MkApp(entry.Value[0], arguments)
 			if err != nil {
 				return err
 			}
@@ -68,7 +69,7 @@ func (f *reduceArgsFrame) makeModelConverter(result *tactic.TacticResult) error 
 			var equalities []ast.ASTHandle
 			for i, v := range candidate.mask {
 				if v {
-					arg, err := m.GetArg(entry.application, uint32(i))
+					arg, err := m.GetArg(entry.Key, uint32(i))
 					if err != nil {
 						return err
 					}

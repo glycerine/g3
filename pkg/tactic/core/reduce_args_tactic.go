@@ -249,7 +249,7 @@ func (t *ReduceArgsTactic) runReduceArgs(g *tactic.Goal, result *tactic.TacticRe
 			return e
 		}
 		defer func() { err = errors.Join(err, report.Close()) }()
-		f := &reduceArgsFrame{owner: t, candidates: make(map[ast.ASTHandle]*reduceArgsCandidate), groups: make(map[ast.ASTHandle]map[string]*reduceArgsEntry)}
+		f := &reduceArgsFrame{owner: t, candidates: make(map[ast.ASTHandle]*reduceArgsCandidate), groups: ast.NewObjMap(t.manager), nonOrder: ast.NewObjMap(t.manager), candidateOrder: ast.NewObjMap(t.manager)}
 		t.pending = append(t.pending, f)
 		defer func() {
 			var failure memory.ConstructionFailure
@@ -321,18 +321,25 @@ type reduceArgsCandidate struct {
 	mask  []bool
 	bases []ast.ASTHandle
 }
-type reduceArgsEntry struct{ application, declaration ast.ASTHandle }
 type reduceArgsFrame struct {
-	owner         *ReduceArgsTactic
-	candidates    map[ast.ASTHandle]*reduceArgsCandidate
-	groups        map[ast.ASTHandle]map[string]*reduceArgsEntry
-	rewriter      *rewriter.Traversal
-	out           ast.ASTRef
-	held, scratch []ast.ASTHandle
-	extension     *tactic.ExtensionModelConverter
-	filter        *tactic.FilterModelConverter
-	pending       []io.Closer
-	failures      []memory.ConstructionFailure
+	owner      *ReduceArgsTactic
+	candidates map[ast.ASTHandle]*reduceArgsCandidate
+	// groups is reduce_args_ctx::m_decl2arg2funcs: each declaration's Num is
+	// one plus the index of its arg2func table in arg2funcs, whose entries
+	// map an application (Key) to its fresh declaration (Value[0]).
+	groups *ast.ObjMap
+	// nonOrder and candidateOrder are the layouts of non_candidates
+	// (obj_hashtable) and decl2args (obj_map), whose contents are non and
+	// candidates.
+	nonOrder, candidateOrder *ast.ObjMap
+	arg2funcs                []*ast.ObjMap
+	rewriter                 *rewriter.Traversal
+	out                      ast.ASTRef
+	held, scratch            []ast.ASTHandle
+	extension                *tactic.ExtensionModelConverter
+	filter                   *tactic.FilterModelConverter
+	pending                  []io.Closer
+	failures                 []memory.ConstructionFailure
 }
 
 func (f *reduceArgsFrame) hold(h ast.ASTHandle, scratch bool) error {
@@ -379,6 +386,22 @@ func (f *reduceArgsFrame) Close() error {
 			return err
 		}
 		f.rewriter = nil
+	}
+	// ~reduce_args_ctx, after the rewriter declared later: each arg2func in
+	// m_decl2arg2funcs order, key then value per entry.
+	if f.groups != nil {
+		m := f.owner.manager
+		for _, group := range f.groups.Entries() {
+			for _, entry := range f.arg2funcs[group.Num-1].Entries() {
+				if entry.Value[0].IsNull() {
+					continue // construction failed before the refs were taken
+				}
+				if err := errors.Join(m.DecRef(entry.Key), m.DecRef(entry.Value[0])); err != nil {
+					return err
+				}
+			}
+		}
+		f.groups, f.arg2funcs = nil, nil
 	}
 	if f.out != (ast.ASTRef{}) {
 		if err := f.owner.manager.DelRef(&f.out); err != nil {
