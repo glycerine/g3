@@ -557,8 +557,10 @@ Found while matching `-st` output against `build/z3` on
    - add_child_property owns its mk_assumptions vector.
    Still OPEN:
    - Other engines' predicate-direct paths (spacer, bmc, tab, clp, datalog).
-   - `(query!0 x)`: z3's query!N takes R's free variables as arguments;
-     check that makeQueryHead does the same for non-nullary R.
+   - z3 builds `exists x. R(x)` and mk_query hoists it into R(#0) =>
+     query!0(#0). g3 already builds R(#0..) and gives query!N R's arity,
+     but it never creates the exists node, so the AST logs miss that node
+     and its deletion.
    - After an expression query, z3's rel_query concatenates the older m_mc
      chain; g3 applies only the current conversions.
    - Fresh-name counter: the second sliced query names P!slice!30 in z3,
