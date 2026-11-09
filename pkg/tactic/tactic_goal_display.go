@@ -24,7 +24,9 @@ func goalDisplayWrite(out io.Writer, value string) error {
 	return nil
 }
 
-func (g *Goal) displaySMT2Formula(h ast.ASTHandle) (body string, result error) {
+// displaySMT2Formula is ast_smt2_pp(out, h, env, p, indent): a positive
+// indent wraps the format in mk_indent, which indents continuation lines.
+func (g *Goal) displaySMT2Formula(h ast.ASTHandle, indent uint32) (body string, result error) {
 	global := uparams.BorrowProcessGlobalParamsService()
 	if global == nil || global.Context == nil {
 		return "", uparams.ErrGlobalParamsOwner
@@ -32,6 +34,11 @@ func (g *Goal) displaySMT2Formula(h ast.ASTHandle) (body string, result error) {
 	format, err := g.manager.SMT2PPExprTree(h, nil)
 	if err != nil {
 		return "", err
+	}
+	if indent > 0 {
+		if format, err = g.manager.FormatIndent(indent, format); err != nil {
+			return "", err
+		}
 	}
 	formats, err := g.manager.GetFormatManager()
 	if err != nil {
@@ -70,7 +77,7 @@ func (g *Goal) Display(out io.Writer) error {
 		if err := goalDisplayWrite(out, "\n  "); err != nil {
 			return err
 		}
-		body, err := g.displaySMT2Formula(form)
+		body, err := g.displaySMT2Formula(form, 2)
 		if err != nil {
 			return err
 		}
@@ -108,7 +115,7 @@ func (g *Goal) DisplayWithAttributes(out io.Writer) error {
 		return err
 	}
 	for _, form := range g.formSlice() {
-		body, err := g.displaySMT2Formula(form)
+		body, err := g.displaySMT2Formula(form, 2)
 		if err != nil {
 			return err
 		}
@@ -169,7 +176,7 @@ func (g *Goal) DisplayWithDependencies(out io.Writer) error {
 				return err
 			}
 			if constant {
-				body, err := g.displaySMT2Formula(leaf)
+				body, err := g.displaySMT2Formula(leaf, 0)
 				if err != nil {
 					return err
 				}
@@ -186,7 +193,7 @@ func (g *Goal) DisplayWithDependencies(out io.Writer) error {
 				}
 			}
 		}
-		body, err := g.displaySMT2Formula(form)
+		body, err := g.displaySMT2Formula(form, 2)
 		if err != nil {
 			return err
 		}
@@ -212,7 +219,7 @@ func (g *Goal) DisplayAsAnd(out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	body, err := g.displaySMT2Formula(conjunction)
+	body, err := g.displaySMT2Formula(conjunction, 0)
 	if err != nil {
 		return err
 	}
