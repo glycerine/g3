@@ -847,6 +847,20 @@ func (s *ArithmeticSolver) retainRemainingModelValues(start int, result *Arithme
 // Check runs the source blocker loop and preserves the last valid optimized
 // model across final unsatisfiable blocker checks. Attained finite objectives
 // are committed in order to implement the retained lexicographic priority.
+// CheckHard is optimize()'s initial check_sat(0, nullptr) over the hard
+// constraints, before any objective is set up.
+func (s *ArithmeticSolver) CheckHard() (lbool.LBool, string, error) {
+	if s == nil || s.backend == nil {
+		return lbool.Undef, "", ast.ErrASTHandle
+	}
+	status, err := s.backend.CheckSat(nil)
+	if err != nil || status != lbool.Undef {
+		return status, "", err
+	}
+	reason, err := s.backend.ReasonUnknown()
+	return status, reason, err
+}
+
 func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 	if s == nil || s.backend == nil || len(s.objectives) == 0 {
 		return nil, ast.ErrASTHandle

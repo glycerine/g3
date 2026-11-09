@@ -405,6 +405,15 @@ func (c *Context) checkOptimizeLex(assumptions []ast.ASTHandle) (optimized *opt.
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, optimizer.Close()) }()
+	// optimize(): check_sat on the hard constraints before the objectives;
+	// a non-sat answer is the result.
+	initial, reason, err := optimizer.CheckHard()
+	if err != nil {
+		return nil, err
+	}
+	if initial != lbool.True {
+		return &opt.ArithmeticResult{Status: initial, ReasonUnknown: reason, Values: make([]opt.ObjectiveValue, len(c.objectives))}, nil
+	}
 	for i := range c.objectives {
 		if err = c.addOptimizerObjective(optimizer, i); err != nil {
 			return nil, err
