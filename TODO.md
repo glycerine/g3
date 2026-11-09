@@ -561,8 +561,14 @@ Found while matching `-st` output against `build/z3` on
      (dl_interface::query's get_rules()). mk_query hoists it, with names,
      and wraps the rule in its forall. PDR logs now match through the
      query rule. Next first differences are in the transforms (scale's
-     extra Real nodes) and in the rule binder's variable order
-     (fixedpoint_pdr_variable_trace).
+     extra Real nodes).
+   - DONE: bind_variables::abstract ported, with first-encounter indices.
+   - DONE: inline_linear ported over m_head_index/m_tail_index.
+   - DONE: m_inlined_rules, m_pinned and the plugin teardown now follow
+     the source lifetimes. The old closeRuleBuckets ranged over a Go map
+     (nondeterministic).
+   - fixedpoint_pdr_variable_trace now first differs inside the PDR
+     context: z3 builds `(or #2 #1)` after #context1.
    - After an expression query, z3's rel_query concatenates the older m_mc
      chain; g3 applies only the current conversions.
    - Fresh-name counter: the second sliced query names P!slice!30 in z3,
