@@ -273,6 +273,10 @@ type smtSearchSession struct {
 // the computed backjump scope and therefore participate in the next propagation
 // pass instead of re-exploring the conflicting branch.
 func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
+	// scoped_mk_model: m_proto_model = nullptr; m_model = nullptr.
+	if err := k.releaseStaleModel(); err != nil {
+		return lbool.Undef, err
+	}
 	session, err := k.beginSearch()
 	if err != nil {
 		return lbool.Undef, err
