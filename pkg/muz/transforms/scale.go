@@ -254,19 +254,12 @@ func (p *ScalePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultEr
 	if err != nil {
 		return nil, err
 	}
-	realOne, err := p.manager.ArithmeticRealNumeralText("1")
-	if err != nil {
-		return nil, err
-	}
-	realSort, err := p.manager.GetSort(realOne)
-	if err != nil {
-		return nil, err
-	}
-	zero, err := p.manager.ArithmeticRealNumeralText("0")
-	if err != nil {
-		return nil, err
-	}
 	arithmetic, err := p.manager.ArithmeticFamilyID()
+	if err != nil {
+		return nil, err
+	}
+	// a.mk_real() is the sort only; no numeral is created here.
+	realSort, err := p.manager.MkFamilySort(arithmetic, 0, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +303,13 @@ func (p *ScalePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultEr
 			}
 			tails = append(tails, state.eqs...)
 			if getErr == nil {
-				sigma, makeErr := p.manager.MkVar(state.sigma, realSort)
+				// a.mk_gt(m.mk_var(...), a.mk_numeral(0, false)): GCC
+				// evaluates the numeral argument first.
+				zero, makeErr := p.manager.ArithmeticRealNumeralText("0")
+				var sigma ast.ASTHandle
+				if makeErr == nil {
+					sigma, makeErr = p.manager.MkVar(state.sigma, realSort)
+				}
 				var positive ast.ASTHandle
 				if makeErr == nil {
 					positive, makeErr = p.manager.MkFamilyApp(arithmetic, 5, nil, []ast.ASTHandle{sigma, zero})
