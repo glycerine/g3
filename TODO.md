@@ -847,6 +847,32 @@ Found while matching `-st` output against `build/z3` on
     pp(). PrintFormatTransient owns and releases an unreferenced root,
     and every one-shot call site uses it. sat_dimacs is now identical;
     full logs 402 -> 406.
+    Later sweep fixes (full logs 406 -> 408, stdout 647):
+    - horn_tactic get_formula_kind locals (tmp, body) die on return, and
+      f/q/queries are expr_refs; mk_query binds the expression query rule
+      under forall over its free variables (horn_tactic_finite identical).
+    - ctx-solver-simplify was a recursive reimplementation with fresh
+      constants; now a port of reduce/simplify_bool/mk_fresh with the
+      k!0xbeef101(id) proxies, the clean() wrapper (cleanup resets the
+      kernel), and m_num_steps never incremented (ctx_solver_simplify
+      identical).
+    - QF_FPLRA has no mk_tactic_for_logic case and uses mk_default_tactic;
+      mk_qffp_tactic's first simplify loses simp_p to the closing
+      updt_params(p).
+
+23. **OPEN: fpa2bv_converter is a reimplementation, not a port.**
+    ast/fpa (about 5500 lines of Go) restructures fpa2bv_converter.cpp
+    (4130 lines). Example: mk_numeral(sort, mpf) builds
+    fp(bv_sgn, bvadd(e, bias), bv_sig) from the mpf's sign, significand
+    and unbiased exponent. Go packs the IEEE bits into one numeral and
+    extracts the fields, and Bias concatenates 0 with all ones instead of
+    making the numeral 2^(ebits-1)-1. This is the first divergence in
+    qffplra_solver (line 63) and likely in the other fpa vectors
+    (fpa_canonical_model_scopes, qffpbv_tactic). It needs a function-by-
+    function port, starting with mk_numeral/mk_bias/mk_unbias/mk_fp/
+    split_fp and the rounding core, plus an AST-level reader for an fp
+    numeral's sign, significand and exponent that makes no packed
+    numeral.
 
 21. **Recorded deviations, kept deliberately.** cmd/g3 tests encode
    these: bvsmul_noovfl numeral folding uses signed semantics (the source
