@@ -86,6 +86,13 @@ func (m *ASTManager) substInsert(s ASTExprSubstitution, key, def, proof, dep ast
 	if !found {
 		entry = astExprSubstEntry{key: key}
 		t.entries.Put(token, entry)
+		// m_subst.insert_if_not_there2(c, 0)
+		if t.layout == nil {
+			t.layout = newHeldObjMap(m)
+		}
+		if e = t.layout.Insert(m.substHandle(key), [2]ASTHandle{}); e != nil {
+			return m.substNoteFailure(s, e)
+		}
 	}
 	// A null definition retains the source's repeated-new-branch behavior.
 	fresh := entry.value.slot == 0
@@ -274,6 +281,7 @@ func (m *ASTManager) substErase(s ASTExprSubstitution, key astNodeRef) error {
 	if e != nil {
 		return e
 	}
+	keyHash := m.substKeyHash(key) // before the key's last DEC
 	flags, _ := m.substState(s)
 	var failure error
 	for _, which := range [3]uint32{1, 2, 0} {
@@ -290,6 +298,11 @@ func (m *ASTManager) substErase(s ASTExprSubstitution, key astNodeRef) error {
 			return m.substNoteFailure(s, e)
 		}
 		// Native erase uses captured identity, including after the last key DEC.
+		if which == 0 && t.layout != nil {
+			if e := t.layout.eraseHash(m.substHandle(a.key), keyHash); e != nil {
+				return m.substNoteFailure(s, e)
+			}
+		}
 		t.entries.Del(token)
 		if failure == nil {
 			failure = e
@@ -309,12 +322,15 @@ func (m *ASTManager) ExprSubstitutionErase(s ASTExprSubstitution, key ASTHandle)
 	}
 	return m.substErase(s, k)
 }
-func (m *ASTManager) substResetTable(s ASTExprSubstitution, which uint32) error {
+func (m *ASTManager) substResetTable(s ASTExprSubstitution, which uint32, order []uint64) error {
 	t, e := m.substTable(s, which)
 	if e != nil {
 		return e
 	}
-	for token := range t.entries.All() {
+	for _, token := range order {
+		if _, found := t.entries.Get2(token); !found {
+			continue
+		}
 		e = m.substReleaseEntry(t, which, token)
 		a, _ := t.entries.Get2(token)
 		if a.owned == 0 {
@@ -333,13 +349,23 @@ func (m *ASTManager) substReset(s ASTExprSubstitution) error {
 	if e != nil {
 		return e
 	}
+	// reset: dec_ref_map_key_values(m_subst), then the proof and dependency
+	// values, each in the shared table order.
+	base, e := m.substTable(s, 0)
+	if e != nil {
+		return e
+	}
+	order := m.substOrder(base)
 	for i := uint32(0); i < 3; i++ {
 		if i != 0 && flags&(1<<(i-1)) == 0 {
 			continue
 		}
-		if e = m.substResetTable(s, i); e != nil {
+		if e = m.substResetTable(s, i, order); e != nil {
 			return m.substNoteFailure(s, e)
 		}
+	}
+	if base.layout != nil {
+		base.layout.Reset()
 	}
 	return m.writeWord(s.record, 8, 0)
 }
@@ -430,4 +456,35 @@ func (m *ASTManager) DelExprSubstitution(s *ASTExprSubstitution) error {
 	delete(m.exprSubstitutions, s.record)
 	*s = ASTExprSubstitution{}
 	return failure
+}
+
+func (m *ASTManager) substHandle(r astNodeRef) ASTHandle {
+	return ASTHandle{origin: m.origin, slot: r.slot, generation: r.generation}
+}
+
+// substKeyHash is a live key's AST hash (the manager lock is held).
+func (m *ASTManager) substKeyHash(r astNodeRef) uint32 {
+	return m.nodeAt(r.slot).hash
+}
+
+// substOrder lists the base table's tokens in m_subst's iteration order,
+// followed by any token the layout lacks (never expected).
+func (m *ASTManager) substOrder(t *astExprSubstTable) []uint64 {
+	order := make([]uint64, 0, t.entries.Len())
+	seen := make(map[uint64]bool, t.entries.Len())
+	if t.layout != nil {
+		for _, entry := range t.layout.Entries() {
+			token := uint64(entry.Key.slot)<<32 | uint64(entry.Key.generation)
+			if _, found := t.entries.Get2(token); found && !seen[token] {
+				order = append(order, token)
+				seen[token] = true
+			}
+		}
+	}
+	for token := range t.entries.All() {
+		if !seen[token] {
+			order = append(order, token)
+		}
+	}
+	return order
 }

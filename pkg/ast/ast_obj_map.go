@@ -32,7 +32,10 @@ type ObjMapEntry struct {
 
 // ObjMap is obj_map<K*, V>. Its zero value is not usable; see NewObjMap.
 type ObjMap struct {
-	manager    *ASTManager
+	manager *ASTManager
+	// held marks a map used inside the ast package while the manager lock
+	// is held: hashes are read from the node directly.
+	held       bool
 	table      []ObjMapEntry
 	size       int
 	numDeleted int
@@ -40,6 +43,24 @@ type ObjMap struct {
 
 func NewObjMap(m *ASTManager) *ObjMap {
 	return &ObjMap{manager: m, table: make([]ObjMapEntry, objMapInitialCapacity)}
+}
+
+// newHeldObjMap is NewObjMap for callers that hold the manager lock.
+func newHeldObjMap(m *ASTManager) *ObjMap {
+	o := NewObjMap(m)
+	o.held = true
+	return o
+}
+
+func (o *ObjMap) keyHash(key ASTHandle) (uint32, error) {
+	if o.held {
+		r, err := o.manager.internal(key)
+		if err != nil {
+			return 0, err
+		}
+		return o.manager.nodeAt(r.slot).hash, nil
+	}
+	return o.manager.GetHash(key)
 }
 
 func objMapMoveTable(source, target []ObjMapEntry) {
@@ -93,7 +114,7 @@ func (o *ObjMap) insert(entry ObjMapEntry) error {
 	if (o.size+o.numDeleted)<<2 > len(o.table)*3 {
 		o.expandTable()
 	}
-	hash, err := o.manager.GetHash(key)
+	hash, err := o.keyHash(key)
 	if err != nil {
 		return err
 	}
@@ -140,7 +161,7 @@ func (o *ObjMap) insert(entry ObjMapEntry) error {
 // k, added with zero values when absent. The pointer is valid until the
 // next insertion.
 func (o *ObjMap) InsertIfNotThere(key ASTHandle) (*ObjMapEntry, error) {
-	hash, err := o.manager.GetHash(key)
+	hash, err := o.keyHash(key)
 	if err != nil {
 		return nil, err
 	}
@@ -193,10 +214,14 @@ func (o *ObjMap) InsertIfNotThereHashed(key ASTHandle, hash uint32, equal func(A
 }
 
 func (o *ObjMap) index(key ASTHandle) (int, error) {
-	hash, err := o.manager.GetHash(key)
+	hash, err := o.keyHash(key)
 	if err != nil {
 		return -1, err
 	}
+	return o.indexHash(key, hash), nil
+}
+
+func (o *ObjMap) indexHash(key ASTHandle, hash uint32) int {
 	mask := uint32(len(o.table) - 1)
 	begin := int(hash & mask)
 	for _, r := range [2][2]int{{begin, len(o.table)}, {0, begin}} {
@@ -204,14 +229,14 @@ func (o *ObjMap) index(key ASTHandle) (int, error) {
 			curr := &o.table[i]
 			if curr.state == objMapUsed {
 				if curr.hash == hash && curr.Key == key {
-					return i, nil
+					return i
 				}
 			} else if curr.state == objMapFree {
-				return -1, nil
+				return -1
 			}
 		}
 	}
-	return -1, nil
+	return -1
 }
 
 // Find is obj_map::find.
@@ -244,6 +269,20 @@ func (o *ObjMap) Erase(key ASTHandle) error {
 	if err != nil || i < 0 {
 		return err
 	}
+	o.removeAt(i)
+	return nil
+}
+
+// eraseHash erases a key whose hash the caller captured (the key may
+// already be dead).
+func (o *ObjMap) eraseHash(key ASTHandle, hash uint32) error {
+	if i := o.indexHash(key, hash); i >= 0 {
+		o.removeAt(i)
+	}
+	return nil
+}
+
+func (o *ObjMap) removeAt(i int) {
 	next := i + 1
 	if next == len(o.table) {
 		next = 0
@@ -251,7 +290,7 @@ func (o *ObjMap) Erase(key ASTHandle) error {
 	if o.table[next].state == objMapFree {
 		o.table[i] = ObjMapEntry{}
 		o.size--
-		return nil
+		return
 	}
 	o.table[i] = ObjMapEntry{state: objMapDeleted}
 	o.numDeleted++
@@ -259,7 +298,6 @@ func (o *ObjMap) Erase(key ASTHandle) error {
 	if o.numDeleted > o.size && o.numDeleted > objMapSmallCapacity {
 		o.removeDeletedEntries()
 	}
-	return nil
 }
 
 // Entries lists the entries in iteration (table) order.

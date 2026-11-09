@@ -19,7 +19,10 @@ type ASTScopedExprSubstitution struct {
 }
 type astExprSubstTable struct {
 	entries insdict.Dict[uint64, astExprSubstEntry]
-	header  uint64
+	// layout is m_subst's obj_map layout (base table only); m_subst_pr and
+	// m_subst_dep see the same insertions and erasures, so share it.
+	layout *ObjMap
+	header uint64
 }
 type astExprSubstEntry struct {
 	key, value astNodeRef
