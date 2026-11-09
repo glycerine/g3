@@ -675,7 +675,18 @@ Found while matching `-st` output against `build/z3` on
        eliminate_quantifier_body edits m_body in place.
      - DONE (c91f91afb): mk_query makes mk_asserted(rule_expr) up front
        under proof tracing; spacer_nonlinear_inlining 91 -> 110.
-     - OPEN: spacer_nonlinear_inlining line 110. The inliner's
+     - DECISION NEEDED: spacer_nonlinear_inlining line 110. In z3,
+       try_to_inline_rule proves the resolvent after rule_unifier::apply has
+       already run fix_unbound_vars and the interpreted-tail simplifier. So
+       resolve_rule's hyper-resolve conclusion is the simplified,
+       renumbered rule, while s1/s2 are the unifier's substitutions. Doing
+       the same in g3 makes nonlinear_inlining IDENTICAL (full logs
+       401 -> 402). But g3's slice proof restoration then builds invalid
+       side conditions, and four TestRule*ProofComposition tests fail
+       (they check validity with a solver). The variant is saved in the
+       job tmp dir as rule_inliner_z3proof.go. Reverted pending a decision:
+       z3's proof shape, or valid restored proofs. Earlier note:
+       The inliner's
        hyper-resolution proof: z3 builds the conclusion (=> #25 (P x))
        from the resolved rule after its body (and #82 #79), but g3 builds
        a quantified (=> (and #25 #82 #79) head) first. Compare
