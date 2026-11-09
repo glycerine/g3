@@ -53,6 +53,19 @@ func (e *PropositionalEngine) prepareDualityTransformedQuery(query ast.ASTHandle
 		return nil, err
 	}
 	defer func() { result = errors.Join(result, prepared.Close()) }()
+	// datalog::rule_set &rs = m_ctx.get_rules(): flush_add_rules ends with
+	// check_rules on the transformed set.
+	generateProof, err := clone.sourceRuleProofTrace()
+	if err != nil {
+		return nil, err
+	}
+	properties, err := clone.rulePropertyOwner()
+	if err != nil {
+		return nil, err
+	}
+	if err = validateRuleSetProperties(properties, prepared.rules, e.backend, generateProof); err != nil {
+		return nil, err
+	}
 	var argumentRefs []ast.ASTRef
 	defer func() { result = errors.Join(result, closeASTRefs(e.manager, argumentRefs)) }()
 	outputs, err := prepared.rules.OutputPredicates()

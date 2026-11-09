@@ -128,7 +128,11 @@ func TestSMT2DualityArrayQuantificationQueries(t *testing.T) {
 	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
 		t.Fatal(err)
 	}
-	if output.String() != "sat\nunsat\nsat\n" {
+	// z3 rejects the quantifier-abstracted rules: duality's get_rules()
+	// runs check_rules (check_existential_tail) after the transformations.
+	// z3 then segfaults on the next query; g3 continues.
+	const rejected = "(error \"query failed: recursive predicate (P (:var 0) (select (:var 1) (:var 0))) occurs nested in the body of a rule\")\nunknown\n"
+	if output.String() != rejected+"unsat\n"+rejected {
 		t.Fatalf("array abstraction results %q", output.String())
 	}
 }
@@ -158,7 +162,11 @@ func TestSMT2DualityArrayValuedOutputQuantification(t *testing.T) {
 	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
 		t.Fatal(err)
 	}
-	if output.String() != "sat\nunsat\nsat\n" {
+	// z3 rejects the quantifier-abstracted rules: duality's get_rules()
+	// runs check_rules (check_existential_tail) after the transformations.
+	// z3 then segfaults on the next query; g3 continues.
+	const rejected = "(error \"query failed: recursive predicate (P (:var 0) (select (:var 1) (:var 0))) occurs nested in the body of a rule\")\nunknown\n"
+	if output.String() != rejected+"unsat\n"+rejected {
 		t.Fatalf("array output results %q", output.String())
 	}
 }

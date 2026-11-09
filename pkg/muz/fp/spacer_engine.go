@@ -207,6 +207,9 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	newSubsumption := func(priority uint32) *transforms.SubsumptionCheckerPlugin {
 		plugin := transforms.NewSubsumptionCheckerPlugin(useChecker, priority)
 		plugin.SetModelConverter(!e.preprocessNullModelConverter)
+		if e.params != nil && e.globals != nil {
+			plugin.SetUnboundFixer(e.unboundFixer())
+		}
 		subsumers = append(subsumers, plugin)
 		return plugin
 	}
@@ -823,5 +826,26 @@ func (p noopTransformPlugin) Close() error                                   { r
 func (e *PropositionalEngine) transformRuleMaker() transforms.ArrayInstantiationRuleMaker {
 	return func(destination *base.RuleSet, formula ast.ASTHandle, name usymbol.Symbol) error {
 		return e.addFormula(destination, formula, name)
+	}
+}
+
+// unboundFixer is rule_manager::fix_unbound_vars(r, true): it always runs
+// reduce_unbound_vars, and the full rewrite only with xform.fix_unbound_vars.
+func (e *PropositionalEngine) unboundFixer() func(*base.Rule) (*base.Rule, error) {
+	return func(rule *base.Rule) (*base.Rule, error) {
+		parameters, err := e.fixedpointParamView()
+		if err != nil {
+			return nil, err
+		}
+		enabled, getErr := parameters.Bool("xform.fix_unbound_vars", false)
+		if err = errors.Join(getErr, parameters.Close()); err != nil {
+			return nil, err
+		}
+		lite, err := e.ruleManagerLite()
+		if err != nil {
+			return nil, err
+		}
+		fixed, _, err := e.rules.FixUnboundVariables(rule, lite, enabled)
+		return fixed, err
 	}
 }

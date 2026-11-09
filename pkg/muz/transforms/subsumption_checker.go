@@ -25,6 +25,9 @@ type SubsumptionCheckerPlugin struct {
 	refHolder        []*base.Rule
 	haveNewTotalRule bool
 	noModelConverter bool
+	// fixUnbound is rule_manager::fix_unbound_vars: reduce_unbound_vars with
+	// the rule manager's qe_lite, then the xform.fix_unbound_vars rewrite.
+	fixUnbound func(*base.Rule) (*base.Rule, error)
 	modelSteps       []ConeModelStep
 	closed           bool
 	closing          bool
@@ -115,6 +118,11 @@ func (p *SubsumptionCheckerPlugin) Cancel() {}
 // SetModelConverter reports whether the context has a model converter;
 // without one transform_rules records no extension_model_converter.
 func (p *SubsumptionCheckerPlugin) SetModelConverter(enabled bool) { p.noModelConverter = !enabled }
+
+// SetUnboundFixer supplies rule_manager::fix_unbound_vars.
+func (p *SubsumptionCheckerPlugin) SetUnboundFixer(fix func(*base.Rule) (*base.Rule, error)) {
+	p.fixUnbound = fix
+}
 
 // Close is ~mk_subsumption_checker: m_ref_holder releases its rules forward.
 func (p *SubsumptionCheckerPlugin) Close() error {
@@ -400,9 +408,17 @@ func (p *SubsumptionCheckerPlugin) transformRule(manager *base.RuleManager, rule
 	if err = replacement.SetAccountingParentRule(rule); err != nil {
 		return nil, false, false, errors.Join(err, replacement.Close())
 	}
-	// DEVIATION (TODO.md): the source runs fix_unbound_vars(res, true) here,
-	// whose reduce_unbound_vars applies qe_lite. Doing so drops the
-	// quantified-array bridge that duality's witness reconstruction needs.
+	// m_context.get_rule_manager().fix_unbound_vars(res, true).
+	if p.fixUnbound != nil {
+		fixed, e := p.fixUnbound(replacement)
+		if e = errors.Join(e, replacement.Close()); e != nil {
+			if fixed != nil {
+				e = errors.Join(e, fixed.Close())
+			}
+			return nil, false, false, e
+		}
+		replacement = fixed
+	}
 	if err = manager.MkRuleRewriteProof(rule, replacement); err != nil {
 		return nil, false, false, errors.Join(err, replacement.Close())
 	}
