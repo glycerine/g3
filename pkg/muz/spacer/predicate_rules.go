@@ -480,6 +480,18 @@ func (b *spacerRuleBuilder) buildSystem() (_ ast.ASTHandle, _ ast.ASTHandle, res
 			return ast.ASTHandle{}, ast.ASTHandle{}, err
 		}
 		guarded = append(guarded, implication)
+		if len(live) == 1 {
+			// case 1: transitions.push_back(m.mk_or(pred, ext)) precedes
+			// init_conds.push_back(m.mk_not(pred)).
+			single, err := b.transformer.manager.MkOrArray([]ast.ASTHandle{rule.tag, extension})
+			if err != nil {
+				return ast.ASTHandle{}, ast.ASTHandle{}, err
+			}
+			if err = pinLocal(single); err != nil {
+				return ast.ASTHandle{}, ast.ASTHandle{}, err
+			}
+			guarded = append(guarded, single)
+		}
 		if !rule.initial {
 			disabled, err := b.transformer.manager.MkNot(rule.tag)
 			if err != nil {
@@ -491,19 +503,16 @@ func (b *spacerRuleBuilder) buildSystem() (_ ast.ASTHandle, _ ast.ASTHandle, res
 			initialConditions = append(initialConditions, disabled)
 		}
 	}
-	if len(live) == 1 {
-		// Source's dummy-tag branch uses (or tag extension); only the
-		// multiple-rule branch places the extension before every tag.
-		selection[0], selection[1] = selection[1], selection[0]
+	if len(live) > 1 {
+		selected, err := b.transformer.manager.MkOrArray(selection)
+		if err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, err
+		}
+		if err = pinLocal(selected); err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, err
+		}
+		guarded = append(guarded, selected)
 	}
-	selected, err := b.transformer.manager.MkOrArray(selection)
-	if err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
-	}
-	if err = pinLocal(selected); err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
-	}
-	guarded = append(guarded, selected)
 	// manager::mk_and applies only bool_rewriter::mk_and to these children.
 	// The later initialize stage theory-rewrites the completed formulas.
 	boolean := b.transformer.owner.boolean
