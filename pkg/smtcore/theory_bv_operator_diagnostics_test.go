@@ -55,10 +55,18 @@ func TestSMTBVOperatorSourceAssertionSites(t *testing.T) {
 		} {
 			t.Run(test.name, func(t *testing.T) {
 				_, report := newLRASourceAssertionContext(t)
-				_, _, theory := bvOccurrenceFixture(t)
-				expression := ast.ASTHandle{}
+				m, _, theory := bvOccurrenceFixture(t)
+				// The expression table is keyed by this manager's handles.
+				boolean, err := m.MkBoolSort()
+				astTestMust(t, err)
+				name, err := m.Symbols.Intern("bv-fresh-site-" + test.name)
+				astTestMust(t, err)
+				expression, err := m.MkConst(name, boolean)
+				astTestMust(t, err)
 				theory.state.context.enodes.set(expression, &SMTEnode{})
-				err := theory.assertTermOperatorShape(expression, test.operation, test.count)
+				err = theory.assertTermOperatorShape(expression, test.operation, test.count)
+				// The marker enode is not registered with the context.
+				theory.state.context.enodes.set(expression, nil)
 				bvInvariantFailure(t, err, report, test.line, "!get_context().e_internalized(n)")
 			})
 		}
