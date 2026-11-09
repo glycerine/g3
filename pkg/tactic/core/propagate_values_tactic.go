@@ -351,10 +351,10 @@ func (t *PropagateValuesTactic) pushResult(goal *tactic.Goal, index uint32, valu
 		if e != nil {
 			return e
 		}
+		// new_pr is push_result's raw parameter: the caller's proof_ref
+		// keeps the rewrite proof until process_current returns, and
+		// m_goal->update takes the modus ponens.
 		if newProof, err = m.MkProofModusPonens(old, newProof); err != nil {
-			return err
-		}
-		if err = m.SetRef(proof, newProof); err != nil {
 			return err
 		}
 	}
