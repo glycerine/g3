@@ -31,7 +31,8 @@ func (g *smtModelFinderAUFGraph) cleanInstantiationSets() error {
 		if node.parent != nil {
 			continue
 		}
-		for _, term := range node.set.orderedElements() {
+		for _, entry := range node.set.entries() {
+			term := entry.Key
 			value, err := g.eval(term)
 			if err != nil {
 				return err
@@ -58,8 +59,8 @@ func (g *smtModelFinderAUFGraph) fillEmptyInstantiationSets() error {
 		if node.parent != nil {
 			continue
 		}
-		if len(node.set.elements) != 0 {
-			bySort[node.sort] = node.set.orderedElements()[0]
+		if node.set.size() != 0 {
+			bySort[node.sort] = node.set.entries()[0].Key
 			continue
 		}
 		interpreted, err := m.IsFullyInterpreted(node.sort)

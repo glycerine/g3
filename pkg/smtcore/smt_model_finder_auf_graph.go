@@ -209,8 +209,8 @@ func (g *smtModelFinderAUFGraph) publishInstantiationSets() error {
 			continue
 		}
 		set := node.root().set
-		for _, term := range set.orderedElements() {
-			generation := set.elements[term]
+		for _, entry := range set.entries() {
+			term, generation := entry.Key, uint32(entry.Num)
 			if _, err := g.finder.InsertInstantiationTerm(key.owner, count-key.index-1, term, generation); err != nil {
 				return err
 			}

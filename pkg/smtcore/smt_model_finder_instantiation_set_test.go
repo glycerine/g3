@@ -29,8 +29,8 @@ func TestSMTModelFinderInstantiationSetOwnershipInverseAndRefusals(t *testing.T)
 	}
 	inserted, err = set.Insert(zero, 1)
 	astTestMust(t, err)
-	if inserted || set.elements[zero] != 4 {
-		t.Fatal("duplicate changed source generation", inserted, set.elements[zero])
+	if inserted || set.testElements()[zero] != 4 {
+		t.Fatal("duplicate changed source generation", inserted, set.testElements()[zero])
 	}
 	modelValue, err := m.MkModelValue(0, integer)
 	astTestMust(t, err)
@@ -98,7 +98,7 @@ func TestSMTModelFinderInstantiationSetRejectsQuantifiedPrivateValues(t *testing
 			t.Fatal("private model value escaped through quantified " + location)
 		}
 	}
-	if len(set.elements) != 0 || len(set.references) != 0 {
+	if set.size() != 0 {
 		t.Fatal("rejected private terms retained ownership")
 	}
 }

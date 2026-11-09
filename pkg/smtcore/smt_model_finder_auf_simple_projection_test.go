@@ -177,7 +177,7 @@ func TestSMTModelFinderAUFArithmeticWitnessUsesStableNumeral(t *testing.T) {
 		if !matched || isInt != integer || text != "1" || len(finder.pendingConstraints) != 0 {
 			t.Fatal("safe arithmetic witness did not preserve its public numeral", text, isInt, matched, len(finder.pendingConstraints))
 		}
-		if _, found := node.set.elements[node.elseValue]; !found {
+		if _, found := node.set.testElements()[node.elseValue]; !found {
 			t.Fatal("stable numeral was not available for inverse recovery")
 		}
 	}

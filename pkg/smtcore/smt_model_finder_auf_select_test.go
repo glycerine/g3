@@ -113,13 +113,13 @@ func TestSMTModelFinderAUFSelectIndexesUseModelFunctionAndRelevantParents(t *tes
 		first, second ast.ASTHandle
 	}{{0, falsehood, truth}, {1, four, nine}} {
 		node := unfiltered.uvars[smtModelFinderAUFKey{q, 1 - test.variable}].root()
-		if len(node.set.elements) != 2 {
-			t.Fatal("disabled filtering omitted an array or select parent", test.variable, node.set.elements)
+		if len(node.set.testElements()) != 2 {
+			t.Fatal("disabled filtering omitted an array or select parent", test.variable, node.set.testElements())
 		}
-		if _, found := node.set.elements[test.first]; !found {
+		if _, found := node.set.testElements()[test.first]; !found {
 			t.Fatal("missing first select index", test.variable)
 		}
-		if _, found := node.set.elements[test.second]; !found {
+		if _, found := node.set.testElements()[test.second]; !found {
 			t.Fatal("missing unmarked select index", test.variable)
 		}
 	}
@@ -133,7 +133,7 @@ func TestSMTModelFinderAUFSelectIndexesUseModelFunctionAndRelevantParents(t *tes
 	}{{0, falsehood, 2}, {1, four, 6}} {
 		set, err := finder.instantiationSet(q, test.variable, false)
 		astTestMust(t, err)
-		if set == nil || len(set.elements) != 1 || set.elements[test.term] != test.generation {
+		if set == nil || len(set.testElements()) != 1 || set.testElements()[test.term] != test.generation {
 			t.Fatal("array-select instantiation set used wrong position, parent or class representative", test.variable, set)
 		}
 	}
@@ -220,8 +220,8 @@ func TestSMTModelFinderAUFSelectNestedArrayParents(t *testing.T) {
 		generation uint32
 	}{{1, falsehood, 4}, {0, truth, 5}} {
 		node := graph.uvars[smtModelFinderAUFKey{q, test.variable}].root()
-		if len(node.set.elements) != 1 || node.set.elements[test.term] != test.generation {
-			t.Fatal("nested select did not follow relevant array parents", test.variable, node.set.elements)
+		if len(node.set.testElements()) != 1 || node.set.testElements()[test.term] != test.generation {
+			t.Fatal("nested select did not follow relevant array parents", test.variable, node.set.testElements())
 		}
 	}
 	astTestMust(t, state.context.SetRelevant(array, false))

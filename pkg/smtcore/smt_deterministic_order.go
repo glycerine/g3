@@ -34,16 +34,6 @@ func smtSortedHandleSet(set map[ast.ASTHandle]struct{}) []ast.ASTHandle {
 	return keys
 }
 
-// orderedElements lists a set's terms in AST order.
-func (s *smtModelFinderInstantiationSet) orderedElements() []ast.ASTHandle {
-	keys := make([]ast.ASTHandle, 0, len(s.elements))
-	for key := range s.elements {
-		keys = append(keys, key)
-	}
-	slices.SortFunc(keys, smtCompareHandles)
-	return keys
-}
-
 func smtSortedAUFKeys(nodes map[smtModelFinderAUFKey]*smtModelFinderAUFNode) []smtModelFinderAUFKey {
 	keys := make([]smtModelFinderAUFKey, 0, len(nodes))
 	for key := range nodes {

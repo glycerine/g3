@@ -79,12 +79,14 @@ func (g *smtModelFinderAUFGraph) populateOffsets(quantifier ast.ASTHandle) error
 		}
 		// The second population pass enforces A_f_i-k subset S_j followed
 		// by S_j+k subset A_f_i, preserving each source generation.
-		for term, generation := range argument.set.elements {
+		for _, entry := range argument.set.entries() {
+			term, generation := entry.Key, uint32(entry.Num)
 			if err := g.insertShifted(variable, term, info.offset, generation, false); err != nil {
 				return err
 			}
 		}
-		for term, generation := range variable.set.elements {
+		for _, entry := range variable.set.entries() {
+			term, generation := entry.Key, uint32(entry.Num)
 			if err := g.insertShifted(argument, term, info.offset, generation, true); err != nil {
 				return err
 			}

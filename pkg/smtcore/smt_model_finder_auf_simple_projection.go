@@ -36,7 +36,8 @@ func (g *smtModelFinderAUFGraph) exceptionValues(node *smtModelFinderAUFNode) ([
 func (g *smtModelFinderAUFGraph) pickInstance(node *smtModelFinderAUFNode, exceptions []ast.ASTHandle) (ast.ASTHandle, error) {
 	var chosen ast.ASTHandle
 	bestGeneration := ^uint32(0)
-	for term, generation := range node.set.elements {
+	for _, entry := range node.set.entries() {
+		term, generation := entry.Key, uint32(entry.Num)
 		value, err := g.eval(term)
 		if err != nil {
 			return ast.ASTHandle{}, err
@@ -132,7 +133,7 @@ func (g *smtModelFinderAUFGraph) witness(sort ast.ASTHandle, exceptions []ast.AS
 }
 
 func (g *smtModelFinderAUFGraph) setSimpleProjectionElse(node *smtModelFinderAUFNode) error {
-	if len(node.set.elements) == 0 {
+	if node.set.size() == 0 {
 		return nil
 	}
 	if len(node.exceptions) != 0 || len(node.avoid) != 0 {
@@ -192,8 +193,8 @@ func (g *smtModelFinderAUFGraph) setSimpleProjectionElse(node *smtModelFinderAUF
 			}
 		}
 	}
-	if elements := node.set.orderedElements(); len(elements) != 0 {
-		return node.setElse(elements[0])
+	if elements := node.set.entries(); len(elements) != 0 {
+		return node.setElse(elements[0].Key)
 	}
 	return nil
 }

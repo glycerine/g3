@@ -34,12 +34,12 @@ func TestSMTModelFinderAUFAnalyzerVisitsBooleanFormulasInsideTerms(t *testing.T)
 	falsehood, err := m.MkFalse()
 	astTestMust(t, err)
 	set := graph.uvars[smtModelFinderAUFKey{q, 0}].root().set
-	if len(set.elements) != 2 {
-		t.Fatal("nested Boolean condition omitted one polarity", set.elements)
+	if len(set.testElements()) != 2 {
+		t.Fatal("nested Boolean condition omitted one polarity", set.testElements())
 	}
 	for _, value := range []ast.ASTHandle{truth, falsehood} {
-		if generation, found := set.elements[value]; !found || generation != 0 {
-			t.Fatal("nested Boolean condition instantiation", value, set.elements)
+		if generation, found := set.testElements()[value]; !found || generation != 0 {
+			t.Fatal("nested Boolean condition instantiation", value, set.testElements())
 		}
 	}
 }

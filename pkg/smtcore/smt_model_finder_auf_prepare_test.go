@@ -29,10 +29,10 @@ func TestSMTModelFinderAUFPreparationSharesSafeTermsAndFreezesUniverse(t *testin
 	astTestMust(t, graph.prepareInstantiationSets())
 	var term ast.ASTHandle
 	for _, node := range graph.nodes {
-		if len(node.set.elements) != 1 {
-			t.Fatal("empty uninterpreted set was not populated", node.set.elements)
+		if len(node.set.testElements()) != 1 {
+			t.Fatal("empty uninterpreted set was not populated", node.set.testElements())
 		}
-		for candidate := range node.set.elements {
+		for candidate := range node.set.testElements() {
 			if !term.IsNull() && candidate != term {
 				t.Fatal("same-sort sets did not share a fresh context term")
 			}
@@ -104,12 +104,12 @@ func TestSMTModelFinderAUFMonotoneExceptionNeighbors(t *testing.T) {
 			astTestMust(t, node.insertException(zero))
 			astTestMust(t, graph.addMonotoneExceptions())
 			if domain == "real" {
-				if len(node.set.elements) != 1 {
-					t.Fatal("real exception received discrete neighbors", node.set.elements)
+				if len(node.set.testElements()) != 1 {
+					t.Fatal("real exception received discrete neighbors", node.set.testElements())
 				}
 			} else {
-				if len(node.set.elements) != 3 || node.set.elements[before] != 0 || node.set.elements[after] != 0 || node.set.elements[zero] != 7 {
-					t.Fatal("monotone neighbors or generations", node.set.elements)
+				if len(node.set.testElements()) != 3 || node.set.testElements()[before] != 0 || node.set.testElements()[after] != 0 || node.set.testElements()[zero] != 7 {
+					t.Fatal("monotone neighbors or generations", node.set.testElements())
 				}
 			}
 		})

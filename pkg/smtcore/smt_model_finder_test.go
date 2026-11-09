@@ -72,8 +72,8 @@ func TestSMTModelFinderIgnoresTriggerOnlyDeclarations(t *testing.T) {
 	t.Cleanup(func() { astTestMust(t, graph.close()) })
 	astTestMust(t, graph.build([]ast.ASTHandle{quantifier}))
 	set := graph.uvars[smtModelFinderAUFKey{quantifier, 0}].root().set
-	if len(graph.fvars) != 0 || len(set.elements) != 0 {
-		t.Fatal("trigger-only occurrence added a body constraint", owner, set.elements)
+	if len(graph.fvars) != 0 || len(set.testElements()) != 0 {
+		t.Fatal("trigger-only occurrence added a body constraint", owner, set.testElements())
 	}
 }
 

@@ -54,15 +54,15 @@ func TestSMTModelFinderAUFOffsetPopulationAndSameClassCutoff(t *testing.T) {
 			if (variable == argument) != sameClass {
 				t.Fatal("offset graph incorrectly merged classes")
 			}
-			if generation, found := variable.set.elements[eight]; !found || generation != 6 {
-				t.Fatal("offset did not recover 10-2 with its generation", variable.set.elements)
+			if generation, found := variable.set.testElements()[eight]; !found || generation != 6 {
+				t.Fatal("offset did not recover 10-2 with its generation", variable.set.testElements())
 			}
 			wantSize := 1
 			if sameClass {
 				wantSize = 2
 			}
-			if len(variable.set.elements) != wantSize || len(argument.set.elements) != wantSize || argument.set.elements[ten] != 6 {
-				t.Fatal("offset two-pass population or same-class cutoff", variable.set.elements, argument.set.elements)
+			if len(variable.set.testElements()) != wantSize || len(argument.set.testElements()) != wantSize || argument.set.testElements()[ten] != 6 {
+				t.Fatal("offset two-pass population or same-class cutoff", variable.set.testElements(), argument.set.testElements())
 			}
 		})
 	}
@@ -102,8 +102,8 @@ func TestSMTModelFinderAUFBitVectorOffsetWraps(t *testing.T) {
 	astTestMust(t, graph.build([]ast.ASTHandle{q}))
 	variable := graph.uvars[smtModelFinderAUFKey{q, 0}].root()
 	argument := graph.arguments[smtModelFinderAUFKey{p, 0}].root()
-	if len(variable.set.elements) != 1 || variable.set.elements[fifteen] != 9 || len(argument.set.elements) != 1 || argument.set.elements[one] != 9 {
-		t.Fatal("4-bit offset did not wrap 1-2 to 15 and 15+2 to 1", variable.set.elements, argument.set.elements)
+	if len(variable.set.testElements()) != 1 || variable.set.testElements()[fifteen] != 9 || len(argument.set.testElements()) != 1 || argument.set.testElements()[one] != 9 {
+		t.Fatal("4-bit offset did not wrap 1-2 to 15 and 15+2 to 1", variable.set.testElements(), argument.set.testElements())
 	}
 }
 
@@ -154,8 +154,8 @@ func TestSMTModelFinderAUFOffsetPassesFollowQuantifierOrder(t *testing.T) {
 			graph := newSMTModelFinderAUFGraph(manager.modelFinder)
 			t.Cleanup(func() { astTestMust(t, graph.close()) })
 			astTestMust(t, graph.build(quantifiers))
-			offsetSet := graph.uvars[smtModelFinderAUFKey{offset, 0}].root().set.elements
-			producerSet := graph.uvars[smtModelFinderAUFKey{producer, 0}].root().set.elements
+			offsetSet := graph.uvars[smtModelFinderAUFKey{offset, 0}].root().set.testElements()
+			producerSet := graph.uvars[smtModelFinderAUFKey{producer, 0}].root().set.testElements()
 			if _, found := producerSet[ten]; !found {
 				t.Fatal("producer did not populate shared argument class")
 			}

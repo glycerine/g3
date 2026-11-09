@@ -61,10 +61,10 @@ func TestSMTModelFinderAUFGraphSharesPatternlessArgumentSets(t *testing.T) {
 	for _, q := range []ast.ASTHandle{first, second} {
 		set, err := finder.instantiationSet(q, 0, false)
 		astTestMust(t, err)
-		if set == nil || len(set.elements) != 2 || set.elements[a] != 3 || set.elements[b] != 7 {
+		if set == nil || len(set.testElements()) != 2 || set.testElements()[a] != 3 || set.testElements()[b] != 7 {
 			t.Fatalf("q %v did not inherit shared argument terms: %+v", q, set)
 		}
-		if _, found := set.elements[ignored]; found {
+		if _, found := set.testElements()[ignored]; found {
 			t.Fatal("irrelevant ground application contributed an argument")
 		}
 	}
@@ -74,8 +74,8 @@ func TestSMTModelFinderAUFGraphSharesPatternlessArgumentSets(t *testing.T) {
 	astTestMust(t, unfiltered.build([]ast.ASTHandle{first, second}))
 	for _, q := range []ast.ASTHandle{first, second} {
 		set := unfiltered.uvars[smtModelFinderAUFKey{q, 0}].root().set
-		if len(set.elements) != 3 || set.elements[a] != 3 || set.elements[b] != 7 || set.elements[ignored] != 1 {
-			t.Fatal("disabled filtering omitted a shared function argument", set.elements)
+		if len(set.testElements()) != 3 || set.testElements()[a] != 3 || set.testElements()[b] != 7 || set.testElements()[ignored] != 1 {
+			t.Fatal("disabled filtering omitted a shared function argument", set.testElements())
 		}
 	}
 }
@@ -132,8 +132,8 @@ func TestSMTModelFinderAUFGraphEqualityAndDisequalityConstraints(t *testing.T) {
 			if (first == second) != test.merged || (len(first.avoid) != 0) != test.avoid || (len(first.exceptions) != 0) != test.exception {
 				t.Fatal("literal graph constraints", first, second)
 			}
-			if len(first.set.elements) != test.terms {
-				t.Fatal("literal instantiation terms", first.set.elements)
+			if len(first.set.testElements()) != test.terms {
+				t.Fatal("literal instantiation terms", first.set.testElements())
 			}
 			if test.name == "equal-ground" {
 				state.relevancy.enabled = false
@@ -141,17 +141,17 @@ func TestSMTModelFinderAUFGraphEqualityAndDisequalityConstraints(t *testing.T) {
 				t.Cleanup(func() { astTestMust(t, unfiltered.close()) })
 				astTestMust(t, unfiltered.build([]ast.ASTHandle{q}))
 				set := unfiltered.uvars[smtModelFinderAUFKey{q, 0}].root().set
-				if len(set.elements) != 3 || set.elements[unmarked] != 9 {
-					t.Fatal("disabled filtering omitted an uninterpreted equality term", set.elements)
+				if len(set.testElements()) != 3 || set.testElements()[unmarked] != 9 {
+					t.Fatal("disabled filtering omitted an uninterpreted equality term", set.testElements())
 				}
 				state.relevancy.enabled = true
 			}
-			if test.exception && (first.exceptions[0] != a || first.set.elements[b] != 8) {
+			if test.exception && (first.exceptions[0] != a || first.set.testElements()[b] != 8) {
 				t.Fatal("uninterpreted equality omitted context term or exception", first)
 			}
 			if test.name == "disequal-ground" {
-				if generation, found := first.set.elements[a]; !found || generation != 0 {
-					t.Fatal("disequal ground term generation", first.set.elements)
+				if generation, found := first.set.testElements()[a]; !found || generation != 0 {
+					t.Fatal("disequal ground term generation", first.set.testElements())
 				}
 			}
 		})

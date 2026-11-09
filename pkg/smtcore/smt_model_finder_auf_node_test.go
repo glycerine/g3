@@ -32,8 +32,8 @@ func TestSMTModelFinderAUFNodeMergeConstraintsAndInstantiationSet(t *testing.T) 
 	astTestMust(t, err)
 	inserted, err := root.insert(term, 7)
 	astTestMust(t, err)
-	if !inserted || root.set.elements[term] != 7 {
-		t.Fatal("AUF node instantiation set", inserted, root.set.elements)
+	if !inserted || root.set.testElements()[term] != 7 {
+		t.Fatal("AUF node instantiation set", inserted, root.set.testElements())
 	}
 	if err = left.merge(right); err != nil {
 		t.Fatal("same-class merge after set creation", err)

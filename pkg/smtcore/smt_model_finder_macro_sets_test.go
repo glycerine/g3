@@ -53,7 +53,7 @@ func TestSMTModelFinderMacroSetsPreserveOriginalRelevantArguments(t *testing.T) 
 	}
 	set, err := finder.instantiationSet(q, 0, false)
 	astTestMust(t, err)
-	if set == nil || len(set.elements) != 1 || set.elements[seven] != 4 {
+	if set == nil || len(set.testElements()) != 1 || set.testElements()[seven] != 4 {
 		t.Fatal("macro set lost the original relevant argument", set)
 	}
 	term, generation, found, err := finder.Inverse(q, 0, seven)
@@ -71,7 +71,7 @@ func TestSMTModelFinderMacroSetsPreserveOriginalRelevantArguments(t *testing.T) 
 	astTestMust(t, finder.FixModel(unfiltered))
 	all, err := finder.instantiationSet(q, 0, false)
 	astTestMust(t, err)
-	if all == nil || len(all.elements) != 2 || all.elements[seven] != 4 || all.elements[three] != 1 {
+	if all == nil || len(all.testElements()) != 2 || all.testElements()[seven] != 4 || all.testElements()[three] != 1 {
 		t.Fatal("disabled filtering omitted a quantifier or macro argument", all)
 	}
 	state.relevancy.enabled = true
@@ -84,7 +84,7 @@ func TestSMTModelFinderMacroSetsPreserveOriginalRelevantArguments(t *testing.T) 
 	astTestMust(t, finder.FixModel(next))
 	updated, err := finder.instantiationSet(q, 0, false)
 	astTestMust(t, err)
-	if !set.closed || !all.closed || updated == set || updated == all || updated == nil || len(updated.elements) != 1 || updated.elements[three] != 1 {
+	if !set.closed || !all.closed || updated == set || updated == all || updated == nil || len(updated.testElements()) != 1 || updated.testElements()[three] != 1 {
 		t.Fatal("new model retained prior terms or ownership", set.closed, updated)
 	}
 	_, _, found, err = finder.Inverse(q, 0, seven)

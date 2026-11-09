@@ -4,18 +4,20 @@ package smtcore
 
 import (
 	"errors"
-	"slices"
 
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
 )
 
+// smtModelFinderInstantiationSet is instantiation_set: m_elems holds a
+// reference to each term (Key) with its generation (Num), and m_inv maps a
+// value (Key) to its term (Value[0]). Both are obj_maps, iterated in table
+// order. inverseRefs keeps each inverse value alive.
 type smtModelFinderInstantiationSet struct {
 	manager     *ast.ASTManager
-	elements    map[ast.ASTHandle]uint32
-	references  map[ast.ASTHandle]ast.ASTRef
-	inverse     map[ast.ASTHandle]ast.ASTHandle
-	inverseRefs map[ast.ASTHandle]ast.ASTRef
+	elements    *ast.ObjMap
+	inverse     *ast.ObjMap
+	inverseRefs []ast.ASTRef
 	closed      bool
 }
 
@@ -24,8 +26,7 @@ func newSMTModelFinderInstantiationSet(manager *ast.ASTManager) (*smtModelFinder
 		return nil, ast.ErrASTHandle
 	}
 	return &smtModelFinderInstantiationSet{
-		manager: manager, elements: make(map[ast.ASTHandle]uint32), references: make(map[ast.ASTHandle]ast.ASTRef),
-		inverse: make(map[ast.ASTHandle]ast.ASTHandle), inverseRefs: make(map[ast.ASTHandle]ast.ASTRef),
+		manager: manager, elements: ast.NewObjMap(manager), inverse: ast.NewObjMap(manager),
 	}, nil
 }
 
@@ -34,6 +35,19 @@ func (s *smtModelFinderInstantiationSet) open() error {
 		return ast.ErrASTHandle
 	}
 	return nil
+}
+
+// entries is get_elems() in iteration order.
+func (s *smtModelFinderInstantiationSet) entries() []ast.ObjMapEntry {
+	return s.elements.Entries()
+}
+
+func (s *smtModelFinderInstantiationSet) size() int { return s.elements.Len() }
+
+// generation is get_generation(t).
+func (s *smtModelFinderInstantiationSet) generation(term ast.ASTHandle) (uint32, error) {
+	gen, _, err := s.elements.FindNum(term)
+	return uint32(gen), err
 }
 
 func (s *smtModelFinderInstantiationSet) containsModelValue(root ast.ASTHandle) (bool, error) {
@@ -132,19 +146,19 @@ func (s *smtModelFinderInstantiationSet) Insert(term ast.ASTHandle, generation u
 	if err := s.open(); err != nil {
 		return false, err
 	}
-	if _, found := s.elements[term]; found {
-		return false, nil
+	if found, err := s.elements.Contains(term); err != nil || found {
+		return false, err
 	}
 	contains, err := s.containsModelValue(term)
 	if err != nil || contains {
 		return false, err
 	}
-	ref, err := s.manager.NewRef(term)
-	if err != nil {
+	if err = s.manager.IncRef(term); err != nil {
 		return false, err
 	}
-	s.elements[term] = generation
-	s.references[term] = ref
+	if err = s.elements.InsertNum(term, uint64(generation)); err != nil {
+		return false, errors.Join(err, s.manager.DecRef(term))
+	}
 	return true, nil
 }
 
@@ -152,43 +166,30 @@ func (s *smtModelFinderInstantiationSet) Remove(term ast.ASTHandle) error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	if len(s.inverse) != 0 {
+	if s.inverse.Len() != 0 {
 		return ast.ErrASTDomain
 	}
-	ref, found := s.references[term]
-	if !found {
-		return ast.ErrASTDomain
+	if found, err := s.elements.Contains(term); err != nil || !found {
+		return errors.Join(err, ast.ErrASTDomain)
 	}
-	if err := s.manager.DelRef(&ref); err != nil {
+	if err := s.elements.Erase(term); err != nil {
 		return err
 	}
-	delete(s.references, term)
-	delete(s.elements, term)
-	return nil
+	return s.manager.DecRef(term)
 }
 
 func (s *smtModelFinderInstantiationSet) clearInverse() (result error) {
-	inverses := make([]ast.ASTHandle, 0, len(s.inverseRefs))
-	for value := range s.inverseRefs {
-		inverses = append(inverses, value)
-	}
-	ast.SortHandles(inverses)
-	for _, value := range inverses {
-		ref := s.inverseRefs[value]
-		err := s.manager.DelRef(&ref)
-		if ref == (ast.ASTRef{}) {
-			delete(s.inverseRefs, value)
-		} else {
-			s.inverseRefs[value] = ref
-		}
-		result = errors.Join(result, err)
+	for i := range s.inverseRefs {
+		result = errors.Join(result, s.manager.DelRef(&s.inverseRefs[i]))
 	}
 	if result == nil {
-		clear(s.inverse)
+		s.inverseRefs = s.inverseRefs[:0]
+		s.inverse.Reset()
 	}
 	return result
 }
 
+// MakeInverse is mk_inverse.
 func (s *smtModelFinderInstantiationSet) MakeInverse(model *protomodel.ProtoModel) (result error) {
 	if err := s.open(); err != nil {
 		return err
@@ -199,8 +200,8 @@ func (s *smtModelFinderInstantiationSet) MakeInverse(model *protomodel.ProtoMode
 	if err := s.clearInverse(); err != nil {
 		return err
 	}
-	for _, term := range s.orderedElements() {
-		generation := s.elements[term]
+	for _, entry := range s.elements.Entries() {
+		term, generation := entry.Key, uint32(entry.Num)
 		valueRef, err := s.manager.NewRef(ast.ASTHandle{})
 		if err != nil {
 			return err
@@ -212,18 +213,24 @@ func (s *smtModelFinderInstantiationSet) MakeInverse(model *protomodel.ProtoMode
 		if err != nil {
 			return errors.Join(err, s.manager.DelRef(&valueRef))
 		}
-		old, found := s.inverse[value]
+		old, found, err := s.inverse.Find(value)
+		if err != nil {
+			return errors.Join(err, s.manager.DelRef(&valueRef))
+		}
 		if found {
-			if generation < s.elements[old] {
-				s.inverse[value] = term
+			oldGeneration, err := s.generation(old[0])
+			if err == nil && generation < oldGeneration {
+				err = s.inverse.Insert(value, [2]ast.ASTHandle{term})
 			}
-			if err = s.manager.DelRef(&valueRef); err != nil {
+			if err = errors.Join(err, s.manager.DelRef(&valueRef)); err != nil {
 				return err
 			}
 			continue
 		}
-		s.inverse[value] = term
-		s.inverseRefs[value] = valueRef
+		if err = s.inverse.Insert(value, [2]ast.ASTHandle{term}); err != nil {
+			return errors.Join(err, s.manager.DelRef(&valueRef))
+		}
+		s.inverseRefs = append(s.inverseRefs, valueRef)
 	}
 	return nil
 }
@@ -232,25 +239,27 @@ func (s *smtModelFinderInstantiationSet) Inverse(value ast.ASTHandle) (term ast.
 	if err = s.open(); err != nil {
 		return term, 0, false, err
 	}
-	term, found = s.inverse[value]
-	if found {
-		generation = s.elements[term]
+	inverse, found, err := s.inverse.Find(value)
+	if err != nil || !found {
+		return term, 0, false, err
 	}
-	return term, generation, found, nil
+	generation, err = s.generation(inverse[0])
+	return inverse[0], generation, true, err
 }
 
+// Values lists the keys of get_inv_map() in iteration order.
 func (s *smtModelFinderInstantiationSet) Values() ([]ast.ASTHandle, error) {
 	if err := s.open(); err != nil {
 		return nil, err
 	}
-	result := make([]ast.ASTHandle, 0, len(s.inverse))
-	for value := range s.inverse {
-		result = append(result, value)
+	result := make([]ast.ASTHandle, 0, s.inverse.Len())
+	for _, entry := range s.inverse.Entries() {
+		result = append(result, entry.Key)
 	}
-	slices.SortFunc(result, smtCompareHandles)
 	return result, nil
 }
 
+// Close is ~instantiation_set: each element in m_elems order.
 func (s *smtModelFinderInstantiationSet) Close() (result error) {
 	if s == nil {
 		return ast.ErrASTHandle
@@ -262,25 +271,12 @@ func (s *smtModelFinderInstantiationSet) Close() (result error) {
 		return ast.ErrASTHandle
 	}
 	result = s.clearInverse()
-	terms := make([]ast.ASTHandle, 0, len(s.references))
-	for term := range s.references {
-		terms = append(terms, term)
-	}
-	ast.SortHandles(terms)
-	for _, term := range terms {
-		ref := s.references[term]
-		err := s.manager.DelRef(&ref)
-		if ref == (ast.ASTRef{}) {
-			delete(s.references, term)
-		} else {
-			s.references[term] = ref
-		}
-		result = errors.Join(result, err)
+	for _, entry := range s.elements.Entries() {
+		result = errors.Join(result, s.manager.DecRef(entry.Key))
 	}
 	if result == nil {
 		s.closed = true
 		s.elements = nil
-		s.references = nil
 		s.inverse = nil
 		s.inverseRefs = nil
 		s.manager = nil

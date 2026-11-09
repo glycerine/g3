@@ -77,7 +77,7 @@ func TestSMTModelFinderFlattenOwnsScopedQuantifierAndMapsOriginalBinders(t *test
 	astTestMust(t, finder.FixModel(proto))
 	set, err := finder.instantiationSet(outer, 0, false)
 	astTestMust(t, err)
-	if set == nil || len(set.elements) != 1 || set.elements[seven] != 4 {
+	if set == nil || len(set.testElements()) != 1 || set.testElements()[seven] != 4 {
 		t.Fatal("flat graph failed to map original outer binder", set)
 	}
 	if len(finder.sets[outer]) != 1 {
