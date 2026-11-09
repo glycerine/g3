@@ -244,8 +244,10 @@ func (p *PredicateTransformer) EnsureLevel(level uint32) error {
 	if level == InfinityLevel {
 		return nil
 	}
+	// pred_transformer::ensure_level adds one solver level per missing
+	// frame, even when add_level_formula already created solver levels.
 	for uint32(len(p.levels)) <= level {
-		if err := p.solver.EnsureLevel(uint32(len(p.levels))); err != nil {
+		if err := p.solver.AddLevel(); err != nil {
 			return err
 		}
 		p.levels = append(p.levels, nil)

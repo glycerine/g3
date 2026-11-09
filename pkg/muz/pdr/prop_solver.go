@@ -187,6 +187,14 @@ func (p *PropSolver) ensureLevel(level uint32) error {
 	return nil
 }
 
+// AddLevel is prop_solver::add_level: one more frame guard, unconditionally.
+func (p *PropSolver) AddLevel() error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	return p.addLevel()
+}
+
 func (p *PropSolver) LevelCount() (uint32, error) {
 	if err := p.open(); err != nil {
 		return 0, err
@@ -232,7 +240,13 @@ func (p *PropSolver) AddLevelFormula(formula ast.ASTHandle, level uint32) error 
 	if err != nil {
 		return err
 	}
-	return p.context.Assert(guarded)
+	// app_ref lform holds the guarded formula while it is asserted.
+	lform, err := p.manager.NewRef(guarded)
+	if err != nil {
+		return err
+	}
+	err = p.context.Assert(guarded)
+	return errors.Join(err, p.manager.DelRef(&lform))
 }
 
 func (p *PropSolver) isDirectAssumption(expression ast.ASTHandle) (bool, error) {

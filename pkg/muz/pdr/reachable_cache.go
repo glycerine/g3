@@ -95,8 +95,21 @@ func (c *ReachableCache) addDisjunctedFormula(formula ast.ASTHandle) (resultErr 
 			resultErr = errors.Join(resultErr, c.manager.DelRef(&newRef))
 		}
 	}()
+	// neg_new_connector and extended_form are app_ref locals: released on
+	// return, extended_form first (reverse declaration order).
+	var locals [2]ast.ASTRef
+	defer func() {
+		for i := len(locals) - 1; i >= 0; i-- {
+			if locals[i] != (ast.ASTRef{}) {
+				resultErr = errors.Join(resultErr, c.manager.DelRef(&locals[i]))
+			}
+		}
+	}()
 	negated, err := c.manager.MkNot(newConnector)
 	if err != nil {
+		return err
+	}
+	if locals[0], err = c.manager.NewRef(negated); err != nil {
 		return err
 	}
 	arguments := []ast.ASTHandle{negated, formula}
@@ -109,6 +122,9 @@ func (c *ReachableCache) addDisjunctedFormula(formula ast.ASTHandle) (resultErr 
 	}
 	extended, err := c.manager.MkOrArgs(arguments)
 	if err != nil {
+		return err
+	}
+	if locals[1], err = c.manager.NewRef(extended); err != nil {
 		return err
 	}
 	if c.context != nil {
