@@ -90,6 +90,7 @@ func (r *ArithmeticResult) Close() error {
 // blockers cannot mutate the command context's ordinary incremental solver.
 type ArithmeticSolver struct {
 	backend             *smtcore.SMTSolver
+	internalized        []internalizedObjective
 	manager             *ast.ASTManager
 	config              smtcore.SMTSolverConfig
 	optsmtEngine        string
@@ -180,6 +181,50 @@ func (s *ArithmeticSolver) SetPreprocessingConverter(converter tactic.ModelConve
 
 // AddObjective registers one lexicographic objective. Minimization uses the
 // source normalization to maximization of the negated term.
+// InternalizeObjective is opt::context::internalize for an arithmetic
+// objective: a minimized term becomes (- t), which optsmt::add rewrites.
+// It runs before the initial check; AddObjective later reuses the result.
+func (s *ArithmeticSolver) InternalizeObjective(term ast.ASTHandle, maximize bool) error {
+	if s == nil || s.backend == nil {
+		return ast.ErrASTHandle
+	}
+	rewritten, rewriteRef, err := s.rewriteInternalized(term, maximize)
+	if err != nil {
+		return err
+	}
+	s.internalized = append(s.internalized, internalizedObjective{term: term, maximize: maximize, rewritten: rewritten, ref: rewriteRef})
+	return nil
+}
+
+type internalizedObjective struct {
+	term      ast.ASTHandle
+	maximize  bool
+	rewritten ast.ASTHandle
+	ref       ast.ASTRef
+}
+
+func (s *ArithmeticSolver) rewriteInternalized(term ast.ASTHandle, maximize bool) (ast.ASTHandle, ast.ASTRef, error) {
+	objective := term
+	if !maximize {
+		var err error
+		if objective, err = s.manager.MkArithmeticNeg(term); err != nil {
+			return ast.ASTHandle{}, ast.ASTRef{}, err
+		}
+	}
+	return s.rewriteObjective(objective)
+}
+
+// internalizedObjective returns the pending internalized form of term, or
+// builds it now.
+func (s *ArithmeticSolver) internalizedObjective(term ast.ASTHandle, maximize bool) (ast.ASTHandle, ast.ASTRef, error) {
+	if len(s.internalized) != 0 && s.internalized[0].term == term && s.internalized[0].maximize == maximize {
+		entry := s.internalized[0]
+		s.internalized = s.internalized[1:]
+		return entry.rewritten, entry.ref, nil
+	}
+	return s.rewriteInternalized(term, maximize)
+}
+
 func (s *ArithmeticSolver) AddObjective(term ast.ASTHandle, maximize bool) error {
 	if s == nil || s.backend == nil {
 		return ast.ErrASTHandle
@@ -196,14 +241,7 @@ func (s *ArithmeticSolver) AddObjective(term ast.ASTHandle, maximize bool) error
 		}
 		s.prepared = true
 	}
-	objective := term
 	var err error
-	if !maximize {
-		objective, err = s.manager.MkArithmeticNeg(term)
-		if err != nil {
-			return err
-		}
-	}
 	sort, err := s.manager.GetSort(term)
 	if err != nil {
 		return err
@@ -218,7 +256,7 @@ func (s *ArithmeticSolver) AddObjective(term ast.ASTHandle, maximize bool) error
 	}
 	// optsmt::add simplifies the objective with a fresh th_rewriter, so the
 	// arithmetic theory receives (* -1 t) rather than (- t).
-	rewritten, rewriteRef, err := s.rewriteObjective(objective)
+	rewritten, rewriteRef, err := s.internalizedObjective(term, maximize)
 	if err != nil {
 		return errors.Join(err, s.manager.DelRef(&ref))
 	}
@@ -943,6 +981,12 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 func (s *ArithmeticSolver) Close() error {
 	if s == nil || s.backend == nil {
 		return nil
+	}
+	for len(s.internalized) != 0 {
+		if err := s.manager.DelRef(&s.internalized[0].ref); err != nil {
+			return err
+		}
+		s.internalized = s.internalized[1:]
 	}
 	for len(s.objectives) != 0 {
 		last := len(s.objectives) - 1

@@ -414,8 +414,17 @@ func (c *Context) checkOptimizeLex(assumptions []ast.ASTHandle) (optimized *opt.
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, optimizer.Close()) }()
-	// optimize(): check_sat on the hard constraints before the objectives;
-	// a non-sat answer is the result.
+	// optimize(): internalize() rewrites the arithmetic objectives, then
+	// check_sat on the hard constraints; a non-sat answer is the result.
+	for i := range c.objectives {
+		objective := &c.objectives[i]
+		if objective.soft || objective.bitVector {
+			continue
+		}
+		if err = optimizer.InternalizeObjective(objective.expression, objective.maximize); err != nil {
+			return nil, err
+		}
+	}
 	initial, reason, err := optimizer.CheckHard()
 	if err != nil {
 		return nil, err
