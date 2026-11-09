@@ -592,9 +592,19 @@ Found while matching `-st` output against `build/z3` on
        context. Each ~virtual_solver's (not pred) assert goes through the
        proof-mode asserted_formulas rewriter, and z3 shows two iff/refl
        pairs where g3 shows one.
-     - Arithmetic group (convex_*, multicore, nonlinear, invariant,
-       utvpi): z3 builds `- a b` where g3 builds `<=`, or the ids drift
-       one deletion earlier.
+     - DONE (arithmetic group): the pve le/ge difference terms, and
+       itail/simp_res lifetimes. pdr_nonlinear_trace and model_generalizer
+       logs are identical; the convex/multicore/utvpi first differences
+       moved from about line 70 to 110.
+     - DONE: libstdc++ std::sort for rule_transformer plugins, with
+       apply_default_transformation's registration order (no-op stand-ins
+       for disabled plugins). The other transformer pipelines (rel_context,
+       bmc, tab, ...) still register in g3's own order; check them the same
+       way.
+     - DONE: plugin-owned m_unifier; substitution releases forward.
+       mk_scale numerals; mk_bit_blast m_g_vars/m_f_vars.
+     - fixedpoint_pdr_scale line 187 is inside theory_arith internalization
+       (bound atoms before def-axioms): theory_arith work, out of scope here.
      - mk-var id reuse (initial_trace, recursive_trace,
        repeated_disequalities).
      - fixedpoint_pdr_scale: extra Real nodes in mk_scale.
