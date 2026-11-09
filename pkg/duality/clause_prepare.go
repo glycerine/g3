@@ -1,6 +1,7 @@
 package duality
 
 import (
+	"sort"
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -34,7 +35,13 @@ func (p *preparedHornClause) close() error {
 			p.Head = nil
 		}
 	}
-	for i, e := range p.Replacements {
+	indexes := make([]uint32, 0, len(p.Replacements))
+	for i := range p.Replacements {
+		indexes = append(indexes, i)
+	}
+	sort.Slice(indexes, func(a, b int) bool { return indexes[a] < indexes[b] })
+	for _, i := range indexes {
+		e := p.Replacements[i]
 		if err := e.Close(); err != nil {
 			result = errors.Join(result, err)
 		} else {

@@ -1,6 +1,7 @@
 package duality
 
 import (
+	"sort"
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"strings"
@@ -247,7 +248,13 @@ func (p *HistoryProposer) Close() error {
 	if p == nil || p.closed {
 		return nil
 	}
-	for node, facts := range p.conjectures {
+	nodes := make([]*Node, 0, len(p.conjectures))
+	for node := range p.conjectures {
+		nodes = append(nodes, node)
+	}
+	sort.Slice(nodes, func(a, b int) bool { return nodes[a].Number < nodes[b].Number })
+	for _, node := range nodes {
+		facts := p.conjectures[node]
 		for len(facts) > 0 {
 			n := len(facts) - 1
 			if err := facts[n].Close(); err != nil {

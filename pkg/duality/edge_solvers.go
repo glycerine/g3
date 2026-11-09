@@ -2,6 +2,7 @@ package duality
 
 // Source: duality_rpfp.cpp:3147-3161, duality.h edge_solver ownership.
 import (
+	"sort"
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/solver"
@@ -107,7 +108,13 @@ func (p *EdgeSolverPool) Close() error {
 	if p == nil || p.closed {
 		return nil
 	}
-	for edge, state := range p.states {
+	edges := make([]*Edge, 0, len(p.states))
+	for edge := range p.states {
+		edges = append(edges, edge)
+	}
+	sort.Slice(edges, func(a, b int) bool { return edges[a].Number < edges[b].Number })
+	for _, edge := range edges {
+		state := p.states[edge]
 		if err := state.Close(); err != nil {
 			return err
 		}
