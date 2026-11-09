@@ -194,11 +194,12 @@ Found while matching `-st` output against `build/z3` on
    restrict); interpreted filters decode by variable index; the muz/fp,
    pdr, spacer, tab, transforms and duality map loops are deterministic
    (handle order, insertion order or source layout).
-   Remaining map-order work: FuncDeclSet (func_decl_dependencies keeps a
-   Go map where the source walks an obj_hashtable to dec_ref); the history
-   proposer, clause_prepare and edge_solvers maps in duality (non-handle
-   keys; duality is reached by no test vector); api MPS values and
-   cmd_context debug expressions (symbol dictionaries).
+   DONE: FuncDeclSet is an obj_hashtable (for_each_expr post-order fill),
+   func_decl_dependencies refs and reset follow table order; duality's
+   remaining maps, the MPS option setter and debug expressions are
+   deterministic. The mapscan list is now empty (symbol-keyed and
+   duality loops use name/number order rather than z3's symbol-hash
+   dictionaries).
    Open: g3's single generated model stands for both m_proto_model and
    m_model (scoped_mk_model drops both at search start and builds m_model
    from the last proto at search end); releasing the stale model after
