@@ -887,6 +887,22 @@ Found while matching `-st` output against `build/z3` on
     split_fp and the rounding core, plus an AST-level reader for an fp
     numeral's sign, significand and exponent that makes no packed
     numeral.
+    Plan (started 2026-11-09):
+    a. Port fpa2bv_converter.cpp into ast/fpa as methods named after the
+       source (mkAdd, unpack, round, addCore, ...), with expr_ref locals as
+       released-in-reverse ref frames and raw nested terms, and m_simp as
+       the real bool_rewriter (injected: ast/rewriter imports ast/fpa).
+       Add ast readers for mpf numeral fields and the mpf operations the
+       converter calls (fm().set/round/powers2), without making AST nodes.
+    b. Port fpa2bv_rewriter.cpp's reduce_app/reduce_var/reduce_quantifier
+       dispatch onto the source-named methods.
+    c. theory_fpa's fpa2bv_converter_wrapped overrides (mk_const,
+       mk_rm_const, mk_uninterpreted_function), the tactic, bv2fpa and the
+       model converter switch to the ported maps (m_const2bv,
+       m_rm_const2bv, m_uf2bvuf, m_min_max_ufs).
+    d. Delete the reimplementation; check qffplra_solver,
+       fpa_canonical_model_scopes, qffpbv_tactic and the other fpa vectors
+       against z3 traces.
 
 21. **Recorded deviations, kept deliberately.** cmd/g3 tests encode
    these: bvsmul_noovfl numeral folding uses signed semantics (the source
