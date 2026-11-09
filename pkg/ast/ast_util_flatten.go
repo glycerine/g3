@@ -37,7 +37,44 @@ func (m *ASTManager) astUtilBinary(r astNodeRef, op int32) (astNodeRef, astNodeR
 	return left, right, true, e
 }
 
+// flattenOwned tracks the negations flatten_and creates. The source's
+// result is an expr_ref_vector, so such a term is deleted as soon as the
+// vector stops holding it and nothing else does; the caller's own terms
+// are left to the caller.
+type flattenOwned struct {
+	m     *ASTManager
+	count map[astNodeRef]int
+}
+
+func (o *flattenOwned) hold(r astNodeRef) {
+	if o.count == nil {
+		o.count = make(map[astNodeRef]int)
+	}
+	o.count[r]++
+}
+
+func (o *flattenOwned) drop(h ASTHandle) error {
+	r, e := o.m.requireExpr(h)
+	if e != nil {
+		return e
+	}
+	c, ok := o.count[r]
+	if !ok {
+		return nil
+	}
+	if c > 1 {
+		o.count[r] = c - 1
+		return nil
+	}
+	delete(o.count, r)
+	if o.m.nodeAt(r.slot).rc != 0 {
+		return nil
+	}
+	return o.m.deleteNode(r)
+}
+
 func (m *ASTManager) astUtilFlattenAnd(result []ASTHandle) ([]ASTHandle, error) {
+	owned := flattenOwned{m: m}
 	for i := 0; i < len(result); {
 		r, e := m.requireExpr(result[i])
 		if e != nil {
@@ -54,8 +91,12 @@ func (m *ASTManager) astUtilFlattenAnd(result []ASTHandle) ([]ASTHandle, error) 
 				}
 				result = append(result, m.external(child))
 			}
+			old := result[i]
 			result[i] = result[len(result)-1]
 			result = result[:len(result)-1]
+			if e = owned.drop(old); e != nil {
+				return result, e
+			}
 			continue
 		}
 		inner, isNot, e := m.astUtilUnary(r, ASTOpNot)
@@ -66,7 +107,11 @@ func (m *ASTManager) astUtilFlattenAnd(result []ASTHandle) ([]ASTHandle, error) 
 			if twice, yes, e := m.astUtilUnary(inner, ASTOpNot); e != nil {
 				return result, e
 			} else if yes {
+				old := result[i]
 				result[i] = m.external(twice)
+				if e = owned.drop(old); e != nil {
+					return result, e
+				}
 				continue
 			}
 			if yes, e := m.astUtilOperator(inner, ASTOpOr); e != nil {
@@ -82,10 +127,15 @@ func (m *ASTManager) astUtilFlattenAnd(result []ASTHandle) ([]ASTHandle, error) 
 					if e != nil {
 						return result, e
 					}
+					owned.hold(negated)
 					result = append(result, m.external(negated))
 				}
+				old := result[i]
 				result[i] = result[len(result)-1]
 				result = result[:len(result)-1]
+				if e = owned.drop(old); e != nil {
+					return result, e
+				}
 				continue
 			}
 			if left, right, yes, e := m.astUtilBinary(inner, ASTOpImplies); e != nil {
@@ -96,24 +146,47 @@ func (m *ASTManager) astUtilFlattenAnd(result []ASTHandle) ([]ASTHandle, error) 
 				if e != nil {
 					return result, e
 				}
+				owned.hold(negated)
+				old := result[i]
 				result[i] = m.external(negated)
+				if e = owned.drop(old); e != nil {
+					return result, e
+				}
 				continue
 			}
 			if inner == m.falseApp {
+				old := result[i]
 				result[i] = result[len(result)-1]
 				result = result[:len(result)-1]
+				if e = owned.drop(old); e != nil {
+					return result, e
+				}
 				continue
 			}
 			if inner == m.trueApp {
+				for _, h := range result {
+					if e = owned.drop(h); e != nil {
+						return result, e
+					}
+				}
 				return []ASTHandle{m.external(m.falseApp)}, nil
 			}
 		}
 		if r == m.trueApp {
+			old := result[i]
 			result[i] = result[len(result)-1]
 			result = result[:len(result)-1]
+			if e = owned.drop(old); e != nil {
+				return result, e
+			}
 			continue
 		}
 		if r == m.falseApp {
+			for _, h := range result {
+				if e = owned.drop(h); e != nil {
+					return result, e
+				}
+			}
 			return []ASTHandle{m.external(m.falseApp)}, nil
 		}
 		i++
