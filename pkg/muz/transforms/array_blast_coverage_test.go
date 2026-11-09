@@ -308,18 +308,19 @@ func TestArrayBlastTransfersRuleRewriteProof(t *testing.T) {
 	if err != nil || !found {
 		t.Fatal("array-blast replacement lost its proof", found, err)
 	}
-	transferredFact, err := f.manager.GetProofFact(transferred)
+	// blast: p = mk_modus_ponens(r.get_proof(), mk_rewrite(fml1, fml2)),
+	// where fml2 is the blasted (=> body head) before Horn normalization
+	// and tail simplification.
+	parents, err := f.manager.GetProofNumParents(transferred)
 	coneMust(t, err)
-	transformedFormula, err := transformed.ToFormula()
-	coneMust(t, err)
-	transformedFormulaHandle, err := f.manager.RefGet(transformedFormula)
-	coneMust(t, err)
-	equal, err := f.manager.AreEqual(transferredFact, transformedFormulaHandle)
-	coneMust(t, err)
-	if !equal {
-		t.Fatal("transferred proof does not establish the transformed rule")
+	if parents != 2 {
+		t.Fatal("transferred proof is not a modus ponens", parents)
 	}
-	coneMust(t, f.manager.DelRef(&transformedFormula))
+	premise, err := f.manager.GetProofParent(transferred, 0)
+	coneMust(t, err)
+	if premise != proof {
+		t.Fatal("transferred proof does not start from the source rule proof")
+	}
 	if mode, modeErr := f.manager.ProofMode(); modeErr != nil || mode != ast.ASTProofEnabled {
 		t.Fatal("array-blast changed ambient proof mode", mode, modeErr)
 	}

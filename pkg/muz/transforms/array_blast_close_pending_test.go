@@ -168,7 +168,7 @@ func testArrayBlastPendingChildren(t *testing.T, completed bool) {
 	input, err := set.Rule(0)
 	must(err)
 	defer func() { must(input.Close()) }()
-	if next, changed, cause := plugin.transformRule(input); !errors.Is(cause, base.ErrRuleTransformerOwner) || next != nil || changed {
+	if changed, cause := plugin.blast(input, set); !errors.Is(cause, base.ErrRuleTransformerOwner) || changed {
 		t.Fatal("closing plugin accepted rule blasting", cause)
 	}
 

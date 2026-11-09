@@ -383,6 +383,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 			return nil, errors.Join(makeErr, transformer.Close())
 		}
 		blast.SetNormalizationParams(normalization)
+		blast.SetRuleMaker(e.transformRuleMaker())
 		if err = transformer.Register(blast); err != nil {
 			return nil, errors.Join(err, blast.Close(), transformer.Close())
 		}
