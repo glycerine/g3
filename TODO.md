@@ -776,7 +776,10 @@ Found while matching `-st` output against `build/z3` on
     normalize / to_fmls / from_fmls in order. Other early clusters from
     the sweep: bit-vector optimization (13-14, mk-var vs extract), the
     horn tactic/solver query rule (31-33: z3 builds (and ...) before
-    query!0), and sat_dimacs/pb2bv string printing (35, 46).
+    query!0; DONE for horn_solver_finite in 537b08dec, which is now
+    identical; horn_tactic_finite still differs at 34, where z3 frees the
+    (not Q) temporary and wraps the query rule in a forall), and
+    sat_dimacs/pb2bv string printing (35, 46).
 
 21. **Recorded deviations, kept deliberately.** cmd/g3 tests encode
    these: bvsmul_noovfl numeral folding uses signed semantics (the source
