@@ -336,15 +336,18 @@ func (t *HornTactic) classify(formula ast.ASTHandle, temporaries *[]ast.ASTRef) 
 		}
 		body = append(body, negated)
 	}
-	antecedent, err := t.manager.MkAndArray(body)
-	if err != nil {
-		return false, normalized, err
-	}
-	if err = t.pin(temporaries, antecedent); err != nil {
-		return false, normalized, err
+	// m.mk_and(body.size(), body) is the raw n-ary and, built only on the
+	// path that uses it.
+	conjunction := func() (ast.ASTHandle, error) {
+		h, e := t.manager.MkFamilyApp(0, ast.ASTOpAnd, nil, body)
+		if e == nil {
+			e = t.pin(temporaries, h)
+		}
+		return h, e
 	}
 	if head.IsNull() {
-		return false, antecedent, nil
+		antecedent, err := conjunction()
+		return false, antecedent, err
 	}
 	implication, err := t.isImplication(formula)
 	if err != nil {
@@ -353,8 +356,9 @@ func (t *HornTactic) classify(formula ast.ASTHandle, temporaries *[]ast.ASTRef) 
 	if implication {
 		return true, formula, nil
 	}
-	if len(body) == 0 {
-		return true, head, nil
+	antecedent, err := conjunction()
+	if err != nil {
+		return false, normalized, err
 	}
 	normalized, err = t.manager.MkImplies(antecedent, head)
 	if err != nil {

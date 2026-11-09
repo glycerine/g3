@@ -28,9 +28,9 @@ type SubsumptionCheckerPlugin struct {
 	// fixUnbound is rule_manager::fix_unbound_vars: reduce_unbound_vars with
 	// the rule manager's qe_lite, then the xform.fix_unbound_vars rewrite.
 	fixUnbound func(*base.Rule) (*base.Rule, error)
-	modelSteps       []ConeModelStep
-	closed           bool
-	closing          bool
+	modelSteps []ConeModelStep
+	closed     bool
+	closing    bool
 }
 
 type subsumptionConstructionFailure struct {
