@@ -169,11 +169,24 @@ func TestSATGoalDependenciesNativeDiscoveryOrderAndRepeatedLabels(t *testing.T) 
 	if len(assumptions) != len(labels) {
 		t.Fatal("duplicate label added an assumption", len(assumptions))
 	}
-	for i, h := range labels {
+	// dep2assumptions walks dep2asm (an obj_map) in table order, and each
+	// label contributes exactly one assumption.
+	order := tr.dependencyOrder()
+	if len(order) != len(labels) {
+		t.Fatal("dep2asm layout lost labels", len(order))
+	}
+	seen := make(map[ast.ASTHandle]bool, len(labels))
+	for i, h := range order {
 		v, e := tr.Variable(h)
 		satOK(t, e)
 		if assumptions[i] != sat.MakeLiteral(v, false) {
-			t.Fatal("assumptions lost label discovery order", i, assumptions[i], v)
+			t.Fatal("assumptions do not follow dep2asm order", i, assumptions[i], v)
+		}
+		seen[h] = true
+	}
+	for _, h := range labels {
+		if !seen[h] {
+			t.Fatal("label missing from assumptions", h)
 		}
 	}
 	result, e := s.Check(assumptions)

@@ -46,14 +46,15 @@ func (tr *GoalTranslator) insertAtom(h ast.ASTHandle, v uint32) error {
 		return err
 	}
 	tr.Atoms.Set(h, v)
-	return nil
+	return tr.atomLayout.Insert(h, [2]ast.ASTHandle{})
 }
 func (tr *GoalTranslator) atomEntries() ([]ast.ExprVarBinding, error) {
 	if tr.sharedAtoms != nil {
 		return tr.sharedAtoms.Entries()
 	}
 	entries := make([]ast.ExprVarBinding, 0, tr.Atoms.Len())
-	for h, v := range tr.Atoms.All() {
+	for _, h := range tr.atomOrder() {
+		v, _ := tr.Atoms.Get2(h)
 		entries = append(entries, ast.ExprVarBinding{Expr: h, Variable: v})
 	}
 	return entries, nil
@@ -80,7 +81,8 @@ func (tr *GoalTranslator) DependencyLiterals() ([]DependencyLiteralBinding, erro
 		return nil, err
 	}
 	result := make([]DependencyLiteralBinding, 0, tr.dependencies.Len())
-	for h, v := range tr.dependencies.All() {
+	for _, h := range tr.dependencyOrder() {
+		v, _ := tr.dependencies.Get2(h)
 		result = append(result, DependencyLiteralBinding{h, sat.Literal(v)})
 	}
 	return result, nil

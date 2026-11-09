@@ -508,7 +508,7 @@ func (t *SATTactic) applySAT(g *tactic.Goal, out *tactic.TacticResult, a *satTac
 	if err = t.traceInterpreted(tr, interpreted); err != nil {
 		return err
 	}
-	for label := range tr.dependencies.All() {
+	for _, label := range tr.dependencyOrder() {
 		ref, e := m.NewRef(label)
 		if e != nil {
 			return e

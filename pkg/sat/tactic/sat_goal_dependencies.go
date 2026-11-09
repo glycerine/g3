@@ -63,6 +63,9 @@ func (tr *GoalTranslator) insertGoalDependency(original, dep ast.ASTHandle, sign
 		l = l.Negated()
 	}
 	tr.dependencies.Set(original, l.Index())
+	if e = tr.dependencyLayout.Insert(original, [2]ast.ASTHandle{}); e != nil {
+		return e
+	}
 	tr.results = tr.results[:len(tr.results)-1]
 	return nil
 }
@@ -73,7 +76,9 @@ func (tr *GoalTranslator) AppendDependencyAssumptions(out []sat.Literal) ([]sat.
 	if e := tr.open(); e != nil {
 		return out, e
 	}
-	for _, value := range tr.dependencies.All() {
+	// dep2assumptions walks dep2asm in table order.
+	for _, h := range tr.dependencyOrder() {
+		value, _ := tr.dependencies.Get2(h)
 		out = append(out, sat.Literal(value))
 	}
 	return out, nil

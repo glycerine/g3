@@ -55,6 +55,9 @@ type GoalTranslator struct {
 	Atoms                                     insdict.Dict[ast.ASTHandle, uint32]
 	interfaces                                map[ast.ASTHandle]bool
 	dependencies                              insdict.Dict[ast.ASTHandle, uint32]
+	// atomLayout and dependencyLayout are the obj_map layouts of
+	// atom2bool_var's m_mapping and dep2asm: iteration follows them.
+	atomLayout, dependencyLayout *ast.ObjMap
 	dependencyTrail                           []ast.ASTHandle
 	frames                                    []satGoalFrame
 	results                                   []sat.Literal
@@ -106,6 +109,7 @@ func NewGoalTranslator(m *ast.ASTManager, s *sat.Solver) (tr *GoalTranslator, er
 	}
 	tr.Atoms = *insdict.NewDictFunc[ast.ASTHandle, uint32](hashIdentity)
 	tr.dependencies = *insdict.NewDictFunc[ast.ASTHandle, uint32](hashIdentity)
+	tr.atomLayout, tr.dependencyLayout = ast.NewObjMap(m), ast.NewObjMap(m)
 	tr.cache = make(map[ast.ASTHandle]uint32)
 	tr.interfaces = make(map[ast.ASTHandle]bool)
 	name := "ite_extra"
@@ -187,7 +191,11 @@ func (tr *GoalTranslator) Close() error {
 			return ast.ErrASTPending
 		}
 	}
-	for h := range tr.Atoms.All() {
+	// ~atom2bool_var: dec_ref_map_keys in table order.
+	for _, h := range tr.atomOrder() {
+		if _, held := tr.Atoms.Get2(h); !held {
+			continue // released by an earlier, interrupted close
+		}
 		consumed, e := tr.manager.DecRefConsumed(h)
 		if consumed {
 			tr.Atoms.Del(h)
@@ -634,4 +642,26 @@ func (tr *GoalTranslator) convert(fr satGoalFrame, op int32, n int) error {
 		}
 	}
 	return nil
+}
+
+// atomOrder lists the atom map's keys in obj_map iteration order.
+func (tr *GoalTranslator) atomOrder() []ast.ASTHandle {
+	return layoutKeys(tr.atomLayout)
+}
+
+// dependencyOrder lists dep2asm's keys in obj_map iteration order.
+func (tr *GoalTranslator) dependencyOrder() []ast.ASTHandle {
+	return layoutKeys(tr.dependencyLayout)
+}
+
+func layoutKeys(layout *ast.ObjMap) []ast.ASTHandle {
+	if layout == nil {
+		return nil
+	}
+	entries := layout.Entries()
+	keys := make([]ast.ASTHandle, len(entries))
+	for i, entry := range entries {
+		keys[i] = entry.Key
+	}
+	return keys
 }
