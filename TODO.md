@@ -614,6 +614,33 @@ Found while matching `-st` output against `build/z3` on
        binary gives different traces across runs (1 of 4).
      - DONE (3228654b5): mk_loop_counter makes its 0/1 numerals per rule;
        fp_spacer_karr is identical.
+     - DONE (785336e91): substitution_tree walked m_roots in Go map order;
+       it now uses func_decl id order. That fixed the
+       fp_spacer_generalizers_inv nondeterminism. A 3-run determinism sweep
+       over all 660 vectors is clean.
+     - DONE (399d8379d): the transformed rules outlive the query and the
+       Spacer context (m_spacer_rules); fp_spacer_magic is identical.
+     - DONE (c83d78b68): mk_array_instantiation's std::cout banner and
+       rule-set displays, mk_rule of (=> (and tail) head), done_selects in
+       obj_map order; fp_spacer_array_instantiation is identical on stdout
+       and trace.
+     - DONE (c09ab9a97, 155c24eab): mk_quantifier_abstraction and
+       mk_quantifier_instantiation go through rm.mk_rule (HNF splits rules
+       as z3 does), with the mk_horn_rule fix_unbound gate, the source's
+       local lifetimes, and pattern-before-app order. First differences:
+       qa 47 -> 68, qinst 54 -> 65 (free-id order).
+       Note: z3's quantify_arrays over-approximates. Goal :- P(a), not
+       a[true] with P(a) :- a[true] is sat in z3, and g3 now agrees.
+     - OPEN: fp_spacer_array_blast line 56. g3's mk_array_blast is
+       restructured: it rewrites each conjunct instead of the whole body,
+       ackermanize recurses instead of using a todo stack, defs are in
+       insertion order instead of obj_map order, and it builds the rule
+       directly instead of rm.mk_rule. Also, GCC evaluates
+       mk_implies(mk_and(eqs), mk_eq(v1, v2)) right to left, so the eq
+       comes first. Port blast/ackermanize/insert_def faithfully.
+     - NOTE: /mnt/oldrog filled up (other sessions' /mnt/oldrog/tmp). Tests
+       now run with GOCACHE/GOTMPDIR/TMPDIR under
+       /var/tmp/g3-job-487c9ee8 (in its env file).
      - DONE (arithmetic group): the pve le/ge difference terms, and
        itail/simp_res lifetimes. pdr_nonlinear_trace and model_generalizer
        logs are identical; the convex/multicore/utvpi first differences
