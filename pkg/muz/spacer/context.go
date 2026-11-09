@@ -411,6 +411,56 @@ func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.AST
 			appendSpacerDeclaration(&order, seen, declaration)
 		}
 	}
+	// init_rules allocates transformers by iterating m_head2rules (an
+	// obj_map filled in rule order), then for tail predicates without rules
+	// in rule order; registry-only declarations and outputs follow. The
+	// transformers are then initialized in rels (obj_map) table order.
+	heads := ast.NewObjMap(c.manager)
+	var ruleOrder []ast.ASTHandle
+	var tailOrder []ast.ASTHandle
+	for index := 0; index < count; index++ {
+		rule, err := set.Rule(index)
+		if err != nil {
+			return err
+		}
+		head, err := rule.HeadDeclaration()
+		if err == nil {
+			_, err = heads.InsertIfNotThere(head)
+		}
+		tails, tailErr := rule.UninterpretedTailSize()
+		err = errors.Join(err, tailErr)
+		for tail := 0; err == nil && tail < tails; tail++ {
+			var declaration ast.ASTHandle
+			declaration, err = rule.TailDeclaration(tail)
+			tailOrder = append(tailOrder, declaration)
+		}
+		if err = errors.Join(err, rule.Close()); err != nil {
+			return err
+		}
+	}
+	creationSeen := make(map[ast.ASTHandle]bool, len(order))
+	creation := make([]ast.ASTHandle, 0, len(order))
+	for _, entry := range heads.Entries() {
+		creation = append(creation, entry.Key)
+		creationSeen[entry.Key] = true
+	}
+	for _, declaration := range append(tailOrder, order...) {
+		if !creationSeen[declaration] {
+			creationSeen[declaration] = true
+			creation = append(creation, declaration)
+		}
+	}
+	ruleOrder = creation
+	rels := ast.NewObjMap(c.manager)
+	for _, declaration := range creation {
+		if _, err = rels.InsertIfNotThere(declaration); err != nil {
+			return err
+		}
+	}
+	order = order[:0]
+	for _, entry := range rels.Entries() {
+		order = append(order, entry.Key)
+	}
 	created := make(map[ast.ASTHandle]*PredicateTransformer, len(order))
 	committed := false
 	defer func() {
@@ -423,7 +473,7 @@ func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.AST
 			}
 		}
 	}()
-	for _, declaration := range order {
+	for _, declaration := range ruleOrder {
 		transformer, err := NewRulePredicateTransformer(c.owner, declaration, c.config)
 		if err != nil {
 			return err
