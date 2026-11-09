@@ -20,18 +20,18 @@ type FPAMpfFields struct {
 	Exponent       int64
 }
 
-// FPARoundingMode maps BV_RM_VAL (0 ties-to-away, 1 ties-to-even, 2 toward
-// negative, 3 toward positive, 4 toward zero) to mpf_rounding_mode.
+// FPARoundingMode maps BV_RM_VAL (0 ties-to-even, 1 ties-to-away, 2 toward
+// positive, 3 toward negative, 4 toward zero) to mpf_rounding_mode.
 func FPARoundingMode(bvRM int64) (unumeral.ArbitraryFloatRoundingMode, error) {
 	switch bvRM {
 	case 0:
-		return unumeral.ArbitraryFloatNearestAway, nil
-	case 1:
 		return unumeral.ArbitraryFloatNearestEven, nil
+	case 1:
+		return unumeral.ArbitraryFloatNearestAway, nil
 	case 2:
-		return unumeral.ArbitraryFloatTowardNegative, nil
-	case 3:
 		return unumeral.ArbitraryFloatTowardPositive, nil
+	case 3:
+		return unumeral.ArbitraryFloatTowardNegative, nil
 	case 4:
 		return unumeral.ArbitraryFloatTowardZero, nil
 	}

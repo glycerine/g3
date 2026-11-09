@@ -36,12 +36,13 @@ type BoolSimplifier interface {
 	Close() error
 }
 
-// BV_RM_VAL.
+// BV_RM_VAL (src/ast/fpa_decl_plugin.h), the same order as
+// mpf_rounding_mode.
 const (
-	bvRMTiesToAway = 0
-	bvRMTiesToEven = 1
-	bvRMToNegative = 2
-	bvRMToPositive = 3
+	bvRMTiesToEven = 0
+	bvRMTiesToAway = 1
+	bvRMToPositive = 2
+	bvRMToNegative = 3
 	bvRMToZero     = 4
 )
 

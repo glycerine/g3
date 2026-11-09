@@ -514,6 +514,16 @@ func (t *SMTFloatingPointTheory) assertConstraint(expression ast.ASTHandle) erro
 	if err != nil {
 		return err
 	}
+	// ctx.mark_as_relevant(lit) marks the literal's atom before mk_th_axiom.
+	if literal.Var() != SMTTrueBoolVar {
+		atom, atomErr := state.BoolExpression(literal.Var())
+		if atomErr != nil {
+			return atomErr
+		}
+		if err = state.markRelevant(atom); err != nil {
+			return err
+		}
+	}
 	return state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{literal})
 }
 
