@@ -15,7 +15,12 @@ type BoolAtomIndex struct {
 	self               *BoolAtomIndex
 	manager            *ast.ASTManager
 	positive, negative map[ast.ASTHandle]ast.ASTRef
-	closed             bool
+	// order lists the held atoms in insertion order (positive, then
+	// negative); the source atom_set holds raw pointers, so the Go-only
+	// references are released deterministically in this order.
+	order     []ast.ASTHandle
+	orderSets []map[ast.ASTHandle]ast.ASTRef
+	closed    bool
 }
 
 func NewBoolAtomIndex(manager *ast.ASTManager, positive, negative []ast.ASTHandle) (result *BoolAtomIndex, err error) {
@@ -62,6 +67,8 @@ func (i *BoolAtomIndex) insert(target map[ast.ASTHandle]ast.ASTRef, atoms []ast.
 			return err
 		}
 		target[atom] = ref
+		i.order = append(i.order, atom)
+		i.orderSets = append(i.orderSets, target)
 	}
 	return nil
 }
@@ -73,12 +80,15 @@ func (i *BoolAtomIndex) Close() (result error) {
 	if i.closed {
 		return nil
 	}
-	for _, set := range []map[ast.ASTHandle]ast.ASTRef{i.negative, i.positive} {
-		for key, ref := range set {
-			result = errors.Join(result, i.manager.DelRef(&ref))
-			if result == nil {
-				delete(set, key)
-			}
+	for k, atom := range i.order {
+		set := i.orderSets[k]
+		ref, held := set[atom]
+		if !held {
+			continue
+		}
+		result = errors.Join(result, i.manager.DelRef(&ref))
+		if result == nil {
+			delete(set, atom)
 		}
 	}
 	if result == nil {

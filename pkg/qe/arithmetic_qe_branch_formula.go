@@ -60,15 +60,17 @@ func (r *ArithmeticBranchFormula) Close() (result error) {
 	if r == nil || r.manager == nil {
 		return ast.ErrASTHandle
 	}
-	for i := len(r.Variables) - 1; i >= 0; i-- {
-		result = errors.Join(result, r.manager.DelRef(&r.Variables[i]))
-	}
-	r.Variables = nil
-	for _, ref := range []*ast.ASTRef{&r.Term, &r.Result, &r.Variable, &r.Formula} {
+	// m_trail pushes x, fml, result, term; the Go-owned variable vector
+	// (a raw ptr_vector in the source) is released after them.
+	for _, ref := range []*ast.ASTRef{&r.Variable, &r.Formula, &r.Result, &r.Term} {
 		if *ref != (ast.ASTRef{}) {
 			result = errors.Join(result, r.manager.DelRef(ref))
 		}
 	}
+	for i := range r.Variables {
+		result = errors.Join(result, r.manager.DelRef(&r.Variables[i]))
+	}
+	r.Variables = nil
 	if result == nil {
 		r.manager = nil
 	}

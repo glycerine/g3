@@ -9,7 +9,7 @@ import (
 type NLWeightCache struct {
 	manager *ast.ASTManager
 	util    *NonlinearArithmeticUtil
-	roots   map[ast.ASTHandle]ast.ASTRef
+	roots   []ast.ASTRef // m_trail: each new formula, released forward
 	weights map[ast.ASTHandle]map[ast.ASTHandle]uint32
 	closed  bool
 }
@@ -23,7 +23,7 @@ func NewNLWeightCache(manager *ast.ASTManager, enableLinear bool) (*NLWeightCach
 		_ = u.Close()
 		return nil, err
 	}
-	return &NLWeightCache{manager: manager, util: u, roots: make(map[ast.ASTHandle]ast.ASTRef), weights: make(map[ast.ASTHandle]map[ast.ASTHandle]uint32)}, nil
+	return &NLWeightCache{manager: manager, util: u, weights: make(map[ast.ASTHandle]map[ast.ASTHandle]uint32)}, nil
 }
 func (c *NLWeightCache) Weight(variable, formula ast.ASTHandle) (uint32, error) {
 	if c == nil || c.closed {
@@ -43,7 +43,7 @@ func (c *NLWeightCache) Weight(variable, formula ast.ASTHandle) (uint32, error) 
 		for _, v := range variables {
 			weights[v] = 100
 		}
-		c.roots[formula] = root
+		c.roots = append(c.roots, root)
 		c.weights[formula] = weights
 	}
 	if weight, ok := weights[variable]; ok {
@@ -58,10 +58,10 @@ func (c *NLWeightCache) Close() (result error) {
 	if c.closed {
 		return nil
 	}
-	for h, r := range c.roots {
-		result = errors.Join(result, c.manager.DelRef(&r))
-		delete(c.roots, h)
+	for i := range c.roots {
+		result = errors.Join(result, c.manager.DelRef(&c.roots[i]))
 	}
+	c.roots = nil
 	result = errors.Join(result, c.util.Close())
 	if result == nil {
 		c.closed = true

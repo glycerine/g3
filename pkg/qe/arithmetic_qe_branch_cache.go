@@ -11,6 +11,8 @@ import (
 type ArithmeticBranchCache struct {
 	manager *ast.ASTManager
 	entries map[ArithmeticBranchKey]*ArithmeticBranchFormula
+	// order is add_cache's m_trail order, released forward.
+	order []*ArithmeticBranchFormula
 }
 
 func NewArithmeticBranchCache(manager *ast.ASTManager) (*ArithmeticBranchCache, error) {
@@ -28,6 +30,7 @@ func (c *ArithmeticBranchCache) Insert(record *ArithmeticBranchFormula) error {
 		return ast.ErrASTDomain
 	}
 	c.entries[record.Key] = record
+	c.order = append(c.order, record)
 	return nil
 }
 
@@ -43,13 +46,17 @@ func (c *ArithmeticBranchCache) Close() (result error) {
 	if c == nil || c.manager == nil {
 		return ast.ErrASTHandle
 	}
-	for key, record := range c.entries {
+	kept := c.order[:0]
+	for _, record := range c.order {
 		cause := record.Close()
 		result = errors.Join(result, cause)
 		if cause == nil {
-			delete(c.entries, key)
+			delete(c.entries, record.Key)
+		} else {
+			kept = append(kept, record)
 		}
 	}
+	c.order = kept
 	if result == nil {
 		c.manager = nil
 	}
