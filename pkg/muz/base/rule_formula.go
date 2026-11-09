@@ -307,16 +307,20 @@ func (m *RuleManager) newRuleFromFormulaWithSymbol(formula ast.ASTHandle, name s
 		return nil, err
 	}
 	next := used.MaxFoundVarIndexPlusOne()
-	head, err = m.hoistCompoundPredicate(head, &next, &body, &temporaries)
-	if err != nil {
-		return nil, err
-	}
+	// extract_horn applies ensure_app to the head and every body element
+	// before hoist_compound_predicates walks the head, then the body.
 	originalBody := len(body)
 	for i := 0; i < originalBody; i++ {
 		body[i], err = m.ensureBooleanApplication(body[i], &temporaries)
 		if err != nil {
 			return nil, err
 		}
+	}
+	head, err = m.hoistCompoundPredicate(head, &next, &body, &temporaries)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < originalBody; i++ {
 		body[i], err = m.hoistCompoundPredicate(body[i], &next, &body, &temporaries)
 		if err != nil {
 			return nil, err
