@@ -164,6 +164,18 @@ Found while matching `-st` output against `build/z3` on
    stay alive until the next reset (released forward).
    Check for nondeterminism with /var/tmp/g3-job-487c9ee8/ndscan.sh (three
    runs per vector, compares trace logs).
+   Also DONE (345 -> 360): array already_diseq builds m_is_diseq_tmp per
+   select pair; MBQI check(q) pushes before assert_neg_q_m, restricts each
+   skolem as it is made, pops before its skolems die, and its universe /
+   inst-set restrictions hold their equalities unpinned (ptr_buffer, so the
+   rewriter does not cache them) walking declarations last to first; a
+   rejected candidate proto model lives until the next mk_proto_model;
+   qi_queue m_instances release forward; pp_attribute builds right to
+   left; theory_str's len-0 axiom uses ctx.mk_eq_atom in a gate context.
+   Open: g3's single generated model stands for both m_proto_model and
+   m_model (scoped_mk_model drops both at search start and builds m_model
+   from the last proto at search end); releasing the stale model after
+   the next build instead made 15 logs worse, so the split needs care.
    Still open in this area: model universes (m_usort2universe is an
    obj_map; g3 keeps insertion order), cmd_context m_object_refs (a symbol
    dictionary; only debug commands use it), and the remaining mapscan list
@@ -172,6 +184,11 @@ Found while matching `-st` output against `build/z3` on
    pb_preprocess, bv_slice, substitution_tree. Those loops are
    deterministic in practice only if the map has one entry; each needs its
    z3 container checked (obj_map -> ast.ObjMap, vector -> insdict).
+   pb-preprocess is not a faithful port (it re-classifies between phases,
+   resolves a narrower case and uses an extension model converter); a
+   re-port must walk m_vars (obj_map<app, rec>) in table order with
+   next_resolvent, keep z3's single classification per simplify round,
+   and use pb_preproc_model_converter.
 
 4. **DONE: get-consequences algorithm.** smt_solver::get_consequences_core
    is now context::get_consequences (smt_consequences.cpp: antecedent sets,
@@ -470,11 +487,15 @@ Found while matching `-st` output against `build/z3` on
    direct congruence-aware matcher over context enodes, not mam.cpp's
    code trees, inverted path indexes and backtracking interpreter. Match
    discovery order, and so instance order and the quantifier statistics,
-   can differ from z3. It also blocks the [new-match] trace record, which
-   lists mam's m_used_enodes in interpreter order, and the qi_queue
-   [instance]/[end-of-instance] records that go with it. Port mam.cpp
-   (compiler, code trees, interpreter, inverted path index) for the
-   instantiated pattern shapes, then add the three records.
+   can differ from z3. Port mam.cpp (compiler, code trees, interpreter,
+   inverted path index) for the instantiated pattern shapes.
+   DONE meanwhile: the trace stream has [new-match] (add_instance; MBQI
+   and quick-check instances list no used enodes, e-matching lists each
+   top-level enode then nested application matches in discovery order),
+   [instance] (with the quant-inst proof id under proofs) and
+   [end-of-instance]. Full logs 351 -> 360 identical. Known gap: for a
+   multi-pattern z3 can reach the second atom without listing it
+   (lazy_multipattern_scopes), which needs the interpreter itself.
 
 20. **DONE (e36db5524): fixedpoint rules are flushed lazily.** AddRule queues; the
    query flush binds and builds rules; other readers build the Go eager view on
