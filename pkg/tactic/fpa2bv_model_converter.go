@@ -21,7 +21,7 @@ type tacticFPA2BVModelConverter struct {
 
 // NewFPA2BVModelConverter snapshots the conversion symbols accumulated by the
 // FPA-to-BV rewriter.
-func NewFPA2BVModelConverter(m *ast.ASTManager, source *astfpa.Converter) (*tacticFPA2BVModelConverter, error) {
+func NewFPA2BVModelConverter(m *ast.ASTManager, source *astfpa.FPA2BVConverter) (*tacticFPA2BVModelConverter, error) {
 	if m == nil || source == nil {
 		return nil, ast.ErrASTHandle
 	}

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	astfpa "github.com/glycerine/g3/pkg/ast/fpa"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
@@ -153,14 +154,14 @@ func TestSMTFPAConversionAndSideConditionDetailSourceTrace(t *testing.T) {
 
 	// The standalone converter path records the same symbolic-RM range side
 	// condition consumed by theory_fpa::mk_side_conditions.
-	astTestMust(t, theory.converter.SetConstantFactories(nil, nil))
+	theory.converter.SetOverrides(astfpa.FPA2BVOverrides{})
 	roundingSort, err := m.RoundingModeSort()
 	astTestMust(t, err)
 	rounding, err := m.MkConst(astTestSymbol(t, m, "fpa-trace-rounding"), roundingSort)
 	astTestMust(t, err)
 	_, err = theory.convert(rounding)
 	astTestMust(t, err)
-	if len(theory.converter.ExtraAssertions()) != 1 {
+	if extra, e := theory.converter.ExtraAssertions(); e != nil || len(extra) != 1 {
 		t.Fatal("symbolic rounding conversion did not record its source side condition")
 	}
 	astTestMust(t, theory.flushSideConstraints())

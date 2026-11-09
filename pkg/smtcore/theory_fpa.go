@@ -61,7 +61,7 @@ func (p *smtFPAValueProcedure) MakeValue(generator *SMTModelGenerator, values []
 // and defines every reached atom through the retained FPA-to-BV converter.
 type SMTFloatingPointTheory struct {
 	*SMTTheoryBase
-	converter  *astfpa.Converter
+	converter  *astfpa.FPA2BVConverter
 	rewriter   *rewriter.FPA2BVRewriter
 	converted  map[ast.ASTHandle]ast.ASTHandle
 	conversion []smtFPAConversion
@@ -86,14 +86,13 @@ func (t *SMTFloatingPointTheory) Initialize(state *SMTInternalizerState) (result
 	if err := t.SMTTheoryBase.Initialize(state); err != nil {
 		return err
 	}
-	converter, err := astfpa.NewConverter(state.manager)
+	converter, err := rewriter.NewFPA2BVConverter(state.manager, state.paramsContext, state.globals)
 	if err != nil {
 		return fmt.Errorf("floating-point converter construction: %w", err)
 	}
 	t.converter = converter
-	if err = converter.SetConstantFactories(t.convertFloatingConstant, t.convertRoundingConstant); err != nil {
-		return errors.Join(fmt.Errorf("floating-point converter constants: %w", err), converter.Close())
-	}
+	// fpa2bv_converter_wrapped overrides mk_const and mk_rm_const.
+	converter.SetOverrides(astfpa.FPA2BVOverrides{MkConst: t.wrappedMkConst, MkRMConst: t.wrappedMkRMConst})
 	rw, err := rewriter.NewFPA2BVRewriter(state.manager, converter)
 	if err != nil {
 		if rw != nil {
@@ -223,6 +222,42 @@ func (t *SMTFloatingPointTheory) unwrapFloating(expression, sort ast.ASTHandle) 
 	return state.manager.MkFamilyApp(t.FamilyID(), ast.FPAOpFP, nil, []ast.ASTHandle{sign, exponent, significand})
 }
 
+// wrappedMkConst is fpa2bv_converter_wrapped::mk_const.
+func (t *SMTFloatingPointTheory) wrappedMkConst(c *astfpa.FPA2BVConverter, f ast.ASTHandle, result ast.ASTRef) error {
+	m := c.Manager()
+	if r, ok, err := c.Const2BVFind(f); err != nil {
+		return err
+	} else if ok {
+		return m.SetRef(result, r)
+	}
+	r, err := t.convertFloatingConstant(f)
+	if err != nil {
+		return err
+	}
+	if err = m.SetRef(result, r); err != nil {
+		return err
+	}
+	return c.Const2BVInsert(f, r)
+}
+
+// wrappedMkRMConst is fpa2bv_converter_wrapped::mk_rm_const.
+func (t *SMTFloatingPointTheory) wrappedMkRMConst(c *astfpa.FPA2BVConverter, f ast.ASTHandle, result ast.ASTRef) error {
+	m := c.Manager()
+	if r, ok, err := c.RMConst2BVFind(f); err != nil {
+		return err
+	} else if ok {
+		return m.SetRef(result, r)
+	}
+	r, err := t.convertRoundingConstant(f)
+	if err != nil {
+		return err
+	}
+	if err = m.SetRef(result, r); err != nil {
+		return err
+	}
+	return c.RMConst2BVInsert(f, r)
+}
+
 func (t *SMTFloatingPointTheory) convertFloatingConstant(declaration ast.ASTHandle) (ast.ASTHandle, error) {
 	state, err := t.State()
 	if err != nil {
@@ -269,7 +304,9 @@ func (t *SMTFloatingPointTheory) convertFloatingConstant(declaration ast.ASTHand
 	if width != ebits+sbits {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
-	sign, err := state.manager.MkBitVectorExtract(width-1, width-1, packed)
+	// mk_fp(extract(sgn), extract(exp), extract(sig)): GCC builds the
+	// extracts right to left.
+	significand, err := state.manager.MkBitVectorExtract(sbits-2, 0, packed)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -277,7 +314,7 @@ func (t *SMTFloatingPointTheory) convertFloatingConstant(declaration ast.ASTHand
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	significand, err := state.manager.MkBitVectorExtract(sbits-2, 0, packed)
+	sign, err := state.manager.MkBitVectorExtract(width-1, width-1, packed)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -749,7 +786,7 @@ func (t *SMTFloatingPointTheory) InternalizeTerm(expression ast.ASTHandle) (bool
 	}
 }
 
-func (t *SMTFloatingPointTheory) InternalizeEquality(expression ast.ASTHandle, variable int32) error {
+func (t *SMTFloatingPointTheory) InternalizeEquality(expression ast.ASTHandle, variable int32) (result error) {
 	state, err := t.State()
 	if err != nil {
 		return err
@@ -790,8 +827,15 @@ func (t *SMTFloatingPointTheory) InternalizeEquality(expression ast.ASTHandle, v
 	}
 	var defined ast.ASTHandle
 	if floating {
-		defined, err = t.converter.MkEq(converted[0], converted[1])
-		if err != nil {
+		eq, refErr := state.manager.NewRef(ast.ASTHandle{})
+		if refErr != nil {
+			return refErr
+		}
+		defer func() { result = errors.Join(result, state.manager.DelRef(&eq)) }()
+		if err = t.converter.MkEq(converted[0], converted[1], eq); err != nil {
+			return err
+		}
+		if defined, err = state.manager.RefGet(eq); err != nil {
 			return err
 		}
 	} else {

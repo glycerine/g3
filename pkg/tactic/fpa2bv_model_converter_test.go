@@ -6,14 +6,28 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
-	astfpa "github.com/glycerine/g3/pkg/ast/fpa"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	modelfpa "github.com/glycerine/g3/pkg/model/fpa"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 func TestFPA2BVModelConverterRebuildsFloatsAndKeepsOtherDeclarations(t *testing.T) {
 	m := astTestManager(t)
-	forward, err := astfpa.NewConverter(m)
+	b := m.BudgetField
+	ctx, err := uparams.NewParamsContext(m.Symbols, m.NumeralService(), uparams.ParamsConfig{Budget: b})
+	astTestMust(t, err)
+	catalog, err := uparams.NewGlobalParamsCatalog(m.Symbols, uparams.GlobalParamsCatalogConfig{Budget: b})
+	astTestMust(t, err)
+	global, err := uparams.NewGlobalParamsService(m.Symbols, ctx, uparams.GlobalParamsConfig{Budget: b, Catalog: catalog})
+	astTestMust(t, err)
+	astTestMust(t, global.InitializeSource())
+	t.Cleanup(func() {
+		astTestMust(t, global.Close())
+		astTestMust(t, catalog.Close())
+		astTestMust(t, ctx.Close())
+	})
+	forward, err := rewriter.NewFPA2BVConverter(m, ctx, global)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, forward.Close()) })
 	floatSort, err := m.FloatingPointSort(8, 24)

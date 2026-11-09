@@ -8,8 +8,10 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	astfpa "github.com/glycerine/g3/pkg/ast/fpa"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -28,7 +30,7 @@ func testModelCore(t *testing.T, m *ast.ASTManager) *model.ModelCore {
 	return core
 }
 
-func testFixture(t *testing.T) (*ast.ASTManager, *astfpa.Converter, *Converter) {
+func testFixture(t *testing.T) (*ast.ASTManager, *astfpa.FPA2BVConverter, *Converter) {
 	t.Helper()
 	budget := arena.NewBudget(1 << 30)
 	symbols, err := usymbol.NewManager(usymbol.Config{Budget: budget})
@@ -37,7 +39,15 @@ func testFixture(t *testing.T) (*ast.ASTManager, *astfpa.Converter, *Converter) 
 	testMust(t, err)
 	manager, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: symbols, Numerals: numerals, Budget: budget})
 	testMust(t, err)
-	source, err := astfpa.NewConverter(manager)
+	// m_simp reads the rewriter module parameters.
+	params, err := uparams.NewParamsContext(symbols, numerals, uparams.ParamsConfig{Budget: budget, PageEntries: 1, Text: arena.VectorConfig{PageSize: 16, Descriptors: arena.Config{PageSize: 2, Budget: budget}}})
+	testMust(t, err)
+	catalog, err := uparams.NewGlobalParamsCatalog(symbols, uparams.GlobalParamsCatalogConfig{Budget: budget, Descriptions: arena.BytesRegionConfig{PageSize: 64, Descriptors: arena.Config{PageSize: 2, Budget: budget}}, Text: arena.VectorConfig{PageSize: 64, Descriptors: arena.Config{PageSize: 2, Budget: budget}}})
+	testMust(t, err)
+	globals, err := uparams.NewGlobalParamsService(symbols, params, uparams.GlobalParamsConfig{Budget: budget, DescriptorPageSize: 2, DescriptorWordsPageSize: 16, Catalog: catalog})
+	testMust(t, err)
+	testMust(t, globals.InitializeSource())
+	source, err := rewriter.NewFPA2BVConverter(manager, params, globals)
 	testMust(t, err)
 	converter, err := NewConverter(manager, source)
 	testMust(t, err)
@@ -45,6 +55,9 @@ func testFixture(t *testing.T) (*ast.ASTManager, *astfpa.Converter, *Converter) 
 		testMust(t, converter.Close())
 		testMust(t, source.Close())
 		testMust(t, manager.Close())
+		testMust(t, globals.Close())
+		testMust(t, catalog.Close())
+		testMust(t, params.Close())
 		testMust(t, numerals.Close())
 		testMust(t, symbols.Close())
 		if budget.Used() != 0 {
@@ -223,8 +236,11 @@ func TestBV2FPAConverterRebuildsFunctionInterpretation(t *testing.T) {
 	testMust(t, err)
 	input, err := sourceConverter.MkConst(inputDeclaration)
 	testMust(t, err)
-	testMust(t, sourceConverter.SetHighUnspecified(false))
-	_, err = sourceConverter.ToIEEEBVFor(declaration, input)
+	sourceConverter.SetUnspecifiedFPHi(false)
+	out, err := m.NewRef(ast.ASTHandle{})
+	testMust(t, err)
+	defer func() { testMust(t, m.DelRef(&out)) }()
+	_, err = sourceConverter.ReduceApp(declaration, []ast.ASTHandle{input}, out)
 	testMust(t, err)
 	snapshot, err := sourceConverter.Snapshot()
 	testMust(t, err)

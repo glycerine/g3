@@ -25,7 +25,7 @@ type Converter struct {
 	closed            bool
 }
 
-func NewConverter(m *ast.ASTManager, source *astfpa.Converter) (owner *Converter, result error) {
+func NewConverter(m *ast.ASTManager, source *astfpa.FPA2BVConverter) (owner *Converter, result error) {
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}

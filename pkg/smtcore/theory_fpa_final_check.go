@@ -13,7 +13,11 @@ func (t *SMTFloatingPointTheory) FinalCheck() (SMTFinalCheckStatus, error) {
 	if err := t.traceFPAFinalCheck(); err != nil {
 		return SMTFinalCheckContinue, err
 	}
-	if err := fpaSourceAssertBool(718, "m_converter.m_extra_assertions.empty()", len(t.converter.ExtraAssertions()) == 0); err != nil {
+	extra, err := t.converter.ExtraAssertions()
+	if err != nil {
+		return SMTFinalCheckContinue, err
+	}
+	if err := fpaSourceAssertBool(718, "m_converter.m_extra_assertions.empty()", len(extra) == 0); err != nil {
 		return SMTFinalCheckContinue, err
 	}
 	return SMTFinalCheckDone, nil

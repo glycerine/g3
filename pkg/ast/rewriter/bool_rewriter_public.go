@@ -144,3 +144,19 @@ func SimplifyBooleanGateConfigured(m *ast.ASTManager, operation int32, args []as
 		return ast.ErrASTDomain
 	}
 }
+
+// MkEq is bool_rewriter::mk_eq(a, b, result).
+func (rw *boolRewriter) MkEq(a, b ast.ASTHandle, out ast.ASTRef) error {
+	if err := rw.configuredOpen(); err != nil {
+		return err
+	}
+	return rw.mkEq(a, b, out)
+}
+
+// MkXor is bool_rewriter::mk_xor(a, b, result).
+func (rw *boolRewriter) MkXor(a, b ast.ASTHandle, out ast.ASTRef) error {
+	if err := rw.configuredOpen(); err != nil {
+		return err
+	}
+	return rw.mkXor(a, b, out)
+}

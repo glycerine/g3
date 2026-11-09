@@ -25,7 +25,7 @@ type Pass struct {
 	context   *uparams.ParamsContext
 	globals   *uparams.GlobalParamsService
 	params    uparams.ParamsRef
-	converter *astfpa.Converter
+	converter *astfpa.FPA2BVConverter
 	rewriter  *rewriter.FPA2BVRewriter
 	closed    bool
 }
@@ -60,11 +60,11 @@ func (p *Pass) open() error {
 }
 
 func (p *Pass) build() error {
-	converter, err := astfpa.NewConverter(p.manager)
-	p.converter = converter
+	converter, err := rewriter.NewFPA2BVConverter(p.manager, p.context, p.globals)
 	if err != nil {
 		return err
 	}
+	p.converter = converter
 	rewrite, err := rewriter.NewFPA2BVRewriter(p.manager, converter)
 	p.rewriter = rewrite
 	if err != nil {
@@ -225,7 +225,11 @@ func (p *Pass) Apply(goal *tactic.Goal) (_ Result, result error) {
 	if err = goal.IncDepth(); err != nil {
 		return Result{}, err
 	}
-	for _, assertion := range p.converter.ExtraAssertions() {
+	extra, err := p.converter.ExtraAssertions()
+	if err != nil {
+		return Result{}, err
+	}
+	for _, assertion := range extra {
 		if err = goal.Assert(assertion); err != nil {
 			return Result{}, err
 		}

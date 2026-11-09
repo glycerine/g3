@@ -10,16 +10,17 @@ import (
 
 type fpa2BVFixture struct {
 	m         *ast.ASTManager
-	converter *astfpa.Converter
+	converter *astfpa.FPA2BVConverter
 	rewriter  *FPA2BVRewriter
 	family    ast.FamilyID
 	sort      ast.ASTHandle
 	out       ast.ASTRef
+	simp      *TheoryRewriter
 }
 
 func newFPA2BVFixture(t *testing.T) fpa2BVFixture {
 	t.Helper()
-	m := astTestManager(t)
+	m, c, g, _ := boolRewriterConfigFixture(t)
 	_, err := m.RegisterArithmeticPlugin()
 	astTestMust(t, err)
 	_, err = m.RegisterBitVectorPlugin()
@@ -28,7 +29,7 @@ func newFPA2BVFixture(t *testing.T) fpa2BVFixture {
 	astTestMust(t, err)
 	sort, err := m.FloatingPointSort(8, 24)
 	astTestMust(t, err)
-	converter, err := astfpa.NewConverter(m)
+	converter, err := NewFPA2BVConverter(m, c, g)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, converter.Close()) })
 	rw, err := NewFPA2BVRewriter(m, converter)
@@ -37,7 +38,10 @@ func newFPA2BVFixture(t *testing.T) fpa2BVFixture {
 	out, err := m.NewRef(ast.ASTHandle{})
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, m.DelRef(&out)) })
-	return fpa2BVFixture{m: m, converter: converter, rewriter: rw, family: family, sort: sort, out: out}
+	simp, err := NewTheoryRewriter(m, c, g, nil)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, simp.Close()) })
+	return fpa2BVFixture{m: m, converter: converter, rewriter: rw, family: family, sort: sort, out: out, simp: simp}
 }
 
 func (f fpa2BVFixture) rewrite(t *testing.T, value ast.ASTHandle) ast.ASTHandle {
@@ -121,8 +125,8 @@ func TestFPA2BVRewriterQuantifiedVariablesAndUninterpretedFunctions(t *testing.T
 	if kind, e := f.m.GetDeclKind(convertedUF); e != nil || kind != ast.FPAOpFP {
 		t.Fatal("FPA-valued UF was not lowered", kind, e)
 	}
-	if len(f.converter.ExtraAssertions()) != 1 {
-		t.Fatal("UF connection assertion", len(f.converter.ExtraAssertions()))
+	if len(f.extra(t)) != 1 {
+		t.Fatal("UF connection assertion", len(f.extra(t)))
 	}
 }
 
@@ -137,7 +141,7 @@ func TestFPA2BVRewriterArithmeticDispatch(t *testing.T) {
 	addition, err := f.m.MkFamilyApp(f.family, ast.FPAOpAdd, nil, []ast.ASTHandle{rounding, positive, negative})
 	astTestMust(t, err)
 	got := f.rewrite(t, addition)
-	want, err := f.converter.MkSpecial(f.sort, astfpa.NaN)
+	want, err := f.special(t, func() (ast.ASTHandle, error) { return f.m.MkFPANaNOfSort(f.sort) })
 	astTestMust(t, err)
 	if got != want {
 		t.Fatal("opposite infinities did not lower to NaN", got, want)
@@ -163,7 +167,7 @@ func TestFPA2BVRewriterArithmeticDispatch(t *testing.T) {
 	astTestMust(t, err)
 	integral, err := f.m.MkFamilyApp(f.family, ast.FPAOpRoundToIntegral, nil, []ast.ASTHandle{rounding, negativeZero})
 	astTestMust(t, err)
-	wantNegativeZero, err := f.converter.MkSpecial(f.sort, astfpa.NegativeZero)
+	wantNegativeZero, err := f.special(t, func() (ast.ASTHandle, error) { return f.m.MkFPAZeroOfSort(f.sort, true) })
 	astTestMust(t, err)
 	if got = f.rewrite(t, integral); got != wantNegativeZero {
 		t.Fatal("round-to-integral did not preserve negative zero", got, wantNegativeZero)
@@ -171,7 +175,7 @@ func TestFPA2BVRewriterArithmeticDispatch(t *testing.T) {
 	squareRoot, err := f.m.MkFamilyApp(f.family, ast.FPAOpSqrt, nil, []ast.ASTHandle{rounding, negative})
 	astTestMust(t, err)
 	got = f.rewrite(t, squareRoot)
-	isNaN, err := f.converter.Classify(got, ast.FPAIsNaN)
+	isNaN, err := f.isNaN(t, got)
 	astTestMust(t, err)
 	if !f.m.IsTrue(isNaN) {
 		t.Fatal("negative-infinity square root did not lower to NaN", got, isNaN)
@@ -179,7 +183,7 @@ func TestFPA2BVRewriterArithmeticDispatch(t *testing.T) {
 	fused, err := f.m.MkFamilyApp(f.family, ast.FPAOpFMA, nil, []ast.ASTHandle{rounding, positive, positive, negative})
 	astTestMust(t, err)
 	got = f.rewrite(t, fused)
-	isNaN, err = f.converter.Classify(got, ast.FPAIsNaN)
+	isNaN, err = f.isNaN(t, got)
 	astTestMust(t, err)
 	if !f.m.IsTrue(isNaN) {
 		t.Fatal("opposed infinite FMA did not lower to NaN", got, isNaN)
@@ -226,7 +230,7 @@ func TestFPA2BVRewriterToFPFormatDispatch(t *testing.T) {
 	conversion, err := f.m.MkApp(declaration, []ast.ASTHandle{rounding, positiveInfinity})
 	astTestMust(t, err)
 	got := f.rewrite(t, conversion)
-	want, err := f.converter.MkSpecial(targetSort, astfpa.PositiveInfinity)
+	want, err := f.special(t, func() (ast.ASTHandle, error) { return f.m.MkFPAInfinityOfSort(targetSort, false) })
 	astTestMust(t, err)
 	if got != want {
 		t.Fatal("format conversion dispatch", got, want)
@@ -244,10 +248,12 @@ func TestFPA2BVRewriterToFPFormatDispatch(t *testing.T) {
 		astTestMust(t, e)
 		integerConversion, e := f.m.MkApp(integerDeclaration, []ast.ASTHandle{rounding, zero})
 		astTestMust(t, e)
-		got = f.rewrite(t, integerConversion)
-		want, e = f.converter.MkSpecial(targetSort, astfpa.PositiveZero)
+		// mk_to_fp_signed/unsigned build raw m.mk_eq/mk_ite: constant
+		// inputs fold only under the simplifier that follows fpa2bv.
+		got = f.simplified(t, f.rewrite(t, integerConversion))
+		want, e = f.special(t, func() (ast.ASTHandle, error) { return f.m.MkFPAZeroOfSort(targetSort, false) })
 		astTestMust(t, e)
-		if got != want {
+		if want = f.simplified(t, want); got != want {
 			t.Fatal("integer conversion dispatch", kind, got, want)
 		}
 	}
@@ -274,7 +280,7 @@ func TestFPA2BVRewriterToBVDispatch(t *testing.T) {
 		astTestMust(t, e)
 		conversion, e := f.m.MkApp(declaration, []ast.ASTHandle{rounding, zero})
 		astTestMust(t, e)
-		if got := f.rewrite(t, conversion); got != want {
+		if got := f.simplified(t, f.rewrite(t, conversion)); got != want {
 			t.Fatal("float-to-BV dispatch", kind, got, want)
 		}
 	}
@@ -286,7 +292,7 @@ func TestFPA2BVRewriterToRealDispatch(t *testing.T) {
 	astTestMust(t, err)
 	conversion, err := f.m.MkFamilyApp(f.family, ast.FPAOpToReal, nil, []ast.ASTHandle{zero})
 	astTestMust(t, err)
-	got := f.rewrite(t, conversion)
+	got := f.simplified(t, f.rewrite(t, conversion))
 	text, integer, matched, err := f.m.ArithmeticNumeralText(got)
 	astTestMust(t, err)
 	if !matched || integer || text != "0" {
@@ -328,13 +334,13 @@ func TestFPA2BVRewriterFromRealDispatch(t *testing.T) {
 	astTestMust(t, err)
 	conversion, err = f.m.MkApp(declaration, []ast.ASTHandle{rounding, symbolic})
 	astTestMust(t, err)
-	before := len(f.converter.ExtraAssertions())
+	before := len(f.extra(t))
 	got = f.rewrite(t, conversion)
 	if kind, e := f.m.GetDeclKind(got); e != nil || kind != ast.FPAOpFP {
 		t.Fatal("symbolic real conversion dispatch", kind, e)
 	}
-	if len(f.converter.ExtraAssertions()) != before+1 {
-		t.Fatal("symbolic real conversion assertion", before, len(f.converter.ExtraAssertions()))
+	if len(f.extra(t)) != before+1 {
+		t.Fatal("symbolic real conversion assertion", before, len(f.extra(t)))
 	}
 
 	integerValue, err := f.m.ArithmeticIntegerNumeralText("2")
@@ -362,13 +368,13 @@ func TestFPA2BVRewriterLowUnspecifiedDispatch(t *testing.T) {
 
 	toIEEE, err := f.m.MkFamilyApp(f.family, ast.FPAOpToIEEEBV, nil, []ast.ASTHandle{nan})
 	astTestMust(t, err)
-	before := len(f.converter.ExtraAssertions())
+	before := len(f.extra(t))
 	bits := f.rewrite(t, toIEEE)
 	if width, e := f.m.BitVectorSize(bits); e != nil || width != 32 {
 		t.Fatal("low-unspecified IEEE result", width, e)
 	}
-	if len(f.converter.ExtraAssertions()) != before+2 {
-		t.Fatal("low-unspecified NaN constraints", before, len(f.converter.ExtraAssertions()))
+	if len(f.extra(t)) != before+2 {
+		t.Fatal("low-unspecified NaN constraints", before, len(f.extra(t)))
 	}
 
 	rounding, err := f.m.MkFamilyApp(f.family, ast.FPAOpRMNearestEven, nil, nil)
@@ -402,4 +408,43 @@ func TestFPA2BVRewriterLowUnspecifiedDispatch(t *testing.T) {
 	if gotSort != wantSort || convertedReal == zero {
 		t.Fatal("low-unspecified float-to-real result", gotSort, wantSort, convertedReal, zero)
 	}
+}
+
+// special is the converted special value: the rewrite of its literal.
+func (f fpa2BVFixture) special(t *testing.T, literal func() (ast.ASTHandle, error)) (ast.ASTHandle, error) {
+	t.Helper()
+	h, err := literal()
+	if err != nil {
+		return h, err
+	}
+	return f.rewrite(t, h), nil
+}
+
+// isNaN rewrites fp.isNaN(x) for an already converted x.
+func (f fpa2BVFixture) isNaN(t *testing.T, x ast.ASTHandle) (ast.ASTHandle, error) {
+	t.Helper()
+	app, err := f.m.MkFamilyApp(f.family, int32(ast.FPAIsNaN), nil, []ast.ASTHandle{x})
+	if err != nil {
+		return app, err
+	}
+	return f.rewrite(t, app), nil
+}
+
+func (f fpa2BVFixture) extra(t *testing.T) []ast.ASTHandle {
+	t.Helper()
+	out, err := f.converter.ExtraAssertions()
+	astTestMust(t, err)
+	return out
+}
+
+// simplified is th_rewriter applied to a converted term.
+func (f fpa2BVFixture) simplified(t *testing.T, h ast.ASTHandle) ast.ASTHandle {
+	t.Helper()
+	out, err := f.m.NewRef(ast.ASTHandle{})
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, f.m.DelRef(&out)) })
+	astTestMust(t, f.simp.Rewrite(h, out))
+	r, err := f.m.RefGet(out)
+	astTestMust(t, err)
+	return r
 }

@@ -343,6 +343,7 @@ func (k *SMTKernel) configurePreprocessingParamsCore(context *uparams.ParamsCont
 	k.internalizer.smtParams = full
 	k.caseSplitQueue.liveParams = full
 	k.internalizer.contextParams = &k.assertedParams
+	k.internalizer.paramsContext, k.internalizer.globals = context, globals
 	k.patternInference, err = pattern.NewInferenceRewriterWithOptions(k.manager, patternOptions)
 	if err != nil {
 		return err

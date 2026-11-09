@@ -3,11 +3,13 @@ package rewriter
 // Source: src/ast/fpa/fpa2bv_rewriter.cpp/.h.
 
 import (
+	"errors"
 	"math"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
 	astfpa "github.com/glycerine/g3/pkg/ast/fpa"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -22,7 +24,7 @@ type fpa2BVConfiguration struct {
 type FPA2BVRewriter struct {
 	self      *FPA2BVRewriter
 	manager   *ast.ASTManager
-	converter *astfpa.Converter
+	converter *astfpa.FPA2BVConverter
 	config    fpa2BVConfiguration
 	traversal *Traversal
 	header    uint64
@@ -31,7 +33,7 @@ type FPA2BVRewriter struct {
 
 // NewFPA2BVRewriter borrows the manager and converter. The converter must
 // outlive the rewriter. A nonnil partial result must close even on error.
-func NewFPA2BVRewriter(m *ast.ASTManager, converter *astfpa.Converter) (owner *FPA2BVRewriter, result error) {
+func NewFPA2BVRewriter(m *ast.ASTManager, converter *astfpa.FPA2BVConverter) (owner *FPA2BVRewriter, result error) {
 	if m == nil || converter == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -73,7 +75,8 @@ func (r *FPA2BVRewriter) SetHighUnspecified(value bool) error {
 	if err := r.open(); err != nil {
 		return err
 	}
-	return r.converter.SetHighUnspecified(value)
+	r.converter.SetUnspecifiedFPHi(value)
+	return nil
 }
 
 func (r *FPA2BVRewriter) Rewrite(root ast.ASTHandle, out ast.ASTRef) error {
@@ -142,322 +145,18 @@ func fpa2BVSlice(args ast.AppArguments) ([]ast.ASTHandle, error) {
 	return result, nil
 }
 
-func (c *fpa2BVConfiguration) expressionSorts(h ast.ASTHandle) (floating, rounding bool, err error) {
-	sort, err := c.owner.manager.GetSort(h)
-	if err != nil {
-		return false, false, err
-	}
-	_, _, floating, err = c.owner.manager.FloatingPointSortShape(sort)
-	if err != nil {
-		return false, false, err
-	}
-	rounding, err = c.owner.manager.IsRoundingModeSort(sort)
-	return floating, rounding, err
-}
-
+// ReduceApp is fpa2bv_rewriter_cfg::reduce_app, which dispatches to the
+// converter.
 func (c *fpa2BVConfiguration) ReduceApp(decl ast.ASTHandle, args ast.AppArguments, out, _ ast.ASTRef) (RewriteStatus, error) {
-	r := c.owner
-	m, converter := r.manager, r.converter
-	family, err := m.GetFamilyID(decl)
-	if err != nil {
-		return RewriteFailed, err
-	}
-	kind, err := m.GetDeclKind(decl)
-	if err != nil {
-		return RewriteFailed, err
-	}
 	values, err := fpa2BVSlice(args)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	if family == ast.NullFamilyID && args.Count() == 0 {
-		rangeSort, e := m.GetRange(decl)
-		if e != nil {
-			return RewriteFailed, e
-		}
-		_, _, floating, e := m.FloatingPointSortShape(rangeSort)
-		if e != nil {
-			return RewriteFailed, e
-		}
-		if floating {
-			value, e := converter.MkConst(decl)
-			if e != nil {
-				return RewriteFailed, e
-			}
-			return RewriteDone, m.SetRef(out, value)
-		}
-		rounding, e := m.IsRoundingModeSort(rangeSort)
-		if e != nil {
-			return RewriteFailed, e
-		}
-		if rounding {
-			value, e := converter.MkRMConst(decl)
-			if e != nil {
-				return RewriteFailed, e
-			}
-			return RewriteDone, m.SetRef(out, value)
-		}
-	}
-	if family == m.BasicFamilyID() {
-		switch kind {
-		case ast.ASTOpEq, ast.ASTOpIff:
-			if len(values) != 2 {
-				return RewriteFailed, ast.ErrASTDomain
-			}
-			floating, rounding, e := c.expressionSorts(values[0])
-			if e != nil {
-				return RewriteFailed, e
-			}
-			if floating {
-				value, e := converter.MkEq(values[0], values[1])
-				if e != nil {
-					return RewriteFailed, e
-				}
-				return RewriteDone, m.SetRef(out, value)
-			}
-			if rounding {
-				value, e := m.MkEq(values[0], values[1])
-				if e != nil {
-					return RewriteFailed, e
-				}
-				return RewriteDone, m.SetRef(out, value)
-			}
-		case ast.ASTOpIte:
-			if len(values) != 3 {
-				return RewriteFailed, ast.ErrASTDomain
-			}
-			floating, rounding, e := c.expressionSorts(values[1])
-			if e != nil {
-				return RewriteFailed, e
-			}
-			if floating || rounding {
-				value, e := converter.MkITE(values[0], values[1], values[2])
-				if e != nil {
-					return RewriteFailed, e
-				}
-				return RewriteDone, m.SetRef(out, value)
-			}
-		case ast.ASTOpDistinct:
-			if len(values) == 0 {
-				return RewriteFailed, nil
-			}
-			floating, rounding, e := c.expressionSorts(values[0])
-			if e != nil {
-				return RewriteFailed, e
-			}
-			if floating || rounding {
-				value, e := converter.MkDistinct(values)
-				if e != nil {
-					return RewriteFailed, e
-				}
-				return RewriteDone, m.SetRef(out, value)
-			}
-		}
-	}
-	fpaFamily, err := m.ExistingFloatingPointFamilyID()
-	if err != nil {
+	done, err := c.owner.converter.ReduceApp(decl, values, out)
+	if err != nil || !done {
 		return RewriteFailed, err
 	}
-	if family == fpaFamily {
-		var value ast.ASTHandle
-		done := true
-		switch kind {
-		case ast.FPAOpRMNearestEven, ast.FPAOpRMNearestAway, ast.FPAOpRMTowardPositive, ast.FPAOpRMTowardNegative, ast.FPAOpRMTowardZero:
-			value, err = converter.MkRoundingMode(kind)
-		case ast.FPAOpNumeral:
-			var original ast.ASTHandle
-			original, err = m.MkApp(decl, nil)
-			if err == nil {
-				var found bool
-				value, found, err = converter.MkNumeral(original)
-				if !found && err == nil {
-					done = false
-				}
-			}
-		case ast.FPAOpPositiveInf, ast.FPAOpNegativeInf, ast.FPAOpNaN, ast.FPAOpPositiveZero, ast.FPAOpNegativeZero:
-			var sort ast.ASTHandle
-			sort, err = m.GetRange(decl)
-			if err == nil {
-				special := astfpa.PositiveInfinity
-				switch kind {
-				case ast.FPAOpNegativeInf:
-					special = astfpa.NegativeInfinity
-				case ast.FPAOpNaN:
-					special = astfpa.NaN
-				case ast.FPAOpPositiveZero:
-					special = astfpa.PositiveZero
-				case ast.FPAOpNegativeZero:
-					special = astfpa.NegativeZero
-				}
-				value, err = converter.MkSpecial(sort, special)
-			}
-		case ast.FPAOpNeg:
-			if len(values) != 1 {
-				err = ast.ErrASTDomain
-			} else {
-				value, err = converter.Negate(values[0])
-			}
-		case ast.FPAOpAbs:
-			if len(values) != 1 {
-				err = ast.ErrASTDomain
-			} else {
-				value, err = converter.Abs(values[0])
-			}
-		case ast.FPAOpAdd, ast.FPAOpSub, ast.FPAOpMul, ast.FPAOpDiv:
-			if len(values) != 3 {
-				err = ast.ErrASTDomain
-			} else if kind == ast.FPAOpAdd {
-				value, err = converter.Add(values[0], values[1], values[2])
-			} else if kind == ast.FPAOpSub {
-				value, err = converter.Sub(values[0], values[1], values[2])
-			} else if kind == ast.FPAOpMul {
-				value, err = converter.Mul(values[0], values[1], values[2])
-			} else {
-				value, err = converter.Div(values[0], values[1], values[2])
-			}
-		case ast.FPAOpRem:
-			if len(values) != 2 {
-				err = ast.ErrASTDomain
-			} else {
-				value, err = converter.Rem(values[0], values[1])
-			}
-		case ast.FPAOpSqrt, ast.FPAOpRoundToIntegral:
-			if len(values) != 2 {
-				err = ast.ErrASTDomain
-			} else if kind == ast.FPAOpSqrt {
-				value, err = converter.Sqrt(values[0], values[1])
-			} else {
-				value, err = converter.RoundToIntegral(values[0], values[1])
-			}
-		case ast.FPAOpFMA:
-			if len(values) != 4 {
-				err = ast.ErrASTDomain
-			} else {
-				value, err = converter.FMA(values[0], values[1], values[2], values[3])
-			}
-		case ast.FPAOpMin, ast.FPAOpMax:
-			if len(values) != 2 {
-				err = ast.ErrASTDomain
-			} else {
-				value, err = converter.Extremum(decl, kind, values[0], values[1])
-			}
-		case ast.FPAOpEq, ast.FPAOpLt, ast.FPAOpGt, ast.FPAOpLe, ast.FPAOpGe:
-			if len(values) != 2 {
-				err = ast.ErrASTDomain
-			} else {
-				value, err = converter.Compare(kind, values[0], values[1])
-			}
-		case int32(ast.FPAIsNaN), int32(ast.FPAIsInfinite), int32(ast.FPAIsZero), int32(ast.FPAIsNormal), int32(ast.FPAIsSubnormal), int32(ast.FPAIsNegative), int32(ast.FPAIsPositive):
-			if len(values) != 1 {
-				err = ast.ErrASTDomain
-			} else {
-				value, err = converter.Classify(values[0], ast.FPAClassificationKind(kind))
-			}
-		case ast.FPAOpFP:
-			if len(values) != 3 {
-				err = ast.ErrASTDomain
-			} else {
-				value, err = converter.MkFP(values[0], values[1], values[2])
-			}
-		case ast.FPAOpToIEEEBV:
-			if len(values) != 1 {
-				err = ast.ErrASTDomain
-			} else {
-				value, err = converter.ToIEEEBVFor(decl, values[0])
-			}
-		case ast.FPAOpToFP:
-			var targetSort ast.ASTHandle
-			targetSort, err = m.GetRange(decl)
-			if err != nil {
-				break
-			}
-			switch len(values) {
-			case 1:
-				value, err = converter.FromIEEEBV(targetSort, values[0])
-			case 2:
-				var sourceSort ast.ASTHandle
-				sourceSort, err = m.GetSort(values[1])
-				if err != nil {
-					break
-				}
-				var floating bool
-				_, _, floating, err = m.FloatingPointSortShape(sourceSort)
-				if err == nil && floating {
-					value, err = converter.ToFPFloat(targetSort, values[0], values[1])
-				} else if err == nil {
-					if _, sizeErr := m.BitVectorSize(values[1]); sizeErr == nil {
-						value, err = converter.ToFPSigned(targetSort, values[0], values[1])
-					} else {
-						value, err = converter.ToFPReal(decl, targetSort, values[0], values[1])
-					}
-				}
-			case 3:
-				var rounding bool
-				_, rounding, err = c.expressionSorts(values[0])
-				if err == nil && rounding {
-					value, err = converter.ToFPRealInt(decl, values[0], values[1], values[2])
-				} else if err == nil {
-					value, err = converter.MkFP(values[0], values[1], values[2])
-				}
-			default:
-				err = ast.ErrASTDomain
-			}
-		case ast.FPAOpToFPUnsigned:
-			if len(values) != 2 {
-				err = ast.ErrASTDomain
-			} else {
-				var targetSort ast.ASTHandle
-				targetSort, err = m.GetRange(decl)
-				if err == nil {
-					value, err = converter.ToFPUnsigned(targetSort, values[0], values[1])
-				}
-			}
-		case ast.FPAOpToUBV, ast.FPAOpToSBV:
-			if len(values) != 2 {
-				err = ast.ErrASTDomain
-			} else {
-				var rangeSort ast.ASTHandle
-				rangeSort, err = m.GetRange(decl)
-				if err != nil {
-					break
-				}
-				var width uint32
-				width, err = m.BitVectorSize(rangeSort)
-				if err == nil && kind == ast.FPAOpToUBV {
-					value, err = converter.ToUBVFor(decl, width, values[0], values[1])
-				} else if err == nil {
-					value, err = converter.ToSBVFor(decl, width, values[0], values[1])
-				}
-			}
-		case ast.FPAOpToReal:
-			if len(values) != 1 {
-				err = ast.ErrASTDomain
-			} else {
-				value, err = converter.ToRealFor(decl, values[0])
-			}
-		default:
-			done = false
-		}
-		if err != nil {
-			return RewriteFailed, err
-		}
-		if done {
-			return RewriteDone, m.SetRef(out, value)
-		}
-		return RewriteFailed, nil
-	}
-	contains, err := m.ContainsFloatingPoint(decl)
-	if err != nil {
-		return RewriteFailed, err
-	}
-	if contains {
-		value, err := converter.MkUF(decl, values)
-		if err != nil {
-			return RewriteFailed, err
-		}
-		return RewriteDone, m.SetRef(out, value)
-	}
-	return RewriteFailed, nil
+	return RewriteDone, nil
 }
 
 func (c *fpa2BVConfiguration) PreVisit(term ast.ASTHandle) (bool, error) {
@@ -506,16 +205,26 @@ func (c *fpa2BVConfiguration) ReduceVar(variable ast.ASTHandle, out, _ ast.ASTRe
 		}
 		return true, m.SetRef(out, value)
 	}
+	// expr_ref new_var; new_exp = mk_fp(extract(sgn), extract(exp),
+	// extract(sig)): GCC builds the extracts right to left.
 	width := ebits + sbits
 	bvSort, err := m.BitVectorSort(width)
 	if err != nil {
 		return false, err
 	}
-	packed, err := m.MkVar(index, bvSort)
+	newVar, err := m.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return false, err
 	}
-	sign, err := m.MkBitVectorExtract(width-1, width-1, packed)
+	defer func() { _ = m.DelRef(&newVar) }()
+	packed, err := m.MkVar(index, bvSort)
+	if err == nil {
+		err = m.SetRef(newVar, packed)
+	}
+	if err != nil {
+		return false, err
+	}
+	significand, err := m.MkBitVectorExtract(width-2, ebits, packed)
 	if err != nil {
 		return false, err
 	}
@@ -523,7 +232,7 @@ func (c *fpa2BVConfiguration) ReduceVar(variable ast.ASTHandle, out, _ ast.ASTRe
 	if err != nil {
 		return false, err
 	}
-	significand, err := m.MkBitVectorExtract(width-2, ebits, packed)
+	sign, err := m.MkBitVectorExtract(width-1, width-1, packed)
 	if err != nil {
 		return false, err
 	}
@@ -611,3 +320,16 @@ func (c *fpa2BVConfiguration) Reset()   { c.bindings = nil }
 func (c *fpa2BVConfiguration) Cleanup() { c.bindings = nil }
 
 var _ Configuration = (*fpa2BVConfiguration)(nil)
+
+// NewFPA2BVConverter constructs fpa2bv_converter(m) with its m_simp, a
+// default-parameter bool_rewriter the converter owns.
+func NewFPA2BVConverter(m *ast.ASTManager, c *uparams.ParamsContext, g *uparams.GlobalParamsService) (*astfpa.FPA2BVConverter, error) {
+	simp, err := newBoolRewriter(m, c, g, nil)
+	if err != nil {
+		if simp != nil {
+			err = errors.Join(err, simp.Close())
+		}
+		return nil, err
+	}
+	return astfpa.NewFPA2BVConverter(m, simp)
+}

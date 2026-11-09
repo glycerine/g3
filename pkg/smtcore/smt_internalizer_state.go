@@ -120,6 +120,10 @@ type smtPendingEquality struct {
 }
 
 type SMTInternalizerState struct {
+	// paramsContext and globals are the kernel's parameter services, borrowed
+	// by theories that build their own rewriters (theory_fpa's converter).
+	paramsContext              *uparams.ParamsContext
+	globals                    *uparams.GlobalParamsService
 	queueTrace                 *diagnostic.TraceTags // Borrowed control; nil uses process trace tags.
 	delayedActivity            *uheap.Int
 	activityCacheRetiring      bool
