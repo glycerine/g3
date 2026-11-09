@@ -7,21 +7,29 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // hoistQueryExistentials exposes the existential query variables to the
 // synthetic rule head, as rule_manager::mk_query does before compaction.
 func (e *PropositionalEngine) hoistQueryExistentials(query ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	result, _, resultErr = e.hoistQueryExistentialsNamed(query)
+	return result, resultErr
+}
+
+// hoistQueryExistentialsNamed also returns pull_quantifier's names output.
+func (e *PropositionalEngine) hoistQueryExistentialsNamed(query ast.ASTHandle) (result ast.ASTRef, names []symbol.Symbol, resultErr error) {
 	hasQuantifiers, err := e.manager.HasQuantifiers(query)
 	if err != nil {
-		return result, err
+		return result, nil, err
 	}
 	if !hasQuantifiers {
-		return e.manager.NewRef(query)
+		result, err = e.manager.NewRef(query)
+		return result, nil, err
 	}
 	hoister, err := rewriter.NewDefaultQuantifierHoister(e.manager)
 	if err != nil {
-		return result, err
+		return result, nil, err
 	}
 	defer func() {
 		resultErr = errors.Join(resultErr, hoister.Close())
@@ -32,10 +40,11 @@ func (e *PropositionalEngine) hoistQueryExistentials(query ast.ASTHandle) (resul
 	}()
 	hoisted, err := hoister.PullQuantifierIndexed(false, query, true, true)
 	if err != nil {
-		return result, err
+		return result, nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, hoisted.Close()) }()
-	return e.manager.CopyRef(hoisted.Formula)
+	result, err = e.manager.CopyRef(hoisted.Formula)
+	return result, hoisted.Names, err
 }
 
 // compactQueryVariables removes unused free-variable indices while preserving

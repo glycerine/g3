@@ -557,10 +557,12 @@ Found while matching `-st` output against `build/z3` on
    - add_child_property owns its mk_assumptions vector.
    Still OPEN:
    - Other engines' predicate-direct paths (spacer, bmc, tab, clp, datalog).
-   - z3 builds `exists x. R(x)` and mk_query hoists it into R(#0) =>
-     query!0(#0). g3 already builds R(#0..) and gives query!N R's arity,
-     but it never creates the exists node, so the AST logs miss that node
-     and its deletion.
+   - DONE: engine_base's `exists x. R(x)` is built before the rule flush
+     (dl_interface::query's get_rules()). mk_query hoists it, with names,
+     and wraps the rule in its forall. PDR logs now match through the
+     query rule. Next first differences are in the transforms (scale's
+     extra Real nodes) and in the rule binder's variable order
+     (fixedpoint_pdr_variable_trace).
    - After an expression query, z3's rel_query concatenates the older m_mc
      chain; g3 applies only the current conversions.
    - Fresh-name counter: the second sliced query names P!slice!30 in z3,

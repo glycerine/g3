@@ -2331,7 +2331,10 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 		}
 		e.engineInstantiated = true
 	}
-	if e.backend != "duality" {
+	// PDR relation queries flush inside dl_interface::query, after
+	// engine_base builds the query expression (queryPDRRelation).
+	pdrRelation := (e.backend == "pdr" || e.backend == "qpdr") && !e.auxiliary[declaration]
+	if e.backend != "duality" && !pdrRelation {
 		if err := e.flushPendingRules(); err != nil {
 			return lbool.Undef, err
 		}

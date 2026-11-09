@@ -26,10 +26,63 @@ func (e *PropositionalEngine) queryPDRRelation(declaration ast.ASTHandle) (statu
 	if err != nil {
 		return lbool.Undef, err
 	}
-	roots := []ast.ASTRef{ref}
-	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(e.manager, roots)) }()
+	// engine_base's q (and the args vector, here pinned by q) lives for the
+	// whole query.
+	queryRoots := []ast.ASTRef{ref}
+	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(e.manager, queryRoots)) }()
 	query, err := e.manager.RefGet(ref)
 	if err != nil {
+		return lbool.Undef, err
+	}
+	arity, err := e.manager.GetArity(declaration)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if arity != 0 {
+		// q = mk_exists(sorts, names, R(#0..)) with sorts and the numeric
+		// names symbol(i) both reversed.
+		sorts := make([]ast.ASTHandle, arity)
+		names := make([]symbol.Symbol, arity)
+		for i := uint32(0); i < arity; i++ {
+			sorts[arity-1-i], err = e.manager.GetDomain(declaration, i)
+			if err != nil {
+				return lbool.Undef, err
+			}
+			names[arity-1-i] = symbol.Numerical(i)
+		}
+		exists, err := e.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: false, Sorts: sorts, Names: names, Body: query})
+		if err != nil {
+			return lbool.Undef, err
+		}
+		existsRef, err := e.manager.NewRef(exists)
+		if err != nil {
+			return lbool.Undef, err
+		}
+		queryRoots = append(queryRoots, existsRef)
+		query = exists
+	}
+	// dl_interface::query reads m_ctx.get_rules(), which flushes the queued
+	// rules after engine_base built q.
+	if err = e.flushPendingRules(); err != nil {
+		return lbool.Undef, err
+	}
+	// mk_query: pull the existential prefix, then compact the free variables.
+	roots := make([]ast.ASTRef, 0, 4)
+	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(e.manager, roots)) }()
+	hoisted, names, err := e.hoistQueryExistentialsNamed(query)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	roots = append(roots, hoisted)
+	if query, err = e.manager.RefGet(hoisted); err != nil {
+		return lbool.Undef, err
+	}
+	compacted, err := e.compactQueryVariables(query)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	roots = append(roots, compacted)
+	if query, err = e.manager.RefGet(compacted); err != nil {
 		return lbool.Undef, err
 	}
 	head, headRef, err := e.makeQueryHead(query)
@@ -63,6 +116,41 @@ func (e *PropositionalEngine) queryPDRRelation(declaration ast.ASTHandle) (statu
 		return lbool.Undef, err
 	}
 	roots = append(roots, ruleRef)
+	// rule_expr = forall(vars, names, impl) over the query's free variables:
+	// pad names with symbol(k), then reverse both so the outermost declared
+	// variable comes first.
+	used, err := ast.NewASTUsedVars(e.manager)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if err = used.Process(query); err != nil {
+		return lbool.Undef, err
+	}
+	count := used.MaxFoundVarIndexPlusOne()
+	if count != 0 {
+		sorts := make([]ast.ASTHandle, count)
+		for i := uint32(0); i < count; i++ {
+			if sorts[count-1-i], err = used.Get(i); err != nil {
+				return lbool.Undef, err
+			}
+		}
+		for uint32(len(names)) < count {
+			names = append(names, symbol.Numerical(uint32(len(names))))
+		}
+		reversed := make([]symbol.Symbol, len(names))
+		for i, name := range names {
+			reversed[len(names)-1-i] = name
+		}
+		rule, err = e.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: reversed, Body: rule})
+		if err != nil {
+			return lbool.Undef, err
+		}
+		forallRef, err := e.manager.NewRef(rule)
+		if err != nil {
+			return lbool.Undef, err
+		}
+		roots = append(roots, forallRef)
+	}
 	// rules.add_rule(mk_rule(...)): the rule joins the rule set directly,
 	// without the raw add_rule queue (m_rule_fmls) that keeps formulas.
 	if err = e.addQueryRuleNow(rule); err != nil {
@@ -73,12 +161,13 @@ func (e *PropositionalEngine) queryPDRRelation(declaration ast.ASTHandle) (statu
 		return lbool.Undef, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, e.removeQueryRule(queryRule)) }()
-	// mk_query's locals (the head app and the implication) die when it
-	// returns; engine_base's q stays alive for the whole query.
-	if err = closeASTRefs(e.manager, roots[1:]); err != nil {
+	// mk_query's locals die when it returns; engine_base's q stays alive
+	// for the whole query.
+	err = closeASTRefs(e.manager, roots)
+	roots = nil
+	if err != nil {
 		return lbool.Undef, err
 	}
-	roots = roots[:1]
 	return e.queryPDR(head)
 }
 
