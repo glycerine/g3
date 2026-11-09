@@ -511,6 +511,18 @@ Found while matching `-st` output against `build/z3` on
     QE context enumerates with blast_or); compare g3's symbolic
     expansion in qe/arithmetic_qe_resolve_cooper.go with
     i_solver_context::blast_or.
+    DONE (578fcc0ae): the example also showed a printer bug. Goal forms
+    print with ast_smt2_pp indent 2 (mk_indent), so nested-let
+    continuation lines are indented like z3's.
+    FINDING: z3's blast_or is m_qe.eliminate_exists(1, &z_bv, fml, ...),
+    the full qe.cpp quant_elim search with the bv plugin. Its branch order
+    is model-guided (search-tree assign from the SAT model), which gives
+    cases 0, 2, 4, 3. g3 calls eliminateQuantifierBitVectorSearch
+    (qe/quantifier_tactic_arith_search.go), its own scalar search and not a
+    port of quant_elim_plugin. Matching the order means porting qe.cpp's
+    search tree (quant_elim_plugin, search_tree, model-based branch
+    selection) and routing blast_or through it. That is a large port, like
+    item 19.
 
 19. **OPEN: E-matching is not a port of z3's MAM.** smtcore/smt_mam.go is a
    direct congruence-aware matcher over context enodes, not mam.cpp's
