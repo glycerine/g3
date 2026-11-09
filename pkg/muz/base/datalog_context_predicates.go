@@ -34,6 +34,7 @@ func (c *DatalogContext) pinPredicate(declaration ast.ASTHandle) error {
 	if reference, ok := c.inactivePredicates[declaration]; ok {
 		if _, active := c.ruleManager.predicates[declaration]; !active {
 			c.ruleManager.predicates[declaration] = reference
+			c.ruleManager.predicateOrder = append(c.ruleManager.predicateOrder, declaration)
 			delete(c.inactivePredicates, declaration)
 			return nil
 		}
@@ -115,6 +116,7 @@ func (c *DatalogContext) RestrictPredicates(keep map[ast.ASTHandle]bool) error {
 						c.inactivePredicates = make(map[ast.ASTHandle]ast.ASTRef)
 					}
 					c.inactivePredicates[d] = reference
+					c.inactiveOrder = append(c.inactiveOrder, d)
 				}
 			}
 			restored = append(restored, d)
@@ -128,8 +130,9 @@ func (c *DatalogContext) RestrictPredicates(keep map[ast.ASTHandle]bool) error {
 		}
 		delete(c.predicates, d)
 	}
-	for d, reference := range c.ruleManager.predicates {
-		if keep[d] {
+	for _, d := range c.ruleManager.predicateOrder {
+		reference, held := c.ruleManager.predicates[d]
+		if !held || keep[d] {
 			continue
 		}
 		if c.inactivePredicates == nil {
@@ -139,6 +142,7 @@ func (c *DatalogContext) RestrictPredicates(keep map[ast.ASTHandle]bool) error {
 			c.references = append(c.references, previous)
 		}
 		c.inactivePredicates[d] = reference
+		c.inactiveOrder = append(c.inactiveOrder, d)
 		delete(c.ruleManager.predicates, d)
 	}
 	c.predicateOrder = order
@@ -149,6 +153,7 @@ func (c *DatalogContext) RestrictPredicates(keep map[ast.ASTHandle]bool) error {
 		if reference, ok := c.inactivePredicates[d]; ok {
 			if _, active := c.ruleManager.predicates[d]; !active {
 				c.ruleManager.predicates[d] = reference
+				c.ruleManager.predicateOrder = append(c.ruleManager.predicateOrder, d)
 				delete(c.inactivePredicates, d)
 			}
 		}

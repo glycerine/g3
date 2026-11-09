@@ -21,6 +21,7 @@ type DatalogContext struct {
 	binder             *VariableBinder
 	predicates         map[ast.ASTHandle]bool
 	inactivePredicates map[ast.ASTHandle]ast.ASTRef
+	inactiveOrder      []ast.ASTHandle // insertion order, released forward
 	predicateOrder     []ast.ASTHandle
 	named              map[usymbol.Symbol]ast.ASTHandle
 	references         []ast.ASTRef
@@ -173,7 +174,11 @@ func (c *DatalogContext) Close() (result error) {
 			return err
 		}
 	}
-	for declaration, reference := range c.inactivePredicates {
+	for _, declaration := range c.inactiveOrder {
+		reference, held := c.inactivePredicates[declaration]
+		if !held {
+			continue
+		}
 		ref := reference
 		err := c.manager.DelRef(&ref)
 		if ref == (ast.ASTRef{}) {

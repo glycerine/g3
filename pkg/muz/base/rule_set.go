@@ -706,7 +706,11 @@ func (s *RuleSet) resetContentsUnchecked() error {
 		s.rules[last] = nil
 		s.rules = s.rules[:last]
 	}
-	for declaration, reference := range s.outputs {
+	for _, declaration := range s.outputOrder {
+		reference, held := s.outputs[declaration]
+		if !held {
+			continue
+		}
 		ref := reference
 		err := s.manager.manager.DelRef(&ref)
 		if ref == (ast.ASTRef{}) {

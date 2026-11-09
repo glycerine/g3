@@ -59,6 +59,7 @@ type RuleManager struct {
 	manager        *ast.ASTManager
 	normalizer     *HornNormalizer
 	predicates     map[ast.ASTHandle]ast.ASTRef
+	predicateOrder []ast.ASTHandle // insertion order, released forward
 	closed         bool
 	cleanupPending bool
 }
@@ -101,6 +102,7 @@ func (m *RuleManager) RegisterPredicate(declaration ast.ASTHandle) error {
 		return err
 	}
 	m.predicates[declaration] = reference
+	m.predicateOrder = append(m.predicateOrder, declaration)
 	return nil
 }
 
@@ -760,7 +762,11 @@ func (m *RuleManager) Close() error {
 	if err := m.normalizer.Close(); err != nil {
 		return err
 	}
-	for declaration, reference := range m.predicates {
+	for _, declaration := range m.predicateOrder {
+		reference, held := m.predicates[declaration]
+		if !held {
+			continue
+		}
 		ref := reference
 		err := m.manager.DelRef(&ref)
 		if ref == (ast.ASTRef{}) {
