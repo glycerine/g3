@@ -1237,6 +1237,13 @@ func (r *ArithRewriter) reducePolynomialGCD(left, right ast.ASTHandle, relation 
 	}
 	newRight, possible, err := r.dividePolynomial(right, gcd, rightTreatment)
 	if err != nil || !possible {
+		// new_arg1 is an expr_ref local of mk_le_ge_eq_core: the quotient
+		// already built for arg1 dies when the rewrite returns false.
+		if held, e := r.manager.NewRef(newLeft); e == nil {
+			err = errors.Join(err, r.manager.DelRef(&held))
+		} else {
+			err = errors.Join(err, e)
+		}
 		return left, right, false, !possible, err
 	}
 	return newLeft, newRight, true, false, nil
