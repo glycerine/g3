@@ -21,7 +21,7 @@ func (s *Stats) Reset() { s.Iterations = 0; s.Constraints = 0 }
 type eagerEncoder struct {
 	owner                     *encodingState
 	forms, abstracted, lemmas []ast.ASTHandle
-	held, scratch             []ast.ASTHandle
+	scratch                   []ast.ASTHandle
 	groups                    *termGroups
 	info                      *Info
 	infoCleanup               bool
@@ -32,15 +32,27 @@ type eagerEncoder struct {
 	failures                  []memory.ConstructionFailure
 }
 
+// hold increments h; a non-scratch handle belongs to the expr_ref_vector
+// (m_formulas, m_abstr or m_ackrs) the caller appends it to.
 func (r *eagerEncoder) hold(h ast.ASTHandle, scratch bool) error {
 	if err := r.owner.manager.IncRef(h); err != nil {
 		return err
 	}
 	if scratch {
 		r.scratch = append(r.scratch, h)
-	} else {
-		r.held = append(r.held, h)
 	}
+	return nil
+}
+
+// releaseVector is an expr_ref_vector destructor: forward dec_ref.
+func (r *eagerEncoder) releaseVector(v *[]ast.ASTHandle) error {
+	for len(*v) > 0 {
+		if err := r.owner.manager.DecRef((*v)[0]); err != nil {
+			return err
+		}
+		*v = (*v)[1:]
+	}
+	*v = nil
 	return nil
 }
 func (r *eagerEncoder) releaseScratch(limit int) error {
@@ -479,6 +491,11 @@ func (r *eagerEncoder) Close() error {
 		}
 		r.failures = r.failures[:i]
 	}
+	// ~lackr destroys members in reverse declaration order: m_ackrs, m_simp,
+	// m_info, m_fun2terms, m_abstr, m_formulas; each vector forward.
+	if err := r.releaseVector(&r.lemmas); err != nil {
+		return err
+	}
 	if r.simplifier != nil {
 		if err := r.simplifier.Close(); err != nil {
 			return err
@@ -512,12 +529,8 @@ func (r *eagerEncoder) Close() error {
 	if err := r.releaseScratch(0); err != nil {
 		return err
 	}
-	for len(r.held) > 0 {
-		i := len(r.held) - 1
-		if err := r.owner.manager.DecRef(r.held[i]); err != nil {
-			return err
-		}
-		r.held = r.held[:i]
+	if err := r.releaseVector(&r.abstracted); err != nil {
+		return err
 	}
-	return nil
+	return r.releaseVector(&r.forms)
 }
