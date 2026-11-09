@@ -223,6 +223,8 @@ func (t *SMTArrayTheory) hasRelevantDisequality(first, second *SMTEnode) (bool, 
 	if err != nil {
 		return false, err
 	}
+	// context::is_diseq first (re)builds m_is_diseq_tmp's equality.
+	s.context.holdDiseqTmp(first, second)
 	return s.hasRelevantFalseEquality(first, second)
 }
 
