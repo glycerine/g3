@@ -1241,6 +1241,9 @@ func (e *PropositionalEngine) normalizeSimpleJoins(bitBlast *datalogBitBlastQuer
 		return errors.Join(err, simplifier.Close())
 	}
 	cone := transforms.NewConePluginWithRelations(e.relations, 0)
+	// mk_coi_filter records model definitions only when the context has a
+	// model converter; rel_query does not install one.
+	cone.SetModelConverter(e.contextModelConverter)
 	negative := transforms.NewSeparateNegatedTailsPlugin(e.manager, e.rules, 0)
 	filter := transforms.NewFilterRulesPlugin(e.manager, e.rules, 0)
 	plugin := transforms.NewSimpleJoinsPlugin(e.manager, e.rules, 0, e.relations)

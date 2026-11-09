@@ -37,6 +37,8 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	}
 	clone.backend = e.backend
 	clone.engineSelectionSet = e.engineSelectionSet
+	// The clone stands for the same datalog::context, so it shares m_mc.
+	clone.contextModelConverter = e.contextModelConverter
 	if e.backend == EngineTab.String() && e.tabSession != nil {
 		clone.tabSession = e.tabSession
 		clone.tabSessionBorrowed = true
