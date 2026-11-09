@@ -66,23 +66,46 @@ func (b *spacerRuleBuilder) named(name string, sort ast.ASTHandle) (ast.ASTHandl
 }
 
 func (b *spacerRuleBuilder) rewrite(formula ast.ASTHandle) (ast.ASTHandle, error) {
+	out, result, err := b.rewriteRef(formula)
+	if err == nil {
+		b.references = append(b.references, out)
+	}
+	return result, err
+}
+
+// rewriteRef returns a caller-owned rewrite result.
+func (b *spacerRuleBuilder) rewriteRef(formula ast.ASTHandle) (ast.ASTRef, ast.ASTHandle, error) {
 	out, err := b.transformer.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTRef{}, ast.ASTHandle{}, err
 	}
 	theory := b.theory
 	if b.ruleTheory != nil {
 		theory = b.ruleTheory
 	}
 	if err = theory.Rewrite(formula, out); err != nil {
-		return ast.ASTHandle{}, errors.Join(err, b.transformer.manager.DelRef(&out))
+		return ast.ASTRef{}, ast.ASTHandle{}, errors.Join(err, b.transformer.manager.DelRef(&out))
 	}
 	result, err := b.transformer.manager.RefGet(out)
 	if err != nil {
-		return ast.ASTHandle{}, errors.Join(err, b.transformer.manager.DelRef(&out))
+		return ast.ASTRef{}, ast.ASTHandle{}, errors.Join(err, b.transformer.manager.DelRef(&out))
 	}
-	b.references = append(b.references, out)
-	return result, nil
+	return out, result, nil
+}
+
+// assignLocal is expr_ref assignment: hold h, then release the old value.
+func (b *spacerRuleBuilder) assignLocal(slot *ast.ASTRef, h ast.ASTHandle) error {
+	fresh, err := b.transformer.manager.NewRef(h)
+	if err != nil {
+		return err
+	}
+	if *slot != (ast.ASTRef{}) {
+		if err = b.transformer.manager.DelRef(slot); err != nil {
+			return errors.Join(err, b.transformer.manager.DelRef(&fresh))
+		}
+	}
+	*slot = fresh
+	return nil
 }
 
 func (b *spacerRuleBuilder) blastTermITE(formula ast.ASTHandle) (_ ast.ASTHandle, resultErr error) {
@@ -264,6 +287,30 @@ func (b *spacerRuleBuilder) groundVariables(expression ast.ASTHandle, variables 
 	return nil
 }
 
+// substituteRef returns a caller-owned var_subst result.
+func (b *spacerRuleBuilder) substituteRef(expression ast.ASTHandle, variables []ast.ASTHandle) (_ ast.ASTRef, _ ast.ASTHandle, resultErr error) {
+	substitution, err := rewriter.NewVarSubstitution(b.transformer.manager, false)
+	if err != nil {
+		if substitution != nil {
+			err = errors.Join(err, substitution.Close())
+		}
+		return ast.ASTRef{}, ast.ASTHandle{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, substitution.Close()) }()
+	out, err := b.transformer.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTRef{}, ast.ASTHandle{}, err
+	}
+	if err = substitution.Substitute(expression, variables, out); err != nil {
+		return ast.ASTRef{}, ast.ASTHandle{}, errors.Join(err, b.transformer.manager.DelRef(&out))
+	}
+	result, err := b.transformer.manager.RefGet(out)
+	if err != nil {
+		return ast.ASTRef{}, ast.ASTHandle{}, errors.Join(err, b.transformer.manager.DelRef(&out))
+	}
+	return out, result, nil
+}
+
 func (b *spacerRuleBuilder) substitute(expression ast.ASTHandle, variables []ast.ASTHandle) (_ ast.ASTHandle, resultErr error) {
 	substitution, err := rewriter.NewVarSubstitution(b.transformer.manager, false)
 	if err != nil {
@@ -357,43 +404,65 @@ func (b *spacerRuleBuilder) normalizeRule(source *base.Rule) (result *spacerNorm
 		}
 		interpreted = append(interpreted, tail)
 	}
+	// init_rule's expr_ref fml: fml = mk_and(tail); after var_subst into
+	// tmp, fml = mk_and(conj) (tmp dies with its block); rw(fml) replaces
+	// it; transitions keeps an extra reference; fml dies on return.
+	var fml ast.ASTRef
+	defer func() {
+		if fml != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, b.transformer.manager.DelRef(&fml))
+		}
+	}()
 	theory, err := b.transformer.manager.MkAndArray(interpreted)
 	if err != nil {
+		return nil, err
+	}
+	if err = b.assignLocal(&fml, theory); err != nil {
 		return nil, err
 	}
 	if err = b.groundVariables(theory, &variables, &result.auxiliaries); err != nil {
 		return nil, err
 	}
-	theory, err = b.substitute(theory, variables)
+	tmp, substituted, err := b.substituteRef(theory, variables)
 	if err != nil {
 		return nil, err
 	}
-	flattened, err := b.transformer.manager.FlattenAnd([]ast.ASTHandle{theory})
-	if err != nil {
+	flattened, err := b.transformer.manager.FlattenAnd([]ast.ASTHandle{substituted})
+	var formula ast.ASTHandle
+	if err == nil {
+		conjunction = append(conjunction, flattened...)
+		formula, err = b.transformer.manager.MkAndArray(conjunction)
+	}
+	if err == nil {
+		err = b.assignLocal(&fml, formula)
+	}
+	if err = errors.Join(err, b.transformer.manager.DelRef(&tmp)); err != nil {
 		return nil, err
 	}
-	conjunction = append(conjunction, flattened...)
-	formula, err := b.transformer.manager.MkAndArray(conjunction)
-	if err != nil {
-		return nil, err
+	rewritten, transition, err := b.rewriteRef(formula)
+	if err == nil {
+		err = b.assignLocal(&fml, transition)
 	}
-	if err = b.pin(formula); err != nil {
-		return nil, err
-	}
-	result.transition, err = b.rewrite(formula)
-	if err != nil {
+	if err = errors.Join(err, b.transformer.manager.DelRef(&rewritten)); err != nil {
 		return nil, err
 	}
 	if b.transformer.blastTermITE {
-		result.transition, err = b.blastTermITE(result.transition)
-		if err != nil {
+		if transition, err = b.blastTermITE(transition); err != nil {
 			return nil, err
 		}
-		result.transition, err = b.rewrite(result.transition)
-		if err != nil {
+		rewritten, transition, err = b.rewriteRef(transition)
+		if err == nil {
+			err = b.assignLocal(&fml, transition)
+		}
+		if err = errors.Join(err, b.transformer.manager.DelRef(&rewritten)); err != nil {
 			return nil, err
 		}
 	}
+	// transitions.push_back(fml); m.inc_ref(fml).
+	if err = b.pin(transition); err != nil {
+		return nil, err
+	}
+	result.transition = transition
 	if result.initial = uninterpreted == 0; !result.initial {
 		ground, err := b.transformer.manager.IsGround(result.transition)
 		if err != nil || !ground {
