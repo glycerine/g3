@@ -123,6 +123,11 @@ func (g *smtModelFinderAUFGraph) completeProjectedFunctions(functions []ast.ASTH
 		}
 		definition, err := m.MkApp(auxiliary, arguments)
 		if err != nil {
+			// The fresh declaration has no owner yet; a failed application
+			// must not strand it.
+			if held, e := m.NewRef(auxiliary); e == nil {
+				err = errors.Join(err, m.DelRef(&held))
+			}
 			return err
 		}
 		replacement, err := model.NewFunctionInterpretation(m, arity)

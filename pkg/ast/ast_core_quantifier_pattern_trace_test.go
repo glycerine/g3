@@ -10,6 +10,28 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
+// withoutNestedNodeTraces drops the format manager's register_node_core and
+// delete_node blocks. mk_pp builds its format while the mk_quantifier trace
+// body is printing, and format_ref frees it afterwards, so every print nests
+// those TRACE("ast") blocks inside the pattern line, as in the source.
+func withoutNestedNodeTraces(got string) string {
+	const end = "------------------------------------------------\n"
+	for _, header := range []string{"-------- [ast] register_node_core ", "-------- [ast] delete_node "} {
+		for {
+			i := strings.Index(got, header)
+			if i < 0 {
+				break
+			}
+			j := strings.Index(got[i:], end)
+			if j < 0 {
+				break
+			}
+			got = got[:i] + got[i+j+len(end):]
+		}
+	}
+	return got
+}
+
 func TestASTQuantifierPatternSourceTraceBeforeRegistration(t *testing.T) {
 	c, g, _, budget := dynAckSourceFixture(t)
 	var output bytes.Buffer
@@ -83,7 +105,7 @@ func TestASTQuantifierPatternSourceTraceBeforeRegistration(t *testing.T) {
 			t.Fatalf("first invalid pattern was not refused: %v", err)
 		}
 		if tags.ShouldTrace("ast") {
-			got := output.String()
+			got := withoutNestedNodeTraces(output.String())
 			if strings.Count(got, "[ast] mk_quantifier src/ast/ast.cpp:2358") != 1 ||
 				!strings.Contains(got, "\n0 true\n") || strings.Contains(got, "\n1 ") {
 				t.Fatalf("later pattern traced after first assertion: %q", got)
@@ -102,7 +124,7 @@ func TestASTQuantifierPatternSourceTraceBeforeRegistration(t *testing.T) {
 			t.Fatalf("second invalid pattern was not refused: %v", err)
 		}
 		if tags.ShouldTrace("ast") {
-			got := output.String()
+			got := withoutNestedNodeTraces(output.String())
 			if strings.Count(got, "[ast] mk_quantifier src/ast/ast.cpp:2358") != 2 ||
 				!strings.Contains(got, "\n0 (true)\n") || !strings.Contains(got, "\n1 true\n") {
 				t.Fatalf("second pattern trace/source assertion order: %q", got)
