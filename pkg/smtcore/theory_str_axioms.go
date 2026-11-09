@@ -97,7 +97,10 @@ func (t *SMTStringTheory) instantiateBasicStringAxioms(node *SMTEnode) (result e
 	if err = t.assertAxiom(nonnegative); err != nil {
 		return err
 	}
-	lengthZero, err := m.MkEq(length, zero)
+	// Axiom 2: lhs = ctx.mk_eq_atom(len, 0), rhs = ctx.mk_eq_atom(a, ""),
+	// then literal l(mk_eq(lhs, rhs, true)), mark_as_relevant(l) and
+	// mk_th_axiom: the iff is internalized in a gate context.
+	lengthZero, err := state.mkEqualityAtom(length, zero)
 	if err != nil {
 		return err
 	}
@@ -110,15 +113,30 @@ func (t *SMTStringTheory) instantiateBasicStringAxioms(node *SMTEnode) (result e
 	if err != nil {
 		return err
 	}
-	isEmpty, err := m.MkEq(node.Owner(), empty)
+	isEmpty, err := state.mkEqualityAtom(node.Owner(), empty)
 	if err != nil {
 		return err
 	}
-	equivalence, err := m.MkEq(lengthZero, isEmpty)
+	emptyRef, err := m.NewRef(isEmpty)
 	if err != nil {
 		return err
 	}
-	return t.assertAxiom(equivalence)
+	defer func() { result = errors.Join(result, m.DelRef(&emptyRef)) }()
+	equivalence, err := state.mkEqualityAtom(lengthZero, isEmpty)
+	if err != nil {
+		return err
+	}
+	if err = state.Internalize(equivalence, true); err != nil {
+		return err
+	}
+	literal, err := state.Literal(equivalence)
+	if err != nil {
+		return err
+	}
+	if err = state.markRelevant(equivalence); err != nil {
+		return err
+	}
+	return state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{literal})
 }
 
 func (t *SMTStringTheory) instantiateConcatAxiom(node *SMTEnode) (result error) {

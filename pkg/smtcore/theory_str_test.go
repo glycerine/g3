@@ -143,9 +143,10 @@ func TestSMTStringTheoryBasicLengthZeroEquivalence(t *testing.T) {
 		astTestMust(t, err)
 		zero, err := m.ArithmeticIntegerNumeralText("0")
 		astTestMust(t, err)
-		lengthZero, err := m.MkEq(length, zero)
+		// The axiom's atoms come from ctx.mk_eq_atom.
+		lengthZero, err := state.mkEqualityAtom(length, zero)
 		astTestMust(t, err)
-		isEmpty, err := m.MkEq(x, empty)
+		isEmpty, err := state.mkEqualityAtom(x, empty)
 		astTestMust(t, err)
 		first, second := lengthZero, isEmpty
 		if !lengthFirst {
