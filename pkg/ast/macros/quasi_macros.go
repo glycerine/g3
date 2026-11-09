@@ -376,7 +376,8 @@ func (q *QuasiMacros) convert(quantifier, head, definition ast.ASTHandle) (ast.A
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	condition, err := q.manager.MkAndArray(conditions)
+	// m_manager.mk_and(n, eqs) is the raw n-ary and, even for one equation.
+	condition, err := q.manager.MkAndArgs(conditions)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
