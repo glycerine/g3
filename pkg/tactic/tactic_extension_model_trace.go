@@ -87,7 +87,7 @@ func (c *tacticExtensionModelConverter) writeExtensionFormat(w io.Writer, format
 	}
 	defer func() { result = errors.Join(result, out.Close()) }()
 	empty := c.services.Context.EmptyValue()
-	if err = c.manager.PrintFormat(out, format, c.services.Context, &empty, c.services.Globals); err != nil {
+	if err = c.manager.PrintFormatTransient(out, format, c.services.Context, &empty, c.services.Globals); err != nil {
 		return err
 	}
 	body, err := out.String()

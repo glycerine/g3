@@ -87,7 +87,7 @@ func (r *BitBlasterRewriter) writeTraceExpr(w io.Writer, h ast.ASTHandle) (err e
 	}
 	defer func() { err = errors.Join(err, stream.Close()) }()
 	p := g.Context.EmptyValue()
-	if err = r.manager.PrintFormat(stream, f, g.Context, &p, g); err != nil {
+	if err = r.manager.PrintFormatTransient(stream, f, g.Context, &p, g); err != nil {
 		return err
 	}
 	s, err := stream.String()

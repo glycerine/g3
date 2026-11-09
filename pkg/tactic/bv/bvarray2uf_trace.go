@@ -29,7 +29,7 @@ func (t *BVArray2UFTactic) formatArray(h ast.ASTHandle) (text string, result err
 		return "", e
 	}
 	defer func() { result = errors.Join(result, out.Close()) }()
-	if e = t.manager.PrintFormat(out, f, nil, nil, nil); e != nil {
+	if e = t.manager.PrintFormatTransient(out, f, nil, nil, nil); e != nil {
 		return "", e
 	}
 	return out.String()

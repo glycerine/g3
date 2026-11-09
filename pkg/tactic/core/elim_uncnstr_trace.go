@@ -44,7 +44,7 @@ func (t *EliminateUnconstrainedTactic) writeExpression(out io.Writer, term ast.A
 			return e
 		}
 		empty := t.context.EmptyValue()
-		err = t.manager.PrintFormat(stream, format, t.context, &empty, t.globals)
+		err = t.manager.PrintFormatTransient(stream, format, t.context, &empty, t.globals)
 	}
 	if err != nil {
 		return err

@@ -90,7 +90,7 @@ func (i *ModelImplicant) reportUntrackedValue(expression, value ast.ASTHandle) e
 				return err
 			}
 			empty := i.services.Context.EmptyValue()
-			return i.manager.PrintFormat(out, format, i.services.Context, &empty, i.services.Globals)
+			return i.manager.PrintFormatTransient(out, format, i.services.Context, &empty, i.services.Globals)
 		}
 		if err = out.AppendCString("Not evaluated "); err != nil {
 			return err

@@ -31,7 +31,7 @@ func (t *BitBlasterTactic) writeExpr(w io.Writer, h ast.ASTHandle) (err error) {
 	}
 	defer func() { err = errors.Join(err, stream.Close()) }()
 	p := t.context.EmptyValue()
-	if err = t.manager.PrintFormat(stream, f, t.context, &p, t.globals); err != nil {
+	if err = t.manager.PrintFormatTransient(stream, f, t.context, &p, t.globals); err != nil {
 		return err
 	}
 	s, err := stream.String()

@@ -70,7 +70,7 @@ func (p *pullQuantCore) writePullSMT2(w io.Writer, node ast.ASTHandle) (result e
 	}
 	defer func() { result = errors.Join(result, out.Close()) }()
 	empty := g.Context.EmptyValue()
-	if err = p.manager.PrintFormat(out, format, g.Context, &empty, g); err != nil {
+	if err = p.manager.PrintFormatTransient(out, format, g.Context, &empty, g); err != nil {
 		return err
 	}
 	body, err := out.String()

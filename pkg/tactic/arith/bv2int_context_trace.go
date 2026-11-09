@@ -34,7 +34,7 @@ func (r *BV2IntContext) writeExpr(out io.Writer, h ast.ASTHandle) (err error) {
 		return err
 	}
 	empty := r.context.EmptyValue()
-	if err = r.manager.PrintFormat(stream, format, r.context, &empty, g); err != nil {
+	if err = r.manager.PrintFormatTransient(stream, format, r.context, &empty, g); err != nil {
 		return err
 	}
 	text, err := stream.String()

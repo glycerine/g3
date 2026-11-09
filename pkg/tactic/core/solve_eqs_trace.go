@@ -44,7 +44,7 @@ func (t *SolveEquationsTactic) writeExpression(out io.Writer, term ast.ASTHandle
 	}
 	defer func() { err = errors.Join(err, stream.Close()) }()
 	empty := t.context.EmptyValue()
-	if err = t.manager.PrintFormat(stream, format, t.context, &empty, t.globals); err != nil {
+	if err = t.manager.PrintFormatTransient(stream, format, t.context, &empty, t.globals); err != nil {
 		return err
 	}
 	text, err := stream.String()

@@ -34,7 +34,7 @@ func writeBVTraceSMT2(m *ast.ASTManager, w io.Writer, h ast.ASTHandle, globals *
 	}
 	defer func() { result = errors.Join(result, stream.Close()) }()
 	empty := globals.Context.EmptyValue()
-	if err = m.PrintFormat(stream, format, globals.Context, &empty, globals); err != nil {
+	if err = m.PrintFormatTransient(stream, format, globals.Context, &empty, globals); err != nil {
 		return err
 	}
 	body, err := stream.String()

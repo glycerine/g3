@@ -31,7 +31,7 @@ func (m *ASTManager) wellSortedTraceFormat(format ASTHandle, c *uparams.ParamsCo
 		return "", err
 	}
 	defer func() { result = errors.Join(result, out.Close()) }()
-	if err = m.PrintFormat(out, format, c, p, g); err != nil {
+	if err = m.PrintFormatTransient(out, format, c, p, g); err != nil {
 		return "", err
 	}
 	return out.String()

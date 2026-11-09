@@ -34,7 +34,7 @@ func (i *ModelImplicant) traceMinimization(tag, function string, line int, prefi
 			}
 			defer func() { resultErr = errors.Join(resultErr, out.Close()) }()
 			empty := i.services.Context.EmptyValue()
-			if err = i.manager.PrintFormat(out, format, i.services.Context, &empty, i.services.Globals); err != nil {
+			if err = i.manager.PrintFormatTransient(out, format, i.services.Context, &empty, i.services.Globals); err != nil {
 				return err
 			}
 			body, err := out.String()

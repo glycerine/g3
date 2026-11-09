@@ -42,7 +42,7 @@ func (b *BoundManager) writeExpr(out io.Writer, term ast.ASTHandle) (err error) 
 		return err
 	}
 	empty := b.context.EmptyValue()
-	if err = b.manager.PrintFormat(stream, format, b.context, &empty, b.globals); err != nil {
+	if err = b.manager.PrintFormatTransient(stream, format, b.context, &empty, b.globals); err != nil {
 		return err
 	}
 	text, err := stream.String()

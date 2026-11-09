@@ -29,7 +29,7 @@ func (b *PolynomialBuilder) traceSMT2Term(term ast.ASTHandle) (body string, resu
 	}
 	defer func() { result = errors.Join(result, out.Close()) }()
 	empty := g.Context.EmptyValue()
-	if err = b.manager.PrintFormat(out, format, g.Context, &empty, g); err != nil {
+	if err = b.manager.PrintFormatTransient(out, format, g.Context, &empty, g); err != nil {
 		return "", err
 	}
 	return out.String()

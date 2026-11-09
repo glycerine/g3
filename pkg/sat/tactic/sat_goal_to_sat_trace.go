@@ -225,6 +225,16 @@ func (tr *GoalTranslator) traceGoalFormula(h ast.ASTHandle) (body string, result
 	if err != nil {
 		return "", err
 	}
+	// mk_pp's format_ref dies after printing.
+	formats, err := tr.manager.GetFormatManager()
+	if err != nil {
+		return "", err
+	}
+	formatRef, err := formats.NewRef(format)
+	if err != nil {
+		return "", err
+	}
+	defer func() { result = errors.Join(result, formats.DelRef(&formatRef)) }()
 	out, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: tr.manager.BudgetField})
 	if err != nil {
 		return "", err

@@ -35,7 +35,7 @@ func (r *ConjectureReporter) writeTerm(m *ast.ASTManager, h ast.ASTHandle, sort 
 	}
 	defer func() { result = errors.Join(result, stream.Close()) }()
 	empty := r.Params.EmptyValue()
-	if err := m.PrintFormat(stream, format, r.Params, &empty, r.Globals); err != nil {
+	if err := m.PrintFormatTransient(stream, format, r.Params, &empty, r.Globals); err != nil {
 		return err
 	}
 	text, err := stream.String()

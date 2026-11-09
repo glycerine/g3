@@ -36,7 +36,7 @@ func (i *ModelImplicant) reportEvaluation(level uint32, prefix string, expressio
 		return err
 	}
 	empty := i.services.Context.EmptyValue()
-	if err = i.manager.PrintFormat(out, format, i.services.Context, &empty, i.services.Globals); err != nil {
+	if err = i.manager.PrintFormatTransient(out, format, i.services.Context, &empty, i.services.Globals); err != nil {
 		return err
 	}
 	return out.AppendCString(suffix)

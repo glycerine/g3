@@ -323,7 +323,7 @@ func (s *Solver) formatExpressions(expressions []ast.ASTHandle) (result string, 
 		return "", err
 	}
 	empty := s.services.Context.EmptyValue()
-	if err = s.manager.PrintFormat(w.stream, root, s.services.Context, &empty, s.services.Globals); err != nil {
+	if err = s.manager.PrintFormatTransient(w.stream, root, s.services.Context, &empty, s.services.Globals); err != nil {
 		return "", err
 	}
 	return w.stream.String()

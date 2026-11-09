@@ -30,7 +30,7 @@ func (ev *ModelEvaluator) writeSMT2(w io.Writer, t ast.ASTHandle) (result error)
 	}
 	defer func() { result = errors.Join(result, out.Close()) }()
 	empty := ev.services.Context.EmptyValue()
-	if err = ev.model.manager.PrintFormat(out, format, ev.services.Context, &empty, ev.services.Globals); err != nil {
+	if err = ev.model.manager.PrintFormatTransient(out, format, ev.services.Context, &empty, ev.services.Globals); err != nil {
 		return err
 	}
 	body, err := out.String()

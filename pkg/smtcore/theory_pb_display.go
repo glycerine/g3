@@ -65,7 +65,7 @@ func (t *SMTPseudoBooleanTheory) displayPBApplication(out io.Writer, expression 
 		return err
 	}
 	defer func() { result = errors.Join(result, stream.Close()) }()
-	if err = t.state.manager.PrintFormat(stream, format, nil, nil, nil); err != nil {
+	if err = t.state.manager.PrintFormatTransient(stream, format, nil, nil, nil); err != nil {
 		return err
 	}
 	body, err := stream.String()

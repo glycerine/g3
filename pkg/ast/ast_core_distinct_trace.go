@@ -48,7 +48,7 @@ func (m *ASTManager) traceDistinctExpanded(h ASTHandle) error {
 				result = errors.Join(result, bodyErr)
 			}()
 			empty := g.Context.EmptyValue()
-			if err = m.PrintFormat(out, format, g.Context, &empty, g); err != nil {
+			if err = m.PrintFormatTransient(out, format, g.Context, &empty, g); err != nil {
 				bodyErr = err
 				return err
 			}

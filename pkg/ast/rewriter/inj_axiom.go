@@ -28,7 +28,7 @@ func injFormat(m *ast.ASTManager, h ast.ASTHandle, lowLevel bool) (value string,
 		if e != nil {
 			return "", e
 		}
-		if err = m.PrintFormat(out, format, nil, nil, nil); err != nil {
+		if err = m.PrintFormatTransient(out, format, nil, nil, nil); err != nil {
 			return "", err
 		}
 	}

@@ -34,7 +34,7 @@ func formulaTraceText(manager *ast.ASTManager, h ast.ASTHandle) (body string, re
 		return "", e
 	}
 	defer func() { result = errors.Join(result, out.Close()) }()
-	if e := manager.PrintFormat(out, format, nil, nil, nil); e != nil {
+	if e := manager.PrintFormatTransient(out, format, nil, nil, nil); e != nil {
 		return "", e
 	}
 	return out.String()

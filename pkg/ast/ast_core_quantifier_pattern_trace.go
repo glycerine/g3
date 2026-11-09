@@ -39,7 +39,7 @@ func (m *ASTManager) traceQuantifierPattern(i int, pattern ASTHandle) error {
 			}
 			defer func() { result = errors.Join(result, out.Close()) }()
 			empty := g.Context.EmptyValue()
-			if err = m.PrintFormat(out, format, g.Context, &empty, g); err != nil {
+			if err = m.PrintFormatTransient(out, format, g.Context, &empty, g); err != nil {
 				return err
 			}
 			body, err := out.String()

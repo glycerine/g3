@@ -153,7 +153,7 @@ func (t *SMTDatatypeTheory) displayDatatypeExpression(out io.Writer, expression 
 		return err
 	}
 	defer func() { result = errors.Join(result, stream.Close()) }()
-	if err = s.manager.PrintFormat(stream, format, nil, nil, nil); err != nil {
+	if err = s.manager.PrintFormatTransient(stream, format, nil, nil, nil); err != nil {
 		return err
 	}
 	body, err := stream.String()

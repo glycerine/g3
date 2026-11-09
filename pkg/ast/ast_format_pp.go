@@ -254,6 +254,27 @@ func (m *ASTManager) releasePPFrames() error {
 
 // A nil parameter-owner trio uses the source pp defaults for standalone AST
 // warning and trace callers. Bound owners keep their module-parameter scope.
+// PrintFormatTransient is pp() of a format_ref that dies after printing: an
+// unreferenced root is owned for the print and released afterwards.
+func (m *ASTManager) PrintFormatTransient(out *utext.NumericTextStream, h ASTHandle, c *uparams.ParamsContext, p *uparams.ParamsRef, g *uparams.GlobalParamsService) (result error) {
+	fm, e := m.GetFormatManager()
+	if e != nil {
+		return e
+	}
+	count, e := fm.GetRefCount(h)
+	if e != nil {
+		return e
+	}
+	if count == 0 {
+		ref, e := fm.NewRef(h)
+		if e != nil {
+			return e
+		}
+		defer func() { result = errors.Join(result, fm.DelRef(&ref)) }()
+	}
+	return m.PrintFormat(out, h, c, p, g)
+}
+
 func (m *ASTManager) PrintFormat(out *utext.NumericTextStream, h ASTHandle, c *uparams.ParamsContext, p *uparams.ParamsRef, g *uparams.GlobalParamsService) (result error) {
 	f, e := m.lockFormat()
 	if e != nil {

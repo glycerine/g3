@@ -26,7 +26,7 @@ func (rw *ArrayRewriter) writeAppTraceNode(w io.Writer, h ast.ASTHandle, decl bo
 		return err
 	}
 	defer func() { result = errors.Join(result, stream.Close()) }()
-	if err = rw.manager.PrintFormat(stream, format, nil, nil, nil); err != nil {
+	if err = rw.manager.PrintFormatTransient(stream, format, nil, nil, nil); err != nil {
 		return err
 	}
 	body, err := stream.String()

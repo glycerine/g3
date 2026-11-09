@@ -79,7 +79,7 @@ func (f *FunctionInterpretation) writeTraceSMT2(w io.Writer, h ast.ASTHandle) (r
 	}
 	defer func() { result = errors.Join(result, stream.Close()) }()
 	empty := globals.Context.EmptyValue()
-	if err = f.manager.PrintFormat(stream, format, globals.Context, &empty, globals); err != nil {
+	if err = f.manager.PrintFormatTransient(stream, format, globals.Context, &empty, globals); err != nil {
 		return err
 	}
 	body, err := stream.String()
