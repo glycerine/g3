@@ -226,13 +226,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		arrayInstantiation = transforms.NewArrayInstantiationPlugin(e.manager, e.rules, instantiateArraysQuantifiers, instantiateArraysEnforce, 34999)
 		arrayInstantiation.SetSliceTechnique(sliceTechnique)
 		if e.params != nil && e.globals != nil {
-			arrayInstantiation.SetRuleMaker(func(destination *base.RuleSet, formula ast.ASTHandle, name usymbol.Symbol) error {
-				lite, liteErr := e.ruleManagerLite()
-				if liteErr != nil {
-					return liteErr
-				}
-				return e.rules.AddFormulaWithProofAndSymbolAndUnboundFix(destination, formula, ast.ASTHandle{}, name, lite, true)
-			})
+			arrayInstantiation.SetRuleMaker(e.transformRuleMaker())
 		}
 		if err = transformer.Register(arrayInstantiation); err != nil {
 			return nil, errors.Join(err, transformer.Close())
@@ -249,6 +243,9 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	}
 	if quantifyArrays {
 		quantifierAbstraction = transforms.NewQuantifierAbstractionPlugin(e.manager, e.rules, 38000)
+		if e.params != nil && e.globals != nil {
+			quantifierAbstraction.SetRuleMaker(e.transformRuleMaker())
+		}
 		if err = transformer.Register(quantifierAbstraction); err != nil {
 			return nil, errors.Join(err, transformer.Close())
 		}
@@ -813,3 +810,11 @@ func (p noopTransformPlugin) CanDestratifyNegation() bool                    { r
 func (p noopTransformPlugin) Transform(*base.RuleSet) (*base.RuleSet, error) { return nil, nil }
 func (p noopTransformPlugin) Cancel()                                        {}
 func (p noopTransformPlugin) Close() error                                   { return nil }
+
+// transformRuleMaker is rule_manager::mk_rule(fml, nullptr, rules, name) for
+// transformation plugins; mk_horn_rule's xform.fix_unbound_vars gate applies.
+func (e *PropositionalEngine) transformRuleMaker() transforms.ArrayInstantiationRuleMaker {
+	return func(destination *base.RuleSet, formula ast.ASTHandle, name usymbol.Symbol) error {
+		return e.addFormula(destination, formula, name)
+	}
+}

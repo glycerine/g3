@@ -88,6 +88,39 @@ func addQuantifierTransformNamedRule(t *testing.T, f *coneFixture, head ast.ASTH
 	coneMust(t, rule.Close())
 }
 
+func checkCollapsedQuantifierTransformNames(t *testing.T, result *base.RuleSet, names []usymbol.Symbol) {
+	t.Helper()
+	collapse := func(in []usymbol.Symbol) []usymbol.Symbol {
+		var out []usymbol.Symbol
+		for _, name := range in {
+			if len(out) == 0 || out[len(out)-1] != name {
+				out = append(out, name)
+			}
+		}
+		return out
+	}
+	count, err := result.Len()
+	coneMust(t, err)
+	var got []usymbol.Symbol
+	for i := 0; i < count; i++ {
+		rule, err := result.Rule(i)
+		coneMust(t, err)
+		name, err := rule.NameSymbol()
+		coneMust(t, err)
+		coneMust(t, rule.Close())
+		got = append(got, name)
+	}
+	want, have := collapse(names), collapse(got)
+	if len(want) != len(have) {
+		t.Fatal("replacement rule names", have, "want", want)
+	}
+	for i := range want {
+		if want[i] != have[i] {
+			t.Fatal("replacement rule names", have, "want", want)
+		}
+	}
+}
+
 func checkQuantifierTransformNames(t *testing.T, result *base.RuleSet, names []usymbol.Symbol) {
 	t.Helper()
 	if result == nil {
@@ -188,8 +221,10 @@ func TestQuantifierAbstractionPreservesRuleNameSymbolKinds(t *testing.T) {
 	defer func() { coneMust(t, plugin.Close()) }()
 	result, err := plugin.Transform(f.set)
 	coneMust(t, err)
-	checkQuantifierTransformNames(t, result, expected)
 	defer func() { coneMust(t, result.Close()) }()
+	// rm.mk_rule's Horn normalization derives several rules per source rule,
+	// all carrying its name, in source order.
+	checkCollapsedQuantifierTransformNames(t, result, expected)
 	fresh := plugin.FreshPredicates()[declaration]
 	if fresh.IsNull() || fresh == declaration {
 		t.Fatal("quantifier abstraction did not expand the array predicate")
@@ -197,25 +232,28 @@ func TestQuantifierAbstractionPreservesRuleNameSymbolKinds(t *testing.T) {
 	if arity, err := f.manager.GetArity(fresh); err != nil || arity != 2 {
 		t.Fatal("abstracted predicate arity", arity, err)
 	}
-	for i := range expected {
+	count, err := result.Len()
+	coneMust(t, err)
+	freshHead, quantifiedTail := false, false
+	for i := 0; i < count; i++ {
 		rule, err := result.Rule(i)
 		coneMust(t, err)
-		if i%2 == 0 {
-			got, err := rule.HeadDeclaration()
-			coneMust(t, err)
-			if got != fresh {
-				t.Fatal("abstracted named rule lost source position", i)
-			}
-		} else {
-			tail, negative, err := rule.Tail(0)
+		got, err := rule.HeadDeclaration()
+		coneMust(t, err)
+		freshHead = freshHead || got == fresh
+		tails, err := rule.TailSize()
+		coneMust(t, err)
+		for j := 0; j < tails; j++ {
+			tail, negative, err := rule.Tail(j)
 			coneMust(t, err)
 			quantified, err := f.manager.HasQuantifiers(tail)
 			coneMust(t, err)
-			if negative || !quantified {
-				t.Fatal("named query did not gain its quantified array tail", i)
-			}
+			quantifiedTail = quantifiedTail || (!negative && quantified)
 		}
 		coneMust(t, rule.Close())
+	}
+	if !freshHead || !quantifiedTail {
+		t.Fatal("abstracted rules lost the fresh head or the quantified array tail", freshHead, quantifiedTail)
 	}
 	checkQuantifierTransformSource(t, f.set, original)
 }

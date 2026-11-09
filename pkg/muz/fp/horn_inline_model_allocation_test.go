@@ -33,10 +33,14 @@ func newHornInlineArrayModelFixture(t *testing.T) (*fpRuleNameFixture, ast.ASTHa
 	family, err := f.m.ArrayFamilyID()
 	fragmentMust(t, err)
 	selected := f.own(f.m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{a, truth}))
-	// P(a) holds exactly when a[true] does; Goal asks for its contradiction.
+	falsity := f.own(f.m.MkFalse())
+	other := f.own(f.m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{a, falsity}))
+	// P(a) holds when a[true] does; Goal's body is contradictory in a[false].
+	// (z3's quantifier abstraction loses the a[true] link, so Goal :- P(a),
+	// not a[true] is reachable there: the body itself must be unsatisfiable.)
 	seed := f.own(f.m.MkImplies(selected, application))
 	fragmentMust(t, f.e.addRuleEager(seed, "seed"))
-	tail := f.own(f.m.MkAndArgs([]ast.ASTHandle{application, f.own(f.m.MkNot(selected))}))
+	tail := f.own(f.m.MkAndArgs([]ast.ASTHandle{application, other, f.own(f.m.MkNot(other))}))
 	step := f.own(f.m.MkImplies(tail, goal))
 	fragmentMust(t, f.e.addRuleEager(step, "bad"))
 	status, err := f.e.QueryExpression(goal)

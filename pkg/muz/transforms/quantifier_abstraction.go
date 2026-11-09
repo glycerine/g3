@@ -17,7 +17,123 @@ type QuantifierAbstractionPlugin struct {
 	rules    *base.RuleManager
 	priority uint32
 	oldToNew map[ast.ASTHandle]ast.ASTHandle
+	mkRule   ArrayInstantiationRuleMaker
 	closed   bool
+}
+
+// SetRuleMaker supplies rule_manager::mk_rule.
+func (p *QuantifierAbstractionPlugin) SetRuleMaker(mk ArrayInstantiationRuleMaker) { p.mkRule = mk }
+
+// declarationSubstitution builds declare_pred's sub vector (the qa model
+// converter's argument terms). Without a model converter the source drops
+// it at return: arg is released first, then sub forward.
+func (p *QuantifierAbstractionPlugin) declarationSubstitution(old ast.ASTHandle, arity uint32) (resultErr error) {
+	var sub []ast.ASTRef
+	var arg ast.ASTRef
+	defer func() {
+		if arg != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&arg))
+		}
+		for i := range sub {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&sub[i]))
+		}
+	}()
+	assign := func(h ast.ASTHandle) error {
+		fresh, err := p.manager.NewRef(h)
+		if err != nil {
+			return err
+		}
+		if arg != (ast.ASTRef{}) {
+			if err = p.manager.DelRef(&arg); err != nil {
+				return errors.Join(err, p.manager.DelRef(&fresh))
+			}
+		}
+		arg = fresh
+		return nil
+	}
+	bound := uint32(0)
+	for i := uint32(0); i < arity; i++ {
+		s0, err := p.manager.GetDomain(old, i)
+		if err != nil {
+			return err
+		}
+		lookahead := uint32(0)
+		for s := s0; ; {
+			array, e := p.arraySort(s)
+			if e != nil {
+				return e
+			}
+			if !array {
+				break
+			}
+			n, e := p.manager.ArrayArity(s)
+			if e != nil {
+				return e
+			}
+			lookahead += n
+			if s, e = p.manager.ArrayRange(s); e != nil {
+				return e
+			}
+		}
+		variable, err := p.manager.MkVar(bound+lookahead, s0)
+		if err != nil {
+			return err
+		}
+		if err = assign(variable); err != nil {
+			return err
+		}
+		for s := s0; ; {
+			array, e := p.arraySort(s)
+			if e != nil {
+				return e
+			}
+			if !array {
+				break
+			}
+			n, e := p.manager.ArrayArity(s)
+			if e != nil {
+				return e
+			}
+			indices := make([]ast.ASTHandle, 0, n)
+			for j := uint32(0); j < n; j++ {
+				s1, e := p.manager.ArrayDomain(s, j)
+				if e != nil {
+					return e
+				}
+				index, e := p.manager.MkVar(bound, s1)
+				if e != nil {
+					return e
+				}
+				indices = append(indices, index)
+				bound++
+			}
+			current, e := p.manager.RefGet(arg)
+			if e != nil {
+				return e
+			}
+			selected, e := p.selectTerm(current, indices)
+			if e != nil {
+				return e
+			}
+			if e = assign(selected); e != nil {
+				return e
+			}
+			if s, e = p.manager.ArrayRange(s); e != nil {
+				return e
+			}
+		}
+		bound++
+		current, err := p.manager.RefGet(arg)
+		if err != nil {
+			return err
+		}
+		held, err := p.manager.NewRef(current)
+		if err != nil {
+			return err
+		}
+		sub = append(sub, held)
+	}
+	return nil
 }
 
 func NewQuantifierAbstractionPlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32) *QuantifierAbstractionPlugin {
@@ -104,6 +220,9 @@ func (p *QuantifierAbstractionPlugin) declarePredicate(source, destination *base
 	}
 	if !hasArray {
 		return old, false, destination.InheritPredicate(source, old, old)
+	}
+	if err = p.declarationSubstitution(old, arity); err != nil {
+		return ast.ASTHandle{}, false, err
 	}
 	name, err := p.manager.GetASTName(old)
 	if err != nil {
@@ -296,11 +415,12 @@ func (p *QuantifierAbstractionPlugin) makeTail(source, destination *base.RuleSet
 		}
 		arguments = append(arguments, argument)
 	}
-	body, err := p.manager.MkApp(fresh, arguments)
+	// m.mk_pattern(pats) precedes m.mk_app(new_p, args).
+	annotation, err := p.manager.MkPattern(triggers)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	annotation, err := p.manager.MkPattern(triggers)
+	body, err := p.manager.MkApp(fresh, arguments)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -322,126 +442,123 @@ func (p *QuantifierAbstractionPlugin) makeTail(source, destination *base.RuleSet
 	return p.manager.NewRef(wrapper)
 }
 
-func (p *QuantifierAbstractionPlugin) transformRule(source, destination *base.RuleSet, rule *base.Rule) (_ *base.Rule, resultErr error) {
+// qaLoopLocals are operator()'s tail, head and fml, which live across the
+// rule loop: each is released when reassigned, and at exit in reverse
+// declaration order (fml, head, tail).
+type qaLoopLocals struct {
+	tail []ast.ASTRef
+	head ast.ASTRef
+	fml  ast.ASTRef
+}
+
+func (p *QuantifierAbstractionPlugin) resetTail(l *qaLoopLocals) (result error) {
+	for i := range l.tail {
+		result = errors.Join(result, p.manager.DelRef(&l.tail[i]))
+	}
+	l.tail = l.tail[:0]
+	return result
+}
+
+func (p *QuantifierAbstractionPlugin) assign(slot *ast.ASTRef, h ast.ASTHandle) error {
+	fresh, err := p.manager.NewRef(h)
+	if err != nil {
+		return err
+	}
+	if *slot != (ast.ASTRef{}) {
+		if err = p.manager.DelRef(slot); err != nil {
+			return errors.Join(err, p.manager.DelRef(&fresh))
+		}
+	}
+	*slot = fresh
+	return nil
+}
+
+func (p *QuantifierAbstractionPlugin) closeLoopLocals(l *qaLoopLocals) (result error) {
+	if l.fml != (ast.ASTRef{}) {
+		result = errors.Join(result, p.manager.DelRef(&l.fml))
+	}
+	if l.head != (ast.ASTRef{}) {
+		result = errors.Join(result, p.manager.DelRef(&l.head))
+	}
+	return errors.Join(result, p.resetTail(l))
+}
+
+func (p *QuantifierAbstractionPlugin) transformRule(source, destination *base.RuleSet, rule *base.Rule, l *qaLoopLocals) error {
+	if err := p.resetTail(l); err != nil {
+		return err
+	}
 	variables, err := ruleVariableCount(p.manager, rule)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	uninterpreted, err := rule.UninterpretedTailSize()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	total, err := rule.TailSize()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	tails := make([]ast.ASTHandle, 0, total)
-	negated := make([]bool, 0, total)
-	owned := make([]ast.ASTRef, 0, uninterpreted)
-	defer func() {
-		for i := len(owned) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, p.manager.DelRef(&owned[i]))
-		}
-	}()
 	for i := 0; i < uninterpreted; i++ {
-		tail, negative, getErr := rule.Tail(i)
+		tail, _, getErr := rule.Tail(i)
 		if getErr != nil {
-			return nil, getErr
+			return getErr
 		}
 		transformed, getErr := p.makeTail(source, destination, tail)
 		if getErr != nil {
-			return nil, getErr
+			return getErr
 		}
-		owned = append(owned, transformed)
-		tail, getErr = p.manager.RefGet(transformed)
-		if getErr != nil {
-			return nil, getErr
-		}
-		tails, negated = append(tails, tail), append(negated, negative)
+		l.tail = append(l.tail, transformed)
 	}
 	for i := uninterpreted; i < total; i++ {
-		tail, negative, getErr := rule.Tail(i)
+		tail, _, getErr := rule.Tail(i)
 		if getErr != nil {
-			return nil, getErr
+			return getErr
 		}
-		tails, negated = append(tails, tail), append(negated, negative)
+		held, getErr := p.manager.NewRef(tail)
+		if getErr != nil {
+			return getErr
+		}
+		l.tail = append(l.tail, held)
 	}
 	head, err := rule.Head()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	head, err = p.makeHead(source, destination, head, variables)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	used, err := ast.NewASTUsedVars(p.manager)
+	if err = p.assign(&l.head, head); err != nil {
+		return err
+	}
+	tails := make([]ast.ASTHandle, len(l.tail))
+	for i := range l.tail {
+		if tails[i], err = p.manager.RefGet(l.tail[i]); err != nil {
+			return err
+		}
+	}
+	// fml = m.mk_implies(m.mk_and(tail), head); rm.mk_rule(fml, ...):
+	// Horn normalization replaces non-variable head arguments.
+	conjunction, err := p.manager.MkFamilyApp(0, ast.ASTOpAnd, nil, tails)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if err = used.Process(head); err != nil {
-		return nil, err
-	}
-	for _, tail := range tails {
-		if err = used.Process(tail); err != nil {
-			return nil, err
-		}
-	}
-	next := used.MaxFoundVarIndexPlusOne()
-	declaration, err := p.manager.GetDecl(head)
+	formula, err := p.manager.MkImplies(conjunction, head)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	arguments, err := p.manager.GetNumArgs(head)
-	if err != nil {
-		return nil, err
-	}
-	headArguments := make([]ast.ASTHandle, arguments)
-	headChanged := false
-	for i := uint32(0); i < arguments; i++ {
-		argument, getErr := p.manager.GetArg(head, i)
-		if getErr != nil {
-			return nil, getErr
-		}
-		kind, getErr := p.manager.GetKind(argument)
-		if getErr != nil {
-			return nil, getErr
-		}
-		value, getErr := p.manager.IsValue(argument)
-		if getErr != nil {
-			return nil, getErr
-		}
-		if kind == ast.ASTVar || value {
-			headArguments[i] = argument
-			continue
-		}
-		sort, getErr := p.manager.GetSort(argument)
-		if getErr != nil {
-			return nil, getErr
-		}
-		variable, getErr := p.manager.MkVar(next, sort)
-		if getErr != nil {
-			return nil, getErr
-		}
-		next++
-		equality, getErr := p.manager.MkEq(variable, argument)
-		if getErr != nil {
-			return nil, getErr
-		}
-		headArguments[i] = variable
-		tails, negated = append(tails, equality), append(negated, false)
-		headChanged = true
-	}
-	if headChanged {
-		head, err = p.manager.MkApp(declaration, headArguments)
-		if err != nil {
-			return nil, err
-		}
+	if err = p.assign(&l.fml, formula); err != nil {
+		return err
 	}
 	name, err := rule.NameSymbol()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return p.rules.NewRuleWithSymbol(head, tails, negated, name)
+	if p.mkRule != nil {
+		return p.mkRule(destination, formula, name)
+	}
+	return p.rules.AddFormulaWithSymbol(destination, formula, name)
 }
 
 func (p *QuantifierAbstractionPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
@@ -484,19 +601,15 @@ func (p *QuantifierAbstractionPlugin) Transform(source *base.RuleSet) (_ *base.R
 			resultErr = errors.Join(resultErr, result.Close())
 		}
 	}()
+	locals := &qaLoopLocals{}
+	defer func() { resultErr = errors.Join(resultErr, p.closeLoopLocals(locals)) }()
 	for i := 0; i < count; i++ {
 		rule, getErr := source.Rule(i)
 		if getErr != nil {
 			return nil, getErr
 		}
-		replacement, transformErr := p.transformRule(source, result, rule)
-		if transformErr == nil {
-			transformErr = result.Add(replacement)
-		}
+		transformErr := p.transformRule(source, result, rule, locals)
 		transformErr = errors.Join(transformErr, rule.Close())
-		if replacement != nil {
-			transformErr = errors.Join(transformErr, replacement.Close())
-		}
 		if transformErr != nil {
 			return nil, transformErr
 		}
