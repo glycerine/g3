@@ -18,6 +18,8 @@ type QuantifierInstantiationPlugin struct {
 	rules    *base.RuleManager
 	priority uint32
 	mkRule   ArrayInstantiationRuleMaker
+	var2cnst *astrewriter.ExprSafeReplace
+	cnst2var *astrewriter.ExprSafeReplace
 	closed   bool
 }
 
@@ -442,15 +444,25 @@ func (p *QuantifierInstantiationPlugin) transformRule(rule *base.Rule, destinati
 	if err != nil {
 		return nil, false, err
 	}
-	variablesToConstants, err := astrewriter.NewExprSafeReplace(p.manager)
-	if err != nil {
+	// m_var2cnst and m_cnst2var are plugin members: reset at the start of
+	// each instantiate_rule, destroyed with the plugin.
+	if p.var2cnst == nil {
+		if p.var2cnst, err = astrewriter.NewExprSafeReplace(p.manager); err != nil {
+			return nil, false, err
+		}
+	}
+	if p.cnst2var == nil {
+		if p.cnst2var, err = astrewriter.NewExprSafeReplace(p.manager); err != nil {
+			return nil, false, err
+		}
+	}
+	if err = p.var2cnst.Reset(); err != nil {
 		return nil, false, err
 	}
-	constantsToVariables, err := astrewriter.NewExprSafeReplace(p.manager)
-	if err != nil {
-		return nil, false, errors.Join(err, variablesToConstants.Close())
+	if err = p.cnst2var.Reset(); err != nil {
+		return nil, false, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, constantsToVariables.Close(), variablesToConstants.Close()) }()
+	variablesToConstants, constantsToVariables := p.var2cnst, p.cnst2var
 	// fml = m.mk_and(conjs) precedes the fresh constants; mk_and(n, args) is
 	// the raw n-ary and. fml stays alive across the reassignments below.
 	early, err := p.manager.MkFamilyApp(0, ast.ASTOpAnd, nil, conjuncts)
@@ -715,6 +727,22 @@ func (p *QuantifierInstantiationPlugin) Transform(source *base.RuleSet) (_ *base
 func (p *QuantifierInstantiationPlugin) Close() error {
 	if p == nil {
 		return base.ErrRuleTransformerOwner
+	}
+	if p.closed {
+		return nil
+	}
+	// Members die in reverse declaration order: m_cnst2var, m_var2cnst.
+	if p.cnst2var != nil {
+		if err := p.cnst2var.Close(); err != nil {
+			return err
+		}
+		p.cnst2var = nil
+	}
+	if p.var2cnst != nil {
+		if err := p.var2cnst.Close(); err != nil {
+			return err
+		}
+		p.var2cnst = nil
 	}
 	p.closed = true
 	return nil
