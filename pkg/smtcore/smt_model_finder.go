@@ -66,7 +66,7 @@ func NewSMTModelFinder(state *SMTInternalizerState) (*SMTModelFinder, error) {
 		sets: make(map[ast.ASTHandle][]*smtModelFinderInstantiationSet), macroUtil: util,
 		flat:       make(map[ast.ASTHandle]smtModelFinderFlatQuantifier),
 		candidates: make(map[ast.ASTHandle]*macros.Candidates), nonGround: make(map[ast.ASTHandle]*ast.ObjMap),
-		auf: make(map[ast.ASTHandle]bool), chosen: make(map[ast.ASTHandle]ast.ASTHandle), hint: newHintSearchState(), dependencies: dependencies,
+		auf: make(map[ast.ASTHandle]bool), chosen: make(map[ast.ASTHandle]ast.ASTHandle), hint: newHintSearchState(state.manager), dependencies: dependencies,
 	}, nil
 }
 
@@ -400,8 +400,8 @@ func (f *SMTModelFinder) processHintMacros(proto *protomodel.ProtoModel, quantif
 		if err != nil || !found {
 			return quantifiers, err
 		}
-		for declaration, definition := range plan.definitions {
-			if err = f.publishFunctionDefinition(declaration, definition, proto); err != nil {
+		for _, pair := range plan.definitions {
+			if err = f.publishFunctionDefinition(pair.function, pair.definition, proto); err != nil {
 				return nil, err
 			}
 		}

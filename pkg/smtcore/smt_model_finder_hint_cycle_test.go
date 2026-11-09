@@ -32,7 +32,7 @@ func TestModelFinderHintDefinitionCycleFixedPointAndAnnotations(t *testing.T) {
 	astTestMust(t, e)
 	pin(v)
 
-	s := newHintSearchState()
+	s := newHintSearchState(m)
 	astTestMust(t, s.selectDefinition(decl[0], app[1]))
 	astTestMust(t, s.selectDefinition(decl[1], app[2]))
 	astTestMust(t, s.selectDefinition(decl[2], v))
@@ -57,7 +57,7 @@ func TestModelFinderHintDefinitionCycleFixedPointAndAnnotations(t *testing.T) {
 	wrapped, e := m.MkApp(wrapperDecl, []ast.ASTHandle{app[1]})
 	astTestMust(t, e)
 	pin(wrapped)
-	s = newHintSearchState()
+	s = newHintSearchState(m)
 	astTestMust(t, s.selectDefinition(decl[0], wrapped))
 	astTestMust(t, s.selectDefinition(decl[1], app[0]))
 	if cycle, e := s.isCyclic(m); e != nil || !cycle {
@@ -79,7 +79,7 @@ func TestModelFinderHintDefinitionCycleFixedPointAndAnnotations(t *testing.T) {
 	})
 	astTestMust(t, e)
 	pin(qPattern)
-	s = newHintSearchState()
+	s = newHintSearchState(m)
 	astTestMust(t, s.selectDefinition(decl[0], qPattern))
 	astTestMust(t, s.selectDefinition(decl[1], app[0]))
 	if cycle, e := s.isCyclic(m); e != nil || !cycle {

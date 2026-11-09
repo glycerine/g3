@@ -14,48 +14,55 @@ type quantifierSetTrail struct {
 // model-finder hint solver. Handles are borrowed; the AST owner retains them.
 // onUndo is nil for m_residue and resets quantifier_info's chosen function
 // for m_satisfied. The source invokes it before reversing each scoped edit.
+// scopedQuantifierSet is backtrackable_set over an obj_hashtable: values
+// keeps the source table's layout, and popping replays erase/insert.
 type scopedQuantifierSet struct {
-	values map[ast.ASTHandle]struct{}
+	values *ast.ObjMap
 	trail  []quantifierSetTrail
 	scopes []int
 	onUndo func(ast.ASTHandle, bool)
 }
 
-func newScopedQuantifierSet(onUndo func(ast.ASTHandle, bool)) *scopedQuantifierSet {
+func newScopedQuantifierSet(m *ast.ASTManager, onUndo func(ast.ASTHandle, bool)) *scopedQuantifierSet {
 	return &scopedQuantifierSet{
-		values: make(map[ast.ASTHandle]struct{}),
+		values: ast.NewObjMap(m),
 		onUndo: onUndo,
 	}
 }
 
 func (s *scopedQuantifierSet) contains(q ast.ASTHandle) bool {
-	_, found := s.values[q]
-	return found
+	found, err := s.values.Contains(q)
+	return err == nil && found
 }
 
-func (s *scopedQuantifierSet) empty() bool { return len(s.values) == 0 }
+func (s *scopedQuantifierSet) empty() bool { return s.values.Len() == 0 }
 
-func (s *scopedQuantifierSet) insert(q ast.ASTHandle) {
+func (s *scopedQuantifierSet) insert(q ast.ASTHandle) error {
 	if s.contains(q) {
-		return
+		return nil
 	}
-	s.values[q] = struct{}{}
+	if err := s.values.Insert(q, [2]ast.ASTHandle{}); err != nil {
+		return err
+	}
 	if len(s.scopes) != 0 {
 		s.trail = append(s.trail, quantifierSetTrail{value: q, inserted: true})
 	}
+	return nil
 }
 
-func (s *scopedQuantifierSet) erase(q ast.ASTHandle) {
+func (s *scopedQuantifierSet) erase(q ast.ASTHandle) error {
 	if len(s.scopes) == 0 {
 		// Source line 62 calls insert in the level-zero erase branch.
-		s.insert(q)
-		return
+		return s.insert(q)
 	}
 	if !s.contains(q) {
-		return
+		return nil
 	}
-	delete(s.values, q)
+	if err := s.values.Erase(q); err != nil {
+		return err
+	}
 	s.trail = append(s.trail, quantifierSetTrail{value: q})
+	return nil
 }
 
 func (s *scopedQuantifierSet) pushScope() {
@@ -75,10 +82,14 @@ func (s *scopedQuantifierSet) popScope() error {
 		if s.onUndo != nil {
 			s.onUndo(edit.value, edit.inserted)
 		}
+		var err error
 		if edit.inserted {
-			delete(s.values, edit.value)
+			err = s.values.Erase(edit.value)
 		} else {
-			s.values[edit.value] = struct{}{}
+			err = s.values.Insert(edit.value, [2]ast.ASTHandle{})
+		}
+		if err != nil {
+			return err
 		}
 		s.trail = s.trail[:i]
 	}
@@ -86,15 +97,17 @@ func (s *scopedQuantifierSet) popScope() error {
 }
 
 func (s *scopedQuantifierSet) reset() {
-	clear(s.values)
+	s.values.Reset()
 	s.trail = s.trail[:0]
 	s.scopes = s.scopes[:0]
 }
 
+// snapshot lists the members in iteration order.
 func (s *scopedQuantifierSet) snapshot() []ast.ASTHandle {
-	result := make([]ast.ASTHandle, 0, len(s.values))
-	for q := range s.values {
-		result = append(result, q)
+	entries := s.values.Entries()
+	result := make([]ast.ASTHandle, len(entries))
+	for i, entry := range entries {
+		result[i] = entry.Key
 	}
 	return result
 }

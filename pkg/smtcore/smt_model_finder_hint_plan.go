@@ -7,8 +7,9 @@ import "github.com/glycerine/g3/pkg/ast"
 // hintSubsetPlan is the search result before the enclosing model finder
 // publishes each selected function definition as an interpretation.
 type hintSubsetPlan struct {
-	remaining   []ast.ASTHandle
-	definitions map[ast.ASTHandle]ast.ASTHandle
+	remaining []ast.ASTHandle
+	// definitions are m_fs's pairs in its iteration order (set_interp).
+	definitions []hintFunctionDefinition
 }
 
 // resetRun releases the per-search indexes and scoped sets. The quantifier
@@ -20,11 +21,11 @@ func (s *hintSearchState) resetRun() error {
 	clear(s.qByFunction)
 	clear(s.qByDefinition)
 	clear(s.defsByFunction)
-	clear(s.forbidden)
-	clear(s.candidates)
-	clear(s.definitions)
+	s.forbidden.reset()
+	s.candidates.reset()
 	s.satisfied.reset()
 	s.residue.reset()
+	s.definitions.Reset()
 	return nil
 }
 
@@ -50,7 +51,7 @@ func (s *hintSearchState) planSubset(m *ast.ASTManager, qs []ast.ASTHandle) (hin
 	if e := s.makeQuantifierIndexes(candidates); e != nil {
 		return plan, false, e
 	}
-	for _, f := range smtSortedHandleSet(s.candidates) {
+	for _, f := range s.candidates.keys() {
 		found, e := s.searchFrom(m, f)
 		if e != nil {
 			return plan, false, e
@@ -61,9 +62,8 @@ func (s *hintSearchState) planSubset(m *ast.ASTManager, qs []ast.ASTHandle) (hin
 					plan.remaining = append(plan.remaining, q)
 				}
 			}
-			plan.definitions = make(map[ast.ASTHandle]ast.ASTHandle, len(s.definitions))
-			for selected, def := range s.definitions {
-				plan.definitions[selected] = def
+			for _, entry := range s.definitions.Entries() {
+				plan.definitions = append(plan.definitions, hintFunctionDefinition{entry.Key, entry.Value[0]})
 			}
 			return plan, true, nil
 		}

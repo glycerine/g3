@@ -11,28 +11,31 @@ import (
 // Quantifiers and function declarations are borrowed from its AST manager.
 // The surrounding macro indexes and greedy search remain in the model finder.
 type hintSearchState struct {
-	residue, satisfied    *scopedQuantifierSet
-	definitions           map[ast.ASTHandle]ast.ASTHandle
+	manager            *ast.ASTManager
+	residue, satisfied *scopedQuantifierSet
+	// definitions is m_fs (obj_map<func_decl, expr*>): Value[0] is the def.
+	definitions           *ast.ObjMap
 	infos                 map[ast.ASTHandle]*hintQuantifierInfo
-	forbidden, candidates map[ast.ASTHandle]struct{}
-	qByFunction           map[ast.ASTHandle]map[ast.ASTHandle]struct{}
-	qByDefinition         map[hintFunctionDefinition]map[ast.ASTHandle]struct{}
-	defsByFunction        map[ast.ASTHandle]map[ast.ASTHandle]struct{}
+	forbidden, candidates *hintSet
+	qByFunction           map[ast.ASTHandle]*hintSet
+	qByDefinition         map[hintFunctionDefinition]*hintSet
+	defsByFunction        map[ast.ASTHandle]*hintSet
 	trace                 *diagnostic.TraceTags
 }
 
-func newHintSearchState() *hintSearchState {
+func newHintSearchState(m *ast.ASTManager) *hintSearchState {
 	s := &hintSearchState{
-		residue:        newScopedQuantifierSet(nil),
-		definitions:    make(map[ast.ASTHandle]ast.ASTHandle),
+		manager:        m,
+		residue:        newScopedQuantifierSet(m, nil),
+		definitions:    ast.NewObjMap(m),
 		infos:          make(map[ast.ASTHandle]*hintQuantifierInfo),
-		forbidden:      make(map[ast.ASTHandle]struct{}),
-		candidates:     make(map[ast.ASTHandle]struct{}),
-		qByFunction:    make(map[ast.ASTHandle]map[ast.ASTHandle]struct{}),
-		qByDefinition:  make(map[hintFunctionDefinition]map[ast.ASTHandle]struct{}),
-		defsByFunction: make(map[ast.ASTHandle]map[ast.ASTHandle]struct{}),
+		forbidden:      newHintSet(m),
+		candidates:     newHintSet(m),
+		qByFunction:    make(map[ast.ASTHandle]*hintSet),
+		qByDefinition:  make(map[hintFunctionDefinition]*hintSet),
+		defsByFunction: make(map[ast.ASTHandle]*hintSet),
 	}
-	s.satisfied = newScopedQuantifierSet(func(q ast.ASTHandle, _ bool) {
+	s.satisfied = newScopedQuantifierSet(m, func(q ast.ASTHandle, _ bool) {
 		// hint_solver::ev_handler runs before each satisfying-set trail edit.
 		if info := s.infos[q]; info != nil {
 			info.theOne = ast.ASTHandle{}
@@ -67,7 +70,7 @@ func (s *hintSearchState) updateSatisfiedResidue(f, def ast.ASTHandle) (bool, er
 		return false, ast.ErrASTDomain
 	}
 	useful := false
-	for _, q := range smtSortedHandleSet(qFDef) {
+	for _, q := range qFDef.keys() {
 		if s.satisfied.contains(q) {
 			continue
 		}
@@ -76,8 +79,12 @@ func (s *hintSearchState) updateSatisfiedResidue(f, def ast.ASTHandle) (bool, er
 			return false, e
 		}
 		useful = true
-		s.residue.erase(q)
-		s.satisfied.insert(q)
+		if e = s.residue.erase(q); e != nil {
+			return false, e
+		}
+		if e = s.satisfied.insert(q); e != nil {
+			return false, e
+		}
 		// This is quantifier_info::set_the_one(f); the event handler above
 		// clears it when the insertion is undone.
 		info.theOne = f
@@ -85,9 +92,11 @@ func (s *hintSearchState) updateSatisfiedResidue(f, def ast.ASTHandle) (bool, er
 	if !useful {
 		return false, nil
 	}
-	for _, q := range smtSortedHandleSet(qF) {
+	for _, q := range qF.keys() {
 		if !s.satisfied.contains(q) {
-			s.residue.insert(q)
+			if e := s.residue.insert(q); e != nil {
+				return false, e
+			}
 		}
 	}
 	return true, nil

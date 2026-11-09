@@ -39,7 +39,7 @@ func TestModelFinderHintPlanPartitionAndRunReset(t *testing.T) {
 	astTestMust(t, e)
 	pin(fApp)
 
-	s := newHintSearchState()
+	s := newHintSearchState(m)
 	s.infos[q1] = &hintQuantifierInfo{
 		nonGround: []ast.ASTHandle{f},
 		macros:    []hintConditionalMacro{{function: f, definition: fApp, satisfyAtom: true}},
@@ -55,30 +55,30 @@ func TestModelFinderHintPlanPartitionAndRunReset(t *testing.T) {
 	if len(s.qByDefinition) != 1 || len(s.defsByFunction) != 1 {
 		t.Fatal("candidate indexes were not built")
 	}
-	if !s.residue.empty() || !s.satisfied.empty() || len(s.definitions) != 0 {
+	if !s.residue.empty() || !s.satisfied.empty() || s.definitions.Len() != 0 {
 		t.Fatal("failed search did not roll back")
 	}
 
 	s.infos[q1].macros[0].definition = v
 	winning, found, e := s.planSubset(m, qs)
 	astTestMust(t, e)
-	if !found || !equalHintHandles(winning.remaining, []ast.ASTHandle{q2}) || winning.definitions[f] != v || len(winning.definitions) != 1 {
+	if !found || !equalHintHandles(winning.remaining, []ast.ASTHandle{q2}) || len(winning.definitions) != 1 || winning.definitions[0] != (hintFunctionDefinition{f, v}) {
 		t.Fatal("successful hint partition or selected definition", winning, found)
 	}
-	if len(s.qByDefinition[hintFunctionDefinition{f, fApp}]) != 0 || len(s.qByDefinition) != 1 {
+	if s.qByDefinition[hintFunctionDefinition{f, fApp}].size() != 0 || len(s.qByDefinition) != 1 {
 		t.Fatal("old object-pair index survived run reset")
 	}
 	if s.infos[q1].theOne != f || !s.satisfied.contains(q1) {
 		t.Fatal("winning branch was not retained")
 	}
-	clear(winning.definitions)
-	if s.definitions[f] != v {
+	winning.definitions = nil
+	if got, _, _ := s.definitions.Find(f); got[0] != v {
 		t.Fatal("plan must snapshot the selected interpretations")
 	}
 
 	empty, found, e := s.planSubset(m, []ast.ASTHandle{q2})
 	astTestMust(t, e)
-	if found || !equalHintHandles(empty.remaining, []ast.ASTHandle{q2}) || len(empty.definitions) != 0 || len(s.qByDefinition) != 0 || len(s.candidates) != 0 || !s.satisfied.empty() || len(s.satisfied.scopes) != 0 {
+	if found || !equalHintHandles(empty.remaining, []ast.ASTHandle{q2}) || len(empty.definitions) != 0 || len(s.qByDefinition) != 0 || s.candidates.size() != 0 || !s.satisfied.empty() || len(s.satisfied.scopes) != 0 {
 		t.Fatal("empty candidate run did not reset previous search", empty, found)
 	}
 }

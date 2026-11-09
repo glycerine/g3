@@ -37,7 +37,7 @@ func (s *hintSearchState) isCandidate(q ast.ASTHandle) (bool, error) {
 	}
 	for _, macro := range info.macros {
 		if macro.satisfyAtom {
-			if _, forbidden := s.forbidden[macro.function]; !forbidden {
+			if !s.forbidden.has(macro.function) {
 				return true, nil
 			}
 		}
@@ -51,7 +51,9 @@ func (s *hintSearchState) registerDeclsAsForbidden(q ast.ASTHandle) error {
 		return e
 	}
 	for _, f := range info.nonGround {
-		s.forbidden[f] = struct{}{}
+		if e := s.forbidden.add(f); e != nil {
+			return e
+		}
 	}
 	return nil
 }
@@ -86,29 +88,31 @@ func (s *hintSearchState) preprocess(qs []ast.ASTHandle) (candidates, rejected [
 	}
 }
 
-func (s *hintSearchState) insertQF(q, f ast.ASTHandle) {
+func (s *hintSearchState) insertQF(q, f ast.ASTHandle) error {
 	set := s.qByFunction[f]
 	if set == nil {
-		set = make(map[ast.ASTHandle]struct{})
+		set = newHintSet(s.manager)
 		s.qByFunction[f] = set
 	}
-	set[q] = struct{}{}
+	return set.add(q)
 }
 
-func (s *hintSearchState) insertQFDef(q, f, def ast.ASTHandle) {
+func (s *hintSearchState) insertQFDef(q, f, def ast.ASTHandle) error {
 	key := hintFunctionDefinition{f, def}
 	set := s.qByDefinition[key]
 	if set == nil {
-		set = make(map[ast.ASTHandle]struct{})
+		set = newHintSet(s.manager)
 		s.qByDefinition[key] = set
 		defs := s.defsByFunction[f]
 		if defs == nil {
-			defs = make(map[ast.ASTHandle]struct{})
+			defs = newHintSet(s.manager)
 			s.defsByFunction[f] = defs
 		}
-		defs[def] = struct{}{}
+		if e := defs.add(def); e != nil {
+			return e
+		}
 	}
-	set[q] = struct{}{}
+	return set.add(q)
 }
 
 // makeQuantifierIndexes is hint_solver::mk_q_f_defs after preprocessing.
@@ -122,32 +126,35 @@ func (s *hintSearchState) makeQuantifierIndexes(qs []ast.ASTHandle) error {
 			return e
 		}
 		for _, f := range info.nonGround {
-			if _, forbidden := s.forbidden[f]; !forbidden {
-				s.insertQF(q, f)
+			if !s.forbidden.has(f) {
+				if e := s.insertQF(q, f); e != nil {
+					return e
+				}
 			}
 		}
 		for _, macro := range info.macros {
-			if !macro.satisfyAtom {
+			if !macro.satisfyAtom || s.forbidden.has(macro.function) {
 				continue
 			}
-			if _, forbidden := s.forbidden[macro.function]; forbidden {
-				continue
+			if e := s.insertQFDef(q, macro.function, macro.definition); e != nil {
+				return e
 			}
-			s.insertQFDef(q, macro.function, macro.definition)
-			s.candidates[macro.function] = struct{}{}
+			if e := s.candidates.add(macro.function); e != nil {
+				return e
+			}
 		}
 	}
 	return nil
 }
 
-// candidatesFromResidue follows get_candidates_from_residue. The source set
-// has no ordering contract; a Go map likewise represents unique candidates.
-func (s *hintSearchState) candidatesFromResidue() (map[ast.ASTHandle]struct{}, error) {
+// candidatesFromResidue follows get_candidates_from_residue: m_residue in
+// table order into a func_decl_set.
+func (s *hintSearchState) candidatesFromResidue() (*hintSet, error) {
 	if s == nil || s.residue == nil {
 		return nil, ast.ErrASTDomain
 	}
-	result := make(map[ast.ASTHandle]struct{})
-	for _, q := range smtSortedHandleSet(s.residue.values) {
+	result := newHintSet(s.manager)
+	for _, q := range s.residue.snapshot() {
 		info, e := s.info(q)
 		if e != nil {
 			return nil, e
@@ -157,13 +164,17 @@ func (s *hintSearchState) candidatesFromResidue() (map[ast.ASTHandle]struct{}, e
 			if !macro.satisfyAtom {
 				continue
 			}
-			if _, forbidden := s.forbidden[f]; forbidden {
+			if s.forbidden.has(f) {
 				continue
 			}
-			if _, selected := s.definitions[f]; selected {
+			if selected, e := s.definitions.Contains(f); e != nil {
+				return nil, e
+			} else if selected {
 				continue
 			}
-			result[f] = struct{}{}
+			if e := result.add(f); e != nil {
+				return nil, e
+			}
 		}
 	}
 	return result, nil

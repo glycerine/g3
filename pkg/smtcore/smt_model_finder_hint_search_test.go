@@ -38,7 +38,7 @@ func TestModelFinderHintSatisfiedResidueSourceScopeTransitions(t *testing.T) {
 		}
 	})
 
-	s := newHintSearchState()
+	s := newHintSearchState(m)
 	d0, d1 := qs[0], qs[1]
 	s.infos[qs[0]] = &hintQuantifierInfo{nonGround: []ast.ASTHandle{f[0]}, macros: []hintConditionalMacro{{function: f[0], definition: d0, satisfyAtom: true}}}
 	s.infos[qs[1]] = &hintQuantifierInfo{nonGround: []ast.ASTHandle{f[0], f[1]}, macros: []hintConditionalMacro{{function: f[1], definition: d1, satisfyAtom: true}}}

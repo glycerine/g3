@@ -8,7 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func modelFinderQuantifiers(t *testing.T) []ast.ASTHandle {
+func modelFinderQuantifiers(t *testing.T) (*ast.ASTManager, []ast.ASTHandle) {
 	t.Helper()
 	m := astTestManager(t)
 	b, e := m.MkBoolSort()
@@ -30,11 +30,11 @@ func modelFinderQuantifiers(t *testing.T) []ast.ASTHandle {
 			astTestMust(t, m.DecRef(q))
 		}
 	})
-	return result
+	return m, result
 }
 
 func TestModelFinderScopedQuantifierSetTrailsAndEvents(t *testing.T) {
-	q := modelFinderQuantifiers(t)
+	m, q := modelFinderQuantifiers(t)
 	type event struct {
 		q       ast.ASTHandle
 		insert  bool
@@ -42,7 +42,7 @@ func TestModelFinderScopedQuantifierSetTrailsAndEvents(t *testing.T) {
 	}
 	var events []event
 	var satisfied *scopedQuantifierSet
-	satisfied = newScopedQuantifierSet(func(v ast.ASTHandle, ins bool) {
+	satisfied = newScopedQuantifierSet(m, func(v ast.ASTHandle, ins bool) {
 		events = append(events, event{q: v, insert: ins, present: satisfied.contains(v)})
 	})
 	satisfied.insert(q[0])
@@ -87,8 +87,8 @@ func TestModelFinderScopedQuantifierSetTrailsAndEvents(t *testing.T) {
 }
 
 func TestModelFinderScopedQuantifierSetLevelZeroEraseSourceBranch(t *testing.T) {
-	q := modelFinderQuantifiers(t)
-	residue := newScopedQuantifierSet(nil)
+	m, q := modelFinderQuantifiers(t)
+	residue := newScopedQuantifierSet(m, nil)
 	residue.erase(q[0]) // source level-zero branch calls insert
 	if !residue.contains(q[0]) {
 		t.Fatal("source level-zero erase branch")

@@ -55,7 +55,7 @@ func TestModelFinderHintGreedyNestedSuccessCycleRollbackAndDepthLimit(t *testing
 			if cyclic {
 				gDef = fApp
 			}
-			s := newHintSearchState()
+			s := newHintSearchState(m)
 			var trace bytes.Buffer
 			tags := diagnostic.NewTraceTagsWithWriter(&trace)
 			tags.Enable("model_finder_hint")
@@ -71,7 +71,7 @@ func TestModelFinderHintGreedyNestedSuccessCycleRollbackAndDepthLimit(t *testing
 			astTestMust(t, s.makeQuantifierIndexes(q[:]))
 			limited, e := s.greedyFunction(m, f, hintGreedyMaxDepth)
 			astTestMust(t, e)
-			if limited || len(s.satisfied.scopes) != 0 || len(s.definitions) != 0 {
+			if limited || len(s.satisfied.scopes) != 0 || s.definitions.Len() != 0 {
 				t.Fatal("source depth ten must return before state mutation")
 			}
 			found, e := s.searchFrom(m, f)
@@ -108,11 +108,11 @@ func TestModelFinderHintGreedyNestedSuccessCycleRollbackAndDepthLimit(t *testing
 				t.Fatal("greedy result", found, "cyclic", cyclic)
 			}
 			if cyclic {
-				if !s.satisfied.empty() || !s.residue.empty() || len(s.definitions) != 0 || len(s.satisfied.scopes) != 0 || len(s.residue.scopes) != 0 || s.infos[q[0]].theOne != (ast.ASTHandle{}) || s.infos[q[1]].theOne != (ast.ASTHandle{}) {
+				if !s.satisfied.empty() || !s.residue.empty() || s.definitions.Len() != 0 || len(s.satisfied.scopes) != 0 || len(s.residue.scopes) != 0 || s.infos[q[0]].theOne != (ast.ASTHandle{}) || s.infos[q[1]].theOne != (ast.ASTHandle{}) {
 					t.Fatal("failed branch must pop both scopes and erase m_fs")
 				}
 			} else {
-				if !s.satisfied.contains(q[0]) || !s.satisfied.contains(q[1]) || !s.residue.empty() || len(s.definitions) != 2 || len(s.satisfied.scopes) != 2 || s.infos[q[0]].theOne != f || s.infos[q[1]].theOne != g {
+				if !s.satisfied.contains(q[0]) || !s.satisfied.contains(q[1]) || !s.residue.empty() || s.definitions.Len() != 2 || len(s.satisfied.scopes) != 2 || s.infos[q[0]].theOne != f || s.infos[q[1]].theOne != g {
 					t.Fatal("source found_satisfied_subset retains winning branch")
 				}
 			}

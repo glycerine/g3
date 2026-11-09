@@ -2,7 +2,11 @@ package smtcore
 
 // Source: src/smt/smt_model_finder.cpp:2867-2908.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 // selectDefinition is the m_fs.insert operation after greedy pushes its two
 // quantifier-set scopes. Definitions borrow both AST handles.
@@ -10,17 +14,18 @@ func (s *hintSearchState) selectDefinition(f, def ast.ASTHandle) error {
 	if s == nil || s.definitions == nil {
 		return ast.ErrASTDomain
 	}
-	if _, present := s.definitions[f]; present {
-		return ast.ErrASTDomain
+	if present, e := s.definitions.Contains(f); e != nil || present {
+		return errors.Join(e, ast.ErrASTDomain)
 	}
-	s.definitions[f] = def
-	return nil
+	return s.definitions.Insert(f, [2]ast.ASTHandle{def})
 }
 
-func (s *hintSearchState) forgetDefinition(f ast.ASTHandle) {
-	if s != nil {
-		delete(s.definitions, f)
+// forgetDefinition is m_fs.erase(f).
+func (s *hintSearchState) forgetDefinition(f ast.ASTHandle) error {
+	if s == nil {
+		return nil
 	}
+	return s.definitions.Erase(f)
 }
 
 // isCyclic follows hint_solver::is_cyclic's fixed-point growth of m_acyclic.
@@ -30,13 +35,14 @@ func (s *hintSearchState) isCyclic(m *ast.ASTManager) (bool, error) {
 	if s == nil || m == nil || s.definitions == nil {
 		return false, ast.ErrASTDomain
 	}
-	acyclic := make(map[ast.ASTHandle]struct{}, len(s.definitions))
+	acyclic := make(map[ast.ASTHandle]struct{}, s.definitions.Len())
 	for {
 		before := len(acyclic)
-		if before == len(s.definitions) {
+		if before == s.definitions.Len() {
 			return false, nil
 		}
-		for f, def := range s.definitions {
+		for _, entry := range s.definitions.Entries() {
+			f, def := entry.Key, entry.Value[0]
 			if _, known := acyclic[f]; known {
 				continue
 			}
@@ -79,7 +85,9 @@ func (s *hintSearchState) definitionAcyclic(m *ast.ASTManager, def ast.ASTHandle
 			if e != nil {
 				return false, e
 			}
-			if _, selected := s.definitions[decl]; selected {
+			if selected, e := s.definitions.Contains(decl); e != nil {
+				return false, e
+			} else if selected {
 				if _, ready := acyclic[decl]; !ready {
 					return false, nil
 				}

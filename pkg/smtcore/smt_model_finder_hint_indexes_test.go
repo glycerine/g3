@@ -36,7 +36,7 @@ func TestModelFinderHintPreprocessIndexesAndResidueCandidates(t *testing.T) {
 			astTestMust(t, m.DecRef(q))
 		}
 	})
-	s := newHintSearchState()
+	s := newHintSearchState(m)
 	s.infos[qs[0]] = &hintQuantifierInfo{macros: []hintConditionalMacro{{function: fs[0], definition: qs[0], satisfyAtom: true}}}
 	s.infos[qs[1]] = &hintQuantifierInfo{nonGround: []ast.ASTHandle{fs[0]}}
 	s.infos[qs[2]] = &hintQuantifierInfo{nonGround: []ast.ASTHandle{fs[1]}, macros: []hintConditionalMacro{{function: fs[0], definition: qs[2], satisfyAtom: true}}}
@@ -53,27 +53,27 @@ func TestModelFinderHintPreprocessIndexesAndResidueCandidates(t *testing.T) {
 	if !equalHintHandles(kept, qs[4:]) || !equalHintHandles(rejected, []ast.ASTHandle{qs[1], qs[2], qs[3], qs[0]}) {
 		t.Fatal("source iterative candidate filtering and forbidden publication", kept, rejected)
 	}
-	if len(s.forbidden) != 2 {
+	if s.forbidden.size() != 2 {
 		t.Fatal("forbidden declarations", s.forbidden)
 	}
 	astTestMust(t, s.makeQuantifierIndexes(kept))
 	key := hintFunctionDefinition{function: fs[2], definition: qs[4]}
-	if len(s.qByFunction[fs[2]]) != 1 || len(s.qByDefinition[key]) != 1 || len(s.defsByFunction[fs[2]]) != 1 || len(s.candidates) != 1 {
+	if s.qByFunction[fs[2]].size() != 1 || s.qByDefinition[key].size() != 1 || s.defsByFunction[fs[2]].size() != 1 || s.candidates.size() != 1 {
 		t.Fatal("Q_f, Q_f_def, f2defs and initial candidate indexes")
 	}
 	s.residue.insert(qs[4])
 	fromResidue, e := s.candidatesFromResidue()
 	astTestMust(t, e)
-	if len(fromResidue) != 1 {
+	if fromResidue.size() != 1 {
 		t.Fatal("residue candidate filter", fromResidue)
 	}
-	if _, found := fromResidue[fs[2]]; !found {
+	if !fromResidue.has(fs[2]) {
 		t.Fatal("allowed satisfying macro absent")
 	}
 	astTestMust(t, s.selectDefinition(fs[2], qs[4]))
 	fromResidue, e = s.candidatesFromResidue()
 	astTestMust(t, e)
-	if len(fromResidue) != 0 {
+	if fromResidue.size() != 0 {
 		t.Fatal("already-selected macro head remained a residue candidate", fromResidue)
 	}
 	s.forgetDefinition(fs[2])

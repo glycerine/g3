@@ -21,7 +21,8 @@ func (s *hintSearchState) writeSearchState(w io.Writer, m *ast.ASTManager) error
 	if _, err := io.WriteString(w, "fs:\n"); err != nil {
 		return err
 	}
-	for f := range s.definitions {
+	for _, entry := range s.definitions.Entries() {
+		f := entry.Key
 		name, err := m.GetASTName(f)
 		if err != nil {
 			return err
@@ -36,7 +37,7 @@ func (s *hintSearchState) writeSearchState(w io.Writer, m *ast.ASTManager) error
 	if _, err := io.WriteString(w, "\nsatisfied:\n"); err != nil {
 		return err
 	}
-	for q := range s.satisfied.values {
+	for _, q := range s.satisfied.snapshot() {
 		qid, _, err := m.GetQuantifierIDs(q)
 		if err != nil {
 			return err
@@ -51,7 +52,7 @@ func (s *hintSearchState) writeSearchState(w io.Writer, m *ast.ASTManager) error
 	if _, err := io.WriteString(w, "\nresidue:\n"); err != nil {
 		return err
 	}
-	for q := range s.residue.values {
+	for _, q := range s.residue.snapshot() {
 		qid, _, err := m.GetQuantifierIDs(q)
 		if err != nil {
 			return err
@@ -103,14 +104,14 @@ func (s *hintSearchState) traceFoundSubset(m *ast.ASTManager) {
 		})
 }
 
-func (s *hintSearchState) traceResidueCandidates(m *ast.ASTManager, candidates map[ast.ASTHandle]struct{}) {
+func (s *hintSearchState) traceResidueCandidates(m *ast.ASTManager, candidates *hintSet) {
 	tags := s.traceTags()
 	_ = tags.EmitConditional("model_finder_hint", "greedy", "src/smt/smt_model_finder.cpp", 2925,
 		func() bool { return true }, func(w io.Writer) error {
 			if _, err := io.WriteString(w, "candidates from residue:\n"); err != nil {
 				return err
 			}
-			for f := range candidates {
+			for _, f := range candidates.keys() {
 				name, err := m.GetASTName(f)
 				if err != nil {
 					return err
