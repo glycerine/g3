@@ -238,7 +238,7 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 		substitutions = [][]ast.ASTHandle{first, bindings}
 	}
 	if err != nil {
-		return nil, proofRef, err
+		return next, proofRef, err
 	}
 	if previous != nil {
 		normalized, e := normalizer.NormalizeResolvedRule(next)
@@ -262,28 +262,30 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 			return next, proofRef, err
 		}
 	}
+	// The deferred owner disposes the named result next, so failures after
+	// next exists must return it rather than nil.
 	proof, found, err := rule.Proof()
 	if err != nil {
-		return nil, proofRef, err
+		return next, proofRef, err
 	}
 	if !found {
 		formula, err := rule.ToFormula()
 		if err != nil {
-			return nil, proofRef, err
+			return next, proofRef, err
 		}
 		refs = append(refs, formula)
 		value, err := m.RefGet(formula)
 		if err != nil {
-			return nil, proofRef, err
+			return next, proofRef, err
 		}
 		proof, err = m.MkProofAsserted(value)
 		if err != nil {
-			return nil, proofRef, err
+			return next, proofRef, err
 		}
 	}
 	pinned, err := m.NewRef(proof)
 	if err != nil {
-		return nil, proofRef, err
+		return next, proofRef, err
 	}
 	refs = append(refs, pinned)
 	premises := []ast.ASTHandle{proof}
