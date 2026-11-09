@@ -584,8 +584,14 @@ Found while matching `-st` output against `build/z3` on
      virtual_solver asserts (=> pred true). Spacer init_rule gets a per-rule
      rewriter.
    - NEXT leads:
-     - fixedpoint_spacer_core line 75: z3 frees the transition-rewrite
-       proofs when rw(m_initial_state) overwrites m_pr; g3 holds them longer.
+     - DONE: spacer init_rules locals; initialize's rw replaces the
+       transition/initial slots; frames start empty; mk_pob normalizes
+       twice; mk_extend_lit; virtual_solver ctor.
+     - fixedpoint_spacer_core line 162: the second query's :print-answer
+       option runs dl_interface::updt_params, which destroys the spacer
+       context. Each ~virtual_solver's (not pred) assert goes through the
+       proof-mode asserted_formulas rewriter, and z3 shows two iff/refl
+       pairs where g3 shows one.
      - Arithmetic group (convex_*, multicore, nonlinear, invariant,
        utvpi): z3 builds `- a b` where g3 builds `<=`, or the ids drift
        one deletion earlier.
