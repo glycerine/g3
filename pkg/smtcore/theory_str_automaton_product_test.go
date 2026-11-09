@@ -23,6 +23,7 @@ func TestSMTStringCachedAutomatonProductUsesNestedSolver(t *testing.T) {
 		left  ast.ASTHandle
 		empty bool
 	}{{symbolic, true}, {stringRegexLiteral(t, m, "b"), false}} {
+		astTestMust(t, theory.Setup()) // theory_str::init at setup
 		left, err := rewriter.NewStringRegexAutomaton(m, tc.left, theory.regexExpressionSolver)
 		astTestMust(t, err)
 		right, err := rewriter.NewStringRegexAutomaton(m, complement, theory.regexExpressionSolver)

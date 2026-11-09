@@ -92,7 +92,7 @@ func TestSMTSequenceTranslationPreservesConfiguredBackendAndModels(t *testing.T)
 						if configured {
 							owner = &s.kernel.smtParams.str
 						}
-						if str.parameterOwner != owner || str.regexExpressionSolver.kernel.smtParams != dest.kernel.smtParams {
+						if str.parameterOwner != owner || (str.regexExpressionSolver != nil && str.regexExpressionSolver.kernel.smtParams != dest.kernel.smtParams) {
 							t.Fatal("String copy lost source String owner or destination nested-solver owner")
 						}
 					}
@@ -132,7 +132,7 @@ func TestSMTSequenceTranslationPreservesConfiguredBackendAndModels(t *testing.T)
 						if !ok {
 							t.Fatal("chained translation changed installed sequence backend")
 						}
-						if copy == str || copy.parameterOwner != str.parameterOwner || copy.regexExpressionSolver.kernel.smtParams != chained.kernel.smtParams || copy.NumVariables() != 0 || len(copy.strings) != 0 || len(copy.refs) != 0 {
+						if copy == str || copy.parameterOwner != str.parameterOwner || (copy.regexExpressionSolver != nil && copy.regexExpressionSolver.kernel.smtParams != chained.kernel.smtParams) || copy.NumVariables() != 0 || len(copy.strings) != 0 || len(copy.refs) != 0 {
 							t.Fatal("chained String copy shared search state or changed parameter owners")
 						}
 					}
@@ -141,6 +141,7 @@ func TestSMTSequenceTranslationPreservesConfiguredBackendAndModels(t *testing.T)
 						copy := chained.kernel.internalizer.theories[family].(*SMTStringTheory)
 						truth, err := target.MkTrue()
 						astTestMust(t, err)
+						astTestMust(t, copy.Setup()) // theory_str::init at setup
 						nested, err := copy.regexExpressionSolver.CheckSatisfiable(truth)
 						astTestMust(t, err)
 						if nested != lbool.True {
@@ -212,7 +213,7 @@ func TestSMTSequenceAuxiliaryCopyKeepsInstalledBackendAndOwner(t *testing.T) {
 			if isLegacy != legacy || plugin == s.kernel.internalizer.theories[family] || a.kernel.sequenceSetupPlaceholder != nil || plugin.(interface{ NumVariables() int }).NumVariables() != 0 {
 				t.Fatal("auxiliary did not receive a fresh installed sequence plugin")
 			}
-			if isLegacy && (str.parameterOwner != &s.kernel.smtParams.str || str.regexExpressionSolver.kernel.smtParams != a.kernel.smtParams || len(str.refs) != 0 || len(str.strings) != 0) {
+			if isLegacy && (str.parameterOwner != &s.kernel.smtParams.str || (str.regexExpressionSolver != nil && str.regexExpressionSolver.kernel.smtParams != a.kernel.smtParams) || len(str.refs) != 0 || len(str.strings) != 0) {
 				t.Fatal("auxiliary String owner or fresh state")
 			}
 			astTestMust(t, a.kernel.copySequencePlugin(s.kernel))

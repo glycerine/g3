@@ -46,7 +46,7 @@ func TestSMTGenericSequenceBackendUsesUpdatedOptionsAndFeatures(t *testing.T) {
 						if legacy != (choice == "z3str3" || choice == "auto" && !nonString) {
 							t.Fatal("generic selection ignored updated parameters or asserted sort features", plugin)
 						}
-						if legacy && (str.parameterOwner != &solver.kernel.smtParams.str || str.regexExpressionSolver.kernel.smtParams != solver.kernel.smtParams) {
+						if legacy && (str.parameterOwner != &solver.kernel.smtParams.str || (str.regexExpressionSolver != nil && str.regexExpressionSolver.kernel.smtParams != solver.kernel.smtParams)) {
 							t.Fatal("selected String plugin lost its borrowed parameter owners")
 						}
 						// The native setup boundary is permanent, including later
@@ -162,7 +162,7 @@ func TestSMTQFSSetupInstallsNativeStringAndMixedArithmetic(t *testing.T) {
 			if arithmetic, ok := solver.kernel.internalizer.theories[arith].(*SMTTheoryArith); !ok || !(!arithmetic.integerExt) {
 				t.Fatal("QF_S must select native theory_mi_arith")
 			}
-			if auto && (str.parameterOwner != &solver.kernel.smtParams.str || str.regexExpressionSolver == nil || str.regexExpressionSolver.kernel.smtParams != solver.kernel.smtParams) {
+			if auto && (str.parameterOwner != &solver.kernel.smtParams.str || (str.regexExpressionSolver != nil && str.regexExpressionSolver.kernel.smtParams != solver.kernel.smtParams)) {
 				t.Fatal("QF_S owner/nested kernel lost actual borrowed parameter ownership")
 			}
 		})

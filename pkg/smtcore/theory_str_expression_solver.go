@@ -100,15 +100,24 @@ func (t *SMTStringTheory) Initialize(state *SMTInternalizerState) error {
 	if err := t.SMTTheoryBase.Initialize(state); err != nil {
 		return err
 	}
+	return nil
+}
+
+// Setup is where the source's theory_str::init runs: register_plugin during
+// setup_context, which the context reaches at its first check or push. It
+// creates the nested seq_expr_solver (and its kernel).
+func (t *SMTStringTheory) Setup() error {
+	if err := t.SMTTheoryBase.Setup(); err != nil {
+		return err
+	}
 	// Standalone internalizer fixtures have no configured kernel/SMT parameter
 	// service. They can exercise concrete String callbacks, but do not supply
 	// the nested symbolic solver. Configured kernel consumers always do.
-	if state.smtParams == nil {
+	if t.state == nil || t.state.smtParams == nil || t.regexExpressionSolver != nil {
 		return nil
 	}
-	solver, err := newSMTStringExpressionSolver(state.manager, state.smtParams)
+	solver, err := newSMTStringExpressionSolver(t.state.manager, t.state.smtParams)
 	if err != nil {
-		t.state = nil
 		return err
 	}
 	t.regexExpressionSolver = solver

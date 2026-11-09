@@ -30,6 +30,10 @@ func stringExpressionSolverFixture(t *testing.T) (*ast.ASTManager, *SMTKernel, *
 	if err := parent.internalizer.RegisterTheory(theory); err != nil {
 		t.Fatal("String initialization", err)
 	}
+	// theory_str::init runs at setup_context.
+	if err := theory.Setup(); err != nil {
+		t.Fatal("String setup", err)
+	}
 	if theory.regexExpressionSolver == nil {
 		t.Fatal("configured theory initialization omitted its nested solver")
 	}
