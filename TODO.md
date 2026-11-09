@@ -810,6 +810,13 @@ Found while matching `-st` output against `build/z3` on
     the initial hard check landed in the lex path (see git log).
     Remaining: init_solver before normalize, and the pareto/box first-call
     normalize.
+    TRIED: dropping the priority != pareto/box gate (normalize on the
+    first pareto/box call) cost 2 stdout matches (647 -> 645), and the
+    cmd_context/cmd/g3 tests ran past 10 minutes (a likely hang in the
+    pareto/box paths with simplified hard formulas). Reverted. Those
+    paths need the decoded objectives and the preprocessor model converter
+    first (checkOptimizePareto/checkOptimizeBox read c.objectives and
+    c.assertions directly).
     g3's runNormalizedOptimization only simplifies behind its own
     useSimplifier gate (skipped for pareto/box/rlimit/timeout) and never
     builds the objective-function apps. Port opt_context.cpp's optimize /
