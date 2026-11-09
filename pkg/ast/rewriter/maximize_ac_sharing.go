@@ -176,10 +176,10 @@ func (c *MaximizeBVSharingConfiguration) ReduceApp(decl ast.ASTHandle, arguments
 	if e != nil || !associative || arguments.Count() <= 2 {
 		return RewriteFailed, e
 	}
-	kind, e := c.manager.GetDeclKind(decl)
-	if e != nil {
-		return RewriteFailed, e
-	}
+	// decl_kind k = f->get_kind(): ast::get_kind() is the AST kind,
+	// AST_FUNC_DECL (4) for every declaration, so once init_core has run
+	// (OP_BADD is 4) every associative application qualifies.
+	kind := int32(ast.ASTFuncDecl)
 	registered := false
 	for _, candidate := range c.kinds {
 		if kind == candidate {
