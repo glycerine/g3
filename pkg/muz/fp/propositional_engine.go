@@ -185,28 +185,32 @@ type PropositionalEngine struct {
 	revision                     uint64
 	pdrRevision                  uint64
 	spacerRules                  *base.RuleSet
-	spacerRevision               uint64
-	spacerOriginalQuery          ast.ASTHandle
-	spacerQuery                  ast.ASTHandle
-	spacerPredicates             map[ast.ASTHandle]ast.ASTHandle
-	spacerSlices                 map[ast.ASTHandle][]bool
-	spacerQuantified             map[ast.ASTHandle]ast.ASTHandle
-	spacerInstantiated           map[ast.ASTHandle]ast.ASTHandle
-	spacerBitBlasted             map[ast.ASTHandle]ast.ASTHandle
-	spacerScaled                 map[ast.ASTHandle]ast.ASTHandle
-	spacerMagic                  map[ast.ASTHandle]ast.ASTHandle
-	spacerKarr                   map[ast.ASTHandle]rel.KarrMatrix
-	spacerConversions            []hornModelConversion
-	lastStatus                   string
-	forceProofTrace              bool
-	queryParams                  uparams.ParamsRef
-	queryParamsReady             bool
-	queryParamsReceipt           uparams.ParamsDecrementReceipt
-	datalogStats                 statistics.Statistics
-	datalogElapsed               float64
-	closed                       bool
-	closing                      bool
-	ddnf                         ddnfEngineState
+	// spacerTransformedRules is m_spacer_rules / the context's transformed
+	// rule set: the transformed rules outlive the query and the Spacer
+	// context, whose transformers only point at them.
+	spacerTransformedRules *base.RuleSet
+	spacerRevision         uint64
+	spacerOriginalQuery    ast.ASTHandle
+	spacerQuery            ast.ASTHandle
+	spacerPredicates       map[ast.ASTHandle]ast.ASTHandle
+	spacerSlices           map[ast.ASTHandle][]bool
+	spacerQuantified       map[ast.ASTHandle]ast.ASTHandle
+	spacerInstantiated     map[ast.ASTHandle]ast.ASTHandle
+	spacerBitBlasted       map[ast.ASTHandle]ast.ASTHandle
+	spacerScaled           map[ast.ASTHandle]ast.ASTHandle
+	spacerMagic            map[ast.ASTHandle]ast.ASTHandle
+	spacerKarr             map[ast.ASTHandle]rel.KarrMatrix
+	spacerConversions      []hornModelConversion
+	lastStatus             string
+	forceProofTrace        bool
+	queryParams            uparams.ParamsRef
+	queryParamsReady       bool
+	queryParamsReceipt     uparams.ParamsDecrementReceipt
+	datalogStats           statistics.Statistics
+	datalogElapsed         float64
+	closed                 bool
+	closing                bool
+	ddnf                   ddnfEngineState
 
 	datalogTransformCleanup *datalogTransformOwners
 
@@ -3281,6 +3285,10 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.spacerScaled = nil
 		e.spacerMagic = nil
 		e.spacerKarr = nil
+	}
+	if e.spacerTransformedRules != nil {
+		result = errors.Join(result, e.spacerTransformedRules.Close())
+		e.spacerTransformedRules = nil
 	}
 	if e.spacerRules != nil {
 		result = errors.Join(result, e.spacerRules.Close())

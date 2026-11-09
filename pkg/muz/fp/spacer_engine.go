@@ -685,6 +685,15 @@ func (e *PropositionalEngine) querySpacerAtLevel(declaration ast.ASTHandle, from
 	}
 	defer func() { resultErr = errors.Join(resultErr, preprocessed.Close()) }()
 	prepared := preprocessed.rules
+	// m_spacer_rules.replace_rules / record_transformed_rules: the previous
+	// transformed rules are released here, before update_rules.
+	preprocessed.rules = nil
+	if e.spacerTransformedRules != nil {
+		if err = e.spacerTransformedRules.Close(); err != nil {
+			return lbool.Undef, errors.Join(err, prepared.Close())
+		}
+	}
+	e.spacerTransformedRules = prepared
 	if err = closeHornModelConversions(e.spacerConversions); err != nil {
 		return lbool.Undef, err
 	}
