@@ -81,13 +81,14 @@ func (s *Substitution) ReserveVariables(variables uint32) error {
 	return s.Reserve(s.bindings.offsets, variables)
 }
 
+// release is expr_ref_vector::reset: front to back, keeping progress so a
+// refused release can be retried.
 func (s *Substitution) release(refs *[]ast.ASTRef) error {
 	for len(*refs) != 0 {
-		i := len(*refs) - 1
-		if err := s.manager.DelRef(&(*refs)[i]); err != nil {
+		if err := s.manager.DelRef(&(*refs)[0]); err != nil {
 			return err
 		}
-		*refs = (*refs)[:i]
+		*refs = (*refs)[1:]
 	}
 	return nil
 }
@@ -800,6 +801,11 @@ func (s *Substitution) Close() error {
 	}
 	if s.closed {
 		return nil
+	}
+	// The destructor runs members in reverse declaration order:
+	// m_new_exprs (the apply cache) before m_refs.
+	if err := s.ResetCache(); err != nil {
+		return err
 	}
 	if err := s.Reset(); err != nil {
 		return err
