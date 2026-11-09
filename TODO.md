@@ -650,6 +650,17 @@ Found while matching `-st` output against `build/z3` on
        directly instead of rm.mk_rule. Also, GCC evaluates
        mk_implies(mk_and(eqs), mk_eq(v1, v2)) right to left, so the eq
        comes first. Port blast/ackermanize/insert_def faithfully.
+     - DONE (3a734e85a): mk_array_eq_rewrite uses a basic_union_find
+       expr_equiv_class and rm.mk_rule; fp_spacer_array_eq_rewrite's
+       first difference moved 68 -> 85.
+     - OPEN: fixedpoint_spacer_coalesce_unfold line 69 (free-id order).
+       In z3, ~mk_interp_tail_simplifier frees pve's last head (P x) and
+       then its tails in creation order (#44 #45 #46 #47). Keeping
+       rule_substitution's m_head/m_tail alive until the next get_result
+       or Close, per the member order, gave 44 46 47 45 and cost 3
+       full-log matches (401 -> 398), so it was reverted. Trace which
+       member holds the head's last reference (outer m_tail? res?) before
+       retrying.
      - NOTE: /mnt/oldrog filled up (other sessions' /mnt/oldrog/tmp). Tests
        now run with GOCACHE/GOTMPDIR/TMPDIR under
        /var/tmp/g3-job-487c9ee8 (in its env file).
