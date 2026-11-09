@@ -1292,7 +1292,7 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 		}
 		s.tracePopStream(count)
 		level := len(s.scopes) - int(count)
-		s.pendingPop = &smtInternalizerPendingPop{count: count, level: level, theory: len(s.theoryOrder) - 1,
+		s.pendingPop = &smtInternalizerPendingPop{count: count, level: level, theory: 0,
 			preserve: uint32(level) >= s.baseLevel}
 	}
 	pop := s.pendingPop
@@ -1330,11 +1330,13 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 		pop.stage++
 	}
 	if pop.stage == 3 {
-		for pop.theory >= 0 {
+		// for (theory* th : m_theory_set) th->pop_scope_eh(num_scopes), in
+		// registration order.
+		for pop.theory < len(s.theoryOrder) {
 			if err := s.theoryOrder[pop.theory].PopScopes(count); err != nil {
 				return err
 			}
-			pop.theory--
+			pop.theory++
 		}
 		if err := s.releaseJustificationsTo(s.scopes[pop.level].justificationLimit); err != nil {
 			return err

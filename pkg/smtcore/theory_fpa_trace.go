@@ -217,7 +217,12 @@ func (t *SMTFloatingPointTheory) traceFPAAssignment(variable int32, isTrue bool)
 		return ast.ErrASTDomain
 	}
 	return t.emitFPATrace("t_fpa", "assign_eh", 634, nil, func(out io.Writer) error {
-		if _, err = fmt.Fprintf(out, "assign_eh for: %d (%t):\n", variable, isTrue); err != nil {
+		// bool streams as 0/1.
+		flag := 0
+		if isTrue {
+			flag = 1
+		}
+		if _, err = fmt.Fprintf(out, "assign_eh for: %d (%d):\n", variable, flag); err != nil {
 			return err
 		}
 		if err = t.displayFPATraceExpression(out, state.boolExpr[variable]); err != nil {

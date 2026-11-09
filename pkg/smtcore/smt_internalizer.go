@@ -1114,6 +1114,11 @@ func (s *SMTInternalizerState) internalizeTerm(expression ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
+	// internalize_uninterpreted ends with apply_sort_cnstr(n, e), and
+	// internalize_term applies it once more after it returns.
+	if err = s.applySortConstraint(expression, node); err != nil {
+		return err
+	}
 	return s.applySortConstraint(expression, node)
 }
 

@@ -512,11 +512,13 @@ func (t *SMTFloatingPointTheory) PopScopes(count uint32) (result error) {
 		if keyErr != nil {
 			result = errors.Join(result, fmt.Errorf("floating-point scoped conversion key: %w", keyErr))
 		}
-		if releaseErr := state.manager.DelRef(&entry.key); releaseErr != nil {
-			result = errors.Join(result, fmt.Errorf("floating-point scoped conversion key release: %w", releaseErr))
-		}
+		// fpa2bv_conversion_trail_elem::undo: dec_ref(key), dec_ref(val),
+		// then its own key reference; the value goes first.
 		if releaseErr := state.manager.DelRef(&entry.value); releaseErr != nil {
 			result = errors.Join(result, fmt.Errorf("floating-point scoped conversion value release: %w", releaseErr))
+		}
+		if releaseErr := state.manager.DelRef(&entry.key); releaseErr != nil {
+			result = errors.Join(result, fmt.Errorf("floating-point scoped conversion key release: %w", releaseErr))
 		}
 	}
 	t.conversion = t.conversion[:limit]
@@ -535,17 +537,34 @@ func (t *SMTFloatingPointTheory) Close() (result error) {
 		return ast.ErrASTHandle
 	}
 	state, stateErr := t.State()
+	// ~theory_fpa: m_trail_stack.reset() undoes every conversion in reverse,
+	// then m_converter, m_rw and m_th_rw are reset before destruction.
 	if stateErr == nil {
-		for i := range t.conversion {
-			if err := state.manager.DelRef(&t.conversion[i].key); err != nil {
-				result = errors.Join(result, fmt.Errorf("floating-point conversion key release: %w", err))
-			}
+		for i := len(t.conversion) - 1; i >= 0; i-- {
 			if err := state.manager.DelRef(&t.conversion[i].value); err != nil {
 				result = errors.Join(result, fmt.Errorf("floating-point conversion value release: %w", err))
+			}
+			if err := state.manager.DelRef(&t.conversion[i].key); err != nil {
+				result = errors.Join(result, fmt.Errorf("floating-point conversion key release: %w", err))
 			}
 		}
 	} else {
 		result = fmt.Errorf("floating-point state close: %w", stateErr)
+	}
+	if t.converter != nil {
+		if err := t.converter.Reset(); err != nil {
+			result = errors.Join(result, fmt.Errorf("floating-point converter reset: %w", err))
+		}
+	}
+	if t.rewriter != nil {
+		if err := t.rewriter.Reset(); err != nil {
+			result = errors.Join(result, fmt.Errorf("floating-point rewriter reset: %w", err))
+		}
+	}
+	if t.thRewriter != nil {
+		if err := t.thRewriter.Reset(); err != nil {
+			result = errors.Join(result, fmt.Errorf("floating-point theory rewriter reset: %w", err))
+		}
 	}
 	if t.thRewriter != nil {
 		if err := t.thRewriter.Close(); err != nil {
