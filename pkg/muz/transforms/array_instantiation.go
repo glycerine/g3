@@ -6,10 +6,17 @@ package transforms
 import (
 	"errors"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
+
+// ArrayInstantiationRuleMaker is rule_manager::mk_rule(fml, nullptr, dest,
+// name): Horn normalization of one formula into the destination set.
+type ArrayInstantiationRuleMaker func(destination *base.RuleSet, formula ast.ASTHandle, name usymbol.Symbol) error
 
 type ArrayInstantiationPlugin struct {
 	manager          *ast.ASTManager
@@ -22,13 +29,28 @@ type ArrayInstantiationPlugin struct {
 	equivalence      map[ast.ASTHandle]ast.ASTHandle
 	equivalenceOrder []ast.ASTHandle
 	selectVariables  map[ast.ASTHandle]ast.ASTHandle
-	selectOrder      []ast.ASTHandle
-	nextVariable     uint32
-	closed           bool
+	// doneSelects is done_selects, an obj_map iterated in hash-table order.
+	doneSelects    *ast.ObjMap
+	nextVariable   uint32
+	sliceTechnique string
+	// out is std::cout, which operator() writes its rule sets to.
+	out    io.Writer
+	mkRule ArrayInstantiationRuleMaker
+	closed bool
 }
 
+// SetSliceTechnique records xform.instantiate_arrays.slice_technique for the
+// operator() banner.
+func (p *ArrayInstantiationPlugin) SetSliceTechnique(technique string) { p.sliceTechnique = technique }
+
+// SetOutput replaces std::cout.
+func (p *ArrayInstantiationPlugin) SetOutput(out io.Writer) { p.out = out }
+
+// SetRuleMaker supplies rule_manager::mk_rule.
+func (p *ArrayInstantiationPlugin) SetRuleMaker(mk ArrayInstantiationRuleMaker) { p.mkRule = mk }
+
 func NewArrayInstantiationPlugin(manager *ast.ASTManager, rules *base.RuleManager, quantifiers uint32, enforce bool, priority uint32) *ArrayInstantiationPlugin {
-	return &ArrayInstantiationPlugin{manager: manager, rules: rules, quantifiers: quantifiers, enforce: enforce, priority: priority, oldToNew: make(map[ast.ASTHandle]ast.ASTHandle)}
+	return &ArrayInstantiationPlugin{manager: manager, rules: rules, quantifiers: quantifiers, enforce: enforce, priority: priority, oldToNew: make(map[ast.ASTHandle]ast.ASTHandle), sliceTechnique: "no-slicing", out: os.Stdout}
 }
 
 func (p *ArrayInstantiationPlugin) Priority() uint32            { return p.priority }
@@ -268,7 +290,9 @@ func (p *ArrayInstantiationPlugin) selectVariable(selectTerm ast.ASTHandle) (ast
 	}
 	p.nextVariable++
 	p.selectVariables[selectTerm] = variable
-	p.selectOrder = append(p.selectOrder, selectTerm)
+	if _, err = p.doneSelects.InsertIfNotThere(selectTerm); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	return variable, nil
 }
 
@@ -466,7 +490,7 @@ func (p *ArrayInstantiationPlugin) transformRule(source, destination *base.RuleS
 	p.equivalence = make(map[ast.ASTHandle]ast.ASTHandle)
 	p.equivalenceOrder = nil
 	p.selectVariables = make(map[ast.ASTHandle]ast.ASTHandle)
-	p.selectOrder = nil
+	p.doneSelects = ast.NewObjMap(p.manager)
 	var err error
 	p.nextVariable, err = p.maximumVariable(rule)
 	if err != nil {
@@ -519,7 +543,8 @@ func (p *ArrayInstantiationPlugin) transformRule(source, destination *base.RuleS
 		tails = append(tails, instances...)
 	}
 	tails = append(tails, interpreted...)
-	for _, selected := range p.selectOrder {
+	for _, entry := range p.doneSelects.Entries() {
+		selected := entry.Key
 		equality, x := p.manager.MkEq(p.selectVariables[selected], selected)
 		if x != nil {
 			return nil, x
@@ -530,7 +555,25 @@ func (p *ArrayInstantiationPlugin) transformRule(source, destination *base.RuleS
 	if err != nil {
 		return nil, err
 	}
-	return p.rules.NewRuleWithSymbol(newHead, tails, nil, name)
+	// src_manager->mk_rule(m.mk_implies(m.mk_and(new_tail), new_head), ...):
+	// mk_and(n, args) is the raw n-ary and, even for one conjunct.
+	conjunction, err := p.manager.MkFamilyApp(0, ast.ASTOpAnd, nil, tails)
+	if err != nil {
+		return nil, err
+	}
+	formula, err := p.manager.MkImplies(conjunction, newHead)
+	if err != nil {
+		return nil, err
+	}
+	if p.mkRule == nil {
+		return p.rules.NewRuleWithSymbol(newHead, tails, nil, name)
+	}
+	held, err := p.manager.NewRef(formula)
+	if err != nil {
+		return nil, err
+	}
+	err = p.mkRule(destination, formula, name)
+	return nil, errors.Join(err, p.manager.DelRef(&held))
 }
 
 func (p *ArrayInstantiationPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
@@ -538,6 +581,16 @@ func (p *ArrayInstantiationPlugin) Transform(source *base.RuleSet) (_ *base.Rule
 		return nil, base.ErrRuleTransformerOwner
 	}
 	p.oldToNew = make(map[ast.ASTHandle]ast.ASTHandle)
+	enforce := 0
+	if p.enforce {
+		enforce = 1
+	}
+	if _, err := fmt.Fprintf(p.out, "Array Instantiation called with parameters : enforce=%d nb_quantifier=%d slice_technique=%s\nInput rules = \n", enforce, p.quantifiers, p.sliceTechnique); err != nil {
+		return nil, err
+	}
+	if err := source.WriteDisplay(p.out); err != nil {
+		return nil, err
+	}
 	result, err := base.NewRuleSet(p.rules)
 	if err != nil {
 		return nil, err
@@ -562,17 +615,20 @@ func (p *ArrayInstantiationPlugin) Transform(source *base.RuleSet) (_ *base.Rule
 		if x != nil {
 			return nil, fmt.Errorf("muz/transforms: array instantiation rule %d: %w", i, x)
 		}
-		x = result.Add(replacement)
 		if replacement != nil {
-			x = errors.Join(x, replacement.Close())
+			x = errors.Join(result.Add(replacement), replacement.Close())
 		}
 		if x != nil {
 			return nil, x
 		}
 	}
-	if len(p.oldToNew) == 0 {
-		return nil, nil
+	if _, err = fmt.Fprint(p.out, "\n\nOutput rules = \n"); err != nil {
+		return nil, err
 	}
+	if err = result.WriteDisplay(p.out); err != nil {
+		return nil, err
+	}
+	// operator() returns the new set even when nothing was instantiated.
 	keep = true
 	return result, nil
 }

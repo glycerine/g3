@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/muz/transforms"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubsumptionResultTransforms, allowInlineResultTransforms bool) (_ *hornPreprocessResult, resultErr error) {
@@ -157,6 +158,18 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
+	noSlicing, err := e.manager.Symbols.Intern("no-slicing")
+	if err != nil {
+		return nil, errors.Join(err, transformer.Close())
+	}
+	sliceTechniqueSymbol, err := parameters.Symbol("xform.instantiate_arrays.slice_technique", noSlicing)
+	if err != nil {
+		return nil, errors.Join(err, transformer.Close())
+	}
+	sliceTechnique, err := e.manager.Symbols.String(sliceTechniqueSymbol)
+	if err != nil {
+		return nil, errors.Join(err, transformer.Close())
+	}
 	arrayBlast, err := parameters.Bool("xform.array_blast", false)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
@@ -211,6 +224,16 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	// std::sorts by priority, which is not stable for equal priorities.
 	if instantiateArrays {
 		arrayInstantiation = transforms.NewArrayInstantiationPlugin(e.manager, e.rules, instantiateArraysQuantifiers, instantiateArraysEnforce, 34999)
+		arrayInstantiation.SetSliceTechnique(sliceTechnique)
+		if e.params != nil && e.globals != nil {
+			arrayInstantiation.SetRuleMaker(func(destination *base.RuleSet, formula ast.ASTHandle, name usymbol.Symbol) error {
+				lite, liteErr := e.ruleManagerLite()
+				if liteErr != nil {
+					return liteErr
+				}
+				return e.rules.AddFormulaWithProofAndSymbolAndUnboundFix(destination, formula, ast.ASTHandle{}, name, lite, true)
+			})
+		}
 		if err = transformer.Register(arrayInstantiation); err != nil {
 			return nil, errors.Join(err, transformer.Close())
 		}
