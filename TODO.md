@@ -612,6 +612,11 @@ Found while matching `-st` output against `build/z3` on
        first, then elim_proxies (tried: fixedpoint_pdr_initial_trace's
        first difference moved from line 353 to 662, but
        TestPropSolverExtractsFarkasTheoryCore lost its Farkas core).
+       Second try: publishing the empty Farkas core as z3 would (no
+       subset fallback) made 8 PDR arithmetic vectors time out. So z3's
+       learner really returns non-proxy lemmas. Trace
+       farkas_learner::get_lemmas on fixedpoint_pdr_arithmetic_invariant
+       (-tr:farkas_learner) and compare g3's GetLemmas output.
      - fixedpoint_pdr_scale line 187 is inside theory_arith internalization
        (bound atoms before def-axioms): theory_arith work, out of scope here.
      - mk-var id reuse (initial_trace, recursive_trace,
