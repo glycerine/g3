@@ -32,8 +32,10 @@ type RuleInlinerPlugin struct {
 	lite          *qe.Lite
 	cooperate     *cooperate.Cooperation
 	modelRules    []InlineModelRule
-	closed        bool
-	closing       bool
+	// linearState holds inline_linear's member indexes (nil until used).
+	linearState *linearIndex
+	closed      bool
+	closing     bool
 }
 
 // InlineModelRule owns one removed Horn clause for later model reconstruction.
@@ -1193,171 +1195,6 @@ func (p *RuleInlinerPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 	return result, nil
 }
 
-// inlineLinear is the source straight-line relation pass, optionally expanding
-// shared definitions. A definition is consumed only at its last live use.
-// As in source, branch mode has no orientation guard for unprotected recursive
-// definitions and can repeatedly expand a cycle; protected outputs stop it.
-func (p *RuleInlinerPlugin) inlineLinear(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
-	count, err := source.Len()
-	if err != nil || count == 0 {
-		return nil, err
-	}
-	unifier, err := NewRuleUnifier(p.manager)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, unifier.Close()) }()
-	rules := make([]*base.Rule, count)
-	valid := make([]bool, count)
-	canRemove := make([]bool, count)
-	canExpand := make([]bool, count)
-	defer func() { resultErr = errors.Join(resultErr, closeRules(rules)) }()
-	for index := 0; index < count; index++ {
-		rule, getErr := source.Rule(index)
-		if getErr != nil {
-			return nil, getErr
-		}
-		rules[index], valid[index] = rule, true
-		head, getErr := rule.HeadDeclaration()
-		if getErr != nil {
-			return nil, getErr
-		}
-		canRemove[index] = !p.protected[head]
-		uninterpreted, getErr := rule.UninterpretedTailSize()
-		positive, positiveErr := rule.PositiveTailSize()
-		if getErr != nil || positiveErr != nil {
-			return nil, errors.Join(getErr, positiveErr)
-		}
-		if uninterpreted == 1 && positive == 1 {
-			tail, declarationErr := rule.TailDeclaration(0)
-			if declarationErr != nil {
-				return nil, declarationErr
-			}
-			canExpand[index] = !p.protected[tail]
-		}
-	}
-	changed := false
-	for index := 0; index < count; index++ {
-		for valid[index] && canExpand[index] {
-			current := rules[index]
-			declaration, getErr := current.TailDeclaration(0)
-			if getErr != nil {
-				return nil, getErr
-			}
-			candidateIndex := -1
-			for definitionIndex, definition := range rules {
-				if !valid[definitionIndex] {
-					continue
-				}
-				head, headErr := definition.HeadDeclaration()
-				if headErr != nil {
-					return nil, headErr
-				}
-				if head != declaration {
-					continue
-				}
-				unified, unifyErr := unifier.UnifyRules(current, 0, definition)
-				if unifyErr != nil {
-					return nil, unifyErr
-				}
-				if !unified {
-					continue
-				}
-				if candidateIndex >= 0 {
-					candidateIndex = -2
-					break
-				}
-				candidateIndex = definitionIndex
-			}
-			if candidateIndex < 0 {
-				break
-			}
-			if candidateIndex == index || !canRemove[candidateIndex] {
-				break
-			}
-			matches := 0
-			for targetIndex, target := range rules {
-				if !valid[targetIndex] {
-					continue
-				}
-				// Source add_rule indexes every uninterpreted occurrence,
-				// including negative uses that must keep the definition live.
-				uninterpreted, tailErr := target.UninterpretedTailSize()
-				if tailErr != nil {
-					return nil, tailErr
-				}
-				for tailIndex := 0; tailIndex < uninterpreted; tailIndex++ {
-					tailDeclaration, tailErr := target.TailDeclaration(tailIndex)
-					if tailErr != nil {
-						return nil, tailErr
-					}
-					if tailDeclaration != declaration {
-						continue
-					}
-					unified, probeErr := unifier.UnifyRules(target, tailIndex, rules[candidateIndex])
-					if probeErr != nil {
-						return nil, probeErr
-					}
-					if unified {
-						matches++
-					}
-				}
-			}
-			if !p.branching && matches != 1 {
-				break
-			}
-			replacement, getErr := p.resolve(current, 0, rules[candidateIndex])
-			if getErr != nil {
-				return nil, getErr
-			}
-			if replacement == nil {
-				break
-			}
-			// Source inline_linear records the removed definition with
-			// del_rule(m_mc, *r2, true) before discarding its rule owner.
-			if matches == 1 {
-				if getErr = p.captureDeletedModelRule(rules[candidateIndex], true); getErr != nil {
-					return nil, errors.Join(getErr, replacement.Close())
-				}
-			}
-			if getErr = current.Close(); getErr != nil {
-				return nil, errors.Join(getErr, replacement.Close())
-			}
-			rules[index] = replacement
-			if matches == 1 {
-				valid[candidateIndex] = false
-			}
-			canExpand[index] = canExpand[candidateIndex]
-			changed = true
-		}
-	}
-	if !changed {
-		return nil, nil
-	}
-	result, err := base.NewRuleSet(p.rules)
-	if err != nil {
-		return nil, err
-	}
-	keep := false
-	defer func() {
-		if !keep {
-			resultErr = errors.Join(resultErr, result.Close())
-		}
-	}()
-	if err = result.InheritPredicates(source); err != nil {
-		return nil, err
-	}
-	for index, rule := range rules {
-		if valid[index] {
-			if err = result.Add(rule); err != nil {
-				return nil, err
-			}
-		}
-	}
-	keep = true
-	return result, nil
-}
-
 func closeRuleIf(rule *base.Rule) error {
 	if rule == nil {
 		return nil
@@ -1373,6 +1210,12 @@ func (p *RuleInlinerPlugin) Close() error {
 		return nil
 	}
 	p.closing = true
+	if p.linearState != nil {
+		if err := p.linearState.close(); err != nil {
+			return err
+		}
+		p.linearState = nil
+	}
 	if err := CloseInlineModelRules(p.modelRules); err != nil {
 		return err
 	}
