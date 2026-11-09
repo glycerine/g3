@@ -18,21 +18,25 @@ func (cfg *liteConfiguration) ReduceQuantifier(q, body ast.ASTHandle, patterns, 
 	if c == nil {
 		return false, ast.ErrASTDomain
 	}
-	forall, err := l.manager.IsForall(q)
+	m := l.manager
+	forall, err := m.IsForall(q)
 	if err != nil {
 		return false, err
 	}
+	// Every step assigns the single expr_ref result, releasing what it held.
+	if err = m.SetRef(out, body); err != nil {
+		return false, err
+	}
+	current := body
 	if forall {
-		body, err = c.hold(l.manager.MkNot(body))
-		if err != nil {
+		if current, err = m.MkNot(current); err != nil {
+			return false, err
+		}
+		if err = m.SetRef(out, current); err != nil {
 			return false, err
 		}
 	}
-	tmp, err := c.ref(body)
-	if err != nil {
-		return false, err
-	}
-	n, err := l.manager.GetNumDeclarations(q)
+	n, err := m.GetNumDeclarations(q)
 	if err != nil {
 		return false, err
 	}
@@ -40,16 +44,17 @@ func (cfg *liteConfiguration) ReduceQuantifier(q, body ast.ASTHandle, patterns, 
 	for i := range indices {
 		indices[i] = uint32(i)
 	}
-	if err = l.eliminateExpression(c, indices, true, tmp); err != nil {
+	if err = l.eliminateExpression(c, indices, true, out); err != nil {
 		return false, err
 	}
-	body, err = l.manager.RefGet(tmp)
-	if err != nil {
+	if current, err = m.RefGet(out); err != nil {
 		return false, err
 	}
 	if forall {
-		body, err = c.hold(l.manager.PushNot(body))
-		if err != nil {
+		if current, err = m.PushNot(current); err != nil {
+			return false, err
+		}
+		if err = m.SetRef(out, current); err != nil {
 			return false, err
 		}
 	}
@@ -67,13 +72,14 @@ func (cfg *liteConfiguration) ReduceQuantifier(q, body ast.ASTHandle, patterns, 
 			return false, err
 		}
 	}
-	updated, err := c.hold(l.manager.UpdateQuantifierAnnotations(q, pats, nps, body))
+	updated, err := m.UpdateQuantifierAnnotations(q, pats, nps, current)
 	if err != nil {
 		return false, err
 	}
-	if err = l.manager.SetRef(out, updated); err != nil {
+	if err = m.SetRef(out, updated); err != nil {
 		return false, err
 	}
+	// m_imp.m_rewriter(result), in place.
 	return true, l.rewriter.Rewrite(updated, out)
 }
 
