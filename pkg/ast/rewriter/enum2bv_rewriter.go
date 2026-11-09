@@ -279,15 +279,17 @@ func (r *Enum2BVRewriter) reduceFreshConstant(decl, sort ast.ASTHandle, result *
 	}
 	for i := count - 1; i > 0; {
 		i--
+		// mk_ite(mk_eq(result, mk_numeral(i)), mk_const(cs[i]), f_def):
+		// GCC builds the constructor before the equality.
+		constructor, err := m.MkApp(constructors[i], nil)
+		if err != nil {
+			return err
+		}
 		numeral, err := m.BitVectorNumeralUnsigned(i, width)
 		if err != nil {
 			return err
 		}
 		equal, err := m.MkEq(fresh, numeral)
-		if err != nil {
-			return err
-		}
-		constructor, err := m.MkApp(constructors[i], nil)
 		if err != nil {
 			return err
 		}

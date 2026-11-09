@@ -642,23 +642,26 @@ func (s *TacticSolver) Close() (err error) {
 	if err = s.clearConsequences(); err != nil {
 		return err
 	}
-	if err = s.clearResult(); err != nil {
-		return err
-	}
-	if err = s.named.Close(); err != nil {
-		return err
-	}
-	if err = s.restoreAssertions(0); err != nil {
-		return err
-	}
-	if err = s.config.Params.Del(&s.params); err != nil {
-		return err
-	}
+	// ~tactic2solver destroys members in reverse declaration order:
+	// m_tactic, m_result, m_assertions; then solver_na2as's assumptions
+	// and the solver base's params.
 	if s.tactic != nil {
 		if err = s.tactic.DecRef(); err != nil {
 			return err
 		}
 		s.tactic = nil
+	}
+	if err = s.clearResult(); err != nil {
+		return err
+	}
+	if err = s.restoreAssertions(0); err != nil {
+		return err
+	}
+	if err = s.named.Close(); err != nil {
+		return err
+	}
+	if err = s.config.Params.Del(&s.params); err != nil {
+		return err
 	}
 	s.closed = true
 	return nil
