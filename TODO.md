@@ -603,6 +603,15 @@ Found while matching `-st` output against `build/z3` on
        way.
      - DONE: plugin-owned m_unifier; substitution releases forward.
        mk_scale numerals; mk_bit_blast m_g_vars/m_f_vars.
+     - OPEN (Farkas core): safe_assumptions::elim_proxies replaces every
+       proxy with true (asserted-true proof) and drops lemmas that become
+       true; consequences are neither proxy-eliminated nor simplified. g3
+       instead substitutes proxy -> formula, because its farkas learner
+       returns the proxied B-literals themselves where z3's sees through
+       the (=> proxy atom) implications. Port farkas_learner::get_lemmas
+       first, then elim_proxies (tried: fixedpoint_pdr_initial_trace's
+       first difference moved from line 353 to 662, but
+       TestPropSolverExtractsFarkasTheoryCore lost its Farkas core).
      - fixedpoint_pdr_scale line 187 is inside theory_arith internalization
        (bound atoms before def-axioms): theory_arith work, out of scope here.
      - mk-var id reuse (initial_trace, recursive_trace,
