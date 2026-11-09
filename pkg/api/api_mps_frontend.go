@@ -33,8 +33,9 @@ func newAPIMPSInvocation(input *apiMPSInput, options *MPSRunOptions) (*apiMPSInv
 			"lp.print_stats": strconv.FormatBool(options.PrintStatistics),
 			"lp.rep_freq":    strconv.FormatUint(uint64(options.ReportFrequency), 10),
 		}
-		for name, value := range values {
-			if err = globals.SourceSetName(name, value); err != nil {
+		// Fixed order (the set calls are independent; Go map order is random).
+		for _, name := range []string{"lp.min", "lp.print_stats", "lp.rep_freq"} {
+			if err = globals.SourceSetName(name, values[name]); err != nil {
 				return nil, errors.Join(err, command.Close())
 			}
 		}

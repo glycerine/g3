@@ -6,6 +6,7 @@ package cmd_context
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -58,7 +59,13 @@ func (c *Context) DebugExpression(name string) (ast.ASTHandle, error) {
 }
 
 func (c *Context) clearDebugExpressions() error {
-	for name, value := range c.debugExpressions {
+	names := make([]string, 0, len(c.debugExpressions))
+	for name := range c.debugExpressions {
+		names = append(names, name)
+	}
+	slices.Sort(names) // deterministic; Go map order is random
+	for _, name := range names {
+		value := c.debugExpressions[name]
 		if err := c.manager.DelRef(&value); err != nil {
 			if value == (ast.ASTRef{}) {
 				delete(c.debugExpressions, name)
