@@ -932,6 +932,16 @@ Found while matching `-st` output against `build/z3` on
        fpa_canonical_model_scopes, qffpbv_tactic and the other fpa vectors
        against z3 traces.
 
+24. **OPEN: theory_str propagation order (string_value, first divergence
+    line 60).** z3's theory_str::propagate runs m_basicstr_axiom_todo
+    (instantiate_basic_string_axioms: len("ab") = 2 first, then
+    len(x) >= 0 and len(x) = 0 <=> x = "") before m_str_eq_todo's
+    handle_equality. g3 asserts (or (not (= x "ab")) (= (str.len x)
+    (str.len "ab"))) immediately on the equality and builds str.len x
+    twice. Port propagate()'s worklist order and check where g3's eager
+    length-equality axiom comes from (z3 adds instantiate_str_eq_length_
+    axiom only inside handle_equality's later stages).
+
 21. **Recorded deviations, kept deliberately.** cmd/g3 tests encode
    these: bvsmul_noovfl numeral folding uses signed semantics (the source
    compares the unsigned product with 2^(sz-1)); nlqsat answers goals the
