@@ -329,6 +329,16 @@ Found while matching `-st` output against `build/z3` on
     masked); they are TestTraceGolden's default vectors
     (cmd/g3/test_vectors/golden_trace_vectors.txt). Fixes found by the
     failing vectors so far (423 -> 482 matching):
+    - 2026-11-09 batch (full trace=true logs identical 427 -> 445 of 661):
+      add_eq eq-propagates only marked parents; theories pop in
+      registration order; search pops flush the asserted rewriter cache;
+      internalize_term applies the sort constraint twice; enum2bv,
+      purify-arith trig, theory_arith mk_polynomial_ge and macro_util
+      mk_sub argument order and lifetimes; tactic2solver member release
+      order; symmetry-reduce obj_map/u_map iteration order; blast-term-ite
+      stray mk_app; cofactor-term-ite cofactor_rw port; qe-lite
+      reduce_quantifier result threading; maximize_ac_sharing compares
+      the AST kind (so every associative app is shared after init).
     - model_checker::assert_neg_q_m makes its Skolems with
       mk_fresh_const(nullptr, s), named k!N; g3 named them mbqi!N.
     - when setup_unknown(st) picks a profile without theory_seq, z3 never
