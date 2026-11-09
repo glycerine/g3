@@ -190,10 +190,15 @@ Found while matching `-st` output against `build/z3` on
    and nlarith caches release in m_trail order; substitution_tree,
    bv-slice and muz/base (rule-manager predicates, rule-set outputs,
    parked predicates) release deterministically.
+   DONE: the relation manager walks m_relations' layout (reset,
+   restrict); interpreted filters decode by variable index; the muz/fp,
+   pdr, spacer, tab, transforms and duality map loops are deterministic
+   (handle order, insertion order or source layout).
    Remaining map-order work: FuncDeclSet (func_decl_dependencies keeps a
-   Go map where the source walks an obj_hashtable to dec_ref), and the
-   mapscan hits in muz/rel, duality, muz/fp, muz/transforms, muz/pdr,
-   muz/spacer, muz/tab, api and cmd_context debug expressions.
+   Go map where the source walks an obj_hashtable to dec_ref); the history
+   proposer, clause_prepare and edge_solvers maps in duality (non-handle
+   keys; duality is reached by no test vector); api MPS values and
+   cmd_context debug expressions (symbol dictionaries).
    Open: g3's single generated model stands for both m_proto_model and
    m_model (scoped_mk_model drops both at search start and builds m_model
    from the last proto at search end); releasing the stale model after
