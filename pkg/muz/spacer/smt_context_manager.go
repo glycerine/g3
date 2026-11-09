@@ -173,15 +173,9 @@ func (m *SMTContextManager) Close() (result error) {
 	if m.closed {
 		return nil
 	}
+	// ~smt_context_manager: for_each delete_proc over m_solvers, forward.
 	for _, factory := range m.factories {
-		for _, virtual := range factory.solvers {
-			if virtual != nil && !virtual.closed {
-				return ErrSMTContextManagerOwner
-			}
-		}
-	}
-	for index := len(m.factories) - 1; index >= 0; index-- {
-		if err := m.factories[index].Close(); err != nil {
+		if err := factory.Close(); err != nil {
 			return errors.Join(result, err)
 		}
 	}

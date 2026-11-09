@@ -524,15 +524,9 @@ func (p *PropSolver) Close() (result error) {
 			}
 		}
 	}
-	for i := len(p.ownedBackends) - 1; i >= 0; i-- {
-		if p.ownedBackends[i] != nil {
-			if err := p.ownedBackends[i].Close(); err != nil {
-				result = errors.Join(result, err)
-			} else {
-				p.ownedBackends[i] = nil
-			}
-		}
-	}
+	// m_solvers are raw pointers into the virtual_solver_factory, which
+	// destroys them.
+	p.ownedBackends = [2]*VirtualSolver{}
 	if p.manager != nil {
 		for i := len(p.references) - 1; i >= 0; i-- {
 			if p.references[i] != (ast.ASTRef{}) {

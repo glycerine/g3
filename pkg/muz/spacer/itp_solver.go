@@ -610,10 +610,9 @@ func (s *ItpSolver) Close() (result error) {
 	if s.closed {
 		return nil
 	}
+	// ~itp_solver leaves the wrapped solver's scopes alone; the
+	// virtual_solver pops them when its factory destroys it.
 	result = errors.Join(result, s.trimAssumptions(0))
-	if len(s.scopes) != 0 {
-		result = errors.Join(result, s.backend.Pop(uint32(len(s.scopes))))
-	}
 	for i := len(s.scopes) - 1; i >= 0; i-- {
 		result = errors.Join(result, s.scopes[i].close(s.manager))
 	}

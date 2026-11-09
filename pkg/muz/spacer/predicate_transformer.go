@@ -652,17 +652,12 @@ func (p *PredicateTransformer) ResetStatistics() error {
 	return nil
 }
 
-// Virtual solver destruction asserts the disabled guard into a shared
-// backend. Finish this allocation-capable work before destroying the cover
-// frames that a failed rule update still needs to inspect and inherit.
+// Closing the prop_solver releases its itp_solvers. The virtual solvers
+// themselves (both prop_solver contexts and m_reach_ctx) belong to their
+// virtual_solver_factory, which destroys them with the smt_context_manager.
 func (p *PredicateTransformer) closeSolvers() error {
 	if p.solver != nil {
 		if err := p.solver.Close(); err != nil {
-			return err
-		}
-	}
-	if p.reachSolver != nil {
-		if err := p.reachSolver.Close(); err != nil {
 			return err
 		}
 	}
@@ -684,9 +679,6 @@ func (p *PredicateTransformer) Close() (result error) {
 	}
 	if p.solver != nil {
 		result = errors.Join(result, p.solver.Close())
-	}
-	if p.reachSolver != nil {
-		result = errors.Join(result, p.reachSolver.Close())
 	}
 	if p.manager != nil {
 		for i := len(p.reachFacts) - 1; i >= 0; i-- {

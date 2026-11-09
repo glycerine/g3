@@ -33,9 +33,6 @@ func TestVirtualSolverSharesBackendAndIsolatesGuardedViews(t *testing.T) {
 	spacerMust(t, err)
 	second, err := factory.Fresh()
 	spacerMust(t, err)
-	if err = factory.Close(); err == nil {
-		t.Fatal("factory closed with live virtual solvers")
-	}
 
 	p := spacerBool(t, manager, "virtual-p")
 	notP, err := manager.MkNot(p)

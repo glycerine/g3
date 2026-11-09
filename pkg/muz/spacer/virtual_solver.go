@@ -169,14 +169,13 @@ func (f *VirtualSolverFactory) Close() error {
 	if f.closed {
 		return nil
 	}
+	// ~virtual_solver_factory deallocates its solvers in creation order,
+	// then its m_context.
 	for _, virtual := range f.solvers {
-		if virtual != nil && virtual.closing {
+		if virtual != nil && !virtual.closed {
 			if err := virtual.Close(); err != nil {
 				return err
 			}
-		}
-		if virtual != nil && !virtual.closed {
-			return ErrVirtualSolverOwner
 		}
 	}
 	if err := f.backend.Close(); err != nil {

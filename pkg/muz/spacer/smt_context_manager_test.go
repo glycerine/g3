@@ -44,11 +44,10 @@ func TestSpacerSMTContextManagerPoolsGuardedSolvers(t *testing.T) {
 		t.Fatal("pooled context statistics are empty")
 	}
 	spacerMust(t, contexts.ResetStatistics())
-	if err = contexts.Close(); err == nil {
-		t.Fatal("context manager closed with live solvers")
-	}
+	// ~smt_context_manager deletes the factories, which destroy the live
+	// virtual solvers they own.
+	spacerMust(t, contexts.Close())
 	spacerMust(t, second.Close())
 	spacerMust(t, first.Close())
-	spacerMust(t, contexts.Close())
 	spacerMust(t, command.Close())
 }

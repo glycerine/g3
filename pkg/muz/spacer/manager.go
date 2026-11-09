@@ -651,23 +651,7 @@ func (m *Manager) Close() (result error) {
 	if _, err := m.manager.ProofMode(); err != nil {
 		return err
 	}
-	for _, context := range m.contexts {
-		if context == nil {
-			continue
-		}
-		for _, factory := range context.factories {
-			for _, virtual := range factory.solvers {
-				if virtual != nil && virtual.closing {
-					if err := virtual.Close(); err != nil {
-						return err
-					}
-				}
-				if virtual != nil && !virtual.closed {
-					return ErrManagerOwner
-				}
-			}
-		}
-	}
+	// Members are destroyed in reverse: m_contexts3, m_contexts2, m_contexts.
 	for index := len(m.contexts) - 1; index >= 0; index-- {
 		if m.contexts[index] != nil {
 			result = errors.Join(result, m.contexts[index].Close())
