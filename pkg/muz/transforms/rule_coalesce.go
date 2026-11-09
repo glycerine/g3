@@ -353,7 +353,12 @@ func (p *RuleCoalescePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, r
 	}
 	buckets := make(map[ast.ASTHandle][]*base.Rule)
 	var order []ast.ASTHandle
-	defer func() { resultErr = errors.Join(resultErr, closeRuleBuckets(buckets)) }()
+	// The bucket rules release in first-head order, not Go map order.
+	defer func() {
+		for _, head := range order {
+			resultErr = errors.Join(resultErr, closeRules(buckets[head]))
+		}
+	}()
 	for index := 0; index < count; index++ {
 		rule, getErr := source.Rule(index)
 		if getErr != nil {

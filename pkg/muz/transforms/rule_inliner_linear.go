@@ -87,12 +87,15 @@ func (p *RuleInlinerPlugin) linearMembers() (*linearIndex, error) {
 	return state, nil
 }
 
-// close destroys the members in reverse declaration order: the visitors,
-// m_subst, m_tail_index, m_head_index, then m_pinned (declared first),
-// which releases forward.
-func (s *linearIndex) close() error {
+// closeIndexes destroys the visitors, m_subst, m_tail_index and
+// m_head_index (reverse declaration order).
+func (s *linearIndex) closeIndexes() error {
 	err := s.subst.Close()
-	err = errors.Join(err, s.tail.Close(), s.head.Close())
+	return errors.Join(err, s.tail.Close(), s.head.Close())
+}
+
+// closePinned releases m_pinned (declared first, destroyed last) forward.
+func (s *linearIndex) closePinned() (err error) {
 	for _, rule := range s.pinned {
 		err = errors.Join(err, rule.Close())
 	}

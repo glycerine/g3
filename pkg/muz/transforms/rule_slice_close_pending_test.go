@@ -135,10 +135,12 @@ func TestSliceProofClosePreservesRootsWhileManagerExecutes(t *testing.T) {
 	must(inlined.Close())
 	defer func() { must(inliner.Close()) }()
 	owner = base.NewRuleTransformer()
-	must(owner.Register(cone))
-	must(owner.Register(inliner))
+	// rule_transformer::reset frees plugins front to back: the coalescer
+	// retires before the pending cone stops the reset.
 	completed = NewRuleCoalescePlugin(m, rules, 1)
 	must(owner.Register(completed))
+	must(owner.Register(cone))
+	must(owner.Register(inliner))
 	defer func() { must(owner.Close()) }()
 
 	converter = newSliceProofConverter(m, rules, map[ast.ASTHandle]ast.ASTHandle{predicate: slicedPredicate}, map[ast.ASTHandle][]bool{predicate: {true}})

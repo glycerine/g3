@@ -229,13 +229,13 @@ func (t *RuleTransformer) Reset() error {
 		return ErrRuleTransformerOwner
 	}
 	t.cleanupPending = true
+	// rule_transformer::reset deallocates m_plugins front to back.
 	for len(t.plugins) > 0 {
-		last := len(t.plugins) - 1
-		if err := t.plugins[last].Close(); err != nil {
+		if err := t.plugins[0].Close(); err != nil {
 			return err
 		}
-		t.plugins[last] = nil
-		t.plugins = t.plugins[:last]
+		t.plugins[0] = nil
+		t.plugins = t.plugins[1:]
 	}
 	t.plugins = nil
 	t.dirty = false

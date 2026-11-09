@@ -112,8 +112,10 @@ func (t *SubstitutionTree) ownSub(register, value ast.ASTHandle) (treeSubst, err
 	}
 	return treeSubst{register: register, value: value, regRef: rr, valueRef: vr}, nil
 }
+// releaseSub is delete_node's dec_ref(first) then dec_ref(second).
 func (t *SubstitutionTree) releaseSub(s *treeSubst) error {
-	return errors.Join(t.manager.DelRef(&s.valueRef), t.manager.DelRef(&s.regRef))
+	err := t.manager.DelRef(&s.regRef)
+	return errors.Join(err, t.manager.DelRef(&s.valueRef))
 }
 
 func (t *SubstitutionTree) linearize() (result []treeSubst, err error) {

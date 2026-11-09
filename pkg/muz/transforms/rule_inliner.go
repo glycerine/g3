@@ -34,8 +34,10 @@ type RuleInlinerPlugin struct {
 	modelRules    []InlineModelRule
 	// linearState holds inline_linear's member indexes (nil until used).
 	linearState *linearIndex
-	closed      bool
-	closing     bool
+	// inlinedRules is m_inlined_rules, in rule-set order.
+	inlinedRules []*base.Rule
+	closed       bool
+	closing      bool
 }
 
 // InlineModelRule owns one removed Horn clause for later model reconstruction.
@@ -679,37 +681,44 @@ func (p *RuleInlinerPlugin) expandDefinition(rule *base.Rule, allowed, processed
 	return result, nil
 }
 
-func (p *RuleInlinerPlugin) accumulateDefinitions(order []ast.ASTHandle, allowed map[ast.ASTHandle]bool, edges map[ast.ASTHandle]map[ast.ASTHandle]bool, original map[ast.ASTHandle][]*base.Rule) (_ map[ast.ASTHandle][]*base.Rule, resultErr error) {
+// accumulateDefinitions builds m_inlined_rules. The map borrows the rules;
+// ordered owns them in the rule set's insertion order.
+func (p *RuleInlinerPlugin) accumulateDefinitions(order []ast.ASTHandle, allowed map[ast.ASTHandle]bool, edges map[ast.ASTHandle]map[ast.ASTHandle]bool, original map[ast.ASTHandle][]*base.Rule) (_ map[ast.ASTHandle][]*base.Rule, ordered []*base.Rule, resultErr error) {
 	result := make(map[ast.ASTHandle][]*base.Rule)
 	processed := make(map[ast.ASTHandle]bool)
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, closeRuleBuckets(result))
+			resultErr = errors.Join(resultErr, closeRules(ordered))
+			ordered = nil
 		}
 	}()
 	for _, declaration := range inlinerTopologicalOrder(order, allowed, nil, edges) {
 		for _, rule := range original[declaration] {
 			expanded, err := p.expandDefinition(rule, allowed, processed, result)
 			if err != nil {
-				return nil, err
+				return nil, ordered, err
 			}
 			for _, definition := range expanded {
 				if err = p.captureModelRule(definition); err != nil {
-					return nil, errors.Join(err, closeRules(expanded))
+					return nil, ordered, errors.Join(err, closeRules(expanded))
 				}
 			}
 			result[declaration] = append(result[declaration], expanded...)
+			ordered = append(ordered, expanded...)
 		}
 		processed[declaration] = true
 	}
-	return result, nil
+	return result, ordered, nil
 }
 
+// plan returns the allowed predicates and the borrowed definitions; the
+// plugin owns the inlined rules (m_inlined_rules) until it is destroyed.
 func (p *RuleInlinerPlugin) plan(source *base.RuleSet) (map[ast.ASTHandle]bool, map[ast.ASTHandle][]*base.Rule, error) {
 	count, err := source.Len()
 	if err != nil {
 		return nil, nil, err
 	}
+	var sourceRules []*base.Rule
 	headCount := make(map[ast.ASTHandle]int)
 	tailCount := make(map[ast.ASTHandle]int)
 	negative := make(map[ast.ASTHandle]bool)
@@ -719,26 +728,27 @@ func (p *RuleInlinerPlugin) plan(source *base.RuleSet) (map[ast.ASTHandle]bool, 
 	for index := 0; index < count; index++ {
 		rule, getErr := source.Rule(index)
 		if getErr != nil {
-			return nil, nil, errors.Join(getErr, closeRuleBuckets(definitions))
+			return nil, nil, errors.Join(getErr, closeRules(sourceRules))
 		}
 		head, getErr := rule.HeadDeclaration()
 		if getErr != nil {
-			return nil, nil, errors.Join(getErr, rule.Close(), closeRuleBuckets(definitions))
+			return nil, nil, errors.Join(getErr, rule.Close(), closeRules(sourceRules))
 		}
 		if headCount[head] == 0 {
 			declarationOrder = append(declarationOrder, head)
 		}
 		headCount[head]++
 		definitions[head] = append(definitions[head], rule)
+		sourceRules = append(sourceRules, rule)
 		uninterpreted, getErr := rule.UninterpretedTailSize()
 		positive, positiveErr := rule.PositiveTailSize()
 		if getErr != nil || positiveErr != nil {
-			return nil, nil, errors.Join(getErr, positiveErr, closeRuleBuckets(definitions))
+			return nil, nil, errors.Join(getErr, positiveErr, closeRules(sourceRules))
 		}
 		for tailIndex := 0; tailIndex < uninterpreted; tailIndex++ {
 			declaration, tailErr := rule.TailDeclaration(tailIndex)
 			if tailErr != nil {
-				return nil, nil, errors.Join(tailErr, closeRuleBuckets(definitions))
+				return nil, nil, errors.Join(tailErr, closeRules(sourceRules))
 			}
 			tailCount[declaration]++
 			if tailIndex >= positive {
@@ -756,27 +766,24 @@ func (p *RuleInlinerPlugin) plan(source *base.RuleSet) (map[ast.ASTHandle]bool, 
 	}
 	forbidden := breakInliningCycles(declarationOrder, candidate, edges)
 	if err = p.forbidMultipleMultipliers(source, declarationOrder, candidate, forbidden, edges, headCount, tailCount, definitions); err != nil {
-		return nil, nil, errors.Join(err, closeRuleBuckets(definitions))
+		return nil, nil, errors.Join(err, closeRules(sourceRules))
 	}
 	allowed := make(map[ast.ASTHandle]bool)
 	for declaration := range candidate {
 		allowed[declaration] = candidate[declaration] && !forbidden[declaration]
 	}
-	expanded, err := p.accumulateDefinitions(declarationOrder, allowed, edges, definitions)
+	expanded, inlined, err := p.accumulateDefinitions(declarationOrder, allowed, edges, definitions)
 	if err != nil {
-		return nil, nil, errors.Join(err, closeRuleBuckets(definitions))
+		return nil, nil, errors.Join(err, closeRules(sourceRules))
 	}
-	if err = closeRuleBuckets(definitions); err != nil {
-		return nil, nil, errors.Join(err, closeRuleBuckets(expanded))
+	if err = closeRules(sourceRules); err != nil {
+		return nil, nil, errors.Join(err, closeRules(inlined))
 	}
+	if err = closeRules(p.inlinedRules); err != nil {
+		return nil, nil, errors.Join(err, closeRules(inlined))
+	}
+	p.inlinedRules = inlined
 	return allowed, expanded, nil
-}
-
-func closeRuleBuckets(buckets map[ast.ASTHandle][]*base.Rule) (result error) {
-	for _, rules := range buckets {
-		result = errors.Join(result, closeRules(rules))
-	}
-	return result
 }
 
 func (p *RuleInlinerPlugin) rulesUnify(target *base.Rule, tailIndex int, source *base.Rule) (_ bool, resultErr error) {
@@ -1063,7 +1070,6 @@ func (p *RuleInlinerPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, closeRuleBuckets(definitions)) }()
 	result, err := base.NewRuleSet(p.rules)
 	if err != nil {
 		return nil, err
@@ -1210,8 +1216,19 @@ func (p *RuleInlinerPlugin) Close() error {
 		return nil
 	}
 	p.closing = true
+	// Members die in reverse declaration order: the linear indexes and
+	// m_subst, then m_inlined_rules, then m_pinned.
 	if p.linearState != nil {
-		if err := p.linearState.close(); err != nil {
+		if err := p.linearState.closeIndexes(); err != nil {
+			return err
+		}
+	}
+	if err := closeRules(p.inlinedRules); err != nil {
+		return err
+	}
+	p.inlinedRules = nil
+	if p.linearState != nil {
+		if err := p.linearState.closePinned(); err != nil {
 			return err
 		}
 		p.linearState = nil
