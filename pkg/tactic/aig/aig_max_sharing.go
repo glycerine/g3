@@ -15,9 +15,9 @@ type sharingFrame struct {
 type sharingPass struct {
 	manager *Manager
 	frames  []sharingFrame
-	results []*Ref // nil denotes unchanged source node
-	cache   map[*node]*Ref
-	saved   []*Ref // source m_saved old-node pins
+	results []*Ref            // nil denotes unchanged source node
+	cache   map[*node]Literal // m_cache: holds no references
+	saved   []*Ref            // m_saved: old and new node pins, interleaved
 }
 
 func (p *sharingPass) cleanup() error {
@@ -26,9 +26,6 @@ func (p *sharingPass) cleanup() error {
 		if p.results[i] != nil {
 			err = errors.Join(err, p.results[i].Close())
 		}
-	}
-	for _, r := range p.cache {
-		err = errors.Join(err, r.Close())
 	}
 	// reset_saved: m.dec_array_ref(m_saved.size(), m_saved.c_ptr()), forward.
 	for i := range p.saved {
@@ -45,8 +42,8 @@ func (p *sharingPass) cached(n *node) (bool, error) {
 	if n.refs <= 1 {
 		return false, nil
 	}
-	if r := p.cache[n]; r != nil {
-		copy, err := r.Clone()
+	if c, found := p.cache[n]; found {
+		copy, err := p.manager.newRef(c)
 		if err != nil {
 			return false, err
 		}
@@ -77,8 +74,8 @@ func (p *sharingPass) saveResult(old *node, result Literal) error {
 		if err != nil {
 			return errors.Join(err, oldPin.Close())
 		}
-		p.saved = append(p.saved, oldPin)
-		p.cache[old] = newPin
+		p.cache[old] = result
+		p.saved = append(p.saved, oldPin, newPin)
 	}
 	if old != result.node {
 		owned, err := m.newRef(result)
@@ -292,7 +289,7 @@ func (m *Manager) MaxSharing(input *Ref) (out *Ref, err error) {
 	if e != nil {
 		return nil, e
 	}
-	p := sharingPass{manager: m, cache: make(map[*node]*Ref)}
+	p := sharingPass{manager: m, cache: make(map[*node]Literal)}
 	defer func() {
 		err = errors.Join(err, p.cleanup())
 		if err != nil && out != nil {

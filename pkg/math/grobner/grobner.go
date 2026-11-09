@@ -127,7 +127,9 @@ type Solver struct {
 	manager *ast.ASTManager
 	family  ast.FamilyID
 	weights map[ast.ASTHandle]int
-	ids     map[ast.ASTHandle]uint32
+	// weightLayout is m_var2weight's obj_map layout (its iteration order).
+	weightLayout *ast.ObjMap
+	ids          map[ast.ASTHandle]uint32
 
 	processed, pending  equationSet
 	unfreeze, equations []*Equation
@@ -148,7 +150,7 @@ func New(manager *ast.ASTManager) (*Solver, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Solver{manager: manager, family: family, weights: make(map[ast.ASTHandle]int), ids: make(map[ast.ASTHandle]uint32)}, nil
+	return &Solver{manager: manager, family: family, weights: make(map[ast.ASTHandle]int), weightLayout: ast.NewObjMap(manager), ids: make(map[ast.ASTHandle]uint32)}, nil
 }
 
 func (s *Solver) check() error {
@@ -172,6 +174,9 @@ func (s *Solver) SetWeight(n ast.ASTHandle, weight int) error {
 	if _, ok := s.weights[n]; !ok {
 		if err := s.manager.IncRef(n); err != nil {
 			return err
+		}
+		if err := s.weightLayout.Insert(n, [2]ast.ASTHandle{}); err != nil {
+			return errors.Join(err, s.manager.DecRef(n))
 		}
 	}
 	s.weights[n] = weight
@@ -670,10 +675,12 @@ func (s *Solver) Close() error {
 	}
 	var result error
 	if s.manager != nil {
-		result = errors.Join(result, s.deleteFrom(0))
-		for h := range s.weights {
-			result = errors.Join(result, s.manager.DecRef(h))
+		// flush: dec_ref_map_keys(m_var2weight) in table order, then
+		// del_equations(0).
+		for _, entry := range s.weightLayout.Entries() {
+			result = errors.Join(result, s.manager.DecRef(entry.Key))
 		}
+		result = errors.Join(result, s.deleteFrom(0))
 	}
 	s.closed = true
 	s.manager = nil

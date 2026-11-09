@@ -22,6 +22,19 @@ type exprConverter struct {
 	frames  []exprFrame
 	results []*Ref
 	cache   map[ast.ASTHandle]*Ref
+	layout  *ast.ObjMap // m_cache's obj_map layout, for ~expr2aig's order
+}
+
+// cacheResult is cache_result(t, r).
+func (c *exprConverter) cacheResult(h ast.ASTHandle, r *Ref) error {
+	if c.layout == nil {
+		c.layout = ast.NewObjMap(c.manager.ast)
+	}
+	if err := c.layout.Insert(h, [2]ast.ASTHandle{}); err != nil {
+		return err
+	}
+	c.cache[h] = r
+	return nil
 }
 
 func (c *exprConverter) pushCached(h ast.ASTHandle) (bool, error) {
@@ -51,7 +64,9 @@ func (c *exprConverter) variable(h ast.ASTHandle) error {
 	if err != nil {
 		return errors.Join(err, r.Close())
 	}
-	c.cache[h] = owned
+	if err = c.cacheResult(h, owned); err != nil {
+		return errors.Join(err, owned.Close(), r.Close())
+	}
 	c.results = append(c.results, r)
 	return nil
 }
@@ -184,7 +199,9 @@ func (c *exprConverter) complete(fr exprFrame) error {
 		if e != nil {
 			return errors.Join(e, r.Close())
 		}
-		c.cache[fr.expr] = copy
+		if e = c.cacheResult(fr.expr, copy); e != nil {
+			return errors.Join(e, copy.Close(), r.Close())
+		}
 	}
 	for i := fr.start; i < len(c.results); i++ {
 		err = errors.Join(err, c.results[i].Close())
@@ -199,13 +216,13 @@ func (c *exprConverter) complete(fr exprFrame) error {
 
 func (c *exprConverter) cleanup() error {
 	var err error
-	expressions := make([]ast.ASTHandle, 0, len(c.cache))
-	for expression := range c.cache {
-		expressions = append(expressions, expression)
+	// ~expr2aig: m_cache in table order, then restore_result_stack(0).
+	var layout []ast.ObjMapEntry
+	if c.layout != nil {
+		layout = c.layout.Entries()
 	}
-	ast.SortHandles(expressions)
-	for _, expression := range expressions {
-		r := c.cache[expression]
+	for _, slot := range layout {
+		r := c.cache[slot.Key]
 		c.manager.traceExprCacheDecRef(r.lit)
 		err = errors.Join(err, r.Close())
 	}
