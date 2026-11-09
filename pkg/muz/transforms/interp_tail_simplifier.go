@@ -20,13 +20,15 @@ type InterpTailSimplifierPlugin struct {
 	rewriter *astrewriter.TheoryRewriter
 	// borrowed: the rewriter is datalog::context's m_rewriter (m_simp is a
 	// reference to ctx.get_rewriter()), owned by the context.
-	borrowed      bool
-	params        *uparams.ParamsContext
-	globals       *uparams.GlobalParamsService
-	normalization *RuleNormalizationParams
-	priority      uint32
-	closed        bool
-	closing       bool
+	borrowed bool
+	// heldSimplified is simp_res awaiting the end of the propagation step.
+	heldSimplified []ast.ASTRef
+	params         *uparams.ParamsContext
+	globals        *uparams.GlobalParamsService
+	normalization  *RuleNormalizationParams
+	priority       uint32
+	closed         bool
+	closing        bool
 }
 
 func NewInterpTailSimplifierPlugin(manager *ast.ASTManager, rules *base.RuleManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (*InterpTailSimplifierPlugin, error) {
@@ -97,6 +99,19 @@ func (p *InterpTailSimplifierPlugin) simplifyRule(rule *base.Rule) (_ *base.Rule
 		}
 		changed = true
 	}
+	// app_ref itail is destroyed with transform_rule's other locals, just
+	// after simp_res.
+	itail, err := p.manager.NewRef(combined)
+	if err != nil {
+		return nil, false, false, err
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&itail))
+			return
+		}
+		p.heldSimplified = append(p.heldSimplified, itail)
+	}()
 	out, err := p.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return nil, false, false, err
@@ -122,7 +137,15 @@ func (p *InterpTailSimplifierPlugin) simplifyRule(rule *base.Rule) (_ *base.Rule
 	if err != nil {
 		return nil, false, false, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&final)) }()
+	// transform_rule's expr_ref simp_res stays alive through
+	// propagate_variable_equivalences; the caller releases it then.
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&final))
+			return
+		}
+		p.heldSimplified = append(p.heldSimplified, final)
+	}()
 	if err = p.rewriter.Rewrite(normalizedHandle, final); err != nil {
 		return nil, false, false, err
 	}
@@ -248,6 +271,34 @@ func (p *InterpTailSimplifierPlugin) propagate(rule *base.Rule) (_ *base.Rule, c
 		}
 		return p.manager.IsValue(expression)
 	}
+	// expr_ref_vector trail and expr_ref tmp1, tmp2 are locals: at return
+	// tmp2 dies, then tmp1, then trail releases forward.
+	var trail []ast.ASTRef
+	var tmp1, tmp2 ast.ASTRef
+	defer func() {
+		for _, ref := range []*ast.ASTRef{&tmp2, &tmp1} {
+			if *ref != (ast.ASTRef{}) {
+				resultErr = errors.Join(resultErr, p.manager.DelRef(ref))
+			}
+		}
+		for i := range trail {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&trail[i]))
+		}
+	}()
+	assign := func(slot *ast.ASTRef, value ast.ASTHandle) error {
+		if *slot == (ast.ASTRef{}) {
+			ref, err := p.manager.NewRef(value)
+			if err == nil {
+				*slot = ref
+			}
+			return err
+		}
+		return p.manager.SetRef(*slot, value)
+	}
+	arithmetic, err := p.manager.ArithmeticFamilyID()
+	if err != nil {
+		return nil, false, err
+	}
 	var todo []ast.ASTHandle
 	for index := uninterpreted; index < total; index++ {
 		tail, _, getErr := rule.Tail(index)
@@ -289,6 +340,49 @@ func (p *InterpTailSimplifierPlugin) propagate(rule *base.Rule) (_ *base.Rule, c
 		family, getErr := p.manager.GetFamilyID(term)
 		if getErr != nil {
 			return nil, false, getErr
+		}
+		if family == arithmetic && !negative {
+			// a.is_le(t, a1, a2) || a.is_ge(t, a2, a1): the source builds
+			// both differences (its unification branch is disabled) and
+			// keeps tmp1 on the trail.
+			operation, opErr := p.manager.GetDeclKind(term)
+			if opErr != nil {
+				return nil, false, opErr
+			}
+			if operation == 2 || operation == 3 {
+				first, x := p.manager.GetArg(term, 0)
+				if x != nil {
+					return nil, false, x
+				}
+				second, x := p.manager.GetArg(term, 1)
+				if x != nil {
+					return nil, false, x
+				}
+				left, right := first, second
+				if operation == 3 {
+					left, right = second, first
+				}
+				difference, x := p.manager.MkArithmeticSub(left, right)
+				if x == nil {
+					x = assign(&tmp1, difference)
+				}
+				if x != nil {
+					return nil, false, x
+				}
+				reverse, x := p.manager.MkArithmeticSub(right, left)
+				if x == nil {
+					x = assign(&tmp2, reverse)
+				}
+				if x != nil {
+					return nil, false, x
+				}
+				held, x := p.manager.NewRef(difference)
+				if x != nil {
+					return nil, false, x
+				}
+				trail = append(trail, held)
+			}
+			continue
 		}
 		if family != p.manager.BasicFamilyID() {
 			continue
@@ -446,6 +540,14 @@ func (p *InterpTailSimplifierPlugin) propagate(rule *base.Rule) (_ *base.Rule, c
 	return replacement, true, nil
 }
 
+func (p *InterpTailSimplifierPlugin) releaseHeldSimplified() (result error) {
+	for i := range p.heldSimplified {
+		result = errors.Join(result, p.manager.DelRef(&p.heldSimplified[i]))
+	}
+	p.heldSimplified = p.heldSimplified[:0]
+	return result
+}
+
 func (p *InterpTailSimplifierPlugin) transformRule(source *base.Rule) (_ *base.Rule, dropped, changed bool, resultErr error) {
 	if p == nil || p.closed || p.closing {
 		return nil, false, false, base.ErrRuleTransformerOwner
@@ -479,9 +581,12 @@ func (p *InterpTailSimplifierPlugin) transformRule(source *base.Rule) (_ *base.R
 	for {
 		simplified, drop, simplifiedChanged, err := p.simplifyRule(current)
 		if err != nil {
-			return nil, false, changed, err
+			return nil, false, changed, errors.Join(err, p.releaseHeldSimplified())
 		}
 		if drop {
+			if err = p.releaseHeldSimplified(); err != nil {
+				return nil, false, changed, err
+			}
 			if owned {
 				resultErr = current.Close()
 				owned = false
@@ -497,6 +602,7 @@ func (p *InterpTailSimplifierPlugin) transformRule(source *base.Rule) (_ *base.R
 			current, owned, changed = simplified, true, true
 		}
 		propagated, propagatedChanged, err := p.propagate(current)
+		err = errors.Join(err, p.releaseHeldSimplified())
 		if err != nil {
 			return nil, false, changed, err
 		}
