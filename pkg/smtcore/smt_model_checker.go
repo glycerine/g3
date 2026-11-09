@@ -403,18 +403,15 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 	if err != nil {
 		return false, err
 	}
-	evaluated, err := c.manager.NewRef(ast.ASTHandle{})
-	if err != nil {
+	// check(q): m_aux_context->push(), then assert_neg_q_m.
+	if err = c.initAuxiliaryContext(); err != nil {
 		return false, err
 	}
-	defer func() { result = errors.Join(result, c.manager.DelRef(&evaluated)) }()
-	if _, err = model.Eval(body, evaluated, true); err != nil {
+	auxiliary := c.auxiliaryContext
+	if err = auxiliary.PushCore(); err != nil {
 		return false, err
 	}
-	evaluatedBody, err := c.manager.RefGet(evaluated)
-	if err != nil {
-		return false, err
-	}
+	defer func() { result = errors.Join(result, auxiliary.PopCore(1)) }()
 	count, err := c.manager.GetNumDeclarations(flat)
 	if err != nil {
 		return false, err
@@ -428,8 +425,35 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 			result = errors.Join(result, c.manager.DelRef(&skolemRefs[i]))
 		}
 	}()
-	// Native creates the innermost variable's fresh constant first while
-	// retaining declaration order in the Skolem/substitution vectors.
+	// assert_neg_q_m's locals tmp, sk_body, s (var_subst) and r die when it
+	// returns, in reverse declaration order (r, s, sk_body, tmp).
+	var temporaries []func() error
+	releaseTemporaries := func() error {
+		var e error
+		for i := len(temporaries) - 1; i >= 0; i-- {
+			e = errors.Join(e, temporaries[i]())
+		}
+		temporaries = nil
+		return e
+	}
+	holdTemporary := func(ref ast.ASTRef) {
+		temporaries = append(temporaries, func() error { return c.manager.DelRef(&ref) })
+	}
+	defer func() { result = errors.Join(result, releaseTemporaries()) }()
+	evaluated, err := c.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return false, err
+	}
+	holdTemporary(evaluated)
+	if _, err = model.Eval(body, evaluated, true); err != nil {
+		return false, err
+	}
+	evaluatedBody, err := c.manager.RefGet(evaluated)
+	if err != nil {
+		return false, err
+	}
+	// The innermost variable's fresh constant comes first; each finite sort
+	// is restricted to its universe as soon as its constant exists.
 	for i := len(skolems) - 1; i >= 0; i-- {
 		sort, e := c.manager.GetDeclarationSort(flat, uint32(i))
 		if e != nil {
@@ -448,21 +472,34 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 		if e != nil {
 			return false, e
 		}
-	}
-	substitution, err := rewriter.NewVarSubstitution(c.manager, true)
-	// Member construction can return a charged partial owner. Retain its
-	// cleanup even when construction stops before the reducer is ready.
-	if substitution != nil {
-		defer func() { result = errors.Join(result, substitution.Close()) }()
-	}
-	if err != nil {
-		return false, err
+		finite, e := model.IsFinite(sort)
+		if e != nil {
+			return false, e
+		}
+		if finite {
+			universe, e := model.KnownUniverse(sort)
+			if e != nil {
+				return false, e
+			}
+			if e = c.restrictSkolemToUniverse(auxiliary, skolems[i], universe); e != nil {
+				return false, e
+			}
+		}
 	}
 	ground, err := c.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return false, err
 	}
-	defer func() { result = errors.Join(result, c.manager.DelRef(&ground)) }()
+	holdTemporary(ground)
+	substitution, err := rewriter.NewVarSubstitution(c.manager, true)
+	// Member construction can return a charged partial owner. Retain its
+	// cleanup even when construction stops before the reducer is ready.
+	if substitution != nil {
+		temporaries = append(temporaries, substitution.Close)
+	}
+	if err != nil {
+		return false, err
+	}
 	if err = substitution.Substitute(evaluatedBody, skolems, ground); err != nil {
 		return false, err
 	}
@@ -478,36 +515,11 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 	if err != nil {
 		return false, err
 	}
-	defer func() { result = errors.Join(result, c.manager.DelRef(&negatedRef)) }()
-	if err = c.initAuxiliaryContext(); err != nil {
-		return false, err
-	}
-	auxiliary := c.auxiliaryContext
-	if err = auxiliary.PushCore(); err != nil {
-		return false, err
-	}
-	defer func() { result = errors.Join(result, auxiliary.PopCore(1)) }()
-	for i := len(skolems) - 1; i >= 0; i-- {
-		skolem := skolems[i]
-		sort, e := c.manager.GetDeclarationSort(flat, uint32(i))
-		if e != nil {
-			return false, e
-		}
-		finite, e := model.IsFinite(sort)
-		if e != nil {
-			return false, e
-		}
-		if finite {
-			universe, e := model.KnownUniverse(sort)
-			if e != nil {
-				return false, e
-			}
-			if e = c.restrictSkolemToUniverse(auxiliary, skolem, universe); e != nil {
-				return false, e
-			}
-		}
-	}
+	holdTemporary(negatedRef)
 	if err = auxiliary.Assert(negated); err != nil {
+		return false, err
+	}
+	if err = releaseTemporaries(); err != nil {
 		return false, err
 	}
 	status, err := auxiliary.CheckSat(nil)
