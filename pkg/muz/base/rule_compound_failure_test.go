@@ -81,6 +81,7 @@ func TestRuleCompoundHoistingOwnsVariableBeforeReferenceAllocation(t *testing.T)
 		t.Fatal("retry lost the original compound argument", left, right, negative)
 	}
 	ruleMust(t, result.Close())
+	ruleMust(t, f.rules.ReleaseHornTemporaries())
 	if got := m.Stats().LiveReferences; got != before.LiveReferences {
 		t.Fatal("retry leaked references", got, before.LiveReferences)
 	}

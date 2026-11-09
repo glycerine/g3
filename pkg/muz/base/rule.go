@@ -60,8 +60,11 @@ type RuleManager struct {
 	normalizer     *HornNormalizer
 	predicates     map[ast.ASTHandle]ast.ASTRef
 	predicateOrder []ast.ASTHandle // insertion order, released forward
-	closed         bool
-	cleanupPending bool
+	// hornTemporaries are mk_horn_rule's m_body/m_head terms, kept until
+	// the next rule.
+	hornTemporaries []ast.ASTRef
+	closed          bool
+	cleanupPending  bool
 }
 
 func NewRuleManager(manager *ast.ASTManager) (*RuleManager, error) {
@@ -761,6 +764,9 @@ func (m *RuleManager) Close() error {
 		return err
 	}
 	m.cleanupPending = true
+	if err := m.releaseHornTemporaries(); err != nil {
+		return err
+	}
 	if err := m.normalizer.Close(); err != nil {
 		return err
 	}

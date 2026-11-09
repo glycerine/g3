@@ -242,12 +242,13 @@ func (m *RuleManager) newRuleFromFormulaWithSymbol(formula ast.ASTHandle, name s
 	if err := m.checkRuleName(name); err != nil {
 		return nil, err
 	}
+	// m_body/m_head are rule_manager members: mk_horn_rule's terms live
+	// until the next rule resets them (m_body.reset()).
+	if err := m.releaseHornTemporaries(); err != nil {
+		return nil, err
+	}
 	var temporaries []ast.ASTRef
-	defer func() {
-		for i := len(temporaries) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.manager.DelRef(&temporaries[i]))
-		}
-	}()
+	defer func() { m.hornTemporaries = temporaries }()
 	kind, err := m.manager.GetKind(formula)
 	if err != nil {
 		return nil, err
@@ -361,4 +362,19 @@ func (m *RuleManager) newRuleFromFormulaWithSymbol(formula ast.ASTHandle, name s
 		}
 	}
 	return m.NewRuleWithSymbol(head, body, negated, name)
+}
+
+// ReleaseHornTemporaries drops the terms the last rule conversion keeps in
+// m_body/m_head; the next conversion would release them anyway.
+func (m *RuleManager) ReleaseHornTemporaries() error { return m.releaseHornTemporaries() }
+
+// releaseHornTemporaries is m_body.reset(): forward release.
+func (m *RuleManager) releaseHornTemporaries() (result error) {
+	for i := range m.hornTemporaries {
+		if m.hornTemporaries[i] != (ast.ASTRef{}) {
+			result = errors.Join(result, m.manager.DelRef(&m.hornTemporaries[i]))
+		}
+	}
+	m.hornTemporaries = nil
+	return result
 }

@@ -52,6 +52,7 @@ func TestExistentialRuleHeadReservesEqualityOwnerBeforeConstruction(t *testing.T
 	if rule != nil || !errors.Is(cause, arena.ErrInjectedFailure) {
 		t.Fatal("expected reference reservation failure", rule, cause)
 	}
+	ruleMust(t, f.rules.ReleaseHornTemporaries())
 	after := m.Stats()
 	if after.LiveNodes != before.LiveNodes || after.LiveReferences != before.LiveReferences {
 		t.Fatal("failed conversion lost an owner", before, after)
@@ -61,6 +62,7 @@ func TestExistentialRuleHeadReservesEqualityOwnerBeforeConstruction(t *testing.T
 	if rule != nil || !errors.As(cause, &invalid) {
 		t.Fatal("retry did not report invalid head", rule, cause)
 	}
+	ruleMust(t, f.rules.ReleaseHornTemporaries())
 	if got := m.Stats().LiveReferences; got != before.LiveReferences {
 		t.Fatal("retry leaked references", got, before.LiveReferences)
 	}

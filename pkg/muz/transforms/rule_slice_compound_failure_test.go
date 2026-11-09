@@ -189,6 +189,7 @@ func testRuleSliceCompoundHeadAllocationFailureAndRetry(t *testing.T, countNodes
 						success = true
 						coneMust(t, m.DelRef(&result))
 					}
+					coneMust(t, f.rules.ReleaseHornTemporaries())
 					if got := m.Stats().LiveReferences; got != before {
 						t.Fatal("conversion leaked references", stop, got, before)
 					}
@@ -263,6 +264,7 @@ func testRuleSliceCompoundHeadAllocationFailureAndRetry(t *testing.T, countNodes
 					side = nil
 					coneMust(t, m.DelRef(&equalRef))
 					coneMust(t, m.DelRef(&result))
+					coneMust(t, f.rules.ReleaseHornTemporaries())
 					if got := m.Stats().LiveReferences; got != before {
 						t.Fatal("verified retry leaked references", got, before)
 					}

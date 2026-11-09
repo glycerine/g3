@@ -51,6 +51,7 @@ func TestRuleFormulaProofAllocationFailureReleasesIntermediates(t *testing.T) {
 			if mode != ast.ASTProofDisabled {
 				t.Fatal("proof mode was not restored", mode)
 			}
+			ruleMust(t, f.rules.ReleaseHornTemporaries())
 			after := m.Stats()
 			if after.LiveReferences != before.LiveReferences {
 				t.Fatal("proof conversion leaked references", before, after)
