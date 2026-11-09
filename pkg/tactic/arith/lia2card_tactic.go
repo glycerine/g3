@@ -324,17 +324,15 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 			}
 		}
 	}
-	zero, err := t.manager.ArithmeticIntegerNumeralText("0")
-	if err != nil {
-		return err
-	}
-	one, err := t.manager.ArithmeticIntegerNumeralText("1")
-	if err != nil {
-		return err
-	}
+	// a.mk_le(v, a.mk_numeral(1)), a.mk_le(a.mk_numeral(0), v): the
+	// numerals are made per used variable.
 	for _, variable := range variables {
 		if !used[variable] {
 			continue
+		}
+		one, e := t.manager.ArithmeticIntegerNumeralText("1")
+		if e != nil {
+			return e
 		}
 		upper, e := t.manager.MkArithmeticLE(variable, one)
 		if e != nil {
@@ -359,6 +357,10 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 			}
 		}
 		if e = goal.AssertWithProof(upper, upperProof, upperDep); e != nil {
+			return e
+		}
+		zero, e := t.manager.ArithmeticIntegerNumeralText("0")
+		if e != nil {
 			return e
 		}
 		lower, e := t.manager.MkArithmeticLE(zero, variable)
