@@ -804,6 +804,12 @@ Found while matching `-st` output against `build/z3` on
     The reported soft cost disagrees with the final model, so investigate
     the maxres/bit-vector objective bound bookkeeping (addBitVectorObjective,
     optimizeSoft, finalizeSoftBounds) before landing the initial check.
+    FIXED (dc2748bc8): maxres publishOptimum now follows found_optimum and
+    reports the best model's cost instead of the overshooting core lower
+    bound. It reproduced on HEAD with smt.random_seed=5. With that fixed,
+    the initial hard check landed in the lex path (see git log).
+    Remaining: init_solver before normalize, and the pareto/box first-call
+    normalize.
     g3's runNormalizedOptimization only simplifies behind its own
     useSimplifier gate (skipped for pareto/box/rlimit/timeout) and never
     builds the objective-function apps. Port opt_context.cpp's optimize /
