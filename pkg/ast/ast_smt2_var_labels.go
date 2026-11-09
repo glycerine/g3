@@ -39,11 +39,13 @@ func (m *ASTManager) SMT2PPAttribute(attribute string, body ASTHandle) (ASTHandl
 	if uint64(len(attribute)) > math.MaxUint32 {
 		return ASTHandle{}, ErrASTDomain
 	}
-	prefix, err := m.FormatString(attribute)
+	// mk_compose(m, mk_string(attr), mk_indent(...)): GCC evaluates the
+	// arguments right to left.
+	indented, err := m.FormatIndent(uint32(len(attribute)), body)
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	indented, err := m.FormatIndent(uint32(len(attribute)), body)
+	prefix, err := m.FormatString(attribute)
 	if err != nil {
 		return ASTHandle{}, err
 	}
@@ -51,11 +53,11 @@ func (m *ASTManager) SMT2PPAttribute(attribute string, body ASTHandle) (ASTHandl
 }
 
 func (m *ASTManager) SMT2PPSimpleAttributeInt(attribute string, value int32) (ASTHandle, error) {
-	prefix, err := m.FormatString(attribute)
+	number, err := m.FormatInt(value)
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	number, err := m.FormatInt(value)
+	prefix, err := m.FormatString(attribute)
 	if err != nil {
 		return ASTHandle{}, err
 	}
@@ -67,11 +69,11 @@ func (m *ASTManager) SMT2PPSimpleAttributeSymbol(attribute string, value usymbol
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	prefix, err := m.FormatString(attribute)
+	spelling, err := m.FormatString(name)
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	spelling, err := m.FormatString(name)
+	prefix, err := m.FormatString(attribute)
 	if err != nil {
 		return ASTHandle{}, err
 	}
