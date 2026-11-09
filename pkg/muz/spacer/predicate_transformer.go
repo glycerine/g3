@@ -313,9 +313,8 @@ func (p *PredicateTransformer) InitializeSystem(initial, transition ast.ASTHandl
 	if err = p.solver.AssertAtLevel(initial, 0); err != nil {
 		return err
 	}
-	if err = p.frames.AddFrame(); err != nil {
-		return err
-	}
+	// The frames start empty (m_size 0); only ensure_level adds frames, each
+	// with its own solver level.
 	p.initial = initialRef
 	p.transition = transitionRef
 	p.initialized = true
@@ -370,7 +369,8 @@ func (p *PredicateTransformer) EnsureLevel(level uint32) error {
 		if err = p.frames.AddFrame(); err != nil {
 			return err
 		}
-		if err = p.solver.EnsureLevel(size); err != nil {
+		// m_solver.add_level() runs once per new frame, unconditionally.
+		if err = p.solver.AddLevel(); err != nil {
 			return err
 		}
 		size++

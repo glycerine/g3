@@ -169,6 +169,14 @@ func (p *PropSolver) EnsureLevel(level uint32) error {
 	return nil
 }
 
+// AddLevel is prop_solver::add_level: one more frame guard, unconditionally.
+func (p *PropSolver) AddLevel() error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	return p.addLevel()
+}
+
 func (p *PropSolver) LevelCount() (uint32, error) {
 	if err := p.open(); err != nil {
 		return 0, err

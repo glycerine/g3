@@ -64,6 +64,20 @@ func (s *ProofObligationStore) New(parent *ProofObligation, level, depth uint32,
 			}
 			return existing, nil
 		}
+		// mk_pob's local pob p only probes the cache: a fresh pob n is
+		// allocated and normalized again, and p dies when mk_pob returns.
+		fresh, err := NewProofObligation(parent, s.transformer, level, depth, post, bindings)
+		if err != nil {
+			return nil, errors.Join(err, candidate.Release())
+		}
+		if err = candidate.Release(); err != nil {
+			return nil, errors.Join(err, fresh.Release())
+		}
+		candidate = fresh
+		normalized, err = candidate.Post()
+		if err != nil {
+			return nil, errors.Join(err, candidate.Release())
+		}
 		s.byPost[normalized] = append(s.byPost[normalized], candidate)
 	}
 	s.owned = append(s.owned, candidate)
