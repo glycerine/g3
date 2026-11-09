@@ -960,6 +960,9 @@ func TestSMTLibRunnerScripts(t *testing.T) {
 			if sourceDebugMacroCoercionRefusal(t, name, err, &out) {
 				return
 			}
+			if sourceDebugModusPonensRefusal(t, name, err, &out) {
+				return
+			}
 			if err != nil {
 				t.Fatal(err, out.String())
 			}
@@ -968,6 +971,22 @@ func TestSMTLibRunnerScripts(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The native executable is a release build. With proofs, solve-eqs builds
+// mk_modus_ponens(asserted a, trans(a = b, b iff false)) whose second fact is
+// (= a false), an OP_EQ; ast.cpp:2644 asserts it is implies, iff or oeq in
+// source debug builds.
+func sourceDebugModusPonensRefusal(t *testing.T, name string, err error, out *bytes.Buffer) bool {
+	t.Helper()
+	if !ast.ASTSourceDebug || name != "solve_eqs_proof.smt2" {
+		return false
+	}
+	want := "line 8 column 26: " + ast.ErrASTDomain.Error()
+	if err == nil || err.Error() != want || out.String() != "(error \""+want+"\")\n" {
+		t.Fatalf("source debug modus ponens assertion err=%q output=%q", err, out.String())
+	}
+	return true
 }
 
 // The native executable is a release build. Its macro substitution accepts
