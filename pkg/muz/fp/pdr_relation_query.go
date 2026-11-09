@@ -83,6 +83,10 @@ func (e *PropositionalEngine) queryRelationMkQuery(declaration ast.ASTHandle, so
 		queryRoots = append(queryRoots, existsRef)
 		query = exists
 	}
+	// dl_interface::query traces its query parameter (mk_pp(query)), not
+	// the query!N head mk_query adds.
+	e.pdrTraceQuery = query
+	defer func() { e.pdrTraceQuery = ast.ASTHandle{} }()
 	// dl_interface::query reads m_ctx.get_rules(), which flushes the queued
 	// rules after engine_base built q.
 	if err = e.flushPendingRules(); err != nil {

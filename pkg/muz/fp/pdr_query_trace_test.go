@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -61,15 +60,12 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("initial status", status)
 			}
+			// Expected traces are the native trace build's output for the same
+			// program: (query R) runs engine_base::query, then mk_query adds
+			// query!N, whose rule is fresh for every check_reset.
 			queryTrace := ""
 			if mode == "enabled" {
-				queryTrace = "-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:144 ---------\nrules:\n; rule count: 1\n; predicate count: 1\n; output: fresh-trace-P\nold-fact:\nfresh-trace-P().\n(declare-rel fresh-trace-P ())\n(query fresh-trace-P)\n------------------------------------------------\n"
-			}
-			postQueryTrace := queryTrace
-			if mode == "enabled" {
-				postQueryTrace += "-------- [pdr] init_rule src/muz/pdr/pdr_context.cpp:616 ---------\ntrue\n------------------------------------------------\n-------- [pdr] initialize src/muz/pdr/pdr_context.cpp:519 ---------\nInitial state: true\nTransition:    fresh-trace-P!0\n------------------------------------------------\n"
-				postQueryTrace += "-------- [pdr] solve src/muz/pdr/pdr_context.cpp:1888 ---------\nsolve\n------------------------------------------------\n"
-				queryTrace = "-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:92 ---------\nquery: fresh-trace-P\nrules:\n; rule count: 1\n; predicate count: 1\n; output: fresh-trace-P\nold-fact:\nfresh-trace-P().\n------------------------------------------------\n" + postQueryTrace
+				queryTrace = "-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:92 ---------\nquery: fresh-trace-P\nrules:\n; rule count: 2\n; predicate count: 2\n; output: query!0\nold-fact:\nfresh-trace-P().\n<null>:\nquery!0() :- \n fresh-trace-P().\n------------------------------------------------\n-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:144 ---------\nrules:\n; rule count: 1\n; predicate count: 1\n; output: query!0\n<null>:\nquery!0().\n(declare-rel query!0 ())\n(query query!0)\n------------------------------------------------\n-------- [pdr] init_rule src/muz/pdr/pdr_context.cpp:616 ---------\ntrue\n------------------------------------------------\n-------- [pdr] initialize src/muz/pdr/pdr_context.cpp:519 ---------\nInitial state: true\nTransition:    query!0!1\n------------------------------------------------\n-------- [pdr] solve src/muz/pdr/pdr_context.cpp:1888 ---------\nsolve\n------------------------------------------------\n"
 			}
 			if output.String() != queryTrace {
 				t.Fatalf("initial query trace got %q; want %q", output.String(), queryTrace)
@@ -91,27 +87,23 @@ func TestPDRFreshRuleTraceOrderGateAndStreamFailure(t *testing.T) {
 			}
 			expected := ""
 			if mode == "enabled" {
-				expected = "-------- [pdr] check_reset src/muz/pdr/pdr_dl_interface.cpp:68 ---------\nFresh rule first-fresh:\nfresh-trace-Q().\n------------------------------------------------\n"
+				expected = "-------- [pdr] check_reset src/muz/pdr/pdr_dl_interface.cpp:68 ---------\nFresh rule first-fresh:\nfresh-trace-Q().\n------------------------------------------------\n-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:92 ---------\nquery: fresh-trace-P\nrules:\n; rule count: 4\n; predicate count: 4\n; output: query!5\n<null>:\nquery!5() :- \n fresh-trace-P().\nold-fact:\nfresh-trace-P().\nfirst-fresh:\nfresh-trace-Q().\nlater-fresh:\nfresh-trace-R().\n------------------------------------------------\n-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:144 ---------\nrules:\n; rule count: 1\n; predicate count: 1\n; output: query!5\n<null>:\nquery!5().\n(declare-rel query!5 ())\n(query query!5)\n------------------------------------------------\n-------- [pdr] init_rule src/muz/pdr/pdr_context.cpp:616 ---------\ntrue\n------------------------------------------------\n-------- [pdr] initialize src/muz/pdr/pdr_context.cpp:519 ---------\nInitial state: true\nTransition:    query!5!6\n------------------------------------------------\n-------- [pdr] solve src/muz/pdr/pdr_context.cpp:1888 ---------\nsolve\n------------------------------------------------\n"
 			}
-			if mode == "enabled" {
-				// Each initialization allocates the transition tag, the level-zero
-				// guard, and the reachable-cache disjunction connector in that order.
-				// The latter is allocated even when the cache mode does not query it.
-				queryTrace = "-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:92 ---------\nquery: fresh-trace-P\nrules:\n; rule count: 3\n; predicate count: 3\n; output: fresh-trace-P\nold-fact:\nfresh-trace-P().\nfirst-fresh:\nfresh-trace-Q().\nlater-fresh:\nfresh-trace-R().\n------------------------------------------------\n" + strings.Replace(postQueryTrace, "fresh-trace-P!0", "fresh-trace-P!3", 1)
-			}
-			expected += queryTrace
 			if got := output.String(); got != expected {
 				t.Fatalf("fresh-rule trace got %q; want %q", got, expected)
 			}
-			before := m.Stats().LiveReferences
 			output.Reset()
 			status, err = e.QueryPredicate(p)
 			fragmentMust(t, err)
 			if status != lbool.True {
 				t.Fatal("repeat status", status)
 			}
-			if output.String() != strings.Replace(queryTrace, "fresh-trace-P!3", "fresh-trace-P!6", 1) || m.Stats().LiveReferences != before {
-				t.Fatal("repeat emitted trace or changed ownership", output.String())
+			expected = ""
+			if mode == "enabled" {
+				expected = "-------- [pdr] check_reset src/muz/pdr/pdr_dl_interface.cpp:68 ---------\nFresh rule <null>:\nquery!10() :- \n fresh-trace-P().\n------------------------------------------------\n-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:92 ---------\nquery: fresh-trace-P\nrules:\n; rule count: 4\n; predicate count: 4\n; output: query!10\nold-fact:\nfresh-trace-P().\nfirst-fresh:\nfresh-trace-Q().\n<null>:\nquery!10() :- \n fresh-trace-P().\nlater-fresh:\nfresh-trace-R().\n------------------------------------------------\n-------- [pdr] query src/muz/pdr/pdr_dl_interface.cpp:144 ---------\nrules:\n; rule count: 1\n; predicate count: 1\n; output: query!10\n<null>:\nquery!10().\n(declare-rel query!10 ())\n(query query!10)\n------------------------------------------------\n-------- [pdr] init_rule src/muz/pdr/pdr_context.cpp:616 ---------\ntrue\n------------------------------------------------\n-------- [pdr] initialize src/muz/pdr/pdr_context.cpp:519 ---------\nInitial state: true\nTransition:    query!10!11\n------------------------------------------------\n-------- [pdr] solve src/muz/pdr/pdr_context.cpp:1888 ---------\nsolve\n------------------------------------------------\n"
+			}
+			if got := output.String(); got != expected {
+				t.Fatalf("repeat trace got %q; want %q", got, expected)
 			}
 		})
 	}

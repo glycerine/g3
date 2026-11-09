@@ -162,8 +162,15 @@ func (s *RuleSet) WriteContextSMT2(out io.Writer, config ContextSMT2Config) (res
 	if err != nil {
 		return err
 	}
+	// rels is a func_decl_set: display_rel_decl runs in its table order.
+	relationSet := ast.NewObjMap(m)
 	for _, d := range relations {
-		if err = s.writeContextRelation(out, printer, d); err != nil {
+		if err = relationSet.Insert(d, [2]ast.ASTHandle{}); err != nil {
+			return err
+		}
+	}
+	for _, entry := range relationSet.Entries() {
+		if err = s.writeContextRelation(out, printer, entry.Key); err != nil {
 			return err
 		}
 	}

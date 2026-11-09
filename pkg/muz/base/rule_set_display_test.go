@@ -26,11 +26,13 @@ func TestRuleSetWriteSourceDisplay(t *testing.T) {
 	ruleMust(t, set.SetOutputPredicate(f.decl["P"]))
 	var out bytes.Buffer
 	ruleMust(t, set.WriteDisplay(&out))
+	// m_output_preds and m_head2rules are obj_hashtable/obj_map: both
+	// listings follow table order, which here puts ruleset-Q first.
 	want := "; rule count: 3\n; predicate count: 2\n" +
 		"; output: ruleset-Q\n; output: ruleset-P\n" +
+		"Q:\nruleset-Q().\n" +
 		"P:\nruleset-P().\n" +
-		"P:\nruleset-P() :- \n ruleset-Q().\n" +
-		"Q:\nruleset-Q().\n"
+		"P:\nruleset-P() :- \n ruleset-Q().\n"
 	if got := out.String(); got != want {
 		t.Fatalf("rule-set display = %q, want %q", got, want)
 	}

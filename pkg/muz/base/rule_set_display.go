@@ -5,9 +5,11 @@ package base
 import (
 	"fmt"
 	"io"
+
+	"github.com/glycerine/g3/pkg/ast"
 )
 
-// WriteDisplay writes the rule-set diagnostic in grouped-head order. The
+// WriteDisplay writes the rule-set diagnostic in m_head2rules table order. The
 // source defaults to profile output disabled and a zero timing threshold.
 func (s *RuleSet) WriteDisplay(out io.Writer) error {
 	return s.WriteDisplayWithProfile(out, false, 0)
@@ -22,10 +24,26 @@ func (s *RuleSet) WriteDisplayWithProfile(out io.Writer, outputProfile bool, pro
 	if err := s.open(); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(out, "; rule count: %d\n; predicate count: %d\n", len(s.rules), len(s.byHead)); err != nil {
+	predicates := 0
+	var heads []ast.ASTHandle
+	if s.headTable != nil {
+		predicates = s.headTable.Len()
+		for _, entry := range s.headTable.Entries() {
+			heads = append(heads, entry.Key)
+		}
+	}
+	if _, err := fmt.Fprintf(out, "; rule count: %d\n; predicate count: %d\n", len(s.rules), predicates); err != nil {
 		return err
 	}
+	// m_output_preds is a func_decl_set: its lines follow table order.
+	outputs := ast.NewObjMap(s.manager.manager)
 	for _, declaration := range s.outputOrder {
+		if err := outputs.Insert(declaration, [2]ast.ASTHandle{}); err != nil {
+			return err
+		}
+	}
+	for _, entry := range outputs.Entries() {
+		declaration := entry.Key
 		name, err := s.manager.manager.GetASTName(declaration)
 		if err != nil {
 			return err
@@ -38,7 +56,7 @@ func (s *RuleSet) WriteDisplayWithProfile(out io.Writer, outputProfile bool, pro
 			return err
 		}
 	}
-	for _, declaration := range s.headOrder {
+	for _, declaration := range heads {
 		for _, rule := range s.byHead[declaration] {
 			ruleState, err := rule.open()
 			if err != nil {

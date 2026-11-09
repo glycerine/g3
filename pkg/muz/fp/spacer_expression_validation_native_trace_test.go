@@ -19,25 +19,22 @@ import (
 )
 
 type spacerValidationNativeWriter struct {
-	native                    ruleUpdateDERCleanupWriter
-	context                   *spacer.Context
-	digits                    string
-	operator, site, wide, hit bool
+	native              ruleUpdateDERCleanupWriter
+	context             *spacer.Context
+	operator, site, hit bool
 }
 
 func (w *spacerValidationNativeWriter) Write(p []byte) (int, error) {
 	if string(p) == "operator()" {
-		w.operator, w.site, w.wide = true, false, false
+		w.operator, w.site = true, false
 	}
 	if w.operator && string(p) == "566" {
 		w.site = true
 	}
-	if strings.Contains(string(p), w.digits) {
-		w.wide = true
-	}
-	if w.site && w.wide && !w.hit && string(p) == "------------------------------------------------\n" {
+	if w.site && !w.hit && string(p) == "------------------------------------------------\n" {
 		// Solve publishes its internal false result immediately before
-		// validation. Earlier search evaluations must not arm this boundary.
+		// validation; the first validation evaluation after it arms this
+		// boundary (earlier search evaluations must not).
 		status, err := w.context.LastResult()
 		fragmentMust(w.native.boundary.t, err)
 		if status == lbool.False {
@@ -88,7 +85,7 @@ func TestSpacerExpressionValidationNativeFailurePreservesTransferredOwner(t *tes
 	}
 	writer := &spacerValidationNativeWriter{
 		native:  ruleUpdateDERCleanupWriter{boundary: ruleUpdateNumeralParserWriter{t: t, runtime: f.runtime}},
-		context: prequery, digits: digits,
+		context: prequery,
 	}
 	tags := diagnostic.NewTraceTagsWithWriter(writer)
 	tags.Enable("model_evaluator")

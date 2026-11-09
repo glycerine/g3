@@ -16,7 +16,9 @@ func (e *PropositionalEngine) advanceRuleRevision() {
 }
 
 func (e *PropositionalEngine) checkPDRSourceRules() error {
-	if e.pdr == nil || e.pdrSourceRules == nil || e.pdrRuleRevision != e.revision {
+	// check_reset runs whenever m_old_rules is nonempty; the context it
+	// resets may be the fresh one updt_params just built.
+	if e.pdrSourceRules == nil {
 		return nil
 	}
 	// Source check_reset compares persistent rules before reaching the fresh

@@ -104,10 +104,16 @@ func (e *PropositionalEngine) SetQueryParameters(params *uparams.ParamsRef) (res
 		return err
 	}
 	// PDR and Spacer updt_params rebuild their contexts so constructor
-	// policy snapshots cannot survive a parameter update.
+	// policy snapshots cannot survive a parameter update. PDR's m_old_rules
+	// belongs to dl_interface, which survives, so check_reset still compares
+	// the next query's rules against it.
+	oldRules := e.pdrSourceRules
+	e.pdrSourceRules = nil
 	if err := e.closePDRForReplacement(); err != nil {
+		e.pdrSourceRules = oldRules
 		return err
 	}
+	e.pdrSourceRules = oldRules
 	if err := e.resetSpacerForParameterUpdate(); err != nil {
 		return err
 	}

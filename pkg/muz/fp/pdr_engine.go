@@ -364,6 +364,13 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
 		}
 	} else {
+		// m_old_rules.replace_rules(new_rules): a snapshot kept across a
+		// context rebuild is replaced here.
+		if e.pdrSourceRules != nil && e.pdrSourceRules != sourceSnapshot {
+			if err = e.pdrSourceRules.Close(); err != nil {
+				return lbool.Undef, errors.Join(err, closeContext())
+			}
+		}
 		e.pdrRules = snapshot
 		e.pdrSourceRules = sourceSnapshot
 	}

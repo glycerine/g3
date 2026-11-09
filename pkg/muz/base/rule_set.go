@@ -27,6 +27,10 @@ type RuleSet struct {
 	rules               []*Rule
 	byHead              map[ast.ASTHandle][]*Rule
 	headOrder           []ast.ASTHandle
+	// headTable is m_head2rules' key layout (obj_map<func_decl, rule_vector*>):
+	// display walks it in table order, and del_rule never removes a key, so
+	// an emptied head still counts as a predicate until the set is reset.
+	headTable *ast.ObjMap
 	groupBuckets        []ruleGroupBucket
 	groupCount          int
 	dependencies        map[ast.ASTHandle][]ast.ASTHandle
@@ -119,6 +123,16 @@ func (s *RuleSet) Add(rule *Rule) error {
 	s.insertGroup(declaration, hash)
 	if len(s.byHead[declaration]) == 0 {
 		s.headOrder = append(s.headOrder, declaration)
+	}
+	if s.headTable == nil {
+		s.headTable = ast.NewObjMap(s.manager.manager)
+	}
+	if found, err := s.headTable.Contains(declaration); err != nil {
+		return err
+	} else if !found {
+		if err = s.headTable.Insert(declaration, [2]ast.ASTHandle{}); err != nil {
+			return err
+		}
 	}
 	s.byHead[declaration] = append(s.byHead[declaration], owned)
 	return nil
@@ -735,6 +749,7 @@ func (s *RuleSet) resetContentsUnchecked() error {
 	s.rules = nil
 	s.byHead = make(map[ast.ASTHandle][]*Rule)
 	s.headOrder = nil
+	s.headTable = nil
 	s.resetGroups()
 	s.dependencies = nil
 	s.strata = nil

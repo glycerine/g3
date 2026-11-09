@@ -80,7 +80,7 @@ func TestPDRTransformedTraceUsesContextPrintProfiles(t *testing.T) {
 					t.Fatal("plain profile", text)
 				}
 			} else {
-				if !strings.Contains(text, "(declare-rel dump-P (Bool))") || !strings.Contains(text, "(query q!") || strings.Contains(text, "set-logic HORN") {
+				if !strings.Contains(text, "(declare-rel dump-P (Bool))") || !strings.Contains(text, "(query dump-goal)") || strings.Contains(text, "set-logic HORN") {
 					t.Fatal("extension profile", text)
 				}
 				declared := strings.Contains(text, "(declare-var A Bool)")
@@ -88,15 +88,20 @@ func TestPDRTransformedTraceUsesContextPrintProfiles(t *testing.T) {
 					t.Fatal("variable declaration switch", text)
 				}
 			}
-			before := e.manager.Stats().LiveReferences
-			output.Reset()
-			status, err = e.QueryPredicate(q)
-			fragmentMust(t, err)
-			if status != lbool.True || output.Len() == 0 {
-				t.Fatal("reused query omitted trace", status)
+			// mk_query registers a fresh query!N per query, so each query
+			// keeps the same number of new owners; tracing adds none.
+			growth := func() int64 {
+				before := e.manager.Stats().LiveReferences
+				output.Reset()
+				status, err := e.QueryPredicate(q)
+				fragmentMust(t, err)
+				if status != lbool.True || output.Len() == 0 {
+					t.Fatal("reused query omitted trace", status)
+				}
+				return int64(e.manager.Stats().LiveReferences) - int64(before)
 			}
-			if e.manager.Stats().LiveReferences != before {
-				t.Fatal("reused trace leaked owners")
+			if first, second := growth(), growth(); first != second {
+				t.Fatal("reused trace leaked owners", first, second)
 			}
 		})
 	}
@@ -120,6 +125,14 @@ func TestPDRTransformedTraceStreamFailureKeepsLaterOperandErrors(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("quiet query", status)
 			}
+			// Owners one more quiet query adds (its registered query!N).
+			quietBefore := e.manager.Stats().LiveReferences
+			status, err = e.QueryPredicate(q)
+			fragmentMust(t, err)
+			if status != lbool.True {
+				t.Fatal("second quiet query", status)
+			}
+			perQuery := int64(e.manager.Stats().LiveReferences) - int64(quietBefore)
 			if mode != "disabled" {
 				tags.Enable("pdr")
 			} else {
@@ -144,8 +157,8 @@ func TestPDRTransformedTraceStreamFailureKeepsLaterOperandErrors(t *testing.T) {
 					t.Fatal("failed trace published a query result")
 				}
 			}
-			if e.manager.Stats().LiveReferences != before {
-				t.Fatal("trace failure lost owners")
+			if delta := int64(e.manager.Stats().LiveReferences) - int64(before); delta != perQuery {
+				t.Fatal("trace failure lost owners", delta, perQuery)
 			}
 			tags.Disable("pdr")
 			status, err = e.QueryPredicate(q)
