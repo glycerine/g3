@@ -761,6 +761,23 @@ Found while matching `-st` output against `build/z3` on
    - AddCover's "sliced predicate columns" refusal is g3's own (z3 checks
      only xform.slice).
 
+22. **OPEN: opt::context::optimize flow (item 12 cluster).** A full sweep
+    puts the earliest remaining trace differences in optimization:
+    unbounded_real/lexicographic_interval (32), weighted_soft (35),
+    strict_lexicographic (37), box (39), pareto (39), bounded_integer
+    (40), lexicographic_integer (49), pareto_soft (30). z3's optimize()
+    always runs normalize(): to_fmls builds mk_objective_fn apps
+    (maximize!!N / minimize!!N / maxsat!!N) over the hard constraints,
+    simplify_fmls runs the simplify/propagate-values/solve-eqs tactic, and
+    from_fmls follows. Then comes the initial check ([begin-check] 0).
+    g3's runNormalizedOptimization only simplifies behind its own
+    useSimplifier gate (skipped for pareto/box/rlimit/timeout) and never
+    builds the objective-function apps. Port opt_context.cpp's optimize /
+    normalize / to_fmls / from_fmls in order. Other early clusters from
+    the sweep: bit-vector optimization (13-14, mk-var vs extract), the
+    horn tactic/solver query rule (31-33: z3 builds (and ...) before
+    query!0), and sat_dimacs/pb2bv string printing (35, 46).
+
 21. **Recorded deviations, kept deliberately.** cmd/g3 tests encode
    these: bvsmul_noovfl numeral folding uses signed semantics (the source
    compares the unsigned product with 2^(sz-1)); nlqsat answers goals the
