@@ -31,8 +31,10 @@ type spacerRuleBuilder struct {
 	theory      *rewriter.TheoryRewriter
 	// ruleTheory is init_rule's local th_rewriter, live for one rule.
 	ruleTheory *rewriter.TheoryRewriter
-	references []ast.ASTRef
-	rules      []*spacerNormalizedRule
+	// systemSlots are the m_transition and m_initial_state expr_refs.
+	systemSlots [2]ast.ASTRef
+	references  []ast.ASTRef
+	rules       []*spacerNormalizedRule
 }
 
 func (b *spacerRuleBuilder) pin(handle ast.ASTHandle) error {
@@ -418,7 +420,23 @@ func (b *spacerRuleBuilder) tag(rule *spacerNormalizedRule, index, count int) er
 	return err
 }
 
-func (b *spacerRuleBuilder) buildSystem() (ast.ASTHandle, ast.ASTHandle, error) {
+// buildSystem is init_rules: its transitions/disjunction vectors are locals
+// released on return; the results go to the m_transition and
+// m_initial_state slots.
+func (b *spacerRuleBuilder) buildSystem() (_ ast.ASTHandle, _ ast.ASTHandle, resultErr error) {
+	var locals []ast.ASTRef
+	defer func() {
+		for i := range locals {
+			resultErr = errors.Join(resultErr, b.transformer.manager.DelRef(&locals[i]))
+		}
+	}()
+	pinLocal := func(h ast.ASTHandle) error {
+		ref, err := b.transformer.manager.NewRef(h)
+		if err == nil {
+			locals = append(locals, ref)
+		}
+		return err
+	}
 	live := make([]*spacerNormalizedRule, 0, len(b.rules))
 	for _, rule := range b.rules {
 		if !b.transformer.manager.IsFalse(rule.transition) {
@@ -458,7 +476,7 @@ func (b *spacerRuleBuilder) buildSystem() (ast.ASTHandle, ast.ASTHandle, error) 
 		if err != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, err
 		}
-		if err = b.pin(implication); err != nil {
+		if err = pinLocal(implication); err != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, err
 		}
 		guarded = append(guarded, implication)
@@ -467,7 +485,7 @@ func (b *spacerRuleBuilder) buildSystem() (ast.ASTHandle, ast.ASTHandle, error) 
 			if err != nil {
 				return ast.ASTHandle{}, ast.ASTHandle{}, err
 			}
-			if err = b.pin(disabled); err != nil {
+			if err = pinLocal(disabled); err != nil {
 				return ast.ASTHandle{}, ast.ASTHandle{}, err
 			}
 			initialConditions = append(initialConditions, disabled)
@@ -482,7 +500,7 @@ func (b *spacerRuleBuilder) buildSystem() (ast.ASTHandle, ast.ASTHandle, error) 
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
-	if err = b.pin(selected); err != nil {
+	if err = pinLocal(selected); err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
 	guarded = append(guarded, selected)
@@ -496,6 +514,7 @@ func (b *spacerRuleBuilder) buildSystem() (ast.ASTHandle, ast.ASTHandle, error) 
 			return ast.ASTHandle{}, ast.ASTHandle{}, err
 		}
 		b.references = append(b.references, ref)
+		b.systemSlots[index] = ref
 		if err = boolean.MkAnd(args, ref); err != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, err
 		}
@@ -574,13 +593,24 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 	}
 	// init_rules builds guarded implications using Boolean conjunction only;
 	// pred_transformer::initialize then theory-rewrites both completed formulas.
+	// initialize: rw(m_transition); rw(m_initial_state) replace the slots.
 	transition, err = builder.rewrite(transition)
 	if err != nil {
 		return err
 	}
+	if builder.systemSlots[0] != (ast.ASTRef{}) {
+		if err = p.manager.SetRef(builder.systemSlots[0], transition); err != nil {
+			return err
+		}
+	}
 	initial, err = builder.rewrite(initial)
 	if err != nil {
 		return err
+	}
+	if builder.systemSlots[1] != (ast.ASTRef{}) {
+		if err = p.manager.SetRef(builder.systemSlots[1], initial); err != nil {
+			return err
+		}
 	}
 	if err = p.InitializeSystem(initial, transition); err != nil {
 		return fmt.Errorf("initialize Spacer system: %w", err)
