@@ -567,8 +567,15 @@ Found while matching `-st` output against `build/z3` on
    - DONE: m_inlined_rules, m_pinned and the plugin teardown now follow
      the source lifetimes. The old closeRuleBuckets ranged over a Go map
      (nondeterministic).
-   - fixedpoint_pdr_variable_trace now first differs inside the PDR
-     context: z3 builds `(or #2 #1)` after #context1.
+   - DONE: pred_transformer::init_rule's per-rule `init = mk_or(init,
+     fml)`, and initialize's rewrite order (transition first).
+   - NEXT (fixedpoint_pdr_variable_trace): ids drift from the inliner
+     teardown. z3's m_inlined_rules = [P(0,1), Q(1,1), R(2), Goal()]. Each
+     rule frees its accounting-parent chain, i.e. the resolvents before
+     interp-tail simplification. z3 frees Q's chain first (#57 Q(1,1),
+     #58, #56); g3 frees an R-chain node (#61) first. Compare the parent
+     chains that expandDefinition/resolve/normalizeResolvedRule build with
+     try_to_inline_rule (apply, fix_unbound_vars, transform_rule).
    - After an expression query, z3's rel_query concatenates the older m_mc
      chain; g3 applies only the current conversions.
    - Fresh-name counter: the second sliced query names P!slice!30 in z3,
