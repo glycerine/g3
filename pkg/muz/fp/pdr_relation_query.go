@@ -213,9 +213,31 @@ func (e *PropositionalEngine) addQueryRuleNow(formula ast.ASTHandle) (resultErr 
 	if err != nil {
 		return err
 	}
+	// mk_query: under scoped_proof_mode, pr = m.mk_asserted(rule_expr) when
+	// proofs are traced, then mk_rule(rule_expr, pr, rules).
+	generateProof, err := e.sourceRuleProofTrace()
+	if err != nil {
+		return err
+	}
+	var proof ast.ASTHandle
+	if generateProof {
+		scope, err := ast.NewScopedProof(e.manager)
+		if err != nil {
+			return err
+		}
+		proof, err = e.manager.MkProofAsserted(boundFormula)
+		if err != nil {
+			return errors.Join(err, scope.Close())
+		}
+		proofRef, err := e.manager.NewRef(proof)
+		if err = errors.Join(err, scope.Close()); err != nil {
+			return err
+		}
+		defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&proofRef)) }()
+	}
 	// The rule is removed again after the query (replace_rules(old_rules)),
 	// so the persistent program revision is unchanged.
-	return e.addFormula(e.set, boundFormula, symbol.Symbol{})
+	return e.addFormulaWithProof(e.set, boundFormula, proof, symbol.Symbol{})
 }
 
 // lastRuleWithHead returns the set's final rule, which must have the given
