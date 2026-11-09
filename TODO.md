@@ -795,6 +795,15 @@ Found while matching `-st` output against `build/z3` on
     moving the early trace lines (the init_solver order still differs).
     It was reverted. Do (1) through (3) together, and check which
     optimization outputs depend on the extra search state.
+    Second try: CheckHard() in checkOptimizeLex after the hard
+    assertions, before the objectives (z3's order). The "AST source
+    precondition" errors are gone, and only bit_vector_optimization
+    changes. But that exposes a LATENT MaxSMT BUG: for maximize x with
+    (bvule x #x9), the model is x=9 (cost 6 over the 8/4/2/1 bit soft
+    terms), while the engine reports cost 8 (objective 7) as optimal.
+    The reported soft cost disagrees with the final model, so investigate
+    the maxres/bit-vector objective bound bookkeeping (addBitVectorObjective,
+    optimizeSoft, finalizeSoftBounds) before landing the initial check.
     g3's runNormalizedOptimization only simplifies behind its own
     useSimplifier gate (skipped for pareto/box/rlimit/timeout) and never
     builds the objective-function apps. Port opt_context.cpp's optimize /
