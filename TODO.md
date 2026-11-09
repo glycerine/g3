@@ -587,11 +587,33 @@ Found while matching `-st` output against `build/z3` on
      - DONE: spacer init_rules locals; initialize's rw replaces the
        transition/initial slots; frames start empty; mk_pob normalizes
        twice; mk_extend_lit; virtual_solver ctor.
-     - fixedpoint_spacer_core line 162: the second query's :print-answer
-       option runs dl_interface::updt_params, which destroys the spacer
-       context. Each ~virtual_solver's (not pred) assert goes through the
-       proof-mode asserted_formulas rewriter, and z3 shows two iff/refl
-       pairs where g3 shows one.
+     - DONE (cfb8bddbe, 649589c5f): fixedpoint_spacer_core line 162. The
+       factories own their virtual solvers (three per transformer, torn
+       down per factory); ~itp_solver does not pop; a rule-less output gets
+       no transformer; set_query only records; pop_to_base_lvl drops the
+       literal snapshot; pop_scope_core releases justifications after the
+       trail and the theories. Now line 168: only the AST id differs (#47
+       vs #32), from the smt::context destructor's release order.
+     - DONE (6f05521e5): mk_subsumption_checker port (plugin-lifetime
+       m_total_relations and m_ref_holder, rule_subsumption_index, one
+       extension mc per transform_rules pass). fp_spacer_magic first diff
+       moved 39 -> 154.
+       DEVIATION: transform_rule's fix_unbound_vars(res, true) is left out.
+       Its qe_lite reduction (correct, the same as z3's) removes the
+       quantified-array bridge that duality's witness reconstruction needs
+       (TestDualityQuantifiedArrayProofReconstructsBridgePremise; the proof
+       checker rejects a unit-resolution step). Fix duality's
+       reconstruction, then restore the call.
+     - OPEN (user decision): rule_transformer plugin order. The ported
+       libstdc++ std::sort does match z3: fixedpoint_pdr_bit_blast matches
+       to line 61 with it and to line 44 with Go's sort.SliceStable.
+       It is the only vector of 660 whose trace differs between the two;
+       stdout and stats are the same. Waiting on whether an STL exception
+       is approved.
+     - OPEN: fp_spacer_generalizers_inv is nondeterministic. The same
+       binary gives different traces across runs (1 of 4).
+     - DONE (3228654b5): mk_loop_counter makes its 0/1 numerals per rule;
+       fp_spacer_karr is identical.
      - DONE (arithmetic group): the pve le/ge difference terms, and
        itail/simp_res lifetimes. pdr_nonlinear_trace and model_generalizer
        logs are identical; the convex/multicore/utvpi first differences
