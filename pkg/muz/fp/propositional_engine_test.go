@@ -367,6 +367,7 @@ func TestSpacerEngineRunsReachableAndInductiveHornQueries(t *testing.T) {
 	fpMust(t, err)
 	t.Cleanup(func() { fpMust(t, engine.Close()) })
 	fpMust(t, engine.SelectEngine("spacer"))
+	fp.InstallContextModelConverter(engine) // a prior context::query installed m_mc
 	boolean, err := manager.MkBoolSort()
 	fpMust(t, err)
 	declarations := make(map[string]ast.ASTHandle)
@@ -488,6 +489,7 @@ func TestSpacerEngineUndefinedAnswerAndGroundAvailability(t *testing.T) {
 	fpMust(t, err)
 	t.Cleanup(func() { fpMust(t, engine.Close()) })
 	fpMust(t, engine.SelectEngine("spacer"))
+	fp.InstallContextModelConverter(engine) // a prior context::query installed m_mc
 	boolean, err := manager.MkBoolSort()
 	fpMust(t, err)
 	name, err := manager.Symbols.Intern("spacer-engine-undefined")
@@ -533,7 +535,7 @@ func TestSpacerEngineUndefinedAnswerAndGroundAvailability(t *testing.T) {
 	}
 }
 
-func TestSpacerEngineExpandsSlicedReachableColumns(t *testing.T) {
+func TestSpacerEngineReachableRefusesSlicing(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
 	fpMust(t, err)
 	t.Cleanup(func() { fpMust(t, context.Close()) })
@@ -545,6 +547,7 @@ func TestSpacerEngineExpandsSlicedReachableColumns(t *testing.T) {
 	fpMust(t, err)
 	t.Cleanup(func() { fpMust(t, engine.Close()) })
 	fpMust(t, engine.SelectEngine("spacer"))
+	fp.InstallContextModelConverter(engine) // a prior context::query installed m_mc
 	boolean, err := manager.MkBoolSort()
 	fpMust(t, err)
 	arithmetic, err := manager.ArithmeticFamilyID()
@@ -574,20 +577,13 @@ func TestSpacerEngineExpandsSlicedReachableColumns(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal("Spacer sliced query", status)
 	}
-	answer, err := engine.Reachable(predicate)
-	fpMust(t, err)
-	t.Cleanup(func() { fpMust(t, manager.DelRef(&answer)) })
-	formula, err := manager.RefGet(answer)
-	fpMust(t, err)
-	used, err := ast.NewASTUsedVars(manager)
-	fpMust(t, err)
-	fpMust(t, used.Process(formula))
-	if used.Contains(0) != (ast.ASTHandle{}) || used.Contains(1) == (ast.ASTHandle{}) {
-		t.Fatalf("Spacer reachable formula did not restore the original second-column variable: max=%d v0=%v v1=%v formula=%v", used.MaxFoundVarIndexPlusOne(), used.Contains(0), used.Contains(1), formula)
+	// dl_interface::get_reachable refuses slicing, which is on by default.
+	if _, err := engine.Reachable(predicate); err == nil || !strings.Contains(err.Error(), "Invariants are incompatible with slicing") {
+		t.Fatal("Spacer reachable did not refuse slicing", err)
 	}
 }
 
-func TestSpacerEngineReconstructsInlinedReachablePredicate(t *testing.T) {
+func TestSpacerEngineReachableInlinedPredicateIsFalse(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
 	fpMust(t, err)
 	t.Cleanup(func() { fpMust(t, context.Close()) })
@@ -595,10 +591,12 @@ func TestSpacerEngineReconstructsInlinedReachablePredicate(t *testing.T) {
 	fpMust(t, err)
 	globals, err := context.GlobalParameters()
 	fpMust(t, err)
+	fpMust(t, globals.SourceSetName("fixedpoint.xform.slice", "false"))
 	engine, err := fp.NewPropositionalEngineWithServices(manager, globals.Context, globals)
 	fpMust(t, err)
 	t.Cleanup(func() { fpMust(t, engine.Close()) })
 	fpMust(t, engine.SelectEngine("spacer"))
+	fp.InstallContextModelConverter(engine) // a prior context::query installed m_mc
 	boolean, err := manager.MkBoolSort()
 	fpMust(t, err)
 	arithmetic, err := manager.ArithmeticFamilyID()
@@ -644,11 +642,9 @@ func TestSpacerEngineReconstructsInlinedReachablePredicate(t *testing.T) {
 	t.Cleanup(func() { fpMust(t, manager.DelRef(&reachable)) })
 	formula, err := manager.RefGet(reachable)
 	fpMust(t, err)
-	used, err := ast.NewASTUsedVars(manager)
-	fpMust(t, err)
-	fpMust(t, used.Process(formula))
-	if used.Contains(0) != (ast.ASTHandle{}) || used.Contains(1) == (ast.ASTHandle{}) {
-		t.Fatalf("Spacer reachable conversion did not reconstruct the inlined predicate: max=%d v0=%v v1=%v formula=%v", used.MaxFoundVarIndexPlusOne(), used.Contains(0), used.Contains(1), formula)
+	// context::get_reachable: P was inlined away, so it has no transformer.
+	if !manager.IsFalse(formula) {
+		t.Fatal("Spacer reachable for an inlined predicate is not false", formula)
 	}
 }
 
@@ -664,6 +660,7 @@ func TestSpacerEngineExpandsSlicedModelPredicates(t *testing.T) {
 	fpMust(t, err)
 	t.Cleanup(func() { fpMust(t, engine.Close()) })
 	fpMust(t, engine.SelectEngine("spacer"))
+	fp.InstallContextModelConverter(engine) // a prior context::query installed m_mc
 	boolean, err := manager.MkBoolSort()
 	fpMust(t, err)
 	arithmetic, err := manager.ArithmeticFamilyID()
@@ -1047,6 +1044,7 @@ func TestPDRAndSpacerRejectNegativePredicates(t *testing.T) {
 			fpMust(t, err)
 			t.Cleanup(func() { fpMust(t, engine.Close()) })
 			fpMust(t, engine.SelectEngine(backend))
+			fp.InstallContextModelConverter(engine) // a prior context::query installed m_mc
 			boolean, err := manager.MkBoolSort()
 			fpMust(t, err)
 			applications := make(map[string]ast.ASTHandle)
@@ -1089,6 +1087,7 @@ func TestPDRAndSpacerRejectPartialDatatypeAccessors(t *testing.T) {
 			fpMust(t, err)
 			t.Cleanup(func() { fpMust(t, engine.Close()) })
 			fpMust(t, engine.SelectEngine(backend))
+			fp.InstallContextModelConverter(engine) // a prior context::query installed m_mc
 			boolean, err := manager.MkBoolSort()
 			fpMust(t, err)
 			name := func(suffix string) usymbol.Symbol {

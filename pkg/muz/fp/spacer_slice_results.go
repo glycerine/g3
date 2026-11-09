@@ -302,6 +302,11 @@ func (e *PropositionalEngine) expandSpacerFunction(destination *model.ModelCore,
 }
 
 func (e *PropositionalEngine) expandSpacerModel(source *model.Model) (_ *model.Model, resultErr error) {
+	// A relation query without a context model converter: inductive_property
+	// applies a null m_mc.
+	if e.spacerNullModelConverter {
+		return source, nil
+	}
 	conversions := e.spacerConversions
 	if len(conversions) == 0 {
 		if len(e.spacerQuantified) != 0 {

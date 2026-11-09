@@ -31,6 +31,7 @@ func TestSpacerQueryDisplaysEmptyProgramModelAtSourceVerbosity(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/%d", test.name, level), func(t *testing.T) {
 				f := newPDRLifecycleFixture(t)
 				fragmentMust(t, f.engine.SelectEngine("spacer"))
+				InstallContextModelConverter(f.engine) // a prior context::query installed m_mc
 				oldLevel, err := diagnostic.ProcessVerbosityLevel()
 				fragmentMust(t, err)
 				oldStream, err := diagnostic.BorrowProcessVerboseStream()

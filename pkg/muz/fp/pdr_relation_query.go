@@ -32,7 +32,13 @@ func (e *PropositionalEngine) queryPDRRelation(declaration ast.ASTHandle) (statu
 // querySpacerRelation is (query R) under Spacer: spacer's dl_interface::query
 // runs the same mk_query and restores the old rules.
 func (e *PropositionalEngine) querySpacerRelation(declaration ast.ASTHandle) (lbool.LBool, error) {
-	return e.queryRelationMkQuery(declaration, e.querySpacer)
+	// rel_query leaves m_mc null: the transformations record no converters.
+	e.spacerNullModelConverter = !e.contextModelConverter
+	return e.queryRelationMkQuery(declaration, func(head ast.ASTHandle) (lbool.LBool, error) {
+		e.preprocessNullModelConverter = !e.contextModelConverter
+		defer func() { e.preprocessNullModelConverter = false }()
+		return e.querySpacer(head)
+	})
 }
 
 // queryRelationMkQuery is engine_base::query(num_rels, rels) followed by the

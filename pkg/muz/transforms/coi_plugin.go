@@ -12,8 +12,11 @@ type ConePlugin struct {
 	priority  uint32
 	steps     []ConeModelStep
 	relations *rel.RelationManager
-	closed    bool
-	closing   bool
+	// noModelConverter mirrors a null m_context.get_model_converter(): the
+	// extension_model_converter steps are not built.
+	noModelConverter bool
+	closed           bool
+	closing          bool
 }
 
 func NewConePlugin(priority uint32) *ConePlugin {
@@ -31,13 +34,16 @@ func NewConePluginWithRelations(relations *rel.RelationManager, priority uint32)
 
 func (p *ConePlugin) Priority() uint32 { return p.priority }
 
+// SetModelConverter reports whether the context has a model converter.
+func (p *ConePlugin) SetModelConverter(enabled bool) { p.noModelConverter = !enabled }
+
 func (p *ConePlugin) CanDestratifyNegation() bool { return false }
 
 func (p *ConePlugin) Transform(source *base.RuleSet) (*base.RuleSet, error) {
 	if p == nil || p.closed || p.closing {
 		return nil, base.ErrRuleTransformerOwner
 	}
-	result, steps, err := coneOfInfluence(source, true, p.relations)
+	result, steps, err := coneOfInfluence(source, !p.noModelConverter, p.relations)
 	if err != nil {
 		return nil, err
 	}

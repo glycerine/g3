@@ -70,6 +70,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	}
 	transformer := base.NewRuleTransformer()
 	initialCone := transforms.NewConePluginWithRelations(e.relations, 0)
+	initialCone.SetModelConverter(!e.preprocessNullModelConverter)
 	if err = transformer.Register(initialCone); err != nil {
 		return nil, errors.Join(err, initialCone.Close(), transformer.Close())
 	}
@@ -248,6 +249,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	var bitBlaster *transforms.BitBlastPlugin
 	var bitBlastedPredicates map[ast.ASTHandle]ast.ASTHandle
 	laterCone := transforms.NewConePluginWithRelations(e.relations, 34990)
+	laterCone.SetModelConverter(!e.preprocessNullModelConverter)
 	if err = transformer.Register(laterCone); err != nil {
 		return nil, errors.Join(err, laterCone.Close(), transformer.Close())
 	}
@@ -268,6 +270,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		return nil, errors.Join(err, transformer.Close())
 	}
 	finalCone := transforms.NewConePluginWithRelations(e.relations, 34960)
+	finalCone.SetModelConverter(!e.preprocessNullModelConverter)
 	if err = transformer.Register(finalCone); err != nil {
 		return nil, errors.Join(err, finalCone.Close(), transformer.Close())
 	}

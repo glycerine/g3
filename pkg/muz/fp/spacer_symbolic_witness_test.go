@@ -33,6 +33,7 @@ func TestSpacerSymbolicNonlinearWitnessOriginalClauses(t *testing.T) {
 			fragmentMust(t, err)
 			defer func() { fragmentMust(t, e.Close()) }()
 			fragmentMust(t, e.SelectEngine("spacer"))
+			InstallContextModelConverter(e) // a prior context::query installed m_mc
 			var pins []ast.ASTRef
 			defer func() {
 				for i := len(pins) - 1; i >= 0; i-- {

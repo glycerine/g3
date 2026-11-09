@@ -647,16 +647,36 @@ func (e *PropositionalEngine) Reachable(declaration ast.ASTHandle) (ast.ASTRef, 
 	if err := e.requireResultSnapshot(EngineSpacer); err != nil {
 		return ast.ASTRef{}, err
 	}
+	// dl_interface::get_reachable refuses slicing outright.
+	parameters, err := e.fixedpointParamView()
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	slicing, err := parameters.Bool("xform.slice", true)
+	err = errors.Join(err, parameters.Close())
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	if slicing {
+		return ast.ASTRef{}, fmt.Errorf("Invariants are incompatible with slicing. Disable slicing before using invariants")
+	}
 	derived := e.spacerPredicate(declaration)
 	_, found, err := e.spacer.Transformer(derived)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	result, err := e.spacer.Reachable(derived)
-	if err != nil {
-		return ast.ASTRef{}, err
+	if !found {
+		// context::get_reachable: a predicate without a transformer (for
+		// example one inlined away) is unreachable, false.
+		falsity, err := e.manager.MkFalse()
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		return e.manager.NewRef(falsity)
 	}
-	return e.expandHornCover(declaration, derived, result, found, e.spacerConversions)
+	// pred_transformer::get_reachable: the raw reach facts, no model
+	// conversion.
+	return e.spacer.Reachable(derived)
 }
 
 // GroundSatAnswer returns the latest successful Spacer reach-fact answer.

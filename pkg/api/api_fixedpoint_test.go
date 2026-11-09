@@ -546,38 +546,10 @@ func TestSMTContextFixedpointSpacerInductiveExports(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal("Spacer public fact query", status)
 	}
-	reachable, err := context.FixedpointReachable(p)
-	astTestMust(t, err)
-	reachableHandle, err := manager.RefGet(reachable)
-	astTestMust(t, err)
-	parts, err := manager.FlattenAnd([]ast.ASTHandle{reachableHandle})
-	astTestMust(t, err)
-	foundVariable := false
-	for _, part := range parts {
-		kind, x := manager.GetKind(part)
-		astTestMust(t, x)
-		if kind != ast.ASTApp {
-			continue
-		}
-		operation, x := manager.GetDeclKind(part)
-		astTestMust(t, x)
-		if operation != ast.ASTOpEq {
-			continue
-		}
-		for index := uint32(0); index < 2; index++ {
-			argument, x := manager.GetArg(part, index)
-			astTestMust(t, x)
-			argumentKind, x := manager.GetKind(argument)
-			astTestMust(t, x)
-			foundVariable = foundVariable || argumentKind == ast.ASTVar
-		}
+	// dl_interface::get_reachable refuses slicing, which is on by default.
+	if _, err := context.FixedpointReachable(p); err == nil || !strings.Contains(err.Error(), "Invariants are incompatible with slicing") {
+		t.Fatal("Spacer reachable did not refuse slicing", err)
 	}
-	if !foundVariable {
-		var text strings.Builder
-		astTestMust(t, context.command.WriteExpression(&text, reachableHandle))
-		t.Fatal("Spacer reachable summary did not export a column variable", text.String())
-	}
-	astTestMust(t, manager.DelRef(&reachable))
 	ground, err := context.FixedpointGroundSatAnswer(p)
 	astTestMust(t, err)
 	groundHandle, err := manager.RefGet(ground)

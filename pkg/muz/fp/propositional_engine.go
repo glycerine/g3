@@ -95,6 +95,8 @@ type PropositionalEngine struct {
 	// recorded no model converters.
 	contextModelConverter bool
 	pdrNullModelConverter bool
+	// spacerNullModelConverter is the same for the latest Spacer query.
+	spacerNullModelConverter bool
 	// preprocessNullModelConverter holds during such a query's Horn
 	// preprocessing, whose transforms then record no model converters.
 	preprocessNullModelConverter bool
@@ -2360,6 +2362,7 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 		if !e.auxiliary[declaration] {
 			return e.querySpacerRelation(declaration)
 		}
+		e.spacerNullModelConverter = false
 		return e.querySpacer(declaration)
 	}
 	if e.backend == "ddnf" {

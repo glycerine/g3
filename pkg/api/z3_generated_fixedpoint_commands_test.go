@@ -235,7 +235,11 @@ func TestGeneratedFixedpointReplaySpacerReachable(t *testing.T) {
 		if e != nil {
 			return e
 		}
-		return f.owner.context.SetFixedpointEngine("spacer")
+		if e := f.owner.context.SetFixedpointEngine("spacer"); e != nil {
+			return e
+		}
+		// dl_interface::get_reachable refuses slicing.
+		return f.owner.context.SetFixedpointBool(FixedpointTransformSlice, false)
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -249,8 +253,10 @@ func TestGeneratedFixedpointReplaySpacerReachable(t *testing.T) {
 		if e != nil {
 			return e
 		}
-		if !owner.results.manager.IsTrue(value.handle) {
-			t.Fatal("reachable nullary fact should be true")
+		// context::get_reachable: the nullary fact was inlined into the
+		// query!0 rule, so it has no transformer and reports false.
+		if !owner.results.manager.IsFalse(value.handle) {
+			t.Fatal("reachable inlined nullary fact should be false")
 		}
 		trace, e := replayVectorAt(r, owner, 2)
 		if e != nil {
