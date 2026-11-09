@@ -269,9 +269,9 @@ func TestSMTModelFinderForcedFullMacrosRejectDependencyCycle(t *testing.T) {
 	if finder.chosen[first] != f || !finder.chosen[second].IsNull() {
 		t.Fatal("forced full macro cycle selection", finder.chosen)
 	}
-	if dependencies := finder.dependencies.GetDependencies(f); len(dependencies) != 1 {
+	if dependencies := finder.dependencies.GetDependencies(f); dependencies.Len() != 1 {
 		t.Fatal("full macro dependencies", dependencies)
-	} else if _, found := dependencies[g]; !found {
+	} else if !dependencies.Contains(g) {
 		t.Fatal("full macro omitted dependency", dependencies)
 	}
 	if finder.dependencies.Contains(g) {

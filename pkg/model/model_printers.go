@@ -309,7 +309,7 @@ func (md *ModelCore) sortedFunctions() ([]ast.ASTHandle, error) {
 			}
 			added := false
 			if !fi.fallback.IsNull() {
-				deps := make(ast.FuncDeclSet)
+				deps := ast.NewFuncDeclSet(md.manager)
 				if err = md.manager.CollectFuncDecls(fi.fallback, deps, false); err != nil {
 					return nil, err
 				}
@@ -317,7 +317,7 @@ func (md *ModelCore) sortedFunctions() ([]ast.ASTHandle, error) {
 				// declarations in registration order while preserving the source
 				// dependency-before-dependent postorder.
 				for _, candidate := range md.functionDeclarations {
-					if _, found := deps[candidate]; found && !visited[candidate] {
+					if deps.Contains(candidate) && !visited[candidate] {
 						visited[candidate] = true
 						stack = append(stack, candidate)
 						added = true

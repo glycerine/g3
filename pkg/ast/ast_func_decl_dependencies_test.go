@@ -27,20 +27,20 @@ func TestASTCollectFuncDeclsConcreteTraversalAndNonGroundFilter(t *testing.T) {
 	astTestMust(t, e)
 	astTestPin(t, m, root)
 
-	all := make(FuncDeclSet)
+	all := NewFuncDeclSet(m)
 	astTestMust(t, m.CollectFuncDecls(root, all, false))
-	if _, ok := all[f]; !ok {
+	if !all.Contains(f) {
 		t.Fatal("ground uninterpreted application declaration missing")
 	}
-	if _, ok := all[g]; !ok || len(all) != 2 {
+	if !all.Contains(g) || all.Len() != 2 {
 		t.Fatal("non-ground declaration collection", all)
 	}
-	nonGround := make(FuncDeclSet)
+	nonGround := NewFuncDeclSet(m)
 	astTestMust(t, m.CollectFuncDecls(root, nonGround, true))
-	if _, ok := nonGround[f]; ok {
+	if nonGround.Contains(f) {
 		t.Fatal("ground application survived non-ground filter")
 	}
-	if _, ok := nonGround[g]; !ok || len(nonGround) != 1 {
+	if !nonGround.Contains(g) || nonGround.Len() != 1 {
 		t.Fatal("non-ground application declaration missing", nonGround)
 	}
 }
@@ -60,30 +60,37 @@ func TestASTFuncDeclDependenciesCyclesOwnershipAndErase(t *testing.T) {
 	astTestMust(t, e)
 	t.Cleanup(func() { astTestMust(t, d.Close()) })
 	refs := func(h ASTHandle) uint32 { n, err := m.GetRefCount(h); astTestMust(t, err); return n }
+	set := func(hs ...ASTHandle) *FuncDeclSet {
+		s := NewFuncDeclSet(m)
+		for _, h := range hs {
+			astTestMust(t, s.Insert(h))
+		}
+		return s
+	}
 	baseA, baseB, baseC := refs(a), refs(bDecl), refs(c)
-	ok, e := d.Insert(a, FuncDeclSet{bDecl: {}})
+	ok, e := d.Insert(a, set(bDecl))
 	astTestMust(t, e)
 	if !ok || refs(a) != baseA+1 || refs(bDecl) != baseB+1 {
 		t.Fatal("first dependency ownership")
 	}
-	ok, e = d.Insert(bDecl, FuncDeclSet{c: {}})
+	ok, e = d.Insert(bDecl, set(c))
 	astTestMust(t, e)
 	if !ok || refs(bDecl) != baseB+2 || refs(c) != baseC+1 {
 		t.Fatal("second dependency ownership")
 	}
-	ok, e = d.Insert(c, FuncDeclSet{a: {}})
+	ok, e = d.Insert(c, set(a))
 	astTestMust(t, e)
 	if ok || d.Contains(c) || refs(c) != baseC+1 || refs(a) != baseA+1 {
 		t.Fatal("cycle insertion must be rejected without pins")
 	}
-	ok, e = d.Insert(a, FuncDeclSet{})
+	ok, e = d.Insert(a, set())
 	astTestMust(t, e)
 	if ok {
 		t.Fatal("duplicate insertion accepted")
 	}
 	deps := d.GetDependencies(a)
-	delete(deps, bDecl)
-	if len(d.GetDependencies(a)) != 1 {
+	astTestMust(t, deps.table.Erase(bDecl))
+	if d.GetDependencies(a).Len() != 1 {
 		t.Fatal("dependency result exposed manager storage")
 	}
 	astTestMust(t, d.Erase(a))

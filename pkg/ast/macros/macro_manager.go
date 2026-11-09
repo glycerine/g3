@@ -267,7 +267,7 @@ func (m *Manager) Insert(declaration, quantifier, proof ast.ASTHandle, dependenc
 	if err != nil {
 		return false, err
 	}
-	set := make(ast.FuncDeclSet)
+	set := ast.NewFuncDeclSet(m.manager)
 	if err = m.dependencies.Collect(definition, set); err != nil {
 		return false, err
 	}

@@ -423,7 +423,7 @@ type smtModelFinderFullMacro struct {
 }
 
 func (f *SMTModelFinder) addNonAUFMacro(proto *protomodel.ProtoModel, candidate macros.Candidate) (bool, error) {
-	dependencies := make(ast.FuncDeclSet)
+	dependencies := ast.NewFuncDeclSet(f.manager)
 	if err := f.dependencies.CollectNonGround(candidate.Definition, dependencies); err != nil {
 		return false, err
 	}
