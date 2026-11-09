@@ -610,12 +610,12 @@ Found while matching `-st` output against `build/z3` on
        m_total_relations and m_ref_holder, rule_subsumption_index, one
        extension mc per transform_rules pass). fp_spacer_magic first diff
        moved 39 -> 154.
-       DEVIATION: transform_rule's fix_unbound_vars(res, true) is left out.
-       Its qe_lite reduction (correct, the same as z3's) removes the
-       quantified-array bridge that duality's witness reconstruction needs
-       (TestDualityQuantifiedArrayProofReconstructsBridgePremise; the proof
-       checker rejects a unit-resolution step). Fix duality's
-       reconstruction, then restore the call.
+       RESOLVED (9f66116f8): fix_unbound_vars(res, true) is restored. The
+       duality "bridge" test was asserting more than z3 can do. In z3,
+       duality's m_ctx.get_rules() runs check_rules on the transformed
+       set, so quantify_arrays programs are rejected ("recursive predicate
+       ... occurs nested in the body of a rule", then unknown; z3 segfaults
+       on any later query). g3 now does the same.
      - OPEN (user decision): rule_transformer plugin order. The ported
        libstdc++ std::sort does match z3: fixedpoint_pdr_bit_blast matches
        to line 61 with it and to line 44 with Go's sort.SliceStable.
