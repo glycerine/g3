@@ -12,6 +12,10 @@ const (
 	macroArithAdd int32 = 6
 	macroArithSub int32 = 7
 	macroArithMul int32 = 9
+	// INT_SORT in arith_sort_kind; OP_BADD and OP_BMUL in bv_op_kind.
+	macroArithIntSort int32 = 1
+	macroBVAdd        int32 = 4
+	macroBVMul        int32 = 6
 )
 
 func (u *Util) IsBitVector(term ast.ASTHandle) (bool, error) {
@@ -118,19 +122,73 @@ func (u *Util) MkZero(sort ast.ASTHandle) (ast.ASTHandle, error) {
 	return u.manager.MkDatalogNumeral(0, sort)
 }
 
+// MkSub is macro_util::mk_sub: m_bv_rw.mk_sub or m_arith_rw.mk_sub, i.e.
+// poly_rewriter::mk_sub(2, {t1, t2}): mk_add_app(t1, mk_mul_app(-1, t2)),
+// dropping a zero subtrahend. Default parameters give a raw multiplication.
 func (u *Util) MkSub(left, right ast.ASTHandle) (ast.ASTHandle, error) {
-	bv, err := u.manager.IsBitVector(left)
+	m := u.manager
+	sort, err := m.GetSort(left)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	bv, err := u.IsBitVectorSort(sort)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	var family ast.FamilyID
+	var minusOne ast.ASTHandle
+	addKind, mulKind := macroArithAdd, macroArithMul
 	if bv {
-		return u.manager.MkBitVectorSub(left, right)
+		width, e := m.BitVectorSize(left)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if minusOne, e = m.BitVectorNumeralAllOnes(width); e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if family, e = m.GetFamilyID(sort); e != nil {
+			return ast.ASTHandle{}, e
+		}
+		addKind, mulKind = macroBVAdd, macroBVMul
+	} else {
+		if family, err = m.ArithmeticFamilyID(); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		kind, e := m.GetDeclKind(sort)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if kind == macroArithIntSort {
+			minusOne, err = m.ArithmeticIntegerNumeralText("-1")
+		} else {
+			minusOne, err = m.ArithmeticRealNumeralText("-1")
+		}
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
 	}
-	family, err := u.manager.ArithmeticFamilyID()
+	// expr_ref minus_one keeps the numeral alive while the terms are built.
+	minusRef, err := m.NewRef(minusOne)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return u.manager.MkFamilyApp(family, macroArithSub, nil, []ast.ASTHandle{left, right})
+	defer func() { _ = m.DelRef(&minusRef) }()
+	args := []ast.ASTHandle{left}
+	zero, err := u.IsZero(right)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !zero {
+		product, e := m.MkFamilyApp(family, mulKind, nil, []ast.ASTHandle{minusOne, right})
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		args = append(args, product)
+	}
+	if len(args) == 1 {
+		return args[0], nil
+	}
+	return m.MkFamilyApp(family, addKind, nil, args)
 }
 
 func (u *Util) MkAdd(left, right ast.ASTHandle) (ast.ASTHandle, error) {
@@ -382,10 +440,23 @@ func (u *Util) IsArithmeticMacro(term ast.ASTHandle, declarations uint32) (head,
 	if err != nil {
 		return head, definition, false, false, err
 	}
-	restTerm, err := u.mkAdd(rest, sort)
+	// tmp = m_arith.mk_add(args.size(), args): the raw application, unary
+	// for a single argument.
+	family, err = u.manager.ArithmeticFamilyID()
 	if err != nil {
 		return head, definition, false, false, err
 	}
+	var restTerm ast.ASTHandle
+	if len(rest) == 0 {
+		// The plugin rejects a nullary add; use the sort's zero.
+		restTerm, err = u.mkAdd(rest, sort)
+	} else {
+		restTerm, err = u.manager.MkFamilyApp(family, macroArithAdd, nil, rest)
+	}
+	if err != nil {
+		return head, definition, false, false, err
+	}
+	// def always contains tmp (or is tmp), so tmp needs no separate hold.
 	if inverse {
 		definition, err = u.MkSub(restTerm, rhs)
 	} else {

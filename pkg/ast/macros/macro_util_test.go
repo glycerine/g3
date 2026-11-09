@@ -462,13 +462,19 @@ func TestMacroUtilArithmeticCandidatesAndPseudoPredicates(t *testing.T) {
 	if family, e := m.GetFamilyID(row.Definition); e != nil || family != arithmetic {
 		t.Fatal("arithmetic definition family", family, e)
 	}
-	if op, e := m.GetDeclKind(row.Definition); e != nil || op != 7 {
+	// arith_rewriter::mk_sub(rhs, rest) is (+ rhs (* -1 rest)).
+	if op, e := m.GetDeclKind(row.Definition); e != nil || op != 6 {
 		t.Fatal("arithmetic definition operation", op, e)
 	}
+	// is_arith_macro sums the rest with the raw m_arith.mk_add, a unary
+	// (+ 2) here, so its definition differs from the candidate's.
 	legacyHead, legacyDefinition, inverse, yes, err := u.IsArithmeticMacro(equality, 1)
 	must(t, err)
-	if !yes || inverse || legacyHead != head || legacyDefinition != row.Definition {
+	if !yes || inverse || legacyHead != head || legacyDefinition.IsNull() {
 		t.Fatal("legacy arithmetic macro", yes, inverse, legacyHead, legacyDefinition)
+	}
+	if op, e := m.GetDeclKind(legacyDefinition); e != nil || op != 6 {
+		t.Fatal("legacy arithmetic definition operation", op, e)
 	}
 	varPlusGround, err := m.MkFamilyApp(arithmetic, 6, nil, []ast.ASTHandle{two, v})
 	must(t, err)
