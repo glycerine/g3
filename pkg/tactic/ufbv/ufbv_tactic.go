@@ -110,48 +110,58 @@ func NewUFBVTactic(m *ast.ASTManager, params *uparams.ParamsRef, config smtcore.
 	}
 	b := ufbvConstruction{context: context}
 	defer func() { err = errors.Join(err, b.close()) }()
+	// params_ref main_p(p) with mbqi, mbqi.max_iterations and elim_and;
+	// the preprocessor's no_elim_and copies main_p.
 	main := b.params()
+	if b.err == nil && params != nil {
+		b.err = context.Assign(main, params)
+	}
 	b.boolean(main, "mbqi", true)
 	b.unsigned(main, "mbqi.max_iterations", ^uint32(0))
 	b.boolean(main, "elim_and", true)
 	noElimAnd := b.params()
+	if b.err == nil {
+		b.err = context.Assign(noElimAnd, main)
+	}
 	b.boolean(noElimAnd, "elim_and", false)
 	if b.err != nil {
 		return nil, b.err
 	}
-	simplify := func() tactic.Tactic { return b.keep(core.MakeSimplifyTactic(m, context, globals, nil)) }
+	simplify := func() tactic.Tactic { return b.keep(core.MakeSimplifyTactic(m, context, globals, main)) }
 	derFixedPoint := func() tactic.Tactic {
 		step := b.then(b.keep(core.NewDERTactic(m)), simplify())
 		return b.repeat(step, ^uint32(0))
 	}
-	firstMacro := b.keep(NewMacroFinderTactic(m, context, globals, nil, config.ModelEvaluator))
+	firstMacro := b.keep(NewMacroFinderTactic(m, context, globals, noElimAnd, config.ModelEvaluator))
 	firstMacro = b.using(firstMacro, noElimAnd)
 	firstMacro = b.noCores(firstMacro)
 	firstMacro = b.noProofs(firstMacro)
 	front := b.then(
 		simplify(),
-		b.keep(core.NewPropagateValuesTactic(m, context, globals, nil)),
+		b.keep(core.NewPropagateValuesTactic(m, context, globals, main)),
 		firstMacro,
 		simplify(),
-		b.keep(core.NewSNFTactic(m, context, globals, nil)),
+		b.keep(core.NewSNFTactic(m, context, globals, main)),
 		simplify(),
-		b.keep(core.MakeEliminateAndTactic(m, context, globals, nil)),
-		b.keep(core.MakeSolveEquationsTactic(m, context, globals, nil, config.ModelEvaluator)),
+		b.keep(core.MakeEliminateAndTactic(m, context, globals, main)),
+		b.keep(core.MakeSolveEquationsTactic(m, context, globals, main, config.ModelEvaluator)),
 		derFixedPoint(), simplify(),
-		b.keep(core.NewDistributeForallTactic(m, nil)), simplify())
+		b.keep(core.NewDistributeForallTactic(m, main)), simplify())
 	coreFree := b.then(
-		b.keep(core.MakeReduceArgsTactic(m, context, globals, nil, config.ModelEvaluator)), simplify(),
-		b.keep(NewMacroFinderTactic(m, context, globals, nil, config.ModelEvaluator)), simplify(),
+		b.keep(core.MakeReduceArgsTactic(m, context, globals, main, config.ModelEvaluator)), simplify(),
+		b.keep(NewMacroFinderTactic(m, context, globals, main, config.ModelEvaluator)), simplify(),
 		b.keep(NewRewriterTacticAdapter(m, context, globals)), simplify(),
-		b.keep(NewQuasiMacrosTactic(m, context, globals, nil, config.ModelEvaluator)), simplify())
+		b.keep(NewQuasiMacrosTactic(m, context, globals, main, config.ModelEvaluator)), simplify())
 	preprocessor := b.then(front, b.noCores(coreFree), derFixedPoint(), simplify(), simplify())
 	preprocessor = b.repeat(preprocessor, 2)
-	backend := b.keep(smtcore.NewSMTTactic(m, nil, config))
-	body := b.then(preprocessor, backend)
+	// mk_smt_tactic_using(false, main_p): auto_config off, so the kernel
+	// skips the logic setup (no setup_AUFLIA pattern database).
+	backend := b.keep(smtcore.NewSMTTacticUsing(m, main, "", false, config))
 	if b.err != nil {
 		return nil, b.err
 	}
-	result, err = tactic.NewUsingParamsTactic(context, body, main)
+	// t->updt_params(p): every stage outside a using_params takes p.
+	result, err = tactic.NewAndThenTactic(preprocessor, backend)
 	if err != nil {
 		return nil, err
 	}
