@@ -380,6 +380,7 @@ func (k *SMTKernel) configurePreprocessingParamsCore(context *uparams.ParamsCont
 		return err
 	}
 	k.internalizer.theoryRewriter = value
+	k.internalizer.assertedPopFlush = k.flushAssertedCache
 	if err = value.SetSubstitution(&k.assertedSubstitution); err != nil {
 		return err
 	}
@@ -639,6 +640,7 @@ func (k *SMTKernel) UpdateParams(params *uparams.ParamsRef) error {
 	}
 	if err == nil {
 		k.internalizer.theoryRewriter = k.preprocessor
+		k.internalizer.assertedPopFlush = k.flushAssertedCache
 		k.preprocess = enabled
 		k.preprocessState = state
 		k.assertedPhaseReady = false
@@ -1052,7 +1054,10 @@ func (k *SMTKernel) Pop(count uint32) error {
 	}
 	pop := k.pendingPop
 	if pop.stage == smtKernelPopInternalizer {
-		if err := k.internalizer.PopScopes(count); err != nil {
+		k.internalizer.userPop = true
+		err := k.internalizer.PopScopes(count)
+		k.internalizer.userPop = false
+		if err != nil {
 			return err
 		}
 		pop.stage++

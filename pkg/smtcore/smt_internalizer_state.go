@@ -138,6 +138,12 @@ type SMTInternalizerState struct {
 	theoryProgress             uint64
 	manager                    *ast.ASTManager
 	theoryRewriter             *rewriter.TheoryRewriter // borrowed from the kernel
+	// assertedPopFlush is asserted_formulas::pop_scope's flush_cache, which
+	// pop_scope_core runs on every context pop, search backjumps included.
+	assertedPopFlush func() error
+	// userPop is set while SMTKernel.Pop drives PopScopes; the kernel then
+	// flushes after the asserted formulas shrink, where pop_scope does.
+	userPop bool
 	smtParams                  *SMTParams               // borrowed context::m_fparams
 	contextParams              *uparams.ParamsRef       // borrowed context::m_params
 	context                    *SMTCheckerContext
@@ -1341,6 +1347,11 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 		if err := s.releaseJustificationsTo(s.scopes[pop.level].justificationLimit); err != nil {
 			return err
 		}
+		if s.assertedPopFlush != nil && !s.userPop {
+			if err := s.assertedPopFlush(); err != nil {
+				return err
+			}
+		}
 		pop.stage++
 	}
 	if pop.stage == 4 {
@@ -1522,6 +1533,7 @@ func (s *SMTInternalizerState) Close() error {
 	}
 	s.closed = true
 	s.theoryRewriter = nil
+	s.assertedPopFlush = nil
 	s.smtParams = nil
 	s.context = nil
 	s.manager = nil

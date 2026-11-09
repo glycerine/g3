@@ -384,12 +384,43 @@ func (t *SMTTheoryArith) isGomoryCutTarget(r *smtArithmeticRow) bool {
 }
 
 // mkPolynomialGe builds sum(args) >= k, simplified by the context rewriter.
-func (t *SMTTheoryArith) mkPolynomialGe(x *smtArithExprs, args []smtArithLinearMonomial, k *big.Rat) (ast.ASTHandle, error) {
+// _args (an expr_ref_vector, released forward) and pol are locals; result is
+// the caller's expr_ref, rewritten in place.
+func (t *SMTTheoryArith) mkPolynomialGe(x *smtArithExprs, args []smtArithLinearMonomial, k *big.Rat) (_ ast.ASTHandle, resultErr error) {
+	m := t.state.manager
 	allInt := true
 	for i := 0; i < len(args) && allInt; i++ {
 		allInt = t.isInt(args[i].v)
 	}
+	argRefs := make([]ast.ASTRef, 0, len(args))
+	var polRef ast.ASTRef
+	defer func() {
+		if polRef != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, m.DelRef(&polRef))
+		}
+		for i := range argRefs {
+			resultErr = errors.Join(resultErr, m.DelRef(&argRefs[i]))
+		}
+	}()
+	mk := func(op int32, a ...ast.ASTHandle) (ast.ASTHandle, error) {
+		return m.MkFamilyApp(t.FamilyID(), op, nil, a)
+	}
+	numeral := func(r *big.Rat, isInt bool) (ast.ASTHandle, error) {
+		if isInt {
+			return m.ArithmeticIntegerNumeralText(r.RatString())
+		}
+		return m.ArithmeticRealNumeralText(r.RatString())
+	}
 	terms := make([]ast.ASTHandle, 0, len(args))
+	push := func(e ast.ASTHandle) error {
+		r, err := m.NewRef(e)
+		if err != nil {
+			return err
+		}
+		argRefs = append(argRefs, r)
+		terms = append(terms, e)
+		return nil
+	}
 	for i := range args {
 		e := t.var2expr(args[i].v)
 		isIntE, err := t.isIntSort(e)
@@ -397,37 +428,44 @@ func (t *SMTTheoryArith) mkPolynomialGe(x *smtArithExprs, args []smtArithLinearM
 			return ast.ASTHandle{}, err
 		}
 		if isIntE && !allInt {
-			if e, err = t.mkApp(x, smtArithOpToReal, e); err != nil {
+			if e, err = mk(smtArithOpToReal, e); err != nil {
 				return ast.ASTHandle{}, err
 			}
 			isIntE = false
 		}
 		if smtRatIsOne(&args[i].coeff) {
-			terms = append(terms, e)
+			if err = push(e); err != nil {
+				return ast.ASTHandle{}, err
+			}
 			continue
 		}
-		c, err := t.mkNumeral(x, &args[i].coeff, isIntE)
+		c, err := numeral(&args[i].coeff, isIntE)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		term, err := t.mkApp(x, smtArithOpMul, c, e)
+		term, err := mk(smtArithOpMul, c, e)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		terms = append(terms, term)
+		if err = push(term); err != nil {
+			return ast.ASTHandle{}, err
+		}
 	}
 	var pol ast.ASTHandle
 	var err error
 	if len(terms) == 1 {
 		pol = terms[0] // m_util.mk_add with one argument returns it
-	} else if pol, err = t.mkApp(x, smtArithOpAdd, terms...); err != nil {
+	} else if pol, err = mk(smtArithOpAdd, terms...); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	kn, err := t.mkNumeral(x, k, allInt)
+	if polRef, err = m.NewRef(pol); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	kn, err := numeral(k, allInt)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	result, err := t.mkApp(x, smtArithOpGE, pol, kn)
+	result, err := mk(smtArithOpGE, pol, kn)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
