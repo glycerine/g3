@@ -482,33 +482,42 @@ func (b *predicateRuleBuilder) tagRule(rule *normalizedRule) error {
 	return err
 }
 
-func (b *predicateRuleBuilder) buildSystem() (ast.ASTHandle, ast.ASTHandle, error) {
-	initials := make([]ast.ASTHandle, 0)
+// extendInitial is init_rule's `init = m.mk_or(init, fml)` for a fact rule
+// with a non-false transition, made right after that rule.
+func (b *predicateRuleBuilder) extendInitial(initial ast.ASTHandle, rule *normalizedRule) (ast.ASTHandle, error) {
+	if b.transformer.manager.IsFalse(rule.transition) || len(rule.predecessors) != 0 {
+		return initial, nil
+	}
+	extended, err := b.transformer.manager.MkOr(initial, rule.transition)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return extended, b.pin(extended)
+}
+
+// buildSystem is the rest of init_rules: the transition over the live rules.
+// The initial state was accumulated per rule; initialize rewrites the
+// transition first, then the initial state.
+func (b *predicateRuleBuilder) buildSystem(initial ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, error) {
 	live := make([]*normalizedRule, 0, len(b.rules))
 	for _, rule := range b.rules {
 		if b.transformer.manager.IsFalse(rule.transition) {
 			continue
 		}
-		if len(rule.predecessors) == 0 {
-			initials = append(initials, rule.transition)
-		}
 		live = append(live, rule)
 	}
-	initial, err := b.transformer.manager.MkOrArray(initials)
-	if err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
-	}
-	if err = b.pin(initial); err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
-	}
-	initial, err = b.rewrite(initial)
-	if err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
-	}
 	if len(live) == 0 {
-		falsity, x := b.transformer.manager.MkFalse()
-		return initial, falsity, x
+		falsity, err := b.transformer.manager.MkFalse()
+		if err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, err
+		}
+		if falsity, err = b.rewrite(falsity); err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, err
+		}
+		initial, err = b.rewrite(initial)
+		return initial, falsity, err
 	}
+	var err error
 	guarded := make([]ast.ASTHandle, 0, len(live)+1)
 	tags := make([]ast.ASTHandle, 0, len(live))
 	for _, rule := range live {
@@ -544,7 +553,10 @@ func (b *predicateRuleBuilder) buildSystem() (ast.ASTHandle, ast.ASTHandle, erro
 	if err = b.pin(transition); err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
-	transition, err = b.rewrite(transition)
+	if transition, err = b.rewrite(transition); err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, err
+	}
+	initial, err = b.rewrite(initial)
 	return initial, transition, err
 }
 
@@ -583,14 +595,22 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 			resultErr = errors.Join(resultErr, p.owner.releaseNotAndRef(&builder.references[index]))
 		}
 	}()
+	// initialize: m_initial_state = m.mk_false(), extended by each fact rule.
+	initial, err := p.manager.MkFalse()
+	if err != nil {
+		return err
+	}
 	for _, rule := range rules {
 		normalized, x := builder.normalizeRule(rule)
 		if x != nil {
 			return x
 		}
 		builder.rules = append(builder.rules, normalized)
+		if initial, x = builder.extendInitial(initial, normalized); x != nil {
+			return x
+		}
 	}
-	initial, transition, err := builder.buildSystem()
+	initial, transition, err := builder.buildSystem(initial)
 	if err != nil {
 		return err
 	}
