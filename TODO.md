@@ -172,6 +172,17 @@ Found while matching `-st` output against `build/z3` on
    rejected candidate proto model lives until the next mk_proto_model;
    qi_queue m_instances release forward; pp_attribute builds right to
    left; theory_str's len-0 axiom uses ctx.mk_eq_atom in a gate context.
+   Also DONE (360 -> 385): expr_substitution and goal2sat (dep2asm,
+   assumption order) follow obj_map order; NNF caches are act_caches; the
+   ackr model converter and the const-case multiplier (raw ite per bit)
+   follow the source; search() drops the previous model at start
+   (scoped_mk_model); theory_str creates its nested seq_expr_solver at
+   setup, as theory_str::init does.
+   Open leads: qsat runs one more round than z3 in
+   basic_graph_mixed_model_refusal (two extra contexts at the end);
+   datatype_cycle_proof's occurs-check th-lemma has an extra antecedent
+   (z3 lists one equality proof, g3 two); the model finder's auf_solver
+   key2node maps (pair-hashed) are still handle-sorted.
    Open: g3's single generated model stands for both m_proto_model and
    m_model (scoped_mk_model drops both at search start and builds m_model
    from the last proto at search end); releasing the stale model after
