@@ -4,7 +4,9 @@ package substitution
 // src/ast/substitution/substitution_tree.h.
 
 import (
+	"cmp"
 	"errors"
+	"slices"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -787,10 +789,27 @@ func (t *SubstitutionTree) Reset() error {
 		result = errors.Join(result, t.releaseNode(r))
 	}
 	clear(t.roots)
-	for h, ref := range t.varRefs {
-		r := ref
-		result = errors.Join(result, t.manager.DelRef(&r))
-		delete(t.varRefs, h)
+	// m_vars is indexed by sort decl id; each var_ref_vector releases
+	// forward when deleted.
+	sorts := make([]ast.ASTHandle, 0, len(t.variables))
+	ids := make(map[ast.ASTHandle]uint32, len(t.variables))
+	for sort := range t.variables {
+		id, e := t.manager.GetASTID(sort)
+		if e != nil {
+			result = errors.Join(result, e)
+			continue
+		}
+		ids[sort] = id
+		sorts = append(sorts, sort)
+	}
+	slices.SortFunc(sorts, func(a, b ast.ASTHandle) int { return cmp.Compare(ids[a], ids[b]) })
+	for _, sort := range sorts {
+		for _, v := range t.variables[sort] {
+			if ref, held := t.varRefs[v]; held {
+				result = errors.Join(result, t.manager.DelRef(&ref))
+				delete(t.varRefs, v)
+			}
+		}
 	}
 	clear(t.variables)
 	t.size = 0

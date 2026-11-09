@@ -13,6 +13,7 @@ type bvSliceFrame struct {
 	boundaries map[ast.ASTHandle]map[uint32]struct{}
 	keys       map[ast.ASTHandle]ast.ASTRef
 	refs       []ast.ASTRef
+	keyOrder   []ast.ASTHandle // keys in insertion order, released forward
 }
 
 func newBVSliceFrame(t *BVSliceTactic) *bvSliceFrame {
@@ -32,6 +33,7 @@ func (f *bvSliceFrame) pinKey(h ast.ASTHandle) error {
 	r, e := f.owner.manager.NewRef(h)
 	if e == nil {
 		f.keys[h] = r
+		f.keyOrder = append(f.keyOrder, h)
 	}
 	return e
 }
@@ -48,11 +50,13 @@ func (f *bvSliceFrame) Close() (err error) {
 	for i := len(f.refs) - 1; i >= 0; i-- {
 		err = errors.Join(err, f.owner.manager.DelRef(&f.refs[i]))
 	}
-	for h, r := range f.keys {
-		rr := r
-		err = errors.Join(err, f.owner.manager.DelRef(&rr))
-		delete(f.keys, h)
+	for _, h := range f.keyOrder {
+		if r, held := f.keys[h]; held {
+			err = errors.Join(err, f.owner.manager.DelRef(&r))
+			delete(f.keys, h)
+		}
 	}
+	f.keyOrder = nil
 	f.refs = nil
 	f.boundaries = nil
 	return err
