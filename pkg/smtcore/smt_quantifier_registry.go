@@ -3,7 +3,12 @@ package smtcore
 // Source: src/smt/smt_quantifier.cpp quantifier_manager::imp registry,
 // statistics, add_instance, search initialization, and scoped queue storage.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 type SMTQuantifierRegistry struct {
 	manager      *ast.ASTManager
@@ -99,6 +104,33 @@ func (r *SMTQuantifierRegistry) Generation(quantifier ast.ASTHandle) (uint32, er
 }
 
 func (r *SMTQuantifierRegistry) AddInstance(quantifier, pattern ast.ASTHandle, bindings []*SMTEnode, maxGeneration, minTopGeneration, maxTopGeneration uint32) (bool, error) {
+	return r.AddInstanceUsed(quantifier, pattern, bindings, nil, maxGeneration, minTopGeneration, maxTopGeneration)
+}
+
+// traceNewMatch is add_instance's [new-match] record: the fingerprint's
+// address, the quantifier, its bindings and, after ';', the used enodes.
+func (r *SMTQuantifierRegistry) traceNewMatch(fingerprint *SMTFingerprint, quantifierID uint32, bindings, usedEnodes []*SMTEnode) {
+	out := r.manager.TraceStream
+	if out == nil {
+		return
+	}
+	w := traceStreamWriter(out)
+	w(fmt.Sprintf("[new-match] %p #%d", fingerprint, quantifierID))
+	for _, binding := range bindings {
+		id, _ := r.manager.GetASTID(binding.owner)
+		w(" #" + strconv.FormatUint(uint64(id), 10))
+	}
+	w(" ;")
+	for _, used := range usedEnodes {
+		id, _ := r.manager.GetASTID(used.owner)
+		w(" #" + strconv.FormatUint(uint64(id), 10))
+	}
+	w("\n")
+}
+
+// AddInstanceUsed is quantifier_manager::add_instance with the used_enodes
+// that justify an e-matching instance.
+func (r *SMTQuantifierRegistry) AddInstanceUsed(quantifier, pattern ast.ASTHandle, bindings, usedEnodes []*SMTEnode, maxGeneration, minTopGeneration, maxTopGeneration uint32) (bool, error) {
 	if r == nil || r.manager == nil || r.fingerprints == nil || r.schedule == nil || r.costs == nil {
 		return false, ast.ErrASTHandle
 	}
@@ -128,6 +160,7 @@ func (r *SMTQuantifierRegistry) AddInstance(quantifier, pattern ast.ASTHandle, b
 	if err != nil || fingerprint == nil {
 		return false, err
 	}
+	r.traceNewMatch(fingerprint, id, bindings, usedEnodes)
 	cost, err := r.costs.Cost(quantifier, pattern, stat, maxGeneration, minTopGeneration, sourceMaxTopGeneration, r.scopeLevel)
 	if err != nil {
 		return false, err

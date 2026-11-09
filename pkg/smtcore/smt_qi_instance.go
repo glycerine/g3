@@ -6,6 +6,7 @@ package smtcore
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -53,6 +54,8 @@ type SMTQIInstance struct {
 	lemma       ast.ASTRef
 	proof       ast.ASTRef
 	generation  uint32
+	// proofID is the quant-inst proof's id, shown by display_instance_profile.
+	proofID     uint32
 	reducedTrue bool
 	hasProof    bool
 	closed      bool
@@ -236,8 +239,27 @@ func (b *SMTQIInstanceBuilder) MaterializeAndInternalize(prepared *SMTQIPrepared
 	if result == nil {
 		return nil, nil
 	}
+	out := b.manager.TraceStream
+	if result.ReducedTrue() {
+		if out != nil {
+			traceStreamWriter(out)("[end-of-instance]\n")
+		}
+		return result, nil
+	}
+	// display_instance_profile, internalize_instance, then [end-of-instance].
+	if out != nil {
+		w := traceStreamWriter(out)
+		w(fmt.Sprintf("[instance] %p", result.fingerprint))
+		if result.hasProof {
+			w(" #" + strconv.FormatUint(uint64(result.proofID), 10))
+		}
+		w(" ; " + strconv.FormatUint(uint64(result.generation), 10) + "\n")
+	}
 	if err = internalizer.InternalizeInstance(result); err != nil {
 		return nil, errors.Join(fmt.Errorf("internalize instance lemma: %w", err), result.Close())
+	}
+	if out != nil {
+		traceStreamWriter(out)("[end-of-instance]\n")
 	}
 	return result, nil
 }
@@ -379,6 +401,10 @@ func (b *SMTQIInstanceBuilder) FinishWithProof(prepared *SMTQIPreparedInstance, 
 	}
 	proof, err := b.manager.MkProofQuantInstantiation(bareLemma, bindings)
 	if err != nil {
+		_ = result.Close()
+		return nil, err
+	}
+	if result.proofID, err = b.manager.GetASTID(proof); err != nil {
 		_ = result.Close()
 		return nil, err
 	}
