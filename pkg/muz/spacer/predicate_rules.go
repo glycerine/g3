@@ -262,23 +262,28 @@ func (b *spacerRuleBuilder) groundVariables(expression ast.ASTHandle, variables 
 		if sort.IsNull() || !(*variables)[index].IsNull() {
 			continue
 		}
-		value, err := b.fresh("aux", sort)
+		// vars[i] = mk_fresh_const("aux"); vars[i] = mk_const(get_n_pred(...)):
+		// the second assignment releases the fresh constant.
+		freshConst, err := b.transformer.manager.MkFreshConst("aux", sort)
 		if err != nil {
 			return err
 		}
-		current, err := b.transformer.manager.GetDecl(value)
+		freshRef, err := b.transformer.manager.NewRef(freshConst)
 		if err != nil {
 			return err
 		}
-		current, err = b.transformer.owner.NewPredicate(current)
-		if err != nil {
-			return err
+		current, err := b.transformer.manager.GetDecl(freshConst)
+		if err == nil {
+			current, err = b.transformer.owner.NewPredicate(current)
 		}
-		value, err = b.transformer.manager.MkApp(current, nil)
-		if err != nil {
-			return err
+		var value ast.ASTHandle
+		if err == nil {
+			value, err = b.transformer.manager.MkApp(current, nil)
 		}
-		if err = b.pin(value); err != nil {
+		if err == nil {
+			err = b.pin(value)
+		}
+		if err = errors.Join(err, b.transformer.manager.DelRef(&freshRef)); err != nil {
 			return err
 		}
 		(*variables)[index] = value
