@@ -14,3 +14,9 @@ func (md *ModelCore) ConstantDeclarationsInTableOrderForTest() []ast.ASTHandle {
 	}
 	return result
 }
+
+// UniverseSortsInTableOrderForTest lists m_usort2universe's keys in
+// iteration order, for external tests.
+func (md *Model) UniverseSortsInTableOrderForTest() []ast.ASTHandle {
+	return md.universeSorts()
+}

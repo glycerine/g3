@@ -22,10 +22,12 @@ type modelUniverse struct {
 	memoryTraceLive bool
 }
 type Model struct {
-	self            *Model
-	CoreField       ModelCore
-	sorts           []ast.ASTHandle
-	Universes       insdict.Dict[ast.ASTHandle, *modelUniverse]
+	self      *Model
+	CoreField ModelCore
+	sorts     []ast.ASTHandle
+	Universes insdict.Dict[ast.ASTHandle, *modelUniverse]
+	// universeLayout is m_usort2universe's obj_map layout (iteration order).
+	universeLayout  *ast.ObjMap
 	ownerBytes      uint64
 	allocationTrace *diagnostic.TraceTags
 	allocationLive  bool
@@ -53,6 +55,7 @@ func NewModel(m *ast.ASTManager) (md *Model, err error) {
 	md.CoreField.Functions = *insdict.NewDictFunc[ast.ASTHandle, *modelFunctionEntry](modelHandleHash)
 	md.CoreField.constantLayout, md.CoreField.functionLayout = ast.NewObjMap(m), ast.NewObjMap(m)
 	md.Universes = *insdict.NewDictFunc[ast.ASTHandle, *modelUniverse](modelHandleHash)
+	md.universeLayout = ast.NewObjMap(m)
 	return md, nil
 }
 func (md *Model) open() error {
@@ -152,6 +155,9 @@ func (md *Model) RegisterUniverse(s ast.ASTHandle, values []ast.ASTHandle) (err 
 		u.traceAllocated()
 		u.values = append(u.values, values...)
 		md.Universes.Set(s, u)
+		if e = md.universeLayout.Insert(s, [2]ast.ASTHandle{}); e != nil {
+			return e
+		}
 		published = true
 	} else {
 		for _, old := range u.values {
@@ -176,7 +182,8 @@ func (md *Model) CopyUniverseInterpretations(source *Model) error {
 	if md.CoreField.manager != source.CoreField.manager {
 		return ast.ErrASTHandle
 	}
-	for s, u := range source.Universes.All() {
+	for _, s := range source.universeSorts() {
+		u, _ := source.Universes.Get2(s)
 		if e := md.RegisterUniverse(s, u.values); e != nil {
 			return e
 		}
@@ -191,7 +198,9 @@ func (md *Model) Close() error {
 		return nil
 	}
 	m := md.CoreField.manager
-	for s, u := range md.Universes.All() {
+	// ~model: m_usort2universe in table order.
+	for _, s := range md.universeSorts() {
+		u, _ := md.Universes.Get2(s)
 		if u.sortOwned {
 			consumed, e := m.DecRefConsumed(s)
 			if consumed {
@@ -231,4 +240,17 @@ func (md *Model) Close() error {
 	md.ownerBytes = 0
 	md.Closed = true
 	return nil
+}
+
+// universeSorts lists m_usort2universe's keys in iteration order.
+func (md *Model) universeSorts() []ast.ASTHandle {
+	if md.universeLayout == nil {
+		return nil
+	}
+	entries := md.universeLayout.Entries()
+	result := make([]ast.ASTHandle, 0, len(entries))
+	for _, entry := range entries {
+		result = append(result, entry.Key)
+	}
+	return result
 }

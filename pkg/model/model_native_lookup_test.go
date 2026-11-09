@@ -71,6 +71,14 @@ func TestModelNativeDictionaryGrowthCopyOrderAndReinsert(t *testing.T) {
 	if len(constantOrder) != count || len(functionOrder) != count {
 		t.Fatal("table order lost declarations", len(constantOrder), len(functionOrder))
 	}
+	sortOrder := original.UniverseSortsInTableOrderForTest()
+	if len(sortOrder) != count {
+		t.Fatal("table order lost universes", len(sortOrder))
+	}
+	sortIndex := make(map[ast.ASTHandle]int, count)
+	for i := 0; i < count; i++ {
+		sortIndex[sorts[i]] = i
+	}
 	indexOf := make(map[ast.ASTHandle]int, count)
 	for i := 0; i < count; i++ {
 		indexOf[functions[i]] = i
@@ -104,12 +112,12 @@ func TestModelNativeDictionaryGrowthCopyOrderAndReinsert(t *testing.T) {
 		}
 		s, e := copied.UninterpretedSort(uint32(position))
 		astTestMust(t, e)
-		if s != sorts[position] {
-			t.Fatal("universe copy changed insertion order", position)
+		if s != sortOrder[position] {
+			t.Fatal("universe copy did not follow m_usort2universe order", position)
 		}
 		u, e := copied.Universe(s)
 		astTestMust(t, e)
-		if len(u) != 1 || u[0] != values[position] {
+		if len(u) != 1 || u[0] != values[sortIndex[s]] {
 			t.Fatal("copy lost universe ownership", position)
 		}
 	}

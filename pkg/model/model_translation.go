@@ -108,7 +108,8 @@ func (md *Model) Translate(translation *ast.ASTTranslation) (result *Model, err 
 			return nil, errors.Join(e, translatedFunction.Close())
 		}
 	}
-	for sort, universe := range md.Universes.All() {
+	for _, sort := range md.universeSorts() {
+		universe, _ := md.Universes.Get2(sort)
 		translatedSort, e := translation.Translate(sort)
 		if e != nil {
 			return nil, e
