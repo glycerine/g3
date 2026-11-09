@@ -87,7 +87,22 @@ func (f *VirtualSolverFactory) Fresh() (*VirtualSolver, error) {
 	}
 	result := &VirtualSolver{Solver: f.backend, factory: f, predicate: predicateRef, proof: proofRef, name: fmt.Sprintf("vsolver#%d", len(f.solvers)), dumpBenchmarks: f.dump.Enabled}
 	f.solvers = append(f.solvers, result)
-	return result, nil
+	// solver_na2as::assert_expr(m.mk_true(), m_pred): the predicate becomes a
+	// background assumption and (=> pred true) a virtual assertion.
+	truth, err := f.manager.MkTrue()
+	if err != nil {
+		return nil, err
+	}
+	implication, err := f.manager.MkImplies(predicate, truth)
+	if err != nil {
+		return nil, err
+	}
+	held, err := f.manager.NewRef(implication)
+	if err != nil {
+		return nil, err
+	}
+	err = result.Assert(implication)
+	return result, errors.Join(err, f.manager.DelRef(&held))
 }
 
 func (f *VirtualSolverFactory) CollectStatistics(destination *statistics.Statistics) error {
