@@ -329,25 +329,22 @@ func (s *SMTInternalizerState) reinsertCongruenceParents(from, to *SMTEnode) err
 	}
 	// reinsert_parents_into_cg_table copies to r2->m_parents the marked
 	// parents that remain congruence roots (or have congruence closure
-	// disabled); a parent that became a true equality is not copied.
+	// disabled). A marked parent that became a true equality is assigned by
+	// eq_propagation_justification and not copied; an unmarked one (not a
+	// congruence root when removed) is left to its congruence root's merge.
 	for _, parent := range from.sourceParents {
 		if !parent.sourceParentMark {
 			continue
 		}
 		parent.sourceParentMark = false
 		if parent.IsTrueEquality() {
+			if err := s.propagateTrueEquality(parent); err != nil {
+				return err
+			}
 			continue
 		}
 		if !parent.congruenceEnabled || parent.congruence == parent {
 			to.sourceParents = append(to.sourceParents, parent)
-		}
-	}
-	for _, parent := range from.parents {
-		if err := s.propagateTrueEquality(parent); err != nil {
-			return err
-		}
-		if s.inconsistent {
-			return nil
 		}
 	}
 	return nil
@@ -471,6 +468,7 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 	if (r1.classSize > r2.classSize && !r2.interpreted) || r1.interpreted {
 		left, right, r1, r2 = right, left, r2, r1
 	}
+	s.traceAddEqMerging(r1, r2, left)
 	trailIndex := len(s.equalityTrail)
 	s.recordEqualityUndo(r1, left, r2)
 	if err := s.propagateEqualityClassRelevancy(r1, r2); err != nil {

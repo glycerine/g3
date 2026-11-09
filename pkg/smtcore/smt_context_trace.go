@@ -221,6 +221,16 @@ func (s *SMTInternalizerState) traceAddEqDetail(n1, n2 *SMTEnode, j SMTEqualityJ
 		"assigning\n"+tracePP(s.manager, n1.owner)+"\n"+tracePP(s.manager, n2.owner)+"\nkind: "+strconv.Itoa(int(j.kind))+"\n")
 }
 
+// traceAddEqMerging is add_eq's "merging" record.
+func (s *SMTInternalizerState) traceAddEqMerging(r1, r2, n1 *SMTEnode) {
+	if !smtTraceEnabled("add_eq") {
+		return
+	}
+	id := func(n *SMTEnode) string { v, _ := n.OwnerID(); return strconv.Itoa(int(v)) }
+	emitSMTTrace("add_eq", "add_eq", "src/smt/smt_context.cpp", 528,
+		"merging: #"+id(r1)+" #"+id(r2)+" n1: #"+id(n1)+"\n")
+}
+
 func (s *SMTInternalizerState) traceDecide(variable int32, positive bool) {
 	if !smtTraceEnabled("decide") {
 		return
