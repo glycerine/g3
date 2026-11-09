@@ -123,15 +123,12 @@ func (p *LoopCounterPlugin) transform(source *base.RuleSet, revert bool) (_ *bas
 			resultErr = errors.Join(resultErr, result.Close())
 		}
 	}()
-	zero, err := p.manager.ArithmeticIntegerNumeralText("0")
+	// a.mk_int(); the 0 and 1 numerals are made per rule where they are used.
+	arithmetic, err := p.manager.ArithmeticFamilyID()
 	if err != nil {
 		return nil, err
 	}
-	integerSort, err := p.manager.GetSort(zero)
-	if err != nil {
-		return nil, err
-	}
-	one, err := p.manager.ArithmeticIntegerNumeralText("1")
+	integerSort, err := p.manager.MkFamilySort(arithmetic, 1, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -217,6 +214,10 @@ func (p *LoopCounterPlugin) transform(source *base.RuleSet, revert bool) (_ *bas
 					if x == nil && y == nil {
 						tailCounter, x = p.manager.GetArg(tails[j], tailCount-1)
 					}
+					var one ast.ASTHandle
+					if x == nil {
+						one, x = p.manager.ArithmeticIntegerNumeralText("1")
+					}
 					if x == nil {
 						successor, x = p.manager.MkArithmeticAdd(tailCounter, one)
 					}
@@ -240,6 +241,10 @@ func (p *LoopCounterPlugin) transform(source *base.RuleSet, revert bool) (_ *bas
 				values := make([]ast.ASTHandle, arguments.Count())
 				for j := uint32(0); argumentErr == nil && j < arguments.Count(); j++ {
 					values[j], argumentErr = arguments.At(j)
+				}
+				var zero ast.ASTHandle
+				if argumentErr == nil {
+					zero, argumentErr = p.manager.ArithmeticIntegerNumeralText("0")
 				}
 				if argumentErr == nil {
 					values[len(values)-1] = zero
