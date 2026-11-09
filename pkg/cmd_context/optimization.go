@@ -309,7 +309,9 @@ func (c *Context) setupOptimizationArithmeticSolver() (resultErr error) {
 	return nil
 }
 
-func (c *Context) newOptimizer(assumptions []ast.ASTHandle) (optimizer *opt.ArithmeticSolver, resultErr error) {
+// createOptimizer is opt::context::init_solver: the SMT backend exists
+// before normalize().
+func (c *Context) createOptimizer() (optimizer *opt.ArithmeticSolver, resultErr error) {
 	solverParams, err := c.config.Params.NewValue()
 	if err != nil {
 		return nil, err
@@ -335,10 +337,17 @@ func (c *Context) newOptimizer(assumptions []ast.ASTHandle) (optimizer *opt.Arit
 	if err != nil {
 		return nil, err
 	}
-	optimizer, err = opt.NewArithmeticSolver(c.manager, &solverParams, c.logic, c.config)
-	if err != nil {
+	return opt.NewArithmeticSolver(c.manager, &solverParams, c.logic, c.config)
+}
+
+func (c *Context) newOptimizer(assumptions []ast.ASTHandle) (optimizer *opt.ArithmeticSolver, resultErr error) {
+	var err error
+	if c.preparedOptimizer != nil {
+		optimizer, c.preparedOptimizer = c.preparedOptimizer, nil
+	} else if optimizer, err = c.createOptimizer(); err != nil {
 		return nil, err
 	}
+
 	satCoreEnabled, err := c.optimizationSATCoreEligible(assumptions)
 	if err != nil {
 		return nil, errors.Join(err, optimizer.Close())

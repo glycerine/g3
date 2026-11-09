@@ -77,34 +77,36 @@ type builtin struct {
 // NewStandaloneContext. The AST manager and solver initialize on first use,
 // so set-logic and proof options take effect before their construction.
 type Context struct {
-	config                           smtcore.SMTSolverConfig
-	parameters                       *smtcore.ContextParams
-	params                           uparams.ParamsRef
-	paramsReady                      bool
-	manager                          *ast.ASTManager
-	debugExpressions                 map[string]ast.ASTRef
-	borrowedManager                  bool
-	fixedpoint                       *muzfp.PropositionalEngine
-	datalogDisplay                   *base.DatalogContext
-	solver                           solver.Solver
-	tacticResult                     *solver.SimpleCheckSatResult
-	retainedSolverResult             solver.Solver
-	logic                            string
-	functions                        map[string][]ast.ASTHandle
-	sorts                            map[string]ast.ASTHandle
-	sortArities                      map[string]uint32
-	sortConstructors                 map[string]sortConstructorDeclaration
-	sortConstructorTrail             []string
-	builtins                         map[string][]builtin
-	functionTrail, sortTrail         []declaration
-	macros                           map[string][]macroDeclaration
-	macroTrail                       []string
-	userTactics                      *insdict.Dict[string, string]
-	assertions                       []assertion
-	objectives                       []optimizationObjective
-	optimizationHardOverride         []ast.ASTHandle
-	optimizationHardOverrideActive   bool
-	optimizationPreprocessor         tactic.ModelConverter
+	config                         smtcore.SMTSolverConfig
+	parameters                     *smtcore.ContextParams
+	params                         uparams.ParamsRef
+	paramsReady                    bool
+	manager                        *ast.ASTManager
+	debugExpressions               map[string]ast.ASTRef
+	borrowedManager                bool
+	fixedpoint                     *muzfp.PropositionalEngine
+	datalogDisplay                 *base.DatalogContext
+	solver                         solver.Solver
+	tacticResult                   *solver.SimpleCheckSatResult
+	retainedSolverResult           solver.Solver
+	logic                          string
+	functions                      map[string][]ast.ASTHandle
+	sorts                          map[string]ast.ASTHandle
+	sortArities                    map[string]uint32
+	sortConstructors               map[string]sortConstructorDeclaration
+	sortConstructorTrail           []string
+	builtins                       map[string][]builtin
+	functionTrail, sortTrail       []declaration
+	macros                         map[string][]macroDeclaration
+	macroTrail                     []string
+	userTactics                    *insdict.Dict[string, string]
+	assertions                     []assertion
+	objectives                     []optimizationObjective
+	optimizationHardOverride       []ast.ASTHandle
+	optimizationHardOverrideActive bool
+	optimizationPreprocessor       tactic.ModelConverter
+	// preparedOptimizer is the backend init_solver creates before normalize.
+	preparedOptimizer                *opt.ArithmeticSolver
 	softObjectiveIndex               map[string]int
 	softObjectiveTrail               []int
 	optimizationBoxNext              int

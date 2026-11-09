@@ -36,6 +36,18 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			break
 		}
 	}
+	// optimize(): init_solver precedes normalize() on the lex path.
+	if !paretoContinuation && !boxContinuation && priority != "pareto" && priority != "box" {
+		if c.preparedOptimizer, err = c.createOptimizer(); err != nil {
+			return nil, err
+		}
+		defer func() {
+			if c.preparedOptimizer != nil {
+				resultErr = errors.Join(resultErr, c.preparedOptimizer.Close())
+				c.preparedOptimizer = nil
+			}
+		}()
+	}
 	var formulaSet *opt.ObjectiveFormulaSet
 	var simplified *optimizationSimplifiedFormulas
 	var source opt.DecodedFormulaSet
