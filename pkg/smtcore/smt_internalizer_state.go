@@ -1147,13 +1147,6 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 	if scope.justificationLimit < 0 || scope.justificationLimit > len(s.ownedJustifications) {
 		return ast.ErrASTDomain
 	}
-	for len(s.ownedJustifications) > scope.justificationLimit {
-		index := len(s.ownedJustifications) - 1
-		if err := s.ownedJustifications[index].Release(s.manager); err != nil {
-			return fmt.Errorf("release owned justification: %w", err)
-		}
-		s.ownedJustifications = s.ownedJustifications[:index]
-	}
 	// undo_trail_stack: mk_enode and mk_bool_var entries, newest first.
 	for {
 		enodeMore := len(s.enodeStack) > scope.enodeLimit
@@ -1248,6 +1241,22 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 	return nil
 }
 
+// releaseJustificationsTo is del_justifications: pop_scope_core runs it
+// after undo_trail_stack and the theories' pop_scope_eh.
+func (s *SMTInternalizerState) releaseJustificationsTo(limit int) error {
+	if limit < 0 || limit > len(s.ownedJustifications) {
+		return ast.ErrASTDomain
+	}
+	for len(s.ownedJustifications) > limit {
+		index := len(s.ownedJustifications) - 1
+		if err := s.ownedJustifications[index].Release(s.manager); err != nil {
+			return fmt.Errorf("release owned justification: %w", err)
+		}
+		s.ownedJustifications = s.ownedJustifications[:index]
+	}
+	return nil
+}
+
 // A source scope pop visits several owners. Keep its cursor across Go native
 // cleanup errors so a completed child scope is never consumed a second time.
 type smtInternalizerPendingPop struct {
@@ -1322,6 +1331,9 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 				return err
 			}
 			pop.theory--
+		}
+		if err := s.releaseJustificationsTo(s.scopes[pop.level].justificationLimit); err != nil {
+			return err
 		}
 		pop.stage++
 	}
@@ -1405,6 +1417,9 @@ func (s *SMTInternalizerState) Close() error {
 		s.pendingPop = nil
 	}
 	if err := s.popTo(smtInternalizerScope{}); err != nil {
+		return fmt.Errorf("close SMT root scope: %w", err)
+	}
+	if err := s.releaseJustificationsTo(0); err != nil {
 		return fmt.Errorf("close SMT root scope: %w", err)
 	}
 	if s.relevancy != nil && len(s.relevancy.scopes) != 0 {

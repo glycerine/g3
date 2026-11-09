@@ -317,8 +317,8 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 	return c.InitializePredicates(set, nil)
 }
 
-// InitializePredicates constructs transformers for every registered live
-// predicate, including output predicates without defining rules.
+// InitializePredicates constructs transformers for the rule heads and
+// uninterpreted tails of the set, as init_rules does.
 func (c *Context) InitializePredicates(set *base.RuleSet, declarations []ast.ASTHandle) error {
 	if err := c.open(); err != nil {
 		return err
@@ -381,13 +381,8 @@ func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.AST
 	for _, declaration := range declarations {
 		appendSpacerDeclaration(&order, seen, declaration)
 	}
-	outputs, err := set.OutputPredicates()
-	if err != nil {
-		return err
-	}
-	for _, declaration := range outputs {
-		appendSpacerDeclaration(&order, seen, declaration)
-	}
+	// init_rules allocates transformers for rule heads and uninterpreted
+	// tails only; an output predicate without rules gets none.
 	for index := 0; index < count; index++ {
 		rule, err := set.Rule(index)
 		if err != nil {
@@ -413,7 +408,7 @@ func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.AST
 	}
 	// init_rules allocates transformers by iterating m_head2rules (an
 	// obj_map filled in rule order), then for tail predicates without rules
-	// in rule order; registry-only declarations and outputs follow. The
+	// in rule order; registry-only declarations follow. The
 	// transformers are then initialized in rels (obj_map) table order.
 	heads := ast.NewObjMap(c.manager)
 	var ruleOrder []ast.ASTHandle
@@ -556,10 +551,9 @@ func (c *Context) SetQuery(declaration ast.ASTHandle) error {
 	if !c.initialized || c.solved {
 		return ast.ErrASTDomain
 	}
+	// set_query records m_query_pred only; solve_core resolves m_query and
+	// answers false when the predicate has no transformer.
 	transformer := c.transformers[declaration]
-	if transformer == nil {
-		return ast.ErrASTDomain
-	}
 	if c.queryRef == (ast.ASTRef{}) {
 		ref, err := c.manager.NewRef(declaration)
 		if err != nil {
@@ -758,13 +752,6 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 	if c.query == nil {
 		return c.finishEarlyUnreachable(fromLevel)
 	}
-	// The Go context also constructs transformers for registered/output
-	// predicates that the source init_rules traversal never encounters. Treat
-	// such a metadata-only query like the source's absent transformer, while a
-	// ruleless predicate reached from another rule remains a live tail query.
-	if len(c.query.rules) == 0 && len(c.query.uses) == 0 {
-		return c.finishEarlyUnreachable(fromLevel)
-	}
 	truth, err := c.manager.MkTrue()
 	if err != nil {
 		return lbool.Undef, err
@@ -905,7 +892,7 @@ func (c *Context) Answer(declaration ast.ASTHandle) (ast.ASTRef, error) {
 	if err := c.open(); err != nil {
 		return ast.ASTRef{}, err
 	}
-	if c.query == nil || c.queryDecl != declaration {
+	if c.queryDecl.IsNull() || c.queryDecl != declaration {
 		return ast.ASTRef{}, ast.ErrASTDomain
 	}
 	if c.lastResult == lbool.True {
@@ -937,7 +924,7 @@ func (c *Context) GroundSatAnswer(declaration ast.ASTHandle) (ast.ASTRef, error)
 	if err := c.open(); err != nil {
 		return ast.ASTRef{}, err
 	}
-	if c.query == nil || c.queryDecl != declaration {
+	if c.queryDecl.IsNull() || c.queryDecl != declaration {
 		return ast.ASTRef{}, ast.ErrASTDomain
 	}
 	if c.lastResult != lbool.True {

@@ -15,7 +15,8 @@ func (c *Context) SetEmptyProgramUnsat() error {
 	if err := c.open(); err != nil {
 		return err
 	}
-	if !c.initialized || c.queryDecl.IsNull() || c.query == nil || c.solved {
+	// set_unsat only records l_false; the query need not have a transformer.
+	if !c.initialized || c.queryDecl.IsNull() || c.solved {
 		return ast.ErrASTDomain
 	}
 	for _, transformer := range c.transformers {

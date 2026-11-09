@@ -60,7 +60,7 @@ func (k *SMTKernel) checkPreamble(countCheck bool) (bool, error) {
 	}
 	// context::check calls pop_to_base_lvl after check_preamble; the
 	// previous check left its search scopes in place.
-	if err := k.internalizer.popToBaseLevel(); err != nil {
+	if err := k.popToBaseLevel(); err != nil {
 		return false, err
 	}
 	return true, nil

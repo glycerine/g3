@@ -491,7 +491,7 @@ func (k *SMTKernel) GetConsequences(assumptions0, vars0 []ast.ASTHandle, evaluat
 		}
 		resultErr = errors.Join(resultErr, c.release())
 	}()
-	if err := k.internalizer.popToBaseLevel(); err != nil {
+	if err := k.popToBaseLevel(); err != nil {
 		return lbool.Undef, nil, err
 	}
 	pushed := false

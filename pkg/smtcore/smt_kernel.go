@@ -739,7 +739,7 @@ func (k *SMTKernel) assertFormulaCore(formula, proof ast.ASTHandle) (resultErr e
 		return err
 	}
 	// context::assert_expr_core starts with pop_to_base_lvl.
-	if err := k.internalizer.popToBaseLevel(); err != nil {
+	if err := k.popToBaseLevel(); err != nil {
 		return err
 	}
 	sort, err := k.manager.GetSort(formula)
@@ -926,7 +926,7 @@ func (k *SMTKernel) Push() error {
 		return err
 	}
 	// context::push starts with pop_to_base_lvl.
-	if err := k.internalizer.popToBaseLevel(); err != nil {
+	if err := k.popToBaseLevel(); err != nil {
 		return err
 	}
 	if k.smtParams != nil {

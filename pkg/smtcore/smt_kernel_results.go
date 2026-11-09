@@ -31,6 +31,18 @@ func (k *SMTKernel) ownLiteral(literal SMTLiteral) (ast.ASTHandle, error) {
 	return expression, nil
 }
 
+// popToBaseLevel is context::pop_to_base_lvl. Literal queries read the live
+// context, so leaving the search scopes also drops the Go snapshot of the
+// last search (and the atoms it holds) before the scopes unwind.
+func (k *SMTKernel) popToBaseLevel() error {
+	if k.internalizer.scopeLevel > k.internalizer.baseLevel {
+		if err := k.clearLiteralResults(); err != nil {
+			return err
+		}
+	}
+	return k.internalizer.popToBaseLevel()
+}
+
 func (k *SMTKernel) clearLiteralResults() error {
 	if err := k.releasePendingResults(); err != nil {
 		return err
