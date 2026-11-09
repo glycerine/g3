@@ -175,19 +175,21 @@ func (q *SMTQIQueueSchedule) PopScopes(count uint32) error {
 	return nil
 }
 
+// releaseInstances is m_instances.shrink(limit) / reset(): an
+// expr_ref_vector releases forward from limit.
 func (q *SMTQIQueueSchedule) releaseInstances(limit int) error {
-	for len(q.instanceRefs) > limit {
-		index := len(q.instanceRefs) - 1
-		err := q.manager.DelRef(&q.instanceRefs[index])
-		// DelRef can consume its token and still report later cleanup failure.
+	for index := limit; index < len(q.instanceRefs); index++ {
 		if q.instanceRefs[index] == (ast.ASTRef{}) {
-			q.instanceRefs = q.instanceRefs[:index]
-			q.instances = q.instances[:index]
+			continue
 		}
+		err := q.manager.DelRef(&q.instanceRefs[index])
 		if err != nil {
+			// Keep the unreleased tail; DelRef zeroes a consumed token.
 			return err
 		}
 	}
+	q.instanceRefs = q.instanceRefs[:limit]
+	q.instances = q.instances[:limit]
 	return nil
 }
 

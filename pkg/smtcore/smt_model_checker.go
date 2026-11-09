@@ -382,6 +382,21 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 	if err != nil {
 		return false, err
 	}
+	count, err := c.manager.GetNumDeclarations(flat)
+	if err != nil {
+		return false, err
+	}
+	values := make([]ast.ASTHandle, count)
+	skolems := make([]ast.ASTHandle, count)
+	skolemDecls := make([]ast.ASTHandle, len(skolems))
+	skolemRefs := make([]ast.ASTRef, 0, len(skolems))
+	// check(q) pops the aux context before its sks vector dies, so this
+	// release is deferred before the pop.
+	defer func() {
+		for i := len(skolemRefs) - 1; i >= 0; i-- {
+			result = errors.Join(result, c.manager.DelRef(&skolemRefs[i]))
+		}
+	}()
 	// check(q): m_aux_context->push(), then assert_neg_q_m.
 	if err = c.initAuxiliaryContext(); err != nil {
 		return false, err
@@ -391,19 +406,6 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 		return false, err
 	}
 	defer func() { result = errors.Join(result, auxiliary.PopCore(1)) }()
-	count, err := c.manager.GetNumDeclarations(flat)
-	if err != nil {
-		return false, err
-	}
-	values := make([]ast.ASTHandle, count)
-	skolems := make([]ast.ASTHandle, count)
-	skolemDecls := make([]ast.ASTHandle, len(skolems))
-	skolemRefs := make([]ast.ASTRef, 0, len(skolems))
-	defer func() {
-		for i := len(skolemRefs) - 1; i >= 0; i-- {
-			result = errors.Join(result, c.manager.DelRef(&skolemRefs[i]))
-		}
-	}()
 	// assert_neg_q_m's locals tmp, sk_body, s (var_subst) and r die when it
 	// returns, in reverse declaration order (r, s, sk_body, tmp).
 	var temporaries []func() error
