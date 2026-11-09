@@ -63,6 +63,8 @@ func TestPDRCertificateConverterUsesCurrentLedgerAndTransfersModel(t *testing.T)
 func TestPDRInternalCertificateAppliesLiveSliceConverter(t *testing.T) {
 	f := newPDRLifecycleFixture(t)
 	e, m := f.engine, f.manager
+	// Model conversions need m_mc, which a prior context::query installs.
+	InstallContextModelConverter(e)
 	for _, key := range []string{"fixedpoint.xform.inline_eager", "fixedpoint.xform.inline_linear"} {
 		fragmentMust(t, e.globals.SourceSetName(key, "false"))
 	}
@@ -95,17 +97,17 @@ func TestPDRInternalCertificateAppliesLiveSliceConverter(t *testing.T) {
 	if status != lbool.False {
 		t.Fatal("query", status)
 	}
-	if e.pdrPredicate(p) == p {
+	if e.pdrQueryPredicate(p) == p {
 		t.Fatal("fixture did not exercise slicing")
 	}
 	var output bytes.Buffer
-	fragmentMust(t, e.pdr.DisplayCertificate(&output, e.pdrPredicate(f.declarations["u"]), false))
+	fragmentMust(t, e.pdr.DisplayCertificate(&output, e.pdrQueryPredicate(f.declarations["u"]), false))
 	text := output.String()
 	if !strings.Contains(text, "certificate-original-P") || strings.Contains(text, "!slice!") {
 		t.Fatalf("internal certificate did not reconstruct original predicate: %s", text)
 	}
 	var again bytes.Buffer
-	fragmentMust(t, e.pdr.DisplayCertificate(&again, e.pdrPredicate(f.declarations["u"]), false))
+	fragmentMust(t, e.pdr.DisplayCertificate(&again, e.pdrQueryPredicate(f.declarations["u"]), false))
 	if again.String() != text {
 		t.Fatal("converter consumed borrowed preprocessing ledger")
 	}

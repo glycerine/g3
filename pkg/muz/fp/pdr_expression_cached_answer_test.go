@@ -159,7 +159,8 @@ func testPDRExpressionCachedAnswer(t *testing.T, cache int, trace, alternatives 
 		if !trace {
 			check(append(premises, handle), lbool.True)
 			check([]ast.ASTHandle{handle, own(m.MkNot(query))}, lbool.False)
-			check([]ast.ASTHandle{handle, own(m.MkNot(queryHead))}, lbool.False)
+			// get_trace omits the query!N root head; the bridge rule derives it.
+			check([]ast.ASTHandle{handle, bridge, own(m.MkNot(queryHead))}, lbool.False)
 			return
 		}
 		conclusion, err := m.GetProofFact(handle)

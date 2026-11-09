@@ -512,7 +512,7 @@ func (c *Context) Answer(queryDeclaration ast.ASTHandle) (result ast.ASTRef, res
 			return c.manager.NewRef(truth)
 		}
 	}
-	constraints, err := c.unifiedTraceConstraints(root, c.fullTraceAnswer)
+	constraints, err := c.unifiedTraceConstraints(root, c.fullTraceAnswer, false)
 	if err != nil {
 		return result, fmt.Errorf("pdr: unify trace: %w", err)
 	}

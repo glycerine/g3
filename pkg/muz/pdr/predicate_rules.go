@@ -649,7 +649,7 @@ func (p *PredicateTransformer) makeAssumptions(head ast.ASTHandle, formula ast.A
 	return result, nil
 }
 
-func (p *PredicateTransformer) addChildProperty(child *PredicateTransformer, lemma ast.ASTHandle, level uint32) error {
+func (p *PredicateTransformer) addChildProperty(child *PredicateTransformer, lemma ast.ASTHandle, level uint32) (resultErr error) {
 	if err := p.open(); err != nil {
 		return err
 	}
@@ -658,11 +658,22 @@ func (p *PredicateTransformer) addChildProperty(child *PredicateTransformer, lem
 			return err
 		}
 	}
-	formulas, err := p.makeAssumptions(child.head, lemma)
+	// add_child_property's local fmls vector owns the assumptions; the
+	// solver keeps what it needs and the vector releases forward on return.
+	formulas, err := p.makeAssumptionRefs(child.head, lemma)
+	defer func() {
+		for i := range formulas {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&formulas[i]))
+		}
+	}()
 	if err != nil {
 		return err
 	}
-	for _, formula := range formulas {
+	for _, ref := range formulas {
+		formula, x := p.manager.RefGet(ref)
+		if x != nil {
+			return x
+		}
 		if level == InfinityLevel {
 			err = p.solver.AddFormula(formula)
 		} else {
@@ -673,6 +684,31 @@ func (p *PredicateTransformer) addChildProperty(child *PredicateTransformer, lem
 		}
 	}
 	return nil
+}
+
+// makeAssumptionRefs is mk_assumptions into a caller-owned vector.
+func (p *PredicateTransformer) makeAssumptionRefs(head ast.ASTHandle, formula ast.ASTHandle) ([]ast.ASTRef, error) {
+	result := make([]ast.ASTRef, 0)
+	for _, rule := range p.rules {
+		if rule.tag.IsNull() {
+			continue
+		}
+		for index, predecessor := range rule.predecessors {
+			if predecessor.head != head {
+				continue
+			}
+			implication, err := p.manager.MkImplies(rule.tag, formula)
+			if err != nil {
+				return result, err
+			}
+			converted, err := p.owner.FormulaNewToOldRef(implication, uint32(index), false)
+			if err != nil {
+				return result, err
+			}
+			result = append(result, converted)
+		}
+	}
+	return result, nil
 }
 
 // Premises returns this predicate's system formulas plus every predecessor's

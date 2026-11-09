@@ -12,7 +12,7 @@ import (
 type pdrCertificateModelConverter struct{ engine *PropositionalEngine }
 
 func (c pdrCertificateModelConverter) ConvertCertificateModel(source *model.Model) (*model.Model, error) {
-	return c.engine.expandHornModel(source, c.engine.pdrConversions)
+	return c.engine.expandHornModel(source, c.engine.pdrModelConversions())
 }
 
 var _ pdr.CertificateModelConverter = pdrCertificateModelConverter{}

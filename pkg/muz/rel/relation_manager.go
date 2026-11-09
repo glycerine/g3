@@ -14,15 +14,15 @@ import (
 // RelationManager borrows an AST manager, owns stored finite predicate tables,
 // and converts between finite-domain relation values and table elements.
 type RelationManager struct {
-	manager                 *ast.ASTManager
-	relations               map[ast.ASTHandle]*HashTable
-	finite                  map[ast.ASTHandle]FiniteTable
-	explanations            map[ast.ASTHandle]*FiniteExplanationProduct
-	relationLevel           map[ast.ASTHandle]*RelationExplanationProduct
-	saturated               map[ast.ASTHandle]bool
+	manager       *ast.ASTManager
+	relations     map[ast.ASTHandle]*HashTable
+	finite        map[ast.ASTHandle]FiniteTable
+	explanations  map[ast.ASTHandle]*FiniteExplanationProduct
+	relationLevel map[ast.ASTHandle]*RelationExplanationProduct
+	saturated     map[ast.ASTHandle]bool
 	// layout is m_relations' obj_map layout over every stored predicate;
 	// reset and restrict walk it in table order.
-	layout *ast.ObjMap
+	layout                  *ast.ObjMap
 	defaultFinite           string
 	lazyFinite              *LazySparseFiniteFactory // borrowed; context closes it after this manager
 	checkedFinite           *FiniteCheckedFactory    // borrowed for one checked execution scope

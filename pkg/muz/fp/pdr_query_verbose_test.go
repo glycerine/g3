@@ -55,7 +55,9 @@ func TestPDRQueryDisplaysTransformedRulesAtSourceVerbosity(t *testing.T) {
 				}
 				// context::solve has its own IF_VERBOSE(1) reachable-search
 				// diagnostic after pdr_dl_interface's IF_VERBOSE(2) rule list.
-				if !strings.HasPrefix(got, "\n0 pdr-lifecycle-q closed\n  true ") || !strings.HasSuffix(got, "\ngoals 0\n") {
+				// The solved predicate is mk_query's fresh query!N (q is
+				// inlined into it), named afresh by every query.
+				if !strings.HasPrefix(got, "\n0 query!") || !strings.Contains(got, " closed\n  true ") || !strings.HasSuffix(got, "\ngoals 0\n") {
 					t.Fatalf("verbosity %d reachable-search suffix: %q", level, got)
 				}
 			}
@@ -69,6 +71,8 @@ func TestPDRQueryDisplaysEmptyProgramModelAtSourceVerbosity(t *testing.T) {
 	for _, backend := range []string{"pdr", "qpdr"} {
 		t.Run(backend, func(t *testing.T) {
 			f := newPDRLifecycleFixture(t)
+			// Model conversions need m_mc, which a prior context::query installs.
+			InstallContextModelConverter(f.engine)
 			fragmentMust(t, f.engine.SelectEngine(backend))
 			oldLevel, err := diagnostic.ProcessVerbosityLevel()
 			fragmentMust(t, err)
@@ -82,7 +86,7 @@ func TestPDRQueryDisplaysEmptyProgramModelAtSourceVerbosity(t *testing.T) {
 				fragmentMust(t, stream.Close())
 			}()
 			fragmentMust(t, diagnostic.SetProcessVerboseStream(stream))
-			var queryReferences uint32
+			var queryReferences, queryStep uint32
 			for iteration, level := range []uint32{0, 1, 2, 1, 0} {
 				fragmentMust(t, diagnostic.SetProcessVerbosityLevel(level))
 				fragmentMust(t, stream.ResetText())
@@ -91,11 +95,15 @@ func TestPDRQueryDisplaysEmptyProgramModelAtSourceVerbosity(t *testing.T) {
 				if status != lbool.False {
 					t.Fatal("empty program query", status)
 				}
-				if iteration == 0 {
-					queryReferences = f.manager.Stats().LiveReferences
-				} else if f.manager.Stats().LiveReferences != queryReferences {
-					t.Fatal("verbose query retained temporary model references")
+				// Every query registers a fresh mk_query predicate query!N,
+				// which the context keeps; anything else must not accumulate.
+				live := f.manager.Stats().LiveReferences
+				if iteration == 1 {
+					queryStep = live - queryReferences
+				} else if iteration > 1 && live-queryReferences != queryStep {
+					t.Fatal("verbose query retained temporary model references", live-queryReferences, queryStep)
 				}
+				queryReferences = live
 				n, err := f.engine.pdrRules.Len()
 				fragmentMust(t, err)
 				if n != 0 {
@@ -113,8 +121,9 @@ func TestPDRQueryDisplaysEmptyProgramModelAtSourceVerbosity(t *testing.T) {
 					fragmentMust(t, err)
 					valid := f.manager.IsTrue(value)
 					if name == "u" {
-						// Source get_level_property excludes the query predicate.
-						valid = value.IsNull()
+						// get_level_property excludes only the query predicate,
+						// mk_query's query!N; the underivable u is false.
+						valid = f.manager.IsFalse(value)
 					}
 					if !valid {
 						t.Fatal("original predicate model", name)
@@ -153,7 +162,7 @@ func TestPDREmptyProgramBypassesSolveValidation(t *testing.T) {
 				t.Fatal("warm empty-program query", status)
 			}
 			f.manager.Budget().FailAfter(0)
-			status, err = solvePDRProgram(f.engine.pdr, f.engine.pdrRules, f.engine.pdrPredicate(f.declarations["u"]))
+			status, err = solvePDRProgram(f.engine.pdr, f.engine.pdrRules, f.engine.pdrQueryPredicate(f.declarations["u"]))
 			f.manager.Budget().FailAfter(-1)
 			fragmentMust(t, err)
 			if status != lbool.False {

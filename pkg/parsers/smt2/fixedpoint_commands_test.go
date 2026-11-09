@@ -543,7 +543,9 @@ func TestSMT2FixedpointPDRPrintCertificate(t *testing.T) {
 	if err = smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := output.String(), "unsat\n(define-fun P ((x!0 Int)) Bool\n  (= x!0 0))\n\nsat\ntrue\n"; got != want {
+	// rel_query runs with a null model converter and every rule is pruned,
+	// so the source prints an empty unsat certificate (z3 output).
+	if got, want := output.String(), "unsat\n\nsat\ntrue\n"; got != want {
 		t.Fatalf("PDR certificate = %q, want %q", got, want)
 	}
 	integer, err := context.LookupSort("Int")

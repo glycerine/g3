@@ -74,13 +74,25 @@ func TestPDRCoalesceRequiresUnfoldAndPrecedesIt(t *testing.T) {
 						fragmentMust(t, err)
 						names = append(names, name)
 					}
-					want := []string{"base-zero", "base-one", "goal"}
+					// mk_query's unnamed rule q(...) => query!N follows the
+					// program rules when no unfolding consumes it.
+					want := []string{"base-zero", "base-one", "goal", ""}
 					if rounds > 0 {
-						want = []string{"base-zero", "base-one", "goal;base-one"}
+						// Each unfold round extends the query rule's inlining
+						// chain; the null source name prints as <null>.
+						query := "<null>;goal"
+						if rounds > 1 {
+							query += ";base-one"
+						}
+						want = []string{"base-zero", "base-one", "goal;base-one", query}
 						if coalesce {
 							// The merged rule retains the first base name even for the
 							// second fact; unfolding must consume that merged rule.
-							want = []string{"base-zero", "goal;base-zero"}
+							query = "<null>;goal"
+							if rounds > 1 {
+								query += ";base-zero"
+							}
+							want = []string{"base-zero", "goal;base-zero", query}
 						}
 					}
 					if !reflect.DeepEqual(names, want) {

@@ -25,8 +25,9 @@ func TestPDRCoveredAdditionUsesOriginalRuleSnapshot(t *testing.T) {
 	context, source := e.pdr, e.pdrSourceRules
 	count, err := source.Len()
 	must(err)
-	if count != 2 {
-		t.Fatal("snapshot does not own both original rules", count)
+	// check_reset's old rules include mk_query's rule q => query!N.
+	if count != 3 {
+		t.Fatal("snapshot does not own both original rules and the query rule", count)
 	}
 	body, err := m.MkAnd(f.applications["p"], f.applications["u"])
 	must(err)
@@ -44,7 +45,7 @@ func TestPDRCoveredAdditionUsesOriginalRuleSnapshot(t *testing.T) {
 	source = e.pdrSourceRules
 	count, err = source.Len()
 	must(err)
-	if count != 3 {
+	if count != 4 {
 		t.Fatal("source snapshot lost the added original rule", count)
 	}
 	must(e.addRuleEager(f.applications["u"], "uncovered-added-fact"))
@@ -112,7 +113,7 @@ func TestPDRCoveredArithmeticAdditionResetsRawCover(t *testing.T) {
 	must(err)
 	defer func() { must(m.DelRef(&propertyRef)) }()
 	must(e.AddCover(2, query, property))
-	transformer, found, err := context.Transformer(e.pdrPredicate(query))
+	transformer, found, err := context.Transformer(e.pdrQueryPredicate(query))
 	must(err)
 	if !found {
 		t.Fatal("missing covered predicate transformer")
@@ -135,7 +136,7 @@ func TestPDRCoveredArithmeticAdditionResetsRawCover(t *testing.T) {
 	if _, err = transformer.Head(); err == nil {
 		t.Fatal("fresh synthetic query rule preserved the old transformer")
 	}
-	raw, err := e.pdr.CoverDelta(2, e.pdrPredicate(query))
+	raw, err := e.pdr.CoverDelta(2, e.pdrQueryPredicate(query))
 	must(err)
 	defer func() { must(m.DelRef(&raw)) }()
 	handle, err := m.RefGet(raw)

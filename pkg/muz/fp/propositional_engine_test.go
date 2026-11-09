@@ -333,8 +333,10 @@ func TestPDREngineMatchesCPPIntegerHornQueries(t *testing.T) {
 	fpMust(t, err)
 	certificateHandle, err := manager.RefGet(certificate)
 	fpMust(t, err)
-	if manager.IsTrue(certificateHandle) {
-		t.Fatal("PDR unsuccessful query exposed an empty certificate")
+	// rel_query leaves m_mc null and every rule is pruned, so the source's
+	// inductive property for the unreachable query is empty: true.
+	if !manager.IsTrue(certificateHandle) {
+		t.Fatal("PDR unsuccessful relation query certificate is not the source's true")
 	}
 	fpMust(t, manager.DelRef(&certificate))
 
@@ -751,6 +753,8 @@ func testPDREngineExpandsSlicedModelsAndCovers(t *testing.T, disableInline bool)
 	}
 	engine, err := fp.NewPropositionalEngineWithServices(manager, globals.Context, globals)
 	fpMust(t, err)
+	// Model conversions need m_mc, which a prior context::query installs.
+	fp.InstallContextModelConverter(engine)
 	t.Cleanup(func() { fpMust(t, engine.Close()) })
 	fpMust(t, engine.SelectEngine("pdr"))
 	boolean, err := manager.MkBoolSort()
@@ -929,6 +933,8 @@ func TestPDREngineCertificateHidesSimpleJoinAuxiliaries(t *testing.T) {
 	fpMust(t, err)
 	engine, err := fp.NewPropositionalEngineWithServices(manager, globals.Context, globals)
 	fpMust(t, err)
+	// Model conversions need m_mc, which a prior context::query installs.
+	fp.InstallContextModelConverter(engine)
 	t.Cleanup(func() { fpMust(t, engine.Close()) })
 	fpMust(t, engine.SelectEngine("pdr"))
 	boolean, err := manager.MkBoolSort()

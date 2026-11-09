@@ -81,7 +81,7 @@ func TestPDRQueryRuleProfileParameters(t *testing.T) {
 				if !strings.HasPrefix(got, expected.String()) {
 					t.Fatalf("diagnostic did not honor parameter precedence: got %q; want prefix %q", got, expected.String())
 				}
-				if suffix := strings.TrimPrefix(got, expected.String()); !strings.HasPrefix(suffix, "\n1 pdr-lifecycle-q closed\n") {
+				if suffix := strings.TrimPrefix(got, expected.String()); !strings.HasPrefix(suffix, "\n2 query!0 closed\n  true 1\n 1 pdr-lifecycle-q closed\n") {
 					t.Fatalf("unexpected rules between listing and reachable-search diagnostic: %q", suffix)
 				}
 				listing := expected.String()

@@ -201,6 +201,12 @@ func testPDRProofExportFailure(t *testing.T, available int, stop int64, symbolic
 	}
 	checkOwners("allocation campaign")
 
+	// The proof concludes the root head, mk_query's query!N for the goal.
+	queryConclusion, err := manager.MkApp(engine.pdrQueryTarget(goal), nil)
+	must(err)
+	if queryConclusion == conclusion {
+		t.Fatal("query did not run through mk_query")
+	}
 	// Retry the same public query snapshot and validate the returned derivation.
 	retry, err := engine.Proof(goal)
 	must(err)
@@ -210,7 +216,7 @@ func testPDRProofExportFailure(t *testing.T, available int, stop int64, symbolic
 	must(err)
 	fact, err := manager.GetProofFact(proofHandle)
 	must(err)
-	if !hyper || fact != conclusion {
+	if !hyper || fact != queryConclusion {
 		t.Fatal("retry did not prove the original query by hyper-resolution")
 	}
 	must(manager.DelRef(&retry))
@@ -268,7 +274,7 @@ func testPDRProofExportFailure(t *testing.T, available int, stop int64, symbolic
 		must(err)
 		fact, err = manager.GetProofFact(current)
 		must(err)
-		if current != heldHandle || !hyper || fact != conclusion {
+		if current != heldHandle || !hyper || fact != queryConclusion {
 			t.Fatal("query replacement or engine closure invalidated the caller's proof")
 		}
 		must(manager.DelRef(&held))

@@ -87,112 +87,121 @@ func (e *PropositionalEngine) predicateState(declaration ast.ASTHandle) (*predic
 // PropositionalEngine owns the retained rule, finite-relation, and optional
 // ground-guard rewriting services.
 type PropositionalEngine struct {
-	manager             *ast.ASTManager
-	rules               *base.RuleManager
-	set                 *base.RuleSet
-	ruleProperties      *base.RuleProperties
-	binder              *base.VariableBinder
-	relations           *rel.RelationManager
-	external            *rel.ExternalRelationPlugin
-	externalSimilarity  *externalSimilarityQueryScope
-	guard               *astrewriter.TheoryRewriter
-	pdrTheory           *astrewriter.TheoryRewriter // borrowed original fixedpoint rewriter in query clones
-	unboundCooperation  *cooperate.Cooperation
-	unboundLite         *qe.Lite
-	unboundLiteDirty    bool
-	background          ast.ASTRef
-	pendingBackground   ast.ASTRef
-	params              *uparams.ParamsContext
-	globals             *uparams.GlobalParamsService
-	backend             string
-	engineSelectionSet  bool
-	datalogDefaultTable string
-	datalogConversions  []hornModelConversion
-	engineInstantiated  bool
-	duality             *muzduality.Backend
-	dualityCooperation  *cooperate.Cooperation
-	dualityMBQI         bool
-	pdr                 *muzpdr.Context
-	pdrRules            *base.RuleSet
-	pdrSourceRules      *base.RuleSet
-	pdrRuleRevision     uint64
-	pdrQuery            ast.ASTHandle
-	pdrTraceQuery       ast.ASTHandle // borrowed only during the enclosing expression-query call
-	pdrDerived          map[ast.ASTHandle]ast.ASTHandle
-	pdrPredicates       map[ast.ASTHandle]ast.ASTHandle
-	pdrSlices           map[ast.ASTHandle][]bool
-	pdrQuantified       map[ast.ASTHandle]ast.ASTHandle
-	pdrInstantiated     map[ast.ASTHandle]ast.ASTHandle
-	pdrBitBlasted       map[ast.ASTHandle]ast.ASTHandle
-	pdrScaled           map[ast.ASTHandle]ast.ASTHandle
-	pdrMagic            map[ast.ASTHandle]ast.ASTHandle
-	pdrKarr             map[ast.ASTHandle]rel.KarrMatrix
-	pdrConversions      []hornModelConversion
-	pdrProof            ast.ASTRef
-	pdrSliceProof       bool
-	pdrStatistics       muzpdr.StatisticsSnapshot
-	pdrDisposal         *pdrContextDisposal
-	bmcStatistics       statistics.Statistics
-	bmcTrace            []*base.Rule
-	bmcProof            ast.ASTRef
-	tabAnswer           ast.ASTRef
-	tabSession          *tab.Session
-	tabSessionBorrowed  bool
-	tabUnfold           uint32
-	tabUnfoldFail       uint32
-	tabSubsumed         uint32
-	spacer              *muzspacer.Context
-	spacerDisposal      *spacerContextDisposal
-	spacerStatistics    muzspacer.StatisticsSnapshot
-	scopes              []*base.RuleSet
-	popPhase            contextPopPhase
-	pendingUpdate       *pendingRuleUpdate
-	rawRules            []rawRuleFormula
-	rawRuleScopes       [][]rawRuleFormula
-	retiredRawRules     []rawRuleFormula
-	assertions          []ast.ASTRef
-	assertionScopes     []int
-	predicates          map[ast.ASTHandle]*predicateState
-	predicateOrder      []ast.ASTHandle
-	auxiliary           map[ast.ASTHandle]bool
-	compiled            bool
-	queried             bool
-	queryReady          bool
-	queryClone          *PropositionalEngine
-	queryCloneDisposal  *queryCloneCleanup
-	queryCleanup        []*queryCloneCleanup
-	queryCloneRevision  uint64
-	queryClonePredicate ast.ASTHandle
-	queryRelations      []ast.ASTHandle
-	queryRelationsSet   bool
-	queryRevision       uint64
-	queryEngine         EngineKind
-	lastResult          lbool.LBool
-	revision            uint64
-	pdrRevision         uint64
-	spacerRules         *base.RuleSet
-	spacerRevision      uint64
-	spacerOriginalQuery ast.ASTHandle
-	spacerQuery         ast.ASTHandle
-	spacerPredicates    map[ast.ASTHandle]ast.ASTHandle
-	spacerSlices        map[ast.ASTHandle][]bool
-	spacerQuantified    map[ast.ASTHandle]ast.ASTHandle
-	spacerInstantiated  map[ast.ASTHandle]ast.ASTHandle
-	spacerBitBlasted    map[ast.ASTHandle]ast.ASTHandle
-	spacerScaled        map[ast.ASTHandle]ast.ASTHandle
-	spacerMagic         map[ast.ASTHandle]ast.ASTHandle
-	spacerKarr          map[ast.ASTHandle]rel.KarrMatrix
-	spacerConversions   []hornModelConversion
-	lastStatus          string
-	forceProofTrace     bool
-	queryParams         uparams.ParamsRef
-	queryParamsReady    bool
-	queryParamsReceipt  uparams.ParamsDecrementReceipt
-	datalogStats        statistics.Statistics
-	datalogElapsed      float64
-	closed              bool
-	closing             bool
-	ddnf                ddnfEngineState
+	// pdrQueryAlias maps a queried relation to its mk_query predicate.
+	// contextModelConverter is datalog::context's m_mc != null: context::query
+	// installs a skip converter, while rel_query leaves m_mc as it was (null
+	// until the first expression query). pdrNullModelConverter records that
+	// the latest PDR relation query ran without one, so its transformations
+	// recorded no model converters.
+	contextModelConverter bool
+	pdrNullModelConverter bool
+	pdrQueryAlias         map[ast.ASTHandle]ast.ASTHandle
+	manager               *ast.ASTManager
+	rules                 *base.RuleManager
+	set                   *base.RuleSet
+	ruleProperties        *base.RuleProperties
+	binder                *base.VariableBinder
+	relations             *rel.RelationManager
+	external              *rel.ExternalRelationPlugin
+	externalSimilarity    *externalSimilarityQueryScope
+	guard                 *astrewriter.TheoryRewriter
+	pdrTheory             *astrewriter.TheoryRewriter // borrowed original fixedpoint rewriter in query clones
+	unboundCooperation    *cooperate.Cooperation
+	unboundLite           *qe.Lite
+	unboundLiteDirty      bool
+	background            ast.ASTRef
+	pendingBackground     ast.ASTRef
+	params                *uparams.ParamsContext
+	globals               *uparams.GlobalParamsService
+	backend               string
+	engineSelectionSet    bool
+	datalogDefaultTable   string
+	datalogConversions    []hornModelConversion
+	engineInstantiated    bool
+	duality               *muzduality.Backend
+	dualityCooperation    *cooperate.Cooperation
+	dualityMBQI           bool
+	pdr                   *muzpdr.Context
+	pdrRules              *base.RuleSet
+	pdrSourceRules        *base.RuleSet
+	pdrRuleRevision       uint64
+	pdrQuery              ast.ASTHandle
+	pdrTraceQuery         ast.ASTHandle // borrowed only during the enclosing expression-query call
+	pdrDerived            map[ast.ASTHandle]ast.ASTHandle
+	pdrPredicates         map[ast.ASTHandle]ast.ASTHandle
+	pdrSlices             map[ast.ASTHandle][]bool
+	pdrQuantified         map[ast.ASTHandle]ast.ASTHandle
+	pdrInstantiated       map[ast.ASTHandle]ast.ASTHandle
+	pdrBitBlasted         map[ast.ASTHandle]ast.ASTHandle
+	pdrScaled             map[ast.ASTHandle]ast.ASTHandle
+	pdrMagic              map[ast.ASTHandle]ast.ASTHandle
+	pdrKarr               map[ast.ASTHandle]rel.KarrMatrix
+	pdrConversions        []hornModelConversion
+	pdrProof              ast.ASTRef
+	pdrSliceProof         bool
+	pdrStatistics         muzpdr.StatisticsSnapshot
+	pdrDisposal           *pdrContextDisposal
+	bmcStatistics         statistics.Statistics
+	bmcTrace              []*base.Rule
+	bmcProof              ast.ASTRef
+	tabAnswer             ast.ASTRef
+	tabSession            *tab.Session
+	tabSessionBorrowed    bool
+	tabUnfold             uint32
+	tabUnfoldFail         uint32
+	tabSubsumed           uint32
+	spacer                *muzspacer.Context
+	spacerDisposal        *spacerContextDisposal
+	spacerStatistics      muzspacer.StatisticsSnapshot
+	scopes                []*base.RuleSet
+	popPhase              contextPopPhase
+	pendingUpdate         *pendingRuleUpdate
+	rawRules              []rawRuleFormula
+	rawRuleScopes         [][]rawRuleFormula
+	retiredRawRules       []rawRuleFormula
+	assertions            []ast.ASTRef
+	assertionScopes       []int
+	predicates            map[ast.ASTHandle]*predicateState
+	predicateOrder        []ast.ASTHandle
+	auxiliary             map[ast.ASTHandle]bool
+	compiled              bool
+	queried               bool
+	queryReady            bool
+	queryClone            *PropositionalEngine
+	queryCloneDisposal    *queryCloneCleanup
+	queryCleanup          []*queryCloneCleanup
+	queryCloneRevision    uint64
+	queryClonePredicate   ast.ASTHandle
+	queryRelations        []ast.ASTHandle
+	queryRelationsSet     bool
+	queryRevision         uint64
+	queryEngine           EngineKind
+	lastResult            lbool.LBool
+	revision              uint64
+	pdrRevision           uint64
+	spacerRules           *base.RuleSet
+	spacerRevision        uint64
+	spacerOriginalQuery   ast.ASTHandle
+	spacerQuery           ast.ASTHandle
+	spacerPredicates      map[ast.ASTHandle]ast.ASTHandle
+	spacerSlices          map[ast.ASTHandle][]bool
+	spacerQuantified      map[ast.ASTHandle]ast.ASTHandle
+	spacerInstantiated    map[ast.ASTHandle]ast.ASTHandle
+	spacerBitBlasted      map[ast.ASTHandle]ast.ASTHandle
+	spacerScaled          map[ast.ASTHandle]ast.ASTHandle
+	spacerMagic           map[ast.ASTHandle]ast.ASTHandle
+	spacerKarr            map[ast.ASTHandle]rel.KarrMatrix
+	spacerConversions     []hornModelConversion
+	lastStatus            string
+	forceProofTrace       bool
+	queryParams           uparams.ParamsRef
+	queryParamsReady      bool
+	queryParamsReceipt    uparams.ParamsDecrementReceipt
+	datalogStats          statistics.Statistics
+	datalogElapsed        float64
+	closed                bool
+	closing               bool
+	ddnf                  ddnfEngineState
 
 	datalogTransformCleanup *datalogTransformOwners
 
@@ -2333,6 +2342,11 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 	}
 	if e.backend == "pdr" || e.backend == "qpdr" {
 		e.compiled = false
+		if !e.auxiliary[declaration] {
+			return e.queryPDRRelation(declaration)
+		}
+		// The synthetic predicate of an expression query (context::query).
+		e.pdrNullModelConverter = false
 		return e.queryPDR(declaration)
 	}
 	if e.backend == "spacer" {
@@ -2721,6 +2735,7 @@ func (e *PropositionalEngine) inductiveModelAnswer(inductive *model.Model) (answ
 // Answer returns an owning formula describing the current finite relation.
 // Each free variable corresponds to the predicate column with the same index.
 func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTRef, result error) {
+	declaration = e.pdrQueryTarget(declaration)
 	// dl_interface::get_answer is an explicit unsupported source operation.
 	if e.backend == "duality" {
 		return answer, ErrPropositionalEngine
@@ -2866,6 +2881,7 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 // and engines that do not override engine_base::get_proof return asserted
 // true. The caller releases the result through ASTManager.DelRef.
 func (e *PropositionalEngine) Proof(declaration ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	declaration = e.pdrQueryTarget(declaration)
 	if e.backend == "duality" {
 		if err := e.requireResultSnapshot(EngineDuality); err != nil {
 			return ast.ASTRef{}, err
@@ -3046,6 +3062,7 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 // status; other engines enforce their own model availability restrictions.
 // The caller owns and closes the returned model.
 func (e *PropositionalEngine) Model(declaration ast.ASTHandle) (*model.Model, error) {
+	declaration = e.pdrQueryTarget(declaration)
 	if err := e.open(); err != nil {
 		return nil, err
 	}
@@ -3070,7 +3087,7 @@ func (e *PropositionalEngine) Model(declaration ast.ASTHandle) (*model.Model, er
 		if err != nil {
 			return nil, err
 		}
-		return e.expandHornModel(result, e.pdrConversions)
+		return e.expandHornModel(result, e.pdrModelConversions())
 	}
 	if e.backend == "spacer" && e.spacer != nil && e.spacerRevision == e.revision {
 		if declaration != e.spacerOriginalQuery {

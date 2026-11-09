@@ -39,6 +39,8 @@ func TestPDRScaleOriginalClauseModel(t *testing.T) {
 				backend = "qpdr"
 			}
 			fragmentMust(t, e.SelectEngine(backend))
+			// Model conversions need m_mc, which a prior context::query installs.
+			InstallContextModelConverter(e)
 			var pins []ast.ASTRef
 			defer func() {
 				for i := len(pins) - 1; i >= 0; i-- {
@@ -116,22 +118,23 @@ func TestPDRScaleOriginalClauseModel(t *testing.T) {
 
 				md, err := e.Model(goal)
 				fragmentMust(t, err)
-				// PDR get_level_property excludes the queried predicate. Extend the
-				// caller-owned model with false to check the original goal clause.
-				present, err := md.Core().HasInterpretation(goal)
+				// PDR get_level_property excludes only mk_query's query!N, so
+				// the unreachable goal is interpreted as false.
+				goalValue, err := md.Core().ConstantInterpretation(goal)
 				fragmentMust(t, err)
-				if present {
-					t.Fatal("PDR unexpectedly interpreted the query predicate")
+				if !m.IsFalse(goalValue) {
+					t.Fatal("PDR did not interpret the unreachable goal as false")
 				}
-				fragmentMust(t, md.Core().RegisterConstant(goal, own(m.MkFalse())))
+				fragmentMust(t, md.Core().RegisterConstant(goal, own(m.MkTrue())))
 				independent, err := e.Model(goal)
 				fragmentMust(t, err)
-				present, err = independent.Core().HasInterpretation(goal)
+				goalValue, err = independent.Core().ConstantInterpretation(goal)
 				fragmentMust(t, err)
-				if present {
+				if !m.IsFalse(goalValue) {
 					t.Fatal("mutating the returned model affected a later model")
 				}
 				fragmentMust(t, independent.Close())
+				fragmentMust(t, md.Core().RegisterConstant(goal, own(m.MkFalse())))
 				evaluator, err := model.NewModelEvaluator(md.Core(), model.ModelEvaluatorConfig{Context: g.Context, Globals: g, Memory: m.NumeralService().RuntimeOwner(), Cooperation: cooperation})
 				fragmentMust(t, err)
 				fragmentMust(t, evaluator.SetModelCompletion(false))

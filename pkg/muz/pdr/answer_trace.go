@@ -31,7 +31,7 @@ func (c *Context) traceMaximumVariable(expressions ...[]ast.ASTHandle) (uint32, 
 	return used.MaxFoundVarIndexPlusOne(), nil
 }
 
-func (c *Context) unifiedTraceConstraints(root *ModelNode, complete bool) (result []ast.ASTRef, resultErr error) {
+func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot bool) (result []ast.ASTRef, resultErr error) {
 	phase := "update models"
 	defer func() {
 		if resultErr != nil {
@@ -203,7 +203,8 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete bool) (resul
 			_ = substitution.Close()
 			return nil, x
 		}
-		if complete || iteration != 0 && (anchor == nil || current.node.transformer == anchor) {
+		// get_trace's first flag: the root head (query!N) is never a constraint.
+		if complete && (iteration != 0 || includeRoot) || iteration != 0 && (anchor == nil || current.node.transformer == anchor) {
 			constraints = append(constraints, predicate)
 		}
 		appliedTails := make([]ast.ASTHandle, len(tails))

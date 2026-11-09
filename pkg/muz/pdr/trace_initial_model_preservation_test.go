@@ -110,6 +110,17 @@ func TestTraceInitialModelPreservedByAnswerAndProof(t *testing.T) {
 					handle, err = m.GetProofFact(handle)
 					closureMust(t, err)
 				}
+				if !proof {
+					// get_trace never keeps the root head (the query!N
+					// predicate in the source), so a fact root exports true.
+					truth, err := m.MkTrue()
+					closureMust(t, err)
+					if handle != truth {
+						t.Fatal("answer kept the root head of the trace", attempt, handle)
+					}
+					closureMust(t, m.DelRef(&result))
+					continue
+				}
 				conjuncts, err := m.FlattenAnd([]ast.ASTHandle{handle})
 				closureMust(t, err)
 				if len(conjuncts) != 1 || conjuncts[0] != expected {

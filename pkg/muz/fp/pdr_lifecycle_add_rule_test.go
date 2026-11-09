@@ -13,7 +13,7 @@ func TestPDREngineResetsContextForGeneralRuleAddition(t *testing.T) {
 		t.Fatal(status, err)
 	}
 	first := fixture.engine.pdr
-	transformer, found, err := first.Transformer(fixture.engine.pdrPredicate(fixture.declarations["q"]))
+	transformer, found, err := first.Transformer(fixture.engine.pdrQueryPredicate(fixture.declarations["q"]))
 	if err != nil || !found {
 		t.Fatal("initial transformer", found, err)
 	}
@@ -33,7 +33,7 @@ func TestPDREngineResetsContextForGeneralRuleAddition(t *testing.T) {
 	if _, err := transformer.Head(); err == nil {
 		t.Fatal("uncovered addition left the old transformer open")
 	}
-	levels, err := first.NumLevels(fixture.engine.pdrPredicate(fixture.declarations["q"]))
+	levels, err := first.NumLevels(fixture.engine.pdrQueryPredicate(fixture.declarations["q"]))
 	if err != nil || levels >= 3 {
 		t.Fatal("uncovered addition preserved the old frames", levels, err)
 	}

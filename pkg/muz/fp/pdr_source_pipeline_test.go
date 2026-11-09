@@ -27,6 +27,8 @@ func TestPDRQueryPreservesOriginalRulesAcrossSourcePipeline(t *testing.T) {
 					fragmentMust(t, err)
 					defer func() { fragmentMust(t, e.Close()) }()
 					fragmentMust(t, e.SelectEngine(backend))
+					// Model conversions need m_mc, which a prior context::query installs.
+					InstallContextModelConverter(e)
 					var pins []ast.ASTRef
 					defer func() {
 						for i := len(pins) - 1; i >= 0; i-- {
@@ -132,11 +134,12 @@ func TestPDRQueryPreservesOriginalRulesAcrossSourcePipeline(t *testing.T) {
 						probes := atoms
 						expected := []bool{true, false}
 						if shape == "constant-tail" {
-							// context::get_level_property excludes the query predicate.
-							present, err := md.Core().HasInterpretation(goal)
+							// context::get_level_property excludes only mk_query's
+							// query!N; the unreachable goal is false.
+							goalValue, err := md.Core().ConstantInterpretation(goal)
 							fragmentMust(t, err)
-							if present {
-								t.Fatal("unconverted query predicate unexpectedly interpreted")
+							if !m.IsFalse(goalValue) {
+								t.Fatal("unreachable query predicate not interpreted as false")
 							}
 							probes = atoms[1:]
 						}

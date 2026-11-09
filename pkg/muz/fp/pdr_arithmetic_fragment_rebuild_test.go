@@ -64,7 +64,7 @@ func TestPDREngineRebuildsContextAcrossArithmeticFragments(t *testing.T) {
 	if differenceMode, xerr := first.IsDifferenceLogic(); xerr != nil || !differenceMode {
 		t.Fatal("initial PDR arithmetic fragment", differenceMode, xerr)
 	}
-	oldTransformer, found, err := first.Transformer(engine.pdrPredicate(predicate))
+	oldTransformer, found, err := first.Transformer(engine.pdrQueryPredicate(predicate))
 	fragmentMust(t, err)
 	if !found {
 		t.Fatal("initial PDR transformer missing")

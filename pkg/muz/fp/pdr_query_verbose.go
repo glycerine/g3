@@ -55,7 +55,7 @@ func (e *PropositionalEngine) writePDREmptyProgramModel(declaration ast.ASTHandl
 	if err != nil {
 		return err
 	}
-	md, err := e.expandHornModel(source, e.pdrConversions)
+	md, err := e.expandHornModel(source, e.pdrModelConversions())
 	if err != nil {
 		return err
 	}

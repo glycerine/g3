@@ -549,7 +549,10 @@ func TestPDRConvertsSlicedProofToOriginalRules(t *testing.T) {
 	fragmentMust(t, err)
 	fact, err := manager.GetProofFact(proof)
 	fragmentMust(t, err)
-	if fact != goalApp {
+	// The proof concludes the root head, mk_query's query!N.
+	queryApp, err := manager.MkApp(engine.pdrQueryTarget(goal), nil)
+	fragmentMust(t, err)
+	if fact != queryApp || queryApp == goalApp {
 		t.Fatal("converted proof has the wrong conclusion")
 	}
 	for _, get := range []func(ast.ASTHandle) (ast.ASTRef, error){engine.Proof, engine.Answer} {

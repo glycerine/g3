@@ -19,6 +19,8 @@ func TestPDREmptyProgramModelDiagnosticFailureOwnershipAndRetry(t *testing.T) {
 	for ordinal := int64(0); ordinal < 512 && !complete; ordinal++ {
 		t.Run(fmt.Sprint(ordinal), func(t *testing.T) {
 			f := newPDRLifecycleFixture(t)
+			// Model conversions need m_mc, which a prior context::query installs.
+			InstallContextModelConverter(f.engine)
 			oldLevel, err := diagnostic.ProcessVerbosityLevel()
 			fragmentMust(t, err)
 			oldStream, err := diagnostic.BorrowProcessVerboseStream()
@@ -40,7 +42,7 @@ func TestPDREmptyProgramModelDiagnosticFailureOwnershipAndRetry(t *testing.T) {
 			fragmentMust(t, diagnostic.SetProcessVerbosityLevel(1))
 			before := f.manager.Stats().LiveReferences
 			f.manager.Budget().FailAfter(ordinal)
-			failure := f.engine.writePDREmptyProgramModel(f.declarations["u"])
+			failure := f.engine.writePDREmptyProgramModel(f.engine.pdrQueryTarget(f.declarations["u"]))
 			f.manager.Budget().FailAfter(-1)
 			if failure != nil {
 				failures++
@@ -59,7 +61,7 @@ func TestPDREmptyProgramModelDiagnosticFailureOwnershipAndRetry(t *testing.T) {
 				t.Fatal("diagnostic leaked references", ordinal, failure)
 			}
 			fragmentMust(t, stream.ResetText())
-			fragmentMust(t, f.engine.writePDREmptyProgramModel(f.declarations["u"]))
+			fragmentMust(t, f.engine.writePDREmptyProgramModel(f.engine.pdrQueryTarget(f.declarations["u"])))
 			output, err := stream.String()
 			fragmentMust(t, err)
 			if output == "" {

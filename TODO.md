@@ -544,6 +544,28 @@ Found while matching `-st` output against `build/z3` on
    (queryPDR etc.); routing PDR through queryRelationExpression still made
    no query!0 and hung on fixedpoint_pdr_arithmetic_inductive, so the PDR
    expression path itself needs porting first.
+   DONE for PDR/QPDR (muz/fp/pdr_relation_query.go): `(query R)` now runs
+   mk_query in place: it registers query!N, adds `R(...) => query!N`, solves
+   query!N, and removes the rule again (dl_interface::query's
+   replace_rules(old_rules)). Answer/Proof/Model resolve R to query!N.
+   Follow-ups that are also done:
+   - get_trace never keeps the root head.
+   - rel_query leaves datalog::context's m_mc null until a context::query
+     runs, so relation queries apply no Horn model conversions.
+     Certificates/models now show raw sliced names (P!slice!1) as z3 does.
+   - add_cover no longer refuses inlined predicates.
+   - add_child_property owns its mk_assumptions vector.
+   Still OPEN:
+   - Other engines' predicate-direct paths (spacer, bmc, tab, clp, datalog).
+   - `(query!0 x)`: z3's query!N takes R's free variables as arguments;
+     check that makeQueryHead does the same for non-nullary R.
+   - After an expression query, z3's rel_query concatenates the older m_mc
+     chain; g3 applies only the current conversions.
+   - Fresh-name counter: the second sliced query names P!slice!30 in z3,
+     P!slice!29 in g3.
+   - The sliced property prints (not (>= x 1)) in g3 vs (<= x 0) in z3.
+   - AddCover's "sliced predicate columns" refusal is g3's own (z3 checks
+     only xform.slice).
 
 21. **Recorded deviations, kept deliberately.** cmd/g3 tests encode
    these: bvsmul_noovfl numeral folding uses signed semantics (the source

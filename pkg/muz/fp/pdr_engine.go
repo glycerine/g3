@@ -598,13 +598,8 @@ func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTH
 		if err := e.rejectSlicedProperty(declaration); err != nil {
 			return err
 		}
-		eliminated, err := e.hornInlineEliminated(e.spacerConversions, declaration)
-		if err != nil {
-			return err
-		}
-		if eliminated {
-			return fmt.Errorf("muz/fp: covers and invariants are incompatible with eliminated predicates")
-		}
+		// dl_interface::add_cover refuses only slicing; context::add_cover
+		// creates a transformer for a predicate the rules no longer contain.
 		return context.AddCover(level, e.spacerPredicate(declaration), property)
 	}
 	context, err := e.pdrContext()
@@ -626,13 +621,8 @@ func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTH
 	if slicedPredicateHasRemovedColumns(e.pdrSlices, declaration) {
 		return fmt.Errorf("muz/fp: covers and invariants are incompatible with sliced predicate columns")
 	}
-	eliminated, err := e.hornInlineEliminated(e.pdrConversions, declaration)
-	if err != nil {
-		return err
-	}
-	if eliminated {
-		return fmt.Errorf("muz/fp: covers and invariants are incompatible with eliminated predicates")
-	}
+	// dl_interface::add_cover refuses only slicing; context::add_cover
+	// creates a transformer for a predicate the rules no longer contain.
 	return context.AddCover(level, e.pdrPredicate(declaration), property)
 }
 

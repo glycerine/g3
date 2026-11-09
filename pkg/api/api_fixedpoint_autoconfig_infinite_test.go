@@ -14,7 +14,7 @@ func TestSMTContextFixedpointAutoConfigSelectsPDRForInfiniteDomain(t *testing.T)
 	t.Cleanup(func() { astTestMust(t, context.Close()) })
 	manager, err := context.Manager()
 	astTestMust(t, err)
-	references := make([]ast.ASTRef, 0, 3)
+	references := make([]ast.ASTRef, 0, 10)
 	defer func() {
 		for i := len(references) - 1; i >= 0; i-- {
 			astTestMust(t, manager.DelRef(&references[i]))
@@ -36,6 +36,13 @@ func TestSMTContextFixedpointAutoConfigSelectsPDRForInfiniteDomain(t *testing.T)
 	astTestMust(t, err)
 	fact := pin(manager.MkApp(predicate, []ast.ASTHandle{zero}))
 	astTestMust(t, context.AddFixedpointRule(fact, "api-auto-infinite-fact"))
+	// A recursive step keeps P out of the inliners, so P keeps its own PDR
+	// transformer behind mk_query's query!0.
+	x := pin(context.DeclareFixedpointVariable("api-auto-infinite-x", integer))
+	one := pin(manager.ArithmeticIntegerNumeralText("1"))
+	next := pin(manager.MkArithmeticAdd(x, one))
+	step := pin(manager.MkImplies(pin(manager.MkApp(predicate, []ast.ASTHandle{x})), pin(manager.MkApp(predicate, []ast.ASTHandle{next}))))
+	astTestMust(t, context.AddFixedpointRule(step, "api-auto-infinite-step"))
 
 	status, err := context.QueryFixedpoint(predicate)
 	astTestMust(t, err)

@@ -19,7 +19,7 @@ func TestPDREngineResetsContextForRepeatedQuery(t *testing.T) {
 				t.Fatal("initial PDR query", status, err)
 			}
 			context := fixture.engine.pdr
-			transformer, found, err := context.Transformer(fixture.engine.pdrPredicate(query))
+			transformer, found, err := context.Transformer(fixture.engine.pdrQueryPredicate(query))
 			if err != nil || !found {
 				t.Fatal("initial query transformer", found, err)
 			}
@@ -43,7 +43,7 @@ func TestPDREngineResetsContextForRepeatedQuery(t *testing.T) {
 			if _, err = source.Len(); err == nil {
 				t.Fatal("repeated query left the source snapshot open")
 			}
-			installed, found, err := context.Transformer(fixture.engine.pdrPredicate(query))
+			installed, found, err := context.Transformer(fixture.engine.pdrQueryPredicate(query))
 			if err != nil || !found || installed == transformer {
 				t.Fatal("repeated query did not install a fresh transformer", found, err)
 			}
@@ -62,7 +62,7 @@ func TestPDREngineResetsContextForChangedQuery(t *testing.T) {
 		t.Fatal("initial PDR query", status, err)
 	}
 	first := fixture.engine.pdr
-	transformer, found, err := first.Transformer(fixture.engine.pdrPredicate(fixture.declarations["q"]))
+	transformer, found, err := first.Transformer(fixture.engine.pdrQueryPredicate(fixture.declarations["q"]))
 	if err != nil || !found {
 		t.Fatal("initial query transformer", found, err)
 	}
@@ -93,7 +93,7 @@ func TestPDREngineResetsContextForChangedQuery(t *testing.T) {
 	if fixture.engine.pdr != first {
 		t.Fatal("restored query replaced the source context")
 	}
-	levels, err := first.NumLevels(fixture.engine.pdrPredicate(fixture.declarations["q"]))
+	levels, err := first.NumLevels(fixture.engine.pdrQueryPredicate(fixture.declarations["q"]))
 	if err != nil || levels >= 3 {
 		t.Fatal("restored query inherited frames from its earlier program", levels, err)
 	}

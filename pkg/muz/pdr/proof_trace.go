@@ -12,7 +12,7 @@ import (
 )
 
 func (c *Context) completeTraceAnswer(root *ModelNode) (result ast.ASTRef, resultErr error) {
-	constraints, err := c.unifiedTraceConstraints(root, true)
+	constraints, err := c.unifiedTraceConstraints(root, true, true)
 	if err != nil {
 		return result, fmt.Errorf("pdr: unify complete proof trace: %w", err)
 	}
