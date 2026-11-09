@@ -820,65 +820,112 @@ func (t *SMTTheoryArith) mkIdivModAxioms(dividend, divisor ast.ASTHandle) (err e
 		return nil
 	}
 	m := t.state.manager
-	x := smtArithExprs{m: m}
-	defer func() { err = errors.Join(err, x.release()) }()
+	fid := t.FamilyID()
 	_, isNumeral := t.isNumeral(divisor)
-	div, err := t.mkApp(&x, smtArithOpIDiv, dividend, divisor)
+	// expr_ref div, mod, zero, abs_divisor, one, eqz, eq, lower, upper; they
+	// die in reverse declaration order. Nested terms are raw.
+	const (
+		iDiv = iota
+		iMod
+		iZero
+		iAbs
+		iOne
+		iEqz
+		iEq
+		iLower
+		iUpper
+		nLocals
+	)
+	var locals [nLocals]ast.ASTRef
+	for i := range locals {
+		if locals[i], err = m.NewRef(ast.ASTHandle{}); err != nil {
+			for j := i - 1; j >= 0; j-- {
+				err = errors.Join(err, m.DelRef(&locals[j]))
+			}
+			return err
+		}
+	}
+	defer func() {
+		for i := nLocals - 1; i >= 0; i-- {
+			err = errors.Join(err, m.DelRef(&locals[i]))
+		}
+	}()
+	set := func(i int) func(ast.ASTHandle, error) (ast.ASTHandle, error) {
+		return func(h ast.ASTHandle, e error) (ast.ASTHandle, error) {
+			if e != nil {
+				return h, e
+			}
+			return h, m.SetRef(locals[i], h)
+		}
+	}
+	app := func(op int32, args ...ast.ASTHandle) (ast.ASTHandle, error) {
+		return m.MkFamilyApp(fid, op, nil, args)
+	}
+	div, err := set(iDiv)(app(smtArithOpIDiv, dividend, divisor))
 	if err != nil {
 		return err
 	}
-	mod, err := t.mkApp(&x, smtArithOpMod, dividend, divisor)
+	mod, err := set(iMod)(app(smtArithOpMod, dividend, divisor))
 	if err != nil {
 		return err
 	}
-	zero, err := t.mkNumeral(&x, new(big.Rat), true)
+	zero, err := set(iZero)(m.ArithmeticIntegerNumeralText("0"))
 	if err != nil {
 		return err
 	}
-	one, err := t.mkNumeral(&x, big.NewRat(1, 1), true)
+	one, err := set(iOne)(m.ArithmeticIntegerNumeralText("1"))
 	if err != nil {
 		return err
 	}
-	lt, err := t.mkApp(&x, smtArithOpLT, divisor, zero)
+	// mk_sub(m.mk_ite(mk_lt(divisor, zero), mk_sub(zero, divisor), divisor),
+	// one): GCC evaluates the ite's arguments right to left.
+	negDivisor, err := app(smtArithOpSub, zero, divisor)
 	if err != nil {
 		return err
 	}
-	negDivisor, err := t.mkApp(&x, smtArithOpSub, zero, divisor)
+	lt, err := app(smtArithOpLT, divisor, zero)
 	if err != nil {
 		return err
 	}
-	ite, err := x.hold(m.MkIte(lt, negDivisor, divisor))
+	ite, err := m.MkIte(lt, negDivisor, divisor)
 	if err != nil {
 		return err
 	}
-	absDivisor, err := t.mkApp(&x, smtArithOpSub, ite, one)
+	absDivisor, err := set(iAbs)(app(smtArithOpSub, ite, one))
 	if err != nil {
 		return err
 	}
-	if absDivisor, err = t.rewrite(&x, absDivisor); err != nil {
+	// s(abs_divisor) reassigns abs_divisor, releasing the unrewritten term.
+	if t.state.theoryRewriter == nil {
+		return ast.ErrASTDomain
+	}
+	if err = t.state.theoryRewriter.Rewrite(absDivisor, locals[iAbs]); err != nil {
 		return err
 	}
-	eqz, err := x.hold(m.MkEq(divisor, zero))
+	if absDivisor, err = m.RefGet(locals[iAbs]); err != nil {
+		return err
+	}
+	eqz, err := set(iEqz)(m.MkEq(divisor, zero))
 	if err != nil {
 		return err
 	}
-	prod, err := t.mkApp(&x, smtArithOpMul, divisor, div)
+	prod, err := app(smtArithOpMul, divisor, div)
 	if err != nil {
 		return err
 	}
-	sum, err := t.mkApp(&x, smtArithOpAdd, prod, mod)
+	sum, err := app(smtArithOpAdd, prod, mod)
 	if err != nil {
 		return err
 	}
-	eq, err := x.hold(m.MkEq(sum, dividend))
+	eq, err := set(iEq)(m.MkEq(sum, dividend))
 	if err != nil {
 		return err
 	}
-	lowerE, err := t.mkApp(&x, smtArithOpGE, mod, zero)
+	lowerE, err := set(iLower)(app(smtArithOpGE, mod, zero))
 	if err != nil {
 		return err
 	}
-	upperE, err := t.mkApp(&x, smtArithOpLE, mod, absDivisor)
+	upperE, err := set(iUpper)(app(smtArithOpLE, mod, absDivisor))
 	if err != nil {
 		return err
 	}
@@ -888,20 +935,29 @@ func (t *SMTTheoryArith) mkIdivModAxioms(dividend, divisor ast.ASTHandle) (err e
 		}
 	}
 	if k, ok := t.isNumeral(divisor); t.params.EnumConstMod && ok && k.Sign() > 0 && k.Cmp(big.NewRat(8, 1)) < 0 {
+		// expr_ref mod_j lives for the block.
+		modJ, err := m.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return err
+		}
+		defer func() { err = errors.Join(err, m.DelRef(&modJ)) }()
 		var lits []SMTLiteral
 		for j := new(big.Rat); j.Cmp(k) < 0; j.Add(j, big.NewRat(1, 1)) {
-			num, err := t.mkNumeral(&x, j, true)
+			num, err := m.ArithmeticIntegerNumeralText(j.RatString())
 			if err != nil {
 				return err
 			}
-			modJ, err := x.hold(m.MkEq(mod, num))
+			eqJ, err := m.MkEq(mod, num)
+			if err == nil {
+				err = m.SetRef(modJ, eqJ)
+			}
 			if err != nil {
 				return err
 			}
-			if err = t.state.Internalize(modJ, false); err != nil {
+			if err = t.state.Internalize(eqJ, false); err != nil {
 				return err
 			}
-			lit, err := t.state.Literal(modJ)
+			lit, err := t.state.Literal(eqJ)
 			if err != nil {
 				return err
 			}
