@@ -183,7 +183,10 @@ func (m *SMTMAM) AddEquality(*SMTEnode, *SMTEnode) {
 }
 func (m *SMTMAM) HasWork() bool { return m != nil && m.dirty }
 
-func (m *SMTMAM) matchTerm(pattern ast.ASTHandle, candidate *SMTEnode, bindings []*SMTEnode, used *[]*SMTEnode) (bool, error) {
+// matchTerm matches pattern against candidate's class. trace collects the
+// source's m_used_enodes: nested applications in discovery (pre-)order;
+// record is false for a top-level pattern, whose enode the caller adds.
+func (m *SMTMAM) matchTerm(pattern ast.ASTHandle, candidate *SMTEnode, bindings []*SMTEnode, used, trace *[]*SMTEnode, record bool) (bool, error) {
 	kind, err := m.state.manager.GetKind(pattern)
 	if err != nil {
 		return false, err
@@ -223,18 +226,23 @@ func (m *SMTMAM) matchTerm(pattern ast.ASTHandle, candidate *SMTEnode, bindings 
 				defer m.enodePool.recycle(savedBindings)
 				copy(savedBindings, bindings)
 				savedUsed := len(*used)
+				savedTrace := len(*trace)
+				if record {
+					*trace = append(*trace, current)
+				}
 				for i := uint32(0); i < count; i++ {
 					child, err := m.state.manager.GetArg(pattern, i)
 					if err != nil {
 						return false, err
 					}
-					matched, err := m.matchTerm(child, current.arguments[i], bindings, used)
+					matched, err := m.matchTerm(child, current.arguments[i], bindings, used, trace, true)
 					if err != nil {
 						return false, err
 					}
 					if !matched {
 						copy(bindings, savedBindings)
 						*used = (*used)[:savedUsed]
+						*trace = (*trace)[:savedTrace]
 						return false, nil
 					}
 				}
@@ -291,8 +299,8 @@ func (m *SMTMAM) matchPattern(entry smtMAMPattern) error {
 		}
 	}
 	bindings := make([]*SMTEnode, decls)
-	var visit func(int, []*SMTEnode, []*SMTEnode, []*SMTEnode) error
-	visit = func(index int, currentBindings, used, top []*SMTEnode) error {
+	var visit func(int, []*SMTEnode, []*SMTEnode, []*SMTEnode, []*SMTEnode) error
+	visit = func(index int, currentBindings, used, trace, top []*SMTEnode) error {
 		if index == len(terms) {
 			for _, binding := range currentBindings {
 				if binding == nil {
@@ -310,27 +318,29 @@ func (m *SMTMAM) matchPattern(entry smtMAMPattern) error {
 					maxTop = generation
 				}
 			}
-			_, err := m.registry.AddInstance(entry.quantifier, entry.pattern, currentBindings, maxGeneration, minTop, maxTop)
+			_, err := m.registry.AddInstanceUsed(entry.quantifier, entry.pattern, currentBindings, trace, maxGeneration, minTop, maxTop)
 			return err
 		}
 		for _, candidate := range candidates[index] {
 			nextBindings := append([]*SMTEnode(nil), currentBindings...)
 			nextUsed := append([]*SMTEnode(nil), used...)
-			matched, err := m.matchTerm(terms[index], candidate, nextBindings, &nextUsed)
+			// The top-level enode opens its pattern's run of used enodes.
+			nextTrace := append(append([]*SMTEnode(nil), trace...), candidate)
+			matched, err := m.matchTerm(terms[index], candidate, nextBindings, &nextUsed, &nextTrace, false)
 			if err != nil {
 				return err
 			}
 			if matched {
 				nextUsed = append(nextUsed, candidate)
 				nextTop := append(append([]*SMTEnode(nil), top...), candidate)
-				if err = visit(index+1, nextBindings, nextUsed, nextTop); err != nil {
+				if err = visit(index+1, nextBindings, nextUsed, nextTrace, nextTop); err != nil {
 					return err
 				}
 			}
 		}
 		return nil
 	}
-	return visit(0, bindings, nil, nil)
+	return visit(0, bindings, nil, nil, nil)
 }
 
 func (m *SMTMAM) Match() error {
