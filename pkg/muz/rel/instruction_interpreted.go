@@ -44,7 +44,8 @@ func newInterpretedFilterInstruction(manager *ast.ASTManager, relations *Relatio
 	for variable, column := range columns {
 		i.variableColumns[variable] = column
 	}
-	for variable, sort := range sorts {
+	for _, variable := range sortedRelVariables(sorts) {
+		sort := sorts[variable]
 		i.variableSorts[variable] = sort
 	}
 	for _, condition := range conditions {
@@ -66,7 +67,7 @@ func (i *interpretedFilterInstruction) open() error {
 
 func (i *interpretedFilterInstruction) accepts(fact Fact) (accepted bool, resultErr error) {
 	var maximum uint32
-	for variable := range i.variableSorts {
+	for _, variable := range sortedRelVariables(i.variableSorts) {
 		if variable > maximum {
 			maximum = variable
 		}
@@ -81,7 +82,8 @@ func (i *interpretedFilterInstruction) accepts(fact Fact) (accepted bool, result
 			resultErr = errors.Join(resultErr, i.manager.DelRef(&references[index]))
 		}
 	}()
-	for variable, sort := range i.variableSorts {
+	for _, variable := range sortedRelVariables(i.variableSorts) {
+		sort := i.variableSorts[variable]
 		column, found := i.variableColumns[variable]
 		if !found || column < 0 || column >= len(fact) {
 			return false, ErrInstruction
@@ -142,7 +144,8 @@ func (i *interpretedFilterInstruction) relationSorts(table FiniteTable) ([]ast.A
 		return nil, err
 	}
 	result := make([]ast.ASTHandle, signature.Len())
-	for variable, sort := range i.variableSorts {
+	for _, variable := range sortedRelVariables(i.variableSorts) {
+		sort := i.variableSorts[variable]
 		column, found := i.variableColumns[variable]
 		if !found || column < 0 || column >= len(result) {
 			return nil, ErrInstruction

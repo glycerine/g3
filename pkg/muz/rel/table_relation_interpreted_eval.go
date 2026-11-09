@@ -2,6 +2,7 @@ package rel
 
 import (
 	"errors"
+	"slices"
 
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
@@ -15,7 +16,8 @@ func (r *TableRelation) acceptsInterpretedFact(rewriter *astrewriter.TheoryRewri
 			resultErr = errors.Join(resultErr, r.manager.manager.DelRef(&references[index]))
 		}
 	}()
-	for variable, sort := range sorts {
+	for _, variable := range sortedRelVariables(sorts) {
+		sort := sorts[variable]
 		reference, err := r.manager.DecodeValue(sort, fact[columns[variable]])
 		if err != nil {
 			return false, err
@@ -48,4 +50,27 @@ func (r *TableRelation) acceptsInterpretedFact(rewriter *astrewriter.TheoryRewri
 		}
 	}
 	return true, nil
+}
+
+// sortedRelVariables lists variable indexes ascending, as the source walks
+// its per-variable vectors (Go map order would be random).
+func sortedRelVariables(sorts map[uint32]ast.ASTHandle) []uint32 {
+	keys := make([]uint32, 0, len(sorts))
+	for variable := range sorts {
+		keys = append(keys, variable)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+// handlesByID sorts handles by AST id (deterministic; Go map order would be
+// random).
+func handlesByID(m *ast.ASTManager, keys []ast.ASTHandle) []ast.ASTHandle {
+	ids := make(map[ast.ASTHandle]uint32, len(keys))
+	for _, key := range keys {
+		id, _ := m.GetASTID(key)
+		ids[key] = id
+	}
+	slices.SortFunc(keys, func(a, b ast.ASTHandle) int { return int(ids[a]) - int(ids[b]) })
+	return keys
 }

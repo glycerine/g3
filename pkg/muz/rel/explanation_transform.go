@@ -272,7 +272,12 @@ func (t *ExplanationTransformer) Close() (result error) {
 	clear(t.factProducts)
 	clear(t.relationProducts)
 	t.factManager = nil
-	for key, ref := range t.declarations {
+	declarations := make([]ast.ASTHandle, 0, len(t.declarations))
+	for key := range t.declarations {
+		declarations = append(declarations, key)
+	}
+	for _, key := range handlesByID(t.manager, declarations) {
+		ref := t.declarations[key]
 		if err := t.manager.DelRef(&ref); err != nil {
 			result = errors.Join(result, err)
 		} else {

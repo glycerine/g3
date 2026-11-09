@@ -6,6 +6,7 @@ package rel
 import (
 	"errors"
 	"math"
+	"slices"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -234,8 +235,13 @@ func (f *UDocRelationFactory) Close() {
 	if f == nil || f.closed {
 		return
 	}
-	for _, manager := range f.managers {
-		manager.Close()
+	keys := make([]uint32, 0, len(f.managers))
+	for key := range f.managers {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	for _, key := range keys {
+		f.managers[key].Close()
 	}
 	f.closed = true
 	f.manager = nil
