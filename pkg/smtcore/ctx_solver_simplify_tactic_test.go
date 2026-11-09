@@ -36,8 +36,10 @@ func TestContextSolverSimplifyUsesBooleanContext(t *testing.T) {
 	if formula != p {
 		t.Fatalf("contextual result = %v, want p (%v)", formula, p)
 	}
+	// The source never increments m_num_steps, and statistics::update
+	// drops a zero count.
 	stats := statistics.Sums(unit.CollectStatistics)
-	if stats["solver-simplify-steps"] != 1 {
+	if _, ok := stats["solver-simplify-steps"]; ok {
 		t.Fatal("steps", stats)
 	}
 	astTestMust(t, unit.Cleanup())

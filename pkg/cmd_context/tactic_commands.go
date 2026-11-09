@@ -130,7 +130,7 @@ func (c *Context) NewBuiltinTacticWithOutput(name string, output io.Writer) (tac
 	case "ctx-simplify":
 		return core.MakeContextSimplifyTactic(m, c.config.Params, c.config.Globals, nil, c.config.ModelEvaluator)
 	case "ctx-solver-simplify":
-		return smtcore.NewContextSolverSimplifyTactic(m, nil, c.config)
+		return smtcore.MkContextSolverSimplifyTactic(m, nil, c.config)
 	case "dom-simplify":
 		return core.NewDomSimplifyTactic(m, nil)
 	case "collect-statistics":

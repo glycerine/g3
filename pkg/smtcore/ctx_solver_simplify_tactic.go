@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -26,14 +27,32 @@ type ContextSolverSimplifyTactic struct {
 	params      uparams.ParamsRef
 	paramsReady bool
 	boolSort    ast.ASTHandle
+	intSort     ast.ASTHandle
 	solver      *SMTSolver
 	mkApp       *rewriter.SimplifiedApp
+	fn          ast.ASTHandle // m_fn, held
+	fns         *ast.ObjMap   // m_fns: sort -> held declaration
 	steps       uint32
 	refs        uint32
 	closed      bool
 }
 
 var _ tactic.Tactic = (*ContextSolverSimplifyTactic)(nil)
+
+// MkContextSolverSimplifyTactic is mk_ctx_solver_simplify_tactic:
+// clean(alloc(ctx_solver_simplify_tactic)), so cleanup() resets the private
+// solver after every application.
+func MkContextSolverSimplifyTactic(m *ast.ASTManager, p *uparams.ParamsRef, config SMTSolverConfig) (tactic.Tactic, error) {
+	t, err := NewContextSolverSimplifyTactic(m, p, config)
+	if err != nil {
+		return nil, err
+	}
+	clean, err := tactic.NewCleanTactic(t)
+	if err != nil {
+		return nil, errors.Join(err, t.Close())
+	}
+	return clean, nil
+}
 
 func NewContextSolverSimplifyTactic(m *ast.ASTManager, p *uparams.ParamsRef, config SMTSolverConfig) (*ContextSolverSimplifyTactic, error) {
 	if m == nil || config.Params == nil || config.Globals == nil || config.Globals.Context != config.Params {
@@ -64,6 +83,23 @@ func NewContextSolverSimplifyTactic(m *ast.ASTManager, p *uparams.ParamsRef, con
 	}
 	if err == nil {
 		t.mkApp, err = rewriter.NewSimplifiedApp(m, config.Params, config.Globals, &t.params)
+	}
+	t.fns = ast.NewObjMap(m)
+	if err == nil {
+		var fid ast.FamilyID
+		fid, err = m.ArithmeticFamilyID()
+		if err == nil {
+			t.intSort, err = m.MkFamilySort(fid, smtArithIntSort, nil)
+		}
+	}
+	if err == nil {
+		var fn ast.ASTHandle
+		fn, err = m.MkFuncDecl(usymbol.Numerical(0xbeef101), []ast.ASTHandle{t.intSort}, t.boolSort, ast.ASTFuncDeclInfo{})
+		if err == nil {
+			if err = m.IncRef(fn); err == nil {
+				t.fn = fn
+			}
+		}
 	}
 	if err != nil {
 		return nil, errors.Join(err, t.Close())
@@ -107,6 +143,20 @@ func (t *ContextSolverSimplifyTactic) Close() error {
 	if t.closed {
 		return nil
 	}
+	if t.fns != nil {
+		for _, entry := range t.fns.Entries() {
+			if err := t.manager.DecRef(entry.Value[0]); err != nil {
+				return err
+			}
+		}
+		t.fns = nil
+	}
+	if !t.fn.IsNull() {
+		if err := t.manager.DecRef(t.fn); err != nil {
+			return err
+		}
+		t.fn = ast.ASTHandle{}
+	}
 	if t.mkApp != nil {
 		if err := t.mkApp.Close(); err != nil {
 			return err
@@ -143,6 +193,22 @@ func (t *ContextSolverSimplifyTactic) Apply(g *tactic.Goal, out *tactic.TacticRe
 	if err := out.Prepare(t.manager); err != nil {
 		return err
 	}
+	if err := t.reduceGoal(g); err != nil {
+		return err
+	}
+	if err := g.IncDepth(); err != nil {
+		return err
+	}
+	return out.AddGoal(g)
+}
+
+// reduceGoal is reduce(goal& g).
+func (t *ContextSolverSimplifyTactic) reduceGoal(g *tactic.Goal) (resultErr error) {
+	fml, err := t.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, t.manager.DelRef(&fml)) }()
 	report, err := tactic.NewTacticReport("ctx-solver-simplify", g)
 	if err != nil {
 		return err
@@ -151,312 +217,346 @@ func (t *ContextSolverSimplifyTactic) Apply(g *tactic.Goal, out *tactic.TacticRe
 		defer func() { resultErr = errors.Join(resultErr, report.Close()) }()
 	}
 	inconsistent, err := g.Inconsistent()
+	if err != nil || inconsistent {
+		return err
+	}
+	n, err := g.Size()
 	if err != nil {
 		return err
 	}
-	if !inconsistent {
-		n, err := g.Size()
+	fmls := make([]ast.ASTHandle, n)
+	for i := uint32(0); i < n; i++ {
+		if fmls[i], err = g.Form(i); err != nil {
+			return err
+		}
+	}
+	conjunction, err := t.manager.MkAndArray(fmls)
+	if err == nil {
+		err = t.manager.SetRef(fml, conjunction)
+	}
+	if err != nil {
+		return fmt.Errorf("ctx-solver-simplify: combine goal: %w", err)
+	}
+	base, err := t.solver.ScopeLevel()
+	if err != nil {
+		return err
+	}
+	if err = t.solver.Push(); err != nil {
+		return err
+	}
+	if err = t.reduce(fml); err != nil {
+		level, e := t.solver.ScopeLevel()
+		if e == nil && level > base {
+			e = t.solver.Pop(level - base)
+		}
+		return fmt.Errorf("ctx-solver-simplify: reduce goal: %w", errors.Join(err, e))
+	}
+	if err = t.solver.Pop(1); err != nil {
+		return err
+	}
+	result, err := t.manager.RefGet(fml)
+	if err != nil {
+		return err
+	}
+	if err = g.Reset(); err != nil {
+		return err
+	}
+	return g.Assert(result)
+}
+
+// ctxSolverExprPos is expr_pos.
+type ctxSolverExprPos struct {
+	parent, self, idx uint32
+	expr              ast.ASTHandle
+}
+
+// reduce is reduce(expr_ref& result): the single-traversal context
+// simplifier, which simplifies only the first occurrence of a sub-term.
+func (t *ContextSolverSimplifyTactic) reduce(result ast.ASTRef) (resultErr error) {
+	m := t.manager
+	var names []ast.ASTHandle
+	var todo []ctxSolverExprPos
+	var trail []ast.ASTRef
+	cache := make(map[ast.ASTHandle]ctxSolverExprPos)
+	id, childID := uint32(1), uint32(0)
+	var tmp, n2, fml ast.ASTRef
+	var err error
+	// Locals die in reverse declaration order: fml, n2, tmp, then the trail
+	// (forward).
+	defer func() {
+		resultErr = errors.Join(resultErr, m.DelRef(&fml), m.DelRef(&n2), m.DelRef(&tmp))
+		for i := range trail {
+			resultErr = errors.Join(resultErr, m.DelRef(&trail[i]))
+		}
+	}()
+	for _, r := range []*ast.ASTRef{&tmp, &n2, &fml} {
+		if *r, err = m.NewRef(ast.ASTHandle{}); err != nil {
+			return err
+		}
+	}
+	pinTrail := func(h ast.ASTHandle) error {
+		r, e := m.NewRef(h)
+		if e == nil {
+			trail = append(trail, r)
+		}
+		return e
+	}
+	n, err := t.mkFresh(&id, t.boolSort)
+	if err != nil {
+		return err
+	}
+	if err = pinTrail(n); err != nil {
+		return err
+	}
+	root, err := m.RefGet(result)
+	if err != nil {
+		return err
+	}
+	if err = m.SetRef(fml, root); err != nil {
+		return err
+	}
+	iff, err := m.MkIff(root, n)
+	if err != nil {
+		return err
+	}
+	neg, err := m.MkNot(iff)
+	if err == nil {
+		err = m.SetRef(tmp, neg)
+	}
+	if err == nil {
+		err = t.solver.Assert(neg)
+	}
+	if err != nil {
+		return err
+	}
+	todo = append(todo, ctxSolverExprPos{expr: root})
+	names = append(names, n)
+	if err = t.solver.Push(); err != nil {
+		return err
+	}
+	canceled := false
+	for len(todo) > 0 {
+		if canceled, err = m.Canceled(); err != nil {
+			return err
+		}
+		if canceled {
+			break
+		}
+		var res ast.ASTHandle
+		top := todo[len(todo)-1]
+		e, selfPos, parentPos, selfIdx := top.expr, top.self, top.parent, top.idx
+		n = names[len(names)-1]
+		done, err := t.reduceStep(e, n, selfPos, &res, &id, &childID, cache, &todo, &names, pinTrail, n2, tmp)
 		if err != nil {
 			return err
 		}
-		forms := make([]ast.ASTHandle, n)
-		for i := uint32(0); i < n; i++ {
-			forms[i], err = g.Form(i)
+		if !done {
+			continue
+		}
+		if !res.IsNull() {
+			cache[e] = ctxSolverExprPos{parent: parentPos, self: selfPos, idx: selfIdx, expr: res}
+		}
+		todo = todo[:len(todo)-1]
+		names = names[:len(names)-1]
+		if err = t.solver.Pop(1); err != nil {
+			return err
+		}
+	}
+	if !canceled {
+		path, ok := cache[root]
+		if !ok {
+			return fmt.Errorf("ctx-solver-simplify: missing root result")
+		}
+		return m.SetRef(result, path.expr)
+	}
+	return nil
+}
+
+// reduceStep is one iteration of reduce's loop up to the done label; it
+// reports false when a child was scheduled (continue).
+func (t *ContextSolverSimplifyTactic) reduceStep(e, n ast.ASTHandle, selfPos uint32, res *ast.ASTHandle, id, childID *uint32, cache map[ast.ASTHandle]ctxSolverExprPos, todo *[]ctxSolverExprPos, names *[]ast.ASTHandle, pinTrail func(ast.ASTHandle) error, n2, tmp ast.ASTRef) (bool, error) {
+	m := t.manager
+	if _, ok := cache[e]; ok {
+		return true, nil
+	}
+	sort, err := m.GetSort(e)
+	if err != nil {
+		return false, err
+	}
+	if sort == t.boolSort {
+		simplified, ok, err := t.simplifyBool(n)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			*res = simplified
+			return true, nil
+		}
+	}
+	kind, err := m.GetKind(e)
+	if err != nil {
+		return false, err
+	}
+	if kind != ast.ASTApp {
+		*res = e
+		return true, nil
+	}
+	sz, err := m.GetNumArgs(e)
+	if err != nil {
+		return false, err
+	}
+	if err = m.SetRef(n2, ast.ASTHandle{}); err != nil {
+		return false, err
+	}
+	child := ast.ASTHandle{}
+	args := make([]ast.ASTHandle, 0, sz)
+	for i := uint32(0); i < sz; i++ {
+		arg, err := m.GetArg(e, i)
+		if err != nil {
+			return false, err
+		}
+		if path, ok := cache[arg]; ok {
+			if path.parent == selfPos && path.idx == i {
+				args = append(args, path.expr)
+			} else {
+				args = append(args, arg)
+			}
+		} else if child.IsNull() {
+			argSort, err := m.GetSort(arg)
 			if err != nil {
-				return err
+				return false, err
 			}
-		}
-		formula, err := t.manager.MkAndArray(forms)
-		if err != nil {
-			return fmt.Errorf("ctx-solver-simplify: combine goal: %w", err)
-		}
-		var refs ctxSolverRefs
-		refs.manager = t.manager
-		defer func() { resultErr = errors.Join(resultErr, refs.Close()) }()
-		if err = refs.Pin(formula); err != nil {
-			return err
-		}
-		base, err := t.solver.ScopeLevel()
-		if err != nil {
-			return err
-		}
-		if err = t.solver.Push(); err != nil {
-			return err
-		}
-		defer func() {
-			level, e := t.solver.ScopeLevel()
-			if e != nil {
-				resultErr = errors.Join(resultErr, e)
-				return
+			fresh, err := t.mkFresh(id, argSort)
+			if err == nil {
+				err = m.SetRef(n2, fresh)
 			}
-			if level > base {
-				resultErr = errors.Join(resultErr, t.solver.Pop(level-base))
+			if err == nil {
+				err = pinTrail(fresh)
 			}
-		}()
-		root, err := t.manager.MkFreshConst("#ctx-solver-simplify", t.boolSort)
-		if err != nil {
-			return fmt.Errorf("ctx-solver-simplify: create root proxy: %w", err)
+			if err != nil {
+				return false, err
+			}
+			child = fresh
+			*todo = append(*todo, ctxSolverExprPos{parent: selfPos, self: *childID, idx: i, expr: arg})
+			*childID++
+			*names = append(*names, fresh)
+			args = append(args, fresh)
+		} else {
+			args = append(args, arg)
 		}
-		if err = refs.Pin(root); err != nil {
-			return err
-		}
-		equiv, err := t.manager.MkIff(formula, root)
-		if err != nil {
-			return err
-		}
-		if err = refs.Pin(equiv); err != nil {
-			return err
-		}
-		neg, err := t.manager.MkNot(equiv)
-		if err != nil {
-			return err
-		}
-		if err = refs.Pin(neg); err != nil {
-			return err
-		}
-		if err = t.solver.Assert(neg); err != nil {
-			return fmt.Errorf("ctx-solver-simplify: assert root inequivalence: %w", err)
-		}
-		if err = t.solver.Push(); err != nil {
-			return err
-		}
-		result, err := t.reduce(formula, root, &refs)
-		popErr := t.solver.Pop(1)
-		if err != nil || popErr != nil {
-			return fmt.Errorf("ctx-solver-simplify: reduce goal: %w", errors.Join(err, popErr))
-		}
-		if err = g.Reset(); err != nil {
-			return err
-		}
-		if err = g.Assert(result); err != nil {
-			return err
-		}
-		t.steps++
 	}
-	if err = g.IncDepth(); err != nil {
-		return err
+	decl, err := m.GetDecl(e)
+	if err != nil {
+		return false, err
 	}
-	return out.AddGoal(g)
-}
-
-type ctxSolverCache struct {
-	result ast.ASTHandle
-	parent uint64
-	index  uint32
-}
-type ctxSolverReducer struct {
-	t      *ContextSolverSimplifyTactic
-	cache  map[ast.ASTHandle]ctxSolverCache
-	nextID uint64
-	refs   *ctxSolverRefs
-}
-
-type ctxSolverRefs struct {
-	manager *ast.ASTManager
-	refs    []ast.ASTRef
-}
-
-func (r *ctxSolverRefs) Pin(h ast.ASTHandle) error {
-	ref, err := r.manager.NewRef(h)
+	out, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return false, err
+	}
+	err = t.mkApp.Make(decl, ast.SliceArguments(args), out)
 	if err == nil {
-		r.refs = append(r.refs, ref)
+		*res, err = m.RefGet(out)
 	}
-	return err
-}
-func (r *ctxSolverRefs) Close() (err error) {
-	for i := len(r.refs) - 1; i >= 0; i-- {
-		err = errors.Join(err, r.manager.DelRef(&r.refs[i]))
+	if err == nil {
+		err = pinTrail(*res)
 	}
-	r.refs = nil
-	return err
+	if err = errors.Join(err, m.DelRef(&out)); err != nil {
+		return false, err
+	}
+	if child.IsNull() {
+		return true, nil
+	}
+	// child needs to be visited.
+	if err = t.solver.Push(); err != nil {
+		return false, err
+	}
+	eq, err := m.MkEq(*res, n)
+	if err == nil {
+		err = m.SetRef(tmp, eq)
+	}
+	if err == nil {
+		err = t.solver.Assert(eq)
+	}
+	return false, err
 }
 
-func (t *ContextSolverSimplifyTactic) reduce(root, proxy ast.ASTHandle, refs *ctxSolverRefs) (ast.ASTHandle, error) {
-	r := &ctxSolverReducer{t: t, cache: make(map[ast.ASTHandle]ctxSolverCache), refs: refs}
-	result, err := r.visit(root, proxy, 0, 0)
-	return result, err
-}
-
-func (r *ctxSolverReducer) forced(proxy ast.ASTHandle) (ast.ASTHandle, bool, error) {
-	if err := r.t.solver.Push(); err != nil {
-		return ast.ASTHandle{}, false, fmt.Errorf("forced push: %w", err)
+// simplifyBool is simplify_bool: n is forced true or false by the context.
+func (t *ContextSolverSimplifyTactic) simplifyBool(n ast.ASTHandle) (res ast.ASTHandle, ok bool, resultErr error) {
+	m := t.manager
+	tmp, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return res, false, err
 	}
-	if err := r.t.solver.Assert(proxy); err != nil {
-		return ast.ASTHandle{}, false, fmt.Errorf("forced assert: %w", errors.Join(err, r.t.solver.Pop(1)))
+	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&tmp)) }()
+	if err = t.solver.Push(); err != nil {
+		return res, false, err
 	}
-	status, err := r.t.solver.CheckSat(nil)
-	popErr := r.t.solver.Pop(1)
-	if err != nil || popErr != nil {
-		return ast.ASTHandle{}, false, fmt.Errorf("forced check true: %w", errors.Join(err, popErr))
+	err = t.solver.Assert(n)
+	status := lbool.Undef
+	if err == nil {
+		status, err = t.solver.CheckSat(nil)
+	}
+	if err = errors.Join(err, t.solver.Pop(1)); err != nil {
+		return res, false, err
 	}
 	if status == lbool.False {
-		truth, e := r.t.manager.MkTrue()
-		return truth, true, e
+		res, err = m.MkTrue()
+		return res, err == nil, err
 	}
-	neg, err := r.t.manager.MkNot(proxy)
-	if err != nil {
-		return ast.ASTHandle{}, false, fmt.Errorf("forced negation: %w", err)
+	if err = t.solver.Push(); err != nil {
+		return res, false, err
 	}
-	if err = r.refs.Pin(neg); err != nil {
-		return ast.ASTHandle{}, false, err
+	negated, err := m.MkNot(n)
+	if err == nil {
+		err = m.SetRef(tmp, negated)
 	}
-	if err = r.t.solver.Push(); err != nil {
-		return ast.ASTHandle{}, false, fmt.Errorf("forced second push: %w", err)
+	if err == nil {
+		err = t.solver.Assert(negated)
 	}
-	if err = r.t.solver.Assert(neg); err != nil {
-		return ast.ASTHandle{}, false, fmt.Errorf("forced assert negation: %w", errors.Join(err, r.t.solver.Pop(1)))
+	if err == nil {
+		status, err = t.solver.CheckSat(nil)
 	}
-	status, err = r.t.solver.CheckSat(nil)
-	popErr = r.t.solver.Pop(1)
-	if err != nil || popErr != nil {
-		return ast.ASTHandle{}, false, fmt.Errorf("forced check false: %w", errors.Join(err, popErr))
+	if err = errors.Join(err, t.solver.Pop(1)); err != nil {
+		return res, false, err
 	}
 	if status == lbool.False {
-		truth, e := r.t.manager.MkFalse()
-		return truth, true, e
+		res, err = m.MkFalse()
+		return res, err == nil, err
 	}
-	return ast.ASTHandle{}, false, nil
+	return res, false, nil
 }
 
-func (r *ctxSolverReducer) makeApp(node ast.ASTHandle, args []ast.ASTHandle) (ast.ASTHandle, error) {
-	decl, err := r.t.manager.GetDecl(node)
-	if err != nil {
-		return ast.ASTHandle{}, fmt.Errorf("simplified application declaration: %w", err)
-	}
-	out, err := r.t.manager.NewRef(ast.ASTHandle{})
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	defer func() { _ = r.t.manager.DelRef(&out) }()
-	if err = r.t.mkApp.Make(decl, ast.SliceArguments(args), out); err != nil {
-		return ast.ASTHandle{}, fmt.Errorf("simplified application make: %w", err)
-	}
-	result, err := r.t.manager.RefGet(out)
-	if err == nil {
-		err = r.refs.Pin(result)
-	}
-	return result, err
-}
-
-func (r *ctxSolverReducer) visit(node, proxy ast.ASTHandle, parent uint64, index uint32) (ast.ASTHandle, error) {
-	if cached, ok := r.cache[node]; ok {
-		return cached.result, nil
-	}
-	canceled, err := r.t.manager.Canceled()
-	if err != nil {
-		return ast.ASTHandle{}, fmt.Errorf("visit cancellation query: %w", err)
-	}
-	if canceled {
-		return ast.ASTHandle{}, fmt.Errorf("ctx-solver-simplify: canceled")
-	}
-	kind, err := r.t.manager.GetKind(node)
-	if err != nil {
-		return ast.ASTHandle{}, fmt.Errorf("visit kind: %w", err)
-	}
-	sort, err := r.t.manager.GetSort(node)
-	if err != nil {
-		return ast.ASTHandle{}, fmt.Errorf("visit sort: %w", err)
-	}
-	if sort == r.t.boolSort {
-		forced, yes, err := r.forced(proxy)
+// mkFresh is mk_fresh: Boolean proxies apply m_fn; other sorts get a
+// per-sort declaration symbol(0xbeef101 + id) : Int -> s, kept in m_fns.
+func (t *ContextSolverSimplifyTactic) mkFresh(id *uint32, s ast.ASTHandle) (ast.ASTHandle, error) {
+	m := t.manager
+	fn := t.fn
+	if s != t.boolSort {
+		found, ok, err := t.fns.Find(s)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		if yes {
-			r.cache[node] = ctxSolverCache{forced, parent, index}
-			return forced, nil
+		if ok {
+			fn = found[0]
+		} else {
+			fn, err = m.MkFuncDecl(usymbol.Numerical(0xbeef101+*id), []ast.ASTHandle{t.intSort}, s, ast.ASTFuncDeclInfo{})
+			if err == nil {
+				err = m.IncRef(fn)
+			}
+			if err == nil {
+				err = t.fns.Insert(s, [2]ast.ASTHandle{fn})
+			}
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
 		}
 	}
-	if kind != ast.ASTApp {
-		r.cache[node] = ctxSolverCache{node, parent, index}
-		return node, nil
-	}
-	id := r.nextID + 1
-	r.nextID = id
-	return r.visitUncached(node, proxy, parent, index, id)
-}
-
-func (r *ctxSolverReducer) visitUncached(node, proxy ast.ASTHandle, parent uint64, index uint32, id uint64) (ast.ASTHandle, error) {
-	sort, err := r.t.manager.GetSort(node)
+	numeral, err := m.ArithmeticNumeralRat(big.NewRat(int64(*id), 1), true)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if sort == r.t.boolSort {
-		forced, yes, e := r.forced(proxy)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		if yes {
-			r.cache[node] = ctxSolverCache{forced, parent, index}
-			return forced, nil
-		}
-	}
-	count, err := r.t.manager.GetNumArgs(node)
-	if err != nil {
-		return ast.ASTHandle{}, fmt.Errorf("traversal arity: %w", err)
-	}
-	args := make([]ast.ASTHandle, count)
-	var child ast.ASTHandle
-	var childProxy ast.ASTHandle
-	var childIndex uint32
-	for i := uint32(0); i < count; i++ {
-		arg, e := r.t.manager.GetArg(node, i)
-		if e != nil {
-			return ast.ASTHandle{}, fmt.Errorf("traversal argument %d: %w", i, e)
-		}
-		if cached, ok := r.cache[arg]; ok {
-			if cached.parent == id && cached.index == i {
-				args[i] = cached.result
-			} else {
-				args[i] = arg
-			}
-			continue
-		}
-		if child.IsNull() {
-			child, childIndex = arg, i
-			sort, e := r.t.manager.GetSort(arg)
-			if e != nil {
-				return ast.ASTHandle{}, fmt.Errorf("child sort: %w", e)
-			}
-			childProxy, e = r.t.manager.MkFreshConst("#ctx-solver-simplify", sort)
-			if e != nil {
-				return ast.ASTHandle{}, fmt.Errorf("child proxy: %w", e)
-			}
-			args[i] = childProxy
-		} else {
-			args[i] = arg
-		}
-	}
-	if !child.IsNull() {
-		proxyApp, e := r.makeApp(node, args)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		if e = r.refs.Pin(childProxy); e != nil {
-			return ast.ASTHandle{}, e
-		}
-		eq, e := r.t.manager.MkEq(proxyApp, proxy)
-		if e != nil {
-			return ast.ASTHandle{}, fmt.Errorf("application proxy equality: %w", e)
-		}
-		if e = r.t.solver.Push(); e != nil {
-			return ast.ASTHandle{}, e
-		}
-		if e = r.t.solver.Assert(eq); e != nil {
-			return ast.ASTHandle{}, fmt.Errorf("assert application proxy: %w", errors.Join(e, r.t.solver.Pop(1)))
-		}
-		_, e = r.visit(child, childProxy, id, childIndex)
-		popErr := r.t.solver.Pop(1)
-		if e != nil || popErr != nil {
-			return ast.ASTHandle{}, errors.Join(e, popErr)
-		}
-		return r.visitUncached(node, proxy, parent, index, id)
-	}
-	result, err := r.makeApp(node, args)
-	if err == nil {
-		r.cache[node] = ctxSolverCache{result, parent, index}
-	}
-	return result, err
+	*id++
+	return m.MkApp(fn, []ast.ASTHandle{numeral})
 }
 
 func (t *ContextSolverSimplifyTactic) UpdateParams(p *uparams.ParamsRef) error {
