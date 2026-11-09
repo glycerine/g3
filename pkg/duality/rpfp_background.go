@@ -56,7 +56,13 @@ func (v *BackgroundVocabulary) Close() error {
 	if v == nil || v.closed {
 		return nil
 	}
-	for key, ref := range v.constants {
+	sortedKeys108 := make([]ast.ASTHandle, 0, len(v.constants))
+	for key := range v.constants {
+		sortedKeys108 = append(sortedKeys108, key)
+	}
+	ast.SortHandles(sortedKeys108) // deterministic; Go map order is random
+	for _, key := range sortedKeys108 {
+		ref := v.constants[key]
 		err := v.context.manager.DelRef(&ref)
 		if ref == (ast.ASTRef{}) {
 			delete(v.constants, key)

@@ -102,7 +102,13 @@ func (c *ProofCoreAccumulator) Close() error {
 	if c == nil || c.closed {
 		return nil
 	}
-	for key, ref := range c.terms {
+	sortedKeys105 := make([]ast.ASTHandle, 0, len(c.terms))
+	for key := range c.terms {
+		sortedKeys105 = append(sortedKeys105, key)
+	}
+	ast.SortHandles(sortedKeys105) // deterministic; Go map order is random
+	for _, key := range sortedKeys105 {
+		ref := c.terms[key]
 		err := c.context.manager.DelRef(&ref)
 		if ref == (ast.ASTRef{}) {
 			delete(c.terms, key)

@@ -108,7 +108,13 @@ func (g *RPFP) unhoistLoop(loop, init *Edge) (result error) {
 		return err
 	}
 	defer func() {
-		for _, d := range defs {
+		sortedKeys104 := make([]ast.ASTHandle, 0, len(defs))
+		for mapKey := range defs {
+			sortedKeys104 = append(sortedKeys104, mapKey)
+		}
+		ast.SortHandles(sortedKeys104) // deterministic; Go map order is random
+		for _, mapKey := range sortedKeys104 {
+			d := defs[mapKey]
 			result = errors.Join(result, d.Close())
 		}
 	}()

@@ -129,7 +129,13 @@ func (g *RPFP) ClearProofCore() error {
 	if err := g.open(); err != nil {
 		return err
 	}
-	for key, ref := range g.proofCore {
+	sortedKeys107 := make([]ast.ASTHandle, 0, len(g.proofCore))
+	for key := range g.proofCore {
+		sortedKeys107 = append(sortedKeys107, key)
+	}
+	ast.SortHandles(sortedKeys107) // deterministic; Go map order is random
+	for _, key := range sortedKeys107 {
+		ref := g.proofCore[key]
 		err := g.context.manager.DelRef(&ref)
 		if ref == (ast.ASTRef{}) {
 			delete(g.proofCore, key)

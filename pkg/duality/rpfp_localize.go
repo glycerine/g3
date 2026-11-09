@@ -32,7 +32,13 @@ func (g *RPFP) Localize(edge *Edge, term *Expr) (out *Expr, result error) {
 	m := g.context.manager
 	memo := make(map[ast.ASTHandle]*Expr)
 	defer func() {
-		for _, v := range memo {
+		sortedKeys100 := make([]ast.ASTHandle, 0, len(memo))
+		for mapKey := range memo {
+			sortedKeys100 = append(sortedKeys100, mapKey)
+		}
+		ast.SortHandles(sortedKeys100) // deterministic; Go map order is random
+		for _, mapKey := range sortedKeys100 {
+			v := memo[mapKey]
 			result = errors.Join(result, v.Close())
 		}
 		if result != nil && out != nil {

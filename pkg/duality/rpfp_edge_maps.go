@@ -10,7 +10,13 @@ import (
 
 func (e *Edge) clearMaps() error {
 	e.mapsReady = false
-	for key, ref := range e.varMap {
+	sortedKeys102 := make([]ast.ASTHandle, 0, len(e.varMap))
+	for key := range e.varMap {
+		sortedKeys102 = append(sortedKeys102, key)
+	}
+	ast.SortHandles(sortedKeys102) // deterministic; Go map order is random
+	for _, key := range sortedKeys102 {
+		ref := e.varMap[key]
 		err := e.Owner.context.manager.DelRef(&ref)
 		if ref == (ast.ASTRef{}) {
 			delete(e.varMap, key)

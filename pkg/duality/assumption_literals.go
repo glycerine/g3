@@ -133,7 +133,13 @@ func (c *AssumptionLiteralCache) Close() error {
 		return nil
 	}
 	m := c.context.manager
-	for key, entry := range c.entries {
+	sortedKeys101 := make([]ast.ASTHandle, 0, len(c.entries))
+	for key := range c.entries {
+		sortedKeys101 = append(sortedKeys101, key)
+	}
+	ast.SortHandles(sortedKeys101) // deterministic; Go map order is random
+	for _, key := range sortedKeys101 {
+		entry := c.entries[key]
 		if entry.literal != (ast.ASTRef{}) {
 			if err := m.DelRef(&entry.literal); err != nil {
 				return err

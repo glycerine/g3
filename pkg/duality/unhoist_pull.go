@@ -23,7 +23,13 @@ type unhoistPull struct {
 
 func (p *unhoistPull) close() error {
 	var result error
-	for h, ref := range p.memo {
+	sortedKeys106 := make([]ast.ASTHandle, 0, len(p.memo))
+	for h := range p.memo {
+		sortedKeys106 = append(sortedKeys106, h)
+	}
+	ast.SortHandles(sortedKeys106) // deterministic; Go map order is random
+	for _, h := range sortedKeys106 {
+		ref := p.memo[h]
 		err := p.context.manager.DelRef(&ref)
 		result = errors.Join(result, err)
 		if ref == (ast.ASTRef{}) {

@@ -53,7 +53,13 @@ func GetDefs(term *Expr) (out map[ast.ASTHandle]*InitializationDefinition, resul
 	out = make(map[ast.ASTHandle]*InitializationDefinition)
 	defer func() {
 		if result != nil {
-			for _, d := range out {
+			sortedKeys103 := make([]ast.ASTHandle, 0, len(out))
+			for mapKey := range out {
+				sortedKeys103 = append(sortedKeys103, mapKey)
+			}
+			ast.SortHandles(sortedKeys103) // deterministic; Go map order is random
+			for _, mapKey := range sortedKeys103 {
+				d := out[mapKey]
 				result = errors.Join(result, d.Close())
 			}
 			out = nil

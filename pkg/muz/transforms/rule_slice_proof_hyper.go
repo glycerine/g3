@@ -46,7 +46,13 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 	}()
 	memo := make(map[ast.ASTHandle]slicedProofResult)
 	defer func() {
-		for _, v := range memo {
+		sortedKeys109 := make([]ast.ASTHandle, 0, len(memo))
+		for mapKey := range memo {
+			sortedKeys109 = append(sortedKeys109, mapKey)
+		}
+		ast.SortHandles(sortedKeys109) // deterministic; Go map order is random
+		for _, mapKey := range sortedKeys109 {
+			v := memo[mapKey]
 			if v.rule != nil {
 				resultErr = errors.Join(resultErr, v.rule.Close())
 			}
