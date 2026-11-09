@@ -8,8 +8,19 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 )
 
-func (t *PBPreprocessTactic) replace(g *tactic.Goal, positions []uint32, variable, value ast.ASTHandle) (_ bool, result error) {
+// replace is pb_preprocess_tactic::replace: skipped when a position already
+// holds true (is_valid); otherwise m_r rewrites each position under e -> v.
+func (t *PBPreprocessTactic) replace(g *tactic.Goal, r *rewriter.TheoryRewriter, positions []uint32, variable, value ast.ASTHandle) (_ bool, result error) {
 	m := t.manager
+	for _, index := range positions {
+		h, x := g.Form(index)
+		if x != nil {
+			return false, x
+		}
+		if m.IsTrue(h) {
+			return false, nil
+		}
+	}
 	sub, e := m.NewExprSubstitution()
 	if e != nil {
 		return false, e
@@ -18,14 +29,10 @@ func (t *PBPreprocessTactic) replace(g *tactic.Goal, positions []uint32, variabl
 	if e = m.ExprSubstitutionInsert(sub, variable, value, ast.ASTHandle{}, ast.ASTDependency{}); e != nil {
 		return false, e
 	}
-	r, e := rewriter.NewTheoryRewriter(m, t.services.Context, t.services.Globals, nil)
-	if e != nil {
-		return false, e
-	}
-	defer func() { result = errors.Join(result, r.Close()) }()
 	if e = r.SetSubstitution(&sub); e != nil {
 		return false, e
 	}
+	defer func() { result = errors.Join(result, r.SetSubstitution(nil)) }()
 	out, e := m.NewRef(ast.ASTHandle{})
 	if e != nil {
 		return false, e

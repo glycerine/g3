@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -99,7 +100,7 @@ func (t *PBPreprocessTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (er
 		return e
 	}
 	defer func() { err = errors.Join(err, report.Close()) }()
-	converter, e := tactic.NewExtensionModel(t.manager, t.services)
+	converter, e := tactic.NewPBPreprocModelConverter(t.manager)
 	if e != nil {
 		return e
 	}
@@ -109,17 +110,23 @@ func (t *PBPreprocessTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (er
 			err = errors.Join(err, converter.Close())
 		}
 	}()
+	// m_r: the tactic's th_rewriter.
+	rw, e := rewriter.NewTheoryRewriter(t.manager, t.services.Context, t.services.Globals, nil)
+	if e != nil {
+		return e
+	}
+	defer func() { err = errors.Join(err, rw.Close()) }()
+	if err = g.IncDepth(); err != nil {
+		return
+	}
 	for {
-		progress, x := t.simplify(g, converter)
+		progress, x := t.simplify(g, converter, rw)
 		if x != nil {
 			return x
 		}
 		if !progress {
 			break
 		}
-	}
-	if err = g.IncDepth(); err != nil {
-		return
 	}
 	if err = out.SetModelConverter(converter); err != nil {
 		return
