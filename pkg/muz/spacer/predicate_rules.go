@@ -29,8 +29,10 @@ type spacerRuleBuilder struct {
 	transformer *PredicateTransformer
 	all         map[ast.ASTHandle]*PredicateTransformer
 	theory      *rewriter.TheoryRewriter
-	references  []ast.ASTRef
-	rules       []*spacerNormalizedRule
+	// ruleTheory is init_rule's local th_rewriter, live for one rule.
+	ruleTheory *rewriter.TheoryRewriter
+	references []ast.ASTRef
+	rules      []*spacerNormalizedRule
 }
 
 func (b *spacerRuleBuilder) pin(handle ast.ASTHandle) error {
@@ -66,7 +68,11 @@ func (b *spacerRuleBuilder) rewrite(formula ast.ASTHandle) (ast.ASTHandle, error
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = b.theory.Rewrite(formula, out); err != nil {
+	theory := b.theory
+	if b.ruleTheory != nil {
+		theory = b.ruleTheory
+	}
+	if err = theory.Rewrite(formula, out); err != nil {
 		return ast.ASTHandle{}, errors.Join(err, b.transformer.manager.DelRef(&out))
 	}
 	result, err := b.transformer.manager.RefGet(out)
@@ -543,8 +549,21 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 		}
 	}()
 	for _, rule := range rules {
-		normalized, err := builder.normalizeRule(rule)
+		// init_rule's th_rewriter rw(m) lives for this rule only.
+		ruleTheory, err := rewriter.NewTheoryRewriter(p.manager, config.Params, config.Globals, nil)
 		if err != nil {
+			if ruleTheory != nil {
+				err = errors.Join(err, ruleTheory.Close())
+			}
+			return err
+		}
+		builder.ruleTheory = ruleTheory
+		normalized, err := builder.normalizeRule(rule)
+		builder.ruleTheory = nil
+		if err = errors.Join(err, ruleTheory.Close()); err != nil {
+			if normalized != nil {
+				err = errors.Join(err, normalized.rule.Close())
+			}
 			return fmt.Errorf("normalize Spacer rule: %w", err)
 		}
 		builder.rules = append(builder.rules, normalized)

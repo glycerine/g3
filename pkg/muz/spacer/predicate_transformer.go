@@ -247,7 +247,7 @@ func (p *PredicateTransformer) initializeSignature(name string, head ast.ASTHand
 	return nil
 }
 
-func (p *PredicateTransformer) initializeExtendLiteral(name string) error {
+func (p *PredicateTransformer) initializeExtendLiteral(name string) (resultErr error) {
 	boolean, err := p.manager.MkBoolSort()
 	if err != nil {
 		return err
@@ -260,6 +260,12 @@ func (p *PredicateTransformer) initializeExtendLiteral(name string) error {
 	if err != nil {
 		return err
 	}
+	// mk_extend_lit's app_ref v releases the base constant on return.
+	local, err := p.manager.NewRef(application)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&local)) }()
 	declaration, err := p.manager.GetDecl(application)
 	if err != nil {
 		return err
