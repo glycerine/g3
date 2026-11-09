@@ -249,7 +249,13 @@ func (c *ReachableCache) Close() (result error) {
 	if c.connector != (ast.ASTRef{}) {
 		result = errors.Join(result, c.manager.DelRef(&c.connector))
 	}
-	for handle, reference := range c.cache {
+	sortedKeys10 := make([]ast.ASTHandle, 0, len(c.cache))
+	for handle := range c.cache {
+		sortedKeys10 = append(sortedKeys10, handle)
+	}
+	ast.SortHandles(sortedKeys10) // deterministic; Go map order is random
+	for _, handle := range sortedKeys10 {
+		reference := c.cache[handle]
 		err := c.manager.DelRef(&reference)
 		result = errors.Join(result, err)
 		// DelRef clears its owner only after consuming the reference. Keep an

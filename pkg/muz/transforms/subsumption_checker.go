@@ -261,7 +261,13 @@ func discoverTotalRules(source *base.RuleSet) (map[ast.ASTHandle]*base.Rule, err
 }
 
 func closeTotalRules(total map[ast.ASTHandle]*base.Rule) (result error) {
-	for declaration, rule := range total {
+	sortedKeys1 := make([]ast.ASTHandle, 0, len(total))
+	for declaration := range total {
+		sortedKeys1 = append(sortedKeys1, declaration)
+	}
+	ast.SortHandles(sortedKeys1) // deterministic; Go map order is random
+	for _, declaration := range sortedKeys1 {
+		rule := total[declaration]
 		result = errors.Join(result, rule.Close())
 		delete(total, declaration)
 	}

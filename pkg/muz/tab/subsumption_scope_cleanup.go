@@ -105,7 +105,13 @@ func (a *subsumptionCleanupAttempt) Close() error {
 		}
 		a.search = nil
 	}
-	for key, owned := range a.falseLiterals {
+	sortedKeys11 := make([]ast.ASTHandle, 0, len(a.falseLiterals))
+	for key := range a.falseLiterals {
+		sortedKeys11 = append(sortedKeys11, key)
+	}
+	ast.SortHandles(sortedKeys11) // deterministic; Go map order is random
+	for _, key := range sortedKeys11 {
+		owned := a.falseLiterals[key]
 		err := a.manager.DelRef(&owned)
 		if owned == (ast.ASTRef{}) {
 			delete(a.falseLiterals, key)

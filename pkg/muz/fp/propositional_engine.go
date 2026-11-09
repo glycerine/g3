@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math/bits"
+	"slices"
 	"sort"
 	"time"
 
@@ -1601,7 +1602,13 @@ func (e *PropositionalEngine) rewriteCondition(expression ast.ASTHandle, binding
 			result = errors.Join(result, e.manager.DelRef(&references[i]))
 		}
 	}()
-	for index, sort := range variables {
+	indexes := make([]uint32, 0, len(variables))
+	for index := range variables {
+		indexes = append(indexes, index)
+	}
+	slices.Sort(indexes)
+	for _, index := range indexes {
+		sort := variables[index]
 		element, found := binding[index]
 		if !found {
 			return false, ErrPropositionalHorn

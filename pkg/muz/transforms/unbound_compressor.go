@@ -23,7 +23,9 @@ type UnboundCompressorPlugin struct {
 	enabled  bool
 	priority uint32
 	mapping  map[compressionKey]ast.ASTHandle
-	closed   bool
+	// order lists mapping keys in insertion order (deterministic).
+	order  []compressionKey
+	closed bool
 }
 
 func NewUnboundCompressorPlugin(manager *ast.ASTManager, rules *base.RuleManager, enabled bool, priority uint32) *UnboundCompressorPlugin {
@@ -140,6 +142,7 @@ func (p *UnboundCompressorPlugin) declare(key compressionKey) (ast.ASTHandle, er
 		return ast.ASTHandle{}, err
 	}
 	p.mapping[key] = declaration
+	p.order = append(p.order, key)
 	return declaration, nil
 }
 
@@ -377,7 +380,11 @@ func (p *UnboundCompressorPlugin) Transform(source *base.RuleSet) (_ *base.RuleS
 		if err = result.InheritPredicates(current); err != nil {
 			return nil, errors.Join(err, result.Close())
 		}
-		for key, declaration := range p.mapping {
+		for _, key := range p.order {
+			declaration, held := p.mapping[key]
+			if !held {
+				continue
+			}
 			if err = result.InheritPredicate(source, key.predicate, declaration); err != nil {
 				return nil, errors.Join(err, result.Close())
 			}

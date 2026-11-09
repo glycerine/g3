@@ -90,7 +90,13 @@ func (p *udocProductContext) discardResult() error {
 		}
 		p.pending = p.pending[:last]
 	}
-	for d, value := range p.result {
+	sortedKeys5 := make([]ast.ASTHandle, 0, len(p.result))
+	for d := range p.result {
+		sortedKeys5 = append(sortedKeys5, d)
+	}
+	ast.SortHandles(sortedKeys5) // deterministic; Go map order is random
+	for _, d := range sortedKeys5 {
+		value := p.result[d]
 		if err := value.Close(); err != nil {
 			return err
 		}
@@ -107,7 +113,13 @@ func (p *udocProductContext) close() error {
 	if err := p.discardResult(); err != nil {
 		return err
 	}
-	for d, value := range p.seeds {
+	sortedKeys6 := make([]ast.ASTHandle, 0, len(p.seeds))
+	for d := range p.seeds {
+		sortedKeys6 = append(sortedKeys6, d)
+	}
+	ast.SortHandles(sortedKeys6) // deterministic; Go map order is random
+	for _, d := range sortedKeys6 {
+		value := p.seeds[d]
 		if err := value.Close(); err != nil {
 			return err
 		}

@@ -493,7 +493,13 @@ func appendDeclaration(order *[]ast.ASTHandle, seen map[ast.ASTHandle]bool, decl
 }
 
 func closeRuleBuckets(buckets map[ast.ASTHandle][]*base.Rule) (result error) {
-	for _, rules := range buckets {
+	sortedKeys13 := make([]ast.ASTHandle, 0, len(buckets))
+	for key := range buckets {
+		sortedKeys13 = append(sortedKeys13, key)
+	}
+	ast.SortHandles(sortedKeys13) // deterministic; Go map order is random
+	for _, key := range sortedKeys13 {
+		rules := buckets[key]
 		for _, rule := range rules {
 			result = errors.Join(result, rule.Close())
 		}

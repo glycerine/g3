@@ -50,14 +50,26 @@ func (c *datalogUDocContext) discardResult() error {
 	if err := c.clearGuardCleanup(); err != nil {
 		return err
 	}
-	for d, table := range c.finiteResult {
+	sortedKeys2 := make([]ast.ASTHandle, 0, len(c.finiteResult))
+	for d := range c.finiteResult {
+		sortedKeys2 = append(sortedKeys2, d)
+	}
+	ast.SortHandles(sortedKeys2) // deterministic; Go map order is random
+	for _, d := range sortedKeys2 {
+		table := c.finiteResult[d]
 		if err := table.Close(); err != nil {
 			return err
 		}
 		delete(c.finiteResult, d)
 	}
 	c.finiteResult = nil
-	for d, r := range c.result {
+	sortedKeys3 := make([]ast.ASTHandle, 0, len(c.result))
+	for d := range c.result {
+		sortedKeys3 = append(sortedKeys3, d)
+	}
+	ast.SortHandles(sortedKeys3) // deterministic; Go map order is random
+	for _, d := range sortedKeys3 {
+		r := c.result[d]
 		if err := r.Close(); err != nil {
 			return err
 		}
@@ -79,7 +91,13 @@ func (c *datalogUDocContext) close() error {
 		return err
 	}
 	c.products = nil
-	for d, r := range c.seeds {
+	sortedKeys4 := make([]ast.ASTHandle, 0, len(c.seeds))
+	for d := range c.seeds {
+		sortedKeys4 = append(sortedKeys4, d)
+	}
+	ast.SortHandles(sortedKeys4) // deterministic; Go map order is random
+	for _, d := range sortedKeys4 {
+		r := c.seeds[d]
 		if err := r.Close(); err != nil {
 			return err
 		}

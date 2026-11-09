@@ -416,7 +416,13 @@ func (e *SparseIntervalDatalogEvaluator) evaluateComponent(component map[ast.AST
 }
 
 func closeSparseIntervalProducts(products map[ast.ASTHandle]*rel.SparseIntervalSieveProduct) (result error) {
-	for declaration, product := range products {
+	sortedKeys7 := make([]ast.ASTHandle, 0, len(products))
+	for declaration := range products {
+		sortedKeys7 = append(sortedKeys7, declaration)
+	}
+	ast.SortHandles(sortedKeys7) // deterministic; Go map order is random
+	for _, declaration := range sortedKeys7 {
+		product := products[declaration]
 		result = errors.Join(result, product.Close())
 		delete(products, declaration)
 	}

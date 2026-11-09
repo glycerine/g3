@@ -109,7 +109,13 @@ func (a *intervalDatalogActivation) verifyEmptySeeds() error {
 	if a.formulaCheck == nil {
 		return nil
 	}
-	for _, entry := range a.store.entries {
+	sortedKeys9 := make([]ast.ASTHandle, 0, len(a.store.entries))
+	for key := range a.store.entries {
+		sortedKeys9 = append(sortedKeys9, key)
+	}
+	ast.SortHandles(sortedKeys9) // deterministic; Go map order is random
+	for _, key := range sortedKeys9 {
+		entry := a.store.entries[key]
 		if err := rel.VerifyIntervalRelationConstant(a.manager, entry.sorts, *a.formulaCheck, entry.relation, false); err != nil {
 			return err
 		}

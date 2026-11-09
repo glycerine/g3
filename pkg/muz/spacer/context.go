@@ -284,7 +284,13 @@ func (c *Context) SetBackground(background ast.ASTHandle) error {
 }
 
 func closeSpacerRuleBuckets(buckets map[ast.ASTHandle][]*base.Rule) (result error) {
-	for _, rules := range buckets {
+	sortedKeys12 := make([]ast.ASTHandle, 0, len(buckets))
+	for key := range buckets {
+		sortedKeys12 = append(sortedKeys12, key)
+	}
+	ast.SortHandles(sortedKeys12) // deterministic; Go map order is random
+	for _, key := range sortedKeys12 {
+		rules := buckets[key]
 		for _, rule := range rules {
 			result = errors.Join(result, rule.Close())
 		}

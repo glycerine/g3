@@ -229,7 +229,13 @@ func expandSlicedModel(manager *ast.ASTManager, predicates map[ast.ASTHandle]ast
 		}
 	}()
 	core := source.Core()
-	for original, derived := range predicates {
+	sortedKeys0 := make([]ast.ASTHandle, 0, len(predicates))
+	for original := range predicates {
+		sortedKeys0 = append(sortedKeys0, original)
+	}
+	ast.SortHandles(sortedKeys0) // deterministic; Go map order is random
+	for _, original := range sortedKeys0 {
+		derived := predicates[original]
 		arity, err := manager.GetArity(derived)
 		if err != nil {
 			return nil, err

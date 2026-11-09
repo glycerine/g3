@@ -210,7 +210,13 @@ func (e *SparseIntervalDatalogEvaluator) Close() (result error) {
 	if e == nil || e.closed {
 		return nil
 	}
-	for declaration, product := range e.products {
+	sortedKeys8 := make([]ast.ASTHandle, 0, len(e.products))
+	for declaration := range e.products {
+		sortedKeys8 = append(sortedKeys8, declaration)
+	}
+	ast.SortHandles(sortedKeys8) // deterministic; Go map order is random
+	for _, declaration := range sortedKeys8 {
+		product := e.products[declaration]
 		if err := product.Close(); err != nil {
 			result = errors.Join(result, err)
 			continue
