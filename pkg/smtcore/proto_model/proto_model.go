@@ -18,7 +18,7 @@ type ProtoModel struct {
 	factories   map[ast.FamilyID]ValueFactory
 	factoryList []ValueFactory
 	user        *userSortFactory
-	aux         map[ast.ASTHandle]struct{}
+	aux         *ast.ObjMap // func_decl_set m_aux_decls
 	partial     bool
 	closePhase  uint8
 	closed      bool
@@ -28,7 +28,7 @@ func NewProtoModel(m *ast.ASTManager, config model.ModelEvaluatorConfig) (p *Pro
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}
-	p = &ProtoModel{manager: m, factories: make(map[ast.FamilyID]ValueFactory), aux: make(map[ast.ASTHandle]struct{})}
+	p = &ProtoModel{manager: m, factories: make(map[ast.FamilyID]ValueFactory), aux: ast.NewObjMap(m)}
 	p.self = p
 	p.core, err = model.NewModel(m)
 	if err != nil {
@@ -236,15 +236,13 @@ func (p *ProtoModel) RegisterAuxFunction(d ast.ASTHandle, fi *model.FunctionInte
 	if err := p.core.Core().RegisterFunction(d, fi); err != nil {
 		return err
 	}
-	p.aux[d] = struct{}{}
-	return nil
+	return p.aux.Insert(d, [2]ast.ASTHandle{})
 }
 func (p *ProtoModel) RegisterAuxDeclaration(d ast.ASTHandle) error {
 	if err := p.open(); err != nil {
 		return err
 	}
-	p.aux[d] = struct{}{}
-	return nil
+	return p.aux.Insert(d, [2]ast.ASTHandle{})
 }
 func (p *ProtoModel) ReregisterFunction(d ast.ASTHandle, replacement *model.FunctionInterpretation, auxiliary ast.ASTHandle) error {
 	if err := p.open(); err != nil {
@@ -263,7 +261,9 @@ func (p *ProtoModel) ReregisterFunction(d ast.ASTHandle, replacement *model.Func
 			_ = copy.Close()
 			return err
 		}
-		p.aux[auxiliary] = struct{}{}
+		if err = p.aux.Insert(auxiliary, [2]ast.ASTHandle{}); err != nil {
+			return err
+		}
 	}
 	return p.core.Core().RegisterFunction(d, replacement)
 }

@@ -22,7 +22,7 @@ func (p *ProtoModel) uninterpretedConstant(h ast.ASTHandle) (ast.ASTHandle, bool
 	return d, fid == ast.NullFamilyID, err
 }
 
-func (p *ProtoModel) cleanFunctionElse(fi *model.FunctionInterpretation, found map[ast.ASTHandle]struct{}) (err error) {
+func (p *ProtoModel) cleanFunctionElse(fi *model.FunctionInterpretation, found *ast.ObjMap) (err error) {
 	root, err := fi.Else()
 	if err != nil {
 		return err
@@ -73,8 +73,12 @@ func (p *ProtoModel) cleanFunctionElse(fi *model.FunctionInterpretation, found m
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		if _, auxiliary := p.aux[d]; auxiliary {
-			found[d] = struct{}{}
+		if auxiliary, e := p.aux.Contains(d); e != nil {
+			return ast.ASTHandle{}, e
+		} else if auxiliary {
+			if e = found.Insert(d, [2]ast.ASTHandle{}); e != nil {
+				return ast.ASTHandle{}, e
+			}
 		}
 		n, e := p.manager.GetNumArgs(h)
 		if e != nil {
@@ -119,7 +123,7 @@ func (p *ProtoModel) Cleanup() error {
 	if err := p.open(); err != nil {
 		return err
 	}
-	found := make(map[ast.ASTHandle]struct{})
+	found := ast.NewObjMap(p.manager) // func_decl_set found_aux_fs
 	count := p.core.Core().NumFunctionDeclarations()
 	for i := uint32(0); i < count; i++ {
 		d, err := p.core.Core().Function(i)
@@ -141,14 +145,22 @@ func (p *ProtoModel) Cleanup() error {
 			return err
 		}
 	}
-	for d := range p.aux {
-		if _, used := found[d]; used {
-			continue
+	// Unused auxiliary declarations, in m_aux_decls order; then
+	// m_aux_decls.swap(found_aux_fs).
+	if found.Len() != p.aux.Len() {
+		for _, entry := range p.aux.Entries() {
+			used, err := found.Contains(entry.Key)
+			if err != nil {
+				return err
+			}
+			if used {
+				continue
+			}
+			if err = p.core.Core().UnregisterDeclaration(entry.Key); err != nil {
+				return err
+			}
 		}
-		if err := p.core.Core().UnregisterDeclaration(d); err != nil {
-			return err
-		}
-		delete(p.aux, d)
+		p.aux = found
 	}
 	return nil
 }
