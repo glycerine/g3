@@ -828,43 +828,23 @@ func (p *RuleInlinerPlugin) plan(source *base.RuleSet) (map[ast.ASTHandle]bool, 
 	return allowed, expanded, nil
 }
 
-func (p *RuleInlinerPlugin) rulesUnify(target *base.Rule, tailIndex int, source *base.Rule) (_ bool, resultErr error) {
-	tail, negated, err := target.Tail(tailIndex)
+func (p *RuleInlinerPlugin) rulesUnify(target *base.Rule, tailIndex int, source *base.Rule) (bool, error) {
+	_, negated, err := target.Tail(tailIndex)
 	if err != nil || negated {
 		if err == nil {
 			err = ast.ErrASTDomain
 		}
 		return false, err
 	}
-	sourceHead, err := source.Head()
-	if err != nil {
-		return false, err
+	// do_eager_inlining calls m_unifier.unify_rules, which resets the
+	// shared substitution (and its apply cache).
+	if p.unifier == nil {
+		if p.unifier, err = NewRuleUnifier(p.manager); err != nil {
+			p.unifier = nil
+			return false, err
+		}
 	}
-	targetVariables, err := ruleVariableCount(p.manager, target)
-	if err != nil {
-		return false, err
-	}
-	sourceVariables, err := ruleVariableCount(p.manager, source)
-	if err != nil {
-		return false, err
-	}
-	variables := targetVariables
-	if sourceVariables > variables {
-		variables = sourceVariables
-	}
-	subst, err := substitution.New(p.manager)
-	if err != nil {
-		return false, err
-	}
-	unifier, err := substitution.NewUnifier(p.manager)
-	if err != nil {
-		return false, errors.Join(err, subst.Close())
-	}
-	defer func() { resultErr = errors.Join(resultErr, unifier.Close(), subst.Close()) }()
-	if err = subst.Reserve(2, variables); err != nil {
-		return false, err
-	}
-	return unifier.UnifyPair(tail, sourceHead, subst, true)
+	return p.unifier.UnifyRules(target, tailIndex, source)
 }
 
 func (p *RuleInlinerPlugin) orientedDefinition(rule *base.Rule, rules *base.RuleSet) (bool, error) {
