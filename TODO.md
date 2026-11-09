@@ -776,6 +776,20 @@ Found while matching `-st` output against `build/z3` on
     normalize (z3's attach-enode lines come first), the initial
     check_sat (the [begin-check] 0), and normalizing on the first
     pareto/box call.
+    PLAN: this is a restructure, not a local fix. cmd_context's
+    checkOptimize -> runNormalizedOptimization -> checkOptimizeLex builds the
+    opt.ArithmeticSolver (whose SMT kernel creation gives the attach-enode
+    lines) only after normalization, and ArithmeticSolver.Check goes
+    straight to optimizeOne per objective. z3 runs clear_state,
+    init_solver, import_scoped_state, normalize, internalize,
+    update_solver, assert(m_hard_constraints), check_sat(0) and
+    model_updated, then m_optsmt.setup / update_lower, and only then
+    execute(...) / execute_lex / execute_box / execute_pareto.
+    Steps: (1) create the backend before EncodeOptimizationFormulas;
+    (2) assert the simplified hard formulas, then make an initial Check
+    with no assumptions, keeping its model as the first incumbent (this
+    also short-circuits unsat/unknown as z3 does); (3) feed the
+    objectives to the existing per-objective search.
     g3's runNormalizedOptimization only simplifies behind its own
     useSimplifier gate (skipped for pareto/box/rlimit/timeout) and never
     builds the objective-function apps. Port opt_context.cpp's optimize /
