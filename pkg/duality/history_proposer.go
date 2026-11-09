@@ -1,9 +1,9 @@
 package duality
 
 import (
-	"sort"
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
+	"sort"
 	"strings"
 )
 

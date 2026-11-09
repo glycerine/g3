@@ -2,10 +2,10 @@ package duality
 
 // Source: duality_rpfp.cpp:3147-3161, duality.h edge_solver ownership.
 import (
-	"sort"
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/solver"
+	"sort"
 )
 
 type EdgeSolverState struct {
