@@ -22,17 +22,25 @@ type conversion struct {
 	destinationOwned bool
 	evaluator        *model.ModelEvaluator
 	functions        map[ast.ASTHandle]*model.FunctionInterpretation
+	// layout is the interpretations obj_map's layout (its iteration order).
+	layout *ast.ObjMap
 	abstract, value  ast.ASTRef
 	arguments        []ast.ASTHandle
 	failures         []memory.ConstructionFailure
 }
-// functionDeclarations gives the rebuilt functions a stable order.
+// functionDeclarations lists the interpretations obj_map's keys in its
+// iteration order.
 func (w *conversion) functionDeclarations() []ast.ASTHandle {
-	keys := make([]ast.ASTHandle, 0, len(w.functions))
-	for key := range w.functions {
-		keys = append(keys, key)
+	if w.layout == nil {
+		return nil
 	}
-	ast.SortHandles(keys)
+	entries := w.layout.Entries()
+	keys := make([]ast.ASTHandle, 0, len(entries))
+	for _, entry := range entries {
+		if _, found := w.functions[entry.Key]; found {
+			keys = append(keys, entry.Key)
+		}
+	}
 	return keys
 }
 
@@ -238,6 +246,12 @@ func (c *ModelConverter) addEntry(w *conversion, term, value ast.ASTHandle) erro
 			return err
 		}
 		w.functions[d] = fi
+		if w.layout == nil {
+			w.layout = ast.NewObjMap(m)
+		}
+		if err = w.layout.Insert(d, [2]ast.ASTHandle{}); err != nil {
+			return err
+		}
 	}
 	if err = c.releaseArguments(w); err != nil {
 		return err
