@@ -347,6 +347,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 			return nil, errors.Join(err, transformer.Close())
 		}
 		bitBlaster.SetNormalizationParams(normalization)
+		bitBlaster.SetRuleMaker(e.addFormulaWithProof)
 		if err = transformer.Register(bitBlaster); err != nil {
 			return nil, errors.Join(err, bitBlaster.Close(), transformer.Close())
 		}

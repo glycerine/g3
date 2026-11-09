@@ -5,6 +5,7 @@ package transforms
 
 import (
 	"errors"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
@@ -166,9 +167,12 @@ type BitBlastPlugin struct {
 	simplifier *InterpTailSimplifierPlugin
 	blaster    *bitblaster.BitBlasterRewriter
 	expansion  bitBlastExpansion
-	priority   uint32
-	closed     bool
-	closing    bool
+	// expansionTraversal is m_rewriter during Transform.
+	expansionTraversal *astrewriter.Traversal
+	mkRule             func(destination *base.RuleSet, formula, proof ast.ASTHandle, name usymbol.Symbol) error
+	priority           uint32
+	closed             bool
+	closing            bool
 }
 
 func bitBlastAssertedProof(manager *ast.ASTManager, formula ast.ASTHandle) (proof ast.ASTHandle, resultErr error) {
@@ -238,10 +242,20 @@ func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resul
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, traversal.Close()) }()
+	p.expansionTraversal = traversal
+	defer func() { p.expansionTraversal = nil }()
 	count, err := source.Len()
 	if err != nil {
 		return nil, err
 	}
+	// operator()'s fml lives across the loop: to_formula(*r, fml) replaces
+	// it, and after a change it holds fml3 through mk_rule.
+	var fml ast.ASTRef
+	defer func() {
+		if fml != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&fml))
+		}
+	}()
 	for i := 0; i < count; i++ {
 		canceled, cancelErr := p.manager.Canceled()
 		if cancelErr != nil {
@@ -254,82 +268,13 @@ func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resul
 		if getErr != nil {
 			return nil, getErr
 		}
-		current, dropped, simplified, transformErr := p.simplifier.transformRule(rule)
-		if transformErr == nil && dropped {
-			// The source blast helper falls back to the original rule when its
-			// preliminary simplifier reports an infeasible rule.
-			current, dropped, simplified = rule, false, false
-		}
-		if transformErr == nil && !dropped {
-			if current == nil {
-				current = rule
+		changed, transformErr := p.blastRule(rule, &fml)
+		if transformErr == nil {
+			if changed {
+				transformErr = p.mkBlastedRule(rule, fml, result)
+			} else {
+				transformErr = result.Add(rule)
 			}
-			formula, formulaErr := current.ToFormula()
-			transformErr = formulaErr
-			var blasted, expanded ast.ASTRef
-			release := func(reference *ast.ASTRef) {
-				if *reference != (ast.ASTRef{}) {
-					transformErr = errors.Join(transformErr, p.manager.DelRef(reference))
-				}
-			}
-			if transformErr == nil {
-				blasted, transformErr = p.manager.NewRef(ast.ASTHandle{})
-			}
-			if transformErr == nil {
-				var original ast.ASTHandle
-				original, transformErr = p.manager.RefGet(formula)
-				if transformErr == nil {
-					transformErr = p.blaster.Rewrite(original, blasted)
-				}
-			}
-			if transformErr == nil {
-				expanded, transformErr = p.manager.NewRef(ast.ASTHandle{})
-			}
-			if transformErr == nil {
-				var blastedHandle ast.ASTHandle
-				blastedHandle, transformErr = p.manager.RefGet(blasted)
-				if transformErr == nil {
-					transformErr = traversal.Rewrite(blastedHandle, expanded)
-				}
-			}
-			if transformErr == nil {
-				original, getOriginalErr := p.manager.RefGet(formula)
-				final, getFinalErr := p.manager.RefGet(expanded)
-				transformErr = errors.Join(getOriginalErr, getFinalErr)
-				if transformErr == nil && (simplified || final != original) {
-					var replacement *base.Rule
-					name, nameErr := rule.NameSymbol()
-					transformErr = errors.Join(transformErr, nameErr)
-					if transformErr == nil {
-						replacement, transformErr = p.rules.NewRuleFromFormulaWithSymbol(final, name)
-					}
-					if transformErr == nil {
-						_, hasProof, proofErr := rule.Proof()
-						transformErr = proofErr
-						if transformErr == nil && hasProof {
-							var proof ast.ASTHandle
-							proof, transformErr = bitBlastAssertedProof(p.manager, final)
-							if transformErr == nil {
-								transformErr = replacement.SetProof(proof)
-							}
-						}
-					}
-					if transformErr == nil {
-						transformErr = result.Add(replacement)
-					}
-					if replacement != nil {
-						transformErr = errors.Join(transformErr, replacement.Close())
-					}
-				} else if transformErr == nil {
-					transformErr = result.Add(rule)
-				}
-			}
-			release(&expanded)
-			release(&blasted)
-			release(&formula)
-		}
-		if current != nil && current != rule {
-			transformErr = errors.Join(transformErr, current.Close())
 		}
 		transformErr = errors.Join(transformErr, rule.Close())
 		if transformErr != nil {
@@ -338,6 +283,126 @@ func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resul
 	}
 	keep = true
 	return result, nil
+}
+
+// SetRuleMaker supplies rule_manager::mk_rule(fml, pr, rules, name).
+func (p *BitBlastPlugin) SetRuleMaker(mk func(destination *base.RuleSet, formula, proof ast.ASTHandle, name usymbol.Symbol) error) {
+	p.mkRule = mk
+}
+
+func (p *BitBlastPlugin) assignFormula(slot *ast.ASTRef, h ast.ASTHandle) error {
+	fresh, err := p.manager.NewRef(h)
+	if err != nil {
+		return err
+	}
+	if *slot != (ast.ASTRef{}) {
+		if err = p.manager.DelRef(slot); err != nil {
+			return errors.Join(err, p.manager.DelRef(&fresh))
+		}
+	}
+	*slot = fresh
+	return nil
+}
+
+// blastRule is to_formula(*r, fml) followed by blast(r, fml).
+func (p *BitBlastPlugin) blastRule(rule *base.Rule, fml *ast.ASTRef) (changed bool, resultErr error) {
+	original, err := rule.ToFormula()
+	if err != nil {
+		return false, err
+	}
+	originalHandle, err := p.manager.RefGet(original)
+	if err == nil {
+		err = p.assignFormula(fml, originalHandle)
+	}
+	if err = errors.Join(err, p.manager.DelRef(&original)); err != nil {
+		return false, err
+	}
+	// blast's locals die in reverse: r2, fml3, fml2, fml1.
+	var fml1, fml2, fml3 ast.ASTRef
+	var r2 *base.Rule
+	defer func() {
+		if r2 != nil && r2 != rule {
+			resultErr = errors.Join(resultErr, r2.Close())
+		}
+		for _, r := range []*ast.ASTRef{&fml3, &fml2, &fml1} {
+			if *r != (ast.ASTRef{}) {
+				resultErr = errors.Join(resultErr, p.manager.DelRef(r))
+			}
+		}
+	}()
+	simplified, dropped, simplifiedChanged, err := p.simplifier.transformRule(rule)
+	if err != nil {
+		return false, err
+	}
+	r2 = rule
+	if !dropped && simplifiedChanged && simplified != nil {
+		r2 = simplified
+	} else if simplified != nil && simplified != rule {
+		if err = simplified.Close(); err != nil {
+			return false, err
+		}
+	}
+	if fml1, err = r2.ToFormula(); err != nil {
+		return false, err
+	}
+	if fml2, err = p.manager.NewRef(ast.ASTHandle{}); err != nil {
+		return false, err
+	}
+	first, err := p.manager.RefGet(fml1)
+	if err == nil {
+		err = p.blaster.Rewrite(first, fml2)
+	}
+	if err != nil {
+		return false, err
+	}
+	if fml3, err = p.manager.NewRef(ast.ASTHandle{}); err != nil {
+		return false, err
+	}
+	second, err := p.manager.RefGet(fml2)
+	if err == nil {
+		err = p.expansionTraversal.Rewrite(second, fml3)
+	}
+	if err != nil {
+		return false, err
+	}
+	third, err := p.manager.RefGet(fml3)
+	if err != nil {
+		return false, err
+	}
+	current, err := p.manager.RefGet(*fml)
+	if err != nil {
+		return false, err
+	}
+	if third == current {
+		return false, nil
+	}
+	return true, p.assignFormula(fml, third)
+}
+
+func (p *BitBlastPlugin) mkBlastedRule(rule *base.Rule, fml ast.ASTRef, result *base.RuleSet) error {
+	formula, err := p.manager.RefGet(fml)
+	if err != nil {
+		return err
+	}
+	name, err := rule.NameSymbol()
+	if err != nil {
+		return err
+	}
+	var proof ast.ASTHandle
+	_, hasProof, err := rule.Proof()
+	if err != nil {
+		return err
+	}
+	if hasProof {
+		// pr = m.mk_asserted(fml): loses the original proof of r.
+		if proof, err = bitBlastAssertedProof(p.manager, formula); err != nil {
+			return err
+		}
+	}
+	if p.mkRule != nil {
+		return p.mkRule(result, formula, proof, name)
+	}
+	return p.rules.AddFormulaWithProofAndSymbol(result, formula, proof, name)
 }
 
 func (p *BitBlastPlugin) Close() error {

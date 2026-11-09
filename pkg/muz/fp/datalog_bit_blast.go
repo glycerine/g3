@@ -61,6 +61,7 @@ func (q *datalogBitBlastQuery) register(transformer *base.RuleTransformer, conte
 		return err
 	}
 	planner.SetNormalizationParams(normalization)
+	planner.SetRuleMaker(e.addFormulaWithProof)
 	if err = transformer.Register(planner); err != nil {
 		return errors.Join(err, planner.Close())
 	}
