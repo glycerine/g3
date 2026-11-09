@@ -26,7 +26,7 @@ type SMTModelFinder struct {
 	flat               map[ast.ASTHandle]smtModelFinderFlatQuantifier
 	macroUtil          *macros.Util
 	candidates         map[ast.ASTHandle]*macros.Candidates
-	nonGround          map[ast.ASTHandle]map[ast.ASTHandle]struct{}
+	nonGround          map[ast.ASTHandle]*ast.ObjMap // m_ng_decls (func_decl_set)
 	auf                map[ast.ASTHandle]bool
 	chosen             map[ast.ASTHandle]ast.ASTHandle
 	hint               *hintSearchState
@@ -65,7 +65,7 @@ func NewSMTModelFinder(state *SMTInternalizerState) (*SMTModelFinder, error) {
 		manager: state.manager, state: state, registered: make(map[ast.ASTHandle]struct{}),
 		sets: make(map[ast.ASTHandle][]*smtModelFinderInstantiationSet), macroUtil: util,
 		flat:       make(map[ast.ASTHandle]smtModelFinderFlatQuantifier),
-		candidates: make(map[ast.ASTHandle]*macros.Candidates), nonGround: make(map[ast.ASTHandle]map[ast.ASTHandle]struct{}),
+		candidates: make(map[ast.ASTHandle]*macros.Candidates), nonGround: make(map[ast.ASTHandle]*ast.ObjMap),
 		auf: make(map[ast.ASTHandle]bool), chosen: make(map[ast.ASTHandle]ast.ASTHandle), hint: newHintSearchState(), dependencies: dependencies,
 	}, nil
 }
@@ -131,7 +131,7 @@ func (f *SMTModelFinder) RegisterQuantifier(quantifier ast.ASTHandle) (result er
 		return err
 	}
 	f.candidates[quantifier] = candidates
-	f.nonGround[quantifier] = make(map[ast.ASTHandle]struct{})
+	f.nonGround[quantifier] = ast.NewObjMap(f.manager)
 	body, err := f.manager.GetQuantifierBody(quantifier)
 	if err != nil {
 		return err
@@ -181,8 +181,11 @@ func (f *SMTModelFinder) RegisterQuantifier(quantifier ast.ASTHandle) (result er
 	if err != nil {
 		return err
 	}
-	info := &hintQuantifierInfo{nonGround: make([]ast.ASTHandle, 0, len(f.nonGround[quantifier]))}
-	info.nonGround = append(info.nonGround, smtSortedHandleSet(f.nonGround[quantifier])...)
+	ngEntries := f.nonGround[quantifier].Entries()
+	info := &hintQuantifierInfo{nonGround: make([]ast.ASTHandle, 0, len(ngEntries))}
+	for _, entry := range ngEntries {
+		info.nonGround = append(info.nonGround, entry.Key)
+	}
 	for i := 0; i < candidates.Len(); i++ {
 		candidate, err := candidates.At(i)
 		if err != nil {
@@ -196,7 +199,9 @@ func (f *SMTModelFinder) RegisterQuantifier(quantifier ast.ASTHandle) (result er
 	return nil
 }
 
-func (f *SMTModelFinder) collectNonGroundDeclarations(root ast.ASTHandle, result map[ast.ASTHandle]struct{}) error {
+// collectNonGroundDeclarations fills m_ng_decls as process_app does: each
+// non-ground application, before its arguments, left to right.
+func (f *SMTModelFinder) collectNonGroundDeclarations(root ast.ASTHandle, result *ast.ObjMap) error {
 	stack := []ast.ASTHandle{root}
 	seen := make(map[ast.ASTHandle]struct{})
 	for len(stack) != 0 {
@@ -229,14 +234,16 @@ func (f *SMTModelFinder) collectNonGroundDeclarations(root ast.ASTHandle, result
 			return err
 		}
 		if !ground && family != f.manager.BasicFamilyID() {
-			result[declaration] = struct{}{}
+			if err = result.Insert(declaration, [2]ast.ASTHandle{}); err != nil {
+				return err
+			}
 		}
 		count, err := f.manager.GetNumArgs(n)
 		if err != nil {
 			return err
 		}
-		for i := uint32(0); i < count; i++ {
-			child, err := f.manager.GetArg(n, i)
+		for i := count; i > 0; i-- {
+			child, err := f.manager.GetArg(n, i-1)
 			if err != nil {
 				return err
 			}
@@ -323,8 +330,10 @@ func (f *SMTModelFinder) macroOccursElsewhere(declaration, except ast.ASTHandle,
 		if quantifier == except {
 			continue
 		}
-		if _, found := f.nonGround[quantifier][declaration]; found {
-			return true
+		if set := f.nonGround[quantifier]; set != nil {
+			if found, _ := set.Contains(declaration); found {
+				return true
+			}
 		}
 	}
 	return false
