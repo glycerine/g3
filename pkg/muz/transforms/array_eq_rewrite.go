@@ -5,7 +5,6 @@ package transforms
 
 import (
 	"errors"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
@@ -19,6 +18,7 @@ type ArrayEqRewritePlugin struct {
 	context  *uparams.ParamsContext
 	globals  *uparams.GlobalParamsService
 	priority uint32
+	mkRule   ArrayInstantiationRuleMaker
 	closed   bool
 }
 
@@ -33,102 +33,95 @@ func (p *ArrayEqRewritePlugin) Priority() uint32            { return p.priority 
 func (p *ArrayEqRewritePlugin) CanDestratifyNegation() bool { return false }
 func (p *ArrayEqRewritePlugin) Cancel()                     {}
 
-type arrayEqClass struct {
-	members []ast.ASTHandle
-	ids     []uint32
-	root    uint32
+// arrayEqClasses is expr_equiv_class (obj_equiv_class over a
+// basic_union_find): classes iterate by root id, members from the root along
+// the next links.
+type arrayEqClasses struct {
+	toInt map[ast.ASTHandle]uint32
+	toObj []ast.ASTHandle
+	find  []uint32
+	size  []uint32
+	next  []uint32
 }
 
-func mergeArrayEq(classes *[]arrayEqClass, ids map[ast.ASTHandle]uint32, nextID *uint32, left, right ast.ASTHandle) {
-	leftID, leftKnown := ids[left]
-	if !leftKnown {
-		leftID = *nextID
-		*nextID = *nextID + 1
-		ids[left] = leftID
+func newArrayEqClasses() *arrayEqClasses {
+	return &arrayEqClasses{toInt: make(map[ast.ASTHandle]uint32)}
+}
+
+func (c *arrayEqClasses) addIfNotThere(o ast.ASTHandle) uint32 {
+	if id, found := c.toInt[o]; found {
+		return id
 	}
-	rightID, rightKnown := ids[right]
-	if !rightKnown {
-		rightID = *nextID
-		*nextID = *nextID + 1
-		ids[right] = rightID
+	id := uint32(len(c.toObj))
+	c.toInt[o] = id
+	c.toObj = append(c.toObj, o)
+	return id
+}
+
+func (c *arrayEqClasses) findRoot(v uint32) uint32 {
+	if int(v) >= len(c.find) {
+		return v
 	}
-	leftClass, rightClass := -1, -1
-	for i := range *classes {
-		for _, id := range (*classes)[i].ids {
-			if id == leftID {
-				leftClass = i
+	for c.find[v] != v {
+		v = c.find[v]
+	}
+	return v
+}
+
+func (c *arrayEqClasses) ensureSize(v uint32) {
+	for int(v) >= len(c.find) {
+		r := uint32(len(c.find))
+		c.find = append(c.find, r)
+		c.size = append(c.size, 1)
+		c.next = append(c.next, r)
+	}
+}
+
+func (c *arrayEqClasses) merge(a, b ast.ASTHandle) {
+	v1, v2 := c.addIfNotThere(a), c.addIfNotThere(b)
+	r1, r2 := c.findRoot(v1), c.findRoot(v2)
+	if r1 == r2 {
+		return
+	}
+	c.ensureSize(v1)
+	c.ensureSize(v2)
+	if c.size[r1] > c.size[r2] {
+		r1, r2 = r2, r1
+	}
+	c.find[r1] = r2
+	c.size[r2] += c.size[r1]
+	c.next[r1], c.next[r2] = c.next[r2], c.next[r1]
+}
+
+func (c *arrayEqClasses) nextOf(v uint32) uint32 {
+	if int(v) >= len(c.next) {
+		return v
+	}
+	return c.next[v]
+}
+
+func (c *arrayEqClasses) isRoot(v uint32) bool {
+	return int(v) >= len(c.find) || c.find[v] == v
+}
+
+// classes lists each class's members in source iteration order.
+func (c *arrayEqClasses) classes() [][]ast.ASTHandle {
+	var out [][]ast.ASTHandle
+	for root := uint32(0); int(root) < len(c.toObj); root++ {
+		if !c.isRoot(root) {
+			continue
+		}
+		var members []ast.ASTHandle
+		for current := root; ; {
+			members = append(members, c.toObj[current])
+			current = c.nextOf(current)
+			if current == root {
+				break
 			}
-			if id == rightID {
-				rightClass = i
-			}
 		}
+		out = append(out, members)
 	}
-	if leftClass < 0 && rightClass < 0 {
-		if leftID == rightID {
-			*classes = append(*classes, arrayEqClass{
-				members: []ast.ASTHandle{left},
-				ids:     []uint32{leftID},
-				root:    leftID,
-			})
-			return
-		}
-		*classes = append(*classes, arrayEqClass{
-			members: []ast.ASTHandle{right, left},
-			ids:     []uint32{rightID, leftID},
-			root:    rightID,
-		})
-		return
-	}
-	if leftClass < 0 {
-		class := (*classes)[rightClass]
-		class.members = append(append(class.members[:1:1], left), class.members[1:]...)
-		class.ids = append(append(class.ids[:1:1], leftID), class.ids[1:]...)
-		(*classes)[rightClass] = class
-		return
-	}
-	if rightClass < 0 {
-		class := (*classes)[leftClass]
-		if len(class.members) == 1 {
-			class.members = []ast.ASTHandle{right, class.members[0]}
-			class.ids = []uint32{rightID, class.ids[0]}
-			class.root = rightID
-		} else {
-			class.members = append(append(class.members[:1:1], right), class.members[1:]...)
-			class.ids = append(append(class.ids[:1:1], rightID), class.ids[1:]...)
-		}
-		(*classes)[leftClass] = class
-		return
-	}
-	if leftClass == rightClass {
-		return
-	}
-	leftGroup, rightGroup := (*classes)[leftClass], (*classes)[rightClass]
-	var merged arrayEqClass
-	if len(leftGroup.members) > len(rightGroup.members) {
-		merged = arrayEqClass{
-			members: append(append([]ast.ASTHandle{leftGroup.members[0]}, rightGroup.members[1:]...), rightGroup.members[0]),
-			ids:     append(append([]uint32{leftGroup.ids[0]}, rightGroup.ids[1:]...), rightGroup.ids[0]),
-			root:    leftGroup.root,
-		}
-		merged.members = append(merged.members, leftGroup.members[1:]...)
-		merged.ids = append(merged.ids, leftGroup.ids[1:]...)
-	} else {
-		merged = arrayEqClass{
-			members: append(append([]ast.ASTHandle{rightGroup.members[0]}, leftGroup.members[1:]...), leftGroup.members[0]),
-			ids:     append(append([]uint32{rightGroup.ids[0]}, leftGroup.ids[1:]...), leftGroup.ids[0]),
-			root:    rightGroup.root,
-		}
-		merged.members = append(merged.members, rightGroup.members[1:]...)
-		merged.ids = append(merged.ids, rightGroup.ids[1:]...)
-	}
-	(*classes)[leftClass] = merged
-	if rightClass > leftClass {
-		*classes = append((*classes)[:rightClass], (*classes)[rightClass+1:]...)
-	} else {
-		*classes = append((*classes)[:rightClass], (*classes)[rightClass+1:]...)
-		leftClass--
-		(*classes)[leftClass] = merged
-	}
+	return out
 }
 
 func (p *ArrayEqRewritePlugin) arrayEquality(expression ast.ASTHandle) (left, right ast.ASTHandle, yes bool, err error) {
@@ -218,7 +211,7 @@ func (p *ArrayEqRewritePlugin) replaceApp(expression, oldValue, newValue ast.AST
 	return p.manager.NewRef(rebuilt)
 }
 
-func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule) (_ *base.Rule, resultErr error) {
+func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule, destination *base.RuleSet) (_ *base.Rule, resultErr error) {
 	uninterpreted, err := rule.UninterpretedTailSize()
 	if err != nil {
 		return nil, err
@@ -236,9 +229,7 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule) (_ *base.Rule, res
 		}
 		tails, negated = append(tails, tail), append(negated, negative)
 	}
-	var classes []arrayEqClass
-	classIDs := make(map[ast.ASTHandle]uint32)
-	var nextClassID uint32
+	equivalences := newArrayEqClasses()
 	for i := uninterpreted; i < total; i++ {
 		tail, _, getErr := rule.Tail(i)
 		if getErr != nil {
@@ -249,21 +240,20 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule) (_ *base.Rule, res
 			return nil, getErr
 		}
 		if equality {
-			mergeArrayEq(&classes, classIDs, &nextClassID, left, right)
+			equivalences.merge(left, right)
 		} else {
 			tails, negated = append(tails, tail), append(negated, false)
 		}
 	}
-	sort.Slice(classes, func(i, j int) bool { return classes[i].root < classes[j].root })
 	owned := make([]ast.ASTRef, 0)
 	defer func() {
 		for i := len(owned) - 1; i >= 0; i-- {
 			resultErr = errors.Join(resultErr, p.manager.DelRef(&owned[i]))
 		}
 	}()
-	for _, class := range classes {
-		representative := class.members[0]
-		for _, member := range class.members {
+	for _, members := range equivalences.classes() {
+		representative := members[0]
+		for _, member := range members {
 			kind, getErr := p.manager.GetKind(member)
 			if getErr != nil {
 				return nil, getErr
@@ -273,7 +263,7 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule) (_ *base.Rule, res
 				break
 			}
 		}
-		for _, member := range class.members {
+		for _, member := range members {
 			for i := range tails {
 				ref, replaceErr := p.replaceApp(tails[i], member, representative)
 				if replaceErr != nil {
@@ -286,11 +276,16 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule) (_ *base.Rule, res
 				}
 			}
 		}
-		for _, member := range class.members {
+		for _, member := range members {
 			equality, makeErr := p.manager.MkEq(member, representative)
 			if makeErr != nil {
 				return nil, makeErr
 			}
+			held, makeErr := p.manager.NewRef(equality)
+			if makeErr != nil {
+				return nil, makeErr
+			}
+			owned = append(owned, held)
 			tails, negated = append(tails, equality), append(negated, false)
 		}
 	}
@@ -335,8 +330,28 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule) (_ *base.Rule, res
 	if err != nil {
 		return nil, err
 	}
-	return p.rules.NewRuleWithSymbol(head, tails, negated, name)
+	// mk_rule(m.mk_implies(m.mk_and(res_conjs), r.get_head()), ...).
+	conjunction, err := p.manager.MkFamilyApp(0, ast.ASTOpAnd, nil, tails)
+	if err != nil {
+		return nil, err
+	}
+	formula, err := p.manager.MkImplies(conjunction, head)
+	if err != nil {
+		return nil, err
+	}
+	held, err := p.manager.NewRef(formula)
+	if err != nil {
+		return nil, err
+	}
+	owned = append(owned, held)
+	if p.mkRule == nil {
+		return p.rules.NewRuleWithSymbol(head, tails, negated, name)
+	}
+	return nil, p.mkRule(destination, formula, name)
 }
+
+// SetRuleMaker supplies rule_manager::mk_rule.
+func (p *ArrayEqRewritePlugin) SetRuleMaker(mk ArrayInstantiationRuleMaker) { p.mkRule = mk }
 
 func (p *ArrayEqRewritePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
 	if p == nil || p.closed || p.manager == nil || p.rules == nil || p.context == nil || p.globals == nil {
@@ -364,9 +379,9 @@ func (p *ArrayEqRewritePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet,
 		if getErr != nil {
 			return nil, getErr
 		}
-		replacement, transformErr := p.transformRule(rule)
+		replacement, transformErr := p.transformRule(rule, result)
 		transformErr = errors.Join(transformErr, rule.Close())
-		if transformErr == nil {
+		if transformErr == nil && replacement != nil {
 			transformErr = result.Add(replacement)
 		}
 		if replacement != nil {

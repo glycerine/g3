@@ -237,6 +237,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		if makeErr != nil {
 			return nil, errors.Join(makeErr, transformer.Close())
 		}
+		arrayRewrite.SetRuleMaker(e.transformRuleMaker())
 		if err = transformer.Register(arrayRewrite); err != nil {
 			return nil, errors.Join(err, arrayRewrite.Close(), transformer.Close())
 		}
