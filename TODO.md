@@ -183,6 +183,17 @@ Found while matching `-st` output against `build/z3` on
    datatype_cycle_proof's occurs-check th-lemma has an extra antecedent
    (z3 lists one equality proof, g3 two); the model finder's auf_solver
    key2node maps (pair-hashed) are still handle-sorted.
+   DONE since: m_A_f_is layout (pair_hash) drives collect_partial_funcs and
+   the partial func_decl_set; m_ng_decls is a func_decl_set (pre-order
+   fill); the hint solver's sets, backtrackable residue/satisfied sets and
+   m_fs follow obj_map order (set_interp walked a random Go map); qe subst
+   and nlarith caches release in m_trail order; substitution_tree,
+   bv-slice and muz/base (rule-manager predicates, rule-set outputs,
+   parked predicates) release deterministically.
+   Remaining map-order work: FuncDeclSet (func_decl_dependencies keeps a
+   Go map where the source walks an obj_hashtable to dec_ref), and the
+   mapscan hits in muz/rel, duality, muz/fp, muz/transforms, muz/pdr,
+   muz/spacer, muz/tab, api and cmd_context debug expressions.
    Open: g3's single generated model stands for both m_proto_model and
    m_model (scoped_mk_model drops both at search start and builds m_model
    from the last proto at search end); releasing the stale model after
