@@ -286,9 +286,11 @@ func (t *SMTStringTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error
 	return true, nil
 }
 
-func (t *SMTStringTheory) ApplySortConstraint(node *SMTEnode, _ ast.ASTHandle) error {
-	_, err := t.mkVar(node)
-	return err
+// ApplySortConstraint keeps theory::apply_sort_cnstr's empty body:
+// theory_str does not override it, so an uninterpreted string term gets its
+// theory variable only when set_up_axioms reaches it at init_search_eh.
+func (t *SMTStringTheory) ApplySortConstraint(*SMTEnode, ast.ASTHandle) error {
+	return nil
 }
 
 func (*SMTStringTheory) InternalizeEquality(ast.ASTHandle, int32) error  { return nil }

@@ -215,6 +215,11 @@ func TestSMTStringEqualityChecksClassMembersBeforeMerge(t *testing.T) {
 		astTestMust(t, err)
 		variables = append(variables, variable)
 	}
+	// init_search_eh's set_up_axioms gives the variables their theory vars.
+	for _, variable := range variables {
+		astTestMust(t, state.Internalize(variable, false))
+		astTestMust(t, theory.setUpAxioms(variable))
+	}
 	left := stringEqualityConcat(t, m, astTestString(t, m, "a"), variables[2])
 	right := stringEqualityConcat(t, m, astTestString(t, m, "b"), variables[3])
 	for _, pair := range [][2]ast.ASTHandle{{variables[0], left}, {variables[1], right}} {

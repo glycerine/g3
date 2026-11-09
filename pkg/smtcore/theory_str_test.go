@@ -89,6 +89,7 @@ func TestSMTStringTheoryPrivateClassesAndScopeRollback(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(x, false))
 	astTestMust(t, state.Internalize(value, false))
+	astTestMust(t, theory.setUpAxioms(x)) // init_search_eh attaches x's theory var
 	xNode, valueNode := state.context.enodes.get(x), state.context.enodes.get(value)
 	for repeat := 0; repeat < 3; repeat++ {
 		astTestMust(t, state.PushScope())
@@ -196,6 +197,9 @@ func TestSMTStringTheoryModelFactoryConcatAndFallback(t *testing.T) {
 	for _, expression := range []ast.ASTHandle{concat, left, y} {
 		astTestMust(t, state.Internalize(expression, false))
 	}
+	// init_search_eh's set_up_axioms attaches the variables' theory vars.
+	astTestMust(t, theory.setUpAxioms(x))
+	astTestMust(t, theory.setUpAxioms(y))
 	xNode, leftNode := state.context.enodes.get(x), state.context.enodes.get(left)
 	astTestMust(t, theory.NewEquality(xNode.TheoryVar(theory.FamilyID()), leftNode.TheoryVar(theory.FamilyID())))
 	for _, test := range []struct {

@@ -17,6 +17,10 @@ func stringContainmentWord(t *testing.T, theory *SMTStringTheory, name string) a
 	word, err := m.MkConst(astTestSymbol(t, m, name), sort)
 	astTestMust(t, err)
 	astTestMust(t, theory.state.Internalize(word, false))
+	// set_up_axioms gives a string variable its theory var (mk_var) at
+	// init_search_eh; internalization alone does not.
+	_, err = theory.mkVar(theory.state.context.enodes.get(word))
+	astTestMust(t, err)
 	return word
 }
 
