@@ -33,9 +33,12 @@ type BitBlasterRewriter struct {
 	params    RewriterParams
 	config    bitBlasterTraversalConfiguration
 	traversal *parent.Traversal
-	cache     map[ast.ASTHandle]ast.ASTRef
+	// cache is m_const2bits (obj_map<func_decl, expr*>, holding no
+	// references); keyRoots and values are m_keys and m_values.
+	cache     *ast.ObjMap
 	keys      []ast.ASTHandle
 	keyRoots  []ast.ASTRef
+	values    []ast.ASTRef
 	limits    []int
 	bindings  []ast.ASTRef
 	// in1, in2 and outBits are blaster_rewriter_cfg's m_in1, m_in2 and
@@ -78,7 +81,7 @@ func NewBitBlasterRewriter(m *ast.ASTManager, params *RewriterParams) (*BitBlast
 		family:  family,
 		blaster: engine,
 		params:  actual,
-		cache:   make(map[ast.ASTHandle]ast.ASTRef),
+		cache:   ast.NewObjMap(m),
 	}
 	r.self, r.config.owner = r, r
 	proofs, err := m.ProofsEnabled()
@@ -159,19 +162,22 @@ func (r *BitBlasterRewriter) Pop(scopes uint32) (result error) {
 	return result
 }
 
-func (r *BitBlasterRewriter) Const2Bits() (map[ast.ASTHandle]ast.ASTHandle, error) {
+// Const2Bits is const2bits(): the declarations and their bits, in the
+// obj_map's iteration order.
+func (r *BitBlasterRewriter) Const2Bits() ([]ast.ObjMapEntry, error) {
 	if err := r.open(); err != nil {
 		return nil, err
 	}
-	result := make(map[ast.ASTHandle]ast.ASTHandle, len(r.cache))
-	for key, ref := range r.cache {
-		h, err := r.manager.RefGet(ref)
-		if err != nil {
-			return nil, err
-		}
-		result[key] = h
+	return r.cache.Entries(), nil
+}
+
+// FindConst2Bits is const2bits().find(d).
+func (r *BitBlasterRewriter) FindConst2Bits(d ast.ASTHandle) (ast.ASTHandle, bool, error) {
+	if err := r.open(); err != nil {
+		return ast.ASTHandle{}, false, err
 	}
-	return result, nil
+	value, found, err := r.cache.Find(d)
+	return value[0], found, err
 }
 
 func (r *BitBlasterRewriter) getBits(term ast.ASTHandle) (bits []ast.ASTRef, result error) {
@@ -234,8 +240,10 @@ func (r *BitBlasterRewriter) setBitVector(bits []ast.ASTRef, out ast.ASTRef) err
 }
 
 func (r *BitBlasterRewriter) makeConstant(decl ast.ASTHandle, out ast.ASTRef) (result error) {
-	if cached, ok := r.cache[decl]; ok {
-		return r.manager.AssignRef(out, cached)
+	if cached, ok, err := r.cache.Find(decl); err != nil {
+		return err
+	} else if ok {
+		return r.manager.SetRef(out, cached[0])
 	}
 	rangeSort, err := r.manager.GetRange(decl)
 	if err != nil {
@@ -283,33 +291,42 @@ func (r *BitBlasterRewriter) makeConstant(decl ast.ASTHandle, out ast.ASTRef) (r
 	if err != nil {
 		return errors.Join(err, r.manager.DelRef(&owned))
 	}
-	r.cache[decl] = owned
+	if err = r.cache.Insert(decl, [2]ast.ASTHandle{assembled}); err != nil {
+		return errors.Join(err, r.manager.DelRef(&owned), r.manager.DelRef(&keyRoot))
+	}
 	r.keys = append(r.keys, decl)
 	r.keyRoots = append(r.keyRoots, keyRoot)
+	r.values = append(r.values, owned)
 	return nil
 }
 
+// releaseCache is pop's body: the newest keys leave m_const2bits, then
+// m_keys.resize(lim) and m_values.resize(lim) release forward.
 func (r *BitBlasterRewriter) releaseCache(limit int) error {
-	for len(r.keys) > limit {
-		i := len(r.keys) - 1
-		key := r.keys[i]
-		ref := r.cache[key]
-		if ref != (ast.ASTRef{}) {
-			err := r.manager.DelRef(&ref)
-			r.cache[key] = ref
-			if err != nil {
-				return err
-			}
+	for i := len(r.keys); i > limit; {
+		i--
+		if err := r.cache.Erase(r.keys[i]); err != nil {
+			return err
 		}
-		if r.keyRoots[i] != (ast.ASTRef{}) {
-			if err := r.manager.DelRef(&r.keyRoots[i]); err != nil {
-				return err
-			}
-		}
-		delete(r.cache, key)
-		r.keys = r.keys[:i]
-		r.keyRoots = r.keyRoots[:i]
 	}
+	r.keys = r.keys[:limit]
+	if err := releaseRefsForward(r.manager, &r.keyRoots, limit); err != nil {
+		return err
+	}
+	return releaseRefsForward(r.manager, &r.values, limit)
+}
+
+// releaseRefsForward is ref_vector shrink(limit): dec_ref from limit up.
+func releaseRefsForward(m *ast.ASTManager, refs *[]ast.ASTRef, limit int) error {
+	for i := limit; i < len(*refs); i++ {
+		if (*refs)[i] != (ast.ASTRef{}) {
+			if err := m.DelRef(&(*refs)[i]); err != nil {
+				*refs = append((*refs)[:limit], (*refs)[i:]...)
+				return err
+			}
+		}
+	}
+	*refs = (*refs)[:limit]
 	return nil
 }
 
@@ -320,21 +337,26 @@ func (r *BitBlasterRewriter) Close() (result error) {
 	if r.closed {
 		return nil
 	}
+	// ~imp: m_cfg's members in reverse declaration order (m_values,
+	// m_keys, m_bindings, m_out, m_in2, m_in1), then the rewriter_tpl base.
+	if err := releaseRefsForward(r.manager, &r.values, 0); err != nil {
+		return err
+	}
+	if err := releaseRefsForward(r.manager, &r.keyRoots, 0); err != nil {
+		return err
+	}
+	r.keys = nil
+	if err := r.releaseBindings(0); err != nil {
+		return err
+	}
+	if err := errors.Join(r.resetBits(&r.outBits), r.resetBits(&r.in2), r.resetBits(&r.in1)); err != nil {
+		return err
+	}
 	if r.traversal != nil {
 		if err := r.traversal.Close(); err != nil {
 			return err
 		}
 		r.traversal = nil
-	}
-	if err := r.releaseBindings(0); err != nil {
-		return err
-	}
-	if err := r.releaseCache(0); err != nil {
-		return err
-	}
-	// ~blaster_rewriter_cfg: m_out, m_in2, m_in1 (reverse declaration).
-	if err := errors.Join(r.resetBits(&r.outBits), r.resetBits(&r.in2), r.resetBits(&r.in1)); err != nil {
-		return err
 	}
 	r.cache = nil
 	r.keys = nil

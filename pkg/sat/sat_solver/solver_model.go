@@ -184,8 +184,8 @@ func (s *Solver) extractModel() (err error) {
 	}
 	if len(bindings) > 0 {
 		pairs := make([]bv.BitBlasterBinding, 0, len(bindings))
-		for d, bits := range bindings {
-			pairs = append(pairs, bv.BitBlasterBinding{Variable: d, Bits: bits})
+		for _, entry := range bindings {
+			pairs = append(pairs, bv.BitBlasterBinding{Variable: entry.Key, Bits: entry.Value[0]})
 		}
 		fresh, e := bv.NewBitBlasterModelConverter(s.manager, s.services.Context, s.services.Globals, pairs)
 		if e != nil {

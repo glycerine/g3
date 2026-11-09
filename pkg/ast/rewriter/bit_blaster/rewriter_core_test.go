@@ -117,7 +117,7 @@ func TestBitBlasterRewriterConstantCacheScopes(t *testing.T) {
 	paramsMust(t, r.Pop(1))
 	cache, err = r.Const2Bits()
 	paramsMust(t, err)
-	if len(cache) != 1 || cache[firstDecl] != firstBits {
+	if len(cache) != 1 || cache[0].Key != firstDecl || cache[0].Value[0] != firstBits {
 		t.Fatal("cache after pop", cache)
 	}
 }

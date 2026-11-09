@@ -440,7 +440,7 @@ func (r *IncrementalEncoder) Pop(n uint32) error {
 
 // BitVectorBindings returns the persistent source const2bits map, with handles
 // borrowed until the corresponding scope is popped or the encoder is closed.
-func (r *IncrementalEncoder) BitVectorBindings() (map[ast.ASTHandle]ast.ASTHandle, error) {
+func (r *IncrementalEncoder) BitVectorBindings() ([]ast.ObjMapEntry, error) {
 	if err := r.open(); err != nil {
 		return nil, err
 	}
@@ -448,6 +448,16 @@ func (r *IncrementalEncoder) BitVectorBindings() (map[ast.ASTHandle]ast.ASTHandl
 		return nil, nil
 	}
 	return r.blaster.Const2Bits()
+}
+// FindBitVectorBinding is const2bits.find(d).
+func (r *IncrementalEncoder) FindBitVectorBinding(d ast.ASTHandle) (ast.ASTHandle, bool, error) {
+	if err := r.open(); err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	if r.blaster == nil {
+		return ast.ASTHandle{}, false, nil
+	}
+	return r.blaster.FindConst2Bits(d)
 }
 func (r *IncrementalEncoder) ScopeLevel() (uint32, error) {
 	if err := r.open(); err != nil {

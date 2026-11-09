@@ -53,17 +53,13 @@ func (s *Solver) internalizeVariable(v ast.ASTHandle, variables *[]sat.BoolVar) 
 		*variables = append(*variables, sat.BoolVar(index))
 		return true, nil
 	}
-	bindings, err := s.encoder.BitVectorBindings()
-	if err != nil {
-		return false, err
-	}
 	decl, err := s.manager.GetDecl(v)
 	if err != nil {
 		return false, err
 	}
-	bits, found := bindings[decl]
-	if !found {
-		return false, nil
+	bits, found, err := s.encoder.FindBitVectorBinding(decl)
+	if err != nil || !found {
+		return false, err
 	}
 	count, err := s.manager.GetNumArgs(bits)
 	if err != nil {

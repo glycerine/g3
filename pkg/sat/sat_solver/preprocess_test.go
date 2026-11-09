@@ -122,13 +122,12 @@ func TestIncrementalEncoderPersistentBitBindingsAndUserScopesCPP(t *testing.T) {
 	assert := func(form string) { t.Helper(); f.compile(t, form); script.WriteString(form) }
 	assert(`(assert (= x #x1))`)
 	check(lbool.True)
-	base, err := f.encoder.BitVectorBindings()
-	incMust(t, err)
 	x, err := f.context.MakeApp("x", nil, nil, ast.ASTHandle{})
 	incMust(t, err)
 	xd, err := f.manager.GetDecl(x)
 	incMust(t, err)
-	bits := base[xd]
+	bits, _, err := f.encoder.FindBitVectorBinding(xd)
+	incMust(t, err)
 	if bits.IsNull() {
 		t.Fatal("missing persistent x bit binding")
 	}
@@ -142,20 +141,22 @@ func TestIncrementalEncoderPersistentBitBindingsAndUserScopesCPP(t *testing.T) {
 	script.WriteString(`(push 1)`)
 	assert(`(assert (= y #x4))`)
 	check(lbool.True)
-	bindings, err := f.encoder.BitVectorBindings()
-	incMust(t, err)
+	binding := func(d ast.ASTHandle) ast.ASTHandle {
+		t.Helper()
+		h, _, err := f.encoder.FindBitVectorBinding(d)
+		incMust(t, err)
+		return h
+	}
 	y, err := f.context.MakeApp("y", nil, nil, ast.ASTHandle{})
 	incMust(t, err)
 	yd, err := f.manager.GetDecl(y)
 	incMust(t, err)
-	if bindings[xd] != bits || bindings[yd].IsNull() {
+	if binding(xd) != bits || binding(yd).IsNull() {
 		t.Fatal("base mapping was rebuilt or scoped mapping missing")
 	}
 	incMust(t, f.encoder.Pop(10)) // Source clamps over-pops to the current level.
 	script.WriteString(`(pop 1)`)
-	bindings, err = f.encoder.BitVectorBindings()
-	incMust(t, err)
-	if bindings[xd] != bits || !bindings[yd].IsNull() {
+	if binding(xd) != bits || !binding(yd).IsNull() {
 		t.Fatal("pop discarded base bits or retained scoped bits")
 	}
 	assert(`(assert (= y #x3))`)

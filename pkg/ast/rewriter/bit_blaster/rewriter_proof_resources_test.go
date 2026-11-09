@@ -63,9 +63,9 @@ func TestBitBlasterRewriterProofOutputAndConstantKeyLifetime(t *testing.T) {
 	if _, err := m.GetKind(decl); err != nil {
 		t.Fatal("constant cache lost original declaration", err)
 	}
-	cache, err := r.Const2Bits()
+	got, _, err := r.FindConst2Bits(decl)
 	paramsMust(t, err)
-	if cache[decl] != value {
+	if got != value {
 		t.Fatal("cleanup lost constant mapping")
 	}
 }

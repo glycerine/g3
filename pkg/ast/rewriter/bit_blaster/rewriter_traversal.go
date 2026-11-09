@@ -44,14 +44,8 @@ func (r *BitBlasterRewriter) releaseBindings(limit int) (result error) {
 	if limit < 0 || limit > len(r.bindings) {
 		return ast.ErrASTDomain
 	}
-	for len(r.bindings) > limit {
-		i := len(r.bindings) - 1
-		if err := r.manager.DelRef(&r.bindings[i]); err != nil {
-			return err
-		}
-		r.bindings = r.bindings[:i]
-	}
-	return result
+	// m_bindings.shrink(limit) releases forward.
+	return releaseRefsForward(r.manager, &r.bindings, limit)
 }
 
 func (c *bitBlasterTraversalConfiguration) PreVisit(term ast.ASTHandle) (allowed bool, result error) {
