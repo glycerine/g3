@@ -9,7 +9,6 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	umemory "github.com/glycerine/g3/pkg/util/memory"
@@ -24,7 +23,6 @@ type CofactorTermITETactic struct {
 	globals            *uparams.GlobalParamsService
 	services           model.ModelEvaluatorConfig
 	params             uparams.ParamsRef
-	theory             *rewriter.TheoryRewriter
 	maxMemory          uint64
 	cofactorEqualities bool
 	refs               uint32
@@ -67,10 +65,6 @@ func NewCofactorTermITETactic(m *ast.ASTManager, c *uparams.ParamsContext, g *up
 	if err = t.readPolicy(&t.params); err != nil {
 		return nil, err
 	}
-	t.theory, err = rewriter.NewTheoryRewriter(m, c, g, &t.params)
-	if err != nil {
-		return nil, err
-	}
 	return t, nil
 }
 
@@ -90,7 +84,7 @@ func (t *CofactorTermITETactic) open() error {
 	if t == nil || t.self != t {
 		return ast.ErrASTHandle
 	}
-	if t.closed || !t.paramsReady || t.theory == nil {
+	if t.closed || !t.paramsReady {
 		return arena.ErrClosed
 	}
 	return t.context.Check(&t.params)
@@ -141,10 +135,7 @@ func (t *CofactorTermITETactic) UpdateParams(p *uparams.ParamsRef) error {
 	if err := t.context.Assign(&t.params, p); err != nil {
 		return err
 	}
-	if err := t.readPolicy(&t.params); err != nil {
-		return err
-	}
-	return t.theory.UpdateParams(&t.params)
+	return t.readPolicy(&t.params)
 }
 
 func (t *CofactorTermITETactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
@@ -162,16 +153,9 @@ func (t *CofactorTermITETactic) Translate(m *ast.ASTManager) (tactic.Tactic, err
 	return NewCofactorTermITETactic(m, t.context, t.globals, &t.params, t.services)
 }
 
-func (t *CofactorTermITETactic) Cleanup() (err error) {
-	if err = t.open(); err != nil {
-		return err
-	}
-	if err = t.theory.Close(); err != nil {
-		return err
-	}
-	t.theory, err = rewriter.NewTheoryRewriter(t.manager, t.context, t.globals, &t.params)
-	return err
-}
+// Cleanup is cofactor_term_ite_tactic::cleanup: the elimination state is
+// rebuilt per formula, so nothing is retained between applications.
+func (t *CofactorTermITETactic) Cleanup() error { return t.open() }
 
 func (t *CofactorTermITETactic) Reset() error                             { return t.Cleanup() }
 func (t *CofactorTermITETactic) CollectStatistics(*statistics.Statistics) {}
@@ -202,8 +186,6 @@ func (t *CofactorTermITETactic) Apply(goal *tactic.Goal, out *tactic.TacticResul
 	if report != nil {
 		defer func() { resultErr = errors.Join(resultErr, report.Close()) }()
 	}
-	r := newCofactorTermITERewriter(t)
-	defer func() { resultErr = errors.Join(resultErr, r.Close()) }()
 	size, err := goal.Size()
 	if err != nil {
 		return err
@@ -220,15 +202,24 @@ func (t *CofactorTermITETactic) Apply(goal *tactic.Goal, out *tactic.TacticResul
 		if e != nil {
 			return e
 		}
+		// cofactor_elim_term_ite::operator() builds a bottom_up_elim per
+		// formula, so its caches and cofactor rewriter are per formula.
+		r, e := newCofactorTermITERewriter(t)
+		if e != nil {
+			return e
+		}
 		formula, e = r.rewrite(formula)
-		if e != nil {
-			return e
+		if e == nil {
+			// The goal holds the result before the rewriter's refs go.
+			dependency, de := goal.Dependency(i)
+			if de == nil {
+				de = goal.Update(i, formula, ast.ASTHandle{}, dependency)
+			}
+			e = errors.Join(de, r.Close())
+		} else {
+			e = errors.Join(e, r.Close())
 		}
-		dependency, e := goal.Dependency(i)
 		if e != nil {
-			return e
-		}
-		if e = goal.Update(i, formula, ast.ASTHandle{}, dependency); e != nil {
 			return e
 		}
 	}
@@ -241,10 +232,6 @@ func (t *CofactorTermITETactic) Apply(goal *tactic.Goal, out *tactic.TacticResul
 func (t *CofactorTermITETactic) Close() (result error) {
 	if t == nil || t.self != t || t.closed {
 		return nil
-	}
-	if t.theory != nil {
-		result = errors.Join(result, t.theory.Close())
-		t.theory = nil
 	}
 	if t.paramsReady {
 		result = errors.Join(result, t.context.Del(&t.params))

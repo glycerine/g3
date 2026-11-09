@@ -68,6 +68,15 @@ func (c *blastTermITEConfiguration) ReduceApp(decl ast.ASTHandle, arguments ast.
 		if err != nil {
 			return rewriter.RewriteFailed, err
 		}
+		// result = m.mk_app(f, num_args, args) is built, then replaced by
+		// the ite, as in the source.
+		original, err := m.MkApp(decl, args)
+		if err != nil {
+			return rewriter.RewriteFailed, err
+		}
+		if err = m.SetRef(out, original); err != nil {
+			return rewriter.RewriteFailed, err
+		}
 		result, err := m.MkIte(condition, thenApp, elseApp)
 		if err != nil {
 			return rewriter.RewriteFailed, err

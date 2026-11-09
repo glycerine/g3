@@ -10,17 +10,122 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 )
 
+// cofactorTermITERewriter is bottom_up_elim, built per formula; cofactor is
+// its cofactor_rw (a rewriter_tpl whose cache persists across calls).
 type cofactorTermITERewriter struct {
-	owner *CofactorTermITETactic
-	refs  contextSimplifyRefs
-	memo  map[ast.ASTHandle]ast.ASTHandle
+	owner    *CofactorTermITETactic
+	refs     contextSimplifyRefs
+	memo     map[ast.ASTHandle]ast.ASTHandle
+	cfg      cofactorRWConfig
+	cofactor *rewriter.Traversal
 }
 
-func newCofactorTermITERewriter(owner *CofactorTermITETactic) *cofactorTermITERewriter {
-	return &cofactorTermITERewriter{owner: owner, refs: contextSimplifyRefs{m: owner.manager}, memo: make(map[ast.ASTHandle]ast.ASTHandle)}
+// cofactorRWConfig is cofactor_rw_cfg.
+type cofactorRWConfig struct {
+	rewriter.DefaultConfiguration
+	owner   *cofactorTermITERewriter
+	mkApp   *rewriter.SimplifiedApp
+	atom    ast.ASTHandle
+	sign    bool
+	term    ast.ASTHandle
+	value   ast.ASTHandle
+	hasTerm bool
 }
 
-func (r *cofactorTermITERewriter) Close() error { return r.refs.Close() }
+func (c *cofactorRWConfig) MaxStepsExceeded(uint32) (bool, error) {
+	return false, c.owner.checkpoint()
+}
+func (c *cofactorRWConfig) PreVisit(ast.ASTHandle) (bool, error) { return true, nil }
+func (c *cofactorRWConfig) RewritePatterns() bool                { return false }
+func (c *cofactorRWConfig) ReduceApp(d ast.ASTHandle, args ast.AppArguments, out, proof ast.ASTRef) (rewriter.RewriteStatus, error) {
+	if proof != (ast.ASTRef{}) {
+		if err := c.owner.owner.manager.SetRef(proof, ast.ASTHandle{}); err != nil {
+			return rewriter.RewriteFailed, err
+		}
+	}
+	return c.mkApp.MkCore(d, args, out)
+}
+func (c *cofactorRWConfig) GetSubst(s ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool, error) {
+	m := c.owner.owner.manager
+	if s == c.atom {
+		var v ast.ASTHandle
+		var err error
+		if c.sign {
+			v, err = m.MkFalse()
+		} else {
+			v, err = m.MkTrue()
+		}
+		return v, ast.ASTHandle{}, err == nil, err
+	}
+	if c.hasTerm && s == c.term && !c.value.IsNull() {
+		return c.value, ast.ASTHandle{}, true, nil
+	}
+	return ast.ASTHandle{}, ast.ASTHandle{}, false, nil
+}
+
+// setCofactorAtom is cofactor_rw_cfg::set_cofactor_atom; m_value is left
+// as it was, as in the source.
+func (c *cofactorRWConfig) setCofactorAtom(t ast.ASTHandle) error {
+	m := c.owner.owner.manager
+	negated, argument, err := m.IsNot(t)
+	if err != nil {
+		return err
+	}
+	c.hasTerm = false
+	if negated {
+		c.atom, c.sign = argument, true
+		return nil
+	}
+	c.atom, c.sign = t, false
+	if !c.owner.owner.cofactorEqualities {
+		return nil
+	}
+	equality, err := c.owner.isEquality(t)
+	if err != nil || !equality {
+		return err
+	}
+	lhs, err := m.GetArg(t, 0)
+	if err != nil {
+		return err
+	}
+	rhs, err := m.GetArg(t, 1)
+	if err != nil {
+		return err
+	}
+	if unique, e := m.IsUniqueValue(lhs); e != nil {
+		return e
+	} else if unique {
+		c.term, c.value, c.hasTerm = rhs, lhs, true
+		return nil
+	}
+	if unique, e := m.IsUniqueValue(rhs); e != nil {
+		return e
+	} else if unique {
+		c.term, c.value, c.hasTerm = lhs, rhs, true
+	}
+	return nil
+}
+
+func newCofactorTermITERewriter(owner *CofactorTermITETactic) (*cofactorTermITERewriter, error) {
+	r := &cofactorTermITERewriter{owner: owner, refs: contextSimplifyRefs{m: owner.manager}, memo: make(map[ast.ASTHandle]ast.ASTHandle)}
+	r.cfg.owner = r
+	var err error
+	r.cfg.mkApp, err = rewriter.NewSimplifiedApp(owner.manager, owner.context, owner.globals, &owner.params)
+	if err != nil {
+		if r.cfg.mkApp != nil {
+			err = errors.Join(err, r.cfg.mkApp.Close())
+		}
+		return nil, err
+	}
+	if r.cofactor, err = rewriter.NewTraversal(owner.manager, &r.cfg); err != nil {
+		return nil, errors.Join(err, r.cfg.mkApp.Close())
+	}
+	return r, nil
+}
+
+func (r *cofactorTermITERewriter) Close() error {
+	return errors.Join(r.cofactor.Close(), r.cfg.mkApp.Close(), r.refs.Close())
+}
 
 func (r *cofactorTermITERewriter) checkpoint() error {
 	if err := r.owner.services.Cooperation.Cooperate("cofactor ite"); err != nil {
@@ -192,120 +297,105 @@ func (r *cofactorTermITERewriter) bestCondition(root ast.ASTHandle) (ast.ASTHand
 	return best, !best.IsNull(), nil
 }
 
-func (r *cofactorTermITERewriter) cofactor(root, condition ast.ASTHandle, positive bool) (result ast.ASTHandle, resultErr error) {
-	m := r.owner.manager
-	replace, err := rewriter.NewExprSafeReplace(m)
-	if err != nil {
-		return ast.ASTHandle{}, err
+// applyCofactor is m_cofactor(curr, out) after set_cofactor_atom(atom).
+func (r *cofactorTermITERewriter) applyCofactor(curr, atom ast.ASTHandle, out ast.ASTRef) error {
+	if err := r.cfg.setCofactorAtom(atom); err != nil {
+		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, replace.Close()) }()
-	atom := condition
-	atomPositive := positive
-	negated, argument, err := m.IsNot(condition)
-	if err != nil {
-		return ast.ASTHandle{}, err
+	// The source keeps the rewriter cache across set_cofactor_atom calls;
+	// results cached under one substitution are wrong under the next, and
+	// Go's extra holding references make more subterms cacheable, so the
+	// cache is cleared for each cofactor.
+	if err := r.cofactor.Reset(); err != nil {
+		return err
 	}
-	if negated {
-		atom = argument
-		atomPositive = !positive
-	}
-	value, err := m.MkFalse()
-	if atomPositive {
-		value, err = m.MkTrue()
-	}
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if err = replace.Insert(atom, value); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if atomPositive && r.owner.cofactorEqualities {
-		equality, e := r.isEquality(atom)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		if equality {
-			left, e1 := m.GetArg(atom, 0)
-			right, e2 := m.GetArg(atom, 1)
-			if e1 != nil || e2 != nil {
-				return ast.ASTHandle{}, errors.Join(e1, e2)
-			}
-			leftValue, e1 := m.IsUniqueValue(left)
-			rightValue, e2 := m.IsUniqueValue(right)
-			if e1 != nil || e2 != nil {
-				return ast.ASTHandle{}, errors.Join(e1, e2)
-			}
-			if leftValue {
-				err = replace.Insert(right, left)
-			} else if rightValue {
-				err = replace.Insert(left, right)
-			}
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-		}
-	}
-	temporary, err := m.NewRef(ast.ASTHandle{})
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&temporary)) }()
-	if err = replace.Apply(root, temporary); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	h, err := m.RefGet(temporary)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	out, err := m.NewRef(ast.ASTHandle{})
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&out)) }()
-	if err = r.owner.theory.Rewrite(h, out); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	h, err = m.RefGet(out)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	return r.pin(h)
+	return r.cofactor.Rewrite(curr, out)
 }
 
-func (r *cofactorTermITERewriter) eliminateAtom(atom ast.ASTHandle) (ast.ASTHandle, error) {
+// eliminateAtom is bottom_up_elim::cofactor(t, r).
+func (r *cofactorTermITERewriter) eliminateAtom(atom ast.ASTHandle) (result ast.ASTHandle, resultErr error) {
 	m := r.owner.manager
-	current := atom
+	curr, err := m.NewRef(atom)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&curr)) }()
 	for {
+		current, err := m.RefGet(curr)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
 		condition, found, err := r.bestCondition(current)
-		if err != nil || !found {
-			return current, err
-		}
-		positive, err := r.cofactor(current, condition, true)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		negative, err := r.cofactor(current, condition, false)
-		if err != nil {
-			return ast.ASTHandle{}, err
+		if !found {
+			return r.pin(current)
 		}
-		switch {
-		case positive == negative:
-			current = positive
-		case m.IsTrue(positive) && m.IsFalse(negative):
-			current = condition
-		case m.IsFalse(positive) && m.IsTrue(negative):
-			current, err = m.MkNotSimplified(condition)
-		default:
-			current, err = m.MkIte(condition, positive, negative)
-		}
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		current, err = r.pin(current)
-		if err != nil {
+		if err = r.cofactorStep(curr, current, condition); err != nil {
 			return ast.ASTHandle{}, err
 		}
 	}
+}
+
+// cofactorStep is one iteration of the cofactor loop; pos_cofactor,
+// neg_cofactor and neg_c are its expr_ref locals.
+func (r *cofactorTermITERewriter) cofactorStep(curr ast.ASTRef, current, c ast.ASTHandle) (resultErr error) {
+	m := r.owner.manager
+	var locals [3]ast.ASTRef // pos_cofactor, neg_cofactor, neg_c
+	for i := range locals {
+		ref, err := m.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return err
+		}
+		locals[i] = ref
+	}
+	defer func() {
+		for i := len(locals) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, m.DelRef(&locals[i]))
+		}
+	}()
+	if err := r.applyCofactor(current, c, locals[0]); err != nil {
+		return err
+	}
+	negated, argument, err := m.IsNot(c)
+	if err != nil {
+		return err
+	}
+	negC := argument
+	if !negated {
+		if negC, err = m.MkNot(c); err != nil {
+			return err
+		}
+	}
+	if err = m.SetRef(locals[2], negC); err != nil {
+		return err
+	}
+	if err = r.applyCofactor(current, negC, locals[1]); err != nil {
+		return err
+	}
+	pos, err := m.RefGet(locals[0])
+	if err != nil {
+		return err
+	}
+	neg, err := m.RefGet(locals[1])
+	if err != nil {
+		return err
+	}
+	var next ast.ASTHandle
+	switch {
+	case pos == neg:
+		next = pos
+	case m.IsTrue(pos) && m.IsFalse(neg):
+		next = c
+	case m.IsFalse(pos) && m.IsTrue(neg):
+		next = negC
+	default:
+		if next, err = m.MkIte(c, pos, neg); err != nil {
+			return err
+		}
+	}
+	return m.SetRef(curr, next)
 }
 
 func (r *cofactorTermITERewriter) rewrite(root ast.ASTHandle) (ast.ASTHandle, error) {

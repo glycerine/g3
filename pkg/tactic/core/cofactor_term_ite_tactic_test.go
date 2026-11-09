@@ -9,6 +9,10 @@ import (
 
 func TestCofactorTermITEEliminatesArithmeticChoice(t *testing.T) {
 	m, c, g, services := solveEqFixture(t)
+	// mk_simplified_app builds every plugin rewriter; reg_decl_plugins.
+	if err := m.RegisterDeclarationPlugins(); err != nil {
+		t.Fatal(err)
+	}
 	runner, err := NewCofactorTermITETactic(m, c, g, nil, services)
 	simplifyMust(t, err)
 	t.Cleanup(func() { simplifyMust(t, runner.Close()) })
@@ -44,6 +48,10 @@ func TestCofactorTermITEEliminatesArithmeticChoice(t *testing.T) {
 
 func TestCofactorTermITENegatedConditionPropagatesAtom(t *testing.T) {
 	m, c, g, services := solveEqFixture(t)
+	// mk_simplified_app builds every plugin rewriter; reg_decl_plugins.
+	if err := m.RegisterDeclarationPlugins(); err != nil {
+		t.Fatal(err)
+	}
 	runner, err := NewCofactorTermITETactic(m, c, g, nil, services)
 	simplifyMust(t, err)
 	t.Cleanup(func() { simplifyMust(t, runner.Close()) })
