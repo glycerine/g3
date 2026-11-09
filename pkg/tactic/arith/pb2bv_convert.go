@@ -131,11 +131,13 @@ func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pb
 			if err = t.addBoundsDependencies(rhs); err != nil {
 				return ast.ASTHandle{}, err
 			}
-			first, e := t.integerLiteral(lhs, false)
+			// m.mk_iff(mon_lit2lit(lhs), mon_lit2lit(rhs)): GCC evaluates the
+			// right operand first.
+			second, e := t.integerLiteral(rhs, !positive)
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
-			second, e := t.integerLiteral(rhs, !positive)
+			first, e := t.integerLiteral(lhs, false)
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
@@ -328,11 +330,12 @@ func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pb
 		}
 		eqs := make([]ast.ASTHandle, 0, len(p)/2)
 		for i := 0; i < len(p); i += 2 {
-			a, e := t.integerLiteral(p[i].literal.variable, false)
+			// m.mk_eq(int2lit(x_i), int2lit(y_i)): GCC evaluates y_i first.
+			b, e := t.integerLiteral(p[i+1].literal.variable, false)
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
-			b, e := t.integerLiteral(p[i+1].literal.variable, false)
+			a, e := t.integerLiteral(p[i].literal.variable, false)
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
