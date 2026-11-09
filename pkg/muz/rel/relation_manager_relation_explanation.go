@@ -143,7 +143,7 @@ func (m *RelationManager) StoreRelationExplanation(predicate ast.ASTHandle, prod
 		return err
 	}
 	m.relationLevel[predicate] = product
-	return nil
+	return m.noteRelation(predicate)
 }
 
 // ExchangeRelationExplanation transfers replacement to the manager and the

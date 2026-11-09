@@ -133,5 +133,5 @@ func (m *RelationManager) StoreFiniteRelation(predicate ast.ASTHandle, table Fin
 	} else {
 		m.finite[predicate] = table
 	}
-	return nil
+	return m.noteRelation(predicate)
 }

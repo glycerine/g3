@@ -15,60 +15,23 @@ func (m *RelationManager) RestrictPredicates(keep map[ast.ASTHandle]bool) (resul
 	if err := m.open(); err != nil {
 		return err
 	}
-	for predicate, product := range m.explanations {
-		if keep[predicate] {
-			continue
-		}
-		if err := product.Close(); err != nil {
-			result = errors.Join(result, err)
-			continue
-		}
-		consumed, err := m.manager.DecRefConsumed(predicate)
-		result = errors.Join(result, err)
-		if consumed {
-			delete(m.explanations, predicate)
+	// restrict_predicates: collect from m_relations in table order, then
+	// deallocate, remove and dec_ref each.
+	var toRemove []ast.ASTHandle
+	for _, entry := range m.layout.Entries() {
+		if !keep[entry.Key] {
+			toRemove = append(toRemove, entry.Key)
 		}
 	}
-	for predicate, product := range m.relationLevel {
-		if keep[predicate] {
-			continue
-		}
-		if err := product.Close(); err != nil {
+	for _, predicate := range toRemove {
+		// m_relations.remove(pred) needs the live predicate's hash.
+		if err := m.layout.Erase(predicate); err != nil {
 			result = errors.Join(result, err)
 			continue
 		}
-		consumed, err := m.manager.DecRefConsumed(predicate)
-		result = errors.Join(result, err)
-		if consumed {
-			delete(m.relationLevel, predicate)
-		}
-	}
-	for predicate, table := range m.finite {
-		if keep[predicate] {
-			continue
-		}
-		if err := table.Close(); err != nil {
-			result = errors.Join(result, err)
-			continue
-		}
-		consumed, err := m.manager.DecRefConsumed(predicate)
-		result = errors.Join(result, err)
-		if consumed {
-			delete(m.finite, predicate)
-		}
-	}
-	for predicate, table := range m.relations {
-		if keep[predicate] {
-			continue
-		}
-		if err := table.Close(); err != nil {
-			result = errors.Join(result, err)
-			continue
-		}
-		consumed, err := m.manager.DecRefConsumed(predicate)
-		result = errors.Join(result, err)
-		if consumed {
-			delete(m.relations, predicate)
+		result = errors.Join(result, m.retireRelation(predicate))
+		if m.holdsRelation(predicate) {
+			result = errors.Join(result, m.noteRelation(predicate))
 		}
 	}
 	for predicate := range m.saturated {

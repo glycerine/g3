@@ -20,6 +20,9 @@ type RelationManager struct {
 	explanations            map[ast.ASTHandle]*FiniteExplanationProduct
 	relationLevel           map[ast.ASTHandle]*RelationExplanationProduct
 	saturated               map[ast.ASTHandle]bool
+	// layout is m_relations' obj_map layout over every stored predicate;
+	// reset and restrict walk it in table order.
+	layout *ast.ObjMap
 	defaultFinite           string
 	lazyFinite              *LazySparseFiniteFactory // borrowed; context closes it after this manager
 	checkedFinite           *FiniteCheckedFactory    // borrowed for one checked execution scope
@@ -37,7 +40,7 @@ func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
 	if err := manager.RegisterDeclarationPlugins(); err != nil {
 		return nil, err
 	}
-	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), finite: make(map[ast.ASTHandle]FiniteTable), explanations: make(map[ast.ASTHandle]*FiniteExplanationProduct), relationLevel: make(map[ast.ASTHandle]*RelationExplanationProduct), saturated: make(map[ast.ASTHandle]bool), defaultFinite: "hashtable"}, nil
+	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), finite: make(map[ast.ASTHandle]FiniteTable), explanations: make(map[ast.ASTHandle]*FiniteExplanationProduct), relationLevel: make(map[ast.ASTHandle]*RelationExplanationProduct), saturated: make(map[ast.ASTHandle]bool), layout: ast.NewObjMap(manager), defaultFinite: "hashtable"}, nil
 }
 
 func (m *RelationManager) open() error {
@@ -126,58 +129,61 @@ func (m *RelationManager) StoreRelation(predicate ast.ASTHandle, table *HashTabl
 	return m.StoreFiniteRelation(predicate, table)
 }
 
-// ResetRelations releases every retained predicate and drops its owned table.
+// noteRelation is m_relations.insert_if_not_there2(pred, 0) for the layout.
+func (m *RelationManager) noteRelation(predicate ast.ASTHandle) error {
+	return m.layout.Insert(predicate, [2]ast.ASTHandle{})
+}
+
+func (m *RelationManager) holdsRelation(predicate ast.ASTHandle) bool {
+	_, a := m.explanations[predicate]
+	_, b := m.relationLevel[predicate]
+	_, c := m.finite[predicate]
+	_, d := m.relations[predicate]
+	return a || b || c || d
+}
+
+// retireRelation releases predicate's stored relations: deallocate, then
+// dec_ref(pred), as restrict_predicates does. (reset_relations dec_refs
+// first; g3's relation owners read the predicate while closing, so both
+// paths close first.)
+func (m *RelationManager) retireRelation(predicate ast.ASTHandle) (result error) {
+	release := func(close func() error) bool {
+		if err := close(); err != nil {
+			result = errors.Join(result, err)
+			return false
+		}
+		consumed, err := m.manager.DecRefConsumed(predicate)
+		result = errors.Join(result, err)
+		return consumed
+	}
+	if product, ok := m.explanations[predicate]; ok && release(product.Close) {
+		delete(m.explanations, predicate)
+	}
+	if product, ok := m.relationLevel[predicate]; ok && release(product.Close) {
+		delete(m.relationLevel, predicate)
+	}
+	if table, ok := m.finite[predicate]; ok && release(table.Close) {
+		delete(m.finite, predicate)
+	}
+	if table, ok := m.relations[predicate]; ok && release(table.Close) {
+		delete(m.relations, predicate)
+	}
+	return result
+}
+
+// ResetRelations is reset_relations: m_relations in table order.
 func (m *RelationManager) ResetRelations() (result error) {
 	if err := m.open(); err != nil {
 		return err
 	}
-	for predicate, product := range m.explanations {
-		if err := product.Close(); err != nil {
-			result = errors.Join(result, err)
-			continue
-		}
-		consumed, err := m.manager.DecRefConsumed(predicate)
-		result = errors.Join(result, err)
-		if consumed {
-			delete(m.explanations, predicate)
-			delete(m.saturated, predicate)
+	for _, entry := range m.layout.Entries() {
+		result = errors.Join(result, m.retireRelation(entry.Key))
+		if !m.holdsRelation(entry.Key) {
+			delete(m.saturated, entry.Key)
 		}
 	}
-	for predicate, product := range m.relationLevel {
-		if err := product.Close(); err != nil {
-			result = errors.Join(result, err)
-			continue
-		}
-		consumed, err := m.manager.DecRefConsumed(predicate)
-		result = errors.Join(result, err)
-		if consumed {
-			delete(m.relationLevel, predicate)
-			delete(m.saturated, predicate)
-		}
-	}
-	for predicate, table := range m.finite {
-		if err := table.Close(); err != nil {
-			result = errors.Join(result, err)
-			continue
-		}
-		consumed, err := m.manager.DecRefConsumed(predicate)
-		result = errors.Join(result, err)
-		if consumed {
-			delete(m.finite, predicate)
-			delete(m.saturated, predicate)
-		}
-	}
-	for predicate, table := range m.relations {
-		if err := table.Close(); err != nil {
-			result = errors.Join(result, err)
-			continue
-		}
-		consumed, err := m.manager.DecRefConsumed(predicate)
-		result = errors.Join(result, err)
-		if consumed {
-			delete(m.relations, predicate)
-			delete(m.saturated, predicate)
-		}
+	if result == nil {
+		m.layout.Reset()
 	}
 	return result
 }

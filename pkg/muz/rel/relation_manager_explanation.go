@@ -135,7 +135,7 @@ func (m *RelationManager) StoreExplanationRelation(predicate ast.ASTHandle, p *F
 		return err
 	}
 	m.explanations[predicate] = p
-	return nil
+	return m.noteRelation(predicate)
 }
 
 func (p *FiniteExplanationProduct) Clone() (result *FiniteExplanationProduct, resultErr error) {
