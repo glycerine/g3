@@ -81,7 +81,11 @@ func TestSMTFPAModelLifecycleAndDependencySourceTrace(t *testing.T) {
 	if len(fallback.Dependencies()) != 0 {
 		t.Fatal("uninternalized wrapper did not select fallback")
 	}
-	wrapper, err := theory.wrap(constant)
+	frame, err := theory.frame()
+	astTestMust(t, err)
+	var frameErr error
+	defer func() { frame.release(&frameErr); astTestMust(t, frameErr) }()
+	wrapper, err := theory.wrap(frame, constant)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(wrapper, false))
 	wrapped, err := theory.ModelValue(constantNode, generator)

@@ -164,7 +164,7 @@ func TestSMTFPAConversionAndSideConditionDetailSourceTrace(t *testing.T) {
 	if extra, e := theory.converter.ExtraAssertions(); e != nil || len(extra) != 1 {
 		t.Fatal("symbolic rounding conversion did not record its source side condition")
 	}
-	astTestMust(t, theory.flushSideConstraints())
+	astTestMust(t, theory.assertSideConditions())
 	if tags.ShouldTrace("t_fpa_detail") {
 		trace := output.String()
 		for _, want := range []string{
@@ -195,7 +195,11 @@ func TestSMTFPAVariableConstraintRelevantAndScopeSourceTrace(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, theory.ApplySortConstraint(node, sort))
 	astTestMust(t, theory.Relevant(constant))
-	wrapper, err := theory.wrap(constant)
+	frame, err := theory.frame()
+	astTestMust(t, err)
+	var frameErr error
+	defer func() { frame.release(&frameErr); astTestMust(t, frameErr) }()
+	wrapper, err := theory.wrap(frame, constant)
 	astTestMust(t, err)
 	if state.context.enodes.get(wrapper) == nil {
 		t.Fatal("relevant floating constant did not install its source wrapper relation")
