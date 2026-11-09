@@ -184,11 +184,12 @@ Found while matching `-st` output against `build/z3` on
    pb_preprocess, bv_slice, substitution_tree. Those loops are
    deterministic in practice only if the map has one entry; each needs its
    z3 container checked (obj_map -> ast.ObjMap, vector -> insdict).
-   pb-preprocess is not a faithful port (it re-classifies between phases,
-   resolves a narrower case and uses an extension model converter); a
-   re-port must walk m_vars (obj_map<app, rec>) in table order with
-   next_resolvent, keep z3's single classification per simplify round,
-   and use pb_preproc_model_converter.
+   DONE: pb-preprocess is re-ported (tactic/core/pb_preprocess_simplify.go,
+   tactic/pb_preproc_model_converter.go): m_vars in table order with
+   next_resolvent, one classification per round, z3's resolve and
+   subsumption, the m_r rewriter. Recorded deviations from 4.7.1 bugs that
+   can be unsound: positions are goal indices (the source stores m_ge
+   indices), and subsumption rebuilds args2/coeffs2 per candidate.
 
 4. **DONE: get-consequences algorithm.** smt_solver::get_consequences_core
    is now context::get_consequences (smt_consequences.cpp: antecedent sets,
