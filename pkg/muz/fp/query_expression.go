@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/pdr"
 	"github.com/glycerine/g3/pkg/muz/spacer"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // QueryExpression evaluates an arbitrary Boolean Horn query without adding
@@ -250,6 +251,37 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	}
 	if err != nil {
 		return lbool.Undef, err
+	}
+	// rule_expr = forall(vars, names, impl) over the query's free variables,
+	// names symbol(k) reversed so the outermost declared variable comes first.
+	used, err := ast.NewASTUsedVars(e.manager)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if err = used.Process(query); err != nil {
+		return lbool.Undef, err
+	}
+	if count := used.MaxFoundVarIndexPlusOne(); count != 0 {
+		sorts := make([]ast.ASTHandle, count)
+		names := make([]symbol.Symbol, count)
+		for i := uint32(0); i < count; i++ {
+			if sorts[count-1-i], err = used.Get(i); err != nil {
+				return lbool.Undef, err
+			}
+			names[count-1-i] = symbol.Numerical(i)
+		}
+		forallRef, err := e.manager.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return lbool.Undef, err
+		}
+		queryRoots = append(queryRoots, forallRef)
+		rule, err = clone.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: rule})
+		if !rule.IsNull() {
+			err = errors.Join(err, e.manager.SetRef(forallRef, rule))
+		}
+		if err != nil {
+			return lbool.Undef, err
+		}
 	}
 	if err = clone.addRuleNow(rule, ""); err != nil {
 		return lbool.Undef, err

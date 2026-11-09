@@ -186,7 +186,8 @@ func (t *HornTactic) stripForall(formula ast.ASTHandle) (ast.ASTHandle, error) {
 
 // bindQueryRule mirrors imp::bind_variables independently of the context's
 // fix_unbound_vars option, including default Boolean sorts for index gaps.
-func (t *HornTactic) bindQueryRule(rule ast.ASTHandle, temporaries *[]ast.ASTRef) (ast.ASTHandle, error) {
+// Like bind_variables(expr_ref& f) it reassigns f to the bound rule.
+func (t *HornTactic) bindQueryRule(rule ast.ASTHandle, f ast.ASTRef) (ast.ASTHandle, error) {
 	free, err := rewriter.NewExprFreeVars(t.manager)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -216,7 +217,7 @@ func (t *HornTactic) bindQueryRule(rule ast.ASTHandle, temporaries *[]ast.ASTRef
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = t.pin(temporaries, bound); err != nil {
+	if err = t.manager.SetRef(f, bound); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	return bound, nil
@@ -294,8 +295,20 @@ func (t *HornTactic) normalizePolarity(formula ast.ASTHandle, temporaries *[]ast
 
 // classify applies the source tactic's disjunctive Horn-clause view. A clause
 // has at most one positive predicate; clauses without one are query bodies.
-func (t *HornTactic) classify(formula ast.ASTHandle, temporaries *[]ast.ASTRef) (rule bool, normalized ast.ASTHandle, err error) {
-	analysis, err := t.normalizePolarity(formula, temporaries)
+// As get_formula_kind(expr_ref& f) it reassigns f when it builds a new
+// formula; its locals die on return after that assignment: body (forward),
+// then the normalized tmp.
+func (t *HornTactic) classify(formula ast.ASTHandle, f ast.ASTRef) (rule bool, normalized ast.ASTHandle, err error) {
+	var tmpHeld, bodyHeld []ast.ASTRef
+	defer func() {
+		for i := range bodyHeld {
+			err = errors.Join(err, t.manager.DelRef(&bodyHeld[i]))
+		}
+		for i := range tmpHeld {
+			err = errors.Join(err, t.manager.DelRef(&tmpHeld[i]))
+		}
+	}()
+	analysis, err := t.normalizePolarity(formula, &tmpHeld)
 	if err != nil {
 		return false, normalized, err
 	}
@@ -331,7 +344,7 @@ func (t *HornTactic) classify(formula ast.ASTHandle, temporaries *[]ast.ASTRef) 
 		if y != nil {
 			return false, normalized, y
 		}
-		if y = t.pin(temporaries, negated); y != nil {
+		if y = t.pin(&bodyHeld, negated); y != nil {
 			return false, normalized, y
 		}
 		body = append(body, negated)
@@ -341,7 +354,7 @@ func (t *HornTactic) classify(formula ast.ASTHandle, temporaries *[]ast.ASTRef) 
 	conjunction := func() (ast.ASTHandle, error) {
 		h, e := t.manager.MkFamilyApp(0, ast.ASTOpAnd, nil, body)
 		if e == nil {
-			e = t.pin(temporaries, h)
+			e = t.manager.SetRef(f, h)
 		}
 		return h, e
 	}
@@ -364,7 +377,7 @@ func (t *HornTactic) classify(formula ast.ASTHandle, temporaries *[]ast.ASTRef) 
 	if err != nil {
 		return false, normalized, err
 	}
-	if err = t.pin(temporaries, normalized); err != nil {
+	if err = t.manager.SetRef(f, normalized); err != nil {
 		return false, normalized, err
 	}
 	return true, normalized, nil
@@ -403,6 +416,27 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 			resultErr = errors.Join(resultErr, t.manager.DelRef(&temporaries[index]))
 		}
 	}()
+	// expr_ref q(m), f(m); expr_ref_vector queries(m): destroyed queries
+	// (forward), f, then q.
+	q, err := t.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	f, err := t.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return errors.Join(err, t.manager.DelRef(&q))
+	}
+	var queryHeld []ast.ASTRef
+	releaseQueries := func() (e error) {
+		for i := range queryHeld {
+			e = errors.Join(e, t.manager.DelRef(&queryHeld[i]))
+		}
+		queryHeld = queryHeld[:0]
+		return e
+	}
+	defer func() {
+		resultErr = errors.Join(resultErr, releaseQueries(), t.manager.DelRef(&f), t.manager.DelRef(&q))
+	}()
 	seen := make(map[ast.ASTHandle]bool)
 	var queries []ast.ASTHandle
 	size, err := goal.Size()
@@ -417,7 +451,10 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 		if x = t.registerPredicates(engine, formula, seen); x != nil {
 			return x
 		}
-		isRule, normalized, x := t.classify(formula, &temporaries)
+		if x = t.manager.SetRef(f, formula); x != nil {
+			return x
+		}
+		isRule, normalized, x := t.classify(formula, f)
 		if x != nil {
 			return x
 		}
@@ -426,6 +463,9 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 				return x
 			}
 		} else {
+			if x = t.pin(&queryHeld, normalized); x != nil {
+				return x
+			}
 			queries = append(queries, normalized)
 		}
 	}
@@ -441,7 +481,7 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 		if x != nil {
 			return x
 		}
-		if x = t.pin(&temporaries, query); x != nil {
+		if x = t.manager.SetRef(q, query); x != nil {
 			return x
 		}
 		var yes bool
@@ -457,16 +497,23 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 			if y != nil {
 				return y
 			}
-			if y = t.pin(&temporaries, rule); y != nil {
+			if y = t.manager.SetRef(f, rule); y != nil {
 				return y
 			}
-			rule, y = t.bindQueryRule(rule, &temporaries)
+			rule, y = t.bindQueryRule(rule, f)
 			if y != nil {
 				return y
 			}
 			if y = engine.AddRule(rule, "horn-query"); y != nil {
 				return y
 			}
+		}
+		// queries.reset(); queries.push_back(q);
+		if x = releaseQueries(); x != nil {
+			return x
+		}
+		if x = t.pin(&queryHeld, query); x != nil {
+			return x
 		}
 		filter, x := tactic.NewFilterModel(t.manager)
 		if x != nil {
