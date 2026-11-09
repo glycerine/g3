@@ -5,7 +5,8 @@ package ast
 // that iterates an obj_map (to release its entries, or to build terms) does
 // so in table order, which depends on the hashes and on the history of
 // insertions and removals; this type reproduces that layout. Values are one
-// or two handles (Value[1] for std::pair values).
+// or two handles (Value[1] for std::pair values), or a number (Num) for
+// obj_map<T, unsigned>.
 
 const (
 	objMapInitialCapacity = 8  // DEFAULT_HASHTABLE_INITIAL_CAPACITY
@@ -24,6 +25,7 @@ const (
 type ObjMapEntry struct {
 	Key   ASTHandle
 	Value [2]ASTHandle
+	Num   uint64
 	hash  uint32
 	state objMapState
 }
@@ -78,6 +80,16 @@ func (o *ObjMap) Len() int { return o.size }
 
 // Insert is obj_map::insert(k, v): it adds k, or replaces its value.
 func (o *ObjMap) Insert(key ASTHandle, value [2]ASTHandle) error {
+	return o.insert(ObjMapEntry{Key: key, Value: value})
+}
+
+// InsertNum is obj_map<T, unsigned>::insert(k, n).
+func (o *ObjMap) InsertNum(key ASTHandle, n uint64) error {
+	return o.insert(ObjMapEntry{Key: key, Num: n})
+}
+
+func (o *ObjMap) insert(entry ObjMapEntry) error {
+	key := entry.Key
 	if (o.size+o.numDeleted)<<2 > len(o.table)*3 {
 		o.expandTable()
 	}
@@ -93,7 +105,7 @@ func (o *ObjMap) Insert(key ASTHandle, value [2]ASTHandle) error {
 		switch curr.state {
 		case objMapUsed:
 			if curr.hash == hash && curr.Key == key {
-				curr.Value = value
+				curr.Value, curr.Num = entry.Value, entry.Num
 				return true
 			}
 		case objMapFree:
@@ -102,7 +114,8 @@ func (o *ObjMap) Insert(key ASTHandle, value [2]ASTHandle) error {
 				n = deleted
 				o.numDeleted--
 			}
-			o.table[n] = ObjMapEntry{Key: key, Value: value, hash: hash, state: objMapUsed}
+			entry.hash, entry.state = hash, objMapUsed
+			o.table[n] = entry
 			o.size++
 			return true
 		default:
@@ -152,6 +165,21 @@ func (o *ObjMap) Find(key ASTHandle) ([2]ASTHandle, bool, error) {
 		return [2]ASTHandle{}, false, err
 	}
 	return o.table[i].Value, true, nil
+}
+
+// FindNum is obj_map<T, unsigned>::find.
+func (o *ObjMap) FindNum(key ASTHandle) (uint64, bool, error) {
+	i, err := o.index(key)
+	if err != nil || i < 0 {
+		return 0, false, err
+	}
+	return o.table[i].Num, true, nil
+}
+
+// Contains is obj_map::contains.
+func (o *ObjMap) Contains(key ASTHandle) (bool, error) {
+	i, err := o.index(key)
+	return i >= 0, err
 }
 
 // Erase is obj_map::erase (core_hashtable::remove).

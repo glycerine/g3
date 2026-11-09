@@ -20,7 +20,7 @@ type DistributeForall struct {
 	manager *ast.ASTManager
 	context *uparams.ParamsContext
 	globals *uparams.GlobalParamsService
-	cache   map[ast.ASTHandle]ast.ASTRef
+	cache   *ast.ActivityCache // typedef act_cache expr_map; m_cache
 	closed  bool
 }
 
@@ -31,7 +31,11 @@ func NewDistributeForall(m *ast.ASTManager, c *uparams.ParamsContext, g *uparams
 	if c == nil || g == nil {
 		return nil, uparams.ErrParamsOwner
 	}
-	r := &DistributeForall{manager: m, context: c, globals: g, cache: make(map[ast.ASTHandle]ast.ASTRef)}
+	cache, err := ast.NewActivityCache(m, nil)
+	if err != nil {
+		return nil, err
+	}
+	r := &DistributeForall{manager: m, context: c, globals: g, cache: cache}
 	r.self = r
 	return r, nil
 }
@@ -43,14 +47,9 @@ func (r *DistributeForall) open() error {
 	return nil
 }
 
+// flushCache is m_cache.cleanup().
 func (r *DistributeForall) flushCache() error {
-	for h, ref := range r.cache {
-		if err := r.manager.DelRef(&ref); err != nil {
-			return err
-		}
-		delete(r.cache, h)
-	}
-	return nil
+	return r.cache.Cleanup()
 }
 
 func (r *DistributeForall) Close() (result error) {
@@ -60,7 +59,7 @@ func (r *DistributeForall) Close() (result error) {
 	if r.closed {
 		return nil
 	}
-	if err := r.flushCache(); err != nil {
+	if err := r.cache.Close(); err != nil {
 		return err
 	}
 	r.closed = true
@@ -68,30 +67,15 @@ func (r *DistributeForall) Close() (result error) {
 }
 
 func (r *DistributeForall) cached(h ast.ASTHandle) (ast.ASTHandle, bool, error) {
-	ref, ok := r.cache[h]
-	if !ok {
-		return ast.ASTHandle{}, false, nil
-	}
-	got, err := r.manager.RefGet(ref)
-	return got, true, err
+	got, err := r.cache.Find(h)
+	return got, !got.IsNull(), err
 }
 
 func (r *DistributeForall) cacheResult(source, result ast.ASTHandle) error {
 	if result == (ast.ASTHandle{}) {
 		return ast.ErrASTHandle
 	}
-	ref, err := r.manager.NewRef(result)
-	if err != nil {
-		return err
-	}
-	if old, ok := r.cache[source]; ok {
-		if err = r.manager.DelRef(&old); err != nil {
-			_ = r.manager.DelRef(&ref)
-			return err
-		}
-	}
-	r.cache[source] = ref
-	return nil
+	return r.cache.Insert(source, result)
 }
 
 func (r *DistributeForall) children(h ast.ASTHandle) ([]ast.ASTHandle, error) {

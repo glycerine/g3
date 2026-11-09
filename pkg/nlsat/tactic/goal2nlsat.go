@@ -4,7 +4,9 @@ package tactic
 // src/nlsat/tactic/goal2nlsat.h:27-58.
 
 import (
+	"cmp"
 	"errors"
+	"slices"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -556,10 +558,12 @@ func (c *GoalCompiler) model(include map[ast.ASTHandle]bool, filtered bool) (res
 	if err != nil {
 		return nil, false, err
 	}
+	// mk_model walks x2t and then b2a, the mk_inv vectors, in variable order.
 	terms, err := c.terms.Entries()
 	if err != nil {
 		return nil, false, err
 	}
+	sortExprVarBindings(terms)
 	for _, entry := range terms {
 		if filtered && !include[entry.Expr] {
 			continue
@@ -602,6 +606,7 @@ func (c *GoalCompiler) model(include map[ast.ASTHandle]bool, filtered bool) (res
 	if err != nil {
 		return nil, false, err
 	}
+	sortExprVarBindings(atoms)
 	for _, entry := range atoms {
 		if filtered && !include[entry.Expr] {
 			continue
@@ -683,4 +688,11 @@ func (c *GoalCompiler) Close() (err error) {
 	}
 	c.attachments = nil
 	return err
+}
+
+// sortExprVarBindings puts expr2var entries in mk_inv (variable) order.
+func sortExprVarBindings(entries []ast.ExprVarBinding) {
+	slices.SortFunc(entries, func(a, b ast.ExprVarBinding) int {
+		return cmp.Compare(a.Variable, b.Variable)
+	})
 }

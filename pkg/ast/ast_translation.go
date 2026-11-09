@@ -50,7 +50,7 @@ type astTranslationNode struct {
 // between calls.
 type ASTTranslation struct {
 	from, to *ASTManager
-	cache    map[ASTHandle]ASTHandle
+	cache    *ObjMap // obj_map<ast, ast*> m_cache, keyed in the source manager
 	persist  bool
 	closed   bool
 }
@@ -63,7 +63,7 @@ func newASTTranslation(from, to *ASTManager, copyPlugins, persist bool) (*ASTTra
 	if from == nil || to == nil || from == to {
 		return nil, ErrASTHandle
 	}
-	t := &ASTTranslation{from: from, to: to, cache: make(map[ASTHandle]ASTHandle), persist: persist}
+	t := &ASTTranslation{from: from, to: to, cache: NewObjMap(from), persist: persist}
 	if copyPlugins {
 		if err := to.CopyFamiliesPlugins(from); err != nil {
 			return nil, err
@@ -84,10 +84,10 @@ func (t *ASTTranslation) ResetCache() error {
 		return ErrASTHandle
 	}
 	var result error
-	for source, target := range t.cache {
-		result = errors.Join(result, t.from.DecRef(source), t.to.DecRef(target))
-		delete(t.cache, source)
+	for _, entry := range t.cache.Entries() {
+		result = errors.Join(result, t.from.DecRef(entry.Key), t.to.DecRef(entry.Value[0]))
 	}
+	t.cache.Reset()
 	return result
 }
 
@@ -108,8 +108,10 @@ func (t *ASTTranslation) Translate(source ASTHandle) (ASTHandle, error) {
 	if source.IsNull() {
 		return ASTHandle{}, nil
 	}
-	if result, found := t.cache[source]; found {
-		return result, nil
+	if result, found, err := t.cache.Find(source); err != nil {
+		return ASTHandle{}, err
+	} else if found {
+		return result[0], nil
 	}
 
 	nodes := make(map[ASTHandle]astTranslationNode)
@@ -124,7 +126,9 @@ func (t *ASTTranslation) Translate(source ASTHandle) (ASTHandle, error) {
 		last := len(stack) - 1
 		item := stack[last]
 		stack = stack[:last]
-		if _, cached := t.cache[item.node]; cached {
+		if cached, err := t.cacheContains(item.node); err != nil {
+			return ASTHandle{}, err
+		} else if cached {
 			continue
 		}
 		if item.expanded {
@@ -143,7 +147,11 @@ func (t *ASTTranslation) Translate(source ASTHandle) (ASTHandle, error) {
 		stack = append(stack, visit{node: item.node, expanded: true})
 		for i := len(node.children) - 1; i >= 0; i-- {
 			child := node.children[i]
-			if _, cached := t.cache[child]; !cached && !seen[child] {
+			cached, err := t.cacheContains(child)
+			if err != nil {
+				return ASTHandle{}, err
+			}
+			if !cached && !seen[child] {
 				stack = append(stack, visit{node: child})
 			}
 		}
@@ -154,8 +162,10 @@ func (t *ASTTranslation) Translate(source ASTHandle) (ASTHandle, error) {
 		if r, found := results[h]; found {
 			return r, nil
 		}
-		if r, found := t.cache[h]; found {
-			return r, nil
+		if r, found, err := t.cache.Find(h); err != nil {
+			return ASTHandle{}, err
+		} else if found {
+			return r[0], nil
 		}
 		return ASTHandle{}, ErrASTDomain
 	}
@@ -173,10 +183,16 @@ func (t *ASTTranslation) Translate(source ASTHandle) (ASTHandle, error) {
 				_ = t.from.DecRef(h)
 				return ASTHandle{}, err
 			}
-			t.cache[h] = result
+			if err = t.cache.Insert(h, [2]ASTHandle{result}); err != nil {
+				return ASTHandle{}, err
+			}
 		}
 	}
 	return lookup(source)
+}
+
+func (t *ASTTranslation) cacheContains(h ASTHandle) (bool, error) {
+	return t.cache.Contains(h)
 }
 
 // TranslateAST performs one translation with a nonpersistent cache.

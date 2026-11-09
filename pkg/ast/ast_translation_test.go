@@ -89,7 +89,7 @@ func TestASTTranslationIterativeQuantifierAndPersistentSharedCache(t *testing.T)
 	if body != patternApp {
 		t.Fatal("shared application identity was not preserved")
 	}
-	if _, found := translation.cache[app]; !found {
+	if found, _ := translation.cacheContains(app); !found {
 		t.Fatal("source shared node was not retained in the persistent cache")
 	}
 	again, err := translation.Translate(app)

@@ -3,8 +3,6 @@ package ast
 // Source: src/ast/expr2var.cpp:27-92; src/ast/expr2var.h:32-77.
 
 import (
-	"slices"
-
 	"errors"
 	"io"
 	"math"
@@ -21,15 +19,15 @@ import (
 type Expr2Var struct {
 	self        *Expr2Var
 	manager     *ASTManager
-	mapping     map[ASTHandle]uint32
+	mapping     *ObjMap // obj_map<expr, var> m_mapping
 	recent      []ASTHandle
 	scopeLimits []int
 	interpreted bool
 	closed      bool
 }
 
-// ExprVarBinding is one borrowed expression-to-variable entry. Entry order is
-// unspecified, matching the source obj_map iterator.
+// ExprVarBinding is one borrowed expression-to-variable entry, in the source
+// obj_map iteration order.
 type ExprVarBinding struct {
 	Expr     ASTHandle
 	Variable uint32
@@ -43,7 +41,7 @@ func NewExpr2Var(m *ASTManager) (*Expr2Var, error) {
 		return nil, err
 	}
 	m.mu.Unlock()
-	x := &Expr2Var{manager: m, mapping: make(map[ASTHandle]uint32)}
+	x := &Expr2Var{manager: m, mapping: NewObjMap(m)}
 	x.self = x
 	return x, nil
 }
@@ -127,7 +125,9 @@ func (x *Expr2Var) Insert(h ASTHandle, variable uint32) error {
 	if err := x.open(); err != nil {
 		return err
 	}
-	if _, present := x.mapping[h]; present {
+	if present, err := x.mapping.Contains(h); err != nil {
+		return err
+	} else if present {
 		return ErrASTDomain
 	}
 	uninterpreted, err := x.isUninterpretedConstant(h)
@@ -143,7 +143,9 @@ func (x *Expr2Var) Insert(h ASTHandle, variable uint32) error {
 	if err = x.manager.IncRef(h); err != nil {
 		return err
 	}
-	x.mapping[h] = variable
+	if err = x.mapping.InsertNum(h, uint64(variable)); err != nil {
+		return errors.Join(err, x.manager.DecRef(h))
+	}
 	x.recent = append(x.recent, h)
 	return nil
 }
@@ -155,10 +157,11 @@ func (x *Expr2Var) ToVar(h ASTHandle) (uint32, error) {
 	if _, err := x.manager.GetKind(h); err != nil {
 		return math.MaxUint32, err
 	}
-	if variable, present := x.mapping[h]; present {
-		return variable, nil
+	variable, present, err := x.mapping.FindNum(h)
+	if err != nil || !present {
+		return math.MaxUint32, err
 	}
-	return math.MaxUint32, nil
+	return uint32(variable), nil
 }
 
 func (x *Expr2Var) IsVar(h ASTHandle) (bool, error) {
@@ -168,8 +171,7 @@ func (x *Expr2Var) IsVar(h ASTHandle) (bool, error) {
 	if _, err := x.manager.GetKind(h); err != nil {
 		return false, err
 	}
-	_, present := x.mapping[h]
-	return present, nil
+	return x.mapping.Contains(h)
 }
 
 func (x *Expr2Var) InterpretedVars() (bool, error) {
@@ -192,19 +194,10 @@ func (x *Expr2Var) Entries() ([]ExprVarBinding, error) {
 	if err := x.open(); err != nil {
 		return nil, err
 	}
-	result := make([]ExprVarBinding, 0, len(x.mapping))
-	for expression, variable := range x.mapping {
-		result = append(result, ExprVarBinding{Expr: expression, Variable: variable})
+	result := make([]ExprVarBinding, 0, x.mapping.Len())
+	for _, entry := range x.mapping.Entries() {
+		result = append(result, ExprVarBinding{Expr: entry.Key, Variable: uint32(entry.Num)})
 	}
-	slices.SortFunc(result, func(a, b ExprVarBinding) int {
-		switch {
-		case a.Variable < b.Variable:
-			return -1
-		case a.Variable > b.Variable:
-			return 1
-		}
-		return 0
-	})
 	return result, nil
 }
 
@@ -241,13 +234,15 @@ func (x *Expr2Var) Pop(scopes uint32) error {
 	start := x.scopeLimits[newScopeCount]
 	for i := start; i < len(x.recent); i++ {
 		h := x.recent[i]
-		if _, present := x.mapping[h]; !present {
+		if present, err := x.mapping.Contains(h); err != nil {
+			return err
+		} else if !present {
 			continue
 		}
-		consumed, err := x.manager.DecRefConsumed(h)
-		if consumed {
-			delete(x.mapping, h)
+		if err := x.mapping.Erase(h); err != nil {
+			return err
 		}
+		consumed, err := x.manager.DecRefConsumed(h)
 		if err != nil {
 			return err
 		}
@@ -261,16 +256,9 @@ func (x *Expr2Var) Pop(scopes uint32) error {
 }
 
 func (x *Expr2Var) reset() error {
-	owned := make([]ASTHandle, 0, len(x.mapping))
-	for h := range x.mapping {
-		owned = append(owned, h)
-	}
-	SortHandles(owned)
-	for _, h := range owned {
-		consumed, err := x.manager.DecRefConsumed(h)
-		if consumed {
-			delete(x.mapping, h)
-		}
+	// dec_ref_map_keys: keys in table order, then map.reset().
+	for _, entry := range x.mapping.Entries() {
+		consumed, err := x.manager.DecRefConsumed(entry.Key)
 		if err != nil {
 			return err
 		}
@@ -278,6 +266,7 @@ func (x *Expr2Var) reset() error {
 			return ErrASTPending
 		}
 	}
+	x.mapping.Reset()
 	x.recent = nil
 	x.scopeLimits = nil
 	x.interpreted = false
@@ -308,7 +297,8 @@ func (x *Expr2Var) Inverse() (result []ASTRef, err error) {
 		}
 		result = nil
 	}()
-	for h, variable := range x.mapping {
+	for _, entry := range x.mapping.Entries() {
+		h, variable := entry.Key, uint32(entry.Num)
 		if uint64(variable)+1 > uint64(len(result)) {
 			result = append(result, make([]ASTRef, int(uint64(variable)+1)-len(result))...)
 		}
@@ -332,7 +322,8 @@ func (x *Expr2Var) Display(w io.Writer) (result error) {
 	if w == nil {
 		return arena.ErrInvalidSlot
 	}
-	for h, variable := range x.mapping {
+	for _, entry := range x.mapping.Entries() {
+		h, variable := entry.Key, entry.Num
 		format, err := x.manager.SMT2PPExprTree(h, nil)
 		if err != nil {
 			return err
@@ -354,7 +345,7 @@ func (x *Expr2Var) Display(w io.Writer) (result error) {
 			return errors.Join(err, out.Close())
 		}
 		if _, err = io.WriteString(w, body+" -> "); err == nil {
-			_, err = io.WriteString(w, strconv.FormatUint(uint64(variable), 10)+"\n")
+			_, err = io.WriteString(w, strconv.FormatUint(variable, 10)+"\n")
 		}
 		if closeErr := out.Close(); err == nil {
 			err = closeErr
