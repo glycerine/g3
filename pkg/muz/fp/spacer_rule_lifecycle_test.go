@@ -146,8 +146,9 @@ func TestSpacerRuleSnapshotOwnsOriginalRulesBeforePreprocessing(t *testing.T) {
 			t.Fatal("query across preprocessing roots", name, status, err)
 		}
 		count, err := e.spacerRules.Len()
-		if err != nil || count != 2 {
-			t.Fatal("snapshot must cover both original rules before query slicing", count, err)
+		// The snapshot also holds mk_query's rule R => query!N.
+		if err != nil || count != 3 {
+			t.Fatal("snapshot must cover both original rules and the query rule before query slicing", count, err)
 		}
 		for i := 0; i < count; i++ {
 			rule, err := e.spacerRules.Rule(i)
@@ -158,7 +159,7 @@ func TestSpacerRuleSnapshotOwnsOriginalRulesBeforePreprocessing(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if head != f.declarations["p"] && head != f.declarations["q"] {
+			if head != f.declarations["p"] && head != f.declarations["q"] && head != e.pdrQueryTarget(f.declarations[name]) {
 				t.Fatal("snapshot contained a transformed declaration", head)
 			}
 			if err = rule.Close(); err != nil {

@@ -22,6 +22,22 @@ import (
 func (e *PropositionalEngine) queryPDRRelation(declaration ast.ASTHandle) (status lbool.LBool, resultErr error) {
 	// rel_query does not install a model converter (see contextModelConverter).
 	e.pdrNullModelConverter = !e.contextModelConverter
+	return e.queryRelationMkQuery(declaration, func(head ast.ASTHandle) (lbool.LBool, error) {
+		e.preprocessNullModelConverter = e.pdrNullModelConverter
+		defer func() { e.preprocessNullModelConverter = false }()
+		return e.queryPDR(head)
+	})
+}
+
+// querySpacerRelation is (query R) under Spacer: spacer's dl_interface::query
+// runs the same mk_query and restores the old rules.
+func (e *PropositionalEngine) querySpacerRelation(declaration ast.ASTHandle) (lbool.LBool, error) {
+	return e.queryRelationMkQuery(declaration, e.querySpacer)
+}
+
+// queryRelationMkQuery is engine_base::query(num_rels, rels) followed by the
+// interface's mk_query, solve, and replace_rules(old_rules).
+func (e *PropositionalEngine) queryRelationMkQuery(declaration ast.ASTHandle, solve func(ast.ASTHandle) (lbool.LBool, error)) (status lbool.LBool, resultErr error) {
 	ref, err := e.makeRelationQueryExpression(declaration)
 	if err != nil {
 		return lbool.Undef, err
@@ -168,9 +184,7 @@ func (e *PropositionalEngine) queryPDRRelation(declaration ast.ASTHandle) (statu
 	if err != nil {
 		return lbool.Undef, err
 	}
-	e.preprocessNullModelConverter = e.pdrNullModelConverter
-	defer func() { e.preprocessNullModelConverter = false }()
-	return e.queryPDR(head)
+	return solve(head)
 }
 
 // addQueryRuleNow binds formula and adds it to the rule set.
@@ -263,7 +277,7 @@ func (e *PropositionalEngine) pdrModelConversions() []hornModelConversion {
 // pdrQueryTarget maps a relation queried through queryPDRRelation to the
 // query!N predicate that PDR actually solved.
 func (e *PropositionalEngine) pdrQueryTarget(declaration ast.ASTHandle) ast.ASTHandle {
-	if e.backend != "pdr" && e.backend != "qpdr" {
+	if e.backend != "pdr" && e.backend != "qpdr" && e.backend != "spacer" {
 		return declaration
 	}
 	if target, ok := e.pdrQueryAlias[declaration]; ok {

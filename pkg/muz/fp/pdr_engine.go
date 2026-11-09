@@ -661,6 +661,7 @@ func (e *PropositionalEngine) Reachable(declaration ast.ASTHandle) (ast.ASTRef, 
 
 // GroundSatAnswer returns the latest successful Spacer reach-fact answer.
 func (e *PropositionalEngine) GroundSatAnswer(declaration ast.ASTHandle) (ast.ASTRef, error) {
+	declaration = e.pdrQueryTarget(declaration)
 	if err := e.requireResultSnapshot(EngineSpacer); err != nil {
 		return ast.ASTRef{}, err
 	}

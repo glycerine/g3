@@ -2336,7 +2336,7 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 	}
 	// PDR relation queries flush inside dl_interface::query, after
 	// engine_base builds the query expression (queryPDRRelation).
-	pdrRelation := (e.backend == "pdr" || e.backend == "qpdr") && !e.auxiliary[declaration]
+	pdrRelation := (e.backend == "pdr" || e.backend == "qpdr" || e.backend == "spacer") && !e.auxiliary[declaration]
 	if e.backend != "duality" && !pdrRelation {
 		if err := e.flushPendingRules(); err != nil {
 			return lbool.Undef, err
@@ -2357,6 +2357,9 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 	}
 	if e.backend == "spacer" {
 		e.compiled = false
+		if !e.auxiliary[declaration] {
+			return e.querySpacerRelation(declaration)
+		}
 		return e.querySpacer(declaration)
 	}
 	if e.backend == "ddnf" {
@@ -2689,6 +2692,12 @@ func (e *PropositionalEngine) QueryPredicateFromLevel(declaration ast.ASTHandle,
 		return lbool.Undef, err
 	}
 	e.compiled = false
+	if !e.auxiliary[declaration] {
+		// spacer dl_interface::query_from_lvl runs mk_query as query does.
+		return e.queryRelationMkQuery(declaration, func(head ast.ASTHandle) (lbool.LBool, error) {
+			return e.querySpacerFromLevel(head, level)
+		})
+	}
 	return e.querySpacerFromLevel(declaration, level)
 }
 
