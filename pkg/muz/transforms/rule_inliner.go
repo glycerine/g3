@@ -36,6 +36,8 @@ type RuleInlinerPlugin struct {
 	linearState *linearIndex
 	// inlinedRules is m_inlined_rules, in rule-set order.
 	inlinedRules []*base.Rule
+	// unifier is m_unifier, shared by try_to_inline_rule calls.
+	unifier *RuleUnifier
 	// noModelConverter mirrors a null m_mc (no recorded model rules).
 	noModelConverter bool
 	// contextRewriter is the borrowed ctx.get_rewriter() (nil: own one).
@@ -291,11 +293,15 @@ func (p *RuleInlinerPlugin) resolve(target *base.Rule, tailIndex int, source *ba
 		}
 		return nil, err
 	}
-	unifier, err := NewRuleUnifier(p.manager)
-	if err != nil {
-		return nil, err
+	// m_unifier is a plugin member: its substitution (and apply cache) lives
+	// until the next unify_rules resets it or the plugin is destroyed.
+	if p.unifier == nil {
+		if p.unifier, err = NewRuleUnifier(p.manager); err != nil {
+			p.unifier = nil
+			return nil, err
+		}
 	}
-	defer func() { resultErr = errors.Join(resultErr, unifier.Close()) }()
+	unifier := p.unifier
 	unified, err := unifier.UnifyRules(target, tailIndex, source)
 	if err != nil {
 		return nil, fmt.Errorf("muz/transforms: unify inline tail and head: %w", err)
@@ -1258,6 +1264,13 @@ func (p *RuleInlinerPlugin) Close() error {
 		if err := p.linearState.closeIndexes(); err != nil {
 			return err
 		}
+	}
+	// m_unifier is declared after m_inlined_rules: it dies first.
+	if p.unifier != nil {
+		if err := p.unifier.Close(); err != nil {
+			return err
+		}
+		p.unifier = nil
 	}
 	// rule_set::reset releases m_rules forward.
 	if err := closeRulesForward(p.inlinedRules); err != nil {
