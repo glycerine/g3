@@ -45,31 +45,55 @@ func (i *qfnraPurifyInvocation) processInverseTrig(op int32, x, fresh ast.ASTHan
 	mul := func(a, c ast.ASTHandle) ast.ASTHandle {
 		return b.hold(func() (ast.ASTHandle, error) { return m.MkArithmeticMul(a, c) })
 	}
-	pi := app(forwardTrigPi)
+	// GCC evaluates call arguments right to left, so each nested
+	// constructor below builds its last argument first.
 	if op == qfnraPurifyATan {
+		// pi2 = mk_mul(mk_numeral(1/2), mk_pi()); mpi2 likewise.
+		pi := app(forwardTrigPi)
 		halfPi := mul(real("1/2"), pi)
+		pi = app(forwardTrigPi)
 		minusHalfPi := mul(real("-1/2"), pi)
-		constraint := and(eq(x, app(21, fresh)), and(gt(fresh, minusHalfPi), lt(fresh, halfPi)))
+		// AND(EQ(x, mk_tan(k)), AND(mk_gt(k, mpi2), mk_lt(k, pi2)))
+		below := lt(fresh, halfPi)
+		above := gt(fresh, minusHalfPi)
+		bounds := and(above, below)
+		tan := app(21, fresh)
+		constraint := and(eq(x, tan), bounds)
 		if b.err != nil {
 			return b.err
 		}
 		return i.addConstraint(constraint, entry)
 	}
 	one, minusOne := real("1"), real("-1")
-	lowerX, upperX := ge(x, minusOne), le(x, one)
-	outside := or(not(lowerX), not(upperX))
-	var forward, low, high ast.ASTHandle
+	var forwardKind int32
+	var low, high ast.ASTHandle
 	var undefinedKind int32
 	if op == qfnraPurifyASin {
-		forward = app(forwardTrigSin, fresh)
-		low, high = mul(real("-1/2"), pi), mul(real("1/2"), pi)
+		forwardKind = forwardTrigSin
+		pi := app(forwardTrigPi)
+		high = mul(real("1/2"), pi)
+		pi = app(forwardTrigPi)
+		low = mul(real("-1/2"), pi)
 		undefinedKind = 34
 	} else {
-		forward = app(forwardTrigCos, fresh)
-		low, high = real("0"), pi
+		forwardKind = forwardTrigCos
+		high = app(forwardTrigPi)
+		low = real("0")
 		undefinedKind = 35
 	}
-	inside := and(eq(x, forward), and(ge(fresh, low), le(fresh, high)))
+	// OR(OR(NOT(mk_ge(x, mone)), NOT(mk_le(x, one))),
+	//    AND(EQ(x, mk_sin(k)), AND(mk_ge(k, low), mk_le(k, high))))
+	inBounds := func() ast.ASTHandle {
+		upper := le(fresh, high)
+		lower := ge(fresh, low)
+		return and(lower, upper)
+	}()
+	forward := app(forwardKind, fresh)
+	inside := and(eq(x, forward), inBounds)
+	upperX := le(x, one)
+	notUpper := not(upperX)
+	lowerX := ge(x, minusOne)
+	outside := or(not(lowerX), notUpper)
 	constraint := or(outside, inside)
 	if b.err != nil {
 		return b.err
@@ -80,10 +104,13 @@ func (i *qfnraPurifyInvocation) processInverseTrig(op int32, x, fresh ast.ASTHan
 	if !i.owner.complete {
 		return nil
 	}
+	// OR(mk_ge(x, mone), EQ(k, mk_u_asin(x))), then OR(mk_le(x, one), ...).
 	undefined := app(undefinedKind, x)
 	undefinedEq := eq(fresh, undefined)
-	lowerGuard := or(lowerX, undefinedEq)
-	upperGuard := or(upperX, undefinedEq)
+	lowerGuard := or(ge(x, minusOne), undefinedEq)
+	undefined = app(undefinedKind, x)
+	undefinedEq = eq(fresh, undefined)
+	upperGuard := or(le(x, one), undefinedEq)
 	if b.err != nil {
 		return b.err
 	}

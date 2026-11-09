@@ -21,18 +21,20 @@ func forwardTrigUnitCircle(m *ast.ASTManager, pair *forwardTrigPair, add func(as
 	if e != nil {
 		return e
 	}
-	xx, e := m.MkArithmeticMul(x, x)
-	if e != nil {
-		return e
-	}
-	if _, e = t.hold(xx); e != nil {
-		return e
-	}
+	// EQ(mk_real_one(), mk_add(mk_mul(x, x), mk_mul(y, y))): GCC evaluates
+	// arguments right to left, so y*y, then x*x, then the sum, then 1.
 	yy, e := m.MkArithmeticMul(y, y)
 	if e != nil {
 		return e
 	}
 	if _, e = t.hold(yy); e != nil {
+		return e
+	}
+	xx, e := m.MkArithmeticMul(x, x)
+	if e != nil {
+		return e
+	}
+	if _, e = t.hold(xx); e != nil {
 		return e
 	}
 	sum, e := m.MkArithmeticAdd(xx, yy)

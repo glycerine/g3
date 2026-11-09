@@ -70,20 +70,14 @@ func (i *forwardTrigInvocation) thetaDefinition(x, y ast.ASTHandle) (_ ast.ASTHa
 	m := i.owner.manager
 	t := forwardTrigTemps{manager: m}
 	defer func() { err = errors.Join(err, t.close()) }()
-	zero, e := m.ArithmeticRealNumeralText("0")
+	// mk_ite(mk_ge(x, 0), mk_acos(y), mk_add(mk_acos(mk_uminus(y)), mk_pi())):
+	// GCC evaluates arguments right to left, so the else branch (pi first)
+	// is built, then acos(y), then the condition.
+	pi, e := m.MkFamilyApp(i.owner.arithmetic, forwardTrigPi, nil, nil)
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	nonnegative, e := m.MkArithmeticGE(x, zero)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	t.hold(nonnegative)
-	acosY, e := m.MkFamilyApp(i.owner.arithmetic, forwardTrigACos, nil, []ast.ASTHandle{y})
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	t.hold(acosY)
+	t.hold(pi)
 	negativeY, e := m.MkArithmeticNeg(y)
 	if e != nil {
 		return ast.ASTHandle{}, e
@@ -94,15 +88,24 @@ func (i *forwardTrigInvocation) thetaDefinition(x, y ast.ASTHandle) (_ ast.ASTHa
 		return ast.ASTHandle{}, e
 	}
 	t.hold(acosNegative)
-	pi, e := m.MkFamilyApp(i.owner.arithmetic, forwardTrigPi, nil, nil)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	t.hold(pi)
 	sum, e := m.MkArithmeticAdd(acosNegative, pi)
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
 	t.hold(sum)
+	acosY, e := m.MkFamilyApp(i.owner.arithmetic, forwardTrigACos, nil, []ast.ASTHandle{y})
+	if e != nil {
+		return ast.ASTHandle{}, e
+	}
+	t.hold(acosY)
+	zero, e := m.ArithmeticRealNumeralText("0")
+	if e != nil {
+		return ast.ASTHandle{}, e
+	}
+	nonnegative, e := m.MkArithmeticGE(x, zero)
+	if e != nil {
+		return ast.ASTHandle{}, e
+	}
+	t.hold(nonnegative)
 	return m.MkIte(nonnegative, acosY, sum)
 }
