@@ -616,12 +616,10 @@ Found while matching `-st` output against `build/z3` on
        set, so quantify_arrays programs are rejected ("recursive predicate
        ... occurs nested in the body of a rule", then unknown; z3 segfaults
        on any later query). g3 now does the same.
-     - OPEN (user decision): rule_transformer plugin order. The ported
-       libstdc++ std::sort does match z3: fixedpoint_pdr_bit_blast matches
+     - DONE (user approved the STL exception, 2026-11-09): rule_transformer
+       plugin order keeps the libstdc++ std::sort port
+       (muz/base/rule_transformer_sort.go): fixedpoint_pdr_bit_blast matches
        to line 61 with it and to line 44 with Go's sort.SliceStable.
-       It is the only vector of 660 whose trace differs between the two;
-       stdout and stats are the same. Waiting on whether an STL exception
-       is approved.
      - OPEN: fp_spacer_generalizers_inv is nondeterministic. The same
        binary gives different traces across runs (1 of 4).
      - DONE (3228654b5): mk_loop_counter makes its 0/1 numerals per rule;
@@ -741,7 +739,7 @@ Found while matching `-st` output against `build/z3` on
        farkas_learner::get_lemmas on fixedpoint_pdr_arithmetic_invariant
        (-tr:farkas_learner) and compare g3's GetLemmas output.
      - fixedpoint_pdr_scale line 187 is inside theory_arith internalization
-       (bound atoms before def-axioms): theory_arith work, out of scope here.
+       (bound atoms before def-axioms): theory_arith work (now approved, 2026-11-09).
      - mk-var id reuse (initial_trace, recursive_trace,
        repeated_disequalities).
      - fixedpoint_pdr_scale: extra Real nodes in mk_scale.
@@ -816,7 +814,7 @@ Found while matching `-st` output against `build/z3` on
     initial check. First differences: unbounded_real 30 -> 39,
     bit_vector 13 -> 41, bounded_integer 38 -> 51, lexicographic_integer
     47 -> 65.
-    BLOCKED ON theory_arith (out of scope): unbounded objectives. In z3,
+    OPEN (theory_arith now approved, 2026-11-09): unbounded objectives. In z3,
     geometric_lex's maximize_objective returns the blocker false for an
     unbounded objective, so the re-check is unsat and the loop ends
     (unbounded_real_optimization line 39: one Real numeral, then
@@ -869,13 +867,14 @@ Found while matching `-st` output against `build/z3` on
     Leads left:
     - integer_division_scopes: theory_arith mk_idiv_mod_axioms builds
       (- 0 k) before (< k 0) (GCC right-to-left mk_ite arguments);
-      theory_arith is out of scope.
+      theory_arith may now be touched (approved 2026-11-09).
     - fixedpoint_relation_representations: rel_context::query builds
       m_answer eagerly (table_base::to_formula), which keeps a variable
       alive across later queries; Go's datalog answers are lazy and
       backend-specific.
 
-23. **OPEN: fpa2bv_converter is a reimplementation, not a port.**
+23. **OPEN (user: do the port, replace the rewrite): fpa2bv_converter is a
+    reimplementation, not a port.**
     ast/fpa (about 5500 lines of Go) restructures fpa2bv_converter.cpp
     (4130 lines). Example: mk_numeral(sort, mpf) builds
     fp(bv_sgn, bvadd(e, bias), bv_sig) from the mpf's sign, significand
