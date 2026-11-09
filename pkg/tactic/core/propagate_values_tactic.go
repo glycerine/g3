@@ -637,7 +637,7 @@ func (t *PropagateValuesTactic) writeExpression(out io.Writer, term ast.ASTHandl
 	}
 	defer func() { err = errors.Join(err, stream.Close()) }()
 	empty := t.context.EmptyValue()
-	if err = t.manager.PrintFormat(stream, format, t.context, &empty, t.globals); err != nil {
+	if err = t.manager.PrintFormatTransient(stream, format, t.context, &empty, t.globals); err != nil {
 		return err
 	}
 	body, err := stream.String()

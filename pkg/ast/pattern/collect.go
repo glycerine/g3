@@ -407,7 +407,7 @@ func (c *patternCandidates) writePatternSMT2(w io.Writer, node ast.ASTHandle) (r
 	}
 	defer func() { result = errors.Join(result, out.Close()) }()
 	empty := g.Context.EmptyValue()
-	if err = c.manager.PrintFormat(out, format, g.Context, &empty, g); err != nil {
+	if err = c.manager.PrintFormatTransient(out, format, g.Context, &empty, g); err != nil {
 		return err
 	}
 	body, err := out.String()

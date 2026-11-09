@@ -475,7 +475,7 @@ func (r *BitBlasterModelConverter) Display(out io.Writer) (err error) {
 			return e
 		}
 		p := r.context.EmptyValue()
-		e = r.manager.PrintFormat(stream, f, r.context, &p, r.globals)
+		e = r.manager.PrintFormatTransient(stream, f, r.context, &p, r.globals)
 		if e == nil {
 			var text string
 			text, e = stream.String()

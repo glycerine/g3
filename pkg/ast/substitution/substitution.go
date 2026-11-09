@@ -707,7 +707,7 @@ func (s *Substitution) format(h ast.ASTHandle) (value string, result error) {
 	if err != nil {
 		return "", err
 	}
-	if err = s.manager.PrintFormat(out, doc, nil, nil, nil); err != nil {
+	if err = s.manager.PrintFormatTransient(out, doc, nil, nil, nil); err != nil {
 		return "", err
 	}
 	return out.String()
