@@ -816,6 +816,15 @@ Found while matching `-st` output against `build/z3` on
     initial check. First differences: unbounded_real 30 -> 39,
     bit_vector 13 -> 41, bounded_integer 38 -> 51, lexicographic_integer
     47 -> 65.
+    BLOCKED ON theory_arith (out of scope): unbounded objectives. In z3,
+    geometric_lex's maximize_objective returns the blocker false for an
+    unbounded objective, so the re-check is unsat and the loop ends
+    (unbounded_real_optimization line 39: one Real numeral, then
+    begin-check). g3's optimizeArithmetic instead runs an "unbounded
+    recovery": it asserts objective >= model value + 1 and re-checks,
+    because g3's arithmetic theory can report a locally unbounded tableau
+    before a Boolean branch fixes the objective. Remove the recovery once
+    theory_arith's maximize is faithful.
     TRIED: dropping the priority != pareto/box gate (normalize on the
     first pareto/box call) cost 2 stdout matches (647 -> 645), and the
     cmd_context/cmd/g3 tests ran past 10 minutes (a likely hang in the
