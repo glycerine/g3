@@ -204,42 +204,40 @@ func (e *factorExpressions) close() (err error) {
 	return err
 }
 
+// numeralFor is m_util.mk_numeral(rational(text), m_util.is_int(term)).
 func (i *factorInvocation) numeralFor(term ast.ASTHandle, text string) (ast.ASTHandle, error) {
 	m := i.owner.manager
 	sort, err := m.GetSort(term)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	integer, err := m.ArithmeticIntegerNumeralText(text)
+	family, err := m.GetFamilyID(sort)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	integerSort, err := m.GetSort(integer)
+	kind, err := m.GetDeclKind(sort)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if sort == integerSort {
-		return integer, nil
+	if family == i.owner.arithmetic && kind == 1 { // INT_SORT
+		return m.ArithmeticIntegerNumeralText(text)
 	}
 	return m.ArithmeticRealNumeralText(text)
 }
 
+// product is mk_mul: the sole factor, or one n-ary m_util.mk_mul.
 func (i *factorInvocation) product(values []ast.ASTHandle, refs *factorExpressions) (ast.ASTHandle, error) {
 	if len(values) == 0 {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
-	result := values[0]
-	for _, value := range values[1:] {
-		product, err := i.owner.manager.MkArithmeticMul(result, value)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		if err = refs.hold(product); err != nil {
-			return ast.ASTHandle{}, err
-		}
-		result = product
+	if len(values) == 1 {
+		return values[0], nil
 	}
-	return result, nil
+	product, err := i.owner.manager.MkFamilyApp(i.owner.arithmetic, 9, nil, values)
+	if err == nil {
+		err = refs.hold(product)
+	}
+	return product, err
 }
 
 func flipFactorComparison(op int32) (int32, error) {
@@ -363,11 +361,12 @@ func (i *factorInvocation) makeEquality(values []ast.ASTHandle, refs *factorExpr
 		result, err := m.MkOrArgs(equalities)
 		return true, result, err
 	}
-	product, err := i.product(values, refs)
+	// m.mk_eq(mk_mul(...), mk_zero_for(arg)): GCC evaluates the zero first.
+	zero, err := i.numeralFor(values[len(values)-1], "0")
 	if err != nil {
 		return false, ast.ASTHandle{}, err
 	}
-	zero, err := i.numeralFor(product, "0")
+	product, err := i.product(values, refs)
 	if err != nil {
 		return false, ast.ASTHandle{}, err
 	}
@@ -450,11 +449,13 @@ func (i *factorInvocation) makeComparison(op int32, values []ast.ASTHandle, degr
 			return true, result, err
 		}
 	} else {
-		product, err := i.product(odd, refs)
+		// mk_app(k, mk_mul(odd...), mk_zero_for(odd[0])): GCC evaluates the
+		// zero first.
+		zero, err := i.numeralFor(odd[0], "0")
 		if err != nil {
 			return false, ast.ASTHandle{}, err
 		}
-		zero, err := i.numeralFor(product, "0")
+		product, err := i.product(odd, refs)
 		if err != nil {
 			return false, ast.ASTHandle{}, err
 		}
