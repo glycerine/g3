@@ -151,6 +151,17 @@ func (p *Pass) Apply(goal *tactic.Goal) (_ Result, result error) {
 	if err != nil {
 		return Result{}, err
 	}
+	// expr_ref new_curr; proof_ref new_pr: declared before the loop, so each
+	// result lives until the next rewrite replaces it.
+	out, err := p.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return Result{}, err
+	}
+	proof, err := p.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return Result{}, errors.Join(err, p.manager.DelRef(&out))
+	}
+	defer func() { result = errors.Join(result, p.manager.DelRef(&proof), p.manager.DelRef(&out)) }()
 	for i := uint32(0); i < size; i++ {
 		inconsistent, err = goal.Inconsistent()
 		if err != nil || inconsistent {
@@ -163,29 +174,21 @@ func (p *Pass) Apply(goal *tactic.Goal) (_ Result, result error) {
 		if err != nil {
 			return Result{}, err
 		}
-		out, err := p.manager.NewRef(ast.ASTHandle{})
-		if err != nil {
-			return Result{}, err
-		}
-		proof, err := p.manager.NewRef(ast.ASTHandle{})
-		if err != nil {
-			return Result{}, errors.Join(err, p.manager.DelRef(&out))
-		}
 		if proofs {
 			err = p.rewriter.RewriteWithProof(current, out, proof)
 		} else {
 			err = p.rewriter.Rewrite(current, out)
 		}
 		if err != nil {
-			return Result{}, errors.Join(err, p.manager.DelRef(&proof), p.manager.DelRef(&out))
+			return Result{}, err
 		}
 		rewritten, err := p.manager.RefGet(out)
 		if err != nil {
-			return Result{}, errors.Join(err, p.manager.DelRef(&proof), p.manager.DelRef(&out))
+			return Result{}, err
 		}
 		newProof, err := p.manager.RefGet(proof)
 		if err != nil {
-			return Result{}, errors.Join(err, p.manager.DelRef(&proof), p.manager.DelRef(&out))
+			return Result{}, err
 		}
 		if proofs {
 			oldProof, e := goal.Proof(i)
@@ -193,14 +196,13 @@ func (p *Pass) Apply(goal *tactic.Goal) (_ Result, result error) {
 				newProof, e = p.manager.MkProofModusPonens(oldProof, newProof)
 			}
 			if e != nil {
-				return Result{}, errors.Join(e, p.manager.DelRef(&proof), p.manager.DelRef(&out))
+				return Result{}, e
 			}
 		}
 		dependency, err := goal.Dependency(i)
 		if err == nil {
 			err = goal.Update(i, rewritten, newProof, dependency)
 		}
-		err = errors.Join(err, p.manager.DelRef(&proof), p.manager.DelRef(&out))
 		if err != nil {
 			return Result{}, err
 		}
