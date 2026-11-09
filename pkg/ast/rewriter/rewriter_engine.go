@@ -1055,9 +1055,12 @@ func (r *rewriterEngine) Rewrite(t ast.ASTHandle, out ast.ASTRef) error {
 	}
 	return r.rewrite(t, out, ast.ASTRef{})
 }
+// RewriteWithProof is operator()(t, result, result_pr). A rewriter built
+// without proof generation runs main_loop<false> and leaves result_pr as it
+// was (the manager may have enabled proofs after construction).
 func (r *rewriterEngine) RewriteWithProof(t ast.ASTHandle, out, proof ast.ASTRef) error {
 	if !r.core.proofGen {
-		return ast.ErrASTDomain
+		return r.rewrite(t, out, ast.ASTRef{})
 	}
 	return r.rewrite(t, out, proof)
 }

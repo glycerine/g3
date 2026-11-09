@@ -355,6 +355,16 @@ func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.AST
 	if err != nil {
 		return err
 	}
+	// init_lemma_generalizers toggles proof mode on. The caller restores the
+	// previous mode when the query returns (dl_interface::query's
+	// scoped_restore_proof spans update_rules and solve).
+	if enabled, err := c.manager.ProofsEnabled(); err != nil {
+		return err
+	} else if !enabled {
+		if err = c.manager.ToggleProofMode(ast.ASTProofEnabled); err != nil {
+			return err
+		}
+	}
 	// Source update_rules recreates generalizers before init_rules, even
 	// when subsequent rule installation fails. Context.Reset alone does not.
 	c.generalizersInitialized = true

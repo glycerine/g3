@@ -572,6 +572,18 @@ func (e *PropositionalEngine) querySpacerAtLevel(declaration ast.ASTHandle, from
 	if e.params == nil || e.globals == nil {
 		return lbool.Undef, fmt.Errorf("muz/fp: Spacer requires parameter and global services")
 	}
+	// scoped_restore_proof: update_rules turns proofs on for the query.
+	proofs, err := e.manager.ProofsEnabled()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if !proofs {
+		defer func() {
+			if enabled, x := e.manager.ProofsEnabled(); x != nil || enabled {
+				resultErr = errors.Join(resultErr, x, e.manager.ToggleProofMode(ast.ASTProofDisabled))
+			}
+		}()
+	}
 	if e.pdr != nil {
 		if err := e.closePDRForReplacement(); err != nil {
 			return lbool.Undef, err

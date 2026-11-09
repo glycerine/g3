@@ -49,6 +49,9 @@ func TestSpacerCoverUsesSourceExpressionSubstitution(t *testing.T) {
 			if quantified {
 				property = own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: property}))
 			}
+			// dl_interface::add_cover runs outside a query, after
+			// scoped_restore_proof turned update_rules' proof mode off.
+			depthMust(t, m.ToggleProofMode(ast.ASTProofDisabled))
 			depthMust(t, p.AddCover(-1, property))
 			signature, err := p.Signature()
 			depthMust(t, err)
