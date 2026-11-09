@@ -569,7 +569,31 @@ Found while matching `-st` output against `build/z3` on
      (nondeterministic).
    - DONE: pred_transformer::init_rule's per-rule `init = mk_or(init,
      fml)`, and initialize's rewrite order (transition first).
-   - NEXT (fixedpoint_pdr_variable_trace): ids drift from the inliner
+   - DONE (fixedpoint_pdr_variable_trace log now IDENTICAL):
+     - rule::deallocate order; m_inlined_rules released forward.
+     - With a null m_mc, no inliner model rules are recorded.
+     - The shared context th_rewriter (ctx.get_rewriter()) and the rule
+       manager's qe_lite (m_qe) live with the context.
+     - pm.mk_and in init_rule/init_rules; m_initial_state is one slot.
+     - ensure_level adds solver levels unconditionally.
+     - lform is held while asserting; reachable-cache locals are released.
+     - The rewriter keeps its proof in m_pr; init_rule gets a per-rule
+       rewriter; PDR's eq2ineq applies before the first assert.
+   - DONE: Spacer relation queries and query_from_lvl use mk_query. Spacer
+     enables proofs from update_rules through solve (scoped_restore_proof).
+     virtual_solver asserts (=> pred true). Spacer init_rule gets a per-rule
+     rewriter.
+   - NEXT leads:
+     - fixedpoint_spacer_core line 75: z3 frees the transition-rewrite
+       proofs when rw(m_initial_state) overwrites m_pr; g3 holds them longer.
+     - Arithmetic group (convex_*, multicore, nonlinear, invariant,
+       utvpi): z3 builds `- a b` where g3 builds `<=`, or the ids drift
+       one deletion earlier.
+     - mk-var id reuse (initial_trace, recursive_trace,
+       repeated_disequalities).
+     - fixedpoint_pdr_scale: extra Real nodes in mk_scale.
+     - fixedpoint_pdr_bit_blast: mk_bit_blast order.
+   - OLD NOTE (superseded): ids drifted from the inliner
      teardown. z3's m_inlined_rules = [P(0,1), Q(1,1), R(2), Goal()]. Each
      rule frees its accounting-parent chain, i.e. the resolvents before
      interp-tail simplification. z3 frees Q's chain first (#57 Q(1,1),
