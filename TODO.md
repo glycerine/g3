@@ -873,8 +873,26 @@ Found while matching `-st` output against `build/z3` on
       alive across later queries; Go's datalog answers are lazy and
       backend-specific.
 
-23. **OPEN (user: do the port, replace the rewrite): fpa2bv_converter is a
-    reimplementation, not a port.**
+23. **DONE (2026-11-09): fpa2bv_converter ported, reimplementation deleted.**
+    Result: all 24 floating-point vectors match z3's trace=true log line for
+    line, and the t_fpa/t_fpa_detail traces match too. Commits a276179d1
+    (switch-over), be25ef062, e6d489931, bbbcd0d2b, a4f899500. Fixes found
+    along the way:
+    - BV_RM_VAL encoding was swapped in the converter port (away=0,
+      even=1); z3 has even=0, away=1, positive=2, negative=3. The model's
+      bv2rm decoder used z3's order, so a rounding-mode variable could get
+      an excluded value as its model (wrong answer; regression vector
+      qffp_rounding_mode_model_values).
+    - theory_fpa hooks ported (theory_fpa_hooks.go): convert_atom/term/
+      conversion_term, mk_side_conditions, internalize_atom, new_eq_eh and
+      new_diseq_eh (replacing the eager InternalizeEquality bridge),
+      assign_eh, relevant_eh with rm unwrap, wrap's th_rw, m_th_rw with
+      arith_lhs=true, assert_cnstr's mark_as_relevant.
+    - Core: reinsert_parents_into_cg_table only eq-propagates marked
+      parents; theories pop in registration order; internalize_uninterpreted
+      plus internalize_term apply the sort constraint twice.
+    Original notes:
+    fpa2bv_converter was a reimplementation, not a port.
     ast/fpa (about 5500 lines of Go) restructures fpa2bv_converter.cpp
     (4130 lines). Example: mk_numeral(sort, mpf) builds
     fp(bv_sgn, bvadd(e, bias), bv_sig) from the mpf's sign, significand
