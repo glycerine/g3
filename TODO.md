@@ -661,6 +661,18 @@ Found while matching `-st` output against `build/z3` on
        full-log matches (401 -> 398), so it was reverted. Trace which
        member holds the head's last reference (outer m_tail? res?) before
        retrying.
+     - DONE: mk_bit_blast lifetimes and rm.mk_rule (3a53c066c); spacer
+       init_rules case 1 builds (or dummy ext) before (not dummy)
+       (526ad095d); extract_horn applies ensure_app to the head and every
+       body element before hoisting (9f0bbd88d). First differences:
+       spacer_bit_blast 70 -> 129, spacer_scale 86 -> 109,
+       spacer_array_blast 67 -> 75.
+     - OPEN: fp_spacer_quantifier_abstraction line 68. z3 keeps
+       (p #35 #36) alive until ~hnf (context teardown): it sits in
+       hnf::m_body of the last mk_horn call, which reset() does not clear.
+       g3's HornNormalizer.bodyRefs has the same persistence, so the
+       difference is which formulas reach mk_horn (is_horn), or how
+       eliminate_quantifier_body edits m_body in place.
      - NOTE: /mnt/oldrog filled up (other sessions' /mnt/oldrog/tmp). Tests
        now run with GOCACHE/GOTMPDIR/TMPDIR under
        /var/tmp/g3-job-487c9ee8 (in its env file).
