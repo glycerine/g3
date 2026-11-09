@@ -181,9 +181,10 @@ func TestRuleClosePreservesOwnersDuringASTInvocation(t *testing.T) {
 	must(parent.Close())
 	childState := child.state
 	ownedParent := childState.accounting.parentRule
-	childHead, childProof := childState.headReference, childState.proofReference
+	// rule::deallocate releases the head, tails and proof before the
+	// accounting parent; a refusal there keeps the parent chain for retry.
 	refusal := child.Close()
-	if !errors.Is(refusal, ErrCosts) || child.closed || child.state != childState || childState.references != 1 || childState.headReference != childHead || childState.proofReference != childProof || childState.accounting == nil || childState.accounting.closed || childState.accounting.parentRule != ownedParent || ownedParent.closed {
+	if !errors.Is(refusal, ErrCosts) || child.closed || child.state != childState || childState.references != 1 || childState.headReference != (ast.ASTRef{}) || childState.hasProof || childState.accounting == nil || childState.accounting.closed || childState.accounting.parentRule != ownedParent || ownedParent.closed {
 		t.Fatal("accounting refusal lost rule owners", refusal)
 	}
 	must(recorder.Finish())

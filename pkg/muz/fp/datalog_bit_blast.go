@@ -65,7 +65,7 @@ func (q *datalogBitBlastQuery) register(transformer *base.RuleTransformer, conte
 		return errors.Join(err, planner.Close())
 	}
 	q.planner = planner
-	simplifier, err := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, context, globals, 21000)
+	simplifier, err := transforms.NewInterpTailSimplifierPluginShared(e.manager, e.rules, e.contextRewriter(), context, globals, 21000)
 	if err != nil {
 		return err
 	}

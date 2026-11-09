@@ -52,24 +52,33 @@ func (e *PropositionalEngine) addFormulaWithProof(set *base.RuleSet, formula, pr
 		}
 		e.unboundLiteDirty = false
 	}
-	if e.unboundLite == nil {
-		cooperation, createErr := cooperate.NewCooperation(e.manager.Budget())
-		if createErr != nil {
-			return createErr
-		}
-		lite, createErr := qe.NewLite(e.manager, nil, false, qe.Config{Context: e.params, Globals: e.globals, Cooperation: cooperation})
-		if createErr != nil {
-			if lite != nil {
-				createErr = errors.Join(createErr, lite.Close())
-			}
-			return errors.Join(createErr, cooperation.Close())
-		}
-		e.unboundCooperation = cooperation
-		e.unboundLite = lite
+	if _, err = e.ruleManagerLite(); err != nil {
+		return err
 	}
 	err = e.rules.AddFormulaWithProofAndSymbolAndUnboundFix(set, formula, proof, name, e.unboundLite, true)
 	if err != nil {
 		e.unboundLiteDirty = true
 	}
 	return err
+}
+
+// ruleManagerLite is rule_manager's m_qe: one qe_lite for the context,
+// created on first use.
+func (e *PropositionalEngine) ruleManagerLite() (*qe.Lite, error) {
+	if e.unboundLite == nil {
+		cooperation, createErr := cooperate.NewCooperation(e.manager.Budget())
+		if createErr != nil {
+			return nil, createErr
+		}
+		lite, createErr := qe.NewLite(e.manager, nil, false, qe.Config{Context: e.params, Globals: e.globals, Cooperation: cooperation})
+		if createErr != nil {
+			if lite != nil {
+				createErr = errors.Join(createErr, lite.Close())
+			}
+			return nil, errors.Join(createErr, cooperation.Close())
+		}
+		e.unboundCooperation = cooperation
+		e.unboundLite = lite
+	}
+	return e.unboundLite, nil
 }

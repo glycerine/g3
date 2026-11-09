@@ -168,6 +168,8 @@ func (e *PropositionalEngine) queryPDRRelation(declaration ast.ASTHandle) (statu
 	if err != nil {
 		return lbool.Undef, err
 	}
+	e.preprocessNullModelConverter = e.pdrNullModelConverter
+	defer func() { e.preprocessNullModelConverter = false }()
 	return e.queryPDR(head)
 }
 

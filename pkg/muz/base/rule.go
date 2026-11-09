@@ -712,11 +712,22 @@ func (r *Rule) Close() error {
 	if _, err := state.manager.ProofMode(); err != nil {
 		return err
 	}
-	if state.accounting != nil {
-		if err := state.accounting.Close(); err != nil {
+	// rule::deallocate: dec_ref the head, the tails in order, the proof, and
+	// only then ~accounted_object releases the parent rule chain. Each step
+	// records its progress so a refused release can be retried.
+	if state.headReference != (ast.ASTRef{}) {
+		if err := state.manager.DelRef(&state.headReference); err != nil {
 			return err
 		}
-		state.accounting = nil
+	}
+	for len(state.tail) > 0 {
+		err := state.manager.DelRef(&state.tail[0].reference)
+		if state.tail[0].reference == (ast.ASTRef{}) {
+			state.tail = state.tail[1:]
+		}
+		if err != nil {
+			return err
+		}
 	}
 	if state.hasProof {
 		err := state.manager.DelRef(&state.proofReference)
@@ -727,20 +738,11 @@ func (r *Rule) Close() error {
 			return err
 		}
 	}
-	for len(state.tail) > 0 {
-		last := len(state.tail) - 1
-		err := state.manager.DelRef(&state.tail[last].reference)
-		if state.tail[last].reference == (ast.ASTRef{}) {
-			state.tail = state.tail[:last]
-		}
-		if err != nil {
+	if state.accounting != nil {
+		if err := state.accounting.Close(); err != nil {
 			return err
 		}
-	}
-	if state.headReference != (ast.ASTRef{}) {
-		if err := state.manager.DelRef(&state.headReference); err != nil {
-			return err
-		}
+		state.accounting = nil
 	}
 	state.references = 0
 	state.released = true

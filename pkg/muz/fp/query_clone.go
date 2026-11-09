@@ -3,7 +3,11 @@ package fp
 // Source: src/muz/spacer/spacer_dl_interface.cpp query/query_from_lvl local
 // rule-set copies and src/muz/pdr/pdr_dl_interface.cpp query local rules.
 
-import "errors"
+import (
+	"errors"
+
+	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
+)
 
 func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	if err := e.open(); err != nil {
@@ -110,4 +114,13 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 		return nil, errors.Join(err, e.discardQueryClone(clone))
 	}
 	return clone, nil
+}
+
+// contextRewriter is datalog::context's m_rewriter (ctx.get_rewriter()): a
+// query clone borrows the original context's.
+func (e *PropositionalEngine) contextRewriter() *astrewriter.TheoryRewriter {
+	if e.pdrTheory != nil {
+		return e.pdrTheory
+	}
+	return e.guard
 }

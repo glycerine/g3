@@ -15,9 +15,12 @@ import (
 )
 
 type InterpTailSimplifierPlugin struct {
-	manager       *ast.ASTManager
-	rules         *base.RuleManager
-	rewriter      *astrewriter.TheoryRewriter
+	manager  *ast.ASTManager
+	rules    *base.RuleManager
+	rewriter *astrewriter.TheoryRewriter
+	// borrowed: the rewriter is datalog::context's m_rewriter (m_simp is a
+	// reference to ctx.get_rewriter()), owned by the context.
+	borrowed      bool
 	params        *uparams.ParamsContext
 	globals       *uparams.GlobalParamsService
 	normalization *RuleNormalizationParams
@@ -38,6 +41,18 @@ func NewInterpTailSimplifierPlugin(manager *ast.ASTManager, rules *base.RuleMana
 		return nil, err
 	}
 	return &InterpTailSimplifierPlugin{manager: manager, rules: rules, rewriter: rewriter, params: context, globals: globals, priority: priority}, nil
+}
+
+// NewInterpTailSimplifierPluginShared borrows the context rewriter, whose
+// caches outlive the plugin as in the source.
+func NewInterpTailSimplifierPluginShared(manager *ast.ASTManager, rules *base.RuleManager, rewriter *astrewriter.TheoryRewriter, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (*InterpTailSimplifierPlugin, error) {
+	if rewriter == nil {
+		return NewInterpTailSimplifierPlugin(manager, rules, context, globals, priority)
+	}
+	if priority == 0 {
+		priority = 40000
+	}
+	return &InterpTailSimplifierPlugin{manager: manager, rules: rules, rewriter: rewriter, borrowed: true, params: context, globals: globals, priority: priority}, nil
 }
 
 func (p *InterpTailSimplifierPlugin) Priority() uint32            { return p.priority }
@@ -562,12 +577,12 @@ func (p *InterpTailSimplifierPlugin) Close() error {
 		return nil
 	}
 	p.closing = true
-	if p.rewriter != nil {
+	if p.rewriter != nil && !p.borrowed {
 		if err := p.rewriter.Close(); err != nil {
 			return err
 		}
-		p.rewriter = nil
 	}
+	p.rewriter = nil
 	p.closed = true
 	return nil
 }

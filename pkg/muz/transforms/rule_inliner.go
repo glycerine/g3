@@ -36,6 +36,14 @@ type RuleInlinerPlugin struct {
 	linearState *linearIndex
 	// inlinedRules is m_inlined_rules, in rule-set order.
 	inlinedRules []*base.Rule
+	// noModelConverter mirrors a null m_mc (no recorded model rules).
+	noModelConverter bool
+	// contextRewriter is the borrowed ctx.get_rewriter() (nil: own one).
+	contextRewriter *rewriter.TheoryRewriter
+	// borrowLite supplies the rule manager's qe_lite (m_qe); liteBorrowed
+	// marks p.lite as not owned.
+	borrowLite   func() (*qe.Lite, error)
+	liteBorrowed bool
 	closed       bool
 	closing      bool
 }
@@ -110,6 +118,24 @@ func (p *RuleInlinerPlugin) PreserveFacts(declarations []ast.ASTHandle) error {
 	return nil
 }
 
+// closeRulesForward is a rule_ref_vector or rule_set release: front to back.
+func closeRulesForward(rules []*base.Rule) (result error) {
+	for _, rule := range rules {
+		result = errors.Join(result, rule.Close())
+	}
+	return result
+}
+
+// SetModelConverter reports whether the context has a model converter;
+// without one the source's del_rule(m_mc, ...) records nothing.
+func (p *RuleInlinerPlugin) SetModelConverter(enabled bool) { p.noModelConverter = !enabled }
+
+// SetRuleManagerQELite lends the rule manager's qe_lite on first use.
+func (p *RuleInlinerPlugin) SetRuleManagerQELite(lite func() (*qe.Lite, error)) { p.borrowLite = lite }
+
+// SetContextRewriter lends the datalog context's rewriter (m_simp).
+func (p *RuleInlinerPlugin) SetContextRewriter(rw *rewriter.TheoryRewriter) { p.contextRewriter = rw }
+
 func closeRules(rules []*base.Rule) (result error) {
 	for i := len(rules) - 1; i >= 0; i-- {
 		result = errors.Join(result, rules[i].Close())
@@ -124,6 +150,9 @@ func (p *RuleInlinerPlugin) captureModelRule(rule *base.Rule) error {
 // Source dl_util.cpp::del_rule uses false as the body for an unreachable
 // deletion, including inline_linear's removed definition.
 func (p *RuleInlinerPlugin) captureDeletedModelRule(rule *base.Rule, unreachable bool) (resultErr error) {
+	if p.noModelConverter {
+		return nil
+	}
 	head, err := rule.Head()
 	if err != nil {
 		return err
@@ -382,6 +411,13 @@ func (p *RuleInlinerPlugin) normalizeResolvedRule(resolved *base.Rule) (_ *base.
 			return nil, errors.Join(err, resolved.Close())
 		}
 	}
+	if p.lite == nil && p.borrowLite != nil {
+		// rule_manager::fix_unbound_vars uses the rule manager's m_qe.
+		if p.lite, err = p.borrowLite(); err != nil {
+			return nil, errors.Join(err, resolved.Close())
+		}
+		p.liteBorrowed = true
+	}
 	if p.lite == nil {
 		p.lite, err = qe.NewLite(p.manager, nil, false, qe.Config{Context: p.params, Globals: p.globals, Cooperation: p.cooperate})
 		if err != nil {
@@ -411,7 +447,7 @@ func (p *RuleInlinerPlugin) normalizeResolvedRule(resolved *base.Rule) (_ *base.
 	}
 	resolved = corrected
 	if p.simplifier == nil {
-		p.simplifier, err = NewInterpTailSimplifierPlugin(p.manager, p.rules, p.params, p.globals, p.priority)
+		p.simplifier, err = NewInterpTailSimplifierPluginShared(p.manager, p.rules, p.contextRewriter, p.params, p.globals, p.priority)
 		if err != nil {
 			return nil, errors.Join(err, resolved.Close())
 		}
@@ -1223,7 +1259,8 @@ func (p *RuleInlinerPlugin) Close() error {
 			return err
 		}
 	}
-	if err := closeRules(p.inlinedRules); err != nil {
+	// rule_set::reset releases m_rules forward.
+	if err := closeRulesForward(p.inlinedRules); err != nil {
 		return err
 	}
 	p.inlinedRules = nil
@@ -1242,6 +1279,9 @@ func (p *RuleInlinerPlugin) Close() error {
 			return err
 		}
 		p.simplifier = nil
+	}
+	if p.lite != nil && p.liteBorrowed {
+		p.lite = nil
 	}
 	if p.lite != nil {
 		if err := p.lite.Close(); err != nil {

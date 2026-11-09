@@ -46,6 +46,10 @@ func (e *PropositionalEngine) datalogInliner(context *uparams.ParamsContext, glo
 		}
 	}
 	plugin := transforms.NewRuleInlinerPluginWithServices(e.manager, e.rules, nil, eager, linear, context, globals, 0)
+	plugin.SetContextRewriter(e.contextRewriter())
+	if e.params != nil && e.globals != nil {
+		plugin.SetRuleManagerQELite(e.ruleManagerLite)
+	}
 	plugin.SetNormalizationParams(normalization)
 	plugin.SetLinearBranching(branching)
 	if err := plugin.PreserveFacts(protected); err != nil {

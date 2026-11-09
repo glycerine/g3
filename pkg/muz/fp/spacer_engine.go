@@ -73,7 +73,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	if err = transformer.Register(initialCone); err != nil {
 		return nil, errors.Join(err, initialCone.Close(), transformer.Close())
 	}
-	firstSimplifier, makeErr := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, e.params, e.globals, 40000)
+	firstSimplifier, makeErr := transforms.NewInterpTailSimplifierPluginShared(e.manager, e.rules, e.contextRewriter(), e.params, e.globals, 40000)
 	if makeErr != nil {
 		return nil, errors.Join(makeErr, transformer.Close())
 	}
@@ -182,6 +182,11 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		plugin := transforms.NewRuleInlinerPluginWithServices(e.manager, e.rules, []ast.ASTHandle{query}, inlineEager, inlineLinear, e.params, e.globals, priority)
 		plugin.SetNormalizationParams(normalization)
 		plugin.SetLinearBranching(inlineBranching)
+		plugin.SetModelConverter(!e.preprocessNullModelConverter)
+		plugin.SetContextRewriter(e.contextRewriter())
+		if e.params != nil && e.globals != nil {
+			plugin.SetRuleManagerQELite(e.ruleManagerLite)
+		}
 		inliners = append(inliners, plugin)
 		return plugin
 	}
@@ -278,7 +283,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	if err = transformer.Register(laterCone); err != nil {
 		return nil, errors.Join(err, laterCone.Close(), transformer.Close())
 	}
-	secondSimplifier, makeErr := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, e.params, e.globals, 34980)
+	secondSimplifier, makeErr := transforms.NewInterpTailSimplifierPluginShared(e.manager, e.rules, e.contextRewriter(), e.params, e.globals, 34980)
 	if makeErr != nil {
 		return nil, errors.Join(makeErr, transformer.Close())
 	}
@@ -298,7 +303,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	if err = transformer.Register(finalCone); err != nil {
 		return nil, errors.Join(err, finalCone.Close(), transformer.Close())
 	}
-	thirdSimplifier, makeErr := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, e.params, e.globals, 34950)
+	thirdSimplifier, makeErr := transforms.NewInterpTailSimplifierPluginShared(e.manager, e.rules, e.contextRewriter(), e.params, e.globals, 34950)
 	if makeErr != nil {
 		return nil, errors.Join(makeErr, transformer.Close())
 	}

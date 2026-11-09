@@ -158,6 +158,8 @@ type predicateRuleBuilder struct {
 	theory      *rewriter.TheoryRewriter
 	references  []ast.ASTRef
 	rules       []*normalizedRule
+	// initialRef is the m_initial_state expr_ref slot (also in references).
+	initialRef ast.ASTRef
 }
 
 func (b *predicateRuleBuilder) pin(handle ast.ASTHandle) error {
@@ -166,6 +168,16 @@ func (b *predicateRuleBuilder) pin(handle ast.ASTHandle) error {
 		b.references = append(b.references, reference)
 	}
 	return err
+}
+
+// mkAnd is pm.mk_and: the bool rewriter's and, held in the builder pins.
+func (b *predicateRuleBuilder) mkAnd(conjuncts []ast.ASTHandle) (ast.ASTHandle, error) {
+	ref, err := b.transformer.owner.AndRef(conjuncts)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	b.references = append(b.references, ref)
+	return b.transformer.manager.RefGet(ref)
 }
 
 func (b *predicateRuleBuilder) fresh(prefix string, sort ast.ASTHandle) (ast.ASTHandle, error) {
@@ -437,11 +449,9 @@ func (b *predicateRuleBuilder) normalizeRule(source *base.Rule) (result *normali
 			return nil, b.nonGroundTailError(ground)
 		}
 	}
-	formula, err := b.transformer.manager.MkAndArray(conjunction)
+	// fml = pm.mk_and(conj), then th_rewriter.
+	formula, err := b.mkAnd(conjunction)
 	if err != nil {
-		return nil, err
-	}
-	if err = b.pin(formula); err != nil {
 		return nil, err
 	}
 	result.transition, err = b.rewrite(formula)
@@ -492,7 +502,22 @@ func (b *predicateRuleBuilder) extendInitial(initial ast.ASTHandle, rule *normal
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return extended, b.pin(extended)
+	return extended, b.setInitial(extended)
+}
+
+// setInitial assigns the m_initial_state expr_ref: the previous value is
+// released when replaced, as `init = ...` and `rw(m_initial_state)` do.
+func (b *predicateRuleBuilder) setInitial(initial ast.ASTHandle) error {
+	if b.initialRef == (ast.ASTRef{}) {
+		ref, err := b.transformer.manager.NewRef(initial)
+		if err != nil {
+			return err
+		}
+		b.initialRef = ref
+		b.references = append(b.references, ref)
+		return nil
+	}
+	return b.transformer.manager.SetRef(b.initialRef, initial)
 }
 
 // buildSystem is the rest of init_rules: the transition over the live rules.
@@ -514,8 +539,10 @@ func (b *predicateRuleBuilder) buildSystem(initial ast.ASTHandle) (ast.ASTHandle
 		if falsity, err = b.rewrite(falsity); err != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, err
 		}
-		initial, err = b.rewrite(initial)
-		return initial, falsity, err
+		if initial, err = b.rewrite(initial); err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, err
+		}
+		return initial, falsity, b.setInitial(initial)
 	}
 	var err error
 	guarded := make([]ast.ASTHandle, 0, len(live)+1)
@@ -546,18 +573,17 @@ func (b *predicateRuleBuilder) buildSystem(initial ast.ASTHandle) (ast.ASTHandle
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
 	guarded = append(guarded, selection)
-	transition, err := b.transformer.manager.MkAndArray(guarded)
+	transition, err := b.mkAnd(guarded)
 	if err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
-	}
-	if err = b.pin(transition); err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
 	if transition, err = b.rewrite(transition); err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
-	initial, err = b.rewrite(initial)
-	return initial, transition, err
+	if initial, err = b.rewrite(initial); err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, err
+	}
+	return initial, transition, b.setInitial(initial)
 }
 
 // InitializeRules converts rules with this predicate as their head into the
