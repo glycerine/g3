@@ -9,9 +9,8 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 )
 
-func (f *reduceArgsFrame) makeModelConverter(result *tactic.TacticResult) error {
+func (f *reduceArgsFrame) makeModelConverter(result *tactic.TacticResult) (err error) {
 	m := f.owner.manager
-	var err error
 	f.extension, err = tactic.NewExtensionModel(m, f.owner.services)
 	if err != nil {
 		return err
@@ -29,9 +28,24 @@ func (f *reduceArgsFrame) makeModelConverter(result *tactic.TacticResult) error 
 	if err = f.filter.BindTrace(f.owner.trace, f.owner.globals); err != nil {
 		return err
 	}
+	// var_ref_vector new_vars: reset per function (forward release) and
+	// destroyed when mk_mc returns. new_args, new_eqs, new_t, cond and def
+	// are raw pointers.
+	var newVars []ast.ASTRef
+	resetVars := func() (e error) {
+		for i := range newVars {
+			e = errors.Join(e, m.DelRef(&newVars[i]))
+		}
+		newVars = newVars[:0]
+		return e
+	}
+	defer func() { err = errors.Join(err, resetVars()) }()
 	for _, group := range f.groups.Entries() {
 		d := group.Key
 		candidate := f.candidates[d]
+		if err = resetVars(); err != nil {
+			return err
+		}
 		var variables, arguments []ast.ASTHandle
 		for i, v := range candidate.mask {
 			sort, err := m.GetDomain(d, uint32(i))
@@ -42,9 +56,11 @@ func (f *reduceArgsFrame) makeModelConverter(result *tactic.TacticResult) error 
 			if err != nil {
 				return err
 			}
-			if err = f.hold(variable, false); err != nil {
+			held, err := m.NewRef(variable)
+			if err != nil {
 				return err
 			}
+			newVars = append(newVars, held)
 			variables = append(variables, variable)
 			if !v {
 				arguments = append(arguments, variable)
@@ -57,9 +73,6 @@ func (f *reduceArgsFrame) makeModelConverter(result *tactic.TacticResult) error 
 			}
 			term, err := m.MkApp(entry.Value[0], arguments)
 			if err != nil {
-				return err
-			}
-			if err = f.hold(term, false); err != nil {
 				return err
 			}
 			if definition.IsNull() {
@@ -77,24 +90,17 @@ func (f *reduceArgsFrame) makeModelConverter(result *tactic.TacticResult) error 
 					if err != nil {
 						return err
 					}
-					if err = f.hold(eq, false); err != nil {
-						return err
-					}
 					equalities = append(equalities, eq)
 				}
 			}
-			condition, err := m.MkAndArgs(equalities)
-			if err != nil {
-				return err
-			}
-			if err = f.hold(condition, false); err != nil {
-				return err
+			condition := equalities[0]
+			if len(equalities) != 1 {
+				if condition, err = m.MkAndArgs(equalities); err != nil {
+					return err
+				}
 			}
 			definition, err = m.MkIte(condition, term, definition)
 			if err != nil {
-				return err
-			}
-			if err = f.hold(definition, false); err != nil {
 				return err
 			}
 		}
