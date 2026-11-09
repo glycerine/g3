@@ -4,6 +4,7 @@ package smtcore
 
 import (
 	"errors"
+	uhash "github.com/glycerine/g3/pkg/util/hash"
 
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
@@ -21,17 +22,20 @@ type smtModelFinderFVar struct {
 }
 
 type smtModelFinderAUFGraph struct {
-	finder       *SMTModelFinder
-	nodes        []*smtModelFinderAUFNode
-	uvars        map[smtModelFinderAUFKey]*smtModelFinderAUFNode
-	arguments    map[smtModelFinderAUFKey]*smtModelFinderAUFNode
-	fvars        []smtModelFinderFVar
-	literals     []smtModelFinderAUFLiteral
-	refs         []ast.ASTRef
-	model        *protomodel.ProtoModel
-	selects      []smtModelFinderSelectVar
-	witnesses    map[ast.ASTHandle]ast.ASTHandle
-	analysisSeen map[smtModelFinderAnalysisKey]uint8
+	finder    *SMTModelFinder
+	nodes     []*smtModelFinderAUFNode
+	uvars     map[smtModelFinderAUFKey]*smtModelFinderAUFNode
+	arguments map[smtModelFinderAUFKey]*smtModelFinderAUFNode
+	// argumentLayout is m_A_f_is's layout: key2node, a map keyed by
+	// (func_decl, index) under pair_hash.
+	argumentLayout *ast.ObjMap
+	fvars          []smtModelFinderFVar
+	literals       []smtModelFinderAUFLiteral
+	refs           []ast.ASTRef
+	model          *protomodel.ProtoModel
+	selects        []smtModelFinderSelectVar
+	witnesses      map[ast.ASTHandle]ast.ASTHandle
+	analysisSeen   map[smtModelFinderAnalysisKey]uint8
 }
 
 func newSMTModelFinderAUFGraph(finder *SMTModelFinder) *smtModelFinderAUFGraph {
@@ -78,7 +82,18 @@ func (g *smtModelFinderAUFGraph) argument(function ast.ASTHandle, position uint3
 	if err != nil {
 		return nil, err
 	}
-	return g.node(g.arguments, smtModelFinderAUFKey{function, position}, sort)
+	key := smtModelFinderAUFKey{function, position}
+	if g.arguments[key] == nil {
+		if g.argumentLayout == nil {
+			g.argumentLayout = ast.NewObjMap(g.finder.manager)
+		}
+		h, err := g.finder.manager.GetHash(function)
+		if err != nil {
+			return nil, err
+		}
+		g.argumentLayout.InsertPairIfNotThere(function, uint64(position), uhash.Combine(h, position))
+	}
+	return g.node(g.arguments, key, sort)
 }
 
 func (g *smtModelFinderAUFGraph) collectFVars(quantifier ast.ASTHandle) error {

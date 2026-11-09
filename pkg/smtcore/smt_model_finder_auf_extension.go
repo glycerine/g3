@@ -12,14 +12,20 @@ import (
 )
 
 func (g *smtModelFinderAUFGraph) collectPartialFunctions() ([]ast.ASTHandle, error) {
-	seen := make(map[ast.ASTHandle]bool)
-	var functions []ast.ASTHandle
-	for _, key := range smtSortedAUFKeys(g.arguments) {
-		function := key.owner
-		if seen[function] {
+	// collect_partial_funcs walks m_A_f_is in table order into r, a
+	// func_decl_set; complete_partial_funcs then walks r in its own order.
+	partial := ast.NewObjMap(g.finder.manager)
+	var layout []ast.ObjMapEntry
+	if g.argumentLayout != nil {
+		layout = g.argumentLayout.Entries()
+	}
+	for _, slot := range layout {
+		function := slot.Key
+		if found, err := partial.Contains(function); err != nil {
+			return nil, err
+		} else if found {
 			continue
 		}
-		seen[function] = true
 		interpretation, err := g.model.Core().FunctionInterpretation(function)
 		if err != nil {
 			return nil, err
@@ -37,13 +43,20 @@ func (g *smtModelFinderAUFGraph) collectPartialFunctions() ([]ast.ASTHandle, err
 				return nil, errors.Join(err, interpretation.Close())
 			}
 		}
-		partial, err := interpretation.IsPartial()
+		isPartial, err := interpretation.IsPartial()
 		if err != nil {
 			return nil, err
 		}
-		if partial {
-			functions = append(functions, function)
+		if isPartial {
+			if err = partial.Insert(function, [2]ast.ASTHandle{}); err != nil {
+				return nil, err
+			}
 		}
+	}
+	entries := partial.Entries()
+	functions := make([]ast.ASTHandle, len(entries))
+	for i, entry := range entries {
+		functions[i] = entry.Key
 	}
 	return functions, nil
 }
