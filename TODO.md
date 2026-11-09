@@ -770,6 +770,12 @@ Found while matching `-st` output against `build/z3` on
     (maximize!!N / minimize!!N / maxsat!!N) over the hard constraints,
     simplify_fmls runs the simplify/propagate-values/solve-eqs tactic, and
     from_fmls follows. Then comes the initial check ([begin-check] 0).
+    PROGRESS (9a1f116be): normalize now runs regardless of rlimit/timeout
+    (the UINT_MAX default timeout had disabled it), and the objective
+    functions are named maximize!!N. Remaining: init_solver before
+    normalize (z3's attach-enode lines come first), the initial
+    check_sat (the [begin-check] 0), and normalizing on the first
+    pareto/box call.
     g3's runNormalizedOptimization only simplifies behind its own
     useSimplifier gate (skipped for pareto/box/rlimit/timeout) and never
     builds the objective-function apps. Port opt_context.cpp's optimize /
