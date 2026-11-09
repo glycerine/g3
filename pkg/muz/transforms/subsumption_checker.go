@@ -1,12 +1,12 @@
 package transforms
 
-// Source: src/muz/transforms/dl_mk_subsumption_checker.cpp/.h retained
-// rule pruning and total-relation model reconstruction. Relation-table
-// cardinality discovery is outside the retained fixedpoint consumer.
+// Source: src/muz/transforms/dl_mk_subsumption_checker.cpp/.h and
+// src/muz/base/dl_rule_subsumption_index.cpp. The retained consumer (Spacer)
+// has no rel_context, so scan_for_relations_total_due_to_facts returns at
+// once and the ground unconditional heads it would read are not collected.
 
 import (
 	"errors"
-	"fmt"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -15,11 +15,19 @@ import (
 )
 
 type SubsumptionCheckerPlugin struct {
-	priority   uint32
-	enabled    bool
-	modelSteps []ConeModelStep
-	closed     bool
-	closing    bool
+	priority uint32
+	enabled  bool
+	// m_total_relations (func_decl_set, iterated in hash-table order) and
+	// m_total_relation_defining_rules (a nil rule: total due to facts).
+	totalRelations *ast.ObjMap
+	totalDefining  map[ast.ASTHandle]*base.Rule
+	// m_ref_holder keeps the defining rules alive with the plugin.
+	refHolder        []*base.Rule
+	haveNewTotalRule bool
+	noModelConverter bool
+	modelSteps       []ConeModelStep
+	closed           bool
+	closing          bool
 }
 
 type subsumptionConstructionFailure struct {
@@ -95,7 +103,7 @@ func NewSubsumptionCheckerPlugin(enabled bool, priority uint32) *SubsumptionChec
 	if priority == 0 {
 		priority = 31000
 	}
-	return &SubsumptionCheckerPlugin{priority: priority, enabled: enabled}
+	return &SubsumptionCheckerPlugin{priority: priority, enabled: enabled, totalDefining: make(map[ast.ASTHandle]*base.Rule)}
 }
 
 func (p *SubsumptionCheckerPlugin) Priority() uint32 { return p.priority }
@@ -104,6 +112,11 @@ func (p *SubsumptionCheckerPlugin) CanDestratifyNegation() bool { return false }
 
 func (p *SubsumptionCheckerPlugin) Cancel() {}
 
+// SetModelConverter reports whether the context has a model converter;
+// without one transform_rules records no extension_model_converter.
+func (p *SubsumptionCheckerPlugin) SetModelConverter(enabled bool) { p.noModelConverter = !enabled }
+
+// Close is ~mk_subsumption_checker: m_ref_holder releases its rules forward.
 func (p *SubsumptionCheckerPlugin) Close() error {
 	if p == nil {
 		return base.ErrRuleTransformerOwner
@@ -116,6 +129,14 @@ func (p *SubsumptionCheckerPlugin) Close() error {
 		return err
 	}
 	p.modelSteps = nil
+	for len(p.refHolder) != 0 {
+		if err := p.refHolder[0].Close(); err != nil {
+			return err
+		}
+		p.refHolder = p.refHolder[1:]
+	}
+	p.totalDefining = nil
+	p.totalRelations = nil
 	p.closed = true
 	return nil
 }
@@ -131,66 +152,16 @@ func (p *SubsumptionCheckerPlugin) TakeModelSteps() ([]ConeModelStep, error) {
 	return steps, nil
 }
 
-type subsumptionIndex struct {
-	rules []*base.Rule
-	facts map[ast.ASTHandle]bool
+func (p *SubsumptionCheckerPlugin) isTotalRelation(declaration ast.ASTHandle) (bool, error) {
+	if p.totalRelations == nil {
+		return false, nil
+	}
+	return p.totalRelations.Contains(declaration)
 }
 
-func newSubsumptionIndex() *subsumptionIndex {
-	return &subsumptionIndex{facts: make(map[ast.ASTHandle]bool)}
-}
-
-func (i *subsumptionIndex) add(rule *base.Rule) error {
-	tail, err := rule.TailSize()
-	if err != nil {
-		return err
-	}
-	if tail == 0 {
-		head, e := rule.Head()
-		if e != nil {
-			return e
-		}
-		i.facts[head] = true
-	}
-	owned, err := rule.Retain()
-	if err != nil {
-		return err
-	}
-	i.rules = append(i.rules, owned)
-	return nil
-}
-
-func (i *subsumptionIndex) close() (result error) {
-	for position := len(i.rules) - 1; position >= 0; position-- {
-		result = errors.Join(result, i.rules[position].Close())
-	}
-	i.rules = nil
-	return result
-}
-
-func (i *subsumptionIndex) atomSubsumed(atom ast.ASTHandle) bool { return i.facts[atom] }
-
-func (i *subsumptionIndex) ruleSubsumed(rule *base.Rule) (bool, error) {
-	head, err := rule.Head()
-	if err != nil {
-		return false, err
-	}
-	if i.atomSubsumed(head) {
-		return true, nil
-	}
-	for _, prior := range i.rules {
-		same, e := prior.Equal(rule)
-		if e != nil {
-			return false, e
-		}
-		if same {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func totalRule(rule *base.Rule) (bool, error) {
+// isTotalRule is mk_subsumption_checker::is_total_rule: a fact whose head
+// arguments are pairwise distinct variables.
+func isTotalRule(rule *base.Rule) (bool, error) {
 	tail, err := rule.TailSize()
 	if err != nil || tail != 0 {
 		return false, err
@@ -199,8 +170,6 @@ func totalRule(rule *base.Rule) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	// Nullary facts are total. Non-nullary totality requires a head containing
-	// each variable exactly once; NewRule has already normalized their indices.
 	manager, err := rule.ASTManager()
 	if err != nil {
 		return false, err
@@ -228,81 +197,360 @@ func totalRule(rule *base.Rule) (bool, error) {
 	return true, nil
 }
 
-func discoverTotalRules(source *base.RuleSet) (map[ast.ASTHandle]*base.Rule, error) {
-	total := make(map[ast.ASTHandle]*base.Rule)
-	count, err := source.Len()
+// onDiscoveredTotalRelation records pred as total; a non-nil defining rule
+// is retained in m_ref_holder.
+func (p *SubsumptionCheckerPlugin) onDiscoveredTotalRelation(manager *ast.ASTManager, declaration ast.ASTHandle, rule *base.Rule) error {
+	if p.totalRelations == nil {
+		p.totalRelations = ast.NewObjMap(manager)
+	}
+	if _, err := p.totalRelations.InsertIfNotThere(declaration); err != nil {
+		return err
+	}
+	p.haveNewTotalRule = true
+	if rule == nil {
+		p.totalDefining[declaration] = nil
+		return nil
+	}
+	held, err := rule.Retain()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	for index := 0; index < count; index++ {
-		rule, e := source.Rule(index)
-		if e != nil {
-			return nil, e
-		}
-		isTotal, e := totalRule(rule)
-		if e == nil && isTotal {
-			declaration, x := rule.HeadDeclaration()
-			if x != nil {
-				e = x
-			} else if total[declaration] == nil {
-				total[declaration] = rule
-				rule = nil
-			}
-		}
-		if rule != nil {
-			e = errors.Join(e, rule.Close())
-		}
-		if e != nil {
-			closeTotalRules(total)
-			return nil, e
-		}
-	}
-	return total, nil
+	p.totalDefining[declaration] = held
+	p.refHolder = append(p.refHolder, held)
+	return nil
 }
 
-func closeTotalRules(total map[ast.ASTHandle]*base.Rule) (result error) {
-	sortedKeys1 := make([]ast.ASTHandle, 0, len(total))
-	for declaration := range total {
-		sortedKeys1 = append(sortedKeys1, declaration)
+func (p *SubsumptionCheckerPlugin) scanForTotalRules(source *base.RuleSet) error {
+	rules, err := source.RuleManager()
+	if err != nil {
+		return err
 	}
-	ast.SortHandles(sortedKeys1) // deterministic; Go map order is random
-	for _, declaration := range sortedKeys1 {
-		rule := total[declaration]
+	manager, err := rules.ASTManager()
+	if err != nil {
+		return err
+	}
+	count, err := source.Len()
+	if err != nil {
+		return err
+	}
+	for discovered := true; discovered; {
+		discovered = false
+		for index := 0; index < count; index++ {
+			rule, e := source.Rule(index)
+			if e != nil {
+				return e
+			}
+			declaration, e := rule.HeadDeclaration()
+			total := false
+			if e == nil {
+				total, e = isTotalRule(rule)
+			}
+			known := false
+			if e == nil && total {
+				known, e = p.isTotalRelation(declaration)
+			}
+			if e == nil && total && !known {
+				e = p.onDiscoveredTotalRelation(manager, declaration, rule)
+				discovered = true
+			}
+			if e = errors.Join(e, rule.Close()); e != nil {
+				return e
+			}
+		}
+	}
+	return nil
+}
+
+// ruleSubsumptionIndex is rule_subsumption_index.
+type ruleSubsumptionIndex struct {
+	refHolder          []*base.Rule
+	unconditionedHeads map[ast.ASTHandle]bool
+	ruleSet            map[uint32][]*base.Rule
+}
+
+func newRuleSubsumptionIndex() *ruleSubsumptionIndex {
+	return &ruleSubsumptionIndex{unconditionedHeads: make(map[ast.ASTHandle]bool), ruleSet: make(map[uint32][]*base.Rule)}
+}
+
+func (i *ruleSubsumptionIndex) add(rule *base.Rule) error {
+	held, err := rule.Retain()
+	if err != nil {
+		return err
+	}
+	i.refHolder = append(i.refHolder, held)
+	tail, err := held.TailSize()
+	if err != nil {
+		return err
+	}
+	if tail == 0 {
+		head, e := held.Head()
+		if e != nil {
+			return e
+		}
+		i.unconditionedHeads[head] = true
+	}
+	hash, err := held.Hash()
+	if err != nil {
+		return err
+	}
+	i.ruleSet[hash] = append(i.ruleSet[hash], held)
+	return nil
+}
+
+func (i *ruleSubsumptionIndex) atomSubsumed(atom ast.ASTHandle) bool {
+	return i.unconditionedHeads[atom]
+}
+
+func (i *ruleSubsumptionIndex) ruleSubsumed(rule *base.Rule) (bool, error) {
+	head, err := rule.Head()
+	if err != nil {
+		return false, err
+	}
+	if i.atomSubsumed(head) {
+		return true, nil
+	}
+	hash, err := rule.Hash()
+	if err != nil {
+		return false, err
+	}
+	for _, prior := range i.ruleSet[hash] {
+		same, e := prior.Equal(rule)
+		if e != nil || same {
+			return same, e
+		}
+	}
+	return false, nil
+}
+
+// close is ~rule_subsumption_index: m_ref_holder releases forward.
+func (i *ruleSubsumptionIndex) close() (result error) {
+	for _, rule := range i.refHolder {
 		result = errors.Join(result, rule.Close())
-		delete(total, declaration)
 	}
+	i.refHolder = nil
+	i.ruleSet = nil
 	return result
 }
 
-func appendTotalRelationDeclarations(source *base.RuleSet, seen map[ast.ASTHandle]bool, order *[]ast.ASTHandle, manager **ast.ASTManager) (grew bool, resultErr error) {
+// transformRule is mk_subsumption_checker::transform_rule. It returns the
+// rule itself (fresh false) or a new owned replacement; ok false means the
+// rule is unsatisfiable or never adds facts.
+func (p *SubsumptionCheckerPlugin) transformRule(manager *base.RuleManager, rule *base.Rule, index *ruleSubsumptionIndex) (_ *base.Rule, fresh, ok bool, resultErr error) {
+	uninterpreted, err := rule.UninterpretedTailSize()
+	if err != nil {
+		return nil, false, false, err
+	}
+	total, err := rule.TailSize()
+	if err != nil {
+		return nil, false, false, err
+	}
+	if uninterpreted == 0 {
+		return rule, false, true, nil
+	}
+	head, err := rule.Head()
+	if err != nil {
+		return nil, false, false, err
+	}
+	tail := make([]ast.ASTHandle, 0, total)
+	negated := make([]bool, 0, total)
+	for position := 0; position < uninterpreted; position++ {
+		atom, negative, e := rule.Tail(position)
+		if e != nil {
+			return nil, false, false, e
+		}
+		declaration, e := rule.TailDeclaration(position)
+		if e != nil {
+			return nil, false, false, e
+		}
+		totalTail, e := p.isTotalRelation(declaration)
+		if e != nil {
+			return nil, false, false, e
+		}
+		if totalTail || index.atomSubsumed(atom) {
+			if negative {
+				return nil, false, false, nil
+			}
+			continue
+		}
+		if !negative && atom == head {
+			return nil, false, false, nil
+		}
+		tail = append(tail, atom)
+		negated = append(negated, negative)
+	}
+	if len(tail) == uninterpreted {
+		return rule, false, true, nil
+	}
+	for position := uninterpreted; position < total; position++ {
+		atom, negative, e := rule.Tail(position)
+		if e != nil {
+			return nil, false, false, e
+		}
+		tail = append(tail, atom)
+		negated = append(negated, negative)
+	}
+	name, err := rule.NameSymbol()
+	if err != nil {
+		return nil, false, false, err
+	}
+	replacement, err := manager.NewRuleWithSymbol(head, tail, negated, name)
+	if err != nil {
+		return nil, false, false, err
+	}
+	if err = replacement.SetAccountingParentRule(rule); err != nil {
+		return nil, false, false, errors.Join(err, replacement.Close())
+	}
+	// DEVIATION (TODO.md): the source runs fix_unbound_vars(res, true) here,
+	// whose reduce_unbound_vars applies qe_lite. Doing so drops the
+	// quantified-array bridge that duality's witness reconstruction needs.
+	if err = manager.MkRuleRewriteProof(rule, replacement); err != nil {
+		return nil, false, false, errors.Join(err, replacement.Close())
+	}
+	return replacement, true, true, nil
+}
+
+// transformRules is mk_subsumption_checker::transform_rules.
+func (p *SubsumptionCheckerPlugin) transformRules(source, target *base.RuleSet) (modified bool, resultErr error) {
+	manager, err := source.RuleManager()
+	if err != nil {
+		return false, err
+	}
+	astManager, err := manager.ASTManager()
+	if err != nil {
+		return false, err
+	}
+	includedTotal := make(map[ast.ASTHandle]bool)
+	index := newRuleSubsumptionIndex()
 	count, err := source.Len()
 	if err != nil {
 		return false, err
 	}
-	for index := 0; index < count; index++ {
-		rule, getErr := source.Rule(index)
-		if getErr != nil {
-			return false, getErr
+	original := make([]*base.Rule, 0, count)
+	// Locals die in reverse: orig_rules (forward), then subs_index.
+	defer func() {
+		for _, rule := range original {
+			resultErr = errors.Join(resultErr, rule.Close())
 		}
-		isTotal, getErr := totalRule(rule)
-		if getErr == nil && isTotal {
-			declaration, declarationErr := rule.HeadDeclaration()
-			getErr = declarationErr
-			if getErr == nil && *manager == nil {
-				*manager, getErr = rule.ASTManager()
-			}
-			if getErr == nil && !seen[declaration] {
-				seen[declaration] = true
-				*order = append(*order, declaration)
-				grew = true
-			}
+		resultErr = errors.Join(resultErr, index.close())
+	}()
+	sizes := make([]int, 0, count)
+	for position := 0; position < count; position++ {
+		rule, e := source.Rule(position)
+		if e != nil {
+			return false, e
 		}
-		getErr = errors.Join(getErr, rule.Close())
-		if getErr != nil {
-			return false, getErr
+		original = append(original, rule)
+		size, e := rule.TailSize()
+		if e != nil {
+			return false, e
+		}
+		sizes = append(sizes, size)
+	}
+	// rule_size_comparator: shortest tails first.
+	order := make([]int, count)
+	for position := range order {
+		order[position] = position
+	}
+	sort.SliceStable(order, func(a, b int) bool { return sizes[order[a]] < sizes[order[b]] })
+	for _, position := range order {
+		rule := original[position]
+		declaration, e := rule.HeadDeclaration()
+		if e != nil {
+			return false, e
+		}
+		total, e := p.isTotalRelation(declaration)
+		if e != nil {
+			return false, e
+		}
+		if total {
+			output, x := source.IsOutputPredicate(declaration)
+			if x != nil {
+				return false, x
+			}
+			if !output || includedTotal[declaration] {
+				modified = true
+				continue
+			}
+			if defining := p.totalDefining[declaration]; defining != nil {
+				totality, fresh, _, x := p.transformRule(manager, defining, index)
+				if x != nil {
+					return false, x
+				}
+				if fresh {
+					modified = true
+				}
+				x = target.Add(totality)
+				if fresh {
+					x = errors.Join(x, totality.Close())
+				}
+				if x != nil {
+					return false, x
+				}
+			} else {
+				modified = true
+			}
+			includedTotal[declaration] = true
+			continue
+		}
+		replacement, fresh, ok, x := p.transformRule(manager, rule, index)
+		if x != nil {
+			return false, x
+		}
+		if !ok {
+			modified = true
+			continue
+		}
+		x = p.addTransformedRule(astManager, source, target, index, declaration, replacement, fresh, &modified)
+		if fresh {
+			x = errors.Join(x, replacement.Close())
+		}
+		if x != nil {
+			return false, x
 		}
 	}
-	return grew, nil
+	if err = target.InheritPredicates(source); err != nil {
+		return false, err
+	}
+	if p.totalRelations != nil && p.totalRelations.Len() != 0 && !p.noModelConverter {
+		entries := p.totalRelations.Entries()
+		declarations := make([]ast.ASTHandle, 0, len(entries))
+		for _, entry := range entries {
+			declarations = append(declarations, entry.Key)
+		}
+		step, x := totalRelationModelStep(astManager, declarations)
+		if x != nil {
+			return false, errors.Join(x, closeConeModelSteps([]ConeModelStep{step}))
+		}
+		p.modelSteps = append(p.modelSteps, step)
+	}
+	return modified, nil
+}
+
+func (p *SubsumptionCheckerPlugin) addTransformedRule(manager *ast.ASTManager, source, target *base.RuleSet, index *ruleSubsumptionIndex, declaration ast.ASTHandle, rule *base.Rule, fresh bool, modified *bool) error {
+	total, err := isTotalRule(rule)
+	if err != nil {
+		return err
+	}
+	if total {
+		if err = p.onDiscoveredTotalRelation(manager, declaration, rule); err != nil {
+			return err
+		}
+	}
+	subsumed, err := index.ruleSubsumed(rule)
+	if err != nil {
+		return err
+	}
+	if subsumed {
+		*modified = true
+		return nil
+	}
+	if fresh {
+		*modified = true
+	}
+	if err = target.Add(rule); err != nil {
+		return err
+	}
+	return index.add(rule)
 }
 
 func totalRelationModelStep(manager *ast.ASTManager, declarations []ast.ASTHandle) (ConeModelStep, error) {
@@ -327,181 +575,7 @@ func totalRelationModelStep(manager *ast.ASTManager, declarations []ast.ASTHandl
 	return step, nil
 }
 
-func transformSubsumedRule(manager *base.RuleManager, rule *base.Rule, total map[ast.ASTHandle]*base.Rule, index *subsumptionIndex) (_ *base.Rule, retain, changed bool, resultErr error) {
-	head, err := rule.Head()
-	if err != nil {
-		return nil, false, false, err
-	}
-	uninterpreted, err := rule.UninterpretedTailSize()
-	if err != nil {
-		return nil, false, false, err
-	}
-	tailSize, err := rule.TailSize()
-	if err != nil {
-		return nil, false, false, err
-	}
-	tail := make([]ast.ASTHandle, 0, tailSize)
-	negated := make([]bool, 0, tailSize)
-	for position := 0; position < tailSize; position++ {
-		atom, negative, e := rule.Tail(position)
-		if e != nil {
-			return nil, false, false, e
-		}
-		if position < uninterpreted {
-			declaration, x := rule.TailDeclaration(position)
-			if x != nil {
-				return nil, false, false, x
-			}
-			if total[declaration] != nil || index.atomSubsumed(atom) {
-				if negative {
-					return nil, false, true, nil
-				}
-				changed = true
-				continue
-			}
-			if !negative && atom == head {
-				return nil, false, true, nil
-			}
-		}
-		tail = append(tail, atom)
-		negated = append(negated, negative)
-	}
-	if !changed {
-		return nil, true, false, nil
-	}
-	name, err := rule.NameSymbol()
-	if err != nil {
-		return nil, false, false, err
-	}
-	replacement, err := manager.NewRuleWithSymbol(head, tail, negated, name)
-	if err != nil {
-		return nil, false, false, err
-	}
-	if err = replacement.SetAccountingParentRule(rule); err != nil {
-		return nil, false, false, errors.Join(err, replacement.Close())
-	}
-	if err = manager.MkRuleRewriteProof(rule, replacement); err != nil {
-		return nil, false, false, errors.Join(err, replacement.Close())
-	}
-	return replacement, true, true, nil
-}
-
-func subsumptionPass(source *base.RuleSet) (_ *base.RuleSet, changed bool, resultErr error) {
-	manager, err := source.RuleManager()
-	if err != nil {
-		return nil, false, err
-	}
-	total, err := discoverTotalRules(source)
-	if err != nil {
-		return nil, false, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, closeTotalRules(total)) }()
-	result, err := base.NewRuleSet(manager)
-	if err != nil {
-		return nil, false, err
-	}
-	keep := false
-	defer func() {
-		if !keep {
-			resultErr = errors.Join(resultErr, result.Close())
-		}
-	}()
-	if err = result.InheritPredicates(source); err != nil {
-		return nil, false, err
-	}
-	count, err := source.Len()
-	if err != nil {
-		return nil, false, err
-	}
-	rules := make([]*base.Rule, 0, count)
-	for position := 0; position < count; position++ {
-		rule, e := source.Rule(position)
-		if e != nil {
-			for _, owned := range rules {
-				e = errors.Join(e, owned.Close())
-			}
-			return nil, false, e
-		}
-		rules = append(rules, rule)
-	}
-	defer func() {
-		for _, rule := range rules {
-			resultErr = errors.Join(resultErr, rule.Close())
-		}
-	}()
-	sort.SliceStable(rules, func(left, right int) bool {
-		leftSize, _ := rules[left].TailSize()
-		rightSize, _ := rules[right].TailSize()
-		return leftSize < rightSize
-	})
-	includedTotal := make(map[ast.ASTHandle]bool)
-	index := newSubsumptionIndex()
-	defer func() { resultErr = errors.Join(resultErr, index.close()) }()
-	for _, rule := range rules {
-		declaration, e := rule.HeadDeclaration()
-		if e != nil {
-			return nil, false, e
-		}
-		candidate := rule
-		var replacement *base.Rule
-		if defining := total[declaration]; defining != nil {
-			output, x := source.IsOutputPredicate(declaration)
-			if x != nil {
-				return nil, false, x
-			}
-			if !output || includedTotal[declaration] {
-				changed = true
-				continue
-			}
-			candidate = defining
-			includedTotal[declaration] = true
-			if same, x := candidate.Same(rule); x != nil {
-				return nil, false, x
-			} else if !same {
-				changed = true
-			}
-		}
-		replacement, retain, ruleChanged, x := transformSubsumedRule(manager, candidate, total, index)
-		if x != nil {
-			return nil, false, x
-		}
-		changed = changed || ruleChanged
-		if !retain {
-			continue
-		}
-		if replacement != nil {
-			candidate = replacement
-		}
-		subsumed, x := index.ruleSubsumed(candidate)
-		if x == nil && !subsumed {
-			x = result.Add(candidate)
-			if x == nil {
-				x = index.add(candidate)
-			}
-		} else if x == nil {
-			changed = true
-		}
-		if replacement != nil {
-			x = errors.Join(x, replacement.Close())
-		}
-		if x != nil {
-			return nil, false, x
-		}
-	}
-	if !changed {
-		return nil, false, nil
-	}
-	valid, err := result.Finalize()
-	if err != nil {
-		return nil, false, err
-	}
-	if !valid {
-		return nil, false, fmt.Errorf("muz/transforms: subsumption checker produced unstratified negation")
-	}
-	keep = true
-	return result, true, nil
-}
-
+// Transform is mk_subsumption_checker::operator().
 func (p *SubsumptionCheckerPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
 	if p == nil || p.closed || p.closing {
 		return nil, base.ErrRuleTransformerOwner
@@ -509,60 +583,42 @@ func (p *SubsumptionCheckerPlugin) Transform(source *base.RuleSet) (_ *base.Rule
 	if !p.enabled {
 		return nil, nil
 	}
-	seen := make(map[ast.ASTHandle]bool)
-	var order []ast.ASTHandle
-	var manager *ast.ASTManager
-	if _, err := appendTotalRelationDeclarations(source, seen, &order, &manager); err != nil {
-		return nil, err
-	}
-	current := source
-	owned := false
-	var ownedSets []*base.RuleSet
-	var step ConeModelStep
-	defer func() {
-		if resultErr != nil {
-			var steps []ConeModelStep
-			if len(step) != 0 {
-				steps = []ConeModelStep{step}
-			}
-			resultErr = closeSubsumptionConstruction(manager, resultErr, ownedSets, steps)
-		}
-	}()
-	for {
-		next, _, err := subsumptionPass(current)
-		if err != nil {
-			return nil, err
-		}
-		if next == nil {
-			break
-		}
-		ownedSets = append(ownedSets, next)
-		grew, err := appendTotalRelationDeclarations(next, seen, &order, &manager)
-		if err != nil {
-			return nil, err
-		}
-		if owned {
-			if err = current.Close(); err != nil {
-				return nil, err
-			}
-		}
-		current, owned = next, true
-		if !grew {
-			break
-		}
-	}
-	var err error
-	step, err = totalRelationModelStep(manager, order)
+	rules, err := source.RuleManager()
 	if err != nil {
 		return nil, err
 	}
-	if len(step) != 0 {
-		p.modelSteps = append(p.modelSteps, step)
-		step = nil
+	manager, err := rules.ASTManager()
+	if err != nil {
+		return nil, err
 	}
-	if !owned {
-		return nil, nil
+	p.haveNewTotalRule = false
+	if err = p.scanForTotalRules(source); err != nil {
+		return nil, err
 	}
-	owned = false
-	return current, nil
+	p.haveNewTotalRule = false
+	result, err := base.NewRuleSet(rules)
+	if err != nil {
+		return nil, err
+	}
+	modified, err := p.transformRules(source, result)
+	if err != nil {
+		return nil, closeSubsumptionConstruction(manager, err, []*base.RuleSet{result}, nil)
+	}
+	if !p.haveNewTotalRule && !modified {
+		return nil, result.Close()
+	}
+	for p.haveNewTotalRule {
+		p.haveNewTotalRule = false
+		old := result
+		if result, err = base.NewRuleSet(rules); err != nil {
+			return nil, closeSubsumptionConstruction(manager, err, []*base.RuleSet{old}, nil)
+		}
+		if _, err = p.transformRules(old, result); err != nil {
+			return nil, closeSubsumptionConstruction(manager, err, []*base.RuleSet{old, result}, nil)
+		}
+		if err = old.Close(); err != nil {
+			return nil, closeSubsumptionConstruction(manager, err, []*base.RuleSet{result}, nil)
+		}
+	}
+	return result, nil
 }

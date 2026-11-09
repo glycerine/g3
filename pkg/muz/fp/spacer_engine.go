@@ -193,6 +193,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	}
 	newSubsumption := func(priority uint32) *transforms.SubsumptionCheckerPlugin {
 		plugin := transforms.NewSubsumptionCheckerPlugin(useChecker, priority)
+		plugin.SetModelConverter(!e.preprocessNullModelConverter)
 		subsumers = append(subsumers, plugin)
 		return plugin
 	}

@@ -35,8 +35,8 @@ func TestSubsumptionClosePreservesModelStepsWhileManagerExecutes(t *testing.T) {
 			callbacks++
 			for i := 0; i < 2; i++ {
 				cause := plugin.Close()
-				intact = intact && errors.Is(cause, ast.ErrASTPending) && !plugin.closed && len(plugin.modelSteps) == 1
-				if len(plugin.modelSteps) == 1 {
+				intact = intact && errors.Is(cause, ast.ErrASTPending) && !plugin.closed && len(plugin.modelSteps) == 2
+				if len(plugin.modelSteps) == 2 {
 					intact = intact && len(plugin.modelSteps[0]) == 2 && plugin.modelSteps[0][0].Formula == original && plugin.modelSteps[0][1].Formula != (ast.ASTRef{})
 				}
 			}
@@ -116,7 +116,10 @@ func TestSubsumptionClosePreservesModelStepsWhileManagerExecutes(t *testing.T) {
 		}
 	}()
 	defer func() { must(plugin.Close()) }()
-	if len(plugin.modelSteps) != 1 || len(plugin.modelSteps[0]) != 2 || plugin.modelSteps[0][0].Declaration != total || plugin.modelSteps[0][1].Declaration != output {
+	// transform_rules adds an extension_model_converter on each of its two
+	// passes (output becomes total during the first); entries are in
+	// func_decl_set hash order.
+	if len(plugin.modelSteps) != 2 || len(plugin.modelSteps[0]) != 2 || !sameDeclarationSet(plugin.modelSteps[0], total, output) {
 		t.Fatal("missing total-relation model owner")
 	}
 	original = plugin.modelSteps[0][0].Formula
@@ -164,7 +167,24 @@ func TestSubsumptionClosePreservesModelStepsWhileManagerExecutes(t *testing.T) {
 	before := m.Stats().LiveReferences
 	must(plugin.Close())
 	must(plugin.Close())
-	if !plugin.closed || len(plugin.modelSteps) != 0 || m.Stats().LiveReferences+2 != before {
-		t.Fatal("retry did not release exactly the model owner")
+	if !plugin.closed || len(plugin.modelSteps) != 0 || m.Stats().LiveReferences+5 != before {
+		// Two steps of two formulas, plus m_ref_holder's rewritten output fact.
+		t.Fatal("retry did not release exactly the model and ref-holder owners", before-m.Stats().LiveReferences)
 	}
+}
+
+func sameDeclarationSet(step ConeModelStep, want ...ast.ASTHandle) bool {
+	if len(step) != len(want) {
+		return false
+	}
+	seen := make(map[ast.ASTHandle]bool, len(step))
+	for _, definition := range step {
+		seen[definition.Declaration] = true
+	}
+	for _, declaration := range want {
+		if !seen[declaration] {
+			return false
+		}
+	}
+	return len(seen) == len(want)
 }

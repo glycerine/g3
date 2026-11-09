@@ -76,8 +76,16 @@ func TestSubsumptionCheckerRemovesTotalPositiveTail(t *testing.T) {
 	steps, err := plugin.TakeModelSteps()
 	coneMust(t, err)
 	t.Cleanup(func() { coneMust(t, transforms.CloseConeModelSteps(steps)) })
-	if len(steps) != 1 || len(steps[0]) != 2 || steps[0][0].Declaration != f.declarations["Total"] || steps[0][1].Declaration != f.declarations["Goal"] {
+	// One extension_model_converter per transform_rules pass; Goal becomes
+	// total in the first pass, forcing a second. Entries are in
+	// func_decl_set hash order.
+	if len(steps) != 2 {
 		t.Fatal("total-relation model step", steps)
+	}
+	for _, step := range steps {
+		if !subsumptionStepHas(step, f.declarations["Total"], f.declarations["Goal"]) {
+			t.Fatal("total-relation model step", steps)
+		}
 	}
 	for _, definition := range steps[0] {
 		formula, getErr := f.manager.RefGet(definition.Formula)
@@ -140,15 +148,15 @@ func TestSubsumptionCheckerClosesDynamicallyDiscoveredTotals(t *testing.T) {
 	coneMust(t, err)
 	t.Cleanup(func() { coneMust(t, transforms.CloseConeModelSteps(steps)) })
 	want := []ast.ASTHandle{total.declaration, mid.declaration, goal.declaration}
-	if len(steps) != 1 || len(steps[0]) != len(want) {
+	if len(steps) != 2 {
 		t.Fatal("dynamic total-relation model steps", steps)
 	}
-	seen := make(map[ast.ASTHandle]bool, len(want))
-	for index, definition := range steps[0] {
-		if definition.Declaration != want[index] || seen[definition.Declaration] {
-			t.Fatal("dynamic total-relation model order", index, definition.Declaration, want[index])
+	for _, step := range steps {
+		if !subsumptionStepHas(step, want...) {
+			t.Fatal("dynamic total-relation model steps", steps)
 		}
-		seen[definition.Declaration] = true
+	}
+	for _, definition := range steps[0] {
 		formula, getErr := f.manager.RefGet(definition.Formula)
 		coneMust(t, getErr)
 		if !f.manager.IsTrue(formula) {
@@ -263,4 +271,20 @@ func TestSubsumptionCheckerDisabledReturnsNoChange(t *testing.T) {
 		coneMust(t, replacement.Close())
 		t.Fatal("disabled checker returned a replacement")
 	}
+}
+
+func subsumptionStepHas(step transforms.ConeModelStep, want ...ast.ASTHandle) bool {
+	if len(step) != len(want) {
+		return false
+	}
+	seen := make(map[ast.ASTHandle]bool, len(step))
+	for _, definition := range step {
+		seen[definition.Declaration] = true
+	}
+	for _, declaration := range want {
+		if !seen[declaration] {
+			return false
+		}
+	}
+	return true
 }
