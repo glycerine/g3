@@ -102,8 +102,8 @@ Found while matching `-st` output against `build/z3` on
    is_neg_poly/div_polynomial reassignment) and moved monomials sorted
    by mon_lt; fpa mk_is_nan order and convert_bv2fp's extract shape.
    Rebuild the [del]-logging g3 with /var/tmp/g3-job-487c9ee8/build_g3del.sh.
-   Open in fpa: the bv2fpa model conversion releases a group of terms in a
-   different order (likely an obj_map walked in hash order).
+   DONE in fpa: the bv2fpa model conversion released a group of terms in a
+   different order: its obj_maps are now ast.ObjMap (see below).
    Next buckets: '[mk-app] vs [mk-var]' (fixedpoint, see item 20),
    not/iff/= id differences (bit-blaster and SAT ownership), and
    '[mk-quant]' ordering.
@@ -146,6 +146,32 @@ Found while matching `-st` output against `build/z3` on
    propagator holds no references; the ported unmark_relevant_exprs
    TRACE (datatype_update_equality_scopes) shows terms already deleted
    when g3 unmarks them, so g3 frees them earlier than z3 does.
+   DONE (332 -> 345 identical full logs; run-to-run nondeterminism over all
+   660 vectors: 6 files -> 0): Go maps that z3 iterates as obj_map /
+   core_hashtable now use ast.ObjMap (ast/ast_obj_map.go: the
+   core_hashtable layout, insert_if_not_there with a custom hash/eq, Num
+   values). Converted: fpa2bv/bv2fpa caches, ast_translation cache,
+   expr2var (nlsat mk_model walks variables in mk_inv order), bit-blaster
+   const2bits (fixed a nondeterministic lackr model) and its m_keys/m_values
+   forward release, reduce-args (decl2arg2funcs, arg2func with
+   arg2func_hash_proc), the model finder's instantiation_set
+   (m_elems/m_inv), proto_model m_aux_decls/found_aux_fs, model_core
+   m_interp/m_finterp layouts (teardown, copy, translate, cleanup),
+   aig max_sharing m_saved and expr2aig, grobner m_var2weight.
+   distribute-forall's cache is an act_cache. Two lifetime fixes surfaced
+   once teardown followed table order: proto_model::mk_model moves the
+   func_interps into the final model, and model_generator's m_asts pins
+   stay alive until the next reset (released forward).
+   Check for nondeterminism with /var/tmp/g3-job-487c9ee8/ndscan.sh (three
+   runs per vector, compares trace logs).
+   Still open in this area: model universes (m_usort2universe is an
+   obj_map; g3 keeps insertion order), cmd_context m_object_refs (a symbol
+   dictionary; only debug commands use it), and the remaining mapscan list
+   ($CLAUDE_JOB_DIR/tmp/mapscan/out.txt): muz/rel, duality, muz/fp,
+   qe (bool_atom_index, nlarith weights, branch cache), tactic/core
+   pb_preprocess, bv_slice, substitution_tree. Those loops are
+   deterministic in practice only if the map has one entry; each needs its
+   z3 container checked (obj_map -> ast.ObjMap, vector -> insdict).
 
 4. **DONE: get-consequences algorithm.** smt_solver::get_consequences_core
    is now context::get_consequences (smt_consequences.cpp: antecedent sets,
