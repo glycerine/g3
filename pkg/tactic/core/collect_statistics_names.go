@@ -132,7 +132,7 @@ func collectStatisticsFormat(m *ast.ASTManager, h ast.ASTHandle, sort bool) (tex
 		return "", err
 	}
 	defer func() { result = errors.Join(result, out.Close()) }()
-	if err = m.PrintFormat(out, format, nil, nil, nil); err != nil {
+	if err = m.PrintFormatTransient(out, format, nil, nil, nil); err != nil {
 		return "", err
 	}
 	return out.String()

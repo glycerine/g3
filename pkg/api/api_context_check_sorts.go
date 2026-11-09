@@ -67,7 +67,7 @@ func (c *apiContextResults) sortApplicationWarning(h ast.ASTHandle) (message str
 	if e != nil {
 		return "", e
 	}
-	if e = c.manager.PrintFormat(out, formatted, nil, nil, nil); e != nil {
+	if e = c.manager.PrintFormatTransient(out, formatted, nil, nil, nil); e != nil {
 		return "", e
 	}
 	if e = out.AppendCString(" applied to: "); e != nil {
@@ -101,7 +101,7 @@ func (c *apiContextResults) sortApplicationWarning(h ast.ASTHandle) (message str
 		if e != nil {
 			return "", e
 		}
-		if e = c.manager.PrintFormat(out, formatted, nil, nil, nil); e != nil {
+		if e = c.manager.PrintFormatTransient(out, formatted, nil, nil, nil); e != nil {
 			return "", e
 		}
 		if e = out.AppendCString("\n"); e != nil {

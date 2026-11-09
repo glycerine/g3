@@ -75,7 +75,7 @@ func (m *ASTManager) checkSortText(h ASTHandle) (value string, result error) {
 	if err != nil {
 		return "", err
 	}
-	if err = m.PrintFormat(out, format, nil, nil, nil); err != nil {
+	if err = m.PrintFormatTransient(out, format, nil, nil, nil); err != nil {
 		return "", err
 	}
 	return out.String()

@@ -504,7 +504,7 @@ func (x *Expr2Polynomial) traceFrame(frame *exprPolynomialFrame) error {
 				return err
 			}
 			empty := g.Context.EmptyValue()
-			if err = x.ast.PrintFormat(out, format, g.Context, &empty, g); err != nil {
+			if err = x.ast.PrintFormatTransient(out, format, g.Context, &empty, g); err != nil {
 				return errors.Join(err, out.Close())
 			}
 			body, err := out.String()

@@ -561,7 +561,7 @@ func (h *QuantifierHoister) formatTrace(hnd ast.ASTHandle) (value string, result
 		return "", err
 	}
 	defer func() { result = errors.Join(result, out.Close()) }()
-	if err = h.m.PrintFormat(out, format, nil, nil, nil); err != nil {
+	if err = h.m.PrintFormatTransient(out, format, nil, nil, nil); err != nil {
 		return "", err
 	}
 	return out.String()

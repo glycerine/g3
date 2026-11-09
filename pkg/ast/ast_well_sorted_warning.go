@@ -35,7 +35,7 @@ func (m *ASTManager) wellSortedMismatchWarning(w wellSortedWarning, c *uparams.P
 		if e != nil {
 			return e
 		}
-		return m.PrintFormat(out, formatted, c, p, g)
+		return m.PrintFormatTransient(out, formatted, c, p, g)
 	}
 	if err = printSort(w.want); err != nil {
 		return "", err
@@ -53,7 +53,7 @@ func (m *ASTManager) wellSortedMismatchWarning(w wellSortedWarning, c *uparams.P
 	if e != nil {
 		return "", e
 	}
-	if err = m.PrintFormat(out, decl, c, p, g); err != nil {
+	if err = m.PrintFormatTransient(out, decl, c, p, g); err != nil {
 		return "", err
 	}
 	if err = out.AppendCString("."); err != nil {

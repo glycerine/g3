@@ -43,7 +43,7 @@ func (m *Manager) smt2BooleanText(h ast.ASTHandle) (body string, result error) {
 		return "", e
 	}
 	defer func() { result = errors.Join(result, g.Context.Del(&empty)) }()
-	if e = m.ast.PrintFormat(out, format, g.Context, &empty, g); e != nil {
+	if e = m.ast.PrintFormatTransient(out, format, g.Context, &empty, g); e != nil {
 		return "", e
 	}
 	return out.String()

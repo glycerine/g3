@@ -109,7 +109,7 @@ func (x *Expr2Var) traceInsert(h ASTHandle) error {
 			}
 			defer out.Close()
 			empty := g.Context.EmptyValue()
-			if err = x.manager.PrintFormat(out, format, g.Context, &empty, g); err != nil {
+			if err = x.manager.PrintFormatTransient(out, format, g.Context, &empty, g); err != nil {
 				return err
 			}
 			body, err := out.String()
@@ -337,7 +337,7 @@ func (x *Expr2Var) Display(w io.Writer) (result error) {
 			return err
 		}
 		empty := g.Context.EmptyValue()
-		if err = x.manager.PrintFormat(out, format, g.Context, &empty, g); err != nil {
+		if err = x.manager.PrintFormatTransient(out, format, g.Context, &empty, g); err != nil {
 			return errors.Join(err, out.Close())
 		}
 		body, err := out.String()
