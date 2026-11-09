@@ -299,8 +299,12 @@ type safeAssumptions struct {
 	atoms          []ast.ASTHandle
 	proxyToFormula map[ast.ASTHandle]ast.ASTHandle
 	formulaToProxy map[ast.ASTHandle]ast.ASTHandle
-	references     []ast.ASTRef
-	generated      map[ast.ASTHandle]bool
+	// proxyOrder lists the proxies in creation order; definitions are their
+	// (or (not proxy) literal) assertions.
+	proxyOrder  []ast.ASTHandle
+	definitions []ast.ASTHandle
+	references  []ast.ASTRef
+	generated   map[ast.ASTHandle]bool
 }
 
 func (p *PropSolver) binaryEquality(expression ast.ASTHandle) (left, right ast.ASTHandle, matched bool, result error) {
@@ -651,14 +655,27 @@ func (p *PropSolver) makeSafeAssumptions(input []ast.ASTHandle) (_ *safeAssumpti
 			return nil, x
 		}
 		nextProxy++
-		implication, x := p.manager.MkImplies(proxy, atom)
+		// expr_ref implies(m.mk_or(m.mk_not(res), literal)) is asserted and
+		// kept in m_assumptions, which is the Farkas learner's B set.
+		negated, x := p.manager.MkNot(proxy)
 		if x != nil {
 			return nil, x
 		}
+		implication, x := p.manager.MkOr(negated, atom)
+		if x != nil {
+			return nil, x
+		}
+		held, x := p.manager.NewRef(implication)
+		if x != nil {
+			return nil, x
+		}
+		safe.references = append(safe.references, held)
+		safe.definitions = append(safe.definitions, implication)
 		if x = p.context.Assert(implication); x != nil {
 			return nil, x
 		}
 		safe.proxyToFormula[proxy] = atom
+		safe.proxyOrder = append(safe.proxyOrder, proxy)
 		safe.formulaToProxy[atom] = proxy
 		safe.atoms[index] = proxy
 	}
@@ -710,45 +727,6 @@ func (p *PropSolver) publishTheoryResults(safe *safeAssumptions, learned []ast.A
 		committed = true
 		return nil, nil
 	}
-	if len(safe.proxyToFormula) != 0 {
-		substitution, err := p.manager.NewExprSubstitutionPolicy(false, false)
-		if err != nil {
-			return nil, err
-		}
-		defer func() { resultErr = errors.Join(resultErr, p.manager.DelExprSubstitution(&substitution)) }()
-		for proxy, formula := range safe.proxyToFormula {
-			if err = p.manager.ExprSubstitutionInsert(substitution, proxy, formula, ast.ASTHandle{}, ast.ASTDependency{}); err != nil {
-				return nil, err
-			}
-		}
-		replacer, err := rewriter.NewDefaultExprReplacer(p.manager)
-		if err != nil {
-			return nil, err
-		}
-		defer func() { resultErr = errors.Join(resultErr, replacer.Close()) }()
-		if err = replacer.SetSubstitution(&substitution); err != nil {
-			return nil, err
-		}
-		for i := range learned {
-			original, err := p.manager.RefGet(learned[i])
-			if err != nil {
-				return nil, err
-			}
-			rewritten, err := p.manager.NewRef(ast.ASTHandle{})
-			if err != nil {
-				return nil, err
-			}
-			if err = replacer.Rewrite(original, rewritten); err != nil {
-				resultErr = errors.Join(err, p.manager.DelRef(&rewritten))
-				return nil, resultErr
-			}
-			if err = p.manager.DelRef(&learned[i]); err != nil {
-				_ = p.manager.DelRef(&rewritten)
-				return nil, err
-			}
-			learned[i] = rewritten
-		}
-	}
 	result := make([]ast.ASTHandle, 0, len(learned))
 	for i := range learned {
 		handle, err := p.manager.RefGet(learned[i])
@@ -760,6 +738,88 @@ func (p *PropSolver) publishTheoryResults(safe *safeAssumptions, learned []ast.A
 	p.coreReferences = append(p.coreReferences, learned...)
 	committed = true
 	return result, nil
+}
+
+// assumptionSet is m_assumptions: the proxy definitions, then the conjuncts.
+func (safe *safeAssumptions) assumptionSet() []ast.ASTHandle {
+	result := make([]ast.ASTHandle, 0, len(safe.definitions)+len(safe.atoms))
+	result = append(result, safe.definitions...)
+	return append(result, safe.atoms...)
+}
+
+// elimProxies is safe_assumptions::elim_proxies: every proxy is replaced by
+// true (with an asserted-true proof when proofs are enabled), and lemmas that
+// become true are dropped by moving the last lemma into their place.
+func (p *PropSolver) elimProxies(safe *safeAssumptions, learned []ast.ASTRef) (_ []ast.ASTRef, resultErr error) {
+	m := p.manager
+	proofs, err := m.ProofsEnabled()
+	if err != nil {
+		return learned, err
+	}
+	substitution, err := m.NewExprSubstitutionPolicy(false, proofs)
+	if err != nil {
+		return learned, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.DelExprSubstitution(&substitution)) }()
+	var proofRef ast.ASTRef
+	var proof ast.ASTHandle
+	truth, err := m.MkTrue()
+	if err != nil {
+		return learned, err
+	}
+	if proofs {
+		if proof, err = m.MkProofAsserted(truth); err != nil {
+			return learned, err
+		}
+		if proofRef, err = m.NewRef(proof); err != nil {
+			return learned, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, m.DelRef(&proofRef)) }()
+	}
+	for _, proxy := range safe.proxyOrder {
+		if err = m.ExprSubstitutionInsert(substitution, proxy, truth, proof, ast.ASTDependency{}); err != nil {
+			return learned, err
+		}
+	}
+	replacer, err := rewriter.NewDefaultExprReplacer(m)
+	if err != nil {
+		return learned, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, replacer.Close()) }()
+	if err = replacer.SetSubstitution(&substitution); err != nil {
+		return learned, err
+	}
+	for i := 0; i < len(learned); i++ {
+		original, err := m.RefGet(learned[i])
+		if err != nil {
+			return learned, err
+		}
+		rewritten, err := m.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return learned, err
+		}
+		if err = replacer.Rewrite(original, rewritten); err != nil {
+			return learned, errors.Join(err, m.DelRef(&rewritten))
+		}
+		if err = m.DelRef(&learned[i]); err != nil {
+			return learned, errors.Join(err, m.DelRef(&rewritten))
+		}
+		learned[i] = rewritten
+		value, err := m.RefGet(rewritten)
+		if err != nil {
+			return learned, err
+		}
+		if m.IsTrue(value) {
+			last := len(learned) - 1
+			if err = m.DelRef(&learned[i]); err != nil {
+				return learned, err
+			}
+			learned[i] = learned[last]
+			learned = learned[:last]
+			i--
+		}
+	}
+	return learned, nil
 }
 
 func (p *PropSolver) simplifyTheoryResults(learned []ast.ASTRef) (_ []ast.ASTRef, resultErr error) {
@@ -865,51 +925,52 @@ func (p *PropSolver) theoryResultsInsideFragment(safe *safeAssumptions, learned 
 	return IsUTVPILogic(p.manager, formulas)
 }
 
-func (p *PropSolver) extractTheoryCore(safe *safeAssumptions, wantConsequences bool) (_ []ast.ASTHandle, _ []ast.ASTHandle, resultErr error) {
+func (p *PropSolver) extractTheoryCore(safe *safeAssumptions, wantConsequences bool) (_ []ast.ASTHandle, _ []ast.ASTHandle, used bool, resultErr error) {
 	if p.contexts.config.Params == nil || p.contexts.config.Globals == nil {
-		return nil, nil, nil
+		return nil, nil, false, nil
 	}
 	proof, err := p.context.Proof()
 	if err != nil || proof.IsNull() {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 	learner, err := NewFarkasLearner(p.manager, p.contexts.config.Params, p.contexts.config.Globals)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, learner.Close()) }()
-	learned, err := learner.GetLemmas(proof, safe.atoms)
+	learned, err := learner.GetLemmas(proof, safe.assumptionSet())
 	if err != nil {
-		return nil, nil, fmt.Errorf("muz/pdr: Farkas lemma extraction: %w", err)
+		return nil, nil, false, fmt.Errorf("muz/pdr: Farkas lemma extraction: %w", err)
+	}
+	if learned, err = p.elimProxies(safe, learned); err != nil {
+		return nil, nil, false, errors.Join(fmt.Errorf("muz/pdr: eliminate Farkas proxies: %w", err), closeASTRefs(p.manager, learned))
 	}
 	learned, err = p.simplifyTheoryResults(learned)
 	if err != nil {
-		return nil, nil, fmt.Errorf("muz/pdr: Farkas lemma simplification: %w", err)
+		return nil, nil, false, fmt.Errorf("muz/pdr: Farkas lemma simplification: %w", err)
 	}
 	inside, err := p.theoryResultsInsideFragment(safe, learned)
 	if err != nil {
-		return nil, nil, fmt.Errorf("muz/pdr: classify Farkas lemmas: %w", err)
+		return nil, nil, false, fmt.Errorf("muz/pdr: classify Farkas lemmas: %w", err)
 	}
 	if !inside {
-		return nil, nil, closeASTRefs(p.manager, learned)
+		return nil, nil, false, closeASTRefs(p.manager, learned)
 	}
 	core, err := p.publishTheoryResults(safe, learned)
 	if err != nil || len(core) == 0 || !wantConsequences {
 		if err != nil {
 			err = fmt.Errorf("muz/pdr: Farkas core publication: %w", err)
 		}
-		return core, nil, err
+		return core, nil, err == nil, err
 	}
-	learnedConsequences, err := learner.GetConsequences(proof, safe.atoms)
+	learnedConsequences, err := learner.GetConsequences(proof, safe.assumptionSet())
 	if err != nil {
-		return nil, nil, fmt.Errorf("muz/pdr: Farkas consequence extraction: %w", err)
+		return nil, nil, false, fmt.Errorf("muz/pdr: Farkas consequence extraction: %w", err)
 	}
-	learnedConsequences, err = p.simplifyTheoryResults(learnedConsequences)
-	if err != nil {
-		return nil, nil, fmt.Errorf("muz/pdr: Farkas consequence simplification: %w", err)
-	}
+	// fl.get_consequences fills m_consequences directly: no proxy
+	// elimination or simplification.
 	consequences, err := p.publishTheoryResults(safe, learnedConsequences)
-	return core, consequences, err
+	return core, consequences, err == nil, err
 }
 
 func (p *PropSolver) check(atoms []ast.ASTHandle, formula ast.ASTHandle, level *uint32, wantCore, wantModel, wantConsequences bool) (result PropCheckResult, resultErr error) {
@@ -992,11 +1053,12 @@ func (p *PropSolver) check(atoms []ast.ASTHandle, formula ast.ASTHandle, level *
 			return result, x
 		}
 		if wantCore && p.useFarkas && !p.subsetCore && proofsEnabled {
-			theoryCore, consequences, x := p.extractTheoryCore(safe, wantConsequences)
+			theoryCore, consequences, used, x := p.extractTheoryCore(safe, wantConsequences)
 			if x != nil {
 				return result, x
 			}
-			if len(theoryCore) != 0 {
+			// Inside the logic, m_core becomes the (possibly empty) lemmas.
+			if used {
 				result.Core = theoryCore
 				result.FarkasCore = true
 				result.Consequences = consequences

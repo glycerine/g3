@@ -542,7 +542,14 @@ func (p *PredicateTransformer) IsInvariantAtLevel(level uint32, property ast.AST
 	if err != nil {
 		return false, false, nil, err
 	}
+	// The caller's expr_ref keeps the negated property alive through the
+	// check (the safe-assumption definitions release theirs on return).
+	held, err := p.manager.NewRef(negated)
+	if err != nil {
+		return false, false, nil, err
+	}
 	result, err := p.CheckReachable(level, negated, wantCore, false)
+	err = errors.Join(err, p.manager.DelRef(&held))
 	return result.Status == lbool.False, result.AssumesLevel, result.Core, err
 }
 

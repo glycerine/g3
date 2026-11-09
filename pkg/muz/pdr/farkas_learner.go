@@ -281,7 +281,8 @@ func (f *FarkasLearner) CombineFarkasLemma(proof ast.ASTHandle, bPure []bool) (_
 			}
 		}()
 		for i, literal := range conclusionLiterals {
-			negation, err := f.manager.MkNot(literal)
+			// brwr.mk_not(prem_e, tmp) simplifies.
+			negation, err := f.manager.MkNotSimplified(literal)
 			if err != nil {
 				return ast.ASTRef{}, false, err
 			}
@@ -666,7 +667,8 @@ func (f *FarkasLearner) GetLemmas(root ast.ASTHandle, bAssertions []ast.ASTHandl
 					if err != nil {
 						return nil, err
 					}
-					negation, err := f.manager.MkNot(literal)
+					// brwr.mk_not(f, hyp) simplifies.
+					negation, err := f.manager.MkNotSimplified(literal)
 					if err != nil {
 						return nil, err
 					}

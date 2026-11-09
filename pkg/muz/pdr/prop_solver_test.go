@@ -229,11 +229,28 @@ func TestPropSolverFarkasCoreRestoresSafeProxy(t *testing.T) {
 	pdrMust(t, solver.AddFormula(notQ))
 	result, err := solver.CheckAssumptionsWithConsequences([]ast.ASTHandle{disjunction}, false)
 	pdrMust(t, err)
-	if result.Status != lbool.False || !result.FarkasCore || len(result.Core) != 1 || result.Core[0] != disjunction {
-		t.Fatal("Farkas proxy restoration", result.Status, result.FarkasCore, result.Core, disjunction)
+	// safe_assumptions::elim_proxies replaces the proxy by true without
+	// simplifying, so the B-set definition (or (not proxy) p q) becomes
+	// (or (not true) (or p q)). Consequences are the learner's raw B facts.
+	if result.Status != lbool.False || !result.FarkasCore || len(result.Core) != 1 {
+		t.Fatal("Farkas proxy elimination", result.Status, result.FarkasCore, result.Core)
 	}
-	if len(result.Consequences) != 1 || result.Consequences[0] != disjunction {
-		t.Fatal("Farkas consequence proxy restoration", result.Consequences, disjunction)
+	count, err := manager.GetNumArgs(result.Core[0])
+	pdrMust(t, err)
+	if count != 2 {
+		t.Fatal("Farkas core is not the eliminated definition", count)
+	}
+	first, err := manager.GetArg(result.Core[0], 0)
+	pdrMust(t, err)
+	negated, inner, err := manager.IsNot(first)
+	pdrMust(t, err)
+	second, err := manager.GetArg(result.Core[0], 1)
+	pdrMust(t, err)
+	if !negated || !manager.IsTrue(inner) || second != disjunction {
+		t.Fatal("Farkas core is not (or (not true) (or p q))")
+	}
+	if len(result.Consequences) != 2 {
+		t.Fatal("Farkas consequences", result.Consequences)
 	}
 	pdrMust(t, solver.Close())
 	pdrMust(t, contexts.Close())
