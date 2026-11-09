@@ -2836,4 +2836,3 @@ func TestSMTSequenceTheoryGroundOperationsAreComplete(t *testing.T) {
 		})
 	}
 }
-
