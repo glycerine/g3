@@ -551,6 +551,24 @@ func (b *predicateRuleBuilder) buildSystem(initial ast.ASTHandle) (ast.ASTHandle
 		return initial, falsity, b.setInitial(initial)
 	}
 	var err error
+	// init_rules' transitions/disj vectors are locals that die before
+	// initialize rewrites m_transition.
+	var locals []ast.ASTRef
+	releaseLocals := func() (result error) {
+		for i := range locals {
+			result = errors.Join(result, b.transformer.manager.DelRef(&locals[i]))
+		}
+		locals = nil
+		return result
+	}
+	defer func() { _ = releaseLocals() }()
+	pinLocal := func(h ast.ASTHandle) error {
+		ref, err := b.transformer.manager.NewRef(h)
+		if err == nil {
+			locals = append(locals, ref)
+		}
+		return err
+	}
 	guarded := make([]ast.ASTHandle, 0, len(live)+1)
 	tags := make([]ast.ASTHandle, 0, len(live))
 	for _, rule := range live {
@@ -566,7 +584,7 @@ func (b *predicateRuleBuilder) buildSystem(initial ast.ASTHandle) (ast.ASTHandle
 		if x != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, x
 		}
-		if x = b.pin(implication); x != nil {
+		if x = pinLocal(implication); x != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, x
 		}
 		guarded = append(guarded, implication)
@@ -575,7 +593,7 @@ func (b *predicateRuleBuilder) buildSystem(initial ast.ASTHandle) (ast.ASTHandle
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
-	if err = b.pin(selection); err != nil {
+	if err = pinLocal(selection); err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
 	guarded = append(guarded, selection)
@@ -583,7 +601,16 @@ func (b *predicateRuleBuilder) buildSystem(initial ast.ASTHandle) (ast.ASTHandle
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
+	// The m_transition slot is mk_and's pinned result.
+	transitionSlot := b.references[len(b.references)-1]
+	if err = releaseLocals(); err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, err
+	}
 	if transition, err = b.rewrite(transition); err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, err
+	}
+	// rw(m_transition) replaces the expr_ref's value.
+	if err = b.transformer.manager.SetRef(transitionSlot, transition); err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
 	if initial, err = b.rewrite(initial); err != nil {
