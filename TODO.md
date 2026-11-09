@@ -694,6 +694,16 @@ Found while matching `-st` output against `build/z3` on
        construction.
      - DONE (063aad730): spacer init_rule's fml/tmp lifetimes;
        recursive_trace 109 -> 160, linear_inv 129 -> 182.
+     - DONE (3e5c55603, d46f3a2b6): mk_quantifier_instantiation's
+       m_var2cnst/m_cnst2var are plugin members, and ground_free_vars
+       releases the fresh aux constant on reassignment;
+       quantifier_instantiation 65 -> 256.
+     - OPEN: fp_spacer_mutual_inv line 117. z3 frees qe_lite's input fml
+       (and ...) inside th_rewriter before DER's intermediate; g3 frees the
+       intermediate first (equalityDERCall.close releases c.refs LIFO). A
+       plain forward release (m_new_exprs.reset()) cost 2 full-log matches,
+       so it was reverted. c.refs mixes m_new_exprs with temporaries that
+       z3 frees earlier, so split them before retrying.
      - DONE (01e46cbaa): qe_lite find_definitions keeps ts per iteration;
        mutual_inv 103 -> 117, arith_inv 120 -> 172,
        generalizers_inv 116 -> 181.
