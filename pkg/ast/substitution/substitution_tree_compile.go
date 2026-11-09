@@ -783,12 +783,39 @@ func (t *SubstitutionTree) ApproxRegisters() (uint32, error) {
 	}
 	return t.maxReg + 1, nil
 }
+
+// rootsInDeclOrder is m_roots, a ptr_vector indexed by func_decl id: the
+// source walks it in decl-id order.
+func (t *SubstitutionTree) rootsInDeclOrder() ([]*treeNode, error) {
+	decls := make([]ast.ASTHandle, 0, len(t.roots))
+	ids := make(map[ast.ASTHandle]uint32, len(t.roots))
+	var result error
+	for decl, root := range t.roots {
+		if root == nil {
+			continue
+		}
+		id, e := t.manager.GetASTID(decl)
+		if e != nil {
+			result = errors.Join(result, e)
+			continue
+		}
+		ids[decl] = id
+		decls = append(decls, decl)
+	}
+	slices.SortFunc(decls, func(a, b ast.ASTHandle) int { return cmp.Compare(ids[a], ids[b]) })
+	roots := make([]*treeNode, len(decls))
+	for i, decl := range decls {
+		roots[i] = t.roots[decl]
+	}
+	return roots, result
+}
+
 func (t *SubstitutionTree) Reset() error {
 	if e := t.open(); e != nil {
 		return e
 	}
-	var result error
-	for _, r := range t.roots {
+	roots, result := t.rootsInDeclOrder()
+	for _, r := range roots {
 		result = errors.Join(result, t.releaseNode(r))
 	}
 	clear(t.roots)

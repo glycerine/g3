@@ -334,7 +334,11 @@ func (t *SubstitutionTree) UnifyOffsets(query ast.ASTHandle, visitor TreeVisitor
 	if kind != ast.ASTVar {
 		return ast.ErrASTDomain
 	}
-	for _, root := range t.roots {
+	roots, e := t.rootsInDeclOrder()
+	if e != nil {
+		return e
+	}
+	for _, root := range roots {
 		if root == nil || len(root.subst) == 0 {
 			continue
 		}
