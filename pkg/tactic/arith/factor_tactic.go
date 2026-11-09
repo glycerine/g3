@@ -304,32 +304,29 @@ func (i *factorInvocation) factor(op int32, equality bool, left, right ast.ASTHa
 	}
 	expressions := factorExpressions{manager: i.owner.manager}
 	defer func() { err = errors.Join(err, expressions.close()) }()
-	factorValues := make([]ast.ASTHandle, count)
-	degrees := make([]uint32, count)
-	for j := uint32(0); j < count; j++ {
+	// toExpr is m_expr2poly.to_expr(fs[j], true, arg), which every mk_*
+	// helper calls inside its own loop.
+	toExpr := func(j uint32) (ast.ASTHandle, uint32, error) {
 		piece, e := factors.Factor(j)
 		if e != nil {
-			return false, ast.ASTRef{}, e
+			return ast.ASTHandle{}, 0, e
 		}
 		ref, e := i.expressions.ToExpr(piece, true)
 		if e != nil {
-			return false, ast.ASTRef{}, e
+			return ast.ASTHandle{}, 0, e
 		}
 		if e = expressions.add(ref); e != nil {
 			_ = i.owner.manager.DelRef(&ref)
-			return false, ast.ASTRef{}, e
+			return ast.ASTHandle{}, 0, e
 		}
-		factorValues[j] = expressions.values[len(expressions.values)-1]
-		degrees[j], err = factors.Degree(j)
-		if err != nil {
-			return false, ast.ASTRef{}, err
-		}
+		degree, e := factors.Degree(j)
+		return expressions.values[len(expressions.values)-1], degree, e
 	}
 	var rewritten ast.ASTHandle
 	if equality {
-		changed, rewritten, err = i.makeEquality(factorValues, &expressions)
+		changed, rewritten, err = i.makeEquality(count, toExpr, &expressions)
 	} else {
-		changed, rewritten, err = i.makeComparison(op, factorValues, degrees, &expressions)
+		changed, rewritten, err = i.makeComparison(op, count, toExpr, &expressions)
 	}
 	if err != nil || !changed {
 		return changed, ast.ASTRef{}, err
@@ -338,11 +335,16 @@ func (i *factorInvocation) factor(op int32, equality bool, left, right ast.ASTHa
 	return changed, result, err
 }
 
-func (i *factorInvocation) makeEquality(values []ast.ASTHandle, refs *factorExpressions) (bool, ast.ASTHandle, error) {
+func (i *factorInvocation) makeEquality(count uint32, toExpr func(uint32) (ast.ASTHandle, uint32, error), refs *factorExpressions) (bool, ast.ASTHandle, error) {
 	m := i.owner.manager
 	if i.owner.splitFactors {
-		equalities := make([]ast.ASTHandle, len(values))
-		for j, value := range values {
+		// mk_split_eq
+		equalities := make([]ast.ASTHandle, count)
+		for j := range equalities {
+			value, _, err := toExpr(uint32(j))
+			if err != nil {
+				return false, ast.ASTHandle{}, err
+			}
 			zero, err := i.numeralFor(value, "0")
 			if err != nil {
 				return false, ast.ASTHandle{}, err
@@ -361,6 +363,14 @@ func (i *factorInvocation) makeEquality(values []ast.ASTHandle, refs *factorExpr
 		result, err := m.MkOrArgs(equalities)
 		return true, result, err
 	}
+	// mk_eq
+	values := make([]ast.ASTHandle, count)
+	for j := range values {
+		var err error
+		if values[j], _, err = toExpr(uint32(j)); err != nil {
+			return false, ast.ASTHandle{}, err
+		}
+	}
 	// m.mk_eq(mk_mul(...), mk_zero_for(arg)): GCC evaluates the zero first.
 	zero, err := i.numeralFor(values[len(values)-1], "0")
 	if err != nil {
@@ -378,13 +388,18 @@ func (i *factorInvocation) comparison(op int32, left, right ast.ASTHandle) (ast.
 	return i.owner.manager.MkFamilyApp(i.owner.arithmetic, op, nil, []ast.ASTHandle{left, right})
 }
 
-func (i *factorInvocation) makeComparison(op int32, values []ast.ASTHandle, degrees []uint32, refs *factorExpressions) (bool, ast.ASTHandle, error) {
+func (i *factorInvocation) makeComparison(op int32, count uint32, toExpr func(uint32) (ast.ASTHandle, uint32, error), refs *factorExpressions) (bool, ast.ASTHandle, error) {
 	m := i.owner.manager
 	if !i.owner.splitFactors {
-		terms := make([]ast.ASTHandle, len(values))
-		copy(terms, values)
+		// mk_comp
+		terms := make([]ast.ASTHandle, count)
 		for j := range terms {
-			if degrees[j]%2 == 0 {
+			var degree uint32
+			var err error
+			if terms[j], degree, err = toExpr(uint32(j)); err != nil {
+				return false, ast.ASTHandle{}, err
+			}
+			if degree%2 == 0 {
 				two, err := i.numeralFor(terms[j], "2")
 				if err != nil {
 					return false, ast.ASTHandle{}, err
@@ -409,11 +424,16 @@ func (i *factorInvocation) makeComparison(op int32, values []ast.ASTHandle, degr
 		result, err := i.comparison(op, product, zero)
 		return true, result, err
 	}
+	// mk_split_comp / split_even_odd
 	strict := op == factorLT || op == factorGT
-	clauses := make([]ast.ASTHandle, 0, len(values)+1)
-	odd := make([]ast.ASTHandle, 0, len(values))
-	for j, value := range values {
-		if degrees[j]%2 != 0 {
+	clauses := make([]ast.ASTHandle, 0, count+1)
+	odd := make([]ast.ASTHandle, 0, count)
+	for j := uint32(0); j < count; j++ {
+		value, degree, err := toExpr(j)
+		if err != nil {
+			return false, ast.ASTHandle{}, err
+		}
+		if degree%2 != 0 {
 			odd = append(odd, value)
 			continue
 		}
