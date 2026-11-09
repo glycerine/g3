@@ -297,14 +297,14 @@ func TestSymmetryReduceRejectsEqualColorNonSymmetries(t *testing.T) {
 			if cycleOnly {
 				saved := solveEquationFrame{manager: m}
 				defer func() { simplifyMust(t, saved.Close()) }()
-				normalized, e := r.normalize(form, &saved)
+				normalized, e := symmetryNormalizeForTest(r, &saved, form)
 				simplifyMust(t, e)
-				ok, e := r.checkPermutation(normalized, constants, false, &saved)
+				ok, e := r.checkPermutation(normalized, constants, false)
 				simplifyMust(t, e)
 				if !ok {
 					t.Fatal("test fixture not invariant under swap")
 				}
-				ok, e = r.checkPermutation(normalized, constants, true, &saved)
+				ok, e = r.checkPermutation(normalized, constants, true)
 				simplifyMust(t, e)
 				if ok {
 					t.Fatal("cycle check omitted")
@@ -328,7 +328,7 @@ func TestSymmetryNormalizationSortsWithoutFlattening(t *testing.T) {
 	simplifyPin(t, m, outer)
 	saved := solveEquationFrame{manager: m}
 	defer func() { simplifyMust(t, saved.Close()) }()
-	value, err := r.normalize(outer, &saved)
+	value, err := symmetryNormalizeForTest(r, &saved, outer)
 	simplifyMust(t, err)
 	n, err := m.GetNumArgs(value)
 	simplifyMust(t, err)
@@ -396,7 +396,7 @@ func TestSymmetryNormalizationPreservesQuantifierAnnotations(t *testing.T) {
 		simplifyPin(t, m, q)
 		saved := solveEquationFrame{manager: m}
 		defer func() { simplifyMust(t, saved.Close()) }()
-		value, err := r.normalize(q, &saved)
+		value, err := symmetryNormalizeForTest(r, &saved, q)
 		simplifyMust(t, err)
 		if positive {
 			got, e := m.GetPattern(value, 0)
@@ -501,4 +501,21 @@ func TestSymmetryReduceGuardsDepthTranslationAndTrace(t *testing.T) {
 	if depth != 2 {
 		t.Fatal("inconsistent goal did not increment depth", depth)
 	}
+}
+
+// symmetryNormalizeForTest normalizes term and keeps the result in saved.
+func symmetryNormalizeForTest(r *SymmetryReduceTactic, saved *solveEquationFrame, term ast.ASTHandle) (ast.ASTHandle, error) {
+	ref, err := r.manager.NewRef(term)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer func() { _ = r.manager.DelRef(&ref) }()
+	if err = r.normalize(ref); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	value, err := r.manager.RefGet(ref)
+	if err == nil {
+		err = saved.pin(value)
+	}
+	return value, err
 }

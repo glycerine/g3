@@ -75,23 +75,32 @@ func (c *symmetryRewriteConfig) ReduceApp(d ast.ASTHandle, args ast.AppArguments
 	return rewriter.RewriteDone, err
 }
 
-func (t *SymmetryReduceTactic) normalize(term ast.ASTHandle, saved *solveEquationFrame) (value ast.ASTHandle, err error) {
-	out, err := t.manager.NewRef(ast.ASTHandle{})
+// normalize is imp::normalize(expr_ref& r): rewrite into a local result,
+// then assign it to r, releasing r's previous value.
+func (t *SymmetryReduceTactic) normalize(r ast.ASTRef) (err error) {
+	m := t.manager
+	term, err := m.RefGet(r)
 	if err != nil {
-		return value, err
+		return err
 	}
-	defer func() { err = errors.Join(err, t.manager.DelRef(&out)) }()
-	if err = t.rewriter.Rewrite(term, out); err != nil {
-		return value, err
+	result, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
 	}
-	value, err = t.manager.RefGet(out)
-	if err == nil {
-		err = saved.pin(value)
+	defer func() { err = errors.Join(err, m.DelRef(&result)) }()
+	if err = t.rewriter.Rewrite(term, result); err != nil {
+		return err
 	}
-	return value, err
+	value, err := m.RefGet(result)
+	if err != nil {
+		return err
+	}
+	return m.SetRef(r, value)
 }
 
-func (t *SymmetryReduceTactic) checkPermutation(term ast.ASTHandle, constants []ast.ASTHandle, cycle bool, saved *solveEquationFrame) (ok bool, err error) {
+// checkPermutation is check_swap (cycle=false) or check_cycle followed by
+// check_substitution.
+func (t *SymmetryReduceTactic) checkPermutation(term ast.ASTHandle, constants []ast.ASTHandle, cycle bool) (ok bool, err error) {
 	m := t.manager
 	sub, err := m.NewExprSubstitution()
 	if err != nil {
@@ -119,10 +128,9 @@ func (t *SymmetryReduceTactic) checkPermutation(term ast.ASTHandle, constants []
 	if err = t.replacer.Rewrite(term, out); err != nil {
 		return false, err
 	}
-	h, err := m.RefGet(out)
-	if err != nil {
+	if err = t.normalize(out); err != nil {
 		return false, err
 	}
-	h, err = t.normalize(h, saved)
+	h, err := m.RefGet(out)
 	return term == h, err
 }

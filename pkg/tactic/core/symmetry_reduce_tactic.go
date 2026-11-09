@@ -166,8 +166,6 @@ func (t *SymmetryReduceTactic) runSymmetry(goal *tactic.Goal) (err error) {
 		defer func() { err = errors.Join(err, report.Close()) }()
 	}
 	m := t.manager
-	saved := solveEquationFrame{manager: m}
-	defer func() { err = errors.Join(err, saved.Close()) }()
 	size, err := goal.Size()
 	if err != nil {
 		return err
@@ -179,15 +177,23 @@ func (t *SymmetryReduceTactic) runSymmetry(goal *tactic.Goal) (err error) {
 			return err
 		}
 	}
+	// expr_ref fml: each assignment releases its previous value.
+	fmlRef, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, m.DelRef(&fmlRef)) }()
 	fml, err := m.MkAndArgs(conjs)
+	if err == nil {
+		err = m.SetRef(fmlRef, fml)
+	}
+	if err == nil {
+		err = t.normalize(fmlRef)
+	}
 	if err != nil {
 		return err
 	}
-	if err = saved.pin(fml); err != nil {
-		return err
-	}
-	fml, err = t.normalize(fml, &saved)
-	if err != nil {
+	if fml, err = m.RefGet(fmlRef); err != nil {
 		return err
 	}
 	graph, err := t.symmetryGraph(fml)
@@ -200,9 +206,9 @@ func (t *SymmetryReduceTactic) runSymmetry(goal *tactic.Goal) (err error) {
 	}
 	var count uint32
 	for _, constants := range permutations {
-		ok, e := t.checkPermutation(fml, constants, false, &saved)
+		ok, e := t.checkPermutation(fml, constants, false)
 		if e == nil && ok {
-			ok, e = t.checkPermutation(fml, constants, true, &saved)
+			ok, e = t.checkPermutation(fml, constants, true)
 		}
 		if e != nil {
 			return e
@@ -240,22 +246,9 @@ func (t *SymmetryReduceTactic) runSymmetry(goal *tactic.Goal) (err error) {
 				break
 			}
 			used = append(used, next)
-			equalities := make([]ast.ASTHandle, len(used))
-			for i, c := range used {
-				equalities[i], err = m.MkEq(term, c)
-				if err != nil {
-					return err
-				}
-				if err = saved.pin(equalities[i]); err != nil {
-					return err
-				}
-			}
-			member, e := m.MkOrArgs(equalities)
+			member, e := t.mkMember(term, used)
 			if e != nil {
 				return e
-			}
-			if err = saved.pin(member); err != nil {
-				return err
 			}
 			if err = goal.Assert(member); err != nil {
 				return err
@@ -264,18 +257,43 @@ func (t *SymmetryReduceTactic) runSymmetry(goal *tactic.Goal) (err error) {
 			if err = t.traceMember(member); err != nil {
 				return err
 			}
-			fml, err = m.MkAnd(fml, member)
-			if err != nil {
+			if fml, err = m.MkAnd(fml, member); err != nil {
 				return err
 			}
-			if err = saved.pin(fml); err != nil {
+			if err = m.SetRef(fmlRef, fml); err != nil {
 				return err
 			}
-			fml, err = t.normalize(fml, &saved)
-			if err != nil {
+			if err = t.normalize(fmlRef); err != nil {
+				return err
+			}
+			if fml, err = m.RefGet(fmlRef); err != nil {
 				return err
 			}
 		}
 	}
 	return tactic.ReportTacticProgress(":num-symmetry-breaking ", count)
+}
+
+// mkMember is mk_member(t, C): eqs is a local expr_ref_vector, released
+// forward once the disjunction holds its members.
+func (t *SymmetryReduceTactic) mkMember(term ast.ASTHandle, constants []ast.ASTHandle) (member ast.ASTHandle, err error) {
+	m := t.manager
+	eqs := make([]ast.ASTRef, 0, len(constants))
+	defer func() {
+		for i := range eqs {
+			err = errors.Join(err, m.DelRef(&eqs[i]))
+		}
+	}()
+	values := make([]ast.ASTHandle, len(constants))
+	for i, c := range constants {
+		if values[i], err = m.MkEq(term, c); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		r, e := m.NewRef(values[i])
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		eqs = append(eqs, r)
+	}
+	return m.MkOrArgs(values)
 }

@@ -124,11 +124,32 @@ func (t *SymmetryReduceTactic) symmetryGraph(root ast.ASTHandle) (*symmetryGraph
 	return g, nil
 }
 
+// candidatePermutations is find_candidate_permutations. app_map is
+// obj_map<app, unsigned> and inv_app_map is u_map<ptr_vector<app>>; their
+// iteration (table) order decides the color numbering and the order of P,
+// so both are reproduced with ast.ObjMap.
 func (t *SymmetryReduceTactic) candidatePermutations(root ast.ASTHandle, g *symmetryGraph) ([][]ast.ASTHandle, error) {
-	depths := make(map[ast.ASTHandle]uint32)
+	m := t.manager
+	// compute_sort_colors: for_each_expr (post-order) inserts each app.
+	coloring := ast.NewObjMap(m)
+	sortColors := make(map[ast.ASTHandle]uint64)
+	for _, app := range g.apps {
+		sort := g.nodes[app].sort
+		color, found := sortColors[sort]
+		if !found {
+			color = uint64(len(sortColors))
+			sortColors[sort] = color
+		}
+		if err := coloring.InsertNum(app, color); err != nil {
+			return nil, err
+		}
+	}
+	// compute_max_depth: an explicit stack; the last argument pushed is
+	// visited first, and depth.insert keeps an existing key's slot.
+	depth := ast.NewObjMap(m)
 	type visit struct {
 		term  ast.ASTHandle
-		depth uint32
+		depth uint64
 	}
 	todo := []visit{{term: root}}
 	for len(todo) > 0 {
@@ -142,61 +163,72 @@ func (t *SymmetryReduceTactic) candidatePermutations(root ast.ASTHandle, g *symm
 		if n.kind != ast.ASTApp {
 			continue
 		}
-		if old, found := depths[v.term]; found && v.depth <= old {
+		if old, found, err := depth.FindNum(v.term); err != nil {
+			return nil, err
+		} else if found && v.depth <= old {
 			continue
 		}
-		depths[v.term] = v.depth
+		if err := depth.InsertNum(v.term, v.depth); err != nil {
+			return nil, err
+		}
 		for _, child := range n.args {
 			todo = append(todo, visit{child, v.depth + 1})
 		}
 	}
-	sortColors := make(map[ast.ASTHandle]uint32)
-	colors := make(map[ast.ASTHandle]uint32)
+	// compute_occurrences: num_occurrences inserts in post-order too.
+	occs := ast.NewObjMap(m)
 	for _, app := range g.apps {
-		sort := g.nodes[app].sort
-		color, found := sortColors[sort]
-		if !found {
-			color = uint32(len(sortColors))
-			sortColors[sort] = color
+		if err := occs.InsertNum(app, uint64(g.occurrences[app])); err != nil {
+			return nil, err
 		}
-		colors[app] = color
 	}
-	// Dense IDs preserve partition equivalence; map iteration order is never
-	// used as a heuristic. The source obj_map hash order is platform-specific.
-	for _, refinement := range []map[ast.ASTHandle]uint32{g.occurrences, depths} {
-		pairs := make(map[[2]uint32]uint32)
-		for _, app := range g.apps {
-			value, found := refinement[app]
+	// merge_colors(occs, coloring) then merge_colors(depth, coloring): walk
+	// coloring in table order, renumbering pairs on first sight.
+	for _, refinement := range []*ast.ObjMap{occs, depth} {
+		pairs := make(map[[2]uint64]uint64)
+		for _, entry := range coloring.Entries() {
+			v2, found, err := refinement.FindNum(entry.Key)
+			if err != nil {
+				return nil, err
+			}
 			if !found {
-				return nil, ast.ErrASTDomain
-			} // source VERIFY(colors1.find)
-			pair := [2]uint32{colors[app], value}
+				return nil, ast.ErrASTDomain // VERIFY(colors1.find(a, v2))
+			}
+			pair := [2]uint64{entry.Num, v2}
 			color, found := pairs[pair]
 			if !found {
-				color = uint32(len(pairs))
+				color = uint64(len(pairs))
 				pairs[pair] = color
 			}
-			colors[app] = color
+			if err = coloring.InsertNum(entry.Key, color); err != nil {
+				return nil, err
+			}
 		}
 	}
-	groupIDs := make(map[uint32]int)
-	var groups [][]ast.ASTHandle
-	for _, app := range g.apps {
-		if g.nodes[app].family != ast.NullFamilyID {
+	// compute_inv_app: u_map keyed by color with u_hash(c) == c.
+	invColor := ast.NewObjMap(m)
+	groups := make(map[uint64][]ast.ASTHandle)
+	for _, entry := range coloring.Entries() {
+		if g.nodes[entry.Key].family != ast.NullFamilyID {
 			continue
 		}
-		color := colors[app]
-		i, found := groupIDs[color]
-		if !found {
-			i = len(groups)
-			groupIDs[color] = i
-			groups = append(groups, nil)
-		}
-		groups[i] = append(groups[i], app)
+		invColor.InsertPairIfNotThere(ast.ASTHandle{}, entry.Num, uint32(entry.Num))
+		groups[entry.Num] = append(groups[entry.Num], entry.Key)
 	}
 	var result [][]ast.ASTHandle
-	for _, group := range groups {
-		if len(group) < 2 || g.occurrences[group[0]] < 2 {
+	for _, entry := range invColor.Entries() {
+		group := groups[entry.Num]
+		if len(group) < 2 {
+			continue
+		}
+		numOccs, found, err := occs.FindNum(group[0])
+		if err != nil {
+			return nil, err
+		}
+		if !found {
+			return nil, ast.ErrASTDomain
+		}
+		if numOccs < 2 {
 			continue
 		}
 		constants := true
