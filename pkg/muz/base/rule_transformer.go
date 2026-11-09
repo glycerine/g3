@@ -6,7 +6,6 @@ package base
 import (
 	"errors"
 	"fmt"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -89,9 +88,8 @@ func (t *RuleTransformer) order() {
 	if !t.dirty {
 		return
 	}
-	sort.SliceStable(t.plugins, func(i, j int) bool {
-		return t.plugins[i].Priority() > t.plugins[j].Priority()
-	})
+	// rule_transformer::ensure_ordered: std::sort, not a stable sort.
+	stdSortPlugins(t.plugins)
 	t.dirty = false
 }
 

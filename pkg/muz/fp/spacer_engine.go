@@ -195,79 +195,22 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		subsumers = append(subsumers, plugin)
 		return plugin
 	}
-	if useSubsumption {
-		if err = transformer.Register(newSubsumption(35005)); err != nil {
-			return nil, errors.Join(err, transformer.Close())
-		}
-	}
-	if instantiateQuantifiers {
-		if err = transformer.Register(transforms.NewQuantifierInstantiationPlugin(e.manager, e.rules, 37000)); err != nil {
-			return nil, errors.Join(err, transformer.Close())
-		}
-	}
 	var scaler *transforms.ScalePlugin
 	var scaledPredicates map[ast.ASTHandle]ast.ASTHandle
-	if scale {
-		scaler = transforms.NewScalePlugin(e.manager, e.rules, 36030)
-		if err = transformer.Register(scaler); err != nil {
-			return nil, errors.Join(err, scaler.Close(), transformer.Close())
-		}
-	}
 	var magicTransformer *transforms.MagicSymbolicPlugin
 	var magicPredicates map[ast.ASTHandle]ast.ASTHandle
 	var karrTransformer *transforms.KarrInvariantsPlugin
 	var karrInvariants map[ast.ASTHandle]rel.KarrMatrix
-	if magic {
-		magicTransformer = transforms.NewMagicSymbolicPlugin(e.manager, e.rules, 36020)
-		if err = transformer.Register(magicTransformer); err != nil {
-			return nil, errors.Join(err, magicTransformer.Close(), transformer.Close())
-		}
-	}
-	if karr {
-		karrTransformer = transforms.NewKarrInvariantsPlugin(e.manager, e.rules, 36010)
-		if err = transformer.Register(karrTransformer); err != nil {
-			return nil, errors.Join(err, karrTransformer.Close(), transformer.Close())
-		}
-	}
 	var quantifierAbstraction *transforms.QuantifierAbstractionPlugin
 	var quantifiedPredicates map[ast.ASTHandle]ast.ASTHandle
-	if quantifyArrays {
-		quantifierAbstraction = transforms.NewQuantifierAbstractionPlugin(e.manager, e.rules, 38000)
-		if err = transformer.Register(quantifierAbstraction); err != nil {
-			return nil, errors.Join(err, transformer.Close())
-		}
-	}
-	if arrayBlast && !quantifyArrays {
-		blast, makeErr := transforms.NewArrayBlastPlugin(e.manager, e.rules, e.params, e.globals, 35999)
-		if makeErr != nil {
-			return nil, errors.Join(makeErr, transformer.Close())
-		}
-		blast.SetNormalizationParams(normalization)
-		if err = transformer.Register(blast); err != nil {
-			return nil, errors.Join(err, blast.Close(), transformer.Close())
-		}
-	}
 	var arrayInstantiation *transforms.ArrayInstantiationPlugin
 	var instantiatedPredicates map[ast.ASTHandle]ast.ASTHandle
+	// apply_default_transformation's registration order; the transformer
+	// std::sorts by priority, which is not stable for equal priorities.
 	if instantiateArrays {
 		arrayInstantiation = transforms.NewArrayInstantiationPlugin(e.manager, e.rules, instantiateArraysQuantifiers, instantiateArraysEnforce, 34999)
 		if err = transformer.Register(arrayInstantiation); err != nil {
 			return nil, errors.Join(err, transformer.Close())
-		}
-	}
-	if err = transformer.Register(newInliner(35000)); err != nil {
-		return nil, errors.Join(err, transformer.Close())
-	}
-	var bitBlaster *transforms.BitBlastPlugin
-	var bitBlastedPredicates map[ast.ASTHandle]ast.ASTHandle
-	if bitBlast {
-		bitBlaster, err = transforms.NewBitBlastPlugin(e.manager, e.rules, e.params, e.globals, 35000)
-		if err != nil {
-			return nil, errors.Join(err, transformer.Close())
-		}
-		bitBlaster.SetNormalizationParams(normalization)
-		if err = transformer.Register(bitBlaster); err != nil {
-			return nil, errors.Join(err, bitBlaster.Close(), transformer.Close())
 		}
 	}
 	if transformArrays {
@@ -279,6 +222,31 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 			return nil, errors.Join(err, arrayRewrite.Close(), transformer.Close())
 		}
 	}
+	if quantifyArrays {
+		quantifierAbstraction = transforms.NewQuantifierAbstractionPlugin(e.manager, e.rules, 38000)
+		if err = transformer.Register(quantifierAbstraction); err != nil {
+			return nil, errors.Join(err, transformer.Close())
+		}
+	}
+	if !instantiateQuantifiers {
+		if err = transformer.Register(noopTransformPlugin{priority: 37000}); err != nil {
+			return nil, errors.Join(err, transformer.Close())
+		}
+	} else {
+		if err = transformer.Register(transforms.NewQuantifierInstantiationPlugin(e.manager, e.rules, 37000)); err != nil {
+			return nil, errors.Join(err, transformer.Close())
+		}
+	}
+	if useSubsumption {
+		if err = transformer.Register(newSubsumption(35005)); err != nil {
+			return nil, errors.Join(err, transformer.Close())
+		}
+	}
+	if err = transformer.Register(newInliner(35000)); err != nil {
+		return nil, errors.Join(err, transformer.Close())
+	}
+	var bitBlaster *transforms.BitBlastPlugin
+	var bitBlastedPredicates map[ast.ASTHandle]ast.ASTHandle
 	laterCone := transforms.NewConePluginWithRelations(e.relations, 34990)
 	if err = transformer.Register(laterCone); err != nil {
 		return nil, errors.Join(err, laterCone.Close(), transformer.Close())
@@ -336,6 +304,66 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		}
 	} else if err = transformer.Register(newInliner(34930)); err != nil {
 		return nil, errors.Join(err, transformer.Close())
+	}
+	// Registered after the inliner chain in the source; disabled stages are
+	// no-op plugins so the sorted order matches.
+	if !bitBlast {
+		if err = transformer.Register(noopTransformPlugin{priority: 35000}); err != nil {
+			return nil, errors.Join(err, transformer.Close())
+		}
+	}
+	if bitBlast {
+		bitBlaster, err = transforms.NewBitBlastPlugin(e.manager, e.rules, e.params, e.globals, 35000)
+		if err != nil {
+			return nil, errors.Join(err, transformer.Close())
+		}
+		bitBlaster.SetNormalizationParams(normalization)
+		if err = transformer.Register(bitBlaster); err != nil {
+			return nil, errors.Join(err, bitBlaster.Close(), transformer.Close())
+		}
+	}
+	if !karr {
+		if err = transformer.Register(noopTransformPlugin{priority: 36010}); err != nil {
+			return nil, errors.Join(err, transformer.Close())
+		}
+	}
+	if karr {
+		karrTransformer = transforms.NewKarrInvariantsPlugin(e.manager, e.rules, 36010)
+		if err = transformer.Register(karrTransformer); err != nil {
+			return nil, errors.Join(err, karrTransformer.Close(), transformer.Close())
+		}
+	}
+	if !scale {
+		if err = transformer.Register(noopTransformPlugin{priority: 36030}); err != nil {
+			return nil, errors.Join(err, transformer.Close())
+		}
+	}
+	if scale {
+		scaler = transforms.NewScalePlugin(e.manager, e.rules, 36030)
+		if err = transformer.Register(scaler); err != nil {
+			return nil, errors.Join(err, scaler.Close(), transformer.Close())
+		}
+	}
+	if !arrayBlast && !quantifyArrays {
+		if err = transformer.Register(noopTransformPlugin{priority: 35999}); err != nil {
+			return nil, errors.Join(err, transformer.Close())
+		}
+	}
+	if arrayBlast && !quantifyArrays {
+		blast, makeErr := transforms.NewArrayBlastPlugin(e.manager, e.rules, e.params, e.globals, 35999)
+		if makeErr != nil {
+			return nil, errors.Join(makeErr, transformer.Close())
+		}
+		blast.SetNormalizationParams(normalization)
+		if err = transformer.Register(blast); err != nil {
+			return nil, errors.Join(err, blast.Close(), transformer.Close())
+		}
+	}
+	if magic {
+		magicTransformer = transforms.NewMagicSymbolicPlugin(e.manager, e.rules, 36020)
+		if err = transformer.Register(magicTransformer); err != nil {
+			return nil, errors.Join(err, magicTransformer.Close(), transformer.Close())
+		}
 	}
 	_, err = transformer.Apply(prepared)
 	var initialConeSteps, laterConeSteps, finalConeSteps []transforms.ConeModelStep
@@ -739,3 +767,13 @@ func (e *PropositionalEngine) querySpacerAtLevel(declaration ast.ASTHandle, from
 	}
 	return context.Solve(fromLevel, maximumLevels)
 }
+
+// noopTransformPlugin stands for a source plugin that is registered but
+// disabled by its parameter (its operator() returns nullptr).
+type noopTransformPlugin struct{ priority uint32 }
+
+func (p noopTransformPlugin) Priority() uint32                               { return p.priority }
+func (p noopTransformPlugin) CanDestratifyNegation() bool                    { return false }
+func (p noopTransformPlugin) Transform(*base.RuleSet) (*base.RuleSet, error) { return nil, nil }
+func (p noopTransformPlugin) Cancel()                                        {}
+func (p noopTransformPlugin) Close() error                                   { return nil }

@@ -20,13 +20,38 @@ type bitBlastExpansion struct {
 	source   *base.RuleSet
 	target   *base.RuleSet
 	oldToNew map[ast.ASTHandle]ast.ASTHandle
+	// args, fVars, gVars are expand_mkbv_cfg's m_args, m_f_vars, m_g_vars:
+	// reset on each reduce_app, released when the configuration dies.
+	args, fVars, gVars []ast.ASTRef
+}
+
+func releaseExpansionVector(m *ast.ASTManager, refs *[]ast.ASTRef) (result error) {
+	for i := range *refs {
+		result = errors.Join(result, m.DelRef(&(*refs)[i]))
+	}
+	*refs = (*refs)[:0]
+	return result
+}
+
+// release runs the member destructors in reverse declaration order.
+func (c *bitBlastExpansion) release() error {
+	err := releaseExpansionVector(c.manager, &c.gVars)
+	err = errors.Join(err, releaseExpansionVector(c.manager, &c.fVars))
+	return errors.Join(err, releaseExpansionVector(c.manager, &c.args))
+}
+
+func (c *bitBlastExpansion) push(refs *[]ast.ASTRef, h ast.ASTHandle) error {
+	ref, err := c.manager.NewRef(h)
+	if err == nil {
+		*refs = append(*refs, ref)
+	}
+	return err
 }
 
 func (c *bitBlastExpansion) ReduceApp(declaration ast.ASTHandle, arguments ast.AppArguments, out, _ ast.ASTRef) (astrewriter.RewriteStatus, error) {
 	if arguments.Count() == 0 {
 		return astrewriter.RewriteFailed, nil
 	}
-	flat := make([]ast.ASTHandle, 0)
 	for i := uint32(0); i < arguments.Count(); i++ {
 		argument, err := arguments.At(i)
 		if err != nil {
@@ -39,16 +64,57 @@ func (c *bitBlastExpansion) ReduceApp(declaration ast.ASTHandle, arguments ast.A
 		if !assembled {
 			return astrewriter.RewriteFailed, nil
 		}
+	}
+	err := errors.Join(releaseExpansionVector(c.manager, &c.args), releaseExpansionVector(c.manager, &c.gVars), releaseExpansionVector(c.manager, &c.fVars))
+	if err != nil {
+		return astrewriter.RewriteFailed, err
+	}
+	boolean, err := c.manager.MkBoolSort()
+	if err != nil {
+		return astrewriter.RewriteFailed, err
+	}
+	flat := make([]ast.ASTHandle, 0)
+	var index uint32
+	for i := uint32(0); i < arguments.Count(); i++ {
+		argument, err := arguments.At(i)
+		if err != nil {
+			return astrewriter.RewriteFailed, err
+		}
 		count, err := c.manager.GetNumArgs(argument)
 		if err != nil {
 			return astrewriter.RewriteFailed, err
 		}
+		family, err := c.manager.GetFamilyID(argument)
+		if err != nil {
+			return astrewriter.RewriteFailed, err
+		}
+		vars := make([]ast.ASTHandle, 0, count)
 		for j := uint32(0); j < count; j++ {
 			bit, getErr := c.manager.GetArg(argument, j)
 			if getErr != nil {
 				return astrewriter.RewriteFailed, getErr
 			}
 			flat = append(flat, bit)
+			if getErr = c.push(&c.args, bit); getErr != nil {
+				return astrewriter.RewriteFailed, getErr
+			}
+			variable, getErr := c.manager.MkVar(index, boolean)
+			index++
+			if getErr == nil {
+				getErr = c.push(&c.gVars, variable)
+			}
+			if getErr != nil {
+				return astrewriter.RewriteFailed, getErr
+			}
+			vars = append(vars, variable)
+		}
+		// m_f_vars.push_back(m_util.mk_bv(sz, ...)): unused by the result.
+		assembled, err := c.manager.MkFamilyApp(family, 56, nil, vars)
+		if err == nil {
+			err = c.push(&c.fVars, assembled)
+		}
+		if err != nil {
+			return astrewriter.RewriteFailed, err
 		}
 	}
 	fresh := c.oldToNew[declaration]
@@ -279,17 +345,22 @@ func (p *BitBlastPlugin) Close() error {
 		return nil
 	}
 	p.closing = true
-	if p.simplifier != nil {
-		if err := p.simplifier.Close(); err != nil {
-			return err
-		}
-		p.simplifier = nil
+	// impl members die in reverse declaration order: m_rewriter (the mkbv
+	// expansion), m_blaster, then m_simplifier.
+	if err := p.expansion.release(); err != nil {
+		return err
 	}
 	if p.blaster != nil {
 		if err := p.blaster.Close(); err != nil {
 			return err
 		}
 		p.blaster = nil
+	}
+	if p.simplifier != nil {
+		if err := p.simplifier.Close(); err != nil {
+			return err
+		}
+		p.simplifier = nil
 	}
 	p.expansion.source, p.expansion.target = nil, nil
 	p.expansion.oldToNew = nil

@@ -45,7 +45,9 @@ func testBitBlastPendingChildren(t *testing.T, completed bool) {
 				cause := plugin.Close()
 				intact = intact && errors.Is(cause, ast.ErrASTPending) && !plugin.closed && plugin.blaster == original && plugin.expansion.oldToNew[predicate] == expanded
 				if completed {
-					intact = intact && plugin.simplifier == nil
+					// The blaster is released before m_simplifier, so a
+					// refused blaster keeps the already disposed simplifier.
+					intact = intact && plugin.simplifier != nil && plugin.simplifier.closed
 				} else {
 					intact = intact && plugin.simplifier != nil && !plugin.simplifier.closed
 				}
