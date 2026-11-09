@@ -810,6 +810,12 @@ Found while matching `-st` output against `build/z3` on
     the initial hard check landed in the lex path (see git log).
     Remaining: init_solver before normalize, and the pareto/box first-call
     normalize.
+    DONE (1e33f366c, ae95bd25c, and the internalize commit): on the lex
+    path the backend is created before normalize, lia2card makes its
+    numerals per used variable, and objectives are internalized before the
+    initial check. First differences: unbounded_real 30 -> 39,
+    bit_vector 13 -> 41, bounded_integer 38 -> 51, lexicographic_integer
+    47 -> 65.
     TRIED: dropping the priority != pareto/box gate (normalize on the
     first pareto/box call) cost 2 stdout matches (647 -> 645), and the
     cmd_context/cmd/g3 tests ran past 10 minutes (a likely hang in the
