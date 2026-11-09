@@ -692,8 +692,11 @@ Found while matching `-st` output against `build/z3` on
        a quantified (=> (and #25 #82 #79) head) first. Compare
        mk_rule_inliner/rule_unifier's mk_rule_rewrite/hyper-res proof
        construction.
-     - OPEN: spacer_recursive_trace line 109, free-id order only (z3
-       reuses #64/#59 where g3 uses #66/#67).
+     - DONE (063aad730): spacer init_rule's fml/tmp lifetimes;
+       recursive_trace 109 -> 160, linear_inv 129 -> 182.
+     - DONE (01e46cbaa): qe_lite find_definitions keeps ts per iteration;
+       mutual_inv 103 -> 117, arith_inv 120 -> 172,
+       generalizers_inv 116 -> 181.
      - NOTE: /mnt/oldrog filled up (other sessions' /mnt/oldrog/tmp). Tests
        now run with GOCACHE/GOTMPDIR/TMPDIR under
        /var/tmp/g3-job-487c9ee8 (in its env file).
