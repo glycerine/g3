@@ -790,6 +790,11 @@ Found while matching `-st` output against `build/z3` on
     with no assumptions, keeping its model as the first incumbent (this
     also short-circuits unsat/unknown as z3 does); (3) feed the
     objectives to the existing per-objective search.
+    TRIED: adding only step (2), an initial CheckSat at the start of
+    ArithmeticSolver.Check, cost 6 stdout matches (647 -> 641) without
+    moving the early trace lines (the init_solver order still differs).
+    It was reverted. Do (1) through (3) together, and check which
+    optimization outputs depend on the extra search state.
     g3's runNormalizedOptimization only simplifies behind its own
     useSimplifier gate (skipped for pareto/box/rlimit/timeout) and never
     builds the objective-function apps. Port opt_context.cpp's optimize /
