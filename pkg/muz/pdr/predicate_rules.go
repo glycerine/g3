@@ -160,6 +160,8 @@ type predicateRuleBuilder struct {
 	rules       []*normalizedRule
 	// initialRef is the m_initial_state expr_ref slot (also in references).
 	initialRef ast.ASTRef
+	// ruleTheory is init_rule's local th_rewriter, live for one rule.
+	ruleTheory *rewriter.TheoryRewriter
 }
 
 func (b *predicateRuleBuilder) pin(handle ast.ASTHandle) error {
@@ -193,7 +195,11 @@ func (b *predicateRuleBuilder) rewrite(formula ast.ASTHandle) (ast.ASTHandle, er
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = b.theory.Rewrite(formula, out); err != nil {
+	theory := b.theory
+	if b.ruleTheory != nil {
+		theory = b.ruleTheory
+	}
+	if err = theory.Rewrite(formula, out); err != nil {
 		return ast.ASTHandle{}, errors.Join(err, b.transformer.manager.DelRef(&out))
 	}
 	result, err := b.transformer.manager.RefGet(out)
@@ -627,12 +633,22 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 		return err
 	}
 	for _, rule := range rules {
-		normalized, x := builder.normalizeRule(rule)
+		// init_rule's th_rewriter rw(m) lives until the rule is recorded.
+		ruleTheory, x := rewriter.NewTheoryRewriter(p.manager, p.owner.contexts.config.Params, p.owner.contexts.config.Globals, nil)
 		if x != nil {
+			if ruleTheory != nil {
+				x = errors.Join(x, ruleTheory.Close())
+			}
 			return x
 		}
-		builder.rules = append(builder.rules, normalized)
-		if initial, x = builder.extendInitial(initial, normalized); x != nil {
+		builder.ruleTheory = ruleTheory
+		normalized, x := builder.normalizeRule(rule)
+		if x == nil {
+			builder.rules = append(builder.rules, normalized)
+			initial, x = builder.extendInitial(initial, normalized)
+		}
+		builder.ruleTheory = nil
+		if x = errors.Join(x, ruleTheory.Close()); x != nil {
 			return x
 		}
 	}
@@ -640,13 +656,9 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 	if err != nil {
 		return err
 	}
-	// The source's temporary rewriter is destroyed before this initialization
-	// becomes visible. Keep the same publication boundary if Go cleanup refuses:
-	// a failed Close must leave InitializeRules retryable.
-	if err = theory.Close(); err != nil {
-		return err
-	}
-	theory = nil
+	// initialize's local th_rewriter lives until initialize returns, after
+	// the transition and initial state are asserted; the deferred Close
+	// releases it (and its m_pr) then.
 	if err = p.InitializeSystem(initial, transition); err != nil {
 		return err
 	}

@@ -1039,7 +1039,19 @@ func (r *rewriterEngine) checkCancel() error {
 	}
 	return newRewriterException(message)
 }
+// Rewrite is operator()(t, result): the proof goes to the member m_pr,
+// which holds it until the next rewrite or destruction.
 func (r *rewriterEngine) Rewrite(t ast.ASTHandle, out ast.ASTRef) error {
+	if r.core.proofGen {
+		if r.pr == (ast.ASTRef{}) {
+			ref, e := r.core.manager.NewRef(ast.ASTHandle{})
+			if e != nil {
+				return e
+			}
+			r.pr = ref
+		}
+		return r.rewrite(t, out, r.pr)
+	}
 	return r.rewrite(t, out, ast.ASTRef{})
 }
 func (r *rewriterEngine) RewriteWithProof(t ast.ASTHandle, out, proof ast.ASTRef) error {

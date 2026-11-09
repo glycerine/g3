@@ -46,6 +46,11 @@ func (s *SMTSolver) SetArithmeticState(state SMTArithState) error {
 		return ast.ErrASTDomain
 	}
 	kernel.smtParams.arith.state = state
+	if kernel.arithState.Eq2Ineq != state.Eq2Ineq {
+		// The source configures smt_params before asserted_formulas reads
+		// eq2ineq; refresh the asserted rewriter's phase parameters.
+		kernel.assertedPhaseReady = false
+	}
 	kernel.arithState = state
 	return nil
 }
