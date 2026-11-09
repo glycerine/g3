@@ -115,3 +115,20 @@ func TestOptimizationFrontendResourceLimitedSortMaxBounds(t *testing.T) {
 		t.Fatalf("resource-limited SortMax output = %q, want %q", got, want)
 	}
 }
+
+// maxres found_optimum reports the cost of the best model, not the core
+// lower bound, which can overshoot it (seed 5 drove it to 8 while the model
+// x=9 costs 6, printing objective 7).
+func TestOptimizationBitVectorMaxResReportsBestModelCost(t *testing.T) {
+	input := "(set-option :produce-models true)\n(set-logic QF_BV)\n(declare-const x (_ BitVec 4))\n" +
+		"(assert (bvule x #x9))\n(maximize x)\n(check-sat)\n(get-objectives)\n(get-value (x))\n"
+	for _, seed := range []string{"0", "5"} {
+		var output bytes.Buffer
+		if err := runArguments([]string{"smt.random_seed=" + seed, "-in"}, strings.NewReader(input), &output); err != nil {
+			t.Fatal(err, output.String())
+		}
+		if got, want := output.String(), "sat\n(objectives\n (x 9)\n)\n((x #x9))\n"; got != want {
+			t.Fatalf("seed %s: output = %q, want %q", seed, got, want)
+		}
+	}
+}
