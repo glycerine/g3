@@ -292,5 +292,23 @@ func (e *Engine) constCaseMultiplierAt(inA bool, index int, a, b []ast.ASTHandle
 	if err != nil {
 		return nil, err
 	}
-	return e.MkMultiplexer(x, trueBits, falseBits)
+	// out_bits.push_back(m().mk_ite(x, out1[j], out2[j])): a raw ite per bit.
+	defer func() {
+		if result != nil {
+			result = errors.Join(result, releaseRefs(m, out))
+			out = nil
+		}
+	}()
+	for j := 0; j < width; j++ {
+		ite, err := m.MkIte(x, trueBits[j], falseBits[j])
+		if err != nil {
+			return out, err
+		}
+		ref, err := m.NewRef(ite)
+		if err != nil {
+			return out, err
+		}
+		out = append(out, ref)
+	}
+	return out, nil
 }
