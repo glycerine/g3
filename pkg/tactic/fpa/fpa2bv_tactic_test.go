@@ -63,7 +63,8 @@ func TestFPA2BVTacticRewritesGoalAndPublishesSingleResult(t *testing.T) {
 	if depth != 1 {
 		t.Fatal("goal depth", depth)
 	}
-	fpaTacticMust(t, result.Goal.DecRef())
+	// The pass updates the caller's goal in place; the caller closes it.
+	fpaTacticMust(t, goal.Close())
 	fpaTacticMust(t, result.ModelConverter.Close())
 	fpaTacticMust(t, pass.Close())
 	adapter, err := NewFPA2BVTactic(manager, context, globals, nil)
@@ -84,6 +85,7 @@ func TestFPA2BVTacticRewritesGoalAndPublishesSingleResult(t *testing.T) {
 		t.Fatal("unexpected common tactic result", adapted.Goals, adapted.ModelConverter)
 	}
 	fpaTacticMust(t, adapted.Close())
+	fpaTacticMust(t, adaptedGoal.Close())
 	fpaTacticMust(t, adapter.DecRef())
 	fpaTacticMust(t, globals.Close())
 	fpaTacticMust(t, catalog.Close())

@@ -13,7 +13,8 @@ import (
 )
 
 // Result is the source tactic's single output goal and optional model
-// converter. The caller owns the goal reference and converter.
+// converter. Goal is the input goal, updated in place; the caller owns the
+// converter.
 type Result struct {
 	Goal           *tactic.Goal
 	ModelConverter tactic.ModelConverter
@@ -138,9 +139,6 @@ func (p *Pass) Apply(goal *tactic.Goal) (_ Result, result error) {
 		return Result{}, err
 	}
 	if inconsistent {
-		if err = goal.IncRef(); err != nil {
-			return Result{}, err
-		}
 		return Result{Goal: goal}, nil
 	}
 	proofs, err := goal.ProofsEnabled()
@@ -241,9 +239,6 @@ func (p *Pass) Apply(goal *tactic.Goal) (_ Result, result error) {
 		if err == nil {
 			err = ast.ErrASTDomain
 		}
-		return Result{}, err
-	}
-	if err = goal.IncRef(); err != nil {
 		return Result{}, err
 	}
 	failed = false

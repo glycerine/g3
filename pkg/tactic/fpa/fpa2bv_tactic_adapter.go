@@ -96,7 +96,9 @@ func (t *FPA2BVTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err e
 	if err != nil {
 		return err
 	}
-	goalMoved := false
+	// The pass updates the input goal in place and returns it, as the source
+	// pushes g itself: the result borrows the caller's goal.
+	goalMoved := converted.Goal == goal
 	converterMoved := false
 	defer func() {
 		if !goalMoved && converted.Goal != nil {
@@ -106,10 +108,9 @@ func (t *FPA2BVTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err e
 			err = errors.Join(err, converted.ModelConverter.Close())
 		}
 	}()
-	if err = out.TakeGoal(converted.Goal); err != nil {
+	if err = out.AddGoal(goal); err != nil {
 		return err
 	}
-	goalMoved = true
 	if converted.ModelConverter != nil {
 		if err = out.SetModelConverter(converted.ModelConverter); err != nil {
 			return err
