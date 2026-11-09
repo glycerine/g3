@@ -860,6 +860,21 @@ Found while matching `-st` output against `build/z3` on
       mk_qffp_tactic's first simplify loses simp_p to the closing
       updt_params(p).
 
+    More sweep fixes (full logs 408 -> 419): ufbv's smt stage is
+    mk_smt_tactic_using(false, main_p) (no pattern database); factor
+    tactic numeral/product order and per-helper to_expr; gcd rounding
+    releases new_arg1; propagate_values push_result's raw new_pr;
+    reduce_args mk_mc lifetimes; lackr vector release order; datalog
+    mk_coi_filter honors the null model converter of rel_query.
+    Leads left:
+    - integer_division_scopes: theory_arith mk_idiv_mod_axioms builds
+      (- 0 k) before (< k 0) (GCC right-to-left mk_ite arguments);
+      theory_arith is out of scope.
+    - fixedpoint_relation_representations: rel_context::query builds
+      m_answer eagerly (table_base::to_formula), which keeps a variable
+      alive across later queries; Go's datalog answers are lazy and
+      backend-specific.
+
 23. **OPEN: fpa2bv_converter is a reimplementation, not a port.**
     ast/fpa (about 5500 lines of Go) restructures fpa2bv_converter.cpp
     (4130 lines). Example: mk_numeral(sort, mpf) builds
