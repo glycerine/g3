@@ -1441,3 +1441,20 @@ Found while matching `-st` output against `build/z3` on
    Also kept: symbolic_automata::mk_product tests is_final_state without
    the epsilon closure, so ("" | a) & ("" | b) would be empty; g3's
    product includes the closure (string_regex_automaton_product_test).
+
+26. **Noted (2026-11-10): source LRA wrong model after pop, reproduced
+    faithfully.** Under QF_LRA, `(assert (< (+ x y) 2.0))`, then push,
+    `x >= 1`, `y >= 1` (unsat), then pop: the next check-sat is sat with
+    the model x = y = 1. Both z3 4.7.1 release and g3 print that model:
+    lar_solver::pop keeps the conflict's column values, and final_check
+    skips make_feasible because the popped status is OPTIMAL. In a debug
+    build (g3debug tag; a Z3DEBUG source build would do the same),
+    get_model's update_delta SASSERT(l <= u) fires.
+    TestSMTSolverSetupUsesLinearRealArithmetic turns model building off
+    for that check under the debug tags. Note that build_dbg/ is an
+    NDEBUG build, so it does not show the assertion. Ask before fixing.
+    Similarly, a bit-vector over m_bv_blast_max_size stays unattached and
+    takes mk_extra_fresh_value with a finite sort. Release builds return
+    a value; debug builds fail SASSERT(s->is_infinite())
+    (TestSMTBitVectorBlastLimitGivesUnknown turns models off under the
+    debug tags).

@@ -1383,6 +1383,12 @@ func TestSMTSolverSetupUsesLinearRealArithmetic(t *testing.T) {
 		t.Fatal("infeasible linear arithmetic", status)
 	}
 	astTestMust(t, s.Pop(1))
+	if smtcoreSourceDebug {
+		// Source lar_solver::pop keeps the conflict's x = y = 1, so x+y sits
+		// above its strict bound and get_model's update_delta SASSERT(l <= u)
+		// fails in a debug source build (release returns that model).
+		s.kernel.smtState.Model = false
+	}
 	status, err = s.CheckSat(nil)
 	astTestMust(t, err)
 	if status != lbool.True {

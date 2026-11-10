@@ -539,6 +539,11 @@ func TestSMTBitVectorBlastLimitGivesUnknown(t *testing.T) {
 		t.Fatal("missing bit-vector theory")
 	}
 	astTestMust(t, theory.ConfigureBitVector(SMTBVState{BlastMaxSize: 2, EnableInt2BV: true}))
+	if smtcoreSourceDebug {
+		// The unattached 4-bit constant reaches mk_extra_fresh_value, whose
+		// SASSERT(s->is_infinite()) a debug source build also violates.
+		solver.kernel.smtState.Model = false
+	}
 	one, err := m.BitVectorNumeralUint64(1, 4)
 	astTestMust(t, err)
 	sort, err := m.GetSort(one)

@@ -175,8 +175,10 @@ func TestSMTModelGeneratorFreshSourcesAndDependencyOrder(t *testing.T) {
 		if !errors.As(err, &exception) || exception.Message() != "assertion violation" {
 			t.Fatal("finite fresh source assertion", err)
 		}
-	} else if !errors.Is(err, ast.ErrASTDomain) {
-		t.Fatal("finite fresh placeholder", err)
+	} else if err != nil {
+		// Release source has no is_infinite check (theory_bv approximate_term
+		// leaves large bit-vectors unattached and they take this path).
+		t.Fatal("finite fresh release placeholder", err)
 	}
 }
 

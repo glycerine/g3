@@ -126,11 +126,10 @@ func (g *SMTModelGenerator) MkExtraFreshValue(sort ast.ASTHandle) (*SMTExtraFres
 	if err != nil {
 		return nil, err
 	}
+	// Release builds skip SASSERT(s->is_infinite()): a bit-vector left
+	// unattached by approximate_term reaches here with a finite sort.
 	if err = g.sourceAssertion(468, infinite, "s->is_infinite()"); err != nil {
 		return nil, err
-	}
-	if !infinite {
-		return nil, ast.ErrASTDomain
 	}
 	value, err := NewSMTExtraFreshValue(sort, g.freshIndex)
 	if err != nil {
