@@ -874,6 +874,17 @@ Found while matching `-st` output against `build/z3` on
     releases new_arg1; propagate_values push_result's raw new_pr;
     reduce_args mk_mc lifetimes; lackr vector release order; datalog
     mk_coi_filter honors the null model converter of rel_query.
+    2026-11-09: the unbounded recovery is gone (geometric_lex asserts the
+    false blocker); normalize's fmls are released after from_fmls; the
+    objective terms/hard constraints and optsmt's rewritten objectives live
+    in the context until the next import_scoped_state; to_expr is
+    faithful; lia2card's is_pb builds no difference term.
+    unbounded_real_optimization and unbounded_lexicographic_interval are
+    identical. Lead: bounded_integer_optimization line 57: z3 frees
+    (pble x!1 x!2) and the pb normalize's (not x!i) when simplify_fmls
+    returns, so is_maxsat's get_pb_sum makes new negations; g3's final
+    simplified formulas still hold them until after from_fmls (compare the
+    simplify_fmls output formulas).
     Leads left:
     - integer_division_scopes: theory_arith mk_idiv_mod_axioms builds
       (- 0 k) before (< k 0) (GCC right-to-left mk_ite arguments);
