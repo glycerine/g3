@@ -26,7 +26,7 @@ func (e *maxResEngine) preprocessMutexes(objective *arithmeticObjective) ([]maxR
 		}
 		addMaxResMutexWeight(weights, expression, objective.softWeights[i])
 	}
-	status, mutexes, err := e.solver.backend.FindMutexes(expressions)
+	status, mutexes, err := e.solver.solver().FindMutexes(expressions)
 	if err != nil {
 		return nil, fmt.Errorf("maxres mutex discovery: %w", err)
 	}

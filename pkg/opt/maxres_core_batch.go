@@ -46,7 +46,7 @@ func (e *maxResEngine) collectCoreBatch(first []ast.ASTHandle, result *Arithmeti
 	remaining := removeMaxResCoreMembers(append([]ast.ASTHandle(nil), e.active...), core)
 	for len(remaining) != 0 && !e.coreBatchLimitReached(len(cores), len(core)) {
 		e.stats.Checks++
-		status, err = e.solver.backend.CheckSat(remaining)
+		status, err = e.solver.solver().CheckSat(remaining)
 		if err != nil {
 			return nil, lbool.Undef, err
 		}
@@ -57,7 +57,7 @@ func (e *maxResEngine) collectCoreBatch(first []ast.ASTHandle, result *Arithmeti
 			}
 			return cores, lbool.True, nil
 		case lbool.False:
-			raw, err := e.solver.backend.UnsatCore()
+			raw, err := e.solver.solver().UnsatCore()
 			if err != nil {
 				return nil, lbool.Undef, err
 			}

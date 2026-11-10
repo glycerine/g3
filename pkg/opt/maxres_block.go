@@ -13,5 +13,5 @@ func (e *maxResEngine) assertCoreBlock(core []ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	return e.solver.backend.Assert(block)
+	return e.solver.solver().Assert(block)
 }

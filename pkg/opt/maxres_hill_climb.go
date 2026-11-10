@@ -8,7 +8,7 @@ func (e *maxResEngine) checkHillClimb(result *ArithmeticResult) (status lbool.LB
 	boundaries := e.hillClimbBoundaries()
 	for _, size := range boundaries {
 		e.stats.Checks++
-		status, err = e.solver.backend.CheckSat(e.active[:size])
+		status, err = e.solver.solver().CheckSat(e.active[:size])
 		if err != nil || status != lbool.True {
 			return status, false, err
 		}

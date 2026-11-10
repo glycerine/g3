@@ -30,16 +30,16 @@ func (e *sortMaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, 
 	upper := new(big.Rat).Add(lower, new(big.Rat).SetInt64(int64(len(e.inputs)-first)))
 	e.setBounds(result, lower, upper)
 	for i := 0; i < first; i++ {
-		if err = e.solver.backend.Assert(e.outputs[i]); err != nil {
+		if err = e.solver.solver().Assert(e.outputs[i]); err != nil {
 			return lbool.Undef, false, err
 		}
 	}
 	for first < len(e.outputs) {
-		if err = e.solver.backend.Assert(e.outputs[first]); err != nil {
+		if err = e.solver.solver().Assert(e.outputs[first]); err != nil {
 			return lbool.Undef, false, err
 		}
 		e.stats.Checks++
-		status, err = e.solver.backend.CheckSat(nil)
+		status, err = e.solver.solver().CheckSat(nil)
 		if err != nil {
 			return lbool.Undef, false, err
 		}
@@ -67,7 +67,7 @@ func (e *sortMaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, 
 			if !isTrue {
 				break
 			}
-			if err = e.solver.backend.Assert(e.outputs[first]); err != nil {
+			if err = e.solver.solver().Assert(e.outputs[first]); err != nil {
 				return lbool.Undef, false, err
 			}
 			first++

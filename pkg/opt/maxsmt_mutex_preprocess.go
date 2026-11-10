@@ -14,7 +14,7 @@ func (e *sortMaxEngine) preprocessMutexes() (status lbool.LBool, resultErr error
 	for i := range e.terms {
 		expressions[i] = e.terms[i].expression
 	}
-	status, mutexes, err := e.solver.backend.FindMutexes(expressions)
+	status, mutexes, err := e.solver.solver().FindMutexes(expressions)
 	if err != nil || status != lbool.True {
 		return status, err
 	}

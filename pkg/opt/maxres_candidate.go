@@ -16,7 +16,7 @@ func (e *maxResEngine) updateMUSModel(result *ArithmeticResult) error {
 	var weight big.Rat
 	var err error
 	if e.config.satCoreEnabled {
-		candidate, err = e.solver.backend.AcquireModel()
+		candidate, err = e.solver.solver().AcquireModel()
 	} else {
 		var value *big.Rat
 		candidate, value, err = e.mus.BestModel()
@@ -34,7 +34,7 @@ func (e *maxResEngine) updateMUSModel(result *ArithmeticResult) error {
 }
 
 func (e *maxResEngine) updateCandidate(result *ArithmeticResult) error {
-	md, err := e.solver.backend.AcquireModel()
+	md, err := e.solver.solver().AcquireModel()
 	if err != nil {
 		return fmt.Errorf("maxres candidate model: %w", err)
 	}

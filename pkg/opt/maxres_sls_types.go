@@ -25,13 +25,13 @@ func (s *maxResSLSCandidateSearch) close() error {
 }
 
 func (s *maxResSLSCandidateSearch) hardAssertions() ([]ast.ASTHandle, error) {
-	n, err := s.engine.solver.backend.NumAssertions()
+	n, err := s.engine.solver.solver().NumAssertions()
 	if err != nil {
 		return nil, err
 	}
 	result := make([]ast.ASTHandle, n)
 	for i := uint32(0); i < n; i++ {
-		result[i], err = s.engine.solver.backend.Assertion(i)
+		result[i], err = s.engine.solver.solver().Assertion(i)
 		if err != nil {
 			return nil, err
 		}

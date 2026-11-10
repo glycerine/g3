@@ -9,7 +9,7 @@ func (e *sortMaxEncoder) clause(literals ...ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	if err = e.engine.solver.backend.Assert(formula); err != nil {
+	if err = e.engine.solver.solver().Assert(formula); err != nil {
 		return err
 	}
 	e.engine.stats.Clauses++

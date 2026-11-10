@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/model"
+	satsolver "github.com/glycerine/g3/pkg/sat/sat_solver"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -90,6 +91,7 @@ func (r *ArithmeticResult) Close() error {
 // blockers cannot mutate the command context's ordinary incremental solver.
 type ArithmeticSolver struct {
 	backend             *smtcore.SMTSolver
+	sat                 *satsolver.Solver // update_solver's mk_inc_sat_solver
 	internalized        []internalizedObjective
 	manager             *ast.ASTManager
 	config              smtcore.SMTSolverConfig
@@ -331,7 +333,7 @@ func (s *ArithmeticSolver) AddSoftObjectiveWithOffset(terms []ast.ASTHandle, wei
 }
 
 func (s *ArithmeticSolver) replaceModel(result *ArithmeticResult) error {
-	md, err := s.backend.AcquireModel()
+	md, err := s.solver().AcquireModel()
 	if err != nil {
 		return err
 	}
@@ -525,12 +527,12 @@ func (s *ArithmeticSolver) softBound(objective *arithmeticObjective, bound *big.
 }
 
 func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (status lbool.LBool, optimal bool, resultErr error) {
-	if err := s.backend.Push(); err != nil {
+	if err := s.solver().Push(); err != nil {
 		return lbool.Undef, false, err
 	}
 	var activeEngine maxSMTEngine
 	defer func() {
-		if popErr := s.backend.Pop(1); popErr != nil {
+		if popErr := s.solver().Pop(1); popErr != nil {
 			resultErr = errors.Join(resultErr, fmt.Errorf("pop MaxSMT scope: %w", popErr))
 		}
 		if activeEngine != nil {
@@ -539,7 +541,7 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 			}
 		}
 	}()
-	status, err := s.backend.CheckSat(nil)
+	status, err := s.solver().CheckSat(nil)
 	if err != nil || status != lbool.True {
 		return status, false, err
 	}
@@ -595,13 +597,13 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 		}
 		blocker, e = s.manager.RefGet(blockerRef)
 		if e == nil {
-			e = s.backend.Assert(blocker)
+			e = s.solver().Assert(blocker)
 		}
 		e = errors.Join(e, s.manager.DelRef(&blockerRef))
 		if e != nil {
 			return lbool.Undef, false, e
 		}
-		status, e = s.backend.CheckSat(nil)
+		status, e = s.solver().CheckSat(nil)
 		if e != nil {
 			return lbool.Undef, false, e
 		}
@@ -762,7 +764,7 @@ func (s *ArithmeticSolver) commitSoftObjective(index int, value ObjectiveValue) 
 	}
 	bound, err = s.manager.RefGet(ref)
 	if err == nil {
-		err = s.backend.Assert(bound)
+		err = s.solver().Assert(bound)
 	}
 	return errors.Join(err, s.manager.DelRef(&ref))
 }
@@ -801,11 +803,11 @@ func (s *ArithmeticSolver) CheckHard() (lbool.LBool, string, error) {
 	if s == nil || s.backend == nil {
 		return lbool.Undef, "", ast.ErrASTHandle
 	}
-	status, err := s.backend.CheckSat(nil)
+	status, err := s.solver().CheckSat(nil)
 	if err != nil || status != lbool.Undef {
 		return status, "", err
 	}
-	reason, err := s.backend.ReasonUnknown()
+	reason, err := s.solver().ReasonUnknown()
 	return status, reason, err
 }
 
@@ -834,16 +836,16 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 	for i := range s.objectives {
 		outer := i+1 < len(s.objectives)
 		if outer {
-			if err := s.backend.Push(); err != nil {
+			if err := s.solver().Push(); err != nil {
 				return nil, err
 			}
 		}
 		status, optimal, err := s.optimizeOne(i, result)
 		if err == nil && status == lbool.Undef {
-			result.ReasonUnknown, err = s.backend.ReasonUnknown()
+			result.ReasonUnknown, err = s.solver().ReasonUnknown()
 		}
 		if outer {
-			err = errors.Join(err, s.backend.Pop(1))
+			err = errors.Join(err, s.solver().Pop(1))
 		}
 		if err != nil {
 			return nil, err
@@ -908,6 +910,12 @@ func (s *ArithmeticSolver) DetachObjectiveTerms() []ast.ASTRef {
 func (s *ArithmeticSolver) Close() error {
 	if s == nil || s.backend == nil {
 		return nil
+	}
+	if s.sat != nil {
+		if err := s.sat.Close(); err != nil {
+			return err
+		}
+		s.sat = nil
 	}
 	for len(s.internalized) != 0 {
 		if err := s.manager.DelRef(&s.internalized[0].ref); err != nil {

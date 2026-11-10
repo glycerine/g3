@@ -74,7 +74,7 @@ func newWMaxEngine(s *ArithmeticSolver, objective *arithmeticObjective, index in
 			assertion, cause = e.owner.hold(assertion, nil)
 		}
 		if cause == nil {
-			cause = s.backend.Assert(assertion)
+			cause = s.solver().Assert(assertion)
 		}
 		if cause != nil {
 			return nil, errors.Join(cause, e.close())
@@ -164,7 +164,7 @@ func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, opt
 	}
 	status = lbool.True
 	for e.lower.Cmp(&e.upper) < 0 {
-		status, err = e.solver.backend.CheckSat(nil)
+		status, err = e.solver.solver().CheckSat(nil)
 		if err != nil {
 			return lbool.Undef, false, err
 		}
@@ -191,7 +191,7 @@ func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, opt
 			block, cause = e.owner.hold(block, nil)
 		}
 		if cause == nil {
-			cause = e.solver.backend.Assert(block)
+			cause = e.solver.solver().Assert(block)
 		}
 		if cause != nil {
 			return lbool.Undef, false, cause

@@ -22,7 +22,7 @@ func (e *maxResEngine) optimizePrimalDual(result *ArithmeticResult) (lbool.LBool
 			e.lower.Set(&e.upper)
 			return lbool.False, true, nil
 		}
-		rawCore, err := e.solver.backend.UnsatCore()
+		rawCore, err := e.solver.solver().UnsatCore()
 		if err != nil {
 			return lbool.Undef, false, err
 		}

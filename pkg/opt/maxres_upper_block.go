@@ -16,7 +16,7 @@ func (e *maxResEngine) assertUpperBound(satisfied *big.Rat) error {
 	if err != nil {
 		return err
 	}
-	if err = e.solver.backend.Assert(block); err != nil {
+	if err = e.solver.solver().Assert(block); err != nil {
 		return err
 	}
 	e.stats.UpperBoundBlocks++

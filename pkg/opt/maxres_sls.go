@@ -36,7 +36,7 @@ func (e *maxResEngine) trySLSCandidate(result *ArithmeticResult) (resultErr erro
 		return nil
 	}
 	e.stats.SLSChecks++
-	status, err = e.solver.backend.CheckSat(assumptions)
+	status, err = e.solver.solver().CheckSat(assumptions)
 	if err != nil {
 		return fmt.Errorf("maxres SLS validate: %w", err)
 	}

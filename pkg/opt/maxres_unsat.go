@@ -9,7 +9,7 @@ import (
 )
 
 func (e *maxResEngine) processUnsatCore(result *ArithmeticResult) (lbool.LBool, error) {
-	core, err := e.solver.backend.UnsatCore()
+	core, err := e.solver.solver().UnsatCore()
 	if err != nil {
 		return lbool.Undef, fmt.Errorf("maxres unsat core: %w", err)
 	}

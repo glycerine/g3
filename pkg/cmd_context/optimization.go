@@ -429,6 +429,11 @@ func (c *Context) checkOptimizeLex(assumptions []ast.ASTHandle) (optimized *opt.
 			return nil, err
 		}
 	}
+	// optimize(): update_solver() installs mk_inc_sat_solver for a
+	// SAT-eligible problem before check_sat on the hard constraints.
+	if err = optimizer.UpdateSolver(&c.params); err != nil {
+		return nil, err
+	}
 	initial, reason, err := optimizer.CheckHard()
 	if err != nil {
 		return nil, err
