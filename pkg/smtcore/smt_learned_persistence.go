@@ -194,8 +194,14 @@ func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreserved
 		booleanLimit = s.scopes[s.pendingPop.level].booleanLimit + int(SMTFirstBoolVar)
 	}
 	for index := limit; index < len(s.clauses); index++ {
+		// The pop compacts s.clauses to the records keepClauseAcrossPop keeps,
+		// binary lemmas (no clause object) included; count every kept slot.
+		keeps := livePop && s.keepClauseAcrossPop(&s.clauses[index])
 		clause := s.clauses[index].clause
 		if clause == nil || !clause.IsLemma() {
+			if keeps {
+				kept++
+			}
 			continue
 		}
 		recordIndex := limit + kept

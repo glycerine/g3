@@ -1337,10 +1337,9 @@ func (f *smtSolverFactory) Close() error {
 // ApplyQuantElimSettings is quant_elim_new::eliminate's flets on m_fparams
 // (src/qe/qe.cpp:2137-2142): m_model, m_simplify_bit2int,
 // m_arith_enum_const_mod, m_bv_enable_int2bv2int,
-// and m_array_canonize_simplify hold for the qe plugins' kernels. The
-// flet's m_relevancy_lvl = 0 is not applied yet: with relevancy off g3's
-// qe search reaches an unsupported state (see TODO item 18). Call it
-// before the first assertion.
+// and m_array_canonize_simplify hold for the qe plugins' kernels; the
+// flet's m_relevancy_lvl = 0 is a construction parameter. Call it before
+// the first assertion.
 func (s *SMTSolver) ApplyQuantElimSettings() error {
 	if s == nil || s.kernel == nil {
 		return ast.ErrASTHandle

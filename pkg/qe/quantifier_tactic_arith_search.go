@@ -258,7 +258,17 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 	if err = normalizeExprQETree(root, rw, nnf); err != nil {
 		return result, false, err
 	}
-	solver, err := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: config.Context, Globals: config.Globals, ModelEvaluator: model.ModelEvaluatorConfig{Context: config.Context, Globals: config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: config.Cooperation, Trace: config.Trace}})
+	// quant_elim_new::eliminate: flet m_relevancy_lvl = 0.
+	kernelParams, err := config.Context.NewValue()
+	if err != nil {
+		return result, false, err
+	}
+	defer func() { err = errors.Join(err, config.Context.Del(&kernelParams)) }()
+	relevancy := "relevancy"
+	if err = config.Context.SetUIntName(&kernelParams, &relevancy, 0); err != nil {
+		return result, false, err
+	}
+	solver, err := smtcore.NewSMTSolver(m, &kernelParams, "", smtcore.SMTSolverConfig{Params: config.Context, Globals: config.Globals, ModelEvaluator: model.ModelEvaluatorConfig{Context: config.Context, Globals: config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: config.Cooperation, Trace: config.Trace}})
 	if err != nil {
 		return result, false, err
 	}
