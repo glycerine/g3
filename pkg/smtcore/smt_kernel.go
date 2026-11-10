@@ -73,8 +73,8 @@ type SMTKernel struct {
 	// generation pinned stay alive until the next mk_proto_model resets the
 	// generator (or the context is destroyed), and are released forward.
 	generatorPins []ast.ASTRef
-	// protoTrail is the value-factory trail of the last proto model; it
-	// dies with m_proto_model, after the m_asts pins on a reset.
+	// protoTrail is the value-factory trail of m_proto_model; it dies when
+	// scoped_mk_model drops the proto model, or at the context's teardown.
 	protoTrail       []ast.ASTRef
 	preprocessor     *rewriter.TheoryRewriter
 	patternInference *pattern.InferenceRewriter
@@ -1340,7 +1340,11 @@ func (k *SMTKernel) buildGeneratedModel() error {
 		return errors.Join(err, generated.Core().DecRef())
 	}
 	k.generated = generated
-	// ~scoped_mk_model: m_proto_model = nullptr once m_model exists.
+	// ~scoped_mk_model: m_proto_model = nullptr once m_model exists;
+	// ~proto_model deletes its value factories (their m_trail) first.
+	if err = k.releaseProtoTrail(); err != nil {
+		return err
+	}
 	if manager := k.internalizer.quantifierManager; manager != nil {
 		return manager.releaseRetiredProto()
 	}
