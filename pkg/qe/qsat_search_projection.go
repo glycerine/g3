@@ -32,7 +32,10 @@ func (s *qsatSearch) prepareKernels(c *qsatSearchCall, formula ast.ASTRef) error
 	if err != nil {
 		return err
 	}
-	defs := c.vector()
+	if err = s.releaseOperatorDefs(); err != nil {
+		return err
+	}
+	defs := &s.operatorDefs
 	level := EmptyMaxLevel()
 	if err = s.preparation.abstraction.AbstractAtoms(h, &level, defs); err != nil {
 		return err

@@ -240,6 +240,8 @@ func (t *QSATTactic) Apply(g *tactic.Goal, result *tactic.TacticResult) (err err
 	}
 	c := &qsatTacticCall{owner: t}
 	t.pending = append(t.pending, c)
+	// operator()'s locals die in reverse order: fml (in c), then defs.
+	defer func() { err = errors.Join(err, t.search.releaseOperatorDefs()) }()
 	defer t.finish(c, &err)
 	c.report, err = tactic.NewTacticReport("qsat-tactic", g)
 	if err != nil {

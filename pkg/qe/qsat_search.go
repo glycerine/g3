@@ -27,6 +27,9 @@ type qsatSearch struct {
 	forall, exists                                           *qsatKernel
 	preparation                                              *qsatPreparation
 	answers, assumptions, projectionVariables, freeVariables []ast.ASTRef
+	// operatorDefs is qsat::operator()'s expr_ref_vector defs: the atom
+	// abstraction definitions live until the tactic call returns.
+	operatorDefs []ast.ASTRef
 	current, saved                                           tactic.ModelRef
 	level, rounds                                            uint32
 	stats                                                    statistics.Statistics
@@ -237,6 +240,17 @@ func (c *qsatSearchCall) close() error {
 	}
 	return c.owner.clearRefs(&c.refs)
 }
+// releaseOperatorDefs is ~expr_ref_vector defs (front to back).
+func (s *qsatSearch) releaseOperatorDefs() (result error) {
+	for i := range s.operatorDefs {
+		if s.operatorDefs[i] != (ast.ASTRef{}) {
+			result = errors.Join(result, s.manager.DelRef(&s.operatorDefs[i]))
+		}
+	}
+	s.operatorDefs = nil
+	return result
+}
+
 func (s *qsatSearch) clearRefs(v *[]ast.ASTRef) error {
 	for len(*v) > 0 {
 		i := len(*v) - 1
