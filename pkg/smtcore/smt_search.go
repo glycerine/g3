@@ -560,7 +560,10 @@ func (k *SMTKernel) resolveSearchConflict(session *smtSearchSession) (bool, erro
 	if err != nil {
 		return false, fmt.Errorf("smt search reinternalize learned clause: %w", err)
 	}
-	if err = k.internalizer.AddLearnedClauseWithProof(resolution.Lemma, proof); err != nil {
+	// m_units_to_reassert keeps a learned unit only under
+	// delay_forced_restart, i.e. when its backjump was delayed.
+	delayed := newScopeLevel != resolution.NewScopeLevel
+	if err = k.internalizer.addLearnedClauseWithProof(resolution.Lemma, proof, delayed); err != nil {
 		return false, fmt.Errorf("smt search learn clause: %w", err)
 	}
 	if err = k.internalizer.recordConflictForClauseMaintenance(); err != nil {
