@@ -846,6 +846,33 @@ Found while matching `-st` output against `build/z3` on
      only xform.slice).
 
 22. **OPEN: opt::context::optimize flow (item 12 cluster).**
+   PROGRESS (2026-11-09, cfd7faeae..3228858d1): update_solver installs
+   sat/sat_solver's inc_sat_solver behind opt.maxSMTBackend, and every
+   MaxSMT engine, blocker and commit goes through solver(). Fixes in this
+   batch:
+   - Hard constraints are asserted after update_solver, so they reach only
+     the SAT solver.
+   - optsmt::setup's base-level push/pop runs after each sat initial check.
+   - m_sat_solver survives until the next update_solver.
+   - MaxSMT objectives run unscoped (execute_lex).
+   - A lone objective is committed.
+   - maxres commit_assignment re-asserts m_defs/m_asms.
+   - max_resolve/cs_max_resolve build per iteration in source order.
+   - init leaves m_csmodel null.
+   - probe_bv walks the normalized hard constraints.
+   - is_maxsat ids print orig_term.
+   - lia2card args, conds and m_rw lifetimes follow the source.
+   - simplify_fmls drops to_fmls's fmls before from_fmls.
+   - m_simplify and m_model_converter persist until the next normalize,
+     and propagate_values is not clean()-wrapped.
+   - from_fmls keeps objectives it does not see.
+   weighted_soft_optimization is now identical (full logs 496 -> 497).
+   NEXT: pareto_bit_vector (12), pareto_soft (29), box (38), pareto (38),
+   bit_vector (42), strict_lexicographic (42). The pareto and box paths
+   still skip normalize/update_solver (see PLAN below).
+   Noted: g3's rlimit accounting differs from z3's. z3's OPB front end
+   finishes at any budget, while g3 reports unknown below about 450
+   (cmd/g3 OPB tests pin checkpoints).
    ROOT CAUSE for the propositional MaxSAT vectors (weighted_soft_optimization,
    pareto_soft, box, ...; 2026-11-09): opt::context::update_solver replaces the
    opt_solver with mk_inc_sat_solver when probe_bv holds (only Bool/PB/BV
