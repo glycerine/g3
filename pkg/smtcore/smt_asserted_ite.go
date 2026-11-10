@@ -150,7 +150,10 @@ func (k *SMTKernel) appendSimplifiedAssertion(batch *macros.FormulaBatch, assert
 	if err != nil {
 		return err
 	}
-	if proofs && value != assertion.Formula {
+	if proofs {
+		// if (!result_pr) result_pr = mk_rewrite(f, result);
+		// result_pr = mk_modus_ponens(j.get_proof(), result_pr): built even
+		// when the formula is unchanged (j is then kept and result_pr dies).
 		rewrite, err := k.manager.RefGet(proof)
 		if err != nil {
 			return err
@@ -160,10 +163,19 @@ func (k *SMTKernel) appendSimplifiedAssertion(batch *macros.FormulaBatch, assert
 			if err != nil {
 				return err
 			}
+			if err = k.manager.SetRef(proof, rewrite); err != nil {
+				return err
+			}
 		}
-		row.Proof, err = k.manager.MkProofModusPonens(assertion.Proof, rewrite)
+		mp, err := k.manager.MkProofModusPonens(assertion.Proof, rewrite)
 		if err != nil {
 			return err
+		}
+		if err = k.manager.SetRef(proof, mp); err != nil {
+			return err
+		}
+		if value != assertion.Formula {
+			row.Proof = mp
 		}
 	}
 	if err = k.appendTransformedAssertion(batch, assertion, row.Expression, row.Proof); err != nil {

@@ -27,10 +27,13 @@ func (k *SMTKernel) refinePendingInjectivityAxioms() (result error) {
 		return err
 	}
 	defer func() { result = errors.Join(result, k.manager.DelRef(&out)) }()
-	proofs, err := k.manager.ProofsEnabled()
+	// refine_inj_axiom_fn::simplify leaves p null; simplify_fmls builds the
+	// rewrite and modus ponens proofs.
+	proof, err := k.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return err
 	}
+	defer func() { result = errors.Join(result, k.manager.DelRef(&proof)) }()
 	for _, assertion := range k.assertions[k.assertedHead:] {
 		row := macros.Formula{Expression: assertion.Formula, Proof: assertion.Proof}
 		kind, err := k.manager.GetKind(assertion.Formula)
@@ -46,16 +49,6 @@ func (k *SMTKernel) refinePendingInjectivityAxioms() (result error) {
 				row.Expression, err = k.manager.RefGet(out)
 				if err != nil {
 					return err
-				}
-				if proofs {
-					rewrite, err := k.manager.MkProofRewrite(assertion.Formula, row.Expression)
-					if err != nil {
-						return err
-					}
-					row.Proof, err = k.manager.MkProofModusPonens(assertion.Proof, rewrite)
-					if err != nil {
-						return err
-					}
 				}
 				if err = k.traceAssertedBody("inj_axiom", "simplify", 617, func(traceOut io.Writer) error {
 					if _, traceErr := io.WriteString(traceOut, "simplifying...\n"); traceErr != nil {
@@ -81,11 +74,10 @@ func (k *SMTKernel) refinePendingInjectivityAxioms() (result error) {
 				}
 			}
 		}
-		if err := k.appendTransformedAssertion(batch, assertion, row.Expression, row.Proof); err != nil {
+		if err := k.manager.SetRef(out, row.Expression); err != nil {
 			return err
 		}
-		// The per-formula result dies at the end of the iteration.
-		if err := k.manager.SetRef(out, ast.ASTHandle{}); err != nil {
+		if err := k.appendSimplifiedAssertion(batch, assertion, out, proof); err != nil {
 			return err
 		}
 		if canceled, err := k.manager.Canceled(); canceled || err != nil {
