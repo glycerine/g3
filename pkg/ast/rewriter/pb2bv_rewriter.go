@@ -382,6 +382,25 @@ func (r *PB2BVRewriter) weighted(mode pb2BVComparison, args []ast.ASTHandle, coe
 }
 
 func (r *PB2BVRewriter) weightedPB(kind int32, decl ast.ASTHandle, arguments ast.AppArguments, bound *big.Rat) (ast.ASTHandle, error) {
+	return r.weightedPBCore(kind, decl, arguments, bound, nil)
+}
+
+// weightedPBInto is mk_bv with its result held by out before the dualized
+// expr_ref_vector nargs is destroyed (front to back), as the source's
+// returned expr_ref holds the result.
+func (r *PB2BVRewriter) weightedPBInto(kind int32, decl ast.ASTHandle, arguments ast.AppArguments, bound *big.Rat, out ast.ASTRef) (result error) {
+	var held []ast.ASTHandle
+	h, err := r.weightedPBCore(kind, decl, arguments, bound, &held)
+	if err == nil {
+		err = r.manager.SetRef(out, h)
+	}
+	for _, n := range held {
+		err = errors.Join(err, r.manager.DecRef(n))
+	}
+	return err
+}
+
+func (r *PB2BVRewriter) weightedPBCore(kind int32, decl ast.ASTHandle, arguments ast.AppArguments, bound *big.Rat, held *[]ast.ASTHandle) (ast.ASTHandle, error) {
 	r.compileBV++
 	args := make([]ast.ASTHandle, arguments.Count())
 	coefficients := make([]*big.Rat, arguments.Count())
@@ -411,6 +430,13 @@ func (r *PB2BVRewriter) weightedPB(kind int32, decl ast.ASTHandle, arguments ast
 			args[i], err = r.negate(args[i])
 			if err != nil {
 				return ast.ASTHandle{}, err
+			}
+			if held != nil {
+				// expr_ref_vector nargs owns the negated literal.
+				if err = r.manager.IncRef(args[i]); err != nil {
+					return ast.ASTHandle{}, err
+				}
+				*held = append(*held, args[i])
 			}
 		}
 		bound = dual
@@ -760,12 +786,11 @@ func (r *PB2BVRewriter) rewriteApp(decl ast.ASTHandle, args ast.AppArguments, ou
 		if r.retainWeighted(kind, decl, bound) {
 			return RewriteFailed, nil
 		}
-		result, err := r.weightedPB(kind, decl, args, bound)
-		if err != nil {
+		if err := r.weightedPBInto(kind, decl, args, bound, out); err != nil {
 			return RewriteFailed, err
 		}
 		r.numTranslated++
-		return RewriteDone, r.manager.SetRef(out, result)
+		return RewriteDone, nil
 	}
 	if r.keepCardinality && args.Count() >= r.minArity {
 		return RewriteFailed, nil
