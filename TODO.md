@@ -903,6 +903,13 @@ Found while matching `-st` output against `build/z3` on
    init_solver/normalize, and execute_box runs on the optimize() solver
    (optsmt::box, then a scoped execute per MaxSMT objective). elim01's
    cleanup keeps m_rewriter. box_optimization moved 38 -> 79.
+   Pareto: DELIBERATE DEVIATION (ac072393b). Running normalize on the first
+   pareto call (it works once filterParetoModel applies
+   m_model_converter) reproduces z3 4.7's behaviour: gia_pareto never
+   terminates once 0-1 objectives are converted to MaxSAT sums (z3 times
+   out on a 2-variable x+y=1 frontier; see the pareto cmd_context tests).
+   Pareto therefore keeps the unnormalized path, and its traces stay
+   divergent by design.
    Lead at box line 80: z3's pb_rewriter keeps m_args (an expr_ref_vector
    member reset at the next non-constant rewrite), and that inc/dec frees a
    raw (not y!2), which g3 keeps. TRIED porting m_args: stdout went
