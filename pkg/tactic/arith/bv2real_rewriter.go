@@ -234,14 +234,19 @@ func (c *bv2RealCall) binary(op int32, s, t ast.ASTHandle) (result ast.ASTHandle
 func (c *bv2RealCall) equal(s, t ast.ASTHandle) (result ast.ASTHandle, matched bool) {
 	mark := c.checkpoint()
 	defer c.endExpressionScope(mark, &result)
-	a, b, x, y, d1, d2, _, ok := c.pair(s, t)
+	// expr_ref s1, s2, t1, t2 die in reverse order.
+	s1, s2, t1, t2, d1, d2, _, ok := c.pairLocals(mark, s, t)
+	defer c.releaseLocals(&t2, &t1, &s2, &s1)
 	if !ok {
 		return ast.ASTHandle{}, false
 	}
-	a, b, x, y = c.alignDivisorsOwned(a, b, x, y, d1, d2)
-	a, x = c.align(a, x)
-	b, y = c.align(b, y)
-	return c.basic(ast.ASTOpAnd, c.basic(ast.ASTOpEq, a, x), c.basic(ast.ASTOpEq, b, y)), true
+	c.alignDivisorsLocals(mark, &s1, &s2, &t1, &t2, d1, d2)
+	c.alignLocals(mark, &s1, &t1)
+	c.alignLocals(mark, &s2, &t2)
+	// mk_and(mk_eq(s1, t1), mk_eq(s2, t2)): GCC builds the second first.
+	second := c.basic(ast.ASTOpEq, c.localValue(s2), c.localValue(t2))
+	first := c.basic(ast.ASTOpEq, c.localValue(s1), c.localValue(t1))
+	return c.basic(ast.ASTOpAnd, first, second), true
 }
 func (c *bv2RealCall) ite(cond, s, t ast.ASTHandle) (result ast.ASTHandle, matched bool) {
 	mark := c.checkpoint()

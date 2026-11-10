@@ -25,7 +25,7 @@ func (c *bv2RealCall) multiplyScalarOwned(n *unumeral.OwnedRational, b ast.ASTHa
 		return b
 	}
 	// expr* s = mk_sbv(n); return mk_bv_mul(s, t): s is raw.
-	return c.mulAdopting(c.signedNumeralOwned(n), b, true)
+	return c.mulAdopting(c.signedNumeralRaw(n), b, true)
 }
 func (c *bv2RealCall) multiplyScalarLiteral(n int64, b ast.ASTHandle) (result ast.ASTHandle) {
 	mark := c.checkpoint()

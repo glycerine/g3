@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // newLocal is expr_ref x(h, m()).
@@ -87,4 +88,53 @@ func (c *bv2RealCall) alignLocals(mark bv2RealCallCheckpoint, s, t *ast.ASTRef) 
 	} else if ws < wt {
 		c.assignLocal(mark, s, c.extend(wt-ws, c.localValue(*s)))
 	}
+}
+
+// pairLocals is is_bv2real(s, s1, s2, ...) && is_bv2real(t, t1, t2, ...)
+// into the caller's expr_ref locals: the matched pieces are owned by the
+// locals (a numeral's mk_sbv results are raw in the source).
+func (c *bv2RealCall) pairLocals(mark bv2RealCallCheckpoint, s, t ast.ASTHandle) (s1, s2, t1, t2 ast.ASTRef, d1, d2, r *unumeral.OwnedRational, ok bool) {
+	a, b, x, y, d1, d2, r, ok := c.pair(s, t)
+	if !ok || c.err != nil {
+		return s1, s2, t1, t2, d1, d2, r, false
+	}
+	s1, s2, t1, t2 = c.newLocal(a), c.newLocal(b), c.newLocal(x), c.newLocal(y)
+	for _, h := range []ast.ASTHandle{a, b, x, y} {
+		c.dropHold(mark.refs, h)
+	}
+	return s1, s2, t1, t2, d1, d2, r, c.err == nil
+}
+
+// alignDivisorsLocals is align_divisors(expr_ref& s1, s2, t1, t2, d1, d2):
+// each assignment releases the replaced value.
+func (c *bv2RealCall) alignDivisorsLocals(mark bv2RealCallCheckpoint, s1, s2, t1, t2 *ast.ASTRef, d1, d2 *unumeral.OwnedRational) {
+	if c.err != nil {
+		return
+	}
+	s := c.u.manager.NumeralService()
+	equal, err := s.Equal(d1, d2)
+	if err != nil || equal {
+		c.err = err
+		return
+	}
+	count := len(c.numbers)
+	defer func() { c.err = errors.Join(c.err, c.releaseNumbersTo(count)) }()
+	g := c.takeRational(s.GCD(d1, d2))
+	l := c.takeRational(s.LCM(d1, d2))
+	d1g := c.takeRational(s.Div(d1, g))
+	d2g := c.takeRational(s.Div(d2, g))
+	if c.err != nil {
+		return
+	}
+	c.assignLocal(mark, s1, c.multiplyScalarOwned(d2g, c.localValue(*s1)))
+	c.assignLocal(mark, s2, c.multiplyScalarOwned(d2g, c.localValue(*s2)))
+	c.assignLocal(mark, t1, c.multiplyScalarOwned(d1g, c.localValue(*t1)))
+	c.assignLocal(mark, t2, c.multiplyScalarOwned(d1g, c.localValue(*t2)))
+	if c.err != nil {
+		return
+	}
+	if c.err = s.Copy(d1, l); c.err != nil {
+		return
+	}
+	c.err = s.Copy(d2, l)
 }

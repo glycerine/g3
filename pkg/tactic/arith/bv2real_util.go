@@ -512,10 +512,10 @@ func (c *bv2RealCall) mul(a, b ast.ASTHandle) (result ast.ASTHandle) {
 	return c.mulAdopting(a, b, false)
 }
 
-// mulAdopting is mk_bv_mul(s, t). With adoptA, s is a raw expr* of the
-// caller (mk_bv_mul(rational, t)'s mk_sbv): the caller's scope hold on it is
-// moved into s1, so replacing s1 frees it.
-func (c *bv2RealCall) mulAdopting(a, b ast.ASTHandle, adoptA bool) (result ast.ASTHandle) {
+// mulAdopting is mk_bv_mul(s, t). With rawA, s is a raw expr* of the
+// caller (mk_bv_mul(rational, t)'s mk_sbv), unheld: s1 is its only owner,
+// so replacing s1 frees it, and an early zero return leaves it unowned.
+func (c *bv2RealCall) mulAdopting(a, b ast.ASTHandle, rawA bool) (result ast.ASTHandle) {
 	c.assertBV(a, 179, "m_bv.is_bv(s)")
 	c.assertBV(b, 180, "m_bv.is_bv(t)")
 	if c.err != nil {
@@ -529,11 +529,6 @@ func (c *bv2RealCall) mulAdopting(a, b ast.ASTHandle, adoptA bool) (result ast.A
 	}
 	s1 := c.newLocal(a)
 	t1 := c.newLocal(b)
-	if adoptA {
-		// Drop the caller's hold before this scope's checkpoint, so the
-		// scope's mark stays below everything it creates.
-		c.dropHold(0, a)
-	}
 	mark := c.checkpoint()
 	defer c.endExpressionScope(mark, &result)
 	defer c.releaseLocals(&t1, &s1)
@@ -565,7 +560,11 @@ func (c *bv2RealCall) multiplyScalar(q *big.Rat, b ast.ASTHandle) (result ast.AS
 		return b
 	}
 	// expr* s = mk_sbv(n); return mk_bv_mul(s, t): s is raw.
-	return c.mulAdopting(c.signedNumeral(q), b, true)
+	value := c.rational(q)
+	if c.err != nil {
+		return ast.ASTHandle{}
+	}
+	return c.mulAdopting(c.signedNumeralRaw(value), b, true)
 }
 func (c *bv2RealCall) extract(high, low uint32, h ast.ASTHandle) ast.ASTHandle {
 	if c.err != nil {

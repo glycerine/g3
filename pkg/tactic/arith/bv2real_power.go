@@ -47,6 +47,17 @@ func (c *bv2RealCall) signedNumeral(q *big.Rat) (result ast.ASTHandle) {
 }
 
 func (c *bv2RealCall) signedNumeralOwned(value *unumeral.OwnedRational) (result ast.ASTHandle) {
+	return c.signedNumeralMaybeRaw(value, false)
+}
+
+// signedNumeralRaw is mk_sbv(n) whose result the source keeps as a raw
+// expr*: it is not held, so it stays at reference count 0 until a caller's
+// expr_ref takes it.
+func (c *bv2RealCall) signedNumeralRaw(value *unumeral.OwnedRational) ast.ASTHandle {
+	return c.signedNumeralMaybeRaw(value, true)
+}
+
+func (c *bv2RealCall) signedNumeralMaybeRaw(value *unumeral.OwnedRational, raw bool) (result ast.ASTHandle) {
 	mark := c.checkpoint()
 	defer c.endExpressionScope(mark, &result)
 	if c.err != nil {
@@ -80,6 +91,14 @@ func (c *bv2RealCall) signedNumeralOwned(value *unumeral.OwnedRational) (result 
 	if err != nil {
 		c.err = err
 		return ast.ASTHandle{}
+	}
+	if raw {
+		h, err := c.u.manager.BitVectorNumeral(value, width+1)
+		if err == nil && negative {
+			h, err = c.u.manager.MkFamilyApp(c.u.bv, 3, nil, []ast.ASTHandle{h})
+		}
+		c.err = err
+		return h
 	}
 	h := c.hold(c.u.manager.BitVectorNumeral(value, width+1))
 	if negative {
