@@ -627,6 +627,16 @@ Found while matching `-st` output against `build/z3` on
     ErrASTDomain. Find why a sat re-check without new assertions publishes
     no model when relevancy is 0 (a kernel fast path?), then apply
     relevancy 0.
+    DONE (b97881aba): this was an SMT-core bug. preserveLearnedClauses
+    numbered the slots it kept by lemma clause objects only, but the pop's
+    compaction also keeps binary lemmas, so reinit read a neighbour's
+    record. The kernel now runs with relevancy 0. Branch order now: g3
+    z = 3, 0, 2, 1; z3 2, 1, 3, 0. z3's three inner checks in the first
+    final_check/pop round move z!2 from #b11 to #b10, while g3's stay at
+    #b11. NEXT: dump each inner check's model in both (z3 -tr:qe prints
+    final_check models; add a g3 print in searchExprQEScalarTree) and find
+    where the kernels' re-check behaviour splits: restart/phase state,
+    theory_lra's bv2int variables, or the asserted assumption literal.
 
 19. **DONE (2026-11-09, 46531ec4a): MAM ported; old matcher deleted.**
    smtcore/smt_mam_{code,compiler,interpreter,impl}.go port mam.cpp's
