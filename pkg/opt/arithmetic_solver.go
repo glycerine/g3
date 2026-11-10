@@ -388,6 +388,17 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 		return lbool.Undef, false, err
 	}
 	active := true
+	// geometric_lex: commit_assignment(i) for every earlier objective.
+	// m_lower holds opt_solver's decremented (model) value, which is the
+	// captured model value here.
+	for j := 0; j < index; j++ {
+		if s.objectives[j].soft || !result.Values[j].ArithmeticModelValid {
+			continue
+		}
+		if err := s.commitArithmeticObjective(j, result.Values[j]); err != nil {
+			return lbool.Undef, false, errors.Join(err, s.backend.Pop(1))
+		}
+	}
 	var jumpScopes uint32
 	defer func() {
 		if jumpScopes != 0 {
