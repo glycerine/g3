@@ -171,20 +171,13 @@ func (e *Engine) MkMultiplier(a, b []ast.ASTHandle) (out []ast.ASTRef, result er
 					_ = m.DelRef(&term)
 					return nil, err
 				}
-				nextOut, err := m.NewRef(ast.ASTHandle{})
-				if err == nil {
-					err = e.config.MkXor3(termHandle, previous, carryIn, nextOut)
-				}
+				// mk_xor3(i3, out, cins.get(j-2), out): the result replaces
+				// out (releasing the old value) before i3 dies.
+				err = e.config.MkXor3(termHandle, previous, carryIn, bitOut)
 				cleanup := m.DelRef(&term)
 				if err != nil || cleanup != nil {
-					_ = m.DelRef(&nextOut)
 					return nil, errors.Join(err, cleanup)
 				}
-				if err = m.DelRef(&bitOut); err != nil {
-					_ = m.DelRef(&nextOut)
-					return nil, err
-				}
-				bitOut = nextOut
 			}
 		}
 		// expr_ref i1, i2 die in reverse order: i2 first.
