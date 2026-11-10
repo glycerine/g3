@@ -338,8 +338,15 @@ Found while matching `-st` output against `build/z3` on
       m_trail and dies with m_proto_model (released after flush);
       sym_expr::accept returns an owned ref; cg_conflict_eh is called from
       add_eq. sequence_helper_inventory first diff 50 -> 21236,
-      sequence_word_equations_relations 112 -> 105702. Next lead there:
-      g3 creates x!N skolems in a loop after (= (str.len x) ...) at 21237.
+      sequence_word_equations_relations 112 -> 105702. Then re2automaton
+      builds products/complements only with a solver (m_sa) and the
+      unported RegexByteStringCandidates/RegexAcceptedLengths helpers are
+      gone; sequence_helper_inventory now first differs at 21357, where the
+      product automaton's final states differ. ASK BEFORE CHANGING: g3's
+      product (seq_rewriter_automaton.go) deliberately uses closureIsFinal
+      instead of z3 4.7's is_final_state, because the source treats
+      ("" | a) & ("" | b) as empty; matching the trace means adopting that
+      bug.
     - 2026-11-09 lifetime batch (full logs 489 -> 496 of 661; stdout 648,
       all-stats 624): qsat operator()'s defs live until the tactic call
       returns; tactic2solver m_assertions shrink front to back. OPEN leads:
