@@ -475,32 +475,34 @@ func (t *SMTTheorySeq) Close() (result error) {
 		return nil
 	}
 	defer t.recoverErr(&result)
+	// ~theory_seq: m_trail_stack.reset() pops every scope and undoes the
+	// base-level entries too, before the members are destroyed.
+	for i := len(t.trailStack) - 1; i >= 0; i-- {
+		undo := t.trailStack[i]
+		t.trailStack = t.trailStack[:i]
+		t.chk(undo(t))
+	}
 	t.closed = true
 	t.trailStack, t.trailLim = nil, nil
-	t.resetReplay()
-	t.closeAutomata()
-	result = errors.Join(result,
-		t.res.reset(), t.rhsV.reset(), t.lhsV.reset(), t.rs.reset(), t.ls.reset(),
-		t.seqRewrite.Close(),
-		t.intString.reset(), t.axioms.reset(), t.exclude.rhs.reset(), t.exclude.lhs.reset(),
-		t.rep.rhs.reset(), t.rep.lhs.reset(), t.rep.cache.reset(), t.tmps.release())
-	for t.eqs.len() > 0 {
-		result = errors.Join(result, t.eqs.popBack())
-	}
-	for t.nqs.len() > 0 {
-		result = errors.Join(result, t.nqs.popBack())
-	}
-	for t.ncs.len() > 0 {
-		result = errors.Join(result, t.ncs.popBack())
-	}
-	if t.rewrite != nil {
-		result = errors.Join(result, t.rewrite.close())
-		t.rewrite = nil
-	}
+	// Members then die in reverse declaration order: m_mk_aut's solver,
+	// m_res, m_automata, m_rhs, m_lhs, m_rs, m_ls, m_seq_rewrite, m_rewrite,
+	// m_replay, m_int_string, m_axioms, m_exclude, m_ncs, m_nqs, m_eqs, m_rep.
 	if t.exprSolver != nil {
 		result = errors.Join(result, t.exprSolver.Close())
 		t.exprSolver = nil
 	}
+	result = errors.Join(result, t.res.reset())
+	t.closeAutomata()
+	result = errors.Join(result, t.rhsV.reset(), t.lhsV.reset(), t.rs.reset(), t.ls.reset(), t.seqRewrite.Close())
+	if t.rewrite != nil {
+		result = errors.Join(result, t.rewrite.close())
+		t.rewrite = nil
+	}
+	t.resetReplay()
+	result = errors.Join(result,
+		t.intString.reset(), t.axioms.reset(), t.exclude.rhs.reset(), t.exclude.lhs.reset(),
+		t.ncs.destroy(), t.nqs.destroy(), t.eqs.destroy(),
+		t.rep.rhs.reset(), t.rep.lhs.reset(), t.rep.cache.reset(), t.tmps.release())
 	return result
 }
 

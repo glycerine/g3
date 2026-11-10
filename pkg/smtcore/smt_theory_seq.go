@@ -607,6 +607,16 @@ func (v *seqEqVector) popScope(n int) (result error) {
 }
 
 // pushBack takes ownership of e.
+// destroy is ~scoped_vector: m_elems destroys every stored element, front
+// to back.
+func (v *seqEqVector) destroy() (result error) {
+	for i := range v.elems {
+		result = errors.Join(result, v.th.destroyEq(&v.elems[i]))
+	}
+	v.elems, v.size = nil, 0
+	return result
+}
+
 func (v *seqEqVector) pushBack(e seqEq) {
 	v.setIndex(v.size, len(v.elems))
 	v.elems = append(v.elems, e)
@@ -670,6 +680,16 @@ func (v *seqNeVector) popScope(n int) (result error) {
 	return result
 }
 
+// destroy is ~scoped_vector: m_elems destroys every stored element, front
+// to back.
+func (v *seqNeVector) destroy() (result error) {
+	for i := range v.elems {
+		result = errors.Join(result, v.th.destroyNe(&v.elems[i]))
+	}
+	v.elems, v.size = nil, 0
+	return result
+}
+
 func (v *seqNeVector) pushBack(e seqNe) {
 	v.setIndex(v.size, len(v.elems))
 	v.elems = append(v.elems, e)
@@ -729,6 +749,16 @@ func (v *seqNcVector) popScope(n int) (result error) {
 		result = errors.Join(result, v.th.destroyNc(&v.elems[i]))
 	}
 	v.elems = v.elems[:keep]
+	return result
+}
+
+// destroy is ~scoped_vector: m_elems destroys every stored element, front
+// to back.
+func (v *seqNcVector) destroy() (result error) {
+	for i := range v.elems {
+		result = errors.Join(result, v.th.destroyNc(&v.elems[i]))
+	}
+	v.elems, v.size = nil, 0
 	return result
 }
 
