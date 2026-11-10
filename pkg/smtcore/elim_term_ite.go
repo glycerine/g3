@@ -153,13 +153,15 @@ func (e *SMTTermITEEliminator) Reset() (result error) {
 	if err := e.open(); err != nil {
 		return err
 	}
+	// m_new_defs.reset(): vector::reset destroys the elements front to back.
 	for len(e.config.definitions) != 0 {
-		last := len(e.config.definitions) - 1
-		if err := e.config.definitions[last].Close(); err != nil {
+		if err := e.config.definitions[0].Close(); err != nil {
 			return err
 		}
-		e.config.definitions = e.config.definitions[:last]
+		e.config.definitions[0] = nil
+		e.config.definitions = e.config.definitions[1:]
 	}
+	e.config.definitions = nil
 	return e.traversal.Reset()
 }
 
