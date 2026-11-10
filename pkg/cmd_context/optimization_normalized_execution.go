@@ -36,6 +36,11 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		if c.preparedOptimizer, err = c.createOptimizer(); err != nil {
 			return nil, err
 		}
+		// init_solver: m_opt_solver = alloc(...) releases the previous one
+		// after the new kernel exists.
+		if err = c.releaseRetainedOptimizer(); err != nil {
+			return nil, err
+		}
 		defer func() {
 			if c.preparedOptimizer != nil {
 				resultErr = errors.Join(resultErr, c.preparedOptimizer.Close())

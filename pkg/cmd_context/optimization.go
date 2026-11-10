@@ -430,7 +430,10 @@ func (c *Context) checkOptimizeLex(assumptions []ast.ASTHandle) (optimized *opt.
 		if optimizer.HasSAT() {
 			c.optimizationSAT = optimizer.DetachSAT()
 		}
-		resultErr = errors.Join(resultErr, optimizer.Close())
+		// m_opt_solver lives in opt::context until the next init_solver
+		// allocates its replacement.
+		resultErr = errors.Join(resultErr, c.releaseRetainedOptimizer())
+		c.retainedOptimizer = optimizer
 	}()
 	// optimize(): internalize() rewrites the arithmetic objectives, then
 	// check_sat on the hard constraints; a non-sat answer is the result.
@@ -937,4 +940,14 @@ func (c *Context) writeArithmeticObjectiveValue(out io.Writer, expression ast.AS
 		err = c.WriteExpression(out, h)
 	}
 	return errors.Join(err, c.manager.DelRef(&ref))
+}
+
+// releaseRetainedOptimizer drops the previous optimize()'s m_opt_solver.
+func (c *Context) releaseRetainedOptimizer() error {
+	if c.retainedOptimizer == nil {
+		return nil
+	}
+	previous := c.retainedOptimizer
+	c.retainedOptimizer = nil
+	return previous.Close()
 }

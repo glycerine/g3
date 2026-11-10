@@ -117,6 +117,8 @@ type Context struct {
 	// optimizationSAT is opt::context::m_sat_solver; update_solver replaces
 	// it, so it survives until the next SAT-eligible optimize.
 	optimizationSAT *satsolver.Solver
+	// retainedOptimizer is the last lex optimize()'s m_opt_solver.
+	retainedOptimizer *opt.ArithmeticSolver
 	// optimizationSimplify and optimizationModelConverter are
 	// opt::context::m_simplify and m_model_converter: simplify_fmls
 	// replaces them on the next normalize.
@@ -1506,6 +1508,9 @@ func (c *Context) resetManagerState() error {
 		return err
 	}
 	if err := c.releaseOptimizationTerms(); err != nil {
+		return err
+	}
+	if err := c.releaseRetainedOptimizer(); err != nil {
 		return err
 	}
 	if c.optimizationSAT != nil {
