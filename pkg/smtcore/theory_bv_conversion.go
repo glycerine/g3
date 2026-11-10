@@ -238,11 +238,12 @@ func (t *SMTBitVectorTheory) assertIntToBVAxiom(expression ast.ASTHandle) (resul
 		if err != nil {
 			return err
 		}
-		two, err := c.number(big.NewInt(2))
+		// rhs = mk_idiv(e, div); rhs = mk_mod(rhs, mk_numeral(2)).
+		quotient, err := c.app(smtArithOpIDiv, argument, divisor)
 		if err != nil {
 			return err
 		}
-		quotient, err := c.app(smtArithOpIDiv, argument, divisor)
+		two, err := c.number(big.NewInt(2))
 		if err != nil {
 			return err
 		}
