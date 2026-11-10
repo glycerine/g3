@@ -329,6 +329,21 @@ Found while matching `-st` output against `build/z3` on
     masked); they are TestTraceGolden's default vectors
     (cmd/g3/test_vectors/golden_trace_vectors.txt). Fixes found by the
     failing vectors so far (423 -> 482 matching):
+    - 2026-11-09 expr_ref batch (full logs 462 -> 480 of 661): z3 frees
+      an expr_ref local on scope exit or reassignment, while a g3 handle
+      with reference count 0 lives until some inc/dec pair touches it.
+      Ported as owned locals: poly_rewriter mk_sub's minus_one,
+      bv2real/bv2int mk_bv_mul/add/sub/eq s1/t1 (and mk_sbv as a raw
+      numeral), pb2bv mk_bv's dualized nargs, bit_blaster mk_multiplier's
+      last-step mk_xor3 into out. GCC right-to-left argument order:
+      bv2real mk_mul/mk_add/mk_sub/mk_eq, th_rewriter pull_ite (else branch
+      first). Asserted-formula proofs follow each pass's rule (assert_expr
+      vs simplify_fmls vs propagate_values/nnf_cnf). OPEN leads:
+      lra_backend_models_scopes (theory_arith picks x=3,y=2 where z3 picks
+      x=4,y=1; item 16); pb_native_watches_proof prints (not
+      rejected_watch) inline because one fewer holder leaves its
+      reference count at 2 (z3 binds it as $x38); card2bv_weighted_models
+      line 148 (mk_bit2bool runs four times after begin-check, z3 once).
     - 2026-11-09 MAM/teardown batch (full logs 450 -> 462 of 661):
       the MAM port (item 19); context::flush order (undo_trail_stack(0)
       releases enodes and bool vars, then m_qmanager = nullptr frees the
