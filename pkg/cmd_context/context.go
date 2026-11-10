@@ -105,6 +105,11 @@ type Context struct {
 	optimizationHardOverride       []ast.ASTHandle
 	optimizationHardOverrideActive bool
 	optimizationPreprocessor       tactic.ModelConverter
+	// optimizationTerms are opt::context's m_hard_constraints and objective
+	// terms from the last from_fmls; they live until the next from_fmls.
+	optimizationTerms []ast.ASTRef
+	// optimizationOptsmt is optsmt::m_objs, reset by import_scoped_state.
+	optimizationOptsmt []ast.ASTRef
 	// preparedOptimizer is the backend init_solver creates before normalize.
 	preparedOptimizer                *opt.ArithmeticSolver
 	softObjectiveIndex               map[string]int
@@ -1488,6 +1493,9 @@ func (c *Context) resetManagerState() error {
 	if err := c.clearOptimizationBoxModels(); err != nil {
 		return err
 	}
+	if err := c.releaseOptimizationTerms(); err != nil {
+		return err
+	}
 	if err := c.clearCheckSatResult(); err != nil {
 		return err
 	}
@@ -1605,4 +1613,19 @@ func (c *Context) Close() error {
 	}
 	c.closed = true
 	return nil
+}
+
+// releaseOptimizationTerms frees the previous from_fmls state front to back.
+func (c *Context) releaseOptimizationTerms() (result error) {
+	// import_scoped_state: m_optsmt.reset(), then m_objectives and
+	// m_hard_constraints.
+	for i := range c.optimizationOptsmt {
+		result = errors.Join(result, c.manager.DelRef(&c.optimizationOptsmt[i]))
+	}
+	c.optimizationOptsmt = nil
+	for i := range c.optimizationTerms {
+		result = errors.Join(result, c.manager.DelRef(&c.optimizationTerms[i]))
+	}
+	c.optimizationTerms = nil
+	return result
 }

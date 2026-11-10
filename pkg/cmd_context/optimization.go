@@ -6,6 +6,7 @@ package cmd_context
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/math/simplex"
 	"io"
 	"math/big"
 
@@ -413,7 +414,10 @@ func (c *Context) checkOptimizeLex(assumptions []ast.ASTHandle) (optimized *opt.
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, optimizer.Close()) }()
+	defer func() {
+		c.optimizationOptsmt = append(c.optimizationOptsmt, optimizer.DetachObjectiveTerms()...)
+		resultErr = errors.Join(resultErr, optimizer.Close())
+	}()
 	// optimize(): internalize() rewrites the arithmetic objectives, then
 	// check_sat on the hard constraints; a non-sat answer is the result.
 	for i := range c.objectives {
@@ -837,15 +841,17 @@ func sameArithmeticObjectiveValue(a, b smtcore.SMTArithmeticObjectiveValue) bool
 }
 
 func (c *Context) writeArithmeticObjectiveValue(out io.Writer, expression ast.ASTHandle, objective smtcore.SMTArithmeticObjectiveValue, maximize bool) error {
-	if objective.Unbounded {
-		if maximize {
-			_, err := io.WriteString(out, "oo")
-			return err
-		}
-		_, err := io.WriteString(out, "(* (- 1) oo)")
-		return err
-	}
 	value := &objective.Finite
+	if objective.Unbounded {
+		// to_expr(inf_eps) of +/- infinity: oo or (* (- 1) oo).
+		infinite := simplex.Infinitesimal{}
+		if maximize {
+			infinite.Infinity.SetInt64(1)
+		} else {
+			infinite.Infinity.SetInt64(-1)
+		}
+		value = &infinite
+	}
 	sort, err := c.manager.GetSort(expression)
 	if err != nil {
 		return err

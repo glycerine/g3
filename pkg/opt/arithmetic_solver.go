@@ -104,6 +104,7 @@ type ArithmeticSolver struct {
 
 type arithmeticObjective struct {
 	term         ast.ASTRef
+	rewritten    ast.ASTRef // optsmt::m_objs entry
 	maximize     bool
 	integer      bool
 	backendIndex uint32
@@ -203,15 +204,22 @@ type internalizedObjective struct {
 	ref       ast.ASTRef
 }
 
-func (s *ArithmeticSolver) rewriteInternalized(term ast.ASTHandle, maximize bool) (ast.ASTHandle, ast.ASTRef, error) {
-	objective := term
-	if !maximize {
-		var err error
-		if objective, err = s.manager.MkArithmeticNeg(term); err != nil {
-			return ast.ASTHandle{}, ast.ASTRef{}, err
-		}
+func (s *ArithmeticSolver) rewriteInternalized(term ast.ASTHandle, maximize bool) (_ ast.ASTHandle, _ ast.ASTRef, resultErr error) {
+	if maximize {
+		return s.rewriteObjective(term)
 	}
-	return s.rewriteObjective(objective)
+	// app_ref tmp = mk_uminus(m_term) lives across optsmt::add's rewrite and
+	// is released afterwards, freeing it once rewritten.
+	negated, err := s.manager.MkArithmeticNeg(term)
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTRef{}, err
+	}
+	tmp, err := s.manager.NewRef(negated)
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTRef{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, s.manager.DelRef(&tmp)) }()
+	return s.rewriteObjective(negated)
 }
 
 // internalizedObjective returns the pending internalized form of term, or
@@ -261,11 +269,11 @@ func (s *ArithmeticSolver) AddObjective(term ast.ASTHandle, maximize bool) error
 		return errors.Join(err, s.manager.DelRef(&ref))
 	}
 	backendIndex, err := s.backend.AddObjective(rewritten)
-	err = errors.Join(err, s.manager.DelRef(&rewriteRef))
 	if err != nil {
-		return errors.Join(err, s.manager.DelRef(&ref))
+		return errors.Join(err, s.manager.DelRef(&rewriteRef), s.manager.DelRef(&ref))
 	}
-	s.objectives = append(s.objectives, arithmeticObjective{term: ref, maximize: maximize, integer: kind == 1, backendIndex: backendIndex})
+	// optsmt::m_objs keeps the rewritten term.
+	s.objectives = append(s.objectives, arithmeticObjective{term: ref, rewritten: rewriteRef, maximize: maximize, integer: kind == 1, backendIndex: backendIndex})
 	return nil
 }
 
@@ -349,60 +357,13 @@ func (s *ArithmeticSolver) orient(index int, value smtcore.SMTArithmeticObjectiv
 	return value
 }
 
-func (s *ArithmeticSolver) assertObjectiveModelLowerBound(index int, value simplex.Infinitesimal) (resultErr error) {
-	if index < 0 || index >= len(s.objectives) || value.Infinity.Sign() != 0 || value.Epsilon.Sign() != 0 {
-		return ast.ErrASTDomain
-	}
-	var refs []ast.ASTRef
-	hold := func(term ast.ASTHandle, err error) (ast.ASTHandle, error) {
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		ref, err := s.manager.NewRef(term)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		refs = append(refs, ref)
-		return term, nil
-	}
-	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, s.manager.DelRef(&refs[i]))
-		}
-	}()
-	term, err := s.manager.RefGet(s.objectives[index].term)
-	if err != nil {
-		return err
-	}
-	if !s.objectives[index].maximize {
-		term, err = hold(s.manager.MkArithmeticNeg(term))
-		if err != nil {
-			return err
-		}
-	}
-	numeral, err := hold(s.manager.ArithmeticNumeralRat(&value.Main, s.objectives[index].integer))
-	if err != nil {
-		return err
-	}
-	bound, err := hold(s.manager.MkArithmeticGE(term, numeral))
-	if err != nil {
-		return err
-	}
-	return s.backend.Assert(bound)
-}
-
 func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResult) (status lbool.LBool, optimal bool, resultErr error) {
 	if err := s.backend.Push(); err != nil {
 		return lbool.Undef, false, err
 	}
 	active := true
 	var jumpScopes uint32
-	var recoveryModel *model.ModelCore
-	var recoveryLabels []usymbol.Symbol
 	defer func() {
-		if recoveryModel != nil {
-			resultErr = errors.Join(resultErr, recoveryModel.DecRef())
-		}
 		if jumpScopes != 0 {
 			resultErr = errors.Join(resultErr, s.backend.Pop(jumpScopes))
 		}
@@ -419,7 +380,6 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 	}
 	delta := big.NewInt(1)
 	var steps, stepIncs uint32
-	unboundedRecovery := false
 	for {
 		if status != lbool.True {
 			if status == lbool.False && delta.Cmp(big.NewInt(1)) > 0 {
@@ -446,62 +406,12 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 			return lbool.Undef, false, errors.Join(updateErr, s.manager.DelRef(&blockerRef))
 		}
 		result.Values[index].Arithmetic = s.orient(index, value)
+		// geometric_lex: an unbounded objective leaves m_lower infinite, so
+		// delta_per_step is 1 and the theory's blocker (false) is asserted;
+		// the next check_sat is unsat and the loop ends.
 		if value.Unbounded {
-			if unboundedRecovery {
-				var restoreErr error
-				if recoveryModel != nil {
-					if result.Model != nil {
-						restoreErr = result.Model.DecRef()
-					}
-					result.Model = recoveryModel
-					recoveryModel = nil
-					result.Labels = recoveryLabels
-				}
-				return lbool.True, true, errors.Join(restoreErr, s.manager.DelRef(&blockerRef))
-			}
-			// Recheck from the published model's finite value once. The SMT
-			// theory can report a locally unbounded tableau before a Boolean
-			// branch fixes the objective; the source optimizer keeps searching.
-			if err = s.captureArithmeticModel(index, &result.Values[index], result.Model); err != nil {
-				return lbool.Undef, false, errors.Join(err, s.manager.DelRef(&blockerRef))
-			}
-			if recoveryModel == nil && result.Model != nil {
-				if err = result.Model.IncRef(); err != nil {
-					return lbool.Undef, false, errors.Join(err, s.manager.DelRef(&blockerRef))
-				}
-				recoveryModel = result.Model
-				recoveryLabels = append([]usymbol.Symbol(nil), result.Labels...)
-			}
-			modelValue := result.Values[index].ArithmeticModel
-			if !s.objectives[index].maximize {
-				modelValue.Finite = modelValue.Finite.Clone()
-				modelValue.Finite.Neg()
-			}
-			modelValue.Finite.Main.Add(&modelValue.Finite.Main, big.NewRat(1, 1))
-			boundErr := s.assertObjectiveModelLowerBound(index, modelValue.Finite)
-			boundErr = errors.Join(boundErr, s.manager.DelRef(&blockerRef))
-			if boundErr != nil {
-				return lbool.Undef, false, boundErr
-			}
-			status, err = s.backend.CheckSat(nil)
-			if err != nil {
-				return lbool.Undef, false, err
-			}
-			if status == lbool.False {
-				result.Values[index].Arithmetic = result.Values[index].ArithmeticModel
-				break
-			}
-			if status != lbool.True {
-				return status, false, nil
-			}
-			if err = s.replaceModel(result); err != nil {
-				return lbool.Undef, false, err
-			}
-			unboundedRecovery = true
-			continue
-		}
-		unboundedRecovery = false
-		if s.objectives[index].integer {
+			delta.SetInt64(1)
+		} else if s.objectives[index].integer {
 			if steps > stepIncs {
 				delta.Lsh(delta, 1)
 				stepIncs++
@@ -978,6 +888,23 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 	return result, nil
 }
 
+// DetachObjectiveTerms hands over the rewritten arithmetic objective terms
+// (optsmt::m_objs), which opt::context keeps until import_scoped_state's
+// m_optsmt.reset() on the next optimize.
+func (s *ArithmeticSolver) DetachObjectiveTerms() []ast.ASTRef {
+	if s == nil {
+		return nil
+	}
+	var out []ast.ASTRef
+	for i := range s.objectives {
+		if s.objectives[i].rewritten != (ast.ASTRef{}) {
+			out = append(out, s.objectives[i].rewritten)
+			s.objectives[i].rewritten = ast.ASTRef{}
+		}
+	}
+	return out
+}
+
 func (s *ArithmeticSolver) Close() error {
 	if s == nil || s.backend == nil {
 		return nil
@@ -991,6 +918,11 @@ func (s *ArithmeticSolver) Close() error {
 	for len(s.objectives) != 0 {
 		last := len(s.objectives) - 1
 		objective := &s.objectives[last]
+		if objective.rewritten != (ast.ASTRef{}) {
+			if err := s.manager.DelRef(&objective.rewritten); err != nil {
+				return err
+			}
+		}
 		if objective.term != (ast.ASTRef{}) {
 			if err := s.manager.DelRef(&objective.term); err != nil {
 				return err

@@ -17,6 +17,7 @@ import (
 type optimizationSimplifiedFormulas struct {
 	decoded      opt.DecodedFormulaSet
 	refs         []ast.ASTRef
+	held         []ast.ASTRef // from_fmls's objective terms and hard constraints
 	model        tactic.ModelConverter
 	manager      *ast.ASTManager
 	inconsistent bool
@@ -34,6 +35,11 @@ func (f *optimizationSimplifiedFormulas) Close() (result error) {
 		i := len(f.refs) - 1
 		result = errors.Join(result, f.manager.DelRef(&f.refs[i]))
 		f.refs = f.refs[:i]
+	}
+	for len(f.held) != 0 {
+		i := len(f.held) - 1
+		result = errors.Join(result, f.manager.DelRef(&f.held[i]))
+		f.held = f.held[:i]
 	}
 	if f.model != nil {
 		consumed, err := f.model.DecRefConsumed()
@@ -216,6 +222,38 @@ func (c *Context) simplifyOptimizationFormulas(set *opt.ObjectiveFormulaSet) (re
 	if err != nil {
 		return nil, err
 	}
+	// from_fmls keeps the hard constraints and each objective's terms in
+	// the context; normalize's fmls vector (the objective-function
+	// applications included) is then released front to back.
+	hold := func(h ast.ASTHandle) error {
+		if h.IsNull() {
+			return nil
+		}
+		ref, e := m.NewRef(h)
+		if e != nil {
+			return e
+		}
+		result.held = append(result.held, ref)
+		return nil
+	}
+	for _, h := range result.decoded.Hard {
+		if err = hold(h); err != nil {
+			return nil, err
+		}
+	}
+	for _, objective := range result.decoded.Objectives {
+		for _, h := range append([]ast.ASTHandle{objective.Term, objective.OriginalTerm}, objective.SoftTerms...) {
+			if err = hold(h); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for i := range result.refs {
+		if err = m.DelRef(&result.refs[i]); err != nil {
+			return nil, err
+		}
+	}
+	result.refs = nil
 	if applied.ModelConverter != nil {
 		if err = applied.ModelConverter.IncRef(); err != nil {
 			return nil, err

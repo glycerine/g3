@@ -48,6 +48,11 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			}
 		}()
 	}
+	// import_scoped_state (after init_solver) resets the previous run's
+	// optsmt objectives, objectives and hard constraints.
+	if err = c.releaseOptimizationTerms(); err != nil {
+		return nil, err
+	}
 	var formulaSet *opt.ObjectiveFormulaSet
 	var simplified *optimizationSimplifiedFormulas
 	var source opt.DecodedFormulaSet
@@ -60,21 +65,26 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		if err != nil {
 			return nil, errors.Join(err, formulaSet.Close())
 		}
+		// normalize()'s expr_ref_vector fmls (to_fmls's output) is local, so
+		// the objective-function applications go once from_fmls is done.
+		err = formulaSet.Close()
+		formulaSet = nil
+		if err != nil {
+			return nil, errors.Join(err, simplified.Close())
+		}
 		if simplified.inconsistent {
 			if err = simplified.Close(); err != nil {
 				return nil, errors.Join(err, formulaSet.Close())
 			}
 			simplified = nil
-			if err = formulaSet.Close(); err != nil {
-				formulaSet = nil
-				return nil, err
-			}
-			formulaSet = nil
 			useSimplifier = false
 		} else {
+			// from_fmls installs the new objectives and hard constraints;
+			// the context keeps them until the next import_scoped_state.
+			c.optimizationTerms, simplified.held = simplified.held, nil
 			source = simplified.decoded
 			if len(source.Objectives) != len(original) {
-				return nil, errors.Join(ast.ErrASTDomain, simplified.Close(), formulaSet.Close())
+				return nil, errors.Join(ast.ErrASTDomain, simplified.Close())
 			}
 		}
 	}

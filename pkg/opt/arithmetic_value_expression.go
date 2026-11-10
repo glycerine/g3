@@ -63,14 +63,18 @@ func ArithmeticValueExpression(m *ast.ASTManager, value *simplex.Infinitesimal, 
 		}
 		return m.MkArithmeticMul(numeral, term)
 	}
+	// bool is_int = eps.is_zero() && r.is_int(): from the value, not the
+	// objective's sort.
+	_ = integer
+	integer = value.Epsilon.Sign() == 0 && value.Main.IsInt()
 	if value.Infinity.Sign() != 0 {
-		term, err := coefficientTerm(&value.Infinity, "oo", integer && value.Epsilon.Sign() == 0)
+		term, err := coefficientTerm(&value.Infinity, "oo", integer)
 		if err = hold(term, err); err != nil {
 			return ast.ASTRef{}, err
 		}
 	}
 	if value.Main.Sign() != 0 {
-		if err := hold(m.ArithmeticNumeralRat(&value.Main, integer && value.Epsilon.Sign() == 0)); err != nil {
+		if err := hold(m.ArithmeticNumeralRat(&value.Main, integer)); err != nil {
 			return ast.ASTRef{}, err
 		}
 	}
@@ -84,13 +88,13 @@ func ArithmeticValueExpression(m *ast.ASTManager, value *simplex.Infinitesimal, 
 	var err error
 	switch len(args) {
 	case 0:
-		expression, err = m.ArithmeticNumeralRat(new(big.Rat), integer)
+		expression, err = m.ArithmeticNumeralRat(new(big.Rat), true)
 	case 1:
 		expression = args[0]
 	default:
-		expression, err = m.MkArithmeticAdd(args[0], args[1])
-		for i := 2; err == nil && i < len(args); i++ {
-			expression, err = m.MkArithmeticAdd(expression, args[i])
+		var family ast.FamilyID
+		if family, err = m.ArithmeticFamilyID(); err == nil {
+			expression, err = m.MkFamilyApp(family, 6, nil, args) // m_arith.mk_add(n, args)
 		}
 	}
 	if err != nil {
