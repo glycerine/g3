@@ -461,7 +461,7 @@ func (t *SMTTheoryArith) Close() (result error) {
 		result = t.toPatch.Close()
 		t.toPatch = nil
 	}
-	result = errors.Join(result, t.nlNewExprs.release())
+	result = errors.Join(result, t.nlNewExprs.reset())
 	if t.esNumerals != nil {
 		result = errors.Join(result, t.esNumerals.CloseChecked())
 		t.esNumerals = nil

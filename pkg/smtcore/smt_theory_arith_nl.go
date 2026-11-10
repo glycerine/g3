@@ -1391,7 +1391,7 @@ func (t *SMTTheoryArith) isCrossNestedConsistentPoly(p []smtArithCoeffExpr) (boo
 	// std::stable_sort by var_num_occs_lt: more occurrences first.
 	sort.SliceStable(varinfo, func(i, j int) bool { return varinfo[i].occs > varinfo[j].occs })
 	for _, kv := range varinfo {
-		if err = t.nlNewExprs.release(); err != nil {
+		if err = t.nlNewExprs.reset(); err != nil {
 			return false, err
 		}
 		cn, err := t.crossNested(p, kv.v)

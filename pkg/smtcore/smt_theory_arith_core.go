@@ -129,6 +129,15 @@ func (x *smtArithExprs) release() (result error) {
 	return result
 }
 
+// reset is expr_ref_vector::reset: the elements are released front to back.
+func (x *smtArithExprs) reset() (result error) {
+	for i := range x.refs {
+		result = errors.Join(result, x.m.DelRef(&x.refs[i]))
+	}
+	x.refs = nil
+	return result
+}
+
 func (t *SMTTheoryArith) mkApp(x *smtArithExprs, op int32, args ...ast.ASTHandle) (ast.ASTHandle, error) {
 	return x.hold(t.state.manager.MkFamilyApp(t.FamilyID(), op, nil, args))
 }
