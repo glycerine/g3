@@ -148,8 +148,13 @@ func (t *SMTBitVectorTheory) assertBVToIntAxiom(expression ast.ASTHandle) (resul
 	if len(args) == 1 {
 		sum = args[0]
 	} else {
-		sum, err = c.app(smtArithOpAdd, args...)
+		// expr_ref sum(mk_add(...)) is the sum's only owner, so the in-place
+		// ctx.get_rewriter()(sum) frees it when the result replaces it.
+		family, err := s.manager.ArithmeticFamilyID()
 		if err != nil {
+			return err
+		}
+		if sum, err = s.manager.MkFamilyApp(family, smtArithOpAdd, nil, args); err != nil {
 			return err
 		}
 	}
