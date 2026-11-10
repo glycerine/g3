@@ -94,6 +94,12 @@ func ExtractPBSum(m *ast.ASTManager, term ast.ASTHandle, zeroOne map[ast.ASTHand
 }
 
 func extractPBSumWithTrace(m *ast.ASTManager, term ast.ASTHandle, zeroOne map[ast.ASTHandle]bool, tags *diagnostic.TraceTags) (*PBSum, bool, error) {
+	return extractPBSumTerms(m, []ast.ASTHandle{term}, []*big.Rat{big.NewRat(1, 1)}, zeroOne, tags)
+}
+
+// extractPBSumTerms accumulates get_pb_sum(terms[i], muls[i], ...) into one
+// sum, in order; is_pb calls it on x with 1 and on y with -1.
+func extractPBSumTerms(m *ast.ASTManager, terms []ast.ASTHandle, muls []*big.Rat, zeroOne map[ast.ASTHandle]bool, tags *diagnostic.TraceTags) (*PBSum, bool, error) {
 	family, err := m.RegisterArithmeticPlugin()
 	if err != nil {
 		return nil, false, err
@@ -268,9 +274,11 @@ func extractPBSumWithTrace(m *ast.ASTManager, term ast.ASTHandle, zeroOne map[as
 		}
 		return true, insert(new(big.Rat).Mul(mul, r), truth)
 	}
-	ok, err := getSum(term, big.NewRat(1, 1))
-	if err != nil || !ok {
-		return nil, ok, errors.Join(err, s.Close())
+	for i, term := range terms {
+		ok, err := getSum(term, muls[i])
+		if err != nil || !ok {
+			return nil, ok, errors.Join(err, s.Close())
+		}
 	}
 	return s, true, nil
 }

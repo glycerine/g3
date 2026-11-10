@@ -23,16 +23,9 @@ func lia2cardComparison(m *ast.ASTManager, left, right ast.ASTHandle, zeroOne ma
 			result, matched = ast.ASTRef{}, false
 		}
 	}()
-	difference, err := m.MkArithmeticSub(left, right)
-	if err != nil {
-		return result, false, err
-	}
-	differenceRef, err := m.NewRef(difference)
-	if err != nil {
-		return result, false, err
-	}
-	defer func() { err = errors.Join(err, m.DelRef(&differenceRef)) }()
-	sum, matched, err := extractPBSumWithTrace(m, difference, zeroOne, tags)
+	// is_pb: get_pb_sum(x, 1, ...) && get_pb_sum(y, -1, ...), with no
+	// difference term built.
+	sum, matched, err := extractPBSumTerms(m, []ast.ASTHandle{left, right}, []*big.Rat{big.NewRat(1, 1), big.NewRat(-1, 1)}, zeroOne, tags)
 	if err != nil || !matched {
 		return result, matched, err
 	}

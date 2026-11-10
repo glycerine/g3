@@ -223,8 +223,8 @@ func (c *Context) simplifyOptimizationFormulas(set *opt.ObjectiveFormulaSet) (re
 		return nil, err
 	}
 	// from_fmls keeps the hard constraints and each objective's terms in
-	// the context; normalize's fmls vector (the objective-function
-	// applications included) is then released front to back.
+	// the context; normalize's fmls vector (refs) is released by
+	// releaseFormulas once from_fmls is done.
 	hold := func(h ast.ASTHandle) error {
 		if h.IsNull() {
 			return nil
@@ -248,12 +248,6 @@ func (c *Context) simplifyOptimizationFormulas(set *opt.ObjectiveFormulaSet) (re
 			}
 		}
 	}
-	for i := range result.refs {
-		if err = m.DelRef(&result.refs[i]); err != nil {
-			return nil, err
-		}
-	}
-	result.refs = nil
 	if applied.ModelConverter != nil {
 		if err = applied.ModelConverter.IncRef(); err != nil {
 			return nil, err
@@ -261,4 +255,14 @@ func (c *Context) simplifyOptimizationFormulas(set *opt.ObjectiveFormulaSet) (re
 		result.model = applied.ModelConverter
 	}
 	return result, nil
+}
+
+// releaseFormulas is the end of normalize: its fmls vector (the simplified
+// formulas, objective-function applications included) goes front to back.
+func (f *optimizationSimplifiedFormulas) releaseFormulas() (result error) {
+	for i := range f.refs {
+		result = errors.Join(result, f.manager.DelRef(&f.refs[i]))
+	}
+	f.refs = nil
+	return result
 }

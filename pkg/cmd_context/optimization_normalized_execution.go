@@ -65,13 +65,6 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		if err != nil {
 			return nil, errors.Join(err, formulaSet.Close())
 		}
-		// normalize()'s expr_ref_vector fmls (to_fmls's output) is local, so
-		// the objective-function applications go once from_fmls is done.
-		err = formulaSet.Close()
-		formulaSet = nil
-		if err != nil {
-			return nil, errors.Join(err, simplified.Close())
-		}
 		if simplified.inconsistent {
 			if err = simplified.Close(); err != nil {
 				return nil, errors.Join(err, formulaSet.Close())
@@ -135,6 +128,20 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	decomposed, _, err := decomposer.Decompose(source)
 	if err != nil {
 		return nil, err
+	}
+	// End of normalize(): its fmls vector, the objective-function
+	// applications included, is released once from_fmls is done.
+	if simplified != nil {
+		if err = simplified.releaseFormulas(); err != nil {
+			return nil, err
+		}
+	}
+	if formulaSet != nil {
+		err = formulaSet.Close()
+		formulaSet = nil
+		if err != nil {
+			return nil, err
+		}
 	}
 	normalized := append([]optimizationObjective(nil), original...)
 	for i, d := range decomposed {
