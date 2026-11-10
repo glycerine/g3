@@ -329,6 +329,12 @@ Found while matching `-st` output against `build/z3` on
     masked); they are TestTraceGolden's default vectors
     (cmd/g3/test_vectors/golden_trace_vectors.txt). Fixes found by the
     failing vectors so far (423 -> 482 matching):
+    - 2026-11-09 ordering batch (full logs 480 -> 489 of 661): utvpi_tester
+      m_coeff_map and cofactor get_best occs iterate as obj_maps (table
+      order); theory_lra keeps theory::mk_eq_atom (id order, no numeral
+      swap); bit_blaster mk_udiv_urem updates p in place from the top bit
+      down; context::restart builds a candidate proto model when the
+      search fails with a non-false status.
     - 2026-11-09 expr_ref batch (full logs 462 -> 480 of 661): z3 frees
       an expr_ref local on scope exit or reassignment, while a g3 handle
       with reference count 0 lives until some inc/dec pair touches it.
