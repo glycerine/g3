@@ -899,6 +899,18 @@ Found while matching `-st` output against `build/z3` on
        check as the result. A faithful port needs geometric_lex's
        return-l_true path plus reporting from optsmt m_lower/m_upper, which
        replaces the ArithmeticInterval special case.
+   Box (a5d39adb7, ba2664f22, 4853fd923): the first box call runs
+   init_solver/normalize, and execute_box runs on the optimize() solver
+   (optsmt::box, then a scoped execute per MaxSMT objective). elim01's
+   cleanup keeps m_rewriter. box_optimization moved 38 -> 79.
+   Lead at box line 80: z3's pb_rewriter keeps m_args (an expr_ref_vector
+   member reset at the next non-constant rewrite), and that inc/dec frees a
+   raw (not y!2), which g3 keeps. TRIED porting m_args: stdout went
+   648 -> 649 (pb_simplex_proof), but pb_native_watches_scopes and
+   pb_simplex_scopes stopped being identical and card2bv_weighted_models
+   fell 148 -> 40, so it was reverted. Some g3 caller or rewriter
+   lifetime differs; z3 frees card2bv's (not p) during the apply. Find
+   that holder before re-landing m_args.
    Next lead: at line 1182, in the old inc_sat_solver's bit_blaster
    m_values teardown, z3 frees (iff ..) #37/#26 before (or ..) #8. g3's
    delete worklist matches z3's, so a refcount (an extra or missing holder
