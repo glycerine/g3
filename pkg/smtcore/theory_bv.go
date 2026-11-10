@@ -877,6 +877,34 @@ func (t *SMTBitVectorTheory) PushScope() error {
 	return nil
 }
 
+// releasePoppedOwners drops the owners of the bits created in the popped
+// scopes, newest first; the context's internalization stack still holds the
+// atoms, so they die as it unwinds.
+func (t *SMTBitVectorTheory) releasePoppedOwners(count uint32) error {
+	if count == 0 || count > uint32(len(t.scopes)) {
+		return ast.ErrASTDomain
+	}
+	state, err := t.State()
+	if err != nil {
+		return err
+	}
+	scope := t.scopes[len(t.scopes)-int(count)]
+	for k := len(t.bitTrail) - 1; k >= scope.bits; k-- {
+		expression := t.bitTrail[k]
+		owner := t.bitOwners[expression]
+		for i := len(owner) - 1; i >= 0; i-- {
+			if owner[i] == (ast.ASTRef{}) {
+				continue
+			}
+			if err := state.manager.DelRef(&owner[i]); err != nil {
+				return err
+			}
+		}
+		delete(t.bitOwners, expression)
+	}
+	return nil
+}
+
 func (t *SMTBitVectorTheory) PopScopes(count uint32) error {
 	if count == 0 || count > uint32(len(t.scopes)) {
 		return ast.ErrASTDomain

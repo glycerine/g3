@@ -1308,6 +1308,13 @@ type smtInternalizerPendingPop struct {
 	learned  []smtPreservedLearnedClause
 }
 
+// smtPopOwnerReleaser is a theory that keeps Go owners of atoms the context
+// also internalized; it releases those of the popped scopes before the
+// context unwinds.
+type smtPopOwnerReleaser interface {
+	releasePoppedOwners(count uint32) error
+}
+
 func (s *SMTInternalizerState) PopScopes(count uint32) error {
 	if err := s.openOwner(); err != nil {
 		return err
@@ -1352,6 +1359,16 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 		pop.stage++
 	}
 	if pop.stage == 1 {
+		// The source's theories hold no references to their internalized
+		// atoms, so undo_trail_stack frees them in context order: drop the
+		// theories' extra owners of the popped atoms first.
+		for _, th := range s.theoryOrder {
+			if r, ok := th.(smtPopOwnerReleaser); ok {
+				if err := r.releasePoppedOwners(count); err != nil {
+					return err
+				}
+			}
+		}
 		if err := s.popTo(s.scopes[pop.level]); err != nil {
 			return err
 		}
