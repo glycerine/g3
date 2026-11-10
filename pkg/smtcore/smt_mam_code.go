@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/util/bitset"
+	"github.com/glycerine/g3/pkg/util/approx"
 	uhash "github.com/glycerine/g3/pkg/util/hash"
 )
 
@@ -152,14 +152,14 @@ type smtMAMInstr struct {
 	reg2    uint32
 	reg     uint32 // check, filter
 	enode   *SMTEnode
-	lblSet  bitset.ApproxSet // filter, pcheck, cont, get_cgr
-	oreg    uint32           // get_enode, cont, bind, get_cgr
-	ireg    uint32           // bind, is_cgr
-	alt     *smtMAMInstr     // choose
-	label   ast.ASTHandle    // cont, bind, get_cgr, is_cgr (func_decl)
-	joints  []smtMAMJoint    // cont
-	iregs   []uint32         // get_cgr, is_cgr
-	qa      ast.ASTHandle    // yield
+	lblSet  approx.UintSet // filter, pcheck, cont, get_cgr
+	oreg    uint32         // get_enode, cont, bind, get_cgr
+	ireg    uint32         // bind, is_cgr
+	alt     *smtMAMInstr   // choose
+	label   ast.ASTHandle  // cont, bind, get_cgr, is_cgr (func_decl)
+	joints  []smtMAMJoint  // cont
+	iregs   []uint32       // get_cgr, is_cgr
+	qa      ast.ASTHandle  // yield
 	pat     ast.ASTHandle
 	binding []uint32 // yield
 }
@@ -215,7 +215,7 @@ func (c *smtMAMCodeTreeManager) mkCheck(reg uint32, n *SMTEnode) *smtMAMInstr {
 	return &smtMAMInstr{op: mamCHECK, reg: reg, enode: n}
 }
 
-func (c *smtMAMCodeTreeManager) mkFilter(op smtMAMOpcode, reg uint32, s bitset.ApproxSet) *smtMAMInstr {
+func (c *smtMAMCodeTreeManager) mkFilter(op smtMAMOpcode, reg uint32, s approx.UintSet) *smtMAMInstr {
 	return &smtMAMInstr{op: op, reg: reg, lblSet: s}
 }
 
@@ -247,7 +247,7 @@ func (c *smtMAMCodeTreeManager) mkYield(qa, pat ast.ASTHandle, bindings []uint32
 	return &smtMAMInstr{op: mamCountedOp(mamYIELD1, mamYIELDN, uint32(len(bindings))), qa: qa, pat: pat, binding: append([]uint32(nil), bindings...)}
 }
 
-func (c *smtMAMCodeTreeManager) mkCont(lbl ast.ASTHandle, numArgs, oreg uint32, s bitset.ApproxSet, joints []smtMAMJoint) *smtMAMInstr {
+func (c *smtMAMCodeTreeManager) mkCont(lbl ast.ASTHandle, numArgs, oreg uint32, s approx.UintSet, joints []smtMAMJoint) *smtMAMInstr {
 	return &smtMAMInstr{op: mamCONTINUE, label: lbl, numArgs: numArgs, oreg: oreg, lblSet: s, joints: append([]smtMAMJoint(nil), joints...)}
 }
 

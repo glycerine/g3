@@ -4,7 +4,7 @@ package smtcore
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/util/bitset"
+	"github.com/glycerine/g3/pkg/util/approx"
 )
 
 type smtMAMCheckMark uint8
@@ -275,7 +275,7 @@ func (c *smtMAMCompiler) lineariseCore() {
 		}
 		c.matchedExprs[p] = reg
 		if c.useFilters && c.getCheckMark(reg) != mamCheckSingleton {
-			s := bitset.NewApproxSet(c.lblHash(c.decl(p)))
+			s := mamSingletonSet(c.lblHash(c.decl(p)))
 			c.seq = append(c.seq, c.ct.mkFilter(mamFILTER, reg, s))
 			c.setCheckMark(reg, mamCheckSingleton)
 		}
@@ -396,7 +396,7 @@ func (c *smtMAMCompiler) lineariseMultiPattern(firstIdx uint32) {
 		p := best
 		lbl := c.decl(p)
 		pArgs := c.numArgs(p)
-		var s bitset.ApproxSet
+		var s approx.UintSet
 		if c.useFilters {
 			s.Insert(c.lblHash(lbl))
 		}
@@ -641,14 +641,10 @@ func (c *smtMAMCompiler) getCompatibilityMeasure(child *smtMAMInstr) (weight uin
 	return weight, simple
 }
 
-func mamApproxSize(s bitset.ApproxSet) int {
-	n := 0
-	for v := uint32(0); v < 64; v++ {
-		if s.MayContain(v) {
-			n++
-		}
-	}
-	return n
+func mamSingletonSet(v uint32) approx.UintSet {
+	var s approx.UintSet
+	s.Insert(v)
+	return s
 }
 
 // insertAt is compiler::insert(head, first_mp_idx).
@@ -687,7 +683,7 @@ func (c *smtMAMCompiler) insertAt(head *smtMAMInstr, firstMPIdx uint32) {
 					h1, err := n1.LabelHash()
 					c.fail(err)
 					h2 := c.getPatLblHash(curr.reg)
-					s := bitset.NewApproxSet(uint32(h1))
+					s := mamSingletonSet(uint32(h1))
 					s.Insert(h2)
 					newInstr := c.ct.mkFilter(mamCFILTER, curr.reg, s)
 					c.setCheckMark(curr.reg, mamCheckSet)
@@ -718,7 +714,7 @@ func (c *smtMAMCompiler) insertAt(head *smtMAMInstr, firstMPIdx uint32) {
 				}
 			case curr.op == mamFILTER:
 				if c.isCompatibleFilter(curr) {
-					if mamApproxSize(curr.lblSet) == 1 {
+					if int(curr.lblSet.Size()) == 1 {
 						c.setCheckMark(curr.reg, mamCheckSingleton)
 					} else {
 						c.setCheckMark(curr.reg, mamCheckSet)
@@ -727,7 +723,7 @@ func (c *smtMAMCompiler) insertAt(head *smtMAMInstr, firstMPIdx uint32) {
 				} else if c.isSemiCompatibleFilter(curr) {
 					h := c.getPatLblHash(curr.reg)
 					c.setCheckMark(curr.reg, mamCheckSet)
-					if mamApproxSize(curr.lblSet) > 1 {
+					if int(curr.lblSet.Size()) > 1 {
 						c.ct.insertNewLblHash(curr, h)
 						c.compatible = append(c.compatible, curr)
 					} else {
