@@ -304,7 +304,7 @@ func (s *SMTInternalizerState) detachCongruenceParents(from, to *SMTEnode) error
 	}
 	return nil
 }
-func (s *SMTInternalizerState) reinsertCongruenceParents(from, to *SMTEnode) error {
+func (s *SMTInternalizerState) reinsertCongruenceParents(from, to, n1, n2 *SMTEnode, js SMTEqualityJustification) error {
 	for _, parent := range from.parents {
 		if !parent.parentOfMergeTarget {
 			to.parents = append(to.parents, parent)
@@ -338,6 +338,15 @@ func (s *SMTInternalizerState) reinsertCongruenceParents(from, to *SMTEnode) err
 		}
 		parent.sourceParentMark = false
 		if parent.IsTrueEquality() {
+			// val == l_false && js.get_kind() == CONGRUENCE:
+			// m_dyn_ack_manager.cg_conflict_eh(n1, n2).
+			if js.Kind() == SMTEqualityJustificationCongruence {
+				if v, found := s.boolVar.lookup(parent.owner); found && s.assignment[NewSMTLiteral(v, false).Index()] == lbool.False {
+					if err := s.dynAckConflictCongruence(n1.owner, n2.owner); err != nil {
+						return err
+					}
+				}
+			}
 			if err := s.propagateTrueEquality(parent); err != nil {
 				return err
 			}
@@ -493,7 +502,7 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 			break
 		}
 	}
-	if err := s.reinsertCongruenceParents(r1, r2); err != nil {
+	if err := s.reinsertCongruenceParents(r1, r2, left, right, justification); err != nil {
 		return fmt.Errorf("reinsert congruence parents: %w", err)
 	}
 	// add_eq: propagate_bool_enode_assignment runs before the classes'
@@ -559,6 +568,15 @@ func (s *SMTInternalizerState) propagateBoolEnodeAssignment(r1, r2, n1, n2 *SMTE
 	return s.propagateBoolEnodeAssignmentCore(n2, n1)
 }
 
+// dynAckConflictCongruence is m_dyn_ack_manager.cg_conflict_eh(n1, n2).
+func (s *SMTInternalizerState) dynAckConflictCongruence(n1, n2 ast.ASTHandle) error {
+	m := s.dynamicAck
+	if m == nil || m.closed || m.schedule == nil {
+		return nil
+	}
+	return m.schedule.conflictCongruence(n1, n2, m.strategy)
+}
+
 // propagateBoolEnodeAssignmentCore is
 // context::propagate_bool_enode_assignment_core: the target's class takes
 // the source's value (the classes are not merged yet).
@@ -575,6 +593,17 @@ func (s *SMTInternalizerState) propagateBoolEnodeAssignmentCore(source, target *
 	first := target
 	for {
 		if v2, found := s.boolVar.lookup(target.owner); found && s.assignment[NewSMTLiteral(v2, false).Index()] != val {
+			if s.assignment[NewSMTLiteral(v2, false).Index()] != lbool.Undef && len(source.arguments) > 0 {
+				congruent, _, err := SMTEnodesCongruent(source, target)
+				if err != nil {
+					return err
+				}
+				if congruent {
+					if err = s.dynAckConflictCongruence(source.owner, target.owner); err != nil {
+						return err
+					}
+				}
+			}
 			j, err := NewSMTModusPonensIffJustification(source, target)
 			if err != nil {
 				return err
