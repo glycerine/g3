@@ -1077,6 +1077,17 @@ Found while matching `-st` output against `build/z3` on
    so their cache entries were missing. It is now enabled only once a
    recursive function has been defined (ASTManager
    NoteRecursiveFunctionDefinitions). Full logs 504 -> 507 identical.
+   NEXT LEAD (after those fixes the act_cache logs are identical): the line
+   1182 free-order swap of #8/#26 now comes from model teardown
+   (~model_core in ~inc_sat_solver at opt::context::update_solver). With
+   [mdec] logging of ~model_core's m_interp walk (z3del
+   src/model/model_core.cpp, temporary) and of g3's retireConstant, z3
+   destroys 14 more model entries there (soft!9/soft!10, x and the
+   (= #b1 ((_ extract i i) x))!k proxies, in several models). g3 never builds
+   those intermediate models (copies, or models made by model-converter
+   application in inc_sat_solver::get_model / opt's model updates), or frees
+   them on another path. Find which z3 models these are (Z3_DEL_BT on a value
+   id, or a ~model_core stack) and port their creation and lifetime.
    Lead at box line 80: z3's pb_rewriter keeps m_args (an expr_ref_vector
    member reset at the next non-constant rewrite), and that inc/dec frees a
    raw (not y!2), which g3 keeps. TRIED porting m_args: stdout went
