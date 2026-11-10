@@ -3,6 +3,8 @@ package interp
 // Source checkpoint: src/interp/iz3base.cpp interpolation-tree conversion.
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -92,6 +94,12 @@ func (b *Base) ToParentsRepresentation(inputConstraints []ast.ASTHandle, tree as
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
+		// ast _tree is a local ast_r: the wrapper dies when this returns.
+		local, refErr := b.manager.ast.NewRef(wrapped)
+		if refErr != nil {
+			return nil, nil, nil, nil, refErr
+		}
+		defer func() { err = errors.Join(err, b.manager.ast.DelRef(&local)) }()
 	}
 	var conjuncts []ast.ASTHandle
 	var children []int

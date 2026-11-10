@@ -129,7 +129,7 @@ func (b *Base) Simplify(term ast.ASTHandle) (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = b.hold(result); err != nil {
+	if err = b.hold(&b.memoRefs, result); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	b.simplified[term] = result

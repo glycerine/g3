@@ -50,7 +50,10 @@ type DirectProofInterpolator struct {
 	localizationVariables []localizationVariable
 	localizationMaps      map[ScopeRange]*localizationMaps
 	owned                 []ast.ASTRef
-	closed                bool
+	// variables holds the ast members no_proof, epsilon and top_pos in
+	// declaration order; they die after the other members, in reverse.
+	variables [3]ast.ASTRef
+	closed    bool
 }
 
 func NewDirectProofInterpolator(base *Base, scope ScopeRange, weak bool) (result *DirectProofInterpolator, resultErr error) {
@@ -93,19 +96,37 @@ func NewDirectProofInterpolator(base *Base, scope ScopeRange, weak bool) (result
 	if p.eqToLeq, err = p.newFunction("@eq2leq", []ast.ASTHandle{boolean, boolean}, boolean); err != nil {
 		return nil, err
 	}
+	if p.congruence, err = p.newFunction("@cong", []ast.ASTHandle{boolean, integer, boolean}, boolean); err != nil {
+		return nil, err
+	}
 	if p.excludedMid, err = p.newFunction("@exmid", []ast.ASTHandle{boolean, boolean, boolean}, boolean); err != nil {
 		return nil, err
 	}
 	if p.symmetry, err = p.newFunction("@symm", []ast.ASTHandle{boolean}, boolean); err != nil {
 		return nil, err
 	}
-	if p.congruence, err = p.newFunction("@cong", []ast.ASTHandle{boolean, integer, boolean}, boolean); err != nil {
+	if p.epsilon, err = manager.MakeVariable("@eps", integer); err != nil {
+		return nil, err
+	}
+	if err = p.holdVariable(1, p.epsilon); err != nil {
 		return nil, err
 	}
 	if p.modusPonens, err = p.newFunction("@mp", []ast.ASTHandle{boolean, boolean, boolean}, boolean); err != nil {
 		return nil, err
 	}
+	if p.noProof, err = manager.MakeVariable("@nop", boolean); err != nil {
+		return nil, err
+	}
+	if err = p.holdVariable(0, p.noProof); err != nil {
+		return nil, err
+	}
 	if p.concat, err = p.newFunction("@concat", []ast.ASTHandle{boolean, boolean}, boolean); err != nil {
+		return nil, err
+	}
+	if p.topPosition, err = manager.MakeVariable("@top_pos", boolean); err != nil {
+		return nil, err
+	}
+	if err = p.holdVariable(2, p.topPosition); err != nil {
 		return nil, err
 	}
 	if p.addPosition, err = p.newFunction("@add_pos", []ast.ASTHandle{integer, boolean}, boolean); err != nil {
@@ -132,24 +153,6 @@ func NewDirectProofInterpolator(base *Base, scope ScopeRange, weak bool) (result
 	if p.standExists, err = p.newFunction("@sexists", []ast.ASTHandle{boolean, boolean}, boolean); err != nil {
 		return nil, err
 	}
-	if p.noProof, err = manager.MakeVariable("@nop", boolean); err != nil {
-		return nil, err
-	}
-	if err = p.hold(p.noProof); err != nil {
-		return nil, err
-	}
-	if p.epsilon, err = manager.MakeVariable("@eps", integer); err != nil {
-		return nil, err
-	}
-	if err = p.hold(p.epsilon); err != nil {
-		return nil, err
-	}
-	if p.topPosition, err = manager.MakeVariable("@top_pos", boolean); err != nil {
-		return nil, err
-	}
-	if err = p.hold(p.topPosition); err != nil {
-		return nil, err
-	}
 	return p, nil
 }
 
@@ -158,6 +161,11 @@ func (p *DirectProofInterpolator) open() error {
 		return ast.ErrASTHandle
 	}
 	return p.base.open()
+}
+
+func (p *DirectProofInterpolator) holdVariable(slot int, handle ast.ASTHandle) (err error) {
+	p.variables[slot], err = p.base.manager.ast.NewRef(handle)
+	return err
 }
 
 func (p *DirectProofInterpolator) hold(handle ast.ASTHandle) error {
@@ -201,6 +209,11 @@ func (p *DirectProofInterpolator) Close() (result error) {
 		result = errors.Join(result, p.base.manager.ast.DelRef(&p.owned[i]))
 	}
 	p.owned = nil
+	for i := len(p.variables) - 1; i >= 0; i-- {
+		if p.variables[i] != (ast.ASTRef{}) {
+			result = errors.Join(result, p.base.manager.ast.DelRef(&p.variables[i]))
+		}
+	}
 	p.placeholders = nil
 	p.localizationVariables = nil
 	p.localizationMaps = nil

@@ -25,7 +25,11 @@ type Base struct {
 	scopes      *Scopes
 	constraints []ast.ASTHandle
 	theory      []ast.ASTHandle
-	owned       []ast.ASTRef
+	// Source members cnsts, theory and simplify_memo hold their ASTs;
+	// ~iz3base releases simplify_memo, then theory, then cnsts.
+	cnstRefs    []ast.ASTRef
+	theoryRefs  []ast.ASTRef
+	memoRefs    []ast.ASTRef
 	symbolRange map[ast.ASTHandle]ScopeRange
 	astRanges   map[ast.ASTHandle]*baseRanges
 	simplified  map[ast.ASTHandle]ast.ASTHandle
@@ -99,12 +103,12 @@ func (b *Base) open() error {
 	return b.manager.open()
 }
 
-func (b *Base) hold(handle ast.ASTHandle) error {
+func (b *Base) hold(refs *[]ast.ASTRef, handle ast.ASTHandle) error {
 	ref, err := b.manager.ast.NewRef(handle)
 	if err != nil {
 		return err
 	}
-	b.owned = append(b.owned, ref)
+	*refs = append(*refs, ref)
 	return nil
 }
 
@@ -112,7 +116,7 @@ func (b *Base) initialize(constraints, theory []ast.ASTHandle) error {
 	b.constraints = append([]ast.ASTHandle(nil), constraints...)
 	b.theory = append([]ast.ASTHandle(nil), theory...)
 	for i, formula := range b.constraints {
-		if err := b.hold(formula); err != nil {
+		if err := b.hold(&b.cnstRefs, formula); err != nil {
 			return err
 		}
 		if err := b.addFrameRange(i, formula); err != nil {
@@ -121,7 +125,7 @@ func (b *Base) initialize(constraints, theory []ast.ASTHandle) error {
 		b.frames[formula] = i
 	}
 	for _, formula := range b.theory {
-		if err := b.hold(formula); err != nil {
+		if err := b.hold(&b.theoryRefs, formula); err != nil {
 			return err
 		}
 		if err := b.addFrameRange(ScopeBottom, formula); err != nil {
@@ -142,10 +146,16 @@ func (b *Base) Close() (result error) {
 	if b.closed {
 		return nil
 	}
-	for i := len(b.owned) - 1; i >= 0; i-- {
-		result = errors.Join(result, b.manager.ast.DelRef(&b.owned[i]))
+	for i := len(b.memoRefs) - 1; i >= 0; i-- {
+		result = errors.Join(result, b.manager.ast.DelRef(&b.memoRefs[i]))
 	}
-	b.owned = nil
+	for i := range b.theoryRefs {
+		result = errors.Join(result, b.manager.ast.DelRef(&b.theoryRefs[i]))
+	}
+	for i := range b.cnstRefs {
+		result = errors.Join(result, b.manager.ast.DelRef(&b.cnstRefs[i]))
+	}
+	b.memoRefs, b.theoryRefs, b.cnstRefs = nil, nil, nil
 	b.closed = true
 	return result
 }

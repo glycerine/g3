@@ -7,7 +7,6 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
-	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -67,17 +66,16 @@ const (
 // Manager is the retained typed convenience layer over ASTManager. It borrows
 // the AST manager; callers pin handles that outlive an immediate operation.
 type Manager struct {
-	self            *Manager
-	ast             *ast.ASTManager
-	arithmetic      ast.FamilyID
-	array           ast.FamilyID
-	simplifierDirty bool
-	strongDirty     bool
-	simplifier      *astrewriter.TheoryRewriter
-	strong          *astrewriter.TheoryRewriter
-	context         *uparams.ParamsContext
-	globals         *uparams.GlobalParamsService
-	closed          bool
+	self       *Manager
+	ast        *ast.ASTManager
+	arithmetic ast.FamilyID
+	array      ast.FamilyID
+	// rewriting is set by NewManagerWithParams: z3_simplify and
+	// z3_really_simplify build a local th_rewriter from these per call.
+	rewriting bool
+	context   *uparams.ParamsContext
+	globals   *uparams.GlobalParamsService
+	closed    bool
 }
 
 func NewManager(m *ast.ASTManager) (*Manager, error) {
@@ -113,27 +111,8 @@ func NewManagerWithParams(m *ast.ASTManager, context *uparams.ParamsContext, glo
 			result = nil
 		}
 	}()
-	result.simplifier, err = astrewriter.NewTheoryRewriter(m, context, globals, nil)
-	if err != nil {
-		return nil, err
-	}
 	result.context, result.globals = context, globals
-	parameters, err := context.NewValue()
-	if err != nil {
-		return nil, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, context.Del(&parameters)) }()
-	som, sortSums := "som", "sort_sums"
-	if err = context.SetBoolName(&parameters, &som, true); err != nil {
-		return nil, err
-	}
-	if err = context.SetBoolName(&parameters, &sortSums, true); err != nil {
-		return nil, err
-	}
-	result.strong, err = astrewriter.NewTheoryRewriter(m, context, globals, &parameters)
-	if err != nil {
-		return nil, err
-	}
+	result.rewriting = true
 	return result, nil
 }
 
@@ -151,14 +130,6 @@ func (m *Manager) Close() (result error) {
 	}
 	if m.closed {
 		return nil
-	}
-	if m.strong != nil {
-		result = errors.Join(result, m.strong.Close())
-		m.strong = nil
-	}
-	if m.simplifier != nil {
-		result = errors.Join(result, m.simplifier.Close())
-		m.simplifier = nil
 	}
 	m.closed = true
 	return result

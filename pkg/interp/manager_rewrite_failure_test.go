@@ -12,7 +12,7 @@ import (
 func TestInterpolationManagerSimplifiersRecoverAfterAllocationFailure(t *testing.T) {
 	for _, strong := range []bool{false, true} {
 		t.Run(fmt.Sprint("strong=", strong), func(t *testing.T) {
-			complete, dirtySeen, recoveredSeen := false, false, false
+			complete, recoveredSeen := false, false
 			for ordinal := int64(0); ordinal < 128 && !complete; ordinal++ {
 				t.Run(fmt.Sprint(ordinal), func(t *testing.T) {
 					m, w := interpRewritingManagerFixture(t)
@@ -31,10 +31,8 @@ func TestInterpolationManagerSimplifiersRecoverAfterAllocationFailure(t *testing
 					term = interpPin(t, m, term)
 					rewrite := w.Simplify
 					other := w.ReallySimplify
-					dirty := &w.simplifierDirty
 					if strong {
 						rewrite, other = w.ReallySimplify, w.Simplify
-						dirty = &w.strongDirty
 					}
 					m.Budget().FailAfter(ordinal)
 					out, failure := rewrite(term)
@@ -47,8 +45,7 @@ func TestInterpolationManagerSimplifiersRecoverAfterAllocationFailure(t *testing
 						if out != (ast.ASTRef{}) {
 							t.Fatal("failed rewrite published an owner")
 						}
-						interrupted = *dirty
-						dirtySeen = dirtySeen || interrupted
+						interrupted = true
 					} else {
 						complete = true
 						interpMust(t, m.DelRef(&out))
@@ -63,18 +60,16 @@ func TestInterpolationManagerSimplifiersRecoverAfterAllocationFailure(t *testing
 						}
 						interpMust(t, m.DelRef(&result))
 					}
-					if interrupted && *dirty {
-						t.Fatal("successful retry left selected simplifier dirty")
-					}
 					recoveredSeen = recoveredSeen || interrupted
 				})
 			}
-			// The retry of the interrupted simplifier above is the completion
-			// check. Requiring the injected call itself to finish within this
-			// fixed prefix count makes the test depend on the build mode's AST
-			// allocation strategy; g3debug deliberately needs more reservations.
-			if !dirtySeen || !recoveredSeen {
-				t.Fatal("allocation campaign did not cover interrupted traversal and recovery", complete, dirtySeen, recoveredSeen)
+			// Each call builds its own th_rewriter (z3_simplify's local), so an
+			// interrupted call leaves no state behind: the retries above are the
+			// recovery check. Requiring the injected call itself to finish within
+			// this fixed prefix count makes the test depend on the build mode's
+			// AST allocation strategy; g3debug deliberately needs more reservations.
+			if !recoveredSeen {
+				t.Fatal("allocation campaign did not cover interrupted traversal and recovery", complete, recoveredSeen)
 			}
 		})
 	}
