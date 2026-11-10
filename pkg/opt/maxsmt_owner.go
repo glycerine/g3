@@ -25,8 +25,10 @@ func (o *maxSMTASTOwner) hold(value ast.ASTHandle, err error) (ast.ASTHandle, er
 	return value, nil
 }
 
+// close is the engines' expr_ref_vector members (m_asms, m_trail, ...)
+// going away: they release front to back.
 func (o *maxSMTASTOwner) close() (result error) {
-	for i := len(o.refs) - 1; i >= 0; i-- {
+	for i := range o.refs {
 		result = errors.Join(result, o.manager.DelRef(&o.refs[i]))
 	}
 	o.refs = nil

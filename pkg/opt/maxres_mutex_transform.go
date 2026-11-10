@@ -9,40 +9,48 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (e *maxResEngine) transformMutex(mutex []ast.ASTHandle, weights map[ast.ASTHandle]*big.Rat, order *[]ast.ASTHandle) error {
-	active := make([]ast.ASTHandle, 0, len(mutex))
-	for _, expression := range mutex {
-		if weight := weights[expression]; weight != nil && weight.Sign() > 0 {
-			active = append(active, expression)
-		}
-	}
-	if len(active) <= 1 {
+func (e *maxResEngine) transformMutex(mutex []ast.ASTHandle, newSoft *softWeightMap) error {
+	if len(mutex) <= 1 {
 		return nil
 	}
-	sortMaxResMutex(active, weights)
-	values := make([]big.Rat, len(active))
-	for i, expression := range active {
-		values[i].Set(weights[expression])
-		delete(weights, expression)
-	}
-	var previous big.Rat
-	for i := len(active) - 1; i >= 0; i-- {
-		delta := new(big.Rat).Sub(&values[i], &previous)
-		previous.Set(&values[i])
-		if delta.Sign() == 0 {
-			continue
-		}
-		prefix, err := e.owner.hold(e.solver.manager.MkOrArgs(active[:i+1]))
+	sorted := append([]ast.ASTHandle(nil), mutex...)
+	byWeight := make(map[ast.ASTHandle]*big.Rat, len(sorted))
+	for _, expression := range sorted {
+		weight, err := newSoft.find(expression)
 		if err != nil {
 			return err
 		}
-		if weights[prefix] == nil {
-			*order = append(*order, prefix)
+		if weight == nil {
+			return errMaxResState
 		}
-		addMaxResMutexWeight(weights, prefix, delta)
-		contribution := new(big.Rat).Mul(delta, new(big.Rat).SetInt64(int64(i)))
-		e.lower.Add(&e.lower, contribution)
+		byWeight[expression] = weight
+	}
+	sortMaxResMutex(sorted, byWeight)
+	weights := make([]big.Rat, len(sorted))
+	for i, expression := range sorted {
+		weights[i].Set(byWeight[expression])
+		if err := newSoft.remove(expression); err != nil {
+			return err
+		}
+	}
+	var weight big.Rat
+	for i := len(sorted); i > 0; {
+		i--
+		soft, err := e.owner.hold(e.solver.manager.MkOrArgs(sorted[:i+1]))
+		if err != nil {
+			return err
+		}
+		w := new(big.Rat).Set(&weights[i])
+		weight.Sub(w, &weight)
+		e.lower.Add(&e.lower, new(big.Rat).Mul(&weight, new(big.Rat).SetInt64(int64(i))))
+		if err = newSoft.insert(soft, &weight); err != nil {
+			return err
+		}
 		e.stats.MutexTerms++
+		for i > 0 && weights[i-1].Cmp(w) == 0 {
+			i--
+		}
+		weight.Set(w)
 	}
 	e.stats.Mutexes++
 	return nil

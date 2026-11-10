@@ -13,18 +13,25 @@ import (
 
 func (e *maxResEngine) preprocessMutexes(objective *arithmeticObjective) ([]maxResWeightedTerm, error) {
 	expressions := make([]ast.ASTHandle, len(objective.softTerms))
-	weights := make(map[ast.ASTHandle]*big.Rat, len(objective.softTerms))
-	order := make([]ast.ASTHandle, 0, len(objective.softTerms))
+	newSoft := newSoftWeightMap(e.solver.manager)
 	for i := range objective.softTerms {
 		expression, err := e.solver.manager.RefGet(objective.softTerms[i])
 		if err != nil {
 			return nil, err
 		}
 		expressions[i] = expression
-		if weights[expression] == nil {
-			order = append(order, expression)
+		// maxsmt::add already merged duplicate soft constraints.
+		weight := new(big.Rat).Set(objective.softWeights[i])
+		old, err := newSoft.find(expression)
+		if err != nil {
+			return nil, err
 		}
-		addMaxResMutexWeight(weights, expression, objective.softWeights[i])
+		if old != nil {
+			weight.Add(weight, old)
+		}
+		if err = newSoft.insert(expression, weight); err != nil {
+			return nil, err
+		}
 	}
 	status, mutexes, err := e.solver.solver().FindMutexes(expressions)
 	if err != nil {
@@ -34,24 +41,15 @@ func (e *maxResEngine) preprocessMutexes(objective *arithmeticObjective) ([]maxR
 		return nil, errMaxResState
 	}
 	for _, mutex := range mutexes {
-		if err = e.transformMutex(mutex, weights, &order); err != nil {
+		if err = e.transformMutex(mutex, newSoft); err != nil {
 			return nil, fmt.Errorf("maxres mutex transform: %w", err)
 		}
 	}
-	terms := make([]maxResWeightedTerm, 0, len(weights))
-	seen := make(map[ast.ASTHandle]struct{}, len(order))
-	for _, expression := range order {
-		if _, duplicate := seen[expression]; duplicate {
-			continue
+	var terms []maxResWeightedTerm
+	for _, term := range newSoft.entries() {
+		if term.weight.Sign() > 0 {
+			terms = append(terms, term)
 		}
-		seen[expression] = struct{}{}
-		weight := weights[expression]
-		if weight == nil || weight.Sign() <= 0 {
-			continue
-		}
-		term := maxResWeightedTerm{expression: expression}
-		term.weight.Set(weight)
-		terms = append(terms, term)
 	}
 	return terms, nil
 }
