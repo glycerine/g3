@@ -549,22 +549,24 @@ func (c *theoryRewriterConfiguration) pullITECore(decl, ite, value ast.ASTHandle
 	if err != nil {
 		return RewriteFailed, err
 	}
+	// m().mk_ite(c, f(then), f(else)): the reference build (GCC) evaluates
+	// the call arguments right to left, so the else branch is built first.
 	var high, low ast.ASTHandle
 	if family == c.owner.manager.BasicFamilyID() && kind == ast.ASTOpEq {
-		high, err = c.equalityValue(thenValue, value)
+		low, err = c.equalityValue(elseValue, value)
 		if err == nil {
-			low, err = c.equalityValue(elseValue, value)
+			high, err = c.equalityValue(thenValue, value)
 		}
 	} else {
 		if swap {
-			high, err = c.owner.manager.RewriterMakeApp(decl, ast.SliceArguments([]ast.ASTHandle{value, thenValue}))
+			low, err = c.owner.manager.RewriterMakeApp(decl, ast.SliceArguments([]ast.ASTHandle{value, elseValue}))
 			if err == nil {
-				low, err = c.owner.manager.RewriterMakeApp(decl, ast.SliceArguments([]ast.ASTHandle{value, elseValue}))
+				high, err = c.owner.manager.RewriterMakeApp(decl, ast.SliceArguments([]ast.ASTHandle{value, thenValue}))
 			}
 		} else {
-			high, err = c.owner.manager.RewriterMakeApp(decl, ast.SliceArguments([]ast.ASTHandle{thenValue, value}))
+			low, err = c.owner.manager.RewriterMakeApp(decl, ast.SliceArguments([]ast.ASTHandle{elseValue, value}))
 			if err == nil {
-				low, err = c.owner.manager.RewriterMakeApp(decl, ast.SliceArguments([]ast.ASTHandle{elseValue, value}))
+				high, err = c.owner.manager.RewriterMakeApp(decl, ast.SliceArguments([]ast.ASTHandle{thenValue, value}))
 			}
 		}
 	}
@@ -656,11 +658,12 @@ func (c *theoryRewriterConfiguration) pullITE(decl ast.ASTHandle, args ast.AppAr
 				return RewriteFailed, err
 			}
 			if rightITE && leftCondition == rightCondition {
-				high, err := c.owner.manager.RewriterMakeApp(decl, ast.SliceArguments([]ast.ASTHandle{leftHigh, rightHigh}))
+				// GCC: the else application is built first.
+				low, err := c.owner.manager.RewriterMakeApp(decl, ast.SliceArguments([]ast.ASTHandle{leftLow, rightLow}))
 				if err != nil {
 					return RewriteFailed, err
 				}
-				low, err := c.owner.manager.RewriterMakeApp(decl, ast.SliceArguments([]ast.ASTHandle{leftLow, rightLow}))
+				high, err := c.owner.manager.RewriterMakeApp(decl, ast.SliceArguments([]ast.ASTHandle{leftHigh, rightHigh}))
 				if err != nil {
 					return RewriteFailed, err
 				}
