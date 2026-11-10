@@ -57,6 +57,7 @@ type SMTQuantifierManager struct {
 	mbqiID                      string
 	mbqiTrace                   bool
 	closed                      bool
+	flushed                     bool // flush ran; Close finishes the teardown
 	pendingPop                  *smtQuantifierPendingPop
 }
 
@@ -364,7 +365,7 @@ func (q *SMTQuantifierManager) PopScopes(count uint32) error {
 		q.lazyMAM.PopScope(count)
 		pop.stage = 2
 	}
-	if pop.stage == 2 {
+	if pop.stage == 2 && !q.flushed {
 		if err := q.modelFinder.PopScopes(count); err != nil {
 			return err
 		}
@@ -681,6 +682,29 @@ func (q *SMTQuantifierManager) activeQuantifiers() ([]ast.ASTHandle, error) {
 	return result, nil
 }
 
+// flush is ~quantifier_manager::imp as context::flush runs it (m_qmanager =
+// nullptr), before the context's enodes go: m_plugin (default_qm_plugin:
+// m_model_checker, then m_model_finder), then m_qi_queue (m_instances,
+// then m_subst). The proto model is a context member, released by Close.
+func (q *SMTQuantifierManager) flush() error {
+	if q.flushed {
+		return nil
+	}
+	var err error
+	if q.modelChecker != nil {
+		err = q.modelChecker.Close()
+	}
+	err = errors.Join(err, q.modelFinder.Close())
+	if err == nil && q.registry != nil {
+		err = q.registry.schedule.releaseInstancesForFlush()
+	}
+	err = errors.Join(err, q.substitute.Close())
+	if err == nil {
+		q.flushed = true
+	}
+	return err
+}
+
 func (q *SMTQuantifierManager) Close() error {
 	if q == nil || q.state == nil {
 		return ast.ErrASTHandle
@@ -697,11 +721,7 @@ func (q *SMTQuantifierManager) Close() error {
 		}
 		q.acceptedModel = nil
 	}
-	err := q.substitute.Close()
-	err = errors.Join(err, q.modelFinder.Close())
-	if q.modelChecker != nil {
-		err = errors.Join(err, q.modelChecker.Close())
-	}
+	err := q.flush()
 	if err == nil {
 		if q.state.quantifierManager == q {
 			q.state.quantifierManager = nil

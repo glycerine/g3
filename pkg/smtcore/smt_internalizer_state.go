@@ -1441,8 +1441,14 @@ func (s *SMTInternalizerState) Close() error {
 		}
 		s.pendingPop = nil
 	}
-	// context::flush resets m_qmanager (the qi_queue instances) before the
-	// enodes, which go with the context's members.
+	// context::flush resets m_qmanager (plugin, then the qi_queue instances
+	// and substitution cache) before the enodes, which go with the
+	// context's members.
+	if s.quantifierManager != nil {
+		if err := s.quantifierManager.flush(); err != nil {
+			return err
+		}
+	}
 	if s.quantifiers != nil {
 		if err := s.quantifiers.schedule.releaseInstancesForFlush(); err != nil {
 			return err

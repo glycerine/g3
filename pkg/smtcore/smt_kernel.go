@@ -1606,12 +1606,6 @@ func (k *SMTKernel) Close() error {
 			return err
 		}
 	}
-	if k.patternInference != nil {
-		if err := k.patternInference.Close(); err != nil {
-			return err
-		}
-		k.patternInference = nil
-	}
 	if k.pendingSetupLRA != nil {
 		if err := k.pendingSetupLRA.Close(); err != nil {
 			return err
@@ -1626,6 +1620,14 @@ func (k *SMTKernel) Close() error {
 	}
 	// The internalizer (context::flush) is closed above, before the
 	// asserted formulas' theory rewriter it borrows.
+	// ~asserted_formulas destroys its simplify_fmls members (declared last,
+	// m_pattern_inference among them) before the macro manager.
+	if k.patternInference != nil {
+		if err := k.patternInference.Close(); err != nil {
+			return err
+		}
+		k.patternInference = nil
+	}
 	if k.assertedMacros != nil {
 		if err := k.assertedMacros.Close(); err != nil {
 			return err
