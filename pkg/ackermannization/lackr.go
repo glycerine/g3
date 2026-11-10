@@ -279,10 +279,12 @@ func (r *Lackr) eager() (lbool.LBool, error) {
 	if err = r.manager.SetRef(r.encoder.out, all); err != nil {
 		return lbool.Undef, err
 	}
-	if err = r.encoder.simplifier.Rewrite(all, r.encoder.simplified); err != nil {
+	// m_simp(all) rewrites expr_ref all in place: the conjunction is
+	// released as the result replaces it.
+	if err = r.encoder.simplifier.Rewrite(all, r.encoder.out); err != nil {
 		return lbool.Undef, err
 	}
-	all, err = r.manager.RefGet(r.encoder.simplified)
+	all, err = r.manager.RefGet(r.encoder.out)
 	if err != nil {
 		return lbool.Undef, err
 	}
