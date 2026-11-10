@@ -88,3 +88,18 @@ func (s *ArithmeticSolver) UpdateSolver(params *uparams.ParamsRef) (result error
 	s.sat = sat
 	return nil
 }
+
+// HasSAT reports whether update_solver installed an inc_sat_solver.
+func (s *ArithmeticSolver) HasSAT() bool { return s != nil && s.sat != nil }
+
+// DetachSAT hands over the inc_sat_solver: opt::context::m_sat_solver
+// outlives the optimize() call and is released only when the next
+// update_solver assigns a new one (or the context goes away).
+func (s *ArithmeticSolver) DetachSAT() *satsolver.Solver {
+	if s == nil {
+		return nil
+	}
+	sat := s.sat
+	s.sat = nil
+	return sat
+}

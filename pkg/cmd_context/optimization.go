@@ -427,6 +427,9 @@ func (c *Context) checkOptimizeLex(assumptions []ast.ASTHandle) (optimized *opt.
 	}
 	defer func() {
 		c.optimizationOptsmt = append(c.optimizationOptsmt, optimizer.DetachObjectiveTerms()...)
+		if optimizer.HasSAT() {
+			c.optimizationSAT = optimizer.DetachSAT()
+		}
 		resultErr = errors.Join(resultErr, optimizer.Close())
 	}()
 	// optimize(): internalize() rewrites the arithmetic objectives, then
@@ -444,6 +447,14 @@ func (c *Context) checkOptimizeLex(assumptions []ast.ASTHandle) (optimized *opt.
 	// SAT-eligible problem before check_sat on the hard constraints.
 	if err = optimizer.UpdateSolver(&c.params); err != nil {
 		return nil, err
+	}
+	// m_sat_solver = mk_inc_sat_solver(...) releases the previous one.
+	if optimizer.HasSAT() && c.optimizationSAT != nil {
+		previous := c.optimizationSAT
+		c.optimizationSAT = nil
+		if err = previous.Close(); err != nil {
+			return nil, err
+		}
 	}
 	if err = c.assertOptimizerHard(optimizer, assumptions); err != nil {
 		return nil, err

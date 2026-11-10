@@ -541,14 +541,10 @@ func (s *ArithmeticSolver) softBound(objective *arithmeticObjective, bound *big.
 }
 
 func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (status lbool.LBool, optimal bool, resultErr error) {
-	if err := s.solver().Push(); err != nil {
-		return lbool.Undef, false, err
-	}
+	// execute_maxsat runs maxsmt unscoped: execute_lex passes scoped only
+	// for non-MaxSMT objectives, and maxsmt/maxres never push a local scope.
 	var activeEngine maxSMTEngine
 	defer func() {
-		if popErr := s.solver().Pop(1); popErr != nil {
-			resultErr = errors.Join(resultErr, fmt.Errorf("pop MaxSMT scope: %w", popErr))
-		}
 		if activeEngine != nil {
 			if closeErr := activeEngine.close(); closeErr != nil {
 				resultErr = errors.Join(resultErr, fmt.Errorf("close MaxSMT engine: %w", closeErr))
@@ -848,7 +844,8 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 		}
 	}()
 	for i := range s.objectives {
-		outer := i+1 < len(s.objectives)
+		// execute_lex: scoped = sc && !is_last && o.m_type != O_MAXSMT.
+		outer := i+1 < len(s.objectives) && !s.objectives[i].soft
 		if outer {
 			if err := s.solver().Push(); err != nil {
 				return nil, err

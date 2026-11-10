@@ -6,6 +6,7 @@ package cmd_context
 import (
 	"errors"
 	"fmt"
+	satsolver "github.com/glycerine/g3/pkg/sat/sat_solver"
 	"io"
 	"math/big"
 	"os"
@@ -110,6 +111,9 @@ type Context struct {
 	optimizationTerms []ast.ASTRef
 	// optimizationOptsmt is optsmt::m_objs, reset by import_scoped_state.
 	optimizationOptsmt []ast.ASTRef
+	// optimizationSAT is opt::context::m_sat_solver; update_solver replaces
+	// it, so it survives until the next SAT-eligible optimize.
+	optimizationSAT *satsolver.Solver
 	// preparedOptimizer is the backend init_solver creates before normalize.
 	preparedOptimizer                *opt.ArithmeticSolver
 	softObjectiveIndex               map[string]int
@@ -1495,6 +1499,12 @@ func (c *Context) resetManagerState() error {
 	}
 	if err := c.releaseOptimizationTerms(); err != nil {
 		return err
+	}
+	if c.optimizationSAT != nil {
+		if err := c.optimizationSAT.Close(); err != nil {
+			return err
+		}
+		c.optimizationSAT = nil
 	}
 	if err := c.clearCheckSatResult(); err != nil {
 		return err
