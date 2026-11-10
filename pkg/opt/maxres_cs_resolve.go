@@ -3,6 +3,7 @@ package opt
 // Source: src/opt/maxres.cpp cs_max_resolve.
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -14,62 +15,82 @@ import (
 //	d_i := b_{i-1} or d_{i-1}    for i = 1...sz-1
 //	soft (b_i and d_i)
 //
-// The closing hard disjunction of the set is asserted by the caller.
-func (e *maxResEngine) correctionResolve(correction []ast.ASTHandle, weight *big.Rat) error {
+// fml, asum, cls, d are the source's locals. The closing hard disjunction of
+// the set is asserted by the caller.
+func (e *maxResEngine) correctionResolve(correction []ast.ASTHandle, weight *big.Rat) (resultErr error) {
 	if len(correction) == 0 {
 		return errMaxResState
 	}
 	m := e.solver.manager
-	d, err := m.MkFalse()
-	if err != nil {
+	fml, asum, cls, d := &maxResLocal{m: m}, &maxResLocal{m: m}, &maxResLocal{m: m}, &maxResLocal{m: m}
+	defer func() {
+		for _, l := range []*maxResLocal{d, cls, asum, fml} {
+			resultErr = errors.Join(resultErr, l.release())
+		}
+	}()
+	if _, err := d.set(m.MkFalse()); err != nil {
 		return err
 	}
 	for i := 1; i < len(correction); i++ {
 		bi, bi1 := correction[i-1], correction[i]
-		cls, err := e.owner.hold(m.MkOr(bi, d))
+		current, err := m.RefGet(d.ref)
+		if err != nil {
+			return err
+		}
+		clause, err := cls.set(m.MkOr(bi, current))
 		if err != nil {
 			return err
 		}
 		if i > 2 {
-			d, err = e.freshBool("d")
+			fresh, err := e.freshBool("d")
+			if err == nil {
+				_, err = d.set(fresh, nil)
+			}
+			var h ast.ASTHandle
+			if err == nil {
+				h, err = fml.set(e.implies(fresh, clause))
+			}
+			if err == nil {
+				err = e.updateModel(fresh, clause)
+			}
+			if err == nil {
+				err = e.assertDef(h)
+			}
 			if err != nil {
 				return err
 			}
-			fml, err := e.implies(d, cls)
-			if err != nil {
-				return err
-			}
-			e.updateModel(d, cls)
-			if err = e.assertDef(fml); err != nil {
-				return err
-			}
-		} else {
-			d = cls
+		} else if _, err = d.set(clause, nil); err != nil {
+			return err
 		}
-		asum, err := e.freshBool("a")
+		fresh, err := e.freshBool("a")
+		if err == nil {
+			_, err = asum.set(fresh, nil)
+		}
+		var h ast.ASTHandle
+		if err == nil {
+			h, err = fml.set(e.implies(fresh, bi1))
+		}
+		if err == nil {
+			err = e.assertDef(h)
+		}
+		if err == nil {
+			h, err = fml.set(e.implies(fresh, clause))
+		}
+		if err == nil {
+			err = e.assertDef(h)
+		}
+		if err == nil {
+			err = e.addAssumption(fresh, weight)
+		}
+		if err == nil {
+			h, err = fml.set(m.MkAnd(bi1, clause))
+		}
+		if err == nil {
+			err = e.updateModel(fresh, h)
+		}
 		if err != nil {
 			return err
 		}
-		fml, err := e.implies(asum, bi1)
-		if err == nil {
-			err = e.assertDef(fml)
-		}
-		if err == nil {
-			fml, err = e.implies(asum, cls)
-		}
-		if err == nil {
-			err = e.assertDef(fml)
-		}
-		if err == nil {
-			err = e.addAssumption(asum, weight)
-		}
-		if err == nil {
-			fml, err = e.owner.hold(m.MkAnd(bi1, cls))
-		}
-		if err != nil {
-			return err
-		}
-		e.updateModel(asum, fml)
 		e.stats.CorrectionResolutions++
 	}
 	return nil
