@@ -1313,7 +1313,9 @@ func (k *SMTKernel) buildGeneratedModel() error {
 		generator = manager.acceptedModel
 		manager.acceptedModel = nil
 	}
-	if !k.produceModel {
+	// mk_proto_model runs when m_fparams.m_model (default true) or
+	// m_model_on_final_check holds; smt_solver ignores set_produce_models.
+	if !k.produceModel && !k.smtState.Model && !k.smtState.ModelOnFinalCheck {
 		var err error
 		if manager := k.internalizer.quantifierManager; manager != nil {
 			err = manager.releaseRetiredProto()
