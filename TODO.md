@@ -594,6 +594,13 @@ Found while matching `-st` output against `build/z3` on
     model-choice class as item 25. z3 also keeps both orientations of
     (+ (* (- 7) y) (* 5 z)), which points to an uncached rewrite of one
     copy.
+    z3 -tr:qe (z3del build): the first inner model has z!2 = #b11, the
+    same as g3's. constrain_assignment then sets "z!2 := 4" (four branches)
+    and the re-checks add children for z = 2, 1, 3, 0, in that order. So
+    the order comes from constrain_assignment's re-check sequence and leaf
+    collection, not from the first model. NEXT: log g3's branch values in
+    qe/expr_quantifier_branch_limit.go and qe/expr_quantifier_tree_advance.go
+    and diff them against that sequence.
 
 19. **DONE (2026-11-09, 46531ec4a): MAM ported; old matcher deleted.**
    smtcore/smt_mam_{code,compiler,interpreter,impl}.go port mam.cpp's
