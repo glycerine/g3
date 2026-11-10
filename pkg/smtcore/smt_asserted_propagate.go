@@ -198,7 +198,16 @@ func (k *SMTKernel) addAssertionSubstitution(assertion SMTKernelAssertion, depth
 	if err != nil {
 		return err
 	}
-	return k.manager.ScopedExprSubstitutionInsert(k.assertedScopedSubst, key, value, proof, ast.ASTDependency{})
+	if proof.IsNull() || proof == assertion.Proof {
+		return k.manager.ScopedExprSubstitutionInsert(k.assertedScopedSubst, key, value, proof, ast.ASTDependency{})
+	}
+	// proof_ref pr1 owns the new iff proof; it dies when the call returns,
+	// so a proof the substitution does not keep is freed there.
+	pr1, err := k.manager.NewRef(proof)
+	if err != nil {
+		return err
+	}
+	return errors.Join(k.manager.ScopedExprSubstitutionInsert(k.assertedScopedSubst, key, value, proof, ast.ASTDependency{}), k.manager.DelRef(&pr1))
 }
 
 func (k *SMTKernel) rewritePendingAssertion(index int) (bool, error) {
