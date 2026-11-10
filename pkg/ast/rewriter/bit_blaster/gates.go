@@ -29,6 +29,12 @@ func NewConfig(m *ast.ASTManager, family ast.FamilyID, params SMTBitBlasterParam
 	return &Config{manager: m, family: family, params: params, flat: true}, nil
 }
 
+// SetBoolRewriterFlags sets the bool_rewriter m_rw's flat and elim_and,
+// which bool_rewriter::updt_params reads from the rewriter module.
+func (c *Config) SetBoolRewriterFlags(flat, elimAnd bool) {
+	c.flat, c.elimAnd = flat, elimAnd
+}
+
 func newRewriterConfig(m *ast.ASTManager, family ast.FamilyID) (*Config, error) {
 	c, err := NewConfig(m, family, SMTBitBlasterParams{})
 	if err == nil {

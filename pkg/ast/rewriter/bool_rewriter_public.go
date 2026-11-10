@@ -33,6 +33,13 @@ func (rw *boolRewriter) Flat() (bool, error) {
 	}
 	return rw.flat, nil
 }
+// EliminateAnd reports elim_and.
+func (rw *boolRewriter) EliminateAnd() (bool, error) {
+	if e := rw.configuredOpen(); e != nil {
+		return false, e
+	}
+	return rw.elimAnd, nil
+}
 func (rw *boolRewriter) SetFlat(flat bool) error {
 	if e := rw.configuredOpen(); e != nil {
 		return e
