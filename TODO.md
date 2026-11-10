@@ -329,6 +329,25 @@ Found while matching `-st` output against `build/z3` on
     masked); they are TestTraceGolden's default vectors
     (cmd/g3/test_vectors/golden_trace_vectors.txt). Fixes found by the
     failing vectors so far (423 -> 482 matching):
+    - 2026-11-09 MAM/teardown batch (full logs 450 -> 462 of 661):
+      the MAM port (item 19); context::flush order (undo_trail_stack(0)
+      releases enodes and bool vars, then m_qmanager = nullptr frees the
+      plugin, qi_queue instances and m_subst, then clauses; the proto
+      model is a later member); ~asserted_formulas destroys its
+      simplify_fmls members (pattern inference) after the context;
+      expr_pattern_match m_precompiled, vector<justified_expr> batches
+      and cached_var_subst m_refs all release front to back (formula
+      before proof); cached_var_subst::reset keeps var_subst's reducer
+      cache; macro_finder is_arith_macro holds/releases new_body/new_q
+      and uses an Int zero coerced by mk_app; arith_util::mk_add returns
+      a single app argument as is; setup_auto_config's logic list (no
+      UFLRA/QF_FP case) decides whether setup_unknown(st) builds the
+      theory_seq kernel.
+      OPEN lead: the model finder's quantifier_analyzer runs in z3 at
+      register_quantifier (internalize time) and builds its x<=t bounds
+      with macro_util::mk_add (arith_rewriter folding, e.g. 5+1 -> 6);
+      g3 builds the AUF graph lazily at model-check time with a raw add
+      then normalizeGround (all_quantified_arithmetic_after_push line 45).
     - 2026-11-09 batch (full trace=true logs identical 427 -> 445 of 661):
       add_eq eq-propagates only marked parents; theories pop in
       registration order; search pops flush the asserted rewriter cache;
