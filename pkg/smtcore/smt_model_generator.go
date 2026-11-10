@@ -26,7 +26,12 @@ type SMTModelGenerator struct {
 	refs          []ast.ASTRef
 	// pinSink, when set, receives refs at Close: the kernel keeps them as
 	// model_generator::m_asts until the next reset.
-	pinSink    *[]ast.ASTRef
+	pinSink *[]ast.ASTRef
+	// modelTrail receives the factory trails of m_model's value factories
+	// when the proto model is finalized: they die with m_model, after the
+	// m_asts pins.
+	modelTrail []ast.ASTRef
+	trailSink  *[]ast.ASTRef // receives modelTrail at Close (m_proto_model)
 	freshIndex uint32
 	closed     bool
 }
@@ -814,14 +819,22 @@ func (g *SMTModelGenerator) Close() error {
 		g.model = nil
 	}
 	if g.pinSink != nil {
-		// The kernel's m_asts outlives this generation.
+		// The kernel's m_asts, then m_model, outlive this generation.
 		*g.pinSink = append(*g.pinSink, g.refs...)
+		if g.trailSink != nil {
+			*g.trailSink = append(*g.trailSink, g.modelTrail...)
+		} else {
+			*g.pinSink = append(*g.pinSink, g.modelTrail...)
+		}
 	} else {
 		for index := len(g.refs); index > 0; index-- {
 			result = errors.Join(result, g.manager.DelRef(&g.refs[index-1]))
 		}
+		for index := range g.modelTrail {
+			result = errors.Join(result, g.manager.DelRef(&g.modelTrail[index]))
+		}
 	}
-	g.refs = nil
+	g.refs, g.modelTrail = nil, nil
 	if result == nil {
 		g.closed = true
 		g.context = nil

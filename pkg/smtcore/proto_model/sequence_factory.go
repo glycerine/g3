@@ -19,6 +19,25 @@ type SequenceFactory struct {
 	strings   map[string]struct{}
 	next      uint32
 	delimiter string
+	trail     []ast.ASTHandle // m_trail: each element holds one reference
+	// trailSink, when set, takes m_trail at Close: the proto model it
+	// belongs to outlives the Go owner that finalizes it.
+	trailSink *[]ast.ASTRef
+}
+
+// SetTrailSink hands m_trail to sink when the factory closes.
+func (f *SequenceFactory) SetTrailSink(sink *[]ast.ASTRef) { f.trailSink = sink }
+
+// AddTrail is add_trail(e): m_trail.push_back(e).
+func (f *SequenceFactory) AddTrail(e ast.ASTHandle) error {
+	if f == nil || f.manager == nil {
+		return ast.ErrASTHandle
+	}
+	if err := f.manager.IncRef(e); err != nil {
+		return err
+	}
+	f.trail = append(f.trail, e)
+	return nil
 }
 
 func NewSequenceFactory(model *ProtoModel, family ast.FamilyID) (*SequenceFactory, error) {
@@ -207,6 +226,27 @@ func (f *SequenceFactory) RegisterValue(value ast.ASTHandle) error {
 
 func (f *SequenceFactory) Close() error {
 	if f != nil {
+		if f.trailSink != nil {
+			for len(f.trail) > 0 {
+				ref, err := f.manager.NewRef(f.trail[0])
+				if err == nil {
+					err = f.manager.DecRef(f.trail[0])
+				}
+				if err != nil {
+					return err
+				}
+				*f.trailSink = append(*f.trailSink, ref)
+				f.trail = f.trail[1:]
+			}
+		}
+		// ~expr_ref_vector releases m_trail front to back.
+		for len(f.trail) > 0 {
+			if err := f.manager.DecRef(f.trail[0]); err != nil {
+				return err
+			}
+			f.trail = f.trail[1:]
+		}
+		f.trail = nil
 		f.manager = nil
 		f.model = nil
 		f.strings = nil

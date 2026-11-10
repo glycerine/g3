@@ -121,6 +121,9 @@ type smtPendingEquality struct {
 }
 
 type SMTInternalizerState struct {
+	// afterFlush runs in Close between context::flush and the destruction
+	// of m_theories: ~context destroys m_model and m_proto_model there.
+	afterFlush func() error
 	// paramsContext and globals are the kernel's parameter services, borrowed
 	// by theories that build their own rewriters (theory_fpa's converter).
 	paramsContext         *uparams.ParamsContext
@@ -1498,6 +1501,12 @@ func (s *SMTInternalizerState) Close() error {
 	s.scopes = nil
 	s.scopeLevel = 0
 	s.baseLevel = 0
+	if s.afterFlush != nil {
+		if err := s.afterFlush(); err != nil {
+			return err
+		}
+		s.afterFlush = nil
+	}
 	for len(s.theoryOrder) != 0 {
 		i := len(s.theoryOrder) - 1
 		if closer, ok := s.theoryOrder[i].(interface{ Close() error }); ok {

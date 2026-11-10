@@ -59,7 +59,6 @@ func (t *SMTTheorySeq) Initialize(state *SMTInternalizerState) (result error) {
 	t.re2aut = make(map[ast.ASTHandle]*rewriter.StringRegexAutomaton)
 	t.branchStart = make(map[uint32]int)
 	t.tmps = seqRefs{manager: m}
-	t.modelTrail = newSeqExprVector(m)
 	var err error
 	if t.rewrite, err = newSeqRewriterOwner(m); err != nil {
 		return err
@@ -266,6 +265,7 @@ func (t *SMTTheorySeq) InitializeModel(mg *SMTModelGenerator) (result error) {
 	factory, err := protomodel.NewSequenceFactory(mg.model, t.FamilyID())
 	t.chk(err)
 	t.factory = factory
+	factory.SetTrailSink(&mg.modelTrail)
 	t.chk(mg.RegisterFactory(factory))
 	for i := 0; i < t.nqs.len(); i++ {
 		n := t.nqs.at(i)
@@ -406,7 +406,7 @@ func (p *seqValueProc) MakeValue(_ *SMTModelGenerator, values []ast.ASTHandle) (
 		res = th.ref(x, th.mkConcatSorted(args, p.sort), nil)
 		res = th.rewriteTh(x, res)
 	}
-	th.chk(th.modelTrail.pushBack(res)) // m_factory->add_trail(result)
+	th.chk(th.factory.AddTrail(res)) // m_factory->add_trail(result)
 	return res, nil
 }
 
@@ -464,7 +464,7 @@ func (t *SMTTheorySeq) mkValueApp(e ast.ASTHandle) ast.ASTHandle {
 	} else {
 		result = t.rewriteTh(x, result)
 	}
-	t.chk(t.modelTrail.pushBack(result)) // m_factory->add_trail(result)
+	t.chk(t.factory.AddTrail(result)) // m_factory->add_trail(result)
 	t.chk(t.rep.update(e, result, nil))
 	return result
 }
@@ -480,7 +480,7 @@ func (t *SMTTheorySeq) Close() (result error) {
 	t.resetReplay()
 	t.closeAutomata()
 	result = errors.Join(result,
-		t.modelTrail.reset(), t.res.reset(), t.rhsV.reset(), t.lhsV.reset(), t.rs.reset(), t.ls.reset(),
+		t.res.reset(), t.rhsV.reset(), t.lhsV.reset(), t.rs.reset(), t.ls.reset(),
 		t.seqRewrite.Close(),
 		t.intString.reset(), t.axioms.reset(), t.exclude.rhs.reset(), t.exclude.lhs.reset(),
 		t.rep.rhs.reset(), t.rep.lhs.reset(), t.rep.cache.reset(), t.tmps.release())

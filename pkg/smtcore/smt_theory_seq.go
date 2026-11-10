@@ -881,11 +881,10 @@ type SMTTheorySeq struct {
 
 	fixed seqObjHashtable // string variables that are fixed length
 
-	uf         seqUnionFind // m_find
-	factory    *protomodel.SequenceFactory
-	modelTrail seqExprVector // the factory's add_trail
-	tmps       seqRefs       // expr_ref temporaries released when an entry point returns
-	closed     bool
+	uf      seqUnionFind // m_find
+	factory *protomodel.SequenceFactory
+	tmps    seqRefs // expr_ref temporaries released when an entry point returns
+	closed  bool
 }
 
 // seqRewriterOwner is the source's m_rewrite member: a th_rewriter with

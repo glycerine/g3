@@ -72,7 +72,10 @@ type SMTKernel struct {
 	// generatorPins is model_generator::m_asts: the values a model
 	// generation pinned stay alive until the next mk_proto_model resets the
 	// generator (or the context is destroyed), and are released forward.
-	generatorPins    []ast.ASTRef
+	generatorPins []ast.ASTRef
+	// protoTrail is the value-factory trail of the last proto model; it
+	// dies with m_proto_model, after the m_asts pins on a reset.
+	protoTrail       []ast.ASTRef
 	preprocessor     *rewriter.TheoryRewriter
 	patternInference *pattern.InferenceRewriter
 	bvSharing        *rewriter.MaximizeBVSharing
@@ -190,6 +193,7 @@ func NewSMTKernel(manager *ast.ASTManager, quantifiers *SMTQuantifierRegistry) (
 			RestartAdaptive: true, AgilityFactor: 0.9999, RestartAgilityThreshold: 0.18, SimplifyClauses: true,
 		},
 	}
+	internalizer.afterFlush = kernel.releaseContextModels
 	internalizer.assertedHasQuantifiers = &kernel.assertedHasQuantifiers
 	internalizer.assertedInconsistent = &kernel.assertedInconsistent
 	internalizer.assertedFormulas = &kernel.assertions
@@ -480,11 +484,15 @@ func (k *SMTKernel) buildCandidateModelGenerator() (*SMTModelGenerator, error) {
 	if err := k.releaseGeneratorPins(); err != nil {
 		return nil, err
 	}
+	if err := k.releaseProtoTrail(); err != nil {
+		return nil, err
+	}
 	generator, err := NewSMTModelGenerator(k.manager)
 	if err != nil {
 		return nil, err
 	}
 	generator.pinSink = &k.generatorPins
+	generator.trailSink = &k.protoTrail
 	fail := func(cause error) (*SMTModelGenerator, error) {
 		return nil, errors.Join(cause, generator.Close())
 	}
@@ -1349,6 +1357,29 @@ func (k *SMTKernel) retireGeneratedModel() error {
 	return nil
 }
 
+// releaseContextModels is the destruction of m_model, then m_proto_model
+// (with its value factories' trails).
+func (k *SMTKernel) releaseContextModels() error {
+	if err := k.clearGeneratedModel(); err != nil {
+		return err
+	}
+	if err := k.releaseStaleModel(); err != nil {
+		return err
+	}
+	return k.releaseProtoTrail()
+}
+
+func (k *SMTKernel) releaseProtoTrail() error {
+	for i := range k.protoTrail {
+		if err := k.manager.DelRef(&k.protoTrail[i]); err != nil {
+			k.protoTrail = k.protoTrail[i:]
+			return err
+		}
+	}
+	k.protoTrail = nil
+	return nil
+}
+
 // releaseGeneratorPins is model_generator::reset's m_asts.reset().
 func (k *SMTKernel) releaseGeneratorPins() error {
 	for i := range k.generatorPins {
@@ -1583,12 +1614,7 @@ func (k *SMTKernel) Close() error {
 	if err := k.clearLiteralResults(); err != nil {
 		return err
 	}
-	if err := k.clearGeneratedModel(); err != nil {
-		return err
-	}
-	if err := k.releaseStaleModel(); err != nil {
-		return err
-	}
+	// context::flush begins with m_model_generator->reset() (m_asts).
 	if err := k.releaseGeneratorPins(); err != nil {
 		return err
 	}
@@ -1617,6 +1643,9 @@ func (k *SMTKernel) Close() error {
 			return err
 		}
 		k.internalizer = nil
+	}
+	if err := k.releaseContextModels(); err != nil {
+		return err
 	}
 	// The internalizer (context::flush) is closed above, before the
 	// asserted formulas' theory rewriter it borrows.
