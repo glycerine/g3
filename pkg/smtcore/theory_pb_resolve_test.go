@@ -95,7 +95,8 @@ func TestSMTPBResolutionNativeCutPreservesAssumptionGuardsAndProof(t *testing.T)
 					}
 					return
 				}
-				expectSMTRawCore(t, clause.literals, []SMTLiteral{b.Negated(), a.Negated()})
+				// mk_clause sorts CLS_AUX_LEMMA literals (simplify_aux_lemma_literals).
+				expectSMTRawCore(t, clause.literals, []SMTLiteral{a.Negated(), b.Negated()})
 				if pb.statistics.conflicts != 2 || pb.constraints[1].propagations != test.prior+2 {
 					t.Fatal("strengthening path was skipped", pb.statistics)
 				}
@@ -318,7 +319,13 @@ func TestSMTPBResolutionClauseAndForeignReasonBarriers(t *testing.T) {
 			}
 			// Context selects the two conflict-level watched positions first;
 			// the older predicate guard remains as the third literal.
-			expectSMTRawCore(t, clause.literals, []SMTLiteral{inputs[2], last, atom.Negated()})
+			// mk_clause sorts CLS_AUX_LEMMA literals by index before choosing
+			// watches; the unassigned atom literal keeps the last slot here.
+			first, second := inputs[2], last
+			if second.Index() < first.Index() {
+				first, second = second, first
+			}
+			expectSMTRawCore(t, clause.literals, []SMTLiteral{first, second, atom.Negated()})
 		})
 	}
 }

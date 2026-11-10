@@ -57,8 +57,9 @@ func TestLPRationalIteratorsBorrowedOutputAlias(t *testing.T) {
 						it = NewRationalPivotRowIterator(v, 9)
 					}
 				case "term":
-					h.must(term.AddCoefficient(0, &p.X))
+					// Insert column 1 first so libstdc++ order visits column 0 first.
 					h.must(term.AddCoefficient(1, &p.Y))
+					h.must(term.AddCoefficient(0, &p.X))
 					first, _ = term.coefficients.Get2(0)
 					second, _ = term.coefficients.Get2(1)
 					it, err = NewLARTermIterator(term, 9)

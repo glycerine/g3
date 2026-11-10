@@ -140,7 +140,8 @@ func TestSMTLRANumericOrderedCancellationAndRegistration(t *testing.T) {
 			t.Fatal("coefficient not owned", j, value)
 		}
 	}
-	if fmt.Sprint(columns) != "[0 1]" {
+	// lar_term's unordered_map iterates column 1 before column 0.
+	if fmt.Sprint(columns) != "[1 0]" {
 		t.Fatal(columns)
 	}
 	index2, err := s.getVarIndex(42)

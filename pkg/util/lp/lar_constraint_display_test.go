@@ -45,7 +45,8 @@ func lpLARDisplayFixture(t *testing.T, h *lpPairHarness, profile string) (*LARSo
 		if profile == "term-positive" {
 			constant = "5"
 		}
-		expected = " - v17 + v31 + " + constant + " <= 7/3\n"
+		// lar_term's unordered_map iterates column 1 before column 0.
+		expected = "v31 - v17 + " + constant + " <= 7/3\n"
 	case "empty-general":
 		expected = " <= 7/3\n"
 	case "empty-term":
@@ -54,7 +55,7 @@ func lpLARDisplayFixture(t *testing.T, h *lpPairHarness, profile string) (*LARSo
 	case "term-large":
 		coefficients = []string{"-1", "1"}
 		constant = mustLPRat(t, "-"+strings.Repeat("2718281828", 20)+"/19").RatString()
-		expected = " - v17 + v31 + " + constant + " <= 7/3\n"
+		expected = "v31 - v17 + " + constant + " <= 7/3\n"
 	case "large":
 		a := mustLPRat(t, strings.Repeat("1234567890", 20)+"/7").RatString()
 		b := mustLPRat(t, strings.Repeat("9876543210", 20)+"/13").RatString()

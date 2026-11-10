@@ -111,7 +111,8 @@ func TestSMTLRADisplayEveryWriterPrefixAndScope(t *testing.T) {
 	astTestMust(t, err)
 	var output bytes.Buffer
 	astTestMust(t, f.a.Display(&output))
-	want := "v0 + v1\n" +
+	// lar_term's unordered_map iterates column 1 before column 0.
+	want := "v1 + v0\n" +
 		"v0, shared: 0, rel: 0, def: display-b\n" +
 		"v1, shared: 0, rel: 0, def: display-a\n" +
 		"v2, value: 0, shared: 0, rel: 0, def: (+ display-a display-b)\n"

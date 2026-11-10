@@ -5,25 +5,24 @@ package lp
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/numeral"
-	"github.com/glycerine/insdict"
 )
 
 var ErrLARTermPivotErased = errors.New("lp: substitution erased its live pivot coefficient")
 
 // LARTerm owns coefficients and a constant in a borrowed numeral manager.
-// Dict supplies stable insertion order instead of C++ hash bucket order.
+// Coefficients iterate in libstdc++ unordered_map order (std_unordered_map.go).
 // Values returned by Coefficients are borrowed; removal invalidates that borrow.
 // Do not copy the owner or owning numerals. Close owns stopped lexical calls.
 type LARTerm struct {
 	Value        numeral.Rational
-	coefficients *insdict.Dict[uint32, *numeral.Rational]
+	coefficients *StdUnorderedRationalMap
 	manager      *numeral.RationalManager
 	calls        exactEtaCalls
 	work         *IndexedRationalVector
 }
 
 func NewLARTerm(m *numeral.RationalManager) *LARTerm {
-	return &LARTerm{Value: numeral.NewRational(), coefficients: insdict.NewDict[uint32, *numeral.Rational](), manager: m}
+	return &LARTerm{Value: numeral.NewRational(), coefficients: NewStdUnorderedRationalMap(), manager: m}
 }
 
 // A nonnil result owns partial construction on error, as well as on success.
@@ -39,9 +38,9 @@ func NewLARTermFromCoefficients(m *numeral.RationalManager, coefficients []Ratio
 	}
 	return t, nil
 }
-func (t *LARTerm) Size() uint32                                           { return uint32(t.coefficients.Len()) }
-func (t *LARTerm) Contains(index uint32) bool                             { _, ok := t.coefficients.Get2(index); return ok }
-func (t *LARTerm) Coefficients() *insdict.Dict[uint32, *numeral.Rational] { return t.coefficients }
+func (t *LARTerm) Size() uint32                           { return uint32(t.coefficients.Len()) }
+func (t *LARTerm) Contains(index uint32) bool             { _, ok := t.coefficients.Get2(index); return ok }
+func (t *LARTerm) Coefficients() *StdUnorderedRationalMap { return t.coefficients }
 func (t *LARTerm) ready() error {
 	if t.work != nil || t.calls.pending() {
 		return ErrExactVectorPending
@@ -217,7 +216,7 @@ func (t *LARTerm) Close() error {
 		return err
 	}
 	t.Value = numeral.NewRational()
-	for index, value := range t.coefficients.SlowWriteAll() {
+	for index, value := range t.coefficients.All() {
 		if err := t.manager.Del(value); err != nil {
 			return err
 		}

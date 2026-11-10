@@ -117,8 +117,9 @@ func (s *SMTInternalizerState) addClauseKindWithDeleteHandler(literals []SMTLite
 }
 
 func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(literals []SMTLiteral, root bool, kind SMTClauseKind, proof ast.ASTHandle, justification SMTJustification, deleteHandler SMTClauseDeleteHandler) error {
-	if kind == SMTClauseAux {
-		// simplify_aux_clause_literals sorts the literals (by index) first.
+	if kind == SMTClauseAux || kind == SMTClauseAuxLemma {
+		// simplify_aux_clause_literals and simplify_aux_lemma_literals both
+		// sort the literals (by index) first.
 		literals = append([]SMTLiteral(nil), literals...)
 		slices.SortFunc(literals, func(a, b SMTLiteral) int { return cmp.Compare(a.Index(), b.Index()) })
 	}
@@ -138,6 +139,17 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		}
 		if _, found := seen[literal]; found {
 			continue
+		}
+		// simplify_aux_lemma_literals: a literal true at or below the base
+		// level makes the lemma true; false literals are kept.
+		if kind == SMTClauseAuxLemma && s.booleanData[literal.Var()].ScopeLevel <= s.baseLevel {
+			value, err := s.Assignment(literal)
+			if err != nil {
+				return err
+			}
+			if value == lbool.True {
+				return nil
+			}
 		}
 		if kind == SMTClauseAux {
 			value, err := s.Assignment(literal)

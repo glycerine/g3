@@ -124,8 +124,10 @@ func TestLARStrategyLUResizesAndPreservesSourceContents(t *testing.T) {
 		if c.DA.RowCount() != 1 || c.DA.ColumnCount() != 3 || len(c.DA.Rows[0]) != 4 || c.DA.Rows[0][0].Value != 23 || c.DX[0] != 11 || c.DLow[0] != 12 || c.DUpper[0] != 13 || !reflect.DeepEqual(c.DNBasis, []uint32{17, 16}) || !reflect.DeepEqual(c.DA.RowOffsets, []int32{71, 72, 73, 74}) {
 			t.Fatal("source resize preserves nested contents and unrelated metadata")
 		}
-		for j, v := range row {
-			if c.DA.Rows[0][j+1].Value != lpLARSourceDouble(v) {
+		// Appended cells follow the source row's (lar_term map) order; check
+		// each converted value against its column.
+		for _, cell := range c.DA.Rows[0][1:] {
+			if cell.Value != lpLARSourceDouble(row[cell.Column]) {
 				t.Fatal("append conversion order")
 			}
 		}
@@ -175,8 +177,9 @@ func TestLARStrategyFloatConversionSourceExtremes(t *testing.T) {
 	s, _ := lpLARStrategyFixture(t, h, 0, true)
 	huge := new(big.Int).Exp(big.NewInt(10), big.NewInt(400), nil)
 	values := []*big.Rat{new(big.Rat).SetFrac(huge, big.NewInt(1)), new(big.Rat).SetFrac(big.NewInt(1), huge), new(big.Rat).SetFrac(new(big.Int).Add(huge, big.NewInt(1)), new(big.Int).Sub(huge, big.NewInt(1)))}
-	for j, v := range values {
-		h.must(h.m.SetString(&s.Core.RA.Rows[0][j].Value, v.RatString()))
+	for j := range s.Core.RA.Rows[0] {
+		cell := &s.Core.RA.Rows[0][j]
+		h.must(h.m.SetString(&cell.Value, values[cell.Column].RatString()))
 	}
 	h.must(s.AdjustInitialStateForLU())
 	got := s.Core.DA.Rows[0]

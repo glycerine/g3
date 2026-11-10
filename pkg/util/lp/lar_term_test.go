@@ -153,7 +153,7 @@ func TestLARTermLiteralZeroAndLivePivotPrefixes(t *testing.T) {
 				wantErr = ErrBounds
 				want[0] = big.NewRat(2, 1)
 				want[1] = big.NewRat(-5, 1)
-				order = []uint32{0, 1}
+				order = []uint32{1, 0}
 			case "empty":
 				v.Index = nil
 				want[1] = big.NewRat(3, 1)
@@ -175,7 +175,7 @@ func TestLARTermLiteralZeroAndLivePivotPrefixes(t *testing.T) {
 		h.must(term.AddCoefficient(1, &p.Y))
 		h.must(term.AddCoefficient(4, &p.X))
 		h.must(term.AddCoefficient(4, &p.Y))
-		lpCheckLARTerm(t, h, term, map[uint32]*big.Rat{1: big.NewRat(2, 1), 4: big.NewRat(2, 1)}, []uint32{1, 4})
+		lpCheckLARTerm(t, h, term, map[uint32]*big.Rat{1: big.NewRat(2, 1), 4: big.NewRat(2, 1)}, []uint32{4, 1})
 		// Existing self-reference remains a live scalar, not a copied map value.
 		h.must(term.AddCoefficient(1, term.Coefficients().Get(1)))
 		lpSparseRationalCheck(t, h, term.Coefficients().Get(1), big.NewRat(4, 1))

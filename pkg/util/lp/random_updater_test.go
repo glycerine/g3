@@ -242,7 +242,7 @@ func TestLARRandomUpdaterTermExpansion(t *testing.T) {
 	s := lpNewRemovalModel(t, h, "2", "3", false)
 	columns := []uint32{99}
 	h.must(s.FillVarSetForRandomUpdate([]uint32{1, LARTermStartIndex, 0, LARTermStartIndex}, &columns))
-	if !reflect.DeepEqual(columns, []uint32{99, 1, 0, 1, 0, 0, 1}) {
+	if !reflect.DeepEqual(columns, []uint32{99, 1, 1, 0, 0, 1, 0}) {
 		t.Fatal(columns)
 	}
 	h.must(s.Close())

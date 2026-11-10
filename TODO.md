@@ -926,7 +926,7 @@ Found while matching `-st` output against `build/z3` on
    - AddCover's "sliced predicate columns" refusal is g3's own (z3 checks
      only xform.slice).
 
-25. **ROOT CAUSE FOUND, NEEDS A DECISION: LRA model values
+25. **DONE (2026-11-10): LRA model values
     (lra_backend_models_scopes x=3,y=2 vs z3's x=4,y=1;
     lra_propagation_mode_updates).** z3 uses theory_lra (setup_r_arith),
     and so does g3. Both register y as lar column 0 and make the same two
@@ -946,6 +946,25 @@ Found while matching `-st` output against `build/z3` on
     DECISION NEEDED from the user: approve a libstdc++-order emulation for
     lar_term (and any other unordered_map/unordered_set the lp code
     iterates), or accept this as a recorded deviation.
+    APPROVED and DONE: pkg/util/lp/std_unordered_map.go ports GCC 13
+    libstdc++ std::unordered_map<unsigned, V> (identity hash, mod bucket,
+    _Prime_rehash_policy, insert at bucket head, rehash, erase, clear) as
+    StdUnorderedRationalMap, and LARTerm uses it. Positive control:
+    src/test/stl_unordered_map_order_control.cpp, whose output is
+    pkg/util/lp/test_vectors/libstdcxx_unordered_map_order.txt (prime table,
+    3000 random toggles, 5000 sparse keys); TestStdUnorderedMapMatchesLibstdcxx
+    replays it line for line. lra_backend_models_scopes is now identical.
+    The port exposed a separate gap: mk_clause sorted only CLS_AUX literals,
+    while simplify_aux_lemma_literals also sorts CLS_AUX_LEMMA (and treats a
+    literal true at base level as making the lemma true); now ported.
+    Full logs 498 -> 504 identical; lra_scoped_rational_witness_b 249 -> 1075,
+    lra_propagation_mode_updates 80 -> 100.
+    NOTED (source behaviour, reproduced): after a pop, lar_solver restores
+    m_status to the outer OPTIMAL but keeps the inner scope's column values,
+    so final_check_eh skips make_feasible. With (set-logic QF_LRA), z3 4.7
+    reports x=2, y=3 for x>=0, x<=4, y<=2, x+y>=5 after push/(x<=2)/pop,
+    which violates y<=2; g3 now gives the same model
+    (TestSMTLRAFinalCheckKernelModelConflictAndRecovery pins it).
 
 22. **OPEN: opt::context::optimize flow (item 12 cluster).**
    PROGRESS (2026-11-09, cfd7faeae..3228858d1): update_solver installs
@@ -1029,6 +1048,13 @@ Found while matching `-st` output against `build/z3` on
    out on a 2-variable x+y=1 frontier; see the pareto cmd_context tests).
    Pareto therefore keeps the unnormalized path, and its traces stay
    divergent by design.
+   bit_vector_optimization line 1182 (2026-11-10, delcmp): the free-list
+   order of #8 = (or #41 #60 #49) and #26 = (not #8) is swapped. In the
+   release run just before the divergence, z3 frees #26 with #108 =
+   (or #37 #26) and #8 later, while g3 frees #8 early and #26 later, so
+   some holder keeps #8 in z3 but (not #8) in g3 (likely bit_blaster
+   m_values). NEXT: Z3_TRACE_DEL=1 Z3_DEL_BT=8 on the z3del build, 21st
+   free of #8, to name the holder.
    Lead at box line 80: z3's pb_rewriter keeps m_args (an expr_ref_vector
    member reset at the next non-constant rewrite), and that inc/dec frees a
    raw (not y!2), which g3 keeps. TRIED porting m_args: stdout went

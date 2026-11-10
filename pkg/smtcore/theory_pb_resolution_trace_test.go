@@ -51,7 +51,8 @@ func TestSMTPBResolutionTraceNativeCutPreservesSourceOrder(t *testing.T) {
 	if !ok || clause == nil {
 		t.Fatal("cut did not produce a clause")
 	}
-	expectSMTRawCore(t, clause.literals, []SMTLiteral{b.Negated(), a.Negated()})
+	// mk_clause sorts CLS_AUX_LEMMA literals (simplify_aux_lemma_literals).
+	expectSMTRawCore(t, clause.literals, []SMTLiteral{a.Negated(), b.Negated()})
 	if tags.ShouldTrace("pb") {
 		last := -1
 		for _, site := range []string{
