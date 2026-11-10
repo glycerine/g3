@@ -312,3 +312,21 @@ func (t *SMTCongruenceTable) Close() error {
 	t.closed = true
 	return nil
 }
+
+// FindApp is context::get_enode_eq_to(f, num_args, args): the table entry
+// congruent to f(args), through a temporary enode as m_tmp_enode does.
+func (t *SMTCongruenceTable) FindApp(decl ast.ASTHandle, args []*SMTEnode, commutative bool) (*SMTEnode, error) {
+	if err := t.open(); err != nil {
+		return nil, err
+	}
+	if len(args) == 0 {
+		return nil, nil
+	}
+	bucket := t.tables[decl]
+	if bucket == nil {
+		return nil, nil
+	}
+	tmp := &SMTEnode{manager: t.manager, declaration: decl, arguments: args, commutative: commutative && len(args) == 2}
+	found, _, err := bucket.find(tmp)
+	return found, err
+}
