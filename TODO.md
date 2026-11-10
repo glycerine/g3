@@ -329,6 +329,17 @@ Found while matching `-st` output against `build/z3` on
     masked); they are TestTraceGolden's default vectors
     (cmd/g3/test_vectors/golden_trace_vectors.txt). Fixes found by the
     failing vectors so far (423 -> 482 matching):
+    - 2026-11-10 seq lifetime batch (full logs 513 -> 517 of 659; stdout
+      649/662): simplify's th_solver comes from the strategic factory;
+      seq_rewriter keeps m_es/m_lhs/m_rhs and reduce_eq edits ref-holding
+      vectors; mk_eq_core uses the faithful reduce_eq (reimplementation
+      deleted); fixed_length/propagate_length_coherence reassign expr_refs;
+      bv bit owners drop before the context unwinds; seq_factory owns
+      m_trail and dies with m_proto_model (released after flush);
+      sym_expr::accept returns an owned ref; cg_conflict_eh is called from
+      add_eq. sequence_helper_inventory first diff 50 -> 21236,
+      sequence_word_equations_relations 112 -> 105702. Next lead there:
+      g3 creates x!N skolems in a loop after (= (str.len x) ...) at 21237.
     - 2026-11-09 lifetime batch (full logs 489 -> 496 of 661; stdout 648,
       all-stats 624): qsat operator()'s defs live until the tactic call
       returns; tactic2solver m_assertions shrink front to back. OPEN leads:
