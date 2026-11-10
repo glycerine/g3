@@ -111,6 +111,9 @@ type Context struct {
 	optimizationTerms []ast.ASTRef
 	// optimizationOptsmt is optsmt::m_objs, reset by import_scoped_state.
 	optimizationOptsmt []ast.ASTRef
+	// optimizationPurifier holds from_fmls's purify definitions (fresh
+	// constants in the objectives, (= q t) in m_hard_constraints).
+	optimizationPurifier *opt.ObjectivePurifier
 	// optimizationSAT is opt::context::m_sat_solver; update_solver replaces
 	// it, so it survives until the next SAT-eligible optimize.
 	optimizationSAT *satsolver.Solver
@@ -1645,5 +1648,9 @@ func (c *Context) releaseOptimizationTerms() (result error) {
 		result = errors.Join(result, c.manager.DelRef(&c.optimizationTerms[i]))
 	}
 	c.optimizationTerms = nil
+	if c.optimizationPurifier != nil {
+		result = errors.Join(result, c.optimizationPurifier.Close())
+		c.optimizationPurifier = nil
+	}
 	return result
 }

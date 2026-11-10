@@ -15,6 +15,9 @@ type ObjectivePurifier struct {
 	refs    []ast.ASTRef
 	stats   ObjectivePurificationStats
 	closed  bool
+	// detached: the filter (fm) was handed to m_model_converter, whose
+	// reference releases it.
+	detached bool
 }
 
 func NewObjectivePurifier(manager *ast.ASTManager) (*ObjectivePurifier, error) {
@@ -68,7 +71,9 @@ func (p *ObjectivePurifier) Close() (result error) {
 	if p.closed {
 		return nil
 	}
-	if p.filter != nil {
+	if p.filter != nil && p.detached {
+		p.filter = nil
+	} else if p.filter != nil {
 		result = p.filter.Close()
 		if result == nil {
 			p.filter = nil
@@ -89,4 +94,21 @@ func (p *ObjectivePurifier) Close() (result error) {
 		p.closed = true
 	}
 	return result
+}
+
+// DetachFilter hands one reference to the filter model converter (fm) to
+// the caller: purify's `m_model_converter = concat(m_model_converter, fm)`.
+// It returns nil when purification introduced no fresh declaration.
+func (p *ObjectivePurifier) DetachFilter() (tactic.ModelConverter, error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	if p.stats.FreshDeclarations == 0 {
+		return nil, nil
+	}
+	if err := p.filter.IncRef(); err != nil {
+		return nil, err
+	}
+	p.detached = true
+	return p.filter, nil
 }

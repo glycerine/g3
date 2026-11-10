@@ -4,6 +4,7 @@ package cmd_context
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/tactic"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -133,6 +134,15 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	if err != nil {
 		return nil, err
 	}
+	// from_fmls: mk_atomic purifies non-propositional soft terms and
+	// purify(tr) the arithmetic objectives, pushing (= q t) onto
+	// m_hard_constraints; fm joins m_model_converter.
+	var purified *opt.PurifiedObjectiveSet
+	if simplified != nil {
+		if purified, err = c.purifyNormalizedObjectives(source.Hard, decomposed); err != nil {
+			return nil, err
+		}
+	}
 	// End of normalize(): its fmls vector, the objective-function
 	// applications included, is released once from_fmls is done.
 	if simplified != nil {
@@ -163,21 +173,40 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 				normalized[i].maximize = objective.Kind == opt.FormulaMaximize
 			}
 		}
-		if original[i].soft || !d.Converted {
+		if !original[i].soft && d.Converted {
+			normalized[i].soft, normalized[i].bitVector = true, false
+			normalized[i].softTerms = make([]optimizationSoftTerm, len(d.SoftTerms))
+			for j, term := range d.SoftTerms {
+				normalized[i].softTerms[j].expression = term
+				normalized[i].softTerms[j].weight.Set(&d.Weights[j])
+			}
+		}
+		if purified == nil || i >= len(purified.Objectives) {
 			continue
 		}
-		normalized[i].soft, normalized[i].bitVector = true, false
-		normalized[i].softTerms = make([]optimizationSoftTerm, len(d.SoftTerms))
-		for j, term := range d.SoftTerms {
-			normalized[i].softTerms[j].expression = term
-			normalized[i].softTerms[j].weight.Set(&d.Weights[j])
+		p := purified.Objectives[i]
+		if normalized[i].soft {
+			if len(p.SoftTerms) != len(normalized[i].softTerms) {
+				return nil, ast.ErrASTDomain
+			}
+			for j := range p.SoftTerms {
+				normalized[i].softTerms[j].expression = p.SoftTerms[j]
+			}
+		} else if !p.Term.IsNull() {
+			normalized[i].expression = p.Term
 		}
 	}
 	c.objectives = normalized
 	if simplified != nil {
 		c.optimizationHardOverride = source.Hard
+		if purified != nil {
+			c.optimizationHardOverride = purified.Hard
+		}
 		c.optimizationHardOverrideActive = true
 		c.optimizationPreprocessor = simplified.model
+		if c.optimizationModelConverter != nil && c.optimizationModelConverter != simplified.model {
+			c.optimizationPreprocessor = c.optimizationModelConverter
+		}
 	}
 	if paretoContinuation {
 		optimized, err = c.checkOptimizePareto(assumptions, true)
@@ -273,4 +302,35 @@ func originalDecodedObjective(objective *optimizationObjective) opt.DecodedFormu
 		}
 	}
 	return result
+}
+
+// purifyNormalizedObjectives is from_fmls's mk_atomic/purify. When it adds
+// fresh constants, m_model_converter becomes concat(m_model_converter, fm).
+func (c *Context) purifyNormalizedObjectives(hard []ast.ASTHandle, decomposed []opt.DecomposedObjective) (*opt.PurifiedObjectiveSet, error) {
+	purifier, err := opt.NewObjectivePurifier(c.manager)
+	if err != nil {
+		return nil, err
+	}
+	c.optimizationPurifier = purifier
+	set, err := purifier.Purify(hard, decomposed)
+	if err != nil {
+		return nil, err
+	}
+	fm, err := purifier.DetachFilter()
+	if err != nil || fm == nil {
+		return &set, err
+	}
+	combined, err := tactic.ConcatModels(c.manager.Budget(), c.optimizationModelConverter, fm)
+	if err == nil {
+		err = combined.IncRef()
+	}
+	err = errors.Join(err, fm.DecRef())
+	if err != nil {
+		return nil, err
+	}
+	if err = c.releaseOptimizationModelConverter(); err != nil {
+		return nil, errors.Join(err, combined.DecRef())
+	}
+	c.optimizationModelConverter = combined
+	return &set, nil
 }
