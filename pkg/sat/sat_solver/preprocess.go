@@ -141,6 +141,47 @@ func (r *IncrementalEncoder) Close() error {
 		}
 		r.blaster = nil
 	}
+	return r.closeAfterBlaster()
+}
+
+// closeBeforeModel is ~inc_sat_solver's members declared after m_model, in
+// reverse order (m_subgoals, m_preprocess, m_bb_rewriter); closeAfterBlaster
+// is the members declared before it (m_map, then the parameters).
+func (r *IncrementalEncoder) closeBeforeModel() error {
+	if r == nil || r.self != r {
+		return ast.ErrASTHandle
+	}
+	if r.closed {
+		return nil
+	}
+	if err := r.last.Close(); err != nil {
+		return err
+	}
+	if r.translation != nil {
+		if err := r.translation.Close(); err != nil {
+			return err
+		}
+		r.translation = nil
+	}
+	if err := r.drainRetired(); err != nil {
+		return err
+	}
+	if r.pipeline != nil {
+		if err := r.pipeline.close(); err != nil {
+			return err
+		}
+		r.pipeline = nil
+	}
+	if r.blaster != nil {
+		if err := r.blaster.Close(); err != nil {
+			return err
+		}
+		r.blaster = nil
+	}
+	return nil
+}
+
+func (r *IncrementalEncoder) closeAfterBlaster() error {
 	if r.atoms != nil {
 		if err := r.atoms.Close(); err != nil {
 			return err

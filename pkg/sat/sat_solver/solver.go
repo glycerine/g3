@@ -233,14 +233,22 @@ func (s *Solver) Close() error {
 	if err := s.drainModelWork(); err != nil {
 		return err
 	}
-	if err := s.model.Close(); err != nil {
-		return err
-	}
+	// ~inc_sat_solver: members in reverse declaration order: m_mc0 (and the
+	// other converters), m_subgoals, m_preprocess, m_bb_rewriter, then
+	// m_model, then m_map.
 	if s.mc0 != nil {
 		s.converters = append(s.converters, s.mc0)
 		s.mc0 = nil
 	}
 	if err := s.drainConverters(); err != nil {
+		return err
+	}
+	if s.encoder != nil {
+		if err := s.encoder.closeBeforeModel(); err != nil {
+			return err
+		}
+	}
+	if err := s.model.Close(); err != nil {
 		return err
 	}
 	if s.encoder != nil {

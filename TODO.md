@@ -1128,6 +1128,13 @@ Found while matching `-st` output against `build/z3` on
    #8 after the first rewriter's Close and z3 after the third. So a different
    rewriter's cache (or result stack) holds #8. Compare each rewriter's
    act_cache contents at destruction.
+   FOUND/FIXED: the caches were empty, so the holder was the SAT solver's
+   model. ~inc_sat_solver destroys members in reverse declaration order:
+   m_mc0, ..., m_subgoals, m_preprocess, m_bb_rewriter, then m_model, then
+   m_map. g3's Solver.Close released the model first. It now closes the
+   converters, then the encoder's preprocess/blaster part
+   (closeBeforeModel), then the model, then the atom map. bit_vector_optimization
+   is now identical; full logs 509 -> 510; make and make tags pass.
    Lead at box line 80: z3's pb_rewriter keeps m_args (an expr_ref_vector
    member reset at the next non-constant rewrite), and that inc/dec frees a
    raw (not y!2), which g3 keeps. TRIED porting m_args: stdout went
