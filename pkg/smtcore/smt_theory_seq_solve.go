@@ -41,8 +41,8 @@ func (t *SMTTheorySeq) checkExtensionality() bool {
 				change := false
 				ok, err := t.seqRewrite.ReduceEqExpr(e1, e2, &lhs, &rhs, &change)
 				t.chk(err)
-				t.chk(t.lhsV.append(lhs))
-				t.chk(t.rhsV.append(rhs))
+				t.takeVec(&t.lhsV, lhs)
+				t.takeVec(&t.rhsV, rhs)
 				if !ok {
 					t.chk(t.exclude.update(o1, o2))
 					continue
@@ -218,19 +218,19 @@ func (t *SMTTheorySeq) enforceLengthCoherence(n1, n2 *SMTEnode) {
 func (t *SMTTheorySeq) simplifyEq(ls, rs *seqExprVector, deps *seqDep) bool {
 	x := t.loc()
 	defer x.drop()
-	lsS := append([]ast.ASTHandle(nil), ls.handles()...)
-	rsS := append([]ast.ASTHandle(nil), rs.handles()...)
+	lsS := t.lendVec(ls)
+	rsS := t.lendVec(rs)
 	var lhs, rhs []ast.ASTHandle
 	changed := false
 	ok, err := t.seqRewrite.ReduceEqVec(&lsS, &rsS, &lhs, &rhs, &changed)
 	t.chk(err)
 	// ls and rs are edited in place by reduce_eq, possibly swapped.
-	t.resetExprVector(ls, lsS)
-	t.resetExprVector(rs, rsS)
+	t.takeVec(ls, lsS)
+	t.takeVec(rs, rsS)
 	lhsV, rhsV := newSeqExprVector(t.m), newSeqExprVector(t.m)
 	defer func() { t.chk(rhsV.reset()); t.chk(lhsV.reset()) }()
-	t.chk(lhsV.append(lhs))
-	t.chk(rhsV.append(rhs))
+	t.takeVec(&lhsV, lhs)
+	t.takeVec(&rhsV, rhs)
 	if !ok {
 		// equality is inconsistent.
 		t.setConflict(deps, nil)
@@ -239,10 +239,10 @@ func (t *SMTTheorySeq) simplifyEq(ls, rs *seqExprVector, deps *seqDep) bool {
 	if !changed {
 		return false
 	}
-	lhs, rhs = append([]ast.ASTHandle(nil), lhs...), append([]ast.ASTHandle(nil), rhs...)
+	lhs, rhs = t.lendVec(&lhsV), t.lendVec(&rhsV)
 	t.chk(t.seqRewrite.AddSeqs(ls.handles(), rs.handles(), &lhs, &rhs))
-	t.resetExprVector(&lhsV, lhs)
-	t.resetExprVector(&rhsV, rhs)
+	t.takeVec(&lhsV, lhs)
+	t.takeVec(&rhsV, rhs)
 	if lhsV.empty() {
 		return true
 	}
@@ -263,6 +263,23 @@ func (t *SMTTheorySeq) simplifyEq(ls, rs *seqExprVector, deps *seqDep) bool {
 
 // resetExprVector replaces the contents of v with hs, holding the new
 // elements before releasing the old ones, as element-wise assignment does.
+// lendVec hands v's elements, with their references, to a raw vector for
+// seq_rewriter::reduce_eq, which edits the caller's expr_ref_vector in place.
+func (t *SMTTheorySeq) lendVec(v *seqExprVector) []ast.ASTHandle {
+	hs := append([]ast.ASTHandle(nil), v.handles()...)
+	for _, h := range hs {
+		t.chk(t.m.IncRef(h))
+	}
+	t.chk(v.reset())
+	return hs
+}
+
+// takeVec makes v hold the raw vector hs and releases hs's references.
+func (t *SMTTheorySeq) takeVec(v *seqExprVector, hs []ast.ASTHandle) {
+	t.resetExprVector(v, hs)
+	t.chk(t.seqRewrite.ReleaseVec(&hs))
+}
+
 func (t *SMTTheorySeq) resetExprVector(v *seqExprVector, hs []ast.ASTHandle) {
 	nv := newSeqExprVector(t.m)
 	t.chk(nv.append(hs))

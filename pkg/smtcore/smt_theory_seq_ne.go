@@ -64,15 +64,15 @@ func (t *SMTTheorySeq) solveNe(idx int) bool {
 		change = t.canonizeVec(n.lhs[i].handles(), ls, &deps) || change
 		change = t.canonizeVec(n.rhs[i].handles(), rs, &deps) || change
 
-		lsS := append([]ast.ASTHandle(nil), ls.handles()...)
-		rsS := append([]ast.ASTHandle(nil), rs.handles()...)
+		lsS := t.lendVec(ls)
+		rsS := t.lendVec(rs)
 		var lhsS, rhsS []ast.ASTHandle
 		ok, err := t.seqRewrite.ReduceEqVec(&lsS, &rsS, &lhsS, &rhsS, &change)
 		t.chk(err)
-		t.resetExprVector(ls, lsS)
-		t.resetExprVector(rs, rsS)
-		t.resetExprVector(lhs, lhsS)
-		t.resetExprVector(rhs, rhsS)
+		t.takeVec(ls, lsS)
+		t.takeVec(rs, rsS)
+		t.takeVec(lhs, lhsS)
+		t.takeVec(rhs, rhsS)
 		if !ok {
 			return true
 		} else if !change {

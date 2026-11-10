@@ -59,24 +59,6 @@ func (v *seqMemberVector) pushBack(m *ast.ASTManager, h ast.ASTHandle) error {
 	return nil
 }
 
-// adopt makes v hold exactly items: the new contents are referenced before
-// the old ones are released.
-func (v *seqMemberVector) adopt(m *ast.ASTManager, items []ast.ASTHandle) error {
-	for _, h := range items {
-		if err := m.IncRef(h); err != nil {
-			return err
-		}
-	}
-	old := v.items
-	v.items = append([]ast.ASTHandle(nil), items...)
-	for _, h := range old {
-		if err := m.DecRef(h); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Close is ~seq_rewriter: m_rhs, m_lhs, then m_es.
 func (r *SequenceRewriter) Close() error {
 	if r == nil || r.manager == nil {

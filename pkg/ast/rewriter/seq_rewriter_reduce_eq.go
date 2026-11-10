@@ -10,7 +10,6 @@ package rewriter
 // as its expr_ref_vectors do.
 
 import (
-	"errors"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -49,6 +48,47 @@ func (r *SequenceRewriter) mkConcatN(es []ast.ASTHandle) (ast.ASTHandle, error) 
 	return acc, nil
 }
 
+// The vectors are expr_ref_vectors: each element of ls, rs, lhs and rhs holds
+// one reference, which pop, assignment and shrink release where the source
+// does, and push acquires.
+func (r *SequenceRewriter) vPush(v *[]ast.ASTHandle, h ast.ASTHandle) error {
+	if err := r.manager.IncRef(h); err != nil {
+		return err
+	}
+	*v = append(*v, h)
+	return nil
+}
+
+func (r *SequenceRewriter) vPop(v *[]ast.ASTHandle) error {
+	h := (*v)[len(*v)-1]
+	*v = (*v)[:len(*v)-1]
+	return r.manager.DecRef(h)
+}
+
+func (r *SequenceRewriter) vSet(v *[]ast.ASTHandle, i int, h ast.ASTHandle) error {
+	if err := r.manager.IncRef(h); err != nil {
+		return err
+	}
+	old := (*v)[i]
+	(*v)[i] = h
+	return r.manager.DecRef(old)
+}
+
+// vShrink releases the dropped suffix front to back.
+func (r *SequenceRewriter) vShrink(v *[]ast.ASTHandle, n int) error {
+	dropped := append([]ast.ASTHandle(nil), (*v)[n:]...)
+	*v = (*v)[:n]
+	for _, h := range dropped {
+		if err := r.manager.DecRef(h); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ReleaseVec releases a vector filled by ReduceEqVec or AddSeqs.
+func (r *SequenceRewriter) ReleaseVec(v *[]ast.ASTHandle) error { return r.vShrink(v, 0) }
+
 // ReduceEqVec is reduce_eq(ls, rs, lhs, rhs, change). It returns false when
 // the equation is inconsistent.
 func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change *bool) (bool, error) {
@@ -65,7 +105,9 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 			if !e {
 				break
 			}
-			*rs = (*rs)[:len(*rs)-1]
+			if err := r.vPop(rs); err != nil {
+				return false, err
+			}
 		}
 		for len(*ls) > 0 {
 			e, err := isEmpty((*ls)[len(*ls)-1])
@@ -75,7 +117,9 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 			if !e {
 				break
 			}
-			*ls = (*ls)[:len(*ls)-1]
+			if err := r.vPop(ls); err != nil {
+				return false, err
+			}
 		}
 		if len(*ls) == 0 || len(*rs) == 0 {
 			break
@@ -107,8 +151,12 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 			return false, err
 		}
 		if l == rr {
-			*ls = (*ls)[:len(*ls)-1]
-			*rs = (*rs)[:len(*rs)-1]
+			if err := r.vPop(ls); err != nil {
+				return false, err
+			}
+			if err := r.vPop(rs); err != nil {
+				return false, err
+			}
 		} else if lu && ru {
 			d, err := m.AreDistinct(a, b)
 			if err != nil {
@@ -117,26 +165,44 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 			if d {
 				return false, nil
 			}
-			*lhs = append(*lhs, a)
-			*rhs = append(*rhs, b)
-			*ls = (*ls)[:len(*ls)-1]
-			*rs = (*rs)[:len(*rs)-1]
+			if err := r.vPush(lhs, a); err != nil {
+				return false, err
+			}
+			if err := r.vPush(rhs, b); err != nil {
+				return false, err
+			}
+			if err := r.vPop(ls); err != nil {
+				return false, err
+			}
+			if err := r.vPop(rs); err != nil {
+				return false, err
+			}
 		} else if lu && rs1 {
 			ch, err := r.mkChar(s, len(s)-1)
 			if err != nil {
 				return false, err
 			}
-			*lhs = append(*lhs, ch)
-			*rhs = append(*rhs, a)
-			*ls = (*ls)[:len(*ls)-1]
+			if err := r.vPush(lhs, ch); err != nil {
+				return false, err
+			}
+			if err := r.vPush(rhs, a); err != nil {
+				return false, err
+			}
+			if err := r.vPop(ls); err != nil {
+				return false, err
+			}
 			if len(s) == 1 {
-				*rs = (*rs)[:len(*rs)-1]
+				if err := r.vPop(rs); err != nil {
+					return false, err
+				}
 			} else {
 				s2, err := m.MkString(s[:len(s)-1])
 				if err != nil {
 					return false, err
 				}
-				(*rs)[len(*rs)-1] = s2
+				if err := r.vSet(rs, len(*rs)-1, s2); err != nil {
+					return false, err
+				}
 			}
 		} else {
 			break
@@ -209,8 +275,12 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 			if d {
 				return false, nil
 			}
-			*lhs = append(*lhs, a)
-			*rhs = append(*rhs, b)
+			if err := r.vPush(lhs, a); err != nil {
+				return false, err
+			}
+			if err := r.vPush(rhs, b); err != nil {
+				return false, err
+			}
 			head1++
 			head2++
 		} else if lu && rs1 {
@@ -218,8 +288,12 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 			if err != nil {
 				return false, err
 			}
-			*lhs = append(*lhs, ch)
-			*rhs = append(*rhs, a)
+			if err := r.vPush(lhs, ch); err != nil {
+				return false, err
+			}
+			if err := r.vPush(rhs, a); err != nil {
+				return false, err
+			}
 			head1++
 			if len(s) == 1 {
 				head2++
@@ -228,7 +302,9 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 				if err != nil {
 					return false, err
 				}
-				(*rs)[head2] = s2
+				if err := r.vSet(rs, head2, s2); err != nil {
+					return false, err
+				}
 			}
 		} else {
 			break
@@ -260,13 +336,25 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 		}
 		if l == len(s1) {
 			head1++
-		} else if (*ls)[head1], err = m.MkString(s1[l:]); err != nil {
-			return false, err
+		} else {
+			h, err := m.MkString(s1[l:])
+			if err != nil {
+				return false, err
+			}
+			if err = r.vSet(ls, head1, h); err != nil {
+				return false, err
+			}
 		}
 		if l == len(s2) {
 			head2++
-		} else if (*rs)[head2], err = m.MkString(s2[l:]); err != nil {
-			return false, err
+		} else {
+			h, err := m.MkString(s2[l:])
+			if err != nil {
+				return false, err
+			}
+			if err = r.vSet(rs, head2, h); err != nil {
+				return false, err
+			}
 		}
 		*change = true
 		lchange = true
@@ -292,21 +380,29 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 				return false, nil
 			}
 		}
-		*ls = (*ls)[:len(*ls)-1]
-		*rs = (*rs)[:len(*rs)-1]
+		if err := r.vPop(ls); err != nil {
+			return false, err
+		}
+		if err := r.vPop(rs); err != nil {
+			return false, err
+		}
 		if l < len(s1) {
 			h, err := m.MkString(s1[:len(s1)-l])
 			if err != nil {
 				return false, err
 			}
-			*ls = append(*ls, h)
+			if err := r.vPush(ls, h); err != nil {
+				return false, err
+			}
 		}
 		if l < len(s2) {
 			h, err := m.MkString(s2[:len(s2)-l])
 			if err != nil {
 				return false, err
 			}
-			*rs = append(*rs, h)
+			if err := r.vPush(rs, h); err != nil {
+				return false, err
+			}
 		}
 		*change = true
 		lchange = true
@@ -319,19 +415,34 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 	if ok, err := r.solveItos(_ls, _rs, lhs, rhs, &isSat); err != nil {
 		return false, err
 	} else if ok {
-		*ls, *rs = (*ls)[:0], (*rs)[:0]
+		if err := r.vShrink(ls, 0); err != nil {
+			return false, err
+		}
+		if err := r.vShrink(rs, 0); err != nil {
+			return false, err
+		}
 		*change = true
 		return isSat, nil
 	}
 	if ok, err := r.lengthConstrained(_ls, _rs, lhs, rhs, &isSat); err != nil {
 		return false, err
 	} else if ok {
-		*ls, *rs = (*ls)[:0], (*rs)[:0]
+		if err := r.vShrink(ls, 0); err != nil {
+			return false, err
+		}
+		if err := r.vShrink(rs, 0); err != nil {
+			return false, err
+		}
 		*change = true
 		return isSat, nil
 	}
 	if szr == 0 && szl == 0 {
-		*ls, *rs = (*ls)[:0], (*rs)[:0]
+		if err := r.vShrink(ls, 0); err != nil {
+			return false, err
+		}
+		if err := r.vShrink(rs, 0); err != nil {
+			return false, err
+		}
 		return true, nil
 	}
 	if szr == 0 && szl > 0 {
@@ -349,28 +460,55 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 		lchange = lchange || szr > 1
 		*change = *change || szr > 1
 		if szr == 1 && !lchange {
-			*lhs, *rhs = (*lhs)[:0], (*rhs)[:0]
+			if err := r.vShrink(lhs, 0); err != nil {
+				return false, err
+			}
+			if err := r.vShrink(rhs, 0); err != nil {
+				return false, err
+			}
 		} else {
-			*ls, *rs = (*ls)[:0], (*rs)[:0]
+			if err := r.vShrink(ls, 0); err != nil {
+				return false, err
+			}
+			if err := r.vShrink(rs, 0); err != nil {
+				return false, err
+			}
 		}
 		return true, nil
 	}
 	if ok, err := r.isSubsequence(_ls, _rs, lhs, rhs, &isSat); err != nil {
 		return false, err
 	} else if ok {
-		*ls, *rs = (*ls)[:0], (*rs)[:0]
+		if err := r.vShrink(ls, 0); err != nil {
+			return false, err
+		}
+		if err := r.vShrink(rs, 0); err != nil {
+			return false, err
+		}
 		*change = true
 		return isSat, nil
 	}
 	if lchange {
 		if head1 > 0 {
-			copy(*ls, (*ls)[head1:head1+szl])
+			for i := 0; i < szl; i++ {
+				if err := r.vSet(ls, i, (*ls)[i+head1]); err != nil {
+					return false, err
+				}
+			}
 		}
-		*ls = (*ls)[:szl]
+		if err := r.vShrink(ls, szl); err != nil {
+			return false, err
+		}
 		if head2 > 0 {
-			copy(*rs, (*rs)[head2:head2+szr])
+			for i := 0; i < szr; i++ {
+				if err := r.vSet(rs, i, (*rs)[i+head2]); err != nil {
+					return false, err
+				}
+			}
 		}
-		*rs = (*rs)[:szr]
+		if err := r.vShrink(rs, szr); err != nil {
+			return false, err
+		}
 	}
 	*change = *change || lchange
 	return true, nil
@@ -385,7 +523,9 @@ func (r *SequenceRewriter) AddSeqs(ls, rs []ast.ASTHandle, lhs, rhs *[]ast.ASTHa
 		if err != nil {
 			return err
 		}
-		*rhs = append(*rhs, c)
+		if err := r.vPush(rhs, c); err != nil {
+			return err
+		}
 		s, err := m.GetSort(c)
 		if err != nil {
 			return err
@@ -394,13 +534,17 @@ func (r *SequenceRewriter) AddSeqs(ls, rs []ast.ASTHandle, lhs, rhs *[]ast.ASTHa
 		if err != nil {
 			return err
 		}
-		*lhs = append(*lhs, e)
+		if err := r.vPush(lhs, e); err != nil {
+			return err
+		}
 	case len(rs) == 0 && len(ls) != 0:
 		c, err := r.mkConcatN(ls)
 		if err != nil {
 			return err
 		}
-		*lhs = append(*lhs, c)
+		if err := r.vPush(lhs, c); err != nil {
+			return err
+		}
 		s, err := m.GetSort(c)
 		if err != nil {
 			return err
@@ -409,17 +553,23 @@ func (r *SequenceRewriter) AddSeqs(ls, rs []ast.ASTHandle, lhs, rhs *[]ast.ASTHa
 		if err != nil {
 			return err
 		}
-		*rhs = append(*rhs, e)
+		if err := r.vPush(rhs, e); err != nil {
+			return err
+		}
 	case len(rs) != 0 && len(ls) != 0:
 		c, err := r.mkConcatN(ls)
 		if err != nil {
 			return err
 		}
-		*lhs = append(*lhs, c)
+		if err := r.vPush(lhs, c); err != nil {
+			return err
+		}
 		if c, err = r.mkConcatN(rs); err != nil {
 			return err
 		}
-		*rhs = append(*rhs, c)
+		if err := r.vPush(rhs, c); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -453,24 +603,19 @@ func (r *SequenceRewriter) ReduceEqExpr(l, rr ast.ASTHandle, lhs, rhs *[]ast.AST
 			return false, err
 		}
 	}
-	ls = append([]ast.ASTHandle(nil), r.lhsMember.items...)
-	rs = append([]ast.ASTHandle(nil), r.rhsMember.items...)
 	change := false
-	ok, err := r.ReduceEqVec(&ls, &rs, lhs, rhs, &change)
-	// reduce_eq edited m_lhs and m_rhs in place.
-	if e := r.lhsMember.adopt(m, ls); e != nil {
-		return false, errors.Join(err, e)
-	}
-	if e := r.rhsMember.adopt(m, rs); e != nil {
-		return false, errors.Join(err, e)
-	}
+	ok, err := r.ReduceEqVec(&r.lhsMember.items, &r.rhsMember.items, lhs, rhs, &change)
 	if err != nil || !ok {
 		return false, err
 	}
 	if !change {
-		*lhs = append(*lhs, l)
-		*rhs = append(*rhs, rr)
-	} else if err = r.AddSeqs(ls, rs, lhs, rhs); err != nil {
+		if err = r.vPush(lhs, l); err != nil {
+			return false, err
+		}
+		if err = r.vPush(rhs, rr); err != nil {
+			return false, err
+		}
+	} else if err = r.AddSeqs(r.lhsMember.items, r.rhsMember.items, lhs, rhs); err != nil {
 		return false, err
 	}
 	*changed = *changed || change
@@ -542,8 +687,12 @@ func (r *SequenceRewriter) setEmpty(es []ast.ASTHandle, all bool, lhs, rhs *[]as
 				return false, err
 			}
 		}
-		*lhs = append(*lhs, emp)
-		*rhs = append(*rhs, e)
+		if err := r.vPush(lhs, emp); err != nil {
+			return false, err
+		}
+		if err := r.vPush(rhs, e); err != nil {
+			return false, err
+		}
 	}
 	return true, nil
 }
@@ -619,8 +768,12 @@ func (r *SequenceRewriter) solveItos(ls, rs []ast.ASTHandle, lhs, rhs *[]ast.AST
 					return false, err
 				}
 				if ok2 {
-					*lhs = append(*lhs, l)
-					*rhs = append(*rhs, rr)
+					if err := r.vPush(lhs, l); err != nil {
+						return false, err
+					}
+					if err := r.vPush(rhs, rr); err != nil {
+						return false, err
+					}
 					return true, nil
 				}
 			}
@@ -634,8 +787,12 @@ func (r *SequenceRewriter) solveItos(ls, rs []ast.ASTHandle, lhs, rhs *[]ast.AST
 					if err != nil {
 						return false, err
 					}
-					*lhs = append(*lhs, l)
-					*rhs = append(*rhs, n)
+					if err := r.vPush(lhs, l); err != nil {
+						return false, err
+					}
+					if err := r.vPush(rhs, n); err != nil {
+						return false, err
+					}
 					return true, nil
 				}
 			}
@@ -693,12 +850,16 @@ func (r *SequenceRewriter) lengthConstrained(l, rr []ast.ASTHandle, lhs, rhs *[]
 		if err != nil {
 			return false, err
 		}
-		*lhs = append(*lhs, a)
+		if err := r.vPush(lhs, a); err != nil {
+			return false, err
+		}
 		b, err := r.concatNonEmptyN(rr)
 		if err != nil {
 			return false, err
 		}
-		*rhs = append(*rhs, b)
+		if err := r.vPush(rhs, b); err != nil {
+			return false, err
+		}
 	}
 	return true, nil
 }
@@ -765,12 +926,16 @@ func (r *SequenceRewriter) isSubsequence(l, rr []ast.ASTHandle, lhs, rhs *[]ast.
 		if err != nil {
 			return false, err
 		}
-		*lhs = append(*lhs, a)
+		if err := r.vPush(lhs, a); err != nil {
+			return false, err
+		}
 		b, err := r.mkConcatN(rs)
 		if err != nil {
 			return false, err
 		}
-		*rhs = append(*rhs, b)
+		if err := r.vPush(rhs, b); err != nil {
+			return false, err
+		}
 	}
 	return true, nil
 }

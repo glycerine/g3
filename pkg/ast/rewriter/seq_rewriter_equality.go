@@ -22,13 +22,8 @@ func (r *SequenceRewriter) RewriteEquality(left, right ast.ASTHandle, out ast.AS
 	var lhs, rhs []ast.ASTHandle
 	changed := false
 	ok, err := r.ReduceEqExpr(left, right, &lhs, &rhs, &changed)
-	// The appended terms belong to the caller's vectors.
-	if e := lhsV.adopt(m, lhs); e != nil {
-		return RewriteFailed, errors.Join(err, e)
-	}
-	if e := rhsV.adopt(m, rhs); e != nil {
-		return RewriteFailed, errors.Join(err, e)
-	}
+	// lhs and rhs hold their references; the local vectors own them.
+	lhsV.items, rhsV.items = lhs, rhs
 	if err != nil {
 		return RewriteFailed, err
 	}
