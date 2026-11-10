@@ -197,6 +197,12 @@ func (t *SMTStringTheory) propagateStringLengthWithinClass(variable ast.ASTHandl
 
 func (t *SMTStringTheory) propagateStringLengths() (added bool, result error) {
 	m := t.state.manager
+	// propagate_length: expr_ref_vector assignments; ctx.get_assignments.
+	_, release, err := t.state.getAssignments()
+	if err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, release()) }()
 	variables, concats := make(map[ast.ASTHandle]int), make(map[ast.ASTHandle]int)
 	for _, literal := range t.state.assignedLiterals {
 		if literal.Sign() {

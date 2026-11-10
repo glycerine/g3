@@ -129,7 +129,13 @@ func (t *SMTStringTheory) classifyStringExpression(expression ast.ASTHandle, kin
 	return nil
 }
 
-func (t *SMTStringTheory) classifyPositiveStringEqualities(kinds smtStringExpressionKinds) error {
+func (t *SMTStringTheory) classifyPositiveStringEqualities(kinds smtStringExpressionKinds) (result error) {
+	// classify_ast_by_type_in_positive_context: ctx.get_assignments.
+	_, release, err := t.state.getAssignments()
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, release()) }()
 	for _, literal := range t.state.assignedLiterals {
 		if literal.Sign() {
 			continue // Native assignments contain NOT(eq) for a false equality.
@@ -176,6 +182,12 @@ func (t *SMTStringTheory) analyzeStringDependencies() (analysis *smtStringDepend
 	if _, err := t.State(); err != nil {
 		return nil, err
 	}
+	// ctx_dep_analysis: expr_ref_vector assignments; ctx.get_assignments.
+	_, release, err := t.state.getAssignments()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { result = errors.Join(result, release()) }()
 	kinds := newStringExpressionKinds()
 	for variable := range t.variableSet {
 		if _, internal := t.internalVariables[variable]; !internal {
