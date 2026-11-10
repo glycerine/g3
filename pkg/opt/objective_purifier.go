@@ -14,6 +14,7 @@ type ObjectivePurifier struct {
 	filter  *tactic.FilterModelConverter
 	refs    []ast.ASTRef
 	stats   ObjectivePurificationStats
+	set     PurifiedObjectiveSet
 	closed  bool
 	// detached: the filter (fm) was handed to m_model_converter, whose
 	// reference releases it.

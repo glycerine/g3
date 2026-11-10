@@ -13,6 +13,7 @@ type ObjectiveDecomposer struct {
 	zeroOne   map[ast.ASTHandle]struct{}
 	derived   []ast.ASTRef
 	generated int
+	each      func(int, DecomposedObjective) error
 	closed    bool
 }
 

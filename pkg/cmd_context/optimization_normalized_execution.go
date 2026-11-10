@@ -137,16 +137,26 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			optimized = nil
 		}
 	}()
+	// from_fmls handles each objective formula in turn: is_maxsat, then
+	// mk_atomic on its soft terms or purify(tr) on its arithmetic term,
+	// pushing (= q t) onto m_hard_constraints; fm joins m_model_converter.
+	var purifier *opt.ObjectivePurifier
+	if simplified != nil {
+		if purifier, err = c.beginNormalizedPurification(source.Hard); err != nil {
+			return nil, err
+		}
+		decomposer.SetEach(func(_ int, objective opt.DecomposedObjective) error {
+			_, e := purifier.PurifyObjective(objective)
+			return e
+		})
+	}
 	decomposed, _, err := decomposer.Decompose(source)
 	if err != nil {
 		return nil, err
 	}
-	// from_fmls: mk_atomic purifies non-propositional soft terms and
-	// purify(tr) the arithmetic objectives, pushing (= q t) onto
-	// m_hard_constraints; fm joins m_model_converter.
 	var purified *opt.PurifiedObjectiveSet
 	if simplified != nil {
-		if purified, err = c.purifyNormalizedObjectives(source.Hard, decomposed); err != nil {
+		if purified, err = c.finishNormalizedPurification(purifier); err != nil {
 			return nil, err
 		}
 		// The purifier now owns m_hard_constraints and the objectives'
@@ -324,18 +334,21 @@ func originalDecodedObjective(objective *optimizationObjective) opt.DecodedFormu
 	return result
 }
 
-// purifyNormalizedObjectives is from_fmls's mk_atomic/purify. When it adds
-// fresh constants, m_model_converter becomes concat(m_model_converter, fm).
-func (c *Context) purifyNormalizedObjectives(hard []ast.ASTHandle, decomposed []opt.DecomposedObjective) (*opt.PurifiedObjectiveSet, error) {
+// beginNormalizedPurification starts from_fmls's purification with the
+// hard formulas.
+func (c *Context) beginNormalizedPurification(hard []ast.ASTHandle) (*opt.ObjectivePurifier, error) {
 	purifier, err := opt.NewObjectivePurifier(c.manager)
 	if err != nil {
 		return nil, err
 	}
 	c.optimizationPurifier = purifier
-	set, err := purifier.Purify(hard, decomposed)
-	if err != nil {
-		return nil, err
-	}
+	return purifier, purifier.Begin(hard)
+}
+
+// finishNormalizedPurification: when purify added fresh constants,
+// m_model_converter becomes concat(m_model_converter, fm).
+func (c *Context) finishNormalizedPurification(purifier *opt.ObjectivePurifier) (*opt.PurifiedObjectiveSet, error) {
+	set := purifier.Result()
 	fm, err := purifier.DetachFilter()
 	if err != nil || fm == nil {
 		return &set, err
