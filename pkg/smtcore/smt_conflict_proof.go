@@ -160,6 +160,58 @@ func (b *smtConflictProofBuilder) equalityBranchProofs(node, ancestor *SMTEnode)
 	return proofs, nil
 }
 
+// prefetchEquality is visit_eq_justications(lhs, rhs) and the todo loop: the
+// steps of the lhs branch, then of the rhs branch, push their antecedents in
+// order, and the LIFO loop builds the last one first.
+func (b *smtConflictProofBuilder) prefetchEquality(first, second, common *SMTEnode) error {
+	var steps []func() error
+	visit := func(node, ancestor *SMTEnode) {
+		for node != nil && node != ancestor {
+			next := node.trans.Target
+			j := node.trans.Justification
+			n1, n2 := node, next
+			switch j.Kind() {
+			case SMTEqualityJustificationEquation:
+				if literal, ok := j.Literal(); ok {
+					steps = append(steps, func() error { _, err := b.literalProof(literal); return err })
+				}
+			case SMTEqualityJustificationObject:
+				if object, ok := j.Justification(); ok && object != nil {
+					steps = append(steps, func() error { _, err := b.objectProof(object); return err })
+				}
+			case SMTEqualityJustificationCongruence:
+				commuted, _ := j.UsedCommutativity()
+				if n2 == nil || len(n1.arguments) != len(n2.arguments) {
+					break
+				}
+				var pairs [][2]*SMTEnode
+				if commuted && len(n1.arguments) == 2 {
+					pairs = [][2]*SMTEnode{{n1.arguments[0], n2.arguments[1]}, {n1.arguments[1], n2.arguments[0]}}
+				} else {
+					for i := range n1.arguments {
+						pairs = append(pairs, [2]*SMTEnode{n1.arguments[i], n2.arguments[i]})
+					}
+				}
+				for _, p := range pairs {
+					if p[0] != p[1] {
+						p := p
+						steps = append(steps, func() error { _, err := b.equalityProof(p[0], p[1]); return err })
+					}
+				}
+			}
+			node = next
+		}
+	}
+	visit(first, common)
+	visit(second, common)
+	for i := len(steps) - 1; i >= 0; i-- {
+		if err := steps[i](); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (b *smtConflictProofBuilder) equalityProof(first, second *SMTEnode) (ast.ASTHandle, error) {
 	if first == nil || second == nil || first == second || first.root == nil || first.root != second.root {
 		return ast.ASTHandle{}, ast.ErrASTDomain
@@ -170,6 +222,9 @@ func (b *smtConflictProofBuilder) equalityProof(first, second *SMTEnode) (ast.AS
 	}
 	common, err := smtCommonTransAncestor(first, second)
 	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if err = b.prefetchEquality(first, second, common); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	proofs, err := b.equalityBranchProofs(first, common)
@@ -411,6 +466,14 @@ func (b *smtConflictProofBuilder) prefetchObject(object SMTJustification) error 
 	case *SMTExtTheoryEqualityPropagationJustification:
 		literals(v.Literals)
 		equalities(v.Equalities)
+	case *SMTModusPonensIffJustification:
+		// mp_iff_justification::mk_proof: get_proof(n1, n2), then get_proof(l).
+		if v.First != nil && v.Second != nil && v.First != v.Second {
+			equalities([]SMTEnodePair{{v.First, v.Second}})
+			if variable, found := b.state.BoolVar(v.First.owner); found && variable >= SMTFirstBoolVar && int(NewSMTLiteral(variable, false).Index()) < len(b.state.assignment) {
+				literals([]SMTLiteral{NewSMTLiteral(variable, b.state.assignment[NewSMTLiteral(variable, false).Index()] == lbool.False)})
+			}
+		}
 	}
 	for i := len(steps) - 1; i >= 0; i-- {
 		if err := steps[i](); err != nil {
