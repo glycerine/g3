@@ -195,11 +195,10 @@ func (t *Elim01Tactic) SetLogic(usymbol.Symbol) error            { return t.open
 func (t *Elim01Tactic) SetProgressCallback(func(uint32)) error   { return t.open() }
 
 type elim01Conversion struct {
-	sub       *rewriter.ExprSafeReplace
-	extension *tactic.ExtensionModelConverter
-	filter    *tactic.FilterModelConverter
-	axioms    []ast.ASTRef
-	changed   bool
+	sub     *rewriter.ExprSafeReplace
+	b2i     *tactic.Bool2IntModelConverter
+	axioms  []ast.ASTRef
+	changed bool
 }
 
 func (t *Elim01Tactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (err error) {
@@ -233,33 +232,25 @@ func (t *Elim01Tactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 		return err
 	}
 	defer func() { err = errors.Join(err, conversion.sub.Close()) }()
-	models, err := goal.ModelsEnabled()
+	// bool2int_model_converter* b2i = alloc(...); mc = b2i; (always set,
+	// also when the goal is returned unchanged).
+	conversion.b2i, err = tactic.NewBool2IntModelConverter(t.manager)
 	if err != nil {
 		return err
 	}
-	if models {
-		conversion.extension, err = tactic.NewExtensionModel(t.manager, t.services)
-		if err == nil {
-			conversion.filter, err = tactic.NewFilterModel(t.manager)
-		}
-		if err != nil {
-			return err
-		}
-		if err = conversion.extension.IncRef(); err != nil {
-			return err
-		}
-		defer func() { err = errors.Join(err, conversion.extension.DecRef()) }()
-		if err = conversion.filter.IncRef(); err != nil {
-			return err
-		}
-		defer func() { err = errors.Join(err, conversion.filter.DecRef()) }()
+	if err = conversion.b2i.IncRef(); err != nil {
+		return errors.Join(err, conversion.b2i.Close())
+	}
+	defer func() { err = errors.Join(err, conversion.b2i.DecRef()) }()
+	if err = result.SetModelConverter(conversion.b2i); err != nil {
+		return err
 	}
 	variables, err := t.bounds.Variables()
 	if err != nil {
 		return err
 	}
 	for _, variable := range variables {
-		if err = t.addVariable(variable, models, &conversion); err != nil {
+		if err = t.addVariable(variable, &conversion); err != nil {
 			return err
 		}
 	}
@@ -270,15 +261,6 @@ func (t *Elim01Tactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	}()
 	if !conversion.changed {
 		return result.AddGoal(goal)
-	}
-	if models {
-		converter, e := tactic.ConcatModels(t.manager.Budget(), conversion.filter, conversion.extension)
-		if e != nil {
-			return e
-		}
-		if err = result.SetModelConverter(converter); err != nil {
-			return errors.Join(err, converter.Close())
-		}
 	}
 	if err = t.rewriteGoal(goal, conversion.sub); err != nil {
 		return err
@@ -298,7 +280,7 @@ func (t *Elim01Tactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	return result.AddGoal(goal)
 }
 
-func (t *Elim01Tactic) addVariable(variable ast.ASTHandle, models bool, conversion *elim01Conversion) error {
+func (t *Elim01Tactic) addVariable(variable ast.ASTHandle, conversion *elim01Conversion) error {
 	m := t.manager
 	sort, err := m.GetSort(variable)
 	if err != nil {
@@ -347,6 +329,7 @@ func (t *Elim01Tactic) addVariable(variable ast.ASTHandle, models bool, conversi
 		return err
 	}
 	terms := make([]ast.ASTHandle, 0, 4)
+	bits := make([]ast.ASTHandle, 0, 4)
 	for shift := uint32(0); maxValue >= uint64(1)<<shift; shift++ {
 		fresh, e := m.MkFreshConst(name, boolSort)
 		if e != nil {
@@ -361,15 +344,11 @@ func (t *Elim01Tactic) addVariable(variable ast.ASTHandle, models bool, conversi
 			return e
 		}
 		terms = append(terms, term)
-		if models {
-			freshDecl, e := m.GetDecl(fresh)
-			if e != nil {
-				return e
-			}
-			if e = conversion.filter.Insert(freshDecl); e != nil {
-				return e
-			}
+		freshDecl, e := m.GetDecl(fresh)
+		if e != nil {
+			return e
 		}
+		bits = append(bits, freshDecl)
 	}
 	definition := zero
 	if len(terms) == 1 {
@@ -383,10 +362,8 @@ func (t *Elim01Tactic) addVariable(variable ast.ASTHandle, models bool, conversi
 	if err = conversion.sub.Insert(variable, definition); err != nil {
 		return err
 	}
-	if models {
-		if err = conversion.extension.Insert(decl, definition); err != nil {
-			return err
-		}
+	if err = conversion.b2i.Insert(decl, bits); err != nil {
+		return err
 	}
 	appendAxiom := func(op int32, value uint64) error {
 		number, e := m.ArithmeticIntegerNumeralText(new(big.Int).SetUint64(value).String())

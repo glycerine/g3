@@ -112,6 +112,8 @@ type ArithmeticSolver struct {
 	preprocessorCleanup bool
 	satCoreEnabled      bool
 	prepared            bool
+	// verifications are m_objectives[i].m_term/m_adjust_value (verify_model).
+	verifications []*objectiveVerification
 }
 
 type arithmeticObjective struct {
@@ -1170,10 +1172,11 @@ func (s *ArithmeticSolver) Close() error {
 		}
 		s.objectives = s.objectives[:last]
 	}
-	var err error
+	err := s.closeVerifications()
 	if s.filter != nil {
-		err = s.filter.Close()
-		if err == nil {
+		closeErr := s.filter.Close()
+		err = errors.Join(err, closeErr)
+		if closeErr == nil {
 			s.filter = nil
 		}
 	}

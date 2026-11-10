@@ -1088,6 +1088,18 @@ Found while matching `-st` output against `build/z3` on
    application in inc_sat_solver::get_model / opt's model updates), or frees
    them on another path. Find which z3 models these are (Z3_DEL_BT on a value
    id, or a ~model_core stack) and port their creation and lifetime.
+   FOUND/PORTED: they come from opt::context::verify_model (called from
+   maxres::update_assignment), which g3 lacked, and from elim01's
+   bool2int_model_converter (z3 4.7), which g3 had replaced with a
+   filter+extension pair. opt/verify_model.go ports verify_model (md->copy,
+   fix_model, eval of m_term, compare with m_adjust_value(upper)), skipped for
+   maxsmt_solver_base::init's initial model. cmd_context registers m_term and
+   m_adjust_value for converted objectives (SetObjectiveVerification).
+   tactic/bool2int_model_converter.go ports the converter, and elim01 now
+   installs it unconditionally, as z3 does. The model-count mismatch is gone.
+   The next difference is the entry order inside a 7-entry model
+   (obj_map layout), and line 1183 is unchanged. Corpus metrics unchanged
+   (stdout 649, full logs 507); make passes.
    Lead at box line 80: z3's pb_rewriter keeps m_args (an expr_ref_vector
    member reset at the next non-constant rewrite), and that inc/dec frees a
    raw (not y!2), which g3 keeps. TRIED porting m_args: stdout went

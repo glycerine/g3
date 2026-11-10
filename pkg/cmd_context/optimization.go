@@ -412,7 +412,13 @@ func (c *Context) addOptimizerObjective(optimizer *opt.ArithmeticSolver, index i
 			terms[i] = objective.softTerms[i].expression
 			weights[i] = &objective.softTerms[i].weight
 		}
-		return optimizer.AddSoftObjectiveWithOffset(terms, weights, &objective.softOffset)
+		if err := optimizer.AddSoftObjectiveWithOffset(terms, weights, &objective.softOffset); err != nil {
+			return err
+		}
+		if objective.verifyConverted && !objective.expression.IsNull() {
+			return optimizer.SetObjectiveVerification(index, objective.expression, &objective.verifyOffset, objective.verifyNegate)
+		}
+		return nil
 	}
 	if objective.bitVector {
 		return c.addBitVectorObjective(optimizer, objective)

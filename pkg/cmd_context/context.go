@@ -61,6 +61,11 @@ type optimizationObjective struct {
 	openBounds  bool
 	valueReady  bool
 	boundsReady bool
+	// verify* are a converted objective's m_adjust_value (from_fmls), used
+	// with expression (m_term) by verify_model.
+	verifyConverted bool
+	verifyNegate    bool
+	verifyOffset    big.Rat
 }
 type optimizationSoftTerm struct {
 	expression ast.ASTHandle

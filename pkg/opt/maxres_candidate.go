@@ -78,6 +78,15 @@ func (e *maxResEngine) updateCandidateModel(result *ArithmeticResult, md *model.
 	if e.bestSet && cost.Cmp(&e.upper) > 0 {
 		return md.DecRef()
 	}
+	// update_assignment: if (!m_c.verify_model(m_index, mdl, upper)) return;
+	// The initial candidate is maxsmt_solver_base::init's model, which does
+	// not go through update_assignment.
+	if !e.initialCandidate {
+		verified, err := e.solver.verifyModel(e.index, md, &cost)
+		if err != nil || !verified {
+			return errors.Join(err, md.DecRef())
+		}
+	}
 	if result.Model != nil {
 		if err = result.Model.DecRef(); err != nil {
 			return errors.Join(err, md.DecRef())

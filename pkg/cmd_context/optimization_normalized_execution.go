@@ -210,6 +210,8 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			}
 		}
 		if !original[i].soft && d.Converted {
+			normalized[i].verifyConverted, normalized[i].verifyNegate = true, d.Negate
+			normalized[i].verifyOffset.Set(&d.Offset)
 			normalized[i].soft, normalized[i].bitVector = true, false
 			normalized[i].softTerms = make([]optimizationSoftTerm, len(d.SoftTerms))
 			for j, term := range d.SoftTerms {
