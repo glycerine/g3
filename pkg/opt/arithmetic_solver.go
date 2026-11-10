@@ -766,9 +766,6 @@ type softEngineEntry struct {
 
 func (s *ArithmeticSolver) commitSoftObjective(index int, value ObjectiveValue) error {
 	objective := &s.objectives[index]
-	if err := s.validateSoftCommit(index, value); err != nil {
-		return err
-	}
 	// maxsmt::commit_assignment dispatches to m_msolver; maxres overrides
 	// maxsmt_solver_base's pb.mk_ge bound.
 	for i := len(s.softEngines) - 1; i >= 0; i-- {
@@ -783,7 +780,13 @@ func (s *ArithmeticSolver) commitSoftObjective(index int, value ObjectiveValue) 
 	if len(objective.softTerms) == 0 {
 		return nil
 	}
-	bound, err := s.softBound(objective, &value.SoftSatisfied, false)
+	// maxsmt_solver_base::commit_assignment: k sums the weights whose
+	// get_assignment(i) holds.
+	k, err := softAssignmentWeight(objective, value.SoftAssignment)
+	if err != nil {
+		return err
+	}
+	bound, err := s.softBound(objective, k, false)
 	if err != nil {
 		return err
 	}
@@ -910,7 +913,9 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 				return result, nil
 			}
 		}
-		if i+1 < len(s.objectives) {
+		// optimize() runs a single objective as execute(obj, true, false);
+		// execute_lex commits every objective but the last.
+		if i+1 < len(s.objectives) || len(s.objectives) == 1 {
 			if err = s.commitObjective(i, result.Values[i]); err != nil {
 				return nil, err
 			}
