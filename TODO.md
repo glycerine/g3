@@ -637,6 +637,15 @@ Found while matching `-st` output against `build/z3` on
     final_check models; add a g3 print in searchExprQEScalarTree) and find
     where the kernels' re-check behaviour splits: restart/phase state,
     theory_lra's bv2int variables, or the asserted assumption literal.
+    DUMPED (g3 print in searchExprQEScalarTree): the first inner model is
+    the same in both (z!2 = #b11, z = -4, y = -2). z3's re-check without new
+    assertions (final_check's m_solver.check() after CHOOSE_VAR) returns
+    the #b10 model (z = -12, y = -8). g3's re-check returns #b11 three more
+    times, then #b00, then #b10. A top-level double check-sat of the same
+    formula agrees between the two, so the split is in how a re-check
+    restarts search when the kernel holds the qe assignment/assumption state
+    (decision phase and literal ordering after pop_to_base_lvl). NEXT:
+    trace the second check's decisions with z3 -tr:decide on the qe run.
 
 19. **DONE (2026-11-09, 46531ec4a): MAM ported; old matcher deleted.**
    smtcore/smt_mam_{code,compiler,interpreter,impl}.go port mam.cpp's
