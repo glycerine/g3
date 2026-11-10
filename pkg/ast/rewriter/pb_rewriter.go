@@ -32,6 +32,8 @@ type PseudoBooleanRewriter struct {
 	manager *ast.ASTManager
 	family  ast.FamilyID
 	closed  bool
+	// negations is mk_app_core's local pb_ast_rewriter_util::m_refs.
+	negations []ast.ASTRef
 }
 
 func (r *PseudoBooleanRewriter) traceTags() *diagnostic.TraceTags {
@@ -115,7 +117,27 @@ func (r *PseudoBooleanRewriter) negate(h ast.ASTHandle) (ast.ASTHandle, error) {
 	if arg, yes, err := r.negated(h); err != nil || yes {
 		return arg, err
 	}
-	return r.manager.MkNot(h)
+	// m_refs.push_back(m.mk_not(e)); return m_refs.back();
+	not, err := r.manager.MkNot(h)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	ref, err := r.manager.NewRef(not)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	r.negations = append(r.negations, ref)
+	return not, nil
+}
+
+// releaseNegations is ~pb_ast_rewriter_util: m_refs released front to back.
+func (r *PseudoBooleanRewriter) releaseNegations() error {
+	var err error
+	for i := range r.negations {
+		err = errors.Join(err, r.manager.DelRef(&r.negations[i]))
+	}
+	r.negations = r.negations[:0]
+	return err
 }
 
 func (r *PseudoBooleanRewriter) unique(args []pbTerm, k *big.Rat) ([]pbTerm, error) {
@@ -387,6 +409,16 @@ func (r *PseudoBooleanRewriter) build(args []pbTerm, k *big.Rat, equality bool) 
 }
 
 func (r *PseudoBooleanRewriter) RewriteApp(decl ast.ASTHandle, arguments ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
+	status, err := r.rewriteApp(decl, arguments, out)
+	// mk_app_core's pbu (and its m_refs) is destroyed on return, after the
+	// result is held by the caller's expr_ref.
+	if e := r.releaseNegations(); e != nil {
+		return RewriteFailed, errors.Join(err, e)
+	}
+	return status, err
+}
+
+func (r *PseudoBooleanRewriter) rewriteApp(decl ast.ASTHandle, arguments ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
 	if err := r.open(); err != nil {
 		return RewriteFailed, err
 	}

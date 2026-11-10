@@ -1124,6 +1124,13 @@ Found while matching `-st` output against `build/z3` on
    fell 148 -> 40, so it was reverted. Some g3 caller or rewriter
    lifetime differs; z3 frees card2bv's (not p) during the apply. Find
    that holder before re-landing m_args.
+   CORRECTION/DONE (2026-11-10): in this tree pb_rewriter::m_args is a
+   ptr_vector (no references). The holder is mk_app_core's local
+   pb_ast_rewriter_util, whose m_refs keeps each negate() result
+   (m.mk_not) until mk_app_core returns. g3's negate made raw nots that were
+   never released; now ported (PseudoBooleanRewriter.negations). Full logs
+   507 -> 508 (bounded_integer_optimization), box 79 -> 95,
+   lexicographic_integer 70 -> 78, no regressions.
    Next lead: at line 1182, in the old inc_sat_solver's bit_blaster
    m_values teardown, z3 frees (iff ..) #37/#26 before (or ..) #8. g3's
    delete worklist matches z3's, so a refcount (an extra or missing holder
