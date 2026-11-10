@@ -1055,6 +1055,17 @@ Found while matching `-st` output against `build/z3` on
    some holder keeps #8 in z3 but (not #8) in g3 (likely bit_blaster
    m_values). NEXT: Z3_TRACE_DEL=1 Z3_DEL_BT=8 on the z3del build, 21st
    free of #8, to name the holder.
+   NARROWED (2026-11-10): the holder is the simplify tactic's th_rewriter
+   act_cache, released in simplify_tactic::cleanup (cleaner_tactical, in
+   inc_sat_solver::internalize_goal); g3's SimplifyTactic.Cleanup is the
+   same path. With [actdec] logging of act_cache::dec_refs and del_unused in
+   both (z3del src/ast/act_cache.cpp, temporary), the first difference is
+   much earlier: g3's cleanup releases entries #58 -> #58 and #63 -> #63
+   (#58 = (and #39 #47), #63 = (or #47 #39), under #57 = (=> a!11 #63)) that
+   z3's cache never held. rewriter_core::must_cache needs ref_count > 1, so
+   g3 holds an extra reference on those subterms while simplify runs (an
+   item 3 lifetime gap upstream of the tactic). NEXT: log act_cache inserts
+   with the key's ref count in both and find the extra holder.
    Lead at box line 80: z3's pb_rewriter keeps m_args (an expr_ref_vector
    member reset at the next non-constant rewrite), and that inc/dec frees a
    raw (not y!2), which g3 keeps. TRIED porting m_args: stdout went
