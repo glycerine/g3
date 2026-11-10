@@ -139,6 +139,7 @@ type SMTInternalizerState struct {
 	theoryProgress        uint64
 	manager               *ast.ASTManager
 	theoryRewriter        *rewriter.TheoryRewriter // borrowed from the kernel
+	flushQuantifiersInPop bool                     // Close: popTo runs flushQuantifiers after the trail
 	// enodeTrail holds context value trails on enodes (set_lbl_hash).
 	enodeTrail SMTEnodeTrail
 	// assertedPopFlush is asserted_formulas::pop_scope's flush_cache, which
@@ -971,6 +972,22 @@ func (s *SMTInternalizerState) finishUnregisterEnode() error {
 	return nil
 }
 
+// flushQuantifiers is context::flush's m_qmanager = nullptr.
+func (s *SMTInternalizerState) flushQuantifiers() error {
+	if s.quantifierManager != nil {
+		if err := s.quantifierManager.flush(); err != nil {
+			return err
+		}
+	}
+	if s.quantifiers != nil {
+		if err := s.quantifiers.schedule.releaseInstancesForFlush(); err != nil {
+			return err
+		}
+	}
+	s.flushQuantifiersInPop = false
+	return nil
+}
+
 func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 	// context::pop_scope's undo_trail_stack for enode value trails.
 	if err := s.enodeTrail.Undo(scope.enodeTrailMark); err != nil {
@@ -1244,6 +1261,11 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 		s.booleanSeq = s.booleanSeq[:len(s.booleanSeq)-1]
 		s.statistics.NumDelBoolVar++
 	}
+	if s.flushQuantifiersInPop {
+		if err := s.flushQuantifiers(); err != nil {
+			return err
+		}
+	}
 	if scope.pendingLimit < 0 || scope.pendingLimit > len(s.pending) {
 		return ast.ErrASTDomain
 	}
@@ -1441,19 +1463,10 @@ func (s *SMTInternalizerState) Close() error {
 		}
 		s.pendingPop = nil
 	}
-	// context::flush resets m_qmanager (plugin, then the qi_queue instances
-	// and substitution cache) before the enodes, which go with the
-	// context's members.
-	if s.quantifierManager != nil {
-		if err := s.quantifierManager.flush(); err != nil {
-			return err
-		}
-	}
-	if s.quantifiers != nil {
-		if err := s.quantifiers.schedule.releaseInstancesForFlush(); err != nil {
-			return err
-		}
-	}
+	// context::flush: undo_trail_stack(0) releases the enodes and Boolean
+	// variables, then m_qmanager = nullptr (plugin, the qi_queue instances
+	// and substitution cache); popTo runs flushQuantifiers between them.
+	s.flushQuantifiersInPop = true
 	if err := s.popTo(smtInternalizerScope{}); err != nil {
 		return fmt.Errorf("close SMT root scope: %w", err)
 	}
