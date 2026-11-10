@@ -30,9 +30,9 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	// optimize() always runs normalize() unless it resumes Pareto or box
 	// execution.
 	_ = settings
-	useSimplifier := !paretoContinuation && !boxContinuation && priority != "pareto" && priority != "box"
+	useSimplifier := !paretoContinuation && !boxContinuation && priority != "pareto"
 	// optimize(): init_solver precedes normalize() on the lex path.
-	if !paretoContinuation && !boxContinuation && priority != "pareto" && priority != "box" {
+	if !paretoContinuation && !boxContinuation && priority != "pareto" {
 		if c.preparedOptimizer, err = c.createOptimizer(); err != nil {
 			return nil, err
 		}
@@ -281,6 +281,11 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 				ArithmeticModel:      smtcore.SMTArithmeticObjectiveValue{Finite: finite.Clone()},
 				ArithmeticModelValid: true,
 			}
+		}
+		// execute_box's later calls report the values the first call
+		// computed, in source terms.
+		if priority == "box" && !boxContinuation && c.optimizationBoxModels != nil {
+			c.optimizationBoxValues = cloneOptimizationBoxValues(optimized.Values)
 		}
 	}
 	return optimized, nil
