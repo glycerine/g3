@@ -236,7 +236,11 @@ func (c *Context) availableCheckModel() (*model.ModelCore, error) {
 	if !state.Model || !c.checked || c.status != lbool.True && c.status != lbool.Undef {
 		return nil, nil
 	}
-	return c.checkSatResult().AcquireModel()
+	md, err := c.checkSatResult().AcquireModel()
+	if err != nil || md == nil {
+		return md, err
+	}
+	return c.fixRetrievedModel(md)
 }
 
 func (c *Context) hasUnderSpecifiedModelOps(root ast.ASTHandle) (bool, error) {

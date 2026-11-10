@@ -27,7 +27,7 @@ func (c *Context) OptimizationModel() (*model.ModelCore, error) {
 			return nil, acquireErr
 		}
 		if value != nil {
-			return value, nil
+			return c.fixRetrievedModel(value)
 		}
 	}
 	empty, err := model.NewModel(manager)

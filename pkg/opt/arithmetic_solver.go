@@ -118,6 +118,16 @@ type ArithmeticSolver struct {
 	prepared            bool
 	// verifications are m_objectives[i].m_term/m_adjust_value (verify_model).
 	verifications []*objectiveVerification
+	// rawModels keeps m_model/m_box_models unfixed: the caller applies
+	// FixModel (fix_model) when a model is requested, as get_model does.
+	rawModels bool
+}
+
+// SetRawModels makes results keep raw models (see FixModel).
+func (s *ArithmeticSolver) SetRawModels(raw bool) {
+	if s != nil {
+		s.rawModels = raw
+	}
 }
 
 type arithmeticObjective struct {
@@ -935,7 +945,7 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 				result.ReasonUnknown, resultErr = s.backend.ReasonUnknown()
 			}
 		}
-		if resultErr == nil && result != nil && result.Model != nil {
+		if resultErr == nil && result != nil && result.Model != nil && !s.rawModels {
 			resultErr = s.filterResultModel(result)
 		}
 		if resultErr != nil {

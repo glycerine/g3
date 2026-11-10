@@ -161,6 +161,9 @@ func (c *Context) EvaluateWithOptions(expression ast.ASTHandle, options Evaluati
 		if err = md.IncRef(); err != nil {
 			return result, err
 		}
+		if md, err = c.fixRetrievedModel(md); err != nil {
+			return result, err
+		}
 	}
 	defer func() { resultErr = errors.Join(resultErr, md.DecRef()) }()
 	params, err := c.config.Params.NewValue()

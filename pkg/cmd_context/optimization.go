@@ -437,6 +437,9 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 	if err != nil {
 		return nil, err
 	}
+	// opt::context keeps m_model raw; get_model applies fix_model.
+	optimizer.SetRawModels(true)
+	c.optimizationModelsRaw = true
 	defer func() {
 		c.optimizationOptsmt = append(c.optimizationOptsmt, optimizer.DetachObjectiveTerms()...)
 		if optimizer.HasSAT() {
@@ -605,6 +608,10 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 			return lbool.Undef, err
 		}
 	}
+	// A box continuation returns a stored m_box_models entry, still raw.
+	if !boxContinuation {
+		c.optimizationModelsRaw = false
+	}
 	optimized, err = c.runNormalizedOptimization(assumptions, continuation, priority, paretoContinuation, boxContinuation)
 	if err != nil {
 		return c.handleOptimizationFailure(err)
@@ -630,6 +637,11 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 	result, err := solver.NewSimpleCheckSatResult(c.manager)
 	if err != nil {
 		return lbool.Undef, err
+	}
+	if c.optimizationModelsRaw {
+		c.optimizationRawResult = result
+	} else {
+		c.optimizationRawResult = nil
 	}
 	published := false
 	defer func() {

@@ -124,6 +124,12 @@ type Context struct {
 	optimizationSAT *satsolver.Solver
 	// retainedOptimizer is the last lex optimize()'s m_opt_solver.
 	retainedOptimizer *opt.ArithmeticSolver
+	// optimizationModelsRaw is set when runOptimize kept m_model and
+	// m_box_models unfixed; optimizationRawResult is the check-sat result
+	// published from them. Retrieval applies fix_model (get_model,
+	// get_box_model) while that result is current.
+	optimizationModelsRaw bool
+	optimizationRawResult solver.CheckSatResult
 	// optimizationSimplify and optimizationModelConverter are
 	// opt::context::m_simplify and m_model_converter: simplify_fmls
 	// replaces them on the next normalize.
@@ -1379,7 +1385,23 @@ func (c *Context) Model() (*model.ModelCore, error) {
 	if value == nil {
 		return nil, fmt.Errorf("model is not available")
 	}
-	return value, nil
+	return c.fixRetrievedModel(value)
+}
+
+// fixRetrievedModel is opt::context::get_model/get_box_model: mdl = the
+// stored model; fix_model(mdl). It consumes md's reference.
+func (c *Context) fixRetrievedModel(md *model.ModelCore) (*model.ModelCore, error) {
+	if md == nil || c.optimizationRawResult == nil || c.retainedOptimizer == nil || c.checkSatResult() != c.optimizationRawResult {
+		return md, nil
+	}
+	fixed, err := c.retainedOptimizer.FixModel(md)
+	if err != nil {
+		return nil, errors.Join(err, md.DecRef())
+	}
+	if err = md.DecRef(); err != nil {
+		return nil, errors.Join(err, fixed.DecRef())
+	}
+	return fixed, nil
 }
 
 func (c *Context) WriteModel(out io.Writer) (result error) {
@@ -1426,7 +1448,7 @@ func (c *Context) modelAtIndex(modelIndex uint32, fallbackWithoutOptimizer bool)
 	if err = selected.IncRef(); err != nil {
 		return nil, err
 	}
-	return selected, nil
+	return c.fixRetrievedModel(selected)
 }
 
 // ResetAssertions follows cmd_context::reset_assertions. With global

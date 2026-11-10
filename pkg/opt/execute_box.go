@@ -86,8 +86,10 @@ func (s *ArithmeticSolver) ExecuteBox() (result *ArithmeticResult, resultErr err
 			if err = result.Model.IncRef(); err != nil {
 				return nil, err
 			}
-			if err = s.filterResultModel(snapshot); err != nil {
-				return nil, errors.Join(err, snapshot.Close())
+			if !s.rawModels {
+				if err = s.filterResultModel(snapshot); err != nil {
+					return nil, errors.Join(err, snapshot.Close())
+				}
 			}
 			result.ObjectiveModels[i] = snapshot.Model
 		}
@@ -103,7 +105,7 @@ func (s *ArithmeticSolver) ExecuteBox() (result *ArithmeticResult, resultErr err
 			}
 		}
 		result.Model = first
-		result.ModelFiltered = true
+		result.ModelFiltered = !s.rawModels
 	}
 	return result, nil
 }

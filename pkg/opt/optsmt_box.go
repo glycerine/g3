@@ -39,7 +39,7 @@ func (s *ArithmeticSolver) CheckBox() (result *ArithmeticResult, resultErr error
 				result.ReasonUnknown, resultErr = s.backend.ReasonUnknown()
 			}
 		}
-		if resultErr == nil && result != nil {
+		if resultErr == nil && result != nil && !s.rawModels {
 			resultErr = s.filterResultModel(result)
 			for i, snapshot := range result.ObjectiveModels {
 				if resultErr != nil || snapshot == nil {

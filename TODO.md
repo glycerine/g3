@@ -1143,6 +1143,13 @@ Found while matching `-st` output against `build/z3` on
    model retrieval in cmd_context. This needs m_model_converter and m_fm
    to live with the opt::context (they do for the converter; s.filter is
    closed with the ArithmeticSolver).
+   DONE (2026-11-10): runOptimize's optimizer keeps raw models
+   (SetRawModels), and ArithmeticSolver.FixModel is fix_model. cmd_context
+   applies it on every model retrieval (Model, modelAtIndex/get_box_model,
+   results, model completion, OptimizationModel) while the published
+   check-sat result is the raw one; the retained optimizer keeps the
+   converter and m_fm alive. box_optimization's full log is now identical
+   (508 -> 509); make and make tags pass.
    Next lead: at line 1182, in the old inc_sat_solver's bit_blaster
    m_values teardown, z3 frees (iff ..) #37/#26 before (or ..) #8. g3's
    delete worklist matches z3's, so a refcount (an extra or missing holder

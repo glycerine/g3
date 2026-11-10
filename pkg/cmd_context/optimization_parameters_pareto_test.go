@@ -132,7 +132,9 @@ func TestActiveBoxEnumerationSurvivesPriorityUpdate(t *testing.T) {
 	if mode != "2" {
 		t.Fatal("box continuation reconfigured arithmetic solver", mode, "want 2")
 	}
-	secondModel, err := c.OptimizationModel()
+	// The published m_model is the saved m_box_models entry; get_model
+	// returns its fix_model result, so check the raw published model.
+	secondModel, err := c.checkSatResult().AcquireModel()
 	contextMust(t, err)
 	if secondModel != c.optimizationBoxModels[1] {
 		_ = secondModel.DecRef()
