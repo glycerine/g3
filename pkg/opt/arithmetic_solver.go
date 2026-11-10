@@ -96,7 +96,9 @@ type ArithmeticSolver struct {
 	// commit_assignment until Close.
 	softEngines []softEngineEntry
 	// initial is optimize()'s m_model/m_labels after the initial check.
-	initial             *ArithmeticResult
+	initial *ArithmeticResult
+	// lowerFmls is optsmt::m_lower_fmls.
+	lowerFmls           []ast.ASTRef
 	internalized        []internalizedObjective
 	manager             *ast.ASTManager
 	config              smtcore.SMTSolverConfig
@@ -982,7 +984,86 @@ func (s *ArithmeticSolver) DetachObjectiveTerms() []ast.ASTRef {
 			s.objectives[i].rewritten = ast.ASTRef{}
 		}
 	}
+	// optsmt::reset clears m_objs, then m_lower_fmls.
+	for i := range s.lowerFmls {
+		if s.lowerFmls[i] != (ast.ASTRef{}) {
+			out = append(out, s.lowerFmls[i])
+		}
+	}
+	s.lowerFmls = nil
 	return out
+}
+
+// UpdateLower is optimize()'s update_lower() -> update_bound(true): each
+// arithmetic objective evaluated in m_model (no completion) becomes
+// optsmt::update_lower's m_lower_fmls[idx] = mk_ge(idx, v).
+func (s *ArithmeticSolver) UpdateLower() (resultErr error) {
+	if s == nil || s.backend == nil {
+		return ast.ErrASTHandle
+	}
+	if s.initial == nil || s.initial.Model == nil {
+		return nil
+	}
+	evaluator, err := model.NewModelEvaluator(s.initial.Model, s.config.ModelEvaluator)
+	if err != nil {
+		if evaluator != nil {
+			err = errors.Join(err, evaluator.Close())
+		}
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
+	for i := range s.objectives {
+		objective := &s.objectives[i]
+		if objective.soft || objective.term == (ast.ASTRef{}) {
+			continue
+		}
+		term, err := s.manager.RefGet(objective.term)
+		if err != nil {
+			return err
+		}
+		ref, err := evaluator.EvaluateValue(term)
+		if err != nil {
+			return err
+		}
+		h, err := s.manager.RefGet(ref)
+		var text string
+		var matched bool
+		if err == nil {
+			text, _, matched, err = s.manager.ArithmeticNumeralText(h)
+		}
+		err = errors.Join(err, s.manager.DelRef(&ref))
+		if err != nil {
+			return err
+		}
+		if !matched {
+			continue
+		}
+		value, ok := new(big.Rat).SetString(text)
+		if !ok {
+			return ast.ErrASTDomain
+		}
+		if !objective.maximize {
+			value.Neg(value)
+		}
+		bound, err := s.backend.MakeObjectiveLowerBound(objective.backendIndex, s.filter, simplex.RationalInfinitesimal(value))
+		if err != nil {
+			return err
+		}
+		held, err := s.manager.NewRef(bound)
+		if err != nil {
+			return err
+		}
+		for len(s.lowerFmls) <= i {
+			s.lowerFmls = append(s.lowerFmls, ast.ASTRef{})
+		}
+		if s.lowerFmls[i] != (ast.ASTRef{}) {
+			if err = s.manager.DelRef(&s.lowerFmls[i]); err != nil {
+				return errors.Join(err, s.manager.DelRef(&held))
+			}
+		}
+		s.lowerFmls[i] = held
+	}
+	return nil
 }
 
 func (s *ArithmeticSolver) Close() error {
@@ -995,6 +1076,14 @@ func (s *ArithmeticSolver) Close() error {
 		}
 		s.initial = nil
 	}
+	for i := range s.lowerFmls {
+		if s.lowerFmls[i] != (ast.ASTRef{}) {
+			if err := s.manager.DelRef(&s.lowerFmls[i]); err != nil {
+				return err
+			}
+		}
+	}
+	s.lowerFmls = nil
 	for len(s.softEngines) != 0 {
 		entry := s.softEngines[0]
 		s.softEngines = s.softEngines[1:]

@@ -217,11 +217,13 @@ func (t *SMTLRATheory) MakeObjectiveLowerBound(filter *tactic.FilterModelConvert
 	}
 	c := &smtLRAAxiomCall{owner: t}
 	defer func() { resultErr = errors.Join(resultErr, c.close()) }()
-	object, err := t.objectiveExpression(c, v)
+	// a.mk_ge(mk_obj(v), a.mk_numeral(r, is_int)): GCC evaluates the
+	// numeral argument first.
+	bound, err := c.hold(t.state.manager.ArithmeticNumeralRat(&value.Main, kind == 1))
 	if err != nil {
 		return result, err
 	}
-	bound, err := c.hold(t.state.manager.ArithmeticNumeralRat(&value.Main, kind == 1))
+	object, err := t.objectiveExpression(c, v)
 	if err != nil {
 		return result, err
 	}

@@ -478,6 +478,10 @@ func (c *Context) checkOptimizeLex(assumptions []ast.ASTHandle) (optimized *opt.
 			return nil, err
 		}
 	}
+	// optimize(): update_lower() after m_optsmt.setup.
+	if err = optimizer.UpdateLower(); err != nil {
+		return nil, err
+	}
 	return optimizer.Check()
 }
 
