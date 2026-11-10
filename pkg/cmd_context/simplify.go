@@ -25,7 +25,7 @@ type SimplifyDetails struct {
 }
 
 type simplifyExpressionSolver struct {
-	context *Context
+	context   *Context
 	params    uparams.ParamsRef // m_params: empty
 	hasParams bool
 	backend   solver.Solver
