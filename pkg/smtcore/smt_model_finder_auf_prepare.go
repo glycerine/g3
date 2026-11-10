@@ -156,11 +156,19 @@ func (g *smtModelFinderAUFGraph) addMonotoneExceptions() error {
 		if err != nil {
 			return err
 		}
-		for _, exception := range node.exceptions {
-			if err := g.insertShifted(node, exception, one, 0, true); err != nil {
+		if !bv {
+			// arith_rw.mk_sub(e, one, e_minus_1); arith_rw.mk_add(e, one,
+			// e_plus_1); insert e_plus_1, then e_minus_1.
+			if err := g.addIntegerMonotoneExceptions(node, one); err != nil {
 				return err
 			}
-			if err := g.insertShifted(node, exception, one, 0, false); err != nil {
+			continue
+		}
+		for _, exception := range node.exceptions {
+			if err := g.insertShifted(nil, node, exception, one, 0, true); err != nil {
+				return err
+			}
+			if err := g.insertShifted(nil, node, exception, one, 0, false); err != nil {
 				return err
 			}
 		}
@@ -179,4 +187,49 @@ func (g *smtModelFinderAUFGraph) prepareInstantiationSets() error {
 		return err
 	}
 	return g.addMonotoneExceptions()
+}
+
+func (g *smtModelFinderAUFGraph) addIntegerMonotoneExceptions(node *smtModelFinderAUFNode, one ast.ASTHandle) (result error) {
+	m := g.finder.manager
+	arith, err := g.localArithRewriter()
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, arith.Close()) }()
+	// expr_ref e_minus_1, e_plus_1 live across iterations.
+	var minus, plus ast.ASTRef
+	release := func(r *ast.ASTRef) error {
+		if *r == (ast.ASTRef{}) {
+			return nil
+		}
+		return m.DelRef(r)
+	}
+	defer func() { result = errors.Join(result, release(&plus), release(&minus)) }()
+	for _, e := range node.exceptions {
+		next, err := arith.MkSub2(e, one)
+		if err != nil {
+			return err
+		}
+		if err = release(&minus); err != nil {
+			return errors.Join(err, m.DelRef(&next))
+		}
+		minus = next
+		if next, err = arith.MkAdd2(e, one); err != nil {
+			return err
+		}
+		if err = release(&plus); err != nil {
+			return errors.Join(err, m.DelRef(&next))
+		}
+		plus = next
+		for _, ref := range []ast.ASTRef{plus, minus} {
+			h, err := m.RefGet(ref)
+			if err != nil {
+				return err
+			}
+			if _, err = node.insert(h, 0); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

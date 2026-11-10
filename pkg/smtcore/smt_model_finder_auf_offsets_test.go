@@ -54,14 +54,16 @@ func TestSMTModelFinderAUFOffsetPopulationAndSameClassCutoff(t *testing.T) {
 			if (variable == argument) != sameClass {
 				t.Fatal("offset graph incorrectly merged classes")
 			}
-			if generation, found := variable.set.testElements()[eight]; !found || generation != 6 {
+			if generation, found := aufValueSet(t, manager, variable.set.testElements())[eight]; !found || generation != 6 {
 				t.Fatal("offset did not recover 10-2 with its generation", variable.set.testElements())
 			}
 			wantSize := 1
 			if sameClass {
 				wantSize = 2
 			}
-			if len(variable.set.testElements()) != wantSize || len(argument.set.testElements()) != wantSize || argument.set.testElements()[ten] != 6 {
+			variableValues := aufValueSet(t, manager, variable.set.testElements())
+			argumentValues := aufValueSet(t, manager, argument.set.testElements())
+			if len(variableValues) != wantSize || len(argumentValues) != wantSize || argumentValues[ten] != 6 {
 				t.Fatal("offset two-pass population or same-class cutoff", variable.set.testElements(), argument.set.testElements())
 			}
 		})
@@ -154,7 +156,7 @@ func TestSMTModelFinderAUFOffsetPassesFollowQuantifierOrder(t *testing.T) {
 			graph := newSMTModelFinderAUFGraph(manager.modelFinder)
 			t.Cleanup(func() { astTestMust(t, graph.close()) })
 			astTestMust(t, graph.build(quantifiers))
-			offsetSet := graph.uvars[smtModelFinderAUFKey{offset, 0}].root().set.testElements()
+			offsetSet := aufValueSet(t, manager, graph.uvars[smtModelFinderAUFKey{offset, 0}].root().set.testElements())
 			producerSet := graph.uvars[smtModelFinderAUFKey{producer, 0}].root().set.testElements()
 			if _, found := producerSet[ten]; !found {
 				t.Fatal("producer did not populate shared argument class")
@@ -168,4 +170,24 @@ func TestSMTModelFinderAUFOffsetPassesFollowQuantifierOrder(t *testing.T) {
 			}
 		})
 	}
+}
+
+// aufValueSet maps each instantiation-set element to its rewritten value.
+// copy_instances and is_x_gle_t store arith_rewriter::mk_add/mk_sub results,
+// which are not normalized (n - k is n + -1*k).
+func aufValueSet(t *testing.T, manager *SMTQuantifierManager, elements map[ast.ASTHandle]uint32) map[ast.ASTHandle]uint32 {
+	t.Helper()
+	m := manager.modelFinder.manager
+	values := make(map[ast.ASTHandle]uint32, len(elements))
+	for h, generation := range elements {
+		ref, err := m.NewRef(ast.ASTHandle{})
+		astTestMust(t, err)
+		astTestMust(t, manager.rewriter.Rewrite(h, ref))
+		value, err := m.RefGet(ref)
+		astTestMust(t, err)
+		astTestPin(t, m, value)
+		astTestMust(t, m.DelRef(&ref))
+		values[value] = generation
+	}
+	return values
 }

@@ -64,6 +64,15 @@ func (c *Context) DefineRecursiveFunction(declaration ast.ASTHandle, names []usy
 			return err
 		}
 	}
+	// lhs = mk_app(f, binding); eq = mk_eq(lhs, e) precede the macro case.
+	lhs, err := pin(m.MkApp(declaration, bindings))
+	if err != nil {
+		return err
+	}
+	definition, err := pin(m.MkEq(lhs, body))
+	if err != nil {
+		return err
+	}
 	kind, err := m.GetKind(body)
 	if err != nil {
 		return err
@@ -81,14 +90,6 @@ func (c *Context) DefineRecursiveFunction(declaration ast.ASTHandle, names []usy
 	}
 	if arity != 0 && kind != ast.ASTApp {
 		return fmt.Errorf("Z3 only supports recursive definitions that are proper terms (not binders or variables)")
-	}
-	lhs, err := pin(m.MkApp(declaration, bindings))
-	if err != nil {
-		return err
-	}
-	definition, err := pin(m.MkEq(lhs, body))
-	if err != nil {
-		return err
 	}
 	if arity != 0 {
 		leftPattern, err := pin(m.MkPattern([]ast.ASTHandle{lhs}))

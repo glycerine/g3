@@ -196,7 +196,13 @@ func (g *smtModelFinderAUFGraph) populateFunctionArguments(quantifier ast.ASTHan
 			// Its class representative can hide necessary MBQI instances.
 			argument := application.arguments[info.position]
 			if !info.offset.IsNull() && node.root() == g.uvars[smtModelFinderAUFKey{info.quantifier, info.variable}].root() {
-				if err := g.insertShifted(node, argument.owner, info.offset, argument.Generation(), false); err != nil {
+				// A fresh arith_rewriter per relevant enode, as in the source.
+				arith, err := g.localArithRewriter()
+				if err != nil {
+					return err
+				}
+				err = g.insertShifted(arith, node, argument.owner, info.offset, argument.Generation(), false)
+				if err = errors.Join(err, arith.Close()); err != nil {
 					return err
 				}
 				continue

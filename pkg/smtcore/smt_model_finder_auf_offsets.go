@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
 func (g *smtModelFinderAUFGraph) collectOffset(quantifier, function ast.ASTHandle, position uint32, argument ast.ASTHandle) error {
@@ -33,9 +34,38 @@ func (g *smtModelFinderAUFGraph) collectOffset(quantifier, function ast.ASTHandl
 	return nil
 }
 
-func (g *smtModelFinderAUFGraph) insertShifted(to *smtModelFinderAUFNode, term, offset ast.ASTHandle, generation uint32, plus bool) (result error) {
+// insertShifted is one copy_instances step: n_k is arith_rw.mk_add/mk_sub(n,
+// m_offset) (not rewritten further) for arithmetic sorts; bit-vectors keep
+// the bv rewriter path.
+func (g *smtModelFinderAUFGraph) insertShifted(arith *rewriter.ArithRewriter, to *smtModelFinderAUFNode, term, offset ast.ASTHandle, generation uint32, plus bool) (result error) {
+	m := g.finder.manager
+	sort, err := m.GetSort(term)
+	if err != nil {
+		return err
+	}
+	isBV, err := m.IsBitVectorSort(sort)
+	if err != nil {
+		return err
+	}
+	if !isBV {
+		var ref ast.ASTRef
+		if plus {
+			ref, err = arith.MkAdd2(term, offset)
+		} else {
+			ref, err = arith.MkSub2(term, offset)
+		}
+		if err != nil {
+			return err
+		}
+		defer func() { result = errors.Join(result, m.DelRef(&ref)) }()
+		shifted, err := m.RefGet(ref)
+		if err != nil {
+			return err
+		}
+		_, err = to.insert(shifted, generation)
+		return err
+	}
 	var shifted ast.ASTHandle
-	var err error
 	if plus {
 		shifted, err = g.finder.macroUtil.MkAdd(term, offset)
 	} else {
@@ -44,7 +74,6 @@ func (g *smtModelFinderAUFGraph) insertShifted(to *smtModelFinderAUFNode, term, 
 	if err != nil {
 		return err
 	}
-	m := g.finder.manager
 	ref, err := m.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return err
@@ -65,6 +94,35 @@ func (g *smtModelFinderAUFGraph) insertShifted(to *smtModelFinderAUFNode, term, 
 	return err
 }
 
+// localArithRewriter is a local `arith_rewriter arith_rw(m)`.
+func (g *smtModelFinderAUFGraph) localArithRewriter() (*rewriter.ArithRewriter, error) {
+	st := g.finder.state
+	c, gl := st.paramsContext, st.globals
+	if c == nil || gl == nil {
+		// Standalone states borrow the quantifier rewriter's services.
+		if q := st.quantifierManager; q != nil && q.rewriter != nil {
+			c, gl = q.rewriter.ParamsServices()
+		}
+	}
+	return rewriter.NewArithRewriter(g.finder.manager, c, gl, nil)
+}
+
+// copyInstances is copy_instances<PLUS>(from, to, s), with its local
+// arith_rewriter.
+func (g *smtModelFinderAUFGraph) copyInstances(from, to *smtModelFinderAUFNode, offset ast.ASTHandle, plus bool) (result error) {
+	arith, err := g.localArithRewriter()
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, arith.Close()) }()
+	for _, entry := range from.set.entries() {
+		if err := g.insertShifted(arith, to, entry.Key, offset, uint32(entry.Num), plus); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (g *smtModelFinderAUFGraph) populateOffsets(quantifier ast.ASTHandle) error {
 	for _, info := range g.fvars {
 		if info.quantifier != quantifier || info.offset.IsNull() {
@@ -79,17 +137,11 @@ func (g *smtModelFinderAUFGraph) populateOffsets(quantifier ast.ASTHandle) error
 		}
 		// The second population pass enforces A_f_i-k subset S_j followed
 		// by S_j+k subset A_f_i, preserving each source generation.
-		for _, entry := range argument.set.entries() {
-			term, generation := entry.Key, uint32(entry.Num)
-			if err := g.insertShifted(variable, term, info.offset, generation, false); err != nil {
-				return err
-			}
+		if err := g.copyInstances(argument, variable, info.offset, false); err != nil {
+			return err
 		}
-		for _, entry := range variable.set.entries() {
-			term, generation := entry.Key, uint32(entry.Num)
-			if err := g.insertShifted(argument, term, info.offset, generation, true); err != nil {
-				return err
-			}
+		if err := g.copyInstances(variable, argument, info.offset, true); err != nil {
+			return err
 		}
 	}
 	return nil

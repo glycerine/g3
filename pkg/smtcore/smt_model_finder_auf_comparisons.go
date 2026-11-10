@@ -26,6 +26,51 @@ func (g *smtModelFinderAUFGraph) normalizeGround(term ast.ASTHandle) (ast.ASTHan
 	return m.RefGet(ref)
 }
 
+// mutilArith is macro_util::mk_add/mk_sub(t1, t2, r): one step of the
+// arithmetic rewriter (m_arith_rw), not rewritten further. Bit-vector
+// operands keep the normalizing path. The result is held in g.refs.
+func (g *smtModelFinderAUFGraph) mutilArith(t1, t2 ast.ASTHandle, plus bool) (ast.ASTHandle, error) {
+	m := g.finder.manager
+	sort, err := m.GetSort(t1)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	bv, err := m.IsBitVectorSort(sort)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if bv {
+		var raw ast.ASTHandle
+		if plus {
+			raw, err = g.finder.macroUtil.MkAdd(t1, t2)
+		} else {
+			raw, err = g.finder.macroUtil.MkSub(t1, t2)
+		}
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		return g.normalizeGround(raw)
+	}
+	arith, err := g.localArithRewriter()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	var ref ast.ASTRef
+	if plus {
+		ref, err = arith.MkAdd2(t1, t2)
+	} else {
+		ref, err = arith.MkSub2(t1, t2)
+	}
+	if err = errors.Join(err, arith.Close()); err != nil {
+		if ref != (ast.ASTRef{}) {
+			err = errors.Join(err, m.DelRef(&ref))
+		}
+		return ast.ASTHandle{}, err
+	}
+	g.refs = append(g.refs, ref)
+	return m.RefGet(ref)
+}
+
 // variableAndGround mirrors is_var_and_ground, including -x+k and
 // occurrences on either side. The returned variable is a de Bruijn index.
 func (g *smtModelFinderAUFGraph) variableAndGround(left, right ast.ASTHandle) (variable uint32, bound ast.ASTHandle, inverse, matched bool, result error) {
@@ -69,14 +114,10 @@ func (g *smtModelFinderAUFGraph) variableAndGround(left, right ast.ASTHandle) (v
 			return 0, bound, false, false, err
 		}
 		if inv {
-			bound, err = g.finder.macroUtil.MkSub(offset, pair[1])
+			bound, err = g.mutilArith(offset, pair[1], false)
 		} else {
-			bound, err = g.finder.macroUtil.MkSub(pair[1], offset)
+			bound, err = g.mutilArith(pair[1], offset, false)
 		}
-		if err != nil {
-			return 0, bound, false, false, err
-		}
-		bound, err = g.normalizeGround(bound)
 		if err != nil {
 			return 0, bound, false, false, err
 		}
@@ -219,15 +260,7 @@ func (g *smtModelFinderAUFGraph) collectComparison(quantifier, atom ast.ASTHandl
 		if err != nil {
 			return err
 		}
-		if le {
-			bound, err = g.finder.macroUtil.MkAdd(bound, one)
-		} else {
-			bound, err = g.finder.macroUtil.MkSub(bound, one)
-		}
-		if err != nil {
-			return err
-		}
-		bound, err = g.normalizeGround(bound)
+		bound, err = g.mutilArith(bound, one, le)
 		if err != nil {
 			return err
 		}

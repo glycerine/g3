@@ -77,8 +77,9 @@ func TestSMTModelFinderAUFComparisonGroundBoundaries(t *testing.T) {
 			t.Cleanup(func() { astTestMust(t, graph.close()) })
 			astTestMust(t, graph.build([]ast.ASTHandle{q}))
 			node := graph.uvars[smtModelFinderAUFKey{q, 0}].root()
-			generation, found := node.set.testElements()[want]
-			if !node.mono || node.signed || len(node.set.testElements()) != 1 || !found || generation != 0 {
+			values := aufValueSet(t, manager, node.set.testElements())
+			generation, found := values[want]
+			if !node.mono || node.signed || len(values) != 1 || !found || generation != 0 {
 				t.Fatal("source comparison boundary and projection flags", node.mono, node.signed, node.set.testElements(), want)
 			}
 		})

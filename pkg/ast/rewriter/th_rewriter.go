@@ -1468,3 +1468,11 @@ func (r *TheoryRewriter) Close() error {
 	r.closed = true
 	return nil
 }
+
+// ParamsServices returns the parameter services the rewriter was built with.
+func (r *TheoryRewriter) ParamsServices() (*uparams.ParamsContext, *uparams.GlobalParamsService) {
+	if r == nil {
+		return nil, nil
+	}
+	return r.context, r.globals
+}
