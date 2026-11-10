@@ -420,7 +420,13 @@ func (c *Context) addOptimizerObjective(optimizer *opt.ArithmeticSolver, index i
 	return optimizer.AddObjective(objective.expression, objective.maximize)
 }
 
-func (c *Context) checkOptimizeLex(assumptions []ast.ASTHandle) (optimized *opt.ArithmeticResult, resultErr error) {
+func (c *Context) checkOptimizeLex(assumptions []ast.ASTHandle) (*opt.ArithmeticResult, error) {
+	return c.runOptimize(assumptions, (*opt.ArithmeticSolver).Check)
+}
+
+// runOptimize is opt::context::optimize up to the priority dispatch, which
+// execute performs (execute_lex or execute_box).
+func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.ArithmeticSolver) (*opt.ArithmeticResult, error)) (optimized *opt.ArithmeticResult, resultErr error) {
 	optimizer, err := c.newOptimizer(assumptions, true)
 	if err != nil {
 		return nil, err
@@ -482,7 +488,7 @@ func (c *Context) checkOptimizeLex(assumptions []ast.ASTHandle) (optimized *opt.
 	if err = optimizer.UpdateLower(); err != nil {
 		return nil, err
 	}
-	return optimizer.Check()
+	return execute(optimizer)
 }
 
 func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation bool) (optimized *opt.ArithmeticResult, resultErr error) {
@@ -531,123 +537,41 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 	}
 	selected := c.optimizationBoxNext
 	c.optimizationBoxNext++
-	allArithmetic := true
-	for i := range c.objectives {
-		if c.objectives[i].soft {
-			allArithmetic = false
-			break
+	// The first call runs optimize(); execute_box computes every
+	// objective's model, and later calls hand them out in turn.
+	combined, err := c.runOptimize(assumptions, (*opt.ArithmeticSolver).ExecuteBox)
+	if err != nil {
+		if combined != nil {
+			err = errors.Join(err, combined.Close())
 		}
+		return nil, err
 	}
-	if allArithmetic {
-		optimizer, err := c.newOptimizer(assumptions, false)
-		if err != nil {
-			return nil, err
+	if combined.Status != lbool.True || !combined.Optimal || len(combined.ObjectiveModels) != len(c.objectives) {
+		if combined.Status == lbool.Undef {
+			c.optimizationBoxReasonUnknown = combined.ReasonUnknown
 		}
-		for i := range c.objectives {
-			if err = c.addOptimizerObjective(optimizer, i); err != nil {
-				return nil, errors.Join(err, optimizer.Close())
-			}
-		}
-		combined, err := optimizer.CheckBox()
-		err = errors.Join(err, optimizer.Close())
-		if err != nil {
-			if combined != nil {
-				err = errors.Join(err, combined.Close())
-			}
-			return nil, err
-		}
-		if combined.Status != lbool.True || !combined.Optimal || len(combined.ObjectiveModels) != len(c.objectives) {
-			if combined.Status == lbool.Undef {
-				c.optimizationBoxReasonUnknown = combined.ReasonUnknown
-			}
-			return combined, nil
-		}
-		c.optimizationBoxLabels = append(c.optimizationBoxLabels[:0], combined.InitialLabels...)
-		c.optimizationBoxModels = combined.ObjectiveModels
-		combined.ObjectiveModels = nil
-		c.optimizationBoxValues = cloneOptimizationBoxValues(combined.Values)
-		if selected >= len(c.optimizationBoxModels) || c.optimizationBoxModels[selected] == nil {
-			return nil, errors.Join(ast.ErrASTHandle, c.clearOptimizationBoxModels(), combined.Close())
-		}
-		if err = c.optimizationBoxModels[selected].IncRef(); err != nil {
-			return nil, errors.Join(err, c.clearOptimizationBoxModels(), combined.Close())
-		}
-		if combined.Model != nil {
-			initialModel := combined.Model
-			combined.Model = nil
-			if err = initialModel.DecRef(); err != nil {
-				_ = c.optimizationBoxModels[selected].DecRef()
-				return nil, errors.Join(err, c.clearOptimizationBoxModels(), combined.Close())
-			}
-		}
-		combined.Model = c.optimizationBoxModels[selected]
-		c.optimizationBoxActive = true
 		return combined, nil
 	}
-	combined := &opt.ArithmeticResult{Status: lbool.True, Values: make([]opt.ObjectiveValue, len(c.objectives)), Optimal: true}
-	var boxModels []*model.ModelCore
-	defer func() {
-		if resultErr != nil {
-			resultErr = errors.Join(resultErr, combined.Close())
-		}
-		resultErr = errors.Join(resultErr, releaseOptimizationBoxModels(boxModels))
-	}()
-	for i := range c.objectives {
-		optimizer, err := c.newOptimizer(assumptions, false)
-		if err != nil {
-			return nil, err
-		}
-		if err = c.addOptimizerObjective(optimizer, i); err != nil {
-			return nil, errors.Join(err, optimizer.Close())
-		}
-		one, err := optimizer.Check()
-		err = errors.Join(err, optimizer.Close())
-		if err != nil {
-			if one != nil {
-				err = errors.Join(err, one.Close())
-			}
-			return nil, err
-		}
-		// context::optimize captures labels on its initial satisfiable check.
-		// execute_box changes them only when a MaxSMT group supplies a model;
-		// selecting another cached arithmetic box model preserves those labels.
-		if i == 0 {
-			combined.Labels = append([]usymbol.Symbol(nil), one.InitialLabels...)
-		}
-		if c.objectives[i].soft && one.Model != nil {
-			combined.Labels = append(combined.Labels[:0], one.Labels...)
-		}
-		c.optimizationBoxLabels = append(c.optimizationBoxLabels[:0], combined.Labels...)
-		if one.Status != lbool.True || !one.Optimal || len(one.Values) != 1 {
-			combined.Status, combined.Optimal = one.Status, one.Optimal
-			combined.ReasonUnknown = one.ReasonUnknown
-			if one.Status == lbool.Undef {
-				c.optimizationBoxReasonUnknown = one.ReasonUnknown
-			}
-			return combined, one.Close()
-		}
-		if fresh {
-			if one.Model != nil {
-				if err = one.Model.IncRef(); err != nil {
-					return nil, errors.Join(err, one.Close())
-				}
-			}
-			boxModels = append(boxModels, one.Model)
-		}
-		combined.Values[i] = one.Values[0]
-		if i == selected {
-			combined.Model = one.Model
-			one.Model = nil
-		}
-		if err = one.Close(); err != nil {
-			return nil, err
+	c.optimizationBoxLabels = append(c.optimizationBoxLabels[:0], combined.Labels...)
+	c.optimizationBoxModels = combined.ObjectiveModels
+	combined.ObjectiveModels = nil
+	c.optimizationBoxValues = cloneOptimizationBoxValues(combined.Values)
+	if selected >= len(c.optimizationBoxModels) || c.optimizationBoxModels[selected] == nil {
+		return nil, errors.Join(ast.ErrASTHandle, c.clearOptimizationBoxModels(), combined.Close())
+	}
+	if err = c.optimizationBoxModels[selected].IncRef(); err != nil {
+		return nil, errors.Join(err, c.clearOptimizationBoxModels(), combined.Close())
+	}
+	if combined.Model != nil {
+		previous := combined.Model
+		combined.Model = nil
+		if err = previous.DecRef(); err != nil {
+			_ = c.optimizationBoxModels[selected].DecRef()
+			return nil, errors.Join(err, c.clearOptimizationBoxModels(), combined.Close())
 		}
 	}
-	if fresh {
-		c.optimizationBoxModels = boxModels
-		boxModels = nil
-		c.optimizationBoxValues = cloneOptimizationBoxValues(combined.Values)
-	}
+	combined.Model = c.optimizationBoxModels[selected]
+	c.optimizationBoxActive = true
 	return combined, nil
 }
 
