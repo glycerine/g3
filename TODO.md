@@ -888,8 +888,17 @@ Found while matching `-st` output against `build/z3` on
        ([assign] #43), while z3 defers assert_expr to
        m_asserted_formulas, so its second lex (push, begin-check 1, pop)
        shows no assignment;
-   (3) geometric_lex's own commit_assignment(i < obj_index) at the start
-       of each lex is not ported yet.
+   (3) DONE (c6fdb63f0): geometric_lex re-commits earlier objectives, using
+       the captured model value. CORRECTION to that commit message: z3's
+       second lex shows a single [begin-check] 1 and then a pop, so its
+       first check is unsat. The likely cause: z3 commits m_lower = 5 - eps,
+       which theory_lra::mk_ge reads as non-strict, giving x >= 5. Its
+       geometric_lex still returns l_true, and the reported x interval /
+       y value come from m_lower/m_upper and update_lower. Committing
+       optLower in g3 gives "unsat", because g3 treats the failed first
+       check as the result. A faithful port needs geometric_lex's
+       return-l_true path plus reporting from optsmt m_lower/m_upper, which
+       replaces the ArithmeticInterval special case.
    Next lead: at line 1182, in the old inc_sat_solver's bit_blaster
    m_values teardown, z3 frees (iff ..) #37/#26 before (or ..) #8. g3's
    delete worklist matches z3's, so a refcount (an extra or missing holder
