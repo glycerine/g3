@@ -257,6 +257,71 @@ func (c *patternCandidates) reduceQuantifierNoDatabaseCore(q, newBody ast.ASTHan
 	baseQ, outputBody := q, newBody
 	pulledWithPatterns := false
 	pulledProof := ast.ASTHandle{}
+	// new_q = update_quantifier(q, new_patterns, new_body) (and weight); with
+	// proofs, result_pr = mk_quant_intro(q, new_q, mk_reflexivity(new_body))
+	// is built here, before the pull, even when the reduction then fails.
+	var sourceQuantIntro ast.ASTHandle
+	var proofHolds []ast.ASTRef
+	// The locals die in reverse order of construction.
+	defer func() {
+		for i := len(proofHolds) - 1; i >= 0; i-- {
+			err = errors.Join(err, c.manager.DelRef(&proofHolds[i]))
+		}
+	}()
+	holdProof := func(h ast.ASTHandle) error {
+		ref, e := c.manager.NewRef(h)
+		if e == nil {
+			proofHolds = append(proofHolds, ref)
+		}
+		return e
+	}
+	if proofs {
+		handles := make([]ast.ASTHandle, len(patterns))
+		for i, ref := range patterns {
+			if handles[i], err = c.manager.RefGet(ref); err != nil {
+				return out, false, err
+			}
+		}
+		newQ, e := c.manager.UpdateQuantifierPatterns(q, handles, newBody)
+		if e != nil {
+			return out, false, e
+		}
+		if originalWeight, e := c.manager.GetQuantifierWeight(q); e != nil {
+			return out, false, e
+		} else if weight != originalWeight {
+			if newQ, e = c.manager.UpdateQuantifierWeight(newQ, weight); e != nil {
+				return out, false, e
+			}
+		}
+		if e = holdProof(newQ); e != nil {
+			return out, false, e
+		}
+		bodyRefl, e := c.manager.MkProofReflexivity(newBody)
+		if e != nil {
+			return out, false, e
+		}
+		if sourceQuantIntro, e = c.manager.MkProofQuantIntro(q, newQ, bodyRefl); e != nil {
+			return out, false, e
+		}
+		if e = holdProof(sourceQuantIntro); e != nil {
+			return out, false, e
+		}
+		if len(patterns) == 0 && opts.pullQuantifiers {
+			// pull(new_q, new_expr, new_pr): an unchanged quantifier gets
+			// a reflexivity proof.
+			if contained, e := c.bodyContainsQuantifier(newBody); e != nil {
+				return out, false, e
+			} else if !contained {
+				pullRefl, e := c.manager.MkProofReflexivity(newQ)
+				if e != nil {
+					return out, false, e
+				}
+				if e = holdProof(pullRefl); e != nil {
+					return out, false, e
+				}
+			}
+		}
+	}
 	if len(patterns) == 0 && opts.pullQuantifiers {
 		contained, e := c.bodyContainsQuantifier(newBody)
 		if e != nil {
@@ -398,13 +463,16 @@ func (c *patternCandidates) reduceQuantifierNoDatabaseCore(q, newBody ast.ASTHan
 			}
 			return ast.ASTRef{}, false, errors.Join(primary, cleanup)
 		}
-		bodyProof, e := c.manager.MkProofReflexivity(outputBody)
-		if e != nil {
-			return failProof(e)
-		}
-		proof, e := c.manager.MkProofQuantIntro(baseQ, updated, bodyProof)
-		if e != nil {
-			return failProof(e)
+		proof := sourceQuantIntro
+		var e error
+		if pulledWithPatterns {
+			bodyProof, e := c.manager.MkProofReflexivity(outputBody)
+			if e != nil {
+				return failProof(e)
+			}
+			if proof, e = c.manager.MkProofQuantIntro(baseQ, updated, bodyProof); e != nil {
+				return failProof(e)
+			}
 		}
 		if pulledWithPatterns {
 			proof, e = c.manager.MkProofTransitivity(pulledProof, proof)
