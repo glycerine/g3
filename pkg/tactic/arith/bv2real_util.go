@@ -485,14 +485,23 @@ func (c *bv2RealCall) add(a, b ast.ASTHandle) (result ast.ASTHandle) {
 	if c.isZero(b) {
 		return a
 	}
-	a, b = c.align(a, b)
-	return c.bv(4, c.extend(1, a), c.extend(1, b))
+	return c.addSub(mark, 4, a, b)
 }
 func (c *bv2RealCall) sub(a, b ast.ASTHandle) (result ast.ASTHandle) {
 	mark := c.checkpoint()
 	defer c.endExpressionScope(mark, &result)
-	a, b = c.align(a, b)
-	return c.bv(5, c.extend(1, a), c.extend(1, b))
+	return c.addSub(mark, 5, a, b)
+}
+
+// addSub is the expr_ref s1(s), t1(t) body of mk_bv_add and mk_bv_sub.
+func (c *bv2RealCall) addSub(mark bv2RealCallCheckpoint, op int32, a, b ast.ASTHandle) ast.ASTHandle {
+	s1 := c.newLocal(a)
+	t1 := c.newLocal(b)
+	defer c.releaseLocals(&t1, &s1)
+	c.alignLocals(mark, &s1, &t1)
+	c.assignLocal(mark, &s1, c.extend(1, c.localValue(s1)))
+	c.assignLocal(mark, &t1, c.extend(1, c.localValue(t1)))
+	return c.bv(op, c.localValue(s1), c.localValue(t1))
 }
 func (c *bv2RealCall) side(h ast.ASTHandle) {
 	if c.err == nil {
@@ -500,8 +509,13 @@ func (c *bv2RealCall) side(h ast.ASTHandle) {
 	}
 }
 func (c *bv2RealCall) mul(a, b ast.ASTHandle) (result ast.ASTHandle) {
-	mark := c.checkpoint()
-	defer c.endExpressionScope(mark, &result)
+	return c.mulAdopting(a, b, false)
+}
+
+// mulAdopting is mk_bv_mul(s, t). With adoptA, s is a raw expr* of the
+// caller (mk_bv_mul(rational, t)'s mk_sbv): the caller's scope hold on it is
+// moved into s1, so replacing s1 frees it.
+func (c *bv2RealCall) mulAdopting(a, b ast.ASTHandle, adoptA bool) (result ast.ASTHandle) {
 	c.assertBV(a, 179, "m_bv.is_bv(s)")
 	c.assertBV(b, 180, "m_bv.is_bv(t)")
 	if c.err != nil {
@@ -513,8 +527,18 @@ func (c *bv2RealCall) mul(a, b ast.ASTHandle) (result ast.ASTHandle) {
 	if c.isZero(b) {
 		return b
 	}
-	a, b = c.align(a, b)
-	n := c.width(b)
+	s1 := c.newLocal(a)
+	t1 := c.newLocal(b)
+	if adoptA {
+		// Drop the caller's hold before this scope's checkpoint, so the
+		// scope's mark stays below everything it creates.
+		c.dropHold(0, a)
+	}
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
+	defer c.releaseLocals(&t1, &s1)
+	c.alignLocals(mark, &s1, &t1)
+	n := c.width(c.localValue(t1))
 	max := c.u.maxBits
 	overflow := 2*n > max
 	if n < max {
@@ -522,15 +546,17 @@ func (c *bv2RealCall) mul(a, b ast.ASTHandle) (result ast.ASTHandle) {
 		if 2*n > max {
 			extra = max - n
 		}
-		a, b = c.extend(extra, a), c.extend(extra, b)
+		c.assignLocal(mark, &s1, c.extend(extra, c.localValue(s1)))
+		c.assignLocal(mark, &t1, c.extend(extra, c.localValue(t1)))
 	}
+	sv, tv := c.localValue(s1), c.localValue(t1)
 	if overflow && c.err == nil {
-		c.side(c.hold(c.u.manager.MkBitVectorSignedMulNoOverflow(a, b)))
+		c.side(c.hold(c.u.manager.MkBitVectorSignedMulNoOverflow(sv, tv)))
 		if c.err == nil {
-			c.side(c.hold(c.u.manager.MkBitVectorSignedMulNoUnderflow(a, b)))
+			c.side(c.hold(c.u.manager.MkBitVectorSignedMulNoUnderflow(sv, tv)))
 		}
 	}
-	return c.bv(6, a, b)
+	return c.bv(6, sv, tv)
 }
 func (c *bv2RealCall) multiplyScalar(q *big.Rat, b ast.ASTHandle) (result ast.ASTHandle) {
 	mark := c.checkpoint()
@@ -538,7 +564,8 @@ func (c *bv2RealCall) multiplyScalar(q *big.Rat, b ast.ASTHandle) (result ast.AS
 	if q.Cmp(big.NewRat(1, 1)) == 0 {
 		return b
 	}
-	return c.mul(c.signedNumeral(q), b)
+	// expr* s = mk_sbv(n); return mk_bv_mul(s, t): s is raw.
+	return c.mulAdopting(c.signedNumeral(q), b, true)
 }
 func (c *bv2RealCall) extract(high, low uint32, h ast.ASTHandle) ast.ASTHandle {
 	if c.err != nil {

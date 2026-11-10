@@ -200,8 +200,16 @@ func (c *bv2RealCall) binary(op int32, s, t ast.ASTHandle) (result ast.ASTHandle
 		return ast.ASTHandle{}, false
 	}
 	if op == 9 {
-		first := c.add(c.mul(a, x), c.multiplyScalarOwned(r, c.mul(y, b)))
-		second := c.add(c.mul(a, y), c.mul(b, x))
+		// u1 = mk_bv_add(mk_bv_mul(s1, t1), mk_bv_mul(r1, mk_bv_mul(t2, s2)));
+		// u2 = mk_bv_add(mk_bv_mul(s1, t2), mk_bv_mul(s2, t1)); the reference
+		// build (GCC) evaluates the nested call arguments right to left.
+		t2s2 := c.mul(y, b)
+		scaled := c.multiplyScalarOwned(r, t2s2)
+		s1t1 := c.mul(a, x)
+		first := c.add(s1t1, scaled)
+		s2t1 := c.mul(b, x)
+		s1t2 := c.mul(a, y)
+		second := c.add(s1t2, s2t1)
 		if c.err != nil {
 			return ast.ASTHandle{}, false
 		}
@@ -214,9 +222,12 @@ func (c *bv2RealCall) binary(op int32, s, t ast.ASTHandle) (result ast.ASTHandle
 	a, b, x, y = c.alignDivisorsOwned(a, b, x, y, d1, d2)
 	switch op {
 	case 6:
-		return c.wrap(c.add(a, x), c.add(y, b), d1, r)
+		// mk_bv2real(mk_bv_add(s1, t1), mk_bv_add(t2, s2), ...): right to left.
+		second := c.add(y, b)
+		return c.wrap(c.add(a, x), second, d1, r)
 	case 7:
-		return c.wrap(c.sub(a, x), c.sub(b, y), d1, r)
+		second := c.sub(b, y)
+		return c.wrap(c.sub(a, x), second, d1, r)
 	}
 	return ast.ASTHandle{}, false
 }
