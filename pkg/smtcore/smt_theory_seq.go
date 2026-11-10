@@ -117,6 +117,34 @@ func (r *seqRefs) release() (result error) {
 	return result
 }
 
+// seqExprRef is an expr_ref local: assignment references the new value
+// before it releases the old one.
+type seqExprRef struct {
+	manager *ast.ASTManager
+	h       ast.ASTHandle
+}
+
+func newSeqExprRef(m *ast.ASTManager, h ast.ASTHandle) (seqExprRef, error) {
+	r := seqExprRef{manager: m}
+	return r, r.set(h)
+}
+
+func (r *seqExprRef) set(h ast.ASTHandle) error {
+	if !h.IsNull() {
+		if err := r.manager.IncRef(h); err != nil {
+			return err
+		}
+	}
+	old := r.h
+	r.h = h
+	if old.IsNull() {
+		return nil
+	}
+	return r.manager.DecRef(old)
+}
+
+func (r *seqExprRef) release() error { return r.set(ast.ASTHandle{}) }
+
 // seqExprVector is an expr_ref_vector: every element holds one reference.
 type seqExprVector struct {
 	manager *ast.ASTManager

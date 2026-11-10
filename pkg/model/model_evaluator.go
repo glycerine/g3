@@ -346,7 +346,12 @@ func (ev *ModelEvaluator) closeImp() error {
 	if e := ev.cfg.params.CloseHelpers(); e != nil {
 		return e
 	}
-	ev.cfg.sequence = nil
+	if ev.cfg.sequence != nil {
+		if e := ev.cfg.sequence.Close(); e != nil {
+			return e
+		}
+		ev.cfg.sequence = nil
+	}
 	if ev.cfg.fpa != nil {
 		if e := ev.cfg.fpa.Close(); e != nil {
 			return e

@@ -1382,7 +1382,12 @@ func (r *TheoryRewriter) Cleanup() error {
 
 func (r *TheoryRewriter) closeConfiguration() error {
 	c := &r.configuration
-	c.sequence = nil
+	if c.sequence != nil {
+		if err := c.sequence.Close(); err != nil {
+			return err
+		}
+		c.sequence = nil
+	}
 	if c.pseudoBoolean != nil {
 		if err := c.pseudoBoolean.Close(); err != nil {
 			return err

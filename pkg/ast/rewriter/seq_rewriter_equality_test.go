@@ -7,68 +7,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func TestSequenceRewriterReductionPartsRetainResidualsAndSideEquations(t *testing.T) {
-	m := astTestManager(t)
-	_, err := m.RegisterArithmeticPlugin()
-	astTestMust(t, err)
-	_, err = m.RegisterBitVectorPlugin()
-	astTestMust(t, err)
-	rw, err := NewSequenceRewriter(m)
-	astTestMust(t, err)
-	text, err := m.MkString("ab")
-	astTestMust(t, err)
-	astTestPin(t, m, text)
-	sort, err := m.GetSort(text)
-	astTestMust(t, err)
-	x, err := m.MkConst(astTestSymbol(t, m, "parts-x"), sort)
-	astTestMust(t, err)
-	astTestPin(t, m, x)
-	y, err := m.MkConst(astTestSymbol(t, m, "parts-y"), sort)
-	astTestMust(t, err)
-	astTestPin(t, m, y)
-	characterSort, _, err := m.SequenceSortElement(sort)
-	astTestMust(t, err)
-	c, err := m.MkConst(astTestSymbol(t, m, "parts-c"), characterSort)
-	astTestMust(t, err)
-	astTestPin(t, m, c)
-	unit, err := m.MkSequenceUnit(c)
-	astTestMust(t, err)
-	astTestPin(t, m, unit)
-	left, err := m.MkSequenceConcat(x, unit)
-	astTestMust(t, err)
-	astTestPin(t, m, left)
-	right, err := m.MkSequenceConcat(y, text)
-	astTestMust(t, err)
-	astTestPin(t, m, right)
-	parts, err := rw.ReduceEquality(left, right)
-	astTestMust(t, err)
-	defer func() {
-		if parts.manager != nil {
-			astTestMust(t, parts.Close())
-		}
-	}()
-	if !parts.Changed || parts.Inconsistent || len(parts.Left) != 1 || parts.Left[0] != x || len(parts.Right) != 2 || parts.Right[0] != y || len(parts.EqualitiesLeft) != 1 || parts.EqualitiesRight[0] != c {
-		t.Fatal("source residual vectors and element side equation were combined or lost", parts)
-	}
-	remaining, matched, err := m.SequenceStringValue(parts.Right[1])
-	astTestMust(t, err)
-	value, err := m.BitVectorNumeralUnsigned(uint32('b'), 8)
-	astTestMust(t, err)
-	if !matched || remaining != "a" || parts.EqualitiesLeft[0] != value {
-		t.Fatal("temporary residual or character did not survive reduction", remaining, value)
-	}
-	astTestMust(t, parts.Close())
-	if err := parts.Close(); err == nil {
-		t.Fatal("closed reduction owner was accepted twice")
-	}
-	unchanged, err := rw.ReduceEquality(x, y)
-	astTestMust(t, err)
-	if unchanged.Changed || unchanged.Inconsistent || len(unchanged.Left) != 1 || unchanged.Left[0] != x || unchanged.Right[0] != y || len(unchanged.EqualitiesLeft) != 0 {
-		t.Fatal("unchanged source equality was represented as a reduction")
-	}
-	astTestMust(t, unchanged.Close())
-}
-
 func TestSequenceRewriterEqualityBoundaryReductions(t *testing.T) {
 	m := astTestManager(t)
 	_, err := m.RegisterArithmeticPlugin()

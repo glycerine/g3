@@ -10,6 +10,7 @@ package rewriter
 // as its expr_ref_vectors do.
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -423,18 +424,46 @@ func (r *SequenceRewriter) AddSeqs(ls, rs []ast.ASTHandle, lhs, rhs *[]ast.ASTHa
 	return nil
 }
 
-// ReduceEqExpr is reduce_eq(l, r, lhs, rhs, changed).
+// ReduceEqExpr is reduce_eq(l, r, lhs, rhs, changed). The flattened words
+// live in the m_lhs and m_rhs members, which keep them (and any remainder
+// reduce_eq created) referenced after the call.
 func (r *SequenceRewriter) ReduceEqExpr(l, rr ast.ASTHandle, lhs, rhs *[]ast.ASTHandle, changed *bool) (bool, error) {
-	ls, err := r.manager.SequenceFlattenConcat(l)
+	m := r.manager
+	if err := r.lhsMember.reset(m); err != nil {
+		return false, err
+	}
+	if err := r.rhsMember.reset(m); err != nil {
+		return false, err
+	}
+	ls, err := m.SequenceFlattenConcat(l)
 	if err != nil {
 		return false, err
 	}
-	rs, err := r.manager.SequenceFlattenConcat(rr)
+	for _, h := range ls {
+		if err = r.lhsMember.pushBack(m, h); err != nil {
+			return false, err
+		}
+	}
+	rs, err := m.SequenceFlattenConcat(rr)
 	if err != nil {
 		return false, err
 	}
+	for _, h := range rs {
+		if err = r.rhsMember.pushBack(m, h); err != nil {
+			return false, err
+		}
+	}
+	ls = append([]ast.ASTHandle(nil), r.lhsMember.items...)
+	rs = append([]ast.ASTHandle(nil), r.rhsMember.items...)
 	change := false
 	ok, err := r.ReduceEqVec(&ls, &rs, lhs, rhs, &change)
+	// reduce_eq edited m_lhs and m_rhs in place.
+	if e := r.lhsMember.adopt(m, ls); e != nil {
+		return false, errors.Join(err, e)
+	}
+	if e := r.rhsMember.adopt(m, rs); e != nil {
+		return false, errors.Join(err, e)
+	}
 	if err != nil || !ok {
 		return false, err
 	}

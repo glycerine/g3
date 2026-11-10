@@ -4,6 +4,7 @@ package smtcore
 // mk_decompose.
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -484,18 +485,23 @@ func (t *SMTTheorySeq) propagateLengthCoherence(e ast.ASTHandle) bool {
 	}
 	x := t.loc()
 	defer x.drop()
-	seq := t.ref(x, e, nil)
+	// expr_ref head(m), tail(m) at function scope; then seq and elems.
+	head, tailR := t.exprRef(ast.ASTHandle{}), t.exprRef(ast.ASTHandle{})
+	defer func() { t.chk(errors.Join(tailR.release(), head.release())) }()
+	seqR := t.exprRef(e)
 	elems := newSeqExprVector(t.m)
-	defer func() { t.chk(elems.reset()) }()
+	defer func() { t.chk(errors.Join(elems.reset(), seqR.release())) }()
 	_lo := lo.Num().Int64()
 	for j := int64(0); j < _lo; j++ {
-		head, tail := t.mkDecompose(x, seq)
-		t.chk(elems.pushBack(head))
-		seq = tail
+		t.mkDecomposeRef(seqR.h, &head, &tailR)
+		t.chk(elems.pushBack(head.h))
+		t.chk(seqR.set(tailR.h))
 	}
+	seq := seqR.h
 	emp := t.ref(x, t.mkEmpty(t.sortOf(e)), nil)
 	t.chk(elems.pushBack(seq))
-	tail := t.ref(x, t.mkConcatN(elems.handles()), nil)
+	t.chk(tailR.set(t.mkConcatN(elems.handles())))
+	tail := tailR.h
 	// len(e) >= low => e = tail;
 	loNum := t.mkIntRat(lo) // arguments right to left
 	low := t.mkLiteral(t.mkGe(t.mkLength(e), loNum))
@@ -597,20 +603,23 @@ func (t *SMTTheorySeq) fixedLength(e ast.ASTHandle) bool {
 
 	x := t.loc()
 	defer x.drop()
-	seq := t.ref(x, e, nil)
+	// expr_ref seq(e, m), head(m), tail(m);
+	seqR, head, tail := t.exprRef(e), t.exprRef(ast.ASTHandle{}), t.exprRef(ast.ASTHandle{})
+	defer func() { t.chk(errors.Join(tail.release(), head.release(), seqR.release())) }()
 	if lo.Sign() == 0 {
-		seq = t.ref(x, t.mkEmpty(t.sortOf(e)), nil)
+		t.chk(seqR.set(t.mkEmpty(t.sortOf(e))))
 	} else {
 		_lo := lo.Num().Int64()
 		elems := newSeqExprVector(t.m)
-		defer func() { t.chk(elems.reset()) }()
 		for j := int64(0); j < _lo; j++ {
-			head, tail := t.mkDecompose(x, seq)
-			t.chk(elems.pushBack(head))
-			seq = tail
+			t.mkDecomposeRef(seqR.h, &head, &tail)
+			t.chk(elems.pushBack(head.h))
+			t.chk(seqR.set(tail.h))
 		}
-		seq = t.ref(x, t.mkConcatN(elems.handles()), nil)
+		t.chk(seqR.set(t.mkConcatN(elems.handles())))
+		t.chk(elems.reset())
 	}
+	seq := seqR.h
 	// GCC evaluates call arguments right to left.
 	eqSeq := t.mkSeqEq(seq, e)
 	loNum := t.mkIntRat(lo)
@@ -708,6 +717,38 @@ func (t *SMTTheorySeq) mkFirst(s ast.ASTHandle) ast.ASTHandle {
 
 // mkDecompose is mk_decompose(e, head, tail). head and tail are expr_ref
 // out-parameters, held in the caller's locals x.
+func (t *SMTTheorySeq) exprRef(h ast.ASTHandle) seqExprRef {
+	r, err := newSeqExprRef(t.m, h)
+	t.chk(err)
+	return r
+}
+
+// mkDecomposeRef is mk_decompose(e, head, tail) assigning expr_ref outputs.
+func (t *SMTTheorySeq) mkDecomposeRef(e ast.ASTHandle, head, tail *seqExprRef) {
+	if t.isEmpty(e) {
+		t.chk(head.set(t.mkUnit(t.mkNth(e, t.mkInt(0)))))
+		t.chk(tail.set(e))
+	} else if s, ok := t.isString(e); ok {
+		t.chk(head.set(t.mkUnit(t.mkChar(s, 0))))
+		t.chk(tail.set(t.mkString(s[1:])))
+	} else if t.isUnit(e) {
+		t.chk(head.set(e))
+		t.chk(tail.set(t.mkEmpty(t.sortOf(e))))
+	} else if e1, e2, ok := t.isConcat2(e); ok && t.isUnit(e1) {
+		t.chk(head.set(e1))
+		t.chk(tail.set(e2))
+	} else if t.isSkolem(t.tail, e) {
+		s := t.arg(e, 0)
+		r, _ := t.isNumeral(t.arg(e, 1))
+		idx := t.mkInt(r.Num().Int64() + 1)
+		t.chk(head.set(t.mkUnit(t.mkNth(s, idx))))
+		t.chk(tail.set(t.mkSkolem(t.tail, s, idx, ast.ASTHandle{}, ast.ASTHandle{})))
+	} else {
+		t.chk(head.set(t.mkUnit(t.mkNth(e, t.mkInt(0)))))
+		t.chk(tail.set(t.mkSkolem(t.tail, e, t.mkInt(0), ast.ASTHandle{}, ast.ASTHandle{})))
+	}
+}
+
 func (t *SMTTheorySeq) mkDecompose(x *seqRefs, e ast.ASTHandle) (head, tail ast.ASTHandle) {
 	if t.isEmpty(e) {
 		head = t.ref(x, t.mkUnit(t.mkNth(e, t.mkInt(0))), nil)

@@ -481,6 +481,7 @@ func (t *SMTTheorySeq) Close() (result error) {
 	t.closeAutomata()
 	result = errors.Join(result,
 		t.modelTrail.reset(), t.res.reset(), t.rhsV.reset(), t.lhsV.reset(), t.rs.reset(), t.ls.reset(),
+		t.seqRewrite.Close(),
 		t.intString.reset(), t.axioms.reset(), t.exclude.rhs.reset(), t.exclude.lhs.reset(),
 		t.rep.rhs.reset(), t.rep.lhs.reset(), t.rep.cache.reset(), t.tmps.release())
 	for t.eqs.len() > 0 {

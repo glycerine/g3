@@ -18,6 +18,77 @@ type SequenceRewriter struct {
 	manager *ast.ASTManager
 	family  ast.FamilyID
 	solver  SequenceExpressionSolver
+	// m_lhs and m_rhs: expr_ref_vector members that reduce_eq resets and
+	// refills, so the words of the last reduction stay referenced until the
+	// next reduce_eq or the rewriter's destruction.
+	esMember, lhsMember, rhsMember seqMemberVector
+}
+
+// seqMemberVector is an expr_ref_vector: every element holds one reference.
+type seqMemberVector struct {
+	items []ast.ASTHandle
+}
+
+// reset releases the elements front to back (dec_range).
+func (v *seqMemberVector) reset(m *ast.ASTManager) error {
+	for len(v.items) > 0 {
+		h := v.items[0]
+		v.items = v.items[1:]
+		if err := m.DecRef(h); err != nil {
+			return err
+		}
+	}
+	v.items = nil
+	return nil
+}
+
+func (v *seqMemberVector) setAt(m *ast.ASTManager, i int, h ast.ASTHandle) error {
+	if err := m.IncRef(h); err != nil {
+		return err
+	}
+	old := v.items[i]
+	v.items[i] = h
+	return m.DecRef(old)
+}
+
+func (v *seqMemberVector) pushBack(m *ast.ASTManager, h ast.ASTHandle) error {
+	if err := m.IncRef(h); err != nil {
+		return err
+	}
+	v.items = append(v.items, h)
+	return nil
+}
+
+// adopt makes v hold exactly items: the new contents are referenced before
+// the old ones are released.
+func (v *seqMemberVector) adopt(m *ast.ASTManager, items []ast.ASTHandle) error {
+	for _, h := range items {
+		if err := m.IncRef(h); err != nil {
+			return err
+		}
+	}
+	old := v.items
+	v.items = append([]ast.ASTHandle(nil), items...)
+	for _, h := range old {
+		if err := m.DecRef(h); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Close is ~seq_rewriter: m_rhs, m_lhs, then m_es.
+func (r *SequenceRewriter) Close() error {
+	if r == nil || r.manager == nil {
+		return nil
+	}
+	if err := r.rhsMember.reset(r.manager); err != nil {
+		return err
+	}
+	if err := r.lhsMember.reset(r.manager); err != nil {
+		return err
+	}
+	return r.esMember.reset(r.manager)
 }
 
 func NewSequenceRewriter(m *ast.ASTManager) (*SequenceRewriter, error) {
@@ -250,18 +321,30 @@ func (r *SequenceRewriter) assignEmptyLike(h ast.ASTHandle, out ast.ASTRef) (Rew
 	return RewriteDone, r.manager.SetRef(out, empty)
 }
 
+// RewriteLength is seq_rewriter::mk_seq_length: the flattened words live in
+// the m_es member, compacted in place.
 func (r *SequenceRewriter) RewriteLength(a ast.ASTHandle, out ast.ASTRef) (status RewriteStatus, err error) {
 	if err := r.open(); err != nil {
 		return RewriteFailed, err
 	}
-	leaves, err := r.manager.SequenceFlattenConcat(a)
+	m := r.manager
+	if err = r.esMember.reset(m); err != nil {
+		return RewriteFailed, err
+	}
+	leaves, err := m.SequenceFlattenConcat(a)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	length := new(big.Int)
-	unknown := make([]ast.ASTHandle, 0, len(leaves))
 	for _, leaf := range leaves {
-		text, stringValue, err := r.manager.SequenceStringValue(leaf)
+		if err = r.esMember.pushBack(m, leaf); err != nil {
+			return RewriteFailed, err
+		}
+	}
+	es := r.esMember.items
+	length := new(big.Int)
+	j := 0
+	for i := range es {
+		text, stringValue, err := m.SequenceStringValue(es[i])
 		if err != nil {
 			return RewriteFailed, err
 		}
@@ -269,62 +352,76 @@ func (r *SequenceRewriter) RewriteLength(a ast.ASTHandle, out ast.ASTRef) (statu
 			length.Add(length, new(big.Int).SetUint64(uint64(len(text))))
 			continue
 		}
-		unit, err := r.manager.IsSequenceUnit(leaf)
+		unit, err := m.IsSequenceUnit(es[i])
 		if err != nil {
 			return RewriteFailed, err
 		}
-		if !unit {
-			unknown = append(unknown, leaf)
+		if unit {
+			length.Add(length, big.NewInt(1))
 			continue
 		}
-		length.Add(length, big.NewInt(1))
+		empty, err := m.IsSequenceEmpty(es[i])
+		if err != nil {
+			return RewriteFailed, err
+		}
+		if empty {
+			continue
+		}
+		// m_es[j] = m_es[i]
+		if err = r.esMember.setAt(m, j, es[i]); err != nil {
+			return RewriteFailed, err
+		}
+		j++
 	}
-	if len(unknown) == 0 {
+	if j == 0 {
 		return r.assignInteger(length, out)
 	}
-	if len(unknown) == 1 && length.Sign() == 0 && len(leaves) == 1 {
+	if j == len(es) && j == 1 {
 		return RewriteFailed, nil
 	}
-	terms := make([]ast.ASTHandle, 0, len(unknown)+1)
-	refs := make([]ast.ASTRef, 0, len(unknown)+1)
-	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			err = errors.Join(err, r.manager.DelRef(&refs[i]))
-		}
-	}()
-	for _, leaf := range unknown {
-		term, e := r.manager.MkSequenceLength(leaf)
+	// expr_ref_vector es(m()), released front to back on return.
+	var terms seqMemberVector
+	defer func() { err = errors.Join(err, terms.reset(m)) }()
+	for i := 0; i < j; i++ {
+		term, e := m.MkSequenceLength(es[i])
 		if e != nil {
 			return RewriteFailed, e
 		}
-		ref, e := r.manager.NewRef(term)
-		if e != nil {
+		if e = terms.pushBack(m, term); e != nil {
 			return RewriteFailed, e
 		}
-		refs = append(refs, ref)
-		terms = append(terms, term)
 	}
 	if length.Sign() != 0 {
 		term, e := r.makeInteger(length)
 		if e != nil {
 			return RewriteFailed, e
 		}
-		ref, e := r.manager.NewRef(term)
+		if e = terms.pushBack(m, term); e != nil {
+			return RewriteFailed, e
+		}
+	}
+	// arith_util::mk_add(n, args): a single application argument is returned.
+	var result ast.ASTHandle
+	single := false
+	if len(terms.items) == 1 {
+		kind, e := m.GetKind(terms.items[0])
 		if e != nil {
 			return RewriteFailed, e
 		}
-		refs = append(refs, ref)
-		terms = append(terms, term)
+		single = kind == ast.ASTApp
 	}
-	family, err := r.manager.ArithmeticFamilyID()
-	if err != nil {
-		return RewriteFailed, err
+	if single {
+		result = terms.items[0]
+	} else {
+		family, e := m.ArithmeticFamilyID()
+		if e != nil {
+			return RewriteFailed, e
+		}
+		if result, e = m.MkFamilyApp(family, 6, nil, terms.items); e != nil {
+			return RewriteFailed, e
+		}
 	}
-	result, err := r.manager.MkFamilyApp(family, 6, nil, terms)
-	if err != nil {
-		return RewriteFailed, err
-	}
-	if err = r.manager.SetRef(out, result); err != nil {
+	if err = m.SetRef(out, result); err != nil {
 		return RewriteFailed, err
 	}
 	return Rewrite2, nil
