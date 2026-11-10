@@ -107,17 +107,12 @@ func (c *Context) simplifyOptimizationFormulas(set *opt.ObjectiveFormulaSet) (re
 	}
 	m, params, globals := c.manager, c.config.Params, c.config.Globals
 	if err = appendStage(tacticcore.MakeSimplifyTactic(m, params, globals, &c.params)); err == nil {
+		// mk_propagate_values_tactic is not wrapped in clean(): its imp
+		// (goal_shared_occs included) persists until the tactic dies.
 		var propagate *tacticcore.PropagateValuesTactic
 		propagate, err = tacticcore.NewPropagateValuesTactic(m, params, globals, &c.params)
 		if err == nil {
-			child := propagate
-			var clean tactic.Tactic
-			clean, err = tactic.NewCleanTactic(child)
-			if err != nil {
-				err = errors.Join(err, child.Close())
-			} else {
-				err = appendStage(clean, nil)
-			}
+			err = appendStage(propagate, nil)
 		}
 	}
 	if err == nil {

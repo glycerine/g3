@@ -28,6 +28,8 @@ type LIA2CardTactic struct {
 	// pbArgs is m_rw's lia_rewriter_cfg::args, alive until the next is_pb
 	// or the tactic's destruction.
 	pbArgs                               *PBSum
+	rw                                   *rewriter.Traversal
+	rwConfig                             *lia2cardRewriteConfig
 	ownerBytes                           uint64
 	refs                                 uint32
 	compileEquality, paramsReady, closed bool
@@ -115,11 +117,18 @@ func (t *LIA2CardTactic) Close() error {
 	if t.closed {
 		return nil
 	}
+	// ~lia_rewriter: m_cfg (args) goes before the rewriter_tpl cache.
 	if t.pbArgs != nil {
 		if err := t.pbArgs.Close(); err != nil {
 			return err
 		}
 		t.pbArgs = nil
+	}
+	if t.rw != nil {
+		if err := t.rw.Close(); err != nil {
+			return err
+		}
+		t.rw, t.rwConfig = nil, nil
 	}
 	if t.bounds != nil {
 		if err := t.bounds.Close(); err != nil {
@@ -247,14 +256,31 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 	if err != nil {
 		return err
 	}
-	walk, err := rewriter.NewTraversal(t.manager, &lia2cardRewriteConfig{manager: t.manager, arithmetic: arith, zeroOne: zeroOne, compileEquality: t.compileEquality, trace: t.trace, owner: t})
-	if err != nil {
-		if walk != nil {
-			err = errors.Join(err, walk.Close())
+	// m_rw is a tactic member: its rewrite cache persists across goals
+	// (cleanup() only resets m_01s and m_todo) until the tactic dies.
+	if t.rw == nil {
+		t.rwConfig = &lia2cardRewriteConfig{manager: t.manager, owner: t}
+		walk, e := rewriter.NewTraversal(t.manager, t.rwConfig)
+		if e != nil {
+			if walk != nil {
+				e = errors.Join(e, walk.Close())
+			}
+			t.rwConfig = nil
+			return e
 		}
-		return err
+		t.rw = walk
 	}
-	defer func() { err = errors.Join(err, walk.Close()) }()
+	t.rwConfig.arithmetic, t.rwConfig.zeroOne = arith, zeroOne
+	t.rwConfig.compileEquality, t.rwConfig.trace = t.compileEquality, t.trace
+	walk := t.rw
+	defer func() {
+		// A failed rewrite can leave partial frames behind; start the next
+		// apply from a fresh rewriter.
+		if err != nil && t.rw != nil {
+			err = errors.Join(err, t.rw.Close())
+			t.rw, t.rwConfig = nil, nil
+		}
+	}()
 	output, err := t.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return err
