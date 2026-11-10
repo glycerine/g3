@@ -223,67 +223,96 @@ func (r *cofactorTermITERewriter) isEquality(h ast.ASTHandle) (bool, error) {
 	return op == ast.ASTOpEq, err
 }
 
+// bestCondition is cofactor_elim_term_ite::imp::get_best: a frame-based walk
+// that marks only shared arguments (ref count > 1) as visited, counts each
+// term-ite condition in obj_map occs when its frame reaches argument 0, and
+// picks the shallowest, most frequent condition (equalities break ties) in
+// occs' table order.
 func (r *cofactorTermITERewriter) bestCondition(root ast.ASTHandle) (ast.ASTHandle, bool, error) {
 	m := r.owner.manager
-	stack := []ast.ASTHandle{root}
-	seen := make(map[ast.ASTHandle]bool)
-	counts := make(map[ast.ASTHandle]uint32)
-	var order []ast.ASTHandle
+	type frame struct {
+		expr ast.ASTHandle
+		next uint32
+	}
+	occs := ast.NewObjMap(m)
+	visited := make(map[ast.ASTHandle]bool)
+	stack := []frame{{expr: root}}
 	for len(stack) != 0 {
 		if err := r.checkpoint(); err != nil {
 			return ast.ASTHandle{}, false, err
 		}
-		i := len(stack) - 1
-		current := stack[i]
-		stack = stack[:i]
-		if seen[current] {
-			continue
-		}
-		seen[current] = true
-		yes, err := r.isTermITE(current)
-		if err != nil {
-			return ast.ASTHandle{}, false, err
-		}
-		if yes {
-			condition, e := m.GetArg(current, 0)
-			if e != nil {
-				return ast.ASTHandle{}, false, e
-			}
-			if counts[condition] == 0 {
-				order = append(order, condition)
-			}
-			counts[condition]++
-		}
-		kind, err := m.GetKind(current)
+		fr := &stack[len(stack)-1]
+		kind, err := m.GetKind(fr.expr)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
 		if kind != ast.ASTApp {
+			stack = stack[:len(stack)-1]
 			continue
 		}
-		n, err := m.GetNumArgs(current)
+		n, err := m.GetNumArgs(fr.expr)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
-		for j := n; j > 0; j-- {
-			child, e := m.GetArg(current, j-1)
-			if e != nil {
-				return ast.ASTHandle{}, false, e
+		termITE, err := r.isTermITE(fr.expr)
+		if err != nil {
+			return ast.ASTHandle{}, false, err
+		}
+		pushed := false
+		for fr.next < n {
+			arg, err := m.GetArg(fr.expr, fr.next)
+			if err != nil {
+				return ast.ASTHandle{}, false, err
 			}
-			stack = append(stack, child)
+			if fr.next == 0 && termITE {
+				entry, err := occs.InsertIfNotThere(arg)
+				if err != nil {
+					return ast.ASTHandle{}, false, err
+				}
+				entry.Num++
+			}
+			fr.next++
+			refs, err := m.GetRefCount(arg)
+			if err != nil {
+				return ast.ASTHandle{}, false, err
+			}
+			if refs > 1 {
+				if visited[arg] {
+					continue
+				}
+				visited[arg] = true
+			}
+			argKind, err := m.GetKind(arg)
+			if err != nil {
+				return ast.ASTHandle{}, false, err
+			}
+			if argKind == ast.ASTApp {
+				count, err := m.GetNumArgs(arg)
+				if err != nil {
+					return ast.ASTHandle{}, false, err
+				}
+				if count > 0 {
+					stack = append(stack, frame{expr: arg})
+					pushed = true
+					break
+				}
+			}
+		}
+		if !pushed {
+			stack = stack[:len(stack)-1]
 		}
 	}
 	var best ast.ASTHandle
-	var bestDepth, bestCount uint32
-	for _, condition := range order {
-		depth, err := m.GetDepth(condition)
+	var bestDepth uint32
+	var bestCount uint64
+	for _, entry := range occs.Entries() {
+		depth, err := m.GetDepth(entry.Key)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
-		count := counts[condition]
-		choose := best.IsNull() || depth < bestDepth || depth == bestDepth && count > bestCount
-		if !choose && depth == bestDepth && count == bestCount {
-			equality, e1 := r.isEquality(condition)
+		choose := best.IsNull() || depth < bestDepth || depth == bestDepth && entry.Num > bestCount
+		if !choose && depth == bestDepth && entry.Num == bestCount {
+			equality, e1 := r.isEquality(entry.Key)
 			bestEquality, e2 := r.isEquality(best)
 			if e := errors.Join(e1, e2); e != nil {
 				return ast.ASTHandle{}, false, e
@@ -291,7 +320,7 @@ func (r *cofactorTermITERewriter) bestCondition(root ast.ASTHandle) (ast.ASTHand
 			choose = equality && !bestEquality
 		}
 		if choose {
-			best, bestDepth, bestCount = condition, depth, count
+			best, bestDepth, bestCount = entry.Key, depth, entry.Num
 		}
 	}
 	return best, !best.IsNull(), nil
