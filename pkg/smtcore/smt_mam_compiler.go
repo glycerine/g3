@@ -96,9 +96,21 @@ func (c *smtMAMCompiler) decl(e ast.ASTHandle) ast.ASTHandle {
 }
 
 func (c *smtMAMCompiler) declID(d ast.ASTHandle) uint32 {
-	id, err := c.state.manager.GetASTID(d)
+	id, err := smtMAMDeclID(c.state.manager, d)
 	c.fail(err)
 	return id
+}
+
+// smtMAMDeclID is func_decl::get_decl_id: get_id() - c_first_decl_id.
+func smtMAMDeclID(m *ast.ASTManager, d ast.ASTHandle) (uint32, error) {
+	id, err := m.GetASTID(d)
+	if err != nil {
+		return 0, err
+	}
+	if id < 1<<31 {
+		return 0, ast.ErrASTDomain
+	}
+	return id - 1<<31, nil
 }
 
 func (c *smtMAMCompiler) numArgs(e ast.ASTHandle) uint32 {

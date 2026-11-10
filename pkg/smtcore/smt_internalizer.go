@@ -699,6 +699,9 @@ func (s *SMTInternalizerState) internalizeQuantifier(expression ast.ASTHandle, g
 	if err = s.quantifiers.Add(expression, generation); err != nil {
 		return err
 	}
+	if s.quantifierManager != nil && s.quantifierManager.mbqi {
+		s.quantifierManager.pluginActive = true // default_qm_plugin::add
+	}
 	if s.quantifierManager != nil && s.quantifierManager.modelFinder != nil {
 		if err = s.quantifierManager.modelFinder.RegisterQuantifier(expression); err != nil {
 			return errors.Join(err, s.quantifiers.Delete(expression))

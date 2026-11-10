@@ -590,9 +590,6 @@ func (k *SMTKernel) UpdateParams(params *uparams.ParamsRef) error {
 		if err = manager.UpdateMBQI(quantifiers.MBQI, mbqiID, quantifiers.MaxCexs, quantifiers.MaxIterations, quantifiers.ForceTemplate); err != nil {
 			return err
 		}
-		if !manager.ematching && paramsState.Ematching {
-			manager.mam.dirty = true
-		}
 		manager.ematching = paramsState.Ematching
 		manager.maxEagerMultipatterns = quantifiers.MaxEagerMultipatterns
 		manager.maxLazyMultipatternMatching = quantifiers.MaxLazyMultipatternMatching

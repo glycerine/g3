@@ -45,10 +45,12 @@ func TestSMTRecursiveDefinitionActivatesOnlyFunctionTrigger(t *testing.T) {
 	astTestMust(t, state.Internalize(q, true))
 	astTestMust(t, state.context.SetRelevant(q, true))
 	astTestMust(t, state.context.SetAssignment(q, lbool.True))
+	astTestMust(t, manager.AssignQuantifier(q))
 	astTestMust(t, manager.Propagate())
 	first, err := m.GetPattern(q, 0)
 	astTestMust(t, err)
-	if len(manager.mam.patterns) != 1 || manager.mam.patterns[0].pattern != first || len(manager.lazyMAM.patterns) != 0 {
+	eager := smtMAMTestPatterns(t, manager.mam)
+	if len(eager) != 1 || eager[0] != first || len(smtMAMTestPatterns(t, manager.lazyMAM)) != 0 {
 		t.Fatal("recursive body trigger was installed as an ordinary trigger")
 	}
 }

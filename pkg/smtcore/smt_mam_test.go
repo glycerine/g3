@@ -40,10 +40,12 @@ func TestSMTQuantifierMatchersHonorDisabledRelevancy(t *testing.T) {
 		_, constants[index] = smtEnodeConstant(t, m, 2630+uint32(index), sort, uint32(index+2))
 		astTestMust(t, state.context.RegisterEnode(constants[index], false))
 	}
-	pa, _ := smtQuickApplicationNode(t, m, state.context, p, constants[0], false)
-	smtQuickApplicationNode(t, m, state.context, p, constants[1], false)
-	smtQuickApplicationNode(t, m, state.context, q, constants[1], false)
-	smtQuickApplicationNode(t, m, state.context, q, constants[2], false)
+	pa, pa0 := smtQuickApplicationNode(t, m, state.context, p, constants[0], false)
+	_, pa1 := smtQuickApplicationNode(t, m, state.context, p, constants[1], false)
+	_, qa1 := smtQuickApplicationNode(t, m, state.context, q, constants[1], false)
+	_, qa2 := smtQuickApplicationNode(t, m, state.context, q, constants[2], false)
+	apps := []*SMTEnode{pa0, pa1, qa1, qa2}
+	smtMAMTestCongruence(t, state, apps...)
 	astTestMust(t, state.context.SetAssignment(pa, lbool.False))
 	quick, err := NewSMTQuickChecker(state.context, smtQuickTheoryRewriter(t, m), registry)
 	astTestMust(t, err)
@@ -79,8 +81,15 @@ func TestSMTQuantifierMatchersHonorDisabledRelevancy(t *testing.T) {
 		if unsat == enabled {
 			t.Fatal("quick checker ignored the current relevancy policy", enabled, unsat)
 		}
-		mam.dirty = true
-		astTestMust(t, mam.Match())
+		if enabled {
+			astTestMust(t, mam.Rematch(false))
+		} else {
+			// Without relevancy, propagate reports every enode as relevant.
+			for _, n := range apps {
+				mam.RelevantEh(n, false)
+			}
+			astTestMust(t, mam.Match())
+		}
 		if enabled && len(registry.schedule.newEntries) != 0 || !enabled && len(registry.schedule.newEntries) != 1 {
 			t.Fatal("E-matching did not obey the current relevancy policy", enabled, registry.schedule.newEntries)
 		}
@@ -94,7 +103,7 @@ func TestSMTQuantifierMatchersHonorDisabledRelevancy(t *testing.T) {
 	}
 }
 
-func smtMAMFixture(t *testing.T) (*ast.ASTManager, *SMTInternalizerState, *SMTQuantifierRegistry, *SMTMAM) {
+func smtMAMFixture(t *testing.T) (*ast.ASTManager, *SMTInternalizerState, *SMTQuantifierRegistry, *smtMAMImpl) {
 	t.Helper()
 	m := astTestManager(t)
 	costs, err := NewSMTQICostModel(m, "0", "0", nil)
@@ -107,9 +116,44 @@ func smtMAMFixture(t *testing.T) (*ast.ASTManager, *SMTInternalizerState, *SMTQu
 	state, err := NewSMTInternalizerState(m, context, registry)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, state.Close()) })
-	mam, err := NewSMTMAM(state, registry)
-	astTestMust(t, err)
-	return m, state, registry, mam
+	return m, state, registry, newSMTMAMImpl(state, registry, true)
+}
+
+// smtMAMTestCongruence inserts hand-built application enodes into the
+// congruence table, as internalization does; GET_CGR looks them up there.
+func smtMAMTestCongruence(t *testing.T, state *SMTInternalizerState, nodes ...*SMTEnode) {
+	t.Helper()
+	for _, n := range nodes {
+		_, err := state.congruence.Insert(n)
+		astTestMust(t, err)
+	}
+}
+
+// smtMAMTestPatterns lists the distinct multi-patterns yielded by the code
+// trees, in tree order.
+func smtMAMTestPatterns(t *testing.T, r *smtMAMImpl) []ast.ASTHandle {
+	t.Helper()
+	type qp struct{ qa, pat ast.ASTHandle }
+	seen := make(map[qp]bool)
+	var out []ast.ASTHandle
+	var walk func(*smtMAMInstr)
+	walk = func(i *smtMAMInstr) {
+		for ; i != nil; i = i.next {
+			if i.op == mamCHOOSE && i.alt != nil {
+				walk(i.alt)
+			}
+			if i.op >= mamYIELD1 && i.op <= mamYIELDN && !seen[qp{i.qa, i.pat}] {
+				seen[qp{i.qa, i.pat}] = true
+				out = append(out, i.pat)
+			}
+		}
+	}
+	for _, tree := range r.trees {
+		if tree != nil {
+			walk(tree.root)
+		}
+	}
+	return out
 }
 
 func smtMAMQuantifier(t *testing.T, m *ast.ASTManager, name string, sort ast.ASTHandle, terms []ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle) {
@@ -164,7 +208,7 @@ func TestSMTMAMMatchesUnaryAndRepeatedVariablesModuloEquality(t *testing.T) {
 	astTestMust(t, err)
 	node.congruence = node
 	astTestMust(t, state.context.RegisterEnode(node, true))
-	mam.Relevant(node)
+	mam.RelevantEh(node, false)
 	astTestMust(t, mam.Match())
 	if len(registry.schedule.newEntries) != 1 || registry.schedule.newEntries[0].Fingerprint.args[0].root != a.root {
 		t.Fatal("repeated-variable trigger binding", registry.schedule.newEntries)
@@ -191,18 +235,19 @@ func TestSMTMAMJoinsMultiPatternsAndRollsBackPatterns(t *testing.T) {
 	_, b := smtEnodeConstant(t, m, 2611, sort, 2)
 	astTestMust(t, state.context.RegisterEnode(a, true))
 	astTestMust(t, state.context.RegisterEnode(b, true))
-	smtQuickApplicationNode(t, m, state.context, p, a, true)
-	smtQuickApplicationNode(t, m, state.context, p, b, true)
-	smtQuickApplicationNode(t, m, state.context, q, b, true)
-	astTestMust(t, mam.PushScope())
+	_, pa := smtQuickApplicationNode(t, m, state.context, p, a, true)
+	_, pb := smtQuickApplicationNode(t, m, state.context, p, b, true)
+	_, qb := smtQuickApplicationNode(t, m, state.context, q, b, true)
+	smtMAMTestCongruence(t, state, pa, pb, qb)
+	mam.PushScope()
 	astTestMust(t, mam.AddPattern(quantifier, pattern))
 	astTestMust(t, mam.Match())
 	if len(registry.schedule.newEntries) != 1 || registry.schedule.newEntries[0].Fingerprint.args[0].root != b.root {
 		t.Fatal("multi-pattern join", registry.schedule.newEntries)
 	}
-	astTestMust(t, mam.PopScopes(1))
+	mam.PopScope(1)
 	registry.schedule.newEntries = nil
-	mam.Relevant(b)
+	mam.RelevantEh(b, false)
 	astTestMust(t, mam.Match())
 	if len(registry.schedule.newEntries) != 0 {
 		t.Fatal("popped pattern remained active")
@@ -228,13 +273,13 @@ func TestSMTMAMTracksNestedGroundPatternTermsAsShared(t *testing.T) {
 	astTestMust(t, err)
 	quantifier, pattern := smtMAMQuantifier(t, m, "mam-shared", sort, []ast.ASTHandle{trigger})
 	astTestMust(t, registry.Add(quantifier, 0))
-	astTestMust(t, mam.PushScope())
+	mam.PushScope()
 	astTestMust(t, mam.AddPattern(quantifier, pattern))
 	node := state.context.enodes.get(constant)
 	if node == nil || !mam.IsShared(node) {
 		t.Fatal("nested ground pattern term was not internalized and shared")
 	}
-	astTestMust(t, mam.PopScopes(1))
+	mam.PopScope(1)
 	if mam.IsShared(node) {
 		t.Fatal("shared pattern term survived pattern rollback")
 	}

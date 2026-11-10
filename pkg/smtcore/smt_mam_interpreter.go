@@ -275,6 +275,12 @@ func (it *smtMAMInterpreter) execute(t *smtMAMCodeTree) error {
 	return it.err
 }
 
+func (it *smtMAMInterpreter) takeErr() error {
+	err := it.err
+	it.err = nil
+	return err
+}
+
 // getMinMaxTopGeneration is get_min_max_top_generation.
 func (it *smtMAMInterpreter) getMinMaxTopGeneration() (lo, hi uint32) {
 	if len(it.minTopGeneration) == 0 {

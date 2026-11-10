@@ -58,6 +58,7 @@ func smtNewLazyMAMFixture(t *testing.T, unary bool, eager, lazy uint32) smtLazyM
 	astTestMust(t, state.Internalize(q, true))
 	astTestMust(t, state.context.SetRelevant(q, true))
 	astTestMust(t, state.context.SetAssignment(q, lbool.True))
+	astTestMust(t, manager.AssignQuantifier(q))
 	astTestMust(t, manager.Propagate())
 	return smtLazyMAMFixture{m: m, state: state, registry: registry, manager: manager, quantifier: q, sort: sort, functions: functions}
 }
@@ -93,8 +94,9 @@ func TestSMTQuantifierPartitionsEagerAndLazyMultipatterns(t *testing.T) {
 				if unary {
 					wantEager++
 				}
-				if len(f.manager.mam.patterns) != wantEager || len(f.manager.lazyMAM.patterns) != wantLazy {
-					t.Fatal("source unary/multipattern partition", len(f.manager.mam.patterns), len(f.manager.lazyMAM.patterns), wantEager, wantLazy)
+				gotEager, gotLazy := len(smtMAMTestPatterns(t, f.manager.mam)), len(smtMAMTestPatterns(t, f.manager.lazyMAM))
+				if gotEager != wantEager || gotLazy != wantLazy {
+					t.Fatal("source unary/multipattern partition", gotEager, gotLazy, wantEager, wantLazy)
 				}
 			})
 		}
@@ -193,16 +195,17 @@ func TestSMTLazyPatternsRestoreScopesAndContributeSharedGroundTerms(t *testing.T
 	astTestMust(t, err)
 	astTestMust(t, f.state.Internalize(q, true))
 	astTestMust(t, f.state.context.SetAssignment(q, lbool.True))
+	astTestMust(t, f.manager.AssignQuantifier(q))
 	astTestMust(t, f.manager.Propagate())
 	node := f.state.context.enodes.get(anchor)
 	if node == nil || f.manager.mam.IsShared(node) || !f.manager.lazyMAM.IsShared(node) || !f.manager.IsShared(node) {
 		t.Fatal("deferred pattern ground term was omitted from context sharing")
 	}
-	if len(f.manager.mam.patterns) != 2 || len(f.manager.lazyMAM.patterns) != 3 {
+	if len(smtMAMTestPatterns(t, f.manager.mam)) != 2 || len(smtMAMTestPatterns(t, f.manager.lazyMAM)) != 3 {
 		t.Fatal("child pattern partition")
 	}
 	astTestMust(t, f.state.PopScopes(1))
-	if len(f.manager.mam.patterns) != 1 || len(f.manager.lazyMAM.patterns) != 2 || f.manager.IsShared(node) || f.manager.activated[q] {
+	if len(smtMAMTestPatterns(t, f.manager.mam)) != 1 || len(smtMAMTestPatterns(t, f.manager.lazyMAM)) != 2 || f.manager.IsShared(node) {
 		t.Fatal("child lazy patterns/sharing/activation escaped pop")
 	}
 }

@@ -474,6 +474,10 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 	if err := s.propagateEqualityClassRelevancy(r1, r2); err != nil {
 		return fmt.Errorf("propagate equality-class relevancy: %w", err)
 	}
+	// m_qmanager->add_eq_eh(r1, r2) runs before the classes are merged.
+	if q := s.quantifierManager; q != nil && !q.closed && q.ematching && !q.registry.Empty() {
+		q.mam.AddEqEh(r1, r2)
+	}
 	if err := s.mergeTheoryVariables(left, right, justification); err != nil {
 		return fmt.Errorf("merge theory variables: %w", err)
 	}
@@ -502,9 +506,6 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 	r1.next, r2.next = r2.next, r1.next
 	r2.classSize += r1.classSize
 	r2.disequalities = append(r2.disequalities, r1.disequalities...)
-	if s.quantifierManager != nil && s.quantifierManager.ematching && !s.quantifierManager.registry.Empty() {
-		s.quantifierManager.mam.AddEquality(r1, r2)
-	}
 	return nil
 }
 

@@ -26,8 +26,8 @@ type SMTQuantifierManager struct {
 	quick           *SMTQuickChecker
 	substitute      *SMTCachedVarSubstitution
 	builder         *SMTQIInstanceBuilder
-	mam             *SMTMAM
-	lazyMAM         *SMTMAM
+	mam             *smtMAMImpl
+	lazyMAM         *smtMAMImpl
 	modelFinder     *SMTModelFinder
 	modelChecker    *SMTModelChecker
 	auxiliarySolver smtAuxiliarySolverFactory
@@ -36,10 +36,10 @@ type SMTQuantifierManager struct {
 	// retiredProto is context::m_proto_model after MBQI rejected it: it
 	// stays alive until the next mk_proto_model has built its successor, or
 	// the search starts or ends.
-	retiredProto                *protomodel.ProtoModel
-	activated                   map[ast.ASTHandle]bool
-	activationTrail             []ast.ASTHandle
-	activationScopes            []int
+	retiredProto *protomodel.ProtoModel
+	// active is default_qm_plugin::m_active: set by add (MBQI) and
+	// assign_eh, never reset.
+	pluginActive                bool
 	newEnodeHead                int
 	newEnodeScopes              []int
 	lazyMatchingIndex           uint32
@@ -112,14 +112,8 @@ func NewSMTQuantifierManager(state *SMTInternalizerState, rw *rewriter.TheoryRew
 	if err != nil {
 		return nil, errors.Join(err, substitute.Close())
 	}
-	mam, err := NewSMTMAM(state, state.quantifiers)
-	if err != nil {
-		return nil, errors.Join(err, substitute.Close())
-	}
-	lazyMAM, err := NewSMTMAM(state, state.quantifiers)
-	if err != nil {
-		return nil, errors.Join(err, substitute.Close())
-	}
+	mam := newSMTMAMImpl(state, state.quantifiers, true)
+	lazyMAM := newSMTMAMImpl(state, state.quantifiers, true)
 	modelFinder, err := NewSMTModelFinder(state)
 	if err != nil {
 		return nil, errors.Join(err, substitute.Close())
@@ -127,7 +121,7 @@ func NewSMTQuantifierManager(state *SMTInternalizerState, rw *rewriter.TheoryRew
 	modelFinder.SetForceTemplate(config.ForceTemplate)
 	result := &SMTQuantifierManager{
 		state: state, registry: state.quantifiers, rewriter: rw, checker: checker, quick: quick,
-		substitute: substitute, builder: builder, mam: mam, lazyMAM: lazyMAM, modelFinder: modelFinder, activated: make(map[ast.ASTHandle]bool),
+		substitute: substitute, builder: builder, mam: mam, lazyMAM: lazyMAM, modelFinder: modelFinder,
 		maxEagerMultipatterns:       config.MaxEagerMultipatterns,
 		maxLazyMultipatternMatching: config.MaxLazyMultipatternMatching,
 		lazyInstantiation:           config.LazyInstantiation,
@@ -250,20 +244,9 @@ func (q *SMTQuantifierManager) CanPropagate() bool {
 	if q == nil || q.closed || q.registry == nil {
 		return false
 	}
-	if q.registry.schedule.HasWork() || q.ematching && !q.registry.Empty() && q.mam.HasWork() {
-		return true
-	}
-	if q.hasNewEnodes() {
-		return true
-	}
-	if q.ematching {
-		for _, quantifier := range q.registry.quantifiers {
-			if q.active(quantifier) && !q.activated[quantifier] {
-				return true
-			}
-		}
-	}
-	return false
+	// quantifier_manager::can_propagate: m_qi_queue.has_work() ||
+	// m_plugin->can_propagate() (m_mam->has_work()).
+	return q.registry.schedule.HasWork() || q.mam.HasWork() || q.hasNewEnodes()
 }
 
 // Source default_qm_plugin::propagate scans newly internalized enodes when
@@ -277,70 +260,72 @@ func (q *SMTQuantifierManager) notifyNewEnodes() {
 		return
 	}
 	for _, node := range q.state.enodeStack[q.newEnodeHead:] {
-		q.mam.Relevant(node)
-		q.lazyMAM.Relevant(node)
+		q.mam.RelevantEh(node, false)
+		q.lazyMAM.RelevantEh(node, true)
 	}
 	q.newEnodeHead = len(q.state.enodeStack)
 }
 
-func (q *SMTQuantifierManager) activatePatterns() error {
+// AssignQuantifier is default_qm_plugin::assign_eh, called when a
+// quantifier atom is propagated with value true (context::assign_quantifier).
+func (q *SMTQuantifierManager) AssignQuantifier(quantifier ast.ASTHandle) error {
+	if err := q.open(); err != nil {
+		return err
+	}
+	q.pluginActive = true
 	if !q.ematching {
 		return nil
 	}
-	for _, quantifier := range q.registry.quantifiers {
-		if !q.active(quantifier) || q.activated[quantifier] {
-			continue
-		}
-		count, err := q.state.manager.GetNumPatterns(quantifier)
+	count, err := q.state.manager.GetNumPatterns(quantifier)
+	if err != nil {
+		return err
+	}
+	hasUnary := false
+	for i := uint32(0); i < count; i++ {
+		pattern, err := q.state.manager.GetPattern(quantifier, i)
 		if err != nil {
 			return err
 		}
-		hasUnary := false
-		for i := uint32(0); i < count; i++ {
-			pattern, err := q.state.manager.GetPattern(quantifier, i)
-			if err != nil {
-				return err
-			}
-			terms, err := q.state.manager.GetNumArgs(pattern)
-			if err != nil {
-				return err
-			}
-			hasUnary = hasUnary || terms == 1
-		}
-		eagerLimit := q.maxEagerMultipatterns
-		if !hasUnary {
-			eagerLimit++
-		}
-		var multipatterns uint32
-		recursive, err := q.state.manager.IsRecursiveFunctionDefinition(quantifier)
+		terms, err := q.state.manager.GetNumArgs(pattern)
 		if err != nil {
 			return err
 		}
-		for i := uint32(0); i < count; i++ {
-			if recursive && i > 0 {
-				continue
-			}
-			pattern, err := q.state.manager.GetPattern(quantifier, i)
-			if err != nil {
-				return err
-			}
-			terms, err := q.state.manager.GetNumArgs(pattern)
-			if err != nil {
-				return err
-			}
-			matcher := q.mam
-			if terms != 1 {
-				if multipatterns >= eagerLimit {
-					matcher = q.lazyMAM
-				}
-				multipatterns++
-			}
-			if err = matcher.AddPattern(quantifier, pattern); err != nil {
-				return err
-			}
+		if terms == 1 {
+			hasUnary = true
+			break
 		}
-		q.activated[quantifier] = true
-		q.activationTrail = append(q.activationTrail, quantifier)
+	}
+	eagerLimit := q.maxEagerMultipatterns
+	if !hasUnary {
+		eagerLimit++
+	}
+	recursive, err := q.state.manager.IsRecursiveFunctionDefinition(quantifier)
+	if err != nil {
+		return err
+	}
+	for i, j := uint32(0), uint32(0); i < count; i++ {
+		pattern, err := q.state.manager.GetPattern(quantifier, i)
+		if err != nil {
+			return err
+		}
+		terms, err := q.state.manager.GetNumArgs(pattern)
+		if err != nil {
+			return err
+		}
+		unary := terms == 1
+		if recursive && i > 0 {
+			// add only the first pattern
+		} else if !unary && j >= eagerLimit {
+			err = q.lazyMAM.AddPattern(quantifier, pattern)
+		} else {
+			err = q.mam.AddPattern(quantifier, pattern)
+		}
+		if err != nil {
+			return err
+		}
+		if !unary {
+			j++
+		}
 	}
 	return nil
 }
@@ -349,18 +334,11 @@ func (q *SMTQuantifierManager) PushScope() error {
 	if err := q.open(); err != nil {
 		return err
 	}
-	if err := q.mam.PushScope(); err != nil {
-		return err
-	}
-	if err := q.lazyMAM.PushScope(); err != nil {
-		return errors.Join(err, q.mam.PopScopes(1))
-	}
 	if err := q.modelFinder.PushScope(); err != nil {
-		_ = q.mam.PopScopes(1)
-		_ = q.lazyMAM.PopScopes(1)
 		return err
 	}
-	q.activationScopes = append(q.activationScopes, len(q.activationTrail))
+	q.mam.PushScope()
+	q.lazyMAM.PushScope()
 	q.newEnodeScopes = append(q.newEnodeScopes, q.newEnodeHead)
 	q.lazyMatchingScopes = append(q.lazyMatchingScopes, len(q.lazyMatchingTrail))
 	return nil
@@ -373,26 +351,18 @@ func (q *SMTQuantifierManager) PopScopes(count uint32) error {
 	if q.pendingPop != nil && q.pendingPop.count != count {
 		return ast.ErrASTPending
 	}
-	if count == 0 || count > uint32(len(q.activationScopes)) {
+	if count == 0 || count > uint32(len(q.newEnodeScopes)) {
 		return ast.ErrASTDomain
 	}
-	level := len(q.activationScopes) - int(count)
-	limit := q.activationScopes[level]
+	level := len(q.newEnodeScopes) - int(count)
 	if q.pendingPop == nil {
 		q.pendingPop = &smtQuantifierPendingPop{count: count}
 	}
 	pop := q.pendingPop
 	if pop.stage == 0 {
-		if err := q.mam.PopScopes(count); err != nil {
-			return err
-		}
-		pop.stage++
-	}
-	if pop.stage == 1 {
-		if err := q.lazyMAM.PopScopes(count); err != nil {
-			return err
-		}
-		pop.stage++
+		q.mam.PopScope(count)
+		q.lazyMAM.PopScope(count)
+		pop.stage = 2
 	}
 	if pop.stage == 2 {
 		if err := q.modelFinder.PopScopes(count); err != nil {
@@ -400,11 +370,6 @@ func (q *SMTQuantifierManager) PopScopes(count uint32) error {
 		}
 		pop.stage++
 	}
-	for _, quantifier := range q.activationTrail[limit:] {
-		delete(q.activated, quantifier)
-	}
-	q.activationTrail = q.activationTrail[:limit]
-	q.activationScopes = q.activationScopes[:level]
 	q.newEnodeHead = q.newEnodeScopes[level]
 	q.newEnodeScopes = q.newEnodeScopes[:level]
 	for len(q.lazyMatchingTrail) > q.lazyMatchingScopes[level] {
@@ -475,15 +440,12 @@ func (q *SMTQuantifierManager) Propagate() error {
 	if err := q.open(); err != nil {
 		return err
 	}
-	if err := q.activatePatterns(); err != nil {
+	// default_qm_plugin::propagate: m_mam->match(), then without
+	// relevancy the new enodes are reported as relevant.
+	if err := q.mam.Match(); err != nil {
 		return err
 	}
 	q.notifyNewEnodes()
-	if q.ematching && q.mam.HasWork() {
-		if err := q.mam.Match(); err != nil {
-			return err
-		}
-	}
 	promoted, err := q.promotedEntries()
 	if err != nil {
 		return err
@@ -587,9 +549,6 @@ func (q *SMTQuantifierManager) matchLazyPatterns() error {
 	if !q.ematching || q.registry.Empty() || q.lazyMatchingIndex >= q.maxLazyMultipatternMatching {
 		return nil
 	}
-	if err := q.activatePatterns(); err != nil {
-		return err
-	}
 	if err := q.lazyMAM.Rematch(false); err != nil {
 		return err
 	}
@@ -599,13 +558,13 @@ func (q *SMTQuantifierManager) matchLazyPatterns() error {
 }
 
 func (q *SMTQuantifierManager) IsShared(node *SMTEnode) bool {
-	return q != nil && !q.closed && len(q.activated) != 0 && (q.mam.IsShared(node) || q.lazyMAM.IsShared(node))
+	return q != nil && !q.closed && q.pluginActive && (q.mam.IsShared(node) || q.lazyMAM.IsShared(node))
 }
 
 func (q *SMTQuantifierManager) NotifyRelevant(node *SMTEnode) {
-	if q != nil && !q.closed && q.ematching && !q.registry.Empty() {
-		q.mam.Relevant(node)
-		q.lazyMAM.Relevant(node)
+	if node != nil && q != nil && !q.closed && q.ematching && !q.registry.Empty() {
+		q.mam.RelevantEh(node, false)
+		q.lazyMAM.RelevantEh(node, true)
 	}
 }
 

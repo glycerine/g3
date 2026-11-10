@@ -86,6 +86,7 @@ func TestSMTQuantifierManagerNewEnodesAndCursorRollback(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(quantifier, true))
 	astTestMust(t, state.context.SetAssignment(quantifier, lbool.True))
+	astTestMust(t, manager.AssignQuantifier(quantifier))
 	astTestMust(t, manager.Propagate())
 	if manager.CanPropagate() {
 		t.Fatal("matching did not consume its initial work")
@@ -102,7 +103,11 @@ func TestSMTQuantifierManagerNewEnodesAndCursorRollback(t *testing.T) {
 		if !manager.CanPropagate() {
 			t.Fatal("new unmarked enode did not expose E-matching work", cycle)
 		}
-		astTestMust(t, manager.Propagate())
+		// propagate matches before reporting new enodes as relevant, so
+		// their candidates are matched on the next round.
+		for manager.CanPropagate() {
+			astTestMust(t, manager.Propagate())
+		}
 		if registry.schedule.Stats().Instances != cycle+1 || manager.newEnodeHead != len(state.enodeStack) {
 			t.Fatal("new enode was not matched", cycle, registry.schedule.Stats(), manager.newEnodeHead, len(state.enodeStack))
 		}
@@ -353,6 +358,7 @@ func TestSMTQuantifierManagerEMatchingFeedsInstanceQueue(t *testing.T) {
 	application, _ := smtQuickApplicationNode(t, m, state.context, predicate, binding, true)
 	astTestMust(t, state.context.SetRelevant(quantifier, true))
 	astTestMust(t, state.context.SetAssignment(quantifier, lbool.True))
+	astTestMust(t, manager.AssignQuantifier(quantifier))
 	astTestMust(t, state.context.SetAssignment(application, lbool.False))
 	if !manager.CanPropagate() {
 		t.Fatal("active patterned quantifier did not expose matching work")

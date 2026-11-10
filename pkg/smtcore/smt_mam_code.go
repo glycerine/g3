@@ -36,6 +36,15 @@ func (t *smtMAMTrail) popScope(n int) {
 	t.scopes = t.scopes[:level]
 }
 
+// reset is trail_stack::reset: pop every scope, then undo level 0.
+func (t *smtMAMTrail) reset() {
+	t.popScope(len(t.scopes))
+	for i := len(t.undo) - 1; i >= 0; i-- {
+		t.undo[i]()
+	}
+	t.undo = t.undo[:0]
+}
+
 func (t *smtMAMTrail) numScopes() int { return len(t.scopes) }
 
 // smtMAMLabelHasher is label_hasher: lbl_id -> mix(17, 3, lbl_id) & 63.

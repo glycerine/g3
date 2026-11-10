@@ -193,6 +193,14 @@ func (s *SMTInternalizerState) propagateAssignedAtom(literal SMTLiteral) error {
 		if err = plugin.Assign(variable, !literal.Sign()); err != nil {
 			return fmt.Errorf("assigned theory atom %d theory %d: %w", variable, data.Theory(), err)
 		}
+	} else if data.IsQuantifier() {
+		// All universal quantifiers have positive polarity in the input
+		// formula, so quantifiers assigned to false are ignored.
+		if q := s.quantifierManager; q != nil && s.assignment[NewSMTLiteral(variable, false).Index()] == lbool.True {
+			if err = q.AssignQuantifier(s.boolExpr[variable]); err != nil {
+				return fmt.Errorf("assign quantifier %d: %w", variable, err)
+			}
+		}
 	}
 	if s.atomNotified == nil {
 		s.atomNotified = make(map[int32]bool)

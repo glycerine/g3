@@ -70,7 +70,7 @@ func smtQuantifierRefusalFixture(t *testing.T, refuse func()) (*ast.ASTManager, 
 }
 
 func TestSMTQuantifierPopResumesAfterNativeCleanupRefusal(t *testing.T) {
-	for _, component := range []string{"manager", "registry", "mam"} {
+	for _, component := range []string{"manager", "registry"} {
 		t.Run(component, func(t *testing.T) {
 			var pop func(uint32) error
 			var refused error
@@ -94,17 +94,6 @@ func TestSMTQuantifierPopResumesAfterNativeCleanupRefusal(t *testing.T) {
 				astTestMust(t, err)
 				astTestMust(t, registry.schedule.RecordInstance(truth))
 				pop = registry.PopScopes
-			case "mam":
-				quantifier, predicate, sort := smtManagedQuantifier(t, m, "mam-refusal")
-				variable, err := m.MkVar(0, sort)
-				astTestMust(t, err)
-				body, err := m.MkApp(predicate, []ast.ASTHandle{variable})
-				astTestMust(t, err)
-				pattern, err := m.MkPattern([]ast.ASTHandle{body})
-				astTestMust(t, err)
-				astTestMust(t, manager.mam.AddPattern(quantifier, pattern))
-				astTestMust(t, manager.mam.PushScope())
-				pop = manager.mam.PopScopes
 			}
 			trigger()
 			if !errors.Is(refused, ast.ErrASTPending) {
@@ -121,33 +110,18 @@ func TestSMTQuantifierPopResumesAfterNativeCleanupRefusal(t *testing.T) {
 					t.Fatal("registry started a search during cleanup", err)
 				}
 			}
-			if component == "mam" {
-				entry := manager.mam.patterns[0]
-				if err := manager.mam.AddPattern(entry.quantifier, entry.pattern); !errors.Is(err, ast.ErrASTPending) {
-					t.Fatal("MAM accepted a pattern during cleanup", err)
-				}
-				if err := manager.mam.Match(); !errors.Is(err, ast.ErrASTPending) {
-					t.Fatal("MAM matched patterns during cleanup", err)
-				}
-				if err := manager.mam.Rematch(false); !errors.Is(err, ast.ErrASTPending) {
-					t.Fatal("MAM rematched patterns during cleanup", err)
-				}
-			}
-			if component == "manager" && (manager.pendingPop == nil || manager.pendingPop.stage != 2 || len(manager.mam.scopes) != 0 || len(manager.lazyMAM.scopes) != 0 || len(manager.modelFinder.scopes) != 1) {
-				t.Fatal("manager lost completed child stages", manager.pendingPop, len(manager.mam.scopes), len(manager.lazyMAM.scopes), len(manager.modelFinder.scopes))
+			if component == "manager" && (manager.pendingPop == nil || manager.pendingPop.stage != 2 || manager.mam.trail.numScopes() != 0 || manager.lazyMAM.trail.numScopes() != 0 || len(manager.modelFinder.scopes) != 1) {
+				t.Fatal("manager lost completed child stages", manager.pendingPop, manager.mam.trail.numScopes(), manager.lazyMAM.trail.numScopes(), len(manager.modelFinder.scopes))
 			}
 			if err := pop(2); !errors.Is(err, ast.ErrASTPending) {
 				t.Fatal("pending cleanup accepted a different scope count", err)
 			}
 			astTestMust(t, pop(1))
-			if component == "manager" && (manager.pendingPop != nil || len(manager.activationScopes) != 0 || len(manager.modelFinder.quantifiers) != 0) {
+			if component == "manager" && (manager.pendingPop != nil || len(manager.newEnodeScopes) != 0 || len(manager.modelFinder.quantifiers) != 0) {
 				t.Fatal("manager retry left scopes or quantifiers")
 			}
 			if component == "registry" && (registry.scopeLevel != 0 || len(registry.schedule.instances) != 0 || len(registry.fingerprints.scopes) != 0) {
 				t.Fatal("registry retry left scope owners")
-			}
-			if component == "mam" && (manager.mam.pendingPop != 0 || len(manager.mam.scopes) != 0 || len(manager.mam.patterns) != 1) {
-				t.Fatal("MAM retry lost surviving patterns or kept its scope")
 			}
 		})
 	}
