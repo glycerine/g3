@@ -601,6 +601,15 @@ Found while matching `-st` output against `build/z3` on
     collection, not from the first model. NEXT: log g3's branch values in
     qe/expr_quantifier_branch_limit.go and qe/expr_quantifier_tree_advance.go
     and diff them against that sequence.
+    DONE (diff): g3 adds the z branches 3, 1, 0, 2, while z3 adds 2, 1, 3, 0.
+    The search loop (final_check, update_current, pop, solve_vars,
+    constrain_assignment, which returns early for bit-vector variables)
+    matches the source, and nothing is asserted between the two checks.
+    z3's kernel answers the re-check after pop with a new model
+    (z!2 = #b10), where g3's returns the same model (#b11). The remaining
+    gap is in the inner smt::kernel's model on a re-check without new
+    assertions (phase/restart state of the bv2int/mod formula), not in the
+    qe port.
 
 19. **DONE (2026-11-09, 46531ec4a): MAM ported; old matcher deleted.**
    smtcore/smt_mam_{code,compiler,interpreter,impl}.go port mam.cpp's
