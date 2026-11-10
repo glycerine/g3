@@ -41,6 +41,8 @@ type SMTBitVectorTheory struct {
 	// literalBits marks terms whose init_bits ran: like m_bits, only their
 	// literals remain, and get_bits rebuilds the expressions on demand.
 	literalBits map[ast.ASTHandle]bool
+	// bitLocals are the blaster locals of a term until internalize_* returns.
+	bitLocals map[ast.ASTHandle][]ast.ASTRef
 	// bitBlasterFlat/ElimAnd are m_bb's bool_rewriter flags, read once.
 	bitBlasterFlat, bitBlasterElimAnd, bitBlasterFlagsRead bool
 	bitAtoms                                               map[int32][]smtBVBitOccurrence
@@ -85,6 +87,7 @@ func NewSMTBitVectorTheory(family ast.FamilyID) (*SMTBitVectorTheory, error) {
 		SMTTheoryBase:   base,
 		bits:            make(map[ast.ASTHandle][]ast.ASTHandle),
 		literalBits:     make(map[ast.ASTHandle]bool),
+		bitLocals:       make(map[ast.ASTHandle][]ast.ASTRef),
 		bitAtoms:        make(map[int32][]smtBVBitOccurrence),
 		bitOwners:       make(map[ast.ASTHandle][]ast.ASTRef),
 		comparisonAtoms: make(map[int32]SMTLiteral),
@@ -404,8 +407,12 @@ func (t *SMTBitVectorTheory) publishBitOwner(expression ast.ASTHandle, bits []as
 		}
 		owner = append(owner, ref)
 	}
-	if err := t.releaseTemporary(); err != nil {
-		return errors.Join(err, release())
+	// The blaster's intermediate outputs are the internalize_* locals
+	// (bits, new_bits, arg_bits): they live until that function returns,
+	// after init_bits, so they move to this term instead of dying here.
+	if len(t.temporary) != 0 {
+		t.bitLocals[expression] = append(t.bitLocals[expression], t.temporary...)
+		t.temporary = t.temporary[:0]
 	}
 	t.bits[expression] = bits
 	t.bitOwners[expression] = owner
@@ -698,13 +705,24 @@ func (t *SMTBitVectorTheory) InternalizeTerm(expression ast.ASTHandle) (bool, er
 // bits dies (front to back); m_bits keeps the literals, and the context
 // keeps the atoms it internalized.
 func (t *SMTBitVectorTheory) releaseBitOwner(expression ast.ASTHandle) error {
-	owner, found := t.bitOwners[expression]
-	if !found {
-		return nil
-	}
 	state, err := t.State()
 	if err != nil {
 		return err
+	}
+	if locals := t.bitLocals[expression]; len(locals) != 0 {
+		delete(t.bitLocals, expression)
+		for i := range locals {
+			if locals[i] == (ast.ASTRef{}) {
+				continue
+			}
+			if err := state.manager.DelRef(&locals[i]); err != nil {
+				return err
+			}
+		}
+	}
+	owner, found := t.bitOwners[expression]
+	if !found {
+		return nil
 	}
 	delete(t.bitOwners, expression)
 	t.bits[expression] = nil
@@ -1113,6 +1131,33 @@ func (t *SMTBitVectorTheory) Close() error {
 		}
 		delete(t.bitOwners, expression)
 		delete(t.bits, expression)
+	}
+	for k := len(t.bitTrail) - 1; k >= 0; k-- {
+		expression := t.bitTrail[k]
+		locals := t.bitLocals[expression]
+		delete(t.bitLocals, expression)
+		for i := range locals {
+			if locals[i] != (ast.ASTRef{}) {
+				if err := state.manager.DelRef(&locals[i]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	var stray []ast.ASTHandle
+	for expression := range t.bitLocals {
+		stray = append(stray, expression)
+	}
+	ast.SortHandles(stray)
+	for _, expression := range stray {
+		for _, ref := range t.bitLocals[expression] {
+			if ref != (ast.ASTRef{}) {
+				if err := state.manager.DelRef(&ref); err != nil {
+					return err
+				}
+			}
+		}
+		delete(t.bitLocals, expression)
 	}
 	t.bitAtoms = nil
 	for expression := range t.literalBits {
