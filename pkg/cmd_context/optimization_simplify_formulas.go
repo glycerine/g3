@@ -106,20 +106,38 @@ func (c *Context) simplifyOptimizationFormulas(set *opt.ObjectiveFormulaSet) (re
 		return cause
 	}
 	m, params, globals := c.manager, c.config.Params, c.config.Globals
-	if err = appendStage(tacticcore.MakeSimplifyTactic(m, params, globals, &c.params)); err == nil {
+	// opt::context's m_params: its constructor sets model, unsat_core and
+	// elim_to_real, and updt_params appends the user's settings. Only
+	// tac0's first simplify gets them; the other stages are made with
+	// default parameters.
+	optimizeParams, err := params.NewValue()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, params.Del(&optimizeParams)) }()
+	for _, name := range []string{"model", "unsat_core", "elim_to_real"} {
+		key := name
+		if err = params.SetBoolName(&optimizeParams, &key, true); err != nil {
+			return nil, err
+		}
+	}
+	if err = params.Copy(&optimizeParams, &c.params); err != nil {
+		return nil, err
+	}
+	if err = appendStage(tacticcore.MakeSimplifyTactic(m, params, globals, &optimizeParams)); err == nil {
 		// mk_propagate_values_tactic is not wrapped in clean(): its imp
 		// (goal_shared_occs included) persists until the tactic dies.
 		var propagate *tacticcore.PropagateValuesTactic
-		propagate, err = tacticcore.NewPropagateValuesTactic(m, params, globals, &c.params)
+		propagate, err = tacticcore.NewPropagateValuesTactic(m, params, globals, nil)
 		if err == nil {
 			err = appendStage(propagate, nil)
 		}
 	}
 	if err == nil {
-		err = appendStage(tacticcore.MakeSolveEquationsTactic(m, params, globals, &c.params, c.config.ModelEvaluator))
+		err = appendStage(tacticcore.MakeSolveEquationsTactic(m, params, globals, nil, c.config.ModelEvaluator))
 	}
 	if err == nil {
-		err = appendStage(tacticcore.MakeSimplifyTactic(m, params, globals, &c.params))
+		err = appendStage(tacticcore.MakeSimplifyTactic(m, params, globals, nil))
 	}
 	optParams, paramsErr := opt.NewParams(params, globals, &c.params)
 	err = errors.Join(err, paramsErr)
@@ -162,7 +180,7 @@ func (c *Context) simplifyOptimizationFormulas(set *opt.ObjectiveFormulaSet) (re
 				err = appendStage(arith.MakeEq2BVTactic(m, params, globals))
 			}
 			if err == nil {
-				err = appendStage(tacticcore.MakeSimplifyTactic(m, params, globals, &c.params))
+				err = appendStage(tacticcore.MakeSimplifyTactic(m, params, globals, nil))
 			}
 		}
 	}
