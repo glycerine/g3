@@ -9,6 +9,8 @@ import (
 )
 
 func (e *maxResEngine) correctionResolve(correction []ast.ASTHandle, weight *big.Rat) error {
+	e.recordDefs = true
+	defer func() { e.recordDefs = false }()
 	clauses, err := maxResCorrectionClausesForEngine(e, correction)
 	if err != nil {
 		return err

@@ -12,6 +12,8 @@ func (e *maxResEngine) maxResolve(core []ast.ASTHandle, weight *big.Rat) error {
 	if len(core) == 0 || weight == nil || weight.Sign() <= 0 {
 		return errMaxResState
 	}
+	e.recordDefs = true
+	defer func() { e.recordDefs = false }()
 	clauses, err := maxResResolutionClausesForEngine(e, core)
 	if err != nil {
 		return err

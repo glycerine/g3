@@ -32,6 +32,9 @@ func (e *maxResEngine) freshProxy(formula ast.ASTHandle, equivalent bool, prefix
 	if err = e.solver.solver().Assert(definition); err != nil {
 		return ast.ASTHandle{}, err
 	}
+	if e.recordDefs {
+		e.defs = append(e.defs, definition)
+	}
 	if e.proxies == nil {
 		e.proxies = make(map[ast.ASTHandle]ast.ASTHandle)
 	}
@@ -64,6 +67,9 @@ func (e *maxResEngine) freshAndProxy(left, right ast.ASTHandle) (ast.ASTHandle, 
 		}
 		if cause = e.solver.solver().Assert(definition); cause != nil {
 			return ast.ASTHandle{}, cause
+		}
+		if e.recordDefs {
+			e.defs = append(e.defs, definition)
 		}
 	}
 	if e.proxies == nil {

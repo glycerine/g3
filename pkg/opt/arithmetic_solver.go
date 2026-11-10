@@ -90,8 +90,11 @@ func (r *ArithmeticResult) Close() error {
 // owns a dedicated SMT backend, as native optimization does, so temporary
 // blockers cannot mutate the command context's ordinary incremental solver.
 type ArithmeticSolver struct {
-	backend             *smtcore.SMTSolver
-	sat                 *satsolver.Solver // update_solver's mk_inc_sat_solver
+	backend *smtcore.SMTSolver
+	sat     *satsolver.Solver // update_solver's mk_inc_sat_solver
+	// softEngines are the maxsmt m_msolver engines, kept for
+	// commit_assignment until Close.
+	softEngines         []softEngineEntry
 	internalized        []internalizedObjective
 	manager             *ast.ASTManager
 	config              smtcore.SMTSolverConfig
@@ -543,12 +546,12 @@ func (s *ArithmeticSolver) softBound(objective *arithmeticObjective, bound *big.
 func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (status lbool.LBool, optimal bool, resultErr error) {
 	// execute_maxsat runs maxsmt unscoped: execute_lex passes scoped only
 	// for non-MaxSMT objectives, and maxsmt/maxres never push a local scope.
+	// maxsmt keeps m_msolver after operator() returns: commit_assignment
+	// runs on it, so the engine stays until the solver closes.
 	var activeEngine maxSMTEngine
 	defer func() {
 		if activeEngine != nil {
-			if closeErr := activeEngine.close(); closeErr != nil {
-				resultErr = errors.Join(resultErr, fmt.Errorf("close MaxSMT engine: %w", closeErr))
-			}
+			s.softEngines = append(s.softEngines, softEngineEntry{index, activeEngine})
 		}
 	}()
 	status, err := s.solver().CheckSat(nil)
@@ -756,10 +759,26 @@ func (s *ArithmeticSolver) commitArithmeticObjective(index int, value ObjectiveV
 	return errors.Join(err, s.manager.DelRef(&ref))
 }
 
+type softEngineEntry struct {
+	index  int
+	engine maxSMTEngine
+}
+
 func (s *ArithmeticSolver) commitSoftObjective(index int, value ObjectiveValue) error {
 	objective := &s.objectives[index]
 	if err := s.validateSoftCommit(index, value); err != nil {
 		return err
+	}
+	// maxsmt::commit_assignment dispatches to m_msolver; maxres overrides
+	// maxsmt_solver_base's pb.mk_ge bound.
+	for i := len(s.softEngines) - 1; i >= 0; i-- {
+		if s.softEngines[i].index != index {
+			continue
+		}
+		if committer, ok := s.softEngines[i].engine.(*maxResEngine); ok {
+			return committer.commitAssignment()
+		}
+		break
 	}
 	if len(objective.softTerms) == 0 {
 		return nil
@@ -921,6 +940,13 @@ func (s *ArithmeticSolver) DetachObjectiveTerms() []ast.ASTRef {
 func (s *ArithmeticSolver) Close() error {
 	if s == nil || s.backend == nil {
 		return nil
+	}
+	for len(s.softEngines) != 0 {
+		entry := s.softEngines[0]
+		s.softEngines = s.softEngines[1:]
+		if err := entry.engine.close(); err != nil {
+			return fmt.Errorf("close MaxSMT engine: %w", err)
+		}
 	}
 	if s.sat != nil {
 		if err := s.sat.Close(); err != nil {

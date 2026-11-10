@@ -15,6 +15,12 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 		return lbool.Undef, false, errMaxResState
 	}
 	defer func() {
+		// mus_solver ends in found_optimum, which sets
+		// m_found_feasible_optimum; primal_dual_solver sets it only when
+		// a model has an empty correction set (processSearchSAT).
+		if optimal && err == nil && e.strategy != maxResPrimalDual {
+			e.foundFeasibleOptimum = true
+		}
 		if e.bestSet && e.index >= 0 && e.index < len(result.Values) {
 			value := &result.Values[e.index]
 			value.SoftLower.Set(&e.lower)
