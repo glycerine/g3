@@ -582,6 +582,18 @@ Found while matching `-st` output against `build/z3` on
     search tree (quant_elim_plugin, search_tree, model-based branch
     selection) and routing blast_or through it. That is a large port, like
     item 19.
+    UPDATE (2026-11-10): the search tree is now ported
+    (qe/expr_quantifier_tree*.go: quant_elim_plugin
+    add_constraint/elim_var/find_min_weight/constrain_assignment, the
+    search_tree with guarded leaves), and the bit-vector blast runs through
+    it (eliminateQuantifierScalarSearch with qeScalarBitVector). The
+    example still differs (g3 cases 3, 0, 4, 2; z3 0, 2, 4, 3), and the
+    order is model-guided: z3's first inner model gives z_bv = 0, g3's
+    gives 3. NEXT: compare the inner smt::kernel's params and first model
+    for the blasted formula (bv2int/mod over the bit-vector), the same
+    model-choice class as item 25. z3 also keeps both orientations of
+    (+ (* (- 7) y) (* 5 z)), which points to an uncached rewrite of one
+    copy.
 
 19. **DONE (2026-11-09, 46531ec4a): MAM ported; old matcher deleted.**
    smtcore/smt_mam_{code,compiler,interpreter,impl}.go port mam.cpp's
