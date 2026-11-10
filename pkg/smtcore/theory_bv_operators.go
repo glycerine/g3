@@ -10,13 +10,13 @@ import (
 
 // process_args precedes get_arg_bits. Each literal-to-expression conversion
 // owns its result independently of the shared bit-blaster temporary trail.
-func (c *smtBVExpressionCall) argumentBits(expression ast.ASTHandle, reverse bool) ([][]ast.ASTHandle, error) {
+// processArgs is process_args(n): every argument is internalized first.
+func (c *smtBVExpressionCall) processArgs(expression ast.ASTHandle) ([]ast.ASTHandle, error) {
 	s := c.theory.state
 	count, err := s.manager.GetNumArgs(expression)
 	if err != nil {
 		return nil, err
 	}
-	result := make([][]ast.ASTHandle, count)
 	arguments := make([]ast.ASTHandle, count)
 	for i := range arguments {
 		arguments[i], err = s.manager.GetArg(expression, uint32(i))
@@ -27,6 +27,15 @@ func (c *smtBVExpressionCall) argumentBits(expression ast.ASTHandle, reverse boo
 			return nil, err
 		}
 	}
+	return arguments, nil
+}
+
+func (c *smtBVExpressionCall) argumentBits(expression ast.ASTHandle, reverse bool) ([][]ast.ASTHandle, error) {
+	arguments, err := c.processArgs(expression)
+	if err != nil {
+		return nil, err
+	}
+	result := make([][]ast.ASTHandle, len(arguments))
 	for position := range arguments {
 		i := position
 		if reverse {
@@ -161,6 +170,10 @@ func (t *SMTBitVectorTheory) operationBits(expression ast.ASTHandle, operation i
 	}
 	call := smtBVExpressionCall{theory: t}
 	defer func() { result = errors.Join(result, call.close()) }()
+	switch operation {
+	case 4, 6, 30, 31, 33, 34, 35, 36:
+		return t.acBinaryBits(&call, expression, operation)
+	}
 	reverse := operation == 4 || operation == 6 || operation == 30 || operation == 31 || operation == 33 || operation == 34 || operation == 35 || operation == 36 || operation == 37
 	arguments, err := call.argumentBits(expression, reverse)
 	if err != nil {
@@ -389,4 +402,65 @@ func (t *SMTBitVectorTheory) boolXor(left, right ast.ASTHandle) (ast.ASTRef, err
 		return ast.ASTRef{}, errors.Join(ast.ErrASTDomain, err)
 	}
 	return refs[0], nil
+}
+
+// acBinaryBits is MK_AC_BINARY: get_arg_bits of the last operand, then for
+// each previous operand (descending) get_arg_bits and one blast step.
+func (t *SMTBitVectorTheory) acBinaryBits(call *smtBVExpressionCall, expression ast.ASTHandle, operation int32) ([]ast.ASTHandle, bool, error) {
+	arguments, err := call.processArgs(expression)
+	if err != nil {
+		return nil, true, err
+	}
+	if len(arguments) < 2 {
+		return nil, true, ast.ErrASTDomain
+	}
+	engine, err := t.nativeBitBlaster()
+	if err != nil {
+		return nil, true, err
+	}
+	binary := engine.MkAdder
+	switch operation {
+	case 6:
+		binary = engine.MkMultiplier
+	case 30:
+		binary = engine.MkAnd
+	case 31:
+		binary = engine.MkOr
+	case 33:
+		binary = engine.MkXor
+	case 34:
+		binary = engine.MkNand
+	case 35:
+		binary = engine.MkNor
+	case 36:
+		binary = engine.MkXnor
+	}
+	bits, err := call.bits(arguments[len(arguments)-1])
+	if err != nil {
+		return nil, true, err
+	}
+	for i := len(arguments) - 2; i >= 0; i-- {
+		argBits, err := call.bits(arguments[i])
+		if err != nil {
+			return nil, true, err
+		}
+		if err = assertBVOperatorWidth(733, "arg_bits.size() == bits.size()", argBits, bits); err != nil {
+			return nil, true, err
+		}
+		refs, err := binary(argBits, bits)
+		if err != nil {
+			return nil, true, err
+		}
+		if bits, err = t.adoptBitBlasterRefs(refs); err != nil {
+			return nil, true, err
+		}
+		// The local expr_ref_vector bits: the next get_arg_bits may
+		// release the shared temporaries.
+		for _, bit := range bits {
+			if _, err = call.hold(bit, nil); err != nil {
+				return nil, true, err
+			}
+		}
+	}
+	return bits, true, nil
 }
