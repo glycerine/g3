@@ -1477,15 +1477,6 @@ func (r *SequenceRewriter) ShortestRegexByteString(regex ast.ASTHandle) (string,
 
 // accept is sym_expr::accept for callers that keep the result for the
 // builder's lifetime.
-func (b *sequenceAutomatonBuilder) accept(label *sequenceAutomatonLabel, character ast.ASTHandle) (ast.ASTHandle, error) {
-	ref, err := b.acceptOwned(label, character)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	b.refs = append(b.refs, ref)
-	return b.rewriter.manager.RefGet(ref)
-}
-
 // acceptOwned is sym_expr::accept returning its expr_ref result; the caller
 // releases it.
 func (b *sequenceAutomatonBuilder) acceptOwned(label *sequenceAutomatonLabel, character ast.ASTHandle) (ast.ASTRef, error) {

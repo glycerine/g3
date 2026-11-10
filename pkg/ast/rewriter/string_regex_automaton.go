@@ -313,12 +313,14 @@ func NewSeqAutomaton(m *ast.ASTManager, regex ast.ASTHandle, solver SequenceExpr
 
 // Accept is move.t()->accept(e) for the move label with this condition id.
 // The result is not held; the caller roots it.
-func (a *StringRegexAutomaton) Accept(condition uint32, e ast.ASTHandle) (ast.ASTHandle, error) {
+// Accept is sym_expr::accept(e): the expr_ref result belongs to the caller,
+// who releases the returned reference.
+func (a *StringRegexAutomaton) Accept(condition uint32, e ast.ASTHandle) (ast.ASTRef, error) {
 	if a == nil || a.closed {
-		return ast.ASTHandle{}, ast.ErrASTHandle
+		return ast.ASTRef{}, ast.ErrASTHandle
 	}
 	if uint64(condition) >= uint64(len(a.labels)) {
-		return ast.ASTHandle{}, ast.ErrASTDomain
+		return ast.ASTRef{}, ast.ErrASTDomain
 	}
-	return a.builder.accept(a.labels[condition], e)
+	return a.builder.acceptOwned(a.labels[condition], e)
 }

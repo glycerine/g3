@@ -138,6 +138,15 @@ func (t *SMTTheorySeq) isStep6(e ast.ASTHandle) (s, idx, re, i, j, acc ast.ASTHa
 }
 
 // mkStep is mk_step(s, idx, re, i, j, acc), held in x.
+// moveAccept holds mv.t()->accept(e) in x.
+func (t *SMTTheorySeq) moveAccept(x *seqRefs, aut *rewriter.StringRegexAutomaton, condition uint32, e ast.ASTHandle) ast.ASTHandle {
+	ref, err := aut.Accept(condition, e)
+	t.chk(err)
+	h := t.ref(x, t.must(t.m.RefGet(ref)), nil)
+	t.chk(t.m.DelRef(&ref))
+	return h
+}
+
 func (t *SMTTheorySeq) mkStep(x *seqRefs, s, idx, re ast.ASTHandle, i, j uint32, acc ast.ASTHandle) ast.ASTHandle {
 	boolSort, err := t.m.MkBoolSort()
 	t.chk(err)
@@ -226,7 +235,7 @@ func (t *SMTTheorySeq) addAccept2step(acc ast.ASTHandle, change *bool) bool {
 		j := (i + start) % len(mvs)
 		mv := mvs[j]
 		nth := t.ref(x, t.mkNth(ar.s, ar.idx), nil)
-		a := t.ref(x, t.must(ar.aut.Accept(mv.Condition, nth)), nil)
+		a := t.moveAccept(x, ar.aut, mv.Condition, nth)
 		step := t.mkStep(x, ar.s, ar.idx, ar.re, ar.i, mv.Destination, a)
 		lits = append(lits, t.mkLiteral(step))
 		switch t.assignment(lits[len(lits)-1]) {
@@ -312,7 +321,10 @@ func (t *SMTTheorySeq) addReject2reject(rej ast.ASTHandle, change *bool) bool {
 	var eqs []SMTLiteral
 	hasUndef := false
 	for _, mv := range mvs {
-		eq := t.mkLiteral(t.must(ar.aut.Accept(mv.Condition, nth)))
+		// mk_literal(mv.t()->accept(nth)): the temporary dies after the statement.
+		y := t.loc()
+		eq := t.mkLiteral(t.moveAccept(y, ar.aut, mv.Condition, nth))
+		y.drop()
 		if t.assignment(eq) == lbool.Undef {
 			t.forcePhase(eq.Negated())
 			hasUndef = true

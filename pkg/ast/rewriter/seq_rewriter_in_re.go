@@ -444,11 +444,18 @@ func (r *SequenceRewriter) rewriteStringInRegex(a, b ast.ASTHandle, out ast.ASTR
 					}
 					continue
 				}
-				accepted, err := aut.Accept(mv.Condition, character)
+				acceptedRef, err := aut.Accept(mv.Condition, character)
 				if err != nil {
 					return RewriteFailed, err
 				}
-				if err = m.SetRef(cond, accepted); err != nil {
+				accepted, err := m.RefGet(acceptedRef)
+				if err == nil {
+					err = m.SetRef(cond, accepted)
+				}
+				if e := m.DelRef(&acceptedRef); err == nil {
+					err = e
+				}
+				if err != nil {
 					return RewriteFailed, err
 				}
 				if m.IsFalse(accepted) {
