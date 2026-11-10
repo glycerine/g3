@@ -242,6 +242,51 @@ func (b *smtConflictProofBuilder) literalProof(literal SMTLiteral) (ast.ASTHandl
 	return proof, err
 }
 
+// prefetchClause follows conflict_resolution's todo stack: the visit pushes
+// the clause justification, then ~lit for each antecedent literal in order;
+// the LIFO loop builds the last antecedent first and the justification last.
+func (b *smtConflictProofBuilder) prefetchClause(clause *SMTClause, position int) error {
+	for i := len(clause.literals) - 1; i >= 0; i-- {
+		if i == position {
+			continue
+		}
+		if _, err := b.literalProof(clause.literals[i].Negated()); err != nil {
+			return err
+		}
+	}
+	_, err := b.clauseProof(clause)
+	return err
+}
+
+// prefetch is visit_b_justification(l, js) followed by the todo loop.
+func (b *smtConflictProofBuilder) prefetch(consequent SMTLiteral, justification SMTBooleanJustification) error {
+	switch justification.Kind() {
+	case SMTBooleanJustificationClause:
+		clause, ok := justification.Clause()
+		if !ok || clause == nil {
+			return ast.ErrASTDomain
+		}
+		position := -1
+		if consequent != SMTFalseLiteral {
+			for i := 0; i < len(clause.literals) && i < 2; i++ {
+				if clause.literals[i] == consequent {
+					position = i
+					break
+				}
+			}
+		}
+		return b.prefetchClause(clause, position)
+	case SMTBooleanJustificationObject:
+		object, ok := justification.Justification()
+		if !ok || object == nil {
+			return ast.ErrASTDomain
+		}
+		_, err := b.objectProof(object)
+		return err
+	}
+	return nil
+}
+
 func (b *smtConflictProofBuilder) booleanProof(consequent SMTLiteral, justification SMTBooleanJustification) (ast.ASTHandle, error) {
 	parents := make([]ast.ASTHandle, 0)
 	switch justification.Kind() {
@@ -250,11 +295,6 @@ func (b *smtConflictProofBuilder) booleanProof(consequent SMTLiteral, justificat
 		if !ok || clause == nil {
 			return ast.ASTHandle{}, ast.ErrASTDomain
 		}
-		proof, err := b.clauseProof(clause)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		parents = append(parents, proof)
 		position := -1
 		if consequent != SMTFalseLiteral {
 			for i := 0; i < len(clause.literals) && i < 2; i++ {
@@ -267,6 +307,14 @@ func (b *smtConflictProofBuilder) booleanProof(consequent SMTLiteral, justificat
 				return ast.ASTHandle{}, ast.ErrASTDomain
 			}
 		}
+		if err := b.prefetchClause(clause, position); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		proof, err := b.clauseProof(clause)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		parents = append(parents, proof)
 		for i, literal := range clause.literals {
 			if i == position {
 				continue
@@ -326,9 +374,58 @@ func (b *smtConflictProofBuilder) theoryFact(literals []SMTLiteral) (ast.ASTHand
 	return b.state.manager.MkOrArgs(expressions)
 }
 
+// prefetchObject follows the todo stack for js->mk_proof: the first call
+// pushes the missing antecedents in order (antecedent justification, then
+// literals, then equalities), and the LIFO loop builds the last one first.
+func (b *smtConflictProofBuilder) prefetchObject(object SMTJustification) error {
+	var steps []func() error
+	literals := func(ls []SMTLiteral) {
+		for _, l := range ls {
+			l := l
+			steps = append(steps, func() error { _, err := b.literalProof(l); return err })
+		}
+	}
+	equalities := func(ps []SMTEnodePair) {
+		for _, p := range ps {
+			p := p
+			steps = append(steps, func() error { _, err := b.equalityProof(p.First, p.Second); return err })
+		}
+	}
+	switch v := object.(type) {
+	case *SMTUnitResolutionJustification:
+		if v.Antecedent != nil {
+			a := v.Antecedent
+			steps = append(steps, func() error { _, err := b.objectProof(a); return err })
+		}
+		literals(v.Literals)
+	case *SMTTheoryPropagationJustification:
+		literals(v.Literals)
+	case *SMTTheoryConflictJustification:
+		literals(v.Literals)
+	case *SMTExtTheoryPropagationJustification:
+		literals(v.Literals)
+		equalities(v.Equalities)
+	case *SMTExtTheoryConflictJustification:
+		literals(v.Literals)
+		equalities(v.Equalities)
+	case *SMTExtTheoryEqualityPropagationJustification:
+		literals(v.Literals)
+		equalities(v.Equalities)
+	}
+	for i := len(steps) - 1; i >= 0; i-- {
+		if err := steps[i](); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (b *smtConflictProofBuilder) objectProof(object SMTJustification) (ast.ASTHandle, error) {
 	if proof, found := b.objects[object]; found {
 		return proof, nil
+	}
+	if err := b.prefetchObject(object); err != nil {
+		return ast.ASTHandle{}, err
 	}
 	var proof ast.ASTHandle
 	var err error
@@ -720,15 +817,23 @@ func (r *SMTConflictResolver) conflictProof(conflict SMTBooleanJustification, no
 	if notLiteral != SMTNullLiteral {
 		consequent = notLiteral.Negated()
 	}
+	// mk_conflict_proof pushes not_l, then visits the conflict: its
+	// antecedents are built first, not_l next, and the conflict proof and
+	// the final unit resolution after the loop.
+	if err = builder.prefetch(consequent, conflict); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	var other ast.ASTHandle
+	if notLiteral != SMTNullLiteral {
+		if other, err = builder.literalProof(notLiteral); err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
 	conflictProof, err := builder.booleanProof(consequent, conflict)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	if notLiteral != SMTNullLiteral {
-		other, err := builder.literalProof(notLiteral)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
 		conflictProof, err = r.state.manager.MkProofUnitResolution([]ast.ASTHandle{other, conflictProof})
 		if err != nil {
 			return ast.ASTHandle{}, err
