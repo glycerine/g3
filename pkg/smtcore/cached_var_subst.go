@@ -142,24 +142,23 @@ func (c *SMTCachedVarSubstitution) Reset() error {
 	if err := c.open(); err != nil {
 		return err
 	}
-	if err := c.clearEntries(); err != nil {
-		return err
-	}
-	return c.substitution.Reset()
+	// cached_var_subst::reset releases m_refs and m_instances; m_proc
+	// (var_subst) keeps its reducer cache until its next call resets it.
+	return c.clearEntries()
 }
 
 func (c *SMTCachedVarSubstitution) clearEntries() error {
+	// m_refs (qa, bindings, result per entry) is an expr_ref_vector:
+	// released front to back.
 	for len(c.ordered) != 0 {
-		last := len(c.ordered) - 1
-		entry := c.ordered[last]
+		entry := c.ordered[0]
 		for len(entry.owned) != 0 {
-			i := len(entry.owned) - 1
-			if err := c.manager.DelRef(&entry.owned[i]); err != nil {
+			if err := c.manager.DelRef(&entry.owned[0]); err != nil {
 				return err
 			}
-			entry.owned = entry.owned[:i]
+			entry.owned = entry.owned[1:]
 		}
-		c.ordered = c.ordered[:last]
+		c.ordered = c.ordered[1:]
 	}
 	c.entries = make(map[ast.ASTHandle]map[int][]*smtCachedSubstitutionEntry)
 	return nil
