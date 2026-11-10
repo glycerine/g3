@@ -845,6 +845,27 @@ Found while matching `-st` output against `build/z3` on
    - AddCover's "sliced predicate columns" refusal is g3's own (z3 checks
      only xform.slice).
 
+25. **ROOT CAUSE FOUND, NEEDS A DECISION: LRA model values
+    (lra_backend_models_scopes x=3,y=2 vs z3's x=4,y=1;
+    lra_propagation_mode_updates).** z3 uses theory_lra (setup_r_arith),
+    and so does g3. Both register y as lar column 0 and make the same two
+    tableau-rows iterations with the same RNG draw (seed 0, first draw 38).
+    The difference is the order of cells in the term's row:
+    - lar_term::m_coeffs is a std::unordered_map<unsigned, mpq>, and
+      libstdc++ iterates it newest-first for these small keys.
+    - z3's row for (+ x y) therefore lists x before y, so
+      find_beneficial_column_in_row_tableau_rows keeps x and rejects y on
+      the even draw. x enters, giving x=4, y=1.
+    - g3's LARTerm iterates insertion order (insdict), so y enters, giving
+      x=3, y=2.
+    Matching z3 means emulating libstdc++ unordered_map iteration order
+    (bucket layout, node insertion at the bucket head, rehash policy).
+    That is porting STL internals, which AGENTS.md forbids without
+    explicit approval, as with the rule_transformer sort exception.
+    DECISION NEEDED from the user: approve a libstdc++-order emulation for
+    lar_term (and any other unordered_map/unordered_set the lp code
+    iterates), or accept this as a recorded deviation.
+
 22. **OPEN: opt::context::optimize flow (item 12 cluster).**
    PROGRESS (2026-11-09, cfd7faeae..3228858d1): update_solver installs
    sat/sat_solver's inc_sat_solver behind opt.maxSMTBackend, and every
