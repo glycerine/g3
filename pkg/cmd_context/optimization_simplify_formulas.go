@@ -184,11 +184,29 @@ func (c *Context) simplifyOptimizationFormulas(set *opt.ObjectiveFormulaSet) (re
 	if err = sequence.IncRef(); err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, sequence.DecRef()) }()
+	// set_simplify: opt::context::m_simplify keeps the chain (and its
+	// tactics' state) until the next simplify_fmls replaces it; the run
+	// then starts with mc = nullptr, releasing m_model_converter.
+	previous := c.optimizationSimplify
+	c.optimizationSimplify = sequence
+	if previous != nil {
+		if err = previous.DecRef(); err != nil {
+			return nil, err
+		}
+	}
+	if err = c.releaseOptimizationModelConverter(); err != nil {
+		return nil, err
+	}
 	var applied tactic.TacticResult
 	defer func() { resultErr = errors.Join(resultErr, applied.Close()) }()
 	if err = sequence.Apply(goal, &applied); err != nil {
 		return nil, err
+	}
+	if applied.ModelConverter != nil {
+		if err = applied.ModelConverter.IncRef(); err != nil {
+			return nil, err
+		}
+		c.optimizationModelConverter = applied.ModelConverter
 	}
 	if len(applied.Goals) != 1 {
 		return nil, ast.ErrASTDomain
@@ -265,4 +283,26 @@ func (f *optimizationSimplifiedFormulas) releaseFormulas() (result error) {
 	}
 	f.refs = nil
 	return result
+}
+
+// releaseOptimizationModelConverter drops opt::context::m_model_converter.
+func (c *Context) releaseOptimizationModelConverter() error {
+	if c.optimizationModelConverter == nil {
+		return nil
+	}
+	mc := c.optimizationModelConverter
+	c.optimizationModelConverter = nil
+	return mc.DecRef()
+}
+
+// releaseOptimizationSimplifier drops m_simplify and m_model_converter
+// with the opt::context.
+func (c *Context) releaseOptimizationSimplifier() error {
+	var err error
+	if c.optimizationSimplify != nil {
+		t := c.optimizationSimplify
+		c.optimizationSimplify = nil
+		err = t.DecRef()
+	}
+	return errors.Join(err, c.releaseOptimizationModelConverter())
 }

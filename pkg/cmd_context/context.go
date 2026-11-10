@@ -114,6 +114,11 @@ type Context struct {
 	// optimizationSAT is opt::context::m_sat_solver; update_solver replaces
 	// it, so it survives until the next SAT-eligible optimize.
 	optimizationSAT *satsolver.Solver
+	// optimizationSimplify and optimizationModelConverter are
+	// opt::context::m_simplify and m_model_converter: simplify_fmls
+	// replaces them on the next normalize.
+	optimizationSimplify       tactic.Tactic
+	optimizationModelConverter tactic.ModelConverter
 	// preparedOptimizer is the backend init_solver creates before normalize.
 	preparedOptimizer                *opt.ArithmeticSolver
 	softObjectiveIndex               map[string]int
@@ -1505,6 +1510,9 @@ func (c *Context) resetManagerState() error {
 			return err
 		}
 		c.optimizationSAT = nil
+	}
+	if err := c.releaseOptimizationSimplifier(); err != nil {
+		return err
 	}
 	if err := c.clearCheckSatResult(); err != nil {
 		return err
