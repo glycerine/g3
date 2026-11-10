@@ -3,6 +3,8 @@ package macros
 // Source: src/ast/macros/macro_finder.cpp/.h.
 
 import (
+	"math/big"
+
 	"errors"
 	"reflect"
 
@@ -274,7 +276,7 @@ func (f *Finder) splitPseudoPredicate(q, proof ast.ASTHandle, dependency ast.AST
 	return output.Insert(Formula{Expression: q2, Proof: proof2, Dependency: dependency})
 }
 
-func (f *Finder) arithmeticMacro(q, proof ast.ASTHandle, dependency ast.ASTDependency, output *FormulaBatch) (bool, error) {
+func (f *Finder) arithmeticMacro(q, proof ast.ASTHandle, dependency ast.ASTDependency, output *FormulaBatch) (matched bool, result error) {
 	kind, err := f.manager.GetKind(q)
 	if err != nil || kind != ast.ASTQuantifier {
 		return false, err
@@ -320,14 +322,24 @@ func (f *Finder) arithmeticMacro(q, proof ast.ASTHandle, dependency ast.ASTDepen
 			newOperation = macroArithLE
 		}
 	}
+	// app_ref new_body and quantifier_ref new_q are released on return,
+	// new_q first (reverse declaration order).
 	newBody, err := f.manager.MkFamilyApp(family, newOperation, nil, []ast.ASTHandle{head, definition})
 	if err != nil {
 		return false, err
 	}
+	if err = f.manager.IncRef(newBody); err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, f.manager.DecRef(newBody)) }()
 	newQ, err := f.manager.UpdateQuantifierBody(q, newBody)
 	if err != nil {
 		return false, err
 	}
+	if err = f.manager.IncRef(newQ); err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, f.manager.DecRef(newQ)) }()
 	newProof := ast.ASTHandle{}
 	proofs, err := f.manager.ProofsEnabled()
 	if err != nil {
@@ -366,15 +378,17 @@ func (f *Finder) arithmeticMacro(q, proof ast.ASTHandle, dependency ast.ASTDepen
 	if err != nil {
 		return false, err
 	}
-	sort, err := f.manager.GetSort(slack)
+	// m.mk_app(new_body->get_decl(), k_app, m_autil.mk_int(0)): an Int
+	// zero, coerced by mk_app (to_real) for a Real head.
+	zero, err := f.manager.ArithmeticNumeralRat(new(big.Rat), true)
 	if err != nil {
 		return false, err
 	}
-	zero, err := f.util.MkZero(sort)
+	newDecl, err := f.manager.GetDecl(newBody)
 	if err != nil {
 		return false, err
 	}
-	body2, err := f.manager.MkFamilyApp(family, newOperation, nil, []ast.ASTHandle{slack, zero})
+	body2, err := f.manager.MkApp(newDecl, []ast.ASTHandle{slack, zero})
 	if err != nil {
 		return false, err
 	}
