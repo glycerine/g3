@@ -112,7 +112,15 @@ func (p *commandParser) simplifyCommand() (resultErr error) {
 			return err
 		}
 	}
-	result, proof, details, err := p.context.SimplifyCommandWithDetails(expression, &settings, printProof, printStatistics)
+	// th_rewriter s(m, p); s(m_target, r, pr): with proofs enabled the
+	// rewriter always builds pr, which dies after the output is printed.
+	produceProof := printProof
+	if enabled, e := m.ProofsEnabled(); e != nil {
+		return e
+	} else if enabled {
+		produceProof = true
+	}
+	result, proof, details, err := p.context.SimplifyCommandWithDetails(expression, &settings, produceProof, printStatistics)
 	if err != nil {
 		return err
 	}
