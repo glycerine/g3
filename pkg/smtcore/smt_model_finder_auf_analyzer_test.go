@@ -28,7 +28,7 @@ func TestSMTModelFinderAUFAnalyzerVisitsBooleanFormulasInsideTerms(t *testing.T)
 	astTestMust(t, err)
 	graph := newSMTModelFinderAUFGraph(manager.modelFinder)
 	t.Cleanup(func() { astTestMust(t, graph.close()) })
-	astTestMust(t, graph.build([]ast.ASTHandle{q}))
+	astTestMust(t, aufTestBuild(t, graph, []ast.ASTHandle{q}))
 	truth, err := m.MkTrue()
 	astTestMust(t, err)
 	falsehood, err := m.MkFalse()
@@ -83,4 +83,19 @@ func TestSMTModelFinderAUFAnalyzerDeduplicatesSharedQInfo(t *testing.T) {
 	if len(graph.analysisSeen) > 40 {
 		t.Fatal("analysis did not cache shared Boolean subgraphs", len(graph.analysisSeen))
 	}
+}
+
+// aufTestBuild registers each quantifier (register_quantifier runs the
+// analyzer that fills its qinfos) before building the auf_solver graph.
+func aufTestBuild(t *testing.T, graph *smtModelFinderAUFGraph, quantifiers []ast.ASTHandle) error {
+	t.Helper()
+	for _, quantifier := range quantifiers {
+		if _, found := graph.finder.registered[quantifier]; found {
+			continue
+		}
+		if err := graph.finder.RegisterQuantifier(quantifier); err != nil {
+			return err
+		}
+	}
+	return graph.build(quantifiers)
 }

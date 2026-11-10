@@ -71,7 +71,7 @@ func TestSMTModelFinderAUFGraphSharesPatternlessArgumentSets(t *testing.T) {
 	state.relevancy.enabled = false
 	unfiltered := newSMTModelFinderAUFGraph(finder)
 	t.Cleanup(func() { astTestMust(t, unfiltered.close()) })
-	astTestMust(t, unfiltered.build([]ast.ASTHandle{first, second}))
+	astTestMust(t, aufTestBuild(t, unfiltered, []ast.ASTHandle{first, second}))
 	for _, q := range []ast.ASTHandle{first, second} {
 		set := unfiltered.uvars[smtModelFinderAUFKey{q, 0}].root().set
 		if len(set.testElements()) != 3 || set.testElements()[a] != 3 || set.testElements()[b] != 7 || set.testElements()[ignored] != 1 {
@@ -126,7 +126,7 @@ func TestSMTModelFinderAUFGraphEqualityAndDisequalityConstraints(t *testing.T) {
 			astTestMust(t, err)
 			graph := newSMTModelFinderAUFGraph(manager.modelFinder)
 			t.Cleanup(func() { astTestMust(t, graph.close()) })
-			astTestMust(t, graph.build([]ast.ASTHandle{q}))
+			astTestMust(t, aufTestBuild(t, graph, []ast.ASTHandle{q}))
 			first := graph.uvars[smtModelFinderAUFKey{q, 0}].root()
 			second := graph.uvars[smtModelFinderAUFKey{q, 1}].root()
 			if (first == second) != test.merged || (len(first.avoid) != 0) != test.avoid || (len(first.exceptions) != 0) != test.exception {
@@ -139,7 +139,7 @@ func TestSMTModelFinderAUFGraphEqualityAndDisequalityConstraints(t *testing.T) {
 				state.relevancy.enabled = false
 				unfiltered := newSMTModelFinderAUFGraph(manager.modelFinder)
 				t.Cleanup(func() { astTestMust(t, unfiltered.close()) })
-				astTestMust(t, unfiltered.build([]ast.ASTHandle{q}))
+				astTestMust(t, aufTestBuild(t, unfiltered, []ast.ASTHandle{q}))
 				set := unfiltered.uvars[smtModelFinderAUFKey{q, 0}].root().set
 				if len(set.testElements()) != 3 || set.testElements()[unmarked] != 9 {
 					t.Fatal("disabled filtering omitted an uninterpreted equality term", set.testElements())

@@ -48,7 +48,7 @@ func TestSMTModelFinderAUFOffsetPopulationAndSameClassCutoff(t *testing.T) {
 			smtQuickApplicationNode(t, m, state.context, predicate, tenNode, true)
 			graph := newSMTModelFinderAUFGraph(manager.modelFinder)
 			t.Cleanup(func() { astTestMust(t, graph.close()) })
-			astTestMust(t, graph.build([]ast.ASTHandle{q}))
+			astTestMust(t, aufTestBuild(t, graph, []ast.ASTHandle{q}))
 			variable := graph.uvars[smtModelFinderAUFKey{q, 0}].root()
 			argument := graph.arguments[smtModelFinderAUFKey{predicate, 0}].root()
 			if (variable == argument) != sameClass {
@@ -101,7 +101,7 @@ func TestSMTModelFinderAUFBitVectorOffsetWraps(t *testing.T) {
 	smtQuickApplicationNode(t, m, state.context, p, oneNode, true)
 	graph := newSMTModelFinderAUFGraph(manager.modelFinder)
 	t.Cleanup(func() { astTestMust(t, graph.close()) })
-	astTestMust(t, graph.build([]ast.ASTHandle{q}))
+	astTestMust(t, aufTestBuild(t, graph, []ast.ASTHandle{q}))
 	variable := graph.uvars[smtModelFinderAUFKey{q, 0}].root()
 	argument := graph.arguments[smtModelFinderAUFKey{p, 0}].root()
 	if len(variable.set.testElements()) != 1 || variable.set.testElements()[fifteen] != 9 || len(argument.set.testElements()) != 1 || argument.set.testElements()[one] != 9 {
@@ -155,7 +155,7 @@ func TestSMTModelFinderAUFOffsetPassesFollowQuantifierOrder(t *testing.T) {
 			}
 			graph := newSMTModelFinderAUFGraph(manager.modelFinder)
 			t.Cleanup(func() { astTestMust(t, graph.close()) })
-			astTestMust(t, graph.build(quantifiers))
+			astTestMust(t, aufTestBuild(t, graph, quantifiers))
 			offsetSet := aufValueSet(t, manager, graph.uvars[smtModelFinderAUFKey{offset, 0}].root().set.testElements())
 			producerSet := graph.uvars[smtModelFinderAUFKey{producer, 0}].root().set.testElements()
 			if _, found := producerSet[ten]; !found {

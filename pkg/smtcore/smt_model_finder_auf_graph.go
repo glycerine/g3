@@ -118,7 +118,7 @@ func (g *smtModelFinderAUFGraph) build(quantifiers []ast.ASTHandle) error {
 				return err
 			}
 		}
-		if err := g.collectFVars(quantifier); err != nil {
+		if err := g.addQInfo(quantifier); err != nil {
 			return err
 		}
 	}

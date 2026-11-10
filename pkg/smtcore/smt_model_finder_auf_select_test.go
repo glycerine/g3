@@ -98,7 +98,7 @@ func TestSMTModelFinderAUFSelectIndexesUseModelFunctionAndRelevantParents(t *tes
 	if resolved != function {
 		t.Fatal("array model function resolution", resolved, function)
 	}
-	astTestMust(t, graph.build([]ast.ASTHandle{q}))
+	astTestMust(t, aufTestBuild(t, graph, []ast.ASTHandle{q}))
 	if len(graph.selects) != 2 {
 		t.Fatal("array index qinfo collection", graph.selects)
 	}
@@ -107,7 +107,7 @@ func TestSMTModelFinderAUFSelectIndexesUseModelFunctionAndRelevantParents(t *tes
 	unfiltered := newSMTModelFinderAUFGraph(finder)
 	unfiltered.model = proto
 	t.Cleanup(func() { astTestMust(t, unfiltered.close()) })
-	astTestMust(t, unfiltered.build([]ast.ASTHandle{q}))
+	astTestMust(t, aufTestBuild(t, unfiltered, []ast.ASTHandle{q}))
 	for _, test := range []struct {
 		variable      uint32
 		first, second ast.ASTHandle
@@ -213,7 +213,7 @@ func TestSMTModelFinderAUFSelectNestedArrayParents(t *testing.T) {
 	graph := newSMTModelFinderAUFGraph(state.quantifierManager.modelFinder)
 	graph.model = proto
 	t.Cleanup(func() { astTestMust(t, graph.close()) })
-	astTestMust(t, graph.build([]ast.ASTHandle{q}))
+	astTestMust(t, aufTestBuild(t, graph, []ast.ASTHandle{q}))
 	for _, test := range []struct {
 		variable   uint32
 		term       ast.ASTHandle

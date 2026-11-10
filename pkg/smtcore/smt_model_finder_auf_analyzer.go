@@ -2,7 +2,58 @@ package smtcore
 
 // Source: src/smt/smt_model_finder.cpp quantifier_analyzer formula/term visits.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
+
+// smtModelFinderQInfo is a quantifier_info's m_qinfo_vect: the analyzer
+// builds it once at register_quantifier, and it lives (with the terms its
+// qinfos hold) until the quantifier is popped.
+type smtModelFinderQInfo struct {
+	fvars    []smtModelFinderFVar
+	literals []smtModelFinderAUFLiteral
+	selects  []smtModelFinderSelectVar
+	refs     []ast.ASTRef
+}
+
+func (q *smtModelFinderQInfo) close(m *ast.ASTManager) (result error) {
+	for i := range q.refs {
+		result = errors.Join(result, m.DelRef(&q.refs[i]))
+	}
+	q.refs = nil
+	return result
+}
+
+func (f *SMTModelFinder) analyzeQInfos(quantifier ast.ASTHandle) error {
+	collector := newSMTModelFinderAUFGraph(f)
+	err := collector.collectFVars(quantifier)
+	info := &smtModelFinderQInfo{
+		fvars: collector.fvars, literals: collector.literals, selects: collector.selects, refs: collector.refs,
+	}
+	if err != nil {
+		return errors.Join(err, info.close(f.manager))
+	}
+	f.qinfos[quantifier] = info
+	return nil
+}
+
+// addQInfo feeds one quantifier's stored qinfos to the auf_solver graph.
+func (g *smtModelFinderAUFGraph) addQInfo(quantifier ast.ASTHandle) error {
+	info := g.finder.qinfos[quantifier]
+	if info == nil {
+		return ast.ErrASTDomain
+	}
+	for _, fvar := range info.fvars {
+		g.appendFVar(fvar)
+	}
+	for _, literal := range info.literals {
+		g.appendLiteral(literal)
+	}
+	g.selects = append(g.selects, info.selects...)
+	return nil
+}
 
 type smtModelFinderAnalysisKey struct {
 	quantifier, expression ast.ASTHandle

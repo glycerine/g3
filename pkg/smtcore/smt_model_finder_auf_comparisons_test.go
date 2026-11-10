@@ -75,7 +75,7 @@ func TestSMTModelFinderAUFComparisonGroundBoundaries(t *testing.T) {
 			astTestMust(t, err)
 			graph := newSMTModelFinderAUFGraph(manager.modelFinder)
 			t.Cleanup(func() { astTestMust(t, graph.close()) })
-			astTestMust(t, graph.build([]ast.ASTHandle{q}))
+			astTestMust(t, aufTestBuild(t, graph, []ast.ASTHandle{q}))
 			node := graph.uvars[smtModelFinderAUFKey{q, 0}].root()
 			values := aufValueSet(t, manager, node.set.testElements())
 			generation, found := values[want]
@@ -148,7 +148,7 @@ func TestSMTModelFinderAUFVariableComparisonPolarityAndSignedProjection(t *testi
 			}
 			graph := newSMTModelFinderAUFGraph(manager.modelFinder)
 			t.Cleanup(func() { astTestMust(t, graph.close()) })
-			astTestMust(t, graph.build([]ast.ASTHandle{q}))
+			astTestMust(t, aufTestBuild(t, graph, []ast.ASTHandle{q}))
 			first := graph.uvars[smtModelFinderAUFKey{q, 0}].root()
 			second := graph.uvars[smtModelFinderAUFKey{q, 1}].root()
 			if (first == second) != test.negative || first.mono != (test.negative && !test.equality) || first.signed != test.signed {

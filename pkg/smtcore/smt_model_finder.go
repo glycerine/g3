@@ -28,6 +28,7 @@ type SMTModelFinder struct {
 	candidates         map[ast.ASTHandle]*macros.Candidates
 	nonGround          map[ast.ASTHandle]*ast.ObjMap // m_ng_decls (func_decl_set)
 	auf                map[ast.ASTHandle]bool
+	qinfos             map[ast.ASTHandle]*smtModelFinderQInfo // quantifier_info::m_qinfo_vect
 	chosen             map[ast.ASTHandle]ast.ASTHandle
 	hint               *hintSearchState
 	dependencies       *ast.FuncDeclDependencies
@@ -66,7 +67,7 @@ func NewSMTModelFinder(state *SMTInternalizerState) (*SMTModelFinder, error) {
 		sets: make(map[ast.ASTHandle][]*smtModelFinderInstantiationSet), macroUtil: util,
 		flat:       make(map[ast.ASTHandle]smtModelFinderFlatQuantifier),
 		candidates: make(map[ast.ASTHandle]*macros.Candidates), nonGround: make(map[ast.ASTHandle]*ast.ObjMap),
-		auf: make(map[ast.ASTHandle]bool), chosen: make(map[ast.ASTHandle]ast.ASTHandle), hint: newHintSearchState(state.manager), dependencies: dependencies,
+		auf: make(map[ast.ASTHandle]bool), qinfos: make(map[ast.ASTHandle]*smtModelFinderQInfo), chosen: make(map[ast.ASTHandle]ast.ASTHandle), hint: newHintSearchState(state.manager), dependencies: dependencies,
 	}, nil
 }
 
@@ -165,6 +166,18 @@ func (f *SMTModelFinder) RegisterQuantifier(quantifier ast.ASTHandle) (result er
 	if nested {
 		return ast.ErrASTPending
 	}
+	// quantifier_analyzer::operator(): the body's qinfos, m_ng_decls and
+	// m_is_auf, then collect_macro_candidates.
+	if err = f.collectNonGroundDeclarations(body, f.nonGround[quantifier]); err != nil {
+		return err
+	}
+	f.auf[quantifier], err = f.classifyAUF(quantifier)
+	if err != nil {
+		return err
+	}
+	if err = f.analyzeQInfos(quantifier); err != nil {
+		return err
+	}
 	bodyKind, err := f.manager.GetKind(body)
 	if err != nil {
 		return err
@@ -173,13 +186,6 @@ func (f *SMTModelFinder) RegisterQuantifier(quantifier ast.ASTHandle) (result er
 		if err = f.macroUtil.CollectQuantifierCandidates(flat, candidates); err != nil {
 			return err
 		}
-	}
-	if err = f.collectNonGroundDeclarations(body, f.nonGround[quantifier]); err != nil {
-		return err
-	}
-	f.auf[quantifier], err = f.classifyAUF(quantifier)
-	if err != nil {
-		return err
 	}
 	ngEntries := f.nonGround[quantifier].Entries()
 	info := &hintQuantifierInfo{nonGround: make([]ast.ASTHandle, 0, len(ngEntries))}
@@ -296,6 +302,10 @@ func (f *SMTModelFinder) InstantiationValues(quantifier ast.ASTHandle, variable 
 }
 
 func (f *SMTModelFinder) releaseQuantifier(quantifier ast.ASTHandle) (result error) {
+	// ~quantifier_info deletes m_qinfo_vect first, front to back.
+	if info := f.qinfos[quantifier]; info != nil {
+		result = info.close(f.manager)
+	}
 	for _, set := range f.sets[quantifier] {
 		if set != nil {
 			result = errors.Join(result, set.Close())
@@ -318,6 +328,7 @@ func (f *SMTModelFinder) releaseQuantifier(quantifier ast.ASTHandle) (result err
 		delete(f.candidates, quantifier)
 		delete(f.nonGround, quantifier)
 		delete(f.auf, quantifier)
+		delete(f.qinfos, quantifier)
 		delete(f.chosen, quantifier)
 		delete(f.hint.infos, quantifier)
 		delete(f.registered, quantifier)
@@ -716,6 +727,7 @@ func (f *SMTModelFinder) Close() error {
 	f.candidates = nil
 	f.nonGround = nil
 	f.auf = nil
+	f.qinfos = nil
 	f.chosen = nil
 	f.hint = nil
 	f.dependencies = nil
