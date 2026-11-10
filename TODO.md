@@ -877,6 +877,19 @@ Found while matching `-st` output against `build/z3` on
    - m_opt_solver persists until the next init_solver.
    - new_soft is an obj_map iterated in table order.
    - remove_core/split_core order matches.
+   Arithmetic lex (75c7bc2bf..92e37fc50): simplify_fmls's first simplify
+   now gets m_params (elim_to_real on), update_lower builds m_lower_fmls,
+   theory_lra mk_ge makes the numeral first, and optsmt m_lower,
+   update_lower_lex and execute_lex's update_lower are in.
+   strict_lexicographic_interval moved 42 -> 278. Leads there:
+   (1) line 279: the smt2 printer builds format nodes for trace_assign's
+       display_verbose in a different order (flat/mk_group);
+   (2) after commit, g3 assigns the committed bound right away
+       ([assign] #43), while z3 defers assert_expr to
+       m_asserted_formulas, so its second lex (push, begin-check 1, pop)
+       shows no assignment;
+   (3) geometric_lex's own commit_assignment(i < obj_index) at the start
+       of each lex is not ported yet.
    Next lead: at line 1182, in the old inc_sat_solver's bit_blaster
    m_values teardown, z3 frees (iff ..) #37/#26 before (or ..) #8. g3's
    delete worklist matches z3's, so a refcount (an extra or missing holder
