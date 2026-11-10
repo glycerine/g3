@@ -1458,3 +1458,18 @@ Found while matching `-st` output against `build/z3` on
     a value; debug builds fail SASSERT(s->is_infinite())
     (TestSMTBitVectorBlastLimitGivesUnknown turns models off under the
     debug tags).
+
+27. **Recorded deviation (2026-11-10): relevancy repair after option
+    updates.** smt_solver::updt_params re-reads every smt param into the
+    smt_params that the context shares, so a later `set-option` turns
+    m_relevancy_lvl back to 2 after setup chose 0. Base-level atoms
+    internalized while relevancy was off never get marked relevant, and
+    z3 4.7.1 then omits them from models. In
+    lra_propagation_mode_updates, the final model is empty, which still
+    matches stdout. relevancy_update_scopes shows an assertion-violating
+    model. g3 marks the cached assertions relevant again before each
+    check (SMTKernel.repairRelevancy, commit 2a8d0fa63);
+    TestSMTLibRunnerRelevancyUpdatesKeepModelsValidWithKnownCPPDefect
+    encodes that. As a result, the
+    lra_propagation_mode_updates trace builds one extra model numeral.
+    Ask before removing the repair.
