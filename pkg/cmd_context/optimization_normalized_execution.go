@@ -118,7 +118,9 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		c.optimizationHardOverride = originalHardOverride
 		c.optimizationHardOverrideActive = originalHardOverrideActive
 		c.optimizationPreprocessor = originalPreprocessor
-		resultErr = errors.Join(resultErr, decomposer.Close())
+		if decomposer != nil {
+			resultErr = errors.Join(resultErr, decomposer.Close())
+		}
 		if simplified != nil {
 			resultErr = errors.Join(resultErr, simplified.Close())
 		}
@@ -140,6 +142,19 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	var purified *opt.PurifiedObjectiveSet
 	if simplified != nil {
 		if purified, err = c.purifyNormalizedObjectives(source.Hard, decomposed); err != nil {
+			return nil, err
+		}
+		// The purifier now owns m_hard_constraints and the objectives'
+		// terms. is_maxsat's term vectors and the decoded objective terms
+		// die with their from_fmls iteration; the normalize fmls still
+		// hold the objective applications until releaseFormulas.
+		for i := range c.optimizationTerms {
+			err = errors.Join(err, c.manager.DelRef(&c.optimizationTerms[i]))
+		}
+		c.optimizationTerms = nil
+		err = errors.Join(err, decomposer.Close())
+		decomposer = nil
+		if err != nil {
 			return nil, err
 		}
 	}
