@@ -26,6 +26,21 @@ func smtLogicUsesUnknownSetup(logic string) bool {
 	}
 }
 
+// smtAutoConfigUsesUnknownSetup mirrors setup::setup_auto_config's
+// fallthrough to setup_unknown(st). Unlike setup_default it has no UFLRA,
+// QF_FP, QF_FPBV or QF_BVFP case.
+func smtAutoConfigUsesUnknownSetup(logic string) bool {
+	switch logic {
+	case "QF_BV", "QF_AUFBV", "QF_ABV", "QF_UFBV", "QF_UF", "QF_RDL", "QF_IDL", "QF_UFIDL",
+		"QF_LRA", "QF_LIA", "QF_UFLIA", "QF_UFLRA", "QF_AX", "QF_BVRE", "QF_AUFLIA", "QF_S",
+		"AUFLIA", "AUFLIRA", "AUFNIRA", "AUFLIA+", "AUFLIA-", "AUFLIRA+", "AUFLIRA-",
+		"AUFNIRA+", "AUFNIRA-", "UFNIA", "QF_DT", "LRA", "QF_FD":
+		return false
+	default:
+		return true
+	}
+}
+
 func smtLogicUsesArithmetic(logic string) bool {
 	if smtLogicUsesUnknownSetup(logic) {
 		return true
@@ -132,7 +147,13 @@ func smtUnknownSetupUsesSequences(f *ast.StaticFeatures) bool {
 // placeholders until this boundary.
 func (k *SMTKernel) setupSequenceBackend(useStaticFeatures bool) (result error) {
 	legacy := k.smtState.AutoConfig && k.setupLogic == "QF_S"
-	if !legacy && k.smtState.AutoConfig && k.setupLogic != "QF_BVRE" && !smtLogicUsesUnknownSetup(k.setupLogic) {
+	// get_config_mode: CFG_AUTO (setup_auto_config) with static features,
+	// otherwise CFG_LOGIC (setup_default).
+	unknown := smtLogicUsesUnknownSetup(k.setupLogic)
+	if useStaticFeatures {
+		unknown = smtAutoConfigUsesUnknownSetup(k.setupLogic)
+	}
+	if !legacy && k.smtState.AutoConfig && k.setupLogic != "QF_BVRE" && !unknown {
 		return nil
 	}
 	if !legacy && !(k.smtState.AutoConfig && k.setupLogic == "QF_BVRE") {
