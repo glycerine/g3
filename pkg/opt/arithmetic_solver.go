@@ -102,6 +102,10 @@ type ArithmeticSolver struct {
 	// optLower is optsmt::m_lower (internal, maximizing orientation).
 	optLower            []simplex.Infinitesimal
 	optLowerSet         []bool
+	// optUpper is optsmt::m_upper (internal orientation; +infinity until
+	// geometric_lex sets it tight).
+	optUpper    []simplex.Infinitesimal
+	optUpperSet []bool
 	internalized        []internalizedObjective
 	manager             *ast.ASTManager
 	config              smtcore.SMTSolverConfig
@@ -428,6 +432,7 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 		if lower := s.optLowerOf(index); lower.Infinity.Sign() == 0 {
 			result.Values[index].Arithmetic = s.orient(index, smtcore.SMTArithmeticObjectiveValue{Finite: lower.Clone()})
 		}
+		s.finishGeometricLex(index)
 		return status, true, nil
 	}
 	if err != nil || status != lbool.True {
@@ -519,6 +524,9 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 			return lbool.Undef, false, err
 		}
 		jumpScopes = 0
+	}
+	if status == lbool.False {
+		s.finishGeometricLex(index)
 	}
 	return status, status == lbool.False, nil
 }
@@ -985,9 +993,6 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 				result.Status, result.Optimal = lbool.True, true
 				return result, nil
 			}
-			if i+1 < len(s.objectives) && value.Finite.Epsilon.Sign() != 0 {
-				result.Values[i].ArithmeticInterval = true
-			}
 		}
 		// optimize() runs a single objective as execute(obj, true, false);
 		// execute_lex commits every objective but the last.
@@ -1002,6 +1007,15 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 				return nil, err
 			}
 		}
+	}
+	// display_assignment: an interval when get_lower_as_num(i) !=
+	// get_upper_as_num(i), i.e. when m_lower[i] != m_upper[i].
+	for i := range s.objectives {
+		if s.objectives[i].soft {
+			continue
+		}
+		lower, upper := s.optLowerOf(i), s.optUpperOf(i)
+		result.Values[i].ArithmeticInterval = lower.Cmp(&upper) != 0
 	}
 	result.Status, result.Optimal = lbool.True, true
 	return result, nil
@@ -1202,6 +1216,31 @@ func (s *ArithmeticSolver) Close() error {
 		s.backend = nil
 	}
 	return err
+}
+
+// optUpperOf is m_upper[i]; optsmt::add initializes it to +infinity.
+func (s *ArithmeticSolver) optUpperOf(i int) simplex.Infinitesimal {
+	if i < len(s.optUpperSet) && s.optUpperSet[i] {
+		return s.optUpper[i]
+	}
+	return simplex.NewInfiniteInfinitesimal(big.NewRat(1, 1), nil, nil)
+}
+
+func (s *ArithmeticSolver) setOptUpper(i int, v simplex.Infinitesimal) {
+	for len(s.optUpper) <= i {
+		s.optUpper = append(s.optUpper, simplex.Infinitesimal{})
+		s.optUpperSet = append(s.optUpperSet, false)
+	}
+	s.optUpper[i], s.optUpperSet[i] = v.Clone(), true
+}
+
+// finishGeometricLex is geometric_lex's l_true exit: "set the solution
+// tight" (m_upper = m_lower) and reset every later m_lower to -infinity.
+func (s *ArithmeticSolver) finishGeometricLex(index int) {
+	s.setOptUpper(index, s.optLowerOf(index))
+	for i := index + 1; i < len(s.objectives); i++ {
+		s.setOptLower(i, simplex.NewInfiniteInfinitesimal(big.NewRat(-1, 1), nil, nil))
+	}
 }
 
 // optLowerOf is m_lower[i]; optsmt::add initializes it to -infinity.

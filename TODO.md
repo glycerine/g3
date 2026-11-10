@@ -1037,6 +1037,12 @@ Found while matching `-st` output against `build/z3` on
    (497 -> 498), and bounded_real_strict_optimization moved 75 -> 138.
    Remaining: ArithmeticInterval still builds the reported interval itself,
    not from m_lower/m_upper.
+   DONE (2026-11-10): optsmt m_upper is tracked (optUpper). geometric_lex's
+   l_true exit sets m_upper = m_lower and resets every later m_lower to
+   -infinity (finishGeometricLex), and ArithmeticInterval is
+   display_assignment's get_lower_as_num != get_upper_as_num, i.e.
+   m_lower[i] != m_upper[i] after execute_lex's update_lower. Output is
+   unchanged on every optimization vector.
    Box (a5d39adb7, ba2664f22, 4853fd923): the first box call runs
    init_solver/normalize, and execute_box runs on the optimize() solver
    (optsmt::box, then a scoped execute per MaxSMT objective). elim01's
