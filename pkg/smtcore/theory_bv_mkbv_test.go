@@ -52,7 +52,8 @@ func TestSMTBitVectorMKBVBooleanArgumentsEnodesAndScopes(t *testing.T) {
 					t.Fatal("Boolean argument missing source term-context enode", arg)
 				}
 			}
-			bits := theory.bits[term]
+			bits, err := theory.bitsFor(term)
+			astTestMust(t, err)
 			if len(bits) != len(args) {
 				t.Fatal("bit width", len(bits))
 			}

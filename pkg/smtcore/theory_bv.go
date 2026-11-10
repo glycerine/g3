@@ -37,6 +37,9 @@ type smtBVStatistics struct {
 type SMTBitVectorTheory struct {
 	*SMTTheoryBase
 	bits               map[ast.ASTHandle][]ast.ASTHandle
+	// literalBits marks terms whose init_bits ran: like m_bits, only their
+	// literals remain, and get_bits rebuilds the expressions on demand.
+	literalBits map[ast.ASTHandle]bool
 	bitAtoms           map[int32][]smtBVBitOccurrence
 	bitAtomTrail       []int32
 	bitOccurrenceTrail []smtBVBitOccurrenceTrail
@@ -78,6 +81,7 @@ func NewSMTBitVectorTheory(family ast.FamilyID) (*SMTBitVectorTheory, error) {
 	return &SMTBitVectorTheory{
 		SMTTheoryBase:   base,
 		bits:            make(map[ast.ASTHandle][]ast.ASTHandle),
+		literalBits:     make(map[ast.ASTHandle]bool),
 		bitAtoms:        make(map[int32][]smtBVBitOccurrence),
 		bitOwners:       make(map[ast.ASTHandle][]ast.ASTRef),
 		comparisonAtoms: make(map[int32]SMTLiteral),
@@ -309,6 +313,9 @@ func (t *SMTBitVectorTheory) bridgeAtom(expression, definition ast.ASTHandle, la
 }
 
 func (t *SMTBitVectorTheory) bitsFor(expression ast.ASTHandle) ([]ast.ASTHandle, error) {
+	if t.literalBits[expression] {
+		return t.literalBitExpressions(expression)
+	}
 	if bits, found := t.bits[expression]; found {
 		return bits, nil
 	}
@@ -654,14 +661,74 @@ func (t *SMTBitVectorTheory) InternalizeTerm(expression ast.ASTHandle) (bool, er
 			}
 		}
 		// Native mk_bits does not run init_bits/find_wpos.
-		return true, nil
+		return true, t.releaseBitOwner(expression)
 	}
 	// Source init_bits calls find_wpos immediately. All bits may already be
 	// fixed when a new compound term reuses an existing circuit.
 	if err = t.findWatchedPosition(state.context.enodes.get(expression).TheoryVar(t.FamilyID())); err != nil {
 		return false, err
 	}
-	return true, nil
+	return true, t.releaseBitOwner(expression)
+}
+
+// releaseBitOwner is the end of internalize_*: the local expr_ref_vector
+// bits dies (front to back); m_bits keeps the literals, and the context
+// keeps the atoms it internalized.
+func (t *SMTBitVectorTheory) releaseBitOwner(expression ast.ASTHandle) error {
+	owner, found := t.bitOwners[expression]
+	if !found {
+		return nil
+	}
+	state, err := t.State()
+	if err != nil {
+		return err
+	}
+	delete(t.bitOwners, expression)
+	t.bits[expression] = nil
+	t.literalBits[expression] = true
+	for i := range owner {
+		if owner[i] == (ast.ASTRef{}) {
+			continue
+		}
+		if err := state.manager.DelRef(&owner[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// literalBitExpressions is get_bits(v, bits): literal2expr of each m_bits
+// literal. The expressions are held as temporaries.
+func (t *SMTBitVectorTheory) literalBitExpressions(expression ast.ASTHandle) ([]ast.ASTHandle, error) {
+	state, err := t.State()
+	if err != nil {
+		return nil, err
+	}
+	node := state.context.enodes.get(expression)
+	if node == nil {
+		return nil, ast.ErrASTDomain
+	}
+	v, err := t.nativeVariable(node)
+	if err != nil {
+		return nil, err
+	}
+	if v < 0 || int(v) >= len(t.bitLiterals) {
+		return nil, ast.ErrASTDomain
+	}
+	bits := make([]ast.ASTHandle, 0, len(t.bitLiterals[v]))
+	for _, literal := range t.bitLiterals[v] {
+		bit, err := state.literalExpression(literal)
+		if err != nil {
+			return nil, err
+		}
+		ref, err := state.manager.NewRef(bit)
+		if err != nil {
+			return nil, err
+		}
+		t.temporary = append(t.temporary, ref)
+		bits = append(bits, bit)
+	}
+	return bits, nil
 }
 
 // Source theory_bv inherits the base no-op internalize_eq_eh.
@@ -926,6 +993,7 @@ func (t *SMTBitVectorTheory) PopScopes(count uint32) error {
 	for k := len(t.bitTrail) - 1; k >= scope.bits; k-- {
 		expression := t.bitTrail[k]
 		delete(t.bits, expression)
+		delete(t.literalBits, expression)
 		owner := t.bitOwners[expression]
 		for i := len(owner) - 1; i >= 0; i-- {
 			if err := state.manager.DelRef(&owner[i]); err != nil {
@@ -1023,6 +1091,10 @@ func (t *SMTBitVectorTheory) Close() error {
 		delete(t.bits, expression)
 	}
 	t.bitAtoms = nil
+	for expression := range t.literalBits {
+		delete(t.bits, expression)
+	}
+	t.literalBits = make(map[ast.ASTHandle]bool)
 	t.bitAtomTrail = nil
 	t.bitOccurrenceTrail = nil
 	t.bitLiterals = nil
