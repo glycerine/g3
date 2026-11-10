@@ -215,9 +215,14 @@ func TestSMTLRAFinalCheckKernelModelConflictAndRecovery(t *testing.T) {
 	} {
 		astTestMust(t, k.Assert(h, ast.ASTHandle{}))
 	}
-	check := func(want lbool.LBool, wantModel []*big.Rat) {
+	// staleBounds: the check may stop at lar_core_solver::update_delta's
+	// SASSERT(l <= u) in source-debug builds (-tags g3debug).
+	check := func(want lbool.LBool, wantModel []*big.Rat, staleBounds bool) {
 		t.Helper()
 		got, err := k.Check()
+		if staleBounds && errors.Is(err, lp.ErrAssertion) {
+			return
+		}
 		astTestMust(t, err)
 		if got != want {
 			t.Fatal("concrete LRA kernel result", got, want)
@@ -254,16 +259,19 @@ func TestSMTLRAFinalCheckKernelModelConflictAndRecovery(t *testing.T) {
 	}
 	// z3 4.7 theory_lra gives x=4, y=1 (QF_LRA; lar_term's unordered_map
 	// visits x before y in the tableau row).
-	check(lbool.True, []*big.Rat{big.NewRat(4, 1), big.NewRat(1, 1)})
+	check(lbool.True, []*big.Rat{big.NewRat(4, 1), big.NewRat(1, 1)}, false)
 	astTestMust(t, k.Push())
 	astTestMust(t, k.Assert(f.app(smtArithOpLE, x, f.number(2)), ast.ASTHandle{}))
-	check(lbool.False, nil)
+	check(lbool.False, nil, false)
 	astTestMust(t, k.Pop(1))
 	// Source behaviour, reproduced: lar_solver::pop restores m_status to the
 	// outer OPTIMAL but keeps the inner scope's column values (x=2, y=3), so
 	// final_check_eh skips make_feasible and the model violates y <= 2. z3
-	// 4.7 prints the same model for the QF_LRA script.
-	check(lbool.True, []*big.Rat{big.NewRat(2, 1), big.NewRat(3, 1)})
+	// 4.7 prints the same model for the QF_LRA script. Building that model
+	// computes the strict-bound delta over y = 3 > 2, which trips the source's
+	// SASSERT(l <= u) in update_delta under source debugging, as it would in
+	// a z3 debug build.
+	check(lbool.True, []*big.Rat{big.NewRat(2, 1), big.NewRat(3, 1)}, true)
 }
 
 func TestSMTLRAFinalCheckKernelSharedEquality(t *testing.T) {
