@@ -175,12 +175,11 @@ type smtMAMCodeTree struct {
 	numChoices       uint32
 	root             *smtMAMInstr
 	candidates       []*SMTEnode
-	patterns         []ast.ASTHandle
 }
 
 func (t *smtMAMCodeTree) addCandidate(n *SMTEnode) { t.candidates = append(t.candidates, n) }
-func (t *smtMAMCodeTree) hasCandidates() bool       { return len(t.candidates) != 0 }
-func (t *smtMAMCodeTree) resetCandidates()          { t.candidates = t.candidates[:0] }
+func (t *smtMAMCodeTree) hasCandidates() bool      { return len(t.candidates) != 0 }
+func (t *smtMAMCodeTree) resetCandidates()         { t.candidates = t.candidates[:0] }
 
 // smtMAMCodeTreeManager is code_tree_manager.
 type smtMAMCodeTreeManager struct {

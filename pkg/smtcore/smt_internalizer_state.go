@@ -17,6 +17,7 @@ import (
 )
 
 type smtInternalizerScope struct {
+	enodeTrailMark       int // context trail: enode label hashes
 	goalQueue            smtRelevanceGoalScope
 	relActLimit          int
 	relActHead           int
@@ -122,30 +123,32 @@ type smtPendingEquality struct {
 type SMTInternalizerState struct {
 	// paramsContext and globals are the kernel's parameter services, borrowed
 	// by theories that build their own rewriters (theory_fpa's converter).
-	paramsContext              *uparams.ParamsContext
-	globals                    *uparams.GlobalParamsService
-	queueTrace                 *diagnostic.TraceTags // Borrowed control; nil uses process trace tags.
-	delayedActivity            *uheap.Int
-	activityCacheRetiring      bool
-	cachedActivity             bool
-	activityCacheDomain        []ast.ASTHandle
-	activityCacheDrop          int
-	basicActivity              *uheap.Int
-	relevanceGoal              smtRelevanceGoalQueue
-	relevanceActivity          smtRelevanceActivityQueue
-	relevanceFIFO              smtRelevanceFIFO
-	lemmaProblem               *smtLemmaProblem // Interrupted lexical roots, retired before the manager.
-	theoryProgress             uint64
-	manager                    *ast.ASTManager
-	theoryRewriter             *rewriter.TheoryRewriter // borrowed from the kernel
+	paramsContext         *uparams.ParamsContext
+	globals               *uparams.GlobalParamsService
+	queueTrace            *diagnostic.TraceTags // Borrowed control; nil uses process trace tags.
+	delayedActivity       *uheap.Int
+	activityCacheRetiring bool
+	cachedActivity        bool
+	activityCacheDomain   []ast.ASTHandle
+	activityCacheDrop     int
+	basicActivity         *uheap.Int
+	relevanceGoal         smtRelevanceGoalQueue
+	relevanceActivity     smtRelevanceActivityQueue
+	relevanceFIFO         smtRelevanceFIFO
+	lemmaProblem          *smtLemmaProblem // Interrupted lexical roots, retired before the manager.
+	theoryProgress        uint64
+	manager               *ast.ASTManager
+	theoryRewriter        *rewriter.TheoryRewriter // borrowed from the kernel
+	// enodeTrail holds context value trails on enodes (set_lbl_hash).
+	enodeTrail SMTEnodeTrail
 	// assertedPopFlush is asserted_formulas::pop_scope's flush_cache, which
 	// pop_scope_core runs on every context pop, search backjumps included.
 	assertedPopFlush func() error
 	// userPop is set while SMTKernel.Pop drives PopScopes; the kernel then
 	// flushes after the asserted formulas shrink, where pop_scope does.
-	userPop bool
-	smtParams                  *SMTParams               // borrowed context::m_fparams
-	contextParams              *uparams.ParamsRef       // borrowed context::m_params
+	userPop                    bool
+	smtParams                  *SMTParams         // borrowed context::m_fparams
+	contextParams              *uparams.ParamsRef // borrowed context::m_params
 	context                    *SMTCheckerContext
 	congruence                 *SMTCongruenceTable
 	quantifiers                *SMTQuantifierRegistry
@@ -847,9 +850,10 @@ func (s *SMTInternalizerState) PushScope() error {
 	}
 	s.tracePushStream()
 	s.scopes = append(s.scopes, smtInternalizerScope{
-		goalQueue:     s.relevanceGoal.snapshot(s.scopeLevel),
-		relevanceFIFO: s.relevanceFIFO.snapshot(),
-		relActLimit:   len(s.relevanceActivity.entries), relActHead: s.relevanceActivity.head,
+		enodeTrailMark: s.enodeTrail.Mark(),
+		goalQueue:      s.relevanceGoal.snapshot(s.scopeLevel),
+		relevanceFIFO:  s.relevanceFIFO.snapshot(),
+		relActLimit:    len(s.relevanceActivity.entries), relActHead: s.relevanceActivity.head,
 		trueFirstLimit:       len(s.trueFirstTrail),
 		theoryCaseSplitLimit: len(s.theoryCaseSplitSets),
 		booleanLimit:         len(s.booleanStack), enodeLimit: len(s.enodeStack), pendingLimit: len(s.pending), pendingHead: s.pendingHead,
@@ -968,6 +972,10 @@ func (s *SMTInternalizerState) finishUnregisterEnode() error {
 }
 
 func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
+	// context::pop_scope's undo_trail_stack for enode value trails.
+	if err := s.enodeTrail.Undo(scope.enodeTrailMark); err != nil {
+		return err
+	}
 	if err := s.relevanceGoal.restore(scope.goalQueue, s.caseSplitStrategy == 5); err != nil {
 		return err
 	}
