@@ -1131,6 +1131,18 @@ Found while matching `-st` output against `build/z3` on
    never released; now ported (PseudoBooleanRewriter.negations). Full logs
    507 -> 508 (bounded_integer_optimization), box 79 -> 95,
    lexicographic_integer 70 -> 78, no regressions.
+   box line 95 (2026-11-10): maxres add_soft's fml = (iff soft!k e) is a
+   local, so only inc_sat_solver::m_fmls keeps it, until inc_sat_solver::pop
+   in execute_box's scoped_push. g3's freshProxy gave it to the engine owner;
+   now a local, and the iff frees match z3. The next difference is an extra
+   arithmetic numeral that g3's model evaluation creates in execute_box. g3
+   runs filterResultModel (fix_model: model converter plus m_fm) when the
+   check finishes, for every box snapshot and for lex. z3 keeps
+   m_model/m_box_models raw and runs fix_model in context::get_model
+   each time a model is requested. NEXT (item 12 flow): move fix_model to
+   model retrieval in cmd_context. This needs m_model_converter and m_fm
+   to live with the opt::context (they do for the converter; s.filter is
+   closed with the ArithmeticSolver).
    Next lead: at line 1182, in the old inc_sat_solver's bit_blaster
    m_values teardown, z3 frees (iff ..) #37/#26 before (or ..) #8. g3's
    delete worklist matches z3's, so a refcount (an extra or missing holder

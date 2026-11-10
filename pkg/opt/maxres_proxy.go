@@ -3,6 +3,7 @@ package opt
 // Source: src/opt/maxres.cpp add_soft and max_resolve fresh assumptions.
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -20,16 +21,19 @@ func (e *maxResEngine) freshProxy(formula ast.ASTHandle, equivalent bool, prefix
 	if err = e.filterProxy(proxy); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	definition := ast.ASTHandle{}
+	// add_soft: fml = m.mk_iff(asum, e); s().assert_expr(fml); fml is a
+	// local, so only the solver keeps the definition (until its pop).
+	fml := &maxResLocal{m: e.solver.manager}
+	var definition ast.ASTHandle
 	if equivalent {
-		definition, err = e.owner.hold(e.solver.manager.MkIff(proxy, formula))
+		definition, err = fml.set(e.solver.manager.MkIff(proxy, formula))
 	} else {
-		definition, err = e.owner.hold(e.solver.manager.MkImplies(proxy, formula))
+		definition, err = fml.set(e.solver.manager.MkImplies(proxy, formula))
 	}
-	if err != nil {
-		return ast.ASTHandle{}, err
+	if err == nil {
+		err = e.solver.solver().Assert(definition)
 	}
-	if err = e.solver.solver().Assert(definition); err != nil {
+	if err = errors.Join(err, fml.release()); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	if e.proxies == nil {
