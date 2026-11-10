@@ -3,6 +3,7 @@ package qe
 // Source: src/qe/qsat.cpp qsat::get_core/add_assumption/project_qe/project.
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -43,11 +44,30 @@ func (s *qsatSearch) prepareKernels(c *qsatSearchCall, formula ast.ASTRef) error
 	if err = s.preparation.abstraction.MakeAbstract(h, formula); err != nil {
 		return err
 	}
-	d, err := c.conjunction(*defs)
-	if err != nil {
+	// m_ex.assert_expr(mk_and(defs)); m_fa.assert_expr(mk_and(defs)): each
+	// conjunction is a temporary of its statement.
+	hs := make([]ast.ASTHandle, len(*defs))
+	for i, r := range *defs {
+		if hs[i], err = s.manager.RefGet(r); err != nil {
+			return err
+		}
+	}
+	temporary := func(build func() (ast.ASTHandle, error), k *qsatKernel) error {
+		t, err := build()
+		if err != nil {
+			return err
+		}
+		ref, err := s.manager.NewRef(t)
+		if err != nil {
+			return err
+		}
+		return errors.Join(k.assertExpression(t), s.manager.DelRef(&ref))
+	}
+	conjunction := func() (ast.ASTHandle, error) { return s.manager.MkAndArray(hs) }
+	if err = temporary(conjunction, s.exists); err != nil {
 		return err
 	}
-	if err = s.assertBoth(d); err != nil {
+	if err = temporary(conjunction, s.forall); err != nil {
 		return err
 	}
 	h, err = s.manager.RefGet(formula)
@@ -57,14 +77,7 @@ func (s *qsatSearch) prepareKernels(c *qsatSearchCall, formula ast.ASTRef) error
 	if err = s.exists.assertExpression(h); err != nil {
 		return err
 	}
-	negative, err := c.hold(s.manager.MkNot(h))
-	if err != nil {
-		return err
-	}
-	if err = s.forall.assertExpression(negative); err != nil {
-		return err
-	}
-	return nil
+	return temporary(func() (ast.ASTHandle, error) { return s.manager.MkNot(h) }, s.forall)
 }
 
 // initialize is the retained top-level SAT/QE setup preceding check_sat.
