@@ -1100,6 +1100,16 @@ Found while matching `-st` output against `build/z3` on
    The next difference is the entry order inside a 7-entry model
    (obj_map layout), and line 1183 is unchanged. Corpus metrics unchanged
    (stdout 649, full logs 507); make passes.
+   NARROWED: pairing [mfree] blocks (g3 build_g3md.sh adds the marker), the
+   first differing model is block 8: same 7 entries, different table order.
+   z3 frees it in bit_blaster_model_converter, inside
+   inc_sat_solver::extract_model. inc_sat_solver's m_map walk ([xm] logging
+   in both) is identical at all 19 extract_model calls. Because the model holds
+   x (a bit-vector value), it is the output of an earlier converter in m_mc0,
+   and that converter inserts constants in a different order in g3. NEXT:
+   log register_decl order per model (or a creation stack for that model) and
+   compare with g3's m_mc0 chain (inc_sat_solver's internalize_goal
+   converters).
    Lead at box line 80: z3's pb_rewriter keeps m_args (an expr_ref_vector
    member reset at the next non-constant rewrite), and that inc/dec frees a
    raw (not y!2), which g3 keeps. TRIED porting m_args: stdout went
