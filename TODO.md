@@ -489,7 +489,7 @@ Found while matching `-st` output against `build/z3` on
     an unsat assertion) counted 1. The count now happens in the resolver.
     It was the only differing statistic in 50 vectors.
 
-14. **Inner-solver and outer `mk-bool-var`.**
+14. **DONE: Inner-solver and outer `mk-bool-var`.**
     - DONE: the outer context of seq_negative_symbolic_mixed now matches
       z3's statistics exactly (fixed by the relevancy and atom-queue work
       in item 11).
