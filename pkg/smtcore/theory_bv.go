@@ -36,10 +36,10 @@ type smtBVStatistics struct {
 // without a bit definition makes final-check report incompleteness.
 type SMTBitVectorTheory struct {
 	*SMTTheoryBase
-	bits               map[ast.ASTHandle][]ast.ASTHandle
+	bits map[ast.ASTHandle][]ast.ASTHandle
 	// literalBits marks terms whose init_bits ran: like m_bits, only their
 	// literals remain, and get_bits rebuilds the expressions on demand.
-	literalBits map[ast.ASTHandle]bool
+	literalBits        map[ast.ASTHandle]bool
 	bitAtoms           map[int32][]smtBVBitOccurrence
 	bitAtomTrail       []int32
 	bitOccurrenceTrail []smtBVBitOccurrenceTrail
