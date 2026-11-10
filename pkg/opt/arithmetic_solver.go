@@ -98,7 +98,10 @@ type ArithmeticSolver struct {
 	// initial is optimize()'s m_model/m_labels after the initial check.
 	initial *ArithmeticResult
 	// lowerFmls is optsmt::m_lower_fmls.
-	lowerFmls           []ast.ASTRef
+	lowerFmls []ast.ASTRef
+	// optLower is optsmt::m_lower (internal, maximizing orientation).
+	optLower            []simplex.Infinitesimal
+	optLowerSet         []bool
 	internalized        []internalizedObjective
 	manager             *ast.ASTManager
 	config              smtcore.SMTSolverConfig
@@ -429,6 +432,9 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 			return lbool.Undef, false, errors.Join(updateErr, s.manager.DelRef(&blockerRef))
 		}
 		result.Values[index].Arithmetic = s.orient(index, value)
+		if err = s.updateLowerLex(index, savedValue(value)); err != nil {
+			return lbool.Undef, false, errors.Join(err, s.manager.DelRef(&blockerRef))
+		}
 		// geometric_lex: an unbounded objective leaves m_lower infinite, so
 		// delta_per_step is 1 and the theory's blocker (false) is asserted;
 		// the next check_sat is unsat and the loop ends.
@@ -951,17 +957,18 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 			}
 			if i+1 < len(s.objectives) && value.Finite.Epsilon.Sign() != 0 {
 				result.Values[i].ArithmeticInterval = true
-				if err = s.retainRemainingModelValues(i+1, result); err != nil {
-					return nil, err
-				}
-				result.Status, result.Optimal = lbool.True, true
-				return result, nil
 			}
 		}
 		// optimize() runs a single objective as execute(obj, true, false);
 		// execute_lex commits every objective but the last.
 		if i+1 < len(s.objectives) || len(s.objectives) == 1 {
 			if err = s.commitObjective(i, result.Values[i]); err != nil {
+				return nil, err
+			}
+		}
+		// execute_lex: update_lower() before the next objective.
+		if i+1 < len(s.objectives) {
+			if err = s.updateLowerFrom(result.Model); err != nil {
 				return nil, err
 			}
 		}
@@ -997,14 +1004,22 @@ func (s *ArithmeticSolver) DetachObjectiveTerms() []ast.ASTRef {
 // UpdateLower is optimize()'s update_lower() -> update_bound(true): each
 // arithmetic objective evaluated in m_model (no completion) becomes
 // optsmt::update_lower's m_lower_fmls[idx] = mk_ge(idx, v).
-func (s *ArithmeticSolver) UpdateLower() (resultErr error) {
+func (s *ArithmeticSolver) UpdateLower() error {
 	if s == nil || s.backend == nil {
 		return ast.ErrASTHandle
 	}
-	if s.initial == nil || s.initial.Model == nil {
+	if s.initial == nil {
 		return nil
 	}
-	evaluator, err := model.NewModelEvaluator(s.initial.Model, s.config.ModelEvaluator)
+	return s.updateLowerFrom(s.initial.Model)
+}
+
+// updateLowerFrom is context::update_lower over m_model md.
+func (s *ArithmeticSolver) updateLowerFrom(md *model.ModelCore) (resultErr error) {
+	if md == nil {
+		return nil
+	}
+	evaluator, err := model.NewModelEvaluator(md, s.config.ModelEvaluator)
 	if err != nil {
 		if evaluator != nil {
 			err = errors.Join(err, evaluator.Close())
@@ -1045,10 +1060,12 @@ func (s *ArithmeticSolver) UpdateLower() (resultErr error) {
 		if !objective.maximize {
 			value.Neg(value)
 		}
-		bound, err := s.backend.MakeObjectiveLowerBound(objective.backendIndex, s.filter, simplex.RationalInfinitesimal(value))
+		lower := simplex.RationalInfinitesimal(value)
+		bound, err := s.backend.MakeObjectiveLowerBound(objective.backendIndex, s.filter, lower)
 		if err != nil {
 			return err
 		}
+		s.setOptLower(i, lower)
 		held, err := s.manager.NewRef(bound)
 		if err != nil {
 			return err
@@ -1154,4 +1171,61 @@ func (s *ArithmeticSolver) Close() error {
 		s.backend = nil
 	}
 	return err
+}
+
+// optLowerOf is m_lower[i]; optsmt::add initializes it to -infinity.
+func (s *ArithmeticSolver) optLowerOf(i int) simplex.Infinitesimal {
+	if i < len(s.optLowerSet) && s.optLowerSet[i] {
+		return s.optLower[i]
+	}
+	return simplex.NewInfiniteInfinitesimal(big.NewRat(-1, 1), nil, nil)
+}
+
+func (s *ArithmeticSolver) setOptLower(i int, v simplex.Infinitesimal) {
+	for len(s.optLower) <= i {
+		s.optLower = append(s.optLower, simplex.Infinitesimal{})
+		s.optLowerSet = append(s.optLowerSet, false)
+	}
+	s.optLower[i], s.optLowerSet[i] = v.Clone(), true
+}
+
+// savedValue is saved_objective_value as an inf_eps.
+func savedValue(value smtcore.SMTArithmeticObjectiveValue) simplex.Infinitesimal {
+	if value.Unbounded && value.Finite.Infinity.Sign() == 0 {
+		return simplex.NewInfiniteInfinitesimal(big.NewRat(1, 1), nil, nil)
+	}
+	return value.Finite.Clone()
+}
+
+// updateLowerLex is optsmt::update_lower_lex: a better value for idx
+// re-maximizes every later arithmetic objective for its m_lower.
+func (s *ArithmeticSolver) updateLowerLex(idx int, v simplex.Infinitesimal) (resultErr error) {
+	current := s.optLowerOf(idx)
+	if v.Cmp(&current) <= 0 {
+		return nil
+	}
+	s.setOptLower(idx, v)
+	var tmp ast.ASTRef
+	defer func() {
+		if tmp != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, s.manager.DelRef(&tmp))
+		}
+	}()
+	for i := idx + 1; i < len(s.objectives); i++ {
+		if s.objectives[i].soft {
+			continue
+		}
+		value, blocker, err := s.backend.MaximizeOptimizationObjective(s.objectives[i].backendIndex, s.filter)
+		if err != nil {
+			return err
+		}
+		if tmp != (ast.ASTRef{}) {
+			if err = s.manager.DelRef(&tmp); err != nil {
+				return errors.Join(err, s.manager.DelRef(&blocker))
+			}
+		}
+		tmp = blocker
+		s.setOptLower(i, savedValue(value))
+	}
+	return nil
 }
