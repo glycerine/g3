@@ -302,15 +302,27 @@ func (t *SMTBitVectorTheory) internalizeBitProjection(expression ast.ASTHandle) 
 	if _, found := s.BoolVar(expression); found {
 		return true, nil
 	}
-	bits, err := t.bitsFor(owner)
-	if err != nil {
-		return false, err
+	// mk_bit2bool reads m_bits[v] (literals); only their count is used here,
+	// so a term whose init_bits ran needs no rebuilt bit expressions.
+	var width int
+	if t.literalBits[owner] {
+		size, err := s.manager.BitVectorSize(owner)
+		if err != nil {
+			return false, err
+		}
+		width = int(size)
+	} else {
+		bits, err := t.bitsFor(owner)
+		if err != nil {
+			return false, err
+		}
+		width = len(bits)
 	}
 	index, err := t.bit2BoolIndex(expression)
 	if err != nil {
 		return false, err
 	}
-	if uint64(index) >= uint64(len(bits)) {
+	if uint64(index) >= uint64(width) {
 		return false, ast.ErrASTDomain
 	}
 	op, own, err := t.operation(owner)
@@ -320,7 +332,7 @@ func (t *SMTBitVectorTheory) internalizeBitProjection(expression ast.ASTHandle) 
 	if missing && own && op == smtBVOpNumeral {
 		// Source creates all numeral projections in increasing index order on
 		// this first visit; subsequent visits create only their requested atom.
-		for i := range bits {
+		for i := 0; i < width; i++ {
 			atom, err := s.manager.MkBitVectorBit2Bool(uint32(i), owner)
 			if err != nil {
 				return false, err
