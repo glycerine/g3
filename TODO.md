@@ -616,6 +616,17 @@ Found while matching `-st` output against `build/z3` on
     -7. NEXT: compare quant_elim_new's smt::kernel (m_fparams from the qe
     tactic, its assumption literal, the qe plugins' extra assertions) with
     g3's inner SMTSolver configuration in qe/quantifier_tactic_arith_search.go.
+    DONE (5b510dc22): the inner kernel now gets the flets (bit2int,
+    enum_const_mod, int2bv2int, array canonize) via
+    SMTSolver.ApplyQuantElimSettings. The first case now matches z3 (g3
+    0, 3, 4, 2 vs z3 0, 2, 4, 3). PENDING: the flet's m_relevancy_lvl = 0.
+    With relevancy 0 passed as a kernel parameter, searchExprQEScalarTree's
+    re-check after CHOOSE_VAR (expr_quantifier_bool_search.go, the
+    refreshed == nil branch) gets a sat status whose result has no model
+    (SMTSolver.AcquireModel returns nil), so the search errors with
+    ErrASTDomain. Find why a sat re-check without new assertions publishes
+    no model when relevancy is 0 (a kernel fast path?), then apply
+    relevancy 0.
 
 19. **DONE (2026-11-09, 46531ec4a): MAM ported; old matcher deleted.**
    smtcore/smt_mam_{code,compiler,interpreter,impl}.go port mam.cpp's
