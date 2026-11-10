@@ -796,7 +796,8 @@ func (t *SMTBitVectorTheory) ApplySortConstraint(node *SMTEnode, sort ast.ASTHan
 			return err
 		}
 	}
-	return nil
+	// mk_bits keeps only literals in m_bits; the context owns the atoms.
+	return t.releaseBitOwner(node.owner)
 }
 
 func (t *SMTBitVectorTheory) Relevant(expression ast.ASTHandle) error {

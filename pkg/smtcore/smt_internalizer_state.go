@@ -124,6 +124,9 @@ type SMTInternalizerState struct {
 	// afterFlush runs in Close between context::flush and the destruction
 	// of m_theories: ~context destroys m_model and m_proto_model there.
 	afterFlush func() error
+	// onQuantifierFlush runs when context::flush sets m_qmanager = nullptr:
+	// ~qi_queue releases its cost function's variables there.
+	onQuantifierFlush func() error
 	// paramsContext and globals are the kernel's parameter services, borrowed
 	// by theories that build their own rewriters (theory_fpa's converter).
 	paramsContext         *uparams.ParamsContext
@@ -986,6 +989,12 @@ func (s *SMTInternalizerState) flushQuantifiers() error {
 		if err := s.quantifiers.schedule.releaseInstancesForFlush(); err != nil {
 			return err
 		}
+	}
+	if s.closing && s.onQuantifierFlush != nil {
+		if err := s.onQuantifierFlush(); err != nil {
+			return err
+		}
+		s.onQuantifierFlush = nil
 	}
 	s.flushQuantifiersInPop = false
 	return nil

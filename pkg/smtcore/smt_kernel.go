@@ -194,6 +194,7 @@ func NewSMTKernel(manager *ast.ASTManager, quantifiers *SMTQuantifierRegistry) (
 		},
 	}
 	internalizer.afterFlush = kernel.releaseContextModels
+	internalizer.onQuantifierFlush = kernel.closeQuantifierCosts
 	internalizer.assertedHasQuantifiers = &kernel.assertedHasQuantifiers
 	internalizer.assertedInconsistent = &kernel.assertedInconsistent
 	internalizer.assertedFormulas = &kernel.assertions
@@ -1354,6 +1355,18 @@ func (k *SMTKernel) retireGeneratedModel() error {
 		return err
 	}
 	k.staleModel, k.generated = k.generated, nil
+	return nil
+}
+
+// closeQuantifierCosts is ~qi_queue's release of the cost function.
+func (k *SMTKernel) closeQuantifierCosts() error {
+	if k.quantifierCosts == nil {
+		return nil
+	}
+	if err := k.quantifierCosts.Close(); err != nil {
+		return err
+	}
+	k.quantifierCosts = nil
 	return nil
 }
 

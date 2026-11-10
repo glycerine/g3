@@ -290,6 +290,9 @@ func (t *SMTBitVectorTheory) internalizeBitProjection(expression ast.ASTHandle) 
 				return false, err
 			}
 		}
+		if err = t.releaseBitOwner(owner); err != nil {
+			return false, err
+		}
 	}
 	if missingVariable {
 		if err = bvAssert(124, "ctx.b_internalized(n)", func() (bool, error) {

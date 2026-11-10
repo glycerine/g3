@@ -8,7 +8,9 @@ import (
 )
 
 func TestSMTBVCleanupPreservesNativeRefusedRoots(t *testing.T) {
-	for _, operation := range []string{"temporary", "close-temporary", "close-owned"} {
+	// After internalization m_bits holds literals only, so no bit owner is
+	// left for a refused close to preserve; the temporaries remain.
+	for _, operation := range []string{"temporary", "close-temporary"} {
 		t.Run(operation, func(t *testing.T) {
 			var bv *SMTBitVectorTheory
 			var failure error
@@ -26,8 +28,9 @@ func TestSMTBVCleanupPreservesNativeRefusedRoots(t *testing.T) {
 			astTestMust(t, err)
 			astTestMust(t, state.RegisterTheory(bv))
 			_, _ = bvFixedSymbolic(t, m, state, bv, "refused-bv-word", 2)
-			if len(bv.bitOwners) == 0 {
-				t.Fatal("internalized word has no owned Boolean representation")
+			// mk_bits leaves only literals in m_bits; the context owns the atoms.
+			if len(bv.literalBits) == 0 {
+				t.Fatal("internalized word has no literal Boolean representation")
 			}
 			wordOwners := len(bv.bitOwners)
 			bit := smtRelevancyBool(t, m, "refused-bv-temporary")
@@ -61,7 +64,7 @@ func TestSMTBVCleanupPreservesNativeRefusedRoots(t *testing.T) {
 			}
 			astTestMust(t, bv.Close())
 			astTestMust(t, bv.Close())
-			if len(bv.temporary) != 0 || len(bv.bitOwners) != 0 || len(bv.bitTrail) != 0 {
+			if len(bv.temporary) != 0 || len(bv.bitOwners) != 0 || len(bv.bitTrail) != 0 || len(bv.literalBits) != 0 {
 				t.Fatal("cleanup retry left bit-vector roots")
 			}
 		})

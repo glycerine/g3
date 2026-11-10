@@ -494,11 +494,11 @@ func TestSMTBitVectorCloseReleasesBitOwners(t *testing.T) {
 	_, err = solver.CheckSat(nil)
 	astTestMust(t, err)
 	theory, ok := solver.kernel.internalizer.theories[family].(*SMTBitVectorTheory)
-	if !ok || len(theory.bitOwners) == 0 {
-		t.Fatal("missing retained bit owners")
+	if !ok || len(theory.literalBits) == 0 {
+		t.Fatal("missing literal-backed bits")
 	}
 	astTestMust(t, solver.Close())
-	if len(theory.bitOwners) != 0 || len(theory.bits) != 0 || len(theory.bitTrail) != 0 {
+	if len(theory.bitOwners) != 0 || len(theory.bits) != 0 || len(theory.bitTrail) != 0 || len(theory.literalBits) != 0 {
 		t.Fatal("bit owners survived theory close")
 	}
 }
