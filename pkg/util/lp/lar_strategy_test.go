@@ -56,6 +56,12 @@ func TestLARStrategyIndependentThresholdModels(t *testing.T) {
 				t.Run(fmt.Sprintf("%d/%v/%d", world, materialized, offset), func(t *testing.T) {
 					h := newLPPairHarness(t)
 					s, row := lpLARStrategyFixture(t, h, world, materialized)
+					// The term row lists the term's coefficients in libstdc++
+					// unordered_map order, then the term column.
+					termOrder := newLPTermOrder()
+					termOrder.keys.Put(0, lpTermOrderValue)
+					termOrder.keys.Put(1, lpTermOrderValue)
+					rowOrder := append(termOrder.Keys(), 2)
 					n := s.Bounds.Witnesses.Size()
 					s.Settings.ColumnThresholdForLUInLAR = uint32(int(n) + offset)
 					limit := &lpTestResourceLimit{err: lpErrExactSolveCancel}
@@ -73,9 +79,10 @@ func TestLARStrategyIndependentThresholdModels(t *testing.T) {
 						wantRows := uint32(0)
 						if materialized {
 							wantRows = 1
-							for j, value := range row {
-								cell := s.Core.DA.Rows[0][j]
-								if cell.Column != uint32(j) || cell.Value != lpLARSourceDouble(value) || s.Core.DA.Columns[j][cell.Offset] != (ColumnCell{0, uint32(j)}) {
+							for pos, j := range rowOrder {
+								value := row[j]
+								cell := s.Core.DA.Rows[0][pos]
+								if cell.Column != j || cell.Value != lpLARSourceDouble(value) || s.Core.DA.Columns[j][cell.Offset] != (ColumnCell{0, uint32(pos)}) {
 									t.Fatal("independent sparse conversion", cell, value)
 								}
 							}
@@ -87,12 +94,12 @@ func TestLARStrategyIndependentThresholdModels(t *testing.T) {
 						if s.Core.RA.RowCount() != 1 || s.Core.RA.ColumnCount() != 3 || s.Core.DA.ColumnCount() != 0 || s.ExternalToColumns[LARTermStartIndex] != 2 {
 							t.Fatal("deferred term must materialize only for tableau")
 						}
-						for j, value := range row {
-							cell := &s.Core.RA.Rows[0][j]
-							if cell.Column != uint32(j) {
+						for pos, j := range rowOrder {
+							cell := &s.Core.RA.Rows[0][pos]
+							if cell.Column != j {
 								t.Fatal("source row order")
 							}
-							lpSparseRationalCheck(t, h, &cell.Value, value)
+							lpSparseRationalCheck(t, h, &cell.Value, row[j])
 						}
 					}
 					h.must(s.Close())

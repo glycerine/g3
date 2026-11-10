@@ -47,7 +47,7 @@ func TestLARConstraintsIndependentExactCopiesAndBorrows(t *testing.T) {
 		var indices []uint32
 		var values []*big.Rat
 		want := make(map[uint32]*big.Rat)
-		var order []uint32
+		orderOracle := newLPTermOrder()
 		for i := 0; i < world%13; i++ {
 			column := uint32(r.IntN(5))
 			x := new(big.Rat).SetFrac(new(big.Int).Lsh(big.NewInt(int64(r.IntN(19)-9)), uint(r.IntN(130))), big.NewInt(int64(r.IntN(41)+1)))
@@ -56,8 +56,9 @@ func TestLARConstraintsIndependentExactCopiesAndBorrows(t *testing.T) {
 			h.must(term.AddCoefficient(column, &p.Y))
 			indices = append(indices, column)
 			values = append(values, x)
-			order = lpTermOracleAdd(want, order, column, x)
+			orderOracle = lpTermOracleAdd(want, orderOracle, column, x)
 		}
+		order := orderOracle.Keys()
 		borrowed, err := NewLARTermConstraint(h.m, term, kind, &p.X)
 		h.must(err)
 		owned, err := NewLARConstraint(h.m, input.Data, kind, &p.X)
@@ -233,7 +234,7 @@ func TestLARConstraintsConstructionAndExportPhysicalRefusals(t *testing.T) {
 						}
 						for i := range exported.Data {
 							want, _ := new(big.Rat).SetString(value)
-							if op == "term-export" && i == 0 {
+							if op == "term-export" && exported.Data[i].Index == 3 {
 								want.Mul(want, big.NewRat(2, 1))
 							}
 							lpSparseRationalCheck(t, h, &exported.Data[i].Value, want)
@@ -267,7 +268,20 @@ func TestLARConstraintsConstructionAndExportPhysicalRefusals(t *testing.T) {
 					case "stored-append":
 						lpCheckConstraintVector(t, h, owned.Coefficients, []uint32{3, 3, 7, 11, 31}, []*big.Rat{want, want, want, want, want})
 					case "term-export":
-						lpCheckConstraintVector(t, h, exported, []uint32{3, 7, 11}, []*big.Rat{new(big.Rat).Mul(want, big.NewRat(2, 1)), want, want})
+						// The term's coefficients follow libstdc++ unordered_map order.
+						termOrder := newLPTermOrder()
+						var termValues []*big.Rat
+						for _, j := range []uint32{3, 3, 7, 11} {
+							termOrder.keys.Put(j, lpTermOrderValue)
+						}
+						for _, j := range termOrder.Keys() {
+							if j == 3 {
+								termValues = append(termValues, new(big.Rat).Mul(want, big.NewRat(2, 1)))
+							} else {
+								termValues = append(termValues, want)
+							}
+						}
+						lpCheckConstraintVector(t, h, exported, termOrder.Keys(), termValues)
 					case "free-coefficient":
 						lpSparseRationalCheck(t, h, &p.Y, want)
 					}

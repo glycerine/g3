@@ -5,11 +5,30 @@ import (
 	"math/big"
 	"math/rand/v2"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 const larTermMultilimbRepeats = 100
+
+// lpTermOrder replays the coefficient insertions and erasures on a
+// StdUnorderedRationalMap, whose libstdc++ iteration order is pinned by
+// std_unordered_map_test against the C++ control vector.
+type lpTermOrder struct{ keys *StdUnorderedRationalMap }
+
+var lpTermOrderValue = new(numeral.Rational)
+
+func newLPTermOrder() *lpTermOrder { return &lpTermOrder{keys: NewStdUnorderedRationalMap()} }
+
+func (o *lpTermOrder) Keys() []uint32 {
+	if o == nil {
+		return nil
+	}
+	return o.keys.Keys()
+}
 
 func lpCheckLARTerm(t *testing.T, h *lpPairHarness, term *LARTerm, want map[uint32]*big.Rat, order []uint32) {
 	t.Helper()
@@ -25,7 +44,7 @@ func lpCheckLARTerm(t *testing.T, h *lpPairHarness, term *LARTerm, want map[uint
 		}
 		lpSparseRationalCheck(t, h, value, x)
 	}
-	if !reflect.DeepEqual(got, order) {
+	if !slices.Equal(got, order) {
 		t.Fatal("term order", got, order)
 	}
 	for j := uint32(0); j < 13; j++ {
@@ -34,16 +53,12 @@ func lpCheckLARTerm(t *testing.T, h *lpPairHarness, term *LARTerm, want map[uint
 		}
 	}
 }
-func lpTermOracleErase(want map[uint32]*big.Rat, order []uint32, j uint32) []uint32 {
+func lpTermOracleErase(want map[uint32]*big.Rat, order *lpTermOrder, j uint32) *lpTermOrder {
 	delete(want, j)
-	for i, k := range order {
-		if k == j {
-			return append(order[:i], order[i+1:]...)
-		}
-	}
+	order.keys.Del(j)
 	return order
 }
-func lpTermOracleAdd(want map[uint32]*big.Rat, order []uint32, j uint32, x *big.Rat) []uint32 {
+func lpTermOracleAdd(want map[uint32]*big.Rat, order *lpTermOrder, j uint32, x *big.Rat) *lpTermOrder {
 	if old := want[j]; old != nil {
 		old.Add(old, x)
 		if old.Sign() == 0 {
@@ -52,7 +67,8 @@ func lpTermOracleAdd(want map[uint32]*big.Rat, order []uint32, j uint32, x *big.
 		return order
 	}
 	want[j] = new(big.Rat).Set(x)
-	return append(order, j)
+	order.keys.Put(j, lpTermOrderValue)
+	return order
 }
 func TestLARTermIndependentArithmeticAndOrderOracle(t *testing.T) {
 	if !testing.Short() {
@@ -65,7 +81,7 @@ func TestLARTermIndependentArithmeticAndOrderOracle(t *testing.T) {
 	t.Cleanup(func() { h.must(term.Close()); h.must(v.Close()) })
 	h.must(term.SetValue(&p.Y))
 	want := make(map[uint32]*big.Rat)
-	var order []uint32
+	order := newLPTermOrder()
 	r := rand.New(rand.NewPCG(7913, 159))
 	for step := 0; step < 1600; step++ {
 		j := uint32(r.IntN(12))
@@ -97,15 +113,15 @@ func TestLARTermIndependentArithmeticAndOrderOracle(t *testing.T) {
 			}
 			h.must(term.Substitute(j, v))
 		}
-		lpCheckLARTerm(t, h, term, want, order)
+		lpCheckLARTerm(t, h, term, want, order.Keys())
 		lpSparseRationalCheck(t, h, &term.Value, big.NewRat(17, 19))
 	}
 	out, e := term.CoefficientsAsVector()
 	h.must(e)
-	if int(out.Size()) != len(order) {
+	if int(out.Size()) != order.keys.Len() {
 		t.Fatal("export size")
 	}
-	for i, j := range order {
+	for i, j := range order.Keys() {
 		if out.Data[i].Index != j {
 			t.Fatal("export order")
 		}
@@ -113,7 +129,7 @@ func TestLARTermIndependentArithmeticAndOrderOracle(t *testing.T) {
 	}
 	if len(out.Data) > 0 {
 		h.must(h.m.SetInt64(&out.Data[0].Value, 999))
-		lpCheckLARTerm(t, h, term, want, order)
+		lpCheckLARTerm(t, h, term, want, order.Keys())
 	}
 	h.must(out.Close())
 	h.must(term.Close())
