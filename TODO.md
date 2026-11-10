@@ -867,6 +867,20 @@ Found while matching `-st` output against `build/z3` on
      and propagate_values is not clean()-wrapped.
    - from_fmls keeps objectives it does not see.
    weighted_soft_optimization is now identical (full logs 496 -> 497).
+   Then (a6b3b4977..ec8ba3c47) bit_vector_optimization moved from line 42
+   to 1182 of 1294:
+   - from_fmls mk_atomic/purify runs per objective, and fm joins
+     m_model_converter.
+   - The purifier alone owns the post-from_fmls terms.
+   - CheckHard keeps m_model, and maxsmt starts from it.
+   - check_sat_hill_climb and get_cores are faithful.
+   - m_opt_solver persists until the next init_solver.
+   - new_soft is an obj_map iterated in table order.
+   - remove_core/split_core order matches.
+   Next lead: at line 1182, in the old inc_sat_solver's bit_blaster
+   m_values teardown, z3 frees (iff ..) #37/#26 before (or ..) #8. g3's
+   delete worklist matches z3's, so a refcount (an extra or missing holder
+   of #8) differs.
    NEXT: pareto_bit_vector (12), pareto_soft (29), box (38), pareto (38),
    bit_vector (42), strict_lexicographic (42). The pareto and box paths
    still skip normalize/update_solver (see PLAN below).
