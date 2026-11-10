@@ -106,7 +106,7 @@ func (f *userSortFactory) someValue(sort ast.ASTHandle) (ast.ASTHandle, error) {
 		return ast.ASTHandle{}, err
 	}
 	if set := f.sets[sort]; set != nil && len(set.values) != 0 {
-		return set.values[0], nil
+		return f.tableOrder(set)[0], nil
 	}
 	value, _, err := f.insert(0, sort)
 	return value, err
@@ -118,10 +118,11 @@ func (f *userSortFactory) someValues(sort ast.ASTHandle, first, second ast.ASTRe
 	}
 	set, exists := f.sets[sort]
 	if exists && len(set.values) >= 2 {
-		if err := f.manager.SetRef(first, set.values[0]); err != nil {
+		order := f.tableOrder(set)
+		if err := f.manager.SetRef(first, order[0]); err != nil {
 			return false, err
 		}
-		if err := f.manager.SetRef(second, set.values[1]); err != nil {
+		if err := f.manager.SetRef(second, order[1]); err != nil {
 			return false, err
 		}
 	} else if exists && len(set.values) == 1 {
@@ -299,7 +300,7 @@ func (f *userSortFactory) SomeValue(sort ast.ASTHandle) (ast.ASTHandle, error) {
 	if set == nil || len(set.values) == 0 {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
-	return set.values[0], nil
+	return f.tableOrder(set)[0], nil
 }
 func (f *userSortFactory) SomeValues(sort ast.ASTHandle, first, second ast.ASTRef) (bool, error) {
 	if err := f.open(); err != nil {
@@ -312,10 +313,11 @@ func (f *userSortFactory) SomeValues(sort ast.ASTHandle, first, second ast.ASTRe
 	if set == nil || len(set.values) < 2 {
 		return false, nil
 	}
-	if err := f.manager.SetRef(first, set.values[0]); err != nil {
+	order := f.tableOrder(set)
+	if err := f.manager.SetRef(first, order[0]); err != nil {
 		return false, err
 	}
-	if err := f.manager.SetRef(second, set.values[1]); err != nil {
+	if err := f.manager.SetRef(second, order[1]); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -351,9 +353,26 @@ func (f *userSortFactory) Freeze(sort ast.ASTHandle) error {
 func (f *userSortFactory) IsFinite(sort ast.ASTHandle) bool { return f.finite[sort] }
 func (f *userSortFactory) KnownUniverse(sort ast.ASTHandle) []ast.ASTHandle {
 	if set := f.sets[sort]; set != nil {
-		return append([]ast.ASTHandle(nil), set.values...)
+		return f.tableOrder(set)
 	}
 	return nil
+}
+
+// tableOrder lists value_set::m_values (an obj_hashtable that only grows) in
+// iteration order: an obj_map with the same insertions has its layout.
+func (f *userSortFactory) tableOrder(set *userSortValueSet) []ast.ASTHandle {
+	layout := ast.NewObjMap(f.manager)
+	for _, v := range set.values {
+		if _, err := layout.InsertIfNotThere(v); err != nil {
+			return append([]ast.ASTHandle(nil), set.values...)
+		}
+	}
+	entries := layout.Entries()
+	out := make([]ast.ASTHandle, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, e.Key)
+	}
+	return out
 }
 func (f *userSortFactory) Sorts() []ast.ASTHandle {
 	var sorts []ast.ASTHandle
