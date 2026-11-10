@@ -329,6 +329,15 @@ Found while matching `-st` output against `build/z3` on
     masked); they are TestTraceGolden's default vectors
     (cmd/g3/test_vectors/golden_trace_vectors.txt). Fixes found by the
     failing vectors so far (423 -> 482 matching):
+    - 2026-11-09 lifetime batch (full logs 489 -> 496 of 661; stdout 648,
+      all-stats 624): qsat operator()'s defs live until the tactic call
+      returns; tactic2solver m_assertions shrink front to back. OPEN leads:
+      lra_propagation_mode_updates (theory_lra keeps x=2 after pop, g3
+      picks x=3; item 16); weighted_soft_optimization (z3's optimize()
+      normalizes with simplify_fmls before its first check, g3's weighted
+      soft path checks hard constraints first without the simplifier;
+      item 22); the nlqsat vectors (the reference z3 answers unknown and
+      stops early).
     - 2026-11-09 ordering batch (full logs 480 -> 489 of 661): utvpi_tester
       m_coeff_map and cofactor get_best occs iterate as obj_maps (table
       order); theory_lra keeps theory::mk_eq_atom (id order, no numeral
