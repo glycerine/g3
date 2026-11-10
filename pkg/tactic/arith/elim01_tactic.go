@@ -151,10 +151,9 @@ func (t *Elim01Tactic) Cleanup() error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	if err := t.bounds.Reset(); err != nil {
-		return err
-	}
-	return t.rewriter.Reset()
+	// elim01_tactic::cleanup() is empty: m_rewriter keeps its cache until
+	// the tactic dies. operator()'s bound_manager is a local, gone here.
+	return t.bounds.Reset()
 }
 func (t *Elim01Tactic) Reset() error { return t.Cleanup() }
 func (t *Elim01Tactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
