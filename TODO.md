@@ -349,7 +349,13 @@ Found while matching `-st` output against `build/z3` on
       conflict is otherwise unjustified). OPEN: proof-producing runs build
       conflict proofs recursively (clause proof, then literal proofs); z3's
       conflict_resolution::get_proof uses a LIFO todo stack, so antecedent
-      proofs come first (max_bv_sharing_proofs line 236). Open: model finder's
+      proofs come first (max_bv_sharing_proofs line 236). Also (545 -> 547):
+      m_nl_new_exprs.reset() front to back; simplify keeps its proof when
+      proofs are enabled. OPEN: simplify :print-proofs prints with the format
+      printer, where z3 uses ast_smt_pp::display_expr_smt2 (no format nodes;
+      simplify_command line 166). OPEN: reset_assertions_global line 141:
+      asserted_formulas' bit2int m_bit0 dies before another context's
+      qi_queue variables in z3, after them in g3. Open: model finder's
       mk_add_core numeral order (recursive_mutual_and_arguments line 917);
       pretty-printer format ids (bv_integer_conversion_scopes line 92987).
     - 2026-11-10 seq lifetime batch (full logs 513 -> 517 of 659; stdout
