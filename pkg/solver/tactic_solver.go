@@ -294,13 +294,20 @@ func (s *TacticSolver) PushCore() error {
 	return s.clearResult()
 }
 func (s *TacticSolver) Push() error { return s.named.Push() }
+// restoreAssertions is m_assertions.shrink(size) (or its destructor): an
+// expr_ref_vector releases the dropped tail front to back.
 func (s *TacticSolver) restoreAssertions(size uint32) error {
-	for uint32(len(s.assertions)) > size {
-		i := len(s.assertions) - 1
+	for i := int(size); i < len(s.assertions); i++ {
+		if s.assertions[i] == (ast.ASTRef{}) {
+			continue
+		}
 		if err := s.manager.DelRef(&s.assertions[i]); err != nil {
+			// Keep the unreleased tail (DelRef zeroed the released ones).
 			return err
 		}
-		s.assertions = s.assertions[:i]
+	}
+	if uint32(len(s.assertions)) > size {
+		s.assertions = s.assertions[:size]
 	}
 	return nil
 }
