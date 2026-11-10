@@ -547,6 +547,23 @@ Found while matching `-st` output against `build/z3` on
    [end-of-instance]. Full logs 351 -> 360 identical. Known gap: for a
    multi-pattern z3 can reach the second atom without listing it
    (lazy_multipattern_scopes), which needs the interpreter itself.
+   PLAN (2026-11-09; started): port src/smt/mam.cpp (4037 lines) into
+   smtcore/smt_mam_*.go, replacing smt_mam.go's matcher, in phases:
+   a. label_hasher and the enode lbl hash (set_lbl_hash, m_lbls/m_plbls
+      updates in add_eq and internalization); instruction types (initn,
+      compare, check, filter, pcheck, get_enode, choose, cont, bind,
+      get_cgr, yield, is_cgr) and code_tree / code_tree_manager.
+   b. compiler: linearize patterns into code trees, sharing prefixes
+      (insert, is_compatible, multi-pattern joints).
+   c. interpreter: execute with backtracking, the bindings/registers,
+      init_continue/next candidates, on_match -> add_instance with the
+      used-enode list in discovery order.
+   d. mam_impl: add_pattern, add_node/relevant, propagate (match_new
+      patterns, to_match, inverted path index path_tree for add_eq),
+      rematch, scope trail (mam_value_trail, mk_tree_trail).
+   e. Switch the quantifier manager to it, delete smt_mam.go's matcher,
+      and compare [new-match] traces (quantified_ematching_relevancy,
+      lazy_multipattern_scopes and the quant_* vectors).
 
 20. **DONE (e36db5524): fixedpoint rules are flushed lazily.** AddRule queues; the
    query flush binds and builds rules; other readers build the Go eager view on
