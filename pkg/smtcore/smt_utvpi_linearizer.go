@@ -4,7 +4,6 @@ package smtcore
 
 import (
 	"math/big"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -19,6 +18,10 @@ type smtUTVPILinearizer struct {
 	family  ast.FamilyID
 	terms   []smtUTVPITerm
 	weight  big.Rat
+	// coeffMap is m_coeff_map: an obj_map whose table order (kept across
+	// resets) decides the order of the linearization's terms.
+	coeffMap     *ast.ObjMap
+	coefficients []*big.Rat
 }
 
 func newSMTUTVPILinearizer(m *ast.ASTManager) (*smtUTVPILinearizer, error) {
@@ -29,7 +32,7 @@ func newSMTUTVPILinearizer(m *ast.ASTManager) (*smtUTVPILinearizer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &smtUTVPILinearizer{manager: m, family: family}, nil
+	return &smtUTVPILinearizer{manager: m, family: family, coeffMap: ast.NewObjMap(m)}, nil
 }
 
 func (l *smtUTVPILinearizer) numeral(expression ast.ASTHandle) (*big.Rat, bool, error) {
@@ -53,7 +56,8 @@ func (l *smtUTVPILinearizer) linearize(left, right ast.ASTHandle) (bool, error) 
 	if !right.IsNull() {
 		work = append(work, smtUTVPITerm{right, *big.NewRat(-1, 1)})
 	}
-	coefficients := make(map[ast.ASTHandle]*big.Rat)
+	l.coeffMap.Reset()
+	l.coefficients = l.coefficients[:0]
 	push := func(expression ast.ASTHandle, coefficient *big.Rat) {
 		work = append(work, smtUTVPITerm{expression, *new(big.Rat).Set(coefficient)})
 	}
@@ -157,30 +161,30 @@ func (l *smtUTVPILinearizer) linearize(left, right ast.ASTHandle) (bool, error) 
 		if family != ast.NullFamilyID || count != 0 {
 			return false, nil
 		}
-		if coefficients[term.expression] == nil {
-			coefficients[term.expression] = new(big.Rat)
+		// m_coeff_map.insert_if_not_there2(e, 0)->m_value += mul
+		entry, err := l.coeffMap.InsertIfNotThere(term.expression)
+		if err != nil {
+			return false, err
 		}
-		coefficients[term.expression].Add(coefficients[term.expression], &term.coefficient)
+		if entry.Num == 0 {
+			l.coefficients = append(l.coefficients, new(big.Rat))
+			entry.Num = uint64(len(l.coefficients))
+		}
+		c := l.coefficients[entry.Num-1]
+		c.Add(c, &term.coefficient)
 	}
-	ids := make(map[ast.ASTHandle]uint32)
-	for expression, coefficient := range coefficients {
+	for _, entry := range l.coeffMap.Entries() {
+		coefficient := l.coefficients[entry.Num-1]
 		if coefficient.Sign() == 0 {
 			continue
+		}
+		l.terms = append(l.terms, smtUTVPITerm{entry.Key, *new(big.Rat).Set(coefficient)})
+		if len(l.terms) > 2 {
+			return false, nil
 		}
 		if coefficient.Cmp(big.NewRat(1, 1)) != 0 && coefficient.Cmp(big.NewRat(-1, 1)) != 0 {
 			return false, nil
 		}
-		id, err := l.manager.GetASTID(expression)
-		if err != nil {
-			return false, err
-		}
-		ids[expression] = id
-		l.terms = append(l.terms, smtUTVPITerm{expression, *new(big.Rat).Set(coefficient)})
-		if len(l.terms) > 2 {
-			return false, nil
-		}
 	}
-	// Source obj_map traversal is unordered; keep the Go result deterministic.
-	sort.Slice(l.terms, func(i, j int) bool { return ids[l.terms[i].expression] < ids[l.terms[j].expression] })
 	return true, nil
 }
