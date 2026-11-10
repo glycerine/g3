@@ -58,8 +58,18 @@ func (c *Context) optimizationSATCoreEligible(assumptions []ast.ASTHandle) (elig
 	if err != nil {
 		return false, err
 	}
-	for _, assertion := range c.assertions {
-		ok, checkErr := c.optimizationSATFormula(assertion.expression, booleanFamily, pseudoBooleanFamily, bitVectorFamily)
+	// probe_bv walks m_hard_constraints: the normalized formulas when
+	// normalize() simplified them (lia2card may have removed integers).
+	hard := make([]ast.ASTHandle, 0, len(c.assertions))
+	if c.optimizationHardOverrideActive {
+		hard = append(hard, c.optimizationHardOverride...)
+	} else {
+		for _, assertion := range c.assertions {
+			hard = append(hard, assertion.expression)
+		}
+	}
+	for _, formula := range hard {
+		ok, checkErr := c.optimizationSATFormula(formula, booleanFamily, pseudoBooleanFamily, bitVectorFamily)
 		if checkErr != nil || !ok {
 			return false, checkErr
 		}

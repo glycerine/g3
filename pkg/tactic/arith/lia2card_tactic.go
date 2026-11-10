@@ -18,13 +18,16 @@ import (
 )
 
 type LIA2CardTactic struct {
-	self                                 *LIA2CardTactic
-	manager                              *ast.ASTManager
-	context                              *uparams.ParamsContext
-	globals                              *uparams.GlobalParamsService
-	params                               uparams.ParamsRef
-	bounds                               *BoundManager
-	trace                                *diagnostic.TraceTags
+	self    *LIA2CardTactic
+	manager *ast.ASTManager
+	context *uparams.ParamsContext
+	globals *uparams.GlobalParamsService
+	params  uparams.ParamsRef
+	bounds  *BoundManager
+	trace   *diagnostic.TraceTags
+	// pbArgs is m_rw's lia_rewriter_cfg::args, alive until the next is_pb
+	// or the tactic's destruction.
+	pbArgs                               *PBSum
 	ownerBytes                           uint64
 	refs                                 uint32
 	compileEquality, paramsReady, closed bool
@@ -111,6 +114,12 @@ func (t *LIA2CardTactic) Close() error {
 	}
 	if t.closed {
 		return nil
+	}
+	if t.pbArgs != nil {
+		if err := t.pbArgs.Close(); err != nil {
+			return err
+		}
+		t.pbArgs = nil
 	}
 	if t.bounds != nil {
 		if err := t.bounds.Close(); err != nil {

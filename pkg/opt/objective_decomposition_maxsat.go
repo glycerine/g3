@@ -1,17 +1,43 @@
 package opt
 
 import (
+	"errors"
+	"strconv"
+
 	"fmt"
+	utext "github.com/glycerine/g3/pkg/util/text"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func decompositionID(source DecodedFormulaObjective, index int) string {
+// decompositionID is is_maxsat's `out << orig_term << ":" << index`: the
+// expr_ref streams through mk_ismt2_pp, whose format tree lives only for
+// that print.
+func (d *ObjectiveDecomposer) decompositionID(source DecodedFormulaObjective, index int) (id string, err error) {
 	if source.ID != "" {
-		return source.ID
+		return source.ID, nil
 	}
-	return fmt.Sprintf("objective:%d", index)
+	if source.OriginalTerm == (ast.ASTHandle{}) {
+		return fmt.Sprintf("null:%d", index), nil
+	}
+	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: d.manager.Budget()})
+	if err != nil {
+		return "", err
+	}
+	defer func() { err = errors.Join(err, stream.Close()) }()
+	f, err := d.manager.SMT2PPExprTree(source.OriginalTerm, nil)
+	if err != nil {
+		return "", err
+	}
+	if err = d.manager.PrintFormatTransient(stream, f, nil, nil, nil); err != nil {
+		return "", err
+	}
+	text, err := stream.String()
+	if err != nil {
+		return "", err
+	}
+	return text + ":" + strconv.Itoa(index), nil
 }
 
 func cloneRationals(source []big.Rat) []big.Rat {
@@ -40,7 +66,7 @@ func (d *ObjectiveDecomposer) retainedMaxSAT(source DecodedFormulaObjective) (De
 }
 
 func (d *ObjectiveDecomposer) convertPBSum(source DecodedFormulaObjective, index int, sum pbSum) (DecomposedObjective, error) {
-	result := DecomposedObjective{SourceKind: source.Kind, OriginalTerm: source.OriginalTerm, ID: decompositionID(source, index), Converted: true}
+	result := DecomposedObjective{SourceKind: source.Kind, OriginalTerm: source.OriginalTerm, Converted: true}
 	result.Offset.Set(&sum.offset)
 	result.SoftTerms = make([]ast.ASTHandle, len(sum.terms))
 	result.Weights = make([]big.Rat, len(sum.weights))
@@ -72,6 +98,10 @@ func (d *ObjectiveDecomposer) convertPBSum(source DecodedFormulaObjective, index
 		}
 		result.SoftTerms[i] = term
 		result.Weights[i].Set(weight)
+	}
+	var err error
+	if result.ID, err = d.decompositionID(source, index); err != nil {
+		return DecomposedObjective{}, err
 	}
 	return result, nil
 }

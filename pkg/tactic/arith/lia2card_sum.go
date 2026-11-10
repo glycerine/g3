@@ -104,14 +104,63 @@ func extractPBSumTerms(m *ast.ASTManager, terms []ast.ASTHandle, muls []*big.Rat
 	if err != nil {
 		return nil, false, err
 	}
+	// s holds only lia_rewriter_cfg::args. conds is get_pb_sum's local
+	// expr_ref_vector: get_sum pushes and pops it, so an ite's (not c)
+	// dies at its pop_back unless insert_arg copied it into args.
 	s := &PBSum{manager: m}
-	var conds []ast.ASTHandle
-	insert := func(weight *big.Rat, x ast.ASTHandle) error {
-		if !m.IsTrue(x) {
-			conds = append(conds, x)
-			defer func() { conds = conds[:len(conds)-1] }()
+	var conds []ast.ASTRef
+	pushCond := func(h ast.ASTHandle) error {
+		ref, err := m.NewRef(h)
+		if err == nil {
+			conds = append(conds, ref)
 		}
-		condition, err := s.pin(m.MkAndArray(conds))
+		return err
+	}
+	popCond := func() error {
+		last := len(conds) - 1
+		err := m.DelRef(&conds[last])
+		conds = conds[:last]
+		return err
+	}
+	defer func() {
+		for len(conds) != 0 {
+			_ = popCond()
+		}
+	}()
+	// insert_arg: expr_ref cond = add_conds(conds, x), released on return.
+	insert := func(weight *big.Rat, x ast.ASTHandle) (result error) {
+		var cond ast.ASTRef
+		{
+			// add_conds: es.push_back(e); result = mk_and(es); es.pop_back().
+			pushed := !m.IsTrue(x)
+			if pushed {
+				if err := pushCond(x); err != nil {
+					return err
+				}
+			}
+			hs := make([]ast.ASTHandle, len(conds))
+			var err error
+			for i := range conds {
+				if hs[i], err = m.RefGet(conds[i]); err != nil {
+					break
+				}
+			}
+			var and ast.ASTHandle
+			if err == nil {
+				and, err = m.MkAndArray(hs)
+			}
+			if err == nil {
+				cond, err = m.NewRef(and)
+			}
+			if pushed {
+				err = errors.Join(err, popCond())
+			}
+			if err != nil {
+				return err
+			}
+		}
+		defer func() { result = errors.Join(result, m.DelRef(&cond)) }()
+		condition, err := m.RefGet(cond)
 		if err != nil {
 			return err
 		}
@@ -131,6 +180,8 @@ func extractPBSumTerms(m *ast.ASTManager, terms []ast.ASTHandle, muls []*big.Rat
 			}
 			coefficient.Neg(&coefficient)
 			s.Constant.Add(&s.Constant, weight)
+		} else if condition, err = s.pin(condition, nil); err != nil {
+			return err
 		}
 		s.Args = append(s.Args, condition)
 		s.Coefficients = append(s.Coefficients, coefficient)
@@ -222,19 +273,23 @@ func extractPBSumTerms(m *ast.ASTManager, terms []ast.ASTHandle, muls []*big.Rat
 			if err != nil {
 				return false, err
 			}
-			conds = append(conds, condition)
+			if err = pushCond(condition); err != nil {
+				return false, err
+			}
 			ok, err := getSum(left, mul)
-			conds = conds[:len(conds)-1]
+			err = errors.Join(err, popCond())
 			if err != nil {
 				return false, err
 			}
-			neg, err := s.pin(m.MkNot(condition))
+			neg, err := m.MkNot(condition)
+			if err == nil {
+				err = pushCond(neg)
+			}
 			if err != nil {
 				return false, err
 			}
-			conds = append(conds, neg)
 			other, err := getSum(right, mul)
-			conds = conds[:len(conds)-1]
+			err = errors.Join(err, popCond())
 			return ok && other, err
 		}
 		if zeroOne[h] {
@@ -246,16 +301,17 @@ func extractPBSumTerms(m *ast.ASTManager, terms []ast.ASTHandle, muls []*big.Rat
 			if err != nil {
 				return false, err
 			}
+			// mk_01: a raw m.mk_eq(x, a.mk_numeral(1, sort)).
 			var one ast.ASTHandle
 			if k == 1 {
-				one, err = s.pin(m.ArithmeticIntegerNumeralText("1"))
+				one, err = m.ArithmeticIntegerNumeralText("1")
 			} else {
-				one, err = s.pin(m.ArithmeticRealNumeralText("1"))
+				one, err = m.ArithmeticRealNumeralText("1")
 			}
 			if err != nil {
 				return false, err
 			}
-			indicator, err := s.pin(m.MkEq(h, one))
+			indicator, err := m.MkEq(h, one)
 			if err != nil {
 				return false, err
 			}

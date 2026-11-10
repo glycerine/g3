@@ -15,7 +15,7 @@ func (d *ObjectiveDecomposer) convertBitVector(source DecodedFormulaObjective, i
 	if err != nil {
 		return DecomposedObjective{}, false, err
 	}
-	result := DecomposedObjective{SourceKind: source.Kind, OriginalTerm: source.OriginalTerm, ID: decompositionID(source, index), Converted: true, Negate: source.Kind == FormulaMaximize}
+	result := DecomposedObjective{SourceKind: source.Kind, OriginalTerm: source.OriginalTerm, Converted: true, Negate: source.Kind == FormulaMaximize}
 	result.SoftTerms = make([]ast.ASTHandle, 0, width)
 	result.Weights = make([]big.Rat, 0, width)
 	bitValue := uint32(0)
@@ -52,6 +52,9 @@ func (d *ObjectiveDecomposer) convertBitVector(source DecodedFormulaObjective, i
 			result.Offset.Add(&result.Offset, &rational)
 		}
 		weight.Lsh(weight, 1)
+	}
+	if result.ID, err = d.decompositionID(source, index); err != nil {
+		return DecomposedObjective{}, false, err
 	}
 	return result, true, nil
 }

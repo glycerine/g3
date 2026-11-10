@@ -14,6 +14,13 @@ import (
 // lia2cardComparison returns an owning Boolean result for left <= right, or
 // left = right when equality is true. Unsupported sums return matched=false.
 func lia2cardComparison(m *ast.ASTManager, left, right ast.ASTHandle, zeroOne map[ast.ASTHandle]bool, equality, compileEquality bool, tags *diagnostic.TraceTags) (result ast.ASTRef, matched bool, err error) {
+	return lia2cardComparisonRetaining(m, left, right, zeroOne, equality, compileEquality, tags, nil)
+}
+
+// lia2cardComparisonRetaining keeps the matched sum in *args, which is
+// lia_rewriter_cfg::args: is_pb resets it at its next call, so the
+// collected terms outlive the rewrite step. A nil args releases on return.
+func lia2cardComparisonRetaining(m *ast.ASTManager, left, right ast.ASTHandle, zeroOne map[ast.ASTHandle]bool, equality, compileEquality bool, tags *diagnostic.TraceTags, args **PBSum) (result ast.ASTRef, matched bool, err error) {
 	if m == nil {
 		return result, false, ast.ErrASTHandle
 	}
@@ -25,11 +32,22 @@ func lia2cardComparison(m *ast.ASTManager, left, right ast.ASTHandle, zeroOne ma
 	}()
 	// is_pb: get_pb_sum(x, 1, ...) && get_pb_sum(y, -1, ...), with no
 	// difference term built.
+	if args != nil && *args != nil {
+		previous := *args
+		*args = nil
+		if err = previous.Close(); err != nil {
+			return result, false, err
+		}
+	}
 	sum, matched, err := extractPBSumTerms(m, []ast.ASTHandle{left, right}, []*big.Rat{big.NewRat(1, 1), big.NewRat(-1, 1)}, zeroOne, tags)
 	if err != nil || !matched {
 		return result, matched, err
 	}
-	defer func() { err = errors.Join(err, sum.Close()) }()
+	if args != nil {
+		*args = sum
+	} else {
+		defer func() { err = errors.Join(err, sum.Close()) }()
+	}
 	if _, err = m.RegisterPseudoBooleanPlugin(); err != nil {
 		return result, false, err
 	}

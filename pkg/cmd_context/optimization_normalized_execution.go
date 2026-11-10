@@ -65,6 +65,14 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		if err != nil {
 			return nil, errors.Join(err, formulaSet.Close())
 		}
+		// simplify_fmls ends with fmls.reset(): to_fmls's formulas, the
+		// original objective-function applications included, are
+		// released before from_fmls.
+		err = formulaSet.Close()
+		formulaSet = nil
+		if err != nil {
+			return nil, errors.Join(err, simplified.Close())
+		}
 		if simplified.inconsistent {
 			if err = simplified.Close(); err != nil {
 				return nil, errors.Join(err, formulaSet.Close())

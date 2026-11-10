@@ -71,7 +71,11 @@ func (c *lia2cardRewriteConfig) ReduceApp(decl ast.ASTHandle, args ast.AppArgume
 		}
 		negate = op == 4 || op == 5
 	}
-	converted, matched, err := lia2cardComparison(m, left, right, c.zeroOne, equality, c.compileEquality, c.trace)
+	var pbArgs **PBSum
+	if c.owner != nil {
+		pbArgs = &c.owner.pbArgs
+	}
+	converted, matched, err := lia2cardComparisonRetaining(m, left, right, c.zeroOne, equality, c.compileEquality, c.trace, pbArgs)
 	if err != nil || !matched {
 		return rewriter.RewriteFailed, err
 	}
