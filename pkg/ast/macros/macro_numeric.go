@@ -440,17 +440,29 @@ func (u *Util) IsArithmeticMacro(term ast.ASTHandle, declarations uint32) (head,
 	if err != nil {
 		return head, definition, false, false, err
 	}
-	// tmp = m_arith.mk_add(args.size(), args): the raw application, unary
-	// for a single argument.
+	// tmp = m_arith.mk_add(args.size(), args): a single app argument is
+	// returned as is; otherwise the raw application (unary for a single
+	// variable).
 	family, err = u.manager.ArithmeticFamilyID()
 	if err != nil {
 		return head, definition, false, false, err
 	}
 	var restTerm ast.ASTHandle
-	if len(rest) == 0 {
+	singleApp := false
+	if len(rest) == 1 {
+		kind, kindErr := u.manager.GetKind(rest[0])
+		if kindErr != nil {
+			return head, definition, false, false, kindErr
+		}
+		singleApp = kind == ast.ASTApp
+	}
+	switch {
+	case len(rest) == 0:
 		// The plugin rejects a nullary add; use the sort's zero.
 		restTerm, err = u.mkAdd(rest, sort)
-	} else {
+	case singleApp:
+		restTerm = rest[0]
+	default:
 		restTerm, err = u.manager.MkFamilyApp(family, macroArithAdd, nil, rest)
 	}
 	if err != nil {
