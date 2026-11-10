@@ -20,3 +20,15 @@ func (m *ASTManager) IsRecursiveFunctionDefinition(q ASTHandle) (bool, error) {
 	name, present, err := m.Symbols.BareString(qid)
 	return present && name == ":rec-fun", err
 }
+
+// NoteRecursiveFunctionDefinitions records that a recursive function was
+// defined. The model evaluator's AND/OR short-circuit (a deliberate deviation
+// that avoids z3 4.7's unbounded unfolding of dead recursive branches) is
+// enabled only then, so other evaluations keep the source traversal and
+// caching order.
+func (m *ASTManager) NoteRecursiveFunctionDefinitions() { m.recursiveDefinitions = true }
+
+// HasRecursiveFunctionDefinitions reports NoteRecursiveFunctionDefinitions.
+func (m *ASTManager) HasRecursiveFunctionDefinitions() bool {
+	return m != nil && m.recursiveDefinitions
+}

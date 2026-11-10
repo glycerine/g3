@@ -17,6 +17,7 @@ func (c *Context) DefineRecursiveFunction(declaration ast.ASTHandle, names []usy
 	if err != nil {
 		return err
 	}
+	m.NoteRecursiveFunctionDefinitions()
 	arity, err := m.GetArity(declaration)
 	if err != nil {
 		return err

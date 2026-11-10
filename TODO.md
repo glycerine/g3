@@ -1066,6 +1066,17 @@ Found while matching `-st` output against `build/z3` on
    g3 holds an extra reference on those subterms while simplify runs (an
    item 3 lifetime gap upstream of the tactic). NEXT: log act_cache inserts
    with the key's ref count in both and find the extra holder.
+   FOUND/FIXED (bb86ecd37 and the next commit): (1) process_unsat's core
+   block fml = mk_not(mk_and(core)) is a local; g3 gave the conjunction and
+   block to the engine owner, so the and had ref count 2 and was cached.
+   max_resolve/cs_max_resolve locals now follow source lifetimes, and
+   update_model evaluates into m_csmodel. (2) The model evaluator's AND/OR
+   short-circuit (added with recursive definitions, 3e96cf2e9) is a
+   deliberate deviation: without it z3 4.7 and g3 both hang on
+   recursive_mutual_boolean_model's get-value. It skipped later children,
+   so their cache entries were missing. It is now enabled only once a
+   recursive function has been defined (ASTManager
+   NoteRecursiveFunctionDefinitions). Full logs 504 -> 507 identical.
    Lead at box line 80: z3's pb_rewriter keeps m_args (an expr_ref_vector
    member reset at the next non-constant rewrite), and that inc/dec frees a
    raw (not y!2), which g3 keeps. TRIED porting m_args: stdout went

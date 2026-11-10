@@ -151,8 +151,10 @@ func (ev *ModelEvaluator) init(p *uparams.ParamsRef) error {
 	if e != nil {
 		return e
 	}
-	if e = ev.traversal.EnableModelBooleanShortCircuit(); e != nil {
-		return e
+	if ev.model.manager.HasRecursiveFunctionDefinitions() {
+		if e = ev.traversal.EnableModelBooleanShortCircuit(); e != nil {
+			return e
+		}
 	}
 	ev.cfg.boolean, e = rewriter.NewBoolRewriter(ev.model.manager, ev.services.Context, ev.services.Globals, nil)
 	if e != nil {
