@@ -615,7 +615,7 @@ func (r *ArithRewriter) rewriteAdd(args ast.AppArguments, out ast.ASTRef) (Rewri
 	return RewriteDone, r.manager.SetRef(out, result)
 }
 
-func (r *ArithRewriter) rewriteSub(args ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
+func (r *ArithRewriter) rewriteSub(args ast.AppArguments, out ast.ASTRef) (status RewriteStatus, result error) {
 	if args.Count() == 0 {
 		return RewriteFailed, ast.ErrASTDomain
 	}
@@ -626,10 +626,16 @@ func (r *ArithRewriter) rewriteSub(args ast.AppArguments, out ast.ASTRef) (Rewri
 	if args.Count() == 1 {
 		return RewriteDone, r.manager.SetRef(out, first)
 	}
+	// expr_ref minus_one: held while the result is built, released on
+	// return.
 	minusOne, err := r.numeralForTerm(big.NewRat(-1, 1), first)
 	if err != nil {
 		return RewriteFailed, err
 	}
+	if err = r.manager.IncRef(minusOne); err != nil {
+		return RewriteFailed, err
+	}
+	defer func() { result = errors.Join(result, r.manager.DecRef(minusOne)) }()
 	values := []ast.ASTHandle{first}
 	for i := uint32(1); i < args.Count(); i++ {
 		h, e := args.At(i)
@@ -649,11 +655,11 @@ func (r *ArithRewriter) rewriteSub(args ast.AppArguments, out ast.ASTRef) (Rewri
 		}
 		values = append(values, negative)
 	}
-	result, err := r.makeAdd(values, first)
+	sum, err := r.makeAdd(values, first)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	return Rewrite2, r.manager.SetRef(out, result)
+	return Rewrite2, r.manager.SetRef(out, sum)
 }
 
 func (r *ArithRewriter) monomials(h ast.ASTHandle) ([]ast.ASTHandle, error) {
