@@ -329,6 +329,20 @@ Found while matching `-st` output against `build/z3` on
     masked); they are TestTraceGolden's default vectors
     (cmd/g3/test_vectors/golden_trace_vectors.txt). Fixes found by the
     failing vectors so far (423 -> 482 matching):
+    - 2026-11-10 order/lifetime batch (full logs 517 -> 532 of 659): shared_occs,
+      value_set m_values and m_var2num_occs walk hash-table order (ObjMap
+      layouts); elim_term_ite m_new_defs and vector::reset release front to
+      back; defined_names' ite definition builds MK_EQ before MK_NOT;
+      opt::context::pop releases m_optsmt/m_hard_constraints; theory_bv
+      releases its bit expressions after init_bits (m_bits keeps literals),
+      honors rewriter.flat/elim_and, and MK_AC_BINARY interleaves
+      get_arg_bits with blasting; bv2int/int2bv statement order and in-place
+      rewrite; lackr::eager simplifies in place; simplify_fmls always builds
+      result_pr; pattern inference builds quant_intro before the pull; model
+      finder offsets use one arith_rewriter mk_add/mk_sub step (MkAdd2/MkSub2);
+      insert_rec_fun builds lhs/eq before the macro case. Open: model finder's
+      mk_add_core numeral order (recursive_mutual_and_arguments line 917);
+      pretty-printer format ids (bv_integer_conversion_scopes line 92987).
     - 2026-11-10 seq lifetime batch (full logs 513 -> 517 of 659; stdout
       649/662): simplify's th_solver comes from the strategic factory;
       seq_rewriter keeps m_es/m_lhs/m_rhs and reduce_eq edits ref-holding
