@@ -534,7 +534,17 @@ Found while matching `-st` output against `build/z3` on
     selection) and routing blast_or through it. That is a large port, like
     item 19.
 
-19. **OPEN: E-matching is not a port of z3's MAM.** smtcore/smt_mam.go is a
+19. **DONE (2026-11-09, 46531ec4a): MAM ported; old matcher deleted.**
+   smtcore/smt_mam_{code,compiler,interpreter,impl}.go port mam.cpp's
+   label hasher, instruction set, compiler, backtracking interpreter,
+   inverted path index and mam_impl. Patterns are added by assign_eh from
+   propagate_atoms (context::assign_quantifier), as in default_qm_plugin.
+   Full logs 450 -> 451 identical (quantified_ematching_relevancy);
+   lazy_multipattern_scopes now diverges at line 616 (was 475). That
+   difference is a lifetime one (item 3): z3's qi_queue m_instances
+   shrink at pop frees (not q) with its or-lemma, while g3 still holds
+   (not q) until the schedule's Close. History of the item follows.
+   WAS: E-matching is not a port of z3's MAM. smtcore/smt_mam.go is a
    direct congruence-aware matcher over context enodes, not mam.cpp's
    code trees, inverted path indexes and backtracking interpreter. Match
    discovery order, and so instance order and the quantifier statistics,
