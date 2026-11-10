@@ -151,63 +151,79 @@ func (s *SMTSolver) decrementOptimizationValue(index uint32, filter *tactic.Filt
 // MaximizeOptimizationObjective implements the opt_solver wrapper around the
 // raw theory maximizer. Its returned blocker reference belongs to the caller.
 func (s *SMTSolver) MaximizeOptimizationObjective(index uint32, filter *tactic.FilterModelConverter) (value SMTArithmeticObjectiveValue, blocker ast.ASTRef, resultErr error) {
+	value, resultErr = s.MaximizeOptimizationObjectiveInto(index, filter, &blocker)
+	if resultErr != nil && blocker != (ast.ASTRef{}) {
+		resultErr = errors.Join(resultErr, s.manager.DelRef(&blocker))
+	}
+	return value, blocker, resultErr
+}
+
+// MaximizeOptimizationObjectiveInto is maximize_objective(i, expr_ref&
+// blocker): the theory's new blocker overwrites *blocker (releasing the old
+// one) before the model update and decrement_value run. *blocker stays owned
+// by the caller, also on error.
+func (s *SMTSolver) MaximizeOptimizationObjectiveInto(index uint32, filter *tactic.FilterModelConverter, blocker *ast.ASTRef) (value SMTArithmeticObjectiveValue, resultErr error) {
+	if blocker == nil {
+		return value, ast.ErrASTHandle
+	}
 	objective, err := s.objective(index)
 	if err != nil {
-		return value, blocker, err
+		return value, err
 	}
 	if s.optimization == nil || filter == nil || !s.produceModels {
-		return value, blocker, ast.ErrASTDomain
+		return value, ast.ErrASTDomain
 	}
 	raw, condition, shared, err := objective.theory.MaximizeObjective(objective.variable)
 	if err != nil {
-		return value, blocker, err
+		return value, err
 	}
 	root, err := s.manager.NewRef(condition)
 	if err != nil {
-		return value, blocker, err
+		return value, err
 	}
-	defer func() {
-		if resultErr != nil {
-			resultErr = errors.Join(resultErr, s.manager.DelRef(&root))
+	if *blocker != (ast.ASTRef{}) {
+		if err = s.manager.DelRef(blocker); err != nil {
+			return value, errors.Join(err, s.manager.DelRef(&root))
 		}
-	}()
+	}
+	*blocker = root
 	value = cloneOptimizationValue(raw)
 	md, err := s.AcquireModel()
 	if err != nil {
-		return value, blocker, err
+		return value, err
 	}
 	if md != nil {
 		if err = md.DecRef(); err != nil {
-			return value, blocker, err
+			return value, err
 		}
 	}
 	objective.valid = true
 	if s.optimization.models[index] == nil {
 		if err = s.saveOptimizationModel(index); err != nil {
-			return value, blocker, err
+			return value, err
 		}
 	}
 	updated, err := s.UpdateModel(shared)
 	if err != nil {
-		return value, blocker, err
+		return value, err
 	}
 	repair := !updated
 	if updated && shared {
 		current, err := s.ObjectiveValue(index)
 		if err != nil {
-			return value, blocker, err
+			return value, err
 		}
 		repair = !equalOptimizationValues(value, current)
 	}
 	if repair {
 		if _, err = s.decrementOptimizationValue(index, filter, &value); err != nil {
-			return value, blocker, err
+			return value, err
 		}
 	} else if err = s.saveOptimizationModel(index); err != nil {
-		return value, blocker, err
+		return value, err
 	}
 	s.objectives[index].saved = cloneOptimizationValue(value)
-	return value, root, nil
+	return value, nil
 }
 
 func (s *SMTSolver) OptimizationObjectiveModelValid(index uint32) (bool, error) {

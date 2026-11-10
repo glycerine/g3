@@ -1001,6 +1001,19 @@ Found while matching `-st` output against `build/z3` on
        check as the result. A faithful port needs geometric_lex's
        return-l_true path plus reporting from optsmt m_lower/m_upper, which
        replaces the ArithmeticInterval special case.
+   DONE (2026-11-10): geometric_lex's expr_ref bound now outlives the next
+   check_sat (released when maximize_objective overwrites it, via
+   SMTSolver.MaximizeOptimizationObjectiveInto, or at exit), which fixed the
+   numeral id recycling at line 278; the first difference is now 287, lead (2).
+   ROOT CAUSE of lead (2), confirmed with z3 -tr:assert_expr_bug and gdb:
+   z3's commit asserts (>= x 5.0) (from m_lower = 5 - eps), and
+   asserted_formulas::assert_expr rewrites it to false with the
+   propagate_values substitution ((not (>= x 5.0)) is a unit fact). So
+   asserted_formulas is inconsistent, push internalizes nothing, the second
+   lex's first check is unsat, and geometric_lex returns l_true with
+   m_upper = m_lower. g3 commits (>= x (/ 9.0 2.0)), the model value. NEXT:
+   commit from optsmt m_lower, port geometric_lex's l_true-on-unsat exit, and
+   report intervals from m_lower/m_upper (replacing ArithmeticInterval).
    Box (a5d39adb7, ba2664f22, 4853fd923): the first box call runs
    init_solver/normalize, and execute_box runs on the optimize() solver
    (optsmt::box, then a scoped execute per MaxSMT objective). elim01's

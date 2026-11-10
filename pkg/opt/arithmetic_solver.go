@@ -408,6 +408,15 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 			resultErr = errors.Join(resultErr, s.backend.Pop(1))
 		}
 	}()
+	// geometric_lex's expr_ref bound: the asserted bound stays alive across
+	// the next check_sat until maximize_objective or mk_ge overwrites it,
+	// and is released at exit after pop(num_scopes).
+	var held ast.ASTRef
+	defer func() {
+		if held != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, s.manager.DelRef(&held))
+		}
+	}()
 	status, err := s.backend.CheckSat(nil)
 	if err != nil || status != lbool.True {
 		return status, false, err
@@ -434,17 +443,16 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 			}
 			break
 		}
-		value, blockerRef, err := s.backend.MaximizeOptimizationObjective(s.objectives[index].backendIndex, s.filter)
+		value, err := s.backend.MaximizeOptimizationObjectiveInto(s.objectives[index].backendIndex, s.filter, &held)
 		if err != nil {
 			return lbool.Undef, false, err
 		}
-		updateErr := s.replaceModel(result)
-		if updateErr != nil {
-			return lbool.Undef, false, errors.Join(updateErr, s.manager.DelRef(&blockerRef))
+		if err = s.replaceModel(result); err != nil {
+			return lbool.Undef, false, err
 		}
 		result.Values[index].Arithmetic = s.orient(index, value)
 		if err = s.updateLowerLex(index, savedValue(value)); err != nil {
-			return lbool.Undef, false, errors.Join(err, s.manager.DelRef(&blockerRef))
+			return lbool.Undef, false, err
 		}
 		// geometric_lex: an unbounded objective leaves m_lower infinite, so
 		// delta_per_step is 1 and the theory's blocker (false) is asserted;
@@ -465,28 +473,26 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 		// optsmt::geometric_opt asserts the update_lower blocker; only a
 		// larger step pushes first and then builds mk_ge at the base level.
 		var bound ast.ASTHandle
-		var boundRef ast.ASTRef
 		if delta.Cmp(big.NewInt(1)) > 0 && value.Finite.Infinity.Sign() == 0 {
 			err = s.backend.Push()
 			if err == nil {
 				jumpScopes++
 				bound, err = s.backend.MakeObjectiveLowerBound(s.objectives[index].backendIndex, s.filter, boundValue)
 			}
-		} else {
-			bound, err = s.manager.RefGet(blockerRef)
+			var boundRef ast.ASTRef
+			if err == nil {
+				boundRef, err = s.manager.NewRef(bound)
+			}
+			if err == nil {
+				err = s.manager.DelRef(&held)
+				held = boundRef
+			}
 		}
 		if err == nil {
-			boundRef, err = s.manager.NewRef(bound)
-		}
-		if err == nil {
-			bound, err = s.manager.RefGet(boundRef)
+			bound, err = s.manager.RefGet(held)
 		}
 		if err == nil {
 			err = s.backend.Assert(bound)
-		}
-		err = errors.Join(err, s.manager.DelRef(&blockerRef))
-		if boundRef != (ast.ASTRef{}) {
-			err = errors.Join(err, s.manager.DelRef(&boundRef))
 		}
 		if err != nil {
 			return lbool.Undef, false, err
