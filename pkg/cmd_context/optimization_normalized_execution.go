@@ -30,6 +30,9 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	// optimize() always runs normalize() unless it resumes Pareto or box
 	// execution.
 	_ = settings
+	// Pareto skips normalize: z3 4.7's gia_pareto does not terminate once
+	// normalize turns 0-1 objectives into MaxSAT sums (z3 times out on
+	// test vectors the frontier enumeration here completes).
 	useSimplifier := !paretoContinuation && !boxContinuation && priority != "pareto"
 	// optimize(): init_solver precedes normalize() on the lex path.
 	if !paretoContinuation && !boxContinuation && priority != "pareto" {
@@ -49,9 +52,12 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		}()
 	}
 	// import_scoped_state (after init_solver) resets the previous run's
-	// optsmt objectives, objectives and hard constraints.
-	if err = c.releaseOptimizationTerms(); err != nil {
-		return nil, err
+	// optsmt objectives, objectives and hard constraints. A Pareto or box
+	// continuation returns from optimize() before it.
+	if !paretoContinuation && !boxContinuation {
+		if err = c.releaseOptimizationTerms(); err != nil {
+			return nil, err
+		}
 	}
 	var formulaSet *opt.ObjectiveFormulaSet
 	var simplified *optimizationSimplifiedFormulas
@@ -215,6 +221,10 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			continue
 		}
 		p := purified.Objectives[i]
+		// from_fmls: obj.m_term = orig_term for a MaxSMT objective.
+		if normalized[i].soft && !p.OriginalTerm.IsNull() {
+			normalized[i].expression = p.OriginalTerm
+		}
 		if normalized[i].soft {
 			if len(p.SoftTerms) != len(normalized[i].softTerms) {
 				return nil, ast.ErrASTDomain
