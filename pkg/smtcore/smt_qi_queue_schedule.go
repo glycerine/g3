@@ -193,6 +193,23 @@ func (q *SMTQIQueueSchedule) releaseInstances(limit int) error {
 	return nil
 }
 
+// releaseInstancesForFlush is qi_queue's m_instances destructor when
+// context::flush sets m_qmanager = nullptr: the instances are released
+// before the context's enodes. Scope limits are clamped so a later pop
+// releases nothing twice.
+func (q *SMTQIQueueSchedule) releaseInstancesForFlush() error {
+	if q == nil {
+		return nil
+	}
+	if err := q.releaseInstances(0); err != nil {
+		return err
+	}
+	for i := range q.scopes {
+		q.scopes[i].instanceLimit = 0
+	}
+	return nil
+}
+
 func (q *SMTQIQueueSchedule) Reset() error {
 	if q == nil {
 		return nil

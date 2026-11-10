@@ -1441,6 +1441,13 @@ func (s *SMTInternalizerState) Close() error {
 		}
 		s.pendingPop = nil
 	}
+	// context::flush resets m_qmanager (the qi_queue instances) before the
+	// enodes, which go with the context's members.
+	if s.quantifiers != nil {
+		if err := s.quantifiers.schedule.releaseInstancesForFlush(); err != nil {
+			return err
+		}
+	}
 	if err := s.popTo(smtInternalizerScope{}); err != nil {
 		return fmt.Errorf("close SMT root scope: %w", err)
 	}
