@@ -8,7 +8,8 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
-	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/tactic/portfolio"
 	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -25,7 +26,9 @@ type SimplifyDetails struct {
 
 type simplifyExpressionSolver struct {
 	context *Context
-	backend *smtcore.SMTSolver
+	params    uparams.ParamsRef // m_params: empty
+	hasParams bool
+	backend   solver.Solver
 }
 
 func (s *simplifyExpressionSolver) CheckSatisfiable(expression ast.ASTHandle) (status lbool.LBool, resultErr error) {
@@ -33,7 +36,17 @@ func (s *simplifyExpressionSolver) CheckSatisfiable(expression ast.ASTHandle) (s
 		return lbool.Undef, ast.ErrASTHandle
 	}
 	if s.backend == nil {
-		backend, err := smtcore.NewSMTSolver(s.context.manager, &s.context.params, s.context.logic, s.context.config)
+		if !s.hasParams {
+			params, err := s.context.config.Params.NewValue()
+			if err != nil {
+				return lbool.Undef, err
+			}
+			s.params, s.hasParams = params, true
+		}
+		// th_solver::check_sat: m_ctx.get_solver_factory()(m, m_params,
+		// false, true, false, symbol::null), the strategic solver for no
+		// logic (mk_default_tactic combined with the SMT solver).
+		backend, err := portfolio.NewDefaultStrategicSolver(s.context.manager, &s.params, false, true, false, "", s.context.config)
 		if err != nil {
 			return lbool.Undef, err
 		}
@@ -50,14 +63,22 @@ func (s *simplifyExpressionSolver) CheckSatisfiable(expression ast.ASTHandle) (s
 }
 
 func (s *simplifyExpressionSolver) Close() error {
-	if s == nil || s.backend == nil {
+	if s == nil {
 		return nil
 	}
-	err := s.backend.Close()
-	if err == nil {
+	if s.backend != nil {
+		if err := s.backend.Close(); err != nil {
+			return err
+		}
 		s.backend = nil
 	}
-	return err
+	if s.hasParams {
+		if err := s.context.config.Params.Del(&s.params); err != nil {
+			return err
+		}
+		s.hasParams = false
+	}
+	return nil
 }
 
 // Simplify rewrites one term with command-local theory-rewriter parameters.
