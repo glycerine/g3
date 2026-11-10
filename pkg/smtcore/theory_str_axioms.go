@@ -183,7 +183,9 @@ func (t *SMTStringTheory) instantiateStringEqualityLengthAxiom(left, right *SMTE
 
 func (t *SMTStringTheory) assertStringLengthEquality(left, right ast.ASTHandle) (result error) {
 	m := t.state.manager
-	premise, err := m.MkEq(left, right)
+	// instantiate_str_eq_length_axiom / check_length_const_string build
+	// both sides with ctx.mk_eq_atom.
+	premise, err := t.state.MkEqAtom(left, right)
 	if err != nil {
 		return err
 	}
@@ -210,7 +212,7 @@ func (t *SMTStringTheory) assertStringLengthEquality(left, right ast.ASTHandle) 
 		}
 		refs = append(refs, ref)
 	}
-	conclusion, err := m.MkEq(lengths[0], lengths[1])
+	conclusion, err := t.state.MkEqAtom(lengths[0], lengths[1])
 	if err != nil {
 		return err
 	}
