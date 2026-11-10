@@ -62,84 +62,105 @@ func (g *smtModelFinderAUFGraph) collectPartialFunctions() ([]ast.ASTHandle, err
 }
 
 func (g *smtModelFinderAUFGraph) completeProjectedFunctions(functions []ast.ASTHandle) error {
-	m := g.finder.manager
 	for _, function := range functions {
-		if err := g.model.CompletePartialFunction(function); err != nil {
+		if err := g.completeProjectedFunction(function); err != nil {
 			return err
 		}
-		interpretation, err := g.model.Core().FunctionInterpretation(function)
+	}
+	return nil
+}
+
+// completeProjectedFunction is one complete_partial_funcs iteration; args is
+// its expr_ref_vector, released front to back when the iteration ends.
+func (g *smtModelFinderAUFGraph) completeProjectedFunction(function ast.ASTHandle) (result error) {
+	m := g.finder.manager
+	if err := g.model.CompletePartialFunction(function); err != nil {
+		return err
+	}
+	interpretation, err := g.model.Core().FunctionInterpretation(function)
+	if err != nil {
+		return err
+	}
+	constant, err := interpretation.IsConstant()
+	if err != nil || constant {
+		return err
+	}
+	arity, err := m.GetArity(function)
+	if err != nil {
+		return err
+	}
+	var args []ast.ASTRef
+	defer func() {
+		for i := range args {
+			result = errors.Join(result, m.DelRef(&args[i]))
+		}
+	}()
+	domain := make([]ast.ASTHandle, arity)
+	arguments := make([]ast.ASTHandle, arity)
+	hasProjection := false
+	for i := uint32(0); i < arity; i++ {
+		domain[i], err = m.GetDomain(function, i)
 		if err != nil {
 			return err
 		}
-		constant, err := interpretation.IsConstant()
+		variable, err := m.MkVar(i, domain[i])
 		if err != nil {
 			return err
 		}
-		if constant {
-			continue
-		}
-		arity, err := m.GetArity(function)
-		if err != nil {
-			return err
-		}
-		domain := make([]ast.ASTHandle, arity)
-		arguments := make([]ast.ASTHandle, arity)
-		hasProjection := false
-		for i := uint32(0); i < arity; i++ {
-			domain[i], err = m.GetDomain(function, i)
-			if err != nil {
-				return err
-			}
-			variable, err := m.MkVar(i, domain[i])
-			if err != nil {
-				return err
-			}
-			arguments[i] = variable
-			if node := g.arguments[smtModelFinderAUFKey{function, i}]; node != nil {
-				projection := node.root().projection
-				if !projection.IsNull() {
-					arguments[i], err = m.MkApp(projection, []ast.ASTHandle{variable})
-					if err != nil {
-						return err
+		arguments[i] = variable
+		if node := g.arguments[smtModelFinderAUFKey{function, i}]; node != nil {
+			projection := node.root().projection
+			if !projection.IsNull() {
+				arguments[i], err = m.MkApp(projection, []ast.ASTHandle{variable})
+				if err != nil {
+					// The variable has no owner yet.
+					if held, e := m.NewRef(variable); e == nil {
+						err = errors.Join(err, m.DelRef(&held))
 					}
-					hasProjection = true
+					return err
 				}
+				hasProjection = true
 			}
 		}
-		if !hasProjection {
-			continue
-		}
-		name, err := m.GetASTName(function)
+		ref, err := m.NewRef(arguments[i])
 		if err != nil {
 			return err
 		}
-		rangeSort, err := m.GetRange(function)
-		if err != nil {
-			return err
+		args = append(args, ref)
+	}
+	if !hasProjection {
+		return nil
+	}
+	name, err := m.GetASTName(function)
+	if err != nil {
+		return err
+	}
+	rangeSort, err := m.GetRange(function)
+	if err != nil {
+		return err
+	}
+	auxiliary, err := m.MkFreshFuncDecl(name, symbol.Symbol{}, domain, rangeSort)
+	if err != nil {
+		return err
+	}
+	definition, err := m.MkApp(auxiliary, arguments)
+	if err != nil {
+		// The fresh declaration has no owner yet; a failed application
+		// must not strand it.
+		if held, e := m.NewRef(auxiliary); e == nil {
+			err = errors.Join(err, m.DelRef(&held))
 		}
-		auxiliary, err := m.MkFreshFuncDecl(name, symbol.Symbol{}, domain, rangeSort)
-		if err != nil {
-			return err
-		}
-		definition, err := m.MkApp(auxiliary, arguments)
-		if err != nil {
-			// The fresh declaration has no owner yet; a failed application
-			// must not strand it.
-			if held, e := m.NewRef(auxiliary); e == nil {
-				err = errors.Join(err, m.DelRef(&held))
-			}
-			return err
-		}
-		replacement, err := model.NewFunctionInterpretation(m, arity)
-		if err != nil {
-			return err
-		}
-		if err = replacement.SetElse(definition); err != nil {
-			return errors.Join(err, replacement.Close())
-		}
-		if err = g.model.ReregisterFunction(function, replacement, auxiliary); err != nil {
-			return errors.Join(err, replacement.Close())
-		}
+		return err
+	}
+	replacement, err := model.NewFunctionInterpretation(m, arity)
+	if err != nil {
+		return err
+	}
+	if err = replacement.SetElse(definition); err != nil {
+		return errors.Join(err, replacement.Close())
+	}
+	if err = g.model.ReregisterFunction(function, replacement, auxiliary); err != nil {
+		return errors.Join(err, replacement.Close())
 	}
 	return nil
 }
