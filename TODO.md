@@ -610,6 +610,12 @@ Found while matching `-st` output against `build/z3` on
     gap is in the inner smt::kernel's model on a re-check without new
     assertions (phase/restart state of the bv2int/mod formula), not in the
     qe port.
+    A top-level check-sat twice on the same formula agrees between z3 and
+    g3 (zb #b11 both times; y/z change identically). The qe inner kernel
+    is different: z3's first inner model has z = -4, where top level gives
+    -7. NEXT: compare quant_elim_new's smt::kernel (m_fparams from the qe
+    tactic, its assumption literal, the qe plugins' extra assertions) with
+    g3's inner SMTSolver configuration in qe/quantifier_tactic_arith_search.go.
 
 19. **DONE (2026-11-09, 46531ec4a): MAM ported; old matcher deleted.**
    smtcore/smt_mam_{code,compiler,interpreter,impl}.go port mam.cpp's
