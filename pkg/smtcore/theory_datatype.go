@@ -187,12 +187,10 @@ func (t *SMTDatatypeTheory) publishUpdate(node *SMTEnode) error {
 		return fmt.Errorf("datatype update constructor accessors: %w", err)
 	}
 	for _, accessor := range accessors {
-		selected, selectErr := state.manager.MkApp(accessor, []ast.ASTHandle{node.owner})
-		if selectErr != nil {
-			return fmt.Errorf("datatype update result accessor: %w", selectErr)
-		}
+		// acc1(arg1) is made and internalized before acc_own = acc1(own).
 		right := node.arguments[1].owner
 		if accessor != updatedAccessor {
+			var selectErr error
 			right, selectErr = state.manager.MkApp(accessor, []ast.ASTHandle{node.arguments[0].owner})
 			if selectErr != nil {
 				return fmt.Errorf("datatype update base accessor: %w", selectErr)
@@ -200,6 +198,10 @@ func (t *SMTDatatypeTheory) publishUpdate(node *SMTEnode) error {
 			if selectErr = state.Internalize(right, false); selectErr != nil {
 				return selectErr
 			}
+		}
+		selected, selectErr := state.manager.MkApp(accessor, []ast.ASTHandle{node.owner})
+		if selectErr != nil {
+			return fmt.Errorf("datatype update result accessor: %w", selectErr)
 		}
 		if err = t.equalityAxiom(right, selected, recognizer); err != nil {
 			return fmt.Errorf("datatype update field equality: %w", err)
