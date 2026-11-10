@@ -932,15 +932,20 @@ Found while matching `-st` output against `build/z3` on
        fpa_canonical_model_scopes, qffpbv_tactic and the other fpa vectors
        against z3 traces.
 
-24. **OPEN: theory_str propagation order (string_value, first divergence
-    line 60).** z3's theory_str::propagate runs m_basicstr_axiom_todo
-    (instantiate_basic_string_axioms: len("ab") = 2 first, then
-    len(x) >= 0 and len(x) = 0 <=> x = "") before m_str_eq_todo's
-    handle_equality. g3 asserts (or (not (= x "ab")) (= (str.len x)
-    (str.len "ab"))) immediately on the equality and builds str.len x
-    twice. Port propagate()'s worklist order and check where g3's eager
-    length-equality axiom comes from (z3 adds instantiate_str_eq_length_
-    axiom only inside handle_equality's later stages).
+24. **DONE (2026-11-09): theory_str propagation order (string_value now
+    matches z3 line for line).** Causes: theory_str set a theory var from
+    apply_sort_cnstr (the source keeps theory's empty body, so a String
+    variable gets its var at set_up_axioms and its equality arrives later
+    through attach_th_var's replace branch); context::mk_eq_atom was not
+    ported (theory override: arith_util::mk_eq ordering for arithmetic
+    theories, id-ordered mk_eq otherwise); context::get_assignments'
+    (not e) vector was not built in ctx_dep_analysis,
+    classify_ast_by_type_in_positive_context and propagate_length.
+    Remaining in the other string vectors (generic_string_*_free_models,
+    qfs_legacy_string_free_models, line 251): the format manager's node
+    ids inside a justification display differ (#16 vs #24); g3's other
+    theory_str MkEq sites (about 120) should be checked against the
+    source's ctx.mk_eq_atom uses as traces expose them.
 
 21. **Recorded deviations, kept deliberately.** cmd/g3 tests encode
    these: bvsmul_noovfl numeral folding uses signed semantics (the source
