@@ -810,8 +810,42 @@ func (c *Context) writeSoftObjectiveValue(out io.Writer, value *big.Rat) (result
 
 func (c *Context) writeObjectiveValue(out io.Writer, objective *optimizationObjective) error {
 	if objective.openBounds {
-		_, err := io.WriteString(out, " (interval (* (- 1) oo) oo)")
-		return err
+		// out << "(interval " << get_lower(i) << " " << get_upper(i): both
+		// to_expr temporaries live to the end of the statement.
+		var lower, upper simplex.Infinitesimal
+		lower.Infinity.SetInt64(-1)
+		upper.Infinity.SetInt64(1)
+		lowerRef, err := opt.ArithmeticValueExpression(c.manager, &lower, false)
+		if err != nil {
+			return err
+		}
+		upperRef, err := opt.ArithmeticValueExpression(c.manager, &upper, false)
+		if err != nil {
+			return errors.Join(err, c.manager.DelRef(&lowerRef))
+		}
+		write := func() error {
+			if _, err := io.WriteString(out, " (interval "); err != nil {
+				return err
+			}
+			for i, ref := range []ast.ASTRef{lowerRef, upperRef} {
+				if i == 1 {
+					if _, err := io.WriteString(out, " "); err != nil {
+						return err
+					}
+				}
+				h, err := c.manager.RefGet(ref)
+				if err == nil {
+					err = c.WriteExpression(out, h)
+				}
+				if err != nil {
+					return err
+				}
+			}
+			_, err := io.WriteString(out, ")")
+			return err
+		}
+		err = write()
+		return errors.Join(err, c.manager.DelRef(&upperRef), c.manager.DelRef(&lowerRef))
 	}
 	if objective.interval {
 		if _, err := io.WriteString(out, " (interval "); err != nil {

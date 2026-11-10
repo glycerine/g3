@@ -99,7 +99,8 @@ func (s *ObjectiveFormulaSet) Close() (result error) {
 	if s.closed {
 		return nil
 	}
-	for i := len(s.formulas) - 1; i >= 0; i-- {
+	// to_fmls's expr_ref_vector releases front to back.
+	for i := range s.formulas {
 		result = errors.Join(result, s.manager.DelRef(&s.formulas[i]))
 	}
 	if result == nil {
