@@ -845,7 +845,20 @@ Found while matching `-st` output against `build/z3` on
    - AddCover's "sliced predicate columns" refusal is g3's own (z3 checks
      only xform.slice).
 
-22. **OPEN: opt::context::optimize flow (item 12 cluster).** A full sweep
+22. **OPEN: opt::context::optimize flow (item 12 cluster).**
+   ROOT CAUSE for the propositional MaxSAT vectors (weighted_soft_optimization,
+   pareto_soft, box, ...; 2026-11-09): opt::context::update_solver replaces the
+   opt_solver with mk_inc_sat_solver when probe_bv holds (only Bool/PB/BV
+   symbols, maxres-family engine, not pareto, no proofs), so every later
+   check_sat, core and model comes from inc_sat_solver (whose
+   internalize_goal runs the simplify tactic, hence z3's (not a) (not b)
+   (or ...) before [push] 0). g3 computes that eligibility
+   (cmd_context/optimization_sat_eligibility.go) but only uses it as a flag;
+   opt.ArithmeticSolver.backend is a concrete *smtcore.SMTSolver. NEXT: put
+   the backend behind the solver interface (check_sat with assumptions,
+   get_unsat_core, get_model, push/pop, assert_expr) and construct
+   sat/sat_solver's inc_sat_solver for the eligible case, copying the
+   opt_solver's assertions as update_solver does. A full sweep
     puts the earliest remaining trace differences in optimization:
     unbounded_real/lexicographic_interval (32), weighted_soft (35),
     strict_lexicographic (37), box (39), pareto (39), bounded_integer
