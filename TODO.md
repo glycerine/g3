@@ -340,7 +340,16 @@ Found while matching `-st` output against `build/z3` on
       rewrite; lackr::eager simplifies in place; simplify_fmls always builds
       result_pr; pattern inference builds quant_intro before the pull; model
       finder offsets use one arith_rewriter mk_add/mk_sub step (MkAdd2/MkSub2);
-      insert_rec_fun builds lhs/eq before the macro case. Open: model finder's
+      insert_rec_fun builds lhs/eq before the macro case. Later the same day
+      (532 -> 545): ~qi_queue dies in flush; mk_bits paths drop bit owners;
+      bit-blaster locals live until init_bits ends; unit_subsumption,
+      pb2bv new_exprs/new_deps release order; qsat statement temporaries.
+      ASK BEFORE CHANGING: datatype_cycle_proof differs because g3's
+      occurs_check_explain adds the app=C(...) edge that z3 4.7 omits (the
+      conflict is otherwise unjustified). OPEN: proof-producing runs build
+      conflict proofs recursively (clause proof, then literal proofs); z3's
+      conflict_resolution::get_proof uses a LIFO todo stack, so antecedent
+      proofs come first (max_bv_sharing_proofs line 236). Open: model finder's
       mk_add_core numeral order (recursive_mutual_and_arguments line 917);
       pretty-printer format ids (bv_integer_conversion_scopes line 92987).
     - 2026-11-10 seq lifetime batch (full logs 513 -> 517 of 659; stdout
