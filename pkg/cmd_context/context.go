@@ -1229,6 +1229,10 @@ func (c *Context) Pop(count uint32) error {
 	if err := c.solver.Pop(count); err != nil {
 		return err
 	}
+	// m_opt->pop(n): m_optsmt.reset() and m_hard_constraints.reset().
+	if err := c.releaseOptimizationTerms(); err != nil {
+		return err
+	}
 	if err := c.invalidateOptimizationState(); err != nil {
 		return err
 	}
