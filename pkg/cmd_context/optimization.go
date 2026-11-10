@@ -341,7 +341,7 @@ func (c *Context) createOptimizer() (optimizer *opt.ArithmeticSolver, resultErr 
 	return opt.NewArithmeticSolver(c.manager, &solverParams, c.logic, c.config)
 }
 
-func (c *Context) newOptimizer(assumptions []ast.ASTHandle) (optimizer *opt.ArithmeticSolver, resultErr error) {
+func (c *Context) newOptimizer(assumptions []ast.ASTHandle, deferHard bool) (optimizer *opt.ArithmeticSolver, resultErr error) {
 	var err error
 	if c.preparedOptimizer != nil {
 		optimizer, c.preparedOptimizer = c.preparedOptimizer, nil
@@ -367,26 +367,37 @@ func (c *Context) newOptimizer(assumptions []ast.ASTHandle) (optimizer *opt.Arit
 			return nil, err
 		}
 	}
-	if c.optimizationHardOverrideActive {
-		for _, formula := range c.optimizationHardOverride {
-			if err = optimizer.Assert(formula); err != nil {
-				return nil, err
-			}
-		}
-	} else {
-		for _, assertion := range c.assertions {
-			if err = optimizer.Assert(assertion.expression); err != nil {
-				return nil, err
-			}
-		}
-	}
-	for _, assumption := range assumptions {
-		if err = optimizer.Assert(assumption); err != nil {
+	if !deferHard {
+		if err = c.assertOptimizerHard(optimizer, assumptions); err != nil {
 			return nil, err
 		}
 	}
 	published = true
 	return optimizer, nil
+}
+
+// assertOptimizerHard is optimize()'s s.assert_expr(m_hard_constraints) on
+// get_solver(): the inc_sat_solver when update_solver installed one.
+func (c *Context) assertOptimizerHard(optimizer *opt.ArithmeticSolver, assumptions []ast.ASTHandle) error {
+	if c.optimizationHardOverrideActive {
+		for _, formula := range c.optimizationHardOverride {
+			if err := optimizer.Assert(formula); err != nil {
+				return err
+			}
+		}
+	} else {
+		for _, assertion := range c.assertions {
+			if err := optimizer.Assert(assertion.expression); err != nil {
+				return err
+			}
+		}
+	}
+	for _, assumption := range assumptions {
+		if err := optimizer.Assert(assumption); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *Context) addOptimizerObjective(optimizer *opt.ArithmeticSolver, index int) error {
@@ -410,7 +421,7 @@ func (c *Context) addOptimizerObjective(optimizer *opt.ArithmeticSolver, index i
 }
 
 func (c *Context) checkOptimizeLex(assumptions []ast.ASTHandle) (optimized *opt.ArithmeticResult, resultErr error) {
-	optimizer, err := c.newOptimizer(assumptions)
+	optimizer, err := c.newOptimizer(assumptions, true)
 	if err != nil {
 		return nil, err
 	}
@@ -434,12 +445,19 @@ func (c *Context) checkOptimizeLex(assumptions []ast.ASTHandle) (optimized *opt.
 	if err = optimizer.UpdateSolver(&c.params); err != nil {
 		return nil, err
 	}
+	if err = c.assertOptimizerHard(optimizer, assumptions); err != nil {
+		return nil, err
+	}
 	initial, reason, err := optimizer.CheckHard()
 	if err != nil {
 		return nil, err
 	}
 	if initial != lbool.True {
 		return &opt.ArithmeticResult{Status: initial, ReasonUnknown: reason, Values: make([]opt.ObjectiveValue, len(c.objectives))}, nil
+	}
+	// optimize(): m_optsmt.setup(*m_opt_solver) after the sat initial check.
+	if err = optimizer.SetupOptsmt(); err != nil {
+		return nil, err
 	}
 	for i := range c.objectives {
 		if err = c.addOptimizerObjective(optimizer, i); err != nil {
@@ -503,7 +521,7 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 		}
 	}
 	if allArithmetic {
-		optimizer, err := c.newOptimizer(assumptions)
+		optimizer, err := c.newOptimizer(assumptions, false)
 		if err != nil {
 			return nil, err
 		}
@@ -557,7 +575,7 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 		resultErr = errors.Join(resultErr, releaseOptimizationBoxModels(boxModels))
 	}()
 	for i := range c.objectives {
-		optimizer, err := c.newOptimizer(assumptions)
+		optimizer, err := c.newOptimizer(assumptions, false)
 		if err != nil {
 			return nil, err
 		}

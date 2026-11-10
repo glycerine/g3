@@ -142,7 +142,7 @@ func (s *ArithmeticSolver) Assert(formula ast.ASTHandle) error {
 	if s == nil || s.backend == nil {
 		return ast.ErrASTHandle
 	}
-	return s.backend.Assert(formula)
+	return s.solver().Assert(formula)
 }
 
 // SetSATCoreEnabled records the source optimizer's eligible incremental SAT
@@ -235,21 +235,35 @@ func (s *ArithmeticSolver) internalizedObjective(term ast.ASTHandle, maximize bo
 	return s.rewriteInternalized(term, maximize)
 }
 
+// SetupOptsmt is optsmt::setup's "force base level": an empty scoped push
+// on the SMT opt_solver (never the inc_sat_solver installed by
+// update_solver). optimize() runs it after every sat initial check, even
+// when no arithmetic objective follows. Besides committing hard
+// assertions, this installs the logic-selected arithmetic backend before
+// objective internalization.
+func (s *ArithmeticSolver) SetupOptsmt() error {
+	if s == nil || s.backend == nil {
+		return ast.ErrASTHandle
+	}
+	if s.prepared {
+		return nil
+	}
+	if err := s.backend.Push(); err != nil {
+		return err
+	}
+	if err := s.backend.Pop(1); err != nil {
+		return err
+	}
+	s.prepared = true
+	return nil
+}
+
 func (s *ArithmeticSolver) AddObjective(term ast.ASTHandle, maximize bool) error {
 	if s == nil || s.backend == nil {
 		return ast.ErrASTHandle
 	}
-	// optsmt::setup forces the solver to its base level with an empty scoped
-	// push. Besides committing hard assertions, this installs the logic-selected
-	// arithmetic backend before objective internalization.
-	if !s.prepared {
-		if err := s.backend.Push(); err != nil {
-			return err
-		}
-		if err := s.backend.Pop(1); err != nil {
-			return err
-		}
-		s.prepared = true
+	if err := s.SetupOptsmt(); err != nil {
+		return err
 	}
 	var err error
 	sort, err := s.manager.GetSort(term)
