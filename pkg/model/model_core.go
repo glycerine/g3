@@ -101,13 +101,15 @@ func (md *ModelCore) RegisterConstant(d, v ast.ASTHandle) error {
 	if kind != ast.ASTApp && kind != ast.ASTVar && kind != ast.ASTQuantifier {
 		return ast.ErrASTDomain
 	}
+	// m_interp.insert_if_not_there2(d, 0): the table may grow before the
+	// lookup, also when d is already registered.
+	if _, e = md.constantLayout.InsertIfNotThere(d); e != nil {
+		return e
+	}
 	entry, found := md.Constants.Get2(d)
 	if !found {
 		entry = &modelConstantEntry{declaration: d}
 		md.Constants.Set(d, entry)
-		if e = md.constantLayout.Insert(d, [2]ast.ASTHandle{}); e != nil {
-			return e
-		}
 	}
 	if !entry.pending.IsNull() {
 		return ast.ErrASTPending

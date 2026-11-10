@@ -1116,6 +1116,18 @@ Found while matching `-st` output against `build/z3` on
    log register_decl order per model (or a creation stack for that model) and
    compare with g3's m_mc0 chain (inc_sat_solver's internalize_goal
    converters).
+   FOUND/FIXED: registration order was identical ([mreg] logging per model
+   address); the layout differed because model_core::register_decl uses
+   m_interp.insert_if_not_there2, whose grow check runs before the lookup,
+   so re-registering an existing x in a 7-entry, capacity-8 table rehashes to
+   16. g3's RegisterConstant/RegisterFunction touched the layout only for new
+   keys; both now call ObjMap.InsertIfNotThere on every registration. Model
+   teardown blocks now match through block 88 (was 7). NEXT for line 1182:
+   three bit_blaster_rewriters are destroyed in a row at update_solver. Their
+   cfg vectors (values/out/in2/in1) are identical in both tools, but g3 frees
+   #8 after the first rewriter's Close and z3 after the third. So a different
+   rewriter's cache (or result stack) holds #8. Compare each rewriter's
+   act_cache contents at destruction.
    Lead at box line 80: z3's pb_rewriter keeps m_args (an expr_ref_vector
    member reset at the next non-constant rewrite), and that inc/dec frees a
    raw (not y!2), which g3 keeps. TRIED porting m_args: stdout went

@@ -34,13 +34,15 @@ func (md *ModelCore) RegisterFunction(d ast.ASTHandle, fi *FunctionInterpretatio
 	if fi.arity != arity {
 		return ast.ErrASTDomain
 	}
+	// m_finterp.insert_if_not_there2(d, 0): the table may grow before the
+	// lookup, also when d is already registered.
+	if _, e = md.functionLayout.InsertIfNotThere(d); e != nil {
+		return e
+	}
 	entry, found := md.Functions.Get2(d)
 	if !found {
 		entry = &modelFunctionEntry{declaration: d}
 		md.Functions.Set(d, entry)
-		if e = md.functionLayout.Insert(d, [2]ast.ASTHandle{}); e != nil {
-			return e
-		}
 	}
 	if entry.function == nil {
 		md.declarations = append(md.declarations, d)
