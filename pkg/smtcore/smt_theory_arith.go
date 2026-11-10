@@ -119,55 +119,57 @@ type SMTTheoryArith struct {
 	params                SMTArithState
 	foundUnsupportedOp    bool
 	foundUnderspecifiedOp bool
-	arithEqAdapter        *smtArithmeticEqualityAdapter
-	rows                  []smtArithmeticRow
-	deadRows              []int
-	columns               []smtArithmeticColumn
-	data                  []smtArithmeticVariableData
-	value                 []smtArithmeticValue
-	oldValue              []smtArithmeticValue
-	bounds                [2][]smtArithBound
-	varOccs               [][]*smtArithmeticAtom
-	unassignedAtoms       []uint32
-	boolVar2Atom          []*smtArithmeticAtom
-	varPos                []int
-	atoms                 []*smtArithmeticAtom
-	assertedBounds        []smtArithBound
-	assertedQhead         uint32
-	newAtoms              []*smtArithmeticAtom
-	nlMonomials           []SMTTheoryVar
-	nlPropagated          []SMTTheoryVar
-	rowVars               []map[SMTTheoryVar]bool
-	rowVarsTop            uint32
-	toPatch               *heap.Int
-	leftBasis             *natset.Set
-	blandsRule            bool
-	updateTrailStack      []uint32
-	inUpdateTrailStack    *natset.Set
-	toCheck               []uint32
-	inToCheck             *natset.Set
-	tmp                   smtArithmeticValue
-	random                *z3rand.Generator
-	numConflicts          uint32
-	branchCutCounter      uint32
-	eagerGCD              bool
-	finalCheckIdx         uint32
-	boundTrail            []smtArithBoundTrail
-	unassignedAtomsTrail  []uint32
-	boundsToDelete        []smtArithBound
-	scopes                []smtArithScope
-	tmpLiteralVector2     []SMTLiteral
-	antecedents           [3]smtArithmeticAntecedents
-	antecedentsIndex      uint32
-	liberalFinalCheck     bool
-	changedAssignment     bool
-	fixedVarTable         map[smtArithValueSortPair]SMTTheoryVar
-	varOffset2RowID       map[smtArithVarOffset]int
-	tmpLitSet             map[int32]bool
-	tmpEqSet              map[SMTEnodePair]bool
-	boundWatch            SMTBoolVar
-	intEpsilon            smtArithmeticValue // Ext::m_int_epsilon
-	realEpsilon           smtArithmeticValue // Ext::m_real_epsilon
+	// var2NumOccs is m_var2num_occs (obj_map<expr, unsigned>).
+	var2NumOccs          *ast.ObjMap
+	arithEqAdapter       *smtArithmeticEqualityAdapter
+	rows                 []smtArithmeticRow
+	deadRows             []int
+	columns              []smtArithmeticColumn
+	data                 []smtArithmeticVariableData
+	value                []smtArithmeticValue
+	oldValue             []smtArithmeticValue
+	bounds               [2][]smtArithBound
+	varOccs              [][]*smtArithmeticAtom
+	unassignedAtoms      []uint32
+	boolVar2Atom         []*smtArithmeticAtom
+	varPos               []int
+	atoms                []*smtArithmeticAtom
+	assertedBounds       []smtArithBound
+	assertedQhead        uint32
+	newAtoms             []*smtArithmeticAtom
+	nlMonomials          []SMTTheoryVar
+	nlPropagated         []SMTTheoryVar
+	rowVars              []map[SMTTheoryVar]bool
+	rowVarsTop           uint32
+	toPatch              *heap.Int
+	leftBasis            *natset.Set
+	blandsRule           bool
+	updateTrailStack     []uint32
+	inUpdateTrailStack   *natset.Set
+	toCheck              []uint32
+	inToCheck            *natset.Set
+	tmp                  smtArithmeticValue
+	random               *z3rand.Generator
+	numConflicts         uint32
+	branchCutCounter     uint32
+	eagerGCD             bool
+	finalCheckIdx        uint32
+	boundTrail           []smtArithBoundTrail
+	unassignedAtomsTrail []uint32
+	boundsToDelete       []smtArithBound
+	scopes               []smtArithScope
+	tmpLiteralVector2    []SMTLiteral
+	antecedents          [3]smtArithmeticAntecedents
+	antecedentsIndex     uint32
+	liberalFinalCheck    bool
+	changedAssignment    bool
+	fixedVarTable        map[smtArithValueSortPair]SMTTheoryVar
+	varOffset2RowID      map[smtArithVarOffset]int
+	tmpLitSet            map[int32]bool
+	tmpEqSet             map[SMTEnodePair]bool
+	boundWatch           SMTBoolVar
+	intEpsilon           smtArithmeticValue // Ext::m_int_epsilon
+	realEpsilon          smtArithmeticValue // Ext::m_real_epsilon
 
 	tmpRow             smtArithmeticRow                    // m_tmp_row
 	esNumerals         *numeral.RationalManager            // m_es_num_manager

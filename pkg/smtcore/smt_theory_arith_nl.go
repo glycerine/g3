@@ -1015,19 +1015,24 @@ type smtArithVarNumOccs struct {
 }
 
 // getPolynomialInfo stores in varinfo the non-fixed variables occurring in
-// more than one monomial of p, with their number of occurrences. The source
-// walks an obj_map whose order follows expression hashes; this port keeps
-// first-occurrence order so the search is deterministic.
+// more than one monomial of p, with their number of occurrences, walking
+// the member obj_map m_var2num_occs (reset per call, its capacity kept) in
+// table order.
 func (t *SMTTheoryArith) getPolynomialInfo(p []smtArithCoeffExpr) ([]smtArithVarNumOccs, error) {
-	occs := make(map[ast.ASTHandle]uint32)
-	var order []ast.ASTHandle
-	addOcc := func(v ast.ASTHandle) {
+	if t.var2NumOccs == nil {
+		t.var2NumOccs = ast.NewObjMap(t.state.manager)
+	}
+	occs := t.var2NumOccs
+	occs.Reset()
+	addOcc := func(v ast.ASTHandle) error {
 		if t.hasVar(v) && !t.isFixed(t.expr2var(v)) {
-			if _, found := occs[v]; !found {
-				order = append(order, v)
+			n, _, err := occs.FindNum(v)
+			if err != nil {
+				return err
 			}
-			occs[v]++
+			return occs.InsertNum(v, n+1)
 		}
+		return nil
 	}
 	for _, ce := range p {
 		m := ce.e
@@ -1041,20 +1046,24 @@ func (t *SMTTheoryArith) getPolynomialInfo(p []smtArithCoeffExpr) ([]smtArithVar
 				if err != nil {
 					return nil, err
 				}
-				addOcc(v)
+				if err = addOcc(v); err != nil {
+					return nil, err
+				}
 			}
 		} else if _, ok := t.isNumeral(m); ok {
 			continue
 		} else if t.state.context.enodes.get(m) != nil {
-			addOcc(m)
+			if err := addOcc(m); err != nil {
+				return nil, err
+			}
 		} else {
 			return nil, ast.ErrASTDomain // UNREACHABLE
 		}
 	}
 	var varinfo []smtArithVarNumOccs
-	for _, v := range order {
-		if occs[v] > 1 {
-			varinfo = append(varinfo, smtArithVarNumOccs{v: v, occs: occs[v]})
+	for _, entry := range occs.Entries() {
+		if entry.Num > 1 {
+			varinfo = append(varinfo, smtArithVarNumOccs{v: entry.Key, occs: uint32(entry.Num)})
 		}
 	}
 	return varinfo, nil
