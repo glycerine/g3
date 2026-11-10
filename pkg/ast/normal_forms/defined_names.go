@@ -373,18 +373,20 @@ func (t *definedNameTable) mkDefinition(e, name ast.ASTHandle, sorts []ast.ASTHa
 		if y != nil {
 			return ast.ASTHandle{}, y
 		}
-		notCondition, y := m.MkNot(condition)
-		if y != nil {
-			return ast.ASTHandle{}, y
-		}
-		if _, y = hold(notCondition); y != nil {
-			return ast.ASTHandle{}, y
-		}
+		// MK_OR(MK_NOT(c), MK_EQ(n, t)): GCC evaluates the arguments right
+		// to left, so the equality is made first.
 		eqThen, y := m.MkEq(name, thenPart)
 		if y != nil {
 			return ast.ASTHandle{}, y
 		}
 		if _, y = hold(eqThen); y != nil {
+			return ast.ASTHandle{}, y
+		}
+		notCondition, y := m.MkNot(condition)
+		if y != nil {
+			return ast.ASTHandle{}, y
+		}
+		if _, y = hold(notCondition); y != nil {
 			return ast.ASTHandle{}, y
 		}
 		conjuncts[0], y = m.MkOr(notCondition, eqThen)
