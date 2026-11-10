@@ -56,9 +56,15 @@ func TestBaseTacticSkipFailUndecidedAndExecCleanup(t *testing.T) {
 		}
 		astTestMust(t, out.Close())
 	}
-	record := &recordingBaseTactic{primitiveTactic: newPrimitiveTactic(primitiveSkip, "", 0), applyErr: errors.New("apply stopped")}
+	// exec cleans up after a tactic_exception; other exceptions propagate
+	// without a cleanup (the caller, e.g. tactic2solver, cleans up).
+	record := &recordingBaseTactic{primitiveTactic: newPrimitiveTactic(primitiveSkip, "", 0), applyErr: NewTacticException("apply stopped")}
 	if err := Exec(record, g, &TacticResult{}); err == nil || record.cleaned != 1 {
-		t.Fatal("exec must clean after an apply error", err, record.cleaned)
+		t.Fatal("exec must clean after a tactic exception", err, record.cleaned)
+	}
+	other := &recordingBaseTactic{primitiveTactic: newPrimitiveTactic(primitiveSkip, "", 0), applyErr: errors.New("apply stopped")}
+	if err := Exec(other, g, &TacticResult{}); err == nil || other.cleaned != 0 {
+		t.Fatal("exec must not clean after a non-tactic exception", err, other.cleaned)
 	}
 }
 

@@ -438,8 +438,15 @@ func Exec(t Tactic, in *Goal, result *TacticResult) (err error) {
 	if err = t.ResetStatistics(); err != nil {
 		return err
 	}
+	// exec: cleanup() after a successful apply and in the tactic_exception
+	// handler; any other exception leaves the tactic uncleaned (callers such
+	// as tactic2solver clean up themselves).
 	err = t.Apply(in, result)
-	return errors.Join(err, t.Cleanup())
+	var tacticErr TacticException
+	if err == nil || errors.As(err, &tacticErr) {
+		return errors.Join(err, t.Cleanup())
+	}
+	return err
 }
 
 type DependencyRef struct {

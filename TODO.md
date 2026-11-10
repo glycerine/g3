@@ -1135,6 +1135,12 @@ Found while matching `-st` output against `build/z3` on
    converters, then the encoder's preprocess/blaster part
    (closeBeforeModel), then the model, then the atom map. bit_vector_optimization
    is now identical; full logs 509 -> 510; make and make tags pass.
+   Sweep (items 3/12): tactic exec cleans up only after success or a
+   tactic_exception; other exceptions propagate uncleaned, and
+   tactic2solver::check_sat_core cleans up once. g3's Exec always cleaned,
+   so a qsat-bearing default tactic reset its kernels twice. Full logs
+   510 -> 513 (pending_default_portfolio_option_error,
+   basic_graph_mixed_model_refusal, utvpi_mixed_model_refusal).
    Lead at box line 80: z3's pb_rewriter keeps m_args (an expr_ref_vector
    member reset at the next non-constant rewrite), and that inc/dec frees a
    raw (not y!2), which g3 keeps. TRIED porting m_args: stdout went
