@@ -23,6 +23,13 @@ func TestSMTLRAOperatorConstantDivisionThroughRelevance(t *testing.T) {
 	astTestMust(t, f.s.markRelevant(div))
 	astTestMust(t, f.s.relevancy.Propagate())
 	f.propagate(true)
+	// mk_div_axiom's eqz is th.mk_eq(2, 0): theory_lra keeps theory::
+	// mk_eq_atom, so (= 0 2) is an ordinary atom that search refutes; assert
+	// that refutation here so the axiom's other disjunct fixes the quotient.
+	eqz, err := f.s.MkEqAtom(f.number(2), f.number(0))
+	astTestMust(t, err)
+	f.assert(eqz, false)
+	f.propagate(true)
 	v := f.s.context.enodes.get(div).TheoryVar(f.a.FamilyID())
 	value, err := f.a.numeric.value(v)
 	astTestMust(t, err)
