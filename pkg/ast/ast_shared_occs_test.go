@@ -150,7 +150,7 @@ func TestASTSharedOccurrencesNativeVisitedGrowthAndReset(t *testing.T) {
 	}
 }
 
-func TestASTSharedOccurrencesNativeDiscoveryOrderGrowthAndOwnership(t *testing.T) {
+func TestASTSharedOccurrencesNativeTableOrderGrowthAndOwnership(t *testing.T) {
 	m := astTestManager(t)
 	h := markTestNodes(t, m, 257)
 	pins := append(append([]ASTHandle{}, h...), h...)
@@ -178,6 +178,16 @@ func TestASTSharedOccurrencesNativeDiscoveryOrderGrowthAndOwnership(t *testing.T
 	if c.NumShared() != uint32(len(h)) || m.BudgetField.Used() != before {
 		t.Fatal("native owning dictionary growth")
 	}
+	// begin_shared walks m_shared (an obj_hashtable) in table order.
+	layout := NewObjMap(m)
+	for _, n := range h {
+		_, e := layout.InsertIfNotThere(n)
+		astTestMust(t, e)
+	}
+	var order []ASTHandle
+	for _, slot := range layout.Entries() {
+		order = append(order, slot.Key)
+	}
 	it, e := c.BeginShared()
 	astTestMust(t, e)
 	next := 0
@@ -191,8 +201,8 @@ func TestASTSharedOccurrencesNativeDiscoveryOrderGrowthAndOwnership(t *testing.T
 		astTestMust(t, e)
 		rc, e := m.GetRefCount(got)
 		astTestMust(t, e)
-		if next >= len(h) || got != h[next] || rc != 3 {
-			t.Fatal("discovery order and exact owning retain", next, got, rc)
+		if next >= len(order) || got != order[next] || rc != 3 {
+			t.Fatal("table order and exact owning retain", next, got, rc)
 		}
 		next++
 		astTestMust(t, it.Next())
@@ -303,7 +313,7 @@ func TestASTSharedOccurrencesNativeDeepFrameTraversalAndCleanup(t *testing.T) {
 	}
 }
 
-func TestASTSharedOccurrencesNativeResetDiscoveryOrderDestruction(t *testing.T) {
+func TestASTSharedOccurrencesNativeResetTableOrderDestruction(t *testing.T) {
 	m := astTestManager(t)
 	h := markTestNodes(t, m, 10)
 	pins := append(append([]ASTHandle{}, h...), h...)
@@ -324,14 +334,21 @@ func TestASTSharedOccurrencesNativeResetDiscoveryOrderDestruction(t *testing.T) 
 	for _, n := range pins {
 		astTestMust(t, m.DecRef(n))
 	} // leave the collector's sole retain
-	var expected []uint32
+	// dec_ref_collection_values walks m_shared (an obj_hashtable) in table
+	// order; an obj_map of the same keys has the same layout.
+	layout := NewObjMap(m)
 	for _, n := range h {
-		id, e := m.GetASTID(n)
+		_, e := layout.InsertIfNotThere(n)
+		astTestMust(t, e)
+	}
+	var expected []uint32
+	for _, slot := range layout.Entries() {
+		id, e := m.GetASTID(slot.Key)
 		astTestMust(t, e)
 		expected = append(expected, id)
 	}
 	astTestMust(t, c.Reset())
-	// Each erase/recycle occurs in discovery order. The project ID helper
+	// Each erase/recycle occurs in table order. The project ID helper
 	// returns these IDs in reverse, independently checking actual DEC callbacks.
 	b, e := m.MkBoolSort()
 	astTestMust(t, e)

@@ -25,8 +25,11 @@ type astSharedEntry struct {
 // Entries own one reference per distinct expression. Native dictionary order
 // makes iteration and destruction follow first discovery deterministically.
 type ASTSharedOccurrences struct {
-	owner        astMarkOwner
-	entries      insdict.Dict[uint64, astSharedEntry]
+	owner   astMarkOwner
+	entries insdict.Dict[uint64, astSharedEntry]
+	// layout is m_shared's obj_hashtable key layout: reset and begin_shared
+	// walk table order.
+	layout       *ObjMap
 	config       ASTSharedOccurrencesConfig
 	stack        []astSharedFrame
 	view         *astSharedView
@@ -61,6 +64,12 @@ func (s *ASTSharedOccurrences) insert(m *ASTManager, r astNodeRef) error {
 	}
 	// Source insert_if_not_there_core publishes the set entry before INC.
 	s.entries.Put(key, astSharedEntry{node: r})
+	if s.layout == nil {
+		s.layout = newHeldObjMap(m)
+	}
+	if _, e := s.layout.InsertIfNotThere(m.external(r)); e != nil {
+		return e
+	}
 	s.view = nil
 	if e := m.incNode(r); e != nil {
 		return e
@@ -177,7 +186,12 @@ func (s *ASTSharedOccurrences) collectLocked(m *ASTManager, r astNodeRef, v *ast
 func (s *ASTSharedOccurrences) resetLocked(m *ASTManager) error {
 	s.resetPending = true
 	s.view = nil
-	for key, entry := range s.entries.All() {
+	// dec_ref_collection_values(m, m_shared) walks the table.
+	for _, key := range s.tableOrder(m) {
+		entry, found := s.entries.Get2(key)
+		if !found {
+			continue
+		}
 		if !entry.owned {
 			// The source set may retain this raw entry after INC refuses;
 			// owning cleanup has no reference to decrement for it.
@@ -196,8 +210,37 @@ func (s *ASTSharedOccurrences) resetLocked(m *ASTManager) error {
 		}
 	}
 	s.entries.Clear()
+	if s.layout != nil {
+		s.layout.Reset()
+	}
 	s.resetPending = false
 	return nil
+}
+
+// tableOrder lists the entry keys in m_shared's table order; entries the
+// layout does not know (none, normally) follow in insertion order.
+func (s *ASTSharedOccurrences) tableOrder(m *ASTManager) []uint64 {
+	keys := make([]uint64, 0, s.entries.Len())
+	seen := make(map[uint64]bool, s.entries.Len())
+	if s.layout != nil {
+		for _, slot := range s.layout.Entries() {
+			r, e := m.internal(slot.Key)
+			if e != nil {
+				continue
+			}
+			key := astSharedKey(r)
+			if _, found := s.entries.Get2(key); found && !seen[key] {
+				seen[key] = true
+				keys = append(keys, key)
+			}
+		}
+	}
+	for key := range s.entries.All() {
+		if !seen[key] {
+			keys = append(keys, key)
+		}
+	}
+	return keys
 }
 func (s *ASTSharedOccurrences) Collect(h ASTHandle) (result error) {
 	m, e := s.owner.lock()
