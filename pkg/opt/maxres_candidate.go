@@ -61,7 +61,9 @@ func (e *maxResEngine) updateCandidateModel(result *ArithmeticResult, md *model.
 	}
 	e.currentCorrection = append(e.currentCorrection[:0], correction...)
 	correctionSize := len(correction)
-	if e.correctionModel == nil || correctionSize < e.correctionSize {
+	// init_local leaves m_csmodel null: maxsmt_solver_base::init's model
+	// sets the bounds, and only later update_assignment calls seed it.
+	if !e.initialCandidate && (e.correctionModel == nil || correctionSize < e.correctionSize) {
 		if err = md.IncRef(); err != nil {
 			return errors.Join(err, md.DecRef())
 		}

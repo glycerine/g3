@@ -13,6 +13,7 @@ type objectiveFormulaMetadata struct {
 	originalTerm ast.ASTHandle
 	weights      []big.Rat
 	id           string
+	index        int // position in m_objectives (encoding order)
 }
 
 type ObjectiveFormulaCodec struct {
@@ -20,6 +21,7 @@ type ObjectiveFormulaCodec struct {
 	declarations []ast.ASTRef
 	derived      []ast.ASTRef
 	metadata     map[ast.ASTHandle]objectiveFormulaMetadata
+	encoded      int
 	closed       bool
 }
 

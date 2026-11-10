@@ -36,7 +36,7 @@ func (c *ObjectiveFormulaCodec) Decode(formulas []ast.ASTHandle) (DecodedFormula
 				return DecodedFormulaSet{}, err
 			}
 		}
-		objective := DecodedFormulaObjective{Kind: metadata.kind, OriginalTerm: metadata.originalTerm, ID: metadata.id}
+		objective := DecodedFormulaObjective{Kind: metadata.kind, OriginalTerm: metadata.originalTerm, ID: metadata.id, Index: metadata.index}
 		switch metadata.kind {
 		case FormulaMaximize, FormulaMinimize:
 			if len(args) != 1 {

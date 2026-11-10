@@ -33,6 +33,9 @@ type DecodedFormulaObjective struct {
 	Offset       big.Rat
 	Negate       bool
 	ID           string
+	// Index is the objective's position; from_fmls updates only the
+	// objectives whose function applications survive simplification.
+	Index int
 }
 
 type DecodedFormulaSet struct {

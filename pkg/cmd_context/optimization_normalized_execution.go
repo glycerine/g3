@@ -30,12 +30,6 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	// execution.
 	_ = settings
 	useSimplifier := !paretoContinuation && !boxContinuation && priority != "pareto" && priority != "box"
-	for i := range original {
-		if original[i].soft && len(original[i].softTerms) == 0 {
-			useSimplifier = false
-			break
-		}
-	}
 	// optimize(): init_solver precedes normalize() on the lex path.
 	if !paretoContinuation && !boxContinuation && priority != "pareto" && priority != "box" {
 		if c.preparedOptimizer, err = c.createOptimizer(); err != nil {
@@ -84,26 +78,28 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			// the context keeps them until the next import_scoped_state.
 			c.optimizationTerms, simplified.held = simplified.held, nil
 			source = simplified.decoded
-			if len(source.Objectives) != len(original) {
-				return nil, errors.Join(ast.ErrASTDomain, simplified.Close())
+			// from_fmls updates the objectives it finds; one whose
+			// function application was simplified away keeps its terms.
+			byIndex := make([]opt.DecodedFormulaObjective, len(original))
+			found := make([]bool, len(original))
+			for _, objective := range source.Objectives {
+				if objective.Index < 0 || objective.Index >= len(original) || found[objective.Index] {
+					return nil, errors.Join(ast.ErrASTDomain, simplified.Close())
+				}
+				byIndex[objective.Index], found[objective.Index] = objective, true
 			}
+			for i := range byIndex {
+				if !found[i] {
+					byIndex[i] = originalDecodedObjective(&original[i])
+				}
+			}
+			source.Objectives = byIndex
 		}
 	}
 	if !useSimplifier {
 		source.Objectives = make([]opt.DecodedFormulaObjective, len(original))
-		for i, objective := range original {
-			kind := opt.FormulaMinimize
-			if objective.maximize {
-				kind = opt.FormulaMaximize
-			}
-			source.Objectives[i] = opt.DecodedFormulaObjective{Kind: kind, Term: objective.expression, OriginalTerm: objective.expression}
-			if objective.soft {
-				source.Objectives[i].Kind = opt.FormulaMaxSAT
-				for _, term := range objective.softTerms {
-					source.Objectives[i].SoftTerms = append(source.Objectives[i].SoftTerms, term.expression)
-					source.Objectives[i].Weights = append(source.Objectives[i].Weights, *new(big.Rat).Set(&term.weight))
-				}
-			}
+		for i := range original {
+			source.Objectives[i] = originalDecodedObjective(&original[i])
 		}
 	}
 	decomposer, err := opt.NewObjectiveDecomposer(c.manager, nil)
@@ -259,4 +255,22 @@ func restoreNormalizedObjectiveBounds(result *opt.ArithmeticResult, original []o
 		value.SourceBoundsValid = true
 	}
 	return nil
+}
+
+// originalDecodedObjective is an objective as m_objectives holds it before
+// from_fmls.
+func originalDecodedObjective(objective *optimizationObjective) opt.DecodedFormulaObjective {
+	kind := opt.FormulaMinimize
+	if objective.maximize {
+		kind = opt.FormulaMaximize
+	}
+	result := opt.DecodedFormulaObjective{Kind: kind, Term: objective.expression, OriginalTerm: objective.expression}
+	if objective.soft {
+		result.Kind = opt.FormulaMaxSAT
+		for _, term := range objective.softTerms {
+			result.SoftTerms = append(result.SoftTerms, term.expression)
+			result.Weights = append(result.Weights, *new(big.Rat).Set(&term.weight))
+		}
+	}
+	return result
 }

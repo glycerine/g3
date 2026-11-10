@@ -32,10 +32,10 @@ type maxResEngine struct {
 	currentCorrection []ast.ASTHandle
 	stats             maxResStatistics
 	// defs is maxres::m_defs: the max_resolve/cs_max_resolve definitions
-	// commit_assignment re-asserts; recordDefs marks those calls.
+	// commit_assignment re-asserts.
 	defs                 []ast.ASTHandle
-	recordDefs           bool
 	foundFeasibleOptimum bool
+	initialCandidate     bool
 }
 
 func newMaxResEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int, config maxSMTConfig) (result *maxResEngine, resultErr error) {

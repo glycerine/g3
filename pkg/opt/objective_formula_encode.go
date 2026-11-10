@@ -11,7 +11,7 @@ func (c *ObjectiveFormulaCodec) EncodeObjective(objective FormulaObjective) (ast
 		return ast.ASTHandle{}, err
 	}
 	var args []ast.ASTHandle
-	metadata := objectiveFormulaMetadata{kind: objective.Kind, originalTerm: objective.Term, id: objective.ID}
+	metadata := objectiveFormulaMetadata{kind: objective.Kind, originalTerm: objective.Term, id: objective.ID, index: c.encoded}
 	switch objective.Kind {
 	case FormulaMaximize, FormulaMinimize:
 		if objective.Term.IsNull() {
@@ -37,5 +37,6 @@ func (c *ObjectiveFormulaCodec) EncodeObjective(objective FormulaObjective) (ast
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	c.encoded++
 	return c.manager.MkApp(declaration, args)
 }

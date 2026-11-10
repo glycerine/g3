@@ -32,50 +32,10 @@ func (e *maxResEngine) freshProxy(formula ast.ASTHandle, equivalent bool, prefix
 	if err = e.solver.solver().Assert(definition); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if e.recordDefs {
-		e.defs = append(e.defs, definition)
-	}
 	if e.proxies == nil {
 		e.proxies = make(map[ast.ASTHandle]ast.ASTHandle)
 	}
 	e.proxies[proxy] = formula
-	return proxy, nil
-}
-
-// freshAndProxy preserves maxres.cpp's two implication definitions for a
-// conjunction accumulator while recording the source model interpretation.
-func (e *maxResEngine) freshAndProxy(left, right ast.ASTHandle) (ast.ASTHandle, error) {
-	conjunction, err := e.owner.hold(e.solver.manager.MkAnd(left, right))
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	boolean, err := e.solver.manager.MkBoolSort()
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	proxy, err := e.owner.hold(e.solver.manager.MkFreshConst("d", boolean))
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if err = e.filterProxy(proxy); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	for _, term := range []ast.ASTHandle{left, right} {
-		definition, cause := e.owner.hold(e.solver.manager.MkImplies(proxy, term))
-		if cause != nil {
-			return ast.ASTHandle{}, cause
-		}
-		if cause = e.solver.solver().Assert(definition); cause != nil {
-			return ast.ASTHandle{}, cause
-		}
-		if e.recordDefs {
-			e.defs = append(e.defs, definition)
-		}
-	}
-	if e.proxies == nil {
-		e.proxies = make(map[ast.ASTHandle]ast.ASTHandle)
-	}
-	e.proxies[proxy] = conjunction
 	return proxy, nil
 }
 

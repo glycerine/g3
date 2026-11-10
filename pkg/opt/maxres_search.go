@@ -39,7 +39,10 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 	if err = result.Model.IncRef(); err != nil {
 		return lbool.Undef, false, err
 	}
-	if err = e.updateCandidateModel(result, result.Model); err != nil {
+	e.initialCandidate = true
+	err = e.updateCandidateModel(result, result.Model)
+	e.initialCandidate = false
+	if err != nil {
 		return lbool.Undef, false, fmt.Errorf("maxres initial candidate: %w", err)
 	}
 	e.sortAssumptions()

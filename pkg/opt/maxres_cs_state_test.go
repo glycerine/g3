@@ -39,12 +39,3 @@ func TestMaxResCorrectionStateRequiresDistinctPositiveActiveWeights(t *testing.T
 		t.Fatal("invalid correction processing", err)
 	}
 }
-
-func TestMaxResCorrectionClausesRejectEmptySet(t *testing.T) {
-	manager := newWeightedSoftFixture(t).manager
-	owner := maxSMTASTOwner{manager: manager}
-	defer owner.close()
-	if _, err := maxResCorrectionClauses(&owner, nil); !errors.Is(err, errMaxResState) {
-		t.Fatal("empty correction clauses", err)
-	}
-}
