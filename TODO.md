@@ -556,7 +556,7 @@ Found while matching `-st` output against `build/z3` on
     g3 always built the strategic solver. All-statistics exact 555 -> 567;
     one cmd/g3 test now expects z3's `unknown` answers.
 
-18. **OPEN: expr_quant_elim output order (not a correctness gap).**
+18. **DONE (2026-11-10): expr_quant_elim output order matches z3.**
     Checked: errArithmeticBranchUnsupported (qe/quantifier_tactic.go) is
     reachable only without a QE context (resolveCooper with |b| > 3 and
     no qeConfig); the qe tactic always sets one, so integer resolution
@@ -659,6 +659,10 @@ Found while matching `-st` output against `build/z3` on
     line 1220 (p151 vs p150, bool-var numbering). Left: the two outer atoms
     print as (+ (* (- 7) y) (* 5 z)) where z3 keeps (+ (* 5 z) (* (- 7) y))
     (an uncached rewrite of one copy in z3), and the p151/p150 numbering.
+    DONE: the orientation was a port-order bug. mk_resolve builds a*s + b*t,
+    its <= 0 bound and the slack bound before the |a| < |b| swap; g3's
+    resolveCooper swapped first. With that fixed, the example's output is
+    byte-identical to z3 (test vector qe_cooper_symbolic_blast.smt2).
 
 19. **DONE (2026-11-09, 46531ec4a): MAM ported; old matcher deleted.**
    smtcore/smt_mam_{code,compiler,interpreter,impl}.go port mam.cpp's

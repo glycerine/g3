@@ -18,12 +18,12 @@ func (u *ArithmeticQETermUtil) resolveCooper(variable ast.ASTHandle, a *big.Rat,
 	if !absA.IsInt() || !absB.IsInt() {
 		return result, false, ast.ErrASTDomain
 	}
-	if absA.Cmp(absB) < 0 {
-		absA, absB = absB, absA
-		a, b = b, a
-		t, s = s, t
+	swap := absA.Cmp(absB) < 0
+	minimum := absB
+	if swap {
+		minimum = absA
 	}
-	if absB.Cmp(big.NewRat(3, 1)) > 0 && u.qeConfig == nil {
+	if minimum.Cmp(big.NewRat(3, 1)) > 0 && u.qeConfig == nil {
 		return result, false, nil
 	}
 	m := u.manager
@@ -81,6 +81,14 @@ func (u *ArithmeticQETermUtil) resolveCooper(variable ast.ASTHandle, a *big.Rat,
 	first, err := own(u.comparisonZero(withSlack, false))
 	if err != nil {
 		return result, false, err
+	}
+	// a*s + b*t and its slack bound are built before the |a| < |b| swap;
+	// the swap then exchanges a, b, s, t and as, bt.
+	if swap {
+		absA, absB = absB, absA
+		a, b = b, a
+		t, s = s, t
+		as, bt = bt, as
 	}
 	sz, err := hold(m.MkArithmeticAdd(s, variable))
 	if err != nil {
