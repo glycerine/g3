@@ -646,6 +646,19 @@ Found while matching `-st` output against `build/z3` on
     restarts search when the kernel holds the qe assignment/assumption state
     (decision phase and literal ordering after pop_to_base_lvl). NEXT:
     trace the second check's decisions with z3 -tr:decide on the qe run.
+    DONE (-tr:decide diff, g3trace build): two qe-port gaps, not kernel
+    ones. (1) quant_elim_plugin::check pushes a solver scope before
+    asserting the formula and pops it at the end; g3 asserted at base
+    level. (2) final_check runs `while (can_propagate_assignment)
+    propagate_assignment;` and update_current(true) on one model, then a
+    check; when update_current(false) moves to another node it continues
+    with that model. g3 went back to the outer check after each
+    NEED_PROPAGATION step and after a node change, which added extra
+    checks. With both fixed the case order matches z3 (0, 2, 4, 3), and
+    the decision trace has the same length (1434 lines), first differing at
+    line 1220 (p151 vs p150, bool-var numbering). Left: the two outer atoms
+    print as (+ (* (- 7) y) (* 5 z)) where z3 keeps (+ (* 5 z) (* (- 7) y))
+    (an uncached rewrite of one copy in z3), and the p151/p150 numbering.
 
 19. **DONE (2026-11-09, 46531ec4a): MAM ported; old matcher deleted.**
    smtcore/smt_mam_{code,compiler,interpreter,impl}.go port mam.cpp's

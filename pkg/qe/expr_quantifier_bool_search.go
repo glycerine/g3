@@ -59,6 +59,7 @@ func searchExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables, 
 			err = errors.Join(err, m.DelRef(&free[i]))
 		}
 	}()
+search:
 	for {
 		canceled, e := m.Canceled()
 		if e != nil {
@@ -91,58 +92,66 @@ func searchExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables, 
 			}
 			return result, false, errors.Join(e, md.DecRef())
 		}
-		variableCount := len(variables.entries)
-		current, step, e := advanceExprQEScalarTree(root, variables, context, eval, config, rw, nnf, solver, false)
-		if e == nil && len(variables.entries) != variableCount {
-			var supported bool
-			supported, e = exprQENewVariablesSupported(variables, context, variableCount)
-			if e != nil || !supported {
-				e = errors.Join(e, eval.Close(), md.DecRef())
-				return result, false, e
+		// final_check: when update_current(false) moves to another node, the
+		// loop goes on with that model and checks again; no outer check runs.
+		var current *exprQETree
+		var step exprQETreeStatus
+	finalCheck:
+		for {
+			variableCount := len(variables.entries)
+			current, step, e = advanceExprQEScalarTree(root, variables, context, eval, config, rw, nnf, solver, false)
+			// while (can_propagate_assignment) propagate_assignment; then
+			// update_current(true) substitutes the new branch, all on one model.
+			for e == nil && step == exprQENeedPropagation {
+				current, step, e = advanceExprQEScalarTree(root, variables, context, eval, config, rw, nnf, solver, false)
 			}
-		}
-		if e == nil && step == exprQEChooseVariable {
-			var checked lbool.LBool
-			checked, e = solver.CheckSat(nil)
-			if e == nil && checked != lbool.True {
-				e = errors.Join(eval.Close(), md.DecRef())
-				if e != nil || checked == lbool.Undef {
+			if e == nil && len(variables.entries) != variableCount {
+				var supported bool
+				supported, e = exprQENewVariablesSupported(variables, context, variableCount)
+				if e != nil || !supported {
+					e = errors.Join(e, eval.Close(), md.DecRef())
 					return result, false, e
 				}
-				continue
 			}
-			if e == nil {
-				var refreshed *model.ModelCore
-				refreshed, e = solver.AcquireModel()
-				if e == nil && refreshed == nil {
-					e = ast.ErrASTDomain
-				}
-				if e == nil {
-					var nextEval *model.ModelEvaluator
-					nextEval, e = model.NewModelEvaluator(refreshed, model.ModelEvaluatorConfig{Context: config.Context, Globals: config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: config.Cooperation, Trace: config.Trace})
-					if e == nil {
-						e = errors.Join(eval.Close(), md.DecRef())
-						eval, md = nextEval, refreshed
-					} else {
-						if nextEval != nil {
-							e = errors.Join(e, nextEval.Close())
-						}
-						e = errors.Join(e, refreshed.DecRef())
-					}
-				}
-			}
-			if e == nil {
-				var selected *exprQETree
-				var nextStep exprQETreeStatus
-				selected, nextStep, _, e = seekExprQETree(root, variables, eval)
-				if e == nil && (selected != current || nextStep != exprQEChooseVariable) {
+			if e == nil && step == exprQEChooseVariable {
+				var checked lbool.LBool
+				checked, e = solver.CheckSat(nil)
+				if e == nil && checked != lbool.True {
 					e = errors.Join(eval.Close(), md.DecRef())
-					if e != nil {
+					if e != nil || checked == lbool.Undef {
 						return result, false, e
 					}
-					continue
+					continue search
+				}
+				if e == nil {
+					var refreshed *model.ModelCore
+					refreshed, e = solver.AcquireModel()
+					if e == nil && refreshed == nil {
+						e = ast.ErrASTDomain
+					}
+					if e == nil {
+						var nextEval *model.ModelEvaluator
+						nextEval, e = model.NewModelEvaluator(refreshed, model.ModelEvaluatorConfig{Context: config.Context, Globals: config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: config.Cooperation, Trace: config.Trace})
+						if e == nil {
+							e = errors.Join(eval.Close(), md.DecRef())
+							eval, md = nextEval, refreshed
+						} else {
+							if nextEval != nil {
+								e = errors.Join(e, nextEval.Close())
+							}
+							e = errors.Join(e, refreshed.DecRef())
+						}
+					}
+				}
+				if e == nil {
+					var selected *exprQETree
+					selected, _, _, e = seekExprQETree(root, variables, eval)
+					if e == nil && selected != current {
+						continue finalCheck
+					}
 				}
 			}
+			break finalCheck
 		}
 		if e == nil && step == exprQEChooseVariable {
 			var outcome exprQEPopStatus

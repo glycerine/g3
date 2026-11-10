@@ -286,10 +286,18 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 	if err != nil {
 		return result, false, err
 	}
+	// quant_elim_plugin::check: m_solver.push() before the formula is
+	// asserted, and m_solver.pop(1) once the search ends.
+	if err = solver.PushCore(); err != nil {
+		return result, false, err
+	}
 	if err = solver.AssertFormula(initial); err != nil {
 		return result, false, err
 	}
 	result, complete, err = searchExprQEScalarTree(root, variables, context, boolPlugin, partitioner, solver, config, rw, nnf)
+	if err == nil {
+		err = solver.PopCore(1)
+	}
 	if err != nil || !complete {
 		return result, false, err
 	}
