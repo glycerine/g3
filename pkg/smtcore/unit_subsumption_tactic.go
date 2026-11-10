@@ -90,12 +90,12 @@ func (t *UnitSubsumptionTactic) Close() error {
 	if t.closed {
 		return nil
 	}
+	// ~expr_ref_vector m_clauses releases front to back.
 	for len(t.proxies) > 0 {
-		i := len(t.proxies) - 1
-		if e := t.manager.DelRef(&t.proxies[i]); e != nil {
+		if e := t.manager.DelRef(&t.proxies[0]); e != nil {
 			return e
 		}
-		t.proxies = t.proxies[:i]
+		t.proxies = t.proxies[1:]
 	}
 	if t.solver != nil {
 		if e := t.solver.Close(); e != nil {
