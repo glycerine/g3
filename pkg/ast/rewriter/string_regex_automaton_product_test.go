@@ -102,9 +102,9 @@ func TestStringRegexAutomatonProductIndependentLanguages(t *testing.T) {
 		{"disjoint", a, b},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			left, err := NewStringRegexAutomaton(m, tc.left, nil)
+			left, err := NewStringRegexAutomaton(m, tc.left, &sequenceAutomatonByteSolver{m})
 			astTestMust(t, err)
-			right, err := NewStringRegexAutomaton(m, tc.right, nil)
+			right, err := NewStringRegexAutomaton(m, tc.right, &sequenceAutomatonByteSolver{m})
 			astTestMust(t, err)
 			for _, source := range []*StringRegexAutomaton{left, right} {
 				graph, err := source.Graph()
@@ -166,9 +166,9 @@ func TestStringRegexAutomatonProductOwnsRootsAndUsesCurrentGraph(t *testing.T) {
 	astTestMust(t, err)
 	regex, err := m.MkSequenceToRegex(word)
 	astTestMust(t, err)
-	left, err := NewStringRegexAutomaton(m, regex, nil)
+	left, err := NewStringRegexAutomaton(m, regex, &sequenceAutomatonByteSolver{m})
 	astTestMust(t, err)
-	right, err := NewStringRegexAutomaton(m, regex, nil)
+	right, err := NewStringRegexAutomaton(m, regex, &sequenceAutomatonByteSolver{m})
 	astTestMust(t, err)
 	product, err := NewStringRegexAutomatonProduct(left, right, nil)
 	astTestMust(t, err)
@@ -225,7 +225,7 @@ func TestStringRegexAutomatonProductUnknownCleanupAndGuards(t *testing.T) {
 	astTestMust(t, err)
 	secondRegex, err := m.MkSequenceToRegex(otherUnit)
 	astTestMust(t, err)
-	left, err := NewStringRegexAutomaton(m, regex, nil)
+	left, err := NewStringRegexAutomaton(m, regex, &sequenceAutomatonByteSolver{m})
 	astTestMust(t, err)
 	right, err := NewStringRegexAutomaton(m, secondRegex, nil)
 	astTestMust(t, err)

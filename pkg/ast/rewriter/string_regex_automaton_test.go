@@ -18,7 +18,7 @@ func TestStringRegexAutomatonOwnedGraphLabelsAndClose(t *testing.T) {
 	astTestMust(t, err)
 	input, err := m.NewRef(regex)
 	astTestMust(t, err)
-	owner, err := NewStringRegexAutomaton(m, regex, nil)
+	owner, err := NewStringRegexAutomaton(m, regex, &sequenceAutomatonByteSolver{m})
 	astTestMust(t, err)
 	astTestMust(t, m.DelRef(&input))
 	if _, err := m.GetKind(regex); err != nil {
@@ -86,7 +86,7 @@ func TestStringRegexAutomatonRangeAndPredicateLabels(t *testing.T) {
 	astTestMust(t, err)
 	astTestPin(t, m, any)
 	for _, regex := range []ast.ASTHandle{rangeRE, any} {
-		owner, err := NewStringRegexAutomaton(m, regex, nil)
+		owner, err := NewStringRegexAutomaton(m, regex, &sequenceAutomatonByteSolver{m})
 		astTestMust(t, err)
 		graph, err := owner.Graph()
 		astTestMust(t, err)
@@ -129,7 +129,7 @@ func TestStringRegexAutomatonComposedPredicates(t *testing.T) {
 	intersection := pin(m.MkRegexIntersect(rangeRE, literal("m")))
 	complement := pin(m.MkRegexComplement(literal("a")))
 	for _, regex := range []ast.ASTHandle{intersection, complement} {
-		owner, err := NewStringRegexAutomaton(m, regex, nil)
+		owner, err := NewStringRegexAutomaton(m, regex, &sequenceAutomatonByteSolver{m})
 		astTestMust(t, err)
 		graph, err := owner.Graph()
 		astTestMust(t, err)
@@ -202,7 +202,7 @@ func TestStringRegexAutomatonRejectsNonStringRegex(t *testing.T) {
 	regex, err := m.MkSequenceToRegex(unit)
 	astTestMust(t, err)
 	astTestPin(t, m, regex)
-	if owner, err := NewStringRegexAutomaton(m, regex, nil); err == nil || owner != nil {
+	if owner, err := NewStringRegexAutomaton(m, regex, &sequenceAutomatonByteSolver{m}); err == nil || owner != nil {
 		t.Fatal("concrete byte-string bridge accepted an integer-sequence regex")
 	}
 	word, err := m.MkString("a")

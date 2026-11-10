@@ -478,9 +478,8 @@ func (a *sequenceAutomaton) statesReachingFinal() []bool {
 }
 
 type sequenceAutomatonBuilder struct {
-	rewriter           *SequenceRewriter
-	refs               []ast.ASTRef
-	allowUnknownLabels bool
+	rewriter *SequenceRewriter
+	refs     []ast.ASTRef
 }
 
 func (b *sequenceAutomatonBuilder) close() (err error) {
@@ -823,9 +822,6 @@ func (b *sequenceAutomatonBuilder) labelSatisfiable(label *sequenceAutomatonLabe
 				}
 			}
 			return false, true, nil
-		}
-		if b.allowUnknownLabels {
-			return true, true, nil
 		}
 		return false, false, nil
 	}
@@ -1260,6 +1256,11 @@ func (b *sequenceAutomatonBuilder) regex(expression ast.ASTHandle) (*sequenceAut
 	if left, right, intersection, err := m.SequenceBinaryOperationArguments(expression, 19); err != nil {
 		return nil, err
 	} else if intersection {
+		// is_intersection(e, e1, e2) && m_sa && ...: without a solver
+		// re2automaton builds no product.
+		if b.rewriter.solver == nil {
+			return nil, nil
+		}
 		leftAutomaton, err := b.regex(left)
 		if err != nil || leftAutomaton == nil {
 			return nil, errors.Join(err, leftAutomaton.release())
@@ -1277,6 +1278,10 @@ func (b *sequenceAutomatonBuilder) regex(expression ast.ASTHandle) (*sequenceAut
 		automaton, err := b.regex(body)
 		if err != nil || automaton == nil {
 			return nil, errors.Join(err, automaton.release())
+		}
+		// (a = re2aut(e0)) && m_sa: the operand is built, then dropped.
+		if b.rewriter.solver == nil {
+			return nil, automaton.release()
 		}
 		result, err := b.determinize(automaton, true)
 		return result, errors.Join(err, automaton.release())
@@ -1315,164 +1320,6 @@ func (b *sequenceAutomatonBuilder) regex(expression ast.ASTHandle) (*sequenceAut
 		}
 	}
 	return nil, nil
-}
-
-// RegexByteStringCandidates enumerates concrete byte strings in breadth-first
-// automaton order. Exhaustive is true when the concrete language was finite
-// and completely traversed before limit was reached. Symbolic labels are left
-// to the lazy automaton path.
-func (r *SequenceRewriter) RegexByteStringCandidates(regex ast.ASTHandle, limit int) (words []string, exhaustive bool, result error) {
-	if err := r.open(); err != nil {
-		return nil, false, err
-	}
-	if limit <= 0 {
-		return nil, false, ast.ErrASTDomain
-	}
-	builder := &sequenceAutomatonBuilder{rewriter: r}
-	var automaton *sequenceAutomaton
-	defer func() { result = errors.Join(result, builder.close(), automaton.release()) }()
-	automaton, err := builder.regex(regex)
-	if err != nil || automaton == nil {
-		return nil, false, err
-	}
-	canReachFinal := automaton.statesReachingFinal()
-	type candidate struct {
-		state int
-		word  string
-	}
-	queue := []candidate{{state: automaton.initial}}
-	seenConfigurations := map[string]struct{}{strconv.Itoa(automaton.initial) + ":": {}}
-	seenWords := make(map[string]struct{})
-	symbolicPath := false
-	for len(queue) != 0 {
-		current := queue[0]
-		queue = queue[1:]
-		closure := automaton.epsilonClosure(current.state)
-		for _, state := range closure {
-			if automaton.finals[state] {
-				if _, found := seenWords[current.word]; !found {
-					seenWords[current.word] = struct{}{}
-					words = append(words, current.word)
-					if len(words) == limit {
-						return words, false, nil
-					}
-				}
-				break
-			}
-		}
-		for _, source := range closure {
-			for _, move := range automaton.moves[source] {
-				if move.label == nil || !canReachFinal[move.destination] {
-					continue
-				}
-				values, concrete, valueErr := builder.concreteLabelBytes(move.label)
-				if valueErr != nil {
-					return nil, false, valueErr
-				}
-				if !concrete {
-					symbolicPath = true
-					continue
-				}
-				for value, accepted := range values {
-					if !accepted {
-						continue
-					}
-					nextWord := current.word + string([]byte{byte(value)})
-					key := strconv.Itoa(move.destination) + ":" + nextWord
-					if _, found := seenConfigurations[key]; found {
-						continue
-					}
-					seenConfigurations[key] = struct{}{}
-					queue = append(queue, candidate{
-						state: move.destination,
-						word:  nextWord,
-					})
-				}
-			}
-		}
-	}
-	return words, !symbolicPath, nil
-}
-
-// RegexAcceptedLengths enumerates word lengths that have a structurally
-// accepting automaton path. Symbolic labels are treated as potentially
-// satisfiable; the exact fixed-word reducer supplies their constraints.
-func (r *SequenceRewriter) RegexAcceptedLengths(regex ast.ASTHandle, limit int) (lengths []uint64, exhaustive bool, result error) {
-	if err := r.open(); err != nil {
-		return nil, false, err
-	}
-	if limit <= 0 {
-		return nil, false, ast.ErrASTDomain
-	}
-	builder := &sequenceAutomatonBuilder{rewriter: r, allowUnknownLabels: true}
-	var automaton *sequenceAutomaton
-	defer func() { result = errors.Join(result, builder.close(), automaton.release()) }()
-	automaton, err := builder.regex(regex)
-	if err != nil || automaton == nil {
-		return nil, false, err
-	}
-	type position struct {
-		state  int
-		length uint64
-	}
-	canReachFinal := automaton.statesReachingFinal()
-	queue := []position{{state: automaton.initial}}
-	seen := map[position]struct{}{{state: automaton.initial}: {}}
-	seenLengths := make(map[uint64]struct{})
-	for len(queue) != 0 {
-		current := queue[0]
-		queue = queue[1:]
-		closure := automaton.epsilonClosure(current.state)
-		for _, state := range closure {
-			if !automaton.finals[state] {
-				continue
-			}
-			if _, found := seenLengths[current.length]; !found {
-				seenLengths[current.length] = struct{}{}
-				lengths = append(lengths, current.length)
-				if len(lengths) == limit {
-					return lengths, false, nil
-				}
-			}
-			break
-		}
-		for _, source := range closure {
-			for _, move := range automaton.moves[source] {
-				if move.label == nil || !canReachFinal[move.destination] {
-					continue
-				}
-				values, concrete, valueErr := builder.concreteLabelBytes(move.label)
-				if valueErr != nil {
-					return nil, false, valueErr
-				}
-				if concrete {
-					satisfiable := false
-					for _, accepted := range values {
-						satisfiable = satisfiable || accepted
-					}
-					if !satisfiable {
-						continue
-					}
-				}
-				next := position{state: move.destination, length: current.length + 1}
-				if _, found := seen[next]; found {
-					continue
-				}
-				seen[next] = struct{}{}
-				queue = append(queue, next)
-			}
-		}
-	}
-	return lengths, true, nil
-}
-
-// ShortestRegexByteString returns the first concrete witness accepted by regex.
-func (r *SequenceRewriter) ShortestRegexByteString(regex ast.ASTHandle) (string, bool, error) {
-	words, _, err := r.RegexByteStringCandidates(regex, 1)
-	if err != nil || len(words) == 0 {
-		return "", false, err
-	}
-	return words[0], true, nil
 }
 
 // accept is sym_expr::accept for callers that keep the result for the

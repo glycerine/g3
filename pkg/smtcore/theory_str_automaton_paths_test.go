@@ -1,6 +1,7 @@
 package smtcore
 
 import (
+	"github.com/glycerine/g3/pkg/util/lbool"
 	"strings"
 	"testing"
 
@@ -10,7 +11,9 @@ import (
 
 func stringPathAutomaton(t *testing.T, m *ast.ASTManager, regex ast.ASTHandle) *rewriter.StringRegexAutomaton {
 	t.Helper()
-	owner, err := rewriter.NewStringRegexAutomaton(m, regex, nil)
+	// theory_str gives re2automaton a solver (m_mk_aut.set_solver); symbolic
+	// products and complements need one.
+	owner, err := rewriter.NewStringRegexAutomaton(m, regex, &stringByteTestSolver{m})
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, owner.Close()) })
 	graph, err := owner.Graph()
@@ -424,4 +427,124 @@ func TestSMTStringRegexPathNonValueCharacterAndOwnerGuards(t *testing.T) {
 	}
 	astTestMust(t, m.DelRef(&root))
 	astTestMust(t, m.DelRef(&out))
+}
+
+// stringByteTestSolver decides a label formula over its single fresh byte
+// constant exactly, by evaluating it at all 256 values.
+type stringByteTestSolver struct{ m *ast.ASTManager }
+
+func (s *stringByteTestSolver) CheckSatisfiable(f ast.ASTHandle) (lbool.LBool, error) {
+	x, err := s.freshByte(f)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	for v := uint64(0); v < 256; v++ {
+		value, err := s.eval(f, x, v)
+		if err != nil {
+			return lbool.Undef, err
+		}
+		if value != 0 {
+			return lbool.True, nil
+		}
+	}
+	return lbool.False, nil
+}
+
+func (s *stringByteTestSolver) freshByte(h ast.ASTHandle) (ast.ASTHandle, error) {
+	m := s.m
+	n, err := m.GetNumArgs(h)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if n == 0 {
+		if numeral, err := m.IsBitVectorNumeral(h); err != nil || numeral {
+			return ast.ASTHandle{}, err
+		}
+		if bv, err := m.IsBitVector(h); err != nil || !bv {
+			return ast.ASTHandle{}, err
+		}
+		return h, nil
+	}
+	for i := uint32(0); i < n; i++ {
+		arg, err := m.GetArg(h, i)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if x, err := s.freshByte(arg); err != nil || !x.IsNull() {
+			return x, err
+		}
+	}
+	return ast.ASTHandle{}, nil
+}
+
+func (s *stringByteTestSolver) eval(h, x ast.ASTHandle, v uint64) (uint64, error) {
+	m := s.m
+	switch {
+	case h == x:
+		return v, nil
+	case m.IsTrue(h):
+		return 1, nil
+	case m.IsFalse(h):
+		return 0, nil
+	}
+	if value, _, matched, err := m.BitVectorNumeralBigInt(h); err != nil || matched {
+		if err != nil {
+			return 0, err
+		}
+		return value.Uint64(), nil
+	}
+	n, err := m.GetNumArgs(h)
+	if err != nil {
+		return 0, err
+	}
+	args := make([]uint64, n)
+	for i := uint32(0); i < n; i++ {
+		arg, err := m.GetArg(h, i)
+		if err != nil {
+			return 0, err
+		}
+		if args[i], err = s.eval(arg, x, v); err != nil {
+			return 0, err
+		}
+	}
+	truth := func(c bool) uint64 {
+		if c {
+			return 1
+		}
+		return 0
+	}
+	if fid, err := m.GetFamilyID(h); err != nil {
+		return 0, err
+	} else if fid == m.BasicFamilyID() {
+		kind, err := m.GetDeclKind(h)
+		if err != nil {
+			return 0, err
+		}
+		switch kind {
+		case ast.ASTOpAnd:
+			for _, a := range args {
+				if a == 0 {
+					return 0, nil
+				}
+			}
+			return 1, nil
+		case ast.ASTOpOr:
+			for _, a := range args {
+				if a != 0 {
+					return 1, nil
+				}
+			}
+			return 0, nil
+		case ast.ASTOpNot:
+			return truth(args[0] == 0), nil
+		case ast.ASTOpEq:
+			return truth(args[0] == args[1]), nil
+		}
+	}
+	if ule, err := m.IsBitVectorOperation(h, 22); err != nil {
+		return 0, err
+	} else if ule {
+		return truth(args[0] <= args[1]), nil
+	}
+	return 0, ast.ErrASTDomain
 }

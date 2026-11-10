@@ -103,91 +103,6 @@ func TestSequenceRewriterAutomatonMembership(t *testing.T) {
 	}
 }
 
-func TestSequenceRewriterShortestRegexByteString(t *testing.T) {
-	m := astTestManager(t)
-	_, err := m.RegisterArithmeticPlugin()
-	astTestMust(t, err)
-	_, err = m.RegisterBitVectorPlugin()
-	astTestMust(t, err)
-	rw, err := NewSequenceRewriter(m)
-	astTestMust(t, err)
-	a, err := m.MkString("a")
-	astTestMust(t, err)
-	aRegex, err := m.MkSequenceToRegex(a)
-	astTestMust(t, err)
-	for _, test := range []struct {
-		name, want string
-		make       func() (ast.ASTHandle, error)
-	}{
-		{name: "star", make: func() (ast.ASTHandle, error) { return m.MkRegexStar(aRegex) }},
-		{name: "plus", want: "a", make: func() (ast.ASTHandle, error) { return m.MkRegexPlus(aRegex) }},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			regex, makeErr := test.make()
-			astTestMust(t, makeErr)
-			actual, found, witnessErr := rw.ShortestRegexByteString(regex)
-			astTestMust(t, witnessErr)
-			if !found || actual != test.want {
-				t.Fatal("shortest regex witness", actual, found, "want", test.want)
-			}
-		})
-	}
-	b, err := m.MkString("b")
-	astTestMust(t, err)
-	bRegex, err := m.MkSequenceToRegex(b)
-	astTestMust(t, err)
-	finite, err := m.MkRegexUnion(aRegex, bRegex)
-	astTestMust(t, err)
-	words, exhaustive, err := rw.RegexByteStringCandidates(finite, 3)
-	astTestMust(t, err)
-	if !exhaustive || len(words) != 2 || !((words[0] == "a" && words[1] == "b") || (words[0] == "b" && words[1] == "a")) {
-		t.Fatal("finite regex candidates", words, exhaustive)
-	}
-	zero, err := m.BitVectorNumeralUnsigned(0, 8)
-	astTestMust(t, err)
-	byteSort, err := m.GetSort(zero)
-	astTestMust(t, err)
-	symbolicByte, err := m.MkConst(astTestSymbol(t, m, "candidate-byte"), byteSort)
-	astTestMust(t, err)
-	symbolicUnit, err := m.MkSequenceUnit(symbolicByte)
-	astTestMust(t, err)
-	symbolicRegex, err := m.MkSequenceToRegex(symbolicUnit)
-	astTestMust(t, err)
-	words, exhaustive, err = rw.RegexByteStringCandidates(symbolicRegex, 1)
-	astTestMust(t, err)
-	if exhaustive || len(words) != 0 {
-		t.Fatal("symbolic regex candidates", words, exhaustive)
-	}
-	symbolicPlus, err := m.MkRegexPlus(symbolicRegex)
-	astTestMust(t, err)
-	lengths, lengthExhaustive, err := rw.RegexAcceptedLengths(symbolicPlus, 3)
-	astTestMust(t, err)
-	if lengthExhaustive || len(lengths) != 3 || lengths[0] != 1 || lengths[1] != 2 || lengths[2] != 3 {
-		t.Fatal("symbolic regex lengths", lengths, lengthExhaustive)
-	}
-	symbolicStar, err := m.MkRegexStar(symbolicRegex)
-	astTestMust(t, err)
-	symbolicComplement, err := m.MkRegexComplement(symbolicStar)
-	astTestMust(t, err)
-	lengths, lengthExhaustive, err = rw.RegexAcceptedLengths(symbolicComplement, 3)
-	astTestMust(t, err)
-	if lengthExhaustive || len(lengths) != 3 || lengths[0] != 1 || lengths[1] != 2 || lengths[2] != 3 {
-		t.Fatal("symbolic complement lengths", lengths, lengthExhaustive)
-	}
-	lengths, lengthExhaustive, err = rw.RegexAcceptedLengths(symbolicRegex, 2)
-	astTestMust(t, err)
-	if !lengthExhaustive || len(lengths) != 1 || lengths[0] != 1 {
-		t.Fatal("finite symbolic regex lengths", lengths, lengthExhaustive)
-	}
-	complement, err := m.MkRegexComplement(aRegex)
-	astTestMust(t, err)
-	words, exhaustive, err = rw.RegexByteStringCandidates(complement, 2)
-	astTestMust(t, err)
-	if exhaustive || len(words) != 2 || words[0] != "" || words[1] == "a" {
-		t.Fatal("complement regex candidates", words, exhaustive)
-	}
-}
-
 func TestSequenceRewriterAutomatonIntersectionSolver(t *testing.T) {
 	m, context, globals, local := boolRewriterConfigFixture(t)
 	full, err := NewTheoryRewriter(m, context, globals, local)
@@ -281,4 +196,121 @@ func TestSequenceRewriterAutomatonIntersectionSolver(t *testing.T) {
 	if status != RewriteFailed {
 		t.Fatalf("undefined symbolic intersection status: %d", status)
 	}
+}
+
+// sequenceAutomatonByteSolver decides a label formula over its single fresh
+// byte constant exactly, by evaluating it at all 256 values. It stands in for
+// the SMT solver theory_seq gives re2automaton (symbolic products and
+// complements need one, as m_sa does in the source).
+type sequenceAutomatonByteSolver struct{ m *ast.ASTManager }
+
+func (s *sequenceAutomatonByteSolver) CheckSatisfiable(f ast.ASTHandle) (lbool.LBool, error) {
+	x, err := s.freshByte(f)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	for v := uint64(0); v < 256; v++ {
+		value, err := s.eval(f, x, v)
+		if err != nil {
+			return lbool.Undef, err
+		}
+		if value != 0 {
+			return lbool.True, nil
+		}
+	}
+	return lbool.False, nil
+}
+
+func (s *sequenceAutomatonByteSolver) freshByte(h ast.ASTHandle) (ast.ASTHandle, error) {
+	m := s.m
+	n, err := m.GetNumArgs(h)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if n == 0 {
+		if numeral, err := m.IsBitVectorNumeral(h); err != nil || numeral {
+			return ast.ASTHandle{}, err
+		}
+		if bv, err := m.IsBitVector(h); err != nil || !bv {
+			return ast.ASTHandle{}, err
+		}
+		return h, nil
+	}
+	for i := uint32(0); i < n; i++ {
+		arg, err := m.GetArg(h, i)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if x, err := s.freshByte(arg); err != nil || !x.IsNull() {
+			return x, err
+		}
+	}
+	return ast.ASTHandle{}, nil
+}
+
+// eval returns the value of h with x = v; Booleans are 0 or 1.
+func (s *sequenceAutomatonByteSolver) eval(h, x ast.ASTHandle, v uint64) (uint64, error) {
+	m := s.m
+	switch {
+	case h == x:
+		return v, nil
+	case m.IsTrue(h):
+		return 1, nil
+	case m.IsFalse(h):
+		return 0, nil
+	}
+	if value, _, matched, err := m.BitVectorNumeralBigInt(h); err != nil || matched {
+		if err != nil {
+			return 0, err
+		}
+		return value.Uint64(), nil
+	}
+	n, err := m.GetNumArgs(h)
+	if err != nil {
+		return 0, err
+	}
+	args := make([]uint64, n)
+	for i := uint32(0); i < n; i++ {
+		arg, err := m.GetArg(h, i)
+		if err != nil {
+			return 0, err
+		}
+		if args[i], err = s.eval(arg, x, v); err != nil {
+			return 0, err
+		}
+	}
+	b := boolRewriter{manager: m}
+	is := func(op int32) bool { ok, _ := b.isOperator(h, op); return ok }
+	truth := func(c bool) uint64 {
+		if c {
+			return 1
+		}
+		return 0
+	}
+	switch {
+	case is(ast.ASTOpAnd):
+		for _, a := range args {
+			if a == 0 {
+				return 0, nil
+			}
+		}
+		return 1, nil
+	case is(ast.ASTOpOr):
+		for _, a := range args {
+			if a != 0 {
+				return 1, nil
+			}
+		}
+		return 0, nil
+	case is(ast.ASTOpNot):
+		return truth(args[0] == 0), nil
+	case is(ast.ASTOpEq):
+		return truth(args[0] == args[1]), nil
+	}
+	if ule, err := m.IsBitVectorOperation(h, 22); err != nil {
+		return 0, err
+	} else if ule {
+		return truth(args[0] <= args[1]), nil
+	}
+	return 0, ast.ErrASTDomain
 }
