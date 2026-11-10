@@ -80,12 +80,14 @@ func (t *PB2BVTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (err
 	}
 	var forms []ast.ASTRef
 	var deps []ast.ASTDependency
+	// expr_ref_vector new_exprs; expr_dependency_ref_vector new_deps: the
+	// later-declared new_deps dies first; each releases front to back.
 	defer func() {
-		for i := len(forms) - 1; i >= 0; i-- {
-			err = errors.Join(err, t.manager.DelRef(&forms[i]))
-		}
-		for i := len(deps) - 1; i >= 0; i-- {
+		for i := range deps {
 			err = errors.Join(err, t.manager.DependencyDec(deps[i]))
+		}
+		for i := range forms {
+			err = errors.Join(err, t.manager.DelRef(&forms[i]))
 		}
 	}()
 	current, err := t.manager.NewRef(ast.ASTHandle{})
