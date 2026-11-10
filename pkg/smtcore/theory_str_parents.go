@@ -270,7 +270,8 @@ func (t *SMTStringTheory) publishParentSimplification(member, constant, other, o
 	premises := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, premises.close()) }()
 	// Native guards the pending member equality even if it is reflexive.
-	equality, err := t.state.manager.MkEq(member, constant)
+	// simplify_parent builds every equality with ctx.mk_eq_atom.
+	equality, err := t.state.MkEqAtom(member, constant)
 	if err != nil {
 		return err
 	}
@@ -280,7 +281,7 @@ func (t *SMTStringTheory) publishParentSimplification(member, constant, other, o
 	if err := premises.equate(other, otherValue); err != nil {
 		return err
 	}
-	conclusion, err := t.state.manager.MkEq(parent, simplified)
+	conclusion, err := t.state.MkEqAtom(parent, simplified)
 	if err != nil {
 		return err
 	}

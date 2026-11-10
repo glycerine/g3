@@ -86,11 +86,14 @@ func TestSMTStringPrefixConcatUnknownBytesAndOrder(t *testing.T) {
 						option := state.boolExpr[literal.Var()]
 						lengthEquality, err := m.GetArg(option, 2)
 						astTestMust(t, err)
-						actual, err := m.GetArg(lengthEquality, 1)
+						// ctx.mk_eq_atom may order the two lengths by id.
+						first, err := m.GetArg(lengthEquality, 0)
+						astTestMust(t, err)
+						second, err := m.GetArg(lengthEquality, 1)
 						astTestMust(t, err)
 						want, err := m.MkSequenceLength(astTestString(t, m, text[:i]))
 						astTestMust(t, err)
-						if actual != want {
+						if first != want && second != want {
 							t.Fatal("source prefix length expression was replaced by a numeral", i)
 						}
 					}

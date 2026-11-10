@@ -49,7 +49,7 @@ func TestSMTStringFinalCheckBackpropagatesConstantBytesAndGuards(t *testing.T) {
 			var guards []ast.ASTHandle
 			for _, pair := range [][2]ast.ASTHandle{{left, leftValue}, {right, rightValue}} {
 				if pair[0] != pair[1] {
-					guard, err := m.MkEq(pair[0], pair[1])
+					guard, err := theory.state.MkEqAtom(pair[0], pair[1])
 					astTestMust(t, err)
 					guards = append(guards, guard)
 				}

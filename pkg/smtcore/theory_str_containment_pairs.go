@@ -36,7 +36,8 @@ func (p *smtStringLengthPremises) equate(left, right ast.ASTHandle) error {
 	if left == right {
 		return nil
 	}
-	equality, err := p.theory.state.manager.MkEq(left, right)
+	// theory_str premises are ctx.mk_eq_atom equalities.
+	equality, err := p.theory.state.MkEqAtom(left, right)
 	if err != nil {
 		return err
 	}
