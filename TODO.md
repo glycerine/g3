@@ -1011,9 +1011,13 @@ Found while matching `-st` output against `build/z3` on
    propagate_values substitution ((not (>= x 5.0)) is a unit fact). So
    asserted_formulas is inconsistent, push internalizes nothing, the second
    lex's first check is unsat, and geometric_lex returns l_true with
-   m_upper = m_lower. g3 commits (>= x (/ 9.0 2.0)), the model value. NEXT:
-   commit from optsmt m_lower, port geometric_lex's l_true-on-unsat exit, and
-   report intervals from m_lower/m_upper (replacing ArithmeticInterval).
+   m_upper = m_lower. g3 committed (>= x (/ 9.0 2.0)), the model value.
+   DONE: commit_assignment now asserts mk_ge(i, m_lower[i]) (optLower), and
+   a later lex objective whose first check is unsat returns l_true and reports
+   m_lower[i]. strict_lexicographic_interval's full log is identical to z3's
+   (497 -> 498), and bounded_real_strict_optimization moved 75 -> 138.
+   Remaining: ArithmeticInterval still builds the reported interval itself,
+   not from m_lower/m_upper.
    Box (a5d39adb7, ba2664f22, 4853fd923): the first box call runs
    init_solver/normalize, and execute_box runs on the optimize() solver
    (optsmt::box, then a scoped execute per MaxSMT objective). elim01's

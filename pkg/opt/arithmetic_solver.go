@@ -418,6 +418,16 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 		}
 	}()
 	status, err := s.backend.CheckSat(nil)
+	if err == nil && status == lbool.False && index > 0 {
+		// geometric_lex: an unsat check ends the loop and still returns
+		// l_true (m_upper = m_lower); the committed earlier objectives
+		// made this one's search space empty. The reported value is
+		// m_lower[i], which execute_lex's update_lower set from the model.
+		if lower := s.optLowerOf(index); lower.Infinity.Sign() == 0 {
+			result.Values[index].Arithmetic = s.orient(index, smtcore.SMTArithmeticObjectiveValue{Finite: lower.Clone()})
+		}
+		return status, true, nil
+	}
 	if err != nil || status != lbool.True {
 		return status, false, err
 	}
@@ -771,12 +781,13 @@ func (s *ArithmeticSolver) commitArithmeticObjective(index int, value ObjectiveV
 	if !value.ArithmeticModelValid {
 		return ast.ErrASTDomain
 	}
-	committed := value.ArithmeticModel
-	if !s.objectives[index].maximize {
-		committed.Finite = committed.Finite.Clone()
-		committed.Finite.Neg()
+	// optsmt::commit_assignment asserts mk_ge(i, m_lower[i]) for a finite
+	// m_lower (internal maximizing orientation).
+	lower := s.optLowerOf(index)
+	if lower.Infinity.Sign() != 0 {
+		return nil
 	}
-	bound, err := s.backend.MakeObjectiveLowerBound(s.objectives[index].backendIndex, s.filter, committed.Finite)
+	bound, err := s.backend.MakeObjectiveLowerBound(s.objectives[index].backendIndex, s.filter, lower)
 	if err != nil {
 		return err
 	}
