@@ -82,7 +82,7 @@ func (k *SMTKernel) reducePendingAssertions() (result error) {
 	}
 	defer func() { result = errors.Join(result, batch.Close()) }()
 	for _, row := range k.assertions[k.assertedHead:] {
-		formula, proof, err := k.preprocessAssertion(row.Formula, row.Proof)
+		formula, proof, err := k.preprocessAssertionMode(row.Formula, row.Proof, assertedProofSimplify)
 		if err != nil {
 			return err
 		}

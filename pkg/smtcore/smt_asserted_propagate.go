@@ -203,14 +203,20 @@ func (k *SMTKernel) addAssertionSubstitution(assertion SMTKernelAssertion, depth
 
 func (k *SMTKernel) rewritePendingAssertion(index int) (bool, error) {
 	old := k.assertions[index]
-	formula, proof, err := k.preprocessAssertion(old.Formula, old.Proof)
+	formula, proof, err := k.preprocessAssertionMode(old.Formula, old.Proof, assertedProofAlways)
 	if err != nil {
 		return false, err
 	}
 	if k.manager.IsFalse(formula) {
 		k.assertedInconsistent = true
 	}
-	if formula == old.Formula {
+	proofs, err := k.manager.ProofsEnabled()
+	if err != nil {
+		return false, err
+	}
+	// propagate_values(i) replaces m_formulas[i] with (new_n, mp(pr, new_pr))
+	// even when new_n == n.
+	if formula == old.Formula && !(proofs && k.preprocess && proof != old.Proof) {
 		if k.preprocess {
 			err = k.manager.DecRef(formula)
 			if !proof.IsNull() {
@@ -219,12 +225,13 @@ func (k *SMTKernel) rewritePendingAssertion(index int) (bool, error) {
 		}
 		return false, err
 	}
+	changed := formula != old.Formula
 	if !old.Proof.IsNull() {
 		err = k.manager.DecRef(old.Proof)
 	}
 	err = errors.Join(err, k.manager.DecRef(old.Formula))
 	k.assertions[index] = SMTKernelAssertion{Formula: formula, Proof: proof}
-	return true, err
+	return changed, err
 }
 
 func (k *SMTKernel) propagatePendingAssertions() (result error) {

@@ -196,12 +196,46 @@ func (k *SMTKernel) preprocessAssertion(formula, proof ast.ASTHandle) (result, r
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
 	defer func() { err = errors.Join(err, k.manager.DelRef(&proofRef)) }()
-	return k.preprocessAssertionWith(formula, proof, resultRef, proofRef)
+	return k.preprocessAssertionWithMode(formula, proof, resultRef, proofRef, assertedProofAssertExpr)
+}
+
+// assertedProofMode is how a pass combines the input proof with m_rewriter's.
+type assertedProofMode uint8
+
+const (
+	// assert_expr: pr = (e == r) ? in_pr : mk_modus_ponens(in_pr, pr).
+	assertedProofAssertExpr assertedProofMode = iota
+	// propagate_values, nnf_cnf: mk_modus_ponens(pr, pr1) always.
+	assertedProofAlways
+	// simplify_fmls: if (!pr) pr = mk_rewrite(f, r); mk_modus_ponens(pr0, pr).
+	assertedProofSimplify
+)
+
+// preprocessAssertionMode is preprocessAssertion with a pass's proof rule.
+func (k *SMTKernel) preprocessAssertionMode(formula, proof ast.ASTHandle, mode assertedProofMode) (result, resultProof ast.ASTHandle, err error) {
+	if !k.preprocess || k.preprocessor == nil {
+		return formula, proof, nil
+	}
+	resultRef, err := k.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, err
+	}
+	defer func() { err = errors.Join(err, k.manager.DelRef(&resultRef)) }()
+	proofRef, err := k.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, err
+	}
+	defer func() { err = errors.Join(err, k.manager.DelRef(&proofRef)) }()
+	return k.preprocessAssertionWithMode(formula, proof, resultRef, proofRef, mode)
 }
 
 // preprocessAssertionWith is m_rewriter(n, r1, pr1) with the caller's r1
 // and pr1, which the rewrite overwrites (so their old values may die there).
 func (k *SMTKernel) preprocessAssertionWith(formula, proof ast.ASTHandle, resultRef, proofRef ast.ASTRef) (result, resultProof ast.ASTHandle, err error) {
+	return k.preprocessAssertionWithMode(formula, proof, resultRef, proofRef, assertedProofAlways)
+}
+
+func (k *SMTKernel) preprocessAssertionWithMode(formula, proof ast.ASTHandle, resultRef, proofRef ast.ASTRef, mode assertedProofMode) (result, resultProof ast.ASTHandle, err error) {
 	if !k.preprocess || k.preprocessor == nil {
 		return formula, proof, nil
 	}
@@ -225,10 +259,15 @@ func (k *SMTKernel) preprocessAssertionWith(formula, proof ast.ASTHandle, result
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
 	resultProof = proof
-	if proofs && result != formula {
+	if proofs && (mode != assertedProofAssertExpr || result != formula) {
 		rewriteProof, getErr := k.manager.RefGet(proofRef)
 		if getErr != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, getErr
+		}
+		if mode == assertedProofSimplify && rewriteProof.IsNull() {
+			if rewriteProof, err = k.manager.MkProofRewrite(formula, result); err != nil {
+				return ast.ASTHandle{}, ast.ASTHandle{}, err
+			}
 		}
 		resultProof, err = k.manager.MkProofModusPonens(proof, rewriteProof)
 	}
