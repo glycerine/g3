@@ -17,6 +17,5 @@ func (e *maxResEngine) processSearchUNSAT(result *ArithmeticResult) (lbool.LBool
 		return status, nil
 	}
 	e.clampPrimalDualLower()
-	e.sortAssumptions()
 	return lbool.True, nil
 }

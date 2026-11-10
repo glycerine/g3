@@ -45,7 +45,6 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 	if err != nil {
 		return lbool.Undef, false, fmt.Errorf("maxres initial candidate: %w", err)
 	}
-	e.sortAssumptions()
 	for {
 		if e.optimalByBounds() {
 			if err = e.publishOptimum(result); err != nil {

@@ -23,8 +23,7 @@ func TestMaxResBaseAggregatesSortsAndRemovesAssumptions(t *testing.T) {
 	if err := engine.addAssumption(a, big.NewRat(1, 3)); err != nil {
 		t.Fatal(err)
 	}
-	engine.sortAssumptions()
-	if engine.active[0] != a || engine.weights[a].Cmp(big.NewRat(1, 1)) != 0 || engine.stats.Assumptions != 2 {
+	if engine.sortedAssumptions(engine.active)[0] != a || engine.weights[a].Cmp(big.NewRat(1, 1)) != 0 || engine.stats.Assumptions != 2 {
 		t.Fatal("MaxRes base", engine.active, engine.weights, engine.stats)
 	}
 	removed, err := engine.removeAssumption(a)

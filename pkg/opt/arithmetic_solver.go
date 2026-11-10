@@ -94,7 +94,9 @@ type ArithmeticSolver struct {
 	sat     *satsolver.Solver // update_solver's mk_inc_sat_solver
 	// softEngines are the maxsmt m_msolver engines, kept for
 	// commit_assignment until Close.
-	softEngines         []softEngineEntry
+	softEngines []softEngineEntry
+	// initial is optimize()'s m_model/m_labels after the initial check.
+	initial             *ArithmeticResult
 	internalized        []internalizedObjective
 	manager             *ast.ASTManager
 	config              smtcore.SMTSolverConfig
@@ -554,13 +556,18 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 			s.softEngines = append(s.softEngines, softEngineEntry{index, activeEngine})
 		}
 	}()
-	status, err := s.solver().CheckSat(nil)
-	if err != nil || status != lbool.True {
-		return status, false, err
+	// maxsmt starts from the context's current model; only a caller that
+	// skipped optimize()'s initial check needs one here.
+	if result.Model == nil {
+		status, err := s.solver().CheckSat(nil)
+		if err != nil || status != lbool.True {
+			return status, false, err
+		}
+		if err = s.replaceModel(result); err != nil {
+			return lbool.Undef, false, err
+		}
 	}
-	if err = s.replaceModel(result); err != nil {
-		return lbool.Undef, false, err
-	}
+	var err error
 	objective := &s.objectives[index]
 	engine, err := newMaxSMTEngine(s, objective, index)
 	if err != nil {
@@ -836,8 +843,26 @@ func (s *ArithmeticSolver) CheckHard() (lbool.LBool, string, error) {
 		return lbool.Undef, "", ast.ErrASTHandle
 	}
 	status, err := s.solver().CheckSat(nil)
-	if err != nil || status != lbool.Undef {
+	if err != nil {
 		return status, "", err
+	}
+	// optimize(): if (is_sat != l_false) { s.get_model(m_model);
+	// s.get_labels(m_labels); model_updated(m_model.get()); }
+	if status != lbool.False {
+		initial := &ArithmeticResult{}
+		if err = s.replaceModel(initial); err != nil {
+			return status, "", errors.Join(err, initial.Close())
+		}
+		if s.initial != nil {
+			err = s.initial.Close()
+		}
+		s.initial = initial
+		if err != nil {
+			return status, "", err
+		}
+	}
+	if status != lbool.Undef {
+		return status, "", nil
 	}
 	reason, err := s.solver().ReasonUnknown()
 	return status, reason, err
@@ -848,6 +873,13 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 		return nil, ast.ErrASTHandle
 	}
 	result = &ArithmeticResult{Status: lbool.Undef, Values: make([]ObjectiveValue, len(s.objectives))}
+	// m_model from the initial check is the base model execute starts
+	// from (maxsmt reads it through the context).
+	if s.initial != nil {
+		result.Model, result.Labels = s.initial.Model, s.initial.Labels
+		s.initial.Model, s.initial.Labels = nil, nil
+		s.initial = nil
+	}
 	defer func() {
 		if resultErr == nil && result != nil && result.Status == lbool.True {
 			var wasUnknown bool
@@ -873,7 +905,18 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 				return nil, err
 			}
 		}
+		// The context's m_model stays alive while the objective runs on
+		// its own models; execute_* replaces it afterwards.
+		base := result.Model
+		if base != nil {
+			if err := base.IncRef(); err != nil {
+				return nil, err
+			}
+		}
 		status, optimal, err := s.optimizeOne(i, result)
+		if base != nil {
+			err = errors.Join(err, base.DecRef())
+		}
 		if err == nil && status == lbool.Undef {
 			result.ReasonUnknown, err = s.solver().ReasonUnknown()
 		}
@@ -945,6 +988,12 @@ func (s *ArithmeticSolver) DetachObjectiveTerms() []ast.ASTRef {
 func (s *ArithmeticSolver) Close() error {
 	if s == nil || s.backend == nil {
 		return nil
+	}
+	if s.initial != nil {
+		if err := s.initial.Close(); err != nil {
+			return err
+		}
+		s.initial = nil
 	}
 	for len(s.softEngines) != 0 {
 		entry := s.softEngines[0]

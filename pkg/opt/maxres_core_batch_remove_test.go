@@ -8,14 +8,14 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func TestMaxResCoreBatchRemovalPreservesRemainingOrder(t *testing.T) {
+func TestMaxResRemoveSoftSwapsWithLast(t *testing.T) {
 	manager := newWeightedSoftFixture(t).manager
 	a := maxResTestBool(t, manager, "batch-remove-a")
 	b := maxResTestBool(t, manager, "batch-remove-b")
 	c := maxResTestBool(t, manager, "batch-remove-c")
 	d := maxResTestBool(t, manager, "batch-remove-d")
 	values := []ast.ASTHandle{a, b, c, d, b}
-	remaining := removeMaxResCoreMembers(values, []ast.ASTHandle{b, d})
+	remaining := removeSoft([]ast.ASTHandle{b, d}, values)
 	if len(remaining) != 2 || remaining[0] != a || remaining[1] != c {
 		t.Fatal("remaining assumptions", remaining)
 	}
