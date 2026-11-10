@@ -333,6 +333,7 @@ func (c *bv2IntCall) extend(n uint32, h ast.ASTHandle, signed bool) ast.ASTHandl
 	}
 	return c.hold(c.r.manager.MkBitVectorZeroExtend(n, h))
 }
+
 // align is align_sizes(expr_ref& s, expr_ref& t): assigning the extension to
 // the expr_ref releases its previous value, which dies unless shared.
 func (c *bv2IntCall) align(s, t ast.ASTHandle, signed bool) (ast.ASTHandle, ast.ASTHandle) {
@@ -452,8 +453,15 @@ func (c *bv2IntCall) signed(h ast.ASTHandle) (ast.ASTHandle, bool) {
 		return c.hold(c.r.manager.MkBitVectorZeroExtend(1, s)), true
 	}
 	if a, b, ok := c.difference(h); ok {
-		a, b = c.align(a, b, false)
-		return c.bi(5, c.extend(1, a, false), c.extend(1, b, false)), true
+		// expr_ref u1, u2 (u2 dies first) own is_bv2int_diff's results.
+		u1, u2 := c.newLocal(a), c.newLocal(b)
+		defer c.releaseLocals(&u2, &u1)
+		c.release(a)
+		c.release(b)
+		c.alignLocals(&u1, &u2, false)
+		c.assignLocal(&u1, c.extend(1, c.localValue(u1), false))
+		c.assignLocal(&u2, c.extend(1, c.localValue(u2), false))
+		return c.bi(5, c.localValue(u1), c.localValue(u2)), true
 	}
 	if !c.is(h, c.r.manager.BasicFamilyID(), ast.ASTOpIte, 3) {
 		return ast.ASTHandle{}, false
@@ -511,8 +519,13 @@ func (c *bv2IntCall) addBV(s, t ast.ASTHandle, signed bool) ast.ASTHandle {
 	if q, ok := c.bvNumber(t); ok && q.Sign() == 0 {
 		return s
 	}
-	s, t = c.align(s, t, signed)
-	return c.bi(4, c.extend(1, s, signed), c.extend(1, t, signed))
+	// expr_ref s1(s), t1(t): t1 dies first.
+	s1, t1 := c.newLocal(s), c.newLocal(t)
+	defer c.releaseLocals(&t1, &s1)
+	c.alignLocals(&s1, &t1, signed)
+	c.assignLocal(&s1, c.extend(1, c.localValue(s1), signed))
+	c.assignLocal(&t1, c.extend(1, c.localValue(t1), signed))
+	return c.bi(4, c.localValue(s1), c.localValue(t1))
 }
 func (c *bv2IntCall) mulBV(s, t ast.ASTHandle, signed bool) ast.ASTHandle {
 	c.assertBV(s, 372, "m_bv.is_bv(s)")

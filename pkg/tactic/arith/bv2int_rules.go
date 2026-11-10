@@ -108,9 +108,16 @@ func (c *bv2IntCall) sub(s, t ast.ASTHandle) (ast.ASTHandle, bool) {
 	if a {
 		t1, b := c.signed(t)
 		if b {
-			s1, t1 = c.align(s1, t1, true)
-			s1, t1 = c.extend(1, s1, true), c.extend(1, t1, true)
-			return c.signedInt(c.bi(5, s1, t1)), true
+			// mk_sub's expr_ref s1, t1: align_sizes, then
+			// s1 = mk_sign_extend(1, s1); t1 = mk_sign_extend(1, t1).
+			l1, l2 := c.newLocal(s1), c.newLocal(t1)
+			defer c.releaseLocals(&l2, &l1)
+			c.release(s1)
+			c.release(t1)
+			c.alignLocals(&l1, &l2, true)
+			c.assignLocal(&l1, c.extend(1, c.localValue(l1), true))
+			c.assignLocal(&l2, c.extend(1, c.localValue(l2), true))
+			return c.signedInt(c.bi(5, c.localValue(l1), c.localValue(l2))), true
 		}
 	}
 	return ast.ASTHandle{}, false
