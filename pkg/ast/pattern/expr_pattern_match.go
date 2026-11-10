@@ -75,14 +75,13 @@ func (p *exprPatternMatcher) Close() error {
 	if p.closed {
 		return nil
 	}
+	// ~quantifier_ref_vector releases front to back.
 	for len(p.precompiled) != 0 {
-		i := len(p.precompiled) - 1
-		h := p.precompiled[i]
-		p.precompiled = p.precompiled[:i]
+		h := p.precompiled[0]
 		if err := p.manager.DecRef(h); err != nil {
-			p.precompiled = append(p.precompiled, h)
 			return err
 		}
+		p.precompiled = p.precompiled[1:]
 	}
 	p.firstInstructions = nil
 	p.instructions = nil
