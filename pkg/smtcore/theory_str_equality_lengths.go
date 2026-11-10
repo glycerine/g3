@@ -167,10 +167,10 @@ func (t *SMTStringTheory) checkLengthConstant(expression, constant ast.ASTHandle
 		if err != nil {
 			return false, err
 		}
-		if !known || value.Cmp(target) != 0 {
-			err = t.assertStringLengthEquality(expression, constant)
+		if known && value.Cmp(target) != 0 {
+			return false, t.assertStringLengthEqualityOrder(expression, constant, true)
 		}
-		return !known || value.Cmp(target) == 0, err
+		return t.checkLengthConstantTail(expression, constant)
 	}
 	leaves, err := t.concatLeaves(expression)
 	if err != nil {
@@ -198,6 +198,20 @@ func (t *SMTStringTheory) checkLengthConstant(expression, constant ast.ASTHandle
 		if sum.Cmp(target) > 0 {
 			return false, premises.refuse(expression, constant)
 		}
+	}
+	return t.checkLengthConstantTail(expression, constant)
+}
+
+// checkLengthConstantTail is check_length_const_string's final step for both
+// branches: a second get_len_value(n1), and n1 = c => len(n1) = len(c) when
+// the length is still unknown.
+func (t *SMTStringTheory) checkLengthConstantTail(expression, constant ast.ASTHandle) (bool, error) {
+	_, known, err := t.lengthValue(expression)
+	if err != nil {
+		return false, err
+	}
+	if !known {
+		return true, t.assertStringLengthEqualityOrder(expression, constant, true)
 	}
 	return true, nil
 }

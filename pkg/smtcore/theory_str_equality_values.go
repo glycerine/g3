@@ -155,6 +155,13 @@ func (t *SMTStringTheory) stringClass(expression ast.ASTHandle) []ast.ASTHandle 
 // classes are still separate; handle_equality performs the later stages.
 func (t *SMTStringTheory) checkNewEqualityValuesAndLengths(left, right ast.ASTHandle) (bool, error) {
 	m := t.state.manager
+	// opt_DeferEQCConsistencyCheck is false.
+	if err := t.checkConcatLenInEqc(left); err != nil {
+		return false, err
+	}
+	if err := t.checkConcatLenInEqc(right); err != nil {
+		return false, err
+	}
 	for _, l := range t.stringClass(left) {
 		for _, r := range t.stringClass(right) {
 			possible, err := t.canTwoNodesEqual(l, r)

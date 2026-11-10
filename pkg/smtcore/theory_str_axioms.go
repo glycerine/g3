@@ -182,6 +182,13 @@ func (t *SMTStringTheory) instantiateStringEqualityLengthAxiom(left, right *SMTE
 }
 
 func (t *SMTStringTheory) assertStringLengthEquality(left, right ast.ASTHandle) (result error) {
+	return t.assertStringLengthEqualityOrder(left, right, false)
+}
+
+// assertStringLengthEqualityOrder builds len(right) before len(left) when
+// rightFirst holds: check_length_const_string passes both mk_strlen calls as
+// arguments of one mk_eq_atom, which GCC evaluates right to left.
+func (t *SMTStringTheory) assertStringLengthEqualityOrder(left, right ast.ASTHandle, rightFirst bool) (result error) {
 	m := t.state.manager
 	// instantiate_str_eq_length_axiom / check_length_const_string build
 	// both sides with ctx.mk_eq_atom.
@@ -201,7 +208,13 @@ func (t *SMTStringTheory) assertStringLengthEquality(left, right ast.ASTHandle) 
 	}
 	refs = append(refs, ref)
 	var lengths [2]ast.ASTHandle
-	for i, expression := range []ast.ASTHandle{left, right} {
+	order := []int{0, 1}
+	if rightFirst {
+		order = []int{1, 0}
+	}
+	operands := [2]ast.ASTHandle{left, right}
+	for _, i := range order {
+		expression := operands[i]
 		lengths[i], err = m.MkSequenceLength(expression)
 		if err != nil {
 			return err

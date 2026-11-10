@@ -321,3 +321,58 @@ func (t *SMTStringTheory) simplifyStringConcatEquality(left, right ast.ASTHandle
 	}
 	return nil
 }
+
+// checkConcatLenInEqc is check_concat_len_in_eqc: infer_len_concat on each
+// concat of the class, from concat around get_eqc_next. Its result is unused
+// by new_eq_check, its only active caller.
+func (t *SMTStringTheory) checkConcatLenInEqc(concat ast.ASTHandle) error {
+	m := t.state.manager
+	for _, member := range t.stringClass(concat) {
+		_, _, isConcat, err := m.SequenceConcatParts(member)
+		if err != nil {
+			return err
+		}
+		if isConcat {
+			if err = t.inferLenConcat(member); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// inferLenConcat is infer_len_concat: when both argument lengths are known
+// and the concat's is not, assert len(a0) = l0 /\ len(a1) = l1 => len(n) = l0+l1.
+func (t *SMTStringTheory) inferLenConcat(concat ast.ASTHandle) (result error) {
+	m := t.state.manager
+	first, second, _, err := m.SequenceConcatParts(concat)
+	if err != nil {
+		return err
+	}
+	firstLength, firstKnown, err := t.lengthValue(first)
+	if err != nil {
+		return err
+	}
+	secondLength, secondKnown, err := t.lengthValue(second)
+	if err != nil {
+		return err
+	}
+	_, concatKnown, err := t.lengthValue(concat)
+	if err != nil || !firstKnown || !secondKnown || concatKnown {
+		return err
+	}
+	premises := smtStringLengthPremises{theory: t}
+	defer func() { result = errors.Join(result, premises.close()) }()
+	if err := premises.length(first, firstLength); err != nil {
+		return err
+	}
+	if err := premises.length(second, secondLength); err != nil {
+		return err
+	}
+	conclusion := smtStringLengthPremises{theory: t}
+	defer func() { result = errors.Join(result, conclusion.close()) }()
+	if err := conclusion.length(concat, new(big.Int).Add(firstLength, secondLength)); err != nil {
+		return err
+	}
+	return premises.imply(conclusion.values[0])
+}

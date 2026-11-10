@@ -26,11 +26,12 @@ func (t *SMTStringTheory) freshUnrollBound() (ast.ASTHandle, error) {
 
 func (t *SMTStringTheory) freshIntegerVariable(prefix string) (ast.ASTHandle, error) {
 	m := t.state.manager
-	zero, err := m.ArithmeticIntegerNumeralText("0")
+	// mk_int_var: m.mk_sort(m_autil.get_family_id(), INT_SORT).
+	family, err := m.ArithmeticFamilyID()
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	sort, err := m.GetSort(zero)
+	sort, err := m.MkFamilySort(family, smtArithIntSort, nil)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
