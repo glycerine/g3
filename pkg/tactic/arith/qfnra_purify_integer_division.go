@@ -49,12 +49,14 @@ func (i *qfnraPurifyInvocation) processIntegerDivision(x, y ast.ASTHandle, quoti
 	if err != nil {
 		return err
 	}
+	// GCC evaluates call arguments right to left, so each OR/EQ builds its
+	// last argument first.
 	zero := b.hold(func() (ast.ASTHandle, error) { return m.ArithmeticIntegerNumeralText("0") })
-	minusOne := b.hold(func() (ast.ASTHandle, error) { return m.ArithmeticIntegerNumeralText("-1") })
-	yZero := b.hold(func() (ast.ASTHandle, error) { return m.MkEq(y, zero) })
+	// OR(EQ(y, 0), EQ(x, mk_add(mk_mul(k1, y), k2)))
 	product := b.hold(func() (ast.ASTHandle, error) { return m.MkArithmeticMul(q, y) })
 	sum := b.hold(func() (ast.ASTHandle, error) { return m.MkArithmeticAdd(product, r) })
 	equation := b.hold(func() (ast.ASTHandle, error) { return m.MkEq(x, sum) })
+	yZero := b.hold(func() (ast.ASTHandle, error) { return m.MkEq(y, zero) })
 	first := b.hold(func() (ast.ASTHandle, error) { return m.MkOr(yZero, equation) })
 	if b.err != nil {
 		return b.err
@@ -62,6 +64,7 @@ func (i *qfnraPurifyInvocation) processIntegerDivision(x, y ast.ASTHandle, quoti
 	if err = i.addConstraint(first, quotient, remainder); err != nil {
 		return err
 	}
+	// OR(EQ(y, 0), mk_le(0, k2))
 	positiveR := b.hold(func() (ast.ASTHandle, error) { return m.MkArithmeticLE(zero, r) })
 	second := b.hold(func() (ast.ASTHandle, error) { return m.MkOr(yZero, positiveR) })
 	if b.err != nil {
@@ -70,8 +73,9 @@ func (i *qfnraPurifyInvocation) processIntegerDivision(x, y ast.ASTHandle, quoti
 	if err = i.addConstraint(second, remainder); err != nil {
 		return err
 	}
-	nonpositiveY := b.hold(func() (ast.ASTHandle, error) { return m.MkArithmeticLE(y, zero) })
+	// OR(mk_le(y, 0), mk_lt(k2, y))
 	rBelowY := b.hold(func() (ast.ASTHandle, error) { return m.MkArithmeticLT(r, y) })
+	nonpositiveY := b.hold(func() (ast.ASTHandle, error) { return m.MkArithmeticLE(y, zero) })
 	third := b.hold(func() (ast.ASTHandle, error) { return m.MkOr(nonpositiveY, rBelowY) })
 	if b.err != nil {
 		return b.err
@@ -79,9 +83,11 @@ func (i *qfnraPurifyInvocation) processIntegerDivision(x, y ast.ASTHandle, quoti
 	if err = i.addConstraint(third, remainder); err != nil {
 		return err
 	}
-	nonnegativeY := b.hold(func() (ast.ASTHandle, error) { return m.MkArithmeticGE(y, zero) })
+	// OR(mk_ge(y, 0), mk_lt(k2, mk_mul(mk_numeral(-1), y)))
+	minusOne := b.hold(func() (ast.ASTHandle, error) { return m.ArithmeticIntegerNumeralText("-1") })
 	negY := b.hold(func() (ast.ASTHandle, error) { return m.MkArithmeticMul(minusOne, y) })
 	rBelowNegY := b.hold(func() (ast.ASTHandle, error) { return m.MkArithmeticLT(r, negY) })
+	nonnegativeY := b.hold(func() (ast.ASTHandle, error) { return m.MkArithmeticGE(y, zero) })
 	fourth := b.hold(func() (ast.ASTHandle, error) { return m.MkOr(nonnegativeY, rBelowNegY) })
 	if b.err != nil {
 		return b.err
@@ -99,11 +105,12 @@ func (i *qfnraPurifyInvocation) processIntegerDivision(x, y ast.ASTHandle, quoti
 	if numeral && text != "0" {
 		return nil
 	}
-	notZero := b.hold(func() (ast.ASTHandle, error) { return m.MkNot(yZero) })
+	// OR(NOT(EQ(y, 0)), EQ(k1, mk_idiv(x, 0))): the right disjunct first.
 	divZero := b.hold(func() (ast.ASTHandle, error) {
 		return m.MkFamilyApp(i.owner.arithmetic, qfnraPurifyIDiv, nil, []ast.ASTHandle{x, zero})
 	})
 	qEq := b.hold(func() (ast.ASTHandle, error) { return m.MkEq(q, divZero) })
+	notZero := b.hold(func() (ast.ASTHandle, error) { return m.MkNot(yZero) })
 	qGuard := b.hold(func() (ast.ASTHandle, error) { return m.MkOr(notZero, qEq) })
 	if b.err != nil {
 		return b.err

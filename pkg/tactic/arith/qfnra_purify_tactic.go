@@ -72,15 +72,19 @@ func (i *qfnraPurifyInvocation) close() (err error) {
 	for j := len(i.proofRefs) - 1; j >= 0; j-- {
 		err = errors.Join(err, m.DelRef(&i.proofRefs[j]))
 	}
-	for j := len(i.constraints) - 1; j >= 0; j-- {
+	// rw_cfg's members go in reverse declaration order: m_new_cnstrs, then
+	// m_pinned; each expr_ref_vector releases front to back, and
+	// cache_result pinned t before r.
+	for j := range i.constraints {
 		err = errors.Join(err, m.DelRef(&i.constraints[j]))
 	}
-	for j := len(i.entries) - 1; j >= 0; j-- {
+	for j := range i.entries {
 		e := i.entries[j]
 		if e.proof != (ast.ASTRef{}) {
 			err = errors.Join(err, m.DelRef(&e.proof))
 		}
-		err = errors.Join(err, m.DelRef(&e.fresh), m.DelRef(&e.term))
+		err = errors.Join(err, m.DelRef(&e.term))
+		err = errors.Join(err, m.DelRef(&e.fresh))
 	}
 	clear(i.cache)
 	i.entries = nil
