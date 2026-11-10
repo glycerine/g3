@@ -93,15 +93,17 @@ func (b *FormulaBatch) Reset() (result error) {
 	if err := b.open(); err != nil {
 		return err
 	}
-	for i := len(b.rows) - 1; i >= 0; i-- {
+	// ~vector<justified_expr> destroys front to back; each element
+	// releases its formula, then its proof.
+	for i := range b.rows {
 		row := &b.rows[i]
-		if !row.Dependency.IsNull() {
-			result = errors.Join(result, b.manager.DependencyDec(row.Dependency))
-		}
+		result = errors.Join(result, b.manager.DecRef(row.Expression))
 		if !row.Proof.IsNull() {
 			result = errors.Join(result, b.manager.DecRef(row.Proof))
 		}
-		result = errors.Join(result, b.manager.DecRef(row.Expression))
+		if !row.Dependency.IsNull() {
+			result = errors.Join(result, b.manager.DependencyDec(row.Dependency))
+		}
 		*row = Formula{}
 	}
 	b.rows = b.rows[:0]

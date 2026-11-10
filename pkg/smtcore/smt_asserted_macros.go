@@ -58,8 +58,10 @@ func (k *SMTKernel) swapPendingFormulaBatch(batch *macros.FormulaBatch) (result 
 			k.assertions = original
 			return
 		}
+		// m_formulas.shrink(m_qhead): ~justified_expr releases the
+		// formula, then the proof.
 		for _, assertion := range original[k.assertedHead:] {
-			result = errors.Join(result, k.manager.DecRef(assertion.Proof), k.manager.DecRef(assertion.Formula))
+			result = errors.Join(result, k.manager.DecRef(assertion.Formula), k.manager.DecRef(assertion.Proof))
 		}
 	}()
 	for i := 0; i < batch.Len(); i++ {
