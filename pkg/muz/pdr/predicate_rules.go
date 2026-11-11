@@ -1016,7 +1016,7 @@ func (p *PredicateTransformer) PropagationFormula(level uint32) (result ast.ASTH
 
 // inductiveAssumptionsRef builds the source check_inductive formula. Its
 // output owns the conjunction after temporary state roots are released.
-func (p *PredicateTransformer) inductiveAssumptionsRef(literals []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+func (p *PredicateTransformer) inductiveAssumptionsRef(literals []ast.ASTHandle) (result ast.ASTRef, conjunction []ast.ASTRef, resultErr error) {
 	var roots []ast.ASTRef
 	defer func() {
 		for i := len(roots) - 1; i >= 0; i-- {
@@ -1025,30 +1025,45 @@ func (p *PredicateTransformer) inductiveAssumptionsRef(literals []ast.ASTHandle)
 		if resultErr != nil && result != (ast.ASTRef{}) {
 			resultErr = errors.Join(resultErr, p.owner.releaseNotAndRef(&result))
 		}
+		if resultErr != nil {
+			for i := range conjunction {
+				resultErr = errors.Join(resultErr, p.manager.DelRef(&conjunction[i]))
+			}
+			conjunction = nil
+		}
 	}()
 	cube, err := p.owner.AndRef(literals)
 	if err != nil {
-		return result, err
+		return result, nil, err
 	}
 	roots = append(roots, cube)
 	states, err := p.manager.RefGet(cube)
 	if err != nil {
-		return result, err
+		return result, nil, err
 	}
 	states, err = p.manager.MkNot(states)
 	if err != nil {
-		return result, err
+		return result, nil, err
 	}
 	negated, err := p.manager.NewRef(states)
 	if err != nil {
-		return result, err
+		return result, nil, err
 	}
 	roots = append(roots, negated)
-	assumptions, err := p.makeAssumptions(p.head, states)
+	// check_inductive's conj vector owns the converted assumptions until
+	// the function returns, after fml (pm.mk_and(conj)) is released.
+	conjunction, err = p.makeAssumptionRefs(p.head, states)
 	if err != nil {
-		return result, err
+		return result, conjunction, err
 	}
-	return p.owner.AndRef(assumptions)
+	assumptions := make([]ast.ASTHandle, len(conjunction))
+	for i, ref := range conjunction {
+		if assumptions[i], err = p.manager.RefGet(ref); err != nil {
+			return result, conjunction, err
+		}
+	}
+	result, err = p.owner.AndRef(assumptions)
+	return result, conjunction, err
 }
 
 // CheckInductive tests whether the conjunction of literals is inductive at a
@@ -1076,10 +1091,15 @@ func (p *PredicateTransformer) CheckInductive(level uint32, literals []ast.ASTHa
 		}
 		literalRefs = append(literalRefs, ref)
 	}
-	ref, err := p.inductiveAssumptionsRef(literals)
+	ref, conjunction, err := p.inductiveAssumptionsRef(literals)
 	if err != nil {
 		return false, false, nil, err
 	}
+	defer func() {
+		for i := range conjunction {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&conjunction[i]))
+		}
+	}()
 	defer func() { resultErr = errors.Join(resultErr, p.owner.releaseNotAndRef(&ref)) }()
 	formula, err := p.manager.RefGet(ref)
 	if err != nil {

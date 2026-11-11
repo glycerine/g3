@@ -271,14 +271,18 @@ Run `$W/tdiff.sh <vector> <bin>` per step and `fullcmp_log.py` + `outcmp.py`
 + `go test ./muz/... ./qe/ ./smtcore/` before each commit; `make` and `make
 tags` hourly. Commit with explicit pathspecs, no amend, no Co-Authored-By.
 
-1. **Query flow (Q1, Q2, Q3).** Route spacer through `queryRelationMkQuery`
+1. **Query flow (Q1, Q2, Q3).** [Q2 done 0848932bf; Q1 was already in
+   place via querySpacerRelation; Q3/Q4 untouched pending a trace.] Route spacer through `queryRelationMkQuery`
    like PDR (query rule in `e.set`, removed after solve, retained owner
    closed), move the m_old_rules replace into the spacer check_reset, keep
    m_old_rules across a context rebuild. Check: every identical spacer vector
    stays identical; fp_spacer_quantifier_abstraction and
    fixedpoint_spacer_nonlinear_inlining may move.
 2. **PDR mux call sites** (section 2): five sites to `…Ref`, delete the
-   retaining forms. Check: fixedpoint_pdr_initial_trace (12926),
+   retaining forms. [Done for check_inductive (the only hot site). The
+   others are unreached by source consumers: Premises only under the debug
+   assertInvariants, validate_model only under validate=true,
+   PropagationFormula and CheckBounded only from tests. Left as is.] Check: fixedpoint_pdr_initial_trace (12926),
    pdr_recursive_trace (9291), pdr_utvpi_fragment (3465),
    pdr_general_arithmetic_fragment (754).
 3. **T1 hnf retention.** Check: fp_spacer_quantifier_abstraction.

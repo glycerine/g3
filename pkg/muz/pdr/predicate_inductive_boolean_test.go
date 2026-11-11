@@ -24,7 +24,7 @@ func TestInductiveAssumptionsUseRewrittenCubeAndRawNegation(t *testing.T) {
 	tag, tagRoot := makeAtom("inductive_rewrite_tag")
 	transformer.rules = []*normalizedRule{{tag: tag, predecessors: []*PredicateTransformer{transformer}}}
 	// Duplicate input must be folded before source constructs a raw not.
-	result, err := transformer.inductiveAssumptionsRef([]ast.ASTHandle{p, p})
+	result, conjunction, err := transformer.inductiveAssumptionsRef([]ast.ASTHandle{p, p})
 	closureMust(t, err)
 	formula, err := m.RefGet(result)
 	closureMust(t, err)
@@ -41,8 +41,14 @@ func TestInductiveAssumptionsUseRewrittenCubeAndRawNegation(t *testing.T) {
 		t.Fatal("duplicate cube was not rewritten before negation", arg, inner)
 	}
 	closureMust(t, m.DelRef(&result))
+	releaseConjunction := func() {
+		for i := range conjunction {
+			closureMust(t, m.DelRef(&conjunction[i]))
+		}
+	}
+	releaseConjunction()
 	// A source AST-manager not remains raw even when the conjunction is true.
-	result, err = transformer.inductiveAssumptionsRef(nil)
+	result, conjunction, err = transformer.inductiveAssumptionsRef(nil)
 	closureMust(t, err)
 	formula, err = m.RefGet(result)
 	closureMust(t, err)
@@ -54,6 +60,7 @@ func TestInductiveAssumptionsUseRewrittenCubeAndRawNegation(t *testing.T) {
 		t.Fatal("source raw not(true) was folded", arg, inner)
 	}
 	closureMust(t, m.DelRef(&result))
+	releaseConjunction()
 	transformer.rules = nil
 	closureMust(t, m.DelRef(&tagRoot))
 	closureMust(t, m.DelRef(&pRoot))
@@ -65,8 +72,8 @@ func TestInductiveAssumptionsUseRewrittenCubeAndRawNegation(t *testing.T) {
 func TestInductiveAssumptionsInvalidInputReleasesReferences(t *testing.T) {
 	m, owner, transformer, _, closeBase := closureFixture(t)
 	before := m.Stats().LiveReferences
-	result, err := transformer.inductiveAssumptionsRef([]ast.ASTHandle{{}})
-	if err == nil || result != (ast.ASTRef{}) {
+	result, conjunction, err := transformer.inductiveAssumptionsRef([]ast.ASTHandle{{}})
+	if err == nil || result != (ast.ASTRef{}) || conjunction != nil {
 		t.Fatal("invalid input returned an owner", result, err)
 	}
 	if got := m.Stats().LiveReferences; got != before {
