@@ -648,27 +648,26 @@ func (p *QuantifierInstantiationPlugin) Transform(source *base.RuleSet) (_ *base
 	if err != nil {
 		return nil, err
 	}
+	// The source scans rules only up to the first one whose interpreted
+	// tail has quantifiers (for (...; !has_quantifiers && i < sz; ...)); a
+	// negated rule after that one is never seen.
 	hasQuantifiers := false
-	for i := 0; i < count; i++ {
+	for i := 0; !hasQuantifiers && i < count; i++ {
 		rule, getErr := source.Rule(i)
 		if getErr != nil {
 			return nil, getErr
 		}
+		negated := false
+		var uninterpreted int
 		positive, getErr := rule.PositiveTailSize()
 		if getErr == nil {
-			var uninterpreted int
 			uninterpreted, getErr = rule.UninterpretedTailSize()
-			if getErr == nil && positive != uninterpreted {
-				if closeErr := rule.Close(); closeErr != nil {
-					return nil, closeErr
-				}
-				return nil, nil
-			}
+			negated = positive != uninterpreted
 		}
 		if getErr == nil {
 			total, sizeErr := rule.TailSize()
 			getErr = sizeErr
-			for j := 0; getErr == nil && j < total; j++ {
+			for j := uninterpreted; getErr == nil && j < total; j++ {
 				tail, _, tailErr := rule.Tail(j)
 				getErr = tailErr
 				if tailErr == nil {
@@ -681,6 +680,9 @@ func (p *QuantifierInstantiationPlugin) Transform(source *base.RuleSet) (_ *base
 		getErr = errors.Join(getErr, rule.Close())
 		if getErr != nil {
 			return nil, getErr
+		}
+		if negated {
+			return nil, nil
 		}
 	}
 	if !hasQuantifiers {
