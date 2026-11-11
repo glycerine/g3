@@ -1473,3 +1473,24 @@ Found while matching `-st` output against `build/z3` on
     encodes that. As a result, the
     lra_propagation_mode_updates trace builds one extra model numeral.
     Ask before removing the repair.
+
+28. **Open (2026-11-10): automaton compress has a case z3 lacks.**
+    pkg/math/automata/automaton_compress_source.go has a final case
+    (`out_degree(src) == 1 && (final(src) || !final(dst))`: copy dst's
+    out-moves to src) that z3 4.7.1's automaton::compress does not have.
+    Because of it, `(re.+ (re.range "0" "9"))` compresses to
+    "0 -> 1, 1 -> 1" instead of z3's "0 -> 1, 1 -> 0 (epsilon)".
+    Removing the case makes quant_seq_symbolic_int_prefix's trace match
+    up to line 7159 (from 411), but the first check then returns unknown
+    instead of sat: a later theory_seq divergence (a decision on
+    (= (str.len (int.to.str n)) k) in z3 against a propagated
+    disequality in g3). Fix that divergence before removing the case.
+    TestAutomatonEpsilonClosureFinalLoopsAndSequence would also need to
+    stop requiring an epsilon-free result.
+
+29. **Open (2026-11-10): fixedpoint_relation_representations.** z3 builds
+    `(iff var true)` for each query of a Bool relation (after the query
+    application `(Sparse x)`); g3 does not. The source is neither
+    ensure_app, fix_unbound_vars nor mk_query (gdb shows no hits there);
+    the next candidates are the rel_context query path and relation
+    plugins.
