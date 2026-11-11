@@ -735,17 +735,46 @@ func (p *PredicateTransformer) SetBlastTermITE(value bool) error {
 	return nil
 }
 
+// makeAssumptions is pred_transformer::mk_assumptions: pr =
+// mk_asserted(true) and the locals tmp1 (the last implication) and tmp2 live
+// until it returns; m_tag2rule (an obj_map) is walked in table order.
 func (p *PredicateTransformer) makeAssumptions(head, formula ast.ASTHandle) (_ []ast.ASTRef, resultErr error) {
 	var result []ast.ASTRef
+	var tmp1, pr ast.ASTRef
 	defer func() {
+		for _, ref := range []*ast.ASTRef{&pr, &tmp1} {
+			if *ref != (ast.ASTRef{}) {
+				resultErr = errors.Join(resultErr, p.manager.DelRef(ref))
+			}
+		}
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, result))
 		}
 	}()
+	truth, err := p.manager.MkTrue()
+	if err != nil {
+		return nil, err
+	}
+	asserted, err := p.manager.MkProofAsserted(truth)
+	if err != nil {
+		return nil, err
+	}
+	if pr, err = p.manager.NewRef(asserted); err != nil {
+		return nil, err
+	}
+	tag2rule := ast.NewObjMap(p.manager)
+	byTag := make(map[ast.ASTHandle]*spacerNormalizedRule, len(p.rules))
 	for _, rule := range p.rules {
 		if rule.tag.IsNull() {
 			continue
 		}
+		if _, err = tag2rule.InsertIfNotThere(rule.tag); err != nil {
+			return nil, err
+		}
+		byTag[rule.tag] = rule
+	}
+	for _, entry := range tag2rule.Entries() {
+		rule := byTag[entry.Key]
 		for index, predecessor := range rule.predecessors {
 			predecessorHead, err := predecessor.Head()
 			if err != nil {
@@ -755,6 +784,14 @@ func (p *PredicateTransformer) makeAssumptions(head, formula ast.ASTHandle) (_ [
 				continue
 			}
 			implication, err := p.manager.MkImplies(rule.tag, formula)
+			if err != nil {
+				return nil, err
+			}
+			if tmp1 == (ast.ASTRef{}) {
+				tmp1, err = p.manager.NewRef(implication)
+			} else {
+				err = p.manager.SetRef(tmp1, implication)
+			}
 			if err != nil {
 				return nil, err
 			}
