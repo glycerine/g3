@@ -249,16 +249,20 @@ func (r *TacticResult) Reset() (err error) {
 	if r == nil {
 		return ast.ErrASTHandle
 	}
-	for len(r.Goals) != 0 {
-		i := len(r.Goals) - 1
-		if r.goalOwned[i] {
-			if e := r.Goals[i].Close(); e != nil {
-				return errors.Join(err, e)
-			}
+	// Source callers declare goal_ref_buffer, model_converter_ref,
+	// proof_converter_ref, then expr_dependency_ref: destruction releases
+	// the core, the proof converter and the model converter before goals.
+	if r.coreOwned {
+		if err = r.manager.DependencyDec(r.Core); err != nil {
+			return err
 		}
-		r.Goals[i] = nil
-		r.Goals = r.Goals[:i]
-		r.goalOwned = r.goalOwned[:i]
+		r.Core, r.coreOwned = ast.ASTDependency{}, false
+	}
+	if r.ProofConverter != nil && r.proofOwned {
+		if err = r.ProofConverter.DecRef(); err != nil {
+			return err
+		}
+		r.ProofConverter, r.proofOwned = nil, false
 	}
 	if r.ModelConverter != nil {
 		if r.modelCleanup {
@@ -279,18 +283,18 @@ func (r *TacticResult) Reset() (err error) {
 		}
 		r.ModelConverter, r.modelCleanup = nil, false
 	}
-	if r.ProofConverter != nil && r.proofOwned {
-		if err = r.ProofConverter.DecRef(); err != nil {
-			return err
+	// ~ref_buffer_core releases goal_ref_buffer front to back.
+	for len(r.Goals) != 0 {
+		if r.goalOwned[0] {
+			if e := r.Goals[0].Close(); e != nil {
+				return errors.Join(err, e)
+			}
 		}
-		r.ProofConverter, r.proofOwned = nil, false
+		r.Goals[0] = nil
+		r.Goals = r.Goals[1:]
+		r.goalOwned = r.goalOwned[1:]
 	}
-	if r.coreOwned {
-		if err = r.manager.DependencyDec(r.Core); err != nil {
-			return err
-		}
-		r.Core, r.coreOwned = ast.ASTDependency{}, false
-	}
+	r.Goals, r.goalOwned = nil, nil
 	return nil
 }
 func (r *TacticResult) Close() error {
