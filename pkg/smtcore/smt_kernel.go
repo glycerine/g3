@@ -1678,8 +1678,15 @@ func (k *SMTKernel) Close() error {
 	}
 	// The internalizer (context::flush) is closed above, before the
 	// asserted formulas' theory rewriter it borrows.
-	// ~asserted_formulas destroys its simplify_fmls members (declared last,
-	// m_pattern_inference among them) before the macro manager.
+	// ~asserted_formulas destroys its simplify_fmls members (declared last)
+	// in reverse order before the macro manager: m_apply_bit2int is
+	// declared after m_pattern_inference, so it dies first.
+	if k.assertedBit2Int != nil {
+		if err := k.assertedBit2Int.Close(); err != nil {
+			return err
+		}
+		k.assertedBit2Int = nil
+	}
 	if k.patternInference != nil {
 		if err := k.patternInference.Close(); err != nil {
 			return err
@@ -1725,14 +1732,6 @@ func (k *SMTKernel) Close() error {
 			return err
 		}
 		k.quantifierCosts = nil
-	}
-	// context::flush releases the quantifier manager before the
-	// asserted_formulas members are destroyed.
-	if k.assertedBit2Int != nil {
-		if err := k.assertedBit2Int.Close(); err != nil {
-			return err
-		}
-		k.assertedBit2Int = nil
 	}
 	if k.modelCooperation != nil {
 		if err := k.modelCooperation.Close(); err != nil {
