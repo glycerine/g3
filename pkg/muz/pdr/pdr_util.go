@@ -55,8 +55,8 @@ func (c *Context) reduceDisequalities(md *model.Model, threshold uint32, formula
 	if err != nil {
 		return result, err
 	}
-	counts := make(map[ast.ASTHandle]uint32)
-	order := make([]ast.ASTHandle, 0)
+	// obj_map<expr, unsigned> diseqs: iterated in table order.
+	diseqs := ast.NewObjMap(c.manager)
 	for _, conjunct := range conjuncts {
 		left, right, matched, x := c.disequalitySides(conjunct)
 		if x != nil {
@@ -77,10 +77,11 @@ func (c *Context) reduceDisequalities(md *model.Model, threshold uint32, formula
 			}
 		}
 		if value {
-			if counts[left] == 0 {
-				order = append(order, left)
+			entry, x := diseqs.InsertIfNotThere(left)
+			if x != nil {
+				return result, x
 			}
-			counts[left]++
+			entry.Num++
 		}
 	}
 	substitution, err := c.manager.NewExprSubstitutionPolicy(false, false)
@@ -90,10 +91,24 @@ func (c *Context) reduceDisequalities(md *model.Model, threshold uint32, formula
 	defer func() { resultErr = errors.Join(resultErr, c.manager.DelExprSubstitution(&substitution)) }()
 	references := make([]ast.ASTRef, 0)
 	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(c.manager, references)) }()
+	// pr = m.mk_asserted(m.mk_true()), held until the function returns.
+	truth, err := c.manager.MkTrue()
+	if err != nil {
+		return result, err
+	}
+	asserted, err := c.manager.MkProofAsserted(truth)
+	if err != nil {
+		return result, err
+	}
+	assertedRef, err := c.manager.NewRef(asserted)
+	if err != nil {
+		return result, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&assertedRef)) }()
 	definitions := make([]ast.ASTHandle, 0)
 	var deleted uint32
-	for _, term := range order {
-		count := counts[term]
+	for _, entry := range diseqs.Entries() {
+		term, count := entry.Key, uint32(entry.Num)
 		if count < threshold {
 			continue
 		}
@@ -122,7 +137,9 @@ func (c *Context) reduceDisequalities(md *model.Model, threshold uint32, formula
 		deleted += count
 	}
 	if len(definitions) == 0 {
-		flattened, err := c.manager.MkAndArray(conjuncts)
+		// fml = m.mk_and(conjs): the ast_manager overload builds the
+		// application even for zero or one conjunct.
+		flattened, err := c.manager.MkAndArgs(conjuncts)
 		if err != nil {
 			return result, err
 		}
@@ -181,7 +198,7 @@ func (c *Context) reduceDisequalities(md *model.Model, threshold uint32, formula
 			return result, err
 		}
 	}
-	formula, err = c.manager.MkAndArray(reduced)
+	formula, err = c.manager.MkAndArgs(reduced)
 	if err != nil {
 		return result, err
 	}
