@@ -294,6 +294,7 @@ func (s *TacticSolver) PushCore() error {
 	return s.clearResult()
 }
 func (s *TacticSolver) Push() error { return s.named.Push() }
+
 // restoreAssertions is m_assertions.shrink(size) (or its destructor): an
 // expr_ref_vector releases the dropped tail front to back.
 func (s *TacticSolver) restoreAssertions(size uint32) error {

@@ -20,7 +20,7 @@ type elimUnconstrainedRewriteConfig struct {
 	// Source rw_cfg::m_fresh_vars and m_cache_domain are app_ref_vectors.
 	freshVars   elimUnconstrainedRefVector
 	cacheDomain elimUnconstrainedRefVector
-	frame     *solveEquationFrame
+	frame       *solveEquationFrame
 }
 
 // elimUnconstrainedRefVector releases like ref_vector's destructor: forward.

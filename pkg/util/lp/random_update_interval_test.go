@@ -360,15 +360,23 @@ func TestLARRandomIntervalPhysicalOwnership(t *testing.T) {
 					if err == nil {
 						switch op {
 						case "low":
-							if !r.LowSet { t.Fatal("missing low endpoint") }
+							if !r.LowSet {
+								t.Fatal("missing low endpoint")
+							}
 							h.check(&r.Low, mustLPRat(t, large), mustLPRat(t, large))
 						case "upper":
-							if !r.UpperSet { t.Fatal("missing upper endpoint") }
+							if !r.UpperSet {
+								t.Fatal("missing upper endpoint")
+							}
 							h.check(&r.Upper, mustLPRat(t, large), mustLPRat(t, large))
 						case "empty":
-							if !predicate { t.Fatal("wrong interval predicate", op) }
+							if !predicate {
+								t.Fatal("wrong interval predicate", op)
+							}
 						case "contains":
-							if predicate { t.Fatal("reversed interval contains low endpoint") }
+							if predicate {
+								t.Fatal("reversed interval contains low endpoint")
+							}
 						case "draw":
 							lo := mustLPRat(t, large)
 							hi := big.NewRat(1, 7)

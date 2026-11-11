@@ -88,9 +88,9 @@ func TestArbitraryFloatRoundIntegralUnpackedBoundsSourceActions(t *testing.T) {
 		t.Skip("source Z3DEBUG assertions only")
 	}
 	for _, tc := range []struct {
-		name string
-		sig  int32
-		line string
+		name       string
+		sig        int32
+		line       string
 		expression string
 	}{
 		{"above width", 8, "1102", "m_mpz_manager.lt(a.significand(), m_powers2(x.sbits))"},

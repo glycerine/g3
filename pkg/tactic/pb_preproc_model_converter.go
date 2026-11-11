@@ -123,7 +123,7 @@ func (c *pbPreprocModelConverter) ApplyUnindexed(out *ModelRef) error {
 }
 
 func (c *pbPreprocModelConverter) ApplyLabels(_ *ModelLabels, _ uint32) error { return c.open() }
-func (c *pbPreprocModelConverter) Cancel() error                             { return c.open() }
+func (c *pbPreprocModelConverter) Cancel() error                              { return c.open() }
 
 // Display is converter::display's empty default.
 func (c *pbPreprocModelConverter) Display(out io.Writer) error {

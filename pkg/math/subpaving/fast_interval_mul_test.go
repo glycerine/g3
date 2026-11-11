@@ -108,7 +108,7 @@ func TestSubpavingFastIntervalMulSignClasses(t *testing.T) {
 	set(b, -2, 2, true, false)
 	must(out.Mul(a, b))
 	check(out, -4, 4, false, false)
-	set(a, 0, 2, true, false) // (0, 2]
+	set(a, 0, 2, true, false)  // (0, 2]
 	set(b, 0, 3, false, false) // [0, 3]
 	must(out.Mul(a, b))
 	check(out, 0, 6, false, false)

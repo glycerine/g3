@@ -394,6 +394,7 @@ func (s *Solver) UnsetUpper(v uint32) {
 		s.vars[v].upperDependencies, s.vars[v].upperExplained = nil, false
 	}
 }
+
 // HasLower and HasUpper test for a bound without copying it.
 func (s *Solver) HasLower(v uint32) bool { return int(v) < len(s.vars) && s.vars[v].lowerValid }
 func (s *Solver) HasUpper(v uint32) bool { return int(v) < len(s.vars) && s.vars[v].upperValid }

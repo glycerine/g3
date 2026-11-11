@@ -22,15 +22,15 @@ type ruleDependencyEdge struct {
 // dependencies and validates stratified negation; Reopen discards that derived
 // state before mutation.
 type RuleSet struct {
-	manager             *RuleManager
-	contextOwner        *DatalogContext
-	rules               []*Rule
-	byHead              map[ast.ASTHandle][]*Rule
-	headOrder           []ast.ASTHandle
+	manager      *RuleManager
+	contextOwner *DatalogContext
+	rules        []*Rule
+	byHead       map[ast.ASTHandle][]*Rule
+	headOrder    []ast.ASTHandle
 	// headTable is m_head2rules' key layout (obj_map<func_decl, rule_vector*>):
 	// display walks it in table order, and del_rule never removes a key, so
 	// an emptied head still counts as a predicate until the set is reset.
-	headTable *ast.ObjMap
+	headTable           *ast.ObjMap
 	groupBuckets        []ruleGroupBucket
 	groupCount          int
 	dependencies        map[ast.ASTHandle][]ast.ASTHandle

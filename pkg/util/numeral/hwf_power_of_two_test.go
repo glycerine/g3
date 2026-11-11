@@ -13,9 +13,9 @@ func TestHardwareFloatPrevPowerOfTwoSourceBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {
-		name string
+		name  string
 		value float64
-		want uint32
+		want  uint32
 	}{
 		{"negative", -1, 0},
 		{"negative-zero", math.Copysign(0, -1), 0},

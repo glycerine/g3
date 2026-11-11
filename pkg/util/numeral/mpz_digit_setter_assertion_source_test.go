@@ -18,7 +18,7 @@ func TestIntegerDigitSetterSourceAssertionBeforeOldCellRelease(t *testing.T) {
 		d, _ := bindMPNDebugActions(t, "")
 		m, _ := integerManager(t)
 		var a Int
-		serviceMust(t, m.SetInt64(&a, -(1 << 40)))
+		serviceMust(t, m.SetInt64(&a, -(1<<40)))
 		old := a.Cell
 		serviceMust(t, d.Close())
 		err := m.SetLimbs(&a, words)
@@ -30,7 +30,7 @@ func TestIntegerDigitSetterSourceAssertionBeforeOldCellRelease(t *testing.T) {
 		d, log := bindMPNDebugActions(t, "TC")
 		m, _ := integerManager(t)
 		var a Int
-		serviceMust(t, m.SetInt64(&a, -(1 << 40)))
+		serviceMust(t, m.SetInt64(&a, -(1<<40)))
 		old := a.Cell
 		cell := m.Cell(old)
 		cell.Capacity = 5 // actual six-word backing remains available

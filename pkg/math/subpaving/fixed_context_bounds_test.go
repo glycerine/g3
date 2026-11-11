@@ -53,7 +53,7 @@ func TestSubpavingFixedContextBoundFlowAndNormalization(t *testing.T) {
 	relevant(0, 10, true, true, true) // equal to the upper bound; openness conflicts
 	relevant(0, 10, false, false, false)
 	relevant(0, 9, false, false, true)
-	relevant(0, 0, false, true, true) // equal to the lower bound; openness conflicts
+	relevant(0, 0, false, true, true)   // equal to the lower bound; openness conflicts
 	relevant(0, -1, false, false, true) // conflict has priority
 	child, err := ctx.NewChild(root)
 	must(err)

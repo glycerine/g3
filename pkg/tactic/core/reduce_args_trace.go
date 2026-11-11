@@ -40,6 +40,7 @@ func (t *ReduceArgsTactic) emitGoal(g *tactic.Goal, mc tactic.ModelConverter, li
 		return nil
 	})
 }
+
 // emitCandidates prints non_candidates (non != nil) or decl2args; order is
 // the table order of the corresponding obj_hashtable or obj_map.
 func (t *ReduceArgsTactic) emitCandidates(non map[ast.ASTHandle]bool, order []ast.ObjMapEntry, candidates map[ast.ASTHandle]*reduceArgsCandidate, line int) error {

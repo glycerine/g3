@@ -36,8 +36,8 @@ func TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories(t *testing.T) {
 
 func TestWPAFileBaseMatchesDatalogExtensionRule(t *testing.T) {
 	for path, want := range map[string]string{
-		"/tmp/predicate.rel": "predicate",
-		"/tmp/.rel":          ".rel",
+		"/tmp/predicate.rel":    "predicate",
+		"/tmp/.rel":             ".rel",
 		`C:\data\predicate.rel`: "predicate",
 	} {
 		if got := wpaBase(path); got != want {
