@@ -1,6 +1,7 @@
 package text
 
 import (
+	"bufio"
 	"os"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -13,7 +14,21 @@ func (s *NumericTextStream) InitEmbeddedFile(b *arena.Budget) {
 	s.self = s
 }
 func (s *NumericTextStream) BindFile(fd *os.File, failed bool) { s.File = fd; s.fileFail = failed }
+
+// BindBufferedFile is BindFile with a filebuf-like buffer in front of fd, so
+// each formatted byte is not its own write. CloseBorrowedFile flushes it.
+func (s *NumericTextStream) BindBufferedFile(fd *os.File) {
+	s.File, s.fileFail = fd, false
+	s.writer = bufio.NewWriterSize(fd, 1<<16)
+}
+
 func (s *NumericTextStream) CloseBorrowedFile() {
+	if w, ok := s.writer.(*bufio.Writer); ok && s.File != nil {
+		if e := w.Flush(); e != nil {
+			s.FileBad = true
+		}
+		s.writer = nil
+	}
 	if s.File != nil {
 		if e := s.File.Close(); e != nil {
 			s.fileFail = true

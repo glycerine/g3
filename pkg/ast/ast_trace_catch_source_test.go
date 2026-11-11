@@ -155,10 +155,12 @@ func TestASTBorrowedFormatNativeTraceAndStreamLifetime(t *testing.T) {
 		decl, e := m.MkFuncDecl(symbol, nil, sort, ASTFuncDeclInfo{})
 		paramsMust(t, e)
 		paramsMust(t, m.IncRef(decl))
+		paramsMust(t, owner.TraceStream.Flush())
 		before, e := os.ReadFile(name)
 		paramsMust(t, e)
 		b.FailAfter(ordinal)
 		_, e = m.MkApp(decl, nil)
+		paramsMust(t, owner.TraceStream.Flush())
 		after, x := os.ReadFile(name)
 		paramsMust(t, x)
 		prefix := strings.TrimPrefix(string(after), string(before))
@@ -179,6 +181,7 @@ func TestASTBorrowedFormatNativeTraceAndStreamLifetime(t *testing.T) {
 			t.Fatal("format cleanup adopted borrowed file")
 		}
 		paramsMust(t, owner.TraceStream.AppendCString("[borrower-ended]\n"))
+		paramsMust(t, owner.TraceStream.Flush())
 		data, e := os.ReadFile(name)
 		paramsMust(t, e)
 		if !strings.HasSuffix(string(data), "[borrower-ended]\n") {

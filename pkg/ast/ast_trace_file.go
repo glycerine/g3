@@ -64,7 +64,7 @@ func newASTTraceFileBorrowed(b *arena.Budget, name TraceFilename, tags *udiag.Tr
 		f.stream.BindFile(nil, true)
 		return f, nil
 	}
-	f.stream.BindFile(fd, false)
+	f.stream.BindBufferedFile(fd)
 	return f, nil
 }
 func (f *astTraceFile) Close() error {

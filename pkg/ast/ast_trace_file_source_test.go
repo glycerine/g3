@@ -175,6 +175,7 @@ func TestASTSourceTraceConstructorNestedFormatWritesSameActualFileBeforeParent(t
 	if m.Format == nil || m.Format.TraceStream != m.TraceStream || m.Format.traceOwner || !m.traceOwner {
 		t.Fatal("actual borrowed nested format stream identity")
 	}
+	paramsMust(t, m.TraceStream.Flush())
 	got, e := os.ReadFile(name)
 	paramsMust(t, e)
 	one := "[mk-app] #0 undef\n[mk-app] #1 true\n[mk-app] #2 false\n"

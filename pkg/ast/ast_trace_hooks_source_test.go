@@ -23,6 +23,7 @@ func TestASTTraceFactoriesOnlyActualNewNodesAndLiteralArgumentChains(t *testing.
 	m, e := NewSourceASTManager(ASTManagerConfig{Symbols: sy, Numerals: q, Budget: b}, &filename)
 	paramsMust(t, e)
 	defer m.Close()
+	paramsMust(t, m.TraceStream.Flush())
 	prefix, e := os.ReadFile(name)
 	paramsMust(t, e)
 	paramsMust(t, m.TraceStream.SetShowPos(true))
@@ -79,6 +80,7 @@ func TestASTTraceFactoriesOnlyActualNewNodesAndLiteralArgumentChains(t *testing.
 	// Pattern creation also emits its actual app, separate from quantifier fields.
 	expected := "[mk-var] #" + id(v) + "\n[mk-app] #" + id(app) + " k!17 #" + id(v) + "\n[mk-app] #" + id(pat) + " pattern #" + id(app) + "\n[mk-quant] #" + id(quant) + " k!23 #" + id(pat) + " #" + id(app) + "\n"
 	expected += "[mk-quant] #" + id(noPattern) + " k!24 #" + id(app) + "\n"
+	paramsMust(t, m.TraceStream.Flush())
 	data, e := os.ReadFile(name)
 	paramsMust(t, e)
 	got := strings.TrimPrefix(string(data), string(prefix))
