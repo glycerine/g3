@@ -643,6 +643,26 @@ func (p *PropSolver) makeSafeAssumptions(input []ast.ASTHandle) (_ *safeAssumpti
 			resultErr = errors.Join(resultErr, safe.close(p.manager))
 		}
 	}()
+	// conjs is an expr_ref_vector: conjs[i] = mk_proxy(lit) drops the
+	// vector's reference to an expanded literal once its proxy is asserted.
+	slots := make(map[ast.ASTHandle][]int)
+	for i, reference := range safe.references {
+		h, x := p.manager.RefGet(reference)
+		if x != nil {
+			return nil, x
+		}
+		if generated[h] {
+			slots[h] = append(slots[h], i)
+		}
+	}
+	releaseSlot := func(atom ast.ASTHandle) error {
+		pending := slots[atom]
+		if len(pending) == 0 {
+			return nil
+		}
+		slots[atom] = pending[1:]
+		return p.manager.ResetRef(safe.references[pending[0]])
+	}
 	nextProxy := uint32(0)
 	for index, atom := range safe.atoms {
 		direct, x := p.isDirectAssumption(atom)
@@ -654,6 +674,9 @@ func (p *PropSolver) makeSafeAssumptions(input []ast.ASTHandle) (_ *safeAssumpti
 		}
 		if proxy, found := safe.formulaToProxy[atom]; found {
 			safe.atoms[index] = proxy
+			if x := releaseSlot(atom); x != nil {
+				return nil, x
+			}
 			continue
 		}
 		proxy, x := p.proxy(nextProxy)
@@ -684,6 +707,9 @@ func (p *PropSolver) makeSafeAssumptions(input []ast.ASTHandle) (_ *safeAssumpti
 		safe.proxyOrder = append(safe.proxyOrder, proxy)
 		safe.formulaToProxy[atom] = proxy
 		safe.atoms[index] = proxy
+		if x = releaseSlot(atom); x != nil {
+			return nil, x
+		}
 	}
 	committed = true
 	return safe, nil
