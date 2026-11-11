@@ -1564,3 +1564,11 @@ Found while matching `-st` output against `build/z3` on
     open: bv_integer_conversion_scopes line 92987, where z3 reuses a live
     format string (#238) that g3 has already freed and rebuilds. Track
     format-manager deletions to find the earlier lifetime difference.
+
+33. **rewriteAdd (2026-11-10).** g3's add rewrite now has
+    mk_nflat_add_core's BR_FAILED exits. recursive_mutual_and_arguments
+    line 917 is not the rewrite itself: g3 rewrites the -3 offset sum
+    earlier than z3. The instantiation sets already walk obj_map order and
+    from/to roots differ, so the remaining suspect is the order of
+    f_var_plus_offset populate passes across quantifiers and qinfos
+    (populate_inst_sets vs populate_inst_sets2).
