@@ -498,118 +498,47 @@ func releaseTransformRefs(manager *ast.ASTManager, refs []ast.ASTRef) (result er
 	return result
 }
 
-func inlinerComponents(order []ast.ASTHandle, candidate, forbidden map[ast.ASTHandle]bool, edges map[ast.ASTHandle]map[ast.ASTHandle]bool) [][]ast.ASTHandle {
-	index := 0
-	indices := make(map[ast.ASTHandle]int)
-	lowlink := make(map[ast.ASTHandle]int)
-	onStack := make(map[ast.ASTHandle]bool)
-	var stack []ast.ASTHandle
-	var components [][]ast.ASTHandle
-	var visit func(ast.ASTHandle)
-	visit = func(node ast.ASTHandle) {
-		index++
-		indices[node] = index
-		lowlink[node] = index
-		stack = append(stack, node)
-		onStack[node] = true
-		for next := range edges[node] {
-			if !candidate[next] || forbidden[next] {
-				continue
-			}
-			if indices[next] == 0 {
-				visit(next)
-				if lowlink[next] < lowlink[node] {
-					lowlink[node] = lowlink[next]
-				}
-			} else if onStack[next] && indices[next] < lowlink[node] {
-				lowlink[node] = indices[next]
-			}
-		}
-		if lowlink[node] != indices[node] {
-			return
-		}
-		var component []ast.ASTHandle
-		for {
-			last := len(stack) - 1
-			member := stack[last]
-			stack = stack[:last]
-			onStack[member] = false
-			component = append(component, member)
-			if member == node {
-				break
-			}
-		}
-		components = append(components, component)
+// allowedRuleStrata is create_allowed_rule_set(orig) followed by its
+// stratifier: the rules whose head is allowed, added in source order.
+func (p *RuleInlinerPlugin) allowedRuleStrata(sourceRules []*base.Rule, allowed func(ast.ASTHandle) bool) (_ [][]ast.ASTHandle, resultErr error) {
+	set, err := base.NewRuleSet(p.rules)
+	if err != nil {
+		return nil, err
 	}
-	for _, declaration := range order {
-		if candidate[declaration] && !forbidden[declaration] && indices[declaration] == 0 {
-			visit(declaration)
+	defer func() { resultErr = errors.Join(resultErr, set.Close()) }()
+	for _, rule := range sourceRules {
+		head, err := rule.HeadDeclaration()
+		if err != nil {
+			return nil, err
+		}
+		if allowed(head) {
+			if err = set.Add(rule); err != nil {
+				return nil, err
+			}
 		}
 	}
-	return components
+	return set.SourceStrata()
 }
 
-func breakInliningCycles(order []ast.ASTHandle, candidate map[ast.ASTHandle]bool, edges map[ast.ASTHandle]map[ast.ASTHandle]bool) map[ast.ASTHandle]bool {
-	forbidden := make(map[ast.ASTHandle]bool)
-	// A singleton self-cycle remains unchanged by resolution, so attempting to
-	// eliminate it would keep re-enqueuing the same rule indefinitely.
-	for _, declaration := range order {
-		if candidate[declaration] && edges[declaration][declaration] {
-			forbidden[declaration] = true
-		}
+// strataOrder flattens strata whose members are single predicates.
+func strataOrder(strata [][]ast.ASTHandle) []ast.ASTHandle {
+	order := make([]ast.ASTHandle, 0, len(strata))
+	for _, stratum := range strata {
+		order = append(order, stratum...)
 	}
-	position := make(map[ast.ASTHandle]int, len(order))
-	for index, declaration := range order {
-		position[declaration] = index
-	}
-	for {
-		changed := false
-		for _, component := range inlinerComponents(order, candidate, forbidden, edges) {
-			if len(component) <= 1 {
-				continue
-			}
-			selected := component[0]
-			for _, declaration := range component[1:] {
-				if position[declaration] < position[selected] {
-					selected = declaration
-				}
-			}
-			forbidden[selected] = true
-			changed = true
-		}
-		if !changed {
-			return forbidden
-		}
-	}
+	return order
 }
 
-func inlinerTopologicalOrder(order []ast.ASTHandle, candidate, forbidden map[ast.ASTHandle]bool, edges map[ast.ASTHandle]map[ast.ASTHandle]bool) []ast.ASTHandle {
-	visited := make(map[ast.ASTHandle]bool)
-	var result []ast.ASTHandle
-	var visit func(ast.ASTHandle)
-	visit = func(declaration ast.ASTHandle) {
-		if visited[declaration] || !candidate[declaration] || forbidden[declaration] {
-			return
-		}
-		visited[declaration] = true
-		for _, dependency := range order {
-			if edges[declaration][dependency] {
-				visit(dependency)
-			}
-		}
-		result = append(result, declaration)
-	}
-	for _, declaration := range order {
-		visit(declaration)
-	}
-	return result
-}
-
-func (p *RuleInlinerPlugin) forbidMultipleMultipliers(source *base.RuleSet, order []ast.ASTHandle, candidate, forbidden map[ast.ASTHandle]bool, edges map[ast.ASTHandle]map[ast.ASTHandle]bool, headCount, tailCount map[ast.ASTHandle]int, definitions map[ast.ASTHandle][]*base.Rule) error {
+func (p *RuleInlinerPlugin) forbidMultipleMultipliers(source *base.RuleSet, order []ast.ASTHandle, candidate, forbidden map[ast.ASTHandle]bool, headCount, tailCount map[ast.ASTHandle]int, definitions map[ast.ASTHandle][]*base.Rule) error {
 	allowed := func(declaration ast.ASTHandle) bool {
 		return candidate[declaration] && !forbidden[declaration]
 	}
-	for _, head := range inlinerTopologicalOrder(order, candidate, forbidden, edges) {
+	for _, head := range order {
+		// proposed_inlined_rules.get_predicate_rules(head_pred): a stratum
+		// predicate that is only a master has no rules in the proposed set.
+		if !allowed(head) {
+			continue
+		}
 		multiHead := headCount[head] > 1
 		multiOccurrence := tailCount[head] > 1
 		nextHead := false
@@ -737,7 +666,7 @@ func (p *RuleInlinerPlugin) expandDefinition(rule *base.Rule, allowed, processed
 
 // accumulateDefinitions builds m_inlined_rules. The map borrows the rules;
 // ordered owns them in the rule set's insertion order.
-func (p *RuleInlinerPlugin) accumulateDefinitions(order []ast.ASTHandle, allowed map[ast.ASTHandle]bool, edges map[ast.ASTHandle]map[ast.ASTHandle]bool, original map[ast.ASTHandle][]*base.Rule) (_ map[ast.ASTHandle][]*base.Rule, ordered []*base.Rule, resultErr error) {
+func (p *RuleInlinerPlugin) accumulateDefinitions(order []ast.ASTHandle, allowed map[ast.ASTHandle]bool, original map[ast.ASTHandle][]*base.Rule) (_ map[ast.ASTHandle][]*base.Rule, ordered []*base.Rule, resultErr error) {
 	result := make(map[ast.ASTHandle][]*base.Rule)
 	processed := make(map[ast.ASTHandle]bool)
 	defer func() {
@@ -746,7 +675,11 @@ func (p *RuleInlinerPlugin) accumulateDefinitions(order []ast.ASTHandle, allowed
 			ordered = nil
 		}
 	}()
-	for _, declaration := range inlinerTopologicalOrder(order, allowed, nil, edges) {
+	// the strata of candidate_inlined_set, in topological order
+	for _, declaration := range order {
+		if !allowed[declaration] {
+			continue
+		}
 		for _, rule := range original[declaration] {
 			expanded, err := p.expandDefinition(rule, allowed, processed, result)
 			if err != nil {
@@ -818,15 +751,56 @@ func (p *RuleInlinerPlugin) plan(source *base.RuleSet) (map[ast.ASTHandle]bool, 
 	for declaration, heads := range headCount {
 		candidate[declaration] = !p.protected[declaration] && !negative[declaration] && (heads <= 1 || tailCount[declaration] <= 1 && heads <= 4)
 	}
-	forbidden := breakInliningCycles(declarationOrder, candidate, edges)
-	if err = p.forbidMultipleMultipliers(source, declarationOrder, candidate, forbidden, edges, headCount, tailCount, definitions); err != nil {
+	forbidden := make(map[ast.ASTHandle]bool)
+	// A singleton self-cycle remains unchanged by resolution, so attempting to
+	// eliminate it would keep re-enqueuing the same rule indefinitely.
+	for _, declaration := range declarationOrder {
+		if candidate[declaration] && edges[declaration][declaration] {
+			forbidden[declaration] = true
+		}
+	}
+	// create_allowed_rule_set(orig): the rules whose head may be inlined, in
+	// source order, closed for its stratifier.
+	candidateStrata := func() ([][]ast.ASTHandle, error) {
+		return p.allowedRuleStrata(sourceRules, func(declaration ast.ASTHandle) bool {
+			return candidate[declaration] && !forbidden[declaration]
+		})
+	}
+	strata, err := candidateStrata()
+	if err != nil {
 		return nil, nil, errors.Join(err, closeRules(sourceRules))
+	}
+	// while (forbid_preds_from_cycles(*candidate_inlined_set)): the first
+	// predicate of every stratum larger than one is forbidden.
+	for {
+		changed := false
+		for _, stratum := range strata {
+			if len(stratum) > 1 {
+				forbidden[stratum[0]] = true
+				changed = true
+			}
+		}
+		if !changed {
+			break
+		}
+		if strata, err = candidateStrata(); err != nil {
+			return nil, nil, errors.Join(err, closeRules(sourceRules))
+		}
+	}
+	forbiddenBefore := len(forbidden)
+	if err = p.forbidMultipleMultipliers(source, strataOrder(strata), candidate, forbidden, headCount, tailCount, definitions); err != nil {
+		return nil, nil, errors.Join(err, closeRules(sourceRules))
+	}
+	if len(forbidden) != forbiddenBefore {
+		if strata, err = candidateStrata(); err != nil {
+			return nil, nil, errors.Join(err, closeRules(sourceRules))
+		}
 	}
 	allowed := make(map[ast.ASTHandle]bool)
 	for declaration := range candidate {
 		allowed[declaration] = candidate[declaration] && !forbidden[declaration]
 	}
-	expanded, inlined, err := p.accumulateDefinitions(declarationOrder, allowed, edges, definitions)
+	expanded, inlined, err := p.accumulateDefinitions(strataOrder(strata), allowed, definitions)
 	if err != nil {
 		return nil, nil, errors.Join(err, closeRules(sourceRules))
 	}

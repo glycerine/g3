@@ -93,26 +93,32 @@ func TestRuleInlinerBreaksMutualCycleAtOnePredicate(t *testing.T) {
 	if !modified {
 		t.Fatal("mutual cycle did not inline after one SCC break")
 	}
+	// forbid_preds_from_cycles keeps the first predicate of the cycle's
+	// stratum (in its table order) and inlines the other away entirely.
 	count, err := f.set.Len()
 	coneMust(t, err)
+	present := map[ast.ASTHandle]bool{}
 	for index := 0; index < count; index++ {
 		rule, getErr := f.set.Rule(index)
 		coneMust(t, getErr)
 		head, getErr := rule.HeadDeclaration()
-		if getErr == nil && head == f.declarations["B"] {
-			getErr = errors.New("inlined predicate B still has a defining rule")
+		if getErr == nil {
+			present[head] = true
 		}
 		uninterpreted, tailErr := rule.UninterpretedTailSize()
 		for tailIndex := 0; getErr == nil && tailErr == nil && tailIndex < uninterpreted; tailIndex++ {
 			declaration, declarationErr := rule.TailDeclaration(tailIndex)
 			if declarationErr != nil {
 				tailErr = declarationErr
-			} else if declaration == f.declarations["B"] {
-				tailErr = errors.New("inlined predicate B remains in a tail")
+			} else {
+				present[declaration] = true
 			}
 		}
 		getErr = errors.Join(getErr, tailErr, rule.Close())
 		coneMust(t, getErr)
+	}
+	if present[f.declarations["A"]] == present[f.declarations["B"]] {
+		t.Fatal("exactly one predicate of the mutual cycle should be inlined away", present[f.declarations["A"]], present[f.declarations["B"]])
 	}
 }
 
