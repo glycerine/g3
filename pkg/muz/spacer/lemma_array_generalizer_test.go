@@ -86,8 +86,10 @@ func TestArrayEqualityGeneralizerStrengthensContradictoryLiteral(t *testing.T) {
 	if !applicable {
 		t.Fatal("array equality strengthening was not applicable")
 	}
-	if owner.contexts[1].created != secondBefore+1 || owner.contexts[2].created != thirdBefore {
-		t.Fatal("array equality checker did not use source fparams2 pool", owner.contexts[1].created-secondBefore, owner.contexts[2].created-thirdBefore)
+	// smt::kernel solver(m, fparams2()) is a standalone kernel: no pooled
+	// virtual solver is created for the check.
+	if owner.contexts[1].created != secondBefore || owner.contexts[2].created != thirdBefore {
+		t.Fatal("array equality checker used a pooled solver", owner.contexts[1].created-secondBefore, owner.contexts[2].created-thirdBefore)
 	}
 	if len(strengthened) != 1 {
 		t.Fatal("array equality strengthening size", len(strengthened))

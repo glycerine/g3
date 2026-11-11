@@ -6,6 +6,7 @@ package spacer
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/smtcore"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -169,9 +170,11 @@ func (p *PredicateTransformer) strengthenArrayEqualities(core []ast.ASTHandle) (
 			equalities = append(equalities, equality)
 		}
 	}
-	// Source constructs this kernel from manager::fparams2(), the second
-	// solver family (Go pool index 1), not the third context pool.
-	checker, err := p.owner.Fresh(1)
+	// smt::kernel solver(m, m_ctx.get_manager().fparams2()): a standalone
+	// kernel over the second parameter family, not a pooled virtual solver
+	// (whose assertions would be guarded by its predicate).
+	family := p.owner.contexts[1]
+	checker, err := smtcore.NewSMTSolver(p.manager, family.params, "", family.config)
 	if err != nil {
 		return nil, false, err
 	}

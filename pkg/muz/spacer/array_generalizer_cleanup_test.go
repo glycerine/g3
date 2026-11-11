@@ -82,7 +82,8 @@ func TestArrayGeneralizerCleanupPreservesNativeOperationAndSuccessFrontiers(t *t
 	truth, err := manager.MkTrue()
 	must(err)
 	newAttempt := func() *arrayGeneralizerAttempt {
-		checker, cause := spacerManager.Fresh(1)
+		family := spacerManager.contexts[1]
+		checker, cause := smtcore.NewSMTSolver(manager, family.params, "", family.config)
 		must(cause)
 		must(checker.Assert(truth))
 		candidate, cause := manager.NewRef(truth)

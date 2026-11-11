@@ -166,8 +166,10 @@ func TestEqualityGeneralizationCleanupOwnsUnpublishedLemma(t *testing.T) {
 	}
 	message, exposed, original := receipt.Error(), receipt.Unwrap(), receipt.OriginalCause()
 	owner.refs[0] = ast.ASTRef{}
+	// A lemma without a body is the lazy mk_expr_core state: its cleanup
+	// releases the remaining roots and completes.
 	depthMust(t, manager.DelRef(&lemma.body))
-	if err = receipt.Cleanup(); !errors.Is(err, ast.ErrASTHandle) || owner.lemma != nil || !lemma.closed {
+	if err = receipt.Cleanup(); err != nil || owner.lemma != nil || !lemma.closed {
 		t.Fatal("consumed lemma roots did not advance the cleanup frontier", err, owner.lemma, lemma.closed)
 	}
 	depthMust(t, receipt.Cleanup())

@@ -2,6 +2,7 @@ package spacer
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/smtcore"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/memory"
@@ -9,7 +10,7 @@ import (
 
 type arrayGeneralizerAttempt struct {
 	manager                  *ast.ASTManager
-	checker                  *VirtualSolver
+	checker                  *smtcore.SMTSolver
 	candidates, core, output []ast.ASTRef
 }
 

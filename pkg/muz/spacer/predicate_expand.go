@@ -19,16 +19,18 @@ type ExpansionResult struct {
 	LemmaAdded bool
 }
 
+// shouldGeneralizeLemma is the generalizer loop's guard:
+// n.use_farkas_generalizer() && !lemma->is_false().
 func shouldGeneralizeLemma(obligation *ProofObligation, lemma *Lemma) (bool, error) {
 	useFarkas, err := obligation.UseFarkas()
 	if err != nil || !useFarkas {
 		return false, err
 	}
-	body, err := lemma.Body()
+	isFalse, err := lemma.IsFalse()
 	if err != nil {
 		return false, err
 	}
-	return !lemma.manager.IsFalse(body), nil
+	return !isFalse, nil
 }
 
 // ExpandObligation applies one Spacer search expansion without queue policy or
