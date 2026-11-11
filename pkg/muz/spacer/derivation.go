@@ -29,7 +29,7 @@ func newDerivationPremise(transformer *PredicateTransformer, oldIndex uint32, su
 	premise := &DerivationPremise{transformer: transformer, oldIndex: oldIndex, must: must}
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, premise.close())
+			resultErr = errors.Join(resultErr, premise.close(transformer.manager))
 		}
 	}()
 	var err error
@@ -145,11 +145,13 @@ func (p *DerivationPremise) Transformer() *PredicateTransformer { return p.trans
 func (p *DerivationPremise) OldIndex() uint32                   { return p.oldIndex }
 func (p *DerivationPremise) Must() bool                         { return p.must }
 
-func (p *DerivationPremise) close() error {
+// close releases the premise's ASTs through the derivation's manager (every
+// transformer shares it), so the premise's own transformer may already be
+// destroyed.
+func (p *DerivationPremise) close(manager *ast.ASTManager) error {
 	if p == nil || p.transformer == nil {
 		return nil
 	}
-	manager := p.transformer.manager
 	result := releaseNormalizeRefs(manager, p.variables)
 	if p.summary != (ast.ASTRef{}) {
 		result = errors.Join(result, manager.DelRef(&p.summary))
@@ -599,7 +601,7 @@ func (d *Derivation) Close() (result error) {
 	}
 	manager := d.parent.transformer.manager
 	for i := len(d.premises) - 1; i >= 0; i-- {
-		result = errors.Join(result, d.premises[i].close())
+		result = errors.Join(result, d.premises[i].close(manager))
 	}
 	result = errors.Join(result, releaseNormalizeRefs(manager, d.existentials))
 	if d.transition != (ast.ASTRef{}) {
