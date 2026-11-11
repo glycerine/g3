@@ -76,7 +76,13 @@ func (p *PredicateTransformer) createDerivationChildWith(obligation *ProofObliga
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&implicantRef)) }()
+	// expr_ref phi1 = m_pm.mk_and(Phi): qe_project reassigns it in place, so
+	// the reference is consumed there and only released here on an early exit.
+	defer func() {
+		if implicantRef != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&implicantRef))
+		}
+	}()
 	implicant, err := p.manager.RefGet(implicantRef)
 	if err != nil {
 		return nil, err
@@ -108,7 +114,7 @@ func (p *PredicateTransformer) createDerivationChildWith(obligation *ProofObliga
 	}
 	variables = append(variables, skolems...)
 	// qe_project reassigns the implicant's expr_ref in place.
-	var consume *ast.ASTRef
+	consume := &implicantRef
 	if held, getErr := p.manager.RefGet(derivation.transition); getErr == nil && held == implicant {
 		consume = &derivation.transition
 	}
