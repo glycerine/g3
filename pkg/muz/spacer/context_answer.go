@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -98,9 +99,12 @@ func (c *Context) groundSatAnswer() (result ast.ASTRef, resultErr error) {
 		counterexample = append(counterexample, rootRef)
 	}
 
-	// C++ keeps one counterexample solver for the whole derivation and
+	// scoped_ptr<smt::kernel> cex_ctx = alloc(smt::kernel, m, m_pm.fparams2()):
+	// one standalone kernel over the second parameter family (not a pooled
+	// virtual solver, whose assertions would be guarded by its predicate)
 	// scopes each local consistency check, preserving its incremental state.
-	local, err := c.owner.Fresh(2)
+	family := c.owner.contexts[1]
+	local, err := smtcore.NewSMTSolver(c.manager, family.params, "", family.config)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -241,6 +245,31 @@ func (c *Context) groundSatAnswer() (result ast.ASTRef, resultErr error) {
 				}
 				arguments = append(arguments, argument)
 			}
+			// ground_fact = m.mk_and(n, conjs) (a one-literal and stays an
+			// and), renamed o2n, before cex gets the ground head application.
+			if signatureErr == nil {
+				var next ast.ASTRef
+				var getErr error
+				if len(equalities) > 0 {
+					var ground ast.ASTHandle
+					ground, getErr = c.manager.MkAndArgs(equalities)
+					var groundRef ast.ASTRef
+					if getErr == nil {
+						groundRef, getErr = c.manager.NewRef(ground)
+					}
+					if getErr == nil {
+						next, getErr = c.owner.FormulaOldToNew(ground, uint32(index), false)
+						// expr_ref ground_fact is reassigned by formula_o2n.
+						getErr = errors.Join(getErr, c.manager.DelRef(&groundRef))
+					}
+				} else {
+					next, getErr = c.manager.NewRef(truth)
+				}
+				if getErr == nil {
+					constraints = append(constraints, next)
+				}
+				signatureErr = getErr
+			}
 			if signatureErr == nil {
 				head, getErr := childTransformer.Head()
 				var application ast.ASTHandle
@@ -252,17 +281,6 @@ func (c *Context) groundSatAnswer() (result ast.ASTRef, resultErr error) {
 					applicationRef, getErr = c.manager.NewRef(application)
 					if getErr == nil {
 						counterexample = append(counterexample, applicationRef)
-					}
-				}
-				signatureErr = getErr
-			}
-			if signatureErr == nil {
-				ground, getErr := c.manager.MkAndArray(equalities)
-				if getErr == nil {
-					var next ast.ASTRef
-					next, getErr = c.owner.FormulaOldToNew(ground, uint32(index), false)
-					if getErr == nil {
-						constraints = append(constraints, next)
 					}
 				}
 				signatureErr = getErr
