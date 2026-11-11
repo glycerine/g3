@@ -529,6 +529,25 @@ func (r *ArithRewriter) rewriteAdd(args ast.AppArguments, out ast.ASTRef) (Rewri
 	if err != nil {
 		return RewriteFailed, err
 	}
+	// mk_nflat_add_core: an ordered sum without repeated power products is
+	// already normal when it has no numeral, or only a nonzero leading one
+	// (BR_FAILED). mk_flat_add_core then builds the flat application.
+	if !r.hoistMul && !r.hoistCoeff {
+		normal, err := r.addAlreadyNormal(values)
+		if err != nil {
+			return RewriteFailed, err
+		}
+		if normal {
+			if !flattened {
+				return RewriteFailed, nil
+			}
+			h, err := r.app(arithOpAdd, values...)
+			if err != nil {
+				return RewriteFailed, err
+			}
+			return RewriteDone, r.manager.SetRef(out, h)
+		}
+	}
 	constant := new(big.Rat)
 	order := make([]ast.ASTHandle, 0, len(values))
 	coefficients := make(map[ast.ASTHandle]*big.Rat)
@@ -1253,4 +1272,54 @@ func (r *ArithRewriter) reducePolynomialGCD(left, right ast.ASTHandle, relation 
 		return left, right, false, !possible, err
 	}
 	return newLeft, newRight, true, false, nil
+}
+
+// addAlreadyNormal is mk_nflat_add_core's !has_multiple && ordered test
+// followed by its two BR_FAILED cases.
+func (r *ArithRewriter) addAlreadyNormal(values []ast.ASTHandle) (bool, error) {
+	numCoeffs := 0
+	firstNonzeroNumeral := false
+	ordered := true
+	var prev ast.ASTHandle
+	seen := make(map[ast.ASTHandle]bool, len(values))
+	for i, value := range values {
+		v, _, numeral, err := r.numeral(value)
+		if err != nil {
+			return false, err
+		}
+		product := value
+		if numeral {
+			numCoeffs++
+			ordered = !r.sortSums || i == 0
+			if i == 0 && v.Sign() != 0 {
+				firstNonzeroNumeral = true
+			}
+		} else {
+			if r.sortSums && ordered {
+				if !prev.IsNull() {
+					less, err := r.monomialLess(value, prev)
+					if err != nil {
+						return false, err
+					}
+					if less {
+						ordered = false
+					}
+				}
+				prev = value
+			}
+			_, pp, err := r.monomial(value)
+			if err != nil {
+				return false, err
+			}
+			product = pp
+		}
+		if seen[product] {
+			return false, nil // has_multiple
+		}
+		seen[product] = true
+	}
+	if !ordered {
+		return false, nil
+	}
+	return numCoeffs == 0 || numCoeffs == 1 && firstNonzeroNumeral, nil
 }
