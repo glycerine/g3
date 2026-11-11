@@ -27,8 +27,16 @@ type InterpTailSimplifierPlugin struct {
 	globals        *uparams.GlobalParamsService
 	normalization  *RuleNormalizationParams
 	priority       uint32
-	closed         bool
-	closing        bool
+	// rule_substitution m_rule_subst: one per plugin, reset for each rule
+	// (m_subst keeps its apply results until then); m_head, m_tail, m_neg
+	// hold the last get_result.
+	ruleSubst   *substitution.Substitution
+	ruleUnifier *substitution.Unifier
+	ruleHead    ast.ASTRef
+	ruleTails   []ast.ASTRef
+	ruleNeg     []bool
+	closed      bool
+	closing     bool
 }
 
 func NewInterpTailSimplifierPlugin(manager *ast.ASTManager, rules *base.RuleManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (*InterpTailSimplifierPlugin, error) {
@@ -42,7 +50,11 @@ func NewInterpTailSimplifierPlugin(manager *ast.ASTManager, rules *base.RuleMana
 		}
 		return nil, err
 	}
-	return &InterpTailSimplifierPlugin{manager: manager, rules: rules, rewriter: rewriter, params: context, globals: globals, priority: priority}, nil
+	p := &InterpTailSimplifierPlugin{manager: manager, rules: rules, rewriter: rewriter, params: context, globals: globals, priority: priority}
+	if err = p.initRuleSubstitution(); err != nil {
+		return nil, errors.Join(err, p.Close())
+	}
+	return p, nil
 }
 
 // NewInterpTailSimplifierPluginShared borrows the context rewriter, whose
@@ -54,12 +66,57 @@ func NewInterpTailSimplifierPluginShared(manager *ast.ASTManager, rules *base.Ru
 	if priority == 0 {
 		priority = 40000
 	}
-	return &InterpTailSimplifierPlugin{manager: manager, rules: rules, rewriter: rewriter, borrowed: true, params: context, globals: globals, priority: priority}, nil
+	p := &InterpTailSimplifierPlugin{manager: manager, rules: rules, rewriter: rewriter, borrowed: true, params: context, globals: globals, priority: priority}
+	if err := p.initRuleSubstitution(); err != nil {
+		return nil, errors.Join(err, p.Close())
+	}
+	return p, nil
 }
 
 func (p *InterpTailSimplifierPlugin) Priority() uint32            { return p.priority }
 func (p *InterpTailSimplifierPlugin) CanDestratifyNegation() bool { return false }
 func (p *InterpTailSimplifierPlugin) Cancel()                     {}
+
+// initRuleSubstitution constructs rule_substitution(ctx).
+func (p *InterpTailSimplifierPlugin) initRuleSubstitution() (err error) {
+	if p.ruleSubst, err = substitution.New(p.manager); err != nil {
+		return err
+	}
+	if p.ruleUnifier, err = substitution.NewUnifier(p.manager); err != nil {
+		return err
+	}
+	p.ruleHead, err = p.manager.NewRef(ast.ASTHandle{})
+	return err
+}
+
+// releaseRuleTails is m_tail.reset() (front to back) and m_neg.reset().
+func (p *InterpTailSimplifierPlugin) releaseRuleTails() (result error) {
+	for len(p.ruleTails) != 0 {
+		if err := p.manager.DelRef(&p.ruleTails[0]); err != nil {
+			return err
+		}
+		p.ruleTails = p.ruleTails[1:]
+	}
+	p.ruleNeg = p.ruleNeg[:0]
+	return nil
+}
+
+// closeRuleSubstitution is ~rule_substitution: members in reverse order.
+func (p *InterpTailSimplifierPlugin) closeRuleSubstitution() (result error) {
+	result = p.releaseRuleTails()
+	if p.ruleHead != (ast.ASTRef{}) {
+		result = errors.Join(result, p.manager.DelRef(&p.ruleHead))
+	}
+	if p.ruleUnifier != nil {
+		result = errors.Join(result, p.ruleUnifier.Close())
+		p.ruleUnifier = nil
+	}
+	if p.ruleSubst != nil {
+		result = errors.Join(result, p.ruleSubst.Close())
+		p.ruleSubst = nil
+	}
+	return result
+}
 
 func (p *InterpTailSimplifierPlugin) simplifyRule(rule *base.Rule) (_ *base.Rule, dropped, changed bool, resultErr error) {
 	uninterpreted, err := rule.UninterpretedTailSize()
@@ -220,15 +277,11 @@ func (p *InterpTailSimplifierPlugin) propagate(rule *base.Rule) (_ *base.Rule, c
 	if err != nil {
 		return nil, false, err
 	}
-	subst, err := substitution.New(p.manager)
-	if err != nil {
+	// m_rule_subst.reset(r): the previous rule's apply results die here.
+	subst, unifier := p.ruleSubst, p.ruleUnifier
+	if err = subst.Reset(); err != nil {
 		return nil, false, err
 	}
-	unifier, err := substitution.NewUnifier(p.manager)
-	if err != nil {
-		return nil, false, errors.Join(err, subst.Close())
-	}
-	defer func() { resultErr = errors.Join(resultErr, unifier.Close(), subst.Close()) }()
 	if err = subst.Reserve(1, variables); err != nil {
 		return nil, false, err
 	}
@@ -487,25 +540,23 @@ func (p *InterpTailSimplifierPlugin) propagate(rule *base.Rule) (_ *base.Rule, c
 	if !changed {
 		return nil, false, nil
 	}
-	var references []ast.ASTRef
-	defer func() { resultErr = errors.Join(resultErr, releaseTransformRefs(p.manager, references)) }()
-	apply := func(expression ast.ASTHandle) (ast.ASTHandle, error) {
-		ref, applyErr := p.manager.NewRef(ast.ASTHandle{})
-		if applyErr != nil {
+	// rule_substitution::get_result: apply(head, m_head); m_tail.reset();
+	// each new tail is applied into a local app_ref and pushed on m_tail.
+	apply := func(expression ast.ASTHandle, out ast.ASTRef) (ast.ASTHandle, error) {
+		if applyErr := subst.ApplyExpression(expression, out); applyErr != nil {
 			return ast.ASTHandle{}, applyErr
 		}
-		references = append(references, ref)
-		if applyErr = subst.ApplyExpression(expression, ref); applyErr != nil {
-			return ast.ASTHandle{}, applyErr
-		}
-		return p.manager.RefGet(ref)
+		return p.manager.RefGet(out)
 	}
 	head, err := rule.Head()
 	if err != nil {
 		return nil, false, err
 	}
-	head, err = apply(head)
+	head, err = apply(head, p.ruleHead)
 	if err != nil {
+		return nil, false, err
+	}
+	if err = p.releaseRuleTails(); err != nil {
 		return nil, false, err
 	}
 	tails := make([]ast.ASTHandle, 0, total)
@@ -515,13 +566,20 @@ func (p *InterpTailSimplifierPlugin) propagate(rule *base.Rule) (_ *base.Rule, c
 		if getErr != nil {
 			return nil, false, getErr
 		}
-		tail, getErr = apply(tail)
+		ref, getErr := p.manager.NewRef(ast.ASTHandle{})
+		if getErr != nil {
+			return nil, false, getErr
+		}
+		p.ruleTails = append(p.ruleTails, ref)
+		p.ruleNeg = append(p.ruleNeg, negative)
+		tail, getErr = apply(tail, ref)
 		if getErr != nil {
 			return nil, false, getErr
 		}
 		tails = append(tails, tail)
 		negated = append(negated, negative)
 	}
+	// remove_duplicate_tails drops later copies of an identical tail.
 	tails, negated, err = base.RemoveDuplicateRuleTails(tails, negated)
 	if err != nil {
 		return nil, false, fmt.Errorf("muz/transforms: remove duplicate simplified tails: %w", err)
@@ -689,6 +747,10 @@ func (p *InterpTailSimplifierPlugin) Close() error {
 		}
 	}
 	p.rewriter = nil
+	// m_rule_subst is the first data member, so it is destroyed last.
+	if err := p.closeRuleSubstitution(); err != nil {
+		return err
+	}
 	p.closed = true
 	return nil
 }

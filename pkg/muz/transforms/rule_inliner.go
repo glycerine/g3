@@ -1252,6 +1252,14 @@ func (p *RuleInlinerPlugin) Close() error {
 		}
 		p.unifier = nil
 	}
+	// rule_unifier::m_interp_simplifier is its first member: it dies after
+	// the unifier's substitution, still before m_inlined_rules.
+	if p.simplifier != nil {
+		if err := p.simplifier.Close(); err != nil {
+			return err
+		}
+		p.simplifier = nil
+	}
 	// rule_set::reset releases m_rules forward.
 	if err := closeRulesForward(p.inlinedRules); err != nil {
 		return err
@@ -1267,12 +1275,6 @@ func (p *RuleInlinerPlugin) Close() error {
 		return err
 	}
 	p.modelRules = nil
-	if p.simplifier != nil {
-		if err := p.simplifier.Close(); err != nil {
-			return err
-		}
-		p.simplifier = nil
-	}
 	if p.lite != nil && p.liteBorrowed {
 		p.lite = nil
 	}
