@@ -362,7 +362,7 @@ func (p *qsatPreparation) hoist(mode qsatMode, formula ast.ASTRef) (err error) {
 		return err
 	}
 	forall := mode != qsatSAT
-	if err = c.pull(forall, formula); err != nil {
+	if err = c.pullNow(forall, formula); err != nil {
 		return err
 	}
 	if forall {
@@ -382,7 +382,7 @@ func (p *qsatPreparation) hoist(mode qsatMode, formula ast.ASTRef) (err error) {
 		if err = p.clearRefs(&c.variables); err != nil {
 			return err
 		}
-		if err = c.pull(forall, formula); err != nil {
+		if err = c.pullNow(forall, formula); err != nil {
 			return err
 		}
 		if err = p.appendBlock(c.variables); err != nil {

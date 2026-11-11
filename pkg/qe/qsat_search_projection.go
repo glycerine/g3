@@ -112,7 +112,8 @@ func (s *qsatSearch) initialize(formula ast.ASTRef) (err error) {
 		if e != nil {
 			return e
 		}
-		h, err = c.hold(s.manager.PushNot(h))
+		// fml = push_not(fml): only fml holds the result.
+		h, err = s.manager.PushNot(h)
 		if err != nil {
 			return err
 		}
@@ -148,12 +149,26 @@ func (s *qsatSearch) getCore(core *[]ast.ASTRef, level uint32) error {
 	}
 	return s.preparation.abstraction.PredicatesToLiterals(core)
 }
-func (s *qsatSearch) negateCore(c *qsatSearchCall, core []ast.ASTRef) (ast.ASTHandle, error) {
-	h, err := c.conjunction(core)
+
+// negateCore is ::push_not(::mk_and(core)): the conjunction is a temporary
+// that dies once the negation is built.
+func (s *qsatSearch) negateCore(c *qsatSearchCall, core []ast.ASTRef) (result ast.ASTHandle, err error) {
+	hs := make([]ast.ASTHandle, len(core))
+	for i, r := range core {
+		if hs[i], err = s.manager.RefGet(r); err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
+	and, err := s.manager.MkAndArray(hs)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return c.hold(s.manager.PushNot(h))
+	temporary, err := s.manager.NewRef(and)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer func() { err = errors.Join(err, s.manager.DelRef(&temporary)) }()
+	return c.hold(s.manager.PushNot(and))
 }
 func (s *qsatSearch) addAssumption(c *qsatSearchCall, formula ast.ASTHandle) error {
 	r, err := c.ref(ast.ASTHandle{})
