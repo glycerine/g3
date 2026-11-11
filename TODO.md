@@ -1546,6 +1546,16 @@ Found while matching `-st` output against `build/z3` on
     g3 bit-blasts the objectives before it builds the solver, and never
     creates the maximize!! constants. Port opt::context::optimize/normalize
     in source order.
+    Progress (2026-11-11, 029b6fe84): the first pareto check now runs
+    init_solver and normalize; purification uses from_fmls' hard
+    constraints, and the model gets the purify filter and then the
+    normalize converter. The three pareto vectors first differ at lines
+    224/78/32 (was 12/38/29). Recorded deviation (ask-first): when
+    normalize would turn an arithmetic objective into a 0-1 MaxSAT sum,
+    z3 4.7 itself does not terminate. That case keeps the un-normalized
+    path. Next divergences: pareto_bit_vector line 225 (an extra
+    attach-enode #1/#2 pair, a second kernel); pareto_optimization 79;
+    pareto_soft 32.
 
 31. **In progress (2026-11-11): PDR/spacer query pipeline lifetimes (about 40
     fixedpoint_* and fp_spacer_* vectors).** Plan: pkg/PDR_PORT_PLAN.md.
