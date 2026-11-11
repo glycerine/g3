@@ -120,11 +120,28 @@ func (p *PredicateTransformer) MakeReachFact(obligation *ProofObligation, rule *
 	if eliminateAuxiliaries {
 		variables = append(variables, ruleAuxiliaries...)
 	}
-	formula, err := p.manager.MkAndArray(path)
+	// res = m_pm.mk_and(path_cons): bool_rewriter's flat and. res holds it
+	// until the implicant's mk_and (with u's copy dying at its block end)
+	// or qe_project's in-place result replaces it.
+	resRef, err := p.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return nil, fmt.Errorf("spacer: reach fact path: %w", err)
 	}
-	temporary, err := NewDerivation(obligation, rule, formula, nil)
+	defer func() {
+		if resRef != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&resRef))
+		}
+	}()
+	if err = p.owner.boolean.MkAnd(path, resRef); err != nil {
+		return nil, fmt.Errorf("spacer: reach fact path: %w", err)
+	}
+	formula, err := p.manager.RefGet(resRef)
+	if err != nil {
+		return nil, fmt.Errorf("spacer: reach fact path: %w", err)
+	}
+	// The derivation only lends its implicant and projection helpers here;
+	// mk_reach_fact's res is the formula's one owner, so none is stored.
+	temporary, err := NewDerivation(obligation, rule, ast.ASTHandle{}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("spacer: reach fact derivation: %w", err)
 	}
@@ -148,10 +165,20 @@ func (p *PredicateTransformer) MakeReachFact(obligation *ProofObligation, rule *
 				resultErr = errors.Join(resultErr, fmt.Errorf("spacer: reach fact implicant cleanup: %w", closeErr))
 			}
 		}()
+		// res = m_pm.mk_and(lits); u dies with the block.
+		if err = p.manager.DelRef(&resRef); err != nil {
+			return nil, fmt.Errorf("spacer: reach fact path cleanup: %w", err)
+		}
 	}
 	projectedRef, remaining, err := temporary.project(true, false, md, variables, formula)
 	if err != nil {
 		return nil, fmt.Errorf("spacer: reach fact projection: %w", err)
+	}
+	// qe_project assigns its result into res.
+	if resRef != (ast.ASTRef{}) {
+		if err = p.manager.DelRef(&resRef); err != nil {
+			return nil, errors.Join(fmt.Errorf("spacer: reach fact path cleanup: %w", err), p.manager.DelRef(&projectedRef), releaseNormalizeRefs(p.manager, remaining))
+		}
 	}
 	defer func() {
 		if closeErr := errors.Join(p.manager.DelRef(&projectedRef), releaseNormalizeRefs(p.manager, remaining)); closeErr != nil {
