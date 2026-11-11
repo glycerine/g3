@@ -59,7 +59,7 @@ func TestLegacyArrayConstructorRollbackPreservesRefusedOwner(t *testing.T) {
 		t.Fatal("rollback changed pending root identity")
 	}
 	fmMust(t, construction.Cleanup())
-	if owner.syntax != nil || owner.theory != nil {
+	if owner.syntax != nil {
 		t.Fatal("rollback retry left children live")
 	}
 }
@@ -115,7 +115,7 @@ func TestLegacyArithmeticConstructorRollbackPreservesRefusedOwner(t *testing.T) 
 	}
 	fmMust(t, construction.Cleanup())
 	fmMust(t, construction.Cleanup())
-	if owner.syntax != nil || owner.theory != nil {
+	if owner.syntax != nil {
 		t.Fatal("rollback retry left children live")
 	}
 }
@@ -161,8 +161,10 @@ func TestLegacyProjectionConstructorRollbackPreservesRefusedOwner(t *testing.T) 
 	if !errors.As(rollback, &construction) || !errors.Is(rollback, ast.ErrASTPending) {
 		t.Fatal("rollback did not publish retryable owner", rollback)
 	}
-	if owner.array == nil || owner.arithmetic == nil || len(owner.arithmetic.syntax.pending) != 1 {
-		t.Fatal("rollback lost the parent children")
+	// The array child holds no AST roots, so only the arithmetic child with
+	// the pending call is retained for the retry.
+	if owner.arithmetic == nil || len(owner.arithmetic.syntax.pending) != 1 {
+		t.Fatal("rollback lost the pending parent child")
 	}
 	actual, err := m.RefGet(owner.arithmetic.syntax.pending[0].refs[0])
 	fmMust(t, err)

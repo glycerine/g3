@@ -307,7 +307,9 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 		conjuncts = append(conjuncts, handle)
 	}
 	conjuncts = append(conjuncts, formula)
-	combined, err := p.syntax.manager.MkAndArray(conjuncts)
+	// array_project_selects_util::mk_result: the raw m.mk_and(lits.size(), lits.c_ptr()), unary
+	// when there are no index literals.
+	combined, err := p.syntax.manager.MkAndArgs(conjuncts)
 	if err != nil {
 		return nil, err
 	}

@@ -42,11 +42,9 @@ func (p *PredicateTransformer) CreateDerivationChild(obligation *ProofObligation
 	if err != nil {
 		return nil, err
 	}
-	path, err := p.manager.MkAnd(transition, post)
-	if err != nil {
-		return nil, err
-	}
-	derivation, err := NewDerivation(obligation, rule, path, nil)
+	// forms = [T, phi]; the derivation is given phi1 = m_pm.mk_and(Phi)
+	// once it is computed (the constructor holds no AST work of its own).
+	derivation, err := NewDerivation(obligation, rule, transition, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +54,7 @@ func (p *PredicateTransformer) CreateDerivationChild(obligation *ProofObligation
 			resultErr = errors.Join(resultErr, derivation.Close())
 		}
 	}()
-	implicantRef, err := derivation.modelImplicant(md, path)
+	implicantRef, err := derivation.modelImplicant(md, []ast.ASTHandle{transition, post})
 	if err != nil {
 		return nil, err
 	}

@@ -7,14 +7,15 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/memory"
 )
 
+// legacyArrayProjection holds no th_rewriter: each source util builds its own
+// (array_project_eqs_util::mk_result a local one, array_select_reducer its
+// m_rw member) inside qe_project's scoped_no_proof, so its proof mode and
+// cache lifetime are the util's.
 type legacyArrayProjection struct {
-	syntax            *ArrayProjection
-	theory            *rewriter.TheoryRewriter
-	theoryInterrupted bool
+	syntax *ArrayProjection
 }
 
 type legacyArrayEqualities struct {
@@ -125,22 +126,12 @@ func newLegacyArrayProjection(manager *ast.ASTManager, config Config) (*legacyAr
 	if err != nil {
 		return nil, err
 	}
-	theory, err := rewriter.NewTheoryRewriter(manager, config.Context, config.Globals, nil)
-	if err != nil {
-		return nil, closeFailedLegacyArrayProjection(&legacyArrayProjection{syntax: syntax, theory: theory}, err)
-	}
-	return &legacyArrayProjection{syntax: syntax, theory: theory}, nil
+	return &legacyArrayProjection{syntax: syntax}, nil
 }
 
 func (p *legacyArrayProjection) Close() error {
 	if p == nil || p.syntax == nil {
 		return ast.ErrASTHandle
-	}
-	if p.theory != nil {
-		if err := p.theory.Close(); err != nil {
-			return err
-		}
-		p.theory = nil
 	}
 	if err := p.syntax.Close(); err != nil {
 		return err

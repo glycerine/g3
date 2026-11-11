@@ -5,6 +5,7 @@ package qe
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 )
 
@@ -37,11 +38,42 @@ func (p *LegacyProjection) projectArrayRound(md *model.ModelCore, variables []as
 			result = nil
 		}
 	}()
+	// th_rewriter srw(m): a local rewriter aware of the no-proof mode,
+	// destroyed before _sp.
+	srw, err := rewriter.NewTheoryRewriter(p.manager, p.config.Context, p.config.Globals, nil)
+	if err != nil {
+		if srw != nil {
+			err = errors.Join(err, srw.Close())
+		}
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, srw.Close()) }()
 	result, resultErr = p.array.projectFormula(md, variables, formula, reduceAllSelects)
 	if resultErr == nil {
-		resultErr = p.rewriteProjectionCurrent(result.formula)
+		resultErr = rewriteProjectionCurrentWith(p.manager, srw, result.formula)
 	}
 	return result, resultErr
+}
+
+// rewriteProjectionCurrentWith is rw(fml) for an expr_ref fml with the given
+// rewriter.
+func rewriteProjectionCurrentWith(m *ast.ASTManager, rw *rewriter.TheoryRewriter, current ast.ASTRef) error {
+	root, err := m.RefGet(current)
+	if err != nil {
+		return err
+	}
+	rewritten, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	if err = rw.Rewrite(root, rewritten); err != nil {
+		return closeLegacyProjectionRewriteResult(m, rewritten, err)
+	}
+	if root, err = m.RefGet(rewritten); err != nil {
+		return closeLegacyProjectionRewriteResult(m, rewritten, err)
+	}
+	err = m.SetRef(current, root)
+	return closeLegacyProjectionRewriteResult(m, rewritten, err)
 }
 
 func (p *LegacyProjection) rewriteProjectionCurrent(current ast.ASTRef) (resultErr error) {

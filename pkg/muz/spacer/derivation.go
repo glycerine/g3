@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/qe"
@@ -457,7 +458,9 @@ func (d *Derivation) createProjectedChild(md *model.ModelCore) (_ *ProofObligati
 	return active.transformer.NewProofObligation(d.parent, previousSpacerLevel(level), depth, current, bindings)
 }
 
-func (d *Derivation) modelImplicant(md *model.ModelCore, formula ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+// modelImplicant is compute_implicant_literals(mev, forms, lits) followed by
+// the spacer manager's m_brwr.mk_and(lits).
+func (d *Derivation) modelImplicant(md *model.ModelCore, forms []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	manager := d.parent.transformer.manager
 	defer func() {
 		if resultErr != nil && result != (ast.ASTRef{}) {
@@ -468,7 +471,7 @@ func (d *Derivation) modelImplicant(md *model.ModelCore, formula ast.ASTHandle) 
 		return ast.ASTRef{}, ast.ErrASTHandle
 	}
 	config := d.parent.transformer.owner.contexts[0].config.ModelEvaluator
-	literals, err := computeImplicantLiterals(manager, md, config, []ast.ASTHandle{formula})
+	literals, err := computeImplicantLiterals(manager, md, config, forms)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -480,11 +483,10 @@ func (d *Derivation) modelImplicant(md *model.ModelCore, formula ast.ASTHandle) 
 			return ast.ASTRef{}, err
 		}
 	}
-	conjunction, err := manager.MkAndArray(handles)
-	if err != nil {
+	if result, err = manager.NewRef(ast.ASTHandle{}); err != nil {
 		return ast.ASTRef{}, err
 	}
-	result, resultErr = manager.NewRef(conjunction)
+	resultErr = rewriter.SimplifyBooleanGateDefault(manager, ast.ASTOpAnd, handles, result)
 	return
 }
 
@@ -542,7 +544,7 @@ func (d *Derivation) CreateNextChild() (_ *ProofObligation, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
-	implicantRef, err := d.modelImplicant(md, factFormula)
+	implicantRef, err := d.modelImplicant(md, []ast.ASTHandle{factFormula})
 	if err != nil {
 		return nil, err
 	}

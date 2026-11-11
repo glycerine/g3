@@ -10,7 +10,7 @@ import (
 )
 
 func TestLegacyProjectionParentCleanupContinuation(t *testing.T) {
-	for _, kind := range []string{"array", "array-progressed", "combined", "combined-progressed"} {
+	for _, kind := range []string{"array", "combined", "combined-progressed"} {
 		t.Run(kind, func(t *testing.T) {
 			active, callbacks := false, 0
 			var closeOwner func() error
@@ -30,7 +30,7 @@ func TestLegacyProjectionParentCleanupContinuation(t *testing.T) {
 			root := f.constant("pending-projection-parent", f.integer)
 			var array *legacyArrayProjection
 			var combined *LegacyProjection
-			if kind == "array" || kind == "array-progressed" {
+			if kind == "array" {
 				array, err = newLegacyArrayProjection(m, f.r.config)
 				fmMust(t, err)
 				call, err := array.syntax.begin(md)
@@ -50,10 +50,6 @@ func TestLegacyProjectionParentCleanupContinuation(t *testing.T) {
 			// Stage a valid cleanup continuation by completing the preceding
 			// child normally; the remaining pending call owns a real AST root.
 			// This tests continuation state, not how an earlier Close failed.
-			if kind == "array-progressed" {
-				fmMust(t, array.theory.Close())
-				array.theory = nil
-			}
 			if kind == "combined-progressed" {
 				fmMust(t, combined.array.Close())
 				combined.array = nil
@@ -137,7 +133,7 @@ func TestLegacyProjectionParentCleanupContinuation(t *testing.T) {
 				t.Fatal("pending root identity changed")
 			}
 			fmMust(t, closeOwner())
-			if array != nil && (array.syntax != nil || array.theory != nil) {
+			if array != nil && array.syntax != nil {
 				t.Fatal("array cleanup incomplete")
 			}
 			if combined != nil && (combined.manager != nil || combined.array != nil || combined.arithmetic != nil) {

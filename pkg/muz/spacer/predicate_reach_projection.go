@@ -135,7 +135,7 @@ func (p *PredicateTransformer) MakeReachFact(obligation *ProofObligation, rule *
 	}()
 	var implicantRef ast.ASTRef
 	if reachDNF {
-		implicantRef, err = temporary.modelImplicant(md, formula)
+		implicantRef, err = temporary.modelImplicant(md, []ast.ASTHandle{formula})
 		if err != nil {
 			return nil, fmt.Errorf("spacer: reach fact implicant: %w", err)
 		}

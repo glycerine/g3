@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/memory"
 )
@@ -86,29 +87,51 @@ func (r *legacyArrayFormula) Close() error {
 	return err
 }
 
-func (p *legacyArrayProjection) rewrite(expression ast.ASTHandle) (_ ast.ASTRef, resultErr error) {
-	// Pin the input before Reset can release an identical cached expression.
+// newTheoryRewriter is th_rewriter(m), constructed in the manager's current
+// proof mode.
+func (p *legacyArrayProjection) newTheoryRewriter() (*rewriter.TheoryRewriter, error) {
+	rw, err := rewriter.NewTheoryRewriter(p.syntax.manager, p.syntax.config.Context, p.syntax.config.Globals, nil)
+	if err != nil {
+		if rw != nil {
+			err = errors.Join(err, rw.Close())
+		}
+		return nil, err
+	}
+	return rw, nil
+}
+
+// rewriteWith is rw(fml) with a rewriter the caller owns.
+func (p *legacyArrayProjection) rewriteWith(rw *rewriter.TheoryRewriter, expression ast.ASTHandle) (ast.ASTRef, error) {
 	result, err := p.syntax.manager.NewRef(expression)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	// Source mk_result constructs its th_rewriter locally. The Go utility
-	// reuses one, so discard an abandoned traversal before starting another.
-	if p.theoryInterrupted {
-		if err := p.theory.Reset(); err != nil {
-			return ast.ASTRef{}, closeFailedLegacyArrayRewrite(p.syntax.manager, result, err)
-		}
-		p.theoryInterrupted = false
-	}
-	if err = p.theory.Rewrite(expression, result); err != nil {
-		p.theoryInterrupted = true
+	if err = rw.Rewrite(expression, result); err != nil {
 		return ast.ASTRef{}, closeFailedLegacyArrayRewrite(p.syntax.manager, result, err)
 	}
 	return result, nil
 }
 
+// rewrite is array_project_eqs_util::mk_result's local th_rewriter rw(m):
+// built for this one rewrite and destroyed with it.
+func (p *legacyArrayProjection) rewrite(expression ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	rw, err := p.newTheoryRewriter()
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	result, resultErr = p.rewriteWith(rw, expression)
+	if err = rw.Close(); err != nil {
+		resultErr = errors.Join(resultErr, err)
+		if result != (ast.ASTRef{}) {
+			resultErr = closeFailedLegacyArrayRewrite(p.syntax.manager, result, resultErr)
+			result = ast.ASTRef{}
+		}
+	}
+	return result, resultErr
+}
+
 func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, reduceAll bool) (result *legacyArrayFormula, resultErr error) {
-	if p == nil || p.syntax == nil || p.theory == nil || md == nil || md.Manager() != p.syntax.manager {
+	if p == nil || p.syntax == nil || md == nil || md.Manager() != p.syntax.manager {
 		return nil, ast.ErrASTHandle
 	}
 	defer func() {
@@ -155,6 +178,13 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 			resultErr = closeFailedLegacyArrayRewrite(p.syntax.manager, conditions[index], resultErr)
 		}
 	}()
+	// array_select_reducer's m_rw is built in the current (no-proof) mode
+	// and dies with the reducer, before m_idx_lits and m_pinned.
+	rw, err := p.newTheoryRewriter()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, rw.Close()) }()
 	equalInModel := func(left, right ast.ASTHandle) (_ bool, evalErr error) {
 		if left == right {
 			return true, nil
@@ -184,7 +214,7 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 		return p.syntax.manager.AreEqual(leftHandle, rightHandle)
 	}
 	addCondition := func(condition ast.ASTHandle) error {
-		rewritten, err := p.rewrite(condition)
+		rewritten, err := p.rewriteWith(rw, condition)
 		if err != nil {
 			return err
 		}
@@ -342,11 +372,13 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 		conjuncts = append(conjuncts, handle)
 	}
 	conjuncts = append(conjuncts, reduced.handle)
-	combined, err := p.syntax.manager.MkAndArray(conjuncts)
+	// array_select_reducer::mk_result: the raw m.mk_and(lits.size(), lits.c_ptr()), unary
+	// when there are no index literals.
+	combined, err := p.syntax.manager.MkAndArgs(conjuncts)
 	if err != nil {
 		return nil, err
 	}
-	final, err := p.rewrite(combined)
+	final, err := p.rewriteWith(rw, combined)
 	if err != nil {
 		return nil, err
 	}
