@@ -1572,8 +1572,19 @@ Found while matching `-st` output against `build/z3` on
       ad647a088 (and the premise fix 4d90cdee5).
     - Diff logic adds bound axioms only under m_arith_add_binary_bounds:
       27c6dd86a.
-    The survey shows 26 of 55 identical (fp_spacer_arith_inv now among
-    them), and the full logs are at 606/659. Remaining:
+    - PDR farkas: constr::get, local extract rewriter, get_lemmas'
+      simplify_lemmas: 86866a840, 41268536e. mk_assumptions tmp1:
+      efa1d642d.
+    - A registered theory_arith sees setup-time arith params (pdr's
+      eager_eq_axioms=false): d2df0e13b.
+    - Conflict proofs: lazy literal2expr (88c649042), m_new_proofs pins
+      (f5eaedde8); def-axiom (not true) for false_literal (36cbbbd2e).
+    The survey shows 32 of 55 identical, and the full logs are at 612/659.
+    Open lead: fixedpoint_pdr_initial_trace (also recursive_trace and
+    sliced_compound_head), where (<= #53 #29) stays in g3's
+    MaximizeBVSharing rewriter cache until kernel close, but z3 frees it
+    at the asserted_formulas pop. The likely cause is a different refcount
+    at the bv-sharing rewrite, which made the node cacheable. Remaining:
     - bucket A: quantifier_abstraction (the hnf m_body holder),
       array_blast and array_eq_rewrite (rewriter cache), bit_blast,
       mutual_inv, nonlinear_inlining, quantifier_instantiation,
