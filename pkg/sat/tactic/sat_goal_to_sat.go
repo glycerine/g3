@@ -47,17 +47,17 @@ type GoalTranslator struct {
 	sharedAtoms *Atom2BoolVar // Borrowed concrete source atom2bool_var.
 	solver      *sat.Solver
 	// Borrow the AST manager's original resource limit for translation checkpoints.
-	Limit                                     *control.Reslimit
-	cooperation                               *cooperate.Cooperation
-	traceTags                                 *diagnostic.TraceTags
-	printer                                   *uparams.GlobalParamsService
-	cache                                     map[ast.ASTHandle]uint32
-	Atoms                                     insdict.Dict[ast.ASTHandle, uint32]
-	interfaces                                map[ast.ASTHandle]bool
-	dependencies                              insdict.Dict[ast.ASTHandle, uint32]
+	Limit        *control.Reslimit
+	cooperation  *cooperate.Cooperation
+	traceTags    *diagnostic.TraceTags
+	printer      *uparams.GlobalParamsService
+	cache        map[ast.ASTHandle]uint32
+	Atoms        insdict.Dict[ast.ASTHandle, uint32]
+	interfaces   map[ast.ASTHandle]bool
+	dependencies insdict.Dict[ast.ASTHandle, uint32]
 	// atomLayout and dependencyLayout are the obj_map layouts of
 	// atom2bool_var's m_mapping and dep2asm: iteration follows them.
-	atomLayout, dependencyLayout *ast.ObjMap
+	atomLayout, dependencyLayout              *ast.ObjMap
 	dependencyTrail                           []ast.ASTHandle
 	frames                                    []satGoalFrame
 	results                                   []sat.Literal

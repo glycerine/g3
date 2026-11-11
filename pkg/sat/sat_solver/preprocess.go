@@ -490,6 +490,7 @@ func (r *IncrementalEncoder) BitVectorBindings() ([]ast.ObjMapEntry, error) {
 	}
 	return r.blaster.Const2Bits()
 }
+
 // FindBitVectorBinding is const2bits.find(d).
 func (r *IncrementalEncoder) FindBitVectorBinding(d ast.ASTHandle) (ast.ASTHandle, bool, error) {
 	if err := r.open(); err != nil {

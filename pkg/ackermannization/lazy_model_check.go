@@ -41,12 +41,12 @@ type lazyModelCheck struct {
 	evaluator *model.ModelEvaluator
 	// values is m_values2val (key -> value, source term) and apps is
 	// m_app2val; ~imp releases both in obj_map table order.
-	values    *ast.ObjMap
-	apps      *ast.ObjMap
-	visited   map[ast.ASTHandle]bool
-	scratch   []ast.ASTHandle
-	result    ast.ASTRef
-	header    uint64
+	values  *ast.ObjMap
+	apps    *ast.ObjMap
+	visited map[ast.ASTHandle]bool
+	scratch []ast.ASTHandle
+	result  ast.ASTRef
+	header  uint64
 }
 
 func NewLazyModelChecker(m *ast.ASTManager, info *Info, services model.ModelEvaluatorConfig) (*LazyModelChecker, error) {
@@ -206,6 +206,7 @@ func (c *LazyModelChecker) Check(md *model.ModelCore) (bool, error) {
 	}
 	return ok, nil
 }
+
 // holdScratch keeps a local (app_ref key, expr_ref term) alive until the
 // enclosing mk_value returns.
 func (r *lazyModelCheck) holdScratch(h ast.ASTHandle) error {
