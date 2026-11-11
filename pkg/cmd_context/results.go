@@ -367,18 +367,51 @@ func (c *Context) WriteConsequences(out io.Writer, assumptions, variables []ast.
 	if _, err = fmt.Fprintln(out, word); err != nil {
 		return err
 	}
-	if _, err = fmt.Fprintln(out); err != nil {
+	// out << consequences: ast_smt2_pp over the vector formats every
+	// element, joins them with mk_seq (a line break before each) and prints
+	// one document, then the command adds "\n".
+	if err = c.writeExpressionSeq(out, consequences); err != nil {
+		return fmt.Errorf("write consequences: %w", err)
+	}
+	_, err = fmt.Fprintln(out)
+	return err
+}
+
+// writeExpressionSeq is ast_smt2_pp(out, sz, es, ...): mk_seq of the
+// elements' formats, printed and released as one document.
+func (c *Context) writeExpressionSeq(out io.Writer, es []ast.ASTHandle) (result error) {
+	formats, err := c.manager.GetFormatManager()
+	if err != nil {
 		return err
 	}
-	for _, consequence := range consequences {
-		if err = c.WriteExpression(out, consequence); err != nil {
-			return fmt.Errorf("write consequence: %w", err)
+	var refs []ast.ASTRef
+	defer func() {
+		for i := range refs {
+			result = errors.Join(result, formats.DelRef(&refs[i]))
 		}
-		if _, err = fmt.Fprintln(out); err != nil {
+	}()
+	children := make([]ast.ASTHandle, 0, 2*len(es))
+	for _, e := range es {
+		f, err := c.manager.SMT2PPExprTree(e, nil)
+		if err != nil {
 			return err
 		}
+		ref, err := formats.NewRef(f)
+		if err != nil {
+			return err
+		}
+		refs = append(refs, ref)
+		lb, err := c.manager.FormatLineBreak()
+		if err != nil {
+			return err
+		}
+		children = append(children, lb, f)
 	}
-	return nil
+	seq, err := c.manager.FormatCompose(children)
+	if err != nil {
+		return err
+	}
+	return c.writeOwnedFormat(out, seq, 0)
 }
 
 func (c *Context) writeAssignmentPair(out io.Writer, name string, value bool, first *bool) error {
