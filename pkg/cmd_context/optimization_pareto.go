@@ -297,6 +297,25 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 			return nil, err
 		}
 	}
+	if status == lbool.True && !continuation {
+		// optimize(): after a sat initial check, optsmt::setup forces the
+		// base level with an empty scoped push, and execute_pareto's
+		// gia_pareto then runs its own check_sat.
+		if err = backend.Push(); err != nil {
+			return nil, err
+		}
+		if err = backend.Pop(1); err != nil {
+			return nil, err
+		}
+		if status, err = backend.CheckSat(nil); err != nil {
+			return nil, err
+		}
+		if status == lbool.Undef {
+			if unknownReason, err = backend.ReasonUnknown(); err != nil {
+				return nil, err
+			}
+		}
+	}
 	if status != lbool.True {
 		if closeErr := c.closeParetoBackend(); closeErr != nil {
 			return nil, closeErr
