@@ -239,6 +239,12 @@ func containsHandle(values []ast.ASTHandle, want ast.ASTHandle) bool {
 }
 
 func (p *PropSolver) maxSMT(context *ItpSolver, hard, soft []ast.ASTHandle, softRefs *[]ast.ASTRef) (_ lbool.LBool, _ []ast.ASTHandle, resultErr error) {
+	// itp_solver::scoped_mk_proxy _p_(*m_ctx, hard): the hard formulas get
+	// their proxies before check_sat proxies the background assumptions.
+	hard, err := context.MkProxies(hard)
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
 	hardSize := len(hard)
 	// hard.append(soft): the local vector references every assumption.
 	assumptions := append(append([]ast.ASTHandle(nil), hard...), soft...)
@@ -516,6 +522,10 @@ func (p *PropSolver) CheckAssumptions(hard, soft []ast.ASTHandle, options PropCh
 			} else {
 				var core []ast.ASTHandle
 				core, err = context.UnsatCore()
+				if err == nil {
+					// manually undo proxies because maxsmt() adds them
+					core, err = context.UndoProxies(core)
+				}
 				if err == nil {
 					result.Core, err = refsFromHandles(p.manager, core)
 				}

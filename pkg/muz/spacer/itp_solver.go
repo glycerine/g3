@@ -241,6 +241,43 @@ func (s *ItpSolver) makeProxy(expression ast.ASTHandle) (_ ast.ASTHandle, result
 	return proxy, nil
 }
 
+// MkProxies is mk_proxies(v): every formula that is not a literal is
+// replaced by its proxy, asserting the definition when the proxy is new.
+func (s *ItpSolver) MkProxies(values []ast.ASTHandle) ([]ast.ASTHandle, error) {
+	if err := s.open(); err != nil {
+		return nil, err
+	}
+	result := make([]ast.ASTHandle, len(values))
+	for i, value := range values {
+		proxy, err := s.makeProxy(value)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = proxy
+	}
+	return result, nil
+}
+
+// UndoProxies is undo_proxies(r): every proxy is expanded to the formula it
+// stands for.
+func (s *ItpSolver) UndoProxies(values []ast.ASTHandle) ([]ast.ASTHandle, error) {
+	if err := s.open(); err != nil {
+		return nil, err
+	}
+	result := make([]ast.ASTHandle, len(values))
+	for i, value := range values {
+		if definition, found := s.proxyDefinition(value); found {
+			original, err := s.manager.GetArg(definition, 1)
+			if err != nil {
+				return nil, err
+			}
+			value = original
+		}
+		result[i] = value
+	}
+	return result, nil
+}
+
 func (s *ItpSolver) proxyDefinition(proxy ast.ASTHandle) (ast.ASTHandle, bool) {
 	for i := len(s.scopes) - 1; i >= 0; i-- {
 		if definition, found := s.scopes[i].proxyToDefinition[proxy]; found {
