@@ -862,9 +862,15 @@ func (p *PredicateTransformer) addChildProperty(child *PredicateTransformer, lem
 	return nil
 }
 
-// makeAssumptionRefs is mk_assumptions into a caller-owned vector.
-func (p *PredicateTransformer) makeAssumptionRefs(head ast.ASTHandle, formula ast.ASTHandle) ([]ast.ASTRef, error) {
+// makeAssumptionRefs is mk_assumptions into a caller-owned vector. Its
+// expr_ref tmp1 holds each implication until the next one or the return.
+func (p *PredicateTransformer) makeAssumptionRefs(head ast.ASTHandle, formula ast.ASTHandle) (_ []ast.ASTRef, resultErr error) {
 	result := make([]ast.ASTRef, 0)
+	tmp1, err := p.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return result, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&tmp1)) }()
 	for _, rule := range p.rules {
 		if rule.tag.IsNull() {
 			continue
@@ -875,6 +881,9 @@ func (p *PredicateTransformer) makeAssumptionRefs(head ast.ASTHandle, formula as
 			}
 			implication, err := p.manager.MkImplies(rule.tag, formula)
 			if err != nil {
+				return result, err
+			}
+			if err = p.manager.SetRef(tmp1, implication); err != nil {
 				return result, err
 			}
 			converted, err := p.owner.FormulaNewToOldRef(implication, uint32(index), false)
