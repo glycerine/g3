@@ -129,6 +129,12 @@ func (p *PredicateTransformer) strengthenArrayEqualities(core []ast.ASTHandle) (
 	if err != nil {
 		return nil, nil, false, err
 	}
+	// expr_ref v = mk_and(core): v lives to the generalizer's return.
+	conjunctionRef, err := p.manager.NewRef(conjunction)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&conjunctionRef)) }()
 	declarations, err := p.collectArrayConstants(conjunction)
 	if err != nil || len(declarations) <= 1 || len(declarations) >= 8 {
 		if err != nil {

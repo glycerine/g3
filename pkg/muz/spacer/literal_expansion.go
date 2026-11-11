@@ -29,6 +29,18 @@ func (e *literalExpansion) keep(h ast.ASTHandle, err error) (ast.ASTHandle, erro
 	return h, nil
 }
 
+// unpin is conjs[i] = <new element>: the vector's reference to the old
+// element goes once the first replacement exists. One pin of h is released.
+func (e *literalExpansion) unpin(h ast.ASTHandle) error {
+	for i := range e.refs {
+		if e.refs[i] == h {
+			e.refs = append(e.refs[:i], e.refs[i+1:]...)
+			return e.manager.DecRef(h)
+		}
+	}
+	return nil
+}
+
 // finish transfers the construction scope to the source conjunction vector.
 // Pin its roots before releasing replaced literals and temporary child pins.
 func (e *literalExpansion) finish(literals []ast.ASTHandle) error {

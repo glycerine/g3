@@ -124,8 +124,17 @@ func (l *Lemma) mkExprCore() (resultErr error) {
 	if err != nil {
 		return err
 	}
+	// m_body = ::push_not(::mk_and(m_cube)): mk_and's temporary dies at the
+	// end of the statement, before normalize.
+	conjunctionRef, err := manager.NewRef(conjunction)
+	if err != nil {
+		return err
+	}
 	clause, err := manager.PushNot(conjunction)
 	if err != nil {
+		return errors.Join(err, manager.DelRef(&conjunctionRef))
+	}
+	if err = manager.DelRef(&conjunctionRef); err != nil {
 		return err
 	}
 	body, err := normalizeFormula(manager, l.context, l.globals, clause, true, false)

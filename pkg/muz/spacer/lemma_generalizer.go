@@ -184,22 +184,26 @@ func (p *PredicateTransformer) expandInductiveLiteralOnce(owner *literalExpansio
 		if err != nil {
 			return nil, err
 		}
+		// conjs[i] = arith.mk_le(e1, e2) releases the equality.
+		if err = owner.unpin(literal); err != nil {
+			return nil, err
+		}
 		ge, err := owner.keep(p.manager.MkArithmeticGE(left, right))
 		if err != nil {
 			return nil, err
 		}
 		return []ast.ASTHandle{le, ge}, nil
 	}
-	if expanded, matched, err := p.expandInductiveDatatypeEquality(owner, left, right); err != nil || matched {
+	if expanded, matched, err := p.expandInductiveDatatypeEquality(owner, literal, left, right); err != nil || matched {
 		return expanded, err
 	}
-	if expanded, matched, err := p.expandInductiveDatatypeEquality(owner, right, left); err != nil || matched {
+	if expanded, matched, err := p.expandInductiveDatatypeEquality(owner, literal, right, left); err != nil || matched {
 		return expanded, err
 	}
-	if expanded, matched, err := p.expandInductiveBitVectorEquality(owner, left, right); err != nil || matched {
+	if expanded, matched, err := p.expandInductiveBitVectorEquality(owner, literal, left, right); err != nil || matched {
 		return expanded, err
 	}
-	if expanded, matched, err := p.expandInductiveBitVectorEquality(owner, right, left); err != nil || matched {
+	if expanded, matched, err := p.expandInductiveBitVectorEquality(owner, literal, right, left); err != nil || matched {
 		return expanded, err
 	}
 	return []ast.ASTHandle{literal}, nil
@@ -207,7 +211,7 @@ func (p *PredicateTransformer) expandInductiveLiteralOnce(owner *literalExpansio
 
 // expandInductiveDatatypeEquality treats value as the constructor side and
 // term as the side replaced by a recognizer and accessor equalities.
-func (p *PredicateTransformer) expandInductiveDatatypeEquality(owner *literalExpansion, term, value ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
+func (p *PredicateTransformer) expandInductiveDatatypeEquality(owner *literalExpansion, literal, term, value ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
 	kind, err := p.manager.GetKind(value)
 	if err != nil || kind != ast.ASTApp {
 		return nil, false, err
@@ -235,6 +239,10 @@ func (p *PredicateTransformer) expandInductiveDatatypeEquality(owner *literalExp
 	}
 	isConstructor, err := owner.keep(p.manager.MkApp(recognizer, []ast.ASTHandle{term}))
 	if err != nil {
+		return nil, false, err
+	}
+	// conjs[i] = m.mk_app(r, c) releases the equality.
+	if err = owner.unpin(literal); err != nil {
 		return nil, false, err
 	}
 	result := []ast.ASTHandle{isConstructor}
@@ -276,7 +284,7 @@ func (p *PredicateTransformer) expandInductiveDatatypeEquality(owner *literalExp
 }
 
 // expandInductiveBitVectorEquality treats value as the numeral side.
-func (p *PredicateTransformer) expandInductiveBitVectorEquality(owner *literalExpansion, term, value ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
+func (p *PredicateTransformer) expandInductiveBitVectorEquality(owner *literalExpansion, equality, term, value ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
 	text, matched, err := p.manager.BitVectorNumeralText(value)
 	if err != nil {
 		return nil, false, fmt.Errorf("read bit-vector numeral text: %w", err)
@@ -319,6 +327,12 @@ func (p *PredicateTransformer) expandInductiveBitVectorEquality(owner *literalEx
 		if integer.Bit(int(bit)) == 0 {
 			literal, err = owner.keep(p.manager.MkNot(literal))
 			if err != nil {
+				return nil, false, err
+			}
+		}
+		// if (j == 0) conjs[i] = e releases the equality.
+		if bit == 0 {
+			if err = owner.unpin(equality); err != nil {
 				return nil, false, err
 			}
 		}

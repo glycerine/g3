@@ -60,18 +60,21 @@ func (q *ProofObligationQueue) confirmConcreteReachability(obligation *ProofObli
 	if check.Status != lbool.True || !check.IsConcrete {
 		return false, nil
 	}
+	// model_evaluator_util mev(m); mev.set_model(*model): mev lives to the
+	// end of is_reachable, through the recursion on the next child.
+	mev, err := newModelEvaluatorUtil(check.Model, obligation.transformer.owner.contexts[0].config.ModelEvaluator)
+	if err != nil {
+		return false, fmt.Errorf("spacer: confirm reachability evaluator: %w", err)
+	}
+	defer func() { resultErr = errors.Join(resultErr, mev.Close()) }()
 	if check.Rule != nil {
 		predecessors, err := obligation.transformer.RulePredecessors(check.Rule)
 		if err != nil {
 			return false, fmt.Errorf("spacer: confirm reachability predecessors: %w", err)
 		}
 		if len(predecessors) != 0 {
-			mev, err := newModelEvaluatorUtil(check.Model, obligation.transformer.owner.contexts[0].config.ModelEvaluator)
-			if err != nil {
-				return false, fmt.Errorf("spacer: confirm reachability fact: %w", err)
-			}
 			fact, err := obligation.transformer.makeConfiguredReachFact(obligation, check.Rule, mev)
-			if err = errors.Join(err, mev.Close()); err != nil {
+			if err != nil {
 				return false, fmt.Errorf("spacer: confirm reachability fact: %w", err)
 			}
 			_, addErr := obligation.transformer.AddReachFact(fact)
