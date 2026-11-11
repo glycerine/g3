@@ -533,29 +533,33 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 			return nil, fmt.Errorf("muz/fp: Spacer rule slicing: %w", err)
 		}
 	}
-	if unfoldStage && unfoldRounds > 0 && coalesceRules {
+	if unfoldStage && unfoldRounds > 0 {
+		// rule_transformer transf1(m_ctx), transf2(m_ctx): coalesce and unfold
+		// are constructed together; transf2 (one mk_unfold applied once per
+		// round) dies before transf1 at the end of the block.
 		coalescer := base.NewRuleTransformer()
-		plugin := transforms.NewRuleCoalescePluginWithProofTrace(e.manager, e.rules, 50, generateProofTrace)
-		if err = coalescer.Register(plugin); err != nil {
-			return nil, errors.Join(err, plugin.Close(), coalescer.Close())
+		coalescePlugin := transforms.NewRuleCoalescePluginWithProofTrace(e.manager, e.rules, 50, generateProofTrace)
+		if err = coalescer.Register(coalescePlugin); err != nil {
+			return nil, errors.Join(err, coalescePlugin.Close(), coalescer.Close())
 		}
-		_, err = coalescer.Apply(prepared)
-		err = errors.Join(err, coalescer.Close())
-		if err != nil {
-			return nil, fmt.Errorf("muz/fp: Spacer rule coalescing: %w", err)
-		}
-	}
-	for round := uint32(0); unfoldStage && round < unfoldRounds; round++ {
 		unfolder := base.NewRuleTransformer()
-		plugin := transforms.NewRuleUnfoldPlugin(e.manager, e.rules, e.params, e.globals, 100)
-		plugin.SetNormalizationParams(normalization)
-		if err = unfolder.Register(plugin); err != nil {
-			return nil, errors.Join(err, plugin.Close(), unfolder.Close())
+		unfoldPlugin := transforms.NewRuleUnfoldPlugin(e.manager, e.rules, e.params, e.globals, 100)
+		unfoldPlugin.SetNormalizationParams(normalization)
+		if err = unfolder.Register(unfoldPlugin); err != nil {
+			return nil, errors.Join(err, unfoldPlugin.Close(), unfolder.Close(), coalescer.Close())
 		}
-		_, err = unfolder.Apply(prepared)
-		err = errors.Join(err, unfolder.Close())
-		if err != nil {
-			return nil, fmt.Errorf("muz/fp: Spacer rule unfolding round %d: %w", round+1, err)
+		if coalesceRules {
+			if _, err = coalescer.Apply(prepared); err != nil {
+				err = fmt.Errorf("muz/fp: Spacer rule coalescing: %w", err)
+			}
+		}
+		for round := uint32(0); err == nil && round < unfoldRounds; round++ {
+			if _, err = unfolder.Apply(prepared); err != nil {
+				err = fmt.Errorf("muz/fp: Spacer rule unfolding round %d: %w", round+1, err)
+			}
+		}
+		if err = errors.Join(err, unfolder.Close(), coalescer.Close()); err != nil {
+			return nil, err
 		}
 	}
 	keep = true

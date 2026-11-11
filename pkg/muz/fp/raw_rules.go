@@ -120,12 +120,13 @@ func (e *PropositionalEngine) copyRawRules() (out []rawRuleFormula, result error
 	return acquired, nil
 }
 
+// cleanupRetiredRawRules releases retired formulas front to back, as
+// m_rule_fmls.reset() (an expr_ref_vector) does.
 func (e *PropositionalEngine) cleanupRetiredRawRules() error {
 	for len(e.retiredRawRules) > 0 {
-		i := len(e.retiredRawRules) - 1
-		err := e.manager.DelRef(&e.retiredRawRules[i].formula)
-		if e.retiredRawRules[i].formula == (ast.ASTRef{}) {
-			e.retiredRawRules = e.retiredRawRules[:i]
+		err := e.manager.DelRef(&e.retiredRawRules[0].formula)
+		if e.retiredRawRules[0].formula == (ast.ASTRef{}) {
+			e.retiredRawRules = e.retiredRawRules[1:]
 		}
 		if err != nil {
 			return err
