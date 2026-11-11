@@ -1488,6 +1488,12 @@ Found while matching `-st` output against `build/z3` on
     encodes that. As a result, the
     lra_propagation_mode_updates trace builds one extra model numeral.
     Ask before removing the repair.
+    Checked (2026-11-11): with the repair disabled (the `if
+    k.repairRelevancy && k.relevancy.enabled` block in the check path,
+    smtcore/smt_kernel.go), lra_propagation_mode_updates and
+    arithmetic_eq_options both match z3's full trace exactly. They are the
+    only vectors in the comparison set that the repair affects. Decision
+    needed.
 
 28. **Mostly done (2026-11-11).** quant_seq_symbolic_int_prefix now
     matches z3 for the whole trace g3 writes in 30s (578684 lines; z3
