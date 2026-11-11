@@ -66,6 +66,9 @@ func TestExpressionAnswerAllocationFailurePublicationAndRetry(t *testing.T) {
 						success = true
 						fragmentMust(t, m.DelRef(&answerRef))
 					}
+					// m_last_answer keeps the published answer until the next
+					// query; release it so the accounting sees only the caller's.
+					fragmentMust(t, e.releaseLastAnswer())
 					if got := m.Stats().LiveReferences; got != before {
 						t.Fatal("failed publication leaked references", stop, before, got, failure)
 					}
@@ -101,6 +104,7 @@ func TestExpressionAnswerAllocationFailurePublicationAndRetry(t *testing.T) {
 					}
 					fragmentMust(t, solver.Close())
 					fragmentMust(t, m.DelRef(&answerRef))
+					fragmentMust(t, e.releaseLastAnswer())
 					if got := m.Stats().LiveReferences; got != before {
 						t.Fatal("retry leaked references", before, got)
 					}

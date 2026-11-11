@@ -72,7 +72,8 @@ func (p *PredicateTransformer) createDerivationChildWith(obligation *ProofObliga
 			resultErr = errors.Join(resultErr, derivation.Close())
 		}
 	}()
-	implicantRef, err := derivation.modelImplicantWith(mev, []ast.ASTHandle{transition, post})
+	// expr_ref_vector Phi lives to the end of create_children.
+	implicantLiterals, implicantRef, err := derivation.modelImplicantLiteralsWith(mev, []ast.ASTHandle{transition, post})
 	if err != nil {
 		return nil, err
 	}
@@ -83,6 +84,7 @@ func (p *PredicateTransformer) createDerivationChildWith(obligation *ProofObliga
 			resultErr = errors.Join(resultErr, p.manager.DelRef(&implicantRef))
 		}
 	}()
+	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, implicantLiterals)) }()
 	implicant, err := p.manager.RefGet(implicantRef)
 	if err != nil {
 		return nil, err

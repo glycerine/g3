@@ -87,6 +87,9 @@ func (e *PropositionalEngine) predicateState(declaration ast.ASTHandle) (*predic
 // PropositionalEngine owns the retained rule, finite-relation, and optional
 // ground-guard rewriting services.
 type PropositionalEngine struct {
+	// lastAnswer is datalog::context's m_last_answer: get_answer_as_formula
+	// caches the engine's answer until the next query or the destructor.
+	lastAnswer ast.ASTRef
 	// pdrQueryAlias maps a queried relation to its mk_query predicate.
 	// contextModelConverter is datalog::context's m_mc != null: context::query
 	// installs a skip converter, while rel_query leaves m_mc as it was (null
@@ -2320,6 +2323,10 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
+	// rel_query: m_last_answer = nullptr.
+	if err := e.releaseLastAnswer(); err != nil {
+		return lbool.Undef, err
+	}
 	defer func() { e.recordQueryStatus(result, resultErr) }()
 	// Source context::rel_query resolves the configured engine before dispatch.
 	if err := e.selectFactEngine(); err != nil {
@@ -2837,6 +2844,40 @@ func (e *PropositionalEngine) inductiveModelAnswer(inductive *model.Model) (answ
 // Answer returns an owning formula describing the current finite relation.
 // Each free variable corresponds to the predicate column with the same index.
 func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTRef, result error) {
+	// The retained cache covers the Spacer query answer; the other backends'
+	// relation accessors keep their per-call ownership.
+	if e.backend != "spacer" {
+		return e.computeAnswer(declaration)
+	}
+	if err := e.requireResultSnapshot(EngineSpacer); err != nil {
+		return answer, err
+	}
+	if e.lastAnswer != (ast.ASTRef{}) {
+		return e.manager.CopyRef(e.lastAnswer)
+	}
+	answer, result = e.computeAnswer(declaration)
+	if result != nil || answer == (ast.ASTRef{}) {
+		return answer, result
+	}
+	// m_last_answer = m_engine->get_answer(); the caller gets a copy.
+	e.lastAnswer = answer
+	return e.manager.CopyRef(e.lastAnswer)
+}
+
+// releaseLastAnswer is m_last_answer = nullptr. An expression query's
+// clone answers through its own engine, so its cache is the same member.
+func (e *PropositionalEngine) releaseLastAnswer() error {
+	var result error
+	if e.queryClone != nil && e.queryClone.lastAnswer != (ast.ASTRef{}) {
+		result = e.manager.DelRef(&e.queryClone.lastAnswer)
+	}
+	if e.lastAnswer != (ast.ASTRef{}) {
+		result = errors.Join(result, e.manager.DelRef(&e.lastAnswer))
+	}
+	return result
+}
+
+func (e *PropositionalEngine) computeAnswer(declaration ast.ASTHandle) (answer ast.ASTRef, result error) {
 	declaration = e.pdrQueryTarget(declaration)
 	// dl_interface::get_answer is an explicit unsupported source operation.
 	if e.backend == "duality" {
@@ -3386,6 +3427,9 @@ func (e *PropositionalEngine) Close() (result error) {
 	}
 	result = errors.Join(result, closeHornModelConversions(e.spacerConversions))
 	e.spacerConversions = nil
+	// ~context: reset() destroys the engine, then m_last_answer dies with
+	// the members.
+	result = errors.Join(result, e.releaseLastAnswer())
 	for i := len(e.scopes) - 1; i >= 0; i-- {
 		result = errors.Join(result, e.scopes[i].Close())
 	}

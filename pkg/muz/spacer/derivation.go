@@ -480,31 +480,42 @@ func (d *Derivation) modelImplicant(md *model.ModelCore, forms []ast.ASTHandle) 
 // by mk_and(lits), with the caller's model evaluator.
 func (d *Derivation) modelImplicantWith(mev *modelEvaluatorUtil, forms []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	manager := d.parent.transformer.manager
+	literals, result, err := d.modelImplicantLiteralsWith(mev, forms)
+	return result, errors.Join(err, releaseNormalizeRefs(manager, literals))
+}
+
+// modelImplicantLiteralsWith also returns the literal references (the
+// caller's expr_ref_vector Phi), which outlive the conjunction mk_and(Phi).
+func (d *Derivation) modelImplicantLiteralsWith(mev *modelEvaluatorUtil, forms []ast.ASTHandle) (literals []ast.ASTRef, result ast.ASTRef, resultErr error) {
+	manager := d.parent.transformer.manager
 	defer func() {
-		if resultErr != nil && result != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, manager.DelRef(&result))
+		if resultErr != nil {
+			if result != (ast.ASTRef{}) {
+				resultErr = errors.Join(resultErr, manager.DelRef(&result))
+			}
+			resultErr = errors.Join(resultErr, releaseNormalizeRefs(manager, literals))
+			literals = nil
 		}
 	}()
 	if mev == nil || mev.core == nil || mev.core.DerivedModel() == nil {
-		return ast.ASTRef{}, ast.ErrASTHandle
+		return nil, ast.ASTRef{}, ast.ErrASTHandle
 	}
 	literals, err := computeImplicantLiteralsWith(manager, mev, forms)
 	if err != nil {
-		return ast.ASTRef{}, err
+		return nil, ast.ASTRef{}, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(manager, literals)) }()
 	handles := make([]ast.ASTHandle, len(literals))
 	for i := range literals {
 		handles[i], err = manager.RefGet(literals[i])
 		if err != nil {
-			return ast.ASTRef{}, err
+			return literals, ast.ASTRef{}, err
 		}
 	}
 	if result, err = manager.NewRef(ast.ASTHandle{}); err != nil {
-		return ast.ASTRef{}, err
+		return literals, ast.ASTRef{}, err
 	}
 	resultErr = rewriter.SimplifyBooleanGateDefault(manager, ast.ASTOpAnd, handles, result)
-	return
+	return literals, result, resultErr
 }
 
 // CreateNextChild strengthens the active premise with a selected must fact,
