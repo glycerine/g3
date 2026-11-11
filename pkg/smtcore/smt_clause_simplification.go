@@ -3,6 +3,7 @@ package smtcore
 // Source: src/smt/smt_context.cpp simplify_clause() and simplify_clauses().
 
 import (
+	"strconv"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -152,10 +153,19 @@ func (s *SMTInternalizerState) simplifyClausesAtBase(baseLevel uint32) error {
 		}
 		start = s.scopes[baseLevel-1].clauseLimit
 	}
+	// IF_VERBOSE(2, "(smt.simplifying-clause-set")
+	if err := assertedVerbose(2, "(smt.simplifying-clause-set"); err != nil {
+		return err
+	}
 	s.simplifyHead = len(s.assignedLiterals)
 	s.simplifyCounter = 0
 	remove := make(map[int]struct{})
 	for index := start; index < len(s.clauses); index++ {
+		// Binary clauses live only in the watch lists, outside m_aux_clauses
+		// and m_lemmas: simplify_clauses neither deletes nor counts them.
+		if s.clauses[index].Binary {
+			continue
+		}
 		deleted, err := s.simplifyClause(&s.clauses[index])
 		if err != nil {
 			return err
@@ -170,5 +180,8 @@ func (s *SMTInternalizerState) simplifyClausesAtBase(baseLevel uint32) error {
 			s.simplifyCounter += len(s.clauses[index].Literals)
 		}
 	}
-	return s.deleteLearnedClauseIndexes(remove)
+	if err := s.deleteLearnedClauseIndexes(remove); err != nil {
+		return err
+	}
+	return assertedVerbose(2, " :num-deleted-clauses "+strconv.Itoa(len(remove))+")\n")
 }
