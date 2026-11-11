@@ -5,6 +5,7 @@ package smtcore
 
 import (
 	"errors"
+	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -243,7 +244,24 @@ func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreserved
 			return result, err
 		}
 	}
+	if livePop {
+		// reinit_clauses walks m_clauses_to_reinit level by level, each
+		// level in push order.
+		sort.SliceStable(result, func(i, j int) bool {
+			a, b := result[i].clause, result[j].clause
+			if a.reinitLevel != b.reinitLevel {
+				return a.reinitLevel < b.reinitLevel
+			}
+			return a.reinitSeq < b.reinitSeq
+		})
+	}
 	return result, nil
+}
+
+// markForReinit records the clause's place in m_clauses_to_reinit.
+func (s *SMTInternalizerState) markForReinit(clause *SMTClause, level uint32) {
+	s.reinitSeq++
+	clause.reinitLevel, clause.reinitSeq = level, s.reinitSeq
 }
 
 func (s *SMTInternalizerState) releasePreservedLearnedClauses(clauses []smtPreservedLearnedClause) (result error) {

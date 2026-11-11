@@ -34,13 +34,17 @@ type SMTClause struct {
 	kind               SMTClauseKind
 	reinit             bool
 	reinternalizeAtoms bool
-	atoms              []smtClauseAtom
-	deleteHandler      SMTClauseDeleteHandler
-	justification      SMTJustification
-	activity           uint32
-	deleted            bool
-	closePhase         uint8
-	closed             bool
+	// reinitLevel and reinitSeq place the clause in
+	// m_clauses_to_reinit[reinitLevel], in push order.
+	reinitLevel   uint32
+	reinitSeq     uint64
+	atoms         []smtClauseAtom
+	deleteHandler SMTClauseDeleteHandler
+	justification SMTJustification
+	activity      uint32
+	deleted       bool
+	closePhase    uint8
+	closed        bool
 }
 
 func NewSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClauseKind, justification SMTJustification, deleteHandler SMTClauseDeleteHandler, saveAtoms bool, expressions []ast.ASTHandle) (*SMTClause, error) {

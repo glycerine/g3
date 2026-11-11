@@ -333,8 +333,10 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 	if kind == SMTClauseAuxLemma && s.scopeLevel > s.baseLevel &&
 		(firstValue == lbool.False || secondValue == lbool.False && firstValue == lbool.Undef) {
 		// Source also revisits unit/conflicting auxiliary lemmas whose atoms
-		// survive, since their assignment can belong to the discarded scope.
+		// survive, since their assignment can belong to the discarded scope:
+		// mark_for_reinit(cls, m_scope_lvl, save_atoms).
 		clause.reinit = true
+		s.markForReinit(clause, s.scopeLevel)
 	}
 	if firstValue == lbool.False {
 		s.setBooleanConflict(NewSMTBooleanClause(clause), SMTNullLiteral)

@@ -121,6 +121,8 @@ type smtPendingEquality struct {
 }
 
 type SMTInternalizerState struct {
+	// reinitSeq orders pushes onto m_clauses_to_reinit.
+	reinitSeq uint64
 	// afterFlush runs in Close between context::flush and the destruction
 	// of m_theories: ~context destroys m_model and m_proto_model there.
 	afterFlush func() error

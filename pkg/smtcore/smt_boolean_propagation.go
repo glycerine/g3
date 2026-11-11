@@ -171,6 +171,16 @@ func (s *SMTInternalizerState) makeClauseWithJustificationAndDeleteHandler(liter
 		}
 		return nil, nil, err
 	}
+	if saveAtoms {
+		// mark_for_reinit(cls, get_max_iscope_lvl(lits), true)
+		var level uint32
+		for _, literal := range literals {
+			if l := s.booleanData[literal.Var()].InternalLevel(); l > level {
+				level = l
+			}
+		}
+		s.markForReinit(clause, level)
+	}
 	for index := 0; index < 2; index++ {
 		literal, err := clause.Literal(index)
 		if err != nil {
