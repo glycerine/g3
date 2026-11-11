@@ -1546,16 +1546,23 @@ Found while matching `-st` output against `build/z3` on
     g3 bit-blasts the objectives before it builds the solver, and never
     creates the maximize!! constants. Port opt::context::optimize/normalize
     in source order.
-    Progress (2026-11-11, 029b6fe84): the first pareto check now runs
-    init_solver and normalize; purification uses from_fmls' hard
-    constraints, and the model gets the purify filter and then the
-    normalize converter. The three pareto vectors first differ at lines
-    224/78/32 (was 12/38/29). Recorded deviation (ask-first): when
-    normalize would turn an arithmetic objective into a 0-1 MaxSAT sum,
-    z3 4.7 itself does not terminate. That case keeps the un-normalized
-    path. Next divergences: pareto_bit_vector line 225 (an extra
-    attach-enode #1/#2 pair, a second kernel); pareto_optimization 79;
-    pareto_soft 32.
+    Attempt (2026-11-11, 029b6fe84, reverted in 36c1aa6a1): ran
+    init_solver and normalize on the first pareto check, purified against
+    from_fmls' hard constraints, and applied the purify filter and then
+    the normalize converter to the model. The three pareto vectors
+    matched z3's stdout, and their logs advanced to 224/78/32 (from
+    12/38/29). Two blockers:
+    (a) In a frontier enumeration with (assert (= (bvadd x y) #b11)), the
+        continuation points published x = #b00. The converter was held
+        and applied, so the continuation model path must differ (find
+        it; parsers/smt2 TestSMT2BitVectorParetoOptimizationEndToEnd).
+    (b) Negative-weight assert-soft objectives reported 0 instead of
+        (- 2), and the second check said unsat
+        (TestSMT2NegativeSoftParetoOptimizationEndToEnd). Normalize's
+        soft offset/negate are not carried into pareto evaluation.
+    Also: z3 4.7.1 itself does not terminate on 0-1 arithmetic pareto
+    objectives once normalize makes them MaxSAT. Keeping g3 terminating
+    there is an ask-first deviation.
 
 31. **In progress (2026-11-11): PDR/spacer query pipeline lifetimes (about 40
     fixedpoint_* and fp_spacer_* vectors).** Plan: pkg/PDR_PORT_PLAN.md.
