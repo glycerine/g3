@@ -29,7 +29,15 @@ func (k *SMTKernel) copySequencePlugin(source *SMTKernel) error {
 	}
 	switch previous := old.(type) {
 	case *SMTTheorySeq:
-		return k.installFreshSequencePlugin(false, nil, false)
+		if err := k.installFreshSequencePlugin(false, nil, false); err != nil {
+			return err
+		}
+		// copy_plugins: register_plugin runs theory_seq::init, which builds
+		// the seq_expr_solver kernel at once, not at the first push.
+		if fresh, ok := k.internalizer.theories[destinationFamily].(*SMTTheorySeq); ok {
+			return fresh.Setup()
+		}
+		return nil
 	case *SMTStringTheory:
 		return k.installFreshSequencePlugin(true, previous.parameterOwner, true)
 	default:
