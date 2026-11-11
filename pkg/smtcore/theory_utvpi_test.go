@@ -139,7 +139,9 @@ func TestSMTUTVPIContextConflictsProofsAndScopes(t *testing.T) {
 								t.Fatal("owned UTVPI proof coefficient", i)
 							}
 						}
-						resolver := &SMTConflictResolver{state: state}
+						resolver, err := NewSMTConflictResolver(state)
+						astTestMust(t, err)
+						t.Cleanup(func() { astTestMust(t, resolver.Close()) })
 						proof, err := resolver.conflictProof(conflict, SMTNullLiteral, nil)
 						astTestMust(t, err)
 						if proof.IsNull() {
@@ -245,7 +247,9 @@ func TestSMTUTVPIContextShortcutConflictProof(t *testing.T) {
 			t.Fatal("binary shortcut lost coefficient one")
 		}
 	}
-	resolver := &SMTConflictResolver{state: state}
+	resolver, err := NewSMTConflictResolver(state)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, resolver.Close()) })
 	proof, err := resolver.conflictProof(conflict, SMTNullLiteral, nil)
 	astTestMust(t, err)
 	if proof.IsNull() {

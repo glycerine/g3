@@ -5,6 +5,7 @@ package smtcore
 // src/smt/smt_justification.cpp mk_proof methods.
 
 import (
+	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -15,6 +16,25 @@ type smtConflictProofBuilder struct {
 	literal  map[SMTLiteral]ast.ASTHandle
 	objects  map[SMTJustification]ast.ASTHandle
 	equality map[smtEnodePairKey]ast.ASTHandle
+	// newProofs is m_new_proofs: every proof put in a cache, released
+	// front to back once m_lemma_proof holds the result.
+	newProofs []ast.ASTRef
+}
+
+func (b *smtConflictProofBuilder) keep(proof ast.ASTHandle) error {
+	ref, err := b.state.manager.NewRef(proof)
+	if err == nil {
+		b.newProofs = append(b.newProofs, ref)
+	}
+	return err
+}
+
+func (b *smtConflictProofBuilder) releaseNewProofs() (result error) {
+	for i := range b.newProofs {
+		result = errors.Join(result, b.state.manager.DelRef(&b.newProofs[i]))
+	}
+	b.newProofs = nil
+	return result
 }
 
 func (b *smtConflictProofBuilder) normalizeEqualityProof(first, second *SMTEnode, proof ast.ASTHandle) (ast.ASTHandle, error) {
@@ -29,8 +49,9 @@ func (b *smtConflictProofBuilder) normalizeEqualityProof(first, second *SMTEnode
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	// norm_eq_proof pushes each proof it makes onto m_new_proofs.
 	if fact == first.owner && second.owner == truth {
-		return b.state.manager.MkProofIffTrue(proof)
+		return b.kept(b.state.manager.MkProofIffTrue(proof))
 	}
 	falsity, err := b.state.manager.MkFalse()
 	if err != nil {
@@ -42,7 +63,7 @@ func (b *smtConflictProofBuilder) normalizeEqualityProof(first, second *SMTEnode
 			return ast.ASTHandle{}, e
 		}
 		if negated && child == first.owner {
-			return b.state.manager.MkProofIffFalse(proof)
+			return b.kept(b.state.manager.MkProofIffFalse(proof))
 		}
 	}
 	count, err := b.state.manager.GetNumArgs(fact)
@@ -61,9 +82,17 @@ func (b *smtConflictProofBuilder) normalizeEqualityProof(first, second *SMTEnode
 		return proof, nil
 	}
 	if left == second.owner && right == first.owner {
-		return b.state.manager.MkProofSymmetry(proof)
+		return b.kept(b.state.manager.MkProofSymmetry(proof))
 	}
 	return ast.ASTHandle{}, ast.ErrASTDomain
+}
+
+// kept pushes a freshly made proof onto m_new_proofs.
+func (b *smtConflictProofBuilder) kept(proof ast.ASTHandle, err error) (ast.ASTHandle, error) {
+	if err != nil {
+		return proof, err
+	}
+	return proof, b.keep(proof)
 }
 
 func (b *smtConflictProofBuilder) equalityJustificationProof(first, second *SMTEnode, justification SMTEqualityJustification) (ast.ASTHandle, error) {
@@ -113,12 +142,14 @@ func (b *smtConflictProofBuilder) equalityJustificationProof(first, second *SMTE
 			}
 			var congruence ast.ASTHandle
 			if len(parents) != 0 {
-				congruence, err = b.state.manager.MkProofCongruence(first.owner, secondPrime, parents)
+				// m_new_proofs.push_back(pr1)
+				congruence, err = b.kept(b.state.manager.MkProofCongruence(first.owner, secondPrime, parents))
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}
 			}
-			commutativity, err := b.state.manager.MkProofCommutativity(secondPrime)
+			// m_new_proofs.push_back(pr2)
+			commutativity, err := b.kept(b.state.manager.MkProofCommutativity(secondPrime))
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
@@ -253,7 +284,7 @@ func (b *smtConflictProofBuilder) equalityProof(first, second *SMTEnode) (ast.AS
 		}
 	}
 	b.equality[key] = proof
-	return proof, nil
+	return proof, b.keep(proof)
 }
 
 func (b *smtConflictProofBuilder) literalExpression(literal SMTLiteral) (ast.ASTHandle, error) {
@@ -289,12 +320,14 @@ func (b *smtConflictProofBuilder) literalProof(literal SMTLiteral) (ast.ASTHandl
 		proof, err := b.state.manager.MkProofHypothesis(expression)
 		if err == nil {
 			b.literal[literal] = proof
+			err = b.keep(proof)
 		}
 		return proof, err
 	}
 	proof, err := b.booleanProof(literal, justification)
 	if err == nil {
 		b.literal[literal] = proof
+		err = b.keep(proof)
 	}
 	return proof, err
 }
@@ -782,6 +815,7 @@ func (b *smtConflictProofBuilder) objectProof(object SMTJustification) (ast.ASTH
 	}
 	if err == nil {
 		b.objects[object] = proof
+		err = b.keep(proof)
 	}
 	return proof, err
 }
@@ -869,12 +903,19 @@ func (b *smtConflictProofBuilder) dynamicAckProof(justification *smtDynamicAckJu
 	return b.state.manager.MkProofLemma(contradiction, lemma)
 }
 
-func (r *SMTConflictResolver) conflictProof(conflict SMTBooleanJustification, notLiteral SMTLiteral, lemma []SMTLiteral) (ast.ASTHandle, error) {
+func (r *SMTConflictResolver) conflictProof(conflict SMTBooleanJustification, notLiteral SMTLiteral, lemma []SMTLiteral) (result ast.ASTHandle, resultErr error) {
 	proofs, err := r.state.manager.ProofsEnabled()
 	if err != nil || !proofs {
 		return ast.ASTHandle{}, err
 	}
 	builder := &smtConflictProofBuilder{state: r.state, marked: make(map[int32]struct{}), literal: make(map[SMTLiteral]ast.ASTHandle), objects: make(map[SMTJustification]ast.ASTHandle), equality: make(map[smtEnodePairKey]ast.ASTHandle)}
+	// m_lemma_proof takes the result before m_new_proofs.reset().
+	defer func() {
+		if !result.IsNull() && resultErr == nil {
+			resultErr = r.state.manager.SetRef(r.lemmaProof, result)
+		}
+		resultErr = errors.Join(resultErr, builder.releaseNewProofs())
+	}()
 	for _, literal := range lemma {
 		builder.marked[literal.Var()] = struct{}{}
 	}

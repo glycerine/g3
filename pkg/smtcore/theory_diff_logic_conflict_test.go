@@ -92,7 +92,9 @@ func TestSMTDifferenceContextShortcutConflictProof(t *testing.T) {
 					t.Fatal("binary shortcut lost coefficient one")
 				}
 			}
-			resolver := &SMTConflictResolver{state: state}
+			resolver, err := NewSMTConflictResolver(state)
+			astTestMust(t, err)
+			t.Cleanup(func() { astTestMust(t, resolver.Close()) })
 			proof, err := resolver.conflictProof(conflict, SMTNullLiteral, nil)
 			astTestMust(t, err)
 			if proof.IsNull() {
