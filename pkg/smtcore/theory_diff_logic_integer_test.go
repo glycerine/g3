@@ -203,6 +203,7 @@ func TestSMTIntegerDiffTheoryOffsetTerm(t *testing.T) {
 
 func TestSMTIntegerDiffTheoryParallelBoundAxioms(t *testing.T) {
 	f := newSMTIntegerDiffFixture(t)
+	f.theory.addBinaryBounds = true // m_arith_add_binary_bounds
 	strong := f.bound(t, smtArithOpLE, f.x, f.y, 5)
 	weak := f.bound(t, smtArithOpLE, f.x, f.y, 7)
 	equal := f.bound(t, smtArithOpGE, f.y, f.x, -5)

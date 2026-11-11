@@ -577,8 +577,12 @@ func (t *SMTIntegerDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool)
 		return false, err
 	}
 	literal := NewSMTLiteral(variable, false)
-	if err = t.addBoundAxioms(source, target, weight, literal); err != nil {
-		return false, err
+	// internalize_atom: "x - y <= 5 => x - y <= 7" axioms only under
+	// m_arith_add_binary_bounds.
+	if t.addBinaryBounds {
+		if err = t.addBoundAxioms(source, target, weight, literal); err != nil {
+			return false, err
+		}
 	}
 	positive, err := t.graph.AddEdge(int32(source), int32(target), weight, literal)
 	if err != nil {

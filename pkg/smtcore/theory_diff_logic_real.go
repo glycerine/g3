@@ -392,8 +392,12 @@ func (t *SMTRealDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (b
 		return false, err
 	}
 	literal := NewSMTLiteral(variable, false)
-	if err = t.addRealBoundAxioms(source, target, &weight, literal); err != nil {
-		return false, err
+	// internalize_atom: "x - y <= 5 => x - y <= 7" axioms only under
+	// m_arith_add_binary_bounds.
+	if t.addBinaryBounds {
+		if err = t.addRealBoundAxioms(source, target, &weight, literal); err != nil {
+			return false, err
+		}
 	}
 	positive, err := t.realGraph.AddEdge(int32(source), int32(target), &weight, literal)
 	if err != nil {

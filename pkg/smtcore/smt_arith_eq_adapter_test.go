@@ -16,7 +16,7 @@ func TestSMTArithmeticEqualityAdapterEventsAndScopes(t *testing.T) {
 	astTestMust(t, f.state.PushScope())
 	astTestMust(t, f.state.enqueueTheoryEquality(f.family, left, right))
 	astTestMust(t, f.state.PropagateTheoryEvents())
-	if f.theory.equalityAdapter.NumAxioms() != 1 || len(f.theory.atoms) != 2 || len(f.state.Clauses()) != 4 {
+	if f.theory.equalityAdapter.NumAxioms() != 1 || len(f.theory.atoms) != 2 || len(f.state.Clauses()) != 3 {
 		t.Fatal("integer equality event adapter", f.theory.equalityAdapter.NumAxioms(), len(f.theory.atoms), len(f.state.Clauses()))
 	}
 	astTestMust(t, f.theory.NewDisequality(left, right))
@@ -42,7 +42,9 @@ func TestSMTRealDifferenceEqualityEventAdapter(t *testing.T) {
 	right := f.state.context.enodes.get(f.y).TheoryVar(f.family)
 	astTestMust(t, f.state.enqueueTheoryDisequality(f.family, left, right))
 	astTestMust(t, f.state.PropagateTheoryEvents())
-	if f.theory.equalityAdapter.NumAxioms() != 1 || len(f.theory.realAtoms) != 2 || len(f.state.Clauses()) != 4 {
+	// The adapter's three clauses; without m_arith_add_binary_bounds the
+	// atoms get no bound axioms.
+	if f.theory.equalityAdapter.NumAxioms() != 1 || len(f.theory.realAtoms) != 2 || len(f.state.Clauses()) != 3 {
 		t.Fatal("real disequality event adapter", f.theory.equalityAdapter.NumAxioms(), len(f.theory.realAtoms), len(f.state.Clauses()))
 	}
 }
@@ -60,7 +62,7 @@ func TestSMTArithmeticEqualityAdapterRecreatesSearchAxiomsAtRestart(t *testing.T
 	astTestMust(t, f.state.PushScope())
 	astTestMust(t, f.state.enqueueTheoryEquality(f.family, left, right))
 	astTestMust(t, f.state.PropagateTheoryEvents())
-	if len(f.theory.equalityAdapter.restart) != 1 || len(f.state.Clauses()) != 4 {
+	if len(f.theory.equalityAdapter.restart) != 1 || len(f.state.Clauses()) != 3 {
 		t.Fatal("search equality was not queued for restart", len(f.theory.equalityAdapter.restart), len(f.state.Clauses()))
 	}
 	astTestMust(t, f.state.PopScopes(1))
@@ -68,7 +70,7 @@ func TestSMTArithmeticEqualityAdapterRecreatesSearchAxiomsAtRestart(t *testing.T
 		t.Fatal("search axioms survived decision backtracking", len(f.state.Clauses()))
 	}
 	astTestMust(t, f.state.RestartTheories())
-	if len(f.theory.equalityAdapter.restart) != 0 || f.theory.equalityAdapter.NumAxioms() != 2 || len(f.state.Clauses()) != 4 {
+	if len(f.theory.equalityAdapter.restart) != 0 || f.theory.equalityAdapter.NumAxioms() != 2 || len(f.state.Clauses()) != 3 {
 		t.Fatal("restart did not recreate equality axioms", len(f.theory.equalityAdapter.restart), f.theory.equalityAdapter.NumAxioms(), len(f.state.Clauses()))
 	}
 }
