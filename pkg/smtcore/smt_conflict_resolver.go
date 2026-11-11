@@ -413,9 +413,8 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 	// context::resolve_conflict counts each resolved conflict; setting a
 	// conflict does not.
 	r.state.statistics.NumConflicts++
-	if err := r.state.manager.ResetRef(r.lemmaProof); err != nil {
-		return SMTConflictResolution{}, err
-	}
+	// m_lemma_proof keeps the previous conflict's proof until
+	// mk_conflict_proof assigns the new one.
 	originalConflict := conflict
 	consequent := SMTFalseLiteral
 	if notLiteral != SMTNullLiteral {
