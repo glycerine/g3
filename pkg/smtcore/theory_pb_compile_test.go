@@ -246,8 +246,10 @@ func TestSMTPBCompilationWeightedDefinitionsAndBaseFolding(t *testing.T) {
 					}
 				}
 				if proofs {
+					// Auxiliary clause justifications are scope-owned
+					// (m_justifications); the clause still carries one.
 					for _, clause := range s.clauses {
-						if clause.owner == nil {
+						if clause.clause == nil || clause.clause.Justification() == nil {
 							t.Fatal("compiled proof clause has no theory axiom")
 						}
 					}

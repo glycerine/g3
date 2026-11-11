@@ -311,6 +311,13 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		clause.atoms[1], clause.atoms[secondWatch] = clause.atoms[secondWatch], clause.atoms[1]
 		clause.atoms[0], clause.atoms[firstWatch] = clause.atoms[firstWatch], clause.atoms[0]
 	}
+	if kind == SMTClauseAux && owner != nil {
+		// mk_justification puts a justification with a del_eh in
+		// m_justifications: it dies with its scope (or flush), not with the
+		// auxiliary clause, which clause::deallocate leaves alone.
+		s.ownedJustifications = append(s.ownedJustifications, owner)
+		owner = nil
+	}
 	s.clauses = append(s.clauses, SMTInternalizedClause{Literals: kept, Root: root, Proof: proof, clause: clause, owner: owner})
 	// Source mk_clause counts a two-literal clause that is not stored as a
 	// binary watch only in m_num_mk_clause (case 2 falls through).
