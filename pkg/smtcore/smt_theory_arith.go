@@ -150,6 +150,7 @@ type SMTTheoryArith struct {
 	inToCheck            *natset.Set
 	tmp                  smtArithmeticValue
 	random               *z3rand.Generator
+	setupDone            bool
 	numConflicts         uint32
 	branchCutCounter     uint32
 	eagerGCD             bool
@@ -430,10 +431,14 @@ func NewSMTTheoryArith(family ast.FamilyID, integerExt bool) (*SMTTheoryArith, e
 }
 
 // ConfigureArithmetic sets m_params; the random seed and eager gcd follow
-// the constructor and setup().
+// the constructor and setup(). m_params is a reference to the context's
+// parameters: updt_params after setup() changes the values without touching
+// m_random's state, so a later configuration keeps the generator.
 func (t *SMTTheoryArith) ConfigureArithmetic(params SMTArithState) error {
 	t.params = params
-	t.random = z3rand.New(params.RandomSeed)
+	if t.random == nil || !t.setupDone {
+		t.random = z3rand.New(params.RandomSeed)
+	}
 	t.eagerGCD = params.EagerGCD
 	t.arithEqAdapter.lazy = params.LazyAdapter
 	return nil
@@ -453,6 +458,7 @@ func (t *SMTTheoryArith) DefaultInternalizer() bool { return false }
 // Setup is theory_arith::setup: reseed, then theory::setup.
 func (t *SMTTheoryArith) Setup() error {
 	t.random.SetSeed(t.params.RandomSeed)
+	t.setupDone = true
 	return t.SMTTheoryBase.Setup()
 }
 
