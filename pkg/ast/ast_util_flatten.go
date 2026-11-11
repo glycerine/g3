@@ -1,5 +1,7 @@
 package ast
 
+import "errors"
+
 // Source: src/ast/ast_util.cpp:254-366; src/ast/ast_util.h:146-153.
 
 func (m *ASTManager) astUtilRawNot(r astNodeRef) (astNodeRef, error) {
@@ -44,6 +46,11 @@ func (m *ASTManager) astUtilBinary(r astNodeRef, op int32) (astNodeRef, astNodeR
 type flattenOwned struct {
 	m     *ASTManager
 	count map[astNodeRef]int
+	// initial counts the vector's own references to the input elements
+	// (FlattenAndOwned); release drops one such reference when the element
+	// is replaced.
+	initial map[astNodeRef]int
+	release func(ASTHandle) error
 }
 
 func (o *flattenOwned) hold(r astNodeRef) {
@@ -57,6 +64,14 @@ func (o *flattenOwned) drop(h ASTHandle) error {
 	r, e := o.m.requireExpr(h)
 	if e != nil {
 		return e
+	}
+	if n := o.initial[r]; n > 0 {
+		if n == 1 {
+			delete(o.initial, r)
+		} else {
+			o.initial[r] = n - 1
+		}
+		return o.release(h)
 	}
 	c, ok := o.count[r]
 	if !ok {
@@ -74,7 +89,10 @@ func (o *flattenOwned) drop(h ASTHandle) error {
 }
 
 func (m *ASTManager) astUtilFlattenAnd(result []ASTHandle) ([]ASTHandle, error) {
-	owned := flattenOwned{m: m}
+	return m.astUtilFlattenAndWith(result, &flattenOwned{m: m})
+}
+
+func (m *ASTManager) astUtilFlattenAndWith(result []ASTHandle, owned *flattenOwned) ([]ASTHandle, error) {
 	for i := 0; i < len(result); {
 		r, e := m.requireExpr(result[i])
 		if e != nil {
@@ -285,6 +303,76 @@ func (m *ASTManager) FlattenAnd(result []ASTHandle) ([]ASTHandle, error) {
 	}
 	defer m.mu.Unlock()
 	return m.astUtilFlattenAnd(result)
+}
+
+// FlattenAndOwned is flatten_and(expr_ref_vector&) on an owning vector: refs
+// are the vector's references, released one by one as flatten_and replaces
+// their elements; the result's elements (surviving inputs and the terms
+// flatten_and creates) come back as references the caller owns.
+func (m *ASTManager) FlattenAndOwned(refs []ASTRef) (_ []ASTRef, resultErr error) {
+	if e := m.lock(); e != nil {
+		return nil, e
+	}
+	defer m.mu.Unlock()
+	handles := make([]ASTHandle, len(refs))
+	pool := make(map[ASTHandle][]ASTRef, len(refs))
+	owned := &flattenOwned{m: m, initial: make(map[astNodeRef]int, len(refs))}
+	for i := range refs {
+		r, e := m.reference(refs[i])
+		if e != nil {
+			return nil, e
+		}
+		handles[i] = m.external(r.node)
+		pool[handles[i]] = append(pool[handles[i]], refs[i])
+		owned.initial[r.node]++
+	}
+	defer func() {
+		if resultErr != nil {
+			for _, list := range pool {
+				for i := range list {
+					resultErr = errors.Join(resultErr, m.delRef(&list[i]))
+				}
+			}
+		}
+	}()
+	owned.release = func(h ASTHandle) error {
+		list := pool[h]
+		if len(list) == 0 {
+			return nil
+		}
+		ref := list[len(list)-1]
+		pool[h] = list[:len(list)-1]
+		return m.delRef(&ref)
+	}
+	result, e := m.astUtilFlattenAndWith(handles, owned)
+	if e != nil {
+		return nil, e
+	}
+	out := make([]ASTRef, len(result))
+	for i, h := range result {
+		if list := pool[h]; len(list) != 0 {
+			out[i] = list[len(list)-1]
+			pool[h] = list[:len(list)-1]
+			continue
+		}
+		ref, e := m.newRef(h)
+		if e != nil {
+			for j := 0; j < i; j++ {
+				pool[result[j]] = append(pool[result[j]], out[j])
+			}
+			return nil, e
+		}
+		out[i] = ref
+	}
+	// References of inputs flatten_and removed without a replacement (true).
+	for _, list := range pool {
+		for i := range list {
+			if e := m.delRef(&list[i]); e != nil {
+				return nil, e
+			}
+		}
+	}
+	return out, nil
 }
 
 // FlattenOr rewrites a caller-owned disjunction vector in the source order.

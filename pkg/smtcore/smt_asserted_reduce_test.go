@@ -215,7 +215,11 @@ func TestSMTAssertedRewriterPreservesParametersAcrossPhaseUpdates(t *testing.T) 
 	for _, setting := range []struct {
 		name string
 		want bool
-	}{{"flat", false}, {"elim_and", false}, {"som", true}, {"arith_ineq_lhs", true}, {"rewrite_patterns", true}} {
+	}{{"flat", false}, {"elim_and", true}, {"som", false}, {"arith_ineq_lhs", true}, {"rewrite_patterns", true}} {
+		// smt_solver::updt_params passes the solver's accumulated parameters
+		// (local's som=false included) to context::updt_params, which appends
+		// them to m_params and does not run set_eliminate_and; the next phase
+		// flip restores som.
 		name := setting.name
 		got, err := k.paramContext.GetBoolName(&k.assertedParams, &name, !setting.want)
 		astTestMust(t, err)

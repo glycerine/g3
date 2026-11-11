@@ -657,13 +657,20 @@ func (k *SMTKernel) UpdateParams(params *uparams.ParamsRef) error {
 	// Quantifier instantiation borrows this rewriter independently of the
 	// assertion-preprocessing switch. Preserve its lifetime when that switch
 	// is disabled, including across later parameter updates.
-	if k.preprocessor == nil {
+	// asserted_formulas sets the rewriter's substitution once, in its
+	// constructor; updt_params only appends the parameters (set_substitution
+	// would reset the rewriter's cache).
+	created := k.preprocessor == nil
+	if created {
 		k.preprocessor, err = rewriter.NewTheoryRewriter(k.manager, k.paramContext, k.paramGlobals, params)
+		if err == nil {
+			err = k.preprocessor.SetSubstitution(&k.assertedSubstitution)
+		}
 	} else {
-		err = k.preprocessor.UpdateParams(params)
-	}
-	if err == nil {
-		err = k.preprocessor.SetSubstitution(&k.assertedSubstitution)
+		// asserted_formulas::updt_params appends p to m_params; the rewriter
+		// reads the accumulated m_params (the eliminate-and settings
+		// included) at its next updt_params.
+		err = k.preprocessor.UpdateParams(&k.assertedParams)
 	}
 	if err == nil {
 		k.internalizer.theoryRewriter = k.preprocessor
@@ -671,8 +678,12 @@ func (k *SMTKernel) UpdateParams(params *uparams.ParamsRef) error {
 		k.internalizer.baseScopePop = k.dropUnsatProof
 		k.preprocess = enabled
 		k.preprocessState = state
-		k.assertedPhaseReady = false
-		err = k.setAssertedEliminateAnd(false)
+		// set_eliminate_and is a no-op while the flag is unchanged: a later
+		// updt_params does not flush the rewriter's cache.
+		if created {
+			k.assertedPhaseReady = false
+			err = k.setAssertedEliminateAnd(false)
+		}
 	}
 	return err
 }

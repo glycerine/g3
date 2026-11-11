@@ -439,7 +439,24 @@ func (p *PredicateTransformer) IsInvariant(level uint32, formula ast.ASTHandle) 
 	if err != nil {
 		return false, 0, err
 	}
-	result, err := p.solver.CheckAssumptions([]ast.ASTHandle{negated}, nil, PropCheckOptions{
+	// conj.push_back(mk_not(m, lemma)); flatten_and(conj): the owning vector
+	// drops the negation as flatten_and replaces it, and lives to the return.
+	negatedRef, err := p.manager.NewRef(negated)
+	if err != nil {
+		return false, 0, err
+	}
+	conjRefs, err := p.manager.FlattenAndOwned([]ast.ASTRef{negatedRef})
+	if err != nil {
+		return false, 0, err
+	}
+	defer func() { _ = releaseNormalizeRefs(p.manager, conjRefs) }()
+	conj := make([]ast.ASTHandle, len(conjRefs))
+	for i := range conjRefs {
+		if conj[i], err = p.manager.RefGet(conjRefs[i]); err != nil {
+			return false, 0, err
+		}
+	}
+	result, err := p.solver.CheckAssumptions(conj, nil, PropCheckOptions{
 		SubsetBasedCore: true,
 		Level:           &level,
 		Background:      []ast.ASTHandle{extension},
