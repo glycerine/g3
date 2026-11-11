@@ -24,33 +24,19 @@ type smtModelFinderAUFLiteral struct {
 	term       ast.ASTHandle
 }
 
-func (g *smtModelFinderAUFGraph) collectLiterals(quantifier, formula ast.ASTHandle, negative bool) error {
+// processLiteral is quantifier_analyzer::process_literal(atom, sign).
+func (g *smtModelFinderAUFGraph) processLiteral(quantifier, atom ast.ASTHandle, negative bool) error {
 	m := g.finder.manager
-	ground, err := m.IsGround(formula)
-	if err != nil || ground {
-		return err
-	}
-	flag := uint8(1)
-	if negative {
-		flag = 2
-	}
-	key := smtModelFinderAnalysisKey{quantifier, formula}
-	if g.analysisSeen[key]&flag != 0 {
-		return nil
-	}
-	g.analysisSeen[key] |= flag
-	if err := g.finder.checkpoint(); err != nil {
-		return err
-	}
-	kind, err := m.GetKind(formula)
+	kind, err := m.GetKind(atom)
 	if err != nil {
 		return err
 	}
 	if kind == ast.ASTVar {
-		variable, err := m.GetVarIndex(formula)
+		variable, err := m.GetVarIndex(atom)
 		if err != nil {
 			return err
 		}
+		// (not X) is X != true; X is X != false.
 		var term ast.ASTHandle
 		if negative {
 			term, err = m.MkTrue()
@@ -64,91 +50,55 @@ func (g *smtModelFinderAUFGraph) collectLiterals(quantifier, formula ast.ASTHand
 		return nil
 	}
 	if kind != ast.ASTApp {
-		return nil
+		return ast.ErrASTDomain
 	}
-	family, err := m.GetFamilyID(formula)
+	equality, err := g.isBasicEq(atom)
 	if err != nil {
 		return err
 	}
-	if family != m.BasicFamilyID() {
-		before := len(g.literals)
-		if err := g.collectComparison(quantifier, formula, negative); err != nil {
-			return err
-		}
-		if len(g.literals) > before {
-			return nil
-		}
-		return g.analyzeApplication(quantifier, formula)
-	}
-	op, err := m.GetDeclKind(formula)
-	if err != nil {
-		return err
-	}
-	n, err := m.GetNumArgs(formula)
-	if err != nil {
-		return err
-	}
-	switch op {
-	case ast.ASTOpNot:
-		arg, err := m.GetArg(formula, 0)
+	if equality {
+		left, err := m.GetArg(atom, 0)
 		if err != nil {
 			return err
 		}
-		return g.collectLiterals(quantifier, arg, !negative)
-	case ast.ASTOpOr, ast.ASTOpAnd, ast.ASTOpIff, ast.ASTOpIte:
-		for i := uint32(0); i < n; i++ {
-			arg, err := m.GetArg(formula, i)
-			if err != nil {
-				return err
-			}
-			if err = g.collectLiterals(quantifier, arg, negative); err != nil {
-				return err
-			}
-			if op == ast.ASTOpIff || op == ast.ASTOpIte && i == 0 {
-				if err = g.collectLiterals(quantifier, arg, !negative); err != nil {
-					return err
-				}
-			}
+		right, err := m.GetArg(atom, 1)
+		if err != nil {
+			return err
 		}
-		return nil
-	case ast.ASTOpEq:
-	default:
-		return g.analyzeApplication(quantifier, formula)
-	}
-	left, err := m.GetArg(formula, 0)
-	if err != nil {
-		return err
-	}
-	right, err := m.GetArg(formula, 1)
-	if err != nil {
-		return err
-	}
-	variable, bound, _, matched, err := g.variableAndGround(left, right)
-	if err != nil {
-		return err
-	}
-	row := smtModelFinderAUFLiteral{quantifier: quantifier, first: variable, term: bound}
-	if matched {
-		row.kind = aufEqualGround
-		if negative {
-			row.kind = aufDisequalGround
+		variable, bound, _, matched, err := g.variableAndGround(left, right)
+		if err != nil {
+			return err
 		}
-	} else {
+		if matched {
+			row := smtModelFinderAUFLiteral{kind: aufEqualGround, quantifier: quantifier, first: variable, term: bound}
+			if negative {
+				row.kind = aufDisequalGround
+			}
+			g.appendLiteral(row)
+			return nil
+		}
 		first, second, matched, err := g.variableAndVariable(left, right)
-		if err != nil || !matched {
-			if err != nil {
-				return err
+		if err != nil {
+			return err
+		}
+		if matched {
+			row := smtModelFinderAUFLiteral{kind: aufEqualVariables, quantifier: quantifier, first: first, second: second}
+			if negative {
+				row.kind = aufDisequalVariables
 			}
-			return g.analyzeApplication(quantifier, formula)
+			g.appendLiteral(row)
+			return nil
 		}
-		row.first, row.second = first, second
-		row.kind = aufEqualVariables
-		if negative {
-			row.kind = aufDisequalVariables
-		}
+		return g.processApp(quantifier, atom)
 	}
-	g.appendLiteral(row)
-	return nil
+	before := len(g.literals)
+	if err := g.collectComparison(quantifier, atom, negative); err != nil {
+		return err
+	}
+	if len(g.literals) > before {
+		return nil
+	}
+	return g.processApp(quantifier, atom)
 }
 
 func (g *smtModelFinderAUFGraph) processLiterals() error {

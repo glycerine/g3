@@ -31,16 +31,15 @@ func TestSMTModelFinderAUFAnalyzerVisitsBooleanFormulasInsideTerms(t *testing.T)
 	astTestMust(t, aufTestBuild(t, graph, []ast.ASTHandle{q}))
 	truth, err := m.MkTrue()
 	astTestMust(t, err)
-	falsehood, err := m.MkFalse()
-	astTestMust(t, err)
+	// quantifier_analyzer: visit_term marks b in m_pos_cache, so the
+	// formula-in-term visit only reaches the negative polarity and z3
+	// 4.7.1 records just (x_neq_t:v!0:true).
 	set := graph.uvars[smtModelFinderAUFKey{q, 0}].root().set
-	if len(set.testElements()) != 2 {
-		t.Fatal("nested Boolean condition omitted one polarity", set.testElements())
+	if len(set.testElements()) != 1 {
+		t.Fatal("nested Boolean condition polarity differs from source", set.testElements())
 	}
-	for _, value := range []ast.ASTHandle{truth, falsehood} {
-		if generation, found := set.testElements()[value]; !found || generation != 0 {
-			t.Fatal("nested Boolean condition instantiation", value, set.testElements())
-		}
+	if generation, found := set.testElements()[truth]; !found || generation != 0 {
+		t.Fatal("nested Boolean condition instantiation", truth, set.testElements())
 	}
 }
 

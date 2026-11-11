@@ -94,104 +94,351 @@ func (g *smtModelFinderAUFGraph) appendSelect(info smtModelFinderSelectVar) {
 	g.selects = append(g.selects, info)
 }
 
-func (g *smtModelFinderAUFGraph) collectTerm(quantifier, term ast.ASTHandle) error {
-	m := g.finder.manager
-	ground, err := m.IsGround(term)
+// smtModelFinderFormulaEntry is quantifier_analyzer's entry: a formula
+// and its polarity on m_ftodo.
+type smtModelFinderFormulaEntry struct {
+	formula  ast.ASTHandle
+	negative bool
+}
+
+const (
+	smtModelFinderPosCache uint8 = 1 // m_pos_cache (shared with visit_term)
+	smtModelFinderNegCache uint8 = 2 // m_neg_cache
+)
+
+// visitFormula is quantifier_analyzer::visit_formula.
+func (g *smtModelFinderAUFGraph) visitFormula(quantifier, n ast.ASTHandle, negative bool) error {
+	ground, err := g.finder.manager.IsGround(n)
 	if err != nil || ground {
 		return err
 	}
-	key := smtModelFinderAnalysisKey{quantifier, term}
-	if g.analysisSeen[key]&4 != 0 {
-		return nil
+	flag := smtModelFinderPosCache
+	if negative {
+		flag = smtModelFinderNegCache
 	}
-	g.analysisSeen[key] |= 4
-	sort, err := m.GetSort(term)
-	if err != nil {
-		return err
+	key := smtModelFinderAnalysisKey{quantifier, n}
+	if g.analysisSeen[key]&flag == 0 {
+		g.ftodo = append(g.ftodo, smtModelFinderFormulaEntry{n, negative})
+		g.analysisSeen[key] |= flag
 	}
-	boolean, err := m.MkBoolSort()
-	if err != nil {
-		return err
-	}
-	if sort == boolean {
-		if err := g.collectLiterals(quantifier, term, false); err != nil {
-			return err
-		}
-		return g.collectLiterals(quantifier, term, true)
-	}
-	kind, err := m.GetKind(term)
-	if err != nil {
-		return err
-	}
-	if kind == ast.ASTVar {
-		return nil
-	}
-	if kind != ast.ASTApp {
-		return ast.ErrASTDomain
-	}
-	return g.analyzeApplication(quantifier, term)
+	return nil
 }
 
-func (g *smtModelFinderAUFGraph) analyzeApplication(quantifier, term ast.ASTHandle) error {
+// visitTerm is quantifier_analyzer::visit_term. Terms are marked in the
+// positive formula cache, so a Boolean term later visited as a positive
+// formula is skipped there.
+func (g *smtModelFinderAUFGraph) visitTerm(quantifier, n ast.ASTHandle) error {
+	ground, err := g.finder.manager.IsGround(n)
+	if err != nil || ground {
+		return err
+	}
+	key := smtModelFinderAnalysisKey{quantifier, n}
+	if g.analysisSeen[key]&smtModelFinderPosCache == 0 {
+		g.ttodo = append(g.ttodo, n)
+		g.analysisSeen[key] |= smtModelFinderPosCache
+	}
+	return nil
+}
+
+// processUApp is quantifier_analyzer::process_u_app.
+func (g *smtModelFinderAUFGraph) processUApp(quantifier, t ast.ASTHandle) error {
 	m := g.finder.manager
-	family, err := m.GetFamilyID(term)
+	function, err := m.GetDecl(t)
 	if err != nil {
 		return err
 	}
-	function, err := m.GetDecl(term)
+	count, err := m.GetNumArgs(t)
 	if err != nil {
 		return err
-	}
-	count, err := m.GetNumArgs(term)
-	if err != nil {
-		return err
-	}
-	if family != ast.NullFamilyID {
-		classifier := smtModelFinderAUFClassifier{finder: g.finder}
-		selected, err := classifier.isAUFSelect(term)
-		if err != nil {
-			return err
-		}
-		if selected {
-			if err := g.collectSelectVars(quantifier, term); err != nil {
-				return err
-			}
-			array, err := m.GetArg(term, 0)
-			if err != nil {
-				return err
-			}
-			return g.collectTerm(quantifier, array)
-		}
 	}
 	for position := uint32(0); position < count; position++ {
-		argument, err := m.GetArg(term, position)
+		argument, err := m.GetArg(t, position)
 		if err != nil {
 			return err
 		}
-		if family == ast.NullFamilyID {
-			kind, err := m.GetKind(argument)
+		kind, err := m.GetKind(argument)
+		if err != nil {
+			return err
+		}
+		if kind == ast.ASTVar {
+			variable, err := m.GetVarIndex(argument)
 			if err != nil {
 				return err
 			}
-			if kind == ast.ASTVar {
-				variable, err := m.GetVarIndex(argument)
-				if err != nil {
-					return err
-				}
-				g.appendFVar(smtModelFinderFVar{quantifier: quantifier, function: function, position: position, variable: variable})
-				continue
-			}
-			before := len(g.fvars)
-			if err := g.collectOffset(quantifier, function, position, argument); err != nil {
-				return err
-			}
-			if len(g.fvars) > before {
-				continue
-			}
+			g.appendFVar(smtModelFinderFVar{quantifier: quantifier, function: function, position: position, variable: variable})
+			continue
 		}
-		if err := g.collectTerm(quantifier, argument); err != nil {
+		before := len(g.fvars)
+		if err := g.collectOffset(quantifier, function, position, argument); err != nil {
+			return err
+		}
+		if len(g.fvars) > before {
+			continue
+		}
+		if err := g.visitTerm(quantifier, argument); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// processIApp is quantifier_analyzer::process_i_app.
+func (g *smtModelFinderAUFGraph) processIApp(quantifier, t ast.ASTHandle) error {
+	m := g.finder.manager
+	classifier := smtModelFinderAUFClassifier{finder: g.finder}
+	selected, err := classifier.isAUFSelect(t)
+	if err != nil {
+		return err
+	}
+	if selected {
+		array, err := m.GetArg(t, 0)
+		if err != nil {
+			return err
+		}
+		if err := g.visitTerm(quantifier, array); err != nil {
+			return err
+		}
+		return g.collectSelectVars(quantifier, t)
+	}
+	count, err := m.GetNumArgs(t)
+	if err != nil {
+		return err
+	}
+	for position := uint32(0); position < count; position++ {
+		argument, err := m.GetArg(t, position)
+		if err != nil {
+			return err
+		}
+		if err := g.visitTerm(quantifier, argument); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// processApp is quantifier_analyzer::process_app.
+func (g *smtModelFinderAUFGraph) processApp(quantifier, t ast.ASTHandle) error {
+	family, err := g.finder.manager.GetFamilyID(t)
+	if err != nil {
+		return err
+	}
+	if family == ast.NullFamilyID {
+		return g.processUApp(quantifier, t)
+	}
+	return g.processIApp(quantifier, t)
+}
+
+// processIff is quantifier_analyzer::process_iff.
+func (g *smtModelFinderAUFGraph) processIff(quantifier, n ast.ASTHandle) error {
+	m := g.finder.manager
+	for i := uint32(0); i < 2; i++ {
+		arg, err := m.GetArg(n, i)
+		if err != nil {
+			return err
+		}
+		if err := g.visitFormula(quantifier, arg, false); err != nil {
+			return err
+		}
+		if err := g.visitFormula(quantifier, arg, true); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// processFormulasOnStack is quantifier_analyzer::process_formulas_on_stack.
+func (g *smtModelFinderAUFGraph) processFormulasOnStack(quantifier ast.ASTHandle) error {
+	m := g.finder.manager
+	for len(g.ftodo) != 0 {
+		if err := g.finder.checkpoint(); err != nil {
+			return err
+		}
+		e := g.ftodo[len(g.ftodo)-1]
+		g.ftodo = g.ftodo[:len(g.ftodo)-1]
+		curr, negative := e.formula, e.negative
+		kind, err := m.GetKind(curr)
+		if err != nil {
+			return err
+		}
+		if kind == ast.ASTVar {
+			if err := g.processLiteral(quantifier, curr, negative); err != nil {
+				return err
+			}
+			continue
+		}
+		if kind != ast.ASTApp {
+			// The quantifier is flat: no nested quantifiers.
+			return ast.ErrASTDomain
+		}
+		family, err := m.GetFamilyID(curr)
+		if err != nil {
+			return err
+		}
+		if family != m.BasicFamilyID() {
+			if err := g.processLiteral(quantifier, curr, negative); err != nil {
+				return err
+			}
+			continue
+		}
+		op, err := m.GetDeclKind(curr)
+		if err != nil {
+			return err
+		}
+		switch op {
+		case ast.ASTOpOr, ast.ASTOpAnd:
+			n, err := m.GetNumArgs(curr)
+			if err != nil {
+				return err
+			}
+			for i := uint32(0); i < n; i++ {
+				arg, err := m.GetArg(curr, i)
+				if err != nil {
+					return err
+				}
+				if err := g.visitFormula(quantifier, arg, negative); err != nil {
+					return err
+				}
+			}
+		case ast.ASTOpNot:
+			arg, err := m.GetArg(curr, 0)
+			if err != nil {
+				return err
+			}
+			if err := g.visitFormula(quantifier, arg, !negative); err != nil {
+				return err
+			}
+		case ast.ASTOpIte:
+			c, err := m.GetArg(curr, 0)
+			if err != nil {
+				return err
+			}
+			th, err := m.GetArg(curr, 1)
+			if err != nil {
+				return err
+			}
+			el, err := m.GetArg(curr, 2)
+			if err != nil {
+				return err
+			}
+			for _, v := range []smtModelFinderFormulaEntry{{c, negative}, {c, !negative}, {th, negative}, {el, negative}} {
+				if err := g.visitFormula(quantifier, v.formula, v.negative); err != nil {
+					return err
+				}
+			}
+		case ast.ASTOpIff:
+			if err := g.processIff(quantifier, curr); err != nil {
+				return err
+			}
+		case ast.ASTOpEq:
+			arg, err := m.GetArg(curr, 0)
+			if err != nil {
+				return err
+			}
+			boolean, err := g.isBoolExpr(arg)
+			if err != nil {
+				return err
+			}
+			if boolean {
+				err = g.processIff(quantifier, curr)
+			} else {
+				err = g.processLiteral(quantifier, curr, negative)
+			}
+			if err != nil {
+				return err
+			}
+		default:
+			if err := g.processLiteral(quantifier, curr, negative); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// processTermsOnStack is quantifier_analyzer::process_terms_on_stack.
+func (g *smtModelFinderAUFGraph) processTermsOnStack(quantifier ast.ASTHandle) error {
+	m := g.finder.manager
+	for len(g.ttodo) != 0 {
+		curr := g.ttodo[len(g.ttodo)-1]
+		g.ttodo = g.ttodo[:len(g.ttodo)-1]
+		boolean, err := g.isBoolExpr(curr)
+		if err != nil {
+			return err
+		}
+		if boolean {
+			// A formula nested in a term.
+			if err := g.visitFormula(quantifier, curr, false); err != nil {
+				return err
+			}
+			if err := g.visitFormula(quantifier, curr, true); err != nil {
+				return err
+			}
+			continue
+		}
+		kind, err := m.GetKind(curr)
+		if err != nil {
+			return err
+		}
+		switch kind {
+		case ast.ASTApp:
+			if err := g.processApp(quantifier, curr); err != nil {
+				return err
+			}
+		case ast.ASTVar:
+			// An unexpected variable occurrence (m_is_auf = false).
+		default:
+			return ast.ErrASTDomain
+		}
+	}
+	return nil
+}
+
+// processClause is quantifier_analyzer::process_clause.
+func (g *smtModelFinderAUFGraph) processClause(quantifier, cls ast.ASTHandle) error {
+	m := g.finder.manager
+	n, err := m.ClauseNumLiterals(cls)
+	if err != nil {
+		return err
+	}
+	for i := uint32(0); i < n; i++ {
+		literal, err := m.ClauseLiteral(cls, i)
+		if err != nil {
+			return err
+		}
+		atom, negative, err := m.LiteralAtomSign(literal)
+		if err != nil {
+			return err
+		}
+		ground, err := m.IsGround(atom)
+		if err != nil {
+			return err
+		}
+		if !ground {
+			if err := g.processLiteral(quantifier, atom, negative); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (g *smtModelFinderAUFGraph) isBoolExpr(e ast.ASTHandle) (bool, error) {
+	m := g.finder.manager
+	sort, err := m.GetSort(e)
+	if err != nil {
+		return false, err
+	}
+	boolean, err := m.MkBoolSort()
+	return err == nil && sort == boolean, err
+}
+
+// isBasicEq is ast_manager::is_eq.
+func (g *smtModelFinderAUFGraph) isBasicEq(e ast.ASTHandle) (bool, error) {
+	m := g.finder.manager
+	family, err := m.GetFamilyID(e)
+	if err != nil || family != m.BasicFamilyID() {
+		return false, err
+	}
+	op, err := m.GetDeclKind(e)
+	return err == nil && op == ast.ASTOpEq, err
 }

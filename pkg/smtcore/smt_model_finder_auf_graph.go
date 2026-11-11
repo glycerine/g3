@@ -38,6 +38,9 @@ type smtModelFinderAUFGraph struct {
 	analysisSeen   map[smtModelFinderAnalysisKey]uint8
 	// qorder is quantifier_info::m_qinfo_vect's order across kinds.
 	qorder []smtModelFinderQInfoRef
+	// ftodo and ttodo are quantifier_analyzer's m_ftodo and m_ttodo.
+	ftodo []smtModelFinderFormulaEntry
+	ttodo []ast.ASTHandle
 }
 
 type smtModelFinderQInfoKind uint8
@@ -116,7 +119,35 @@ func (g *smtModelFinderAUFGraph) collectFVars(quantifier ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	return g.collectLiterals(quantifier, body, false)
+	// quantifier_analyzer::operator(): reset_cache, then a clause's
+	// literals directly or the formula positively, then both stacks.
+	for key := range g.analysisSeen {
+		if key.quantifier == quantifier {
+			delete(g.analysisSeen, key)
+		}
+	}
+	g.ftodo, g.ttodo = g.ftodo[:0], g.ttodo[:0]
+	clause, err := g.finder.manager.IsClause(body)
+	if err != nil {
+		return err
+	}
+	if clause {
+		err = g.processClause(quantifier, body)
+	} else {
+		err = g.visitFormula(quantifier, body, false)
+	}
+	if err != nil {
+		return err
+	}
+	for len(g.ftodo) != 0 || len(g.ttodo) != 0 {
+		if err := g.processFormulasOnStack(quantifier); err != nil {
+			return err
+		}
+		if err := g.processTermsOnStack(quantifier); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (g *smtModelFinderAUFGraph) build(quantifiers []ast.ASTHandle) error {
