@@ -351,22 +351,31 @@ func (r *ExprSafeReplace) Reset() error {
 	if err := r.clearTemporary(); err != nil {
 		return err
 	}
-	for len(r.sourceRefs) != 0 {
-		last := len(r.sourceRefs) - 1
-		if err := r.manager.DelRef(&r.sourceRefs[last]); err != nil {
-			return err
-		}
-		r.sourceRefs = r.sourceRefs[:last]
+	// reset(): m_src.reset(); m_dst.reset(); each front to back.
+	if err := releaseRefsForward(r.manager, &r.sourceRefs); err != nil {
+		return err
 	}
-	for len(r.destRefs) != 0 {
-		last := len(r.destRefs) - 1
-		if err := r.manager.DelRef(&r.destRefs[last]); err != nil {
-			return err
-		}
-		r.destRefs = r.destRefs[:last]
+	if err := releaseRefsForward(r.manager, &r.destRefs); err != nil {
+		return err
 	}
 	r.replacements = nil
 	r.substitution = make(map[ast.ASTHandle]ast.ASTHandle)
+	return nil
+}
+
+// releaseRefsForward is ref_vector::reset: front to back, keeping the
+// unreleased suffix on an error.
+func releaseRefsForward(m *ast.ASTManager, refs *[]ast.ASTRef) error {
+	for len(*refs) != 0 {
+		err := m.DelRef(&(*refs)[0])
+		if (*refs)[0] == (ast.ASTRef{}) {
+			*refs = (*refs)[1:]
+		}
+		if err != nil {
+			return err
+		}
+	}
+	*refs = nil
 	return nil
 }
 
@@ -388,9 +397,19 @@ func (r *ExprSafeReplace) Close() error {
 	if r.closed {
 		return nil
 	}
-	if err := r.Reset(); err != nil {
+	// ~expr_safe_replace destroys m_refs, then m_dst, then m_src, each
+	// front to back.
+	if err := r.clearTemporary(); err != nil {
 		return err
 	}
+	if err := releaseRefsForward(r.manager, &r.destRefs); err != nil {
+		return err
+	}
+	if err := releaseRefsForward(r.manager, &r.sourceRefs); err != nil {
+		return err
+	}
+	r.replacements = nil
+	r.substitution = nil
 	r.closed = true
 	return nil
 }
