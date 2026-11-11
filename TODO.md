@@ -1489,8 +1489,10 @@ Found while matching `-st` output against `build/z3` on
     lra_propagation_mode_updates trace builds one extra model numeral.
     Ask before removing the repair.
 
-28. **Partly done (2026-11-11, 220c9c04a): the extra compress case is
-    removed.** quant_seq_symbolic_int_prefix's stdout matches and its
+28. **DONE (2026-11-11): quant_seq_symbolic_int_prefix's full trace
+    matches z3** after the item 32 fix (d998ec55f), which resolved the
+    merge-order divergence below. History: **Partly done (220c9c04a): the
+    extra compress case is removed.** quant_seq_symbolic_int_prefix's stdout matches and its
     trace matches to line 28478. Still open: the merge-order divergence
     at 28478 (below). Note: with trace=true, g3 writes the trace file one
     byte per syscall; this vector's trace then exceeds fullcmp's 30s
@@ -1649,7 +1651,12 @@ Found while matching `-st` output against `build/z3` on
     at the end of apply_default_transformation; g3 frees them before it
     builds `query!0!bv!2`. Port the transformer ownership structure.
 
-32. **Pretty-printer format ids (2026-11-10).** Fixed: get-consequences
+32. **DONE (2026-11-11, d998ec55f): m_clauses_to_reinit order.** The pop
+    now restores learned clauses by (bucket level, push order), so
+    bv_integer_conversion_scopes, qe_cooper_symbolic_blast and
+    quant_seq_symbolic_int_prefix match z3's full trace (full logs
+    616/658 identical by name; stdout unchanged at 651/662). History:
+    **Pretty-printer format ids (2026-11-10).** Fixed: get-consequences
     prints its vector as one ast_smt2_pp document (82381f483), and
     theory_str tester names release their mk_ismt2_pp document
     (7e04eec53). Three generic/legacy string vectors now match. Still
