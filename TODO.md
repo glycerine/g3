@@ -329,6 +329,21 @@ Found while matching `-st` output against `build/z3` on
     masked); they are TestTraceGolden's default vectors
     (cmd/g3/test_vectors/golden_trace_vectors.txt). Fixes found by the
     failing vectors so far (423 -> 482 matching):
+    - 2026-11-10 later batch (full logs 555 -> 570 of 659; stdout 650/662):
+      model finder qinfos built at register_quantifier; scoped_mk_model
+      drops m_proto_model (factory trail) at search start/end; ~theory_seq
+      undoes its trail then destroys members in reverse order; theory_seq
+      m_rewrite(e) is in place; iz3: local th_rewriter per z3_simplify,
+      _tree wrapper local, constructor/member order, ~iz3base order;
+      theory_str: check_concat_len_in_eqc/infer_len_concat in new_eq_check,
+      check_length_const_string's tail get_len_value, mk_int_var INT_SORT,
+      ctx.mk_eq_atom in simplify_parent and shared premises; learned units
+      kept only under delay_forced_restart; nlqsat hoist is nlqsat::hoist
+      and its guard is "is_true"; conflict_resolution is context-owned and
+      m_lemma_proof is replaced (not reset) per conflict; TacticResult
+      releases converters before goals; tactic new_curr/new_pr locals die
+      with their scope; array mk_interface_eqs uses mk_eq_atom.
+      Recorded: items 26-29 below.
     - 2026-11-10 order/lifetime batch (full logs 517 -> 532 of 659): shared_occs,
       value_set m_values and m_var2num_occs walk hash-table order (ObjMap
       layouts); elim_term_ite m_new_defs and vector::reset release front to
