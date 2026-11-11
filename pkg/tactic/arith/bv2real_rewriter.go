@@ -280,7 +280,10 @@ func (c *bv2RealCall) approxLE(s, t ast.ASTHandle, positive, negative bool) (res
 	if c.err != nil {
 		return ast.ASTHandle{}, false
 	}
-	a, b, x, y, d1, d2, r, ok := c.pair(s, t)
+	// expr_ref s1, s2, t1, t2: align_divisors and s1 = mk_bv_sub(s1, t1)
+	// release each replaced value at the assignment.
+	s1, s2, t1, t2, d1, d2, r, ok := c.pairLocals(mark, s, t)
+	defer c.releaseLocals(&t2, &t1, &s2, &s1)
 	if !ok || c.err != nil {
 		return ast.ASTHandle{}, false
 	}
@@ -292,9 +295,10 @@ func (c *bv2RealCall) approxLE(s, t ast.ASTHandle, positive, negative bool) (res
 	if !isTwo {
 		return ast.ASTHandle{}, false
 	}
-	a, b, x, y = c.alignDivisorsOwned(a, b, x, y, d1, d2)
-	a = c.sub(a, x)
-	b = c.sub(b, y)
+	c.alignDivisorsLocals(mark, &s1, &s2, &t1, &t2, d1, d2)
+	c.assignLocal(mark, &s1, c.sub(c.localValue(s1), c.localValue(t1)))
+	c.assignLocal(mark, &s2, c.sub(c.localValue(s2), c.localValue(t2)))
+	a, b := c.localValue(s1), c.localValue(s2)
 	width := c.width(b)
 	if c.err != nil {
 		return ast.ASTHandle{}, false
@@ -319,10 +323,14 @@ func (c *bv2RealCall) approxLE(s, t ast.ASTHandle, positive, negative bool) (res
 	}
 	gt := c.basic(ast.ASTOpNot, le)
 	nonpos := c.bv(23, b, c.numeral(big.NewRat(0, 1), width))
-	under := c.add(c.multiplyScalarLiteral(4, a), c.multiplyScalarLiteral(5, b))
+	// mk_bv_add(mk_bv_mul(4, s1), mk_bv_mul(5, s2)): the reference build
+	// (GCC) evaluates the arguments right to left.
+	underRight := c.multiplyScalarLiteral(5, b)
+	under := c.add(c.multiplyScalarLiteral(4, a), underRight)
 	z1 := c.numeral(big.NewRat(0, 1), c.width(under))
 	leUnder := c.bv(23, under, z1)
-	over := c.add(c.multiplyScalarLiteral(2, a), c.multiplyScalarLiteral(3, b))
+	overRight := c.multiplyScalarLiteral(3, b)
+	over := c.add(c.multiplyScalarLiteral(2, a), overRight)
 	z2 := c.numeral(big.NewRat(0, 1), c.width(over))
 	leOver := c.bv(23, over, z2)
 	if positive {
@@ -330,8 +338,11 @@ func (c *bv2RealCall) approxLE(s, t ast.ASTHandle, positive, negative bool) (res
 		c.side(c.basic(ast.ASTOpImplies, c.basic(ast.ASTOpAnd, le, c.basic(ast.ASTOpNot, nonpos)), leOver))
 	}
 	if negative {
-		c.side(c.basic(ast.ASTOpImplies, c.basic(ast.ASTOpAnd, gt, c.basic(ast.ASTOpNot, nonpos)), c.basic(ast.ASTOpNot, leUnder)))
-		c.side(c.basic(ast.ASTOpImplies, c.basic(ast.ASTOpAnd, gt, nonpos), c.basic(ast.ASTOpNot, leOver)))
+		// m().mk_implies(m().mk_and(...), m().mk_not(...)): right to left.
+		notUnder := c.basic(ast.ASTOpNot, leUnder)
+		c.side(c.basic(ast.ASTOpImplies, c.basic(ast.ASTOpAnd, gt, c.basic(ast.ASTOpNot, nonpos)), notUnder))
+		notOver := c.basic(ast.ASTOpNot, leOver)
+		c.side(c.basic(ast.ASTOpImplies, c.basic(ast.ASTOpAnd, gt, nonpos), notOver))
 	}
 	if c.err == nil {
 		c.err = c.u.traceLE(464, "mk_le\n")
@@ -347,13 +358,17 @@ func (c *bv2RealCall) le(s, t ast.ASTHandle) (result ast.ASTHandle, matched bool
 	if h, ok := c.approxLE(s, t, true, true); ok {
 		return h, true
 	}
-	a, b, x, y, d1, d2, r, ok := c.pair(s, t)
+	// expr_ref s1, s2, t1, t2: align_divisors and t1 = mk_bv_sub(t1, s1)
+	// release each replaced value at the assignment.
+	s1, s2, t1, t2, d1, d2, r, ok := c.pairLocals(mark, s, t)
+	defer c.releaseLocals(&t2, &t1, &s2, &s1)
 	if !ok {
 		return ast.ASTHandle{}, false
 	}
-	a, b, x, y = c.alignDivisorsOwned(a, b, x, y, d1, d2)
-	x = c.sub(x, a)
-	y = c.sub(y, b)
+	c.alignDivisorsLocals(mark, &s1, &s2, &t1, &t2, d1, d2)
+	c.assignLocal(mark, &t1, c.sub(c.localValue(t1), c.localValue(s1)))
+	c.assignLocal(mark, &t2, c.sub(c.localValue(t2), c.localValue(s2)))
+	x, y := c.localValue(t1), c.localValue(t2)
 	z1, z2 := c.numeral(big.NewRat(0, 1), c.width(x)), c.numeral(big.NewRat(0, 1), c.width(y))
 	gz1, lz1 := c.bv(23, z1, x), c.bv(23, x, z1)
 	gz2, lz2 := c.bv(23, z2, y), c.bv(23, y, z2)
