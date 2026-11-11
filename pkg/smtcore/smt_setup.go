@@ -11,15 +11,15 @@ import (
 )
 
 // smtLogicUsesUnknownSetup mirrors setup::setup_default's fallthrough to
-// setup_unknown. QF_FD is a retained Go specialization whose concrete finite
-// domain theories are selected below.
+// setup_unknown. QF_FD has no case of its own there (nor in
+// setup_auto_config), so it takes setup_unknown too.
 func smtLogicUsesUnknownSetup(logic string) bool {
 	switch logic {
 	case "QF_UF", "QF_RDL", "QF_IDL", "QF_UFIDL", "QF_LRA", "QF_LIA", "QF_UFLIA", "QF_UFLRA",
 		"QF_AX", "QF_AUFLIA", "QF_BV", "QF_AUFBV", "QF_ABV", "QF_UFBV", "QF_BVRE",
 		"AUFLIA", "AUFLIRA", "AUFNIRA", "AUFLIA+", "AUFLIA-", "AUFLIRA+", "AUFLIRA-",
 		"AUFNIRA+", "AUFNIRA-", "UFNIA", "UFLRA", "LRA", "QF_FP", "QF_FPBV", "QF_BVFP",
-		"QF_S", "QF_DT", "QF_FD":
+		"QF_S", "QF_DT":
 		return false
 	default:
 		return true
@@ -34,7 +34,7 @@ func smtAutoConfigUsesUnknownSetup(logic string) bool {
 	case "QF_BV", "QF_AUFBV", "QF_ABV", "QF_UFBV", "QF_UF", "QF_RDL", "QF_IDL", "QF_UFIDL",
 		"QF_LRA", "QF_LIA", "QF_UFLIA", "QF_UFLRA", "QF_AX", "QF_BVRE", "QF_AUFLIA", "QF_S",
 		"AUFLIA", "AUFLIRA", "AUFNIRA", "AUFLIA+", "AUFLIA-", "AUFLIRA+", "AUFLIRA-",
-		"AUFNIRA+", "AUFNIRA-", "UFNIA", "QF_DT", "LRA", "QF_FD":
+		"AUFNIRA+", "AUFNIRA-", "UFNIA", "QF_DT", "LRA":
 		return false
 	default:
 		return true
@@ -73,7 +73,7 @@ func smtLogicUsesBitVectors(logic string) bool {
 		return true
 	}
 	switch logic {
-	case "QF_BV", "QF_UFBV", "QF_AUFBV", "QF_ABV", "QF_BVRE", "QF_FP", "QF_FPBV", "QF_BVFP", "QF_FD", "ALL":
+	case "QF_BV", "QF_UFBV", "QF_AUFBV", "QF_ABV", "QF_BVRE", "QF_FP", "QF_FPBV", "QF_BVFP", "ALL":
 		return true
 	default:
 		return false
@@ -85,7 +85,7 @@ func smtLogicUsesDatatypes(logic string) bool {
 		return true
 	}
 	switch logic {
-	case "QF_DT", "QF_FD", "ALL":
+	case "QF_DT", "ALL":
 		return true
 	default:
 		return false
@@ -93,11 +93,11 @@ func smtLogicUsesDatatypes(logic string) bool {
 }
 
 func smtLogicUsesPseudoBooleans(logic string) bool {
-	return logic == "QF_FD" || smtLogicUsesUnknownSetup(logic)
+	return smtLogicUsesUnknownSetup(logic)
 }
 
 func smtLogicUsesDatalog(logic string) bool {
-	return logic == "QF_FD" || smtLogicUsesUnknownSetup(logic)
+	return smtLogicUsesUnknownSetup(logic)
 }
 
 func smtLogicUsesFloatingPoint(logic string) bool {
