@@ -27,93 +27,109 @@ func (p *ProtoModel) cleanFunctionElse(fi *model.FunctionInterpretation, found *
 	if err != nil {
 		return err
 	}
-	memo := make(map[ast.ASTHandle]ast.ASTHandle)
+	// The source's explicit todo stack: every uncached argument is pushed
+	// (so the last argument is rewritten first), and a node is rewritten
+	// once all its arguments are cached.
+	cache := make(map[ast.ASTHandle]ast.ASTHandle)
+	// owned is the source's trail (expr_ref_vector): it holds only the
+	// rewritten results that differ from their input and releases them
+	// front to back.
 	var owned []ast.ASTRef
 	defer func() {
-		for i := len(owned) - 1; i >= 0; i-- {
+		for i := range owned {
 			err = errors.Join(err, p.manager.DelRef(&owned[i]))
 		}
 	}()
-	var visit func(ast.ASTHandle) (ast.ASTHandle, error)
-	visit = func(h ast.ASTHandle) (ast.ASTHandle, error) {
-		if v, ok := memo[h]; ok {
-			return v, nil
-		}
-		d, constant, e := p.uninterpretedConstant(h)
+	todo := []ast.ASTHandle{root}
+	for len(todo) != 0 {
+		a := todo[len(todo)-1]
+		d, constant, e := p.uninterpretedConstant(a)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return e
 		}
 		if constant {
+			todo = todo[:len(todo)-1]
 			v, e := p.core.Core().ConstantInterpretation(d)
 			if e != nil {
-				return ast.ASTHandle{}, e
+				return e
 			}
 			if v.IsNull() {
 				s, e := p.manager.GetRange(d)
 				if e != nil {
-					return ast.ASTHandle{}, e
+					return e
 				}
 				v, e = p.SomeValue(s)
 				if e != nil {
-					return ast.ASTHandle{}, e
+					return e
 				}
 				if e = p.core.Core().RegisterConstant(d, v); e != nil {
-					return ast.ASTHandle{}, e
+					return e
 				}
 			}
-			memo[h] = v
-			return v, nil
+			cache[a] = v
+			continue
 		}
-		kind, e := p.manager.GetKind(h)
-		if e != nil || kind != ast.ASTApp {
-			memo[h] = h
-			return h, e
-		}
-		d, e = p.manager.GetDecl(h)
+		kind, e := p.manager.GetKind(a)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return e
+		}
+		if kind != ast.ASTApp {
+			cache[a] = a
+			todo = todo[:len(todo)-1]
+			continue
+		}
+		n, e := p.manager.GetNumArgs(a)
+		if e != nil {
+			return e
+		}
+		visited := true
+		args := make([]ast.ASTHandle, 0, n)
+		for i := uint32(0); i < n; i++ {
+			arg, e := p.manager.GetArg(a, i)
+			if e != nil {
+				return e
+			}
+			if v, ok := cache[arg]; ok {
+				args = append(args, v)
+			} else {
+				visited = false
+				todo = append(todo, arg)
+			}
+		}
+		if !visited {
+			continue
+		}
+		d, e = p.manager.GetDecl(a)
+		if e != nil {
+			return e
 		}
 		if auxiliary, e := p.aux.Contains(d); e != nil {
-			return ast.ASTHandle{}, e
+			return e
 		} else if auxiliary {
 			if e = found.Insert(d, [2]ast.ASTHandle{}); e != nil {
-				return ast.ASTHandle{}, e
-			}
-		}
-		n, e := p.manager.GetNumArgs(h)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		args := make([]ast.ASTHandle, n)
-		for i := range args {
-			a, e := p.manager.GetArg(h, uint32(i))
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			args[i], e = visit(a)
-			if e != nil {
-				return ast.ASTHandle{}, e
+				return e
 			}
 		}
 		out, e := p.manager.NewRef(ast.ASTHandle{})
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return e
 		}
-		owned = append(owned, out)
 		if e = p.rewriter.MakeApp(d, ast.SliceArguments(args), out); e != nil {
-			return ast.ASTHandle{}, e
+			return errors.Join(e, p.manager.DelRef(&out))
 		}
 		v, e := p.manager.RefGet(out)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return errors.Join(e, p.manager.DelRef(&out))
 		}
-		memo[h] = v
-		return v, nil
+		if v != a {
+			owned = append(owned, out)
+		} else if e = p.manager.DelRef(&out); e != nil {
+			return e
+		}
+		todo = todo[:len(todo)-1]
+		cache[a] = v
 	}
-	cleaned, err := visit(root)
-	if err != nil {
-		return err
-	}
+	cleaned := cache[root]
 	// Like the source trail, owned must keep every rewritten expression alive
 	// until the function interpretation has acquired its fallback reference.
 	return fi.SetElse(cleaned)
