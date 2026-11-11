@@ -232,7 +232,8 @@ func (c *SMTClause) ReleaseAtoms() error {
 	if err := c.open(); err != nil {
 		return err
 	}
-	for i := len(c.atoms) - 1; i >= 0; i-- {
+	// clause::deallocate and release_atoms dec_ref the atoms first to last.
+	for i := range c.atoms {
 		handle := c.atoms[i].expression
 		if handle.IsNull() {
 			continue

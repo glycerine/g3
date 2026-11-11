@@ -1174,6 +1174,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 	if scope.clauseLimit < 0 || scope.clauseLimit > len(s.clauses) {
 		return ast.ErrASTDomain
 	}
+	flushing := s.closing
 	for index := len(s.clauses); index > scope.clauseLimit; index-- {
 		record := &s.clauses[index-1]
 		if s.keepClauseAcrossPop(record) {
@@ -1197,23 +1198,39 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 			}
 			continue
 		}
+		if flushing && !record.Binary && record.clause != nil {
+			// context::flush runs undo_trail_stack(0) before del_clauses: the
+			// watches go now, the clause (its proof, then its atoms) after the
+			// trail, auxiliary clauses before lemmas, newest first. The record
+			// keeps the detached clause until then, so a refused step can
+			// resume here.
+			if err := s.detachClause(record); err != nil {
+				return fmt.Errorf("close clause: %w", err)
+			}
+			continue
+		}
 		if err := s.closeClause(&s.clauses[index-1]); err != nil {
 			return fmt.Errorf("close clause: %w", err)
 		}
 	}
-	write := scope.clauseLimit
-	for index := scope.clauseLimit; index < len(s.clauses); index++ {
-		if s.keepClauseAcrossPop(&s.clauses[index]) {
-			s.clauses[write] = s.clauses[index]
-			write++
-		} else if !s.clauses[index].Binary {
-			// del_clause deletes allocated clauses; binary clauses live
-			// only in the watch lists and are not counted.
-			s.statistics.NumDelClause++
+	compactClauses := func() {
+		write := scope.clauseLimit
+		for index := scope.clauseLimit; index < len(s.clauses); index++ {
+			if s.keepClauseAcrossPop(&s.clauses[index]) {
+				s.clauses[write] = s.clauses[index]
+				write++
+			} else if !s.clauses[index].Binary {
+				// del_clause deletes allocated clauses; binary clauses live
+				// only in the watch lists and are not counted.
+				s.statistics.NumDelClause++
+			}
 		}
+		clear(s.clauses[write:])
+		s.clauses = s.clauses[:write]
 	}
-	clear(s.clauses[write:])
-	s.clauses = s.clauses[:write]
+	if !flushing {
+		compactClauses()
+	}
 	if scope.justificationLimit < 0 || scope.justificationLimit > len(s.ownedJustifications) {
 		return ast.ErrASTDomain
 	}
@@ -1300,6 +1317,22 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 		if err := s.flushQuantifiers(); err != nil {
 			return err
 		}
+	}
+	if flushing {
+		// del_clauses(m_aux_clauses, 0); del_clauses(m_lemmas, 0): newest first.
+		for _, lemmas := range []bool{false, true} {
+			for index := len(s.clauses); index > scope.clauseLimit; index-- {
+				record := &s.clauses[index-1]
+				if record.Binary || record.clause == nil || record.clause.IsLemma() != lemmas {
+					continue
+				}
+				if err := record.clause.Close(); err != nil {
+					return fmt.Errorf("close clause: %w", err)
+				}
+				record.clause = nil
+			}
+		}
+		compactClauses()
 	}
 	if scope.pendingLimit < 0 || scope.pendingLimit > len(s.pending) {
 		return ast.ErrASTDomain

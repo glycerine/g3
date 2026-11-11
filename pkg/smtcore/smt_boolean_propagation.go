@@ -211,6 +211,19 @@ func (s *SMTInternalizerState) closeClause(record *SMTInternalizedClause) error 
 	if record.clause == nil {
 		return nil
 	}
+	if err := s.detachClause(record); err != nil {
+		return err
+	}
+	if err := record.clause.Close(); err != nil {
+		return err
+	}
+	record.clause = nil
+	return nil
+}
+
+// detachClause is remove_cls_occs: the clause leaves its two watch lists,
+// and an auxiliary clause's borrowed justification is released.
+func (s *SMTInternalizerState) detachClause(record *SMTInternalizedClause) error {
 	for record.closeWatches < 2 {
 		literal, err := record.clause.Literal(int(record.closeWatches))
 		if err != nil {
@@ -229,10 +242,6 @@ func (s *SMTInternalizerState) closeClause(record *SMTInternalizedClause) error 
 		}
 	}
 	record.owner = nil
-	if err := record.clause.Close(); err != nil {
-		return err
-	}
-	record.clause = nil
 	return nil
 }
 
