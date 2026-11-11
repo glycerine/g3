@@ -1502,6 +1502,15 @@ Found while matching `-st` output against `build/z3` on
     disequality in g3). Fix that divergence before removing the case.
     TestAutomatonEpsilonClosureFinalLoopsAndSequence would also need to
     stop requiring an epsilon-free result.
+    Progress (2026-11-10, 016885d4c): the divergence was is_string missing
+    seq.unit byte numerals (so solve_itos never reduced (int.to.str n) !=
+    "0" to n != 0) plus arith_util::mk_add(1 arg). With those fixed and
+    the compress case removed, the first check is sat and the trace
+    matches to line 28478. There, a 4-literal conflict lists
+    (not #258) first in z3 and last in g3, and the later check-sat
+    (line 6 of stdout) then runs past 60s. Still open: find that
+    conflict's source (not seq setConflict/propagateLit, whose order
+    matches).
 
 29. **Open (2026-11-10): fixedpoint_relation_representations.** z3 builds
     `(iff var true)` for each query of a Bool relation (after the query
