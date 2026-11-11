@@ -23,6 +23,13 @@ Tools (all under `W=/var/tmp/g3-job-487c9ee8`, see TODO item 31 and 37):
 - Node ids are reused: always count occurrences of `[mk-*] #id` / `[del] #id`
   up to the divergence line in *each* log to pick the right life.
 
+## 0. Status (2026-11-11, HEAD 15a376729)
+
+All 26 spacer vectors are identical to the source trace. Steps 1-10 below
+are done; the per-step notes record what each turned out to be. The full
+logs are 639 identical / 21 differ; what remains is PDR, qe, opt, sequence
+and bit-vector items tracked in TODO.md items 31, 35 and 37.
+
 ## 1. Where the 15 differing spacer vectors stop (HEAD 6145273a5)
 
 Full logs: 624 of 660 comparable vectors identical; 15 of the 26 spacer

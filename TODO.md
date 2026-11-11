@@ -1608,6 +1608,34 @@ Found while matching `-st` output against `build/z3` on
 
 31. **In progress (2026-11-11): PDR/spacer query pipeline lifetimes (about 40
     fixedpoint_* and fp_spacer_* vectors).** Plan: pkg/PDR_PORT_PLAN.md.
+    Update (2026-11-11, 15a376729): every spacer vector now matches the
+    source trace; the full logs are 639 identical / 21 differ, stdout
+    651/662. Fixed in this stretch (each its own commit): compute_implicant
+    literal lifetime (K2); Farkas plugins negate with ast_util mk_not;
+    prop_solver::maxsmt soft-vector reset, `saved`, and scoped_mk_proxy
+    before check_sat; theory_arith keeps m_random across updt_params;
+    eq_conflict_justification prefetch order (K1); create_children's phi1
+    consumed by qe_project while Phi lives on; unsat_core_learner's free
+    reduce_hypotheses and original-root traversal; get_ground_sat_answer's
+    standalone kernel, raw one-literal and, and datalog m_last_answer cache;
+    rule_dependencies + rule_stratifier ported over obj_map table orders
+    (RuleSet.SourceStrata) for the inliner's cycle breaking and
+    mutual-inlining order; kernel teardown in context::flush order (trail
+    before clauses, conflict resolver after the flush, clause atoms first
+    to last); bit-vector expansion with OP_BIT1 after the extract and the
+    OP_DT_IS recognizer (also in PDR); lemma body, array generalizer,
+    expansion vector and model_evaluator_util lifetimes; updt_params no
+    longer flushes the asserted rewriter (set_eliminate_and no-op when
+    unchanged); FlattenAndOwned for is_invariant's conj;
+    get_origin_summary's summary[i] = v release.
+    Remaining PDR lead (pdr_recursive_trace 9291, pdr_initial_trace 12934):
+    `(not #515)` is cached by g3's MaximizeBVSharing rewriter at the
+    asserted pass because its refcount is higher than z3's then; z3 frees
+    it when pdr expand_node's `cube` vector dies. The G3_RC_ID history
+    ($W/build_g3rc.sh) shows the extra holders come from the proof-mode
+    TheoryRewriter roots/caches during PropSolver.check (makeSafeAssumptions
+    and the asserted preprocessing). Compare with z3's
+    prop_solver::check_safe_assumptions and asserted_formulas lifetimes.
     Spacer plan (2026-11-11): pkg/SPACER_PORT_PLAN.md covers the 15 differing
     spacer vectors (query flow Q1-Q4, transformer T1-T6/I1/R1, solve S1-S2,
     kernel K1-K4) with a porting order and per-step checks.
