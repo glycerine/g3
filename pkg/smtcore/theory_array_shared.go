@@ -150,7 +150,8 @@ func (t *SMTArrayTheory) makeInterfaceEqualities() (bool, error) {
 			if disequal {
 				continue
 			}
-			expression, err := s.manager.MkEq(left.owner, right.owner)
+			// theory::mk_eq_atom orders the sides by id.
+			expression, err := s.MkEqAtom(left.owner, right.owner)
 			if err != nil {
 				return false, err
 			}
