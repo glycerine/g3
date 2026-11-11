@@ -17,7 +17,6 @@ import (
 )
 
 type CongruenceConflict struct{ First, Second ast.ASTHandle }
-type lazyValue struct{ value, source ast.ASTHandle }
 
 // LazyModelChecker checks the abstract model used by lackr::lazy. The manager
 // and evaluator services are borrowed. Info is counted. A nonnil owner returned
@@ -40,10 +39,11 @@ type lazyModelCheck struct {
 	abstract  tactic.ModelRef
 	empty     tactic.ModelRef
 	evaluator *model.ModelEvaluator
-	values    map[ast.ASTHandle]lazyValue
-	apps      map[ast.ASTHandle]ast.ASTHandle
+	// values is m_values2val (key -> value, source term) and apps is
+	// m_app2val; ~imp releases both in obj_map table order.
+	values    *ast.ObjMap
+	apps      *ast.ObjMap
 	visited   map[ast.ASTHandle]bool
-	held      []ast.ASTHandle
 	scratch   []ast.ASTHandle
 	result    ast.ASTRef
 	header    uint64
@@ -153,7 +153,7 @@ func (c *LazyModelChecker) Check(md *model.ModelCore) (bool, error) {
 	if err := c.manager.Budget().Reserve(n); err != nil {
 		return false, err
 	}
-	r := &lazyModelCheck{owner: c, header: n, values: make(map[ast.ASTHandle]lazyValue), apps: make(map[ast.ASTHandle]ast.ASTHandle), visited: make(map[ast.ASTHandle]bool)}
+	r := &lazyModelCheck{owner: c, header: n, values: ast.NewObjMap(c.manager), apps: ast.NewObjMap(c.manager), visited: make(map[ast.ASTHandle]bool)}
 	c.current = r
 	if err := r.abstract.Set(md); err != nil {
 		return false, err
@@ -206,15 +206,13 @@ func (c *LazyModelChecker) Check(md *model.ModelCore) (bool, error) {
 	}
 	return ok, nil
 }
-func (r *lazyModelCheck) hold(h ast.ASTHandle, scratch bool) error {
+// holdScratch keeps a local (app_ref key, expr_ref term) alive until the
+// enclosing mk_value returns.
+func (r *lazyModelCheck) holdScratch(h ast.ASTHandle) error {
 	if err := r.owner.manager.IncRef(h); err != nil {
 		return err
 	}
-	if scratch {
-		r.scratch = append(r.scratch, h)
-	} else {
-		r.held = append(r.held, h)
-	}
+	r.scratch = append(r.scratch, h)
 	return nil
 }
 func (r *lazyModelCheck) release(roots *[]ast.ASTHandle, limit int) error {
@@ -246,9 +244,25 @@ func (r *lazyModelCheck) close() error {
 		}
 		r.result = ast.ASTRef{}
 	}
-	if err := r.release(&r.held, 0); err != nil {
-		return err
+	// ~imp: m_values2val entries release key, value, source_term; then
+	// m_app2val entries release value, key.
+	m := r.owner.manager
+	for _, entry := range r.values.Entries() {
+		for _, h := range []ast.ASTHandle{entry.Key, entry.Value[0], entry.Value[1]} {
+			if err := m.DecRef(h); err != nil {
+				return err
+			}
+		}
 	}
+	r.values.Reset()
+	for _, entry := range r.apps.Entries() {
+		for _, h := range []ast.ASTHandle{entry.Value[0], entry.Key} {
+			if err := m.DecRef(h); err != nil {
+				return err
+			}
+		}
+	}
+	r.apps.Reset()
 	if err := r.empty.Close(); err != nil {
 		return err
 	}
@@ -355,8 +369,8 @@ func (r *lazyModelCheck) mkValue(a ast.ASTHandle) (ok bool, err error) {
 		return false, err
 	}
 	if ast.ASTSourceDebug {
-		if _, found := r.apps[a]; found {
-			return false, ast.ErrASTDomain
+		if _, found, err := r.apps.Find(a); err != nil || found {
+			return false, errors.Join(err, ast.ErrASTDomain)
 		}
 	}
 	start := len(r.scratch)
@@ -384,13 +398,16 @@ func (r *lazyModelCheck) mkValue(a ast.ASTHandle) (ok bool, err error) {
 			return false, err
 		}
 	}
-	if err = r.hold(a, false); err != nil {
+	// m_app2val.insert(a, result); m_m.inc_ref(a); m_m.inc_ref(result)
+	if err = r.apps.Insert(a, [2]ast.ASTHandle{v}); err != nil {
 		return false, err
 	}
-	if err = r.hold(v, false); err != nil {
+	if err = m.IncRef(a); err != nil {
 		return false, err
 	}
-	r.apps[a] = v
+	if err = m.IncRef(v); err != nil {
+		return false, err
+	}
 	return true, nil
 }
 func (r *lazyModelCheck) constantValue(d ast.ASTHandle) (ast.ASTHandle, error) {
@@ -435,7 +452,11 @@ func (r *lazyModelCheck) evaluate(a ast.ASTHandle) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		v, found := r.apps[arg]
+		entry, found, err := r.apps.Find(arg)
+		if err != nil {
+			return false, err
+		}
+		v := entry[0]
 		if isValue {
 			v, found = arg, true
 		}
@@ -456,7 +477,7 @@ func (r *lazyModelCheck) evaluate(a ast.ASTHandle) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if err = r.hold(term, true); err != nil {
+	if err = r.holdScratch(term); err != nil {
 		return false, err
 	}
 	yes, err := ShouldAckermannize(m, a)
@@ -485,24 +506,32 @@ func (r *lazyModelCheck) evaluate(a ast.ASTHandle) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if previous, found := r.values[term]; found {
-		ok := previous.value == v
+	previous, found, err := r.values.Find(term)
+	if err != nil {
+		return false, err
+	}
+	if found {
+		value, source := previous[0], previous[1]
+		ok := value == v
 		if !ok {
-			if err = r.trace("make_value_uninterpreted_function", 308, "already mapped by(\n", previous.source, previous.value); err != nil {
+			if err = r.trace("make_value_uninterpreted_function", 308, "already mapped by(\n", source, value); err != nil {
 				return false, err
 			}
-			r.owner.conflicts = append(r.owner.conflicts, CongruenceConflict{a, previous.source})
+			r.owner.conflicts = append(r.owner.conflicts, CongruenceConflict{a, source})
 		}
-		return ok, m.SetRef(r.result, previous.value)
+		return ok, m.SetRef(r.result, value)
 	}
 	if err = m.SetRef(r.result, v); err != nil {
 		return false, err
 	}
+	// m_values2val.insert(key, vi); inc_ref source_term, value, key.
+	if err = r.values.Insert(term, [2]ast.ASTHandle{v, a}); err != nil {
+		return false, err
+	}
 	for _, h := range []ast.ASTHandle{a, v, term} {
-		if err = r.hold(h, false); err != nil {
+		if err = m.IncRef(h); err != nil {
 			return false, err
 		}
 	}
-	r.values[term] = lazyValue{v, a}
 	return true, nil
 }

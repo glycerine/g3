@@ -243,6 +243,15 @@ func (s *Solver) Close() error {
 	if err := s.drainConverters(); err != nil {
 		return err
 	}
+	// m_subgoals (whose first goal is the compiled one) goes before
+	// m_preprocess and m_bb_rewriter.
+	if s.lastGoal != nil {
+		s.goals = append(s.goals, s.lastGoal)
+		s.lastGoal = nil
+	}
+	if err := s.drainGoals(); err != nil {
+		return err
+	}
 	if s.encoder != nil {
 		if err := s.encoder.closeBeforeModel(); err != nil {
 			return err
@@ -256,13 +265,6 @@ func (s *Solver) Close() error {
 			return err
 		}
 		s.encoder = nil
-	}
-	if s.lastGoal != nil {
-		s.goals = append(s.goals, s.lastGoal)
-		s.lastGoal = nil
-	}
-	if err := s.drainGoals(); err != nil {
-		return err
 	}
 	for _, roots := range []*[]ast.ASTHandle{&s.consequences, &s.unsatCore, &s.tracked, &s.formulas} {
 		if err := releaseRoots(s.manager, roots, 0); err != nil {
