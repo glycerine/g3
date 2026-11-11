@@ -16,6 +16,7 @@ func TestHornQuantifiedClauseReferenceFailuresLeaveNoASTRoots(t *testing.T) {
 	// clauses while building fresh Horn definitions.
 	// Every allocation frontier must fail cleanly, up to the first budget that
 	// succeeds; where that lies depends on capacity already grown in the fixture.
+	frontiers := 0
 	for _, free := range []int{10, 12, 15} {
 		completed := false
 		for budget := int64(0); !completed; budget++ {
@@ -90,15 +91,15 @@ func TestHornQuantifiedClauseReferenceFailuresLeaveNoASTRoots(t *testing.T) {
 					ruleMust(t, result.Close())
 				}
 				if cause == nil {
-					if budget == 0 {
-						t.Fatal("normalization allocated nothing, so no frontier was tested")
-					}
+					// With enough free reference slots the normalization
+					// reserves nothing; a smaller free count tests the frontier.
 					completed = true
 					return
 				}
 				if !errors.Is(cause, arena.ErrInjectedFailure) {
 					t.Fatal("expected allocation failure", cause)
 				}
+				frontiers++
 				ruleMust(t, normalizer.Close())
 				after := m.Stats()
 				if after.LiveNodes > before.LiveNodes || after.LiveReferences > before.LiveReferences {
@@ -129,5 +130,8 @@ func TestHornQuantifiedClauseReferenceFailuresLeaveNoASTRoots(t *testing.T) {
 				ruleMust(t, retry.Close())
 			})
 		}
+	}
+	if frontiers == 0 {
+		t.Fatal("no allocation frontier was tested")
 	}
 }

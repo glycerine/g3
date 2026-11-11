@@ -60,6 +60,27 @@ type hornPrefix struct {
 
 type hornWork struct {
 	formula ast.ASTHandle
+	owner   ast.ASTRef // m_todo's reference
+}
+
+// todoItem is bind_variables(mk_implies(body, head)) into an owning
+// reference: the raw implication is held only by its quantifier.
+func (n *HornNormalizer) todoItem(body []ast.ASTHandle, head ast.ASTHandle, prefix hornPrefix) (_ ast.ASTHandle, owner ast.ASTRef, resultErr error) {
+	var scratch []ast.ASTRef
+	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(n.manager, scratch)) }()
+	definition, err := n.implication(body, head, &scratch)
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTRef{}, err
+	}
+	definition, err = n.bind(prefix, definition, &scratch)
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTRef{}, err
+	}
+	owner, err = n.manager.NewRef(definition)
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTRef{}, err
+	}
+	return definition, owner, nil
 }
 
 // HornNormalizer converts formulas into a conjunction of Horn formulas. It
@@ -460,20 +481,37 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 	if err = n.Reset(); err != nil {
 		return result, err
 	}
-	var locals []ast.ASTRef
-	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(n.manager, locals)) }()
-	if err := n.pin(&locals, formula); err != nil {
+	hoister := n.hoister
+	// m_todo owns the pending formulas and the loop's fml the current one;
+	// frame holds mk_horn's locals (the pulled body and raw construction
+	// temporaries), which die when the item's processing ends.
+	initial, err := n.manager.NewRef(formula)
+	if err != nil {
 		return result, err
 	}
-	hoister := n.hoister
-	work := []hornWork{{formula: formula}}
-	// Transfer pending work before lexical roots close, matching m_todo's
-	// lifetime across a canceled invocation and the already-Horn shortcut.
+	work := []hornWork{{formula: formula, owner: initial}}
+	var current ast.ASTRef
+	var frame []ast.ASTRef
 	defer func() {
+		// Transfer pending work before lexical roots close, matching m_todo's
+		// lifetime across a canceled invocation.
 		for _, item := range work {
-			resultErr = errors.Join(resultErr, n.pin(&n.todoRefs, item.formula))
+			n.todoRefs = append(n.todoRefs, item.owner)
 		}
+		work = nil
+		if current != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, n.manager.DelRef(&current))
+		}
+		resultErr = errors.Join(resultErr, closeASTRefs(n.manager, frame))
 	}()
+	// finishItem is fml = bind_variables(fml2) (or fml = nullptr) followed by
+	// mk_horn's return: the processed formula dies, then the locals.
+	finishItem := func() error {
+		err := n.manager.DelRef(&current)
+		err = errors.Join(err, closeASTRefs(n.manager, frame))
+		frame = nil
+		return err
+	}
 	memo := make(map[ast.ASTHandle]ast.ASTHandle)
 	for len(work) != 0 {
 		canceled, cancelErr := n.manager.Canceled()
@@ -486,10 +524,11 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 		last := len(work) - 1
 		item := work[last]
 		work = work[:last]
+		current = item.owner
 		if err := n.beginHornStep(); err != nil {
 			return result, err
 		}
-		core, prefix, err := n.pullForall(hoister, item.formula, &locals)
+		core, prefix, err := n.pullForall(hoister, item.formula, &frame)
 		if err != nil {
 			return result, err
 		}
@@ -539,15 +578,14 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 					if x != nil {
 						return result, x
 					}
-					definition, x := n.implication([]ast.ASTHandle{disjunct}, head, &locals)
+					definition, owner, x := n.todoItem([]ast.ASTHandle{disjunct}, head, prefix)
 					if x != nil {
 						return result, x
 					}
-					definition, x = n.bind(prefix, definition, &locals)
-					if x != nil {
-						return result, x
-					}
-					work = append(work, hornWork{formula: definition})
+					work = append(work, hornWork{formula: definition, owner: owner})
+				}
+				if err = finishItem(); err != nil {
+					return result, err
 				}
 				continue
 			}
@@ -621,7 +659,7 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 				if x != nil {
 					return result, x
 				}
-				locals = append(locals, owner)
+				frame = append(frame, owner)
 				notLeft, x := n.manager.MkNotSimplified(left)
 				if x = errors.Join(x, n.manager.SetRef(owner, notLeft)); x != nil {
 					return result, x
@@ -633,7 +671,7 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 			}
 			fresh, found := memo[expression]
 			if !found {
-				fresh, e = n.freshHead(expression, result, &locals)
+				fresh, e = n.freshHead(expression, result, &frame)
 				if e != nil {
 					return result, e
 				}
@@ -650,21 +688,17 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 						if x != nil {
 							return result, x
 						}
-						locals = append(locals, owner)
+						frame = append(frame, owner)
 						disjunct, e = n.manager.MkNot(disjunct)
 						if e = errors.Join(e, n.manager.SetRef(owner, disjunct)); e != nil {
 							return result, e
 						}
 					}
-					definition, x := n.implication([]ast.ASTHandle{disjunct}, fresh, &locals)
+					definition, owner, x := n.todoItem([]ast.ASTHandle{disjunct}, fresh, prefix)
 					if x != nil {
 						return result, x
 					}
-					definition, x = n.bind(prefix, definition, &locals)
-					if x != nil {
-						return result, x
-					}
-					work = append(work, hornWork{formula: definition})
+					work = append(work, hornWork{formula: definition, owner: owner})
 				}
 			}
 			body[i] = fresh
@@ -708,43 +742,34 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 			if predicate {
 				continue
 			}
-			fresh, err := n.freshHead(inner, result, &locals)
+			fresh, err := n.freshHead(inner, result, &frame)
 			if err != nil {
 				return result, err
 			}
-			definition, err := n.implication([]ast.ASTHandle{inner}, fresh, &locals)
+			definition, owner, err := n.todoItem([]ast.ASTHandle{inner}, fresh, prefix)
 			if err != nil {
 				return result, err
 			}
-			definition, err = n.bind(prefix, definition, &locals)
-			if err != nil {
-				return result, err
-			}
-			work = append(work, hornWork{formula: definition})
+			work = append(work, hornWork{formula: definition, owner: owner})
 			body[i], err = n.manager.UpdateQuantifierBody(expression, fresh)
 			if err != nil {
 				return result, err
 			}
-			if err = n.pin(&locals, body[i]); err != nil {
+			if err = n.pin(&frame, body[i]); err != nil {
 				return result, err
 			}
 			if err = n.replaceHornBody(i, body[i]); err != nil {
 				return result, err
 			}
 		}
-		normalized, err := n.implication(body, head, &locals)
-		if err != nil {
-			return result, err
-		}
-		normalized, err = n.bind(prefix, normalized, &locals)
-		if err != nil {
-			return result, err
-		}
-		reference, err := n.manager.NewRef(normalized)
+		_, reference, err := n.todoItem(body, head, prefix)
 		if err != nil {
 			return result, err
 		}
 		result.Formulas = append(result.Formulas, reference)
+		if err = finishItem(); err != nil {
+			return result, err
+		}
 	}
 	if err := n.traceHornResult(formula, result, false); err != nil {
 		return result, err
