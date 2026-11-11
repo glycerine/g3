@@ -29,18 +29,18 @@ type qsatSearch struct {
 	answers, assumptions, projectionVariables, freeVariables []ast.ASTRef
 	// operatorDefs is qsat::operator()'s expr_ref_vector defs: the atom
 	// abstraction definitions live until the tactic call returns.
-	operatorDefs []ast.ASTRef
-	current, saved                                           tactic.ModelRef
-	level, rounds                                            uint32
-	stats                                                    statistics.Statistics
-	objective                                                ast.ASTHandle
-	value                                                    *simplex.Optimum
-	valueSaved                                               simplex.Optimum
-	improvement                                              ast.ASTRef
-	wasSat                                                   bool
-	pending                                                  []*qsatSearchCall
-	bytes                                                    uint64
-	closed                                                   bool
+	operatorDefs   []ast.ASTRef
+	current, saved tactic.ModelRef
+	level, rounds  uint32
+	stats          statistics.Statistics
+	objective      ast.ASTHandle
+	value          *simplex.Optimum
+	valueSaved     simplex.Optimum
+	improvement    ast.ASTRef
+	wasSat         bool
+	pending        []*qsatSearchCall
+	bytes          uint64
+	closed         bool
 }
 type qsatSearchCall struct {
 	owner         *qsatSearch
@@ -240,6 +240,7 @@ func (c *qsatSearchCall) close() error {
 	}
 	return c.owner.clearRefs(&c.refs)
 }
+
 // releaseOperatorDefs is ~expr_ref_vector defs (front to back).
 func (s *qsatSearch) releaseOperatorDefs() (result error) {
 	for i := range s.operatorDefs {
