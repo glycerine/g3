@@ -1639,6 +1639,20 @@ Found while matching `-st` output against `build/z3` on
     - Conflict proofs: lazy literal2expr (88c649042), m_new_proofs pins
       (f5eaedde8); def-axiom (not true) for false_literal (36cbbbd2e).
     The survey shows 32 of 55 identical, and the full logs are at 612/659.
+    Progress (2026-11-11): the bv-sharing lead is fixed. mk_safe's conjs
+    slot is overwritten by the proxy, dropping the expanded literal's
+    reference (985bb9536). create_children renames o_cube =
+    mk_and(child_states[i]) once into a caller-owned n_cube, instead of
+    renaming each literal through SymbolMux.ConvertFormula, which keeps
+    every result in m.references for the mux's lifetime (13c655f04).
+    pdr_sliced_compound_head and pdr_arithmetic_invariant now match;
+    pdr_initial_trace is at 12926 and pdr_recursive_trace at 9291. Next:
+    (1) other ConvertFormula callers have the same mux-lifetime retention
+    and should move to caller-owned refs where the source uses a local
+    expr_ref; (2) at pdr_initial_trace 12926, (= #38 #29) from
+    qe-lite's abstraction outlives z3's copy. Tools: $W/build_g3rc.sh
+    (G3_RC_ID=n logs every inc/dec of that main-manager node with a
+    short stack into the trace).
     Open lead: fixedpoint_pdr_initial_trace (also recursive_trace and
     sliced_compound_head), where (<= #53 #29) stays in g3's
     MaximizeBVSharing rewriter cache until kernel close, but z3 frees it
