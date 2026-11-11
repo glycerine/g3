@@ -179,6 +179,11 @@ type PropositionalEngine struct {
 	queryClonePredicate          ast.ASTHandle
 	queryRelations               []ast.ASTHandle
 	queryRelationsSet            bool
+	// relAnswer is rel_context::m_answer for the finite-table path: built
+	// when the query ends and replaced (old released) by the next one.
+	relAnswer ast.ASTRef
+	// expressionClone marks a query clone; its answer is built on demand.
+	expressionClone bool
 	queryRevision                uint64
 	queryEngine                  EngineKind
 	lastResult                   lbool.LBool
@@ -2394,7 +2399,11 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 		e.compiled = false
 		return e.queryTabPredicate(declaration)
 	}
-	return e.queryDatalogPredicates([]ast.ASTHandle{declaration})
+	status, err := e.queryDatalogPredicates([]ast.ASTHandle{declaration})
+	if err == nil && status == lbool.True {
+		err = e.buildRelationAnswer([]ast.ASTHandle{declaration})
+	}
+	return status, err
 }
 
 // QueryPredicates returns true when at least one requested relation is
@@ -2437,7 +2446,72 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 	if err := e.flushPendingRules(); err != nil {
 		return lbool.Undef, err
 	}
-	return e.queryDatalogPredicates(declarations)
+	status, err := e.queryDatalogPredicates(declarations)
+	if err == nil && status == lbool.True {
+		err = e.buildRelationAnswer(declarations)
+	}
+	return status, err
+}
+
+// buildRelationAnswer is rel_context::query's l_true case: m_answer =
+// mk_and(rel.to_formula(e) for each queried relation), assigned after the
+// new formula exists. Only plain finite tables take this path.
+func (e *PropositionalEngine) buildRelationAnswer(declarations []ast.ASTHandle) (result error) {
+	// Only the plain finite-table backend; the explanation, Karr, udoc and
+	// interval backends answer through their own relations.
+	if e.datalogExplanationAnswer != (ast.ASTRef{}) || e.karrDatalog != nil || e.udocDatalog != nil ||
+		e.externalIntervalDatalog != nil || e.sparseIntervalDatalog != nil || e.boundIntervalDatalog != nil ||
+		e.boundDatalog != nil || e.intervalDatalog != nil || e.queryClone != nil || e.expressionClone {
+		return nil
+	}
+	for _, declaration := range declarations {
+		if state := e.predicates[declaration]; state == nil || state.table == nil {
+			return nil
+		}
+	}
+	refs := make([]ast.ASTRef, 0, len(declarations))
+	defer func() {
+		for i := len(refs) - 1; i >= 0; i-- {
+			result = errors.Join(result, e.manager.DelRef(&refs[i]))
+		}
+	}()
+	values := make([]ast.ASTHandle, 0, len(declarations))
+	for _, declaration := range declarations {
+		ref, err := e.finiteRelationAnswer(e.predicates[declaration])
+		if err != nil {
+			return err
+		}
+		refs = append(refs, ref)
+		h, err := e.manager.RefGet(ref)
+		if err != nil {
+			return err
+		}
+		values = append(values, h)
+	}
+	// mk_and(m, n, args): true for none, the argument itself for one.
+	var answer ast.ASTHandle
+	var err error
+	switch len(values) {
+	case 0:
+		answer, err = e.manager.MkTrue()
+	case 1:
+		answer = values[0]
+	default:
+		answer, err = e.manager.MkAndArray(values)
+	}
+	if err != nil {
+		return err
+	}
+	held, err := e.manager.NewRef(answer)
+	if err != nil {
+		return err
+	}
+	old := e.relAnswer
+	e.relAnswer = held
+	if old != (ast.ASTRef{}) {
+		return e.manager.DelRef(&old)
+	}
+	return nil
 }
 
 func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandle) (status lbool.LBool, resultErr error) {
@@ -3195,6 +3269,12 @@ func (e *PropositionalEngine) Close() (result error) {
 		if err := e.resumeContextPop(); err != nil {
 			return err
 		}
+	}
+	if e.relAnswer != (ast.ASTRef{}) {
+		if err := e.manager.DelRef(&e.relAnswer); err != nil {
+			return err
+		}
+		e.relAnswer = ast.ASTRef{}
 	}
 	e.closing = true
 	e.queryReady = false

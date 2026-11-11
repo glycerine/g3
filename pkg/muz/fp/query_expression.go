@@ -125,6 +125,9 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	}
 	e.queried = true
 	clone, err := e.newQueryClone()
+	if clone != nil {
+		clone.expressionClone = true
+	}
 	if err != nil {
 		return lbool.Undef, err
 	}
