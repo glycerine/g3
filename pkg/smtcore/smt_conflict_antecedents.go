@@ -239,7 +239,10 @@ func (e *SMTAntecedentExpander) expandEquality(first, second *SMTEnode) error {
 }
 func (e *SMTAntecedentExpander) process() error {
 	for {
-		for e.justificationAt < len(e.justifications) {
+		// The source bounds this pass by the size before it starts:
+		// justifications marked here wait until m_todo_eqs is drained.
+		size := len(e.justifications)
+		for e.justificationAt < size {
 			justification := e.justifications[e.justificationAt]
 			e.justificationAt++
 			if err := justification.MarkAntecedents(e); err != nil {
