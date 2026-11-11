@@ -320,7 +320,17 @@ tags` hourly. Commit with explicit pathspecs, no amend, no Co-Authored-By.
    each qe_project round; and model_evaluator_util as one evaluator per
    expand_node (muz/spacer/model_evaluator_util.go). unfold_rules, scale,
    bit_blast and array_eq_rewrite are identical.]
-9. **S2 elim_proxies.** Check: fp_spacer_generalizers_inv.
+9. **S2 elim_proxies.** Check: fp_spacer_generalizers_inv. [The actual
+   causes were the lemma generalizers, now ported (107e05602, next commit):
+   the array generalizer's standalone smt::kernel, lazy lemma::mk_expr_core,
+   lemma::is_false, check_inductive's raw negation. 2673 -> 2740. What
+   remains is kernel-level, **K5**: smt::context::pop_scope_core sets
+   m_unsat_proof = nullptr (smt_context.cpp:2390) so the conflict proof
+   (mp/asserted) dies at the pop, and the popped scope's asserted formulas
+   release their simplification proofs (iff-false/iff) and their asserted
+   proof at that pop; g3's SMTKernel keeps all of them until Close. Compare
+   d_fp_spacer_generalizers_inv.zf/.g at the two [pop] lines after
+   "asserted #170".]
 10. **K1, K2, K3** in smtcore/model; **K4** last. Each has its own vector.
 
 Expected outcome after steps 1–9: the seven transformer-phase vectors and
