@@ -1546,23 +1546,25 @@ Found while matching `-st` output against `build/z3` on
     g3 bit-blasts the objectives before it builds the solver, and never
     creates the maximize!! constants. Port opt::context::optimize/normalize
     in source order.
-    Attempt (2026-11-11, 029b6fe84, reverted in 36c1aa6a1): ran
-    init_solver and normalize on the first pareto check, purified against
-    from_fmls' hard constraints, and applied the purify filter and then
-    the normalize converter to the model. The three pareto vectors
-    matched z3's stdout, and their logs advanced to 224/78/32 (from
-    12/38/29). Two blockers:
-    (a) In a frontier enumeration with (assert (= (bvadd x y) #b11)), the
-        continuation points published x = #b00. The converter was held
-        and applied, so the continuation model path must differ (find
-        it; parsers/smt2 TestSMT2BitVectorParetoOptimizationEndToEnd).
-    (b) Negative-weight assert-soft objectives reported 0 instead of
-        (- 2), and the second check said unsat
-        (TestSMT2NegativeSoftParetoOptimizationEndToEnd). Normalize's
-        soft offset/negate are not carried into pareto evaluation.
-    Also: z3 4.7.1 itself does not terminate on 0-1 arithmetic pareto
-    objectives once normalize makes them MaxSAT. Keeping g3 terminating
-    there is an ask-first deviation.
+    Progress (2026-11-11, 4e21f16f3, which replaces the reverted
+    029b6fe84):
+    - The first pareto check runs init_solver and normalize, and
+      purifies against from_fmls' hard constraints.
+    - The pareto state holds normalize's model converter for every
+      frontier point and applies it as operator()(md, 0); the
+      extension converter's unindexed form was a no-op.
+    - Soft costs include from_fmls' adjust offset.
+    - The pareto vectors' logs advance to 224/78/32 (from 12/38/29), and
+      stdout still matches.
+    Open:
+    - z3 answers sat on the second check after a single negative-weight
+      soft objective; g3 (before and after this change) answers unsat.
+      This needs a faithful gia_pareto port.
+    - The next log divergences: pareto_bit_vector 225, an extra
+      attach-enode pair, i.e. a second kernel.
+    - Recorded ask-first deviation: z3 4.7.1 does not terminate on 0-1
+      arithmetic pareto objectives once normalize makes them MaxSAT, so g3
+      keeps the un-normalized path there.
 
 31. **In progress (2026-11-11): PDR/spacer query pipeline lifetimes (about 40
     fixedpoint_* and fp_spacer_* vectors).** Plan: pkg/PDR_PORT_PLAN.md.
