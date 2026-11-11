@@ -184,12 +184,12 @@ type PropositionalEngine struct {
 	relAnswer ast.ASTRef
 	// expressionClone marks a query clone; its answer is built on demand.
 	expressionClone bool
-	queryRevision                uint64
-	queryEngine                  EngineKind
-	lastResult                   lbool.LBool
-	revision                     uint64
-	pdrRevision                  uint64
-	spacerRules                  *base.RuleSet
+	queryRevision   uint64
+	queryEngine     EngineKind
+	lastResult      lbool.LBool
+	revision        uint64
+	pdrRevision     uint64
+	spacerRules     *base.RuleSet
 	// spacerTransformedRules is m_spacer_rules / the context's transformed
 	// rule set: the transformed rules outlive the query and the Spacer
 	// context, whose transformers only point at them.

@@ -38,7 +38,7 @@ func (e *PropositionalEngine) RelationsAnswer() (answer ast.ASTRef, resultErr er
 		}
 		return e.manager.NewRef(h)
 	}
-		refs := make([]ast.ASTRef, 0, len(e.queryRelations))
+	refs := make([]ast.ASTRef, 0, len(e.queryRelations))
 	defer func() {
 		for i := len(refs) - 1; i >= 0; i-- {
 			resultErr = errors.Join(resultErr, e.manager.DelRef(&refs[i]))
