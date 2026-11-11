@@ -82,10 +82,8 @@ func TestSMTKernelPopResumesNativeOwnerFrontiers(t *testing.T) {
 
 				// Reach each exact boundary using the real child owners. Keeping
 				// the parent scope published models a refusal between children.
+				// The context scope pop also pops m_bv_sharing.
 				astTestMust(t, k.internalizer.PopScopes(1))
-				if stage > smtKernelPopBVSharing {
-					astTestMust(t, k.bvSharing.PopScope(1))
-				}
 				if stage > smtKernelPopMacros {
 					astTestMust(t, k.assertedMacros.PopScope(1))
 				}

@@ -201,6 +201,20 @@ func NewSMTKernel(manager *ast.ASTManager, quantifiers *SMTQuantifierRegistry) (
 	internalizer.afterFlush = kernel.releaseContextModels
 	internalizer.onQuantifierFlush = kernel.closeQuantifierCosts
 	internalizer.resourceLimitsExceeded = kernel.resourceLimitsExceeded
+	// asserted_formulas::push_scope/pop_scope reach m_bv_sharing on every
+	// context scope.
+	internalizer.onScopePush = func() error {
+		if kernel.bvSharing == nil {
+			return nil
+		}
+		return kernel.bvSharing.PushScope()
+	}
+	internalizer.onScopePop = func(count uint32) error {
+		if kernel.bvSharing == nil {
+			return nil
+		}
+		return kernel.bvSharing.PopScope(count)
+	}
 	internalizer.assertedHasQuantifiers = &kernel.assertedHasQuantifiers
 	internalizer.assertedInconsistent = &kernel.assertedInconsistent
 	internalizer.assertedFormulas = &kernel.assertions
@@ -1007,16 +1021,14 @@ func (k *SMTKernel) Push() error {
 	if err := k.definedNames.Push(); err != nil {
 		return errors.Join(err, k.assertedMacros.PopScope(1), k.manager.ScopedExprSubstitutionPop(k.assertedScopedSubst, 1))
 	}
-	if err := k.bvSharing.PushScope(); err != nil {
-		return errors.Join(err, k.definedNames.Pop(1), k.assertedMacros.PopScope(1), k.manager.ScopedExprSubstitutionPop(k.assertedScopedSubst, 1))
-	}
+	// m_bv_sharing.push_scope() runs inside the context scope push.
 	if err := k.internalizer.PushScope(); err != nil {
-		return errors.Join(err, k.bvSharing.PopScope(1), k.definedNames.Pop(1), k.assertedMacros.PopScope(1), k.manager.ScopedExprSubstitutionPop(k.assertedScopedSubst, 1))
+		return errors.Join(err, k.definedNames.Pop(1), k.assertedMacros.PopScope(1), k.manager.ScopedExprSubstitutionPop(k.assertedScopedSubst, 1))
 	}
 	k.internalizer.pushBaseScope()
 	// asserted_formulas::push_scope commits even an inconsistent manager.
 	if err := k.commitAssertedTo(len(k.assertions)); err != nil {
-		return errors.Join(err, k.internalizer.PopScopes(1), k.bvSharing.PopScope(1), k.definedNames.Pop(1), k.assertedMacros.PopScope(1), k.manager.ScopedExprSubstitutionPop(k.assertedScopedSubst, 1))
+		return errors.Join(err, k.internalizer.PopScopes(1), k.definedNames.Pop(1), k.assertedMacros.PopScope(1), k.manager.ScopedExprSubstitutionPop(k.assertedScopedSubst, 1))
 	}
 	k.scopes = append(k.scopes, len(k.assertions))
 	k.assertedScopeConflicts = append(k.assertedScopeConflicts, k.assertedInconsistent)
@@ -1075,9 +1087,7 @@ func (k *SMTKernel) Pop(count uint32) error {
 		pop.stage++
 	}
 	if pop.stage == smtKernelPopBVSharing {
-		if err := k.bvSharing.PopScope(count); err != nil {
-			return err
-		}
+		// m_bv_sharing was popped with the context scopes.
 		pop.stage++
 	}
 	if pop.stage == smtKernelPopMacros {

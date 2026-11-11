@@ -130,6 +130,10 @@ type SMTInternalizerState struct {
 	// resourceLimitsExceeded is context::resource_limits_exceeded (it
 	// records the search failure).
 	resourceLimitsExceeded func() (bool, error)
+	// onScopePush and onScopePop are the asserted_formulas scope work that
+	// context::push_scope and pop_scope_core do for every scope.
+	onScopePush func() error
+	onScopePop  func(count uint32) error
 	// paramsContext and globals are the kernel's parameter services, borrowed
 	// by theories that build their own rewriters (theory_fpa's converter).
 	paramsContext         *uparams.ParamsContext
@@ -907,6 +911,14 @@ func (s *SMTInternalizerState) PushScope() error {
 	if err := s.traceCaseSplitScope(false); err != nil {
 		return err
 	}
+	// context::push_scope: m_asserted_formulas.push_scope() precedes the
+	// theories' push_scope_eh, for every scope (assumptions and decisions
+	// included).
+	if s.onScopePush != nil {
+		if err := s.onScopePush(); err != nil {
+			return err
+		}
+	}
 	for index, theory := range s.theoryOrder {
 		if err := theory.PushScope(); err != nil {
 			for undo := index - 1; undo >= 0; undo-- {
@@ -1321,6 +1333,8 @@ type smtInternalizerPendingPop struct {
 	theory   int
 	preserve bool
 	learned  []smtPreservedLearnedClause
+	// quantifiersPopped and assertedPopped make stage 5 resumable.
+	quantifiersPopped, assertedPopped bool
 }
 
 // smtPopOwnerReleaser is a theory that keeps Go owners of atoms the context
@@ -1425,10 +1439,18 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 		pop.stage++
 	}
 	if pop.stage == 5 {
-		if s.quantifiers != nil {
+		if s.quantifiers != nil && !pop.quantifiersPopped {
 			if err := s.quantifiers.PopScopes(count); err != nil {
 				return err
 			}
+			pop.quantifiersPopped = true
+		}
+		// m_asserted_formulas.pop_scope(num_scopes) in pop_scope_core.
+		if s.onScopePop != nil && !pop.assertedPopped {
+			if err := s.onScopePop(count); err != nil {
+				return err
+			}
+			pop.assertedPopped = true
 		}
 		s.scopes = s.scopes[:pop.level]
 		s.scopeLevel = uint32(pop.level)
