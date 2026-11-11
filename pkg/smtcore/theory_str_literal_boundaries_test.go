@@ -28,7 +28,7 @@ func TestSMTStringMatchingLiteralBoundariesCoreAndRollback(t *testing.T) {
 			astTestMust(t, state.Internalize(left, false))
 			astTestMust(t, state.Internalize(right, false))
 			astTestMust(t, state.PushScope())
-			equality, err := m.MkEq(left, right)
+			equality, err := stringEqAtom(m, left, right)
 			astTestMust(t, err)
 			astTestMust(t, state.Internalize(equality, true))
 			literal, err := state.Literal(equality)
@@ -97,7 +97,7 @@ func TestSMTStringMatchingLiteralBoundaryExactFormulasAndBytes(t *testing.T) {
 				astTestMust(t, theory.arrangeMatchingLiteralBoundaries(left, right, suffix))
 				axiom, err := m.RefGet(theory.refs[len(theory.refs)-1])
 				astTestMust(t, err)
-				parent, err := m.MkEq(left, right)
+				parent, err := stringEqAtom(m, left, right)
 				astTestMust(t, err)
 				astTestPin(t, m, parent)
 				var want ast.ASTHandle
@@ -119,11 +119,11 @@ func TestSMTStringMatchingLiteralBoundaryExactFormulasAndBytes(t *testing.T) {
 							replacement = stringEqualityConcat(t, m, astTestString(t, m, test.delta), replacement)
 						}
 					}
-					conclusion, err := m.MkEq(destination, replacement)
+					conclusion, err := stringEqAtom(m, destination, replacement)
 					astTestMust(t, err)
 					astTestPin(t, m, conclusion)
 					if strong {
-						want, err = m.MkEq(parent, conclusion)
+						want, err = stringEqAtom(m, parent, conclusion)
 						astTestMust(t, err)
 					} else {
 						negative, err := m.MkNot(parent)
@@ -153,6 +153,11 @@ func TestSMTStringMatchingLiteralBoundaryExactFormulasAndBytes(t *testing.T) {
 					// duplicate cancellation axiom.
 					conclusion, err := m.GetArg(axiom, 1)
 					astTestMust(t, err)
+					if strong && conclusion == parent {
+						// mk_eq_atom orders the strong axiom's sides by id.
+						conclusion, err = m.GetArg(axiom, 0)
+						astTestMust(t, err)
+					}
 					first, err := m.GetArg(conclusion, 0)
 					astTestMust(t, err)
 					second, err := m.GetArg(conclusion, 1)
@@ -184,7 +189,7 @@ func TestSMTStringOpposingLiteralBoundariesCoreAndRollback(t *testing.T) {
 		astTestMust(t, state.Internalize(left, false))
 		astTestMust(t, state.Internalize(right, false))
 		astTestMust(t, state.PushScope())
-		equality, err := m.MkEq(left, right)
+		equality, err := stringEqAtom(m, left, right)
 		astTestMust(t, err)
 		astTestMust(t, state.Internalize(equality, true))
 		literal, err := state.Literal(equality)

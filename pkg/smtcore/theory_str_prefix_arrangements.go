@@ -67,7 +67,7 @@ func (t *SMTStringTheory) arrangeLiteralPrefixConcats(left, right ast.ASTHandle)
 		}
 		return value, locals.add(value)
 	}
-	parentEq, err := pin(m.MkEq(left, right))
+	parentEq, err := pin(t.state.MkEqAtom(left, right))
 	if err != nil {
 		return err
 	}
@@ -154,7 +154,7 @@ func (t *SMTStringTheory) arrangeLiteralPrefixConcats(left, right ast.ASTHandle)
 			if err != nil {
 				return err
 			}
-			eq, err := pin(m.MkEq(l, r))
+			eq, err := pin(t.state.MkEqAtom(l, r))
 			if err != nil {
 				return err
 			}
@@ -168,11 +168,11 @@ func (t *SMTStringTheory) arrangeLiteralPrefixConcats(left, right ast.ASTHandle)
 		if err != nil {
 			return err
 		}
-		first, err := pin(m.MkEq(x, textTerm))
+		first, err := pin(t.state.MkEqAtom(x, textTerm))
 		if err != nil {
 			return err
 		}
-		second, err := pin(m.MkEq(y, n))
+		second, err := pin(t.state.MkEqAtom(y, n))
 		if err != nil {
 			return err
 		}

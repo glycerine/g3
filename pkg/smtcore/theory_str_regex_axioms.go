@@ -83,7 +83,7 @@ func (t *SMTStringTheory) instantiateLegacyRegexAxiom(expression, word, regex as
 		if err != nil {
 			return err
 		}
-		equality, err := pin(m.MkEq(word, literal))
+		equality, err := pin(t.state.MkEqAtom(word, literal))
 		if err != nil {
 			return err
 		}
@@ -106,16 +106,16 @@ func (t *SMTStringTheory) instantiateLegacyRegexAxiom(expression, word, regex as
 			if err != nil {
 				return err
 			}
-			equality, err = pin(m.MkEq(word, concat))
+			equality, err = pin(t.state.MkEqAtom(word, concat))
 			if err != nil {
 				return err
 			}
 		} else {
-			left, err := pin(m.MkEq(word, first))
+			left, err := pin(t.state.MkEqAtom(word, first))
 			if err != nil {
 				return err
 			}
-			right, err := pin(m.MkEq(word, second))
+			right, err := pin(t.state.MkEqAtom(word, second))
 			if err != nil {
 				return err
 			}
@@ -140,7 +140,7 @@ func (t *SMTStringTheory) instantiateLegacyRegexAxiom(expression, word, regex as
 		if err != nil {
 			return err
 		}
-		equivalent, err := pin(m.MkEq(expression, equality))
+		equivalent, err := pin(t.state.MkEqAtom(expression, equality))
 		if err != nil {
 			return err
 		}
@@ -172,15 +172,15 @@ func (t *SMTStringTheory) instantiateLegacyRegexAxiom(expression, word, regex as
 		if err != nil {
 			return err
 		}
-		boundZero, err := pin(m.MkEq(bound, zero))
+		boundZero, err := pin(t.state.MkEqAtom(bound, zero))
 		if err != nil {
 			return err
 		}
-		unrollEmpty, err := pin(m.MkEq(unroll, empty))
+		unrollEmpty, err := pin(t.state.MkEqAtom(unroll, empty))
 		if err != nil {
 			return err
 		}
-		zeroIffEmpty, err := pin(m.MkEq(boundZero, unrollEmpty))
+		zeroIffEmpty, err := pin(t.state.MkEqAtom(boundZero, unrollEmpty))
 		if err != nil {
 			return err
 		}
@@ -209,19 +209,19 @@ func (t *SMTStringTheory) instantiateLegacyRegexAxiom(expression, word, regex as
 		if err != nil {
 			return err
 		}
-		outerEmpty, err := pin(m.MkEq(unroll, emptyAgain))
+		outerEmpty, err := pin(t.state.MkEqAtom(unroll, emptyAgain))
 		if err != nil {
 			return err
 		}
-		outerZeroIffEmpty, err := pin(m.MkEq(boundZero, outerEmpty))
+		outerZeroIffEmpty, err := pin(t.state.MkEqAtom(boundZero, outerEmpty))
 		if err != nil {
 			return err
 		}
-		wordEquality, err := pin(m.MkEq(word, unroll))
+		wordEquality, err := pin(t.state.MkEqAtom(word, unroll))
 		if err != nil {
 			return err
 		}
-		equivalent, err := pin(m.MkEq(expression, wordEquality))
+		equivalent, err := pin(t.state.MkEqAtom(expression, wordEquality))
 		if err != nil {
 			return err
 		}
@@ -259,7 +259,7 @@ func (t *SMTStringTheory) instantiateLegacyRegexAxiom(expression, word, regex as
 			if err != nil {
 				return err
 			}
-			equality, err := pin(m.MkEq(word, literal))
+			equality, err := pin(t.state.MkEqAtom(word, literal))
 			if err != nil {
 				return err
 			}
@@ -284,7 +284,7 @@ func (t *SMTStringTheory) instantiateLegacyRegexAxiom(expression, word, regex as
 		if err != nil {
 			return err
 		}
-		equality, err := pin(m.MkEq(length, one))
+		equality, err := pin(t.state.MkEqAtom(length, one))
 		if err != nil {
 			return err
 		}

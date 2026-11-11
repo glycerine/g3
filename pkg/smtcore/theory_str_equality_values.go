@@ -169,7 +169,7 @@ func (t *SMTStringTheory) checkNewEqualityValuesAndLengths(left, right ast.ASTHa
 				return false, err
 			}
 			if !possible {
-				equality, err := m.MkEq(l, r)
+				equality, err := t.state.MkEqAtom(l, r)
 				if err != nil {
 					return false, err
 				}

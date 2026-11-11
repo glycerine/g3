@@ -158,7 +158,7 @@ func (f *smtStringRegexStage) intersections(options SMTStrState) error {
 			if err != nil {
 				return err
 			}
-			wordEmpty, err := f.pin(m.MkEq(word, empty))
+			wordEmpty, err := f.pin(f.theory.state.MkEqAtom(word, empty))
 			if err != nil {
 				return err
 			}
@@ -170,7 +170,7 @@ func (f *smtStringRegexStage) intersections(options SMTStrState) error {
 			if err != nil {
 				return err
 			}
-			lengthZero, err := f.pin(m.MkEq(length, zero))
+			lengthZero, err := f.pin(f.theory.state.MkEqAtom(length, zero))
 			if err != nil {
 				return err
 			}

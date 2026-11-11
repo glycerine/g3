@@ -35,7 +35,7 @@ func TestSMTStringUnrollConstantQuotientGuards(t *testing.T) {
 			}
 			axiom, err := m.RefGet(theory.refs[len(theory.refs)-1])
 			astTestMust(t, err)
-			guard, err := m.MkEq(unroll, constant)
+			guard, err := stringEqAtom(m, unroll, constant)
 			astTestMust(t, err)
 			astTestPin(t, m, guard)
 			length, err := m.MkSequenceLength(unroll)
@@ -138,7 +138,7 @@ func TestSMTStringUnrollConstantLegacyCoreCallbackAndPop(t *testing.T) {
 	astTestMust(t, state.AssignLiteral(literal, NewSMTBooleanAxiom()))
 	for _, test := range []struct{ word, count string }{{"abab", "2"}, {"ab", "1"}} {
 		astTestMust(t, state.PushScope())
-		equality, err := m.MkEq(x, astTestString(t, m, test.word))
+		equality, err := stringEqAtom(m, x, astTestString(t, m, test.word))
 		astTestMust(t, err)
 		astTestMust(t, state.Internalize(equality, true))
 		literal, err := state.Literal(equality)

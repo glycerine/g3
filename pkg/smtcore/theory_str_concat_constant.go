@@ -29,18 +29,18 @@ func (t *SMTStringTheory) solveConcatConstant(concat, constant ast.ASTHandle) (r
 		}
 		return value, locals.add(value)
 	}
-	equality, err := pin(m.MkEq(concat, constant))
+	equality, err := pin(t.state.MkEqAtom(concat, constant))
 	if err != nil {
 		return err
 	}
 	guards := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, guards.close()) }()
 	if text == "" {
-		left, err := pin(m.MkEq(first, constant))
+		left, err := pin(t.state.MkEqAtom(first, constant))
 		if err != nil {
 			return err
 		}
-		right, err := pin(m.MkEq(second, constant))
+		right, err := pin(t.state.MkEqAtom(second, constant))
 		if err != nil {
 			return err
 		}
@@ -74,7 +74,7 @@ func (t *SMTStringTheory) solveConcatConstant(concat, constant ast.ASTHandle) (r
 			return err
 		}
 		if newConcat != constant {
-			conclusion, err := pin(m.MkEq(concat, newConcat))
+			conclusion, err := pin(t.state.MkEqAtom(concat, newConcat))
 			if err != nil {
 				return err
 			}
@@ -108,7 +108,7 @@ func (t *SMTStringTheory) solveConcatConstant(concat, constant ast.ASTHandle) (r
 		if bk {
 			valid = strings.HasSuffix(text, piece)
 		}
-		newEquality, err := pin(m.MkEq(newConcat, constant))
+		newEquality, err := pin(t.state.MkEqAtom(newConcat, constant))
 		if err != nil {
 			return err
 		}
@@ -127,7 +127,7 @@ func (t *SMTStringTheory) solveConcatConstant(concat, constant ast.ASTHandle) (r
 		if err != nil {
 			return err
 		}
-		conclusion, err := pin(m.MkEq(variable, value))
+		conclusion, err := pin(t.state.MkEqAtom(variable, value))
 		if err != nil {
 			return err
 		}
@@ -244,7 +244,7 @@ func (t *SMTStringTheory) solveConcatKnownLength(equality, a, b ast.ASTHandle, t
 		if err != nil {
 			return err
 		}
-		eq, err := pin(m.MkEq(expression, value))
+		eq, err := pin(t.state.MkEqAtom(expression, value))
 		if err != nil {
 			return err
 		}
@@ -320,7 +320,7 @@ func (t *SMTStringTheory) solveConcatArrangements(equality, a, b ast.ASTHandle, 
 		if err != nil {
 			return err
 		}
-		left, err := pin(m.MkEq(a, prefix))
+		left, err := pin(t.state.MkEqAtom(a, prefix))
 		if err != nil {
 			return err
 		}
@@ -328,7 +328,7 @@ func (t *SMTStringTheory) solveConcatArrangements(equality, a, b ast.ASTHandle, 
 		if err != nil {
 			return err
 		}
-		right, err := pin(m.MkEq(b, suffix))
+		right, err := pin(t.state.MkEqAtom(b, suffix))
 		if err != nil {
 			return err
 		}
@@ -358,7 +358,7 @@ func (t *SMTStringTheory) solveConcatArrangements(equality, a, b ast.ASTHandle, 
 		strong = parameters.StrongArrangements
 	}
 	if strong {
-		axiom, err := pin(m.MkEq(equality, disjunction))
+		axiom, err := pin(t.state.MkEqAtom(equality, disjunction))
 		if err != nil {
 			return err
 		}

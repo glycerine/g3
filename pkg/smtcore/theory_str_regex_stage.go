@@ -193,7 +193,7 @@ func (f *smtStringRegexStage) exactGuard(member, word ast.ASTHandle, assignment 
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	equal, err := f.pin(m.MkEq(length, number))
+	equal, err := f.pin(f.theory.state.MkEqAtom(length, number))
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -226,7 +226,7 @@ func (f *smtStringRegexStage) exactPath(member, word ast.ASTHandle, assignment l
 		if err != nil {
 			return err
 		}
-		rhs, err := f.pin(m.MkEq(word, empty))
+		rhs, err := f.pin(f.theory.state.MkEqAtom(word, empty))
 		if err != nil {
 			return err
 		}
@@ -332,7 +332,7 @@ func (f *smtStringRegexStage) refineBound(member, length ast.ASTHandle, owner *r
 	var rhs ast.ASTHandle
 	if at {
 		if next == -1 {
-			rhs, err = f.pin(m.MkEq(length, number))
+			rhs, err = f.pin(f.theory.state.MkEqAtom(length, number))
 		} else {
 			// The lower-bound equality-or-next case is explicitly disabled in
 			// native code because it causes arithmetic nontermination.
@@ -347,7 +347,7 @@ func (f *smtStringRegexStage) refineBound(member, length ast.ASTHandle, owner *r
 			if createErr != nil {
 				return createErr
 			}
-			exact, createErr := f.pin(m.MkEq(length, number))
+			exact, createErr := f.pin(f.theory.state.MkEqAtom(length, number))
 			if createErr != nil {
 				return createErr
 			}

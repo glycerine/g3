@@ -228,21 +228,21 @@ func (t *SMTStringTheory) stringZeroLengthCoherence(left, right ast.ASTHandle) (
 		if err != nil {
 			return err
 		}
-		eqLength, err := m.MkEq(length, zero)
+		eqLength, err := t.state.MkEqAtom(length, zero)
 		if err != nil {
 			return err
 		}
 		if err := refs.add(eqLength); err != nil {
 			return err
 		}
-		eqEmpty, err := m.MkEq(pair[0], empty)
+		eqEmpty, err := t.state.MkEqAtom(pair[0], empty)
 		if err != nil {
 			return err
 		}
 		if err := refs.add(eqEmpty); err != nil {
 			return err
 		}
-		axiom, err := m.MkEq(eqLength, eqEmpty)
+		axiom, err := t.state.MkEqAtom(eqLength, eqEmpty)
 		if err != nil {
 			return err
 		}

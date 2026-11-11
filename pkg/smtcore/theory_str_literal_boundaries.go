@@ -55,7 +55,7 @@ func (t *SMTStringTheory) arrangeMatchingLiteralBoundaries(left, right ast.ASTHa
 		compatible = first[len(first)-common:] == second[len(second)-common:]
 	}
 	if !compatible {
-		equality, err := pin(m.MkEq(left, right))
+		equality, err := pin(t.state.MkEqAtom(left, right))
 		if err != nil {
 			return err
 		}
@@ -108,7 +108,7 @@ func (t *SMTStringTheory) arrangeMatchingLiteralBoundaries(left, right ast.ASTHa
 	if err != nil || same {
 		return err
 	}
-	conclusion, err := pin(m.MkEq(destination, replacement))
+	conclusion, err := pin(t.state.MkEqAtom(destination, replacement))
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func (t *SMTStringTheory) arrangeMatchingLiteralBoundaries(left, right ast.ASTHa
 		}
 		strong = parameters.StrongArrangements
 	}
-	premise, err := pin(m.MkEq(left, right))
+	premise, err := pin(t.state.MkEqAtom(left, right))
 	if err != nil {
 		return err
 	}
@@ -290,7 +290,7 @@ func (t *SMTStringTheory) arrangeOpposingLiteralBoundaries(left, right ast.ASTHa
 			return err
 		}
 	}
-	premise, err := pin(m.MkEq(left, right))
+	premise, err := pin(t.state.MkEqAtom(left, right))
 	if err != nil {
 		return err
 	}

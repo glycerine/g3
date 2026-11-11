@@ -20,7 +20,7 @@ func TestSMTStringVariableConcatCoreArrangement(t *testing.T) {
 	astTestMust(t, state.Internalize(left, false))
 	astTestMust(t, state.Internalize(right, false))
 	astTestMust(t, state.PushScope())
-	equality, err := m.MkEq(left, right)
+	equality, err := stringEqAtom(m, left, right)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(equality, true))
 	literal, err := state.Literal(equality)
@@ -131,7 +131,7 @@ func TestSMTStringVariableConcatKnownLengthOrientations(t *testing.T) {
 			if cutLeft {
 				witness, prefix, cutter, cut, tail = variables[1], a, x, b, y
 			}
-			parentEq, err := m.MkEq(left, right)
+			parentEq, err := stringEqAtom(m, left, right)
 			astTestMust(t, err)
 			guards := smtStringLengthPremises{theory: theory}
 			astTestMust(t, guards.add(parentEq))
@@ -153,7 +153,7 @@ func TestSMTStringVariableConcatKnownLengthOrientations(t *testing.T) {
 			conclusion, err := m.MkAndArray(conclusions.values)
 			astTestMust(t, err)
 			astTestPin(t, m, conclusion)
-			want, err := m.MkEq(premise, conclusion)
+			want, err := stringEqAtom(m, premise, conclusion)
 			astTestMust(t, err)
 			astTestPin(t, m, want)
 			stringConcatPairHasAxiom(t, theory, 0, want)
@@ -236,7 +236,7 @@ func TestSMTStringVariableConcatOverlapAlternatives(t *testing.T) {
 			if !constant || text != "yes" {
 				t.Fatal("finite overlap did not select its yes tester")
 			}
-			emptyEq, err := m.MkEq(variable, astTestString(t, m, ""))
+			emptyEq, err := stringEqAtom(m, variable, astTestString(t, m, ""))
 			astTestMust(t, err)
 			astTestPin(t, m, emptyEq)
 			choice, err := m.MkOr(emptyEq, term)
@@ -376,7 +376,7 @@ func TestSMTStringKnownConcatOverlapRetainsLengthPremise(t *testing.T) {
 		astTestMust(t, theory.mergeStringCut(cutter, 0, cut))
 		astTestMust(t, theory.simplifyStringConcatEquality(left, right))
 		guard := smtStringLengthPremises{theory: theory}
-		equality, err := m.MkEq(left, right)
+		equality, err := stringEqAtom(m, left, right)
 		astTestMust(t, err)
 		astTestMust(t, guard.add(equality))
 		astTestMust(t, guard.length(x, big.NewInt(lx)))
@@ -429,7 +429,7 @@ func TestSMTStringConcatResimplificationBridgeGuards(t *testing.T) {
 	negative, err := m.MkNot(guard)
 	astTestMust(t, err)
 	astTestPin(t, m, negative)
-	equality, err := m.MkEq(newLeft, newRight)
+	equality, err := stringEqAtom(m, newLeft, newRight)
 	astTestMust(t, err)
 	astTestPin(t, m, equality)
 	want, err := m.MkOr(negative, equality)

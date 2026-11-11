@@ -68,7 +68,7 @@ func (t *SMTStringTheory) instantiateBasicStringAxioms(node *SMTEnode) (result e
 		if err != nil {
 			return err
 		}
-		equality, err := m.MkEq(length, number)
+		equality, err := t.state.MkEqAtom(length, number)
 		if err != nil {
 			return err
 		}
@@ -280,7 +280,7 @@ func (t *SMTStringTheory) tryEvalConcat(node *SMTEnode) (result error) {
 		return err
 	}
 	defer func() { result = errors.Join(result, m.DelRef(&ref)) }()
-	equality, err := m.MkEq(node.Owner(), value)
+	equality, err := t.state.MkEqAtom(node.Owner(), value)
 	if err != nil {
 		return err
 	}

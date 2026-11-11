@@ -131,7 +131,7 @@ func (p *smtStringLengthPremises) length(expression ast.ASTHandle, value *big.In
 	if err != nil {
 		return err
 	}
-	equality, err := m.MkEq(length, numeral)
+	equality, err := p.theory.state.MkEqAtom(length, numeral)
 	if err != nil {
 		return err
 	}
@@ -140,7 +140,7 @@ func (p *smtStringLengthPremises) length(expression ast.ASTHandle, value *big.In
 
 func (p *smtStringLengthPremises) refuse(left, right ast.ASTHandle) error {
 	m := p.theory.state.manager
-	equality, err := m.MkEq(left, right)
+	equality, err := p.theory.state.MkEqAtom(left, right)
 	if err != nil {
 		return err
 	}

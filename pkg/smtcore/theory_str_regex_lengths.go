@@ -212,7 +212,7 @@ func (b *smtStringRegexLengthBuilder) build(length, regex ast.ASTHandle) (ast.AS
 		if err != nil {
 			return numeral, err
 		}
-		return b.pin(m.MkEq(length, numeral))
+		return b.pin(b.theory.state.MkEqAtom(length, numeral))
 	case 17, 18:
 		left, err := m.GetArg(regex, 0)
 		if err != nil {
@@ -248,7 +248,7 @@ func (b *smtStringRegexLengthBuilder) build(length, regex ast.ASTHandle) (ast.AS
 		if err != nil {
 			return sum, err
 		}
-		equality, err := b.pin(m.MkEq(length, sum))
+		equality, err := b.pin(b.theory.state.MkEqAtom(length, sum))
 		if err != nil {
 			return equality, err
 		}
@@ -302,7 +302,7 @@ func (b *smtStringRegexLengthBuilder) build(length, regex ast.ASTHandle) (ast.AS
 					return sum, err
 				}
 			}
-			return b.pin(m.MkEq(length, sum))
+			return b.pin(b.theory.state.MkEqAtom(length, sum))
 		}
 	case 16, 24:
 		if op == 16 {
@@ -314,7 +314,7 @@ func (b *smtStringRegexLengthBuilder) build(length, regex ast.ASTHandle) (ast.AS
 		if err != nil {
 			return one, err
 		}
-		return b.pin(m.MkEq(length, one))
+		return b.pin(b.theory.state.MkEqAtom(length, one))
 	}
 	// Full sequence, complement, unknown operations and impossible finite
 	// subterm inference share the native nonnegative-only fallback.

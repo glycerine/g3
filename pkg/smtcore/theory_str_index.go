@@ -160,7 +160,7 @@ func (t *SMTStringTheory) instantiateIndex(node *SMTEnode) (result error) {
 	if err != nil {
 		return err
 	}
-	elseBranch, err := pin(m.MkEq(index, minusOne))
+	elseBranch, err := pin(t.state.MkEqAtom(index, minusOne))
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func (t *SMTStringTheory) instantiateIndex(node *SMTEnode) (result error) {
 	if err != nil {
 		return err
 	}
-	reduction, err := pin(m.MkEq(expression, index))
+	reduction, err := pin(t.state.MkEqAtom(expression, index))
 	if err != nil {
 		return err
 	}
@@ -237,14 +237,14 @@ func (t *SMTStringTheory) instantiateIndexExtended(node *SMTEnode) (result error
 	if err != nil {
 		return err
 	}
-	noMatch, err := pin(m.MkEq(expression, minusOne))
+	noMatch, err := pin(t.state.MkEqAtom(expression, minusOne))
 	if err != nil {
 		return err
 	}
 	if err := imply(negativeStart, noMatch); err != nil {
 		return fmt.Errorf("extended index negative start: %w", err)
 	}
-	zeroStart, err := pin(m.MkEq(start, zero))
+	zeroStart, err := pin(t.state.MkEqAtom(start, zero))
 	if err != nil {
 		return err
 	}
@@ -252,7 +252,7 @@ func (t *SMTStringTheory) instantiateIndexExtended(node *SMTEnode) (result error
 	if err != nil {
 		return err
 	}
-	reduction, err := pin(m.MkEq(expression, simple))
+	reduction, err := pin(t.state.MkEqAtom(expression, simple))
 	if err != nil {
 		return err
 	}
@@ -367,7 +367,7 @@ func (t *SMTStringTheory) instantiateIndexExtended(node *SMTEnode) (result error
 	if err != nil {
 		return err
 	}
-	heuristic, err := pin(m.MkEq(contains, nonnegative))
+	heuristic, err := pin(t.state.MkEqAtom(contains, nonnegative))
 	if err != nil {
 		return err
 	}

@@ -94,7 +94,7 @@ func TestSMTStringGroundingAliasesFoldLiteralsAndKeepPremises(t *testing.T) {
 		t.Fatal("grounding did not merge adjacent constant bytes", text)
 	}
 	for _, pair := range [][2]ast.ASTHandle{{z, concat}, {xAlias, x}, {yAlias, y}, {x, a}, {y, bc}} {
-		condition, err := m.MkEq(pair[0], pair[1])
+		condition, err := stringEqAtom(m, pair[0], pair[1])
 		astTestMust(t, err)
 		found := false
 		for _, actual := range entries[0].conditions {
@@ -131,7 +131,7 @@ func TestSMTStringGroundingConstantShortcutFirstConcatAndUnrollRefusal(t *testin
 	if len(g.grounded[z]) != 1 || len(g.grounded[z][0].conditions) != 1 {
 		t.Fatal("variable grounding enumerated beyond its first native concat")
 	}
-	condition, err := m.MkEq(z, choices[0])
+	condition, err := stringEqAtom(m, z, choices[0])
 	astTestMust(t, err)
 	if g.grounded[z][0].conditions[0] != condition {
 		t.Fatal("variable grounding chose map iteration order instead of stable handle order")
@@ -213,7 +213,7 @@ func TestSMTStringComputeContainsGroundedGuardAndNoMatch(t *testing.T) {
 			axiom := axioms[0]
 			var conditions []ast.ASTHandle
 			for _, pair := range [][2]ast.ASTHandle{{word, wordAlias}, {needle, needleAlias}, {wordAlias, concat}, {x, left}, {y, right}, {needleAlias, find}} {
-				condition, err := m.MkEq(pair[0], pair[1])
+				condition, err := stringEqAtom(m, pair[0], pair[1])
 				astTestMust(t, err)
 				conditions = append(conditions, condition)
 			}

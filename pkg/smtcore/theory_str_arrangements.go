@@ -31,7 +31,7 @@ func (t *SMTStringTheory) addNonemptyStringConstraint(variable ast.ASTHandle) (r
 	if err != nil {
 		return err
 	}
-	equality, err := m.MkEq(variable, empty)
+	equality, err := t.state.MkEqAtom(variable, empty)
 	if err != nil {
 		return err
 	}
@@ -153,14 +153,14 @@ func (t *SMTStringTheory) finiteStringOverlapTest() (out ast.ASTHandle, result e
 	if err != nil {
 		return out, err
 	}
-	first, err := m.MkEq(variable, empty)
+	first, err := t.state.MkEqAtom(variable, empty)
 	if err != nil {
 		return out, err
 	}
 	if err := locals.add(first); err != nil {
 		return out, err
 	}
-	out, err = m.MkEq(variable, yes)
+	out, err = t.state.MkEqAtom(variable, yes)
 	if err != nil {
 		return out, err
 	}
@@ -190,7 +190,8 @@ func (t *SMTStringTheory) stringOverlapAlternative(parameters SMTStrState) (ast.
 
 func (t *SMTStringTheory) publishStringArrangement(premise, conclusion ast.ASTHandle, strong bool) (result error) {
 	if strong {
-		axiom, err := t.state.manager.MkEq(premise, conclusion)
+		// ax_strong(ctx.mk_eq_atom(premise, implyR))
+		axiom, err := t.state.MkEqAtom(premise, conclusion)
 		if err != nil {
 			return err
 		}
@@ -347,7 +348,7 @@ func (t *SMTStringTheory) arrangeVariableConcats(left, right ast.ASTHandle) (res
 		}
 		return value, locals.add(value)
 	}
-	parentEq, err := pin(m.MkEq(left, right))
+	parentEq, err := pin(t.state.MkEqAtom(left, right))
 	if err != nil {
 		return err
 	}
@@ -362,7 +363,7 @@ func (t *SMTStringTheory) arrangeVariableConcats(left, right ast.ASTHandle) (res
 			if err != nil {
 				return err
 			}
-			eq, err := pin(m.MkEq(l, r))
+			eq, err := pin(t.state.MkEqAtom(l, r))
 			if err != nil {
 				return err
 			}
@@ -376,11 +377,11 @@ func (t *SMTStringTheory) arrangeVariableConcats(left, right ast.ASTHandle) (res
 		if err != nil {
 			return err
 		}
-		first, err := pin(m.MkEq(x, a))
+		first, err := pin(t.state.MkEqAtom(x, a))
 		if err != nil {
 			return err
 		}
-		second, err := pin(m.MkEq(y, b))
+		second, err := pin(t.state.MkEqAtom(y, b))
 		if err != nil {
 			return err
 		}

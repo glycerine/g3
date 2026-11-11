@@ -76,7 +76,7 @@ func stringSetLength(t *testing.T, m *ast.ASTManager, state *SMTInternalizerStat
 	astTestMust(t, err)
 	numeral, err := m.ArithmeticIntegerNumeralText(number)
 	astTestMust(t, err)
-	equality, err := m.MkEq(length, numeral)
+	equality, err := stringEqAtom(m, length, numeral)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(equality, true))
 	// An asserted formula is relevant (internalize_assertion), so its atom
@@ -155,7 +155,7 @@ func TestSMTStringLengthConsistencyGuardedRefusalAndPop(t *testing.T) {
 	astTestMust(t, err)
 	y, err := m.MkConst(astTestSymbol(t, m, "str-length-guard-y"), sort)
 	astTestMust(t, err)
-	equality, err := m.MkEq(x, y)
+	equality, err := stringEqAtom(m, x, y)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(equality, true))
 	literal, err := state.Literal(equality)
@@ -223,7 +223,7 @@ func TestSMTStringEqualityChecksClassMembersBeforeMerge(t *testing.T) {
 	left := stringEqualityConcat(t, m, astTestString(t, m, "a"), variables[2])
 	right := stringEqualityConcat(t, m, astTestString(t, m, "b"), variables[3])
 	for _, pair := range [][2]ast.ASTHandle{{variables[0], left}, {variables[1], right}} {
-		equality, err := m.MkEq(pair[0], pair[1])
+		equality, err := stringEqAtom(m, pair[0], pair[1])
 		astTestMust(t, err)
 		astTestMust(t, state.Internalize(equality, true))
 		literal, err := state.Literal(equality)
@@ -233,7 +233,7 @@ func TestSMTStringEqualityChecksClassMembersBeforeMerge(t *testing.T) {
 		astTestMust(t, err)
 	}
 	astTestMust(t, state.PushScope())
-	equality, err := m.MkEq(variables[0], variables[1])
+	equality, err := stringEqAtom(m, variables[0], variables[1])
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(equality, true))
 	literal, err := state.Literal(equality)
@@ -320,7 +320,7 @@ func TestSMTStringLengthConcatVariableZeroDoesNotWeakenRefusal(t *testing.T) {
 	}
 	axiom, err := m.RefGet(theory.refs[len(theory.refs)-1])
 	astTestMust(t, err)
-	equality, err := m.MkEq(word, variables[2])
+	equality, err := stringEqAtom(m, word, variables[2])
 	astTestMust(t, err)
 	truth, err := m.MkTrue()
 	astTestMust(t, err)

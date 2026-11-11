@@ -234,7 +234,7 @@ func (t *SMTStringTheory) simplifyStringConcatEquality(left, right ast.ASTHandle
 		return err
 	}
 	if !possible {
-		equality, err := m.MkEq(newLeft, newRight)
+		equality, err := t.state.MkEqAtom(newLeft, newRight)
 		if err != nil {
 			return err
 		}
@@ -280,7 +280,7 @@ func (t *SMTStringTheory) simplifyStringConcatEquality(left, right ast.ASTHandle
 				return err
 			}
 		}
-		equality, err := m.MkEq(newLeft, newRight)
+		equality, err := t.state.MkEqAtom(newLeft, newRight)
 		if err != nil {
 			return err
 		}

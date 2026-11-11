@@ -253,7 +253,7 @@ func (t *SMTStringTheory) containmentPairRule(left, right, a, av, b, bv, conditi
 	var conclusion ast.ASTHandle
 	var err error
 	if equivalent {
-		conclusion, err = m.MkEq(first, second)
+		conclusion, err = t.state.MkEqAtom(first, second)
 	} else {
 		if !forward {
 			first, second = second, first

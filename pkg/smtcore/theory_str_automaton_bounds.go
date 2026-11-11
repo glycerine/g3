@@ -144,7 +144,7 @@ func (t *SMTStringTheory) findStringAutomatonInitialBounds(membership ast.ASTHan
 		if err != nil {
 			return err
 		}
-		emptyLength, err := pin(m.MkEq(length, zero))
+		emptyLength, err := pin(t.state.MkEqAtom(length, zero))
 		if err != nil {
 			return err
 		}

@@ -153,7 +153,7 @@ func (t *SMTStringTheory) instantiateReplace(node *SMTEnode) (result error) {
 	if err != nil {
 		return err
 	}
-	elseBranch, err := pin(m.MkEq(value, word))
+	elseBranch, err := pin(t.state.MkEqAtom(value, word))
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func (t *SMTStringTheory) instantiateReplace(node *SMTEnode) (result error) {
 	if err := t.rewriteStringAxiom(breakdown, rw); err != nil {
 		return err
 	}
-	reduction, err := pin(m.MkEq(expression, value))
+	reduction, err := pin(t.state.MkEqAtom(expression, value))
 	if err != nil {
 		return err
 	}

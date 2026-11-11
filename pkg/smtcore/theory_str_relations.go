@@ -53,7 +53,7 @@ func (t *SMTStringTheory) instantiateBoundaryRelation(node *SMTEnode, suffix boo
 	if err != nil {
 		return err
 	}
-	wordEquality, err := pin(m.MkEq(container, word))
+	wordEquality, err := pin(t.state.MkEqAtom(container, word))
 	if err != nil {
 		return err
 	}
@@ -69,11 +69,11 @@ func (t *SMTStringTheory) instantiateBoundaryRelation(node *SMTEnode, suffix boo
 	if err != nil {
 		return err
 	}
-	lengthEquality, err := pin(m.MkEq(segmentLength, boundaryLength))
+	lengthEquality, err := pin(t.state.MkEqAtom(segmentLength, boundaryLength))
 	if err != nil {
 		return err
 	}
-	segmentEquality, err := pin(m.MkEq(segment, boundary))
+	segmentEquality, err := pin(t.state.MkEqAtom(segment, boundary))
 	if err != nil {
 		return err
 	}
@@ -182,11 +182,11 @@ func (t *SMTStringTheory) instantiateContains(node *SMTEnode) error {
 	if err != nil {
 		return err
 	}
-	equality, err := m.MkEq(haystack, word)
+	equality, err := t.state.MkEqAtom(haystack, word)
 	if err != nil {
 		return err
 	}
-	equivalence, err := m.MkEq(expression, equality)
+	equivalence, err := t.state.MkEqAtom(expression, equality)
 	if err != nil {
 		return err
 	}

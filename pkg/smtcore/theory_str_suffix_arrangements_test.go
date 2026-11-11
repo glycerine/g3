@@ -24,7 +24,7 @@ func TestSMTStringSuffixConcatCoreArrangement(t *testing.T) {
 		astTestMust(t, state.Internalize(left, false))
 		astTestMust(t, state.Internalize(right, false))
 		astTestMust(t, state.PushScope())
-		equality, err := m.MkEq(left, right)
+		equality, err := stringEqAtom(m, left, right)
 		astTestMust(t, err)
 		astTestMust(t, state.Internalize(equality, true))
 		literal, err := state.Literal(equality)
@@ -151,7 +151,7 @@ func TestSMTStringSuffixConcatKnownLengthGuards(t *testing.T) {
 			}
 			guards := smtStringLengthPremises{theory: theory}
 			items := smtStringLengthPremises{theory: theory}
-			parent, err := m.MkEq(left, right)
+			parent, err := stringEqAtom(m, left, right)
 			astTestMust(t, err)
 			astTestMust(t, guards.add(parent))
 			switch mode {
@@ -186,7 +186,7 @@ func TestSMTStringSuffixConcatKnownLengthGuards(t *testing.T) {
 			conclusion, err := m.MkAndArray(items.values)
 			astTestMust(t, err)
 			astTestPin(t, m, conclusion)
-			want, err := m.MkEq(premise, conclusion)
+			want, err := stringEqAtom(m, premise, conclusion)
 			astTestMust(t, err)
 			astTestPin(t, m, want)
 			stringConcatPairHasAxiom(t, theory, 0, want)
@@ -233,7 +233,7 @@ func TestSMTStringSuffixConcatLengthPredecessorRejectsOversizedCrop(t *testing.T
 	left, right := stringEqualityConcat(t, m, x, y), stringEqualityConcat(t, m, a, astTestString(t, m, "ab"))
 	stringSetLength(t, m, state, x, "4")
 	stringSetLength(t, m, state, a, "1")
-	equality, err := m.MkEq(left, right)
+	equality, err := stringEqAtom(m, left, right)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(equality, true))
 	literal, err := state.Literal(equality)
@@ -288,7 +288,7 @@ func TestSMTStringSuffixConcatOverlapKnownAndUnknown(t *testing.T) {
 				alternative, err = m.GetArg(axiom, 1)
 				astTestMust(t, err)
 				guards := smtStringLengthPremises{theory: theory}
-				equality, err := m.MkEq(left, right)
+				equality, err := stringEqAtom(m, left, right)
 				astTestMust(t, err)
 				astTestMust(t, guards.add(equality))
 				astTestMust(t, guards.length(x, big.NewInt(1)))

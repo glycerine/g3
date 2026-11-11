@@ -61,7 +61,7 @@ func (t *SMTStringTheory) checkContainByClassValue(variable, constant ast.ASTHan
 		err := func() (result error) {
 			defer func() { result = errors.Join(result, premises.close()) }()
 			equality := func(left, right ast.ASTHandle) error {
-				expression, err := m.MkEq(left, right)
+				expression, err := t.state.MkEqAtom(left, right)
 				if err != nil {
 					return err
 				}

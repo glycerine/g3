@@ -75,7 +75,7 @@ func (t *SMTStringTheory) finalCheckStringToInt(expression ast.ASTHandle) (added
 			if err != nil {
 				return added, err
 			}
-			premise, err := pin(m.MkEq(expression, value))
+			premise, err := pin(t.state.MkEqAtom(expression, value))
 			if err != nil {
 				return added, err
 			}
@@ -83,7 +83,7 @@ func (t *SMTStringTheory) finalCheckStringToInt(expression ast.ASTHandle) (added
 			if err != nil {
 				return added, err
 			}
-			conclusion, err := pin(m.MkEq(word, text))
+			conclusion, err := pin(t.state.MkEqAtom(word, text))
 			if err != nil {
 				return added, err
 			}
@@ -96,7 +96,7 @@ func (t *SMTStringTheory) finalCheckStringToInt(expression ast.ASTHandle) (added
 		if err != nil {
 			return added, err
 		}
-		isZero, err := pin(m.MkEq(expression, zero))
+		isZero, err := pin(t.state.MkEqAtom(expression, zero))
 		if err != nil {
 			return added, err
 		}
@@ -122,7 +122,7 @@ func (t *SMTStringTheory) finalCheckStringToInt(expression ast.ASTHandle) (added
 	if !valid {
 		converted.SetInt64(-1)
 	}
-	premise, err := pin(m.MkEq(word, constant))
+	premise, err := pin(t.state.MkEqAtom(word, constant))
 	if err != nil {
 		return added, err
 	}
@@ -130,7 +130,7 @@ func (t *SMTStringTheory) finalCheckStringToInt(expression ast.ASTHandle) (added
 	if err != nil {
 		return added, err
 	}
-	conclusion, err := pin(m.MkEq(expression, value))
+	conclusion, err := pin(t.state.MkEqAtom(expression, value))
 	if err != nil {
 		return added, err
 	}
@@ -165,7 +165,7 @@ func (t *SMTStringTheory) finalCheckIntToString(expression ast.ASTHandle) (added
 		}
 		return value, locals.add(value)
 	}
-	premise, err := pin(m.MkEq(expression, constant))
+	premise, err := pin(t.state.MkEqAtom(expression, constant))
 	if err != nil {
 		return false, err
 	}
@@ -182,7 +182,7 @@ func (t *SMTStringTheory) finalCheckIntToString(expression ast.ASTHandle) (added
 	if err != nil {
 		return false, err
 	}
-	conclusion, err := pin(m.MkEq(integer, value))
+	conclusion, err := pin(t.state.MkEqAtom(integer, value))
 	if err != nil {
 		return false, err
 	}

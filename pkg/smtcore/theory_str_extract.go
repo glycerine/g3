@@ -115,7 +115,7 @@ func (t *SMTStringTheory) instantiateCharAt(node *SMTEnode) (result error) {
 	if err != nil {
 		return err
 	}
-	elseBranch, err := pin(m.MkEq(variables[1], empty))
+	elseBranch, err := pin(t.state.MkEqAtom(variables[1], empty))
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func (t *SMTStringTheory) instantiateCharAt(node *SMTEnode) (result error) {
 	if err != nil {
 		return err
 	}
-	reduction, err := pin(m.MkEq(expression, variables[1]))
+	reduction, err := pin(t.state.MkEqAtom(expression, variables[1]))
 	if err != nil {
 		return err
 	}
@@ -228,7 +228,7 @@ func (t *SMTStringTheory) instantiateSubstring(node *SMTEnode) (result error) {
 	if err != nil {
 		return err
 	}
-	emptyResult, err := pin(m.MkEq(expression, empty))
+	emptyResult, err := pin(t.state.MkEqAtom(expression, empty))
 	if err != nil {
 		return err
 	}

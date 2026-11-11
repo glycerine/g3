@@ -139,7 +139,7 @@ func (g *smtStringGrounding) ground(expression ast.ASTHandle) error {
 	}
 	if concat {
 		if value, found := g.concatValues[expression]; found {
-			condition, err := g.pin(m.MkEq(expression, value))
+			condition, err := g.pin(g.theory.state.MkEqAtom(expression, value))
 			if err != nil {
 				return err
 			}
@@ -188,14 +188,14 @@ func (g *smtStringGrounding) ground(expression ast.ASTHandle) error {
 				}
 				conditions := append([]ast.ASTHandle(nil), l.conditions...)
 				if left != leftAlias {
-					condition, err := g.pin(m.MkEq(left, leftAlias))
+					condition, err := g.pin(g.theory.state.MkEqAtom(left, leftAlias))
 					if err != nil {
 						return err
 					}
 					conditions = append(conditions, condition)
 				}
 				if right != rightAlias {
-					condition, err := g.pin(m.MkEq(right, rightAlias))
+					condition, err := g.pin(g.theory.state.MkEqAtom(right, rightAlias))
 					if err != nil {
 						return err
 					}
@@ -211,7 +211,7 @@ func (g *smtStringGrounding) ground(expression ast.ASTHandle) error {
 		return nil
 	}
 	if value, found := g.variableValues[expression]; found {
-		condition, err := g.pin(m.MkEq(expression, value))
+		condition, err := g.pin(g.theory.state.MkEqAtom(expression, value))
 		if err != nil {
 			return err
 		}
@@ -235,7 +235,7 @@ func (g *smtStringGrounding) ground(expression ast.ASTHandle) error {
 			return err
 		}
 		for _, child := range g.entries(choice) {
-			condition, err := g.pin(m.MkEq(expression, choice))
+			condition, err := g.pin(g.theory.state.MkEqAtom(expression, choice))
 			if err != nil {
 				return err
 			}

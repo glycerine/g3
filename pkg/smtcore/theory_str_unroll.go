@@ -106,7 +106,7 @@ func (t *SMTStringTheory) processUnrollConstant(unroll, constant ast.ASTHandle) 
 		}
 		return expression, locals.add(expression)
 	}
-	guard, err := pin(m.MkEq(unroll, constant))
+	guard, err := pin(t.state.MkEqAtom(unroll, constant))
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func (t *SMTStringTheory) processUnrollConstant(unroll, constant ast.ASTHandle) 
 	if err != nil {
 		return err
 	}
-	countEquality, err := pin(m.MkEq(count, quotient))
+	countEquality, err := pin(t.state.MkEqAtom(count, quotient))
 	if err != nil {
 		return err
 	}
@@ -126,7 +126,7 @@ func (t *SMTStringTheory) processUnrollConstant(unroll, constant ast.ASTHandle) 
 	if err != nil {
 		return err
 	}
-	lengthEquality, err := pin(m.MkEq(length, byteCount))
+	lengthEquality, err := pin(t.state.MkEqAtom(length, byteCount))
 	if err != nil {
 		return err
 	}

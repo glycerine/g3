@@ -213,7 +213,7 @@ func (t *SMTStringTheory) assertRegexMatch(word, constant, expression ast.ASTHan
 	premises := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, premises.close()) }()
 	// Native check_regex_in always creates this equality, including self.
-	equality, err := m.MkEq(word, constant)
+	equality, err := t.state.MkEqAtom(word, constant)
 	if err != nil {
 		return err
 	}

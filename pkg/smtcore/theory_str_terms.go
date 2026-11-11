@@ -239,7 +239,7 @@ func (t *SMTStringTheory) assertFlattenedConcatLength(expression ast.ASTHandle) 
 	if err != nil {
 		return err
 	}
-	equality, err := m.MkEq(length, sum)
+	equality, err := t.state.MkEqAtom(length, sum)
 	if err != nil {
 		return err
 	}

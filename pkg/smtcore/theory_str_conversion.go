@@ -55,7 +55,7 @@ func (t *SMTStringTheory) instantiateStringToInt(node *SMTEnode) (result error) 
 	if err != nil {
 		return err
 	}
-	isZero, err := pin(m.MkEq(expression, zero))
+	isZero, err := pin(t.state.MkEqAtom(expression, zero))
 	if err != nil {
 		return err
 	}
@@ -63,11 +63,11 @@ func (t *SMTStringTheory) instantiateStringToInt(node *SMTEnode) (result error) 
 	if err != nil {
 		return err
 	}
-	wordIsZero, err := pin(m.MkEq(word, zeroString))
+	wordIsZero, err := pin(t.state.MkEqAtom(word, zeroString))
 	if err != nil {
 		return err
 	}
-	zeroIff, err := pin(m.MkEq(isZero, wordIsZero))
+	zeroIff, err := pin(t.state.MkEqAtom(isZero, wordIsZero))
 	if err != nil {
 		return err
 	}
@@ -156,11 +156,11 @@ func (t *SMTStringTheory) instantiateIntToString(node *SMTEnode) (result error) 
 	if err != nil {
 		return err
 	}
-	isEmpty, err := pin(m.MkEq(expression, empty))
+	isEmpty, err := pin(t.state.MkEqAtom(expression, empty))
 	if err != nil {
 		return err
 	}
-	axiom, err := pin(m.MkEq(negative, isEmpty))
+	axiom, err := pin(t.state.MkEqAtom(negative, isEmpty))
 	if err != nil {
 		return err
 	}

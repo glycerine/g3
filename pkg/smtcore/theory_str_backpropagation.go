@@ -65,7 +65,7 @@ func (t *SMTStringTheory) backpropagateStringConstants(analysis *smtStringDepend
 				if err := locals.add(value); err != nil {
 					return err
 				}
-				conclusion, err := m.MkEq(concat, value)
+				conclusion, err := t.state.MkEqAtom(concat, value)
 				if err != nil {
 					return err
 				}
@@ -186,7 +186,7 @@ func (t *SMTStringTheory) propagateStringLengthWithinClass(variable ast.ASTHandl
 		if err := locals.add(one); err != nil {
 			return false, err
 		}
-		conclusion, err := m.MkEq(length, one)
+		conclusion, err := t.state.MkEqAtom(length, one)
 		if err != nil {
 			return false, err
 		}
@@ -265,7 +265,7 @@ func (t *SMTStringTheory) propagateStringLengths() (added bool, result error) {
 			if err := locals.add(numeral); err != nil {
 				return err
 			}
-			conclusion, err := m.MkEq(length, numeral)
+			conclusion, err := t.state.MkEqAtom(length, numeral)
 			if err != nil {
 				return err
 			}
