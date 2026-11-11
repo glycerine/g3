@@ -1781,12 +1781,17 @@ Found while matching `-st` output against `build/z3` on
       descending pop sweep frees the bit2bool atoms (#107/#106, ...)
       in place. g3 frees them after the sweep, so the bool-var and enode
       trail order (or an extra holder) differs.
-    - bv_native_operator_models 623: a theory_bv clause in g3 has an extra
-      literal (not (= (not ((_ bit2bool 2) a)) ((_ bit2bool 3) a))) that
-      z3's clause [b?, b2, b3] lacks. Find the clause's creator
-      (likely the bit equality/diseq expansion).
-    - bv_fixed_cache_scopes 4191: proof terms (symm/th-lemma) get
-      different ids.
+    - DONE (fd36cddc0): bv_native_operator_models. simplify_clauses
+      skipped binary clauses in z3 but deleted/counted them in g3.
+    - bv_fixed_cache_scopes 4218 (fd36cddc0, 434ecc52f moved it from
+      4191): at the user pop g3 frees the inner scope's assertion terms
+      ((f x), (f y), the distinct, and its `rewrite` proof #121 from
+      asserted_formulas::assert_expr's th_rewriter). z3 keeps them until
+      the next assert_expr, where th_rewriter_cfg::reduce_app's
+      `result_pr = nullptr` (called from process_const with m_pr) drops
+      #121. So some rewriter member (m_pr, or a proof result stack entry)
+      still holds the last proof after main_loop. Find it with gdb and
+      model it in ast/rewriter's engine (r.pr).
     - qe_rec_free_boolean (z3 segfaults) and pb_strengthening_proof (z3
       aborts while printing the proof) cannot be compared.
     - lra_propagation_mode_updates and arithmetic_eq_options: item 27.
