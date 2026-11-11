@@ -42,6 +42,9 @@ func (c *Context) evaluateParetoModel(md *model.ModelCore) (values []paretoModel
 		objective := &c.objectives[i]
 		if objective.soft {
 			values[i].comparable = true
+			// from_fmls' adjust_value offset (is_maxsat moves negative
+			// weights onto negated terms).
+			values[i].softCost.Set(&objective.softOffset)
 			for j := range objective.softTerms {
 				term := &objective.softTerms[j]
 				ref, e := evaluator.EvaluateValue(term.expression)
@@ -198,6 +201,12 @@ func (c *Context) closeParetoBackend() error {
 		c.optimizationParetoBackend = nil
 	}
 	if state := c.optimizationParetoPurification; state != nil {
+		if state.converter != nil {
+			if err := state.converter.DecRef(); err != nil {
+				return err
+			}
+			state.converter = nil
+		}
 		if err := state.purifier.Close(); err != nil {
 			return err
 		}
