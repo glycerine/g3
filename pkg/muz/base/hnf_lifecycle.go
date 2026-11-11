@@ -64,14 +64,15 @@ func (n *HornNormalizer) Reset() error {
 	return nil
 }
 
-// DelRef may consume an owner while returning a later destruction error.
-// Preserve each unfinished owner and the untouched prefix for a cleanup retry.
+// drainHornRoots is ref_vector::reset (and its destructor): the references
+// are released front to back. DelRef may consume an owner while returning a
+// later destruction error; the unfinished owner and the untouched suffix are
+// kept for a cleanup retry.
 func (n *HornNormalizer) drainHornRoots(refs *[]ast.ASTRef) error {
 	for len(*refs) > 0 {
-		last := len(*refs) - 1
-		err := n.manager.DelRef(&(*refs)[last])
-		if (*refs)[last] == (ast.ASTRef{}) {
-			*refs = (*refs)[:last]
+		err := n.manager.DelRef(&(*refs)[0])
+		if (*refs)[0] == (ast.ASTRef{}) {
+			*refs = (*refs)[1:]
 		}
 		if err != nil {
 			return err
@@ -81,8 +82,10 @@ func (n *HornNormalizer) drainHornRoots(refs *[]ast.ASTRef) error {
 	return nil
 }
 
+// resetHornRoots is hnf::reset: m_todo, m_proofs, m_refs, the memo tables
+// and m_fresh_predicates, in that order.
 func (n *HornNormalizer) resetHornRoots() error {
-	for _, refs := range []*[]ast.ASTRef{&n.workRefs, &n.freshPredicates, &n.todoRefs} {
+	for _, refs := range []*[]ast.ASTRef{&n.todoRefs, &n.workRefs, &n.freshPredicates} {
 		if err := n.drainHornRoots(refs); err != nil {
 			return err
 		}
@@ -128,11 +131,12 @@ func (n *HornNormalizer) Close() error {
 		return err
 	}
 	n.cleanupPending = hornCleanupClose
-	if err := n.resetHornRoots(); err != nil {
-		return err
-	}
-	if err := n.drainHornRoots(&n.bodyRefs); err != nil {
-		return err
+	// ~imp destroys the members in reverse declaration order: m_defs,
+	// m_body, m_fresh_predicates, m_refs, m_proofs, m_todo.
+	for _, refs := range []*[]ast.ASTRef{&n.bodyRefs, &n.freshPredicates, &n.workRefs, &n.todoRefs} {
+		if err := n.drainHornRoots(refs); err != nil {
+			return err
+		}
 	}
 	if err := n.hoister.Close(); err != nil {
 		return err

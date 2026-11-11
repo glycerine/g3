@@ -301,7 +301,14 @@ tags` hourly. Commit with explicit pathspecs, no amend, no Co-Authored-By.
 5. **T3, T5, T6 local orders.** Check: array_eq_rewrite, mutual_inv,
    quantifier_instantiation.
 6. **T4 rule_unifier::apply.** Largest transformer item. Check: the four
-   inliner vectors named above.
+   inliner vectors named above. [Also fp_spacer_quantifier_abstraction,
+   now at 112: its first difference is the order in which the inliner's
+   retained inlined rules die at transformer teardown. z3 fills
+   m_inlined_rules in do_eager_inlining's stratum order (transform_rule per
+   candidate predicate) and rule_set::reset releases them front to back;
+   g3's inliner (accumulateDefinitions/breakInliningCycles) is a
+   reimplementation with its own order. Port do_eager_inlining with the
+   stratifier as part of this step.]
 7. **I1 + R1.** Check: fp_spacer_bit_blast and bv_fixed_cache_scopes
    together.
 8. **S1 mk_reach_fact.** Check: unfold_rules, fp_spacer_scale.

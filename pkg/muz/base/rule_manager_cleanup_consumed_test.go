@@ -73,7 +73,9 @@ func testHornCleanupConsumedRelease(t *testing.T, bodyCleanup bool) {
 		must(cause)
 		must(rm.normalizer.storeHornBody([]ast.ASTHandle{first, large, last}))
 		must(rm.normalizer.rememberHornRoot(cache))
-		remaining = rm.normalizer.bodyRefs[0]
+		// m_body.reset releases front to back: the entry before the large
+		// app goes first, the one after it remains.
+		remaining = rm.normalizer.bodyRefs[2]
 	} else {
 		must(rm.RegisterPredicate(d))
 	}
