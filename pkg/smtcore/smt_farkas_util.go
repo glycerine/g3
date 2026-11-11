@@ -12,12 +12,14 @@ import (
 )
 
 // SMTFarkasUtil combines arithmetic premises using Farkas coefficients. The
-// parameter services are borrowed; the utility owns its private rewriter and
-// each premise retained by Add until Reset or Close.
+// parameter services are borrowed (extract_consequence builds its own
+// th_rewriter from them); the utility owns each premise retained by Add until
+// Reset or Close.
 type SMTFarkasUtil struct {
 	manager         *ast.ASTManager
 	family          ast.FamilyID
-	rewriter        *rewriter.TheoryRewriter
+	context         *uparams.ParamsContext
+	globals         *uparams.GlobalParamsService
 	inequalities    []ast.ASTHandle
 	coefficients    []*big.Rat
 	normalizeFactor big.Rat
@@ -33,29 +35,35 @@ func NewSMTFarkasUtil(m *ast.ASTManager, context *uparams.ParamsContext, globals
 	if err != nil {
 		return nil, err
 	}
-	local, err := context.NewValue()
+	result = &SMTFarkasUtil{manager: m, family: family, context: context, globals: globals}
+	result.normalizeFactor.SetInt64(1)
+	return result, nil
+}
+
+// newExtractRewriter is extract_consequence's th_rewriter rw(m) with
+// gcd_rounding set.
+func (f *SMTFarkasUtil) newExtractRewriter() (_ *rewriter.TheoryRewriter, err error) {
+	local, err := f.context.NewValue()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errors.Join(err, context.Del(&local)) }()
+	defer func() { err = errors.Join(err, f.context.Del(&local)) }()
 	name := "gcd_rounding"
-	if err = context.SetBoolName(&local, &name, true); err != nil {
+	if err = f.context.SetBoolName(&local, &name, true); err != nil {
 		return nil, err
 	}
-	rw, err := rewriter.NewTheoryRewriter(m, context, globals, &local)
+	rw, err := rewriter.NewTheoryRewriter(f.manager, f.context, f.globals, &local)
 	if err != nil {
 		if rw != nil {
 			err = errors.Join(err, rw.Close())
 		}
 		return nil, err
 	}
-	result = &SMTFarkasUtil{manager: m, family: family, rewriter: rw}
-	result.normalizeFactor.SetInt64(1)
-	return result, nil
+	return rw, nil
 }
 
 func (f *SMTFarkasUtil) open() error {
-	if f == nil || f.closed || f.manager == nil || f.rewriter == nil || f.rewriter.Manager() != f.manager {
+	if f == nil || f.closed || f.manager == nil || f.context == nil {
 		return ast.ErrASTHandle
 	}
 	return nil
@@ -70,12 +78,6 @@ func (f *SMTFarkasUtil) Close() (result error) {
 	}
 	if result = f.Reset(); result != nil {
 		return result
-	}
-	if f.rewriter != nil {
-		if result = f.rewriter.Close(); result != nil {
-			return result
-		}
-		f.rewriter = nil
 	}
 	f.closed = true
 	return nil
@@ -399,12 +401,38 @@ func (f *SMTFarkasUtil) extractConsequence(low, high int, out ast.ASTRef) (err e
 	if err != nil {
 		return err
 	}
+	// The locals die in reverse: pr, then rw, then res.
+	res, err := f.manager.NewRef(consequence)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, f.manager.DelRef(&res)) }()
+	rw, err := f.newExtractRewriter()
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, rw.Close()) }()
+	pr, err := f.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, f.manager.DelRef(&pr)) }()
 	temporary, err := f.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Join(err, f.manager.DelRef(&temporary)) }()
-	if err = f.rewriter.Rewrite(consequence, temporary); err != nil {
+	// rw(res, result, pr): pr stays null when proofs are disabled.
+	proofs, err := f.manager.ProofsEnabled()
+	if err != nil {
+		return err
+	}
+	if proofs {
+		err = rw.RewriteWithProof(consequence, temporary, pr)
+	} else {
+		err = rw.Rewrite(consequence, temporary)
+	}
+	if err != nil {
 		return err
 	}
 	rewritten, err := f.manager.RefGet(temporary)
@@ -575,6 +603,67 @@ func (f *SMTFarkasUtil) partition() ([]int, error) {
 }
 
 // Get stores the complement of the weighted premises in out.
+// GetPDRConstraint is pdr::farkas_learner::constr::get: it always takes
+// the full linear combination first, then rebuilds res as the ast_util
+// mk_or of the variable-disjoint partition's consequences (the first res is
+// released by that assignment, before lits).
+func (f *SMTFarkasUtil) GetPDRConstraint(out ast.ASTRef) (err error) {
+	if err := f.open(); err != nil {
+		return err
+	}
+	f.normalizeFactor.SetInt64(1)
+	if len(f.coefficients) == 0 {
+		value, err := f.manager.MkBoolVal(false)
+		if err != nil {
+			return err
+		}
+		return f.manager.SetRef(out, value)
+	}
+	integer, err := f.isInteger(f.inequalities[0])
+	if err != nil {
+		return err
+	}
+	if integer {
+		f.normalizeCoefficients()
+	}
+	if err = f.extractConsequence(0, len(f.coefficients), out); err != nil {
+		return err
+	}
+	ends, err := f.partition()
+	if err != nil {
+		return err
+	}
+	literals := make([]ast.ASTHandle, 0, len(ends))
+	refs := make([]ast.ASTRef, 0, len(ends))
+	defer func() {
+		for index := range refs {
+			err = errors.Join(err, f.manager.DelRef(&refs[index]))
+		}
+	}()
+	low := 0
+	for _, high := range ends {
+		ref, err := f.manager.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return err
+		}
+		refs = append(refs, ref)
+		if err = f.extractConsequence(low, high, ref); err != nil {
+			return err
+		}
+		literal, err := f.manager.RefGet(ref)
+		if err != nil {
+			return err
+		}
+		literals = append(literals, literal)
+		low = high
+	}
+	disjunction, err := f.manager.MkOrArray(literals)
+	if err != nil {
+		return err
+	}
+	return f.manager.SetRef(out, disjunction)
+}
+
 func (f *SMTFarkasUtil) Get(out ast.ASTRef) (err error) {
 	if err := f.open(); err != nil {
 		return err

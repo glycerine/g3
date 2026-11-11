@@ -258,7 +258,6 @@ func TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment(t *testing.T) {
 	closureMust(t, err)
 	threeWayRoot, err := manager.NewRef(threeWayBound)
 	closureMust(t, err)
-	safe := &safeAssumptions{proxyToFormula: make(map[ast.ASTHandle]ast.ASTHandle)}
 	for _, test := range []struct {
 		name       string
 		mode       uint32
@@ -274,7 +273,7 @@ func TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment(t *testing.T) {
 			owner.contexts.arithmetic.effective = test.mode
 			reference, err := manager.NewRef(test.expression)
 			closureMust(t, err)
-			inside, err := transformer.solver.theoryResultsInsideFragment(safe, []ast.ASTRef{reference})
+			inside, err := transformer.solver.theoryResultsInsideFragment([]ast.ASTRef{reference})
 			closureMust(t, err)
 			if inside != test.want {
 				t.Fatal("fragment result", inside, "want", test.want)

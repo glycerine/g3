@@ -864,66 +864,20 @@ func (p *PropSolver) simplifyTheoryResults(learned []ast.ASTRef) (_ []ast.ASTRef
 	return kept, nil
 }
 
-func (p *PropSolver) theoryResultsInsideFragment(safe *safeAssumptions, learned []ast.ASTRef) (result bool, resultErr error) {
+// theoryResultsInsideFragment is extract_theory_core's outside_of_logic
+// test on the lemmas after elim_proxies and simplify_lemmas.
+func (p *PropSolver) theoryResultsInsideFragment(learned []ast.ASTRef) (bool, error) {
 	mode := p.contexts.arithmeticMode()
 	if mode != smtcore.SMTArithmeticDifferenceLogic && mode != smtcore.SMTArithmeticUTVPI {
 		return true, nil
 	}
 	formulas := make([]ast.ASTHandle, 0, len(learned))
-	temporaries := make([]ast.ASTRef, 0, len(learned))
-	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(p.manager, temporaries)) }()
-	if len(safe.proxyToFormula) == 0 {
-		for i := range learned {
-			handle, err := p.manager.RefGet(learned[i])
-			if err != nil {
-				return false, err
-			}
-			formulas = append(formulas, handle)
-		}
-	} else {
-		substitution, err := p.manager.NewExprSubstitutionPolicy(false, false)
+	for i := range learned {
+		handle, err := p.manager.RefGet(learned[i])
 		if err != nil {
 			return false, err
 		}
-		defer func() { resultErr = errors.Join(resultErr, p.manager.DelExprSubstitution(&substitution)) }()
-		truth, err := p.manager.MkTrue()
-		if err != nil {
-			return false, err
-		}
-		for proxy := range safe.proxyToFormula {
-			if err = p.manager.ExprSubstitutionInsert(substitution, proxy, truth, ast.ASTHandle{}, ast.ASTDependency{}); err != nil {
-				return false, err
-			}
-		}
-		replacer, err := rewriter.NewDefaultExprReplacer(p.manager)
-		if err != nil {
-			return false, err
-		}
-		defer func() { resultErr = errors.Join(resultErr, replacer.Close()) }()
-		if err = replacer.SetSubstitution(&substitution); err != nil {
-			return false, err
-		}
-		for i := range learned {
-			handle, err := p.manager.RefGet(learned[i])
-			if err != nil {
-				return false, err
-			}
-			rewritten, err := p.manager.NewRef(ast.ASTHandle{})
-			if err != nil {
-				return false, err
-			}
-			if err = replacer.Rewrite(handle, rewritten); err != nil {
-				return false, errors.Join(err, p.manager.DelRef(&rewritten))
-			}
-			handle, err = p.manager.RefGet(rewritten)
-			if err != nil {
-				return false, errors.Join(err, p.manager.DelRef(&rewritten))
-			}
-			temporaries = append(temporaries, rewritten)
-			if handle != truth {
-				formulas = append(formulas, handle)
-			}
-		}
+		formulas = append(formulas, handle)
 	}
 	if mode == smtcore.SMTArithmeticDifferenceLogic {
 		return IsDifferenceLogic(p.manager, formulas)
@@ -955,7 +909,7 @@ func (p *PropSolver) extractTheoryCore(safe *safeAssumptions, wantConsequences b
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("muz/pdr: Farkas lemma simplification: %w", err)
 	}
-	inside, err := p.theoryResultsInsideFragment(safe, learned)
+	inside, err := p.theoryResultsInsideFragment(learned)
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("muz/pdr: classify Farkas lemmas: %w", err)
 	}

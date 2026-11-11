@@ -8,6 +8,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/ast/proofs"
 	"github.com/glycerine/g3/pkg/smtcore"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -747,22 +748,26 @@ func (f *FarkasLearner) CombineConstraints(literals []ast.ASTHandle, coefficient
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
-		if err = f.utility.Get(out); err != nil {
+		if err = f.utility.GetPDRConstraint(out); err != nil {
 			resultErr = errors.Join(err, f.manager.DelRef(&out))
 			return ast.ASTRef{}, resultErr
 		}
 		return out, nil
 	}
 
-	disjunction, err := f.manager.MkOrArray(literals)
-	if err != nil {
-		return ast.ASTRef{}, err
-	}
-	disjunctionRef, err := f.manager.NewRef(disjunction)
+	// bool_rewriter rw(m); rw.mk_or(n, lits, res); res = m.mk_not(res).
+	disjunctionRef, err := f.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, f.manager.DelRef(&disjunctionRef)) }()
+	if err = rewriter.SimplifyBooleanGateDefault(f.manager, ast.ASTOpOr, literals, disjunctionRef); err != nil {
+		return ast.ASTRef{}, err
+	}
+	disjunction, err := f.manager.RefGet(disjunctionRef)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
 	negation, err := f.manager.MkNot(disjunction)
 	if err != nil {
 		return ast.ASTRef{}, err

@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/pdr"
+	"github.com/glycerine/g3/pkg/smtcore"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -20,6 +21,8 @@ type farkasTerm struct {
 type UnsatCoreOptimizedFarkasPlugin struct {
 	learner      *UnsatCoreLearner
 	farkas       *pdr.FarkasLearner
+	context      *uparams.ParamsContext
+	globals      *uparams.GlobalParamsService
 	combinations [][]farkasTerm
 	closed       bool
 }
@@ -32,7 +35,7 @@ func NewUnsatCoreOptimizedFarkasPlugin(learner *UnsatCoreLearner, context *upara
 	if err != nil {
 		return nil, err
 	}
-	return &UnsatCoreOptimizedFarkasPlugin{learner: learner, farkas: farkas}, nil
+	return &UnsatCoreOptimizedFarkasPlugin{learner: learner, farkas: farkas, context: context, globals: globals}, nil
 }
 
 func (p *UnsatCoreOptimizedFarkasPlugin) open() error {
@@ -89,11 +92,25 @@ func (p *UnsatCoreOptimizedFarkasPlugin) combine(terms []farkasTerm) (resultErr 
 		literals[i] = terms[i].literal
 		coefficients[i] = terms[i].coefficient
 	}
-	combined, err := p.farkas.CombineConstraints(literals, coefficients)
+	// compute_linear_combination: a local smt::farkas_util, no split literals.
+	util, err := smtcore.NewSMTFarkasUtil(p.learner.manager, p.context, p.globals)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, util.Close()) }()
+	for i := range literals {
+		if err = util.Add(coefficients[i], literals[i]); err != nil {
+			return err
+		}
+	}
+	combined, err := p.learner.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, p.learner.manager.DelRef(&combined)) }()
+	if err = util.Get(combined); err != nil {
+		return err
+	}
 	complement, err := p.learner.manager.RefGet(combined)
 	if err != nil {
 		return err
