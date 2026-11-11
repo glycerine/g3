@@ -508,18 +508,23 @@ func (p *PredicateTransformer) originSummaryWith(mev *modelEvaluatorUtil, level,
 		if err != nil {
 			return ast.ASTRef{}, nil, err
 		}
-	} else {
-		summaryRef, err := p.Formulas(level, false)
-		if err != nil {
+	}
+	var summaryRef ast.ASTRef
+	if !must {
+		var err error
+		if summaryRef, err = p.Formulas(level, false); err != nil {
 			return ast.ASTRef{}, nil, err
 		}
-		defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&summaryRef)) }()
-		summary, err = p.manager.RefGet(summaryRef)
-		if err != nil {
-			return ast.ASTRef{}, nil, err
+		if summary, err = p.manager.RefGet(summaryRef); err != nil {
+			return ast.ASTRef{}, nil, errors.Join(err, p.manager.DelRef(&summaryRef))
 		}
 	}
+	// summary[i] = v: the vector's reference to get_formulas' result is
+	// replaced by the renamed formula.
 	originRef, err := p.owner.FormulaNewToOld(summary, oldIndex, false)
+	if summaryRef != (ast.ASTRef{}) {
+		err = errors.Join(err, p.manager.DelRef(&summaryRef))
+	}
 	if err != nil {
 		return ast.ASTRef{}, nil, err
 	}
