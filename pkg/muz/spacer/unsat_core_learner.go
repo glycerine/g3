@@ -279,16 +279,16 @@ func (l *UnsatCoreLearner) ComputeUnsatCore(root ast.ASTHandle, assertedB []ast.
 	if err := l.reset(); err != nil {
 		return nil, err
 	}
-	rootRef, err := l.manager.NewRef(root)
+	// proof_ref pr(root, m); reduce_hypotheses(pr): the free function of
+	// ast/proofs/proof_utils.cpp (not proof_utils::reduce_hypotheses). The
+	// reduced proof lives to the end of the call, but the traversal below
+	// walks the original root.
+	reducedRef, err := l.manager.NewRef(root)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, l.manager.DelRef(&rootRef)) }()
-	if err = proofs.ReduceHypotheses(l.manager, rootRef); err != nil {
-		return nil, err
-	}
-	root, err = l.manager.RefGet(rootRef)
-	if err != nil {
+	defer func() { resultErr = errors.Join(resultErr, l.manager.DelRef(&reducedRef)) }()
+	if err = proofs.ReduceHypothesesLegacy(l.manager, reducedRef); err != nil {
 		return nil, err
 	}
 	if err = l.collectSymbolsB(assertedB); err != nil {
