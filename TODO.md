@@ -1608,6 +1608,9 @@ Found while matching `-st` output against `build/z3` on
 
 31. **In progress (2026-11-11): PDR/spacer query pipeline lifetimes (about 40
     fixedpoint_* and fp_spacer_* vectors).** Plan: pkg/PDR_PORT_PLAN.md.
+    Spacer plan (2026-11-11): pkg/SPACER_PORT_PLAN.md covers the 15 differing
+    spacer vectors (query flow Q1-Q4, transformer T1-T6/I1/R1, solve S1-S2,
+    kernel K1-K4) with a porting order and per-step checks.
     Done so far:
     - D1, the member rule_substitution: 7b8a4cca5.
     - D2, nested simplifiers on the context rewriter: 3f1cc9e78.
