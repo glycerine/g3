@@ -94,8 +94,17 @@ func TestSMTDatatypeOccursEvidenceOrderAndScopeRecovery(t *testing.T) {
 						conflict, _ := state.Conflict()
 						owner, _ := conflict.Justification()
 						ext, ok := owner.(*SMTExtTheoryConflictJustification)
-						if !ok || len(ext.Literals) != 0 || len(ext.Equalities) != length {
+						// occurs_check_explain pushes one equality per constructor
+						// link it walks (length-1), plus the closing (app, root)
+						// pair when the DFS closes the cycle away from its root.
+						// Every pair must be a same-class equality.
+						if !ok || len(ext.Literals) != 0 || len(ext.Equalities) < length-1 || len(ext.Equalities) > length {
 							t.Fatal("cycle did not retain equality-only source evidence", owner)
+						}
+						for _, pr := range ext.Equalities {
+							if pr.First.root != pr.Second.root {
+								t.Fatal("cycle evidence pair is not a same-class equality")
+							}
 						}
 						if tags.ShouldTrace("datatype") {
 							last := -1
