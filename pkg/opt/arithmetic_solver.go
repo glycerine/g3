@@ -94,7 +94,7 @@ type ArithmeticSolver struct {
 	// detached marks a backend handed to another owner (gia_pareto runs
 	// on opt::context's m_solver); Close then leaves it open.
 	detached bool
-	sat     *satsolver.Solver // update_solver's mk_inc_sat_solver
+	sat      *satsolver.Solver // update_solver's mk_inc_sat_solver
 	// softEngines are the maxsmt m_msolver engines, kept for
 	// commit_assignment until Close.
 	softEngines []softEngineEntry
@@ -103,12 +103,12 @@ type ArithmeticSolver struct {
 	// lowerFmls is optsmt::m_lower_fmls.
 	lowerFmls []ast.ASTRef
 	// optLower is optsmt::m_lower (internal, maximizing orientation).
-	optLower            []simplex.Infinitesimal
-	optLowerSet         []bool
+	optLower    []simplex.Infinitesimal
+	optLowerSet []bool
 	// optUpper is optsmt::m_upper (internal orientation; +infinity until
 	// geometric_lex sets it tight).
-	optUpper    []simplex.Infinitesimal
-	optUpperSet []bool
+	optUpper            []simplex.Infinitesimal
+	optUpperSet         []bool
 	internalized        []internalizedObjective
 	manager             *ast.ASTManager
 	config              smtcore.SMTSolverConfig
