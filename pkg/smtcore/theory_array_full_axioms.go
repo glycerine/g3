@@ -144,6 +144,16 @@ func (t *SMTArrayTheory) instantiateConstructorRead(observer, constructor ast.AS
 	for _, index := range read.arguments[1:] {
 		arguments = append(arguments, index.owner)
 	}
+	// instantiate_select_map_axiom makes the inner selects (args2) before
+	// sel1 = mk_select(args1), and sel2 = f(args2) after it.
+	var mapFunction ast.ASTHandle
+	var mapValues []ast.ASTHandle
+	if op == ast.ASTArrayOpMap {
+		mapFunction, mapValues, err = t.mappedReadSelects(constructor, arguments[1:])
+		if err != nil {
+			return false, err
+		}
+	}
 	selected, err := t.makeArraySelect(arguments)
 	if err != nil {
 		return false, err
@@ -162,7 +172,7 @@ func (t *SMTArrayTheory) instantiateConstructorRead(observer, constructor ast.AS
 		}
 	case ast.ASTArrayOpMap:
 		t.statistics.mapAxiom++
-		value, err = t.mappedReadValue(constructor, arguments[1:])
+		value, err = s.manager.MkApp(mapFunction, mapValues)
 	}
 	if err != nil {
 		return false, err
@@ -256,39 +266,41 @@ func (t *SMTArrayTheory) instantiateConstructorRead(observer, constructor ast.AS
 	return t.tryAssignArrayEquality(selected, value)
 }
 
-func (t *SMTArrayTheory) mappedReadValue(constructor ast.ASTHandle, indices []ast.ASTHandle) (ast.ASTHandle, error) {
+// mappedReadSelects returns the map's function and the selects of each
+// mapped array at the read's indices (args2).
+func (t *SMTArrayTheory) mappedReadSelects(constructor ast.ASTHandle, indices []ast.ASTHandle) (ast.ASTHandle, []ast.ASTHandle, error) {
 	m := t.state.manager
 	declaration, err := m.GetDecl(constructor)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, nil, err
 	}
 	function, err := m.ArrayMapFunction(declaration)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, nil, err
 	}
 	count, err := m.GetNumArgs(constructor)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, nil, err
 	}
 	arity, err := m.GetArity(function)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, nil, err
 	}
 	if count == 0 || count != arity {
-		return ast.ASTHandle{}, ast.ErrASTDomain
+		return ast.ASTHandle{}, nil, ast.ErrASTDomain
 	}
 	values := make([]ast.ASTHandle, 0, count)
 	for i := uint32(0); i < count; i++ {
 		input, err := m.GetArg(constructor, i)
 		if err != nil {
-			return ast.ASTHandle{}, err
+			return ast.ASTHandle{}, nil, err
 		}
 		arguments := append([]ast.ASTHandle{input}, indices...)
 		value, err := t.makeArraySelect(arguments)
 		if err != nil {
-			return ast.ASTHandle{}, err
+			return ast.ASTHandle{}, nil, err
 		}
 		values = append(values, value)
 	}
-	return m.MkApp(function, values)
+	return function, values, nil
 }
