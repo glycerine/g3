@@ -1516,7 +1516,15 @@ Found while matching `-st` output against `build/z3` on
     must come from the enode proof tree (m_trans edge direction chosen
     in add_eq/merge, e.g. class-size or interpreted-root swaps). Next
     step: compare merge directions on this vector (trace the
-    [merge]/add_eq records).
+    [merge]/add_eq records). Done: -tr:add_eq "merging" records agree
+    for the first 335 merges; merge 336 differs (z3 merges #297 into #316
+    and then #50 with #298; g3 merges #298 into #316 and then #50 with
+    #297). #297 = (= #278 #192) and #298 = (= #72 #161) are both Boolean
+    equality atoms, so the order in which the two equality propagations
+    reach add_eq differs (likely a propagation-queue or theory eq-
+    propagation order in the seq/arith interface). The full trace still
+    matches there because format-node ids overlap and these merges
+    leave no [assign] record.
 
 29. **Open (2026-11-10): fixedpoint_relation_representations.** z3 builds
     `(iff var true)` for each query of a Bool relation (after the query
