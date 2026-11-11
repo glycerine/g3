@@ -1664,6 +1664,28 @@ Found while matching `-st` output against `build/z3` on
     reverse. This is an arithmetic (bv2int/int2bv bound) propagation
     clause, so its antecedent collection order is the next thing to
     check (likely theory_arith).
+    Root cause found (2026-11-11), in the SMT core rather than
+    theory_arith:
+    - The clause comes from theory_arith assign_bound_literal
+      (mk_clause CLS_AUX_LEMMA). Both sides sort it by literal index, so
+      the order follows bool-var numbering.
+    - The bool vars of atoms #61, #209 and #218 are created in a
+      different order. In z3 all three are re-internalized by
+      reinit_clauses in pop_scope_core: 61, 209, 218. In g3
+      (restoreLearnedClauses) the lemma [62 191 137 228 218 61] is
+      re-initialized before [56 61 209 137 159 218 81]. So 218 comes
+      first, and 61/209 are created later by the arith eq adapter.
+    - The cause: z3 keeps m_clauses_to_reinit[level] buckets. mk_clause
+      puts a lemma in the bucket of its atoms' max intern level
+      (smt_internalizer.cpp:1139). reinit_clauses walks the buckets in
+      ascending level order and re-pushes kept clauses into the current
+      level's bucket (smt_context.cpp:2201-2300). g3's
+      preserveLearnedClauses/restoreLearnedClauses instead walk s.clauses
+      in creation order.
+    - Fix: port m_clauses_to_reinit (bucket on creation, ascending walk,
+      re-push on keep) and drive restoreLearnedClauses from it. This
+      touches every log's search, so plan it and run the full comparison
+      and stdout checks.
 
 33. **DONE (2026-11-10): rewriteAdd and model finder analysis order.**
     g3's add rewrite has mk_nflat_add_core's BR_FAILED exits (7a6d9b7d7).
