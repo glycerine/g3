@@ -1656,6 +1656,14 @@ Found while matching `-st` output against `build/z3` on
     open: bv_integer_conversion_scopes line 92987, where z3 reuses a live
     format string (#238) that g3 has already freed and rebuilds. Track
     format-manager deletions to find the earlier lifetime difference.
+    Re-analysis (2026-11-11): this is not a format lifetime issue. The
+    deletion sequences match. The clause printed by "[assign] #159
+    clause" (line 92660) lists its last two literals in a different
+    order. z3 has (not (let ((a!1 (+ ... (* -1 (mod x 16))))) (<= a!1 0)))
+    before (not (>= (ite ((_ bit2bool 3) ..) 8 0) 8)); g3 has the
+    reverse. This is an arithmetic (bv2int/int2bv bound) propagation
+    clause, so its antecedent collection order is the next thing to
+    check (likely theory_arith).
 
 33. **DONE (2026-11-10): rewriteAdd and model finder analysis order.**
     g3's add rewrite has mk_nflat_add_core's BR_FAILED exits (7a6d9b7d7).
