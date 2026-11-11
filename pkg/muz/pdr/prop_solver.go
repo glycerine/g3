@@ -828,7 +828,14 @@ func (p *PropSolver) elimProxies(safe *safeAssumptions, learned []ast.ASTRef) (_
 	return learned, nil
 }
 
-func (p *PropSolver) simplifyTheoryResults(learned []ast.ASTRef) (_ []ast.ASTRef, resultErr error) {
+func (p *PropSolver) simplifyTheoryResults(learned []ast.ASTRef) ([]ast.ASTRef, error) {
+	return simplifyFarkasLemmas(p.manager, learned)
+}
+
+// simplifyFarkasLemmas is farkas_learner::simplify_lemmas: the lemmas pass
+// through the arith bounds tactic and the redundant ones are released. On
+// failure every input reference is released.
+func simplifyFarkasLemmas(manager *ast.ASTManager, learned []ast.ASTRef) (_ []ast.ASTRef, resultErr error) {
 	committed := false
 	defer func() {
 		if committed {
@@ -836,19 +843,19 @@ func (p *PropSolver) simplifyTheoryResults(learned []ast.ASTRef) (_ []ast.ASTRef
 		}
 		for i := range learned {
 			if learned[i] != (ast.ASTRef{}) {
-				resultErr = errors.Join(resultErr, p.manager.DelRef(&learned[i]))
+				resultErr = errors.Join(resultErr, manager.DelRef(&learned[i]))
 			}
 		}
 	}()
 	formulas := make([]ast.ASTHandle, len(learned))
 	for i := range learned {
 		var err error
-		formulas[i], err = p.manager.RefGet(learned[i])
+		formulas[i], err = manager.RefGet(learned[i])
 		if err != nil {
 			return nil, err
 		}
 	}
-	keep, err := tacticarith.ArithmeticBoundsKeep(p.manager, formulas)
+	keep, err := tacticarith.ArithmeticBoundsKeep(manager, formulas)
 	if err != nil {
 		return nil, err
 	}
@@ -856,7 +863,7 @@ func (p *PropSolver) simplifyTheoryResults(learned []ast.ASTRef) (_ []ast.ASTRef
 	for i := range learned {
 		if keep[i] {
 			kept = append(kept, learned[i])
-		} else if err = p.manager.DelRef(&learned[i]); err != nil {
+		} else if err = manager.DelRef(&learned[i]); err != nil {
 			return nil, err
 		}
 	}

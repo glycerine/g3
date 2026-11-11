@@ -708,8 +708,9 @@ func (f *FarkasLearner) GetLemmas(root ast.ASTHandle, bAssertions []ast.ASTHandl
 			}
 		}
 	}
+	// get_lemmas ends with simplify_lemmas(lemmas).
 	committed = true
-	return results, nil
+	return simplifyFarkasLemmas(f.manager, results)
 }
 
 // GetConsequences runs get_lemmas in the source literal-combination mode and
