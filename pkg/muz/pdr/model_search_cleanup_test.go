@@ -163,8 +163,15 @@ func testModelSearchNativeCleanup(t *testing.T, replacing, replacingModel bool) 
 		must(set.Add(r))
 		must(r.Close())
 	}
+	// The goal rule bounds its own variable in a second large interval, so
+	// the root's solved model owns a large value of its own regardless of
+	// which transformer the source initializes first.
+	lowerGoal, upperGoal := number(23), number(29)
+	z := own(m.MkVar(0, real))
+	gtGoal := own(m.MkArithmeticGT(z, lowerGoal))
+	ltGoal := own(m.MkArithmeticLT(z, upperGoal))
 	add(px, []ast.ASTHandle{gt, lt}, "interval")
-	add(goal, []ast.ASTHandle{p0, p1}, "use")
+	add(goal, []ast.ASTHandle{p0, p1, gtGoal, ltGoal}, "use")
 	must(c.Initialize(set))
 	status, err := c.Solve(g)
 	must(err)
@@ -204,7 +211,7 @@ func testModelSearchNativeCleanup(t *testing.T, replacing, replacingModel bool) 
 			must(e)
 			text, _, matched, e := m.ArithmeticNumeralText(v)
 			must(e)
-			if matched && len(text) > 1000 && v != lower && v != upper {
+			if matched && len(text) > 1000 && v != lower && v != upper && v != lowerGoal && v != upperGoal {
 				rc, e := m.GetRefCount(v)
 				must(e)
 				if rc == 1 {

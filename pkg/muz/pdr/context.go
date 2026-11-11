@@ -485,6 +485,55 @@ func (c *Context) enterPDRProofMode() (func() error, error) {
 	}, nil
 }
 
+// relationOrder returns rels' insertion order and its table order.
+func (c *Context) relationOrder(set *base.RuleSet) (creation, table []ast.ASTHandle, err error) {
+	rels := ast.NewObjMap(c.manager)
+	insert := func(declaration ast.ASTHandle) error {
+		found, e := rels.Contains(declaration)
+		if e != nil || found {
+			return e
+		}
+		if _, e = rels.InsertIfNotThere(declaration); e != nil {
+			return e
+		}
+		creation = append(creation, declaration)
+		return nil
+	}
+	grouped, err := set.GroupedPredicates()
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, declaration := range grouped {
+		if err = insert(declaration); err != nil {
+			return nil, nil, err
+		}
+	}
+	count, err := set.Len()
+	if err != nil {
+		return nil, nil, err
+	}
+	for index := 0; index < count; index++ {
+		rule, e := set.Rule(index)
+		if e != nil {
+			return nil, nil, e
+		}
+		uninterpreted, e := rule.UninterpretedTailSize()
+		for tail := 0; e == nil && tail < uninterpreted; tail++ {
+			var declaration ast.ASTHandle
+			if declaration, e = rule.TailDeclaration(tail); e == nil {
+				e = insert(declaration)
+			}
+		}
+		if e = errors.Join(e, rule.Close()); e != nil {
+			return nil, nil, e
+		}
+	}
+	for _, entry := range rels.Entries() {
+		table = append(table, entry.Key)
+	}
+	return creation, table, nil
+}
+
 func appendDeclaration(order *[]ast.ASTHandle, seen map[ast.ASTHandle]bool, declaration ast.ASTHandle) {
 	if !seen[declaration] {
 		seen[declaration] = true
@@ -554,7 +603,18 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 			}
 		}
 	}()
-	for _, declaration := range order {
+	// init_rules: rels (an obj_map) gets the grouped predicates
+	// (m_head2rules order), then each rule's tail predicates; transformers
+	// are allocated in that insertion order and initialized in table order.
+	creation, tableOrder, err := c.relationOrder(set)
+	if err != nil {
+		return err
+	}
+	if len(creation) != len(order) {
+		return ast.ErrASTDomain
+	}
+	order = tableOrder
+	for _, declaration := range creation {
 		transformer, x := NewPredicateTransformer(c.owner, declaration, c.cacheMode)
 		if x != nil {
 			return x
