@@ -47,8 +47,11 @@ type SMTKernel struct {
 	pendingPop      *smtKernelPendingPop
 	unsatCore       []ast.ASTHandle
 	unsatProof      ast.ASTRef
-	assumptions     map[SMTLiteral]ast.ASTHandle
-	lastFailure     SMTFailure
+	// conflictResolver is m_conflict_resolution: one per context, so its
+	// m_lemma_proof outlives each search until the next conflict.
+	conflictResolver *SMTConflictResolver
+	assumptions      map[SMTLiteral]ast.ASTHandle
+	lastFailure      SMTFailure
 	// lastSearch is the session of the latest search (its search level,
 	// conflict base and restart state), which get_consequences resumes.
 	lastSearch       *smtSearchSession
@@ -1651,6 +1654,13 @@ func (k *SMTKernel) Close() error {
 			return err
 		}
 	}
+	// m_conflict_resolution is declared just before m_unsat_proof.
+	if k.conflictResolver != nil {
+		if err := k.conflictResolver.Close(); err != nil {
+			return err
+		}
+		k.conflictResolver = nil
+	}
 	if k.pendingSetupLRA != nil {
 		if err := k.pendingSetupLRA.Close(); err != nil {
 			return err
@@ -1767,4 +1777,16 @@ func (k *SMTKernel) Close() error {
 	k.manager = nil
 	k.closed = true
 	return nil
+}
+
+// contextResolver is the context's conflict_resolution, created on first use.
+func (k *SMTKernel) contextResolver() (*SMTConflictResolver, error) {
+	if k.conflictResolver == nil {
+		resolver, err := NewSMTConflictResolver(k.internalizer)
+		if err != nil {
+			return nil, err
+		}
+		k.conflictResolver = resolver
+	}
+	return k.conflictResolver, nil
 }

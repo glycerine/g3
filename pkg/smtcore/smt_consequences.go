@@ -457,13 +457,13 @@ func (k *SMTKernel) resumeSearch(searchLevel uint32, assumptions bool) (*smtSear
 		return nil, err
 	}
 	session.timer = timer
-	resolver, err := NewSMTConflictResolver(k.internalizer)
+	resolver, err := k.contextResolver()
 	if err != nil {
 		return nil, errors.Join(err, timer.Close())
 	}
 	session.resolver = resolver
 	if err = k.internalizer.beginSearchPersistence(searchLevel, k.smtState); err != nil {
-		return nil, errors.Join(err, resolver.Close(), timer.Close())
+		return nil, errors.Join(err, timer.Close())
 	}
 	k.internalizer.searching = false
 	if assumptions {

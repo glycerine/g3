@@ -352,16 +352,16 @@ func (k *SMTKernel) beginSearch() (*smtSearchSession, error) {
 		return nil, err
 	}
 	session.timer = timer
-	resolver, err := NewSMTConflictResolver(k.internalizer)
+	resolver, err := k.contextResolver()
 	if err != nil {
 		return nil, errors.Join(err, timer.Close())
 	}
 	session.resolver = resolver
 	if err = k.internalizer.resetBooleanActivityCache(); err != nil {
-		return nil, errors.Join(err, resolver.Close(), timer.Close())
+		return nil, errors.Join(err, timer.Close())
 	}
 	if err = k.internalizer.beginSearchPersistence(session.baseLevel, k.smtState); err != nil {
-		return nil, errors.Join(err, resolver.Close(), timer.Close())
+		return nil, errors.Join(err, timer.Close())
 	}
 	if k.assumptions != nil {
 		k.internalizer.searchUserBaseLevel--
@@ -369,14 +369,11 @@ func (k *SMTKernel) beginSearch() (*smtSearchSession, error) {
 	return session, nil
 }
 
-// endSearch is end_search: it closes the session's resolver and timer and the
-// search persistence boundary. context::search leaves its scopes in place;
-// the next assert, push, pop or check restores the base level through
-// pop_to_base_lvl.
+// endSearch is end_search: it closes the session's timer and the search
+// persistence boundary; the resolver belongs to the context. context::search
+// leaves its scopes in place; the next assert, push, pop or check restores
+// the base level through pop_to_base_lvl.
 func (k *SMTKernel) endSearch(session *smtSearchSession) (resultErr error) {
-	if closeErr := session.resolver.Close(); closeErr != nil {
-		resultErr = errors.Join(resultErr, fmt.Errorf("smt search close resolver: %w", closeErr))
-	}
 	if closeErr := session.timer.Close(); closeErr != nil {
 		resultErr = errors.Join(resultErr, fmt.Errorf("smt search close timer: %w", closeErr))
 	}

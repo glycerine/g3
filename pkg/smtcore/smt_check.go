@@ -140,12 +140,11 @@ func (k *SMTKernel) resolveCheckConflict() (result lbool.LBool, resultErr error)
 	if !found {
 		return lbool.Undef, ast.ErrASTDomain
 	}
-	resolver, err := NewSMTConflictResolver(k.internalizer)
+	resolver, err := k.contextResolver()
 	if err != nil {
 		return lbool.Undef, err
 	}
 	defer func() {
-		resultErr = errors.Join(resultErr, resolver.Close())
 		if resultErr != nil {
 			result = lbool.Undef
 		}
