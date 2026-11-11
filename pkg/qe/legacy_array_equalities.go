@@ -122,6 +122,11 @@ func newLegacyArrayProjection(manager *ast.ASTManager, config Config) (*legacyAr
 	if _, err := manager.RegisterArrayPlugin(); err != nil {
 		return nil, err
 	}
+	// The source ast_manager always carries every declaration plugin; the
+	// utils' th_rewriters and model evaluators are built later, on use.
+	if err := manager.RegisterDeclarationPlugins(); err != nil {
+		return nil, err
+	}
 	syntax, err := NewArrayProjection(manager, config)
 	if err != nil {
 		return nil, err
