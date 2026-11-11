@@ -54,10 +54,17 @@ func (p *PredicateTransformer) ExtendInitial(fact ast.ASTHandle) (_ ast.ASTHandl
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	// app_ref v: the fresh constant dies when v takes its n-version; v and
+	// the asserted expr_ref ic live to the return (ic is destroyed first).
 	fresh, err := p.manager.MkFreshConst(p.name+"_ext", boolean)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	v, err := p.manager.NewRef(fresh)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&v)) }()
 	declaration, err := p.manager.GetDecl(fresh)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -70,6 +77,9 @@ func (p *PredicateTransformer) ExtendInitial(fact ast.ASTHandle) (_ ast.ASTHandl
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	if err = p.manager.SetRef(v, value); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	currentExtension, err := p.manager.RefGet(p.extendLiteral)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -78,6 +88,11 @@ func (p *PredicateTransformer) ExtendInitial(fact ast.ASTHandle) (_ ast.ASTHandl
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	ic, err := p.manager.NewRef(formula)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&ic)) }()
 	if err = p.solver.Assert(formula); err != nil {
 		return ast.ASTHandle{}, err
 	}
