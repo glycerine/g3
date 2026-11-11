@@ -701,16 +701,20 @@ func (e *PropositionalEngine) querySpacerAtLevel(declaration ast.ASTHandle, from
 	if queryRule != nil && e.spacerRules != nil && e.spacerQuery != queryDeclaration {
 		resetRules = true
 	}
+	// check_reset ends with m_old_rules.replace_rules(new_rules): the
+	// previous query's rules (its query rule included) are released here,
+	// before the transformations.
 	snapshot, err := snapshotHornRules(e.set)
 	if err != nil {
 		return lbool.Undef, err
 	}
-	installedSnapshot := false
-	defer func() {
-		if !installedSnapshot {
-			resultErr = errors.Join(resultErr, snapshot.Close())
+	hadRules := e.spacerRules != nil
+	if hadRules {
+		if err = e.spacerRules.Close(); err != nil {
+			return lbool.Undef, errors.Join(err, snapshot.Close())
 		}
-	}()
+	}
+	e.spacerRules = snapshot
 	// Spacer's overall proof hook is empty in this source version; reachable
 	// answers and unreachable models use its trace/model conversion paths.
 	preprocessed, err := e.preprocessHornRulesWithQueryRule(queryDeclaration, queryRule, true, true, true, true)
@@ -754,10 +758,14 @@ func (e *PropositionalEngine) querySpacerAtLevel(declaration ast.ASTHandle, from
 		return lbool.Undef, err
 	}
 	closeContext := func() error {
-		if e.spacerRules == nil {
+		if !hadRules {
 			initialized, stateErr := context.Initialized()
 			if stateErr == nil && !initialized {
-				return nil
+				// A first query that fails before installing rules keeps
+				// the fresh context but not the snapshot.
+				closeErr := e.spacerRules.Close()
+				e.spacerRules = nil
+				return closeErr
 			}
 			if stateErr != nil {
 				return errors.Join(stateErr, e.closeSpacerForReplacement())
@@ -790,14 +798,6 @@ func (e *PropositionalEngine) querySpacerAtLevel(declaration ast.ASTHandle, from
 	preparedRuleCount, err := prepared.Len()
 	if err != nil {
 		return lbool.Undef, errors.Join(err, closeContext())
-	}
-	previousSnapshot := e.spacerRules
-	e.spacerRules = snapshot
-	installedSnapshot = true
-	if previousSnapshot != nil {
-		if err = previousSnapshot.Close(); err != nil {
-			return lbool.Undef, errors.Join(err, closeContext())
-		}
 	}
 	e.spacer = context
 	e.spacerRevision = e.revision
