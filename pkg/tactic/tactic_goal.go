@@ -883,6 +883,17 @@ func (g *Goal) ElimRedundancies() (err error) {
 	m := g.manager
 	neg := make(map[ast.ASTHandle]bool)
 	pos := make(map[ast.ASTHandle]bool)
+	// expr_ref_fast_mark1 neg_lits, expr_ref_fast_mark2 pos_lits: each holds
+	// its marked atoms; pos_lits is destroyed first, each releasing forward.
+	var negRefs, posRefs []ast.ASTHandle
+	release := func(refs []ast.ASTHandle) (result error) {
+		for _, h := range refs {
+			result = errors.Join(result, m.DecRef(h))
+		}
+		return result
+	}
+	defer func() { err = errors.Join(err, release(negRefs)) }()
+	defer func() { err = errors.Join(err, release(posRefs)) }()
 	sz, err := g.Size()
 	if err != nil {
 		return err
@@ -964,10 +975,15 @@ func (g *Goal) ElimRedundancies() (err error) {
 			}
 			return g.pushBack(falsity, pr, dep)
 		}
+		if e = m.IncRef(atom); e != nil {
+			return e
+		}
 		if not {
 			neg[atom] = true
+			negRefs = append(negRefs, atom)
 		} else {
 			pos[atom] = true
+			posRefs = append(posRefs, atom)
 		}
 		if i != j {
 			if e = g.move(i, j, f); e != nil {
