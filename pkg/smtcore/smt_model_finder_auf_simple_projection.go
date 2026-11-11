@@ -76,7 +76,7 @@ func (g *smtModelFinderAUFGraph) witness(sort ast.ASTHandle, exceptions []ast.AS
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		g.refs = append(g.refs, ref)
+		g.ks = append(g.ks, ref) // m_ks.push_back(r)
 		declaration, err := m.GetDecl(witness)
 		if err != nil {
 			return ast.ASTHandle{}, err

@@ -173,6 +173,10 @@ func (g *smtModelFinderAUFGraph) extendModel() error {
 	if err != nil {
 		return err
 	}
+	// reset_eval_cache: from here on evaluation uses model completion.
+	if err = g.resetEvalCache(); err != nil {
+		return err
+	}
 	if err = g.fillEmptyInstantiationSets(); err != nil {
 		return err
 	}
@@ -200,7 +204,7 @@ func (g *smtModelFinderAUFGraph) extendModel() error {
 	}
 	for _, node := range g.nodes {
 		if node.parent == nil {
-			if err = node.set.MakeInverse(g.model); err != nil {
+			if err = node.set.MakeInverse(g.eval); err != nil {
 				return err
 			}
 		}

@@ -81,7 +81,7 @@ func TestSMTModelFinderNonAUFMacrosRetainEarlierPassResidue(t *testing.T) {
 	astTestMust(t, finder.populateAUFInstantiationSets(residue, proto))
 	set, err := finder.instantiationSet(qs[1], 0, false)
 	astTestMust(t, err)
-	astTestMust(t, set.MakeInverse(proto))
+	astTestMust(t, set.MakeInverse(finder.aufSolver.eval))
 	term, generation, found, err := finder.Inverse(qs[1], 0, seven)
 	astTestMust(t, err)
 	if !found || term != seven || generation != 4 {

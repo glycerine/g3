@@ -113,7 +113,7 @@ func TestSMTModelCheckerCaptureUsesInverseGenerationRatherThanEnodeGeneration(t 
 	proto, err := protomodel.NewProtoModel(m, cfg)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, proto.Close()) })
-	astTestMust(t, set.MakeInverse(proto))
+	astTestMust(t, set.MakeInverse(smtTestProtoEval(t, m, proto)))
 	checker := state.quantifierManager.modelChecker
 	added, err := checker.addFiniteCounterexample(q, []ast.ASTHandle{falsity})
 	astTestMust(t, err)

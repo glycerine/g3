@@ -9,21 +9,59 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+// eval is auf_solver::eval(n, true).
 func (g *smtModelFinderAUFGraph) eval(term ast.ASTHandle) (ast.ASTHandle, error) {
+	return g.evalCached(term, true)
+}
+
+// evalCached is auf_solver::eval(n, model_completion): results (a null
+// handle when evaluation fails) are memoized in m_eval_cache and kept
+// alive by m_eval_cache_range until reset_eval_cache.
+func (g *smtModelFinderAUFGraph) evalCached(term ast.ASTHandle, completion bool) (ast.ASTHandle, error) {
 	if g.model == nil {
 		return ast.ASTHandle{}, ast.ErrASTHandle
+	}
+	index := 0
+	if completion {
+		index = 1
+	}
+	if g.evalCache[index] == nil {
+		g.evalCache[index] = make(map[ast.ASTHandle]ast.ASTHandle)
+	}
+	if value, found := g.evalCache[index][term]; found {
+		return value, nil
 	}
 	m := g.finder.manager
 	ref, err := m.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	_, err = g.model.Eval(term, ref, true)
+	ok, err := g.model.Eval(term, ref, completion)
 	if err != nil {
 		return ast.ASTHandle{}, errors.Join(err, m.DelRef(&ref))
 	}
-	g.refs = append(g.refs, ref)
-	return m.RefGet(ref)
+	var value ast.ASTHandle
+	if ok {
+		if value, err = m.RefGet(ref); err != nil {
+			return ast.ASTHandle{}, errors.Join(err, m.DelRef(&ref))
+		}
+	} else if err = m.DelRef(&ref); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	g.evalCache[index][term] = value
+	g.evalRange = append(g.evalRange, ref)
+	return value, nil
+}
+
+// resetEvalCache is auf_solver::reset_eval_cache: m_eval_cache_range is
+// released front to back.
+func (g *smtModelFinderAUFGraph) resetEvalCache() (result error) {
+	g.evalCache[0], g.evalCache[1] = nil, nil
+	for i := range g.evalRange {
+		result = errors.Join(result, g.finder.manager.DelRef(&g.evalRange[i]))
+	}
+	g.evalRange = nil
+	return result
 }
 
 func (g *smtModelFinderAUFGraph) cleanInstantiationSets() error {

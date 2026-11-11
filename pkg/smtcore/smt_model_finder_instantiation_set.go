@@ -6,19 +6,18 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
-	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
 )
 
 // smtModelFinderInstantiationSet is instantiation_set: m_elems holds a
 // reference to each term (Key) with its generation (Num), and m_inv maps a
 // value (Key) to its term (Value[0]). Both are obj_maps, iterated in table
-// order. inverseRefs keeps each inverse value alive.
+// order. m_inv holds no references: its values are owned by the
+// evaluator's cache.
 type smtModelFinderInstantiationSet struct {
-	manager     *ast.ASTManager
-	elements    *ast.ObjMap
-	inverse     *ast.ObjMap
-	inverseRefs []ast.ASTRef
-	closed      bool
+	manager  *ast.ASTManager
+	elements *ast.ObjMap
+	inverse  *ast.ObjMap
+	closed   bool
 }
 
 func newSMTModelFinderInstantiationSet(manager *ast.ASTManager) (*smtModelFinderInstantiationSet, error) {
@@ -178,59 +177,43 @@ func (s *smtModelFinderInstantiationSet) Remove(term ast.ASTHandle) error {
 	return s.manager.DecRef(term)
 }
 
-func (s *smtModelFinderInstantiationSet) clearInverse() (result error) {
-	for i := range s.inverseRefs {
-		result = errors.Join(result, s.manager.DelRef(&s.inverseRefs[i]))
-	}
-	if result == nil {
-		s.inverseRefs = s.inverseRefs[:0]
-		s.inverse.Reset()
-	}
-	return result
-}
-
-// MakeInverse is mk_inverse.
-func (s *smtModelFinderInstantiationSet) MakeInverse(model *protomodel.ProtoModel) (result error) {
+// MakeInverse is mk_inverse(ev): eval returns a null handle when the
+// evaluation fails, which stops the walk.
+func (s *smtModelFinderInstantiationSet) MakeInverse(eval func(ast.ASTHandle) (ast.ASTHandle, error)) error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	if model == nil || model.Core() == nil {
+	if eval == nil {
 		return ast.ErrASTHandle
-	}
-	if err := s.clearInverse(); err != nil {
-		return err
 	}
 	for _, entry := range s.elements.Entries() {
 		term, generation := entry.Key, uint32(entry.Num)
-		valueRef, err := s.manager.NewRef(ast.ASTHandle{})
+		value, err := eval(term)
 		if err != nil {
 			return err
 		}
-		if _, err = model.Eval(term, valueRef, true); err != nil {
-			return errors.Join(err, s.manager.DelRef(&valueRef))
-		}
-		value, err := s.manager.RefGet(valueRef)
-		if err != nil {
-			return errors.Join(err, s.manager.DelRef(&valueRef))
+		if value.IsNull() {
+			break
 		}
 		old, found, err := s.inverse.Find(value)
 		if err != nil {
-			return errors.Join(err, s.manager.DelRef(&valueRef))
+			return err
 		}
 		if found {
 			oldGeneration, err := s.generation(old[0])
-			if err == nil && generation < oldGeneration {
-				err = s.inverse.Insert(value, [2]ast.ASTHandle{term})
-			}
-			if err = errors.Join(err, s.manager.DelRef(&valueRef)); err != nil {
+			if err != nil {
 				return err
+			}
+			if generation < oldGeneration {
+				if err = s.inverse.Insert(value, [2]ast.ASTHandle{term}); err != nil {
+					return err
+				}
 			}
 			continue
 		}
 		if err = s.inverse.Insert(value, [2]ast.ASTHandle{term}); err != nil {
-			return errors.Join(err, s.manager.DelRef(&valueRef))
+			return err
 		}
-		s.inverseRefs = append(s.inverseRefs, valueRef)
 	}
 	return nil
 }
@@ -270,7 +253,6 @@ func (s *smtModelFinderInstantiationSet) Close() (result error) {
 	if s.manager == nil {
 		return ast.ErrASTHandle
 	}
-	result = s.clearInverse()
 	for _, entry := range s.elements.Entries() {
 		result = errors.Join(result, s.manager.DecRef(entry.Key))
 	}
@@ -278,7 +260,6 @@ func (s *smtModelFinderInstantiationSet) Close() (result error) {
 		s.closed = true
 		s.elements = nil
 		s.inverse = nil
-		s.inverseRefs = nil
 		s.manager = nil
 	}
 	return result

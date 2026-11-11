@@ -3,8 +3,6 @@ package smtcore
 // Source: src/smt/smt_model_finder.cpp get_auf_arrays and select_var qinfo.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -85,17 +83,9 @@ func (g *smtModelFinderAUFGraph) arrayFunction(array ast.ASTHandle) (ast.ASTHand
 		return ast.ASTHandle{}, nil
 	}
 	m := g.finder.manager
-	ref, err := m.NewRef(ast.ASTHandle{})
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	_, err = g.model.Eval(array, ref, false)
-	if err != nil {
-		return ast.ASTHandle{}, errors.Join(err, m.DelRef(&ref))
-	}
-	g.refs = append(g.refs, ref)
-	value, err := m.RefGet(ref)
-	if err != nil {
+	// get_array_func_decl: s.eval(ground_array, false).
+	value, err := g.evalCached(array, false)
+	if err != nil || value.IsNull() {
 		return ast.ASTHandle{}, err
 	}
 	kind, err := m.GetKind(value)

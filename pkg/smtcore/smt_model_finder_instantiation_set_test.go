@@ -47,7 +47,7 @@ func TestSMTModelFinderInstantiationSetOwnershipInverseAndRefusals(t *testing.T)
 	proto, err := protomodel.NewProtoModel(m, config)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, proto.Close()) })
-	astTestMust(t, set.MakeInverse(proto))
+	astTestMust(t, set.MakeInverse(smtTestProtoEval(t, m, proto)))
 	term, generation, found, err := set.Inverse(one)
 	astTestMust(t, err)
 	if !found || term != one || generation != 2 {
@@ -56,7 +56,7 @@ func TestSMTModelFinderInstantiationSetOwnershipInverseAndRefusals(t *testing.T)
 	if err = set.Remove(one); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("term removed after inverse construction", err)
 	}
-	astTestMust(t, set.MakeInverse(proto))
+	astTestMust(t, set.MakeInverse(smtTestProtoEval(t, m, proto)))
 }
 
 func TestSMTModelFinderInstantiationSetRejectsQuantifiedPrivateValues(t *testing.T) {
@@ -100,5 +100,22 @@ func TestSMTModelFinderInstantiationSetRejectsQuantifiedPrivateValues(t *testing
 	}
 	if set.size() != 0 {
 		t.Fatal("rejected private terms retained ownership")
+	}
+}
+
+// smtTestProtoEval is an evaluator over proto (model completion) whose
+// results live until the test ends.
+func smtTestProtoEval(t *testing.T, m *ast.ASTManager, proto *protomodel.ProtoModel) func(ast.ASTHandle) (ast.ASTHandle, error) {
+	return func(term ast.ASTHandle) (ast.ASTHandle, error) {
+		ref, err := m.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		t.Cleanup(func() { astTestMust(t, m.DelRef(&ref)) })
+		ok, err := proto.Eval(term, ref, true)
+		if err != nil || !ok {
+			return ast.ASTHandle{}, err
+		}
+		return m.RefGet(ref)
 	}
 }

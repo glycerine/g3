@@ -41,6 +41,11 @@ type smtModelFinderAUFGraph struct {
 	// ftodo and ttodo are quantifier_analyzer's m_ftodo and m_ttodo.
 	ftodo []smtModelFinderFormulaEntry
 	ttodo []ast.ASTHandle
+	// ks is m_ks, the range of m_sort2k (witnesses).
+	ks []ast.ASTRef
+	// evalCache and evalRange are m_eval_cache[2] and m_eval_cache_range.
+	evalCache [2]map[ast.ASTHandle]ast.ASTHandle
+	evalRange []ast.ASTRef
 }
 
 type smtModelFinderQInfoKind uint8
@@ -275,35 +280,48 @@ func (g *smtModelFinderAUFGraph) populateFunctionArgument(info smtModelFinderFVa
 	return nil
 }
 
-func (g *smtModelFinderAUFGraph) publishInstantiationSets() error {
-	for _, key := range smtSortedAUFKeys(g.uvars) {
-		node := g.uvars[key]
-		count, err := g.finder.manager.GetNumDeclarations(g.finder.flatQuantifier(key.owner))
-		if err != nil {
-			return err
-		}
-		originalCount, err := g.finder.manager.GetNumDeclarations(key.owner)
-		if err != nil {
-			return err
-		}
-		if count-key.index-1 >= originalCount {
-			continue
-		}
-		set := node.root().set
-		for _, entry := range set.entries() {
-			term, generation := entry.Key, uint32(entry.Num)
-			if _, err := g.finder.InsertInstantiationTerm(key.owner, count-key.index-1, term, generation); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (g *smtModelFinderAUFGraph) close() (result error) {
+// flushNodes is auf_solver::flush_nodes: nodes are deleted in m_nodes
+// order, each root deleting its instantiation set.
+func (g *smtModelFinderAUFGraph) flushNodes() (result error) {
 	for _, node := range g.nodes {
 		result = errors.Join(result, node.close())
 	}
+	return result
+}
+
+// resetSort2K is auf_solver::reset_sort2k.
+func (g *smtModelFinderAUFGraph) resetSort2K() (result error) {
+	g.witnesses = nil
+	for i := range g.ks {
+		result = errors.Join(result, g.finder.manager.DelRef(&g.ks[i]))
+	}
+	g.ks = nil
+	return result
+}
+
+// reset is auf_solver::reset (the eval cache survives until set_model).
+// The per-call qinfo copies and analysis scratch are cleared with it.
+func (g *smtModelFinderAUFGraph) reset() error {
+	err := g.flushNodes()
+	g.nodes = nil
+	g.uvars = make(map[smtModelFinderAUFKey]*smtModelFinderAUFNode)
+	g.arguments = make(map[smtModelFinderAUFKey]*smtModelFinderAUFNode)
+	if g.argumentLayout != nil {
+		g.argumentLayout.Reset()
+	}
+	g.fvars, g.literals, g.selects, g.qorder = nil, nil, nil, nil
+	g.analysisSeen = make(map[smtModelFinderAnalysisKey]uint8)
+	return errors.Join(err, g.resetSort2K(), g.releaseRefs())
+}
+
+// setModel is auf_solver::set_model.
+func (g *smtModelFinderAUFGraph) setModel(model *protomodel.ProtoModel) error {
+	err := g.resetEvalCache()
+	g.model = model
+	return err
+}
+
+func (g *smtModelFinderAUFGraph) releaseRefs() (result error) {
 	for i := range g.refs {
 		result = errors.Join(result, g.finder.manager.DelRef(&g.refs[i]))
 	}
@@ -311,15 +329,25 @@ func (g *smtModelFinderAUFGraph) close() (result error) {
 	return result
 }
 
-func (f *SMTModelFinder) populateAUFInstantiationSets(quantifiers []ast.ASTHandle, model *protomodel.ProtoModel) (result error) {
-	graph := newSMTModelFinderAUFGraph(f)
-	graph.model = model
-	defer func() { result = errors.Join(result, graph.close()) }()
-	if err := graph.build(quantifiers); err != nil {
+// close is ~auf_solver: flush_nodes, reset_eval_cache, then the m_ks
+// member. A graph used as a quantifier_analyzer only releases its refs.
+func (g *smtModelFinderAUFGraph) close() error {
+	return errors.Join(g.flushNodes(), g.resetEvalCache(), g.resetSort2K(), g.releaseRefs())
+}
+
+// populateAUFInstantiationSets is model_finder::process_auf: the
+// persistent auf_solver is reset, given the model, built from the
+// quantifiers' qinfos, and then fixes the model.
+func (f *SMTModelFinder) populateAUFInstantiationSets(quantifiers []ast.ASTHandle, model *protomodel.ProtoModel) error {
+	g := f.aufSolver
+	if err := g.reset(); err != nil {
 		return err
 	}
-	if err := graph.extendModel(); err != nil {
+	if err := g.setModel(model); err != nil {
 		return err
 	}
-	return graph.publishInstantiationSets()
+	if err := g.build(quantifiers); err != nil {
+		return err
+	}
+	return g.extendModel()
 }

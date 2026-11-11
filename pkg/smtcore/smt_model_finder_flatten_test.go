@@ -1,6 +1,7 @@
 package smtcore
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -80,8 +81,8 @@ func TestSMTModelFinderFlattenOwnsScopedQuantifierAndMapsOriginalBinders(t *test
 	if set == nil || len(set.testElements()) != 1 || set.testElements()[seven] != 4 {
 		t.Fatal("flat graph failed to map original outer binder", set)
 	}
-	if len(finder.sets[outer]) != 1 {
-		t.Fatal("inner binder leaked into original instance bindings")
+	if _, err := finder.instantiationSet(outer, 1, false); !errors.Is(err, ast.ErrASTDomain) {
+		t.Fatal("inner binder leaked into original instance bindings", err)
 	}
 	astTestMust(t, state.PopScopes(1))
 	if _, found := finder.flat[outer]; found {

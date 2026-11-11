@@ -18,11 +18,16 @@ import (
 // candidate model before MBQI checks it. The macro and AUF algorithms attach
 // their per-quantifier state to this lifecycle.
 type SMTModelFinder struct {
-	manager            *ast.ASTManager
-	state              *SMTInternalizerState
-	quantifiers        []ast.ASTHandle
-	registered         map[ast.ASTHandle]struct{}
-	sets               map[ast.ASTHandle][]*smtModelFinderInstantiationSet
+	manager     *ast.ASTManager
+	state       *SMTInternalizerState
+	quantifiers []ast.ASTHandle
+	registered  map[ast.ASTHandle]struct{}
+	// sets is quantifier_info::m_uvar_inst_sets (macro-based sets, indexed
+	// by flat variable index); a quantifier is present once populated.
+	sets map[ast.ASTHandle][]*smtModelFinderInstantiationSet
+	// aufSolver is m_auf_solver: it lives with the model finder and is
+	// reset at the start of each process_auf.
+	aufSolver          *smtModelFinderAUFGraph
 	flat               map[ast.ASTHandle]smtModelFinderFlatQuantifier
 	macroUtil          *macros.Util
 	candidates         map[ast.ASTHandle]*macros.Candidates
@@ -62,13 +67,15 @@ func NewSMTModelFinder(state *SMTInternalizerState) (*SMTModelFinder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SMTModelFinder{
+	f := &SMTModelFinder{
 		manager: state.manager, state: state, registered: make(map[ast.ASTHandle]struct{}),
 		sets: make(map[ast.ASTHandle][]*smtModelFinderInstantiationSet), macroUtil: util,
 		flat:       make(map[ast.ASTHandle]smtModelFinderFlatQuantifier),
 		candidates: make(map[ast.ASTHandle]*macros.Candidates), nonGround: make(map[ast.ASTHandle]*ast.ObjMap),
 		auf: make(map[ast.ASTHandle]bool), qinfos: make(map[ast.ASTHandle]*smtModelFinderQInfo), chosen: make(map[ast.ASTHandle]ast.ASTHandle), hint: newHintSearchState(state.manager), dependencies: dependencies,
-	}, nil
+	}
+	f.aufSolver = newSMTModelFinderAUFGraph(f)
+	return f, nil
 }
 
 func (f *SMTModelFinder) open() error {
@@ -122,11 +129,6 @@ func (f *SMTModelFinder) RegisterQuantifier(quantifier ast.ASTHandle) (result er
 			f.quantifiers = f.quantifiers[:len(f.quantifiers)-1]
 		}
 	}()
-	count, err := f.manager.GetNumDeclarations(quantifier)
-	if err != nil {
-		return err
-	}
-	f.sets[quantifier] = make([]*smtModelFinderInstantiationSet, count)
 	candidates, err := macros.NewCandidates(f.manager)
 	if err != nil {
 		return err
@@ -259,22 +261,63 @@ func (f *SMTModelFinder) collectNonGroundDeclarations(root ast.ASTHandle, result
 	return nil
 }
 
+// instantiationSet is model_finder::get_uvar_inst_set(q, i), where
+// variable is the declaration position of the original quantifier (i is
+// its de Bruijn index). The AUF solver's node for the flat variable is
+// used when present; otherwise the macro-based set of the quantifier's
+// chosen head (quantifier_info::get_macro_based_inst_set(i)), which the
+// source indexes with the unadjusted i.
 func (f *SMTModelFinder) instantiationSet(quantifier ast.ASTHandle, variable uint32, create bool) (*smtModelFinderInstantiationSet, error) {
 	if err := f.open(); err != nil {
 		return nil, err
 	}
-	sets, found := f.sets[quantifier]
-	if !found || variable >= uint32(len(sets)) {
+	if _, found := f.registered[quantifier]; !found {
 		return nil, ast.ErrASTDomain
 	}
-	if sets[variable] == nil && create {
-		value, err := newSMTModelFinderInstantiationSet(f.manager)
-		if err != nil {
+	originalCount, err := f.manager.GetNumDeclarations(quantifier)
+	if err != nil {
+		return nil, err
+	}
+	if variable >= originalCount {
+		return nil, ast.ErrASTDomain
+	}
+	flatCount, err := f.manager.GetNumDeclarations(f.flatQuantifier(quantifier))
+	if err != nil {
+		return nil, err
+	}
+	if node := f.aufSolver.uvars[smtModelFinderAUFKey{quantifier, flatCount - variable - 1}]; node != nil {
+		return node.root().set, nil
+	}
+	index := originalCount - variable - 1
+	if create {
+		// Test entry: a macro-based set slot created on demand.
+		sets := f.sets[quantifier]
+		for uint32(len(sets)) <= index {
+			sets = append(sets, nil)
+		}
+		if sets[index] == nil {
+			value, err := newSMTModelFinderInstantiationSet(f.manager)
+			if err != nil {
+				return nil, err
+			}
+			sets[index] = value
+		}
+		f.sets[quantifier] = sets
+		return sets[index], nil
+	}
+	if _, found := f.sets[quantifier]; !found {
+		if f.chosen[quantifier].IsNull() {
+			return nil, nil
+		}
+		if err := f.populateMacroInstantiationSets(quantifier); err != nil {
 			return nil, err
 		}
-		sets[variable] = value
 	}
-	return sets[variable], nil
+	sets := f.sets[quantifier]
+	if index >= uint32(len(sets)) {
+		return nil, nil
+	}
+	return sets[index], nil
 }
 
 func (f *SMTModelFinder) InsertInstantiationTerm(quantifier ast.ASTHandle, variable uint32, term ast.ASTHandle, generation uint32) (bool, error) {
@@ -306,11 +349,7 @@ func (f *SMTModelFinder) releaseQuantifier(quantifier ast.ASTHandle) (result err
 	if info := f.qinfos[quantifier]; info != nil {
 		result = info.close(f.manager)
 	}
-	for _, set := range f.sets[quantifier] {
-		if set != nil {
-			result = errors.Join(result, set.Close())
-		}
-	}
+	result = errors.Join(result, f.closeMacroSets(quantifier))
 	if candidates := f.candidates[quantifier]; candidates != nil {
 		result = errors.Join(result, candidates.Close())
 	}
@@ -633,29 +672,17 @@ func (f *SMTModelFinder) FixModel(model *protomodel.ProtoModel) error {
 	if err != nil {
 		return err
 	}
-	allRelevant := append([]ast.ASTHandle(nil), relevant...)
-	// The C++ solver resets AUF nodes and macro-derived sets for each
-	// candidate model. Term copies and inverses must not survive that reset.
-	quantifiers := make([]ast.ASTHandle, 0, len(f.sets))
-	for quantifier := range f.sets {
-		quantifiers = append(quantifiers, quantifier)
+	if len(relevant) == 0 {
+		return nil
 	}
-	ast.SortHandles(quantifiers)
-	for _, quantifier := range quantifiers {
-		sets := f.sets[quantifier]
-		for i, set := range sets {
-			if set != nil {
-				if err := set.Close(); err != nil {
-					return err
-				}
-				sets[i] = nil
-			}
-		}
-	}
+	// cleanup_quantifier_infos: reset_the_one deletes the macro-based sets.
 	for _, quantifier := range relevant {
 		delete(f.chosen, quantifier)
 		if info := f.hint.infos[quantifier]; info != nil {
 			info.theOne = ast.ASTHandle{}
+		}
+		if err := f.closeMacroSets(quantifier); err != nil {
+			return err
 		}
 	}
 	if err = f.dependencies.Reset(); err != nil {
@@ -673,22 +700,24 @@ func (f *SMTModelFinder) FixModel(model *protomodel.ProtoModel) error {
 	if err != nil {
 		return err
 	}
-	if err = f.populateAUFInstantiationSets(relevant, model); err != nil {
-		return err
+	return f.populateAUFInstantiationSets(relevant, model)
+}
+
+// closeMacroSets deletes quantifier_info::m_uvar_inst_sets.
+func (f *SMTModelFinder) closeMacroSets(quantifier ast.ASTHandle) (result error) {
+	sets, found := f.sets[quantifier]
+	if !found {
+		return nil
 	}
-	for _, quantifier := range allRelevant {
-		if err = f.populateMacroInstantiationSets(quantifier); err != nil {
-			return err
-		}
-		for _, set := range f.sets[quantifier] {
-			if set != nil {
-				if err = set.MakeInverse(model); err != nil {
-					return err
-				}
-			}
+	for _, set := range sets {
+		if set != nil {
+			result = errors.Join(result, set.Close())
 		}
 	}
-	return nil
+	if result == nil {
+		delete(f.sets, quantifier)
+	}
+	return result
 }
 
 func (f *SMTModelFinder) Close() error {
@@ -717,6 +746,11 @@ func (f *SMTModelFinder) Close() error {
 		}
 	}
 	f.pendingConstraints = nil
+	// ~auf_solver runs as a later member destructor of ~model_finder.
+	if err := f.aufSolver.close(); err != nil {
+		return err
+	}
+	f.aufSolver = nil
 	f.closed = true
 	f.quantifiers = nil
 	f.scopes = nil
