@@ -374,10 +374,11 @@ func (s *VirtualSolver) CheckSat(assumptions []ast.ASTHandle) (lbool.LBool, erro
 	if err := s.open(); err != nil {
 		return lbool.Undef, err
 	}
-	if err := s.internalizeAssertions(); err != nil {
+	// check_sat_core: m_proof.reset() precedes internalize_assertions().
+	if err := s.factory.manager.SetRef(s.proof, ast.ASTHandle{}); err != nil {
 		return lbool.Undef, err
 	}
-	if err := s.factory.manager.SetRef(s.proof, ast.ASTHandle{}); err != nil {
+	if err := s.internalizeAssertions(); err != nil {
 		return lbool.Undef, err
 	}
 	predicate, err := s.predicateHandle()

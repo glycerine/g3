@@ -13,16 +13,30 @@ type eliminateAuxState struct {
 	manager *ast.ASTManager
 	aux     ast.ASTHandle
 	notAux  ast.ASTHandle
-	cache   map[ast.ASTHandle]ast.ASTHandle
-	pins    []ast.ASTRef
-	tmp     ast.ASTRef
+	cache   map[ast.ASTHandle]ast.ASTHandle // obj_map: holds no references
+	// pins is the source's app_ref_vector pinned: only the proofs this pass
+	// creates, released front to back.
+	pins []ast.ASTRef
+	// tmp stands in for the block-local papp; auxRef and notAuxRef are the
+	// m_aux member and the not_aux local.
+	tmp, auxRef, notAuxRef ast.ASTRef
 }
 
+// close destroys the locals in reverse declaration order (papp is already
+// out of scope, then not_aux, then pinned front to back) and finally the
+// elim_aux_assertions object's m_aux.
 func (s *eliminateAuxState) close() (err error) {
-	for i := len(s.pins) - 1; i >= 0; i-- {
-		err = errors.Join(err, s.manager.DelRef(&s.pins[i]))
+	release := func(r *ast.ASTRef) {
+		if *r != (ast.ASTRef{}) {
+			err = errors.Join(err, s.manager.DelRef(r))
+		}
 	}
-	err = errors.Join(err, s.manager.DelRef(&s.tmp))
+	release(&s.tmp)
+	release(&s.notAuxRef)
+	for i := range s.pins {
+		release(&s.pins[i])
+	}
+	release(&s.auxRef)
 	return err
 }
 
@@ -189,6 +203,9 @@ func (s *eliminateAuxState) run(root ast.ASTHandle) (ast.ASTHandle, error) {
 					if err != nil {
 						return ast.ASTHandle{}, err
 					}
+					if err := s.pin(result); err != nil {
+						return ast.ASTHandle{}, err
+					}
 					fact, err := s.manager.GetProofFact(result)
 					if err != nil {
 						return ast.ASTHandle{}, err
@@ -210,10 +227,10 @@ func (s *eliminateAuxState) run(root ast.ASTHandle) (ast.ASTHandle, error) {
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}
+				if err := s.pin(result); err != nil {
+					return ast.ASTHandle{}, err
+				}
 			}
-		}
-		if err := s.pin(result); err != nil {
-			return ast.ASTHandle{}, err
 		}
 		s.cache[p] = result
 	}
@@ -245,22 +262,22 @@ func EliminateAuxAssertions(m *ast.ASTManager, aux, proof ast.ASTHandle, out ast
 		}
 		return err
 	}
+	state := &eliminateAuxState{manager: m, aux: aux, cache: make(map[ast.ASTHandle]ast.ASTHandle)}
+	defer func() { err = errors.Join(err, state.close()) }()
+	if state.auxRef, err = m.NewRef(aux); err != nil {
+		return err
+	}
 	notAux, err := m.MkNot(aux)
 	if err != nil {
 		return err
 	}
-	tmp, err := m.NewRef(ast.ASTHandle{})
-	if err != nil {
+	if state.notAuxRef, err = m.NewRef(notAux); err != nil {
 		return err
 	}
-	state := &eliminateAuxState{manager: m, aux: aux, notAux: notAux, cache: make(map[ast.ASTHandle]ast.ASTHandle), tmp: tmp}
-	if err = state.pin(aux); err != nil {
-		return errors.Join(err, state.close())
+	state.notAux = notAux
+	if state.tmp, err = m.NewRef(ast.ASTHandle{}); err != nil {
+		return err
 	}
-	if err = state.pin(notAux); err != nil {
-		return errors.Join(err, state.close())
-	}
-	defer func() { err = errors.Join(err, state.close()) }()
 	result, err := state.run(proof)
 	if err != nil {
 		return err
