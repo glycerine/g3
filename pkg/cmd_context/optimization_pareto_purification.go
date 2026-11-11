@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/opt"
+	"github.com/glycerine/g3/pkg/tactic"
 )
 
 // The same definitions must survive all calls in one frontier enumeration.
@@ -46,9 +47,16 @@ func (c *Context) prepareParetoPurification() (resultErr error) {
 			}
 		}
 	}
-	hard := make([]ast.ASTHandle, len(c.assertions))
-	for i := range c.assertions {
-		hard[i] = c.assertions[i].expression
+	// gia_pareto runs on the normalized context: from_fmls' hard
+	// constraints replace the asserted formulas.
+	var hard []ast.ASTHandle
+	if c.optimizationHardOverrideActive {
+		hard = append(hard, c.optimizationHardOverride...)
+	} else {
+		hard = make([]ast.ASTHandle, len(c.assertions))
+		for i := range c.assertions {
+			hard[i] = c.assertions[i].expression
+		}
 	}
 	set, err := purifier.Purify(hard, objectives)
 	if err != nil {
@@ -71,6 +79,33 @@ func (c *Context) prepareParetoPurification() (resultErr error) {
 }
 
 // Keep the raw solver model for comparisons; only the published copy is fixed.
-func (c *Context) filterParetoModel(raw *model.ModelCore) (*model.ModelCore, error) {
-	return c.optimizationParetoPurification.purifier.FilterModel(raw)
+// fix_model applies m_model_converter = concat(simplify mc, purify filter):
+// the purification filter first, then the normalize converter.
+func (c *Context) filterParetoModel(raw *model.ModelCore) (_ *model.ModelCore, resultErr error) {
+	filtered, err := c.optimizationParetoPurification.purifier.FilterModel(raw)
+	if err != nil || c.optimizationPreprocessor == nil {
+		return filtered, err
+	}
+	var reference tactic.ModelRef
+	if err = reference.Set(filtered); err != nil {
+		return nil, errors.Join(err, filtered.DecRef())
+	}
+	defer func() { resultErr = errors.Join(resultErr, reference.Close()) }()
+	if err = filtered.DecRef(); err != nil {
+		return nil, err
+	}
+	if err = c.optimizationPreprocessor.ApplyUnindexed(&reference); err != nil {
+		return nil, err
+	}
+	output, err := reference.Get()
+	if err != nil || output == nil {
+		if err == nil {
+			err = ast.ErrASTHandle
+		}
+		return nil, err
+	}
+	if err = output.IncRef(); err != nil {
+		return nil, err
+	}
+	return output, nil
 }
