@@ -244,56 +244,89 @@ func (s *quantifierHoistState) construct(h ast.ASTHandle, err error) (ast.ASTHan
 	}
 	return s.own(h)
 }
-func (s *quantifierHoistState) mkAnd(args []ast.ASTHandle, rewrite bool) (ast.ASTHandle, error) {
-	if !rewrite {
-		return s.construct(s.owner.m.MkAndArgs(args))
-	}
-	out, err := s.scratch(ast.ASTHandle{})
+
+// hold returns a node with a fresh owning reference: one expr_ref local of
+// the source's pull_quantifier frame. The calling frame releases it where
+// that local is destroyed.
+func (s *quantifierHoistState) hold(h ast.ASTHandle, err error) (ast.ASTHandle, ast.ASTRef, error) {
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, ast.ASTRef{}, err
 	}
-	if s.owner.defaultBoolean {
-		err = SimplifyBooleanGateDefault(s.owner.m, ast.ASTOpAnd, args, out)
-	} else {
-		err = s.owner.bool.mkAnd(args, out)
-	}
+	ref, err := s.owner.m.NewRef(h)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, ast.ASTRef{}, err
 	}
-	return s.owner.m.RefGet(out)
+	return h, ref, nil
 }
-func (s *quantifierHoistState) mkOr(args []ast.ASTHandle, rewrite bool) (ast.ASTHandle, error) {
+
+// drop releases one frame local; a zero reference was never assigned.
+func (s *quantifierHoistState) drop(ref *ast.ASTRef) error {
+	if *ref == (ast.ASTRef{}) {
+		return nil
+	}
+	return s.owner.m.DelRef(ref)
+}
+
+func (s *quantifierHoistState) dropAll(refs ...*ast.ASTRef) error {
+	for _, ref := range refs {
+		if err := s.drop(ref); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *quantifierHoistState) mkGate(op int32, args []ast.ASTHandle, rewrite bool) (ast.ASTHandle, ast.ASTRef, error) {
 	if !rewrite {
-		return s.construct(s.owner.m.MkOrArgs(args))
+		if op == ast.ASTOpAnd {
+			return s.hold(s.owner.m.MkAndArgs(args))
+		}
+		return s.hold(s.owner.m.MkOrArgs(args))
 	}
-	out, err := s.scratch(ast.ASTHandle{})
+	out, err := s.owner.m.NewRef(ast.ASTHandle{})
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, ast.ASTRef{}, err
 	}
-	if s.owner.defaultBoolean {
-		err = SimplifyBooleanGateDefault(s.owner.m, ast.ASTOpOr, args, out)
-	} else {
+	switch {
+	case s.owner.defaultBoolean:
+		err = SimplifyBooleanGateDefault(s.owner.m, op, args, out)
+	case op == ast.ASTOpAnd:
+		err = s.owner.bool.mkAnd(args, out)
+	default:
 		err = s.owner.bool.mkOr(args, out)
 	}
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, ast.ASTRef{}, errors.Join(err, s.owner.m.DelRef(&out))
 	}
-	return s.owner.m.RefGet(out)
+	h, err := s.owner.m.RefGet(out)
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTRef{}, errors.Join(err, s.owner.m.DelRef(&out))
+	}
+	return h, out, nil
 }
 
-func (s *quantifierHoistState) extract(q ast.ASTHandle, useFresh bool) (ast.ASTHandle, error) {
+func (s *quantifierHoistState) mkAnd(args []ast.ASTHandle, rewrite bool) (ast.ASTHandle, ast.ASTRef, error) {
+	return s.mkGate(ast.ASTOpAnd, args, rewrite)
+}
+func (s *quantifierHoistState) mkOr(args []ast.ASTHandle, rewrite bool) (ast.ASTHandle, ast.ASTRef, error) {
+	return s.mkGate(ast.ASTOpOr, args, rewrite)
+}
+
+// extract is extract_quantifier: the fresh constants join vars for the whole
+// hoist; the instantiated body is the quantifier case's tmp local.
+func (s *quantifierHoistState) extract(q ast.ASTHandle, useFresh bool) (ast.ASTHandle, ast.ASTRef, error) {
 	n, err := s.owner.m.GetNumDeclarations(q)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, ast.ASTRef{}, err
 	}
 	for i := uint32(0); i < n; i++ {
 		sort, e := s.owner.m.GetDeclarationSort(q, i)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return ast.ASTHandle{}, ast.ASTRef{}, e
 		}
 		name, e := s.owner.m.GetDeclarationName(q, i)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return ast.ASTHandle{}, ast.ASTRef{}, e
 		}
 		// Reserve the app_ref_vector entry before creating a fresh constant;
 		// allocating its Go root afterward can strand the new application.
@@ -302,13 +335,13 @@ func (s *quantifierHoistState) extract(q ast.ASTHandle, useFresh bool) (ast.ASTH
 			s.variables = append(s.variables, ref)
 		}
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return ast.ASTHandle{}, ast.ASTRef{}, e
 		}
 		var v ast.ASTHandle
 		if useFresh {
 			prefix, cause := s.owner.m.Symbols.String(name)
 			if cause != nil {
-				return ast.ASTHandle{}, cause
+				return ast.ASTHandle{}, ast.ASTRef{}, cause
 			}
 			v, e = s.owner.m.MkFreshConst(prefix, sort)
 		} else {
@@ -318,7 +351,7 @@ func (s *quantifierHoistState) extract(q ast.ASTHandle, useFresh bool) (ast.ASTH
 			e = errors.Join(e, s.owner.m.SetRef(ref, v))
 		}
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return ast.ASTHandle{}, ast.ASTRef{}, e
 		}
 	}
 	values := make([]ast.ASTHandle, n)
@@ -326,206 +359,286 @@ func (s *quantifierHoistState) extract(q ast.ASTHandle, useFresh bool) (ast.ASTH
 	for i := range values {
 		values[i], err = s.owner.m.RefGet(s.variables[base+i])
 		if err != nil {
-			return ast.ASTHandle{}, err
+			return ast.ASTHandle{}, ast.ASTRef{}, err
 		}
 	}
-	out, err := s.scratch(ast.ASTHandle{})
+	out, err := s.owner.m.NewRef(ast.ASTHandle{})
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, ast.ASTRef{}, err
 	}
 	if err = InstantiateQuantifier(s.owner.m, q, values, out); err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, ast.ASTRef{}, errors.Join(err, s.owner.m.DelRef(&out))
 	}
-	return s.owner.m.RefGet(out)
+	h, err := s.owner.m.RefGet(out)
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTRef{}, errors.Join(err, s.owner.m.DelRef(&out))
+	}
+	return h, out, nil
 }
 
-func (s *quantifierHoistState) pull(fml ast.ASTHandle, qt *quantifierType, useFresh, rewrite bool) (ast.ASTHandle, error) {
+// pull is pull_quantifier(fml, qt, vars, result, ...). The result comes with
+// its owning reference (the caller's expr_ref result), which the caller
+// releases as its expr_ref; this frame's own expr_ref locals (tmp, args, the
+// ite/iff temporaries) are released where the source destroys them, in its
+// reverse declaration order.
+func (s *quantifierHoistState) pull(fml ast.ASTHandle, qt *quantifierType, useFresh, rewrite bool) (result ast.ASTHandle, owner ast.ASTRef, resultErr error) {
+	// result = fml: the caller's expr_ref holds every result, including an
+	// unchanged input that may be one of the caller's own locals.
 	has, err := s.owner.m.HasQuantifiers(fml)
-	if err != nil || !has {
-		return fml, err
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTRef{}, err
+	}
+	if !has {
+		return s.hold(fml, nil)
 	}
 	kind, err := s.owner.m.GetKind(fml)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, ast.ASTRef{}, err
 	}
+	var locals []*ast.ASTRef
+	defer func() {
+		if resultErr == nil {
+			return
+		}
+		for i := len(locals) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, s.drop(locals[i]))
+		}
+		resultErr = errors.Join(resultErr, s.drop(&owner))
+		result = ast.ASTHandle{}
+	}()
+	fail := func(e error) (ast.ASTHandle, ast.ASTRef, error) { return ast.ASTHandle{}, ast.ASTRef{}, e }
 	if kind == ast.ASTQuantifier {
 		forall, e := s.owner.m.IsForall(fml)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
 		if !compatibleQuantifier(*qt, forall) {
-			return fml, nil
+			return s.hold(fml, nil)
 		}
 		if e = setQuantifierType(qt, forall); e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		body, e := s.extract(fml, useFresh)
+		body, tmp, e := s.extract(fml, useFresh)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		return s.pull(body, qt, useFresh, rewrite)
+		locals = append(locals, &tmp)
+		result, owner, e = s.pull(body, qt, useFresh, rewrite)
+		if e != nil {
+			return fail(e)
+		}
+		return result, owner, s.drop(&tmp)
 	}
 	if kind == ast.ASTVar {
-		return fml, nil
+		return s.hold(fml, nil)
 	}
 	if kind != ast.ASTApp {
-		return ast.ASTHandle{}, ast.ErrASTDomain
+		return fail(ast.ErrASTDomain)
 	}
 	args, err := s.args(fml)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return fail(err)
 	}
-	if yes, e := s.isOp(fml, ast.ASTOpAnd); e != nil {
-		return ast.ASTHandle{}, e
-	} else if yes {
+	isAnd, e := s.isOp(fml, ast.ASTOpAnd)
+	if e != nil {
+		return fail(e)
+	}
+	isOr, e := s.isOp(fml, ast.ASTOpOr)
+	if e != nil {
+		return fail(e)
+	}
+	if isAnd || isOr {
 		out := make([]ast.ASTHandle, len(args))
+		owners := make([]ast.ASTRef, len(args))
 		for i := range args {
-			out[i], err = s.pull(args[i], qt, useFresh, rewrite)
+			out[i], owners[i], err = s.pull(args[i], qt, useFresh, rewrite)
 			if err != nil {
-				return ast.ASTHandle{}, err
+				return fail(err)
+			}
+			locals = append(locals, &owners[i])
+		}
+		if isAnd {
+			result, owner, err = s.mkAnd(out, rewrite)
+		} else {
+			result, owner, err = s.mkOr(out, rewrite)
+		}
+		if err != nil {
+			return fail(err)
+		}
+		// tmp (the last element again), then args in element order.
+		for i := range owners {
+			if err = s.drop(&owners[i]); err != nil {
+				return fail(err)
 			}
 		}
-		return s.mkAnd(out, rewrite)
-	}
-	if yes, e := s.isOp(fml, ast.ASTOpOr); e != nil {
-		return ast.ASTHandle{}, e
-	} else if yes {
-		out := make([]ast.ASTHandle, len(args))
-		for i := range args {
-			out[i], err = s.pull(args[i], qt, useFresh, rewrite)
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-		}
-		return s.mkOr(out, rewrite)
+		return result, owner, nil
 	}
 	if yes, e := s.isOp(fml, ast.ASTOpNot); e != nil {
-		return ast.ASTHandle{}, e
+		return fail(e)
 	} else if yes && len(args) == 1 {
 		negateQuantifierType(qt)
-		child, e := s.pull(args[0], qt, useFresh, rewrite)
+		child, tmp, e := s.pull(args[0], qt, useFresh, rewrite)
 		negateQuantifierType(qt)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		return s.construct(s.owner.m.MkNot(child))
+		locals = append(locals, &tmp)
+		if result, owner, e = s.hold(s.owner.m.MkNot(child)); e != nil {
+			return fail(e)
+		}
+		return result, owner, s.drop(&tmp)
 	}
 	if yes, e := s.isOp(fml, ast.ASTOpImplies); e != nil {
-		return ast.ASTHandle{}, e
+		return fail(e)
 	} else if yes && len(args) == 2 {
 		negateQuantifierType(qt)
-		left, e := s.pull(args[0], qt, useFresh, rewrite)
+		left, tmp, e := s.pull(args[0], qt, useFresh, rewrite)
 		negateQuantifierType(qt)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		right, e := s.pull(args[1], qt, useFresh, rewrite)
+		locals = append(locals, &tmp)
+		right, pulled, e := s.pull(args[1], qt, useFresh, rewrite)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		return s.construct(s.owner.m.MkImplies(left, right))
+		locals = append(locals, &pulled)
+		// result = m.mk_implies(tmp, result): the assignment releases the
+		// pulled consequent; tmp goes with the frame.
+		if result, owner, e = s.hold(s.owner.m.MkImplies(left, right)); e != nil {
+			return fail(e)
+		}
+		return result, owner, s.dropAll(&pulled, &tmp)
 	}
 	if yes, e := s.isOp(fml, ast.ASTOpIte); e != nil {
-		return ast.ASTHandle{}, e
+		return fail(e)
 	} else if yes && len(args) == 3 {
-		thenPart, e := s.pull(args[1], qt, useFresh, rewrite)
+		// expr_ref tt1, tt2, tt3, ntt1, nt1: destroyed nt1, ntt1, tt3, tt2, tt1.
+		thenPart, tt2, e := s.pull(args[1], qt, useFresh, rewrite)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		elsePart, e := s.pull(args[2], qt, useFresh, rewrite)
+		locals = append(locals, &tt2)
+		elsePart, tt3, e := s.pull(args[2], qt, useFresh, rewrite)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
+		locals = append(locals, &tt3)
 		hc, e := s.owner.m.HasQuantifiers(args[0])
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
 		if !hc {
-			return s.construct(s.owner.m.MkIte(args[0], thenPart, elsePart))
+			if result, owner, e = s.hold(s.owner.m.MkIte(args[0], thenPart, elsePart)); e != nil {
+				return fail(e)
+			}
+			return result, owner, s.dropAll(&tt3, &tt2)
 		}
-		positive, e := s.pull(args[0], qt, useFresh, rewrite)
+		positive, tt1, e := s.pull(args[0], qt, useFresh, rewrite)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		neg, e := s.construct(s.owner.m.MkNot(args[0]))
+		locals = append(locals, &tt1)
+		neg, nt1, e := s.hold(s.owner.m.MkNot(args[0]))
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		negative, e := s.pull(neg, qt, useFresh, rewrite)
+		locals = append(locals, &nt1)
+		negative, ntt1, e := s.pull(neg, qt, useFresh, rewrite)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
+		locals = append(locals, &ntt1)
 		// m.mk_and(m.mk_or(ntt1, tt2), m.mk_or(tt1, tt3)): the source build
 		// evaluates the arguments right to left, so the second or is
-		// created first.
-		b, e := s.mkOr([]ast.ASTHandle{positive, elsePart}, false)
+		// created first; both are raw until the and holds them.
+		b, bRef, e := s.mkOr([]ast.ASTHandle{positive, elsePart}, false)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		a, e := s.mkOr([]ast.ASTHandle{negative, thenPart}, false)
+		locals = append(locals, &bRef)
+		a, aRef, e := s.mkOr([]ast.ASTHandle{negative, thenPart}, false)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		return s.mkAnd([]ast.ASTHandle{a, b}, false)
+		locals = append(locals, &aRef)
+		if result, owner, e = s.mkAnd([]ast.ASTHandle{a, b}, false); e != nil {
+			return fail(e)
+		}
+		return result, owner, s.dropAll(&aRef, &bRef, &nt1, &ntt1, &tt3, &tt2, &tt1)
 	}
 	iff, e := s.isOp(fml, ast.ASTOpIff)
 	if e != nil {
-		return ast.ASTHandle{}, e
+		return fail(e)
 	}
 	eq, e := s.isOp(fml, ast.ASTOpEq)
 	if e != nil {
-		return ast.ASTHandle{}, e
+		return fail(e)
 	}
 	boolEq := false
 	if eq && len(args) == 2 {
 		sort, x := s.owner.m.GetSort(args[0])
 		if x != nil {
-			return ast.ASTHandle{}, x
+			return fail(x)
 		}
 		bs, x := s.owner.m.MkBoolSort()
 		if x != nil {
-			return ast.ASTHandle{}, x
+			return fail(x)
 		}
 		boolEq = sort == bs
 	}
 	if (iff || boolEq) && len(args) == 2 {
-		p, e := s.pull(args[0], qt, useFresh, rewrite)
+		// expr_ref tt1, tt2, ntt1, ntt2, nt1, nt2: destroyed nt2, nt1, ntt2,
+		// ntt1, tt2, tt1.
+		p, tt1, e := s.pull(args[0], qt, useFresh, rewrite)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		q, e := s.pull(args[1], qt, useFresh, rewrite)
+		locals = append(locals, &tt1)
+		q, tt2, e := s.pull(args[1], qt, useFresh, rewrite)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		n1, e := s.construct(s.owner.m.MkNot(args[0]))
+		locals = append(locals, &tt2)
+		n1, nt1, e := s.hold(s.owner.m.MkNot(args[0]))
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		n2, e := s.construct(s.owner.m.MkNot(args[1]))
+		locals = append(locals, &nt1)
+		n2, nt2, e := s.hold(s.owner.m.MkNot(args[1]))
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		np, e := s.pull(n1, qt, useFresh, rewrite)
+		locals = append(locals, &nt2)
+		np, ntt1, e := s.pull(n1, qt, useFresh, rewrite)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		nq, e := s.pull(n2, qt, useFresh, rewrite)
+		locals = append(locals, &ntt1)
+		nq, ntt2, e := s.pull(n2, qt, useFresh, rewrite)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
+		locals = append(locals, &ntt2)
 		// m.mk_and(m.mk_or(ntt1, tt2), m.mk_or(ntt2, tt1)): right-to-left
 		// argument evaluation creates the second or first.
-		b, e := s.mkOr([]ast.ASTHandle{nq, p}, false)
+		b, bRef, e := s.mkOr([]ast.ASTHandle{nq, p}, false)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		a, e := s.mkOr([]ast.ASTHandle{np, q}, false)
+		locals = append(locals, &bRef)
+		a, aRef, e := s.mkOr([]ast.ASTHandle{np, q}, false)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return fail(e)
 		}
-		return s.mkAnd([]ast.ASTHandle{a, b}, false)
+		locals = append(locals, &aRef)
+		if result, owner, e = s.mkAnd([]ast.ASTHandle{a, b}, false); e != nil {
+			return fail(e)
+		}
+		return result, owner, s.dropAll(&aRef, &bRef, &nt2, &nt1, &ntt2, &ntt1, &tt2, &tt1)
 	}
-	return fml, nil
+	// The formula contains a quantifier, but it is inaccessible.
+	return s.hold(fml, nil)
 }
 
 func (h *QuantifierHoister) run(fml ast.ASTHandle, qt quantifierType, useFresh, rewrite bool) (result *QuantifierHoistResult, err error) {
@@ -542,13 +655,14 @@ func (h *QuantifierHoister) run(fml ast.ASTHandle, qt quantifierType, useFresh, 
 			err = errors.Join(err, s.cleanupVariables())
 		}
 	}()
-	formula, err := s.pull(fml, &qt, useFresh, rewrite)
+	formula, ref, err := s.pull(fml, &qt, useFresh, rewrite)
 	if err != nil {
 		return nil, err
 	}
-	ref, err := h.m.NewRef(formula)
-	if err != nil {
-		return nil, err
+	if ref == (ast.ASTRef{}) {
+		if ref, err = h.m.NewRef(formula); err != nil {
+			return nil, err
+		}
 	}
 	result = &QuantifierHoistResult{manager: h.m, Variables: s.variables, Formula: ref, IsForall: qt == quantForallPositive}
 	result.self = result
