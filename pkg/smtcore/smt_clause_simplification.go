@@ -3,9 +3,9 @@ package smtcore
 // Source: src/smt/smt_context.cpp simplify_clause() and simplify_clauses().
 
 import (
-	"strconv"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"strconv"
 )
 
 func (s *SMTInternalizerState) replaceSatisfiedClauseReasons(record *SMTInternalizedClause) error {
