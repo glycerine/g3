@@ -310,8 +310,16 @@ tags` hourly. Commit with explicit pathspecs, no amend, no Co-Authored-By.
    reimplementation with its own order. Port do_eager_inlining with the
    stratifier as part of this step.]
 7. **I1 + R1.** Check: fp_spacer_bit_blast and bv_fixed_cache_scopes
-   together.
-8. **S1 mk_reach_fact.** Check: unfold_rules, fp_spacer_scale.
+   together. [I1 done (7d973f4a5). bit_blast then needed the solve-phase
+   items below and is identical; bv_fixed_cache_scopes (R1) untouched.]
+8. **S1 mk_reach_fact.** Check: unfold_rules, fp_spacer_scale. [Done,
+   with the rest of the solve-phase lifetimes it uncovered: extend_initial's
+   app_ref v; qe_project reassigning the caller's expr_ref at its first
+   flattening (ProjectOwned); qe_lite's tmp, its eq::der
+   apply_substitution frame, and the qe_lite object living to the end of
+   each qe_project round; and model_evaluator_util as one evaluator per
+   expand_node (muz/spacer/model_evaluator_util.go). unfold_rules, scale,
+   bit_blast and array_eq_rewrite are identical.]
 9. **S2 elim_proxies.** Check: fp_spacer_generalizers_inv.
 10. **K1, K2, K3** in smtcore/model; **K4** last. Each has its own vector.
 
