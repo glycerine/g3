@@ -279,7 +279,13 @@ func (p *PropSolver) proxy(index uint32) (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	proxy, err := p.manager.MkFreshConst(fmt.Sprintf("pdr_proxy_%d", len(p.proxies)), boolean)
+	// m.mk_const(symbol("pdr_proxy_N"), bool): a named, hash-consed
+	// constant, not a fresh one.
+	name, err := p.manager.Symbols.Intern(fmt.Sprintf("pdr_proxy_%d", len(p.proxies)))
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	proxy, err := p.manager.MkConst(name, boolean)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
