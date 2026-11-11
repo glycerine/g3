@@ -1770,7 +1770,10 @@ Found while matching `-st` output against `build/z3` on
     a faithful fix routes the tactic through eliminate_block with the
     plugin set and deletes the cascade. Large port.
 
-36. **Open (2026-11-11): theory_str mk_eq_atom audit.** z3's theory_str
+36. **DONE (2026-11-11, ee08ebb36): theory_str mk_eq_atom audit.** 107
+    sites now use MkEqAtom; the source's raw m.mk_eq sites (concat length
+    axiom, value/length option testers) keep MkEq. No vector changed;
+    the orientation tests were updated. Original note: z3's theory_str
     builds equalities with ctx.mk_eq_atom (461 sites; raw m.mk_eq only
     at lines 1038, 10734, 11069-11110 and 11714). g3's theory_str still
     calls m.MkEq at about 115 sites, so String equalities can keep the
