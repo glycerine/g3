@@ -465,17 +465,30 @@ func (d *Derivation) createProjectedChild(md *model.ModelCore) (_ *ProofObligati
 // modelImplicant is compute_implicant_literals(mev, forms, lits) followed by
 // the spacer manager's m_brwr.mk_and(lits).
 func (d *Derivation) modelImplicant(md *model.ModelCore, forms []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	if md == nil || md.DerivedModel() == nil {
+		return ast.ASTRef{}, ast.ErrASTHandle
+	}
+	mev, err := newModelEvaluatorUtil(md, d.parent.transformer.owner.contexts[0].config.ModelEvaluator)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, mev.Close()) }()
+	return d.modelImplicantWith(mev, forms)
+}
+
+// modelImplicantWith is compute_implicant_literals(mev, forms, lits) followed
+// by mk_and(lits), with the caller's model evaluator.
+func (d *Derivation) modelImplicantWith(mev *modelEvaluatorUtil, forms []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	manager := d.parent.transformer.manager
 	defer func() {
 		if resultErr != nil && result != (ast.ASTRef{}) {
 			resultErr = errors.Join(resultErr, manager.DelRef(&result))
 		}
 	}()
-	if md == nil || md.DerivedModel() == nil {
+	if mev == nil || mev.core == nil || mev.core.DerivedModel() == nil {
 		return ast.ASTRef{}, ast.ErrASTHandle
 	}
-	config := d.parent.transformer.owner.contexts[0].config.ModelEvaluator
-	literals, err := computeImplicantLiterals(manager, md, config, forms)
+	literals, err := computeImplicantLiteralsWith(manager, mev, forms)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}

@@ -438,7 +438,47 @@ func (p *PredicateTransformer) UsedOriginReachFact(md *model.ModelCore, oldIndex
 // OriginSummary returns an owning reference to a model implicant of either the
 // may-frame formulas or the selected must-reach fact at oldIndex. Auxiliaries
 // are borrowed from the selected fact and are empty for may summaries.
+// usedReachFactWith is get_used_reach_fact(mev, all) with the caller's
+// model evaluator.
+func (p *PredicateTransformer) usedReachFactWith(mev *modelEvaluatorUtil, all bool) (*ReachFact, bool, error) {
+	if err := p.open(); err != nil {
+		return nil, false, err
+	}
+	if mev == nil || mev.evaluator == nil {
+		return nil, false, errModelEvaluatorUtil
+	}
+	return p.usedReachFact(mev.evaluator, mev.config, all, nil)
+}
+
+// usedOriginReachFactWith is get_used_origin_reach_fact(mev, oidx).
+func (p *PredicateTransformer) usedOriginReachFactWith(mev *modelEvaluatorUtil, oldIndex uint32) (*ReachFact, bool, error) {
+	if err := p.open(); err != nil {
+		return nil, false, err
+	}
+	if mev == nil || mev.evaluator == nil {
+		return nil, false, errModelEvaluatorUtil
+	}
+	return p.usedReachFact(mev.evaluator, mev.config, true, &oldIndex)
+}
+
+// OriginSummary is get_origin_summary with a local model evaluator.
 func (p *PredicateTransformer) OriginSummary(md *model.ModelCore, level, oldIndex uint32, must bool) (result ast.ASTRef, auxiliaries []ast.ASTHandle, resultErr error) {
+	if err := p.open(); err != nil {
+		return ast.ASTRef{}, nil, err
+	}
+	if md == nil || md.DerivedModel() == nil {
+		return ast.ASTRef{}, nil, ast.ErrASTHandle
+	}
+	mev, err := newModelEvaluatorUtil(md, p.owner.contexts[0].config.ModelEvaluator)
+	if err != nil {
+		return ast.ASTRef{}, nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, mev.Close()) }()
+	return p.originSummaryWith(mev, level, oldIndex, must)
+}
+
+// originSummaryWith is get_origin_summary(mev, level, oidx, must, aux).
+func (p *PredicateTransformer) originSummaryWith(mev *modelEvaluatorUtil, level, oldIndex uint32, must bool) (result ast.ASTRef, auxiliaries []ast.ASTHandle, resultErr error) {
 	if err := p.open(); err != nil {
 		return ast.ASTRef{}, nil, err
 	}
@@ -447,12 +487,12 @@ func (p *PredicateTransformer) OriginSummary(md *model.ModelCore, level, oldInde
 			resultErr = errors.Join(resultErr, p.manager.DelRef(&result))
 		}
 	}()
-	if md == nil || md.DerivedModel() == nil {
+	if mev == nil || mev.core == nil || mev.core.DerivedModel() == nil {
 		return ast.ASTRef{}, nil, ast.ErrASTHandle
 	}
 	var summary ast.ASTHandle
 	if must {
-		fact, found, err := p.UsedOriginReachFact(md, oldIndex)
+		fact, found, err := p.usedOriginReachFactWith(mev, oldIndex)
 		if err != nil || !found {
 			if err == nil {
 				err = ast.ErrASTDomain
@@ -488,7 +528,7 @@ func (p *PredicateTransformer) OriginSummary(md *model.ModelCore, level, oldInde
 	if err != nil {
 		return ast.ASTRef{}, nil, err
 	}
-	literals, err := computeImplicantLiterals(p.manager, md, p.owner.contexts[0].config.ModelEvaluator, []ast.ASTHandle{origin})
+	literals, err := computeImplicantLiteralsWith(p.manager, mev, []ast.ASTHandle{origin})
 	if err != nil {
 		return ast.ASTRef{}, nil, err
 	}

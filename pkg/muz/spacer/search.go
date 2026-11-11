@@ -66,8 +66,12 @@ func (q *ProofObligationQueue) confirmConcreteReachability(obligation *ProofObli
 			return false, fmt.Errorf("spacer: confirm reachability predecessors: %w", err)
 		}
 		if len(predecessors) != 0 {
-			fact, err := obligation.transformer.makeConfiguredReachFact(obligation, check.Rule, check.Model)
+			mev, err := newModelEvaluatorUtil(check.Model, obligation.transformer.owner.contexts[0].config.ModelEvaluator)
 			if err != nil {
+				return false, fmt.Errorf("spacer: confirm reachability fact: %w", err)
+			}
+			fact, err := obligation.transformer.makeConfiguredReachFact(obligation, check.Rule, mev)
+			if err = errors.Join(err, mev.Close()); err != nil {
 				return false, fmt.Errorf("spacer: confirm reachability fact: %w", err)
 			}
 			_, addErr := obligation.transformer.AddReachFact(fact)

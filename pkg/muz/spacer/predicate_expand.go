@@ -60,9 +60,19 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 				return ExpansionResult{}, err
 			}
 		}
+		// model_evaluator_util mev(m); mev.set_model(*model): one evaluator
+		// for this expansion's reach fact and children; its cache lives to
+		// the end of the case.
+		var mev *modelEvaluatorUtil
+		if check.Model != nil {
+			if mev, err = newModelEvaluatorUtil(check.Model, p.owner.contexts[0].config.ModelEvaluator); err != nil {
+				return ExpansionResult{}, err
+			}
+			defer func() { resultErr = errors.Join(resultErr, mev.Close()) }()
+		}
 		if check.IsConcrete {
 			if len(predecessors) != 0 {
-				fact, makeErr := p.makeConfiguredReachFact(obligation, check.Rule, check.Model)
+				fact, makeErr := p.makeConfiguredReachFact(obligation, check.Rule, mev)
 				if makeErr != nil {
 					return ExpansionResult{}, makeErr
 				}
@@ -116,7 +126,7 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 			}
 			return result, nil
 		}
-		child, err := p.CreateDerivationChild(obligation, check.Rule, check.Model, check.ReachPredUsed, p.reverseChildren)
+		child, err := p.createDerivationChildWith(obligation, check.Rule, mev, check.ReachPredUsed, p.reverseChildren)
 		if err != nil {
 			return ExpansionResult{}, err
 		}

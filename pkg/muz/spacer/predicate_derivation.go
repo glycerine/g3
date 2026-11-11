@@ -14,6 +14,24 @@ import (
 // CreateDerivationChild projects the selected rule/model path, builds ordered
 // predecessor summaries, and attaches the derivation to its first child.
 func (p *PredicateTransformer) CreateDerivationChild(obligation *ProofObligation, rule *base.Rule, md *model.ModelCore, reachPredUsed []bool, reverse bool) (_ *ProofObligation, resultErr error) {
+	if md == nil {
+		return nil, ast.ErrASTHandle
+	}
+	mev, err := newModelEvaluatorUtil(md, p.owner.contexts[0].config.ModelEvaluator)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, mev.Close()) }()
+	return p.createDerivationChildWith(obligation, rule, mev, reachPredUsed, reverse)
+}
+
+// createDerivationChildWith is context::create_children(n, r, mev, ...) with
+// the expansion's model evaluator.
+func (p *PredicateTransformer) createDerivationChildWith(obligation *ProofObligation, rule *base.Rule, mev *modelEvaluatorUtil, reachPredUsed []bool, reverse bool) (_ *ProofObligation, resultErr error) {
+	if mev == nil || mev.core == nil {
+		return nil, errModelEvaluatorUtil
+	}
+	md := mev.core
 	if err := p.open(); err != nil {
 		return nil, err
 	}
@@ -54,7 +72,7 @@ func (p *PredicateTransformer) CreateDerivationChild(obligation *ProofObligation
 			resultErr = errors.Join(resultErr, derivation.Close())
 		}
 	}()
-	implicantRef, err := derivation.modelImplicant(md, []ast.ASTHandle{transition, post})
+	implicantRef, err := derivation.modelImplicantWith(mev, []ast.ASTHandle{transition, post})
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +132,7 @@ func (p *PredicateTransformer) CreateDerivationChild(obligation *ProofObligation
 		if reverse {
 			index = len(predecessors) - position - 1
 		}
-		summaryRef, summaryAuxiliaries, err := predecessors[index].OriginSummary(md, previousSpacerLevel(level), uint32(index), reachPredUsed[index])
+		summaryRef, summaryAuxiliaries, err := predecessors[index].originSummaryWith(mev, previousSpacerLevel(level), uint32(index), reachPredUsed[index])
 		if err != nil {
 			return nil, err
 		}
@@ -143,7 +161,7 @@ func (p *PredicateTransformer) CreateDerivationChild(obligation *ProofObligation
 			return nil, err
 		}
 	}
-	if err = p.checkWeakDerivation(child, md, transition, post); err != nil {
+	if err = p.checkWeakDerivationWith(child, mev, transition, post); err != nil {
 		return nil, err
 	}
 	if p.contextStats != nil {
@@ -152,18 +170,27 @@ func (p *PredicateTransformer) CreateDerivationChild(obligation *ProofObligation
 	return child, nil
 }
 
+// checkWeakDerivation runs the weak-derivation check with a local model
+// evaluator.
 func (p *PredicateTransformer) checkWeakDerivation(child *ProofObligation, md *model.ModelCore, transition, post ast.ASTHandle) (resultErr error) {
+	mev, err := newModelEvaluatorUtil(md, p.owner.contexts[0].config.ModelEvaluator)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, mev.Close()) }()
+	return p.checkWeakDerivationWith(child, mev, transition, post)
+}
+
+func (p *PredicateTransformer) checkWeakDerivationWith(child *ProofObligation, mev *modelEvaluatorUtil, transition, post ast.ASTHandle) (resultErr error) {
 	// Source create_children drops the optimization when a weak model does
 	// not satisfy the original T && phi, even if its selected implicant does.
 	if !p.weakAbstraction {
 		return nil
 	}
-	config := p.owner.contexts[0].config.ModelEvaluator
-	evaluator, err := newSpacerModelEvaluator(md, config)
-	if err != nil {
-		return err
+	if mev == nil || mev.evaluator == nil {
+		return errModelEvaluatorUtil
 	}
-	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
+	config, evaluator := mev.config, mev.evaluator
 	for _, expression := range []ast.ASTHandle{transition, post} {
 		isTrue, _, err := evaluateSpacerModelBoolean(p.manager, evaluator, config, expression)
 		if err != nil {

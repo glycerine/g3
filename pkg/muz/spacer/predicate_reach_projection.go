@@ -11,8 +11,8 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
-func (p *PredicateTransformer) makeConfiguredReachFact(obligation *ProofObligation, rule *base.Rule, md *model.ModelCore) (*ReachFact, error) {
-	return p.MakeReachFact(obligation, rule, md, p.eliminateAuxiliaries, p.reachDNF)
+func (p *PredicateTransformer) makeConfiguredReachFact(obligation *ProofObligation, rule *base.Rule, mev *modelEvaluatorUtil) (*ReachFact, error) {
+	return p.makeReachFact(obligation, rule, mev, p.eliminateAuxiliaries, p.reachDNF)
 }
 
 // MakeReachFact constructs a concrete reach fact from a rule path selected by
@@ -21,6 +21,24 @@ func (p *PredicateTransformer) MakeReachFact(obligation *ProofObligation, rule *
 	if err := p.open(); err != nil {
 		return nil, err
 	}
+	mev, err := newModelEvaluatorUtil(md, p.owner.contexts[0].config.ModelEvaluator)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, mev.Close()) }()
+	return p.makeReachFact(obligation, rule, mev, eliminateAuxiliaries, reachDNF)
+}
+
+// makeReachFact is context::mk_reach_fact(n, mev, r) with the expansion's
+// model evaluator.
+func (p *PredicateTransformer) makeReachFact(obligation *ProofObligation, rule *base.Rule, mev *modelEvaluatorUtil, eliminateAuxiliaries, reachDNF bool) (result *ReachFact, resultErr error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	if mev == nil || mev.core == nil {
+		return nil, errModelEvaluatorUtil
+	}
+	md := mev.core
 	defer func() {
 		if resultErr != nil && result != nil {
 			if closeErr := result.Close(); closeErr != nil {
@@ -55,7 +73,7 @@ func (p *PredicateTransformer) MakeReachFact(obligation *ProofObligation, rule *
 	}()
 	var variables []ast.ASTHandle
 	for index, predecessor := range predecessors {
-		fact, found, err := predecessor.UsedOriginReachFact(md, uint32(index))
+		fact, found, err := predecessor.usedOriginReachFactWith(mev, uint32(index))
 		if err != nil || !found {
 			if err == nil {
 				err = ast.ErrASTDomain
@@ -152,7 +170,7 @@ func (p *PredicateTransformer) MakeReachFact(obligation *ProofObligation, rule *
 	}()
 	var implicantRef ast.ASTRef
 	if reachDNF {
-		implicantRef, err = temporary.modelImplicant(md, []ast.ASTHandle{formula})
+		implicantRef, err = temporary.modelImplicantWith(mev, []ast.ASTHandle{formula})
 		if err != nil {
 			return nil, fmt.Errorf("spacer: reach fact implicant: %w", err)
 		}

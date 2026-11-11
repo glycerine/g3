@@ -116,6 +116,23 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 	if manager == nil || md == nil || md.DerivedModel() == nil {
 		return nil, ast.ErrASTHandle
 	}
+	mev, err := newModelEvaluatorUtil(md, config)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, mev.Close()) }()
+	return computeImplicantLiteralsWith(manager, mev, formulas)
+}
+
+// computeImplicantLiteralsWith is compute_implicant_literals(mev, formula,
+// res): the implicant picker evaluates with the caller's model evaluator,
+// whose cache outlives this call.
+func computeImplicantLiteralsWith(manager *ast.ASTManager, mev *modelEvaluatorUtil, formulas []ast.ASTHandle) (output []ast.ASTRef, resultErr error) {
+	if manager == nil || mev == nil || mev.core == nil || mev.core.DerivedModel() == nil || mev.evaluator == nil {
+		return nil, ast.ErrASTHandle
+	}
+	md, config, evaluator := mev.core, mev.config, mev.evaluator
+	_ = md
 	// Source expr_ref locals and m_todo own generated expressions. Keep
 	// native references until extraction finishes, including failure exits.
 	var generated []ast.ASTHandle
@@ -129,11 +146,9 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 		generated = append(generated, h)
 		return h, nil
 	}
-	evaluator, err := newSpacerModelEvaluator(md.DerivedModel().Core(), config)
-	if err != nil {
-		return nil, err
-	}
-	cleanup := &implicantCleanupFailure{manager: manager, evaluator: evaluator, generated: generated, runtime: config.Memory}
+	// The evaluator belongs to mev: the cleanup receipt never closes it.
+	cleanup := &implicantCleanupFailure{manager: manager, evaluator: nil, generated: generated, runtime: config.Memory}
+	var err error
 	if err = evaluator.SetModelCompletion(false); err != nil {
 		if cleanup.cleanupErr = cleanup.cleanup(); cleanup.cleanupErr != nil {
 			cleanup.seal(err, cleanup.cleanupErr)
