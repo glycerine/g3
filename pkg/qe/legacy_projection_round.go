@@ -93,30 +93,36 @@ func (p *LegacyProjection) rewriteProjectionCurrent(current ast.ASTRef) (resultE
 	return closeLegacyProjectionRewriteResult(p.manager, rewritten, err)
 }
 
-func (p *LegacyProjection) prepareProjectionRound(variables []ast.ASTHandle, current ast.ASTRef) (refs []ast.ASTRef, resultErr error) {
+// prepareProjectionRound is the start of one qe_project round: qe_lite qe is
+// constructed, applied and followed by rw(fml). The returned Lite stays
+// open, as qe lives to the end of the round (its rewriter caches hold the
+// eliminated formula's parts until then); the caller closes it.
+func (p *LegacyProjection) prepareProjectionRound(variables []ast.ASTHandle, current ast.ASTRef) (refs []ast.ASTRef, lite *Lite, resultErr error) {
 	defer func() {
 		if resultErr != nil {
+			if lite != nil {
+				resultErr = errors.Join(resultErr, lite.Close())
+				lite = nil
+			}
 			resultErr = errors.Join(resultErr, truncateLiteVector(p.manager, &refs, 0))
 		}
 	}()
 	for _, variable := range variables {
 		ref, err := p.manager.NewRef(variable)
 		if err != nil {
-			return refs, err
+			return refs, nil, err
 		}
 		refs = append(refs, ref)
 	}
 	lite, err := NewLite(p.manager, nil, false, p.config)
 	if err != nil {
-		return refs, err
+		return refs, nil, err
 	}
-	err = lite.EliminateConstants(&refs, current)
-	err = errors.Join(err, lite.Close())
-	if err != nil {
-		return refs, err
+	if err = lite.EliminateConstants(&refs, current); err != nil {
+		return refs, lite, err
 	}
 	if err = p.rewriteProjectionCurrent(current); err != nil {
-		return refs, err
+		return refs, lite, err
 	}
-	return refs, nil
+	return refs, lite, nil
 }

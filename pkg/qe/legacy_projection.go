@@ -294,8 +294,15 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 	if err != nil {
 		return nil, err
 	}
+	var roundLite *Lite
+	defer func() {
+		if roundLite != nil {
+			resultErr = errors.Join(resultErr, roundLite.Close())
+		}
+	}()
 	for {
-		prepared, err := p.prepareProjectionRound(pending, current)
+		prepared, lite, err := p.prepareProjectionRound(pending, current)
+		roundLite = lite
 		if err != nil {
 			return nil, fmt.Errorf("projection preparation: %w", err)
 		}
@@ -397,7 +404,14 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 		if err = p.traceProjectionStage(574, "", ast.ASTRef{}, "Auxiliary variables of index and value sorts:", pending, md); err != nil {
 			return nil, err
 		}
-		if len(pending) == 0 {
+		// qe_lite qe is destroyed at the end of the round, after the
+		// vars.empty() decision on both paths.
+		roundDone := len(pending) == 0
+		if err = roundLite.Close(); err != nil {
+			return nil, err
+		}
+		roundLite = nil
+		if roundDone {
 			break
 		}
 	}
