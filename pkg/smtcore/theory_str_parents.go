@@ -281,6 +281,16 @@ func (t *SMTStringTheory) publishParentSimplification(member, constant, other, o
 	if err := premises.equate(other, otherValue); err != nil {
 		return err
 	}
+	// implyL = m.mk_and(eq_ast1, eq_ast2) is built before implyR.
+	if len(premises.values) > 1 {
+		guard, err := t.state.manager.MkAndArray(premises.values)
+		if err != nil {
+			return err
+		}
+		if err := premises.hold(guard); err != nil {
+			return err
+		}
+	}
 	conclusion, err := t.state.MkEqAtom(parent, simplified)
 	if err != nil {
 		return err

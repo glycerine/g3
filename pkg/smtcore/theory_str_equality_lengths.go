@@ -111,6 +111,16 @@ func (p *smtStringLengthPremises) add(expression ast.ASTHandle) error {
 	return nil
 }
 
+// hold keeps expression alive with the premises without making it one.
+func (p *smtStringLengthPremises) hold(expression ast.ASTHandle) error {
+	ref, err := p.theory.state.manager.NewRef(expression)
+	if err != nil {
+		return err
+	}
+	p.refs = append(p.refs, ref)
+	return nil
+}
+
 func (p *smtStringLengthPremises) length(expression ast.ASTHandle, value *big.Int) error {
 	m := p.theory.state.manager
 	length, err := m.MkSequenceLength(expression)

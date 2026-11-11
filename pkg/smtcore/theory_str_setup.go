@@ -15,14 +15,18 @@ func (t *SMTStringTheory) operation(expression ast.ASTHandle) (int32, bool, erro
 
 func (t *SMTStringTheory) ensureEnode(expression ast.ASTHandle) (*SMTEnode, error) {
 	state := t.state
-	if err := state.Internalize(expression, false); err != nil {
-		return nil, err
-	}
-	if variable, boolean := state.BoolVar(expression); boolean && state.context.enodes.get(expression) == nil {
-		// Go Boolean gates need an explicit enode flag to realize the
-		// source ensure_enode contract used by this theory's traversal.
-		if err := state.ensureBooleanEnode(expression, variable, false, true, true); err != nil {
+	// if (!ctx.e_internalized(e)) ctx.internalize(e, false): an existing
+	// enode keeps its merge_tf flag.
+	if state.context.enodes.get(expression) == nil {
+		if err := state.Internalize(expression, false); err != nil {
 			return nil, err
+		}
+		if variable, boolean := state.BoolVar(expression); boolean && state.context.enodes.get(expression) == nil {
+			// Go Boolean gates need an explicit enode flag to realize the
+			// source ensure_enode contract used by this theory's traversal.
+			if err := state.ensureBooleanEnode(expression, variable, false, true, true); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := state.markRelevant(expression); err != nil {

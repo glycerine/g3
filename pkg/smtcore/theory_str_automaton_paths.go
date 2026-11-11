@@ -76,7 +76,7 @@ func (p *smtStringAutomatonPath) rewrite(condition, character ast.ASTHandle) (as
 		if left.IsNull() || right.IsNull() {
 			return ast.ASTHandle{}, ast.ErrASTDomain
 		}
-		return p.pin(m.MkEq(left, right)) // Sort changes from BV to String.
+		return p.pin(p.theory.state.MkEqAtom(left, right)) // Sort changes from BV to String.
 	}
 	boolean, err := m.MkBoolSort()
 	if err != nil {
@@ -174,43 +174,62 @@ func (t *SMTStringTheory) generateStringRegexPathConstraints(word ast.ASTHandle,
 	defer func() { result = errors.Join(result, p.locals.close()) }()
 	characters, reused := t.stringChars[word]
 	characters = append([]ast.ASTHandle(nil), characters...)
-	for uint64(len(characters)) < uint64(length) {
-		character, err := t.freshStringVariable("ch" + strconv.Itoa(len(characters)))
+	var lengthConstraints []ast.ASTHandle
+	// ctx.mk_eq_atom(mk_strlen(ch), m_autil.mk_numeral(rational::one(), true))
+	lengthConstraint := func(character ast.ASTHandle) error {
+		characterLength, err := p.pin(m.MkSequenceLength(character))
 		if err != nil {
-			return root, err
+			return err
 		}
-		if reused {
+		one, err := p.pin(m.ArithmeticIntegerNumeralText("1"))
+		if err != nil {
+			return err
+		}
+		constraint, err := p.pin(t.state.MkEqAtom(characterLength, one))
+		if err != nil {
+			return err
+		}
+		lengthConstraints = append(lengthConstraints, constraint)
+		return nil
+	}
+	if !reused {
+		// The new-string branch makes each character and then its length
+		// constraint.
+		for uint64(len(characters)) < uint64(length) {
+			character, err := t.freshStringVariable("ch" + strconv.Itoa(len(characters)))
+			if err != nil {
+				return root, err
+			}
+			characters = append(characters, character)
+			if err := lengthConstraint(character); err != nil {
+				return root, err
+			}
+		}
+		t.stringChars[word] = characters
+	} else {
+		for uint64(len(characters)) < uint64(length) {
+			character, err := t.freshStringVariable("ch" + strconv.Itoa(len(characters)))
+			if err != nil {
+				return root, err
+			}
 			// Native existing-cache growth explicitly trails the new variable
 			// again in addition to mk_str_var's lifetime ownership.
 			if err := t.retain(character); err != nil {
 				return root, err
 			}
+			characters = append(characters, character)
 		}
-		characters = append(characters, character)
-	}
-	t.stringChars[word] = characters
-	characters = characters[:length]
-	var lengthConstraints []ast.ASTHandle
-	one, err := p.pin(m.ArithmeticIntegerNumeralText("1"))
-	if err != nil {
-		return root, err
-	}
-	for _, character := range characters {
-		if reused {
+		t.stringChars[word] = characters
+		for _, character := range characters[:length] {
 			if err := t.refreshStringVariable(character); err != nil {
 				return root, err
 			}
+			if err := lengthConstraint(character); err != nil {
+				return root, err
+			}
 		}
-		characterLength, err := p.pin(m.MkSequenceLength(character))
-		if err != nil {
-			return root, err
-		}
-		constraint, err := p.pin(m.MkEq(characterLength, one))
-		if err != nil {
-			return root, err
-		}
-		lengthConstraints = append(lengthConstraints, constraint)
 	}
+	characters = characters[:length]
 	truth, err := m.MkTrue()
 	if err != nil {
 		return root, err
@@ -242,7 +261,7 @@ func (t *SMTStringTheory) generateStringRegexPathConstraints(word ast.ASTHandle,
 						}
 						return root, err
 					}
-					condition, err = p.pin(m.MkEq(character, rhs))
+					condition, err = p.pin(t.state.MkEqAtom(character, rhs))
 					if err != nil {
 						return root, err
 					}
@@ -267,7 +286,7 @@ func (t *SMTStringTheory) generateStringRegexPathConstraints(word ast.ASTHandle,
 						if err != nil {
 							return root, err
 						}
-						equality, err := p.pin(m.MkEq(character, literal))
+						equality, err := p.pin(t.state.MkEqAtom(character, literal))
 						if err != nil {
 							return root, err
 						}
@@ -325,7 +344,7 @@ func (t *SMTStringTheory) generateStringRegexPathConstraints(word ast.ASTHandle,
 			return root, err
 		}
 	}
-	decomposition, err := p.pin(m.MkEq(word, concat))
+	decomposition, err := p.pin(t.state.MkEqAtom(word, concat))
 	if err != nil {
 		return root, err
 	}

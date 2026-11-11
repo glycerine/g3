@@ -85,6 +85,14 @@ func (f *smtStringRegexStage) registerLengths(member, word, regex ast.ASTHandle,
 		if err != nil {
 			return err
 		}
+		// expr_ref top_level_length_constraint(_top_level_length_constraint, m)
+		// is rewritten; the original stays alive to the end of the block,
+		// after the th_rewriter is destroyed.
+		rewritten, err := m.NewRef(formula)
+		if err != nil {
+			return err
+		}
+		defer func() { result = errors.Join(result, m.DelRef(&rewritten)) }()
 		if t.state.theoryRewriter == nil {
 			return ast.ErrASTHandle
 		}
@@ -95,10 +103,10 @@ func (f *smtStringRegexStage) registerLengths(member, word, regex ast.ASTHandle,
 		if err != nil {
 			return err
 		}
-		if err = rw.Rewrite(formula, root); err != nil {
+		if err = rw.Rewrite(formula, rewritten); err != nil {
 			return err
 		}
-		formula, err = m.RefGet(root)
+		formula, err = m.RefGet(rewritten)
 		if err != nil {
 			return err
 		}
